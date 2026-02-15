@@ -1,0 +1,24 @@
+{
+  "name": "@otterstack/auth",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {},
+  "dependencies": {
+    "@otterstack/db": "workspace:*",
+    "@otterstack/env": "workspace:*",
+    "better-auth": "catalog:",
+    "dotenv": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@otterstack/config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}
