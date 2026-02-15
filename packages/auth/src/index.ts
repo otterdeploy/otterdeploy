@@ -4,6 +4,7 @@ import { env } from "@otterstack/env/server";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 
+import { deviceAuthorization, admin, organization, apiKey, twoFactor } from "better-auth/plugins";
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
     provider: "pg",
@@ -21,5 +22,5 @@ export const auth = betterAuth({
       httpOnly: true,
     },
   },
-  plugins: [],
+  plugins: [deviceAuthorization(), admin(), organization(), apiKey(), twoFactor()],
 });
