@@ -1,19 +1,25 @@
-import type { ReactNode } from "react";
-import { Link } from "@tanstack/react-router";
-import { GalleryVerticalEnd } from "lucide-react";
+import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
 
-type AuthPageShellProps = {
-  children: ReactNode;
-};
+export const Route = createFileRoute("/_auth")({
+  component: RouteComponent,
+});
 
-export default function AuthPageShell({ children }: AuthPageShellProps) {
+function RouteComponent() {
+  return (
+    <AuthPageShell>
+      <Outlet />
+    </AuthPageShell>
+  );
+}
+
+function AuthPageShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="grid min-h-svh lg:grid-cols-2">
       <div className="flex flex-col gap-4 p-6 md:p-10">
         <div className="flex justify-center gap-2 md:justify-start">
           <Link to="/" className="flex items-center gap-2 font-medium">
             <div className="bg-primary text-primary-foreground flex size-6 items-center justify-center rounded-md">
-              <GalleryVerticalEnd className="size-4" />
+              {/* <GalleryVerticalEnd className="size-4" /> */}
             </div>
             Otterstack
           </Link>
@@ -29,13 +35,14 @@ export default function AuthPageShell({ children }: AuthPageShellProps) {
         <div className="absolute inset-0 bg-[linear-gradient(155deg,hsl(var(--background)),hsl(var(--muted))_45%,hsl(var(--background)))]" />
         <div className="absolute inset-0 p-12">
           <div className="border-border/60 bg-background/70 text-foreground max-w-sm rounded-2xl border p-6 shadow-lg backdrop-blur">
-            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Secure Access</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+              Secure Access
+            </p>
             <h2 className="mt-3 text-2xl font-semibold leading-tight">
               Build and ship features with confidence.
             </h2>
             <p className="mt-3 text-sm text-muted-foreground">
-              Authentication is handled with Better Auth and typed end-to-end through your
-              monorepo.
+              Authentication is handled with Better Auth and typed end-to-end through your monorepo.
             </p>
           </div>
         </div>

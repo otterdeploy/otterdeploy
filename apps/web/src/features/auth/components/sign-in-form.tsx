@@ -11,13 +11,13 @@ import {
 } from "@otterstack/ui/components/ui/field";
 import { Input } from "@otterstack/ui/components/ui/input";
 import { toast } from "sonner";
-import z from "zod";
+import * as z from "zod";
 
 import { authClient } from "@/lib/auth-client";
 
-import Loader from "../../../components/loader";
+import { Loader } from "@/components/loader";
 
-export default function SignInForm() {
+export function SignInForm() {
   const navigate = useNavigate({
     from: "/login",
   });
