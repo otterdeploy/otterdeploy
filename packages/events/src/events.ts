@@ -6,7 +6,7 @@ import {
   IdSchema,
   ResourceStatusSchema,
 } from "@otterstack/contract/shared";
-import { z } from "zod";
+import * as z from "zod";
 
 export const DEPLOYMENT_EVENT_NAMES = [
   "deployment.requested",
@@ -202,7 +202,7 @@ export const EventSchemas = {
     fromValue: z.unknown(),
     toValue: z.unknown(),
   }),
-} as const satisfies Record<EventName, z.ZodTypeAny>;
+} as const satisfies Record<EventName, z.ZodType>;
 
 export type EventPayload<TName extends EventName> = z.infer<(typeof EventSchemas)[TName]>;
 export type EventPayloadMap = {
