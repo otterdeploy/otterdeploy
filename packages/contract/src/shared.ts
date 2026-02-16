@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "zod";
 
 export const IdSchema = z.string().min(1);
 export const SlugSchema = z
@@ -21,8 +21,8 @@ export const createPaginatedOutputSchema = <TItem extends z.ZodTypeAny>(item: TI
   });
 
 export const TimestampsSchema = z.object({
-  createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
 });
 
 export const ResourceKindSchema = z.enum(["web", "api", "worker", "database", "cache", "volume"]);

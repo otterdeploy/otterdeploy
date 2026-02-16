@@ -20,6 +20,7 @@
   },
   "devDependencies": {
     "@otterstack/config": "workspace:*",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "^4.0.18"
   }
 }

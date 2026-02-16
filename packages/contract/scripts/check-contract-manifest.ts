@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import { isContractProcedure } from "@orpc/contract";
 
-import { appContract } from "../src/app.contract";
+import { appContract } from "../src/app";
 
 type ProcedureManifest = {
   id: string;

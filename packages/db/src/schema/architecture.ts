@@ -2,15 +2,18 @@ import { relations, sql } from "drizzle-orm";
 import {
   doublePrecision,
   index,
+  integer,
   jsonb,
   pgEnum,
   pgTable,
+  real,
   text,
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
-import { user } from "./auth";
+import { user, organization } from "./auth";
+import { buildMethodEnum } from "./enums";
 
 export const resourceKindEnum = pgEnum("resource_kind", [
   "web",
@@ -25,6 +28,8 @@ export const resourceStatusEnum = pgEnum("resource_status", [
   "online",
   "degraded",
   "crashed",
+  "deploying",
+  "stopped",
   "unknown",
 ]);
 
@@ -38,11 +43,14 @@ export const project = pgTable(
   "project",
   {
     id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .references(() => organization.id, { onDelete: "cascade" }),
     ownerId: text("owner_user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     slug: text("slug").notNull(),
+    deletedAt: timestamp("deleted_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -50,8 +58,9 @@ export const project = pgTable(
       .notNull(),
   },
   (table) => [
-    uniqueIndex("project_slug_uidx").on(table.slug),
+    uniqueIndex("project_slug_org_uidx").on(table.organizationId, table.slug),
     index("project_ownerUserId_idx").on(table.ownerId),
+    index("project_org_idx").on(table.organizationId),
   ],
 );
 
@@ -91,6 +100,15 @@ export const projectResource = pgTable(
       .default(sql`'{}'::jsonb`),
     posX: doublePrecision("pos_x").notNull().default(0),
     posY: doublePrecision("pos_y").notNull().default(0),
+    buildMethod: buildMethodEnum("build_method").default("nixpacks"),
+    dockerfilePath: text("dockerfile_path").default("Dockerfile"),
+    port: integer("port"),
+    healthCheckPath: text("health_check_path"),
+    healthCheckInterval: integer("health_check_interval").default(30),
+    replicas: integer("replicas").default(1),
+    cpuLimit: real("cpu_limit"),
+    memoryLimit: integer("memory_limit"),
+    serverId: text("server_id"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -148,6 +166,10 @@ export const projectViewport = pgTable(
 );
 
 export const projectRelations = relations(project, ({ one, many }) => ({
+  organization: one(organization, {
+    fields: [project.organizationId],
+    references: [organization.id],
+  }),
   owner: one(user, {
     fields: [project.ownerId],
     references: [user.id],
