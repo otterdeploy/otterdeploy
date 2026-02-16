@@ -30,10 +30,10 @@ export const authedProcedure = publicProcedure.use(async ({ context, next }) => 
 });
 
 export const orgProcedure = authedProcedure.use(async ({ context, next }) => {
-  const organizationId = context.organizationId;
+  const organizationId = context.organizationId ?? context.session.session?.activeOrganizationId;
   if (!organizationId) {
     throw new ORPCError("BAD_REQUEST", {
-      message: "x-organization-id header is required",
+      message: "x-organization-id header or active organization is required",
     });
   }
 
