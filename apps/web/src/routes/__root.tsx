@@ -1,18 +1,19 @@
-import type { AppRouterClient } from "@otterstack/api/routers/index";
 import type { QueryClient } from "@tanstack/react-query";
 
-import { createORPCClient } from "@orpc/client";
-import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { HeadContent, Outlet, createRootRouteWithContext } from "@tanstack/react-router";
+import {
+  HeadContent,
+  Outlet,
+  createRootRouteWithContext,
+  useRouterState,
+} from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
-import { useState } from "react";
 
 import Header from "@/components/header";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@otterstack/ui/components/ui/sonner";
 import { TooltipProvider } from "@otterstack/ui/components/ui/tooltip";
-import { link, orpc } from "@/utils/orpc";
+import { orpc } from "@/utils/orpc";
 
 import "../index.css";
 
@@ -43,8 +44,10 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 });
 
 function RootComponent() {
-  const [client] = useState<AppRouterClient>(() => createORPCClient(link));
-  const [orpcUtils] = useState(() => createTanstackQueryUtils(client));
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  });
+  const isAuthRoute = pathname === "/login" || pathname === "/signup";
 
   return (
     <>
@@ -56,10 +59,14 @@ function RootComponent() {
         storageKey="vite-ui-theme"
       >
         <TooltipProvider>
-          <div className="grid grid-rows-[auto_1fr] h-svh">
-            <Header />
+          {isAuthRoute ? (
             <Outlet />
-          </div>
+          ) : (
+            <div className="grid h-svh grid-rows-[auto_1fr]">
+              <Header />
+              <Outlet />
+            </div>
+          )}
           <Toaster richColors />
         </TooltipProvider>
       </ThemeProvider>
