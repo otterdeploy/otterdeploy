@@ -58,10 +58,7 @@ async function validateBackupAccess(backupId: string, organizationId: string) {
   return row;
 }
 
-export async function createBackup(params: {
-  organizationId: string;
-  resourceId: string;
-}) {
+export async function createBackup(params: { organizationId: string; resourceId: string }) {
   await validateResource(params.resourceId, params.organizationId);
 
   const now = new Date();
@@ -82,8 +79,11 @@ export async function createBackup(params: {
     createdAt: now,
   };
 
-  await db.insert(backup).values(row);
-  return formatBackup(row as typeof backup.$inferSelect);
+  const [inserted] = await db.insert(backup).values(row).returning();
+  if (!inserted) {
+    throw new DomainError("CONFLICT", "Failed to create backup");
+  }
+  return formatBackup(inserted);
 }
 
 export async function listBackups(params: {

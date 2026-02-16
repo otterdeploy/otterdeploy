@@ -1,17 +1,17 @@
 import { and, db, eq, isNotNull, isNull, or } from "@otterstack/db";
 import { gitProvider, sshKey } from "@otterstack/db/schema/infrastructure";
 import { environmentVariable } from "@otterstack/db/schema/operations";
+import { Result } from "better-result";
 
 import { upsertSecretReference } from "./service";
 
 const SYSTEM_ACTOR_USER_ID = process.env.SECRETS_BACKFILL_ACTOR_USER_ID ?? "system";
 
 function decodeLegacySecret(value: string): string {
-  try {
-    return Buffer.from(value, "base64").toString("utf-8");
-  } catch {
-    return value;
-  }
+  return Result.try({
+    try: () => Buffer.from(value, "base64").toString("utf-8"),
+    catch: () => value,
+  }).unwrapOr(value);
 }
 
 async function backfillEnvironmentVariables() {

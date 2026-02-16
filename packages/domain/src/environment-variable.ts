@@ -230,12 +230,19 @@ export async function upsertEnvironmentVariable(params: {
       })
       .where(eq(environmentVariable.id, existing.id));
 
-    await writeAuditLog(params.organizationId, params.audit, "secret.upserted", "environment_variable", existing.id, {
-      scope: params.scope,
-      scopeId: scope.scopeId,
-      key: params.key,
-      secretReferenceId: secret.reference.id,
-    });
+    await writeAuditLog(
+      params.organizationId,
+      params.audit,
+      "secret.upserted",
+      "environment_variable",
+      existing.id,
+      {
+        scope: params.scope,
+        scopeId: scope.scopeId,
+        key: params.key,
+        secretReferenceId: secret.reference.id,
+      },
+    );
 
     const updated = await db.query.environmentVariable.findFirst({
       where: eq(environmentVariable.id, existing.id),
@@ -261,25 +268,29 @@ export async function upsertEnvironmentVariable(params: {
     updatedAt: now,
   };
 
-  await db.insert(environmentVariable).values(row);
+  const [inserted] = await db.insert(environmentVariable).values(row).returning();
+  if (!inserted) {
+    throw new DomainError("CONFLICT", "Failed to create environment variable");
+  }
 
-  await writeAuditLog(params.organizationId, params.audit, "secret.upserted", "environment_variable", row.id, {
-    scope: params.scope,
-    scopeId: scope.scopeId,
-    key: params.key,
-    secretReferenceId: secret.reference.id,
-  });
-
-  return formatVariable(
-    row as typeof environmentVariable.$inferSelect,
-    params.projectId,
-    scope.environmentId,
-    scope.resourceId,
+  await writeAuditLog(
+    params.organizationId,
+    params.audit,
+    "secret.upserted",
+    "environment_variable",
+    row.id,
     {
-      provider: secret.reference.provider,
-      providerVersion: secret.reference.providerVersion,
+      scope: params.scope,
+      scopeId: scope.scopeId,
+      key: params.key,
+      secretReferenceId: secret.reference.id,
     },
   );
+
+  return formatVariable(inserted, params.projectId, scope.environmentId, scope.resourceId, {
+    provider: secret.reference.provider,
+    providerVersion: secret.reference.providerVersion,
+  });
 }
 
 export async function getEnvironmentVariable(variableId: string, organizationId: string) {
@@ -351,7 +362,14 @@ export async function deleteEnvironmentVariable(
   await validateEnvVar(variableId, organizationId);
   await db.delete(environmentVariable).where(eq(environmentVariable.id, variableId));
 
-  await writeAuditLog(organizationId, audit, "secret.deleted", "environment_variable", variableId, {});
+  await writeAuditLog(
+    organizationId,
+    audit,
+    "secret.deleted",
+    "environment_variable",
+    variableId,
+    {},
+  );
 
   return { success: true as const };
 }

@@ -92,18 +92,16 @@ export async function registerServer(params: {
     updatedAt: now,
   };
 
-  await db.insert(server).values(row);
+  const [inserted] = await db.insert(server).values(row).returning();
+  if (!inserted) {
+    throw new DomainError("CONFLICT", "Failed to register server");
+  }
 
-  await writeAuditLog(
-    params.organizationId,
-    params.audit,
-    "server.registered",
-    "server",
-    row.id,
-    { sshAttached: !!sshKeyId },
-  );
+  await writeAuditLog(params.organizationId, params.audit, "server.registered", "server", row.id, {
+    sshAttached: !!sshKeyId,
+  });
 
-  return formatServer(row as typeof server.$inferSelect);
+  return formatServer(inserted);
 }
 
 export async function listServers(organizationId: string) {
@@ -122,11 +120,7 @@ export async function testServer(serverId: string, organizationId: string) {
   };
 }
 
-export async function removeServer(
-  serverId: string,
-  organizationId: string,
-  audit: AuditContext,
-) {
+export async function removeServer(serverId: string, organizationId: string, audit: AuditContext) {
   await validateAccess(serverId, organizationId);
   await db.delete(server).where(eq(server.id, serverId));
 

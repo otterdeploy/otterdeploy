@@ -10,12 +10,11 @@ import {
   DialogTitle,
 } from "@otterstack/ui/components/ui/dialog";
 import { Input } from "@otterstack/ui/components/ui/input";
-import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@otterstack/ui/components/ui/native-select";
+import { NativeSelect, NativeSelectOption } from "@otterstack/ui/components/ui/native-select";
 
 import {
+  parseResourceKind,
+  parseResourceStatus,
   type ResourceKind,
   type ResourceStatus,
   resourceKinds,
@@ -28,11 +27,7 @@ type CreateResourceDialogProps = {
   onSubmit: (input: { name: string; kind: ResourceKind; status: ResourceStatus }) => Promise<void>;
 };
 
-export function CreateResourceDialog({
-  open,
-  onOpenChange,
-  onSubmit,
-}: CreateResourceDialogProps) {
+export function CreateResourceDialog({ open, onOpenChange, onSubmit }: CreateResourceDialogProps) {
   const [name, setName] = useState("New Service");
   const [kind, setKind] = useState<ResourceKind>("web");
   const [status, setStatus] = useState<ResourceStatus>("online");
@@ -71,7 +66,7 @@ export function CreateResourceDialog({
               <NativeSelect
                 id="create-resource-kind"
                 value={kind}
-                onChange={(event) => setKind(event.currentTarget.value as ResourceKind)}
+                onChange={(event) => setKind(parseResourceKind(event.currentTarget.value, kind))}
                 className="w-full"
               >
                 {resourceKinds.map((value) => {
@@ -90,7 +85,9 @@ export function CreateResourceDialog({
               <NativeSelect
                 id="create-resource-status"
                 value={status}
-                onChange={(event) => setStatus(event.currentTarget.value as ResourceStatus)}
+                onChange={(event) =>
+                  setStatus(parseResourceStatus(event.currentTarget.value, status))
+                }
                 className="w-full"
               >
                 {resourceStatuses.map((value) => {

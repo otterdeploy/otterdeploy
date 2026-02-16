@@ -1,16 +1,9 @@
 import * as z from "zod";
-import { ORPCError } from "@orpc/server";
-import { environmentVariableService, DomainError } from "@otterstack/domain";
+import { environmentVariableService } from "@otterstack/domain";
 
 import { orgProcedure, orgMemberProcedure, orgMemberStepUpProcedure } from "../index";
 import { getIpAddress } from "../utils/http";
-
-function mapDomainError(err: unknown): never {
-  if (err instanceof DomainError) {
-    throw new ORPCError(err.code, { message: err.message });
-  }
-  throw err;
-}
+import { fromPromise } from "../utils/result";
 
 export const environmentVariableRouter = {
   upsert: orgMemberProcedure
@@ -27,8 +20,8 @@ export const environmentVariableRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      try {
-        return await environmentVariableService.upsertEnvironmentVariable({
+      return fromPromise(
+        environmentVariableService.upsertEnvironmentVariable({
           organizationId: context.organizationId,
           projectId: input.projectId,
           environmentId: input.environmentId,
@@ -43,10 +36,8 @@ export const environmentVariableRouter = {
             ipAddress: getIpAddress(context.headers),
             userAgent: context.headers.get("user-agent"),
           },
-        });
-      } catch (err) {
-        mapDomainError(err);
-      }
+        }),
+      );
     }),
 
   get: orgProcedure
@@ -56,14 +47,9 @@ export const environmentVariableRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      try {
-        return await environmentVariableService.getEnvironmentVariable(
-          input.variableId,
-          context.organizationId,
-        );
-      } catch (err) {
-        mapDomainError(err);
-      }
+      return fromPromise(
+        environmentVariableService.getEnvironmentVariable(input.variableId, context.organizationId),
+      );
     }),
 
   list: orgProcedure
@@ -75,16 +61,14 @@ export const environmentVariableRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      try {
-        return await environmentVariableService.listEnvironmentVariables({
+      return fromPromise(
+        environmentVariableService.listEnvironmentVariables({
           organizationId: context.organizationId,
           projectId: input.projectId,
           environmentId: input.environmentId,
           resourceId: input.resourceId,
-        });
-      } catch (err) {
-        mapDomainError(err);
-      }
+        }),
+      );
     }),
 
   delete: orgMemberProcedure
@@ -94,8 +78,8 @@ export const environmentVariableRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      try {
-        return await environmentVariableService.deleteEnvironmentVariable(
+      return fromPromise(
+        environmentVariableService.deleteEnvironmentVariable(
           input.variableId,
           context.organizationId,
           {
@@ -103,10 +87,8 @@ export const environmentVariableRouter = {
             ipAddress: getIpAddress(context.headers),
             userAgent: context.headers.get("user-agent"),
           },
-        );
-      } catch (err) {
-        mapDomainError(err);
-      }
+        ),
+      );
     }),
 
   reveal: orgMemberStepUpProcedure
@@ -117,8 +99,8 @@ export const environmentVariableRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      try {
-        return await environmentVariableService.revealEnvironmentVariable({
+      return fromPromise(
+        environmentVariableService.revealEnvironmentVariable({
           variableId: input.variableId,
           organizationId: context.organizationId,
           reason: input.reason,
@@ -127,9 +109,7 @@ export const environmentVariableRouter = {
             ipAddress: getIpAddress(context.headers),
             userAgent: context.headers.get("user-agent"),
           },
-        });
-      } catch (err) {
-        mapDomainError(err);
-      }
+        }),
+      );
     }),
 };

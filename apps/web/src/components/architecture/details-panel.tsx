@@ -4,12 +4,11 @@ import { Badge } from "@otterstack/ui/components/ui/badge";
 import { Button } from "@otterstack/ui/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@otterstack/ui/components/ui/card";
 import { Input } from "@otterstack/ui/components/ui/input";
-import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@otterstack/ui/components/ui/native-select";
+import { NativeSelect, NativeSelectOption } from "@otterstack/ui/components/ui/native-select";
 
 import {
+  parseResourceKind,
+  parseResourceStatus,
   type ResourceKind,
   type ResourceNode,
   type ResourceStatus,
@@ -50,7 +49,9 @@ export function DetailsPanel({ selectedNode, onUpdateNode, onDeleteNode }: Detai
     }
 
     return (
-      name !== selectedNode.data.name || kind !== selectedNode.data.kind || status !== selectedNode.data.status
+      name !== selectedNode.data.name ||
+      kind !== selectedNode.data.kind ||
+      status !== selectedNode.data.status
     );
   }, [kind, name, selectedNode, status]);
 
@@ -100,7 +101,7 @@ export function DetailsPanel({ selectedNode, onUpdateNode, onDeleteNode }: Detai
             <NativeSelect
               id="resource-kind"
               value={kind}
-              onChange={(event) => setKind(event.currentTarget.value as ResourceKind)}
+              onChange={(event) => setKind(parseResourceKind(event.currentTarget.value, kind))}
               className="w-full"
             >
               {resourceKinds.map((value) => {
@@ -120,7 +121,9 @@ export function DetailsPanel({ selectedNode, onUpdateNode, onDeleteNode }: Detai
             <NativeSelect
               id="resource-status"
               value={status}
-              onChange={(event) => setStatus(event.currentTarget.value as ResourceStatus)}
+              onChange={(event) =>
+                setStatus(parseResourceStatus(event.currentTarget.value, status))
+              }
               className="w-full"
             >
               {resourceStatuses.map((value) => {

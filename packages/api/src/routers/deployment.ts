@@ -1,20 +1,9 @@
 import * as z from "zod";
-import { ORPCError } from "@orpc/server";
-import { deploymentService, deploymentSecretService, DomainError } from "@otterstack/domain";
+import { deploymentService, deploymentSecretService } from "@otterstack/domain";
 
-import {
-  orgProcedure,
-  orgMemberProcedure,
-  orgAdminProcedure,
-} from "../index";
+import { orgProcedure, orgMemberProcedure, orgAdminProcedure } from "../index";
 import { paginationMeta } from "../utils/helpers";
-
-function mapDomainError(err: unknown): never {
-  if (err instanceof DomainError) {
-    throw new ORPCError(err.code, { message: err.message });
-  }
-  throw err;
-}
+import { fromPromise } from "../utils/result";
 
 export const deploymentRouter = {
   create: orgMemberProcedure
@@ -30,8 +19,8 @@ export const deploymentRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      try {
-        const result = await deploymentService.createDeployment({
+      const result = await fromPromise(
+        deploymentService.createDeployment({
           organizationId: context.organizationId,
           projectId: input.projectId,
           environmentId: input.environmentId,
@@ -42,20 +31,20 @@ export const deploymentRouter = {
           gitCommitSha: input.gitCommitSha,
           buildMethod: input.buildMethod,
           correlationId: context.correlationId ?? undefined,
-        });
+        }),
+      );
 
-        await deploymentSecretService.createDeploymentSecretSnapshot({
+      await fromPromise(
+        deploymentSecretService.createDeploymentSecretSnapshot({
           deploymentId: result.id,
           organizationId: context.organizationId,
           projectId: input.projectId,
           environmentId: input.environmentId,
           resourceId: input.resourceId,
-        });
+        }),
+      );
 
-        return result;
-      } catch (err) {
-        mapDomainError(err);
-      }
+      return result;
     }),
 
   getById: orgProcedure
@@ -65,15 +54,10 @@ export const deploymentRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      try {
-        const result = await deploymentService.getDeploymentWithTimeline(
-          input.deploymentId,
-          context.organizationId,
-        );
-        return result.deployment;
-      } catch (err) {
-        mapDomainError(err);
-      }
+      const result = await fromPromise(
+        deploymentService.getDeploymentWithTimeline(input.deploymentId, context.organizationId),
+      );
+      return result.deployment;
     }),
 
   list: orgProcedure
@@ -87,14 +71,16 @@ export const deploymentRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return deploymentService.listDeployments({
-        organizationId: context.organizationId,
-        projectId: input.projectId,
-        environmentId: input.environmentId,
-        resourceId: input.resourceId,
-        page: input.page,
-        pageSize: input.pageSize,
-      });
+      return fromPromise(
+        deploymentService.listDeployments({
+          organizationId: context.organizationId,
+          projectId: input.projectId,
+          environmentId: input.environmentId,
+          resourceId: input.resourceId,
+          page: input.page,
+          pageSize: input.pageSize,
+        }),
+      );
     }),
 
   cancel: orgMemberProcedure
@@ -105,15 +91,13 @@ export const deploymentRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      try {
-        return await deploymentService.cancelDeployment(
+      return fromPromise(
+        deploymentService.cancelDeployment(
           input.deploymentId,
           context.organizationId,
           context.userId,
-        );
-      } catch (err) {
-        mapDomainError(err);
-      }
+        ),
+      );
     }),
 
   rollback: orgAdminProcedure
@@ -124,17 +108,15 @@ export const deploymentRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      try {
-        return await deploymentService.initiateRollback(
+      return fromPromise(
+        deploymentService.initiateRollback(
           input.deploymentId,
           context.organizationId,
           context.userId,
           input.reason,
           context.correlationId ?? undefined,
-        );
-      } catch (err) {
-        mapDomainError(err);
-      }
+        ),
+      );
     }),
 
   streamLogs: orgProcedure
@@ -145,13 +127,11 @@ export const deploymentRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      try {
-        await deploymentService.getDeploymentWithTimeline(input.deploymentId, context.organizationId);
-      } catch (err) {
-        mapDomainError(err);
-      }
+      await fromPromise(
+        deploymentService.getDeploymentWithTimeline(input.deploymentId, context.organizationId),
+      );
       return {
-        items: [] as never[],
+        items: [],
         meta: paginationMeta(1, 10, 0),
       };
     }),

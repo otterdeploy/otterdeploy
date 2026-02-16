@@ -75,9 +75,12 @@ export const resourceRouter = {
         updatedAt: now,
       };
 
-      await db.insert(projectResource).values(resource);
+      const [inserted] = await db.insert(projectResource).values(resource).returning();
+      if (!inserted) {
+        throw new ORPCError("INTERNAL_SERVER_ERROR", { message: "Failed to create resource" });
+      }
 
-      return formatResource(resource as typeof projectResource.$inferSelect, input.projectId);
+      return formatResource(inserted, input.projectId);
     }),
 
   getById: orgProcedure

@@ -7,10 +7,7 @@ import {
 
 import { DomainError } from "./errors";
 
-function formatLink(
-  row: typeof projectResourceLink.$inferSelect,
-  projectId: string,
-) {
+function formatLink(row: typeof projectResourceLink.$inferSelect, projectId: string) {
   return {
     id: row.id,
     projectId,
@@ -80,8 +77,11 @@ export async function createResourceLink(params: {
     updatedAt: now,
   };
 
-  await db.insert(projectResourceLink).values(link);
-  return formatLink(link as typeof projectResourceLink.$inferSelect, params.projectId);
+  const [inserted] = await db.insert(projectResourceLink).values(link).returning();
+  if (!inserted) {
+    throw new DomainError("CONFLICT", "Failed to create resource link");
+  }
+  return formatLink(inserted, params.projectId);
 }
 
 export async function deleteResourceLink(linkId: string, organizationId: string) {

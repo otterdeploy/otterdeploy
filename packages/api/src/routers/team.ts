@@ -1,19 +1,8 @@
 import * as z from "zod";
-import { ORPCError } from "@orpc/server";
-import { teamService, DomainError } from "@otterstack/domain";
+import { teamService } from "@otterstack/domain";
 
-import {
-  orgProcedure,
-  orgAdminProcedure,
-  orgOwnerProcedure,
-} from "../index";
-
-function mapDomainError(err: unknown): never {
-  if (err instanceof DomainError) {
-    throw new ORPCError(err.code, { message: err.message });
-  }
-  throw err;
-}
+import { orgProcedure, orgAdminProcedure, orgOwnerProcedure } from "../index";
+import { fromPromise } from "../utils/result";
 
 export const teamRouter = {
   listMembers: orgProcedure
@@ -23,7 +12,7 @@ export const teamRouter = {
       }),
     )
     .handler(async ({ context }) => {
-      return teamService.listMembers(context.organizationId);
+      return fromPromise(teamService.listMembers(context.organizationId));
     }),
 
   invite: orgAdminProcedure
@@ -35,16 +24,14 @@ export const teamRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      try {
-        return await teamService.inviteMember({
+      return fromPromise(
+        teamService.inviteMember({
           organizationId: context.organizationId,
           email: input.email,
           role: input.role,
           invitedBy: context.userId,
-        });
-      } catch (err) {
-        mapDomainError(err);
-      }
+        }),
+      );
     }),
 
   updateRole: orgOwnerProcedure
@@ -56,15 +43,13 @@ export const teamRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      try {
-        return await teamService.updateMemberRole({
+      return fromPromise(
+        teamService.updateMemberRole({
           organizationId: context.organizationId,
           memberId: input.memberId,
           role: input.role,
-        });
-      } catch (err) {
-        mapDomainError(err);
-      }
+        }),
+      );
     }),
 
   removeMember: orgAdminProcedure
@@ -75,13 +60,11 @@ export const teamRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      try {
-        return await teamService.removeMember({
+      return fromPromise(
+        teamService.removeMember({
           organizationId: context.organizationId,
           memberId: input.memberId,
-        });
-      } catch (err) {
-        mapDomainError(err);
-      }
+        }),
+      );
     }),
 };

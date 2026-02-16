@@ -64,8 +64,11 @@ export async function addDomain(params: {
     updatedAt: now,
   };
 
-  await db.insert(customDomain).values(row);
-  return formatDomain(row as typeof customDomain.$inferSelect);
+  const [inserted] = await db.insert(customDomain).values(row).returning();
+  if (!inserted) {
+    throw new DomainError("CONFLICT", "Failed to add domain");
+  }
+  return formatDomain(inserted);
 }
 
 export async function verifyDomain(domainId: string, organizationId: string) {
@@ -82,10 +85,7 @@ export async function verifyDomain(domainId: string, organizationId: string) {
   return formatDomain(updated!);
 }
 
-export async function listDomains(params: {
-  organizationId: string;
-  resourceId?: string;
-}) {
+export async function listDomains(params: { organizationId: string; resourceId?: string }) {
   const conditions = [eq(customDomain.organizationId, params.organizationId)];
   if (params.resourceId) {
     conditions.push(eq(customDomain.resourceId, params.resourceId));

@@ -1,4 +1,5 @@
 import { db, sql } from "@otterstack/db";
+import { Result } from "better-result";
 
 export async function getHealth() {
   return {
@@ -8,13 +9,11 @@ export async function getHealth() {
 }
 
 export async function getReadiness() {
-  let dbStatus: "ok" | "degraded" | "down" = "down";
-  try {
-    await db.execute(sql`SELECT 1`);
-    dbStatus = "ok";
-  } catch {
-    dbStatus = "down";
-  }
+  const dbPing = await Result.tryPromise({
+    try: () => db.execute(sql`SELECT 1`),
+    catch: () => "down" as const,
+  });
+  const dbStatus: "ok" | "degraded" | "down" = dbPing.isOk() ? "ok" : "down";
 
   return {
     status: dbStatus === "ok" ? ("ready" as const) : ("degraded" as const),

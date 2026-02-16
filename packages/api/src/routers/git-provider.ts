@@ -1,16 +1,9 @@
 import * as z from "zod";
-import { ORPCError } from "@orpc/server";
-import { gitProviderService, DomainError } from "@otterstack/domain";
+import { gitProviderService } from "@otterstack/domain";
 
 import { orgAdminProcedure, orgAdminStepUpProcedure } from "../index";
 import { getIpAddress } from "../utils/http";
-
-function mapDomainError(err: unknown): never {
-  if (err instanceof DomainError) {
-    throw new ORPCError(err.code, { message: err.message });
-  }
-  throw err;
-}
+import { fromPromise } from "../utils/result";
 
 export const gitProviderRouter = {
   create: orgAdminStepUpProcedure
@@ -27,8 +20,8 @@ export const gitProviderRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      try {
-        return await gitProviderService.createGitProvider({
+      return fromPromise(
+        gitProviderService.createGitProvider({
           organizationId: context.organizationId,
           type: input.type,
           name: input.name,
@@ -42,10 +35,8 @@ export const gitProviderRouter = {
             ipAddress: getIpAddress(context.headers),
             userAgent: context.headers.get("user-agent"),
           },
-        });
-      } catch (err) {
-        mapDomainError(err);
-      }
+        }),
+      );
     }),
 
   update: orgAdminStepUpProcedure
@@ -62,8 +53,8 @@ export const gitProviderRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      try {
-        return await gitProviderService.updateGitProvider({
+      return fromPromise(
+        gitProviderService.updateGitProvider({
           organizationId: context.organizationId,
           providerId: input.providerId,
           type: input.type,
@@ -78,10 +69,8 @@ export const gitProviderRouter = {
             ipAddress: getIpAddress(context.headers),
             userAgent: context.headers.get("user-agent"),
           },
-        });
-      } catch (err) {
-        mapDomainError(err);
-      }
+        }),
+      );
     }),
 
   list: orgAdminProcedure
@@ -91,7 +80,7 @@ export const gitProviderRouter = {
       }),
     )
     .handler(async ({ context }) => {
-      return gitProviderService.listGitProviders(context.organizationId);
+      return fromPromise(gitProviderService.listGitProviders(context.organizationId));
     }),
 
   delete: orgAdminProcedure
@@ -101,19 +90,13 @@ export const gitProviderRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      try {
-        return await gitProviderService.deleteGitProvider(
-          input.providerId,
-          context.organizationId,
-          {
-            userId: context.userId,
-            ipAddress: getIpAddress(context.headers),
-            userAgent: context.headers.get("user-agent"),
-          },
-        );
-      } catch (err) {
-        mapDomainError(err);
-      }
+      return fromPromise(
+        gitProviderService.deleteGitProvider(input.providerId, context.organizationId, {
+          userId: context.userId,
+          ipAddress: getIpAddress(context.headers),
+          userAgent: context.headers.get("user-agent"),
+        }),
+      );
     }),
 
   rotateSecret: orgAdminStepUpProcedure
@@ -126,8 +109,8 @@ export const gitProviderRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      try {
-        return await gitProviderService.rotateGitProviderSecret({
+      return fromPromise(
+        gitProviderService.rotateGitProviderSecret({
           organizationId: context.organizationId,
           providerId: input.providerId,
           reason: input.reason,
@@ -138,9 +121,7 @@ export const gitProviderRouter = {
             ipAddress: getIpAddress(context.headers),
             userAgent: context.headers.get("user-agent"),
           },
-        });
-      } catch (err) {
-        mapDomainError(err);
-      }
+        }),
+      );
     }),
 };

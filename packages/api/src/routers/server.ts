@@ -1,16 +1,9 @@
 import * as z from "zod";
-import { ORPCError } from "@orpc/server";
-import { serverManagementService, DomainError } from "@otterstack/domain";
+import { serverManagementService } from "@otterstack/domain";
 
 import { orgProcedure, orgAdminStepUpProcedure } from "../index";
 import { getIpAddress } from "../utils/http";
-
-function mapDomainError(err: unknown): never {
-  if (err instanceof DomainError) {
-    throw new ORPCError(err.code, { message: err.message });
-  }
-  throw err;
-}
+import { fromPromise } from "../utils/result";
 
 export const serverRouter = {
   register: orgAdminStepUpProcedure
@@ -32,8 +25,8 @@ export const serverRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      try {
-        return await serverManagementService.registerServer({
+      return fromPromise(
+        serverManagementService.registerServer({
           organizationId: context.organizationId,
           name: input.name,
           ipAddress: input.ipAddress,
@@ -45,10 +38,8 @@ export const serverRouter = {
             ipAddress: getIpAddress(context.headers),
             userAgent: context.headers.get("user-agent"),
           },
-        });
-      } catch (err) {
-        mapDomainError(err);
-      }
+        }),
+      );
     }),
 
   list: orgProcedure
@@ -58,7 +49,7 @@ export const serverRouter = {
       }),
     )
     .handler(async ({ context }) => {
-      return serverManagementService.listServers(context.organizationId);
+      return fromPromise(serverManagementService.listServers(context.organizationId));
     }),
 
   test: orgProcedure
@@ -68,14 +59,9 @@ export const serverRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      try {
-        return await serverManagementService.testServer(
-          input.serverId,
-          context.organizationId,
-        );
-      } catch (err) {
-        mapDomainError(err);
-      }
+      return fromPromise(
+        serverManagementService.testServer(input.serverId, context.organizationId),
+      );
     }),
 
   remove: orgAdminStepUpProcedure
@@ -85,18 +71,12 @@ export const serverRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      try {
-        return await serverManagementService.removeServer(
-          input.serverId,
-          context.organizationId,
-          {
-            userId: context.userId,
-            ipAddress: getIpAddress(context.headers),
-            userAgent: context.headers.get("user-agent"),
-          },
-        );
-      } catch (err) {
-        mapDomainError(err);
-      }
+      return fromPromise(
+        serverManagementService.removeServer(input.serverId, context.organizationId, {
+          userId: context.userId,
+          ipAddress: getIpAddress(context.headers),
+          userAgent: context.headers.get("user-agent"),
+        }),
+      );
     }),
 };

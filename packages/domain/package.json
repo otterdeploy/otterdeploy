@@ -9,6 +9,7 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
+    "better-result": "catalog:",
     "@otterstack/db": "workspace:*",
     "@otterstack/events": "workspace:*",
     "@otterstack/logger": "workspace:*",

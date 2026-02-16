@@ -6,7 +6,7 @@ import { AlertTriangle, Database, Globe, HardDrive, Network, Workflow } from "lu
 import { Badge } from "@otterstack/ui/components/ui/badge";
 import { cn } from "@otterstack/ui/lib/utils";
 
-import type { ResourceNodeData } from "./types";
+import type { ResourceNode, ResourceNodeData } from "./types";
 
 function KindIcon({ kind }: { kind: ResourceNodeData["kind"] }) {
   if (kind === "web") {
@@ -41,9 +41,8 @@ const statusClassName: Record<ResourceNodeData["status"], string> = {
   stopped: "bg-slate-500/15 text-slate-400 border-slate-500/40",
 };
 
-export function ResourceNodeCard({ selected, data }: NodeProps) {
-  const typedData = data as ResourceNodeData;
-  const isCrashed = typedData.status === "crashed";
+export function ResourceNodeCard({ selected, data }: NodeProps<ResourceNode>) {
+  const isCrashed = data.status === "crashed";
 
   return (
     <div
@@ -66,18 +65,18 @@ export function ResourceNodeCard({ selected, data }: NodeProps) {
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
           <span className="rounded-md bg-white/5 p-1.5 text-slate-200">
-            <KindIcon kind={typedData.kind} />
+            <KindIcon kind={data.kind} />
           </span>
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">{typedData.name}</p>
-            <p className="text-[11px] uppercase tracking-wide text-slate-400">{typedData.kind}</p>
+            <p className="truncate text-sm font-semibold">{data.name}</p>
+            <p className="text-[11px] uppercase tracking-wide text-slate-400">{data.kind}</p>
           </div>
         </div>
         {isCrashed ? <AlertTriangle className="size-4 shrink-0 text-red-400" /> : null}
       </div>
       <div className="mt-3 flex items-center justify-between border-t border-white/8 pt-2">
-        <Badge variant="outline" className={cn("border text-[11px]", statusClassName[typedData.status])}>
-          {typedData.status}
+        <Badge variant="outline" className={cn("border text-[11px]", statusClassName[data.status])}>
+          {data.status}
         </Badge>
         <span className="text-[11px] text-slate-400">resource</span>
       </div>

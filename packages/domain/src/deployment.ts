@@ -1,10 +1,8 @@
 import { db, eq, and, desc, or, sql } from "@otterstack/db";
 import { deployment, deploymentEvent } from "@otterstack/db/schema/deployment";
 import { projectResource } from "@otterstack/db/schema/architecture";
-import {
-  createIdempotencyKey,
-  publishEvent,
-} from "@otterstack/events";
+import { createIdempotencyKey, publishEvent } from "@otterstack/events";
+import { Result } from "better-result";
 
 import { DomainError } from "./errors";
 import { transitionTo } from "./deployment-machine";
@@ -71,7 +69,7 @@ async function publishDeploymentRequestedEvent(input: {
   gitCommitSha?: string;
   correlationId?: string;
 }) {
-  await publishEvent("deployment.requested", {
+  const publishResult = await publishEvent("deployment.requested", {
     orgId: input.organizationId,
     deploymentId: input.deploymentId,
     resourceId: input.resourceId,
@@ -86,6 +84,43 @@ async function publishDeploymentRequestedEvent(input: {
       contentHashSource: `${input.deploymentId}:${input.source}:${input.gitCommitSha ?? ""}`,
     }),
   });
+
+  if (publishResult.isErr()) {
+    throw publishResult.error;
+  }
+}
+
+async function enqueueDeploymentRequestedEvent(input: {
+  deploymentId: string;
+  organizationId: string;
+  resourceId: string;
+  environmentId: string;
+  source: "git_push" | "manual" | "rollback" | "api" | "preview";
+  actorUserId: string;
+  gitCommitSha?: string;
+  correlationId?: string;
+  failureReason: string;
+  conflictMessage: string;
+}) {
+  const publishResult = await Result.tryPromise({
+    try: () => publishDeploymentRequestedEvent(input),
+    catch: (error) => error,
+  });
+
+  if (publishResult.isOk()) {
+    return;
+  }
+
+  const error = publishResult.error;
+  await transitionTo(input.deploymentId, "failed", {
+    actor: "system",
+    reason: input.failureReason,
+    metadata: {
+      error: error instanceof Error ? error.message : "Unknown publish error",
+    },
+  });
+
+  throw new DomainError("CONFLICT", input.conflictMessage, error);
 }
 
 export async function createDeployment(params: {
@@ -146,12 +181,15 @@ export async function createDeployment(params: {
     updatedAt: now,
   };
 
-  await db.insert(deployment).values(row);
+  const [inserted] = await db.insert(deployment).values(row).returning();
+  if (!inserted) {
+    throw new DomainError("CONFLICT", "Failed to create deployment");
+  }
 
   // Insert initial timeline event (null → queued)
   await db.insert(deploymentEvent).values({
     id: crypto.randomUUID(),
-    deploymentId: row.id,
+    deploymentId: inserted.id,
     status: "queued",
     previousStatus: null,
     actor: params.triggeredBy,
@@ -160,38 +198,24 @@ export async function createDeployment(params: {
     createdAt: now,
   });
 
-  try {
-    await publishDeploymentRequestedEvent({
-      deploymentId: row.id,
-      organizationId: row.organizationId,
-      resourceId: row.resourceId,
-      environmentId: row.environmentId,
-      source: row.source,
-      actorUserId: params.triggeredBy,
-      gitCommitSha: row.gitCommitSha ?? undefined,
-      correlationId: params.correlationId,
-    });
-  } catch (err) {
-    await transitionTo(row.id, "failed", {
-      actor: "system",
-      reason: "Failed to enqueue deployment workflow",
-      metadata: {
-        error: err instanceof Error ? err.message : "Unknown publish error",
-      },
-    });
-    throw new DomainError(
-      "CONFLICT",
+  await enqueueDeploymentRequestedEvent({
+    deploymentId: inserted.id,
+    organizationId: inserted.organizationId,
+    resourceId: inserted.resourceId,
+    environmentId: inserted.environmentId,
+    source: inserted.source,
+    actorUserId: params.triggeredBy,
+    gitCommitSha: inserted.gitCommitSha ?? undefined,
+    correlationId: params.correlationId,
+    failureReason: "Failed to enqueue deployment workflow",
+    conflictMessage:
       "Failed to enqueue deployment workflow. Check Inngest configuration and retry.",
-    );
-  }
+  });
 
-  return formatDeployment(row as typeof deployment.$inferSelect);
+  return formatDeployment(inserted);
 }
 
-export async function getDeploymentWithTimeline(
-  deploymentId: string,
-  organizationId: string,
-) {
+export async function getDeploymentWithTimeline(deploymentId: string, organizationId: string) {
   const row = await db.query.deployment.findFirst({
     where: and(eq(deployment.id, deploymentId), eq(deployment.organizationId, organizationId)),
   });
@@ -317,12 +341,15 @@ export async function initiateRollback(
     updatedAt: now,
   };
 
-  await db.insert(deployment).values(row);
+  const [inserted] = await db.insert(deployment).values(row).returning();
+  if (!inserted) {
+    throw new DomainError("CONFLICT", "Failed to create rollback deployment");
+  }
 
   // Insert initial timeline event
   await db.insert(deploymentEvent).values({
     id: crypto.randomUUID(),
-    deploymentId: row.id,
+    deploymentId: inserted.id,
     status: "queued",
     previousStatus: null,
     actor: actorUserId,
@@ -331,34 +358,22 @@ export async function initiateRollback(
     createdAt: now,
   });
 
-  try {
-    await publishDeploymentRequestedEvent({
-      deploymentId: row.id,
-      organizationId: row.organizationId,
-      resourceId: row.resourceId,
-      environmentId: row.environmentId,
-      source: row.source,
-      actorUserId,
-      gitCommitSha: row.gitCommitSha ?? undefined,
-      correlationId,
-    });
-  } catch (err) {
-    await transitionTo(row.id, "failed", {
-      actor: "system",
-      reason: "Failed to enqueue rollback workflow",
-      metadata: {
-        error: err instanceof Error ? err.message : "Unknown publish error",
-      },
-    });
-    throw new DomainError(
-      "CONFLICT",
-      "Failed to enqueue rollback workflow. Check Inngest configuration and retry.",
-    );
-  }
+  await enqueueDeploymentRequestedEvent({
+    deploymentId: inserted.id,
+    organizationId: inserted.organizationId,
+    resourceId: inserted.resourceId,
+    environmentId: inserted.environmentId,
+    source: inserted.source,
+    actorUserId,
+    gitCommitSha: inserted.gitCommitSha ?? undefined,
+    correlationId,
+    failureReason: "Failed to enqueue rollback workflow",
+    conflictMessage: "Failed to enqueue rollback workflow. Check Inngest configuration and retry.",
+  });
 
   // NOTE: Secret snapshot resolution excluded from scope (Wave 3 constraint)
 
-  return formatDeployment(row as typeof deployment.$inferSelect);
+  return formatDeployment(inserted);
 }
 
 export async function getActiveDeployment(resourceId: string) {
@@ -378,15 +393,9 @@ export async function getActiveDeployment(resourceId: string) {
   return row ? formatDeployment(row) : null;
 }
 
-export async function supersedeQueuedDeployments(
-  resourceId: string,
-  exceptDeploymentId: string,
-) {
+export async function supersedeQueuedDeployments(resourceId: string, exceptDeploymentId: string) {
   const queued = await db.query.deployment.findMany({
-    where: and(
-      eq(deployment.resourceId, resourceId),
-      eq(deployment.status, "queued"),
-    ),
+    where: and(eq(deployment.resourceId, resourceId), eq(deployment.status, "queued")),
   });
 
   for (const d of queued) {

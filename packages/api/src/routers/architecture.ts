@@ -1,15 +1,8 @@
 import * as z from "zod";
-import { ORPCError } from "@orpc/server";
-import { architectureService, DomainError } from "@otterstack/domain";
+import { architectureService } from "@otterstack/domain";
 
 import { orgProcedure, orgMemberProcedure } from "../index";
-
-function mapDomainError(err: unknown): never {
-  if (err instanceof DomainError) {
-    throw new ORPCError(err.code, { message: err.message });
-  }
-  throw err;
-}
+import { fromPromise } from "../utils/result";
 
 export const architectureRouter = {
   getGraph: orgProcedure
@@ -20,15 +13,13 @@ export const architectureRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      try {
-        return await architectureService.getProjectGraph(
+      return fromPromise(
+        architectureService.getProjectGraph(
           input.projectId,
           context.organizationId,
           input.environmentId,
-        );
-      } catch (err) {
-        mapDomainError(err);
-      }
+        ),
+      );
     }),
 
   replaceGraph: orgMemberProcedure
@@ -63,18 +54,16 @@ export const architectureRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      try {
-        return await architectureService.replaceProjectGraph({
+      return fromPromise(
+        architectureService.replaceProjectGraph({
           projectId: input.projectId,
           organizationId: context.organizationId,
           environmentId: input.environmentId,
           resources: input.resources,
           links: input.links,
           viewport: input.viewport,
-        });
-      } catch (err) {
-        mapDomainError(err);
-      }
+        }),
+      );
     }),
 
   updateViewport: orgProcedure
@@ -90,15 +79,13 @@ export const architectureRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      try {
-        return await architectureService.updateViewport({
+      return fromPromise(
+        architectureService.updateViewport({
           projectId: input.projectId,
           organizationId: context.organizationId,
           environmentId: input.environmentId,
           viewport: input.viewport,
-        });
-      } catch (err) {
-        mapDomainError(err);
-      }
+        }),
+      );
     }),
 };

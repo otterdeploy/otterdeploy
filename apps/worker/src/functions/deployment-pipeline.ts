@@ -1,5 +1,6 @@
 import { createLogger } from "@otterstack/logger";
 import { deploymentMachine } from "@otterstack/domain";
+import { Result } from "better-result";
 
 import { inngest } from "../inngest";
 
@@ -18,22 +19,22 @@ export const deploymentPipeline = inngest.createFunction(
     onFailure: async ({ event, error }) => {
       const deploymentId = event.data.event.data.deploymentId;
 
-      logger.error(
-        { deploymentId, err: error },
-        "Deployment pipeline failed",
-      );
+      logger.error({ deploymentId, err: error }, "Deployment pipeline failed");
 
-      try {
-        await deploymentMachine.transitionTo(deploymentId, "failed", {
-          actor: "system",
-          reason: "Pipeline execution failed",
-          metadata: {
-            error: error instanceof Error ? error.message : "Unknown worker failure",
-          },
-        });
-      } catch (transitionErr) {
+      const transitionResult = await Result.tryPromise({
+        try: () =>
+          deploymentMachine.transitionTo(deploymentId, "failed", {
+            actor: "system",
+            reason: "Pipeline execution failed",
+            metadata: {
+              error: error instanceof Error ? error.message : "Unknown worker failure",
+            },
+          }),
+        catch: (transitionErr) => transitionErr,
+      });
+      if (transitionResult.isErr()) {
         logger.warn(
-          { deploymentId, err: transitionErr },
+          { deploymentId, err: transitionResult.error },
           "Failed to transition deployment to failed after pipeline error",
         );
       }

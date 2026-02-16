@@ -3,6 +3,18 @@ import { projectResource } from "@otterstack/db/schema/architecture";
 
 import { DomainError } from "./errors";
 
+type MetricPoint = {
+  timestamp: string;
+  value: number;
+};
+
+type LogItem = {
+  id: string;
+  timestamp: string;
+  message: string;
+  level: "info" | "warn" | "error";
+};
+
 function paginationMeta(page: number, pageSize: number, total: number) {
   return {
     pagination: {
@@ -37,10 +49,11 @@ export async function getMetrics(params: {
   to: string;
 }) {
   await validateResource(params.resourceId, params.organizationId);
+  const points: MetricPoint[] = [];
   return {
     resourceId: params.resourceId,
     metric: params.metric,
-    points: [] as never[],
+    points,
   };
 }
 
@@ -53,8 +66,9 @@ export async function getLogs(params: {
   pageSize: number;
 }) {
   await validateResource(params.resourceId, params.organizationId);
+  const items: LogItem[] = [];
   return {
-    items: [] as never[],
+    items,
     meta: paginationMeta(params.page, params.pageSize, 0),
   };
 }
@@ -65,8 +79,9 @@ export async function streamLogs(params: {
   cursor?: string;
 }) {
   await validateResource(params.resourceId, params.organizationId);
+  const items: LogItem[] = [];
   return {
-    items: [] as never[],
+    items,
     meta: paginationMeta(1, 10, 0),
   };
 }

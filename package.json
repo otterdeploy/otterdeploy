@@ -21,6 +21,7 @@
       "@types/react-dom": "19.2.3",
       "@xyflow/react": "^12.9.0",
       "better-auth": "^1.4.18",
+      "better-result": "latest",
       "class-variance-authority": "^0.7.1",
       "clsx": "^2.1.1",
       "cmdk": "^1.1.1",
@@ -66,8 +67,9 @@
     "infra:up": "docker compose up -d",
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose down",
-    "check": "oxlint && oxfmt --write",
-    "ruler:apply": "bunx @intellectronica/ruler@latest apply --local-only"
+    "check": "oxlint && bun run check:result-discipline && oxfmt --write",
+    "ruler:apply": "bunx @intellectronica/ruler@latest apply --local-only",
+    "check:result-discipline": "bash ./scripts/check-result-discipline.sh"
   },
   "dependencies": {
     "@otterstack/env": "workspace:*",

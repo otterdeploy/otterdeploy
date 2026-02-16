@@ -19,19 +19,20 @@ import { toast } from "sonner";
 import { Button } from "@otterstack/ui/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@otterstack/ui/components/ui/card";
 
+import { toUserMessage } from "@/lib/result";
 import { getOrganizationId, orpc } from "@/utils/orpc";
 
 import { ArchitectureCanvas } from "./architecture-canvas";
 import { CreateResourceDialog } from "./create-resource-dialog";
 import { DetailsPanel } from "./details-panel";
 import type {
-  ArchitectureGraphPayload,
   ResourceEdge,
   ResourceKind,
   ResourceLinkType,
   ResourceNode,
   ResourceStatus,
 } from "./types";
+import { parseResourceLinkType } from "./types";
 
 function cloneNodes(nodes: ResourceNode[]) {
   return nodes.map((node) => ({
@@ -48,17 +49,19 @@ function cloneNodes(nodes: ResourceNode[]) {
   }));
 }
 
-function cloneEdges(edges: ResourceEdge[]) {
-  return edges.map((edge) => ({
-    ...edge,
-    data: edge.data
-      ? {
-          ...edge.data,
-        }
-      : {
-          linkType: "network" as ResourceLinkType,
-        },
-  }));
+function cloneEdges(edges: ResourceEdge[]): ResourceEdge[] {
+  return edges.map((edge) => {
+    const linkType: ResourceLinkType = parseResourceLinkType(edge.data?.linkType ?? "network");
+    const cloned: ResourceEdge = {
+      ...edge,
+      data: {
+        ...(edge.data ?? {}),
+        linkType,
+      },
+    };
+
+    return cloned;
+  });
 }
 
 type GraphSnapshot = {
@@ -176,8 +179,7 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
             replace: true,
           });
         } catch (error) {
-          const message = error instanceof Error ? error.message : "Failed to create dev project";
-          toast.error(message);
+          toast.error(toUserMessage(error, "Failed to create dev project"));
         } finally {
           isBootstrappingDevRef.current = false;
         }
@@ -198,8 +200,8 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
       return;
     }
 
-    const nextNodes = graphQuery.data.nodes as ResourceNode[];
-    const nextEdges = graphQuery.data.edges as ResourceEdge[];
+    const nextNodes = graphQuery.data.nodes;
+    const nextEdges = graphQuery.data.edges;
 
     setNodes(cloneNodes(nextNodes));
     setEdges(cloneEdges(nextEdges));
@@ -316,8 +318,7 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
       applySnapshot(current);
       setPast((value) => [...value, previous]);
       setFuture((value) => value.slice(0, -1));
-      const message = error instanceof Error ? error.message : "Failed to undo";
-      toast.error(message);
+      toast.error(toUserMessage(error, "Failed to undo"));
     }
   }, [applySnapshot, past, persistGraph, snapshot]);
 
@@ -340,8 +341,7 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
       applySnapshot(current);
       setFuture((value) => [...value, next]);
       setPast((value) => value.slice(0, -1));
-      const message = error instanceof Error ? error.message : "Failed to redo";
-      toast.error(message);
+      toast.error(toUserMessage(error, "Failed to redo"));
     }
   }, [applySnapshot, future, persistGraph, snapshot]);
 
@@ -396,9 +396,9 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
               return node;
             }
 
-            return {
+            const nextNode: ResourceNode = {
               id: created.id,
-              type: "resource" as const,
+              type: "resource",
               position: {
                 x: created.posX,
                 y: created.posY,
@@ -410,13 +410,13 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
                 metadata: created.metadata,
               },
             };
+            return nextNode;
           }),
         );
         setSelectedNodeId(created.id);
       } catch (error) {
         applySnapshot(previous);
-        const message = error instanceof Error ? error.message : "Failed to create resource";
-        toast.error(message);
+        toast.error(toUserMessage(error, "Failed to create resource"));
       }
     },
     [
@@ -431,12 +431,7 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
   );
 
   const onUpdateNode = useCallback(
-    async (input: {
-      nodeId: string;
-      name: string;
-      kind: ResourceKind;
-      status: ResourceStatus;
-    }) => {
+    async (input: { nodeId: string; name: string; kind: ResourceKind; status: ResourceStatus }) => {
       if (!graphIdentity) {
         return;
       }
@@ -471,8 +466,7 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
         });
       } catch (error) {
         applySnapshot(previous);
-        const message = error instanceof Error ? error.message : "Failed to update resource";
-        toast.error(message);
+        toast.error(toUserMessage(error, "Failed to update resource"));
       }
     },
     [applySnapshot, graphIdentity, pushHistory, snapshot, updateResourceMutation],
@@ -497,8 +491,7 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
         });
       } catch (error) {
         applySnapshot(previous);
-        const message = error instanceof Error ? error.message : "Failed to delete resource";
-        toast.error(message);
+        toast.error(toUserMessage(error, "Failed to delete resource"));
       }
     },
     [applySnapshot, deleteResourceMutation, graphIdentity, pushHistory, snapshot],
@@ -524,7 +517,7 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
         },
       };
 
-      setEdges((value) => addEdge(optimisticEdge, value) as ResourceEdge[]);
+      setEdges((value) => addEdge<ResourceEdge>(optimisticEdge, value));
 
       try {
         const created = await createLinkMutation.mutateAsync({
@@ -541,21 +534,21 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
               return edge;
             }
 
-            return {
+            const nextEdge: ResourceEdge = {
               id: created.id,
               source: created.sourceResourceId,
               target: created.targetResourceId,
-              type: "smoothstep" as const,
+              type: "smoothstep",
               data: {
-                linkType: created.linkType,
+                linkType: parseResourceLinkType(created.linkType),
               },
             };
+            return nextEdge;
           }),
         );
       } catch (error) {
         applySnapshot(previous);
-        const message = error instanceof Error ? error.message : "Failed to connect resources";
-        toast.error(message);
+        toast.error(toUserMessage(error, "Failed to connect resources"));
       }
     },
     [applySnapshot, createLinkMutation, graphIdentity, pushHistory, snapshot],
@@ -585,8 +578,7 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
         );
       } catch (error) {
         applySnapshot(previous);
-        const message = error instanceof Error ? error.message : "Failed to delete resources";
-        toast.error(message);
+        toast.error(toUserMessage(error, "Failed to delete resources"));
       }
     },
     [applySnapshot, deleteResourceMutation, graphIdentity, pushHistory, snapshot],
@@ -616,8 +608,7 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
         );
       } catch (error) {
         applySnapshot(previous);
-        const message = error instanceof Error ? error.message : "Failed to delete links";
-        toast.error(message);
+        toast.error(toUserMessage(error, "Failed to delete links"));
       }
     },
     [applySnapshot, deleteLinkMutation, graphIdentity, pushHistory, snapshot],
@@ -625,13 +616,13 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
 
   const onNodesChange = useCallback((changes: NodeChange<ResourceNode>[]) => {
     setNodes((currentNodes) => {
-      return applyNodeChanges(changes, currentNodes) as ResourceNode[];
+      return applyNodeChanges<ResourceNode>(changes, currentNodes);
     });
   }, []);
 
   const onEdgesChange = useCallback((changes: EdgeChange<ResourceEdge>[]) => {
     setEdges((currentEdges) => {
-      return applyEdgeChanges(changes, currentEdges) as ResourceEdge[];
+      return applyEdgeChanges<ResourceEdge>(changes, currentEdges);
     });
   }, []);
 
@@ -696,8 +687,7 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
         if (dragStartSnapshot) {
           applySnapshot(dragStartSnapshot);
         }
-        const message = error instanceof Error ? error.message : "Failed to persist node position";
-        toast.error(message);
+        toast.error(toUserMessage(error, "Failed to persist node position"));
       }
     },
     [applySnapshot, graphIdentity, pushHistory, updateResourceMutation],
@@ -736,8 +726,8 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-slate-300">
             <p>
-              This project either does not exist yet, or you do not have access. Create a new project and we will
-              seed it with a starter architecture.
+              This project either does not exist yet, or you do not have access. Create a new
+              project and we will seed it with a starter architecture.
             </p>
             <Button
               onClick={async () => {
@@ -759,8 +749,7 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
                     replace: true,
                   });
                 } catch (error) {
-                  const message = error instanceof Error ? error.message : "Failed to create project";
-                  toast.error(message);
+                  toast.error(toUserMessage(error, "Failed to create project"));
                 }
               }}
             >
@@ -772,7 +761,7 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
     );
   }
 
-  const payload = graphQuery.data as ArchitectureGraphPayload;
+  const payload = graphQuery.data;
 
   return (
     <div className="h-full bg-[radial-gradient(circle_at_top,#111936,#070b17_58%)] p-4">
@@ -818,7 +807,11 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
         canRedo={future.length > 0}
       />
 
-      <DetailsPanel selectedNode={selectedNode} onUpdateNode={onUpdateNode} onDeleteNode={onDeleteNode} />
+      <DetailsPanel
+        selectedNode={selectedNode}
+        onUpdateNode={onUpdateNode}
+        onDeleteNode={onDeleteNode}
+      />
 
       <CreateResourceDialog
         open={isCreateOpen}

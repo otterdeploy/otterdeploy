@@ -14,6 +14,7 @@
     "contract:check": "bun run check-types"
   },
   "dependencies": {
+    "better-result": "catalog:",
     "@otterstack/contract": "workspace:*",
     "inngest": "catalog:",
     "zod": "catalog:"

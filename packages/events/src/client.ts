@@ -1,7 +1,8 @@
 import { EventSchemas as InngestEventSchemas, Inngest } from "inngest";
 
 import type { EventName, EventPayload, EventPayloadMap } from "./events";
-import { createEventPublisher } from "./publish";
+import { createEventPublisher, type PublishEventError } from "./publish";
+import type { Result } from "better-result";
 
 type InngestSchemaRecord = {
   [K in keyof EventPayloadMap]: {
@@ -9,9 +10,7 @@ type InngestSchemaRecord = {
   };
 };
 
-let publisher:
-  | ReturnType<typeof createEventPublisher>
-  | null = null;
+let publisher: ReturnType<typeof createEventPublisher> | null = null;
 
 function createInngestClient() {
   const eventKey = process.env.INNGEST_EVENT_KEY;
@@ -35,6 +34,6 @@ export async function publishEvent<TName extends EventName>(
   data: Omit<EventPayload<TName>, "occurredAt" | "correlationId"> & {
     correlationId?: string;
   },
-) {
+): Promise<Result<void, PublishEventError>> {
   return getEventPublisher()(name, data);
 }

@@ -78,19 +78,18 @@ export async function createGitProvider(params: {
     appId: params.appId ?? null,
     clientId: params.clientId ?? null,
     clientSecretReferenceId: clientSecret?.reference.id ?? null,
-    encryptedClientSecret: params.clientSecret
-      ? encodeLegacySecret(params.clientSecret)
-      : null,
+    encryptedClientSecret: params.clientSecret ? encodeLegacySecret(params.clientSecret) : null,
     installationId: params.installationId ?? null,
     webhookSecretReferenceId: webhookSecret?.reference.id ?? null,
-    encryptedWebhookSecret: params.webhookSecret
-      ? encodeLegacySecret(params.webhookSecret)
-      : null,
+    encryptedWebhookSecret: params.webhookSecret ? encodeLegacySecret(params.webhookSecret) : null,
     createdAt: now,
     updatedAt: now,
   };
 
-  await db.insert(gitProvider).values(row);
+  const [inserted] = await db.insert(gitProvider).values(row).returning();
+  if (!inserted) {
+    throw new DomainError("CONFLICT", "Failed to create git provider");
+  }
 
   await writeAuditLog(
     params.organizationId,
@@ -104,7 +103,7 @@ export async function createGitProvider(params: {
     },
   );
 
-  return formatGitProvider(row as typeof gitProvider.$inferSelect);
+  return formatGitProvider(inserted);
 }
 
 export async function updateGitProvider(params: {
@@ -161,9 +160,7 @@ export async function updateGitProvider(params: {
       appId: params.appId === undefined ? existing.appId : params.appId,
       clientId: params.clientId === undefined ? existing.clientId : params.clientId,
       installationId:
-        params.installationId === undefined
-          ? existing.installationId
-          : params.installationId,
+        params.installationId === undefined ? existing.installationId : params.installationId,
       clientSecretReferenceId,
       encryptedClientSecret,
       webhookSecretReferenceId,
@@ -206,7 +203,14 @@ export async function deleteGitProvider(
   const existing = await validateAccess(providerId, organizationId);
   await db.delete(gitProvider).where(eq(gitProvider.id, providerId));
 
-  await writeAuditLog(organizationId, audit, "git_provider.deleted", "git_provider", existing.id, {});
+  await writeAuditLog(
+    organizationId,
+    audit,
+    "git_provider.deleted",
+    "git_provider",
+    existing.id,
+    {},
+  );
 
   return { success: true as const };
 }

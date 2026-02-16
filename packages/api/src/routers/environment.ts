@@ -1,15 +1,8 @@
 import * as z from "zod";
-import { ORPCError } from "@orpc/server";
-import { environmentService, DomainError } from "@otterstack/domain";
+import { environmentService } from "@otterstack/domain";
 
 import { orgProcedure, orgMemberProcedure, orgAdminProcedure } from "../index";
-
-function mapDomainError(err: unknown): never {
-  if (err instanceof DomainError) {
-    throw new ORPCError(err.code, { message: err.message });
-  }
-  throw err;
-}
+import { fromPromise } from "../utils/result";
 
 export const environmentRouter = {
   create: orgMemberProcedure
@@ -20,15 +13,13 @@ export const environmentRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      try {
-        return await environmentService.createEnvironment({
+      return fromPromise(
+        environmentService.createEnvironment({
           projectId: input.projectId,
           organizationId: context.organizationId,
           name: input.name,
-        });
-      } catch (err) {
-        mapDomainError(err);
-      }
+        }),
+      );
     }),
 
   getById: orgProcedure
@@ -38,11 +29,9 @@ export const environmentRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      try {
-        return await environmentService.getEnvironmentById(input.environmentId, context.organizationId);
-      } catch (err) {
-        mapDomainError(err);
-      }
+      return fromPromise(
+        environmentService.getEnvironmentById(input.environmentId, context.organizationId),
+      );
     }),
 
   list: orgProcedure
@@ -52,11 +41,9 @@ export const environmentRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      try {
-        return await environmentService.listEnvironments(input.projectId, context.organizationId);
-      } catch (err) {
-        mapDomainError(err);
-      }
+      return fromPromise(
+        environmentService.listEnvironments(input.projectId, context.organizationId),
+      );
     }),
 
   delete: orgAdminProcedure
@@ -66,10 +53,8 @@ export const environmentRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      try {
-        return await environmentService.deleteEnvironment(input.environmentId, context.organizationId);
-      } catch (err) {
-        mapDomainError(err);
-      }
+      return fromPromise(
+        environmentService.deleteEnvironment(input.environmentId, context.organizationId),
+      );
     }),
 };

@@ -2,8 +2,14 @@ import type { Context as HonoContext } from "hono";
 
 import { auth } from "@otterstack/auth";
 
+export type ApiContextVariables = {
+  correlationId: string;
+};
+
+export type ApiHonoContext = HonoContext<{ Variables: ApiContextVariables }>;
+
 export type CreateContextOptions = {
-  context: HonoContext;
+  context: ApiHonoContext;
 };
 
 export async function createContext({ context }: CreateContextOptions) {
@@ -11,10 +17,7 @@ export async function createContext({ context }: CreateContextOptions) {
     headers: context.req.raw.headers,
   });
   const organizationId = context.req.header("x-organization-id") ?? null;
-  const correlationId =
-    (context.get("correlationId" as never) as string | undefined) ??
-    context.req.header("x-request-id") ??
-    null;
+  const correlationId = context.get("correlationId") ?? context.req.header("x-request-id") ?? null;
 
   return {
     session,
