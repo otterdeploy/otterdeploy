@@ -15,7 +15,10 @@ import { Route as DashboardIndexRouteImport } from './routes/_dashboard/index'
 import { Route as AuthSignupRouteImport } from './routes/_auth/signup'
 import { Route as AuthLoginRouteImport } from './routes/_auth/login'
 import { Route as DashboardProjectIndexRouteImport } from './routes/_dashboard/project/index'
-import { Route as DashboardProjectProjectIdRouteImport } from './routes/_dashboard/project/$projectId'
+import { Route as DashboardProjectProjectIdLayoutRouteImport } from './routes/_dashboard/project/$projectId/layout'
+import { Route as DashboardProjectProjectIdIndexRouteImport } from './routes/_dashboard/project/$projectId/index'
+import { Route as DashboardProjectProjectIdVolumeVolumeRouteImport } from './routes/_dashboard/project/$projectId/volume./$volume'
+import { Route as DashboardProjectProjectIdServiceServiceIdRouteImport } from './routes/_dashboard/project/$projectId/service/$serviceId'
 
 const DashboardLayoutRoute = DashboardLayoutRouteImport.update({
   id: '/_dashboard',
@@ -45,26 +48,49 @@ const DashboardProjectIndexRoute = DashboardProjectIndexRouteImport.update({
   path: '/project/',
   getParentRoute: () => DashboardLayoutRoute,
 } as any)
-const DashboardProjectProjectIdRoute =
-  DashboardProjectProjectIdRouteImport.update({
+const DashboardProjectProjectIdLayoutRoute =
+  DashboardProjectProjectIdLayoutRouteImport.update({
     id: '/project/$projectId',
     path: '/project/$projectId',
     getParentRoute: () => DashboardLayoutRoute,
+  } as any)
+const DashboardProjectProjectIdIndexRoute =
+  DashboardProjectProjectIdIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => DashboardProjectProjectIdLayoutRoute,
+  } as any)
+const DashboardProjectProjectIdVolumeVolumeRoute =
+  DashboardProjectProjectIdVolumeVolumeRouteImport.update({
+    id: '/volume/$volume',
+    path: '/volume/$volume',
+    getParentRoute: () => DashboardProjectProjectIdLayoutRoute,
+  } as any)
+const DashboardProjectProjectIdServiceServiceIdRoute =
+  DashboardProjectProjectIdServiceServiceIdRouteImport.update({
+    id: '/service/$serviceId',
+    path: '/service/$serviceId',
+    getParentRoute: () => DashboardProjectProjectIdLayoutRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof DashboardIndexRoute
   '/login': typeof AuthLoginRoute
   '/signup': typeof AuthSignupRoute
-  '/project/$projectId': typeof DashboardProjectProjectIdRoute
+  '/project/$projectId': typeof DashboardProjectProjectIdLayoutRouteWithChildren
   '/project/': typeof DashboardProjectIndexRoute
+  '/project/$projectId/': typeof DashboardProjectProjectIdIndexRoute
+  '/project/$projectId/service/$serviceId': typeof DashboardProjectProjectIdServiceServiceIdRoute
+  '/project/$projectId/volume/$volume': typeof DashboardProjectProjectIdVolumeVolumeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof DashboardIndexRoute
   '/login': typeof AuthLoginRoute
   '/signup': typeof AuthSignupRoute
-  '/project/$projectId': typeof DashboardProjectProjectIdRoute
   '/project': typeof DashboardProjectIndexRoute
+  '/project/$projectId': typeof DashboardProjectProjectIdIndexRoute
+  '/project/$projectId/service/$serviceId': typeof DashboardProjectProjectIdServiceServiceIdRoute
+  '/project/$projectId/volume/$volume': typeof DashboardProjectProjectIdVolumeVolumeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -73,14 +99,32 @@ export interface FileRoutesById {
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/signup': typeof AuthSignupRoute
   '/_dashboard/': typeof DashboardIndexRoute
-  '/_dashboard/project/$projectId': typeof DashboardProjectProjectIdRoute
+  '/_dashboard/project/$projectId': typeof DashboardProjectProjectIdLayoutRouteWithChildren
   '/_dashboard/project/': typeof DashboardProjectIndexRoute
+  '/_dashboard/project/$projectId/': typeof DashboardProjectProjectIdIndexRoute
+  '/_dashboard/project/$projectId/service/$serviceId': typeof DashboardProjectProjectIdServiceServiceIdRoute
+  '/_dashboard/project/$projectId/volume/$volume': typeof DashboardProjectProjectIdVolumeVolumeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/signup' | '/project/$projectId' | '/project/'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/signup'
+    | '/project/$projectId'
+    | '/project/'
+    | '/project/$projectId/'
+    | '/project/$projectId/service/$serviceId'
+    | '/project/$projectId/volume/$volume'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/signup' | '/project/$projectId' | '/project'
+  to:
+    | '/'
+    | '/login'
+    | '/signup'
+    | '/project'
+    | '/project/$projectId'
+    | '/project/$projectId/service/$serviceId'
+    | '/project/$projectId/volume/$volume'
   id:
     | '__root__'
     | '/_auth'
@@ -90,6 +134,9 @@ export interface FileRouteTypes {
     | '/_dashboard/'
     | '/_dashboard/project/$projectId'
     | '/_dashboard/project/'
+    | '/_dashboard/project/$projectId/'
+    | '/_dashboard/project/$projectId/service/$serviceId'
+    | '/_dashboard/project/$projectId/volume/$volume'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -145,8 +192,29 @@ declare module '@tanstack/react-router' {
       id: '/_dashboard/project/$projectId'
       path: '/project/$projectId'
       fullPath: '/project/$projectId'
-      preLoaderRoute: typeof DashboardProjectProjectIdRouteImport
+      preLoaderRoute: typeof DashboardProjectProjectIdLayoutRouteImport
       parentRoute: typeof DashboardLayoutRoute
+    }
+    '/_dashboard/project/$projectId/': {
+      id: '/_dashboard/project/$projectId/'
+      path: '/'
+      fullPath: '/project/$projectId/'
+      preLoaderRoute: typeof DashboardProjectProjectIdIndexRouteImport
+      parentRoute: typeof DashboardProjectProjectIdLayoutRoute
+    }
+    '/_dashboard/project/$projectId/volume/$volume': {
+      id: '/_dashboard/project/$projectId/volume/$volume'
+      path: '/volume/$volume'
+      fullPath: '/project/$projectId/volume/$volume'
+      preLoaderRoute: typeof DashboardProjectProjectIdVolumeVolumeRouteImport
+      parentRoute: typeof DashboardProjectProjectIdLayoutRoute
+    }
+    '/_dashboard/project/$projectId/service/$serviceId': {
+      id: '/_dashboard/project/$projectId/service/$serviceId'
+      path: '/service/$serviceId'
+      fullPath: '/project/$projectId/service/$serviceId'
+      preLoaderRoute: typeof DashboardProjectProjectIdServiceServiceIdRouteImport
+      parentRoute: typeof DashboardProjectProjectIdLayoutRoute
     }
   }
 }
@@ -165,15 +233,36 @@ const AuthLayoutRouteWithChildren = AuthLayoutRoute._addFileChildren(
   AuthLayoutRouteChildren,
 )
 
+interface DashboardProjectProjectIdLayoutRouteChildren {
+  DashboardProjectProjectIdIndexRoute: typeof DashboardProjectProjectIdIndexRoute
+  DashboardProjectProjectIdServiceServiceIdRoute: typeof DashboardProjectProjectIdServiceServiceIdRoute
+  DashboardProjectProjectIdVolumeVolumeRoute: typeof DashboardProjectProjectIdVolumeVolumeRoute
+}
+
+const DashboardProjectProjectIdLayoutRouteChildren: DashboardProjectProjectIdLayoutRouteChildren =
+  {
+    DashboardProjectProjectIdIndexRoute: DashboardProjectProjectIdIndexRoute,
+    DashboardProjectProjectIdServiceServiceIdRoute:
+      DashboardProjectProjectIdServiceServiceIdRoute,
+    DashboardProjectProjectIdVolumeVolumeRoute:
+      DashboardProjectProjectIdVolumeVolumeRoute,
+  }
+
+const DashboardProjectProjectIdLayoutRouteWithChildren =
+  DashboardProjectProjectIdLayoutRoute._addFileChildren(
+    DashboardProjectProjectIdLayoutRouteChildren,
+  )
+
 interface DashboardLayoutRouteChildren {
   DashboardIndexRoute: typeof DashboardIndexRoute
-  DashboardProjectProjectIdRoute: typeof DashboardProjectProjectIdRoute
+  DashboardProjectProjectIdLayoutRoute: typeof DashboardProjectProjectIdLayoutRouteWithChildren
   DashboardProjectIndexRoute: typeof DashboardProjectIndexRoute
 }
 
 const DashboardLayoutRouteChildren: DashboardLayoutRouteChildren = {
   DashboardIndexRoute: DashboardIndexRoute,
-  DashboardProjectProjectIdRoute: DashboardProjectProjectIdRoute,
+  DashboardProjectProjectIdLayoutRoute:
+    DashboardProjectProjectIdLayoutRouteWithChildren,
   DashboardProjectIndexRoute: DashboardProjectIndexRoute,
 }
 

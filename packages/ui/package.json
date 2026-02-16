@@ -31,26 +31,25 @@
     "date-fns": "catalog:",
     "embla-carousel-react": "catalog:",
     "input-otp": "catalog:",
-    "lucide-react": "catalog:",
     "next-themes": "catalog:",
     "react-day-picker": "catalog:",
     "react-resizable-panels": "catalog:",
     "recharts": "catalog:",
     "shadcn": "catalog:",
     "sonner": "catalog:",
-    "tailwindcss": "catalog:",
     "tailwind-merge": "catalog:",
+    "tailwindcss": "catalog:",
     "tw-animate-css": "catalog:",
     "vaul": "catalog:"
-  },
-  "peerDependencies": {
-    "react": "^19.2.3",
-    "react-dom": "^19.2.3"
   },
   "devDependencies": {
     "@otterstack/config": "workspace:*",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "typescript": "catalog:"
+  },
+  "peerDependencies": {
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3"
   }
 }
