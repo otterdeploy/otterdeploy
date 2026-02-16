@@ -4,6 +4,7 @@ import { member } from "@otterstack/db/schema/auth";
 
 import type { Context } from "./context";
 import { hasMinRole, type OrgRole } from "./utils/helpers";
+import { assertFreshStepUp } from "./utils/step-up";
 
 export const o = os.$context<Context>();
 
@@ -77,6 +78,16 @@ export const orgOwnerProcedure = orgProcedure.use(async ({ context, next }) => {
   if (!hasMinRole(context.membership.role, "owner")) {
     throw new ORPCError("FORBIDDEN", { message: "Requires owner role" });
   }
+  return next({ context });
+});
+
+export const orgMemberStepUpProcedure = orgMemberProcedure.use(async ({ context, next }) => {
+  assertFreshStepUp(context.session);
+  return next({ context });
+});
+
+export const orgAdminStepUpProcedure = orgAdminProcedure.use(async ({ context, next }) => {
+  assertFreshStepUp(context.session);
   return next({ context });
 });
 

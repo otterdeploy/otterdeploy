@@ -7,8 +7,9 @@ import {
   projectResourceLink,
 } from "@otterstack/db/schema/architecture";
 import { deployment } from "@otterstack/db/schema/deployment";
-import { server } from "@otterstack/db/schema/infrastructure";
+import { server, gitProvider } from "@otterstack/db/schema/infrastructure";
 import { customDomain, backup, environmentVariable } from "@otterstack/db/schema/operations";
+import { secretReference } from "@otterstack/db/schema/secrets";
 
 export async function validateProjectAccess(projectId: string, organizationId: string) {
   const row = await db.query.project.findFirst({
@@ -107,6 +108,14 @@ export async function validateServerAccess(serverId: string, organizationId: str
   return row;
 }
 
+export async function validateGitProviderAccess(providerId: string, organizationId: string) {
+  const row = await db.query.gitProvider.findFirst({
+    where: and(eq(gitProvider.id, providerId), eq(gitProvider.organizationId, organizationId)),
+  });
+  if (!row) throw new ORPCError("NOT_FOUND", { message: "Git provider not found" });
+  return row;
+}
+
 export async function validateDomainAccess(domainId: string, organizationId: string) {
   const row = await db.query.customDomain.findFirst({
     where: and(eq(customDomain.id, domainId), eq(customDomain.organizationId, organizationId)),
@@ -146,5 +155,16 @@ export async function validateResourceLinkAccess(linkId: string, organizationId:
   if (!row || row.environment.project.organizationId !== organizationId) {
     throw new ORPCError("NOT_FOUND", { message: "Resource link not found" });
   }
+  return row;
+}
+
+export async function validateSecretReferenceAccess(referenceId: string, organizationId: string) {
+  const row = await db.query.secretReference.findFirst({
+    where: and(
+      eq(secretReference.id, referenceId),
+      eq(secretReference.organizationId, organizationId),
+    ),
+  });
+  if (!row) throw new ORPCError("NOT_FOUND", { message: "Secret reference not found" });
   return row;
 }

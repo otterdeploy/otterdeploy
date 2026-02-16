@@ -5,6 +5,8 @@
   "type": "module",
   "exports": {
     "./server": "./src/server.ts",
+    "./database": "./src/database.ts",
+    "./worker": "./src/worker.ts",
     "./web": "./src/web.ts"
   },
   "dependencies": {

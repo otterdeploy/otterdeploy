@@ -23,6 +23,7 @@ const requiredRouters = [
   "architecture",
   "deployment",
   "environmentVariable",
+  "gitProvider",
   "domain",
   "server",
   "monitoring",

@@ -1,0 +1,14 @@
+import { EventSchemas, Inngest } from "inngest";
+import type { EventPayloadMap } from "@otterstack/events";
+
+// Inngest expects { data: T } format for event schemas
+type InngestEventSchemas = {
+  [K in keyof EventPayloadMap]: {
+    data: EventPayloadMap[K];
+  };
+};
+
+export const inngest = new Inngest({
+  id: "otterstack",
+  schemas: new EventSchemas().fromRecord<InngestEventSchemas>(),
+});

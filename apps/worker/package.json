@@ -1,0 +1,22 @@
+{
+  "name": "@otterstack/worker",
+  "type": "module",
+  "scripts": {
+    "env": "PORT=3002 bun --env-file=../../.env",
+    "dev": "bun run env --watch src/index.ts",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@otterstack/db": "workspace:*",
+    "@otterstack/domain": "workspace:*",
+    "@otterstack/events": "workspace:*",
+    "@otterstack/logger": "workspace:*",
+    "hono": "catalog:",
+    "inngest": "catalog:"
+  },
+  "devDependencies": {
+    "@otterstack/config": "workspace:*",
+    "@types/bun": "catalog:",
+    "typescript": "catalog:"
+  }
+}

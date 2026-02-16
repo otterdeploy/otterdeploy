@@ -56,3 +56,28 @@ export const envVarScopeEnum = pgEnum("env_var_scope", [
   "environment",
   "resource",
 ]);
+
+export const secretProviderEnum = pgEnum("secret_provider", [
+  "infisical",
+  "native_breakglass",
+]);
+
+export const secretKindEnum = pgEnum("secret_kind", [
+  "env_var",
+  "ssh_private_key",
+  "git_client_secret",
+  "git_webhook_secret",
+]);
+
+export const secretLogicalScopeEnum = pgEnum("secret_logical_scope", [
+  "organization",
+  "project",
+  "environment",
+  "resource",
+]);
+
+export const secretProviderBindingStatusEnum = pgEnum("secret_provider_binding_status", [
+  "provisioning",
+  "active",
+  "error",
+]);

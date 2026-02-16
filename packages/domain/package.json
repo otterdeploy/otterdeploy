@@ -1,0 +1,20 @@
+{
+  "name": "@otterstack/domain",
+  "type": "module",
+  "exports": {
+    ".": { "default": "./src/index.ts" },
+    "./*": { "default": "./src/*.ts" }
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@otterstack/db": "workspace:*",
+    "@otterstack/events": "workspace:*",
+    "@otterstack/logger": "workspace:*"
+  },
+  "devDependencies": {
+    "@otterstack/config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}

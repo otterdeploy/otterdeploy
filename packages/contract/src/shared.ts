@@ -60,6 +60,19 @@ export const DeploymentSourceSchema = z.enum(["git_push", "manual", "rollback", 
 export const BuildMethodSchema = z.enum(["nixpacks", "dockerfile", "buildpack"]);
 export const OrgRoleSchema = z.enum(["owner", "admin", "member", "viewer"]);
 export const EnvVarScopeSchema = z.enum(["project", "environment", "resource"]);
+export const SecretProviderSchema = z.enum(["infisical", "native_breakglass"]);
+export const SecretKindSchema = z.enum([
+  "env_var",
+  "ssh_private_key",
+  "git_client_secret",
+  "git_webhook_secret",
+]);
+export const SecretLogicalScopeSchema = z.enum([
+  "organization",
+  "project",
+  "environment",
+  "resource",
+]);
 
 export const ErrorCodeSchema = z.enum([
   "UNAUTHORIZED",

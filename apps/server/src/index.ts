@@ -7,19 +7,21 @@ import { createContext } from "@otterstack/api/context";
 import { appRouter } from "@otterstack/api/routers/index";
 import { auth } from "@otterstack/auth";
 import { env } from "@otterstack/env/server";
+import { createLogger, createRequestLogger } from "@otterstack/logger";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { logger } from "hono/logger";
+
+const logger = createLogger("server");
 
 const app = new Hono();
 
-app.use(logger());
+app.use(createRequestLogger());
 app.use(
   "/*",
   cors({
     origin: env.CORS_ORIGIN,
     allowMethods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization", "x-organization-id"],
+    allowHeaders: ["Content-Type", "Authorization", "x-organization-id", "x-request-id"],
     credentials: true,
   }),
 );
@@ -34,7 +36,7 @@ export const apiHandler = new OpenAPIHandler(appRouter, {
   ],
   interceptors: [
     onError((error) => {
-      console.error(error);
+      logger.error({ err: error }, "OpenAPI error");
     }),
   ],
 });
@@ -42,7 +44,7 @@ export const apiHandler = new OpenAPIHandler(appRouter, {
 export const rpcHandler = new RPCHandler(appRouter, {
   interceptors: [
     onError((error) => {
-      console.error(error);
+      logger.error({ err: error }, "RPC error");
     }),
   ],
 });

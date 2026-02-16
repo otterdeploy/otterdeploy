@@ -10,11 +10,19 @@ export const serverContract = {
     .route(route("POST", "/servers"))
     .input(
       z.object({
-        organizationId: IdSchema,
+        organizationId: IdSchema.optional(),
         name: z.string().min(1).max(128),
         ipAddress: z.string().min(1),
         port: z.number().int().min(1).max(65535).default(22),
         role: z.enum(["manager", "worker"]).default("worker"),
+        ssh: z
+          .object({
+            name: z.string().min(1).max(128),
+            publicKey: z.string().min(1),
+            privateKey: z.string().min(1),
+            fingerprint: z.string().min(1),
+          })
+          .optional(),
       }),
     )
     .output(ServerSchema),
@@ -22,7 +30,7 @@ export const serverContract = {
     .route(route("GET", "/servers"))
     .input(
       z.object({
-        organizationId: IdSchema,
+        organizationId: IdSchema.optional(),
       }),
     )
     .output(z.array(ServerSchema)),

@@ -12,6 +12,7 @@ import {
 
 import { organization } from "./auth";
 import { projectResource } from "./architecture";
+import { secretReference } from "./secrets";
 import { sslStatusEnum, backupStatusEnum, envVarScopeEnum } from "./enums";
 
 export const customDomain = pgTable(
@@ -52,6 +53,9 @@ export const environmentVariable = pgTable(
     scope: envVarScopeEnum("scope").notNull(),
     scopeId: text("scope_id").notNull(),
     key: text("key").notNull(),
+    secretReferenceId: text("secret_reference_id").references(() => secretReference.id, {
+      onDelete: "set null",
+    }),
     encryptedValue: text("encrypted_value").notNull(),
     isBuildTime: boolean("is_build_time").notNull().default(false),
     isSecret: boolean("is_secret").notNull().default(false),
@@ -64,6 +68,7 @@ export const environmentVariable = pgTable(
   (table) => [
     index("env_var_org_idx").on(table.organizationId),
     index("env_var_scope_idx").on(table.scope, table.scopeId),
+    index("env_var_secret_ref_idx").on(table.secretReferenceId),
     uniqueIndex("env_var_scope_key_unique").on(
       table.scope,
       table.scopeId,

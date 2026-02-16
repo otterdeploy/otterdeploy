@@ -1,8 +1,7 @@
 import * as z from "zod";
+import { monitoringService } from "@otterstack/domain";
 
 import { orgProcedure } from "../index";
-import { paginationMeta } from "../utils/helpers";
-import { validateResourceAccess } from "../utils/ownership";
 
 export const monitoringRouter = {
   getMetrics: orgProcedure
@@ -15,12 +14,13 @@ export const monitoringRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      await validateResourceAccess(input.resourceId, context.organizationId);
-      return {
+      return monitoringService.getMetrics({
         resourceId: input.resourceId,
+        organizationId: context.organizationId,
         metric: input.metric,
-        points: [] as never[],
-      };
+        from: input.from,
+        to: input.to,
+      });
     }),
 
   getLogs: orgProcedure
@@ -34,11 +34,14 @@ export const monitoringRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      await validateResourceAccess(input.resourceId, context.organizationId);
-      return {
-        items: [] as never[],
-        meta: paginationMeta(input.page, input.pageSize, 0),
-      };
+      return monitoringService.getLogs({
+        resourceId: input.resourceId,
+        organizationId: context.organizationId,
+        from: input.from,
+        to: input.to,
+        page: input.page,
+        pageSize: input.pageSize,
+      });
     }),
 
   streamLogs: orgProcedure
@@ -49,10 +52,10 @@ export const monitoringRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      await validateResourceAccess(input.resourceId, context.organizationId);
-      return {
-        items: [] as never[],
-        meta: paginationMeta(1, 10, 0),
-      };
+      return monitoringService.streamLogs({
+        resourceId: input.resourceId,
+        organizationId: context.organizationId,
+        cursor: input.cursor,
+      });
     }),
 };

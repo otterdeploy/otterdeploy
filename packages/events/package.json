@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@otterstack/contract": "workspace:*",
+    "inngest": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

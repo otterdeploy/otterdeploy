@@ -11,10 +11,15 @@ export async function createContext({ context }: CreateContextOptions) {
     headers: context.req.raw.headers,
   });
   const organizationId = context.req.header("x-organization-id") ?? null;
+  const correlationId =
+    (context.get("correlationId" as never) as string | undefined) ??
+    context.req.header("x-request-id") ??
+    null;
 
   return {
     session,
     organizationId,
+    correlationId,
     headers: context.req.raw.headers,
   };
 }

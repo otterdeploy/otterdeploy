@@ -12,6 +12,7 @@ import {
 
 import { organization } from "./auth";
 import { projectResource } from "./architecture";
+import { secretReference } from "./secrets";
 import { serverStatusEnum, serverRoleEnum } from "./enums";
 
 export const sshKey = pgTable(
@@ -23,11 +24,18 @@ export const sshKey = pgTable(
       .references(() => organization.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     publicKey: text("public_key").notNull(),
+    privateKeySecretReferenceId: text("private_key_secret_reference_id").references(
+      () => secretReference.id,
+      { onDelete: "set null" },
+    ),
     encryptedPrivateKey: text("encrypted_private_key").notNull(),
     fingerprint: text("fingerprint").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
-  (table) => [index("ssh_key_org_idx").on(table.organizationId)],
+  (table) => [
+    index("ssh_key_org_idx").on(table.organizationId),
+    index("ssh_key_secret_ref_idx").on(table.privateKeySecretReferenceId),
+  ],
 );
 
 export const server = pgTable(
@@ -76,8 +84,16 @@ export const gitProvider = pgTable(
     name: text("name").notNull(),
     appId: text("app_id"),
     clientId: text("client_id"),
+    clientSecretReferenceId: text("client_secret_reference_id").references(
+      () => secretReference.id,
+      { onDelete: "set null" },
+    ),
     encryptedClientSecret: text("encrypted_client_secret"),
     installationId: text("installation_id"),
+    webhookSecretReferenceId: text("webhook_secret_reference_id").references(
+      () => secretReference.id,
+      { onDelete: "set null" },
+    ),
     encryptedWebhookSecret: text("encrypted_webhook_secret"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
@@ -85,7 +101,11 @@ export const gitProvider = pgTable(
       .$onUpdate(() => new Date())
       .notNull(),
   },
-  (table) => [index("git_provider_org_idx").on(table.organizationId)],
+  (table) => [
+    index("git_provider_org_idx").on(table.organizationId),
+    index("git_provider_client_secret_ref_idx").on(table.clientSecretReferenceId),
+    index("git_provider_webhook_secret_ref_idx").on(table.webhookSecretReferenceId),
+  ],
 );
 
 export const gitRepository = pgTable(

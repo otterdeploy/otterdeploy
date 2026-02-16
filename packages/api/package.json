@@ -19,7 +19,10 @@
     "@orpc/zod": "catalog:",
     "@otterstack/auth": "workspace:*",
     "@otterstack/db": "workspace:*",
+    "@otterstack/domain": "workspace:*",
     "@otterstack/env": "workspace:*",
+    "@otterstack/logger": "workspace:*",
+    "@otterstack/secrets": "workspace:*",
     "drizzle-zod": "^0.8.2",
     "zod": "catalog:"
   },

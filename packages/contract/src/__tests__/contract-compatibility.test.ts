@@ -23,6 +23,7 @@ const REQUIRED_ROUTERS = [
   "architecture",
   "deployment",
   "environmentVariable",
+  "gitProvider",
   "domain",
   "server",
   "monitoring",
@@ -33,7 +34,7 @@ const REQUIRED_ROUTERS = [
 ] as const;
 
 describe("Contract structure", () => {
-  it("exports appContract with all 14 required routers", () => {
+  it("exports appContract with all 15 required routers", () => {
     const routers = Object.keys(appContract).sort();
     for (const name of REQUIRED_ROUTERS) {
       expect(routers, `missing router: ${name}`).toContain(name);
@@ -41,7 +42,7 @@ describe("Contract structure", () => {
     expect(routers).toHaveLength(REQUIRED_ROUTERS.length);
   });
 
-  it("has exactly 52 procedures", () => {
+  it("has exactly 58 procedures", () => {
     let count = 0;
     function walk(obj: unknown) {
       if (!obj || typeof obj !== "object") return;
@@ -54,7 +55,7 @@ describe("Contract structure", () => {
       }
     }
     walk(appContract);
-    expect(count).toBe(52);
+    expect(count).toBe(58);
   });
 
   it("every procedure has input and output schemas", () => {

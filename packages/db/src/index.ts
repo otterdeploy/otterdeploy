@@ -1,4 +1,4 @@
-import { env } from "@otterstack/env/server";
+import { env } from "@otterstack/env/database";
 import { drizzle } from "drizzle-orm/node-postgres";
 
 import * as schema from "./schema";

@@ -18,6 +18,7 @@
     "@otterstack/auth": "workspace:*",
     "@otterstack/db": "workspace:*",
     "@otterstack/env": "workspace:*",
+    "@otterstack/logger": "workspace:*",
     "better-auth": "catalog:",
     "hono": "catalog:",
     "zod": "catalog:"

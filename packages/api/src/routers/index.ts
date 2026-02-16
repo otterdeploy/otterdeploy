@@ -7,6 +7,7 @@ import { resourceLinkRouter } from "./resource-link";
 import { architectureRouter } from "./architecture";
 import { deploymentRouter } from "./deployment";
 import { environmentVariableRouter } from "./environment-variable";
+import { gitProviderRouter } from "./git-provider";
 import { domainRouter } from "./domain";
 import { serverRouter } from "./server";
 import { monitoringRouter } from "./monitoring";
@@ -23,6 +24,7 @@ export const appRouter = {
   architecture: architectureRouter,
   deployment: deploymentRouter,
   environmentVariable: environmentVariableRouter,
+  gitProvider: gitProviderRouter,
   domain: domainRouter,
   server: serverRouter,
   monitoring: monitoringRouter,

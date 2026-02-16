@@ -6,6 +6,7 @@ export * from "./domain";
 export * from "./environment-variable";
 export * from "./environment";
 export * from "./monitoring";
+export * from "./git-provider";
 export * from "./project";
 export * from "./resource-link";
 export * from "./resource";

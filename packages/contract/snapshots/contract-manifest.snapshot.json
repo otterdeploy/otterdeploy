@@ -8,6 +8,7 @@
     "domain",
     "environment",
     "environmentVariable",
+    "gitProvider",
     "monitoring",
     "project",
     "resource",
@@ -24,6 +25,7 @@
     "architecture",
     "deployment",
     "environmentVariable",
+    "gitProvider",
     "domain",
     "server",
     "monitoring",
@@ -32,7 +34,7 @@
     "audit",
     "system"
   ],
-  "procedureCount": 52,
+  "procedureCount": 58,
   "procedures": [
     {
       "id": "architecture.getGraph",
@@ -210,9 +212,51 @@
       "hasOutput": true
     },
     {
-      "id": "environmentVariable.set",
+      "id": "environmentVariable.reveal",
+      "method": "POST",
+      "path": "/environment-variables/{variableId}/reveal",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "environmentVariable.upsert",
       "method": "PUT",
       "path": "/environment-variables",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "gitProvider.create",
+      "method": "POST",
+      "path": "/git-providers",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "gitProvider.delete",
+      "method": "DELETE",
+      "path": "/git-providers/{providerId}",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "gitProvider.list",
+      "method": "GET",
+      "path": "/git-providers",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "gitProvider.rotateSecret",
+      "method": "POST",
+      "path": "/git-providers/{providerId}/rotate-secret",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "gitProvider.update",
+      "method": "PATCH",
+      "path": "/git-providers/{providerId}",
       "hasInput": true,
       "hasOutput": true
     },
@@ -399,5 +443,5 @@
       "hasOutput": true
     }
   ],
-  "procedureHash": "c56132b6a3a5fe1f0a8832ad1330533755b84399c60ea1f2736fa136eadc06e7"
+  "procedureHash": "f6043454666cb1d4dd73de4df8e7ee8c3f33c1968723601c332cc4275be09ae2"
 }

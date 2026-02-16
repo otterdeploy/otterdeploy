@@ -1,0 +1,26 @@
+import { InfisicalGatewayProvider } from "./infisical-gateway";
+import type { SecretProviderClient } from "./provider";
+import type { SecretLogicalScope, SecretProvider } from "./types";
+
+export function createSecretId() {
+  return crypto.randomUUID();
+}
+
+export function buildProviderPath(
+  providerProjectSlug: string,
+  logicalScope: SecretLogicalScope,
+  logicalScopeId: string,
+) {
+  const scopeId = logicalScopeId.replace(/[^a-zA-Z0-9._-]/g, "-");
+  return `/otterstack/projects/${providerProjectSlug}/${logicalScope}/${scopeId}`;
+}
+
+export function getProviderClient(provider: SecretProvider): SecretProviderClient {
+  if (provider === "infisical") {
+    return new InfisicalGatewayProvider();
+  }
+
+  throw new Error(
+    "native_breakglass is disabled by default. Enable it explicitly before use.",
+  );
+}

@@ -1,42 +1,122 @@
 import * as z from "zod";
 import { ORPCError } from "@orpc/server";
-import { db, eq, and, desc, sql } from "@otterstack/db";
-import { deployment } from "@otterstack/db/schema/deployment";
+import { deploymentService, DomainError } from "@otterstack/domain";
+import { db, eq, and, or } from "@otterstack/db";
+import { environmentVariable } from "@otterstack/db/schema/operations";
+import { deploymentSecretSnapshot } from "@otterstack/db/schema/secrets";
+import { revealSecretByReference } from "@otterstack/secrets";
 
 import {
   orgProcedure,
   orgMemberProcedure,
   orgAdminProcedure,
 } from "../index";
-import { createId, toISOString, paginationMeta } from "../utils/helpers";
-import {
-  validateEnvironmentInProject,
-  validateResourceInProject,
-  validateDeploymentAccess,
-} from "../utils/ownership";
+import { createId, paginationMeta } from "../utils/helpers";
+import { decodeLegacySecret, hashSecretDigest } from "../utils/legacy-secret";
 
-function formatDeployment(row: typeof deployment.$inferSelect) {
-  return {
-    id: row.id,
-    organizationId: row.organizationId,
-    projectId: row.projectId,
-    environmentId: row.environmentId,
-    resourceId: row.resourceId,
-    status: row.status,
-    source: row.source,
-    buildMethod: row.buildMethod ?? null,
-    gitRef: row.gitRef ?? null,
-    gitCommitSha: row.gitCommitSha ?? null,
-    gitCommitMessage: row.gitCommitMessage ?? null,
-    imageTag: row.imageTag ?? null,
-    previousImageTag: row.previousImageTag ?? null,
-    triggeredBy: row.triggeredBy ?? null,
-    startedAt: toISOString(row.startedAt),
-    completedAt: toISOString(row.completedAt),
-    duration: row.duration ?? null,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-  };
+function mapDomainError(err: unknown): never {
+  if (err instanceof DomainError) {
+    throw new ORPCError(err.code, { message: err.message });
+  }
+  throw err;
+}
+
+type CreateDeploymentSecretSnapshotInput = {
+  deploymentId: string;
+  organizationId: string;
+  projectId: string;
+  environmentId: string;
+  resourceId: string;
+};
+
+async function createDeploymentSecretSnapshot(
+  input: CreateDeploymentSecretSnapshotInput,
+) {
+  const rows = await db.query.environmentVariable.findMany({
+    where: and(
+      eq(environmentVariable.organizationId, input.organizationId),
+      or(
+        and(
+          eq(environmentVariable.scope, "project"),
+          eq(environmentVariable.scopeId, input.projectId),
+        ),
+        and(
+          eq(environmentVariable.scope, "environment"),
+          eq(environmentVariable.scopeId, input.environmentId),
+        ),
+        and(
+          eq(environmentVariable.scope, "resource"),
+          eq(environmentVariable.scopeId, input.resourceId),
+        ),
+      ),
+    ),
+  });
+
+  const scopeWeight = {
+    project: 0,
+    environment: 1,
+    resource: 2,
+  } as const;
+
+  const latestByKey = new Map<string, typeof environmentVariable.$inferSelect>();
+  const sortedRows = rows.sort((left, right) => {
+    const weightDelta = scopeWeight[left.scope] - scopeWeight[right.scope];
+    if (weightDelta !== 0) return weightDelta;
+    return left.updatedAt.getTime() - right.updatedAt.getTime();
+  });
+
+  for (const row of sortedRows) {
+    latestByKey.set(row.key, row);
+  }
+
+  const entries = [] as Array<{
+    key: string;
+    variableId: string;
+    scope: "project" | "environment" | "resource";
+    secretReferenceId: string | null;
+    providerVersion: string | null;
+    digest: string;
+  }>;
+
+  for (const row of latestByKey.values()) {
+    let secretValue = decodeLegacySecret(row.encryptedValue);
+    let providerVersion: string | null = null;
+
+    if (row.secretReferenceId) {
+      const revealed = await revealSecretByReference({
+        organizationId: input.organizationId,
+        secretReferenceId: row.secretReferenceId,
+        expectedKind: "env_var",
+      });
+      secretValue = revealed.value;
+      providerVersion = revealed.providerVersion;
+    }
+
+    entries.push({
+      key: row.key,
+      variableId: row.id,
+      scope: row.scope,
+      secretReferenceId: row.secretReferenceId ?? null,
+      providerVersion,
+      digest: hashSecretDigest(secretValue),
+    });
+  }
+
+  const snapshotHash = hashSecretDigest(
+    JSON.stringify(
+      [...entries].sort((left, right) => left.key.localeCompare(right.key)),
+    ),
+  );
+
+  await db.insert(deploymentSecretSnapshot).values({
+    id: createId(),
+    deploymentId: input.deploymentId,
+    organizationId: input.organizationId,
+    resourceId: input.resourceId,
+    entriesJson: entries,
+    snapshotHash,
+    createdAt: new Date(),
+  });
 }
 
 export const deploymentRouter = {
@@ -53,35 +133,31 @@ export const deploymentRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      await validateEnvironmentInProject(input.environmentId, input.projectId, context.organizationId);
-      await validateResourceInProject(input.resourceId, input.environmentId, input.projectId, context.organizationId);
+      try {
+        const result = await deploymentService.createDeployment({
+          organizationId: context.organizationId,
+          projectId: input.projectId,
+          environmentId: input.environmentId,
+          resourceId: input.resourceId,
+          source: input.source,
+          triggeredBy: context.userId,
+          gitRef: input.gitRef,
+          gitCommitSha: input.gitCommitSha,
+          buildMethod: input.buildMethod,
+        });
 
-      const now = new Date();
-      const row = {
-        id: createId(),
-        organizationId: context.organizationId,
-        projectId: input.projectId,
-        environmentId: input.environmentId,
-        resourceId: input.resourceId,
-        status: "queued" as const,
-        source: input.source,
-        gitRef: input.gitRef ?? null,
-        gitCommitSha: input.gitCommitSha ?? null,
-        gitCommitMessage: null,
-        buildMethod: input.buildMethod ?? null,
-        imageTag: null,
-        previousImageTag: null,
-        startedAt: null,
-        completedAt: null,
-        duration: null,
-        triggeredBy: context.userId,
-        metadata: {},
-        createdAt: now,
-        updatedAt: now,
-      };
+        await createDeploymentSecretSnapshot({
+          deploymentId: result.id,
+          organizationId: context.organizationId,
+          projectId: input.projectId,
+          environmentId: input.environmentId,
+          resourceId: input.resourceId,
+        });
 
-      await db.insert(deployment).values(row);
-      return formatDeployment(row as typeof deployment.$inferSelect);
+        return result;
+      } catch (err) {
+        mapDomainError(err);
+      }
     }),
 
   getById: orgProcedure
@@ -91,8 +167,15 @@ export const deploymentRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      const row = await validateDeploymentAccess(input.deploymentId, context.organizationId);
-      return formatDeployment(row);
+      try {
+        const result = await deploymentService.getDeploymentWithTimeline(
+          input.deploymentId,
+          context.organizationId,
+        );
+        return result.deployment;
+      } catch (err) {
+        mapDomainError(err);
+      }
     }),
 
   list: orgProcedure
@@ -106,34 +189,14 @@ export const deploymentRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      const { page, pageSize } = input;
-      const offset = (page - 1) * pageSize;
-      const organizationId = context.organizationId;
-
-      const conditions = [eq(deployment.organizationId, organizationId)];
-      if (input.projectId) conditions.push(eq(deployment.projectId, input.projectId));
-      if (input.environmentId) conditions.push(eq(deployment.environmentId, input.environmentId));
-      if (input.resourceId) conditions.push(eq(deployment.resourceId, input.resourceId));
-
-      const whereClause = and(...conditions);
-
-      const [items, [countRow]] = await Promise.all([
-        db.query.deployment.findMany({
-          where: whereClause,
-          orderBy: [desc(deployment.createdAt)],
-          limit: pageSize,
-          offset,
-        }),
-        db
-          .select({ count: sql<number>`count(*)::int` })
-          .from(deployment)
-          .where(whereClause!),
-      ]);
-
-      return {
-        items: items.map(formatDeployment),
-        meta: paginationMeta(page, pageSize, countRow?.count ?? 0),
-      };
+      return deploymentService.listDeployments({
+        organizationId: context.organizationId,
+        projectId: input.projectId,
+        environmentId: input.environmentId,
+        resourceId: input.resourceId,
+        page: input.page,
+        pageSize: input.pageSize,
+      });
     }),
 
   cancel: orgMemberProcedure
@@ -144,24 +207,15 @@ export const deploymentRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      const row = await validateDeploymentAccess(input.deploymentId, context.organizationId);
-
-      const terminalStatuses = ["live", "failed", "canceled", "rolled_back"];
-      if (terminalStatuses.includes(row.status)) {
-        throw new ORPCError("BAD_REQUEST", {
-          message: `Cannot cancel deployment in ${row.status} status`,
-        });
+      try {
+        return await deploymentService.cancelDeployment(
+          input.deploymentId,
+          context.organizationId,
+          context.userId,
+        );
+      } catch (err) {
+        mapDomainError(err);
       }
-
-      await db
-        .update(deployment)
-        .set({ status: "canceled", updatedAt: new Date(), completedAt: new Date() })
-        .where(eq(deployment.id, input.deploymentId));
-
-      const updated = await db.query.deployment.findFirst({
-        where: eq(deployment.id, input.deploymentId),
-      });
-      return formatDeployment(updated!);
     }),
 
   rollback: orgAdminProcedure
@@ -172,34 +226,16 @@ export const deploymentRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      const original = await validateDeploymentAccess(input.deploymentId, context.organizationId);
-
-      const now = new Date();
-      const row = {
-        id: createId(),
-        organizationId: context.organizationId,
-        projectId: original.projectId,
-        environmentId: original.environmentId,
-        resourceId: original.resourceId,
-        status: "queued" as const,
-        source: "rollback" as const,
-        gitRef: original.gitRef,
-        gitCommitSha: original.gitCommitSha,
-        gitCommitMessage: null,
-        buildMethod: original.buildMethod,
-        imageTag: original.previousImageTag,
-        previousImageTag: original.imageTag,
-        startedAt: null,
-        completedAt: null,
-        duration: null,
-        triggeredBy: context.userId,
-        metadata: {},
-        createdAt: now,
-        updatedAt: now,
-      };
-
-      await db.insert(deployment).values(row);
-      return formatDeployment(row as typeof deployment.$inferSelect);
+      try {
+        return await deploymentService.initiateRollback(
+          input.deploymentId,
+          context.organizationId,
+          context.userId,
+          input.reason,
+        );
+      } catch (err) {
+        mapDomainError(err);
+      }
     }),
 
   streamLogs: orgProcedure
@@ -210,7 +246,11 @@ export const deploymentRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      await validateDeploymentAccess(input.deploymentId, context.organizationId);
+      try {
+        await deploymentService.getDeploymentWithTimeline(input.deploymentId, context.organizationId);
+      } catch (err) {
+        mapDomainError(err);
+      }
       return {
         items: [] as never[],
         meta: paginationMeta(1, 10, 0),

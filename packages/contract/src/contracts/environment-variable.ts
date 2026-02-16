@@ -1,12 +1,12 @@
 import { oc } from "@orpc/contract";
 import * as z from "zod";
 
-import { EnvironmentVariableSchema } from "../schemas";
+import { EnvironmentVariableRevealSchema, EnvironmentVariableSchema } from "../schemas";
 import { route } from "../http";
 import { EnvVarScopeSchema, IdSchema, SuccessSchema } from "../shared";
 
 export const environmentVariableContract = {
-  set: oc
+  upsert: oc
     .route(route("PUT", "/environment-variables"))
     .input(
       z.object({
@@ -47,4 +47,13 @@ export const environmentVariableContract = {
       }),
     )
     .output(SuccessSchema),
+  reveal: oc
+    .route(route("POST", "/environment-variables/{variableId}/reveal"))
+    .input(
+      z.object({
+        variableId: IdSchema,
+        reason: z.string().min(1).max(256),
+      }),
+    )
+    .output(EnvironmentVariableRevealSchema),
 };

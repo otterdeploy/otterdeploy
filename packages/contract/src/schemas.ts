@@ -7,6 +7,7 @@ import {
   EnvVarScopeSchema,
   IdSchema,
   OrgRoleSchema,
+  SecretProviderSchema,
   ResourceKindSchema,
   ResourceLinkTypeSchema,
   ResourceStatusSchema,
@@ -49,7 +50,7 @@ export const ResourceSchema = z
     healthCheckPath: z.string().nullable(),
     replicas: z.number().int().nullable(),
   })
-  .extend(TimestampsSchema);
+  .merge(TimestampsSchema);
 
 export const ResourceLinkSchema = z
   .object({
@@ -60,7 +61,7 @@ export const ResourceLinkSchema = z
     targetResourceId: IdSchema,
     linkType: ResourceLinkTypeSchema,
   })
-  .extend(TimestampsSchema);
+  .merge(TimestampsSchema);
 
 export const ViewportSchema = z.object({
   x: z.number(),
@@ -113,7 +114,7 @@ export const DeploymentSchema = z
     completedAt: z.iso.datetime().nullable(),
     duration: z.number().int().nullable(),
   })
-  .extend(TimestampsSchema);
+  .merge(TimestampsSchema);
 
 export const DeploymentLogSchema = z.object({
   id: IdSchema,
@@ -133,8 +134,35 @@ export const EnvironmentVariableSchema = z
     key: z.string().min(1),
     isSecret: z.boolean(),
     buildTime: z.boolean(),
+    secretReferenceId: IdSchema.nullable(),
+    secretProvider: SecretProviderSchema.nullable(),
+    secretVersion: z.string().nullable(),
   })
-  .extend(TimestampsSchema);
+  .merge(TimestampsSchema);
+
+export const EnvironmentVariableRevealSchema = z.object({
+  variableId: IdSchema,
+  value: z.string().min(1),
+  revealedAt: z.iso.datetime(),
+  revealAuditId: IdSchema,
+  providerVersion: z.string().nullable(),
+});
+
+export const GitProviderSchema = z
+  .object({
+    id: IdSchema,
+    organizationId: IdSchema,
+    type: z.string().min(1),
+    name: z.string().min(1).max(128),
+    appId: z.string().nullable(),
+    clientId: z.string().nullable(),
+    installationId: z.string().nullable(),
+    hasClientSecret: z.boolean(),
+    hasWebhookSecret: z.boolean(),
+    clientSecretReferenceId: IdSchema.nullable(),
+    webhookSecretReferenceId: IdSchema.nullable(),
+  })
+  .merge(TimestampsSchema);
 
 export const DomainSchema = z
   .object({
@@ -146,7 +174,7 @@ export const DomainSchema = z
     sslStatus: z.enum(["pending", "active", "failed", "expired"]),
     sslExpiresAt: z.iso.datetime().nullable(),
   })
-  .extend(TimestampsSchema);
+  .merge(TimestampsSchema);
 
 export const ServerSchema = z
   .object({
@@ -157,9 +185,10 @@ export const ServerSchema = z
     port: z.number().int().min(1).max(65535),
     status: z.enum(["connected", "disconnected", "provisioning", "error"]),
     role: z.enum(["manager", "worker"]),
+    sshKeyId: IdSchema.nullable(),
     lastSeenAt: z.iso.datetime().nullable(),
   })
-  .extend(TimestampsSchema);
+  .merge(TimestampsSchema);
 
 export const MetricPointSchema = z.object({
   timestamp: z.iso.datetime(),
@@ -180,7 +209,7 @@ export const BackupSchema = z
     completedAt: z.iso.datetime().nullable(),
     expiresAt: z.iso.datetime().nullable(),
   })
-  .extend(TimestampsSchema);
+  .merge(TimestampsSchema);
 
 export const TeamMemberSchema = z.object({
   memberId: IdSchema,
