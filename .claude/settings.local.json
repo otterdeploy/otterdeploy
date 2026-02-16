@@ -3,7 +3,8 @@
     "allow": [
       "Bash(bd show:*)",
       "WebFetch(domain:www.inngest.com)",
-      "Bash(bun run check-types:*)"
+      "Bash(bun run check-types:*)",
+      "WebFetch(domain:www.better-auth.com)"
     ]
   }
 }

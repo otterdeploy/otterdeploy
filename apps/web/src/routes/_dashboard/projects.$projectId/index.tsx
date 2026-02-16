@@ -1,9 +1,11 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/project/$id")({
+export const Route = createFileRoute(
+  "/_dashboard/projects/$projectId/",
+)({
   beforeLoad: ({ params }) => {
     redirect({
-      to: `/projects/${params.id}/architecture`,
+      to: `/projects/${params.projectId}/architecture`,
       throw: true,
     });
   },
