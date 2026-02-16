@@ -1,19 +1,13 @@
 import type { QueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
 
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import {
-  HeadContent,
-  Outlet,
-  createRootRouteWithContext,
-} from "@tanstack/react-router";
+import { HeadContent, Outlet, createRootRouteWithContext } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 
-import { ThemeProvider } from "@/components/theme-provider";
+import { ThemeProvider } from "@/components/theme";
+import { orpc } from "@/utils/orpc";
 import { Toaster } from "@otterstack/ui/components/ui/sonner";
 import { TooltipProvider } from "@otterstack/ui/components/ui/tooltip";
-import { orpc, setOrganizationId } from "@/utils/orpc";
-import { authClient } from "@/lib/auth-client";
 
 import "../index.css";
 
@@ -43,17 +37,7 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
   }),
 });
 
-function useOrgSync() {
-  const { data: activeOrg } = authClient.useActiveOrganization();
-  const orgId = activeOrg?.id ?? null;
-  useEffect(() => {
-    setOrganizationId(orgId);
-  }, [orgId]);
-}
-
 function RootComponent() {
-  useOrgSync();
-
   return (
     <>
       <HeadContent />

@@ -5,7 +5,13 @@ import path from "node:path";
 import { defineConfig } from "vite";
 
 export default defineConfig({
-  plugins: [tailwindcss(), tanstackRouter({}), react()],
+  plugins: [
+    tailwindcss(),
+    tanstackRouter({
+      routeToken: "layout",
+    }),
+    react(),
+  ],
   envDir: path.resolve(__dirname, "../.."),
   resolve: {
     alias: {

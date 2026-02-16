@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import AuthPageShell from "@/feature/auth/components/auth-page-shell";
-import SignUpForm from "@/feature/auth/components/sign-up-form";
+import AuthPageShell from "@/features/auth/components/auth-page-shell";
+import SignUpForm from "@/features/auth/components/sign-up-form";
 
 export const Route = createFileRoute("/signup")({
   component: RouteComponent,
