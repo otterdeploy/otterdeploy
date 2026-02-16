@@ -1,0 +1,403 @@
+{
+  "version": 1,
+  "routers": [
+    "architecture",
+    "audit",
+    "backup",
+    "deployment",
+    "domain",
+    "environment",
+    "environmentVariable",
+    "monitoring",
+    "project",
+    "resource",
+    "resourceLink",
+    "server",
+    "system",
+    "team"
+  ],
+  "requiredRouters": [
+    "project",
+    "environment",
+    "resource",
+    "resourceLink",
+    "architecture",
+    "deployment",
+    "environmentVariable",
+    "domain",
+    "server",
+    "monitoring",
+    "backup",
+    "team",
+    "audit",
+    "system"
+  ],
+  "procedureCount": 52,
+  "procedures": [
+    {
+      "id": "architecture.getGraph",
+      "method": "GET",
+      "path": "/architecture/{projectId}/graph",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "architecture.replaceGraph",
+      "method": "PUT",
+      "path": "/architecture/{projectId}/graph",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "architecture.updateViewport",
+      "method": "PATCH",
+      "path": "/architecture/{projectId}/viewport",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "audit.list",
+      "method": "GET",
+      "path": "/audit",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "backup.create",
+      "method": "POST",
+      "path": "/backups",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "backup.delete",
+      "method": "DELETE",
+      "path": "/backups/{backupId}",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "backup.list",
+      "method": "GET",
+      "path": "/backups",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "backup.restore",
+      "method": "POST",
+      "path": "/backups/{backupId}/restore",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "deployment.cancel",
+      "method": "POST",
+      "path": "/deployments/{deploymentId}/cancel",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "deployment.create",
+      "method": "POST",
+      "path": "/deployments",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "deployment.getById",
+      "method": "GET",
+      "path": "/deployments/{deploymentId}",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "deployment.list",
+      "method": "GET",
+      "path": "/deployments",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "deployment.rollback",
+      "method": "POST",
+      "path": "/deployments/{deploymentId}/rollback",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "deployment.streamLogs",
+      "method": "GET",
+      "path": "/deployments/{deploymentId}/logs",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "domain.add",
+      "method": "POST",
+      "path": "/domains",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "domain.list",
+      "method": "GET",
+      "path": "/domains",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "domain.remove",
+      "method": "DELETE",
+      "path": "/domains/{domainId}",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "domain.verify",
+      "method": "POST",
+      "path": "/domains/{domainId}/verify",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "environment.create",
+      "method": "POST",
+      "path": "/environments",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "environment.delete",
+      "method": "DELETE",
+      "path": "/environments/{environmentId}",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "environment.getById",
+      "method": "GET",
+      "path": "/environments/{environmentId}",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "environment.list",
+      "method": "GET",
+      "path": "/projects/{projectId}/environments",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "environmentVariable.delete",
+      "method": "DELETE",
+      "path": "/environment-variables/{variableId}",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "environmentVariable.get",
+      "method": "GET",
+      "path": "/environment-variables/{variableId}",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "environmentVariable.list",
+      "method": "GET",
+      "path": "/environment-variables",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "environmentVariable.set",
+      "method": "PUT",
+      "path": "/environment-variables",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "monitoring.getLogs",
+      "method": "GET",
+      "path": "/monitoring/logs",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "monitoring.getMetrics",
+      "method": "GET",
+      "path": "/monitoring/metrics",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "monitoring.streamLogs",
+      "method": "GET",
+      "path": "/monitoring/logs/stream",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "project.create",
+      "method": "POST",
+      "path": "/projects",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "project.delete",
+      "method": "DELETE",
+      "path": "/projects/{projectId}",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "project.getById",
+      "method": "GET",
+      "path": "/projects/{projectId}",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "project.list",
+      "method": "GET",
+      "path": "/projects",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "project.update",
+      "method": "PATCH",
+      "path": "/projects/{projectId}",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "resource.create",
+      "method": "POST",
+      "path": "/resources",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "resource.delete",
+      "method": "DELETE",
+      "path": "/resources/{resourceId}",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "resource.getById",
+      "method": "GET",
+      "path": "/resources/{resourceId}",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "resource.list",
+      "method": "GET",
+      "path": "/projects/{projectId}/resources",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "resource.update",
+      "method": "PATCH",
+      "path": "/resources/{resourceId}",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "resourceLink.create",
+      "method": "POST",
+      "path": "/resource-links",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "resourceLink.delete",
+      "method": "DELETE",
+      "path": "/resource-links/{linkId}",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "server.list",
+      "method": "GET",
+      "path": "/servers",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "server.register",
+      "method": "POST",
+      "path": "/servers",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "server.remove",
+      "method": "DELETE",
+      "path": "/servers/{serverId}",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "server.test",
+      "method": "POST",
+      "path": "/servers/{serverId}/test",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "system.health",
+      "method": "GET",
+      "path": "/system/health",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "system.ready",
+      "method": "GET",
+      "path": "/system/ready",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "system.version",
+      "method": "GET",
+      "path": "/system/version",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "team.invite",
+      "method": "POST",
+      "path": "/organizations/{organizationId}/members/invite",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "team.listMembers",
+      "method": "GET",
+      "path": "/organizations/{organizationId}/members",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "team.removeMember",
+      "method": "DELETE",
+      "path": "/organizations/{organizationId}/members/{memberId}",
+      "hasInput": true,
+      "hasOutput": true
+    },
+    {
+      "id": "team.updateRole",
+      "method": "PATCH",
+      "path": "/organizations/{organizationId}/members/{memberId}/role",
+      "hasInput": true,
+      "hasOutput": true
+    }
+  ],
+  "procedureHash": "c56132b6a3a5fe1f0a8832ad1330533755b84399c60ea1f2736fa136eadc06e7"
+}

@@ -13,6 +13,12 @@
     "check-types": {
       "dependsOn": ["^check-types"]
     },
+    "contract:check": {
+      "dependsOn": ["^contract:check"]
+    },
+    "contract:update": {
+      "cache": false
+    },
     "//#infra:up": {
       "cache": false
     },

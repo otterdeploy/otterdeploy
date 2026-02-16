@@ -1,0 +1,25 @@
+{
+  "name": "@otterstack/contract",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "contract:check": "bun run scripts/check-contract-manifest.ts",
+    "contract:update": "bun run scripts/check-contract-manifest.ts --update"
+  },
+  "dependencies": {
+    "@orpc/contract": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@otterstack/config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}

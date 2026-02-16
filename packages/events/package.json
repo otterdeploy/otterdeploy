@@ -1,0 +1,24 @@
+{
+  "name": "@otterstack/events",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "contract:check": "bun run check-types"
+  },
+  "dependencies": {
+    "@otterstack/contract": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@otterstack/config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}

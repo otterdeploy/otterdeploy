@@ -153,6 +153,17 @@
       "name": "@otterstack/config",
       "version": "0.0.0",
     },
+    "packages/contract": {
+      "name": "@otterstack/contract",
+      "dependencies": {
+        "@orpc/contract": "catalog:",
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@otterstack/config": "workspace:*",
+        "typescript": "catalog:",
+      },
+    },
     "packages/db": {
       "name": "@otterstack/db",
       "dependencies": {
@@ -178,6 +189,17 @@
       "devDependencies": {
         "@otterstack/config": "workspace:*",
         "@types/bun": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
+    "packages/events": {
+      "name": "@otterstack/events",
+      "dependencies": {
+        "@otterstack/contract": "workspace:*",
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@otterstack/config": "workspace:*",
         "typescript": "catalog:",
       },
     },
@@ -224,6 +246,7 @@
     "@hugeicons/core-free-icons": "^3.1.1",
     "@hugeicons/react": "^1.1.5",
     "@orpc/client": "^1.13.5",
+    "@orpc/contract": "^1.13.5",
     "@orpc/openapi": "^1.13.5",
     "@orpc/server": "^1.13.5",
     "@orpc/zod": "^1.13.5",
@@ -582,9 +605,13 @@
 
     "@otterstack/config": ["@otterstack/config@workspace:packages/config"],
 
+    "@otterstack/contract": ["@otterstack/contract@workspace:packages/contract"],
+
     "@otterstack/db": ["@otterstack/db@workspace:packages/db"],
 
     "@otterstack/env": ["@otterstack/env@workspace:packages/env"],
+
+    "@otterstack/events": ["@otterstack/events@workspace:packages/events"],
 
     "@otterstack/ui": ["@otterstack/ui@workspace:packages/ui"],
 
