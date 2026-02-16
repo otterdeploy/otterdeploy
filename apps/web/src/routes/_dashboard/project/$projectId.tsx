@@ -2,49 +2,65 @@ import { orpc } from "@/utils/orpc";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import * as z from "zod";
 
+import { useCallback } from "react";
+import {
+  ReactFlow,
+  useNodesState,
+  useEdgesState,
+  addEdge,
+  Controls,
+  Background,
+  type Edge,
+  type OnConnect,
+} from "@xyflow/react";
+
+import "@xyflow/react/dist/style.css";
+
 const searchSchema = z.object({
-  envId: z.string().optional(),
+  env: z.string().default("production"),
 });
 
 export const Route = createFileRoute("/_dashboard/project/$projectId")({
   component: RouteComponent,
   validateSearch: searchSchema,
-  beforeLoad: async ({ context, search: { envId }, params: { projectId } }) => {
-    if (envId) return;
-    console.log("no envId provided");
-
-    envId = await context.queryClient.ensureQueryData(
+  beforeLoad: async ({ context, search: { env }, params: { projectId } }) => {
+    const envs = await context.queryClient.ensureQueryData(
       orpc.environment.list.queryOptions({
-        input: {
-          projectId: projectId,
-        },
+        input: { projectId },
       }),
     );
 
-    if (!envId) throw new Error("No environments found");
+    const matched = envs.find((e) => e.name === env);
+    if (matched) return;
 
-    throw redirect({ to: "/project/$projectId", params: { projectId }, search: { envId } });
+    const first = envs[0];
+    if (!first) throw new Error("No environments found");
+
+    throw redirect({
+      to: "/project/$projectId",
+      params: { projectId },
+      search: { env: first.name },
+    });
   },
-  loaderDeps: ({ search: { envId } }) => ({ envId }),
+  loaderDeps: ({ search: { env } }) => ({ env }),
   loader: async ({ context, deps, params }) => {
-    const { envId } = deps;
+    const { env } = deps;
 
-    if (!envId) throw new Error("No environment id provided");
+    const envs = await context.queryClient.ensureQueryData(
+      orpc.environment.list.queryOptions({
+        input: { projectId: params.projectId },
+      }),
+    );
 
-    const [env, resources, graph] = await Promise.all([
-      context.queryClient.ensureQueryData(
-        orpc.environment.getById.queryOptions({
-          input: {
-            environmentId: envId,
-          },
-        }),
-      ),
+    const matched = envs.find((e) => e.name === env);
+    if (!matched) throw new Error("Environment not found");
 
+    const [resources, graph] = await Promise.all([
       context.queryClient.ensureQueryData(
         orpc.resource.list.queryOptions({
           input: {
             projectId: params.projectId,
-            environmentId: envId,
+            environmentId: matched.id,
           },
         }),
       ),
@@ -52,31 +68,55 @@ export const Route = createFileRoute("/_dashboard/project/$projectId")({
         orpc.architecture.getGraph.queryOptions({
           input: {
             projectId: params.projectId,
-            environmentId: envId,
+            environmentId: matched.id,
           },
         }),
       ),
     ]);
-    // get domains for each resource
 
-    return { env, resources, graph };
+    return { env: matched, resources, graph };
   },
 
   errorComponent: ({ error }) => <div>Error: {error.message}</div>,
 });
 
+const initialNodes = [
+  {
+    id: "1",
+    position: { x: 0, y: 0 },
+    data: { label: "Hello" },
+  },
+  {
+    id: "2",
+    position: { x: 300, y: 0 },
+    data: { label: "World" },
+  },
+];
+
+const initialEdges: Edge[] = [];
+
 function RouteComponent() {
-  const { projectId } = Route.useParams();
-  const { env, resources } = Route.useLoaderData();
+  const [nodes, , onNodesChange] = useNodesState(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const onConnect: OnConnect = useCallback(
+    (params) => setEdges((els) => addEdge(params, els)),
+    [setEdges],
+  );
 
   return (
-    <div>
-      <h1>{env.name}</h1>
-      <ul>
-        {resources.map((resource) => (
-          <li key={resource.id}>{resource.name}</li>
-        ))}
-      </ul>
+    <div style={{ height: "100dvh" }}>
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
+        colorMode="dark"
+        fitView
+      >
+        <Controls />
+        <Background />
+      </ReactFlow>
     </div>
   );
 }

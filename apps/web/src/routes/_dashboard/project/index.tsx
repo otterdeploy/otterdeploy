@@ -1,5 +1,5 @@
 import { orpc } from "@/utils/orpc";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_dashboard/project/")({
   component: RouteComponent,
@@ -21,9 +21,11 @@ function RouteComponent() {
   return (
     <div>
       <h1>Projects</h1>
-      <ul>
+      <ul className="flex flex-col gap-2 mt-4">
         {projects.items.map((project) => (
-          <li key={project.id}>{project.name}</li>
+          <Link key={project.id} to="/project/$projectId" params={{ projectId: project.id }}>
+            {project.name}
+          </Link>
         ))}
       </ul>
     </div>

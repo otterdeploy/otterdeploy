@@ -85,6 +85,7 @@ otterstack/
 - `bun run db:generate`: Generate database client/types
 - `bun run db:migrate`: Run database migrations
 - `bun run db:studio`: Open database studio UI
+- `bun run db:seed -- --reset --count=20 --seed=20260216`: Seed mock data with drizzle-seed
 - `bun run db:up`: Start PostgreSQL container from root `docker-compose.yml`
 - `bun run db:down`: Stop containers from root `docker-compose.yml`
 - `bun run check`: Run Oxlint and Oxfmt

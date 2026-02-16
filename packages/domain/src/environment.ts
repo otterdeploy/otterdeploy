@@ -1,9 +1,6 @@
 import { Result } from "better-result";
 import { db, eq, and } from "@otterstack/db";
-import {
-  project,
-  projectEnvironment,
-} from "@otterstack/db/schema/architecture";
+import { project, projectEnvironment } from "@otterstack/db/schema/architecture";
 
 import { NotFoundError } from "./errors";
 
