@@ -22,7 +22,10 @@ export const monitoringContract = {
         metric: z.string(),
         points: z.array(MetricPointSchema),
       }),
-    ),
+    )
+    .errors({
+      NOT_FOUND: { message: "Resource not found" },
+    }),
   getLogs: oc
     .route(route("GET", "/monitoring/logs"))
     .input(
@@ -32,7 +35,10 @@ export const monitoringContract = {
         to: z.iso.datetime().optional(),
       }),
     )
-    .output(createPaginatedOutputSchema(DeploymentLogSchema)),
+    .output(createPaginatedOutputSchema(DeploymentLogSchema))
+    .errors({
+      NOT_FOUND: { message: "Resource not found" },
+    }),
   streamLogs: oc
     .route(route("GET", "/monitoring/logs/stream"))
     .input(
@@ -41,5 +47,8 @@ export const monitoringContract = {
         cursor: z.string().optional(),
       }),
     )
-    .output(createPaginatedOutputSchema(DeploymentLogSchema)),
+    .output(createPaginatedOutputSchema(DeploymentLogSchema))
+    .errors({
+      NOT_FOUND: { message: "Resource not found" },
+    }),
 };

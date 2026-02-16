@@ -2,7 +2,7 @@ import * as z from "zod";
 import { resourceLinkService } from "@otterstack/domain";
 
 import { orgMemberProcedure } from "../index";
-import { fromPromise } from "../utils/result";
+import { unwrapResult } from "../utils/result";
 
 export const resourceLinkRouter = {
   create: orgMemberProcedure
@@ -16,8 +16,8 @@ export const resourceLinkRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(
-        resourceLinkService.createResourceLink({
+      return unwrapResult(
+        await resourceLinkService.createResourceLink({
           projectId: input.projectId,
           environmentId: input.environmentId,
           organizationId: context.organizationId,
@@ -35,8 +35,8 @@ export const resourceLinkRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(
-        resourceLinkService.deleteResourceLink(input.linkId, context.organizationId),
+      return unwrapResult(
+        await resourceLinkService.deleteResourceLink(input.linkId, context.organizationId),
       );
     }),
 };

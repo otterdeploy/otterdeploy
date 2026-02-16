@@ -1,7 +1,8 @@
+import { Result } from "better-result";
 import { db, eq, and } from "@otterstack/db";
 import { member, invitation } from "@otterstack/db/schema/auth";
 
-import { DomainError } from "./errors";
+import { NotFoundError, ConflictError, ForbiddenError } from "./errors";
 
 export async function listMembers(organizationId: string) {
   const members = await db.query.member.findMany({
@@ -26,7 +27,12 @@ export async function inviteMember(params: {
   email: string;
   role: "owner" | "admin" | "member" | "viewer";
   invitedBy: string;
-}) {
+}): Promise<
+  Result<
+    { invitationId: string; organizationId: string; email: string; role: string; expiresAt: string },
+    ConflictError
+  >
+> {
   const existing = await db.query.invitation.findFirst({
     where: and(
       eq(invitation.organizationId, params.organizationId),
@@ -36,7 +42,9 @@ export async function inviteMember(params: {
   });
 
   if (existing) {
-    throw new DomainError("CONFLICT", "Pending invitation already exists for this email");
+    return Result.err(
+      new ConflictError({ resource: "invitation", detail: "Pending invitation already exists for this email" }),
+    );
   }
 
   const now = new Date();
@@ -55,20 +63,20 @@ export async function inviteMember(params: {
 
   await db.insert(invitation).values(row);
 
-  return {
+  return Result.ok({
     invitationId: row.id,
     organizationId: row.organizationId,
     email: row.email,
     role: params.role,
     expiresAt: expiresAt.toISOString(),
-  };
+  });
 }
 
 export async function updateMemberRole(params: {
   organizationId: string;
   memberId: string;
   role: "owner" | "admin" | "member" | "viewer";
-}) {
+}): Promise<Result<Record<string, unknown>, NotFoundError>> {
   const memberRow = await db.query.member.findFirst({
     where: and(
       eq(member.id, params.memberId),
@@ -78,7 +86,7 @@ export async function updateMemberRole(params: {
   });
 
   if (!memberRow) {
-    throw new DomainError("NOT_FOUND", "Member not found");
+    return Result.err(new NotFoundError({ resource: "member", id: params.memberId }));
   }
 
   await db
@@ -86,7 +94,7 @@ export async function updateMemberRole(params: {
     .set({ role: params.role })
     .where(eq(member.id, params.memberId));
 
-  return {
+  return Result.ok({
     memberId: memberRow.id,
     userId: memberRow.userId,
     organizationId: memberRow.organizationId,
@@ -95,13 +103,13 @@ export async function updateMemberRole(params: {
     name: memberRow.user.name ?? null,
     twoFactorEnabled: memberRow.user.twoFactorEnabled ?? false,
     joinedAt: memberRow.createdAt.toISOString(),
-  };
+  });
 }
 
 export async function removeMember(params: {
   organizationId: string;
   memberId: string;
-}) {
+}): Promise<Result<{ success: true }, NotFoundError | ForbiddenError>> {
   const memberRow = await db.query.member.findFirst({
     where: and(
       eq(member.id, params.memberId),
@@ -110,13 +118,13 @@ export async function removeMember(params: {
   });
 
   if (!memberRow) {
-    throw new DomainError("NOT_FOUND", "Member not found");
+    return Result.err(new NotFoundError({ resource: "member", id: params.memberId }));
   }
 
   if (memberRow.role === "owner") {
-    throw new DomainError("FORBIDDEN", "Cannot remove the organization owner");
+    return Result.err(new ForbiddenError({ reason: "Cannot remove the organization owner" }));
   }
 
   await db.delete(member).where(eq(member.id, params.memberId));
-  return { success: true as const };
+  return Result.ok({ success: true as const });
 }

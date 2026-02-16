@@ -1,3 +1,4 @@
+import { Result } from "better-result";
 import { db, eq, and, desc, sql } from "@otterstack/db";
 import {
   project,
@@ -5,7 +6,8 @@ import {
   projectViewport,
 } from "@otterstack/db/schema/architecture";
 
-import { DomainError } from "./errors";
+import { NotFoundError, ConflictError } from "./errors";
+import { pickDefined } from "./utils";
 
 function createId() {
   return crypto.randomUUID();
@@ -23,14 +25,14 @@ function slugify(name: string) {
 async function generateUniqueSlug(
   base: string,
   checkFn: (slug: string) => Promise<boolean>,
-) {
+): Promise<Result<string, ConflictError>> {
   let candidate = slugify(base);
   for (let attempt = 0; attempt < 10; attempt += 1) {
     const exists = await checkFn(candidate);
-    if (!exists) return candidate;
+    if (!exists) return Result.ok(candidate);
     candidate = `${slugify(base)}-${Math.floor(Math.random() * 10_000)}`;
   }
-  throw new DomainError("CONFLICT", "Could not generate a unique slug");
+  return Result.err(new ConflictError({ resource: "slug", detail: "Could not generate a unique slug" }));
 }
 
 function formatProject(row: typeof project.$inferSelect) {
@@ -61,13 +63,15 @@ export async function createProject(params: {
   ownerId: string;
   name: string;
   slug?: string;
-}) {
-  const slug = await generateUniqueSlug(params.slug ?? params.name, async (candidate) => {
+}): Promise<Result<ReturnType<typeof formatProject>, ConflictError>> {
+  const slugResult = await generateUniqueSlug(params.slug ?? params.name, async (candidate) => {
     const existing = await db.query.project.findFirst({
       where: and(eq(project.organizationId, params.organizationId), eq(project.slug, candidate)),
     });
     return !!existing;
   });
+  if (slugResult.isErr()) return slugResult;
+  const slug = slugResult.value;
 
   const now = new Date();
   const newProject = {
@@ -99,15 +103,18 @@ export async function createProject(params: {
     updatedAt: now,
   });
 
-  return formatProject({ ...newProject, deletedAt: null });
+  return Result.ok(formatProject({ ...newProject, deletedAt: null }));
 }
 
-export async function getProjectById(projectId: string, organizationId: string) {
+export async function getProjectById(
+  projectId: string,
+  organizationId: string,
+): Promise<Result<ReturnType<typeof formatProject>, NotFoundError>> {
   const row = await db.query.project.findFirst({
     where: and(eq(project.id, projectId), eq(project.organizationId, organizationId)),
   });
-  if (!row) throw new DomainError("NOT_FOUND", "Project not found");
-  return formatProject(row);
+  if (!row) return Result.err(new NotFoundError({ resource: "project", id: projectId }));
+  return Result.ok(formatProject(row));
 }
 
 export async function listProjects(
@@ -141,16 +148,12 @@ export async function updateProject(params: {
   organizationId: string;
   name?: string;
   slug?: string;
-}) {
+}): Promise<Result<ReturnType<typeof formatProject>, NotFoundError | ConflictError>> {
   const existing = await db.query.project.findFirst({
     where: and(eq(project.id, params.projectId), eq(project.organizationId, params.organizationId)),
   });
-  if (!existing) throw new DomainError("NOT_FOUND", "Project not found");
+  if (!existing) return Result.err(new NotFoundError({ resource: "project", id: params.projectId }));
 
-  const updates: Partial<typeof project.$inferInsert> = {
-    updatedAt: new Date(),
-  };
-  if (params.name !== undefined) updates.name = params.name;
   if (params.slug !== undefined) {
     const slugConflict = await db.query.project.findFirst({
       where: and(
@@ -159,27 +162,38 @@ export async function updateProject(params: {
       ),
     });
     if (slugConflict && slugConflict.id !== params.projectId) {
-      throw new DomainError("CONFLICT", "Slug already in use");
+      return Result.err(new ConflictError({ resource: "project", detail: "Slug already in use" }));
     }
-    updates.slug = params.slug;
   }
 
-  await db.update(project).set(updates).where(eq(project.id, params.projectId));
+  await db
+    .update(project)
+    .set({
+      updatedAt: new Date(),
+      ...pickDefined({
+        name: params.name,
+        slug: params.slug,
+      }),
+    })
+    .where(eq(project.id, params.projectId));
 
   const updated = await db.query.project.findFirst({
     where: eq(project.id, params.projectId),
   });
-  if (!updated) throw new DomainError("NOT_FOUND", "Project not found");
+  if (!updated) return Result.err(new NotFoundError({ resource: "project", id: params.projectId }));
 
-  return formatProject(updated);
+  return Result.ok(formatProject(updated));
 }
 
-export async function deleteProject(projectId: string, organizationId: string) {
+export async function deleteProject(
+  projectId: string,
+  organizationId: string,
+): Promise<Result<{ success: true }, NotFoundError>> {
   const existing = await db.query.project.findFirst({
     where: and(eq(project.id, projectId), eq(project.organizationId, organizationId)),
   });
-  if (!existing) throw new DomainError("NOT_FOUND", "Project not found");
+  if (!existing) return Result.err(new NotFoundError({ resource: "project", id: projectId }));
 
   await db.delete(project).where(eq(project.id, projectId));
-  return { success: true as const };
+  return Result.ok({ success: true as const });
 }

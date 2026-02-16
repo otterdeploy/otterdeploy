@@ -1,8 +1,9 @@
+import { Result } from "better-result";
 import { db, eq, and } from "@otterstack/db";
 import { deployment, deploymentEvent } from "@otterstack/db/schema/deployment";
 import { isDeploymentTerminalStatus } from "@otterstack/events";
 
-import { DomainError } from "./errors";
+import { NotFoundError, ConflictError } from "./errors";
 
 export { isDeploymentTerminalStatus };
 
@@ -27,14 +28,20 @@ const VALID_TRANSITIONS: Record<DeploymentStatus, DeploymentStatus[]> = {
   rolled_back: [],
 };
 
-export function assertValidTransition(current: DeploymentStatus, next: DeploymentStatus): void {
+export function assertValidTransition(
+  current: DeploymentStatus,
+  next: DeploymentStatus,
+): Result<void, ConflictError> {
   const allowed = VALID_TRANSITIONS[current];
   if (!allowed || !allowed.includes(next)) {
-    throw new DomainError(
-      "CONFLICT",
-      `Invalid deployment transition: ${current} → ${next}`,
+    return Result.err(
+      new ConflictError({
+        resource: "deployment",
+        detail: `Invalid transition: ${current} → ${next}`,
+      }),
     );
   }
+  return Result.ok(undefined);
 }
 
 export async function transitionTo(
@@ -45,23 +52,24 @@ export async function transitionTo(
     reason?: string;
     metadata?: Record<string, unknown>;
   },
-): Promise<void> {
+): Promise<Result<void, NotFoundError | ConflictError>> {
   const row = await db.query.deployment.findFirst({
     where: eq(deployment.id, deploymentId),
   });
 
   if (!row) {
-    throw new DomainError("NOT_FOUND", "Deployment not found");
+    return Result.err(new NotFoundError({ resource: "deployment", id: deploymentId }));
   }
 
-  const currentStatus = row.status as DeploymentStatus;
+  const currentStatus = row.status;
 
   // Idempotent: if already in target state, no-op
   if (currentStatus === nextStatus) {
-    return;
+    return Result.ok(undefined);
   }
 
-  assertValidTransition(currentStatus, nextStatus);
+  const transitionResult = assertValidTransition(currentStatus, nextStatus);
+  if (transitionResult.isErr()) return transitionResult;
 
   const now = new Date();
   const updateSet: Record<string, unknown> = {
@@ -90,9 +98,11 @@ export async function transitionTo(
     .returning({ id: deployment.id });
 
   if (updated.length === 0) {
-    throw new DomainError(
-      "CONFLICT",
-      "Deployment status changed concurrently. Retry with latest state.",
+    return Result.err(
+      new ConflictError({
+        resource: "deployment",
+        detail: "Status changed concurrently. Retry with latest state.",
+      }),
     );
   }
 
@@ -107,4 +117,6 @@ export async function transitionTo(
     metadata: eventData.metadata ?? {},
     createdAt: now,
   });
+
+  return Result.ok(undefined);
 }

@@ -14,7 +14,10 @@ export const environmentContract = {
         name: z.string().min(1).max(64),
       }),
     )
-    .output(EnvironmentSchema),
+    .output(EnvironmentSchema)
+    .errors({
+      NOT_FOUND: { message: "Project not found" },
+    }),
   getById: oc
     .route(route("GET", "/environments/{environmentId}"))
     .input(
@@ -22,7 +25,10 @@ export const environmentContract = {
         environmentId: IdSchema,
       }),
     )
-    .output(EnvironmentSchema),
+    .output(EnvironmentSchema)
+    .errors({
+      NOT_FOUND: { message: "Environment not found" },
+    }),
   list: oc
     .route(route("GET", "/projects/{projectId}/environments"))
     .input(
@@ -30,7 +36,10 @@ export const environmentContract = {
         projectId: IdSchema,
       }),
     )
-    .output(z.array(EnvironmentSchema)),
+    .output(z.array(EnvironmentSchema))
+    .errors({
+      NOT_FOUND: { message: "Project not found" },
+    }),
   delete: oc
     .route(route("DELETE", "/environments/{environmentId}"))
     .input(
@@ -38,5 +47,8 @@ export const environmentContract = {
         environmentId: IdSchema,
       }),
     )
-    .output(SuccessSchema),
+    .output(SuccessSchema)
+    .errors({
+      NOT_FOUND: { message: "Environment not found" },
+    }),
 };

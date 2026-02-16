@@ -2,6 +2,7 @@ import * as z from "zod";
 import { monitoringService } from "@otterstack/domain";
 
 import { orgProcedure } from "../index";
+import { unwrapResult } from "../utils/result";
 
 export const monitoringRouter = {
   getMetrics: orgProcedure
@@ -14,13 +15,15 @@ export const monitoringRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return monitoringService.getMetrics({
-        resourceId: input.resourceId,
-        organizationId: context.organizationId,
-        metric: input.metric,
-        from: input.from,
-        to: input.to,
-      });
+      return unwrapResult(
+        await monitoringService.getMetrics({
+          resourceId: input.resourceId,
+          organizationId: context.organizationId,
+          metric: input.metric,
+          from: input.from,
+          to: input.to,
+        }),
+      );
     }),
 
   getLogs: orgProcedure
@@ -34,14 +37,16 @@ export const monitoringRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return monitoringService.getLogs({
-        resourceId: input.resourceId,
-        organizationId: context.organizationId,
-        from: input.from,
-        to: input.to,
-        page: input.page,
-        pageSize: input.pageSize,
-      });
+      return unwrapResult(
+        await monitoringService.getLogs({
+          resourceId: input.resourceId,
+          organizationId: context.organizationId,
+          from: input.from,
+          to: input.to,
+          page: input.page,
+          pageSize: input.pageSize,
+        }),
+      );
     }),
 
   streamLogs: orgProcedure
@@ -52,10 +57,12 @@ export const monitoringRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return monitoringService.streamLogs({
-        resourceId: input.resourceId,
-        organizationId: context.organizationId,
-        cursor: input.cursor,
-      });
+      return unwrapResult(
+        await monitoringService.streamLogs({
+          resourceId: input.resourceId,
+          organizationId: context.organizationId,
+          cursor: input.cursor,
+        }),
+      );
     }),
 };

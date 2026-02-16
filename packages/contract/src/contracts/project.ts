@@ -21,7 +21,10 @@ export const projectContract = {
         slug: SlugSchema.optional(),
       }),
     )
-    .output(ProjectSchema),
+    .output(ProjectSchema)
+    .errors({
+      CONFLICT: { message: "Slug already in use or failed to create project" },
+    }),
   getById: oc
     .route(route("GET", "/projects/{projectId}"))
     .input(
@@ -29,7 +32,10 @@ export const projectContract = {
         projectId: IdSchema,
       }),
     )
-    .output(ProjectSchema),
+    .output(ProjectSchema)
+    .errors({
+      NOT_FOUND: { message: "Project not found" },
+    }),
   list: oc
     .route(route("GET", "/projects"))
     .input(
@@ -47,7 +53,11 @@ export const projectContract = {
         slug: SlugSchema.optional(),
       }),
     )
-    .output(ProjectSchema),
+    .output(ProjectSchema)
+    .errors({
+      NOT_FOUND: { message: "Project not found" },
+      CONFLICT: { message: "Slug already in use" },
+    }),
   delete: oc
     .route(route("DELETE", "/projects/{projectId}"))
     .input(
@@ -55,5 +65,8 @@ export const projectContract = {
         projectId: IdSchema,
       }),
     )
-    .output(SuccessSchema),
+    .output(SuccessSchema)
+    .errors({
+      NOT_FOUND: { message: "Project not found" },
+    }),
 };

@@ -1,5 +1,12 @@
-export { DomainError, type DomainErrorCode } from "./errors";
+export {
+  NotFoundError,
+  ConflictError,
+  ForbiddenError,
+  BadRequestError,
+  type DomainError,
+} from "./errors";
 export { type AuditContext } from "./audit-writer";
+export { pickDefined } from "./utils";
 
 export * as projectService from "./project";
 export * as environmentService from "./environment";

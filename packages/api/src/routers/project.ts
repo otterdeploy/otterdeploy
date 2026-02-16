@@ -2,7 +2,7 @@ import * as z from "zod";
 import { projectService } from "@otterstack/domain";
 
 import { orgProcedure, orgAdminProcedure, orgOwnerProcedure } from "../index";
-import { fromPromise } from "../utils/result";
+import { unwrapResult } from "../utils/result";
 
 export const projectRouter = {
   create: orgAdminProcedure
@@ -19,8 +19,8 @@ export const projectRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(
-        projectService.createProject({
+      return unwrapResult(
+        await projectService.createProject({
           organizationId: context.organizationId,
           ownerId: context.userId,
           name: input.name,
@@ -36,7 +36,7 @@ export const projectRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(projectService.getProjectById(input.projectId, context.organizationId));
+      return unwrapResult(await projectService.getProjectById(input.projectId, context.organizationId));
     }),
 
   list: orgProcedure
@@ -48,9 +48,7 @@ export const projectRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(
-        projectService.listProjects(context.organizationId, input.page, input.pageSize),
-      );
+      return projectService.listProjects(context.organizationId, input.page, input.pageSize);
     }),
 
   update: orgAdminProcedure
@@ -67,8 +65,8 @@ export const projectRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(
-        projectService.updateProject({
+      return unwrapResult(
+        await projectService.updateProject({
           projectId: input.projectId,
           organizationId: context.organizationId,
           name: input.name,
@@ -84,6 +82,6 @@ export const projectRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(projectService.deleteProject(input.projectId, context.organizationId));
+      return unwrapResult(await projectService.deleteProject(input.projectId, context.organizationId));
     }),
 };

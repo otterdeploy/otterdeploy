@@ -31,7 +31,10 @@ export const teamContract = {
         role: OrgRoleSchema,
         expiresAt: z.iso.datetime(),
       }),
-    ),
+    )
+    .errors({
+      CONFLICT: { message: "Member already exists or invitation pending" },
+    }),
   updateRole: oc
     .route(route("PATCH", "/organizations/{organizationId}/members/{memberId}/role"))
     .input(
@@ -41,7 +44,10 @@ export const teamContract = {
         role: OrgRoleSchema,
       }),
     )
-    .output(TeamMemberSchema),
+    .output(TeamMemberSchema)
+    .errors({
+      NOT_FOUND: { message: "Member not found" },
+    }),
   removeMember: oc
     .route(route("DELETE", "/organizations/{organizationId}/members/{memberId}"))
     .input(
@@ -50,5 +56,9 @@ export const teamContract = {
         memberId: IdSchema,
       }),
     )
-    .output(SuccessSchema),
+    .output(SuccessSchema)
+    .errors({
+      NOT_FOUND: { message: "Member not found" },
+      FORBIDDEN: { message: "Cannot remove the last owner" },
+    }),
 };

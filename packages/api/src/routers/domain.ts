@@ -2,7 +2,7 @@ import * as z from "zod";
 import { customDomainService } from "@otterstack/domain";
 
 import { orgProcedure, orgAdminProcedure } from "../index";
-import { fromPromise } from "../utils/result";
+import { unwrapResult } from "../utils/result";
 
 export const domainRouter = {
   add: orgAdminProcedure
@@ -13,8 +13,8 @@ export const domainRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(
-        customDomainService.addDomain({
+      return unwrapResult(
+        await customDomainService.addDomain({
           organizationId: context.organizationId,
           resourceId: input.resourceId,
           domain: input.domain,
@@ -29,7 +29,7 @@ export const domainRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(customDomainService.verifyDomain(input.domainId, context.organizationId));
+      return unwrapResult(await customDomainService.verifyDomain(input.domainId, context.organizationId));
     }),
 
   list: orgProcedure
@@ -40,12 +40,10 @@ export const domainRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(
-        customDomainService.listDomains({
-          organizationId: context.organizationId,
-          resourceId: input.resourceId,
-        }),
-      );
+      return customDomainService.listDomains({
+        organizationId: context.organizationId,
+        resourceId: input.resourceId,
+      });
     }),
 
   remove: orgAdminProcedure
@@ -55,6 +53,6 @@ export const domainRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(customDomainService.removeDomain(input.domainId, context.organizationId));
+      return unwrapResult(await customDomainService.removeDomain(input.domainId, context.organizationId));
     }),
 };

@@ -4,7 +4,7 @@ import { projectResource } from "@otterstack/db/schema/architecture";
 import { createIdempotencyKey, publishEvent } from "@otterstack/events";
 import { Result } from "better-result";
 
-import { DomainError } from "./errors";
+import { NotFoundError, ConflictError } from "./errors";
 import { transitionTo } from "./deployment-machine";
 
 function toISOString(date: Date | null | undefined): string | null {
@@ -59,7 +59,7 @@ function formatDeploymentEvent(row: typeof deploymentEvent.$inferSelect) {
   };
 }
 
-async function publishDeploymentRequestedEvent(input: {
+async function enqueueDeploymentEvent(input: {
   deploymentId: string;
   organizationId: string;
   resourceId: string;
@@ -68,59 +68,45 @@ async function publishDeploymentRequestedEvent(input: {
   actorUserId: string;
   gitCommitSha?: string;
   correlationId?: string;
-}) {
-  const publishResult = await publishEvent("deployment.requested", {
-    orgId: input.organizationId,
-    deploymentId: input.deploymentId,
-    resourceId: input.resourceId,
-    environmentId: input.environmentId,
-    source: input.source,
-    actorUserId: input.actorUserId,
-    correlationId: input.correlationId,
-    idempotencyKey: createIdempotencyKey({
-      orgId: input.organizationId,
-      resourceId: input.resourceId,
-      operation: "deploy",
-      contentHashSource: `${input.deploymentId}:${input.source}:${input.gitCommitSha ?? ""}`,
-    }),
-  });
-
-  if (publishResult.isErr()) {
-    throw publishResult.error;
-  }
-}
-
-async function enqueueDeploymentRequestedEvent(input: {
-  deploymentId: string;
-  organizationId: string;
-  resourceId: string;
-  environmentId: string;
-  source: "git_push" | "manual" | "rollback" | "api" | "preview";
-  actorUserId: string;
-  gitCommitSha?: string;
-  correlationId?: string;
-  failureReason: string;
-  conflictMessage: string;
-}) {
+}): Promise<Result<void, ConflictError>> {
   const publishResult = await Result.tryPromise({
-    try: () => publishDeploymentRequestedEvent(input),
+    try: async () => {
+      await publishEvent("deployment.requested", {
+        orgId: input.organizationId,
+        deploymentId: input.deploymentId,
+        resourceId: input.resourceId,
+        environmentId: input.environmentId,
+        source: input.source,
+        actorUserId: input.actorUserId,
+        correlationId: input.correlationId,
+        idempotencyKey: createIdempotencyKey({
+          orgId: input.organizationId,
+          resourceId: input.resourceId,
+          operation: "deploy",
+          contentHashSource: `${input.deploymentId}:${input.source}:${input.gitCommitSha ?? ""}`,
+        }),
+      });
+    },
     catch: (error) => error,
   });
 
-  if (publishResult.isOk()) {
-    return;
-  }
+  if (publishResult.isOk()) return Result.ok(undefined);
 
   const error = publishResult.error;
   await transitionTo(input.deploymentId, "failed", {
     actor: "system",
-    reason: input.failureReason,
+    reason: "Failed to enqueue deployment workflow",
     metadata: {
       error: error instanceof Error ? error.message : "Unknown publish error",
     },
   });
 
-  throw new DomainError("CONFLICT", input.conflictMessage, error);
+  return Result.err(
+    new ConflictError({
+      resource: "deployment",
+      detail: "Failed to enqueue deployment workflow. Check Inngest configuration and retry.",
+    }),
+  );
 }
 
 export async function createDeployment(params: {
@@ -135,8 +121,7 @@ export async function createDeployment(params: {
   gitCommitMessage?: string;
   buildMethod?: "nixpacks" | "dockerfile" | "buildpack";
   correlationId?: string;
-}) {
-  // Validate resource belongs to environment/project/org
+}): Promise<Result<ReturnType<typeof formatDeployment>, NotFoundError | ConflictError>> {
   const resource = await db.query.projectResource.findFirst({
     where: and(
       eq(projectResource.id, params.resourceId),
@@ -154,7 +139,7 @@ export async function createDeployment(params: {
     resource.environment.projectId !== params.projectId ||
     resource.environment.project.organizationId !== params.organizationId
   ) {
-    throw new DomainError("NOT_FOUND", "Resource not found in project/environment");
+    return Result.err(new NotFoundError({ resource: "resource", id: params.resourceId }));
   }
 
   const now = new Date();
@@ -183,10 +168,9 @@ export async function createDeployment(params: {
 
   const [inserted] = await db.insert(deployment).values(row).returning();
   if (!inserted) {
-    throw new DomainError("CONFLICT", "Failed to create deployment");
+    return Result.err(new ConflictError({ resource: "deployment", detail: "Failed to create deployment" }));
   }
 
-  // Insert initial timeline event (null → queued)
   await db.insert(deploymentEvent).values({
     id: crypto.randomUUID(),
     deploymentId: inserted.id,
@@ -198,7 +182,7 @@ export async function createDeployment(params: {
     createdAt: now,
   });
 
-  await enqueueDeploymentRequestedEvent({
+  const enqueueResult = await enqueueDeploymentEvent({
     deploymentId: inserted.id,
     organizationId: inserted.organizationId,
     resourceId: inserted.resourceId,
@@ -207,21 +191,27 @@ export async function createDeployment(params: {
     actorUserId: params.triggeredBy,
     gitCommitSha: inserted.gitCommitSha ?? undefined,
     correlationId: params.correlationId,
-    failureReason: "Failed to enqueue deployment workflow",
-    conflictMessage:
-      "Failed to enqueue deployment workflow. Check Inngest configuration and retry.",
   });
+  if (enqueueResult.isErr()) return enqueueResult;
 
-  return formatDeployment(inserted);
+  return Result.ok(formatDeployment(inserted));
 }
 
-export async function getDeploymentWithTimeline(deploymentId: string, organizationId: string) {
+export async function getDeploymentWithTimeline(
+  deploymentId: string,
+  organizationId: string,
+): Promise<
+  Result<
+    { deployment: ReturnType<typeof formatDeployment>; events: ReturnType<typeof formatDeploymentEvent>[] },
+    NotFoundError
+  >
+> {
   const row = await db.query.deployment.findFirst({
     where: and(eq(deployment.id, deploymentId), eq(deployment.organizationId, organizationId)),
   });
 
   if (!row) {
-    throw new DomainError("NOT_FOUND", "Deployment not found");
+    return Result.err(new NotFoundError({ resource: "deployment", id: deploymentId }));
   }
 
   const events = await db.query.deploymentEvent.findMany({
@@ -229,10 +219,10 @@ export async function getDeploymentWithTimeline(deploymentId: string, organizati
     orderBy: [desc(deploymentEvent.createdAt)],
   });
 
-  return {
+  return Result.ok({
     deployment: formatDeployment(row),
     events: events.map(formatDeploymentEvent),
-  };
+  });
 }
 
 export async function listDeployments(params: {
@@ -277,29 +267,31 @@ export async function cancelDeployment(
   deploymentId: string,
   organizationId: string,
   canceledBy: string,
-) {
+): Promise<Result<ReturnType<typeof formatDeployment>, NotFoundError | ConflictError>> {
   const row = await db.query.deployment.findFirst({
     where: and(eq(deployment.id, deploymentId), eq(deployment.organizationId, organizationId)),
   });
 
   if (!row) {
-    throw new DomainError("NOT_FOUND", "Deployment not found");
+    return Result.err(new NotFoundError({ resource: "deployment", id: deploymentId }));
   }
 
-  // Only queued/building can be canceled
   if (row.status !== "queued" && row.status !== "building") {
-    throw new DomainError("CONFLICT", `Cannot cancel deployment in ${row.status} status`);
+    return Result.err(
+      new ConflictError({ resource: "deployment", detail: `Cannot cancel deployment in ${row.status} status` }),
+    );
   }
 
-  await transitionTo(deploymentId, "canceled", {
+  const transitionResult = await transitionTo(deploymentId, "canceled", {
     actor: canceledBy,
     reason: "Canceled by user",
   });
+  if (transitionResult.isErr()) return transitionResult;
 
   const updated = await db.query.deployment.findFirst({
     where: eq(deployment.id, deploymentId),
   });
-  return formatDeployment(updated!);
+  return Result.ok(formatDeployment(updated!));
 }
 
 export async function initiateRollback(
@@ -308,13 +300,13 @@ export async function initiateRollback(
   actorUserId: string,
   reason?: string,
   correlationId?: string,
-) {
+): Promise<Result<ReturnType<typeof formatDeployment>, NotFoundError | ConflictError>> {
   const original = await db.query.deployment.findFirst({
     where: and(eq(deployment.id, deploymentId), eq(deployment.organizationId, organizationId)),
   });
 
   if (!original) {
-    throw new DomainError("NOT_FOUND", "Deployment not found");
+    return Result.err(new NotFoundError({ resource: "deployment", id: deploymentId }));
   }
 
   const now = new Date();
@@ -343,10 +335,9 @@ export async function initiateRollback(
 
   const [inserted] = await db.insert(deployment).values(row).returning();
   if (!inserted) {
-    throw new DomainError("CONFLICT", "Failed to create rollback deployment");
+    return Result.err(new ConflictError({ resource: "deployment", detail: "Failed to create rollback deployment" }));
   }
 
-  // Insert initial timeline event
   await db.insert(deploymentEvent).values({
     id: crypto.randomUUID(),
     deploymentId: inserted.id,
@@ -358,7 +349,7 @@ export async function initiateRollback(
     createdAt: now,
   });
 
-  await enqueueDeploymentRequestedEvent({
+  const enqueueResult = await enqueueDeploymentEvent({
     deploymentId: inserted.id,
     organizationId: inserted.organizationId,
     resourceId: inserted.resourceId,
@@ -367,13 +358,10 @@ export async function initiateRollback(
     actorUserId,
     gitCommitSha: inserted.gitCommitSha ?? undefined,
     correlationId,
-    failureReason: "Failed to enqueue rollback workflow",
-    conflictMessage: "Failed to enqueue rollback workflow. Check Inngest configuration and retry.",
   });
+  if (enqueueResult.isErr()) return enqueueResult;
 
-  // NOTE: Secret snapshot resolution excluded from scope (Wave 3 constraint)
-
-  return formatDeployment(inserted);
+  return Result.ok(formatDeployment(inserted));
 }
 
 export async function getActiveDeployment(resourceId: string) {
@@ -393,16 +381,22 @@ export async function getActiveDeployment(resourceId: string) {
   return row ? formatDeployment(row) : null;
 }
 
-export async function supersedeQueuedDeployments(resourceId: string, exceptDeploymentId: string) {
+export async function supersedeQueuedDeployments(
+  resourceId: string,
+  exceptDeploymentId: string,
+): Promise<Result<void, NotFoundError | ConflictError>> {
   const queued = await db.query.deployment.findMany({
     where: and(eq(deployment.resourceId, resourceId), eq(deployment.status, "queued")),
   });
 
   for (const d of queued) {
     if (d.id === exceptDeploymentId) continue;
-    await transitionTo(d.id, "canceled", {
+    const result = await transitionTo(d.id, "canceled", {
       actor: "system",
       reason: "Superseded by newer deployment",
     });
+    if (result.isErr()) return result;
   }
+
+  return Result.ok(undefined);
 }

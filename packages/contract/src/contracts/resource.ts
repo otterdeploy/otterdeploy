@@ -31,7 +31,11 @@ export const resourceContract = {
         replicas: z.number().int().min(1).optional(),
       }),
     )
-    .output(ResourceSchema),
+    .output(ResourceSchema)
+    .errors({
+      NOT_FOUND: { message: "Environment not found" },
+      CONFLICT: { message: "Failed to create resource" },
+    }),
   getById: oc
     .route(route("GET", "/resources/{resourceId}"))
     .input(
@@ -39,7 +43,10 @@ export const resourceContract = {
         resourceId: IdSchema,
       }),
     )
-    .output(ResourceSchema),
+    .output(ResourceSchema)
+    .errors({
+      NOT_FOUND: { message: "Resource not found" },
+    }),
   list: oc
     .route(route("GET", "/projects/{projectId}/resources"))
     .input(
@@ -48,7 +55,10 @@ export const resourceContract = {
         environmentId: IdSchema.optional(),
       }),
     )
-    .output(z.array(ResourceSchema)),
+    .output(z.array(ResourceSchema))
+    .errors({
+      NOT_FOUND: { message: "Project not found" },
+    }),
   update: oc
     .route(route("PATCH", "/resources/{resourceId}"))
     .input(
@@ -67,7 +77,10 @@ export const resourceContract = {
         replicas: z.number().int().min(1).nullable().optional(),
       }),
     )
-    .output(ResourceSchema),
+    .output(ResourceSchema)
+    .errors({
+      NOT_FOUND: { message: "Resource not found" },
+    }),
   delete: oc
     .route(route("DELETE", "/resources/{resourceId}"))
     .input(
@@ -75,5 +88,8 @@ export const resourceContract = {
         resourceId: IdSchema,
       }),
     )
-    .output(SuccessSchema),
+    .output(SuccessSchema)
+    .errors({
+      NOT_FOUND: { message: "Resource not found" },
+    }),
 };

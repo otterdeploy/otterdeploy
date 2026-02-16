@@ -1,3 +1,4 @@
+import { Result } from "better-result";
 import { db, eq, and } from "@otterstack/db";
 import {
   project,
@@ -7,9 +8,12 @@ import {
   projectViewport,
 } from "@otterstack/db/schema/architecture";
 
-import { DomainError } from "./errors";
+import { NotFoundError } from "./errors";
 
-async function getOrCreateEnvironment(projectId: string, environmentId?: string) {
+async function getOrCreateEnvironment(
+  projectId: string,
+  environmentId?: string,
+): Promise<Result<typeof projectEnvironment.$inferSelect, NotFoundError>> {
   const existing = await db.query.projectEnvironment.findFirst({
     where: environmentId
       ? eq(projectEnvironment.id, environmentId)
@@ -19,13 +23,13 @@ async function getOrCreateEnvironment(projectId: string, environmentId?: string)
 
   if (existing) {
     if (environmentId && existing.projectId !== projectId) {
-      throw new DomainError("NOT_FOUND", "Environment not found in project");
+      return Result.err(new NotFoundError({ resource: "environment", id: environmentId }));
     }
-    return existing;
+    return Result.ok(existing);
   }
 
   if (environmentId) {
-    throw new DomainError("NOT_FOUND", "Environment not found");
+    return Result.err(new NotFoundError({ resource: "environment", id: environmentId }));
   }
 
   const now = new Date();
@@ -46,7 +50,7 @@ async function getOrCreateEnvironment(projectId: string, environmentId?: string)
     updatedAt: now,
   });
 
-  return created;
+  return Result.ok(created);
 }
 
 function formatProjectForGraph(row: typeof project.$inferSelect) {
@@ -79,9 +83,11 @@ export async function getProjectGraph(
   const projectRow = await db.query.project.findFirst({
     where: and(eq(project.id, projectId), eq(project.organizationId, organizationId)),
   });
-  if (!projectRow) throw new DomainError("NOT_FOUND", "Project not found");
+  if (!projectRow) return Result.err(new NotFoundError({ resource: "project", id: projectId }));
 
-  const environment = await getOrCreateEnvironment(projectId, environmentId);
+  const envResult = await getOrCreateEnvironment(projectId, environmentId);
+  if (envResult.isErr()) return envResult;
+  const environment = envResult.value;
 
   const [resources, links, viewport] = await Promise.all([
     db.query.projectResource.findMany({
@@ -109,7 +115,7 @@ export async function getProjectGraph(
       return newViewport;
     })());
 
-  return {
+  return Result.ok({
     project: formatProjectForGraph(projectRow),
     environment: formatEnvironmentForGraph(environment),
     viewport: {
@@ -140,7 +146,7 @@ export async function getProjectGraph(
       },
       type: "smoothstep" as const,
     })),
-  };
+  });
 }
 
 export async function replaceProjectGraph(params: {
@@ -167,9 +173,11 @@ export async function replaceProjectGraph(params: {
   const projectRow = await db.query.project.findFirst({
     where: and(eq(project.id, params.projectId), eq(project.organizationId, params.organizationId)),
   });
-  if (!projectRow) throw new DomainError("NOT_FOUND", "Project not found");
+  if (!projectRow) return Result.err(new NotFoundError({ resource: "project", id: params.projectId }));
 
-  const environment = await getOrCreateEnvironment(params.projectId, params.environmentId);
+  const envResult = await getOrCreateEnvironment(params.projectId, params.environmentId);
+  if (envResult.isErr()) return envResult;
+  const environment = envResult.value;
   const now = new Date();
 
   await db.transaction(async (tx) => {
@@ -245,13 +253,15 @@ export async function updateViewport(params: {
   organizationId: string;
   environmentId?: string;
   viewport: { x: number; y: number; zoom: number };
-}) {
+}): Promise<Result<{ environmentId: string; viewport: { x: number; y: number; zoom: number } }, NotFoundError>> {
   const projectRow = await db.query.project.findFirst({
     where: and(eq(project.id, params.projectId), eq(project.organizationId, params.organizationId)),
   });
-  if (!projectRow) throw new DomainError("NOT_FOUND", "Project not found");
+  if (!projectRow) return Result.err(new NotFoundError({ resource: "project", id: params.projectId }));
 
-  const environment = await getOrCreateEnvironment(params.projectId, params.environmentId);
+  const envResult = await getOrCreateEnvironment(params.projectId, params.environmentId);
+  if (envResult.isErr()) return envResult;
+  const environment = envResult.value;
 
   await db
     .insert(projectViewport)
@@ -272,12 +282,12 @@ export async function updateViewport(params: {
       },
     });
 
-  return {
+  return Result.ok({
     environmentId: environment.id,
     viewport: {
       x: params.viewport.x,
       y: params.viewport.y,
       zoom: params.viewport.zoom,
     },
-  };
+  });
 }

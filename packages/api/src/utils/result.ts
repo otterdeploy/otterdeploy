@@ -1,35 +1,24 @@
 import { ORPCError } from "@orpc/server";
-import { DomainError } from "@otterstack/domain";
-import { Result } from "better-result";
+import type { Result } from "better-result";
+import type { DomainError } from "@otterstack/domain";
 
-export function toORPCError(err: unknown) {
-  if (err instanceof ORPCError) {
-    return err;
+/**
+ * Unwraps a Result from a domain service call.
+ * Returns the value on success, or throws an ORPCError mapped from the TaggedError on failure.
+ */
+export function unwrapResult<T>(result: Result<T, DomainError>): T {
+  if (result.isOk()) return result.value;
+
+  const error = result.error;
+
+  switch (error._tag) {
+    case "NotFoundError":
+      throw new ORPCError("NOT_FOUND", { message: error.message });
+    case "ConflictError":
+      throw new ORPCError("CONFLICT", { message: error.message });
+    case "ForbiddenError":
+      throw new ORPCError("FORBIDDEN", { message: error.message });
+    case "BadRequestError":
+      throw new ORPCError("BAD_REQUEST", { message: error.message });
   }
-
-  if (err instanceof DomainError) {
-    return new ORPCError(err.code, { message: err.message });
-  }
-
-  if (err instanceof Error) {
-    return new ORPCError("INTERNAL_SERVER_ERROR", { message: err.message });
-  }
-
-  return new ORPCError("INTERNAL_SERVER_ERROR", {
-    message: "Unknown internal error",
-  });
-}
-
-export async function fromPromise<T>(promise: Promise<T>): Promise<T> {
-  const result = await Result.tryPromise({
-    try: () => promise,
-    catch: toORPCError,
-  });
-
-  return result.match({
-    ok: (value) => value,
-    err: (error) => {
-      throw error;
-    },
-  });
 }

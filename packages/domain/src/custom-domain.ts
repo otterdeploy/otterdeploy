@@ -1,8 +1,9 @@
+import { Result } from "better-result";
 import { db, eq, and } from "@otterstack/db";
 import { customDomain } from "@otterstack/db/schema/operations";
 import { projectResource } from "@otterstack/db/schema/architecture";
 
-import { DomainError } from "./errors";
+import { NotFoundError, ConflictError } from "./errors";
 
 function toISOString(date: Date | null | undefined): string | null {
   return date ? date.toISOString() : null;
@@ -22,7 +23,10 @@ function formatDomain(row: typeof customDomain.$inferSelect) {
   };
 }
 
-async function validateResource(resourceId: string, organizationId: string) {
+async function validateResource(
+  resourceId: string,
+  organizationId: string,
+): Promise<Result<typeof projectResource.$inferSelect, NotFoundError>> {
   const row = await db.query.projectResource.findFirst({
     where: eq(projectResource.id, resourceId),
     with: {
@@ -30,25 +34,29 @@ async function validateResource(resourceId: string, organizationId: string) {
     },
   });
   if (!row || row.environment.project.organizationId !== organizationId) {
-    throw new DomainError("NOT_FOUND", "Resource not found");
+    return Result.err(new NotFoundError({ resource: "resource", id: resourceId }));
   }
-  return row;
+  return Result.ok(row);
 }
 
-async function validateDomainAccess(domainId: string, organizationId: string) {
+async function validateDomainAccess(
+  domainId: string,
+  organizationId: string,
+): Promise<Result<typeof customDomain.$inferSelect, NotFoundError>> {
   const row = await db.query.customDomain.findFirst({
     where: and(eq(customDomain.id, domainId), eq(customDomain.organizationId, organizationId)),
   });
-  if (!row) throw new DomainError("NOT_FOUND", "Domain not found");
-  return row;
+  if (!row) return Result.err(new NotFoundError({ resource: "domain", id: domainId }));
+  return Result.ok(row);
 }
 
 export async function addDomain(params: {
   organizationId: string;
   resourceId: string;
   domain: string;
-}) {
-  await validateResource(params.resourceId, params.organizationId);
+}): Promise<Result<ReturnType<typeof formatDomain>, NotFoundError | ConflictError>> {
+  const resResult = await validateResource(params.resourceId, params.organizationId);
+  if (resResult.isErr()) return resResult;
 
   const now = new Date();
   const row = {
@@ -66,13 +74,17 @@ export async function addDomain(params: {
 
   const [inserted] = await db.insert(customDomain).values(row).returning();
   if (!inserted) {
-    throw new DomainError("CONFLICT", "Failed to add domain");
+    return Result.err(new ConflictError({ resource: "domain", detail: "Failed to add domain" }));
   }
-  return formatDomain(inserted);
+  return Result.ok(formatDomain(inserted));
 }
 
-export async function verifyDomain(domainId: string, organizationId: string) {
-  await validateDomainAccess(domainId, organizationId);
+export async function verifyDomain(
+  domainId: string,
+  organizationId: string,
+): Promise<Result<ReturnType<typeof formatDomain>, NotFoundError>> {
+  const accessResult = await validateDomainAccess(domainId, organizationId);
+  if (accessResult.isErr()) return accessResult;
 
   await db
     .update(customDomain)
@@ -82,7 +94,7 @@ export async function verifyDomain(domainId: string, organizationId: string) {
   const updated = await db.query.customDomain.findFirst({
     where: eq(customDomain.id, domainId),
   });
-  return formatDomain(updated!);
+  return Result.ok(formatDomain(updated!));
 }
 
 export async function listDomains(params: { organizationId: string; resourceId?: string }) {
@@ -98,8 +110,13 @@ export async function listDomains(params: { organizationId: string; resourceId?:
   return rows.map(formatDomain);
 }
 
-export async function removeDomain(domainId: string, organizationId: string) {
-  await validateDomainAccess(domainId, organizationId);
+export async function removeDomain(
+  domainId: string,
+  organizationId: string,
+): Promise<Result<{ success: true }, NotFoundError>> {
+  const accessResult = await validateDomainAccess(domainId, organizationId);
+  if (accessResult.isErr()) return accessResult;
+
   await db.delete(customDomain).where(eq(customDomain.id, domainId));
-  return { success: true as const };
+  return Result.ok({ success: true as const });
 }

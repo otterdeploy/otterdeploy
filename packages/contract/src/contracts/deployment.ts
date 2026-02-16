@@ -25,7 +25,11 @@ export const deploymentContract = {
         buildMethod: BuildMethodSchema.optional(),
       }),
     )
-    .output(DeploymentSchema),
+    .output(DeploymentSchema)
+    .errors({
+      NOT_FOUND: { message: "Resource not found" },
+      CONFLICT: { message: "Failed to create deployment" },
+    }),
   getById: oc
     .route(route("GET", "/deployments/{deploymentId}"))
     .input(
@@ -33,7 +37,10 @@ export const deploymentContract = {
         deploymentId: IdSchema,
       }),
     )
-    .output(DeploymentSchema),
+    .output(DeploymentSchema)
+    .errors({
+      NOT_FOUND: { message: "Deployment not found" },
+    }),
   list: oc
     .route(route("GET", "/deployments"))
     .input(
@@ -52,7 +59,11 @@ export const deploymentContract = {
         reason: z.string().max(512).optional(),
       }),
     )
-    .output(DeploymentSchema),
+    .output(DeploymentSchema)
+    .errors({
+      NOT_FOUND: { message: "Deployment not found" },
+      CONFLICT: { message: "Deployment cannot be canceled in current state" },
+    }),
   rollback: oc
     .route(route("POST", "/deployments/{deploymentId}/rollback"))
     .input(
@@ -61,7 +72,11 @@ export const deploymentContract = {
         reason: z.string().max(512).optional(),
       }),
     )
-    .output(DeploymentSchema),
+    .output(DeploymentSchema)
+    .errors({
+      NOT_FOUND: { message: "Deployment not found" },
+      CONFLICT: { message: "Deployment is not in a rollbackable state" },
+    }),
   streamLogs: oc
     .route(route("GET", "/deployments/{deploymentId}/logs"))
     .input(
@@ -70,5 +85,8 @@ export const deploymentContract = {
         cursor: z.string().optional(),
       }),
     )
-    .output(createPaginatedOutputSchema(DeploymentLogSchema)),
+    .output(createPaginatedOutputSchema(DeploymentLogSchema))
+    .errors({
+      NOT_FOUND: { message: "Deployment not found" },
+    }),
 };

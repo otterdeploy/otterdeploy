@@ -1,13 +1,37 @@
 import { TaggedError } from "better-result";
 
-export type DomainErrorCode = "NOT_FOUND" | "CONFLICT" | "FORBIDDEN" | "BAD_REQUEST";
-
-export class DomainError extends TaggedError("DomainError")<{
-  code: DomainErrorCode;
+export class NotFoundError extends TaggedError("NotFoundError")<{
+  resource: string;
+  id: string;
   message: string;
-  cause?: unknown;
 }>() {
-  constructor(code: DomainErrorCode, message: string, cause?: unknown) {
-    super(cause === undefined ? { code, message } : { code, message, cause });
+  constructor(args: { resource: string; id: string }) {
+    super({ ...args, message: `${args.resource} not found: ${args.id}` });
   }
 }
+
+export class ConflictError extends TaggedError("ConflictError")<{
+  resource: string;
+  detail: string;
+  message: string;
+}>() {
+  constructor(args: { resource: string; detail: string }) {
+    super({ ...args, message: `${args.resource} conflict: ${args.detail}` });
+  }
+}
+
+export class ForbiddenError extends TaggedError("ForbiddenError")<{
+  reason: string;
+  message: string;
+}>() {
+  constructor(args: { reason: string }) {
+    super({ ...args, message: args.reason });
+  }
+}
+
+export class BadRequestError extends TaggedError("BadRequestError")<{
+  field: string;
+  message: string;
+}>() {}
+
+export type DomainError = NotFoundError | ConflictError | ForbiddenError | BadRequestError;

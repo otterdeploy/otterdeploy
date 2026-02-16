@@ -2,7 +2,7 @@ import * as z from "zod";
 import { architectureService } from "@otterstack/domain";
 
 import { orgProcedure, orgMemberProcedure } from "../index";
-import { fromPromise } from "../utils/result";
+import { unwrapResult } from "../utils/result";
 
 export const architectureRouter = {
   getGraph: orgProcedure
@@ -13,8 +13,8 @@ export const architectureRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(
-        architectureService.getProjectGraph(
+      return unwrapResult(
+        await architectureService.getProjectGraph(
           input.projectId,
           context.organizationId,
           input.environmentId,
@@ -54,8 +54,8 @@ export const architectureRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(
-        architectureService.replaceProjectGraph({
+      return unwrapResult(
+        await architectureService.replaceProjectGraph({
           projectId: input.projectId,
           organizationId: context.organizationId,
           environmentId: input.environmentId,
@@ -79,8 +79,8 @@ export const architectureRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(
-        architectureService.updateViewport({
+      return unwrapResult(
+        await architectureService.updateViewport({
           projectId: input.projectId,
           organizationId: context.organizationId,
           environmentId: input.environmentId,

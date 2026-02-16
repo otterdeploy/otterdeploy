@@ -42,7 +42,10 @@ export const architectureContract = {
         environmentId: IdSchema.optional(),
       }),
     )
-    .output(ArchitectureGraphOutputSchema),
+    .output(ArchitectureGraphOutputSchema)
+    .errors({
+      NOT_FOUND: { message: "Project not found" },
+    }),
   replaceGraph: oc
     .route(route("PUT", "/architecture/{projectId}/graph"))
     .input(
@@ -71,7 +74,10 @@ export const architectureContract = {
         viewport: ViewportSchema,
       }),
     )
-    .output(ArchitectureGraphOutputSchema),
+    .output(ArchitectureGraphOutputSchema)
+    .errors({
+      NOT_FOUND: { message: "Project not found" },
+    }),
   updateViewport: oc
     .route(route("PATCH", "/architecture/{projectId}/viewport"))
     .input(
@@ -86,5 +92,8 @@ export const architectureContract = {
         environmentId: IdSchema,
         viewport: ViewportSchema,
       }),
-    ),
+    )
+    .errors({
+      NOT_FOUND: { message: "Project not found" },
+    }),
 };

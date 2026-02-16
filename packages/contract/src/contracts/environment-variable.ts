@@ -20,7 +20,12 @@ export const environmentVariableContract = {
         buildTime: z.boolean().default(false),
       }),
     )
-    .output(EnvironmentVariableSchema),
+    .output(EnvironmentVariableSchema)
+    .errors({
+      NOT_FOUND: { message: "Project, environment, or resource not found" },
+      BAD_REQUEST: { message: "Invalid scope configuration" },
+      CONFLICT: { message: "Failed to create environment variable" },
+    }),
   get: oc
     .route(route("GET", "/environment-variables/{variableId}"))
     .input(
@@ -28,7 +33,10 @@ export const environmentVariableContract = {
         variableId: IdSchema,
       }),
     )
-    .output(EnvironmentVariableSchema),
+    .output(EnvironmentVariableSchema)
+    .errors({
+      NOT_FOUND: { message: "Environment variable not found" },
+    }),
   list: oc
     .route(route("GET", "/environment-variables"))
     .input(
@@ -38,7 +46,10 @@ export const environmentVariableContract = {
         resourceId: IdSchema.optional(),
       }),
     )
-    .output(z.array(EnvironmentVariableSchema)),
+    .output(z.array(EnvironmentVariableSchema))
+    .errors({
+      NOT_FOUND: { message: "Project not found" },
+    }),
   delete: oc
     .route(route("DELETE", "/environment-variables/{variableId}"))
     .input(
@@ -46,7 +57,10 @@ export const environmentVariableContract = {
         variableId: IdSchema,
       }),
     )
-    .output(SuccessSchema),
+    .output(SuccessSchema)
+    .errors({
+      NOT_FOUND: { message: "Environment variable not found" },
+    }),
   reveal: oc
     .route(route("POST", "/environment-variables/{variableId}/reveal"))
     .input(
@@ -55,5 +69,9 @@ export const environmentVariableContract = {
         reason: z.string().min(1).max(256),
       }),
     )
-    .output(EnvironmentVariableRevealSchema),
+    .output(EnvironmentVariableRevealSchema)
+    .errors({
+      NOT_FOUND: { message: "Environment variable not found" },
+      BAD_REQUEST: { message: "Variable has no secret reference" },
+    }),
 };

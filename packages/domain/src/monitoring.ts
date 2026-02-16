@@ -1,7 +1,8 @@
+import { Result } from "better-result";
 import { db, eq } from "@otterstack/db";
 import { projectResource } from "@otterstack/db/schema/architecture";
 
-import { DomainError } from "./errors";
+import { NotFoundError } from "./errors";
 
 type MetricPoint = {
   timestamp: string;
@@ -26,7 +27,10 @@ function paginationMeta(page: number, pageSize: number, total: number) {
   };
 }
 
-async function validateResource(resourceId: string, organizationId: string) {
+async function validateResource(
+  resourceId: string,
+  organizationId: string,
+): Promise<Result<typeof projectResource.$inferSelect, NotFoundError>> {
   const row = await db.query.projectResource.findFirst({
     where: eq(projectResource.id, resourceId),
     with: {
@@ -36,9 +40,9 @@ async function validateResource(resourceId: string, organizationId: string) {
     },
   });
   if (!row || row.environment.project.organizationId !== organizationId) {
-    throw new DomainError("NOT_FOUND", "Resource not found");
+    return Result.err(new NotFoundError({ resource: "resource", id: resourceId }));
   }
-  return row;
+  return Result.ok(row);
 }
 
 export async function getMetrics(params: {
@@ -47,14 +51,15 @@ export async function getMetrics(params: {
   metric: "cpu" | "memory" | "network_in" | "network_out" | "disk";
   from: string;
   to: string;
-}) {
-  await validateResource(params.resourceId, params.organizationId);
+}): Promise<Result<{ resourceId: string; metric: string; points: MetricPoint[] }, NotFoundError>> {
+  const result = await validateResource(params.resourceId, params.organizationId);
+  if (result.isErr()) return result;
   const points: MetricPoint[] = [];
-  return {
+  return Result.ok({
     resourceId: params.resourceId,
     metric: params.metric,
     points,
-  };
+  });
 }
 
 export async function getLogs(params: {
@@ -64,24 +69,26 @@ export async function getLogs(params: {
   to?: string;
   page: number;
   pageSize: number;
-}) {
-  await validateResource(params.resourceId, params.organizationId);
+}): Promise<Result<{ items: LogItem[]; meta: ReturnType<typeof paginationMeta> }, NotFoundError>> {
+  const result = await validateResource(params.resourceId, params.organizationId);
+  if (result.isErr()) return result;
   const items: LogItem[] = [];
-  return {
+  return Result.ok({
     items,
     meta: paginationMeta(params.page, params.pageSize, 0),
-  };
+  });
 }
 
 export async function streamLogs(params: {
   resourceId: string;
   organizationId: string;
   cursor?: string;
-}) {
-  await validateResource(params.resourceId, params.organizationId);
+}): Promise<Result<{ items: LogItem[]; meta: ReturnType<typeof paginationMeta> }, NotFoundError>> {
+  const result = await validateResource(params.resourceId, params.organizationId);
+  if (result.isErr()) return result;
   const items: LogItem[] = [];
-  return {
+  return Result.ok({
     items,
     meta: paginationMeta(1, 10, 0),
-  };
+  });
 }

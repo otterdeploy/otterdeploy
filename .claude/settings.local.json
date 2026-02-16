@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(bd show:*)",
-      "WebFetch(domain:www.inngest.com)"
+      "WebFetch(domain:www.inngest.com)",
+      "Bash(bun run check-types:*)"
     ]
   }
 }

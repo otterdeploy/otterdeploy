@@ -2,7 +2,7 @@ import * as z from "zod";
 import { environmentService } from "@otterstack/domain";
 
 import { orgProcedure, orgMemberProcedure, orgAdminProcedure } from "../index";
-import { fromPromise } from "../utils/result";
+import { unwrapResult } from "../utils/result";
 
 export const environmentRouter = {
   create: orgMemberProcedure
@@ -13,8 +13,8 @@ export const environmentRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(
-        environmentService.createEnvironment({
+      return unwrapResult(
+        await environmentService.createEnvironment({
           projectId: input.projectId,
           organizationId: context.organizationId,
           name: input.name,
@@ -29,8 +29,8 @@ export const environmentRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(
-        environmentService.getEnvironmentById(input.environmentId, context.organizationId),
+      return unwrapResult(
+        await environmentService.getEnvironmentById(input.environmentId, context.organizationId),
       );
     }),
 
@@ -41,8 +41,8 @@ export const environmentRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(
-        environmentService.listEnvironments(input.projectId, context.organizationId),
+      return unwrapResult(
+        await environmentService.listEnvironments(input.projectId, context.organizationId),
       );
     }),
 
@@ -53,8 +53,8 @@ export const environmentRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(
-        environmentService.deleteEnvironment(input.environmentId, context.organizationId),
+      return unwrapResult(
+        await environmentService.deleteEnvironment(input.environmentId, context.organizationId),
       );
     }),
 };

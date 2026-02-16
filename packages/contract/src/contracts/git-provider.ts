@@ -20,7 +20,10 @@ export const gitProviderContract = {
         webhookSecret: z.string().optional(),
       }),
     )
-    .output(GitProviderSchema),
+    .output(GitProviderSchema)
+    .errors({
+      CONFLICT: { message: "Failed to create git provider" },
+    }),
   update: oc
     .route(route("PATCH", "/git-providers/{providerId}"))
     .input(
@@ -35,7 +38,10 @@ export const gitProviderContract = {
         webhookSecret: z.string().optional(),
       }),
     )
-    .output(GitProviderSchema),
+    .output(GitProviderSchema)
+    .errors({
+      NOT_FOUND: { message: "Git provider not found" },
+    }),
   list: oc
     .route(route("GET", "/git-providers"))
     .input(
@@ -51,7 +57,10 @@ export const gitProviderContract = {
         providerId: IdSchema,
       }),
     )
-    .output(SuccessSchema),
+    .output(SuccessSchema)
+    .errors({
+      NOT_FOUND: { message: "Git provider not found" },
+    }),
   rotateSecret: oc
     .route(route("POST", "/git-providers/{providerId}/rotate-secret"))
     .input(
@@ -62,5 +71,9 @@ export const gitProviderContract = {
         webhookSecret: z.string().optional(),
       }),
     )
-    .output(GitProviderSchema),
+    .output(GitProviderSchema)
+    .errors({
+      NOT_FOUND: { message: "Git provider not found" },
+      BAD_REQUEST: { message: "Provide clientSecret or webhookSecret to rotate" },
+    }),
 };

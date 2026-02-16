@@ -3,7 +3,7 @@ import { gitProviderService } from "@otterstack/domain";
 
 import { orgAdminProcedure, orgAdminStepUpProcedure } from "../index";
 import { getIpAddress } from "../utils/http";
-import { fromPromise } from "../utils/result";
+import { unwrapResult } from "../utils/result";
 
 export const gitProviderRouter = {
   create: orgAdminStepUpProcedure
@@ -20,8 +20,8 @@ export const gitProviderRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(
-        gitProviderService.createGitProvider({
+      return unwrapResult(
+        await gitProviderService.createGitProvider({
           organizationId: context.organizationId,
           type: input.type,
           name: input.name,
@@ -53,8 +53,8 @@ export const gitProviderRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(
-        gitProviderService.updateGitProvider({
+      return unwrapResult(
+        await gitProviderService.updateGitProvider({
           organizationId: context.organizationId,
           providerId: input.providerId,
           type: input.type,
@@ -80,7 +80,7 @@ export const gitProviderRouter = {
       }),
     )
     .handler(async ({ context }) => {
-      return fromPromise(gitProviderService.listGitProviders(context.organizationId));
+      return gitProviderService.listGitProviders(context.organizationId);
     }),
 
   delete: orgAdminProcedure
@@ -90,8 +90,8 @@ export const gitProviderRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(
-        gitProviderService.deleteGitProvider(input.providerId, context.organizationId, {
+      return unwrapResult(
+        await gitProviderService.deleteGitProvider(input.providerId, context.organizationId, {
           userId: context.userId,
           ipAddress: getIpAddress(context.headers),
           userAgent: context.headers.get("user-agent"),
@@ -109,8 +109,8 @@ export const gitProviderRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(
-        gitProviderService.rotateGitProviderSecret({
+      return unwrapResult(
+        await gitProviderService.rotateGitProviderSecret({
           organizationId: context.organizationId,
           providerId: input.providerId,
           reason: input.reason,

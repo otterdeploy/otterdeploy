@@ -3,7 +3,7 @@ import { deploymentService, deploymentSecretService } from "@otterstack/domain";
 
 import { orgProcedure, orgMemberProcedure, orgAdminProcedure } from "../index";
 import { paginationMeta } from "../utils/helpers";
-import { fromPromise } from "../utils/result";
+import { unwrapResult } from "../utils/result";
 
 export const deploymentRouter = {
   create: orgMemberProcedure
@@ -19,8 +19,8 @@ export const deploymentRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      const result = await fromPromise(
-        deploymentService.createDeployment({
+      const result = unwrapResult(
+        await deploymentService.createDeployment({
           organizationId: context.organizationId,
           projectId: input.projectId,
           environmentId: input.environmentId,
@@ -34,15 +34,13 @@ export const deploymentRouter = {
         }),
       );
 
-      await fromPromise(
-        deploymentSecretService.createDeploymentSecretSnapshot({
-          deploymentId: result.id,
-          organizationId: context.organizationId,
-          projectId: input.projectId,
-          environmentId: input.environmentId,
-          resourceId: input.resourceId,
-        }),
-      );
+      await deploymentSecretService.createDeploymentSecretSnapshot({
+        deploymentId: result.id,
+        organizationId: context.organizationId,
+        projectId: input.projectId,
+        environmentId: input.environmentId,
+        resourceId: input.resourceId,
+      });
 
       return result;
     }),
@@ -54,8 +52,8 @@ export const deploymentRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      const result = await fromPromise(
-        deploymentService.getDeploymentWithTimeline(input.deploymentId, context.organizationId),
+      const result = unwrapResult(
+        await deploymentService.getDeploymentWithTimeline(input.deploymentId, context.organizationId),
       );
       return result.deployment;
     }),
@@ -71,16 +69,14 @@ export const deploymentRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(
-        deploymentService.listDeployments({
-          organizationId: context.organizationId,
-          projectId: input.projectId,
-          environmentId: input.environmentId,
-          resourceId: input.resourceId,
-          page: input.page,
-          pageSize: input.pageSize,
-        }),
-      );
+      return deploymentService.listDeployments({
+        organizationId: context.organizationId,
+        projectId: input.projectId,
+        environmentId: input.environmentId,
+        resourceId: input.resourceId,
+        page: input.page,
+        pageSize: input.pageSize,
+      });
     }),
 
   cancel: orgMemberProcedure
@@ -91,8 +87,8 @@ export const deploymentRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(
-        deploymentService.cancelDeployment(
+      return unwrapResult(
+        await deploymentService.cancelDeployment(
           input.deploymentId,
           context.organizationId,
           context.userId,
@@ -108,8 +104,8 @@ export const deploymentRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(
-        deploymentService.initiateRollback(
+      return unwrapResult(
+        await deploymentService.initiateRollback(
           input.deploymentId,
           context.organizationId,
           context.userId,
@@ -127,8 +123,8 @@ export const deploymentRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      await fromPromise(
-        deploymentService.getDeploymentWithTimeline(input.deploymentId, context.organizationId),
+      unwrapResult(
+        await deploymentService.getDeploymentWithTimeline(input.deploymentId, context.organizationId),
       );
       return {
         items: [],

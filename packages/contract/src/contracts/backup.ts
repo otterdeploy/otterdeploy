@@ -13,7 +13,11 @@ export const backupContract = {
         resourceId: IdSchema,
       }),
     )
-    .output(BackupSchema),
+    .output(BackupSchema)
+    .errors({
+      NOT_FOUND: { message: "Resource not found" },
+      CONFLICT: { message: "Failed to create backup" },
+    }),
   list: oc
     .route(route("GET", "/backups"))
     .input(
@@ -31,7 +35,10 @@ export const backupContract = {
         targetResourceId: IdSchema,
       }),
     )
-    .output(SuccessSchema),
+    .output(SuccessSchema)
+    .errors({
+      NOT_FOUND: { message: "Backup or target resource not found" },
+    }),
   delete: oc
     .route(route("DELETE", "/backups/{backupId}"))
     .input(
@@ -39,5 +46,8 @@ export const backupContract = {
         backupId: IdSchema,
       }),
     )
-    .output(SuccessSchema),
+    .output(SuccessSchema)
+    .errors({
+      NOT_FOUND: { message: "Backup not found" },
+    }),
 };

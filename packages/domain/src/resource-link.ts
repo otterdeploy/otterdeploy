@@ -1,3 +1,4 @@
+import { Result } from "better-result";
 import { db, eq, and } from "@otterstack/db";
 import {
   projectEnvironment,
@@ -5,7 +6,7 @@ import {
   projectResourceLink,
 } from "@otterstack/db/schema/architecture";
 
-import { DomainError } from "./errors";
+import { NotFoundError, BadRequestError, ConflictError } from "./errors";
 
 function formatLink(row: typeof projectResourceLink.$inferSelect, projectId: string) {
   return {
@@ -27,8 +28,7 @@ export async function createResourceLink(params: {
   sourceResourceId: string;
   targetResourceId: string;
   linkType?: "depends_on" | "network" | "mounts";
-}) {
-  // Validate environment belongs to project and org
+}): Promise<Result<ReturnType<typeof formatLink>, NotFoundError | BadRequestError | ConflictError>> {
   const env = await db.query.projectEnvironment.findFirst({
     where: and(
       eq(projectEnvironment.id, params.environmentId),
@@ -37,10 +37,9 @@ export async function createResourceLink(params: {
     with: { project: true },
   });
   if (!env || env.project.organizationId !== params.organizationId) {
-    throw new DomainError("NOT_FOUND", "Environment not found in project");
+    return Result.err(new NotFoundError({ resource: "environment", id: params.environmentId }));
   }
 
-  // Validate both resources
   const [source, target] = await Promise.all([
     db.query.projectResource.findFirst({
       where: eq(projectResource.id, params.sourceResourceId),
@@ -53,17 +52,22 @@ export async function createResourceLink(params: {
   ]);
 
   if (!source || source.environment.project.organizationId !== params.organizationId) {
-    throw new DomainError("NOT_FOUND", "Source resource not found");
+    return Result.err(new NotFoundError({ resource: "source_resource", id: params.sourceResourceId }));
   }
   if (!target || target.environment.project.organizationId !== params.organizationId) {
-    throw new DomainError("NOT_FOUND", "Target resource not found");
+    return Result.err(new NotFoundError({ resource: "target_resource", id: params.targetResourceId }));
   }
 
   if (
     source.environmentId !== params.environmentId ||
     target.environmentId !== params.environmentId
   ) {
-    throw new DomainError("BAD_REQUEST", "Resources must belong to the specified environment");
+    return Result.err(
+      new BadRequestError({
+        field: "environmentId",
+        message: "Resources must belong to the specified environment",
+      }),
+    );
   }
 
   const now = new Date();
@@ -79,12 +83,15 @@ export async function createResourceLink(params: {
 
   const [inserted] = await db.insert(projectResourceLink).values(link).returning();
   if (!inserted) {
-    throw new DomainError("CONFLICT", "Failed to create resource link");
+    return Result.err(new ConflictError({ resource: "resource_link", detail: "Failed to create resource link" }));
   }
-  return formatLink(inserted, params.projectId);
+  return Result.ok(formatLink(inserted, params.projectId));
 }
 
-export async function deleteResourceLink(linkId: string, organizationId: string) {
+export async function deleteResourceLink(
+  linkId: string,
+  organizationId: string,
+): Promise<Result<{ success: true }, NotFoundError>> {
   const row = await db.query.projectResourceLink.findFirst({
     where: eq(projectResourceLink.id, linkId),
     with: {
@@ -94,9 +101,9 @@ export async function deleteResourceLink(linkId: string, organizationId: string)
     },
   });
   if (!row || row.environment.project.organizationId !== organizationId) {
-    throw new DomainError("NOT_FOUND", "Resource link not found");
+    return Result.err(new NotFoundError({ resource: "resource_link", id: linkId }));
   }
 
   await db.delete(projectResourceLink).where(eq(projectResourceLink.id, linkId));
-  return { success: true as const };
+  return Result.ok({ success: true as const });
 }

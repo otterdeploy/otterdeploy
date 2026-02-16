@@ -1,19 +1,19 @@
 import * as z from "zod";
 import { ORPCError } from "@orpc/server";
 import { db, eq, inArray } from "@otterstack/db";
-import {
-  projectResource,
-  projectEnvironment,
-} from "@otterstack/db/schema/architecture";
+import { projectResource, projectEnvironment } from "@otterstack/db/schema/architecture";
+
+import { pickDefined } from "@otterstack/domain";
 
 import { orgProcedure, orgMemberProcedure, orgAdminProcedure } from "../index";
 import { createId } from "../utils/helpers";
-import { validateProjectAccess, validateEnvironmentInProject, validateResourceAccess } from "../utils/ownership";
+import {
+  validateProjectAccess,
+  validateEnvironmentInProject,
+  validateResourceAccess,
+} from "../utils/ownership";
 
-function formatResource(
-  row: typeof projectResource.$inferSelect,
-  projectId: string,
-) {
+function formatResource(row: typeof projectResource.$inferSelect, projectId: string) {
   return {
     id: row.id,
     projectId,
@@ -42,7 +42,9 @@ export const resourceRouter = {
         environmentId: z.string().min(1),
         name: z.string().min(1).max(128),
         kind: z.enum(["web", "api", "worker", "database", "cache", "volume"]),
-        status: z.enum(["online", "degraded", "crashed", "unknown", "deploying", "stopped"]).optional(),
+        status: z
+          .enum(["online", "degraded", "crashed", "unknown", "deploying", "stopped"])
+          .optional(),
         metadata: z.record(z.string(), z.unknown()).optional(),
         posX: z.number(),
         posY: z.number(),
@@ -54,7 +56,11 @@ export const resourceRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      await validateEnvironmentInProject(input.environmentId, input.projectId, context.organizationId);
+      await validateEnvironmentInProject(
+        input.environmentId,
+        input.projectId,
+        context.organizationId,
+      );
 
       const now = new Date();
       const resource = {
@@ -132,7 +138,9 @@ export const resourceRouter = {
         resourceId: z.string().min(1),
         name: z.string().min(1).max(128).optional(),
         kind: z.enum(["web", "api", "worker", "database", "cache", "volume"]).optional(),
-        status: z.enum(["online", "degraded", "crashed", "unknown", "deploying", "stopped"]).optional(),
+        status: z
+          .enum(["online", "degraded", "crashed", "unknown", "deploying", "stopped"])
+          .optional(),
         metadata: z.record(z.string(), z.unknown()).optional(),
         posX: z.number().optional(),
         posY: z.number().optional(),
@@ -147,23 +155,10 @@ export const resourceRouter = {
       const existing = await validateResourceAccess(input.resourceId, context.organizationId);
       const projectId = existing.environment.project.id;
 
-      const updates: Partial<typeof projectResource.$inferInsert> = {
-        updatedAt: new Date(),
-      };
-
-      if (input.name !== undefined) updates.name = input.name;
-      if (input.kind !== undefined) updates.kind = input.kind;
-      if (input.status !== undefined) updates.status = input.status;
-      if (input.metadata !== undefined) updates.metadata = input.metadata;
-      if (input.posX !== undefined) updates.posX = input.posX;
-      if (input.posY !== undefined) updates.posY = input.posY;
-      if (input.buildMethod !== undefined) updates.buildMethod = input.buildMethod ?? undefined;
-      if (input.dockerfilePath !== undefined) updates.dockerfilePath = input.dockerfilePath ?? undefined;
-      if (input.port !== undefined) updates.port = input.port ?? undefined;
-      if (input.healthCheckPath !== undefined) updates.healthCheckPath = input.healthCheckPath ?? undefined;
-      if (input.replicas !== undefined) updates.replicas = input.replicas ?? undefined;
-
-      await db.update(projectResource).set(updates).where(eq(projectResource.id, input.resourceId));
+      await db
+        .update(projectResource)
+        .set(pickDefined(input))
+        .where(eq(projectResource.id, input.resourceId));
 
       const updated = await db.query.projectResource.findFirst({
         where: eq(projectResource.id, input.resourceId),

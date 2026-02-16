@@ -1,10 +1,12 @@
+import { Result } from "better-result";
 import { db, eq, and } from "@otterstack/db";
 import { gitProvider } from "@otterstack/db/schema/infrastructure";
 import { upsertSecretReference } from "@otterstack/secrets";
 
-import { DomainError } from "./errors";
+import { NotFoundError, ConflictError, BadRequestError } from "./errors";
 import { type AuditContext, writeAuditLog } from "./audit-writer";
 import { encodeLegacySecret } from "./legacy-secret";
+import { pickDefined } from "./utils";
 
 function formatGitProvider(row: typeof gitProvider.$inferSelect) {
   return {
@@ -24,12 +26,15 @@ function formatGitProvider(row: typeof gitProvider.$inferSelect) {
   };
 }
 
-async function validateAccess(providerId: string, organizationId: string) {
+async function validateAccess(
+  providerId: string,
+  organizationId: string,
+): Promise<Result<typeof gitProvider.$inferSelect, NotFoundError>> {
   const row = await db.query.gitProvider.findFirst({
     where: and(eq(gitProvider.id, providerId), eq(gitProvider.organizationId, organizationId)),
   });
-  if (!row) throw new DomainError("NOT_FOUND", "Git provider not found");
-  return row;
+  if (!row) return Result.err(new NotFoundError({ resource: "git_provider", id: providerId }));
+  return Result.ok(row);
 }
 
 export async function createGitProvider(params: {
@@ -42,7 +47,7 @@ export async function createGitProvider(params: {
   installationId?: string;
   webhookSecret?: string;
   audit: AuditContext;
-}) {
+}): Promise<Result<ReturnType<typeof formatGitProvider>, ConflictError>> {
   const providerId = crypto.randomUUID();
   const now = new Date();
 
@@ -88,22 +93,15 @@ export async function createGitProvider(params: {
 
   const [inserted] = await db.insert(gitProvider).values(row).returning();
   if (!inserted) {
-    throw new DomainError("CONFLICT", "Failed to create git provider");
+    return Result.err(new ConflictError({ resource: "git_provider", detail: "Failed to create git provider" }));
   }
 
-  await writeAuditLog(
-    params.organizationId,
-    params.audit,
-    "git_provider.created",
-    "git_provider",
-    providerId,
-    {
-      hasClientSecret: !!params.clientSecret,
-      hasWebhookSecret: !!params.webhookSecret,
-    },
-  );
+  await writeAuditLog(params.organizationId, params.audit, "git_provider.created", "git_provider", providerId, {
+    hasClientSecret: !!params.clientSecret,
+    hasWebhookSecret: !!params.webhookSecret,
+  });
 
-  return formatGitProvider(inserted);
+  return Result.ok(formatGitProvider(inserted));
 }
 
 export async function updateGitProvider(params: {
@@ -117,8 +115,10 @@ export async function updateGitProvider(params: {
   installationId?: string | null;
   webhookSecret?: string;
   audit: AuditContext;
-}) {
-  const existing = await validateAccess(params.providerId, params.organizationId);
+}): Promise<Result<ReturnType<typeof formatGitProvider>, NotFoundError>> {
+  const existingResult = await validateAccess(params.providerId, params.organizationId);
+  if (existingResult.isErr()) return existingResult;
+  const existing = existingResult.value;
 
   let clientSecretReferenceId = existing.clientSecretReferenceId;
   let encryptedClientSecret = existing.encryptedClientSecret;
@@ -155,12 +155,13 @@ export async function updateGitProvider(params: {
   await db
     .update(gitProvider)
     .set({
-      type: params.type ?? existing.type,
-      name: params.name ?? existing.name,
-      appId: params.appId === undefined ? existing.appId : params.appId,
-      clientId: params.clientId === undefined ? existing.clientId : params.clientId,
-      installationId:
-        params.installationId === undefined ? existing.installationId : params.installationId,
+      ...pickDefined({
+        type: params.type,
+        name: params.name,
+        appId: params.appId,
+        clientId: params.clientId,
+        installationId: params.installationId,
+      }),
       clientSecretReferenceId,
       encryptedClientSecret,
       webhookSecretReferenceId,
@@ -169,23 +170,16 @@ export async function updateGitProvider(params: {
     })
     .where(eq(gitProvider.id, existing.id));
 
-  await writeAuditLog(
-    params.organizationId,
-    params.audit,
-    "git_provider.updated",
-    "git_provider",
-    existing.id,
-    {
-      rotatedClientSecret: params.clientSecret !== undefined,
-      rotatedWebhookSecret: params.webhookSecret !== undefined,
-    },
-  );
+  await writeAuditLog(params.organizationId, params.audit, "git_provider.updated", "git_provider", existing.id, {
+    rotatedClientSecret: params.clientSecret !== undefined,
+    rotatedWebhookSecret: params.webhookSecret !== undefined,
+  });
 
   const updated = await db.query.gitProvider.findFirst({
     where: eq(gitProvider.id, existing.id),
   });
 
-  return formatGitProvider(updated!);
+  return Result.ok(formatGitProvider(updated!));
 }
 
 export async function listGitProviders(organizationId: string) {
@@ -199,20 +193,16 @@ export async function deleteGitProvider(
   providerId: string,
   organizationId: string,
   audit: AuditContext,
-) {
-  const existing = await validateAccess(providerId, organizationId);
+): Promise<Result<{ success: true }, NotFoundError>> {
+  const existingResult = await validateAccess(providerId, organizationId);
+  if (existingResult.isErr()) return existingResult;
+  const existing = existingResult.value;
+
   await db.delete(gitProvider).where(eq(gitProvider.id, providerId));
 
-  await writeAuditLog(
-    organizationId,
-    audit,
-    "git_provider.deleted",
-    "git_provider",
-    existing.id,
-    {},
-  );
+  await writeAuditLog(organizationId, audit, "git_provider.deleted", "git_provider", existing.id, {});
 
-  return { success: true as const };
+  return Result.ok({ success: true as const });
 }
 
 export async function rotateGitProviderSecret(params: {
@@ -222,12 +212,15 @@ export async function rotateGitProviderSecret(params: {
   clientSecret?: string;
   webhookSecret?: string;
   audit: AuditContext;
-}) {
+}): Promise<Result<ReturnType<typeof formatGitProvider>, NotFoundError | BadRequestError>> {
   if (!params.clientSecret && !params.webhookSecret) {
-    throw new DomainError("BAD_REQUEST", "Provide clientSecret or webhookSecret to rotate");
+    return Result.err(new BadRequestError({ field: "secrets", message: "Provide clientSecret or webhookSecret to rotate" }));
   }
 
-  const existing = await validateAccess(params.providerId, params.organizationId);
+  const existingResult = await validateAccess(params.providerId, params.organizationId);
+  if (existingResult.isErr()) return existingResult;
+  const existing = existingResult.value;
+
   let clientSecretReferenceId = existing.clientSecretReferenceId;
   let encryptedClientSecret = existing.encryptedClientSecret;
   let webhookSecretReferenceId = existing.webhookSecretReferenceId;
@@ -272,22 +265,15 @@ export async function rotateGitProviderSecret(params: {
     })
     .where(eq(gitProvider.id, existing.id));
 
-  await writeAuditLog(
-    params.organizationId,
-    params.audit,
-    "secret.rotated",
-    "git_provider",
-    existing.id,
-    {
-      reason: params.reason,
-      rotatedClientSecret: !!params.clientSecret,
-      rotatedWebhookSecret: !!params.webhookSecret,
-    },
-  );
+  await writeAuditLog(params.organizationId, params.audit, "secret.rotated", "git_provider", existing.id, {
+    reason: params.reason,
+    rotatedClientSecret: !!params.clientSecret,
+    rotatedWebhookSecret: !!params.webhookSecret,
+  });
 
   const updated = await db.query.gitProvider.findFirst({
     where: eq(gitProvider.id, existing.id),
   });
 
-  return formatGitProvider(updated!);
+  return Result.ok(formatGitProvider(updated!));
 }

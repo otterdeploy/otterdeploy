@@ -3,7 +3,7 @@ import { environmentVariableService } from "@otterstack/domain";
 
 import { orgProcedure, orgMemberProcedure, orgMemberStepUpProcedure } from "../index";
 import { getIpAddress } from "../utils/http";
-import { fromPromise } from "../utils/result";
+import { unwrapResult } from "../utils/result";
 
 export const environmentVariableRouter = {
   upsert: orgMemberProcedure
@@ -20,8 +20,8 @@ export const environmentVariableRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(
-        environmentVariableService.upsertEnvironmentVariable({
+      return unwrapResult(
+        await environmentVariableService.upsertEnvironmentVariable({
           organizationId: context.organizationId,
           projectId: input.projectId,
           environmentId: input.environmentId,
@@ -47,8 +47,8 @@ export const environmentVariableRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(
-        environmentVariableService.getEnvironmentVariable(input.variableId, context.organizationId),
+      return unwrapResult(
+        await environmentVariableService.getEnvironmentVariable(input.variableId, context.organizationId),
       );
     }),
 
@@ -61,8 +61,8 @@ export const environmentVariableRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(
-        environmentVariableService.listEnvironmentVariables({
+      return unwrapResult(
+        await environmentVariableService.listEnvironmentVariables({
           organizationId: context.organizationId,
           projectId: input.projectId,
           environmentId: input.environmentId,
@@ -78,8 +78,8 @@ export const environmentVariableRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(
-        environmentVariableService.deleteEnvironmentVariable(
+      return unwrapResult(
+        await environmentVariableService.deleteEnvironmentVariable(
           input.variableId,
           context.organizationId,
           {
@@ -99,8 +99,8 @@ export const environmentVariableRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(
-        environmentVariableService.revealEnvironmentVariable({
+      return unwrapResult(
+        await environmentVariableService.revealEnvironmentVariable({
           variableId: input.variableId,
           organizationId: context.organizationId,
           reason: input.reason,

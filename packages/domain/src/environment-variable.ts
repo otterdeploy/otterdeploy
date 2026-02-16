@@ -1,10 +1,11 @@
+import { Result } from "better-result";
 import { db, eq, and, inArray } from "@otterstack/db";
 import { project, projectEnvironment, projectResource } from "@otterstack/db/schema/architecture";
 import { environmentVariable } from "@otterstack/db/schema/operations";
 import { secretReference } from "@otterstack/db/schema/secrets";
 import { upsertSecretReference, revealSecretByReference } from "@otterstack/secrets";
 
-import { DomainError } from "./errors";
+import { NotFoundError, BadRequestError, ConflictError } from "./errors";
 import { type AuditContext, writeAuditLog } from "./audit-writer";
 import { encodeLegacySecret } from "./legacy-secret";
 
@@ -78,46 +79,48 @@ function resolveInputScope(input: {
   environmentId?: string;
   resourceId?: string;
   scope: EnvironmentVariableScope;
-}) {
+}): Result<{ scopeId: string; environmentId: string | null; resourceId: string | null }, BadRequestError> {
   if (input.scope === "project") {
-    return { scopeId: input.projectId, environmentId: null, resourceId: null };
+    return Result.ok({ scopeId: input.projectId, environmentId: null, resourceId: null });
   }
   if (input.scope === "environment") {
     if (!input.environmentId) {
-      throw new DomainError("BAD_REQUEST", "environmentId is required for environment scope");
+      return Result.err(new BadRequestError({ field: "environmentId", message: "environmentId is required for environment scope" }));
     }
-    return {
+    return Result.ok({
       scopeId: input.environmentId,
       environmentId: input.environmentId,
       resourceId: null,
-    };
+    });
   }
   if (!input.environmentId || !input.resourceId) {
-    throw new DomainError(
-      "BAD_REQUEST",
-      "environmentId and resourceId are required for resource scope",
+    return Result.err(
+      new BadRequestError({ field: "resourceId", message: "environmentId and resourceId are required for resource scope" }),
     );
   }
-  return {
+  return Result.ok({
     scopeId: input.resourceId,
     environmentId: input.environmentId,
     resourceId: input.resourceId,
-  };
+  });
 }
 
-async function validateProject(projectId: string, organizationId: string) {
+async function validateProject(
+  projectId: string,
+  organizationId: string,
+): Promise<Result<typeof project.$inferSelect, NotFoundError>> {
   const row = await db.query.project.findFirst({
     where: and(eq(project.id, projectId), eq(project.organizationId, organizationId)),
   });
-  if (!row) throw new DomainError("NOT_FOUND", "Project not found");
-  return row;
+  if (!row) return Result.err(new NotFoundError({ resource: "project", id: projectId }));
+  return Result.ok(row);
 }
 
 async function validateEnvironmentInProject(
   environmentId: string,
   projectId: string,
   organizationId: string,
-) {
+): Promise<Result<void, NotFoundError>> {
   const row = await db.query.projectEnvironment.findFirst({
     where: and(
       eq(projectEnvironment.id, environmentId),
@@ -126,9 +129,9 @@ async function validateEnvironmentInProject(
     with: { project: true },
   });
   if (!row || row.project.organizationId !== organizationId) {
-    throw new DomainError("NOT_FOUND", "Environment not found in project");
+    return Result.err(new NotFoundError({ resource: "environment", id: environmentId }));
   }
-  return row;
+  return Result.ok(undefined);
 }
 
 async function validateResourceInProject(
@@ -136,7 +139,7 @@ async function validateResourceInProject(
   environmentId: string,
   projectId: string,
   organizationId: string,
-) {
+): Promise<Result<void, NotFoundError>> {
   const row = await db.query.projectResource.findFirst({
     where: and(
       eq(projectResource.id, resourceId),
@@ -149,20 +152,23 @@ async function validateResourceInProject(
     row.environment.projectId !== projectId ||
     row.environment.project.organizationId !== organizationId
   ) {
-    throw new DomainError("NOT_FOUND", "Resource not found in project/environment");
+    return Result.err(new NotFoundError({ resource: "resource", id: resourceId }));
   }
-  return row;
+  return Result.ok(undefined);
 }
 
-async function validateEnvVar(variableId: string, organizationId: string) {
+async function validateEnvVar(
+  variableId: string,
+  organizationId: string,
+): Promise<Result<typeof environmentVariable.$inferSelect, NotFoundError>> {
   const row = await db.query.environmentVariable.findFirst({
     where: and(
       eq(environmentVariable.id, variableId),
       eq(environmentVariable.organizationId, organizationId),
     ),
   });
-  if (!row) throw new DomainError("NOT_FOUND", "Environment variable not found");
-  return row;
+  if (!row) return Result.err(new NotFoundError({ resource: "environment_variable", id: variableId }));
+  return Result.ok(row);
 }
 
 export async function upsertEnvironmentVariable(params: {
@@ -176,25 +182,22 @@ export async function upsertEnvironmentVariable(params: {
   isSecret: boolean;
   buildTime: boolean;
   audit: AuditContext;
-}) {
-  await validateProject(params.projectId, params.organizationId);
-  const scope = resolveInputScope(params);
+}): Promise<Result<ReturnType<typeof formatVariable>, NotFoundError | BadRequestError | ConflictError>> {
+  const projResult = await validateProject(params.projectId, params.organizationId);
+  if (projResult.isErr()) return projResult;
+
+  const scopeResult = resolveInputScope(params);
+  if (scopeResult.isErr()) return scopeResult;
+  const scope = scopeResult.value;
 
   if (params.scope === "environment" && scope.environmentId) {
-    await validateEnvironmentInProject(
-      scope.environmentId,
-      params.projectId,
-      params.organizationId,
-    );
+    const envResult = await validateEnvironmentInProject(scope.environmentId, params.projectId, params.organizationId);
+    if (envResult.isErr()) return envResult;
   }
 
   if (params.scope === "resource" && scope.environmentId && scope.resourceId) {
-    await validateResourceInProject(
-      scope.resourceId,
-      scope.environmentId,
-      params.projectId,
-      params.organizationId,
-    );
+    const resResult = await validateResourceInProject(scope.resourceId, scope.environmentId, params.projectId, params.organizationId);
+    if (resResult.isErr()) return resResult;
   }
 
   const secret = await upsertSecretReference({
@@ -230,28 +233,21 @@ export async function upsertEnvironmentVariable(params: {
       })
       .where(eq(environmentVariable.id, existing.id));
 
-    await writeAuditLog(
-      params.organizationId,
-      params.audit,
-      "secret.upserted",
-      "environment_variable",
-      existing.id,
-      {
-        scope: params.scope,
-        scopeId: scope.scopeId,
-        key: params.key,
-        secretReferenceId: secret.reference.id,
-      },
-    );
+    await writeAuditLog(params.organizationId, params.audit, "secret.upserted", "environment_variable", existing.id, {
+      scope: params.scope,
+      scopeId: scope.scopeId,
+      key: params.key,
+      secretReferenceId: secret.reference.id,
+    });
 
     const updated = await db.query.environmentVariable.findFirst({
       where: eq(environmentVariable.id, existing.id),
     });
 
-    return formatVariable(updated!, params.projectId, scope.environmentId, scope.resourceId, {
+    return Result.ok(formatVariable(updated!, params.projectId, scope.environmentId, scope.resourceId, {
       provider: secret.reference.provider,
       providerVersion: secret.reference.providerVersion,
-    });
+    }));
   }
 
   const row = {
@@ -270,31 +266,29 @@ export async function upsertEnvironmentVariable(params: {
 
   const [inserted] = await db.insert(environmentVariable).values(row).returning();
   if (!inserted) {
-    throw new DomainError("CONFLICT", "Failed to create environment variable");
+    return Result.err(new ConflictError({ resource: "environment_variable", detail: "Failed to create environment variable" }));
   }
 
-  await writeAuditLog(
-    params.organizationId,
-    params.audit,
-    "secret.upserted",
-    "environment_variable",
-    row.id,
-    {
-      scope: params.scope,
-      scopeId: scope.scopeId,
-      key: params.key,
-      secretReferenceId: secret.reference.id,
-    },
-  );
+  await writeAuditLog(params.organizationId, params.audit, "secret.upserted", "environment_variable", row.id, {
+    scope: params.scope,
+    scopeId: scope.scopeId,
+    key: params.key,
+    secretReferenceId: secret.reference.id,
+  });
 
-  return formatVariable(inserted, params.projectId, scope.environmentId, scope.resourceId, {
+  return Result.ok(formatVariable(inserted, params.projectId, scope.environmentId, scope.resourceId, {
     provider: secret.reference.provider,
     providerVersion: secret.reference.providerVersion,
-  });
+  }));
 }
 
-export async function getEnvironmentVariable(variableId: string, organizationId: string) {
-  const row = await validateEnvVar(variableId, organizationId);
+export async function getEnvironmentVariable(
+  variableId: string,
+  organizationId: string,
+): Promise<Result<ReturnType<typeof formatVariable>, NotFoundError>> {
+  const rowResult = await validateEnvVar(variableId, organizationId);
+  if (rowResult.isErr()) return rowResult;
+  const row = rowResult.value;
   const ids = await resolveScopeIds(row.scope, row.scopeId);
 
   const secretMeta = row.secretReferenceId
@@ -303,10 +297,10 @@ export async function getEnvironmentVariable(variableId: string, organizationId:
       })
     : null;
 
-  return formatVariable(row, ids.projectId, ids.environmentId, ids.resourceId, {
+  return Result.ok(formatVariable(row, ids.projectId, ids.environmentId, ids.resourceId, {
     provider: secretMeta?.provider ?? null,
     providerVersion: secretMeta?.providerVersion ?? null,
-  });
+  }));
 }
 
 export async function listEnvironmentVariables(params: {
@@ -314,8 +308,9 @@ export async function listEnvironmentVariables(params: {
   projectId: string;
   environmentId?: string;
   resourceId?: string;
-}) {
-  await validateProject(params.projectId, params.organizationId);
+}): Promise<Result<ReturnType<typeof formatVariable>[], NotFoundError>> {
+  const projResult = await validateProject(params.projectId, params.organizationId);
+  if (projResult.isErr()) return projResult;
 
   const rows = await db.query.environmentVariable.findMany({
     where: eq(environmentVariable.organizationId, params.organizationId),
@@ -351,27 +346,22 @@ export async function listEnvironmentVariables(params: {
     );
   }
 
-  return results;
+  return Result.ok(results);
 }
 
 export async function deleteEnvironmentVariable(
   variableId: string,
   organizationId: string,
   audit: AuditContext,
-) {
-  await validateEnvVar(variableId, organizationId);
+): Promise<Result<{ success: true }, NotFoundError>> {
+  const rowResult = await validateEnvVar(variableId, organizationId);
+  if (rowResult.isErr()) return rowResult;
+
   await db.delete(environmentVariable).where(eq(environmentVariable.id, variableId));
 
-  await writeAuditLog(
-    organizationId,
-    audit,
-    "secret.deleted",
-    "environment_variable",
-    variableId,
-    {},
-  );
+  await writeAuditLog(organizationId, audit, "secret.deleted", "environment_variable", variableId, {});
 
-  return { success: true as const };
+  return Result.ok({ success: true as const });
 }
 
 export async function revealEnvironmentVariable(params: {
@@ -379,12 +369,14 @@ export async function revealEnvironmentVariable(params: {
   organizationId: string;
   reason: string;
   audit: AuditContext;
-}) {
-  const row = await validateEnvVar(params.variableId, params.organizationId);
+}): Promise<Result<Record<string, unknown>, NotFoundError | BadRequestError>> {
+  const rowResult = await validateEnvVar(params.variableId, params.organizationId);
+  if (rowResult.isErr()) return rowResult;
+  const row = rowResult.value;
+
   if (!row.secretReferenceId) {
-    throw new DomainError(
-      "BAD_REQUEST",
-      "Variable has no secret reference. Backfill is required first.",
+    return Result.err(
+      new BadRequestError({ field: "secretReferenceId", message: "Variable has no secret reference. Backfill is required first." }),
     );
   }
 
@@ -406,11 +398,11 @@ export async function revealEnvironmentVariable(params: {
     },
   );
 
-  return {
+  return Result.ok({
     variableId: row.id,
     value: revealed.value,
     revealedAt: new Date().toISOString(),
     revealAuditId,
     providerVersion: revealed.providerVersion,
-  };
+  });
 }

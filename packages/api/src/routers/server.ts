@@ -3,7 +3,7 @@ import { serverManagementService } from "@otterstack/domain";
 
 import { orgProcedure, orgAdminStepUpProcedure } from "../index";
 import { getIpAddress } from "../utils/http";
-import { fromPromise } from "../utils/result";
+import { unwrapResult } from "../utils/result";
 
 export const serverRouter = {
   register: orgAdminStepUpProcedure
@@ -25,8 +25,8 @@ export const serverRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(
-        serverManagementService.registerServer({
+      return unwrapResult(
+        await serverManagementService.registerServer({
           organizationId: context.organizationId,
           name: input.name,
           ipAddress: input.ipAddress,
@@ -49,7 +49,7 @@ export const serverRouter = {
       }),
     )
     .handler(async ({ context }) => {
-      return fromPromise(serverManagementService.listServers(context.organizationId));
+      return serverManagementService.listServers(context.organizationId);
     }),
 
   test: orgProcedure
@@ -59,8 +59,8 @@ export const serverRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(
-        serverManagementService.testServer(input.serverId, context.organizationId),
+      return unwrapResult(
+        await serverManagementService.testServer(input.serverId, context.organizationId),
       );
     }),
 
@@ -71,8 +71,8 @@ export const serverRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(
-        serverManagementService.removeServer(input.serverId, context.organizationId, {
+      return unwrapResult(
+        await serverManagementService.removeServer(input.serverId, context.organizationId, {
           userId: context.userId,
           ipAddress: getIpAddress(context.headers),
           userAgent: context.headers.get("user-agent"),

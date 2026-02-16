@@ -2,7 +2,7 @@ import * as z from "zod";
 import { backupService } from "@otterstack/domain";
 
 import { orgProcedure, orgAdminProcedure } from "../index";
-import { fromPromise } from "../utils/result";
+import { unwrapResult } from "../utils/result";
 
 export const backupRouter = {
   create: orgAdminProcedure
@@ -12,8 +12,8 @@ export const backupRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(
-        backupService.createBackup({
+      return unwrapResult(
+        await backupService.createBackup({
           organizationId: context.organizationId,
           resourceId: input.resourceId,
         }),
@@ -30,14 +30,12 @@ export const backupRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(
-        backupService.listBackups({
-          organizationId: context.organizationId,
-          resourceId: input.resourceId,
-          page: input.page,
-          pageSize: input.pageSize,
-        }),
-      );
+      return backupService.listBackups({
+        organizationId: context.organizationId,
+        resourceId: input.resourceId,
+        page: input.page,
+        pageSize: input.pageSize,
+      });
     }),
 
   restore: orgAdminProcedure
@@ -48,8 +46,8 @@ export const backupRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(
-        backupService.restoreBackup(input.backupId, input.targetResourceId, context.organizationId),
+      return unwrapResult(
+        await backupService.restoreBackup(input.backupId, input.targetResourceId, context.organizationId),
       );
     }),
 
@@ -60,6 +58,6 @@ export const backupRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(backupService.deleteBackup(input.backupId, context.organizationId));
+      return unwrapResult(await backupService.deleteBackup(input.backupId, context.organizationId));
     }),
 };

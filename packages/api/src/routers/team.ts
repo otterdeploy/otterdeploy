@@ -2,7 +2,7 @@ import * as z from "zod";
 import { teamService } from "@otterstack/domain";
 
 import { orgProcedure, orgAdminProcedure, orgOwnerProcedure } from "../index";
-import { fromPromise } from "../utils/result";
+import { unwrapResult } from "../utils/result";
 
 export const teamRouter = {
   listMembers: orgProcedure
@@ -12,7 +12,7 @@ export const teamRouter = {
       }),
     )
     .handler(async ({ context }) => {
-      return fromPromise(teamService.listMembers(context.organizationId));
+      return teamService.listMembers(context.organizationId);
     }),
 
   invite: orgAdminProcedure
@@ -24,8 +24,8 @@ export const teamRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(
-        teamService.inviteMember({
+      return unwrapResult(
+        await teamService.inviteMember({
           organizationId: context.organizationId,
           email: input.email,
           role: input.role,
@@ -43,8 +43,8 @@ export const teamRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(
-        teamService.updateMemberRole({
+      return unwrapResult(
+        await teamService.updateMemberRole({
           organizationId: context.organizationId,
           memberId: input.memberId,
           role: input.role,
@@ -60,8 +60,8 @@ export const teamRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      return fromPromise(
-        teamService.removeMember({
+      return unwrapResult(
+        await teamService.removeMember({
           organizationId: context.organizationId,
           memberId: input.memberId,
         }),

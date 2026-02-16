@@ -25,7 +25,10 @@ export const serverContract = {
           .optional(),
       }),
     )
-    .output(ServerSchema),
+    .output(ServerSchema)
+    .errors({
+      CONFLICT: { message: "Failed to register server" },
+    }),
   list: oc
     .route(route("GET", "/servers"))
     .input(
@@ -47,7 +50,10 @@ export const serverContract = {
         status: z.enum(["healthy", "degraded", "offline"]),
         roundTripMs: z.number().int().nullable(),
       }),
-    ),
+    )
+    .errors({
+      NOT_FOUND: { message: "Server not found" },
+    }),
   remove: oc
     .route(route("DELETE", "/servers/{serverId}"))
     .input(
@@ -55,5 +61,8 @@ export const serverContract = {
         serverId: IdSchema,
       }),
     )
-    .output(SuccessSchema),
+    .output(SuccessSchema)
+    .errors({
+      NOT_FOUND: { message: "Server not found" },
+    }),
 };

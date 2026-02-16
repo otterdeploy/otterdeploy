@@ -1,8 +1,9 @@
+import { Result } from "better-result";
 import { db, eq, and, desc, sql } from "@otterstack/db";
 import { backup } from "@otterstack/db/schema/operations";
 import { projectResource } from "@otterstack/db/schema/architecture";
 
-import { DomainError } from "./errors";
+import { NotFoundError, ConflictError } from "./errors";
 
 function toISOString(date: Date | null | undefined): string | null {
   return date ? date.toISOString() : null;
@@ -37,7 +38,10 @@ function formatBackup(row: typeof backup.$inferSelect) {
   };
 }
 
-async function validateResource(resourceId: string, organizationId: string) {
+async function validateResource(
+  resourceId: string,
+  organizationId: string,
+): Promise<Result<typeof projectResource.$inferSelect, NotFoundError>> {
   const row = await db.query.projectResource.findFirst({
     where: eq(projectResource.id, resourceId),
     with: {
@@ -45,21 +49,28 @@ async function validateResource(resourceId: string, organizationId: string) {
     },
   });
   if (!row || row.environment.project.organizationId !== organizationId) {
-    throw new DomainError("NOT_FOUND", "Resource not found");
+    return Result.err(new NotFoundError({ resource: "resource", id: resourceId }));
   }
-  return row;
+  return Result.ok(row);
 }
 
-async function validateBackupAccess(backupId: string, organizationId: string) {
+async function validateBackupAccess(
+  backupId: string,
+  organizationId: string,
+): Promise<Result<typeof backup.$inferSelect, NotFoundError>> {
   const row = await db.query.backup.findFirst({
     where: and(eq(backup.id, backupId), eq(backup.organizationId, organizationId)),
   });
-  if (!row) throw new DomainError("NOT_FOUND", "Backup not found");
-  return row;
+  if (!row) return Result.err(new NotFoundError({ resource: "backup", id: backupId }));
+  return Result.ok(row);
 }
 
-export async function createBackup(params: { organizationId: string; resourceId: string }) {
-  await validateResource(params.resourceId, params.organizationId);
+export async function createBackup(params: {
+  organizationId: string;
+  resourceId: string;
+}): Promise<Result<ReturnType<typeof formatBackup>, NotFoundError | ConflictError>> {
+  const resResult = await validateResource(params.resourceId, params.organizationId);
+  if (resResult.isErr()) return resResult;
 
   const now = new Date();
   const row = {
@@ -81,9 +92,9 @@ export async function createBackup(params: { organizationId: string; resourceId:
 
   const [inserted] = await db.insert(backup).values(row).returning();
   if (!inserted) {
-    throw new DomainError("CONFLICT", "Failed to create backup");
+    return Result.err(new ConflictError({ resource: "backup", detail: "Failed to create backup" }));
   }
-  return formatBackup(inserted);
+  return Result.ok(formatBackup(inserted));
 }
 
 export async function listBackups(params: {
@@ -123,14 +134,20 @@ export async function restoreBackup(
   backupId: string,
   targetResourceId: string,
   organizationId: string,
-) {
-  await validateBackupAccess(backupId, organizationId);
-  await validateResource(targetResourceId, organizationId);
-  return { success: true as const };
+): Promise<Result<{ success: true }, NotFoundError>> {
+  const backupResult = await validateBackupAccess(backupId, organizationId);
+  if (backupResult.isErr()) return backupResult;
+  const resResult = await validateResource(targetResourceId, organizationId);
+  if (resResult.isErr()) return resResult;
+  return Result.ok({ success: true as const });
 }
 
-export async function deleteBackup(backupId: string, organizationId: string) {
-  await validateBackupAccess(backupId, organizationId);
+export async function deleteBackup(
+  backupId: string,
+  organizationId: string,
+): Promise<Result<{ success: true }, NotFoundError>> {
+  const backupResult = await validateBackupAccess(backupId, organizationId);
+  if (backupResult.isErr()) return backupResult;
   await db.delete(backup).where(eq(backup.id, backupId));
-  return { success: true as const };
+  return Result.ok({ success: true as const });
 }

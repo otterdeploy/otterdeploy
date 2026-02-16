@@ -17,7 +17,12 @@ export const resourceLinkContract = {
         linkType: ResourceLinkTypeSchema.optional(),
       }),
     )
-    .output(ResourceLinkSchema),
+    .output(ResourceLinkSchema)
+    .errors({
+      NOT_FOUND: { message: "Resource not found" },
+      BAD_REQUEST: { message: "Cannot link a resource to itself" },
+      CONFLICT: { message: "Link already exists" },
+    }),
   delete: oc
     .route(route("DELETE", "/resource-links/{linkId}"))
     .input(
@@ -25,5 +30,8 @@ export const resourceLinkContract = {
         linkId: IdSchema,
       }),
     )
-    .output(SuccessSchema),
+    .output(SuccessSchema)
+    .errors({
+      NOT_FOUND: { message: "Resource link not found" },
+    }),
 };

@@ -14,7 +14,11 @@ export const domainContract = {
         domain: z.string().min(3),
       }),
     )
-    .output(DomainSchema),
+    .output(DomainSchema)
+    .errors({
+      NOT_FOUND: { message: "Resource not found" },
+      CONFLICT: { message: "Failed to add domain" },
+    }),
   verify: oc
     .route(route("POST", "/domains/{domainId}/verify"))
     .input(
@@ -22,7 +26,10 @@ export const domainContract = {
         domainId: IdSchema,
       }),
     )
-    .output(DomainSchema),
+    .output(DomainSchema)
+    .errors({
+      NOT_FOUND: { message: "Domain not found" },
+    }),
   list: oc
     .route(route("GET", "/domains"))
     .input(
@@ -39,5 +46,8 @@ export const domainContract = {
         domainId: IdSchema,
       }),
     )
-    .output(SuccessSchema),
+    .output(SuccessSchema)
+    .errors({
+      NOT_FOUND: { message: "Domain not found" },
+    }),
 };

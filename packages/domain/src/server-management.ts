@@ -1,8 +1,9 @@
+import { Result } from "better-result";
 import { db, eq, and } from "@otterstack/db";
 import { server, sshKey } from "@otterstack/db/schema/infrastructure";
 import { upsertSecretReference } from "@otterstack/secrets";
 
-import { DomainError } from "./errors";
+import { NotFoundError, ConflictError } from "./errors";
 import { type AuditContext, writeAuditLog } from "./audit-writer";
 import { encodeLegacySecret } from "./legacy-secret";
 
@@ -12,26 +13,22 @@ function toISOString(date: Date | null | undefined): string | null {
 
 function formatServer(row: typeof server.$inferSelect) {
   return {
-    id: row.id,
-    organizationId: row.organizationId,
-    name: row.name,
-    ipAddress: row.ipAddress,
-    port: row.port,
-    status: row.status,
-    role: row.role,
-    sshKeyId: row.sshKeyId ?? null,
+    ...row,
     lastSeenAt: toISOString(row.lastSeenAt),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
 }
 
-async function validateAccess(serverId: string, organizationId: string) {
+async function validateAccess(
+  serverId: string,
+  organizationId: string,
+): Promise<Result<typeof server.$inferSelect, NotFoundError>> {
   const row = await db.query.server.findFirst({
     where: and(eq(server.id, serverId), eq(server.organizationId, organizationId)),
   });
-  if (!row) throw new DomainError("NOT_FOUND", "Server not found");
-  return row;
+  if (!row) return Result.err(new NotFoundError({ resource: "server", id: serverId }));
+  return Result.ok(row);
 }
 
 export async function registerServer(params: {
@@ -47,7 +44,7 @@ export async function registerServer(params: {
     fingerprint: string;
   };
   audit: AuditContext;
-}) {
+}): Promise<Result<ReturnType<typeof formatServer>, ConflictError>> {
   const now = new Date();
   let sshKeyId: string | null = null;
 
@@ -94,14 +91,16 @@ export async function registerServer(params: {
 
   const [inserted] = await db.insert(server).values(row).returning();
   if (!inserted) {
-    throw new DomainError("CONFLICT", "Failed to register server");
+    return Result.err(
+      new ConflictError({ resource: "server", detail: "Failed to register server" }),
+    );
   }
 
   await writeAuditLog(params.organizationId, params.audit, "server.registered", "server", row.id, {
     sshAttached: !!sshKeyId,
   });
 
-  return formatServer(inserted);
+  return Result.ok(formatServer(inserted));
 }
 
 export async function listServers(organizationId: string) {
@@ -111,20 +110,35 @@ export async function listServers(organizationId: string) {
   return rows.map(formatServer);
 }
 
-export async function testServer(serverId: string, organizationId: string) {
-  await validateAccess(serverId, organizationId);
-  return {
+export async function testServer(
+  serverId: string,
+  organizationId: string,
+): Promise<
+  Result<
+    { serverId: string; status: "healthy" | "degraded" | "offline"; roundTripMs: number | null },
+    NotFoundError
+  >
+> {
+  const result = await validateAccess(serverId, organizationId);
+  if (result.isErr()) return result;
+  return Result.ok({
     serverId,
     status: "offline" as const,
     roundTripMs: null,
-  };
+  });
 }
 
-export async function removeServer(serverId: string, organizationId: string, audit: AuditContext) {
-  await validateAccess(serverId, organizationId);
+export async function removeServer(
+  serverId: string,
+  organizationId: string,
+  audit: AuditContext,
+): Promise<Result<{ success: true }, NotFoundError>> {
+  const result = await validateAccess(serverId, organizationId);
+  if (result.isErr()) return result;
+
   await db.delete(server).where(eq(server.id, serverId));
 
   await writeAuditLog(organizationId, audit, "server.removed", "server", serverId, {});
 
-  return { success: true as const };
+  return Result.ok({ success: true as const });
 }
