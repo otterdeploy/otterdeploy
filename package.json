@@ -7,7 +7,6 @@
       "packages/*"
     ],
     "catalog": {
-      "dotenv": "^17.2.2",
       "zod": "^4.1.13",
       "typescript": "^5",
       "@types/bun": "^1.3.4",
@@ -31,12 +30,13 @@
     "db:studio": "turbo -F @otterstack/db db:studio",
     "db:generate": "turbo -F @otterstack/db db:generate",
     "db:migrate": "turbo -F @otterstack/db db:migrate",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
     "check": "oxlint && oxfmt --write",
     "ruler:apply": "bunx @intellectronica/ruler@latest apply --local-only"
   },
   "dependencies": {
     "@otterstack/env": "workspace:*",
-    "dotenv": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

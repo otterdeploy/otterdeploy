@@ -10,14 +10,14 @@
     }
   },
   "scripts": {
-    "db:push": "drizzle-kit push",
-    "db:generate": "drizzle-kit generate",
-    "db:studio": "drizzle-kit studio",
-    "db:migrate": "drizzle-kit migrate"
+    "env": "bun --env-file=../../.env",
+    "db:push": "bun run env drizzle-kit push",
+    "db:generate": "bun run env drizzle-kit generate",
+    "db:studio": "bun run env drizzle-kit studio",
+    "db:migrate": "bun run env drizzle-kit migrate"
   },
   "dependencies": {
     "@otterstack/env": "workspace:*",
-    "dotenv": "catalog:",
     "drizzle-orm": "^0.45.1",
     "pg": "^8.17.1",
     "zod": "catalog:"

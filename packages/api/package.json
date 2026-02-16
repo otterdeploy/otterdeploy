@@ -18,7 +18,6 @@
     "@otterstack/auth": "workspace:*",
     "@otterstack/db": "workspace:*",
     "@otterstack/env": "workspace:*",
-    "dotenv": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

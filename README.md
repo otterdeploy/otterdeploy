@@ -29,8 +29,18 @@ bun install
 
 This project uses PostgreSQL with Drizzle ORM.
 
-1. Make sure you have a PostgreSQL database set up.
-2. Update your `apps/server/.env` file with your PostgreSQL connection details.
+1. Configure the root `.env` file with your app and database values.
+   If needed, start from:
+
+```bash
+cp .env.example .env
+```
+
+2. Start Postgres with Docker Compose from the repository root:
+
+```bash
+bun run db:up
+```
 
 3. Apply the schema to your database:
 
@@ -75,4 +85,6 @@ otterstack/
 - `bun run db:generate`: Generate database client/types
 - `bun run db:migrate`: Run database migrations
 - `bun run db:studio`: Open database studio UI
+- `bun run db:up`: Start PostgreSQL container from root `docker-compose.yml`
+- `bun run db:down`: Stop containers from root `docker-compose.yml`
 - `bun run check`: Run Oxlint and Oxfmt

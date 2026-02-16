@@ -6,7 +6,6 @@
       "name": "otterstack",
       "dependencies": {
         "@otterstack/env": "workspace:*",
-        "dotenv": "catalog:",
         "zod": "catalog:",
       },
       "devDependencies": {
@@ -53,7 +52,6 @@
         "@otterstack/db": "workspace:*",
         "@otterstack/env": "workspace:*",
         "better-auth": "catalog:",
-        "dotenv": "catalog:",
         "hono": "catalog:",
         "zod": "catalog:",
       },
@@ -83,7 +81,6 @@
         "better-auth": "catalog:",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
-        "dotenv": "catalog:",
         "lucide-react": "^0.473.0",
         "next-themes": "^0.4.6",
         "react": "19.2.3",
@@ -119,7 +116,6 @@
         "@otterstack/auth": "workspace:*",
         "@otterstack/db": "workspace:*",
         "@otterstack/env": "workspace:*",
-        "dotenv": "catalog:",
         "zod": "catalog:",
       },
       "devDependencies": {
@@ -134,7 +130,6 @@
         "@otterstack/db": "workspace:*",
         "@otterstack/env": "workspace:*",
         "better-auth": "catalog:",
-        "dotenv": "catalog:",
         "zod": "catalog:",
       },
       "devDependencies": {
@@ -150,7 +145,6 @@
       "name": "@otterstack/db",
       "dependencies": {
         "@otterstack/env": "workspace:*",
-        "dotenv": "catalog:",
         "drizzle-orm": "^0.45.1",
         "pg": "^8.17.1",
         "zod": "catalog:",
@@ -167,7 +161,6 @@
       "version": "0.0.0",
       "dependencies": {
         "@t3-oss/env-core": "^0.13.1",
-        "dotenv": "catalog:",
         "zod": "catalog:",
       },
       "devDependencies": {
@@ -184,7 +177,6 @@
     "@orpc/zod": "^1.12.2",
     "@types/bun": "^1.3.4",
     "better-auth": "^1.4.18",
-    "dotenv": "^17.2.2",
     "hono": "^4.8.2",
     "typescript": "^5",
     "zod": "^4.1.13",
