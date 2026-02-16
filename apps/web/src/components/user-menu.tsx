@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-
+import { Button } from "@otterstack/ui/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,11 +8,10 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { authClient } from "@/lib/auth-client";
+} from "@otterstack/ui/components/ui/dropdown-menu";
+import { Skeleton } from "@otterstack/ui/components/ui/skeleton";
 
-import { Button } from "./ui/button";
-import { Skeleton } from "./ui/skeleton";
+import { authClient } from "@/lib/auth-client";
 
 export default function UserMenu() {
   const navigate = useNavigate();
