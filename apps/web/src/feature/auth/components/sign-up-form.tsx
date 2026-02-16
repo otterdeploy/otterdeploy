@@ -15,7 +15,7 @@ import z from "zod";
 
 import { authClient } from "@/lib/auth-client";
 
-import Loader from "./loader";
+import Loader from "../../../components/loader";
 
 export default function SignUpForm() {
   const navigate = useNavigate({
@@ -51,15 +51,17 @@ export default function SignUpForm() {
       );
     },
     validators: {
-      onSubmit: z.object({
-        name: z.string().min(2, "Name must be at least 2 characters"),
-        email: z.email("Invalid email address"),
-        password: z.string().min(8, "Password must be at least 8 characters"),
-        confirmPassword: z.string().min(8, "Password must be at least 8 characters"),
-      }).refine((value) => value.password === value.confirmPassword, {
-        message: "Passwords do not match",
-        path: ["confirmPassword"],
-      }),
+      onSubmit: z
+        .object({
+          name: z.string().min(2, "Name must be at least 2 characters"),
+          email: z.email("Invalid email address"),
+          password: z.string().min(8, "Password must be at least 8 characters"),
+          confirmPassword: z.string().min(8, "Password must be at least 8 characters"),
+        })
+        .refine((value) => value.password === value.confirmPassword, {
+          message: "Passwords do not match",
+          path: ["confirmPassword"],
+        }),
     },
   });
 

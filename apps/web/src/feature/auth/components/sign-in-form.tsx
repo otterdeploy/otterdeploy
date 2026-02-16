@@ -15,7 +15,7 @@ import z from "zod";
 
 import { authClient } from "@/lib/auth-client";
 
-import Loader from "./loader";
+import Loader from "../../../components/loader";
 
 export default function SignInForm() {
   const navigate = useNavigate({

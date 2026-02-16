@@ -4,7 +4,8 @@
       "Bash(bd show:*)",
       "WebFetch(domain:www.inngest.com)",
       "Bash(bun run check-types:*)",
-      "WebFetch(domain:www.better-auth.com)"
+      "WebFetch(domain:www.better-auth.com)",
+      "mcp__ide__getDiagnostics"
     ]
   }
 }
