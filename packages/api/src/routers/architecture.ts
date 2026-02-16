@@ -7,66 +7,132 @@ import {
   projectViewport,
 } from "@otterstack/db/schema/architecture";
 import { and, eq, inArray } from "@otterstack/db";
-import * as z from "zod";
+import { createInsertSchema } from "drizzle-zod";
 
 import { db } from "@otterstack/db";
 
 import { protectedProcedure } from "../index";
 
-const resourceKinds = ["web", "api", "worker", "database", "cache", "volume"] as const;
-const resourceStatuses = ["online", "degraded", "crashed", "unknown"] as const;
-const linkTypes = ["depends_on", "network", "mounts"] as const;
+const projectInsertSchema = createInsertSchema(project);
+const projectEnvironmentInsertSchema = createInsertSchema(projectEnvironment);
+const projectResourceInsertSchema = createInsertSchema(projectResource);
+const projectResourceLinkInsertSchema = createInsertSchema(projectResourceLink);
+const projectViewportInsertSchema = createInsertSchema(projectViewport);
 
-const resourceKindSchema = z.enum(resourceKinds);
-const resourceStatusSchema = z.enum(resourceStatuses);
-const linkTypeSchema = z.enum(linkTypes);
+const projectCreateInputSchema = projectInsertSchema
+  .pick({
+    name: true,
+    slug: true,
+  })
+  .partial({ slug: true });
 
-const nodeDataSchema = z.object({
-  name: z.string().min(1),
-  kind: resourceKindSchema,
-  status: resourceStatusSchema,
-  metadata: z.record(z.string(), z.unknown()).default({}),
+const projectIdInputSchema = projectEnvironmentInsertSchema.pick({
+  projectId: true,
 });
 
-const graphNodeSchema = z.object({
-  id: z.string().min(1),
-  position: z.object({
-    x: z.number(),
-    y: z.number(),
+const optionalEnvironmentIdInputSchema = projectViewportInsertSchema
+  .pick({
+    environmentId: true,
+  })
+  .partial({ environmentId: true });
+
+const projectEnvironmentScopeInputSchema = projectIdInputSchema.merge(
+  optionalEnvironmentIdInputSchema,
+);
+
+const resourceCreateInputSchema = projectEnvironmentScopeInputSchema.merge(
+  projectResourceInsertSchema
+    .pick({
+      name: true,
+      kind: true,
+      status: true,
+      metadata: true,
+      posX: true,
+      posY: true,
+    })
+    .partial({
+      status: true,
+      metadata: true,
+    }),
+);
+
+const resourceUpdateInputSchema = projectIdInputSchema.merge(
+  projectResourceInsertSchema
+    .pick({
+      id: true,
+      name: true,
+      kind: true,
+      status: true,
+      metadata: true,
+      posX: true,
+      posY: true,
+    })
+    .partial({
+      name: true,
+      kind: true,
+      status: true,
+      metadata: true,
+      posX: true,
+      posY: true,
+    }),
+);
+
+const resourceDeleteInputSchema = projectIdInputSchema.merge(
+  projectResourceInsertSchema.pick({
+    id: true,
   }),
-  data: nodeDataSchema,
-});
+);
 
-const graphEdgeSchema = z.object({
-  id: z.string().min(1),
-  source: z.string().min(1),
-  target: z.string().min(1),
-  data: z.object({
-    linkType: linkTypeSchema,
+const linkCreateInputSchema = projectIdInputSchema.merge(
+  projectResourceLinkInsertSchema
+    .pick({
+      sourceResourceId: true,
+      targetResourceId: true,
+      linkType: true,
+    })
+    .partial({ linkType: true }),
+);
+
+const linkDeleteInputSchema = projectIdInputSchema.merge(
+  projectResourceLinkInsertSchema.pick({
+    id: true,
+  }),
+);
+
+const viewportUpdateInputSchema = projectEnvironmentScopeInputSchema.merge(
+  projectViewportInsertSchema.pick({
+    x: true,
+    y: true,
+    zoom: true,
+  }),
+);
+
+const replaceGraphInputSchema = projectEnvironmentScopeInputSchema.extend({
+  resources: projectResourceInsertSchema
+    .pick({
+      id: true,
+      kind: true,
+      name: true,
+      status: true,
+      metadata: true,
+      posX: true,
+      posY: true,
+    })
+    .array(),
+  links: projectResourceLinkInsertSchema
+    .pick({
+      id: true,
+      sourceResourceId: true,
+      targetResourceId: true,
+      linkType: true,
+    })
+    .array(),
+  viewport: projectViewportInsertSchema.pick({
+    x: true,
+    y: true,
+    zoom: true,
   }),
 });
-
-const viewportSchema = z.object({
-  x: z.number(),
-  y: z.number(),
-  zoom: z.number().positive(),
-});
-
-const graphStateSchema = z.object({
-  nodes: z.array(graphNodeSchema),
-  edges: z.array(graphEdgeSchema),
-  viewport: viewportSchema,
-});
-
-function requireUserId(context: { session?: { user?: { id?: string } } }) {
-  const userId = context.session?.user?.id;
-
-  if (!userId) {
-    throw new ORPCError("UNAUTHORIZED");
-  }
-
-  return userId;
-}
 
 function slugify(name: string) {
   const normalized = name
@@ -251,14 +317,9 @@ async function getOwnedLink(linkId: string, ownerUserId: string) {
 export const architectureRouter = {
   project: {
     create: protectedProcedure
-      .input(
-        z.object({
-          name: z.string().min(1),
-          slug: z.string().min(1).optional(),
-        }),
-      )
+      .input(projectCreateInputSchema)
       .handler(async ({ context, input }) => {
-        const userId = requireUserId(context);
+        const userId = context.userId;
 
         const baseSlug = slugify(input.slug ?? input.name);
         let candidateSlug = baseSlug;
@@ -327,13 +388,9 @@ export const architectureRouter = {
         };
       }),
     getById: protectedProcedure
-      .input(
-        z.object({
-          projectId: z.string().min(1),
-        }),
-      )
+      .input(projectIdInputSchema)
       .handler(async ({ context, input }) => {
-        const userId = requireUserId(context);
+        const userId = context.userId;
         const projectRow = await getOwnedProject(input.projectId, userId);
 
         return {
@@ -345,35 +402,17 @@ export const architectureRouter = {
   },
   architecture: {
     get: protectedProcedure
-      .input(
-        z.object({
-          projectId: z.string().min(1),
-          environmentId: z.string().min(1).optional(),
-        }),
-      )
+      .input(projectEnvironmentScopeInputSchema)
       .handler(async ({ context, input }) => {
-        const userId = requireUserId(context);
+        const userId = context.userId;
 
         return getProjectGraph(input.projectId, userId, input.environmentId);
       }),
 
     createResource: protectedProcedure
-      .input(
-        z.object({
-          projectId: z.string().min(1),
-          environmentId: z.string().min(1).optional(),
-          name: z.string().min(1),
-          kind: resourceKindSchema,
-          status: resourceStatusSchema.default("unknown"),
-          metadata: z.record(z.string(), z.unknown()).default({}),
-          position: z.object({
-            x: z.number(),
-            y: z.number(),
-          }),
-        }),
-      )
+      .input(resourceCreateInputSchema)
       .handler(async ({ context, input }) => {
-        const userId = requireUserId(context);
+        const userId = context.userId;
         await getOwnedProject(input.projectId, userId);
         const environment = await getOrCreateEnvironment(input.projectId, input.environmentId);
 
@@ -382,10 +421,10 @@ export const architectureRouter = {
           environmentId: environment.id,
           kind: input.kind,
           name: input.name,
-          status: input.status,
-          metadata: input.metadata,
-          posX: input.position.x,
-          posY: input.position.y,
+          status: input.status ?? "unknown",
+          metadata: input.metadata ?? {},
+          posX: input.posX,
+          posY: input.posY,
           createdAt: new Date(),
           updatedAt: new Date(),
         };
@@ -409,26 +448,11 @@ export const architectureRouter = {
       }),
 
     updateResource: protectedProcedure
-      .input(
-        z.object({
-          projectId: z.string().min(1),
-          resourceId: z.string().min(1),
-          name: z.string().min(1).optional(),
-          kind: resourceKindSchema.optional(),
-          status: resourceStatusSchema.optional(),
-          metadata: z.record(z.string(), z.unknown()).optional(),
-          position: z
-            .object({
-              x: z.number(),
-              y: z.number(),
-            })
-            .optional(),
-        }),
-      )
+      .input(resourceUpdateInputSchema)
       .handler(async ({ context, input }) => {
-        const userId = requireUserId(context);
+        const userId = context.userId;
         await getOwnedProject(input.projectId, userId);
-        const resource = await getOwnedResource(input.resourceId, userId);
+        const resource = await getOwnedResource(input.id, userId);
 
         if (resource.environment.project.id !== input.projectId) {
           throw new ORPCError("NOT_FOUND", {
@@ -456,18 +480,21 @@ export const architectureRouter = {
           updateInput.metadata = input.metadata;
         }
 
-        if (input.position !== undefined) {
-          updateInput.posX = input.position.x;
-          updateInput.posY = input.position.y;
+        if (input.posX !== undefined) {
+          updateInput.posX = input.posX;
+        }
+
+        if (input.posY !== undefined) {
+          updateInput.posY = input.posY;
         }
 
         await db
           .update(projectResource)
           .set(updateInput)
-          .where(eq(projectResource.id, input.resourceId));
+          .where(eq(projectResource.id, input.id));
 
         const updated = await db.query.projectResource.findFirst({
-          where: eq(projectResource.id, input.resourceId),
+          where: eq(projectResource.id, input.id),
         });
 
         if (!updated) {
@@ -493,16 +520,11 @@ export const architectureRouter = {
       }),
 
     deleteResource: protectedProcedure
-      .input(
-        z.object({
-          projectId: z.string().min(1),
-          resourceId: z.string().min(1),
-        }),
-      )
+      .input(resourceDeleteInputSchema)
       .handler(async ({ context, input }) => {
-        const userId = requireUserId(context);
+        const userId = context.userId;
         await getOwnedProject(input.projectId, userId);
-        const resource = await getOwnedResource(input.resourceId, userId);
+        const resource = await getOwnedResource(input.id, userId);
 
         if (resource.environment.project.id !== input.projectId) {
           throw new ORPCError("NOT_FOUND", {
@@ -510,22 +532,15 @@ export const architectureRouter = {
           });
         }
 
-        await db.delete(projectResource).where(eq(projectResource.id, input.resourceId));
+        await db.delete(projectResource).where(eq(projectResource.id, input.id));
 
         return { success: true as const };
       }),
 
     createLink: protectedProcedure
-      .input(
-        z.object({
-          projectId: z.string().min(1),
-          sourceResourceId: z.string().min(1),
-          targetResourceId: z.string().min(1),
-          linkType: linkTypeSchema.default("network"),
-        }),
-      )
+      .input(linkCreateInputSchema)
       .handler(async ({ context, input }) => {
-        const userId = requireUserId(context);
+        const userId = context.userId;
         await getOwnedProject(input.projectId, userId);
 
         const [sourceResource, targetResource] = await Promise.all([
@@ -553,7 +568,7 @@ export const architectureRouter = {
           environmentId: sourceResource.environmentId,
           sourceResourceId: sourceResource.id,
           targetResourceId: targetResource.id,
-          linkType: input.linkType,
+          linkType: input.linkType ?? "network",
           createdAt: new Date(),
           updatedAt: new Date(),
         };
@@ -572,17 +587,12 @@ export const architectureRouter = {
       }),
 
     deleteLink: protectedProcedure
-      .input(
-        z.object({
-          projectId: z.string().min(1),
-          linkId: z.string().min(1),
-        }),
-      )
+      .input(linkDeleteInputSchema)
       .handler(async ({ context, input }) => {
-        const userId = requireUserId(context);
+        const userId = context.userId;
         await getOwnedProject(input.projectId, userId);
 
-        const link = await getOwnedLink(input.linkId, userId);
+        const link = await getOwnedLink(input.id, userId);
 
         if (link.environment.project.id !== input.projectId) {
           throw new ORPCError("NOT_FOUND", {
@@ -590,21 +600,15 @@ export const architectureRouter = {
           });
         }
 
-        await db.delete(projectResourceLink).where(eq(projectResourceLink.id, input.linkId));
+        await db.delete(projectResourceLink).where(eq(projectResourceLink.id, input.id));
 
         return { success: true as const };
       }),
 
     updateViewport: protectedProcedure
-      .input(
-        z.object({
-          projectId: z.string().min(1),
-          environmentId: z.string().min(1).optional(),
-          viewport: viewportSchema,
-        }),
-      )
+      .input(viewportUpdateInputSchema)
       .handler(async ({ context, input }) => {
-        const userId = requireUserId(context);
+        const userId = context.userId;
         await getOwnedProject(input.projectId, userId);
         const environment = await getOrCreateEnvironment(input.projectId, input.environmentId);
 
@@ -612,36 +616,35 @@ export const architectureRouter = {
           .insert(projectViewport)
           .values({
             environmentId: environment.id,
-            x: input.viewport.x,
-            y: input.viewport.y,
-            zoom: input.viewport.zoom,
+            x: input.x,
+            y: input.y,
+            zoom: input.zoom,
             updatedAt: new Date(),
           })
           .onConflictDoUpdate({
             target: projectViewport.environmentId,
             set: {
-              x: input.viewport.x,
-              y: input.viewport.y,
-              zoom: input.viewport.zoom,
+              x: input.x,
+              y: input.y,
+              zoom: input.zoom,
               updatedAt: new Date(),
             },
           });
 
         return {
           environmentId: environment.id,
-          viewport: input.viewport,
+          viewport: {
+            x: input.x,
+            y: input.y,
+            zoom: input.zoom,
+          },
         };
       }),
 
     seedStarter: protectedProcedure
-      .input(
-        z.object({
-          projectId: z.string().min(1),
-          environmentId: z.string().min(1).optional(),
-        }),
-      )
+      .input(projectEnvironmentScopeInputSchema)
       .handler(async ({ context, input }) => {
-        const userId = requireUserId(context);
+        const userId = context.userId;
         await getOwnedProject(input.projectId, userId);
         const environment = await getOrCreateEnvironment(input.projectId, input.environmentId);
 
@@ -786,15 +789,9 @@ export const architectureRouter = {
       }),
 
     replaceGraph: protectedProcedure
-      .input(
-        z.object({
-          projectId: z.string().min(1),
-          environmentId: z.string().min(1).optional(),
-          graph: graphStateSchema,
-        }),
-      )
+      .input(replaceGraphInputSchema)
       .handler(async ({ context, input }) => {
-        const userId = requireUserId(context);
+        const userId = context.userId;
         await getOwnedProject(input.projectId, userId);
         const environment = await getOrCreateEnvironment(input.projectId, input.environmentId);
 
@@ -806,32 +803,35 @@ export const architectureRouter = {
             .where(eq(projectResourceLink.environmentId, environment.id));
           await tx.delete(projectResource).where(eq(projectResource.environmentId, environment.id));
 
-          if (input.graph.nodes.length > 0) {
+          if (input.resources.length > 0) {
             await tx.insert(projectResource).values(
-              input.graph.nodes.map((node) => ({
-                id: node.id,
+              input.resources.map((resource) => ({
+                id: resource.id,
                 environmentId: environment.id,
-                kind: node.data.kind,
-                name: node.data.name,
-                status: node.data.status,
-                metadata: node.data.metadata,
-                posX: node.position.x,
-                posY: node.position.y,
+                kind: resource.kind,
+                name: resource.name,
+                status: resource.status,
+                metadata: resource.metadata,
+                posX: resource.posX,
+                posY: resource.posY,
                 createdAt: now,
                 updatedAt: now,
               })),
             );
           }
 
-          const validNodeIds = new Set(input.graph.nodes.map((node) => node.id));
-          const linksToInsert = input.graph.edges
-            .filter((edge) => validNodeIds.has(edge.source) && validNodeIds.has(edge.target))
-            .map((edge) => ({
-              id: edge.id,
+          const validNodeIds = new Set(input.resources.map((resource) => resource.id));
+          const linksToInsert = input.links
+            .filter(
+              (link) =>
+                validNodeIds.has(link.sourceResourceId) && validNodeIds.has(link.targetResourceId),
+            )
+            .map((link) => ({
+              id: link.id,
               environmentId: environment.id,
-              sourceResourceId: edge.source,
-              targetResourceId: edge.target,
-              linkType: edge.data.linkType,
+              sourceResourceId: link.sourceResourceId,
+              targetResourceId: link.targetResourceId,
+              linkType: link.linkType,
               createdAt: now,
               updatedAt: now,
             }));
@@ -844,17 +844,17 @@ export const architectureRouter = {
             .insert(projectViewport)
             .values({
               environmentId: environment.id,
-              x: input.graph.viewport.x,
-              y: input.graph.viewport.y,
-              zoom: input.graph.viewport.zoom,
+              x: input.viewport.x,
+              y: input.viewport.y,
+              zoom: input.viewport.zoom,
               updatedAt: now,
             })
             .onConflictDoUpdate({
               target: projectViewport.environmentId,
               set: {
-                x: input.graph.viewport.x,
-                y: input.graph.viewport.y,
-                zoom: input.graph.viewport.zoom,
+                x: input.viewport.x,
+                y: input.viewport.y,
+                zoom: input.viewport.zoom,
                 updatedAt: now,
               },
             });
@@ -864,7 +864,7 @@ export const architectureRouter = {
       }),
 
     listProjects: protectedProcedure.handler(async ({ context }) => {
-      const userId = requireUserId(context);
+      const userId = context.userId;
 
       return db.query.project.findMany({
         where: eq(project.ownerId, userId),
@@ -872,13 +872,9 @@ export const architectureRouter = {
     }),
 
     listProjectResources: protectedProcedure
-      .input(
-        z.object({
-          projectId: z.string().min(1),
-        }),
-      )
+      .input(projectIdInputSchema)
       .handler(async ({ context, input }) => {
-        const userId = requireUserId(context);
+        const userId = context.userId;
         await getOwnedProject(input.projectId, userId);
 
         const environments = await db.query.projectEnvironment.findMany({

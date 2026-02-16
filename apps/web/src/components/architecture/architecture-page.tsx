@@ -272,33 +272,25 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
       await replaceGraphMutation.mutateAsync({
         projectId: graphIdentity.projectId,
         environmentId: graphIdentity.environmentId,
-        graph: {
-          nodes: state.nodes.map((node) => ({
-            id: node.id,
-            position: {
-              x: node.position.x,
-              y: node.position.y,
-            },
-            data: {
-              name: node.data.name,
-              kind: node.data.kind,
-              status: node.data.status,
-              metadata: node.data.metadata,
-            },
-          })),
-          edges: state.edges.map((edge) => ({
-            id: edge.id,
-            source: edge.source,
-            target: edge.target,
-            data: {
-              linkType: edge.data?.linkType ?? "network",
-            },
-          })),
-          viewport: {
-            x: state.viewport.x,
-            y: state.viewport.y,
-            zoom: state.viewport.zoom,
-          },
+        resources: state.nodes.map((node) => ({
+          id: node.id,
+          name: node.data.name,
+          kind: node.data.kind,
+          status: node.data.status,
+          metadata: node.data.metadata,
+          posX: node.position.x,
+          posY: node.position.y,
+        })),
+        links: state.edges.map((edge) => ({
+          id: edge.id,
+          sourceResourceId: edge.source,
+          targetResourceId: edge.target,
+          linkType: edge.data?.linkType ?? "network",
+        })),
+        viewport: {
+          x: state.viewport.x,
+          y: state.viewport.y,
+          zoom: state.viewport.zoom,
         },
       });
     },
@@ -394,7 +386,8 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
           kind: input.kind,
           status: input.status,
           metadata: {},
-          position: optimisticNode.position,
+          posX: optimisticNode.position.x,
+          posY: optimisticNode.position.y,
         });
 
         setNodes((value) =>
@@ -461,7 +454,7 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
       try {
         await updateResourceMutation.mutateAsync({
           projectId: graphIdentity.projectId,
-          resourceId: input.nodeId,
+          id: input.nodeId,
           name: input.name,
           kind: input.kind,
           status: input.status,
@@ -491,7 +484,7 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
       try {
         await deleteResourceMutation.mutateAsync({
           projectId: graphIdentity.projectId,
-          resourceId: nodeId,
+          id: nodeId,
         });
       } catch (error) {
         applySnapshot(previous);
@@ -571,7 +564,7 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
           deletedNodes.map(async (node) => {
             await deleteResourceMutation.mutateAsync({
               projectId: graphIdentity.projectId,
-              resourceId: node.id,
+              id: node.id,
             });
           }),
         );
@@ -603,7 +596,7 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
           deletedEdges.map(async (edge) => {
             await deleteLinkMutation.mutateAsync({
               projectId: graphIdentity.projectId,
-              linkId: edge.id,
+              id: edge.id,
             });
           }),
         );
@@ -652,11 +645,9 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
         void updateViewportMutation.mutateAsync({
           projectId: graphIdentity.projectId,
           environmentId: graphIdentity.environmentId,
-          viewport: {
-            x: viewportValue.x,
-            y: viewportValue.y,
-            zoom: viewportValue.zoom,
-          },
+          x: viewportValue.x,
+          y: viewportValue.y,
+          zoom: viewportValue.zoom,
         });
       }, 250);
     },
@@ -682,11 +673,9 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
       try {
         await updateResourceMutation.mutateAsync({
           projectId: graphIdentity.projectId,
-          resourceId: node.id,
-          position: {
-            x: node.position.x,
-            y: node.position.y,
-          },
+          id: node.id,
+          posX: node.position.x,
+          posY: node.position.y,
         });
       } catch (error) {
         if (dragStartSnapshot) {
