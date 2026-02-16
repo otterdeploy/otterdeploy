@@ -28,13 +28,12 @@ const REQUIRED_ROUTERS = [
   "server",
   "monitoring",
   "backup",
-  "team",
   "audit",
   "system",
 ] as const;
 
 describe("Contract structure", () => {
-  it("exports appContract with all 15 required routers", () => {
+  it("exports appContract with all 14 required routers", () => {
     const routers = Object.keys(appContract).sort();
     for (const name of REQUIRED_ROUTERS) {
       expect(routers, `missing router: ${name}`).toContain(name);
@@ -42,7 +41,7 @@ describe("Contract structure", () => {
     expect(routers).toHaveLength(REQUIRED_ROUTERS.length);
   });
 
-  it("has exactly 58 procedures", () => {
+  it("has exactly 54 procedures", () => {
     let count = 0;
     function walk(obj: unknown) {
       if (!obj || typeof obj !== "object") return;
@@ -55,7 +54,7 @@ describe("Contract structure", () => {
       }
     }
     walk(appContract);
-    expect(count).toBe(58);
+    expect(count).toBe(54);
   });
 
   it("every procedure has input and output schemas", () => {

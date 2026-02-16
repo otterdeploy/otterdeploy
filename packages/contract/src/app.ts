@@ -15,7 +15,6 @@ import {
   resourceLinkContract,
   serverContract,
   systemContract,
-  teamContract,
 } from "./contracts";
 
 export const appContract = {
@@ -31,7 +30,6 @@ export const appContract = {
   server: serverContract,
   monitoring: monitoringContract,
   backup: backupContract,
-  team: teamContract,
   audit: auditContract,
   system: systemContract,
 } as const;

@@ -6,7 +6,6 @@ import {
   DeploymentStatusSchema,
   EnvVarScopeSchema,
   IdSchema,
-  OrgRoleSchema,
   SecretProviderSchema,
   ResourceKindSchema,
   ResourceLinkTypeSchema,
@@ -210,17 +209,6 @@ export const BackupSchema = z
     expiresAt: z.iso.datetime().nullable(),
   })
   .merge(TimestampsSchema);
-
-export const TeamMemberSchema = z.object({
-  memberId: IdSchema,
-  userId: IdSchema,
-  organizationId: IdSchema,
-  role: OrgRoleSchema,
-  email: z.email(),
-  name: z.string().nullable(),
-  twoFactorEnabled: z.boolean(),
-  joinedAt: z.iso.datetime(),
-});
 
 export const AuditLogSchema = z.object({
   id: IdSchema,

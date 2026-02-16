@@ -14,8 +14,7 @@
     "resource",
     "resourceLink",
     "server",
-    "system",
-    "team"
+    "system"
   ],
   "requiredRouters": [
     "project",
@@ -30,11 +29,10 @@
     "server",
     "monitoring",
     "backup",
-    "team",
     "audit",
     "system"
   ],
-  "procedureCount": 58,
+  "procedureCount": 54,
   "procedures": [
     {
       "id": "architecture.getGraph",
@@ -413,35 +411,7 @@
       "path": "/system/version",
       "hasInput": true,
       "hasOutput": true
-    },
-    {
-      "id": "team.invite",
-      "method": "POST",
-      "path": "/organizations/{organizationId}/members/invite",
-      "hasInput": true,
-      "hasOutput": true
-    },
-    {
-      "id": "team.listMembers",
-      "method": "GET",
-      "path": "/organizations/{organizationId}/members",
-      "hasInput": true,
-      "hasOutput": true
-    },
-    {
-      "id": "team.removeMember",
-      "method": "DELETE",
-      "path": "/organizations/{organizationId}/members/{memberId}",
-      "hasInput": true,
-      "hasOutput": true
-    },
-    {
-      "id": "team.updateRole",
-      "method": "PATCH",
-      "path": "/organizations/{organizationId}/members/{memberId}/role",
-      "hasInput": true,
-      "hasOutput": true
     }
   ],
-  "procedureHash": "f6043454666cb1d4dd73de4df8e7ee8c3f33c1968723601c332cc4275be09ae2"
+  "procedureHash": "f3a7e7383740e00729cce27027d29f2b92d0da6f74b9ba09dc4ced9ee8d6b1e7"
 }

@@ -28,7 +28,6 @@ const requiredRouters = [
   "server",
   "monitoring",
   "backup",
-  "team",
   "audit",
   "system",
 ] as const;

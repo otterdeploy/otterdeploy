@@ -12,4 +12,3 @@ export * from "./resource-link";
 export * from "./resource";
 export * from "./server";
 export * from "./system";
-export * from "./team";
