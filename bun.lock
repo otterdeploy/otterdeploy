@@ -123,6 +123,7 @@
       "dependencies": {
         "@otterstack/db": "workspace:*",
         "@otterstack/domain": "workspace:*",
+        "@otterstack/env": "workspace:*",
         "@otterstack/events": "workspace:*",
         "@otterstack/logger": "workspace:*",
         "hono": "catalog:",
@@ -206,6 +207,7 @@
         "@otterstack/db": "workspace:*",
         "@otterstack/events": "workspace:*",
         "@otterstack/logger": "workspace:*",
+        "@otterstack/secrets": "workspace:*",
       },
       "devDependencies": {
         "@otterstack/config": "workspace:*",

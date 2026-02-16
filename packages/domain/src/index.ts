@@ -1,4 +1,5 @@
 export { DomainError, type DomainErrorCode } from "./errors";
+export { type AuditContext } from "./audit-writer";
 
 export * as projectService from "./project";
 export * as environmentService from "./environment";
@@ -11,3 +12,10 @@ export * as systemService from "./system";
 
 export * as deploymentService from "./deployment";
 export * as deploymentMachine from "./deployment-machine";
+export * as deploymentSecretService from "./deployment-secret";
+
+export * as environmentVariableService from "./environment-variable";
+export * as gitProviderService from "./git-provider";
+export * as serverManagementService from "./server-management";
+export * as customDomainService from "./custom-domain";
+export * as backupService from "./backup";

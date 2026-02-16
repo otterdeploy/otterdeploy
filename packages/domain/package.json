@@ -11,7 +11,8 @@
   "dependencies": {
     "@otterstack/db": "workspace:*",
     "@otterstack/events": "workspace:*",
-    "@otterstack/logger": "workspace:*"
+    "@otterstack/logger": "workspace:*",
+    "@otterstack/secrets": "workspace:*"
   },
   "devDependencies": {
     "@otterstack/config": "workspace:*",

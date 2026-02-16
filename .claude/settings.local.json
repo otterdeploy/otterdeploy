@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(bd show:*)"
+      "Bash(bd show:*)",
+      "WebFetch(domain:www.inngest.com)"
     ]
   }
 }

@@ -9,6 +9,7 @@
   "dependencies": {
     "@otterstack/db": "workspace:*",
     "@otterstack/domain": "workspace:*",
+    "@otterstack/env": "workspace:*",
     "@otterstack/events": "workspace:*",
     "@otterstack/logger": "workspace:*",
     "hono": "catalog:",

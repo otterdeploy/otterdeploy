@@ -10,5 +10,6 @@ type InngestEventSchemas = {
 
 export const inngest = new Inngest({
   id: "otterstack",
+  eventKey: process.env.INNGEST_EVENT_KEY,
   schemas: new EventSchemas().fromRecord<InngestEventSchemas>(),
 });

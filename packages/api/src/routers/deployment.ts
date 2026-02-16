@@ -1,122 +1,19 @@
 import * as z from "zod";
 import { ORPCError } from "@orpc/server";
-import { deploymentService, DomainError } from "@otterstack/domain";
-import { db, eq, and, or } from "@otterstack/db";
-import { environmentVariable } from "@otterstack/db/schema/operations";
-import { deploymentSecretSnapshot } from "@otterstack/db/schema/secrets";
-import { revealSecretByReference } from "@otterstack/secrets";
+import { deploymentService, deploymentSecretService, DomainError } from "@otterstack/domain";
 
 import {
   orgProcedure,
   orgMemberProcedure,
   orgAdminProcedure,
 } from "../index";
-import { createId, paginationMeta } from "../utils/helpers";
-import { decodeLegacySecret, hashSecretDigest } from "../utils/legacy-secret";
+import { paginationMeta } from "../utils/helpers";
 
 function mapDomainError(err: unknown): never {
   if (err instanceof DomainError) {
     throw new ORPCError(err.code, { message: err.message });
   }
   throw err;
-}
-
-type CreateDeploymentSecretSnapshotInput = {
-  deploymentId: string;
-  organizationId: string;
-  projectId: string;
-  environmentId: string;
-  resourceId: string;
-};
-
-async function createDeploymentSecretSnapshot(
-  input: CreateDeploymentSecretSnapshotInput,
-) {
-  const rows = await db.query.environmentVariable.findMany({
-    where: and(
-      eq(environmentVariable.organizationId, input.organizationId),
-      or(
-        and(
-          eq(environmentVariable.scope, "project"),
-          eq(environmentVariable.scopeId, input.projectId),
-        ),
-        and(
-          eq(environmentVariable.scope, "environment"),
-          eq(environmentVariable.scopeId, input.environmentId),
-        ),
-        and(
-          eq(environmentVariable.scope, "resource"),
-          eq(environmentVariable.scopeId, input.resourceId),
-        ),
-      ),
-    ),
-  });
-
-  const scopeWeight = {
-    project: 0,
-    environment: 1,
-    resource: 2,
-  } as const;
-
-  const latestByKey = new Map<string, typeof environmentVariable.$inferSelect>();
-  const sortedRows = rows.sort((left, right) => {
-    const weightDelta = scopeWeight[left.scope] - scopeWeight[right.scope];
-    if (weightDelta !== 0) return weightDelta;
-    return left.updatedAt.getTime() - right.updatedAt.getTime();
-  });
-
-  for (const row of sortedRows) {
-    latestByKey.set(row.key, row);
-  }
-
-  const entries = [] as Array<{
-    key: string;
-    variableId: string;
-    scope: "project" | "environment" | "resource";
-    secretReferenceId: string | null;
-    providerVersion: string | null;
-    digest: string;
-  }>;
-
-  for (const row of latestByKey.values()) {
-    let secretValue = decodeLegacySecret(row.encryptedValue);
-    let providerVersion: string | null = null;
-
-    if (row.secretReferenceId) {
-      const revealed = await revealSecretByReference({
-        organizationId: input.organizationId,
-        secretReferenceId: row.secretReferenceId,
-        expectedKind: "env_var",
-      });
-      secretValue = revealed.value;
-      providerVersion = revealed.providerVersion;
-    }
-
-    entries.push({
-      key: row.key,
-      variableId: row.id,
-      scope: row.scope,
-      secretReferenceId: row.secretReferenceId ?? null,
-      providerVersion,
-      digest: hashSecretDigest(secretValue),
-    });
-  }
-
-  const snapshotHash = hashSecretDigest(
-    JSON.stringify(
-      [...entries].sort((left, right) => left.key.localeCompare(right.key)),
-    ),
-  );
-
-  await db.insert(deploymentSecretSnapshot).values({
-    id: createId(),
-    deploymentId: input.deploymentId,
-    organizationId: input.organizationId,
-    resourceId: input.resourceId,
-    entriesJson: entries,
-    snapshotHash,
-    createdAt: new Date(),
-  });
 }
 
 export const deploymentRouter = {
@@ -144,9 +41,10 @@ export const deploymentRouter = {
           gitRef: input.gitRef,
           gitCommitSha: input.gitCommitSha,
           buildMethod: input.buildMethod,
+          correlationId: context.correlationId ?? undefined,
         });
 
-        await createDeploymentSecretSnapshot({
+        await deploymentSecretService.createDeploymentSecretSnapshot({
           deploymentId: result.id,
           organizationId: context.organizationId,
           projectId: input.projectId,
@@ -232,6 +130,7 @@ export const deploymentRouter = {
           context.organizationId,
           context.userId,
           input.reason,
+          context.correlationId ?? undefined,
         );
       } catch (err) {
         mapDomainError(err);

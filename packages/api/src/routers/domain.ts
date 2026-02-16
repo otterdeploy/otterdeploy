@@ -1,23 +1,14 @@
 import * as z from "zod";
-import { db, eq, and } from "@otterstack/db";
-import { customDomain } from "@otterstack/db/schema/operations";
+import { ORPCError } from "@orpc/server";
+import { customDomainService, DomainError } from "@otterstack/domain";
 
 import { orgProcedure, orgAdminProcedure } from "../index";
-import { createId, toISOString } from "../utils/helpers";
-import { validateResourceAccess, validateDomainAccess } from "../utils/ownership";
 
-function formatDomain(row: typeof customDomain.$inferSelect) {
-  return {
-    id: row.id,
-    organizationId: row.organizationId,
-    resourceId: row.resourceId,
-    domain: row.domain,
-    verified: row.verified,
-    sslStatus: row.sslStatus,
-    sslExpiresAt: toISOString(row.sslExpiresAt),
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-  };
+function mapDomainError(err: unknown): never {
+  if (err instanceof DomainError) {
+    throw new ORPCError(err.code, { message: err.message });
+  }
+  throw err;
 }
 
 export const domainRouter = {
@@ -29,24 +20,15 @@ export const domainRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      await validateResourceAccess(input.resourceId, context.organizationId);
-
-      const now = new Date();
-      const row = {
-        id: createId(),
-        organizationId: context.organizationId,
-        resourceId: input.resourceId,
-        domain: input.domain,
-        verified: false,
-        verificationToken: createId(),
-        sslStatus: "pending" as const,
-        sslExpiresAt: null,
-        createdAt: now,
-        updatedAt: now,
-      };
-
-      await db.insert(customDomain).values(row);
-      return formatDomain(row as typeof customDomain.$inferSelect);
+      try {
+        return await customDomainService.addDomain({
+          organizationId: context.organizationId,
+          resourceId: input.resourceId,
+          domain: input.domain,
+        });
+      } catch (err) {
+        mapDomainError(err);
+      }
     }),
 
   verify: orgAdminProcedure
@@ -56,17 +38,14 @@ export const domainRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      await validateDomainAccess(input.domainId, context.organizationId);
-
-      await db
-        .update(customDomain)
-        .set({ verified: true, updatedAt: new Date() })
-        .where(eq(customDomain.id, input.domainId));
-
-      const updated = await db.query.customDomain.findFirst({
-        where: eq(customDomain.id, input.domainId),
-      });
-      return formatDomain(updated!);
+      try {
+        return await customDomainService.verifyDomain(
+          input.domainId,
+          context.organizationId,
+        );
+      } catch (err) {
+        mapDomainError(err);
+      }
     }),
 
   list: orgProcedure
@@ -77,16 +56,10 @@ export const domainRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      const conditions = [eq(customDomain.organizationId, context.organizationId)];
-      if (input.resourceId) {
-        conditions.push(eq(customDomain.resourceId, input.resourceId));
-      }
-
-      const rows = await db.query.customDomain.findMany({
-        where: and(...conditions),
+      return customDomainService.listDomains({
+        organizationId: context.organizationId,
+        resourceId: input.resourceId,
       });
-
-      return rows.map(formatDomain);
     }),
 
   remove: orgAdminProcedure
@@ -96,8 +69,13 @@ export const domainRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      await validateDomainAccess(input.domainId, context.organizationId);
-      await db.delete(customDomain).where(eq(customDomain.id, input.domainId));
-      return { success: true as const };
+      try {
+        return await customDomainService.removeDomain(
+          input.domainId,
+          context.organizationId,
+        );
+      } catch (err) {
+        mapDomainError(err);
+      }
     }),
 };

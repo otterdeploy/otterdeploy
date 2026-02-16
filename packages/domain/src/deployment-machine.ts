@@ -83,10 +83,18 @@ export async function transitionTo(
   }
 
   // Optimistic lock: only update if status hasn't changed
-  await db
+  const updated = await db
     .update(deployment)
     .set(updateSet)
-    .where(and(eq(deployment.id, deploymentId), eq(deployment.status, currentStatus)));
+    .where(and(eq(deployment.id, deploymentId), eq(deployment.status, currentStatus)))
+    .returning({ id: deployment.id });
+
+  if (updated.length === 0) {
+    throw new DomainError(
+      "CONFLICT",
+      "Deployment status changed concurrently. Retry with latest state.",
+    );
+  }
 
   // Insert deployment event timeline entry
   await db.insert(deploymentEvent).values({

@@ -1,6 +1,10 @@
 import { db, eq, and, desc, or, sql } from "@otterstack/db";
 import { deployment, deploymentEvent } from "@otterstack/db/schema/deployment";
 import { projectResource } from "@otterstack/db/schema/architecture";
+import {
+  createIdempotencyKey,
+  publishEvent,
+} from "@otterstack/events";
 
 import { DomainError } from "./errors";
 import { transitionTo } from "./deployment-machine";
@@ -57,6 +61,33 @@ function formatDeploymentEvent(row: typeof deploymentEvent.$inferSelect) {
   };
 }
 
+async function publishDeploymentRequestedEvent(input: {
+  deploymentId: string;
+  organizationId: string;
+  resourceId: string;
+  environmentId: string;
+  source: "git_push" | "manual" | "rollback" | "api" | "preview";
+  actorUserId: string;
+  gitCommitSha?: string;
+  correlationId?: string;
+}) {
+  await publishEvent("deployment.requested", {
+    orgId: input.organizationId,
+    deploymentId: input.deploymentId,
+    resourceId: input.resourceId,
+    environmentId: input.environmentId,
+    source: input.source,
+    actorUserId: input.actorUserId,
+    correlationId: input.correlationId,
+    idempotencyKey: createIdempotencyKey({
+      orgId: input.organizationId,
+      resourceId: input.resourceId,
+      operation: "deploy",
+      contentHashSource: `${input.deploymentId}:${input.source}:${input.gitCommitSha ?? ""}`,
+    }),
+  });
+}
+
 export async function createDeployment(params: {
   organizationId: string;
   projectId: string;
@@ -68,6 +99,7 @@ export async function createDeployment(params: {
   gitCommitSha?: string;
   gitCommitMessage?: string;
   buildMethod?: "nixpacks" | "dockerfile" | "buildpack";
+  correlationId?: string;
 }) {
   // Validate resource belongs to environment/project/org
   const resource = await db.query.projectResource.findFirst({
@@ -127,6 +159,31 @@ export async function createDeployment(params: {
     metadata: {},
     createdAt: now,
   });
+
+  try {
+    await publishDeploymentRequestedEvent({
+      deploymentId: row.id,
+      organizationId: row.organizationId,
+      resourceId: row.resourceId,
+      environmentId: row.environmentId,
+      source: row.source,
+      actorUserId: params.triggeredBy,
+      gitCommitSha: row.gitCommitSha ?? undefined,
+      correlationId: params.correlationId,
+    });
+  } catch (err) {
+    await transitionTo(row.id, "failed", {
+      actor: "system",
+      reason: "Failed to enqueue deployment workflow",
+      metadata: {
+        error: err instanceof Error ? err.message : "Unknown publish error",
+      },
+    });
+    throw new DomainError(
+      "CONFLICT",
+      "Failed to enqueue deployment workflow. Check Inngest configuration and retry.",
+    );
+  }
 
   return formatDeployment(row as typeof deployment.$inferSelect);
 }
@@ -226,6 +283,7 @@ export async function initiateRollback(
   organizationId: string,
   actorUserId: string,
   reason?: string,
+  correlationId?: string,
 ) {
   const original = await db.query.deployment.findFirst({
     where: and(eq(deployment.id, deploymentId), eq(deployment.organizationId, organizationId)),
@@ -272,6 +330,31 @@ export async function initiateRollback(
     metadata: { rolledBackFrom: deploymentId },
     createdAt: now,
   });
+
+  try {
+    await publishDeploymentRequestedEvent({
+      deploymentId: row.id,
+      organizationId: row.organizationId,
+      resourceId: row.resourceId,
+      environmentId: row.environmentId,
+      source: row.source,
+      actorUserId,
+      gitCommitSha: row.gitCommitSha ?? undefined,
+      correlationId,
+    });
+  } catch (err) {
+    await transitionTo(row.id, "failed", {
+      actor: "system",
+      reason: "Failed to enqueue rollback workflow",
+      metadata: {
+        error: err instanceof Error ? err.message : "Unknown publish error",
+      },
+    });
+    throw new DomainError(
+      "CONFLICT",
+      "Failed to enqueue rollback workflow. Check Inngest configuration and retry.",
+    );
+  }
 
   // NOTE: Secret snapshot resolution excluded from scope (Wave 3 constraint)
 

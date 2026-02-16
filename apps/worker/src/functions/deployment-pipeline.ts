@@ -16,11 +16,27 @@ export const deploymentPipeline = inngest.createFunction(
     ],
     retries: 0,
     onFailure: async ({ event, error }) => {
+      const deploymentId = event.data.event.data.deploymentId;
+
       logger.error(
-        { deploymentId: event.data.event.data.deploymentId, err: error },
+        { deploymentId, err: error },
         "Deployment pipeline failed",
       );
-      // TODO: Transition to failed, emit deployment.failed
+
+      try {
+        await deploymentMachine.transitionTo(deploymentId, "failed", {
+          actor: "system",
+          reason: "Pipeline execution failed",
+          metadata: {
+            error: error instanceof Error ? error.message : "Unknown worker failure",
+          },
+        });
+      } catch (transitionErr) {
+        logger.warn(
+          { deploymentId, err: transitionErr },
+          "Failed to transition deployment to failed after pipeline error",
+        );
+      }
     },
   },
   { event: "deployment.requested" },
