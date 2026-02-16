@@ -13,7 +13,11 @@
     "check-types": {
       "dependsOn": ["^check-types"]
     },
+    "//#infra:up": {
+      "cache": false
+    },
     "dev": {
+      "dependsOn": ["//#infra:up"],
       "cache": false,
       "persistent": true
     },
