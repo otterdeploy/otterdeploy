@@ -24,4 +24,7 @@ export {
   is,
   exists,
   notExists,
+  desc,
+  asc,
+  sql,
 } from "drizzle-orm";

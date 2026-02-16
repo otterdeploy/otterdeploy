@@ -20,8 +20,25 @@ export const queryClient = new QueryClient({
   }),
 });
 
+let _organizationId: string | null = null;
+
+export function setOrganizationId(id: string | null) {
+  _organizationId = id;
+}
+
+export function getOrganizationId() {
+  return _organizationId;
+}
+
 export const link = new RPCLink({
   url: `${env.VITE_SERVER_URL}/rpc`,
+  headers: () => {
+    const headers: Record<string, string> = {};
+    if (_organizationId) {
+      headers["x-organization-id"] = _organizationId;
+    }
+    return headers;
+  },
   fetch(url, options) {
     return fetch(url, {
       ...options,

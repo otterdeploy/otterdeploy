@@ -1,4 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import {
@@ -13,7 +14,8 @@ import Header from "@/components/header";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@otterstack/ui/components/ui/sonner";
 import { TooltipProvider } from "@otterstack/ui/components/ui/tooltip";
-import { orpc } from "@/utils/orpc";
+import { orpc, setOrganizationId } from "@/utils/orpc";
+import { authClient } from "@/lib/auth-client";
 
 import "../index.css";
 
@@ -43,7 +45,17 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
   }),
 });
 
+function useOrgSync() {
+  const { data: activeOrg } = authClient.useActiveOrganization();
+  const orgId = activeOrg?.id ?? null;
+  useEffect(() => {
+    setOrganizationId(orgId);
+  }, [orgId]);
+}
+
 function RootComponent() {
+  useOrgSync();
+
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   });

@@ -6,18 +6,27 @@ export const SlugSchema = z
   .min(2)
   .max(64)
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
-export const CursorSchema = z.string().min(1);
-export const LimitSchema = z.number().int().min(1).max(100);
+export const PageSchema = z.number().int().min(1);
+export const PageSizeSchema = z.number().int().min(1).max(100);
 
 export const PaginatedInputSchema = z.object({
-  cursor: CursorSchema.optional(),
-  limit: LimitSchema.optional(),
+  page: PageSchema.optional().default(1),
+  pageSize: PageSizeSchema.optional().default(10),
+});
+
+export const PaginationMetaSchema = z.object({
+  pagination: z.object({
+    page: z.number(),
+    pageSize: z.number(),
+    pageCount: z.number(),
+    total: z.number(),
+  }),
 });
 
 export const createPaginatedOutputSchema = <TItem extends z.ZodTypeAny>(item: TItem) =>
   z.object({
     items: z.array(item),
-    nextCursor: CursorSchema.nullable(),
+    meta: PaginationMetaSchema,
   });
 
 export const TimestampsSchema = z.object({

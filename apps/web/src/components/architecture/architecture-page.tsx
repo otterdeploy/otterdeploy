@@ -19,7 +19,7 @@ import { toast } from "sonner";
 import { Button } from "@otterstack/ui/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@otterstack/ui/components/ui/card";
 
-import { orpc } from "@/utils/orpc";
+import { getOrganizationId, orpc } from "@/utils/orpc";
 
 import { ArchitectureCanvas } from "./architecture-canvas";
 import { CreateResourceDialog } from "./create-resource-dialog";
@@ -109,14 +109,19 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
   const isBootstrappingDevRef = useRef(false);
   const dragStartSnapshotRef = useRef<GraphSnapshot | null>(null);
 
+  const organizationId = getOrganizationId() ?? "";
+
   const listProjectsQuery = useQuery(
-    orpc.architecture.listProjects.queryOptions({
-      enabled: projectId === "dev",
+    orpc.project.list.queryOptions({
+      input: {
+        organizationId,
+      },
+      enabled: projectId === "dev" && !!organizationId,
     }),
   );
 
   const graphQuery = useQuery(
-    orpc.architecture.get.queryOptions({
+    orpc.architecture.getGraph.queryOptions({
       input: {
         projectId,
       },
@@ -125,12 +130,11 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
   );
 
   const createProjectMutation = useMutation(orpc.project.create.mutationOptions());
-  const seedStarterMutation = useMutation(orpc.architecture.seedStarter.mutationOptions());
-  const createResourceMutation = useMutation(orpc.architecture.createResource.mutationOptions());
-  const updateResourceMutation = useMutation(orpc.architecture.updateResource.mutationOptions());
-  const deleteResourceMutation = useMutation(orpc.architecture.deleteResource.mutationOptions());
-  const createLinkMutation = useMutation(orpc.architecture.createLink.mutationOptions());
-  const deleteLinkMutation = useMutation(orpc.architecture.deleteLink.mutationOptions());
+  const createResourceMutation = useMutation(orpc.resource.create.mutationOptions());
+  const updateResourceMutation = useMutation(orpc.resource.update.mutationOptions());
+  const deleteResourceMutation = useMutation(orpc.resource.delete.mutationOptions());
+  const createLinkMutation = useMutation(orpc.resourceLink.create.mutationOptions());
+  const deleteLinkMutation = useMutation(orpc.resourceLink.delete.mutationOptions());
   const updateViewportMutation = useMutation(orpc.architecture.updateViewport.mutationOptions());
   const replaceGraphMutation = useMutation(orpc.architecture.replaceGraph.mutationOptions());
 
@@ -143,35 +147,31 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
       return;
     }
 
-    if (listProjectsQuery.data && listProjectsQuery.data.length > 0) {
+    if (listProjectsQuery.data && listProjectsQuery.data.items.length > 0) {
       void navigate({
         to: "/project/$id",
         params: {
-          id: listProjectsQuery.data[0].id,
+          id: listProjectsQuery.data.items[0]!.id,
         },
         replace: true,
       });
       return;
     }
 
-    if (listProjectsQuery.isSuccess && listProjectsQuery.data.length === 0) {
+    if (listProjectsQuery.isSuccess && listProjectsQuery.data.meta.pagination.total === 0) {
       isBootstrappingDevRef.current = true;
 
       void (async () => {
         try {
           const created = await createProjectMutation.mutateAsync({
+            organizationId,
             name: "Otterstack Production",
-          });
-
-          await seedStarterMutation.mutateAsync({
-            projectId: created.project.id,
-            environmentId: created.environment.id,
           });
 
           await navigate({
             to: "/project/$id",
             params: {
-              id: created.project.id,
+              id: created.id,
             },
             replace: true,
           });
@@ -189,8 +189,8 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
     listProjectsQuery.isLoading,
     listProjectsQuery.isSuccess,
     navigate,
+    organizationId,
     projectId,
-    seedStarterMutation,
   ]);
 
   useEffect(() => {
@@ -397,7 +397,18 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
             }
 
             return {
-              ...(created as ResourceNode),
+              id: created.id,
+              type: "resource" as const,
+              position: {
+                x: created.posX,
+                y: created.posY,
+              },
+              data: {
+                name: created.name,
+                kind: created.kind,
+                status: created.status,
+                metadata: created.metadata,
+              },
             };
           }),
         );
@@ -453,8 +464,7 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
 
       try {
         await updateResourceMutation.mutateAsync({
-          projectId: graphIdentity.projectId,
-          id: input.nodeId,
+          resourceId: input.nodeId,
           name: input.name,
           kind: input.kind,
           status: input.status,
@@ -483,8 +493,7 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
 
       try {
         await deleteResourceMutation.mutateAsync({
-          projectId: graphIdentity.projectId,
-          id: nodeId,
+          resourceId: nodeId,
         });
       } catch (error) {
         applySnapshot(previous);
@@ -520,6 +529,7 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
       try {
         const created = await createLinkMutation.mutateAsync({
           projectId: graphIdentity.projectId,
+          environmentId: graphIdentity.environmentId,
           sourceResourceId: optimisticEdge.source,
           targetResourceId: optimisticEdge.target,
           linkType: "network",
@@ -532,7 +542,13 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
             }
 
             return {
-              ...(created as ResourceEdge),
+              id: created.id,
+              source: created.sourceResourceId,
+              target: created.targetResourceId,
+              type: "smoothstep" as const,
+              data: {
+                linkType: created.linkType,
+              },
             };
           }),
         );
@@ -563,8 +579,7 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
         await Promise.all(
           deletedNodes.map(async (node) => {
             await deleteResourceMutation.mutateAsync({
-              projectId: graphIdentity.projectId,
-              id: node.id,
+              resourceId: node.id,
             });
           }),
         );
@@ -595,8 +610,7 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
         await Promise.all(
           deletedEdges.map(async (edge) => {
             await deleteLinkMutation.mutateAsync({
-              projectId: graphIdentity.projectId,
-              id: edge.id,
+              linkId: edge.id,
             });
           }),
         );
@@ -645,9 +659,11 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
         void updateViewportMutation.mutateAsync({
           projectId: graphIdentity.projectId,
           environmentId: graphIdentity.environmentId,
-          x: viewportValue.x,
-          y: viewportValue.y,
-          zoom: viewportValue.zoom,
+          viewport: {
+            x: viewportValue.x,
+            y: viewportValue.y,
+            zoom: viewportValue.zoom,
+          },
         });
       }, 250);
     },
@@ -672,8 +688,7 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
 
       try {
         await updateResourceMutation.mutateAsync({
-          projectId: graphIdentity.projectId,
-          id: node.id,
+          resourceId: node.id,
           posX: node.position.x,
           posY: node.position.y,
         });
@@ -728,22 +743,18 @@ export function ArchitecturePage({ projectId }: ArchitecturePageProps) {
               onClick={async () => {
                 try {
                   const created = await createProjectMutation.mutateAsync({
+                    organizationId,
                     name: "Otterstack Production",
                   });
 
-                  await seedStarterMutation.mutateAsync({
-                    projectId: created.project.id,
-                    environmentId: created.environment.id,
-                  });
-
                   await queryClient.invalidateQueries({
-                    queryKey: orpc.architecture.listProjects.key(),
+                    queryKey: orpc.project.list.key(),
                   });
 
                   await navigate({
                     to: "/project/$id",
                     params: {
-                      id: created.project.id,
+                      id: created.id,
                     },
                     replace: true,
                   });

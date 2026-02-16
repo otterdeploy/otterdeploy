@@ -37,6 +37,8 @@ const statusClassName: Record<ResourceNodeData["status"], string> = {
   degraded: "bg-amber-500/15 text-amber-300 border-amber-500/40",
   crashed: "bg-red-500/15 text-red-300 border-red-500/40",
   unknown: "bg-slate-500/15 text-slate-300 border-slate-500/40",
+  deploying: "bg-blue-500/15 text-blue-300 border-blue-500/40",
+  stopped: "bg-slate-500/15 text-slate-400 border-slate-500/40",
 };
 
 export function ResourceNodeCard({ selected, data }: NodeProps) {

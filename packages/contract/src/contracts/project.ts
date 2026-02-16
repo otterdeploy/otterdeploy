@@ -1,5 +1,5 @@
 import { oc } from "@orpc/contract";
-import * as z from "zod";
+import * as z from "zod/v4";
 
 import { ProjectSchema } from "../schemas";
 import { route } from "../http";
