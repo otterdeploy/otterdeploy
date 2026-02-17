@@ -1,5 +1,7 @@
 import { orpc } from "@/utils/orpc";
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { createFileRoute, Outlet, redirect, useMatchRoute } from "@tanstack/react-router";
+import { AnimatePresence, motion } from "motion/react";
+
 import * as z from "zod";
 
 import { useMemo, useCallback } from "react";
@@ -171,7 +173,7 @@ const nodeTypes = { resource: ResourceNodeComponent };
 function RouteComponent() {
   const { graph, resources } = Route.useLoaderData();
 
-  console.log({ resources, graph });
+  // console.log({ resources, graph });
 
   // const initialNodes = useMemo<Node<ResourceNodeData>[]>(
   //   () =>
@@ -207,6 +209,16 @@ function RouteComponent() {
     [setEdges],
   );
 
+  const match = useMatchRoute();
+
+  const serviceMatch = match({
+    from: "/project/$projectId/service/$serviceId",
+  });
+  const volumeMatch = match({
+    from: "/project/$projectId/volume/$volume",
+  });
+
+  const showChild = serviceMatch || volumeMatch;
   return (
     <div style={{ height: "100dvh" }}>
       <ReactFlow
@@ -224,9 +236,19 @@ function RouteComponent() {
         <Background />
       </ReactFlow>
 
-      <div className="flex flex-col gap-4 bg-red-500 h-[95vh] w-[60vw] absolute right-0 bottom-0 rounded-tl-xl">
-        <Outlet />
-      </div>
+      <AnimatePresence mode="wait" initial={false}>
+        {showChild && (
+          <motion.div
+            key="child-panel"
+            className="border-white/10 border-l-1 border-t-1 overflow-hidden h-[95vh] w-[60vw] max-md:w-full absolute right-0 bottom-0 rounded-tl-xl"
+            initial={{ opacity: 0, x: 100 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 100 }}
+          >
+            <Outlet />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

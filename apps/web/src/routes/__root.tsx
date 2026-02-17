@@ -50,8 +50,10 @@ function RootComponent() {
         <TooltipProvider>
           <Outlet />
           <Toaster richColors />
+          <div className="fixed bottom-1 left-1 z-50"></div>
         </TooltipProvider>
       </ThemeProvider>
+
       <TanStackRouterDevtools position="bottom-left" />
       <ReactQueryDevtools position="bottom" buttonPosition="bottom-right" />
     </>

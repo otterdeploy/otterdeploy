@@ -10,6 +10,9 @@
     "./components/ui/*": {
       "default": "./src/components/ui/*.tsx"
     },
+    "./components/media-indicator": {
+      "default": "./src/components/media-indicator.tsx"
+    },
     "./lib/*": {
       "default": "./src/lib/*.ts"
     },
