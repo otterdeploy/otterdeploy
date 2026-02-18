@@ -8,7 +8,7 @@ import {
   HardDriveIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Link, useParams } from "@tanstack/react-router";
+import { Link, useMatchRoute, useParams } from "@tanstack/react-router";
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
 
 const statusConfig = {
@@ -21,7 +21,6 @@ const statusConfig = {
 } as const;
 
 export type Status = keyof typeof statusConfig;
-// --- Data types ---
 
 export type Kind = "web" | "api" | "worker" | "database" | "cache" | "volume";
 
@@ -69,12 +68,15 @@ function ResourceLink({
 
   if (!projectId) return <>{children}</>;
 
+  const activeProps = { "data-active": true } as const;
+
   if (kind === "volume") {
     return (
       <Link
         to="/project/$projectId/volume/$volume"
         params={{ projectId, volume: resourceId }}
         className={className}
+        activeProps={activeProps}
       >
         {children}
       </Link>
@@ -86,13 +88,12 @@ function ResourceLink({
       to="/project/$projectId/service/$serviceId"
       params={{ projectId, serviceId: resourceId }}
       className={className}
+      activeProps={activeProps}
     >
       {children}
     </Link>
   );
 }
-
-// --- Sub-components ---
 
 function Icon({ kind, className }: { kind: Kind; className?: string }) {
   const icon = kindIcons[kind] ?? GlobeIcon;
@@ -126,15 +127,27 @@ function Attachment({
   name: string;
   className?: string;
 }) {
+  const match = useMatchRoute();
+  const volumeMatch = match({ from: "/project/$projectId/volume/$volume" });
+  const serviceMatch = match({ from: "/project/$projectId/service/$serviceId" });
+  const isActive =
+    (kind === "volume" && volumeMatch && "volume" in volumeMatch && volumeMatch.volume === id) ||
+    (kind !== "volume" &&
+      serviceMatch &&
+      "serviceId" in serviceMatch &&
+      serviceMatch.serviceId === id);
+
   return (
     <ResourceLink kind={kind} resourceId={id} className="block">
       <div
+        data-active={isActive || undefined}
         className={cn(
-          "flex items-center gap-2  px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-muted/50",
+          "flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-muted/50",
+          "data-active:ring-2 data-active:ring-primary/50 data-active:bg-muted/30",
           className,
         )}
       >
-        <Icon kind={kind as Kind} className="size-3.5" />
+        <Icon kind={kind} className="size-3.5" />
         <span className="truncate">{name}</span>
       </div>
     </ResourceLink>
@@ -157,16 +170,11 @@ function ResourceNodeRoot({
         className,
       )}
     >
-      <Handle type="target" position={Position.Top} id="top" className="!bg-muted-foreground" />
-      <Handle type="target" position={Position.Left} id="left" className="!bg-muted-foreground" />
+      <Handle type="target" position={Position.Top} id="top" className="!invisible" />
+      <Handle type="target" position={Position.Left} id="left" className="!invisible" />
       {children}
-      <Handle type="source" position={Position.Right} id="right" className="!bg-muted-foreground" />
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        id="bottom"
-        className="!bg-muted-foreground"
-      />
+      <Handle type="source" position={Position.Right} id="right" className="!invisible" />
+      <Handle type="source" position={Position.Bottom} id="bottom" className="!invisible" />
     </div>
   );
 }
@@ -198,7 +206,11 @@ export function ResourceNodeComponent({ id, data }: NodeProps<ResourceNode>) {
         kind={data.kind}
         resourceId={id}
         className={cn(
-          "block min-h-20 rounded-xl border-b hover:shadow-[0px_0px_1px_4px] hover:ring-1 ring-card transition-all duration-300 shadow-white/20",
+          "block min-h-20 rounded-xl  hover:shadow-[0px_0px_1px_4px] hover:ring-1 ring-card transition-all duration-300 shadow-white/20",
+          "data-active:ring-2 data-active:ring-primary/50 data-active:bg-muted/30",
+          {
+            "border-b": !!data.attachments?.length,
+          },
         )}
       >
         <ResourceNode.Header>
@@ -211,7 +223,7 @@ export function ResourceNodeComponent({ id, data }: NodeProps<ResourceNode>) {
       {/* Bottom section — each attachment links to its own route */}
       <div className="overflow-clip relative rounded-b-xl">
         {data.attachments?.map((att) => (
-          <ResourceNode.Attachment key={att.id} id={att.id} kind={att.kind} name={att.name} />
+          <ResourceNode.Attachment key={att.id} {...att} />
         ))}
       </div>
     </ResourceNode>
