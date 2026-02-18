@@ -81,7 +81,7 @@ function ResourceLink({
   if (kind === "volume") {
     return (
       <Link
-        to="/project/$projectId/volume/$volume"
+        to="/projects/$projectId/volume/$volume"
         params={{ projectId, volume: resourceId }}
         className={className}
         activeProps={activeProps}
@@ -93,7 +93,7 @@ function ResourceLink({
 
   return (
     <Link
-      to="/project/$projectId/service/$serviceId"
+      to="/projects/$projectId/service/$serviceId"
       params={{ projectId, serviceId: resourceId }}
       className={className}
       activeProps={activeProps}
@@ -136,8 +136,8 @@ function Attachment({
   className?: string;
 }) {
   const match = useMatchRoute();
-  const volumeMatch = match({ from: "/project/$projectId/volume/$volume" });
-  const serviceMatch = match({ from: "/project/$projectId/service/$serviceId" });
+  const volumeMatch = match({ from: "/projects/$projectId/volume/$volume" });
+  const serviceMatch = match({ from: "/projects/$projectId/service/$serviceId" });
   const isActive =
     (kind === "volume" && volumeMatch && "volume" in volumeMatch && volumeMatch.volume === id) ||
     (kind !== "volume" &&

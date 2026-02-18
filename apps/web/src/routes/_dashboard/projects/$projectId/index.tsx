@@ -1,5 +1,5 @@
 import { orpc } from "@/utils/orpc";
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, notFound, redirect } from "@tanstack/react-router";
 import * as z from "zod";
 
 import { useCallback } from "react";
@@ -15,33 +15,37 @@ import {
 
 import "@xyflow/react/dist/style.css";
 
-import {
-  ResourceNodeComponent,
-  GroupNodeComponent,
-} from "@/components/resource/node";
+import { ResourceNodeComponent, GroupNodeComponent } from "@/components/resource/node";
+import { Result } from "better-result";
 
 const searchSchema = z.object({
   env: z.string().default("production"),
 });
 
-export const Route = createFileRoute("/_dashboard/project/$projectId/")({
+export const Route = createFileRoute("/_dashboard/projects/$projectId/")({
   component: RouteComponent,
   validateSearch: searchSchema,
   beforeLoad: async ({ context, search: { env }, params: { projectId } }) => {
-    const envs = await context.queryClient.ensureQueryData(
-      orpc.environment.list.queryOptions({
-        input: { projectId },
-      }),
+    const result = await Result.tryPromise(() =>
+      context.queryClient.ensureQueryData(
+        orpc.environment.list.queryOptions({
+          input: { projectId },
+        }),
+      ),
     );
+
+    if (result.isErr()) throw notFound();
+
+    const envs = result.value;
 
     const matched = envs.find((e) => e.name === env);
     if (matched) return;
 
     const first = envs[0];
-    if (!first) throw new Error("No environments found");
+    if (!first) throw notFound();
 
     throw redirect({
-      to: "/project/$projectId",
+      to: "/projects/$projectId",
       params: { projectId },
       search: { env: first.name },
     });
@@ -57,7 +61,7 @@ export const Route = createFileRoute("/_dashboard/project/$projectId/")({
     );
 
     const matched = envs.find((e) => e.name === env);
-    if (!matched) throw new Error("Environment not found");
+    if (!matched) throw notFound();
 
     const [resources, graph] = await Promise.all([
       context.queryClient.ensureQueryData(

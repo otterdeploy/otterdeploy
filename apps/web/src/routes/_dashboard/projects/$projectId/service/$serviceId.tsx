@@ -1,4 +1,5 @@
 import { createDetailPanel } from "@/components/resource/detail-panel";
+import { VariableEditor } from "@/components/resource/variable-editor";
 import {
   Card,
   CardContent,
@@ -22,7 +23,7 @@ const searchSchema = z.object({
   tab: z.enum(tabValues).default(tabValues[0]),
 });
 
-export const Route = createFileRoute("/_dashboard/project/$projectId/service/$serviceId")({
+export const Route = createFileRoute("/_dashboard/projects/$projectId/service/$serviceId")({
   component: RouteComponent,
   validateSearch: searchSchema,
 });
@@ -36,7 +37,7 @@ function RouteComponent() {
     <Panel
       title="Service"
       defaultTab={tab}
-      onClose={() => navigate({ to: "/project/$projectId", params: { projectId } })}
+      onClose={() => navigate({ to: "/projects/$projectId", params: { projectId } })}
     >
       <Content value="deployments">
         <Card>
@@ -81,17 +82,7 @@ function RouteComponent() {
       </Content>
 
       <Content value="variables">
-        <Card>
-          <CardHeader>
-            <CardTitle>Variables</CardTitle>
-            <CardDescription>
-              Manage environment variables and secrets for this service.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="text-muted-foreground text-sm">
-            3 environment variables configured.
-          </CardContent>
-        </Card>
+        <VariableEditor />
       </Content>
 
       <Content value="metrics">

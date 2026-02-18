@@ -18,7 +18,7 @@ const searchSchema = z.object({
   tab: z.enum(tabValues).default("overview"),
 });
 
-export const Route = createFileRoute("/_dashboard/project/$projectId/volume/$volume")({
+export const Route = createFileRoute("/_dashboard/projects/$projectId/volume/$volume")({
   component: RouteComponent,
   validateSearch: searchSchema,
 });
@@ -33,10 +33,10 @@ function RouteComponent() {
     <Panel
       title="Volume"
       defaultTab={tab}
-      onClose={() => navigate({ to: "/project/$projectId", params: { projectId } })}
+      onClose={() => navigate({ to: "/projects/$projectId", params: { projectId } })}
       onTabChange={(value) => {
         navigate({
-          to: "/project/$projectId/volume/$volume",
+          to: "/projects/$projectId/volume/$volume",
           params: { projectId, volume },
           search: { tab: value },
         });

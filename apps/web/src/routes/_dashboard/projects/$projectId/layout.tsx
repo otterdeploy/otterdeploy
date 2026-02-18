@@ -20,7 +20,7 @@ import "@xyflow/react/dist/style.css";
 
 import { ResourceNodeComponent, GroupNodeComponent } from "@/components/resource/node";
 
-export const Route = createFileRoute("/_dashboard/project/$projectId")({
+export const Route = createFileRoute("/_dashboard/projects/$projectId")({
   component: RouteComponent,
 });
 
@@ -148,10 +148,10 @@ function ViewportController() {
   const match = useMatchRoute();
 
   const serviceMatch = match({
-    from: "/project/$projectId/service/$serviceId",
+    from: "/projects/$projectId/service/$serviceId",
   });
   const volumeMatch = match({
-    from: "/project/$projectId/volume/$volume",
+    from: "/projects/$projectId/volume/$volume",
   });
 
   const showChild = !!(serviceMatch || volumeMatch);
@@ -268,10 +268,10 @@ function RouteComponent() {
   const match = useMatchRoute();
 
   const serviceMatch = match({
-    from: "/project/$projectId/service/$serviceId",
+    from: "/projects/$projectId/service/$serviceId",
   });
   const volumeMatch = match({
-    from: "/project/$projectId/volume/$volume",
+    from: "/projects/$projectId/volume/$volume",
   });
 
   const showChild = serviceMatch || volumeMatch;

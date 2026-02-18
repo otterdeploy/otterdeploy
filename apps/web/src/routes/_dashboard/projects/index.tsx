@@ -1,7 +1,7 @@
 import { orpc } from "@/utils/orpc";
 import { createFileRoute, Link } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/_dashboard/project/")({
+export const Route = createFileRoute("/_dashboard/projects/")({
   component: RouteComponent,
   loader: async ({ context }) => {
     if (!context.auth.session.activeOrganizationId) throw new Error("No active organization");
@@ -23,7 +23,7 @@ function RouteComponent() {
       <h1>Projects</h1>
       <ul className="flex flex-col gap-2 mt-4">
         {projects.items.map((project) => (
-          <Link key={project.id} to="/project/$projectId" params={{ projectId: project.id }}>
+          <Link key={project.id} to="/projects/$projectId" params={{ projectId: project.id }}>
             {project.name}
           </Link>
         ))}
