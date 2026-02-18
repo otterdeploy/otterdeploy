@@ -1,5 +1,12 @@
 import { cn } from "@/lib/utils";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   ApiIcon,
   CpuIcon,
   DatabaseIcon,
@@ -10,6 +17,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Link, useMatchRoute, useParams } from "@tanstack/react-router";
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
+import { EllipsisVerticalIcon, EyeOffIcon, PaletteIcon, PencilLineIcon, Trash2Icon } from "lucide-react";
 
 const statusConfig = {
   online: { color: "bg-green-500", label: "Online" },
@@ -192,8 +200,46 @@ export const ResourceNode = Object.assign(ResourceNodeRoot, {
 
 export function GroupNodeComponent({ data }: NodeProps<GroupNode>) {
   return (
-    <div className="min-h-[100px] min-w-[200px] rounded-2xl border border-dashed border-muted-foreground/30 bg-muted/20 p-2">
-      <span className="px-1 text-xs font-medium text-muted-foreground">{data.label}</span>
+    <div className="size-full rounded-2xl border border-white/10 bg-white/[0.03] text-left">
+      <div className="flex items-center justify-between px-5 pt-3">
+        <span className="text-left text-sm font-medium text-white/80">
+          {data.label}
+        </span>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            className="rounded-md p-1 text-white/50 hover:bg-white/10 hover:text-white/80 transition-colors"
+            onPointerDownCapture={(e) => e.stopPropagation()}
+          >
+            <EllipsisVerticalIcon className="size-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            sideOffset={4}
+            className="min-w-48"
+            onPointerDownCapture={(e) => e.stopPropagation()}
+            onPointerUpCapture={(e) => e.stopPropagation()}
+            onClickCapture={(e) => e.stopPropagation()}
+          >
+            <DropdownMenuItem>
+              <PencilLineIcon />
+              Rename
+            </DropdownMenuItem>
+            <DropdownMenuItem>
+              <EyeOffIcon />
+              Hide contents
+            </DropdownMenuItem>
+            <DropdownMenuItem>
+              <PaletteIcon />
+              Colour
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant="destructive">
+              <Trash2Icon />
+              Remove Group
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </div>
   );
 }
