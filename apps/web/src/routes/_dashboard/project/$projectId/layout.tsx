@@ -4,23 +4,21 @@ import { AnimatePresence, motion } from "motion/react";
 
 import * as z from "zod";
 
-import { useMemo, useCallback } from "react";
 import {
-  ReactFlow,
-  useNodesState,
-  useEdgesState,
   addEdge,
-  Controls,
   Background,
-  type Edge,
-  type Node,
+  Controls,
+  ReactFlow,
+  useEdgesState,
+  useNodesState,
+  useReactFlow,
   type OnConnect,
-  type NodeProps,
 } from "@xyflow/react";
+import { useCallback, useEffect, useRef } from "react";
 
 import "@xyflow/react/dist/style.css";
 
-import { ResourceNodeComponent, type ResourceNodeData } from "@/components/resource-node";
+import { ResourceNodeComponent } from "@/components/resource/node";
 
 const searchSchema = z.object({
   env: z.string().default("production"),
@@ -38,7 +36,7 @@ export const Route = createFileRoute("/_dashboard/project/$projectId")({
     );
 
     const matched = envs.find((e) => e.name === env);
-    if (matched) return;
+    if (matched) return { projectId };
 
     const first = envs[0];
     if (!first) throw new Error("No environments found");
@@ -170,6 +168,67 @@ const initialEdges = [
 
 const nodeTypes = { resource: ResourceNodeComponent };
 
+function ViewportController() {
+  const { setCenter, getNode, getNodes, getViewport, fitView } = useReactFlow();
+  const match = useMatchRoute();
+
+  const serviceMatch = match({
+    from: "/project/$projectId/service/$serviceId",
+  });
+  const volumeMatch = match({
+    from: "/project/$projectId/volume/$volume",
+  });
+
+  const showChild = !!(serviceMatch || volumeMatch);
+  const activeId = serviceMatch
+    ? (serviceMatch as Record<string, string>).serviceId
+    : volumeMatch
+      ? (volumeMatch as Record<string, string>).volume
+      : null;
+
+  const prevShowChildRef = useRef(showChild);
+
+  useEffect(() => {
+    if (showChild && activeId) {
+      let targetNode = getNode(activeId);
+
+      // Volume attachments aren't top-level nodes — find the parent node
+      if (!targetNode) {
+        const parent = getNodes().find((n) =>
+          (n.data as { attachments?: { id: string }[] })?.attachments?.some(
+            (a) => a.id === activeId,
+          ),
+        );
+        if (parent) targetNode = parent;
+      }
+
+      if (targetNode) {
+        const { zoom } = getViewport();
+        const panelWidth = window.innerWidth * 0.6;
+        const nodeWidth = targetNode.measured?.width ?? 180;
+        const nodeHeight = targetNode.measured?.height ?? 80;
+        const nodeCenterX = targetNode.position.x + nodeWidth / 2;
+        const nodeCenterY = targetNode.position.y + nodeHeight / 2;
+
+        // Offset so the node sits centered in the visible left portion
+        setCenter(nodeCenterX + panelWidth / (2 * zoom), nodeCenterY, {
+          duration: 300,
+          zoom,
+        });
+      }
+    }
+
+    // Panel just closed — re-fit all nodes in the full viewport
+    if (!showChild && prevShowChildRef.current) {
+      fitView({ duration: 300, padding: 0.2 });
+    }
+
+    prevShowChildRef.current = showChild;
+  }, [showChild, activeId, setCenter, getNode, getNodes, getViewport, fitView]);
+
+  return null;
+}
+
 function RouteComponent() {
   const { graph, resources } = Route.useLoaderData();
 
@@ -234,20 +293,21 @@ function RouteComponent() {
       >
         <Controls />
         <Background />
+        <ViewportController />
       </ReactFlow>
 
-      <AnimatePresence mode="wait" initial={false}>
-        {showChild && (
-          <motion.div
-            key="child-panel"
-            className="border-white/10 border-l-1 border-t-1 overflow-hidden h-[95vh] w-[60vw] max-md:w-full absolute right-0 bottom-0 rounded-tl-xl"
-            initial={{ opacity: 0, x: 100 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 100 }}
-          >
-            <Outlet />
-          </motion.div>
-        )}
+      <AnimatePresence initial={false} mode="popLayout">
+        <motion.div
+          key={showChild ? "child-panel" : "parent-panel"}
+          className="border-white/10 border-l-1 bg-background border-t-1 overflow-hidden h-[95vh] w-[60vw] max-md:w-full absolute right-0 bottom-0 rounded-tl-xl"
+          initial={{ x: "100%" }}
+          animate={{ x: 0 }}
+          exit={{ x: "100%" }}
+          hidden={!showChild}
+          transition={{ type: "tween", duration: 0.25 }}
+        >
+          <Outlet />
+        </motion.div>
       </AnimatePresence>
     </div>
   );

@@ -15,7 +15,10 @@ import {
 
 import "@xyflow/react/dist/style.css";
 
-import { ResourceNodeComponent, GroupNodeComponent } from "@/components/resource-node";
+import {
+  ResourceNodeComponent,
+  GroupNodeComponent,
+} from "@/components/resource/node";
 
 const searchSchema = z.object({
   env: z.string().default("production"),
@@ -104,7 +107,13 @@ const initialNodes = [
     parentId: "group-services",
     extent: "parent" as const,
     position: { x: 20, y: 40 },
-    data: { id: "web", name: "Frontend", kind: "web", status: "online", metadata: {} },
+    data: {
+      id: "web",
+      name: "Frontend",
+      kind: "web",
+      status: "online",
+      metadata: {},
+    },
   },
   {
     id: "api",
@@ -112,7 +121,13 @@ const initialNodes = [
     parentId: "group-services",
     extent: "parent" as const,
     position: { x: 270, y: 40 },
-    data: { id: "api", name: "API Server", kind: "api", status: "online", metadata: {} },
+    data: {
+      id: "api",
+      name: "API Server",
+      kind: "api",
+      status: "online",
+      metadata: {},
+    },
   },
   {
     id: "worker",
@@ -120,7 +135,13 @@ const initialNodes = [
     parentId: "group-services",
     extent: "parent" as const,
     position: { x: 540, y: 40 },
-    data: { id: "worker", name: "Job Runner", kind: "worker", status: "deploying", metadata: {} },
+    data: {
+      id: "worker",
+      name: "Job Runner",
+      kind: "worker",
+      status: "deploying",
+      metadata: {},
+    },
   },
   {
     id: "db",
@@ -143,18 +164,62 @@ const initialNodes = [
     parentId: "group-data",
     extent: "parent" as const,
     position: { x: 270, y: 40 },
-    data: { id: "cache", name: "Redis", kind: "cache", status: "degraded", metadata: {} },
+    data: {
+      id: "cache",
+      name: "Redis",
+      kind: "cache",
+      status: "degraded",
+      metadata: {},
+    },
   },
 ];
 const initialEdges = [
-  { id: "e1", source: "web", sourceHandle: "right", target: "api", targetHandle: "left", type: "smoothstep" },
-  { id: "e2", source: "api", sourceHandle: "right", target: "worker", targetHandle: "left", type: "smoothstep" },
-  { id: "e3", source: "api", sourceHandle: "bottom", target: "db", targetHandle: "top", type: "smoothstep" },
-  { id: "e4", source: "api", sourceHandle: "bottom", target: "cache", targetHandle: "top", type: "smoothstep" },
-  { id: "e5", source: "worker", sourceHandle: "bottom", target: "cache", targetHandle: "top", type: "smoothstep" },
+  {
+    id: "e1",
+    source: "web",
+    sourceHandle: "right",
+    target: "api",
+    targetHandle: "left",
+    type: "smoothstep",
+  },
+  {
+    id: "e2",
+    source: "api",
+    sourceHandle: "right",
+    target: "worker",
+    targetHandle: "left",
+    type: "smoothstep",
+  },
+  {
+    id: "e3",
+    source: "api",
+    sourceHandle: "bottom",
+    target: "db",
+    targetHandle: "top",
+    type: "smoothstep",
+  },
+  {
+    id: "e4",
+    source: "api",
+    sourceHandle: "bottom",
+    target: "cache",
+    targetHandle: "top",
+    type: "smoothstep",
+  },
+  {
+    id: "e5",
+    source: "worker",
+    sourceHandle: "bottom",
+    target: "cache",
+    targetHandle: "top",
+    type: "smoothstep",
+  },
 ];
 
-const nodeTypes = { resource: ResourceNodeComponent, group: GroupNodeComponent };
+const nodeTypes = {
+  resource: ResourceNodeComponent,
+  group: GroupNodeComponent,
+};
 
 function RouteComponent() {
   const { graph } = Route.useLoaderData();

@@ -1,15 +1,15 @@
 import { cn } from "@/lib/utils";
-import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import {
-  GlobeIcon,
   ApiIcon,
   CpuIcon,
   DatabaseIcon,
   DatabaseLightningIcon,
+  GlobeIcon,
   HardDriveIcon,
 } from "@hugeicons/core-free-icons";
-import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { Link, useParams } from "@tanstack/react-router";
+import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
 
 const statusConfig = {
   online: { color: "bg-green-500", label: "Online" },
@@ -94,7 +94,7 @@ function ResourceLink({
 
 // --- Sub-components ---
 
-function Icon({ kind, className }: { kind: string; className?: string }) {
+function Icon({ kind, className }: { kind: Kind; className?: string }) {
   const icon = kindIcons[kind] ?? GlobeIcon;
   return <HugeiconsIcon icon={icon} className={cn("size-4 text-muted-foreground", className)} />;
 }
@@ -122,7 +122,7 @@ function Attachment({
   className,
 }: {
   id: string;
-  kind: string;
+  kind: Kind;
   name: string;
   className?: string;
 }) {
@@ -134,7 +134,7 @@ function Attachment({
           className,
         )}
       >
-        <Icon kind={kind} className="size-3.5" />
+        <Icon kind={kind as Kind} className="size-3.5" />
         <span className="truncate">{name}</span>
       </div>
     </ResourceLink>

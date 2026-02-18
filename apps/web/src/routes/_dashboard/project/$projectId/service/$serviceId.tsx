@@ -1,3 +1,4 @@
+import { createDetailPanel } from "@/components/resource/detail-panel";
 import {
   Card,
   CardContent,
@@ -5,33 +6,22 @@ import {
   CardHeader,
   CardTitle,
 } from "@otterstack/ui/components/ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import * as z from "zod";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
-const tabs = [
-  {
-    label: "Deployment",
-    value: "deployment",
-  },
-  {
-    label: "Variables",
-    value: "variables",
-  },
-  {
-    label: "Metrics",
-    value: "metrics",
-  },
-  {
-    label: "Settings",
-    value: "settings",
-  },
-] as const;
+const { Panel, Content, tabValues } = createDetailPanel([
+  { label: "Deployments", value: "deployments" },
+  { label: "Database", value: "database" },
+  { label: "Backups", value: "backups" },
+  { label: "Variables", value: "variables" },
+  { label: "Metrics", value: "metrics" },
+  { label: "Settings", value: "settings" },
+]);
 
 const searchSchema = z.object({
-  tab: z.enum(tabs.map((tab) => tab.value)).default("deployment"),
+  tab: z.enum(tabValues).default(tabValues[0]),
 });
+
 export const Route = createFileRoute("/_dashboard/project/$projectId/service/$serviceId")({
   component: RouteComponent,
   validateSearch: searchSchema,
@@ -39,74 +29,98 @@ export const Route = createFileRoute("/_dashboard/project/$projectId/service/$se
 
 function RouteComponent() {
   const { tab } = Route.useSearch();
+  const { projectId } = Route.useRouteContext();
+  const navigate = useNavigate();
+
   return (
-    <Tabs defaultValue={tab} className="size-full bg-background p-4">
-      <h3 className="text-lg font-medium">Service</h3>
-      <TabsList variant="line" className="justify-start border-b border-border -mx-4 px-4 w-[calc(100%+2rem)]">
-        {tabs.map((tab) => (
-          <TabsTrigger key={tab.value} value={tab.value} className="flex-none px-2 border-transparent! bg-transparent!">
-            {tab.label}
-          </TabsTrigger>
-        ))}
-      </TabsList>
-      <TabsContent value={tabs[0].value} className="size-full bg-red-500">
-        <ScrollArea className="h-full">
-          <Card className="rounded-none shadow-none h-full">
-            <CardHeader>
-              <CardTitle>Overview</CardTitle>
-              <CardDescription>
-                View your key metrics and recent project activity. Track progress across all your
-                active projects.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="text-muted-foreground text-sm">
-              You have 12 active projects and 3 pending tasks.
-            </CardContent>
-          </Card>
-        </ScrollArea>
-      </TabsContent>
-      <TabsContent value={tabs[1].value}>
+    <Panel
+      title="Service"
+      defaultTab={tab}
+      onClose={() => navigate({ to: "/project/$projectId", params: { projectId } })}
+    >
+      <Content value="deployments">
         <Card>
           <CardHeader>
-            <CardTitle>Analytics</CardTitle>
+            <CardTitle>Deployments</CardTitle>
             <CardDescription>
-              Track performance and user engagement metrics. Monitor trends and identify growth
-              opportunities.
+              View deployment history, status, and rollback options for this service.
             </CardDescription>
           </CardHeader>
           <CardContent className="text-muted-foreground text-sm">
-            Page views are up 25% compared to last month.
+            Latest deployment is live and healthy.
           </CardContent>
         </Card>
-      </TabsContent>
-      <TabsContent value={tabs[2].value}>
+      </Content>
+
+      <Content value="database">
         <Card>
           <CardHeader>
-            <CardTitle>Reports</CardTitle>
+            <CardTitle>Database</CardTitle>
             <CardDescription>
-              Generate and download your detailed reports. Export data in multiple formats for
-              analysis.
+              Manage your database instance, view connection details, and monitor health.
             </CardDescription>
           </CardHeader>
           <CardContent className="text-muted-foreground text-sm">
-            You have 5 reports ready and available to export.
+            Database is running and accepting connections.
           </CardContent>
         </Card>
-      </TabsContent>
-      <TabsContent value={tabs[3].value}>
+      </Content>
+
+      <Content value="backups">
+        <Card>
+          <CardHeader>
+            <CardTitle>Backups</CardTitle>
+            <CardDescription>
+              View backup history, schedule automatic backups, and restore from snapshots.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-muted-foreground text-sm">
+            Last backup completed 2 hours ago.
+          </CardContent>
+        </Card>
+      </Content>
+
+      <Content value="variables">
+        <Card>
+          <CardHeader>
+            <CardTitle>Variables</CardTitle>
+            <CardDescription>
+              Manage environment variables and secrets for this service.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-muted-foreground text-sm">
+            3 environment variables configured.
+          </CardContent>
+        </Card>
+      </Content>
+
+      <Content value="metrics">
+        <Card>
+          <CardHeader>
+            <CardTitle>Metrics</CardTitle>
+            <CardDescription>
+              Monitor CPU, memory, network, and query performance metrics.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-muted-foreground text-sm">
+            All metrics within normal thresholds.
+          </CardContent>
+        </Card>
+      </Content>
+
+      <Content value="settings">
         <Card>
           <CardHeader>
             <CardTitle>Settings</CardTitle>
             <CardDescription>
-              Manage your account preferences and options. Customize your experience to fit your
-              needs.
+              Configure service options, scaling, networking, and access controls.
             </CardDescription>
           </CardHeader>
           <CardContent className="text-muted-foreground text-sm">
-            Configure notifications, security, and themes.
+            Configure instance size, replicas, and domain settings.
           </CardContent>
         </Card>
-      </TabsContent>
-    </Tabs>
+      </Content>
+    </Panel>
   );
 }
