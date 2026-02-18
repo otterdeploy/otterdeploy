@@ -1,4 +1,5 @@
 import { createDetailPanel } from "@/components/resource/detail-panel";
+import { MetricsPanel } from "@/components/resource/metrics-panel";
 import { VariableEditor } from "@/components/resource/variable-editor";
 import {
   Card,
@@ -86,17 +87,7 @@ function RouteComponent() {
       </Content>
 
       <Content value="metrics">
-        <Card>
-          <CardHeader>
-            <CardTitle>Metrics</CardTitle>
-            <CardDescription>
-              Monitor CPU, memory, network, and query performance metrics.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="text-muted-foreground text-sm">
-            All metrics within normal thresholds.
-          </CardContent>
-        </Card>
+        <MetricsPanel />
       </Content>
 
       <Content value="settings">

@@ -58,7 +58,11 @@ export function createDetailPanel<const T extends readonly Tab[]>(tabs: T) {
   }
 
   function Content({ value, children }: { value: Value; children: ReactNode }) {
-    return <TabsContent value={value}>{children}</TabsContent>;
+    return (
+      <TabsContent value={value} className="overflow-y-auto">
+        {children}
+      </TabsContent>
+    );
   }
 
   const tabValues = tabs.map((t) => t.value) as [Value, ...Value[]];
