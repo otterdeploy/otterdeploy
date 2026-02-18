@@ -17,7 +17,7 @@ import { Route as AuthLoginRouteImport } from './routes/_auth/login'
 import { Route as DashboardProjectIndexRouteImport } from './routes/_dashboard/project/index'
 import { Route as DashboardProjectProjectIdLayoutRouteImport } from './routes/_dashboard/project/$projectId/layout'
 import { Route as DashboardProjectProjectIdIndexRouteImport } from './routes/_dashboard/project/$projectId/index'
-import { Route as DashboardProjectProjectIdVolumeVolumeRouteImport } from './routes/_dashboard/project/$projectId/volume./$volume'
+import { Route as DashboardProjectProjectIdVolumeVolumeRouteImport } from './routes/_dashboard/project/$projectId/volume/$volume'
 import { Route as DashboardProjectProjectIdServiceServiceIdRouteImport } from './routes/_dashboard/project/$projectId/service/$serviceId'
 
 const DashboardLayoutRoute = DashboardLayoutRouteImport.update({
