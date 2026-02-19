@@ -26,10 +26,10 @@ export function createDetailPanel<const T extends readonly Tab[]>(tabs: T) {
     return (
       <Tabs
         defaultValue={defaultTab}
-        onValueChange={onTabChange as ((value: string) => void) | undefined}
-        className="size-full bg-background p-4"
+        onValueChange={onTabChange}
+        className="size-full bg-background p-6"
       >
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between p-6">
           <h3 className="text-lg font-medium">{title}</h3>
           <Button variant="outline" onClick={onClose}>
             Close
@@ -38,7 +38,7 @@ export function createDetailPanel<const T extends readonly Tab[]>(tabs: T) {
 
         <TabsList
           variant="line"
-          className="relative justify-start border-b border-border -mx-4 px-4 w-[calc(100%+2rem)]"
+          className="relative justify-start border-b border-border -mx-6 px-9 w-[calc(100%+3rem)]"
         >
           {tabs.map((tab) => (
             <TabsTrigger
@@ -59,7 +59,7 @@ export function createDetailPanel<const T extends readonly Tab[]>(tabs: T) {
 
   function Content({ value, children }: { value: Value; children: ReactNode }) {
     return (
-      <TabsContent value={value} className="overflow-y-auto">
+      <TabsContent value={value} className="overflow-y-auto py-2 px-6">
         {children}
       </TabsContent>
     );

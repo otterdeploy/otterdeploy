@@ -1,5 +1,7 @@
 import { createDetailPanel } from "@/components/resource/detail-panel";
+import { DeploymentsPanel } from "@/components/resource/deployments-panel";
 import { MetricsPanel } from "@/components/resource/metrics-panel";
+import { SettingsPanel } from "@/components/resource/settings-panel";
 import { VariableEditor } from "@/components/resource/variable-editor";
 import {
   Card,
@@ -31,7 +33,7 @@ export const Route = createFileRoute("/_dashboard/projects/$projectId/service/$s
 
 function RouteComponent() {
   const { tab } = Route.useSearch();
-  const { projectId } = Route.useRouteContext();
+  const { projectId } = Route.useParams();
   const navigate = useNavigate();
 
   return (
@@ -41,17 +43,7 @@ function RouteComponent() {
       onClose={() => navigate({ to: "/projects/$projectId", params: { projectId } })}
     >
       <Content value="deployments">
-        <Card>
-          <CardHeader>
-            <CardTitle>Deployments</CardTitle>
-            <CardDescription>
-              View deployment history, status, and rollback options for this service.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="text-muted-foreground text-sm">
-            Latest deployment is live and healthy.
-          </CardContent>
-        </Card>
+        <DeploymentsPanel />
       </Content>
 
       <Content value="database">
@@ -91,17 +83,7 @@ function RouteComponent() {
       </Content>
 
       <Content value="settings">
-        <Card>
-          <CardHeader>
-            <CardTitle>Settings</CardTitle>
-            <CardDescription>
-              Configure service options, scaling, networking, and access controls.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="text-muted-foreground text-sm">
-            Configure instance size, replicas, and domain settings.
-          </CardContent>
-        </Card>
+        <SettingsPanel />
       </Content>
     </Panel>
   );

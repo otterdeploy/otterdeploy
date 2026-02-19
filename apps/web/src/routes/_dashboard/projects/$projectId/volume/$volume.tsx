@@ -25,8 +25,7 @@ export const Route = createFileRoute("/_dashboard/projects/$projectId/volume/$vo
 
 function RouteComponent() {
   const { tab } = Route.useSearch();
-  const { volume } = Route.useParams();
-  const { projectId } = Route.useRouteContext();
+  const { projectId, volume } = Route.useParams();
   const navigate = useNavigate();
 
   return (
