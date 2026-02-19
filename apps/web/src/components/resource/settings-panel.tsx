@@ -12,21 +12,22 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import {
-  AlertTriangle,
-  Check,
-  CircleAlert,
-  Code2,
-  Copy,
-  ExternalLink,
-  FileCode2,
-  Globe,
-  Network,
-  Pencil,
-  Plus,
-  RefreshCw,
-  Settings,
-  Trash2,
-} from "lucide-react";
+  Alert01Icon,
+  AlertCircleIcon,
+  ArrowUpRight01Icon,
+  Copy01Icon,
+  Delete01Icon,
+  DocumentCodeIcon,
+  GlobeIcon,
+  PencilEdit01Icon,
+  PlusSignIcon,
+  Refresh01Icon,
+  Settings01Icon,
+  SourceCodeIcon,
+  Tick01Icon,
+  Wifi01Icon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 
 // ---------------------------------------------------------------------------
 // Mock data
@@ -98,7 +99,7 @@ function DocsLink({ href = "#", children = "Docs" }: { href?: string; children?:
       className="inline-flex items-center gap-0.5 text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
     >
       {children}
-      <ExternalLink className="h-3 w-3" />
+      <HugeiconsIcon icon={ArrowUpRight01Icon} size={12} />
     </a>
   );
 }
@@ -161,26 +162,26 @@ function InfoRow({ children, actions }: { children: React.ReactNode; actions?: R
   );
 }
 
-function IconButton({ icon: Icon, label }: { icon: React.ComponentType<{ className?: string }>; label: string }) {
+function IconButton({ icon, label }: { icon: React.ComponentType; label: string }) {
   return (
     <button
       type="button"
       aria-label={label}
       className="rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
     >
-      <Icon className="h-4 w-4" />
+      <HugeiconsIcon icon={icon} size={16} />
     </button>
   );
 }
 
 function SectionHeader({
   id,
-  icon: Icon,
+  icon,
   title,
   variant = "default",
 }: {
   id?: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: React.ComponentType;
   title: string;
   variant?: "default" | "danger";
 }) {
@@ -193,7 +194,7 @@ function SectionHeader({
             : "bg-muted text-muted-foreground"
         }`}
       >
-        <Icon className="h-4 w-4" />
+        <HugeiconsIcon icon={icon} size={16} />
       </div>
       <h3
         className={`text-base font-medium ${variant === "danger" ? "text-destructive" : "text-muted-foreground"}`}
@@ -211,13 +212,13 @@ function SectionHeader({
 function SourceSection() {
   return (
     <section className="space-y-6">
-      <SectionHeader id="source" icon={Code2} title="Source" />
+      <SectionHeader id="source" icon={SourceCodeIcon} title="Source" />
       <div className="space-y-6 pl-11">
         <SettingField label="Source Repo">
           <InfoRow
             actions={
               <>
-                <IconButton icon={Pencil} label="Edit" />
+                <IconButton icon={PencilEdit01Icon} label="Edit" />
                 <Button variant="outline" size="sm">
                   Disconnect
                 </Button>
@@ -248,7 +249,7 @@ function SourceSection() {
             <span className="text-sm font-medium">{SOURCE_DATA.upstreamRepo}</span>
           </InfoRow>
           <Button variant="outline" size="sm" className="gap-1.5">
-            <RefreshCw className="h-3.5 w-3.5" />
+            <HugeiconsIcon icon={Refresh01Icon} size={14} />
             Check for updates
           </Button>
         </SettingField>
@@ -259,7 +260,7 @@ function SourceSection() {
         >
           {SOURCE_DATA.branchError && (
             <div className="flex items-center gap-2 text-sm text-destructive">
-              <CircleAlert className="h-4 w-4" />
+              <HugeiconsIcon icon={AlertCircleIcon} size={16} />
               {SOURCE_DATA.branchError}
             </div>
           )}
@@ -276,7 +277,7 @@ function SourceSection() {
 function NetworkingSection() {
   return (
     <section className="space-y-6">
-      <SectionHeader id="networking" icon={Network} title="Networking" />
+      <SectionHeader id="networking" icon={Wifi01Icon} title="Networking" />
       <div className="space-y-6 pl-11">
         <SettingField
           label="Public Networking"
@@ -285,9 +286,9 @@ function NetworkingSection() {
           <InfoRow
             actions={
               <>
-                <IconButton icon={Copy} label="Copy" />
-                <IconButton icon={Pencil} label="Edit" />
-                <IconButton icon={Trash2} label="Delete" />
+                <IconButton icon={Copy01Icon} label="Copy" />
+                <IconButton icon={PencilEdit01Icon} label="Edit" />
+                <IconButton icon={Delete01Icon} label="Delete" />
               </>
             }
           >
@@ -298,11 +299,11 @@ function NetworkingSection() {
           </InfoRow>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" className="gap-1.5">
-              <Plus className="h-3.5 w-3.5" />
+              <HugeiconsIcon icon={PlusSignIcon} size={14} />
               Custom Domain
             </Button>
             <Button variant="outline" size="sm" className="gap-1.5">
-              <Plus className="h-3.5 w-3.5" />
+              <HugeiconsIcon icon={PlusSignIcon} size={14} />
               TCP Proxy
             </Button>
           </div>
@@ -321,7 +322,7 @@ function NetworkingSection() {
                 </Badge>
               </p>
               <p className="text-xs text-muted-foreground">
-                <Check className="mr-1 inline h-3 w-3 text-emerald-400" />
+                <HugeiconsIcon icon={Tick01Icon} size={12} className="mr-1 inline text-emerald-400" />
                 Ready to talk privately · You can also simply call me{" "}
                 <code className="rounded bg-muted px-1 py-0.5 text-[11px]">
                   {NETWORKING_DATA.privateAlias}
@@ -346,7 +347,7 @@ function ScaleSection() {
 
   return (
     <section className="space-y-6">
-      <SectionHeader id="scale" icon={Globe} title="Scale" />
+      <SectionHeader id="scale" icon={GlobeIcon} title="Scale" />
       <div className="space-y-6 pl-11">
         <SettingField
           label="Regions & Replicas"
@@ -420,7 +421,7 @@ function ScaleSection() {
             </div>
           </div>
           <p className="text-sm text-primary">
-            <Plus className="mr-1 inline h-3 w-3" />
+            <HugeiconsIcon icon={PlusSignIcon} size={12} className="mr-1 inline" />
             Upgrade for higher limits
           </p>
         </SettingField>
@@ -439,13 +440,13 @@ function BuildSection() {
 
   return (
     <section className="space-y-6">
-      <SectionHeader id="build" icon={Settings} title="Build" />
+      <SectionHeader id="build" icon={Settings01Icon} title="Build" />
       <div className="space-y-6 pl-11">
         <SettingField label="Builder">
           <div className="bg-card ring-foreground/10 space-y-2 rounded-lg p-4 ring-1">
             <div className="flex items-center justify-between text-sm">
               <span className="flex items-center gap-1.5 text-muted-foreground">
-                <CircleAlert className="h-3.5 w-3.5" />
+                <HugeiconsIcon icon={AlertCircleIcon} size={14} />
                 The value is set in{" "}
                 <strong className="text-foreground">{BUILD_DATA.configFile}</strong>
               </span>
@@ -453,7 +454,7 @@ function BuildSection() {
                 href="#"
                 className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
-                Open file <ExternalLink className="h-3 w-3" />
+                Open file <HugeiconsIcon icon={ArrowUpRight01Icon} size={12} />
               </a>
             </div>
             <div className="bg-muted/50 flex items-center justify-between rounded-md px-3 py-2">
@@ -491,7 +492,7 @@ function BuildSection() {
               value={watchPattern}
               onChange={(e) => setWatchPattern(e.target.value)}
             />
-            <Check className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <HugeiconsIcon icon={Tick01Icon} size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           </div>
         </SettingField>
       </div>
@@ -511,7 +512,7 @@ function DeploySection() {
 
   return (
     <section className="space-y-6">
-      <SectionHeader id="deploy" icon={RefreshCw} title="Deploy" />
+      <SectionHeader id="deploy" icon={Refresh01Icon} title="Deploy" />
       <div className="space-y-6 pl-11">
         <SettingField
           label="Custom Start Command"
@@ -519,7 +520,7 @@ function DeploySection() {
           docsHref="#"
         >
           <Button variant="outline" size="sm" className="gap-1.5">
-            <Plus className="h-3.5 w-3.5" />
+            <HugeiconsIcon icon={PlusSignIcon} size={14} />
             Start Command
           </Button>
           <p className="text-sm text-muted-foreground">
@@ -547,7 +548,7 @@ function DeploySection() {
           description="Run the service according to the specified cron schedule."
         >
           <Button variant="outline" size="sm" className="gap-1.5">
-            <Plus className="h-3.5 w-3.5" />
+            <HugeiconsIcon icon={PlusSignIcon} size={14} />
             Add Schedule
           </Button>
         </SettingField>
@@ -558,7 +559,7 @@ function DeploySection() {
           docsHref="#"
         >
           <Button variant="outline" size="sm" className="gap-1.5">
-            <Plus className="h-3.5 w-3.5" />
+            <HugeiconsIcon icon={PlusSignIcon} size={14} />
             Healthcheck Path
           </Button>
         </SettingField>
@@ -618,7 +619,7 @@ function DeploySection() {
 function ConfigSection() {
   return (
     <section className="space-y-6">
-      <SectionHeader id="config-as-code" icon={FileCode2} title="Config-as-code" />
+      <SectionHeader id="config-as-code" icon={DocumentCodeIcon} title="Config-as-code" />
       <div className="space-y-6 pl-11">
         <SettingField
           label="Railway Config File"
@@ -626,7 +627,7 @@ function ConfigSection() {
           docsHref="#"
         >
           <Button variant="outline" size="sm" className="gap-1.5">
-            <Plus className="h-3.5 w-3.5" />
+            <HugeiconsIcon icon={PlusSignIcon} size={14} />
             Add File Path
           </Button>
         </SettingField>
@@ -642,7 +643,7 @@ function ConfigSection() {
 function DangerSection() {
   return (
     <section className="space-y-4">
-      <SectionHeader id="danger" icon={AlertTriangle} title="Delete Service" variant="danger" />
+      <SectionHeader id="danger" icon={Alert01Icon} title="Delete Service" variant="danger" />
       <div className="space-y-3 pl-11">
         <p className="text-sm text-muted-foreground">
           Deleting this service will{" "}

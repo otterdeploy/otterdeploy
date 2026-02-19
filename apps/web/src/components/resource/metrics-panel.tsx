@@ -23,7 +23,12 @@ import {
   ToggleGroup,
   ToggleGroupItem,
 } from "@/components/ui/toggle-group";
-import { CalendarIcon, LayoutGrid, LayoutList } from "lucide-react";
+import {
+  Calendar01Icon,
+  GridViewIcon,
+  ListViewIcon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Area,
   AreaChart,
@@ -327,7 +332,7 @@ export function MetricsPanel() {
                 />
               }
             >
-              <CalendarIcon className="h-3.5 w-3.5" />
+              <HugeiconsIcon icon={Calendar01Icon} size={14} />
               <span className="text-xs">{customLabel}</span>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
@@ -352,10 +357,10 @@ export function MetricsPanel() {
           size="sm"
         >
           <ToggleGroupItem value="list" aria-label="List view">
-            <LayoutList className="h-4 w-4" />
+            <HugeiconsIcon icon={ListViewIcon} size={16} />
           </ToggleGroupItem>
           <ToggleGroupItem value="grid" aria-label="Grid view">
-            <LayoutGrid className="h-4 w-4" />
+            <HugeiconsIcon icon={GridViewIcon} size={16} />
           </ToggleGroupItem>
         </ToggleGroup>
       </div>

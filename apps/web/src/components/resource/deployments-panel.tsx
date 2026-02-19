@@ -9,18 +9,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Check,
-  CheckCircle2,
-  ChevronDown,
-  Circle,
-  CircleAlert,
-  Container,
-  Ellipsis,
-  Globe,
-  MapPin,
-  Radio,
-  X,
-} from "lucide-react";
+  AlertCircleIcon,
+  ArrowDown01Icon,
+  Cancel01Icon,
+  CheckmarkCircle01Icon,
+  CircleIcon,
+  GlobeIcon,
+  Location01Icon,
+  MoreVerticalIcon,
+  Package01Icon,
+  Tick01Icon,
+  Wifi01Icon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -269,11 +270,11 @@ const STATUS_STYLES: Record<Deployment["status"], { label: string; className: st
 function StepIcon({ status }: { status: StepStatus }) {
   switch (status) {
     case "completed":
-      return <Check className="h-4 w-4 text-emerald-400" />;
+      return <HugeiconsIcon icon={Tick01Icon} size={16} className="text-emerald-400" />;
     case "failed":
-      return <X className="h-4 w-4 text-destructive" />;
+      return <HugeiconsIcon icon={Cancel01Icon} size={16} className="text-destructive" />;
     case "not_started":
-      return <Circle className="h-4 w-4 text-muted-foreground" />;
+      return <HugeiconsIcon icon={CircleIcon} size={16} className="text-muted-foreground" />;
   }
 }
 
@@ -356,9 +357,9 @@ function DeploymentCard({
   const bannerBorder = isFailed ? "border-destructive/20" : "border-emerald-500/20";
   const bannerBg = isFailed ? "bg-destructive/10" : "bg-emerald-500/10";
   const bannerIcon = isFailed ? (
-    <CircleAlert className="h-4 w-4 text-destructive" />
+    <HugeiconsIcon icon={AlertCircleIcon} size={16} className="text-destructive" />
   ) : (
-    <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+    <HugeiconsIcon icon={CheckmarkCircle01Icon} size={16} className="text-emerald-400" />
   );
   const bannerTextColor = isFailed ? "text-destructive" : "text-emerald-400";
 
@@ -372,7 +373,7 @@ function DeploymentCard({
           {style.label}
         </Badge>
 
-        <Container className="h-5 w-5 shrink-0 text-muted-foreground" />
+        <HugeiconsIcon icon={Package01Icon} size={20} className="shrink-0 text-muted-foreground" />
 
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium">{deployment.image}</p>
@@ -389,7 +390,7 @@ function DeploymentCard({
 
         <DropdownMenu>
           <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
-            <Ellipsis className="h-4 w-4" />
+            <HugeiconsIcon icon={MoreVerticalIcon} size={16} />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem>View logs</DropdownMenuItem>
@@ -409,7 +410,11 @@ function DeploymentCard({
             <span className={`flex-1 text-left text-sm ${bannerTextColor}`}>
               {deployment.message}
             </span>
-            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-panel-open]_&]:rotate-180" />
+            <HugeiconsIcon
+              icon={ArrowDown01Icon}
+              size={16}
+              className="text-muted-foreground transition-transform [[data-panel-open]_&]:rotate-180"
+            />
           </CollapsibleTrigger>
           <CollapsibleContent>
             <StepsList steps={deployment.steps!} variant={isFailed ? "error" : "success"} />
@@ -441,16 +446,16 @@ export function DeploymentsPanel() {
           rel="noopener noreferrer"
           className="flex items-center gap-1.5 hover:text-foreground transition-colors"
         >
-          <Globe className="h-4 w-4" />
+          <HugeiconsIcon icon={GlobeIcon} size={16} />
           {SERVICE_INFO.domain}
         </a>
         <div className="flex items-center gap-4">
           <span className="flex items-center gap-1.5">
-            <MapPin className="size-3.5" />
+            <HugeiconsIcon icon={Location01Icon} size={14} />
             {SERVICE_INFO.region}
           </span>
           <span className="flex items-center gap-1.5">
-            <Radio className="size-3.5" />
+            <HugeiconsIcon icon={Wifi01Icon} size={14} />
             {SERVICE_INFO.replicas} Replica
             {SERVICE_INFO.replicas !== 1 ? "s" : ""}
           </span>
@@ -461,7 +466,11 @@ export function DeploymentsPanel() {
 
       <Collapsible defaultOpen>
         <CollapsibleTrigger className="flex w-full items-center gap-2 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          <ChevronDown className="size-4 transition-transform [[data-panel-open]_&]:rotate-0 [[data-panel-closed]_&]:-rotate-90" />
+          <HugeiconsIcon
+            icon={ArrowDown01Icon}
+            size={16}
+            className="transition-transform [[data-panel-open]_&]:rotate-0 [[data-panel-closed]_&]:-rotate-90"
+          />
           History
         </CollapsibleTrigger>
         <CollapsibleContent>

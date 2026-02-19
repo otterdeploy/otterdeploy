@@ -1,4 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { useForm } from "@tanstack/react-form";
+import * as z from "zod";
 import {
   Card,
   CardAction,
@@ -16,14 +18,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -35,10 +29,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import {
   Tooltip,
   TooltipContent,
@@ -67,6 +58,7 @@ import {
   PencilLineIcon,
   Trash2Icon,
   CheckIcon,
+  XIcon,
   BracesIcon,
 } from "lucide-react";
 
@@ -102,17 +94,167 @@ const INITIAL_VARIABLES: EnvVariable[] = [
   },
 ];
 
-const EMPTY_FORM = { key: "", value: "", isSecret: false, buildTime: false };
+const envVariableSchema = z.object({
+  key: z.string().min(1, "Key is required"),
+  value: z.string(),
+  isSecret: z.boolean(),
+  buildTime: z.boolean(),
+});
+
+function InlineVariableRow({
+  defaultValues,
+  onSave,
+  onCancel,
+  autoFocus,
+}: {
+  defaultValues: { key: string; value: string; isSecret: boolean; buildTime: boolean };
+  onSave: (values: { key: string; value: string; isSecret: boolean; buildTime: boolean }) => void;
+  onCancel: () => void;
+  autoFocus?: boolean;
+}) {
+  const keyInputRef = useRef<HTMLInputElement>(null);
+
+  const form = useForm({
+    defaultValues,
+    validators: {
+      onSubmit: envVariableSchema,
+    },
+    onSubmit: ({ value }) => {
+      onSave(value);
+    },
+  });
+
+  useEffect(() => {
+    if (autoFocus) {
+      keyInputRef.current?.focus();
+    }
+  }, [autoFocus]);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      form.handleSubmit();
+    } else if (e.key === "Escape") {
+      onCancel();
+    }
+  };
+
+  return (
+    <TableRow>
+      <TableCell>
+        <form.Field name="key">
+          {(field) => (
+            <Input
+              ref={keyInputRef}
+              placeholder="KEY"
+              className="font-mono text-xs h-8"
+              value={field.state.value}
+              onBlur={field.handleBlur}
+              onChange={(e) => field.handleChange(e.target.value)}
+              onKeyDown={handleKeyDown}
+            />
+          )}
+        </form.Field>
+      </TableCell>
+      <TableCell>
+        <form.Field name="value">
+          {(field) => (
+            <Input
+              placeholder="Value"
+              className="font-mono text-xs h-8"
+              value={field.state.value}
+              onBlur={field.handleBlur}
+              onChange={(e) => field.handleChange(e.target.value)}
+              onKeyDown={handleKeyDown}
+            />
+          )}
+        </form.Field>
+      </TableCell>
+      <TableCell>
+        <div className="flex gap-1.5">
+          <form.Field name="isSecret">
+            {(field) => (
+              <button
+                type="button"
+                onClick={() => field.handleChange(!field.state.value)}
+              >
+                <Badge
+                  variant={field.state.value ? "secondary" : "outline"}
+                  className={field.state.value ? "" : "opacity-40"}
+                >
+                  Secret
+                </Badge>
+              </button>
+            )}
+          </form.Field>
+          <form.Field name="buildTime">
+            {(field) => (
+              <button
+                type="button"
+                onClick={() => field.handleChange(!field.state.value)}
+              >
+                <Badge
+                  variant="outline"
+                  className={field.state.value ? "" : "opacity-40"}
+                >
+                  Build
+                </Badge>
+              </button>
+            )}
+          </form.Field>
+        </div>
+      </TableCell>
+      <TableCell>
+        <div className="flex items-center justify-end gap-0.5">
+          <form.Subscribe selector={(state) => state.canSubmit}>
+            {(canSubmit) => (
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-7"
+                      onClick={() => form.handleSubmit()}
+                      disabled={!canSubmit}
+                    />
+                  }
+                >
+                  <CheckIcon className="size-3.5" />
+                </TooltipTrigger>
+                <TooltipContent>Save</TooltipContent>
+              </Tooltip>
+            )}
+          </form.Subscribe>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-7"
+                  onClick={onCancel}
+                />
+              }
+            >
+              <XIcon className="size-3.5" />
+            </TooltipTrigger>
+            <TooltipContent>Cancel</TooltipContent>
+          </Tooltip>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+}
 
 export function VariableEditor() {
   const [variables, setVariables] = useState<EnvVariable[]>(INITIAL_VARIABLES);
   const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set());
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Dialog state
-  const [dialogOpen, setDialogOpen] = useState(false);
+  // Inline add/edit state
+  const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState(EMPTY_FORM);
 
   // Delete state
   const [deleteTarget, setDeleteTarget] = useState<EnvVariable | null>(null);
@@ -132,43 +274,41 @@ export function VariableEditor() {
     setTimeout(() => setCopiedId(null), 2000);
   }, []);
 
-  const openAddDialog = useCallback(() => {
+  const startAdding = useCallback(() => {
     setEditingId(null);
-    setForm(EMPTY_FORM);
-    setDialogOpen(true);
+    setIsAdding(true);
   }, []);
 
-  const openEditDialog = useCallback((variable: EnvVariable) => {
+  const startEditing = useCallback((variable: EnvVariable) => {
+    setIsAdding(false);
     setEditingId(variable.id);
-    setForm({
-      key: variable.key,
-      value: variable.value,
-      isSecret: variable.isSecret,
-      buildTime: variable.buildTime,
-    });
-    setDialogOpen(true);
   }, []);
 
-  const handleSave = useCallback(() => {
-    if (!form.key.trim()) return;
-
-    if (editingId) {
-      setVariables((prev) =>
-        prev.map((v) =>
-          v.id === editingId ? { ...v, ...form } : v,
-        ),
-      );
-    } else {
-      setVariables((prev) => [
-        ...prev,
-        { id: crypto.randomUUID(), ...form },
-      ]);
-    }
-
-    setDialogOpen(false);
-    setForm(EMPTY_FORM);
+  const cancelInline = useCallback(() => {
+    setIsAdding(false);
     setEditingId(null);
-  }, [editingId, form]);
+  }, []);
+
+  const handleAddSave = useCallback(
+    (values: { key: string; value: string; isSecret: boolean; buildTime: boolean }) => {
+      setVariables((prev) => [
+        { id: crypto.randomUUID(), ...values },
+        ...prev,
+      ]);
+      setIsAdding(false);
+    },
+    [],
+  );
+
+  const handleEditSave = useCallback(
+    (id: string, values: { key: string; value: string; isSecret: boolean; buildTime: boolean }) => {
+      setVariables((prev) =>
+        prev.map((v) => (v.id === id ? { ...v, ...values } : v)),
+      );
+      setEditingId(null);
+    },
+    [],
+  );
 
   const handleDelete = useCallback(() => {
     if (!deleteTarget) return;
@@ -190,14 +330,14 @@ export function VariableEditor() {
             Manage environment variables and secrets for this service.
           </CardDescription>
           <CardAction>
-            <Button size="sm" onClick={openAddDialog}>
+            <Button size="sm" onClick={startAdding} disabled={isAdding}>
               <PlusIcon />
               Add Variable
             </Button>
           </CardAction>
         </CardHeader>
         <CardContent>
-          {variables.length === 0 ? (
+          {variables.length === 0 && !isAdding ? (
             <Empty>
               <EmptyHeader>
                 <EmptyMedia variant="icon">
@@ -220,9 +360,35 @@ export function VariableEditor() {
                 </TableRow>
               </TableHeader>
               <TableBody>
+                {isAdding && (
+                  <InlineVariableRow
+                    defaultValues={{ key: "", value: "", isSecret: false, buildTime: false }}
+                    onSave={handleAddSave}
+                    onCancel={cancelInline}
+                    autoFocus
+                  />
+                )}
                 {variables.map((variable) => {
                   const isRevealed = revealedIds.has(variable.id);
                   const isCopied = copiedId === variable.id;
+                  const isEditing = editingId === variable.id;
+
+                  if (isEditing) {
+                    return (
+                      <InlineVariableRow
+                        key={variable.id}
+                        defaultValues={{
+                          key: variable.key,
+                          value: variable.value,
+                          isSecret: variable.isSecret,
+                          buildTime: variable.buildTime,
+                        }}
+                        onSave={(values) => handleEditSave(variable.id, values)}
+                        onCancel={cancelInline}
+                        autoFocus
+                      />
+                    );
+                  }
 
                   return (
                     <TableRow key={variable.id}>
@@ -308,7 +474,7 @@ export function VariableEditor() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem
-                                onClick={() => openEditDialog(variable)}
+                                onClick={() => startEditing(variable)}
                               >
                                 <PencilLineIcon />
                                 Edit
@@ -333,86 +499,6 @@ export function VariableEditor() {
           )}
         </CardContent>
       </Card>
-
-      {/* Add / Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {editingId ? "Edit Variable" : "Add Variable"}
-            </DialogTitle>
-            <DialogDescription>
-              {editingId
-                ? "Update the environment variable for this service."
-                : "Add a new environment variable to this service."}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-2">
-            <div className="grid gap-2">
-              <Label htmlFor="var-key">Key</Label>
-              <Input
-                id="var-key"
-                placeholder="e.g. DATABASE_URL"
-                className="font-mono"
-                value={form.key}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, key: e.target.value }))
-                }
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="var-value">Value</Label>
-              <Textarea
-                id="var-value"
-                placeholder="Enter value..."
-                className="font-mono"
-                value={form.value}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, value: e.target.value }))
-                }
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="grid gap-0.5">
-                <Label htmlFor="var-secret">Secret</Label>
-                <p className="text-xs text-muted-foreground">
-                  Mask the value and encrypt at rest.
-                </p>
-              </div>
-              <Switch
-                id="var-secret"
-                checked={form.isSecret}
-                onCheckedChange={(checked) =>
-                  setForm((f) => ({ ...f, isSecret: checked }))
-                }
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="grid gap-0.5">
-                <Label htmlFor="var-build">Build Time</Label>
-                <p className="text-xs text-muted-foreground">
-                  Available during the build step.
-                </p>
-              </div>
-              <Switch
-                id="var-build"
-                checked={form.buildTime}
-                onCheckedChange={(checked) =>
-                  setForm((f) => ({ ...f, buildTime: checked }))
-                }
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave} disabled={!form.key.trim()}>
-              {editingId ? "Save Changes" : "Add Variable"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Delete Confirmation */}
       <AlertDialog
