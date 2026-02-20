@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useForm } from "@tanstack/react-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -341,9 +342,14 @@ function NetworkingSection() {
 // ---------------------------------------------------------------------------
 
 function ScaleSection() {
-  const [cpuLimit, setCpuLimit] = useState(SCALE_DATA.cpuLimit);
-  const [memoryLimit, setMemoryLimit] = useState(SCALE_DATA.memoryLimit);
-  const [replicas, setReplicas] = useState(String(SCALE_DATA.replicas));
+  const form = useForm({
+    defaultValues: {
+      region: SCALE_DATA.region,
+      replicas: String(SCALE_DATA.replicas),
+      cpuLimit: SCALE_DATA.cpuLimit,
+      memoryLimit: SCALE_DATA.memoryLimit,
+    },
+  });
 
   return (
     <section className="space-y-6">
@@ -354,25 +360,34 @@ function ScaleSection() {
           description="Deploy replicas per region for horizontal scaling."
         >
           <div className="flex gap-2">
-            <Select defaultValue={SCALE_DATA.region}>
-              <SelectTrigger className="flex-1">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="eu-west">{SCALE_DATA.regionLabel}</SelectItem>
-                <SelectItem value="us-west">US West (Portland, Oregon)</SelectItem>
-                <SelectItem value="us-east">US East (Virginia)</SelectItem>
-              </SelectContent>
-            </Select>
-            <div className="flex items-center gap-1.5">
-              <Input
-                type="number"
-                value={replicas}
-                onChange={(e) => setReplicas(e.target.value)}
-                className="w-16 text-center"
-              />
-              <span className="text-sm text-muted-foreground">Replica</span>
-            </div>
+            <form.Field name="region">
+              {(field) => (
+                <Select value={field.state.value} onValueChange={(v) => { if (v) field.handleChange(v); }}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="eu-west">{SCALE_DATA.regionLabel}</SelectItem>
+                    <SelectItem value="us-west">US West (Portland, Oregon)</SelectItem>
+                    <SelectItem value="us-east">US East (Virginia)</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            </form.Field>
+            <form.Field name="replicas">
+              {(field) => (
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    type="number"
+                    value={field.state.value}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    onBlur={field.handleBlur}
+                    className="w-16 text-center"
+                  />
+                  <span className="text-sm text-muted-foreground">Replica</span>
+                </div>
+              )}
+            </form.Field>
           </div>
           <p className="text-sm text-primary">
             Multi-region replicas are only available on the Pro plan.{" "}
@@ -385,40 +400,48 @@ function ScaleSection() {
           description="Allocate a maximum vCPU and Memory for each replica."
         >
           <div className="bg-card ring-foreground/10 space-y-4 rounded-lg p-4 ring-1">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span>
-                  CPU: <strong>{cpuLimit} vCPU</strong>
-                </span>
-                <span className="text-muted-foreground">
-                  Plan limit: {SCALE_DATA.cpuPlanLimit} vCPU
-                </span>
-              </div>
-              <Slider
-                value={[cpuLimit]}
-                onValueChange={(v) => setCpuLimit(Array.isArray(v) ? v[0] : v)}
-                min={0.5}
-                max={SCALE_DATA.cpuPlanLimit}
-                step={0.5}
-              />
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span>
-                  Memory: <strong>{memoryLimit} GB</strong>
-                </span>
-                <span className="text-muted-foreground">
-                  Plan limit: {SCALE_DATA.memoryPlanLimit} GB
-                </span>
-              </div>
-              <Slider
-                value={[memoryLimit]}
-                onValueChange={(v) => setMemoryLimit(Array.isArray(v) ? v[0] : v)}
-                min={0.5}
-                max={SCALE_DATA.memoryPlanLimit}
-                step={0.5}
-              />
-            </div>
+            <form.Field name="cpuLimit">
+              {(field) => (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span>
+                      CPU: <strong>{field.state.value} vCPU</strong>
+                    </span>
+                    <span className="text-muted-foreground">
+                      Plan limit: {SCALE_DATA.cpuPlanLimit} vCPU
+                    </span>
+                  </div>
+                  <Slider
+                    value={[field.state.value]}
+                    onValueChange={(v) => field.handleChange(Array.isArray(v) ? v[0] : v)}
+                    min={0.5}
+                    max={SCALE_DATA.cpuPlanLimit}
+                    step={0.5}
+                  />
+                </div>
+              )}
+            </form.Field>
+            <form.Field name="memoryLimit">
+              {(field) => (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span>
+                      Memory: <strong>{field.state.value} GB</strong>
+                    </span>
+                    <span className="text-muted-foreground">
+                      Plan limit: {SCALE_DATA.memoryPlanLimit} GB
+                    </span>
+                  </div>
+                  <Slider
+                    value={[field.state.value]}
+                    onValueChange={(v) => field.handleChange(Array.isArray(v) ? v[0] : v)}
+                    min={0.5}
+                    max={SCALE_DATA.memoryPlanLimit}
+                    step={0.5}
+                  />
+                </div>
+              )}
+            </form.Field>
           </div>
           <p className="text-sm text-primary">
             <HugeiconsIcon icon={PlusSignIcon} size={12} className="mr-1 inline" />
@@ -435,8 +458,12 @@ function ScaleSection() {
 // ---------------------------------------------------------------------------
 
 function BuildSection() {
-  const [metalBuild, setMetalBuild] = useState(BUILD_DATA.metalBuildEnv);
-  const [watchPattern, setWatchPattern] = useState(BUILD_DATA.watchPattern);
+  const form = useForm({
+    defaultValues: {
+      metalBuild: BUILD_DATA.metalBuildEnv,
+      watchPattern: BUILD_DATA.watchPattern,
+    },
+  });
 
   return (
     <section className="space-y-6">
@@ -478,7 +505,15 @@ function BuildSection() {
           <Badge variant="outline" className="mb-1 ml-0.5 border-primary/30 bg-primary/10 text-primary text-[10px]">
             Metal
           </Badge>
-          <SwitchRow label="Use Metal Build Environment" checked={metalBuild} onCheckedChange={setMetalBuild} />
+          <form.Field name="metalBuild">
+            {(field) => (
+              <SwitchRow
+                label="Use Metal Build Environment"
+                checked={field.state.value}
+                onCheckedChange={field.handleChange}
+              />
+            )}
+          </form.Field>
         </SettingField>
 
         <SettingField
@@ -486,14 +521,19 @@ function BuildSection() {
           description="Gitignore-style rules to trigger a new deployment based on what file paths have changed."
           docsHref="#"
         >
-          <div className="relative">
-            <Input
-              placeholder="Add pattern e.g. /src/**"
-              value={watchPattern}
-              onChange={(e) => setWatchPattern(e.target.value)}
-            />
-            <HugeiconsIcon icon={Tick01Icon} size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          </div>
+          <form.Field name="watchPattern">
+            {(field) => (
+              <div className="relative">
+                <Input
+                  placeholder="Add pattern e.g. /src/**"
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  onBlur={field.handleBlur}
+                />
+                <HugeiconsIcon icon={Tick01Icon} size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              </div>
+            )}
+          </form.Field>
         </SettingField>
       </div>
     </section>
@@ -505,10 +545,14 @@ function BuildSection() {
 // ---------------------------------------------------------------------------
 
 function DeploySection() {
-  const [teardown, setTeardown] = useState(false);
-  const [serverless, setServerless] = useState(false);
-  const [restartPolicy, setRestartPolicy] = useState("on-failure");
-  const [maxRetries, setMaxRetries] = useState("10");
+  const form = useForm({
+    defaultValues: {
+      teardown: false,
+      serverless: false,
+      restartPolicy: "on-failure",
+      maxRetries: "10",
+    },
+  });
 
   return (
     <section className="space-y-6">
@@ -540,7 +584,15 @@ function DeploySection() {
           description="Configure old deployment termination when a new one is started."
           docsHref="#"
         >
-          <SwitchRow label="Enable Teardown" checked={teardown} onCheckedChange={setTeardown} />
+          <form.Field name="teardown">
+            {(field) => (
+              <SwitchRow
+                label="Enable Teardown"
+                checked={field.state.value}
+                onCheckedChange={field.handleChange}
+              />
+            )}
+          </form.Field>
         </SettingField>
 
         <SettingField
@@ -569,11 +621,15 @@ function DeploySection() {
           description="Containers will scale down to zero and then scale up based on traffic. Requests while the container is sleeping will be queued and served when the container wakes up."
           docsHref="#"
         >
-          <SwitchRow
-            label="Enable Serverless"
-            checked={serverless}
-            onCheckedChange={setServerless}
-          />
+          <form.Field name="serverless">
+            {(field) => (
+              <SwitchRow
+                label="Enable Serverless"
+                checked={field.state.value}
+                onCheckedChange={field.handleChange}
+              />
+            )}
+          </form.Field>
         </SettingField>
 
         <SettingField
@@ -581,30 +637,39 @@ function DeploySection() {
           description="Configure what to do when the process exits."
           docsHref="#"
         >
-          <Select
-            value={restartPolicy}
-            onValueChange={(v) => {
-              if (v) setRestartPolicy(v);
-            }}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="never">Never</SelectItem>
-              <SelectItem value="always">Always</SelectItem>
-              <SelectItem value="on-failure">On Failure</SelectItem>
-            </SelectContent>
-          </Select>
+          <form.Field name="restartPolicy">
+            {(field) => (
+              <Select
+                value={field.state.value}
+                onValueChange={(v) => {
+                  if (v) field.handleChange(v);
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="never">Never</SelectItem>
+                  <SelectItem value="always">Always</SelectItem>
+                  <SelectItem value="on-failure">On Failure</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          </form.Field>
           <div className="space-y-1.5">
             <p className="text-sm text-muted-foreground">
               Number of times to try and restart the service if it stopped due to an error.
             </p>
-            <Input
-              type="number"
-              value={maxRetries}
-              onChange={(e) => setMaxRetries(e.target.value)}
-            />
+            <form.Field name="maxRetries">
+              {(field) => (
+                <Input
+                  type="number"
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  onBlur={field.handleBlur}
+                />
+              )}
+            </form.Field>
           </div>
         </SettingField>
       </div>
