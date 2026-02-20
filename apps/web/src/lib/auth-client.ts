@@ -1,4 +1,4 @@
-import { env } from "@otterstack/env/web";
+import { env } from "@otterdeploy/env/web";
 import { createAuthClient } from "better-auth/react";
 import { organizationClient } from "better-auth/client/plugins";
 

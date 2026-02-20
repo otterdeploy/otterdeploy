@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { serve } from "inngest/hono";
-import { createLogger } from "@otterstack/logger";
+import { createLogger } from "@otterdeploy/logger";
 
 import { inngest } from "./inngest";
 import { functions } from "./functions";

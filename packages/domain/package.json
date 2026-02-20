@@ -1,5 +1,5 @@
 {
-  "name": "@otterstack/domain",
+  "name": "@otterdeploy/domain",
   "type": "module",
   "exports": {
     ".": { "default": "./src/index.ts" },
@@ -10,13 +10,13 @@
   },
   "dependencies": {
     "better-result": "catalog:",
-    "@otterstack/db": "workspace:*",
-    "@otterstack/events": "workspace:*",
-    "@otterstack/logger": "workspace:*",
-    "@otterstack/secrets": "workspace:*"
+    "@otterdeploy/db": "workspace:*",
+    "@otterdeploy/events": "workspace:*",
+    "@otterdeploy/logger": "workspace:*",
+    "@otterdeploy/secrets": "workspace:*"
   },
   "devDependencies": {
-    "@otterstack/config": "workspace:*",
+    "@otterdeploy/config": "workspace:*",
     "typescript": "catalog:"
   }
 }

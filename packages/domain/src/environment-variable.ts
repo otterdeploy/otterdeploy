@@ -1,9 +1,9 @@
 import { Result } from "better-result";
-import { db, eq, and, inArray } from "@otterstack/db";
-import { project, projectEnvironment, projectResource } from "@otterstack/db/schema/architecture";
-import { environmentVariable } from "@otterstack/db/schema/operations";
-import { secretReference } from "@otterstack/db/schema/secrets";
-import { upsertSecretReference, revealSecretByReference } from "@otterstack/secrets";
+import { db, eq, and, inArray } from "@otterdeploy/db";
+import { project, projectEnvironment, projectResource } from "@otterdeploy/db/schema/architecture";
+import { environmentVariable } from "@otterdeploy/db/schema/operations";
+import { secretReference } from "@otterdeploy/db/schema/secrets";
+import { upsertSecretReference, revealSecretByReference } from "@otterdeploy/secrets";
 
 import { NotFoundError, BadRequestError, ConflictError } from "./errors";
 import { type AuditContext, writeAuditLog } from "./audit-writer";

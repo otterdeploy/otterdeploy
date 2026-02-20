@@ -1,6 +1,6 @@
-import { and, db, isNotNull, isNull, sql } from "@otterstack/db";
-import { gitProvider, sshKey } from "@otterstack/db/schema/infrastructure";
-import { environmentVariable } from "@otterstack/db/schema/operations";
+import { and, db, isNotNull, isNull, sql } from "@otterdeploy/db";
+import { gitProvider, sshKey } from "@otterdeploy/db/schema/infrastructure";
+import { environmentVariable } from "@otterdeploy/db/schema/operations";
 
 async function countEnvironmentVariablesMissingReference() {
   const [row] = await db

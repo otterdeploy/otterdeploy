@@ -1,5 +1,5 @@
 {
-  "name": "@otterstack/events",
+  "name": "@otterdeploy/events",
   "type": "module",
   "exports": {
     ".": {
@@ -15,12 +15,12 @@
   },
   "dependencies": {
     "better-result": "catalog:",
-    "@otterstack/contract": "workspace:*",
+    "@otterdeploy/contract": "workspace:*",
     "inngest": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@otterstack/config": "workspace:*",
+    "@otterdeploy/config": "workspace:*",
     "typescript": "catalog:"
   }
 }

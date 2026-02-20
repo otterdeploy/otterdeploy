@@ -14,17 +14,17 @@
     "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",
     "@orpc/zod": "catalog:",
-    "@otterstack/api": "workspace:*",
-    "@otterstack/auth": "workspace:*",
-    "@otterstack/db": "workspace:*",
-    "@otterstack/env": "workspace:*",
-    "@otterstack/logger": "workspace:*",
+    "@otterdeploy/api": "workspace:*",
+    "@otterdeploy/auth": "workspace:*",
+    "@otterdeploy/db": "workspace:*",
+    "@otterdeploy/env": "workspace:*",
+    "@otterdeploy/logger": "workspace:*",
     "better-auth": "catalog:",
     "hono": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@otterstack/config": "workspace:*",
+    "@otterdeploy/config": "workspace:*",
     "@types/bun": "catalog:",
     "tsdown": "^0.16.8",
     "typescript": "catalog:"

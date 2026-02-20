@@ -1,5 +1,5 @@
 import * as z from "zod";
-import { resourceLinkService } from "@otterstack/domain";
+import { resourceLinkService } from "@otterdeploy/domain";
 
 import { orgMemberProcedure } from "../index";
 import { unwrapResult } from "../utils/result";

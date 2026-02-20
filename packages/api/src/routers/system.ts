@@ -1,4 +1,4 @@
-import { systemService } from "@otterstack/domain";
+import { systemService } from "@otterdeploy/domain";
 
 import { publicProcedure } from "../index";
 

@@ -1,7 +1,7 @@
 import { Result } from "better-result";
-import { db, eq, and } from "@otterstack/db";
-import { server, sshKey } from "@otterstack/db/schema/infrastructure";
-import { upsertSecretReference } from "@otterstack/secrets";
+import { db, eq, and } from "@otterdeploy/db";
+import { server, sshKey } from "@otterdeploy/db/schema/infrastructure";
+import { upsertSecretReference } from "@otterdeploy/secrets";
 
 import { NotFoundError, ConflictError } from "./errors";
 import { type AuditContext, writeAuditLog } from "./audit-writer";

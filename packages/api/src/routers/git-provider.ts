@@ -1,5 +1,5 @@
 import * as z from "zod";
-import { gitProviderService } from "@otterstack/domain";
+import { gitProviderService } from "@otterdeploy/domain";
 
 import { orgAdminProcedure, orgAdminStepUpProcedure } from "../index";
 import { getIpAddress } from "../utils/http";

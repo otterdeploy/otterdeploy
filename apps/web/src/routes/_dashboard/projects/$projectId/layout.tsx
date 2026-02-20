@@ -509,7 +509,7 @@ function CreateResourcePalette({
 // --- Viewport controller ---
 
 function ViewportController() {
-  const { setCenter, getNode, getNodes, getViewport, fitView } = useReactFlow();
+  const { setCenter, getNode, getNodes, getInternalNode, getViewport, fitView } = useReactFlow();
   const match = useMatchRoute();
 
   const serviceMatch = match({ from: "/projects/$projectId/service/$serviceId" });
@@ -535,13 +535,22 @@ function ViewportController() {
 
       if (targetNode) {
         const { zoom } = getViewport();
-        const panelWidth = window.innerWidth * 0.6;
+        const panelWidthPx = window.innerWidth * 0.6;
         const nodeWidth = targetNode.measured?.width ?? 180;
         const nodeHeight = targetNode.measured?.height ?? 80;
-        const nodeCenterX = targetNode.position.x + nodeWidth / 2;
-        const nodeCenterY = targetNode.position.y + nodeHeight / 2;
 
-        setCenter(nodeCenterX + panelWidth / (2 * zoom), nodeCenterY, {
+        // Use absolute position (accounts for parent group offset)
+        const internalNode = getInternalNode(targetNode.id);
+        const absX = internalNode?.internals.positionAbsolute.x ?? targetNode.position.x;
+        const absY = internalNode?.internals.positionAbsolute.y ?? targetNode.position.y;
+
+        const nodeCenterX = absX + nodeWidth / 2;
+        const nodeCenterY = absY + nodeHeight / 2;
+
+        // Shift the center so the node appears in the visible area left of the panel.
+        // panelWidthPx / zoom converts screen pixels to flow coordinates.
+        // Divide by 2 to center the node within the remaining visible space.
+        setCenter(nodeCenterX + panelWidthPx / zoom / 2, nodeCenterY, {
           duration: 300,
           zoom,
         });
@@ -553,7 +562,7 @@ function ViewportController() {
     }
 
     prevShowChildRef.current = showChild;
-  }, [showChild, activeId, setCenter, getNode, getNodes, getViewport, fitView]);
+  }, [showChild, activeId, setCenter, getNode, getNodes, getInternalNode, getViewport, fitView]);
 
   return null;
 }

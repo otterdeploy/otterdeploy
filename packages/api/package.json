@@ -1,5 +1,5 @@
 {
-  "name": "@otterstack/api",
+  "name": "@otterdeploy/api",
   "type": "module",
   "exports": {
     ".": {
@@ -18,17 +18,17 @@
     "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",
     "@orpc/zod": "catalog:",
-    "@otterstack/auth": "workspace:*",
-    "@otterstack/db": "workspace:*",
-    "@otterstack/domain": "workspace:*",
-    "@otterstack/env": "workspace:*",
-    "@otterstack/logger": "workspace:*",
-    "@otterstack/secrets": "workspace:*",
+    "@otterdeploy/auth": "workspace:*",
+    "@otterdeploy/db": "workspace:*",
+    "@otterdeploy/domain": "workspace:*",
+    "@otterdeploy/env": "workspace:*",
+    "@otterdeploy/logger": "workspace:*",
+    "@otterdeploy/secrets": "workspace:*",
     "drizzle-zod": "^0.8.2",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@otterstack/config": "workspace:*",
+    "@otterdeploy/config": "workspace:*",
     "hono": "catalog:",
     "typescript": "catalog:"
   }

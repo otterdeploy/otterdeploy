@@ -1,10 +1,10 @@
 import { Result } from "better-result";
-import { db, eq, and } from "@otterstack/db";
+import { db, eq, and } from "@otterdeploy/db";
 import {
   projectEnvironment,
   projectResource,
   projectResourceLink,
-} from "@otterstack/db/schema/architecture";
+} from "@otterdeploy/db/schema/architecture";
 
 import { NotFoundError, BadRequestError, ConflictError } from "./errors";
 

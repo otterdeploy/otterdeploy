@@ -1,5 +1,5 @@
 import * as z from "zod";
-import { projectService } from "@otterstack/domain";
+import { projectService } from "@otterdeploy/domain";
 
 import { orgProcedure, orgAdminProcedure, orgOwnerProcedure } from "../index";
 import { unwrapResult } from "../utils/result";

@@ -25,7 +25,6 @@ import { Field, FieldError } from "@/components/ui/field";
 import { ProjectCard } from "@/components/project/project-card";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { GridViewIcon, ListViewIcon } from "@hugeicons/core-free-icons";
-import { Badge } from "@/components/ui/badge";
 import { PlusIcon } from "lucide-react";
 import * as z from "zod";
 
@@ -167,6 +166,14 @@ function CreateProjectDialog() {
   );
 }
 
+const SORT_LABELS: Record<SortOption, string> = {
+  updated: "Recent Activity",
+  "name-asc": "Name A–Z",
+  "name-desc": "Name Z–A",
+  newest: "Newest First",
+  oldest: "Oldest First",
+};
+
 function RouteComponent() {
   const { projects } = Route.useLoaderData();
   const [sort, setSort] = useState<SortOption>("updated");
@@ -193,36 +200,41 @@ function RouteComponent() {
   const count = projects.length;
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="mx-auto w-full max-w-5xl px-8 py-10 flex flex-col gap-8">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Projects</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Projects</h1>
         <CreateProjectDialog />
       </div>
 
       {/* Toolbar */}
-      <div className="flex items-center gap-3">
-        <span className="text-sm text-muted-foreground">
-          {count} {count === 1 ? "project" : "projects"}
+      <div className="flex items-center gap-4">
+        <span className="text-sm text-muted-foreground tabular-nums">
+          {count} {count === 1 ? "Project" : "Projects"}
         </span>
 
         <Select
           value={sort}
           onValueChange={(val) => setSort(val as SortOption)}
         >
-          <SelectTrigger size="sm">
-            <SelectValue />
+          <SelectTrigger
+            size="sm"
+            className="border-none bg-transparent shadow-none ring-0 focus-visible:ring-0 gap-1 px-0 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <span className="text-muted-foreground/60">Sort By:</span>
+            <span>{SORT_LABELS[sort]}</span>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="updated">Last updated</SelectItem>
+            <SelectItem value="updated">Recent Activity</SelectItem>
             <SelectItem value="name-asc">Name A–Z</SelectItem>
             <SelectItem value="name-desc">Name Z–A</SelectItem>
-            <SelectItem value="newest">Newest</SelectItem>
-            <SelectItem value="oldest">Oldest</SelectItem>
+            <SelectItem value="newest">Newest First</SelectItem>
+            <SelectItem value="oldest">Oldest First</SelectItem>
           </SelectContent>
         </Select>
 
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-sm text-muted-foreground/60">Views</span>
           <ToggleGroup
             value={[view]}
             onValueChange={(values) => {
@@ -243,7 +255,7 @@ function RouteComponent() {
 
       {/* Content */}
       {view === "architecture" ? (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
           {sortedProjects.map((project) => (
             <ProjectCard
               key={project.id}
@@ -255,33 +267,35 @@ function RouteComponent() {
           ))}
         </div>
       ) : (
-        <div className="flex flex-col rounded-xl border bg-card divide-y">
-          {sortedProjects.map((project) => (
-            <Link
-              key={project.id}
-              to="/projects/$projectId"
-              params={{ projectId: project.id }}
-              className="flex items-center gap-4 px-4 py-3 transition-colors hover:bg-muted/50"
-            >
-              <span className="text-sm font-medium flex-1 truncate">{project.name}</span>
-              <Badge variant="secondary" className="text-[10px]">
-                {project.environment}
-              </Badge>
-              <span className="text-xs text-muted-foreground tabular-nums">
-                {project.resources.length} {project.resources.length === 1 ? "resource" : "resources"}
-              </span>
-              <span className="text-xs text-muted-foreground tabular-nums w-28 text-right">
-                {new Date(project.updatedAt).toLocaleDateString()}
-              </span>
-            </Link>
-          ))}
+        <div className="flex flex-col rounded-2xl border border-border/60 bg-card divide-y divide-border/40">
+          {sortedProjects.map((project) => {
+            const online = project.resources.filter((r) => r.status === "online").length;
+            return (
+              <Link
+                key={project.id}
+                to="/projects/$projectId"
+                params={{ projectId: project.id }}
+                className="flex items-center gap-4 px-5 py-3.5 transition-colors hover:bg-muted/40"
+              >
+                <span className="text-[15px] font-medium flex-1 truncate">{project.name}</span>
+                <span className="text-sm text-muted-foreground">{project.environment}</span>
+                <span className="text-muted-foreground/30 select-none">&middot;</span>
+                <span className="text-sm text-muted-foreground tabular-nums">
+                  {online}/{project.resources.length} online
+                </span>
+                <span className="text-sm text-muted-foreground tabular-nums w-28 text-right">
+                  {new Date(project.updatedAt).toLocaleDateString()}
+                </span>
+              </Link>
+            );
+          })}
         </div>
       )}
 
       {count === 0 && (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
+        <div className="flex flex-col items-center justify-center py-24 text-center">
           <p className="text-muted-foreground text-sm">No projects yet</p>
-          <div className="mt-4">
+          <div className="mt-5">
             <CreateProjectDialog />
           </div>
         </div>

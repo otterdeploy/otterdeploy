@@ -1,4 +1,4 @@
-import { db, sql } from "@otterstack/db";
+import { db, sql } from "@otterdeploy/db";
 import { Result } from "better-result";
 
 export async function getHealth() {

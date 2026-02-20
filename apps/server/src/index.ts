@@ -3,11 +3,11 @@ import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
 import { onError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
-import { createContext, type ApiContextVariables } from "@otterstack/api/context";
-import { appRouter } from "@otterstack/api/routers/index";
-import { auth } from "@otterstack/auth";
-import { env } from "@otterstack/env/server";
-import { createLogger, createRequestLogger } from "@otterstack/logger";
+import { createContext, type ApiContextVariables } from "@otterdeploy/api/context";
+import { appRouter } from "@otterdeploy/api/routers/index";
+import { auth } from "@otterdeploy/auth";
+import { env } from "@otterdeploy/env/server";
+import { createLogger, createRequestLogger } from "@otterdeploy/logger";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 

@@ -1,7 +1,7 @@
-import { db, eq, and, desc, or, sql } from "@otterstack/db";
-import { deployment, deploymentEvent } from "@otterstack/db/schema/deployment";
-import { projectResource } from "@otterstack/db/schema/architecture";
-import { createIdempotencyKey, publishEvent } from "@otterstack/events";
+import { db, eq, and, desc, or, sql } from "@otterdeploy/db";
+import { deployment, deploymentEvent } from "@otterdeploy/db/schema/deployment";
+import { projectResource } from "@otterdeploy/db/schema/architecture";
+import { createIdempotencyKey, publishEvent } from "@otterdeploy/events";
 import { Result } from "better-result";
 
 import { NotFoundError, ConflictError } from "./errors";

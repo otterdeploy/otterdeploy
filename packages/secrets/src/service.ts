@@ -1,8 +1,8 @@
-import { and, db, eq } from "@otterstack/db";
+import { and, db, eq } from "@otterdeploy/db";
 import {
   secretProviderBinding,
   secretReference,
-} from "@otterstack/db/schema/secrets";
+} from "@otterdeploy/db/schema/secrets";
 
 import type { BindingRef } from "./provider";
 import type {

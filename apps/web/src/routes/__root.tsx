@@ -6,8 +6,8 @@ import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 
 import { ThemeProvider } from "@/components/theme";
 import { orpc } from "@/utils/orpc";
-import { Toaster } from "@otterstack/ui/components/ui/sonner";
-import { TooltipProvider } from "@otterstack/ui/components/ui/tooltip";
+import { Toaster } from "@otterdeploy/ui/components/ui/sonner";
+import { TooltipProvider } from "@otterdeploy/ui/components/ui/tooltip";
 
 import "../index.css";
 

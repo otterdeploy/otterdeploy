@@ -1,15 +1,15 @@
 import { ORPCError } from "@orpc/server";
-import { db, eq, and } from "@otterstack/db";
+import { db, eq, and } from "@otterdeploy/db";
 import {
   project,
   projectEnvironment,
   projectResource,
   projectResourceLink,
-} from "@otterstack/db/schema/architecture";
-import { deployment } from "@otterstack/db/schema/deployment";
-import { server, gitProvider } from "@otterstack/db/schema/infrastructure";
-import { customDomain, backup, environmentVariable } from "@otterstack/db/schema/operations";
-import { secretReference } from "@otterstack/db/schema/secrets";
+} from "@otterdeploy/db/schema/architecture";
+import { deployment } from "@otterdeploy/db/schema/deployment";
+import { server, gitProvider } from "@otterdeploy/db/schema/infrastructure";
+import { customDomain, backup, environmentVariable } from "@otterdeploy/db/schema/operations";
+import { secretReference } from "@otterdeploy/db/schema/secrets";
 
 export async function validateProjectAccess(projectId: string, organizationId: string) {
   const row = await db.query.project.findFirst({
