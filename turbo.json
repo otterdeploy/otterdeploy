@@ -43,6 +43,15 @@
     "db:studio": {
       "cache": false,
       "persistent": true
+    },
+    "infra:sync": {
+      "cache": false
+    },
+    "infra:preview": {
+      "cache": false
+    },
+    "infra:init": {
+      "cache": false
     }
   }
 }

@@ -19,7 +19,7 @@ import { Link, useMatchRoute, useParams } from "@tanstack/react-router";
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
 import { EllipsisVerticalIcon, EyeOffIcon, PaletteIcon, PencilLineIcon, Trash2Icon } from "lucide-react";
 
-const statusConfig = {
+export const statusConfig = {
   online: { color: "bg-green-500", label: "Online" },
   degraded: { color: "bg-yellow-500", label: "Degraded" },
   crashed: { color: "bg-red-500", label: "Crashed" },
@@ -50,7 +50,7 @@ type GroupNode = Node<GroupNodeData, "group">;
 
 // --- Config ---
 
-const kindIcons = {
+export const kindIcons = {
   web: GlobeIcon,
   api: ApiIcon,
   worker: CpuIcon,

@@ -64,3 +64,6 @@ temp
 paas/*
 research/*
 .beads/*
+
+packages/infra-config/*
+apps/cli/*

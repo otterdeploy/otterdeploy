@@ -68,6 +68,11 @@
     "infra:up": "docker compose up -d",
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose down",
+    "infra:sync": "turbo -F @otterstack/cli dev -- sync",
+    "infra:preview": "turbo -F @otterstack/cli dev -- preview",
+    "infra:init": "turbo -F @otterstack/cli dev -- init",
+    "infra:status": "turbo -F @otterstack/cli dev -- status",
+    "infra:destroy": "turbo -F @otterstack/cli dev -- destroy",
     "check": "oxlint && bun run check:result-discipline && oxfmt --write",
     "ruler:apply": "bunx @intellectronica/ruler@latest apply --local-only",
     "check:result-discipline": "bash ./scripts/check-result-discipline.sh"

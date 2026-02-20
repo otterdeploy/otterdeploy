@@ -13,7 +13,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { user, organization } from "./auth";
-import { buildMethodEnum } from "./enums";
+import { buildMethodEnum, databaseTypeEnum } from "./enums";
 
 export const resourceKindEnum = pgEnum("resource_kind", [
   "web",
@@ -165,6 +165,36 @@ export const projectViewport = pgTable(
   (table) => [index("project_viewport_environmentId_idx").on(table.environmentId)],
 );
 
+export const databaseConfig = pgTable(
+  "database_config",
+  {
+    id: text("id").primaryKey(),
+    resourceId: text("resource_id")
+      .notNull()
+      .unique()
+      .references(() => projectResource.id, { onDelete: "cascade" }),
+    databaseType: databaseTypeEnum("database_type").notNull(),
+    image: text("image").notNull(),
+    databaseName: text("database_name"),
+    databaseUser: text("database_user"),
+    externalPort: integer("external_port"),
+    customConfig: text("custom_config"),
+    typeConfig: jsonb("type_config")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("database_config_resource_idx").on(table.resourceId),
+    index("database_config_type_idx").on(table.databaseType),
+  ],
+);
+
 export const projectRelations = relations(project, ({ one, many }) => ({
   organization: one(organization, {
     fields: [project.organizationId],
@@ -195,11 +225,22 @@ export const projectResourceRelations = relations(projectResource, ({ one, many 
     fields: [projectResource.environmentId],
     references: [projectEnvironment.id],
   }),
+  databaseConfig: one(databaseConfig, {
+    fields: [projectResource.id],
+    references: [databaseConfig.resourceId],
+  }),
   outgoingLinks: many(projectResourceLink, {
     relationName: "resource_outgoing_links",
   }),
   incomingLinks: many(projectResourceLink, {
     relationName: "resource_incoming_links",
+  }),
+}));
+
+export const databaseConfigRelations = relations(databaseConfig, ({ one }) => ({
+  resource: one(projectResource, {
+    fields: [databaseConfig.resourceId],
+    references: [projectResource.id],
   }),
 }));
 

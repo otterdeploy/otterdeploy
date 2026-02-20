@@ -26,7 +26,6 @@ export async function writeAuditLog(
     metadata,
     ipAddress: audit.ipAddress,
     userAgent: audit.userAgent,
-    createdAt: new Date(),
   });
   return id;
 }

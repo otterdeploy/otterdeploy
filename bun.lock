@@ -17,6 +17,24 @@
         "typescript": "^5.9.3",
       },
     },
+    "apps/cli": {
+      "name": "@otterstack/cli",
+      "bin": {
+        "otterstack": "./src/index.ts",
+      },
+      "dependencies": {
+        "@otterstack/db": "workspace:*",
+        "@otterstack/domain": "workspace:*",
+        "@otterstack/env": "workspace:*",
+        "@otterstack/infra-config": "workspace:*",
+        "@otterstack/logger": "workspace:*",
+      },
+      "devDependencies": {
+        "@otterstack/config": "workspace:*",
+        "@types/bun": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
     "apps/fumadocs": {
       "name": "fumadocs",
       "version": "0.0.0",
@@ -239,6 +257,21 @@
         "@otterstack/contract": "workspace:*",
         "better-result": "catalog:",
         "inngest": "catalog:",
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@otterstack/config": "workspace:*",
+        "typescript": "catalog:",
+      },
+    },
+    "packages/infra-config": {
+      "name": "@otterstack/infra-config",
+      "dependencies": {
+        "@otterstack/contract": "workspace:*",
+        "@otterstack/db": "workspace:*",
+        "@otterstack/domain": "workspace:*",
+        "@otterstack/logger": "workspace:*",
+        "better-result": "catalog:",
         "zod": "catalog:",
       },
       "devDependencies": {
@@ -846,6 +879,8 @@
 
     "@otterstack/auth": ["@otterstack/auth@workspace:packages/auth"],
 
+    "@otterstack/cli": ["@otterstack/cli@workspace:apps/cli"],
+
     "@otterstack/config": ["@otterstack/config@workspace:packages/config"],
 
     "@otterstack/contract": ["@otterstack/contract@workspace:packages/contract"],
@@ -857,6 +892,8 @@
     "@otterstack/env": ["@otterstack/env@workspace:packages/env"],
 
     "@otterstack/events": ["@otterstack/events@workspace:packages/events"],
+
+    "@otterstack/infra-config": ["@otterstack/infra-config@workspace:packages/infra-config"],
 
     "@otterstack/logger": ["@otterstack/logger@workspace:packages/logger"],
 

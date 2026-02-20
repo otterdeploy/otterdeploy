@@ -57,6 +57,17 @@ export const envVarScopeEnum = pgEnum("env_var_scope", [
   "resource",
 ]);
 
+export const databaseTypeEnum = pgEnum("database_type", [
+  "postgresql",
+  "mysql",
+  "mariadb",
+  "mongodb",
+  "redis",
+  "keydb",
+  "dragonfly",
+  "clickhouse",
+]);
+
 export const secretProviderEnum = pgEnum("secret_provider", [
   "infisical",
   "native_breakglass",
