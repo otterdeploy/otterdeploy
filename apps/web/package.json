@@ -21,6 +21,8 @@
     "@otterdeploy/api": "workspace:*",
     "@otterdeploy/auth": "workspace:*",
     "@otterdeploy/env": "workspace:*",
+    "@otterdeploy/zero": "workspace:*",
+    "@rocicorp/zero": "latest",
     "@otterdeploy/ui": "workspace:*",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/react-form": "^1.28.3",

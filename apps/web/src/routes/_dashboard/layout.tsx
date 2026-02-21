@@ -1,4 +1,5 @@
 import { authClient } from "@/lib/auth-client";
+import { ZeroProviderWrapper } from "@/components/zero-provider";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_dashboard")({
@@ -15,5 +16,11 @@ export const Route = createFileRoute("/_dashboard")({
 });
 
 function RouteComponent() {
-  return <Outlet />;
+  const { auth } = Route.useRouteContext();
+
+  return (
+    <ZeroProviderWrapper userID={auth.user.id}>
+      <Outlet />
+    </ZeroProviderWrapper>
+  );
 }

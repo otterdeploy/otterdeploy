@@ -19,6 +19,8 @@
     "@otterdeploy/db": "workspace:*",
     "@otterdeploy/env": "workspace:*",
     "@otterdeploy/logger": "workspace:*",
+    "@otterdeploy/zero": "workspace:*",
+    "@rocicorp/zero": "^0.25.12",
     "better-auth": "catalog:",
     "hono": "catalog:",
     "zod": "catalog:"

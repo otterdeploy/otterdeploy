@@ -6,7 +6,8 @@
       "Bash(bun run check-types:*)",
       "WebFetch(domain:www.better-auth.com)",
       "mcp__ide__getDiagnostics",
-      "Bash(done)"
+      "Bash(done)",
+      "WebFetch(domain:zero.rocicorp.dev)"
     ]
   }
 }

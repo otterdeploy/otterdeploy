@@ -12,6 +12,7 @@ import {
 } from "@otterdeploy/ui/components/ui/card";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import * as z from "zod";
+import { orpc } from "@/utils/orpc";
 
 const { Panel, Content, tabValues } = createDetailPanel([
   { label: "Deployments", value: "deployments" },
@@ -29,11 +30,22 @@ const searchSchema = z.object({
 export const Route = createFileRoute("/_dashboard/projects/$projectId/service/$serviceId")({
   component: RouteComponent,
   validateSearch: searchSchema,
+  loader: async ({ context, params }) => {
+    const result = context.queryClient.ensureQueryData(
+      orpc.resource.getById.queryOptions({ input: { resourceId: params.serviceId } }),
+    );
+
+    return result;
+  },
+  pendingComponent: () => <div>Loading...</div>,
+  errorComponent: ({ error }) => <div>Error: {error.message}</div>,
 });
 
 function RouteComponent() {
   const { tab } = Route.useSearch();
-  const { projectId } = Route.useParams();
+  const { projectId } = Route.useLoaderData();
+  const re = Route.useRouteContext();
+
   const navigate = useNavigate();
 
   return (

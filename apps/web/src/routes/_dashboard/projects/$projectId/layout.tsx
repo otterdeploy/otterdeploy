@@ -25,7 +25,7 @@ import {
   type NodeChange,
   type OnConnect,
 } from "@xyflow/react";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 
 import "@xyflow/react/dist/style.css";
 
@@ -67,7 +67,16 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Tabs, TabsList, TabsTrigger, TabsIndicator } from "@/components/ui/tabs";
-import { CheckIcon, ChevronDownIcon, ChevronRightIcon, EllipsisVerticalIcon, PlusIcon, RocketIcon, Settings2Icon, XIcon } from "lucide-react";
+import {
+  CheckIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  EllipsisVerticalIcon,
+  PlusIcon,
+  RocketIcon,
+  Settings2Icon,
+  XIcon,
+} from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/_dashboard/projects/$projectId")({
@@ -93,115 +102,23 @@ export const Route = createFileRoute("/_dashboard/projects/$projectId")({
         }),
       ),
     ]);
-    return { project, environments, projects: projects.items };
+
+    // Fetch the architecture graph for the first environment
+    const firstEnv = environments[0];
+    const graph = firstEnv
+      ? await context.queryClient.ensureQueryData(
+          orpc.architecture.getGraph.queryOptions({
+            input: {
+              projectId: params.projectId,
+              environmentId: firstEnv.id,
+            },
+          }),
+        )
+      : null;
+
+    return { environments, projects: projects.items, graph };
   },
 });
-
-const initialNodes: Node[] = [
-  {
-    id: "group-services",
-    type: "group",
-    position: { x: 0, y: 0 },
-    style: { width: 760, height: 170 },
-    data: { label: "Services" },
-  },
-  {
-    id: "group-data",
-    type: "group",
-    position: { x: 240, y: 210 },
-    style: { width: 520, height: 190 },
-    data: { label: "Data Layer" },
-  },
-  {
-    id: "1",
-    type: "resource",
-    parentId: "group-services",
-    position: { x: 16, y: 56 },
-    data: { name: "Frontend", kind: "web", status: "online", metadata: {} },
-  },
-  {
-    id: "2",
-    type: "resource",
-    parentId: "group-services",
-    position: { x: 264, y: 56 },
-    data: { name: "API Server", kind: "api", status: "online", metadata: {} },
-  },
-  {
-    id: "5",
-    type: "resource",
-    parentId: "group-services",
-    position: { x: 520, y: 56 },
-    data: { name: "Job Runner", kind: "worker", status: "deploying", metadata: {} },
-  },
-  {
-    id: "3",
-    type: "resource",
-    parentId: "group-data",
-    position: { x: 16, y: 56 },
-    data: {
-      name: "PostgreSQL",
-      kind: "database",
-      status: "online",
-      metadata: {},
-      attachments: [{ id: "vol-pg", kind: "volume", name: "pg-data" }],
-    },
-  },
-  {
-    id: "4",
-    type: "resource",
-    parentId: "group-data",
-    position: { x: 272, y: 56 },
-    data: { name: "Redis", kind: "cache", status: "degraded", metadata: {} },
-  },
-];
-
-const initialEdges = [
-  {
-    id: "e1",
-    source: "1",
-    sourceHandle: "right",
-    target: "2",
-    targetHandle: "left",
-    type: "smoothstep",
-    animated: true,
-  },
-  {
-    id: "e2",
-    source: "2",
-    sourceHandle: "right",
-    target: "5",
-    targetHandle: "left",
-    type: "smoothstep",
-    animated: true,
-  },
-  {
-    id: "e3",
-    source: "2",
-    sourceHandle: "bottom",
-    target: "3",
-    targetHandle: "top",
-    type: "smoothstep",
-    animated: true,
-  },
-  {
-    id: "e4",
-    source: "2",
-    sourceHandle: "bottom",
-    target: "4",
-    targetHandle: "top",
-    type: "smoothstep",
-    animated: true,
-  },
-  {
-    id: "e5",
-    source: "5",
-    sourceHandle: "bottom",
-    target: "4",
-    targetHandle: "top",
-    type: "smoothstep",
-    animated: true,
-  },
-];
 
 const nodeTypes = {
   resource: ResourceNodeComponent,
@@ -345,8 +262,12 @@ function ProjectHeader({
     status: string;
   }) => void;
 }) {
-  const { project, environments, projects } = Route.useLoaderData();
+  const { environments, projects, graph } = Route.useLoaderData();
   const router = useRouter();
+
+  if (!graph) return null;
+
+  const project = graph.project;
 
   return (
     <header className="flex h-12 shrink-0 items-center border-b border-border/40 bg-background">
@@ -470,11 +391,18 @@ function CreateResourcePalette({
       posY: 100 + Math.random() * 200,
     });
 
-    await queryClient.invalidateQueries({
-      queryKey: orpc.resource.list.queryOptions({
-        input: { projectId },
-      }).queryKey,
-    });
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: orpc.resource.list.queryOptions({
+          input: { projectId },
+        }).queryKey,
+      }),
+      queryClient.invalidateQueries({
+        queryKey: orpc.architecture.getGraph.queryOptions({
+          input: { projectId, environmentId: env.id },
+        }).queryKey,
+      }),
+    ]);
 
     onCreated({
       id: resource.id,
@@ -519,9 +447,7 @@ function CreateResourcePalette({
         <Command>
           <CommandInput
             placeholder={
-              step === "pick-type"
-                ? "What would you like to create?"
-                : "Search databases..."
+              step === "pick-type" ? "What would you like to create?" : "Search databases..."
             }
           />
           <CommandList>
@@ -700,35 +626,22 @@ function DeployBar({
       exit={{ y: -20, opacity: 0 }}
       className="absolute top-3 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 rounded-xl border border-border/60 bg-card/95 backdrop-blur-sm px-1.5 py-1.5 shadow-lg"
     >
-        <span className="text-sm text-foreground/80 px-3">
-          Apply {changeCount} {changeCount === 1 ? "change" : "changes"}
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          className="rounded-lg"
-          onClick={onDismiss}
-        >
-          Details
-        </Button>
-        <Button
-          size="sm"
-          className="rounded-lg gap-2"
-          onClick={onDeploy}
-        >
-          <RocketIcon className="size-3.5" />
-          Deploy
-          <kbd className="pointer-events-none ml-0.5 inline-flex items-center gap-0.5 rounded border border-primary-foreground/20 bg-primary-foreground/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-primary-foreground/70">
-            ⇧+Enter
-          </kbd>
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="size-7 p-0 rounded-lg text-muted-foreground"
-        >
-          <EllipsisVerticalIcon className="size-4" />
-        </Button>
+      <span className="text-sm text-foreground/80 px-3">
+        Apply {changeCount} {changeCount === 1 ? "change" : "changes"}
+      </span>
+      <Button variant="outline" size="sm" className="rounded-lg" onClick={onDismiss}>
+        Details
+      </Button>
+      <Button size="sm" className="rounded-lg gap-2" onClick={onDeploy}>
+        <RocketIcon className="size-3.5" />
+        Deploy
+        <kbd className="pointer-events-none ml-0.5 inline-flex items-center gap-0.5 rounded border border-primary-foreground/20 bg-primary-foreground/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-primary-foreground/70">
+          ⇧+Enter
+        </kbd>
+      </Button>
+      <Button variant="ghost" size="sm" className="size-7 p-0 rounded-lg text-muted-foreground">
+        <EllipsisVerticalIcon className="size-4" />
+      </Button>
     </motion.div>
   );
 }
@@ -788,9 +701,7 @@ function ChangesDialog({
                 <button
                   type="button"
                   className="flex w-full items-center gap-4 px-8 py-4 text-left hover:bg-muted/30 transition-colors"
-                  onClick={() =>
-                    setExpanded((prev) => ({ ...prev, [change.id]: !isExpanded }))
-                  }
+                  onClick={() => setExpanded((prev) => ({ ...prev, [change.id]: !isExpanded }))}
                 >
                   <ChevronDownIcon
                     className={`size-5 text-muted-foreground transition-transform ${
@@ -883,8 +794,36 @@ function ChangesDialog({
 // --- Main layout ---
 
 function RouteComponent() {
-  const [nodes, setNodes] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const { graph } = Route.useLoaderData();
+
+  const graphNodes = useMemo<Node[]>(() => {
+    if (!graph || graph.nodes.length === 0) return [];
+    return graph.nodes.map((n) => ({
+      id: n.id,
+      type: "resource" as const,
+      position: n.position,
+      data: {
+        name: n.data.name,
+        kind: n.data.kind,
+        status: n.data.status,
+        metadata: n.data.metadata,
+      },
+    }));
+  }, [graph]);
+
+  const graphEdges = useMemo(() => {
+    if (!graph || graph.edges.length === 0) return [];
+    return graph.edges.map((e) => ({
+      id: e.id,
+      source: e.source,
+      target: e.target,
+      type: e.type,
+      animated: true,
+    }));
+  }, [graph]);
+
+  const [nodes, setNodes] = useNodesState(graphNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(graphEdges);
   const [pendingChanges, setPendingChanges] = useState<PendingChange[]>([]);
   const [changesDialogOpen, setChangesDialogOpen] = useState(false);
 
