@@ -1,5 +1,7 @@
 import { useState, useMemo } from "react";
-import { orpc, client, queryClient } from "@/utils/orpc";
+import { useQuery } from "@rocicorp/zero/react";
+import { queries } from "@otterdeploy/zero/queries";
+import { mutators } from "@otterdeploy/zero/mutators";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useForm } from "@tanstack/react-form";
 import { Button } from "@/components/ui/button";
@@ -32,50 +34,10 @@ export const Route = createFileRoute("/_dashboard/projects/")({
   component: RouteComponent,
   loader: async ({ context }) => {
     if (!context.auth.session.activeOrganizationId) throw new Error("No active organization");
-    const projects = await context.queryClient.ensureQueryData(
-      orpc.project.list.queryOptions({
-        input: {
-          organizationId: context.auth.session.activeOrganizationId,
-        },
-      }),
-    );
-
-    // Fetch resources and environments for each project in parallel
-    const enriched = await Promise.all(
-      projects.items.map(async (project) => {
-        try {
-          const [resources, environments] = await Promise.all([
-            context.queryClient.fetchQuery(
-              orpc.resource.list.queryOptions({
-                input: { projectId: project.id },
-              }),
-            ),
-            context.queryClient.fetchQuery(
-              orpc.environment.list.queryOptions({
-                input: { projectId: project.id },
-              }),
-            ),
-          ]);
-          return {
-            ...project,
-            resources: resources.map((r) => ({
-              kind: r.kind,
-              status: r.status,
-              name: r.name,
-            })),
-            environment: environments[0]?.name ?? "default",
-          };
-        } catch {
-          return {
-            ...project,
-            resources: [],
-            environment: "default",
-          };
-        }
-      }),
-    );
-
-    return { projects: enriched, organizationId: context.auth.session.activeOrganizationId };
+    if (context.zero) {
+      context.zero.run(queries.projectList({ organizationId: context.auth.session.activeOrganizationId }));
+    }
+    return { organizationId: context.auth.session.activeOrganizationId };
   },
 });
 
@@ -85,6 +47,8 @@ type ViewMode = "architecture" | "list";
 function CreateProjectDialog() {
   const { organizationId } = Route.useLoaderData();
   const router = useRouter();
+  const { zero } = router.options.context;
+  const { auth } = Route.useRouteContext();
   const [open, setOpen] = useState(false);
 
   const form = useForm({
@@ -97,20 +61,23 @@ function CreateProjectDialog() {
       }),
     },
     onSubmit: async ({ value }) => {
-      const project = await client.project.create({
-        organizationId,
-        name: value.name.trim(),
-      });
-      await queryClient.invalidateQueries({
-        queryKey: orpc.project.list.queryOptions({
-          input: { organizationId },
-        }).queryKey,
-      });
+      if (!zero) return;
+      const id = crypto.randomUUID();
+      const slug = value.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      zero.mutate(
+        mutators.project.create({
+          id,
+          organizationId,
+          ownerId: auth.user.id,
+          name: value.name.trim(),
+          slug,
+        }),
+      );
       setOpen(false);
       form.reset();
       router.navigate({
         to: "/projects/$projectId",
-        params: { projectId: project.id },
+        params: { projectId: id },
       });
     },
   });
@@ -168,36 +135,39 @@ function CreateProjectDialog() {
 
 const SORT_LABELS: Record<SortOption, string> = {
   updated: "Recent Activity",
-  "name-asc": "Name A–Z",
-  "name-desc": "Name Z–A",
+  "name-asc": "Name A\u2013Z",
+  "name-desc": "Name Z\u2013A",
   newest: "Newest First",
   oldest: "Oldest First",
 };
 
 function RouteComponent() {
-  const { projects } = Route.useLoaderData();
+  const { organizationId } = Route.useLoaderData();
+  const { zero } = useRouter().options.context;
   const [sort, setSort] = useState<SortOption>("updated");
   const [view, setView] = useState<ViewMode>("architecture");
 
+  const [projects] = useQuery(queries.projectList({ organizationId }));
+
   const sortedProjects = useMemo(() => {
-    const items = [...projects];
+    const items = [...(projects ?? [])];
     switch (sort) {
       case "updated":
-        return items.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+        return items.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
       case "name-asc":
         return items.sort((a, b) => a.name.localeCompare(b.name));
       case "name-desc":
         return items.sort((a, b) => b.name.localeCompare(a.name));
       case "newest":
-        return items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        return items.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
       case "oldest":
-        return items.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        return items.sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
       default:
         return items;
     }
   }, [projects, sort]);
 
-  const count = projects.length;
+  const count = (projects ?? []).length;
 
   return (
     <div className="mx-auto w-full max-w-5xl px-8 py-10 flex flex-col gap-8">
@@ -226,8 +196,8 @@ function RouteComponent() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="updated">Recent Activity</SelectItem>
-            <SelectItem value="name-asc">Name A–Z</SelectItem>
-            <SelectItem value="name-desc">Name Z–A</SelectItem>
+            <SelectItem value="name-asc">Name A&#x2013;Z</SelectItem>
+            <SelectItem value="name-desc">Name Z&#x2013;A</SelectItem>
             <SelectItem value="newest">Newest First</SelectItem>
             <SelectItem value="oldest">Oldest First</SelectItem>
           </SelectContent>
@@ -261,15 +231,14 @@ function RouteComponent() {
               key={project.id}
               id={project.id}
               name={project.name}
-              environment={project.environment}
-              resources={project.resources}
+              environment="default"
+              resources={[]}
             />
           ))}
         </div>
       ) : (
         <div className="flex flex-col rounded-2xl border border-border/60 bg-card divide-y divide-border/40">
           {sortedProjects.map((project) => {
-            const online = project.resources.filter((r) => r.status === "online").length;
             return (
               <Link
                 key={project.id}
@@ -278,13 +247,13 @@ function RouteComponent() {
                 className="flex items-center gap-4 px-5 py-3.5 transition-colors hover:bg-muted/40"
               >
                 <span className="text-[15px] font-medium flex-1 truncate">{project.name}</span>
-                <span className="text-sm text-muted-foreground">{project.environment}</span>
+                <span className="text-sm text-muted-foreground">default</span>
                 <span className="text-muted-foreground/30 select-none">&middot;</span>
                 <span className="text-sm text-muted-foreground tabular-nums">
-                  {online}/{project.resources.length} online
+                  0/0 online
                 </span>
                 <span className="text-sm text-muted-foreground tabular-nums w-28 text-right">
-                  {new Date(project.updatedAt).toLocaleDateString()}
+                  {project.updatedAt ? new Date(project.updatedAt).toLocaleDateString() : ""}
                 </span>
               </Link>
             );
