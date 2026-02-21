@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { orpc, client, queryClient } from "@/utils/orpc";
+import { useQuery } from "@rocicorp/zero/react";
+import { queries } from "@otterdeploy/zero/queries";
+import { mutators } from "@otterdeploy/zero/mutators";
 import {
   createFileRoute,
   Outlet,
@@ -77,7 +79,6 @@ import {
   Settings2Icon,
   XIcon,
 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/_dashboard/projects/$projectId")({
   component: RouteComponent,
@@ -85,38 +86,13 @@ export const Route = createFileRoute("/_dashboard/projects/$projectId")({
     const organizationId = context.auth.session.activeOrganizationId;
     if (!organizationId) throw new Error("No active organization");
 
-    const [project, environments, projects] = await Promise.all([
-      context.queryClient.ensureQueryData(
-        orpc.project.getById.queryOptions({
-          input: { projectId: params.projectId },
-        }),
-      ),
-      context.queryClient.ensureQueryData(
-        orpc.environment.list.queryOptions({
-          input: { projectId: params.projectId },
-        }),
-      ),
-      context.queryClient.ensureQueryData(
-        orpc.project.list.queryOptions({
-          input: { organizationId },
-        }),
-      ),
-    ]);
+    if (context.zero) {
+      context.zero.run(queries.projectById({ projectId: params.projectId }));
+      context.zero.run(queries.environmentList({ projectId: params.projectId }));
+      context.zero.run(queries.projectList({ organizationId }));
+    }
 
-    // Fetch the architecture graph for the first environment
-    const firstEnv = environments[0];
-    const graph = firstEnv
-      ? await context.queryClient.ensureQueryData(
-          orpc.architecture.getGraph.queryOptions({
-            input: {
-              projectId: params.projectId,
-              environmentId: firstEnv.id,
-            },
-          }),
-        )
-      : null;
-
-    return { environments, projects: projects.items, graph };
+    return { organizationId };
   },
 });
 
@@ -147,7 +123,7 @@ function EnvironmentSwitcher({
 }) {
   const [selected, setSelected] = useState(environments[0]?.name ?? "production");
   const [showCreate, setShowCreate] = useState(false);
-  const router = useRouter();
+  const { zero } = useRouter().options.context;
 
   const form = useForm({
     defaultValues: {
@@ -159,19 +135,18 @@ function EnvironmentSwitcher({
       }),
     },
     onSubmit: async ({ value }) => {
-      await client.environment.create({
-        projectId,
-        name: value.name.trim(),
-      });
-      await queryClient.invalidateQueries({
-        queryKey: orpc.environment.list.queryOptions({
-          input: { projectId },
-        }).queryKey,
-      });
+      if (!zero) return;
+      const id = crypto.randomUUID();
+      zero.mutate(
+        mutators.environment.create({
+          id,
+          projectId,
+          name: value.name.trim(),
+        }),
+      );
       setShowCreate(false);
       setSelected(value.name.trim());
       form.reset();
-      router.invalidate();
     },
   });
 
@@ -262,12 +237,15 @@ function ProjectHeader({
     status: string;
   }) => void;
 }) {
-  const { environments, projects, graph } = Route.useLoaderData();
+  const { projectId } = useParams({ strict: false });
+  const { organizationId } = Route.useLoaderData();
   const router = useRouter();
 
-  if (!graph) return null;
+  const [project] = useQuery(queries.projectById({ projectId: projectId! }));
+  const [environments] = useQuery(queries.environmentList({ projectId: projectId! }));
+  const [projects] = useQuery(queries.projectList({ organizationId }));
 
-  const project = graph.project;
+  if (!project) return null;
 
   return (
     <header className="flex h-12 shrink-0 items-center border-b border-border/40 bg-background">
@@ -291,7 +269,7 @@ function ProjectHeader({
             <span className="flex flex-1 text-left">{project.name}</span>
           </SelectTrigger>
           <SelectContent>
-            {projects.map((p) => (
+            {(projects ?? []).map((p) => (
               <SelectItem key={p.id} value={p.id}>
                 {p.name}
               </SelectItem>
@@ -301,7 +279,7 @@ function ProjectHeader({
 
         <span className="mx-1 text-muted-foreground/40 select-none">/</span>
 
-        <EnvironmentSwitcher projectId={project.id} environments={environments} />
+        <EnvironmentSwitcher projectId={project.id} environments={environments ?? []} />
       </div>
 
       {/* Center: nav tabs */}
@@ -357,6 +335,7 @@ function CreateResourcePalette({
   onCreated: (resource: { id: string; name: string; kind: ResourceKind; status: string }) => void;
 }) {
   const { projectId } = useParams({ strict: false });
+  const { zero } = useRouter().options.context;
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<PaletteStep>("pick-type");
 
@@ -365,11 +344,8 @@ function CreateResourcePalette({
     setOpen((prev) => !prev);
   });
 
-  const { data: environments } = useQuery(
-    orpc.environment.list.queryOptions({
-      input: { projectId: projectId! },
-      enabled: !!projectId && open,
-    }),
+  const [environments] = useQuery(
+    projectId ? queries.environmentList({ projectId }) : undefined,
   );
 
   function handleOpenChange(next: boolean) {
@@ -378,38 +354,23 @@ function CreateResourcePalette({
   }
 
   async function createResource(kind: ResourceKind, name: string) {
-    if (!projectId) return;
+    if (!projectId || !zero) return;
     const env = environments?.[0];
     if (!env) return;
 
-    const resource = await client.resource.create({
-      projectId,
-      environmentId: env.id,
-      name,
-      kind,
-      posX: 100 + Math.random() * 200,
-      posY: 100 + Math.random() * 200,
-    });
-
-    await Promise.all([
-      queryClient.invalidateQueries({
-        queryKey: orpc.resource.list.queryOptions({
-          input: { projectId },
-        }).queryKey,
+    const id = crypto.randomUUID();
+    zero.mutate(
+      mutators.resource.create({
+        id,
+        environmentId: env.id,
+        kind,
+        name,
+        posX: 100 + Math.random() * 200,
+        posY: 100 + Math.random() * 200,
       }),
-      queryClient.invalidateQueries({
-        queryKey: orpc.architecture.getGraph.queryOptions({
-          input: { projectId, environmentId: env.id },
-        }).queryKey,
-      }),
-    ]);
+    );
 
-    onCreated({
-      id: resource.id,
-      name: resource.name,
-      kind: resource.kind as ResourceKind,
-      status: resource.status,
-    });
+    onCreated({ id, name, kind, status: "unknown" });
 
     handleOpenChange(false);
   }
@@ -794,33 +755,45 @@ function ChangesDialog({
 // --- Main layout ---
 
 function RouteComponent() {
-  const { graph } = Route.useLoaderData();
+  const { projectId } = useParams({ strict: false });
+
+  const [environments] = useQuery(
+    projectId ? queries.environmentList({ projectId }) : undefined,
+  );
+  const firstEnvId = environments?.[0]?.id;
+
+  const [resources] = useQuery(
+    firstEnvId ? queries.resourceList({ environmentId: firstEnvId }) : undefined,
+  );
+  const [links] = useQuery(
+    firstEnvId ? queries.resourceLinkList({ environmentId: firstEnvId }) : undefined,
+  );
 
   const graphNodes = useMemo<Node[]>(() => {
-    if (!graph || graph.nodes.length === 0) return [];
-    return graph.nodes.map((n) => ({
-      id: n.id,
+    if (!resources) return [];
+    return resources.map((r) => ({
+      id: r.id,
       type: "resource" as const,
-      position: n.position,
+      position: { x: r.posX ?? 0, y: r.posY ?? 0 },
       data: {
-        name: n.data.name,
-        kind: n.data.kind,
-        status: n.data.status,
-        metadata: n.data.metadata,
+        name: r.name,
+        kind: r.kind,
+        status: r.status ?? "unknown",
+        metadata: r.metadata ?? {},
       },
     }));
-  }, [graph]);
+  }, [resources]);
 
   const graphEdges = useMemo(() => {
-    if (!graph || graph.edges.length === 0) return [];
-    return graph.edges.map((e) => ({
-      id: e.id,
-      source: e.source,
-      target: e.target,
-      type: e.type,
+    if (!links) return [];
+    return links.map((l) => ({
+      id: l.id,
+      source: l.sourceResourceId,
+      target: l.targetResourceId,
+      type: "smoothstep",
       animated: true,
     }));
-  }, [graph]);
+  }, [links]);
 
   const [nodes, setNodes] = useNodesState(graphNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(graphEdges);
