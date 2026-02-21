@@ -1,7 +1,7 @@
 import { type Zero } from "@rocicorp/zero";
 import { ZeroProvider as RocicorpZeroProvider } from "@rocicorp/zero/react";
 import { schema } from "@otterdeploy/zero";
-import { queries } from "@otterdeploy/zero/queries";
+import { mutators } from "@otterdeploy/zero/mutators";
 import { env } from "@otterdeploy/env/web";
 import { useCallback } from "react";
 import { useRouter } from "@tanstack/react-router";
@@ -31,7 +31,7 @@ export function ZeroProviderWrapper({ userID, children }: ZeroProviderProps) {
 
   return (
     <RocicorpZeroProvider
-      {...{ schema, userID, context, cacheURL, init }}
+      {...{ schema, userID, context, cacheURL, mutators, init }}
     >
       {children}
     </RocicorpZeroProvider>
