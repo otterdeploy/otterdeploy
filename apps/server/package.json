@@ -7,7 +7,7 @@
     "build": "tsdown",
     "check-types": "tsc -b",
     "compile": "bun build --compile --minify --sourcemap --bytecode ./src/index.ts --outfile server",
-    "dev": "bun run env --hot src/index.ts",
+    "dev": "portless api.otterstack bun run env --hot src/index.ts",
     "start": "bun run env dist/index.mjs"
   },
   "dependencies": {

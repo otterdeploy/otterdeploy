@@ -17,7 +17,6 @@ import {
   applyNodeChanges,
   Background,
   Controls,
-  Panel,
   ReactFlow,
   useEdgesState,
   useNodesState,
@@ -68,7 +67,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Tabs, TabsList, TabsTrigger, TabsIndicator } from "@/components/ui/tabs";
-import { ChevronDownIcon, ChevronRightIcon, PlusIcon } from "lucide-react";
+import { CheckIcon, ChevronDownIcon, ChevronRightIcon, EllipsisVerticalIcon, PlusIcon, RocketIcon, Settings2Icon, XIcon } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/_dashboard/projects/$projectId")({
@@ -417,6 +416,20 @@ function ProjectHeader({
 
 // --- Create resource command palette ---
 
+const databaseEngines = [
+  { value: "postgresql", label: "PostgreSQL", description: "Reliable relational database" },
+  { value: "mysql", label: "MySQL", description: "Popular open-source RDBMS" },
+  { value: "mariadb", label: "MariaDB", description: "Community-driven MySQL fork" },
+  { value: "mongodb", label: "MongoDB", description: "Document-oriented NoSQL" },
+  { value: "redis", label: "Redis", description: "In-memory data store" },
+  { value: "keydb", label: "KeyDB", description: "High-performance Redis fork" },
+  { value: "dragonfly", label: "Dragonfly", description: "Modern Redis-compatible store" },
+  { value: "clickhouse", label: "ClickHouse", description: "Column-oriented analytics DB" },
+] as const;
+
+type DatabaseEngine = (typeof databaseEngines)[number]["value"];
+type PaletteStep = "pick-type" | "pick-database";
+
 function CreateResourcePalette({
   onCreated,
 }: {
@@ -424,6 +437,7 @@ function CreateResourcePalette({
 }) {
   const { projectId } = useParams({ strict: false });
   const [open, setOpen] = useState(false);
+  const [step, setStep] = useState<PaletteStep>("pick-type");
 
   useHotkey("C", (e) => {
     e.preventDefault();
@@ -437,17 +451,20 @@ function CreateResourcePalette({
     }),
   );
 
-  async function handleSelect(kind: ResourceKind) {
+  function handleOpenChange(next: boolean) {
+    setOpen(next);
+    if (!next) setStep("pick-type");
+  }
+
+  async function createResource(kind: ResourceKind, name: string) {
     if (!projectId) return;
     const env = environments?.[0];
     if (!env) return;
 
-    const label = kindOptions.find((o) => o.value === kind)?.label ?? kind;
-
     const resource = await client.resource.create({
       projectId,
       environmentId: env.id,
-      name: label,
+      name,
       kind,
       posX: 100 + Math.random() * 200,
       posY: 100 + Math.random() * 200,
@@ -466,7 +483,21 @@ function CreateResourcePalette({
       status: resource.status,
     });
 
-    setOpen(false);
+    handleOpenChange(false);
+  }
+
+  function handleSelectKind(kind: ResourceKind) {
+    if (kind === "database") {
+      setStep("pick-database");
+      return;
+    }
+    const label = kindOptions.find((o) => o.value === kind)?.label ?? kind;
+    createResource(kind, label);
+  }
+
+  function handleSelectDatabase(engine: DatabaseEngine) {
+    const label = databaseEngines.find((e) => e.value === engine)?.label ?? engine;
+    createResource("database", label);
   }
 
   return (
@@ -477,28 +508,61 @@ function CreateResourcePalette({
       </Button>
       <CommandDialog
         open={open}
-        onOpenChange={setOpen}
-        title="Create resource"
-        description="Pick a resource type to add to your project."
+        onOpenChange={handleOpenChange}
+        title={step === "pick-type" ? "Create resource" : "New Database"}
+        description={
+          step === "pick-type"
+            ? "Pick a resource type to add to your project."
+            : "Choose a database engine."
+        }
       >
         <Command>
-          <CommandInput placeholder="What would you like to create?" />
+          <CommandInput
+            placeholder={
+              step === "pick-type"
+                ? "What would you like to create?"
+                : "Search databases..."
+            }
+          />
           <CommandList>
             <CommandEmpty>No results found.</CommandEmpty>
-            <CommandGroup>
-              {kindOptions.map((opt) => (
-                <CommandItem
-                  key={opt.value}
-                  value={opt.label}
-                  onSelect={() => handleSelect(opt.value)}
-                  className="py-2.5 px-3 cursor-pointer"
-                >
-                  <HugeiconsIcon icon={opt.icon} className="size-5 text-muted-foreground" />
-                  <span className="flex-1">{opt.label}</span>
-                  <ChevronRightIcon className="size-4 text-muted-foreground" />
-                </CommandItem>
-              ))}
-            </CommandGroup>
+
+            {step === "pick-type" && (
+              <CommandGroup>
+                {kindOptions.map((opt) => (
+                  <CommandItem
+                    key={opt.value}
+                    value={opt.label}
+                    onSelect={() => handleSelectKind(opt.value)}
+                    className="py-2.5 px-3 cursor-pointer"
+                  >
+                    <HugeiconsIcon icon={opt.icon} className="size-5 text-muted-foreground" />
+                    <span className="flex-1">{opt.label}</span>
+                    <ChevronRightIcon className="size-4 text-muted-foreground" />
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+
+            {step === "pick-database" && (
+              <CommandGroup>
+                {databaseEngines.map((db) => (
+                  <CommandItem
+                    key={db.value}
+                    value={db.label}
+                    onSelect={() => handleSelectDatabase(db.value)}
+                    className="py-2.5 px-3 cursor-pointer"
+                  >
+                    <HugeiconsIcon icon={DatabaseIcon} className="size-5 text-muted-foreground" />
+                    <div className="flex-1 min-w-0">
+                      <span className="block text-sm">{db.label}</span>
+                      <span className="block text-xs text-muted-foreground">{db.description}</span>
+                    </div>
+                    <ChevronRightIcon className="size-4 text-muted-foreground" />
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
           </CommandList>
         </Command>
       </CommandDialog>
@@ -535,6 +599,7 @@ function ViewportController() {
 
       if (targetNode) {
         const { zoom } = getViewport();
+        const targetZoom = Math.min(zoom, 0.85);
         const panelWidthPx = window.innerWidth * 0.6;
         const nodeWidth = targetNode.measured?.width ?? 180;
         const nodeHeight = targetNode.measured?.height ?? 80;
@@ -548,11 +613,11 @@ function ViewportController() {
         const nodeCenterY = absY + nodeHeight / 2;
 
         // Shift the center so the node appears in the visible area left of the panel.
-        // panelWidthPx / zoom converts screen pixels to flow coordinates.
+        // panelWidthPx / targetZoom converts screen pixels to flow coordinates.
         // Divide by 2 to center the node within the remaining visible space.
-        setCenter(nodeCenterX + panelWidthPx / zoom / 2, nodeCenterY, {
+        setCenter(nodeCenterX + panelWidthPx / targetZoom / 2, nodeCenterY, {
           duration: 300,
-          zoom,
+          zoom: targetZoom,
         });
       }
     }
@@ -610,9 +675,219 @@ function resizeGroups(nodes: Node[]): Node[] {
 
 // --- Main layout ---
 
+// --- Deploy bar ---
+
+function DeployBar({
+  changeCount,
+  onDeploy,
+  onDismiss,
+}: {
+  changeCount: number;
+  onDeploy: () => void;
+  onDismiss: () => void;
+}) {
+  useHotkey("Shift+Enter", (e) => {
+    e.preventDefault();
+    onDeploy();
+  });
+
+  if (changeCount === 0) return null;
+
+  return (
+    <motion.div
+      initial={{ y: -20, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      exit={{ y: -20, opacity: 0 }}
+      className="absolute top-3 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 rounded-xl border border-border/60 bg-card/95 backdrop-blur-sm px-1.5 py-1.5 shadow-lg"
+    >
+        <span className="text-sm text-foreground/80 px-3">
+          Apply {changeCount} {changeCount === 1 ? "change" : "changes"}
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          className="rounded-lg"
+          onClick={onDismiss}
+        >
+          Details
+        </Button>
+        <Button
+          size="sm"
+          className="rounded-lg gap-2"
+          onClick={onDeploy}
+        >
+          <RocketIcon className="size-3.5" />
+          Deploy
+          <kbd className="pointer-events-none ml-0.5 inline-flex items-center gap-0.5 rounded border border-primary-foreground/20 bg-primary-foreground/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-primary-foreground/70">
+            ⇧+Enter
+          </kbd>
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="size-7 p-0 rounded-lg text-muted-foreground"
+        >
+          <EllipsisVerticalIcon className="size-4" />
+        </Button>
+    </motion.div>
+  );
+}
+
+// --- Changes dialog ---
+
+interface PendingChange {
+  id: string;
+  name: string;
+  kind: string;
+  action: "added" | "modified" | "removed";
+  settings: { key: string; oldValue: string; newValue: string }[];
+}
+
+function ChangesDialog({
+  changes,
+  open,
+  onOpenChange,
+  onDeploy,
+  onDiscard,
+}: {
+  changes: PendingChange[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onDeploy: () => void;
+  onDiscard: (id: string) => void;
+}) {
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const totalSettings = changes.reduce((sum, c) => sum + c.settings.length, 0);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="!max-w-[95vw] !w-[95vw] !h-[92vh] flex flex-col !p-0 !gap-0 !rounded-2xl">
+        <DialogHeader className="px-8 pt-8 pb-5 shrink-0">
+          <DialogTitle className="text-2xl font-bold">
+            {changes.length} {changes.length === 1 ? "change" : "changes"} to apply
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            Review pending changes before deploying.
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* Commit message */}
+        <div className="px-8 pb-5 shrink-0">
+          <Input placeholder="Commit message (optional)" className="h-11 text-base" />
+        </div>
+
+        {/* Changes list */}
+        <div className="border-t border-border/40 flex-1 overflow-y-auto min-h-0">
+          {changes.map((change) => {
+            const isExpanded = expanded[change.id] ?? true;
+            const kindIcon = kindOptions.find((o) => o.value === change.kind)?.icon ?? GlobeIcon;
+
+            return (
+              <div key={change.id} className="border-b border-border/40 last:border-b-0">
+                {/* Change header */}
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-4 px-8 py-4 text-left hover:bg-muted/30 transition-colors"
+                  onClick={() =>
+                    setExpanded((prev) => ({ ...prev, [change.id]: !isExpanded }))
+                  }
+                >
+                  <ChevronDownIcon
+                    className={`size-5 text-muted-foreground transition-transform ${
+                      !isExpanded ? "-rotate-90" : ""
+                    }`}
+                  />
+                  <HugeiconsIcon icon={kindIcon} className="size-6 text-muted-foreground" />
+                  <span className="flex-1 text-base">
+                    <strong className="text-foreground">{change.name}</strong>{" "}
+                    <span className="text-muted-foreground">will be {change.action}</span>
+                  </span>
+                  <span className="text-sm text-muted-foreground">
+                    {change.settings.length} Settings
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDiscard(change.id);
+                    }}
+                  >
+                    Discard
+                  </Button>
+                </button>
+
+                {/* Settings table */}
+                {isExpanded && change.settings.length > 0 && (
+                  <div className="px-8 pb-5">
+                    <div className="rounded-xl border border-border/40 overflow-hidden">
+                      {/* Table header */}
+                      <div className="grid grid-cols-[1.2fr_1fr_1fr_auto] gap-0 bg-muted/30 px-5 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                        <span>Change</span>
+                        <span>Current Value</span>
+                        <span>New Value</span>
+                        <span className="w-8" />
+                      </div>
+                      {/* Rows */}
+                      {change.settings.map((setting) => (
+                        <div
+                          key={setting.key}
+                          className="grid grid-cols-[1.2fr_1fr_1fr_auto] gap-0 items-center border-t border-border/30 px-5 py-3.5"
+                        >
+                          <span className="flex items-center gap-3 text-sm">
+                            <PlusIcon className="size-3.5 text-emerald-500 shrink-0" />
+                            <Settings2Icon className="size-4 text-muted-foreground shrink-0" />
+                            {setting.key}
+                          </span>
+                          <span className="text-sm text-muted-foreground">
+                            {setting.oldValue || "—"}
+                          </span>
+                          <span className="text-sm">
+                            {setting.newValue && (
+                              <code className="rounded-md bg-emerald-500/15 px-3 py-1.5 text-xs font-mono text-emerald-400">
+                                {setting.newValue}
+                              </code>
+                            )}
+                          </span>
+                          <button
+                            type="button"
+                            className="size-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                          >
+                            <XIcon className="size-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between border-t border-border/40 px-8 py-5 shrink-0">
+          <span className="text-sm text-muted-foreground">
+            {changes.map((c) => c.name).join(", ")} will redeploy
+          </span>
+          <Button size="lg" onClick={onDeploy} className="gap-2 text-base px-6">
+            <CheckIcon className="size-5" />
+            Deploy Changes
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// --- Main layout ---
+
 function RouteComponent() {
   const [nodes, setNodes] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [pendingChanges, setPendingChanges] = useState<PendingChange[]>([]);
+  const [changesDialogOpen, setChangesDialogOpen] = useState(false);
+
   const onConnect: OnConnect = useCallback(
     (params) => setEdges((els) => addEdge(params, els)),
     [setEdges],
@@ -652,6 +927,34 @@ function RouteComponent() {
         };
         return [...nds, newNode];
       });
+      setPendingChanges((prev) => [
+        ...prev,
+        {
+          id: resource.id,
+          name: resource.name,
+          kind: resource.kind,
+          action: "added",
+          settings: [
+            { key: "Kind", oldValue: "", newValue: resource.kind },
+            { key: "Name", oldValue: "", newValue: resource.name },
+            { key: "Status", oldValue: "", newValue: resource.status },
+          ],
+        },
+      ]);
+    },
+    [setNodes],
+  );
+
+  const handleDeploy = useCallback(() => {
+    // TODO: trigger actual deployment
+    setPendingChanges([]);
+    setChangesDialogOpen(false);
+  }, []);
+
+  const handleDiscard = useCallback(
+    (id: string) => {
+      setPendingChanges((prev) => prev.filter((c) => c.id !== id));
+      setNodes((nds) => nds.filter((n) => n.id !== id));
     },
     [setNodes],
   );
@@ -686,6 +989,26 @@ function RouteComponent() {
             <ViewportController />
           </ReactFlow>
         </div>
+
+        {/* Deploy bar — positioned above canvas, outside overflow clip */}
+        <AnimatePresence>
+          {pendingChanges.length > 0 && (
+            <DeployBar
+              changeCount={pendingChanges.length}
+              onDeploy={handleDeploy}
+              onDismiss={() => setChangesDialogOpen(true)}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* Changes dialog */}
+        <ChangesDialog
+          changes={pendingChanges}
+          open={changesDialogOpen}
+          onOpenChange={setChangesDialogOpen}
+          onDeploy={handleDeploy}
+          onDiscard={handleDiscard}
+        />
 
         <AnimatePresence initial={false} mode="popLayout">
           <motion.div
