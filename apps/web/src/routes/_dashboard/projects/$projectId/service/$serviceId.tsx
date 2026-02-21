@@ -11,8 +11,9 @@ import {
   CardTitle,
 } from "@otterdeploy/ui/components/ui/card";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useQuery } from "@rocicorp/zero/react";
+import { queries } from "@otterdeploy/zero/queries";
 import * as z from "zod";
-import { orpc } from "@/utils/orpc";
 
 const { Panel, Content, tabValues } = createDetailPanel([
   { label: "Deployments", value: "deployments" },
@@ -31,11 +32,9 @@ export const Route = createFileRoute("/_dashboard/projects/$projectId/service/$s
   component: RouteComponent,
   validateSearch: searchSchema,
   loader: async ({ context, params }) => {
-    const result = context.queryClient.ensureQueryData(
-      orpc.resource.getById.queryOptions({ input: { resourceId: params.serviceId } }),
-    );
-
-    return result;
+    if (context.zero) {
+      context.zero.run(queries.resourceById({ resourceId: params.serviceId }));
+    }
   },
   pendingComponent: () => <div>Loading...</div>,
   errorComponent: ({ error }) => <div>Error: {error.message}</div>,
@@ -43,14 +42,14 @@ export const Route = createFileRoute("/_dashboard/projects/$projectId/service/$s
 
 function RouteComponent() {
   const { tab } = Route.useSearch();
-  const { projectId } = Route.useLoaderData();
-  const re = Route.useRouteContext();
+  const { projectId, serviceId } = Route.useParams();
+  const [resource] = useQuery(queries.resourceById({ resourceId: serviceId }));
 
   const navigate = useNavigate();
 
   return (
     <Panel
-      title="Service"
+      title={resource?.name ?? "Service"}
       defaultTab={tab}
       onClose={() => navigate({ to: "/projects/$projectId", params: { projectId } })}
     >
