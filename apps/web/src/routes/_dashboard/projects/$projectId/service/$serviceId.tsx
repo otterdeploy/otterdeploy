@@ -52,7 +52,7 @@ function RouteComponent() {
       title={resource?.name ?? "Service"}
       defaultTab={tab}
       onClose={() => navigate({ to: "/projects/$projectId", params: { projectId } })}
-      hiddenTabs={resource?.kind !== "database" ? ["database", "backups"] : []}
+      hiddenTabs={resource?.kind !== "database" && resource?.kind !== "cache" ? ["database", "backups"] : []}
     >
       <Content value="deployments">
         <DeploymentsPanel />
