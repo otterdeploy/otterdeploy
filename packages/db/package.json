@@ -1,9 +1,12 @@
 {
-  "name": "@otterstack/db",
+  "name": "@otterdeploy/db",
   "type": "module",
   "exports": {
     ".": {
       "default": "./src/index.ts"
+    },
+    "./schema": {
+      "default": "./src/schema/index.ts"
     },
     "./*": {
       "default": "./src/*.ts"
@@ -18,13 +21,13 @@
     "db:seed": "bun run env ./src/seed.ts"
   },
   "dependencies": {
-    "@otterstack/env": "workspace:*",
+    "@otterdeploy/env": "workspace:*",
     "drizzle-orm": "^0.45.1",
     "pg": "^8.18.0",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@otterstack/config": "workspace:*",
+    "@otterdeploy/config": "workspace:*",
     "@types/pg": "^8.16.0",
     "drizzle-seed": "latest",
     "drizzle-kit": "^0.31.9",

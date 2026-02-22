@@ -1,5 +1,7 @@
 import { useState, useMemo } from "react";
-import { orpc, client, queryClient } from "@/utils/orpc";
+import { useQuery } from "@rocicorp/zero/react";
+import { queries } from "@otterdeploy/zero/queries";
+import { mutators } from "@otterdeploy/zero/mutators";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useForm } from "@tanstack/react-form";
 import { Button } from "@/components/ui/button";
@@ -25,7 +27,6 @@ import { Field, FieldError } from "@/components/ui/field";
 import { ProjectCard } from "@/components/project/project-card";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { GridViewIcon, ListViewIcon } from "@hugeicons/core-free-icons";
-import { Badge } from "@/components/ui/badge";
 import { PlusIcon } from "lucide-react";
 import * as z from "zod";
 
@@ -33,50 +34,12 @@ export const Route = createFileRoute("/_dashboard/projects/")({
   component: RouteComponent,
   loader: async ({ context }) => {
     if (!context.auth.session.activeOrganizationId) throw new Error("No active organization");
-    const projects = await context.queryClient.ensureQueryData(
-      orpc.project.list.queryOptions({
-        input: {
-          organizationId: context.auth.session.activeOrganizationId,
-        },
-      }),
-    );
-
-    // Fetch resources and environments for each project in parallel
-    const enriched = await Promise.all(
-      projects.items.map(async (project) => {
-        try {
-          const [resources, environments] = await Promise.all([
-            context.queryClient.fetchQuery(
-              orpc.resource.list.queryOptions({
-                input: { projectId: project.id },
-              }),
-            ),
-            context.queryClient.fetchQuery(
-              orpc.environment.list.queryOptions({
-                input: { projectId: project.id },
-              }),
-            ),
-          ]);
-          return {
-            ...project,
-            resources: resources.map((r) => ({
-              kind: r.kind,
-              status: r.status,
-              name: r.name,
-            })),
-            environment: environments[0]?.name ?? "default",
-          };
-        } catch {
-          return {
-            ...project,
-            resources: [],
-            environment: "default",
-          };
-        }
-      }),
-    );
-
-    return { projects: enriched, organizationId: context.auth.session.activeOrganizationId };
+    if (context.zero) {
+      context.zero.run(
+        queries.projectList({ organizationId: context.auth.session.activeOrganizationId }),
+      );
+    }
+    return { organizationId: context.auth.session.activeOrganizationId };
   },
 });
 
@@ -86,6 +49,8 @@ type ViewMode = "architecture" | "list";
 function CreateProjectDialog() {
   const { organizationId } = Route.useLoaderData();
   const router = useRouter();
+  const { zero } = router.options.context;
+  const { auth } = Route.useRouteContext();
   const [open, setOpen] = useState(false);
 
   const form = useForm({
@@ -98,21 +63,24 @@ function CreateProjectDialog() {
       }),
     },
     onSubmit: async ({ value }) => {
-      const project = await client.project.create({
-        organizationId,
-        name: value.name.trim(),
-      });
-      await queryClient.invalidateQueries({
-        queryKey: orpc.project.list.queryOptions({
-          input: { organizationId },
-        }).queryKey,
-      });
+      if (!zero) return;
+      const id = crypto.randomUUID();
+      const slug = value.name
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-");
+
+      zero.mutate(
+        mutators.project.create({
+          id,
+          organizationId,
+          ownerId: auth.user.id,
+          name: slug,
+          slug,
+        }),
+      );
       setOpen(false);
       form.reset();
-      router.navigate({
-        to: "/projects/$projectId",
-        params: { projectId: project.id },
-      });
     },
   });
 
@@ -132,9 +100,7 @@ function CreateProjectDialog() {
         >
           <DialogHeader>
             <DialogTitle>New project</DialogTitle>
-            <DialogDescription>
-              Give your project a name to get started.
-            </DialogDescription>
+            <DialogDescription>Give your project a name to get started.</DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <form.Field name="name">
@@ -167,24 +133,35 @@ function CreateProjectDialog() {
   );
 }
 
+const SORT_LABELS: Record<SortOption, string> = {
+  updated: "Recent Activity",
+  "name-asc": "Name A\u2013Z",
+  "name-desc": "Name Z\u2013A",
+  newest: "Newest First",
+  oldest: "Oldest First",
+};
+
 function RouteComponent() {
-  const { projects } = Route.useLoaderData();
+  const { organizationId } = Route.useLoaderData();
+  const { zero } = useRouter().options.context;
   const [sort, setSort] = useState<SortOption>("updated");
   const [view, setView] = useState<ViewMode>("architecture");
 
+  const [projects] = useQuery(queries.projectList({ organizationId }));
+
   const sortedProjects = useMemo(() => {
-    const items = [...projects];
+    const items = projects;
     switch (sort) {
       case "updated":
-        return items.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+        return items.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
       case "name-asc":
         return items.sort((a, b) => a.name.localeCompare(b.name));
       case "name-desc":
         return items.sort((a, b) => b.name.localeCompare(a.name));
       case "newest":
-        return items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        return items.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
       case "oldest":
-        return items.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        return items.sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
       default:
         return items;
     }
@@ -192,41 +169,50 @@ function RouteComponent() {
 
   const count = projects.length;
 
+  console.log(projects);
+
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="mx-auto w-full max-w-5xl px-8 py-10 flex flex-col gap-8">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Projects</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Projects</h1>
         <CreateProjectDialog />
       </div>
 
       {/* Toolbar */}
-      <div className="flex items-center gap-3">
-        <span className="text-sm text-muted-foreground">
-          {count} {count === 1 ? "project" : "projects"}
+      <div className="flex items-center gap-4">
+        <span className="text-sm text-muted-foreground tabular-nums">
+          {count} {count === 1 ? "Project" : "Projects"}
         </span>
 
         <Select
           value={sort}
-          onValueChange={(val) => setSort(val as SortOption)}
+          onValueChange={(val) => {
+            if (val) setSort(val);
+          }}
         >
-          <SelectTrigger size="sm">
-            <SelectValue />
+          <SelectTrigger
+            size="sm"
+            className="border-none bg-transparent shadow-none ring-0 focus-visible:ring-0 gap-1 px-0 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <span className="text-muted-foreground/60">Sort By:</span>
+            <span>{SORT_LABELS[sort]}</span>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="updated">Last updated</SelectItem>
-            <SelectItem value="name-asc">Name A–Z</SelectItem>
-            <SelectItem value="name-desc">Name Z–A</SelectItem>
-            <SelectItem value="newest">Newest</SelectItem>
-            <SelectItem value="oldest">Oldest</SelectItem>
+            <SelectItem value="updated">Recent Activity</SelectItem>
+            <SelectItem value="name-asc">Name A&#x2013;Z</SelectItem>
+            <SelectItem value="name-desc">Name Z&#x2013;A</SelectItem>
+            <SelectItem value="newest">Newest First</SelectItem>
+            <SelectItem value="oldest">Oldest First</SelectItem>
           </SelectContent>
         </Select>
 
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-sm text-muted-foreground/60">Views</span>
           <ToggleGroup
             value={[view]}
             onValueChange={(values) => {
-              if (values.length > 0) setView(values[0] as ViewMode);
+              if (values[0]) setView(values[0] as ViewMode);
             }}
             variant="outline"
             size="sm"
@@ -243,45 +229,44 @@ function RouteComponent() {
 
       {/* Content */}
       {view === "architecture" ? (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
           {sortedProjects.map((project) => (
             <ProjectCard
               key={project.id}
               id={project.id}
               name={project.name}
-              environment={project.environment}
-              resources={project.resources}
+              environment="default"
+              resources={[]}
             />
           ))}
         </div>
       ) : (
-        <div className="flex flex-col rounded-xl border bg-card divide-y">
-          {sortedProjects.map((project) => (
-            <Link
-              key={project.id}
-              to="/projects/$projectId"
-              params={{ projectId: project.id }}
-              className="flex items-center gap-4 px-4 py-3 transition-colors hover:bg-muted/50"
-            >
-              <span className="text-sm font-medium flex-1 truncate">{project.name}</span>
-              <Badge variant="secondary" className="text-[10px]">
-                {project.environment}
-              </Badge>
-              <span className="text-xs text-muted-foreground tabular-nums">
-                {project.resources.length} {project.resources.length === 1 ? "resource" : "resources"}
-              </span>
-              <span className="text-xs text-muted-foreground tabular-nums w-28 text-right">
-                {new Date(project.updatedAt).toLocaleDateString()}
-              </span>
-            </Link>
-          ))}
+        <div className="flex flex-col rounded-2xl border border-border/60 bg-card divide-y divide-border/40">
+          {sortedProjects.map((project) => {
+            return (
+              <Link
+                key={project.id}
+                to="/projects/$projectId"
+                params={{ projectId: project.id }}
+                className="flex items-center gap-4 px-5 py-3.5 transition-colors hover:bg-muted/40"
+              >
+                <span className="text-[15px] font-medium flex-1 truncate">{project.name}</span>
+                <span className="text-sm text-muted-foreground">default</span>
+                <span className="text-muted-foreground/30 select-none">&middot;</span>
+                <span className="text-sm text-muted-foreground tabular-nums">0/0 online</span>
+                <span className="text-sm text-muted-foreground tabular-nums w-28 text-right">
+                  {project.updatedAt ? new Date(project.updatedAt).toLocaleDateString() : ""}
+                </span>
+              </Link>
+            );
+          })}
         </div>
       )}
 
       {count === 0 && (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
+        <div className="flex flex-col items-center justify-center py-24 text-center">
           <p className="text-muted-foreground text-sm">No projects yet</p>
-          <div className="mt-4">
+          <div className="mt-5">
             <CreateProjectDialog />
           </div>
         </div>

@@ -1,5 +1,5 @@
 {
-  "name": "@otterstack/logger",
+  "name": "@otterdeploy/logger",
   "type": "module",
   "exports": {
     ".": { "default": "./src/index.ts" },
@@ -13,7 +13,7 @@
     "pino-pretty": "catalog:"
   },
   "devDependencies": {
-    "@otterstack/config": "workspace:*",
+    "@otterdeploy/config": "workspace:*",
     "hono": "catalog:",
     "typescript": "catalog:"
   }

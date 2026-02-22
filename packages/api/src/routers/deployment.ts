@@ -1,5 +1,5 @@
 import * as z from "zod";
-import { deploymentService, deploymentSecretService } from "@otterstack/domain";
+import { deploymentService, deploymentSecretService } from "@otterdeploy/domain";
 
 import { orgProcedure, orgMemberProcedure, orgAdminProcedure } from "../index";
 import { paginationMeta } from "../utils/helpers";

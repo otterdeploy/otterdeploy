@@ -1,6 +1,6 @@
-import { and, db, eq, isNotNull, isNull, or } from "@otterstack/db";
-import { gitProvider, sshKey } from "@otterstack/db/schema/infrastructure";
-import { environmentVariable } from "@otterstack/db/schema/operations";
+import { and, db, eq, isNotNull, isNull, or } from "@otterdeploy/db";
+import { gitProvider, sshKey } from "@otterdeploy/db/schema/infrastructure";
+import { environmentVariable } from "@otterdeploy/db/schema/operations";
 import { Result } from "better-result";
 
 import { upsertSecretReference } from "./service";

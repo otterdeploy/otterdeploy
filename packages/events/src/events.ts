@@ -5,7 +5,7 @@ import {
   DeploymentStatusSchema,
   IdSchema,
   ResourceStatusSchema,
-} from "@otterstack/contract/shared";
+} from "@otterdeploy/contract/shared";
 import * as z from "zod";
 
 export const DEPLOYMENT_EVENT_NAMES = [

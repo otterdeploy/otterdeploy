@@ -1,6 +1,6 @@
 import { ORPCError, os } from "@orpc/server";
-import { db, eq, and } from "@otterstack/db";
-import { member } from "@otterstack/db/schema/auth";
+import { db, eq, and } from "@otterdeploy/db";
+import { member } from "@otterdeploy/db/schema/auth";
 
 import type { Context } from "./context";
 import { hasMinRole, type OrgRole } from "./utils/helpers";

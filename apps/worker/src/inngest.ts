@@ -1,5 +1,5 @@
 import { EventSchemas, Inngest } from "inngest";
-import type { EventPayloadMap } from "@otterstack/events";
+import type { EventPayloadMap } from "@otterdeploy/events";
 
 // Inngest expects { data: T } format for event schemas
 type InngestEventSchemas = {

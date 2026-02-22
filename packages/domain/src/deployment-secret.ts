@@ -1,7 +1,7 @@
-import { db, eq, and, or } from "@otterstack/db";
-import { environmentVariable } from "@otterstack/db/schema/operations";
-import { deploymentSecretSnapshot } from "@otterstack/db/schema/secrets";
-import { revealSecretByReference } from "@otterstack/secrets";
+import { db, eq, and, or } from "@otterdeploy/db";
+import { environmentVariable } from "@otterdeploy/db/schema/operations";
+import { deploymentSecretSnapshot } from "@otterdeploy/db/schema/secrets";
+import { revealSecretByReference } from "@otterdeploy/secrets";
 
 import { decodeLegacySecret, hashSecretDigest } from "./legacy-secret";
 

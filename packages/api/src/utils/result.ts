@@ -1,6 +1,6 @@
 import { ORPCError } from "@orpc/server";
 import type { Result } from "better-result";
-import type { DomainError } from "@otterstack/domain";
+import type { DomainError } from "@otterdeploy/domain";
 
 /**
  * Unwraps a Result from a domain service call.

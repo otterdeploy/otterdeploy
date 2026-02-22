@@ -1,5 +1,5 @@
-import { createLogger } from "@otterstack/logger";
-import { deploymentMachine } from "@otterstack/domain";
+import { createLogger } from "@otterdeploy/logger";
+import { deploymentMachine } from "@otterdeploy/domain";
 import { Result } from "better-result";
 
 import { inngest } from "../inngest";

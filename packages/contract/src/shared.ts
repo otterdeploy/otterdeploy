@@ -58,6 +58,8 @@ export const DeploymentStatusSchema = z.enum([
 
 export const DeploymentSourceSchema = z.enum(["git_push", "manual", "rollback", "api", "preview"]);
 export const BuildMethodSchema = z.enum(["nixpacks", "dockerfile", "buildpack"]);
+export const BuilderSchema = z.enum(["nixpacks", "dockerfile", "buildpack", "railpack"]);
+export const RestartPolicySchema = z.enum(["ON_FAILURE", "ALWAYS", "NEVER"]);
 export const OrgRoleSchema = z.enum(["owner", "admin", "member", "viewer"]);
 export const EnvVarScopeSchema = z.enum(["project", "environment", "resource"]);
 export const SecretProviderSchema = z.enum(["infisical", "native_breakglass"]);

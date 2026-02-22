@@ -7,24 +7,26 @@
     "build": "tsdown",
     "check-types": "tsc -b",
     "compile": "bun build --compile --minify --sourcemap --bytecode ./src/index.ts --outfile server",
-    "dev": "bun run env --hot src/index.ts",
+    "dev": "portless api.otterstack bun run env --hot src/index.ts",
     "start": "bun run env dist/index.mjs"
   },
   "dependencies": {
     "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",
     "@orpc/zod": "catalog:",
-    "@otterstack/api": "workspace:*",
-    "@otterstack/auth": "workspace:*",
-    "@otterstack/db": "workspace:*",
-    "@otterstack/env": "workspace:*",
-    "@otterstack/logger": "workspace:*",
+    "@otterdeploy/api": "workspace:*",
+    "@otterdeploy/auth": "workspace:*",
+    "@otterdeploy/db": "workspace:*",
+    "@otterdeploy/env": "workspace:*",
+    "@otterdeploy/logger": "workspace:*",
+    "@otterdeploy/zero": "workspace:*",
+    "@rocicorp/zero": "^0.25.12",
     "better-auth": "catalog:",
     "hono": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@otterstack/config": "workspace:*",
+    "@otterdeploy/config": "workspace:*",
     "@types/bun": "catalog:",
     "tsdown": "^0.16.8",
     "typescript": "catalog:"

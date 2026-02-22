@@ -1,5 +1,5 @@
 {
-  "name": "@otterstack/contract",
+  "name": "@otterdeploy/contract",
   "type": "module",
   "exports": {
     ".": {
@@ -19,7 +19,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@otterstack/config": "workspace:*",
+    "@otterdeploy/config": "workspace:*",
     "typescript": "catalog:",
     "vitest": "^4.0.18"
   }
