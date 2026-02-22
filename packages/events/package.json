@@ -1,5 +1,6 @@
 {
   "name": "@otterdeploy/events",
+  "private": true,
   "type": "module",
   "exports": {
     ".": {

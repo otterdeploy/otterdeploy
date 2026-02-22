@@ -1,5 +1,6 @@
 {
   "name": "@otterdeploy/api",
+  "private": true,
   "type": "module",
   "exports": {
     ".": {

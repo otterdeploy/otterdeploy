@@ -1,5 +1,6 @@
 {
   "name": "@otterdeploy/ui",
+  "private": true,
   "type": "module",
   "exports": {
     ".": {

@@ -1,5 +1,6 @@
 {
   "name": "@otterdeploy/worker",
+  "private": true,
   "type": "module",
   "scripts": {
     "env": "PORT=3002 bun --env-file=../../.env",

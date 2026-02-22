@@ -1,5 +1,6 @@
 {
   "name": "@otterdeploy/db",
+  "private": true,
   "type": "module",
   "exports": {
     ".": {
