@@ -1,0 +1,76 @@
+---
+title: Deploying
+description: Preview and apply your infrastructure changes
+---
+
+## Preview Changes
+
+Before applying anything, preview what Otterdeploy would do:
+
+```bash
+otterdeploy preview
+```
+
+This loads your config, compares it against the current state in the database, and prints the changeset — what would be created, updated, or deleted.
+
+## Apply Changes
+
+When you're happy with the preview, sync your infrastructure:
+
+```bash
+otterdeploy sync
+```
+
+This executes the changeset: creating projects, environments, resources, links, environment variables, and domains in the correct order.
+
+### What Happens During Sync
+
+1. **Parse** — Load and validate the config file (TS, JS, or YAML)
+2. **Resolve inheritance** — Expand `extends`, apply overrides, merge environments
+3. **Resolve references** — Replace `${resource.property}` in env vars
+4. **Fetch state** — Read current infrastructure from the database
+5. **Diff** — Compare desired vs current to produce a changeset
+6. **Apply** — Execute actions in dependency order (databases before apps, creates before updates before deletes)
+
+## Check for Drift
+
+See if your running infrastructure has drifted from the config:
+
+```bash
+otterdeploy status
+```
+
+## Target a Specific Environment
+
+Use `--env` to operate on a single environment:
+
+```bash
+otterdeploy preview --env staging
+otterdeploy sync --env production
+```
+
+## Use a Custom Config Path
+
+Override the auto-detected config file:
+
+```bash
+otterdeploy sync --config ./infra/otterdeploy.yaml
+```
+
+## Skip Confirmation
+
+For CI/CD pipelines, skip the interactive confirmation:
+
+```bash
+otterdeploy sync --yes
+```
+
+## Tear Down
+
+Remove all resources defined in the config:
+
+```bash
+otterdeploy destroy
+```
+
+This generates delete actions for every resource, link, env var, and domain, then applies them in reverse dependency order.

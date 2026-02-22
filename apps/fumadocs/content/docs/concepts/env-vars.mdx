@@ -1,0 +1,88 @@
+---
+title: Environment Variables
+description: Configure environment variables and cross-resource references
+---
+
+Environment variables are defined per resource in the `env` field:
+
+```yaml
+api:
+  kind: api
+  env:
+    NODE_ENV: production
+    PORT: "3000"
+    DATABASE_URL: "${db.connectionString}"
+```
+
+## Cross-Resource References
+
+Use `${resource.property}` syntax to reference values from other resources:
+
+```yaml
+env:
+  DATABASE_URL: "${db.connectionString}"
+  REDIS_URL: "${cache.connectionString}"
+  API_URL: "https://${api.domain}"
+```
+
+### Available Properties
+
+| Property | Available On | Value |
+|---|---|---|
+| `domain` | Any resource with a domain | First/primary domain |
+| `connectionString` | `database`, `cache` | Auto-generated connection URI |
+
+### Connection String Formats
+
+Otterdeploy auto-generates connection strings based on the resource's image:
+
+| Image | Format |
+|---|---|
+| `postgres:*` | `postgresql://postgres:${password}@container:5432/${dbName}` |
+| `mysql:*`, `mariadb:*` | `mysql://root:${password}@container:3306/${dbName}` |
+| `redis:*` | `redis://container:6379` |
+
+The database name is inferred from `POSTGRES_DB` or `MYSQL_DATABASE` env vars, falling back to the resource name.
+
+## Env Var Inheritance
+
+When a child environment overrides a resource's `env`, variables are **merged key-by-key**:
+
+```yaml
+# production
+api:
+  env:
+    NODE_ENV: production
+    LOG_LEVEL: warn
+    ANALYTICS: "true"
+
+# staging overrides
+overrides:
+  resources:
+    api:
+      env:
+        NODE_ENV: staging        # overwritten
+        LOG_LEVEL: debug         # overwritten
+        # ANALYTICS still "true" — inherited from production
+```
+
+## Removing Inherited Env Vars
+
+Use `excludeEnv` to delete specific variables inherited from a parent:
+
+```yaml
+overrides:
+  resources:
+    api:
+      excludeEnv: [ANALYTICS, SENTRY_DSN]
+```
+
+This removes `ANALYTICS` and `SENTRY_DSN` from the merged env, even though the parent defines them.
+
+## Diffing
+
+During sync, Otterdeploy compares desired env vars against current ones per resource:
+
+- New keys trigger `set_env_var` actions
+- Changed values trigger `set_env_var` actions (upsert)
+- Removed keys trigger `delete_env_var` actions

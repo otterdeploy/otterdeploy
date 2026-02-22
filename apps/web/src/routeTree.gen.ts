@@ -9,6 +9,23 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as LandingRouteImport } from './routes/landing'
+import { Route as R9RouteImport } from './routes/9'
+import { Route as R8RouteImport } from './routes/8'
+import { Route as R7RouteImport } from './routes/7'
+import { Route as R6RouteImport } from './routes/6'
+import { Route as R5RouteImport } from './routes/5'
+import { Route as R4RouteImport } from './routes/4'
+import { Route as R3RouteImport } from './routes/3'
+import { Route as R2RouteImport } from './routes/2'
+import { Route as R16RouteImport } from './routes/16'
+import { Route as R15RouteImport } from './routes/15'
+import { Route as R14RouteImport } from './routes/14'
+import { Route as R13RouteImport } from './routes/13'
+import { Route as R12RouteImport } from './routes/12'
+import { Route as R11RouteImport } from './routes/11'
+import { Route as R10RouteImport } from './routes/10'
+import { Route as R1RouteImport } from './routes/1'
 import { Route as DashboardLayoutRouteImport } from './routes/_dashboard/layout'
 import { Route as AuthLayoutRouteImport } from './routes/_auth/layout'
 import { Route as DashboardIndexRouteImport } from './routes/_dashboard/index'
@@ -20,6 +37,91 @@ import { Route as DashboardProjectsProjectIdIndexRouteImport } from './routes/_d
 import { Route as DashboardProjectsProjectIdVolumeVolumeRouteImport } from './routes/_dashboard/projects/$projectId/volume/$volume'
 import { Route as DashboardProjectsProjectIdServiceServiceIdRouteImport } from './routes/_dashboard/projects/$projectId/service/$serviceId'
 
+const LandingRoute = LandingRouteImport.update({
+  id: '/landing',
+  path: '/landing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const R9Route = R9RouteImport.update({
+  id: '/9',
+  path: '/9',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const R8Route = R8RouteImport.update({
+  id: '/8',
+  path: '/8',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const R7Route = R7RouteImport.update({
+  id: '/7',
+  path: '/7',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const R6Route = R6RouteImport.update({
+  id: '/6',
+  path: '/6',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const R5Route = R5RouteImport.update({
+  id: '/5',
+  path: '/5',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const R4Route = R4RouteImport.update({
+  id: '/4',
+  path: '/4',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const R3Route = R3RouteImport.update({
+  id: '/3',
+  path: '/3',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const R2Route = R2RouteImport.update({
+  id: '/2',
+  path: '/2',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const R16Route = R16RouteImport.update({
+  id: '/16',
+  path: '/16',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const R15Route = R15RouteImport.update({
+  id: '/15',
+  path: '/15',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const R14Route = R14RouteImport.update({
+  id: '/14',
+  path: '/14',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const R13Route = R13RouteImport.update({
+  id: '/13',
+  path: '/13',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const R12Route = R12RouteImport.update({
+  id: '/12',
+  path: '/12',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const R11Route = R11RouteImport.update({
+  id: '/11',
+  path: '/11',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const R10Route = R10RouteImport.update({
+  id: '/10',
+  path: '/10',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const R1Route = R1RouteImport.update({
+  id: '/1',
+  path: '/1',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DashboardLayoutRoute = DashboardLayoutRouteImport.update({
   id: '/_dashboard',
   getParentRoute: () => rootRouteImport,
@@ -75,6 +177,23 @@ const DashboardProjectsProjectIdServiceServiceIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof DashboardIndexRoute
+  '/1': typeof R1Route
+  '/10': typeof R10Route
+  '/11': typeof R11Route
+  '/12': typeof R12Route
+  '/13': typeof R13Route
+  '/14': typeof R14Route
+  '/15': typeof R15Route
+  '/16': typeof R16Route
+  '/2': typeof R2Route
+  '/3': typeof R3Route
+  '/4': typeof R4Route
+  '/5': typeof R5Route
+  '/6': typeof R6Route
+  '/7': typeof R7Route
+  '/8': typeof R8Route
+  '/9': typeof R9Route
+  '/landing': typeof LandingRoute
   '/login': typeof AuthLoginRoute
   '/signup': typeof AuthSignupRoute
   '/projects/$projectId': typeof DashboardProjectsProjectIdLayoutRouteWithChildren
@@ -85,6 +204,23 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof DashboardIndexRoute
+  '/1': typeof R1Route
+  '/10': typeof R10Route
+  '/11': typeof R11Route
+  '/12': typeof R12Route
+  '/13': typeof R13Route
+  '/14': typeof R14Route
+  '/15': typeof R15Route
+  '/16': typeof R16Route
+  '/2': typeof R2Route
+  '/3': typeof R3Route
+  '/4': typeof R4Route
+  '/5': typeof R5Route
+  '/6': typeof R6Route
+  '/7': typeof R7Route
+  '/8': typeof R8Route
+  '/9': typeof R9Route
+  '/landing': typeof LandingRoute
   '/login': typeof AuthLoginRoute
   '/signup': typeof AuthSignupRoute
   '/projects': typeof DashboardProjectsIndexRoute
@@ -96,6 +232,23 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_auth': typeof AuthLayoutRouteWithChildren
   '/_dashboard': typeof DashboardLayoutRouteWithChildren
+  '/1': typeof R1Route
+  '/10': typeof R10Route
+  '/11': typeof R11Route
+  '/12': typeof R12Route
+  '/13': typeof R13Route
+  '/14': typeof R14Route
+  '/15': typeof R15Route
+  '/16': typeof R16Route
+  '/2': typeof R2Route
+  '/3': typeof R3Route
+  '/4': typeof R4Route
+  '/5': typeof R5Route
+  '/6': typeof R6Route
+  '/7': typeof R7Route
+  '/8': typeof R8Route
+  '/9': typeof R9Route
+  '/landing': typeof LandingRoute
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/signup': typeof AuthSignupRoute
   '/_dashboard/': typeof DashboardIndexRoute
@@ -109,6 +262,23 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/1'
+    | '/10'
+    | '/11'
+    | '/12'
+    | '/13'
+    | '/14'
+    | '/15'
+    | '/16'
+    | '/2'
+    | '/3'
+    | '/4'
+    | '/5'
+    | '/6'
+    | '/7'
+    | '/8'
+    | '/9'
+    | '/landing'
     | '/login'
     | '/signup'
     | '/projects/$projectId'
@@ -119,6 +289,23 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/1'
+    | '/10'
+    | '/11'
+    | '/12'
+    | '/13'
+    | '/14'
+    | '/15'
+    | '/16'
+    | '/2'
+    | '/3'
+    | '/4'
+    | '/5'
+    | '/6'
+    | '/7'
+    | '/8'
+    | '/9'
+    | '/landing'
     | '/login'
     | '/signup'
     | '/projects'
@@ -129,6 +316,23 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_auth'
     | '/_dashboard'
+    | '/1'
+    | '/10'
+    | '/11'
+    | '/12'
+    | '/13'
+    | '/14'
+    | '/15'
+    | '/16'
+    | '/2'
+    | '/3'
+    | '/4'
+    | '/5'
+    | '/6'
+    | '/7'
+    | '/8'
+    | '/9'
+    | '/landing'
     | '/_auth/login'
     | '/_auth/signup'
     | '/_dashboard/'
@@ -142,10 +346,146 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AuthLayoutRoute: typeof AuthLayoutRouteWithChildren
   DashboardLayoutRoute: typeof DashboardLayoutRouteWithChildren
+  R1Route: typeof R1Route
+  R10Route: typeof R10Route
+  R11Route: typeof R11Route
+  R12Route: typeof R12Route
+  R13Route: typeof R13Route
+  R14Route: typeof R14Route
+  R15Route: typeof R15Route
+  R16Route: typeof R16Route
+  R2Route: typeof R2Route
+  R3Route: typeof R3Route
+  R4Route: typeof R4Route
+  R5Route: typeof R5Route
+  R6Route: typeof R6Route
+  R7Route: typeof R7Route
+  R8Route: typeof R8Route
+  R9Route: typeof R9Route
+  LandingRoute: typeof LandingRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/landing': {
+      id: '/landing'
+      path: '/landing'
+      fullPath: '/landing'
+      preLoaderRoute: typeof LandingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/9': {
+      id: '/9'
+      path: '/9'
+      fullPath: '/9'
+      preLoaderRoute: typeof R9RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/8': {
+      id: '/8'
+      path: '/8'
+      fullPath: '/8'
+      preLoaderRoute: typeof R8RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/7': {
+      id: '/7'
+      path: '/7'
+      fullPath: '/7'
+      preLoaderRoute: typeof R7RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/6': {
+      id: '/6'
+      path: '/6'
+      fullPath: '/6'
+      preLoaderRoute: typeof R6RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/5': {
+      id: '/5'
+      path: '/5'
+      fullPath: '/5'
+      preLoaderRoute: typeof R5RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/4': {
+      id: '/4'
+      path: '/4'
+      fullPath: '/4'
+      preLoaderRoute: typeof R4RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/3': {
+      id: '/3'
+      path: '/3'
+      fullPath: '/3'
+      preLoaderRoute: typeof R3RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/2': {
+      id: '/2'
+      path: '/2'
+      fullPath: '/2'
+      preLoaderRoute: typeof R2RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/16': {
+      id: '/16'
+      path: '/16'
+      fullPath: '/16'
+      preLoaderRoute: typeof R16RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/15': {
+      id: '/15'
+      path: '/15'
+      fullPath: '/15'
+      preLoaderRoute: typeof R15RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/14': {
+      id: '/14'
+      path: '/14'
+      fullPath: '/14'
+      preLoaderRoute: typeof R14RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/13': {
+      id: '/13'
+      path: '/13'
+      fullPath: '/13'
+      preLoaderRoute: typeof R13RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/12': {
+      id: '/12'
+      path: '/12'
+      fullPath: '/12'
+      preLoaderRoute: typeof R12RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/11': {
+      id: '/11'
+      path: '/11'
+      fullPath: '/11'
+      preLoaderRoute: typeof R11RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/10': {
+      id: '/10'
+      path: '/10'
+      fullPath: '/10'
+      preLoaderRoute: typeof R10RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/1': {
+      id: '/1'
+      path: '/1'
+      fullPath: '/1'
+      preLoaderRoute: typeof R1RouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_dashboard': {
       id: '/_dashboard'
       path: ''
@@ -273,6 +613,23 @@ const DashboardLayoutRouteWithChildren = DashboardLayoutRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   AuthLayoutRoute: AuthLayoutRouteWithChildren,
   DashboardLayoutRoute: DashboardLayoutRouteWithChildren,
+  R1Route: R1Route,
+  R10Route: R10Route,
+  R11Route: R11Route,
+  R12Route: R12Route,
+  R13Route: R13Route,
+  R14Route: R14Route,
+  R15Route: R15Route,
+  R16Route: R16Route,
+  R2Route: R2Route,
+  R3Route: R3Route,
+  R4Route: R4Route,
+  R5Route: R5Route,
+  R6Route: R6Route,
+  R7Route: R7Route,
+  R8Route: R8Route,
+  R9Route: R9Route,
+  LandingRoute: LandingRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

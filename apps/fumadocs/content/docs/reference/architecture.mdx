@@ -1,0 +1,101 @@
+---
+title: Architecture
+description: How Otterdeploy works under the hood
+---
+
+## System Overview
+
+Otterdeploy is a monorepo with several apps and packages that work together:
+
+```
+                    ┌──────────────┐
+                    │  Web App     │  React dashboard
+                    │  (frontend)  │  TanStack Router + Zero
+                    └──────┬───────┘
+                           │
+                    ┌──────▼───────┐
+                    │  API Server  │  Hono + oRPC
+                    │  (backend)   │  Better Auth
+                    └──────┬───────┘
+                           │
+              ┌────────────┼────────────┐
+              │            │            │
+       ┌──────▼──────┐ ┌──▼───┐ ┌──────▼──────┐
+       │  PostgreSQL  │ │ Zero │ │   Inngest   │
+       │  (database)  │ │ Cache│ │   (jobs)    │
+       └─────────────┘ └──────┘ └─────────────┘
+```
+
+## Config Sync Pipeline
+
+The CLI orchestrates a 6-step pipeline to sync your config to infrastructure:
+
+### 1. Load
+
+Parse the config file. TypeScript/JavaScript files are dynamically imported. YAML files are parsed with the `yaml` package. Both are validated through the same Zod schema.
+
+### 2. Resolve Inheritance
+
+Expand `extends` chains using the 6-step inheritance algorithm:
+
+1. Copy parent resources
+2. Apply `exclude` (remove resources)
+3. Deep-merge `overrides` (field-by-field for source/build/deploy/env)
+4. Add child's directly defined resources
+5. Resolve links (inherit, removeLinks, extraLinks)
+6. Filter out links referencing missing resources
+
+### 3. Resolve References
+
+Replace `${resource.property}` patterns in env var values with concrete values from the resolved config.
+
+### 4. Fetch Current State
+
+Query the database for the current project, environments, resources, links, env vars, and domains.
+
+### 5. Diff
+
+Compare desired (from config) against current (from database) to produce a changeset of actions:
+
+- `create_project`, `create_environment`, `create_resource`
+- `update_resource`
+- `set_env_var`, `set_domain`, `create_link`
+- `delete_env_var`, `remove_domain`, `delete_link`
+- `delete_resource`, `delete_environment`
+
+Actions are sorted for safe execution: creates before updates before deletes, with dependencies respected (databases before apps).
+
+### 6. Apply
+
+Execute each action sequentially against the database, tracking created IDs for downstream actions.
+
+## Package Responsibilities
+
+| Package | Role |
+|---|---|
+| `@otterdeploy/infra-config` | Config loading, inheritance, diffing, reconciliation |
+| `@otterdeploy/contract` | Shared Zod schemas and type definitions |
+| `@otterdeploy/db` | Drizzle ORM schema, database queries |
+| `@otterdeploy/domain` | Business logic services (projects, environments, resources, etc.) |
+| `@otterdeploy/api` | oRPC routers binding domain services to HTTP |
+| `@otterdeploy/auth` | Better Auth configuration and middleware |
+| `@otterdeploy/events` | Inngest event definitions for async jobs |
+| `@otterdeploy/secrets` | Secrets management (Infisical integration) |
+| `@otterdeploy/zero` | Zero reactive query/mutator definitions |
+| `@otterdeploy/logger` | Pino-based structured logging |
+| `@otterdeploy/env` | Environment variable validation |
+
+## Real-Time Updates
+
+The web dashboard uses [Rocicorp Zero](https://zero.rocicorp.dev/) for real-time data synchronization. When the backend state changes (e.g., a deployment completes), the dashboard updates instantly without polling.
+
+## Authentication
+
+Better Auth provides session-based authentication with organization support. API procedures are protected at four levels:
+
+| Level | Access |
+|---|---|
+| `publicProcedure` | No auth required |
+| `authedProcedure` | Any logged-in user |
+| `orgMemberProcedure` | Organization member or higher |
+| `orgAdminProcedure` | Organization admin or owner |

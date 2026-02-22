@@ -1,0 +1,4 @@
+{
+  "title": "Guides",
+  "pages": ["yaml-config", "multi-environment", "contributing"]
+}

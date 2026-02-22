@@ -1,0 +1,160 @@
+---
+title: Your First Config
+description: Create your first Otterdeploy infrastructure config
+---
+
+## Generate a Config File
+
+Run the init command to scaffold a config template:
+
+```bash
+otterdeploy init
+```
+
+This creates `otterdeploy.config.ts` in the current directory.
+
+## Config Structure
+
+Every config file has three top-level fields:
+
+```typescript
+import { defineConfig } from "@otterdeploy/infra-config";
+
+export default defineConfig({
+  project: "my-app",           // Project name
+  organization: "org_abc123",  // Your organization ID
+  environments: {              // One or more environments
+    production: {
+      resources: { /* ... */ },
+      links: [ /* ... */ ],
+    },
+  },
+});
+```
+
+## Define Resources
+
+Resources are the services that make up your infrastructure. Each has a `kind` that determines how it's treated:
+
+```typescript
+resources: {
+  api: {
+    kind: "api",
+    source: { github: "my-org/api", branch: "main" },
+    build: {
+      builder: "nixpacks",
+      buildCommand: "npm run build",
+    },
+    deploy: {
+      startCommand: "node dist/index.js",
+      replicas: 1,
+      healthcheckPath: "/health",
+    },
+    domain: "api.myapp.com",
+    env: {
+      NODE_ENV: "production",
+      DATABASE_URL: "${db.connectionString}",
+    },
+  },
+
+  db: {
+    kind: "database",
+    image: "postgres:16",
+    storage: "10Gi",
+    env: {
+      POSTGRES_DB: "myapp",
+    },
+  },
+},
+```
+
+### Resource Kinds
+
+| Kind | Use for |
+|---|---|
+| `web` | Frontend web applications |
+| `api` | Backend API services |
+| `worker` | Background job processors |
+| `database` | PostgreSQL, MySQL, MariaDB |
+| `cache` | Redis, KeyDB, Dragonfly |
+| `volume` | Persistent storage |
+
+## Define Links
+
+Links declare dependencies between resources. They control creation order and enable networking:
+
+```typescript
+links: [
+  { from: "api", to: "db", type: "depends_on" },
+  { from: "web", to: "api", type: "network" },
+],
+```
+
+| Link Type | Meaning |
+|---|---|
+| `depends_on` | Target must be ready before source starts |
+| `network` | Source can reach target over the network |
+| `mounts` | Source mounts target's storage |
+
+## Reference Variables
+
+Use `${resource.property}` in environment variables to reference other resources:
+
+```typescript
+env: {
+  DATABASE_URL: "${db.connectionString}",
+  API_URL: "https://${api.domain}",
+},
+```
+
+Available properties:
+- `domain` — The resource's primary domain
+- `connectionString` — Auto-generated connection string (databases and caches)
+
+## YAML Alternative
+
+You can write the same config as `otterdeploy.yaml`:
+
+```yaml
+project: my-app
+organization: org_abc123
+
+environments:
+  production:
+    resources:
+      api:
+        kind: api
+        source:
+          github: my-org/api
+          branch: main
+        build:
+          builder: nixpacks
+          buildCommand: "npm run build"
+        deploy:
+          startCommand: "node dist/index.js"
+          replicas: 1
+          healthcheckPath: /health
+        domain: api.myapp.com
+        env:
+          NODE_ENV: production
+          DATABASE_URL: "${db.connectionString}"
+
+      db:
+        kind: database
+        image: postgres:16
+        storage: 10Gi
+        env:
+          POSTGRES_DB: myapp
+
+    links:
+      - { from: api, to: db, type: depends_on }
+```
+
+Otterdeploy auto-detects the format by file extension.
+
+## Next Steps
+
+<Cards>
+  <Card title="Deploying" href="/docs/getting-started/deploying" />
+  <Card title="Config Reference" href="/docs/reference/config" />
+</Cards>

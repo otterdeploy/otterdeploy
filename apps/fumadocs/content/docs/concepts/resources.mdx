@@ -1,0 +1,88 @@
+---
+title: Resources
+description: The building blocks of your infrastructure
+---
+
+A **resource** is any service, database, cache, or storage volume in your infrastructure. Each resource has a `kind` that determines how Otterdeploy treats it.
+
+## Resource Kinds
+
+| Kind | Description | Typical Image |
+|---|---|---|
+| `web` | Frontend web application | Built from source |
+| `api` | Backend API service | Built from source |
+| `worker` | Background job processor | Built from source |
+| `database` | Relational database | `postgres:16`, `mysql:8` |
+| `cache` | In-memory data store | `redis:7-alpine`, `keydb:latest` |
+| `volume` | Persistent storage | N/A |
+
+## Source-Based Resources
+
+Web, API, and worker resources are typically built from a Git repository:
+
+```yaml
+api:
+  kind: api
+  source:
+    github: my-org/api
+    branch: main
+    root: /api          # subdirectory within the repo
+  build:
+    builder: nixpacks
+    buildCommand: "npm run build"
+    dockerfilePath: ./Dockerfile   # only if builder is dockerfile
+    watchPatterns:
+      - "src/**"
+      - "package.json"
+  deploy:
+    startCommand: "node dist/index.js"
+    replicas: 3
+    healthcheckPath: /health
+```
+
+## Image-Based Resources
+
+Databases and caches use pre-built container images:
+
+```yaml
+postgres:
+  kind: database
+  image: postgres:16
+  deploy:
+    region: us-west
+  env:
+    POSTGRES_DB: myapp
+  storage: 20Gi
+```
+
+You can also use `image` for app resources if you have a pre-built container.
+
+## Build Section
+
+The `build` section controls how source code is compiled into a container:
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `builder` | `string` | `nixpacks` | Build engine: `nixpacks`, `dockerfile`, `buildpack`, `railpack` |
+| `buildCommand` | `string` | — | Custom build command |
+| `dockerfilePath` | `string` | `Dockerfile` | Path to Dockerfile (when builder is `dockerfile`) |
+| `watchPatterns` | `string[]` | — | Only redeploy when matching files change |
+
+## Deploy Section
+
+The `deploy` section controls how the resource runs:
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `startCommand` | `string` | — | Command to start the process |
+| `preDeployCommand` | `string` | — | Run before each deploy (e.g., migrations) |
+| `replicas` | `number` | `1` | Number of instances (1-200) |
+| `healthcheckPath` | `string` | — | HTTP path for health checks |
+| `healthcheckTimeout` | `number` | — | Health check timeout in seconds |
+| `restartPolicy` | `string` | — | `ON_FAILURE`, `ALWAYS`, or `NEVER` |
+| `restartPolicyMaxRetries` | `number` | — | Max restart attempts |
+| `cronSchedule` | `string` | — | Cron expression (for scheduled workers) |
+| `region` | `string` | — | Deployment region |
+| `sleepApplication` | `boolean` | `false` | Sleep when idle |
+| `overlapSeconds` | `number` | — | Old/new deploy overlap during switchover |
+| `drainingSeconds` | `number` | — | Grace period between SIGTERM and SIGKILL |

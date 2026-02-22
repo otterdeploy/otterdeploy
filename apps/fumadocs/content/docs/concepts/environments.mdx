@@ -1,0 +1,86 @@
+---
+title: Environments
+description: Manage multiple deployment targets from one config
+---
+
+An **environment** is a complete deployment target — a named set of resources, links, environment variables, and domains. Most projects have at least `production` and `staging`.
+
+## Defining Environments
+
+Each environment lives under the `environments` key in your config:
+
+```typescript
+environments: {
+  production: {
+    resources: { /* ... */ },
+    links: [ /* ... */ ],
+  },
+  staging: {
+    extends: "production",
+    overrides: { /* ... */ },
+  },
+  dev: {
+    extends: "staging",
+    overrides: { /* ... */ },
+  },
+},
+```
+
+## Environment Fields
+
+| Field | Type | Description |
+|---|---|---|
+| `resources` | `Record<string, Resource>` | Resources in this environment |
+| `links` | `LinkConfig[]` | Dependencies between resources |
+| `extends` | `string` | Parent environment to inherit from |
+| `exclude` | `string[]` | Resources to remove from parent |
+| `overrides` | `object` | Deep-merge overrides for inherited resources |
+| `extraLinks` | `LinkConfig[]` | Links to append to inherited links |
+| `removeLinks` | `{ from, to }[]` | Inherited links to remove |
+
+## Base Environments
+
+An environment without `extends` defines everything from scratch:
+
+```yaml
+production:
+  resources:
+    api:
+      kind: api
+      deploy: { replicas: 3 }
+      domain: api.myapp.com
+    db:
+      kind: database
+      image: postgres:16
+      storage: 20Gi
+  links:
+    - { from: api, to: db, type: depends_on }
+```
+
+## Child Environments
+
+An environment with `extends` inherits everything from its parent and can override specific parts. See [Inheritance](/docs/concepts/inheritance) for the full algorithm.
+
+```yaml
+staging:
+  extends: production
+  overrides:
+    resources:
+      api:
+        deploy: { replicas: 1 }
+        domain: api.staging.myapp.com
+```
+
+## Multi-Level Inheritance
+
+Inheritance chains work: `dev` extends `staging` which extends `production`. Each level only needs to declare what's different.
+
+```yaml
+dev:
+  extends: staging
+  overrides:
+    resources:
+      api:
+        source: { branch: feature/dev }
+        deploy: { sleepApplication: true }
+```
