@@ -7,7 +7,10 @@
       "WebFetch(domain:www.better-auth.com)",
       "mcp__ide__getDiagnostics",
       "Bash(done)",
-      "WebFetch(domain:zero.rocicorp.dev)"
+      "WebFetch(domain:zero.rocicorp.dev)",
+      "Bash(agent-browser type:*)",
+      "Bash(agent-browser click:*)",
+      "Bash(agent-browser snapshot:*)"
     ]
   }
 }
