@@ -25,6 +25,19 @@ export const buildMethodEnum = pgEnum("build_method", [
   "buildpack",
 ]);
 
+export const builderEnum = pgEnum("builder", [
+  "nixpacks",
+  "dockerfile",
+  "buildpack",
+  "railpack",
+]);
+
+export const restartPolicyEnum = pgEnum("restart_policy", [
+  "ON_FAILURE",
+  "ALWAYS",
+  "NEVER",
+]);
+
 export const sslStatusEnum = pgEnum("ssl_status", [
   "pending",
   "active",
