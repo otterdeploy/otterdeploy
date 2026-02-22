@@ -1,5 +1,5 @@
 {
-  "name": "@otterstack/auth",
+  "name": "@otterdeploy/auth",
   "type": "module",
   "exports": {
     ".": {
@@ -11,13 +11,13 @@
   },
   "scripts": {},
   "dependencies": {
-    "@otterstack/db": "workspace:*",
-    "@otterstack/env": "workspace:*",
+    "@otterdeploy/db": "workspace:*",
+    "@otterdeploy/env": "workspace:*",
     "better-auth": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@otterstack/config": "workspace:*",
+    "@otterdeploy/config": "workspace:*",
     "typescript": "catalog:"
   }
 }

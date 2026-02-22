@@ -1,9 +1,9 @@
 import * as z from "zod";
 import { ORPCError } from "@orpc/server";
-import { db, eq, inArray } from "@otterstack/db";
-import { projectResource, projectEnvironment } from "@otterstack/db/schema/architecture";
+import { db, eq, inArray } from "@otterdeploy/db";
+import { projectResource, projectEnvironment } from "@otterdeploy/db/schema/architecture";
 
-import { pickDefined } from "@otterstack/domain";
+import { pickDefined } from "@otterdeploy/domain";
 
 import { orgProcedure, orgMemberProcedure, orgAdminProcedure } from "../index";
 import { createId } from "../utils/helpers";

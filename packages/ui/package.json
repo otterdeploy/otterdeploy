@@ -1,5 +1,5 @@
 {
-  "name": "@otterstack/ui",
+  "name": "@otterdeploy/ui",
   "type": "module",
   "exports": {
     ".": {
@@ -46,7 +46,7 @@
     "vaul": "catalog:"
   },
   "devDependencies": {
-    "@otterstack/config": "workspace:*",
+    "@otterdeploy/config": "workspace:*",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "typescript": "catalog:"

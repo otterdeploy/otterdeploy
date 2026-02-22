@@ -1,5 +1,5 @@
-import { db, eq, and, desc, sql } from "@otterstack/db";
-import { auditLog } from "@otterstack/db/schema/operations";
+import { db, eq, and, desc, sql } from "@otterdeploy/db";
+import { auditLog } from "@otterdeploy/db/schema/operations";
 
 function formatAuditLog(row: typeof auditLog.$inferSelect) {
   return {

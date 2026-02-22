@@ -1,6 +1,6 @@
-import { db } from "@otterstack/db";
-import * as schema from "@otterstack/db/schema/auth";
-import { env } from "@otterstack/env/server";
+import { db } from "@otterdeploy/db";
+import * as schema from "@otterdeploy/db/schema/auth";
+import { env } from "@otterdeploy/env/server";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 

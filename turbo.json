@@ -28,6 +28,7 @@
       "persistent": true
     },
     "db:push": {
+      "interactive": true,
       "cache": false
     },
     "db:generate": {

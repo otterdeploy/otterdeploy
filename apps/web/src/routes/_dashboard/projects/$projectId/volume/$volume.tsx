@@ -5,7 +5,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@otterstack/ui/components/ui/card";
+} from "@otterdeploy/ui/components/ui/card";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import * as z from "zod";
 

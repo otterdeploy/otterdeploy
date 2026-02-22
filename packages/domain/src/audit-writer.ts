@@ -1,5 +1,5 @@
-import { db } from "@otterstack/db";
-import { auditLog } from "@otterstack/db/schema/operations";
+import { db } from "@otterdeploy/db";
+import { auditLog } from "@otterdeploy/db/schema/operations";
 
 export type AuditContext = {
   userId: string;

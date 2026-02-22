@@ -1,7 +1,7 @@
 import { Result } from "better-result";
-import { db, eq, and } from "@otterstack/db";
-import { customDomain } from "@otterstack/db/schema/operations";
-import { projectResource } from "@otterstack/db/schema/architecture";
+import { db, eq, and } from "@otterdeploy/db";
+import { customDomain } from "@otterdeploy/db/schema/operations";
+import { projectResource } from "@otterdeploy/db/schema/architecture";
 
 import { NotFoundError, ConflictError } from "./errors";
 

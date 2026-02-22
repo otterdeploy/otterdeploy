@@ -15,14 +15,20 @@ export function createDetailPanel<const T extends readonly Tab[]>(tabs: T) {
     defaultTab,
     onClose,
     onTabChange,
+    hiddenTabs,
     children,
   }: {
     title: string;
     defaultTab: NoInfer<Value>;
     onClose: () => void;
     onTabChange?: (value: Value) => void;
+    hiddenTabs?: Value[];
     children: ReactNode;
   }) {
+    const visibleTabs = hiddenTabs
+      ? tabs.filter((tab) => !hiddenTabs.includes(tab.value as Value))
+      : tabs;
+
     return (
       <Tabs
         defaultValue={defaultTab}
@@ -40,7 +46,7 @@ export function createDetailPanel<const T extends readonly Tab[]>(tabs: T) {
           variant="line"
           className="relative justify-start border-b border-border -mx-6 px-9 w-[calc(100%+3rem)]"
         >
-          {tabs.map((tab) => (
+          {visibleTabs.map((tab) => (
             <TabsTrigger
               key={tab.value}
               value={tab.value}

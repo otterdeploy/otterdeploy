@@ -1,5 +1,5 @@
 import * as z from "zod";
-import { environmentVariableService } from "@otterstack/domain";
+import { environmentVariableService } from "@otterdeploy/domain";
 
 import { orgProcedure, orgMemberProcedure, orgMemberStepUpProcedure } from "../index";
 import { getIpAddress } from "../utils/http";

@@ -1,7 +1,7 @@
 import { Result } from "better-result";
-import { db, eq, and } from "@otterstack/db";
-import { deployment, deploymentEvent } from "@otterstack/db/schema/deployment";
-import { isDeploymentTerminalStatus } from "@otterstack/events";
+import { db, eq, and } from "@otterdeploy/db";
+import { deployment, deploymentEvent } from "@otterdeploy/db/schema/deployment";
+import { isDeploymentTerminalStatus } from "@otterdeploy/events";
 
 import { NotFoundError, ConflictError } from "./errors";
 

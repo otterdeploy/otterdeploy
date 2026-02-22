@@ -9,8 +9,10 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@otterstack/ui/components/ui/card";
+} from "@otterdeploy/ui/components/ui/card";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useQuery } from "@rocicorp/zero/react";
+import { queries } from "@otterdeploy/zero/queries";
 import * as z from "zod";
 
 const { Panel, Content, tabValues } = createDetailPanel([
@@ -29,18 +31,28 @@ const searchSchema = z.object({
 export const Route = createFileRoute("/_dashboard/projects/$projectId/service/$serviceId")({
   component: RouteComponent,
   validateSearch: searchSchema,
+  loader: async ({ context, params }) => {
+    if (context.zero) {
+      context.zero.run(queries.resourceById({ resourceId: params.serviceId }));
+    }
+  },
+  pendingComponent: () => <div>Loading...</div>,
+  errorComponent: ({ error }) => <div>Error: {error.message}</div>,
 });
 
 function RouteComponent() {
   const { tab } = Route.useSearch();
-  const { projectId } = Route.useParams();
+  const { projectId, serviceId } = Route.useParams();
+  const [resource] = useQuery(queries.resourceById({ resourceId: serviceId }));
+
   const navigate = useNavigate();
 
   return (
     <Panel
-      title="Service"
+      title={resource?.name ?? "Service"}
       defaultTab={tab}
       onClose={() => navigate({ to: "/projects/$projectId", params: { projectId } })}
+      hiddenTabs={resource?.kind !== "database" && resource?.kind !== "cache" ? ["database", "backups"] : []}
     >
       <Content value="deployments">
         <DeploymentsPanel />

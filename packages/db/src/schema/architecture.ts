@@ -1,5 +1,6 @@
 import { relations, sql } from "drizzle-orm";
 import {
+  boolean,
   doublePrecision,
   index,
   integer,
@@ -13,7 +14,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { user, organization } from "./auth";
-import { buildMethodEnum, databaseTypeEnum } from "./enums";
+import { buildMethodEnum, builderEnum, restartPolicyEnum, databaseTypeEnum } from "./enums";
 
 export const resourceKindEnum = pgEnum("resource_kind", [
   "web",
@@ -101,13 +102,26 @@ export const projectResource = pgTable(
     posX: doublePrecision("pos_x").notNull().default(0),
     posY: doublePrecision("pos_y").notNull().default(0),
     buildMethod: buildMethodEnum("build_method").default("nixpacks"),
+    builder: builderEnum("builder"),
     dockerfilePath: text("dockerfile_path").default("Dockerfile"),
+    buildCommand: text("build_command"),
+    watchPatterns: jsonb("watch_patterns").$type<string[]>(),
     port: integer("port"),
     healthCheckPath: text("health_check_path"),
     healthCheckInterval: integer("health_check_interval").default(30),
+    healthCheckTimeout: integer("health_check_timeout"),
     replicas: integer("replicas").default(1),
     cpuLimit: real("cpu_limit"),
     memoryLimit: integer("memory_limit"),
+    startCommand: text("start_command"),
+    preDeployCommand: text("pre_deploy_command"),
+    restartPolicy: restartPolicyEnum("restart_policy"),
+    restartPolicyMaxRetries: integer("restart_policy_max_retries"),
+    cronSchedule: text("cron_schedule"),
+    region: text("region"),
+    sleepApplication: boolean("sleep_application").default(false),
+    overlapSeconds: integer("overlap_seconds"),
+    drainingSeconds: integer("draining_seconds"),
     serverId: text("server_id"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")

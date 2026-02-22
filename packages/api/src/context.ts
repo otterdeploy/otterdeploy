@@ -1,8 +1,8 @@
 import type { Context as HonoContext } from "hono";
 
-import { auth } from "@otterstack/auth";
-import { db, eq } from "@otterstack/db";
-import { member } from "@otterstack/db/schema/auth";
+import { auth } from "@otterdeploy/auth";
+import { db, eq } from "@otterdeploy/db";
+import { member } from "@otterdeploy/db/schema/auth";
 
 export type ApiContextVariables = {
   correlationId: string;

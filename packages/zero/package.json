@@ -1,0 +1,25 @@
+{
+  "name": "@otterdeploy/zero",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {
+    "generate": "drizzle-zero generate -s ../db/src/schema/index.ts -f -o src/schema.ts"
+  },
+  "dependencies": {
+    "@otterdeploy/db": "workspace:*",
+    "@rocicorp/zero": "^0.25.12",
+    "drizzle-zero": "^0.17.3",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@otterdeploy/config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}

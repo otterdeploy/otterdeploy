@@ -1,5 +1,12 @@
 import { cn } from "@/lib/utils";
 import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -17,7 +24,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Link, useMatchRoute, useParams } from "@tanstack/react-router";
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
-import { EllipsisVerticalIcon, EyeOffIcon, PaletteIcon, PencilLineIcon, Trash2Icon } from "lucide-react";
+import { AlertCircleIcon, EllipsisVerticalIcon, EyeOffIcon, PaletteIcon, PencilLineIcon, Trash2Icon } from "lucide-react";
 
 export const statusConfig = {
   online: { color: "bg-green-500", label: "Online" },
@@ -39,6 +46,8 @@ export type ResourceNodeData = {
   status: Status;
   metadata: Record<string, unknown>;
   attachments?: { id: string; kind: Kind; name: string }[];
+  pendingAction?: "added" | "removed";
+  onRemove?: (id: string) => void;
 };
 
 export type GroupNodeData = {
@@ -245,33 +254,76 @@ export function GroupNodeComponent({ data }: NodeProps<GroupNode>) {
 }
 
 export function ResourceNodeComponent({ id, data }: NodeProps<ResourceNode>) {
-  return (
-    <ResourceNode>
-      {/* Top section — links to the service/resource page */}
-      <ResourceLink
-        kind={data.kind}
-        resourceId={id}
-        className={cn(
-          "block min-h-20 rounded-xl  hover:shadow-[0px_0px_1px_4px] hover:ring-1 ring-card transition-all duration-300 shadow-white/20",
-          "data-active:ring-2 data-active:ring-primary/50 data-active:bg-muted/30",
-          {
-            "border-b": !!data.attachments?.length,
-          },
-        )}
-      >
-        <ResourceNode.Header>
-          <ResourceNode.Icon kind={data.kind} />
-          <span className="text-sm font-medium">{data.name}</span>
-        </ResourceNode.Header>
-        <ResourceNode.Status status={data.status} />
-      </ResourceLink>
+  const isRemoved = data.pendingAction === "removed";
 
-      {/* Bottom section — each attachment links to its own route */}
-      <div className="overflow-clip relative rounded-b-xl">
-        {data.attachments?.map((att) => (
-          <ResourceNode.Attachment key={att.id} {...att} />
-        ))}
-      </div>
-    </ResourceNode>
+  if (isRemoved) {
+    return (
+      <ResourceNode className="border-red-500/30 bg-red-950/40">
+        <div className="relative min-h-20 rounded-xl">
+          <span className="absolute top-2.5 right-2.5 text-[11px] font-medium text-red-400 bg-red-500/15 px-2 py-0.5 rounded">
+            Removed
+          </span>
+          <ResourceNode.Header className="opacity-50">
+            <ResourceNode.Icon kind={data.kind} />
+            <span className="text-sm font-medium">{data.name}</span>
+          </ResourceNode.Header>
+          <div className="flex items-center gap-2 px-3 pb-3 text-xs text-red-400/60">
+            <AlertCircleIcon className="size-3.5" />
+            Service will be deleted
+          </div>
+        </div>
+      </ResourceNode>
+    );
+  }
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger>
+        <ResourceNode>
+          {/* Top section — links to the service/resource page */}
+          <ResourceLink
+            kind={data.kind}
+            resourceId={id}
+            className={cn(
+              "block min-h-20 rounded-xl  hover:shadow-[0px_0px_1px_4px] hover:ring-1 ring-card transition-all duration-300 shadow-white/20",
+              "data-active:ring-2 data-active:ring-primary/50 data-active:bg-muted/30",
+              {
+                "border-b": !!data.attachments?.length,
+              },
+            )}
+          >
+            <ResourceNode.Header>
+              <ResourceNode.Icon kind={data.kind} />
+              <span className="text-sm font-medium">{data.name}</span>
+            </ResourceNode.Header>
+            <ResourceNode.Status status={data.status} />
+          </ResourceLink>
+
+          {/* Bottom section — each attachment links to its own route */}
+          <div className="overflow-clip relative rounded-b-xl">
+            {data.attachments?.map((att) => (
+              <ResourceNode.Attachment key={att.id} {...att} />
+            ))}
+          </div>
+        </ResourceNode>
+      </ContextMenuTrigger>
+      <ContextMenuContent
+        className="min-w-48"
+        onPointerDownCapture={(e) => e.stopPropagation()}
+      >
+        <ContextMenuItem>
+          <PencilLineIcon />
+          Rename
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem
+          variant="destructive"
+          onClick={() => data.onRemove?.(id)}
+        >
+          <Trash2Icon />
+          Remove
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }
