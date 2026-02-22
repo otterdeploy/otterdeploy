@@ -35,7 +35,9 @@ export const Route = createFileRoute("/_dashboard/projects/")({
   loader: async ({ context }) => {
     if (!context.auth.session.activeOrganizationId) throw new Error("No active organization");
     if (context.zero) {
-      context.zero.run(queries.projectList({ organizationId: context.auth.session.activeOrganizationId }));
+      context.zero.run(
+        queries.projectList({ organizationId: context.auth.session.activeOrganizationId }),
+      );
     }
     return { organizationId: context.auth.session.activeOrganizationId };
   },
@@ -63,22 +65,22 @@ function CreateProjectDialog() {
     onSubmit: async ({ value }) => {
       if (!zero) return;
       const id = crypto.randomUUID();
-      const slug = value.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      const slug = value.name
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-");
+
       zero.mutate(
         mutators.project.create({
           id,
           organizationId,
           ownerId: auth.user.id,
-          name: value.name.trim(),
+          name: slug,
           slug,
         }),
       );
       setOpen(false);
       form.reset();
-      router.navigate({
-        to: "/projects/$projectId",
-        params: { projectId: id },
-      });
     },
   });
 
@@ -98,9 +100,7 @@ function CreateProjectDialog() {
         >
           <DialogHeader>
             <DialogTitle>New project</DialogTitle>
-            <DialogDescription>
-              Give your project a name to get started.
-            </DialogDescription>
+            <DialogDescription>Give your project a name to get started.</DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <form.Field name="name">
@@ -150,7 +150,7 @@ function RouteComponent() {
   const [projects] = useQuery(queries.projectList({ organizationId }));
 
   const sortedProjects = useMemo(() => {
-    const items = [...(projects ?? [])];
+    const items = projects;
     switch (sort) {
       case "updated":
         return items.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
@@ -167,7 +167,9 @@ function RouteComponent() {
     }
   }, [projects, sort]);
 
-  const count = (projects ?? []).length;
+  const count = projects.length;
+
+  console.log(projects);
 
   return (
     <div className="mx-auto w-full max-w-5xl px-8 py-10 flex flex-col gap-8">
@@ -185,7 +187,9 @@ function RouteComponent() {
 
         <Select
           value={sort}
-          onValueChange={(val) => setSort(val as SortOption)}
+          onValueChange={(val) => {
+            if (val) setSort(val);
+          }}
         >
           <SelectTrigger
             size="sm"
@@ -208,7 +212,7 @@ function RouteComponent() {
           <ToggleGroup
             value={[view]}
             onValueChange={(values) => {
-              if (values.length > 0) setView(values[0] as ViewMode);
+              if (values[0]) setView(values[0] as ViewMode);
             }}
             variant="outline"
             size="sm"
@@ -249,9 +253,7 @@ function RouteComponent() {
                 <span className="text-[15px] font-medium flex-1 truncate">{project.name}</span>
                 <span className="text-sm text-muted-foreground">default</span>
                 <span className="text-muted-foreground/30 select-none">&middot;</span>
-                <span className="text-sm text-muted-foreground tabular-nums">
-                  0/0 online
-                </span>
+                <span className="text-sm text-muted-foreground tabular-nums">0/0 online</span>
                 <span className="text-sm text-muted-foreground tabular-nums w-28 text-right">
                   {project.updatedAt ? new Date(project.updatedAt).toLocaleDateString() : ""}
                 </span>

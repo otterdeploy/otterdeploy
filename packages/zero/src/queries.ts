@@ -8,7 +8,7 @@ export const queries = defineQueries({
     ({ args: { organizationId } }) =>
       zql.project
         .where("organizationId", organizationId)
-        .where("deletedAt", null),
+        .where("deletedAt", "IS", null),
   ),
 
   projectById: defineQuery(

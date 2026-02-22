@@ -19,7 +19,11 @@ services:
     volumes:
       - otterstack-postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}",
+        ]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -70,6 +74,7 @@ services:
         condition: service_healthy
     extra_hosts:
       - "host.docker.internal:host-gateway"
+      - "api.otterstack.localhost:host-gateway"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4848/keepalive"]
       interval: 10s

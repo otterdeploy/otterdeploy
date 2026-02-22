@@ -58,6 +58,8 @@ app.post("/api/zero/query", async (c) => {
     schema,
     c.req.raw,
   );
+
+  logger.info({ result }, "Zero query result");
   return c.json(result);
 });
 
@@ -78,6 +80,8 @@ app.post("/api/zero/mutate", async (c) => {
     },
     c.req.raw,
   );
+
+  logger.info({ result }, "Zero mutate result");
   return c.json(result);
 });
 

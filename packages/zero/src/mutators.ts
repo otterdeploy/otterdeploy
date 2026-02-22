@@ -99,7 +99,7 @@ export const mutators = defineMutators({
       z.object({
         id: z.string(),
         environmentId: z.string(),
-        kind: z.string(),
+        kind: z.enum(["web", "api", "worker", "database", "cache", "volume"]),
         name: z.string(),
         posX: z.number(),
         posY: z.number(),
@@ -161,7 +161,7 @@ export const mutators = defineMutators({
         environmentId: z.string(),
         sourceResourceId: z.string(),
         targetResourceId: z.string(),
-        linkType: z.string(),
+        linkType: z.enum(["depends_on", "network", "mounts"]),
       }),
       async ({
         tx,

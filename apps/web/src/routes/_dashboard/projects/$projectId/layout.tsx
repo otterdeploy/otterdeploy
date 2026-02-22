@@ -15,13 +15,10 @@ import { AnimatePresence, motion } from "motion/react";
 import * as z from "zod";
 
 import {
-  addEdge,
   applyNodeChanges,
   Background,
   Controls,
   ReactFlow,
-  useEdgesState,
-  useNodesState,
   useReactFlow,
   type Node,
   type NodeChange,
@@ -31,7 +28,7 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 
 import "@xyflow/react/dist/style.css";
 
-import { ResourceNodeComponent, GroupNodeComponent } from "@/components/resource/node";
+import { ResourceNodeComponent, GroupNodeComponent, type Kind } from "@/components/resource/node";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -359,16 +356,43 @@ function CreateResourcePalette({
     if (!env) return;
 
     const id = crypto.randomUUID();
+    const posX = 100 + Math.random() * 200;
+    const posY = 100 + Math.random() * 200;
     zero.mutate(
       mutators.resource.create({
         id,
         environmentId: env.id,
         kind,
         name,
-        posX: 100 + Math.random() * 200,
-        posY: 100 + Math.random() * 200,
+        posX,
+        posY,
       }),
     );
+
+    // Auto-create a volume and link it to the database
+    if (kind === "database") {
+      const volumeId = crypto.randomUUID();
+      const volumeName = `${name.toLowerCase()}-volume`;
+      zero.mutate(
+        mutators.resource.create({
+          id: volumeId,
+          environmentId: env.id,
+          kind: "volume",
+          name: volumeName,
+          posX,
+          posY: posY + 120,
+        }),
+      );
+      zero.mutate(
+        mutators.resourceLink.create({
+          id: crypto.randomUUID(),
+          environmentId: env.id,
+          sourceResourceId: id,
+          targetResourceId: volumeId,
+          linkType: "depends_on",
+        }),
+      );
+    }
 
     onCreated({ id, name, kind, status: "unknown" });
 
@@ -519,47 +543,6 @@ function ViewportController() {
   return null;
 }
 
-// --- Group resize logic ---
-
-const GROUP_PADDING = { top: 50, right: 20, bottom: 20, left: 16 };
-const DEFAULT_NODE_WIDTH = 220;
-const DEFAULT_NODE_HEIGHT = 80;
-
-function resizeGroups(nodes: Node[]): Node[] {
-  const groups = nodes.filter((n) => n.type === "group");
-  const children = nodes.filter((n) => n.parentId);
-
-  const updated = new Map<string, { width: number; height: number }>();
-
-  for (const group of groups) {
-    const kids = children.filter((n) => n.parentId === group.id);
-    if (kids.length === 0) continue;
-
-    let maxX = 0;
-    let maxY = 0;
-
-    for (const kid of kids) {
-      const w = kid.measured?.width ?? DEFAULT_NODE_WIDTH;
-      const h = kid.measured?.height ?? DEFAULT_NODE_HEIGHT;
-      maxX = Math.max(maxX, kid.position.x + w);
-      maxY = Math.max(maxY, kid.position.y + h);
-    }
-
-    updated.set(group.id, {
-      width: maxX + GROUP_PADDING.right,
-      height: maxY + GROUP_PADDING.bottom,
-    });
-  }
-
-  if (updated.size === 0) return nodes;
-
-  return nodes.map((n) => {
-    const newSize = updated.get(n.id);
-    if (!newSize) return n;
-    return { ...n, style: { ...n.style, ...newSize } };
-  });
-}
-
 // --- Main layout ---
 
 // --- Deploy bar ---
@@ -631,7 +614,6 @@ function ChangesDialog({
   onDiscard: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const totalSettings = changes.reduce((sum, c) => sum + c.settings.length, 0);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -769,76 +751,157 @@ function RouteComponent() {
     firstEnvId ? queries.resourceLinkList({ environmentId: firstEnvId }) : undefined,
   );
 
-  const graphNodes = useMemo<Node[]>(() => {
-    if (!resources) return [];
-    return resources.map((r) => ({
-      id: r.id,
-      type: "resource" as const,
-      position: { x: r.posX ?? 0, y: r.posY ?? 0 },
-      data: {
-        name: r.name,
-        kind: r.kind,
-        status: r.status ?? "unknown",
-        metadata: r.metadata ?? {},
-      },
-    }));
-  }, [resources]);
-
-  const graphEdges = useMemo(() => {
-    if (!links) return [];
-    return links.map((l) => ({
-      id: l.id,
-      source: l.sourceResourceId,
-      target: l.targetResourceId,
-      type: "smoothstep",
-      animated: true,
-    }));
-  }, [links]);
-
-  const [nodes, setNodes] = useNodesState(graphNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(graphEdges);
+  const { zero } = useRouter().options.context;
   const [pendingChanges, setPendingChanges] = useState<PendingChange[]>([]);
   const [changesDialogOpen, setChangesDialogOpen] = useState(false);
 
+  const removeResourceRef = useRef<(id: string) => void>(() => {});
+
+  // Find volumes mounted to databases — they render as attachments, not standalone nodes
+  const { mountedVolumeIds, volumeAttachments } = useMemo(() => {
+    const mounted = new Set<string>();
+    const attachments = new Map<string, { id: string; kind: Kind; name: string }[]>();
+    if (!resources || !links) return { mountedVolumeIds: mounted, volumeAttachments: attachments };
+
+    for (const link of links) {
+      const source = resources.find((r) => r.id === link.sourceResourceId);
+      const target = resources.find((r) => r.id === link.targetResourceId);
+      let dbId: string | null = null;
+      let volume: typeof source | null = null;
+
+      if (source?.kind === "database" && target?.kind === "volume") {
+        dbId = source.id;
+        volume = target;
+      } else if (source?.kind === "volume" && target?.kind === "database") {
+        dbId = target.id;
+        volume = source;
+      }
+
+      if (dbId && volume) {
+        mounted.add(volume.id);
+        const existing = attachments.get(dbId) ?? [];
+        existing.push({ id: volume.id, kind: volume.kind as Kind, name: volume.name });
+        attachments.set(dbId, existing);
+      }
+    }
+
+    return { mountedVolumeIds: mounted, volumeAttachments: attachments };
+  }, [resources, links]);
+
+  const graphNodes = useMemo<Node[]>(() => {
+    if (!resources) return [];
+    return resources
+      .filter((r) => !mountedVolumeIds.has(r.id))
+      .map((r) => {
+        const pending = pendingChanges.find((c) => c.id === r.id);
+        const isRemoved = pending?.action === "removed";
+        return {
+          id: r.id,
+          type: "resource" as const,
+          position: { x: r.posX ?? 0, y: r.posY ?? 0 },
+          draggable: !isRemoved,
+          selectable: !isRemoved,
+          data: {
+            name: r.name,
+            kind: r.kind,
+            status: r.status ?? "unknown",
+            metadata: r.metadata ?? {},
+            pendingAction: pending?.action,
+            onRemove: (id: string) => removeResourceRef.current(id),
+            attachments: volumeAttachments.get(r.id),
+          },
+        };
+      });
+  }, [resources, pendingChanges, mountedVolumeIds, volumeAttachments]);
+
+  // Local nodes state for React Flow — synced from Zero, updated locally during drag
+  const [nodes, setNodes] = useState<Node[]>([]);
+  useEffect(() => {
+    setNodes(graphNodes);
+  }, [graphNodes]);
+
+  const graphEdges = useMemo(() => {
+    if (!links) return [];
+    return links
+      .filter((l) => !mountedVolumeIds.has(l.sourceResourceId) && !mountedVolumeIds.has(l.targetResourceId))
+      .map((l) => ({
+        id: l.id,
+        source: l.sourceResourceId,
+        target: l.targetResourceId,
+        type: "smoothstep",
+        animated: true,
+      }));
+  }, [links, mountedVolumeIds]);
+
+  const handleMarkForRemoval = useCallback(
+    (id: string) => {
+      if (pendingChanges.some((c) => c.id === id)) return;
+      const resource = resources?.find((r) => r.id === id);
+      if (!resource) return;
+      setPendingChanges((prev) => [
+        ...prev,
+        {
+          id: resource.id,
+          name: resource.name,
+          kind: resource.kind,
+          action: "removed",
+          settings: [
+            { key: "Kind", oldValue: resource.kind, newValue: "" },
+            { key: "Name", oldValue: resource.name, newValue: "" },
+          ],
+        },
+      ]);
+    },
+    [resources, pendingChanges],
+  );
+  removeResourceRef.current = handleMarkForRemoval;
+
   const onConnect: OnConnect = useCallback(
-    (params) => setEdges((els) => addEdge(params, els)),
-    [setEdges],
+    (params) => {
+      if (!zero || !firstEnvId) return;
+      const id = crypto.randomUUID();
+      zero.mutate(
+        mutators.resourceLink.create({
+          id,
+          environmentId: firstEnvId,
+          sourceResourceId: params.source,
+          targetResourceId: params.target,
+          linkType: "depends_on",
+        }),
+      );
+    },
+    [zero, firstEnvId],
   );
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
-      setNodes((nds) => {
-        const updated = applyNodeChanges(changes, nds);
-        const clamped = updated.map((n) => {
-          if (!n.parentId) return n;
-          const x = Math.max(GROUP_PADDING.left, n.position.x);
-          const y = Math.max(GROUP_PADDING.top, n.position.y);
-          if (x === n.position.x && y === n.position.y) return n;
-          return { ...n, position: { x, y } };
-        });
-        return resizeGroups(clamped);
-      });
+      // Apply visual changes (position, selection) locally for smooth drag
+      const visualChanges = changes.filter((c) => c.type !== "remove");
+      if (visualChanges.length > 0) {
+        setNodes((prev) => applyNodeChanges(visualChanges, prev));
+      }
+
+      // Persist final position to Zero on drag end
+      for (const change of changes) {
+        if (change.type === "position" && change.position && !change.dragging && zero) {
+          zero.mutate(
+            mutators.resource.update({
+              id: change.id,
+              posX: change.position.x,
+              posY: change.position.y,
+            }),
+          );
+        }
+        if (change.type === "remove") {
+          handleMarkForRemoval(change.id);
+        }
+      }
     },
-    [setNodes],
+    [zero, handleMarkForRemoval],
   );
 
   const handleResourceCreated = useCallback(
     (resource: { id: string; name: string; kind: string; status: string }) => {
-      setNodes((nds) => {
-        const newNode: Node = {
-          id: resource.id,
-          type: "resource",
-          position: { x: 100 + Math.random() * 300, y: 100 + Math.random() * 200 },
-          data: {
-            id: resource.id,
-            name: resource.name,
-            kind: resource.kind,
-            status: resource.status,
-            metadata: {},
-          },
-        };
-        return [...nds, newNode];
-      });
       setPendingChanges((prev) => [
         ...prev,
         {
@@ -854,21 +917,32 @@ function RouteComponent() {
         },
       ]);
     },
-    [setNodes],
+    [],
   );
 
   const handleDeploy = useCallback(() => {
-    // TODO: trigger actual deployment
+    if (zero) {
+      for (const change of pendingChanges) {
+        if (change.action === "removed") {
+          zero.mutate(mutators.resource.delete({ id: change.id }));
+        }
+      }
+    }
+    // TODO: trigger actual deployment for other changes
     setPendingChanges([]);
     setChangesDialogOpen(false);
-  }, []);
+  }, [zero, pendingChanges]);
 
   const handleDiscard = useCallback(
     (id: string) => {
+      const change = pendingChanges.find((c) => c.id === id);
+      if (change?.action === "added" && zero) {
+        zero.mutate(mutators.resource.delete({ id }));
+      }
+      // For "removed", just undo the mark — resource stays in Zero
       setPendingChanges((prev) => prev.filter((c) => c.id !== id));
-      setNodes((nds) => nds.filter((n) => n.id !== id));
     },
-    [setNodes],
+    [zero, pendingChanges],
   );
 
   const match = useMatchRoute();
@@ -887,10 +961,9 @@ function RouteComponent() {
         <div className="absolute inset-0">
           <ReactFlow
             nodes={nodes}
-            edges={edges}
+            edges={graphEdges}
             nodeTypes={nodeTypes}
             onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
             onConnect={onConnect}
             colorMode="dark"
             fitView
