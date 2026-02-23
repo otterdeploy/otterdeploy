@@ -17,12 +17,16 @@ export const deploymentSourceEnum = pgEnum("deployment_source", [
   "rollback",
   "api",
   "preview",
+  "config_change",
 ]);
 
 export const buildMethodEnum = pgEnum("build_method", [
   "nixpacks",
   "dockerfile",
   "buildpack",
+  "docker_image",
+  "static",
+  "compose",
 ]);
 
 export const builderEnum = pgEnum("builder", [
@@ -103,5 +107,13 @@ export const secretLogicalScopeEnum = pgEnum("secret_logical_scope", [
 export const secretProviderBindingStatusEnum = pgEnum("secret_provider_binding_status", [
   "provisioning",
   "active",
+  "error",
+]);
+
+export const caddyStatusEnum = pgEnum("caddy_status", [
+  "not_installed",
+  "initializing",
+  "running",
+  "stopped",
   "error",
 ]);

@@ -30,6 +30,7 @@ export const customDomain = pgTable(
     verificationToken: text("verification_token"),
     sslStatus: sslStatusEnum("ssl_status").notNull().default("pending"),
     sslExpiresAt: timestamp("ssl_expires_at"),
+    redirectRules: jsonb("redirect_rules"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -147,6 +148,7 @@ export const notificationChannel = pgTable(
       .$type<Record<string, unknown>>()
       .notNull(),
     enabled: boolean("enabled").notNull().default(true),
+    eventFilter: jsonb("event_filter"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()

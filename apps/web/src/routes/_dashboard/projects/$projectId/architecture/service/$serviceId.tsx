@@ -28,7 +28,9 @@ const searchSchema = z.object({
   tab: z.enum(tabValues).default(tabValues[0]),
 });
 
-export const Route = createFileRoute("/_dashboard/projects/$projectId/service/$serviceId")({
+export const Route = createFileRoute(
+  "/_dashboard/projects/$projectId/architecture/service/$serviceId",
+)({
   component: RouteComponent,
   validateSearch: searchSchema,
   loader: async ({ context, params }) => {
@@ -51,8 +53,12 @@ function RouteComponent() {
     <Panel
       title={resource?.name ?? "Service"}
       defaultTab={tab}
-      onClose={() => navigate({ to: "/projects/$projectId", params: { projectId } })}
-      hiddenTabs={resource?.kind !== "database" && resource?.kind !== "cache" ? ["database", "backups"] : []}
+      onClose={() => navigate({ to: "/projects/$projectId/architecture", params: { projectId } })}
+      hiddenTabs={
+        resource?.kind !== "database" && resource?.kind !== "cache"
+          ? ["database", "backups"]
+          : []
+      }
     >
       <Content value="deployments">
         <DeploymentsPanel />

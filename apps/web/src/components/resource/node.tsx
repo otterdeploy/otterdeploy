@@ -24,7 +24,14 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Link, useMatchRoute, useParams } from "@tanstack/react-router";
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
-import { AlertCircleIcon, EllipsisVerticalIcon, EyeOffIcon, PaletteIcon, PencilLineIcon, Trash2Icon } from "lucide-react";
+import {
+  AlertCircleIcon,
+  EllipsisVerticalIcon,
+  EyeOffIcon,
+  PaletteIcon,
+  PencilLineIcon,
+  Trash2Icon,
+} from "lucide-react";
 
 export const statusConfig = {
   online: { color: "bg-green-500", label: "Online" },
@@ -90,7 +97,7 @@ function ResourceLink({
   if (kind === "volume") {
     return (
       <Link
-        to="/projects/$projectId/volume/$volume"
+        to="/projects/$projectId/architecture/volume/$volume"
         params={{ projectId, volume: resourceId }}
         className={className}
         activeProps={activeProps}
@@ -102,7 +109,7 @@ function ResourceLink({
 
   return (
     <Link
-      to="/projects/$projectId/service/$serviceId"
+      to="/projects/$projectId/architecture/service/$serviceId"
       params={{ projectId, serviceId: resourceId }}
       className={className}
       activeProps={activeProps}
@@ -145,8 +152,14 @@ function Attachment({
   className?: string;
 }) {
   const match = useMatchRoute();
-  const volumeMatch = match({ from: "/projects/$projectId/volume/$volume" });
-  const serviceMatch = match({ from: "/projects/$projectId/service/$serviceId" });
+  const volumeMatch = match({
+    to: "/projects/$projectId/architecture/volume/$volume",
+    fuzzy: true,
+  });
+  const serviceMatch = match({
+    to: "/projects/$projectId/architecture/service/$serviceId",
+    fuzzy: true,
+  });
   const isActive =
     (kind === "volume" && volumeMatch && "volume" in volumeMatch && volumeMatch.volume === id) ||
     (kind !== "volume" &&
@@ -198,22 +211,13 @@ function ResourceNodeRoot({
 
 // --- Compound export ---
 
-export const ResourceNode = Object.assign(ResourceNodeRoot, {
-  Icon,
-  Header,
-  Status,
-  Attachment,
-});
-
 // --- Node components registered with React Flow ---
 
 export function GroupNodeComponent({ data }: NodeProps<GroupNode>) {
   return (
     <div className="size-full rounded-2xl border border-white/10 bg-white/[0.03] text-left">
       <div className="flex items-center justify-between px-5 pt-3">
-        <span className="text-left text-sm font-medium text-white/80">
-          {data.label}
-        </span>
+        <span className="text-left text-sm font-medium text-white/80">{data.label}</span>
         <DropdownMenu>
           <DropdownMenuTrigger
             className="rounded-md p-1 text-white/50 hover:bg-white/10 hover:text-white/80 transition-colors"
@@ -307,19 +311,13 @@ export function ResourceNodeComponent({ id, data }: NodeProps<ResourceNode>) {
           </div>
         </ResourceNode>
       </ContextMenuTrigger>
-      <ContextMenuContent
-        className="min-w-48"
-        onPointerDownCapture={(e) => e.stopPropagation()}
-      >
+      <ContextMenuContent className="min-w-48" onPointerDownCapture={(e) => e.stopPropagation()}>
         <ContextMenuItem>
           <PencilLineIcon />
           Rename
         </ContextMenuItem>
         <ContextMenuSeparator />
-        <ContextMenuItem
-          variant="destructive"
-          onClick={() => data.onRemove?.(id)}
-        >
+        <ContextMenuItem variant="destructive" onClick={() => data.onRemove?.(id)}>
           <Trash2Icon />
           Remove
         </ContextMenuItem>
@@ -327,3 +325,10 @@ export function ResourceNodeComponent({ id, data }: NodeProps<ResourceNode>) {
     </ContextMenu>
   );
 }
+
+export const ResourceNode = Object.assign(ResourceNodeRoot, {
+  Icon,
+  Header,
+  Status,
+  Attachment,
+});

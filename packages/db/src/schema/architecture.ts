@@ -23,6 +23,7 @@ export const resourceKindEnum = pgEnum("resource_kind", [
   "database",
   "cache",
   "volume",
+  "compose",
 ]);
 
 export const resourceStatusEnum = pgEnum("resource_status", [
@@ -51,6 +52,7 @@ export const project = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     slug: text("slug").notNull(),
+    baseDomain: text("base_domain"),
     deletedAt: timestamp("deleted_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
@@ -118,6 +120,9 @@ export const projectResource = pgTable(
     restartPolicy: restartPolicyEnum("restart_policy"),
     restartPolicyMaxRetries: integer("restart_policy_max_retries"),
     cronSchedule: text("cron_schedule"),
+    cronCommand: text("cron_command"),
+    registryId: text("registry_id"),
+    composeFile: text("compose_file"),
     region: text("region"),
     sleepApplication: boolean("sleep_application").default(false),
     overlapSeconds: integer("overlap_seconds"),

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@rocicorp/zero/react";
 import { queries } from "@otterdeploy/zero/queries";
 import { mutators } from "@otterdeploy/zero/mutators";
-import { useParams, useRouter } from "@tanstack/react-router";
+import { useParams, useRouter, useNavigate, useMatchRoute } from "@tanstack/react-router";
 import { useForm } from "@tanstack/react-form";
 import * as z from "zod";
 
@@ -55,15 +55,17 @@ function EnvironmentSwitcher({
     onSubmit: async ({ value }) => {
       if (!zero) return;
       const id = crypto.randomUUID();
+      const name = value.name.trim();
+      if (!name) throw new Error("Environment name is required");
       zero.mutate(
         mutators.environment.create({
           id,
           projectId,
-          name: value.name.trim(),
+          name,
         }),
       );
       setShowCreate(false);
-      setSelected(value.name.trim());
+      setSelected(name);
       form.reset();
     },
   });
@@ -143,6 +145,15 @@ function EnvironmentSwitcher({
   );
 }
 
+const tabs = [
+  { label: "Architecture", value: "architecture" },
+  { label: "Observability", value: "observability" },
+  { label: "Logs", value: "logs" },
+  { label: "Settings", value: "settings" },
+] as const;
+
+type TabValue = (typeof tabs)[number]["value"];
+
 export function ProjectHeader({
   onCreateResource,
 }: {
@@ -156,10 +167,36 @@ export function ProjectHeader({
   const { projectId } = useParams({ strict: false });
   const { organizationId } = Route.useLoaderData();
   const router = useRouter();
+  const navigate = useNavigate();
+  const match = useMatchRoute();
 
   const [project] = useQuery(queries.projectById({ projectId: projectId! }));
   const [environments] = useQuery(queries.environmentList({ projectId: projectId! }));
   const [projects] = useQuery(queries.projectList({ organizationId }));
+
+  // Determine the active tab from the current route
+  const currentTab = match({ to: "/projects/$projectId/settings", fuzzy: true })
+    ? "settings"
+    : match({ to: "/projects/$projectId/logs", fuzzy: true })
+      ? "logs"
+      : match({ to: "/projects/$projectId/observability", fuzzy: true })
+        ? "observability"
+        : "architecture";
+
+  const handleTabChange = (value: TabValue) => {
+    if (!projectId) return;
+
+    const routes: Record<TabValue, string> = {
+      architecture: "/projects/$projectId/architecture",
+      observability: "/projects/$projectId/observability",
+      logs: "/projects/$projectId/logs",
+      settings: "/projects/$projectId/settings",
+    };
+    navigate({
+      to: routes[value],
+      params: { projectId },
+    });
+  };
 
   if (!project) return null;
 
@@ -169,11 +206,11 @@ export function ProjectHeader({
       <div className="flex items-center gap-0 px-4">
         <Select
           value={project.id}
-          onValueChange={(val) => {
-            if (val) {
+          onValueChange={(projectId) => {
+            if (projectId) {
               router.navigate({
                 to: "/projects/$projectId",
-                params: { projectId: val },
+                params: { projectId },
               });
             }
           }}
@@ -185,7 +222,7 @@ export function ProjectHeader({
             <span className="flex flex-1 text-left">{project.name}</span>
           </SelectTrigger>
           <SelectContent>
-            {(projects ?? []).map((p) => (
+            {projects.map((p) => (
               <SelectItem key={p.id} value={p.id}>
                 {p.name}
               </SelectItem>
@@ -199,16 +236,13 @@ export function ProjectHeader({
       </div>
 
       {/* Center: nav tabs */}
-      <Tabs defaultValue="architecture" className="ml-auto self-stretch gap-0">
+      <Tabs
+        value={currentTab}
+        onValueChange={handleTabChange}
+        className="ml-auto self-stretch gap-0"
+      >
         <TabsList variant="line" className="relative h-full! border-none bg-transparent p-0!">
-          {(
-            [
-              { label: "Architecture", value: "architecture" },
-              { label: "Observability", value: "observability" },
-              { label: "Logs", value: "logs" },
-              { label: "Settings", value: "settings" },
-            ] as const
-          ).map((tab) => (
+          {tabs.map((tab) => (
             <TabsTrigger
               key={tab.value}
               value={tab.value}

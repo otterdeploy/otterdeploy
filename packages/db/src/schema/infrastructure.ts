@@ -59,6 +59,10 @@ export const server = pgTable(
     totalMemory: bigint("total_memory", { mode: "number" }),
     totalCpu: integer("total_cpu"),
     totalDisk: bigint("total_disk", { mode: "number" }),
+    swarmNodeId: text("swarm_node_id"),
+    baseDomain: text("base_domain"),
+    acmeEmail: text("acme_email"),
+    dockerCleanupThreshold: integer("docker_cleanup_threshold").default(80),
     lastSeenAt: timestamp("last_seen_at"),
     metadata: jsonb("metadata")
       .$type<Record<string, unknown>>()
@@ -124,6 +128,7 @@ export const gitRepository = pgTable(
     rootDirectory: text("root_directory").default("/"),
     autoDeploy: boolean("auto_deploy").notNull().default(true),
     webhookId: text("webhook_id"),
+    watchPaths: text("watch_paths").array(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()

@@ -5,3 +5,4 @@ export * from "./deployment";
 export * from "./infrastructure";
 export * from "./operations";
 export * from "./secrets";
+export * from "./metrics";
