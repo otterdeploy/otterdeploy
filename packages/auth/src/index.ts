@@ -4,7 +4,7 @@ import { env } from "@otterdeploy/env/server";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 
-import { deviceAuthorization, admin, organization, apiKey, twoFactor } from "better-auth/plugins";
+import { deviceAuthorization, admin, organization, apiKey, twoFactor, bearer } from "better-auth/plugins";
 import { getOrgAdapter, type OrganizationOptions } from "better-auth/plugins/organization";
 
 const ORG_SLUG_MAX = 48;
@@ -160,5 +160,14 @@ export const auth = betterAuth({
       },
     },
   },
-  plugins: [deviceAuthorization(), admin(), organization(), apiKey(), twoFactor()],
+  plugins: [
+    deviceAuthorization({
+      verificationUri: `${env.CORS_ORIGIN}/device`,
+    }),
+    admin(),
+    organization(),
+    apiKey(),
+    twoFactor(),
+    bearer(),
+  ],
 });

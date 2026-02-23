@@ -21,6 +21,7 @@
     "@orpc/zod": "catalog:",
     "@otterdeploy/auth": "workspace:*",
     "@otterdeploy/db": "workspace:*",
+    "@otterdeploy/infra-config": "workspace:*",
     "@otterdeploy/domain": "workspace:*",
     "@otterdeploy/env": "workspace:*",
     "@otterdeploy/logger": "workspace:*",

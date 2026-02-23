@@ -248,18 +248,19 @@ function RouteComponent() {
         </ReactFlow>
       </div>
 
-      <AnimatePresence initial={false} mode="popLayout">
-        <motion.div
-          key={showChild ? "child-panel" : "parent-panel"}
-          className="border-white/10 border-l-1 bg-background border-t-1 overflow-hidden h-[90vh] w-[60vw] max-md:w-full absolute right-0 bottom-0 rounded-tl-xl"
-          initial={{ x: "100%" }}
-          animate={{ x: 0 }}
-          exit={{ x: "100%" }}
-          hidden={!showChild}
-          transition={{ type: "tween", duration: 0.25 }}
-        >
-          <Outlet />
-        </motion.div>
+      <AnimatePresence initial={false}>
+        {showChild && (
+          <motion.div
+            key="child-panel"
+            className="border-white/10 border-l-1 bg-background border-t-1 overflow-hidden h-[90vh] w-[60vw] max-md:w-full absolute right-0 bottom-0 rounded-tl-xl"
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ type: "tween", duration: 0.25 }}
+          >
+            <Outlet />
+          </motion.div>
+        )}
       </AnimatePresence>
     </>
   );

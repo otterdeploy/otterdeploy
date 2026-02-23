@@ -35,7 +35,7 @@ export const Route = createFileRoute("/_dashboard/projects/")({
   loader: async ({ context }) => {
     if (!context.auth.session.activeOrganizationId) throw new Error("No active organization");
     if (context.zero) {
-      context.zero.run(
+      await context.zero.run(
         queries.projectList({ organizationId: context.auth.session.activeOrganizationId }),
       );
     }

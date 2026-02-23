@@ -55,7 +55,7 @@ function EnvironmentSwitcher({
     onSubmit: async ({ value }) => {
       if (!zero) return;
       const id = crypto.randomUUID();
-      const name = value.name.trim();
+      const name = value.name;
       if (!name) throw new Error("Environment name is required");
       zero.mutate(
         mutators.environment.create({

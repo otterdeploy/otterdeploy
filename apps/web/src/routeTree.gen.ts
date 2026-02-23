@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LandingRouteImport } from './routes/landing'
+import { Route as DeviceRouteImport } from './routes/device'
 import { Route as R9RouteImport } from './routes/9'
 import { Route as R8RouteImport } from './routes/8'
 import { Route as R7RouteImport } from './routes/7'
@@ -45,6 +46,11 @@ import { Route as DashboardProjectsProjectIdArchitectureServiceServiceIdRouteImp
 const LandingRoute = LandingRouteImport.update({
   id: '/landing',
   path: '/landing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DeviceRoute = DeviceRouteImport.update({
+  id: '/device',
+  path: '/device',
   getParentRoute: () => rootRouteImport,
 } as any)
 const R9Route = R9RouteImport.update({
@@ -228,6 +234,7 @@ export interface FileRoutesByFullPath {
   '/7': typeof R7Route
   '/8': typeof R8Route
   '/9': typeof R9Route
+  '/device': typeof DeviceRoute
   '/landing': typeof LandingRoute
   '/login': typeof AuthLoginRoute
   '/signup': typeof AuthSignupRoute
@@ -260,6 +267,7 @@ export interface FileRoutesByTo {
   '/7': typeof R7Route
   '/8': typeof R8Route
   '/9': typeof R9Route
+  '/device': typeof DeviceRoute
   '/landing': typeof LandingRoute
   '/login': typeof AuthLoginRoute
   '/signup': typeof AuthSignupRoute
@@ -292,6 +300,7 @@ export interface FileRoutesById {
   '/7': typeof R7Route
   '/8': typeof R8Route
   '/9': typeof R9Route
+  '/device': typeof DeviceRoute
   '/landing': typeof LandingRoute
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/signup': typeof AuthSignupRoute
@@ -327,6 +336,7 @@ export interface FileRouteTypes {
     | '/7'
     | '/8'
     | '/9'
+    | '/device'
     | '/landing'
     | '/login'
     | '/signup'
@@ -359,6 +369,7 @@ export interface FileRouteTypes {
     | '/7'
     | '/8'
     | '/9'
+    | '/device'
     | '/landing'
     | '/login'
     | '/signup'
@@ -390,6 +401,7 @@ export interface FileRouteTypes {
     | '/7'
     | '/8'
     | '/9'
+    | '/device'
     | '/landing'
     | '/_auth/login'
     | '/_auth/signup'
@@ -425,6 +437,7 @@ export interface RootRouteChildren {
   R7Route: typeof R7Route
   R8Route: typeof R8Route
   R9Route: typeof R9Route
+  DeviceRoute: typeof DeviceRoute
   LandingRoute: typeof LandingRoute
 }
 
@@ -435,6 +448,13 @@ declare module '@tanstack/react-router' {
       path: '/landing'
       fullPath: '/landing'
       preLoaderRoute: typeof LandingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/device': {
+      id: '/device'
+      path: '/device'
+      fullPath: '/device'
+      preLoaderRoute: typeof DeviceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/9': {
@@ -753,6 +773,7 @@ const rootRouteChildren: RootRouteChildren = {
   R7Route: R7Route,
   R8Route: R8Route,
   R9Route: R9Route,
+  DeviceRoute: DeviceRoute,
   LandingRoute: LandingRoute,
 }
 export const routeTree = rootRouteImport

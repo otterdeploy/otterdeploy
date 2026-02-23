@@ -35,10 +35,9 @@ export const Route = createFileRoute(
   validateSearch: searchSchema,
   loader: async ({ context, params }) => {
     if (context.zero) {
-      context.zero.run(queries.resourceById({ resourceId: params.serviceId }));
+      await context.zero.run(queries.resourceById({ resourceId: params.serviceId }));
     }
   },
-  pendingComponent: () => <div>Loading...</div>,
   errorComponent: ({ error }) => <div>Error: {error.message}</div>,
 });
 
