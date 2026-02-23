@@ -30,7 +30,16 @@ export const customDomain = pgTable(
     verificationToken: text("verification_token"),
     sslStatus: sslStatusEnum("ssl_status").notNull().default("pending"),
     sslExpiresAt: timestamp("ssl_expires_at"),
-    redirectRules: jsonb("redirect_rules"),
+    redirectRules: jsonb("redirect_rules")
+      .$type<
+        Array<{
+          source: string;
+          target: string;
+          statusCode: 301 | 302;
+          type: "www" | "custom";
+        }>
+      >()
+      .default([]),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
