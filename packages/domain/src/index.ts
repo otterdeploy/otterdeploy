@@ -27,3 +27,5 @@ export * as customDomainService from "./custom-domain";
 export * as backupService from "./backup";
 
 export * as pipeline from "./pipeline";
+export * as databaseProvisioner from "./database-provisioner";
+export * as serverBootstrap from "./server-bootstrap";
