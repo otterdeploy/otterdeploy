@@ -25,3 +25,5 @@ export * as gitProviderService from "./git-provider";
 export * as serverManagementService from "./server-management";
 export * as customDomainService from "./custom-domain";
 export * as backupService from "./backup";
+
+export * as pipeline from "./pipeline";
