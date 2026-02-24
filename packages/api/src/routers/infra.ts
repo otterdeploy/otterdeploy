@@ -1,7 +1,7 @@
 import * as z from "zod";
 import { ORPCError } from "@orpc/server";
 import { getCurrentState, applyChangeset, ResourceConfigSchema } from "@otterdeploy/infra-config";
-import type { CurrentState, Changeset } from "@otterdeploy/infra-config";
+import type { CurrentState } from "@otterdeploy/infra-config";
 
 import { orgProcedure, orgAdminProcedure } from "../index";
 
@@ -15,7 +15,6 @@ function serializeState(state: CurrentState) {
       id: string;
       name: string;
       resources: Record<string, unknown>;
-      links: unknown[];
       envVars: unknown[];
       domains: unknown[];
     }
@@ -30,7 +29,6 @@ function serializeState(state: CurrentState) {
       id: env.id,
       name: env.name,
       resources,
-      links: env.links,
       envVars: env.envVars,
       domains: env.domains,
     };
@@ -84,22 +82,6 @@ const DeleteResourceActionSchema = z.object({
   id: z.string(),
 });
 
-const CreateLinkActionSchema = z.object({
-  type: z.literal("create_link"),
-  env: z.string(),
-  from: z.string(),
-  to: z.string(),
-  linkType: z.string(),
-});
-
-const DeleteLinkActionSchema = z.object({
-  type: z.literal("delete_link"),
-  env: z.string(),
-  id: z.string(),
-  from: z.string(),
-  to: z.string(),
-});
-
 const SetEnvVarActionSchema = z.object({
   type: z.literal("set_env_var"),
   env: z.string(),
@@ -138,8 +120,6 @@ const ChangeActionSchema = z.discriminatedUnion("type", [
   CreateResourceActionSchema,
   UpdateResourceActionSchema,
   DeleteResourceActionSchema,
-  CreateLinkActionSchema,
-  DeleteLinkActionSchema,
   SetEnvVarActionSchema,
   DeleteEnvVarActionSchema,
   SetDomainActionSchema,

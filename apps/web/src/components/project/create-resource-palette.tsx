@@ -19,9 +19,7 @@ import {
   ApiIcon,
   CpuIcon,
   DatabaseIcon,
-  DatabaseLightningIcon,
   GlobeIcon,
-  HardDriveIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ChevronRightIcon, PlusIcon } from "lucide-react";
@@ -31,8 +29,6 @@ export const kindOptions = [
   { value: "api", label: "API", icon: ApiIcon },
   { value: "worker", label: "Worker", icon: CpuIcon },
   { value: "database", label: "Database", icon: DatabaseIcon },
-  { value: "cache", label: "Cache", icon: DatabaseLightningIcon },
-  { value: "volume", label: "Volume", icon: HardDriveIcon },
 ] as const;
 
 export type ResourceKind = (typeof kindOptions)[number]["value"];
@@ -66,7 +62,8 @@ export function CreateResourcePalette({
     setOpen((prev) => !prev);
   });
 
-  const [environments] = useQuery(projectId ? queries.environmentList({ projectId }) : undefined);
+  const [project] = useQuery(projectId ? queries.project.byId({ projectId }) : undefined);
+  const [environments] = useQuery(projectId ? queries.environment.list({ projectId }) : undefined);
 
   function handleOpenChange(next: boolean) {
     setOpen(next);
@@ -74,7 +71,7 @@ export function CreateResourcePalette({
   }
 
   async function createResource(kind: ResourceKind, name: string) {
-    if (!projectId || !zero) return;
+    if (!projectId || !zero || !project) return;
     const env = environments?.[0];
     if (!env) return;
 
@@ -84,6 +81,8 @@ export function CreateResourcePalette({
     zero.mutate(
       mutators.resource.create({
         id,
+        organizationId: project.organizationId,
+        projectId,
         environmentId: env.id,
         kind,
         name,
@@ -91,31 +90,6 @@ export function CreateResourcePalette({
         posY,
       }),
     );
-
-    // Auto-create a volume and link it to the database
-    if (kind === "database") {
-      const volumeId = crypto.randomUUID();
-      const volumeName = `${name.toLowerCase()}-volume`;
-      zero.mutate(
-        mutators.resource.create({
-          id: volumeId,
-          environmentId: env.id,
-          kind: "volume",
-          name: volumeName,
-          posX,
-          posY: posY + 120,
-        }),
-      );
-      zero.mutate(
-        mutators.resourceLink.create({
-          id: crypto.randomUUID(),
-          environmentId: env.id,
-          sourceResourceId: id,
-          targetResourceId: volumeId,
-          linkType: "depends_on",
-        }),
-      );
-    }
 
     onCreated({ id, name, kind, status: "unknown" });
 

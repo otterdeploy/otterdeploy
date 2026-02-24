@@ -2,22 +2,22 @@ import { Result } from "better-result";
 import { db, eq, and } from "@otterdeploy/db";
 import {
   project,
-  projectEnvironment,
-  projectResource,
-  projectResourceLink,
-  projectViewport,
-} from "@otterdeploy/db/schema/architecture";
+  environment,
+  resource,
+  resourcePosition,
+  viewport,
+} from "@otterdeploy/db/schema/project";
 
 import { NotFoundError } from "./errors";
 
 async function getOrCreateEnvironment(
   projectId: string,
   environmentId?: string,
-): Promise<Result<typeof projectEnvironment.$inferSelect, NotFoundError>> {
-  const existing = await db.query.projectEnvironment.findFirst({
+): Promise<Result<typeof environment.$inferSelect, NotFoundError>> {
+  const existing = await db.query.environment.findFirst({
     where: environmentId
-      ? eq(projectEnvironment.id, environmentId)
-      : eq(projectEnvironment.projectId, projectId),
+      ? eq(environment.id, environmentId)
+      : eq(environment.projectId, projectId),
     ...(environmentId ? {} : { orderBy: (pe: any, { asc }: any) => [asc(pe.createdAt)] }),
   });
 
@@ -41,8 +41,8 @@ async function getOrCreateEnvironment(
     updatedAt: now,
   };
 
-  await db.insert(projectEnvironment).values(created);
-  await db.insert(projectViewport).values({
+  await db.insert(environment).values(created);
+  await db.insert(viewport).values({
     environmentId: created.id,
     x: 0,
     y: 0,
@@ -65,7 +65,7 @@ function formatProjectForGraph(row: typeof project.$inferSelect) {
   };
 }
 
-function formatEnvironmentForGraph(row: typeof projectEnvironment.$inferSelect) {
+function formatEnvironmentForGraph(row: typeof environment.$inferSelect) {
   return {
     id: row.id,
     projectId: row.projectId,
@@ -87,65 +87,54 @@ export async function getProjectGraph(
 
   const envResult = await getOrCreateEnvironment(projectId, environmentId);
   if (envResult.isErr()) return envResult;
-  const environment = envResult.value;
+  const env = envResult.value;
 
-  const [resources, links, viewport] = await Promise.all([
-    db.query.projectResource.findMany({
-      where: eq(projectResource.environmentId, environment.id),
+  const [resources, viewportRow] = await Promise.all([
+    db.query.resource.findMany({
+      where: eq(resource.environmentId, env.id),
+      with: { position: true },
     }),
-    db.query.projectResourceLink.findMany({
-      where: eq(projectResourceLink.environmentId, environment.id),
-    }),
-    db.query.projectViewport.findFirst({
-      where: eq(projectViewport.environmentId, environment.id),
+    db.query.viewport.findFirst({
+      where: eq(viewport.environmentId, env.id),
     }),
   ]);
 
   const ensuredViewport =
-    viewport ??
+    viewportRow ??
     (await (async () => {
       const newViewport = {
-        environmentId: environment.id,
+        environmentId: env.id,
         x: 0,
         y: 0,
         zoom: 1,
         updatedAt: new Date(),
       };
-      await db.insert(projectViewport).values(newViewport).onConflictDoNothing();
+      await db.insert(viewport).values(newViewport).onConflictDoNothing();
       return newViewport;
     })());
 
   return Result.ok({
     project: formatProjectForGraph(projectRow),
-    environment: formatEnvironmentForGraph(environment),
+    environment: formatEnvironmentForGraph(env),
     viewport: {
       x: ensuredViewport.x,
       y: ensuredViewport.y,
       zoom: ensuredViewport.zoom,
     },
-    nodes: resources.map((resource) => ({
-      id: resource.id,
+    nodes: resources.map((r) => ({
+      id: r.id,
       type: "resource" as const,
       position: {
-        x: resource.posX,
-        y: resource.posY,
+        x: r.position?.posX ?? 0,
+        y: r.position?.posY ?? 0,
       },
       data: {
-        name: resource.name,
-        kind: resource.kind,
-        status: resource.status,
-        metadata: resource.metadata,
+        name: r.name,
+        kind: r.kind,
+        status: r.status,
       },
     })),
-    edges: links.map((link) => ({
-      id: link.id,
-      source: link.sourceResourceId,
-      target: link.targetResourceId,
-      data: {
-        linkType: link.linkType,
-      },
-      type: "smoothstep" as const,
-    })),
+    edges: [],
   });
 }
 
@@ -156,17 +145,10 @@ export async function replaceProjectGraph(params: {
   resources: Array<{
     id: string;
     name: string;
-    kind: "web" | "api" | "worker" | "database" | "cache" | "volume";
+    kind: "web" | "api" | "worker" | "database" | "compose";
     status: "online" | "degraded" | "crashed" | "unknown" | "deploying" | "stopped";
-    metadata: Record<string, unknown>;
     posX: number;
     posY: number;
-  }>;
-  links: Array<{
-    id: string;
-    sourceResourceId: string;
-    targetResourceId: string;
-    linkType: "depends_on" | "network" | "mounts";
   }>;
   viewport: { x: number; y: number; zoom: number };
 }) {
@@ -177,65 +159,50 @@ export async function replaceProjectGraph(params: {
 
   const envResult = await getOrCreateEnvironment(params.projectId, params.environmentId);
   if (envResult.isErr()) return envResult;
-  const environment = envResult.value;
+  const env = envResult.value;
   const now = new Date();
 
   await db.transaction(async (tx) => {
     await tx
-      .delete(projectResourceLink)
-      .where(eq(projectResourceLink.environmentId, environment.id));
-    await tx
-      .delete(projectResource)
-      .where(eq(projectResource.environmentId, environment.id));
+      .delete(resource)
+      .where(eq(resource.environmentId, env.id));
 
     if (params.resources.length > 0) {
-      await tx.insert(projectResource).values(
-        params.resources.map((resource) => ({
-          id: resource.id,
-          environmentId: environment.id,
-          kind: resource.kind,
-          name: resource.name,
-          status: resource.status,
-          metadata: resource.metadata,
-          posX: resource.posX,
-          posY: resource.posY,
+      await tx.insert(resource).values(
+        params.resources.map((r) => ({
+          id: r.id,
+          organizationId: params.organizationId,
+          projectId: params.projectId,
+          environmentId: env.id,
+          kind: r.kind,
+          name: r.name,
+          status: r.status,
           createdAt: now,
+          updatedAt: now,
+        })),
+      );
+
+      await tx.insert(resourcePosition).values(
+        params.resources.map((r) => ({
+          resourceId: r.id,
+          posX: r.posX,
+          posY: r.posY,
           updatedAt: now,
         })),
       );
     }
 
-    const validNodeIds = new Set(params.resources.map((r) => r.id));
-    const linksToInsert = params.links
-      .filter(
-        (link) =>
-          validNodeIds.has(link.sourceResourceId) && validNodeIds.has(link.targetResourceId),
-      )
-      .map((link) => ({
-        id: link.id,
-        environmentId: environment.id,
-        sourceResourceId: link.sourceResourceId,
-        targetResourceId: link.targetResourceId,
-        linkType: link.linkType,
-        createdAt: now,
-        updatedAt: now,
-      }));
-
-    if (linksToInsert.length > 0) {
-      await tx.insert(projectResourceLink).values(linksToInsert);
-    }
-
     await tx
-      .insert(projectViewport)
+      .insert(viewport)
       .values({
-        environmentId: environment.id,
+        environmentId: env.id,
         x: params.viewport.x,
         y: params.viewport.y,
         zoom: params.viewport.zoom,
         updatedAt: now,
       })
       .onConflictDoUpdate({
-        target: projectViewport.environmentId,
+        target: viewport.environmentId,
         set: {
           x: params.viewport.x,
           y: params.viewport.y,
@@ -245,7 +212,7 @@ export async function replaceProjectGraph(params: {
       });
   });
 
-  return getProjectGraph(params.projectId, params.organizationId, environment.id);
+  return getProjectGraph(params.projectId, params.organizationId, env.id);
 }
 
 export async function updateViewport(params: {
@@ -261,19 +228,19 @@ export async function updateViewport(params: {
 
   const envResult = await getOrCreateEnvironment(params.projectId, params.environmentId);
   if (envResult.isErr()) return envResult;
-  const environment = envResult.value;
+  const env = envResult.value;
 
   await db
-    .insert(projectViewport)
+    .insert(viewport)
     .values({
-      environmentId: environment.id,
+      environmentId: env.id,
       x: params.viewport.x,
       y: params.viewport.y,
       zoom: params.viewport.zoom,
       updatedAt: new Date(),
     })
     .onConflictDoUpdate({
-      target: projectViewport.environmentId,
+      target: viewport.environmentId,
       set: {
         x: params.viewport.x,
         y: params.viewport.y,
@@ -283,7 +250,7 @@ export async function updateViewport(params: {
     });
 
   return Result.ok({
-    environmentId: environment.id,
+    environmentId: env.id,
     viewport: {
       x: params.viewport.x,
       y: params.viewport.y,

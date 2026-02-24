@@ -134,24 +134,42 @@ export const databaseConfig = pgTable(
   ],
 );
 
-export const volumeConfig = pgTable(
-  "volume_config",
+export const resourceVolume = pgTable(
+  "resource_volume",
   {
     id: text("id").primaryKey(),
-    resourceId: text("resource_id")
-      .notNull()
-      .unique()
-      .references(() => resource.id, { onDelete: "cascade" }),
-    mountPath: text("mount_path").notNull(),
-    sizeGb: integer("size_gb"),
+    organizationId: text("organization_id").notNull(),
+    name: text("name").notNull(),
     driver: text("driver").default("local"),
+    sizeGb: integer("size_gb"),
+    storageClass: text("storage_class"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
   },
-  (table) => [index("volume_config_resource_idx").on(table.resourceId)],
+  (table) => [index("resource_volume_org_idx").on(table.organizationId)],
+);
+
+export const resourceVolumeMount = pgTable(
+  "resource_volume_mount",
+  {
+    id: text("id").primaryKey(),
+    volumeId: text("volume_id")
+      .notNull()
+      .references(() => resourceVolume.id, { onDelete: "cascade" }),
+    resourceId: text("resource_id")
+      .notNull()
+      .references(() => resource.id, { onDelete: "cascade" }),
+    mountPath: text("mount_path").notNull(),
+    readOnly: boolean("read_only").default(false),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("resource_volume_mount_volume_idx").on(table.volumeId),
+    index("resource_volume_mount_resource_idx").on(table.resourceId),
+  ],
 );
 
 // --- Relations ---
@@ -191,9 +209,17 @@ export const databaseConfigRelations = relations(databaseConfig, ({ one }) => ({
   }),
 }));
 
-export const volumeConfigRelations = relations(volumeConfig, ({ one }) => ({
+export const resourceVolumeRelations = relations(resourceVolume, ({ many }) => ({
+  mounts: many(resourceVolumeMount),
+}));
+
+export const resourceVolumeMountRelations = relations(resourceVolumeMount, ({ one }) => ({
+  volume: one(resourceVolume, {
+    fields: [resourceVolumeMount.volumeId],
+    references: [resourceVolume.id],
+  }),
   resource: one(resource, {
-    fields: [volumeConfig.resourceId],
+    fields: [resourceVolumeMount.resourceId],
     references: [resource.id],
   }),
 }));

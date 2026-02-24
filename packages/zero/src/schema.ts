@@ -220,13 +220,13 @@ const auditLogTable = {
     },
     organizationId: {
       type: "string",
-      optional: false,
+      optional: true,
       customType: null as unknown as string,
       serverName: "organization_id",
     },
     userId: {
       type: "string",
-      optional: false,
+      optional: true,
       customType: null as unknown as string,
       serverName: "user_id",
     },
@@ -352,15 +352,6 @@ const backupTable = {
       customType: null as unknown as string,
       serverName: "error_message",
     },
-    metadata: {
-      type: "json",
-      optional: true,
-      customType: null as unknown as CustomType<
-        typeof drizzleSchema,
-        "backup",
-        "metadata"
-      >,
-    },
     createdAt: {
       type: "number",
       optional: true,
@@ -378,17 +369,17 @@ const backupScheduleTable = {
       optional: false,
       customType: null as unknown as string,
     },
-    resourceId: {
-      type: "string",
-      optional: false,
-      customType: null as unknown as string,
-      serverName: "resource_id",
-    },
     organizationId: {
       type: "string",
       optional: false,
       customType: null as unknown as string,
       serverName: "organization_id",
+    },
+    resourceId: {
+      type: "string",
+      optional: false,
+      customType: null as unknown as string,
+      serverName: "resource_id",
     },
     cronExpression: {
       type: "string",
@@ -479,12 +470,6 @@ const caddyInstanceTable = {
       customType: null as unknown as string,
       serverName: "server_id",
     },
-    organizationId: {
-      type: "string",
-      optional: false,
-      customType: null as unknown as string,
-      serverName: "organization_id",
-    },
     status: {
       type: "string",
       optional: true,
@@ -519,15 +504,6 @@ const caddyInstanceTable = {
       customType: null as unknown as string,
       serverName: "error_message",
     },
-    metadata: {
-      type: "json",
-      optional: true,
-      customType: null as unknown as CustomType<
-        typeof drizzleSchema,
-        "caddyInstance",
-        "metadata"
-      >,
-    },
     createdAt: {
       type: "number",
       optional: true,
@@ -552,17 +528,17 @@ const configFileTable = {
       optional: false,
       customType: null as unknown as string,
     },
-    resourceId: {
-      type: "string",
-      optional: false,
-      customType: null as unknown as string,
-      serverName: "resource_id",
-    },
     organizationId: {
       type: "string",
       optional: false,
       customType: null as unknown as string,
       serverName: "organization_id",
+    },
+    resourceId: {
+      type: "string",
+      optional: false,
+      customType: null as unknown as string,
+      serverName: "resource_id",
     },
     filename: {
       type: "string",
@@ -625,11 +601,11 @@ const containerRegistryTable = {
       optional: true,
       customType: null as unknown as string,
     },
-    passwordSecretRef: {
+    passwordSecretRefId: {
       type: "string",
       optional: true,
       customType: null as unknown as string,
-      serverName: "password_secret_ref",
+      serverName: "password_secret_ref_id",
     },
     isDefault: {
       type: "boolean",
@@ -789,16 +765,6 @@ const databaseConfigTable = {
       customType: null as unknown as string,
       serverName: "custom_config",
     },
-    typeConfig: {
-      type: "json",
-      optional: true,
-      customType: null as unknown as CustomType<
-        typeof drizzleSchema,
-        "databaseConfig",
-        "typeConfig"
-      >,
-      serverName: "type_config",
-    },
     createdAt: {
       type: "number",
       optional: true,
@@ -889,17 +855,14 @@ const deploymentTable = {
       customType: null as unknown as string,
       serverName: "git_commit_message",
     },
-    buildMethod: {
+    builder: {
       type: "string",
       optional: true,
       customType: null as unknown as
-        | "compose"
         | "nixpacks"
         | "dockerfile"
         | "buildpack"
-        | "docker_image"
-        | "static",
-      serverName: "build_method",
+        | "railpack",
     },
     imageTag: {
       type: "string",
@@ -936,14 +899,11 @@ const deploymentTable = {
       customType: null as unknown as string,
       serverName: "triggered_by",
     },
-    metadata: {
-      type: "json",
+    idempotencyKey: {
+      type: "string",
       optional: true,
-      customType: null as unknown as CustomType<
-        typeof drizzleSchema,
-        "deployment",
-        "metadata"
-      >,
+      customType: null as unknown as string,
+      serverName: "idempotency_key",
     },
     createdAt: {
       type: "number",
@@ -1062,7 +1022,6 @@ const deploymentSecretSnapshotTable = {
       customType: null as unknown as {
         key: string;
         variableId: string;
-        scope: "project" | "environment" | "resource";
         secretReferenceId: string | null;
         providerVersion: string | null;
         digest: string;
@@ -1149,6 +1108,40 @@ const deviceCodeTable = {
   primaryKey: ["id"],
   serverName: "device_code",
 } as const;
+const environmentTable = {
+  name: "environment",
+  columns: {
+    id: {
+      type: "string",
+      optional: false,
+      customType: null as unknown as string,
+    },
+    projectId: {
+      type: "string",
+      optional: false,
+      customType: null as unknown as string,
+      serverName: "project_id",
+    },
+    name: {
+      type: "string",
+      optional: false,
+      customType: null as unknown as string,
+    },
+    createdAt: {
+      type: "number",
+      optional: true,
+      customType: null as unknown as number,
+      serverName: "created_at",
+    },
+    updatedAt: {
+      type: "number",
+      optional: true,
+      customType: null as unknown as number,
+      serverName: "updated_at",
+    },
+  },
+  primaryKey: ["id"],
+} as const;
 const environmentVariableTable = {
   name: "environmentVariable",
   columns: {
@@ -1163,16 +1156,23 @@ const environmentVariableTable = {
       customType: null as unknown as string,
       serverName: "organization_id",
     },
-    scope: {
+    projectId: {
       type: "string",
-      optional: false,
-      customType: null as unknown as "project" | "environment" | "resource",
-    },
-    scopeId: {
-      type: "string",
-      optional: false,
+      optional: true,
       customType: null as unknown as string,
-      serverName: "scope_id",
+      serverName: "project_id",
+    },
+    environmentId: {
+      type: "string",
+      optional: true,
+      customType: null as unknown as string,
+      serverName: "environment_id",
+    },
+    resourceId: {
+      type: "string",
+      optional: true,
+      customType: null as unknown as string,
+      serverName: "resource_id",
     },
     key: {
       type: "string",
@@ -1261,12 +1261,6 @@ const gitProviderTable = {
       customType: null as unknown as string,
       serverName: "client_secret_reference_id",
     },
-    encryptedClientSecret: {
-      type: "string",
-      optional: true,
-      customType: null as unknown as string,
-      serverName: "encrypted_client_secret",
-    },
     installationId: {
       type: "string",
       optional: true,
@@ -1278,12 +1272,6 @@ const gitProviderTable = {
       optional: true,
       customType: null as unknown as string,
       serverName: "webhook_secret_reference_id",
-    },
-    encryptedWebhookSecret: {
-      type: "string",
-      optional: true,
-      customType: null as unknown as string,
-      serverName: "encrypted_webhook_secret",
     },
     createdAt: {
       type: "number",
@@ -1614,13 +1602,19 @@ const projectTable = {
   },
   primaryKey: ["id"],
 } as const;
-const projectEnvironmentTable = {
-  name: "projectEnvironment",
+const resourceTable = {
+  name: "resource",
   columns: {
     id: {
       type: "string",
       optional: false,
       customType: null as unknown as string,
+    },
+    organizationId: {
+      type: "string",
+      optional: false,
+      customType: null as unknown as string,
+      serverName: "organization_id",
     },
     projectId: {
       type: "string",
@@ -1628,40 +1622,17 @@ const projectEnvironmentTable = {
       customType: null as unknown as string,
       serverName: "project_id",
     },
-    name: {
-      type: "string",
-      optional: false,
-      customType: null as unknown as string,
-    },
-    createdAt: {
-      type: "number",
-      optional: true,
-      customType: null as unknown as number,
-      serverName: "created_at",
-    },
-    updatedAt: {
-      type: "number",
-      optional: true,
-      customType: null as unknown as number,
-      serverName: "updated_at",
-    },
-  },
-  primaryKey: ["id"],
-  serverName: "project_environment",
-} as const;
-const projectResourceTable = {
-  name: "projectResource",
-  columns: {
-    id: {
-      type: "string",
-      optional: false,
-      customType: null as unknown as string,
-    },
     environmentId: {
       type: "string",
       optional: false,
       customType: null as unknown as string,
       serverName: "environment_id",
+    },
+    serverId: {
+      type: "string",
+      optional: true,
+      customType: null as unknown as string,
+      serverName: "server_id",
     },
     kind: {
       type: "string",
@@ -1671,8 +1642,6 @@ const projectResourceTable = {
         | "api"
         | "worker"
         | "database"
-        | "cache"
-        | "volume"
         | "compose",
     },
     name: {
@@ -1691,38 +1660,46 @@ const projectResourceTable = {
         | "stopped"
         | "unknown",
     },
-    metadata: {
-      type: "json",
-      optional: true,
-      customType: null as unknown as CustomType<
-        typeof drizzleSchema,
-        "projectResource",
-        "metadata"
-      >,
-    },
-    posX: {
+    deletedAt: {
       type: "number",
       optional: true,
       customType: null as unknown as number,
-      serverName: "pos_x",
+      serverName: "deleted_at",
     },
-    posY: {
+    createdAt: {
       type: "number",
       optional: true,
       customType: null as unknown as number,
-      serverName: "pos_y",
+      serverName: "created_at",
     },
-    buildMethod: {
+    updatedAt: {
+      type: "number",
+      optional: true,
+      customType: null as unknown as number,
+      serverName: "updated_at",
+    },
+  },
+  primaryKey: ["id"],
+} as const;
+const resourceBuildConfigTable = {
+  name: "resourceBuildConfig",
+  columns: {
+    id: {
+      type: "string",
+      optional: false,
+      customType: null as unknown as string,
+    },
+    resourceId: {
+      type: "string",
+      optional: false,
+      customType: null as unknown as string,
+      serverName: "resource_id",
+    },
+    registryId: {
       type: "string",
       optional: true,
-      customType: null as unknown as
-        | "compose"
-        | "nixpacks"
-        | "dockerfile"
-        | "buildpack"
-        | "docker_image"
-        | "static",
-      serverName: "build_method",
+      customType: null as unknown as string,
+      serverName: "registry_id",
     },
     builder: {
       type: "string",
@@ -1751,51 +1728,11 @@ const projectResourceTable = {
       customType: null as unknown as string[],
       serverName: "watch_patterns",
     },
-    port: {
-      type: "number",
-      optional: true,
-      customType: null as unknown as number,
-    },
-    healthCheckPath: {
+    rootDirectory: {
       type: "string",
       optional: true,
       customType: null as unknown as string,
-      serverName: "health_check_path",
-    },
-    healthCheckInterval: {
-      type: "number",
-      optional: true,
-      customType: null as unknown as number,
-      serverName: "health_check_interval",
-    },
-    healthCheckTimeout: {
-      type: "number",
-      optional: true,
-      customType: null as unknown as number,
-      serverName: "health_check_timeout",
-    },
-    replicas: {
-      type: "number",
-      optional: true,
-      customType: null as unknown as number,
-    },
-    cpuLimit: {
-      type: "number",
-      optional: true,
-      customType: null as unknown as number,
-      serverName: "cpu_limit",
-    },
-    memoryLimit: {
-      type: "number",
-      optional: true,
-      customType: null as unknown as number,
-      serverName: "memory_limit",
-    },
-    startCommand: {
-      type: "string",
-      optional: true,
-      customType: null as unknown as string,
-      serverName: "start_command",
+      serverName: "root_directory",
     },
     preDeployCommand: {
       type: "string",
@@ -1803,52 +1740,89 @@ const projectResourceTable = {
       customType: null as unknown as string,
       serverName: "pre_deploy_command",
     },
-    restartPolicy: {
-      type: "string",
-      optional: true,
-      customType: null as unknown as "ON_FAILURE" | "ALWAYS" | "NEVER",
-      serverName: "restart_policy",
-    },
-    restartPolicyMaxRetries: {
+    createdAt: {
       type: "number",
       optional: true,
       customType: null as unknown as number,
-      serverName: "restart_policy_max_retries",
+      serverName: "created_at",
+    },
+    updatedAt: {
+      type: "number",
+      optional: true,
+      customType: null as unknown as number,
+      serverName: "updated_at",
+    },
+  },
+  primaryKey: ["id"],
+  serverName: "resource_build_config",
+} as const;
+const resourceComposeConfigTable = {
+  name: "resourceComposeConfig",
+  columns: {
+    id: {
+      type: "string",
+      optional: false,
+      customType: null as unknown as string,
+    },
+    resourceId: {
+      type: "string",
+      optional: false,
+      customType: null as unknown as string,
+      serverName: "resource_id",
+    },
+    composeFile: {
+      type: "string",
+      optional: false,
+      customType: null as unknown as string,
+      serverName: "compose_file",
+    },
+    composePath: {
+      type: "string",
+      optional: true,
+      customType: null as unknown as string,
+      serverName: "compose_path",
+    },
+    createdAt: {
+      type: "number",
+      optional: true,
+      customType: null as unknown as number,
+      serverName: "created_at",
+    },
+    updatedAt: {
+      type: "number",
+      optional: true,
+      customType: null as unknown as number,
+      serverName: "updated_at",
+    },
+  },
+  primaryKey: ["id"],
+  serverName: "resource_compose_config",
+} as const;
+const resourceJobConfigTable = {
+  name: "resourceJobConfig",
+  columns: {
+    id: {
+      type: "string",
+      optional: false,
+      customType: null as unknown as string,
+    },
+    resourceId: {
+      type: "string",
+      optional: false,
+      customType: null as unknown as string,
+      serverName: "resource_id",
     },
     cronSchedule: {
       type: "string",
-      optional: true,
+      optional: false,
       customType: null as unknown as string,
       serverName: "cron_schedule",
     },
     cronCommand: {
       type: "string",
-      optional: true,
+      optional: false,
       customType: null as unknown as string,
       serverName: "cron_command",
-    },
-    registryId: {
-      type: "string",
-      optional: true,
-      customType: null as unknown as string,
-      serverName: "registry_id",
-    },
-    composeFile: {
-      type: "string",
-      optional: true,
-      customType: null as unknown as string,
-      serverName: "compose_file",
-    },
-    region: {
-      type: "string",
-      optional: true,
-      customType: null as unknown as string,
-    },
-    sleepApplication: {
-      type: "boolean",
-      optional: true,
-      customType: null as unknown as boolean,
-      serverName: "sleep_application",
     },
     overlapSeconds: {
       type: "number",
@@ -1862,12 +1836,6 @@ const projectResourceTable = {
       customType: null as unknown as number,
       serverName: "draining_seconds",
     },
-    serverId: {
-      type: "string",
-      optional: true,
-      customType: null as unknown as string,
-      serverName: "server_id",
-    },
     createdAt: {
       type: "number",
       optional: true,
@@ -1882,89 +1850,7 @@ const projectResourceTable = {
     },
   },
   primaryKey: ["id"],
-  serverName: "project_resource",
-} as const;
-const projectResourceLinkTable = {
-  name: "projectResourceLink",
-  columns: {
-    id: {
-      type: "string",
-      optional: false,
-      customType: null as unknown as string,
-    },
-    environmentId: {
-      type: "string",
-      optional: false,
-      customType: null as unknown as string,
-      serverName: "environment_id",
-    },
-    sourceResourceId: {
-      type: "string",
-      optional: false,
-      customType: null as unknown as string,
-      serverName: "source_resource_id",
-    },
-    targetResourceId: {
-      type: "string",
-      optional: false,
-      customType: null as unknown as string,
-      serverName: "target_resource_id",
-    },
-    linkType: {
-      type: "string",
-      optional: true,
-      customType: null as unknown as "depends_on" | "network" | "mounts",
-      serverName: "link_type",
-    },
-    createdAt: {
-      type: "number",
-      optional: true,
-      customType: null as unknown as number,
-      serverName: "created_at",
-    },
-    updatedAt: {
-      type: "number",
-      optional: true,
-      customType: null as unknown as number,
-      serverName: "updated_at",
-    },
-  },
-  primaryKey: ["id"],
-  serverName: "project_resource_link",
-} as const;
-const projectViewportTable = {
-  name: "projectViewport",
-  columns: {
-    environmentId: {
-      type: "string",
-      optional: false,
-      customType: null as unknown as string,
-      serverName: "environment_id",
-    },
-    x: {
-      type: "number",
-      optional: true,
-      customType: null as unknown as number,
-    },
-    y: {
-      type: "number",
-      optional: true,
-      customType: null as unknown as number,
-    },
-    zoom: {
-      type: "number",
-      optional: true,
-      customType: null as unknown as number,
-    },
-    updatedAt: {
-      type: "number",
-      optional: true,
-      customType: null as unknown as number,
-      serverName: "updated_at",
-    },
-  },
-  primaryKey: ["environmentId"],
-  serverName: "project_viewport",
+  serverName: "resource_job_config",
 } as const;
 const resourceMetricTable = {
   name: "resourceMetric",
@@ -2114,8 +2000,39 @@ const resourceMetricHourlyTable = {
   primaryKey: ["id"],
   serverName: "resource_metric_hourly",
 } as const;
-const scheduledTaskExecutionTable = {
-  name: "scheduledTaskExecution",
+const resourcePositionTable = {
+  name: "resourcePosition",
+  columns: {
+    resourceId: {
+      type: "string",
+      optional: false,
+      customType: null as unknown as string,
+      serverName: "resource_id",
+    },
+    posX: {
+      type: "number",
+      optional: true,
+      customType: null as unknown as number,
+      serverName: "pos_x",
+    },
+    posY: {
+      type: "number",
+      optional: true,
+      customType: null as unknown as number,
+      serverName: "pos_y",
+    },
+    updatedAt: {
+      type: "number",
+      optional: true,
+      customType: null as unknown as number,
+      serverName: "updated_at",
+    },
+  },
+  primaryKey: ["resourceId"],
+  serverName: "resource_position",
+} as const;
+const resourceRuntimeConfigTable = {
+  name: "resourceRuntimeConfig",
   columns: {
     id: {
       type: "string",
@@ -2128,11 +2045,204 @@ const scheduledTaskExecutionTable = {
       customType: null as unknown as string,
       serverName: "resource_id",
     },
+    port: {
+      type: "number",
+      optional: true,
+      customType: null as unknown as number,
+    },
+    startCommand: {
+      type: "string",
+      optional: true,
+      customType: null as unknown as string,
+      serverName: "start_command",
+    },
+    restartPolicy: {
+      type: "string",
+      optional: true,
+      customType: null as unknown as "ON_FAILURE" | "ALWAYS" | "NEVER",
+      serverName: "restart_policy",
+    },
+    restartPolicyMaxRetries: {
+      type: "number",
+      optional: true,
+      customType: null as unknown as number,
+      serverName: "restart_policy_max_retries",
+    },
+    replicas: {
+      type: "number",
+      optional: true,
+      customType: null as unknown as number,
+    },
+    cpuLimit: {
+      type: "number",
+      optional: true,
+      customType: null as unknown as number,
+      serverName: "cpu_limit",
+    },
+    memoryLimit: {
+      type: "number",
+      optional: true,
+      customType: null as unknown as number,
+      serverName: "memory_limit",
+    },
+    region: {
+      type: "string",
+      optional: true,
+      customType: null as unknown as string,
+    },
+    sleepApplication: {
+      type: "boolean",
+      optional: true,
+      customType: null as unknown as boolean,
+      serverName: "sleep_application",
+    },
+    healthCheckPath: {
+      type: "string",
+      optional: true,
+      customType: null as unknown as string,
+      serverName: "health_check_path",
+    },
+    healthCheckInterval: {
+      type: "number",
+      optional: true,
+      customType: null as unknown as number,
+      serverName: "health_check_interval",
+    },
+    healthCheckTimeout: {
+      type: "number",
+      optional: true,
+      customType: null as unknown as number,
+      serverName: "health_check_timeout",
+    },
+    createdAt: {
+      type: "number",
+      optional: true,
+      customType: null as unknown as number,
+      serverName: "created_at",
+    },
+    updatedAt: {
+      type: "number",
+      optional: true,
+      customType: null as unknown as number,
+      serverName: "updated_at",
+    },
+  },
+  primaryKey: ["id"],
+  serverName: "resource_runtime_config",
+} as const;
+const resourceVolumeTable = {
+  name: "resourceVolume",
+  columns: {
+    id: {
+      type: "string",
+      optional: false,
+      customType: null as unknown as string,
+    },
     organizationId: {
       type: "string",
       optional: false,
       customType: null as unknown as string,
       serverName: "organization_id",
+    },
+    name: {
+      type: "string",
+      optional: false,
+      customType: null as unknown as string,
+    },
+    driver: {
+      type: "string",
+      optional: true,
+      customType: null as unknown as string,
+    },
+    sizeGb: {
+      type: "number",
+      optional: true,
+      customType: null as unknown as number,
+      serverName: "size_gb",
+    },
+    storageClass: {
+      type: "string",
+      optional: true,
+      customType: null as unknown as string,
+      serverName: "storage_class",
+    },
+    createdAt: {
+      type: "number",
+      optional: true,
+      customType: null as unknown as number,
+      serverName: "created_at",
+    },
+    updatedAt: {
+      type: "number",
+      optional: true,
+      customType: null as unknown as number,
+      serverName: "updated_at",
+    },
+  },
+  primaryKey: ["id"],
+  serverName: "resource_volume",
+} as const;
+const resourceVolumeMountTable = {
+  name: "resourceVolumeMount",
+  columns: {
+    id: {
+      type: "string",
+      optional: false,
+      customType: null as unknown as string,
+    },
+    volumeId: {
+      type: "string",
+      optional: false,
+      customType: null as unknown as string,
+      serverName: "volume_id",
+    },
+    resourceId: {
+      type: "string",
+      optional: false,
+      customType: null as unknown as string,
+      serverName: "resource_id",
+    },
+    mountPath: {
+      type: "string",
+      optional: false,
+      customType: null as unknown as string,
+      serverName: "mount_path",
+    },
+    readOnly: {
+      type: "boolean",
+      optional: true,
+      customType: null as unknown as boolean,
+      serverName: "read_only",
+    },
+    createdAt: {
+      type: "number",
+      optional: true,
+      customType: null as unknown as number,
+      serverName: "created_at",
+    },
+  },
+  primaryKey: ["id"],
+  serverName: "resource_volume_mount",
+} as const;
+const scheduledTaskExecutionTable = {
+  name: "scheduledTaskExecution",
+  columns: {
+    id: {
+      type: "string",
+      optional: false,
+      customType: null as unknown as string,
+    },
+    organizationId: {
+      type: "string",
+      optional: false,
+      customType: null as unknown as string,
+      serverName: "organization_id",
+    },
+    resourceId: {
+      type: "string",
+      optional: false,
+      customType: null as unknown as string,
+      serverName: "resource_id",
     },
     command: {
       type: "string",
@@ -2439,12 +2549,6 @@ const serverTable = {
       customType: null as unknown as string,
       serverName: "base_domain",
     },
-    acmeEmail: {
-      type: "string",
-      optional: true,
-      customType: null as unknown as string,
-      serverName: "acme_email",
-    },
     dockerCleanupThreshold: {
       type: "number",
       optional: true,
@@ -2456,15 +2560,6 @@ const serverTable = {
       optional: true,
       customType: null as unknown as number,
       serverName: "last_seen_at",
-    },
-    metadata: {
-      type: "json",
-      optional: true,
-      customType: null as unknown as CustomType<
-        typeof drizzleSchema,
-        "server",
-        "metadata"
-      >,
     },
     createdAt: {
       type: "number",
@@ -2576,12 +2671,6 @@ const sshKeyTable = {
       customType: null as unknown as string,
       serverName: "private_key_secret_reference_id",
     },
-    encryptedPrivateKey: {
-      type: "string",
-      optional: false,
-      customType: null as unknown as string,
-      serverName: "encrypted_private_key",
-    },
     fingerprint: {
       type: "string",
       optional: false,
@@ -2592,6 +2681,12 @@ const sshKeyTable = {
       optional: true,
       customType: null as unknown as number,
       serverName: "created_at",
+    },
+    updatedAt: {
+      type: "number",
+      optional: true,
+      customType: null as unknown as number,
+      serverName: "updated_at",
     },
   },
   primaryKey: ["id"],
@@ -2737,6 +2832,39 @@ const verificationTable = {
   },
   primaryKey: ["id"],
 } as const;
+const viewportTable = {
+  name: "viewport",
+  columns: {
+    environmentId: {
+      type: "string",
+      optional: false,
+      customType: null as unknown as string,
+      serverName: "environment_id",
+    },
+    x: {
+      type: "number",
+      optional: true,
+      customType: null as unknown as number,
+    },
+    y: {
+      type: "number",
+      optional: true,
+      customType: null as unknown as number,
+    },
+    zoom: {
+      type: "number",
+      optional: true,
+      customType: null as unknown as number,
+    },
+    updatedAt: {
+      type: "number",
+      optional: true,
+      customType: null as unknown as number,
+      serverName: "updated_at",
+    },
+  },
+  primaryKey: ["environmentId"],
+} as const;
 const webhookDeliveryTable = {
   name: "webhookDelivery",
   columns: {
@@ -2794,7 +2922,7 @@ const backupRelationships = {
     {
       sourceField: ["resourceId"],
       destField: ["id"],
-      destSchema: "projectResource",
+      destSchema: "resource",
       cardinality: "one",
     },
   ],
@@ -2804,7 +2932,7 @@ const backupScheduleRelationships = {
     {
       sourceField: ["resourceId"],
       destField: ["id"],
-      destSchema: "projectResource",
+      destSchema: "resource",
       cardinality: "one",
     },
   ],
@@ -2826,21 +2954,13 @@ const caddyInstanceRelationships = {
       cardinality: "one",
     },
   ],
-  organization: [
-    {
-      sourceField: ["organizationId"],
-      destField: ["id"],
-      destSchema: "organization",
-      cardinality: "one",
-    },
-  ],
 } as const;
 const configFileRelationships = {
   resource: [
     {
       sourceField: ["resourceId"],
       destField: ["id"],
-      destSchema: "projectResource",
+      destSchema: "resource",
       cardinality: "one",
     },
   ],
@@ -2876,7 +2996,7 @@ const customDomainRelationships = {
     {
       sourceField: ["resourceId"],
       destField: ["id"],
-      destSchema: "projectResource",
+      destSchema: "resource",
       cardinality: "one",
     },
   ],
@@ -2886,7 +3006,7 @@ const databaseConfigRelationships = {
     {
       sourceField: ["resourceId"],
       destField: ["id"],
-      destSchema: "projectResource",
+      destSchema: "resource",
       cardinality: "one",
     },
   ],
@@ -2914,7 +3034,7 @@ const deploymentRelationships = {
     {
       sourceField: ["environmentId"],
       destField: ["id"],
-      destSchema: "projectEnvironment",
+      destSchema: "environment",
       cardinality: "one",
     },
   ],
@@ -2922,7 +3042,7 @@ const deploymentRelationships = {
     {
       sourceField: ["resourceId"],
       destField: ["id"],
-      destSchema: "projectResource",
+      destSchema: "resource",
       cardinality: "one",
     },
   ],
@@ -2964,7 +3084,75 @@ const deploymentSecretSnapshotRelationships = {
     {
       sourceField: ["resourceId"],
       destField: ["id"],
-      destSchema: "projectResource",
+      destSchema: "resource",
+      cardinality: "one",
+    },
+  ],
+} as const;
+const environmentRelationships = {
+  project: [
+    {
+      sourceField: ["projectId"],
+      destField: ["id"],
+      destSchema: "project",
+      cardinality: "one",
+    },
+  ],
+  resources: [
+    {
+      sourceField: ["id"],
+      destField: ["environmentId"],
+      destSchema: "resource",
+      cardinality: "many",
+    },
+  ],
+  viewport: [
+    {
+      sourceField: ["id"],
+      destField: ["environmentId"],
+      destSchema: "viewport",
+      cardinality: "one",
+    },
+  ],
+} as const;
+const environmentVariableRelationships = {
+  organization: [
+    {
+      sourceField: ["organizationId"],
+      destField: ["id"],
+      destSchema: "organization",
+      cardinality: "one",
+    },
+  ],
+  project: [
+    {
+      sourceField: ["projectId"],
+      destField: ["id"],
+      destSchema: "project",
+      cardinality: "one",
+    },
+  ],
+  environment: [
+    {
+      sourceField: ["environmentId"],
+      destField: ["id"],
+      destSchema: "environment",
+      cardinality: "one",
+    },
+  ],
+  resource: [
+    {
+      sourceField: ["resourceId"],
+      destField: ["id"],
+      destSchema: "resource",
+      cardinality: "one",
+    },
+  ],
+  secretReference: [
+    {
+      sourceField: ["secretReferenceId"],
+      destField: ["id"],
+      destSchema: "secretReference",
       cardinality: "one",
     },
   ],
@@ -2992,7 +3180,7 @@ const gitRepositoryRelationships = {
     {
       sourceField: ["resourceId"],
       destField: ["id"],
-      destSchema: "projectResource",
+      destSchema: "resource",
       cardinality: "one",
     },
   ],
@@ -3069,40 +3257,6 @@ const organizationRelationships = {
     },
   ],
 } as const;
-const projectEnvironmentRelationships = {
-  project: [
-    {
-      sourceField: ["projectId"],
-      destField: ["id"],
-      destSchema: "project",
-      cardinality: "one",
-    },
-  ],
-  resources: [
-    {
-      sourceField: ["id"],
-      destField: ["environmentId"],
-      destSchema: "projectResource",
-      cardinality: "many",
-    },
-  ],
-  links: [
-    {
-      sourceField: ["id"],
-      destField: ["environmentId"],
-      destSchema: "projectResourceLink",
-      cardinality: "many",
-    },
-  ],
-  viewport: [
-    {
-      sourceField: ["id"],
-      destField: ["environmentId"],
-      destSchema: "projectViewport",
-      cardinality: "one",
-    },
-  ],
-} as const;
 const projectRelationships = {
   organization: [
     {
@@ -3124,43 +3278,123 @@ const projectRelationships = {
     {
       sourceField: ["id"],
       destField: ["projectId"],
-      destSchema: "projectEnvironment",
+      destSchema: "environment",
       cardinality: "many",
     },
   ],
 } as const;
-const projectResourceLinkRelationships = {
-  environment: [
+const resourceBuildConfigRelationships = {
+  resource: [
     {
-      sourceField: ["environmentId"],
+      sourceField: ["resourceId"],
       destField: ["id"],
-      destSchema: "projectEnvironment",
-      cardinality: "one",
-    },
-  ],
-  sourceResource: [
-    {
-      sourceField: ["sourceResourceId"],
-      destField: ["id"],
-      destSchema: "projectResource",
-      cardinality: "one",
-    },
-  ],
-  targetResource: [
-    {
-      sourceField: ["targetResourceId"],
-      destField: ["id"],
-      destSchema: "projectResource",
+      destSchema: "resource",
       cardinality: "one",
     },
   ],
 } as const;
-const projectResourceRelationships = {
+const resourceComposeConfigRelationships = {
+  resource: [
+    {
+      sourceField: ["resourceId"],
+      destField: ["id"],
+      destSchema: "resource",
+      cardinality: "one",
+    },
+  ],
+} as const;
+const resourceJobConfigRelationships = {
+  resource: [
+    {
+      sourceField: ["resourceId"],
+      destField: ["id"],
+      destSchema: "resource",
+      cardinality: "one",
+    },
+  ],
+} as const;
+const resourceMetricRelationships = {
+  resource: [
+    {
+      sourceField: ["resourceId"],
+      destField: ["id"],
+      destSchema: "resource",
+      cardinality: "one",
+    },
+  ],
+} as const;
+const resourcePositionRelationships = {
+  resource: [
+    {
+      sourceField: ["resourceId"],
+      destField: ["id"],
+      destSchema: "resource",
+      cardinality: "one",
+    },
+  ],
+} as const;
+const resourceRelationships = {
+  organization: [
+    {
+      sourceField: ["organizationId"],
+      destField: ["id"],
+      destSchema: "organization",
+      cardinality: "one",
+    },
+  ],
+  project: [
+    {
+      sourceField: ["projectId"],
+      destField: ["id"],
+      destSchema: "project",
+      cardinality: "one",
+    },
+  ],
   environment: [
     {
       sourceField: ["environmentId"],
       destField: ["id"],
-      destSchema: "projectEnvironment",
+      destSchema: "environment",
+      cardinality: "one",
+    },
+  ],
+  position: [
+    {
+      sourceField: ["id"],
+      destField: ["resourceId"],
+      destSchema: "resourcePosition",
+      cardinality: "one",
+    },
+  ],
+  runtimeConfig: [
+    {
+      sourceField: ["id"],
+      destField: ["resourceId"],
+      destSchema: "resourceRuntimeConfig",
+      cardinality: "one",
+    },
+  ],
+  buildConfig: [
+    {
+      sourceField: ["id"],
+      destField: ["resourceId"],
+      destSchema: "resourceBuildConfig",
+      cardinality: "one",
+    },
+  ],
+  jobConfig: [
+    {
+      sourceField: ["id"],
+      destField: ["resourceId"],
+      destSchema: "resourceJobConfig",
+      cardinality: "one",
+    },
+  ],
+  composeConfig: [
+    {
+      sourceField: ["id"],
+      destField: ["resourceId"],
+      destSchema: "resourceComposeConfig",
       cardinality: "one",
     },
   ],
@@ -3172,40 +3406,50 @@ const projectResourceRelationships = {
       cardinality: "one",
     },
   ],
-  outgoingLinks: [
+  volumeMounts: [
     {
       sourceField: ["id"],
-      destField: ["sourceResourceId"],
-      destSchema: "projectResourceLink",
-      cardinality: "many",
-    },
-  ],
-  incomingLinks: [
-    {
-      sourceField: ["id"],
-      destField: ["targetResourceId"],
-      destSchema: "projectResourceLink",
+      destField: ["resourceId"],
+      destSchema: "resourceVolumeMount",
       cardinality: "many",
     },
   ],
 } as const;
-const projectViewportRelationships = {
-  environment: [
-    {
-      sourceField: ["environmentId"],
-      destField: ["id"],
-      destSchema: "projectEnvironment",
-      cardinality: "one",
-    },
-  ],
-} as const;
-const resourceMetricRelationships = {
+const resourceRuntimeConfigRelationships = {
   resource: [
     {
       sourceField: ["resourceId"],
       destField: ["id"],
-      destSchema: "projectResource",
+      destSchema: "resource",
       cardinality: "one",
+    },
+  ],
+} as const;
+const resourceVolumeMountRelationships = {
+  volume: [
+    {
+      sourceField: ["volumeId"],
+      destField: ["id"],
+      destSchema: "resourceVolume",
+      cardinality: "one",
+    },
+  ],
+  resource: [
+    {
+      sourceField: ["resourceId"],
+      destField: ["id"],
+      destSchema: "resource",
+      cardinality: "one",
+    },
+  ],
+} as const;
+const resourceVolumeRelationships = {
+  mounts: [
+    {
+      sourceField: ["id"],
+      destField: ["volumeId"],
+      destSchema: "resourceVolumeMount",
+      cardinality: "many",
     },
   ],
 } as const;
@@ -3327,6 +3571,16 @@ const userRelationships = {
     },
   ],
 } as const;
+const viewportRelationships = {
+  environment: [
+    {
+      sourceField: ["environmentId"],
+      destField: ["id"],
+      destSchema: "environment",
+      cardinality: "one",
+    },
+  ],
+} as const;
 /**
  * The Zero schema object.
  * This type is auto-generated from your Drizzle schema definition.
@@ -3347,6 +3601,7 @@ export const schema = {
     deploymentEvent: deploymentEventTable,
     deploymentSecretSnapshot: deploymentSecretSnapshotTable,
     deviceCode: deviceCodeTable,
+    environment: environmentTable,
     environmentVariable: environmentVariableTable,
     gitProvider: gitProviderTable,
     gitRepository: gitRepositoryTable,
@@ -3355,12 +3610,16 @@ export const schema = {
     notificationChannel: notificationChannelTable,
     organization: organizationTable,
     project: projectTable,
-    projectEnvironment: projectEnvironmentTable,
-    projectResource: projectResourceTable,
-    projectResourceLink: projectResourceLinkTable,
-    projectViewport: projectViewportTable,
+    resource: resourceTable,
+    resourceBuildConfig: resourceBuildConfigTable,
+    resourceComposeConfig: resourceComposeConfigTable,
+    resourceJobConfig: resourceJobConfigTable,
     resourceMetric: resourceMetricTable,
     resourceMetricHourly: resourceMetricHourlyTable,
+    resourcePosition: resourcePositionTable,
+    resourceRuntimeConfig: resourceRuntimeConfigTable,
+    resourceVolume: resourceVolumeTable,
+    resourceVolumeMount: resourceVolumeMountTable,
     scheduledTaskExecution: scheduledTaskExecutionTable,
     secretProviderBinding: secretProviderBindingTable,
     secretReference: secretReferenceTable,
@@ -3370,6 +3629,7 @@ export const schema = {
     twoFactor: twoFactorTable,
     user: userTable,
     verification: verificationTable,
+    viewport: viewportTable,
     webhookDelivery: webhookDeliveryTable,
   },
   relationships: {
@@ -3385,18 +3645,24 @@ export const schema = {
     deploymentEvent: deploymentEventRelationships,
     deployment: deploymentRelationships,
     deploymentSecretSnapshot: deploymentSecretSnapshotRelationships,
+    environment: environmentRelationships,
+    environmentVariable: environmentVariableRelationships,
     gitProvider: gitProviderRelationships,
     gitRepository: gitRepositoryRelationships,
     invitation: invitationRelationships,
     member: memberRelationships,
     notificationChannel: notificationChannelRelationships,
     organization: organizationRelationships,
-    projectEnvironment: projectEnvironmentRelationships,
     project: projectRelationships,
-    projectResourceLink: projectResourceLinkRelationships,
-    projectResource: projectResourceRelationships,
-    projectViewport: projectViewportRelationships,
+    resourceBuildConfig: resourceBuildConfigRelationships,
+    resourceComposeConfig: resourceComposeConfigRelationships,
+    resourceJobConfig: resourceJobConfigRelationships,
     resourceMetric: resourceMetricRelationships,
+    resourcePosition: resourcePositionRelationships,
+    resource: resourceRelationships,
+    resourceRuntimeConfig: resourceRuntimeConfigRelationships,
+    resourceVolumeMount: resourceVolumeMountRelationships,
+    resourceVolume: resourceVolumeRelationships,
     secretProviderBinding: secretProviderBindingRelationships,
     secretReference: secretReferenceRelationships,
     server: serverRelationships,
@@ -3404,6 +3670,7 @@ export const schema = {
     sshKey: sshKeyRelationships,
     twoFactor: twoFactorRelationships,
     user: userRelationships,
+    viewport: viewportRelationships,
   },
   enableLegacyQueries: false,
   enableLegacyMutators: false,
@@ -3489,6 +3756,11 @@ export type DeploymentSecretSnapshot = Row<
  */
 export type DeviceCode = Row<(typeof schema)["tables"]["deviceCode"]>;
 /**
+ * Represents a row from the "environment" table.
+ * This type is auto-generated from your Drizzle schema definition.
+ */
+export type Environment = Row<(typeof schema)["tables"]["environment"]>;
+/**
  * Represents a row from the "environmentVariable" table.
  * This type is auto-generated from your Drizzle schema definition.
  */
@@ -3533,29 +3805,31 @@ export type Organization = Row<(typeof schema)["tables"]["organization"]>;
  */
 export type Project = Row<(typeof schema)["tables"]["project"]>;
 /**
- * Represents a row from the "projectEnvironment" table.
+ * Represents a row from the "resource" table.
  * This type is auto-generated from your Drizzle schema definition.
  */
-export type ProjectEnvironment = Row<
-  (typeof schema)["tables"]["projectEnvironment"]
+export type Resource = Row<(typeof schema)["tables"]["resource"]>;
+/**
+ * Represents a row from the "resourceBuildConfig" table.
+ * This type is auto-generated from your Drizzle schema definition.
+ */
+export type ResourceBuildConfig = Row<
+  (typeof schema)["tables"]["resourceBuildConfig"]
 >;
 /**
- * Represents a row from the "projectResource" table.
+ * Represents a row from the "resourceComposeConfig" table.
  * This type is auto-generated from your Drizzle schema definition.
  */
-export type ProjectResource = Row<(typeof schema)["tables"]["projectResource"]>;
-/**
- * Represents a row from the "projectResourceLink" table.
- * This type is auto-generated from your Drizzle schema definition.
- */
-export type ProjectResourceLink = Row<
-  (typeof schema)["tables"]["projectResourceLink"]
+export type ResourceComposeConfig = Row<
+  (typeof schema)["tables"]["resourceComposeConfig"]
 >;
 /**
- * Represents a row from the "projectViewport" table.
+ * Represents a row from the "resourceJobConfig" table.
  * This type is auto-generated from your Drizzle schema definition.
  */
-export type ProjectViewport = Row<(typeof schema)["tables"]["projectViewport"]>;
+export type ResourceJobConfig = Row<
+  (typeof schema)["tables"]["resourceJobConfig"]
+>;
 /**
  * Represents a row from the "resourceMetric" table.
  * This type is auto-generated from your Drizzle schema definition.
@@ -3567,6 +3841,32 @@ export type ResourceMetric = Row<(typeof schema)["tables"]["resourceMetric"]>;
  */
 export type ResourceMetricHourly = Row<
   (typeof schema)["tables"]["resourceMetricHourly"]
+>;
+/**
+ * Represents a row from the "resourcePosition" table.
+ * This type is auto-generated from your Drizzle schema definition.
+ */
+export type ResourcePosition = Row<
+  (typeof schema)["tables"]["resourcePosition"]
+>;
+/**
+ * Represents a row from the "resourceRuntimeConfig" table.
+ * This type is auto-generated from your Drizzle schema definition.
+ */
+export type ResourceRuntimeConfig = Row<
+  (typeof schema)["tables"]["resourceRuntimeConfig"]
+>;
+/**
+ * Represents a row from the "resourceVolume" table.
+ * This type is auto-generated from your Drizzle schema definition.
+ */
+export type ResourceVolume = Row<(typeof schema)["tables"]["resourceVolume"]>;
+/**
+ * Represents a row from the "resourceVolumeMount" table.
+ * This type is auto-generated from your Drizzle schema definition.
+ */
+export type ResourceVolumeMount = Row<
+  (typeof schema)["tables"]["resourceVolumeMount"]
 >;
 /**
  * Represents a row from the "scheduledTaskExecution" table.
@@ -3617,6 +3917,11 @@ export type User = Row<(typeof schema)["tables"]["user"]>;
  * This type is auto-generated from your Drizzle schema definition.
  */
 export type Verification = Row<(typeof schema)["tables"]["verification"]>;
+/**
+ * Represents a row from the "viewport" table.
+ * This type is auto-generated from your Drizzle schema definition.
+ */
+export type Viewport = Row<(typeof schema)["tables"]["viewport"]>;
 /**
  * Represents a row from the "webhookDelivery" table.
  * This type is auto-generated from your Drizzle schema definition.

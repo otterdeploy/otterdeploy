@@ -10,6 +10,14 @@ import {
 
 import { user, organization } from "./auth";
 import { resourceKindEnum, resourceStatusEnum } from "./enums";
+import {
+  resourceRuntimeConfig,
+  resourceBuildConfig,
+  resourceJobConfig,
+  resourceComposeConfig,
+  databaseConfig,
+  resourceVolumeMount,
+} from "./resource-config";
 
 export const project = pgTable(
   "project",
@@ -140,7 +148,7 @@ export const environmentRelations = relations(environment, ({ one, many }) => ({
   }),
 }));
 
-export const resourceRelations = relations(resource, ({ one }) => ({
+export const resourceRelations = relations(resource, ({ one, many }) => ({
   organization: one(organization, {
     fields: [resource.organizationId],
     references: [organization.id],
@@ -157,6 +165,27 @@ export const resourceRelations = relations(resource, ({ one }) => ({
     fields: [resource.id],
     references: [resourcePosition.resourceId],
   }),
+  runtimeConfig: one(resourceRuntimeConfig, {
+    fields: [resource.id],
+    references: [resourceRuntimeConfig.resourceId],
+  }),
+  buildConfig: one(resourceBuildConfig, {
+    fields: [resource.id],
+    references: [resourceBuildConfig.resourceId],
+  }),
+  jobConfig: one(resourceJobConfig, {
+    fields: [resource.id],
+    references: [resourceJobConfig.resourceId],
+  }),
+  composeConfig: one(resourceComposeConfig, {
+    fields: [resource.id],
+    references: [resourceComposeConfig.resourceId],
+  }),
+  databaseConfig: one(databaseConfig, {
+    fields: [resource.id],
+    references: [databaseConfig.resourceId],
+  }),
+  volumeMounts: many(resourceVolumeMount),
 }));
 
 export const resourcePositionRelations = relations(resourcePosition, ({ one }) => ({

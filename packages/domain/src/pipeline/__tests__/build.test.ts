@@ -19,7 +19,7 @@ const mockResource: ResourceConfig = {
   preDeployCommand: null,
   restartPolicy: "ALWAYS",
   restartPolicyMaxRetries: null,
-  buildMethod: "nixpacks",
+  builder: "nixpacks",
   dockerfilePath: "Dockerfile",
   buildCommand: null,
   serverId: null,
@@ -48,7 +48,7 @@ describe("buildImage", () => {
       {
         deploymentId: "deploy-1",
         resourceId: "res-1",
-        buildMethod: "nixpacks",
+        builder: "nixpacks",
         sourceDir: "/tmp/otterstack-builds/deploy-1",
         buildTimeEnv: { NODE_ENV: "production" },
         resource: mockResource,
@@ -95,7 +95,7 @@ describe("buildImage", () => {
       {
         deploymentId: "deploy-2",
         resourceId: "res-1",
-        buildMethod: "nixpacks",
+        builder: "nixpacks",
         sourceDir: "/tmp/builds/deploy-2",
         buildTimeEnv: {},
         resource: mockResource,

@@ -21,11 +21,9 @@ export const GRID_CELLS = [
   { label: "api", r: 0, c: 1 },
   { label: "worker", r: 0, c: 2 },
   { label: "db", r: 1, c: 0 },
-  { label: "cache", r: 1, c: 1 },
-  { label: "volume", r: 1, c: 2 },
-  { label: "secrets", r: 2, c: 0 },
-  { label: "logs", r: 2, c: 1 },
-  { label: "config", r: 2, c: 2 },
+  { label: "secrets", r: 1, c: 1 },
+  { label: "logs", r: 1, c: 2 },
+  { label: "config", r: 2, c: 0 },
 ];
 
 export const DEPLOY_LINES = [

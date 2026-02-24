@@ -7,7 +7,7 @@
  */
 import { db, eq, and, or } from "@otterdeploy/db";
 import { deployment } from "@otterdeploy/db/schema/deployment";
-import { projectResource, project, projectEnvironment } from "@otterdeploy/db/schema/architecture";
+import { resource, project, environment } from "@otterdeploy/db/schema/project";
 import { gitRepository } from "@otterdeploy/db/schema/infrastructure";
 import { customDomain } from "@otterdeploy/db/schema/operations";
 import { deploymentMachine, deploymentSecretService } from "@otterdeploy/domain";
@@ -44,39 +44,39 @@ export function createPipelineDeps(): PipelineDeps {
         resourceId: row.resourceId,
         status: row.status,
         source: row.source,
-        buildMethod: row.buildMethod,
+        builder: row.builder,
         imageTag: row.imageTag,
         previousImageTag: row.previousImageTag,
         gitRef: row.gitRef,
         gitCommitSha: row.gitCommitSha,
         triggeredBy: row.triggeredBy,
-        metadata: row.metadata,
       };
     },
 
     getResource: async (id) => {
-      const row = await db.query.projectResource.findFirst({
-        where: eq(projectResource.id, id),
+      const row = await db.query.resource.findFirst({
+        where: eq(resource.id, id),
+        with: { runtimeConfig: true, buildConfig: true },
       });
       if (!row) return null;
       return {
         id: row.id,
         name: row.name,
         kind: row.kind,
-        port: row.port,
-        healthCheckPath: row.healthCheckPath,
-        healthCheckInterval: row.healthCheckInterval,
-        healthCheckTimeout: row.healthCheckTimeout,
-        replicas: row.replicas,
-        cpuLimit: row.cpuLimit,
-        memoryLimit: row.memoryLimit,
-        startCommand: row.startCommand,
-        preDeployCommand: row.preDeployCommand,
-        restartPolicy: row.restartPolicy,
-        restartPolicyMaxRetries: row.restartPolicyMaxRetries,
-        buildMethod: row.buildMethod,
-        dockerfilePath: row.dockerfilePath,
-        buildCommand: row.buildCommand,
+        port: row.runtimeConfig?.port ?? null,
+        healthCheckPath: row.runtimeConfig?.healthCheckPath ?? null,
+        healthCheckInterval: row.runtimeConfig?.healthCheckInterval ?? null,
+        healthCheckTimeout: row.runtimeConfig?.healthCheckTimeout ?? null,
+        replicas: row.runtimeConfig?.replicas ?? null,
+        cpuLimit: row.runtimeConfig?.cpuLimit ?? null,
+        memoryLimit: row.runtimeConfig?.memoryLimit ?? null,
+        startCommand: row.runtimeConfig?.startCommand ?? null,
+        preDeployCommand: row.buildConfig?.preDeployCommand ?? null,
+        restartPolicy: row.runtimeConfig?.restartPolicy ?? null,
+        restartPolicyMaxRetries: row.runtimeConfig?.restartPolicyMaxRetries ?? null,
+        builder: row.buildConfig?.builder ?? null,
+        dockerfilePath: row.buildConfig?.dockerfilePath ?? null,
+        buildCommand: row.buildConfig?.buildCommand ?? null,
         serverId: row.serverId,
       };
     },
@@ -96,8 +96,8 @@ export function createPipelineDeps(): PipelineDeps {
     },
 
     getEnvironment: async (id) => {
-      const row = await db.query.projectEnvironment.findFirst({
-        where: eq(projectEnvironment.id, id),
+      const row = await db.query.environment.findFirst({
+        where: eq(environment.id, id),
       });
       if (!row) return null;
       return {
@@ -146,10 +146,11 @@ export function createPipelineDeps(): PipelineDeps {
     },
 
     getResourcePort: async (resourceId) => {
-      const row = await db.query.projectResource.findFirst({
-        where: eq(projectResource.id, resourceId),
+      const row = await db.query.resource.findFirst({
+        where: eq(resource.id, resourceId),
+        with: { runtimeConfig: true },
       });
-      return row?.port ?? 3000;
+      return row?.runtimeConfig?.port ?? 3000;
     },
 
     transitionTo: async (deploymentId, status, eventData) => {
@@ -172,7 +173,6 @@ export function createPipelineDeps(): PipelineDeps {
       const updateSet: Record<string, unknown> = {};
       if (data.imageTag !== undefined) updateSet.imageTag = data.imageTag;
       if (data.previousImageTag !== undefined) updateSet.previousImageTag = data.previousImageTag;
-      if (data.metadata !== undefined) updateSet.metadata = data.metadata;
       updateSet.updatedAt = new Date();
 
       await db
@@ -213,27 +213,25 @@ export function createResolveSecretsDeps(): ResolveSecretsDeps {
         where: and(
           eq(environmentVariable.organizationId, input.organizationId),
           or(
-            and(
-              eq(environmentVariable.scope, "project"),
-              eq(environmentVariable.scopeId, input.projectId),
-            ),
-            and(
-              eq(environmentVariable.scope, "environment"),
-              eq(environmentVariable.scopeId, input.environmentId),
-            ),
-            and(
-              eq(environmentVariable.scope, "resource"),
-              eq(environmentVariable.scopeId, input.resourceId),
-            ),
+            eq(environmentVariable.projectId, input.projectId),
+            eq(environmentVariable.environmentId, input.environmentId),
+            eq(environmentVariable.resourceId, input.resourceId),
           ),
         ),
       });
+
+      // Determine scope from which FK is set
+      function scopeOf(row: typeof rows[number]): "project" | "environment" | "resource" {
+        if (row.resourceId) return "resource";
+        if (row.environmentId) return "environment";
+        return "project";
+      }
 
       // Merge by key with scope priority: project < environment < resource
       const scopeWeight = { project: 0, environment: 1, resource: 2 } as const;
       const merged = new Map<string, typeof rows[number]>();
       const sorted = [...rows].sort(
-        (a, b) => scopeWeight[a.scope] - scopeWeight[b.scope],
+        (a, b) => scopeWeight[scopeOf(a)] - scopeWeight[scopeOf(b)],
       );
       for (const row of sorted) {
         merged.set(row.key, row);

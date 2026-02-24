@@ -2,9 +2,9 @@ import { Result } from "better-result";
 import { db, eq, and, desc, sql } from "@otterdeploy/db";
 import {
   project,
-  projectEnvironment,
-  projectViewport,
-} from "@otterdeploy/db/schema/architecture";
+  environment as environmentTable,
+  viewport,
+} from "@otterdeploy/db/schema/project";
 
 import { NotFoundError, ConflictError } from "./errors";
 import { pickDefined } from "./utils";
@@ -86,24 +86,24 @@ export async function createProject(params: {
 
   await db.insert(project).values(newProject);
 
-  const environment = {
+  const newEnvironment = {
     id: createId(),
     projectId: newProject.id,
     name: "production",
     createdAt: now,
     updatedAt: now,
   };
-  await db.insert(projectEnvironment).values(environment);
+  await db.insert(environmentTable).values(newEnvironment);
 
-  await db.insert(projectViewport).values({
-    environmentId: environment.id,
+  await db.insert(viewport).values({
+    environmentId: newEnvironment.id,
     x: 0,
     y: 0,
     zoom: 1,
     updatedAt: now,
   });
 
-  return Result.ok(formatProject({ ...newProject, deletedAt: null }));
+  return Result.ok(formatProject({ ...newProject, deletedAt: null, baseDomain: null }));
 }
 
 export async function getProjectById(

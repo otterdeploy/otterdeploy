@@ -31,7 +31,7 @@ export interface ResourceConfig {
   preDeployCommand: string | null;
   restartPolicy: string | null;
   restartPolicyMaxRetries: number | null;
-  buildMethod: string | null;
+  builder: string | null;
   dockerfilePath: string | null;
   buildCommand: string | null;
   serverId: string | null;
@@ -66,7 +66,7 @@ export interface ValidateOutput {
   project: ProjectConfig;
   environment: EnvironmentConfig;
   gitRepo: GitRepoConfig | null;
-  buildMethod: string;
+  builder: string;
   imageTag: string | null;
   previousImageTag: string | null;
 }
@@ -104,13 +104,12 @@ export interface PipelineDeps {
     resourceId: string;
     status: string;
     source: string;
-    buildMethod: string | null;
+    builder: string | null;
     imageTag: string | null;
     previousImageTag: string | null;
     gitRef: string | null;
     gitCommitSha: string | null;
     triggeredBy: string | null;
-    metadata: Record<string, unknown>;
   } | null>;
 
   getResource: (id: string) => Promise<ResourceConfig | null>;
@@ -142,6 +141,6 @@ export interface PipelineDeps {
   // Update deployment record
   updateDeployment: (
     deploymentId: string,
-    data: { imageTag?: string; previousImageTag?: string; metadata?: Record<string, unknown> },
+    data: { imageTag?: string; previousImageTag?: string },
   ) => Promise<void>;
 }

@@ -99,7 +99,6 @@ export const deploymentSecretSnapshot = pgTable(
         Array<{
           key: string;
           variableId: string;
-          scope: "project" | "environment" | "resource";
           secretReferenceId: string | null;
           providerVersion: string | null;
           digest: string;

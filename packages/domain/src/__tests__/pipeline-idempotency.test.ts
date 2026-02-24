@@ -13,7 +13,7 @@ describe("P0 Reliability: Pipeline Idempotency", () => {
       const result = await cloneSource(
         {
           deploymentId: "dep-1",
-          buildMethod: "docker_image",
+          builder: "docker_image",
           gitRepo: null,
           gitCommitSha: undefined,
         },

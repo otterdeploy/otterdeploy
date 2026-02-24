@@ -1,6 +1,6 @@
 import { Result } from "better-result";
 import { db, eq, and, inArray } from "@otterdeploy/db";
-import { project, projectEnvironment, projectResource } from "@otterdeploy/db/schema/architecture";
+import { project, environment, resource } from "@otterdeploy/db/schema/project";
 import { environmentVariable } from "@otterdeploy/db/schema/operations";
 import { secretReference } from "@otterdeploy/db/schema/secrets";
 import { upsertSecretReference, revealSecretByReference } from "@otterdeploy/secrets";
@@ -11,30 +11,27 @@ import { encodeLegacySecret } from "./legacy-secret";
 
 type EnvironmentVariableScope = "project" | "environment" | "resource";
 
-type ScopeIds = {
-  projectId: string;
-  environmentId: string | null;
-  resourceId: string | null;
-};
-
 type SecretMeta = {
   provider: "infisical" | "native_breakglass" | null;
   providerVersion: string | null;
 } | null;
 
+function inferScope(row: typeof environmentVariable.$inferSelect): EnvironmentVariableScope {
+  if (row.resourceId) return "resource";
+  if (row.environmentId) return "environment";
+  return "project";
+}
+
 function formatVariable(
   row: typeof environmentVariable.$inferSelect,
-  projectId: string,
-  environmentId: string | null,
-  resourceId: string | null,
   secretMeta?: SecretMeta,
 ) {
   return {
     id: row.id,
-    projectId,
-    environmentId,
-    resourceId,
-    scope: row.scope,
+    projectId: row.projectId,
+    environmentId: row.environmentId ?? null,
+    resourceId: row.resourceId ?? null,
+    scope: inferScope(row),
     key: row.key,
     isSecret: row.isSecret,
     buildTime: row.isBuildTime,
@@ -46,49 +43,20 @@ function formatVariable(
   };
 }
 
-async function resolveScopeIds(scope: string, scopeId: string): Promise<ScopeIds> {
-  if (scope === "project") {
-    return { projectId: scopeId, environmentId: null, resourceId: null };
-  }
-  if (scope === "environment") {
-    const env = await db.query.projectEnvironment.findFirst({
-      where: eq(projectEnvironment.id, scopeId),
-    });
-    return {
-      projectId: env?.projectId ?? "",
-      environmentId: scopeId,
-      resourceId: null,
-    };
-  }
-  if (scope === "resource") {
-    const resource = await db.query.projectResource.findFirst({
-      where: eq(projectResource.id, scopeId),
-      with: { environment: true },
-    });
-    return {
-      projectId: resource?.environment?.projectId ?? "",
-      environmentId: resource?.environmentId ?? null,
-      resourceId: scopeId,
-    };
-  }
-  return { projectId: "", environmentId: null, resourceId: null };
-}
-
 function resolveInputScope(input: {
   projectId: string;
   environmentId?: string;
   resourceId?: string;
   scope: EnvironmentVariableScope;
-}): Result<{ scopeId: string; environmentId: string | null; resourceId: string | null }, BadRequestError> {
+}): Result<{ environmentId: string | null; resourceId: string | null }, BadRequestError> {
   if (input.scope === "project") {
-    return Result.ok({ scopeId: input.projectId, environmentId: null, resourceId: null });
+    return Result.ok({ environmentId: null, resourceId: null });
   }
   if (input.scope === "environment") {
     if (!input.environmentId) {
       return Result.err(new BadRequestError({ field: "environmentId", message: "environmentId is required for environment scope" }));
     }
     return Result.ok({
-      scopeId: input.environmentId,
       environmentId: input.environmentId,
       resourceId: null,
     });
@@ -99,7 +67,6 @@ function resolveInputScope(input: {
     );
   }
   return Result.ok({
-    scopeId: input.resourceId,
     environmentId: input.environmentId,
     resourceId: input.resourceId,
   });
@@ -121,10 +88,10 @@ async function validateEnvironmentInProject(
   projectId: string,
   organizationId: string,
 ): Promise<Result<void, NotFoundError>> {
-  const row = await db.query.projectEnvironment.findFirst({
+  const row = await db.query.environment.findFirst({
     where: and(
-      eq(projectEnvironment.id, environmentId),
-      eq(projectEnvironment.projectId, projectId),
+      eq(environment.id, environmentId),
+      eq(environment.projectId, projectId),
     ),
     with: { project: true },
   });
@@ -140,10 +107,10 @@ async function validateResourceInProject(
   projectId: string,
   organizationId: string,
 ): Promise<Result<void, NotFoundError>> {
-  const row = await db.query.projectResource.findFirst({
+  const row = await db.query.resource.findFirst({
     where: and(
-      eq(projectResource.id, resourceId),
-      eq(projectResource.environmentId, environmentId),
+      eq(resource.id, resourceId),
+      eq(resource.environmentId, environmentId),
     ),
     with: { environment: { with: { project: true } } },
   });
@@ -200,23 +167,32 @@ export async function upsertEnvironmentVariable(params: {
     if (resResult.isErr()) return resResult;
   }
 
+  const logicalScopeId = scope.resourceId ?? scope.environmentId ?? params.projectId;
+
   const secret = await upsertSecretReference({
     organizationId: params.organizationId,
     kind: "env_var",
     logicalScope: params.scope,
-    logicalScopeId: scope.scopeId,
+    logicalScopeId,
     key: params.key,
     plaintext: params.value,
     actorUserId: params.audit.userId,
   });
 
+  // Build the conditions that uniquely identify this variable
+  const findConditions = [
+    eq(environmentVariable.organizationId, params.organizationId),
+    eq(environmentVariable.projectId, params.projectId),
+    eq(environmentVariable.key, params.key),
+  ];
+  if (scope.resourceId) {
+    findConditions.push(eq(environmentVariable.resourceId, scope.resourceId));
+  } else if (scope.environmentId) {
+    findConditions.push(eq(environmentVariable.environmentId, scope.environmentId));
+  }
+
   const existing = await db.query.environmentVariable.findFirst({
-    where: and(
-      eq(environmentVariable.organizationId, params.organizationId),
-      eq(environmentVariable.scope, params.scope),
-      eq(environmentVariable.scopeId, scope.scopeId),
-      eq(environmentVariable.key, params.key),
-    ),
+    where: and(...findConditions),
   });
 
   const now = new Date();
@@ -235,7 +211,6 @@ export async function upsertEnvironmentVariable(params: {
 
     await writeAuditLog(params.organizationId, params.audit, "secret.upserted", "environment_variable", existing.id, {
       scope: params.scope,
-      scopeId: scope.scopeId,
       key: params.key,
       secretReferenceId: secret.reference.id,
     });
@@ -244,7 +219,7 @@ export async function upsertEnvironmentVariable(params: {
       where: eq(environmentVariable.id, existing.id),
     });
 
-    return Result.ok(formatVariable(updated!, params.projectId, scope.environmentId, scope.resourceId, {
+    return Result.ok(formatVariable(updated!, {
       provider: secret.reference.provider,
       providerVersion: secret.reference.providerVersion,
     }));
@@ -253,8 +228,9 @@ export async function upsertEnvironmentVariable(params: {
   const row = {
     id: crypto.randomUUID(),
     organizationId: params.organizationId,
-    scope: params.scope,
-    scopeId: scope.scopeId,
+    projectId: params.projectId,
+    environmentId: scope.environmentId,
+    resourceId: scope.resourceId,
     key: params.key,
     secretReferenceId: secret.reference.id,
     encryptedValue: encodeLegacySecret(params.value),
@@ -271,12 +247,11 @@ export async function upsertEnvironmentVariable(params: {
 
   await writeAuditLog(params.organizationId, params.audit, "secret.upserted", "environment_variable", row.id, {
     scope: params.scope,
-    scopeId: scope.scopeId,
     key: params.key,
     secretReferenceId: secret.reference.id,
   });
 
-  return Result.ok(formatVariable(inserted, params.projectId, scope.environmentId, scope.resourceId, {
+  return Result.ok(formatVariable(inserted, {
     provider: secret.reference.provider,
     providerVersion: secret.reference.providerVersion,
   }));
@@ -289,7 +264,6 @@ export async function getEnvironmentVariable(
   const rowResult = await validateEnvVar(variableId, organizationId);
   if (rowResult.isErr()) return rowResult;
   const row = rowResult.value;
-  const ids = await resolveScopeIds(row.scope, row.scopeId);
 
   const secretMeta = row.secretReferenceId
     ? await db.query.secretReference.findFirst({
@@ -297,7 +271,7 @@ export async function getEnvironmentVariable(
       })
     : null;
 
-  return Result.ok(formatVariable(row, ids.projectId, ids.environmentId, ids.resourceId, {
+  return Result.ok(formatVariable(row, {
     provider: secretMeta?.provider ?? null,
     providerVersion: secretMeta?.providerVersion ?? null,
   }));
@@ -312,8 +286,19 @@ export async function listEnvironmentVariables(params: {
   const projResult = await validateProject(params.projectId, params.organizationId);
   if (projResult.isErr()) return projResult;
 
+  const conditions = [
+    eq(environmentVariable.organizationId, params.organizationId),
+    eq(environmentVariable.projectId, params.projectId),
+  ];
+  if (params.environmentId) {
+    conditions.push(eq(environmentVariable.environmentId, params.environmentId));
+  }
+  if (params.resourceId) {
+    conditions.push(eq(environmentVariable.resourceId, params.resourceId));
+  }
+
   const rows = await db.query.environmentVariable.findMany({
-    where: eq(environmentVariable.organizationId, params.organizationId),
+    where: and(...conditions),
   });
 
   const referenceIds = rows
@@ -328,23 +313,14 @@ export async function listEnvironmentVariables(params: {
       : [];
 
   const referenceById = new Map(references.map((ref) => [ref.id, ref]));
-  const results = [];
 
-  for (const row of rows) {
-    const ids = await resolveScopeIds(row.scope, row.scopeId);
-    if (ids.projectId !== params.projectId) continue;
-    if (params.environmentId && ids.environmentId !== params.environmentId) continue;
-    if (params.resourceId && ids.resourceId !== params.resourceId) continue;
-
+  const results = rows.map((row) => {
     const reference = row.secretReferenceId ? referenceById.get(row.secretReferenceId) : null;
-
-    results.push(
-      formatVariable(row, ids.projectId, ids.environmentId, ids.resourceId, {
-        provider: reference?.provider ?? null,
-        providerVersion: reference?.providerVersion ?? null,
-      }),
-    );
-  }
+    return formatVariable(row, {
+      provider: reference?.provider ?? null,
+      providerVersion: reference?.providerVersion ?? null,
+    });
+  });
 
   return Result.ok(results);
 }

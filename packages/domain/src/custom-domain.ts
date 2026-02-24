@@ -1,7 +1,7 @@
 import { Result } from "better-result";
 import { db, eq, and } from "@otterdeploy/db";
 import { customDomain } from "@otterdeploy/db/schema/operations";
-import { projectResource } from "@otterdeploy/db/schema/architecture";
+import { resource } from "@otterdeploy/db/schema/project";
 import { createLogger } from "@otterdeploy/logger";
 
 import { NotFoundError, ConflictError } from "./errors";
@@ -29,9 +29,9 @@ function formatDomain(row: typeof customDomain.$inferSelect) {
 async function validateResource(
   resourceId: string,
   organizationId: string,
-): Promise<Result<typeof projectResource.$inferSelect, NotFoundError>> {
-  const row = await db.query.projectResource.findFirst({
-    where: eq(projectResource.id, resourceId),
+): Promise<Result<typeof resource.$inferSelect, NotFoundError>> {
+  const row = await db.query.resource.findFirst({
+    where: eq(resource.id, resourceId),
     with: {
       environment: { with: { project: true } },
     },

@@ -31,19 +31,10 @@ export const architectureRouter = {
           z.object({
             id: z.string().min(1),
             name: z.string(),
-            kind: z.enum(["web", "api", "worker", "database", "cache", "volume"]),
+            kind: z.enum(["web", "api", "worker", "database", "compose"]),
             status: z.enum(["online", "degraded", "crashed", "unknown", "deploying", "stopped"]),
-            metadata: z.record(z.string(), z.unknown()),
             posX: z.number(),
             posY: z.number(),
-          }),
-        ),
-        links: z.array(
-          z.object({
-            id: z.string().min(1),
-            sourceResourceId: z.string().min(1),
-            targetResourceId: z.string().min(1),
-            linkType: z.enum(["depends_on", "network", "mounts"]),
           }),
         ),
         viewport: z.object({
@@ -60,7 +51,6 @@ export const architectureRouter = {
           organizationId: context.organizationId,
           environmentId: input.environmentId,
           resources: input.resources,
-          links: input.links,
           viewport: input.viewport,
         }),
       );

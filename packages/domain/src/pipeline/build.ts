@@ -34,7 +34,7 @@ export interface BuildDeps {
 
 /**
  * Step 4: Build image.
- * - Dispatches to the correct builder based on buildMethod.
+ * - Dispatches to the correct builder based on builder.
  * - Passes build-time env vars as build args.
  * - Tags the image as :latest.
  * - Records the image tag on the deployment.
@@ -46,7 +46,7 @@ export async function buildImage(
   input: {
     deploymentId: string;
     resourceId: string;
-    buildMethod: string;
+    builder: string;
     sourceDir: string;
     buildTimeEnv: Record<string, string>;
     resource: ResourceConfig;
@@ -57,10 +57,10 @@ export async function buildImage(
   deps: BuildDeps,
 ): Promise<Result<BuildResult, Error>> {
   try {
-    const { deploymentId, resourceId, buildMethod, sourceDir, resource } = input;
+    const { deploymentId, resourceId, builder, sourceDir, resource } = input;
 
     // For rollbacks with an existing image tag, skip building
-    if (input.existingImageTag && buildMethod !== "docker_image") {
+    if (input.existingImageTag && builder !== "docker_image") {
       const imageName = `otterstack-${resourceId}`;
       const fullImage = `${imageName}:${input.existingImageTag}`;
 

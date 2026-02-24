@@ -19,7 +19,7 @@ export interface CloneSourceDeps {
 
 /**
  * Step 2: Clone source code.
- * - If buildMethod is docker_image, skip cloning (image is already available).
+ * - If builder is docker_image, skip cloning (image is already available).
  * - Otherwise clone the git repository to /tmp/otterstack-builds/{deploymentId}/
  * - Apply rootDirectory if configured.
  *
@@ -29,7 +29,7 @@ export interface CloneSourceDeps {
 export async function cloneSource(
   input: {
     deploymentId: string;
-    buildMethod: string;
+    builder: string;
     gitRepo: GitRepoConfig | null;
     gitCommitSha?: string;
   },
@@ -37,7 +37,7 @@ export async function cloneSource(
 ): Promise<Result<CloneResult, Error>> {
   try {
     // Skip clone for docker_image builds — the image reference is used directly
-    if (input.buildMethod === "docker_image") {
+    if (input.builder === "docker_image") {
       log.info({ deploymentId: input.deploymentId }, "Skipping clone for docker_image build");
       return Result.ok({ sourceDir: "", skipped: true });
     }

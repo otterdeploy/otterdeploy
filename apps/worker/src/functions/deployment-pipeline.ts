@@ -102,7 +102,7 @@ export const deploymentPipeline = inngest.createFunction(
       const result = await cloneSource(
         {
           deploymentId,
-          buildMethod: validated.buildMethod,
+          builder: validated.builder,
           gitRepo: validated.gitRepo,
           gitCommitSha: undefined, // Use branch HEAD
         },
@@ -140,7 +140,7 @@ export const deploymentPipeline = inngest.createFunction(
         {
           deploymentId,
           resourceId,
-          buildMethod: validated.buildMethod,
+          builder: validated.builder,
           sourceDir: cloneResult.sourceDir,
           buildTimeEnv: secrets.buildTime,
           resource: validated.resource,

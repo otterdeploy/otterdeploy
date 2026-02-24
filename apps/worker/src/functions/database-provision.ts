@@ -5,6 +5,8 @@ import {
   stackRemove,
   stackServices,
 } from "@otterdeploy/docker";
+import { db, eq } from "@otterdeploy/db";
+import { resource } from "@otterdeploy/db/schema/project";
 import { inngest } from "../inngest";
 
 const logger = createLogger("database-provision");
@@ -22,12 +24,20 @@ export const databaseProvision = inngest.createFunction(
   async ({ event, step }) => {
     const { resourceId, kind, orgId } = event.data;
 
-    // Only handle database/cache resources
-    if (kind !== "database" && kind !== "cache") {
+    // Only handle database resources
+    if (kind !== "database") {
       return { skipped: true, reason: "Not a database resource" };
     }
 
     const result = await step.run("provision-database", async () => {
+      const row = await db.query.resource.findFirst({
+        where: eq(resource.id, resourceId),
+        with: { databaseConfig: true },
+      });
+      if (!row?.databaseConfig) {
+        throw new Error(`No database config found for resource ${resourceId}`);
+      }
+
       const deps = {
         stackDeploy,
         stackRemove,
@@ -35,16 +45,13 @@ export const databaseProvision = inngest.createFunction(
         sleep,
       };
 
-      const dbType =
-        kind === "cache" ? ("redis" as const) : ("postgresql" as const);
-
       const provisionResult = await provisionDatabase(
         {
           resourceId,
           projectId: event.data.projectId,
           environmentId: event.data.environmentId,
           organizationId: orgId,
-          dbType,
+          dbType: row.databaseConfig.databaseType,
         },
         deps,
       );

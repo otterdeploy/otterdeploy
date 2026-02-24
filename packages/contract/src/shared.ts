@@ -34,7 +34,7 @@ export const TimestampsSchema = z.object({
   updatedAt: z.iso.datetime(),
 });
 
-export const ResourceKindSchema = z.enum(["web", "api", "worker", "database", "cache", "volume"]);
+export const ResourceKindSchema = z.enum(["web", "api", "worker", "database", "compose"]);
 export const ResourceStatusSchema = z.enum([
   "online",
   "degraded",
@@ -43,7 +43,7 @@ export const ResourceStatusSchema = z.enum([
   "deploying",
   "stopped",
 ]);
-export const ResourceLinkTypeSchema = z.enum(["depends_on", "network", "mounts"]);
+
 
 export const DeploymentStatusSchema = z.enum([
   "queued",
@@ -56,8 +56,7 @@ export const DeploymentStatusSchema = z.enum([
   "rolled_back",
 ]);
 
-export const DeploymentSourceSchema = z.enum(["git_push", "manual", "rollback", "api", "preview"]);
-export const BuildMethodSchema = z.enum(["nixpacks", "dockerfile", "buildpack"]);
+export const DeploymentSourceSchema = z.enum(["git_push", "manual", "rollback", "api", "preview", "config_change"]);
 export const BuilderSchema = z.enum(["nixpacks", "dockerfile", "buildpack", "railpack"]);
 export const RestartPolicySchema = z.enum(["ON_FAILURE", "ALWAYS", "NEVER"]);
 export const OrgRoleSchema = z.enum(["owner", "admin", "member", "viewer"]);

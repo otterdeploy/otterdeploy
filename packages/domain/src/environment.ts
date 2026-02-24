@@ -1,10 +1,10 @@
 import { Result } from "better-result";
 import { db, eq, and } from "@otterdeploy/db";
-import { project, projectEnvironment } from "@otterdeploy/db/schema/architecture";
+import { project, environment } from "@otterdeploy/db/schema/project";
 
 import { NotFoundError } from "./errors";
 
-function formatEnvironment(row: typeof projectEnvironment.$inferSelect) {
+function formatEnvironment(row: typeof environment.$inferSelect) {
   return {
     id: row.id,
     projectId: row.projectId,
@@ -33,7 +33,7 @@ export async function createEnvironment(params: {
     updatedAt: now,
   };
 
-  await db.insert(projectEnvironment).values(env);
+  await db.insert(environment).values(env);
   return Result.ok(formatEnvironment(env));
 }
 
@@ -41,8 +41,8 @@ export async function getEnvironmentById(
   environmentId: string,
   organizationId: string,
 ): Promise<Result<ReturnType<typeof formatEnvironment>, NotFoundError>> {
-  const row = await db.query.projectEnvironment.findFirst({
-    where: eq(projectEnvironment.id, environmentId),
+  const row = await db.query.environment.findFirst({
+    where: eq(environment.id, environmentId),
     with: { project: true },
   });
   if (!row || row.project.organizationId !== organizationId) {
@@ -60,8 +60,8 @@ export async function listEnvironments(
   });
   if (!proj) return Result.err(new NotFoundError({ resource: "project", id: projectId }));
 
-  const rows = await db.query.projectEnvironment.findMany({
-    where: eq(projectEnvironment.projectId, projectId),
+  const rows = await db.query.environment.findMany({
+    where: eq(environment.projectId, projectId),
   });
 
   return Result.ok(rows.map(formatEnvironment));
@@ -71,14 +71,14 @@ export async function deleteEnvironment(
   environmentId: string,
   organizationId: string,
 ): Promise<Result<{ success: true }, NotFoundError>> {
-  const row = await db.query.projectEnvironment.findFirst({
-    where: eq(projectEnvironment.id, environmentId),
+  const row = await db.query.environment.findFirst({
+    where: eq(environment.id, environmentId),
     with: { project: true },
   });
   if (!row || row.project.organizationId !== organizationId) {
     return Result.err(new NotFoundError({ resource: "environment", id: environmentId }));
   }
 
-  await db.delete(projectEnvironment).where(eq(projectEnvironment.id, environmentId));
+  await db.delete(environment).where(eq(environment.id, environmentId));
   return Result.ok({ success: true as const });
 }

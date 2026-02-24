@@ -10,7 +10,6 @@ export { pickDefined } from "./utils";
 
 export * as projectService from "./project";
 export * as environmentService from "./environment";
-export * as resourceLinkService from "./resource-link";
 export * as architectureService from "./architecture";
 export * as auditService from "./audit";
 export * as monitoringService from "./monitoring";

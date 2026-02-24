@@ -17,9 +17,7 @@ import {
   ApiIcon,
   CpuIcon,
   DatabaseIcon,
-  DatabaseLightningIcon,
   GlobeIcon,
-  HardDriveIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Link, useMatchRoute, useParams } from "@tanstack/react-router";
@@ -44,7 +42,7 @@ export const statusConfig = {
 
 export type Status = keyof typeof statusConfig;
 
-export type Kind = "web" | "api" | "worker" | "database" | "cache" | "volume";
+export type Kind = "web" | "api" | "worker" | "database" | "compose";
 
 export type ResourceNodeData = {
   id: string;
@@ -71,8 +69,7 @@ export const kindIcons = {
   api: ApiIcon,
   worker: CpuIcon,
   database: DatabaseIcon,
-  cache: DatabaseLightningIcon,
-  volume: HardDriveIcon,
+  compose: CpuIcon,
 } as const;
 
 // --- Routing helper ---
@@ -93,19 +90,6 @@ function ResourceLink({
   if (!projectId) return <>{children}</>;
 
   const activeProps = { "data-active": true } as const;
-
-  if (kind === "volume") {
-    return (
-      <Link
-        to="/projects/$projectId/architecture/volume/$volume"
-        params={{ projectId, volume: resourceId }}
-        className={className}
-        activeProps={activeProps}
-      >
-        {children}
-      </Link>
-    );
-  }
 
   return (
     <Link
@@ -152,20 +136,14 @@ function Attachment({
   className?: string;
 }) {
   const match = useMatchRoute();
-  const volumeMatch = match({
-    to: "/projects/$projectId/architecture/volume/$volume",
-    fuzzy: true,
-  });
   const serviceMatch = match({
     to: "/projects/$projectId/architecture/service/$serviceId",
     fuzzy: true,
   });
   const isActive =
-    (kind === "volume" && volumeMatch && "volume" in volumeMatch && volumeMatch.volume === id) ||
-    (kind !== "volume" &&
-      serviceMatch &&
-      "serviceId" in serviceMatch &&
-      serviceMatch.serviceId === id);
+    serviceMatch &&
+    "serviceId" in serviceMatch &&
+    serviceMatch.serviceId === id;
 
   return (
     <ResourceLink kind={kind} resourceId={id} className="block">

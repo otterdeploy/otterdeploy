@@ -4,7 +4,15 @@ import { randomBytes } from "node:crypto";
 
 const log = createLogger("domain:database-provisioner");
 
-export type DatabaseType = "postgresql" | "redis" | "mysql" | "mongodb";
+export type DatabaseType =
+  | "postgresql"
+  | "mysql"
+  | "mariadb"
+  | "mongodb"
+  | "redis"
+  | "keydb"
+  | "dragonfly"
+  | "clickhouse";
 
 export interface DatabaseConfig {
   image: string;
@@ -59,13 +67,56 @@ export const DATABASE_CONFIGS: Record<DatabaseType, DatabaseConfig> = {
     connectionStringTemplate:
       "mongodb://{user}:{password}@{host}:{port}/{database}",
   },
+  mariadb: {
+    image: "mariadb:11",
+    dataPath: "/var/lib/mysql",
+    defaultPort: 3306,
+    envMapping: {
+      user: "MARIADB_USER",
+      password: "MARIADB_PASSWORD",
+      database: "MARIADB_DATABASE",
+      rootPassword: "MARIADB_ROOT_PASSWORD",
+    },
+    connectionStringTemplate:
+      "mysql://{user}:{password}@{host}:{port}/{database}",
+  },
+  keydb: {
+    image: "eqalpha/keydb:latest",
+    dataPath: "/data",
+    defaultPort: 6379,
+    envMapping: { password: "KEYDB_PASSWORD" },
+    connectionStringTemplate: "redis://:{password}@{host}:{port}",
+  },
+  dragonfly: {
+    image: "docker.dragonflydb.io/dragonflydb/dragonfly:latest",
+    dataPath: "/data",
+    defaultPort: 6379,
+    envMapping: { password: "DFLY_PASSWORD" },
+    connectionStringTemplate: "redis://:{password}@{host}:{port}",
+  },
+  clickhouse: {
+    image: "clickhouse/clickhouse-server:latest",
+    dataPath: "/var/lib/clickhouse",
+    defaultPort: 8123,
+    envMapping: {
+      user: "CLICKHOUSE_USER",
+      password: "CLICKHOUSE_PASSWORD",
+      database: "CLICKHOUSE_DB",
+    },
+    connectionStringTemplate:
+      "clickhouse://{user}:{password}@{host}:{port}/{database}",
+  },
 };
 
 export const SUPPORTED_VERSIONS: Record<DatabaseType, string[]> = {
   postgresql: ["postgres:14", "postgres:15", "postgres:16", "postgres:17"],
-  redis: ["redis:6-alpine", "redis:7-alpine"],
   mysql: ["mysql:8.0", "mysql:8.4", "mysql:9"],
+  mariadb: ["mariadb:10.11", "mariadb:11"],
   mongodb: ["mongo:6", "mongo:7", "mongo:8"],
+  redis: ["redis:6-alpine", "redis:7-alpine"],
+  keydb: ["eqalpha/keydb:latest"],
+  dragonfly: ["docker.dragonflydb.io/dragonflydb/dragonfly:latest"],
+  clickhouse: ["clickhouse/clickhouse-server:latest", "clickhouse/clickhouse-server:24"],
 };
 
 export function generateCredentials(
@@ -152,6 +203,14 @@ export function buildHealthCheckCmd(
       return `mongosh --eval "db.adminCommand('ping')" --quiet`;
     case "redis":
       return `redis-cli -a ${credVal(credentials, "password")} ping`;
+    case "mariadb":
+      return `healthcheck.sh --connect --innodb_initialized`;
+    case "keydb":
+      return `keydb-cli -a ${credVal(credentials, "password")} ping`;
+    case "dragonfly":
+      return `redis-cli -a ${credVal(credentials, "password")} ping`;
+    case "clickhouse":
+      return `clickhouse-client --query "SELECT 1"`;
   }
 }
 

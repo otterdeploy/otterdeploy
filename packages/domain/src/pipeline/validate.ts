@@ -74,10 +74,10 @@ export async function validateDeployment(
       );
     }
 
-    const buildMethod = deployment.buildMethod ?? resource.buildMethod ?? "nixpacks";
+    const builder = deployment.builder ?? resource.builder ?? "nixpacks";
 
     log.info(
-      { deploymentId, resourceId, buildMethod },
+      { deploymentId, resourceId, builder },
       "Deployment validated, transitioned to building",
     );
 
@@ -87,7 +87,7 @@ export async function validateDeployment(
       project,
       environment,
       gitRepo,
-      buildMethod,
+      builder,
       imageTag: deployment.imageTag,
       previousImageTag: deployment.previousImageTag,
     });

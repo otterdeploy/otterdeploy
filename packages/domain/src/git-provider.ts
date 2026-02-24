@@ -5,7 +5,6 @@ import { upsertSecretReference } from "@otterdeploy/secrets";
 
 import { NotFoundError, ConflictError, BadRequestError } from "./errors";
 import { type AuditContext, writeAuditLog } from "./audit-writer";
-import { encodeLegacySecret } from "./legacy-secret";
 import { pickDefined } from "./utils";
 
 function formatGitProvider(row: typeof gitProvider.$inferSelect) {
@@ -17,8 +16,8 @@ function formatGitProvider(row: typeof gitProvider.$inferSelect) {
     appId: row.appId ?? null,
     clientId: row.clientId ?? null,
     installationId: row.installationId ?? null,
-    hasClientSecret: !!row.clientSecretReferenceId || !!row.encryptedClientSecret,
-    hasWebhookSecret: !!row.webhookSecretReferenceId || !!row.encryptedWebhookSecret,
+    hasClientSecret: !!row.clientSecretReferenceId,
+    hasWebhookSecret: !!row.webhookSecretReferenceId,
     clientSecretReferenceId: row.clientSecretReferenceId ?? null,
     webhookSecretReferenceId: row.webhookSecretReferenceId ?? null,
     createdAt: row.createdAt.toISOString(),
@@ -83,10 +82,8 @@ export async function createGitProvider(params: {
     appId: params.appId ?? null,
     clientId: params.clientId ?? null,
     clientSecretReferenceId: clientSecret?.reference.id ?? null,
-    encryptedClientSecret: params.clientSecret ? encodeLegacySecret(params.clientSecret) : null,
     installationId: params.installationId ?? null,
     webhookSecretReferenceId: webhookSecret?.reference.id ?? null,
-    encryptedWebhookSecret: params.webhookSecret ? encodeLegacySecret(params.webhookSecret) : null,
     createdAt: now,
     updatedAt: now,
   };
@@ -121,7 +118,6 @@ export async function updateGitProvider(params: {
   const existing = existingResult.value;
 
   let clientSecretReferenceId = existing.clientSecretReferenceId;
-  let encryptedClientSecret = existing.encryptedClientSecret;
   if (params.clientSecret !== undefined) {
     const secret = await upsertSecretReference({
       organizationId: params.organizationId,
@@ -133,11 +129,9 @@ export async function updateGitProvider(params: {
       actorUserId: params.audit.userId,
     });
     clientSecretReferenceId = secret.reference.id;
-    encryptedClientSecret = encodeLegacySecret(params.clientSecret);
   }
 
   let webhookSecretReferenceId = existing.webhookSecretReferenceId;
-  let encryptedWebhookSecret = existing.encryptedWebhookSecret;
   if (params.webhookSecret !== undefined) {
     const secret = await upsertSecretReference({
       organizationId: params.organizationId,
@@ -149,7 +143,6 @@ export async function updateGitProvider(params: {
       actorUserId: params.audit.userId,
     });
     webhookSecretReferenceId = secret.reference.id;
-    encryptedWebhookSecret = encodeLegacySecret(params.webhookSecret);
   }
 
   await db
@@ -163,9 +156,7 @@ export async function updateGitProvider(params: {
         installationId: params.installationId,
       }),
       clientSecretReferenceId,
-      encryptedClientSecret,
       webhookSecretReferenceId,
-      encryptedWebhookSecret,
       updatedAt: new Date(),
     })
     .where(eq(gitProvider.id, existing.id));
@@ -222,9 +213,7 @@ export async function rotateGitProviderSecret(params: {
   const existing = existingResult.value;
 
   let clientSecretReferenceId = existing.clientSecretReferenceId;
-  let encryptedClientSecret = existing.encryptedClientSecret;
   let webhookSecretReferenceId = existing.webhookSecretReferenceId;
-  let encryptedWebhookSecret = existing.encryptedWebhookSecret;
 
   if (params.clientSecret) {
     const secret = await upsertSecretReference({
@@ -237,7 +226,6 @@ export async function rotateGitProviderSecret(params: {
       actorUserId: params.audit.userId,
     });
     clientSecretReferenceId = secret.reference.id;
-    encryptedClientSecret = encodeLegacySecret(params.clientSecret);
   }
 
   if (params.webhookSecret) {
@@ -251,16 +239,13 @@ export async function rotateGitProviderSecret(params: {
       actorUserId: params.audit.userId,
     });
     webhookSecretReferenceId = secret.reference.id;
-    encryptedWebhookSecret = encodeLegacySecret(params.webhookSecret);
   }
 
   await db
     .update(gitProvider)
     .set({
       clientSecretReferenceId,
-      encryptedClientSecret,
       webhookSecretReferenceId,
-      encryptedWebhookSecret,
       updatedAt: new Date(),
     })
     .where(eq(gitProvider.id, existing.id));

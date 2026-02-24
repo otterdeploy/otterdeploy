@@ -9,8 +9,8 @@ vi.mock("@otterdeploy/db", () => ({
 vi.mock("@otterdeploy/db/schema/operations", () => ({
   customDomain: { id: "id", organizationId: "orgId", domain: "domain", resourceId: "resId", verified: "verified", $inferSelect: {} },
 }));
-vi.mock("@otterdeploy/db/schema/architecture", () => ({
-  projectResource: { id: "id", $inferSelect: {} },
+vi.mock("@otterdeploy/db/schema/project", () => ({
+  resource: { id: "id", $inferSelect: {} },
 }));
 
 import { resolveResourceDomain } from "../custom-domain";

@@ -14,7 +14,7 @@ function createMockDeps(overrides: Partial<PipelineDeps> = {}): PipelineDeps {
       resourceId: "res-1",
       status: "queued",
       source: "manual",
-      buildMethod: "nixpacks",
+      builder: "nixpacks",
       imageTag: null,
       previousImageTag: null,
       gitRef: "main",
@@ -37,7 +37,7 @@ function createMockDeps(overrides: Partial<PipelineDeps> = {}): PipelineDeps {
       preDeployCommand: null,
       restartPolicy: "ALWAYS",
       restartPolicyMaxRetries: null,
-      buildMethod: "nixpacks",
+      builder: "nixpacks",
       dockerfilePath: "Dockerfile",
       buildCommand: null,
       serverId: null,
@@ -96,7 +96,7 @@ describe("validateDeployment", () => {
     expect(output.resource.name).toBe("web-app");
     expect(output.project.slug).toBe("my-project");
     expect(output.environment.name).toBe("production");
-    expect(output.buildMethod).toBe("nixpacks");
+    expect(output.builder).toBe("nixpacks");
     expect(output.gitRepo).not.toBeNull();
     expect(output.gitRepo?.owner).toBe("acme");
 

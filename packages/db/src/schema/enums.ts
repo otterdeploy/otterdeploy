@@ -108,8 +108,6 @@ export const resourceKindEnum = pgEnum("resource_kind", [
   "api",
   "worker",
   "database",
-  "cache",
-  "volume",
   "compose",
 ]);
 
