@@ -47,6 +47,27 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
+  caddy:
+    image: caddy:2-alpine
+    container_name: otterstack-caddy
+    restart: unless-stopped
+    command: sh -c "caddy run --resume --config /etc/caddy/Caddyfile --adapter caddyfile"
+    environment:
+      CADDY_ADMIN: "0.0.0.0:2019"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+      - "127.0.0.1:2019:2019"
+    volumes:
+      - otterstack-caddy-data:/data
+      - otterstack-caddy-config:/config
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:2019/config/"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
   zero-cache:
     image: rocicorp/zero:0.25.12
     container_name: otterstack-zero-cache
@@ -84,3 +105,5 @@ services:
 volumes:
   otterstack-postgres-data:
   otterstack-zero-data:
+  otterstack-caddy-data:
+  otterstack-caddy-config:

@@ -9,7 +9,6 @@ export type DatabaseType = "postgresql" | "redis" | "mysql" | "mongodb";
 export interface DatabaseConfig {
   image: string;
   dataPath: string;
-  healthCheck: string;
   defaultPort: number;
   envMapping: Record<string, string>;
   connectionStringTemplate: string;
@@ -19,7 +18,6 @@ export const DATABASE_CONFIGS: Record<DatabaseType, DatabaseConfig> = {
   postgresql: {
     image: "postgres:16",
     dataPath: "/var/lib/postgresql/data",
-    healthCheck: "pg_isready -U $POSTGRES_USER",
     defaultPort: 5432,
     envMapping: {
       user: "POSTGRES_USER",
@@ -32,7 +30,6 @@ export const DATABASE_CONFIGS: Record<DatabaseType, DatabaseConfig> = {
   redis: {
     image: "redis:7-alpine",
     dataPath: "/data",
-    healthCheck: "redis-cli ping",
     defaultPort: 6379,
     envMapping: { password: "REDIS_PASSWORD" },
     connectionStringTemplate: "redis://:{password}@{host}:{port}",
@@ -40,7 +37,6 @@ export const DATABASE_CONFIGS: Record<DatabaseType, DatabaseConfig> = {
   mysql: {
     image: "mysql:8",
     dataPath: "/var/lib/mysql",
-    healthCheck: "mysqladmin ping -u root -p$MYSQL_ROOT_PASSWORD",
     defaultPort: 3306,
     envMapping: {
       user: "MYSQL_USER",
@@ -54,7 +50,6 @@ export const DATABASE_CONFIGS: Record<DatabaseType, DatabaseConfig> = {
   mongodb: {
     image: "mongo:7",
     dataPath: "/data/db",
-    healthCheck: 'mongosh --eval "db.runCommand(\'ping\')"',
     defaultPort: 27017,
     envMapping: {
       user: "MONGO_INITDB_ROOT_USERNAME",
@@ -66,7 +61,6 @@ export const DATABASE_CONFIGS: Record<DatabaseType, DatabaseConfig> = {
   },
 };
 
-// Supported image versions for each database type
 export const SUPPORTED_VERSIONS: Record<DatabaseType, string[]> = {
   postgresql: ["postgres:14", "postgres:15", "postgres:16", "postgres:17"],
   redis: ["redis:6-alpine", "redis:7-alpine"],
@@ -83,7 +77,16 @@ export function generateCredentials(
   const database =
     dbType === "redis" ? "" : `otterstack_${randomBytes(4).toString("hex")}`;
 
+  if (dbType === "mysql") {
+    const rootPassword = randomBytes(24).toString("base64url");
+    return { user, password, database, rootPassword };
+  }
+
   return { user, password, database };
+}
+
+function credVal(credentials: Record<string, string>, key: string): string {
+  return credentials[key] ?? "";
 }
 
 export function buildConnectionString(
@@ -93,15 +96,15 @@ export function buildConnectionString(
   port: number,
 ): string {
   let template = DATABASE_CONFIGS[dbType].connectionStringTemplate;
-  template = template.replace("{user}", credentials.user || "");
-  template = template.replace("{password}", credentials.password || "");
+  template = template.replace("{user}", credVal(credentials, "user"));
+  template = template.replace("{password}", credVal(credentials, "password"));
   template = template.replace("{host}", host);
   template = template.replace("{port}", String(port));
-  template = template.replace("{database}", credentials.database || "");
+  template = template.replace("{database}", credVal(credentials, "database"));
   return template;
 }
 
-export function getServiceName(resourceId: string): string {
+export function getStackName(resourceId: string): string {
   return `otterstack-${resourceId}`;
 }
 
@@ -117,30 +120,167 @@ export function buildServiceEnv(
   const env: string[] = [];
 
   for (const [credKey, envVar] of Object.entries(config.envMapping)) {
-    const value = credentials[credKey];
+    const value = credVal(credentials, credKey);
     if (value) {
       env.push(`${envVar}=${value}`);
     }
   }
 
+  // PostgreSQL: add PGUSER for pg_isready compatibility
+  const pgUser = credVal(credentials, "user");
+  if (dbType === "postgresql" && pgUser) {
+    env.push(`PGUSER=${pgUser}`);
+  }
+
   return env;
 }
 
+function escapeYamlValue(val: string): string {
+  return val.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+export function buildHealthCheckCmd(
+  dbType: DatabaseType,
+  credentials: Record<string, string>,
+): string {
+  switch (dbType) {
+    case "postgresql":
+      return `psql -U ${credVal(credentials, "user")} -d ${credVal(credentials, "database")} -c 'SELECT 1' || exit 1`;
+    case "mysql":
+      return `mysqladmin ping -h localhost -u root -p${credVal(credentials, "rootPassword")}`;
+    case "mongodb":
+      return `mongosh --eval "db.adminCommand('ping')" --quiet`;
+    case "redis":
+      return `redis-cli -a ${credVal(credentials, "password")} ping`;
+  }
+}
+
+export function generateComposeFile(input: {
+  image: string;
+  dbType: DatabaseType;
+  credentials: Record<string, string>;
+  volumeName: string;
+  networkName: string;
+  labels: Record<string, string>;
+  externalPort?: number;
+  resourceLimits?: { cpuLimit?: number; memoryLimitMb?: number };
+}): string {
+  const config = DATABASE_CONFIGS[input.dbType];
+  const env = buildServiceEnv(input.dbType, input.credentials);
+  const healthCmd = buildHealthCheckCmd(input.dbType, input.credentials);
+
+  const lines: string[] = [
+    'version: "3.8"',
+    "",
+    "services:",
+    "  db:",
+    `    image: ${input.image}`,
+  ];
+
+  // Redis requires explicit command for auth + persistence
+  if (input.dbType === "redis") {
+    const pw = escapeYamlValue(credVal(input.credentials, "password"));
+    lines.push(
+      `    command: ["redis-server", "--requirepass", "${pw}", "--appendonly", "yes"]`,
+    );
+  }
+
+  // Environment
+  lines.push("    environment:");
+  for (const e of env) {
+    lines.push(`      - "${escapeYamlValue(e)}"`);
+  }
+
+  // Volumes
+  lines.push("    volumes:");
+  lines.push(`      - data:${config.dataPath}`);
+
+  // Ports (only when external access is needed)
+  if (input.externalPort) {
+    lines.push("    ports:");
+    lines.push(`      - target: ${config.defaultPort}`);
+    lines.push(`        published: ${input.externalPort}`);
+    lines.push("        mode: host");
+  }
+
+  // Networks
+  lines.push("    networks:");
+  lines.push("      - projectnet");
+
+  // Healthcheck
+  lines.push("    healthcheck:");
+  lines.push(
+    `      test: ["CMD-SHELL", "${escapeYamlValue(healthCmd)}"]`,
+  );
+  lines.push("      interval: 5s");
+  lines.push("      timeout: 5s");
+  lines.push("      retries: 10");
+  lines.push("      start_period: 5s");
+
+  // Deploy config (Swarm)
+  lines.push("    deploy:");
+  lines.push("      replicas: 1");
+  lines.push("      restart_policy:");
+  lines.push("        condition: any");
+  lines.push("      update_config:");
+  lines.push("        parallelism: 1");
+  lines.push("        order: start-first");
+  lines.push("        failure_action: rollback");
+
+  if (input.resourceLimits) {
+    lines.push("      resources:");
+    lines.push("        limits:");
+    if (input.resourceLimits.cpuLimit != null) {
+      lines.push(`          cpus: "${input.resourceLimits.cpuLimit}"`);
+    }
+    if (input.resourceLimits.memoryLimitMb != null) {
+      lines.push(
+        `          memory: ${input.resourceLimits.memoryLimitMb}M`,
+      );
+    }
+  }
+
+  // Deploy labels
+  lines.push("      labels:");
+  for (const [k, v] of Object.entries(input.labels)) {
+    lines.push(`        ${k}: "${escapeYamlValue(v)}"`);
+  }
+
+  // Top-level volumes
+  lines.push("");
+  lines.push("volumes:");
+  lines.push("  data:");
+  lines.push(`    name: ${input.volumeName}`);
+  lines.push("    labels:");
+  lines.push('      otterstack.managed: "true"');
+  for (const [k, v] of Object.entries(input.labels)) {
+    if (k.endsWith(".resource.id") || k.endsWith(".project.id")) {
+      lines.push(`      ${k}: "${escapeYamlValue(v)}"`);
+    }
+  }
+
+  // Top-level networks
+  lines.push("");
+  lines.push("networks:");
+  lines.push("  projectnet:");
+  lines.push("    external: true");
+  lines.push(`    name: ${input.networkName}`);
+
+  return lines.join("\n") + "\n";
+}
+
 // Dependencies interface for testability
-export interface ProvisionDeps {
-  createVolume: (
-    name: string,
-    labels: Record<string, string>,
-  ) => Promise<Result<{ name: string }, Error>>;
-  createService: (opts: any) => Promise<Result<string, Error>>;
-  inspectService: (name: string) => Promise<Result<any, Error>>;
-  updateService: (name: string, opts: any) => Promise<Result<void, Error>>;
-  removeService: (name: string) => Promise<Result<void, Error>>;
-  listContainers: (serviceFilter: string) => Promise<Result<any[], Error>>;
-  scaleService: (
-    name: string,
-    replicas: number,
+export interface StackDeps {
+  stackDeploy: (
+    stackName: string,
+    composeContent: string,
   ) => Promise<Result<void, Error>>;
+  stackRemove: (
+    stackName: string,
+  ) => Promise<Result<void, Error>>;
+  stackServices: (
+    stackName: string,
+  ) => Promise<Result<Array<{ name: string; replicas: string; image: string }>, Error>>;
   sleep: (ms: number) => Promise<void>;
 }
 
@@ -153,14 +293,13 @@ export async function provisionDatabase(
     dbType: DatabaseType;
     imageTag?: string;
     externalPort?: number;
-    customConfig?: Record<string, unknown>;
     resourceLimits?: { cpuLimit?: number; memoryLimitMb?: number };
   },
-  deps: ProvisionDeps,
+  deps: StackDeps,
 ): Promise<
   Result<
     {
-      serviceName: string;
+      stackName: string;
       volumeName: string;
       credentials: Record<string, string>;
       connectionString: string;
@@ -171,81 +310,58 @@ export async function provisionDatabase(
 > {
   const config = DATABASE_CONFIGS[input.dbType];
   const image = input.imageTag ?? config.image;
-  const serviceName = getServiceName(input.resourceId);
+  const stackName = getStackName(input.resourceId);
   const volumeName = getVolumeName(input.resourceId);
   const credentials = generateCredentials(input.dbType);
   const port = config.defaultPort;
+  const networkName = `otterstack-proj-${input.projectId}`;
 
   log.info(
     { resourceId: input.resourceId, dbType: input.dbType, image },
-    "Provisioning database",
+    "Provisioning database via stack deploy",
   );
 
-  // Step 1: Create volume
-  const volumeResult = await deps.createVolume(volumeName, {
+  const labels: Record<string, string> = {
     "otterstack.resource.id": input.resourceId,
     "otterstack.project.id": input.projectId,
-    "otterstack.managed": "true",
-  });
-  if (volumeResult.isErr()) {
-    log.error({ err: volumeResult.error }, "Failed to create volume");
-    return Result.err(volumeResult.error);
-  }
+    "otterstack.environment.id": input.environmentId,
+    "otterstack.organization.id": input.organizationId,
+    "otterstack.database.type": input.dbType,
+  };
 
-  // Step 2: Build service spec
-  const env = buildServiceEnv(input.dbType, credentials);
-  const ports: Array<{ target: number; published?: number }> = [];
-  if (input.externalPort) {
-    ports.push({ target: port, published: input.externalPort });
-  }
-
-  // Step 3: Create Swarm service
-  const createResult = await deps.createService({
-    name: serviceName,
+  // Generate compose file
+  const composeContent = generateComposeFile({
     image,
-    env,
-    ports: ports.length > 0 ? ports : undefined,
-    volumes: [
-      { source: volumeName, target: config.dataPath, type: "volume" },
-    ],
-    networks: [`otterstack-proj-${input.projectId}`],
-    labels: {
-      "otterstack.resource.id": input.resourceId,
-      "otterstack.project.id": input.projectId,
-      "otterstack.environment.id": input.environmentId,
-      "otterstack.organization.id": input.organizationId,
-      "otterstack.database.type": input.dbType,
-    },
-    healthCheck: {
-      cmd: config.healthCheck,
-      interval: 10,
-      timeout: 5,
-      retries: 5,
-    },
-    restartPolicy: "always",
+    dbType: input.dbType,
+    credentials,
+    volumeName,
+    networkName,
+    labels,
+    externalPort: input.externalPort,
     resourceLimits: input.resourceLimits,
-    replicas: 1,
   });
 
-  if (createResult.isErr()) {
+  // Deploy stack
+  const deployResult = await deps.stackDeploy(stackName, composeContent);
+  if (deployResult.isErr()) {
     log.error(
-      { err: createResult.error },
-      "Failed to create database service",
+      { err: deployResult.error },
+      "Failed to deploy database stack",
     );
-    return Result.err(createResult.error);
+    return Result.err(deployResult.error);
   }
 
-  // Step 4: Wait for health check (poll for up to 120 seconds)
+  // Wait for the service to become healthy (poll for up to 120 seconds)
   const healthTimeout = 120_000;
   const pollInterval = 5_000;
   const startTime = Date.now();
   let healthy = false;
 
   while (Date.now() - startTime < healthTimeout) {
-    const containers = await deps.listContainers(serviceName);
-    if (containers.isOk()) {
-      const running = containers.value.find((c) => c.state === "running");
-      if (running) {
+    const services = await deps.stackServices(stackName);
+    if (services.isOk()) {
+      const dbService = services.value.find((s) => s.name.endsWith("_db"));
+      if (dbService && dbService.replicas === "1/1") {
         healthy = true;
         break;
       }
@@ -260,8 +376,8 @@ export async function provisionDatabase(
     );
   }
 
-  // Step 5: Build connection string
-  const host = serviceName; // Swarm DNS resolution within overlay network
+  // Connection string uses the Swarm DNS name: <stackName>_db
+  const host = `${stackName}_db`;
   const connectionString = buildConnectionString(
     input.dbType,
     credentials,
@@ -270,12 +386,12 @@ export async function provisionDatabase(
   );
 
   log.info(
-    { resourceId: input.resourceId, serviceName, healthy },
+    { resourceId: input.resourceId, stackName, healthy },
     "Database provisioned",
   );
 
   return Result.ok({
-    serviceName,
+    stackName,
     volumeName,
     credentials,
     connectionString,
@@ -286,49 +402,67 @@ export async function provisionDatabase(
 export async function upgradeDatabase(
   input: {
     resourceId: string;
+    projectId: string;
+    environmentId: string;
+    organizationId: string;
     newImageTag: string;
     dbType: DatabaseType;
+    credentials: Record<string, string>;
+    externalPort?: number;
+    resourceLimits?: { cpuLimit?: number; memoryLimitMb?: number };
   },
-  deps: ProvisionDeps,
+  deps: StackDeps,
 ): Promise<Result<void, Error>> {
-  const serviceName = getServiceName(input.resourceId);
+  const stackName = getStackName(input.resourceId);
+  const volumeName = getVolumeName(input.resourceId);
+  const networkName = `otterstack-proj-${input.projectId}`;
 
   log.info(
     { resourceId: input.resourceId, newImageTag: input.newImageTag },
-    "Upgrading database version",
+    "Upgrading database version via stack redeploy",
   );
 
-  // Step 1: Scale to 0 (stop database)
-  const scaleDownResult = await deps.scaleService(serviceName, 0);
-  if (scaleDownResult.isErr()) return Result.err(scaleDownResult.error);
+  const labels: Record<string, string> = {
+    "otterstack.resource.id": input.resourceId,
+    "otterstack.project.id": input.projectId,
+    "otterstack.environment.id": input.environmentId,
+    "otterstack.organization.id": input.organizationId,
+    "otterstack.database.type": input.dbType,
+  };
 
-  await deps.sleep(5_000); // Allow graceful shutdown
-
-  // Step 2: Update to new image
-  const updateResult = await deps.updateService(serviceName, {
+  // Regenerate compose file with new image
+  const composeContent = generateComposeFile({
     image: input.newImageTag,
+    dbType: input.dbType,
+    credentials: input.credentials,
+    volumeName,
+    networkName,
+    labels,
+    externalPort: input.externalPort,
+    resourceLimits: input.resourceLimits,
   });
-  if (updateResult.isErr()) {
-    // Attempt to restore original
-    await deps.scaleService(serviceName, 1);
-    return Result.err(updateResult.error);
+
+  // Redeploy — docker stack deploy updates existing services in-place
+  const deployResult = await deps.stackDeploy(stackName, composeContent);
+  if (deployResult.isErr()) {
+    log.error(
+      { err: deployResult.error },
+      "Failed to redeploy database stack for upgrade",
+    );
+    return Result.err(deployResult.error);
   }
 
-  // Step 3: Scale back up
-  const scaleUpResult = await deps.scaleService(serviceName, 1);
-  if (scaleUpResult.isErr()) return Result.err(scaleUpResult.error);
-
-  // Step 4: Wait for health check
+  // Wait for healthy state
   const healthTimeout = 120_000;
   const pollInterval = 5_000;
   const startTime = Date.now();
   let healthy = false;
 
   while (Date.now() - startTime < healthTimeout) {
-    const containers = await deps.listContainers(serviceName);
-    if (containers.isOk()) {
-      const running = containers.value.find((c) => c.state === "running");
-      if (running) {
+    const services = await deps.stackServices(stackName);
+    if (services.isOk()) {
+      const dbService = services.value.find((s) => s.name.endsWith("_db"));
+      if (dbService && dbService.replicas === "1/1") {
         healthy = true;
         break;
       }

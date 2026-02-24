@@ -11,7 +11,8 @@
       "Bash(agent-browser type:*)",
       "Bash(agent-browser click:*)",
       "Bash(agent-browser snapshot:*)",
-      "Bash(head:*)"
+      "Bash(head:*)",
+      "Bash(grep:*)"
     ]
   }
 }

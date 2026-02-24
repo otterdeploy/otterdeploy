@@ -10,10 +10,12 @@
   "dependencies": {
     "better-result": "catalog:",
     "@otterdeploy/db": "workspace:*",
+    "@otterdeploy/docker": "workspace:*",
     "@otterdeploy/domain": "workspace:*",
     "@otterdeploy/env": "workspace:*",
     "@otterdeploy/events": "workspace:*",
     "@otterdeploy/logger": "workspace:*",
+    "@otterdeploy/proxy": "workspace:*",
     "hono": "catalog:",
     "inngest": "catalog:"
   },

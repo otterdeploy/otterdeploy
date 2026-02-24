@@ -3,8 +3,10 @@ import {
   generateCredentials,
   buildConnectionString,
   buildServiceEnv,
-  getServiceName,
+  buildHealthCheckCmd,
+  getStackName,
   getVolumeName,
+  generateComposeFile,
   provisionDatabase,
   upgradeDatabase,
   DATABASE_CONFIGS,
@@ -14,29 +16,19 @@ import { Result } from "better-result";
 
 function createMockDeps() {
   return {
-    createVolume: vi.fn().mockResolvedValue(Result.ok({ name: "vol" })),
-    createService: vi.fn().mockResolvedValue(Result.ok("svc-id")),
-    inspectService: vi.fn().mockResolvedValue(Result.ok({ id: "svc-id" })),
-    updateService: vi.fn().mockResolvedValue(Result.ok(undefined)),
-    removeService: vi.fn().mockResolvedValue(Result.ok(undefined)),
-    listContainers: vi
+    stackDeploy: vi.fn().mockResolvedValue(Result.ok(undefined)),
+    stackRemove: vi.fn().mockResolvedValue(Result.ok(undefined)),
+    stackServices: vi
       .fn()
-      .mockResolvedValue(Result.ok([{ state: "running" }])),
-    scaleService: vi.fn().mockResolvedValue(Result.ok(undefined)),
+      .mockResolvedValue(
+        Result.ok([{ name: "otterstack-res-1_db", replicas: "1/1", image: "postgres:16" }]),
+      ),
     sleep: vi.fn().mockResolvedValue(undefined),
   };
 }
 
-/**
- * Creates a sleep mock that advances Date.now() by the given ms each call.
- * This is needed to prevent infinite loops in health check polling when
- * using fake timers or mocked sleep.
- */
 function createTimeAdvancingSleep() {
   let currentTime = Date.now();
-  const originalDateNow = Date.now;
-
-  // Override Date.now to return our controlled time
   vi.spyOn(Date, "now").mockImplementation(() => currentTime);
 
   const sleep = vi.fn().mockImplementation(async (ms: number) => {
@@ -64,6 +56,13 @@ describe("database-provisioner", () => {
       expect(creds.user).toBe("");
       expect(creds.password).toBeTruthy();
       expect(creds.database).toBe("");
+    });
+
+    it("generates rootPassword for mysql", () => {
+      const creds = generateCredentials("mysql");
+      expect(creds.rootPassword).toBeTruthy();
+      expect(creds.user).toBeTruthy();
+      expect(creds.password).toBeTruthy();
     });
   });
 
@@ -110,7 +109,7 @@ describe("database-provisioner", () => {
   });
 
   describe("buildServiceEnv", () => {
-    it("builds env vars for postgresql", () => {
+    it("builds env vars for postgresql with PGUSER", () => {
       const env = buildServiceEnv("postgresql", {
         user: "u",
         password: "p",
@@ -119,6 +118,7 @@ describe("database-provisioner", () => {
       expect(env).toContain("POSTGRES_USER=u");
       expect(env).toContain("POSTGRES_PASSWORD=p");
       expect(env).toContain("POSTGRES_DB=d");
+      expect(env).toContain("PGUSER=u");
     });
 
     it("builds env vars for redis", () => {
@@ -130,19 +130,176 @@ describe("database-provisioner", () => {
       expect(env).toContain("REDIS_PASSWORD=p");
       expect(env).toHaveLength(1);
     });
+
+    it("builds env vars for mysql with root password", () => {
+      const env = buildServiceEnv("mysql", {
+        user: "u",
+        password: "p",
+        database: "d",
+        rootPassword: "rp",
+      });
+      expect(env).toContain("MYSQL_USER=u");
+      expect(env).toContain("MYSQL_PASSWORD=p");
+      expect(env).toContain("MYSQL_DATABASE=d");
+      expect(env).toContain("MYSQL_ROOT_PASSWORD=rp");
+    });
   });
 
-  describe("getServiceName / getVolumeName", () => {
-    it("returns correct service name", () => {
-      expect(getServiceName("abc123")).toBe("otterstack-abc123");
+  describe("buildHealthCheckCmd", () => {
+    it("builds postgresql healthcheck", () => {
+      const cmd = buildHealthCheckCmd("postgresql", { user: "u", database: "d" });
+      expect(cmd).toBe("psql -U u -d d -c 'SELECT 1' || exit 1");
+    });
+
+    it("builds mysql healthcheck", () => {
+      const cmd = buildHealthCheckCmd("mysql", { rootPassword: "rp" });
+      expect(cmd).toBe("mysqladmin ping -h localhost -u root -prp");
+    });
+
+    it("builds redis healthcheck with password", () => {
+      const cmd = buildHealthCheckCmd("redis", { password: "pw" });
+      expect(cmd).toBe("redis-cli -a pw ping");
+    });
+
+    it("builds mongodb healthcheck", () => {
+      const cmd = buildHealthCheckCmd("mongodb", {});
+      expect(cmd).toContain("mongosh");
+    });
+  });
+
+  describe("getStackName / getVolumeName", () => {
+    it("returns correct stack name", () => {
+      expect(getStackName("abc123")).toBe("otterstack-abc123");
     });
     it("returns correct volume name", () => {
       expect(getVolumeName("abc123")).toBe("otterstack-abc123-data");
     });
   });
 
+  describe("generateComposeFile", () => {
+    it("generates valid compose YAML for postgresql", () => {
+      const yaml = generateComposeFile({
+        image: "postgres:16",
+        dbType: "postgresql",
+        credentials: { user: "u", password: "p", database: "d" },
+        volumeName: "otterstack-res-1-data",
+        networkName: "otterstack-proj-proj-1",
+        labels: {
+          "otterstack.resource.id": "res-1",
+          "otterstack.project.id": "proj-1",
+          "otterstack.environment.id": "env-1",
+          "otterstack.organization.id": "org-1",
+          "otterstack.database.type": "postgresql",
+        },
+      });
+
+      expect(yaml).toContain('version: "3.8"');
+      expect(yaml).toContain("image: postgres:16");
+      expect(yaml).toContain("POSTGRES_USER=u");
+      expect(yaml).toContain("POSTGRES_PASSWORD=p");
+      expect(yaml).toContain("POSTGRES_DB=d");
+      expect(yaml).toContain("PGUSER=u");
+      expect(yaml).toContain("data:/var/lib/postgresql/data");
+      expect(yaml).toContain("psql -U u -d d");
+      expect(yaml).toContain("start_period: 5s");
+      expect(yaml).toContain("replicas: 1");
+      expect(yaml).toContain("condition: any");
+      expect(yaml).toContain("order: start-first");
+      expect(yaml).toContain("failure_action: rollback");
+      expect(yaml).toContain("name: otterstack-res-1-data");
+      expect(yaml).toContain("external: true");
+      expect(yaml).toContain("name: otterstack-proj-proj-1");
+    });
+
+    it("generates redis compose with command for auth", () => {
+      const yaml = generateComposeFile({
+        image: "redis:7-alpine",
+        dbType: "redis",
+        credentials: { user: "", password: "secret", database: "" },
+        volumeName: "otterstack-res-2-data",
+        networkName: "otterstack-proj-proj-1",
+        labels: {
+          "otterstack.resource.id": "res-2",
+          "otterstack.project.id": "proj-1",
+          "otterstack.environment.id": "env-1",
+          "otterstack.organization.id": "org-1",
+          "otterstack.database.type": "redis",
+        },
+      });
+
+      expect(yaml).toContain("redis-server");
+      expect(yaml).toContain("--requirepass");
+      expect(yaml).toContain("secret");
+      expect(yaml).toContain("--appendonly");
+      expect(yaml).toContain("data:/data");
+    });
+
+    it("includes external port when specified", () => {
+      const yaml = generateComposeFile({
+        image: "postgres:16",
+        dbType: "postgresql",
+        credentials: { user: "u", password: "p", database: "d" },
+        volumeName: "vol",
+        networkName: "net",
+        labels: { "otterstack.resource.id": "res-1", "otterstack.project.id": "p1", "otterstack.environment.id": "e1", "otterstack.organization.id": "o1", "otterstack.database.type": "postgresql" },
+        externalPort: 15432,
+      });
+
+      expect(yaml).toContain("published: 15432");
+      expect(yaml).toContain("target: 5432");
+      expect(yaml).toContain("mode: host");
+    });
+
+    it("includes resource limits when specified", () => {
+      const yaml = generateComposeFile({
+        image: "postgres:16",
+        dbType: "postgresql",
+        credentials: { user: "u", password: "p", database: "d" },
+        volumeName: "vol",
+        networkName: "net",
+        labels: { "otterstack.resource.id": "res-1", "otterstack.project.id": "p1", "otterstack.environment.id": "e1", "otterstack.organization.id": "o1", "otterstack.database.type": "postgresql" },
+        resourceLimits: { cpuLimit: 2, memoryLimitMb: 512 },
+      });
+
+      expect(yaml).toContain('cpus: "2"');
+      expect(yaml).toContain("memory: 512M");
+    });
+
+    it("generates mysql compose with root password env", () => {
+      const yaml = generateComposeFile({
+        image: "mysql:8",
+        dbType: "mysql",
+        credentials: { user: "u", password: "p", database: "d", rootPassword: "rp" },
+        volumeName: "vol",
+        networkName: "net",
+        labels: { "otterstack.resource.id": "res-1", "otterstack.project.id": "p1", "otterstack.environment.id": "e1", "otterstack.organization.id": "o1", "otterstack.database.type": "mysql" },
+      });
+
+      expect(yaml).toContain("MYSQL_ROOT_PASSWORD=rp");
+      expect(yaml).toContain("MYSQL_USER=u");
+      expect(yaml).toContain("MYSQL_DATABASE=d");
+      expect(yaml).toContain("data:/var/lib/mysql");
+    });
+
+    it("generates mongodb compose", () => {
+      const yaml = generateComposeFile({
+        image: "mongo:7",
+        dbType: "mongodb",
+        credentials: { user: "u", password: "p", database: "d" },
+        volumeName: "vol",
+        networkName: "net",
+        labels: { "otterstack.resource.id": "res-1", "otterstack.project.id": "p1", "otterstack.environment.id": "e1", "otterstack.organization.id": "o1", "otterstack.database.type": "mongodb" },
+      });
+
+      expect(yaml).toContain("MONGO_INITDB_ROOT_USERNAME=u");
+      expect(yaml).toContain("MONGO_INITDB_ROOT_PASSWORD=p");
+      expect(yaml).toContain("data:/data/db");
+      expect(yaml).toContain("mongosh");
+    });
+  });
+
   describe("provisionDatabase", () => {
-    it("provisions a postgresql database successfully", async () => {
+    it("provisions a postgresql database via stack deploy", async () => {
       const deps = createMockDeps();
       const result = await provisionDatabase(
         {
@@ -157,17 +314,26 @@ describe("database-provisioner", () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value.serviceName).toBe("otterstack-res-1");
+        expect(result.value.stackName).toBe("otterstack-res-1");
         expect(result.value.volumeName).toBe("otterstack-res-1-data");
         expect(result.value.connectionString).toContain("postgresql://");
+        expect(result.value.connectionString).toContain("otterstack-res-1_db");
         expect(result.value.port).toBe(5432);
       }
-      expect(deps.createVolume).toHaveBeenCalledOnce();
-      expect(deps.createService).toHaveBeenCalledOnce();
+      expect(deps.stackDeploy).toHaveBeenCalledOnce();
+
+      // Verify compose content was passed
+      const composeContent = deps.stackDeploy.mock.calls[0][1];
+      expect(composeContent).toContain("postgres:16");
+      expect(composeContent).toContain("POSTGRES_USER=");
     });
 
     it("provisions redis with correct config", async () => {
       const deps = createMockDeps();
+      deps.stackServices.mockResolvedValue(
+        Result.ok([{ name: "otterstack-res-2_db", replicas: "1/1", image: "redis:7-alpine" }]),
+      );
+
       const result = await provisionDatabase(
         {
           resourceId: "res-2",
@@ -184,24 +350,10 @@ describe("database-provisioner", () => {
         expect(result.value.connectionString).toContain("redis://");
         expect(result.value.port).toBe(6379);
       }
-    });
 
-    it("includes external port when specified", async () => {
-      const deps = createMockDeps();
-      await provisionDatabase(
-        {
-          resourceId: "res-3",
-          projectId: "proj-1",
-          environmentId: "env-1",
-          organizationId: "org-1",
-          dbType: "postgresql",
-          externalPort: 15432,
-        },
-        deps,
-      );
-
-      const createCall = deps.createService.mock.calls[0][0];
-      expect(createCall.ports).toEqual([{ target: 5432, published: 15432 }]);
+      const composeContent = deps.stackDeploy.mock.calls[0][1];
+      expect(composeContent).toContain("redis-server");
+      expect(composeContent).toContain("--requirepass");
     });
 
     it("uses custom image tag when provided", async () => {
@@ -218,14 +370,14 @@ describe("database-provisioner", () => {
         deps,
       );
 
-      const createCall = deps.createService.mock.calls[0][0];
-      expect(createCall.image).toBe("postgres:15");
+      const composeContent = deps.stackDeploy.mock.calls[0][1];
+      expect(composeContent).toContain("image: postgres:15");
     });
 
-    it("returns error when volume creation fails", async () => {
+    it("returns error when stack deploy fails", async () => {
       const deps = createMockDeps();
-      deps.createVolume.mockResolvedValue(
-        Result.err(new Error("Volume creation failed")),
+      deps.stackDeploy.mockResolvedValue(
+        Result.err(new Error("Stack deploy failed")),
       );
 
       const result = await provisionDatabase(
@@ -241,79 +393,48 @@ describe("database-provisioner", () => {
 
       expect(result.isErr()).toBe(true);
     });
-
-    it("returns error when service creation fails", async () => {
-      const deps = createMockDeps();
-      deps.createService.mockResolvedValue(
-        Result.err(new Error("Service creation failed")),
-      );
-
-      const result = await provisionDatabase(
-        {
-          resourceId: "res-6",
-          projectId: "proj-1",
-          environmentId: "env-1",
-          organizationId: "org-1",
-          dbType: "postgresql",
-        },
-        deps,
-      );
-
-      expect(result.isErr()).toBe(true);
-    });
   });
 
   describe("upgradeDatabase", () => {
-    it("upgrades database version successfully", async () => {
+    it("upgrades database version via stack redeploy", async () => {
       const deps = createMockDeps();
       const result = await upgradeDatabase(
         {
           resourceId: "res-1",
+          projectId: "proj-1",
+          environmentId: "env-1",
+          organizationId: "org-1",
           newImageTag: "postgres:17",
           dbType: "postgresql",
+          credentials: { user: "u", password: "p", database: "d" },
         },
         deps,
       );
 
       expect(result.isOk()).toBe(true);
-      expect(deps.scaleService).toHaveBeenCalledWith("otterstack-res-1", 0);
-      expect(deps.updateService).toHaveBeenCalledWith("otterstack-res-1", {
-        image: "postgres:17",
-      });
-      expect(deps.scaleService).toHaveBeenCalledWith("otterstack-res-1", 1);
-    });
+      expect(deps.stackDeploy).toHaveBeenCalledOnce();
 
-    it("restores original scale on update failure", async () => {
-      const deps = createMockDeps();
-      deps.updateService.mockResolvedValue(
-        Result.err(new Error("Update failed")),
-      );
-
-      const result = await upgradeDatabase(
-        {
-          resourceId: "res-1",
-          newImageTag: "postgres:17",
-          dbType: "postgresql",
-        },
-        deps,
-      );
-
-      expect(result.isErr()).toBe(true);
-      // Should have tried to restore
-      expect(deps.scaleService).toHaveBeenCalledWith("otterstack-res-1", 1);
+      const composeContent = deps.stackDeploy.mock.calls[0][1];
+      expect(composeContent).toContain("image: postgres:17");
     });
 
     it("returns error when health check fails after upgrade", async () => {
       const { sleep } = createTimeAdvancingSleep();
       const deps = createMockDeps();
-      deps.listContainers.mockResolvedValue(Result.ok([])); // No running containers
+      deps.stackServices.mockResolvedValue(
+        Result.ok([{ name: "otterstack-res-1_db", replicas: "0/1", image: "postgres:17" }]),
+      );
       deps.sleep = sleep;
 
       const result = await upgradeDatabase(
         {
           resourceId: "res-1",
+          projectId: "proj-1",
+          environmentId: "env-1",
+          organizationId: "org-1",
           newImageTag: "postgres:17",
           dbType: "postgresql",
+          credentials: { user: "u", password: "p", database: "d" },
         },
         deps,
       );

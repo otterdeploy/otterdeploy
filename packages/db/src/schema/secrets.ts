@@ -9,7 +9,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { organization } from "./auth";
-import { projectResource } from "./architecture";
+import { resource } from "./project";
 import { deployment } from "./deployment";
 import {
   secretKindEnum,
@@ -93,7 +93,7 @@ export const deploymentSecretSnapshot = pgTable(
       .references(() => organization.id, { onDelete: "cascade" }),
     resourceId: text("resource_id")
       .notNull()
-      .references(() => projectResource.id, { onDelete: "cascade" }),
+      .references(() => resource.id, { onDelete: "cascade" }),
     entriesJson: jsonb("entries_json")
       .$type<
         Array<{
@@ -116,6 +116,8 @@ export const deploymentSecretSnapshot = pgTable(
     index("deployment_secret_snapshot_resource_idx").on(table.resourceId),
   ],
 );
+
+// --- Relations ---
 
 export const secretProviderBindingRelations = relations(secretProviderBinding, ({ one }) => ({
   organization: one(organization, {
@@ -142,9 +144,9 @@ export const deploymentSecretSnapshotRelations = relations(
       fields: [deploymentSecretSnapshot.organizationId],
       references: [organization.id],
     }),
-    resource: one(projectResource, {
+    resource: one(resource, {
       fields: [deploymentSecretSnapshot.resourceId],
-      references: [projectResource.id],
+      references: [resource.id],
     }),
   }),
 );

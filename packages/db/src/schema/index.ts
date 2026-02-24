@@ -1,5 +1,6 @@
 export * from "./auth";
-export * from "./architecture";
+export * from "./project";
+export * from "./resource-config";
 export * from "./enums";
 export * from "./deployment";
 export * from "./infrastructure";

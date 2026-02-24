@@ -126,6 +126,7 @@ export const auth = betterAuth({
       sameSite: "none",
       secure: true,
       httpOnly: true,
+      ...(env.NODE_ENV !== "production" && { domain: "localhost" }),
     },
   },
   databaseHooks: {

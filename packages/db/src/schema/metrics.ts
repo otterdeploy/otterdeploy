@@ -5,25 +5,24 @@ import {
   doublePrecision,
   index,
   integer,
-  jsonb,
   pgTable,
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
 
 import { organization } from "./auth";
-import { projectResource } from "./architecture";
+import { resource } from "./project";
 import { server } from "./infrastructure";
+import { secretReference } from "./secrets";
 import { caddyStatusEnum } from "./enums";
 
-// Time-series container stats (30s collection, 7-day retention for raw)
 export const resourceMetric = pgTable(
   "resource_metric",
   {
     id: text("id").primaryKey(),
     resourceId: text("resource_id")
       .notNull()
-      .references(() => projectResource.id, { onDelete: "cascade" }),
+      .references(() => resource.id, { onDelete: "cascade" }),
     timestamp: timestamp("timestamp").notNull(),
     cpuPercent: doublePrecision("cpu_percent"),
     memoryUsed: bigint("memory_used", { mode: "number" }),
@@ -39,14 +38,13 @@ export const resourceMetric = pgTable(
   ],
 );
 
-// Hourly rollup aggregates (90-day retention)
 export const resourceMetricHourly = pgTable(
   "resource_metric_hourly",
   {
     id: text("id").primaryKey(),
     resourceId: text("resource_id")
       .notNull()
-      .references(() => projectResource.id, { onDelete: "cascade" }),
+      .references(() => resource.id, { onDelete: "cascade" }),
     timestamp: timestamp("timestamp").notNull(),
     cpuAvg: doublePrecision("cpu_avg"),
     cpuMax: doublePrecision("cpu_max"),
@@ -65,7 +63,6 @@ export const resourceMetricHourly = pgTable(
   ],
 );
 
-// Webhook replay protection (72-hour TTL)
 export const webhookDelivery = pgTable(
   "webhook_delivery",
   {
@@ -78,7 +75,6 @@ export const webhookDelivery = pgTable(
   ],
 );
 
-// Docker registry credentials
 export const containerRegistry = pgTable(
   "container_registry",
   {
@@ -89,7 +85,10 @@ export const containerRegistry = pgTable(
     name: text("name").notNull(),
     url: text("url").notNull(),
     username: text("username"),
-    passwordSecretRef: text("password_secret_ref"),
+    passwordSecretRefId: text("password_secret_ref_id").references(
+      () => secretReference.id,
+      { onDelete: "set null" },
+    ),
     isDefault: boolean("is_default").notNull().default(false),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
@@ -102,17 +101,16 @@ export const containerRegistry = pgTable(
   ],
 );
 
-// File mounts for containers (Docker configs)
 export const configFile = pgTable(
   "config_file",
   {
     id: text("id").primaryKey(),
-    resourceId: text("resource_id")
-      .notNull()
-      .references(() => projectResource.id, { onDelete: "cascade" }),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
+    resourceId: text("resource_id")
+      .notNull()
+      .references(() => resource.id, { onDelete: "cascade" }),
     filename: text("filename").notNull(),
     content: text("content").notNull(),
     mountPath: text("mount_path").notNull(),
@@ -128,17 +126,16 @@ export const configFile = pgTable(
   ],
 );
 
-// Cron job execution history
 export const scheduledTaskExecution = pgTable(
   "scheduled_task_execution",
   {
     id: text("id").primaryKey(),
-    resourceId: text("resource_id")
-      .notNull()
-      .references(() => projectResource.id, { onDelete: "cascade" }),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
+    resourceId: text("resource_id")
+      .notNull()
+      .references(() => resource.id, { onDelete: "cascade" }),
     command: text("command").notNull(),
     cronExpression: text("cron_expression"),
     status: text("status").notNull().default("pending"),
@@ -157,7 +154,6 @@ export const scheduledTaskExecution = pgTable(
   ],
 );
 
-// Caddy instance status per server
 export const caddyInstance = pgTable(
   "caddy_instance",
   {
@@ -165,18 +161,11 @@ export const caddyInstance = pgTable(
     serverId: text("server_id")
       .notNull()
       .references(() => server.id, { onDelete: "cascade" }),
-    organizationId: text("organization_id")
-      .notNull()
-      .references(() => organization.id, { onDelete: "cascade" }),
     status: caddyStatusEnum("caddy_status").notNull().default("not_installed"),
     version: text("version"),
     acmeEmail: text("acme_email"),
     lastHealthCheckAt: timestamp("last_health_check_at"),
     errorMessage: text("error_message"),
-    metadata: jsonb("metadata")
-      .$type<Record<string, unknown>>()
-      .notNull()
-      .default({}),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -185,21 +174,19 @@ export const caddyInstance = pgTable(
   },
   (table) => [
     index("caddy_instance_server_idx").on(table.serverId),
-    index("caddy_instance_org_idx").on(table.organizationId),
   ],
 );
 
-// Backup configuration per resource
 export const backupSchedule = pgTable(
   "backup_schedule",
   {
     id: text("id").primaryKey(),
-    resourceId: text("resource_id")
-      .notNull()
-      .references(() => projectResource.id, { onDelete: "cascade" }),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
+    resourceId: text("resource_id")
+      .notNull()
+      .references(() => resource.id, { onDelete: "cascade" }),
     cronExpression: text("cron_expression").notNull(),
     enabled: boolean("enabled").notNull().default(true),
     retentionCount: integer("retention_count").default(10),
@@ -222,11 +209,12 @@ export const backupSchedule = pgTable(
   ],
 );
 
-// Relations for new tables
+// --- Relations ---
+
 export const resourceMetricRelations = relations(resourceMetric, ({ one }) => ({
-  resource: one(projectResource, {
+  resource: one(resource, {
     fields: [resourceMetric.resourceId],
-    references: [projectResource.id],
+    references: [resource.id],
   }),
 }));
 
@@ -238,9 +226,9 @@ export const containerRegistryRelations = relations(containerRegistry, ({ one })
 }));
 
 export const configFileRelations = relations(configFile, ({ one }) => ({
-  resource: one(projectResource, {
+  resource: one(resource, {
     fields: [configFile.resourceId],
-    references: [projectResource.id],
+    references: [resource.id],
   }),
   organization: one(organization, {
     fields: [configFile.organizationId],
@@ -253,16 +241,12 @@ export const caddyInstanceRelations = relations(caddyInstance, ({ one }) => ({
     fields: [caddyInstance.serverId],
     references: [server.id],
   }),
-  organization: one(organization, {
-    fields: [caddyInstance.organizationId],
-    references: [organization.id],
-  }),
 }));
 
 export const backupScheduleRelations = relations(backupSchedule, ({ one }) => ({
-  resource: one(projectResource, {
+  resource: one(resource, {
     fields: [backupSchedule.resourceId],
-    references: [projectResource.id],
+    references: [resource.id],
   }),
   organization: one(organization, {
     fields: [backupSchedule.organizationId],

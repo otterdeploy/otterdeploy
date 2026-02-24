@@ -3,9 +3,8 @@ import Docker from "dockerode";
 let instance: Docker | null = null;
 
 export function getDockerClient(): Docker {
-  if (!instance) {
-    instance = new Docker({ socketPath: "/var/run/docker.sock" });
-  }
+  instance ??= new Docker({ socketPath: "/var/run/docker.sock" });
+
   return instance;
 }
 

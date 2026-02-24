@@ -1,5 +1,5 @@
 import { createLogger } from "@otterdeploy/logger";
-
+import { verifyDomainFull } from "@otterdeploy/domain/custom-domain";
 import { inngest } from "../inngest";
 
 const logger = createLogger("domain-verification");
@@ -18,10 +18,6 @@ export const domainVerification = inngest.createFunction(
 
     // Attempt verification
     const verificationResult = await step.run("verify-domain", async () => {
-      const { verifyDomainFull } = await import(
-        "@otterdeploy/domain/custom-domain"
-      );
-
       // For now, use a placeholder — in production this comes from the server record
       const serverIp = "0.0.0.0";
 

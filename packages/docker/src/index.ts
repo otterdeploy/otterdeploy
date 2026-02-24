@@ -41,6 +41,11 @@ export {
   removeDockerConfig,
   listDockerConfigs,
 } from "./config";
+export {
+  stackDeploy,
+  stackRemove,
+  stackServices,
+} from "./stack";
 export type {
   OtterStackLabels,
   SwarmInitResult,
@@ -57,3 +62,4 @@ export type {
   ImageInfo,
   DockerConfigInfo,
 } from "./types";
+export type { StackServiceInfo } from "./stack";

@@ -1,5 +1,7 @@
 import { createLogger } from "@otterdeploy/logger";
-
+import { db, eq } from "@otterdeploy/db";
+import { customDomain } from "@otterdeploy/db/schema/operations";
+import { updateSslStatus } from "@otterdeploy/domain/custom-domain";
 import { inngest } from "../inngest";
 
 const logger = createLogger("ssl-monitor");
@@ -12,11 +14,6 @@ export const sslMonitor = inngest.createFunction(
   { cron: "0 */6 * * *" }, // Every 6 hours
   async ({ step }) => {
     await step.run("check-ssl-status", async () => {
-      const { db, eq } = await import("@otterdeploy/db");
-      const { customDomain } = await import(
-        "@otterdeploy/db/schema/operations"
-      );
-
       // Get all verified domains
       const domains = await db.query.customDomain.findMany({
         where: eq(customDomain.verified, true),
@@ -45,9 +42,6 @@ export const sslMonitor = inngest.createFunction(
             }
 
             if (domain.sslStatus !== newStatus) {
-              const { updateSslStatus } = await import(
-                "@otterdeploy/domain/custom-domain"
-              );
               await updateSslStatus(
                 domain.id,
                 domain.organizationId,
