@@ -132,8 +132,7 @@ function RouteComponent() {
           zero.mutate(
             mutators.resource.update({
               id: change.id,
-              posX: change.position.x,
-              posY: change.position.y,
+              now: Date.now(),
             }),
           );
         }

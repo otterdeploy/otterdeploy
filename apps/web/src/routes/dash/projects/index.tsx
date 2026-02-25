@@ -74,6 +74,8 @@ function CreateProjectDialog() {
           ownerId: auth.user.id,
           name: slug,
           slug,
+          now: Date.now(),
+          defaultEnvironmentId: crypto.randomUUID(),
         }),
       );
       setOpen(false);

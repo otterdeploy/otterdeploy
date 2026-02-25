@@ -15,12 +15,7 @@ import {
   CommandGroup,
   CommandItem,
 } from "@/components/ui/command";
-import {
-  ApiIcon,
-  CpuIcon,
-  DatabaseIcon,
-  GlobeIcon,
-} from "@hugeicons/core-free-icons";
+import { ApiIcon, CpuIcon, DatabaseIcon, GlobeIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ChevronRightIcon, PlusIcon } from "lucide-react";
 
@@ -48,11 +43,14 @@ type DatabaseEngine = (typeof databaseEngines)[number]["value"];
 type PaletteStep = "pick-type" | "pick-database";
 
 export function CreateResourcePalette({
+  environmentId,
   onCreated,
 }: {
   onCreated: (resource: { id: string; name: string; kind: ResourceKind; status: string }) => void;
+  environmentId: string;
 }) {
-  const { projectId } = useParams({ strict: false });
+  console.log("CreateResourcePalette", { environmentId });
+  const { projectId } = useParams({ from: "/dash/projects/$projectId" });
   const { zero } = useRouter().options.context;
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<PaletteStep>("pick-type");
@@ -62,8 +60,7 @@ export function CreateResourcePalette({
     setOpen((prev) => !prev);
   });
 
-  const [project] = useQuery(projectId ? queries.project.byId({ projectId }) : undefined);
-  const [environments] = useQuery(projectId ? queries.environment.list({ projectId }) : undefined);
+  const [project] = useQuery(queries.project.byId({ projectId }));
 
   function handleOpenChange(next: boolean) {
     setOpen(next);
@@ -71,9 +68,7 @@ export function CreateResourcePalette({
   }
 
   async function createResource(kind: ResourceKind, name: string) {
-    if (!projectId || !zero || !project) return;
-    const env = environments?.[0];
-    if (!env) return;
+    if (!zero || !project?.organizationId || !environmentId) return;
 
     const id = crypto.randomUUID();
     const posX = 100 + Math.random() * 200;
@@ -83,11 +78,12 @@ export function CreateResourcePalette({
         id,
         organizationId: project.organizationId,
         projectId,
-        environmentId: env.id,
+        environmentId,
         kind,
         name,
         posX,
         posY,
+        now: Date.now(),
       }),
     );
 

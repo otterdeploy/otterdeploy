@@ -2,7 +2,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import * as z from "zod";
 
 const searchSchema = z.object({
-  env: z.enum(["production", "staging", "development"]).default("production"),
+  env: z.string().default("production"),
 });
 
 export const Route = createFileRoute("/dash/projects/$projectId/")({

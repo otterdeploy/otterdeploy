@@ -10,18 +10,27 @@ export const mutators = defineMutators({
         ownerId: z.string(),
         name: z.string(),
         slug: z.string(),
+        now: z.number(),
+        defaultEnvironmentId: z.string(),
       }),
-      async ({ tx, ctx, args: { id, organizationId, ownerId, name, slug } }) => {
+      async ({ tx, ctx, args: { id, organizationId, ownerId, name, slug, now, defaultEnvironmentId } }) => {
         if (!ctx) {
           throw new Error("Not authenticated");
         }
-        const now = Date.now();
         await tx.mutate.project.insert({
           id,
           organizationId,
           ownerId,
           name,
           slug,
+          createdAt: now,
+          updatedAt: now,
+        });
+        await tx.mutate.environment.insert({
+          id: defaultEnvironmentId,
+          projectId: id,
+          name: "production",
+          slug: "production",
           createdAt: now,
           updatedAt: now,
         });
@@ -33,8 +42,9 @@ export const mutators = defineMutators({
         id: z.string(),
         name: z.string().optional(),
         slug: z.string().optional(),
+        now: z.number(),
       }),
-      async ({ tx, ctx, args: { id, name, slug } }) => {
+      async ({ tx, ctx, args: { id, name, slug, now } }) => {
         if (!ctx) {
           throw new Error("Not authenticated");
         }
@@ -42,20 +52,20 @@ export const mutators = defineMutators({
           id,
           ...(name !== undefined && { name }),
           ...(slug !== undefined && { slug }),
-          updatedAt: Date.now(),
+          updatedAt: now,
         });
       },
     ),
 
     delete: defineMutator(
-      z.object({ id: z.string() }),
-      async ({ tx, ctx, args: { id } }) => {
+      z.object({ id: z.string(), now: z.number() }),
+      async ({ tx, ctx, args: { id, now } }) => {
         if (!ctx) {
           throw new Error("Not authenticated");
         }
         await tx.mutate.project.update({
           id,
-          deletedAt: Date.now(),
+          deletedAt: now,
         });
       },
     ),
@@ -67,31 +77,30 @@ export const mutators = defineMutators({
         id: z.string(),
         projectId: z.string(),
         name: z.string(),
+        now: z.number(),
       }),
-      async ({ tx, ctx, args: { id, projectId, name } }) => {
+      async ({ tx, ctx, args: { id, projectId, name, now } }) => {
         if (!ctx) {
           throw new Error("Not authenticated");
         }
-        const now = Date.now();
+        const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
         await tx.mutate.environment.insert({
           id,
           projectId,
           name,
+          slug,
           createdAt: now,
           updatedAt: now,
         });
       },
     ),
 
-    delete: defineMutator(
-      z.object({ id: z.string() }),
-      async ({ tx, ctx, args: { id } }) => {
-        if (!ctx) {
-          throw new Error("Not authenticated");
-        }
-        await tx.mutate.environment.delete({ id });
-      },
-    ),
+    delete: defineMutator(z.object({ id: z.string() }), async ({ tx, ctx, args: { id } }) => {
+      if (!ctx) {
+        throw new Error("Not authenticated");
+      }
+      await tx.mutate.environment.delete({ id });
+    }),
   },
 
   resource: {
@@ -105,12 +114,16 @@ export const mutators = defineMutators({
         name: z.string(),
         posX: z.number(),
         posY: z.number(),
+        now: z.number(),
       }),
-      async ({ tx, ctx, args: { id, organizationId, projectId, environmentId, kind, name, posX, posY } }) => {
+      async ({
+        tx,
+        ctx,
+        args: { id, organizationId, projectId, environmentId, kind, name, posX, posY, now },
+      }) => {
         if (!ctx) {
           throw new Error("Not authenticated");
         }
-        const now = Date.now();
         await tx.mutate.resource.insert({
           id,
           organizationId,
@@ -134,28 +147,26 @@ export const mutators = defineMutators({
       z.object({
         id: z.string(),
         name: z.string().optional(),
+        now: z.number(),
       }),
-      async ({ tx, ctx, args: { id, name } }) => {
+      async ({ tx, ctx, args: { id, name, now } }) => {
         if (!ctx) {
           throw new Error("Not authenticated");
         }
         await tx.mutate.resource.update({
           id,
           ...(name !== undefined && { name }),
-          updatedAt: Date.now(),
+          updatedAt: now,
         });
       },
     ),
 
-    delete: defineMutator(
-      z.object({ id: z.string() }),
-      async ({ tx, ctx, args: { id } }) => {
-        if (!ctx) {
-          throw new Error("Not authenticated");
-        }
-        await tx.mutate.resource.delete({ id });
-      },
-    ),
+    delete: defineMutator(z.object({ id: z.string() }), async ({ tx, ctx, args: { id } }) => {
+      if (!ctx) {
+        throw new Error("Not authenticated");
+      }
+      await tx.mutate.resource.delete({ id });
+    }),
   },
 
   resourcePosition: {
@@ -164,8 +175,9 @@ export const mutators = defineMutators({
         resourceId: z.string(),
         posX: z.number(),
         posY: z.number(),
+        now: z.number(),
       }),
-      async ({ tx, ctx, args: { resourceId, posX, posY } }) => {
+      async ({ tx, ctx, args: { resourceId, posX, posY, now } }) => {
         if (!ctx) {
           throw new Error("Not authenticated");
         }
@@ -173,7 +185,7 @@ export const mutators = defineMutators({
           resourceId,
           posX,
           posY,
-          updatedAt: Date.now(),
+          updatedAt: now,
         });
       },
     ),
@@ -186,8 +198,9 @@ export const mutators = defineMutators({
         x: z.number(),
         y: z.number(),
         zoom: z.number(),
+        now: z.number(),
       }),
-      async ({ tx, ctx, args: { environmentId, x, y, zoom } }) => {
+      async ({ tx, ctx, args: { environmentId, x, y, zoom, now } }) => {
         if (!ctx) {
           throw new Error("Not authenticated");
         }
@@ -196,7 +209,7 @@ export const mutators = defineMutators({
           x,
           y,
           zoom,
-          updatedAt: Date.now(),
+          updatedAt: now,
         });
       },
     ),

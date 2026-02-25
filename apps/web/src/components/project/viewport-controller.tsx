@@ -6,8 +6,8 @@ export function ViewportController() {
   const { setCenter, getNode, getNodes, getInternalNode, getViewport, fitView } = useReactFlow();
   const match = useMatchRoute();
 
-  const serviceMatch = match({ from: "/projects/$projectId/service/$serviceId" });
-  const volumeMatch = match({ from: "/projects/$projectId/volume/$volume" });
+  const serviceMatch = match({ to: "/dash/projects/$projectId/architecture/service/$serviceId", fuzzy: true });
+  const volumeMatch = match({ to: "/dash/projects/$projectId/architecture/volume/$volume", fuzzy: true });
 
   const showChild = !!(serviceMatch || volumeMatch);
   const activeId = serviceMatch ? serviceMatch.serviceId : volumeMatch ? volumeMatch.volume : null;

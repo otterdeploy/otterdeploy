@@ -9,27 +9,31 @@ export const queries = defineQueries({
     ),
 
     byId: defineQuery(z.object({ projectId: z.string() }), ({ args: { projectId } }) =>
-      zql.project.where("id", projectId).one(),
+      zql.project.where("id", projectId).related("environments").one(),
     ),
   },
 
   environment: {
-    list: defineQuery(z.object({ projectId: z.string() }), ({ ctx, args: { projectId } }) =>
+    list: defineQuery(z.object({ projectId: z.string() }), ({ args: { projectId } }) =>
       zql.environment.where("projectId", projectId),
     ),
     byId: defineQuery(z.object({ environmentId: z.string() }), ({ args: { environmentId } }) =>
       zql.environment.where("id", environmentId).one(),
     ),
+    bySlug: defineQuery(
+      z.object({ projectId: z.string(), slug: z.string() }),
+      ({ args: { projectId, slug } }) =>
+        zql.environment.where("projectId", projectId).where("slug", slug).one(),
+    ),
   },
 
   resource: {
-    list: defineQuery(
-      z.object({ environmentId: z.string() }),
-      ({ args: { environmentId }, ...rest }) => zql.resource.where("environmentId", environmentId),
+    list: defineQuery(z.object({ environmentId: z.string() }), ({ args: { environmentId } }) =>
+      zql.resource.where("environmentId", environmentId).related("position"),
     ),
 
     byId: defineQuery(z.object({ resourceId: z.string() }), ({ args: { resourceId } }) =>
-      zql.resource.where("id", resourceId).one(),
+      zql.resource.where("id", resourceId).related("position").one(),
     ),
   },
 

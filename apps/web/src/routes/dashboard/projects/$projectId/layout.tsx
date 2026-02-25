@@ -22,19 +22,28 @@ export const Route = createFileRoute("/dashboard/projects/$projectId")({
   component: RouteComponent,
   staleTime: Infinity,
   validateSearch: env,
-  loader: async ({ context, params }) => {
-    const organizationId = context.auth.session.activeOrganizationId;
+  loaderDeps(opts) {
+    return { envSlug: opts.search.env };
+  },
+  loader: async ({ context, params, ...rest }) => {
+    const { envSlug } = rest.deps;
+    const organizationId = context.auth?.session.activeOrganizationId;
     if (!organizationId) throw new Error("No active organization");
 
-    if (context.zero) {
-      await Promise.all([
-        context.zero.run(queries.project.byId({ projectId: params.projectId })),
-        context.zero.run(queries.environment.list({ projectId: params.projectId })),
-        context.zero.run(queries.project.list({ organizationId })),
-      ]);
-    }
+    const [project, environments, projects] = await Promise.all([
+      context.zero?.run(queries.project.byId({ projectId: params.projectId })),
+      context.zero?.run(queries.environment.list({ projectId: params.projectId })),
+      context.zero?.run(queries.project.list({ organizationId })),
+    ]);
 
-    return { organizationId };
+    const activeEnvironment = environments?.find((e) => e.name === envSlug) ?? environments?.[0];
+
+    if (!activeEnvironment) throw new Error("No active environment");
+    if (!project) throw new Error("No project");
+    if (!environments) throw new Error("No environments");
+    if (!projects) throw new Error("No projects");
+
+    return { organizationId, project, environments, projects, activeEnvironment };
   },
 });
 
@@ -42,17 +51,17 @@ function RouteComponent() {
   const { projectId } = useParams({ strict: false });
   const { zero } = useRouter().options.context;
 
+  const { activeEnvironment } = Route.useLoaderData();
+
   const [environments] = useZeroQuery(
     projectId ? queries.environment.list({ projectId }) : undefined,
   );
 
-  const envId = environments?.[0]?.id;
+  const envId = activeEnvironment.id;
 
-  const [resources] = useZeroQuery(
-    environments?.[0]?.id
-      ? queries.resource.list({ environmentId: environments?.[0]?.id })
-      : undefined,
-  );
+  console.log("RouteComponent", { envId, environments });
+
+  const [resources] = useZeroQuery(queries.resource.list({ environmentId: envId }));
 
   const [deploying, setDeploying] = useState(false);
   const [pendingChanges, setPendingChanges] = useState<PendingChange[]>([]);
@@ -162,7 +171,7 @@ function RouteComponent() {
   return (
     <ProjectContext.Provider value={contextValue}>
       <div className="fixed inset-0 flex flex-col px-5">
-        <ProjectHeader onCreateResource={handleResourceCreated} />
+        {/* <ProjectHeader onCreateResource={handleResourceCreated} environmentId={envId} /> */}
         <div className="relative flex-1 border rounded-2xl -mt-0.5 overflow-hidden">
           <Outlet />
 

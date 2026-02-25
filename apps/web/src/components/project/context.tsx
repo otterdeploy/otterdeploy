@@ -9,6 +9,8 @@ export interface PendingChange {
 }
 
 export interface ProjectContext {
+  envSlug: string;
+  environmentId: string | undefined;
   pendingChanges: PendingChange[];
   onCreateResource: (resource: { id: string; name: string; kind: string; status: string }) => void;
   onMarkForRemoval: (id: string) => void;

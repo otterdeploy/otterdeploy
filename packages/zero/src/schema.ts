@@ -1127,6 +1127,11 @@ const environmentTable = {
       optional: false,
       customType: null as unknown as string,
     },
+    slug: {
+      type: "string",
+      optional: false,
+      customType: null as unknown as string,
+    },
     createdAt: {
       type: "number",
       optional: true,

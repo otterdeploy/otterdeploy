@@ -1,12 +1,5 @@
 import { relations } from "drizzle-orm";
-import {
-  doublePrecision,
-  index,
-  pgTable,
-  text,
-  timestamp,
-  uniqueIndex,
-} from "drizzle-orm/pg-core";
+import { doublePrecision, index, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 import { user, organization } from "./auth";
 import { resourceKindEnum, resourceStatusEnum } from "./enums";
@@ -23,13 +16,14 @@ export const project = pgTable(
   "project",
   {
     id: text("id").primaryKey(),
-    organizationId: text("organization_id")
-      .references(() => organization.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").references(() => organization.id, {
+      onDelete: "cascade",
+    }),
     ownerId: text("owner_user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
-    slug: text("slug").notNull(),
+    slug: text("slug").notNull().unique(),
     baseDomain: text("base_domain"),
     deletedAt: timestamp("deleted_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -53,6 +47,7 @@ export const environment = pgTable(
       .notNull()
       .references(() => project.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
+    slug: text("slug").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -62,6 +57,7 @@ export const environment = pgTable(
   (table) => [
     index("environment_projectId_idx").on(table.projectId),
     uniqueIndex("environment_project_name_uidx").on(table.projectId, table.name),
+    uniqueIndex("environment_project_slug_uidx").on(table.projectId, table.slug),
   ],
 );
 

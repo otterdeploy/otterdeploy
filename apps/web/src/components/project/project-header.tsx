@@ -1,14 +1,8 @@
 import { useState } from "react";
-import { useQuery } from "@rocicorp/zero/react";
+import { useQuery, useZero } from "@rocicorp/zero/react";
 import { queries } from "@otterdeploy/zero/queries";
 import { mutators } from "@otterdeploy/zero/mutators";
-import {
-  useParams,
-  useRouter,
-  useNavigate,
-  useMatchRoute,
-  useRouteContext,
-} from "@tanstack/react-router";
+import { useParams, useNavigate, useMatchRoute, useRouteContext } from "@tanstack/react-router";
 import { useForm } from "@tanstack/react-form";
 import * as z from "zod";
 
@@ -44,7 +38,7 @@ function EnvironmentSwitcher({
 }) {
   const [selected, setSelected] = useState(environments[0]?.name ?? "production");
   const [showCreate, setShowCreate] = useState(false);
-  const { zero } = useRouter().options.context;
+  const zero = useZero();
 
   const form = useForm({
     defaultValues: {
@@ -56,7 +50,6 @@ function EnvironmentSwitcher({
       }),
     },
     onSubmit: async ({ value }) => {
-      if (!zero) return;
       const id = crypto.randomUUID();
       const name = value.name;
       if (!name) throw new Error("Environment name is required");
@@ -65,6 +58,7 @@ function EnvironmentSwitcher({
           id,
           projectId,
           name,
+          now: Date.now(),
         }),
       );
       setShowCreate(false);
@@ -157,9 +151,10 @@ const tabs = [
 
 type TabValue = (typeof tabs)[number]["value"];
 
-const basePath = "/_dashboard" as const;
+const basePath = "/dash" as const;
 export function ProjectHeader({
   onCreateResource,
+  environmentId,
 }: {
   onCreateResource: (resource: {
     id: string;
@@ -167,12 +162,14 @@ export function ProjectHeader({
     kind: ResourceKind;
     status: string;
   }) => void;
+  environmentId: string;
 }) {
   const { auth } = useRouteContext({ from: basePath });
 
+  console.log("ProjectHeader", { environmentId });
+
   const organizationId = auth.session.activeOrganizationId ?? "";
   const { projectId } = useParams({ from: `${basePath}/projects/$projectId` });
-  const router = useRouter();
   const navigate = useNavigate();
   const match = useMatchRoute();
 
@@ -215,7 +212,7 @@ export function ProjectHeader({
           onValueChange={(projectId) => {
             if (!projectId) return;
 
-            router.navigate({
+            navigate({
               to: `${basePath}/projects/$projectId`,
               params: { projectId },
             });
@@ -263,7 +260,7 @@ export function ProjectHeader({
 
       {/* Right: new button */}
       <div className="flex items-center gap-2 px-4">
-        <CreateResourcePalette onCreated={onCreateResource} />
+        <CreateResourcePalette onCreated={onCreateResource} environmentId={environmentId} />
       </div>
     </header>
   );

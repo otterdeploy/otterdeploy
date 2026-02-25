@@ -93,7 +93,7 @@ function ResourceLink({
 
   return (
     <Link
-      to="/projects/$projectId/architecture/service/$serviceId"
+      to="/dash/projects/$projectId/architecture/service/$serviceId"
       params={{ projectId, serviceId: resourceId }}
       className={className}
       activeProps={activeProps}
@@ -137,7 +137,7 @@ function Attachment({
 }) {
   const match = useMatchRoute();
   const serviceMatch = match({
-    to: "/projects/$projectId/architecture/service/$serviceId",
+    to: "/dash/projects/$projectId/architecture/service/$serviceId",
     fuzzy: true,
   });
   const isActive =

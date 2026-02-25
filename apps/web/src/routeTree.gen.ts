@@ -47,10 +47,10 @@ import { Route as DashboardProjectsProjectIdArchitectureLayoutRouteImport } from
 import { Route as DashProjectsProjectIdArchitectureLayoutRouteImport } from './routes/dash/projects/$projectId/architecture/layout'
 import { Route as DashboardProjectsProjectIdArchitectureIndexRouteImport } from './routes/dashboard/projects/$projectId/architecture/index'
 import { Route as DashProjectsProjectIdArchitectureIndexRouteImport } from './routes/dash/projects/$projectId/architecture/index'
-import { Route as DashProjectsProjectIdArchitectureVolumeRouteImport } from './routes/dash/projects/$projectId/architecture/volume'
-import { Route as DashProjectsProjectIdArchitectureServiceRouteImport } from './routes/dash/projects/$projectId/architecture/service'
 import { Route as DashboardProjectsProjectIdArchitectureVolumeVolumeRouteImport } from './routes/dashboard/projects/$projectId/architecture/volume/$volume'
 import { Route as DashboardProjectsProjectIdArchitectureServiceServiceIdRouteImport } from './routes/dashboard/projects/$projectId/architecture/service/$serviceId'
+import { Route as DashProjectsProjectIdArchitectureVolumeVolumeRouteImport } from './routes/dash/projects/$projectId/architecture/volume/$volume'
+import { Route as DashProjectsProjectIdArchitectureServiceServiceIdRouteImport } from './routes/dash/projects/$projectId/architecture/service/$serviceId'
 
 const LandingRoute = LandingRouteImport.update({
   id: '/landing',
@@ -252,18 +252,6 @@ const DashProjectsProjectIdArchitectureIndexRoute =
     path: '/',
     getParentRoute: () => DashProjectsProjectIdArchitectureLayoutRoute,
   } as any)
-const DashProjectsProjectIdArchitectureVolumeRoute =
-  DashProjectsProjectIdArchitectureVolumeRouteImport.update({
-    id: '/volume',
-    path: '/volume',
-    getParentRoute: () => DashProjectsProjectIdArchitectureLayoutRoute,
-  } as any)
-const DashProjectsProjectIdArchitectureServiceRoute =
-  DashProjectsProjectIdArchitectureServiceRouteImport.update({
-    id: '/service',
-    path: '/service',
-    getParentRoute: () => DashProjectsProjectIdArchitectureLayoutRoute,
-  } as any)
 const DashboardProjectsProjectIdArchitectureVolumeVolumeRoute =
   DashboardProjectsProjectIdArchitectureVolumeVolumeRouteImport.update({
     id: '/volume/$volume',
@@ -275,6 +263,18 @@ const DashboardProjectsProjectIdArchitectureServiceServiceIdRoute =
     id: '/service/$serviceId',
     path: '/service/$serviceId',
     getParentRoute: () => DashboardProjectsProjectIdArchitectureLayoutRoute,
+  } as any)
+const DashProjectsProjectIdArchitectureVolumeVolumeRoute =
+  DashProjectsProjectIdArchitectureVolumeVolumeRouteImport.update({
+    id: '/volume/$volume',
+    path: '/volume/$volume',
+    getParentRoute: () => DashProjectsProjectIdArchitectureLayoutRoute,
+  } as any)
+const DashProjectsProjectIdArchitectureServiceServiceIdRoute =
+  DashProjectsProjectIdArchitectureServiceServiceIdRouteImport.update({
+    id: '/service/$serviceId',
+    path: '/service/$serviceId',
+    getParentRoute: () => DashProjectsProjectIdArchitectureLayoutRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -314,10 +314,10 @@ export interface FileRoutesByFullPath {
   '/dashboard/projects/$projectId/settings': typeof DashboardProjectsProjectIdSettingsRoute
   '/dash/projects/$projectId/': typeof DashProjectsProjectIdIndexRoute
   '/dashboard/projects/$projectId/': typeof DashboardProjectsProjectIdIndexRoute
-  '/dash/projects/$projectId/architecture/service': typeof DashProjectsProjectIdArchitectureServiceRoute
-  '/dash/projects/$projectId/architecture/volume': typeof DashProjectsProjectIdArchitectureVolumeRoute
   '/dash/projects/$projectId/architecture/': typeof DashProjectsProjectIdArchitectureIndexRoute
   '/dashboard/projects/$projectId/architecture/': typeof DashboardProjectsProjectIdArchitectureIndexRoute
+  '/dash/projects/$projectId/architecture/service/$serviceId': typeof DashProjectsProjectIdArchitectureServiceServiceIdRoute
+  '/dash/projects/$projectId/architecture/volume/$volume': typeof DashProjectsProjectIdArchitectureVolumeVolumeRoute
   '/dashboard/projects/$projectId/architecture/service/$serviceId': typeof DashboardProjectsProjectIdArchitectureServiceServiceIdRoute
   '/dashboard/projects/$projectId/architecture/volume/$volume': typeof DashboardProjectsProjectIdArchitectureVolumeVolumeRoute
 }
@@ -352,10 +352,10 @@ export interface FileRoutesByTo {
   '/dashboard/projects/$projectId/settings': typeof DashboardProjectsProjectIdSettingsRoute
   '/dash/projects/$projectId': typeof DashProjectsProjectIdIndexRoute
   '/dashboard/projects/$projectId': typeof DashboardProjectsProjectIdIndexRoute
-  '/dash/projects/$projectId/architecture/service': typeof DashProjectsProjectIdArchitectureServiceRoute
-  '/dash/projects/$projectId/architecture/volume': typeof DashProjectsProjectIdArchitectureVolumeRoute
   '/dash/projects/$projectId/architecture': typeof DashProjectsProjectIdArchitectureIndexRoute
   '/dashboard/projects/$projectId/architecture': typeof DashboardProjectsProjectIdArchitectureIndexRoute
+  '/dash/projects/$projectId/architecture/service/$serviceId': typeof DashProjectsProjectIdArchitectureServiceServiceIdRoute
+  '/dash/projects/$projectId/architecture/volume/$volume': typeof DashProjectsProjectIdArchitectureVolumeVolumeRoute
   '/dashboard/projects/$projectId/architecture/service/$serviceId': typeof DashboardProjectsProjectIdArchitectureServiceServiceIdRoute
   '/dashboard/projects/$projectId/architecture/volume/$volume': typeof DashboardProjectsProjectIdArchitectureVolumeVolumeRoute
 }
@@ -397,10 +397,10 @@ export interface FileRoutesById {
   '/dashboard/projects/$projectId/settings': typeof DashboardProjectsProjectIdSettingsRoute
   '/dash/projects/$projectId/': typeof DashProjectsProjectIdIndexRoute
   '/dashboard/projects/$projectId/': typeof DashboardProjectsProjectIdIndexRoute
-  '/dash/projects/$projectId/architecture/service': typeof DashProjectsProjectIdArchitectureServiceRoute
-  '/dash/projects/$projectId/architecture/volume': typeof DashProjectsProjectIdArchitectureVolumeRoute
   '/dash/projects/$projectId/architecture/': typeof DashProjectsProjectIdArchitectureIndexRoute
   '/dashboard/projects/$projectId/architecture/': typeof DashboardProjectsProjectIdArchitectureIndexRoute
+  '/dash/projects/$projectId/architecture/service/$serviceId': typeof DashProjectsProjectIdArchitectureServiceServiceIdRoute
+  '/dash/projects/$projectId/architecture/volume/$volume': typeof DashProjectsProjectIdArchitectureVolumeVolumeRoute
   '/dashboard/projects/$projectId/architecture/service/$serviceId': typeof DashboardProjectsProjectIdArchitectureServiceServiceIdRoute
   '/dashboard/projects/$projectId/architecture/volume/$volume': typeof DashboardProjectsProjectIdArchitectureVolumeVolumeRoute
 }
@@ -443,10 +443,10 @@ export interface FileRouteTypes {
     | '/dashboard/projects/$projectId/settings'
     | '/dash/projects/$projectId/'
     | '/dashboard/projects/$projectId/'
-    | '/dash/projects/$projectId/architecture/service'
-    | '/dash/projects/$projectId/architecture/volume'
     | '/dash/projects/$projectId/architecture/'
     | '/dashboard/projects/$projectId/architecture/'
+    | '/dash/projects/$projectId/architecture/service/$serviceId'
+    | '/dash/projects/$projectId/architecture/volume/$volume'
     | '/dashboard/projects/$projectId/architecture/service/$serviceId'
     | '/dashboard/projects/$projectId/architecture/volume/$volume'
   fileRoutesByTo: FileRoutesByTo
@@ -481,10 +481,10 @@ export interface FileRouteTypes {
     | '/dashboard/projects/$projectId/settings'
     | '/dash/projects/$projectId'
     | '/dashboard/projects/$projectId'
-    | '/dash/projects/$projectId/architecture/service'
-    | '/dash/projects/$projectId/architecture/volume'
     | '/dash/projects/$projectId/architecture'
     | '/dashboard/projects/$projectId/architecture'
+    | '/dash/projects/$projectId/architecture/service/$serviceId'
+    | '/dash/projects/$projectId/architecture/volume/$volume'
     | '/dashboard/projects/$projectId/architecture/service/$serviceId'
     | '/dashboard/projects/$projectId/architecture/volume/$volume'
   id:
@@ -525,10 +525,10 @@ export interface FileRouteTypes {
     | '/dashboard/projects/$projectId/settings'
     | '/dash/projects/$projectId/'
     | '/dashboard/projects/$projectId/'
-    | '/dash/projects/$projectId/architecture/service'
-    | '/dash/projects/$projectId/architecture/volume'
     | '/dash/projects/$projectId/architecture/'
     | '/dashboard/projects/$projectId/architecture/'
+    | '/dash/projects/$projectId/architecture/service/$serviceId'
+    | '/dash/projects/$projectId/architecture/volume/$volume'
     | '/dashboard/projects/$projectId/architecture/service/$serviceId'
     | '/dashboard/projects/$projectId/architecture/volume/$volume'
   fileRoutesById: FileRoutesById
@@ -825,20 +825,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashProjectsProjectIdArchitectureIndexRouteImport
       parentRoute: typeof DashProjectsProjectIdArchitectureLayoutRoute
     }
-    '/dash/projects/$projectId/architecture/volume': {
-      id: '/dash/projects/$projectId/architecture/volume'
-      path: '/volume'
-      fullPath: '/dash/projects/$projectId/architecture/volume'
-      preLoaderRoute: typeof DashProjectsProjectIdArchitectureVolumeRouteImport
-      parentRoute: typeof DashProjectsProjectIdArchitectureLayoutRoute
-    }
-    '/dash/projects/$projectId/architecture/service': {
-      id: '/dash/projects/$projectId/architecture/service'
-      path: '/service'
-      fullPath: '/dash/projects/$projectId/architecture/service'
-      preLoaderRoute: typeof DashProjectsProjectIdArchitectureServiceRouteImport
-      parentRoute: typeof DashProjectsProjectIdArchitectureLayoutRoute
-    }
     '/dashboard/projects/$projectId/architecture/volume/$volume': {
       id: '/dashboard/projects/$projectId/architecture/volume/$volume'
       path: '/volume/$volume'
@@ -852,6 +838,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/dashboard/projects/$projectId/architecture/service/$serviceId'
       preLoaderRoute: typeof DashboardProjectsProjectIdArchitectureServiceServiceIdRouteImport
       parentRoute: typeof DashboardProjectsProjectIdArchitectureLayoutRoute
+    }
+    '/dash/projects/$projectId/architecture/volume/$volume': {
+      id: '/dash/projects/$projectId/architecture/volume/$volume'
+      path: '/volume/$volume'
+      fullPath: '/dash/projects/$projectId/architecture/volume/$volume'
+      preLoaderRoute: typeof DashProjectsProjectIdArchitectureVolumeVolumeRouteImport
+      parentRoute: typeof DashProjectsProjectIdArchitectureLayoutRoute
+    }
+    '/dash/projects/$projectId/architecture/service/$serviceId': {
+      id: '/dash/projects/$projectId/architecture/service/$serviceId'
+      path: '/service/$serviceId'
+      fullPath: '/dash/projects/$projectId/architecture/service/$serviceId'
+      preLoaderRoute: typeof DashProjectsProjectIdArchitectureServiceServiceIdRouteImport
+      parentRoute: typeof DashProjectsProjectIdArchitectureLayoutRoute
     }
   }
 }
@@ -871,19 +871,19 @@ const AuthLayoutRouteWithChildren = AuthLayoutRoute._addFileChildren(
 )
 
 interface DashProjectsProjectIdArchitectureLayoutRouteChildren {
-  DashProjectsProjectIdArchitectureServiceRoute: typeof DashProjectsProjectIdArchitectureServiceRoute
-  DashProjectsProjectIdArchitectureVolumeRoute: typeof DashProjectsProjectIdArchitectureVolumeRoute
   DashProjectsProjectIdArchitectureIndexRoute: typeof DashProjectsProjectIdArchitectureIndexRoute
+  DashProjectsProjectIdArchitectureServiceServiceIdRoute: typeof DashProjectsProjectIdArchitectureServiceServiceIdRoute
+  DashProjectsProjectIdArchitectureVolumeVolumeRoute: typeof DashProjectsProjectIdArchitectureVolumeVolumeRoute
 }
 
 const DashProjectsProjectIdArchitectureLayoutRouteChildren: DashProjectsProjectIdArchitectureLayoutRouteChildren =
   {
-    DashProjectsProjectIdArchitectureServiceRoute:
-      DashProjectsProjectIdArchitectureServiceRoute,
-    DashProjectsProjectIdArchitectureVolumeRoute:
-      DashProjectsProjectIdArchitectureVolumeRoute,
     DashProjectsProjectIdArchitectureIndexRoute:
       DashProjectsProjectIdArchitectureIndexRoute,
+    DashProjectsProjectIdArchitectureServiceServiceIdRoute:
+      DashProjectsProjectIdArchitectureServiceServiceIdRoute,
+    DashProjectsProjectIdArchitectureVolumeVolumeRoute:
+      DashProjectsProjectIdArchitectureVolumeVolumeRoute,
   }
 
 const DashProjectsProjectIdArchitectureLayoutRouteWithChildren =
