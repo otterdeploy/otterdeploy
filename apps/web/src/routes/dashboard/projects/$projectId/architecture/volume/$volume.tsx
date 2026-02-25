@@ -19,7 +19,7 @@ const searchSchema = z.object({
 });
 
 export const Route = createFileRoute(
-  "/_dashboard/projects/$projectId/architecture/volume/$volume",
+  "/dashboard/projects/$projectId/architecture/volume/$volume",
 )({
   component: RouteComponent,
   validateSearch: searchSchema,

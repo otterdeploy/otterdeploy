@@ -18,16 +18,15 @@ import {
   ReactFlow,
   type Node,
   type NodeChange,
-  type OnConnect,
 } from "@xyflow/react";
 
 import "@xyflow/react/dist/style.css";
 
-import { ResourceNodeComponent, GroupNodeComponent, type Kind } from "@/components/resource/node";
+import { ResourceNodeComponent, GroupNodeComponent } from "@/components/resource/node";
 import { ViewportController } from "@/components/project/viewport-controller";
-import { useProjectContext } from "@/routes/_dashboard/projects/$projectId/layout";
+import { useProjectContext } from "@/components/project/context";
 
-export const Route = createFileRoute("/_dashboard/projects/$projectId/architecture")({
+export const Route = createFileRoute("/dashboard/projects/$projectId/architecture")({
   component: RouteComponent,
 });
 
@@ -40,76 +39,38 @@ function RouteComponent() {
   const { projectId } = useParams({ strict: false });
   const { pendingChanges, onMarkForRemoval } = useProjectContext();
 
-  const [environments] = useQuery(projectId ? queries.environmentList({ projectId }) : undefined);
+  const [environments] = useQuery(projectId ? queries.environment.list({ projectId }) : undefined);
   const firstEnvId = environments?.[0]?.id;
 
   const [resources] = useQuery(
-    firstEnvId ? queries.resourceList({ environmentId: firstEnvId }) : undefined,
-  );
-  const [links] = useQuery(
-    firstEnvId ? queries.resourceLinkList({ environmentId: firstEnvId }) : undefined,
+    firstEnvId ? queries.resource.list({ environmentId: firstEnvId }) : undefined,
   );
 
   const { zero } = useRouter().options.context;
   const removeResourceRef = useRef<(id: string) => void>(() => {});
   removeResourceRef.current = onMarkForRemoval;
 
-  // Find volumes mounted to databases — they render as attachments, not standalone nodes
-  const { mountedVolumeIds, volumeAttachments } = useMemo(() => {
-    const mounted = new Set<string>();
-    const attachments = new Map<string, { id: string; kind: Kind; name: string }[]>();
-    if (!resources || !links) return { mountedVolumeIds: mounted, volumeAttachments: attachments };
-
-    for (const link of links) {
-      const source = resources.find((r) => r.id === link.sourceResourceId);
-      const target = resources.find((r) => r.id === link.targetResourceId);
-      let dbId: string | null = null;
-      let volume: typeof source | null = null;
-
-      if (source?.kind === "database" && target?.kind === "volume") {
-        dbId = source.id;
-        volume = target;
-      } else if (source?.kind === "volume" && target?.kind === "database") {
-        dbId = target.id;
-        volume = source;
-      }
-
-      if (dbId && volume) {
-        mounted.add(volume.id);
-        const existing = attachments.get(dbId) ?? [];
-        existing.push({ id: volume.id, kind: volume.kind as Kind, name: volume.name });
-        attachments.set(dbId, existing);
-      }
-    }
-
-    return { mountedVolumeIds: mounted, volumeAttachments: attachments };
-  }, [resources, links]);
-
   const graphNodes = useMemo<Node[]>(() => {
     if (!resources) return [];
-    return resources
-      .filter((r) => !mountedVolumeIds.has(r.id))
-      .map((r) => {
-        const pending = pendingChanges.find((c) => c.id === r.id);
-        const isRemoved = pending?.action === "removed";
-        return {
-          id: r.id,
-          type: "resource",
-          position: { x: r.posX ?? 0, y: r.posY ?? 0 },
-          draggable: !isRemoved,
-          selectable: !isRemoved,
-          data: {
-            name: r.name,
-            kind: r.kind,
-            status: r.status ?? "unknown",
-            metadata: r.metadata ?? {},
-            pendingAction: pending?.action,
-            onRemove: (id: string) => removeResourceRef.current(id),
-            attachments: volumeAttachments.get(r.id),
-          },
-        };
-      });
-  }, [resources, pendingChanges, mountedVolumeIds, volumeAttachments]);
+    return resources.map((r) => {
+      const pending = pendingChanges.find((c) => c.id === r.id);
+      const isRemoved = pending?.action === "removed";
+      return {
+        id: r.id,
+        type: "resource",
+        position: { x: r.posX ?? 0, y: r.posY ?? 0 },
+        draggable: !isRemoved,
+        selectable: !isRemoved,
+        data: {
+          name: r.name,
+          kind: r.kind,
+          status: r.status ?? "unknown",
+          pendingAction: pending?.action,
+          onRemove: (id: string) => removeResourceRef.current(id),
+        },
+      };
+    });
+  }, [resources, pendingChanges]);
 
   // Local nodes for React Flow — synced from Zero, updated locally during drag via applyNodeChanges
   const [nodes, setNodes] = useState<Node[]>(graphNodes);
@@ -132,8 +93,8 @@ function RouteComponent() {
         }
 
         // Compare Zero-sourced properties to avoid unnecessary re-renders
-        const d = existing.data as Record<string, unknown>;
-        const nd = gn.data as Record<string, unknown>;
+        const d = existing.data;
+        const nd = gn.data;
         const dataEqual =
           d.name === nd.name &&
           d.kind === nd.kind &&
@@ -156,39 +117,6 @@ function RouteComponent() {
       return anyChanged ? next : prev;
     });
   }, [graphNodes]);
-
-  const graphEdges = useMemo(() => {
-    if (!links) return [];
-    return links
-      .filter(
-        (l) =>
-          !mountedVolumeIds.has(l.sourceResourceId) && !mountedVolumeIds.has(l.targetResourceId),
-      )
-      .map((l) => ({
-        id: l.id,
-        source: l.sourceResourceId,
-        target: l.targetResourceId,
-        type: "smoothstep",
-        animated: true,
-      }));
-  }, [links, mountedVolumeIds]);
-
-  const onConnect: OnConnect = useCallback(
-    (params) => {
-      if (!zero || !firstEnvId) return;
-      const id = crypto.randomUUID();
-      zero.mutate(
-        mutators.resourceLink.create({
-          id,
-          environmentId: firstEnvId,
-          sourceResourceId: params.source,
-          targetResourceId: params.target,
-          linkType: "depends_on",
-        }),
-      );
-    },
-    [zero, firstEnvId],
-  );
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
@@ -234,10 +162,8 @@ function RouteComponent() {
       <div className="absolute inset-0">
         <ReactFlow
           nodes={nodes}
-          edges={graphEdges}
           nodeTypes={nodeTypes}
           onNodesChange={onNodesChange}
-          onConnect={onConnect}
           colorMode="dark"
           fitView
           style={{ width: "100%", height: "100%" }}

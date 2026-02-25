@@ -1,40 +1,36 @@
-import { useState, createContext, useContext, useCallback, useMemo, useRef } from "react";
-import { useQuery } from "@rocicorp/zero/react";
-import { queries } from "@otterdeploy/zero/queries";
 import { mutators } from "@otterdeploy/zero/mutators";
+import { queries } from "@otterdeploy/zero/queries";
+import { useQuery as useZeroQuery } from "@rocicorp/zero/react";
+
 import { createFileRoute, Outlet, useParams, useRouter } from "@tanstack/react-router";
 import { AnimatePresence } from "motion/react";
+import { useCallback, useMemo, useState } from "react";
 
-import { ProjectHeader } from "@/components/project/project-header";
+import { ChangesDialog } from "@/components/project/changes-dialog";
+import { ProjectContext, type PendingChange } from "@/components/project/context";
 import { DeployBar } from "@/components/project/deploy-bar";
-import { ChangesDialog, type PendingChange } from "@/components/project/changes-dialog";
+import { ProjectHeader } from "@/components/project/project-header";
+import { orpc } from "@/utils/orpc";
+import { useMutation } from "@tanstack/react-query";
+import { toast } from "sonner";
+import * as z from "zod";
 
-interface ProjectContextValue {
-  pendingChanges: PendingChange[];
-  onCreateResource: (resource: { id: string; name: string; kind: string; status: string }) => void;
-  onMarkForRemoval: (id: string) => void;
-}
-
-const ProjectContext = createContext<ProjectContextValue | null>(null);
-
-export function useProjectContext() {
-  const ctx = useContext(ProjectContext);
-  if (!ctx) throw new Error("useProjectContext must be used within ProjectContext");
-  return ctx;
-}
-
-export const Route = createFileRoute("/_dashboard/projects/$projectId")({
+const env = z.object({
+  env: z.string().default("production"),
+});
+export const Route = createFileRoute("/dashboard/projects/$projectId")({
   component: RouteComponent,
   staleTime: Infinity,
+  validateSearch: env,
   loader: async ({ context, params }) => {
     const organizationId = context.auth.session.activeOrganizationId;
     if (!organizationId) throw new Error("No active organization");
 
     if (context.zero) {
       await Promise.all([
-        context.zero.run(queries.projectById({ projectId: params.projectId })),
-        context.zero.run(queries.environmentList({ projectId: params.projectId })),
-        context.zero.run(queries.projectList({ organizationId })),
+        context.zero.run(queries.project.byId({ projectId: params.projectId })),
+        context.zero.run(queries.environment.list({ projectId: params.projectId })),
+        context.zero.run(queries.project.list({ organizationId })),
       ]);
     }
 
@@ -46,22 +42,21 @@ function RouteComponent() {
   const { projectId } = useParams({ strict: false });
   const { zero } = useRouter().options.context;
 
-  const [environments] = useQuery(projectId ? queries.environmentList({ projectId }) : undefined);
-  const firstEnvId = environments?.[0]?.id;
-  const [resources] = useQuery(
-    firstEnvId ? queries.resourceList({ environmentId: firstEnvId }) : undefined,
+  const [environments] = useZeroQuery(
+    projectId ? queries.environment.list({ projectId }) : undefined,
   );
 
+  const envId = environments?.[0]?.id;
+
+  const [resources] = useZeroQuery(
+    environments?.[0]?.id
+      ? queries.resource.list({ environmentId: environments?.[0]?.id })
+      : undefined,
+  );
+
+  const [deploying, setDeploying] = useState(false);
   const [pendingChanges, setPendingChanges] = useState<PendingChange[]>([]);
   const [changesDialogOpen, setChangesDialogOpen] = useState(false);
-
-  // Refs to keep callbacks stable — avoids context value changing every render
-  const resourcesRef = useRef(resources);
-  resourcesRef.current = resources;
-  const pendingChangesRef = useRef(pendingChanges);
-  pendingChangesRef.current = pendingChanges;
-  const zeroRef = useRef(zero);
-  zeroRef.current = zero;
 
   const handleResourceCreated = useCallback(
     (resource: { id: string; name: string; kind: string; status: string }) => {
@@ -84,8 +79,8 @@ function RouteComponent() {
   );
 
   const handleMarkForRemoval = useCallback((id: string) => {
-    if (pendingChangesRef.current.some((c) => c.id === id)) return;
-    const resource = resourcesRef.current?.find((r) => r.id === id);
+    if (pendingChanges.some((c) => c.id === id)) return;
+    const resource = resources?.find((r) => r.id === id);
     if (!resource) return;
     setPendingChanges((prev) => [
       ...prev,
@@ -101,31 +96,59 @@ function RouteComponent() {
       },
     ]);
   }, []);
+  const createDeployment = useMutation(orpc.deployment.create.mutationOptions());
+  const provisionResource = useMutation(orpc.resource.provision.mutationOptions());
 
-  const handleDeploy = useCallback(() => {
-    const z = zeroRef.current;
-    if (z) {
-      for (const change of pendingChangesRef.current) {
+  const handleDeploy = useCallback(async () => {
+    if (!projectId || !envId) return;
+
+    const changes = pendingChanges;
+    setDeploying(true);
+    const deployable = ["web", "api", "worker"];
+    const provisionable = ["database"];
+
+    const deployments = await Promise.allSettled(
+      changes.map((change) => {
         if (change.action === "removed") {
-          z.mutate(mutators.resource.delete({ id: change.id }));
+          zero?.mutate(mutators.resource.delete({ id: change.id }));
+          return Promise.resolve();
+        } else if (deployable.includes(change.kind)) {
+          return createDeployment.mutateAsync({
+            projectId,
+            environmentId: envId,
+            resourceId: change.id,
+            source: "manual",
+          });
+        } else if (provisionable.includes(change.kind)) {
+          return provisionResource.mutateAsync({ resourceId: change.id });
         }
-      }
+      }),
+    );
+
+    const failedDeployments = deployments.filter((deployment) => deployment.status === "rejected");
+    if (failedDeployments.length > 0) {
+      toast.error(
+        `Some deployments failed to start: ${failedDeployments.map((deployment) => deployment.reason).join(", ")}`,
+      );
+      return;
     }
+
     setPendingChanges([]);
     setChangesDialogOpen(false);
-  }, []);
+    setDeploying(false);
+  }, [projectId, envId]);
 
   const handleDiscard = useCallback((id: string) => {
-    const change = pendingChangesRef.current.find((c) => c.id === id);
-    const z = zeroRef.current;
-    if (change?.action === "added" && z) {
-      z.mutate(mutators.resource.delete({ id }));
+    const change = pendingChanges.find((c) => c.id === id);
+
+    if (change?.action === "added" && zero) {
+      zero.mutate(mutators.resource.delete({ id }));
     }
     setPendingChanges((prev) => prev.filter((c) => c.id !== id));
   }, []);
 
   // Memoize context value — only changes when pendingChanges state changes
-  const contextValue = useMemo<ProjectContextValue>(
+  const contextValue = useMemo<ProjectContext>(
     () => ({
       pendingChanges,
       onCreateResource: handleResourceCreated,
@@ -133,6 +156,8 @@ function RouteComponent() {
     }),
     [pendingChanges, handleResourceCreated, handleMarkForRemoval],
   );
+
+  if (!environments || environments.length === 0) return null;
 
   return (
     <ProjectContext.Provider value={contextValue}>
@@ -145,6 +170,7 @@ function RouteComponent() {
             {pendingChanges.length > 0 && (
               <DeployBar
                 changeCount={pendingChanges.length}
+                deploying={deploying}
                 onDeploy={handleDeploy}
                 onDismiss={() => setChangesDialogOpen(true)}
               />

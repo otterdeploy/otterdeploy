@@ -14,7 +14,7 @@ export const queries = defineQueries({
   },
 
   environment: {
-    list: defineQuery(z.object({ projectId: z.string() }), ({ args: { projectId } }) =>
+    list: defineQuery(z.object({ projectId: z.string() }), ({ ctx, args: { projectId } }) =>
       zql.environment.where("projectId", projectId),
     ),
     byId: defineQuery(z.object({ environmentId: z.string() }), ({ args: { environmentId } }) =>
@@ -23,8 +23,9 @@ export const queries = defineQueries({
   },
 
   resource: {
-    list: defineQuery(z.object({ environmentId: z.string() }), ({ args: { environmentId } }) =>
-      zql.resource.where("environmentId", environmentId),
+    list: defineQuery(
+      z.object({ environmentId: z.string() }),
+      ({ args: { environmentId }, ...rest }) => zql.resource.where("environmentId", environmentId),
     ),
 
     byId: defineQuery(z.object({ resourceId: z.string() }), ({ args: { resourceId } }) =>

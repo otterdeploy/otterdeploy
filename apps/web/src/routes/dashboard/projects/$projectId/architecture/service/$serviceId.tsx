@@ -29,13 +29,13 @@ const searchSchema = z.object({
 });
 
 export const Route = createFileRoute(
-  "/_dashboard/projects/$projectId/architecture/service/$serviceId",
+  "/dashboard/projects/$projectId/architecture/service/$serviceId",
 )({
   component: RouteComponent,
   validateSearch: searchSchema,
   loader: async ({ context, params }) => {
     if (context.zero) {
-      await context.zero.run(queries.resourceById({ resourceId: params.serviceId }));
+      await context.zero.run(queries.resource.byId({ resourceId: params.serviceId }));
     }
   },
   errorComponent: ({ error }) => <div>Error: {error.message}</div>,
@@ -44,7 +44,7 @@ export const Route = createFileRoute(
 function RouteComponent() {
   const { tab } = Route.useSearch();
   const { projectId, serviceId } = Route.useParams();
-  const [resource] = useQuery(queries.resourceById({ resourceId: serviceId }));
+  const [resource] = useQuery(queries.resource.byId({ resourceId: serviceId }));
 
   const navigate = useNavigate();
 
@@ -54,9 +54,7 @@ function RouteComponent() {
       defaultTab={tab}
       onClose={() => navigate({ to: "/projects/$projectId/architecture", params: { projectId } })}
       hiddenTabs={
-        resource?.kind !== "database" && resource?.kind !== "cache"
-          ? ["database", "backups"]
-          : []
+        resource?.kind !== "database" && resource?.kind !== "cache" ? ["database", "backups"] : []
       }
     >
       <Content value="deployments">

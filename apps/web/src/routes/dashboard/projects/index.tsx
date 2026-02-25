@@ -30,7 +30,7 @@ import { GridViewIcon, ListViewIcon } from "@hugeicons/core-free-icons";
 import { PlusIcon } from "lucide-react";
 import * as z from "zod";
 
-export const Route = createFileRoute("/_dashboard/projects/")({
+export const Route = createFileRoute("/dashboard/projects/")({
   component: RouteComponent,
   loader: async ({ context }) => {
     if (!context.auth.session.activeOrganizationId) throw new Error("No active organization");
@@ -147,7 +147,7 @@ function RouteComponent() {
   const [sort, setSort] = useState<SortOption>("updated");
   const [view, setView] = useState<ViewMode>("architecture");
 
-  const [projects] = useQuery(queries.projectList({ organizationId }));
+  const [projects] = useQuery(queries.project.list({ organizationId }));
 
   const sortedProjects = useMemo(() => {
     const items = projects;

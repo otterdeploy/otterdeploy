@@ -1,20 +1,22 @@
 import { motion } from "motion/react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { Button } from "@/components/ui/button";
-import { EllipsisVerticalIcon, RocketIcon } from "lucide-react";
+import { EllipsisVerticalIcon, LoaderIcon, RocketIcon } from "lucide-react";
 
 export function DeployBar({
   changeCount,
+  deploying = false,
   onDeploy,
   onDismiss,
 }: {
   changeCount: number;
+  deploying?: boolean;
   onDeploy: () => void;
   onDismiss: () => void;
 }) {
   useHotkey("Shift+Enter", (e) => {
     e.preventDefault();
-    onDeploy();
+    if (!deploying) onDeploy();
   });
 
   if (changeCount === 0) return null;
@@ -32,12 +34,18 @@ export function DeployBar({
       <Button variant="outline" size="sm" className="rounded-lg" onClick={onDismiss}>
         Details
       </Button>
-      <Button size="sm" className="rounded-lg gap-2" onClick={onDeploy}>
-        <RocketIcon className="size-3.5" />
-        Deploy
-        <kbd className="pointer-events-none ml-0.5 inline-flex items-center gap-0.5 rounded border border-primary-foreground/20 bg-primary-foreground/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-primary-foreground/70">
-          ⇧+Enter
-        </kbd>
+      <Button size="sm" className="rounded-lg gap-2" onClick={onDeploy} disabled={deploying}>
+        {deploying ? (
+          <LoaderIcon className="size-3.5 animate-spin" />
+        ) : (
+          <RocketIcon className="size-3.5" />
+        )}
+        {deploying ? "Deploying..." : "Deploy"}
+        {!deploying && (
+          <kbd className="pointer-events-none ml-0.5 inline-flex items-center gap-0.5 rounded border border-primary-foreground/20 bg-primary-foreground/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-primary-foreground/70">
+            ⇧+Enter
+          </kbd>
+        )}
       </Button>
       <Button variant="ghost" size="sm" className="size-7 p-0 rounded-lg text-muted-foreground">
         <EllipsisVerticalIcon className="size-4" />

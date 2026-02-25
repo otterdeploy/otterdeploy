@@ -1,12 +1,7 @@
 import { useState } from "react";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { Button } from "@otterdeploy/ui/components/ui/button";
-import {
-  Field,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-} from "@otterdeploy/ui/components/ui/field";
+import { Field, FieldError, FieldGroup, FieldLabel } from "@otterdeploy/ui/components/ui/field";
 import { Input } from "@otterdeploy/ui/components/ui/input";
 import { toast } from "sonner";
 
@@ -20,7 +15,7 @@ export const Route = createFileRoute("/device")({
   beforeLoad: async () => {
     const { data: session } = await authClient.getSession();
     if (!session?.user) {
-      throw redirect({ to: "/login" });
+      // throw redirect({ to: "/login" });
     }
   },
 });
@@ -46,7 +41,9 @@ function DevicePage() {
 
     if (approveError) {
       setStatus("idle");
-      setError(approveError.error_description ?? "Failed to approve device. Check the code and try again.");
+      setError(
+        approveError.error_description ?? "Failed to approve device. Check the code and try again.",
+      );
       toast.error("Authorization failed");
       return;
     }

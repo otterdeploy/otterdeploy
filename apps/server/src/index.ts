@@ -50,7 +50,7 @@ app.get("/api/zero/auth", async (c) => {
 // Zero query endpoint — zero-cache forwards query requests here for auth-scoped data.
 app.post("/api/zero/query", async (c) => {
   const session = await auth.api.getSession({ headers: c.req.raw.headers });
-  console.log({ session });
+  logger.debug({ hasSession: !!session }, "zero session check");
   const ctx = session ? { userId: session.user.id } : undefined;
   const result = await handleQueryRequest(
     (name, args) => {
@@ -67,7 +67,7 @@ app.post("/api/zero/query", async (c) => {
 // Zero mutate endpoint — zero-cache forwards mutation requests here.
 app.post("/api/zero/mutate", async (c) => {
   const session = await auth.api.getSession({ headers: c.req.raw.headers });
-  console.log({ session });
+  logger.debug({ hasSession: !!session }, "zero session check");
   if (!session?.user) {
     return c.json({ error: "Unauthorized" }, 401);
   }

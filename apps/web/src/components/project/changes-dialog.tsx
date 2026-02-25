@@ -11,23 +11,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { GlobeIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import {
-  CheckIcon,
-  ChevronDownIcon,
-  PlusIcon,
-  Settings2Icon,
-  XIcon,
-} from "lucide-react";
+import { CheckIcon, ChevronDownIcon, PlusIcon, Settings2Icon, XIcon } from "lucide-react";
 
 import { kindOptions } from "./create-resource-palette";
-
-export interface PendingChange {
-  id: string;
-  name: string;
-  kind: string;
-  action: "added" | "modified" | "removed";
-  settings: { key: string; oldValue: string; newValue: string }[];
-}
+import type { PendingChange } from "./context";
 
 export function ChangesDialog({
   changes,

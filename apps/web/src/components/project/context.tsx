@@ -1,0 +1,23 @@
+import { createContext, useContext } from "react";
+
+export interface PendingChange {
+  id: string;
+  name: string;
+  kind: string;
+  action: "added" | "modified" | "removed";
+  settings: { key: string; oldValue: string; newValue: string }[];
+}
+
+export interface ProjectContext {
+  pendingChanges: PendingChange[];
+  onCreateResource: (resource: { id: string; name: string; kind: string; status: string }) => void;
+  onMarkForRemoval: (id: string) => void;
+}
+
+export const ProjectContext = createContext<ProjectContext | null>(null);
+
+export function useProjectContext() {
+  const ctx = useContext(ProjectContext);
+  if (!ctx) throw new Error("useProjectContext must be used within ProjectContext");
+  return ctx;
+}

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/_dashboard/projects/$projectId/settings")({
+export const Route = createFileRoute("/dashboard/projects/$projectId/observability")({
   component: RouteComponent,
 });
 
@@ -8,9 +8,9 @@ function RouteComponent() {
   return (
     <div className="flex h-full items-center justify-center">
       <div className="text-center">
-        <h2 className="text-lg font-semibold">Settings</h2>
+        <h2 className="text-lg font-semibold">Observability</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Configure your project settings and preferences.
+          Monitor your services and track performance metrics.
         </p>
       </div>
     </div>

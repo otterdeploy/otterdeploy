@@ -1,64 +1,60 @@
 import type { Result } from "better-result";
+import type {
+  ResourceSelect,
+  ResourceRuntimeConfigSelect,
+  ResourceBuildConfigSelect,
+  DeploymentSelect,
+  ProjectSelect,
+  EnvironmentSelect,
+  GitRepositorySelect,
+} from "@otterdeploy/db/zod";
 
 /**
  * Shared types for deployment pipeline steps.
- * Each step receives typed input and returns a Result.
+ * Types are inferred from Drizzle schema via drizzle-zod — enum fields
+ * narrow to actual unions (e.g. kind → "web"|"api"|"worker"|"database"|"compose").
  */
 
-export interface DeploymentContext {
+export type DeploymentContext = {
   deploymentId: string;
   organizationId: string;
   projectId: string;
   environmentId: string;
   resourceId: string;
   actorUserId: string;
-  source: "git_push" | "manual" | "rollback" | "api" | "preview" | "config_change";
+  source: DeploymentSelect["source"];
   correlationId?: string;
-}
+};
 
-export interface ResourceConfig {
-  id: string;
-  name: string;
-  kind: string;
-  port: number | null;
-  healthCheckPath: string | null;
-  healthCheckInterval: number | null;
-  healthCheckTimeout: number | null;
-  replicas: number | null;
-  cpuLimit: number | null;
-  memoryLimit: number | null;
-  startCommand: string | null;
-  preDeployCommand: string | null;
-  restartPolicy: string | null;
-  restartPolicyMaxRetries: number | null;
-  builder: string | null;
-  dockerfilePath: string | null;
-  buildCommand: string | null;
-  serverId: string | null;
-}
+export type ResourceConfig = Pick<ResourceSelect, "id" | "name" | "kind" | "serverId"> &
+  Pick<
+    ResourceRuntimeConfigSelect,
+    | "port"
+    | "healthCheckPath"
+    | "healthCheckInterval"
+    | "healthCheckTimeout"
+    | "replicas"
+    | "cpuLimit"
+    | "memoryLimit"
+    | "startCommand"
+    | "restartPolicy"
+    | "restartPolicyMaxRetries"
+  > &
+  Pick<ResourceBuildConfigSelect, "preDeployCommand" | "builder" | "dockerfilePath" | "buildCommand">;
 
-export interface ProjectConfig {
-  id: string;
-  name: string;
-  slug: string;
-  baseDomain: string | null;
-  organizationId: string | null;
-}
+export type ProjectConfig = Pick<
+  ProjectSelect,
+  "id" | "name" | "slug" | "baseDomain" | "organizationId"
+>;
 
-export interface EnvironmentConfig {
-  id: string;
-  name: string;
-  projectId: string;
-}
+export type EnvironmentConfig = Pick<EnvironmentSelect, "id" | "name" | "projectId">;
 
-export interface GitRepoConfig {
-  owner: string;
-  name: string;
-  branch: string;
-  rootDirectory: string | null;
-  gitProviderId: string;
+export type GitRepoConfig = Pick<
+  GitRepositorySelect,
+  "owner" | "name" | "branch" | "rootDirectory" | "gitProviderId"
+> & {
   accessToken?: string;
-}
+};
 
 export interface ValidateOutput {
   deployment: DeploymentContext;
@@ -90,27 +86,31 @@ export interface CloneResult {
   skipped: boolean;
 }
 
+/** Return type for PipelineDeps.getDeployment */
+export type DeploymentRecord = Pick<
+  DeploymentSelect,
+  | "id"
+  | "organizationId"
+  | "projectId"
+  | "environmentId"
+  | "resourceId"
+  | "status"
+  | "source"
+  | "builder"
+  | "imageTag"
+  | "previousImageTag"
+  | "gitRef"
+  | "gitCommitSha"
+  | "triggeredBy"
+>;
+
 /**
  * Dependencies that pipeline steps inject for DB access and external calls.
  * This makes the pipeline testable without real DB or Docker.
  */
 export interface PipelineDeps {
   // DB queries
-  getDeployment: (id: string) => Promise<{
-    id: string;
-    organizationId: string;
-    projectId: string;
-    environmentId: string;
-    resourceId: string;
-    status: string;
-    source: string;
-    builder: string | null;
-    imageTag: string | null;
-    previousImageTag: string | null;
-    gitRef: string | null;
-    gitCommitSha: string | null;
-    triggeredBy: string | null;
-  } | null>;
+  getDeployment: (id: string) => Promise<DeploymentRecord | null>;
 
   getResource: (id: string) => Promise<ResourceConfig | null>;
 

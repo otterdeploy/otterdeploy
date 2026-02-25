@@ -24,6 +24,7 @@
   "dependencies": {
     "@otterdeploy/env": "workspace:*",
     "drizzle-orm": "^0.45.1",
+    "drizzle-zod": "^0.8.2",
     "pg": "^8.18.0",
     "zod": "catalog:"
   },

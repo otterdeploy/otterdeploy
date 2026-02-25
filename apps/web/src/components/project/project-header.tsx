@@ -2,7 +2,13 @@ import { useState } from "react";
 import { useQuery } from "@rocicorp/zero/react";
 import { queries } from "@otterdeploy/zero/queries";
 import { mutators } from "@otterdeploy/zero/mutators";
-import { useParams, useRouter, useNavigate, useMatchRoute } from "@tanstack/react-router";
+import {
+  useParams,
+  useRouter,
+  useNavigate,
+  useMatchRoute,
+  useRouteContext,
+} from "@tanstack/react-router";
 import { useForm } from "@tanstack/react-form";
 import * as z from "zod";
 
@@ -28,9 +34,6 @@ import { Tabs, TabsList, TabsTrigger, TabsIndicator } from "@/components/ui/tabs
 import { PlusIcon } from "lucide-react";
 
 import { CreateResourcePalette, type ResourceKind } from "./create-resource-palette";
-
-// --- Route data hook (must be imported from the route file) ---
-import { Route } from "@/routes/_dashboard/projects/$projectId/layout";
 
 function EnvironmentSwitcher({
   projectId,
@@ -154,6 +157,7 @@ const tabs = [
 
 type TabValue = (typeof tabs)[number]["value"];
 
+const basePath = "/_dashboard" as const;
 export function ProjectHeader({
   onCreateResource,
 }: {
@@ -164,22 +168,24 @@ export function ProjectHeader({
     status: string;
   }) => void;
 }) {
-  const { projectId } = useParams({ strict: false });
-  const { organizationId } = Route.useLoaderData();
+  const { auth } = useRouteContext({ from: basePath });
+
+  const organizationId = auth.session.activeOrganizationId ?? "";
+  const { projectId } = useParams({ from: `${basePath}/projects/$projectId` });
   const router = useRouter();
   const navigate = useNavigate();
   const match = useMatchRoute();
 
-  const [project] = useQuery(queries.projectById({ projectId: projectId! }));
-  const [environments] = useQuery(queries.environmentList({ projectId: projectId! }));
-  const [projects] = useQuery(queries.projectList({ organizationId }));
+  const [project] = useQuery(queries.project.byId({ projectId: projectId }));
+  const [environments] = useQuery(queries.environment.list({ projectId: projectId }));
+  const [projects] = useQuery(queries.project.list({ organizationId }));
 
   // Determine the active tab from the current route
-  const currentTab = match({ to: "/projects/$projectId/settings", fuzzy: true })
+  const currentTab = match({ to: `${basePath}/projects/$projectId/settings`, fuzzy: true })
     ? "settings"
-    : match({ to: "/projects/$projectId/logs", fuzzy: true })
+    : match({ to: `${basePath}/projects/$projectId/logs`, fuzzy: true })
       ? "logs"
-      : match({ to: "/projects/$projectId/observability", fuzzy: true })
+      : match({ to: `${basePath}/projects/$projectId/observability`, fuzzy: true })
         ? "observability"
         : "architecture";
 
@@ -187,10 +193,10 @@ export function ProjectHeader({
     if (!projectId) return;
 
     const routes: Record<TabValue, string> = {
-      architecture: "/projects/$projectId/architecture",
-      observability: "/projects/$projectId/observability",
-      logs: "/projects/$projectId/logs",
-      settings: "/projects/$projectId/settings",
+      architecture: `${basePath}/projects/$projectId/architecture`,
+      observability: `${basePath}/projects/$projectId/observability`,
+      logs: `${basePath}/projects/$projectId/logs`,
+      settings: `${basePath}/projects/$projectId/settings`,
     };
     navigate({
       to: routes[value],
@@ -207,12 +213,12 @@ export function ProjectHeader({
         <Select
           value={project.id}
           onValueChange={(projectId) => {
-            if (projectId) {
-              router.navigate({
-                to: "/projects/$projectId",
-                params: { projectId },
-              });
-            }
+            if (!projectId) return;
+
+            router.navigate({
+              to: `${basePath}/projects/$projectId`,
+              params: { projectId },
+            });
           }}
         >
           <SelectTrigger
@@ -232,7 +238,7 @@ export function ProjectHeader({
 
         <span className="mx-1 text-muted-foreground/40 select-none">/</span>
 
-        <EnvironmentSwitcher projectId={project.id} environments={environments ?? []} />
+        <EnvironmentSwitcher projectId={project.id} environments={environments} />
       </div>
 
       {/* Center: nav tabs */}

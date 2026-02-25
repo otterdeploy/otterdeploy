@@ -19,6 +19,7 @@ export type {
   ResolvedEnvVars,
   BuildResult,
   CloneResult,
+  DeploymentRecord,
   PipelineDeps,
 } from "./types";
 

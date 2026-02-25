@@ -190,7 +190,7 @@ export async function deploySwarmService(
 }
 
 function mapRestartPolicy(
-  policy: string | null,
+  policy: ResourceConfig["restartPolicy"],
 ): "always" | "on-failure" | "none" {
   switch (policy) {
     case "ALWAYS":

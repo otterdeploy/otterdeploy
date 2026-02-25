@@ -22,7 +22,7 @@ export function ProjectCard({ id, name, environment, resources }: ProjectCardPro
 
   return (
     <Link
-      to="/projects/$projectId"
+      to="/dash/projects/$projectId"
       params={{ projectId: id }}
       className="group block rounded-2xl border border-border/60 bg-card text-card-foreground transition-all hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5"
     >
@@ -35,8 +35,7 @@ export function ProjectCard({ id, name, environment, resources }: ProjectCardPro
       <div
         className="relative mx-4 mb-4 h-36 rounded-xl bg-muted/20 overflow-hidden border border-border/30"
         style={{
-          backgroundImage:
-            "radial-gradient(circle, oklch(0.7 0 0 / 0.12) 1px, transparent 1px)",
+          backgroundImage: "radial-gradient(circle, oklch(0.7 0 0 / 0.12) 1px, transparent 1px)",
           backgroundSize: "20px 20px",
         }}
       >
