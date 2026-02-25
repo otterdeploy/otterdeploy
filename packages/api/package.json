@@ -1,5 +1,6 @@
 {
   "name": "@otterdeploy/api",
+  "private": true,
   "type": "module",
   "exports": {
     ".": {
@@ -20,8 +21,10 @@
     "@orpc/zod": "catalog:",
     "@otterdeploy/auth": "workspace:*",
     "@otterdeploy/db": "workspace:*",
+    "@otterdeploy/infra-config": "workspace:*",
     "@otterdeploy/domain": "workspace:*",
     "@otterdeploy/env": "workspace:*",
+    "@otterdeploy/events": "workspace:*",
     "@otterdeploy/logger": "workspace:*",
     "@otterdeploy/secrets": "workspace:*",
     "drizzle-zod": "^0.8.2",

@@ -5,7 +5,6 @@ import { upsertSecretReference } from "@otterdeploy/secrets";
 
 import { NotFoundError, ConflictError } from "./errors";
 import { type AuditContext, writeAuditLog } from "./audit-writer";
-import { encodeLegacySecret } from "./legacy-secret";
 
 function toISOString(date: Date | null | undefined): string | null {
   return date ? date.toISOString() : null;
@@ -65,7 +64,6 @@ export async function registerServer(params: {
       name: params.ssh.name,
       publicKey: params.ssh.publicKey,
       privateKeySecretReferenceId: sshSecret.reference.id,
-      encryptedPrivateKey: encodeLegacySecret(params.ssh.privateKey),
       fingerprint: params.ssh.fingerprint,
       createdAt: now,
     };

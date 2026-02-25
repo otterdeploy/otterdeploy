@@ -1,14 +1,13 @@
 import * as z from "zod/v4";
 
 import {
-  BuildMethodSchema,
+  BuilderSchema,
   DeploymentSourceSchema,
   DeploymentStatusSchema,
   EnvVarScopeSchema,
   IdSchema,
   SecretProviderSchema,
   ResourceKindSchema,
-  ResourceLinkTypeSchema,
   ResourceStatusSchema,
   SlugSchema,
   TimestampsSchema,
@@ -35,30 +34,12 @@ export const EnvironmentSchema = z
 export const ResourceSchema = z
   .object({
     id: IdSchema,
-    projectId: IdSchema, // computed via environment -> project join
+    organizationId: IdSchema,
+    projectId: IdSchema,
     environmentId: IdSchema,
     name: z.string().min(1).max(128),
     kind: ResourceKindSchema,
     status: ResourceStatusSchema,
-    metadata: z.record(z.string(), z.unknown()),
-    posX: z.number(),
-    posY: z.number(),
-    buildMethod: BuildMethodSchema.nullable(),
-    dockerfilePath: z.string().nullable(),
-    port: z.number().int().nullable(),
-    healthCheckPath: z.string().nullable(),
-    replicas: z.number().int().nullable(),
-  })
-  .merge(TimestampsSchema);
-
-export const ResourceLinkSchema = z
-  .object({
-    id: IdSchema,
-    projectId: IdSchema,
-    environmentId: IdSchema,
-    sourceResourceId: IdSchema,
-    targetResourceId: IdSchema,
-    linkType: ResourceLinkTypeSchema,
   })
   .merge(TimestampsSchema);
 
@@ -79,17 +60,6 @@ export const GraphNodeSchema = z.object({
     name: z.string(),
     kind: ResourceKindSchema,
     status: ResourceStatusSchema,
-    metadata: z.record(z.string(), z.unknown()),
-  }),
-});
-
-export const GraphEdgeSchema = z.object({
-  id: IdSchema,
-  source: IdSchema,
-  target: IdSchema,
-  type: z.string(),
-  data: z.object({
-    linkType: ResourceLinkTypeSchema,
   }),
 });
 
@@ -102,7 +72,7 @@ export const DeploymentSchema = z
     resourceId: IdSchema,
     status: DeploymentStatusSchema,
     source: DeploymentSourceSchema,
-    buildMethod: BuildMethodSchema.nullable(),
+    builder: BuilderSchema.nullable(),
     gitRef: z.string().nullable(),
     gitCommitSha: z.string().nullable(),
     gitCommitMessage: z.string().nullable(),

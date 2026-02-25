@@ -9,8 +9,8 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
-import { project, projectEnvironment, projectResource } from "./architecture";
-import { deploymentStatusEnum, deploymentSourceEnum, buildMethodEnum } from "./enums";
+import { project, environment, resource } from "./project";
+import { deploymentStatusEnum, deploymentSourceEnum, builderEnum } from "./enums";
 
 export const deployment = pgTable(
   "deployment",
@@ -22,16 +22,16 @@ export const deployment = pgTable(
       .references(() => project.id, { onDelete: "cascade" }),
     environmentId: text("environment_id")
       .notNull()
-      .references(() => projectEnvironment.id, { onDelete: "cascade" }),
+      .references(() => environment.id, { onDelete: "cascade" }),
     resourceId: text("resource_id")
       .notNull()
-      .references(() => projectResource.id, { onDelete: "cascade" }),
+      .references(() => resource.id, { onDelete: "cascade" }),
     status: deploymentStatusEnum("status").notNull().default("queued"),
     source: deploymentSourceEnum("source").notNull().default("manual"),
     gitRef: text("git_ref"),
     gitCommitSha: text("git_commit_sha"),
     gitCommitMessage: text("git_commit_message"),
-    buildMethod: buildMethodEnum("build_method"),
+    builder: builderEnum("builder"),
     imageTag: text("image_tag"),
     previousImageTag: text("previous_image_tag"),
     startedAt: timestamp("started_at"),
@@ -40,10 +40,7 @@ export const deployment = pgTable(
     triggeredBy: text("triggered_by").references(() => user.id, {
       onDelete: "set null",
     }),
-    metadata: jsonb("metadata")
-      .$type<Record<string, unknown>>()
-      .notNull()
-      .default({}),
+    idempotencyKey: text("idempotency_key"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -52,6 +49,7 @@ export const deployment = pgTable(
   },
   (table) => [
     index("deployment_org_idx").on(table.organizationId),
+    index("deployment_project_idx").on(table.projectId),
     index("deployment_resource_idx").on(table.resourceId),
     index("deployment_status_idx").on(table.status),
     index("deployment_created_idx").on(table.createdAt),
@@ -81,18 +79,20 @@ export const deploymentEvent = pgTable(
   ],
 );
 
+// --- Relations ---
+
 export const deploymentRelations = relations(deployment, ({ one, many }) => ({
   project: one(project, {
     fields: [deployment.projectId],
     references: [project.id],
   }),
-  environment: one(projectEnvironment, {
+  environment: one(environment, {
     fields: [deployment.environmentId],
-    references: [projectEnvironment.id],
+    references: [environment.id],
   }),
-  resource: one(projectResource, {
+  resource: one(resource, {
     fields: [deployment.resourceId],
-    references: [projectResource.id],
+    references: [resource.id],
   }),
   triggeredByUser: one(user, {
     fields: [deployment.triggeredBy],

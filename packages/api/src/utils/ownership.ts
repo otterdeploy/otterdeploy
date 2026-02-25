@@ -2,10 +2,9 @@ import { ORPCError } from "@orpc/server";
 import { db, eq, and } from "@otterdeploy/db";
 import {
   project,
-  projectEnvironment,
-  projectResource,
-  projectResourceLink,
-} from "@otterdeploy/db/schema/architecture";
+  environment,
+  resource,
+} from "@otterdeploy/db/schema/project";
 import { deployment } from "@otterdeploy/db/schema/deployment";
 import { server, gitProvider } from "@otterdeploy/db/schema/infrastructure";
 import { customDomain, backup, environmentVariable } from "@otterdeploy/db/schema/operations";
@@ -20,8 +19,8 @@ export async function validateProjectAccess(projectId: string, organizationId: s
 }
 
 export async function validateEnvironmentAccess(environmentId: string, organizationId: string) {
-  const row = await db.query.projectEnvironment.findFirst({
-    where: eq(projectEnvironment.id, environmentId),
+  const row = await db.query.environment.findFirst({
+    where: eq(environment.id, environmentId),
     with: { project: true },
   });
   if (!row || row.project.organizationId !== organizationId) {
@@ -36,10 +35,10 @@ export async function validateEnvironmentInProject(
   projectId: string,
   organizationId: string,
 ) {
-  const row = await db.query.projectEnvironment.findFirst({
+  const row = await db.query.environment.findFirst({
     where: and(
-      eq(projectEnvironment.id, environmentId),
-      eq(projectEnvironment.projectId, projectId),
+      eq(environment.id, environmentId),
+      eq(environment.projectId, projectId),
     ),
     with: { project: true },
   });
@@ -50,8 +49,8 @@ export async function validateEnvironmentInProject(
 }
 
 export async function validateResourceAccess(resourceId: string, organizationId: string) {
-  const row = await db.query.projectResource.findFirst({
-    where: eq(projectResource.id, resourceId),
+  const row = await db.query.resource.findFirst({
+    where: eq(resource.id, resourceId),
     with: {
       environment: {
         with: { project: true },
@@ -71,10 +70,10 @@ export async function validateResourceInProject(
   projectId: string,
   organizationId: string,
 ) {
-  const row = await db.query.projectResource.findFirst({
+  const row = await db.query.resource.findFirst({
     where: and(
-      eq(projectResource.id, resourceId),
-      eq(projectResource.environmentId, environmentId),
+      eq(resource.id, resourceId),
+      eq(resource.environmentId, environmentId),
     ),
     with: {
       environment: {
@@ -140,21 +139,6 @@ export async function validateEnvVarAccess(variableId: string, organizationId: s
     ),
   });
   if (!row) throw new ORPCError("NOT_FOUND", { message: "Environment variable not found" });
-  return row;
-}
-
-export async function validateResourceLinkAccess(linkId: string, organizationId: string) {
-  const row = await db.query.projectResourceLink.findFirst({
-    where: eq(projectResourceLink.id, linkId),
-    with: {
-      environment: {
-        with: { project: true },
-      },
-    },
-  });
-  if (!row || row.environment.project.organizationId !== organizationId) {
-    throw new ORPCError("NOT_FOUND", { message: "Resource link not found" });
-  }
   return row;
 }
 

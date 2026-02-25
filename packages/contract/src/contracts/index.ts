@@ -8,7 +8,7 @@ export * from "./environment";
 export * from "./monitoring";
 export * from "./git-provider";
 export * from "./project";
-export * from "./resource-link";
+
 export * from "./resource";
 export * from "./server";
 export * from "./system";

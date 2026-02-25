@@ -1,7 +1,8 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   bigint,
   boolean,
+  check,
   index,
   jsonb,
   pgTable,
@@ -10,10 +11,10 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
-import { organization } from "./auth";
-import { projectResource } from "./architecture";
+import { organization, user } from "./auth";
+import { project, environment, resource } from "./project";
 import { secretReference } from "./secrets";
-import { sslStatusEnum, backupStatusEnum, envVarScopeEnum } from "./enums";
+import { sslStatusEnum, backupStatusEnum } from "./enums";
 
 export const customDomain = pgTable(
   "custom_domain",
@@ -24,12 +25,22 @@ export const customDomain = pgTable(
       .references(() => organization.id, { onDelete: "cascade" }),
     resourceId: text("resource_id")
       .notNull()
-      .references(() => projectResource.id, { onDelete: "cascade" }),
+      .references(() => resource.id, { onDelete: "cascade" }),
     domain: text("domain").notNull(),
     verified: boolean("verified").notNull().default(false),
     verificationToken: text("verification_token"),
     sslStatus: sslStatusEnum("ssl_status").notNull().default("pending"),
     sslExpiresAt: timestamp("ssl_expires_at"),
+    redirectRules: jsonb("redirect_rules")
+      .$type<
+        Array<{
+          source: string;
+          target: string;
+          statusCode: 301 | 302;
+          type: "www" | "custom";
+        }>
+      >()
+      .default([]),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -50,8 +61,9 @@ export const environmentVariable = pgTable(
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
-    scope: envVarScopeEnum("scope").notNull(),
-    scopeId: text("scope_id").notNull(),
+    projectId: text("project_id").references(() => project.id, { onDelete: "cascade" }),
+    environmentId: text("environment_id").references(() => environment.id, { onDelete: "cascade" }),
+    resourceId: text("resource_id").references(() => resource.id, { onDelete: "cascade" }),
     key: text("key").notNull(),
     secretReferenceId: text("secret_reference_id").references(() => secretReference.id, {
       onDelete: "set null",
@@ -67,12 +79,20 @@ export const environmentVariable = pgTable(
   },
   (table) => [
     index("env_var_org_idx").on(table.organizationId),
-    index("env_var_scope_idx").on(table.scope, table.scopeId),
+    index("env_var_project_idx").on(table.projectId),
+    index("env_var_environment_idx").on(table.environmentId),
+    index("env_var_resource_idx").on(table.resourceId),
     index("env_var_secret_ref_idx").on(table.secretReferenceId),
-    uniqueIndex("env_var_scope_key_unique").on(
-      table.scope,
-      table.scopeId,
-      table.key,
+    uniqueIndex("env_var_project_key_unique").on(table.projectId, table.key),
+    uniqueIndex("env_var_environment_key_unique").on(table.environmentId, table.key),
+    uniqueIndex("env_var_resource_key_unique").on(table.resourceId, table.key),
+    check(
+      "env_var_exactly_one_scope",
+      sql`(
+        (project_id IS NOT NULL)::int +
+        (environment_id IS NOT NULL)::int +
+        (resource_id IS NOT NULL)::int
+      ) = 1`,
     ),
   ],
 );
@@ -86,7 +106,7 @@ export const backup = pgTable(
       .references(() => organization.id, { onDelete: "cascade" }),
     resourceId: text("resource_id")
       .notNull()
-      .references(() => projectResource.id, { onDelete: "cascade" }),
+      .references(() => resource.id, { onDelete: "cascade" }),
     type: text("type").notNull(),
     status: backupStatusEnum("status").notNull().default("pending"),
     storageKey: text("storage_key"),
@@ -96,10 +116,6 @@ export const backup = pgTable(
     completedAt: timestamp("completed_at"),
     expiresAt: timestamp("expires_at"),
     errorMessage: text("error_message"),
-    metadata: jsonb("metadata")
-      .$type<Record<string, unknown>>()
-      .notNull()
-      .default({}),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
@@ -113,8 +129,10 @@ export const auditLog = pgTable(
   "audit_log",
   {
     id: text("id").primaryKey(),
-    organizationId: text("organization_id").notNull(),
-    userId: text("user_id").notNull(),
+    organizationId: text("organization_id").references(() => organization.id, {
+      onDelete: "set null",
+    }),
+    userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
     action: text("action").notNull(),
     entityType: text("entity_type").notNull(),
     entityId: text("entity_id").notNull(),
@@ -147,6 +165,7 @@ export const notificationChannel = pgTable(
       .$type<Record<string, unknown>>()
       .notNull(),
     enabled: boolean("enabled").notNull().default(true),
+    eventFilter: jsonb("event_filter"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -158,14 +177,39 @@ export const notificationChannel = pgTable(
   ],
 );
 
+// --- Relations ---
+
 export const customDomainRelations = relations(customDomain, ({ one }) => ({
   organization: one(organization, {
     fields: [customDomain.organizationId],
     references: [organization.id],
   }),
-  resource: one(projectResource, {
+  resource: one(resource, {
     fields: [customDomain.resourceId],
-    references: [projectResource.id],
+    references: [resource.id],
+  }),
+}));
+
+export const environmentVariableRelations = relations(environmentVariable, ({ one }) => ({
+  organization: one(organization, {
+    fields: [environmentVariable.organizationId],
+    references: [organization.id],
+  }),
+  project: one(project, {
+    fields: [environmentVariable.projectId],
+    references: [project.id],
+  }),
+  environment: one(environment, {
+    fields: [environmentVariable.environmentId],
+    references: [environment.id],
+  }),
+  resource: one(resource, {
+    fields: [environmentVariable.resourceId],
+    references: [resource.id],
+  }),
+  secretReference: one(secretReference, {
+    fields: [environmentVariable.secretReferenceId],
+    references: [secretReference.id],
   }),
 }));
 
@@ -174,9 +218,9 @@ export const backupRelations = relations(backup, ({ one }) => ({
     fields: [backup.organizationId],
     references: [organization.id],
   }),
-  resource: one(projectResource, {
+  resource: one(resource, {
     fields: [backup.resourceId],
-    references: [projectResource.id],
+    references: [resource.id],
   }),
 }));
 

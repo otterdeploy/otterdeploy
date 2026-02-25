@@ -15,7 +15,7 @@ export const deploymentRouter = {
         source: z.enum(["git_push", "manual", "rollback", "api", "preview"]),
         gitRef: z.string().optional(),
         gitCommitSha: z.string().optional(),
-        buildMethod: z.enum(["nixpacks", "dockerfile", "buildpack"]).optional(),
+        builder: z.enum(["nixpacks", "dockerfile", "buildpack"]).optional(),
       }),
     )
     .handler(async ({ context, input }) => {
@@ -29,7 +29,7 @@ export const deploymentRouter = {
           triggeredBy: context.userId,
           gitRef: input.gitRef,
           gitCommitSha: input.gitCommitSha,
-          buildMethod: input.buildMethod,
+          builder: input.builder,
           correlationId: context.correlationId ?? undefined,
         }),
       );

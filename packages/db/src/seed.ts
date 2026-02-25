@@ -3,7 +3,7 @@ import { reset, seed } from "drizzle-seed";
 
 import { db } from "./index";
 import * as schema from "./schema";
-import { project, projectEnvironment, projectViewport } from "./schema/architecture";
+import { project, environment, viewport } from "./schema/project";
 import { deploymentSecretSnapshot, secretProviderBinding } from "./schema/secrets";
 
 const DEFAULT_COUNT = 20;
@@ -51,9 +51,9 @@ const parseOptions = (argv: string[]): SeedOptions => {
 };
 
 // Tables excluded from auto-seed:
-// - projectViewport: cyclic not-null FK with projectEnvironment
+// - projectViewport: cyclic not-null FK with environment
 // - secretProviderBinding: unique constraint on organizationId (1 per org)
-const excludedTables = new Set([projectViewport, secretProviderBinding, deploymentSecretSnapshot]);
+const excludedTables = new Set([viewport, secretProviderBinding, deploymentSecretSnapshot]);
 
 const seedSchema = Object.fromEntries(
   Object.entries(schema).filter(([, value]) => isTable(value) && !excludedTables.has(value as never)),
@@ -75,16 +75,16 @@ const run = async () => {
   // Ensure every project has a "production" environment
   const allProjects = await db.select({ id: project.id }).from(project);
   const projectsWithProd = await db
-    .select({ projectId: projectEnvironment.projectId })
-    .from(projectEnvironment)
-    .where(eq(projectEnvironment.name, "production"));
+    .select({ projectId: environment.projectId })
+    .from(environment)
+    .where(eq(environment.name, "production"));
 
   const projectsWithProdIds = new Set(projectsWithProd.map((r) => r.projectId));
   const missing = allProjects.filter((p) => !projectsWithProdIds.has(p.id));
 
   if (missing.length > 0) {
     const now = new Date();
-    await db.insert(projectEnvironment).values(
+    await db.insert(environment).values(
       missing.map((p) => ({
         id: crypto.randomUUID(),
         projectId: p.id,

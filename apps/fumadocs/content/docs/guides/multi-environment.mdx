@@ -1,0 +1,127 @@
+---
+title: Multi-Environment Setup
+description: Set up production, staging, and dev environments with minimal duplication
+---
+
+This guide walks through a real-world multi-environment config using inheritance to keep things DRY.
+
+## The Goal
+
+Three environments with decreasing resources:
+
+| | Production | Staging | Dev |
+|---|---|---|---|
+| API replicas | 3 | 1 | 1 |
+| Web replicas | 2 | 1 | 1 |
+| Database storage | 20Gi | 5Gi | 5Gi |
+| Redis | Yes | No | No |
+| Sleep when idle | No | No | Yes |
+| Branch | main | develop | feature/* |
+
+## Step 1: Define Production
+
+Production is the base — define everything here:
+
+```yaml
+environments:
+  production:
+    resources:
+      api:
+        kind: api
+        source: { github: my-org/app, branch: main, root: /api }
+        build:
+          builder: nixpacks
+          buildCommand: "npm run build"
+        deploy:
+          startCommand: "node dist/index.js"
+          replicas: 3
+          healthcheckPath: /health
+          restartPolicy: ON_FAILURE
+          region: us-west
+        domain: api.myapp.com
+        env:
+          NODE_ENV: production
+          DATABASE_URL: "${db.connectionString}"
+          REDIS_URL: "${redis.connectionString}"
+
+      web:
+        kind: web
+        source: { github: my-org/app, branch: main, root: /web }
+        build: { builder: nixpacks }
+        deploy: { replicas: 2 }
+        domain: myapp.com
+        env:
+          API_URL: "https://${api.domain}"
+
+      db:
+        kind: database
+        image: postgres:16
+        storage: 20Gi
+        env: { POSTGRES_DB: myapp }
+
+      redis:
+        kind: cache
+        image: redis:7-alpine
+
+    links:
+      - { from: api, to: db, type: depends_on }
+      - { from: api, to: redis, type: depends_on }
+      - { from: web, to: api, type: network }
+```
+
+## Step 2: Derive Staging
+
+Staging inherits everything and overrides what differs:
+
+```yaml
+  staging:
+    extends: production
+    exclude: [redis]
+    overrides:
+      resources:
+        api:
+          source: { branch: develop }
+          deploy: { replicas: 1 }
+          domain: api.staging.myapp.com
+          env:
+            NODE_ENV: staging
+          excludeEnv: [REDIS_URL]
+        web:
+          deploy: { replicas: 1 }
+          domain: staging.myapp.com
+        db:
+          storage: 5Gi
+```
+
+What this does:
+- Removes redis (and the api->redis link is auto-cleaned)
+- Switches API to `develop` branch, 1 replica, staging domain
+- Removes `REDIS_URL` from API env vars
+- Scales web to 1 replica with staging domain
+- Shrinks database to 5Gi
+
+## Step 3: Derive Dev
+
+Dev extends staging and adds developer-friendly tweaks:
+
+```yaml
+  dev:
+    extends: staging
+    overrides:
+      resources:
+        api:
+          source: { branch: feature/my-feature }
+          deploy: { sleepApplication: true }
+          env:
+            DEBUG: "*"
+            LOG_LEVEL: debug
+```
+
+What this does:
+- Points API to a feature branch
+- Enables sleep-when-idle
+- Adds debug env vars (merged with staging's env)
+
+## The Result
+
+Three fully resolved environments from one config, with zero duplication of shared settings. When you change the builder or healthcheck path in production, staging and dev automatically inherit the change.

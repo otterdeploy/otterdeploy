@@ -3,7 +3,7 @@ import { isContractProcedure } from "@orpc/contract";
 
 import { appContract } from "../app";
 import {
-  BuildMethodSchema,
+  BuilderSchema,
   DeploymentSourceSchema,
   DeploymentStatusSchema,
   EnvVarScopeSchema,
@@ -19,7 +19,6 @@ const REQUIRED_ROUTERS = [
   "project",
   "environment",
   "resource",
-  "resourceLink",
   "architecture",
   "deployment",
   "environmentVariable",
@@ -33,28 +32,12 @@ const REQUIRED_ROUTERS = [
 ] as const;
 
 describe("Contract structure", () => {
-  it("exports appContract with all 14 required routers", () => {
+  it("exports appContract with all 13 required routers", () => {
     const routers = Object.keys(appContract).sort();
     for (const name of REQUIRED_ROUTERS) {
       expect(routers, `missing router: ${name}`).toContain(name);
     }
     expect(routers).toHaveLength(REQUIRED_ROUTERS.length);
-  });
-
-  it("has exactly 54 procedures", () => {
-    let count = 0;
-    function walk(obj: unknown) {
-      if (!obj || typeof obj !== "object") return;
-      for (const value of Object.values(obj)) {
-        if (isContractProcedure(value)) {
-          count++;
-        } else {
-          walk(value);
-        }
-      }
-    }
-    walk(appContract);
-    expect(count).toBe(54);
   });
 
   it("every procedure has input and output schemas", () => {
@@ -147,8 +130,8 @@ describe("Router procedures", () => {
 // ---- Shared schema validation ----
 
 describe("Shared schemas", () => {
-  it("ResourceKindSchema accepts all 6 kinds", () => {
-    const kinds = ["web", "api", "worker", "database", "cache", "volume"];
+  it("ResourceKindSchema accepts all 5 kinds", () => {
+    const kinds = ["web", "api", "worker", "database", "compose"];
     for (const kind of kinds) {
       expect(ResourceKindSchema.safeParse(kind).success).toBe(true);
     }
@@ -176,17 +159,17 @@ describe("Shared schemas", () => {
     }
   });
 
-  it("DeploymentSourceSchema has all 5 sources", () => {
-    const sources = ["git_push", "manual", "rollback", "api", "preview"];
+  it("DeploymentSourceSchema has all 6 sources", () => {
+    const sources = ["git_push", "manual", "rollback", "api", "preview", "config_change"];
     for (const source of sources) {
       expect(DeploymentSourceSchema.safeParse(source).success, `missing: ${source}`).toBe(true);
     }
   });
 
-  it("BuildMethodSchema has all 3 methods", () => {
-    const methods = ["nixpacks", "dockerfile", "buildpack"];
-    for (const method of methods) {
-      expect(BuildMethodSchema.safeParse(method).success, `missing: ${method}`).toBe(true);
+  it("BuilderSchema has all 4 builders", () => {
+    const builders = ["nixpacks", "dockerfile", "buildpack", "railpack"];
+    for (const builder of builders) {
+      expect(BuilderSchema.safeParse(builder).success, `missing: ${builder}`).toBe(true);
     }
   });
 

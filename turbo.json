@@ -53,6 +53,13 @@
     },
     "infra:init": {
       "cache": false
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "cache": false
+    },
+    "test:unit": {
+      "cache": false
     }
   }
 }

@@ -16,31 +16,22 @@ export async function createDeploymentSecretSnapshot(input: {
     where: and(
       eq(environmentVariable.organizationId, input.organizationId),
       or(
-        and(
-          eq(environmentVariable.scope, "project"),
-          eq(environmentVariable.scopeId, input.projectId),
-        ),
-        and(
-          eq(environmentVariable.scope, "environment"),
-          eq(environmentVariable.scopeId, input.environmentId),
-        ),
-        and(
-          eq(environmentVariable.scope, "resource"),
-          eq(environmentVariable.scopeId, input.resourceId),
-        ),
+        eq(environmentVariable.projectId, input.projectId),
+        eq(environmentVariable.environmentId, input.environmentId),
+        eq(environmentVariable.resourceId, input.resourceId),
       ),
     ),
   });
 
-  const scopeWeight = {
-    project: 0,
-    environment: 1,
-    resource: 2,
-  } as const;
+  function scopeWeight(row: typeof environmentVariable.$inferSelect): number {
+    if (row.resourceId) return 2;
+    if (row.environmentId) return 1;
+    return 0;
+  }
 
   const latestByKey = new Map<string, typeof environmentVariable.$inferSelect>();
   const sortedRows = rows.sort((left, right) => {
-    const weightDelta = scopeWeight[left.scope] - scopeWeight[right.scope];
+    const weightDelta = scopeWeight(left) - scopeWeight(right);
     if (weightDelta !== 0) return weightDelta;
     return left.updatedAt.getTime() - right.updatedAt.getTime();
   });
@@ -52,7 +43,6 @@ export async function createDeploymentSecretSnapshot(input: {
   const entries = [] as Array<{
     key: string;
     variableId: string;
-    scope: "project" | "environment" | "resource";
     secretReferenceId: string | null;
     providerVersion: string | null;
     digest: string;
@@ -75,7 +65,6 @@ export async function createDeploymentSecretSnapshot(input: {
     entries.push({
       key: row.key,
       variableId: row.id,
-      scope: row.scope,
       secretReferenceId: row.secretReferenceId ?? null,
       providerVersion,
       digest: hashSecretDigest(secretValue),

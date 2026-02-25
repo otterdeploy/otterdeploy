@@ -3,3 +3,7 @@ export * from "./provider";
 export * from "./service";
 export * from "./redaction";
 export * from "./utils";
+export * from "./encryption";
+export * from "./env-resolver";
+export * from "./snapshot";
+export * from "./log-redaction";

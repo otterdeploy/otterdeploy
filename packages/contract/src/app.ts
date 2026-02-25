@@ -12,7 +12,6 @@ import {
   monitoringContract,
   projectContract,
   resourceContract,
-  resourceLinkContract,
   serverContract,
   systemContract,
 } from "./contracts";
@@ -21,7 +20,6 @@ export const appContract = {
   project: projectContract,
   environment: environmentContract,
   resource: resourceContract,
-  resourceLink: resourceLinkContract,
   architecture: architectureContract,
   deployment: deploymentContract,
   environmentVariable: environmentVariableContract,

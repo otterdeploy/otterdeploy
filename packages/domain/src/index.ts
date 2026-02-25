@@ -10,7 +10,6 @@ export { pickDefined } from "./utils";
 
 export * as projectService from "./project";
 export * as environmentService from "./environment";
-export * as resourceLinkService from "./resource-link";
 export * as architectureService from "./architecture";
 export * as auditService from "./audit";
 export * as monitoringService from "./monitoring";
@@ -25,3 +24,7 @@ export * as gitProviderService from "./git-provider";
 export * as serverManagementService from "./server-management";
 export * as customDomainService from "./custom-domain";
 export * as backupService from "./backup";
+
+export * as pipeline from "./pipeline";
+export * as databaseProvisioner from "./database-provisioner";
+export * as serverBootstrap from "./server-bootstrap";

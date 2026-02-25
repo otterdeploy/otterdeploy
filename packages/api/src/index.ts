@@ -3,12 +3,13 @@ import { db, eq, and } from "@otterdeploy/db";
 import { member } from "@otterdeploy/db/schema/auth";
 
 import type { Context } from "./context";
+import { loggingMiddleware } from "./middleware/logging";
 import { hasMinRole, type OrgRole } from "./utils/helpers";
 import { assertFreshStepUp } from "./utils/step-up";
 
 export const o = os.$context<Context>();
 
-export const publicProcedure = o;
+export const publicProcedure = o.use(loggingMiddleware);
 
 export const authedProcedure = publicProcedure.use(async ({ context, next }) => {
   if (!context.session?.user) {

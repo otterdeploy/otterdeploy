@@ -4,14 +4,13 @@ import {
   boolean,
   index,
   integer,
-  jsonb,
   pgTable,
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
 
 import { organization } from "./auth";
-import { projectResource } from "./architecture";
+import { resource } from "./project";
 import { secretReference } from "./secrets";
 import { serverStatusEnum, serverRoleEnum } from "./enums";
 
@@ -28,9 +27,12 @@ export const sshKey = pgTable(
       () => secretReference.id,
       { onDelete: "set null" },
     ),
-    encryptedPrivateKey: text("encrypted_private_key").notNull(),
     fingerprint: text("fingerprint").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
   },
   (table) => [
     index("ssh_key_org_idx").on(table.organizationId),
@@ -59,11 +61,10 @@ export const server = pgTable(
     totalMemory: bigint("total_memory", { mode: "number" }),
     totalCpu: integer("total_cpu"),
     totalDisk: bigint("total_disk", { mode: "number" }),
+    swarmNodeId: text("swarm_node_id"),
+    baseDomain: text("base_domain"),
+    dockerCleanupThreshold: integer("docker_cleanup_threshold").default(80),
     lastSeenAt: timestamp("last_seen_at"),
-    metadata: jsonb("metadata")
-      .$type<Record<string, unknown>>()
-      .notNull()
-      .default({}),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -88,13 +89,11 @@ export const gitProvider = pgTable(
       () => secretReference.id,
       { onDelete: "set null" },
     ),
-    encryptedClientSecret: text("encrypted_client_secret"),
     installationId: text("installation_id"),
     webhookSecretReferenceId: text("webhook_secret_reference_id").references(
       () => secretReference.id,
       { onDelete: "set null" },
     ),
-    encryptedWebhookSecret: text("encrypted_webhook_secret"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -114,7 +113,7 @@ export const gitRepository = pgTable(
     id: text("id").primaryKey(),
     resourceId: text("resource_id")
       .notNull()
-      .references(() => projectResource.id, { onDelete: "cascade" }),
+      .references(() => resource.id, { onDelete: "cascade" }),
     gitProviderId: text("git_provider_id")
       .notNull()
       .references(() => gitProvider.id, { onDelete: "cascade" }),
@@ -124,6 +123,7 @@ export const gitRepository = pgTable(
     rootDirectory: text("root_directory").default("/"),
     autoDeploy: boolean("auto_deploy").notNull().default(true),
     webhookId: text("webhook_id"),
+    watchPaths: text("watch_paths").array(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -132,6 +132,8 @@ export const gitRepository = pgTable(
   },
   (table) => [index("git_repo_resource_idx").on(table.resourceId)],
 );
+
+// --- Relations ---
 
 export const sshKeyRelations = relations(sshKey, ({ one }) => ({
   organization: one(organization, {
@@ -160,9 +162,9 @@ export const gitProviderRelations = relations(gitProvider, ({ one, many }) => ({
 }));
 
 export const gitRepositoryRelations = relations(gitRepository, ({ one }) => ({
-  resource: one(projectResource, {
+  resource: one(resource, {
     fields: [gitRepository.resourceId],
-    references: [projectResource.id],
+    references: [resource.id],
   }),
   provider: one(gitProvider, {
     fields: [gitRepository.gitProviderId],

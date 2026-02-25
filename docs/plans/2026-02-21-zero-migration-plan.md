@@ -15,6 +15,7 @@
 ### Task 1: Add `resourceById` query to packages/zero/src/queries.ts
 
 **Files:**
+
 - Modify: `packages/zero/src/queries.ts`
 
 **Step 1: Add the query**
@@ -41,6 +42,7 @@ git commit -m "feat(zero): add resourceById query"
 ### Task 2: Define Zero mutators in packages/zero/src/mutators.ts
 
 **Files:**
+
 - Modify: `packages/zero/src/mutators.ts`
 
 **Step 1: Write the mutators**
@@ -88,15 +90,12 @@ export const mutators = defineMutators({
       },
     ),
 
-    delete: defineMutator(
-      z.object({ id: z.string() }),
-      async ({ tx, args }) => {
-        await tx.mutate.project.update({
-          id: args.id,
-          deletedAt: Date.now(),
-        });
-      },
-    ),
+    delete: defineMutator(z.object({ id: z.string() }), async ({ tx, args }) => {
+      await tx.mutate.project.update({
+        id: args.id,
+        deletedAt: Date.now(),
+      });
+    }),
   },
 
   environment: {
@@ -115,12 +114,9 @@ export const mutators = defineMutators({
       },
     ),
 
-    delete: defineMutator(
-      z.object({ id: z.string() }),
-      async ({ tx, args }) => {
-        await tx.mutate.projectEnvironment.delete({ id: args.id });
-      },
-    ),
+    delete: defineMutator(z.object({ id: z.string() }), async ({ tx, args }) => {
+      await tx.mutate.projectEnvironment.delete({ id: args.id });
+    }),
   },
 
   resource: {
@@ -162,12 +158,9 @@ export const mutators = defineMutators({
       },
     ),
 
-    delete: defineMutator(
-      z.object({ id: z.string() }),
-      async ({ tx, args }) => {
-        await tx.mutate.projectResource.delete({ id: args.id });
-      },
-    ),
+    delete: defineMutator(z.object({ id: z.string() }), async ({ tx, args }) => {
+      await tx.mutate.projectResource.delete({ id: args.id });
+    }),
   },
 
   resourceLink: {
@@ -190,12 +183,9 @@ export const mutators = defineMutators({
       },
     ),
 
-    delete: defineMutator(
-      z.object({ id: z.string() }),
-      async ({ tx, args }) => {
-        await tx.mutate.projectResourceLink.delete({ id: args.id });
-      },
-    ),
+    delete: defineMutator(z.object({ id: z.string() }), async ({ tx, args }) => {
+      await tx.mutate.projectResourceLink.delete({ id: args.id });
+    }),
   },
 
   viewport: {
@@ -231,6 +221,7 @@ git commit -m "feat(zero): define CRUD mutators for project, environment, resour
 ### Task 3: Update ZeroProvider to pass mutators
 
 **Files:**
+
 - Modify: `apps/web/src/components/zero-provider.tsx`
 
 **Step 1: Update the provider**
@@ -270,9 +261,7 @@ export function ZeroProviderWrapper({ userID, children }: ZeroProviderProps) {
   );
 
   return (
-    <RocicorpZeroProvider
-      {...{ schema, userID, context, cacheURL, mutators, init }}
-    >
+    <RocicorpZeroProvider {...{ schema, userID, context, cacheURL, mutators, init }}>
       {children}
     </RocicorpZeroProvider>
   );
@@ -298,6 +287,7 @@ git commit -m "feat(zero): pass mutators to ZeroProvider, remove unused zero sin
 The Zero instance needs to be typed in the router context so routes can access `context.zero`.
 
 **Files:**
+
 - Find and modify: the file that defines the router context type (look for `createRouter` or `routerContext` in `apps/web/src/`)
 
 **Step 1: Find the router context definition**
@@ -326,16 +316,19 @@ git commit -m "feat(zero): add Zero instance to router context type"
 ### Task 5: Migrate projects/index.tsx (projects list page)
 
 **Files:**
+
 - Modify: `apps/web/src/routes/_dashboard/projects/index.tsx`
 
 **Step 1: Replace imports and loader**
 
 Remove:
+
 ```ts
 import { orpc, client, queryClient } from "@/utils/orpc";
 ```
 
 Add:
+
 ```ts
 import { useQuery } from "@rocicorp/zero/react";
 import { queries } from "@otterdeploy/zero/queries";
@@ -344,6 +337,7 @@ import { useRouter } from "@tanstack/react-router";
 ```
 
 Replace the loader with Zero cache warming:
+
 ```ts
 loader: async ({ context }) => {
   if (!context.auth.session.activeOrganizationId) throw new Error("No active organization");
@@ -448,17 +442,20 @@ git commit -m "feat(zero): migrate projects list to Zero queries and mutators"
 ### Task 6: Migrate projects/$projectId/layout.tsx (project layout)
 
 **Files:**
+
 - Modify: `apps/web/src/routes/_dashboard/projects/$projectId/layout.tsx`
 
 **Step 1: Replace imports**
 
 Remove:
+
 ```ts
 import { orpc, client, queryClient } from "@/utils/orpc";
 import { useQuery } from "@tanstack/react-query";
 ```
 
 Add:
+
 ```ts
 import { useQuery } from "@rocicorp/zero/react";
 import { queries } from "@otterdeploy/zero/queries";
@@ -566,7 +563,7 @@ function RouteComponent() {
   const { projectId } = useParams({ strict: false });
   const { zero } = useRouter().options.context;
 
-  const [environments] = useQuery(queries.environmentList({ projectId: projectId! }));
+  const [environments] = useQuery(queries.environment.list({ projectId: projectId! }));
   const firstEnvId = environments?.[0]?.id;
 
   const [resources] = useQuery(
@@ -619,16 +616,19 @@ git commit -m "feat(zero): migrate project layout to Zero queries and mutators"
 ### Task 7: Migrate projects/$projectId/index.tsx (project detail/canvas page)
 
 **Files:**
+
 - Modify: `apps/web/src/routes/_dashboard/projects/$projectId/index.tsx`
 
 **Step 1: Replace imports and loader**
 
 Remove:
+
 ```ts
 import { orpc } from "@/utils/orpc";
 ```
 
 Add:
+
 ```ts
 import { useQuery } from "@rocicorp/zero/react";
 import { queries } from "@otterdeploy/zero/queries";
@@ -676,7 +676,13 @@ function RouteComponent() {
       id: r.id,
       type: "resource" as const,
       position: { x: r.posX ?? 0, y: r.posY ?? 0 },
-      data: { id: r.id, name: r.name, kind: r.kind, status: r.status ?? "unknown", metadata: r.metadata ?? {} },
+      data: {
+        id: r.id,
+        name: r.name,
+        kind: r.kind,
+        status: r.status ?? "unknown",
+        metadata: r.metadata ?? {},
+      },
     }));
   }, [resources]);
 
@@ -706,7 +712,11 @@ function RouteComponent() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
-        defaultViewport={viewport ? { x: viewport.x ?? 0, y: viewport.y ?? 0, zoom: viewport.zoom ?? 1 } : undefined}
+        defaultViewport={
+          viewport
+            ? { x: viewport.x ?? 0, y: viewport.y ?? 0, zoom: viewport.zoom ?? 1 }
+            : undefined
+        }
         colorMode="dark"
         fitView={!viewport}
       >
@@ -734,16 +744,19 @@ git commit -m "feat(zero): migrate project detail page to Zero reactive queries"
 ### Task 8: Migrate projects/$projectId/service/$serviceId.tsx
 
 **Files:**
+
 - Modify: `apps/web/src/routes/_dashboard/projects/$projectId/service/$serviceId.tsx`
 
 **Step 1: Replace imports and loader**
 
 Remove:
+
 ```ts
 import { orpc } from "@/utils/orpc";
 ```
 
 Add:
+
 ```ts
 import { useQuery } from "@rocicorp/zero/react";
 import { queries } from "@otterdeploy/zero/queries";
@@ -795,6 +808,7 @@ git commit -m "feat(zero): migrate service detail to Zero reactive query"
 ### Task 9: Set up server-side Zero endpoints
 
 **Files:**
+
 - Modify: `apps/server/src/index.ts`
 - Modify: `apps/server/package.json` (ensure `pg` is a dependency for the Zero adapter)
 
@@ -866,6 +880,7 @@ git commit -m "feat(zero): add server-side query and mutate endpoints"
 ### Task 10: Clean up and verify
 
 **Files:**
+
 - Delete: `apps/web/src/utils/zero.ts`
 - Verify: All routes compile, no unused oRPC imports remain for migrated entities
 
@@ -876,6 +891,7 @@ bun run typecheck
 ```
 
 Fix any type errors. Common issues:
+
 - `context.zero` may be undefined (use optional chaining in loaders)
 - Zero query results are arrays, not objects with `.items` (adjust `projects.items` to just `projects`)
 - Timestamps are epoch numbers, not ISO strings

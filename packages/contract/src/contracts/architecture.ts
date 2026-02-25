@@ -3,13 +3,12 @@ import * as z from "zod";
 
 import {
   EnvironmentSchema,
-  GraphEdgeSchema,
   GraphNodeSchema,
   ProjectSchema,
   ViewportSchema,
 } from "../schemas";
 import { route } from "../http";
-import { IdSchema, ResourceKindSchema, ResourceLinkTypeSchema, ResourceStatusSchema } from "../shared";
+import { IdSchema, ResourceKindSchema, ResourceStatusSchema } from "../shared";
 
 const ArchitectureGraphOutputSchema = z.object({
   project: ProjectSchema.pick({
@@ -30,7 +29,6 @@ const ArchitectureGraphOutputSchema = z.object({
   }),
   viewport: ViewportSchema,
   nodes: z.array(GraphNodeSchema),
-  edges: z.array(GraphEdgeSchema),
 });
 
 export const architectureContract = {
@@ -58,17 +56,8 @@ export const architectureContract = {
             name: z.string(),
             kind: ResourceKindSchema,
             status: ResourceStatusSchema,
-            metadata: z.record(z.string(), z.unknown()),
             posX: z.number(),
             posY: z.number(),
-          }),
-        ),
-        links: z.array(
-          z.object({
-            id: IdSchema,
-            sourceResourceId: IdSchema,
-            targetResourceId: IdSchema,
-            linkType: ResourceLinkTypeSchema,
           }),
         ),
         viewport: ViewportSchema,

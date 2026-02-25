@@ -1,0 +1,13 @@
+{
+  "title": "Documentation",
+  "pages": [
+    "---Getting Started---",
+    "getting-started",
+    "---Concepts---",
+    "concepts",
+    "---Reference---",
+    "reference",
+    "---Guides---",
+    "guides"
+  ]
+}

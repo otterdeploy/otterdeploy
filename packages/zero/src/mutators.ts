@@ -73,7 +73,7 @@ export const mutators = defineMutators({
           throw new Error("Not authenticated");
         }
         const now = Date.now();
-        await tx.mutate.projectEnvironment.insert({
+        await tx.mutate.environment.insert({
           id,
           projectId,
           name,
@@ -89,7 +89,7 @@ export const mutators = defineMutators({
         if (!ctx) {
           throw new Error("Not authenticated");
         }
-        await tx.mutate.projectEnvironment.delete({ id });
+        await tx.mutate.environment.delete({ id });
       },
     ),
   },
@@ -98,25 +98,33 @@ export const mutators = defineMutators({
     create: defineMutator(
       z.object({
         id: z.string(),
+        organizationId: z.string(),
+        projectId: z.string(),
         environmentId: z.string(),
-        kind: z.enum(["web", "api", "worker", "database", "cache", "volume"]),
+        kind: z.enum(["web", "api", "worker", "database", "compose"]),
         name: z.string(),
         posX: z.number(),
         posY: z.number(),
       }),
-      async ({ tx, ctx, args: { id, environmentId, kind, name, posX, posY } }) => {
+      async ({ tx, ctx, args: { id, organizationId, projectId, environmentId, kind, name, posX, posY } }) => {
         if (!ctx) {
           throw new Error("Not authenticated");
         }
         const now = Date.now();
-        await tx.mutate.projectResource.insert({
+        await tx.mutate.resource.insert({
           id,
+          organizationId,
+          projectId,
           environmentId,
           kind,
           name,
+          createdAt: now,
+          updatedAt: now,
+        });
+        await tx.mutate.resourcePosition.insert({
+          resourceId: id,
           posX,
           posY,
-          createdAt: now,
           updatedAt: now,
         });
       },
@@ -126,18 +134,14 @@ export const mutators = defineMutators({
       z.object({
         id: z.string(),
         name: z.string().optional(),
-        posX: z.number().optional(),
-        posY: z.number().optional(),
       }),
-      async ({ tx, ctx, args: { id, name, posX, posY } }) => {
+      async ({ tx, ctx, args: { id, name } }) => {
         if (!ctx) {
           throw new Error("Not authenticated");
         }
-        await tx.mutate.projectResource.update({
+        await tx.mutate.resource.update({
           id,
           ...(name !== undefined && { name }),
-          ...(posX !== undefined && { posX }),
-          ...(posY !== undefined && { posY }),
           updatedAt: Date.now(),
         });
       },
@@ -149,48 +153,28 @@ export const mutators = defineMutators({
         if (!ctx) {
           throw new Error("Not authenticated");
         }
-        await tx.mutate.projectResource.delete({ id });
+        await tx.mutate.resource.delete({ id });
       },
     ),
   },
 
-  resourceLink: {
-    create: defineMutator(
+  resourcePosition: {
+    update: defineMutator(
       z.object({
-        id: z.string(),
-        environmentId: z.string(),
-        sourceResourceId: z.string(),
-        targetResourceId: z.string(),
-        linkType: z.enum(["depends_on", "network", "mounts"]),
+        resourceId: z.string(),
+        posX: z.number(),
+        posY: z.number(),
       }),
-      async ({
-        tx,
-        ctx,
-        args: { id, environmentId, sourceResourceId, targetResourceId, linkType },
-      }) => {
+      async ({ tx, ctx, args: { resourceId, posX, posY } }) => {
         if (!ctx) {
           throw new Error("Not authenticated");
         }
-        const now = Date.now();
-        await tx.mutate.projectResourceLink.insert({
-          id,
-          environmentId,
-          sourceResourceId,
-          targetResourceId,
-          linkType,
-          createdAt: now,
-          updatedAt: now,
+        await tx.mutate.resourcePosition.update({
+          resourceId,
+          posX,
+          posY,
+          updatedAt: Date.now(),
         });
-      },
-    ),
-
-    delete: defineMutator(
-      z.object({ id: z.string() }),
-      async ({ tx, ctx, args: { id } }) => {
-        if (!ctx) {
-          throw new Error("Not authenticated");
-        }
-        await tx.mutate.projectResourceLink.delete({ id });
       },
     ),
   },
@@ -207,7 +191,7 @@ export const mutators = defineMutators({
         if (!ctx) {
           throw new Error("Not authenticated");
         }
-        await tx.mutate.projectViewport.upsert({
+        await tx.mutate.viewport.upsert({
           environmentId,
           x,
           y,

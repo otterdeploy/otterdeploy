@@ -1,6 +1,6 @@
 import { db, eq, and, desc, or, sql } from "@otterdeploy/db";
 import { deployment, deploymentEvent } from "@otterdeploy/db/schema/deployment";
-import { projectResource } from "@otterdeploy/db/schema/architecture";
+import { resource } from "@otterdeploy/db/schema/project";
 import { createIdempotencyKey, publishEvent } from "@otterdeploy/events";
 import { Result } from "better-result";
 
@@ -31,7 +31,7 @@ function formatDeployment(row: typeof deployment.$inferSelect) {
     resourceId: row.resourceId,
     status: row.status,
     source: row.source,
-    buildMethod: row.buildMethod ?? null,
+    builder: row.builder ?? null,
     gitRef: row.gitRef ?? null,
     gitCommitSha: row.gitCommitSha ?? null,
     gitCommitMessage: row.gitCommitMessage ?? null,
@@ -64,7 +64,7 @@ async function enqueueDeploymentEvent(input: {
   organizationId: string;
   resourceId: string;
   environmentId: string;
-  source: "git_push" | "manual" | "rollback" | "api" | "preview";
+  source: "git_push" | "manual" | "rollback" | "api" | "preview" | "config_change";
   actorUserId: string;
   gitCommitSha?: string;
   correlationId?: string;
@@ -114,18 +114,18 @@ export async function createDeployment(params: {
   projectId: string;
   environmentId: string;
   resourceId: string;
-  source: "git_push" | "manual" | "rollback" | "api" | "preview";
+  source: "git_push" | "manual" | "rollback" | "api" | "preview" | "config_change";
   triggeredBy: string;
   gitRef?: string;
   gitCommitSha?: string;
   gitCommitMessage?: string;
-  buildMethod?: "nixpacks" | "dockerfile" | "buildpack";
+  builder?: "nixpacks" | "dockerfile" | "buildpack";
   correlationId?: string;
 }): Promise<Result<ReturnType<typeof formatDeployment>, NotFoundError | ConflictError>> {
-  const resource = await db.query.projectResource.findFirst({
+  const resourceRow = await db.query.resource.findFirst({
     where: and(
-      eq(projectResource.id, params.resourceId),
-      eq(projectResource.environmentId, params.environmentId),
+      eq(resource.id, params.resourceId),
+      eq(resource.environmentId, params.environmentId),
     ),
     with: {
       environment: {
@@ -135,9 +135,9 @@ export async function createDeployment(params: {
   });
 
   if (
-    !resource ||
-    resource.environment.projectId !== params.projectId ||
-    resource.environment.project.organizationId !== params.organizationId
+    !resourceRow ||
+    resourceRow.environment.projectId !== params.projectId ||
+    resourceRow.environment.project.organizationId !== params.organizationId
   ) {
     return Result.err(new NotFoundError({ resource: "resource", id: params.resourceId }));
   }
@@ -154,7 +154,7 @@ export async function createDeployment(params: {
     gitRef: params.gitRef ?? null,
     gitCommitSha: params.gitCommitSha ?? null,
     gitCommitMessage: params.gitCommitMessage ?? null,
-    buildMethod: params.buildMethod ?? null,
+    builder: params.builder ?? null,
     imageTag: null,
     previousImageTag: null,
     startedAt: null,
@@ -321,7 +321,7 @@ export async function initiateRollback(
     gitRef: original.gitRef,
     gitCommitSha: original.gitCommitSha,
     gitCommitMessage: null,
-    buildMethod: original.buildMethod,
+    builder: original.builder,
     imageTag: original.previousImageTag,
     previousImageTag: original.imageTag,
     startedAt: null,

@@ -1,0 +1,28 @@
+{
+  "name": "@otterdeploy/docker",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:unit": "vitest run"
+  },
+  "dependencies": {
+    "@otterdeploy/logger": "workspace:*",
+    "better-result": "catalog:",
+    "dockerode": "^4.0.4"
+  },
+  "devDependencies": {
+    "@otterdeploy/config": "workspace:*",
+    "@types/dockerode": "^3.3.38",
+    "vitest": "^4.0.18"
+  }
+}

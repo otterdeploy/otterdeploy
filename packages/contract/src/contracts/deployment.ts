@@ -4,7 +4,7 @@ import * as z from "zod";
 import { DeploymentLogSchema, DeploymentSchema } from "../schemas";
 import { route } from "../http";
 import {
-  BuildMethodSchema,
+  BuilderSchema,
   DeploymentSourceSchema,
   IdSchema,
   PaginatedInputSchema,
@@ -22,7 +22,7 @@ export const deploymentContract = {
         source: DeploymentSourceSchema,
         gitRef: z.string().optional(),
         gitCommitSha: z.string().optional(),
-        buildMethod: BuildMethodSchema.optional(),
+        builder: BuilderSchema.optional(),
       }),
     )
     .output(DeploymentSchema)

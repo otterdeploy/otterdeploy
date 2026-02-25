@@ -13,6 +13,7 @@ import { serverRouter } from "./server";
 import { monitoringRouter } from "./monitoring";
 import { backupRouter } from "./backup";
 import { auditRouter } from "./audit";
+import { infraRouter } from "./infra";
 import { systemRouter } from "./system";
 
 export const appRouter = {
@@ -29,6 +30,7 @@ export const appRouter = {
   monitoring: monitoringRouter,
   backup: backupRouter,
   audit: auditRouter,
+  infra: infraRouter,
   system: systemRouter,
 };
 

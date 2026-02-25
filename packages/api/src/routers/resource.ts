@@ -1,9 +1,11 @@
 import * as z from "zod";
 import { ORPCError } from "@orpc/server";
 import { db, eq, inArray } from "@otterdeploy/db";
-import { projectResource, projectEnvironment } from "@otterdeploy/db/schema/architecture";
+import { resource, environment, resourcePosition } from "@otterdeploy/db/schema/project";
+import { resourceRuntimeConfig, resourceBuildConfig } from "@otterdeploy/db/schema/resource-config";
 
 import { pickDefined } from "@otterdeploy/domain";
+import { publishEvent } from "@otterdeploy/events";
 
 import { orgProcedure, orgMemberProcedure, orgAdminProcedure } from "../index";
 import { createId } from "../utils/helpers";
@@ -13,7 +15,13 @@ import {
   validateResourceAccess,
 } from "../utils/ownership";
 
-function formatResource(row: typeof projectResource.$inferSelect, projectId: string) {
+type ResourceRow = typeof resource.$inferSelect & {
+  position?: typeof resourcePosition.$inferSelect | null;
+  runtimeConfig?: typeof resourceRuntimeConfig.$inferSelect | null;
+  buildConfig?: typeof resourceBuildConfig.$inferSelect | null;
+};
+
+function formatResource(row: ResourceRow, projectId: string) {
   return {
     id: row.id,
     projectId,
@@ -21,14 +29,13 @@ function formatResource(row: typeof projectResource.$inferSelect, projectId: str
     name: row.name,
     kind: row.kind,
     status: row.status,
-    metadata: row.metadata,
-    posX: row.posX,
-    posY: row.posY,
-    buildMethod: row.buildMethod ?? null,
-    dockerfilePath: row.dockerfilePath ?? null,
-    port: row.port ?? null,
-    healthCheckPath: row.healthCheckPath ?? null,
-    replicas: row.replicas ?? null,
+    posX: row.position?.posX ?? 0,
+    posY: row.position?.posY ?? 0,
+    builder: row.buildConfig?.builder ?? null,
+    dockerfilePath: row.buildConfig?.dockerfilePath ?? null,
+    port: row.runtimeConfig?.port ?? null,
+    healthCheckPath: row.runtimeConfig?.healthCheckPath ?? null,
+    replicas: row.runtimeConfig?.replicas ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -41,14 +48,13 @@ export const resourceRouter = {
         projectId: z.string().min(1),
         environmentId: z.string().min(1),
         name: z.string().min(1).max(128),
-        kind: z.enum(["web", "api", "worker", "database", "cache", "volume"]),
+        kind: z.enum(["web", "api", "worker", "database", "compose"]),
         status: z
           .enum(["online", "degraded", "crashed", "unknown", "deploying", "stopped"])
           .optional(),
-        metadata: z.record(z.string(), z.unknown()).optional(),
         posX: z.number(),
         posY: z.number(),
-        buildMethod: z.enum(["nixpacks", "dockerfile", "buildpack"]).optional(),
+        builder: z.enum(["nixpacks", "dockerfile", "buildpack"]).optional(),
         dockerfilePath: z.string().optional(),
         port: z.number().int().optional(),
         healthCheckPath: z.string().optional(),
@@ -63,30 +69,60 @@ export const resourceRouter = {
       );
 
       const now = new Date();
-      const resource = {
-        id: createId(),
-        environmentId: input.environmentId,
-        kind: input.kind,
-        name: input.name,
-        status: input.status ?? ("unknown" as const),
-        metadata: input.metadata ?? {},
-        posX: input.posX,
-        posY: input.posY,
-        buildMethod: input.buildMethod,
-        dockerfilePath: input.dockerfilePath,
-        port: input.port,
-        healthCheckPath: input.healthCheckPath,
-        replicas: input.replicas,
-        createdAt: now,
-        updatedAt: now,
-      };
+      const resourceId = createId();
 
-      const [inserted] = await db.insert(projectResource).values(resource).returning();
+      const [inserted] = await db
+        .insert(resource)
+        .values({
+          id: resourceId,
+          organizationId: context.organizationId,
+          projectId: input.projectId,
+          environmentId: input.environmentId,
+          kind: input.kind,
+          name: input.name,
+          status: input.status ?? ("unknown" as const),
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning();
+
       if (!inserted) {
         throw new ORPCError("INTERNAL_SERVER_ERROR", { message: "Failed to create resource" });
       }
 
-      return formatResource(inserted, input.projectId);
+      // Insert into extension tables
+      await db.insert(resourcePosition).values({
+        resourceId,
+        posX: input.posX,
+        posY: input.posY,
+      });
+
+      if (input.builder || input.dockerfilePath) {
+        await db.insert(resourceBuildConfig).values({
+          id: createId(),
+          resourceId,
+          builder: input.builder,
+          dockerfilePath: input.dockerfilePath,
+        });
+      }
+
+      if (input.port || input.healthCheckPath || input.replicas) {
+        await db.insert(resourceRuntimeConfig).values({
+          id: createId(),
+          resourceId,
+          port: input.port,
+          healthCheckPath: input.healthCheckPath,
+          replicas: input.replicas,
+        });
+      }
+
+      // Re-fetch with relations to return full formatted resource
+      const full = await db.query.resource.findFirst({
+        where: eq(resource.id, resourceId),
+        with: { position: true, runtimeConfig: true, buildConfig: true },
+      });
+
+      return formatResource(full!, input.projectId);
     }),
 
   getById: orgProcedure
@@ -96,7 +132,19 @@ export const resourceRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      const row = await validateResourceAccess(input.resourceId, context.organizationId);
+      // Validate access first
+      await validateResourceAccess(input.resourceId, context.organizationId);
+      // Re-fetch with config relations
+      const row = await db.query.resource.findFirst({
+        where: eq(resource.id, input.resourceId),
+        with: {
+          environment: { with: { project: true } },
+          position: true,
+          runtimeConfig: true,
+          buildConfig: true,
+        },
+      });
+      if (!row) throw new ORPCError("NOT_FOUND", { message: "Resource not found" });
       return formatResource(row, row.environment.project.id);
     }),
 
@@ -110,23 +158,27 @@ export const resourceRouter = {
     .handler(async ({ context, input }) => {
       await validateProjectAccess(input.projectId, context.organizationId);
 
+      const withRelations = { position: true, runtimeConfig: true, buildConfig: true } as const;
+
       if (input.environmentId) {
-        const rows = await db.query.projectResource.findMany({
-          where: eq(projectResource.environmentId, input.environmentId),
+        const rows = await db.query.resource.findMany({
+          where: eq(resource.environmentId, input.environmentId),
+          with: withRelations,
         });
         return rows.map((r) => formatResource(r, input.projectId));
       }
 
-      const environments = await db.query.projectEnvironment.findMany({
-        where: eq(projectEnvironment.projectId, input.projectId),
+      const environments = await db.query.environment.findMany({
+        where: eq(environment.projectId, input.projectId),
         columns: { id: true },
       });
 
       const envIds = environments.map((e) => e.id);
       if (envIds.length === 0) return [];
 
-      const rows = await db.query.projectResource.findMany({
-        where: inArray(projectResource.environmentId, envIds),
+      const rows = await db.query.resource.findMany({
+        where: inArray(resource.environmentId, envIds),
+        with: withRelations,
       });
 
       return rows.map((r) => formatResource(r, input.projectId));
@@ -137,14 +189,13 @@ export const resourceRouter = {
       z.object({
         resourceId: z.string().min(1),
         name: z.string().min(1).max(128).optional(),
-        kind: z.enum(["web", "api", "worker", "database", "cache", "volume"]).optional(),
+        kind: z.enum(["web", "api", "worker", "database", "compose"]).optional(),
         status: z
           .enum(["online", "degraded", "crashed", "unknown", "deploying", "stopped"])
           .optional(),
-        metadata: z.record(z.string(), z.unknown()).optional(),
         posX: z.number().optional(),
         posY: z.number().optional(),
-        buildMethod: z.enum(["nixpacks", "dockerfile", "buildpack"]).nullable().optional(),
+        builder: z.enum(["nixpacks", "dockerfile", "buildpack"]).nullable().optional(),
         dockerfilePath: z.string().nullable().optional(),
         port: z.number().int().nullable().optional(),
         healthCheckPath: z.string().nullable().optional(),
@@ -155,13 +206,62 @@ export const resourceRouter = {
       const existing = await validateResourceAccess(input.resourceId, context.organizationId);
       const projectId = existing.environment.project.id;
 
-      await db
-        .update(projectResource)
-        .set(pickDefined(input))
-        .where(eq(projectResource.id, input.resourceId));
+      // Update core resource fields
+      const coreFields = pickDefined({
+        name: input.name,
+        kind: input.kind,
+        status: input.status,
+      });
+      if (Object.keys(coreFields).length > 0) {
+        await db.update(resource).set(coreFields).where(eq(resource.id, input.resourceId));
+      }
 
-      const updated = await db.query.projectResource.findFirst({
-        where: eq(projectResource.id, input.resourceId),
+      // Update position if provided
+      if (input.posX !== undefined || input.posY !== undefined) {
+        const posFields = pickDefined({ posX: input.posX, posY: input.posY });
+        await db
+          .insert(resourcePosition)
+          .values({ resourceId: input.resourceId, ...posFields })
+          .onConflictDoUpdate({
+            target: resourcePosition.resourceId,
+            set: posFields,
+          });
+      }
+
+      // Update build config if provided
+      if (input.builder !== undefined || input.dockerfilePath !== undefined) {
+        const buildFields = pickDefined({
+          builder: input.builder,
+          dockerfilePath: input.dockerfilePath,
+        });
+        await db
+          .insert(resourceBuildConfig)
+          .values({ id: createId(), resourceId: input.resourceId, ...buildFields })
+          .onConflictDoUpdate({
+            target: resourceBuildConfig.resourceId,
+            set: buildFields,
+          });
+      }
+
+      // Update runtime config if provided
+      if (input.port !== undefined || input.healthCheckPath !== undefined || input.replicas !== undefined) {
+        const runtimeFields = pickDefined({
+          port: input.port,
+          healthCheckPath: input.healthCheckPath,
+          replicas: input.replicas,
+        });
+        await db
+          .insert(resourceRuntimeConfig)
+          .values({ id: createId(), resourceId: input.resourceId, ...runtimeFields })
+          .onConflictDoUpdate({
+            target: resourceRuntimeConfig.resourceId,
+            set: runtimeFields,
+          });
+      }
+
+      const updated = await db.query.resource.findFirst({
+        where: eq(resource.id, input.resourceId),
+        with: { position: true, runtimeConfig: true, buildConfig: true },
       });
       if (!updated) throw new ORPCError("NOT_FOUND", { message: "Resource not found" });
 
@@ -176,7 +276,30 @@ export const resourceRouter = {
     )
     .handler(async ({ context, input }) => {
       await validateResourceAccess(input.resourceId, context.organizationId);
-      await db.delete(projectResource).where(eq(projectResource.id, input.resourceId));
+      await db.delete(resource).where(eq(resource.id, input.resourceId));
+      return { success: true as const };
+    }),
+
+  provision: orgMemberProcedure
+    .input(
+      z.object({
+        resourceId: z.string().min(1),
+      }),
+    )
+    .handler(async ({ context, input }) => {
+      const row = await validateResourceAccess(input.resourceId, context.organizationId);
+      const projectId = row.environment.project.id;
+      const environmentId = row.environment.id;
+
+      await publishEvent("resource.created", {
+        orgId: context.organizationId,
+        projectId,
+        environmentId,
+        resourceId: input.resourceId,
+        kind: row.kind,
+        status: row.status,
+      });
+
       return { success: true as const };
     }),
 };

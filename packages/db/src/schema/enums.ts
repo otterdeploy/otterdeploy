@@ -17,12 +17,7 @@ export const deploymentSourceEnum = pgEnum("deployment_source", [
   "rollback",
   "api",
   "preview",
-]);
-
-export const buildMethodEnum = pgEnum("build_method", [
-  "nixpacks",
-  "dockerfile",
-  "buildpack",
+  "config_change",
 ]);
 
 export const builderEnum = pgEnum("builder", [
@@ -64,12 +59,6 @@ export const backupStatusEnum = pgEnum("backup_status", [
   "failed",
 ]);
 
-export const envVarScopeEnum = pgEnum("env_var_scope", [
-  "project",
-  "environment",
-  "resource",
-]);
-
 export const databaseTypeEnum = pgEnum("database_type", [
   "postgresql",
   "mysql",
@@ -104,4 +93,29 @@ export const secretProviderBindingStatusEnum = pgEnum("secret_provider_binding_s
   "provisioning",
   "active",
   "error",
+]);
+
+export const caddyStatusEnum = pgEnum("caddy_status", [
+  "not_installed",
+  "initializing",
+  "running",
+  "stopped",
+  "error",
+]);
+
+export const resourceKindEnum = pgEnum("resource_kind", [
+  "web",
+  "api",
+  "worker",
+  "database",
+  "compose",
+]);
+
+export const resourceStatusEnum = pgEnum("resource_status", [
+  "online",
+  "degraded",
+  "crashed",
+  "deploying",
+  "stopped",
+  "unknown",
 ]);
