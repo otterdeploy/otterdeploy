@@ -1,3 +1,4 @@
+import { createId } from "@otterdeploy/utils";
 import { relations } from "drizzle-orm";
 import {
   bigint,
@@ -19,7 +20,7 @@ import { caddyStatusEnum } from "./enums";
 export const resourceMetric = pgTable(
   "resource_metric",
   {
-    id: text("id").primaryKey(),
+    id: text("id").primaryKey().$defaultFn(createId),
     resourceId: text("resource_id")
       .notNull()
       .references(() => resource.id, { onDelete: "cascade" }),
@@ -41,7 +42,7 @@ export const resourceMetric = pgTable(
 export const resourceMetricHourly = pgTable(
   "resource_metric_hourly",
   {
-    id: text("id").primaryKey(),
+    id: text("id").primaryKey().$defaultFn(createId),
     resourceId: text("resource_id")
       .notNull()
       .references(() => resource.id, { onDelete: "cascade" }),
@@ -66,7 +67,7 @@ export const resourceMetricHourly = pgTable(
 export const webhookDelivery = pgTable(
   "webhook_delivery",
   {
-    id: text("id").primaryKey(),
+    id: text("id").primaryKey().$defaultFn(createId),
     receivedAt: timestamp("received_at").defaultNow().notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
@@ -78,7 +79,7 @@ export const webhookDelivery = pgTable(
 export const containerRegistry = pgTable(
   "container_registry",
   {
-    id: text("id").primaryKey(),
+    id: text("id").primaryKey().$defaultFn(createId),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
@@ -104,7 +105,7 @@ export const containerRegistry = pgTable(
 export const configFile = pgTable(
   "config_file",
   {
-    id: text("id").primaryKey(),
+    id: text("id").primaryKey().$defaultFn(createId),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
@@ -129,7 +130,7 @@ export const configFile = pgTable(
 export const scheduledTaskExecution = pgTable(
   "scheduled_task_execution",
   {
-    id: text("id").primaryKey(),
+    id: text("id").primaryKey().$defaultFn(createId),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
@@ -157,7 +158,7 @@ export const scheduledTaskExecution = pgTable(
 export const caddyInstance = pgTable(
   "caddy_instance",
   {
-    id: text("id").primaryKey(),
+    id: text("id").primaryKey().$defaultFn(createId),
     serverId: text("server_id")
       .notNull()
       .references(() => server.id, { onDelete: "cascade" }),
@@ -180,7 +181,7 @@ export const caddyInstance = pgTable(
 export const backupSchedule = pgTable(
   "backup_schedule",
   {
-    id: text("id").primaryKey(),
+    id: text("id").primaryKey().$defaultFn(createId),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),

@@ -1,5 +1,6 @@
 import { Result } from "better-result";
 import crypto from "node:crypto";
+import { createId } from "@otterdeploy/utils";
 
 import type { ResolvedEnvVar } from "./env-resolver";
 
@@ -61,7 +62,7 @@ export async function createDeploymentSnapshot(
     const snapshotHash = computeSnapshotHash(entries);
 
     await deps.insertSnapshot({
-      id: crypto.randomUUID(),
+      id: createId(),
       deploymentId,
       organizationId,
       resourceId,

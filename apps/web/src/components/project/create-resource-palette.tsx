@@ -18,6 +18,7 @@ import {
 import { ApiIcon, CpuIcon, DatabaseIcon, GlobeIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ChevronRightIcon, PlusIcon } from "lucide-react";
+import { createId } from "@otterdeploy/utils";
 
 export const kindOptions = [
   { value: "web", label: "Web", icon: GlobeIcon },
@@ -40,13 +41,20 @@ const databaseEngines = [
 ] as const;
 
 type DatabaseEngine = (typeof databaseEngines)[number]["value"];
+export type { DatabaseEngine };
 type PaletteStep = "pick-type" | "pick-database";
 
 export function CreateResourcePalette({
   environmentId,
   onCreated,
 }: {
-  onCreated: (resource: { id: string; name: string; kind: ResourceKind; status: string; databaseEngine?: string }) => void;
+  onCreated: (resource: {
+    id: string;
+    name: string;
+    kind: ResourceKind;
+    status: string;
+    databaseEngine?: DatabaseEngine;
+  }) => void;
   environmentId: string;
 }) {
   console.log("CreateResourcePalette", { environmentId });
@@ -74,7 +82,7 @@ export function CreateResourcePalette({
   async function createResource(kind: ResourceKind, name: string, databaseEngine?: DatabaseEngine) {
     if (!zero || !project?.organizationId || !environmentId) return;
 
-    const id = crypto.randomUUID();
+    const id = createId();
 
     let posX = 100;
     let posY = 100;
@@ -100,7 +108,7 @@ export function CreateResourcePalette({
         posY,
         now: Date.now(),
         ...(databaseEngine && {
-          databaseConfigId: crypto.randomUUID(),
+          databaseConfigId: createId(),
           databaseEngine,
         }),
       }),

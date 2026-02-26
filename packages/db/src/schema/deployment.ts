@@ -1,3 +1,4 @@
+import { createId } from "@otterdeploy/utils";
 import { relations } from "drizzle-orm";
 import {
   index,
@@ -15,7 +16,7 @@ import { deploymentStatusEnum, deploymentSourceEnum, builderEnum } from "./enums
 export const deployment = pgTable(
   "deployment",
   {
-    id: text("id").primaryKey(),
+    id: text("id").primaryKey().$defaultFn(createId),
     organizationId: text("organization_id").notNull(),
     projectId: text("project_id")
       .notNull()
@@ -59,7 +60,7 @@ export const deployment = pgTable(
 export const deploymentEvent = pgTable(
   "deployment_event",
   {
-    id: text("id").primaryKey(),
+    id: text("id").primaryKey().$defaultFn(createId),
     deploymentId: text("deployment_id")
       .notNull()
       .references(() => deployment.id, { onDelete: "cascade" }),

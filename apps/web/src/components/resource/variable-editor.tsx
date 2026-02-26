@@ -1,6 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useForm } from "@tanstack/react-form";
+import { useMutation, useQuery as useTanstackQuery } from "@tanstack/react-query";
 import * as z from "zod";
+import { orpc, queryClient } from "@/utils/orpc";
 import {
   Card,
   CardAction,
@@ -60,39 +62,16 @@ import {
   CheckIcon,
   XIcon,
   BracesIcon,
+  LoaderIcon,
 } from "lucide-react";
+import { toast } from "sonner";
 
 interface EnvVariable {
   id: string;
   key: string;
-  value: string;
   isSecret: boolean;
   buildTime: boolean;
 }
-
-const INITIAL_VARIABLES: EnvVariable[] = [
-  {
-    id: "1",
-    key: "DATABASE_URL",
-    value: "postgresql://user:password@localhost:5432/mydb",
-    isSecret: true,
-    buildTime: false,
-  },
-  {
-    id: "2",
-    key: "API_KEY",
-    value: "sk-live-abc123def456ghi789",
-    isSecret: true,
-    buildTime: false,
-  },
-  {
-    id: "3",
-    key: "NODE_ENV",
-    value: "production",
-    isSecret: false,
-    buildTime: true,
-  },
-];
 
 const envVariableSchema = z.object({
   key: z.string().min(1, "Key is required"),
@@ -247,9 +226,19 @@ function InlineVariableRow({
   );
 }
 
-export function VariableEditor() {
-  const [variables, setVariables] = useState<EnvVariable[]>(INITIAL_VARIABLES);
-  const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set());
+interface VariableEditorProps {
+  resourceId: string;
+  projectId: string;
+}
+
+export function VariableEditor({ resourceId, projectId }: VariableEditorProps) {
+  const listQueryOptions = orpc.environmentVariable.list.queryOptions({
+    input: { projectId, resourceId },
+  });
+
+  const { data: variables = [], isLoading } = useTanstackQuery(listQueryOptions);
+
+  const [revealedValues, setRevealedValues] = useState<Map<string, string>>(new Map());
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Inline add/edit state
@@ -259,20 +248,59 @@ export function VariableEditor() {
   // Delete state
   const [deleteTarget, setDeleteTarget] = useState<EnvVariable | null>(null);
 
-  const toggleReveal = useCallback((id: string) => {
-    setRevealedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
+  const invalidateList = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: listQueryOptions.queryKey });
+  }, [listQueryOptions.queryKey]);
 
-  const copyValue = useCallback((variable: EnvVariable) => {
-    navigator.clipboard.writeText(variable.value);
-    setCopiedId(variable.id);
-    setTimeout(() => setCopiedId(null), 2000);
-  }, []);
+  const upsertVariable = useMutation(orpc.environmentVariable.upsert.mutationOptions());
+  const deleteVariable = useMutation(orpc.environmentVariable.delete.mutationOptions());
+  const revealVariable = useMutation(orpc.environmentVariable.reveal.mutationOptions());
+
+  const toggleReveal = useCallback(async (variable: EnvVariable) => {
+    if (revealedValues.has(variable.id)) {
+      setRevealedValues((prev) => {
+        const next = new Map(prev);
+        next.delete(variable.id);
+        return next;
+      });
+      return;
+    }
+
+    try {
+      const result = await revealVariable.mutateAsync({
+        variableId: variable.id,
+        reason: "Revealed from dashboard",
+      });
+      setRevealedValues((prev) => {
+        const next = new Map(prev);
+        next.set(variable.id, (result as { value: string }).value);
+        return next;
+      });
+    } catch (err) {
+      toast.error(`Failed to reveal: ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
+  }, [revealedValues, revealVariable]);
+
+  const copyValue = useCallback(async (variable: EnvVariable) => {
+    try {
+      const cached = revealedValues.get(variable.id);
+      let value: string;
+      if (cached) {
+        value = cached;
+      } else {
+        const result = await revealVariable.mutateAsync({
+          variableId: variable.id,
+          reason: "Copied from dashboard",
+        });
+        value = (result as { value: string }).value;
+      }
+      navigator.clipboard.writeText(value);
+      setCopiedId(variable.id);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch (err) {
+      toast.error(`Failed to copy: ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
+  }, [revealedValues, revealVariable]);
 
   const startAdding = useCallback(() => {
     setEditingId(null);
@@ -290,36 +318,68 @@ export function VariableEditor() {
   }, []);
 
   const handleAddSave = useCallback(
-    (values: { key: string; value: string; isSecret: boolean; buildTime: boolean }) => {
-      setVariables((prev) => [
-        { id: crypto.randomUUID(), ...values },
-        ...prev,
-      ]);
-      setIsAdding(false);
+    async (values: { key: string; value: string; isSecret: boolean; buildTime: boolean }) => {
+      try {
+        await upsertVariable.mutateAsync({
+          projectId,
+          resourceId,
+          scope: "resource",
+          key: values.key,
+          value: values.value,
+          isSecret: values.isSecret,
+          buildTime: values.buildTime,
+        });
+        setIsAdding(false);
+        invalidateList();
+      } catch (err) {
+        toast.error(`Failed to add variable: ${err instanceof Error ? err.message : "Unknown error"}`);
+      }
     },
-    [],
+    [projectId, resourceId, upsertVariable, invalidateList],
   );
 
   const handleEditSave = useCallback(
-    (id: string, values: { key: string; value: string; isSecret: boolean; buildTime: boolean }) => {
-      setVariables((prev) =>
-        prev.map((v) => (v.id === id ? { ...v, ...values } : v)),
-      );
-      setEditingId(null);
+    async (id: string, values: { key: string; value: string; isSecret: boolean; buildTime: boolean }) => {
+      try {
+        await upsertVariable.mutateAsync({
+          projectId,
+          resourceId,
+          scope: "resource",
+          key: values.key,
+          value: values.value,
+          isSecret: values.isSecret,
+          buildTime: values.buildTime,
+        });
+        setEditingId(null);
+        setRevealedValues((prev) => {
+          const next = new Map(prev);
+          next.delete(id);
+          return next;
+        });
+        invalidateList();
+      } catch (err) {
+        toast.error(`Failed to update variable: ${err instanceof Error ? err.message : "Unknown error"}`);
+      }
     },
-    [],
+    [projectId, resourceId, upsertVariable, invalidateList],
   );
 
-  const handleDelete = useCallback(() => {
+  const handleDelete = useCallback(async () => {
     if (!deleteTarget) return;
-    setVariables((prev) => prev.filter((v) => v.id !== deleteTarget.id));
-    setRevealedIds((prev) => {
-      const next = new Set(prev);
-      next.delete(deleteTarget.id);
-      return next;
-    });
-    setDeleteTarget(null);
-  }, [deleteTarget]);
+    try {
+      await deleteVariable.mutateAsync({ variableId: deleteTarget.id });
+      setRevealedValues((prev) => {
+        const next = new Map(prev);
+        next.delete(deleteTarget.id);
+        return next;
+      });
+      setDeleteTarget(null);
+      invalidateList();
+    } catch (err) {
+      toast.error(`Failed to delete: ${err instanceof Error ? err.message : "Unknown error"}`);
+      setDeleteTarget(null);
+    }
+  }, [deleteTarget, deleteVariable, invalidateList]);
 
   return (
     <>
@@ -337,7 +397,12 @@ export function VariableEditor() {
           </CardAction>
         </CardHeader>
         <CardContent>
-          {variables.length === 0 && !isAdding ? (
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8 text-muted-foreground">
+              <LoaderIcon className="size-4 animate-spin mr-2" />
+              Loading variables...
+            </div>
+          ) : variables.length === 0 && !isAdding ? (
             <Empty>
               <EmptyHeader>
                 <EmptyMedia variant="icon">
@@ -369,7 +434,8 @@ export function VariableEditor() {
                   />
                 )}
                 {variables.map((variable) => {
-                  const isRevealed = revealedIds.has(variable.id);
+                  const revealedValue = revealedValues.get(variable.id);
+                  const isRevealed = !!revealedValue;
                   const isCopied = copiedId === variable.id;
                   const isEditing = editingId === variable.id;
 
@@ -379,7 +445,7 @@ export function VariableEditor() {
                         key={variable.id}
                         defaultValues={{
                           key: variable.key,
-                          value: variable.value,
+                          value: revealedValue ?? "",
                           isSecret: variable.isSecret,
                           buildTime: variable.buildTime,
                         }}
@@ -399,9 +465,9 @@ export function VariableEditor() {
                       </TableCell>
                       <TableCell>
                         <span className="font-mono text-xs text-muted-foreground">
-                          {variable.isSecret && !isRevealed
-                            ? "••••••••"
-                            : variable.value}
+                          {isRevealed
+                            ? revealedValue
+                            : "••••••••"}
                         </span>
                       </TableCell>
                       <TableCell>
@@ -424,7 +490,7 @@ export function VariableEditor() {
                                     variant="ghost"
                                     size="icon"
                                     className="size-7"
-                                    onClick={() => toggleReveal(variable.id)}
+                                    onClick={() => toggleReveal(variable)}
                                   />
                                 }
                               >

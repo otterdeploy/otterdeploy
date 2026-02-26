@@ -1,5 +1,7 @@
 import { createLogger } from "@otterdeploy/logger";
 import { upgradeDatabase } from "@otterdeploy/domain/database-provisioner";
+import { db, eq } from "@otterdeploy/db";
+import { environment } from "@otterdeploy/db/schema/project";
 import {
   stackDeploy,
   stackRemove,
@@ -37,6 +39,16 @@ export const databaseUpgrade = inngest.createFunction(
     }
 
     const result = await step.run("upgrade-database", async () => {
+      const envRow = await db.query.environment.findFirst({
+        where: eq(environment.id, environmentId),
+        columns: { id: true, slug: true },
+        with: {
+          project: {
+            columns: { id: true, slug: true },
+          },
+        },
+      });
+
       const deps = {
         stackDeploy,
         stackRemove,
@@ -49,6 +61,8 @@ export const databaseUpgrade = inngest.createFunction(
           resourceId,
           projectId,
           environmentId,
+          projectSlug: envRow?.project?.slug ?? projectId,
+          environmentSlug: envRow?.slug ?? environmentId,
           organizationId: orgId,
           newImageTag,
           dbType: dbType as "postgresql" | "redis" | "mysql" | "mongodb",

@@ -6,12 +6,9 @@ import {
   viewport,
 } from "@otterdeploy/db/schema/project";
 
+import { createId } from "@otterdeploy/utils";
 import { NotFoundError, ConflictError } from "./errors";
 import { pickDefined } from "./utils";
-
-function createId() {
-  return crypto.randomUUID();
-}
 
 function slugify(name: string) {
   const normalized = name
@@ -90,6 +87,7 @@ export async function createProject(params: {
     id: createId(),
     projectId: newProject.id,
     name: "production",
+    slug: "production",
     createdAt: now,
     updatedAt: now,
   };

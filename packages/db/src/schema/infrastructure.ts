@@ -1,3 +1,4 @@
+import { createId } from "@otterdeploy/utils";
 import { relations } from "drizzle-orm";
 import {
   bigint,
@@ -17,7 +18,7 @@ import { serverStatusEnum, serverRoleEnum } from "./enums";
 export const sshKey = pgTable(
   "ssh_key",
   {
-    id: text("id").primaryKey(),
+    id: text("id").primaryKey().$defaultFn(createId),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
@@ -43,7 +44,7 @@ export const sshKey = pgTable(
 export const server = pgTable(
   "server",
   {
-    id: text("id").primaryKey(),
+    id: text("id").primaryKey().$defaultFn(createId),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
@@ -77,7 +78,7 @@ export const server = pgTable(
 export const gitProvider = pgTable(
   "git_provider",
   {
-    id: text("id").primaryKey(),
+    id: text("id").primaryKey().$defaultFn(createId),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
@@ -110,7 +111,7 @@ export const gitProvider = pgTable(
 export const gitRepository = pgTable(
   "git_repository",
   {
-    id: text("id").primaryKey(),
+    id: text("id").primaryKey().$defaultFn(createId),
     resourceId: text("resource_id")
       .notNull()
       .references(() => resource.id, { onDelete: "cascade" }),

@@ -5,7 +5,7 @@ import { createLogger } from "@otterdeploy/logger";
 import { db, eq, desc } from "@otterdeploy/db";
 import { deployment } from "@otterdeploy/db/schema/deployment";
 import { resource } from "@otterdeploy/db/schema/project";
-import { getServiceLogs } from "@otterdeploy/docker";
+import { getServiceLogs, listServices } from "@otterdeploy/docker";
 
 import { NotFoundError } from "./errors";
 
@@ -40,6 +40,30 @@ function toUnixSeconds(value?: string): number | undefined {
   const ms = Date.parse(value);
   if (Number.isNaN(ms)) return undefined;
   return Math.floor(ms / 1000);
+}
+
+async function resolveServiceName(resourceId: string): Promise<string> {
+  const fallback = `otterstack-${resourceId}`;
+  const servicesResult = await listServices({ "otterstack.resource.id": resourceId });
+
+  if (servicesResult.isErr()) {
+    log.warn({ resourceId, err: servicesResult.error }, "Could not list services for resource");
+    return fallback;
+  }
+
+  if (servicesResult.value.length === 0) {
+    return fallback;
+  }
+
+  const byMostRecentUpdate = [...servicesResult.value].sort((a, b) => {
+    const aTs = Date.parse(a.updatedAt ?? a.createdAt);
+    const bTs = Date.parse(b.updatedAt ?? b.createdAt);
+    const aTime = Number.isNaN(aTs) ? 0 : aTs;
+    const bTime = Number.isNaN(bTs) ? 0 : bTs;
+    return bTime - aTime;
+  });
+
+  return byMostRecentUpdate[0]?.name ?? fallback;
 }
 
 async function readStream(stream: Readable): Promise<Buffer> {
@@ -191,7 +215,7 @@ export async function getLogs(params: {
     params.deploymentId ??
     (await resolveLatestDeploymentId(params.resourceId)) ??
     params.resourceId;
-  const serviceName = `otterstack-${params.resourceId}`;
+  const serviceName = await resolveServiceName(params.resourceId);
   const since = toUnixSeconds(params.from);
   const until = toUnixSeconds(params.to);
   const tailCount = Math.min(Math.max(params.page * params.pageSize, params.pageSize), 500);

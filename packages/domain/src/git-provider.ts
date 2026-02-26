@@ -3,6 +3,8 @@ import { db, eq, and } from "@otterdeploy/db";
 import { gitProvider } from "@otterdeploy/db/schema/infrastructure";
 import { upsertSecretReference } from "@otterdeploy/secrets";
 
+import { createId } from "@otterdeploy/utils";
+
 import { NotFoundError, ConflictError, BadRequestError } from "./errors";
 import { type AuditContext, writeAuditLog } from "./audit-writer";
 import { pickDefined } from "./utils";
@@ -47,7 +49,7 @@ export async function createGitProvider(params: {
   webhookSecret?: string;
   audit: AuditContext;
 }): Promise<Result<ReturnType<typeof formatGitProvider>, ConflictError>> {
-  const providerId = crypto.randomUUID();
+  const providerId = createId();
   const now = new Date();
 
   const clientSecret = params.clientSecret

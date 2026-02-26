@@ -20,6 +20,7 @@
     "@orpc/server": "catalog:",
     "@orpc/zod": "catalog:",
     "@otterdeploy/auth": "workspace:*",
+    "@otterdeploy/utils": "workspace:*",
     "@otterdeploy/db": "workspace:*",
     "@otterdeploy/infra-config": "workspace:*",
     "@otterdeploy/domain": "workspace:*",

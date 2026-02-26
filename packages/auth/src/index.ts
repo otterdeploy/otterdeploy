@@ -1,3 +1,4 @@
+import { createId } from "@otterdeploy/utils";
 import { db } from "@otterdeploy/db";
 import * as schema from "@otterdeploy/db/schema/auth";
 import { env } from "@otterdeploy/env/server";
@@ -122,6 +123,7 @@ export const auth = betterAuth({
     enabled: true,
   },
   advanced: {
+    generateId: () => createId(),
     defaultCookieAttributes: {
       sameSite: "none",
       secure: true,

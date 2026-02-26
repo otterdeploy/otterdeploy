@@ -1,3 +1,4 @@
+import { createId } from "@otterdeploy/utils";
 import { relations } from "drizzle-orm";
 import {
   boolean,
@@ -15,7 +16,7 @@ import { builderEnum, restartPolicyEnum, databaseTypeEnum } from "./enums";
 export const resourceRuntimeConfig = pgTable(
   "resource_runtime_config",
   {
-    id: text("id").primaryKey(),
+    id: text("id").primaryKey().$defaultFn(createId),
     resourceId: text("resource_id")
       .notNull()
       .unique()
@@ -44,7 +45,7 @@ export const resourceRuntimeConfig = pgTable(
 export const resourceBuildConfig = pgTable(
   "resource_build_config",
   {
-    id: text("id").primaryKey(),
+    id: text("id").primaryKey().$defaultFn(createId),
     resourceId: text("resource_id")
       .notNull()
       .unique()
@@ -71,7 +72,7 @@ export const resourceBuildConfig = pgTable(
 export const resourceJobConfig = pgTable(
   "resource_job_config",
   {
-    id: text("id").primaryKey(),
+    id: text("id").primaryKey().$defaultFn(createId),
     resourceId: text("resource_id")
       .notNull()
       .unique()
@@ -92,7 +93,7 @@ export const resourceJobConfig = pgTable(
 export const resourceComposeConfig = pgTable(
   "resource_compose_config",
   {
-    id: text("id").primaryKey(),
+    id: text("id").primaryKey().$defaultFn(createId),
     resourceId: text("resource_id")
       .notNull()
       .unique()
@@ -111,7 +112,7 @@ export const resourceComposeConfig = pgTable(
 export const databaseConfig = pgTable(
   "database_config",
   {
-    id: text("id").primaryKey(),
+    id: text("id").primaryKey().$defaultFn(createId),
     resourceId: text("resource_id")
       .notNull()
       .unique()
@@ -137,7 +138,7 @@ export const databaseConfig = pgTable(
 export const resourceVolume = pgTable(
   "resource_volume",
   {
-    id: text("id").primaryKey(),
+    id: text("id").primaryKey().$defaultFn(createId),
     organizationId: text("organization_id").notNull(),
     name: text("name").notNull(),
     driver: text("driver").default("local"),
@@ -155,7 +156,7 @@ export const resourceVolume = pgTable(
 export const resourceVolumeMount = pgTable(
   "resource_volume_mount",
   {
-    id: text("id").primaryKey(),
+    id: text("id").primaryKey().$defaultFn(createId),
     volumeId: text("volume_id")
       .notNull()
       .references(() => resourceVolume.id, { onDelete: "cascade" }),

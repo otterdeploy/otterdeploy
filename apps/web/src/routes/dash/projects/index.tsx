@@ -25,6 +25,7 @@ import { Link, useRouter } from "@tanstack/react-router";
 import { PlusIcon } from "lucide-react";
 import { Activity, useMemo, useState } from "react";
 import * as z from "zod";
+import { createId } from "@otterdeploy/utils";
 
 export const Route = createFileRoute("/dash/projects/")({
   component: RouteComponent,
@@ -61,7 +62,7 @@ function CreateProjectDialog() {
     },
     onSubmit: async ({ value }) => {
       if (!zero) return;
-      const id = crypto.randomUUID();
+      const id = createId();
       const slug = value.name
         .trim()
         .toLowerCase()
@@ -75,7 +76,7 @@ function CreateProjectDialog() {
           name: slug,
           slug,
           now: Date.now(),
-          defaultEnvironmentId: crypto.randomUUID(),
+          defaultEnvironmentId: createId(),
         }),
       );
       setOpen(false);

@@ -1,8 +1,14 @@
 import { Result } from "better-result";
 import { createLogger } from "@otterdeploy/logger";
 import { randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
 
 const log = createLogger("domain:database-provisioner");
+const DATABASE_COMPOSE_TEMPLATE_PATH = new URL(
+  "./compose-templates/database.compose.yml",
+  import.meta.url,
+);
+let cachedDatabaseComposeTemplate: string | null = null;
 
 export type DatabaseType =
   | "postgresql"
@@ -140,6 +146,31 @@ function credVal(credentials: Record<string, string>, key: string): string {
   return credentials[key] ?? "";
 }
 
+function normalizeNamePart(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+}
+
+function getDatabaseComposeTemplate(): string {
+  if (cachedDatabaseComposeTemplate) {
+    return cachedDatabaseComposeTemplate;
+  }
+  cachedDatabaseComposeTemplate = readFileSync(DATABASE_COMPOSE_TEMPLATE_PATH, "utf-8");
+  return cachedDatabaseComposeTemplate;
+}
+
+function renderComposeTemplate(
+  template: string,
+  replacements: Record<string, string>,
+): string {
+  return template.replace(/\{\{([A-Z0-9_]+)\}\}/g, (_token, key: string) => {
+    const value = replacements[key];
+    if (value === undefined) {
+      throw new Error(`Missing compose template replacement for ${key}`);
+    }
+    return value;
+  });
+}
+
 export function buildConnectionString(
   dbType: DatabaseType,
   credentials: Record<string, string>,
@@ -155,12 +186,37 @@ export function buildConnectionString(
   return template;
 }
 
-export function getStackName(resourceId: string): string {
-  return `otterstack-${resourceId}`;
+export function getStackName(projectSlug: string, environmentSlug: string): string {
+  return `${normalizeNamePart(projectSlug)}_${normalizeNamePart(environmentSlug)}`;
+}
+
+export function getProjectScopedStackName(projectId: string): string {
+  return `otterstack-${normalizeNamePart(projectId)}`;
+}
+
+export function getResourceScopedStackName(resourceId: string): string {
+  return `otterstack-${normalizeNamePart(resourceId)}`;
 }
 
 export function getVolumeName(resourceId: string): string {
   return `otterstack-${resourceId}-data`;
+}
+
+export function getDatabaseServiceName(resourceId: string): string {
+  return `db-${normalizeNamePart(resourceId)}`;
+}
+
+export function getProjectScopedDatabaseServiceName(resourceId: string): string {
+  return `db-${normalizeNamePart(resourceId)}`;
+}
+
+export function getResourceScopedDatabaseServiceName(_resourceId: string): string {
+  return "db";
+}
+
+export function getNetworkName(projectId: string, environmentId: string): string {
+  // Docker limits names to 63 characters; truncate IDs to first 8 chars
+  return `otterstack-proj-${normalizeNamePart(projectId).slice(0, 8)}-env-${normalizeNamePart(environmentId).slice(0, 8)}`;
 }
 
 export function buildServiceEnv(
@@ -217,6 +273,7 @@ export function buildHealthCheckCmd(
 export function generateComposeFile(input: {
   image: string;
   dbType: DatabaseType;
+  serviceName: string;
   credentials: Record<string, string>;
   volumeName: string;
   networkName: string;
@@ -227,105 +284,64 @@ export function generateComposeFile(input: {
   const config = DATABASE_CONFIGS[input.dbType];
   const env = buildServiceEnv(input.dbType, input.credentials);
   const healthCmd = buildHealthCheckCmd(input.dbType, input.credentials);
+  const volumeKey = `data-${normalizeNamePart(input.serviceName)}`;
 
-  const lines: string[] = [
-    'version: "3.8"',
-    "",
-    "services:",
-    "  db:",
-    `    image: ${input.image}`,
-  ];
+  const commandBlock = input.dbType === "redis"
+    ? `    command: ["redis-server", "--requirepass", "${escapeYamlValue(credVal(input.credentials, "password"))}", "--appendonly", "yes"]\n`
+    : "";
 
-  // Redis requires explicit command for auth + persistence
-  if (input.dbType === "redis") {
-    const pw = escapeYamlValue(credVal(input.credentials, "password"));
-    lines.push(
-      `    command: ["redis-server", "--requirepass", "${pw}", "--appendonly", "yes"]`,
-    );
-  }
+  const environmentBlock = env.map((e) => `      - "${escapeYamlValue(e)}"`).join("\n");
 
-  // Environment
-  lines.push("    environment:");
-  for (const e of env) {
-    lines.push(`      - "${escapeYamlValue(e)}"`);
-  }
+  const portsBlock = input.externalPort
+    ? [
+      "    ports:",
+      `      - target: ${config.defaultPort}`,
+      `        published: ${input.externalPort}`,
+      "        mode: host",
+      "",
+    ].join("\n")
+    : "";
 
-  // Volumes
-  lines.push("    volumes:");
-  lines.push(`      - data:${config.dataPath}`);
+  const resourceLimitsBlock = input.resourceLimits
+    ? [
+      "      resources:",
+      "        limits:",
+      ...(input.resourceLimits.cpuLimit != null
+        ? [`          cpus: "${input.resourceLimits.cpuLimit}"`]
+        : []),
+      ...(input.resourceLimits.memoryLimitMb != null
+        ? [`          memory: ${input.resourceLimits.memoryLimitMb}M`]
+        : []),
+      "",
+    ].join("\n")
+    : "";
 
-  // Ports (only when external access is needed)
-  if (input.externalPort) {
-    lines.push("    ports:");
-    lines.push(`      - target: ${config.defaultPort}`);
-    lines.push(`        published: ${input.externalPort}`);
-    lines.push("        mode: host");
-  }
+  const deployLabelsBlock = Object.entries(input.labels)
+    .map(([k, v]) => `        ${k}: "${escapeYamlValue(v)}"`)
+    .join("\n");
 
-  // Networks
-  lines.push("    networks:");
-  lines.push("      - projectnet");
+  const volumeLabelsBlock = Object.entries(input.labels)
+    .filter(([k]) => k.endsWith(".resource.id") || k.endsWith(".project.id"))
+    .map(([k, v]) => `      ${k}: "${escapeYamlValue(v)}"`)
+    .join("\n");
 
-  // Healthcheck
-  lines.push("    healthcheck:");
-  lines.push(
-    `      test: ["CMD-SHELL", "${escapeYamlValue(healthCmd)}"]`,
-  );
-  lines.push("      interval: 5s");
-  lines.push("      timeout: 5s");
-  lines.push("      retries: 10");
-  lines.push("      start_period: 5s");
+  const rendered = renderComposeTemplate(getDatabaseComposeTemplate(), {
+    SERVICE_NAME: input.serviceName,
+    IMAGE: input.image,
+    COMMAND_BLOCK: commandBlock,
+    ENVIRONMENT_BLOCK: `${environmentBlock}\n`,
+    VOLUME_KEY: volumeKey,
+    DATA_PATH: config.dataPath,
+    PORTS_BLOCK: portsBlock,
+    HEALTHCHECK_CMD: escapeYamlValue(healthCmd),
+    RESOURCE_LIMITS_BLOCK: resourceLimitsBlock,
+    DEPLOY_LABELS_BLOCK: deployLabelsBlock,
+    VOLUME_NAME: input.volumeName,
+    VOLUME_LABELS_BLOCK: volumeLabelsBlock ? `${volumeLabelsBlock}\n` : "",
+    NETWORK_NAME: input.networkName,
+  });
 
-  // Deploy config (Swarm)
-  lines.push("    deploy:");
-  lines.push("      replicas: 1");
-  lines.push("      restart_policy:");
-  lines.push("        condition: any");
-  lines.push("      update_config:");
-  lines.push("        parallelism: 1");
-  lines.push("        order: start-first");
-  lines.push("        failure_action: rollback");
-
-  if (input.resourceLimits) {
-    lines.push("      resources:");
-    lines.push("        limits:");
-    if (input.resourceLimits.cpuLimit != null) {
-      lines.push(`          cpus: "${input.resourceLimits.cpuLimit}"`);
-    }
-    if (input.resourceLimits.memoryLimitMb != null) {
-      lines.push(
-        `          memory: ${input.resourceLimits.memoryLimitMb}M`,
-      );
-    }
-  }
-
-  // Deploy labels
-  lines.push("      labels:");
-  for (const [k, v] of Object.entries(input.labels)) {
-    lines.push(`        ${k}: "${escapeYamlValue(v)}"`);
-  }
-
-  // Top-level volumes
-  lines.push("");
-  lines.push("volumes:");
-  lines.push("  data:");
-  lines.push(`    name: ${input.volumeName}`);
-  lines.push("    labels:");
-  lines.push('      otterstack.managed: "true"');
-  for (const [k, v] of Object.entries(input.labels)) {
-    if (k.endsWith(".resource.id") || k.endsWith(".project.id")) {
-      lines.push(`      ${k}: "${escapeYamlValue(v)}"`);
-    }
-  }
-
-  // Top-level networks
-  lines.push("");
-  lines.push("networks:");
-  lines.push("  projectnet:");
-  lines.push("    external: true");
-  lines.push(`    name: ${input.networkName}`);
-
-  return lines.join("\n") + "\n";
+  return rendered.endsWith("\n") ? rendered : `${rendered}\n`;
 }
 
 // Dependencies interface for testability
@@ -348,6 +364,8 @@ export async function provisionDatabase(
     resourceId: string;
     projectId: string;
     environmentId: string;
+    projectSlug?: string;
+    environmentSlug?: string;
     organizationId: string;
     dbType: DatabaseType;
     imageTag?: string;
@@ -369,11 +387,14 @@ export async function provisionDatabase(
 > {
   const config = DATABASE_CONFIGS[input.dbType];
   const image = input.imageTag ?? config.image;
-  const stackName = getStackName(input.resourceId);
+  const projectKey = input.projectSlug ?? input.projectId;
+  const environmentKey = input.environmentSlug ?? input.environmentId;
+  const stackName = getStackName(projectKey, environmentKey);
+  const serviceName = getDatabaseServiceName(input.resourceId);
   const volumeName = getVolumeName(input.resourceId);
   const credentials = generateCredentials(input.dbType);
   const port = config.defaultPort;
-  const networkName = `otterstack-proj-${input.projectId}`;
+  const networkName = getNetworkName(input.projectId, input.environmentId);
 
   log.info(
     { resourceId: input.resourceId, dbType: input.dbType, image },
@@ -392,6 +413,7 @@ export async function provisionDatabase(
   const composeContent = generateComposeFile({
     image,
     dbType: input.dbType,
+    serviceName,
     credentials,
     volumeName,
     networkName,
@@ -419,7 +441,8 @@ export async function provisionDatabase(
   while (Date.now() - startTime < healthTimeout) {
     const services = await deps.stackServices(stackName);
     if (services.isOk()) {
-      const dbService = services.value.find((s) => s.name.endsWith("_db"));
+      const dbServiceName = `${stackName}_${serviceName}`;
+      const dbService = services.value.find((s) => s.name === dbServiceName);
       if (dbService && dbService.replicas === "1/1") {
         healthy = true;
         break;
@@ -435,8 +458,8 @@ export async function provisionDatabase(
     );
   }
 
-  // Connection string uses the Swarm DNS name: <stackName>_db
-  const host = `${stackName}_db`;
+  // Swarm DNS host format: <stackName>_<serviceName>
+  const host = `${stackName}_${serviceName}`;
   const connectionString = buildConnectionString(
     input.dbType,
     credentials,
@@ -463,6 +486,8 @@ export async function upgradeDatabase(
     resourceId: string;
     projectId: string;
     environmentId: string;
+    projectSlug?: string;
+    environmentSlug?: string;
     organizationId: string;
     newImageTag: string;
     dbType: DatabaseType;
@@ -472,9 +497,58 @@ export async function upgradeDatabase(
   },
   deps: StackDeps,
 ): Promise<Result<void, Error>> {
-  const stackName = getStackName(input.resourceId);
+  const projectKey = input.projectSlug ?? input.projectId;
+  const environmentKey = input.environmentSlug ?? input.environmentId;
+  const environmentStackName = getStackName(projectKey, environmentKey);
+  const environmentServiceName = getDatabaseServiceName(input.resourceId);
+  const environmentStackServiceName = `${environmentStackName}_${environmentServiceName}`;
+
+  const projectStackName = getProjectScopedStackName(input.projectId);
+  const projectServiceName = getProjectScopedDatabaseServiceName(input.resourceId);
+  const projectStackServiceName = `${projectStackName}_${projectServiceName}`;
+
+  const resourceStackName = getResourceScopedStackName(input.resourceId);
+  const resourceServiceName = getResourceScopedDatabaseServiceName(input.resourceId);
+  const resourceStackServiceName = `${resourceStackName}_${resourceServiceName}`;
+
+  // Backward compatibility:
+  // 1) environment-scoped stack naming (current default)
+  // 2) project-scoped stack naming used in recent deployments
+  // 3) resource-scoped stack naming used historically
+  const environmentServices = await deps.stackServices(environmentStackName);
+  const usesEnvironmentScopedNaming =
+    environmentServices.isOk() &&
+    environmentServices.value.some((service) => service.name === environmentStackServiceName);
+
+  const projectServices = await deps.stackServices(projectStackName);
+  const usesProjectScopedNaming =
+    projectServices.isOk() &&
+    projectServices.value.some((service) => service.name === projectStackServiceName);
+
+  const resourceServices = await deps.stackServices(resourceStackName);
+  const usesResourceScopedNaming =
+    resourceServices.isOk() &&
+    resourceServices.value.some((service) => service.name === resourceStackServiceName);
+
+  const stackName = usesEnvironmentScopedNaming
+    ? environmentStackName
+    : usesProjectScopedNaming
+    ? projectStackName
+    : resourceStackName;
+  const serviceName = usesEnvironmentScopedNaming
+    ? environmentServiceName
+    : usesProjectScopedNaming
+    ? projectServiceName
+    : resourceServiceName;
+
+  if (!usesEnvironmentScopedNaming && !usesProjectScopedNaming && !usesResourceScopedNaming) {
+    log.info(
+      { resourceId: input.resourceId, stackName, serviceName },
+      "No existing stack naming found; using environment-scoped defaults",
+    );
+  }
   const volumeName = getVolumeName(input.resourceId);
-  const networkName = `otterstack-proj-${input.projectId}`;
+  const networkName = getNetworkName(input.projectId, input.environmentId);
 
   log.info(
     { resourceId: input.resourceId, newImageTag: input.newImageTag },
@@ -493,6 +567,7 @@ export async function upgradeDatabase(
   const composeContent = generateComposeFile({
     image: input.newImageTag,
     dbType: input.dbType,
+    serviceName,
     credentials: input.credentials,
     volumeName,
     networkName,
@@ -520,7 +595,8 @@ export async function upgradeDatabase(
   while (Date.now() - startTime < healthTimeout) {
     const services = await deps.stackServices(stackName);
     if (services.isOk()) {
-      const dbService = services.value.find((s) => s.name.endsWith("_db"));
+      const dbServiceName = `${stackName}_${serviceName}`;
+      const dbService = services.value.find((s) => s.name === dbServiceName);
       if (dbService && dbService.replicas === "1/1") {
         healthy = true;
         break;

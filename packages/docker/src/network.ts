@@ -6,8 +6,13 @@ import type { NetworkCreateResult } from "./types";
 
 const log = createLogger("docker:network");
 
-function projectNetworkName(projectId: string): string {
-  return `otterstack-proj-${projectId}`;
+function projectNetworkName(projectId: string, environmentId?: string): string {
+  // Docker limits names to 63 characters; truncate UUIDs to first 8 chars
+  const projShort = projectId.slice(0, 8);
+  const envShort = environmentId?.slice(0, 8);
+  return envShort
+    ? `otterstack-proj-${projShort}-env-${envShort}`
+    : `otterstack-proj-${projShort}`;
 }
 
 async function findCaddyService(
@@ -92,9 +97,10 @@ async function disconnectServiceFromNetworkById(
 
 export async function createProjectNetwork(
   projectId: string,
+  environmentId?: string,
 ): Promise<Result<NetworkCreateResult, Error>> {
   const docker = getDockerClient();
-  const networkName = projectNetworkName(projectId);
+  const networkName = projectNetworkName(projectId, environmentId);
 
   try {
     // Check if network already exists
@@ -120,6 +126,7 @@ export async function createProjectNetwork(
       Labels: {
         "otterstack.managed": "true",
         "otterstack.project.id": projectId,
+        ...(environmentId ? { "otterstack.environment.id": environmentId } : {}),
         "otterstack.network.role": "project",
       },
     });
@@ -151,9 +158,10 @@ export async function createProjectNetwork(
 
 export async function removeProjectNetwork(
   projectId: string,
+  environmentId?: string,
 ): Promise<Result<void, Error>> {
   const docker = getDockerClient();
-  const networkName = projectNetworkName(projectId);
+  const networkName = projectNetworkName(projectId, environmentId);
 
   try {
     // Disconnect Caddy first

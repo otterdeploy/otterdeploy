@@ -5,7 +5,10 @@ import {
   buildServiceEnv,
   buildHealthCheckCmd,
   getStackName,
+  getProjectScopedStackName,
   getVolumeName,
+  getDatabaseServiceName,
+  getProjectScopedDatabaseServiceName,
   generateComposeFile,
   provisionDatabase,
   upgradeDatabase,
@@ -14,6 +17,22 @@ import {
 } from "../database-provisioner";
 import { Result } from "better-result";
 
+function stackServiceName(resourceId: string) {
+  return `${getStackName("proj-1", "env-1")}_${getDatabaseServiceName(resourceId)}`;
+}
+
+function environmentScopedStackServiceName(
+  projectSlug: string,
+  environmentSlug: string,
+  resourceId: string,
+) {
+  return `${getStackName(projectSlug, environmentSlug)}_${getDatabaseServiceName(resourceId)}`;
+}
+
+function projectScopedStackServiceName(projectId: string, resourceId: string) {
+  return `${getProjectScopedStackName(projectId)}_${getProjectScopedDatabaseServiceName(resourceId)}`;
+}
+
 function createMockDeps() {
   return {
     stackDeploy: vi.fn().mockResolvedValue(Result.ok(undefined)),
@@ -21,7 +40,11 @@ function createMockDeps() {
     stackServices: vi
       .fn()
       .mockResolvedValue(
-        Result.ok([{ name: "otterstack-res-1_db", replicas: "1/1", image: "postgres:16" }]),
+        Result.ok([{
+          name: stackServiceName("res-1"),
+          replicas: "1/1",
+          image: "postgres:16",
+        }]),
       ),
     sleep: vi.fn().mockResolvedValue(undefined),
   };
@@ -167,12 +190,15 @@ describe("database-provisioner", () => {
     });
   });
 
-  describe("getStackName / getVolumeName", () => {
-    it("returns correct stack name", () => {
-      expect(getStackName("abc123")).toBe("otterstack-abc123");
+  describe("getStackName / getVolumeName / getDatabaseServiceName", () => {
+    it("returns correct stack name from project/environment slugs", () => {
+      expect(getStackName("Nextoral", "Production")).toBe("nextoral_production");
     });
     it("returns correct volume name", () => {
       expect(getVolumeName("abc123")).toBe("otterstack-abc123-data");
+    });
+    it("returns correct database service name from resource ID", () => {
+      expect(getDatabaseServiceName("res-1")).toBe("db-res-1");
     });
   });
 
@@ -181,6 +207,7 @@ describe("database-provisioner", () => {
       const yaml = generateComposeFile({
         image: "postgres:16",
         dbType: "postgresql",
+        serviceName: "db-res-1",
         credentials: { user: "u", password: "p", database: "d" },
         volumeName: "otterstack-res-1-data",
         networkName: "otterstack-proj-proj-1",
@@ -199,7 +226,7 @@ describe("database-provisioner", () => {
       expect(yaml).toContain("POSTGRES_PASSWORD=p");
       expect(yaml).toContain("POSTGRES_DB=d");
       expect(yaml).toContain("PGUSER=u");
-      expect(yaml).toContain("data:/var/lib/postgresql/data");
+      expect(yaml).toContain("data-db-res-1:/var/lib/postgresql/data");
       expect(yaml).toContain("psql -U u -d d");
       expect(yaml).toContain("start_period: 5s");
       expect(yaml).toContain("replicas: 1");
@@ -215,6 +242,7 @@ describe("database-provisioner", () => {
       const yaml = generateComposeFile({
         image: "redis:7-alpine",
         dbType: "redis",
+        serviceName: "db-res-2",
         credentials: { user: "", password: "secret", database: "" },
         volumeName: "otterstack-res-2-data",
         networkName: "otterstack-proj-proj-1",
@@ -231,13 +259,14 @@ describe("database-provisioner", () => {
       expect(yaml).toContain("--requirepass");
       expect(yaml).toContain("secret");
       expect(yaml).toContain("--appendonly");
-      expect(yaml).toContain("data:/data");
+      expect(yaml).toContain("data-db-res-2:/data");
     });
 
     it("includes external port when specified", () => {
       const yaml = generateComposeFile({
         image: "postgres:16",
         dbType: "postgresql",
+        serviceName: "db-res-1",
         credentials: { user: "u", password: "p", database: "d" },
         volumeName: "vol",
         networkName: "net",
@@ -254,6 +283,7 @@ describe("database-provisioner", () => {
       const yaml = generateComposeFile({
         image: "postgres:16",
         dbType: "postgresql",
+        serviceName: "db-res-1",
         credentials: { user: "u", password: "p", database: "d" },
         volumeName: "vol",
         networkName: "net",
@@ -269,6 +299,7 @@ describe("database-provisioner", () => {
       const yaml = generateComposeFile({
         image: "mysql:8",
         dbType: "mysql",
+        serviceName: "db-res-1",
         credentials: { user: "u", password: "p", database: "d", rootPassword: "rp" },
         volumeName: "vol",
         networkName: "net",
@@ -278,13 +309,14 @@ describe("database-provisioner", () => {
       expect(yaml).toContain("MYSQL_ROOT_PASSWORD=rp");
       expect(yaml).toContain("MYSQL_USER=u");
       expect(yaml).toContain("MYSQL_DATABASE=d");
-      expect(yaml).toContain("data:/var/lib/mysql");
+      expect(yaml).toContain("data-db-res-1:/var/lib/mysql");
     });
 
     it("generates mongodb compose", () => {
       const yaml = generateComposeFile({
         image: "mongo:7",
         dbType: "mongodb",
+        serviceName: "db-res-1",
         credentials: { user: "u", password: "p", database: "d" },
         volumeName: "vol",
         networkName: "net",
@@ -293,7 +325,7 @@ describe("database-provisioner", () => {
 
       expect(yaml).toContain("MONGO_INITDB_ROOT_USERNAME=u");
       expect(yaml).toContain("MONGO_INITDB_ROOT_PASSWORD=p");
-      expect(yaml).toContain("data:/data/db");
+      expect(yaml).toContain("data-db-res-1:/data/db");
       expect(yaml).toContain("mongosh");
     });
   });
@@ -314,16 +346,18 @@ describe("database-provisioner", () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value.stackName).toBe("otterstack-res-1");
+        expect(result.value.stackName).toBe("proj-1_env-1");
         expect(result.value.volumeName).toBe("otterstack-res-1-data");
         expect(result.value.connectionString).toContain("postgresql://");
-        expect(result.value.connectionString).toContain("otterstack-res-1_db");
+        expect(result.value.connectionString).toContain(
+          environmentScopedStackServiceName("proj-1", "env-1", "res-1"),
+        );
         expect(result.value.port).toBe(5432);
       }
       expect(deps.stackDeploy).toHaveBeenCalledOnce();
 
       // Verify compose content was passed
-      const composeContent = deps.stackDeploy.mock.calls[0][1];
+      const composeContent = deps.stackDeploy.mock.calls[0]?.[1] ?? "";
       expect(composeContent).toContain("postgres:16");
       expect(composeContent).toContain("POSTGRES_USER=");
     });
@@ -331,7 +365,11 @@ describe("database-provisioner", () => {
     it("provisions redis with correct config", async () => {
       const deps = createMockDeps();
       deps.stackServices.mockResolvedValue(
-        Result.ok([{ name: "otterstack-res-2_db", replicas: "1/1", image: "redis:7-alpine" }]),
+        Result.ok([{
+          name: environmentScopedStackServiceName("proj-1", "env-1", "res-2"),
+          replicas: "1/1",
+          image: "redis:7-alpine",
+        }]),
       );
 
       const result = await provisionDatabase(
@@ -351,13 +389,20 @@ describe("database-provisioner", () => {
         expect(result.value.port).toBe(6379);
       }
 
-      const composeContent = deps.stackDeploy.mock.calls[0][1];
+      const composeContent = deps.stackDeploy.mock.calls[0]?.[1] ?? "";
       expect(composeContent).toContain("redis-server");
       expect(composeContent).toContain("--requirepass");
     });
 
     it("uses custom image tag when provided", async () => {
       const deps = createMockDeps();
+      deps.stackServices.mockResolvedValue(
+        Result.ok([{
+          name: environmentScopedStackServiceName("proj-1", "env-1", "res-4"),
+          replicas: "1/1",
+          image: "postgres:15",
+        }]),
+      );
       await provisionDatabase(
         {
           resourceId: "res-4",
@@ -370,7 +415,7 @@ describe("database-provisioner", () => {
         deps,
       );
 
-      const composeContent = deps.stackDeploy.mock.calls[0][1];
+      const composeContent = deps.stackDeploy.mock.calls[0]?.[1] ?? "";
       expect(composeContent).toContain("image: postgres:15");
     });
 
@@ -396,6 +441,69 @@ describe("database-provisioner", () => {
   });
 
   describe("upgradeDatabase", () => {
+    it("keeps project-scoped naming when upgrading a project-scoped database service", async () => {
+      const deps = createMockDeps();
+      deps.stackServices.mockImplementation(async (stackName: string) => {
+        if (stackName === getProjectScopedStackName("proj-1")) {
+          return Result.ok([{
+            name: projectScopedStackServiceName("proj-1", "res-project"),
+            replicas: "1/1",
+            image: "postgres:16",
+          }]);
+        }
+        return Result.ok([]);
+      });
+
+      const result = await upgradeDatabase(
+        {
+          resourceId: "res-project",
+          projectId: "proj-1",
+          environmentId: "env-1",
+          organizationId: "org-1",
+          newImageTag: "postgres:17",
+          dbType: "postgresql",
+          credentials: { user: "u", password: "p", database: "d" },
+        },
+        deps,
+      );
+
+      expect(result.isOk()).toBe(true);
+      expect(deps.stackDeploy).toHaveBeenCalledWith(
+        getProjectScopedStackName("proj-1"),
+        expect.any(String),
+      );
+      const composeContent = deps.stackDeploy.mock.calls[0]?.[1] ?? "";
+      expect(composeContent).toContain("\n  db-res-project:\n");
+    });
+
+    it("keeps legacy stack naming when upgrading a legacy database service", async () => {
+      const deps = createMockDeps();
+      deps.stackServices.mockResolvedValue(
+        Result.ok([{ name: "otterstack-res-legacy_db", replicas: "1/1", image: "postgres:16" }]),
+      );
+
+      const result = await upgradeDatabase(
+        {
+          resourceId: "res-legacy",
+          projectId: "proj-1",
+          environmentId: "env-1",
+          organizationId: "org-1",
+          newImageTag: "postgres:17",
+          dbType: "postgresql",
+          credentials: { user: "u", password: "p", database: "d" },
+        },
+        deps,
+      );
+
+      expect(result.isOk()).toBe(true);
+      expect(deps.stackDeploy).toHaveBeenCalledWith(
+        "otterstack-res-legacy",
+        expect.any(String),
+      );
+      const composeContent = deps.stackDeploy.mock.calls[0]?.[1] ?? "";
+      expect(composeContent).toContain("\n  db:\n");
+    });
+
     it("upgrades database version via stack redeploy", async () => {
       const deps = createMockDeps();
       const result = await upgradeDatabase(
@@ -414,7 +522,7 @@ describe("database-provisioner", () => {
       expect(result.isOk()).toBe(true);
       expect(deps.stackDeploy).toHaveBeenCalledOnce();
 
-      const composeContent = deps.stackDeploy.mock.calls[0][1];
+      const composeContent = deps.stackDeploy.mock.calls[0]?.[1] ?? "";
       expect(composeContent).toContain("image: postgres:17");
     });
 
@@ -422,7 +530,11 @@ describe("database-provisioner", () => {
       const { sleep } = createTimeAdvancingSleep();
       const deps = createMockDeps();
       deps.stackServices.mockResolvedValue(
-        Result.ok([{ name: "otterstack-res-1_db", replicas: "0/1", image: "postgres:17" }]),
+        Result.ok([{
+          name: environmentScopedStackServiceName("proj-1", "env-1", "res-1"),
+          replicas: "0/1",
+          image: "postgres:17",
+        }]),
       );
       deps.sleep = sleep;
 

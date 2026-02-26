@@ -1,10 +1,11 @@
+import { createId } from "@otterdeploy/utils";
 import { InfisicalGatewayProvider } from "./infisical-gateway";
 import { NativeBreakglassProvider } from "./native-breakglass";
 import type { SecretProviderClient } from "./provider";
 import type { SecretLogicalScope, SecretProvider } from "./types";
 
 export function createSecretId() {
-  return crypto.randomUUID();
+  return createId();
 }
 
 export function buildProviderPath(

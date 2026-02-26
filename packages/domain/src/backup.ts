@@ -3,6 +3,8 @@ import { db, eq, and, desc, sql } from "@otterdeploy/db";
 import { backup } from "@otterdeploy/db/schema/operations";
 import { resource } from "@otterdeploy/db/schema/project";
 
+import { createId } from "@otterdeploy/utils";
+
 import { NotFoundError, ConflictError } from "./errors";
 
 function toISOString(date: Date | null | undefined): string | null {
@@ -74,7 +76,7 @@ export async function createBackup(params: {
 
   const now = new Date();
   const row = {
-    id: crypto.randomUUID(),
+    id: createId(),
     organizationId: params.organizationId,
     resourceId: params.resourceId,
     type: "manual",

@@ -20,6 +20,7 @@
     "@orpc/tanstack-query": "^1.13.5",
     "@otterdeploy/api": "workspace:*",
     "@otterdeploy/auth": "workspace:*",
+    "@otterdeploy/utils": "workspace:*",
     "@otterdeploy/env": "workspace:*",
     "@otterdeploy/ui": "workspace:*",
     "@otterdeploy/zero": "workspace:*",

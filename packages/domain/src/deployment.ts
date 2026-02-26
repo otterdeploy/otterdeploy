@@ -4,6 +4,8 @@ import { resource } from "@otterdeploy/db/schema/project";
 import { createIdempotencyKey, publishEvent } from "@otterdeploy/events";
 import { Result } from "better-result";
 
+import { createId } from "@otterdeploy/utils";
+
 import { NotFoundError, ConflictError } from "./errors";
 import { transitionTo } from "./deployment-machine";
 
@@ -144,7 +146,7 @@ export async function createDeployment(params: {
 
   const now = new Date();
   const row = {
-    id: crypto.randomUUID(),
+    id: createId(),
     organizationId: params.organizationId,
     projectId: params.projectId,
     environmentId: params.environmentId,
@@ -172,7 +174,7 @@ export async function createDeployment(params: {
   }
 
   await db.insert(deploymentEvent).values({
-    id: crypto.randomUUID(),
+    id: createId(),
     deploymentId: inserted.id,
     status: "queued",
     previousStatus: null,
@@ -321,7 +323,7 @@ export async function initiateRollback(
 
   const now = new Date();
   const row = {
-    id: crypto.randomUUID(),
+    id: createId(),
     organizationId,
     projectId: original.projectId,
     environmentId: original.environmentId,
@@ -349,7 +351,7 @@ export async function initiateRollback(
   }
 
   await db.insert(deploymentEvent).values({
-    id: crypto.randomUUID(),
+    id: createId(),
     deploymentId: inserted.id,
     status: "queued",
     previousStatus: null,

@@ -1,6 +1,5 @@
-import { mutators } from "@otterdeploy/zero/mutators";
 import { queries } from "@otterdeploy/zero/queries";
-import { useQuery, useZero } from "@rocicorp/zero/react";
+import { useQuery } from "@rocicorp/zero/react";
 
 import { createFileRoute, Outlet, useParams } from "@tanstack/react-router";
 import { AnimatePresence } from "motion/react";
@@ -30,7 +29,6 @@ export const Route = createFileRoute("/dash/projects/$projectId")({
 
 function RouteComponent() {
   const { projectId } = useParams({ strict: false });
-  const { zero } = Route.useRouteContext();
   const { env: envSlug } = Route.useSearch();
 
   const [project] = useQuery(projectId ? queries.project.byId({ projectId }) : undefined);
@@ -45,7 +43,7 @@ function RouteComponent() {
   const [changesDialogOpen, setChangesDialogOpen] = useState(false);
 
   const handleResourceCreated = useCallback(
-    (resource: { id: string; name: string; kind: string; status: string; databaseEngine?: string }) => {
+    (resource: { id: string; name: string; kind: string; status: string; databaseEngine?: PendingChange["databaseEngine"] }) => {
       setPendingChanges((prev) => [
         ...prev,
         {
@@ -86,6 +84,7 @@ function RouteComponent() {
 
   const createDeployment = useMutation(orpc.deployment.create.mutationOptions());
   const provisionResource = useMutation(orpc.resource.provision.mutationOptions());
+  const deleteResource = useMutation(orpc.resource.delete.mutationOptions());
 
   const handleDeploy = useCallback(async () => {
     if (!projectId || !envId) return;
@@ -98,8 +97,7 @@ function RouteComponent() {
     const deployments = await Promise.allSettled(
       changes.map((change) => {
         if (change.action === "removed") {
-          zero.mutate(mutators.resource.delete({ id: change.id }));
-          return Promise.resolve();
+          return deleteResource.mutateAsync({ resourceId: change.id });
         } else if (deployable.includes(change.kind)) {
           return createDeployment.mutateAsync({
             projectId,
@@ -127,9 +125,9 @@ function RouteComponent() {
     setPendingChanges([]);
     setChangesDialogOpen(false);
     setDeploying(false);
-  }, [projectId, envId, pendingChanges, zero, createDeployment, provisionResource]);
+  }, [projectId, envId, pendingChanges, deleteResource, createDeployment, provisionResource]);
 
-  const handleRedeploy = useCallback(async (resource: { id: string; kind: string; databaseEngine?: string }) => {
+  const handleRedeploy = useCallback(async (resource: { id: string; kind: string; databaseEngine?: PendingChange["databaseEngine"] }) => {
     if (!projectId || !envId) return;
 
     const deployable = ["web", "api", "worker"];
@@ -159,10 +157,10 @@ function RouteComponent() {
     const change = pendingChanges.find((c) => c.id === id);
 
     if (change?.action === "added") {
-      zero.mutate(mutators.resource.delete({ id }));
+      deleteResource.mutate({ resourceId: id });
     }
     setPendingChanges((prev) => prev.filter((c) => c.id !== id));
-  }, [pendingChanges, zero]);
+  }, [pendingChanges, deleteResource]);
 
   // Memoize context value — only changes when pendingChanges state changes
   const contextValue = useMemo<ProjectContext>(

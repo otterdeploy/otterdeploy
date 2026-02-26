@@ -2,6 +2,8 @@ import { Result } from "better-result";
 import { db, eq, and } from "@otterdeploy/db";
 import { project, environment } from "@otterdeploy/db/schema/project";
 
+import { createId } from "@otterdeploy/utils";
+
 import { NotFoundError } from "./errors";
 
 function formatEnvironment(row: typeof environment.$inferSelect) {
@@ -9,6 +11,7 @@ function formatEnvironment(row: typeof environment.$inferSelect) {
     id: row.id,
     projectId: row.projectId,
     name: row.name,
+    slug: row.slug,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -25,10 +28,12 @@ export async function createEnvironment(params: {
   if (!proj) return Result.err(new NotFoundError({ resource: "project", id: params.projectId }));
 
   const now = new Date();
+  const slug = params.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 48) || "env";
   const env = {
-    id: crypto.randomUUID(),
+    id: createId(),
     projectId: params.projectId,
     name: params.name,
+    slug,
     createdAt: now,
     updatedAt: now,
   };

@@ -1,3 +1,4 @@
+import { createId } from "@otterdeploy/utils";
 import { relations, sql } from "drizzle-orm";
 import {
   index,
@@ -21,7 +22,7 @@ import {
 export const secretProviderBinding = pgTable(
   "secret_provider_binding",
   {
-    id: text("id").primaryKey(),
+    id: text("id").primaryKey().$defaultFn(createId),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
@@ -48,7 +49,7 @@ export const secretProviderBinding = pgTable(
 export const secretReference = pgTable(
   "secret_reference",
   {
-    id: text("id").primaryKey(),
+    id: text("id").primaryKey().$defaultFn(createId),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
@@ -84,7 +85,7 @@ export const secretReference = pgTable(
 export const deploymentSecretSnapshot = pgTable(
   "deployment_secret_snapshot",
   {
-    id: text("id").primaryKey(),
+    id: text("id").primaryKey().$defaultFn(createId),
     deploymentId: text("deployment_id")
       .notNull()
       .references(() => deployment.id, { onDelete: "cascade" }),

@@ -4,6 +4,8 @@ import { customDomain } from "@otterdeploy/db/schema/operations";
 import { resource } from "@otterdeploy/db/schema/project";
 import { createLogger } from "@otterdeploy/logger";
 
+import { createId } from "@otterdeploy/utils";
+
 import { NotFoundError, ConflictError } from "./errors";
 
 const log = createLogger("domain:custom-domain");
@@ -63,7 +65,7 @@ export async function addDomain(params: {
 
   const now = new Date();
   const row = {
-    id: crypto.randomUUID(),
+    id: createId(),
     organizationId: params.organizationId,
     resourceId: params.resourceId,
     domain: params.domain,

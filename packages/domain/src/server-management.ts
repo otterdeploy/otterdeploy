@@ -3,6 +3,8 @@ import { db, eq, and } from "@otterdeploy/db";
 import { server, sshKey } from "@otterdeploy/db/schema/infrastructure";
 import { upsertSecretReference } from "@otterdeploy/secrets";
 
+import { createId } from "@otterdeploy/utils";
+
 import { NotFoundError, ConflictError } from "./errors";
 import { type AuditContext, writeAuditLog } from "./audit-writer";
 
@@ -59,7 +61,7 @@ export async function registerServer(params: {
     });
 
     const sshRow = {
-      id: crypto.randomUUID(),
+      id: createId(),
       organizationId: params.organizationId,
       name: params.ssh.name,
       publicKey: params.ssh.publicKey,
@@ -73,7 +75,7 @@ export async function registerServer(params: {
   }
 
   const row = {
-    id: crypto.randomUUID(),
+    id: createId(),
     organizationId: params.organizationId,
     name: params.name,
     ipAddress: params.ipAddress,

@@ -35,8 +35,13 @@ async function safeTransition(
   );
 
   if (transitionResult.isErr()) {
+    const errorTag = (transitionResult.error as { _tag?: string })._tag;
+    const isConflict =
+      transitionResult.error instanceof ConflictError ||
+      errorTag === "ConflictError";
+
     // Retries can race with prior attempts; ignore invalid transition conflicts.
-    if (transitionResult.error instanceof ConflictError) return;
+    if (isConflict) return;
     logger.warn(
       { deploymentId, nextStatus, err: transitionResult.error },
       "Failed to transition deployment state",
@@ -69,7 +74,12 @@ export const databaseProvision = inngest.createFunction(
           },
         );
         if (transitionResult.isErr()) {
-          if (!(transitionResult.error instanceof ConflictError)) {
+          const errorTag = (transitionResult.error as { _tag?: string })._tag;
+          const isConflict =
+            transitionResult.error instanceof ConflictError ||
+            errorTag === "ConflictError";
+
+          if (!isConflict) {
             logger.warn(
               { deploymentId: latestDeployment.id, err: transitionResult.error },
               "Failed to mark deployment as failed",
@@ -109,14 +119,27 @@ export const databaseProvision = inngest.createFunction(
 
     // Ensure the project network exists before deploying the stack
     await step.run("ensure-network", async () => {
-      const networkResult = await createProjectNetwork(event.data.projectId);
+      const networkResult = await createProjectNetwork(
+        event.data.projectId,
+        event.data.environmentId,
+      );
       if (networkResult.isErr()) throw networkResult.error;
     });
 
     const result = await step.run("provision-database", async () => {
       const row = await db.query.resource.findFirst({
         where: eq(resource.id, resourceId),
-        with: { databaseConfig: true },
+        with: {
+          databaseConfig: true,
+          environment: {
+            columns: { id: true, slug: true },
+            with: {
+              project: {
+                columns: { id: true, slug: true },
+              },
+            },
+          },
+        },
       });
       if (!row?.databaseConfig) {
         throw new Error(`No database config found for resource ${resourceId}`);
@@ -134,6 +157,8 @@ export const databaseProvision = inngest.createFunction(
           resourceId,
           projectId: event.data.projectId,
           environmentId: event.data.environmentId,
+          projectSlug: row.environment?.project?.slug ?? event.data.projectId,
+          environmentSlug: row.environment?.slug ?? event.data.environmentId,
           organizationId: orgId,
           dbType: row.databaseConfig.databaseType,
         },

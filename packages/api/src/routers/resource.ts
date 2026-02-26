@@ -276,7 +276,20 @@ export const resourceRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      await validateResourceAccess(input.resourceId, context.organizationId);
+      const existing = await validateResourceAccess(input.resourceId, context.organizationId);
+
+      const publishResult = await publishEvent("resource.deleted", {
+        orgId: context.organizationId,
+        projectId: existing.projectId,
+        environmentId: existing.environmentId,
+        resourceId: existing.id,
+      });
+      if (publishResult.isErr()) {
+        throw new ORPCError("INTERNAL_SERVER_ERROR", {
+          message: "Failed to schedule resource cleanup",
+        });
+      }
+
       await db.delete(resource).where(eq(resource.id, input.resourceId));
       return { success: true as const };
     }),

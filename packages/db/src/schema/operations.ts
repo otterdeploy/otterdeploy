@@ -1,3 +1,4 @@
+import { createId } from "@otterdeploy/utils";
 import { relations, sql } from "drizzle-orm";
 import {
   bigint,
@@ -19,7 +20,7 @@ import { sslStatusEnum, backupStatusEnum } from "./enums";
 export const customDomain = pgTable(
   "custom_domain",
   {
-    id: text("id").primaryKey(),
+    id: text("id").primaryKey().$defaultFn(createId),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
@@ -57,7 +58,7 @@ export const customDomain = pgTable(
 export const environmentVariable = pgTable(
   "environment_variable",
   {
-    id: text("id").primaryKey(),
+    id: text("id").primaryKey().$defaultFn(createId),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
@@ -100,7 +101,7 @@ export const environmentVariable = pgTable(
 export const backup = pgTable(
   "backup",
   {
-    id: text("id").primaryKey(),
+    id: text("id").primaryKey().$defaultFn(createId),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
@@ -128,7 +129,7 @@ export const backup = pgTable(
 export const auditLog = pgTable(
   "audit_log",
   {
-    id: text("id").primaryKey(),
+    id: text("id").primaryKey().$defaultFn(createId),
     organizationId: text("organization_id").references(() => organization.id, {
       onDelete: "set null",
     }),
@@ -155,7 +156,7 @@ export const auditLog = pgTable(
 export const notificationChannel = pgTable(
   "notification_channel",
   {
-    id: text("id").primaryKey(),
+    id: text("id").primaryKey().$defaultFn(createId),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),

@@ -1,6 +1,4 @@
-export function createId() {
-  return crypto.randomUUID();
-}
+export { createId } from "@otterdeploy/utils";
 
 export function slugify(name: string) {
   const normalized = name

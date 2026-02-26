@@ -1,5 +1,6 @@
 import { db } from "@otterdeploy/db";
 import { auditLog } from "@otterdeploy/db/schema/operations";
+import { createId } from "@otterdeploy/utils";
 
 export type AuditContext = {
   userId: string | null;
@@ -15,7 +16,7 @@ export async function writeAuditLog(
   entityId: string,
   metadata: Record<string, unknown>,
 ): Promise<string> {
-  const id = crypto.randomUUID();
+  const id = createId();
   await db.insert(auditLog).values({
     id,
     organizationId,

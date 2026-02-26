@@ -26,8 +26,13 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsIndicator } from "@/components/ui/tabs";
 import { PlusIcon } from "lucide-react";
+import { createId } from "@otterdeploy/utils";
 
-import { CreateResourcePalette, type ResourceKind } from "./create-resource-palette";
+import {
+  CreateResourcePalette,
+  type ResourceKind,
+  type DatabaseEngine,
+} from "./create-resource-palette";
 
 function EnvironmentSwitcher({
   projectId,
@@ -50,7 +55,7 @@ function EnvironmentSwitcher({
       }),
     },
     onSubmit: async ({ value }) => {
-      const id = crypto.randomUUID();
+      const id = createId();
       const name = value.name;
       if (!name) throw new Error("Environment name is required");
       zero.mutate(
@@ -161,7 +166,7 @@ export function ProjectHeader({
     name: string;
     kind: ResourceKind;
     status: string;
-    databaseEngine?: string;
+    databaseEngine?: DatabaseEngine;
   }) => void;
   environmentId: string;
 }) {

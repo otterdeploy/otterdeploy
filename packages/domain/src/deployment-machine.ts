@@ -3,6 +3,8 @@ import { db, eq, and } from "@otterdeploy/db";
 import { deployment, deploymentEvent } from "@otterdeploy/db/schema/deployment";
 import { isDeploymentTerminalStatus } from "@otterdeploy/events";
 
+import { createId } from "@otterdeploy/utils";
+
 import { NotFoundError, ConflictError } from "./errors";
 
 export { isDeploymentTerminalStatus };
@@ -108,7 +110,7 @@ export async function transitionTo(
 
   // Insert deployment event timeline entry
   await db.insert(deploymentEvent).values({
-    id: crypto.randomUUID(),
+    id: createId(),
     deploymentId,
     status: nextStatus,
     previousStatus: currentStatus,

@@ -29,6 +29,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { GridViewIcon, ListViewIcon } from "@hugeicons/core-free-icons";
 import { PlusIcon } from "lucide-react";
 import * as z from "zod";
+import { createId } from "@otterdeploy/utils";
 
 export const Route = createFileRoute("/dashboard/projects/")({
   component: RouteComponent,
@@ -64,7 +65,7 @@ function CreateProjectDialog() {
     },
     onSubmit: async ({ value }) => {
       if (!zero) return;
-      const id = crypto.randomUUID();
+      const id = createId();
       const slug = value.name
         .trim()
         .toLowerCase()
@@ -78,7 +79,7 @@ function CreateProjectDialog() {
           name: slug,
           slug,
           now: Date.now(),
-          defaultEnvironmentId: crypto.randomUUID(),
+          defaultEnvironmentId: createId(),
         }),
       );
       setOpen(false);

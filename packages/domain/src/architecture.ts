@@ -8,6 +8,8 @@ import {
   viewport,
 } from "@otterdeploy/db/schema/project";
 
+import { createId } from "@otterdeploy/utils";
+
 import { NotFoundError } from "./errors";
 
 async function getOrCreateEnvironment(
@@ -34,9 +36,10 @@ async function getOrCreateEnvironment(
 
   const now = new Date();
   const created = {
-    id: crypto.randomUUID(),
+    id: createId(),
     projectId,
     name: "production",
+    slug: "production",
     createdAt: now,
     updatedAt: now,
   };

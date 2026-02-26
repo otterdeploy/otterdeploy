@@ -1,6 +1,7 @@
 import { eq, isTable } from "drizzle-orm";
 import { reset, seed } from "drizzle-seed";
 
+import { createId } from "@otterdeploy/utils";
 import { db } from "./index";
 import * as schema from "./schema";
 import { project, environment, viewport } from "./schema/project";
@@ -86,9 +87,10 @@ const run = async () => {
     const now = new Date();
     await db.insert(environment).values(
       missing.map((p) => ({
-        id: crypto.randomUUID(),
+        id: createId(),
         projectId: p.id,
         name: "production",
+        slug: "production",
         createdAt: now,
         updatedAt: now,
       })),

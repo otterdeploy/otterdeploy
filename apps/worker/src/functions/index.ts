@@ -6,6 +6,7 @@ import { databaseUpgrade } from "./database-upgrade";
 import { domainVerification } from "./domain-verification";
 import { sslMonitor } from "./ssl-monitor";
 import { serverHealthMonitor } from "./server-health";
+import { resourceCleanup } from "./resource-cleanup";
 
 export const functions = [
   deploymentPipeline,
@@ -13,6 +14,7 @@ export const functions = [
   deploymentCancel,
   databaseProvision,
   databaseUpgrade,
+  resourceCleanup,
   domainVerification,
   sslMonitor,
   serverHealthMonitor,

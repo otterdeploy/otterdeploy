@@ -1,3 +1,4 @@
+import { createId } from "@otterdeploy/utils";
 import { relations } from "drizzle-orm";
 import { doublePrecision, index, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
@@ -15,7 +16,7 @@ import {
 export const project = pgTable(
   "project",
   {
-    id: text("id").primaryKey(),
+    id: text("id").primaryKey().$defaultFn(createId),
     organizationId: text("organization_id").references(() => organization.id, {
       onDelete: "cascade",
     }),
@@ -42,7 +43,7 @@ export const project = pgTable(
 export const environment = pgTable(
   "environment",
   {
-    id: text("id").primaryKey(),
+    id: text("id").primaryKey().$defaultFn(createId),
     projectId: text("project_id")
       .notNull()
       .references(() => project.id, { onDelete: "cascade" }),
@@ -64,7 +65,7 @@ export const environment = pgTable(
 export const resource = pgTable(
   "resource",
   {
-    id: text("id").primaryKey(),
+    id: text("id").primaryKey().$defaultFn(createId),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),

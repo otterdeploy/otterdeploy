@@ -4,6 +4,8 @@ import { deploymentSecretSnapshot } from "@otterdeploy/db/schema/secrets";
 import { revealSecretByReference } from "@otterdeploy/secrets";
 import { createLogger } from "@otterdeploy/logger";
 
+import { createId } from "@otterdeploy/utils";
+
 import { decodeLegacySecret, hashSecretDigest } from "./legacy-secret";
 
 const log = createLogger("domain:deployment-secret");
@@ -93,7 +95,7 @@ export async function createDeploymentSecretSnapshot(input: {
   );
 
   await db.insert(deploymentSecretSnapshot).values({
-    id: crypto.randomUUID(),
+    id: createId(),
     deploymentId: input.deploymentId,
     organizationId: input.organizationId,
     resourceId: input.resourceId,

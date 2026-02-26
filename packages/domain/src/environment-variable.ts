@@ -6,6 +6,8 @@ import { secretReference } from "@otterdeploy/db/schema/secrets";
 import { upsertSecretReference, revealSecretByReference } from "@otterdeploy/secrets";
 import { createLogger } from "@otterdeploy/logger";
 
+import { createId } from "@otterdeploy/utils";
+
 import { NotFoundError, BadRequestError, ConflictError } from "./errors";
 import { type AuditContext, writeAuditLog } from "./audit-writer";
 import { decodeLegacySecret, encodeLegacySecret } from "./legacy-secret";
@@ -253,7 +255,7 @@ export async function upsertEnvironmentVariable(params: {
   }
 
   const row = {
-    id: crypto.randomUUID(),
+    id: createId(),
     organizationId: params.organizationId,
     projectId: params.scope === "project" ? params.projectId : null,
     environmentId: params.scope === "environment" ? scope.environmentId : null,

@@ -4,7 +4,15 @@ export interface PendingChange {
   id: string;
   name: string;
   kind: string;
-  databaseEngine?: string;
+  databaseEngine?:
+    | "postgresql"
+    | "mysql"
+    | "mariadb"
+    | "mongodb"
+    | "redis"
+    | "keydb"
+    | "dragonfly"
+    | "clickhouse";
   action: "added" | "modified" | "removed";
   settings: { key: string; oldValue: string; newValue: string }[];
 }
@@ -13,9 +21,19 @@ export interface ProjectContext {
   envSlug: string;
   environmentId: string | undefined;
   pendingChanges: PendingChange[];
-  onCreateResource: (resource: { id: string; name: string; kind: string; status: string; databaseEngine?: string }) => void;
+  onCreateResource: (resource: {
+    id: string;
+    name: string;
+    kind: string;
+    status: string;
+    databaseEngine?: PendingChange["databaseEngine"];
+  }) => void;
   onMarkForRemoval: (id: string) => void;
-  onRedeploy: (resource: { id: string; kind: string; databaseEngine?: string }) => Promise<void>;
+  onRedeploy: (resource: {
+    id: string;
+    kind: string;
+    databaseEngine?: PendingChange["databaseEngine"];
+  }) => Promise<void>;
 }
 
 export const ProjectContext = createContext<ProjectContext | null>(null);
