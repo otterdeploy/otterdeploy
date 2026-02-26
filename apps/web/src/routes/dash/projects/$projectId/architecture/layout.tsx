@@ -34,7 +34,7 @@ const nodeTypes = {
 };
 
 function RouteComponent() {
-  const { pendingChanges, onMarkForRemoval, environmentId } = useProjectContext();
+  const { pendingChanges, onMarkForRemoval, onRedeploy, environmentId } = useProjectContext();
 
   const [resources] = useQuery(
     environmentId ? queries.resource.list({ environmentId }) : undefined,
@@ -43,6 +43,9 @@ function RouteComponent() {
   const zero = useZero();
   const removeResourceRef = useRef<(id: string) => void>(() => {});
   removeResourceRef.current = onMarkForRemoval;
+
+  const redeployResourceRef = useRef<(resource: { id: string; kind: string; databaseEngine?: string }) => Promise<void>>(async () => {});
+  redeployResourceRef.current = onRedeploy;
 
   const graphNodes = useMemo<Node[]>(() => {
     if (!resources) return [];
@@ -61,6 +64,10 @@ function RouteComponent() {
           status: r.status ?? "unknown",
           pendingAction: pending?.action,
           onRemove: (id: string) => removeResourceRef.current(id),
+          onRedeploy: (id: string) => {
+            const res = resources?.find((res) => res.id === id);
+            if (res) redeployResourceRef.current({ id: res.id, kind: res.kind });
+          },
         },
       };
     });

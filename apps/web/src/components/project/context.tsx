@@ -15,6 +15,7 @@ export interface ProjectContext {
   pendingChanges: PendingChange[];
   onCreateResource: (resource: { id: string; name: string; kind: string; status: string; databaseEngine?: string }) => void;
   onMarkForRemoval: (id: string) => void;
+  onRedeploy: (resource: { id: string; kind: string; databaseEngine?: string }) => Promise<void>;
 }
 
 export const ProjectContext = createContext<ProjectContext | null>(null);

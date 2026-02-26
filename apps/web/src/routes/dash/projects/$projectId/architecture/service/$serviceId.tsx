@@ -55,7 +55,12 @@ function RouteComponent() {
       }
     >
       <Content value="deployments">
-        <DeploymentsPanel />
+        <DeploymentsPanel
+          resourceId={serviceId}
+          resourceKind={resource?.kind ?? "web"}
+          resourceStatus={resource?.status ?? "unknown"}
+          resourceName={resource?.name}
+        />
       </Content>
 
       <Content value="database">
@@ -95,7 +100,10 @@ function RouteComponent() {
       </Content>
 
       <Content value="settings">
-        <SettingsPanel />
+        <SettingsPanel
+          resourceId={serviceId}
+          resourceName={resource?.name ?? "Service"}
+        />
       </Content>
     </Panel>
   );

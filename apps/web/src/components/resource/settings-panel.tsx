@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useForm } from "@tanstack/react-form";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -16,56 +15,34 @@ import {
   Alert01Icon,
   AlertCircleIcon,
   ArrowUpRight01Icon,
-  Copy01Icon,
-  Delete01Icon,
   DocumentCodeIcon,
   GlobeIcon,
-  PencilEdit01Icon,
   PlusSignIcon,
   Refresh01Icon,
   Settings01Icon,
   SourceCodeIcon,
-  Tick01Icon,
   Wifi01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { orpc } from "@/utils/orpc";
+import { useMutation, useQuery as useTanstackQuery } from "@tanstack/react-query";
+import { useNavigate, useParams } from "@tanstack/react-router";
+import { toast } from "sonner";
 
 // ---------------------------------------------------------------------------
-// Mock data
+// Section IDs
 // ---------------------------------------------------------------------------
-
-const SOURCE_DATA = {
-  repo: "documumenso/documenso",
-  rootDirectory: null as string | null,
-  upstreamRepo: "documenso/documenso",
-  branch: "production",
-  branchError: "GitHub Repo not found",
-};
-
-const NETWORKING_DATA = {
-  publicDomain: "documenso-web-production.up.railway.app",
-  publicLabel: "Metal Edge",
-  privateDomain: "documenso-web.railway.internal",
-  privateAlias: "documenso-web",
-};
-
-const SCALE_DATA = {
-  region: "eu-west",
-  regionLabel: "EU West (Amsterdam, Netherlands)",
-  replicas: 1,
-  cpuLimit: 8,
-  cpuPlanLimit: 8,
-  memoryLimit: 8,
-  memoryPlanLimit: 8,
-};
-
-const BUILD_DATA = {
-  configFile: "/railway.toml",
-  builder: "Dockerfile",
-  builderPath: "/docker/Dockerfile",
-  metalBuildEnv: true,
-  watchPattern: "/src/**",
-};
 
 const SECTION_IDS = [
   "source",
@@ -163,18 +140,6 @@ function InfoRow({ children, actions }: { children: React.ReactNode; actions?: R
   );
 }
 
-function IconButton({ icon, label }: { icon: React.ComponentType; label: string }) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      className="rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-    >
-      <HugeiconsIcon icon={icon} size={16} />
-    </button>
-  );
-}
-
 function SectionHeader({
   id,
   icon,
@@ -182,7 +147,7 @@ function SectionHeader({
   variant = "default",
 }: {
   id?: string;
-  icon: React.ComponentType;
+  icon: Parameters<typeof HugeiconsIcon>[0]["icon"];
   title: string;
   variant?: "default" | "danger";
 }) {
@@ -207,7 +172,7 @@ function SectionHeader({
 }
 
 // ---------------------------------------------------------------------------
-// Section: Source
+// Section: Source (placeholder — not yet in API)
 // ---------------------------------------------------------------------------
 
 function SourceSection() {
@@ -215,64 +180,16 @@ function SourceSection() {
     <section className="space-y-6">
       <SectionHeader id="source" icon={SourceCodeIcon} title="Source" />
       <div className="space-y-6 pl-11">
-        <SettingField label="Source Repo">
-          <InfoRow
-            actions={
-              <>
-                <IconButton icon={PencilEdit01Icon} label="Edit" />
-                <Button variant="outline" size="sm">
-                  Disconnect
-                </Button>
-              </>
-            }
-          >
-            <span className="text-sm font-medium">{SOURCE_DATA.repo}</span>
-          </InfoRow>
-          <p className="text-sm text-muted-foreground">
-            <a
-              href="#"
-              className="underline underline-offset-2 hover:text-foreground transition-colors"
-            >
-              Add Root Directory
-            </a>{" "}
-            (used for build and deploy steps. <DocsLink />)
-          </p>
-        </SettingField>
-
-        <SettingField label="Upstream Repo">
-          <InfoRow
-            actions={
-              <Button variant="outline" size="sm">
-                ← Eject
-              </Button>
-            }
-          >
-            <span className="text-sm font-medium">{SOURCE_DATA.upstreamRepo}</span>
-          </InfoRow>
-          <Button variant="outline" size="sm" className="gap-1.5">
-            <HugeiconsIcon icon={Refresh01Icon} size={14} />
-            Check for updates
-          </Button>
-        </SettingField>
-
-        <SettingField
-          label="Branch connected to production"
-          description="Updates will be pulled from the latest commit on this GitHub branch."
-        >
-          {SOURCE_DATA.branchError && (
-            <div className="flex items-center gap-2 text-sm text-destructive">
-              <HugeiconsIcon icon={AlertCircleIcon} size={16} />
-              {SOURCE_DATA.branchError}
-            </div>
-          )}
-        </SettingField>
+        <p className="text-sm text-muted-foreground">
+          Source configuration is not yet available. Connect a Git repository to enable source-based deployments.
+        </p>
       </div>
     </section>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Section: Networking
+// Section: Networking (placeholder — not yet in API)
 // ---------------------------------------------------------------------------
 
 function NetworkingSection() {
@@ -280,58 +197,9 @@ function NetworkingSection() {
     <section className="space-y-6">
       <SectionHeader id="networking" icon={Wifi01Icon} title="Networking" />
       <div className="space-y-6 pl-11">
-        <SettingField
-          label="Public Networking"
-          description="Access your application over HTTP with the following domains"
-        >
-          <InfoRow
-            actions={
-              <>
-                <IconButton icon={Copy01Icon} label="Copy" />
-                <IconButton icon={PencilEdit01Icon} label="Edit" />
-                <IconButton icon={Delete01Icon} label="Delete" />
-              </>
-            }
-          >
-            <div>
-              <p className="text-sm font-medium">{NETWORKING_DATA.publicDomain}</p>
-              <p className="text-xs text-primary">{NETWORKING_DATA.publicLabel}</p>
-            </div>
-          </InfoRow>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="gap-1.5">
-              <HugeiconsIcon icon={PlusSignIcon} size={14} />
-              Custom Domain
-            </Button>
-            <Button variant="outline" size="sm" className="gap-1.5">
-              <HugeiconsIcon icon={PlusSignIcon} size={14} />
-              TCP Proxy
-            </Button>
-          </div>
-        </SettingField>
-
-        <SettingField
-          label="Private Networking"
-          description="Communicate with this service from within the Railway network."
-        >
-          <InfoRow>
-            <div>
-              <p className="flex items-center gap-2 text-sm font-medium">
-                {NETWORKING_DATA.privateDomain}
-                <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                  IPv4 & IPv6
-                </Badge>
-              </p>
-              <p className="text-xs text-muted-foreground">
-                <HugeiconsIcon icon={Tick01Icon} size={12} className="mr-1 inline text-emerald-400" />
-                Ready to talk privately · You can also simply call me{" "}
-                <code className="rounded bg-muted px-1 py-0.5 text-[11px]">
-                  {NETWORKING_DATA.privateAlias}
-                </code>
-              </p>
-            </div>
-          </InfoRow>
-        </SettingField>
+        <p className="text-sm text-muted-foreground">
+          Networking configuration is not yet available. Public domains and private networking will be configurable here.
+        </p>
       </div>
     </section>
   );
@@ -341,13 +209,31 @@ function NetworkingSection() {
 // Section: Scale
 // ---------------------------------------------------------------------------
 
-function ScaleSection() {
+function ScaleSection({
+  resourceId,
+  replicas,
+  port,
+  onSave,
+  saving,
+}: {
+  resourceId: string;
+  replicas: number | null;
+  port: number | null;
+  onSave: (data: { replicas?: number; port?: number }) => void;
+  saving: boolean;
+}) {
   const form = useForm({
     defaultValues: {
-      region: SCALE_DATA.region,
-      replicas: String(SCALE_DATA.replicas),
-      cpuLimit: SCALE_DATA.cpuLimit,
-      memoryLimit: SCALE_DATA.memoryLimit,
+      replicas: String(replicas ?? 1),
+      port: String(port ?? ""),
+      cpuLimit: 8,
+      memoryLimit: 8,
+    },
+    onSubmit: ({ value }) => {
+      onSave({
+        replicas: value.replicas ? Number(value.replicas) : undefined,
+        port: value.port ? Number(value.port) : undefined,
+      });
     },
   });
 
@@ -355,44 +241,41 @@ function ScaleSection() {
     <section className="space-y-6">
       <SectionHeader id="scale" icon={GlobeIcon} title="Scale" />
       <div className="space-y-6 pl-11">
+        <SettingField label="Port" description="The port your application listens on.">
+          <form.Field name="port">
+            {(field) => (
+              <Input
+                type="number"
+                placeholder="e.g. 3000"
+                value={field.state.value}
+                onChange={(e) => field.handleChange(e.target.value)}
+                onBlur={field.handleBlur}
+                className="w-32"
+              />
+            )}
+          </form.Field>
+        </SettingField>
+
         <SettingField
-          label="Regions & Replicas"
-          description="Deploy replicas per region for horizontal scaling."
+          label="Replicas"
+          description="Number of instances to run for horizontal scaling."
         >
-          <div className="flex gap-2">
-            <form.Field name="region">
-              {(field) => (
-                <Select value={field.state.value} onValueChange={(v) => { if (v) field.handleChange(v); }}>
-                  <SelectTrigger className="flex-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="eu-west">{SCALE_DATA.regionLabel}</SelectItem>
-                    <SelectItem value="us-west">US West (Portland, Oregon)</SelectItem>
-                    <SelectItem value="us-east">US East (Virginia)</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
-            </form.Field>
-            <form.Field name="replicas">
-              {(field) => (
-                <div className="flex items-center gap-1.5">
-                  <Input
-                    type="number"
-                    value={field.state.value}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    onBlur={field.handleBlur}
-                    className="w-16 text-center"
-                  />
-                  <span className="text-sm text-muted-foreground">Replica</span>
-                </div>
-              )}
-            </form.Field>
-          </div>
-          <p className="text-sm text-primary">
-            Multi-region replicas are only available on the Pro plan.{" "}
-            <DocsLink href="#">Learn More</DocsLink>
-          </p>
+          <form.Field name="replicas">
+            {(field) => (
+              <div className="flex items-center gap-1.5">
+                <Input
+                  type="number"
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  onBlur={field.handleBlur}
+                  className="w-16 text-center"
+                />
+                <span className="text-sm text-muted-foreground">
+                  Replica{Number(field.state.value) !== 1 ? "s" : ""}
+                </span>
+              </div>
+            )}
+          </form.Field>
         </SettingField>
 
         <SettingField
@@ -407,15 +290,13 @@ function ScaleSection() {
                     <span>
                       CPU: <strong>{field.state.value} vCPU</strong>
                     </span>
-                    <span className="text-muted-foreground">
-                      Plan limit: {SCALE_DATA.cpuPlanLimit} vCPU
-                    </span>
+                    <span className="text-muted-foreground">Plan limit: 8 vCPU</span>
                   </div>
                   <Slider
                     value={[field.state.value]}
                     onValueChange={(v) => field.handleChange(Array.isArray(v) ? v[0] : v)}
                     min={0.5}
-                    max={SCALE_DATA.cpuPlanLimit}
+                    max={8}
                     step={0.5}
                   />
                 </div>
@@ -428,26 +309,28 @@ function ScaleSection() {
                     <span>
                       Memory: <strong>{field.state.value} GB</strong>
                     </span>
-                    <span className="text-muted-foreground">
-                      Plan limit: {SCALE_DATA.memoryPlanLimit} GB
-                    </span>
+                    <span className="text-muted-foreground">Plan limit: 8 GB</span>
                   </div>
                   <Slider
                     value={[field.state.value]}
                     onValueChange={(v) => field.handleChange(Array.isArray(v) ? v[0] : v)}
                     min={0.5}
-                    max={SCALE_DATA.memoryPlanLimit}
+                    max={8}
                     step={0.5}
                   />
                 </div>
               )}
             </form.Field>
           </div>
-          <p className="text-sm text-primary">
-            <HugeiconsIcon icon={PlusSignIcon} size={12} className="mr-1 inline" />
-            Upgrade for higher limits
-          </p>
         </SettingField>
+
+        <Button
+          size="sm"
+          disabled={saving}
+          onClick={() => form.handleSubmit()}
+        >
+          {saving ? "Saving..." : "Save"}
+        </Button>
       </div>
     </section>
   );
@@ -457,11 +340,27 @@ function ScaleSection() {
 // Section: Build
 // ---------------------------------------------------------------------------
 
-function BuildSection() {
+function BuildSection({
+  builder,
+  dockerfilePath,
+  onSave,
+  saving,
+}: {
+  builder: string | null;
+  dockerfilePath: string | null;
+  onSave: (data: { builder?: "nixpacks" | "dockerfile" | "buildpack"; dockerfilePath?: string }) => void;
+  saving: boolean;
+}) {
   const form = useForm({
     defaultValues: {
-      metalBuild: BUILD_DATA.metalBuildEnv,
-      watchPattern: BUILD_DATA.watchPattern,
+      builder: builder ?? "nixpacks",
+      dockerfilePath: dockerfilePath ?? "",
+    },
+    onSubmit: ({ value }) => {
+      onSave({
+        builder: value.builder as "nixpacks" | "dockerfile" | "buildpack",
+        dockerfilePath: value.dockerfilePath || undefined,
+      });
     },
   });
 
@@ -469,72 +368,43 @@ function BuildSection() {
     <section className="space-y-6">
       <SectionHeader id="build" icon={Settings01Icon} title="Build" />
       <div className="space-y-6 pl-11">
-        <SettingField label="Builder">
-          <div className="bg-card ring-foreground/10 space-y-2 rounded-lg p-4 ring-1">
-            <div className="flex items-center justify-between text-sm">
-              <span className="flex items-center gap-1.5 text-muted-foreground">
-                <HugeiconsIcon icon={AlertCircleIcon} size={14} />
-                The value is set in{" "}
-                <strong className="text-foreground">{BUILD_DATA.configFile}</strong>
-              </span>
-              <a
-                href="#"
-                className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Open file <HugeiconsIcon icon={ArrowUpRight01Icon} size={12} />
-              </a>
-            </div>
-            <div className="bg-muted/50 flex items-center justify-between rounded-md px-3 py-2">
-              <div>
-                <p className="text-sm font-medium">
-                  {BUILD_DATA.builder}{" "}
-                  <code className="text-xs text-primary">{BUILD_DATA.builderPath}</code>
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Build with a Dockerfile using BuildKit. <DocsLink />
-                </p>
-              </div>
-            </div>
-          </div>
+        <SettingField label="Builder" description="How to build your application.">
+          <form.Field name="builder">
+            {(field) => (
+              <Select value={field.state.value} onValueChange={(v) => { if (v) field.handleChange(v); }}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="nixpacks">Nixpacks</SelectItem>
+                  <SelectItem value="dockerfile">Dockerfile</SelectItem>
+                  <SelectItem value="buildpack">Buildpack</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          </form.Field>
         </SettingField>
 
-        <SettingField
-          label="Metal Build Environment"
-          description="Use our new Metal-based build environment. The new Metal build environment is faster and will be the default for all builds in the coming months."
-        >
-          <Badge variant="outline" className="mb-1 ml-0.5 border-primary/30 bg-primary/10 text-primary text-[10px]">
-            Metal
-          </Badge>
-          <form.Field name="metalBuild">
+        <SettingField label="Dockerfile Path" description="Path to your Dockerfile relative to the root.">
+          <form.Field name="dockerfilePath">
             {(field) => (
-              <SwitchRow
-                label="Use Metal Build Environment"
-                checked={field.state.value}
-                onCheckedChange={field.handleChange}
+              <Input
+                placeholder="e.g. /docker/Dockerfile"
+                value={field.state.value}
+                onChange={(e) => field.handleChange(e.target.value)}
+                onBlur={field.handleBlur}
               />
             )}
           </form.Field>
         </SettingField>
 
-        <SettingField
-          label="Watch Paths"
-          description="Gitignore-style rules to trigger a new deployment based on what file paths have changed."
-          docsHref="#"
+        <Button
+          size="sm"
+          disabled={saving}
+          onClick={() => form.handleSubmit()}
         >
-          <form.Field name="watchPattern">
-            {(field) => (
-              <div className="relative">
-                <Input
-                  placeholder="Add pattern e.g. /src/**"
-                  value={field.state.value}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  onBlur={field.handleBlur}
-                />
-                <HugeiconsIcon icon={Tick01Icon} size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              </div>
-            )}
-          </form.Field>
-        </SettingField>
+          {saving ? "Saving..." : "Save"}
+        </Button>
       </div>
     </section>
   );
@@ -544,13 +414,27 @@ function BuildSection() {
 // Section: Deploy
 // ---------------------------------------------------------------------------
 
-function DeploySection() {
+function DeploySection({
+  healthCheckPath,
+  onSave,
+  saving,
+}: {
+  healthCheckPath: string | null;
+  onSave: (data: { healthCheckPath?: string }) => void;
+  saving: boolean;
+}) {
   const form = useForm({
     defaultValues: {
       teardown: false,
       serverless: false,
       restartPolicy: "on-failure",
       maxRetries: "10",
+      healthCheckPath: healthCheckPath ?? "",
+    },
+    onSubmit: ({ value }) => {
+      onSave({
+        healthCheckPath: value.healthCheckPath || undefined,
+      });
     },
   });
 
@@ -567,16 +451,6 @@ function DeploySection() {
             <HugeiconsIcon icon={PlusSignIcon} size={14} />
             Start Command
           </Button>
-          <p className="text-sm text-muted-foreground">
-            +{" "}
-            <a
-              href="#"
-              className="underline underline-offset-2 hover:text-foreground transition-colors"
-            >
-              Add pre-deploy step
-            </a>{" "}
-            (<DocsLink />)
-          </p>
         </SettingField>
 
         <SettingField
@@ -610,15 +484,21 @@ function DeploySection() {
           description="Endpoint to be called before a deploy completes to ensure the new deployment is live."
           docsHref="#"
         >
-          <Button variant="outline" size="sm" className="gap-1.5">
-            <HugeiconsIcon icon={PlusSignIcon} size={14} />
-            Healthcheck Path
-          </Button>
+          <form.Field name="healthCheckPath">
+            {(field) => (
+              <Input
+                placeholder="e.g. /health"
+                value={field.state.value}
+                onChange={(e) => field.handleChange(e.target.value)}
+                onBlur={field.handleBlur}
+              />
+            )}
+          </form.Field>
         </SettingField>
 
         <SettingField
           label="Serverless"
-          description="Containers will scale down to zero and then scale up based on traffic. Requests while the container is sleeping will be queued and served when the container wakes up."
+          description="Containers will scale down to zero and then scale up based on traffic."
           docsHref="#"
         >
           <form.Field name="serverless">
@@ -672,6 +552,14 @@ function DeploySection() {
             </form.Field>
           </div>
         </SettingField>
+
+        <Button
+          size="sm"
+          disabled={saving}
+          onClick={() => form.handleSubmit()}
+        >
+          {saving ? "Saving..." : "Save"}
+        </Button>
       </div>
     </section>
   );
@@ -687,7 +575,7 @@ function ConfigSection() {
       <SectionHeader id="config-as-code" icon={DocumentCodeIcon} title="Config-as-code" />
       <div className="space-y-6 pl-11">
         <SettingField
-          label="Railway Config File"
+          label="Config File"
           description="Manage your build and deployment settings through a config file."
           docsHref="#"
         >
@@ -705,7 +593,29 @@ function ConfigSection() {
 // Section: Danger
 // ---------------------------------------------------------------------------
 
-function DangerSection() {
+function DangerSection({
+  resourceId,
+  resourceName,
+}: {
+  resourceId: string;
+  resourceName: string;
+}) {
+  const { projectId } = useParams({ strict: false });
+  const navigate = useNavigate();
+  const deleteResource = useMutation(orpc.resource.delete.mutationOptions());
+
+  const handleDelete = async () => {
+    try {
+      await deleteResource.mutateAsync({ resourceId });
+      toast.success(`"${resourceName}" has been deleted`);
+      if (projectId) {
+        navigate({ to: "/dash/projects/$projectId/architecture", params: { projectId } });
+      }
+    } catch (err) {
+      toast.error(`Failed to delete: ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
+  };
+
   return (
     <section className="space-y-4">
       <SectionHeader id="danger" icon={Alert01Icon} title="Delete Service" variant="danger" />
@@ -716,9 +626,29 @@ function DangerSection() {
           remove it from <strong className="text-foreground">this environment</strong>. This cannot
           be undone.
         </p>
-        <Button variant="destructive" size="sm">
-          Delete service
-        </Button>
+        <AlertDialog>
+          <AlertDialogTrigger render={<Button variant="destructive" size="sm" />}>
+            Delete service
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete "{resourceName}"?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete all deployments and configuration for this service. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                onClick={handleDelete}
+                disabled={deleteResource.isPending}
+              >
+                {deleteResource.isPending ? "Deleting..." : "Delete"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </section>
   );
@@ -728,8 +658,28 @@ function DangerSection() {
 // Main panel
 // ---------------------------------------------------------------------------
 
-export function SettingsPanel() {
+interface SettingsPanelProps {
+  resourceId: string;
+  resourceName: string;
+}
+
+export function SettingsPanel({ resourceId, resourceName }: SettingsPanelProps) {
   const [filter, setFilter] = useState("");
+
+  const { data: resource } = useTanstackQuery(
+    orpc.resource.getById.queryOptions({ input: { resourceId } }),
+  );
+
+  const updateResource = useMutation(orpc.resource.update.mutationOptions());
+
+  const handleSave = async (data: Record<string, unknown>) => {
+    try {
+      await updateResource.mutateAsync({ resourceId, ...data } as Parameters<typeof updateResource.mutateAsync>[0]);
+      toast.success("Settings saved");
+    } catch (err) {
+      toast.error(`Failed to save: ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
+  };
 
   return (
     <div className="relative pt-4">
@@ -748,11 +698,26 @@ export function SettingsPanel() {
         <div className="min-w-0 flex-1 space-y-10">
           <SourceSection />
           <NetworkingSection />
-          <ScaleSection />
-          <BuildSection />
-          <DeploySection />
+          <ScaleSection
+            resourceId={resourceId}
+            replicas={resource?.replicas ?? null}
+            port={resource?.port ?? null}
+            onSave={handleSave}
+            saving={updateResource.isPending}
+          />
+          <BuildSection
+            builder={resource?.builder ?? null}
+            dockerfilePath={resource?.dockerfilePath ?? null}
+            onSave={handleSave}
+            saving={updateResource.isPending}
+          />
+          <DeploySection
+            healthCheckPath={resource?.healthCheckPath ?? null}
+            onSave={handleSave}
+            saving={updateResource.isPending}
+          />
           <ConfigSection />
-          <DangerSection />
+          <DangerSection resourceId={resourceId} resourceName={resourceName} />
         </div>
 
         {/* Side nav */}

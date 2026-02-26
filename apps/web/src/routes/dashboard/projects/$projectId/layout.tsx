@@ -159,14 +159,43 @@ function RouteComponent() {
     setPendingChanges((prev) => prev.filter((c) => c.id !== id));
   }, []);
 
+  const handleRedeploy = useCallback(async (resource: { id: string; kind: string; databaseEngine?: string }) => {
+    if (!projectId || !envId) return;
+
+    const deployable = ["web", "api", "worker"];
+    const provisionable = ["database"];
+
+    try {
+      if (deployable.includes(resource.kind)) {
+        await createDeployment.mutateAsync({
+          projectId,
+          environmentId: envId,
+          resourceId: resource.id,
+          source: "manual",
+        });
+      } else if (provisionable.includes(resource.kind)) {
+        await provisionResource.mutateAsync({
+          resourceId: resource.id,
+          databaseEngine: resource.databaseEngine,
+        });
+      }
+      toast.success("Redeploy triggered");
+    } catch (err) {
+      toast.error(`Redeploy failed: ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
+  }, [projectId, envId, createDeployment, provisionResource]);
+
   // Memoize context value — only changes when pendingChanges state changes
   const contextValue = useMemo<ProjectContext>(
     () => ({
+      envSlug: activeEnvironment?.name ?? "",
+      environmentId: envId,
       pendingChanges,
       onCreateResource: handleResourceCreated,
       onMarkForRemoval: handleMarkForRemoval,
+      onRedeploy: handleRedeploy,
     }),
-    [pendingChanges, handleResourceCreated, handleMarkForRemoval],
+    [activeEnvironment?.name, envId, pendingChanges, handleResourceCreated, handleMarkForRemoval, handleRedeploy],
   );
 
   if (!environments || environments.length === 0) return null;

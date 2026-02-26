@@ -129,6 +129,32 @@ function RouteComponent() {
     setDeploying(false);
   }, [projectId, envId, pendingChanges, zero, createDeployment, provisionResource]);
 
+  const handleRedeploy = useCallback(async (resource: { id: string; kind: string; databaseEngine?: string }) => {
+    if (!projectId || !envId) return;
+
+    const deployable = ["web", "api", "worker"];
+    const provisionable = ["database"];
+
+    try {
+      if (deployable.includes(resource.kind)) {
+        await createDeployment.mutateAsync({
+          projectId,
+          environmentId: envId,
+          resourceId: resource.id,
+          source: "manual",
+        });
+      } else if (provisionable.includes(resource.kind)) {
+        await provisionResource.mutateAsync({
+          resourceId: resource.id,
+          databaseEngine: resource.databaseEngine,
+        });
+      }
+      toast.success("Redeploy triggered");
+    } catch (err) {
+      toast.error(`Redeploy failed: ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
+  }, [projectId, envId, createDeployment, provisionResource]);
+
   const handleDiscard = useCallback((id: string) => {
     const change = pendingChanges.find((c) => c.id === id);
 
@@ -146,8 +172,9 @@ function RouteComponent() {
       pendingChanges,
       onCreateResource: handleResourceCreated,
       onMarkForRemoval: handleMarkForRemoval,
+      onRedeploy: handleRedeploy,
     }),
-    [activeEnvironment?.name, envSlug, envId, pendingChanges, handleResourceCreated, handleMarkForRemoval],
+    [activeEnvironment?.name, envSlug, envId, pendingChanges, handleResourceCreated, handleMarkForRemoval, handleRedeploy],
   );
 
   return (

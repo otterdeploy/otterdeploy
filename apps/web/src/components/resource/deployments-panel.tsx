@@ -9,19 +9,32 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   AlertCircleIcon,
   ArrowDown01Icon,
   Cancel01Icon,
   CheckmarkCircle01Icon,
   CircleIcon,
-  GlobeIcon,
-  Location01Icon,
+  Loading03Icon,
   MoreVerticalIcon,
   Package01Icon,
   Tick01Icon,
-  Wifi01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useQuery } from "@rocicorp/zero/react";
+import { queries } from "@otterdeploy/zero/queries";
+import { useProjectContext } from "@/components/project/context";
+import { RotateCwIcon } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -37,210 +50,145 @@ interface DeploymentStep {
   children?: DeploymentStep[];
 }
 
+type DeploymentStatus = "active" | "completed" | "removed" | "failed" | "building" | "deploying" | "initializing";
+
 interface Deployment {
   id: string;
   image: string;
   timeAgo: string;
   source: string;
-  status: "active" | "completed" | "removed" | "failed" | "building";
+  status: DeploymentStatus;
   message?: string;
   showLogs?: boolean;
   steps?: DeploymentStep[];
 }
 
-interface ServiceInfo {
-  domain: string;
-  region: string;
-  replicas: number;
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function formatTimeAgo(timestamp: number | null | undefined): string {
+  if (!timestamp) return "just now";
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  return `${months}mo ago`;
 }
 
-// ---------------------------------------------------------------------------
-// Mock data
-// ---------------------------------------------------------------------------
+function mapDeploymentStatus(
+  status: string | null | undefined,
+): DeploymentStatus {
+  switch (status) {
+    case "live":
+      return "active";
+    case "queued":
+      return "initializing";
+    case "building":
+      return "building";
+    case "deploying":
+    case "verifying":
+      return "deploying";
+    case "failed":
+    case "canceled":
+      return "failed";
+    case "rolled_back":
+      return "removed";
+    default:
+      return "initializing";
+  }
+}
 
-const SERVICE_INFO: ServiceInfo = {
-  domain: "repoweb-production-b6a6.up.railway.app",
-  region: "europe-west4-drams3a",
-  replicas: 1,
-};
+function mapEventsToSteps(
+  events: readonly { status: string; reason?: string | null | undefined; createdAt?: number | null | undefined }[],
+): DeploymentStep[] {
+  if (!events || events.length === 0) return [];
 
-const ACTIVE_DEPLOYMENT: Deployment = {
-  id: "1",
-  image: "refactor: update ZeroQueryProvider to us...",
-  timeAgo: "3 months ago",
-  source: "GitHub",
-  status: "active",
-  message: "Deployment successful",
-  showLogs: true,
-  steps: [
-    { name: "Initialization", status: "completed", duration: "00:10" },
-    { name: "Build", status: "completed", duration: "06:01" },
-    { name: "Deploy", status: "completed", duration: "00:38" },
-    { name: "Post-deploy", status: "completed", duration: "00:00" },
-  ],
-};
+  const phaseOrder = ["queued", "building", "deploying", "verifying", "live"];
+  const phaseLabels: Record<string, string> = {
+    queued: "Initialization",
+    building: "Build",
+    deploying: "Deploy",
+    verifying: "Verification",
+    live: "Live",
+  };
 
-const DEPLOYMENT_HISTORY: Deployment[] = [
-  {
-    id: "2",
-    image: "refactor: remove unused WarnIfOffline an...",
-    timeAgo: "2 months ago",
-    source: "GitHub",
-    status: "failed",
-    message: "Deployment failed during build process",
-    showLogs: true,
-    steps: [
-      { name: "Initialization", status: "completed", duration: "00:27" },
-      {
-        name: "Build",
-        status: "failed",
-        children: [
-          {
-            name: "Build › Build image",
-            status: "failed",
-            duration: "01:51",
-            error: "Failed to build an image. Please check the build logs for more details.",
-          },
-        ],
-      },
-      { name: "Deploy", status: "not_started" },
-      { name: "Post-deploy", status: "not_started" },
-    ],
-  },
-  {
-    id: "3",
-    image: "refactor: rename build script to build:dev i...",
-    timeAgo: "2 months ago",
-    source: "GitHub",
-    status: "failed",
-  },
-  {
-    id: "4",
-    image: "Merge pull request #21 from next-oral/fea...",
-    timeAgo: "2 months ago",
-    source: "GitHub",
-    status: "failed",
-  },
-  {
-    id: "5",
-    image: "Merge pull request #19 from next-oral/fea...",
-    timeAgo: "3 months ago",
-    source: "GitHub",
-    status: "failed",
-    showLogs: true,
-  },
-  {
-    id: "6",
-    image: "feat: enhance sidebar components with n...",
-    timeAgo: "3 months ago",
-    source: "GitHub",
-    status: "failed",
-  },
-  {
-    id: "7",
-    image: "feat: add webworker support in TypeScri...",
-    timeAgo: "3 months ago",
-    source: "GitHub",
-    status: "failed",
-  },
-  {
-    id: "8",
-    image: "feat: integrate Serwist for service worker ...",
-    timeAgo: "3 months ago",
-    source: "GitHub",
-    status: "failed",
-  },
-  {
-    id: "9",
-    image: "feat: integrate PostHog for feature flags a...",
-    timeAgo: "3 months ago",
-    source: "GitHub",
-    status: "failed",
-  },
-  {
-    id: "10",
-    image: "fix: update logging message in proxy func...",
-    timeAgo: "3 months ago",
-    source: "GitHub",
-    status: "removed",
-  },
-  {
-    id: "11",
-    image: "chore: remove m.html file and update Rea...",
-    timeAgo: "3 months ago",
-    source: "GitHub",
-    status: "removed",
-  },
-  {
-    id: "12",
-    image: "chore: update package versions in pnpm-...",
-    timeAgo: "3 months ago",
-    source: "GitHub",
-    status: "removed",
-  },
-  {
-    id: "13",
-    image: "feat: integrate @vercel/toolbar for enhan...",
-    timeAgo: "3 months ago",
-    source: "GitHub",
-    status: "removed",
-  },
-  {
-    id: "14",
-    image: "refactor: integrate @rocicorp/zero and up...",
-    timeAgo: "3 months ago",
-    source: "GitHub",
-    status: "removed",
-  },
-  {
-    id: "15",
-    image: "fix: refine proxy URL handling in middlew...",
-    timeAgo: "3 months ago",
-    source: "GitHub",
-    status: "removed",
-  },
-  {
-    id: "16",
-    image: "fix: refine proxy URL handling in middlew...",
-    timeAgo: "3 months ago",
-    source: "GitHub",
-    status: "removed",
-  },
-  {
-    id: "17",
-    image: "fix: refine proxy URL handling in middlew...",
-    timeAgo: "3 months ago",
-    source: "GitHub",
-    status: "removed",
-  },
-  {
-    id: "18",
-    image: "fix: correct proxy URL format in middlewa...",
-    timeAgo: "3 months ago",
-    source: "GitHub",
-    status: "removed",
-  },
-  {
-    id: "19",
-    image: "fix: correct proxy URL format in middlewa...",
-    timeAgo: "3 months ago",
-    source: "GitHub",
-    status: "removed",
-  },
-  {
-    id: "20",
-    image: "fix: update proxy URL handling in middle...",
-    timeAgo: "3 months ago",
-    source: "GitHub",
-    status: "removed",
-  },
-];
+  const reachedStatuses = new Set(events.map((e) => e.status));
+  const hasFailed = reachedStatuses.has("failed") || reachedStatuses.has("canceled");
+
+  return phaseOrder.map((phase) => {
+    const reached = reachedStatuses.has(phase);
+    const failedEvent = events.find(
+      (e) => (e.status === "failed" || e.status === "canceled") && !reachedStatuses.has(phase),
+    );
+
+    let stepStatus: StepStatus;
+    if (reached) {
+      stepStatus = "completed";
+    } else if (hasFailed) {
+      const lastReachedIndex = Math.max(
+        ...Array.from(reachedStatuses).map((s) => phaseOrder.indexOf(s)),
+      );
+      const thisIndex = phaseOrder.indexOf(phase);
+      if (thisIndex === lastReachedIndex + 1 && failedEvent) {
+        stepStatus = "failed";
+      } else {
+        stepStatus = "not_started";
+      }
+    } else {
+      stepStatus = "not_started";
+    }
+
+    const children: DeploymentStep[] = [];
+    if (stepStatus === "failed") {
+      const reason =
+        events.find((e) => e.status === "failed" || e.status === "canceled")?.reason;
+      if (reason) {
+        children.push({
+          name: `${phaseLabels[phase]} failed`,
+          status: "failed",
+          error: reason,
+        });
+      }
+    }
+
+    return {
+      name: phaseLabels[phase] ?? phase,
+      status: stepStatus,
+      children: children.length > 0 ? children : undefined,
+    };
+  });
+}
+
+/** Derive a progress message from deployment events */
+function getDeployingMessage(
+  events: readonly { status: string; reason?: string | null | undefined }[],
+): string {
+  if (!events || events.length === 0) return "Deployment in progress...";
+
+  const statuses = new Set(events.map((e) => e.status));
+
+  if (statuses.has("verifying")) return "Deployment in progress:  Verifying health...";
+  if (statuses.has("deploying")) return "Deployment in progress:  Creating containers...";
+  if (statuses.has("building")) return "Deployment in progress:  Building image...";
+  if (statuses.has("queued")) return "Deployment in progress:  Taking a snapshot of the code...";
+  return "Deployment in progress...";
+}
+
+function isInProgress(status: DeploymentStatus): boolean {
+  return status === "deploying" || status === "building" || status === "initializing";
+}
 
 // ---------------------------------------------------------------------------
 // Status styles
 // ---------------------------------------------------------------------------
 
-const STATUS_STYLES: Record<Deployment["status"], { label: string; className: string }> = {
+const STATUS_STYLES: Record<DeploymentStatus, { label: string; className: string }> = {
   active: {
     label: "ACTIVE",
     className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/25",
@@ -259,6 +207,14 @@ const STATUS_STYLES: Record<Deployment["status"], { label: string; className: st
   },
   building: {
     label: "BUILDING",
+    className: "bg-blue-500/15 text-blue-400 border-blue-500/25",
+  },
+  deploying: {
+    label: "DEPLOYING",
+    className: "bg-purple-500/15 text-purple-400 border-purple-500/25",
+  },
+  initializing: {
+    label: "INITIALIZING",
     className: "bg-blue-500/15 text-blue-400 border-blue-500/25",
   },
 };
@@ -282,9 +238,15 @@ function StepIcon({ status }: { status: StepStatus }) {
 // Deployment steps list
 // ---------------------------------------------------------------------------
 
-function StepsList({ steps, variant }: { steps: DeploymentStep[]; variant: "success" | "error" }) {
-  const borderColor = variant === "success" ? "border-emerald-500/30" : "border-destructive/30";
-  const bgColor = variant === "success" ? "bg-emerald-500/5" : "bg-destructive/5";
+function StepsList({ steps, variant }: { steps: DeploymentStep[]; variant: "success" | "error" | "progress" }) {
+  const borderColor =
+    variant === "error" ? "border-destructive/30" :
+    variant === "progress" ? "border-blue-500/30" :
+    "border-emerald-500/30";
+  const bgColor =
+    variant === "error" ? "bg-destructive/5" :
+    variant === "progress" ? "bg-blue-500/5" :
+    "bg-emerald-500/5";
 
   return (
     <div className={`border-l-2 ${borderColor} ${bgColor}`}>
@@ -311,23 +273,7 @@ function StepsList({ steps, variant }: { steps: DeploymentStep[]; variant: "succ
               </div>
               {child.error && (
                 <div className="px-6 pb-3 pl-12">
-                  <pre className="text-sm text-destructive">
-                    {child.error
-                      .split(/(Please check the build logs for more details\.)/)
-                      .map((part, i) =>
-                        part === "Please check the build logs for more details." ? (
-                          <a
-                            key={i}
-                            href="#"
-                            className="underline underline-offset-2 hover:text-destructive/80 transition-colors"
-                          >
-                            {part}
-                          </a>
-                        ) : (
-                          <span key={i}>{part}</span>
-                        ),
-                      )}
-                  </pre>
+                  <pre className="text-sm text-destructive whitespace-pre-wrap">{child.error}</pre>
                 </div>
               )}
             </div>
@@ -351,17 +297,31 @@ function DeploymentCard({
 }) {
   const style = STATUS_STYLES[deployment.status];
   const isFailed = deployment.status === "failed";
-  const isSuccess = deployment.status === "active" || deployment.status === "completed";
+  const deploying = isInProgress(deployment.status);
   const hasDetails = deployment.message && deployment.steps;
 
-  const bannerBorder = isFailed ? "border-destructive/20" : "border-emerald-500/20";
-  const bannerBg = isFailed ? "bg-destructive/10" : "bg-emerald-500/10";
-  const bannerIcon = isFailed ? (
-    <HugeiconsIcon icon={AlertCircleIcon} size={16} className="text-destructive" />
-  ) : (
-    <HugeiconsIcon icon={CheckmarkCircle01Icon} size={16} className="text-emerald-400" />
-  );
-  const bannerTextColor = isFailed ? "text-destructive" : "text-emerald-400";
+  const bannerBorder =
+    isFailed ? "border-destructive/20" :
+    deploying ? "border-blue-500/20" :
+    "border-emerald-500/20";
+  const bannerBg =
+    isFailed ? "bg-destructive/10" :
+    deploying ? "bg-blue-500/10" :
+    "bg-emerald-500/10";
+  const bannerIcon =
+    isFailed ? (
+      <HugeiconsIcon icon={AlertCircleIcon} size={16} className="text-destructive" />
+    ) : deploying ? (
+      <HugeiconsIcon icon={Loading03Icon} size={16} className="text-blue-400 animate-spin" />
+    ) : (
+      <HugeiconsIcon icon={CheckmarkCircle01Icon} size={16} className="text-emerald-400" />
+    );
+  const bannerTextColor =
+    isFailed ? "text-destructive" :
+    deploying ? "text-blue-400" :
+    "text-emerald-400";
+
+  const stepsVariant = isFailed ? "error" as const : deploying ? "progress" as const : "success" as const;
 
   return (
     <div className="bg-card ring-foreground/10 overflow-hidden rounded-xl ring-1">
@@ -382,7 +342,7 @@ function DeploymentCard({
           </p>
         </div>
 
-        {(active || deployment.showLogs) && (
+        {(active || deployment.showLogs || deploying) && (
           <Button variant="outline" size="sm">
             View logs
           </Button>
@@ -417,7 +377,7 @@ function DeploymentCard({
             />
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <StepsList steps={deployment.steps!} variant={isFailed ? "error" : "success"} />
+            <StepsList steps={deployment.steps!} variant={stepsVariant} />
           </CollapsibleContent>
         </Collapsible>
       )}
@@ -436,51 +396,162 @@ function DeploymentCard({
 // Main panel
 // ---------------------------------------------------------------------------
 
-export function DeploymentsPanel() {
+interface DeploymentsPanelProps {
+  resourceId: string;
+  resourceKind: string;
+  resourceStatus: string;
+  resourceName?: string;
+}
+
+export function DeploymentsPanel({ resourceId, resourceKind, resourceStatus, resourceName }: DeploymentsPanelProps) {
+  const { onRedeploy } = useProjectContext();
+  const rawDeployments = useQuery(queries.deployment.listForResource({ resourceId }));
+  const deployments = rawDeployments[0] ?? [];
+
+  // Sort by createdAt descending
+  const sorted = [...deployments].sort(
+    (a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0),
+  );
+
+  // Map Zero rows to UI Deployment type
+  const mapped: Deployment[] = sorted.map((d) => {
+    const uiStatus = mapDeploymentStatus(d.status);
+    const events = d.events ?? [];
+    const steps = mapEventsToSteps(events);
+    const hasSteps = steps.some((s) => s.status !== "not_started");
+
+    let message: string | undefined;
+    if (uiStatus === "active") {
+      message = "Deployment successful";
+    } else if (uiStatus === "failed") {
+      const failEvent = events.find((e) => e.status === "failed" || e.status === "canceled");
+      message = failEvent?.reason ?? "Deployment failed";
+    } else if (isInProgress(uiStatus)) {
+      message = getDeployingMessage(events);
+    }
+
+    return {
+      id: d.id,
+      image: d.gitCommitMessage ?? d.imageTag ?? `${d.source ?? "manual"} deployment`,
+      timeAgo: formatTimeAgo(d.createdAt),
+      source: d.source ?? "manual",
+      status: uiStatus,
+      message,
+      showLogs: uiStatus === "failed" || uiStatus === "active",
+      steps: hasSteps ? steps : undefined,
+    };
+  });
+
+  // Synthetic card when the resource has a meaningful status but no deployment rows
+  // (e.g. database provisioning which doesn't create deployment rows)
+  if (mapped.length === 0 && resourceStatus !== "unknown" && resourceStatus !== "stopped") {
+    const resourceIsDeploying = resourceStatus === "deploying";
+    const resourceIsOnline = resourceStatus === "online" || resourceStatus === "degraded";
+    const resourceIsCrashed = resourceStatus === "crashed";
+    const label = resourceName ?? resourceKind;
+
+    if (resourceIsDeploying) {
+      mapped.push({
+        id: "__provisioning__",
+        image: label,
+        timeAgo: "just now",
+        source: "manual",
+        status: "initializing",
+        message: "Deployment in progress:  Provisioning resource...",
+        showLogs: false,
+      });
+    } else if (resourceIsOnline) {
+      mapped.push({
+        id: "__provisioned__",
+        image: label,
+        timeAgo: "",
+        source: "manual",
+        status: "active",
+        message: "Deployment successful",
+        showLogs: false,
+      });
+    } else if (resourceIsCrashed) {
+      mapped.push({
+        id: "__crashed__",
+        image: label,
+        timeAgo: "",
+        source: "manual",
+        status: "failed",
+        message: "Resource crashed",
+        showLogs: false,
+      });
+    }
+  }
+
+  const activeDeployment = mapped.find((d) => d.status === "active");
+  const inProgressDeployment = mapped.find((d) => isInProgress(d.status));
+  const history = mapped.filter((d) => d !== activeDeployment && d !== inProgressDeployment);
+  const isDeploying = resourceStatus === "deploying" || !!inProgressDeployment;
+
+  const redeployButton = (
+    <AlertDialog>
+      <AlertDialogTrigger
+        render={
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            disabled={isDeploying}
+          />
+        }
+      >
+        <RotateCwIcon className="size-3.5" />
+        {isDeploying ? "Deploying..." : mapped.length === 0 ? "Deploy" : "Redeploy"}
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Redeploy deployment</AlertDialogTitle>
+          <AlertDialogDescription>
+            Are you sure you want to redeploy this deployment? This will rebuild and deploy your code with the exact same configuration.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={() => onRedeploy({ id: resourceId, kind: resourceKind })}>
+            Redeploy
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+
+  const hasNoContent = mapped.length === 0;
+
   return (
     <div className="space-y-4 pt-4">
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
-        <a
-          href={`https://${SERVICE_INFO.domain}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-1.5 hover:text-foreground transition-colors"
-        >
-          <HugeiconsIcon icon={GlobeIcon} size={16} />
-          {SERVICE_INFO.domain}
-        </a>
-        <div className="flex items-center gap-4">
-          <span className="flex items-center gap-1.5">
-            <HugeiconsIcon icon={Location01Icon} size={14} />
-            {SERVICE_INFO.region}
-          </span>
-          <span className="flex items-center gap-1.5">
-            <HugeiconsIcon icon={Wifi01Icon} size={14} />
-            {SERVICE_INFO.replicas} Replica
-            {SERVICE_INFO.replicas !== 1 ? "s" : ""}
-          </span>
-        </div>
+      <div className={`flex items-center ${hasNoContent ? "justify-between" : "justify-end"}`}>
+        {hasNoContent && <p className="text-sm text-muted-foreground">No deployments yet.</p>}
+        {redeployButton}
       </div>
 
-      <DeploymentCard deployment={ACTIVE_DEPLOYMENT} active />
+      {activeDeployment && <DeploymentCard deployment={activeDeployment} active />}
 
-      <Collapsible defaultOpen>
-        <CollapsibleTrigger className="flex w-full items-center gap-2 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          <HugeiconsIcon
-            icon={ArrowDown01Icon}
-            size={16}
-            className="transition-transform [[data-panel-open]_&]:rotate-0 [[data-panel-closed]_&]:-rotate-90"
-          />
-          History
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <div className="space-y-3">
-            {DEPLOYMENT_HISTORY.map((d) => (
-              <DeploymentCard key={d.id} deployment={d} />
-            ))}
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
+      {inProgressDeployment && <DeploymentCard deployment={inProgressDeployment} />}
+
+      {history.length > 0 && (
+        <Collapsible defaultOpen>
+          <CollapsibleTrigger className="flex w-full items-center gap-2 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <HugeiconsIcon
+              icon={ArrowDown01Icon}
+              size={16}
+              className="transition-transform [[data-panel-open]_&]:rotate-0 [[data-panel-closed]_&]:-rotate-90"
+            />
+            History
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="space-y-3">
+              {history.map((d) => (
+                <DeploymentCard key={d.id} deployment={d} />
+              ))}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
     </div>
   );
 }

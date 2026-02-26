@@ -28,6 +28,7 @@ import {
   EyeOffIcon,
   PaletteIcon,
   PencilLineIcon,
+  RotateCwIcon,
   Trash2Icon,
 } from "lucide-react";
 
@@ -53,6 +54,7 @@ export type ResourceNodeData = {
   attachments?: { id: string; kind: Kind; name: string }[];
   pendingAction?: "added" | "removed";
   onRemove?: (id: string) => void;
+  onRedeploy?: (id: string) => void;
 };
 
 export type GroupNodeData = {
@@ -293,6 +295,13 @@ export function ResourceNodeComponent({ id, data }: NodeProps<ResourceNode>) {
         <ContextMenuItem>
           <PencilLineIcon />
           Rename
+        </ContextMenuItem>
+        <ContextMenuItem
+          disabled={data.status === "deploying"}
+          onClick={() => data.onRedeploy?.(id)}
+        >
+          <RotateCwIcon />
+          Redeploy
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem variant="destructive" onClick={() => data.onRemove?.(id)}>
