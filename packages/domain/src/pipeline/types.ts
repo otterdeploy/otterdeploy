@@ -47,7 +47,7 @@ export type ProjectConfig = Pick<
   "id" | "name" | "slug" | "baseDomain" | "organizationId"
 >;
 
-export type EnvironmentConfig = Pick<EnvironmentSelect, "id" | "name" | "projectId">;
+export type EnvironmentConfig = Pick<EnvironmentSelect, "id" | "name" | "slug" | "projectId">;
 
 export type GitRepoConfig = Pick<
   GitRepositorySelect,
@@ -79,6 +79,7 @@ export interface BuildResult {
   imageTag: string;
   fullImage: string;
   durationMs: number;
+  logs: string[];
 }
 
 export interface CloneResult {

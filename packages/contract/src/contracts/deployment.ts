@@ -83,9 +83,18 @@ export const deploymentContract = {
       z.object({
         deploymentId: IdSchema,
         cursor: z.string().optional(),
+        limit: z.number().int().min(1).max(2 * 1024 * 1024).optional(),
       }),
     )
-    .output(createPaginatedOutputSchema(DeploymentLogSchema))
+    .output(
+      z.object({
+        items: z.array(DeploymentLogSchema),
+        cursor: z.string(),
+        nextCursor: z.string(),
+        hasMore: z.boolean(),
+        sizeBytes: z.number().int().nonnegative(),
+      }),
+    )
     .errors({
       NOT_FOUND: { message: "Deployment not found" },
     }),

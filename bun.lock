@@ -75,6 +75,7 @@
         "@otterdeploy/api": "workspace:*",
         "@otterdeploy/auth": "workspace:*",
         "@otterdeploy/db": "workspace:*",
+        "@otterdeploy/domain": "workspace:*",
         "@otterdeploy/env": "workspace:*",
         "@otterdeploy/logger": "workspace:*",
         "@otterdeploy/zero": "workspace:*",

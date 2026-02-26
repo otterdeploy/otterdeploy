@@ -20,6 +20,7 @@ type LogItem = {
   timestamp: string;
   message: string;
   deploymentId: string;
+  tab: "runtime";
   level: "debug" | "info" | "warn" | "error";
 };
 
@@ -239,6 +240,7 @@ export async function getLogs(params: {
       deploymentId,
       timestamp,
       message,
+      tab: "runtime",
       level: inferLogLevel(message),
     };
   });

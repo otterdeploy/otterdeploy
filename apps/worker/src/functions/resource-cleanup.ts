@@ -10,11 +10,13 @@ import {
   getResourceScopedStackName,
   getStackName,
 } from "@otterdeploy/domain/database-provisioner";
-import type { Result } from "better-result";
+import { Result } from "better-result";
 
 import { inngest } from "../inngest";
 
 const logger = createLogger("resource-cleanup");
+const CLEANUP_STEP_TIMEOUT_MS = 30_000;
+const CLEANUP_STEP_MAX_RETRIES = 3;
 
 function isNotFoundError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
@@ -31,13 +33,48 @@ async function runNonFatalCleanupStep(
   label: string,
   action: () => Promise<Result<void, Error>>,
 ) {
-  const result = await action();
-  if (result.isErr()) {
+  for (let attempt = 1; attempt <= CLEANUP_STEP_MAX_RETRIES; attempt++) {
+    const result = await Promise.race([
+      action(),
+      new Promise<Result<void, Error>>((resolve) =>
+        setTimeout(
+          () =>
+            resolve(
+              Result.err(
+                new Error(
+                  `Cleanup step timed out after ${CLEANUP_STEP_TIMEOUT_MS}ms`,
+                ),
+              ),
+            ),
+          CLEANUP_STEP_TIMEOUT_MS,
+        ),
+      ),
+    ]);
+
+    if (result.isOk()) {
+      if (attempt > 1) {
+        logger.info({ label, attempt }, "Cleanup action succeeded after retry");
+      }
+      return;
+    }
+
     if (isNotFoundError(result.error)) {
       logger.info({ label, err: result.error.message }, "Cleanup target already absent");
       return;
     }
-    logger.warn({ label, err: result.error }, "Cleanup action failed");
+
+    if (attempt >= CLEANUP_STEP_MAX_RETRIES) {
+      logger.warn(
+        { label, err: result.error, attempts: CLEANUP_STEP_MAX_RETRIES },
+        "Cleanup action failed permanently",
+      );
+      return;
+    }
+
+    logger.warn(
+      { label, err: result.error, attempt },
+      "Cleanup action failed, retrying",
+    );
   }
 }
 
@@ -83,6 +120,8 @@ export const resourceCleanup = inngest.createFunction(
     });
 
     await step.run("cleanup-resource-stack", async () => {
+      await runNonFatalCleanupStep("remove-environment-db-stack", () => stackRemove(environmentStackName));
+      await runNonFatalCleanupStep("remove-project-db-stack", () => stackRemove(projectStackName));
       await runNonFatalCleanupStep("remove-resource-db-stack", () => stackRemove(resourceStackName));
     });
 

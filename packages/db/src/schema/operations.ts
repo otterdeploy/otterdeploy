@@ -133,6 +133,12 @@ export const auditLog = pgTable(
     organizationId: text("organization_id").references(() => organization.id, {
       onDelete: "set null",
     }),
+    actorType: text("actor_type").notNull().default("user"),
+    actorUserId: text("actor_user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    actorLabel: text("actor_label").notNull().default("user"),
+    // Deprecated, kept for backward compatibility with existing readers.
     userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
     action: text("action").notNull(),
     entityType: text("entity_type").notNull(),
@@ -149,7 +155,13 @@ export const auditLog = pgTable(
     index("audit_log_org_idx").on(table.organizationId),
     index("audit_log_entity_idx").on(table.entityType, table.entityId),
     index("audit_log_created_idx").on(table.createdAt),
+    index("audit_log_actor_user_idx").on(table.actorUserId),
+    index("audit_log_actor_type_idx").on(table.actorType),
     index("audit_log_user_idx").on(table.userId),
+    check(
+      "audit_log_actor_type_check",
+      sql`${table.actorType} in ('user', 'system')`,
+    ),
   ],
 );
 

@@ -1,5 +1,9 @@
 import { createLogger } from "@otterdeploy/logger";
-import { ConflictError, deploymentMachine } from "@otterdeploy/domain";
+import {
+  ConflictError,
+  deploymentMachine,
+  deploymentLogService,
+} from "@otterdeploy/domain";
 import {
   provisionDatabase,
   DATABASE_CONFIGS,
@@ -62,6 +66,15 @@ export const databaseProvision = inngest.createFunction(
         orderBy: [desc(deployment.createdAt)],
       });
       if (latestDeployment) {
+        await deploymentLogService.appendDeploymentLog({
+          deploymentId: latestDeployment.id,
+          tab: "deploy",
+          level: "error",
+          message:
+            error instanceof Error
+              ? `database provisioning failed: ${error.message}`
+              : "database provisioning failed",
+        });
         const transitionResult = await deploymentMachine.transitionTo(
           latestDeployment.id,
           "failed",
@@ -113,20 +126,47 @@ export const databaseProvision = inngest.createFunction(
     }
 
     if (deploymentId) {
+      await deploymentLogService.ensureDeploymentLog({ deploymentId });
+      await deploymentLogService.appendDeploymentLog({
+        deploymentId,
+        tab: "deploy",
+        message: `database provisioning started for resource ${resourceId}`,
+      });
       await safeTransition(deploymentId, "building", "Database provision started");
       await safeTransition(deploymentId, "deploying", "Deploying database service");
     }
 
     // Ensure the project network exists before deploying the stack
     await step.run("ensure-network", async () => {
+      if (deploymentId) {
+        await deploymentLogService.appendDeploymentLog({
+          deploymentId,
+          tab: "deploy",
+          message: "ensure-network: creating project network",
+        });
+      }
       const networkResult = await createProjectNetwork(
         event.data.projectId,
         event.data.environmentId,
       );
       if (networkResult.isErr()) throw networkResult.error;
+      if (deploymentId) {
+        await deploymentLogService.appendDeploymentLog({
+          deploymentId,
+          tab: "deploy",
+          message: "ensure-network: completed",
+        });
+      }
     });
 
     const result = await step.run("provision-database", async () => {
+      if (deploymentId) {
+        await deploymentLogService.appendDeploymentLog({
+          deploymentId,
+          tab: "deploy",
+          message: "provision-database: started",
+        });
+      }
       const row = await db.query.resource.findFirst({
         where: eq(resource.id, resourceId),
         with: {
@@ -161,16 +201,39 @@ export const databaseProvision = inngest.createFunction(
           environmentSlug: row.environment?.slug ?? event.data.environmentId,
           organizationId: orgId,
           dbType: row.databaseConfig.databaseType,
+          onLogLine: deploymentId
+            ? (line, stream) =>
+                void deploymentLogService.appendDeploymentLog({
+                  deploymentId,
+                  tab: "deploy",
+                  level: stream === "stderr" ? "warn" : "info",
+                  message: line,
+                })
+            : undefined,
         },
         deps,
       );
 
       if (provisionResult.isErr()) throw provisionResult.error;
+      if (deploymentId) {
+        await deploymentLogService.appendDeploymentLog({
+          deploymentId,
+          tab: "deploy",
+          message: `provision-database: stack ${provisionResult.value.stackName} deployed`,
+        });
+      }
       return provisionResult.value;
     });
 
     // Persist credentials as resource-scoped environment variables
     await step.run("persist-env-vars", async () => {
+      if (deploymentId) {
+        await deploymentLogService.appendDeploymentLog({
+          deploymentId,
+          tab: "deploy",
+          message: "persist-env-vars: writing generated database credentials",
+        });
+      }
       const row = await db.query.resource.findFirst({
         where: eq(resource.id, resourceId),
         with: { databaseConfig: true },
@@ -183,6 +246,8 @@ export const databaseProvision = inngest.createFunction(
       const config = DATABASE_CONFIGS[dbType];
       const systemAudit = {
         userId: null,
+        actorType: "system" as const,
+        actorLabel: "otterstack/database-provision",
         ipAddress: null,
         userAgent: "otterstack/database-provision",
       };
@@ -250,6 +315,13 @@ export const databaseProvision = inngest.createFunction(
         { resourceId, envVarCount: Object.keys(config.envMapping).length + 1 },
         "Database credentials persisted as env vars",
       );
+      if (deploymentId) {
+        await deploymentLogService.appendDeploymentLog({
+          deploymentId,
+          tab: "deploy",
+          message: "persist-env-vars: completed",
+        });
+      }
     });
 
     // Mark resource as online
@@ -260,8 +332,18 @@ export const databaseProvision = inngest.createFunction(
         .where(eq(resource.id, resourceId));
 
       if (deploymentId) {
+        await deploymentLogService.appendDeploymentLog({
+          deploymentId,
+          tab: "deploy",
+          message: "update-resource-status: marking deployment live",
+        });
         await safeTransition(deploymentId, "verifying", "Verifying database health");
         await safeTransition(deploymentId, "live", "Database provision completed");
+        await deploymentLogService.appendDeploymentLog({
+          deploymentId,
+          tab: "deploy",
+          message: "database provisioning completed successfully",
+        });
       }
     });
 

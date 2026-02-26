@@ -32,6 +32,7 @@ const { Panel, Content, tabValues } = createDetailPanel([
 const searchSchema = z.object({
   tab: z.enum(tabValues).default(tabValues[0]),
   deploymentId: z.string().optional(),
+  logTab: z.enum(["build", "deploy", "runtime"]).default("deploy"),
 });
 
 export const Route = createFileRoute(
@@ -48,7 +49,7 @@ export const Route = createFileRoute(
 });
 
 function RouteComponent() {
-  const { tab, deploymentId } = Route.useSearch();
+  const { tab, deploymentId, logTab } = Route.useSearch();
   const { projectId, serviceId } = Route.useParams();
   const [resource] = useQuery(queries.resource.byId({ resourceId: serviceId }));
   const [deployments, setDeployments] = useState<DeploymentInfo[]>([]);
@@ -93,7 +94,11 @@ function RouteComponent() {
             onViewLogs={(id) =>
               navigate({
                 to: ".",
-                search: (prev) => ({ ...prev, deploymentId: id }),
+                search: (prev) => ({
+                  ...prev,
+                  deploymentId: id,
+                  logTab: prev.logTab ?? "deploy",
+                }),
               })}
             onDeploymentsChange={(items) => {
               setDeployments(items);
@@ -154,6 +159,13 @@ function RouteComponent() {
         deployment={viewingDeployment}
         resourceId={serviceId}
         resourceName={resource?.name ?? "Service"}
+        logTab={logTab}
+        onLogTabChange={(nextLogTab) =>
+          navigate({
+            to: ".",
+            search: (prev) => ({ ...prev, logTab: nextLogTab }),
+            replace: true,
+          })}
         onClose={() =>
           navigate({
             to: ".",

@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import { Result } from "better-result";
 
-import { buildImage } from "../build";
-import type { BuildDeps, ResourceConfig } from "../types";
+import { buildImage, type BuildDeps } from "../build";
+import type { ResourceConfig } from "../types";
 
 const mockResource: ResourceConfig = {
   id: "res-1",
@@ -32,6 +32,7 @@ function createMockBuildDeps(overrides: Partial<BuildDeps> = {}): BuildDeps {
         imageName: "otterstack-res-1",
         imageTag: "v1706745600000",
         durationMs: 12345,
+        logs: ["build started", "build completed"],
       }),
     ),
     tagAsLatest: vi.fn().mockResolvedValue(Result.ok(undefined)),

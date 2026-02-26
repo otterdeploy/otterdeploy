@@ -1,5 +1,9 @@
 import * as z from "zod";
-import { deploymentService, deploymentSecretService, monitoringService } from "@otterdeploy/domain";
+import {
+  deploymentService,
+  deploymentSecretService,
+  deploymentLogService,
+} from "@otterdeploy/domain";
 
 import { orgProcedure, orgMemberProcedure, orgAdminProcedure } from "../index";
 import { unwrapResult } from "../utils/result";
@@ -119,23 +123,16 @@ export const deploymentRouter = {
       z.object({
         deploymentId: z.string().min(1),
         cursor: z.string().optional(),
+        limit: z.number().int().min(1).max(2 * 1024 * 1024).optional(),
       }),
     )
     .handler(async ({ context, input }) => {
-      const timeline = unwrapResult(
-        await deploymentService.getDeploymentWithTimeline(input.deploymentId, context.organizationId),
-      );
-
-      const from = timeline.deployment.startedAt ?? timeline.deployment.createdAt;
-
       return unwrapResult(
-        await monitoringService.getLogs({
-          resourceId: timeline.deployment.resourceId,
+        await deploymentLogService.readDeploymentLogChunk({
+          deploymentId: input.deploymentId,
           organizationId: context.organizationId,
-          deploymentId: timeline.deployment.id,
-          from,
-          page: 1,
-          pageSize: 50,
+          cursor: input.cursor,
+          limitBytes: input.limit,
         }),
       );
     }),

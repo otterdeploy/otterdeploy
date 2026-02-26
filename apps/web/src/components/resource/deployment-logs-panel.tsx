@@ -14,7 +14,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { orpc } from "@/utils/orpc";
+import { getOrganizationId, orpc } from "@/utils/orpc";
+import { env } from "@otterdeploy/env/web";
 import {
   AlertCircleIcon,
   ArrowDown01Icon,
@@ -31,7 +32,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { useQuery } from "@tanstack/react-query";
 import { DownloadIcon, ExternalLinkIcon, SearchIcon } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -61,6 +62,8 @@ interface DeploymentLogsPanelProps {
   deployment: DeploymentInfo;
   resourceId: string;
   resourceName: string;
+  logTab: "build" | "deploy" | "runtime";
+  onLogTabChange: (tab: "build" | "deploy" | "runtime") => void;
   onClose: () => void;
 }
 
@@ -386,6 +389,8 @@ export function DeploymentLogsPanel({
   deployment,
   resourceId,
   resourceName,
+  logTab,
+  onLogTabChange,
   onClose,
 }: DeploymentLogsPanelProps) {
   const shortId = deployment.id.slice(0, 7);
@@ -394,26 +399,110 @@ export function DeploymentLogsPanel({
 
   const [buildSearch, setBuildSearch] = useState("");
   const [deploySearch, setDeploySearch] = useState("");
+  const [runtimeSearch, setRuntimeSearch] = useState("");
 
   const isSyntheticDeployment = deployment.id.startsWith("__");
+  const shouldStreamLive =
+    !isSyntheticDeployment &&
+    (deployment.status === "initializing" ||
+      deployment.status === "building" ||
+      deployment.status === "deploying");
 
   const { data: deploymentLogsData } = useQuery({
     ...orpc.deployment.streamLogs.queryOptions({
-      input: { deploymentId: deployment.id },
+      input: { deploymentId: deployment.id, limit: 2 * 1024 * 1024 },
     }),
     enabled: !isSyntheticDeployment,
   });
 
-  const { data: resourceLogsData } = useQuery({
+  const { data: runtimeLogsData } = useQuery({
     ...orpc.monitoring.getLogs.queryOptions({
-      input: { resourceId, page: 1, pageSize: 50 },
+      input: { resourceId, page: 1, pageSize: 200 },
     }),
-    enabled: isSyntheticDeployment,
+    enabled: logTab === "runtime" || isSyntheticDeployment,
   });
 
-  const logItems = isSyntheticDeployment
-    ? (resourceLogsData?.items ?? [])
-    : (deploymentLogsData?.items ?? []);
+  const [deploymentLogItems, setDeploymentLogItems] = useState<
+    Array<{
+      id: string;
+      deploymentId: string;
+      timestamp: string;
+      tab: "build" | "deploy" | "runtime";
+      level: "debug" | "info" | "warn" | "error";
+      message: string;
+    }>
+  >([]);
+
+  useEffect(() => {
+    setDeploymentLogItems((deploymentLogsData?.items as typeof deploymentLogItems) ?? []);
+    setBuildSearch("");
+    setDeploySearch("");
+    setRuntimeSearch("");
+  }, [deployment.id, deploymentLogsData?.cursor, deploymentLogsData?.nextCursor]);
+
+  useEffect(() => {
+    if (!shouldStreamLive) return;
+
+    const wsUrl = new URL("/listen-deployment", env.VITE_SERVER_URL);
+    wsUrl.protocol = wsUrl.protocol === "https:" ? "wss:" : "ws:";
+    wsUrl.searchParams.set("deploymentId", deployment.id);
+    const organizationId = getOrganizationId();
+    if (organizationId) {
+      wsUrl.searchParams.set("organizationId", organizationId);
+    }
+
+    const socket = new WebSocket(wsUrl.toString());
+
+    socket.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data as string) as {
+          type: string;
+          log?: {
+            id?: string;
+            deploymentId: string;
+            timestamp: string;
+            tab: "build" | "deploy" | "runtime";
+            level: "debug" | "info" | "warn" | "error";
+            message: string;
+          };
+        };
+        if (payload.type !== "log" || !payload.log) return;
+        if (payload.log.deploymentId !== deployment.id) return;
+
+        const id =
+          payload.log.id ??
+          `${payload.log.timestamp}:${payload.log.tab}:${payload.log.message}`;
+
+        setDeploymentLogItems((prev) => {
+          if (prev.some((item) => item.id === id)) return prev;
+          const next = [...prev, { ...payload.log!, id }];
+          return next.slice(-5000);
+        });
+      } catch {
+        // Ignore malformed messages to keep streaming resilient.
+      }
+    };
+
+    return () => {
+      socket.close();
+    };
+  }, [deployment.id, shouldStreamLive]);
+
+  const buildLogs = useMemo(
+    () => deploymentLogItems.filter((item) => item.tab === "build"),
+    [deploymentLogItems],
+  );
+  const deployLogs = useMemo(
+    () => deploymentLogItems.filter((item) => item.tab === "deploy"),
+    [deploymentLogItems],
+  );
+  const runtimeLogs = useMemo(
+    () =>
+      isSyntheticDeployment
+        ? (runtimeLogsData?.items ?? [])
+        : (runtimeLogsData?.items ?? deploymentLogItems.filter((item) => item.tab === "runtime")),
+    [deploymentLogItems, isSyntheticDeployment, runtimeLogsData?.items],
+  );
 
   return (
     <motion.div
@@ -457,26 +546,34 @@ export function DeploymentLogsPanel({
       </div>
 
       {/* Tabbed content */}
-      <Tabs defaultValue="deploy-logs" className="flex min-h-0 flex-1 flex-col">
+      <Tabs
+        value={logTab}
+        onValueChange={(value) => onLogTabChange(value as "build" | "deploy" | "runtime")}
+        className="flex min-h-0 flex-1 flex-col"
+      >
         <div className="border-b border-white/10 px-5">
           <TabsList variant="line">
-            <TabsTrigger value="details">Details</TabsTrigger>
-            <TabsTrigger value="build-logs">Build Logs</TabsTrigger>
-            <TabsTrigger value="deploy-logs">Deploy Logs</TabsTrigger>
+            <TabsTrigger value="build">Build Logs</TabsTrigger>
+            <TabsTrigger value="deploy">Deploy Logs</TabsTrigger>
+            <TabsTrigger value="runtime">Runtime Logs</TabsTrigger>
           </TabsList>
         </div>
 
         <div className="min-h-0 flex-1 overflow-auto px-5 py-4">
-          <TabsContent value="details">
-            <DetailsTab deployment={deployment} />
+          <TabsContent value="build">
+            <LogTable items={buildLogs} search={buildSearch} onSearchChange={setBuildSearch} />
           </TabsContent>
 
-          <TabsContent value="build-logs">
-            <LogTable items={[]} search={buildSearch} onSearchChange={setBuildSearch} />
+          <TabsContent value="deploy">
+            <LogTable items={deployLogs} search={deploySearch} onSearchChange={setDeploySearch} />
           </TabsContent>
 
-          <TabsContent value="deploy-logs">
-            <LogTable items={logItems} search={deploySearch} onSearchChange={setDeploySearch} />
+          <TabsContent value="runtime">
+            <LogTable
+              items={runtimeLogs}
+              search={runtimeSearch}
+              onSearchChange={setRuntimeSearch}
+            />
           </TabsContent>
         </div>
       </Tabs>

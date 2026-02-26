@@ -2,12 +2,15 @@ import { Result } from "better-result";
 import { db, eq, and } from "@otterdeploy/db";
 import { deployment, deploymentEvent } from "@otterdeploy/db/schema/deployment";
 import { isDeploymentTerminalStatus } from "@otterdeploy/events";
+import { createLogger } from "@otterdeploy/logger";
 
 import { createId } from "@otterdeploy/utils";
 
 import { NotFoundError, ConflictError } from "./errors";
 
 export { isDeploymentTerminalStatus };
+
+const log = createLogger("domain:deployment-machine");
 
 type DeploymentStatus =
   | "queued"
@@ -70,6 +73,15 @@ export async function transitionTo(
     return Result.ok(undefined);
   }
 
+  // Worker-safe no-op: retries may arrive out-of-order.
+  if (currentStatus === "deploying" && nextStatus === "building") {
+    log.warn(
+      { deploymentId, currentStatus, nextStatus },
+      "Ignoring stale deployment transition request",
+    );
+    return Result.ok(undefined);
+  }
+
   const transitionResult = assertValidTransition(currentStatus, nextStatus);
   if (transitionResult.isErr()) return transitionResult;
 
@@ -87,9 +99,19 @@ export async function transitionTo(
   // Set completedAt and duration for terminal states
   if (isDeploymentTerminalStatus(nextStatus)) {
     updateSet.completedAt = now;
+    updateSet.finishedAt = now;
     if (row.startedAt) {
       updateSet.duration = Math.round((now.getTime() - row.startedAt.getTime()) / 1000);
     }
+    if (nextStatus === "failed") {
+      updateSet.errorMessage = eventData.reason ?? "Deployment failed";
+    } else if (nextStatus === "canceled") {
+      updateSet.errorMessage = eventData.reason ?? "Deployment canceled";
+    } else {
+      updateSet.errorMessage = null;
+    }
+  } else {
+    updateSet.errorMessage = null;
   }
 
   // Optimistic lock: only update if status hasn't changed

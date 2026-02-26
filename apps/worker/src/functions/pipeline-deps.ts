@@ -103,6 +103,7 @@ export function createPipelineDeps(): PipelineDeps {
       return {
         id: row.id,
         name: row.name,
+        slug: row.slug,
         projectId: row.projectId,
       };
     },
@@ -273,8 +274,13 @@ export function createResolveSecretsDeps(): ResolveSecretsDeps {
 export function createBuildDeps(): BuildDeps {
   return {
     buildImage: async (input) => {
-      const { getBuilder, getImageName, getImageTag } = await import("@otterdeploy/builder");
-      const method = "nixpacks"; // Default; the pipeline step determines the actual method
+      const { getBuilder } = await import("@otterdeploy/builder");
+      const method =
+        input.builder === "dockerfile"
+          ? "dockerfile"
+          : input.builder === "docker_image"
+            ? "docker_image"
+            : "nixpacks";
       const builder = getBuilder(method);
       const result = await builder.build(input);
       if (result.isErr()) return result;
@@ -282,6 +288,7 @@ export function createBuildDeps(): BuildDeps {
         imageName: result.value.imageName,
         imageTag: result.value.imageTag,
         durationMs: result.value.durationMs,
+        logs: result.value.logs,
       });
     },
 

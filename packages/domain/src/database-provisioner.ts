@@ -271,6 +271,7 @@ export function buildHealthCheckCmd(
 }
 
 export function generateComposeFile(input: {
+  composeProjectName: string;
   image: string;
   dbType: DatabaseType;
   serviceName: string;
@@ -326,6 +327,7 @@ export function generateComposeFile(input: {
     .join("\n");
 
   const rendered = renderComposeTemplate(getDatabaseComposeTemplate(), {
+    COMPOSE_PROJECT_NAME: input.composeProjectName,
     SERVICE_NAME: input.serviceName,
     IMAGE: input.image,
     COMMAND_BLOCK: commandBlock,
@@ -349,9 +351,11 @@ export interface StackDeps {
   stackDeploy: (
     stackName: string,
     composeContent: string,
+    options?: { onLogLine?: (line: string, stream: "stdout" | "stderr") => void },
   ) => Promise<Result<void, Error>>;
   stackRemove: (
     stackName: string,
+    options?: { onLogLine?: (line: string, stream: "stdout" | "stderr") => void },
   ) => Promise<Result<void, Error>>;
   stackServices: (
     stackName: string,
@@ -371,6 +375,7 @@ export async function provisionDatabase(
     imageTag?: string;
     externalPort?: number;
     resourceLimits?: { cpuLimit?: number; memoryLimitMb?: number };
+    onLogLine?: (line: string, stream: "stdout" | "stderr") => void;
   },
   deps: StackDeps,
 ): Promise<
@@ -411,6 +416,7 @@ export async function provisionDatabase(
 
   // Generate compose file
   const composeContent = generateComposeFile({
+    composeProjectName: stackName,
     image,
     dbType: input.dbType,
     serviceName,
@@ -423,7 +429,9 @@ export async function provisionDatabase(
   });
 
   // Deploy stack
-  const deployResult = await deps.stackDeploy(stackName, composeContent);
+  const deployResult = await deps.stackDeploy(stackName, composeContent, {
+    onLogLine: input.onLogLine,
+  });
   if (deployResult.isErr()) {
     log.error(
       { err: deployResult.error },
@@ -494,6 +502,7 @@ export async function upgradeDatabase(
     credentials: Record<string, string>;
     externalPort?: number;
     resourceLimits?: { cpuLimit?: number; memoryLimitMb?: number };
+    onLogLine?: (line: string, stream: "stdout" | "stderr") => void;
   },
   deps: StackDeps,
 ): Promise<Result<void, Error>> {
@@ -565,6 +574,7 @@ export async function upgradeDatabase(
 
   // Regenerate compose file with new image
   const composeContent = generateComposeFile({
+    composeProjectName: stackName,
     image: input.newImageTag,
     dbType: input.dbType,
     serviceName,
@@ -577,7 +587,9 @@ export async function upgradeDatabase(
   });
 
   // Redeploy — docker stack deploy updates existing services in-place
-  const deployResult = await deps.stackDeploy(stackName, composeContent);
+  const deployResult = await deps.stackDeploy(stackName, composeContent, {
+    onLogLine: input.onLogLine,
+  });
   if (deployResult.isErr()) {
     log.error(
       { err: deployResult.error },

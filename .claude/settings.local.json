@@ -18,7 +18,8 @@
       "Bash(agent-browser find:*)",
       "Bash(agent-browser scroll:*)",
       "Bash(psql:*)",
-      "Bash(echo no psql:*)"
+      "Bash(echo no psql:*)",
+      "Bash(bun tsc:*)"
     ]
   }
 }

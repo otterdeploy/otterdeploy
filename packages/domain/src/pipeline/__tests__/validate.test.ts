@@ -52,6 +52,7 @@ function createMockDeps(overrides: Partial<PipelineDeps> = {}): PipelineDeps {
     getEnvironment: vi.fn().mockResolvedValue({
       id: "env-1",
       name: "production",
+      slug: "production",
       projectId: "proj-1",
     }),
     getGitRepository: vi.fn().mockResolvedValue({

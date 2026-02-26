@@ -6,7 +6,9 @@ import { getIpAddress } from "./http";
 
 export type WriteAuditLogEventInput = {
   organizationId: string;
-  userId: string;
+  userId: string | null;
+  actorType?: "user" | "system";
+  actorLabel?: string | null;
   action: string;
   entityType: string;
   entityId: string;
@@ -16,10 +18,20 @@ export type WriteAuditLogEventInput = {
 
 export async function writeAuditLogEvent(input: WriteAuditLogEventInput): Promise<string> {
   const id = createId();
+  const inferredActorType = input.actorType ?? (input.userId ? "user" : "system");
+  const actorType = inferredActorType === "user" && !input.userId ? "system" : inferredActorType;
+  const actorUserId = actorType === "user" ? input.userId : null;
+  const actorLabel =
+    input.actorLabel?.trim() ||
+    (actorType === "system" ? "system" : actorUserId ? "user" : "unknown");
+
   await db.insert(auditLog).values({
     id,
     organizationId: input.organizationId,
-    userId: input.userId,
+    actorType,
+    actorUserId,
+    actorLabel,
+    userId: actorUserId,
     action: input.action,
     entityType: input.entityType,
     entityId: input.entityId,

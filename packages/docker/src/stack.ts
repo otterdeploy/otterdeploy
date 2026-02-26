@@ -1,5 +1,5 @@
 import { Result } from "better-result";
-import { execSync } from "node:child_process";
+import { execSync, spawn } from "node:child_process";
 import { writeFileSync, mkdirSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -16,9 +16,115 @@ export interface StackServiceInfo {
   image: string;
 }
 
+type StackCommandStream = "stdout" | "stderr";
+
+function flushChunkLines(
+  chunk: string,
+  remainder: string,
+  onLine?: (line: string) => void,
+): string {
+  const combined = `${remainder}${chunk}`;
+  const parts = combined.split(/\r?\n/);
+  const nextRemainder = parts.pop() ?? "";
+  for (const line of parts) {
+    if (line.trim().length === 0) continue;
+    onLine?.(line);
+  }
+  return nextRemainder;
+}
+
+async function runDockerCommand(
+  args: string[],
+  options?: {
+    timeoutMs?: number;
+    onLogLine?: (line: string, stream: StackCommandStream) => void;
+  },
+): Promise<Result<{ stdout: string; stderr: string }, Error>> {
+  return new Promise((resolve) => {
+    const proc = spawn("docker", args, {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    let stdout = "";
+    let stderr = "";
+    let stdoutRemainder = "";
+    let stderrRemainder = "";
+    let timedOut = false;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+    if (options?.timeoutMs) {
+      timeoutId = setTimeout(() => {
+        timedOut = true;
+        proc.kill("SIGTERM");
+      }, options.timeoutMs);
+    }
+
+    proc.stdout?.on("data", (data: Buffer | string) => {
+      const chunk = data.toString();
+      stdout += chunk;
+      stdoutRemainder = flushChunkLines(
+        chunk,
+        stdoutRemainder,
+        (line) => options?.onLogLine?.(line, "stdout"),
+      );
+    });
+
+    proc.stderr?.on("data", (data: Buffer | string) => {
+      const chunk = data.toString();
+      stderr += chunk;
+      stderrRemainder = flushChunkLines(
+        chunk,
+        stderrRemainder,
+        (line) => options?.onLogLine?.(line, "stderr"),
+      );
+    });
+
+    proc.on("error", (error) => {
+      if (timeoutId) clearTimeout(timeoutId);
+      resolve(Result.err(error instanceof Error ? error : new Error(String(error))));
+    });
+
+    proc.on("close", (code) => {
+      if (timeoutId) clearTimeout(timeoutId);
+
+      if (stdoutRemainder.trim().length > 0) {
+        options?.onLogLine?.(stdoutRemainder, "stdout");
+      }
+      if (stderrRemainder.trim().length > 0) {
+        options?.onLogLine?.(stderrRemainder, "stderr");
+      }
+
+      if (timedOut) {
+        resolve(
+          Result.err(new Error(`docker ${args.join(" ")} timed out`)),
+        );
+        return;
+      }
+
+      if (code !== 0) {
+        resolve(
+          Result.err(
+            new Error(
+              `docker ${args.join(" ")} exited with code ${code ?? 1}${
+                stderr ? `: ${stderr.trim()}` : ""
+              }`,
+            ),
+          ),
+        );
+        return;
+      }
+
+      resolve(Result.ok({ stdout, stderr }));
+    });
+  });
+}
+
 export async function stackDeploy(
   stackName: string,
   composeContent: string,
+  options?: {
+    onLogLine?: (line: string, stream: StackCommandStream) => void;
+  },
 ): Promise<Result<void, Error>> {
   const tmpFile = join(
     STACK_TMP_DIR,
@@ -29,10 +135,14 @@ export async function stackDeploy(
     mkdirSync(STACK_TMP_DIR, { recursive: true });
     writeFileSync(tmpFile, composeContent, "utf-8");
 
-    execSync(`docker stack deploy -c "${tmpFile}" "${stackName}"`, {
-      encoding: "utf-8",
-      timeout: 60_000,
-    });
+    const deployResult = await runDockerCommand(
+      ["stack", "deploy", "-c", tmpFile, stackName],
+      {
+        timeoutMs: 60_000,
+        onLogLine: options?.onLogLine,
+      },
+    );
+    if (deployResult.isErr()) return deployResult;
 
     log.info({ stackName }, "Stack deployed");
     return Result.ok(undefined);
@@ -51,12 +161,16 @@ export async function stackDeploy(
 
 export async function stackRemove(
   stackName: string,
+  options?: {
+    onLogLine?: (line: string, stream: StackCommandStream) => void;
+  },
 ): Promise<Result<void, Error>> {
   try {
-    execSync(`docker stack rm "${stackName}"`, {
-      encoding: "utf-8",
-      timeout: 30_000,
+    const removeResult = await runDockerCommand(["stack", "rm", stackName], {
+      timeoutMs: 30_000,
+      onLogLine: options?.onLogLine,
     });
+    if (removeResult.isErr()) return removeResult;
 
     log.info({ stackName }, "Stack removed");
     return Result.ok(undefined);

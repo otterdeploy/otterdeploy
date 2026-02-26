@@ -5,7 +5,9 @@ function formatAuditLog(row: typeof auditLog.$inferSelect) {
   return {
     id: row.id,
     organizationId: row.organizationId,
-    actorUserId: row.userId ?? null,
+    actorType: row.actorType === "system" ? "system" : "user",
+    actorUserId: row.actorUserId ?? row.userId ?? null,
+    actorLabel: row.actorLabel ?? (row.userId ? "user" : "system"),
     action: row.action,
     entityType: row.entityType,
     entityId: row.entityId ?? null,
@@ -31,6 +33,7 @@ export async function listAuditLogs(params: {
   organizationId: string;
   action?: string;
   actorUserId?: string;
+  actorType?: "user" | "system";
   page: number;
   pageSize: number;
 }) {
@@ -39,7 +42,12 @@ export async function listAuditLogs(params: {
 
   const conditions = [eq(auditLog.organizationId, params.organizationId)];
   if (params.action) conditions.push(eq(auditLog.action, params.action));
-  if (params.actorUserId) conditions.push(eq(auditLog.userId, params.actorUserId));
+  if (params.actorUserId) {
+    conditions.push(eq(auditLog.actorUserId, params.actorUserId));
+  }
+  if (params.actorType) {
+    conditions.push(eq(auditLog.actorType, params.actorType));
+  }
 
   const whereClause = and(...conditions);
 

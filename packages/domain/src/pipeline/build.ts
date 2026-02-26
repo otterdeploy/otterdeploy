@@ -10,6 +10,7 @@ export interface BuildDeps {
    * Dispatch build to the appropriate builder (nixpacks, dockerfile, docker_image, static).
    */
   buildImage: (input: {
+    builder?: string;
     sourceDir: string;
     resourceId: string;
     deploymentNumber: number;
@@ -19,7 +20,10 @@ export interface BuildDeps {
     startCommand?: string;
     dockerfilePath?: string;
     force?: boolean;
-  }) => Promise<Result<{ imageName: string; imageTag: string; durationMs: number }, Error>>;
+    onLogLine?: (line: string, stream: "stdout" | "stderr") => void | Promise<void>;
+  }) => Promise<
+    Result<{ imageName: string; imageTag: string; durationMs: number; logs: string[] }, Error>
+  >;
 
   /**
    * Tag the built image as :latest for the resource.
@@ -53,6 +57,7 @@ export async function buildImage(
     deploymentNumber: number;
     force?: boolean;
     existingImageTag?: string | null;
+    onLogLine?: (line: string, stream: "stdout" | "stderr") => void | Promise<void>;
   },
   deps: BuildDeps,
 ): Promise<Result<BuildResult, Error>> {
@@ -68,17 +73,26 @@ export async function buildImage(
         { deploymentId, imageTag: input.existingImageTag },
         "Using existing image tag (rollback)",
       );
+      if (input.onLogLine) {
+        try {
+          void input.onLogLine("Reusing existing image tag from rollback", "stdout");
+        } catch {
+          // Ignore callback failures to keep rollback flow resilient.
+        }
+      }
 
       return Result.ok({
         imageName,
         imageTag: input.existingImageTag,
         fullImage,
         durationMs: 0,
+        logs: ["Reusing existing image tag from rollback"],
       });
     }
 
     // Build the image
     const buildResult = await deps.buildImage({
+      builder,
       sourceDir,
       resourceId,
       deploymentNumber: input.deploymentNumber,
@@ -87,13 +101,14 @@ export async function buildImage(
       startCommand: resource.startCommand ?? undefined,
       dockerfilePath: resource.dockerfilePath ?? undefined,
       force: input.force,
+      onLogLine: input.onLogLine,
     });
 
     if (buildResult.isErr()) {
       return Result.err(buildResult.error);
     }
 
-    const { imageName, imageTag, durationMs } = buildResult.value;
+    const { imageName, imageTag, durationMs, logs: buildLogs } = buildResult.value;
     const fullImage = `${imageName}:${imageTag}`;
 
     // Tag as :latest
@@ -110,7 +125,13 @@ export async function buildImage(
 
     log.info({ deploymentId, fullImage, durationMs }, "Image built and tagged");
 
-    return Result.ok({ imageName, imageTag, fullImage, durationMs });
+    return Result.ok({
+      imageName,
+      imageTag,
+      fullImage,
+      durationMs,
+      logs: buildLogs,
+    });
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
     log.error({ err, deploymentId: input.deploymentId }, "Build failed");

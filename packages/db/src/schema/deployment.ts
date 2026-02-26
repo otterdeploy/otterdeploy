@@ -35,9 +35,13 @@ export const deployment = pgTable(
     builder: builderEnum("builder"),
     imageTag: text("image_tag"),
     previousImageTag: text("previous_image_tag"),
+    logPath: text("log_path"),
+    logServerId: text("log_server_id"),
     startedAt: timestamp("started_at"),
     completedAt: timestamp("completed_at"),
+    finishedAt: timestamp("finished_at"),
     duration: integer("duration"),
+    errorMessage: text("error_message"),
     triggeredBy: text("triggered_by").references(() => user.id, {
       onDelete: "set null",
     }),

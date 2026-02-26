@@ -12,6 +12,7 @@ export interface BuildInput {
   rootDirectory?: string;
   force?: boolean;
   timeout?: number; // ms, default 600_000 (10 min)
+  onLogLine?: (line: string, stream: "stdout" | "stderr") => void | Promise<void>;
 }
 
 export interface BuildOutput {

@@ -78,10 +78,14 @@ export const DeploymentSchema = z
     gitCommitMessage: z.string().nullable(),
     imageTag: z.string().nullable(),
     previousImageTag: z.string().nullable(),
+    logPath: z.string().nullable(),
+    logServerId: z.string().nullable(),
     triggeredBy: IdSchema.nullable(),
     startedAt: z.iso.datetime().nullable(),
     completedAt: z.iso.datetime().nullable(),
+    finishedAt: z.iso.datetime().nullable(),
     duration: z.number().int().nullable(),
+    errorMessage: z.string().nullable(),
   })
   .merge(TimestampsSchema);
 
@@ -89,6 +93,7 @@ export const DeploymentLogSchema = z.object({
   id: IdSchema,
   deploymentId: IdSchema,
   timestamp: z.iso.datetime(),
+  tab: z.enum(["build", "deploy", "runtime"]),
   level: z.enum(["debug", "info", "warn", "error"]),
   message: z.string(),
 });
@@ -96,7 +101,7 @@ export const DeploymentLogSchema = z.object({
 export const EnvironmentVariableSchema = z
   .object({
     id: IdSchema,
-    projectId: IdSchema,
+    projectId: IdSchema.nullable(),
     environmentId: IdSchema.nullable(),
     resourceId: IdSchema.nullable(),
     scope: EnvVarScopeSchema,
@@ -183,7 +188,9 @@ export const BackupSchema = z
 export const AuditLogSchema = z.object({
   id: IdSchema,
   organizationId: IdSchema,
+  actorType: z.enum(["user", "system"]),
   actorUserId: IdSchema.nullable(),
+  actorLabel: z.string(),
   action: z.string(),
   entityType: z.string(),
   entityId: IdSchema.nullable(),

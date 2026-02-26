@@ -6,51 +6,40 @@ export interface SpawnResult {
   stderr: string;
 }
 
+type StreamName = "stdout" | "stderr";
+
+function emitLines(
+  text: string,
+  previousRemainder: string,
+  onLine?: (line: string) => void,
+): string {
+  const combined = `${previousRemainder}${text}`;
+  const parts = combined.split(/\r?\n/);
+  const remainder = parts.pop() ?? "";
+
+  for (const line of parts) {
+    if (line.length === 0) continue;
+    onLine?.(line);
+  }
+
+  return remainder;
+}
+
 /**
  * Runs a command and captures stdout/stderr.
- * Uses Bun.spawn when available, falls back to node:child_process.
+ * Emits line callbacks as data arrives.
  */
 export async function runCommand(
   cmd: string[],
-  options?: { timeout?: number },
+  options?: {
+    timeout?: number;
+    onStdoutLine?: (line: string) => void;
+    onStderrLine?: (line: string) => void;
+  },
 ): Promise<SpawnResult> {
   const command = cmd[0]!;
   const args = cmd.slice(1);
 
-  // Use Bun.spawn when running in Bun runtime
-  if (typeof globalThis.Bun !== "undefined") {
-    const proc = Bun.spawn(cmd, {
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-
-    let killed = false;
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
-
-    if (options?.timeout) {
-      timeoutId = setTimeout(() => {
-        killed = true;
-        proc.kill();
-      }, options.timeout);
-    }
-
-    const [stdout, stderr] = await Promise.all([
-      new Response(proc.stdout).text(),
-      new Response(proc.stderr).text(),
-    ]);
-
-    if (timeoutId) clearTimeout(timeoutId);
-
-    const exitCode = await proc.exited;
-
-    if (killed) {
-      return { exitCode: -1, stdout, stderr: stderr + "\nProcess timed out" };
-    }
-
-    return { exitCode, stdout, stderr };
-  }
-
-  // Fallback: node:child_process
   return new Promise<SpawnResult>((resolve, reject) => {
     const proc = nodeSpawn(command, args, {
       stdio: ["ignore", "pipe", "pipe"],
@@ -58,6 +47,8 @@ export async function runCommand(
 
     let stdout = "";
     let stderr = "";
+    let stdoutRemainder = "";
+    let stderrRemainder = "";
     let killed = false;
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
@@ -68,16 +59,50 @@ export async function runCommand(
       }, options.timeout);
     }
 
-    proc.stdout?.on("data", (data: Buffer) => {
-      stdout += data.toString();
+    const handleLine = (stream: StreamName, line: string) => {
+      try {
+        if (stream === "stdout") {
+          options?.onStdoutLine?.(line);
+        } else {
+          options?.onStderrLine?.(line);
+        }
+      } catch {
+        // callback failures should not crash the build process
+      }
+    };
+
+    proc.stdout?.on("data", (data: Buffer | string) => {
+      const chunk = data.toString();
+      const nextRemainder = emitLines(
+        chunk,
+        stdoutRemainder,
+        (line) => handleLine("stdout", line),
+      );
+      stdout += chunk;
+      stdoutRemainder = nextRemainder;
     });
 
-    proc.stderr?.on("data", (data: Buffer) => {
-      stderr += data.toString();
+    proc.stderr?.on("data", (data: Buffer | string) => {
+      const chunk = data.toString();
+      const nextRemainder = emitLines(
+        chunk,
+        stderrRemainder,
+        (line) => handleLine("stderr", line),
+      );
+      stderr += chunk;
+      stderrRemainder = nextRemainder;
     });
 
     proc.on("close", (code) => {
       if (timeoutId) clearTimeout(timeoutId);
+
+      if (stdoutRemainder.length > 0) {
+        handleLine("stdout", stdoutRemainder);
+      }
+      if (stderrRemainder.length > 0) {
+        handleLine("stderr", stderrRemainder);
+      }
+
       if (killed) {
         resolve({ exitCode: -1, stdout, stderr: stderr + "\nProcess timed out" });
       } else {

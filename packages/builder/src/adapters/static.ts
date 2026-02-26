@@ -49,18 +49,27 @@ export class StaticBuilder implements Builder {
     const logs: string[] = [];
 
     try {
+      const emitLog = (line: string, stream: "stdout" | "stderr" = "stdout") => {
+        logs.push(line);
+        try {
+          void input.onLogLine?.(line, stream);
+        } catch {
+          // Ignore callback failures to keep builds resilient.
+        }
+      };
+
       // Determine SPA mode from buildArgs (default: SPA)
       const spaMode = input.buildArgs?.SPA_MODE !== "false";
 
       // Write Dockerfile
       const dockerfilePath = join(input.sourceDir, "Dockerfile");
       await writeFile(dockerfilePath, STATIC_DOCKERFILE, "utf-8");
-      logs.push("Generated Dockerfile for static serving");
+      emitLog("Generated Dockerfile for static serving");
 
       // Write Caddyfile
       const caddyfilePath = join(input.sourceDir, "Caddyfile");
       await writeFile(caddyfilePath, generateCaddyfile(spaMode), "utf-8");
-      logs.push(`Generated Caddyfile (SPA mode: ${spaMode})`);
+      emitLog(`Generated Caddyfile (SPA mode: ${spaMode})`);
 
       // Build with docker
       const args = [
@@ -78,10 +87,30 @@ export class StaticBuilder implements Builder {
       log.info({ command: args[0], args: args.slice(1), spaMode }, "Starting static site build");
 
       const timeout = input.timeout ?? DEFAULT_TIMEOUT;
-      const result = await runCommand(args, { timeout });
-
-      if (result.stdout) logs.push(...result.stdout.split("\n").filter(Boolean));
-      if (result.stderr) logs.push(...result.stderr.split("\n").filter(Boolean));
+      let streamed = false;
+      const result = await runCommand(args, {
+        timeout,
+        onStdoutLine: (line) => {
+          streamed = true;
+          emitLog(line, "stdout");
+        },
+        onStderrLine: (line) => {
+          streamed = true;
+          emitLog(line, "stderr");
+        },
+      });
+      if (!streamed) {
+        if (result.stdout) {
+          for (const line of result.stdout.split("\n").filter(Boolean)) {
+            emitLog(line, "stdout");
+          }
+        }
+        if (result.stderr) {
+          for (const line of result.stderr.split("\n").filter(Boolean)) {
+            emitLog(line, "stderr");
+          }
+        }
+      }
 
       if (result.exitCode !== 0) {
         const errMsg = `Static site build failed with exit code ${result.exitCode}`;

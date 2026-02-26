@@ -161,6 +161,7 @@ function RouteComponent() {
       toast.error(
         `Some deployments failed to start: ${failedDeployments.map((deployment) => deployment.reason).join(", ")}`,
       );
+      setDeploying(false);
       return;
     }
 

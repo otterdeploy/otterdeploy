@@ -1,5 +1,6 @@
 import { Result } from "better-result";
 import { createLogger } from "@otterdeploy/logger";
+import { getNetworkName, getStackName } from "../database-provisioner";
 
 import type { PipelineDeps, ResourceConfig, ProjectConfig, EnvironmentConfig } from "./types";
 
@@ -101,7 +102,11 @@ export async function deploySwarmService(
 
     const serviceName = `otterstack-${resource.id}`;
     const envArray = Object.entries(runtimeEnv).map(([k, v]) => `${k}=${v}`);
-    const projectNetworkName = `otterstack-${project.id}`;
+    const composeProjectName = getStackName(
+      project.slug || project.id,
+      environment.slug || environment.id,
+    );
+    const projectNetworkName = getNetworkName(project.id, environment.id);
 
     const labels: Record<string, string> = {
       "otterstack.resource.id": resource.id,
@@ -110,6 +115,8 @@ export async function deploySwarmService(
       "otterstack.organization.id": organizationId,
       "otterstack.deployment.id": deploymentId,
       "otterstack.managed": "true",
+      "com.docker.stack.namespace": composeProjectName,
+      "com.docker.compose.project": composeProjectName,
     };
 
     const ports: Array<{ target: number; published?: number }> = [];

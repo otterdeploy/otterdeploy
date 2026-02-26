@@ -13,6 +13,7 @@ export const auditContract = {
         organizationId: IdSchema,
         action: z.string().optional(),
         actorUserId: IdSchema.optional(),
+        actorType: z.enum(["user", "system"]).optional(),
       }),
     )
     .output(createPaginatedOutputSchema(AuditLogSchema)),

@@ -224,6 +224,9 @@ export async function upsertEnvironmentVariable(params: {
     await db
       .update(environmentVariable)
       .set({
+        projectId: params.scope === "project" ? params.projectId : null,
+        environmentId: params.scope === "environment" ? scope.environmentId : null,
+        resourceId: params.scope === "resource" ? scope.resourceId : null,
         secretReferenceId,
         encryptedValue: encodeLegacySecret(params.value),
         isSecret: params.isSecret,

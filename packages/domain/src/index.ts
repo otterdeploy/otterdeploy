@@ -18,6 +18,7 @@ export * as systemService from "./system";
 export * as deploymentService from "./deployment";
 export * as deploymentMachine from "./deployment-machine";
 export * as deploymentSecretService from "./deployment-secret";
+export * as deploymentLogService from "./deployment-log";
 
 export * as environmentVariableService from "./environment-variable";
 export * as gitProviderService from "./git-provider";

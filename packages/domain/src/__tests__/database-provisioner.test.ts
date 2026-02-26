@@ -205,6 +205,7 @@ describe("database-provisioner", () => {
   describe("generateComposeFile", () => {
     it("generates valid compose YAML for postgresql", () => {
       const yaml = generateComposeFile({
+        composeProjectName: "proj-1_env-1",
         image: "postgres:16",
         dbType: "postgresql",
         serviceName: "db-res-1",
@@ -240,6 +241,7 @@ describe("database-provisioner", () => {
 
     it("generates redis compose with command for auth", () => {
       const yaml = generateComposeFile({
+        composeProjectName: "proj-1_env-1",
         image: "redis:7-alpine",
         dbType: "redis",
         serviceName: "db-res-2",
@@ -264,6 +266,7 @@ describe("database-provisioner", () => {
 
     it("includes external port when specified", () => {
       const yaml = generateComposeFile({
+        composeProjectName: "proj-1_env-1",
         image: "postgres:16",
         dbType: "postgresql",
         serviceName: "db-res-1",
@@ -281,6 +284,7 @@ describe("database-provisioner", () => {
 
     it("includes resource limits when specified", () => {
       const yaml = generateComposeFile({
+        composeProjectName: "proj-1_env-1",
         image: "postgres:16",
         dbType: "postgresql",
         serviceName: "db-res-1",
@@ -297,6 +301,7 @@ describe("database-provisioner", () => {
 
     it("generates mysql compose with root password env", () => {
       const yaml = generateComposeFile({
+        composeProjectName: "proj-1_env-1",
         image: "mysql:8",
         dbType: "mysql",
         serviceName: "db-res-1",
@@ -314,6 +319,7 @@ describe("database-provisioner", () => {
 
     it("generates mongodb compose", () => {
       const yaml = generateComposeFile({
+        composeProjectName: "proj-1_env-1",
         image: "mongo:7",
         dbType: "mongodb",
         serviceName: "db-res-1",
@@ -471,6 +477,7 @@ describe("database-provisioner", () => {
       expect(deps.stackDeploy).toHaveBeenCalledWith(
         getProjectScopedStackName("proj-1"),
         expect.any(String),
+        expect.any(Object),
       );
       const composeContent = deps.stackDeploy.mock.calls[0]?.[1] ?? "";
       expect(composeContent).toContain("\n  db-res-project:\n");
@@ -499,6 +506,7 @@ describe("database-provisioner", () => {
       expect(deps.stackDeploy).toHaveBeenCalledWith(
         "otterstack-res-legacy",
         expect.any(String),
+        expect.any(Object),
       );
       const composeContent = deps.stackDeploy.mock.calls[0]?.[1] ?? "";
       expect(composeContent).toContain("\n  db:\n");

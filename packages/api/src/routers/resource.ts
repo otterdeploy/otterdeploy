@@ -7,6 +7,7 @@ import { deployment, deploymentEvent } from "@otterdeploy/db/schema/deployment";
 
 import { pickDefined } from "@otterdeploy/domain";
 import { publishEvent } from "@otterdeploy/events";
+import { createLogger } from "@otterdeploy/logger";
 
 import { orgProcedure, orgMemberProcedure, orgAdminProcedure } from "../index";
 import { createId } from "../utils/helpers";
@@ -15,6 +16,8 @@ import {
   validateEnvironmentInProject,
   validateResourceAccess,
 } from "../utils/ownership";
+
+const log = createLogger("api:resource");
 
 type ResourceRow = typeof resource.$inferSelect & {
   position?: typeof resourcePosition.$inferSelect | null;
@@ -278,6 +281,7 @@ export const resourceRouter = {
     .handler(async ({ context, input }) => {
       const existing = await validateResourceAccess(input.resourceId, context.organizationId);
 
+      // Publish cleanup event (best-effort — don't block delete if it fails)
       const publishResult = await publishEvent("resource.deleted", {
         orgId: context.organizationId,
         projectId: existing.projectId,
@@ -285,9 +289,10 @@ export const resourceRouter = {
         resourceId: existing.id,
       });
       if (publishResult.isErr()) {
-        throw new ORPCError("INTERNAL_SERVER_ERROR", {
-          message: "Failed to schedule resource cleanup",
-        });
+        log.warn(
+          { resourceId: input.resourceId, err: publishResult.error },
+          "Failed to publish resource.deleted event; Docker cleanup may need manual intervention",
+        );
       }
 
       await db.delete(resource).where(eq(resource.id, input.resourceId));

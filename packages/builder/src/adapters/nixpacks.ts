@@ -17,6 +17,15 @@ export class NixpacksBuilder implements Builder {
     const logs: string[] = [];
 
     try {
+      const emitLog = (line: string, stream: "stdout" | "stderr" = "stdout") => {
+        logs.push(line);
+        try {
+          void input.onLogLine?.(line, stream);
+        } catch {
+          // Ignore callback failures to keep builds resilient.
+        }
+      };
+
       const args = ["nixpacks", "build", input.sourceDir, "--name", fullTag];
 
       // Pass env vars
@@ -42,10 +51,30 @@ export class NixpacksBuilder implements Builder {
       log.info({ command: args[0], args: args.slice(1) }, "Starting Nixpacks build");
 
       const timeout = input.timeout ?? DEFAULT_TIMEOUT;
-      const result = await runCommand(args, { timeout });
-
-      if (result.stdout) logs.push(...result.stdout.split("\n").filter(Boolean));
-      if (result.stderr) logs.push(...result.stderr.split("\n").filter(Boolean));
+      let streamed = false;
+      const result = await runCommand(args, {
+        timeout,
+        onStdoutLine: (line) => {
+          streamed = true;
+          emitLog(line, "stdout");
+        },
+        onStderrLine: (line) => {
+          streamed = true;
+          emitLog(line, "stderr");
+        },
+      });
+      if (!streamed) {
+        if (result.stdout) {
+          for (const line of result.stdout.split("\n").filter(Boolean)) {
+            emitLog(line, "stdout");
+          }
+        }
+        if (result.stderr) {
+          for (const line of result.stderr.split("\n").filter(Boolean)) {
+            emitLog(line, "stderr");
+          }
+        }
+      }
 
       if (result.exitCode !== 0) {
         const errMsg = `Nixpacks build failed with exit code ${result.exitCode}`;
