@@ -7,6 +7,7 @@ import { domainVerification } from "./domain-verification";
 import { sslMonitor } from "./ssl-monitor";
 import { serverHealthMonitor } from "./server-health";
 import { resourceCleanup } from "./resource-cleanup";
+import { resourceHealthReconcile } from "./resource-health-reconcile";
 
 export const functions = [
   deploymentPipeline,
@@ -18,4 +19,5 @@ export const functions = [
   domainVerification,
   sslMonitor,
   serverHealthMonitor,
+  resourceHealthReconcile,
 ];

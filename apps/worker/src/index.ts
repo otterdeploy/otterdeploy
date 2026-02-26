@@ -4,7 +4,7 @@ import { createLogger } from "@otterdeploy/logger";
 
 import { inngest } from "./inngest";
 import { functions } from "./functions";
-import { startResourceHealthWatcher } from "./services/resource-health-watcher";
+import { startResourceHealthWatcher, reconcileResourceHealth } from "./services/resource-health-watcher";
 
 const logger = createLogger("worker");
 
@@ -20,6 +20,11 @@ app.get("/", (c) => c.text("Worker OK"));
 
 // Start background Docker event stream listener for resource health monitoring
 const healthWatcher = startResourceHealthWatcher();
+
+// Run startup reconciliation to catch stale statuses from when the watcher wasn't running
+reconcileResourceHealth().catch((err) => {
+  logger.error({ err }, "Startup resource health reconciliation failed");
+});
 
 const shutdown = () => {
   logger.info("Shutting down health watcher...");
