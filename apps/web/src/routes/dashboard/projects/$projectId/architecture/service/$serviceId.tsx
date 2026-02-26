@@ -131,7 +131,11 @@ function RouteComponent() {
         </Content>
 
         <Content value="variables">
-          <VariableEditor resourceId={serviceId} projectId={projectId} />
+          <VariableEditor
+            resourceId={serviceId}
+            projectId={projectId}
+            environmentId={resource?.environmentId}
+          />
         </Content>
 
         <Content value="metrics">

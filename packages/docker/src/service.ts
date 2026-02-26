@@ -1,6 +1,6 @@
 import { Result } from "better-result";
 import { createLogger } from "@otterdeploy/logger";
-import type { Readable } from "node:stream";
+
 
 import { getDockerClient } from "./client";
 import type {
@@ -280,12 +280,12 @@ export async function listServices(
 export async function getServiceLogs(
   name: string,
   opts?: ServiceLogOpts,
-): Promise<Result<Readable, Error>> {
+): Promise<Result<Buffer, Error>> {
   const docker = getDockerClient();
 
   try {
     const service = docker.getService(name);
-    const logStream = (await service.logs({
+    const result = await service.logs({
       stdout: opts?.stdout ?? true,
       stderr: opts?.stderr ?? true,
       tail: opts?.tail ?? 100,
@@ -293,9 +293,20 @@ export async function getServiceLogs(
       until: opts?.until,
       follow: opts?.follow ?? false,
       timestamps: opts?.timestamps ?? true,
-    })) as unknown as Readable;
+    });
 
-    return Result.ok(logStream);
+    // Docker's service.logs() with follow:false returns a Buffer directly,
+    // not a Readable stream. Handle both cases.
+    if (Buffer.isBuffer(result)) {
+      return Result.ok(result);
+    }
+
+    // follow:true returns a stream — read it into a Buffer
+    const chunks: Buffer[] = [];
+    for await (const chunk of result as AsyncIterable<Buffer>) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as string));
+    }
+    return Result.ok(Buffer.concat(chunks));
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
     log.error({ err, name }, "Failed to get service logs");

@@ -127,7 +127,6 @@ export const deploymentRouter = {
       );
 
       const from = timeline.deployment.startedAt ?? timeline.deployment.createdAt;
-      const to = timeline.deployment.completedAt ?? undefined;
 
       return unwrapResult(
         await monitoringService.getLogs({
@@ -135,7 +134,6 @@ export const deploymentRouter = {
           organizationId: context.organizationId,
           deploymentId: timeline.deployment.id,
           from,
-          to,
           page: 1,
           pageSize: 50,
         }),

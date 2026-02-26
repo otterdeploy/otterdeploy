@@ -40,6 +40,7 @@ function formatVariable(
     key: row.key,
     isSecret: row.isSecret,
     buildTime: row.isBuildTime,
+    value: row.isSecret ? null : decodeLegacySecret(row.encryptedValue),
     secretReferenceId: row.secretReferenceId ?? null,
     secretProvider: secretMeta?.provider ?? null,
     secretVersion: secretMeta?.providerVersion ?? null,

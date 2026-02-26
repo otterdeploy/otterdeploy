@@ -71,6 +71,7 @@ interface EnvVariable {
   key: string;
   isSecret: boolean;
   buildTime: boolean;
+  value: string | null;
 }
 
 const envVariableSchema = z.object({
@@ -229,11 +230,16 @@ function InlineVariableRow({
 interface VariableEditorProps {
   resourceId: string;
   projectId: string;
+  environmentId?: string;
 }
 
-export function VariableEditor({ resourceId, projectId }: VariableEditorProps) {
+export function VariableEditor({
+  resourceId,
+  projectId,
+  environmentId,
+}: VariableEditorProps) {
   const listQueryOptions = orpc.environmentVariable.list.queryOptions({
-    input: { projectId, resourceId },
+    input: { projectId, environmentId, resourceId },
   });
 
   const { data: variables = [], isLoading } = useTanstackQuery(listQueryOptions);
@@ -287,6 +293,8 @@ export function VariableEditor({ resourceId, projectId }: VariableEditorProps) {
       let value: string;
       if (cached) {
         value = cached;
+      } else if (!variable.isSecret && variable.value !== null) {
+        value = variable.value;
       } else {
         const result = await revealVariable.mutateAsync({
           variableId: variable.id,
@@ -320,8 +328,13 @@ export function VariableEditor({ resourceId, projectId }: VariableEditorProps) {
   const handleAddSave = useCallback(
     async (values: { key: string; value: string; isSecret: boolean; buildTime: boolean }) => {
       try {
+        if (!environmentId) {
+          toast.error("Environment context is missing for this resource");
+          return;
+        }
         await upsertVariable.mutateAsync({
           projectId,
+          environmentId,
           resourceId,
           scope: "resource",
           key: values.key,
@@ -335,14 +348,19 @@ export function VariableEditor({ resourceId, projectId }: VariableEditorProps) {
         toast.error(`Failed to add variable: ${err instanceof Error ? err.message : "Unknown error"}`);
       }
     },
-    [projectId, resourceId, upsertVariable, invalidateList],
+    [projectId, environmentId, resourceId, upsertVariable, invalidateList],
   );
 
   const handleEditSave = useCallback(
     async (id: string, values: { key: string; value: string; isSecret: boolean; buildTime: boolean }) => {
       try {
+        if (!environmentId) {
+          toast.error("Environment context is missing for this resource");
+          return;
+        }
         await upsertVariable.mutateAsync({
           projectId,
+          environmentId,
           resourceId,
           scope: "resource",
           key: values.key,
@@ -361,7 +379,7 @@ export function VariableEditor({ resourceId, projectId }: VariableEditorProps) {
         toast.error(`Failed to update variable: ${err instanceof Error ? err.message : "Unknown error"}`);
       }
     },
-    [projectId, resourceId, upsertVariable, invalidateList],
+    [projectId, environmentId, resourceId, upsertVariable, invalidateList],
   );
 
   const handleDelete = useCallback(async () => {
@@ -445,7 +463,7 @@ export function VariableEditor({ resourceId, projectId }: VariableEditorProps) {
                         key={variable.id}
                         defaultValues={{
                           key: variable.key,
-                          value: revealedValue ?? "",
+                          value: revealedValue ?? variable.value ?? "",
                           isSecret: variable.isSecret,
                           buildTime: variable.buildTime,
                         }}
@@ -467,7 +485,9 @@ export function VariableEditor({ resourceId, projectId }: VariableEditorProps) {
                         <span className="font-mono text-xs text-muted-foreground">
                           {isRevealed
                             ? revealedValue
-                            : "••••••••"}
+                            : variable.isSecret
+                              ? "••••••••"
+                              : (variable.value ?? "")}
                         </span>
                       </TableCell>
                       <TableCell>

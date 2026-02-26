@@ -57,7 +57,6 @@ export function CreateResourcePalette({
   }) => void;
   environmentId: string;
 }) {
-  console.log("CreateResourcePalette", { environmentId });
   const { projectId } = useParams({ from: "/dash/projects/$projectId" });
   const { zero } = useRouter().options.context;
   const [open, setOpen] = useState(false);

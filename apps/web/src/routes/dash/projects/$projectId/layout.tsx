@@ -3,7 +3,7 @@ import { useQuery } from "@rocicorp/zero/react";
 
 import { createFileRoute, Outlet, useParams } from "@tanstack/react-router";
 import { AnimatePresence } from "motion/react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import { ChangesDialog } from "@/components/project/changes-dialog";
 import { ProjectContext, type PendingChange } from "@/components/project/context";
@@ -42,6 +42,23 @@ function RouteComponent() {
   const [pendingChanges, setPendingChanges] = useState<PendingChange[]>([]);
   const [changesDialogOpen, setChangesDialogOpen] = useState(false);
 
+  // Refs for values used inside callbacks — keeps callbacks stable
+  const resourcesRef = useRef(resources);
+  resourcesRef.current = resources;
+  const pendingChangesRef = useRef(pendingChanges);
+  pendingChangesRef.current = pendingChanges;
+
+  const createDeployment = useMutation(orpc.deployment.create.mutationOptions());
+  const provisionResource = useMutation(orpc.resource.provision.mutationOptions());
+  const deleteResource = useMutation(orpc.resource.delete.mutationOptions());
+
+  const createDeploymentRef = useRef(createDeployment);
+  createDeploymentRef.current = createDeployment;
+  const provisionResourceRef = useRef(provisionResource);
+  provisionResourceRef.current = provisionResource;
+  const deleteResourceRef = useRef(deleteResource);
+  deleteResourceRef.current = deleteResource;
+
   const handleResourceCreated = useCallback(
     (resource: { id: string; name: string; kind: string; status: string; databaseEngine?: PendingChange["databaseEngine"] }) => {
       setPendingChanges((prev) => [
@@ -64,32 +81,37 @@ function RouteComponent() {
   );
 
   const handleMarkForRemoval = useCallback((id: string) => {
-    if (pendingChanges.some((c) => c.id === id)) return;
-    const resource = resources?.find((r) => r.id === id);
-    if (!resource) return;
-    setPendingChanges((prev) => [
-      ...prev,
-      {
-        id: resource.id,
-        name: resource.name,
-        kind: resource.kind,
-        action: "removed",
-        settings: [
-          { key: "Kind", oldValue: resource.kind, newValue: "" },
-          { key: "Name", oldValue: resource.name, newValue: "" },
-        ],
-      },
-    ]);
-  }, [pendingChanges, resources]);
+    setPendingChanges((prev) => {
+      if (prev.some((c) => c.id === id)) return prev;
+      const resource = resourcesRef.current?.find((r) => r.id === id);
+      if (!resource) return prev;
+      return [
+        ...prev,
+        {
+          id: resource.id,
+          name: resource.name,
+          kind: resource.kind,
+          action: "removed" as const,
+          settings: [
+            { key: "Kind", oldValue: resource.kind, newValue: "" },
+            { key: "Name", oldValue: resource.name, newValue: "" },
+          ],
+        },
+      ];
+    });
+  }, []);
 
-  const createDeployment = useMutation(orpc.deployment.create.mutationOptions());
-  const provisionResource = useMutation(orpc.resource.provision.mutationOptions());
-  const deleteResource = useMutation(orpc.resource.delete.mutationOptions());
+  const projectIdRef = useRef(projectId);
+  projectIdRef.current = projectId;
+  const envIdRef = useRef(envId);
+  envIdRef.current = envId;
 
   const handleDeploy = useCallback(async () => {
-    if (!projectId || !envId) return;
+    const currentProjectId = projectIdRef.current;
+    const currentEnvId = envIdRef.current;
+    if (!currentProjectId || !currentEnvId) return;
 
-    const changes = pendingChanges;
+    const changes = pendingChangesRef.current;
     setDeploying(true);
     const deployable = ["web", "api", "worker"];
     const provisionable = ["database"];
@@ -97,16 +119,16 @@ function RouteComponent() {
     const deployments = await Promise.allSettled(
       changes.map((change) => {
         if (change.action === "removed") {
-          return deleteResource.mutateAsync({ resourceId: change.id });
+          return deleteResourceRef.current.mutateAsync({ resourceId: change.id });
         } else if (deployable.includes(change.kind)) {
-          return createDeployment.mutateAsync({
-            projectId,
-            environmentId: envId,
+          return createDeploymentRef.current.mutateAsync({
+            projectId: currentProjectId,
+            environmentId: currentEnvId,
             resourceId: change.id,
             source: "manual",
           });
         } else if (provisionable.includes(change.kind)) {
-          return provisionResource.mutateAsync({
+          return provisionResourceRef.current.mutateAsync({
             resourceId: change.id,
             databaseEngine: change.databaseEngine,
           });
@@ -125,24 +147,26 @@ function RouteComponent() {
     setPendingChanges([]);
     setChangesDialogOpen(false);
     setDeploying(false);
-  }, [projectId, envId, pendingChanges, deleteResource, createDeployment, provisionResource]);
+  }, []);
 
   const handleRedeploy = useCallback(async (resource: { id: string; kind: string; databaseEngine?: PendingChange["databaseEngine"] }) => {
-    if (!projectId || !envId) return;
+    const currentProjectId = projectIdRef.current;
+    const currentEnvId = envIdRef.current;
+    if (!currentProjectId || !currentEnvId) return;
 
     const deployable = ["web", "api", "worker"];
     const provisionable = ["database"];
 
     try {
       if (deployable.includes(resource.kind)) {
-        await createDeployment.mutateAsync({
-          projectId,
-          environmentId: envId,
+        await createDeploymentRef.current.mutateAsync({
+          projectId: currentProjectId,
+          environmentId: currentEnvId,
           resourceId: resource.id,
           source: "manual",
         });
       } else if (provisionable.includes(resource.kind)) {
-        await provisionResource.mutateAsync({
+        await provisionResourceRef.current.mutateAsync({
           resourceId: resource.id,
           databaseEngine: resource.databaseEngine,
         });
@@ -151,16 +175,17 @@ function RouteComponent() {
     } catch (err) {
       toast.error(`Redeploy failed: ${err instanceof Error ? err.message : "Unknown error"}`);
     }
-  }, [projectId, envId, createDeployment, provisionResource]);
+  }, []);
 
   const handleDiscard = useCallback((id: string) => {
-    const change = pendingChanges.find((c) => c.id === id);
-
-    if (change?.action === "added") {
-      deleteResource.mutate({ resourceId: id });
-    }
-    setPendingChanges((prev) => prev.filter((c) => c.id !== id));
-  }, [pendingChanges, deleteResource]);
+    setPendingChanges((prev) => {
+      const change = prev.find((c) => c.id === id);
+      if (change?.action === "added") {
+        deleteResourceRef.current.mutate({ resourceId: id });
+      }
+      return prev.filter((c) => c.id !== id);
+    });
+  }, []);
 
   // Memoize context value — only changes when pendingChanges state changes
   const contextValue = useMemo<ProjectContext>(
@@ -172,7 +197,7 @@ function RouteComponent() {
       onMarkForRemoval: handleMarkForRemoval,
       onRedeploy: handleRedeploy,
     }),
-    [activeEnvironment?.name, envSlug, envId, pendingChanges, handleResourceCreated, handleMarkForRemoval, handleRedeploy],
+    [activeEnvironment?.name, envSlug, envId, pendingChanges],
   );
 
   return (

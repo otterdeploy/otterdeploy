@@ -172,8 +172,6 @@ export function ProjectHeader({
 }) {
   const { auth } = useRouteContext({ from: basePath });
 
-  console.log("ProjectHeader", { environmentId });
-
   const organizationId = auth.session.activeOrganizationId ?? "";
   const { projectId } = useParams({ from: `${basePath}/projects/$projectId` });
   const navigate = useNavigate();

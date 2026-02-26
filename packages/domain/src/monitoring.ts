@@ -1,5 +1,4 @@
 import { Result } from "better-result";
-import { Readable } from "node:stream";
 import { createHash } from "node:crypto";
 import { createLogger } from "@otterdeploy/logger";
 import { db, eq, desc } from "@otterdeploy/db";
@@ -64,20 +63,6 @@ async function resolveServiceName(resourceId: string): Promise<string> {
   });
 
   return byMostRecentUpdate[0]?.name ?? fallback;
-}
-
-async function readStream(stream: Readable): Promise<Buffer> {
-  const chunks: Buffer[] = [];
-
-  for await (const chunk of stream) {
-    if (typeof chunk === "string") {
-      chunks.push(Buffer.from(chunk));
-    } else {
-      chunks.push(Buffer.from(chunk));
-    }
-  }
-
-  return Buffer.concat(chunks);
 }
 
 function decodeDockerStream(buffer: Buffer): string[] {
@@ -220,7 +205,7 @@ export async function getLogs(params: {
   const until = toUnixSeconds(params.to);
   const tailCount = Math.min(Math.max(params.page * params.pageSize, params.pageSize), 500);
 
-  const streamResult = await getServiceLogs(serviceName, {
+  const logResult = await getServiceLogs(serviceName, {
     tail: since || until ? 5_000 : tailCount,
     follow: false,
     stdout: true,
@@ -230,9 +215,9 @@ export async function getLogs(params: {
     until,
   });
 
-  if (streamResult.isErr()) {
+  if (logResult.isErr()) {
     log.warn(
-      { resourceId: params.resourceId, serviceName, err: streamResult.error },
+      { resourceId: params.resourceId, serviceName, err: logResult.error },
       "Could not fetch service logs",
     );
     return Result.ok({
@@ -241,7 +226,7 @@ export async function getLogs(params: {
     });
   }
 
-  const buffer = await readStream(streamResult.value);
+  const buffer = logResult.value;
   const decoded = decodeDockerStream(buffer);
 
   const allItems: LogItem[] = decoded.map((line, index) => {

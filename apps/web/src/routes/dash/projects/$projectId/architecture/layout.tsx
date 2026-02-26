@@ -77,6 +77,7 @@ function RouteComponent() {
   const [nodes, setNodes] = useState<Node[]>(graphNodes);
   useEffect(() => {
     setNodes((prev) => {
+      if (prev.length === 0 && graphNodes.length === 0) return prev;
       if (prev.length === 0) return graphNodes;
       if (graphNodes.length === 0) return graphNodes;
 

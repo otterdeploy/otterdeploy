@@ -36,7 +36,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { queries } from "@otterdeploy/zero";
 import { useQuery } from "@rocicorp/zero/react";
 import { RotateCwIcon } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -527,8 +527,13 @@ export function DeploymentsPanel({
   const history = mapped.filter((d) => d !== activeDeployment && d !== inProgressDeployment);
   const isDeploying = resourceStatus === "deploying" || !!inProgressDeployment;
 
+  // Stable fingerprint so we only notify parent when data actually changes
+  const deploymentsKey = `${deployments.map((d) => `${d.id}:${d.status}`).join(",")}|${resourceStatus}|${resourceKind}|${resourceName}`;
+  const prevDeploymentsKeyRef = useRef("");
   useEffect(() => {
     if (!onDeploymentsChange) return;
+    if (deploymentsKey === prevDeploymentsKeyRef.current) return;
+    prevDeploymentsKeyRef.current = deploymentsKey;
     onDeploymentsChange(
       mapped.map((deployment) => ({
         id: deployment.id,
@@ -540,7 +545,7 @@ export function DeploymentsPanel({
         steps: deployment.steps,
       })),
     );
-  }, [mapped, onDeploymentsChange]);
+  }, [deploymentsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const redeployButton = (
     <AlertDialog>

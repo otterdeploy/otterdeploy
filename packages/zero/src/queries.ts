@@ -43,7 +43,7 @@ export const queries = defineQueries({
 
   deployment: {
     listForResource: defineQuery(z.object({ resourceId: z.string() }), ({ args: { resourceId } }) =>
-      zql.deployment.where("resourceId", resourceId).related("events"),
+      zql.deployment.where("resourceId", resourceId).related("events").orderBy("createdAt", "desc"),
     ),
     listForProject: defineQuery(z.object({ projectId: z.string() }), ({ args: { projectId } }) =>
       zql.deployment.where("projectId", projectId).related("events"),
