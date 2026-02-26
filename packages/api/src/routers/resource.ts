@@ -2,7 +2,7 @@ import * as z from "zod";
 import { ORPCError } from "@orpc/server";
 import { db, eq, inArray } from "@otterdeploy/db";
 import { resource, environment, resourcePosition } from "@otterdeploy/db/schema/project";
-import { resourceRuntimeConfig, resourceBuildConfig } from "@otterdeploy/db/schema/resource-config";
+import { resourceRuntimeConfig, resourceBuildConfig, databaseConfig } from "@otterdeploy/db/schema/resource-config";
 
 import { pickDefined } from "@otterdeploy/domain";
 import { publishEvent } from "@otterdeploy/events";
@@ -284,6 +284,9 @@ export const resourceRouter = {
     .input(
       z.object({
         resourceId: z.string().min(1),
+        databaseEngine: z
+          .enum(["postgresql", "mysql", "mariadb", "mongodb", "redis", "keydb", "dragonfly", "clickhouse"])
+          .optional(),
       }),
     )
     .handler(async ({ context, input }) => {
@@ -291,13 +294,49 @@ export const resourceRouter = {
       const projectId = row.environment.project.id;
       const environmentId = row.environment.id;
 
+      // Create database config server-side so it's in Postgres before the worker reads it
+      if (row.kind === "database" && input.databaseEngine) {
+        const DATABASE_DEFAULT_IMAGES: Record<string, string> = {
+          postgresql: "postgres:16",
+          mysql: "mysql:8",
+          mariadb: "mariadb:11",
+          mongodb: "mongo:7",
+          redis: "redis:7-alpine",
+          keydb: "eqalpha/keydb:latest",
+          dragonfly: "docker.dragonflydb.io/dragonflydb/dragonfly:latest",
+          clickhouse: "clickhouse/clickhouse-server:latest",
+        };
+
+        await db
+          .insert(databaseConfig)
+          .values({
+            id: createId(),
+            resourceId: input.resourceId,
+            databaseType: input.databaseEngine,
+            image: DATABASE_DEFAULT_IMAGES[input.databaseEngine] ?? "",
+          })
+          .onConflictDoUpdate({
+            target: databaseConfig.resourceId,
+            set: {
+              databaseType: input.databaseEngine,
+              image: DATABASE_DEFAULT_IMAGES[input.databaseEngine] ?? "",
+            },
+          });
+      }
+
+      // Mark resource as deploying
+      await db
+        .update(resource)
+        .set({ status: "deploying", updatedAt: new Date() })
+        .where(eq(resource.id, input.resourceId));
+
       await publishEvent("resource.created", {
         orgId: context.organizationId,
         projectId,
         environmentId,
         resourceId: input.resourceId,
         kind: row.kind,
-        status: row.status,
+        status: "deploying",
       });
 
       return { success: true as const };

@@ -4,6 +4,7 @@ export interface PendingChange {
   id: string;
   name: string;
   kind: string;
+  databaseEngine?: string;
   action: "added" | "modified" | "removed";
   settings: { key: string; oldValue: string; newValue: string }[];
 }
@@ -12,7 +13,7 @@ export interface ProjectContext {
   envSlug: string;
   environmentId: string | undefined;
   pendingChanges: PendingChange[];
-  onCreateResource: (resource: { id: string; name: string; kind: string; status: string }) => void;
+  onCreateResource: (resource: { id: string; name: string; kind: string; status: string; databaseEngine?: string }) => void;
   onMarkForRemoval: (id: string) => void;
 }
 

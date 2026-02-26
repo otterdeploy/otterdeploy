@@ -46,7 +46,7 @@ export function CreateResourcePalette({
   environmentId,
   onCreated,
 }: {
-  onCreated: (resource: { id: string; name: string; kind: ResourceKind; status: string }) => void;
+  onCreated: (resource: { id: string; name: string; kind: ResourceKind; status: string; databaseEngine?: string }) => void;
   environmentId: string;
 }) {
   console.log("CreateResourcePalette", { environmentId });
@@ -61,18 +61,33 @@ export function CreateResourcePalette({
   });
 
   const [project] = useQuery(queries.project.byId({ projectId }));
+  const [resources] = useQuery(environmentId ? queries.resource.list({ environmentId }) : undefined);
+
+  const NODE_WIDTH = 180;
+  const GAP = 40;
 
   function handleOpenChange(next: boolean) {
     setOpen(next);
     if (!next) setStep("pick-type");
   }
 
-  async function createResource(kind: ResourceKind, name: string) {
+  async function createResource(kind: ResourceKind, name: string, databaseEngine?: DatabaseEngine) {
     if (!zero || !project?.organizationId || !environmentId) return;
 
     const id = crypto.randomUUID();
-    const posX = 100 + Math.random() * 200;
-    const posY = 100 + Math.random() * 200;
+
+    let posX = 100;
+    let posY = 100;
+    if (resources && resources.length > 0) {
+      let rightmost = resources[0];
+      for (const r of resources) {
+        if ((r.position?.posX ?? 0) > (rightmost.position?.posX ?? 0)) {
+          rightmost = r;
+        }
+      }
+      posX = (rightmost.position?.posX ?? 0) + NODE_WIDTH + GAP;
+      posY = rightmost.position?.posY ?? 100;
+    }
     zero.mutate(
       mutators.resource.create({
         id,
@@ -84,10 +99,14 @@ export function CreateResourcePalette({
         posX,
         posY,
         now: Date.now(),
+        ...(databaseEngine && {
+          databaseConfigId: crypto.randomUUID(),
+          databaseEngine,
+        }),
       }),
     );
 
-    onCreated({ id, name, kind, status: "unknown" });
+    onCreated({ id, name, kind, status: "unknown", databaseEngine });
 
     handleOpenChange(false);
   }
@@ -103,7 +122,7 @@ export function CreateResourcePalette({
 
   function handleSelectDatabase(engine: DatabaseEngine) {
     const label = databaseEngines.find((e) => e.value === engine)?.label ?? engine;
-    createResource("database", label);
+    createResource("database", label, engine);
   }
 
   return (

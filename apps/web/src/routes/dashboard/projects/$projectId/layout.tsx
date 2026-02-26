@@ -129,7 +129,10 @@ function RouteComponent() {
             source: "manual",
           });
         } else if (provisionable.includes(change.kind)) {
-          return provisionResource.mutateAsync({ resourceId: change.id });
+          return provisionResource.mutateAsync({
+            resourceId: change.id,
+            databaseEngine: change.databaseEngine,
+          });
         }
       }),
     );

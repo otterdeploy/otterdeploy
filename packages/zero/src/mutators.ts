@@ -1,6 +1,17 @@
 import { defineMutator, defineMutators } from "@rocicorp/zero";
 import * as z from "zod";
 
+const DATABASE_DEFAULT_IMAGES: Record<string, string> = {
+  postgresql: "postgres:16",
+  mysql: "mysql:8",
+  mariadb: "mariadb:11",
+  mongodb: "mongo:7",
+  redis: "redis:7-alpine",
+  keydb: "eqalpha/keydb:latest",
+  dragonfly: "docker.dragonflydb.io/dragonflydb/dragonfly:latest",
+  clickhouse: "clickhouse/clickhouse-server:latest",
+};
+
 export const mutators = defineMutators({
   project: {
     create: defineMutator(
@@ -13,7 +24,11 @@ export const mutators = defineMutators({
         now: z.number(),
         defaultEnvironmentId: z.string(),
       }),
-      async ({ tx, ctx, args: { id, organizationId, ownerId, name, slug, now, defaultEnvironmentId } }) => {
+      async ({
+        tx,
+        ctx,
+        args: { id, organizationId, ownerId, name, slug, now, defaultEnvironmentId },
+      }) => {
         if (!ctx) {
           throw new Error("Not authenticated");
         }
@@ -115,11 +130,15 @@ export const mutators = defineMutators({
         posX: z.number(),
         posY: z.number(),
         now: z.number(),
+        databaseConfigId: z.string().optional(),
+        databaseEngine: z
+          .enum(["postgresql", "mysql", "mariadb", "mongodb", "redis", "keydb", "dragonfly", "clickhouse"])
+          .optional(),
       }),
       async ({
         tx,
         ctx,
-        args: { id, organizationId, projectId, environmentId, kind, name, posX, posY, now },
+        args: { id, organizationId, projectId, environmentId, kind, name, posX, posY, now, databaseConfigId, databaseEngine },
       }) => {
         if (!ctx) {
           throw new Error("Not authenticated");
@@ -131,6 +150,7 @@ export const mutators = defineMutators({
           environmentId,
           kind,
           name,
+          status: "unknown",
           createdAt: now,
           updatedAt: now,
         });
@@ -140,6 +160,16 @@ export const mutators = defineMutators({
           posY,
           updatedAt: now,
         });
+        if (kind === "database" && databaseConfigId && databaseEngine) {
+          await tx.mutate.databaseConfig.insert({
+            id: databaseConfigId,
+            resourceId: id,
+            databaseType: databaseEngine,
+            image: DATABASE_DEFAULT_IMAGES[databaseEngine] ?? "",
+            createdAt: now,
+            updatedAt: now,
+          });
+        }
       },
     ),
 

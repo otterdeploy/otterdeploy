@@ -161,6 +161,7 @@ export function ProjectHeader({
     name: string;
     kind: ResourceKind;
     status: string;
+    databaseEngine?: string;
   }) => void;
   environmentId: string;
 }) {

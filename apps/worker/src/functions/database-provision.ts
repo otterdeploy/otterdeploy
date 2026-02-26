@@ -4,6 +4,7 @@ import {
   stackDeploy,
   stackRemove,
   stackServices,
+  createProjectNetwork,
 } from "@otterdeploy/docker";
 import { db, eq } from "@otterdeploy/db";
 import { resource } from "@otterdeploy/db/schema/project";
@@ -19,6 +20,15 @@ export const databaseProvision = inngest.createFunction(
   {
     id: "database-provision",
     retries: 2,
+    onFailure: async ({ event, error }) => {
+      const resourceId = event.data.event.data.resourceId;
+      logger.error({ resourceId, err: error }, "Database provisioning failed");
+
+      await db
+        .update(resource)
+        .set({ status: "crashed", updatedAt: new Date() })
+        .where(eq(resource.id, resourceId));
+    },
   },
   { event: "resource.created" },
   async ({ event, step }) => {
@@ -28,6 +38,12 @@ export const databaseProvision = inngest.createFunction(
     if (kind !== "database") {
       return { skipped: true, reason: "Not a database resource" };
     }
+
+    // Ensure the project network exists before deploying the stack
+    await step.run("ensure-network", async () => {
+      const networkResult = await createProjectNetwork(event.data.projectId);
+      if (networkResult.isErr()) throw networkResult.error;
+    });
 
     const result = await step.run("provision-database", async () => {
       const row = await db.query.resource.findFirst({
@@ -58,6 +74,14 @@ export const databaseProvision = inngest.createFunction(
 
       if (provisionResult.isErr()) throw provisionResult.error;
       return provisionResult.value;
+    });
+
+    // Mark resource as online
+    await step.run("update-resource-status", async () => {
+      await db
+        .update(resource)
+        .set({ status: "online", updatedAt: new Date() })
+        .where(eq(resource.id, resourceId));
     });
 
     logger.info({ resourceId, result }, "Database provisioned successfully");

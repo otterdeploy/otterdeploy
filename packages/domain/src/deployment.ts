@@ -182,6 +182,12 @@ export async function createDeployment(params: {
     createdAt: now,
   });
 
+  // Mark resource as deploying
+  await db
+    .update(resource)
+    .set({ status: "deploying", updatedAt: now })
+    .where(eq(resource.id, params.resourceId));
+
   const enqueueResult = await enqueueDeploymentEvent({
     deploymentId: inserted.id,
     organizationId: inserted.organizationId,

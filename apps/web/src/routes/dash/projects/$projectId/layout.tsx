@@ -23,45 +23,36 @@ export const Route = createFileRoute("/dash/projects/$projectId")({
   component: RouteComponent,
   staleTime: Infinity,
   validateSearch: env,
-  beforeLoad: async ({ context, params, search }) => {
-    const { env: envSlug } = search;
-
-    const zero = context.zero;
-
-    if (!zero) throw new Error("No zero");
-
-    const project = await zero.run(queries.project.byId({ projectId: params.projectId }));
-    const organizationId = context.auth?.session.activeOrganizationId ?? "";
-
-    const s = await zero.run(queries.project.list({ organizationId }));
-    console.log("beforeLoad", { project, envSlug, s });
-    if (!project) throw new Error("No project");
-
-    const activeEnvironment =
-      project.environments?.find((e) => e.name === envSlug) ?? project.environments?.[0];
-    return { project, activeEnvironment };
+  beforeLoad: ({ context, params }) => {
+    context.zero?.run(queries.project.byId({ projectId: params.projectId }));
   },
 });
 
 function RouteComponent() {
   const { projectId } = useParams({ strict: false });
-  const { zero, activeEnvironment } = Route.useRouteContext();
+  const { zero } = Route.useRouteContext();
+  const { env: envSlug } = Route.useSearch();
 
-  const envId = activeEnvironment.id;
-  const [resources] = useQuery(queries.resource.list({ environmentId: envId }));
+  const [project] = useQuery(projectId ? queries.project.byId({ projectId }) : undefined);
+  const environments = project?.environments ?? [];
+  const activeEnvironment = environments.find((e) => e.name === envSlug) ?? environments[0];
+
+  const envId = activeEnvironment?.id ?? "";
+  const [resources] = useQuery(envId ? queries.resource.list({ environmentId: envId }) : undefined);
 
   const [deploying, setDeploying] = useState(false);
   const [pendingChanges, setPendingChanges] = useState<PendingChange[]>([]);
   const [changesDialogOpen, setChangesDialogOpen] = useState(false);
 
   const handleResourceCreated = useCallback(
-    (resource: { id: string; name: string; kind: string; status: string }) => {
+    (resource: { id: string; name: string; kind: string; status: string; databaseEngine?: string }) => {
       setPendingChanges((prev) => [
         ...prev,
         {
           id: resource.id,
           name: resource.name,
           kind: resource.kind,
+          databaseEngine: resource.databaseEngine,
           action: "added",
           settings: [
             { key: "Kind", oldValue: "", newValue: resource.kind },
@@ -91,7 +82,7 @@ function RouteComponent() {
         ],
       },
     ]);
-  }, []);
+  }, [pendingChanges, resources]);
 
   const createDeployment = useMutation(orpc.deployment.create.mutationOptions());
   const provisionResource = useMutation(orpc.resource.provision.mutationOptions());
@@ -117,7 +108,10 @@ function RouteComponent() {
             source: "manual",
           });
         } else if (provisionable.includes(change.kind)) {
-          return provisionResource.mutateAsync({ resourceId: change.id });
+          return provisionResource.mutateAsync({
+            resourceId: change.id,
+            databaseEngine: change.databaseEngine,
+          });
         }
       }),
     );
@@ -133,7 +127,7 @@ function RouteComponent() {
     setPendingChanges([]);
     setChangesDialogOpen(false);
     setDeploying(false);
-  }, [projectId, envId]);
+  }, [projectId, envId, pendingChanges, zero, createDeployment, provisionResource]);
 
   const handleDiscard = useCallback((id: string) => {
     const change = pendingChanges.find((c) => c.id === id);
@@ -142,18 +136,18 @@ function RouteComponent() {
       zero.mutate(mutators.resource.delete({ id }));
     }
     setPendingChanges((prev) => prev.filter((c) => c.id !== id));
-  }, []);
+  }, [pendingChanges, zero]);
 
   // Memoize context value — only changes when pendingChanges state changes
   const contextValue = useMemo<ProjectContext>(
     () => ({
-      envSlug: activeEnvironment.name,
+      envSlug: activeEnvironment?.name ?? envSlug,
       environmentId: envId,
       pendingChanges,
       onCreateResource: handleResourceCreated,
       onMarkForRemoval: handleMarkForRemoval,
     }),
-    [activeEnvironment.name, envId, pendingChanges, handleResourceCreated, handleMarkForRemoval],
+    [activeEnvironment?.name, envSlug, envId, pendingChanges, handleResourceCreated, handleMarkForRemoval],
   );
 
   return (

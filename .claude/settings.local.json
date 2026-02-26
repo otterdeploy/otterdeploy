@@ -12,7 +12,13 @@
       "Bash(agent-browser click:*)",
       "Bash(agent-browser snapshot:*)",
       "Bash(head:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(agent-browser open:*)",
+      "Bash(agent-browser screenshot:*)",
+      "Bash(agent-browser find:*)",
+      "Bash(agent-browser scroll:*)",
+      "Bash(psql:*)",
+      "Bash(echo no psql:*)"
     ]
   }
 }

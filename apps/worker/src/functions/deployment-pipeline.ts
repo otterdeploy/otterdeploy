@@ -12,6 +12,8 @@ import {
   verifyDeployment,
   cleanupBuild,
 } from "@otterdeploy/domain/pipeline";
+import { db, eq } from "@otterdeploy/db";
+import { resource } from "@otterdeploy/db/schema/project";
 import { Result } from "better-result";
 
 import { inngest } from "../inngest";
@@ -42,8 +44,15 @@ export const deploymentPipeline = inngest.createFunction(
     retries: 0,
     onFailure: async ({ event, error }) => {
       const deploymentId = event.data.event.data.deploymentId;
+      const resourceId = event.data.event.data.resourceId;
 
       logger.error({ deploymentId, err: error }, "Deployment pipeline failed");
+
+      // Mark resource as crashed
+      await db
+        .update(resource)
+        .set({ status: "crashed", updatedAt: new Date() })
+        .where(eq(resource.id, resourceId));
 
       const transitionResult = await Result.tryPromise({
         try: () =>
@@ -234,7 +243,15 @@ export const deploymentPipeline = inngest.createFunction(
       if (result.isErr()) throw result.error;
     });
 
-    // Step 10: Cleanup — remove build dir, prune old tags
+    // Step 10: Mark resource as online
+    await step.run("update-resource-status", async () => {
+      await db
+        .update(resource)
+        .set({ status: "online", updatedAt: new Date() })
+        .where(eq(resource.id, resourceId));
+    });
+
+    // Step 11: Cleanup — remove build dir, prune old tags
     await step.run("cleanup", async () => {
       await cleanupBuild(
         {
