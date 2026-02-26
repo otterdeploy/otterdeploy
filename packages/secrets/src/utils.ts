@@ -1,4 +1,5 @@
 import { InfisicalGatewayProvider } from "./infisical-gateway";
+import { NativeBreakglassProvider } from "./native-breakglass";
 import type { SecretProviderClient } from "./provider";
 import type { SecretLogicalScope, SecretProvider } from "./types";
 
@@ -20,7 +21,5 @@ export function getProviderClient(provider: SecretProvider): SecretProviderClien
     return new InfisicalGatewayProvider();
   }
 
-  throw new Error(
-    "native_breakglass is disabled by default. Enable it explicitly before use.",
-  );
+  return new NativeBreakglassProvider();
 }

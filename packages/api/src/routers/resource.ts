@@ -3,6 +3,7 @@ import { ORPCError } from "@orpc/server";
 import { db, eq, inArray } from "@otterdeploy/db";
 import { resource, environment, resourcePosition } from "@otterdeploy/db/schema/project";
 import { resourceRuntimeConfig, resourceBuildConfig, databaseConfig } from "@otterdeploy/db/schema/resource-config";
+import { deployment, deploymentEvent } from "@otterdeploy/db/schema/deployment";
 
 import { pickDefined } from "@otterdeploy/domain";
 import { publishEvent } from "@otterdeploy/events";
@@ -293,6 +294,46 @@ export const resourceRouter = {
       const row = await validateResourceAccess(input.resourceId, context.organizationId);
       const projectId = row.environment.project.id;
       const environmentId = row.environment.id;
+      const now = new Date();
+      let provisionDeploymentId: string | null = null;
+
+      // Persist database provisions as deployments so they appear in history.
+      if (row.kind === "database") {
+        provisionDeploymentId = createId();
+        await db.insert(deployment).values({
+          id: provisionDeploymentId,
+          organizationId: context.organizationId,
+          projectId,
+          environmentId,
+          resourceId: input.resourceId,
+          status: "queued",
+          source: "manual",
+          gitRef: null,
+          gitCommitSha: null,
+          gitCommitMessage: null,
+          builder: null,
+          imageTag: null,
+          previousImageTag: null,
+          startedAt: null,
+          completedAt: null,
+          duration: null,
+          triggeredBy: context.userId,
+          idempotencyKey: null,
+          createdAt: now,
+          updatedAt: now,
+        });
+
+        await db.insert(deploymentEvent).values({
+          id: createId(),
+          deploymentId: provisionDeploymentId,
+          status: "queued",
+          previousStatus: null,
+          actor: context.userId,
+          reason: "Resource provision requested",
+          metadata: { trigger: "resource.provision" },
+          createdAt: now,
+        });
+      }
 
       // Create database config server-side so it's in Postgres before the worker reads it
       if (row.kind === "database" && input.databaseEngine) {
@@ -327,7 +368,7 @@ export const resourceRouter = {
       // Mark resource as deploying
       await db
         .update(resource)
-        .set({ status: "deploying", updatedAt: new Date() })
+        .set({ status: "deploying", updatedAt: now })
         .where(eq(resource.id, input.resourceId));
 
       await publishEvent("resource.created", {
@@ -335,10 +376,14 @@ export const resourceRouter = {
         projectId,
         environmentId,
         resourceId: input.resourceId,
+        deploymentId: provisionDeploymentId ?? undefined,
         kind: row.kind,
         status: "deploying",
       });
 
-      return { success: true as const };
+      return {
+        success: true as const,
+        deploymentId: provisionDeploymentId,
+      };
     }),
 };

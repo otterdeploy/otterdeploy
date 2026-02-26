@@ -56,9 +56,11 @@ export interface UpdateServiceOpts {
 export interface ServiceLogOpts {
   tail?: number;
   since?: number;
+  until?: number;
   follow?: boolean;
   stdout?: boolean;
   stderr?: boolean;
+  timestamps?: boolean;
 }
 
 export interface ServiceInfo {
@@ -128,6 +130,16 @@ export interface ImageInfo {
 export interface DockerConfigInfo {
   id: string;
   name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// --- Secret types ---
+
+export interface DockerSecretInfo {
+  id: string;
+  name: string;
+  labels: Record<string, string>;
   createdAt: string;
   updatedAt: string;
 }

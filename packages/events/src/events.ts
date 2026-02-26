@@ -107,6 +107,7 @@ export const EventSchemas = {
     projectId: IdSchema,
     environmentId: IdSchema,
     resourceId: IdSchema,
+    deploymentId: IdSchema.optional(),
     kind: z.string().min(1),
     status: ResourceStatusSchema,
   }),

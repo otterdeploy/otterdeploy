@@ -14,6 +14,7 @@ export const env = createEnv({
     INFISICAL_MACHINE_IDENTITY_CLIENT_ID: z.string().min(1).optional(),
     INFISICAL_MACHINE_IDENTITY_CLIENT_SECRET: z.string().min(1).optional(),
     INFISICAL_PROJECT_PREFIX: z.string().min(1).optional(),
+    SECRET_PROVIDER: z.enum(["infisical", "native_breakglass"]).optional(),
     NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   },
   runtimeEnv: process.env,

@@ -1,8 +1,15 @@
 import { Result } from "better-result";
-import { db, eq } from "@otterdeploy/db";
+import { Readable } from "node:stream";
+import { createHash } from "node:crypto";
+import { createLogger } from "@otterdeploy/logger";
+import { db, eq, desc } from "@otterdeploy/db";
+import { deployment } from "@otterdeploy/db/schema/deployment";
 import { resource } from "@otterdeploy/db/schema/project";
+import { getServiceLogs } from "@otterdeploy/docker";
 
 import { NotFoundError } from "./errors";
+
+const log = createLogger("domain:monitoring");
 
 type MetricPoint = {
   timestamp: string;
@@ -13,7 +20,8 @@ type LogItem = {
   id: string;
   timestamp: string;
   message: string;
-  level: "info" | "warn" | "error";
+  deploymentId: string;
+  level: "debug" | "info" | "warn" | "error";
 };
 
 function paginationMeta(page: number, pageSize: number, total: number) {
@@ -25,6 +33,111 @@ function paginationMeta(page: number, pageSize: number, total: number) {
       total,
     },
   };
+}
+
+function toUnixSeconds(value?: string): number | undefined {
+  if (!value) return undefined;
+  const ms = Date.parse(value);
+  if (Number.isNaN(ms)) return undefined;
+  return Math.floor(ms / 1000);
+}
+
+async function readStream(stream: Readable): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+
+  for await (const chunk of stream) {
+    if (typeof chunk === "string") {
+      chunks.push(Buffer.from(chunk));
+    } else {
+      chunks.push(Buffer.from(chunk));
+    }
+  }
+
+  return Buffer.concat(chunks);
+}
+
+function decodeDockerStream(buffer: Buffer): string[] {
+  const lines: string[] = [];
+  let offset = 0;
+
+  // Docker multiplexed stream format:
+  // [1 byte stream type][3 bytes 0][4 bytes big-endian payload length][payload]
+  while (offset + 8 <= buffer.length) {
+    const streamType = buffer[offset];
+    const reserved = buffer.subarray(offset + 1, offset + 4);
+
+    const isKnownStreamType = streamType === 1 || streamType === 2 || streamType === 3;
+    const hasValidReservedBytes = reserved[0] === 0 && reserved[1] === 0 && reserved[2] === 0;
+    if (!isKnownStreamType || !hasValidReservedBytes) break;
+
+    const payloadLength = buffer.readUInt32BE(offset + 4);
+    const payloadStart = offset + 8;
+    const payloadEnd = payloadStart + payloadLength;
+    if (payloadEnd > buffer.length) break;
+
+    const payload = buffer.subarray(payloadStart, payloadEnd).toString("utf8");
+    lines.push(...payload.split(/\r?\n/).map((line) => line.trimEnd()).filter(Boolean));
+    offset = payloadEnd;
+  }
+
+  if (lines.length > 0) return lines;
+
+  // Fallback for plain-text streams.
+  return buffer
+    .toString("utf8")
+    .split(/\r?\n/)
+    .map((line) => line.trimEnd())
+    .filter(Boolean);
+}
+
+function inferLogLevel(message: string): LogItem["level"] {
+  try {
+    const parsed = JSON.parse(message) as { level?: unknown };
+    if (
+      parsed.level === "debug" ||
+      parsed.level === "info" ||
+      parsed.level === "warn" ||
+      parsed.level === "error"
+    ) {
+      return parsed.level;
+    }
+  } catch {
+    // not json, keep heuristics
+  }
+
+  const lower = message.toLowerCase();
+  if (lower.includes("error") || lower.includes("fatal")) return "error";
+  if (lower.includes("warn")) return "warn";
+  if (lower.includes("debug") || lower.includes("trace")) return "debug";
+  return "info";
+}
+
+function parseTimestampedLine(line: string): { timestamp: string; message: string } {
+  // docker logs --timestamps prefix: 2026-02-26T09:58:40.123456789Z <message>
+  const match = line.match(/^(\d{4}-\d{2}-\d{2}T[^ ]+)\s+(.*)$/);
+  if (!match) {
+    return { timestamp: new Date().toISOString(), message: line };
+  }
+
+  // Normalize nanoseconds precision to milliseconds for JS Date compatibility.
+  const rawTimestamp = match[1] ?? "";
+  const normalizedTimestamp = rawTimestamp.replace(
+    /\.(\d{3})\d*Z$/,
+    ".$1Z",
+  );
+  const parsed = new Date(normalizedTimestamp);
+  return {
+    timestamp: Number.isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString(),
+    message: match[2] ?? "",
+  };
+}
+
+async function resolveLatestDeploymentId(resourceId: string): Promise<string | null> {
+  const latest = await db.query.deployment.findFirst({
+    where: eq(deployment.resourceId, resourceId),
+    orderBy: [desc(deployment.createdAt)],
+  });
+  return latest?.id ?? null;
 }
 
 async function validateResource(
@@ -67,15 +180,77 @@ export async function getLogs(params: {
   organizationId: string;
   from?: string;
   to?: string;
+  deploymentId?: string;
   page: number;
   pageSize: number;
 }): Promise<Result<{ items: LogItem[]; meta: ReturnType<typeof paginationMeta> }, NotFoundError>> {
   const result = await validateResource(params.resourceId, params.organizationId);
   if (result.isErr()) return result;
-  const items: LogItem[] = [];
+
+  const deploymentId =
+    params.deploymentId ??
+    (await resolveLatestDeploymentId(params.resourceId)) ??
+    params.resourceId;
+  const serviceName = `otterstack-${params.resourceId}`;
+  const since = toUnixSeconds(params.from);
+  const until = toUnixSeconds(params.to);
+  const tailCount = Math.min(Math.max(params.page * params.pageSize, params.pageSize), 500);
+
+  const streamResult = await getServiceLogs(serviceName, {
+    tail: since || until ? 5_000 : tailCount,
+    follow: false,
+    stdout: true,
+    stderr: true,
+    timestamps: true,
+    since,
+    until,
+  });
+
+  if (streamResult.isErr()) {
+    log.warn(
+      { resourceId: params.resourceId, serviceName, err: streamResult.error },
+      "Could not fetch service logs",
+    );
+    return Result.ok({
+      items: [],
+      meta: paginationMeta(params.page, params.pageSize, 0),
+    });
+  }
+
+  const buffer = await readStream(streamResult.value);
+  const decoded = decodeDockerStream(buffer);
+
+  const allItems: LogItem[] = decoded.map((line, index) => {
+    const { timestamp, message } = parseTimestampedLine(line);
+    const id = createHash("sha1")
+      .update(`${serviceName}:${timestamp}:${message}:${index}`)
+      .digest("hex");
+    return {
+      id,
+      deploymentId,
+      timestamp,
+      message,
+      level: inferLogLevel(message),
+    };
+  });
+
+  const fromMs = params.from ? Date.parse(params.from) : null;
+  const toMs = params.to ? Date.parse(params.to) : null;
+  const filtered = allItems.filter((item) => {
+    const itemMs = Date.parse(item.timestamp);
+    if (Number.isNaN(itemMs)) return false;
+    if (fromMs !== null && !Number.isNaN(fromMs) && itemMs < fromMs) return false;
+    if (toMs !== null && !Number.isNaN(toMs) && itemMs > toMs) return false;
+    return true;
+  });
+
+  const sorted = filtered.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+  const offset = (params.page - 1) * params.pageSize;
+  const items = sorted.slice(offset, offset + params.pageSize);
+
   return Result.ok({
     items,
-    meta: paginationMeta(params.page, params.pageSize, 0),
+    meta: paginationMeta(params.page, params.pageSize, sorted.length),
   });
 }
 
@@ -84,11 +259,10 @@ export async function streamLogs(params: {
   organizationId: string;
   cursor?: string;
 }): Promise<Result<{ items: LogItem[]; meta: ReturnType<typeof paginationMeta> }, NotFoundError>> {
-  const result = await validateResource(params.resourceId, params.organizationId);
-  if (result.isErr()) return result;
-  const items: LogItem[] = [];
-  return Result.ok({
-    items,
-    meta: paginationMeta(1, 10, 0),
+  return getLogs({
+    resourceId: params.resourceId,
+    organizationId: params.organizationId,
+    page: 1,
+    pageSize: 50,
   });
 }

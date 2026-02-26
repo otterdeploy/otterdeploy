@@ -42,6 +42,11 @@ export {
   listDockerConfigs,
 } from "./config";
 export {
+  createDockerSecret,
+  removeDockerSecret,
+  listDockerSecrets,
+} from "./secret";
+export {
   stackDeploy,
   stackRemove,
   stackServices,
@@ -61,5 +66,6 @@ export type {
   VolumeInfo,
   ImageInfo,
   DockerConfigInfo,
+  DockerSecretInfo,
 } from "./types";
 export type { StackServiceInfo } from "./stack";

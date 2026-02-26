@@ -58,7 +58,7 @@ export async function createGitProvider(params: {
         logicalScopeId: params.organizationId,
         key: `${providerId}.client_secret`,
         plaintext: params.clientSecret,
-        actorUserId: params.audit.userId,
+        actorUserId: params.audit.userId ?? "system",
       })
     : null;
 
@@ -70,7 +70,7 @@ export async function createGitProvider(params: {
         logicalScopeId: params.organizationId,
         key: `${providerId}.webhook_secret`,
         plaintext: params.webhookSecret,
-        actorUserId: params.audit.userId,
+        actorUserId: params.audit.userId ?? "system",
       })
     : null;
 
@@ -126,7 +126,7 @@ export async function updateGitProvider(params: {
       logicalScopeId: params.organizationId,
       key: `${existing.id}.client_secret`,
       plaintext: params.clientSecret,
-      actorUserId: params.audit.userId,
+      actorUserId: params.audit.userId ?? "system",
     });
     clientSecretReferenceId = secret.reference.id;
   }
@@ -140,7 +140,7 @@ export async function updateGitProvider(params: {
       logicalScopeId: params.organizationId,
       key: `${existing.id}.webhook_secret`,
       plaintext: params.webhookSecret,
-      actorUserId: params.audit.userId,
+      actorUserId: params.audit.userId ?? "system",
     });
     webhookSecretReferenceId = secret.reference.id;
   }
@@ -223,7 +223,7 @@ export async function rotateGitProviderSecret(params: {
       logicalScopeId: params.organizationId,
       key: `${existing.id}.client_secret`,
       plaintext: params.clientSecret,
-      actorUserId: params.audit.userId,
+      actorUserId: params.audit.userId ?? "system",
     });
     clientSecretReferenceId = secret.reference.id;
   }
@@ -236,7 +236,7 @@ export async function rotateGitProviderSecret(params: {
       logicalScopeId: params.organizationId,
       key: `${existing.id}.webhook_secret`,
       plaintext: params.webhookSecret,
-      actorUserId: params.audit.userId,
+      actorUserId: params.audit.userId ?? "system",
     });
     webhookSecretReferenceId = secret.reference.id;
   }

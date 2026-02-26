@@ -3,13 +3,27 @@ import {
   secretProviderBinding,
   secretReference,
 } from "@otterdeploy/db/schema/secrets";
+import { env } from "@otterdeploy/env/server";
 
 import type { BindingRef } from "./provider";
 import type {
   SecretKind,
+  SecretProvider,
   UpsertSecretInput,
 } from "./types";
 import { buildProviderPath, createSecretId, getProviderClient } from "./utils";
+
+function getPreferredSecretProvider(): SecretProvider {
+  if (env.SECRET_PROVIDER) {
+    return env.SECRET_PROVIDER;
+  }
+
+  if (env.INFISICAL_GATEWAY_URL && env.INFISICAL_GATEWAY_TOKEN) {
+    return "infisical";
+  }
+
+  return "native_breakglass";
+}
 
 export async function ensureOrganizationSecretBinding(organizationId: string) {
   const existing = await db.query.secretProviderBinding.findFirst({
@@ -20,46 +34,61 @@ export async function ensureOrganizationSecretBinding(organizationId: string) {
     return existing;
   }
 
-  const provider = existing?.provider ?? "infisical";
-  const client = getProviderClient(provider);
-  const ensured = await client.ensureOrganizationBinding(organizationId);
+  const preferredProvider = getPreferredSecretProvider();
+  const provider = existing?.provider ?? preferredProvider;
+  const providersToTry: SecretProvider[] = [
+    ...new Set<SecretProvider>([provider, preferredProvider, "native_breakglass"]),
+  ];
 
   const now = new Date();
+  let lastError: Error | null = null;
 
-  if (existing) {
-    await db
-      .update(secretProviderBinding)
-      .set({
+  for (const currentProvider of providersToTry) {
+    try {
+      const client = getProviderClient(currentProvider);
+      const ensured = await client.ensureOrganizationBinding(organizationId);
+
+      if (existing) {
+        await db
+          .update(secretProviderBinding)
+          .set({
+            provider: currentProvider,
+            providerProjectId: ensured.providerProjectId,
+            providerProjectSlug: ensured.providerProjectSlug,
+            status: "active",
+            updatedAt: now,
+          })
+          .where(eq(secretProviderBinding.id, existing.id));
+
+        const refreshed = await db.query.secretProviderBinding.findFirst({
+          where: eq(secretProviderBinding.id, existing.id),
+        });
+        if (!refreshed) {
+          throw new Error("Secret provider binding disappeared during update");
+        }
+        return refreshed;
+      }
+
+      const row = {
+        id: createSecretId(),
+        organizationId,
+        provider: currentProvider,
         providerProjectId: ensured.providerProjectId,
         providerProjectSlug: ensured.providerProjectSlug,
-        status: "active",
+        status: "active" as const,
+        metadata: {},
+        createdAt: now,
         updatedAt: now,
-      })
-      .where(eq(secretProviderBinding.id, existing.id));
+      };
 
-    const refreshed = await db.query.secretProviderBinding.findFirst({
-      where: eq(secretProviderBinding.id, existing.id),
-    });
-    if (!refreshed) {
-      throw new Error("Secret provider binding disappeared during update");
+      await db.insert(secretProviderBinding).values(row);
+      return row;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
     }
-    return refreshed;
   }
 
-  const row = {
-    id: createSecretId(),
-    organizationId,
-    provider: "infisical" as const,
-    providerProjectId: ensured.providerProjectId,
-    providerProjectSlug: ensured.providerProjectSlug,
-    status: "active" as const,
-    metadata: {},
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  await db.insert(secretProviderBinding).values(row);
-  return row;
+  throw lastError ?? new Error("Unable to ensure secret provider binding");
 }
 
 type UpsertSecretReferenceResult = {

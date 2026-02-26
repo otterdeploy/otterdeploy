@@ -55,7 +55,7 @@ export async function registerServer(params: {
       logicalScopeId: params.organizationId,
       key: `server.${params.ipAddress}.${params.port}.ssh_private_key`,
       plaintext: params.ssh.privateKey,
-      actorUserId: params.audit.userId,
+      actorUserId: params.audit.userId ?? "system",
     });
 
     const sshRow = {

@@ -2,7 +2,7 @@ import { db } from "@otterdeploy/db";
 import { auditLog } from "@otterdeploy/db/schema/operations";
 
 export type AuditContext = {
-  userId: string;
+  userId: string | null;
   ipAddress: string | null;
   userAgent: string | null;
 };

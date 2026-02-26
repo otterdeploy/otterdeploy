@@ -256,6 +256,7 @@ export async function listDeployments(params: {
       orderBy: [desc(deployment.createdAt)],
       limit: pageSize,
       offset,
+      with: { events: true },
     }),
     db
       .select({ count: sql<number>`count(*)::int` })
@@ -264,7 +265,10 @@ export async function listDeployments(params: {
   ]);
 
   return {
-    items: items.map(formatDeployment),
+    items: items.map((item) => ({
+      ...formatDeployment(item),
+      events: (item.events ?? []).map(formatDeploymentEvent),
+    })),
     meta: paginationMeta(page, pageSize, countRow?.count ?? 0),
   };
 }
@@ -398,6 +402,31 @@ export async function supersedeQueuedDeployments(
   for (const d of queued) {
     if (d.id === exceptDeploymentId) continue;
     const result = await transitionTo(d.id, "canceled", {
+      actor: "system",
+      reason: "Superseded by newer deployment",
+    });
+    if (result.isErr()) return result;
+  }
+
+  return Result.ok(undefined);
+}
+
+/**
+ * Retire (roll back) all previously-live deployments for a resource when a
+ * new deployment goes live. Each retired deployment transitions
+ * `live → rolled_back` via the state machine, which records the event.
+ */
+export async function retirePreviousDeployments(
+  resourceId: string,
+  currentDeploymentId: string,
+): Promise<Result<void, NotFoundError | ConflictError>> {
+  const liveDeployments = await db.query.deployment.findMany({
+    where: and(eq(deployment.resourceId, resourceId), eq(deployment.status, "live")),
+  });
+
+  for (const d of liveDeployments) {
+    if (d.id === currentDeploymentId) continue;
+    const result = await transitionTo(d.id, "rolled_back", {
       actor: "system",
       reason: "Superseded by newer deployment",
     });

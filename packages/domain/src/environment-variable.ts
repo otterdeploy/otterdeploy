@@ -4,10 +4,13 @@ import { project, environment, resource } from "@otterdeploy/db/schema/project";
 import { environmentVariable } from "@otterdeploy/db/schema/operations";
 import { secretReference } from "@otterdeploy/db/schema/secrets";
 import { upsertSecretReference, revealSecretByReference } from "@otterdeploy/secrets";
+import { createLogger } from "@otterdeploy/logger";
 
 import { NotFoundError, BadRequestError, ConflictError } from "./errors";
 import { type AuditContext, writeAuditLog } from "./audit-writer";
-import { encodeLegacySecret } from "./legacy-secret";
+import { decodeLegacySecret, encodeLegacySecret } from "./legacy-secret";
+
+const logger = createLogger("domain:environment-variable");
 
 type EnvironmentVariableScope = "project" | "environment" | "resource";
 
@@ -169,26 +172,43 @@ export async function upsertEnvironmentVariable(params: {
 
   const logicalScopeId = scope.resourceId ?? scope.environmentId ?? params.projectId;
 
-  const secret = await upsertSecretReference({
-    organizationId: params.organizationId,
-    kind: "env_var",
-    logicalScope: params.scope,
-    logicalScopeId,
-    key: params.key,
-    plaintext: params.value,
-    actorUserId: params.audit.userId,
-  });
+  let secretReferenceId: string | null = null;
+  let secretProvider: "infisical" | "native_breakglass" | null = null;
+  let secretProviderVersion: string | null = null;
+
+  if (params.isSecret) {
+    try {
+      const secret = await upsertSecretReference({
+        organizationId: params.organizationId,
+        kind: "env_var",
+        logicalScope: params.scope,
+        logicalScopeId,
+        key: params.key,
+        plaintext: params.value,
+        actorUserId: params.audit.userId ?? "system",
+      });
+      secretReferenceId = secret.reference.id;
+      secretProvider = secret.reference.provider;
+      secretProviderVersion = secret.reference.providerVersion;
+    } catch (error) {
+      logger.warn(
+        { key: params.key, scope: params.scope, logicalScopeId, err: error },
+        "Secret provider unavailable, falling back to local encrypted value",
+      );
+    }
+  }
 
   // Build the conditions that uniquely identify this variable
   const findConditions = [
     eq(environmentVariable.organizationId, params.organizationId),
-    eq(environmentVariable.projectId, params.projectId),
     eq(environmentVariable.key, params.key),
   ];
-  if (scope.resourceId) {
+  if (params.scope === "resource" && scope.resourceId) {
     findConditions.push(eq(environmentVariable.resourceId, scope.resourceId));
-  } else if (scope.environmentId) {
+  } else if (params.scope === "environment" && scope.environmentId) {
     findConditions.push(eq(environmentVariable.environmentId, scope.environmentId));
+  } else {
+    findConditions.push(eq(environmentVariable.projectId, params.projectId));
   }
 
   const existing = await db.query.environmentVariable.findFirst({
@@ -201,7 +221,7 @@ export async function upsertEnvironmentVariable(params: {
     await db
       .update(environmentVariable)
       .set({
-        secretReferenceId: secret.reference.id,
+        secretReferenceId,
         encryptedValue: encodeLegacySecret(params.value),
         isSecret: params.isSecret,
         isBuildTime: params.buildTime,
@@ -209,30 +229,37 @@ export async function upsertEnvironmentVariable(params: {
       })
       .where(eq(environmentVariable.id, existing.id));
 
-    await writeAuditLog(params.organizationId, params.audit, "secret.upserted", "environment_variable", existing.id, {
-      scope: params.scope,
-      key: params.key,
-      secretReferenceId: secret.reference.id,
-    });
+    await writeAuditLog(
+      params.organizationId,
+      params.audit,
+      "secret.upserted",
+      "environment_variable",
+      existing.id,
+      {
+        scope: params.scope,
+        key: params.key,
+        secretReferenceId,
+      },
+    );
 
     const updated = await db.query.environmentVariable.findFirst({
       where: eq(environmentVariable.id, existing.id),
     });
 
     return Result.ok(formatVariable(updated!, {
-      provider: secret.reference.provider,
-      providerVersion: secret.reference.providerVersion,
+      provider: secretProvider,
+      providerVersion: secretProviderVersion,
     }));
   }
 
   const row = {
     id: crypto.randomUUID(),
     organizationId: params.organizationId,
-    projectId: params.projectId,
-    environmentId: scope.environmentId,
-    resourceId: scope.resourceId,
+    projectId: params.scope === "project" ? params.projectId : null,
+    environmentId: params.scope === "environment" ? scope.environmentId : null,
+    resourceId: params.scope === "resource" ? scope.resourceId : null,
     key: params.key,
-    secretReferenceId: secret.reference.id,
+    secretReferenceId,
     encryptedValue: encodeLegacySecret(params.value),
     isSecret: params.isSecret,
     isBuildTime: params.buildTime,
@@ -248,12 +275,12 @@ export async function upsertEnvironmentVariable(params: {
   await writeAuditLog(params.organizationId, params.audit, "secret.upserted", "environment_variable", row.id, {
     scope: params.scope,
     key: params.key,
-    secretReferenceId: secret.reference.id,
+    secretReferenceId,
   });
 
   return Result.ok(formatVariable(inserted, {
-    provider: secret.reference.provider,
-    providerVersion: secret.reference.providerVersion,
+    provider: secretProvider,
+    providerVersion: secretProviderVersion,
   }));
 }
 
@@ -288,13 +315,13 @@ export async function listEnvironmentVariables(params: {
 
   const conditions = [
     eq(environmentVariable.organizationId, params.organizationId),
-    eq(environmentVariable.projectId, params.projectId),
   ];
-  if (params.environmentId) {
-    conditions.push(eq(environmentVariable.environmentId, params.environmentId));
-  }
   if (params.resourceId) {
     conditions.push(eq(environmentVariable.resourceId, params.resourceId));
+  } else if (params.environmentId) {
+    conditions.push(eq(environmentVariable.environmentId, params.environmentId));
+  } else {
+    conditions.push(eq(environmentVariable.projectId, params.projectId));
   }
 
   const rows = await db.query.environmentVariable.findMany({
@@ -351,16 +378,48 @@ export async function revealEnvironmentVariable(params: {
   const row = rowResult.value;
 
   if (!row.secretReferenceId) {
-    return Result.err(
-      new BadRequestError({ field: "secretReferenceId", message: "Variable has no secret reference. Backfill is required first." }),
+    const revealAuditId = await writeAuditLog(
+      params.organizationId,
+      params.audit,
+      "secret.revealed",
+      "environment_variable",
+      row.id,
+      {
+        reason: params.reason,
+        secretReferenceId: null,
+        fallback: "legacy_encrypted_value",
+      },
     );
+
+    return Result.ok({
+      variableId: row.id,
+      value: decodeLegacySecret(row.encryptedValue),
+      revealedAt: new Date().toISOString(),
+      revealAuditId,
+      providerVersion: null,
+    });
   }
 
-  const revealed = await revealSecretByReference({
-    organizationId: params.organizationId,
-    secretReferenceId: row.secretReferenceId,
-    expectedKind: "env_var",
-  });
+  let revealedValue: string;
+  let providerVersion: string | null = null;
+  let fallbackReason: string | null = null;
+
+  try {
+    const revealed = await revealSecretByReference({
+      organizationId: params.organizationId,
+      secretReferenceId: row.secretReferenceId,
+      expectedKind: "env_var",
+    });
+    revealedValue = revealed.value;
+    providerVersion = revealed.providerVersion;
+  } catch (error) {
+    logger.warn(
+      { variableId: row.id, secretReferenceId: row.secretReferenceId, err: error },
+      "Secret provider reveal failed, falling back to legacy encrypted value",
+    );
+    revealedValue = decodeLegacySecret(row.encryptedValue);
+    fallbackReason = "provider_unavailable";
+  }
 
   const revealAuditId = await writeAuditLog(
     params.organizationId,
@@ -371,14 +430,15 @@ export async function revealEnvironmentVariable(params: {
     {
       reason: params.reason,
       secretReferenceId: row.secretReferenceId,
+      fallback: fallbackReason,
     },
   );
 
   return Result.ok({
     variableId: row.id,
-    value: revealed.value,
+    value: revealedValue,
     revealedAt: new Date().toISOString(),
     revealAuditId,
-    providerVersion: revealed.providerVersion,
+    providerVersion,
   });
 }

@@ -272,6 +272,7 @@
       "name": "@otterdeploy/domain",
       "dependencies": {
         "@otterdeploy/db": "workspace:*",
+        "@otterdeploy/docker": "workspace:*",
         "@otterdeploy/events": "workspace:*",
         "@otterdeploy/logger": "workspace:*",
         "@otterdeploy/secrets": "workspace:*",
@@ -366,7 +367,9 @@
       "name": "@otterdeploy/secrets",
       "dependencies": {
         "@otterdeploy/db": "workspace:*",
+        "@otterdeploy/docker": "workspace:*",
         "@otterdeploy/env": "workspace:*",
+        "@otterdeploy/logger": "workspace:*",
         "better-result": "catalog:",
         "zod": "catalog:",
       },

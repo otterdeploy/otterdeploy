@@ -290,7 +290,9 @@ export async function getServiceLogs(
       stderr: opts?.stderr ?? true,
       tail: opts?.tail ?? 100,
       since: opts?.since ?? 0,
+      until: opts?.until,
       follow: opts?.follow ?? false,
+      timestamps: opts?.timestamps ?? true,
     })) as unknown as Readable;
 
     return Result.ok(logStream);

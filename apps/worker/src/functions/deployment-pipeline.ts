@@ -1,5 +1,5 @@
 import { createLogger } from "@otterdeploy/logger";
-import { deploymentMachine } from "@otterdeploy/domain";
+import { deploymentMachine, deploymentService } from "@otterdeploy/domain";
 import {
   validateDeployment,
   cloneSource,
@@ -243,7 +243,18 @@ export const deploymentPipeline = inngest.createFunction(
       if (result.isErr()) throw result.error;
     });
 
-    // Step 10: Mark resource as online
+    // Step 10: Retire previous live deployments → rolled_back
+    await step.run("retire-previous-deployments", async () => {
+      const result = await deploymentService.retirePreviousDeployments(resourceId, deploymentId);
+      if (result.isErr()) {
+        logger.warn(
+          { deploymentId, err: result.error },
+          "Failed to retire previous deployments (non-fatal)",
+        );
+      }
+    });
+
+    // Step 11: Mark resource as online
     await step.run("update-resource-status", async () => {
       await db
         .update(resource)
@@ -251,7 +262,7 @@ export const deploymentPipeline = inngest.createFunction(
         .where(eq(resource.id, resourceId));
     });
 
-    // Step 11: Cleanup — remove build dir, prune old tags
+    // Step 12: Cleanup — remove build dir, prune old tags
     await step.run("cleanup", async () => {
       await cleanupBuild(
         {

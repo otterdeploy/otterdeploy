@@ -15,6 +15,7 @@
   "dependencies": {
     "better-result": "catalog:",
     "@otterdeploy/db": "workspace:*",
+    "@otterdeploy/docker": "workspace:*",
     "@otterdeploy/events": "workspace:*",
     "@otterdeploy/logger": "workspace:*",
     "@otterdeploy/secrets": "workspace:*"

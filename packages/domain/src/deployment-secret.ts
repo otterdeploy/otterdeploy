@@ -2,8 +2,11 @@ import { db, eq, and, or } from "@otterdeploy/db";
 import { environmentVariable } from "@otterdeploy/db/schema/operations";
 import { deploymentSecretSnapshot } from "@otterdeploy/db/schema/secrets";
 import { revealSecretByReference } from "@otterdeploy/secrets";
+import { createLogger } from "@otterdeploy/logger";
 
 import { decodeLegacySecret, hashSecretDigest } from "./legacy-secret";
+
+const log = createLogger("domain:deployment-secret");
 
 export async function createDeploymentSecretSnapshot(input: {
   deploymentId: string;
@@ -53,13 +56,25 @@ export async function createDeploymentSecretSnapshot(input: {
     let providerVersion: string | null = null;
 
     if (row.secretReferenceId) {
-      const revealed = await revealSecretByReference({
-        organizationId: input.organizationId,
-        secretReferenceId: row.secretReferenceId,
-        expectedKind: "env_var",
-      });
-      secretValue = revealed.value;
-      providerVersion = revealed.providerVersion;
+      try {
+        const revealed = await revealSecretByReference({
+          organizationId: input.organizationId,
+          secretReferenceId: row.secretReferenceId,
+          expectedKind: "env_var",
+        });
+        secretValue = revealed.value;
+        providerVersion = revealed.providerVersion;
+      } catch (error) {
+        log.warn(
+          {
+            deploymentId: input.deploymentId,
+            variableId: row.id,
+            secretReferenceId: row.secretReferenceId,
+            err: error,
+          },
+          "Failed to resolve secret reference, using legacy encrypted value fallback",
+        );
+      }
     }
 
     entries.push({

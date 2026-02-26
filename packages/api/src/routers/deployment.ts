@@ -1,8 +1,7 @@
 import * as z from "zod";
-import { deploymentService, deploymentSecretService } from "@otterdeploy/domain";
+import { deploymentService, deploymentSecretService, monitoringService } from "@otterdeploy/domain";
 
 import { orgProcedure, orgMemberProcedure, orgAdminProcedure } from "../index";
-import { paginationMeta } from "../utils/helpers";
 import { unwrapResult } from "../utils/result";
 
 export const deploymentRouter = {
@@ -123,12 +122,23 @@ export const deploymentRouter = {
       }),
     )
     .handler(async ({ context, input }) => {
-      unwrapResult(
+      const timeline = unwrapResult(
         await deploymentService.getDeploymentWithTimeline(input.deploymentId, context.organizationId),
       );
-      return {
-        items: [],
-        meta: paginationMeta(1, 10, 0),
-      };
+
+      const from = timeline.deployment.startedAt ?? timeline.deployment.createdAt;
+      const to = timeline.deployment.completedAt ?? undefined;
+
+      return unwrapResult(
+        await monitoringService.getLogs({
+          resourceId: timeline.deployment.resourceId,
+          organizationId: context.organizationId,
+          deploymentId: timeline.deployment.id,
+          from,
+          to,
+          page: 1,
+          pageSize: 50,
+        }),
+      );
     }),
 };

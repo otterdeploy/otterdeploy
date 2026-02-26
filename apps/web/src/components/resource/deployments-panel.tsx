@@ -1,13 +1,5 @@
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { useProjectContext } from "@/components/project/context";
+import type { DeploymentInfo } from "@/components/resource/deployment-logs-panel";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,6 +11,16 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   AlertCircleIcon,
   ArrowDown01Icon,
@@ -31,10 +33,10 @@ import {
   Tick01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { queries } from "@otterdeploy/zero";
 import { useQuery } from "@rocicorp/zero/react";
-import { queries } from "@otterdeploy/zero/queries";
-import { useProjectContext } from "@/components/project/context";
 import { RotateCwIcon } from "lucide-react";
+import { useEffect } from "react";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -50,7 +52,14 @@ interface DeploymentStep {
   children?: DeploymentStep[];
 }
 
-type DeploymentStatus = "active" | "completed" | "removed" | "failed" | "building" | "deploying" | "initializing";
+type DeploymentStatus =
+  | "active"
+  | "completed"
+  | "removed"
+  | "failed"
+  | "building"
+  | "deploying"
+  | "initializing";
 
 interface Deployment {
   id: string;
@@ -61,6 +70,7 @@ interface Deployment {
   message?: string;
   showLogs?: boolean;
   steps?: DeploymentStep[];
+  createdAt?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -81,9 +91,7 @@ function formatTimeAgo(timestamp: number | null | undefined): string {
   return `${months}mo ago`;
 }
 
-function mapDeploymentStatus(
-  status: string | null | undefined,
-): DeploymentStatus {
+function mapDeploymentStatus(status: string | null | undefined): DeploymentStatus {
   switch (status) {
     case "live":
       return "active";
@@ -105,7 +113,11 @@ function mapDeploymentStatus(
 }
 
 function mapEventsToSteps(
-  events: readonly { status: string; reason?: string | null | undefined; createdAt?: number | null | undefined }[],
+  events: readonly {
+    status: string;
+    reason?: string | null | undefined;
+    createdAt?: number | null | undefined;
+  }[],
 ): DeploymentStep[] {
   if (!events || events.length === 0) return [];
 
@@ -146,8 +158,7 @@ function mapEventsToSteps(
 
     const children: DeploymentStep[] = [];
     if (stepStatus === "failed") {
-      const reason =
-        events.find((e) => e.status === "failed" || e.status === "canceled")?.reason;
+      const reason = events.find((e) => e.status === "failed" || e.status === "canceled")?.reason;
       if (reason) {
         children.push({
           name: `${phaseLabels[phase]} failed`,
@@ -238,15 +249,25 @@ function StepIcon({ status }: { status: StepStatus }) {
 // Deployment steps list
 // ---------------------------------------------------------------------------
 
-function StepsList({ steps, variant }: { steps: DeploymentStep[]; variant: "success" | "error" | "progress" }) {
+function StepsList({
+  steps,
+  variant,
+}: {
+  steps: DeploymentStep[];
+  variant: "success" | "error" | "progress";
+}) {
   const borderColor =
-    variant === "error" ? "border-destructive/30" :
-    variant === "progress" ? "border-blue-500/30" :
-    "border-emerald-500/30";
+    variant === "error"
+      ? "border-destructive/30"
+      : variant === "progress"
+        ? "border-blue-500/30"
+        : "border-emerald-500/30";
   const bgColor =
-    variant === "error" ? "bg-destructive/5" :
-    variant === "progress" ? "bg-blue-500/5" :
-    "bg-emerald-500/5";
+    variant === "error"
+      ? "bg-destructive/5"
+      : variant === "progress"
+        ? "bg-blue-500/5"
+        : "bg-emerald-500/5";
 
   return (
     <div className={`border-l-2 ${borderColor} ${bgColor}`}>
@@ -291,37 +312,45 @@ function StepsList({ steps, variant }: { steps: DeploymentStep[]; variant: "succ
 function DeploymentCard({
   deployment,
   active = false,
+  onViewLogs,
 }: {
   deployment: Deployment;
   active?: boolean;
+  onViewLogs?: (id: string) => void;
 }) {
   const style = STATUS_STYLES[deployment.status];
   const isFailed = deployment.status === "failed";
   const deploying = isInProgress(deployment.status);
   const hasDetails = deployment.message && deployment.steps;
 
-  const bannerBorder =
-    isFailed ? "border-destructive/20" :
-    deploying ? "border-blue-500/20" :
-    "border-emerald-500/20";
-  const bannerBg =
-    isFailed ? "bg-destructive/10" :
-    deploying ? "bg-blue-500/10" :
-    "bg-emerald-500/10";
-  const bannerIcon =
-    isFailed ? (
-      <HugeiconsIcon icon={AlertCircleIcon} size={16} className="text-destructive" />
-    ) : deploying ? (
-      <HugeiconsIcon icon={Loading03Icon} size={16} className="text-blue-400 animate-spin" />
-    ) : (
-      <HugeiconsIcon icon={CheckmarkCircle01Icon} size={16} className="text-emerald-400" />
-    );
-  const bannerTextColor =
-    isFailed ? "text-destructive" :
-    deploying ? "text-blue-400" :
-    "text-emerald-400";
+  const bannerBorder = isFailed
+    ? "border-destructive/20"
+    : deploying
+      ? "border-blue-500/20"
+      : "border-emerald-500/20";
+  const bannerBg = isFailed
+    ? "bg-destructive/10"
+    : deploying
+      ? "bg-blue-500/10"
+      : "bg-emerald-500/10";
+  const bannerIcon = isFailed ? (
+    <HugeiconsIcon icon={AlertCircleIcon} size={16} className="text-destructive" />
+  ) : deploying ? (
+    <HugeiconsIcon icon={Loading03Icon} size={16} className="text-blue-400 animate-spin" />
+  ) : (
+    <HugeiconsIcon icon={CheckmarkCircle01Icon} size={16} className="text-emerald-400" />
+  );
+  const bannerTextColor = isFailed
+    ? "text-destructive"
+    : deploying
+      ? "text-blue-400"
+      : "text-emerald-400";
 
-  const stepsVariant = isFailed ? "error" as const : deploying ? "progress" as const : "success" as const;
+  const stepsVariant = isFailed
+    ? ("error" as const)
+    : deploying
+      ? ("progress" as const)
+      : ("success" as const);
 
   return (
     <div className="bg-card ring-foreground/10 overflow-hidden rounded-xl ring-1">
@@ -343,7 +372,7 @@ function DeploymentCard({
         </div>
 
         {(active || deployment.showLogs || deploying) && (
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={() => onViewLogs?.(deployment.id)}>
             View logs
           </Button>
         )}
@@ -353,7 +382,9 @@ function DeploymentCard({
             <HugeiconsIcon icon={MoreVerticalIcon} size={16} />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem>View logs</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onViewLogs?.(deployment.id)}>
+              View logs
+            </DropdownMenuItem>
             <DropdownMenuItem>Redeploy</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive">Remove</DropdownMenuItem>
@@ -401,17 +432,24 @@ interface DeploymentsPanelProps {
   resourceKind: string;
   resourceStatus: string;
   resourceName?: string;
+  onViewLogs?: (deploymentId: string) => void;
+  onDeploymentsChange?: (deployments: DeploymentInfo[]) => void;
 }
 
-export function DeploymentsPanel({ resourceId, resourceKind, resourceStatus, resourceName }: DeploymentsPanelProps) {
+export function DeploymentsPanel({
+  resourceId,
+  resourceKind,
+  resourceStatus,
+  resourceName,
+  onViewLogs,
+  onDeploymentsChange,
+}: DeploymentsPanelProps) {
   const { onRedeploy } = useProjectContext();
   const rawDeployments = useQuery(queries.deployment.listForResource({ resourceId }));
   const deployments = rawDeployments[0] ?? [];
 
   // Sort by createdAt descending
-  const sorted = [...deployments].sort(
-    (a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0),
-  );
+  const sorted = [...deployments].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
 
   // Map Zero rows to UI Deployment type
   const mapped: Deployment[] = sorted.map((d) => {
@@ -439,6 +477,7 @@ export function DeploymentsPanel({ resourceId, resourceKind, resourceStatus, res
       message,
       showLogs: uiStatus === "failed" || uiStatus === "active",
       steps: hasSteps ? steps : undefined,
+      createdAt: d.createdAt ?? undefined,
     };
   });
 
@@ -458,7 +497,7 @@ export function DeploymentsPanel({ resourceId, resourceKind, resourceStatus, res
         source: "manual",
         status: "initializing",
         message: "Deployment in progress:  Provisioning resource...",
-        showLogs: false,
+        showLogs: true,
       });
     } else if (resourceIsOnline) {
       mapped.push({
@@ -468,7 +507,7 @@ export function DeploymentsPanel({ resourceId, resourceKind, resourceStatus, res
         source: "manual",
         status: "active",
         message: "Deployment successful",
-        showLogs: false,
+        showLogs: true,
       });
     } else if (resourceIsCrashed) {
       mapped.push({
@@ -478,7 +517,7 @@ export function DeploymentsPanel({ resourceId, resourceKind, resourceStatus, res
         source: "manual",
         status: "failed",
         message: "Resource crashed",
-        showLogs: false,
+        showLogs: true,
       });
     }
   }
@@ -488,17 +527,25 @@ export function DeploymentsPanel({ resourceId, resourceKind, resourceStatus, res
   const history = mapped.filter((d) => d !== activeDeployment && d !== inProgressDeployment);
   const isDeploying = resourceStatus === "deploying" || !!inProgressDeployment;
 
+  useEffect(() => {
+    if (!onDeploymentsChange) return;
+    onDeploymentsChange(
+      mapped.map((deployment) => ({
+        id: deployment.id,
+        status: deployment.status,
+        image: deployment.image,
+        source: deployment.source,
+        createdAt: deployment.createdAt,
+        message: deployment.message,
+        steps: deployment.steps,
+      })),
+    );
+  }, [mapped, onDeploymentsChange]);
+
   const redeployButton = (
     <AlertDialog>
       <AlertDialogTrigger
-        render={
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            disabled={isDeploying}
-          />
-        }
+        render={<Button variant="outline" size="sm" className="gap-1.5" disabled={isDeploying} />}
       >
         <RotateCwIcon className="size-3.5" />
         {isDeploying ? "Deploying..." : mapped.length === 0 ? "Deploy" : "Redeploy"}
@@ -507,7 +554,8 @@ export function DeploymentsPanel({ resourceId, resourceKind, resourceStatus, res
         <AlertDialogHeader>
           <AlertDialogTitle>Redeploy deployment</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to redeploy this deployment? This will rebuild and deploy your code with the exact same configuration.
+            Are you sure you want to redeploy this deployment? This will rebuild and deploy your
+            code with the exact same configuration.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -522,6 +570,10 @@ export function DeploymentsPanel({ resourceId, resourceKind, resourceStatus, res
 
   const hasNoContent = mapped.length === 0;
 
+  const handleViewLogs = (deploymentId: string) => {
+    onViewLogs?.(deploymentId);
+  };
+
   return (
     <div className="space-y-4 pt-4">
       <div className={`flex items-center ${hasNoContent ? "justify-between" : "justify-end"}`}>
@@ -529,9 +581,13 @@ export function DeploymentsPanel({ resourceId, resourceKind, resourceStatus, res
         {redeployButton}
       </div>
 
-      {activeDeployment && <DeploymentCard deployment={activeDeployment} active />}
+      {activeDeployment && (
+        <DeploymentCard deployment={activeDeployment} active onViewLogs={handleViewLogs} />
+      )}
 
-      {inProgressDeployment && <DeploymentCard deployment={inProgressDeployment} />}
+      {inProgressDeployment && (
+        <DeploymentCard deployment={inProgressDeployment} onViewLogs={handleViewLogs} />
+      )}
 
       {history.length > 0 && (
         <Collapsible defaultOpen>
@@ -546,7 +602,7 @@ export function DeploymentsPanel({ resourceId, resourceKind, resourceStatus, res
           <CollapsibleContent>
             <div className="space-y-3">
               {history.map((d) => (
-                <DeploymentCard key={d.id} deployment={d} />
+                <DeploymentCard key={d.id} deployment={d} onViewLogs={handleViewLogs} />
               ))}
             </div>
           </CollapsibleContent>
