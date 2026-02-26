@@ -68,4 +68,6 @@ export type {
   DockerConfigInfo,
   DockerSecretInfo,
 } from "./types";
+export { watchContainerEvents } from "./events";
 export type { StackServiceInfo } from "./stack";
+export type { ContainerDeathEvent, ContainerDeathCallback } from "./events";
