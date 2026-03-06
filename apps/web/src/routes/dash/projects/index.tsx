@@ -45,10 +45,9 @@ type SortOption = "updated" | "name-asc" | "name-desc" | "newest" | "oldest";
 type ViewMode = "architecture" | "list";
 
 function CreateProjectDialog() {
-  const { organizationId } = Route.useRouteContext();
   const router = useRouter();
   const { zero } = router.options.context;
-  const { auth } = Route.useRouteContext();
+  const { auth, organizationId } = Route.useRouteContext();
   const [open, setOpen] = useState(false);
 
   const form = useForm({

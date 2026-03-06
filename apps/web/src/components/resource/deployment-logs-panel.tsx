@@ -415,9 +415,9 @@ export function DeploymentLogsPanel({
     enabled: !isSyntheticDeployment,
   });
 
-  const { data: runtimeLogsData } = useQuery({
+  const { data: runtimeLogsData, error: runtimeLogsError } = useQuery({
     ...orpc.monitoring.getLogs.queryOptions({
-      input: { resourceId, page: 1, pageSize: 200 },
+      input: { resourceId, page: 1, pageSize: 100 },
     }),
     enabled: logTab === "runtime" || isSyntheticDeployment,
   });
@@ -504,6 +504,24 @@ export function DeploymentLogsPanel({
     [deploymentLogItems, isSyntheticDeployment, runtimeLogsData?.items],
   );
 
+  const runtimeLogsWithErrors = useMemo(() => {
+    if (!runtimeLogsError) return runtimeLogs;
+    return [
+      ...runtimeLogs,
+      {
+        id: "runtime-log-query-error",
+        timestamp: new Date().toISOString(),
+        message:
+          runtimeLogsError instanceof Error
+            ? `Failed to load runtime logs: ${runtimeLogsError.message}`
+            : "Failed to load runtime logs",
+        deploymentId: deployment.id,
+        tab: "runtime" as const,
+        level: "error" as const,
+      },
+    ];
+  }, [deployment.id, runtimeLogs, runtimeLogsError]);
+
   return (
     <motion.div
       key="deployment-logs-panel"
@@ -570,7 +588,7 @@ export function DeploymentLogsPanel({
 
           <TabsContent value="runtime">
             <LogTable
-              items={runtimeLogs}
+              items={runtimeLogsWithErrors}
               search={runtimeSearch}
               onSearchChange={setRuntimeSearch}
             />

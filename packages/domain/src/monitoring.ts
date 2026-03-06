@@ -4,7 +4,7 @@ import { createLogger } from "@otterdeploy/logger";
 import { db, eq, desc } from "@otterdeploy/db";
 import { deployment } from "@otterdeploy/db/schema/deployment";
 import { resource } from "@otterdeploy/db/schema/project";
-import { getServiceLogs, listServices } from "@otterdeploy/docker";
+import { getServiceLogs, listServices, type ServiceInfo } from "@otterdeploy/docker";
 
 import { NotFoundError } from "./errors";
 
@@ -44,26 +44,51 @@ function toUnixSeconds(value?: string): number | undefined {
 
 async function resolveServiceName(resourceId: string): Promise<string> {
   const fallback = `otterstack-${resourceId}`;
-  const servicesResult = await listServices({ "otterstack.resource.id": resourceId });
+  const byMostRecentUpdate = (services: ServiceInfo[]) =>
+    [...services].sort((a, b) => {
+      const aTs = Date.parse(a.updatedAt ?? a.createdAt);
+      const bTs = Date.parse(b.updatedAt ?? b.createdAt);
+      const aTime = Number.isNaN(aTs) ? 0 : aTs;
+      const bTime = Number.isNaN(bTs) ? 0 : bTs;
+      return bTime - aTime;
+    });
 
-  if (servicesResult.isErr()) {
-    log.warn({ resourceId, err: servicesResult.error }, "Could not list services for resource");
+  const servicesByLabel = await listServices({ "otterstack.resource.id": resourceId });
+  if (servicesByLabel.isOk() && servicesByLabel.value.length > 0) {
+    return byMostRecentUpdate(servicesByLabel.value)[0]?.name ?? fallback;
+  }
+  if (servicesByLabel.isErr()) {
+    log.warn(
+      { resourceId, err: servicesByLabel.error },
+      "Could not list services by resource label",
+    );
+  }
+
+  // Fallback: scan all services and match either label or common DB service-name suffix.
+  const allServicesResult = await listServices();
+  if (allServicesResult.isErr()) {
+    log.warn({ resourceId, err: allServicesResult.error }, "Could not list all services");
     return fallback;
   }
 
-  if (servicesResult.value.length === 0) {
-    return fallback;
+  const databaseSuffix = `_db-${resourceId.toLowerCase().replace(/[^a-z0-9-]+/g, "-")}`;
+  const nameCandidates = allServicesResult.value.filter((service) => {
+    if (service.labels?.["otterstack.resource.id"] === resourceId) return true;
+    return service.name.toLowerCase().endsWith(databaseSuffix);
+  });
+
+  if (nameCandidates.length > 0) {
+    return byMostRecentUpdate(nameCandidates)[0]?.name ?? fallback;
   }
 
-  const byMostRecentUpdate = [...servicesResult.value].sort((a, b) => {
+  const byMostRecentAcrossAll = [...allServicesResult.value].sort((a, b) => {
     const aTs = Date.parse(a.updatedAt ?? a.createdAt);
     const bTs = Date.parse(b.updatedAt ?? b.createdAt);
     const aTime = Number.isNaN(aTs) ? 0 : aTs;
     const bTime = Number.isNaN(bTs) ? 0 : bTs;
     return bTime - aTime;
   });
-
-  return byMostRecentUpdate[0]?.name ?? fallback;
+  return byMostRecentAcrossAll[0]?.name ?? fallback;
 }
 
 function decodeDockerStream(buffer: Buffer): string[] {

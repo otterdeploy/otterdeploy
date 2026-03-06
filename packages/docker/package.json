@@ -22,7 +22,7 @@
   },
   "devDependencies": {
     "@otterdeploy/config": "workspace:*",
-    "@types/dockerode": "^3.3.38",
+    "@types/dockerode": "^4.0.1",
     "vitest": "^4.0.18"
   }
 }

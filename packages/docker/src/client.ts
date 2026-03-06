@@ -4,7 +4,6 @@ let instance: Docker | null = null;
 
 export function getDockerClient(): Docker {
   instance ??= new Docker({ socketPath: "/var/run/docker.sock" });
-
   return instance;
 }
 

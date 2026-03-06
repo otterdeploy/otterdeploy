@@ -24,12 +24,12 @@ export async function createDockerSecret(
   const docker = getDockerClient();
 
   try {
-    const created = await (docker as any).createSecret({
+    const created = await docker.createSecret({
       Name: name,
       Data: Buffer.from(data, "utf8").toString("base64"),
       Labels: {
         "otterstack.managed": "true",
-        ...(labels ?? {}),
+        ...labels,
       },
     });
 
@@ -45,9 +45,7 @@ export async function createDockerSecret(
   }
 }
 
-export async function removeDockerSecret(
-  nameOrId: string,
-): Promise<Result<void, Error>> {
+export async function removeDockerSecret(nameOrId: string): Promise<Result<void, Error>> {
   const docker = getDockerClient();
 
   try {

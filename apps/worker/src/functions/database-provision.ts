@@ -58,16 +58,23 @@ export const databaseProvision = inngest.createFunction(
     id: "database-provision",
     retries: 2,
     onFailure: async ({ event, error }) => {
-      const resourceId = event.data.event.data.resourceId;
+      const failureData = event.data.event.data as Record<string, unknown>;
+      const resourceId = String(failureData.resourceId ?? "");
+      const deploymentIdFromEvent =
+        typeof failureData.deploymentId === "string" ? failureData.deploymentId : null;
       logger.error({ resourceId, err: error }, "Database provisioning failed");
 
-      const latestDeployment = await db.query.deployment.findFirst({
-        where: eq(deployment.resourceId, resourceId),
-        orderBy: [desc(deployment.createdAt)],
-      });
-      if (latestDeployment) {
+      const targetDeployment = deploymentIdFromEvent
+        ? await db.query.deployment.findFirst({
+            where: eq(deployment.id, deploymentIdFromEvent),
+          })
+        : await db.query.deployment.findFirst({
+            where: eq(deployment.resourceId, resourceId),
+            orderBy: [desc(deployment.createdAt)],
+          });
+      if (targetDeployment) {
         await deploymentLogService.appendDeploymentLog({
-          deploymentId: latestDeployment.id,
+          deploymentId: targetDeployment.id,
           tab: "deploy",
           level: "error",
           message:
@@ -76,7 +83,7 @@ export const databaseProvision = inngest.createFunction(
               : "database provisioning failed",
         });
         const transitionResult = await deploymentMachine.transitionTo(
-          latestDeployment.id,
+          targetDeployment.id,
           "failed",
           {
             actor: "system",
@@ -94,7 +101,7 @@ export const databaseProvision = inngest.createFunction(
 
           if (!isConflict) {
             logger.warn(
-              { deploymentId: latestDeployment.id, err: transitionResult.error },
+              { deploymentId: targetDeployment.id, err: transitionResult.error },
               "Failed to mark deployment as failed",
             );
           }

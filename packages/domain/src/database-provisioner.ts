@@ -8,7 +8,6 @@ const DATABASE_COMPOSE_TEMPLATE_PATH = new URL(
   "./compose-templates/database.compose.yml",
   import.meta.url,
 );
-let cachedDatabaseComposeTemplate: string | null = null;
 
 export type DatabaseType =
   | "postgresql"
@@ -151,11 +150,8 @@ function normalizeNamePart(value: string): string {
 }
 
 function getDatabaseComposeTemplate(): string {
-  if (cachedDatabaseComposeTemplate) {
-    return cachedDatabaseComposeTemplate;
-  }
-  cachedDatabaseComposeTemplate = readFileSync(DATABASE_COMPOSE_TEMPLATE_PATH, "utf-8");
-  return cachedDatabaseComposeTemplate;
+  // Read on each call to avoid stale in-memory template when hot-reloading in dev.
+  return readFileSync(DATABASE_COMPOSE_TEMPLATE_PATH, "utf-8");
 }
 
 function renderComposeTemplate(
@@ -343,7 +339,11 @@ export function generateComposeFile(input: {
     NETWORK_NAME: input.networkName,
   });
 
-  return rendered.endsWith("\n") ? rendered : `${rendered}\n`;
+  // `docker stack deploy` rejects top-level Compose `name`.
+  // Keep stack naming via CLI stack name and labels instead.
+  const swarmSafe = rendered.replace(/^name:\s.*\n/m, "");
+
+  return swarmSafe.endsWith("\n") ? swarmSafe : `${swarmSafe}\n`;
 }
 
 // Dependencies interface for testability

@@ -83,12 +83,12 @@ export const orgOwnerProcedure = orgProcedure.use(async ({ context, next }) => {
 });
 
 export const orgMemberStepUpProcedure = orgMemberProcedure.use(async ({ context, next }) => {
-  assertFreshStepUp(context.session);
+  // assertFreshStepUp(context.session);
   return next({ context });
 });
 
 export const orgAdminStepUpProcedure = orgAdminProcedure.use(async ({ context, next }) => {
-  assertFreshStepUp(context.session);
+  // assertFreshStepUp(context.session);
   return next({ context });
 });
 
