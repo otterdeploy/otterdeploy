@@ -66,4 +66,4 @@ research/*
 .beads/*
 
 packages/infra-config/*
-apps/cli/*
+apps/cli/*.worktrees

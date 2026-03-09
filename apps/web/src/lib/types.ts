@@ -33,8 +33,9 @@ export type DeploymentSource =
   | "manual"
   | "rollback"
   | "api"
-  | "preview"
   | "config_change";
+
+export type PreviewDeploymentStatus = "idle" | "running" | "done" | "error";
 
 export type BuilderType = "nixpacks" | "dockerfile" | "buildpack" | "railpack";
 
@@ -488,6 +489,7 @@ export interface BaseResource extends Entity {
   serverId?: string | null;
   kind: ResourceKind;
   name: string;
+  appName: string;
   status: ResourceStatus;
   deletedAt?: Date | null;
 
@@ -504,10 +506,18 @@ export interface BaseResource extends Entity {
   deployments?: Deployment[];
   configFiles?: ConfigFile[];
   gitRepository?: GitRepository | null;
+  previewDeployments?: PreviewDeployment[];
+}
+
+export interface PreviewConfig {
+  enabled: boolean;
+  previewLimit?: number;
+  expiresAfterHours?: number | null;
 }
 
 export interface ApplicationResource extends BaseResource {
   kind: "application";
+  previewConfig?: PreviewConfig | null;
 }
 
 export interface DatabaseResource extends BaseResource {
@@ -518,6 +528,25 @@ export interface DatabaseResource extends BaseResource {
 export type Resource = ApplicationResource | DatabaseResource;
 
 // ---------------------------------------------------------------------------
+// 16b. Preview Deployments
+// ---------------------------------------------------------------------------
+
+export interface PreviewDeployment extends Entity {
+  applicationId: Id<"resource">;
+  appName: string;
+  branch: string;
+  pullRequestNumber?: string | null;
+  pullRequestUrl?: string | null;
+  pullRequestTitle?: string | null;
+  pullRequestCommentId?: string | null;
+  status: PreviewDeploymentStatus;
+  domainId?: Id<"domainBinding"> | null;
+  expiresAt?: Date | null;
+  deployments?: Deployment[];
+  domain?: DomainBinding | null;
+}
+
+// ---------------------------------------------------------------------------
 // 17. Deployments
 // ---------------------------------------------------------------------------
 
@@ -526,6 +555,7 @@ export interface Deployment extends Entity {
   projectId: Id<"project">;
   environmentId: Id<"environment">;
   resourceId: Id<"resource">;
+  previewDeploymentId?: Id<"previewDeployment"> | null;
   status: DeploymentStatus;
   source: DeploymentSource;
   gitRef?: string | null;
