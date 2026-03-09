@@ -35,9 +35,7 @@ const searchSchema = z.object({
   logTab: z.enum(["build", "deploy", "runtime"]).default("deploy"),
 });
 
-export const Route = createFileRoute(
-  "/dash/projects/$projectId/architecture/service/$serviceId",
-)({
+export const Route = createFileRoute("/dash/projects/$projectId/architecture/service/$serviceId")({
   component: RouteComponent,
   validateSearch: searchSchema,
   errorComponent: ({ error }) => <div>Error: {error.message}</div>,
@@ -52,13 +50,13 @@ function RouteComponent() {
 
   const navigate = Route.useNavigate();
   const viewingDeployment = deploymentId
-    ? deployments.find((deployment) => deployment.id === deploymentId) ?? null
+    ? (deployments.find((deployment) => deployment.id === deploymentId) ?? null)
     : null;
 
-  useEffect(() => {
-    setDeployments([]);
-    setHasDeploymentSnapshot(false);
-  }, [serviceId]);
+  // useEffect(() => {
+  //   setDeployments([]);
+  //   setHasDeploymentSnapshot(false);
+  // }, [serviceId]);
 
   useEffect(() => {
     if (!deploymentId || !hasDeploymentSnapshot) return;
@@ -96,7 +94,8 @@ function RouteComponent() {
                   deploymentId: id,
                   logTab: prev.logTab ?? "deploy",
                 }),
-              })}
+              })
+            }
             onDeploymentsChange={(items) => {
               setDeployments(items);
               setHasDeploymentSnapshot(true);
@@ -145,10 +144,7 @@ function RouteComponent() {
         </Content>
 
         <Content value="settings">
-          <SettingsPanel
-            resourceId={serviceId}
-            resourceName={resource?.name ?? "Service"}
-          />
+          <SettingsPanel resourceId={serviceId} resourceName={resource?.name ?? "Service"} />
         </Content>
       </Panel>
 
@@ -162,12 +158,14 @@ function RouteComponent() {
             to: ".",
             search: (prev) => ({ ...prev, logTab: nextLogTab }),
             replace: true,
-          })}
+          })
+        }
         onClose={() =>
           navigate({
             to: ".",
             search: (prev) => ({ ...prev, deploymentId: undefined }),
-          })}
+          })
+        }
       />
     </div>
   );

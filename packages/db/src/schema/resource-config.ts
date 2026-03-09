@@ -4,14 +4,16 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   pgTable,
+  uniqueIndex,
   real,
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
 
 import { resource } from "./project";
-import { builderEnum, restartPolicyEnum, databaseTypeEnum } from "./enums";
+import { builderEnum, restartPolicyEnum, databaseTypeEnum, portProtocolEnum, portVisibilityEnum } from "./enums";
 
 export const resourceRuntimeConfig = pgTable(
   "resource_runtime_config",
@@ -21,7 +23,6 @@ export const resourceRuntimeConfig = pgTable(
       .notNull()
       .unique()
       .references(() => resource.id, { onDelete: "cascade" }),
-    port: integer("port"),
     startCommand: text("start_command"),
     restartPolicy: restartPolicyEnum("restart_policy"),
     restartPolicyMaxRetries: integer("restart_policy_max_retries"),
@@ -29,6 +30,8 @@ export const resourceRuntimeConfig = pgTable(
     cpuLimit: real("cpu_limit"),
     memoryLimit: integer("memory_limit"),
     region: text("region"),
+    cronSchedule: text("cron_schedule"),
+    cronCommand: text("cron_command"),
     sleepApplication: boolean("sleep_application").default(false),
     healthCheckPath: text("health_check_path"),
     healthCheckInterval: integer("health_check_interval").default(30),
@@ -69,45 +72,86 @@ export const resourceBuildConfig = pgTable(
   ],
 );
 
-export const resourceJobConfig = pgTable(
-  "resource_job_config",
-  {
-    id: text("id").primaryKey().$defaultFn(createId),
-    resourceId: text("resource_id")
-      .notNull()
-      .unique()
-      .references(() => resource.id, { onDelete: "cascade" }),
-    cronSchedule: text("cron_schedule").notNull(),
-    cronCommand: text("cron_command").notNull(),
-    overlapSeconds: integer("overlap_seconds"),
-    drainingSeconds: integer("draining_seconds"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at")
-      .defaultNow()
-      .$onUpdate(() => new Date())
-      .notNull(),
-  },
-  (table) => [index("resource_job_config_resource_idx").on(table.resourceId)],
-);
+// --- Database Engine Config Types (discriminated union) ---
 
-export const resourceComposeConfig = pgTable(
-  "resource_compose_config",
-  {
-    id: text("id").primaryKey().$defaultFn(createId),
-    resourceId: text("resource_id")
-      .notNull()
-      .unique()
-      .references(() => resource.id, { onDelete: "cascade" }),
-    composeFile: text("compose_file").notNull(),
-    composePath: text("compose_path").default("docker-compose.yml"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at")
-      .defaultNow()
-      .$onUpdate(() => new Date())
-      .notNull(),
-  },
-  (table) => [index("resource_compose_config_resource_idx").on(table.resourceId)],
-);
+interface BaseDatabaseEngine {
+  image: string;
+  version?: string;
+  persistenceEnabled?: boolean;
+  backupEnabled?: boolean;
+  memoryLimit?: number;
+  cpuLimit?: number;
+}
+
+interface PostgresEngineConfig extends BaseDatabaseEngine {
+  engine: "postgresql";
+  databaseName: string;
+  databaseUser: string;
+  maxConnections?: number;
+  sharedBuffers?: string;
+  extensions?: string[];
+}
+
+interface MySqlEngineConfig extends BaseDatabaseEngine {
+  engine: "mysql";
+  databaseName: string;
+  databaseUser: string;
+  maxConnections?: number;
+  innodbBufferPoolSize?: string;
+}
+
+interface MariaDbEngineConfig extends BaseDatabaseEngine {
+  engine: "mariadb";
+  databaseName: string;
+  databaseUser: string;
+  maxConnections?: number;
+  innodbBufferPoolSize?: string;
+}
+
+interface MongoEngineConfig extends BaseDatabaseEngine {
+  engine: "mongodb";
+  databaseName: string;
+  replicaSet?: string;
+  wiredTigerCacheSize?: string;
+}
+
+interface RedisEngineConfig extends BaseDatabaseEngine {
+  engine: "redis";
+  maxMemory?: string;
+  evictionPolicy?: "noeviction" | "allkeys-lru" | "volatile-lru" | "allkeys-random" | "volatile-random" | "volatile-ttl";
+  appendOnly?: boolean;
+}
+
+interface KeyDbEngineConfig extends BaseDatabaseEngine {
+  engine: "keydb";
+  maxMemory?: string;
+  evictionPolicy?: "noeviction" | "allkeys-lru" | "volatile-lru" | "allkeys-random" | "volatile-random" | "volatile-ttl";
+  activeReplica?: boolean;
+  multiMaster?: boolean;
+}
+
+interface DragonflyEngineConfig extends BaseDatabaseEngine {
+  engine: "dragonfly";
+  maxMemory?: string;
+  cacheMode?: boolean;
+}
+
+interface ClickHouseEngineConfig extends BaseDatabaseEngine {
+  engine: "clickhouse";
+  databaseName: string;
+  databaseUser: string;
+  maxMemoryUsage?: string;
+}
+
+export type DatabaseEngineConfig =
+  | PostgresEngineConfig
+  | MySqlEngineConfig
+  | MariaDbEngineConfig
+  | MongoEngineConfig
+  | RedisEngineConfig
+  | KeyDbEngineConfig
+  | DragonflyEngineConfig
+  | ClickHouseEngineConfig;
 
 export const databaseConfig = pgTable(
   "database_config",
@@ -117,12 +161,8 @@ export const databaseConfig = pgTable(
       .notNull()
       .unique()
       .references(() => resource.id, { onDelete: "cascade" }),
-    databaseType: databaseTypeEnum("database_type").notNull(),
-    image: text("image").notNull(),
-    databaseName: text("database_name"),
-    databaseUser: text("database_user"),
-    externalPort: integer("external_port"),
-    customConfig: text("custom_config"),
+    engine: databaseTypeEnum("engine").notNull(),
+    config: jsonb("config").$type<DatabaseEngineConfig>().notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -131,7 +171,7 @@ export const databaseConfig = pgTable(
   },
   (table) => [
     index("database_config_resource_idx").on(table.resourceId),
-    index("database_config_type_idx").on(table.databaseType),
+    index("database_config_engine_idx").on(table.engine),
   ],
 );
 
@@ -173,6 +213,39 @@ export const resourceVolumeMount = pgTable(
   ],
 );
 
+export const portMapping = pgTable(
+  "port_mapping",
+  {
+    id: text("id").primaryKey().$defaultFn(createId),
+    resourceId: text("resource_id")
+      .notNull()
+      .references(() => resource.id, { onDelete: "cascade" }),
+    port: integer("port").notNull(),
+    protocol: portProtocolEnum("protocol").notNull().default("http"),
+    visibility: portVisibilityEnum("visibility").notNull().default("internal"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("port_mapping_resource_idx").on(table.resourceId),
+    uniqueIndex("port_mapping_resource_port_proto_uidx").on(
+      table.resourceId,
+      table.port,
+      table.protocol,
+    ),
+  ],
+);
+
+export const portMappingRelations = relations(portMapping, ({ one }) => ({
+  resource: one(resource, {
+    fields: [portMapping.resourceId],
+    references: [resource.id],
+  }),
+}));
+
 // --- Relations ---
 
 export const resourceRuntimeConfigRelations = relations(resourceRuntimeConfig, ({ one }) => ({
@@ -185,20 +258,6 @@ export const resourceRuntimeConfigRelations = relations(resourceRuntimeConfig, (
 export const resourceBuildConfigRelations = relations(resourceBuildConfig, ({ one }) => ({
   resource: one(resource, {
     fields: [resourceBuildConfig.resourceId],
-    references: [resource.id],
-  }),
-}));
-
-export const resourceJobConfigRelations = relations(resourceJobConfig, ({ one }) => ({
-  resource: one(resource, {
-    fields: [resourceJobConfig.resourceId],
-    references: [resource.id],
-  }),
-}));
-
-export const resourceComposeConfigRelations = relations(resourceComposeConfig, ({ one }) => ({
-  resource: one(resource, {
-    fields: [resourceComposeConfig.resourceId],
     references: [resource.id],
   }),
 }));

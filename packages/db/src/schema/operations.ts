@@ -14,6 +14,7 @@ import {
 
 import { organization, user } from "./auth";
 import { project, environment, resource } from "./project";
+import { portMapping } from "./resource-config";
 import { secretReference } from "./secrets";
 import { sslStatusEnum, backupStatusEnum } from "./enums";
 
@@ -24,9 +25,9 @@ export const customDomain = pgTable(
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
-    resourceId: text("resource_id")
+    portMappingId: text("port_mapping_id")
       .notNull()
-      .references(() => resource.id, { onDelete: "cascade" }),
+      .references(() => portMapping.id, { onDelete: "cascade" }),
     domain: text("domain").notNull(),
     verified: boolean("verified").notNull().default(false),
     verificationToken: text("verification_token"),
@@ -50,7 +51,7 @@ export const customDomain = pgTable(
   },
   (table) => [
     index("custom_domain_org_idx").on(table.organizationId),
-    index("custom_domain_resource_idx").on(table.resourceId),
+    index("custom_domain_port_mapping_idx").on(table.portMappingId),
     uniqueIndex("custom_domain_domain_unique").on(table.domain),
   ],
 );
@@ -197,9 +198,9 @@ export const customDomainRelations = relations(customDomain, ({ one }) => ({
     fields: [customDomain.organizationId],
     references: [organization.id],
   }),
-  resource: one(resource, {
-    fields: [customDomain.resourceId],
-    references: [resource.id],
+  portMapping: one(portMapping, {
+    fields: [customDomain.portMappingId],
+    references: [portMapping.id],
   }),
 }));
 

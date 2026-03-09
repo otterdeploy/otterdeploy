@@ -104,11 +104,19 @@ export const caddyStatusEnum = pgEnum("caddy_status", [
 ]);
 
 export const resourceKindEnum = pgEnum("resource_kind", [
-  "web",
-  "api",
-  "worker",
+  "application",
   "database",
-  "compose",
+]);
+
+export const portProtocolEnum = pgEnum("port_protocol", [
+  "http",
+  "tcp",
+  "udp",
+]);
+
+export const portVisibilityEnum = pgEnum("port_visibility", [
+  "public",
+  "internal",
 ]);
 
 export const resourceStatusEnum = pgEnum("resource_status", [

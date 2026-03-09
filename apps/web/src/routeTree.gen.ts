@@ -14,9 +14,11 @@ import { Route as DeviceRouteImport } from './routes/device'
 import { Route as DashLayoutRouteImport } from './routes/dash/layout'
 import { Route as AuthLayoutRouteImport } from './routes/_auth/layout'
 import { Route as DashIndexRouteImport } from './routes/dash/index'
+import { Route as DashboardIndexRouteImport } from './routes/_dashboard/index'
 import { Route as AuthSignupRouteImport } from './routes/_auth/signup'
 import { Route as AuthLoginRouteImport } from './routes/_auth/login'
 import { Route as DashProjectsIndexRouteImport } from './routes/dash/projects/index'
+import { Route as DashboardProjectIndexRouteImport } from './routes/_dashboard/$project/index'
 import { Route as DashProjectsProjectIdLayoutRouteImport } from './routes/dash/projects/$projectId/layout'
 import { Route as DashProjectsProjectIdIndexRouteImport } from './routes/dash/projects/$projectId/index'
 import { Route as DashProjectsProjectIdArchitectureLayoutRouteImport } from './routes/dash/projects/$projectId/architecture/layout'
@@ -48,6 +50,11 @@ const DashIndexRoute = DashIndexRouteImport.update({
   path: '/',
   getParentRoute: () => DashLayoutRoute,
 } as any)
+const DashboardIndexRoute = DashboardIndexRouteImport.update({
+  id: '/_dashboard/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthSignupRoute = AuthSignupRouteImport.update({
   id: '/signup',
   path: '/signup',
@@ -62,6 +69,11 @@ const DashProjectsIndexRoute = DashProjectsIndexRouteImport.update({
   id: '/projects/',
   path: '/projects/',
   getParentRoute: () => DashLayoutRoute,
+} as any)
+const DashboardProjectIndexRoute = DashboardProjectIndexRouteImport.update({
+  id: '/_dashboard/$project/',
+  path: '/$project/',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const DashProjectsProjectIdLayoutRoute =
   DashProjectsProjectIdLayoutRouteImport.update({
@@ -101,7 +113,7 @@ const DashProjectsProjectIdArchitectureServiceServiceIdRoute =
   } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof AuthLayoutRouteWithChildren
+  '/': typeof DashboardIndexRoute
   '/dash': typeof DashLayoutRouteWithChildren
   '/device': typeof DeviceRoute
   '/landing': typeof LandingRoute
@@ -109,6 +121,7 @@ export interface FileRoutesByFullPath {
   '/signup': typeof AuthSignupRoute
   '/dash/': typeof DashIndexRoute
   '/dash/projects/$projectId': typeof DashProjectsProjectIdLayoutRouteWithChildren
+  '/$project/': typeof DashboardProjectIndexRoute
   '/dash/projects/': typeof DashProjectsIndexRoute
   '/dash/projects/$projectId/architecture': typeof DashProjectsProjectIdArchitectureLayoutRouteWithChildren
   '/dash/projects/$projectId/': typeof DashProjectsProjectIdIndexRoute
@@ -117,12 +130,13 @@ export interface FileRoutesByFullPath {
   '/dash/projects/$projectId/architecture/volume/$volume': typeof DashProjectsProjectIdArchitectureVolumeVolumeRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof AuthLayoutRouteWithChildren
+  '/': typeof DashboardIndexRoute
   '/device': typeof DeviceRoute
   '/landing': typeof LandingRoute
   '/login': typeof AuthLoginRoute
   '/signup': typeof AuthSignupRoute
   '/dash': typeof DashIndexRoute
+  '/$project': typeof DashboardProjectIndexRoute
   '/dash/projects': typeof DashProjectsIndexRoute
   '/dash/projects/$projectId': typeof DashProjectsProjectIdIndexRoute
   '/dash/projects/$projectId/architecture': typeof DashProjectsProjectIdArchitectureIndexRoute
@@ -137,8 +151,10 @@ export interface FileRoutesById {
   '/landing': typeof LandingRoute
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/signup': typeof AuthSignupRoute
+  '/_dashboard/': typeof DashboardIndexRoute
   '/dash/': typeof DashIndexRoute
   '/dash/projects/$projectId': typeof DashProjectsProjectIdLayoutRouteWithChildren
+  '/_dashboard/$project/': typeof DashboardProjectIndexRoute
   '/dash/projects/': typeof DashProjectsIndexRoute
   '/dash/projects/$projectId/architecture': typeof DashProjectsProjectIdArchitectureLayoutRouteWithChildren
   '/dash/projects/$projectId/': typeof DashProjectsProjectIdIndexRoute
@@ -157,6 +173,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/dash/'
     | '/dash/projects/$projectId'
+    | '/$project/'
     | '/dash/projects/'
     | '/dash/projects/$projectId/architecture'
     | '/dash/projects/$projectId/'
@@ -171,6 +188,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/dash'
+    | '/$project'
     | '/dash/projects'
     | '/dash/projects/$projectId'
     | '/dash/projects/$projectId/architecture'
@@ -184,8 +202,10 @@ export interface FileRouteTypes {
     | '/landing'
     | '/_auth/login'
     | '/_auth/signup'
+    | '/_dashboard/'
     | '/dash/'
     | '/dash/projects/$projectId'
+    | '/_dashboard/$project/'
     | '/dash/projects/'
     | '/dash/projects/$projectId/architecture'
     | '/dash/projects/$projectId/'
@@ -199,6 +219,8 @@ export interface RootRouteChildren {
   DashLayoutRoute: typeof DashLayoutRouteWithChildren
   DeviceRoute: typeof DeviceRoute
   LandingRoute: typeof LandingRoute
+  DashboardIndexRoute: typeof DashboardIndexRoute
+  DashboardProjectIndexRoute: typeof DashboardProjectIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -238,6 +260,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashIndexRouteImport
       parentRoute: typeof DashLayoutRoute
     }
+    '/_dashboard/': {
+      id: '/_dashboard/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof DashboardIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_auth/signup': {
       id: '/_auth/signup'
       path: '/signup'
@@ -258,6 +287,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/dash/projects/'
       preLoaderRoute: typeof DashProjectsIndexRouteImport
       parentRoute: typeof DashLayoutRoute
+    }
+    '/_dashboard/$project/': {
+      id: '/_dashboard/$project/'
+      path: '/$project'
+      fullPath: '/$project/'
+      preLoaderRoute: typeof DashboardProjectIndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/dash/projects/$projectId': {
       id: '/dash/projects/$projectId'
@@ -378,6 +414,8 @@ const rootRouteChildren: RootRouteChildren = {
   DashLayoutRoute: DashLayoutRouteWithChildren,
   DeviceRoute: DeviceRoute,
   LandingRoute: LandingRoute,
+  DashboardIndexRoute: DashboardIndexRoute,
+  DashboardProjectIndexRoute: DashboardProjectIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

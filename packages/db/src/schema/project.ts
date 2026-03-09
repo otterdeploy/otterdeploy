@@ -7,11 +7,11 @@ import { resourceKindEnum, resourceStatusEnum } from "./enums";
 import {
   resourceRuntimeConfig,
   resourceBuildConfig,
-  resourceJobConfig,
-  resourceComposeConfig,
   databaseConfig,
   resourceVolumeMount,
+  portMapping,
 } from "./resource-config";
+import { networkPolicy, networkPolicyMember } from "./networking";
 
 export const project = pgTable(
   "project",
@@ -139,6 +139,7 @@ export const environmentRelations = relations(environment, ({ one, many }) => ({
     references: [project.id],
   }),
   resources: many(resource),
+  networkPolicies: many(networkPolicy),
   viewport: one(viewport, {
     fields: [environment.id],
     references: [viewport.environmentId],
@@ -170,18 +171,12 @@ export const resourceRelations = relations(resource, ({ one, many }) => ({
     fields: [resource.id],
     references: [resourceBuildConfig.resourceId],
   }),
-  jobConfig: one(resourceJobConfig, {
-    fields: [resource.id],
-    references: [resourceJobConfig.resourceId],
-  }),
-  composeConfig: one(resourceComposeConfig, {
-    fields: [resource.id],
-    references: [resourceComposeConfig.resourceId],
-  }),
   databaseConfig: one(databaseConfig, {
     fields: [resource.id],
     references: [databaseConfig.resourceId],
   }),
+  portMappings: many(portMapping),
+  networkPolicyMemberships: many(networkPolicyMember),
   volumeMounts: many(resourceVolumeMount),
 }));
 
