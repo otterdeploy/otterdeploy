@@ -1,30 +1,10 @@
-import { env } from "@otterdeploy/env/database";
-import { drizzle } from "drizzle-orm/node-postgres";
-
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+import { env } from "@otterdeploy/env/server";
 import * as schema from "./schema";
 
-export const db = drizzle(env.DATABASE_URL, { schema });
-export {
-  eq,
-  and,
-  inArray,
-  or,
-  ne,
-  gt,
-  gte,
-  lt,
-  lte,
-  like,
-  ilike,
-  notLike,
-  between,
-  notBetween,
-  isNotNull,
-  isNull,
-  is,
-  exists,
-  notExists,
-  desc,
-  asc,
-  sql,
-} from "drizzle-orm";
+const client = postgres(env.DATABASE_URL);
+export const db = drizzle(client, { schema });
+
+export { eq, and, or, ne, gt, gte, lt, lte, isNull, isNotNull, inArray, notInArray, sql, desc, asc, count } from "drizzle-orm";
+export type { InferSelectModel, InferInsertModel } from "drizzle-orm";
