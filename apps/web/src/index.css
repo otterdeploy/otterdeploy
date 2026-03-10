@@ -128,18 +128,3 @@
   }
 }
 
-/* Remove React Flow's default group node styles */
-.react-flow__node-group {
-  background: transparent !important;
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
-}
-
-.react-flow__node-group.selected,
-.react-flow__node-group:focus,
-.react-flow__node-group:focus-visible {
-  outline: none !important;
-  box-shadow: none !important;
-  border: none !important;
-}

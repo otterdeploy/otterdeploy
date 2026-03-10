@@ -1,5 +1,5 @@
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useForm } from "@tanstack/react-form";
-import { Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import {
   Field,
@@ -14,21 +14,22 @@ import { toast } from "sonner";
 import * as z from "zod";
 
 import { authClient } from "@/lib/auth-client";
-
 import { Loader } from "@/components/loader";
 
-export function SignUpForm() {
-  const navigate = useNavigate({
-    from: "/signup",
-  });
+export const Route = createFileRoute("/_auth/register")({
+  component: RegisterPage,
+});
+
+function RegisterPage() {
+  const navigate = useNavigate({ from: "/register" });
   const { isPending } = authClient.useSession();
 
   const form = useForm({
     defaultValues: {
+      name: "",
       email: "",
       password: "",
       confirmPassword: "",
-      name: "",
     },
     onSubmit: async ({ value }) => {
       await authClient.signUp.email(
@@ -39,10 +40,8 @@ export function SignUpForm() {
         },
         {
           onSuccess: () => {
-            navigate({
-              to: "/dashboard",
-            });
-            toast.success("Sign up successful");
+            navigate({ to: "/dashboard" });
+            toast.success("Account created successfully");
           },
           onError: (error) => {
             toast.error(error.error.message || error.error.statusText);
@@ -117,9 +116,6 @@ export function SignUpForm() {
                 onBlur={field.handleBlur}
                 onChange={(e) => field.handleChange(e.target.value)}
               />
-              <FieldDescription>
-                We&apos;ll use this to contact you. We will not share your email with anyone else.
-              </FieldDescription>
               <FieldError errors={field.state.meta.errors} />
             </Field>
           )}
@@ -155,7 +151,6 @@ export function SignUpForm() {
                 onBlur={field.handleBlur}
                 onChange={(e) => field.handleChange(e.target.value)}
               />
-              <FieldDescription>Please confirm your password.</FieldDescription>
               <FieldError errors={field.state.meta.errors} />
             </Field>
           )}
@@ -187,7 +182,7 @@ export function SignUpForm() {
             </svg>
             Sign up with GitHub
           </Button>
-          <FieldDescription className="px-6 text-center">
+          <FieldDescription className="text-center">
             Already have an account?{" "}
             <Link to="/login" className="underline underline-offset-4">
               Sign in

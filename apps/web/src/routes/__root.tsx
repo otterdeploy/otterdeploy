@@ -1,8 +1,9 @@
 import type { QueryClient } from "@tanstack/react-query";
 
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { HeadContent, Link, Outlet, createRootRouteWithContext } from "@tanstack/react-router";
+import { HeadContent, Outlet, createRootRouteWithContext } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
+import { Toaster } from "sonner";
 
 import { ThemeProvider } from "@/components/theme";
 import { orpc } from "@/utils/orpc";
@@ -20,11 +21,11 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
   head: () => ({
     meta: [
       {
-        title: "otterstack",
+        title: "OtterStack",
       },
       {
         name: "description",
-        content: "otterstack is a web application",
+        content: "OtterStack — deploy with confidence",
       },
     ],
     links: [
@@ -44,12 +45,12 @@ function NotFound() {
       <p className="text-muted-foreground">
         The page you are looking for doesn't exist.
       </p>
-      <Link
-        to="/"
+      <a
+        href="/"
         className="mt-4 rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
       >
         Back to Home
-      </Link>
+      </a>
     </div>
   );
 }
@@ -65,6 +66,7 @@ function RootComponent() {
         storageKey="vite-ui-theme"
       >
         <Outlet />
+        <Toaster />
       </ThemeProvider>
 
       <TanStackRouterDevtools position="bottom-left" />

@@ -1,154 +1,51 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const Route = createFileRoute("/_dashboard/")({
-  component: RouteComponent,
+  component: DashboardHome,
 });
 
-interface BaseResource {
-  id: string;
-  name: string;
-  description: string;
-  createdAt: Date;
-  updatedAt: Date;
-  status: "online" | "degraded" | "crashed" | "unknown" | "deploying" | "stopped";
-  deployments: Deployment[];
-}
-
-interface DatabaseResource extends BaseResource {
-  type: "database";
-  engine:
-    | "postgres"
-    | "mysql"
-    | "mongodb"
-    | "redis"
-    | "cassandra"
-    | "dynamodb"
-    | "elasticsearch"
-    | "solr"
-    | "couchbase"
-    | "other";
-
-  volume: {
-    /**
-     * The size of the volume in gigabytes.
-     * @default 5
-     */
-    size: number;
-    /**
-     * The mount path of the volume.
-     * @default /var/lib/$DATABASE_NAME/data
-     */
-    mountPath: string;
-  };
-  variables: Record<string, string | number | boolean>;
-}
-
-type Resource = DatabaseResource | ServiceResource;
-
-interface BaseBuildConfig {
-  buildCommand: string;
-  watchPatterns: RegExp[];
-}
-
-interface NixpacksBuildConfig extends BaseBuildConfig {
-  builder: "nixpacks";
-}
-
-interface DockerfileBuildConfig extends BaseBuildConfig {
-  builder: "dockerfile";
-  dockerfilePath: string;
-}
-
-interface BuildpackBuildConfig extends BaseBuildConfig {
-  builder: "buildpack";
-}
-
-interface DockerImageBuildConfig extends BaseBuildConfig {
-  builder: "docker_image";
-  image: string;
-}
-
-interface StaticBuildConfig extends BaseBuildConfig {
-  builder: "static";
-  directory: string;
-}
-
-interface ComposeBuildConfig extends BaseBuildConfig {
-  builder: "compose";
-  composeFilePath: string;
-}
-
-type BuildConfig =
-  | NixpacksBuildConfig
-  | DockerfileBuildConfig
-  | BuildpackBuildConfig
-  | DockerImageBuildConfig
-  | StaticBuildConfig
-  | ComposeBuildConfig;
-
-interface ServiceResource extends BaseResource {
-  type: "service";
-  build: BuildConfig;
-}
-
-interface Deployment {
-  id: string;
-  resourceId: string;
-  source: "git" | "manual";
-  status: "building" | "deploying" | "deployed" | "failed" | "canceled" | "rolled_back";
-  createdAt?: number;
-  startedAt?: number;
-  completedAt?: number;
-}
-
-const project = {
-  id: "1",
-  name: "Project 1",
-  description: "Project 1 description",
-  createdAt: new Date(),
-  updatedAt: new Date(),
-  owner: {
-    id: "1",
-    name: "John Doe",
-    email: "john.doe@example.com",
-  },
-  members: [{ id: "1", name: "John Doe", email: "john.doe@example.com" }],
-
-  environments: [
-    {
-      id: "1",
-      name: "Environment 1",
-      description: "Environment 1 description",
-      createdAt: new Date(),
-      updatedAt: new Date(),
-
-      resources: [
-        {
-          id: "1",
-          name: "Resource 1",
-          description: "Resource 1 description",
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          type: "database",
-          engine: "postgres",
-          volume: {
-            size: 5,
-            mountPath: "/var/lib/postgres/data",
-          },
-          deployments: [],
-          status: "online",
-          variables: {},
-        },
-      ] satisfies Resource[],
-    },
-  ],
-};
-
-function RouteComponent() {
+function DashboardHome() {
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">Dashboard</h1>
-      <p className="text-sm text-gray-500">Welcome to the dashboard</p>
+    <div className="flex flex-col gap-6">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+        <p className="text-muted-foreground mt-1">
+          Welcome to OtterStack. Manage your infrastructure from here.
+        </p>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle>Servers</CardTitle>
+            <CardDescription>Manage your connected servers</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground text-sm">Coming in Phase 2</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Projects</CardTitle>
+            <CardDescription>Your deployed projects</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground text-sm">Coming in Phase 3</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Deployments</CardTitle>
+            <CardDescription>Recent deployment activity</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground text-sm">Coming in Phase 4</p>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
