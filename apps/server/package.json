@@ -1,32 +1,24 @@
 {
-  "name": "server",
+  "name": "@otterdeploy/server",
+  "version": "0.0.0",
   "private": true,
   "type": "module",
-  "main": "src/index.ts",
   "scripts": {
-    "env": "bun --env-file=../../.env",
-    "build": "tsdown",
-    "check-types": "tsc -b",
-    "compile": "bun build --compile --minify --sourcemap --bytecode ./src/index.ts --outfile server",
-    "dev": "bun run env --hot src/index.ts",
-    "start": "bun run env dist/index.mjs"
+    "dev": "bun --hot src/index.ts"
   },
   "dependencies": {
-    "@orpc/openapi": "catalog:",
-    "@orpc/server": "catalog:",
-    "@orpc/zod": "catalog:",
     "@otterdeploy/api": "workspace:*",
     "@otterdeploy/auth": "workspace:*",
     "@otterdeploy/db": "workspace:*",
     "@otterdeploy/env": "workspace:*",
-    "better-auth": "catalog:",
+    "@orpc/openapi": "catalog:",
+    "@orpc/server": "catalog:",
+    "@orpc/zod": "catalog:",
     "hono": "catalog:",
-    "zod": "catalog:"
+    "pino": "catalog:",
+    "pino-pretty": "catalog:"
   },
   "devDependencies": {
-    "@otterdeploy/config": "workspace:*",
-    "@types/bun": "catalog:",
-    "tsdown": "^0.16.8",
-    "typescript": "catalog:"
+    "@otterdeploy/config": "workspace:*"
   }
 }

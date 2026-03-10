@@ -1,43 +1,29 @@
-import { OpenAPIHandler } from "@orpc/openapi/fetch";
-import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
 import { onError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
-import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
-import { createContext, type ApiContextVariables } from "@otterdeploy/api/context";
-import { appRouter } from "@otterdeploy/api/routers/index";
+import { createHealthRouter } from "@otterdeploy/api";
 import { auth } from "@otterdeploy/auth";
 import { env } from "@otterdeploy/env/server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { createSSEHandler } from "./sse";
 
-const app = new Hono<{ Variables: ApiContextVariables }>();
+const app = new Hono();
 
+// CORS
 app.use(
   "/*",
   cors({
     origin: env.CORS_ORIGIN,
-    allowMethods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization", "x-organization-id", "x-request-id"],
     credentials: true,
   }),
 );
 
+// Better Auth
 app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 
-export const apiHandler = new OpenAPIHandler(appRouter, {
-  plugins: [
-    new OpenAPIReferencePlugin({
-      schemaConverters: [new ZodToJsonSchemaConverter()],
-    }),
-  ],
-  interceptors: [
-    onError((error) => {
-      console.error("OpenAPI error", error);
-    }),
-  ],
-});
-
-export const rpcHandler = new RPCHandler(appRouter, {
+// oRPC API
+const router = createHealthRouter();
+const rpcHandler = new RPCHandler(router, {
   interceptors: [
     onError((error) => {
       console.error("RPC error", error);
@@ -45,33 +31,23 @@ export const rpcHandler = new RPCHandler(appRouter, {
   ],
 });
 
-app.use("/*", async (c, next) => {
-  const context = await createContext({ context: c });
-
-  const rpcResult = await rpcHandler.handle(c.req.raw, {
+app.use("/rpc/*", async (c, next) => {
+  const result = await rpcHandler.handle(c.req.raw, {
     prefix: "/rpc",
-    context: context,
   });
 
-  if (rpcResult.matched) {
-    return c.newResponse(rpcResult.response.body, rpcResult.response);
-  }
-
-  const apiResult = await apiHandler.handle(c.req.raw, {
-    prefix: "/api-reference",
-    context: context,
-  });
-
-  if (apiResult.matched) {
-    return c.newResponse(apiResult.response.body, apiResult.response);
+  if (result.matched) {
+    return c.newResponse(result.response.body, result.response);
   }
 
   await next();
 });
 
-app.get("/", (c) => {
-  return c.text("OK");
-});
+// SSE endpoint
+app.get("/api/events", createSSEHandler());
+
+// Health check
+app.get("/", (c) => c.text("OK"));
 
 export default {
   fetch: app.fetch,
