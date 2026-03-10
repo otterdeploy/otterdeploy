@@ -174,3 +174,5 @@ export const auth = betterAuth({
     bearer(),
   ],
 });
+
+export type Auth = typeof auth;
