@@ -11,3 +11,5 @@ export function createHealthRouter() {
     }),
   });
 }
+
+export type AppRouter = ReturnType<typeof createHealthRouter>;

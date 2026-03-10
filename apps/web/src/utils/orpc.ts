@@ -1,4 +1,5 @@
-import type { AppRouterClient } from "@otterdeploy/api/routers/index";
+import type { AppRouter } from "@otterdeploy/api";
+import type { RouterClient } from "@orpc/server";
 
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
@@ -47,6 +48,6 @@ export const link = new RPCLink({
   },
 });
 
-export const client: AppRouterClient = createORPCClient(link);
+export const client: RouterClient<AppRouter> = createORPCClient(link);
 
 export const orpc = createTanstackQueryUtils(client);

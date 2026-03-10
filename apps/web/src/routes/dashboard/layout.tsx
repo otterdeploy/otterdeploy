@@ -14,7 +14,7 @@ const sessionQueryOptions = queryOptions({
   gcTime: 50_000,
 });
 
-export const Route = createFileRoute("/_dashboard")({
+export const Route = createFileRoute("/dashboard")({
   component: DashboardLayout,
   beforeLoad: async ({ context }) => {
     const session = await context.queryClient.ensureQueryData(sessionQueryOptions);

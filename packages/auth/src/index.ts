@@ -1,11 +1,11 @@
 import { createId } from "@paralleldrive/cuid2";
 import { db } from "@otterdeploy/db";
-import * as schema from "@otterdeploy/db/schema/auth";
+import * as schema from "@otterdeploy/db/schema";
 import { env } from "@otterdeploy/env/server";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 
-import { deviceAuthorization, admin, organization, apiKey, twoFactor, bearer } from "better-auth/plugins";
+import { deviceAuthorization, admin, organization, twoFactor, bearer } from "better-auth/plugins";
 import { getOrgAdapter, type OrganizationOptions } from "better-auth/plugins/organization";
 
 const ORG_SLUG_MAX = 48;
@@ -169,7 +169,6 @@ export const auth = betterAuth({
     }),
     admin(),
     organization(),
-    apiKey(),
     twoFactor(),
     bearer(),
   ],

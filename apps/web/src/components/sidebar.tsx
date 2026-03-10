@@ -26,39 +26,35 @@ import { Button } from "@/components/ui/button";
 const navItems = [
   {
     title: "Dashboard",
-    href: "/dashboard",
+    href: "/dashboard" as const,
     icon: LayoutDashboard,
     disabled: false,
   },
   {
     title: "Servers",
-    href: "/dashboard",
     icon: Server,
     disabled: true,
     badge: "Phase 2",
   },
   {
     title: "Projects",
-    href: "/dashboard",
     icon: FolderKanban,
     disabled: true,
     badge: "Phase 3",
   },
   {
     title: "Deployments",
-    href: "/dashboard",
     icon: Rocket,
     disabled: true,
     badge: "Phase 4",
   },
   {
     title: "Settings",
-    href: "/dashboard",
     icon: Settings,
     disabled: true,
     badge: "Soon",
   },
-] as const;
+];
 
 export function AppSidebar() {
   const routerState = useRouterState();
@@ -83,10 +79,10 @@ export function AppSidebar() {
               {navItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   {item.disabled ? (
-                    <SidebarMenuButton disabled tooltip={item.badge}>
+                    <SidebarMenuButton disabled>
                       <item.icon className="size-4" />
                       <span>{item.title}</span>
-                      {item.badge && (
+                      {"badge" in item && item.badge && (
                         <span className="text-muted-foreground ml-auto text-[10px]">
                           {item.badge}
                         </span>
@@ -94,11 +90,9 @@ export function AppSidebar() {
                     </SidebarMenuButton>
                   ) : (
                     <SidebarMenuButton
-                      asChild
-                      isActive={currentPath === item.href || currentPath === `${item.href}/`}
-                      tooltip={item.title}
+                      isActive={currentPath.startsWith(item.href!)}
                     >
-                      <Link to={item.href}>
+                      <Link to={item.href!} className="flex items-center gap-2">
                         <item.icon className="size-4" />
                         <span>{item.title}</span>
                       </Link>
