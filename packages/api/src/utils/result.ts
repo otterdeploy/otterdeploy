@@ -1,12 +1,16 @@
 import { ORPCError } from "@orpc/server";
 import type { Result } from "better-result";
-import type { DomainError } from "@otterdeploy/domain";
+
+interface TaggedError {
+  _tag: string;
+  message: string;
+}
 
 /**
  * Unwraps a Result from a domain service call.
  * Returns the value on success, or throws an ORPCError mapped from the TaggedError on failure.
  */
-export function unwrapResult<T>(result: Result<T, DomainError>): T {
+export function unwrapResult<T>(result: Result<T, TaggedError>): T {
   if (result.isOk()) return result.value;
 
   const error = result.error;

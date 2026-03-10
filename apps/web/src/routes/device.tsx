@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
-import { Button } from "@otterdeploy/ui/components/ui/button";
-import { Field, FieldError, FieldGroup, FieldLabel } from "@otterdeploy/ui/components/ui/field";
-import { Input } from "@otterdeploy/ui/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";

@@ -1,6 +1,4 @@
 import type { QueryClient } from "@tanstack/react-query";
-import type { Zero } from "@rocicorp/zero";
-import type { Schema } from "@otterdeploy/zero";
 
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { HeadContent, Link, Outlet, createRootRouteWithContext } from "@tanstack/react-router";
@@ -8,15 +6,12 @@ import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 
 import { ThemeProvider } from "@/components/theme";
 import { orpc } from "@/utils/orpc";
-import { Toaster } from "@otterdeploy/ui/components/ui/sonner";
-import { TooltipProvider } from "@otterdeploy/ui/components/ui/tooltip";
 
 import "../index.css";
 
 export interface RouterAppContext {
   orpc: typeof orpc;
   queryClient: QueryClient;
-  zero?: Zero<Schema>;
 }
 
 export const Route = createRootRouteWithContext<RouterAppContext>()({
@@ -69,11 +64,7 @@ function RootComponent() {
         disableTransitionOnChange
         storageKey="vite-ui-theme"
       >
-        <TooltipProvider>
-          <Outlet />
-          <Toaster richColors />
-          <div className="fixed bottom-1 left-1 z-50"></div>
-        </TooltipProvider>
+        <Outlet />
       </ThemeProvider>
 
       <TanStackRouterDevtools position="bottom-left" />

@@ -1,6 +1,6 @@
 import { useForm } from "@tanstack/react-form";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Button } from "@otterdeploy/ui/components/ui/button";
+import { Button } from "@/components/ui/button";
 import {
   Field,
   FieldDescription,
@@ -8,8 +8,8 @@ import {
   FieldGroup,
   FieldLabel,
   FieldSeparator,
-} from "@otterdeploy/ui/components/ui/field";
-import { Input } from "@otterdeploy/ui/components/ui/input";
+} from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import * as z from "zod";
 

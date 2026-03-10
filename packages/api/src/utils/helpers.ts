@@ -1,4 +1,6 @@
-export { createId } from "@otterdeploy/utils";
+import { createId as cuid } from "@paralleldrive/cuid2";
+
+export const createId = cuid;
 
 export function slugify(name: string) {
   const normalized = name

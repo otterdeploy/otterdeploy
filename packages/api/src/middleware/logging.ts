@@ -1,7 +1,4 @@
-import { createLogger } from "@otterdeploy/logger";
 import type { Context } from "../context";
-
-const log = createLogger("api");
 
 export const loggingMiddleware = async (
   {
@@ -15,16 +12,16 @@ export const loggingMiddleware = async (
   const correlationId = context.correlationId ?? undefined;
   const start = Date.now();
 
-  log.debug({ procedure, correlationId }, "procedure started");
+  console.debug(`[api] procedure started: ${procedure}`, { correlationId });
 
   try {
     const result = await next();
     const duration = Date.now() - start;
-    log.info({ procedure, correlationId, duration }, "procedure completed");
+    console.info(`[api] procedure completed: ${procedure}`, { correlationId, duration });
     return result;
   } catch (error) {
     const duration = Date.now() - start;
-    log.error({ procedure, correlationId, duration, err: error }, "procedure failed");
+    console.error(`[api] procedure failed: ${procedure}`, { correlationId, duration, error });
     throw error;
   }
 };

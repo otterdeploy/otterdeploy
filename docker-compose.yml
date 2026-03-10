@@ -68,42 +68,7 @@ services:
       timeout: 3s
       retries: 5
 
-  zero-cache:
-    image: rocicorp/zero:0.25.12
-    container_name: otterstack-zero-cache
-    restart: unless-stopped
-    environment:
-      ZERO_UPSTREAM_DB: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-postgres}
-      ZERO_CVR_DB: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-postgres}
-      ZERO_CHANGE_DB: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-postgres}
-      ZERO_REPLICA_FILE: /data/zero.db
-      ZERO_APP_ID: otterstack
-      ZERO_ADMIN_PASSWORD: ${ZERO_ADMIN_PASSWORD:-zero-admin-dev}
-      ZERO_QUERY_URL: ${ZERO_QUERY_URL:-http://api.otterstack.localhost:1355/api/zero/query}
-      ZERO_MUTATE_URL: ${ZERO_MUTATE_URL:-http://api.otterstack.localhost:1355/api/zero/mutate}
-      ZERO_LOG_LEVEL: ${ZERO_LOG_LEVEL:-info}
-      ZERO_AUTO_RESET: "true"
-      ZERO_QUERY_FORWARD_COOKIES: "true"
-      ZERO_MUTATE_FORWARD_COOKIES: "true"
-      NODE_ENV: ${NODE_ENV:-development}
-    ports:
-      - "${ZERO_PORT:-4848}:4848"
-    volumes:
-      - otterstack-zero-data:/data
-    depends_on:
-      postgres:
-        condition: service_healthy
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-      - "api.otterstack.localhost:host-gateway"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4848/keepalive"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-
 volumes:
   otterstack-postgres-data:
-  otterstack-zero-data:
   otterstack-caddy-data:
   otterstack-caddy-config:

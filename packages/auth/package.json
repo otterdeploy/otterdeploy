@@ -13,8 +13,8 @@
   "scripts": {},
   "dependencies": {
     "@otterdeploy/db": "workspace:*",
-    "@otterdeploy/utils": "workspace:*",
     "@otterdeploy/env": "workspace:*",
+    "@paralleldrive/cuid2": "catalog:",
     "better-auth": "catalog:",
     "zod": "catalog:"
   },

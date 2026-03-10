@@ -1,12 +1,8 @@
 import { Hono } from "hono";
 import { serve } from "inngest/hono";
-import { createLogger } from "@otterdeploy/logger";
 
 import { inngest } from "./inngest";
 import { functions } from "./functions";
-import { startResourceHealthWatcher, reconcileResourceHealth } from "./services/resource-health-watcher";
-
-const logger = createLogger("worker");
 
 const app = new Hono();
 
@@ -18,21 +14,6 @@ app.on(
 
 app.get("/", (c) => c.text("Worker OK"));
 
-// Start background Docker event stream listener for resource health monitoring
-const healthWatcher = startResourceHealthWatcher();
-
-// Run startup reconciliation to catch stale statuses from when the watcher wasn't running
-reconcileResourceHealth().catch((err) => {
-  logger.error({ err }, "Startup resource health reconciliation failed");
-});
-
-const shutdown = () => {
-  logger.info("Shutting down health watcher...");
-  healthWatcher.stop();
-};
-process.on("SIGTERM", shutdown);
-process.on("SIGINT", shutdown);
-
-logger.info("Inngest worker started");
+console.info("Inngest worker started");
 
 export default app;

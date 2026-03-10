@@ -1,4 +1,4 @@
-import { createId } from "@otterdeploy/utils";
+import { createId } from "@paralleldrive/cuid2";
 import { db } from "@otterdeploy/db";
 import * as schema from "@otterdeploy/db/schema/auth";
 import { env } from "@otterdeploy/env/server";

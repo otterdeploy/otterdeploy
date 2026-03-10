@@ -1,7 +1,7 @@
 import { eq, isTable } from "drizzle-orm";
 import { reset, seed } from "drizzle-seed";
 
-import { createId } from "@otterdeploy/utils";
+import { createId } from "@paralleldrive/cuid2";
 import { db } from "./index";
 import * as schema from "./schema";
 import { project, environment, viewport } from "./schema/project";

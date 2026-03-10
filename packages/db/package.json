@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "@otterdeploy/env": "workspace:*",
-    "@otterdeploy/utils": "workspace:*",
+    "@paralleldrive/cuid2": "catalog:",
     "drizzle-orm": "^0.45.1",
     "drizzle-zod": "^0.8.2",
     "pg": "^8.18.0",
