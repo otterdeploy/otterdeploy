@@ -1,34 +1,26 @@
 {
   "name": "@otterdeploy/api",
+  "version": "0.0.0",
   "private": true,
   "type": "module",
   "exports": {
-    ".": {
-      "default": "./src/index.ts"
-    },
-    "./*": {
-      "default": "./src/*.ts"
-    }
-  },
-  "scripts": {
-    "check-types": "tsc --noEmit"
+    ".": "./src/index.ts",
+    "./contract": "./src/contract.ts",
+    "./client": "./src/client.ts"
   },
   "dependencies": {
-    "better-result": "catalog:",
-    "@orpc/client": "catalog:",
-    "@orpc/openapi": "catalog:",
-    "@orpc/server": "catalog:",
-    "@orpc/zod": "catalog:",
     "@otterdeploy/auth": "workspace:*",
     "@otterdeploy/db": "workspace:*",
     "@otterdeploy/env": "workspace:*",
-    "@paralleldrive/cuid2": "catalog:",
-    "drizzle-zod": "^0.8.2",
-    "zod": "catalog:"
+    "@orpc/contract": "catalog:",
+    "@orpc/server": "catalog:",
+    "@orpc/client": "catalog:",
+    "better-result": "catalog:",
+    "zod": "catalog:",
+    "pino": "catalog:"
   },
   "devDependencies": {
     "@otterdeploy/config": "workspace:*",
-    "hono": "catalog:",
-    "typescript": "catalog:"
+    "vitest": "^4.0.18"
   }
 }

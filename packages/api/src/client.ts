@@ -1,0 +1,1 @@
+export { contract } from "./contract";
