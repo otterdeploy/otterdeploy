@@ -1,22 +1,18 @@
 {
   "name": "@otterdeploy/worker",
+  "version": "0.0.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "env": "PORT=3002 bun --env-file=../../.env",
-    "dev": "bun run env --watch src/index.ts",
-    "check-types": "tsc --noEmit"
+    "dev": "bun --hot src/index.ts"
   },
   "dependencies": {
-    "better-result": "catalog:",
     "@otterdeploy/db": "workspace:*",
     "@otterdeploy/env": "workspace:*",
     "hono": "catalog:",
     "inngest": "catalog:"
   },
   "devDependencies": {
-    "@otterdeploy/config": "workspace:*",
-    "@types/bun": "catalog:",
-    "typescript": "catalog:"
+    "@otterdeploy/config": "workspace:*"
   }
 }
