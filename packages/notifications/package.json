@@ -1,0 +1,15 @@
+{
+  "name": "@otterdeploy/notifications",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@otterdeploy/env": "workspace:*"
+  },
+  "devDependencies": {
+    "@otterdeploy/config": "workspace:*"
+  }
+}
