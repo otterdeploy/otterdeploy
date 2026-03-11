@@ -1,17 +1,18 @@
-import { ORPCError, os } from "@orpc/server";
+import { implement, ORPCError } from "@orpc/server";
 import type { auth } from "@otterdeploy/auth";
 import type { db } from "@otterdeploy/db";
+import { contract } from "./contract";
 
 export interface Context {
   db: typeof db;
   session: Awaited<ReturnType<typeof auth.api.getSession>>;
 }
 
-export const o = os.$context<Context>();
+const pub = implement(contract).$context<Context>();
 
-export const publicProcedure = o;
+export const publicProcedure = pub;
 
-const requireAuth = o.middleware(async ({ context, next }) => {
+const requireAuth = pub.middleware(async ({ context, next }) => {
   if (!context.session?.user) {
     throw new ORPCError("UNAUTHORIZED");
   }
