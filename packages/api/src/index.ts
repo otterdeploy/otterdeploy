@@ -1,4 +1,4 @@
+export { publicProcedure, protectedProcedure } from "./orpc";
 export { contract } from "./contract";
-export { createHealthRouter, type AppRouter } from "./router";
+export { router, type AppRouter } from "./routers";
 export type { Context } from "./context";
-

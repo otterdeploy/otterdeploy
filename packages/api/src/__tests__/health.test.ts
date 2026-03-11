@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { createHealthRouter } from "../router";
+import { router } from "../routers";
 
 describe("health router", () => {
-  it("should return ok status", async () => {
-    const router = createHealthRouter();
+  it("should have health route defined", () => {
     expect(router).toBeDefined();
     expect(router.health).toBeDefined();
   });

@@ -3,9 +3,5 @@ import type { auth } from "@otterdeploy/auth";
 
 export interface Context {
   db: typeof db;
-  auth: typeof auth;
-  session: {
-    userId: string;
-    organizationId: string | null;
-  } | null;
+  session: Awaited<ReturnType<typeof auth.api.getSession>>;
 }

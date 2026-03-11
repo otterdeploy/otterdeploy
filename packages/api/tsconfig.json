@@ -6,5 +6,7 @@
     "sourceMap": true,
     "outDir": "dist",
     "composite": true
-  }
+  },
+  "include": ["src"],
+  "exclude": ["orpc-contract-first-playground"]
 }

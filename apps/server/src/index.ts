@@ -1,7 +1,8 @@
 import { onError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
-import { createHealthRouter } from "@otterdeploy/api";
+import { router } from "@otterdeploy/api";
 import { auth } from "@otterdeploy/auth";
+import { db } from "@otterdeploy/db";
 import { env } from "@otterdeploy/env/server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -22,7 +23,6 @@ app.use(
 app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 
 // oRPC API
-const router = createHealthRouter();
 const rpcHandler = new RPCHandler(router, {
   interceptors: [
     onError((error) => {
@@ -32,8 +32,13 @@ const rpcHandler = new RPCHandler(router, {
 });
 
 app.use("/rpc/*", async (c, next) => {
+  const session = await auth.api.getSession({
+    headers: c.req.raw.headers,
+  });
+
   const result = await rpcHandler.handle(c.req.raw, {
     prefix: "/rpc",
+    context: { db, session },
   });
 
   if (result.matched) {
