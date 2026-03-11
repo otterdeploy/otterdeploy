@@ -1,9 +1,12 @@
-import { onError } from "@orpc/server";
+import { env } from "@otterdeploy/env/server";
+import { OpenAPIHandler } from "@orpc/openapi/fetch";
+import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
+import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { RPCHandler } from "@orpc/server/fetch";
+import { onError } from "@orpc/server";
 import { router } from "@otterdeploy/api";
 import { auth } from "@otterdeploy/auth";
 import { db } from "@otterdeploy/db";
-import { env } from "@otterdeploy/env/server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { createSSEHandler } from "./sse";
@@ -22,27 +25,52 @@ app.use(
 // Better Auth
 app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 
-// oRPC API
-const rpcHandler = new RPCHandler(router, {
+// OpenAPI handler (REST + docs)
+const apiHandler = new OpenAPIHandler(router, {
+  plugins: [
+    new OpenAPIReferencePlugin({
+      schemaConverters: [new ZodToJsonSchemaConverter()],
+    }),
+  ],
   interceptors: [
     onError((error) => {
-      console.error("RPC error", error);
+      console.error(error);
     }),
   ],
 });
 
-app.use("/rpc/*", async (c, next) => {
+// RPC handler
+const rpcHandler = new RPCHandler(router, {
+  interceptors: [
+    onError((error) => {
+      console.error(error);
+    }),
+  ],
+});
+
+app.use("/*", async (c, next) => {
   const session = await auth.api.getSession({
     headers: c.req.raw.headers,
   });
 
-  const result = await rpcHandler.handle(c.req.raw, {
+  const context = { db, session };
+
+  const rpcResult = await rpcHandler.handle(c.req.raw, {
     prefix: "/rpc",
-    context: { db, session },
+    context,
   });
 
-  if (result.matched) {
-    return c.newResponse(result.response.body, result.response);
+  if (rpcResult.matched) {
+    return c.newResponse(rpcResult.response.body, rpcResult.response);
+  }
+
+  const apiResult = await apiHandler.handle(c.req.raw, {
+    prefix: "/api-reference",
+    context,
+  });
+
+  if (apiResult.matched) {
+    return c.newResponse(apiResult.response.body, apiResult.response);
   }
 
   await next();

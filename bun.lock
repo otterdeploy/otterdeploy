@@ -151,6 +151,7 @@
         "@otterdeploy/db": "workspace:*",
         "@otterdeploy/env": "workspace:*",
         "better-result": "catalog:",
+        "hono": "catalog:",
         "pino": "catalog:",
         "zod": "catalog:",
       },

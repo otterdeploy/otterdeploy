@@ -6,8 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./contract": "./src/contract.ts",
-    "./router": "./src/router.ts",
-    "./client": "./src/client.ts"
+    "./routers": "./src/routers/index.ts"
   },
   "dependencies": {
     "@otterdeploy/auth": "workspace:*",
