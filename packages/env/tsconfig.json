@@ -1,3 +1,0 @@
-{
-  "extends": "@otterdeploy/config/tsconfig.base.json"
-}
