@@ -15,6 +15,7 @@
     "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",
     "@orpc/zod": "catalog:",
+    "@otterdeploy/docker": "^0.3.0",
     "@otterstack/auth": "workspace:*",
     "@otterstack/db": "workspace:*",
     "@otterstack/env": "workspace:*",

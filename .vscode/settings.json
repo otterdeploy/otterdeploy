@@ -3,6 +3,7 @@
         "healthcheck",
         "inngest",
         "orpc",
-        "otterstack"
+        "otterstack",
+        "xyflow"
     ]
 }
