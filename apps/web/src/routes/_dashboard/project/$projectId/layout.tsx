@@ -2,6 +2,12 @@ import { createFileRoute, Outlet } from "@tanstack/react-router";
 import * as z from "zod";
 
 import { useCallback } from "react";
+import { useHotkey } from "@tanstack/react-hotkeys";
+import {
+  EnvironmentSwitcher,
+  useEnvironmentSwitcher,
+  type Environment,
+} from "@/features/environment-switcher";
 import {
   Background,
   BackgroundVariant,
@@ -56,6 +62,18 @@ const initialNodes: DatabaseResourceNode[] = [
 const initialEdges: Edge[] = [];
 
 function RouteComponent() {
+  const { env } = Route.useSearch();
+  const navigate = Route.useNavigate();
+
+  // Placeholder — will come from API later
+  const environments: Environment[] = [
+    { id: "env-dev", name: "development", label: "Development" },
+    { id: "env-staging", name: "staging", label: "Staging" },
+    { id: "env-prod", name: "production", label: "Production" },
+  ];
+
+  const switcher = useEnvironmentSwitcher(environments);
+
   const [nodes, , onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
@@ -64,33 +82,74 @@ function RouteComponent() {
     [setEdges],
   );
 
+  useHotkey("e", () => switcher.open(env), {
+    enabled: !switcher.isOpen,
+  });
+
+  useHotkey("Escape", () => switcher.close(), {
+    enabled: switcher.isOpen,
+  });
+
+  useHotkey("ArrowLeft", () => switcher.prev(), {
+    enabled: switcher.isOpen,
+  });
+
+  useHotkey("ArrowRight", () => switcher.next(), {
+    enabled: switcher.isOpen,
+  });
+
+  useHotkey("Enter", () => {
+    const selected = switcher.select();
+    if (selected) {
+      navigate({ search: (prev) => ({ ...prev, env: selected.name }) });
+    }
+  }, {
+    enabled: switcher.isOpen,
+  });
+
   return (
-    <div className="p-4 w-full h-screen">
-      <ReactFlow
-        className="rounded-2xl border border-border bg-background/70"
-        defaultEdgeOptions={{
-          style: {
-            stroke: "rgba(115, 115, 130, 0.7)",
-            strokeWidth: 1.5,
-          },
-          type: "smoothstep",
+    <>
+      <div className="p-4 w-full h-screen">
+        <ReactFlow
+          className="rounded-2xl border border-border bg-background/70"
+          defaultEdgeOptions={{
+            style: {
+              stroke: "rgba(115, 115, 130, 0.7)",
+              strokeWidth: 1.5,
+            },
+            type: "smoothstep",
+          }}
+          nodes={nodes}
+          nodeTypes={nodeTypes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          fitView
+        >
+          <Background
+            id="dots"
+            variant={BackgroundVariant.Dots}
+            gap={8}
+            color="rgba(120, 120, 140, 0.3)"
+          />
+        </ReactFlow>
+        <Outlet />
+      </div>
+      <EnvironmentSwitcher
+        environments={environments}
+        activeIndex={switcher.activeIndex}
+        isOpen={switcher.isOpen}
+        onClose={switcher.close}
+        onSelect={(index) => {
+          const selected = environments[index];
+          if (selected) {
+            switcher.close();
+            navigate({ search: (prev) => ({ ...prev, env: selected.name }) });
+          }
         }}
-        nodes={nodes}
-        nodeTypes={nodeTypes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        fitView
-      >
-        <Background
-          id="dots"
-          variant={BackgroundVariant.Dots}
-          gap={8}
-          color="rgba(120, 120, 140, 0.3)"
-        />
-      </ReactFlow>
-      <Outlet />
-    </div>
+        onSetIndex={(index) => switcher.setActiveIndex(index)}
+      />
+    </>
   );
 }
