@@ -1,0 +1,23 @@
+{
+  "name": "@otterstack/inngest",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {},
+  "dependencies": {
+    "@otterstack/env": "workspace:*",
+    "inngest": "^3.33.0"
+  },
+  "devDependencies": {
+    "@otterstack/config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}

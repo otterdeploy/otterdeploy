@@ -1,0 +1,77 @@
+name: otterstack
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: otterstack-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - otterstack-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  inngest:
+    image: inngest/inngest:latest
+    container_name: otterstack-inngest
+    restart: unless-stopped
+    command: >
+      inngest dev
+      --host 0.0.0.0
+      --port 8288
+      --no-discovery
+      --sdk-url http://host.docker.internal:3002/api/inngest
+    ports:
+      - "8288:8288"
+    environment:
+      INNGEST_DEV: "1"
+      INNGEST_EVENT_KEY: ${INNGEST_EVENT_KEY:-local-dev-event-key}
+      INNGEST_SIGNING_KEY: ${INNGEST_SIGNING_KEY:-local-dev-signing-key}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # caddy:
+  #   image: caddy:2-alpine
+  #   container_name: otterstack-caddy
+  #   restart: unless-stopped
+  #   command: sh -c "caddy run --resume --config /etc/caddy/Caddyfile --adapter caddyfile"
+  #   environment:
+  #     CADDY_ADMIN: "0.0.0.0:2019"
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #     - "443:443/udp"
+  #     - "127.0.0.1:2019:2019"
+  #   volumes:
+  #     - otterstack-caddy-data:/data
+  #     - otterstack-caddy-config:/config
+  #   healthcheck:
+  #     test:
+  #       [
+  #         "CMD",
+  #         "wget",
+  #         "--no-verbose",
+  #         "--tries=1",
+  #         "--spider",
+  #         "http://localhost:2019/config/",
+  #       ]
+  #     interval: 10s
+  #     timeout: 3s
+  #     retries: 5
+
+volumes:
+  otterstack-postgres-data:
+  # otterstack-caddy-data:
+  # otterstack-caddy-config:
