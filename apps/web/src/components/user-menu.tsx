@@ -1,14 +1,14 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  Menu,
+  MenuGroup,
+  MenuGroupLabel,
+  MenuItem,
+  MenuPopup,
+  MenuSeparator,
+  MenuTrigger,
+} from "@/components/ui/menu";
 import { authClient } from "@/lib/auth-client";
 
 import { Button } from "./ui/button";
@@ -31,16 +31,16 @@ export default function UserMenu() {
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant="outline" />}>
+    <Menu>
+      <MenuTrigger render={<Button variant="outline" />}>
         {session.user.name}
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="bg-card">
-        <DropdownMenuGroup>
-          <DropdownMenuLabel>My Account</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem>{session.user.email}</DropdownMenuItem>
-          <DropdownMenuItem
+      </MenuTrigger>
+      <MenuPopup className="bg-card">
+        <MenuGroup>
+          <MenuGroupLabel>My Account</MenuGroupLabel>
+          <MenuSeparator />
+          <MenuItem>{session.user.email}</MenuItem>
+          <MenuItem
             variant="destructive"
             onClick={() => {
               authClient.signOut({
@@ -55,9 +55,9 @@ export default function UserMenu() {
             }}
           >
             Sign Out
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          </MenuItem>
+        </MenuGroup>
+      </MenuPopup>
+    </Menu>
   );
 }
