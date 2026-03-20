@@ -10,6 +10,9 @@ import { orpc } from "@/utils/orpc";
 
 import "../index.css";
 
+
+import '@xyflow/react/dist/style.css';
+
 export interface RouterAppContext {
   orpc: typeof orpc;
   queryClient: QueryClient;

@@ -37,6 +37,7 @@
     "@uppy/react": "^5.2.0",
     "@uppy/tus": "^5.1.1",
     "@uppy/xhr-upload": "^5.1.1",
+    "@xyflow/react": "^12.10.1",
     "better-auth": "catalog:",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
