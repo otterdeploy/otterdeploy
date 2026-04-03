@@ -10,6 +10,10 @@ import { env } from "@otterstack/env/server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import { createBunWebSocket } from "hono/bun";
+import { invalidate } from "./lib/invalidate";
+
+const { upgradeWebSocket, websocket } = createBunWebSocket();
 
 const app = new Hono();
 
@@ -48,7 +52,7 @@ export const rpcHandler = new RPCHandler(appRouter, {
 });
 
 app.use("/*", async (c, next) => {
-  const context = await createContext({ context: c });
+  const context = await createContext({ context: c, broadcast: invalidate.broadcast });
 
   const rpcResult = await rpcHandler.handle(c.req.raw, {
     prefix: "/rpc",
@@ -71,8 +75,23 @@ app.use("/*", async (c, next) => {
   await next();
 });
 
+app.get(
+  "/ws",
+  upgradeWebSocket(() => ({
+    onMessage(event, ws) {
+      invalidate.onMessage(ws, typeof event.data === "string" ? event.data : "");
+    },
+    onClose(_event, ws) {
+      invalidate.removeClient(ws);
+    },
+  })),
+);
+
 app.get("/", (c) => {
   return c.text("OK");
 });
 
-export default app;
+export default {
+  fetch: app.fetch,
+  websocket,
+};

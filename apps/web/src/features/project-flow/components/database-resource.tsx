@@ -1,12 +1,11 @@
-import { useReactFlow, type Node, type NodeProps } from "@xyflow/react";
+import { type Node, type NodeProps } from "@xyflow/react";
 import { Clock, Database, Ellipsis, HardDrive, Plus, RefreshCw, Trash2 } from "lucide-react";
-import type React from "react";
 import * as motion from "motion/react-client";
+import type React from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Resource } from "@/features/project-flow/components/resource";
-import { Book01Icon, FloppyDiskIcon } from "@hugeicons/react";
 
 export type VolumeAttachment = {
   id: string;
@@ -61,35 +60,42 @@ export function DatabaseResource({
   //   }));
   // };
 
+  const anchorName = `--db-${id}` as string;
+
   return (
-    <div className="group relative flex items-center">
-      <motion.div whileTap={{ scale: 0.98 }} className="hit-area-4">
-        <div className="rounded-lg border-0.5 border-red-500 p-1 flex flex-col w-36 min-h-24 h-auto bg-card">
-          <div className="rounded-md flex items-center gap-1 py-1">
+    <div className="group relative flex flex-col items-center shadow-md">
+      <motion.div
+        whileTap={{ scale: 0.98 }}
+        className="hit-area-x-4 hit-area-t-4"
+        style={{ anchorName } as React.CSSProperties}
+      >
+        <div className="rounded-lg ring ring-red-500 py-4 px-2 flex flex-col w-36 bg-card">
+          <div className="rounded-md flex items-center gap-1 py-0.5">
             <PostgreSQLIcon />
-            <span className="text-[10px]">PostgreSQL</span>
+            <span className="text-[9px]">PostgreSQL</span>
           </div>
-          <div className="h-full bg-neutral-800 rounded-md border border-border flex-1 p-1.5">
-            {data.volumes.length > 0 ? (
-              <div className="flex flex-col gap-1">
-                {data.volumes.map((volume) => (
-                  <div key={volume.id} className="flex items-center gap-1">
-                    <HardDrive
-                      className="size-2.5 shrink-0 text-muted-foreground"
-                      strokeWidth={2}
-                    />
-                    <span className="text-[9px] text-muted-foreground truncate">
-                      {volume.source}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-[9px] text-muted-foreground/50">No volumes</p>
-            )}
-          </div>
+          <p className="text-[8px] text-muted-foreground/60 py-0.5">Service is offline</p>
         </div>
       </motion.div>
+
+      {data.volumes.map((volume, index) => (
+        <div
+          key={volume.id}
+          className="rounded-md w-36 -mt-3 min-h-10 border border-border bg-card px-2 py-1.5 flex items-center gap-1.5 first:pt-10"
+          // style={
+          //   {
+          //     positionAnchor: anchorName,
+          //     top: `anchor(bottom)`,
+          //     left: `anchor(left)`,
+          //     right: `anchor(right)`,
+          //     translate: `0 ${index * 32 + 4}px`,
+          //   } satisfies React.CSSProperties
+          // }
+        >
+          <HardDrive className="size-3 shrink-0 text-muted-foreground" strokeWidth={2} />
+          <span className="text-[10px] text-muted-foreground truncate">{volume.source}</span>
+        </div>
+      ))}
 
       <div className="absolute left-full top-1/2 -translate-y-1/2 ml-1.5 flex flex-col gap-0.5 opacity-0 -translate-x-1 pointer-events-none transition-all duration-150 group-hover:opacity-100 group-hover:translate-x-0 group-hover:pointer-events-auto">
         <ActionButton icon={<Plus className="size-2.5" strokeWidth={2} />} />

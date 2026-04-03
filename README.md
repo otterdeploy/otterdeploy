@@ -20,33 +20,50 @@ This project was created with [Better Fullstack](https://github.com/Marve10s/Bet
 
 ## Getting Started
 
-First, install the dependencies:
+Install dependencies:
 
 ```bash
 bun install
 ```
 
+## Local Dev Setup
+
+### 1. Install portless (global CLI)
+
+```bash
+npm install -g portless
+```
+
+### 2. Start the proxy (once)
+
+```bash
+sudo portless proxy start --https --tld io -p 443
+sudo portless trust  # first time only — adds local CA to system trust store
+```
+
+### 3. Start infrastructure + dev servers
+
+```bash
+bun run infra  # starts Postgres + Inngest via Docker Compose
+bun run dev    # starts web + API through portless
+```
+
+### Dev URLs
+
+| Service | URL                          |
+| ------- | ---------------------------- |
+| Web     | `https://web.otterstack.io`  |
+| API     | `https://api.otterstack.io`  |
+
 ## Database Setup
 
-This project uses PostgreSQL with Drizzle ORM.
+This project uses PostgreSQL with Drizzle ORM. The database runs via Docker Compose (`bun run infra`).
 
-1. Make sure you have a PostgreSQL database set up.
-2. Update your `apps/server/.env` file with your PostgreSQL connection details.
-
-3. Apply the schema to your database:
+Apply the schema:
 
 ```bash
 bun run db:push
 ```
-
-Then, run the development server:
-
-```bash
-bun run dev
-```
-
-Open [http://localhost:3001](http://localhost:3001) in your browser to see the web application.
-The API is running at [http://localhost:3000](http://localhost:3000).
 
 ## Git Hooks and Formatting
 

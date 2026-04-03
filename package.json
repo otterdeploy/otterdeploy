@@ -26,6 +26,8 @@
   },
   "type": "module",
   "scripts": {
+    "infra": "docker compose up -d",
+    "proxy": "sudo portless proxy start --https --tld io -p 443",
     "dev": "turbo dev",
     "build": "turbo build",
     "check-types": "turbo check-types",
@@ -44,6 +46,7 @@
   },
   "dependencies": {
     "@otterstack/env": "workspace:*",
+    "@standard-schema/spec": "^1.1.0",
     "zod": "catalog:"
   },
   "devDependencies": {
