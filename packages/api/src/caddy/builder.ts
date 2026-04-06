@@ -20,7 +20,7 @@ export function buildHttpBlock(route: ProxyRouteInput): string {
   ].join("\n");
 }
 
-export function buildLayer4Block(routes: ProxyRouteInput[], listenPort = ":5432"): string {
+export function buildLayer4Block(routes: ProxyRouteInput[], listenPort = ":443"): string {
   const lines = [`\t${listenPort} {`];
 
   for (const route of routes) {

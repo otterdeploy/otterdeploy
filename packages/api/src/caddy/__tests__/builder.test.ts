@@ -59,7 +59,7 @@ describe("builder", () => {
     const output = buildCaddyfile([httpRoute, layer4Route], "0.0.0.0:2019");
     expect(output).toContain("admin 0.0.0.0:2019");
     expect(output).toContain("layer4 {");
-    expect(output).toContain(":5432 {");
+    expect(output).toContain(":443 {");
     expect(output).toContain("tls sni primary-acme.db.otterstack.dev");
     expect(output).toContain("myapp-acme.otterstack.dev {");
     expect(output).toContain("reverse_proxy myapp.acme.otterstack.internal:3000");
