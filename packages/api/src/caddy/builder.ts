@@ -8,83 +8,79 @@ export type ProxyRouteInput = {
   layer4Alpn: string | null;
 };
 
-export type CaddyConfig = {
-  admin: { listen: string };
-  apps: {
-    layer4?: ReturnType<typeof buildLayer4App>;
-    http?: ReturnType<typeof buildHttpApp>;
-  };
-};
+export function sanitizeMatcherName(domain: string): string {
+  return domain.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+}
 
-export function buildCaddyConfig(routes: ProxyRouteInput[], adminBind: string): CaddyConfig {
+export function buildHttpBlock(route: ProxyRouteInput): string {
+  return [
+    `${route.domain} {`,
+    `\treverse_proxy ${route.upstreamHost}:${route.upstreamPort}`,
+    "}",
+  ].join("\n");
+}
+
+export function buildLayer4Block(routes: ProxyRouteInput[], listenPort = ":5432"): string {
+  const lines = [`\t${listenPort} {`];
+
+  for (const route of routes) {
+    const name = sanitizeMatcherName(route.domain);
+    lines.push(`\t\t@${name} tls sni ${route.domain}`);
+    lines.push(`\t\troute @${name} {`);
+    lines.push("\t\t\ttls");
+    lines.push(`\t\t\tproxy ${route.upstreamHost}:${route.upstreamPort}`);
+    lines.push("\t\t}");
+  }
+
+  lines.push("\t}");
+  return lines.join("\n");
+}
+
+export function buildCaddyfile(routes: ProxyRouteInput[], adminBind: string): string {
   const httpRoutes = routes.filter((r) => r.type === "http");
   const layer4Routes = routes.filter((r) => r.type === "layer4");
 
-  const apps: Record<string, unknown> = {};
+  const lines = ["{", `\tadmin ${adminBind}`];
 
   if (layer4Routes.length > 0) {
-    apps.layer4 = buildLayer4App(layer4Routes);
+    lines.push("\tlayer4 {");
+    lines.push(buildLayer4Block(layer4Routes));
+    lines.push("\t}");
   }
 
-  if (httpRoutes.length > 0) {
-    apps.http = buildHttpApp(httpRoutes);
+  lines.push("}");
+
+  for (const route of httpRoutes) {
+    lines.push("");
+    lines.push(buildHttpBlock(route));
   }
 
-  return {
-    admin: { listen: adminBind },
-    apps,
-  };
+  return lines.join("\n") + "\n";
 }
 
-export function buildLayer4App(routes: ProxyRouteInput[]) {
-  return {
-    servers: {
-      postgres: {
-        listen: [":5432"],
-        routes: routes.map((route) => buildLayer4Route(route)),
-      },
-    },
-  };
-}
+export function buildProjectFragment(routes: ProxyRouteInput[]): string {
+  const httpRoutes = routes.filter((r) => r.type === "http");
+  const layer4Routes = routes.filter((r) => r.type === "layer4");
 
-export function buildLayer4Route(route: ProxyRouteInput) {
-  return {
-    match: [
-      {
-        tls: {
-          sni: [route.domain],
-        },
-      },
-    ],
-    handle: [
-      { handler: "tls" },
-      {
-        handler: "proxy",
-        upstreams: [{ dial: [`${route.upstreamHost}:${route.upstreamPort}`] }],
-      },
-    ],
-  };
-}
+  if (httpRoutes.length === 0 && layer4Routes.length === 0) {
+    return "";
+  }
 
-export function buildHttpApp(routes: ProxyRouteInput[]) {
-  return {
-    servers: {
-      web: {
-        listen: [":443"],
-        routes: routes.map((route) => ({
-          match: [{ host: [route.domain] }],
-          handle: [
-            {
-              handler: "reverse_proxy",
-              upstreams: [{ dial: `${route.upstreamHost}:${route.upstreamPort}` }],
-            },
-          ],
-        })),
-      },
-    },
-  };
-}
+  // For validation, wrap in a minimal Caddyfile
+  const lines = ["{", "\tadmin off"];
 
-export function buildProjectConfig(routes: ProxyRouteInput[]): CaddyConfig {
-  return buildCaddyConfig(routes, "off");
+  if (layer4Routes.length > 0) {
+    lines.push("\tlayer4 {");
+    lines.push(buildLayer4Block(layer4Routes));
+    lines.push("\t}");
+  }
+
+  lines.push("}");
+
+  for (const route of httpRoutes) {
+    lines.push("");
+    lines.push(buildHttpBlock(route));
+  }
+
+  return lines.join("\n") + "\n";
 }

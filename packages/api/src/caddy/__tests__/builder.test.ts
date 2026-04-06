@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
 
 import {
-  buildCaddyConfig,
-  buildHttpApp,
-  buildLayer4App,
-  buildLayer4Route,
-  buildProjectConfig,
+  buildCaddyfile,
+  buildHttpBlock,
+  buildLayer4Block,
+  buildProjectFragment,
+  sanitizeMatcherName,
   type ProxyRouteInput,
 } from "../builder";
 
@@ -30,54 +30,62 @@ describe("builder", () => {
     layer4Alpn: "postgresql",
   };
 
-  test("buildLayer4Route produces SNI match and proxy handler", () => {
-    const output = buildLayer4Route(layer4Route);
-    expect(output.match[0]!.tls.sni).toEqual(["primary-acme.db.otterstack.dev"]);
-    expect(output.handle[0]!.handler).toBe("tls");
-    expect(output.handle[1]!.handler).toBe("proxy");
-    expect((output.handle[1] as { upstreams: { dial: string[] }[] }).upstreams[0]!.dial).toEqual(["primary-acme.otterstack.internal:5432"]);
+  test("sanitizeMatcherName converts domain to safe identifier", () => {
+    expect(sanitizeMatcherName("primary-acme.db.otterstack.dev")).toBe(
+      "primary_acme_db_otterstack_dev",
+    );
   });
 
-  test("buildLayer4App creates a server listening on :5432", () => {
-    const output = buildLayer4App([layer4Route]);
-    expect(output.servers.postgres.listen).toEqual([":5432"]);
-    expect(output.servers.postgres.routes).toHaveLength(1);
+  test("buildHttpBlock produces a site block with reverse_proxy", () => {
+    const output = buildHttpBlock(httpRoute);
+    expect(output).toBe(
+      [
+        "myapp-acme.otterstack.dev {",
+        "\treverse_proxy myapp.acme.otterstack.internal:3000",
+        "}",
+      ].join("\n"),
+    );
   });
 
-  test("buildHttpApp creates a server with host matching and reverse_proxy", () => {
-    const output = buildHttpApp([httpRoute]);
-    expect(output.servers.web.listen).toEqual([":443"]);
-    expect(output.servers.web.routes[0]!.match[0]!.host).toEqual(["myapp-acme.otterstack.dev"]);
-    expect(output.servers.web.routes[0]!.handle[0]!.handler).toBe("reverse_proxy");
+  test("buildLayer4Block produces matcher and route blocks", () => {
+    const output = buildLayer4Block([layer4Route]);
+    expect(output).toContain("@primary_acme_db_otterstack_dev tls sni primary-acme.db.otterstack.dev");
+    expect(output).toContain("route @primary_acme_db_otterstack_dev {");
+    expect(output).toContain("tls");
+    expect(output).toContain("proxy primary-acme.otterstack.internal:5432");
   });
 
-  test("buildCaddyConfig assembles admin + layer4 + http apps", () => {
-    const output = buildCaddyConfig([httpRoute, layer4Route], "0.0.0.0:2019");
-    expect(output.admin.listen).toBe("0.0.0.0:2019");
-    expect(output.apps.layer4).toBeDefined();
-    expect(output.apps.http).toBeDefined();
+  test("buildCaddyfile assembles global block with layer4 + http site blocks", () => {
+    const output = buildCaddyfile([httpRoute, layer4Route], "0.0.0.0:2019");
+    expect(output).toContain("admin 0.0.0.0:2019");
+    expect(output).toContain("layer4 {");
+    expect(output).toContain(":5432 {");
+    expect(output).toContain("tls sni primary-acme.db.otterstack.dev");
+    expect(output).toContain("myapp-acme.otterstack.dev {");
+    expect(output).toContain("reverse_proxy myapp.acme.otterstack.internal:3000");
   });
 
-  test("buildCaddyConfig with only http routes omits layer4", () => {
-    const output = buildCaddyConfig([httpRoute], "0.0.0.0:2019");
-    expect(output.apps.http).toBeDefined();
-    expect(output.apps.layer4).toBeUndefined();
+  test("buildCaddyfile with only http routes omits layer4", () => {
+    const output = buildCaddyfile([httpRoute], "0.0.0.0:2019");
+    expect(output).toContain("myapp-acme.otterstack.dev {");
+    expect(output).not.toContain("layer4");
   });
 
-  test("buildCaddyConfig with only layer4 routes omits http", () => {
-    const output = buildCaddyConfig([layer4Route], "0.0.0.0:2019");
-    expect(output.apps.layer4).toBeDefined();
-    expect(output.apps.http).toBeUndefined();
+  test("buildCaddyfile with empty routes produces minimal global block", () => {
+    const output = buildCaddyfile([], "0.0.0.0:2019");
+    expect(output).toContain("admin 0.0.0.0:2019");
+    expect(output).not.toContain("reverse_proxy");
+    expect(output).not.toContain("layer4");
   });
 
-  test("buildCaddyConfig with empty routes produces minimal config", () => {
-    const output = buildCaddyConfig([], "0.0.0.0:2019");
-    expect(output.admin.listen).toBe("0.0.0.0:2019");
-    expect(Object.keys(output.apps)).toHaveLength(0);
+  test("buildProjectFragment wraps routes for validation with admin off", () => {
+    const output = buildProjectFragment([layer4Route]);
+    expect(output).toContain("admin off");
+    expect(output).toContain("layer4 {");
+    expect(output).toContain("tls sni primary-acme.db.otterstack.dev");
   });
 
-  test("buildProjectConfig uses admin off", () => {
-    const output = buildProjectConfig([layer4Route]);
-    expect(output.admin.listen).toBe("off");
+  test("buildProjectFragment returns empty string for no routes", () => {
+    expect(buildProjectFragment([])).toBe("");
   });
 });
