@@ -1,12 +1,12 @@
 import { createHash } from "node:crypto";
 
 import {
-  buildCaddyfile,
-  buildProjectFragment,
-  buildValidationWrapper,
+  buildCaddyConfig,
+  buildProjectConfig,
+  type CaddyConfig,
   type ProxyRouteInput,
 } from "./builder";
-import type { AdaptResult, LoadResult } from "./client";
+import type { LoadResult } from "./client";
 
 export type ReconcileResult = {
   applied: string[];
@@ -18,12 +18,11 @@ export type ReconcileResult = {
 type ReconcileOptions = {
   routes: ProxyRouteInput[];
   adminBind: string;
-  adapt: (caddyfile: string) => Promise<AdaptResult>;
-  load: (caddyfile: string) => Promise<LoadResult>;
+  load: (config: CaddyConfig) => Promise<LoadResult>;
 };
 
 export async function reconcileRoutes(options: ReconcileOptions): Promise<ReconcileResult> {
-  const { routes, adminBind, adapt, load } = options;
+  const { routes, adminBind, load } = options;
 
   console.log("[caddy:reconcile] starting reconciliation with %d routes", routes.length);
 
@@ -36,15 +35,9 @@ export async function reconcileRoutes(options: ReconcileOptions): Promise<Reconc
   for (const [projectId, projectRoutes] of byProject) {
     console.log("[caddy:reconcile] validating project %s (%d routes)", projectId, projectRoutes.length);
 
-    const fragment = buildProjectFragment(projectRoutes);
-    if (!fragment.trim()) {
-      console.log("[caddy:reconcile] project %s has no fragment, marking applied", projectId);
-      applied.push(projectId);
-      continue;
-    }
-
-    const validationCaddyfile = buildValidationWrapper(projectRoutes);
-    const result = await adapt(validationCaddyfile);
+    // Build a standalone config for this project and try loading it
+    const projectConfig = buildProjectConfig(projectRoutes);
+    const result = await load(projectConfig);
 
     if (result.ok) {
       validRoutes.push(...projectRoutes);
@@ -56,12 +49,13 @@ export async function reconcileRoutes(options: ReconcileOptions): Promise<Reconc
     }
   }
 
-  const caddyfile = buildCaddyfile(validRoutes, adminBind);
-  const revision = createHash("sha256").update(caddyfile).digest("hex").slice(0, 12);
+  // Now load the real combined config
+  const config = buildCaddyConfig(validRoutes, adminBind);
+  const revision = createHash("sha256").update(JSON.stringify(config)).digest("hex").slice(0, 12);
 
-  console.log("[caddy:reconcile] loading caddyfile (revision=%s, %d valid routes)", revision, validRoutes.length);
+  console.log("[caddy:reconcile] loading final config (revision=%s, %d valid routes)", revision, validRoutes.length);
 
-  const loadResult = await load(caddyfile);
+  const loadResult = await load(config);
 
   if (!loadResult.ok) {
     console.error("[caddy:reconcile] load failed: %s", loadResult.error);
@@ -90,4 +84,3 @@ function groupByProject(routes: ProxyRouteInput[]): Map<string, ProxyRouteInput[
   }
   return map;
 }
-

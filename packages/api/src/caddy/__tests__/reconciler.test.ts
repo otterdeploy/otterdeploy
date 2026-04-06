@@ -25,34 +25,34 @@ describe("reconciler", () => {
   };
 
   test("applies all routes when all projects validate", async () => {
-    const adaptFn = mock(() => Promise.resolve({ ok: true as const, json: {} }));
     const loadFn = mock(() => Promise.resolve({ ok: true as const }));
 
     const result = await reconcileRoutes({
       routes: [httpRoute, layer4Route],
       adminBind: "0.0.0.0:2019",
-      adapt: adaptFn,
       load: loadFn,
     });
 
     expect(result.applied).toEqual(["project_abc", "project_xyz"]);
     expect(result.skipped).toEqual([]);
-    expect(loadFn).toHaveBeenCalledTimes(1);
+    // Called once per project validation + once for final load
+    expect(loadFn).toHaveBeenCalledTimes(3);
   });
 
-  test("skips a project whose fragment fails validation", async () => {
-    const adaptFn = mock((caddyfile: string) => {
-      if (caddyfile.includes("myapp.otterstack.dev")) {
+  test("skips a project whose config fails validation", async () => {
+    let callCount = 0;
+    const loadFn = mock(() => {
+      callCount++;
+      // First call (project_abc validation) fails
+      if (callCount === 1) {
         return Promise.resolve({ ok: false as const, error: "bad config" });
       }
-      return Promise.resolve({ ok: true as const, json: {} });
+      return Promise.resolve({ ok: true as const });
     });
-    const loadFn = mock(() => Promise.resolve({ ok: true as const }));
 
     const result = await reconcileRoutes({
       routes: [httpRoute, layer4Route],
       adminBind: "0.0.0.0:2019",
-      adapt: adaptFn,
       load: loadFn,
     });
 
@@ -60,19 +60,22 @@ describe("reconciler", () => {
     expect(result.skipped).toEqual([
       { projectId: "project_abc", error: "bad config" },
     ]);
-    expect(loadFn).toHaveBeenCalledTimes(1);
   });
 
-  test("returns empty applied when load fails", async () => {
-    const adaptFn = mock(() => Promise.resolve({ ok: true as const, json: {} }));
-    const loadFn = mock(() =>
-      Promise.resolve({ ok: false as const, error: "caddy down" }),
-    );
+  test("returns empty applied when final load fails", async () => {
+    let callCount = 0;
+    const loadFn = mock(() => {
+      callCount++;
+      // Validation passes, final load fails
+      if (callCount <= 1) {
+        return Promise.resolve({ ok: true as const });
+      }
+      return Promise.resolve({ ok: false as const, error: "caddy down" });
+    });
 
     const result = await reconcileRoutes({
       routes: [httpRoute],
       adminBind: "0.0.0.0:2019",
-      adapt: adaptFn,
       load: loadFn,
     });
 
@@ -81,13 +84,11 @@ describe("reconciler", () => {
   });
 
   test("handles empty routes", async () => {
-    const adaptFn = mock(() => Promise.resolve({ ok: true as const, json: {} }));
     const loadFn = mock(() => Promise.resolve({ ok: true as const }));
 
     const result = await reconcileRoutes({
       routes: [],
       adminBind: "0.0.0.0:2019",
-      adapt: adaptFn,
       load: loadFn,
     });
 

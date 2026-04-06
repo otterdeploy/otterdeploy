@@ -1,7 +1,7 @@
 import { env } from "@otterstack/env/server";
 
 import type { ProxyRouteInput } from "./builder";
-import { adaptCaddyfile, loadCaddyfile } from "./client";
+import { loadConfig } from "./client";
 import { listEnabledProxyRoutes } from "./queries";
 import { reconcileRoutes, type ReconcileResult } from "./reconciler";
 
@@ -26,7 +26,6 @@ export async function reconcile(): Promise<ReconcileResult> {
   return reconcileRoutes({
     routes,
     adminBind: env.CADDY_ADMIN_BIND,
-    adapt: (caddyfile) => adaptCaddyfile(caddyfile, env.CADDY_ADMIN_URL),
-    load: (caddyfile) => loadCaddyfile(caddyfile, env.CADDY_ADMIN_URL),
+    load: (config) => loadConfig(config, env.CADDY_ADMIN_URL),
   });
 }
