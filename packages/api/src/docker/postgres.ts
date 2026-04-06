@@ -8,7 +8,7 @@ import {
   followProgress,
   type ContainerInspect,
 } from "@otterdeploy/docker";
-import { env } from "@otterstack/env/server";
+import { PLATFORM } from "../constants";
 
 export type DockerPostgresRuntime = {
   containerName: string;
@@ -34,8 +34,8 @@ export async function provisionDockerPostgres(
   const docker = Docker.fromEnv();
 
   try {
-    await ensureImage(docker, env.DOCKER_POSTGRES_IMAGE);
-    await ensureNetwork(docker, env.DOCKER_RESOURCE_NETWORK);
+    await ensureImage(docker, PLATFORM.docker.postgresImage);
+    await ensureNetwork(docker, PLATFORM.docker.resourceNetwork);
     await ensureVolume(docker, input.volumeName);
 
     const existing = await inspectContainer(docker, input.containerName);
@@ -45,7 +45,7 @@ export async function provisionDockerPostgres(
       }
 
       const ready = await waitForContainerReady(docker, input.containerName);
-      return toRuntimeView(ready, input.volumeName, env.DOCKER_RESOURCE_NETWORK);
+      return toRuntimeView(ready, input.volumeName, PLATFORM.docker.resourceNetwork);
     }
 
     const hostPort = await findAvailablePort();
@@ -54,7 +54,7 @@ export async function provisionDockerPostgres(
       const container = (
         await docker.containers.create({
           name: input.containerName,
-          Image: env.DOCKER_POSTGRES_IMAGE,
+          Image: PLATFORM.docker.postgresImage,
           Env: [
             `POSTGRES_DB=${input.databaseName}`,
             `POSTGRES_USER=${input.username}`,
@@ -67,7 +67,7 @@ export async function provisionDockerPostgres(
             PortBindings: {
               "5432/tcp": [
                 {
-                  HostIp: env.DATABASE_LOCAL_HOST,
+                  HostIp: PLATFORM.database.localHost,
                   HostPort: String(hostPort),
                 },
               ],
@@ -85,7 +85,7 @@ export async function provisionDockerPostgres(
           },
           NetworkingConfig: {
             EndpointsConfig: {
-              [env.DOCKER_RESOURCE_NETWORK]: {
+              [PLATFORM.docker.resourceNetwork]: {
                 Aliases: [input.containerName, input.hostnameAlias],
               },
             },
@@ -111,7 +111,7 @@ export async function provisionDockerPostgres(
     }
 
     const ready = await waitForContainerReady(docker, input.containerName);
-    return toRuntimeView(ready, input.volumeName, env.DOCKER_RESOURCE_NETWORK);
+    return toRuntimeView(ready, input.volumeName, PLATFORM.docker.resourceNetwork);
   } finally {
     docker.destroy();
   }
@@ -130,14 +130,14 @@ export async function inspectDockerPostgresRuntime(input: {
       return {
         containerName: input.containerName,
         volumeName: input.volumeName,
-        networkName: env.DOCKER_RESOURCE_NETWORK,
+        networkName: PLATFORM.docker.resourceNetwork,
         hostPort: null,
         status: "missing",
         health: null,
       };
     }
 
-    return toRuntimeView(inspection, input.volumeName, env.DOCKER_RESOURCE_NETWORK);
+    return toRuntimeView(inspection, input.volumeName, PLATFORM.docker.resourceNetwork);
   } finally {
     docker.destroy();
   }
@@ -312,7 +312,7 @@ async function findAvailablePort() {
     const server = createServer();
 
     server.once("error", reject);
-    server.listen(0, env.DATABASE_LOCAL_HOST, () => {
+    server.listen(0, PLATFORM.database.localHost, () => {
       const address = server.address();
 
       if (!address || typeof address === "string") {

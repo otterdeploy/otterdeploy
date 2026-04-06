@@ -27,7 +27,7 @@ import {
   updateDatabaseResourceRuntime,
   updateDatabaseResourceStatus,
 } from "@otterstack/db/project-resource";
-import { env } from "@otterstack/env/server";
+import { PLATFORM } from "../../constants";
 
 function sanitizeProjectSlug(projectId: string): string {
   const value = projectId
@@ -184,10 +184,10 @@ export async function createPostgresResource(input: {
   const databaseName = clampPostgresIdentifier(`${projectSlug}_${resourceSlug}_db`);
   const username = clampPostgresIdentifier(`${projectSlug}_${resourceSlug}_user`);
   const password = randomBytes(18).toString("base64url");
-  const publicHostname = `${resourceSlug}-${projectSlug}.${env.DATABASE_PUBLIC_BASE_DOMAIN}`;
+  const publicHostname = `${resourceSlug}-${projectSlug}.${PLATFORM.database.publicBaseDomain}`;
   const containerName = sanitizeDockerName(`otterstack-pg-${projectSlug}-${resourceSlug}`);
   const volumeName = sanitizeDockerName(`otterstack-pgdata-${projectSlug}-${resourceSlug}`);
-  const internalHostname = `${resourceSlug}.${projectSlug}.${env.DATABASE_INTERNAL_BASE_DOMAIN}`;
+  const internalHostname = `${resourceSlug}.${projectSlug}.${PLATFORM.database.internalBaseDomain}`;
   console.log("[project:postgres] provisioning docker container '%s'", containerName);
   const runtime = await provisionDockerPostgres({
     containerName,
@@ -205,7 +205,7 @@ export async function createPostgresResource(input: {
     username,
     password,
     hostname: publicHostname,
-    port: env.DATABASE_PUBLIC_PORT,
+    port: PLATFORM.database.publicPort,
     databaseName,
     sslmode: "require",
   });
@@ -213,7 +213,7 @@ export async function createPostgresResource(input: {
     username,
     password,
     hostname: internalHostname,
-    port: env.DATABASE_INTERNAL_PORT,
+    port: PLATFORM.database.internalPort,
     databaseName,
   });
 
@@ -228,13 +228,13 @@ export async function createPostgresResource(input: {
       username,
       password,
       publicHostname,
-      publicPort: env.DATABASE_PUBLIC_PORT,
+      publicPort: PLATFORM.database.publicPort,
       publicConnectionString,
       internalHostname,
-      internalPort: env.DATABASE_INTERNAL_PORT,
+      internalPort: PLATFORM.database.internalPort,
       internalConnectionString,
       upstreamHost: internalHostname,
-      upstreamPort: env.DATABASE_INTERNAL_PORT,
+      upstreamPort: PLATFORM.database.internalPort,
       caddyLayer4Snippet: "",
     });
   } catch (error) {
@@ -251,7 +251,7 @@ export async function createPostgresResource(input: {
     type: "layer4",
     domain: publicHostname,
     upstreamHost: internalHostname,
-    upstreamPort: env.DATABASE_INTERNAL_PORT,
+    upstreamPort: PLATFORM.database.internalPort,
     protocol: "tcp",
     layer4Alpn: "postgresql",
   });
@@ -419,7 +419,7 @@ async function mapDatabaseResource(
         : buildConnectionString({
             username: databaseRecord.username,
             password: databaseRecord.password,
-            hostname: env.DATABASE_LOCAL_HOST,
+            hostname: PLATFORM.database.localHost,
             port: runtime.hostPort,
             databaseName: databaseRecord.databaseName,
           }),
@@ -458,14 +458,14 @@ async function ensureDockerRuntimeForRecord(
   if (existingRoute) {
     await updateProxyRoute(existingRoute.id, {
       upstreamHost: record.database.internalHostname,
-      upstreamPort: env.DATABASE_INTERNAL_PORT,
+      upstreamPort: PLATFORM.database.internalPort,
     });
   }
 
   await updateDatabaseResourceRuntime({
     resourceId: record.resource.id,
     upstreamHost: record.database.internalHostname,
-    upstreamPort: env.DATABASE_INTERNAL_PORT,
+    upstreamPort: PLATFORM.database.internalPort,
     caddyLayer4Snippet: "",
   });
 
@@ -483,7 +483,7 @@ async function ensureDockerRuntimeForRecord(
       database: {
         ...record.database,
         upstreamHost: record.database.internalHostname,
-        upstreamPort: env.DATABASE_INTERNAL_PORT,
+        upstreamPort: PLATFORM.database.internalPort,
         caddyLayer4Snippet: "",
       },
     },
