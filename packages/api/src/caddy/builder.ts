@@ -40,7 +40,7 @@ export function buildCaddyfile(routes: ProxyRouteInput[], adminBind: string): st
   const httpRoutes = routes.filter((r) => r.type === "http");
   const layer4Routes = routes.filter((r) => r.type === "layer4");
 
-  const lines = ["{", `\tadmin ${adminBind}`];
+  const lines = ["{", `\tadmin ${adminBind}`, "\tlocal_certs"];
 
   if (layer4Routes.length > 0) {
     lines.push("\tlayer4 {");
