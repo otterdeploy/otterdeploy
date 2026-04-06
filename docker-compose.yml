@@ -42,36 +42,46 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
-  # caddy:
-  #   image: caddy:2-alpine
-  #   container_name: otterstack-caddy
-  #   restart: unless-stopped
-  #   command: sh -c "caddy run --resume --config /etc/caddy/Caddyfile --adapter caddyfile"
-  #   environment:
-  #     CADDY_ADMIN: "0.0.0.0:2019"
-  #   ports:
-  #     - "80:80"
-  #     - "443:443"
-  #     - "443:443/udp"
-  #     - "127.0.0.1:2019:2019"
-  #   volumes:
-  #     - otterstack-caddy-data:/data
-  #     - otterstack-caddy-config:/config
-  #   healthcheck:
-  #     test:
-  #       [
-  #         "CMD",
-  #         "wget",
-  #         "--no-verbose",
-  #         "--tries=1",
-  #         "--spider",
-  #         "http://localhost:2019/config/",
-  #       ]
-  #     interval: 10s
-  #     timeout: 3s
-  #     retries: 5
+  caddy:
+    build:
+      context: .
+      dockerfile: ./infra/caddy/Dockerfile
+    container_name: otterstack-caddy
+    restart: unless-stopped
+    command: sh -c "caddy run --config /etc/caddy/Caddyfile --adapter caddyfile"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+      - "127.0.0.1:2019:2019"
+    volumes:
+      - ./infra/caddy/config:/etc/caddy
+      - otterstack-caddy-data:/data
+      - otterstack-caddy-state:/config
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - default
+      - otterstack-resources
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:2019/config/",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
 volumes:
   otterstack-postgres-data:
-  # otterstack-caddy-data:
-  # otterstack-caddy-config:
+  otterstack-caddy-data:
+  otterstack-caddy-state:
+
+networks:
+  otterstack-resources:
+    name: ${DOCKER_RESOURCE_NETWORK:-otterstack-resources}
