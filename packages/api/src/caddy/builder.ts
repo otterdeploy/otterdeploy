@@ -20,14 +20,13 @@ export function buildHttpBlock(route: ProxyRouteInput): string {
   ].join("\n");
 }
 
-export function buildLayer4Block(routes: ProxyRouteInput[], listenPort = ":443"): string {
+export function buildLayer4Block(routes: ProxyRouteInput[], listenPort = ":5432"): string {
   const lines = [`\t${listenPort} {`];
 
   for (const route of routes) {
     const name = sanitizeMatcherName(route.domain);
-    lines.push(`\t\t@${name} tls sni ${route.domain}`);
+    lines.push(`\t\t@${name} postgres`);
     lines.push(`\t\troute @${name} {`);
-    lines.push("\t\t\ttls");
     lines.push(`\t\t\tproxy ${route.upstreamHost}:${route.upstreamPort}`);
     lines.push("\t\t}");
   }
@@ -40,7 +39,7 @@ export function buildCaddyfile(routes: ProxyRouteInput[], adminBind: string): st
   const httpRoutes = routes.filter((r) => r.type === "http");
   const layer4Routes = routes.filter((r) => r.type === "layer4");
 
-  const lines = ["{", `\tadmin ${adminBind}`, "\tlocal_certs"];
+  const lines = ["{", `\tadmin ${adminBind}`];
 
   if (layer4Routes.length > 0) {
     lines.push("\tlayer4 {");
@@ -66,7 +65,6 @@ export function buildProjectFragment(routes: ProxyRouteInput[]): string {
     return "";
   }
 
-  // For validation, wrap in a minimal Caddyfile
   const lines = ["{", "\tadmin off"];
 
   if (layer4Routes.length > 0) {

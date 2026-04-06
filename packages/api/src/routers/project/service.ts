@@ -205,9 +205,7 @@ export async function createPostgresResource(input: {
     username,
     password,
     hostname: publicHostname,
-    port: PLATFORM.database.publicPort,
     databaseName,
-    sslmode: "require",
   });
   const internalConnectionString = buildConnectionString({
     username,
@@ -521,11 +519,12 @@ function buildConnectionString(input: {
   username: string;
   password: string;
   hostname: string;
-  port: number;
+  port?: number;
   databaseName: string;
   sslmode?: "require";
 }) {
-  const url = new URL(`postgresql://${encodeURIComponent(input.username)}:${encodeURIComponent(input.password)}@${input.hostname}:${input.port}/${encodeURIComponent(input.databaseName)}`);
+  const hostPort = input.port ? `${input.hostname}:${input.port}` : input.hostname;
+  const url = new URL(`postgresql://${encodeURIComponent(input.username)}:${encodeURIComponent(input.password)}@${hostPort}/${encodeURIComponent(input.databaseName)}`);
 
   if (input.sslmode) {
     url.searchParams.set("sslmode", input.sslmode);

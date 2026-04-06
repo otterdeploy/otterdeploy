@@ -47,20 +47,20 @@ describe("builder", () => {
     );
   });
 
-  test("buildLayer4Block produces matcher and route blocks", () => {
+  test("buildLayer4Block produces postgres matcher and proxy route", () => {
     const output = buildLayer4Block([layer4Route]);
-    expect(output).toContain("@primary_acme_db_otterstack_dev tls sni primary-acme.db.otterstack.dev");
+    expect(output).toContain("@primary_acme_db_otterstack_dev postgres");
     expect(output).toContain("route @primary_acme_db_otterstack_dev {");
-    expect(output).toContain("tls");
     expect(output).toContain("proxy primary-acme.otterstack.internal:5432");
+    expect(output).toContain(":5432 {");
   });
 
   test("buildCaddyfile assembles global block with layer4 + http site blocks", () => {
     const output = buildCaddyfile([httpRoute, layer4Route], "0.0.0.0:2019");
     expect(output).toContain("admin 0.0.0.0:2019");
     expect(output).toContain("layer4 {");
-    expect(output).toContain(":443 {");
-    expect(output).toContain("tls sni primary-acme.db.otterstack.dev");
+    expect(output).toContain(":5432 {");
+    expect(output).toContain("@primary_acme_db_otterstack_dev postgres");
     expect(output).toContain("myapp-acme.otterstack.dev {");
     expect(output).toContain("reverse_proxy myapp.acme.otterstack.internal:3000");
   });
@@ -82,7 +82,7 @@ describe("builder", () => {
     const output = buildProjectFragment([layer4Route]);
     expect(output).toContain("admin off");
     expect(output).toContain("layer4 {");
-    expect(output).toContain("tls sni primary-acme.db.otterstack.dev");
+    expect(output).toContain("@primary_acme_db_otterstack_dev postgres");
   });
 
   test("buildProjectFragment returns empty string for no routes", () => {
