@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import {
@@ -9,29 +9,21 @@ import {
   Loader2,
   Network,
   Plus,
-  RotateCcw,
-  Save,
   X,
 } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
 import { client, queryClient } from "@/utils/orpc";
 
 export const Route = createFileRoute("/_dashboard/project/$projectId/settings")({
   component: RouteComponent,
 });
-
-type DraftState = {
-  httpCaddyfile: string;
-  layer4Caddyfile: string;
-};
 
 type PostgresResource = {
   resourceId: string;
@@ -57,51 +49,37 @@ type PostgresResource = {
   };
 };
 
+type ProxyRoute = {
+  id: string;
+  projectId: string;
+  resourceId: string | null;
+  type: "http" | "layer4";
+  domain: string;
+  upstreamHost: string;
+  upstreamPort: number;
+  protocol: "tcp" | "http";
+  layer4Alpn: string | null;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 function RouteComponent() {
   const { projectId } = Route.useParams();
   const navigate = Route.useNavigate();
 
-  const query = useQuery({
-    queryKey: ["project-caddy", projectId],
-    queryFn: () => client.project.caddy.get({ projectId }),
-  });
   const databaseQuery = useQuery({
     queryKey: ["project-databases", projectId],
     queryFn: () => client.project.database.listPostgres({ projectId }),
   });
 
-  const [draft, setDraft] = useState<DraftState>({
-    httpCaddyfile: "",
-    layer4Caddyfile: "",
+  const proxyRouteQuery = useQuery({
+    queryKey: ["project-proxy-routes", projectId],
+    queryFn: () => client.project.proxyRoute.list({ projectId }),
   });
-  const [isDirty, setIsDirty] = useState(false);
+
   const [databaseName, setDatabaseName] = useState("");
 
-  useEffect(() => {
-    if (query.data && !isDirty) {
-      setDraft({
-        httpCaddyfile: query.data.httpCaddyfile,
-        layer4Caddyfile: query.data.layer4Caddyfile,
-      });
-    }
-  }, [isDirty, query.data]);
-
-  const saveMutation = useMutation({
-    mutationFn: async () =>
-      client.project.caddy.save({
-        projectId,
-        httpCaddyfile: draft.httpCaddyfile,
-        layer4Caddyfile: draft.layer4Caddyfile,
-      }),
-    onSuccess: async (result) => {
-      setIsDirty(false);
-      setDraft({
-        httpCaddyfile: result.config.httpCaddyfile,
-        layer4Caddyfile: result.config.layer4Caddyfile,
-      });
-      await queryClient.invalidateQueries({ queryKey: ["project-caddy", projectId] });
-    },
-  });
   const createDatabaseMutation = useMutation({
     mutationFn: async () =>
       client.project.database.createPostgres({
@@ -112,48 +90,25 @@ function RouteComponent() {
       setDatabaseName("");
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["project-databases", projectId] }),
-        queryClient.invalidateQueries({ queryKey: ["project-caddy", projectId] }),
+        queryClient.invalidateQueries({ queryKey: ["project-proxy-routes", projectId] }),
       ]);
     },
   });
 
-  const currentConfig = saveMutation.data?.config ?? query.data;
-  const validationErrors = saveMutation.data?.validationErrors ?? [];
-  const statusVariant = getStatusVariant(currentConfig?.status ?? "draft");
-  const queryErrorMessage =
-    query.error instanceof Error ? query.error.message : "Unable to load the project config.";
-  const saveErrorMessage =
-    saveMutation.error instanceof Error ? saveMutation.error.message : null;
+  const databases = databaseQuery.data ?? [];
+  const proxyRoutes = proxyRouteQuery.data ?? [];
+  const latestCreatedDatabase = createDatabaseMutation.data;
   const createDatabaseErrorMessage =
     createDatabaseMutation.error instanceof Error ? createDatabaseMutation.error.message : null;
-  const hasUnsavedChanges =
-    isDirty &&
-    (!!query.data &&
-      (draft.httpCaddyfile !== query.data.httpCaddyfile ||
-        draft.layer4Caddyfile !== query.data.layer4Caddyfile));
-
-  const lastErrorLines = useMemo(() => {
-    const error = currentConfig?.lastError ?? "";
-    return error
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean);
-  }, [currentConfig?.lastError]);
-  const databases = databaseQuery.data ?? [];
-  const latestCreatedDatabase = createDatabaseMutation.data;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/24 backdrop-blur-sm">
       <div className="flex h-full w-full max-w-3xl flex-col border-l border-border bg-background/96 shadow-2xl">
         <div className="flex items-start gap-4 px-6 py-5">
           <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-semibold tracking-tight">Project Caddy Config</h2>
-              <Badge variant={statusVariant}>{currentConfig?.status ?? "draft"}</Badge>
-            </div>
+            <h2 className="text-xl font-semibold tracking-tight">Project Settings</h2>
             <p className="max-w-2xl text-sm text-muted-foreground">
-              Edit project-scoped `http.caddy` and `layer4.caddy` files. Otterstack validates the
-              draft, writes staged files, runs Caddy adapt/load, and only promotes valid configs.
+              Manage databases and proxy routes for this project.
             </p>
           </div>
           <Button
@@ -175,8 +130,8 @@ function RouteComponent() {
               <CardHeader>
                 <CardTitle>Project Databases</CardTitle>
                 <CardDescription>
-                  Create a dedicated Postgres container for this project and get the public Caddy
-                  endpoint plus a directly usable local connection string.
+                  Create a dedicated Postgres container for this project. Each database gets a
+                  Docker container, credentials, and a Caddy proxy route for public access.
                 </CardDescription>
               </CardHeader>
               <div className="grid gap-4 px-6 pb-6">
@@ -184,11 +139,9 @@ function RouteComponent() {
                   className="grid gap-3 rounded-2xl border border-border/80 bg-muted/30 p-4"
                   onSubmit={(event) => {
                     event.preventDefault();
-
                     if (!databaseName.trim() || createDatabaseMutation.isPending) {
                       return;
                     }
-
                     createDatabaseMutation.mutate();
                   }}
                 >
@@ -203,8 +156,8 @@ function RouteComponent() {
                   </div>
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-sm text-muted-foreground">
-                      One click creates the container, credentials, public hostname, local port,
-                      and managed `layer4` snippet.
+                      Creates a Postgres container, generates credentials, and configures a Caddy
+                      proxy route for public TLS access.
                     </p>
                     <Button
                       disabled={!databaseName.trim() || createDatabaseMutation.isPending}
@@ -232,9 +185,9 @@ function RouteComponent() {
                   <Alert variant={latestCreatedDatabase.status === "valid" ? "success" : "warning"}>
                     {latestCreatedDatabase.status === "valid" ? <CheckCircle2 /> : <AlertCircle />}
                     <AlertTitle>
-                      {latestCreatedDatabase.runtime.status === "running"
-                        ? "Container created and started"
-                        : "Container created with runtime warnings"}
+                      {latestCreatedDatabase.status === "valid"
+                        ? "Database created and proxy route applied"
+                        : "Database created but proxy route failed"}
                     </AlertTitle>
                     <AlertDescription>
                       <span>
@@ -242,9 +195,9 @@ function RouteComponent() {
                           latestCreatedDatabase.publicConnectionString}
                       </span>
                       {latestCreatedDatabase.status !== "valid" ? (
-                        <span>
-                          The database exists, but the project Caddy config needs a manual fix
-                          before the public hostname becomes live.
+                        <span className="block mt-1">
+                          The Caddy reconciler could not apply the proxy route. Check that Caddy is
+                          running and accessible at the configured admin URL.
                         </span>
                       ) : null}
                     </AlertDescription>
@@ -271,175 +224,50 @@ function RouteComponent() {
                     </div>
                   ) : databases.length > 0 ? (
                     databases.map((database) => (
-                      <DatabaseCard key={database.resourceId} database={database} />
+                      <DatabaseCard
+                        key={database.resourceId}
+                        database={database}
+                        proxyRoute={proxyRoutes.find((r) => r.resourceId === database.resourceId)}
+                      />
                     ))
                   ) : (
                     <div className="rounded-2xl border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
                       No Postgres databases yet. Create one above and it will show up here with its
-                      public and internal connection details.
+                      connection details.
                     </div>
                   )}
                 </div>
               </div>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Runtime Paths</CardTitle>
-                <CardDescription>
-                  Otterstack owns the generated root wrapper and writes project files into the
-                  managed Caddy directory.
-                </CardDescription>
-              </CardHeader>
-              <div className="grid gap-3 px-6 pb-6 text-sm">
-                <PathRow label="Root Caddyfile" value={currentConfig?.paths.rootCaddyfile ?? "—"} />
-                <PathRow
-                  label="Project directory"
-                  value={currentConfig?.paths.projectDirectory ?? "—"}
-                />
-                <PathRow
-                  label="HTTP file"
-                  value={currentConfig?.paths.httpCaddyfile ?? "—"}
-                />
-                <PathRow
-                  label="Layer4 file"
-                  value={currentConfig?.paths.layer4Caddyfile ?? "—"}
-                />
-                <PathRow label="Project slug" value={currentConfig?.projectSlug ?? "—"} />
-                <PathRow
-                  label="Last applied revision"
-                  value={currentConfig?.lastAppliedRevision ?? "Not applied yet"}
-                />
-                <PathRow
-                  label="Last applied at"
-                  value={currentConfig?.lastAppliedAt ?? "Not applied yet"}
-                />
-              </div>
-            </Card>
-
-            {query.isError ? (
-              <Alert variant="error">
-                <AlertCircle />
-                <AlertTitle>Failed to load project config</AlertTitle>
-                <AlertDescription>{queryErrorMessage}</AlertDescription>
-              </Alert>
-            ) : null}
-
-            {saveErrorMessage ? (
-              <Alert variant="error">
-                <AlertCircle />
-                <AlertTitle>Failed to save draft</AlertTitle>
-                <AlertDescription>{saveErrorMessage}</AlertDescription>
-              </Alert>
-            ) : null}
-
-            {validationErrors.length > 0 || lastErrorLines.length > 0 ? (
-              <Alert variant="error">
-                <AlertCircle />
-                <AlertTitle>Validation failed</AlertTitle>
-                <AlertDescription>
-                  {(validationErrors.length > 0 ? validationErrors : lastErrorLines).map((line) => (
-                    <span key={line}>{line}</span>
+            {proxyRoutes.length > 0 ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Proxy Routes</CardTitle>
+                  <CardDescription>
+                    Active Caddy proxy routes for this project. These are managed automatically when
+                    resources are created.
+                  </CardDescription>
+                </CardHeader>
+                <div className="grid gap-2 px-6 pb-6">
+                  {proxyRoutes.map((route) => (
+                    <ProxyRouteRow key={route.id} route={route} />
                   ))}
-                </AlertDescription>
-              </Alert>
+                </div>
+              </Card>
             ) : null}
 
-            {!query.isLoading && currentConfig?.status === "valid" ? (
-              <Alert variant="success">
-                <CheckCircle2 />
-                <AlertTitle>Live config is healthy</AlertTitle>
+            {proxyRouteQuery.isError ? (
+              <Alert variant="error">
+                <AlertCircle />
+                <AlertTitle>Failed to load proxy routes</AlertTitle>
                 <AlertDescription>
-                  The most recent valid draft was adapted and loaded successfully.
+                  {proxyRouteQuery.error instanceof Error
+                    ? proxyRouteQuery.error.message
+                    : "Unable to load proxy routes."}
                 </AlertDescription>
               </Alert>
             ) : null}
-
-            <Card>
-              <CardHeader>
-                <CardTitle>HTTP Caddyfile</CardTitle>
-                <CardDescription>
-                  Use hostname-based site blocks only. Global options belong to the otterstack root
-                  wrapper.
-                </CardDescription>
-              </CardHeader>
-              <div className="px-6 pb-6">
-                <Label htmlFor="project-http-caddy">`http.caddy`</Label>
-                <Textarea
-                  className="mt-2 font-mono text-sm"
-                  id="project-http-caddy"
-                  onChange={(event) => {
-                    setDraft((current) => ({ ...current, httpCaddyfile: event.target.value }));
-                    setIsDirty(true);
-                  }}
-                  placeholder={`app.${projectId}.otterstack.local {\n\treverse_proxy 127.0.0.1:3000\n}`}
-                  rows={16}
-                  value={draft.httpCaddyfile}
-                />
-              </div>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Layer4 Caddyfile</CardTitle>
-                <CardDescription>
-                  This file is imported into otterstack’s TLS listener wrapper. Add project-only
-                  Postgres or TCP routing rules, not top-level listeners.
-                </CardDescription>
-              </CardHeader>
-              <div className="px-6 pb-6">
-                <Label htmlFor="project-layer4-caddy">`layer4.caddy`</Label>
-                <Textarea
-                  className="mt-2 font-mono text-sm"
-                  id="project-layer4-caddy"
-                  onChange={(event) => {
-                    setDraft((current) => ({ ...current, layer4Caddyfile: event.target.value }));
-                    setIsDirty(true);
-                  }}
-                  placeholder={"@project tls {\n\talpn postgresql\n\tsni db.example.com\n}\nroute @project {\n\ttls {\n\t\tconnection_policy {\n\t\t\talpn postgresql\n\t\t}\n\t}\n\tproxy db.internal:5432\n}"}
-                  rows={16}
-                  value={draft.layer4Caddyfile}
-                />
-              </div>
-              <CardFooter className="flex items-center justify-between gap-3 border-t bg-muted/40 px-6 py-4">
-                <div className="text-sm text-muted-foreground">
-                  {hasUnsavedChanges ? "Unsaved changes" : "Draft matches the latest saved project config"}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    disabled={!query.data || !hasUnsavedChanges || saveMutation.isPending}
-                    onClick={() => {
-                      if (!query.data) {
-                        return;
-                      }
-
-                      setDraft({
-                        httpCaddyfile: query.data.httpCaddyfile,
-                        layer4Caddyfile: query.data.layer4Caddyfile,
-                      });
-                      setIsDirty(false);
-                    }}
-                    type="button"
-                    variant="outline"
-                  >
-                    <RotateCcw className="size-4" />
-                    Reset
-                  </Button>
-                  <Button
-                    disabled={query.isLoading || saveMutation.isPending || !hasUnsavedChanges}
-                    onClick={() => saveMutation.mutate()}
-                    type="button"
-                  >
-                    {saveMutation.isPending ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      <Save className="size-4" />
-                    )}
-                    Save And Apply
-                  </Button>
-                </div>
-              </CardFooter>
-            </Card>
           </div>
         </div>
       </div>
@@ -447,18 +275,32 @@ function RouteComponent() {
   );
 }
 
-function PathRow({ label, value }: { label: string; value: string }) {
+function ProxyRouteRow({ route }: { route: ProxyRoute }) {
   return (
-    <div className="grid gap-1 sm:grid-cols-[170px_1fr] sm:items-start">
-      <div className="text-muted-foreground">{label}</div>
-      <code className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs sm:text-sm">
-        {value}
+    <div className="flex items-center gap-3 rounded-xl border border-border/80 bg-muted/20 px-4 py-3">
+      <Badge variant={route.enabled ? "success" : "warning"}>
+        {route.enabled ? "active" : "disabled"}
+      </Badge>
+      <Badge variant="outline">{route.type}</Badge>
+      <code className="text-sm">{route.domain}</code>
+      <span className="text-muted-foreground text-sm">→</span>
+      <code className="text-sm text-muted-foreground">
+        {route.upstreamHost}:{route.upstreamPort}
       </code>
+      {route.layer4Alpn ? (
+        <Badge variant="outline" className="ml-auto">{route.layer4Alpn}</Badge>
+      ) : null}
     </div>
   );
 }
 
-function DatabaseCard({ database }: { database: PostgresResource }) {
+function DatabaseCard({
+  database,
+  proxyRoute,
+}: {
+  database: PostgresResource;
+  proxyRoute?: ProxyRoute;
+}) {
   return (
     <Card className="overflow-hidden">
       <CardHeader className="border-b bg-muted/30">
@@ -468,7 +310,9 @@ function DatabaseCard({ database }: { database: PostgresResource }) {
             <CardTitle>{database.name}</CardTitle>
           </div>
           <Badge variant={getStatusVariant(database.status)}>{database.status}</Badge>
-          <Badge variant={getRuntimeVariant(database.runtime.status)}>{database.runtime.status}</Badge>
+          <Badge variant={getRuntimeVariant(database.runtime.status)}>
+            {database.runtime.status}
+          </Badge>
         </div>
         <CardDescription>
           Database `{database.databaseName}` backed by container `{database.runtime.containerName}`.
@@ -489,16 +333,31 @@ function DatabaseCard({ database }: { database: PostgresResource }) {
         {database.status !== "valid" ? (
           <Alert variant="warning">
             <AlertCircle />
-            <AlertTitle>Public ingress is not live yet</AlertTitle>
+            <AlertTitle>Public ingress is not live</AlertTitle>
             <AlertDescription>
-              The database was created, but the generated Caddy snippet did not validate cleanly in
-              the current project config.
+              {!proxyRoute ? (
+                <span>
+                  No proxy route exists for this database. This can happen if the database was
+                  created before the Caddy rework. Delete and recreate the database to provision a
+                  proxy route.
+                </span>
+              ) : (
+                <span>
+                  A proxy route exists for `{proxyRoute.domain}` but the Caddy reconciler failed to
+                  apply it. Make sure Caddy is running and accessible at the admin URL, then try
+                  creating a new resource to trigger reconciliation.
+                </span>
+              )}
             </AlertDescription>
           </Alert>
         ) : null}
 
         <div className="grid gap-3 lg:grid-cols-2">
-          <InfoRow icon={Globe} label="Public host" value={`${database.publicHostname}:${database.publicPort}`} />
+          <InfoRow
+            icon={Globe}
+            label="Public host"
+            value={`${database.publicHostname}:${database.publicPort}`}
+          />
           <InfoRow
             icon={Network}
             label="Local host"
@@ -514,7 +373,10 @@ function DatabaseCard({ database }: { database: PostgresResource }) {
 
         <ConnectionBlock label="Public connection string" value={database.publicConnectionString} />
         {database.localConnectionString ? (
-          <ConnectionBlock label="Local connection string" value={database.localConnectionString} />
+          <ConnectionBlock
+            label="Local connection string"
+            value={database.localConnectionString}
+          />
         ) : null}
         <ConnectionBlock
           label="Internal connection string"
