@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test";
 
-import { reconcileRoutes, type ReconcileResult } from "../reconciler";
+import { reconcileRoutes } from "../reconciler";
 import type { ProxyRouteInput } from "../builder";
 
 describe("reconciler", () => {

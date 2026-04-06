@@ -41,7 +41,6 @@ export const postgresResourceSchema = z.object({
   localConnectionString: z.string().nullable(),
   upstreamHost: z.string(),
   upstreamPort: z.number().int().positive(),
-  caddyLayer4Snippet: z.string(),
   runtime: z.object({
     containerName: z.string(),
     volumeName: z.string(),

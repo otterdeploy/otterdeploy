@@ -1,12 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { AlertCircle, CheckCircle2, Loader2, RotateCcw, Save, X } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Database,
+  Globe,
+  Loader2,
+  Network,
+  Plus,
+  RotateCcw,
+  Save,
+  X,
+} from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
@@ -21,6 +33,30 @@ type DraftState = {
   layer4Caddyfile: string;
 };
 
+type PostgresResource = {
+  resourceId: string;
+  name: string;
+  status: "draft" | "valid" | "invalid";
+  databaseName: string;
+  username: string;
+  password: string;
+  publicHostname: string;
+  publicPort: number;
+  publicConnectionString: string;
+  internalHostname: string;
+  internalPort: number;
+  internalConnectionString: string;
+  localConnectionString: string | null;
+  runtime: {
+    containerName: string;
+    volumeName: string;
+    networkName: string;
+    hostPort: number | null;
+    status: "running" | "starting" | "stopped" | "missing" | "error";
+    health: "healthy" | "unhealthy" | "starting" | null;
+  };
+};
+
 function RouteComponent() {
   const { projectId } = Route.useParams();
   const navigate = Route.useNavigate();
@@ -29,12 +65,17 @@ function RouteComponent() {
     queryKey: ["project-caddy", projectId],
     queryFn: () => client.project.caddy.get({ projectId }),
   });
+  const databaseQuery = useQuery({
+    queryKey: ["project-databases", projectId],
+    queryFn: () => client.project.database.listPostgres({ projectId }),
+  });
 
   const [draft, setDraft] = useState<DraftState>({
     httpCaddyfile: "",
     layer4Caddyfile: "",
   });
   const [isDirty, setIsDirty] = useState(false);
+  const [databaseName, setDatabaseName] = useState("");
 
   useEffect(() => {
     if (query.data && !isDirty) {
@@ -61,6 +102,20 @@ function RouteComponent() {
       await queryClient.invalidateQueries({ queryKey: ["project-caddy", projectId] });
     },
   });
+  const createDatabaseMutation = useMutation({
+    mutationFn: async () =>
+      client.project.database.createPostgres({
+        projectId,
+        name: databaseName.trim(),
+      }),
+    onSuccess: async () => {
+      setDatabaseName("");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["project-databases", projectId] }),
+        queryClient.invalidateQueries({ queryKey: ["project-caddy", projectId] }),
+      ]);
+    },
+  });
 
   const currentConfig = saveMutation.data?.config ?? query.data;
   const validationErrors = saveMutation.data?.validationErrors ?? [];
@@ -69,6 +124,8 @@ function RouteComponent() {
     query.error instanceof Error ? query.error.message : "Unable to load the project config.";
   const saveErrorMessage =
     saveMutation.error instanceof Error ? saveMutation.error.message : null;
+  const createDatabaseErrorMessage =
+    createDatabaseMutation.error instanceof Error ? createDatabaseMutation.error.message : null;
   const hasUnsavedChanges =
     isDirty &&
     (!!query.data &&
@@ -82,6 +139,8 @@ function RouteComponent() {
       .map((line) => line.trim())
       .filter(Boolean);
   }, [currentConfig?.lastError]);
+  const databases = databaseQuery.data ?? [];
+  const latestCreatedDatabase = createDatabaseMutation.data;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/24 backdrop-blur-sm">
@@ -99,7 +158,7 @@ function RouteComponent() {
           </div>
           <Button
             className="ml-auto"
-            onClick={() => navigate({ to: "/project/$projectId/layout", params: { projectId } })}
+            onClick={() => navigate({ to: "/project/$projectId", params: { projectId } })}
             size="icon"
             type="button"
             variant="ghost"
@@ -112,6 +171,118 @@ function RouteComponent() {
 
         <div className="flex-1 overflow-y-auto px-6 py-5">
           <div className="grid gap-5">
+            <Card>
+              <CardHeader>
+                <CardTitle>Project Databases</CardTitle>
+                <CardDescription>
+                  Create a dedicated Postgres container for this project and get the public Caddy
+                  endpoint plus a directly usable local connection string.
+                </CardDescription>
+              </CardHeader>
+              <div className="grid gap-4 px-6 pb-6">
+                <form
+                  className="grid gap-3 rounded-2xl border border-border/80 bg-muted/30 p-4"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+
+                    if (!databaseName.trim() || createDatabaseMutation.isPending) {
+                      return;
+                    }
+
+                    createDatabaseMutation.mutate();
+                  }}
+                >
+                  <div className="grid gap-2">
+                    <Label htmlFor="project-database-name">Database name</Label>
+                    <Input
+                      id="project-database-name"
+                      onChange={(event) => setDatabaseName(event.target.value)}
+                      placeholder="primary"
+                      value={databaseName}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm text-muted-foreground">
+                      One click creates the container, credentials, public hostname, local port,
+                      and managed `layer4` snippet.
+                    </p>
+                    <Button
+                      disabled={!databaseName.trim() || createDatabaseMutation.isPending}
+                      type="submit"
+                    >
+                      {createDatabaseMutation.isPending ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <Plus className="size-4" />
+                      )}
+                      Create Postgres DB
+                    </Button>
+                  </div>
+                </form>
+
+                {createDatabaseErrorMessage ? (
+                  <Alert variant="error">
+                    <AlertCircle />
+                    <AlertTitle>Database creation failed</AlertTitle>
+                    <AlertDescription>{createDatabaseErrorMessage}</AlertDescription>
+                  </Alert>
+                ) : null}
+
+                {latestCreatedDatabase ? (
+                  <Alert variant={latestCreatedDatabase.status === "valid" ? "success" : "warning"}>
+                    {latestCreatedDatabase.status === "valid" ? <CheckCircle2 /> : <AlertCircle />}
+                    <AlertTitle>
+                      {latestCreatedDatabase.runtime.status === "running"
+                        ? "Container created and started"
+                        : "Container created with runtime warnings"}
+                    </AlertTitle>
+                    <AlertDescription>
+                      <span>
+                        {latestCreatedDatabase.localConnectionString ??
+                          latestCreatedDatabase.publicConnectionString}
+                      </span>
+                      {latestCreatedDatabase.status !== "valid" ? (
+                        <span>
+                          The database exists, but the project Caddy config needs a manual fix
+                          before the public hostname becomes live.
+                        </span>
+                      ) : null}
+                    </AlertDescription>
+                  </Alert>
+                ) : null}
+
+                {databaseQuery.isError ? (
+                  <Alert variant="error">
+                    <AlertCircle />
+                    <AlertTitle>Failed to load project databases</AlertTitle>
+                    <AlertDescription>
+                      {databaseQuery.error instanceof Error
+                        ? databaseQuery.error.message
+                        : "Unable to load the current database resources."}
+                    </AlertDescription>
+                  </Alert>
+                ) : null}
+
+                <div className="grid gap-3">
+                  {databaseQuery.isLoading ? (
+                    <div className="flex items-center gap-2 rounded-2xl border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
+                      <Loader2 className="size-4 animate-spin" />
+                      Loading project databases...
+                    </div>
+                  ) : databases.length > 0 ? (
+                    databases.map((database) => (
+                      <DatabaseCard key={database.resourceId} database={database} />
+                    ))
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
+                      No Postgres databases yet. Create one above and it will show up here with its
+                      public and internal connection details.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle>Runtime Paths</CardTitle>
@@ -212,8 +383,8 @@ function RouteComponent() {
               <CardHeader>
                 <CardTitle>Layer4 Caddyfile</CardTitle>
                 <CardDescription>
-                  This file is imported inside otterstack’s global `layer4` block. Use project-only
-                  listeners and SNI claims.
+                  This file is imported into otterstack’s TLS listener wrapper. Add project-only
+                  Postgres or TCP routing rules, not top-level listeners.
                 </CardDescription>
               </CardHeader>
               <div className="px-6 pb-6">
@@ -225,7 +396,7 @@ function RouteComponent() {
                     setDraft((current) => ({ ...current, layer4Caddyfile: event.target.value }));
                     setIsDirty(true);
                   }}
-                  placeholder={":5432 {\n\t@project tls sni db.example.com\n\troute @project {\n\t\tproxy 10.0.0.20:5432\n\t}\n}"}
+                  placeholder={"@project tls {\n\talpn postgresql\n\tsni db.example.com\n}\nroute @project {\n\ttls {\n\t\tconnection_policy {\n\t\t\talpn postgresql\n\t\t}\n\t}\n\tproxy db.internal:5432\n}"}
                   rows={16}
                   value={draft.layer4Caddyfile}
                 />
@@ -287,11 +458,125 @@ function PathRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+function DatabaseCard({ database }: { database: PostgresResource }) {
+  return (
+    <Card className="overflow-hidden">
+      <CardHeader className="border-b bg-muted/30">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Database className="size-4 text-muted-foreground" />
+            <CardTitle>{database.name}</CardTitle>
+          </div>
+          <Badge variant={getStatusVariant(database.status)}>{database.status}</Badge>
+          <Badge variant={getRuntimeVariant(database.runtime.status)}>{database.runtime.status}</Badge>
+        </div>
+        <CardDescription>
+          Database `{database.databaseName}` backed by container `{database.runtime.containerName}`.
+        </CardDescription>
+      </CardHeader>
+      <div className="grid gap-4 px-6 py-5">
+        {database.runtime.status !== "running" ? (
+          <Alert variant="warning">
+            <AlertCircle />
+            <AlertTitle>Container is not fully healthy yet</AlertTitle>
+            <AlertDescription>
+              Docker reports this Postgres runtime as `{database.runtime.status}`
+              {database.runtime.health ? ` (${database.runtime.health})` : ""}.
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
+        {database.status !== "valid" ? (
+          <Alert variant="warning">
+            <AlertCircle />
+            <AlertTitle>Public ingress is not live yet</AlertTitle>
+            <AlertDescription>
+              The database was created, but the generated Caddy snippet did not validate cleanly in
+              the current project config.
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
+        <div className="grid gap-3 lg:grid-cols-2">
+          <InfoRow icon={Globe} label="Public host" value={`${database.publicHostname}:${database.publicPort}`} />
+          <InfoRow
+            icon={Network}
+            label="Local host"
+            value={
+              database.runtime.hostPort === null
+                ? "Port unavailable"
+                : `127.0.0.1:${database.runtime.hostPort}`
+            }
+          />
+          <InfoRow icon={Database} label="Username" value={database.username} />
+          <InfoRow icon={Database} label="Container" value={database.runtime.containerName} />
+        </div>
+
+        <ConnectionBlock label="Public connection string" value={database.publicConnectionString} />
+        {database.localConnectionString ? (
+          <ConnectionBlock label="Local connection string" value={database.localConnectionString} />
+        ) : null}
+        <ConnectionBlock
+          label="Internal connection string"
+          value={database.internalConnectionString}
+        />
+        <ConnectionBlock label="Password" value={database.password} />
+      </div>
+    </Card>
+  );
+}
+
+function InfoRow({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof Globe;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-border/80 bg-muted/20 p-4">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Icon className="size-4" />
+        {label}
+      </div>
+      <code className="mt-2 block break-all text-sm">{value}</code>
+    </div>
+  );
+}
+
+function ConnectionBlock({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid gap-2">
+      <Label>{label}</Label>
+      <pre className="overflow-x-auto rounded-2xl border border-border/80 bg-muted/20 px-4 py-3 text-xs leading-6 sm:text-sm">
+        <code>{value}</code>
+      </pre>
+    </div>
+  );
+}
+
 function getStatusVariant(status: "draft" | "valid" | "invalid") {
   switch (status) {
     case "valid":
       return "success" as const;
     case "invalid":
+      return "error" as const;
+    default:
+      return "warning" as const;
+  }
+}
+
+function getRuntimeVariant(status: "running" | "starting" | "stopped" | "missing" | "error") {
+  switch (status) {
+    case "running":
+      return "success" as const;
+    case "starting":
+      return "warning" as const;
+    case "stopped":
+    case "missing":
+    case "error":
       return "error" as const;
     default:
       return "warning" as const;
