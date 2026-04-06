@@ -5,6 +5,7 @@ import {
   buildGlobalBlock,
   buildHttpBlock,
   buildLayer4Route,
+  buildValidationWrapper,
   sanitizeMatcherName,
   type ProxyRouteInput,
 } from "../builder";
@@ -92,5 +93,27 @@ describe("builder", () => {
     expect(output).toContain("admin 0.0.0.0:2019");
     expect(output).not.toContain("reverse_proxy");
     expect(output).not.toContain("layer4");
+  });
+
+  test("buildValidationWrapper wraps layer4 routes in global block for validation", () => {
+    const output = buildValidationWrapper([layer4Route]);
+    expect(output).toContain("admin off");
+    expect(output).toContain("listener_wrappers {");
+    expect(output).toContain("layer4 {");
+    expect(output).toContain("sni primary-acme.db.otterstack.dev");
+  });
+
+  test("buildValidationWrapper passes http routes as standalone site blocks", () => {
+    const output = buildValidationWrapper([httpRoute]);
+    expect(output).toContain("myapp-acme.otterstack.dev {");
+    expect(output).not.toContain("listener_wrappers");
+  });
+
+  test("buildValidationWrapper handles mixed routes", () => {
+    const output = buildValidationWrapper([httpRoute, layer4Route]);
+    expect(output).toContain("admin off");
+    expect(output).toContain("listener_wrappers {");
+    expect(output).toContain("myapp-acme.otterstack.dev {");
+    expect(output).toContain("sni primary-acme.db.otterstack.dev");
   });
 });

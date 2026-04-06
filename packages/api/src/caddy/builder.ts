@@ -76,6 +76,25 @@ export function buildCaddyfile(routes: ProxyRouteInput[], adminBind: string): st
   return sections.join("\n\n") + "\n";
 }
 
+export function buildValidationWrapper(routes: ProxyRouteInput[]): string {
+  const httpRoutes = routes.filter((r) => r.type === "http");
+  const layer4Routes = routes.filter((r) => r.type === "layer4");
+
+  if (layer4Routes.length > 0) {
+    const sections: string[] = [buildGlobalBlock(layer4Routes, "off")];
+    for (const route of httpRoutes) {
+      sections.push(buildHttpBlock(route));
+    }
+    return sections.join("\n\n") + "\n";
+  }
+
+  const sections: string[] = [];
+  for (const route of httpRoutes) {
+    sections.push(buildHttpBlock(route));
+  }
+  return sections.join("\n\n") + "\n";
+}
+
 export function buildProjectFragment(routes: ProxyRouteInput[]): string {
   const httpRoutes = routes.filter((r) => r.type === "http");
   const layer4Routes = routes.filter((r) => r.type === "layer4");

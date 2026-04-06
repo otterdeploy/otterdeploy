@@ -5,14 +5,18 @@ import {
   insertProxyRoute,
   getProxyRouteByResourceId,
   updateProxyRoute,
+  deleteProxyRoutesByResource,
   listProxyRoutesByProject,
 } from "../../caddy/queries";
 import {
+  destroyDockerPostgres,
   inspectDockerPostgresRuntime,
   provisionDockerPostgres,
   type DockerPostgresRuntime,
 } from "../../docker/postgres";
-import { createProjectRecord, getProjectById, getProjectBySlug, listProjectRecords } from "@otterstack/db";
+import { createProjectRecord, db, getProjectById, getProjectBySlug, listProjectRecords } from "@otterstack/db";
+import { resource } from "@otterstack/db/schema/project";
+import { eq } from "drizzle-orm";
 import {
   createDatabaseResourceRecord,
   type DatabaseResourceRecord,
@@ -62,6 +66,10 @@ type GetPostgresResourceResult =
 type ListPostgresResourcesResult =
   | { ok: true; resources: PostgresResourceView[] }
   | { ok: false; reason: "project_not_found" };
+
+type DeletePostgresResourceResult =
+  | { ok: true }
+  | { ok: false; reason: "resource_not_found" };
 
 export type PostgresResourceView = {
   resourceId: string;
@@ -296,6 +304,40 @@ export async function listPostgresResources(input: {
     ok: true,
     resources: await Promise.all(records.map((record) => mapDatabaseResource(record, project.slug))),
   };
+}
+
+export async function deletePostgresResource(input: {
+  projectId: string;
+  resourceId: string;
+}): Promise<DeletePostgresResourceResult> {
+  const record = await getDatabaseResourceRecord(input.projectId, input.resourceId);
+  if (!record) {
+    return { ok: false, reason: "resource_not_found" };
+  }
+
+  const project = await getProjectRecord(input.projectId);
+  const projectSlug = project ? sanitizeProjectSlug(project.slug) : input.projectId;
+
+  console.log("[project:postgres] deleting resource '%s' (container=%s)", record.resource.name, buildContainerName({ projectSlug, resourceName: record.resource.name }));
+
+  // 1. Remove proxy route
+  await deleteProxyRoutesByResource(input.resourceId);
+  console.log("[project:postgres] proxy routes removed");
+
+  // 2. Stop and remove Docker container
+  const containerName = buildContainerName({ projectSlug, resourceName: record.resource.name });
+  await destroyDockerPostgres({ containerName });
+  console.log("[project:postgres] docker container destroyed");
+
+  // 3. Delete resource from DB (cascades to database_resource)
+  await db.delete(resource).where(eq(resource.id, input.resourceId));
+  console.log("[project:postgres] database record deleted");
+
+  // 4. Reconcile Caddy to remove the route
+  console.log("[project:postgres] running caddy reconciliation after delete");
+  await reconcile();
+
+  return { ok: true };
 }
 
 export async function listProjectProxyRoutes(input: {

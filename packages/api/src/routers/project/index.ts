@@ -3,6 +3,7 @@ import { publicProcedure } from "../..";
 import {
   createProject,
   createPostgresResource,
+  deletePostgresResource,
   getProject,
   getPostgresResource,
   listProjects,
@@ -66,5 +67,14 @@ export const projectRouter = {
       }
       return result.resource;
     }),
+    deletePostgres: publicProcedure.project.database.deletePostgres.handler(
+      async ({ input, errors }) => {
+        const result = await deletePostgresResource(input);
+        if (!result.ok) {
+          throw errors.NOT_FOUND();
+        }
+        return { ok: true };
+      },
+    ),
   },
 };

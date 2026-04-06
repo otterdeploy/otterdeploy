@@ -61,6 +61,11 @@ export const getPostgresDatabaseInput = z.object({
   resourceId: z.string().min(1),
 });
 
+export const deletePostgresDatabaseInput = z.object({
+  projectId: z.string().min(1),
+  resourceId: z.string().min(1),
+});
+
 export const listPostgresDatabasesInput = z.object({
   projectId: z.string().min(1),
 });
@@ -195,5 +200,19 @@ export const projectContract = {
       })
       .input(listPostgresDatabasesInput)
       .output(z.array(postgresResourceSchema)),
+    deletePostgres: oc
+      .errors({
+        NOT_FOUND: {
+          status: 404,
+          message: "Database resource not found" as const,
+        },
+      })
+      .meta({
+        path: `${basePath}/{projectId}/databases/{resourceId}`,
+        tag,
+        method: "DELETE",
+      })
+      .input(deletePostgresDatabaseInput)
+      .output(z.object({ ok: z.boolean() })),
   },
 };

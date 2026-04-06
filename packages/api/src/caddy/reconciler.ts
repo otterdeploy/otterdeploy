@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import {
   buildCaddyfile,
   buildProjectFragment,
+  buildValidationWrapper,
   type ProxyRouteInput,
 } from "./builder";
 import type { AdaptResult, LoadResult } from "./client";
@@ -42,8 +43,8 @@ export async function reconcileRoutes(options: ReconcileOptions): Promise<Reconc
       continue;
     }
 
-    const wrappedFragment = wrapForValidation(fragment);
-    const result = await adapt(wrappedFragment);
+    const validationCaddyfile = buildValidationWrapper(projectRoutes);
+    const result = await adapt(validationCaddyfile);
 
     if (result.ok) {
       validRoutes.push(...projectRoutes);
@@ -90,6 +91,3 @@ function groupByProject(routes: ProxyRouteInput[]): Map<string, ProxyRouteInput[
   return map;
 }
 
-function wrapForValidation(fragment: string): string {
-  return `${fragment.trim()}\n`;
-}
