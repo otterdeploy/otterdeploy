@@ -525,7 +525,7 @@ function buildConnectionString(input: {
   databaseName: string;
   sslmode?: "require";
 }) {
-  const url = new URL(`postgres://${encodeURIComponent(input.username)}:${encodeURIComponent(input.password)}@${input.hostname}:${input.port}/${encodeURIComponent(input.databaseName)}`);
+  const url = new URL(`postgresql://${encodeURIComponent(input.username)}:${encodeURIComponent(input.password)}@${input.hostname}:${input.port}/${encodeURIComponent(input.databaseName)}`);
 
   if (input.sslmode) {
     url.searchParams.set("sslmode", input.sslmode);
