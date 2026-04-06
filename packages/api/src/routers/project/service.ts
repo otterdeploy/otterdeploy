@@ -155,12 +155,16 @@ export async function createPostgresResource(input: {
   projectId: string;
   name: string;
 }): Promise<CreatePostgresResourceResult> {
+  console.log("[project:postgres] received request: projectId=%s name=%s", input.projectId, input.name);
+
   const project = await getProjectRecord(input.projectId);
+  console.log("[project:postgres] getProjectRecord done: found=%s", !!project);
   if (!project) {
     return { ok: false, reason: "project_not_found" };
   }
 
   const existing = await getDatabaseResourceByProjectAndName(input.projectId, input.name);
+  console.log("[project:postgres] duplicate check done: exists=%s", !!existing);
   if (existing) {
     return { ok: false, reason: "resource_conflict" };
   }
