@@ -10,18 +10,19 @@
     }
   },
   "scripts": {
-    "db:push": "drizzle-kit push",
-    "db:generate": "drizzle-kit generate",
-    "db:studio": "drizzle-kit studio",
-    "db:migrate": "drizzle-kit migrate",
+    "db:push": "bun --env-file ../../.env -- drizzle-kit push",
+    "db:generate": "bun --env-file ../../.env drizzle-kit generate",
+    "db:studio": "bun --env-file ../../.env drizzle-kit studio",
+    "db:migrate": "bun --env-file ../../.env drizzle-kit migrate",
     "db:start": "docker compose up -d",
     "db:watch": "docker compose up",
-    "db:stop": "docker compose stop",
-    "db:down": "docker compose down"
+    "db:stop": "docker compose stop"
   },
   "dependencies": {
     "@otterstack/env": "workspace:*",
-    "drizzle-orm": "^0.45.1",
+    "@otterstack/shared": "workspace:*",
+    "@upstash/redis": "^1.37.0",
+    "drizzle-orm": "^0.45.2",
     "pg": "^8.16.3",
     "zod": "catalog:"
   },

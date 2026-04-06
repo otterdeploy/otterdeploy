@@ -11,13 +11,24 @@
  */
 
 import { createId as cuid } from "@paralleldrive/cuid2";
-import { z } from "zod";
+import * as z from "zod";
 
 // ---------------------------------------------------------------------------
 // Prefix registry — add new prefixes here as tables are created
 // ---------------------------------------------------------------------------
 
-export const ID_PREFIX = {} as const;
+export const ID_PREFIX = {
+  // auth
+  user: "user",
+  session: "session",
+  account: "account",
+  verification: "verification",
+
+  project: "project",
+  resource: "resource",
+  environment: "environment",
+  proxyRoute: "proxy_route",
+} as const;
 
 export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];
 

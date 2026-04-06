@@ -22,7 +22,7 @@ import {
 
 import {
   DatabaseResource,
-  type DatabaseResourceNode,
+  type TDatabaseResource,
 } from "@/features/project-flow/components/database-resource";
 
 const searchParams = z.object({
@@ -38,7 +38,7 @@ const nodeTypes: NodeTypes = {
   database: DatabaseResource,
 };
 
-const initialNodes: DatabaseResourceNode[] = [
+const initialNodes: TDatabaseResource[] = [
   {
     id: "db-primary",
     type: "database",
@@ -82,7 +82,7 @@ function RouteComponent() {
     [setEdges],
   );
 
-  useHotkey("e", () => switcher.open(env), {
+  useHotkey("E", () => switcher.open(env), {
     enabled: !switcher.isOpen,
   });
 
@@ -98,14 +98,18 @@ function RouteComponent() {
     enabled: switcher.isOpen,
   });
 
-  useHotkey("Enter", () => {
-    const selected = switcher.select();
-    if (selected) {
-      navigate({ search: (prev) => ({ ...prev, env: selected.name }) });
-    }
-  }, {
-    enabled: switcher.isOpen,
-  });
+  useHotkey(
+    "Enter",
+    () => {
+      const selected = switcher.select();
+      if (selected) {
+        navigate({ search: (prev) => ({ ...prev, env: selected.name }) });
+      }
+    },
+    {
+      enabled: switcher.isOpen,
+    },
+  );
 
   return (
     <>

@@ -9,11 +9,14 @@
       "default": "./src/*.ts"
     }
   },
-  "scripts": {},
+  "scripts": {
+    "test": "vitest run"
+  },
   "dependencies": {
     "@orpc/client": "catalog:",
+    "@orpc/contract": "^1.13.13",
     "@orpc/openapi": "catalog:",
-    "@orpc/server": "catalog:",
+    "@orpc/server": "^1.13.13",
     "@orpc/zod": "catalog:",
     "@otterdeploy/docker": "^0.3.0",
     "@otterstack/auth": "workspace:*",

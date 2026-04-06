@@ -4,10 +4,10 @@ import { orpc, queryClient, client } from "@/utils/orpc";
 
 export const envCollection = createCollection(
   queryCollectionOptions({
-    ...orpc.env.all.queryOptions(),
+    ...orpc.env.list.queryOptions(),
     queryFn: async () => {
-      console.log(orpc.env.all.queryKey());
-      return await orpc.env.all.call();
+      console.log(orpc.env.list.queryKey());
+      return orpc.env.list.call();
     },
     queryClient,
     getKey: (item) => item.id,
@@ -15,7 +15,7 @@ export const envCollection = createCollection(
       await Promise.all(
         transaction.mutations.map((mutation, index) => {
           console.log(index);
-          return client.env.createEnv(mutation.modified);
+          return client.env.create(mutation.modified);
         }),
       );
     },

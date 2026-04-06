@@ -1,9 +1,9 @@
-import { createFileRoute, Outlet } from '@tanstack/react-router'
+import { createFileRoute, Outlet } from "@tanstack/react-router";
 
-export const Route = createFileRoute('/_dashboard')({
+export const Route = createFileRoute("/_dashboard")({
   component: RouteComponent,
-})
+});
 
 function RouteComponent() {
-  return <Outlet />
+  return <Outlet />;
 }

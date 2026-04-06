@@ -9,7 +9,7 @@ import {
   MenuSeparator,
   MenuTrigger,
 } from "@/components/ui/menu";
-import { authClient } from "@/lib/auth-client";
+import { authClient } from "@/lib/auth";
 
 import { Button } from "./ui/button";
 import { Skeleton } from "./ui/skeleton";
@@ -32,9 +32,7 @@ export default function UserMenu() {
 
   return (
     <Menu>
-      <MenuTrigger render={<Button variant="outline" />}>
-        {session.user.name}
-      </MenuTrigger>
+      <MenuTrigger render={<Button variant="outline" />}>{session.user.name}</MenuTrigger>
       <MenuPopup className="bg-card">
         <MenuGroup>
           <MenuGroupLabel>My Account</MenuGroupLabel>

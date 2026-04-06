@@ -1,19 +1,17 @@
 import { type Node, type NodeProps } from "@xyflow/react";
-import { Clock, Database, Ellipsis, HardDrive, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Clock, HardDrive, Plus, RefreshCw, Trash2 } from "lucide-react";
 import * as motion from "motion/react-client";
 import type React from "react";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Resource } from "@/features/project-flow/components/resource";
 
-export type VolumeAttachment = {
+export interface VolumeAttachment {
   id: string;
   source: string;
   target: string;
-};
+}
 
-export type DatabaseNodeData = {
+export type DatabaseNode = {
   category: string;
   name: string;
   engine: string;
@@ -21,45 +19,13 @@ export type DatabaseNodeData = {
   volumes: VolumeAttachment[];
 };
 
-export type DatabaseResourceNode = Node<DatabaseNodeData, "database">;
+export type TDatabaseResource = Node<DatabaseNode, "database">;
 
 export function DatabaseResource({
   id,
   data,
   selected,
-}: NodeProps<DatabaseResourceNode>): React.ReactElement {
-  // const reactFlow = useReactFlow<DatabaseResourceNode>();
-  // const [volumeName, setVolumeName] = useState("");
-  // const [mountPath, setMountPath] = useState("/var/lib/postgresql/data");
-
-  // const attachVolume = () => {
-  //   const source = volumeName.trim();
-  //   const target = mountPath.trim();
-
-  //   if (!source || !target) {
-  //     return;
-  //   }
-
-  //   reactFlow.updateNodeData(id, (node) => ({
-  //     volumes: [
-  //       ...node.data.volumes,
-  //       {
-  //         id: `${source}:${target}`,
-  //         source,
-  //         target,
-  //       },
-  //     ],
-  //   }));
-
-  //   setVolumeName("");
-  // };
-
-  // const detachVolume = (volumeId: string) => {
-  //   reactFlow.updateNodeData(id, (node) => ({
-  //     volumes: node.data.volumes.filter((volume) => volume.id !== volumeId),
-  //   }));
-  // };
-
+}: NodeProps<TDatabaseResource>): React.ReactElement {
   const anchorName = `--db-${id}` as string;
 
   return (
@@ -104,110 +70,6 @@ export function DatabaseResource({
         <ActionButton icon={<Trash2 className="size-2.5" strokeWidth={2} />} />
       </div>
     </div>
-  );
-
-  return (
-    <Resource.Root selected={selected}>
-      <Resource.Header>
-        <Resource.HeaderIcon>
-          <Database className="size-4" strokeWidth={1.75} />
-        </Resource.HeaderIcon>
-        <Resource.HeaderTitle>{data.category}</Resource.HeaderTitle>
-
-        <Resource.HeaderActions>
-          <Resource.HeaderButton aria-label="Database options">
-            <Ellipsis className="size-4" strokeWidth={1.75} />
-          </Resource.HeaderButton>
-        </Resource.HeaderActions>
-      </Resource.Header>
-
-      <Resource.Surface>
-        <Resource.SectionHeader>
-          <div className="inline-flex size-7 items-center justify-center rounded-lg bg-sky-500/10 text-sky-500 dark:text-sky-400">
-            <Database className="size-3.5" strokeWidth={1.8} />
-          </div>
-          <div className="min-w-0">
-            <Resource.SectionTitle>{data.name}</Resource.SectionTitle>
-            <div className="text-xs text-muted-foreground">{data.image}</div>
-          </div>
-        </Resource.SectionHeader>
-
-        <Resource.Divider />
-
-        <Resource.Row>
-          <div className="size-2 rounded-full bg-emerald-500" />
-          <span className="text-emerald-600 dark:text-emerald-400">{data.engine}</span>
-        </Resource.Row>
-
-        <Resource.Divider />
-
-        {data.volumes.map((volume) => (
-          <Resource.Row key={volume.id}>
-            <HardDrive className="size-3.5 text-muted-foreground" strokeWidth={1.8} />
-            <div className="min-w-0 flex-1">
-              <div className="truncate font-medium text-foreground">{volume.source}</div>
-              <div className="truncate font-mono text-[11px] text-muted-foreground">
-                {volume.target}
-              </div>
-            </div>
-            <Button
-              className="nodrag nopan"
-              onClick={() => detachVolume(volume.id)}
-              size="icon-xs"
-              type="button"
-              variant="ghost"
-            >
-              <Trash2 className="size-3" strokeWidth={1.8} />
-            </Button>
-          </Resource.Row>
-        ))}
-
-        {data.volumes.length === 0 && (
-          <Resource.Row>
-            <HardDrive className="size-3.5 text-muted-foreground/50" strokeWidth={1.8} />
-            <span className="text-muted-foreground/50">No volumes</span>
-          </Resource.Row>
-        )}
-
-        <div className="border-t border-border/40 px-3 py-2">
-          <div className="flex items-center gap-1.5">
-            <Input
-              className="nodrag nopan nowheel h-7 text-xs"
-              onChange={(event) => setVolumeName(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  attachVolume();
-                }
-              }}
-              placeholder="volume name"
-              value={volumeName}
-            />
-            <Input
-              className="nodrag nopan nowheel h-7 text-xs"
-              onChange={(event) => setMountPath(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  attachVolume();
-                }
-              }}
-              placeholder="mount path"
-              value={mountPath}
-            />
-            <Button
-              className="nodrag nopan h-7 shrink-0 px-2"
-              onClick={attachVolume}
-              size="sm"
-              type="button"
-              variant="ghost"
-            >
-              <Plus className="size-3.5" strokeWidth={1.9} />
-            </Button>
-          </div>
-        </div>
-      </Resource.Surface>
-    </Resource.Root>
   );
 }
 

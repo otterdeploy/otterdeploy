@@ -1,5 +1,3 @@
-import { nanoid } from "nanoid";
-
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 

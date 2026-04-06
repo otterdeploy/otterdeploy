@@ -8,10 +8,16 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { polarClient } from "./lib/payments";
 
 export const auth = betterAuth({
+  appName: "otterstack",
   database: drizzleAdapter(db, {
     provider: "pg",
     schema: schema,
   }),
+  rateLimit: {
+    enabled: true,
+    window: 60, // time window in seconds
+    max: 100, // max requests in the window
+  },
   experimental: {
     joins: true,
   },
@@ -25,7 +31,15 @@ export const auth = betterAuth({
       secure: true,
       httpOnly: true,
     },
+    database: {
+      generateId: () => false,
+    },
+    ipAddress: {
+      ipAddressHeaders: ["cf-connecting-ip"], // Cloudflare specific header example
+    },
   },
+  hooks: {},
+
   plugins: [
     polar({
       client: polarClient,

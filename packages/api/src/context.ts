@@ -4,16 +4,14 @@ import { auth } from "@otterstack/auth";
 
 export type CreateContextOptions = {
   context: HonoContext;
-  broadcast?: (resource: string) => void;
 };
 
-export async function createContext({ context, broadcast }: CreateContextOptions) {
+export async function createContext({ context }: CreateContextOptions) {
   const session = await auth.api.getSession({
     headers: context.req.raw.headers,
   });
   return {
     session,
-    broadcast: broadcast ?? (() => {}),
   };
 }
 
