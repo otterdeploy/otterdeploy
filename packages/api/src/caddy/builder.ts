@@ -44,7 +44,7 @@ export function buildCaddyfile(routes: ProxyRouteInput[], adminBind: string): st
   const httpRoutes = routes.filter((r) => r.type === "http");
   const layer4Routes = routes.filter((r) => r.type === "layer4");
 
-  const lines = ["{", `\tadmin ${adminBind}`];
+  const lines = ["{", `\tadmin ${adminBind}`, "\tlocal_certs"];
 
   if (layer4Routes.length > 0) {
     lines.push("\tlayer4 {");
@@ -54,17 +54,17 @@ export function buildCaddyfile(routes: ProxyRouteInput[], adminBind: string): st
 
   lines.push("}");
 
-  // HTTP site blocks for reverse proxy
   for (const route of httpRoutes) {
     lines.push("");
     lines.push(buildHttpBlock(route));
   }
 
-  // Dummy site blocks so Caddy automates certs for layer4 SNI domains
+  // Site blocks with tls internal so Caddy issues local certs for layer4 SNI domains
   if (layer4Routes.length > 0) {
     const domains = layer4Routes.map((r) => r.domain).join(", ");
     lines.push("");
     lines.push(`${domains} {`);
+    lines.push("\ttls internal");
     lines.push('\trespond "ok" 200');
     lines.push("}");
   }
@@ -80,7 +80,7 @@ export function buildProjectFragment(routes: ProxyRouteInput[]): string {
     return "";
   }
 
-  const lines = ["{", "\tadmin off"];
+  const lines = ["{", "\tadmin off", "\tlocal_certs"];
 
   if (layer4Routes.length > 0) {
     lines.push("\tlayer4 {");
@@ -99,6 +99,7 @@ export function buildProjectFragment(routes: ProxyRouteInput[]): string {
     const domains = layer4Routes.map((r) => r.domain).join(", ");
     lines.push("");
     lines.push(`${domains} {`);
+    lines.push("\ttls internal");
     lines.push('\trespond "ok" 200');
     lines.push("}");
   }
