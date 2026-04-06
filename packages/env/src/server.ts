@@ -24,7 +24,7 @@ export const env = createEnv({
     DATABASE_PROVISIONER_URL: z.string().min(1).optional(),
     DATABASE_PUBLIC_BASE_DOMAIN: z.string().min(1).default("db.otterstack.dev"),
     DATABASE_INTERNAL_BASE_DOMAIN: z.string().min(1).default("otterstack.internal"),
-    DATABASE_PUBLIC_PORT: z.coerce.number().int().positive().default(443),
+    DATABASE_PUBLIC_PORT: z.coerce.number().int().positive().default(5432),
     DATABASE_INTERNAL_PORT: z.coerce.number().int().positive().default(5432),
     DATABASE_PUBLIC_UPSTREAM_HOST: z.string().min(1).default("otterstack-postgres"),
     DATABASE_PUBLIC_UPSTREAM_PORT: z.coerce.number().int().positive().default(5432),
