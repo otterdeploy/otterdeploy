@@ -91,6 +91,22 @@ app.get("/", (c) => {
   return c.text("OK");
 });
 
+// Reconcile Caddy config from DB on startup
+import { reconcile } from "@otterstack/api/caddy";
+
+reconcile()
+  .then((result) => {
+    console.log(
+      "[startup] caddy reconcile done: applied=%d skipped=%d revision=%s",
+      result.applied.length,
+      result.skipped.length,
+      result.revision,
+    );
+  })
+  .catch((error) => {
+    console.error("[startup] caddy reconcile failed:", error);
+  });
+
 export default {
   fetch: app.fetch,
   websocket,

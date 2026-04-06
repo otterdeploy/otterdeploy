@@ -50,10 +50,10 @@ services:
     restart: unless-stopped
     command: sh -c "caddy run --config /etc/caddy/Caddyfile --adapter caddyfile"
     ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
-      - "127.0.0.1:2019:2019"
+      - "${CADDY_HTTP_PORT:-80}:80"
+      - "${CADDY_HTTPS_PORT:-443}:443"
+      - "${CADDY_HTTPS_PORT:-443}:443/udp"
+      - "127.0.0.1:${CADDY_ADMIN_HOST_PORT:-2020}:2019"
     volumes:
       - ./infra/caddy/config:/etc/caddy
       - otterstack-caddy-data:/data
@@ -84,4 +84,5 @@ volumes:
 
 networks:
   otterstack-resources:
+    external: true
     name: ${DOCKER_RESOURCE_NETWORK:-otterstack-resources}
