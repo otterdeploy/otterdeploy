@@ -9,6 +9,7 @@ import {
   Loader2,
   Network,
   Plus,
+  Trash2,
   X,
 } from "lucide-react";
 
@@ -227,6 +228,7 @@ function RouteComponent() {
                       <DatabaseCard
                         key={database.resourceId}
                         database={database}
+                        projectId={projectId}
                         proxyRoute={proxyRoutes.find((r) => r.resourceId === database.resourceId)}
                       />
                     ))
@@ -296,11 +298,27 @@ function ProxyRouteRow({ route }: { route: ProxyRoute }) {
 
 function DatabaseCard({
   database,
+  projectId,
   proxyRoute,
 }: {
   database: PostgresResource;
+  projectId: string;
   proxyRoute?: ProxyRoute;
 }) {
+  const deleteMutation = useMutation({
+    mutationFn: () =>
+      client.project.database.deletePostgres({
+        projectId,
+        resourceId: database.resourceId,
+      }),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["project-databases", projectId] }),
+        queryClient.invalidateQueries({ queryKey: ["project-proxy-routes", projectId] }),
+      ]);
+    },
+  });
+
   return (
     <Card className="overflow-hidden">
       <CardHeader className="border-b bg-muted/30">
@@ -313,7 +331,36 @@ function DatabaseCard({
           <Badge variant={getRuntimeVariant(database.runtime.status)}>
             {database.runtime.status}
           </Badge>
+          <Button
+            className="ml-auto"
+            disabled={deleteMutation.isPending}
+            onClick={() => {
+              if (confirm(`Delete database "${database.name}"? This will stop and remove the Docker container.`)) {
+                deleteMutation.mutate();
+              }
+            }}
+            size="sm"
+            variant="destructive"
+          >
+            {deleteMutation.isPending ? (
+              <Loader2 className="size-3 animate-spin" />
+            ) : (
+              <Trash2 className="size-3" />
+            )}
+            Delete
+          </Button>
         </div>
+        {deleteMutation.isError ? (
+          <Alert variant="error" className="mt-2">
+            <AlertCircle />
+            <AlertTitle>Delete failed</AlertTitle>
+            <AlertDescription>
+              {deleteMutation.error instanceof Error
+                ? deleteMutation.error.message
+                : "Failed to delete the database resource."}
+            </AlertDescription>
+          </Alert>
+        ) : null}
         <CardDescription>
           Database `{database.databaseName}` backed by container `{database.runtime.containerName}`.
         </CardDescription>
