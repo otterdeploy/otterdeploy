@@ -25,8 +25,13 @@ export function buildLayer4Block(routes: ProxyRouteInput[], listenPort = ":5432"
 
   for (const route of routes) {
     const name = sanitizeMatcherName(route.domain);
-    lines.push(`\t\t@${name} postgres`);
+    lines.push(`\t\t@${name} tls sni ${route.domain}`);
     lines.push(`\t\troute @${name} {`);
+    lines.push("\t\t\ttls {");
+    lines.push("\t\t\t\tconnection_policy {");
+    lines.push("\t\t\t\t\talpn postgresql");
+    lines.push("\t\t\t\t}");
+    lines.push("\t\t\t}");
     lines.push(`\t\t\tproxy ${route.upstreamHost}:${route.upstreamPort}`);
     lines.push("\t\t}");
   }
@@ -49,9 +54,19 @@ export function buildCaddyfile(routes: ProxyRouteInput[], adminBind: string): st
 
   lines.push("}");
 
+  // HTTP site blocks for reverse proxy
   for (const route of httpRoutes) {
     lines.push("");
     lines.push(buildHttpBlock(route));
+  }
+
+  // Dummy site blocks so Caddy automates certs for layer4 SNI domains
+  if (layer4Routes.length > 0) {
+    const domains = layer4Routes.map((r) => r.domain).join(", ");
+    lines.push("");
+    lines.push(`${domains} {`);
+    lines.push('\trespond "ok" 200');
+    lines.push("}");
   }
 
   return lines.join("\n") + "\n";
@@ -78,6 +93,14 @@ export function buildProjectFragment(routes: ProxyRouteInput[]): string {
   for (const route of httpRoutes) {
     lines.push("");
     lines.push(buildHttpBlock(route));
+  }
+
+  if (layer4Routes.length > 0) {
+    const domains = layer4Routes.map((r) => r.domain).join(", ");
+    lines.push("");
+    lines.push(`${domains} {`);
+    lines.push('\trespond "ok" 200');
+    lines.push("}");
   }
 
   return lines.join("\n") + "\n";
