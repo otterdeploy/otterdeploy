@@ -165,6 +165,8 @@ export async function createPostgresResource(input: {
     return { ok: false, reason: "resource_conflict" };
   }
 
+  console.log("[project:postgres] creating postgres resource '%s' for project %s", input.name, input.projectId);
+
   const resourceSlug = sanitizeDatabaseName(input.name);
   const projectSlug = sanitizeProjectSlug(project.slug);
   const databaseName = clampPostgresIdentifier(`${projectSlug}_${resourceSlug}_db`);
@@ -174,6 +176,7 @@ export async function createPostgresResource(input: {
   const containerName = sanitizeDockerName(`otterstack-pg-${projectSlug}-${resourceSlug}`);
   const volumeName = sanitizeDockerName(`otterstack-pgdata-${projectSlug}-${resourceSlug}`);
   const internalHostname = `${resourceSlug}.${projectSlug}.${env.DATABASE_INTERNAL_BASE_DOMAIN}`;
+  console.log("[project:postgres] provisioning docker container '%s'", containerName);
   const runtime = await provisionDockerPostgres({
     containerName,
     volumeName,
@@ -182,6 +185,7 @@ export async function createPostgresResource(input: {
     username,
     password,
   });
+  console.log("[project:postgres] container '%s' status=%s hostPort=%s", containerName, runtime.status, runtime.hostPort);
   if (runtime.hostPort === null) {
     throw new Error(`Docker runtime for "${containerName}" did not expose a host port.`);
   }
@@ -228,6 +232,7 @@ export async function createPostgresResource(input: {
     throw error;
   }
 
+  console.log("[project:postgres] inserting proxy route for domain '%s'", publicHostname);
   await insertProxyRoute({
     projectId: input.projectId,
     resourceId: created.resource.id,
@@ -239,8 +244,10 @@ export async function createPostgresResource(input: {
     layer4Alpn: "postgresql",
   });
 
+  console.log("[project:postgres] running caddy reconciliation");
   const reconcileResult = await reconcile();
   const isApplied = reconcileResult.applied.includes(input.projectId);
+  console.log("[project:postgres] reconcile done: applied=%s, resource status=%s", isApplied, isApplied ? "valid" : "invalid");
 
   await updateDatabaseResourceStatus(created.resource.id, isApplied ? "valid" : "invalid");
 

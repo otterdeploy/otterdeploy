@@ -9,7 +9,9 @@ export type { ReconcileResult } from "./reconciler";
 export type { ProxyRouteInput } from "./builder";
 
 export async function reconcile(): Promise<ReconcileResult> {
+  console.log("[caddy] fetching enabled proxy routes from DB");
   const records = await listEnabledProxyRoutes();
+  console.log("[caddy] found %d enabled proxy routes", records.length);
 
   const routes: ProxyRouteInput[] = records.map((r) => ({
     projectId: r.projectId,
