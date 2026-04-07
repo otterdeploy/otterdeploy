@@ -42,10 +42,10 @@ export const postgresResourceSchema = z.object({
   upstreamHost: z.string(),
   upstreamPort: z.number().int().positive(),
   runtime: z.object({
-    containerName: z.string(),
+    serviceId: z.string().nullable(),
+    serviceName: z.string(),
     volumeName: z.string(),
     networkName: z.string(),
-    hostPort: z.number().int().positive().nullable(),
     status: z.enum(["running", "starting", "stopped", "missing", "error"]),
     health: z.enum(["healthy", "unhealthy", "starting"]).nullable(),
   }),
