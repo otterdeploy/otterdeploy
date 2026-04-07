@@ -1,5 +1,5 @@
 import { setTimeout as sleep } from "node:timers/promises";
-import { Docker, DockerNotFoundError } from "@otterdeploy/docker";
+import { Docker } from "@otterdeploy/docker";
 import { PLATFORM } from "../constants";
 import { ensureOverlayNetwork } from "./client";
 
@@ -26,80 +26,79 @@ export async function provisionSwarmPostgres(
 ): Promise<SwarmPostgresRuntime> {
   const docker = Docker.fromEnv();
 
-  try {
-    await ensureOverlayNetwork();
+  await ensureOverlayNetwork();
 
-    // Check if service already exists
-    const existing = await inspectSwarmService(docker, input.serviceName);
-    if (existing) {
-      return existing;
-    }
-
-    const response = (
-      await docker.services.create({
-        Name: input.serviceName,
-        Labels: {
-          "otterstack.managed": "true",
-          "otterstack.resource.type": "postgres",
-        },
-        TaskTemplate: {
-          ContainerSpec: {
-            Image: PLATFORM.docker.postgresImage,
-            Env: [
-              `POSTGRES_DB=${input.databaseName}`,
-              `POSTGRES_USER=${input.username}`,
-              `POSTGRES_PASSWORD=${input.password}`,
-            ],
-            Mounts: [
-              {
-                Type: "volume",
-                Source: input.volumeName,
-                Target: "/var/lib/postgresql/data",
-              },
-            ],
-            Healthcheck: {
-              Test: ["CMD-SHELL", `pg_isready -U ${input.username} -d ${input.databaseName}`],
-              Interval: 5_000_000_000,
-              Timeout: 3_000_000_000,
-              Retries: 20,
-            },
-            Hostname: input.hostnameAlias,
-          },
-          Networks: [
-            {
-              Target: PLATFORM.swarm.resourceNetwork,
-              Aliases: [input.serviceName, input.hostnameAlias],
-            },
-          ],
-          RestartPolicy: {
-            Condition: "on-failure",
-            MaxAttempts: 5,
-            Delay: 5_000_000_000,
-          },
-        },
-        Mode: {
-          Replicated: {
-            Replicas: 1,
-          },
-        },
-        EndpointSpec: {
-          Ports: [
-            {
-              Protocol: "tcp",
-              TargetPort: 5432,
-              PublishMode: "host",
-            },
-          ],
-        },
-      })
-    ).unwrap();
-
-    // Wait for the service task to be running
-    const runtime = await waitForServiceReady(docker, input.serviceName);
-    return runtime;
-  } finally {
+  const existing = await inspectSwarmService(docker, input.serviceName);
+  if (existing) {
     docker.destroy();
+    return existing;
   }
+
+  const createResult = await docker.services.create({
+    Name: input.serviceName,
+    Labels: {
+      "otterstack.managed": "true",
+      "otterstack.resource.type": "postgres",
+    },
+    TaskTemplate: {
+      ContainerSpec: {
+        Image: PLATFORM.docker.postgresImage,
+        Env: [
+          `POSTGRES_DB=${input.databaseName}`,
+          `POSTGRES_USER=${input.username}`,
+          `POSTGRES_PASSWORD=${input.password}`,
+        ],
+        Mounts: [
+          {
+            Type: "volume",
+            Source: input.volumeName,
+            Target: "/var/lib/postgresql/data",
+          },
+        ],
+        Healthcheck: {
+          Test: ["CMD-SHELL", `pg_isready -U ${input.username} -d ${input.databaseName}`],
+          Interval: 5_000_000_000,
+          Timeout: 3_000_000_000,
+          Retries: 20,
+        },
+        Hostname: input.hostnameAlias,
+      },
+      Networks: [
+        {
+          Target: PLATFORM.swarm.resourceNetwork,
+          Aliases: [input.serviceName, input.hostnameAlias],
+        },
+      ],
+      RestartPolicy: {
+        Condition: "on-failure",
+        MaxAttempts: 5,
+        Delay: 5_000_000_000,
+      },
+    },
+    Mode: {
+      Replicated: {
+        Replicas: 1,
+      },
+    },
+    EndpointSpec: {
+      Ports: [
+        {
+          Protocol: "tcp",
+          TargetPort: 5432,
+          PublishMode: "host",
+        },
+      ],
+    },
+  });
+
+  if (createResult.isErr()) {
+    docker.destroy();
+    throw createResult.error;
+  }
+
+  const runtime = await waitForServiceReady(docker, input.serviceName);
+  docker.destroy();
+  return runtime;
 }
 
 export async function inspectSwarmPostgresRuntime(input: {
@@ -108,23 +107,21 @@ export async function inspectSwarmPostgresRuntime(input: {
 }): Promise<SwarmPostgresRuntime> {
   const docker = Docker.fromEnv();
 
-  try {
-    const runtime = await inspectSwarmService(docker, input.serviceName);
-    if (!runtime) {
-      return {
-        serviceId: null,
-        serviceName: input.serviceName,
-        volumeName: input.volumeName,
-        networkName: PLATFORM.swarm.resourceNetwork,
-        status: "missing",
-        health: null,
-      };
-    }
+  const runtime = await inspectSwarmService(docker, input.serviceName);
+  docker.destroy();
 
-    return runtime;
-  } finally {
-    docker.destroy();
+  if (!runtime) {
+    return {
+      serviceId: null,
+      serviceName: input.serviceName,
+      volumeName: input.volumeName,
+      networkName: PLATFORM.swarm.resourceNetwork,
+      status: "missing",
+      health: null,
+    };
   }
+
+  return runtime;
 }
 
 export async function destroySwarmPostgres(input: {
@@ -132,20 +129,27 @@ export async function destroySwarmPostgres(input: {
 }): Promise<void> {
   const docker = Docker.fromEnv();
 
-  try {
-    const listResult = (await docker.services.list({
-      filters: { name: [input.serviceName] },
-    })).unwrap();
+  const listResult = await docker.services.list({
+    filters: JSON.stringify({ name: [input.serviceName] }) as unknown as Record<string, string[]>,
+  });
 
-    const service = listResult.find((s) => s.Spec?.Name === input.serviceName);
-    if (!service) {
-      return;
-    }
-
-    console.log("[swarm:postgres] removing service '%s'", input.serviceName);
-    await docker.services.getService(service.ID).remove();
-  } finally {
+  if (listResult.isErr()) {
     docker.destroy();
+    throw listResult.error;
+  }
+
+  const service = listResult.value.find((s) => s.Spec?.Name === input.serviceName);
+  if (!service) {
+    docker.destroy();
+    return;
+  }
+
+  console.log("[swarm:postgres] removing service '%s'", input.serviceName);
+  const removeResult = await docker.services.getService(service.ID).remove();
+  docker.destroy();
+
+  if (removeResult.isErr()) {
+    throw removeResult.error;
   }
 }
 
@@ -153,21 +157,28 @@ async function inspectSwarmService(
   docker: Docker,
   serviceName: string,
 ): Promise<SwarmPostgresRuntime | null> {
-  const listResult = (await docker.services.list({
-    filters: { name: [serviceName] },
-  })).unwrap();
+  const listResult = await docker.services.list({
+    filters: JSON.stringify({ name: [serviceName] }) as unknown as Record<string, string[]>,
+  });
 
-  const service = listResult.find((s) => s.Spec?.Name === serviceName);
+  if (listResult.isErr()) {
+    throw listResult.error;
+  }
+
+  const service = listResult.value.find((s) => s.Spec?.Name === serviceName);
   if (!service) {
     return null;
   }
 
-  // Get the latest task for this service
-  const tasks = (await docker.tasks.list({
-    filters: { service: [serviceName] },
-  })).unwrap();
+  const tasksResult = await docker.tasks.list({
+    filters: JSON.stringify({ service: [serviceName] }) as unknown as Record<string, string[]>,
+  });
 
-  const latestTask = tasks
+  if (tasksResult.isErr()) {
+    throw tasksResult.error;
+  }
+
+  const latestTask = tasksResult.value
     .sort((a, b) => {
       const aTime = new Date(a.CreatedAt ?? 0).getTime();
       const bTime = new Date(b.CreatedAt ?? 0).getTime();
@@ -244,7 +255,6 @@ async function waitForServiceReady(
     await sleep(1000);
   }
 
-  // Timeout — return whatever state we have
   const runtime = await inspectSwarmService(docker, serviceName);
   return runtime ?? {
     serviceId: null,
