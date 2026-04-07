@@ -10,4 +10,7 @@ export const PLATFORM = {
     resourceNetwork: "otterstack-resources",
     postgresImage: "postgres:18-alpine",
   },
+  swarm: {
+    resourceNetwork: "otterstack-resources",
+  },
 } as const;
