@@ -10,6 +10,9 @@
     },
     "./caddy": {
       "default": "./src/caddy/index.ts"
+    },
+    "./swarm": {
+      "default": "./src/swarm/index.ts"
     }
   },
   "scripts": {

@@ -91,6 +91,18 @@ app.get("/", (c) => {
   return c.text("OK");
 });
 
+// Initialize Docker Swarm on startup
+import { initializeSwarm } from "@otterstack/api/swarm";
+
+console.log("[server] initializing Docker Swarm...");
+initializeSwarm()
+  .then(() => {
+    console.log("[server] Swarm ready");
+  })
+  .catch((error) => {
+    console.error("[server] Swarm initialization failed:", error);
+  });
+
 // Reconcile Caddy config from DB on startup
 import { reconcile } from "@otterstack/api/caddy";
 
