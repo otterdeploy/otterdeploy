@@ -1,3 +1,8 @@
+# Prerequisites:
+# 1. Docker Swarm must be initialized: docker swarm init
+# 2. Overlay network must exist: docker network create --driver overlay --attachable otterstack-resources
+# These are handled automatically by the platform server on startup.
+
 name: otterstack
 
 services:
