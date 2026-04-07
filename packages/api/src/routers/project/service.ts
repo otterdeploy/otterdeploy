@@ -9,11 +9,11 @@ import {
   listProxyRoutesByProject,
 } from "../../caddy/queries";
 import {
-  destroyDockerPostgres,
-  inspectDockerPostgresRuntime,
-  provisionDockerPostgres,
-  type DockerPostgresRuntime,
-} from "../../docker/postgres";
+  destroySwarmPostgres,
+  inspectSwarmPostgresRuntime,
+  provisionSwarmPostgres,
+  type SwarmPostgresRuntime,
+} from "../../swarm";
 import { createProjectRecord, db, getProjectById, getProjectBySlug, listProjectRecords } from "@otterstack/db";
 import { resource } from "@otterstack/db/schema/project";
 import { eq } from "drizzle-orm";
@@ -90,7 +90,7 @@ export type PostgresResourceView = {
   localConnectionString: string | null;
   upstreamHost: string;
   upstreamPort: number;
-  runtime: DockerPostgresRuntime;
+  runtime: SwarmPostgresRuntime;
 };
 
 export type ProxyRouteView = {
@@ -188,19 +188,16 @@ export async function createPostgresResource(input: {
   const containerName = sanitizeDockerName(`otterstack-pg-${projectSlug}-${resourceSlug}`);
   const volumeName = sanitizeDockerName(`otterstack-pgdata-${projectSlug}-${resourceSlug}`);
   const internalHostname = `${resourceSlug}.${projectSlug}.${PLATFORM.database.internalBaseDomain}`;
-  console.log("[project:postgres] provisioning docker container '%s'", containerName);
-  const runtime = await provisionDockerPostgres({
-    containerName,
+  console.log("[project:postgres] provisioning swarm service '%s'", containerName);
+  const runtime = await provisionSwarmPostgres({
+    serviceName: containerName,
     volumeName,
     hostnameAlias: internalHostname,
     databaseName,
     username,
     password,
   });
-  console.log("[project:postgres] container '%s' status=%s hostPort=%s", containerName, runtime.status, runtime.hostPort);
-  if (runtime.hostPort === null) {
-    throw new Error(`Docker runtime for "${containerName}" did not expose a host port.`);
-  }
+  console.log("[project:postgres] service '%s' status=%s", containerName, runtime.status);
   const publicConnectionString = buildConnectionString({
     username,
     password,
@@ -324,10 +321,10 @@ export async function deletePostgresResource(input: {
   await deleteProxyRoutesByResource(input.resourceId);
   console.log("[project:postgres] proxy routes removed");
 
-  // 2. Stop and remove Docker container
-  const containerName = buildContainerName({ projectSlug, resourceName: record.resource.name });
-  await destroyDockerPostgres({ containerName });
-  console.log("[project:postgres] docker container destroyed");
+  // 2. Stop and remove Swarm service
+  const serviceName = buildContainerName({ projectSlug, resourceName: record.resource.name });
+  await destroySwarmPostgres({ serviceName });
+  console.log("[project:postgres] swarm service destroyed");
 
   // 3. Delete resource from DB (cascades to database_resource)
   await db.delete(resource).where(eq(resource.id, input.resourceId));
@@ -393,7 +390,7 @@ async function mapDatabaseResource(
 ): Promise<PostgresResourceView> {
   const resolvedProjectSlug =
     projectSlug ?? (await getProjectRecord(record.resource.projectId))?.slug ?? record.resource.projectId;
-  const hydrated = await ensureDockerRuntimeForRecord(record, resolvedProjectSlug);
+  const hydrated = await ensureSwarmRuntimeForRecord(record, resolvedProjectSlug);
   const runtime = hydrated.runtime;
   const databaseRecord = hydrated.record.database;
 
@@ -413,46 +410,41 @@ async function mapDatabaseResource(
     internalHostname: databaseRecord.internalHostname,
     internalPort: databaseRecord.internalPort,
     internalConnectionString: databaseRecord.internalConnectionString,
-    localConnectionString:
-      runtime.hostPort === null
-        ? null
-        : buildConnectionString({
-            username: databaseRecord.username,
-            password: databaseRecord.password,
-            hostname: PLATFORM.database.localHost,
-            port: runtime.hostPort,
-            databaseName: databaseRecord.databaseName,
-          }),
+    localConnectionString: buildConnectionString({
+      username: databaseRecord.username,
+      password: databaseRecord.password,
+      hostname: PLATFORM.database.localHost,
+      port: PLATFORM.database.publicPort,
+      databaseName: databaseRecord.databaseName,
+      sslmode: "require",
+      sslnegotiation: "direct",
+    }),
     upstreamHost: databaseRecord.upstreamHost,
     upstreamPort: databaseRecord.upstreamPort,
     runtime,
   };
 }
 
-async function ensureDockerRuntimeForRecord(
+async function ensureSwarmRuntimeForRecord(
   record: DatabaseResourceRecord,
   projectSlug: string,
-): Promise<{ record: DatabaseResourceRecord; runtime: DockerPostgresRuntime }> {
-  const containerName = buildContainerName({ projectSlug, resourceName: record.resource.name });
+): Promise<{ record: DatabaseResourceRecord; runtime: SwarmPostgresRuntime }> {
+  const serviceName = buildContainerName({ projectSlug, resourceName: record.resource.name });
   const volumeName = buildVolumeName({ projectSlug, resourceName: record.resource.name });
-  const existingRuntime = await inspectDockerPostgresRuntime({ containerName, volumeName });
+  const existingRuntime = await inspectSwarmPostgresRuntime({ serviceName, volumeName });
 
   if (existingRuntime.status !== "missing") {
     return { record, runtime: existingRuntime };
   }
 
-  const runtime = await provisionDockerPostgres({
-    containerName,
+  const runtime = await provisionSwarmPostgres({
+    serviceName,
     volumeName,
     hostnameAlias: record.database.internalHostname,
     databaseName: record.database.databaseName,
     username: record.database.username,
     password: record.database.password,
   });
-
-  if (runtime.hostPort === null) {
-    return { record, runtime };
-  }
 
   const existingRoute = await getProxyRouteByResourceId(record.resource.id);
   if (existingRoute) {
