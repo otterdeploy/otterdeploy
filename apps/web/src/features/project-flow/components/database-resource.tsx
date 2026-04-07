@@ -1,9 +1,10 @@
 import { type Node, type NodeProps } from "@xyflow/react";
-import { Clock, HardDrive, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Clock, Globe, HardDrive, Network, Plus, RefreshCw, Trash2 } from "lucide-react";
 import * as motion from "motion/react-client";
 import type React from "react";
 
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export interface VolumeAttachment {
   id: string;
@@ -15,7 +16,10 @@ export type DatabaseNode = {
   category: string;
   name: string;
   engine: string;
-  image: string;
+  status: "running" | "starting" | "stopped" | "missing" | "error";
+  health: "healthy" | "unhealthy" | "starting" | null;
+  publicHostname: string;
+  internalHostname: string;
   volumes: VolumeAttachment[];
 };
 
@@ -35,28 +39,38 @@ export function DatabaseResource({
         className="hit-area-x-4 hit-area-t-4"
         style={{ anchorName } as React.CSSProperties}
       >
-        <div className="rounded-lg ring ring-red-500 py-4 px-2 flex flex-col w-36 bg-card">
-          <div className="rounded-md flex items-center gap-1 py-0.5">
+        <div
+          className={cn(
+            "flex w-44 flex-col rounded-xl border bg-card px-3 py-3 shadow-sm transition-all",
+            selected
+              ? "border-amber-500/80 ring-2 ring-amber-500/40"
+              : "border-border hover:border-foreground/20",
+          )}
+        >
+          <div className="flex items-center gap-1.5 py-0.5">
             <PostgreSQLIcon />
-            <span className="text-[9px]">PostgreSQL</span>
+            <span className="text-[11px] font-medium">{data.name}</span>
           </div>
-          <p className="text-[8px] text-muted-foreground/60 py-0.5">Service is offline</p>
+          <p className="py-1 text-[9px] text-muted-foreground/70">
+            {getStatusLabel(data.status, data.health)}
+          </p>
+          <div className="mt-1 grid gap-1.5 text-[9px] text-muted-foreground/80">
+            <div className="flex items-center gap-1">
+              <Globe className="size-2.5 shrink-0" />
+              <span className="truncate">{data.publicHostname}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Network className="size-2.5 shrink-0" />
+              <span className="truncate">{data.internalHostname}</span>
+            </div>
+          </div>
         </div>
       </motion.div>
 
-      {data.volumes.map((volume, index) => (
+      {data.volumes.map((volume) => (
         <div
           key={volume.id}
-          className="rounded-md w-36 -mt-3 min-h-10 border border-border bg-card px-2 py-1.5 flex items-center gap-1.5 first:pt-10"
-          // style={
-          //   {
-          //     positionAnchor: anchorName,
-          //     top: `anchor(bottom)`,
-          //     left: `anchor(left)`,
-          //     right: `anchor(right)`,
-          //     translate: `0 ${index * 32 + 4}px`,
-          //   } satisfies React.CSSProperties
-          // }
+          className="first:pt-10 flex min-h-10 w-44 items-center gap-1.5 rounded-md border border-border bg-card px-2 py-1.5 -mt-3"
         >
           <HardDrive className="size-3 shrink-0 text-muted-foreground" strokeWidth={2} />
           <span className="text-[10px] text-muted-foreground truncate">{volume.source}</span>
@@ -71,6 +85,24 @@ export function DatabaseResource({
       </div>
     </div>
   );
+}
+
+function getStatusLabel(
+  status: "running" | "starting" | "stopped" | "missing" | "error",
+  health?: "healthy" | "unhealthy" | "starting" | null,
+) {
+  switch (status) {
+    case "running":
+      return health === "healthy" ? "Service is healthy" : "Service is running";
+    case "starting":
+      return "Service is starting";
+    case "stopped":
+      return "Service is stopped";
+    case "missing":
+      return "Service is missing";
+    default:
+      return "Service reported an error";
+  }
 }
 
 function ActionButton({ icon, onClick }: { icon: React.ReactNode; onClick?: () => void }) {
