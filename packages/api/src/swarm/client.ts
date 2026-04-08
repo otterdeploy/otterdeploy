@@ -30,12 +30,28 @@ export async function ensureOverlayNetwork(): Promise<void> {
   const docker = Docker.fromEnv();
 
   const inspectResult = await docker.networks.inspect(PLATFORM.swarm.resourceNetwork);
-  if (inspectResult.isOk()) {
-    docker.destroy();
-    return;
-  }
 
-  if (!(inspectResult.error instanceof DockerNotFoundError)) {
+  if (inspectResult.isOk()) {
+    const network = inspectResult.value;
+
+    if (network.Driver === "overlay") {
+      docker.destroy();
+      return;
+    }
+
+    // Existing network is not overlay (e.g. bridge from pre-Swarm setup).
+    // Remove it so we can recreate as overlay.
+    console.log(
+      "[swarm] removing non-overlay network '%s' (driver=%s)",
+      PLATFORM.swarm.resourceNetwork,
+      network.Driver,
+    );
+    const removeResult = await docker.networks.remove(PLATFORM.swarm.resourceNetwork);
+    if (removeResult.isErr()) {
+      docker.destroy();
+      throw removeResult.error;
+    }
+  } else if (!(inspectResult.error instanceof DockerNotFoundError)) {
     docker.destroy();
     throw inspectResult.error;
   }
