@@ -1,7 +1,7 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import { Docker } from "@otterdeploy/docker";
 import { PLATFORM } from "../constants";
-import { ensureOverlayNetwork } from "./client";
+import { ensureProjectNetwork } from "./client";
 
 export type SwarmPostgresRuntime = {
   serviceId: string | null;
@@ -19,6 +19,7 @@ type ProvisionSwarmPostgresInput = {
   databaseName: string;
   username: string;
   password: string;
+  projectSlug: string;
 };
 
 export async function provisionSwarmPostgres(
@@ -26,9 +27,9 @@ export async function provisionSwarmPostgres(
 ): Promise<SwarmPostgresRuntime> {
   const docker = Docker.fromEnv();
 
-  await ensureOverlayNetwork();
+  const networkName = await ensureProjectNetwork(input.projectSlug);
 
-  const existing = await inspectSwarmService(docker, input.serviceName);
+  const existing = await inspectSwarmService(docker, input.serviceName, networkName);
   if (existing) {
     docker.destroy();
     return existing;
@@ -39,6 +40,7 @@ export async function provisionSwarmPostgres(
     Labels: {
       "otterstack.managed": "true",
       "otterstack.resource.type": "postgres",
+      "otterstack.project": input.projectSlug,
     },
     TaskTemplate: {
       ContainerSpec: {
@@ -65,7 +67,7 @@ export async function provisionSwarmPostgres(
       },
       Networks: [
         {
-          Target: PLATFORM.swarm.resourceNetwork,
+          Target: networkName,
           Aliases: [input.serviceName, input.hostnameAlias],
         },
       ],
@@ -96,7 +98,7 @@ export async function provisionSwarmPostgres(
     throw createResult.error;
   }
 
-  const runtime = await waitForServiceReady(docker, input.serviceName);
+  const runtime = await waitForServiceReady(docker, input.serviceName, networkName);
   docker.destroy();
   return runtime;
 }
@@ -104,10 +106,12 @@ export async function provisionSwarmPostgres(
 export async function inspectSwarmPostgresRuntime(input: {
   serviceName: string;
   volumeName: string;
+  projectSlug: string;
 }): Promise<SwarmPostgresRuntime> {
   const docker = Docker.fromEnv();
+  const networkName = `${PLATFORM.swarm.networkPrefix}${input.projectSlug}`;
 
-  const runtime = await inspectSwarmService(docker, input.serviceName);
+  const runtime = await inspectSwarmService(docker, input.serviceName, networkName);
   docker.destroy();
 
   if (!runtime) {
@@ -115,7 +119,7 @@ export async function inspectSwarmPostgresRuntime(input: {
       serviceId: null,
       serviceName: input.serviceName,
       volumeName: input.volumeName,
-      networkName: PLATFORM.swarm.resourceNetwork,
+      networkName,
       status: "missing",
       health: null,
     };
@@ -156,6 +160,7 @@ export async function destroySwarmPostgres(input: {
 async function inspectSwarmService(
   docker: Docker,
   serviceName: string,
+  networkName: string,
 ): Promise<SwarmPostgresRuntime | null> {
   const listResult = await docker.services.list({
     filters: JSON.stringify({ name: [serviceName] }) as unknown as Record<string, string[]>,
@@ -194,7 +199,7 @@ async function inspectSwarmService(
     serviceId: service.ID,
     serviceName,
     volumeName: service.Spec?.TaskTemplate?.ContainerSpec?.Mounts?.[0]?.Source ?? "",
-    networkName: PLATFORM.swarm.resourceNetwork,
+    networkName,
     status,
     health,
   };
@@ -240,9 +245,10 @@ function mapTaskHealth(
 async function waitForServiceReady(
   docker: Docker,
   serviceName: string,
+  networkName: string,
 ): Promise<SwarmPostgresRuntime> {
   for (let attempt = 0; attempt < 60; attempt++) {
-    const runtime = await inspectSwarmService(docker, serviceName);
+    const runtime = await inspectSwarmService(docker, serviceName, networkName);
 
     if (runtime && runtime.status === "running") {
       return runtime;
@@ -255,12 +261,12 @@ async function waitForServiceReady(
     await sleep(1000);
   }
 
-  const runtime = await inspectSwarmService(docker, serviceName);
+  const runtime = await inspectSwarmService(docker, serviceName, networkName);
   return runtime ?? {
     serviceId: null,
     serviceName,
     volumeName: "",
-    networkName: PLATFORM.swarm.resourceNetwork,
+    networkName,
     status: "error",
     health: null,
   };

@@ -1,4 +1,4 @@
-export { initializeSwarm, ensureSwarm, ensureOverlayNetwork } from "./client";
+export { initializeSwarm, ensureSwarm, ensureProjectNetwork, removeProjectNetwork } from "./client";
 export {
   provisionSwarmPostgres,
   inspectSwarmPostgresRuntime,

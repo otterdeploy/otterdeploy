@@ -11,6 +11,7 @@ export const PLATFORM = {
     postgresImage: "postgres:18-alpine",
   },
   swarm: {
-    resourceNetwork: "otterstack-resources",
+    networkPrefix: "otterstack-",
+    caddyContainer: "otterstack-caddy",
   },
 } as const;

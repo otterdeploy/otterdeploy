@@ -196,6 +196,7 @@ export async function createPostgresResource(input: {
     databaseName,
     username,
     password,
+    projectSlug,
   });
   console.log("[project:postgres] service '%s' status=%s", containerName, runtime.status);
   const publicConnectionString = buildConnectionString({
@@ -431,7 +432,7 @@ async function ensureSwarmRuntimeForRecord(
 ): Promise<{ record: DatabaseResourceRecord; runtime: SwarmPostgresRuntime }> {
   const serviceName = buildContainerName({ projectSlug, resourceName: record.resource.name });
   const volumeName = buildVolumeName({ projectSlug, resourceName: record.resource.name });
-  const existingRuntime = await inspectSwarmPostgresRuntime({ serviceName, volumeName });
+  const existingRuntime = await inspectSwarmPostgresRuntime({ serviceName, volumeName, projectSlug });
 
   if (existingRuntime.status !== "missing") {
     return { record, runtime: existingRuntime };
@@ -444,6 +445,7 @@ async function ensureSwarmRuntimeForRecord(
     databaseName: record.database.databaseName,
     username: record.database.username,
     password: record.database.password,
+    projectSlug,
   });
 
   const existingRoute = await getProxyRouteByResourceId(record.resource.id);

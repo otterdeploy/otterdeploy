@@ -1,7 +1,8 @@
 # Prerequisites:
 # 1. Docker Swarm must be initialized: docker swarm init
-# 2. Overlay network must exist: docker network create --driver overlay --attachable otterstack-resources
 # These are handled automatically by the platform server on startup.
+# Per-project overlay networks are created dynamically and Caddy is
+# connected to them automatically when resources are provisioned.
 
 name: otterstack
 
@@ -66,9 +67,6 @@ services:
       - otterstack-caddy-state:/config
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    networks:
-      - default
-      - otterstack-resources
     healthcheck:
       test:
         [
@@ -87,8 +85,3 @@ volumes:
   otterstack-postgres-data:
   otterstack-caddy-data:
   otterstack-caddy-state:
-
-networks:
-  otterstack-resources:
-    external: true
-    name: ${DOCKER_RESOURCE_NETWORK:-otterstack-resources}

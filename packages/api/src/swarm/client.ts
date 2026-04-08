@@ -26,39 +26,41 @@ export async function ensureSwarm(): Promise<void> {
   }
 }
 
-export async function ensureOverlayNetwork(): Promise<void> {
+/**
+ * Ensure a per-project overlay network exists.
+ * Network name: otterstack-{projectSlug}
+ * Caddy is connected to the network so it can route traffic to project services.
+ */
+export async function ensureProjectNetwork(projectSlug: string): Promise<string> {
+  const networkName = `${PLATFORM.swarm.networkPrefix}${projectSlug}`;
   const docker = Docker.fromEnv();
 
-  const inspectResult = await docker.networks.inspect(PLATFORM.swarm.resourceNetwork);
+  const inspectResult = await docker.networks.inspect(networkName);
 
   if (inspectResult.isOk()) {
     const network = inspectResult.value;
 
     if (network.Driver === "overlay") {
+      await connectCaddyToNetwork(docker, networkName);
       docker.destroy();
-      return;
+      return networkName;
     }
 
-    // Existing network is not overlay (e.g. bridge from pre-Swarm setup).
-    // Disconnect all endpoints, then remove and recreate as overlay.
-    console.log(
-      "[swarm] removing non-overlay network '%s' (driver=%s)",
-      PLATFORM.swarm.resourceNetwork,
-      network.Driver,
-    );
+    // Non-overlay network exists (e.g. bridge from pre-Swarm setup). Replace it.
+    console.log("[swarm] removing non-overlay network '%s' (driver=%s)", networkName, network.Driver);
 
     const containers = network.Containers ?? {};
     for (const containerId of Object.keys(containers)) {
       console.log("[swarm] disconnecting container '%s' from network", containers[containerId]?.Name ?? containerId);
       const disconnectResult = await docker.networks
-        .getNetwork(PLATFORM.swarm.resourceNetwork)
+        .getNetwork(networkName)
         .disconnect({ Container: containerId, Force: true });
       if (disconnectResult.isErr()) {
         console.log("[swarm] warning: failed to disconnect container: %s", disconnectResult.error.message);
       }
     }
 
-    const removeResult = await docker.networks.getNetwork(PLATFORM.swarm.resourceNetwork).remove();
+    const removeResult = await docker.networks.getNetwork(networkName).remove();
     if (removeResult.isErr()) {
       docker.destroy();
       throw removeResult.error;
@@ -68,22 +70,87 @@ export async function ensureOverlayNetwork(): Promise<void> {
     throw inspectResult.error;
   }
 
+  console.log("[swarm] creating overlay network '%s'", networkName);
   const createResult = await docker.networks.create({
-    Name: PLATFORM.swarm.resourceNetwork,
+    Name: networkName,
     Driver: "overlay",
     Attachable: true,
     Labels: {
       "otterstack.managed": "true",
+      "otterstack.project": projectSlug,
     },
   });
-  docker.destroy();
 
   if (createResult.isErr()) {
+    docker.destroy();
     throw createResult.error;
+  }
+
+  await connectCaddyToNetwork(docker, networkName);
+  docker.destroy();
+  return networkName;
+}
+
+/**
+ * Connect the Caddy container to a network so it can route traffic.
+ * No-op if already connected.
+ */
+async function connectCaddyToNetwork(docker: Docker, networkName: string): Promise<void> {
+  const caddyName = PLATFORM.swarm.caddyContainer;
+
+  // Check if Caddy container exists
+  const inspectResult = await docker.containers.inspect(caddyName);
+  if (inspectResult.isErr()) {
+    // Caddy not running — skip silently, it'll connect on next compose up
+    return;
+  }
+
+  const container = inspectResult.value;
+  const connectedNetworks = container.NetworkSettings?.Networks ?? {};
+
+  if (networkName in connectedNetworks) {
+    return;
+  }
+
+  console.log("[swarm] connecting Caddy to network '%s'", networkName);
+  const connectResult = await docker.networks
+    .getNetwork(networkName)
+    .connect({ Container: container.Id });
+
+  if (connectResult.isErr()) {
+    console.log("[swarm] warning: failed to connect Caddy to network: %s", connectResult.error.message);
+  }
+}
+
+/**
+ * Remove a project's overlay network.
+ * Disconnects all containers first.
+ */
+export async function removeProjectNetwork(projectSlug: string): Promise<void> {
+  const networkName = `${PLATFORM.swarm.networkPrefix}${projectSlug}`;
+  const docker = Docker.fromEnv();
+
+  const inspectResult = await docker.networks.inspect(networkName);
+  if (inspectResult.isErr()) {
+    docker.destroy();
+    return;
+  }
+
+  const network = inspectResult.value;
+  const containers = network.Containers ?? {};
+
+  for (const containerId of Object.keys(containers)) {
+    await docker.networks.getNetwork(networkName).disconnect({ Container: containerId, Force: true });
+  }
+
+  const removeResult = await docker.networks.getNetwork(networkName).remove();
+  docker.destroy();
+
+  if (removeResult.isErr()) {
+    console.log("[swarm] warning: failed to remove network '%s': %s", networkName, removeResult.error.message);
   }
 }
 
 export async function initializeSwarm(): Promise<void> {
   await ensureSwarm();
-  await ensureOverlayNetwork();
 }
