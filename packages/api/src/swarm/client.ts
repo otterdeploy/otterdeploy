@@ -40,12 +40,24 @@ export async function ensureOverlayNetwork(): Promise<void> {
     }
 
     // Existing network is not overlay (e.g. bridge from pre-Swarm setup).
-    // Remove it so we can recreate as overlay.
+    // Disconnect all endpoints, then remove and recreate as overlay.
     console.log(
       "[swarm] removing non-overlay network '%s' (driver=%s)",
       PLATFORM.swarm.resourceNetwork,
       network.Driver,
     );
+
+    const containers = network.Containers ?? {};
+    for (const containerId of Object.keys(containers)) {
+      console.log("[swarm] disconnecting container '%s' from network", containers[containerId]?.Name ?? containerId);
+      const disconnectResult = await docker.networks
+        .getNetwork(PLATFORM.swarm.resourceNetwork)
+        .disconnect({ Container: containerId, Force: true });
+      if (disconnectResult.isErr()) {
+        console.log("[swarm] warning: failed to disconnect container: %s", disconnectResult.error.message);
+      }
+    }
+
     const removeResult = await docker.networks.getNetwork(PLATFORM.swarm.resourceNetwork).remove();
     if (removeResult.isErr()) {
       docker.destroy();
