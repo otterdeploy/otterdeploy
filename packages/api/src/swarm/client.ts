@@ -46,7 +46,7 @@ export async function ensureOverlayNetwork(): Promise<void> {
       PLATFORM.swarm.resourceNetwork,
       network.Driver,
     );
-    const removeResult = await docker.networks.remove(PLATFORM.swarm.resourceNetwork);
+    const removeResult = await docker.networks.getNetwork(PLATFORM.swarm.resourceNetwork).remove();
     if (removeResult.isErr()) {
       docker.destroy();
       throw removeResult.error;
