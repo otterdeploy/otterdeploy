@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { queryClient } from "@/utils/orpc";
-import { envCollection } from "@/features/environment-switcher/api";
 
 const wsUrl = `ws://localhost:4293/ws`;
 
@@ -21,9 +20,7 @@ function getSocket() {
     ws.addEventListener("message", (event) => {
       const data = JSON.parse(event.data);
       if (data.type === "invalidate") {
-        // Invalidate all queries that start with the resource name
-        envCollection.utils.refetch();
-        envCollection.utils.queryClient.invalidateQueries({ queryKey: [data.resource] });
+        queryClient.invalidateQueries({ queryKey: [data.resource] });
       }
     });
   }

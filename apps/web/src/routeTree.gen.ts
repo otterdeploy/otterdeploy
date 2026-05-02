@@ -16,8 +16,7 @@ import { Route as AuthSignUpRouteImport } from './routes/auth/sign-up'
 import { Route as AuthSignInRouteImport } from './routes/auth/sign-in'
 import { Route as DashboardProjectLayoutRouteImport } from './routes/_dashboard/project/layout'
 import { Route as DashboardProjectProjectIdLayoutRouteImport } from './routes/_dashboard/project/$projectId/layout'
-import { Route as DashboardProjectProjectIdSettingsRouteImport } from './routes/_dashboard/project/$projectId/settings'
-import { Route as DashboardProjectProjectIdObservabilityRouteImport } from './routes/_dashboard/project/$projectId/observability'
+import { Route as DashboardProjectProjectIdIndexRouteImport } from './routes/_dashboard/project/$projectId/index'
 
 const AuthLayoutRoute = AuthLayoutRouteImport.update({
   id: '/auth',
@@ -54,16 +53,10 @@ const DashboardProjectProjectIdLayoutRoute =
     path: '/$projectId',
     getParentRoute: () => DashboardProjectLayoutRoute,
   } as any)
-const DashboardProjectProjectIdSettingsRoute =
-  DashboardProjectProjectIdSettingsRouteImport.update({
-    id: '/settings',
-    path: '/settings',
-    getParentRoute: () => DashboardProjectProjectIdLayoutRoute,
-  } as any)
-const DashboardProjectProjectIdObservabilityRoute =
-  DashboardProjectProjectIdObservabilityRouteImport.update({
-    id: '/observability',
-    path: '/observability',
+const DashboardProjectProjectIdIndexRoute =
+  DashboardProjectProjectIdIndexRouteImport.update({
+    id: '/',
+    path: '/',
     getParentRoute: () => DashboardProjectProjectIdLayoutRoute,
   } as any)
 
@@ -74,8 +67,7 @@ export interface FileRoutesByFullPath {
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
   '/project/$projectId': typeof DashboardProjectProjectIdLayoutRouteWithChildren
-  '/project/$projectId/observability': typeof DashboardProjectProjectIdObservabilityRoute
-  '/project/$projectId/settings': typeof DashboardProjectProjectIdSettingsRoute
+  '/project/$projectId/': typeof DashboardProjectProjectIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthLayoutRouteWithChildren
@@ -83,9 +75,7 @@ export interface FileRoutesByTo {
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
   '/': typeof DashboardIndexRoute
-  '/project/$projectId': typeof DashboardProjectProjectIdLayoutRouteWithChildren
-  '/project/$projectId/observability': typeof DashboardProjectProjectIdObservabilityRoute
-  '/project/$projectId/settings': typeof DashboardProjectProjectIdSettingsRoute
+  '/project/$projectId': typeof DashboardProjectProjectIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -96,8 +86,7 @@ export interface FileRoutesById {
   '/auth/sign-up': typeof AuthSignUpRoute
   '/_dashboard/': typeof DashboardIndexRoute
   '/_dashboard/project/$projectId': typeof DashboardProjectProjectIdLayoutRouteWithChildren
-  '/_dashboard/project/$projectId/observability': typeof DashboardProjectProjectIdObservabilityRoute
-  '/_dashboard/project/$projectId/settings': typeof DashboardProjectProjectIdSettingsRoute
+  '/_dashboard/project/$projectId/': typeof DashboardProjectProjectIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -108,8 +97,7 @@ export interface FileRouteTypes {
     | '/auth/sign-in'
     | '/auth/sign-up'
     | '/project/$projectId'
-    | '/project/$projectId/observability'
-    | '/project/$projectId/settings'
+    | '/project/$projectId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
@@ -118,8 +106,6 @@ export interface FileRouteTypes {
     | '/auth/sign-up'
     | '/'
     | '/project/$projectId'
-    | '/project/$projectId/observability'
-    | '/project/$projectId/settings'
   id:
     | '__root__'
     | '/_dashboard'
@@ -129,8 +115,7 @@ export interface FileRouteTypes {
     | '/auth/sign-up'
     | '/_dashboard/'
     | '/_dashboard/project/$projectId'
-    | '/_dashboard/project/$projectId/observability'
-    | '/_dashboard/project/$projectId/settings'
+    | '/_dashboard/project/$projectId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -189,34 +174,23 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardProjectProjectIdLayoutRouteImport
       parentRoute: typeof DashboardProjectLayoutRoute
     }
-    '/_dashboard/project/$projectId/settings': {
-      id: '/_dashboard/project/$projectId/settings'
-      path: '/settings'
-      fullPath: '/project/$projectId/settings'
-      preLoaderRoute: typeof DashboardProjectProjectIdSettingsRouteImport
-      parentRoute: typeof DashboardProjectProjectIdLayoutRoute
-    }
-    '/_dashboard/project/$projectId/observability': {
-      id: '/_dashboard/project/$projectId/observability'
-      path: '/observability'
-      fullPath: '/project/$projectId/observability'
-      preLoaderRoute: typeof DashboardProjectProjectIdObservabilityRouteImport
+    '/_dashboard/project/$projectId/': {
+      id: '/_dashboard/project/$projectId/'
+      path: '/'
+      fullPath: '/project/$projectId/'
+      preLoaderRoute: typeof DashboardProjectProjectIdIndexRouteImport
       parentRoute: typeof DashboardProjectProjectIdLayoutRoute
     }
   }
 }
 
 interface DashboardProjectProjectIdLayoutRouteChildren {
-  DashboardProjectProjectIdObservabilityRoute: typeof DashboardProjectProjectIdObservabilityRoute
-  DashboardProjectProjectIdSettingsRoute: typeof DashboardProjectProjectIdSettingsRoute
+  DashboardProjectProjectIdIndexRoute: typeof DashboardProjectProjectIdIndexRoute
 }
 
 const DashboardProjectProjectIdLayoutRouteChildren: DashboardProjectProjectIdLayoutRouteChildren =
   {
-    DashboardProjectProjectIdObservabilityRoute:
-      DashboardProjectProjectIdObservabilityRoute,
-    DashboardProjectProjectIdSettingsRoute:
-      DashboardProjectProjectIdSettingsRoute,
+    DashboardProjectProjectIdIndexRoute: DashboardProjectProjectIdIndexRoute,
   }
 
 const DashboardProjectProjectIdLayoutRouteWithChildren =
