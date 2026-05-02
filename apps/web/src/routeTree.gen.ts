@@ -14,9 +14,19 @@ import { Route as DashboardLayoutRouteImport } from './routes/_dashboard/layout'
 import { Route as DashboardIndexRouteImport } from './routes/_dashboard/index'
 import { Route as AuthSignUpRouteImport } from './routes/auth/sign-up'
 import { Route as AuthSignInRouteImport } from './routes/auth/sign-in'
+import { Route as DashboardSettingsRouteImport } from './routes/_dashboard/settings'
+import { Route as DashboardServersRouteImport } from './routes/_dashboard/servers'
+import { Route as DashboardRoutingRouteImport } from './routes/_dashboard/routing'
+import { Route as DashboardMembersRouteImport } from './routes/_dashboard/members'
+import { Route as DashboardActivityRouteImport } from './routes/_dashboard/activity'
 import { Route as DashboardProjectLayoutRouteImport } from './routes/_dashboard/project/layout'
 import { Route as DashboardProjectProjectIdLayoutRouteImport } from './routes/_dashboard/project/$projectId/layout'
 import { Route as DashboardProjectProjectIdIndexRouteImport } from './routes/_dashboard/project/$projectId/index'
+import { Route as DashboardProjectProjectIdVariablesRouteImport } from './routes/_dashboard/project/$projectId/variables'
+import { Route as DashboardProjectProjectIdSettingsRouteImport } from './routes/_dashboard/project/$projectId/settings'
+import { Route as DashboardProjectProjectIdNetworkingRouteImport } from './routes/_dashboard/project/$projectId/networking'
+import { Route as DashboardProjectProjectIdLogsRouteImport } from './routes/_dashboard/project/$projectId/logs'
+import { Route as DashboardProjectProjectIdDeploymentsRouteImport } from './routes/_dashboard/project/$projectId/deployments'
 
 const AuthLayoutRoute = AuthLayoutRouteImport.update({
   id: '/auth',
@@ -42,6 +52,31 @@ const AuthSignInRoute = AuthSignInRouteImport.update({
   path: '/sign-in',
   getParentRoute: () => AuthLayoutRoute,
 } as any)
+const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => DashboardLayoutRoute,
+} as any)
+const DashboardServersRoute = DashboardServersRouteImport.update({
+  id: '/servers',
+  path: '/servers',
+  getParentRoute: () => DashboardLayoutRoute,
+} as any)
+const DashboardRoutingRoute = DashboardRoutingRouteImport.update({
+  id: '/routing',
+  path: '/routing',
+  getParentRoute: () => DashboardLayoutRoute,
+} as any)
+const DashboardMembersRoute = DashboardMembersRouteImport.update({
+  id: '/members',
+  path: '/members',
+  getParentRoute: () => DashboardLayoutRoute,
+} as any)
+const DashboardActivityRoute = DashboardActivityRouteImport.update({
+  id: '/activity',
+  path: '/activity',
+  getParentRoute: () => DashboardLayoutRoute,
+} as any)
 const DashboardProjectLayoutRoute = DashboardProjectLayoutRouteImport.update({
   id: '/project',
   path: '/project',
@@ -59,22 +94,72 @@ const DashboardProjectProjectIdIndexRoute =
     path: '/',
     getParentRoute: () => DashboardProjectProjectIdLayoutRoute,
   } as any)
+const DashboardProjectProjectIdVariablesRoute =
+  DashboardProjectProjectIdVariablesRouteImport.update({
+    id: '/variables',
+    path: '/variables',
+    getParentRoute: () => DashboardProjectProjectIdLayoutRoute,
+  } as any)
+const DashboardProjectProjectIdSettingsRoute =
+  DashboardProjectProjectIdSettingsRouteImport.update({
+    id: '/settings',
+    path: '/settings',
+    getParentRoute: () => DashboardProjectProjectIdLayoutRoute,
+  } as any)
+const DashboardProjectProjectIdNetworkingRoute =
+  DashboardProjectProjectIdNetworkingRouteImport.update({
+    id: '/networking',
+    path: '/networking',
+    getParentRoute: () => DashboardProjectProjectIdLayoutRoute,
+  } as any)
+const DashboardProjectProjectIdLogsRoute =
+  DashboardProjectProjectIdLogsRouteImport.update({
+    id: '/logs',
+    path: '/logs',
+    getParentRoute: () => DashboardProjectProjectIdLayoutRoute,
+  } as any)
+const DashboardProjectProjectIdDeploymentsRoute =
+  DashboardProjectProjectIdDeploymentsRouteImport.update({
+    id: '/deployments',
+    path: '/deployments',
+    getParentRoute: () => DashboardProjectProjectIdLayoutRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof DashboardIndexRoute
   '/auth': typeof AuthLayoutRouteWithChildren
   '/project': typeof DashboardProjectLayoutRouteWithChildren
+  '/activity': typeof DashboardActivityRoute
+  '/members': typeof DashboardMembersRoute
+  '/routing': typeof DashboardRoutingRoute
+  '/servers': typeof DashboardServersRoute
+  '/settings': typeof DashboardSettingsRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
   '/project/$projectId': typeof DashboardProjectProjectIdLayoutRouteWithChildren
+  '/project/$projectId/deployments': typeof DashboardProjectProjectIdDeploymentsRoute
+  '/project/$projectId/logs': typeof DashboardProjectProjectIdLogsRoute
+  '/project/$projectId/networking': typeof DashboardProjectProjectIdNetworkingRoute
+  '/project/$projectId/settings': typeof DashboardProjectProjectIdSettingsRoute
+  '/project/$projectId/variables': typeof DashboardProjectProjectIdVariablesRoute
   '/project/$projectId/': typeof DashboardProjectProjectIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthLayoutRouteWithChildren
   '/project': typeof DashboardProjectLayoutRouteWithChildren
+  '/activity': typeof DashboardActivityRoute
+  '/members': typeof DashboardMembersRoute
+  '/routing': typeof DashboardRoutingRoute
+  '/servers': typeof DashboardServersRoute
+  '/settings': typeof DashboardSettingsRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
   '/': typeof DashboardIndexRoute
+  '/project/$projectId/deployments': typeof DashboardProjectProjectIdDeploymentsRoute
+  '/project/$projectId/logs': typeof DashboardProjectProjectIdLogsRoute
+  '/project/$projectId/networking': typeof DashboardProjectProjectIdNetworkingRoute
+  '/project/$projectId/settings': typeof DashboardProjectProjectIdSettingsRoute
+  '/project/$projectId/variables': typeof DashboardProjectProjectIdVariablesRoute
   '/project/$projectId': typeof DashboardProjectProjectIdIndexRoute
 }
 export interface FileRoutesById {
@@ -82,10 +167,20 @@ export interface FileRoutesById {
   '/_dashboard': typeof DashboardLayoutRouteWithChildren
   '/auth': typeof AuthLayoutRouteWithChildren
   '/_dashboard/project': typeof DashboardProjectLayoutRouteWithChildren
+  '/_dashboard/activity': typeof DashboardActivityRoute
+  '/_dashboard/members': typeof DashboardMembersRoute
+  '/_dashboard/routing': typeof DashboardRoutingRoute
+  '/_dashboard/servers': typeof DashboardServersRoute
+  '/_dashboard/settings': typeof DashboardSettingsRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
   '/_dashboard/': typeof DashboardIndexRoute
   '/_dashboard/project/$projectId': typeof DashboardProjectProjectIdLayoutRouteWithChildren
+  '/_dashboard/project/$projectId/deployments': typeof DashboardProjectProjectIdDeploymentsRoute
+  '/_dashboard/project/$projectId/logs': typeof DashboardProjectProjectIdLogsRoute
+  '/_dashboard/project/$projectId/networking': typeof DashboardProjectProjectIdNetworkingRoute
+  '/_dashboard/project/$projectId/settings': typeof DashboardProjectProjectIdSettingsRoute
+  '/_dashboard/project/$projectId/variables': typeof DashboardProjectProjectIdVariablesRoute
   '/_dashboard/project/$projectId/': typeof DashboardProjectProjectIdIndexRoute
 }
 export interface FileRouteTypes {
@@ -94,27 +189,57 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/project'
+    | '/activity'
+    | '/members'
+    | '/routing'
+    | '/servers'
+    | '/settings'
     | '/auth/sign-in'
     | '/auth/sign-up'
     | '/project/$projectId'
+    | '/project/$projectId/deployments'
+    | '/project/$projectId/logs'
+    | '/project/$projectId/networking'
+    | '/project/$projectId/settings'
+    | '/project/$projectId/variables'
     | '/project/$projectId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
     | '/project'
+    | '/activity'
+    | '/members'
+    | '/routing'
+    | '/servers'
+    | '/settings'
     | '/auth/sign-in'
     | '/auth/sign-up'
     | '/'
+    | '/project/$projectId/deployments'
+    | '/project/$projectId/logs'
+    | '/project/$projectId/networking'
+    | '/project/$projectId/settings'
+    | '/project/$projectId/variables'
     | '/project/$projectId'
   id:
     | '__root__'
     | '/_dashboard'
     | '/auth'
     | '/_dashboard/project'
+    | '/_dashboard/activity'
+    | '/_dashboard/members'
+    | '/_dashboard/routing'
+    | '/_dashboard/servers'
+    | '/_dashboard/settings'
     | '/auth/sign-in'
     | '/auth/sign-up'
     | '/_dashboard/'
     | '/_dashboard/project/$projectId'
+    | '/_dashboard/project/$projectId/deployments'
+    | '/_dashboard/project/$projectId/logs'
+    | '/_dashboard/project/$projectId/networking'
+    | '/_dashboard/project/$projectId/settings'
+    | '/_dashboard/project/$projectId/variables'
     | '/_dashboard/project/$projectId/'
   fileRoutesById: FileRoutesById
 }
@@ -160,6 +285,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthSignInRouteImport
       parentRoute: typeof AuthLayoutRoute
     }
+    '/_dashboard/settings': {
+      id: '/_dashboard/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof DashboardSettingsRouteImport
+      parentRoute: typeof DashboardLayoutRoute
+    }
+    '/_dashboard/servers': {
+      id: '/_dashboard/servers'
+      path: '/servers'
+      fullPath: '/servers'
+      preLoaderRoute: typeof DashboardServersRouteImport
+      parentRoute: typeof DashboardLayoutRoute
+    }
+    '/_dashboard/routing': {
+      id: '/_dashboard/routing'
+      path: '/routing'
+      fullPath: '/routing'
+      preLoaderRoute: typeof DashboardRoutingRouteImport
+      parentRoute: typeof DashboardLayoutRoute
+    }
+    '/_dashboard/members': {
+      id: '/_dashboard/members'
+      path: '/members'
+      fullPath: '/members'
+      preLoaderRoute: typeof DashboardMembersRouteImport
+      parentRoute: typeof DashboardLayoutRoute
+    }
+    '/_dashboard/activity': {
+      id: '/_dashboard/activity'
+      path: '/activity'
+      fullPath: '/activity'
+      preLoaderRoute: typeof DashboardActivityRouteImport
+      parentRoute: typeof DashboardLayoutRoute
+    }
     '/_dashboard/project': {
       id: '/_dashboard/project'
       path: '/project'
@@ -181,15 +341,64 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardProjectProjectIdIndexRouteImport
       parentRoute: typeof DashboardProjectProjectIdLayoutRoute
     }
+    '/_dashboard/project/$projectId/variables': {
+      id: '/_dashboard/project/$projectId/variables'
+      path: '/variables'
+      fullPath: '/project/$projectId/variables'
+      preLoaderRoute: typeof DashboardProjectProjectIdVariablesRouteImport
+      parentRoute: typeof DashboardProjectProjectIdLayoutRoute
+    }
+    '/_dashboard/project/$projectId/settings': {
+      id: '/_dashboard/project/$projectId/settings'
+      path: '/settings'
+      fullPath: '/project/$projectId/settings'
+      preLoaderRoute: typeof DashboardProjectProjectIdSettingsRouteImport
+      parentRoute: typeof DashboardProjectProjectIdLayoutRoute
+    }
+    '/_dashboard/project/$projectId/networking': {
+      id: '/_dashboard/project/$projectId/networking'
+      path: '/networking'
+      fullPath: '/project/$projectId/networking'
+      preLoaderRoute: typeof DashboardProjectProjectIdNetworkingRouteImport
+      parentRoute: typeof DashboardProjectProjectIdLayoutRoute
+    }
+    '/_dashboard/project/$projectId/logs': {
+      id: '/_dashboard/project/$projectId/logs'
+      path: '/logs'
+      fullPath: '/project/$projectId/logs'
+      preLoaderRoute: typeof DashboardProjectProjectIdLogsRouteImport
+      parentRoute: typeof DashboardProjectProjectIdLayoutRoute
+    }
+    '/_dashboard/project/$projectId/deployments': {
+      id: '/_dashboard/project/$projectId/deployments'
+      path: '/deployments'
+      fullPath: '/project/$projectId/deployments'
+      preLoaderRoute: typeof DashboardProjectProjectIdDeploymentsRouteImport
+      parentRoute: typeof DashboardProjectProjectIdLayoutRoute
+    }
   }
 }
 
 interface DashboardProjectProjectIdLayoutRouteChildren {
+  DashboardProjectProjectIdDeploymentsRoute: typeof DashboardProjectProjectIdDeploymentsRoute
+  DashboardProjectProjectIdLogsRoute: typeof DashboardProjectProjectIdLogsRoute
+  DashboardProjectProjectIdNetworkingRoute: typeof DashboardProjectProjectIdNetworkingRoute
+  DashboardProjectProjectIdSettingsRoute: typeof DashboardProjectProjectIdSettingsRoute
+  DashboardProjectProjectIdVariablesRoute: typeof DashboardProjectProjectIdVariablesRoute
   DashboardProjectProjectIdIndexRoute: typeof DashboardProjectProjectIdIndexRoute
 }
 
 const DashboardProjectProjectIdLayoutRouteChildren: DashboardProjectProjectIdLayoutRouteChildren =
   {
+    DashboardProjectProjectIdDeploymentsRoute:
+      DashboardProjectProjectIdDeploymentsRoute,
+    DashboardProjectProjectIdLogsRoute: DashboardProjectProjectIdLogsRoute,
+    DashboardProjectProjectIdNetworkingRoute:
+      DashboardProjectProjectIdNetworkingRoute,
+    DashboardProjectProjectIdSettingsRoute:
+      DashboardProjectProjectIdSettingsRoute,
+    DashboardProjectProjectIdVariablesRoute:
+      DashboardProjectProjectIdVariablesRoute,
     DashboardProjectProjectIdIndexRoute: DashboardProjectProjectIdIndexRoute,
   }
 
@@ -215,11 +424,21 @@ const DashboardProjectLayoutRouteWithChildren =
 
 interface DashboardLayoutRouteChildren {
   DashboardProjectLayoutRoute: typeof DashboardProjectLayoutRouteWithChildren
+  DashboardActivityRoute: typeof DashboardActivityRoute
+  DashboardMembersRoute: typeof DashboardMembersRoute
+  DashboardRoutingRoute: typeof DashboardRoutingRoute
+  DashboardServersRoute: typeof DashboardServersRoute
+  DashboardSettingsRoute: typeof DashboardSettingsRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
 }
 
 const DashboardLayoutRouteChildren: DashboardLayoutRouteChildren = {
   DashboardProjectLayoutRoute: DashboardProjectLayoutRouteWithChildren,
+  DashboardActivityRoute: DashboardActivityRoute,
+  DashboardMembersRoute: DashboardMembersRoute,
+  DashboardRoutingRoute: DashboardRoutingRoute,
+  DashboardServersRoute: DashboardServersRoute,
+  DashboardSettingsRoute: DashboardSettingsRoute,
   DashboardIndexRoute: DashboardIndexRoute,
 }
 
