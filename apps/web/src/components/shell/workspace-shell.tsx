@@ -34,6 +34,7 @@ export function WorkspaceShell({ middle, innerRail, children }: Props) {
         }}
         middle={middle}
         onOpenCommandPalette={() => {
+          // TODO(plan-5): replace synthetic keyboard event with a shared open-state context. The CommandPalette listens for keydown on document; this dispatch piggybacks on that listener so the button click reaches the same code path. Brittle: any future global Cmd+K handler will see this fake event.
           document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }));
         }}
       />

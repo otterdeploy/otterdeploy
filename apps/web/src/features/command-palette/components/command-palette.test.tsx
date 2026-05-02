@@ -24,4 +24,12 @@ describe("CommandPalette", () => {
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog")).toBeNull();
   });
+
+  it("opens when a synthetic Cmd+K keydown is dispatched on document", async () => {
+    // BreadcrumbBar's search button uses this exact dispatch to open the palette.
+    // If this contract changes, the breadcrumb button stops working silently.
+    render(<CommandPalette />);
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }));
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+  });
 });
