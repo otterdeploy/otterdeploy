@@ -3,7 +3,7 @@ import { createMemoryHistory, createRootRoute, createRoute, createRouter, Router
 import { render, type RenderResult } from "@testing-library/react";
 import type { ReactElement } from "react";
 
-export function renderWithRouter(ui: ReactElement, initialPath = "/"): RenderResult {
+export async function renderWithRouter(ui: ReactElement, initialPath = "/"): Promise<RenderResult> {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const rootRoute = createRootRoute({ component: () => ui });
   const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", component: () => ui });
@@ -11,6 +11,7 @@ export function renderWithRouter(ui: ReactElement, initialPath = "/"): RenderRes
     routeTree: rootRoute.addChildren([indexRoute]),
     history: createMemoryHistory({ initialEntries: [initialPath] }),
   });
+  await router.load();
   return render(
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
