@@ -3,8 +3,9 @@ import type { Context } from "./context";
 import { implement, os as orpc } from "@orpc/server";
 
 import { envContract } from "./routers/env/contract";
+import { projectContract } from "./routers/project/contract";
 
-export const publicProcedure = implement({ env: envContract }).$context<Context>();
+export const publicProcedure = implement({ env: envContract, project: projectContract }).$context<Context>();
 
 const authMiddleware = orpc
   .$context<Context>()

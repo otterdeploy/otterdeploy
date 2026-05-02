@@ -11,5 +11,5 @@ export const db = drizzle(env.DATABASE_URL, {
     token: env.UPSTASH_REDIS_REST_TOKEN,
     global: true,
   }),
-  logger: true,
+  // logger: true,
 });

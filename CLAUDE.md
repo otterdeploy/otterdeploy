@@ -2,6 +2,8 @@
 
 This file provides context about the project for AI assistants.
 
+# All info needed from competitors are in the research and when not sure of things are apporaches lookup theirs. before going to the web
+
 ## Project Overview
 
 - **Ecosystem**: Typescript

@@ -25,10 +25,7 @@
 ### Compose Stacks
 
 A deploy method, not a third type.
-- User provides a `docker-compose.yml` (from repo or upload)
-- Deployed via `docker stack deploy` — Swarm natively consumes Compose files
-- Each container maps to a Service or Resource in the native model
-- Compose file stays source of truth — redeploys re-parse
+
 - Supported keys v1: `image`, `build`, `ports`, `volumes`, `environment`, `depends_on`, `healthcheck`, `networks`, `restart`
 - Unsupported keys warn, don't fail silently
 
