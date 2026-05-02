@@ -24,9 +24,8 @@
 ```
 apps/web/
   package.json                                                          ← MODIFY (add deps)
-  vitest.config.ts                                                       ← CREATE
+  vitest.config.ts                                                       ← CREATE (carries its own /// <reference types="vitest" />)
   vitest.setup.ts                                                        ← CREATE
-  vite.config.ts                                                         ← MODIFY (add /// <reference types="vitest" />)
   src/
     index.css                                                            ← MODIFY (add --brand-* tokens)
     routes/
@@ -110,7 +109,6 @@ apps/web/
 - Modify: `apps/web/package.json`
 - Create: `apps/web/vitest.config.ts`
 - Create: `apps/web/vitest.setup.ts`
-- Modify: `apps/web/vite.config.ts` (add vitest types reference)
 - Create: `apps/web/src/test/utils.tsx`
 
 - [ ] **Step 1: Add runtime deps**
