@@ -15,3 +15,4 @@ export { VolumeNode } from "./components/volume-node";
 export { ServiceNode } from "./components/service-node";
 export { DatabaseNode } from "./components/database-node";
 export { RoutingNode } from "./components/routing-node";
+export { useCanvasNodes } from "./hooks/use-canvas-nodes";
