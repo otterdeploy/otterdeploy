@@ -18,3 +18,4 @@ export { RoutingNode } from "./components/routing-node";
 export { useCanvasNodes } from "./hooks/use-canvas-nodes";
 export { CanvasControls } from "./components/canvas-controls";
 export { Canvas } from "./components/canvas";
+export { MiniCanvasPreview } from "./components/mini-canvas-preview";
