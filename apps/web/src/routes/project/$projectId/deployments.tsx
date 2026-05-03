@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
+import { DeploymentsTable } from "@/features/project-deployments";
 
 export const Route = createFileRoute("/project/$projectId/deployments")({
   component: RouteComponent,
@@ -7,11 +7,14 @@ export const Route = createFileRoute("/project/$projectId/deployments")({
 
 function RouteComponent() {
   return (
-    <div className="grid h-full place-items-center p-8">
-      <Empty>
-        <EmptyTitle>Deployments</EmptyTitle>
-        <EmptyDescription>History across services and environments. Lands in Plan 4.</EmptyDescription>
-      </Empty>
+    <div className="grid gap-4 p-6">
+      <div className="grid gap-1">
+        <h1 className="text-2xl font-semibold tracking-tight">Deployments</h1>
+        <p className="text-sm text-muted-foreground">
+          Build + deploy history across this project's services and environments.
+        </p>
+      </div>
+      <DeploymentsTable scope="project" />
     </div>
   );
 }
