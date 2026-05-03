@@ -91,6 +91,7 @@
         "@uppy/react": "^5.2.0",
         "@uppy/tus": "^5.1.1",
         "@uppy/xhr-upload": "^5.1.1",
+        "@wterm/dom": "^0.3.0",
         "@wterm/ghostty": "^0.3.0",
         "@wterm/react": "^0.3.0",
         "@xyflow/react": "^12.10.1",
