@@ -4,9 +4,7 @@ export type {
   CanvasNodeKind,
   CanvasEdge,
   GroupNode,
-  ServiceNode,
   DatabaseNode,
-  VolumeNode,
   RoutingNode,
   GroupNodeData,
   ServiceNodeData,
@@ -15,3 +13,5 @@ export type {
   RoutingNodeData,
   SelectedResource,
 } from "./types";
+export { VolumeNode } from "./components/volume-node";
+export { ServiceNode } from "./components/service-node";
