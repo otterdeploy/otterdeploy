@@ -6,7 +6,7 @@ const search = z.object({
   env: z.enum(["development", "staging", "production"]).default("development"),
 });
 
-export const Route = createFileRoute("/_dashboard/project/$projectId")({
+export const Route = createFileRoute("/project/$projectId")({
   validateSearch: search,
   component: RouteComponent,
 });

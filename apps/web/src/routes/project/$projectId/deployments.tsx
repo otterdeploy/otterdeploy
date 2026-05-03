@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
 
-export const Route = createFileRoute("/_dashboard/project/$projectId/deployments")({
+export const Route = createFileRoute("/project/$projectId/deployments")({
   component: RouteComponent,
 });
 
