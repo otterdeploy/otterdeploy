@@ -98,8 +98,10 @@ import type { LogsScope } from "../types";
 import type { TerminalHandle } from "@wterm/react";
 
 // Lazy: ~400KB Ghostty WASM core only loads when this component mounts.
+// Renamed the inner @wterm/react Terminal to WTermTerminal to avoid shadowing
+// the outer lazy-wrapper binding.
 const Terminal = lazy(async () => {
-  const [{ Terminal }, { GhosttyCore }] = await Promise.all([
+  const [{ Terminal: WTermTerminal }, { GhosttyCore }] = await Promise.all([
     import("@wterm/react"),
     import("@wterm/ghostty"),
   ]);
@@ -114,14 +116,12 @@ const Terminal = lazy(async () => {
       scope: LogsScope;
       onReady: (handle: TerminalHandle) => void;
     }) {
-      const handleRef = useRef<TerminalHandle | null>(null);
       return (
-        <Terminal
+        <WTermTerminal
           core={core}
           autoResize
           theme="dark"
           ref={(handle) => {
-            handleRef.current = handle;
             if (handle) onReady(handle);
           }}
           className="h-full w-full"
@@ -582,7 +582,8 @@ function RouteComponent() {
       <div className="grid gap-1">
         <h1 className="text-2xl font-semibold tracking-tight">Variables</h1>
         <p className="text-sm text-muted-foreground">
-          Shared env vars per environment, referenced from services as <code>${"$"}{"{"}<code>shared.X</code>{"}"}</code>.
+          Shared env vars per environment, referenced from services as{" "}
+          <code className="text-xs">{"${shared.X}"}</code>.
         </p>
       </div>
       <VariablesTable scope="project" />
@@ -590,8 +591,6 @@ function RouteComponent() {
   );
 }
 ```
-
-If the JSX `${...}` literal in the description text confuses TypeScript, simplify the paragraph to plain prose without code template literals.
 
 - [ ] **Step 6: Type-check + commit**
 
