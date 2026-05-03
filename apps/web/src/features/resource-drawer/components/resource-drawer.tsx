@@ -48,7 +48,13 @@ export function ResourceDrawer({ open, selection, onClose, onDeleted, resourceNa
                 <VariablesTab />
               </TabsPanel>
               <TabsPanel value="logs" className="flex-1 overflow-y-auto">
-                <LogsTab />
+                {selection.kind === "database" ? (
+                  <LogsTab
+                    projectId={selection.projectId}
+                    resourceId={selection.resourceId}
+                    resourceName={resourceName}
+                  />
+                ) : null}
               </TabsPanel>
               <TabsPanel value="settings" className="flex-1 overflow-y-auto">
                 {selection.kind === "database" ? (

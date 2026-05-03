@@ -1,12 +1,15 @@
-import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
+import { LogsTerminal } from "@/features/logs-terminal";
 
-export function LogsTab() {
+type Props = {
+  projectId: string;
+  resourceId: string;
+  resourceName: string;
+};
+
+export function LogsTab({ projectId, resourceId, resourceName }: Props) {
   return (
-    <div className="grid place-items-center p-8">
-      <Empty>
-        <EmptyTitle>Logs</EmptyTitle>
-        <EmptyDescription>Live log tail (Ghostty terminal) lands in Plan 4.</EmptyDescription>
-      </Empty>
+    <div className="h-[calc(100vh-220px)] min-h-[320px]">
+      <LogsTerminal scope={{ kind: "resource", projectId, resourceId, resourceName }} />
     </div>
   );
 }
