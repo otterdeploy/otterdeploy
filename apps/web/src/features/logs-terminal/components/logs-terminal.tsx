@@ -3,6 +3,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { LogsScope } from "../types";
 import type { TerminalHandle } from "@wterm/react";
 
+// The Ghostty WASM is served from /public so the request never hits the SPA
+// catch-all (which would return index.html and produce
+// `WebAssembly.instantiate(): expected magic word 00 61 73 6d, found 3c 21 64 6f`).
+// The package's exports map blocks importing the wasm via subpath, so we copy
+// it from node_modules into apps/web/public/ instead.
+const GHOSTTY_WASM_URL = "/ghostty-vt.wasm";
+
 // Lazy: ~400KB Ghostty WASM core only loads when this component mounts.
 // Renamed the inner @wterm/react Terminal to WTermTerminal to avoid shadowing
 // the outer lazy-wrapper binding.
@@ -12,7 +19,7 @@ const Terminal = lazy(async () => {
     import("@wterm/ghostty"),
   ]);
 
-  const core = await GhosttyCore.load();
+  const core = await GhosttyCore.load({ wasmPath: GHOSTTY_WASM_URL });
 
   return {
     default: function GhosttyTerminal({
