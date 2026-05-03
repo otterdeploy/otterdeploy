@@ -447,8 +447,6 @@ export function CreateProjectDialog() {
 }
 ```
 
-If `FieldDescription` isn't exported from coss, drop the line and use a plain `<p className="mt-1 text-xs text-muted-foreground">` instead.
-
 - [ ] **Step 2: Create `project-list.tsx`**
 
 ```tsx
@@ -525,7 +523,6 @@ function RouteComponent() {
     queries: projects.map((project) => ({
       queryKey: ["project-databases", project.id],
       queryFn: () => client.project.database.listPostgres({ projectId: project.id }),
-      enabled: projects.length > 0,
     })),
   });
 
@@ -533,7 +530,6 @@ function RouteComponent() {
     queries: projects.map((project) => ({
       queryKey: ["project-proxy-routes", project.id],
       queryFn: () => client.project.proxyRoute.list({ projectId: project.id }),
-      enabled: projects.length > 0,
     })),
   });
 
@@ -800,7 +796,6 @@ function RouteComponent() {
     queries: projects.map((project) => ({
       queryKey: ["project-proxy-routes", project.id],
       queryFn: () => client.project.proxyRoute.list({ projectId: project.id }),
-      enabled: projects.length > 0,
     })),
   });
 
@@ -1093,8 +1088,8 @@ export function MembersTable() {
     ? [
         {
           id: me.id,
-          name: me.name ?? me.email ?? "You",
-          email: me.email ?? "",
+          name: me.name,
+          email: me.email,
           role: "owner",
         },
       ]
@@ -1306,7 +1301,7 @@ export function TocSidebar({ sections, activeId, onJump }: Props) {
 - [ ] **Step 2: Create `settings-page.tsx`**
 
 ```tsx
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -1404,12 +1399,11 @@ function Section({ id, title, children }: { id: string; title: string; children:
 }
 
 function SaveButton() {
-  const [pending, setPending] = useState(false);
   return (
     <Tooltip>
       <TooltipTrigger
         render={
-          <Button size="sm" className="w-fit" disabled onClick={() => setPending(pending)}>
+          <Button size="sm" className="w-fit" disabled>
             Save
           </Button>
         }
@@ -1420,7 +1414,7 @@ function SaveButton() {
 }
 ```
 
-- [ ] **Step 3: Append to `index.ts`**
+- [ ] **Step 3: Create `apps/web/src/features/workspace-settings/index.ts`** (Task 8 deliberately did not create this barrel; it's created here once both the hook and the page exist)
 
 ```ts
 export { SettingsPage } from "./components/settings-page";
