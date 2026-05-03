@@ -1740,11 +1740,11 @@ git -c commit.gpgsign=false commit -m "feat(web): mini-canvas SVG preview compon
 ## Task 14: Wire it all together in the canvas route
 
 **Files:**
-- Modify: `apps/web/src/routes/_dashboard/project/$projectId/index.tsx` (currently the Empty placeholder; replace with the real composition)
+- Modify: `apps/web/src/routes/_project/project/$projectId/index.tsx` (currently the Empty placeholder; replace with the real composition)
 
 This is the integration task. The route loads the project + databases + proxy routes, derives nodes via `useCanvasNodes`, renders `<Canvas>` + `<ResourceDrawer>` + `<AddResourceSheet>`, and wires selection state via `useResourceDrawer`.
 
-- [ ] **Step 1: Rewrite `apps/web/src/routes/_dashboard/project/$projectId/index.tsx`**
+- [ ] **Step 1: Rewrite `apps/web/src/routes/_project/project/$projectId/index.tsx`**
 
 ```tsx
 import { useState } from "react";
@@ -1760,7 +1760,7 @@ import { Canvas, useCanvasNodes, type CanvasNode } from "@/features/project-canv
 import { ResourceDrawer, useResourceDrawer } from "@/features/resource-drawer";
 import { client, queryClient } from "@/utils/orpc";
 
-export const Route = createFileRoute("/_dashboard/project/$projectId/")({
+export const Route = createFileRoute("/_project/project/$projectId/")({
   component: RouteComponent,
 });
 
@@ -1866,7 +1866,7 @@ If type errors surface (e.g. coss `Sheet`'s `onOpenChange` shape doesn't match w
 - [ ] **Step 3: Commit**
 
 ```bash
-git add apps/web/src/routes/_dashboard/project/$projectId/index.tsx
+git add apps/web/src/routes/_project/project/$projectId/index.tsx
 git -c commit.gpgsign=false commit -m "feat(web): wire project canvas + drawer + add-sheet into the canvas route"
 ```
 
