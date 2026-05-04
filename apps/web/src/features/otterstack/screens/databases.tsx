@@ -9,7 +9,7 @@ import {
   ALL_PROJECTS,
   ProjectFilterStrip,
   ProjectTagBadge,
-  ProjectTagChips,
+  ProjectPicker,
   matchesProjectFilter,
 } from "../components/project-filter";
 
@@ -21,17 +21,17 @@ export function Databases() {
 
   const counts = useMemo(() => {
     const out: Record<string, number> = {};
-    for (const p of PROJECTS) out[p.id] = dbs.filter((d) => d.projectTags?.includes(p.id)).length;
+    for (const p of PROJECTS) out[p.id] = dbs.filter((d) => d.project === p.id).length;
     return out;
   }, [dbs]);
 
   const filtered = useMemo(
-    () => dbs.filter((d) => matchesProjectFilter(filter, d.projectTags)),
+    () => dbs.filter((d) => matchesProjectFilter(filter, d.project ? [d.project] : [])),
     [dbs, filter],
   );
 
-  const setProjectTags = (id: string, tags: string[]) =>
-    setDbs((ds) => ds.map((d) => (d.id === id ? { ...d, projectTags: tags } : d)));
+  const setProject = (id: string, project: string | undefined) =>
+    setDbs((ds) => ds.map((d) => (d.id === id ? { ...d, project } : d)));
   return (
     <div className="os-scroll" style={{ flex: 1, overflow: "auto", padding: 24 }}>
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
@@ -57,7 +57,7 @@ export function Databases() {
               key={db.id}
               db={db}
               onConsole={() => setConsoleDb(db)}
-              onProjectTags={(tags) => setProjectTags(db.id, tags)}
+              onProject={(project) => setProject(db.id, project)}
             />
           ))}
         </div>
@@ -129,7 +129,7 @@ function DBConsoleModal({ db, onClose }: { db: Service; onClose: () => void }) {
                 kind,
                 title: db.name,
                 subtitle: kind,
-                projectTags: db.projectTags,
+                projectTags: db.project ? [db.project] : undefined,
                 target: dbTarget(db.name, kind),
               },
             ]}
@@ -156,11 +156,11 @@ function SectionH({ title, sub }: { title: string; sub?: string }) {
 function DBCard({
   db,
   onConsole,
-  onProjectTags,
+  onProject,
 }: {
   db: Service;
   onConsole: () => void;
-  onProjectTags: (tags: string[]) => void;
+  onProject: (project: string | undefined) => void;
 }) {
   const storage = db.storage ?? { used: 0, total: 1, unit: "GB" };
   const used = (storage.used / storage.total) * 100;
@@ -186,9 +186,7 @@ function DBCard({
               {db.name}
             </span>
             <span className="badge mono">{db.version}</span>
-            {(db.projectTags ?? []).map((id) => (
-              <ProjectTagBadge key={id} id={id} />
-            ))}
+            {db.project && <ProjectTagBadge id={db.project} />}
           </div>
           <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
             port {db.port} · 1 primary, 0 replicas
@@ -210,10 +208,11 @@ function DBCard({
         <span className="muted" style={{ fontSize: 11 }}>
           Project tags
         </span>
-        <ProjectTagChips
-          value={db.projectTags ?? []}
-          onChange={onProjectTags}
-          empty="Untagged — not visible in any project filter"
+        <ProjectPicker
+          value={db.project}
+          onChange={onProject}
+          allowNone
+          noneLabel="Untagged — not visible in any project filter"
         />
       </div>
 

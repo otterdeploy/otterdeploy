@@ -1043,7 +1043,7 @@ function SD_Terminal({ service }: { service: Service }) {
           kind,
           title: service.name,
           subtitle: kind,
-          projectTags: service.projectTags,
+          projectTags: service.project ? [service.project] : undefined,
           target: dbTarget(service.name, kind),
         },
       ];
@@ -1059,7 +1059,7 @@ function SD_Terminal({ service }: { service: Service }) {
         kind: "shell" as const,
         title: service.name,
         subtitle: replicaName,
-        projectTags: service.projectTags,
+        projectTags: service.project ? [service.project] : undefined,
         target: shellTarget(service.name, replicaId, replicaName),
       };
     });

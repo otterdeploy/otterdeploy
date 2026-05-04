@@ -6,7 +6,7 @@ describe("OuterRail", () => {
   it("renders one icon per outer rail item", async () => {
     const { container } = await renderWithRouter(<OuterRail currentHref="/" />);
     const links = container.querySelectorAll("a[data-rail-item]");
-    expect(links.length).toBe(6);
+    expect(links.length).toBe(10);
   });
 
   it("marks the link matching currentHref as active", async () => {

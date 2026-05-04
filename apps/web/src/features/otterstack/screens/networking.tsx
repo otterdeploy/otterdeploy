@@ -10,7 +10,7 @@ import {
   ALL_PROJECTS,
   ProjectFilterStrip,
   ProjectTagBadge,
-  ProjectTagChips,
+  ProjectPicker,
   matchesProjectFilter,
 } from "../components/project-filter";
 
@@ -27,7 +27,8 @@ type Route = {
   encode: boolean;
   basicAuth: boolean;
   healthcheck: string;
-  projectTags: string[];
+  /** Owner project. Routes inherit from their owning service. */
+  project?: string;
 };
 
 export function Networking() {
@@ -45,7 +46,7 @@ export function Networking() {
         encode: true,
         basicAuth: false,
         healthcheck: "/health",
-        projectTags: s.projectTags ?? [],
+        project: s.project,
       })),
     [],
   );
@@ -56,12 +57,12 @@ export function Networking() {
 
   const counts = useMemo(() => {
     const out: Record<string, number> = {};
-    for (const p of PROJECTS) out[p.id] = routes.filter((r) => r.projectTags.includes(p.id)).length;
+    for (const p of PROJECTS) out[p.id] = routes.filter((r) => r.project === p.id).length;
     return out;
   }, [routes]);
 
   const filteredRoutes = useMemo(
-    () => routes.filter((r) => matchesProjectFilter(filter, r.projectTags)),
+    () => routes.filter((r) => matchesProjectFilter(filter, r.project ? [r.project] : [])),
     [routes, filter],
   );
 
@@ -259,11 +260,9 @@ function RouteRow({
           )}
           <span className="mono" style={{ fontWeight: 500 }}>{r.name}</span>
         </span>
-        {r.projectTags.length > 0 && (
-          <span className="row gap-1" style={{ flexWrap: "wrap" }}>
-            {r.projectTags.map((id) => (
-              <ProjectTagBadge key={id} id={id} />
-            ))}
+        {r.project && (
+          <span className="row gap-1">
+            <ProjectTagBadge id={r.project} />
           </span>
         )}
       </span>
@@ -666,11 +665,12 @@ function RouteEditor({
             />
           </Field>
 
-          <Field label="Project tags">
-            <ProjectTagChips
-              value={r.projectTags}
-              onChange={(tags) => setR({ ...r, projectTags: tags })}
-              empty="No project filter — visible in every project"
+          <Field label="Owner project">
+            <ProjectPicker
+              value={r.project}
+              onChange={(project) => setR({ ...r, project })}
+              allowNone
+              noneLabel="Cluster-wide route (no owner project)"
             />
           </Field>
           <SettingRow label="Compression (zstd, gzip)" sub="Encode responses to clients" defaultOn={r.encode} />

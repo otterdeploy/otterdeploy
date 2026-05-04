@@ -262,3 +262,39 @@ export function matchesProjectFilter(active: string, tags: string[] | undefined)
   if (!tags || tags.length === 0) return true; // general pool
   return tags.includes(active);
 }
+
+/** Single-select project picker. Used for the canonical "owner project" field on a resource. */
+export function ProjectPicker({
+  value,
+  onChange,
+  allowNone = false,
+  noneLabel = "—",
+}: {
+  value: string | undefined;
+  onChange: (next: string | undefined) => void;
+  /** When true, includes a "no project" option (general pool semantics). */
+  allowNone?: boolean;
+  noneLabel?: string;
+}) {
+  const project = value ? PROJECTS.find((p) => p.id === value) : undefined;
+  return (
+    <div className="row gap-2" style={{ alignItems: "center" }}>
+      {project && (
+        <span style={{ width: 8, height: 8, borderRadius: "50%", background: project.color }} />
+      )}
+      <select
+        className="input"
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value === "" ? undefined : e.target.value)}
+        style={{ width: 280 }}
+      >
+        {allowNone && <option value="">{noneLabel}</option>}
+        {PROJECTS.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.name}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}

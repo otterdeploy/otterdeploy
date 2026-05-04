@@ -28,8 +28,8 @@ export type Service = {
   author?: string;
   storage?: { used: number; total: number; unit: string };
   version?: string;
-  /** Project tags this resource is associated with. Used for filtering & placement. */
-  projectTags?: string[];
+  /** Owner project. Cross-project consumers reach this resource over internal DNS. */
+  project?: string;
 };
 
 export const PROJECT = {
@@ -71,7 +71,7 @@ export const SERVICES: Service[] = [
     commit: "8a2c1f9",
     commitMsg: "fix: skeleton flash on /pricing",
     author: "mira",
-    projectTags: ["helio"],
+    project: "helio",
   },
   {
     id: "api",
@@ -93,7 +93,7 @@ export const SERVICES: Service[] = [
     commit: "3f9b042",
     commitMsg: "feat: idempotency keys on /v1/charges",
     author: "arjun",
-    projectTags: ["helio", "billing"],
+    project: "helio",
   },
   {
     id: "worker",
@@ -115,7 +115,7 @@ export const SERVICES: Service[] = [
     commit: "c1ad5e2",
     commitMsg: "chore: bump celery to 5.4",
     author: "mira",
-    projectTags: ["helio"],
+    project: "helio",
   },
   {
     id: "postgres",
@@ -131,7 +131,7 @@ export const SERVICES: Service[] = [
     storage: { used: 12.4, total: 50, unit: "GB" },
     pos: { x: 700, y: 100 },
     version: "16.2",
-    projectTags: ["helio", "billing", "internal"],
+    project: "helio",
   },
   {
     id: "redis",
@@ -147,7 +147,7 @@ export const SERVICES: Service[] = [
     storage: { used: 0.12, total: 1, unit: "GB" },
     pos: { x: 700, y: 280 },
     version: "7.2",
-    projectTags: ["helio", "billing"],
+    project: "helio",
   },
   {
     id: "imgproxy",
@@ -163,7 +163,7 @@ export const SERVICES: Service[] = [
     pos: { x: 700, y: 440 },
     deploys: 4,
     lastDeploy: "12d ago",
-    projectTags: ["helio", "marketing"],
+    project: "helio",
   },
 ];
 
@@ -435,8 +435,8 @@ export type Node = {
   joined: string;
   daemonVersion: string;
   labels?: string[];
-  /** Project tags this node is dedicated to. Empty = general pool (any project). */
-  projectTags?: string[];
+  /** Owner project. Undefined = general pool (any project can place tasks here). */
+  project?: string;
 };
 
 export const NODES: Node[] = [
@@ -455,7 +455,6 @@ export const NODES: Node[] = [
     joined: "62d ago",
     daemonVersion: "26.1.4",
     labels: ["primary", "ssd"],
-    projectTags: [],
   },
   {
     id: "n2",
@@ -472,7 +471,7 @@ export const NODES: Node[] = [
     joined: "62d ago",
     daemonVersion: "26.1.4",
     labels: ["ssd"],
-    projectTags: ["helio", "billing"],
+    project: "helio",
   },
   {
     id: "n3",
@@ -489,7 +488,7 @@ export const NODES: Node[] = [
     joined: "47d ago",
     daemonVersion: "26.1.4",
     labels: ["gpu", "ssd"],
-    projectTags: ["marketing", "internal"],
+    project: "marketing",
   },
 ];
 

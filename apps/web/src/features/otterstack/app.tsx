@@ -20,6 +20,24 @@ import { ProjectWorkspace } from "./screens/project-workspace";
 import { Servers } from "./screens/servers";
 import { TerminalWorkspace } from "./components/terminal-workspace";
 
+// Infrastructure (operational)
+import { Templates } from "./screens/templates";
+import { Backups } from "./screens/backups";
+import { Volumes } from "./screens/volumes";
+import { EdgeLogs } from "./screens/edge-logs";
+import { Audit } from "./screens/audit";
+import { DockerRaw } from "./screens/docker-raw";
+
+// Cluster admin (configuration)
+import { GitProviders } from "./screens/git-providers";
+import { Registries } from "./screens/registries";
+import { SshKeys } from "./screens/ssh-keys";
+import { Notifications } from "./screens/notifications";
+import { Certificates } from "./screens/certificates";
+import { ApiTokens } from "./screens/api-tokens";
+import { Webhooks } from "./screens/webhooks";
+import { ClusterSettings } from "./screens/cluster-settings";
+
 import { DEPLOYMENTS, type Deployment, type Env } from "./data";
 import { rid } from "./data";
 
@@ -37,7 +55,23 @@ export type Tab =
   | "settings"
   | "new-service"
   | "service"
-  | `service:${string}`;
+  | `service:${string}`
+  // Infrastructure (operational)
+  | "templates"
+  | "backups"
+  | "volumes"
+  | "edge-logs"
+  | "audit"
+  | "docker-raw"
+  // Cluster admin (configuration)
+  | "git-providers"
+  | "registries"
+  | "ssh-keys"
+  | "notifications"
+  | "certificates"
+  | "api-tokens"
+  | "webhooks"
+  | "cluster-settings";
 
 type Props = Record<string, never>;
 
@@ -182,6 +216,20 @@ export function OtterstackApp(_: Props) {
   else if (tab === "terminal") hero = <TerminalWorkspace />;
   else if (tab === "metrics") hero = <Metrics />;
   else if (tab === "settings") hero = <Settings />;
+  else if (tab === "templates") hero = <Templates />;
+  else if (tab === "backups") hero = <Backups />;
+  else if (tab === "volumes") hero = <Volumes />;
+  else if (tab === "edge-logs") hero = <EdgeLogs />;
+  else if (tab === "audit") hero = <Audit />;
+  else if (tab === "docker-raw") hero = <DockerRaw />;
+  else if (tab === "git-providers") hero = <GitProviders />;
+  else if (tab === "registries") hero = <Registries />;
+  else if (tab === "ssh-keys") hero = <SshKeys />;
+  else if (tab === "notifications") hero = <Notifications />;
+  else if (tab === "certificates") hero = <Certificates />;
+  else if (tab === "api-tokens") hero = <ApiTokens />;
+  else if (tab === "webhooks") hero = <Webhooks />;
+  else if (tab === "cluster-settings") hero = <ClusterSettings />;
 
   return (
     <div className="os-app">

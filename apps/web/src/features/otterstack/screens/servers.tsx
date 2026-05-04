@@ -17,7 +17,7 @@ import { TerminalWorkspace, sshTarget } from "../components/terminal-workspace";
 import {
   ALL_PROJECTS,
   ProjectFilterStrip,
-  ProjectTagChips,
+  ProjectPicker,
   matchesProjectFilter,
 } from "../components/project-filter";
 import { PROJECTS } from "../data";
@@ -29,16 +29,16 @@ export function Servers() {
   const [filter, setFilter] = useState<string>(ALL_PROJECTS);
 
   const filteredNodes = useMemo(
-    () => nodes.filter((n) => matchesProjectFilter(filter, n.projectTags)),
+    () => nodes.filter((n) => matchesProjectFilter(filter, n.project ? [n.project] : [])),
     [nodes, filter],
   );
 
-  // Per-tag counts for the strip — count nodes whose tag list includes the project,
-  // and count "general pool" nodes (no tags) under every project too.
+  // Per-project counts for the strip — count nodes pinned to a project,
+  // and count "general pool" nodes (untagged) under every project too.
   const counts = useMemo(() => {
     const out: Record<string, number> = {};
     for (const p of PROJECTS) {
-      out[p.id] = nodes.filter((n) => !n.projectTags || n.projectTags.length === 0 || n.projectTags.includes(p.id)).length;
+      out[p.id] = nodes.filter((n) => !n.project || n.project === p.id).length;
     }
     return out;
   }, [nodes]);
@@ -54,8 +54,8 @@ export function Servers() {
 
   const setAvailability = (id: string, av: Node["availability"]) =>
     setNodes((ns) => ns.map((n) => (n.id === id ? { ...n, availability: av } : n)));
-  const setProjectTags = (id: string, tags: string[]) =>
-    setNodes((ns) => ns.map((n) => (n.id === id ? { ...n, projectTags: tags } : n)));
+  const setProject = (id: string, project: string | undefined) =>
+    setNodes((ns) => ns.map((n) => (n.id === id ? { ...n, project } : n)));
   const remove = (id: string) => {
     setNodes((ns) => ns.filter((n) => n.id !== id));
     setOpenNode(null);
@@ -158,7 +158,7 @@ export function Servers() {
           n={opening}
           onClose={() => setOpenNode(null)}
           onAvailability={(av) => setAvailability(opening.id, av)}
-          onProjectTags={(tags) => setProjectTags(opening.id, tags)}
+          onProject={(project) => setProject(opening.id, project)}
           onRemove={() => remove(opening.id)}
         />
       )}
@@ -226,12 +226,8 @@ function ServerRow({
           <span className="muted mono" style={{ fontSize: 10 }}>
             {n.host}
           </span>
-          {(n.projectTags?.length ?? 0) > 0 ? (
-            <span className="row gap-1" style={{ marginTop: 3, flexWrap: "wrap" }}>
-              {n.projectTags!.map((id) => (
-                <ProjectTagBadgeReadOnly key={id} id={id} />
-              ))}
-            </span>
+          {n.project ? (
+            <ProjectTagBadgeReadOnly id={n.project} />
           ) : (
             <span className="muted" style={{ fontSize: 10 }}>
               general pool
@@ -334,13 +330,13 @@ function ServerDetail({
   n,
   onClose,
   onAvailability,
-  onProjectTags,
+  onProject,
   onRemove,
 }: {
   n: Node;
   onClose: () => void;
   onAvailability: (av: Node["availability"]) => void;
-  onProjectTags: (tags: string[]) => void;
+  onProject: (project: string | undefined) => void;
   onRemove: () => void;
 }) {
   const [tab, setTab] = useState<"overview" | "terminal">("overview");
@@ -426,7 +422,7 @@ function ServerDetail({
                   kind: "ssh",
                   title: n.name,
                   subtitle: n.host,
-                  projectTags: n.projectTags,
+                  projectTags: n.project ? [n.project] : undefined,
                   target: sshTarget(n.name, n.host),
                 },
               ]}
@@ -498,16 +494,17 @@ function ServerDetail({
               className="muted"
               style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}
             >
-              Project tags
+              Pinned to project
             </div>
-            <ProjectTagChips
-              value={n.projectTags ?? []}
-              onChange={onProjectTags}
-              empty="General pool — open to every project"
+            <ProjectPicker
+              value={n.project}
+              onChange={onProject}
+              allowNone
+              noneLabel="General pool (any project)"
             />
             <div className="muted" style={{ fontSize: 11, marginTop: 6 }}>
-              Tagging this node restricts placement: only services from the listed projects can
-              schedule replicas here.
+              Pinning this node to a project restricts placement: only services from that project
+              can schedule replicas here. Leave on general pool to share across all projects.
             </div>
           </div>
 
@@ -579,7 +576,7 @@ function AddServerModal({ onClose, onAdd }: { onClose: () => void; onAdd: (n: No
   const [host, setHost] = useState("10.0.4.14");
   const [region, setRegion] = useState(REGIONS[0]?.id ?? "sfo");
   const [role, setRole] = useState<NodeRole>("worker");
-  const [projectTags, setProjectTagsLocal] = useState<string[]>([]);
+  const [project, setProjectLocal] = useState<string | undefined>(undefined);
   const [copied, setCopied] = useState<"worker" | "manager" | null>(null);
 
   useEffect(() => {
@@ -617,7 +614,7 @@ function AddServerModal({ onClose, onAdd }: { onClose: () => void; onAdd: (n: No
       joined: "just now",
       daemonVersion: "26.1.4",
       labels: [],
-      projectTags,
+      project,
     });
     onClose();
   };
@@ -721,11 +718,12 @@ function AddServerModal({ onClose, onAdd }: { onClose: () => void; onAdd: (n: No
             </Field>
           </div>
 
-          <Field label="Project tags">
-            <ProjectTagChips
-              value={projectTags}
-              onChange={setProjectTagsLocal}
-              empty="Leave empty to put this node in the general pool (any project can place tasks here)"
+          <Field label="Pinned to project">
+            <ProjectPicker
+              value={project}
+              onChange={setProjectLocal}
+              allowNone
+              noneLabel="General pool — any project can place tasks here"
             />
           </Field>
         </div>

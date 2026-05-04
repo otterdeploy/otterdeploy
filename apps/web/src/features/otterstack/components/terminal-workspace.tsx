@@ -318,9 +318,9 @@ function SessionPicker({
   const counts = useMemo(() => {
     const out: Record<string, number> = {};
     for (const p of PROJECTS) {
-      const services = SERVICES.filter((s) => s.kind === "service" && s.projectTags?.includes(p.id)).length;
-      const dbs = SERVICES.filter((s) => s.kind === "database" && s.projectTags?.includes(p.id)).length;
-      const nodes = NODES.filter((n) => !n.projectTags || n.projectTags.length === 0 || n.projectTags.includes(p.id)).length;
+      const services = SERVICES.filter((s) => s.kind === "service" && s.project === p.id).length;
+      const dbs = SERVICES.filter((s) => s.kind === "database" && s.project === p.id).length;
+      const nodes = NODES.filter((n) => !n.project || n.project === p.id).length;
       out[p.id] = services + dbs + nodes;
     }
     return out;
@@ -427,7 +427,7 @@ function ContainerList({
   onPick: (s: TerminalSession) => void;
 }) {
   const services = useMemo(
-    () => SERVICES.filter((s) => s.kind === "service" && matchesProjectFilter(filter, s.projectTags)),
+    () => SERVICES.filter((s) => s.kind === "service" && matchesProjectFilter(filter, s.project ? [s.project] : [])),
     [filter],
   );
   if (services.length === 0) return <EmptyPickerRow text="No services match this filter." />;
@@ -438,14 +438,14 @@ function ContainerList({
           key={s.id}
           name={s.name}
           replicas={s.replicas || 1}
-          tags={s.projectTags ?? []}
+          tags={s.project ? [s.project] : []}
           onPick={(replicaId, replicaName) =>
             onPick({
               id: `shell:${s.id}:${replicaId}`,
               kind: "shell",
               title: s.name,
               subtitle: replicaName,
-              projectTags: s.projectTags,
+              projectTags: s.project ? [s.project] : undefined,
               target: shellTarget(s.name, replicaId, replicaName),
             })
           }
@@ -501,7 +501,7 @@ function ContainerGroup({
 }
 
 function SshList({ filter, onPick }: { filter: string; onPick: (s: TerminalSession) => void }) {
-  const nodes = useMemo(() => NODES.filter((n) => matchesProjectFilter(filter, n.projectTags)), [filter]);
+  const nodes = useMemo(() => NODES.filter((n) => matchesProjectFilter(filter, n.project ? [n.project] : [])), [filter]);
   if (nodes.length === 0) return <EmptyPickerRow text="No nodes match this filter." />;
   return (
     <div className="col gap-1" style={{ padding: 4 }}>
@@ -515,7 +515,7 @@ function SshList({ filter, onPick }: { filter: string; onPick: (s: TerminalSessi
               kind: "ssh",
               title: n.name,
               subtitle: n.host,
-              projectTags: n.projectTags,
+              projectTags: n.project ? [n.project] : undefined,
               target: sshTarget(n.name, n.host),
             })
           }
@@ -539,8 +539,8 @@ function SshList({ filter, onPick }: { filter: string; onPick: (s: TerminalSessi
             {n.host}
           </span>
           <div style={{ flex: 1, display: "flex", justifyContent: "flex-end", flexWrap: "wrap", gap: 4 }}>
-            {(n.projectTags && n.projectTags.length > 0) ? (
-              n.projectTags.map((id) => <ProjectTagBadge key={id} id={id} />)
+            {n.project ? (
+              <ProjectTagBadge id={n.project} />
             ) : (
               <span className="muted" style={{ fontSize: 10 }}>
                 general pool
@@ -558,7 +558,7 @@ function SshList({ filter, onPick }: { filter: string; onPick: (s: TerminalSessi
 
 function DbList({ filter, onPick }: { filter: string; onPick: (s: TerminalSession) => void }) {
   const dbs = useMemo(
-    () => SERVICES.filter((s) => s.kind === "database" && matchesProjectFilter(filter, s.projectTags)),
+    () => SERVICES.filter((s) => s.kind === "database" && matchesProjectFilter(filter, s.project ? [s.project] : [])),
     [filter],
   );
   if (dbs.length === 0) return <EmptyPickerRow text="No databases match this filter." />;
@@ -576,7 +576,7 @@ function DbList({ filter, onPick }: { filter: string; onPick: (s: TerminalSessio
                 kind,
                 title: db.name,
                 subtitle: kind,
-                projectTags: db.projectTags,
+                projectTags: db.project ? [db.project] : undefined,
                 target: dbTarget(db.name, kind),
               })
             }
@@ -600,7 +600,7 @@ function DbList({ filter, onPick }: { filter: string; onPick: (s: TerminalSessio
               {db.image}
             </span>
             <div style={{ flex: 1, display: "flex", justifyContent: "flex-end", flexWrap: "wrap", gap: 4 }}>
-              {(db.projectTags ?? []).map((id) => <ProjectTagBadge key={id} id={id} />)}
+              {db.project && <ProjectTagBadge id={db.project} />}
             </div>
             <span className="muted mono" style={{ fontSize: 10, marginLeft: 8 }}>
               {kind}

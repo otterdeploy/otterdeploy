@@ -1,16 +1,19 @@
 import {
   ActivityIcon,
+  ContainerIcon,
   CogIcon,
+  GaugeIcon,
   LayoutGridIcon,
   NetworkIcon,
   ServerIcon,
+  ScrollTextIcon,
   UsersIcon,
+  WorkflowIcon,
   type LucideIcon,
   // project rail icons:
   BoxIcon,
   KeyRoundIcon,
   RotateCcwIcon,
-  ScrollTextIcon,
   SettingsIcon,
   Share2Icon,
 } from "lucide-react";
@@ -24,6 +27,10 @@ export type RailItem = {
 
 export const outerRailItems: ReadonlyArray<RailItem> = [
   { id: "projects", label: "Projects", href: "/", icon: LayoutGridIcon },
+  { id: "monitoring", label: "Monitoring", href: "/monitoring", icon: GaugeIcon },
+  { id: "requests", label: "Requests", href: "/requests", icon: ScrollTextIcon },
+  { id: "docker", label: "Docker", href: "/docker", icon: ContainerIcon },
+  { id: "swarm", label: "Swarm", href: "/swarm", icon: WorkflowIcon },
   { id: "servers", label: "Servers", href: "/servers", icon: ServerIcon },
   { id: "routing", label: "Routing", href: "/routing", icon: NetworkIcon },
   { id: "activity", label: "Activity", href: "/activity", icon: ActivityIcon },

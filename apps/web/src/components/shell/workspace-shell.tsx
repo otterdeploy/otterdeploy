@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { useRouterState } from "@tanstack/react-router";
 import { OuterRail } from "./outer-rail";
 import { BreadcrumbBar } from "./breadcrumb-bar";
+import { WorkspaceSettingsRail } from "./workspace-settings-rail";
 import type { WorkspaceSummary } from "@/features/workspace-switcher";
 
 const placeholderWorkspace: WorkspaceSummary = {
@@ -23,6 +24,7 @@ type Props = {
 
 export function WorkspaceShell({ middle, innerRail, children }: Props) {
   const location = useRouterState({ select: (s) => s.location.pathname });
+  const settingsRail = location.startsWith("/settings") ? <WorkspaceSettingsRail /> : null;
 
   return (
     <div className="grid h-svh grid-rows-[auto_1fr]">
@@ -40,7 +42,7 @@ export function WorkspaceShell({ middle, innerRail, children }: Props) {
       />
       <div className="grid min-h-0 grid-cols-[auto_auto_1fr]">
         <OuterRail currentHref={location} />
-        {innerRail ?? <div />}
+        {innerRail ?? settingsRail ?? <div />}
         <main className="min-h-0 overflow-auto">{children}</main>
       </div>
     </div>
