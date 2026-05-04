@@ -21,12 +21,6 @@ import { Route as DashboardRoutingRouteImport } from './routes/_dashboard/routin
 import { Route as DashboardMembersRouteImport } from './routes/_dashboard/members'
 import { Route as DashboardActivityRouteImport } from './routes/_dashboard/activity'
 import { Route as ProjectProjectIdLayoutRouteImport } from './routes/project/$projectId/layout'
-import { Route as ProjectProjectIdIndexRouteImport } from './routes/project/$projectId/index'
-import { Route as ProjectProjectIdVariablesRouteImport } from './routes/project/$projectId/variables'
-import { Route as ProjectProjectIdSettingsRouteImport } from './routes/project/$projectId/settings'
-import { Route as ProjectProjectIdNetworkingRouteImport } from './routes/project/$projectId/networking'
-import { Route as ProjectProjectIdLogsRouteImport } from './routes/project/$projectId/logs'
-import { Route as ProjectProjectIdDeploymentsRouteImport } from './routes/project/$projectId/deployments'
 
 const ProjectLayoutRoute = ProjectLayoutRouteImport.update({
   id: '/project',
@@ -87,46 +81,12 @@ const ProjectProjectIdLayoutRoute = ProjectProjectIdLayoutRouteImport.update({
   path: '/$projectId',
   getParentRoute: () => ProjectLayoutRoute,
 } as any)
-const ProjectProjectIdIndexRoute = ProjectProjectIdIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => ProjectProjectIdLayoutRoute,
-} as any)
-const ProjectProjectIdVariablesRoute =
-  ProjectProjectIdVariablesRouteImport.update({
-    id: '/variables',
-    path: '/variables',
-    getParentRoute: () => ProjectProjectIdLayoutRoute,
-  } as any)
-const ProjectProjectIdSettingsRoute =
-  ProjectProjectIdSettingsRouteImport.update({
-    id: '/settings',
-    path: '/settings',
-    getParentRoute: () => ProjectProjectIdLayoutRoute,
-  } as any)
-const ProjectProjectIdNetworkingRoute =
-  ProjectProjectIdNetworkingRouteImport.update({
-    id: '/networking',
-    path: '/networking',
-    getParentRoute: () => ProjectProjectIdLayoutRoute,
-  } as any)
-const ProjectProjectIdLogsRoute = ProjectProjectIdLogsRouteImport.update({
-  id: '/logs',
-  path: '/logs',
-  getParentRoute: () => ProjectProjectIdLayoutRoute,
-} as any)
-const ProjectProjectIdDeploymentsRoute =
-  ProjectProjectIdDeploymentsRouteImport.update({
-    id: '/deployments',
-    path: '/deployments',
-    getParentRoute: () => ProjectProjectIdLayoutRoute,
-  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof DashboardIndexRoute
   '/auth': typeof AuthLayoutRouteWithChildren
   '/project': typeof ProjectLayoutRouteWithChildren
-  '/project/$projectId': typeof ProjectProjectIdLayoutRouteWithChildren
+  '/project/$projectId': typeof ProjectProjectIdLayoutRoute
   '/activity': typeof DashboardActivityRoute
   '/members': typeof DashboardMembersRoute
   '/routing': typeof DashboardRoutingRoute
@@ -134,16 +94,11 @@ export interface FileRoutesByFullPath {
   '/settings': typeof DashboardSettingsRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
-  '/project/$projectId/deployments': typeof ProjectProjectIdDeploymentsRoute
-  '/project/$projectId/logs': typeof ProjectProjectIdLogsRoute
-  '/project/$projectId/networking': typeof ProjectProjectIdNetworkingRoute
-  '/project/$projectId/settings': typeof ProjectProjectIdSettingsRoute
-  '/project/$projectId/variables': typeof ProjectProjectIdVariablesRoute
-  '/project/$projectId/': typeof ProjectProjectIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthLayoutRouteWithChildren
   '/project': typeof ProjectLayoutRouteWithChildren
+  '/project/$projectId': typeof ProjectProjectIdLayoutRoute
   '/activity': typeof DashboardActivityRoute
   '/members': typeof DashboardMembersRoute
   '/routing': typeof DashboardRoutingRoute
@@ -152,19 +107,13 @@ export interface FileRoutesByTo {
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
   '/': typeof DashboardIndexRoute
-  '/project/$projectId/deployments': typeof ProjectProjectIdDeploymentsRoute
-  '/project/$projectId/logs': typeof ProjectProjectIdLogsRoute
-  '/project/$projectId/networking': typeof ProjectProjectIdNetworkingRoute
-  '/project/$projectId/settings': typeof ProjectProjectIdSettingsRoute
-  '/project/$projectId/variables': typeof ProjectProjectIdVariablesRoute
-  '/project/$projectId': typeof ProjectProjectIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_dashboard': typeof DashboardLayoutRouteWithChildren
   '/auth': typeof AuthLayoutRouteWithChildren
   '/project': typeof ProjectLayoutRouteWithChildren
-  '/project/$projectId': typeof ProjectProjectIdLayoutRouteWithChildren
+  '/project/$projectId': typeof ProjectProjectIdLayoutRoute
   '/_dashboard/activity': typeof DashboardActivityRoute
   '/_dashboard/members': typeof DashboardMembersRoute
   '/_dashboard/routing': typeof DashboardRoutingRoute
@@ -173,12 +122,6 @@ export interface FileRoutesById {
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
   '/_dashboard/': typeof DashboardIndexRoute
-  '/project/$projectId/deployments': typeof ProjectProjectIdDeploymentsRoute
-  '/project/$projectId/logs': typeof ProjectProjectIdLogsRoute
-  '/project/$projectId/networking': typeof ProjectProjectIdNetworkingRoute
-  '/project/$projectId/settings': typeof ProjectProjectIdSettingsRoute
-  '/project/$projectId/variables': typeof ProjectProjectIdVariablesRoute
-  '/project/$projectId/': typeof ProjectProjectIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -194,16 +137,11 @@ export interface FileRouteTypes {
     | '/settings'
     | '/auth/sign-in'
     | '/auth/sign-up'
-    | '/project/$projectId/deployments'
-    | '/project/$projectId/logs'
-    | '/project/$projectId/networking'
-    | '/project/$projectId/settings'
-    | '/project/$projectId/variables'
-    | '/project/$projectId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
     | '/project'
+    | '/project/$projectId'
     | '/activity'
     | '/members'
     | '/routing'
@@ -212,12 +150,6 @@ export interface FileRouteTypes {
     | '/auth/sign-in'
     | '/auth/sign-up'
     | '/'
-    | '/project/$projectId/deployments'
-    | '/project/$projectId/logs'
-    | '/project/$projectId/networking'
-    | '/project/$projectId/settings'
-    | '/project/$projectId/variables'
-    | '/project/$projectId'
   id:
     | '__root__'
     | '/_dashboard'
@@ -232,12 +164,6 @@ export interface FileRouteTypes {
     | '/auth/sign-in'
     | '/auth/sign-up'
     | '/_dashboard/'
-    | '/project/$projectId/deployments'
-    | '/project/$projectId/logs'
-    | '/project/$projectId/networking'
-    | '/project/$projectId/settings'
-    | '/project/$projectId/variables'
-    | '/project/$projectId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -332,48 +258,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectProjectIdLayoutRouteImport
       parentRoute: typeof ProjectLayoutRoute
     }
-    '/project/$projectId/': {
-      id: '/project/$projectId/'
-      path: '/'
-      fullPath: '/project/$projectId/'
-      preLoaderRoute: typeof ProjectProjectIdIndexRouteImport
-      parentRoute: typeof ProjectProjectIdLayoutRoute
-    }
-    '/project/$projectId/variables': {
-      id: '/project/$projectId/variables'
-      path: '/variables'
-      fullPath: '/project/$projectId/variables'
-      preLoaderRoute: typeof ProjectProjectIdVariablesRouteImport
-      parentRoute: typeof ProjectProjectIdLayoutRoute
-    }
-    '/project/$projectId/settings': {
-      id: '/project/$projectId/settings'
-      path: '/settings'
-      fullPath: '/project/$projectId/settings'
-      preLoaderRoute: typeof ProjectProjectIdSettingsRouteImport
-      parentRoute: typeof ProjectProjectIdLayoutRoute
-    }
-    '/project/$projectId/networking': {
-      id: '/project/$projectId/networking'
-      path: '/networking'
-      fullPath: '/project/$projectId/networking'
-      preLoaderRoute: typeof ProjectProjectIdNetworkingRouteImport
-      parentRoute: typeof ProjectProjectIdLayoutRoute
-    }
-    '/project/$projectId/logs': {
-      id: '/project/$projectId/logs'
-      path: '/logs'
-      fullPath: '/project/$projectId/logs'
-      preLoaderRoute: typeof ProjectProjectIdLogsRouteImport
-      parentRoute: typeof ProjectProjectIdLayoutRoute
-    }
-    '/project/$projectId/deployments': {
-      id: '/project/$projectId/deployments'
-      path: '/deployments'
-      fullPath: '/project/$projectId/deployments'
-      preLoaderRoute: typeof ProjectProjectIdDeploymentsRouteImport
-      parentRoute: typeof ProjectProjectIdLayoutRoute
-    }
   }
 }
 
@@ -413,36 +297,12 @@ const AuthLayoutRouteWithChildren = AuthLayoutRoute._addFileChildren(
   AuthLayoutRouteChildren,
 )
 
-interface ProjectProjectIdLayoutRouteChildren {
-  ProjectProjectIdDeploymentsRoute: typeof ProjectProjectIdDeploymentsRoute
-  ProjectProjectIdLogsRoute: typeof ProjectProjectIdLogsRoute
-  ProjectProjectIdNetworkingRoute: typeof ProjectProjectIdNetworkingRoute
-  ProjectProjectIdSettingsRoute: typeof ProjectProjectIdSettingsRoute
-  ProjectProjectIdVariablesRoute: typeof ProjectProjectIdVariablesRoute
-  ProjectProjectIdIndexRoute: typeof ProjectProjectIdIndexRoute
-}
-
-const ProjectProjectIdLayoutRouteChildren: ProjectProjectIdLayoutRouteChildren =
-  {
-    ProjectProjectIdDeploymentsRoute: ProjectProjectIdDeploymentsRoute,
-    ProjectProjectIdLogsRoute: ProjectProjectIdLogsRoute,
-    ProjectProjectIdNetworkingRoute: ProjectProjectIdNetworkingRoute,
-    ProjectProjectIdSettingsRoute: ProjectProjectIdSettingsRoute,
-    ProjectProjectIdVariablesRoute: ProjectProjectIdVariablesRoute,
-    ProjectProjectIdIndexRoute: ProjectProjectIdIndexRoute,
-  }
-
-const ProjectProjectIdLayoutRouteWithChildren =
-  ProjectProjectIdLayoutRoute._addFileChildren(
-    ProjectProjectIdLayoutRouteChildren,
-  )
-
 interface ProjectLayoutRouteChildren {
-  ProjectProjectIdLayoutRoute: typeof ProjectProjectIdLayoutRouteWithChildren
+  ProjectProjectIdLayoutRoute: typeof ProjectProjectIdLayoutRoute
 }
 
 const ProjectLayoutRouteChildren: ProjectLayoutRouteChildren = {
-  ProjectProjectIdLayoutRoute: ProjectProjectIdLayoutRouteWithChildren,
+  ProjectProjectIdLayoutRoute: ProjectProjectIdLayoutRoute,
 }
 
 const ProjectLayoutRouteWithChildren = ProjectLayoutRoute._addFileChildren(

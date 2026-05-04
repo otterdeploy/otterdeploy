@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "./styles/otterstack/tokens.css";
+@import "./styles/otterstack/screens3.css";
 
 @custom-variant dark (&:is(.dark *));
 

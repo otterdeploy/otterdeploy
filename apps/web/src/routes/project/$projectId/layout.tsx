@@ -1,21 +1,15 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router";
-import * as z from "zod";
-import { ProjectShell } from "@/components/shell/project-shell";
+import { createFileRoute } from "@tanstack/react-router";
 
-const search = z.object({
-  env: z.enum(["development", "staging", "production"]).default("development"),
-});
+import { OtterstackApp } from "@/features/otterstack/app";
 
 export const Route = createFileRoute("/project/$projectId")({
-  validateSearch: search,
   component: RouteComponent,
 });
 
 function RouteComponent() {
-  const { projectId } = Route.useParams();
   return (
-    <ProjectShell projectId={projectId} projectName={projectId}>
-      <Outlet />
-    </ProjectShell>
+    <div style={{ width: "100vw", height: "100vh", overflow: "hidden" }}>
+      <OtterstackApp />
+    </div>
   );
 }

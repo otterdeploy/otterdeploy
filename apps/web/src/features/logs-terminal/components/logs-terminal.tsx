@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect, useRef } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { LogsScope } from "../types";
 import type { TerminalHandle } from "@wterm/react";
+import "@wterm/dom/css";
 
 // The Ghostty WASM is served from /public so the request never hits the SPA
 // catch-all (which would return index.html and produce
