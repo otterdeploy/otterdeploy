@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { DatabaseLogo } from "@/components/brand/database-logo";
 import { I } from "../icons";
 import { NODES, PROJECTS, SERVICES } from "../data";
 import { Terminal, type TerminalKind, type TerminalTarget } from "./terminal";
@@ -592,7 +593,7 @@ function DbList({ filter, onPick }: { filter: string; onPick: (s: TerminalSessio
             onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-overlay)")}
             onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
           >
-            <I.db width={13} height={13} style={{ color: "var(--fg-3)" }} />
+            <DatabaseLogo value={`${db.name} ${db.image}`} size={13} color="var(--fg-3)" />
             <span className="mono" style={{ fontSize: 12, fontWeight: 500 }}>
               {db.name}
             </span>

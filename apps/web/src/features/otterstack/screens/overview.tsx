@@ -1,3 +1,4 @@
+import { DatabaseLogo } from "@/components/brand/database-logo";
 import { I } from "../icons";
 import { DEPLOYMENTS, SERVICES, type Env, type Service } from "../data";
 import { StatusBadge } from "../components/status-badge";
@@ -155,7 +156,7 @@ function DBTile({ s }: { s: Service }) {
   return (
     <div className="card" style={{ padding: 14 }}>
       <div className="row gap-2">
-        <I.db width={14} height={14} style={{ color: "var(--fg-3)" }} />
+        <DatabaseLogo value={`${s.name} ${s.image}`} size={14} color="var(--fg-3)" />
         <span className="mono" style={{ fontWeight: 500 }}>
           {s.name}
         </span>

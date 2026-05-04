@@ -1,5 +1,5 @@
 {
-  "plugins": ["unicorn", "typescript", "oxc"],
+  "plugins": ["unicorn", "typescript", "oxc", "node"],
   "categories": {},
   "rules": {
     "constructor-super": "warn",
@@ -37,6 +37,10 @@
     "no-self-assign": "warn",
     "no-setter-return": "warn",
     "no-console": "warn",
+    "node/no-process-env": "error",
+    "typescript/no-explicit-any": "error",
+    "typescript/no-unsafe-return": "error",
+    "typescript/no-non-null-assertion": "error",
     "no-shadow-restricted-names": "warn",
     "no-sparse-arrays": "warn",
     "no-this-before-super": "warn",
@@ -106,7 +110,13 @@
     "unicorn/no-useless-length-check": "warn",
     "unicorn/no-useless-spread": "warn",
     "unicorn/prefer-set-size": "warn",
-    "unicorn/prefer-string-starts-ends-with": "warn"
+    "unicorn/prefer-string-starts-ends-with": "warn",
+    "unicorn/filename-case": [
+      "error",
+      {
+        "case": "kebabCase"
+      }
+    ]
   },
   "settings": {
     "jsx-a11y": {
@@ -140,5 +150,5 @@
     "builtin": true
   },
   "globals": {},
-  "ignorePatterns": []
+  "ignorePatterns": ["apps/beta-landing/**", "routeTree.gen.ts"]
 }

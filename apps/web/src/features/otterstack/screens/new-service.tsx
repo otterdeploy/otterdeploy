@@ -8,8 +8,11 @@
 //   - docker image → registry/tag picker
 //   - compose → file upload + parse preview
 
+import type { CSSProperties, ReactNode } from "react";
 import { Fragment, useEffect, useMemo, useState } from "react";
 
+import { DatabaseLogo } from "@/components/brand/database-logo";
+import { SvglLogo } from "@/components/brand/svgl-logo";
 import { I, type IconKey } from "../icons";
 import {
   BUILDERS,
@@ -44,16 +47,42 @@ type Step =
   | "advanced"
   | "review";
 
+type KindTab = "compute" | "data" | "template" | "custom";
+
+type LaunchPreset = {
+  kindId?: string | null;
+  kindTab?: KindTab;
+  step?: Step;
+};
+
 type Port = { port: number; protocol: string; public: boolean; host: string };
 
 type LinkedSecrets = Record<string, boolean>;
 
 const iconKey = (raw: string): IconKey => ((raw as IconKey) in I ? (raw as IconKey) : "doc");
+const sourceBrandSearch = (id: string) =>
+  id === "github" ? "GitHub" : id === "gitlab" ? "GitLab" : id === "gitea" ? "Gitea" : null;
+const registryBrandSearch = (id: string) =>
+  id === "docker"
+    ? "Docker"
+    : id === "ghcr"
+      ? "GitHub"
+      : id === "ecr"
+        ? "AWS"
+        : id === "gcr"
+          ? "Google Cloud"
+          : null;
 
-export function NewService({ onTab }: { onTab: (t: Tab | string) => void }) {
+export function NewService({
+  onTab,
+  initialSelection,
+}: {
+  onTab: (t: Tab | string) => void;
+  initialSelection?: LaunchPreset;
+}) {
   // Top-level state
-  const [kindId, setKindId] = useState<string | null>(null);
-  const [step, setStep] = useState<Step>("kind");
+  const [kindId, setKindId] = useState<string | null>(initialSelection?.kindId ?? null);
+  const [step, setStep] = useState<Step>(initialSelection?.step ?? "kind");
 
   const kind = SERVICE_KINDS.find((k) => k.id === kindId) ?? null;
   const isApp = !!kind && ["app", "worker", "cron", "static", "function"].includes(kind.id);
@@ -142,6 +171,12 @@ export function NewService({ onTab }: { onTab: (t: Tab | string) => void }) {
   const [envText, setEnvText] = useState("");
   const [linkedSecrets, setLinkedSecrets] = useState<LinkedSecrets>({ infisical: true });
 
+  useEffect(() => {
+    if (!initialSelection) return;
+    setKindId(initialSelection.kindId ?? null);
+    setStep(initialSelection.step ?? "kind");
+  }, [initialSelection]);
+
   // sensible default name when kind changes
   useEffect(() => {
     if (!kind) return;
@@ -187,7 +222,13 @@ export function NewService({ onTab }: { onTab: (t: Tab | string) => void }) {
 
       <div style={{ flex: 1, overflow: "auto", padding: 22 }} className="os-scroll">
         <div style={{ maxWidth: step === "kind" ? 1100 : 820, margin: "0 auto" }}>
-          {step === "kind" && <Step_Kind kindId={kindId} setKindId={setKindId} />}
+          {step === "kind" && (
+            <Step_Kind
+              kindId={kindId}
+              setKindId={setKindId}
+              initialTab={initialSelection?.kindTab}
+            />
+          )}
 
           {step === "source" && (
             <Step_Source
@@ -434,17 +475,20 @@ function Stepper({
   );
 }
 
-// ────── Step: Kind picker ──────
-type KindTab = "compute" | "data" | "template" | "custom";
-
 function Step_Kind({
   kindId,
   setKindId,
+  initialTab,
 }: {
   kindId: string | null;
   setKindId: (id: string) => void;
+  initialTab?: KindTab;
 }) {
-  const [tab, setTab] = useState<KindTab>("compute");
+  const [tab, setTab] = useState<KindTab>(initialTab ?? "compute");
+
+  useEffect(() => {
+    if (initialTab) setTab(initialTab);
+  }, [initialTab]);
   const groups: Record<KindTab, { label: string; sub: string }> = {
     compute: {
       label: "Compute",
@@ -521,7 +565,7 @@ function Step_Kind({
               {popular && <span className="os-builder-pop">popular</span>}
               <div className="row gap-2">
                 <div className="os-builder-icon">
-                  <Ic width={14} height={14} />
+                  {renderLauncherKindIcon(it, tab, Ic)}
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600, fontSize: 13 }}>{it.name}</div>
@@ -554,6 +598,29 @@ function Step_Kind({
       </div>
     </>
   );
+}
+
+function renderLauncherKindIcon(
+  item: ServiceKindDef | Template,
+  tab: KindTab,
+  Icon: (props: { width?: number; height?: number; style?: CSSProperties }) => ReactNode,
+) {
+  if (tab !== "data") return <Icon width={14} height={14} />;
+
+  const id = item.id.toLowerCase();
+  const supportsBrandLogo =
+    id === "postgres" ||
+    id === "mysql" ||
+    id === "mariadb" ||
+    id === "redis" ||
+    id === "mongodb" ||
+    id === "clickhouse";
+
+  if (supportsBrandLogo) {
+    return <DatabaseLogo value={`${item.id} ${item.name}`} size={14} color="var(--fg-2)" />;
+  }
+
+  return <Icon width={14} height={14} />;
 }
 
 // ────── Step: Source (repo) ──────
@@ -612,6 +679,7 @@ function Step_Source({
       >
         {sources.map((s) => {
           const Ic = I[iconKey(s.icon)];
+          const svgl = sourceBrandSearch(s.id);
           return (
             <button
               key={s.id}
@@ -620,7 +688,19 @@ function Step_Source({
             >
               <div className="row gap-2">
                 <div className="os-builder-icon">
-                  <Ic width={13} height={13} />
+                  {svgl ? (
+                    <SvglLogo
+                      search={svgl}
+                      fallback={s.name}
+                      size={16}
+                      background="transparent"
+                      border="0"
+                      color="currentColor"
+                      style={{ borderRadius: 0 }}
+                    />
+                  ) : (
+                    <Ic width={13} height={13} />
+                  )}
                 </div>
                 <span style={{ fontWeight: 600, fontSize: 13 }}>{s.name}</span>
               </div>
@@ -963,7 +1043,22 @@ function Step_Image({
             onClick={() => setRegistry(r.id)}
             className={`os-builder ${registry === r.id ? "active" : ""}`}
           >
-            <div style={{ fontWeight: 600, fontSize: 13 }}>{r.name}</div>
+            <div className="row gap-2" style={{ alignItems: "center" }}>
+              {registryBrandSearch(r.id) ? (
+                <SvglLogo
+                  search={registryBrandSearch(r.id)!}
+                  fallback={r.name}
+                  size={16}
+                  background="transparent"
+                  border="0"
+                  color="currentColor"
+                  style={{ borderRadius: 0 }}
+                />
+              ) : (
+                <I.service width={13} height={13} />
+              )}
+              <div style={{ fontWeight: 600, fontSize: 13 }}>{r.name}</div>
+            </div>
             <div className="muted mono" style={{ fontSize: 11, marginTop: 4 }}>
               {r.host}
             </div>
@@ -1162,7 +1257,7 @@ volumes:
               {s.kind === "app" ? (
                 <I.service width={13} height={13} />
               ) : (
-                <I.db width={13} height={13} />
+                <DatabaseLogo value={`${s.name} ${s.image}`} size={13} color="var(--fg-3)" />
               )}
             </span>
             <div style={{ flex: 1 }}>
@@ -1252,7 +1347,7 @@ function Step_Version({
             {i === 0 && <span className="os-builder-pop">latest</span>}
             <div className="row gap-2">
               <div className="os-builder-icon">
-                <I.db width={14} height={14} />
+                <DatabaseLogo value={kind.id} size={14} />
               </div>
               <span style={{ fontWeight: 600, fontSize: 14 }} className="mono">
                 {kind.id} {v}

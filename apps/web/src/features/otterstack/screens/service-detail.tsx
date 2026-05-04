@@ -3,6 +3,7 @@
 
 import { useMemo, useState } from "react";
 
+import { DatabaseLogo } from "@/components/brand/database-logo";
 import { I, type IconKey } from "../icons";
 import {
   BUILDERS,
@@ -101,7 +102,7 @@ export function ServiceDetail({
               placeItems: "center",
             }}
           >
-            {isDb ? <I.db width={14} height={14} /> : <I.service width={14} height={14} />}
+            {isDb ? <DatabaseLogo value={`${service.name} ${service.image}`} size={16} /> : <I.service width={14} height={14} />}
           </div>
           <div>
             <div className="row gap-2">

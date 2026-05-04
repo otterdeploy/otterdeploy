@@ -17,11 +17,11 @@
   "scripts": {},
   "dependencies": {
     "@otterstack/env": "workspace:*",
-    "@react-email/components": "^1.0.9",
-    "@react-email/tailwind": "^2.0.6",
+    "@react-email/components": "^1.0.12",
+    "@react-email/tailwind": "^2.0.7",
     "react": "catalog:",
-    "react-email": "^5.2.9",
-    "resend": "^4.5.1"
+    "react-email": "^6.0.8",
+    "resend": "^6.12.2"
   },
   "devDependencies": {
     "@otterstack/config": "workspace:*",

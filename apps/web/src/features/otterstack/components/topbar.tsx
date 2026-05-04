@@ -1,3 +1,4 @@
+import { SvglLogo } from "@/components/brand/svgl-logo";
 import { I } from "../icons";
 import { PROJECT } from "../data";
 
@@ -49,7 +50,16 @@ export function Topbar({ tab, openCmd, openDeploy }: Props) {
       </button>
 
       <button className="btn">
-        <I.github width={13} height={13} /> Connect
+        <SvglLogo
+          search="GitHub"
+          fallback="GitHub"
+          size={14}
+          background="transparent"
+          border="0"
+          color="currentColor"
+          style={{ borderRadius: 0 }}
+        />{" "}
+        Connect
       </button>
       <button className="btn primary" onClick={openDeploy}>
         <I.plus width={13} height={13} /> New service

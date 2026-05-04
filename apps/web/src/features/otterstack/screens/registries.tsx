@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { SvglLogo } from "@/components/brand/svgl-logo";
 import { I } from "../icons";
 import { Field, SectionH } from "../components/form";
 import { StatusBadge } from "../components/status-badge";
@@ -42,26 +43,14 @@ const REGISTRY_LABEL: Record<RegistryKind, string> = {
   generic: "Generic",
 };
 
-const REGISTRY_BG: Record<RegistryKind, string> = {
-  dockerhub: "#1d63ed",
-  ghcr: "#1f1f1f",
-  ecr: "#ff9900",
-  gcr: "#4285f4",
-  gar: "#34a853",
-  acr: "#0078d4",
-  harbor: "#60b932",
-  generic: "#6b7280",
-};
-
-const REGISTRY_INITIAL: Record<RegistryKind, string> = {
-  dockerhub: "D",
-  ghcr: "G",
-  ecr: "A",
-  gcr: "G",
-  gar: "A",
-  acr: "A",
-  harbor: "H",
-  generic: "R",
+const REGISTRY_SEARCH: Partial<Record<RegistryKind, string>> = {
+  dockerhub: "Docker",
+  ghcr: "GitHub",
+  ecr: "AWS",
+  gcr: "Google Cloud",
+  gar: "Google Cloud",
+  acr: "Azure",
+  harbor: "Harbor",
 };
 
 const INITIAL: Registry[] = [
@@ -164,23 +153,14 @@ export function Registries() {
 
 function RegistryLogo({ kind, size = 32 }: { kind: RegistryKind; size?: number }) {
   return (
-    <div
-      style={{
-        width: size,
-        height: size,
-        borderRadius: 6,
-        display: "grid",
-        placeItems: "center",
-        background: REGISTRY_BG[kind],
-        color: "#fff",
-        fontWeight: 700,
-        fontSize: size * 0.46,
-        fontFamily: "var(--font-mono)",
-        flexShrink: 0,
-      }}
-    >
-      {REGISTRY_INITIAL[kind]}
-    </div>
+    <SvglLogo
+      search={REGISTRY_SEARCH[kind] ?? REGISTRY_LABEL[kind]}
+      fallback={REGISTRY_LABEL[kind]}
+      size={size}
+      background="var(--bg-sunken)"
+      color="var(--fg)"
+      border="1px solid var(--border)"
+    />
   );
 }
 

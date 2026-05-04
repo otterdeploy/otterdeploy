@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
+import { DatabaseLogo } from "@/components/brand/database-logo";
 import { I } from "../icons";
 import { PROJECTS, SERVICES, type Service } from "../data";
 import { StatusBadge } from "../components/status-badge";
@@ -107,7 +108,7 @@ function DBConsoleModal({ db, onClose }: { db: Service; onClose: () => void }) {
         }}
       >
         <div className="row gap-2" style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
-          <I.db width={14} height={14} />
+          <DatabaseLogo value={`${db.name} ${db.image}`} size={14} />
           <span style={{ fontWeight: 600 }}>
             Console · <span className="mono">{db.name}</span>
           </span>
@@ -178,7 +179,7 @@ function DBCard({
             border: "1px solid var(--border)",
           }}
         >
-          <I.db width={16} height={16} />
+          <DatabaseLogo value={`${db.name} ${db.image}`} size={18} />
         </div>
         <div style={{ minWidth: 0 }}>
           <div className="row gap-2" style={{ flexWrap: "wrap" }}>

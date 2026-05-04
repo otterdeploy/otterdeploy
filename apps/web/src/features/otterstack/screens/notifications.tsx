@@ -3,6 +3,7 @@
 
 import { useMemo, useState } from "react";
 
+import { SvglLogo } from "@/components/brand/svgl-logo";
 import { I } from "../icons";
 import { Field, SectionH } from "../components/form";
 
@@ -110,13 +111,13 @@ const DEFAULT_SUBS: Record<string, Set<string>> = {
   ch_telegram: new Set(),
 };
 
-const KIND_META: Record<ChannelKind, { label: string; mono: string; color: string; sub: string }> = {
-  slack: { label: "Slack", mono: "S", color: "#a78bfa", sub: "Slack workspace · incoming webhook" },
-  discord: { label: "Discord", mono: "D", color: "#818cf8", sub: "Discord channel webhook" },
-  email: { label: "Email", mono: "E", color: "#2dd4bf", sub: "Outbound SMTP" },
-  webhook: { label: "Webhook", mono: "W", color: "#9ca3af", sub: "Generic POST + HMAC" },
-  telegram: { label: "Telegram", mono: "T", color: "#60a5fa", sub: "Telegram bot" },
-  pagerduty: { label: "PagerDuty", mono: "P", color: "#f97316", sub: "Events API v2" },
+const KIND_META: Record<ChannelKind, { label: string; search?: string; sub: string }> = {
+  slack: { label: "Slack", search: "Slack", sub: "Slack workspace · incoming webhook" },
+  discord: { label: "Discord", search: "Discord", sub: "Discord channel webhook" },
+  email: { label: "Email", sub: "Outbound SMTP" },
+  webhook: { label: "Webhook", sub: "Generic POST + HMAC" },
+  telegram: { label: "Telegram", search: "Telegram", sub: "Telegram bot" },
+  pagerduty: { label: "PagerDuty", search: "PagerDuty", sub: "Events API v2" },
 };
 
 const SEVERITY_COLOR: Record<Severity, string> = {
@@ -214,6 +215,18 @@ export function Notifications() {
 
 function KindMonogram({ kind, size = 28 }: { kind: ChannelKind; size?: number }) {
   const meta = KIND_META[kind];
+  if (meta.search) {
+    return (
+      <SvglLogo
+        search={meta.search}
+        fallback={meta.label}
+        size={size}
+        background="var(--bg-sunken)"
+        color="var(--fg)"
+        border="1px solid var(--border)"
+      />
+    );
+  }
   return (
     <span
       aria-hidden
@@ -225,15 +238,15 @@ function KindMonogram({ kind, size = 28 }: { kind: ChannelKind; size?: number })
         width: size,
         height: size,
         borderRadius: 6,
-        background: `color-mix(in srgb, ${meta.color} 18%, transparent)`,
-        color: meta.color,
-        border: `1px solid color-mix(in srgb, ${meta.color} 32%, transparent)`,
+        background: "var(--bg-sunken)",
+        color: "var(--fg-2)",
+        border: "1px solid var(--border)",
         fontWeight: 700,
         fontSize: Math.round(size * 0.5),
         letterSpacing: "-0.02em",
       }}
     >
-      {meta.mono}
+      {meta.label[0]}
     </span>
   );
 }

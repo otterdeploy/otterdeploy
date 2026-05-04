@@ -14,7 +14,7 @@
   "scripts": {},
   "dependencies": {
     "@otterstack/env": "workspace:*",
-    "inngest": "^3.33.0"
+    "inngest": "^4.2.6"
   },
   "devDependencies": {
     "@otterstack/config": "workspace:*",

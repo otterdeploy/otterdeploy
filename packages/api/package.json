@@ -20,9 +20,9 @@
   },
   "dependencies": {
     "@orpc/client": "catalog:",
-    "@orpc/contract": "^1.13.13",
+    "@orpc/contract": "^1.14.1",
     "@orpc/openapi": "catalog:",
-    "@orpc/server": "^1.13.13",
+    "@orpc/server": "^1.14.1",
     "@orpc/zod": "catalog:",
     "@otterdeploy/docker": "^0.3.0",
     "@otterstack/auth": "workspace:*",

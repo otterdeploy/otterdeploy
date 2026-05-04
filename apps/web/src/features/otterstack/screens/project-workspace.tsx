@@ -9,8 +9,7 @@ import { EDGES, SERVICES } from "../data";
 import type { Env } from "../data";
 
 import { ServiceGraph } from "./service-graph";
-import { STACK_TOML, CodeLine } from "./stack-as-code";
-import { ActivityFeed, EdgeRow } from "./ops-console";
+import { STACK_TOML, CodeLine, ActivityFeed, EdgeRow } from "../components/workspace-helpers";
 
 type Props = {
   env: Env;

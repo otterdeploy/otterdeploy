@@ -3,6 +3,7 @@
 // Click a node to drawer it open. Edges animate with traffic.
 
 import { useState } from "react";
+import { DatabaseLogo } from "@/components/brand/database-logo";
 import { I } from "../icons";
 import { DEPLOYMENTS, EDGES, ENV_VARS, SERVICES } from "../data";
 import type { Env, Service } from "../data";
@@ -285,7 +286,7 @@ function ServiceDrawer({ service, onOpenLogs, onDeploy, onOpenService }: Service
     >
       <div style={{ padding: 16, borderBottom: "1px solid var(--border)" }}>
         <div className="row gap-2">
-          {isDB ? <I.db width={16} height={16} /> : <I.service width={16} height={16} />}
+          {isDB ? <DatabaseLogo value={`${service.name} ${service.image}`} size={16} /> : <I.service width={16} height={16} />}
           <span className="mono" style={{ fontSize: 16, fontWeight: 600 }}>
             {service.name}
           </span>

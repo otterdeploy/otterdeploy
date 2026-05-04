@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { SvglLogo } from "@/components/brand/svgl-logo";
 import { I } from "../icons";
 import { rid } from "../data";
 import { Field, SectionH } from "../components/form";
@@ -31,11 +32,11 @@ const PROVIDER_LABEL: Record<ProviderKind, string> = {
   bitbucket: "Bitbucket",
 };
 
-const PROVIDER_COLOR: Record<ProviderKind, string> = {
-  github: "#1f1f1f",
-  gitlab: "#fc6d26",
-  gitea: "#609926",
-  bitbucket: "#2684ff",
+const PROVIDER_SEARCH: Record<ProviderKind, string> = {
+  github: "GitHub",
+  gitlab: "GitLab",
+  gitea: "Gitea",
+  bitbucket: "Bitbucket",
 };
 
 const INITIAL: Provider[] = [
@@ -109,43 +110,15 @@ export function GitProviders() {
 }
 
 function ProviderLogo({ kind, size = 28 }: { kind: ProviderKind; size?: number }) {
-  if (kind === "github") {
-    return (
-      <div
-        style={{
-          width: size,
-          height: size,
-          borderRadius: 6,
-          display: "grid",
-          placeItems: "center",
-          background: "var(--bg-sunken)",
-          border: "1px solid var(--border)",
-          color: "var(--fg)",
-          flexShrink: 0,
-        }}
-      >
-        <I.github width={size - 12} height={size - 12} />
-      </div>
-    );
-  }
   return (
-    <div
-      style={{
-        width: size,
-        height: size,
-        borderRadius: 6,
-        display: "grid",
-        placeItems: "center",
-        background: PROVIDER_COLOR[kind],
-        color: "#fff",
-        fontWeight: 700,
-        fontSize: size * 0.42,
-        fontFamily: "var(--font-mono)",
-        flexShrink: 0,
-      }}
-    >
-      {PROVIDER_LABEL[kind][0]}
-    </div>
+    <SvglLogo
+      search={PROVIDER_SEARCH[kind]}
+      fallback={PROVIDER_LABEL[kind]}
+      size={size}
+      background="var(--bg-sunken)"
+      color="var(--fg)"
+      border="1px solid var(--border)"
+    />
   );
 }
 

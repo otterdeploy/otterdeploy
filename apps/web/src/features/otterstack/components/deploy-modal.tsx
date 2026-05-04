@@ -1,12 +1,24 @@
 import { useEffect, useState, type ReactNode } from "react";
 
+import { SvglLogo } from "@/components/brand/svgl-logo";
 import { I } from "../icons";
 
-type Props = { open: boolean; onClose: () => void; onDeploy: (name: string) => void };
+type LaunchTarget = {
+  kindId?: string | null;
+  kindTab?: "compute" | "data" | "template" | "custom";
+  step?: "kind" | "source" | "builder" | "image" | "compose" | "version" | "networking" | "resources" | "storage" | "variables" | "advanced" | "review";
+};
 
-type SourceId = "github" | "image" | "template" | "empty";
+type Props = {
+  open: boolean;
+  onClose: () => void;
+  onDeploy: (name: string) => void;
+  onOpenNewService: (target?: LaunchTarget) => void;
+};
 
-export function DeployModal({ open, onClose, onDeploy }: Props) {
+type SourceId = "github" | "image" | "database" | "compose" | "template" | "empty";
+
+export function DeployModal({ open, onClose, onDeploy, onOpenNewService }: Props) {
   const [step, setStep] = useState(0);
   const [source, setSource] = useState<SourceId>("github");
   const [name, setName] = useState("notifier");
@@ -44,12 +56,63 @@ export function DeployModal({ open, onClose, onDeploy }: Props) {
     tick();
   };
 
-  const sourceOptions: Array<{ id: SourceId; label: string; sub: string; icon: typeof I.github }> = [
-    { id: "github", label: "GitHub repo", sub: "Build from a Git ref", icon: I.github },
-    { id: "image", label: "Docker image", sub: "Pull an image from a registry", icon: I.service },
-    { id: "template", label: "From template", sub: "40+ ready-made stacks", icon: I.graph },
-    { id: "empty", label: "Empty service", sub: "I’ll wire it up later", icon: I.plus },
+  const sourceOptions: Array<{
+    id: SourceId;
+    label: string;
+    sub: string;
+    icon?: typeof I.github;
+    svgl?: string;
+    target?: LaunchTarget;
+  }> = [
+    { id: "github", label: "GitHub repo", sub: "Build from a Git ref", svgl: "GitHub" },
+    {
+      id: "image",
+      label: "Docker image",
+      sub: "Pull an image from a registry",
+      svgl: "Docker",
+      icon: I.service,
+      target: { kindId: "docker", kindTab: "custom", step: "image" },
+    },
+    {
+      id: "database",
+      label: "Create database",
+      sub: "Postgres, MySQL, Redis, MongoDB, ClickHouse and more",
+      icon: I.db,
+      target: { kindTab: "data", step: "kind" },
+    },
+    {
+      id: "compose",
+      label: "Docker Compose",
+      sub: "Import a compose.yml or paste a stack file",
+      svgl: "Docker",
+      icon: I.doc,
+      target: { kindId: "compose", kindTab: "custom", step: "compose" },
+    },
+    {
+      id: "template",
+      label: "From template",
+      sub: "Launch a curated multi-service stack",
+      icon: I.graph,
+      target: { kindTab: "template", step: "kind" },
+    },
+    {
+      id: "empty",
+      label: "Empty service",
+      sub: "Start from a blank compute service",
+      icon: I.plus,
+      target: { kindTab: "compute", step: "kind" },
+    },
   ];
+
+  const continueFromSource = () => {
+    const selected = sourceOptions.find((opt) => opt.id === source);
+    if (selected?.target) {
+      onOpenNewService(selected.target);
+      onClose();
+      return;
+    }
+    setStep(1);
+  };
 
   return (
     <div
@@ -67,7 +130,7 @@ export function DeployModal({ open, onClose, onDeploy }: Props) {
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: 560,
+          width: 820,
           background: "var(--bg-elev)",
           border: "1px solid var(--border)",
           borderRadius: 12,
@@ -98,10 +161,11 @@ export function DeployModal({ open, onClose, onDeploy }: Props) {
           {step === 0 && (
             <div className="col gap-4">
               <div className="muted" style={{ fontSize: 13 }}>
-                Pick a source. Otterstack will build and deploy to{" "}
+                Pick what you want to launch. Otterstack can build app code, pull images, import
+                compose stacks, or provision a database in{" "}
                 <b style={{ color: "var(--fg)" }}>production</b>.
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
                 {sourceOptions.map((opt) => (
                   <button
                     key={opt.id}
@@ -116,9 +180,22 @@ export function DeployModal({ open, onClose, onDeploy }: Props) {
                       flexDirection: "column",
                       gap: 8,
                       cursor: "pointer",
+                      minHeight: 126,
                     }}
                   >
-                    <opt.icon width={16} height={16} style={{ color: "var(--fg-2)" }} />
+                    {opt.svgl ? (
+                      <SvglLogo
+                        search={opt.svgl}
+                        fallback={opt.label}
+                        size={16}
+                        background="transparent"
+                        border="0"
+                        color="var(--fg-2)"
+                        style={{ borderRadius: 0 }}
+                      />
+                    ) : opt.icon ? (
+                      <opt.icon width={16} height={16} style={{ color: "var(--fg-2)" }} />
+                    ) : null}
                     <div>
                       <div style={{ fontWeight: 500, fontSize: 13 }}>{opt.label}</div>
                       <div className="muted" style={{ fontSize: 12 }}>
@@ -132,7 +209,7 @@ export function DeployModal({ open, onClose, onDeploy }: Props) {
                 <button className="btn" onClick={onClose}>
                   Cancel
                 </button>
-                <button className="btn primary" onClick={() => setStep(1)}>
+                <button className="btn primary" onClick={continueFromSource}>
                   Continue
                 </button>
               </div>

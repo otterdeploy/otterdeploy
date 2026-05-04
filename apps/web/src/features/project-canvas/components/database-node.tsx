@@ -1,5 +1,6 @@
 import { type NodeProps } from "@xyflow/react";
-import { DatabaseIcon, GlobeIcon, NetworkIcon } from "lucide-react";
+import { GlobeIcon, NetworkIcon } from "lucide-react";
+import { DatabaseLogo } from "@/components/brand/database-logo";
 import { cn } from "@/lib/utils";
 import type { DatabaseNode as DatabaseNodeType } from "../types";
 
@@ -32,7 +33,7 @@ export function DatabaseNode({ data, selected }: NodeProps<DatabaseNodeType>) {
       )}
     >
       <div className="flex items-center gap-2">
-        <DatabaseIcon className="size-3.5 text-muted-foreground" />
+        <DatabaseLogo value={data.engine} size={14} color="var(--muted-foreground)" />
         <span className="truncate text-xs font-medium">{data.name}</span>
         <span className={cn("ml-auto size-1.5 rounded-full", dotByStatus[data.status])} />
       </div>

@@ -75,6 +75,12 @@ export type Tab =
 
 type Props = Record<string, never>;
 
+type NewServiceLaunch = {
+  kindId?: string | null;
+  kindTab?: "compute" | "data" | "template" | "custom";
+  step?: "kind" | "source" | "builder" | "image" | "compose" | "version" | "networking" | "resources" | "storage" | "variables" | "advanced" | "review";
+};
+
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function OtterstackApp(_: Props) {
   const [tab, setTabRaw] = useState<Tab | string>("overview");
@@ -85,12 +91,14 @@ export function OtterstackApp(_: Props) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [logTarget, setLogTarget] = useState<string | null>(null);
   const [serviceId, setServiceId] = useState<string | null>(null);
+  const [newServiceLaunch, setNewServiceLaunch] = useState<NewServiceLaunch | undefined>(undefined);
 
   const setTab = useCallback((t: Tab | string) => {
     if (typeof t === "string" && t.startsWith("service:")) {
       setServiceId(t.split(":")[1] ?? null);
       setTabRaw("service");
     } else {
+      if (t === "new-service") setNewServiceLaunch(undefined);
       setTabRaw(t);
     }
   }, []);
@@ -113,6 +121,11 @@ export function OtterstackApp(_: Props) {
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4200);
   }, []);
 
+  const openNewService = useCallback((launch?: NewServiceLaunch) => {
+    setNewServiceLaunch(launch);
+    setTabRaw("new-service");
+  }, []);
+
   const handleCmd = useCallback(
     (id: string) => {
       if (id === "deploy") {
@@ -132,7 +145,7 @@ export function OtterstackApp(_: Props) {
         setServiceId(id.split(":")[1] ?? null);
         setTab("service");
       } else if (id === "new-service") {
-        setTab("new-service");
+        openNewService();
       } else if (id.startsWith("goto:")) {
         const part = id.split(":")[1];
         if (part) setTab(part);
@@ -145,7 +158,7 @@ export function OtterstackApp(_: Props) {
         }
       }
     },
-    [pushToast, setTab],
+    [openNewService, pushToast, setTab],
   );
 
   const onRollback = (d: Deployment) => {
@@ -192,7 +205,7 @@ export function OtterstackApp(_: Props) {
       />
     );
   } else if (tab === "new-service") {
-    hero = <NewService onTab={setTab} />;
+    hero = <NewService onTab={setTab} initialSelection={newServiceLaunch} />;
   } else if (tab === "graph") {
     hero = (
       <ProjectWorkspace
@@ -203,7 +216,7 @@ export function OtterstackApp(_: Props) {
         }}
         onDeploy={onDeploy}
         onOpenService={openService}
-        onNewService={() => setTab("new-service")}
+        onNewService={() => openNewService()}
       />
     );
   } else if (tab === "overview") hero = <Overview env={env} />;
@@ -242,7 +255,12 @@ export function OtterstackApp(_: Props) {
       <main className="os-main">
         {hero}
         <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} onAction={handleCmd} />
-        <DeployModal open={deployOpen} onClose={() => setDeployOpen(false)} onDeploy={afterDeploy} />
+        <DeployModal
+          open={deployOpen}
+          onClose={() => setDeployOpen(false)}
+          onDeploy={afterDeploy}
+          onOpenNewService={openNewService}
+        />
         <Toaster toasts={toasts} dismiss={(id) => setToasts((t) => t.filter((x) => x.id !== id))} />
       </main>
     </div>

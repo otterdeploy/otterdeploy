@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { Database, AlertCircle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
+import { DatabaseLogo } from "@/components/brand/database-logo";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -39,7 +40,7 @@ export function OverviewTab({ projectId, resourceId }: Props) {
   return (
     <div className="grid gap-4 p-4">
       <div className="flex items-center gap-2">
-        <Database className="size-4" />
+        <DatabaseLogo value={db.name} size={16} />
         <span className="text-sm font-medium">{db.name}</span>
         <Badge className="ml-auto" variant={db.runtime.status === "running" ? "success" : "warning"}>
           {db.runtime.status}

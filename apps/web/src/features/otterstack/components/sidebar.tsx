@@ -1,3 +1,4 @@
+import { DatabaseLogo } from "@/components/brand/database-logo";
 import { I } from "../icons";
 import { PROJECT, SERVICES, DEPLOYMENTS, type Env } from "../data";
 import { EnvSwitcher } from "./env-switcher";
@@ -11,7 +12,6 @@ const projectItems: Array<{ id: Tab; label: string; icon: keyof typeof I; count?
   { id: "logs", label: "Logs", icon: "log" },
   { id: "metrics", label: "Metrics", icon: "metrics" },
   { id: "env", label: "Variables", icon: "env" },
-  { id: "databases", label: "Databases", icon: "db", count: 2 },
   { id: "networking", label: "Networking", icon: "globe" },
   { id: "servers", label: "Servers", icon: "server", count: 3 },
   { id: "terminal", label: "Terminal", icon: "bolt" },
@@ -109,7 +109,7 @@ export function Sidebar({ tab, setTab, env, setEnv }: Props) {
                 onClick={() => setTab(`service:${s.id}`)}
               >
                 {s.kind === "database" ? (
-                  <I.db className="icon" width={14} height={14} />
+                  <DatabaseLogo value={`${s.name} ${s.image}`} size={14} />
                 ) : (
                   <I.service className="icon" width={14} height={14} />
                 )}
