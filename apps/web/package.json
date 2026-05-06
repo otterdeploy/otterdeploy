@@ -84,6 +84,7 @@
     "tailwindcss": "^4.2.4",
     "typescript": "catalog:",
     "vite": "^8.0.10",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "wrangler": "^4.88.0"
   }
 }
