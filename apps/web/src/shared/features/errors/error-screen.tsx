@@ -19,7 +19,10 @@ interface ErrorScreenProps {
 
 const ACCENTS = {
   indigo: { accent: "oklch(0.7 0.17 264)", glow: "oklch(0.7 0.17 264 / 0.26)" },
-  red: { accent: "oklch(0.685 0.205 25)", glow: "oklch(0.685 0.205 25 / 0.26)" },
+  red: {
+    accent: "oklch(0.685 0.205 25)",
+    glow: "oklch(0.685 0.205 25 / 0.26)",
+  },
 } as const;
 
 /** Filled primary action — works on both `<a>` and `<button>`. */
@@ -70,7 +73,7 @@ export function ErrorScreen({
   return (
     <div
       style={rootStyle}
-      className="fixed inset-0 z-[60] overflow-auto bg-(--bg) font-mono text-(--ink) antialiased text-[length:clamp(13px,1.4vmin,17px)]"
+      className="fixed inset-0 z-60 overflow-auto bg-(--bg) font-mono text-(--ink) antialiased text-[clamp(13px,1.4vmin,17px)]"
     >
       <div
         aria-hidden="true"
@@ -91,48 +94,48 @@ export function ErrorScreen({
       />
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute top-3.5 right-3.5 z-[3] size-3.5 border-t border-r border-(--line2)"
+        className="pointer-events-none absolute top-3.5 right-3.5 z-3 size-3.5 border-t border-r border-(--line2)"
       />
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute bottom-3.5 left-3.5 z-[3] size-3.5 border-b border-l border-(--line2)"
+        className="pointer-events-none absolute bottom-3.5 left-3.5 z-3 size-3.5 border-b border-l border-(--line2)"
       />
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute right-3.5 bottom-3.5 z-[3] size-3.5 border-r border-b border-(--line2)"
+        className="pointer-events-none absolute right-3.5 bottom-3.5 z-3 size-3.5 border-r border-b border-(--line2)"
       />
 
-      <header className="pointer-events-none absolute inset-x-0 top-0 z-[3] flex justify-between px-8 py-6 text-[0.72rem] uppercase tracking-[0.16em] text-(--dim)">
+      <header className="pointer-events-none absolute inset-x-0 top-0 z-3 flex justify-between px-8 py-6 text-[0.72rem] uppercase tracking-[0.16em] text-(--dim)">
         <span>
-          <span className="text-(--accent)">◆</span> OTTERSTACK
+          <span className="text-accent">◆</span> OTTERSTACK
         </span>
         <span>
           ERR / <b className="font-normal text-(--ink)">{code}</b>
         </span>
       </header>
 
-      <main className="relative z-[2] flex min-h-full items-center justify-center px-[8vw] py-[11vh]">
-        <div className="w-full max-w-[600px] text-center">
+      <main className="relative z-2 flex min-h-full items-center justify-center px-[8vw] py-[11vh]">
+        <div className="w-full max-w-150 text-center">
           <div
-            className={`${reveal} mb-[1.7rem] text-[0.74rem] uppercase tracking-[0.26em] text-(--accent)`}
+            className={`${reveal} mb-[1.7rem] text-[0.74rem] uppercase tracking-[0.26em] text-accent`}
             style={{ animationDelay: "0.1s" }}
           >
             {eyebrow}
           </div>
           <div
-            className={`${reveal} font-bold leading-none tracking-[-0.04em] text-(--accent) text-[length:clamp(3.2rem,9vw,6rem)] [text-shadow:0_0_52px_var(--glow)]`}
+            className={`${reveal} font-bold leading-none tracking-[-0.04em] text-accent text-[clamp(3.2rem,9vw,6rem)] [text-shadow:0_0_52px_var(--glow)]`}
             style={{ animationDelay: "0.19s" }}
           >
             {code}
           </div>
           <h1
-            className={`${reveal} mt-[1.4rem] font-bold uppercase leading-[1.1] tracking-[-0.01em] text-[length:clamp(1.3rem,2.7vw,2.05rem)]`}
+            className={`${reveal} mt-[1.4rem] font-bold uppercase leading-[1.1] tracking-[-0.01em] text-[clamp(1.3rem,2.7vw,2.05rem)]`}
             style={{ animationDelay: "0.28s" }}
           >
             {title}
           </h1>
           <p
-            className={`${reveal} mx-auto mt-4 max-w-[46ch] leading-[1.65] text-(--dim) text-[length:clamp(0.88rem,1.15vw,1.02rem)]`}
+            className={`${reveal} mx-auto mt-4 max-w-[46ch] leading-[1.65] text-(--dim) text-[clamp(0.88rem,1.15vw,1.02rem)]`}
             style={{ animationDelay: "0.37s" }}
           >
             {message}
@@ -146,9 +149,9 @@ export function ErrorScreen({
         </div>
       </main>
 
-      <footer className="pointer-events-none absolute inset-x-0 bottom-0 z-[3] flex justify-between px-8 py-6 text-[0.72rem] uppercase tracking-[0.16em] text-(--dim)">
+      <footer className="pointer-events-none absolute inset-x-0 bottom-0 z-3 flex justify-between px-8 py-6 text-[0.72rem] uppercase tracking-[0.16em] text-(--dim)">
         <span>
-          STATUS: <span className="text-(--accent)">{statusTag}</span>
+          STATUS: <span className="text-accent">{statusTag}</span>
         </span>
         <span>OTTERSTACK PLATFORM</span>
       </footer>
