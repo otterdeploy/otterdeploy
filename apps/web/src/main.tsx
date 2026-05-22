@@ -6,12 +6,16 @@ import ReactDOM from "react-dom/client";
 // import { CommandPalette } from "@/features/command-palette";
 import { routeTree } from "./routeTree.gen";
 import { orpc, queryClient } from "./shared/server/orpc";
+import { NotFound } from "./shared/features/errors/not-found";
+import { ServerError } from "./shared/features/errors/server-error";
 // import { orpc, queryClient } from "./utils/orpc";
 
 const router = createRouter({
   routeTree,
   defaultPreload: "intent",
   // defaultPendingComponent: () => <Loader />,
+  defaultErrorComponent: ServerError,
+  defaultNotFoundComponent: NotFound,
   context: { orpc, queryClient },
   Wrap: function WrapComponent({ children }: { children: React.ReactNode }) {
     return (
