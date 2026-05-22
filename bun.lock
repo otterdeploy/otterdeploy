@@ -74,6 +74,7 @@
         "@otterstack/api": "workspace:*",
         "@otterstack/auth": "workspace:*",
         "@otterstack/env": "workspace:*",
+        "@otterstack/shared": "workspace:*",
         "@polar-sh/better-auth": "^1.8.4",
         "@tailwindcss/vite": "^4.3.0",
         "@tanstack/query-db-collection": "^1.0.37",
