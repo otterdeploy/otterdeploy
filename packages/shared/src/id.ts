@@ -26,8 +26,10 @@ export const ID_PREFIX = {
 
   project: "project",
   resource: "resource",
-  environment: "environment",
+  environment: "env",
   proxyRoute: "proxy_route",
+  // workspace: "workspace",
+  workspace: "wksp",
 } as const;
 
 export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];
@@ -72,7 +74,10 @@ export function idPrefix(id: string): string | null {
  * @example
  *   hasPrefix("risk_clx1abc", "risk") // true
  */
-export function hasPrefix<P extends string>(id: string, prefix: P): id is Id<P> {
+export function hasPrefix<P extends string>(
+  id: string,
+  prefix: P,
+): id is Id<P> {
   return id.startsWith(`${prefix}_`);
 }
 
@@ -91,3 +96,5 @@ export function zId<P extends IdPrefix>(prefix: P) {
     .regex(new RegExp(`^${prefix}_`), `ID must start with "${prefix}_"`)
     .transform((s) => s as Id<P>);
 }
+
+export type WorkspaceId = Id<typeof ID_PREFIX.workspace>;
