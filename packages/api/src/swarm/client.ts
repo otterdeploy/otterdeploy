@@ -1,4 +1,5 @@
 import { Docker, DockerNotFoundError } from "@otterdeploy/docker";
+import { log } from "evlog";
 import { PLATFORM } from "../constants";
 
 export async function ensureSwarm(): Promise<void> {
@@ -47,16 +48,31 @@ export async function ensureProjectNetwork(projectSlug: string): Promise<string>
     }
 
     // Non-overlay network exists (e.g. bridge from pre-Swarm setup). Replace it.
-    console.log("[swarm] removing non-overlay network '%s' (driver=%s)", networkName, network.Driver);
+    log.info({
+      swarm: { step: "remove-non-overlay-network", network: networkName, driver: network.Driver },
+    });
 
     const containers = network.Containers ?? {};
     for (const containerId of Object.keys(containers)) {
-      console.log("[swarm] disconnecting container '%s' from network", containers[containerId]?.Name ?? containerId);
+      log.info({
+        swarm: {
+          step: "disconnect-container",
+          network: networkName,
+          container: containers[containerId]?.Name ?? containerId,
+        },
+      });
       const disconnectResult = await docker.networks
         .getNetwork(networkName)
         .disconnect({ Container: containerId, Force: true });
       if (disconnectResult.isErr()) {
-        console.log("[swarm] warning: failed to disconnect container: %s", disconnectResult.error.message);
+        log.warn({
+          swarm: {
+            step: "disconnect-container",
+            network: networkName,
+            container: containers[containerId]?.Name ?? containerId,
+            error: disconnectResult.error.message,
+          },
+        });
       }
     }
 
@@ -70,7 +86,7 @@ export async function ensureProjectNetwork(projectSlug: string): Promise<string>
     throw inspectResult.error;
   }
 
-  console.log("[swarm] creating overlay network '%s'", networkName);
+  log.info({ swarm: { step: "create-network", network: networkName } });
   const createResult = await docker.networks.create({
     Name: networkName,
     Driver: "overlay",
@@ -112,13 +128,15 @@ async function connectCaddyToNetwork(docker: Docker, networkName: string): Promi
     return;
   }
 
-  console.log("[swarm] connecting Caddy to network '%s'", networkName);
+  log.info({ swarm: { step: "connect-caddy", network: networkName } });
   const connectResult = await docker.networks
     .getNetwork(networkName)
     .connect({ Container: container.Id });
 
   if (connectResult.isErr()) {
-    console.log("[swarm] warning: failed to connect Caddy to network: %s", connectResult.error.message);
+    log.warn({
+      swarm: { step: "connect-caddy", network: networkName, error: connectResult.error.message },
+    });
   }
 }
 
@@ -147,7 +165,9 @@ export async function removeProjectNetwork(projectSlug: string): Promise<void> {
   docker.destroy();
 
   if (removeResult.isErr()) {
-    console.log("[swarm] warning: failed to remove network '%s': %s", networkName, removeResult.error.message);
+    log.warn({
+      swarm: { step: "remove-network", network: networkName, error: removeResult.error.message },
+    });
   }
 }
 

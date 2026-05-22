@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { OtterstackApp } from "@/features/otterstack/app";
 
-export const Route = createFileRoute("/project/$projectId/layout")({
+export const Route = createFileRoute("/project/$projectId")({
   component: RouteComponent,
 });
 

@@ -1,5 +1,7 @@
 import { randomBytes } from "node:crypto";
 
+import type { RequestLogger } from "evlog";
+
 import { reconcile } from "../../caddy";
 import {
   insertProxyRoute,
@@ -159,25 +161,28 @@ export async function createProject(input: {
   }
 }
 
-export async function createPostgresResource(input: {
-  projectId: string;
-  name: string;
-}): Promise<CreatePostgresResourceResult> {
-  console.log("[project:postgres] received request: projectId=%s name=%s", input.projectId, input.name);
+export async function createPostgresResource(
+  input: {
+    projectId: string;
+    name: string;
+  },
+  log: RequestLogger,
+): Promise<CreatePostgresResourceResult> {
+  log.set({
+    resource: { kind: "postgres", projectId: input.projectId, name: input.name },
+  });
 
   const project = await getProjectRecord(input.projectId);
-  console.log("[project:postgres] getProjectRecord done: found=%s", !!project);
   if (!project) {
+    log.set({ resource: { outcome: "project_not_found" } });
     return { ok: false, reason: "project_not_found" };
   }
 
   const existing = await getDatabaseResourceByProjectAndName(input.projectId, input.name);
-  console.log("[project:postgres] duplicate check done: exists=%s", !!existing);
   if (existing) {
+    log.set({ resource: { outcome: "resource_conflict" } });
     return { ok: false, reason: "resource_conflict" };
   }
-
-  console.log("[project:postgres] creating postgres resource '%s' for project %s", input.name, input.projectId);
 
   const resourceSlug = sanitizeDatabaseName(input.name);
   const projectSlug = sanitizeProjectSlug(project.slug);
@@ -188,7 +193,6 @@ export async function createPostgresResource(input: {
   const containerName = sanitizeDockerName(`otterstack-pg-${projectSlug}-${resourceSlug}`);
   const volumeName = sanitizeDockerName(`otterstack-pgdata-${projectSlug}-${resourceSlug}`);
   const internalHostname = `${resourceSlug}.${projectSlug}.${PLATFORM.database.internalBaseDomain}`;
-  console.log("[project:postgres] provisioning swarm service '%s'", containerName);
   const runtime = await provisionSwarmPostgres({
     serviceName: containerName,
     volumeName,
@@ -198,7 +202,7 @@ export async function createPostgresResource(input: {
     password,
     projectSlug,
   });
-  console.log("[project:postgres] service '%s' status=%s", containerName, runtime.status);
+  log.set({ provision: { service: containerName, status: runtime.status } });
   const publicConnectionString = buildConnectionString({
     username,
     password,
@@ -237,12 +241,12 @@ export async function createPostgresResource(input: {
     });
   } catch (error) {
     if (isUniqueViolation(error)) {
+      log.set({ resource: { outcome: "resource_conflict" } });
       return { ok: false, reason: "resource_conflict" };
     }
     throw error;
   }
 
-  console.log("[project:postgres] inserting proxy route for domain '%s'", publicHostname);
   await insertProxyRoute({
     projectId: input.projectId,
     resourceId: created.resource.id,
@@ -254,10 +258,9 @@ export async function createPostgresResource(input: {
     layer4Alpn: "postgresql",
   });
 
-  console.log("[project:postgres] running caddy reconciliation");
   const reconcileResult = await reconcile();
   const isApplied = reconcileResult.applied.includes(input.projectId);
-  console.log("[project:postgres] reconcile done: applied=%s, resource status=%s", isApplied, isApplied ? "valid" : "invalid");
+  log.set({ reconcile: { applied: isApplied } });
 
   await updateDatabaseResourceStatus(created.resource.id, isApplied ? "valid" : "invalid");
 
@@ -304,36 +307,46 @@ export async function listPostgresResources(input: {
   };
 }
 
-export async function deletePostgresResource(input: {
-  projectId: string;
-  resourceId: string;
-}): Promise<DeletePostgresResourceResult> {
+export async function deletePostgresResource(
+  input: {
+    projectId: string;
+    resourceId: string;
+  },
+  log: RequestLogger,
+): Promise<DeletePostgresResourceResult> {
   const record = await getDatabaseResourceRecord(input.projectId, input.resourceId);
   if (!record) {
+    log.set({ resource: { outcome: "resource_not_found" } });
     return { ok: false, reason: "resource_not_found" };
   }
 
   const project = await getProjectRecord(input.projectId);
   const projectSlug = project ? sanitizeProjectSlug(project.slug) : input.projectId;
+  const serviceName = buildContainerName({ projectSlug, resourceName: record.resource.name });
 
-  console.log("[project:postgres] deleting resource '%s' (container=%s)", record.resource.name, buildContainerName({ projectSlug, resourceName: record.resource.name }));
+  log.set({
+    resource: {
+      kind: "postgres",
+      projectId: input.projectId,
+      name: record.resource.name,
+    },
+  });
 
   // 1. Remove proxy route
   await deleteProxyRoutesByResource(input.resourceId);
-  console.log("[project:postgres] proxy routes removed");
 
   // 2. Stop and remove Swarm service
-  const serviceName = buildContainerName({ projectSlug, resourceName: record.resource.name });
   await destroySwarmPostgres({ serviceName });
-  console.log("[project:postgres] swarm service destroyed");
 
   // 3. Delete resource from DB (cascades to database_resource)
   await db.delete(resource).where(eq(resource.id, input.resourceId));
-  console.log("[project:postgres] database record deleted");
 
   // 4. Reconcile Caddy to remove the route
-  console.log("[project:postgres] running caddy reconciliation after delete");
   await reconcile();
+
+  log.set({
+    teardown: { proxyRoutesRemoved: true, swarmDestroyed: true, dbDeleted: true },
+  });
 
   return { ok: true };
 }

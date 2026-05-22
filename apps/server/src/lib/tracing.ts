@@ -5,6 +5,7 @@ import { resourceFromAttributes } from "@opentelemetry/resources";
 import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from "@opentelemetry/semantic-conventions";
+import { log } from "evlog";
 
 // Service configuration from environment variables
 const serviceName = process.env.OTEL_SERVICE_NAME || "otterstack-server";
@@ -69,8 +70,13 @@ const sdk = new NodeSDK({
  */
 export function startTracing(): void {
   sdk.start();
-  console.log(`[OpenTelemetry] Tracing started for service: ${serviceName}`);
-  console.log(`[OpenTelemetry] Exporting to: ${otlpEndpoint}`);
+  log.info({
+    otel: {
+      event: "tracing-started",
+      service: serviceName,
+      endpoint: otlpEndpoint,
+    },
+  });
 }
 
 /**
@@ -86,9 +92,9 @@ export function startTracing(): void {
 export async function shutdownTracing(): Promise<void> {
   try {
     await sdk.shutdown();
-    console.log("[OpenTelemetry] Tracing shutdown complete");
+    log.info({ otel: { event: "tracing-shutdown-complete" } });
   } catch (error) {
-    console.error("[OpenTelemetry] Error shutting down tracing:", error);
+    log.error(error, { otel: { event: "tracing-shutdown-failed" } });
   }
 }
 

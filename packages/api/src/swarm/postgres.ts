@@ -1,5 +1,6 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import { Docker } from "@otterdeploy/docker";
+import { log } from "evlog";
 import { PLATFORM } from "../constants";
 import { ensureProjectNetwork } from "./client";
 
@@ -148,7 +149,7 @@ export async function destroySwarmPostgres(input: {
     return;
   }
 
-  console.log("[swarm:postgres] removing service '%s'", input.serviceName);
+  log.info({ swarm: { step: "remove-service", service: input.serviceName } });
   const removeResult = await docker.services.getService(service.ID).remove();
   docker.destroy();
 

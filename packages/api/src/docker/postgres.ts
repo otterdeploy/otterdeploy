@@ -8,6 +8,7 @@ import {
   followProgress,
   type ContainerInspect,
 } from "@otterdeploy/docker";
+import { log } from "evlog";
 import { PLATFORM } from "../constants";
 
 export type DockerPostgresRuntime = {
@@ -155,12 +156,12 @@ export async function destroyDockerPostgres(input: {
     }
 
     if (existing.State.Running) {
-      console.log("[docker:postgres] stopping container '%s'", input.containerName);
+      log.info({ docker: { step: "stop-container", container: input.containerName } });
       const container = docker.containers.getContainer(existing.Id);
       await container.stop();
     }
 
-    console.log("[docker:postgres] removing container '%s'", input.containerName);
+    log.info({ docker: { step: "remove-container", container: input.containerName } });
     const container = docker.containers.getContainer(existing.Id);
     await container.remove({ force: true });
   } finally {

@@ -1,23 +1,29 @@
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
 import { onError } from "@orpc/server";
+import { RPCHandler as BunWsRPCHandler } from "@orpc/server/bun-ws";
 import { RPCHandler } from "@orpc/server/fetch";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { createContext } from "@otterstack/api/context";
+import { reconcile } from "@otterstack/api/caddy";
 import { appRouter } from "@otterstack/api/routers/index";
+import { initializeSwarm } from "@otterstack/api/swarm";
 import { auth } from "@otterstack/auth";
 import { env } from "@otterstack/env/server";
+import { initLogger, log, parseError } from "evlog";
+import { evlog, type EvlogVariables } from "evlog/hono";
 import { Hono } from "hono";
+import { upgradeWebSocket, websocket } from "hono/bun";
 import { cors } from "hono/cors";
-import { logger } from "hono/logger";
-import { createBunWebSocket } from "hono/bun";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { invalidate } from "./lib/invalidate";
+import { registerTerminalRoutes } from "./terminal";
 
-const { upgradeWebSocket, websocket } = createBunWebSocket();
+initLogger({ env: { service: "otterstack-server" } });
 
-const app = new Hono();
+const app = new Hono<EvlogVariables>();
 
-app.use(logger());
+app.use(evlog());
 app.use(
   "/*",
   cors({
@@ -28,31 +34,39 @@ app.use(
   }),
 );
 
+app.onError((error, c) => {
+  c.get("log").error(error);
+  const parsed = parseError(error);
+  return c.json(
+    { message: parsed.message, why: parsed.why, fix: parsed.fix },
+    parsed.status as ContentfulStatusCode,
+  );
+});
+
 app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 
-export const apiHandler = new OpenAPIHandler(appRouter, {
+const apiHandler = new OpenAPIHandler(appRouter, {
   plugins: [
     new OpenAPIReferencePlugin({
       schemaConverters: [new ZodToJsonSchemaConverter()],
     }),
   ],
-  interceptors: [
-    onError((error) => {
-      console.error(error);
-    }),
-  ],
+  interceptors: [onError((error) => log.error(error as Error))],
 });
 
-export const rpcHandler = new RPCHandler(appRouter, {
-  interceptors: [
-    onError((error) => {
-      console.error(error);
-    }),
-  ],
+const rpcHandler = new RPCHandler(appRouter, {
+  interceptors: [onError((error) => log.error(error as Error))],
+});
+
+const rpcWsHandler = new BunWsRPCHandler(appRouter, {
+  interceptors: [onError((error) => log.error(error as Error))],
 });
 
 app.use("/*", async (c, next) => {
-  const context = await createContext({ context: c, broadcast: invalidate.broadcast });
+  const context = await createContext({
+    context: c,
+    broadcast: invalidate.broadcast,
+  });
 
   const rpcResult = await rpcHandler.handle(c.req.raw, {
     prefix: "/rpc",
@@ -79,10 +93,37 @@ app.get(
   "/ws",
   upgradeWebSocket(() => ({
     onMessage(event, ws) {
-      invalidate.onMessage(ws, typeof event.data === "string" ? event.data : "");
+      invalidate.onMessage(
+        ws,
+        typeof event.data === "string" ? event.data : "",
+      );
     },
     onClose(_event, ws) {
       invalidate.removeClient(ws);
+    },
+  })),
+);
+
+// oRPC over WebSocket. Same router as the HTTP /rpc handler; choose either
+// transport per client. Each WS frame is one RPC message; the bun-ws RPCHandler
+// tracks peers by ws identity, so context is built per-message from the upgrade
+// request `c`.
+app.get(
+  "/rpc-ws",
+  upgradeWebSocket((c) => ({
+    async onMessage(evt, ws) {
+      const context = await createContext({
+        context: c,
+        broadcast: invalidate.broadcast,
+      });
+
+      const data = evt.data as string | ArrayBufferView;
+      await rpcWsHandler.message(ws.raw, data, {
+        context,
+      });
+    },
+    onClose(_evt, ws) {
+      rpcWsHandler.close(ws.raw);
     },
   })),
 );
@@ -91,33 +132,35 @@ app.get("/", (c) => {
   return c.text("OK");
 });
 
-// Initialize Docker Swarm on startup
-import { initializeSwarm } from "@otterstack/api/swarm";
+registerTerminalRoutes(app);
 
-console.log("[server] initializing Docker Swarm...");
-initializeSwarm()
-  .then(() => {
-    console.log("[server] Swarm ready");
-  })
-  .catch((error) => {
-    console.error("[server] Swarm initialization failed:", error);
-  });
+// Startup tasks: initialize Docker Swarm, then reconcile Caddy from the DB.
+async function bootstrap(): Promise<void> {
+  try {
+    await initializeSwarm();
+    log.info({ startup: { step: "swarm", status: "ready" } });
+  } catch (error) {
+    log.error(error as Error, { startup: { step: "swarm", status: "failed" } });
+  }
 
-// Reconcile Caddy config from DB on startup
-import { reconcile } from "@otterstack/api/caddy";
+  try {
+    const result = await reconcile();
+    log.info({
+      startup: {
+        step: "caddy-reconcile",
+        applied: result.applied.length,
+        skipped: result.skipped.length,
+        revision: result.revision,
+      },
+    });
+  } catch (error) {
+    log.error(error as Error, {
+      startup: { step: "caddy-reconcile", status: "failed" },
+    });
+  }
+}
 
-reconcile()
-  .then((result) => {
-    console.log(
-      "[startup] caddy reconcile done: applied=%d skipped=%d revision=%s",
-      result.applied.length,
-      result.skipped.length,
-      result.revision,
-    );
-  })
-  .catch((error) => {
-    console.error("[startup] caddy reconcile failed:", error);
-  });
+void bootstrap();
 
 export default {
   fetch: app.fetch,

@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>otterdeploy — landing page variants</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;1,9..144,300;1,9..144,500&family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0a0a0e;
+    color: #e8e8f0;
+    font-family: "Geist", system-ui, sans-serif;
+    min-height: 100vh;
+    padding: 80px 32px;
+    background-image:
+      radial-gradient(ellipse at 20% 0%, rgba(167,139,250,0.1), transparent 60%),
+      radial-gradient(ellipse at 80% 100%, rgba(94,234,212,0.08), transparent 60%);
+  }
+  .wrap { max-width: 1280px; margin: 0 auto; }
+  header { margin-bottom: 64px; }
+  .lbl {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.4);
+    margin-bottom: 18px;
+  }
+  h1 {
+    font-family: "Fraunces", serif;
+    font-weight: 300;
+    font-size: clamp(40px, 5vw, 72px);
+    line-height: 1;
+    letter-spacing: -0.03em;
+    max-width: 800px;
+  }
+  h1 i {
+    font-style: italic;
+    background: linear-gradient(120deg, #a78bfa, #5eead4);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .sub {
+    color: rgba(255,255,255,0.6);
+    margin-top: 20px;
+    max-width: 580px;
+    font-size: 16px;
+    line-height: 1.55;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+  .card {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    padding: 36px 32px;
+    text-decoration: none;
+    color: inherit;
+    transition: all .25s;
+    position: relative;
+    overflow: hidden;
+  }
+  .card::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform .35s cubic-bezier(.7,0,.3,1);
+  }
+  .card:hover {
+    border-color: rgba(255,255,255,0.18);
+    transform: translateY(-4px);
+    background: rgba(255,255,255,0.04);
+  }
+  .card:hover::before { transform: scaleX(1); }
+
+  .card-num {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    color: var(--accent);
+    letter-spacing: 0.16em;
+    margin-bottom: 32px;
+  }
+  .card h2 {
+    font-family: "Fraunces", serif;
+    font-weight: 400;
+    font-size: 32px;
+    line-height: 1.05;
+    margin-bottom: 12px;
+    letter-spacing: -0.02em;
+  }
+  .card h2 i { font-style: italic; color: var(--accent); }
+  .card .desc {
+    color: rgba(255,255,255,0.55);
+    font-size: 14px;
+    line-height: 1.6;
+    margin-bottom: 24px;
+  }
+  .meta {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    padding-top: 20px;
+    border-top: 1px dashed rgba(255,255,255,0.08);
+  }
+  .meta span {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10.5px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    padding: 4px 9px;
+    border-radius: 100px;
+    color: rgba(255,255,255,0.6);
+    letter-spacing: 0.04em;
+  }
+  .open {
+    margin-top: 24px;
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    color: var(--accent);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .card-1 { --accent: #a78bfa; }
+  .card-2 { --accent: #e8451f; }
+  .card-3 { --accent: #5eead4; }
+
+  .swatch {
+    display: flex; gap: 4px;
+    margin-bottom: 24px;
+  }
+  .swatch span {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+
+  @media (max-width: 900px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="lbl">otterdeploy / landing exploration / may 2026</div>
+    <h1>Three voices.<br/>One <i>otter.</i></h1>
+    <p class="sub">Three landing-page directions for otterdeploy — each built around one of the picked logo variants. Click through to see the full page in context.</p>
+  </header>
+
+  <div class="grid">
+
+    <a href="variant-1-circuit.html" class="card card-1">
+      <div class="card-num">— Variant 01 / Circuit</div>
+      <div class="swatch">
+        <span style="background: #07070b;"></span>
+        <span style="background: #a78bfa;"></span>
+        <span style="background: #38bdf8;"></span>
+        <span style="background: #34d399;"></span>
+      </div>
+      <h2>The <i>terminal</i> deployer.</h2>
+      <p class="desc">A developer-native landing page built around the circuit otter. Monospace, dark, asymmetric. An animated terminal hero, ASCII rhythms, live deploy board.</p>
+      <div class="meta">
+        <span>Dark mode</span>
+        <span>Instrument Serif + JetBrains Mono</span>
+        <span>Terminal aesthetic</span>
+        <span>Dev-first</span>
+      </div>
+      <div class="open">Open variant →</div>
+    </a>
+
+    <a href="variant-2-velocity.html" class="card card-2">
+      <div class="card-num">— Variant 02 / Velocity</div>
+      <div class="swatch">
+        <span style="background: #f3ede0;"></span>
+        <span style="background: #181410;"></span>
+        <span style="background: #e8451f;"></span>
+        <span style="background: #d7ff3a;"></span>
+      </div>
+      <h2>The <i>magazine</i> deployer.</h2>
+      <p class="desc">An editorial spread inspired by the speed-otter. Cream paper, massive Fraunces italics, marquee, animated speed lines, benchmark chapter, timeline of a real 22s deploy.</p>
+      <div class="meta">
+        <span>Light · editorial</span>
+        <span>Fraunces + Geist + Geist Mono</span>
+        <span>Magazine layout</span>
+        <span>Marketing-led</span>
+      </div>
+      <div class="open">Open variant →</div>
+    </a>
+
+    <a href="variant-3-network.html" class="card card-3">
+      <div class="card-num">— Variant 03 / Network</div>
+      <div class="swatch">
+        <span style="background: #060a13;"></span>
+        <span style="background: #5eead4;"></span>
+        <span style="background: #22d3ee;"></span>
+        <span style="background: #818cf8;"></span>
+      </div>
+      <h2>The <i>infrastructure</i> deployer.</h2>
+      <p class="desc">A refined infra-grade page built around the network otter. Animated network background, dashboard mockup, architecture diagram, world map with 6 live regions, three pillars, full pricing.</p>
+      <div class="meta">
+        <span>Dark · refined</span>
+        <span>Onest + Newsreader + JetBrains Mono</span>
+        <span>Enterprise-grade</span>
+        <span>Platform-team narrative</span>
+      </div>
+      <div class="open">Open variant →</div>
+    </a>
+
+  </div>
+</div>
+</body>
+</html>

@@ -40,8 +40,8 @@ export const projectRouter = {
   },
   database: {
     createPostgres: publicProcedure.project.database.createPostgres.handler(
-      async ({ input, errors }) => {
-        const result = await createPostgresResource(input);
+      async ({ input, context, errors }) => {
+        const result = await createPostgresResource(input, context.log);
         if (!result.ok) {
           if (result.reason === "project_not_found") {
             throw errors.NOT_FOUND();
@@ -68,8 +68,8 @@ export const projectRouter = {
       return result.resource;
     }),
     deletePostgres: publicProcedure.project.database.deletePostgres.handler(
-      async ({ input, errors }) => {
-        const result = await deletePostgresResource(input);
+      async ({ input, context, errors }) => {
+        const result = await deletePostgresResource(input, context.log);
         if (!result.ok) {
           throw errors.NOT_FOUND();
         }

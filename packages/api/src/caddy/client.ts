@@ -1,3 +1,5 @@
+import { log } from "evlog";
+
 export type AdaptResult =
   | { ok: true; json: unknown }
   | { ok: false; error: string };
@@ -7,7 +9,7 @@ export type LoadResult =
   | { ok: false; error: string };
 
 export async function adaptCaddyfile(caddyfile: string, adminUrl: string): Promise<AdaptResult> {
-  console.log("[caddy:client] POST %s/adapt", adminUrl);
+  log.info({ caddy: { step: "adapt", action: "request", adminUrl } });
   try {
     const response = await fetch(new URL("/adapt", adminUrl), {
       method: "POST",
@@ -17,22 +19,22 @@ export async function adaptCaddyfile(caddyfile: string, adminUrl: string): Promi
 
     if (!response.ok) {
       const text = await response.text();
-      console.error("[caddy:client] adapt failed: %s", text);
+      log.error({ caddy: { step: "adapt", status: "failed", detail: text } });
       return { ok: false, error: text };
     }
 
     const json = await response.json();
-    console.log("[caddy:client] adapt ok");
+    log.info({ caddy: { step: "adapt", status: "ok" } });
     return { ok: true, json };
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Caddy adapt request failed";
-    console.error("[caddy:client] adapt failed: %s", msg);
+    log.error({ caddy: { step: "adapt", status: "failed", detail: msg } });
     return { ok: false, error: msg };
   }
 }
 
 export async function loadCaddyfile(caddyfile: string, adminUrl: string): Promise<LoadResult> {
-  console.log("[caddy:client] POST %s/load", adminUrl);
+  log.info({ caddy: { step: "load", action: "request", adminUrl } });
   try {
     const response = await fetch(new URL("/load", adminUrl), {
       method: "POST",
@@ -45,15 +47,15 @@ export async function loadCaddyfile(caddyfile: string, adminUrl: string): Promis
 
     if (!response.ok) {
       const text = await response.text();
-      console.error("[caddy:client] load failed: %s", text);
+      log.error({ caddy: { step: "load", status: "failed", detail: text } });
       return { ok: false, error: text };
     }
 
-    console.log("[caddy:client] load ok");
+    log.info({ caddy: { step: "load", status: "ok" } });
     return { ok: true };
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Caddy load request failed";
-    console.error("[caddy:client] load failed: %s", msg);
+    log.error({ caddy: { step: "load", status: "failed", detail: msg } });
     return { ok: false, error: msg };
   }
 }
