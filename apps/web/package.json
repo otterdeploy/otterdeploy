@@ -18,6 +18,7 @@
     "@base-ui/react": "^1.5.0",
     "@fontsource-variable/figtree": "^5.2.10",
     "@fontsource-variable/geist": "^5.2.9",
+    "@fontsource-variable/geist-mono": "^5.2.8",
     "@hookform/resolvers": "^5.4.0",
     "@hugeicons/core-free-icons": "^4.1.4",
     "@hugeicons/react": "^1.1.6",

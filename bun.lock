@@ -65,6 +65,7 @@
         "@base-ui/react": "^1.5.0",
         "@fontsource-variable/figtree": "^5.2.10",
         "@fontsource-variable/geist": "^5.2.9",
+        "@fontsource-variable/geist-mono": "^5.2.8",
         "@hookform/resolvers": "^5.4.0",
         "@hugeicons/core-free-icons": "^4.1.4",
         "@hugeicons/react": "^1.1.6",
@@ -572,6 +573,8 @@
     "@fontsource-variable/figtree": ["@fontsource-variable/figtree@5.2.10", "", {}, "sha512-a5Gumbpy3mdd+Yg31g6Qb7CmjYbrfyutJa3bWfP5q8A4GclIOwX7mI+ZuSHsJnw/mHvW6r9oh1AHJcJTIxK4JA=="],
 
     "@fontsource-variable/geist": ["@fontsource-variable/geist@5.2.9", "", {}, "sha512-TP+QSBG3wxKGPE33CbMy/L0Nu3qvJ6Fy81Yc4LnQ95xH+i+cfEp8fyU8/kfV14YwszxIFPhnoMTbjL71waVpyQ=="],
+
+    "@fontsource-variable/geist-mono": ["@fontsource-variable/geist-mono@5.2.8", "", {}, "sha512-KI5bj+hkkRiHttYHmccotUZ80ZuZyai+RwI1d7UId0clkx/jXxlo8qYK8j54WzmpBjtMoEMPyllV7faDcj+6RA=="],
 
     "@grpc/grpc-js": ["@grpc/grpc-js@1.14.3", "", { "dependencies": { "@grpc/proto-loader": "^0.8.0", "@js-sdsl/ordered-map": "^4.4.2" } }, "sha512-Iq8QQQ/7X3Sac15oB6p0FmUg/klxQvXLeileoqrTRGJYLV+/9tubbr9ipz0GKHjmXVsgFPo/+W+2cA8eNcR+XA=="],
 
