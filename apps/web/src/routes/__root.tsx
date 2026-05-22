@@ -9,11 +9,12 @@ import {
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { Toaster } from "@/components/ui/sonner";
 
-import type { orpc } from "@/utils/orpc";
-
-import "../index.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
+
+import type { orpc } from "@/shared/server/orpc";
+
+import "../index.css";
 
 export interface RouterAppContext {
   orpc: typeof orpc;
