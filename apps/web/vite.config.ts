@@ -9,6 +9,9 @@ export default defineConfig({
     tailwindcss(),
     tanstackRouter({
       routeToken: "layout",
+      quoteStyle: "double",
+      autoCodeSplitting: true,
+      generatedRouteTree: "./src/route-tree.gen.ts",
     }),
     react(),
   ],
