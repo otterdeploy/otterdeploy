@@ -7,10 +7,10 @@ import {
   createRootRouteWithContext,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
-import { Toaster } from "@/components/ui/sonner";
+import { Toaster } from "@/shared/components/ui/sonner";
 
-import { ThemeProvider } from "@/components/theme-provider";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { ThemeProvider } from "@/shared/components/theme-provider";
+import { TooltipProvider } from "@/shared/components/ui/tooltip";
 
 import type { orpc } from "@/shared/server/orpc";
 
