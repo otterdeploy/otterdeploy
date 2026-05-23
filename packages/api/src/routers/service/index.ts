@@ -1,5 +1,7 @@
 import { orgScopedProcedure } from "../..";
 
+import { type ProjectId } from "../project/errors";
+import { type ResourceId } from "./errors";
 import {
   bulkSetEnv,
   createService,
@@ -15,140 +17,274 @@ import {
   updateService,
 } from "./handlers";
 
-const mapErr = (
-  result: { ok: false; reason: string; cause?: unknown },
-  errors: Record<string, () => Error>,
-) => {
-  switch (result.reason) {
-    case "project_not_found":
-    case "service_not_found":
-      return errors.NOT_FOUND?.() ?? new Error(result.reason);
-    case "service_conflict":
-      return errors.CONFLICT?.() ?? new Error(result.reason);
-    case "no_http_port":
-      return errors.NO_HTTP_PORT?.() ?? new Error(result.reason);
-    case "in_use":
-      return errors.IN_USE?.() ?? new Error(result.reason);
-    case "ref_missing":
-      return errors.REF_MISSING?.() ?? new Error(result.reason);
-    case "ref_cycle":
-      return errors.REF_CYCLE?.() ?? new Error(result.reason);
-    case "ref_unknown_var":
-    case "ref_parse_error":
-      return errors.INVALID_INPUT?.() ?? new Error(result.reason);
-    default:
-      return new Error(result.reason);
-  }
-};
-
 export const serviceRouter = {
   list: orgScopedProcedure.service.list.handler(async ({ input, context, errors }) => {
     const result = await listServices({
-      ...input,
+      projectId: input.projectId as ProjectId,
       organizationId: context.activeOrganizationId,
     });
-    if (!result.ok) throw mapErr(result, errors as Record<string, () => Error>);
+    if (result.isErr()) {
+      switch (result.error._tag) {
+        case "ProjectNotFoundError":
+          throw errors.NOT_FOUND();
+      }
+    }
     return result.value;
   }),
 
   get: orgScopedProcedure.service.get.handler(async ({ input, context, errors }) => {
     const result = await getService({
-      ...input,
+      projectId: input.projectId as ProjectId,
+      resourceId: input.resourceId as ResourceId,
       organizationId: context.activeOrganizationId,
     });
-    if (!result.ok) throw mapErr(result, errors as Record<string, () => Error>);
+    if (result.isErr()) {
+      switch (result.error._tag) {
+        case "ProjectNotFoundError":
+        case "ServiceNotFoundError":
+          throw errors.NOT_FOUND();
+      }
+    }
     return result.value;
   }),
 
   create: orgScopedProcedure.service.create.handler(async ({ input, context, errors }) => {
     const result = await createService(
-      { ...input, organizationId: context.activeOrganizationId },
+      {
+        ...input,
+        projectId: input.projectId as ProjectId,
+        organizationId: context.activeOrganizationId,
+      },
       context.log,
     );
-    if (!result.ok) throw mapErr(result, errors as Record<string, () => Error>);
+    if (result.isErr()) {
+      switch (result.error._tag) {
+        case "ProjectNotFoundError":
+          throw errors.NOT_FOUND();
+        case "ServiceConflictError":
+          throw errors.CONFLICT();
+        case "RefMissingResourceError":
+          throw errors.REF_MISSING();
+        case "RefCycleError":
+          throw errors.REF_CYCLE();
+        case "RefParseError":
+        case "RefUnknownVarError":
+          throw errors.INVALID_INPUT();
+      }
+    }
     return result.value;
   }),
 
   update: orgScopedProcedure.service.update.handler(async ({ input, context, errors }) => {
     const result = await updateService(
-      { ...input, organizationId: context.activeOrganizationId },
+      {
+        ...input,
+        projectId: input.projectId as ProjectId,
+        resourceId: input.resourceId as ResourceId,
+        organizationId: context.activeOrganizationId,
+      },
       context.log,
     );
-    if (!result.ok) throw mapErr(result, errors as Record<string, () => Error>);
+    if (result.isErr()) {
+      switch (result.error._tag) {
+        case "ProjectNotFoundError":
+        case "ServiceNotFoundError":
+          throw errors.NOT_FOUND();
+        case "RefMissingResourceError":
+          throw errors.REF_MISSING();
+        case "RefCycleError":
+          throw errors.REF_CYCLE();
+        case "RefParseError":
+        case "RefUnknownVarError":
+          throw errors.INVALID_INPUT();
+      }
+    }
     return result.value;
   }),
 
   delete: orgScopedProcedure.service.delete.handler(async ({ input, context, errors }) => {
     const result = await deleteService(
-      { ...input, organizationId: context.activeOrganizationId },
+      {
+        projectId: input.projectId as ProjectId,
+        resourceId: input.resourceId as ResourceId,
+        organizationId: context.activeOrganizationId,
+      },
       context.log,
     );
-    if (!result.ok) throw mapErr(result, errors as Record<string, () => Error>);
+    if (result.isErr()) {
+      switch (result.error._tag) {
+        case "ProjectNotFoundError":
+        case "ServiceNotFoundError":
+          throw errors.NOT_FOUND();
+        case "ServiceInUseError":
+          throw errors.IN_USE();
+      }
+    }
     return result.value;
   }),
 
   restart: orgScopedProcedure.service.restart.handler(async ({ input, context, errors }) => {
     const result = await restartService(
-      { ...input, organizationId: context.activeOrganizationId },
+      {
+        projectId: input.projectId as ProjectId,
+        resourceId: input.resourceId as ResourceId,
+        organizationId: context.activeOrganizationId,
+      },
       context.log,
     );
-    if (!result.ok) throw mapErr(result, errors as Record<string, () => Error>);
+    if (result.isErr()) {
+      switch (result.error._tag) {
+        case "ProjectNotFoundError":
+        case "ServiceNotFoundError":
+          throw errors.NOT_FOUND();
+        // restartService can also propagate ResolveError via fan-out redeploy;
+        // surface those as generic server errors since this contract does
+        // not enumerate them.
+        case "RefMissingResourceError":
+        case "RefCycleError":
+        case "RefParseError":
+        case "RefUnknownVarError":
+          throw new Error(result.error.message);
+      }
+    }
     return result.value;
   }),
 
   expose: orgScopedProcedure.service.expose.handler(async ({ input, context, errors }) => {
     const result = await exposeService(
-      { ...input, organizationId: context.activeOrganizationId },
+      {
+        projectId: input.projectId as ProjectId,
+        resourceId: input.resourceId as ResourceId,
+        organizationId: context.activeOrganizationId,
+      },
       context.log,
     );
-    if (!result.ok) throw mapErr(result, errors as Record<string, () => Error>);
+    if (result.isErr()) {
+      switch (result.error._tag) {
+        case "ProjectNotFoundError":
+        case "ServiceNotFoundError":
+          throw errors.NOT_FOUND();
+        case "NoHttpPortError":
+          throw errors.NO_HTTP_PORT();
+      }
+    }
     return result.value;
   }),
 
   unexpose: orgScopedProcedure.service.unexpose.handler(async ({ input, context, errors }) => {
     const result = await unexposeService(
-      { ...input, organizationId: context.activeOrganizationId },
+      {
+        projectId: input.projectId as ProjectId,
+        resourceId: input.resourceId as ResourceId,
+        organizationId: context.activeOrganizationId,
+      },
       context.log,
     );
-    if (!result.ok) throw mapErr(result, errors as Record<string, () => Error>);
+    if (result.isErr()) {
+      switch (result.error._tag) {
+        case "ProjectNotFoundError":
+        case "ServiceNotFoundError":
+          throw errors.NOT_FOUND();
+      }
+    }
     return result.value;
   }),
 
   env: {
     list: orgScopedProcedure.service.env.list.handler(async ({ input, context, errors }) => {
       const result = await listEnv({
-        ...input,
+        projectId: input.projectId as ProjectId,
+        resourceId: input.resourceId as ResourceId,
         organizationId: context.activeOrganizationId,
       });
-      if (!result.ok) throw mapErr(result, errors as Record<string, () => Error>);
+      if (result.isErr()) {
+        switch (result.error._tag) {
+          case "ProjectNotFoundError":
+          case "ServiceNotFoundError":
+            throw errors.NOT_FOUND();
+        }
+      }
       return result.value;
     }),
 
     set: orgScopedProcedure.service.env.set.handler(async ({ input, context, errors }) => {
       const result = await setEnv(
-        { ...input, organizationId: context.activeOrganizationId },
+        {
+          ...input,
+          projectId: input.projectId as ProjectId,
+          resourceId: input.resourceId as ResourceId,
+          organizationId: context.activeOrganizationId,
+        },
         context.log,
       );
-      if (!result.ok) throw mapErr(result, errors as Record<string, () => Error>);
+      if (result.isErr()) {
+        switch (result.error._tag) {
+          case "ProjectNotFoundError":
+          case "ServiceNotFoundError":
+            throw errors.NOT_FOUND();
+          case "RefMissingResourceError":
+            throw errors.REF_MISSING();
+          case "RefCycleError":
+            throw errors.REF_CYCLE();
+          case "RefParseError":
+          case "RefUnknownVarError":
+            throw errors.INVALID_INPUT();
+        }
+      }
       return result.value;
     }),
 
     unset: orgScopedProcedure.service.env.unset.handler(async ({ input, context, errors }) => {
       const result = await unsetEnv(
-        { ...input, organizationId: context.activeOrganizationId },
+        {
+          ...input,
+          projectId: input.projectId as ProjectId,
+          resourceId: input.resourceId as ResourceId,
+          organizationId: context.activeOrganizationId,
+        },
         context.log,
       );
-      if (!result.ok) throw mapErr(result, errors as Record<string, () => Error>);
+      if (result.isErr()) {
+        switch (result.error._tag) {
+          case "ProjectNotFoundError":
+          case "ServiceNotFoundError":
+            throw errors.NOT_FOUND();
+          // Contract doesn't enumerate REF_* — surface as server error.
+          case "RefMissingResourceError":
+          case "RefCycleError":
+          case "RefParseError":
+          case "RefUnknownVarError":
+            throw new Error(result.error.message);
+        }
+      }
       return result.value;
     }),
 
     bulkSet: orgScopedProcedure.service.env.bulkSet.handler(
       async ({ input, context, errors }) => {
         const result = await bulkSetEnv(
-          { ...input, organizationId: context.activeOrganizationId },
+          {
+            ...input,
+            projectId: input.projectId as ProjectId,
+            resourceId: input.resourceId as ResourceId,
+            organizationId: context.activeOrganizationId,
+          },
           context.log,
         );
-        if (!result.ok) throw mapErr(result, errors as Record<string, () => Error>);
+        if (result.isErr()) {
+          switch (result.error._tag) {
+            case "ProjectNotFoundError":
+            case "ServiceNotFoundError":
+              throw errors.NOT_FOUND();
+            case "RefMissingResourceError":
+              throw errors.REF_MISSING();
+            case "RefCycleError":
+              throw errors.REF_CYCLE();
+            case "RefParseError":
+            case "RefUnknownVarError":
+              throw errors.INVALID_INPUT();
+          }
+        }
         return result.value;
       },
     ),

@@ -3,13 +3,14 @@
  * queries module, the Swarm provisioner, the variable resolver, and the
  * Caddy reconciler.
  *
- * Returns discriminated-union results (matching the existing project router
- * style) so the oRPC handler layer can translate to the right error code.
+ * Returns `Result<View, TaggedError>` so the oRPC handler layer can switch
+ * on `result.error._tag` to translate to the right wire-level error code.
  */
 
+import { Result } from "better-result";
 import type { RequestLogger } from "evlog";
 
-import { getProjectInOrg } from "../project/queries";
+import type { ProjectNotFoundError } from "../project/errors";
 
 import { reconcile } from "../../caddy";
 import {
@@ -17,205 +18,88 @@ import {
   insertProxyRoute,
 } from "../../caddy/queries";
 import { PLATFORM } from "../../constants";
+import { destroySwarmService } from "../../swarm";
+
+import { loadProject, loadResource } from "./context";
 import {
-  bulkReplaceServiceEnvVars,
-  bumpForceUpdateCounter,
-  createServiceRecord,
-  deleteServiceEnvVar,
-  deleteServiceRecord,
-  findServiceDependentsByName,
-  getPrimaryHttpPort,
-  getServiceRecord,
-  getServiceRecordByName,
-  listServiceRecordsByProject,
-  replaceServicePorts,
-  type ServiceRecord,
-  setPublicExposure,
-  updateServiceRecord,
-  updateServiceResourceStatus,
-  upsertServiceEnvVar,
-} from "./queries";
-import {
-  findTransitiveDependents,
-  resolveServiceEnv,
+  NoHttpPortError,
+  ServiceConflictError,
+  ServiceInUseError,
+  ServiceNotFoundError,
   type ResolveError,
-} from "../../lib/variables";
+  type ResourceId,
+} from "./errors";
 import {
-  destroySwarmService,
-  inspectSwarmServiceRuntime,
-  provisionSwarmService,
-  type SwarmServiceRuntime,
-  type SwarmServiceSpec,
-  updateSwarmService,
-} from "../../swarm";
+  type CreateServiceInput,
+  type ProjectRef,
+  type ResourceRef,
+  type UpdateServiceInput,
+  toCreateRecordPayload,
+  toUpdateRecordPatch,
+} from "./inputs";
+import {
+  bulkReplaceServiceEnvVars, bumpForceUpdateCounter, createServiceRecord,
+  deleteServiceEnvVar, deleteServiceRecord, findServiceDependentsByName,
+  getPrimaryHttpPort, getServiceRecord, getServiceRecordByName,
+  listServiceRecordsByProject, replaceServicePorts, setPublicExposure,
+  updateServiceRecord, upsertServiceEnvVar, type ServiceRecord,
+} from "./queries";
+import { provisionFresh, redeployAndFanOut } from "./redeploy";
+import {
+  isUniqueViolation, mapEnvVar, mapServiceView, normalizePorts, sanitizeSlug,
+  type EnvVarView, type ServiceView,
+} from "./views";
 
-// ---------------------------------------------------------------------------
-// Views & result types
-// ---------------------------------------------------------------------------
+export type { EnvVarView, ServiceView } from "./views";
+export type { CreateServiceInput, UpdateServiceInput } from "./inputs";
 
-export type ServiceView = {
-  id: string;
-  projectId: string;
-  name: string;
-  status: "draft" | "valid" | "invalid";
+// Common error shapes — keep handler signatures legible.
+type NotFound = ProjectNotFoundError | ServiceNotFoundError;
+type RedeployFailure = NotFound | ResolveError;
 
-  image: string;
-  imageDigest: string | null;
-  command: string[] | null;
-  entrypoint: string[] | null;
-  replicas: number;
-
-  restart: {
-    condition: "none" | "on-failure" | "any";
-    maxAttempts: number | null;
-    delayMs: number;
-  };
-
-  healthcheck: {
-    cmd: string[] | null;
-    intervalMs: number | null;
-    timeoutMs: number | null;
-    retries: number | null;
-    startMs: number | null;
-  } | null;
-
-  resources: {
-    cpuLimit: number | null;
-    memoryLimitMb: number | null;
-    cpuReservation: number | null;
-    memoryReservationMb: number | null;
-  };
-
-  ports: Array<{
-    id: string;
-    containerPort: number;
-    protocol: "tcp" | "udp";
-    appProtocol: "http" | "tcp";
-    isPrimary: boolean;
-  }>;
-
-  publicEnabled: boolean;
-  publicDomain: string | null;
-  internalHostname: string;
-
-  runtime: SwarmServiceRuntime;
-
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type EnvVarView = {
-  id: string;
-  serviceResourceId: string;
-  key: string;
-  value: string;
-};
-
-type Ok<T> = { ok: true; value: T };
-type Err<K extends string, Extra = unknown> = { ok: false; reason: K; cause?: Extra };
-
-export type ServiceFailureReason =
-  | "project_not_found"
-  | "service_not_found"
-  | "service_conflict"
-  | "no_http_port"
-  | "in_use"
-  | "ref_missing"
-  | "ref_cycle"
-  | "ref_unknown_var"
-  | "ref_parse_error";
-
-type ServiceResult<T> = Ok<T> | Err<ServiceFailureReason, ResolveError | string>;
-
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
-
-export async function listServices(input: {
-  projectId: string;
-  organizationId: string;
-}): Promise<ServiceResult<ServiceView[]>> {
-  const project = await getProjectInOrg({
-    projectId: input.projectId,
-    organizationId: input.organizationId,
-  });
-  if (!project) return { ok: false, reason: "project_not_found" };
+export async function listServices(
+  input: ProjectRef,
+): Promise<Result<ServiceView[], ProjectNotFoundError>> {
+  const project = await loadProject(input);
+  if (project.isErr()) return Result.err(project.error);
 
   const records = await listServiceRecordsByProject(input.projectId);
-  const views = await Promise.all(records.map((r) => mapServiceView(r, project.slug)));
-  return { ok: true, value: views };
+  const views = await Promise.all(
+    records.map((r) => mapServiceView(r, project.value.slug)),
+  );
+  return Result.ok(views);
 }
 
-export async function getService(input: {
-  projectId: string;
-  organizationId: string;
-  resourceId: string;
-}): Promise<ServiceResult<ServiceView>> {
-  const project = await getProjectInOrg({
-    projectId: input.projectId,
-    organizationId: input.organizationId,
-  });
-  if (!project) return { ok: false, reason: "project_not_found" };
-
-  const record = await getServiceRecord(input.projectId, input.resourceId);
-  if (!record) return { ok: false, reason: "service_not_found" };
-
-  return { ok: true, value: await mapServiceView(record, project.slug) };
+export async function getService(
+  input: ResourceRef,
+): Promise<Result<ServiceView, NotFound>> {
+  const ctx = await loadResource(input);
+  if (ctx.isErr()) return Result.err(ctx.error);
+  return Result.ok(await mapServiceView(ctx.value.record, ctx.value.project.slug));
 }
 
-export type CreateServiceInput = {
-  projectId: string;
-  organizationId: string;
-  name: string;
-  image: string;
-  command?: string[] | null;
-  entrypoint?: string[] | null;
-  replicas?: number;
-
-  ports: Array<{
-    containerPort: number;
-    protocol?: "tcp" | "udp";
-    appProtocol?: "http" | "tcp";
-    isPrimary?: boolean;
-  }>;
-  env?: Array<{ key: string; value: string }>;
-
-  restart?: {
-    condition?: "none" | "on-failure" | "any";
-    maxAttempts?: number | null;
-    delayMs?: number;
-  };
-
-  healthcheck?: {
-    cmd?: string[] | null;
-    intervalMs?: number | null;
-    timeoutMs?: number | null;
-    retries?: number | null;
-    startMs?: number | null;
-  } | null;
-
-  resources?: {
-    cpuLimit?: number | null;
-    memoryLimitMb?: number | null;
-    cpuReservation?: number | null;
-    memoryReservationMb?: number | null;
-  };
-};
+export async function listEnv(
+  input: ResourceRef,
+): Promise<Result<EnvVarView[], NotFound>> {
+  const ctx = await loadResource(input);
+  if (ctx.isErr()) return Result.err(ctx.error);
+  return Result.ok(ctx.value.record.env.map(mapEnvVar));
+}
 
 export async function createService(
   input: CreateServiceInput,
   log: RequestLogger,
-): Promise<ServiceResult<ServiceView>> {
+): Promise<Result<ServiceView, ProjectNotFoundError | ServiceConflictError | ResolveError>> {
   log.set({ resource: { kind: "service", projectId: input.projectId, name: input.name } });
 
-  const project = await getProjectInOrg({
-    projectId: input.projectId,
-    organizationId: input.organizationId,
-  });
-  if (!project) return { ok: false, reason: "project_not_found" };
+  const projectResult = await loadProject(input);
+  if (projectResult.isErr()) return Result.err(projectResult.error);
+  const project = projectResult.value;
 
   const existing = await getServiceRecordByName(input.projectId, input.name);
-  if (existing) return { ok: false, reason: "service_conflict" };
+  if (existing) {
+    return Result.err(new ServiceConflictError({ name: input.name }));
+  }
 
   const projectSlug = sanitizeSlug(project.slug);
   const resourceSlug = sanitizeSlug(input.name);
@@ -223,143 +107,42 @@ export async function createService(
   const networkName = `${PLATFORM.swarm.networkPrefix}${projectSlug}`;
   const internalHostname = resourceSlug;
 
-  // Ensure exactly one primary HTTP port — if user didn't flag one,
-  // promote the first HTTP port. No-op if there are no HTTP ports.
   const ports = normalizePorts(input.ports);
 
   let record: ServiceRecord;
   try {
-    record = await createServiceRecord({
-      projectId: input.projectId,
-      name: input.name,
-      status: "draft",
-      image: input.image,
-      command: input.command ?? null,
-      entrypoint: input.entrypoint ?? null,
-      replicas: input.replicas ?? 1,
-      restartCondition: input.restart?.condition,
-      restartMaxAttempts: input.restart?.maxAttempts ?? null,
-      restartDelayMs: input.restart?.delayMs,
-      healthcheckCmd: input.healthcheck?.cmd ?? null,
-      healthcheckIntervalMs: input.healthcheck?.intervalMs ?? null,
-      healthcheckTimeoutMs: input.healthcheck?.timeoutMs ?? null,
-      healthcheckRetries: input.healthcheck?.retries ?? null,
-      healthcheckStartMs: input.healthcheck?.startMs ?? null,
-      cpuLimit:
-        input.resources?.cpuLimit != null ? input.resources.cpuLimit.toString() : null,
-      memoryLimitMb: input.resources?.memoryLimitMb ?? null,
-      cpuReservation:
-        input.resources?.cpuReservation != null
-          ? input.resources.cpuReservation.toString()
-          : null,
-      memoryReservationMb: input.resources?.memoryReservationMb ?? null,
-      internalHostname,
-      serviceName,
-      networkName,
-      ports,
-      env: input.env,
-    });
+    record = await createServiceRecord(
+      toCreateRecordPayload(input, {
+        ports,
+        serviceName,
+        networkName,
+        internalHostname,
+      }),
+    );
   } catch (error) {
     if (isUniqueViolation(error)) {
-      return { ok: false, reason: "service_conflict" };
+      return Result.err(new ServiceConflictError({ name: input.name }));
     }
     throw error;
   }
 
-  // Resolve env (may fail with ref errors)
-  const resolved = await resolveServiceEnv(input.projectId, record.service.resourceId);
-  if (!resolved.ok) {
-    await updateServiceResourceStatus(record.service.resourceId, "invalid");
-    return mapResolveError(resolved.error);
-  }
-
-  // Provision the swarm service
-  const runtime = await provisionSwarmService(
-    buildSwarmSpec(record, resolved.env, projectSlug),
-  );
+  const provisioned = await provisionFresh(input.projectId, record, projectSlug);
+  if (provisioned.isErr()) return Result.err(provisioned.error);
+  const runtime = provisioned.value;
   log.set({ provision: { service: serviceName, status: runtime.status } });
 
-  await updateServiceResourceStatus(
-    record.service.resourceId,
-    runtime.status === "error" ? "invalid" : "valid",
-  );
-
   const refreshed = await getServiceRecord(input.projectId, record.service.resourceId);
-  return {
-    ok: true,
-    value: await mapServiceView(refreshed ?? record, projectSlug, runtime),
-  };
+  return Result.ok(await mapServiceView(refreshed ?? record, projectSlug, runtime));
 }
-
-export type UpdateServiceInput = {
-  projectId: string;
-  organizationId: string;
-  resourceId: string;
-  image?: string;
-  command?: string[] | null;
-  entrypoint?: string[] | null;
-  replicas?: number;
-  ports?: Array<{
-    containerPort: number;
-    protocol?: "tcp" | "udp";
-    appProtocol?: "http" | "tcp";
-    isPrimary?: boolean;
-  }>;
-  restart?: {
-    condition?: "none" | "on-failure" | "any";
-    maxAttempts?: number | null;
-    delayMs?: number;
-  };
-  healthcheck?: {
-    cmd?: string[] | null;
-    intervalMs?: number | null;
-    timeoutMs?: number | null;
-    retries?: number | null;
-    startMs?: number | null;
-  } | null;
-  resources?: {
-    cpuLimit?: number | null;
-    memoryLimitMb?: number | null;
-    cpuReservation?: number | null;
-    memoryReservationMb?: number | null;
-  };
-};
 
 export async function updateService(
   input: UpdateServiceInput,
   log: RequestLogger,
-): Promise<ServiceResult<ServiceView>> {
-  const project = await getProjectInOrg({
-    projectId: input.projectId,
-    organizationId: input.organizationId,
-  });
-  if (!project) return { ok: false, reason: "project_not_found" };
+): Promise<Result<ServiceView, RedeployFailure>> {
+  const ctx = await loadResource(input);
+  if (ctx.isErr()) return Result.err(ctx.error);
 
-  const existing = await getServiceRecord(input.projectId, input.resourceId);
-  if (!existing) return { ok: false, reason: "service_not_found" };
-
-  await updateServiceRecord(input.resourceId, {
-    image: input.image,
-    command: input.command,
-    entrypoint: input.entrypoint,
-    replicas: input.replicas,
-    restartCondition: input.restart?.condition,
-    restartMaxAttempts: input.restart?.maxAttempts,
-    restartDelayMs: input.restart?.delayMs,
-    healthcheckCmd: input.healthcheck?.cmd,
-    healthcheckIntervalMs: input.healthcheck?.intervalMs,
-    healthcheckTimeoutMs: input.healthcheck?.timeoutMs,
-    healthcheckRetries: input.healthcheck?.retries,
-    healthcheckStartMs: input.healthcheck?.startMs,
-    cpuLimit:
-      input.resources?.cpuLimit != null ? input.resources.cpuLimit.toString() : undefined,
-    memoryLimitMb: input.resources?.memoryLimitMb,
-    cpuReservation:
-      input.resources?.cpuReservation != null
-        ? input.resources.cpuReservation.toString()
-        : undefined,
-    memoryReservationMb: input.resources?.memoryReservationMb,
-  });
+  await updateServiceRecord(input.resourceId, toUpdateRecordPatch(input));
 
   if (input.ports) {
     await replaceServicePorts(input.resourceId, normalizePorts(input.ports));
@@ -368,35 +151,34 @@ export async function updateService(
   const redeployed = await redeployAndFanOut(
     input.projectId,
     input.resourceId,
-    project.slug,
+    ctx.value.project.slug,
     log,
   );
-  if (!redeployed.ok) return redeployed;
+  if (redeployed.isErr()) return Result.err(redeployed.error);
 
   return getService(input);
 }
 
 export async function deleteService(
-  input: { projectId: string; organizationId: string; resourceId: string },
+  input: ResourceRef,
   log: RequestLogger,
-): Promise<ServiceResult<{ ok: true }>> {
-  const project = await getProjectInOrg({
-    projectId: input.projectId,
-    organizationId: input.organizationId,
-  });
-  if (!project) return { ok: false, reason: "project_not_found" };
+): Promise<Result<{ ok: true }, NotFound | ServiceInUseError>> {
+  const ctx = await loadResource(input);
+  if (ctx.isErr()) return Result.err(ctx.error);
+  const { record } = ctx.value;
 
-  const record = await getServiceRecord(input.projectId, input.resourceId);
-  if (!record) return { ok: false, reason: "service_not_found" };
-
-  // Block deletion if other services reference us.
   const dependents = await findServiceDependentsByName({
     projectId: input.projectId,
     targetResourceName: record.resource.name,
   });
   const externalDependents = dependents.filter((id) => id !== input.resourceId);
   if (externalDependents.length > 0) {
-    return { ok: false, reason: "in_use", cause: externalDependents.join(",") };
+    return Result.err(
+      new ServiceInUseError({
+        resourceId: input.resourceId,
+        referrers: externalDependents as unknown as ReadonlyArray<ResourceId>,
+      }),
+    );
   }
 
   await deleteProxyRoutesByResource(input.resourceId);
@@ -406,50 +188,41 @@ export async function deleteService(
 
   log.set({ teardown: { service: record.service.serviceName, ok: true } });
 
-  return { ok: true, value: { ok: true } };
+  return Result.ok({ ok: true });
 }
 
 export async function restartService(
-  input: { projectId: string; organizationId: string; resourceId: string },
+  input: ResourceRef,
   log: RequestLogger,
-): Promise<ServiceResult<ServiceView>> {
-  const project = await getProjectInOrg({
-    projectId: input.projectId,
-    organizationId: input.organizationId,
-  });
-  if (!project) return { ok: false, reason: "project_not_found" };
-
-  const existing = await getServiceRecord(input.projectId, input.resourceId);
-  if (!existing) return { ok: false, reason: "service_not_found" };
+): Promise<Result<ServiceView, RedeployFailure>> {
+  const ctx = await loadResource(input);
+  if (ctx.isErr()) return Result.err(ctx.error);
 
   await bumpForceUpdateCounter(input.resourceId);
 
   const redeployed = await redeployAndFanOut(
     input.projectId,
     input.resourceId,
-    project.slug,
+    ctx.value.project.slug,
     log,
   );
-  if (!redeployed.ok) return redeployed;
+  if (redeployed.isErr()) return Result.err(redeployed.error);
 
   return getService(input);
 }
 
 export async function exposeService(
-  input: { projectId: string; organizationId: string; resourceId: string },
+  input: ResourceRef,
   log: RequestLogger,
-): Promise<ServiceResult<ServiceView>> {
-  const project = await getProjectInOrg({
-    projectId: input.projectId,
-    organizationId: input.organizationId,
-  });
-  if (!project) return { ok: false, reason: "project_not_found" };
-
-  const record = await getServiceRecord(input.projectId, input.resourceId);
-  if (!record) return { ok: false, reason: "service_not_found" };
+): Promise<Result<ServiceView, NotFound | NoHttpPortError>> {
+  const ctx = await loadResource(input);
+  if (ctx.isErr()) return Result.err(ctx.error);
+  const { project, record } = ctx.value;
 
   const primary = getPrimaryHttpPort(record.ports);
-  if (!primary) return { ok: false, reason: "no_http_port" };
+  if (!primary) {
+    return Result.err(new NoHttpPortError({ resourceId: input.resourceId }));
+  }
 
   const projectSlug = sanitizeSlug(project.slug);
   const resourceSlug = sanitizeSlug(record.resource.name);
@@ -463,7 +236,6 @@ export async function exposeService(
     publicDomain,
   });
 
-  // Drop any pre-existing proxy_routes for this resource and re-insert.
   await deleteProxyRoutesByResource(input.resourceId);
   await insertProxyRoute({
     projectId: input.projectId,
@@ -487,17 +259,11 @@ export async function exposeService(
 }
 
 export async function unexposeService(
-  input: { projectId: string; organizationId: string; resourceId: string },
+  input: ResourceRef,
   log: RequestLogger,
-): Promise<ServiceResult<ServiceView>> {
-  const project = await getProjectInOrg({
-    projectId: input.projectId,
-    organizationId: input.organizationId,
-  });
-  if (!project) return { ok: false, reason: "project_not_found" };
-
-  const record = await getServiceRecord(input.projectId, input.resourceId);
-  if (!record) return { ok: false, reason: "service_not_found" };
+): Promise<Result<ServiceView, NotFound>> {
+  const ctx = await loadResource(input);
+  if (ctx.isErr()) return Result.err(ctx.error);
 
   await deleteProxyRoutesByResource(input.resourceId);
   await setPublicExposure({
@@ -506,45 +272,17 @@ export async function unexposeService(
     publicDomain: null,
   });
   await reconcile();
-  log.set({ unexpose: { service: record.service.serviceName } });
+  log.set({ unexpose: { service: ctx.value.record.service.serviceName } });
 
   return getService(input);
 }
 
-export async function listEnv(input: {
-  projectId: string;
-  organizationId: string;
-  resourceId: string;
-}): Promise<ServiceResult<EnvVarView[]>> {
-  const project = await getProjectInOrg({
-    projectId: input.projectId,
-    organizationId: input.organizationId,
-  });
-  if (!project) return { ok: false, reason: "project_not_found" };
-
-  const record = await getServiceRecord(input.projectId, input.resourceId);
-  if (!record) return { ok: false, reason: "service_not_found" };
-  return { ok: true, value: record.env.map(mapEnvVar) };
-}
-
 export async function setEnv(
-  input: {
-    projectId: string;
-    organizationId: string;
-    resourceId: string;
-    key: string;
-    value: string;
-  },
+  input: ResourceRef & { key: string; value: string },
   log: RequestLogger,
-): Promise<ServiceResult<EnvVarView>> {
-  const project = await getProjectInOrg({
-    projectId: input.projectId,
-    organizationId: input.organizationId,
-  });
-  if (!project) return { ok: false, reason: "project_not_found" };
-
-  const record = await getServiceRecord(input.projectId, input.resourceId);
-  if (!record) return { ok: false, reason: "service_not_found" };
+): Promise<Result<EnvVarView, RedeployFailure>> {
+  const ctx = await loadResource(input);
+  if (ctx.isErr()) return Result.err(ctx.error);
 
   const row = await upsertServiceEnvVar({
     serviceResourceId: input.resourceId,
@@ -555,307 +293,55 @@ export async function setEnv(
   const redeployed = await redeployAndFanOut(
     input.projectId,
     input.resourceId,
-    project.slug,
+    ctx.value.project.slug,
     log,
   );
-  if (!redeployed.ok) return redeployed;
+  if (redeployed.isErr()) return Result.err(redeployed.error);
 
-  return { ok: true, value: mapEnvVar(row) };
+  return Result.ok(mapEnvVar(row));
 }
 
 export async function unsetEnv(
-  input: { projectId: string; organizationId: string; resourceId: string; key: string },
+  input: ResourceRef & { key: string },
   log: RequestLogger,
-): Promise<ServiceResult<{ ok: true }>> {
-  const project = await getProjectInOrg({
-    projectId: input.projectId,
-    organizationId: input.organizationId,
-  });
-  if (!project) return { ok: false, reason: "project_not_found" };
-
-  const record = await getServiceRecord(input.projectId, input.resourceId);
-  if (!record) return { ok: false, reason: "service_not_found" };
+): Promise<Result<{ ok: true }, RedeployFailure>> {
+  const ctx = await loadResource(input);
+  if (ctx.isErr()) return Result.err(ctx.error);
 
   const removed = await deleteServiceEnvVar({
     serviceResourceId: input.resourceId,
     key: input.key,
   });
-  if (!removed) return { ok: false, reason: "service_not_found" };
+  if (!removed) {
+    return Result.err(new ServiceNotFoundError({ resourceId: input.resourceId }));
+  }
 
   const redeployed = await redeployAndFanOut(
     input.projectId,
     input.resourceId,
-    project.slug,
+    ctx.value.project.slug,
     log,
   );
-  if (!redeployed.ok) return redeployed;
+  if (redeployed.isErr()) return Result.err(redeployed.error);
 
-  return { ok: true, value: { ok: true } };
+  return Result.ok({ ok: true });
 }
 
 export async function bulkSetEnv(
-  input: {
-    projectId: string;
-    organizationId: string;
-    resourceId: string;
-    vars: Array<{ key: string; value: string }>;
-  },
+  input: ResourceRef & { vars: Array<{ key: string; value: string }> },
   log: RequestLogger,
-): Promise<ServiceResult<EnvVarView[]>> {
-  const project = await getProjectInOrg({
-    projectId: input.projectId,
-    organizationId: input.organizationId,
-  });
-  if (!project) return { ok: false, reason: "project_not_found" };
-
-  const record = await getServiceRecord(input.projectId, input.resourceId);
-  if (!record) return { ok: false, reason: "service_not_found" };
+): Promise<Result<EnvVarView[], RedeployFailure>> {
+  const ctx = await loadResource(input);
+  if (ctx.isErr()) return Result.err(ctx.error);
 
   const rows = await bulkReplaceServiceEnvVars(input.resourceId, input.vars);
   const redeployed = await redeployAndFanOut(
     input.projectId,
     input.resourceId,
-    project.slug,
+    ctx.value.project.slug,
     log,
   );
-  if (!redeployed.ok) return redeployed;
+  if (redeployed.isErr()) return Result.err(redeployed.error);
 
-  return { ok: true, value: rows.map(mapEnvVar) };
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-async function redeployAndFanOut(
-  projectId: string,
-  resourceId: string,
-  projectSlug: string,
-  log: RequestLogger,
-): Promise<ServiceResult<true>> {
-  const result = await redeployOne(projectId, resourceId, projectSlug);
-  if (!result.ok) return result;
-
-  const sourceRecord = await getServiceRecord(projectId, resourceId);
-  if (!sourceRecord) return { ok: true, value: true };
-
-  const dependents = await findTransitiveDependents({
-    projectId,
-    targetResourceId: resourceId,
-    targetResourceName: sourceRecord.resource.name,
-  });
-
-  log.set({ fanout: { count: dependents.length } });
-
-  for (const depId of dependents) {
-    const depResult = await redeployOne(projectId, depId, projectSlug);
-    if (!depResult.ok) {
-      // One failed dependent shouldn't undo the rest, but we surface the first error.
-      return depResult;
-    }
-  }
-
-  return { ok: true, value: true };
-}
-
-async function redeployOne(
-  projectId: string,
-  resourceId: string,
-  projectSlug: string,
-): Promise<ServiceResult<true>> {
-  const record = await getServiceRecord(projectId, resourceId);
-  if (!record) return { ok: false, reason: "service_not_found" };
-
-  const resolved = await resolveServiceEnv(projectId, resourceId);
-  if (!resolved.ok) {
-    await updateServiceResourceStatus(resourceId, "invalid");
-    return mapResolveError(resolved.error);
-  }
-
-  const runtime = await updateSwarmService(
-    buildSwarmSpec(record, resolved.env, sanitizeSlug(projectSlug)),
-  );
-  await updateServiceResourceStatus(
-    resourceId,
-    runtime.status === "error" ? "invalid" : "valid",
-  );
-
-  return { ok: true, value: true };
-}
-
-function buildSwarmSpec(
-  record: ServiceRecord,
-  resolvedEnv: Record<string, string>,
-  projectSlug: string,
-): SwarmServiceSpec {
-  return {
-    resourceId: record.resource.id,
-    resourceName: record.resource.name,
-    projectSlug: sanitizeSlug(projectSlug),
-    serviceName: record.service.serviceName,
-    internalHostname: record.service.internalHostname,
-    image: record.service.image,
-    command: record.service.command,
-    entrypoint: record.service.entrypoint,
-    env: resolvedEnv,
-    replicas: record.service.replicas,
-    restart: {
-      condition: record.service.restartCondition,
-      maxAttempts: record.service.restartMaxAttempts,
-      delayMs: record.service.restartDelayMs,
-    },
-    healthcheck: record.service.healthcheckCmd
-      ? {
-          cmd: record.service.healthcheckCmd,
-          intervalMs: record.service.healthcheckIntervalMs ?? 30_000,
-          timeoutMs: record.service.healthcheckTimeoutMs ?? 5_000,
-          retries: record.service.healthcheckRetries ?? 3,
-          startPeriodMs: record.service.healthcheckStartMs ?? 0,
-        }
-      : null,
-    resources: {
-      cpuLimit: record.service.cpuLimit != null ? Number(record.service.cpuLimit) : null,
-      memoryLimitMb: record.service.memoryLimitMb,
-      cpuReservation:
-        record.service.cpuReservation != null ? Number(record.service.cpuReservation) : null,
-      memoryReservationMb: record.service.memoryReservationMb,
-    },
-    ports: record.ports.map((p) => ({
-      containerPort: p.containerPort,
-      protocol: p.protocol,
-      appProtocol: p.appProtocol,
-    })),
-    forceUpdateCounter: record.service.forceUpdateCounter,
-  };
-}
-
-function normalizePorts(ports: CreateServiceInput["ports"]) {
-  const hasHttp = ports.some((p) => (p.appProtocol ?? "http") === "http");
-  const hasPrimary = ports.some((p) => p.isPrimary === true);
-  let promotedPrimary = false;
-  return ports.map((p) => {
-    const appProtocol = p.appProtocol ?? "http";
-    const isPrimary =
-      p.isPrimary === true ||
-      (hasHttp && !hasPrimary && !promotedPrimary && appProtocol === "http"
-        ? ((promotedPrimary = true), true)
-        : false);
-    return {
-      containerPort: p.containerPort,
-      protocol: p.protocol ?? "tcp",
-      appProtocol,
-      isPrimary,
-    };
-  });
-}
-
-async function mapServiceView(
-  record: ServiceRecord,
-  projectSlug: string,
-  runtime?: SwarmServiceRuntime,
-): Promise<ServiceView> {
-  const live =
-    runtime ??
-    (await inspectSwarmServiceRuntime({
-      serviceName: record.service.serviceName,
-      projectSlug: sanitizeSlug(projectSlug),
-    }));
-
-  return {
-    id: record.resource.id,
-    projectId: record.resource.projectId,
-    name: record.resource.name,
-    status: record.resource.status,
-    image: record.service.image,
-    imageDigest: record.service.imageDigest,
-    command: record.service.command,
-    entrypoint: record.service.entrypoint,
-    replicas: record.service.replicas,
-    restart: {
-      condition: record.service.restartCondition,
-      maxAttempts: record.service.restartMaxAttempts,
-      delayMs: record.service.restartDelayMs,
-    },
-    healthcheck: record.service.healthcheckCmd
-      ? {
-          cmd: record.service.healthcheckCmd,
-          intervalMs: record.service.healthcheckIntervalMs,
-          timeoutMs: record.service.healthcheckTimeoutMs,
-          retries: record.service.healthcheckRetries,
-          startMs: record.service.healthcheckStartMs,
-        }
-      : null,
-    resources: {
-      cpuLimit:
-        record.service.cpuLimit != null ? Number(record.service.cpuLimit) : null,
-      memoryLimitMb: record.service.memoryLimitMb,
-      cpuReservation:
-        record.service.cpuReservation != null
-          ? Number(record.service.cpuReservation)
-          : null,
-      memoryReservationMb: record.service.memoryReservationMb,
-    },
-    ports: record.ports.map((p) => ({
-      id: p.id,
-      containerPort: p.containerPort,
-      protocol: p.protocol,
-      appProtocol: p.appProtocol,
-      isPrimary: p.isPrimary,
-    })),
-    publicEnabled: record.service.publicEnabled,
-    publicDomain: record.service.publicDomain,
-    internalHostname: record.service.internalHostname,
-    runtime: live,
-    createdAt: record.resource.createdAt.toISOString(),
-    updatedAt: record.resource.updatedAt.toISOString(),
-  };
-}
-
-function mapEnvVar(row: {
-  id: string;
-  serviceResourceId: string;
-  key: string;
-  value: string;
-}): EnvVarView {
-  return {
-    id: row.id,
-    serviceResourceId: row.serviceResourceId,
-    key: row.key,
-    value: row.value,
-  };
-}
-
-function mapResolveError(error: ResolveError): Err<ServiceFailureReason, ResolveError> {
-  switch (error.kind) {
-    case "missing_resource":
-    case "missing_database_record":
-    case "missing_service_record":
-      return { ok: false, reason: "ref_missing", cause: error };
-    case "cycle":
-      return { ok: false, reason: "ref_cycle", cause: error };
-    case "unknown_var":
-      return { ok: false, reason: "ref_unknown_var", cause: error };
-    case "parse_error":
-      return { ok: false, reason: "ref_parse_error", cause: error };
-    case "unsupported_resource_type":
-      return { ok: false, reason: "ref_missing", cause: error };
-  }
-}
-
-function sanitizeSlug(value: string): string {
-  const normalized = value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return normalized.length > 0 ? normalized.slice(0, 32) : "x";
-}
-
-function isUniqueViolation(error: unknown): error is { code: string } {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code: unknown }).code === "23505"
-  );
+  return Result.ok(rows.map(mapEnvVar));
 }
