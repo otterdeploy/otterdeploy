@@ -15,7 +15,12 @@ import {
   getResourceByProjectAndName,
   getServiceRecord,
 } from "../../routers/service/queries";
+import { type ProjectId } from "../../routers/project/errors";
+import { type ResourceId } from "../../routers/service/errors";
 import { resolveServiceEnv } from "./resolver";
+
+const PROJECT_ID = "project_1" as ProjectId;
+const RESOURCE_ID = "resource_api" as ResourceId;
 
 type Mock = ReturnType<typeof vi.fn>;
 
@@ -85,7 +90,7 @@ describe("resolveServiceEnv", () => {
 
     (getDatabaseResourceRecord as unknown as Mock).mockResolvedValueOnce(dbExports());
 
-    const result = await resolveServiceEnv("project_1", "resource_api");
+    const result = await resolveServiceEnv(PROJECT_ID, RESOURCE_ID);
 
     expect(result.isOk()).toBe(true);
     if (result.isErr()) return;
@@ -116,7 +121,7 @@ describe("resolveServiceEnv", () => {
 
     (getDatabaseResourceRecord as unknown as Mock).mockResolvedValue(dbExports());
 
-    const result = await resolveServiceEnv("project_1", "resource_api");
+    const result = await resolveServiceEnv(PROJECT_ID, RESOURCE_ID);
     expect(result.isOk()).toBe(true);
     if (result.isErr()) return;
     expect(result.value.URL).toBe("postgres://appuser:secret@appdb.internal/appdb");
@@ -139,7 +144,7 @@ describe("resolveServiceEnv", () => {
 
     (getResourceByProjectAndName as unknown as Mock).mockResolvedValueOnce(undefined);
 
-    const result = await resolveServiceEnv("project_1", "resource_api");
+    const result = await resolveServiceEnv(PROJECT_ID, RESOURCE_ID);
     expect(result.isErr()).toBe(true);
     if (result.isOk()) return;
     expect(result.error._tag).toBe("RefMissingResourceError");
@@ -165,7 +170,7 @@ describe("resolveServiceEnv", () => {
     );
     (getDatabaseResourceRecord as unknown as Mock).mockResolvedValueOnce(dbExports());
 
-    const result = await resolveServiceEnv("project_1", "resource_api");
+    const result = await resolveServiceEnv(PROJECT_ID, RESOURCE_ID);
     expect(result.isErr()).toBe(true);
     if (result.isOk()) return;
     expect(result.error._tag).toBe("RefUnknownVarError");
@@ -235,7 +240,7 @@ describe("resolveServiceEnv", () => {
       },
     );
 
-    const result = await resolveServiceEnv("project_1", "resource_api");
+    const result = await resolveServiceEnv(PROJECT_ID, RESOURCE_ID);
     expect(result.isErr()).toBe(true);
     if (result.isOk()) return;
     expect(result.error._tag).toBe("RefCycleError");

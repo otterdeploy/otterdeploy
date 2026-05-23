@@ -15,12 +15,6 @@ export {
   type ServiceExportInput,
 } from "./exporters";
 
-export {
-  resolveServiceEnv,
-  type ResolveError,
-  type ResolveResult,
-  type ResolveSuccess,
-  type ResolveFailure,
-} from "./resolver";
+export { resolveServiceEnv } from "./resolver";
 
 export { findTransitiveDependents } from "./graph";

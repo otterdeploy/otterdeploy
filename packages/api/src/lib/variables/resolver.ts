@@ -74,7 +74,7 @@ async function resolveEnvFor(
     }
 
     const subbed = await substitute(parsed.tokens, ctx);
-    if (subbed.isErr()) return subbed;
+    if (subbed.isErr()) return Result.err(subbed.error);
     resolved[envVar.key] = subbed.value;
   }
 
@@ -94,7 +94,7 @@ async function substitute(
     }
 
     const exportsResult = await loadExports(token.resource, ctx);
-    if (exportsResult.isErr()) return exportsResult;
+    if (exportsResult.isErr()) return Result.err(exportsResult.error);
 
     const value = exportsResult.value[token.var];
     if (value === undefined) {
@@ -179,7 +179,7 @@ async function loadServiceExports(
   ctx.visited.add(resourceRow.id);
   const nestedResult = await resolveEnvFor(record, ctx);
   ctx.visited.delete(resourceRow.id);
-  if (nestedResult.isErr()) return nestedResult;
+  if (nestedResult.isErr()) return Result.err(nestedResult.error);
 
   const exports = serviceExports({
     resource: resourceRow,
