@@ -1,16 +1,16 @@
 import type { CSSProperties, ReactNode, SVGProps } from "react";
-import { useTheme } from "@/components/theme-provider";
-import { AwsDark } from "@/components/ui/svgs/awsDark";
-import { AwsLight } from "@/components/ui/svgs/awsLight";
-import { Azure } from "@/components/ui/svgs/azure";
-import { Discord } from "@/components/ui/svgs/discord";
-import { Docker } from "@/components/ui/svgs/docker";
-import { GithubDark } from "@/components/ui/svgs/githubDark";
-import { GithubLight } from "@/components/ui/svgs/githubLight";
-import { Gitlab } from "@/components/ui/svgs/gitlab";
-import { GoogleCloud } from "@/components/ui/svgs/googleCloud";
-import { Slack } from "@/components/ui/svgs/slack";
-import { Telegram } from "@/components/ui/svgs/telegram";
+import { useTheme } from "../theme-provider";
+import { AwsDark } from "../ui/svgs/awsDark";
+import { AwsLight } from "../ui/svgs/awsLight";
+import { Azure } from "../ui/svgs/azure";
+import { Discord } from "../ui/svgs/discord";
+import { Docker } from "../ui/svgs/docker";
+import { GithubDark } from "../ui/svgs/githubDark";
+import { GithubLight } from "../ui/svgs/githubLight";
+import { Gitlab } from "../ui/svgs/gitlab";
+import { GoogleCloud } from "../ui/svgs/googleCloud";
+import { Slack } from "../ui/svgs/slack";
+import { Telegram } from "../ui/svgs/telegram";
 
 type BrandKey =
   | "GitHub"
@@ -44,7 +44,10 @@ const themedBrands: Record<
   AWS: { dark: AwsDark, light: AwsLight },
 };
 
-const staticBrands: Record<Exclude<BrandKey, "GitHub" | "AWS">, SvgComponent> = {
+const staticBrands: Record<
+  Exclude<BrandKey, "GitHub" | "AWS">,
+  SvgComponent
+> = {
   GitLab: Gitlab,
   Docker,
   Slack,

@@ -1,9 +1,16 @@
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip";
+import { Avatar, AvatarFallback } from "../ui/avatar";
+import { Badge } from "../ui/badge";
+import { Button } from "../ui/button";
+import { Skeleton } from "../ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../ui/table";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { authClient } from "@/lib/auth";
 import type { MemberRow } from "../types";
 
@@ -31,7 +38,13 @@ export function MembersTable() {
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold tracking-tight">Members</h1>
         <Tooltip>
-          <TooltipTrigger render={<Button size="sm" disabled>+ Invite</Button>} />
+          <TooltipTrigger
+            render={
+              <Button size="sm" disabled>
+                + Invite
+              </Button>
+            }
+          />
           <TooltipPopup>RBAC + invitations ship in Plan 6</TooltipPopup>
         </Tooltip>
       </div>
@@ -49,14 +62,20 @@ export function MembersTable() {
               <TableCell>
                 <div className="flex items-center gap-2">
                   <Avatar className="size-6 rounded">
-                    <AvatarFallback className="text-[10px]">{row.name.slice(0, 1).toUpperCase()}</AvatarFallback>
+                    <AvatarFallback className="text-[10px]">
+                      {row.name.slice(0, 1).toUpperCase()}
+                    </AvatarFallback>
                   </Avatar>
                   <span className="text-sm font-medium">{row.name}</span>
                 </div>
               </TableCell>
-              <TableCell className="text-sm text-muted-foreground">{row.email}</TableCell>
+              <TableCell className="text-sm text-muted-foreground">
+                {row.email}
+              </TableCell>
               <TableCell>
-                <Badge variant="outline" className="text-[10px] uppercase">{row.role}</Badge>
+                <Badge variant="outline" className="text-[10px] uppercase">
+                  {row.role}
+                </Badge>
               </TableCell>
             </TableRow>
           ))}

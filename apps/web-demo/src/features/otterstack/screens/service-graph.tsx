@@ -3,7 +3,7 @@
 // Click a node to drawer it open. Edges animate with traffic.
 
 import { useState } from "react";
-import { DatabaseLogo } from "@/components/brand/database-logo";
+import { DatabaseLogo } from "../brand/database-logo";
 import { I } from "../icons";
 import { DEPLOYMENTS, EDGES, ENV_VARS, SERVICES } from "../data";
 import type { Env, Service } from "../data";
@@ -24,7 +24,9 @@ export function ServiceGraph({ onOpenLogs, onDeploy, onOpenService }: Props) {
   const W = 880;
   const H = 560;
   const nodes = SERVICES.map((s) => ({ ...s }));
-  const nodeById: Record<string, Service> = Object.fromEntries(nodes.map((n) => [n.id, n]));
+  const nodeById: Record<string, Service> = Object.fromEntries(
+    nodes.map((n) => [n.id, n]),
+  );
 
   return (
     <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
@@ -34,7 +36,8 @@ export function ServiceGraph({ onOpenLogs, onDeploy, onOpenService }: Props) {
           position: "relative",
           overflow: "hidden",
           background: "var(--bg)",
-          backgroundImage: "radial-gradient(circle at 1px 1px, var(--border) 1px, transparent 0)",
+          backgroundImage:
+            "radial-gradient(circle at 1px 1px, var(--border) 1px, transparent 0)",
           backgroundSize: "20px 20px",
         }}
       >
@@ -53,27 +56,51 @@ export function ServiceGraph({ onOpenLogs, onDeploy, onOpenService }: Props) {
         >
           <div className="card row gap-2" style={{ padding: "4px 6px" }}>
             <button className="btn ghost sm">Layout</button>
-            <span style={{ width: 1, height: 14, background: "var(--border)" }} />
+            <span
+              style={{ width: 1, height: 14, background: "var(--border)" }}
+            />
             <button className="btn ghost sm">Fit</button>
             <button className="btn ghost sm">100%</button>
           </div>
           <div style={{ flex: 1 }} />
-          <div className="card row gap-2" style={{ padding: "4px 8px", fontSize: 11 }}>
+          <div
+            className="card row gap-2"
+            style={{ padding: "4px 8px", fontSize: 11 }}
+          >
             <span className="muted">traffic</span>
-            <span className="mono" style={{ color: "var(--fg)" }}>1.2k rps</span>
-            <span style={{ width: 1, height: 12, background: "var(--border)" }} />
+            <span className="mono" style={{ color: "var(--fg)" }}>
+              1.2k rps
+            </span>
+            <span
+              style={{ width: 1, height: 12, background: "var(--border)" }}
+            />
             <span className="muted">p95</span>
-            <span className="mono" style={{ color: "var(--fg)" }}>112ms</span>
+            <span className="mono" style={{ color: "var(--fg)" }}>
+              112ms
+            </span>
           </div>
         </div>
 
         <svg
           viewBox={`0 0 ${W} ${H}`}
-          style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+          }}
           preserveAspectRatio="xMidYMid meet"
         >
           <defs>
-            <marker id="arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+            <marker
+              id="arrow"
+              viewBox="0 0 8 8"
+              refX="7"
+              refY="4"
+              markerWidth="6"
+              markerHeight="6"
+              orient="auto"
+            >
               <path d="M0,0 L8,4 L0,8 z" fill="var(--fg-3)" />
             </marker>
           </defs>
@@ -87,9 +114,15 @@ export function ServiceGraph({ onOpenLogs, onDeploy, onOpenService }: Props) {
             const bx = b.pos.x;
             const by = b.pos.y + 30;
             const isFromHover =
-              hover === e.from || hover === e.to || selected === e.from || selected === e.to;
+              hover === e.from ||
+              hover === e.to ||
+              selected === e.from ||
+              selected === e.to;
             const stroke = isFromHover ? "var(--fg)" : "var(--border-strong)";
-            const strokeW = Math.max(1, Math.min(3, Math.log10(e.rps + 1) * 0.9));
+            const strokeW = Math.max(
+              1,
+              Math.min(3, Math.log10(e.rps + 1) * 0.9),
+            );
             const cx = (ax + bx) / 2;
             const path = `M ${ax} ${ay} C ${cx} ${ay}, ${cx} ${by}, ${bx} ${by}`;
             return (
@@ -104,7 +137,11 @@ export function ServiceGraph({ onOpenLogs, onDeploy, onOpenService }: Props) {
                 />
                 {isFromHover && (
                   <circle r="3" fill="var(--fg)">
-                    <animateMotion dur={`${1.2 + Math.random()}s`} repeatCount="indefinite" path={path} />
+                    <animateMotion
+                      dur={`${1.2 + Math.random()}s`}
+                      repeatCount="indefinite"
+                      path={path}
+                    />
                   </circle>
                 )}
                 {isFromHover && (
@@ -147,7 +184,10 @@ export function ServiceGraph({ onOpenLogs, onDeploy, onOpenService }: Props) {
             flexDirection: "column",
           }}
         >
-          <div className="card row gap-3" style={{ padding: "8px 12px", fontSize: 11 }}>
+          <div
+            className="card row gap-3"
+            style={{ padding: "8px 12px", fontSize: 11 }}
+          >
             <div className="row gap-2">
               <svg width="14" height="2">
                 <rect width="14" height="2" fill="var(--border-strong)" />
@@ -161,11 +201,25 @@ export function ServiceGraph({ onOpenLogs, onDeploy, onOpenService }: Props) {
               <span className="muted">live traffic</span>
             </div>
             <div className="row gap-2">
-              <span style={{ width: 8, height: 8, borderRadius: 50, background: "var(--ok)" }} />
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: 50,
+                  background: "var(--ok)",
+                }}
+              />
               <span className="muted">healthy</span>
             </div>
             <div className="row gap-2">
-              <span style={{ width: 8, height: 8, borderRadius: 50, background: "var(--warn)" }} />
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: 50,
+                  background: "var(--warn)",
+                }}
+              />
               <span className="muted">degraded</span>
             </div>
           </div>
@@ -193,7 +247,12 @@ type GraphNodeProps = {
 function GraphNode({ n, selected, onSelect, onHover }: GraphNodeProps) {
   const w = 120;
   const h = 60;
-  const dot = n.status === "healthy" ? "var(--ok)" : n.status === "degraded" ? "var(--warn)" : "var(--err)";
+  const dot =
+    n.status === "healthy"
+      ? "var(--ok)"
+      : n.status === "degraded"
+        ? "var(--warn)"
+        : "var(--err)";
   return (
     <g
       transform={`translate(${n.pos.x}, ${n.pos.y})`}
@@ -238,17 +297,39 @@ function GraphNode({ n, selected, onSelect, onHover }: GraphNodeProps) {
       </g>
 
       {/* name */}
-      <text x="32" y="22" fontFamily="var(--font-mono)" fontSize="13" fontWeight="500" fill="var(--fg)">
+      <text
+        x="32"
+        y="22"
+        fontFamily="var(--font-mono)"
+        fontSize="13"
+        fontWeight="500"
+        fill="var(--fg)"
+      >
         {n.name}
       </text>
 
       {/* meta */}
-      <text x="32" y="38" fontFamily="var(--font-sans)" fontSize="10.5" fill="var(--fg-3)">
-        {n.kind === "database" ? `${n.version || ""}` : `${n.replicas} replica${n.replicas > 1 ? "s" : ""}`}
+      <text
+        x="32"
+        y="38"
+        fontFamily="var(--font-sans)"
+        fontSize="10.5"
+        fill="var(--fg-3)"
+      >
+        {n.kind === "database"
+          ? `${n.version || ""}`
+          : `${n.replicas} replica${n.replicas > 1 ? "s" : ""}`}
       </text>
 
       {/* CPU bar */}
-      <rect x="32" y="46" width="76" height="2" rx="1" fill="var(--bg-overlay)" />
+      <rect
+        x="32"
+        y="46"
+        width="76"
+        height="2"
+        rx="1"
+        fill="var(--bg-overlay)"
+      />
       <rect
         x="32"
         y="46"
@@ -268,7 +349,12 @@ type ServiceDrawerProps = {
   onOpenService: (id: string) => void;
 };
 
-function ServiceDrawer({ service, onOpenLogs, onDeploy, onOpenService }: ServiceDrawerProps) {
+function ServiceDrawer({
+  service,
+  onOpenLogs,
+  onDeploy,
+  onOpenService,
+}: ServiceDrawerProps) {
   const [tab, setTab] = useState<"overview" | "deploys" | "env">("overview");
   if (!service) return null;
   const isDB = service.kind === "database";
@@ -286,7 +372,14 @@ function ServiceDrawer({ service, onOpenLogs, onDeploy, onOpenService }: Service
     >
       <div style={{ padding: 16, borderBottom: "1px solid var(--border)" }}>
         <div className="row gap-2">
-          {isDB ? <DatabaseLogo value={`${service.name} ${service.image}`} size={16} /> : <I.service width={16} height={16} />}
+          {isDB ? (
+            <DatabaseLogo
+              value={`${service.name} ${service.image}`}
+              size={16}
+            />
+          ) : (
+            <I.service width={16} height={16} />
+          )}
           <span className="mono" style={{ fontSize: 16, fontWeight: 600 }}>
             {service.name}
           </span>
@@ -300,8 +393,12 @@ function ServiceDrawer({ service, onOpenLogs, onDeploy, onOpenService }: Service
         </div>
 
         <div className="row gap-2" style={{ marginTop: 12 }}>
-          <button className="btn primary sm" onClick={() => onOpenService && onOpenService(service.id)}>
-            Open<I.chev width={10} height={10} />
+          <button
+            className="btn primary sm"
+            onClick={() => onOpenService && onOpenService(service.id)}
+          >
+            Open
+            <I.chev width={10} height={10} />
           </button>
           {!isDB && (
             <button className="btn sm" onClick={onDeploy}>
@@ -318,7 +415,13 @@ function ServiceDrawer({ service, onOpenLogs, onDeploy, onOpenService }: Service
       </div>
 
       {!isDB && (
-        <div className="row gap-1" style={{ padding: "8px 12px", borderBottom: "1px solid var(--border)" }}>
+        <div
+          className="row gap-1"
+          style={{
+            padding: "8px 12px",
+            borderBottom: "1px solid var(--border)",
+          }}
+        >
           {(["overview", "deploys", "env"] as const).map((t) => (
             <button
               key={t}
@@ -340,7 +443,10 @@ function ServiceDrawer({ service, onOpenLogs, onDeploy, onOpenService }: Service
         </div>
       )}
 
-      <div className="os-scroll" style={{ flex: 1, overflow: "auto", padding: 16 }}>
+      <div
+        className="os-scroll"
+        style={{ flex: 1, overflow: "auto", padding: 16 }}
+      >
         {(tab === "overview" || isDB) && (
           <div className="col gap-4">
             <KV k="Repo" v={service.repo || service.image} />
@@ -369,7 +475,10 @@ function ServiceDrawer({ service, onOpenLogs, onDeploy, onOpenService }: Service
               {service.storage && (
                 <>
                   <div style={{ height: 8 }} />
-                  <Bar label="storage" v={service.storage.used / service.storage.total} />
+                  <Bar
+                    label="storage"
+                    v={service.storage.used / service.storage.total}
+                  />
                 </>
               )}
             </div>
@@ -390,14 +499,19 @@ function ServiceDrawer({ service, onOpenLogs, onDeploy, onOpenService }: Service
                     Latest deploy
                   </div>
                   <div className="row gap-2">
-                    <span className="mono" style={{ fontSize: 12, color: "var(--fg-2)" }}>
+                    <span
+                      className="mono"
+                      style={{ fontSize: 12, color: "var(--fg-2)" }}
+                    >
                       {service.commit}
                     </span>
                     <span className="muted" style={{ fontSize: 11 }}>
                       {service.lastDeploy}
                     </span>
                   </div>
-                  <div style={{ fontSize: 13, marginTop: 4 }}>{service.commitMsg}</div>
+                  <div style={{ fontSize: 13, marginTop: 4 }}>
+                    {service.commitMsg}
+                  </div>
                   <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
                     by {service.author}
                   </div>
@@ -420,7 +534,10 @@ function ServiceDrawer({ service, onOpenLogs, onDeploy, onOpenService }: Service
               >
                 <div className="row gap-2">
                   <StatusBadge status={d.status} />
-                  <span className="mono" style={{ fontSize: 12, color: "var(--fg-2)" }}>
+                  <span
+                    className="mono"
+                    style={{ fontSize: 12, color: "var(--fg-2)" }}
+                  >
                     {d.commit}
                   </span>
                   <div style={{ flex: 1 }} />
@@ -440,7 +557,10 @@ function ServiceDrawer({ service, onOpenLogs, onDeploy, onOpenService }: Service
               <div
                 key={v.k}
                 className="row gap-2"
-                style={{ padding: "6px 0", borderBottom: "1px solid var(--border)" }}
+                style={{
+                  padding: "6px 0",
+                  borderBottom: "1px solid var(--border)",
+                }}
               >
                 <span
                   className="mono"
@@ -485,7 +605,12 @@ function KV({ k, v, mono }: { k: string; v: string; mono?: boolean }) {
       </span>
       <span
         className={mono ? "mono" : ""}
-        style={{ fontSize: 12, color: "var(--fg)", flex: 1, wordBreak: "break-all" }}
+        style={{
+          fontSize: 12,
+          color: "var(--fg)",
+          flex: 1,
+          wordBreak: "break-all",
+        }}
       >
         {v}
       </span>
@@ -506,7 +631,9 @@ function Bar({ label, v }: { label: string; v: number }) {
           {Math.round(pct * 100)}%
         </span>
       </div>
-      <div style={{ height: 4, background: "var(--bg-overlay)", borderRadius: 2 }}>
+      <div
+        style={{ height: 4, background: "var(--bg-overlay)", borderRadius: 2 }}
+      >
         <div
           style={{
             width: `${pct * 100}%`,

@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { cn } from "@/lib/utils";
 import { innerRailItems } from "./rail-items";
 
@@ -9,10 +9,16 @@ type Props = {
 };
 
 function buildHref(projectId: string, segment: string): string {
-  return segment === "" ? `/project/${projectId}` : `/project/${projectId}/${segment}`;
+  return segment === ""
+    ? `/project/${projectId}`
+    : `/project/${projectId}/${segment}`;
 }
 
-function isActive(itemHref: string, projectRoot: string, currentHref: string): boolean {
+function isActive(
+  itemHref: string,
+  projectRoot: string,
+  currentHref: string,
+): boolean {
   if (itemHref === projectRoot) {
     return currentHref === projectRoot;
   }
@@ -43,7 +49,8 @@ export function InnerRail({ projectId, currentHref }: Props) {
                   className={cn(
                     "flex size-9 items-center justify-center rounded-md text-sidebar-foreground transition-colors",
                     "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                    active && "bg-sidebar-accent text-sidebar-accent-foreground",
+                    active &&
+                      "bg-sidebar-accent text-sidebar-accent-foreground",
                   )}
                 >
                   <Icon className="size-4" />

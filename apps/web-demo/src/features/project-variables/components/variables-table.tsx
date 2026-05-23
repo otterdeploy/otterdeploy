@@ -1,8 +1,14 @@
 import { KeyRoundIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
-import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip";
+import { Button } from "../ui/button";
+import { Empty, EmptyDescription, EmptyTitle } from "../ui/empty";
+import {
+  Table,
+  TableBody,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../ui/table";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import type { VariableScope } from "../types";
 
 type Props = {
@@ -14,11 +20,25 @@ export function VariablesTable({ scope }: Props) {
     <div className="grid gap-3">
       <div className="flex items-center justify-end gap-2">
         <Tooltip>
-          <TooltipTrigger render={<Button size="sm" variant="outline" disabled>Bulk import</Button>} />
-          <TooltipPopup>Paste a .env file when the variables API ships (Plan 6)</TooltipPopup>
+          <TooltipTrigger
+            render={
+              <Button size="sm" variant="outline" disabled>
+                Bulk import
+              </Button>
+            }
+          />
+          <TooltipPopup>
+            Paste a .env file when the variables API ships (Plan 6)
+          </TooltipPopup>
         </Tooltip>
         <Tooltip>
-          <TooltipTrigger render={<Button size="sm" disabled>+ Add variable</Button>} />
+          <TooltipTrigger
+            render={
+              <Button size="sm" disabled>
+                + Add variable
+              </Button>
+            }
+          />
           <TooltipPopup>Variable CRUD ships in Plan 6</TooltipPopup>
         </Tooltip>
       </div>

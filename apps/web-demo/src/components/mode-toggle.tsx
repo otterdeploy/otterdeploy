@@ -1,13 +1,8 @@
 import { MoonIcon as Moon, SunIcon as Sun } from "lucide-react";
 
-import { useTheme } from "@/components/theme-provider";
-import { Button } from "@/components/ui/button";
-import {
-  Menu,
-  MenuItem,
-  MenuPopup,
-  MenuTrigger,
-} from "@/components/ui/menu";
+import { useTheme } from "../theme-provider";
+import { Button } from "../ui/button";
+import { Menu, MenuItem, MenuPopup, MenuTrigger } from "../ui/menu";
 
 export function ModeToggle() {
   const { setTheme } = useTheme();

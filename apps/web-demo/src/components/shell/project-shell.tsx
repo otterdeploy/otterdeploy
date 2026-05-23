@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useNavigate, useRouterState, useSearch } from "@tanstack/react-router";
-import { Separator } from "@/components/ui/separator";
+import { Separator } from "../ui/separator";
 import { EnvSwitcherDropdown, type EnvName } from "@/features/env-switcher";
 import { InnerRail } from "./inner-rail";
 import { WorkspaceShell } from "./workspace-shell";

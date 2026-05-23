@@ -1,6 +1,12 @@
 import { ChevronsUpDownIcon } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
+import { Avatar, AvatarFallback } from "../ui/avatar";
+import {
+  Menu,
+  MenuItem,
+  MenuPopup,
+  MenuSeparator,
+  MenuTrigger,
+} from "../ui/menu";
 import type { WorkspaceSummary } from "../types";
 
 type Props = {
@@ -9,7 +15,11 @@ type Props = {
   onSelect: (workspaceId: string) => void;
 };
 
-export function WorkspaceSwitcherDropdown({ current, workspaces, onSelect }: Props) {
+export function WorkspaceSwitcherDropdown({
+  current,
+  workspaces,
+  onSelect,
+}: Props) {
   return (
     <Menu>
       <MenuTrigger
@@ -21,7 +31,9 @@ export function WorkspaceSwitcherDropdown({ current, workspaces, onSelect }: Pro
         }
       >
         <Avatar className="size-5 rounded">
-          <AvatarFallback className="text-[10px]">{current.name.slice(0, 1).toUpperCase()}</AvatarFallback>
+          <AvatarFallback className="text-[10px]">
+            {current.name.slice(0, 1).toUpperCase()}
+          </AvatarFallback>
         </Avatar>
         <span className="font-medium">{current.name}</span>
         <ChevronsUpDownIcon className="size-3 opacity-60" />
@@ -30,14 +42,20 @@ export function WorkspaceSwitcherDropdown({ current, workspaces, onSelect }: Pro
         {workspaces.map((ws) => (
           <MenuItem key={ws.id} onClick={() => onSelect(ws.id)}>
             <Avatar className="size-5 rounded">
-              <AvatarFallback className="text-[10px]">{ws.name.slice(0, 1).toUpperCase()}</AvatarFallback>
+              <AvatarFallback className="text-[10px]">
+                {ws.name.slice(0, 1).toUpperCase()}
+              </AvatarFallback>
             </Avatar>
             <span>{ws.name}</span>
-            <span className="ml-auto text-[10px] text-muted-foreground">{ws.role}</span>
+            <span className="ml-auto text-[10px] text-muted-foreground">
+              {ws.role}
+            </span>
           </MenuItem>
         ))}
         <MenuSeparator />
-        <MenuItem onClick={() => onSelect("__create__")}>+ New workspace</MenuItem>
+        <MenuItem onClick={() => onSelect("__create__")}>
+          + New workspace
+        </MenuItem>
       </MenuPopup>
     </Menu>
   );

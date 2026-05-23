@@ -8,7 +8,7 @@ import {
   MenuPopup,
   MenuSeparator,
   MenuTrigger,
-} from "@/components/ui/menu";
+} from "../ui/menu";
 import { authClient } from "@/lib/auth";
 
 import { Button } from "./ui/button";
@@ -32,7 +32,9 @@ export default function UserMenu() {
 
   return (
     <Menu>
-      <MenuTrigger render={<Button variant="outline" />}>{session.user.name}</MenuTrigger>
+      <MenuTrigger render={<Button variant="outline" />}>
+        {session.user.name}
+      </MenuTrigger>
       <MenuPopup className="bg-card">
         <MenuGroup>
           <MenuGroupLabel>My Account</MenuGroupLabel>

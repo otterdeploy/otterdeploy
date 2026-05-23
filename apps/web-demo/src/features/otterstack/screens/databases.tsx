@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { DatabaseLogo } from "@/components/brand/database-logo";
+import { DatabaseLogo } from "../brand/database-logo";
 import { I } from "../icons";
 import { PROJECTS, SERVICES, type Service } from "../data";
 import { StatusBadge } from "../components/status-badge";
@@ -15,26 +15,36 @@ import {
 } from "../components/project-filter";
 
 export function Databases() {
-  const allDbs = useMemo(() => SERVICES.filter((s) => s.kind === "database"), []);
+  const allDbs = useMemo(
+    () => SERVICES.filter((s) => s.kind === "database"),
+    [],
+  );
   const [dbs, setDbs] = useState<Service[]>(allDbs);
   const [consoleDb, setConsoleDb] = useState<Service | null>(null);
   const [filter, setFilter] = useState<string>(ALL_PROJECTS);
 
   const counts = useMemo(() => {
     const out: Record<string, number> = {};
-    for (const p of PROJECTS) out[p.id] = dbs.filter((d) => d.project === p.id).length;
+    for (const p of PROJECTS)
+      out[p.id] = dbs.filter((d) => d.project === p.id).length;
     return out;
   }, [dbs]);
 
   const filtered = useMemo(
-    () => dbs.filter((d) => matchesProjectFilter(filter, d.project ? [d.project] : [])),
+    () =>
+      dbs.filter((d) =>
+        matchesProjectFilter(filter, d.project ? [d.project] : []),
+      ),
     [dbs, filter],
   );
 
   const setProject = (id: string, project: string | undefined) =>
     setDbs((ds) => ds.map((d) => (d.id === id ? { ...d, project } : d)));
   return (
-    <div className="os-scroll" style={{ flex: 1, overflow: "auto", padding: 24 }}>
+    <div
+      className="os-scroll"
+      style={{ flex: 1, overflow: "auto", padding: 24 }}
+    >
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
         <div className="row" style={{ marginBottom: 12 }}>
           <SectionH title="Databases" />
@@ -44,7 +54,11 @@ export function Databases() {
           </button>
         </div>
         <div className="row" style={{ marginBottom: 14 }}>
-          <ProjectFilterStrip active={filter} onChange={setFilter} counts={counts} />
+          <ProjectFilterStrip
+            active={filter}
+            onChange={setFilter}
+            counts={counts}
+          />
         </div>
 
         <div className="col gap-3">
@@ -64,7 +78,9 @@ export function Databases() {
         </div>
       </div>
 
-      {consoleDb && <DBConsoleModal db={consoleDb} onClose={() => setConsoleDb(null)} />}
+      {consoleDb && (
+        <DBConsoleModal db={consoleDb} onClose={() => setConsoleDb(null)} />
+      )}
     </div>
   );
 }
@@ -107,7 +123,13 @@ function DBConsoleModal({ db, onClose }: { db: Service; onClose: () => void }) {
           overflow: "hidden",
         }}
       >
-        <div className="row gap-2" style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
+        <div
+          className="row gap-2"
+          style={{
+            padding: "12px 16px",
+            borderBottom: "1px solid var(--border)",
+          }}
+        >
           <DatabaseLogo value={`${db.name} ${db.image}`} size={14} />
           <span style={{ fontWeight: 600 }}>
             Console · <span className="mono">{db.name}</span>
@@ -143,8 +165,24 @@ function DBConsoleModal({ db, onClose }: { db: Service; onClose: () => void }) {
 
 function SectionH({ title, sub }: { title: string; sub?: string }) {
   return (
-    <div style={{ marginBottom: 10, display: "flex", alignItems: "baseline", gap: 10 }}>
-      <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, letterSpacing: "0.01em" }}>{title}</h3>
+    <div
+      style={{
+        marginBottom: 10,
+        display: "flex",
+        alignItems: "baseline",
+        gap: 10,
+      }}
+    >
+      <h3
+        style={{
+          margin: 0,
+          fontSize: 13,
+          fontWeight: 600,
+          letterSpacing: "0.01em",
+        }}
+      >
+        {title}
+      </h3>
       {sub && (
         <span className="muted" style={{ fontSize: 12 }}>
           {sub}
@@ -233,12 +271,27 @@ function DBCard({
           sub={`of ${storage.total}${storage.unit}`}
           pct={used}
         />
-        <DBStat label="Connections" value={db.name === "postgres" ? "14" : "32"} sub="of 100" />
-        <DBStat label="QPS" value={db.name === "postgres" ? "312" : "980"} sub="last 1m" />
+        <DBStat
+          label="Connections"
+          value={db.name === "postgres" ? "14" : "32"}
+          sub="of 100"
+        />
+        <DBStat
+          label="QPS"
+          value={db.name === "postgres" ? "312" : "980"}
+          sub="last 1m"
+        />
         <DBStat label="Backups" value="ok" sub="last: 2h ago" />
       </div>
 
-      <div className="row gap-2" style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
+      <div
+        className="row gap-2"
+        style={{
+          marginTop: 16,
+          paddingTop: 14,
+          borderTop: "1px solid var(--border)",
+        }}
+      >
         <span className="muted" style={{ fontSize: 12 }}>
           Connect via private network:
         </span>
@@ -268,19 +321,59 @@ function DBCard({
   );
 }
 
-function DBStat({ label, value, sub, pct }: { label: string; value: string; sub: string; pct?: number }) {
+function DBStat({
+  label,
+  value,
+  sub,
+  pct,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  pct?: number;
+}) {
   return (
     <div>
-      <div className="muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+      <div
+        className="muted"
+        style={{
+          fontSize: 11,
+          textTransform: "uppercase",
+          letterSpacing: "0.06em",
+        }}
+      >
         {label}
       </div>
-      <div style={{ fontSize: 18, fontWeight: 600, marginTop: 2, fontFamily: "var(--font-mono)" }}>{value}</div>
+      <div
+        style={{
+          fontSize: 18,
+          fontWeight: 600,
+          marginTop: 2,
+          fontFamily: "var(--font-mono)",
+        }}
+      >
+        {value}
+      </div>
       <div className="muted" style={{ fontSize: 11 }}>
         {sub}
       </div>
       {pct != null && (
-        <div style={{ height: 3, background: "var(--bg-overlay)", borderRadius: 2, marginTop: 6 }}>
-          <div style={{ width: `${pct}%`, height: "100%", background: "var(--fg-2)", borderRadius: 2 }} />
+        <div
+          style={{
+            height: 3,
+            background: "var(--bg-overlay)",
+            borderRadius: 2,
+            marginTop: 6,
+          }}
+        >
+          <div
+            style={{
+              width: `${pct}%`,
+              height: "100%",
+              background: "var(--fg-2)",
+              borderRadius: 2,
+            }}
+          />
         </div>
       )}
     </div>

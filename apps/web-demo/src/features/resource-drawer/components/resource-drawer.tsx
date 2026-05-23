@@ -1,5 +1,11 @@
-import { Sheet, SheetPopup, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Tabs, TabsList, TabsTab, TabsPanel } from "@/components/ui/tabs";
+import {
+  Sheet,
+  SheetPopup,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "../ui/sheet";
+import { Tabs, TabsList, TabsTab, TabsPanel } from "../ui/tabs";
 import { OverviewTab } from "./tabs/overview-tab";
 import { DeploymentsTab } from "./tabs/deployments-tab";
 import { VariablesTab } from "./tabs/variables-tab";
@@ -16,19 +22,35 @@ type Props = {
   resourceName: string;
 };
 
-export function ResourceDrawer({ open, selection, onClose, onDeleted, resourceName }: Props) {
+export function ResourceDrawer({
+  open,
+  selection,
+  onClose,
+  onDeleted,
+  resourceName,
+}: Props) {
   return (
-    <Sheet open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
+    <Sheet
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+    >
       <SheetPopup side="right" className="w-[480px] p-0 sm:max-w-none">
         {selection ? (
           <div className="flex h-full flex-col">
             <SheetHeader className="border-b">
               <SheetTitle>{resourceName}</SheetTitle>
               <SheetDescription>
-                {selection.kind === "database" ? "Postgres database" : "Resource"}
+                {selection.kind === "database"
+                  ? "Postgres database"
+                  : "Resource"}
               </SheetDescription>
             </SheetHeader>
-            <Tabs defaultValue="overview" className="flex flex-1 flex-col overflow-hidden">
+            <Tabs
+              defaultValue="overview"
+              className="flex flex-1 flex-col overflow-hidden"
+            >
               <TabsList className="border-b px-3">
                 <TabsTab value="overview">Overview</TabsTab>
                 <TabsTab value="deployments">Deployments</TabsTab>
@@ -38,7 +60,10 @@ export function ResourceDrawer({ open, selection, onClose, onDeleted, resourceNa
               </TabsList>
               <TabsPanel value="overview" className="flex-1 overflow-y-auto">
                 {selection.kind === "database" ? (
-                  <OverviewTab projectId={selection.projectId} resourceId={selection.resourceId} />
+                  <OverviewTab
+                    projectId={selection.projectId}
+                    resourceId={selection.resourceId}
+                  />
                 ) : null}
               </TabsPanel>
               <TabsPanel value="deployments" className="flex-1 overflow-y-auto">

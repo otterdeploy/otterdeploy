@@ -4,12 +4,16 @@ import { toast } from "sonner";
 import z from "zod";
 
 import { authClient } from "@/lib/auth";
-import Loader from "@/components/loader";
-import { Button } from "@/components/ui/button";
-import { Field, FieldError, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
+import Loader from "../loader";
+import { Button } from "../ui/button";
+import { Field, FieldError, FieldLabel } from "../ui/field";
+import { Input } from "../ui/input";
 
-export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
+export default function SignUpForm({
+  onSwitchToSignIn,
+}: {
+  onSwitchToSignIn: () => void;
+}) {
   const navigate = useNavigate({
     from: "/",
   });
@@ -78,7 +82,9 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
                 onChange={(e) => field.handleChange(e.target.value)}
               />
               {field.state.meta.errors[0]?.message ? (
-                <FieldError match>{field.state.meta.errors[0].message}</FieldError>
+                <FieldError match>
+                  {field.state.meta.errors[0].message}
+                </FieldError>
               ) : null}
             </Field>
           )}
@@ -97,7 +103,9 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
                 onChange={(e) => field.handleChange(e.target.value)}
               />
               {field.state.meta.errors[0]?.message ? (
-                <FieldError match>{field.state.meta.errors[0].message}</FieldError>
+                <FieldError match>
+                  {field.state.meta.errors[0].message}
+                </FieldError>
               ) : null}
             </Field>
           )}
@@ -116,7 +124,9 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
                 onChange={(e) => field.handleChange(e.target.value)}
               />
               {field.state.meta.errors[0]?.message ? (
-                <FieldError match>{field.state.meta.errors[0].message}</FieldError>
+                <FieldError match>
+                  {field.state.meta.errors[0].message}
+                </FieldError>
               ) : null}
             </Field>
           )}

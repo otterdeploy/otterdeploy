@@ -1,14 +1,20 @@
 import type { CSSProperties, ReactNode, SVGProps } from "react";
-import { useTheme } from "@/components/theme-provider";
-import { Mariadb } from "@/components/ui/svgs/mariadb";
-import { MongodbIconDark } from "@/components/ui/svgs/mongodbIconDark";
-import { MongodbIconLight } from "@/components/ui/svgs/mongodbIconLight";
-import { MysqlIconDark } from "@/components/ui/svgs/mysqlIconDark";
-import { MysqlIconLight } from "@/components/ui/svgs/mysqlIconLight";
-import { Postgresql } from "@/components/ui/svgs/postgresql";
-import { Redis } from "@/components/ui/svgs/redis";
+import { useTheme } from "../theme-provider";
+import { Mariadb } from "../ui/svgs/mariadb";
+import { MongodbIconDark } from "../ui/svgs/mongodbIconDark";
+import { MongodbIconLight } from "../ui/svgs/mongodbIconLight";
+import { MysqlIconDark } from "../ui/svgs/mysqlIconDark";
+import { MysqlIconLight } from "../ui/svgs/mysqlIconLight";
+import { Postgresql } from "../ui/svgs/postgresql";
+import { Redis } from "../ui/svgs/redis";
 
-type DatabaseBrand = "postgresql" | "mysql" | "mariadb" | "mongodb" | "redis" | "clickhouse";
+type DatabaseBrand =
+  | "postgresql"
+  | "mysql"
+  | "mariadb"
+  | "mongodb"
+  | "redis"
+  | "clickhouse";
 type SvgComponent = (props: SVGProps<SVGSVGElement>) => ReactNode;
 
 type Props = {
@@ -20,12 +26,18 @@ type Props = {
   style?: CSSProperties;
 };
 
-const themedBrands: Record<Extract<DatabaseBrand, "mysql" | "mongodb">, { dark: SvgComponent; light: SvgComponent }> = {
+const themedBrands: Record<
+  Extract<DatabaseBrand, "mysql" | "mongodb">,
+  { dark: SvgComponent; light: SvgComponent }
+> = {
   mysql: { dark: MysqlIconDark, light: MysqlIconLight },
   mongodb: { dark: MongodbIconDark, light: MongodbIconLight },
 };
 
-const staticBrands: Record<Extract<DatabaseBrand, "postgresql" | "mariadb" | "redis">, SvgComponent> = {
+const staticBrands: Record<
+  Extract<DatabaseBrand, "postgresql" | "mariadb" | "redis">,
+  SvgComponent
+> = {
   postgresql: Postgresql,
   mariadb: Mariadb,
   redis: Redis,
@@ -71,7 +83,11 @@ export function DatabaseLogo({
   );
 }
 
-function renderBrand(brand: Exclude<DatabaseBrand, "clickhouse">, isDark: boolean, size: number) {
+function renderBrand(
+  brand: Exclude<DatabaseBrand, "clickhouse">,
+  isDark: boolean,
+  size: number,
+) {
   if (brand === "mysql" || brand === "mongodb") {
     const Icon = isDark ? themedBrands[brand].dark : themedBrands[brand].light;
     return <Icon width={size} height={size} />;
@@ -86,13 +102,22 @@ function resolveDatabaseBrand(value: string): DatabaseBrand | null {
   if (normalized.includes("postgres")) return "postgresql";
   if (normalized.includes("mariadb")) return "mariadb";
   if (normalized.includes("mysql")) return "mysql";
-  if (normalized.includes("mongodb") || normalized.includes("mongo")) return "mongodb";
+  if (normalized.includes("mongodb") || normalized.includes("mongo"))
+    return "mongodb";
   if (normalized.includes("redis")) return "redis";
   if (normalized.includes("clickhouse")) return "clickhouse";
   return null;
 }
 
-function FallbackMark({ value, size, color }: { value: string; size: number; color: string }) {
+function FallbackMark({
+  value,
+  size,
+  color,
+}: {
+  value: string;
+  size: number;
+  color: string;
+}) {
   return (
     <span
       className="mono"

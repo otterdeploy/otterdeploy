@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { AlertCircle } from "lucide-react";
-import { DatabaseLogo } from "@/components/brand/database-logo";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import { DatabaseLogo } from "../brand/database-logo";
+import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
+import { Badge } from "../ui/badge";
+import { Skeleton } from "../ui/skeleton";
 import { client } from "@/utils/orpc";
 
 type Props = {
@@ -14,7 +14,8 @@ type Props = {
 export function OverviewTab({ projectId, resourceId }: Props) {
   const query = useQuery({
     queryKey: ["project-database", projectId, resourceId],
-    queryFn: () => client.project.database.getPostgres({ projectId, resourceId }),
+    queryFn: () =>
+      client.project.database.getPostgres({ projectId, resourceId }),
   });
 
   if (query.isLoading) {
@@ -31,7 +32,9 @@ export function OverviewTab({ projectId, resourceId }: Props) {
       <Alert variant="error" className="m-4">
         <AlertCircle />
         <AlertTitle>Couldn't load database</AlertTitle>
-        <AlertDescription>{query.error instanceof Error ? query.error.message : "Unknown error"}</AlertDescription>
+        <AlertDescription>
+          {query.error instanceof Error ? query.error.message : "Unknown error"}
+        </AlertDescription>
       </Alert>
     );
   }
@@ -42,18 +45,36 @@ export function OverviewTab({ projectId, resourceId }: Props) {
       <div className="flex items-center gap-2">
         <DatabaseLogo value={db.name} size={16} />
         <span className="text-sm font-medium">{db.name}</span>
-        <Badge className="ml-auto" variant={db.runtime.status === "running" ? "success" : "warning"}>
+        <Badge
+          className="ml-auto"
+          variant={db.runtime.status === "running" ? "success" : "warning"}
+        >
           {db.runtime.status}
         </Badge>
       </div>
 
-      <Field label="Public host" value={`${db.publicHostname}:${db.publicPort}`} />
-      <Field label="Internal host" value={`${db.internalHostname}:${db.internalPort}`} />
+      <Field
+        label="Public host"
+        value={`${db.publicHostname}:${db.publicPort}`}
+      />
+      <Field
+        label="Internal host"
+        value={`${db.internalHostname}:${db.internalPort}`}
+      />
       <Field label="Username" value={db.username} />
-      <CodeBlock label="Public connection string" value={db.publicConnectionString} />
-      <CodeBlock label="Internal connection string" value={db.internalConnectionString} />
+      <CodeBlock
+        label="Public connection string"
+        value={db.publicConnectionString}
+      />
+      <CodeBlock
+        label="Internal connection string"
+        value={db.internalConnectionString}
+      />
       {db.localConnectionString ? (
-        <CodeBlock label="Local connection string" value={db.localConnectionString} />
+        <CodeBlock
+          label="Local connection string"
+          value={db.localConnectionString}
+        />
       ) : null}
     </div>
   );
@@ -62,8 +83,12 @@ export function OverviewTab({ projectId, resourceId }: Props) {
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <div className="grid gap-1">
-      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
-      <code className="break-all rounded bg-muted px-2 py-1 text-xs">{value}</code>
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+        {label}
+      </div>
+      <code className="break-all rounded bg-muted px-2 py-1 text-xs">
+        {value}
+      </code>
     </div>
   );
 }
@@ -71,7 +96,9 @@ function Field({ label, value }: { label: string; value: string }) {
 function CodeBlock({ label, value }: { label: string; value: string }) {
   return (
     <div className="grid gap-1">
-      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+        {label}
+      </div>
       <pre className="overflow-x-auto rounded bg-muted px-2 py-2 text-[11px] leading-5">
         <code>{value}</code>
       </pre>

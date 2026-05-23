@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { SvglLogo } from "@/components/brand/svgl-logo";
+import { SvglLogo } from "../brand/svgl-logo";
 import { I } from "../icons";
 import { Field, SectionH } from "../components/form";
 import { StatusBadge } from "../components/status-badge";
@@ -108,7 +108,10 @@ export function Registries() {
   const totalImages = registries.reduce((n, r) => n + r.images, 0);
 
   return (
-    <div className="os-scroll" style={{ flex: 1, overflow: "auto", padding: 24 }}>
+    <div
+      className="os-scroll"
+      style={{ flex: 1, overflow: "auto", padding: 24 }}
+    >
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
         <div className="row" style={{ marginBottom: 16 }}>
           <SectionH
@@ -151,7 +154,13 @@ export function Registries() {
   );
 }
 
-function RegistryLogo({ kind, size = 32 }: { kind: RegistryKind; size?: number }) {
+function RegistryLogo({
+  kind,
+  size = 32,
+}: {
+  kind: RegistryKind;
+  size?: number;
+}) {
   return (
     <SvglLogo
       search={REGISTRY_SEARCH[kind] ?? REGISTRY_LABEL[kind]}
@@ -173,7 +182,7 @@ function RegistryCard({ r }: { r: Registry }) {
           <div className="row gap-2" style={{ alignItems: "center" }}>
             <span style={{ fontWeight: 600, fontSize: 14 }}>{r.name}</span>
             <StatusBadge status={r.status === "warn" ? "degraded" : "active"}>
-              {r.status === "warn" ? r.statusNote ?? "warning" : "active"}
+              {r.status === "warn" ? (r.statusNote ?? "warning") : "active"}
             </StatusBadge>
             <span
               className="badge"
@@ -242,7 +251,15 @@ function RegistryCard({ r }: { r: Registry }) {
   );
 }
 
-function Stat({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+function Stat({
+  label,
+  value,
+  mono,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
   return (
     <div>
       <div
@@ -401,7 +418,11 @@ function AddRegistryModal({ onClose }: { onClose: () => void }) {
                   key={k}
                   onClick={() => onPickKind(k)}
                   className={`os-builder ${kind === k ? "active" : ""}`}
-                  style={{ padding: 10, alignItems: "center", textAlign: "center" }}
+                  style={{
+                    padding: 10,
+                    alignItems: "center",
+                    textAlign: "center",
+                  }}
                 >
                   <div className="col gap-1" style={{ alignItems: "center" }}>
                     <RegistryLogo kind={k} size={26} />
@@ -437,7 +458,13 @@ function AddRegistryModal({ onClose }: { onClose: () => void }) {
           </Field>
 
           {auth === "basic" && (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 10,
+              }}
+            >
               <Field label="Username">
                 <input
                   className="input mono"

@@ -1,4 +1,4 @@
-import { SvglLogo } from "@/components/brand/svgl-logo";
+import { SvglLogo } from "../brand/svgl-logo";
 import { I } from "../icons";
 import { PROJECT } from "../data";
 
@@ -24,14 +24,23 @@ type Props = {
 };
 
 export function Topbar({ tab, openCmd, openDeploy }: Props) {
-  const here = tab.startsWith("service:") ? tab.split(":")[1] : (labels[tab] ?? tab);
+  const here = tab.startsWith("service:")
+    ? tab.split(":")[1]
+    : (labels[tab] ?? tab);
   return (
     <header className="os-topbar">
       <div className="os-brand">
         <div className="os-brand-mark">os</div>
         <span>otterstack</span>
       </div>
-      <span style={{ width: 1, height: 18, background: "var(--border)", margin: "0 6px" }} />
+      <span
+        style={{
+          width: 1,
+          height: 18,
+          background: "var(--border)",
+          margin: "0 6px",
+        }}
+      />
       <nav className="os-crumbs">
         <span>{PROJECT.team}</span>
         <span className="sep">/</span>
@@ -44,7 +53,9 @@ export function Topbar({ tab, openCmd, openDeploy }: Props) {
 
       <button className="os-search" onClick={openCmd}>
         <I.search width={13} height={13} />
-        <span style={{ flex: 1, textAlign: "left" }}>Search or run a command…</span>
+        <span style={{ flex: 1, textAlign: "left" }}>
+          Search or run a command…
+        </span>
         <span className="os-kbd">⌘</span>
         <span className="os-kbd">K</span>
       </button>

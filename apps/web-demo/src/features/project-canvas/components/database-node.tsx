@@ -1,6 +1,6 @@
 import { type NodeProps } from "@xyflow/react";
 import { GlobeIcon, NetworkIcon } from "lucide-react";
-import { DatabaseLogo } from "@/components/brand/database-logo";
+import { DatabaseLogo } from "../brand/database-logo";
 import { cn } from "@/lib/utils";
 import type { DatabaseNode as DatabaseNodeType } from "../types";
 
@@ -29,15 +29,28 @@ export function DatabaseNode({ data, selected }: NodeProps<DatabaseNodeType>) {
       data-canvas-node="database"
       className={cn(
         "flex w-52 flex-col gap-1.5 rounded-xl border bg-card px-3 py-3 shadow-sm",
-        selected ? "border-foreground/30 ring-2 ring-foreground/10" : "border-border",
+        selected
+          ? "border-foreground/30 ring-2 ring-foreground/10"
+          : "border-border",
       )}
     >
       <div className="flex items-center gap-2">
-        <DatabaseLogo value={data.engine} size={14} color="var(--muted-foreground)" />
+        <DatabaseLogo
+          value={data.engine}
+          size={14}
+          color="var(--muted-foreground)"
+        />
         <span className="truncate text-xs font-medium">{data.name}</span>
-        <span className={cn("ml-auto size-1.5 rounded-full", dotByStatus[data.status])} />
+        <span
+          className={cn(
+            "ml-auto size-1.5 rounded-full",
+            dotByStatus[data.status],
+          )}
+        />
       </div>
-      <div className="text-[10px] text-muted-foreground">{statusLabel(data.status, data.health)}</div>
+      <div className="text-[10px] text-muted-foreground">
+        {statusLabel(data.status, data.health)}
+      </div>
       <div className="grid gap-0.5 text-[10px] text-muted-foreground/80">
         <div className="flex items-center gap-1">
           <GlobeIcon className="size-2.5 shrink-0" />

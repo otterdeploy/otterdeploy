@@ -1,17 +1,20 @@
 import type { QueryClient } from "@tanstack/react-query";
 
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { HeadContent, Outlet, createRootRouteWithContext } from "@tanstack/react-router";
+import {
+  HeadContent,
+  Outlet,
+  createRootRouteWithContext,
+} from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 
-import { ThemeProvider } from "@/components/theme-provider";
-import { Toaster } from "@/components/ui/sonner";
+import { ThemeProvider } from "../theme-provider";
+import { Toaster } from "../ui/sonner";
 import { orpc } from "@/utils/orpc";
 
 import "../index.css";
 
-
-import '@xyflow/react/dist/style.css';
+import "@xyflow/react/dist/style.css";
 
 export interface RouterAppContext {
   orpc: typeof orpc;

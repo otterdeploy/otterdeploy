@@ -15,6 +15,10 @@ import {
 } from "@/shared/components/ui/empty";
 import { client, orpc } from "@/shared/server/orpc";
 
+import { useLiveQuery } from "@tanstack/react-db";
+import { eq } from "@tanstack/db";
+import { projectCollection } from "@/features/projects/data/collection";
+
 export const Route = createFileRoute("/_app/$orgSlug/")({
   component: RouteComponent,
 });
@@ -22,18 +26,22 @@ export const Route = createFileRoute("/_app/$orgSlug/")({
 function RouteComponent() {
   const { organization } = useLoaderData({ from: "/_app/$orgSlug" });
   const { orgSlug } = Route.useParams();
-  const projects = useQuery({
-    queryKey: orpc.project.list.queryKey(),
-    queryFn: () => client.project.list(),
-  });
 
-  if (projects.isPending) {
-    return null;
-  }
+  const { data: items } = useQuery(orpc.project.list.queryOptions());
 
-  const items = projects.data ?? [];
+  const {
+    data: projects,
+    isLoading,
+    ...rest
+  } = useLiveQuery((q) => q.from({ todo: projectCollection }));
 
-  if (items.length === 0) {
+  if (isLoading) return <div>Loading...</div>;
+
+  console.log(projects, items);
+
+  if (rest.status === "error") return <div>Error: {rest.state}</div>;
+
+  if (projects.length === 0) {
     return (
       <div className="flex flex-1 items-center justify-center p-8">
         <Empty className="h-full border border-dashed">
@@ -43,8 +51,8 @@ function RouteComponent() {
             </EmptyMedia>
             <EmptyTitle>No projects in {organization.name}</EmptyTitle>
             <EmptyDescription>
-              Projects group services, databases, and routes. Create your
-              first one to get started.
+              Projects group services, databases, and routes. Create your first
+              one to get started.
             </EmptyDescription>
             <CreateProjectDialog
               trigger={
@@ -68,7 +76,7 @@ function RouteComponent() {
             {organization.name}
           </h1>
           <p className="text-sm text-muted-foreground">
-            {items.length} project{items.length === 1 ? "" : "s"}
+            {projects.length} project{projects.length === 1 ? "" : "s"}
           </p>
         </div>
         <CreateProjectDialog
@@ -80,7 +88,7 @@ function RouteComponent() {
           }
         />
       </div>
-      <ProjectList orgSlug={orgSlug} projects={items} />
+      <ProjectList orgSlug={orgSlug} projects={projects} />
     </div>
   );
 }

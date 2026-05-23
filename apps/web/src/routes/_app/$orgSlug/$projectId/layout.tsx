@@ -2,10 +2,9 @@ import { ID_PREFIX, zId } from "@otterstack/shared/id";
 import { createFileRoute, notFound, Outlet } from "@tanstack/react-router";
 import * as z from "zod";
 
-import type { Project } from "@/routes/_app/layout";
 import { ProjectSidebar } from "@/features/shell/components/sidebar/project-sidebar";
-import { client } from "@/shared/server/orpc";
 import { SidebarInset } from "@/shared/components/ui/sidebar";
+import { client } from "@/shared/server/orpc";
 
 const zProjectId = z.object({ projectId: zId(ID_PREFIX.project) });
 const zEnvSearch = z.object({ env: z.string().optional() });
@@ -14,7 +13,7 @@ export const Route = createFileRoute("/_app/$orgSlug/$projectId")({
   component: RouteComponent,
   validateSearch: zEnvSearch,
   params: {
-    parse: ({ projectId }) => zProjectId.parse({ projectId }),
+    parse: zProjectId.parse,
   },
   loader: async ({ params }) => {
     const [project, environments] = await Promise.all([

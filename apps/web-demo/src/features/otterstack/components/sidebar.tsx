@@ -1,14 +1,24 @@
-import { DatabaseLogo } from "@/components/brand/database-logo";
+import { DatabaseLogo } from "../brand/database-logo";
 import { I } from "../icons";
 import { PROJECT, SERVICES, DEPLOYMENTS, type Env } from "../data";
 import { EnvSwitcher } from "./env-switcher";
 import { UserMenu } from "./user-menu";
 import type { Tab } from "../app";
 
-const projectItems: Array<{ id: Tab; label: string; icon: keyof typeof I; count?: number }> = [
+const projectItems: Array<{
+  id: Tab;
+  label: string;
+  icon: keyof typeof I;
+  count?: number;
+}> = [
   { id: "overview", label: "Overview", icon: "home" },
   { id: "graph", label: "Graph", icon: "graph" },
-  { id: "deployments", label: "Deployments", icon: "rocket", count: DEPLOYMENTS.length },
+  {
+    id: "deployments",
+    label: "Deployments",
+    icon: "rocket",
+    count: DEPLOYMENTS.length,
+  },
   { id: "logs", label: "Logs", icon: "log" },
   { id: "metrics", label: "Metrics", icon: "metrics" },
   { id: "env", label: "Variables", icon: "env" },
@@ -48,8 +58,18 @@ type Props = {
 export function Sidebar({ tab, setTab, env, setEnv }: Props) {
   return (
     <aside className="os-sidebar" style={{ overflow: "hidden" }}>
-      <div className="os-side-section" style={{ paddingTop: 12, flexShrink: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 4px" }}>
+      <div
+        className="os-side-section"
+        style={{ paddingTop: 12, flexShrink: 0 }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "0 4px",
+          }}
+        >
           <div
             style={{
               width: 22,
@@ -65,32 +85,58 @@ export function Sidebar({ tab, setTab, env, setEnv }: Props) {
           >
             h
           </div>
-          <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+          <div
+            style={{ display: "flex", flexDirection: "column", minWidth: 0 }}
+          >
             <div style={{ fontWeight: 500, fontSize: 13 }}>{PROJECT.name}</div>
             <div className="muted" style={{ fontSize: 11 }}>
               {PROJECT.team}
             </div>
           </div>
-          <button className="btn ghost icon sm" style={{ marginLeft: "auto" }} title="Switch project">
+          <button
+            className="btn ghost icon sm"
+            style={{ marginLeft: "auto" }}
+            title="Switch project"
+          >
             <I.chevDown width={12} height={12} />
           </button>
         </div>
       </div>
 
       <div className="os-side-section" style={{ flexShrink: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 4px" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "0 4px",
+          }}
+        >
           <EnvSwitcher env={env} setEnv={setEnv} />
         </div>
       </div>
 
       <div
         className="os-scroll"
-        style={{ flex: 1, overflowY: "auto", overflowX: "hidden", minHeight: 0 }}
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          overflowX: "hidden",
+          minHeight: 0,
+        }}
       >
-        <NavGroup label="Project" items={projectItems} tab={tab} setTab={setTab} />
+        <NavGroup
+          label="Project"
+          items={projectItems}
+          tab={tab}
+          setTab={setTab}
+        />
 
         <div className="os-side-section">
-          <div className="os-side-label" style={{ display: "flex", alignItems: "center" }}>
+          <div
+            className="os-side-label"
+            style={{ display: "flex", alignItems: "center" }}
+          >
             <span>Services</span>
             <button
               className="btn ghost icon sm"
@@ -138,11 +184,24 @@ export function Sidebar({ tab, setTab, env, setEnv }: Props) {
           </div>
         </div>
 
-        <NavGroup label="Infrastructure" items={infraItems} tab={tab} setTab={setTab} />
-        <NavGroup label="Cluster admin" items={adminItems} tab={tab} setTab={setTab} />
+        <NavGroup
+          label="Infrastructure"
+          items={infraItems}
+          tab={tab}
+          setTab={setTab}
+        />
+        <NavGroup
+          label="Cluster admin"
+          items={adminItems}
+          tab={tab}
+          setTab={setTab}
+        />
       </div>
 
-      <div className="os-side-section" style={{ paddingBottom: 8, paddingTop: 6, flexShrink: 0 }}>
+      <div
+        className="os-side-section"
+        style={{ paddingBottom: 8, paddingTop: 6, flexShrink: 0 }}
+      >
         <div
           style={{
             padding: "0 4px 6px",
@@ -153,7 +212,14 @@ export function Sidebar({ tab, setTab, env, setEnv }: Props) {
             color: "var(--fg-4)",
           }}
         >
-          <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--ok)" }} />
+          <span
+            style={{
+              width: 5,
+              height: 5,
+              borderRadius: "50%",
+              background: "var(--ok)",
+            }}
+          />
           <span>self-hosted · {PROJECT.region}</span>
           <span className="mono" style={{ marginLeft: "auto" }}>
             v1.4.2-rc.1
@@ -172,7 +238,12 @@ function NavGroup({
   setTab,
 }: {
   label?: string;
-  items: Array<{ id: Tab; label: string; icon: keyof typeof I; count?: number }>;
+  items: Array<{
+    id: Tab;
+    label: string;
+    icon: keyof typeof I;
+    count?: number;
+  }>;
   tab: Tab | string;
   setTab: (t: Tab | string) => void;
 }) {
@@ -190,7 +261,9 @@ function NavGroup({
             >
               <Icon className="icon" width={14} height={14} />
               <span>{it.label}</span>
-              {it.count != null ? <span className="count">{it.count}</span> : null}
+              {it.count != null ? (
+                <span className="count">{it.count}</span>
+              ) : null}
             </button>
           );
         })}

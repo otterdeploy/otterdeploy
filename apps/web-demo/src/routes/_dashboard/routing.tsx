@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQueries, useQuery } from "@tanstack/react-query";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton } from "../ui/skeleton";
 import {
   WorkspaceRoutesTable,
   useWorkspaceRoutes,
@@ -26,23 +26,32 @@ function RouteComponent() {
     })),
   });
 
-  const routesByProject: Record<string, ReadonlyArray<ProxyRouteFromApi> | undefined> = {};
+  const routesByProject: Record<
+    string,
+    ReadonlyArray<ProxyRouteFromApi> | undefined
+  > = {};
   projects.forEach((project, index) => {
     routesByProject[project.id] = routeQueries[index]?.data;
   });
 
   const rows = useWorkspaceRoutes({ projects, routesByProject });
-  const isLoading = projectsQuery.isLoading || routeQueries.some((q) => q.isLoading);
+  const isLoading =
+    projectsQuery.isLoading || routeQueries.some((q) => q.isLoading);
 
   return (
     <div className="grid gap-4 p-6">
       <div className="grid gap-1">
         <h1 className="text-2xl font-semibold tracking-tight">Routing</h1>
         <p className="text-sm text-muted-foreground">
-          All public domains across your projects. Global Caddy config (TLS issuer, redirects, wildcards) lands in Plan 6.
+          All public domains across your projects. Global Caddy config (TLS
+          issuer, redirects, wildcards) lands in Plan 6.
         </p>
       </div>
-      {isLoading ? <Skeleton className="h-64 w-full" /> : <WorkspaceRoutesTable rows={rows} />}
+      {isLoading ? (
+        <Skeleton className="h-64 w-full" />
+      ) : (
+        <WorkspaceRoutesTable rows={rows} />
+      )}
     </div>
   );
 }

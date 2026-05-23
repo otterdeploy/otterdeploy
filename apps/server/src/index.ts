@@ -136,7 +136,7 @@ app.get("/", (c) => {
 registerTerminalRoutes(app);
 
 // Startup tasks: initialize Docker Swarm, then reconcile Caddy from the DB.
-async function bootstrap(): Promise<void> {
+async function bootstrap() {
   const swarm = await Result.tryPromise({
     try: () => initializeSwarm(),
     catch: (cause) => new BootstrapError({ step: "swarm", cause }),

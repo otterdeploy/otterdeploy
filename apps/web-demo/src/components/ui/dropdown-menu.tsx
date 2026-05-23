@@ -16,4 +16,4 @@ export {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
   MenuPrimitive as DropdownMenuPrimitive,
-} from "@/components/ui/menu";
+} from "../ui/menu";

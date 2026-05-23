@@ -3,7 +3,7 @@
 
 import { useMemo, useState } from "react";
 
-import { DatabaseLogo } from "@/components/brand/database-logo";
+import { DatabaseLogo } from "../brand/database-logo";
 import { I, type IconKey } from "../icons";
 import {
   BUILDERS,
@@ -12,8 +12,18 @@ import {
   type Env,
   type Service,
 } from "../data";
-import { Field, Switch3, SettingRow, SectionH, BuilderConfig } from "../components/form";
-import { TerminalWorkspace, shellTarget, dbTarget } from "../components/terminal-workspace";
+import {
+  Field,
+  Switch3,
+  SettingRow,
+  SectionH,
+  BuilderConfig,
+} from "../components/form";
+import {
+  TerminalWorkspace,
+  shellTarget,
+  dbTarget,
+} from "../components/terminal-workspace";
 import type { TerminalSession } from "../components/terminal-workspace";
 import { Logs } from "./logs";
 import type { Tab } from "../app";
@@ -29,7 +39,11 @@ type SubTab =
   | "terminal"
   | "settings";
 
-type IconComp = (p: { width?: number; height?: number; style?: React.CSSProperties }) => React.JSX.Element;
+type IconComp = (p: {
+  width?: number;
+  height?: number;
+  style?: React.CSSProperties;
+}) => React.JSX.Element;
 
 export function ServiceDetail({
   serviceId,
@@ -47,9 +61,20 @@ export function ServiceDetail({
 
   if (!service) {
     return (
-      <div style={{ flex: 1, display: "grid", placeItems: "center", color: "var(--fg-3)" }}>
+      <div
+        style={{
+          flex: 1,
+          display: "grid",
+          placeItems: "center",
+          color: "var(--fg-3)",
+        }}
+      >
         Service not found ·{" "}
-        <button className="btn sm" onClick={() => onTab("graph")} style={{ marginLeft: 8 }}>
+        <button
+          className="btn sm"
+          onClick={() => onTab("graph")}
+          style={{ marginLeft: 8 }}
+        >
           Back to graph
         </button>
       </div>
@@ -80,7 +105,14 @@ export function ServiceDetail({
       ];
 
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div
+      style={{
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+      }}
+    >
       {/* Service header */}
       <div className="row" style={{ padding: "14px 22px 0", gap: 12 }}>
         <button
@@ -88,7 +120,11 @@ export function ServiceDetail({
           onClick={() => onTab("graph")}
           title="Back to graph"
         >
-          <I.chev width={11} height={11} style={{ transform: "rotate(180deg)" }} />
+          <I.chev
+            width={11}
+            height={11}
+            style={{ transform: "rotate(180deg)" }}
+          />
         </button>
         <div className="row gap-2" style={{ alignItems: "center" }}>
           <div
@@ -102,7 +138,14 @@ export function ServiceDetail({
               placeItems: "center",
             }}
           >
-            {isDb ? <DatabaseLogo value={`${service.name} ${service.image}`} size={16} /> : <I.service width={14} height={14} />}
+            {isDb ? (
+              <DatabaseLogo
+                value={`${service.name} ${service.image}`}
+                size={16}
+              />
+            ) : (
+              <I.service width={14} height={14} />
+            )}
           </div>
           <div>
             <div className="row gap-2">
@@ -169,7 +212,8 @@ export function ServiceDetail({
             onClick={() => setSub(id)}
             style={{ height: 34, borderRight: 0 }}
           >
-            <Ic width={12} height={12} style={{ opacity: 0.7 }} /> <span>{lab}</span>
+            <Ic width={12} height={12} style={{ opacity: 0.7 }} />{" "}
+            <span>{lab}</span>
             <span className="os-envtab-underline" />
           </button>
         ))}
@@ -177,7 +221,11 @@ export function ServiceDetail({
 
       <div style={{ flex: 1, overflow: "auto" }} className="os-scroll">
         {sub === "overview" && (
-          <SD_Overview service={service} setSub={setSub} onOpenLogs={onOpenLogs} />
+          <SD_Overview
+            service={service}
+            setSub={setSub}
+            onOpenLogs={onOpenLogs}
+          />
         )}
         {sub === "build" && <SD_Build service={service} />}
         {sub === "variables" && <SD_Variables service={service} env={env} />}
@@ -206,12 +254,22 @@ function SD_Overview({
   return (
     <div style={{ padding: 22, maxWidth: 1100, margin: "0 auto" }}>
       {/* stat row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(4, 1fr)",
+          gap: 12,
+        }}
+      >
         <Stat2
           label="status"
           value={service.status}
           accent={
-            service.status === "healthy" ? "ok" : service.status === "degraded" ? "warn" : "err"
+            service.status === "healthy"
+              ? "ok"
+              : service.status === "degraded"
+                ? "warn"
+                : "err"
           }
         />
         <Stat2
@@ -224,7 +282,9 @@ function SD_Overview({
         />
         <Stat2
           label={isDb ? "version" : "replicas"}
-          value={isDb ? (service.version ?? "—") : `${service.replicas || 1} running`}
+          value={
+            isDb ? (service.version ?? "—") : `${service.replicas || 1} running`
+          }
         />
         <Stat2 label="last deploy" value={service.lastDeploy || "—"} />
       </div>
@@ -233,8 +293,18 @@ function SD_Overview({
       {!isDb && (
         <>
           <div style={{ height: 18 }} />
-          <SectionH title="Configuration" sub="Tap a card to jump to that section" />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 10 }}>
+          <SectionH
+            title="Configuration"
+            sub="Tap a card to jump to that section"
+          />
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 12,
+              marginTop: 10,
+            }}
+          >
             <NavCard
               onClick={() => setSub("build")}
               icon={I.bolt}
@@ -378,7 +448,11 @@ function Stat2({
     <div className="card" style={{ padding: 14 }}>
       <div
         className="muted"
-        style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}
+        style={{
+          fontSize: 10,
+          textTransform: "uppercase",
+          letterSpacing: "0.06em",
+        }}
       >
         {label}
       </div>
@@ -469,7 +543,10 @@ function SD_Build({ service }: { service: Service }) {
   const [builderId, setBuilderId] = useState("railpack");
   return (
     <div style={{ padding: 22, maxWidth: 1000, margin: "0 auto" }}>
-      <SectionH title="Source" sub={`paperhouse/helio · main · apps/${service.name}`} />
+      <SectionH
+        title="Source"
+        sub={`paperhouse/helio · main · apps/${service.name}`}
+      />
       <div className="card" style={{ padding: 16, marginTop: 10 }}>
         <div className="row gap-3">
           <div
@@ -513,7 +590,8 @@ function SD_Build({ service }: { service: Service }) {
         }}
       >
         {BUILDERS.map((b) => {
-          const key = (b.icon as IconKey) in I ? (b.icon as IconKey) : ("doc" as IconKey);
+          const key =
+            (b.icon as IconKey) in I ? (b.icon as IconKey) : ("doc" as IconKey);
           const Ic = I[key];
           return (
             <button
@@ -528,7 +606,10 @@ function SD_Build({ service }: { service: Service }) {
                 </div>
                 <span style={{ fontWeight: 600, fontSize: 13 }}>{b.name}</span>
               </div>
-              <div className="muted" style={{ fontSize: 11, marginTop: 4, lineHeight: 1.4 }}>
+              <div
+                className="muted"
+                style={{ fontSize: 11, marginTop: 4, lineHeight: 1.4 }}
+              >
                 {b.sub}
               </div>
             </button>
@@ -598,9 +679,15 @@ function SD_Variables({ service, env }: { service: Service; env: Env }) {
   return (
     <div style={{ padding: 22, maxWidth: 1100, margin: "0 auto" }}>
       <div className="row gap-2" style={{ marginBottom: 14 }}>
-        <SectionH title="Variables" sub={`Injected into ${service.name} at runtime · ${env}`} />
+        <SectionH
+          title="Variables"
+          sub={`Injected into ${service.name} at runtime · ${env}`}
+        />
         <div style={{ flex: 1 }} />
-        <button className="btn ghost icon" onClick={() => setRevealAll((r) => !r)}>
+        <button
+          className="btn ghost icon"
+          onClick={() => setRevealAll((r) => !r)}
+        >
           <I.eye width={13} height={13} />
         </button>
         <button className="btn">
@@ -614,7 +701,13 @@ function SD_Variables({ service, env }: { service: Service; env: Env }) {
       <div className="card" style={{ overflow: "hidden" }}>
         <div className="os-pe-head">
           <span style={{ flex: 1 }}>Key</span>
-          <span style={{ flex: 2, borderLeft: "1px solid var(--border)", paddingLeft: 12 }}>
+          <span
+            style={{
+              flex: 2,
+              borderLeft: "1px solid var(--border)",
+              paddingLeft: 12,
+            }}
+          >
             Value
           </span>
           <span style={{ width: 80 }}>Source</span>
@@ -622,13 +715,21 @@ function SD_Variables({ service, env }: { service: Service; env: Env }) {
         </div>
         {rows.map((r) => (
           <div key={r.k} className="os-pe-row">
-            <span style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
+            <span
+              style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}
+            >
               <I.key width={11} height={11} style={{ color: "var(--fg-3)" }} />
               <span className="mono" style={{ fontSize: 12, fontWeight: 500 }}>
                 {r.k}
               </span>
             </span>
-            <span style={{ flex: 2, borderLeft: "1px solid var(--border)", paddingLeft: 12 }}>
+            <span
+              style={{
+                flex: 2,
+                borderLeft: "1px solid var(--border)",
+                paddingLeft: 12,
+              }}
+            >
               <span
                 className="mono"
                 style={{
@@ -659,9 +760,10 @@ function SD_Variables({ service, env }: { service: Service; env: Env }) {
       </div>
 
       <div className="muted" style={{ fontSize: 11, marginTop: 10 }}>
-        Variables defined at the project level apply to all services. Service-level overrides take
-        precedence. Manage project-wide variables in the{" "}
-        <span style={{ color: "var(--fg-2)" }}>Variables</span> sidebar tab.
+        Variables defined at the project level apply to all services.
+        Service-level overrides take precedence. Manage project-wide variables
+        in the <span style={{ color: "var(--fg-2)" }}>Variables</span> sidebar
+        tab.
       </div>
     </div>
   );
@@ -670,12 +772,17 @@ function SD_Variables({ service, env }: { service: Service; env: Env }) {
 // ────── Networking (scoped) ──────
 function SD_Networking({ service }: { service: Service }) {
   const [publicEnabled, setPublicEnabled] = useState(!!service.domain);
-  const [host, setHost] = useState(service.domain || `${service.name}.helio.so`);
+  const [host, setHost] = useState(
+    service.domain || `${service.name}.helio.so`,
+  );
   const [port, setPort] = useState<number>(service.port ?? 3000);
 
   return (
     <div style={{ padding: 22, maxWidth: 1000, margin: "0 auto" }}>
-      <SectionH title="Public access" sub="Expose this service through the Caddy edge proxy" />
+      <SectionH
+        title="Public access"
+        sub="Expose this service through the Caddy edge proxy"
+      />
       <div className="card" style={{ padding: 16, marginTop: 10 }}>
         <div className="row gap-3">
           <div style={{ flex: 1 }}>
@@ -741,8 +848,8 @@ function SD_Networking({ service }: { service: Service }) {
           </button>
         </div>
         <div className="muted" style={{ fontSize: 11, marginTop: 8 }}>
-          Reachable from any service in the project — no auth, no TLS. Use the public route for
-          external traffic.
+          Reachable from any service in the project — no auth, no TLS. Use the
+          public route for external traffic.
         </div>
       </div>
 
@@ -761,7 +868,11 @@ function SD_Networking({ service }: { service: Service }) {
           </Field>
           <div style={{ width: 14 }} />
           <Field label="Health check path">
-            <input className="input mono" defaultValue="/health" style={{ width: 220 }} />
+            <input
+              className="input mono"
+              defaultValue="/health"
+              style={{ width: 220 }}
+            />
           </Field>
         </div>
         <div style={{ height: 12 }} />
@@ -770,7 +881,11 @@ function SD_Networking({ service }: { service: Service }) {
           defaultOn
           sub="Pass real client IP through to this service"
         />
-        <SettingRow label="WebSocket upgrade" defaultOn sub="Allow ws:// connection upgrades" />
+        <SettingRow
+          label="WebSocket upgrade"
+          defaultOn
+          sub="Allow ws:// connection upgrades"
+        />
         <SettingRow
           label="Compression at edge (zstd, gzip)"
           defaultOn
@@ -795,7 +910,10 @@ function SD_Scaling({ service }: { service: Service }) {
 
   return (
     <div style={{ padding: 22, maxWidth: 1000, margin: "0 auto" }}>
-      <SectionH title="Replicas" sub="Number of running copies · changes apply via rolling update" />
+      <SectionH
+        title="Replicas"
+        sub="Number of running copies · changes apply via rolling update"
+      />
       <div className="card" style={{ padding: 16, marginTop: 10 }}>
         <div className="row gap-2">
           <button
@@ -811,7 +929,10 @@ function SD_Scaling({ service }: { service: Service }) {
             onChange={(e) => setReplicas(+e.target.value || 1)}
             style={{ width: 80, textAlign: "center", fontSize: 18, height: 36 }}
           />
-          <button className="btn ghost icon" onClick={() => setReplicas((r) => r + 1)}>
+          <button
+            className="btn ghost icon"
+            onClick={() => setReplicas((r) => r + 1)}
+          >
             <I.plus width={11} height={11} />
           </button>
           <div style={{ flex: 1 }} />
@@ -843,22 +964,30 @@ function SD_Scaling({ service }: { service: Service }) {
                   border: "1px solid var(--border)",
                 }}
               >
-                <div className="mono" style={{ fontSize: 10, color: "var(--fg-3)" }}>
+                <div
+                  className="mono"
+                  style={{ fontSize: 10, color: "var(--fg-3)" }}
+                >
                   node-{n + 1}
                 </div>
-                <div className="row gap-1" style={{ marginTop: 6, flexWrap: "wrap" }}>
-                  {Array.from({ length: Math.max(0, onThisNode) }).map((_, i) => (
-                    <span
-                      key={i}
-                      style={{
-                        display: "inline-block",
-                        width: 12,
-                        height: 12,
-                        borderRadius: 3,
-                        background: "var(--ok)",
-                      }}
-                    />
-                  ))}
+                <div
+                  className="row gap-1"
+                  style={{ marginTop: 6, flexWrap: "wrap" }}
+                >
+                  {Array.from({ length: Math.max(0, onThisNode) }).map(
+                    (_, i) => (
+                      <span
+                        key={i}
+                        style={{
+                          display: "inline-block",
+                          width: 12,
+                          height: 12,
+                          borderRadius: 3,
+                          background: "var(--ok)",
+                        }}
+                      />
+                    ),
+                  )}
                 </div>
               </div>
             );
@@ -907,12 +1036,17 @@ function SD_Scaling({ service }: { service: Service }) {
           <div>
             <div
               className="muted"
-              style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}
+              style={{
+                fontSize: 10,
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+              }}
             >
               service total
             </div>
             <div className="mono" style={{ fontSize: 14, fontWeight: 500 }}>
-              {(cpu * replicas).toFixed(1)} vCPU · {((mem * replicas) / 1024).toFixed(1)} GB
+              {(cpu * replicas).toFixed(1)} vCPU ·{" "}
+              {((mem * replicas) / 1024).toFixed(1)} GB
             </div>
           </div>
           <div style={{ flex: 1 }} />
@@ -950,9 +1084,17 @@ function SD_Scaling({ service }: { service: Service }) {
           </Field>
           <Field label="Min – Max">
             <div className="row gap-2">
-              <input className="input mono" defaultValue={replicas} style={{ width: 60 }} />
+              <input
+                className="input mono"
+                defaultValue={replicas}
+                style={{ width: 60 }}
+              />
               <span className="muted">–</span>
-              <input className="input mono" defaultValue={replicas * 5} style={{ width: 60 }} />
+              <input
+                className="input mono"
+                defaultValue={replicas * 5}
+                style={{ width: 60 }}
+              />
             </div>
           </Field>
         </div>
@@ -965,7 +1107,10 @@ function SD_Scaling({ service }: { service: Service }) {
 function SD_Metrics({ service }: { service: Service }) {
   return (
     <div style={{ padding: 22, maxWidth: 1100, margin: "0 auto" }}>
-      <SectionH title={`${service.name} metrics`} sub="Last 1h · 5s resolution" />
+      <SectionH
+        title={`${service.name} metrics`}
+        sub="Last 1h · 5s resolution"
+      />
       <div
         style={{
           display: "grid",
@@ -985,11 +1130,18 @@ function SD_Metrics({ service }: { service: Service }) {
           <div key={i} className="card" style={{ padding: 14 }}>
             <div
               className="muted"
-              style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}
+              style={{
+                fontSize: 10,
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+              }}
             >
               {m.label}
             </div>
-            <div className="mono" style={{ fontSize: 22, fontWeight: 500, marginTop: 4 }}>
+            <div
+              className="mono"
+              style={{ fontSize: 22, fontWeight: 500, marginTop: 4 }}
+            >
               {m.value}
             </div>
             <Spark seed={i + service.name.length} />
@@ -1018,10 +1170,16 @@ function Spark({ seed = 1 }: { seed?: number }) {
     return arr;
   }, [seed]);
   const path = pts
-    .map((v, i) => `${i === 0 ? "M" : "L"} ${(i / (pts.length - 1)) * 280} ${50 - v * 0.4}`)
+    .map(
+      (v, i) =>
+        `${i === 0 ? "M" : "L"} ${(i / (pts.length - 1)) * 280} ${50 - v * 0.4}`,
+    )
     .join(" ");
   return (
-    <svg viewBox="0 0 280 50" style={{ width: "100%", height: 50, marginTop: 8 }}>
+    <svg
+      viewBox="0 0 280 50"
+      style={{ width: "100%", height: 50, marginTop: 8 }}
+    >
       <path d={path} stroke="var(--fg-2)" strokeWidth="1.2" fill="none" />
     </svg>
   );
@@ -1037,7 +1195,9 @@ function SD_Terminal({ service }: { service: Service }) {
   const isDb = service.kind === "database";
   const initial: TerminalSession[] = useMemo(() => {
     if (isDb) {
-      const kind = service.image.startsWith("postgres") ? ("psql" as const) : ("redis" as const);
+      const kind = service.image.startsWith("postgres")
+        ? ("psql" as const)
+        : ("redis" as const);
       return [
         {
           id: `${kind}:${service.id}`,
@@ -1067,7 +1227,14 @@ function SD_Terminal({ service }: { service: Service }) {
   }, [service, isDb]);
 
   return (
-    <div style={{ height: "100%", display: "flex", flexDirection: "column", minHeight: 0 }}>
+    <div
+      style={{
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        minHeight: 0,
+      }}
+    >
       <TerminalWorkspace key={service.id} initial={initial} embedded />
     </div>
   );
@@ -1097,7 +1264,13 @@ function SD_Settings({
       <div style={{ height: 18 }} />
       <SectionH title="Health checks" />
       <div className="card" style={{ padding: 16, marginTop: 10 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 10 }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "2fr 1fr 1fr",
+            gap: 10,
+          }}
+        >
           <Field label="Path">
             <input className="input mono" defaultValue="/health" />
           </Field>
@@ -1118,7 +1291,10 @@ function SD_Settings({
 
       <div style={{ height: 18 }} />
       <SectionH title="Danger zone" sub="Per-service destructive actions" />
-      <div className="card" style={{ padding: 16, marginTop: 10, borderColor: "var(--err)" }}>
+      <div
+        className="card"
+        style={{ padding: 16, marginTop: 10, borderColor: "var(--err)" }}
+      >
         <div className="row gap-3">
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 13, fontWeight: 500 }}>Pause service</div>
@@ -1130,7 +1306,11 @@ function SD_Settings({
         </div>
         <div
           className="row gap-3"
-          style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--border)" }}
+          style={{
+            marginTop: 12,
+            paddingTop: 12,
+            borderTop: "1px solid var(--border)",
+          }}
         >
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 13, fontWeight: 500 }}>Delete service</div>

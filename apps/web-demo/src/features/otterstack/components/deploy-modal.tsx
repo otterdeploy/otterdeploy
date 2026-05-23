@@ -1,12 +1,24 @@
 import { useEffect, useState, type ReactNode } from "react";
 
-import { SvglLogo } from "@/components/brand/svgl-logo";
+import { SvglLogo } from "../brand/svgl-logo";
 import { I } from "../icons";
 
 type LaunchTarget = {
   kindId?: string | null;
   kindTab?: "compute" | "data" | "template" | "custom";
-  step?: "kind" | "source" | "builder" | "image" | "compose" | "version" | "networking" | "resources" | "storage" | "variables" | "advanced" | "review";
+  step?:
+    | "kind"
+    | "source"
+    | "builder"
+    | "image"
+    | "compose"
+    | "version"
+    | "networking"
+    | "resources"
+    | "storage"
+    | "variables"
+    | "advanced"
+    | "review";
 };
 
 type Props = {
@@ -16,9 +28,20 @@ type Props = {
   onOpenNewService: (target?: LaunchTarget) => void;
 };
 
-type SourceId = "github" | "image" | "database" | "compose" | "template" | "empty";
+type SourceId =
+  | "github"
+  | "image"
+  | "database"
+  | "compose"
+  | "template"
+  | "empty";
 
-export function DeployModal({ open, onClose, onDeploy, onOpenNewService }: Props) {
+export function DeployModal({
+  open,
+  onClose,
+  onDeploy,
+  onOpenNewService,
+}: Props) {
   const [step, setStep] = useState(0);
   const [source, setSource] = useState<SourceId>("github");
   const [name, setName] = useState("notifier");
@@ -64,7 +87,12 @@ export function DeployModal({ open, onClose, onDeploy, onOpenNewService }: Props
     svgl?: string;
     target?: LaunchTarget;
   }> = [
-    { id: "github", label: "GitHub repo", sub: "Build from a Git ref", svgl: "GitHub" },
+    {
+      id: "github",
+      label: "GitHub repo",
+      sub: "Build from a Git ref",
+      svgl: "GitHub",
+    },
     {
       id: "image",
       label: "Docker image",
@@ -147,7 +175,9 @@ export function DeployModal({ open, onClose, onDeploy, onOpenNewService }: Props
             gap: 10,
           }}
         >
-          <span style={{ fontWeight: 600, fontSize: 15 }}>Deploy a new service</span>
+          <span style={{ fontWeight: 600, fontSize: 15 }}>
+            Deploy a new service
+          </span>
           <span className="muted" style={{ fontSize: 12 }}>
             {["Source", "Configure", "Build"][step]}
           </span>
@@ -161,11 +191,17 @@ export function DeployModal({ open, onClose, onDeploy, onOpenNewService }: Props
           {step === 0 && (
             <div className="col gap-4">
               <div className="muted" style={{ fontSize: 13 }}>
-                Pick what you want to launch. Otterstack can build app code, pull images, import
-                compose stacks, or provision a database in{" "}
+                Pick what you want to launch. Otterstack can build app code,
+                pull images, import compose stacks, or provision a database in{" "}
                 <b style={{ color: "var(--fg)" }}>production</b>.
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, 1fr)",
+                  gap: 10,
+                }}
+              >
                 {sourceOptions.map((opt) => (
                   <button
                     key={opt.id}
@@ -194,10 +230,16 @@ export function DeployModal({ open, onClose, onDeploy, onOpenNewService }: Props
                         style={{ borderRadius: 0 }}
                       />
                     ) : opt.icon ? (
-                      <opt.icon width={16} height={16} style={{ color: "var(--fg-2)" }} />
+                      <opt.icon
+                        width={16}
+                        height={16}
+                        style={{ color: "var(--fg-2)" }}
+                      />
                     ) : null}
                     <div>
-                      <div style={{ fontWeight: 500, fontSize: 13 }}>{opt.label}</div>
+                      <div style={{ fontWeight: 500, fontSize: 13 }}>
+                        {opt.label}
+                      </div>
                       <div className="muted" style={{ fontSize: 12 }}>
                         {opt.sub}
                       </div>
@@ -205,7 +247,14 @@ export function DeployModal({ open, onClose, onDeploy, onOpenNewService }: Props
                   </button>
                 ))}
               </div>
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 6 }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: 8,
+                  marginTop: 6,
+                }}
+              >
                 <button className="btn" onClick={onClose}>
                   Cancel
                 </button>
@@ -218,11 +267,22 @@ export function DeployModal({ open, onClose, onDeploy, onOpenNewService }: Props
 
           {step === 1 && (
             <div className="col gap-4">
-              <Field label="Service name" hint="Lowercase, used as DNS hostname">
-                <input className="input mono" value={name} onChange={(e) => setName(e.target.value)} />
+              <Field
+                label="Service name"
+                hint="Lowercase, used as DNS hostname"
+              >
+                <input
+                  className="input mono"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
               </Field>
               <Field label="Repository" hint="github.com/…">
-                <input className="input mono" value={repo} onChange={(e) => setRepo(e.target.value)} />
+                <input
+                  className="input mono"
+                  value={repo}
+                  onChange={(e) => setRepo(e.target.value)}
+                />
               </Field>
               <Field label="Branch">
                 <input className="input mono" defaultValue="main" />
@@ -233,7 +293,14 @@ export function DeployModal({ open, onClose, onDeploy, onOpenNewService }: Props
               <Field label="Start command">
                 <input className="input mono" defaultValue="pnpm start" />
               </Field>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginTop: 6 }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 8,
+                  marginTop: 6,
+                }}
+              >
                 <button className="btn" onClick={() => setStep(0)}>
                   Back
                 </button>
@@ -253,8 +320,12 @@ export function DeployModal({ open, onClose, onDeploy, onOpenNewService }: Props
                     height: 10,
                     borderRadius: 2,
                     background: progress >= 100 ? "var(--ok)" : "var(--info)",
-                    boxShadow: progress < 100 ? "0 0 0 4px var(--info-bg)" : "none",
-                    animation: progress < 100 ? "pulse 1.4s ease-in-out infinite" : "none",
+                    boxShadow:
+                      progress < 100 ? "0 0 0 4px var(--info-bg)" : "none",
+                    animation:
+                      progress < 100
+                        ? "pulse 1.4s ease-in-out infinite"
+                        : "none",
                   }}
                 />
                 <span style={{ fontWeight: 500 }}>
@@ -268,7 +339,14 @@ export function DeployModal({ open, onClose, onDeploy, onOpenNewService }: Props
                   {Math.round(progress)}%
                 </span>
               </div>
-              <div style={{ height: 4, background: "var(--bg-overlay)", borderRadius: 2, overflow: "hidden" }}>
+              <div
+                style={{
+                  height: 4,
+                  background: "var(--bg-overlay)",
+                  borderRadius: 2,
+                  overflow: "hidden",
+                }}
+              >
                 <div
                   style={{
                     height: "100%",
@@ -288,7 +366,15 @@ export function DeployModal({ open, onClose, onDeploy, onOpenNewService }: Props
   );
 }
 
-function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: ReactNode;
+}) {
   return (
     <div className="col" style={{ gap: 4 }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
@@ -304,7 +390,13 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   );
 }
 
-function BuildLogStream({ progress, name }: { progress: number; name: string }) {
+function BuildLogStream({
+  progress,
+  name,
+}: {
+  progress: number;
+  name: string;
+}) {
   const [lines, setLines] = useState<string[]>([]);
   useEffect(() => {
     const all = [
@@ -324,7 +416,10 @@ function BuildLogStream({ progress, name }: { progress: number; name: string }) 
       `→ healthcheck OK`,
       `✓ live at https://${name}.helio.so`,
     ];
-    const want = Math.min(all.length, Math.floor((progress / 100) * all.length));
+    const want = Math.min(
+      all.length,
+      Math.floor((progress / 100) * all.length),
+    );
     setLines(all.slice(0, want));
   }, [progress, name]);
 
@@ -347,7 +442,11 @@ function BuildLogStream({ progress, name }: { progress: number; name: string }) 
         <div
           key={i}
           style={{
-            color: l.startsWith("✓") ? "var(--ok)" : l.startsWith("   ") ? "var(--fg-3)" : "var(--fg)",
+            color: l.startsWith("✓")
+              ? "var(--ok)"
+              : l.startsWith("   ")
+                ? "var(--fg-3)"
+                : "var(--fg)",
           }}
         >
           {l}
