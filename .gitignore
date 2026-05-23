@@ -53,3 +53,5 @@ temp
 
 # Competitor research (local-only reference)
 research/
+
+.claude/worktrees/

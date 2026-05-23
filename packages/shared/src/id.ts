@@ -40,12 +40,16 @@ export const ID_PREFIX = {
 
 export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];
 
-// Branded type — gives compile-time safety when passing IDs around
-export declare const __brand: unique symbol;
-
-/** A branded string ID with a known prefix. */
+/**
+ * Branded string ID with a known prefix.
+ *
+ * Uses a plain property-name brand (not a `unique symbol`) so it survives
+ * declaration emission across composite projects — a unique-symbol brand
+ * trips TS4058 ("cannot be named") in consumers that emit .d.ts files.
+ * Same level of safety: a plain string can't satisfy `Id<P>` without a cast.
+ */
 export type Id<P extends string = string> = string & {
-  readonly [__brand]: P;
+  readonly __brand: P;
 };
 
 /**
