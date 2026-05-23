@@ -26,7 +26,7 @@ export function SignUpForm({
   onSwitchToSignIn: () => void;
 }) {
   const navigate = useNavigate();
-  const { redirect } = useSearch({ from: "/_auth/sign-in" });
+  const { redirect } = useSearch({ from: "/sign-in" });
   const { t } = useTranslation();
 
   const signUp = useMutation({
