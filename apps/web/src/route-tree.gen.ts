@@ -9,9 +9,10 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from "./routes/__root"
-import { Route as SignInRouteImport } from "./routes/sign-in"
+import { Route as AuthLayoutRouteImport } from "./routes/_auth/layout"
 import { Route as AppLayoutRouteImport } from "./routes/_app/layout"
 import { Route as AppIndexRouteImport } from "./routes/_app/index"
+import { Route as AuthSignInRouteImport } from "./routes/_auth/sign-in"
 import { Route as AppWorkspaceIdLayoutRouteImport } from "./routes/_app/$workspaceId/layout"
 import { Route as AppWorkspaceIdIndexRouteImport } from "./routes/_app/$workspaceId/index"
 import { Route as AppWorkspaceIdTeamRouteImport } from "./routes/_app/$workspaceId/team"
@@ -22,9 +23,8 @@ import { Route as AppWorkspaceIdProjectIdLayoutRouteImport } from "./routes/_app
 import { Route as AppWorkspaceIdProjectIdIndexRouteImport } from "./routes/_app/$workspaceId/$projectId/index"
 import { Route as AppWorkspaceIdProjectIdGraphRouteImport } from "./routes/_app/$workspaceId/$projectId/graph"
 
-const SignInRoute = SignInRouteImport.update({
-  id: "/sign-in",
-  path: "/sign-in",
+const AuthLayoutRoute = AuthLayoutRouteImport.update({
+  id: "/_auth",
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppLayoutRoute = AppLayoutRouteImport.update({
@@ -35,6 +35,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
   id: "/",
   path: "/",
   getParentRoute: () => AppLayoutRoute,
+} as any)
+const AuthSignInRoute = AuthSignInRouteImport.update({
+  id: "/sign-in",
+  path: "/sign-in",
+  getParentRoute: () => AuthLayoutRoute,
 } as any)
 const AppWorkspaceIdLayoutRoute = AppWorkspaceIdLayoutRouteImport.update({
   id: "/$workspaceId",
@@ -88,8 +93,8 @@ const AppWorkspaceIdProjectIdGraphRoute =
 
 export interface FileRoutesByFullPath {
   "/": typeof AppIndexRoute
-  "/sign-in": typeof SignInRoute
   "/$workspaceId": typeof AppWorkspaceIdLayoutRouteWithChildren
+  "/sign-in": typeof AuthSignInRoute
   "/$workspaceId/$projectId": typeof AppWorkspaceIdProjectIdLayoutRouteWithChildren
   "/$workspaceId/networking": typeof AppWorkspaceIdNetworkingRoute
   "/$workspaceId/servers": typeof AppWorkspaceIdServersRoute
@@ -100,8 +105,8 @@ export interface FileRoutesByFullPath {
   "/$workspaceId/$projectId/": typeof AppWorkspaceIdProjectIdIndexRoute
 }
 export interface FileRoutesByTo {
-  "/sign-in": typeof SignInRoute
   "/": typeof AppIndexRoute
+  "/sign-in": typeof AuthSignInRoute
   "/$workspaceId/networking": typeof AppWorkspaceIdNetworkingRoute
   "/$workspaceId/servers": typeof AppWorkspaceIdServersRoute
   "/$workspaceId/settings": typeof AppWorkspaceIdSettingsRoute
@@ -113,8 +118,9 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   "/_app": typeof AppLayoutRouteWithChildren
-  "/sign-in": typeof SignInRoute
+  "/_auth": typeof AuthLayoutRouteWithChildren
   "/_app/$workspaceId": typeof AppWorkspaceIdLayoutRouteWithChildren
+  "/_auth/sign-in": typeof AuthSignInRoute
   "/_app/": typeof AppIndexRoute
   "/_app/$workspaceId/$projectId": typeof AppWorkspaceIdProjectIdLayoutRouteWithChildren
   "/_app/$workspaceId/networking": typeof AppWorkspaceIdNetworkingRoute
@@ -129,8 +135,8 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | "/"
-    | "/sign-in"
     | "/$workspaceId"
+    | "/sign-in"
     | "/$workspaceId/$projectId"
     | "/$workspaceId/networking"
     | "/$workspaceId/servers"
@@ -141,8 +147,8 @@ export interface FileRouteTypes {
     | "/$workspaceId/$projectId/"
   fileRoutesByTo: FileRoutesByTo
   to:
-    | "/sign-in"
     | "/"
+    | "/sign-in"
     | "/$workspaceId/networking"
     | "/$workspaceId/servers"
     | "/$workspaceId/settings"
@@ -153,8 +159,9 @@ export interface FileRouteTypes {
   id:
     | "__root__"
     | "/_app"
-    | "/sign-in"
+    | "/_auth"
     | "/_app/$workspaceId"
+    | "/_auth/sign-in"
     | "/_app/"
     | "/_app/$workspaceId/$projectId"
     | "/_app/$workspaceId/networking"
@@ -168,16 +175,16 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AppLayoutRoute: typeof AppLayoutRouteWithChildren
-  SignInRoute: typeof SignInRoute
+  AuthLayoutRoute: typeof AuthLayoutRouteWithChildren
 }
 
 declare module "@tanstack/react-router" {
   interface FileRoutesByPath {
-    "/sign-in": {
-      id: "/sign-in"
-      path: "/sign-in"
-      fullPath: "/sign-in"
-      preLoaderRoute: typeof SignInRouteImport
+    "/_auth": {
+      id: "/_auth"
+      path: ""
+      fullPath: "/"
+      preLoaderRoute: typeof AuthLayoutRouteImport
       parentRoute: typeof rootRouteImport
     }
     "/_app": {
@@ -193,6 +200,13 @@ declare module "@tanstack/react-router" {
       fullPath: "/"
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppLayoutRoute
+    }
+    "/_auth/sign-in": {
+      id: "/_auth/sign-in"
+      path: "/sign-in"
+      fullPath: "/sign-in"
+      preLoaderRoute: typeof AuthSignInRouteImport
+      parentRoute: typeof AuthLayoutRoute
     }
     "/_app/$workspaceId": {
       id: "/_app/$workspaceId"
@@ -312,9 +326,21 @@ const AppLayoutRouteWithChildren = AppLayoutRoute._addFileChildren(
   AppLayoutRouteChildren,
 )
 
+interface AuthLayoutRouteChildren {
+  AuthSignInRoute: typeof AuthSignInRoute
+}
+
+const AuthLayoutRouteChildren: AuthLayoutRouteChildren = {
+  AuthSignInRoute: AuthSignInRoute,
+}
+
+const AuthLayoutRouteWithChildren = AuthLayoutRoute._addFileChildren(
+  AuthLayoutRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   AppLayoutRoute: AppLayoutRouteWithChildren,
-  SignInRoute: SignInRoute,
+  AuthLayoutRoute: AuthLayoutRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
