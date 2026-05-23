@@ -14,4 +14,8 @@ export const PLATFORM = {
     networkPrefix: "otterstack-",
     caddyContainer: "otterstack-caddy",
   },
+  service: {
+    publicBaseDomain: "apps.otterstack.dev",
+    serviceNamePrefix: "otterstack-svc-",
+  },
 } as const;

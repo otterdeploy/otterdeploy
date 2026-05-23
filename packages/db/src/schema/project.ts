@@ -1,4 +1,14 @@
-import { index, integer, pgEnum, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  index,
+  integer,
+  numeric,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 import { createId, ID_PREFIX } from "@otterstack/shared/id";
 
 export const projectStatusEnum = pgEnum("project_status", ["draft", "valid", "invalid"]);
@@ -37,22 +47,29 @@ export const environment = pgTable("environment", {
 // database
 export const resourceTypeEnum = pgEnum("resource_type", ["database", "service"]);
 export const resourceStatusEnum = pgEnum("resource_status", ["draft", "valid", "invalid"]);
-export const resource = pgTable("resource", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => createId(ID_PREFIX.resource)),
-  projectId: text("project_id")
-    .notNull()
-    .references(() => project.id),
-  name: text("name").notNull(),
-  type: resourceTypeEnum("type").notNull(),
-  status: resourceStatusEnum("status").notNull().default("draft"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at")
-    .defaultNow()
-    .$onUpdate(() => /* @__PURE__ */ new Date())
-    .notNull(),
-});
+export const resource = pgTable(
+  "resource",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => createId(ID_PREFIX.resource)),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => project.id),
+    name: text("name").notNull(),
+    type: resourceTypeEnum("type").notNull(),
+    status: resourceStatusEnum("status").notNull().default("draft"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("resource_project_name_unique").on(table.projectId, table.name),
+    index("resource_project_id_idx").on(table.projectId),
+  ],
+);
 
 export const databaseEngineEnum = pgEnum("database_engine", ["postgres"]);
 
@@ -86,5 +103,119 @@ export const databaseResource = pgTable(
     uniqueIndex("database_resource_username_unique").on(table.username),
     uniqueIndex("database_resource_public_hostname_unique").on(table.publicHostname),
     uniqueIndex("database_resource_internal_hostname_unique").on(table.internalHostname),
+  ],
+);
+
+export const serviceRestartConditionEnum = pgEnum("service_restart_condition", [
+  "none",
+  "on-failure",
+  "any",
+]);
+
+export const serviceResource = pgTable(
+  "service_resource",
+  {
+    resourceId: text("resource_id")
+      .primaryKey()
+      .references(() => resource.id, { onDelete: "cascade" }),
+
+    image: text("image").notNull(),
+    imageDigest: text("image_digest"),
+    command: text("command").array(),
+    entrypoint: text("entrypoint").array(),
+
+    replicas: integer("replicas").notNull().default(1),
+
+    restartCondition: serviceRestartConditionEnum("restart_condition")
+      .notNull()
+      .default("on-failure"),
+    restartMaxAttempts: integer("restart_max_attempts"),
+    restartDelayMs: integer("restart_delay_ms").notNull().default(5000),
+
+    healthcheckCmd: text("healthcheck_cmd").array(),
+    healthcheckIntervalMs: integer("healthcheck_interval_ms"),
+    healthcheckTimeoutMs: integer("healthcheck_timeout_ms"),
+    healthcheckRetries: integer("healthcheck_retries"),
+    healthcheckStartMs: integer("healthcheck_start_ms"),
+
+    cpuLimit: numeric("cpu_limit", { precision: 4, scale: 2 }),
+    memoryLimitMb: integer("memory_limit_mb"),
+    cpuReservation: numeric("cpu_reservation", { precision: 4, scale: 2 }),
+    memoryReservationMb: integer("memory_reservation_mb"),
+
+    internalHostname: text("internal_hostname").notNull(),
+    serviceName: text("service_name").notNull(),
+    networkName: text("network_name").notNull(),
+
+    publicEnabled: boolean("public_enabled").notNull().default(false),
+    publicDomain: text("public_domain"),
+
+    forceUpdateCounter: integer("force_update_counter").notNull().default(0),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("service_resource_service_name_unique").on(table.serviceName),
+    uniqueIndex("service_resource_internal_hostname_unique").on(table.internalHostname),
+    uniqueIndex("service_resource_public_domain_unique").on(table.publicDomain),
+  ],
+);
+
+export const servicePortProtocolEnum = pgEnum("service_port_protocol", ["tcp", "udp"]);
+export const serviceAppProtocolEnum = pgEnum("service_app_protocol", ["http", "tcp"]);
+
+export const servicePort = pgTable(
+  "service_port",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => createId(ID_PREFIX.servicePort)),
+    serviceResourceId: text("service_resource_id")
+      .notNull()
+      .references(() => serviceResource.resourceId, { onDelete: "cascade" }),
+    containerPort: integer("container_port").notNull(),
+    protocol: servicePortProtocolEnum("protocol").notNull().default("tcp"),
+    appProtocol: serviceAppProtocolEnum("app_protocol").notNull().default("http"),
+    isPrimary: boolean("is_primary").notNull().default(false),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("service_port_unique").on(
+      table.serviceResourceId,
+      table.containerPort,
+      table.protocol,
+    ),
+    index("service_port_service_resource_id_idx").on(table.serviceResourceId),
+  ],
+);
+
+export const serviceEnvVar = pgTable(
+  "service_env_var",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => createId(ID_PREFIX.serviceEnvVar)),
+    serviceResourceId: text("service_resource_id")
+      .notNull()
+      .references(() => serviceResource.resourceId, { onDelete: "cascade" }),
+    key: text("key").notNull(),
+    value: text("value").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("service_env_var_unique").on(table.serviceResourceId, table.key),
+    index("service_env_var_service_resource_id_idx").on(table.serviceResourceId),
   ],
 );

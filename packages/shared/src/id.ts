@@ -26,6 +26,8 @@ export const ID_PREFIX = {
 
   project: "project",
   resource: "resource",
+  servicePort: "port",
+  serviceEnvVar: "senv",
   environment: "env",
   proxyRoute: "proxy_route",
   // workspace: "workspace",
