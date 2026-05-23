@@ -1,8 +1,17 @@
-import type { Id } from "@otterstack/shared/id";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 
 import { authClient } from "@/lib/auth-client";
+import type { Id } from "@otterstack/shared/id";
 
+export type Organization = {
+  id: string;
+  name: string;
+  slug: string;
+  logo?: string | null;
+  createdAt: string | Date;
+};
+
+// Legacy shape — still used by project-level sidebar components
 export type Project = {
   id: Id<"project">;
   name: string;
@@ -17,13 +26,6 @@ export type Environment = {
   slug: string;
   databases: number;
   routes: number;
-};
-
-type Workspace = {
-  id: Id<"wksp">;
-  name: string;
-  active: boolean;
-  projects: Project[];
 };
 
 function initialsOf(name: string): string {
@@ -41,9 +43,23 @@ export const Route = createFileRoute("/_app")({
     if (!session.data) {
       throw redirect({
         to: "/sign-in",
-        search: { redirect: location.href },
+        search: { redirect: location.pathname },
       });
     }
+
+    const orgs = await authClient.organization.list();
+    if (orgs.error) {
+      throw new Error(orgs.error.message ?? "Failed to load organizations");
+    }
+    const organizations = orgs.data ?? [];
+    if (organizations.length === 0) {
+      throw redirect({ to: "/onboarding/create-organization" });
+    }
+
+    const activeId = session.data.session.activeOrganizationId;
+    const activeOrg =
+      organizations.find((o) => o.id === activeId) ?? organizations[0];
+
     const u = session.data.user;
     const user = {
       id: u.id,
@@ -52,61 +68,12 @@ export const Route = createFileRoute("/_app")({
       email: u.email,
       image: u.image ?? "",
     };
-    const workspaces: Workspace[] = [
-      {
-        id: "wksp_ea22c2xs" as Id<"wksp">,
-        name: "otterstack",
-        active: true,
-        projects: [
-          {
-            id: "project_acmeapi1" as Id<"project">,
-            name: "Acme API",
-            slug: "acme-api",
-            databases: 2,
-            routes: 2,
-            environments: [
-              {
-                id: "env_acmeapi1" as Id<"env">,
-                name: "Production",
-                slug: "production",
-                databases: 2,
-                routes: 2,
-              },
-              {
-                id: "env_acmeapi2" as Id<"env">,
-                name: "Staging",
-                slug: "staging",
-                databases: 2,
-                routes: 2,
-              },
-            ],
-          },
-          {
-            id: "project_otters02" as Id<"project">,
-            name: "Otters Web",
-            slug: "otters-web",
-            databases: 1,
-            routes: 1,
-            environments: [],
-          },
-          {
-            id: "project_market03" as Id<"project">,
-            name: "Marketing Site",
-            slug: "marketing-site",
-            databases: 0,
-            routes: 0,
-            environments: [],
-          },
-        ],
-      },
-      {
-        id: "wksp_sdc72gq" as Id<"wksp">,
-        name: "sec team",
-        active: false,
-        projects: [],
-      },
-    ];
-    return { user, workspaces };
+
+    return {
+      user,
+      organizations,
+      activeOrgSlug: activeOrg.slug,
+    };
   },
   component: RouteComponent,
 });

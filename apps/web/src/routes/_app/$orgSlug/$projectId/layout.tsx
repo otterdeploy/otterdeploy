@@ -2,6 +2,7 @@ import { ID_PREFIX, zId } from "@otterstack/shared/id";
 import { createFileRoute, notFound, Outlet } from "@tanstack/react-router";
 import * as z from "zod";
 
+import type { Project } from "@/routes/_app/layout";
 import { ProjectSidebar } from "@/features/shell/components/sidebar/project-sidebar";
 import { SidebarInset } from "@/shared/components/ui/sidebar";
 
@@ -14,15 +15,9 @@ export const Route = createFileRoute("/_app/$orgSlug/$projectId")({
   params: {
     parse: ({ projectId }) => zProjectId.parse({ projectId }),
   },
-  loader: ({ context, params }) => {
-    const organization = context.organizations.find(
-      (o) => o.slug === params.orgSlug,
-    );
-    const project = organization?.projects.find(
-      (p) => p.id === params.projectId,
-    );
-    if (!project) throw notFound();
-    return { crumb: project.name, project };
+  loader: (_ctx): { crumb: string; project: Project } => {
+    // TODO: fetch real project from API once project queries are wired
+    throw notFound();
   },
 });
 
