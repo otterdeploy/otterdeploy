@@ -26,7 +26,6 @@
     "@otterstack/api": "workspace:*",
     "@otterstack/auth": "workspace:*",
     "@otterstack/env": "workspace:*",
-    "@polar-sh/better-auth": "catalog:",
     "@tailwindcss/vite": "^4.2.4",
     "@tanstack/query-db-collection": "^1.0.36",
     "@tanstack/react-db": "^0.1.83",

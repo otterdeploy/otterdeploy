@@ -1,12 +1,9 @@
 import { db } from "@otterstack/db";
 import * as schema from "@otterstack/db/schema/auth";
 import { env } from "@otterstack/env/server";
-import { polar, checkout, portal } from "@polar-sh/better-auth";
 import { createId, type IdPrefix } from "@otterstack/shared/id";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-
-import { polarClient } from "./lib/payments";
 
 export const auth = betterAuth({
   appName: "otterstack",
@@ -41,24 +38,5 @@ export const auth = betterAuth({
   },
   hooks: {},
 
-  plugins: [
-    polar({
-      client: polarClient,
-      createCustomerOnSignUp: true,
-      enableCustomerPortal: true,
-      use: [
-        checkout({
-          products: [
-            {
-              productId: "your-product-id",
-              slug: "pro",
-            },
-          ],
-          successUrl: env.POLAR_SUCCESS_URL,
-          authenticatedUsersOnly: true,
-        }),
-        portal(),
-      ],
-    }),
-  ],
+  plugins: [],
 });

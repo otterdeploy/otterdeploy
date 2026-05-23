@@ -31,7 +31,6 @@
     "@otterstack/env": "workspace:*",
     "@otterstack/i18n": "workspace:*",
     "@otterstack/shared": "workspace:*",
-    "@polar-sh/better-auth": "^1.8.4",
     "@tailwindcss/vite": "^4.3.0",
     "@tanstack/query-db-collection": "^1.0.37",
     "@tanstack/react-db": "^0.1.84",
