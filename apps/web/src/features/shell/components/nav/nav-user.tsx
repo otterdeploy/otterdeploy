@@ -33,8 +33,10 @@ import {
   NotificationIcon,
   LogoutIcon,
 } from "@hugeicons/core-free-icons";
+import { useNavigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 
+import { authClient } from "@/lib/auth-client";
 import { languageNames, supportedLngs } from "@otterstack/i18n";
 
 export type User = {
@@ -46,6 +48,13 @@ export type User = {
 export function NavUser({ user }: { user: User }) {
   const { isMobile } = useSidebar();
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
+
+  async function handleSignOut() {
+    await authClient.signOut();
+    void navigate({ to: "/sign-in", replace: true });
+  }
+
   const currentLng = (
     i18n.resolvedLanguage ??
     i18n.language ??
@@ -142,7 +151,7 @@ export function NavUser({ user }: { user: User }) {
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={() => void handleSignOut()}>
                 <HugeiconsIcon icon={LogoutIcon} strokeWidth={2} />
                 {t("user.logout")}
               </DropdownMenuItem>

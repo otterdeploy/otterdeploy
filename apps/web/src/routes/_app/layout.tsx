@@ -1,5 +1,7 @@
 import type { Id } from "@otterstack/shared/id";
-import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+
+import { authClient } from "@/lib/auth-client";
 
 export type Project = {
   id: Id<"project">;
@@ -24,14 +26,31 @@ type Workspace = {
   projects: Project[];
 };
 
+function initialsOf(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
 export const Route = createFileRoute("/_app")({
-  beforeLoad: async () => {
+  beforeLoad: async ({ location }) => {
+    const session = await authClient.getSession();
+    if (!session.data) {
+      throw redirect({
+        to: "/sign-in",
+        search: { redirect: location.href },
+      });
+    }
+    const u = session.data.user;
     const user = {
-      id: 1,
-      name: "json time",
-      initials: "JT",
-      email: "email@example.com",
-      image: "",
+      id: u.id,
+      name: u.name,
+      initials: initialsOf(u.name),
+      email: u.email,
+      image: u.image ?? "",
     };
     const workspaces: Workspace[] = [
       {

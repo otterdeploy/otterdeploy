@@ -16,6 +16,7 @@
     "@ai-sdk/react": "^3.0.192",
     "@base-ui-components/react": "^1.0.0-rc.0",
     "@base-ui/react": "^1.5.0",
+    "@better-auth/api-key": "^1.6.11",
     "@fontsource-variable/figtree": "^5.2.10",
     "@fontsource-variable/geist": "^5.2.9",
     "@fontsource-variable/geist-mono": "^5.2.8",

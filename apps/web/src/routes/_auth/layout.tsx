@@ -5,5 +5,11 @@ export const Route = createFileRoute("/_auth")({
 });
 
 function RouteComponent() {
-  return <Outlet />;
+  return (
+    <div className="grid min-h-svh place-items-center bg-background p-6">
+      <div className="w-full max-w-sm">
+        <Outlet />
+      </div>
+    </div>
+  );
 }
