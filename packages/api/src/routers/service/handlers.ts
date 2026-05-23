@@ -9,7 +9,7 @@
 
 import type { RequestLogger } from "evlog";
 
-import { getProjectRecord } from "@otterstack/db/project-resource";
+import { getProjectRecord } from "../../lib/queries/project";
 
 import { reconcile } from "../../caddy";
 import {

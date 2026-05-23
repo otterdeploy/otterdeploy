@@ -6,6 +6,7 @@ export const env = createEnv({
   extends: [upstashRedis()],
   server: {
     DATABASE_URL: z.string().min(1),
+    DATABASE_PROVISIONER_URL: z.string().min(1).optional(),
 
     BETTER_AUTH_URL: z.url(),
     BETTER_AUTH_SECRET: z.string().min(32),

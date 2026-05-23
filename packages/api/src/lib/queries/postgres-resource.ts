@@ -1,19 +1,17 @@
 import { and, eq } from "drizzle-orm";
 
-import { db } from "./client";
-import { databaseResource, project, resource } from "./schema/project";
+import { db } from "@otterstack/db";
+import { databaseResource, resource } from "@otterstack/db/schema/project";
 
 export type DatabaseResourceRecord = {
   resource: typeof resource.$inferSelect;
   database: typeof databaseResource.$inferSelect;
 };
 
-export async function getProjectRecord(projectId: string) {
-  const [record] = await db.select().from(project).where(eq(project.id, projectId)).limit(1);
-  return record;
-}
-
-export async function getDatabaseResourceByProjectAndName(projectId: string, name: string) {
+export async function getDatabaseResourceByProjectAndName(
+  projectId: string,
+  name: string,
+) {
   const [record] = await db
     .select({
       resource,
@@ -27,7 +25,10 @@ export async function getDatabaseResourceByProjectAndName(projectId: string, nam
   return record;
 }
 
-export async function getDatabaseResourceRecord(projectId: string, resourceId: string) {
+export async function getDatabaseResourceRecord(
+  projectId: string,
+  resourceId: string,
+) {
   const [record] = await db
     .select({
       resource,

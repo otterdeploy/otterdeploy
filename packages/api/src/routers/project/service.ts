@@ -16,19 +16,25 @@ import {
   provisionSwarmPostgres,
   type SwarmPostgresRuntime,
 } from "../../swarm";
-import { createProjectRecord, db, getProjectById, getProjectBySlug, listProjectRecords } from "@otterstack/db";
+import { db } from "@otterstack/db";
 import { resource } from "@otterstack/db/schema/project";
 import { eq } from "drizzle-orm";
+import {
+  createProjectRecord,
+  getProjectById,
+  getProjectBySlug,
+  getProjectRecord,
+  listProjectRecords,
+} from "../../lib/queries/project";
 import {
   createDatabaseResourceRecord,
   type DatabaseResourceRecord,
   getDatabaseResourceByProjectAndName,
   getDatabaseResourceRecord,
-  getProjectRecord,
   listDatabaseResourceRecords,
   updateDatabaseResourceRuntime,
   updateDatabaseResourceStatus,
-} from "@otterstack/db/project-resource";
+} from "../../lib/queries/postgres-resource";
 import { PLATFORM } from "../../constants";
 
 function sanitizeProjectSlug(projectId: string): string {

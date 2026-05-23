@@ -12,7 +12,7 @@
   "scripts": {
     "db:push": "bun --env-file ../../.env -- drizzle-kit push",
     "db:generate": "bun --env-file ../../.env drizzle-kit generate",
-    "db:studio": "bun --env-file ../../.env drizzle-kit studio",
+    "dev": "bun --env-file ../../.env drizzle-kit studio",
     "db:migrate": "bun --env-file ../../.env drizzle-kit migrate",
     "db:start": "docker compose up -d",
     "db:watch": "docker compose up",

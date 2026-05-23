@@ -1,21 +1,31 @@
 import { asc, eq } from "drizzle-orm";
 
+import { db } from "@otterstack/db";
+import { environment, project } from "@otterstack/db/schema/project";
 import { createId, ID_PREFIX } from "@otterstack/shared/id";
-
-import { db } from "./client";
-import { environment, project } from "./schema/project";
 
 export async function listProjectRecords() {
   return db.select().from(project).orderBy(asc(project.createdAt), asc(project.name));
 }
 
 export async function getProjectById(projectId: string) {
-  const [record] = await db.select().from(project).where(eq(project.id, projectId)).limit(1);
+  const [record] = await db
+    .select()
+    .from(project)
+    .where(eq(project.id, projectId))
+    .limit(1);
   return record;
 }
 
+/** Alias for getProjectById — kept so existing call sites continue to read naturally. */
+export const getProjectRecord = getProjectById;
+
 export async function getProjectBySlug(slug: string) {
-  const [record] = await db.select().from(project).where(eq(project.slug, slug)).limit(1);
+  const [record] = await db
+    .select()
+    .from(project)
+    .where(eq(project.slug, slug))
+    .limit(1);
   return record;
 }
 

@@ -10,7 +10,7 @@
 import {
   getDatabaseResourceRecord,
   type DatabaseResourceRecord,
-} from "@otterstack/db/project-resource";
+} from "../queries/postgres-resource";
 
 import {
   getResourceByProjectAndName,

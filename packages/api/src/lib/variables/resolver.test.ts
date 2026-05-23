@@ -5,11 +5,11 @@ vi.mock("../queries/service", () => ({
   getServiceRecord: vi.fn(),
 }));
 
-vi.mock("@otterstack/db/project-resource", () => ({
+vi.mock("../queries/postgres-resource", () => ({
   getDatabaseResourceRecord: vi.fn(),
 }));
 
-import { getDatabaseResourceRecord } from "@otterstack/db/project-resource";
+import { getDatabaseResourceRecord } from "../queries/postgres-resource";
 
 import {
   getResourceByProjectAndName,
