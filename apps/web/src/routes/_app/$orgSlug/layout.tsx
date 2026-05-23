@@ -22,7 +22,7 @@ const zOrgSlug = z.object({
 export const Route = createFileRoute("/_app/$orgSlug")({
   component: RouteComponent,
   params: {
-    parse: ({ orgSlug }) => zOrgSlug.parse({ orgSlug }),
+    parse: zOrgSlug.parse,
   },
   loader: ({ context, params }) => {
     const organization = context.organizations.find(

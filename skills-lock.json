@@ -1,6 +1,11 @@
 {
   "version": 1,
   "skills": {
+    "analyze-logs": {
+      "source": "evlog.dev",
+      "sourceType": "well-known",
+      "computedHash": "28bd8254997b767ebba1f7f2cf4567ddb6c51b1fcdca9baf9b9cd7ee3ca51d7c"
+    },
     "better-auth-best-practices": {
       "source": "better-auth/skills",
       "sourceType": "github",
@@ -10,6 +15,17 @@
       "source": "better-auth/skills",
       "sourceType": "github",
       "computedHash": "5717187bba9c22030c7174c74012f01c359f21e2ce87e0eb80e24244d8b8c915"
+    },
+    "better-result-adopt": {
+      "source": "dmmulroy/better-result",
+      "sourceType": "github",
+      "skillPath": "skills/better-result-adopt/SKILL.md",
+      "computedHash": "bb2cff6d6db16f141cf2d2789a87e0f4a54992f1839a33dc623a434ac49d6115"
+    },
+    "build-audit-logs": {
+      "source": "evlog.dev",
+      "sourceType": "well-known",
+      "computedHash": "10e462fd3fea48c1868fd81cf4e2fcc28bc4cc35e3351c61fdb0bb0b50adb48a"
     },
     "coss": {
       "source": "cosscom/coss",
@@ -37,6 +53,11 @@
       "source": "better-auth/skills",
       "sourceType": "github",
       "computedHash": "79a5a85b43d10e9fe37582b3506b051a33a991817b938f349099baa5ddba21aa"
+    },
+    "review-logging-patterns": {
+      "source": "evlog.dev",
+      "sourceType": "well-known",
+      "computedHash": "16ec9091a37cfce1089d137da6c4d2997d771a8eb914a952df7654afbcdd1f36"
     },
     "tailwind-css-patterns": {
       "source": "giuseppe-trisciuoglio/developer-kit",
