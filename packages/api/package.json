@@ -29,6 +29,7 @@
     "@otterstack/db": "workspace:*",
     "@otterstack/env": "workspace:*",
     "@otterstack/shared": "workspace:*",
+    "better-result": "^2.9.2",
     "drizzle-orm": "catalog:",
     "evlog": "catalog:",
     "hono": "catalog:",

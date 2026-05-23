@@ -19,12 +19,14 @@ import { resolveServiceEnv } from "./resolver";
 
 type Mock = ReturnType<typeof vi.fn>;
 
-const mockResource = (overrides: Partial<{
-  id: string;
-  projectId: string;
-  name: string;
-  type: "database" | "service";
-}> = {}) => ({
+const mockResource = (
+  overrides: Partial<{
+    id: string;
+    projectId: string;
+    name: string;
+    type: "database" | "service";
+  }> = {},
+) => ({
   id: "resource_a",
   projectId: "project_1",
   name: "db",
@@ -63,27 +65,31 @@ describe("resolveServiceEnv", () => {
   });
 
   it("resolves a Postgres reference end-to-end", async () => {
-    (getServiceRecord as unknown as Mock)
-      .mockResolvedValueOnce({
-        resource: mockResource({ id: "resource_api", name: "api", type: "service" }),
-        service: { resourceId: "resource_api", internalHostname: "api" },
-        ports: [],
-        env: [{ id: "v1", serviceResourceId: "resource_api", key: "DATABASE_URL", value: "${{db.DATABASE_URL}}" }],
-      });
+    (getServiceRecord as unknown as Mock).mockResolvedValueOnce({
+      resource: mockResource({ id: "resource_api", name: "api", type: "service" }),
+      service: { resourceId: "resource_api", internalHostname: "api" },
+      ports: [],
+      env: [
+        {
+          id: "v1",
+          serviceResourceId: "resource_api",
+          key: "DATABASE_URL",
+          value: "${{db.DATABASE_URL}}",
+        },
+      ],
+    });
 
     (getResourceByProjectAndName as unknown as Mock).mockResolvedValueOnce(
       mockResource({ id: "resource_db", name: "db", type: "database" }),
     );
 
-    (getDatabaseResourceRecord as unknown as Mock).mockResolvedValueOnce(
-      dbExports(),
-    );
+    (getDatabaseResourceRecord as unknown as Mock).mockResolvedValueOnce(dbExports());
 
     const result = await resolveServiceEnv("project_1", "resource_api");
 
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.env.DATABASE_URL).toBe(
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
+    expect(result.value.DATABASE_URL).toBe(
       "postgres://appuser:secret@appdb.internal:5432/appdb",
     );
   });
@@ -93,12 +99,15 @@ describe("resolveServiceEnv", () => {
       resource: mockResource({ id: "resource_api", name: "api", type: "service" }),
       service: { resourceId: "resource_api", internalHostname: "api" },
       ports: [],
-      env: [{
-        id: "v1",
-        serviceResourceId: "resource_api",
-        key: "URL",
-        value: "postgres://${{db.PGUSER}}:${{db.PGPASSWORD}}@${{db.PGHOST}}/${{db.PGDATABASE}}",
-      }],
+      env: [
+        {
+          id: "v1",
+          serviceResourceId: "resource_api",
+          key: "URL",
+          value:
+            "postgres://${{db.PGUSER}}:${{db.PGPASSWORD}}@${{db.PGHOST}}/${{db.PGDATABASE}}",
+        },
+      ],
     });
 
     (getResourceByProjectAndName as unknown as Mock).mockResolvedValue(
@@ -108,33 +117,47 @@ describe("resolveServiceEnv", () => {
     (getDatabaseResourceRecord as unknown as Mock).mockResolvedValue(dbExports());
 
     const result = await resolveServiceEnv("project_1", "resource_api");
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.env.URL).toBe("postgres://appuser:secret@appdb.internal/appdb");
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
+    expect(result.value.URL).toBe("postgres://appuser:secret@appdb.internal/appdb");
   });
 
-  it("returns missing_resource when the referenced name is not in the project", async () => {
+  it("returns RefMissingResourceError when the referenced name is not in the project", async () => {
     (getServiceRecord as unknown as Mock).mockResolvedValueOnce({
       resource: mockResource({ id: "resource_api", name: "api", type: "service" }),
       service: { resourceId: "resource_api", internalHostname: "api" },
       ports: [],
-      env: [{ id: "v1", serviceResourceId: "resource_api", key: "X", value: "${{ghost.FOO}}" }],
+      env: [
+        {
+          id: "v1",
+          serviceResourceId: "resource_api",
+          key: "X",
+          value: "${{ghost.FOO}}",
+        },
+      ],
     });
 
     (getResourceByProjectAndName as unknown as Mock).mockResolvedValueOnce(undefined);
 
     const result = await resolveServiceEnv("project_1", "resource_api");
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.error.kind).toBe("missing_resource");
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) return;
+    expect(result.error._tag).toBe("RefMissingResourceError");
   });
 
-  it("returns unknown_var when the var isn't exported by the upstream", async () => {
+  it("returns RefUnknownVarError when the var isn't exported by the upstream", async () => {
     (getServiceRecord as unknown as Mock).mockResolvedValueOnce({
       resource: mockResource({ id: "resource_api", name: "api", type: "service" }),
       service: { resourceId: "resource_api", internalHostname: "api" },
       ports: [],
-      env: [{ id: "v1", serviceResourceId: "resource_api", key: "X", value: "${{db.NONEXISTENT}}" }],
+      env: [
+        {
+          id: "v1",
+          serviceResourceId: "resource_api",
+          key: "X",
+          value: "${{db.NONEXISTENT}}",
+        },
+      ],
     });
 
     (getResourceByProjectAndName as unknown as Mock).mockResolvedValueOnce(
@@ -143,40 +166,78 @@ describe("resolveServiceEnv", () => {
     (getDatabaseResourceRecord as unknown as Mock).mockResolvedValueOnce(dbExports());
 
     const result = await resolveServiceEnv("project_1", "resource_api");
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.error.kind).toBe("unknown_var");
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) return;
+    expect(result.error._tag).toBe("RefUnknownVarError");
   });
 
   it("detects a cycle between two services", async () => {
     const apiRecord = {
       resource: mockResource({ id: "resource_api", name: "api", type: "service" }),
       service: { resourceId: "resource_api", internalHostname: "api" },
-      ports: [{ id: "p1", serviceResourceId: "resource_api", containerPort: 80, protocol: "tcp", appProtocol: "http", isPrimary: true }],
-      env: [{ id: "v1", serviceResourceId: "resource_api", key: "OTHER", value: "${{web.HOST}}" }],
+      ports: [
+        {
+          id: "p1",
+          serviceResourceId: "resource_api",
+          containerPort: 80,
+          protocol: "tcp",
+          appProtocol: "http",
+          isPrimary: true,
+        },
+      ],
+      env: [
+        {
+          id: "v1",
+          serviceResourceId: "resource_api",
+          key: "OTHER",
+          value: "${{web.HOST}}",
+        },
+      ],
     };
     const webRecord = {
       resource: mockResource({ id: "resource_web", name: "web", type: "service" }),
       service: { resourceId: "resource_web", internalHostname: "web" },
-      ports: [{ id: "p2", serviceResourceId: "resource_web", containerPort: 80, protocol: "tcp", appProtocol: "http", isPrimary: true }],
-      env: [{ id: "v2", serviceResourceId: "resource_web", key: "OTHER", value: "${{api.HOST}}" }],
+      ports: [
+        {
+          id: "p2",
+          serviceResourceId: "resource_web",
+          containerPort: 80,
+          protocol: "tcp",
+          appProtocol: "http",
+          isPrimary: true,
+        },
+      ],
+      env: [
+        {
+          id: "v2",
+          serviceResourceId: "resource_web",
+          key: "OTHER",
+          value: "${{api.HOST}}",
+        },
+      ],
     };
 
-    (getServiceRecord as unknown as Mock).mockImplementation(async (_pid: string, rid: string) => {
-      if (rid === "resource_api") return apiRecord;
-      if (rid === "resource_web") return webRecord;
-      return undefined;
-    });
+    (getServiceRecord as unknown as Mock).mockImplementation(
+      async (_pid: string, rid: string) => {
+        if (rid === "resource_api") return apiRecord;
+        if (rid === "resource_web") return webRecord;
+        return undefined;
+      },
+    );
 
-    (getResourceByProjectAndName as unknown as Mock).mockImplementation(async (_pid: string, name: string) => {
-      if (name === "web") return mockResource({ id: "resource_web", name: "web", type: "service" });
-      if (name === "api") return mockResource({ id: "resource_api", name: "api", type: "service" });
-      return undefined;
-    });
+    (getResourceByProjectAndName as unknown as Mock).mockImplementation(
+      async (_pid: string, name: string) => {
+        if (name === "web")
+          return mockResource({ id: "resource_web", name: "web", type: "service" });
+        if (name === "api")
+          return mockResource({ id: "resource_api", name: "api", type: "service" });
+        return undefined;
+      },
+    );
 
     const result = await resolveServiceEnv("project_1", "resource_api");
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.error.kind).toBe("cycle");
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) return;
+    expect(result.error._tag).toBe("RefCycleError");
   });
 });

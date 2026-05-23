@@ -7,6 +7,17 @@
  * duration of a single `resolveServiceEnv` call.
  */
 
+import { Result } from "better-result";
+
+import { type ProjectId } from "../../routers/project/errors";
+import {
+  RefCycleError,
+  RefMissingResourceError,
+  RefParseError,
+  RefUnknownVarError,
+  type ResolveError,
+  type ResourceId,
+} from "../../routers/service/errors";
 import {
   getDatabaseResourceRecord,
   type DatabaseResourceRecord,
@@ -21,29 +32,16 @@ import {
 import { postgresExports, serviceExports } from "./exporters";
 import { parseValue, type Token } from "./parser";
 
-export type ResolveError =
-  | { kind: "parse_error"; key: string; message: string; position: number }
-  | { kind: "missing_resource"; refResourceName: string }
-  | { kind: "unsupported_resource_type"; refResourceName: string; type: string }
-  | { kind: "missing_database_record"; refResourceName: string }
-  | { kind: "missing_service_record"; refResourceName: string }
-  | { kind: "unknown_var"; refResourceName: string; refVarName: string }
-  | { kind: "cycle"; chain: string[] };
-
-export type ResolveSuccess = { ok: true; env: Record<string, string> };
-export type ResolveFailure = { ok: false; error: ResolveError };
-export type ResolveResult = ResolveSuccess | ResolveFailure;
-
 type ResolveContext = {
-  projectId: string;
+  projectId: ProjectId;
   visited: Set<string>;
   exportsCache: Map<string, Record<string, string>>;
 };
 
 export async function resolveServiceEnv(
-  projectId: string,
-  serviceResourceId: string,
-): Promise<ResolveResult> {
+  projectId: ProjectId,
+  serviceResourceId: ResourceId,
+): Promise<Result<Record<string, string>, ResolveError | RefMissingResourceError>> {
   const ctx: ResolveContext = {
     projectId,
     visited: new Set([serviceResourceId]),
@@ -52,48 +50,41 @@ export async function resolveServiceEnv(
 
   const record = await getServiceRecord(projectId, serviceResourceId);
   if (!record) {
-    return {
-      ok: false,
-      error: { kind: "missing_service_record", refResourceName: "(self)" },
-    };
+    return Result.err(new RefMissingResourceError({ refResourceName: "(self)" }));
   }
-
   return resolveEnvFor(record, ctx);
 }
 
 async function resolveEnvFor(
   record: ServiceRecord,
   ctx: ResolveContext,
-): Promise<ResolveResult> {
+): Promise<Result<Record<string, string>, ResolveError>> {
   const resolved: Record<string, string> = {};
 
   for (const envVar of record.env) {
     const parsed = parseValue(envVar.value);
     if (!parsed.ok) {
-      return {
-        ok: false,
-        error: {
-          kind: "parse_error",
+      return Result.err(
+        new RefParseError({
           key: envVar.key,
-          message: parsed.error.message,
           position: parsed.error.position,
-        },
-      };
+          message: parsed.error.message,
+        }),
+      );
     }
 
     const subbed = await substitute(parsed.tokens, ctx);
-    if (!subbed.ok) return subbed;
-
+    if (subbed.isErr()) return subbed;
     resolved[envVar.key] = subbed.value;
   }
 
-  return { ok: true, env: resolved };
+  return Result.ok(resolved);
 }
 
 async function substitute(
   tokens: Token[],
   ctx: ResolveContext,
-): Promise<{ ok: true; value: string } | ResolveFailure> {
+): Promise<Result<string, ResolveError>> {
   let out = "";
 
   for (const token of tokens) {
@@ -103,55 +94,38 @@ async function substitute(
     }
 
     const exportsResult = await loadExports(token.resource, ctx);
-    if (!exportsResult.ok) return exportsResult;
+    if (exportsResult.isErr()) return exportsResult;
 
-    const value = exportsResult.exports[token.var];
+    const value = exportsResult.value[token.var];
     if (value === undefined) {
-      return {
-        ok: false,
-        error: {
-          kind: "unknown_var",
+      return Result.err(
+        new RefUnknownVarError({
           refResourceName: token.resource,
           refVarName: token.var,
-        },
-      };
+        }),
+      );
     }
     out += value;
   }
 
-  return { ok: true, value: out };
+  return Result.ok(out);
 }
 
 async function loadExports(
   refResourceName: string,
   ctx: ResolveContext,
-): Promise<
-  { ok: true; exports: Record<string, string> } | ResolveFailure
-> {
-  const resourceRow = await getResourceByProjectAndName(
-    ctx.projectId,
-    refResourceName,
-  );
-
+): Promise<Result<Record<string, string>, ResolveError>> {
+  const resourceRow = await getResourceByProjectAndName(ctx.projectId, refResourceName);
   if (!resourceRow) {
-    return {
-      ok: false,
-      error: { kind: "missing_resource", refResourceName },
-    };
+    return Result.err(new RefMissingResourceError({ refResourceName }));
   }
 
   if (ctx.visited.has(resourceRow.id)) {
-    return {
-      ok: false,
-      error: {
-        kind: "cycle",
-        chain: [...ctx.visited, resourceRow.id],
-      },
-    };
+    return Result.err(new RefCycleError({ chain: [...ctx.visited, resourceRow.id] }));
   }
 
   const cached = ctx.exportsCache.get(resourceRow.id);
-  if (cached) return { ok: true, exports: cached };
+  if (cached) return Result.ok(cached);
 
   if (resourceRow.type === "database") {
     return loadDatabaseExports(resourceRow, refResourceName, ctx);
@@ -161,30 +135,20 @@ async function loadExports(
     return loadServiceExports(resourceRow, refResourceName, ctx);
   }
 
-  return {
-    ok: false,
-    error: {
-      kind: "unsupported_resource_type",
-      refResourceName,
-      type: resourceRow.type,
-    },
-  };
+  return Result.err(new RefMissingResourceError({ refResourceName }));
 }
 
 async function loadDatabaseExports(
   resourceRow: ResourceRow,
   refResourceName: string,
   ctx: ResolveContext,
-): Promise<
-  { ok: true; exports: Record<string, string> } | ResolveFailure
-> {
-  const record: DatabaseResourceRecord | undefined =
-    await getDatabaseResourceRecord(ctx.projectId, resourceRow.id);
+): Promise<Result<Record<string, string>, ResolveError>> {
+  const record: DatabaseResourceRecord | undefined = await getDatabaseResourceRecord(
+    ctx.projectId,
+    resourceRow.id,
+  );
   if (!record) {
-    return {
-      ok: false,
-      error: { kind: "missing_database_record", refResourceName },
-    };
+    return Result.err(new RefMissingResourceError({ refResourceName }));
   }
 
   const exports = postgresExports({
@@ -199,35 +163,30 @@ async function loadDatabaseExports(
     },
   });
   ctx.exportsCache.set(resourceRow.id, exports);
-  return { ok: true, exports };
+  return Result.ok(exports);
 }
 
 async function loadServiceExports(
   resourceRow: ResourceRow,
   refResourceName: string,
   ctx: ResolveContext,
-): Promise<
-  { ok: true; exports: Record<string, string> } | ResolveFailure
-> {
+): Promise<Result<Record<string, string>, ResolveError>> {
   const record = await getServiceRecord(ctx.projectId, resourceRow.id);
   if (!record) {
-    return {
-      ok: false,
-      error: { kind: "missing_service_record", refResourceName },
-    };
+    return Result.err(new RefMissingResourceError({ refResourceName }));
   }
 
   ctx.visited.add(resourceRow.id);
   const nestedResult = await resolveEnvFor(record, ctx);
   ctx.visited.delete(resourceRow.id);
-  if (!nestedResult.ok) return nestedResult;
+  if (nestedResult.isErr()) return nestedResult;
 
   const exports = serviceExports({
     resource: resourceRow,
     service: record.service,
     ports: record.ports,
-    resolvedEnv: nestedResult.env,
+    resolvedEnv: nestedResult.value,
   });
   ctx.exportsCache.set(resourceRow.id, exports);
-  return { ok: true, exports };
+  return Result.ok(exports);
 }
