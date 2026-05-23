@@ -23,6 +23,10 @@ export const ID_PREFIX = {
   session: "session",
   account: "account",
   verification: "verification",
+  // organizations
+  organization: "org",
+  member: "member",
+  invitation: "invite",
 
   project: "project",
   resource: "resource",
