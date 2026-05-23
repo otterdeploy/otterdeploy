@@ -9,7 +9,12 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
 import {
@@ -24,9 +29,13 @@ import {
   SparklesIcon,
   CheckmarkBadgeIcon,
   CreditCardIcon,
+  LanguageCircleIcon,
   NotificationIcon,
   LogoutIcon,
 } from "@hugeicons/core-free-icons";
+import { useTranslation } from "react-i18next";
+
+import { languageNames, supportedLngs } from "@/shared/i18n";
 
 export type User = {
   name: string;
@@ -36,6 +45,13 @@ export type User = {
 };
 export function NavUser({ user }: { user: User }) {
   const { isMobile } = useSidebar();
+  const { t, i18n } = useTranslation();
+  const currentLng = (
+    i18n.resolvedLanguage ??
+    i18n.language ??
+    "en"
+  ).split("-")[0] as (typeof supportedLngs)[number];
+
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -86,29 +102,49 @@ export function NavUser({ user }: { user: User }) {
             <DropdownMenuGroup>
               <DropdownMenuItem>
                 <HugeiconsIcon icon={SparklesIcon} strokeWidth={2} />
-                Upgrade to Pro
+                {t("user.upgradeToPro")}
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem>
                 <HugeiconsIcon icon={CheckmarkBadgeIcon} strokeWidth={2} />
-                Account
+                {t("user.account")}
               </DropdownMenuItem>
               <DropdownMenuItem>
                 <HugeiconsIcon icon={CreditCardIcon} strokeWidth={2} />
-                Billing
+                {t("user.billing")}
               </DropdownMenuItem>
               <DropdownMenuItem>
                 <HugeiconsIcon icon={NotificationIcon} strokeWidth={2} />
-                Notifications
+                {t("user.notifications")}
               </DropdownMenuItem>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <HugeiconsIcon icon={LanguageCircleIcon} strokeWidth={2} />
+                  {t("common.language")}
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="min-w-40">
+                  <DropdownMenuRadioGroup
+                    value={currentLng}
+                    onValueChange={(lng) => {
+                      void i18n.changeLanguage(lng);
+                    }}
+                  >
+                    {supportedLngs.map((lng) => (
+                      <DropdownMenuRadioItem key={lng} value={lng}>
+                        {languageNames[lng]}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem>
                 <HugeiconsIcon icon={LogoutIcon} strokeWidth={2} />
-                Log out
+                {t("user.logout")}
               </DropdownMenuItem>
             </DropdownMenuGroup>
           </DropdownMenuContent>

@@ -8,7 +8,8 @@ export type RoutePath = LinkProps["to"];
 export type Status = "ok" | "warn" | "err";
 
 export interface NavItem {
-  title: string;
+  /** i18n key resolved at render time, e.g. "nav.overview". */
+  titleKey: string;
   href: RoutePath;
   icon: typeof Rocket01Icon;
   badge?: string;

@@ -1,6 +1,7 @@
 import * as React from "react";
 
 import { Link } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 
 import type { Project } from "@/routes/_app/layout";
 import {
@@ -35,48 +36,48 @@ import { EnvironmentSelector } from "./environment-selector";
 import { StatusDot, type NavItem, type Status } from "./index";
 
 const navItems = [
-  { title: "Overview", href: "/$workspaceId/$projectId", icon: Home01Icon },
-  { title: "Graph", href: "/$workspaceId/$projectId/graph", icon: Share08Icon },
+  { titleKey: "nav.overview", href: "/$workspaceId/$projectId", icon: Home01Icon },
+  { titleKey: "nav.graph", href: "/$workspaceId/$projectId/graph", icon: Share08Icon },
   {
-    title: "Deployments",
+    titleKey: "nav.deployments",
     href: "/$workspaceId/$projectId/deployments",
     icon: Rocket01Icon,
     badge: "7",
     active: true,
   },
   {
-    title: "Logs",
+    titleKey: "nav.logs",
     href: "/$workspaceId/$projectId/logs",
     icon: TextAlignLeft01Icon,
   },
   {
-    title: "Metrics",
+    titleKey: "nav.metrics",
     href: "/$workspaceId/$projectId/metrics",
     icon: ChartHistogramIcon,
   },
   {
-    title: "Variables",
+    titleKey: "nav.variables",
     href: "/$workspaceId/$projectId/variables",
     icon: VariableIcon,
   },
   {
-    title: "Networking",
+    titleKey: "nav.networking",
     href: "/$workspaceId/$projectId/networking",
     icon: EarthIcon,
   },
   {
-    title: "Servers",
+    titleKey: "nav.servers",
     href: "/$workspaceId/$projectId/servers",
     icon: ServerStack01Icon,
     badge: "3",
   },
   {
-    title: "Terminal",
+    titleKey: "nav.terminal",
     href: "/$workspaceId/$projectId/terminal",
     icon: FlashIcon,
   },
   {
-    title: "Settings",
+    titleKey: "nav.settings",
     href: "/$workspaceId/$projectId/settings",
     icon: Sun03Icon,
   },
@@ -103,6 +104,7 @@ export function ProjectSidebar({
   envSlug?: string;
   onEnvSlugChange: (slug: string) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <Sidebar
       className="top-(--header-height) h-[calc(100svh-var(--header-height))]!"
@@ -123,14 +125,14 @@ export function ProjectSidebar({
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel className="text-[11px] uppercase tracking-wider text-sidebar-foreground/50">
-            Project
+            {t("nav.project")}
           </SidebarGroupLabel>
           <SidebarMenu>
             {navItems.map((item) => (
-              <SidebarMenuItem key={item.title}>
+              <SidebarMenuItem key={item.titleKey}>
                 <SidebarMenuButton render={<Link to={item.href} />}>
                   <HugeiconsIcon icon={item.icon} strokeWidth={2} />
-                  <span>{item.title}</span>
+                  <span>{t(item.titleKey)}</span>
                 </SidebarMenuButton>
                 {"badge" in item && item.badge ? (
                   <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>
@@ -142,11 +144,11 @@ export function ProjectSidebar({
 
         <SidebarGroup>
           <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-sidebar-foreground/50">
-            Services
+            {t("nav.services")}
           </SidebarGroupLabel>
-          <SidebarGroupAction title="Add service">
+          <SidebarGroupAction title={t("nav.addService")}>
             <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
-            <span className="sr-only">Add service</span>
+            <span className="sr-only">{t("nav.addService")}</span>
           </SidebarGroupAction>
           <SidebarMenu>
             {services.map((svc) => (

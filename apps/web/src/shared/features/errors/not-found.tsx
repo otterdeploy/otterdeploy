@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 import {
   ErrorScreen,
   errorBackClass,
@@ -10,33 +12,36 @@ import {
  * Renders for any unmatched route in the OtterStack control panel.
  */
 export function NotFound() {
+  const { t } = useTranslation();
   const path = typeof window !== "undefined" ? window.location.pathname : "";
-  const shown = path && path !== "/" ? path : "that path";
+  const shown =
+    path && path !== "/" ? path : t("errors.notFound.messageFallbackPath");
 
   return (
     <ErrorScreen
       code="404"
       accent="indigo"
-      eyebrow="Page not found"
-      title="Nothing here."
-      statusTag="NO_ROUTE"
+      eyebrow={t("errors.notFound.eyebrow")}
+      title={t("errors.notFound.title")}
+      statusTag={t("errors.notFound.statusTag")}
       message={
         <>
-          There's no route to <span className={errorPathClass}>{shown}</span> in
-          this app. It may have moved, been renamed, or never existed.
+          {t("errors.notFound.messageBefore")}
+          <span className={errorPathClass}>{shown}</span>
+          {t("errors.notFound.messageAfter")}
         </>
       }
       actions={
         <>
           <a className={errorBtnClass} href="/">
-            ↩ Return home
+            {t("errors.notFound.returnHome")}
           </a>
           <button
             type="button"
             className={errorBackClass}
             onClick={() => window.history.back()}
           >
-            ← Go back
+            {t("errors.notFound.goBack")}
           </button>
         </>
       }

@@ -1,0 +1,106 @@
+{
+  "common": {
+    "search": "Search",
+    "loading": "Loading…",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "openSidebar": "Open sidebar",
+    "closeSidebar": "Close sidebar",
+    "notifications": "Notifications",
+    "toggleTheme": "Toggle theme",
+    "language": "Language"
+  },
+  "auth": {
+    "signIn": {
+      "title": "Sign in",
+      "subtitle": "Welcome back. Enter your details to continue.",
+      "emailLabel": "Email",
+      "emailPlaceholder": "you@example.com",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "Your password",
+      "forgotPassword": "Forgot password?",
+      "submit": "Sign in",
+      "noAccount": "Don't have an account?",
+      "createAccount": "Create one"
+    },
+    "signUp": {
+      "title": "Create an account",
+      "subtitle": "Start deploying in minutes.",
+      "nameLabel": "Full name",
+      "namePlaceholder": "Jane Doe",
+      "emailLabel": "Email",
+      "emailPlaceholder": "you@example.com",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "Choose a strong password",
+      "submit": "Create account",
+      "hasAccount": "Already have an account?",
+      "signIn": "Sign in"
+    },
+    "logout": "Log out"
+  },
+  "errors": {
+    "notFound": {
+      "eyebrow": "Page not found",
+      "title": "Nothing here.",
+      "statusTag": "NO_ROUTE",
+      "messageBefore": "There's no route to ",
+      "messageAfter": " in this app. It may have moved, been renamed, or never existed.",
+      "messageFallbackPath": "that path",
+      "returnHome": "↩ Return home",
+      "goBack": "← Go back"
+    },
+    "serverError": {
+      "eyebrow": "Internal error",
+      "title": "Something Went Wrong.",
+      "statusTag": "FAULT",
+      "messageDefault": "OtterStack hit an unexpected error rendering this page. The failure has been logged — this one's on us, not you. Try again in a moment.",
+      "retry": "⟳ Retry",
+      "returnHome": "↩ Return home"
+    }
+  },
+  "shell": {
+    "search": "Search",
+    "searchPlaceholder": "Search resources, settings…",
+    "switchWorkspace": "Switch workspace",
+    "newWorkspace": "New workspace"
+  },
+  "nav": {
+    "overview": "Overview",
+    "graph": "Graph",
+    "deployments": "Deployments",
+    "logs": "Logs",
+    "metrics": "Metrics",
+    "variables": "Variables",
+    "networking": "Networking",
+    "servers": "Servers",
+    "terminal": "Terminal",
+    "settings": "Settings",
+    "project": "Project",
+    "projects": "Projects",
+    "services": "Services",
+    "addService": "Add service",
+    "workspace": "Workspace"
+  },
+  "projects": {
+    "title": "Projects",
+    "subtitle": "Open a project to manage its services, databases, and routes.",
+    "newProject": "New project",
+    "database_one": "database",
+    "database_other": "databases",
+    "route_one": "route",
+    "route_other": "routes"
+  },
+  "environments": {
+    "label": "Environments"
+  },
+  "user": {
+    "upgradeToPro": "Upgrade to Pro",
+    "account": "Account",
+    "billing": "Billing",
+    "notifications": "Notifications",
+    "logout": "Log out"
+  }
+}

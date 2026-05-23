@@ -1,6 +1,7 @@
 import * as React from "react";
 
 import { Link } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 
 import {
   Sidebar,
@@ -26,20 +27,20 @@ import { NavUser, type User } from "../nav/nav-user";
 import { StatusDot, type NavItem, type Status } from "./index";
 
 const workspace = [
-  { title: "Projects", href: "/$workspaceId", icon: Home01Icon },
+  { titleKey: "nav.projects", href: "/$workspaceId", icon: Home01Icon },
   {
-    title: "Servers",
+    titleKey: "nav.servers",
     href: "/$workspaceId/servers",
     icon: ServerStack01Icon,
     badge: "3",
   },
   {
-    title: "Networking",
+    titleKey: "nav.networking",
     href: "/$workspaceId/networking",
     icon: EarthIcon,
   },
-  { title: "Terminal", href: "/$workspaceId/terminal", icon: FlashIcon },
-  { title: "Settings", href: "/$workspaceId/settings", icon: Sun03Icon },
+  { titleKey: "nav.terminal", href: "/$workspaceId/terminal", icon: FlashIcon },
+  { titleKey: "nav.settings", href: "/$workspaceId/settings", icon: Sun03Icon },
 ] as const satisfies ReadonlyArray<NavItem>;
 
 const region = {
@@ -52,6 +53,7 @@ export function WorkspaceSidebar({
   user,
   ...props
 }: React.ComponentProps<typeof Sidebar> & { user: User }) {
+  const { t } = useTranslation();
   return (
     <Sidebar
       className="top-(--header-height) h-[calc(100svh-var(--header-height))]!"
@@ -60,14 +62,14 @@ export function WorkspaceSidebar({
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel className="text-[11px] uppercase tracking-wider text-sidebar-foreground/50">
-            Project
+            {t("nav.workspace")}
           </SidebarGroupLabel>
           <SidebarMenu className="gap-2">
             {workspace.map((item) => (
-              <SidebarMenuItem key={item.title}>
+              <SidebarMenuItem key={item.titleKey}>
                 <SidebarMenuButton render={<Link to={item.href} />}>
                   <HugeiconsIcon icon={item.icon} strokeWidth={2} />
-                  <span>{item.title}</span>
+                  <span>{t(item.titleKey)}</span>
                 </SidebarMenuButton>
                 {"badge" in item && item.badge ? (
                   <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>

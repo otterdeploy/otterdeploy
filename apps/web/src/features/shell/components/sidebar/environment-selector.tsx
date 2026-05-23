@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 import type { Environment } from "@/routes/_app/layout";
 import {
   Select,
@@ -18,6 +20,7 @@ export function EnvironmentSelector({
   value?: string;
   onValueChange: (slug: string) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <Select
       value={value}
@@ -32,7 +35,7 @@ export function EnvironmentSelector({
       </SelectTrigger>
       <SelectContent>
         <SelectGroup>
-          <SelectLabel>Environments</SelectLabel>
+          <SelectLabel>{t("environments.label")}</SelectLabel>
           {environments.map((env) => (
             <SelectItem key={env.slug} value={env.slug}>
               {env.name}

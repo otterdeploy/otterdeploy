@@ -1,4 +1,5 @@
 import type { ErrorComponentProps } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 
 import { ErrorScreen, errorBackClass, errorBtnClass } from "./error-screen";
 
@@ -7,17 +8,15 @@ import { ErrorScreen, errorBackClass, errorBtnClass } from "./error-screen";
  * Renders when a route loader or component throws. `reset` retries the boundary.
  */
 export function ServerError({ reset, error }: ErrorComponentProps) {
+  const { t } = useTranslation();
   return (
     <ErrorScreen
       code="500"
       accent="red"
-      eyebrow="Internal error"
-      title="Something Went Wrong."
-      statusTag="FAULT"
-      message={
-        error?.message ??
-        "OtterStack hit an unexpected error rendering this page. The failure has been logged — this one's on us, not you. Try again in a moment."
-      }
+      eyebrow={t("errors.serverError.eyebrow")}
+      title={t("errors.serverError.title")}
+      statusTag={t("errors.serverError.statusTag")}
+      message={error?.message ?? t("errors.serverError.messageDefault")}
       actions={
         <>
           <button
@@ -25,10 +24,10 @@ export function ServerError({ reset, error }: ErrorComponentProps) {
             className={errorBtnClass}
             onClick={() => reset()}
           >
-            ⟳ Retry
+            {t("errors.serverError.retry")}
           </button>
           <a className={errorBackClass} href="/">
-            ↩ Return home
+            {t("errors.serverError.returnHome")}
           </a>
         </>
       }

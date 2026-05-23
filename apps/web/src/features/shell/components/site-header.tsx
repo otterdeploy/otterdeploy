@@ -14,11 +14,13 @@ import {
   SidebarLeftIcon,
   Sun03Icon,
 } from "@hugeicons/core-free-icons";
+import { useTranslation } from "react-i18next";
 
 export function SiteHeader() {
   const { toggleSidebar } = useSidebar();
   const { workspace } = useLoaderData({ from: "/_app/$workspaceId" });
   const { resolvedTheme, setTheme } = useTheme();
+  const { t } = useTranslation();
 
   const isDark = resolvedTheme === "dark";
 
@@ -30,7 +32,7 @@ export function SiteHeader() {
           variant="ghost"
           size="icon"
           onClick={toggleSidebar}
-          aria-label="Toggle sidebar"
+          aria-label={t("common.openSidebar")}
         >
           <HugeiconsIcon icon={SidebarLeftIcon} strokeWidth={2} />
         </Button>
@@ -57,14 +59,14 @@ export function SiteHeader() {
           <Button
             variant="ghost"
             className="hidden h-8 gap-2 px-2 text-muted-foreground sm:inline-flex"
-            aria-label="Search"
+            aria-label={t("common.search")}
           >
             <HugeiconsIcon
               icon={Search01Icon}
               strokeWidth={2}
               className="size-4"
             />
-            <span className="text-sm">Search</span>
+            <span className="text-sm">{t("common.search")}</span>
             <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
               ⌘K
             </kbd>
@@ -74,7 +76,7 @@ export function SiteHeader() {
             variant="ghost"
             size="icon"
             className="size-8"
-            aria-label="Notifications"
+            aria-label={t("common.notifications")}
           >
             <HugeiconsIcon
               icon={Notification01Icon}
@@ -88,7 +90,7 @@ export function SiteHeader() {
             size="icon"
             className="size-8"
             onClick={() => setTheme(isDark ? "light" : "dark")}
-            aria-label="Toggle theme"
+            aria-label={t("common.toggleTheme")}
           >
             <HugeiconsIcon
               icon={isDark ? Sun03Icon : Moon02Icon}

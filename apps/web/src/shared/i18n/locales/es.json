@@ -1,0 +1,106 @@
+{
+  "common": {
+    "search": "Buscar",
+    "loading": "Cargando…",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "create": "Crear",
+    "openSidebar": "Abrir barra lateral",
+    "closeSidebar": "Cerrar barra lateral",
+    "notifications": "Notificaciones",
+    "toggleTheme": "Cambiar tema",
+    "language": "Idioma"
+  },
+  "auth": {
+    "signIn": {
+      "title": "Iniciar sesión",
+      "subtitle": "Bienvenido de nuevo. Introduce tus datos para continuar.",
+      "emailLabel": "Correo electrónico",
+      "emailPlaceholder": "tu@ejemplo.com",
+      "passwordLabel": "Contraseña",
+      "passwordPlaceholder": "Tu contraseña",
+      "forgotPassword": "¿Olvidaste tu contraseña?",
+      "submit": "Iniciar sesión",
+      "noAccount": "¿No tienes una cuenta?",
+      "createAccount": "Crea una"
+    },
+    "signUp": {
+      "title": "Crear una cuenta",
+      "subtitle": "Empieza a desplegar en minutos.",
+      "nameLabel": "Nombre completo",
+      "namePlaceholder": "Jane Doe",
+      "emailLabel": "Correo electrónico",
+      "emailPlaceholder": "tu@ejemplo.com",
+      "passwordLabel": "Contraseña",
+      "passwordPlaceholder": "Elige una contraseña segura",
+      "submit": "Crear cuenta",
+      "hasAccount": "¿Ya tienes una cuenta?",
+      "signIn": "Iniciar sesión"
+    },
+    "logout": "Cerrar sesión"
+  },
+  "errors": {
+    "notFound": {
+      "eyebrow": "Página no encontrada",
+      "title": "Aquí no hay nada.",
+      "statusTag": "NO_ROUTE",
+      "messageBefore": "No hay ruta a ",
+      "messageAfter": " en esta aplicación. Puede que se haya movido, renombrado o que nunca existiera.",
+      "messageFallbackPath": "esa ruta",
+      "returnHome": "↩ Volver al inicio",
+      "goBack": "← Volver"
+    },
+    "serverError": {
+      "eyebrow": "Error interno",
+      "title": "Algo salió mal.",
+      "statusTag": "FAULT",
+      "messageDefault": "OtterStack encontró un error inesperado al renderizar esta página. El fallo ha sido registrado — esto es culpa nuestra, no tuya. Inténtalo de nuevo en un momento.",
+      "retry": "⟳ Reintentar",
+      "returnHome": "↩ Volver al inicio"
+    }
+  },
+  "shell": {
+    "search": "Buscar",
+    "searchPlaceholder": "Buscar recursos, ajustes…",
+    "switchWorkspace": "Cambiar espacio de trabajo",
+    "newWorkspace": "Nuevo espacio de trabajo"
+  },
+  "nav": {
+    "overview": "Resumen",
+    "graph": "Grafo",
+    "deployments": "Despliegues",
+    "logs": "Registros",
+    "metrics": "Métricas",
+    "variables": "Variables",
+    "networking": "Red",
+    "servers": "Servidores",
+    "terminal": "Terminal",
+    "settings": "Ajustes",
+    "project": "Proyecto",
+    "projects": "Proyectos",
+    "services": "Servicios",
+    "addService": "Añadir servicio",
+    "workspace": "Espacio de trabajo"
+  },
+  "projects": {
+    "title": "Proyectos",
+    "subtitle": "Abre un proyecto para gestionar sus servicios, bases de datos y rutas.",
+    "newProject": "Nuevo proyecto",
+    "database_one": "base de datos",
+    "database_other": "bases de datos",
+    "route_one": "ruta",
+    "route_other": "rutas"
+  },
+  "environments": {
+    "label": "Entornos"
+  },
+  "user": {
+    "upgradeToPro": "Mejorar a Pro",
+    "account": "Cuenta",
+    "billing": "Facturación",
+    "notifications": "Notificaciones",
+    "logout": "Cerrar sesión"
+  }
+}

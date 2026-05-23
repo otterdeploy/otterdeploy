@@ -2,6 +2,7 @@ import { Button } from "@/shared/components/ui/button";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { PlusSignIcon } from "@hugeicons/core-free-icons";
 import { createFileRoute, Link, useLoaderData } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/_app/$workspaceId/")({
   component: RouteComponent,
@@ -9,14 +10,15 @@ export const Route = createFileRoute("/_app/$workspaceId/")({
 
 function RouteComponent() {
   const { workspace } = useLoaderData({ from: "/_app/$workspaceId" });
+  const { t } = useTranslation();
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
       <header className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">Projects</h1>
+          <h1 className="text-2xl font-semibold">{t("projects.title")}</h1>
           <p className="text-sm text-muted-foreground">
-            Open a project to manage its services, databases, and routes.
+            {t("projects.subtitle")}
           </p>
         </div>
         <Button variant="outline" className="gap-2">
@@ -25,7 +27,7 @@ function RouteComponent() {
             strokeWidth={2}
             className="size-4"
           />
-          New project
+          {t("projects.newProject")}
         </Button>
       </header>
 
@@ -56,13 +58,13 @@ function RouteComponent() {
                   <span className="font-medium text-foreground">
                     {project.databases}
                   </span>{" "}
-                  {project.databases === 1 ? "database" : "databases"}
+                  {t("projects.database", { count: project.databases })}
                 </span>
                 <span>
                   <span className="font-medium text-foreground">
                     {project.routes}
                   </span>{" "}
-                  {project.routes === 1 ? "route" : "routes"}
+                  {t("projects.route", { count: project.routes })}
                 </span>
               </div>
             </Link>
