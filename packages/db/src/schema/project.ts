@@ -9,7 +9,7 @@ import {
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { createId, ID_PREFIX } from "@otterstack/shared/id";
+import { createId, ID_PREFIX, type Id } from "@otterstack/shared/id";
 import { organization } from "./auth";
 
 export const projectStatusEnum = pgEnum("project_status", ["draft", "valid", "invalid"]);
@@ -19,6 +19,7 @@ export const project = pgTable(
   {
     id: text("id")
       .primaryKey()
+      .$type<Id<typeof ID_PREFIX.project>>()
       .$defaultFn(() => createId(ID_PREFIX.project)),
     organizationId: text("organization_id")
       .notNull()
@@ -59,9 +60,11 @@ export const resource = pgTable(
   {
     id: text("id")
       .primaryKey()
+      .$type<Id<typeof ID_PREFIX.resource>>()
       .$defaultFn(() => createId(ID_PREFIX.resource)),
     projectId: text("project_id")
       .notNull()
+      .$type<Id<typeof ID_PREFIX.project>>()
       .references(() => project.id),
     name: text("name").notNull(),
     type: resourceTypeEnum("type").notNull(),
@@ -85,6 +88,7 @@ export const databaseResource = pgTable(
   {
     resourceId: text("resource_id")
       .primaryKey()
+      .$type<Id<typeof ID_PREFIX.resource>>()
       .references(() => resource.id, { onDelete: "cascade" }),
     engine: databaseEngineEnum("engine").notNull().default("postgres"),
     databaseName: text("database_name").notNull(),
@@ -124,6 +128,7 @@ export const serviceResource = pgTable(
   {
     resourceId: text("resource_id")
       .primaryKey()
+      .$type<Id<typeof ID_PREFIX.resource>>()
       .references(() => resource.id, { onDelete: "cascade" }),
 
     image: text("image").notNull(),
@@ -180,9 +185,11 @@ export const servicePort = pgTable(
   {
     id: text("id")
       .primaryKey()
+      .$type<Id<typeof ID_PREFIX.servicePort>>()
       .$defaultFn(() => createId(ID_PREFIX.servicePort)),
     serviceResourceId: text("service_resource_id")
       .notNull()
+      .$type<Id<typeof ID_PREFIX.resource>>()
       .references(() => serviceResource.resourceId, { onDelete: "cascade" }),
     containerPort: integer("container_port").notNull(),
     protocol: servicePortProtocolEnum("protocol").notNull().default("tcp"),
@@ -209,9 +216,11 @@ export const serviceEnvVar = pgTable(
   {
     id: text("id")
       .primaryKey()
+      .$type<Id<typeof ID_PREFIX.serviceEnvVar>>()
       .$defaultFn(() => createId(ID_PREFIX.serviceEnvVar)),
     serviceResourceId: text("service_resource_id")
       .notNull()
+      .$type<Id<typeof ID_PREFIX.resource>>()
       .references(() => serviceResource.resourceId, { onDelete: "cascade" }),
     key: text("key").notNull(),
     value: text("value").notNull(),

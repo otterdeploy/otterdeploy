@@ -6,6 +6,8 @@ import {
   serviceEnvVar,
 } from "@otterstack/db/schema/project";
 
+import type { ProjectId } from "../../project/errors";
+import type { ResourceId } from "../errors";
 import type { ResourceRow, ServiceEnvVarRow } from ".";
 
 // ---------------------------------------------------------------------------
@@ -13,7 +15,7 @@ import type { ResourceRow, ServiceEnvVarRow } from ".";
 // ---------------------------------------------------------------------------
 
 export async function listServiceEnvVars(
-  serviceResourceId: string,
+  serviceResourceId: ResourceId,
 ): Promise<ServiceEnvVarRow[]> {
   return db
     .select()
@@ -22,7 +24,7 @@ export async function listServiceEnvVars(
 }
 
 export async function upsertServiceEnvVar(input: {
-  serviceResourceId: string;
+  serviceResourceId: ResourceId;
   key: string;
   value: string;
 }): Promise<ServiceEnvVarRow> {
@@ -40,7 +42,7 @@ export async function upsertServiceEnvVar(input: {
 }
 
 export async function deleteServiceEnvVar(input: {
-  serviceResourceId: string;
+  serviceResourceId: ResourceId;
   key: string;
 }): Promise<boolean> {
   const result = await db
@@ -56,7 +58,7 @@ export async function deleteServiceEnvVar(input: {
 }
 
 export async function bulkReplaceServiceEnvVars(
-  serviceResourceId: string,
+  serviceResourceId: ResourceId,
   vars: Array<{ key: string; value: string }>,
 ): Promise<ServiceEnvVarRow[]> {
   return db.transaction(async (tx) => {
@@ -84,7 +86,7 @@ export async function bulkReplaceServiceEnvVars(
 // ---------------------------------------------------------------------------
 
 export async function getResourceByProjectAndName(
-  projectId: string,
+  projectId: ProjectId,
   name: string,
 ): Promise<ResourceRow | undefined> {
   const [row] = await db
@@ -103,9 +105,9 @@ export async function getResourceByProjectAndName(
  * confirm and to skip escaped tokens (`\${{…}}`).
  */
 export async function findServiceDependentsByName(input: {
-  projectId: string;
+  projectId: ProjectId;
   targetResourceName: string;
-}): Promise<string[]> {
+}): Promise<ResourceId[]> {
   const pattern = `%\${{${input.targetResourceName}.%`;
   const rows = await db
     .select({ serviceResourceId: serviceEnvVar.serviceResourceId })
@@ -119,5 +121,5 @@ export async function findServiceDependentsByName(input: {
     );
 
   // Dedupe — a service can reference the target via multiple env vars.
-  return Array.from(new Set(rows.map((r) => r.serviceResourceId)));
+  return Array.from(new Set(rows.map((r) => r.serviceResourceId))) as ResourceId[];
 }

@@ -1,7 +1,5 @@
 import { orgScopedProcedure } from "../..";
 
-import { type ProjectId } from "../project/errors";
-import { type ResourceId } from "./errors";
 import {
   bulkSetEnv,
   createService,
@@ -20,7 +18,7 @@ import {
 export const serviceRouter = {
   list: orgScopedProcedure.service.list.handler(async ({ input, context, errors }) => {
     const result = await listServices({
-      projectId: input.projectId as ProjectId,
+      projectId: input.projectId,
       organizationId: context.activeOrganizationId,
     });
     if (result.isErr()) {
@@ -34,8 +32,8 @@ export const serviceRouter = {
 
   get: orgScopedProcedure.service.get.handler(async ({ input, context, errors }) => {
     const result = await getService({
-      projectId: input.projectId as ProjectId,
-      resourceId: input.resourceId as ResourceId,
+      projectId: input.projectId,
+      resourceId: input.resourceId,
       organizationId: context.activeOrganizationId,
     });
     if (result.isErr()) {
@@ -52,7 +50,7 @@ export const serviceRouter = {
     const result = await createService(
       {
         ...input,
-        projectId: input.projectId as ProjectId,
+        projectId: input.projectId,
         organizationId: context.activeOrganizationId,
       },
       context.log,
@@ -79,8 +77,8 @@ export const serviceRouter = {
     const result = await updateService(
       {
         ...input,
-        projectId: input.projectId as ProjectId,
-        resourceId: input.resourceId as ResourceId,
+        projectId: input.projectId,
+        resourceId: input.resourceId,
         organizationId: context.activeOrganizationId,
       },
       context.log,
@@ -105,8 +103,8 @@ export const serviceRouter = {
   delete: orgScopedProcedure.service.delete.handler(async ({ input, context, errors }) => {
     const result = await deleteService(
       {
-        projectId: input.projectId as ProjectId,
-        resourceId: input.resourceId as ResourceId,
+        projectId: input.projectId,
+        resourceId: input.resourceId,
         organizationId: context.activeOrganizationId,
       },
       context.log,
@@ -126,8 +124,8 @@ export const serviceRouter = {
   restart: orgScopedProcedure.service.restart.handler(async ({ input, context, errors }) => {
     const result = await restartService(
       {
-        projectId: input.projectId as ProjectId,
-        resourceId: input.resourceId as ResourceId,
+        projectId: input.projectId,
+        resourceId: input.resourceId,
         organizationId: context.activeOrganizationId,
       },
       context.log,
@@ -153,8 +151,8 @@ export const serviceRouter = {
   expose: orgScopedProcedure.service.expose.handler(async ({ input, context, errors }) => {
     const result = await exposeService(
       {
-        projectId: input.projectId as ProjectId,
-        resourceId: input.resourceId as ResourceId,
+        projectId: input.projectId,
+        resourceId: input.resourceId,
         organizationId: context.activeOrganizationId,
       },
       context.log,
@@ -174,8 +172,8 @@ export const serviceRouter = {
   unexpose: orgScopedProcedure.service.unexpose.handler(async ({ input, context, errors }) => {
     const result = await unexposeService(
       {
-        projectId: input.projectId as ProjectId,
-        resourceId: input.resourceId as ResourceId,
+        projectId: input.projectId,
+        resourceId: input.resourceId,
         organizationId: context.activeOrganizationId,
       },
       context.log,
@@ -193,8 +191,8 @@ export const serviceRouter = {
   env: {
     list: orgScopedProcedure.service.env.list.handler(async ({ input, context, errors }) => {
       const result = await listEnv({
-        projectId: input.projectId as ProjectId,
-        resourceId: input.resourceId as ResourceId,
+        projectId: input.projectId,
+        resourceId: input.resourceId,
         organizationId: context.activeOrganizationId,
       });
       if (result.isErr()) {
@@ -211,8 +209,8 @@ export const serviceRouter = {
       const result = await setEnv(
         {
           ...input,
-          projectId: input.projectId as ProjectId,
-          resourceId: input.resourceId as ResourceId,
+          projectId: input.projectId,
+          resourceId: input.resourceId,
           organizationId: context.activeOrganizationId,
         },
         context.log,
@@ -238,8 +236,8 @@ export const serviceRouter = {
       const result = await unsetEnv(
         {
           ...input,
-          projectId: input.projectId as ProjectId,
-          resourceId: input.resourceId as ResourceId,
+          projectId: input.projectId,
+          resourceId: input.resourceId,
           organizationId: context.activeOrganizationId,
         },
         context.log,
@@ -265,8 +263,8 @@ export const serviceRouter = {
         const result = await bulkSetEnv(
           {
             ...input,
-            projectId: input.projectId as ProjectId,
-            resourceId: input.resourceId as ResourceId,
+            projectId: input.projectId,
+            resourceId: input.resourceId,
             organizationId: context.activeOrganizationId,
           },
           context.log,

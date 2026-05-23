@@ -8,6 +8,8 @@ import {
   serviceResource,
 } from "@otterstack/db/schema/project";
 
+import type { ProjectId } from "../../project/errors";
+import type { ResourceId } from "../errors";
 import {
   type ServicePortRow,
   type ServiceEnvVarRow,
@@ -22,8 +24,8 @@ import { listServiceEnvVars } from "./env";
 // ---------------------------------------------------------------------------
 
 export async function getServiceRecord(
-  projectId: string,
-  resourceId: string,
+  projectId: ProjectId,
+  resourceId: ResourceId,
 ): Promise<ServiceRecord | undefined> {
   const [row] = await db
     .select({ resource, service: serviceResource })
@@ -42,7 +44,7 @@ export async function getServiceRecord(
 }
 
 export async function getServiceRecordByName(
-  projectId: string,
+  projectId: ProjectId,
   name: string,
 ): Promise<ServiceRecord | undefined> {
   const [row] = await db
@@ -62,7 +64,7 @@ export async function getServiceRecordByName(
 }
 
 export async function listServiceRecordsByProject(
-  projectId: string,
+  projectId: ProjectId,
 ): Promise<ServiceRecord[]> {
   const rows = await db
     .select({ resource, service: serviceResource })
@@ -91,7 +93,7 @@ export async function listServiceRecordsByProject(
 // ---------------------------------------------------------------------------
 
 export type CreateServiceInput = {
-  projectId: string;
+  projectId: ProjectId;
   name: string;
   status?: "draft" | "valid" | "invalid";
 
@@ -214,7 +216,7 @@ export type UpdateServiceInput = Partial<
 };
 
 export async function updateServiceRecord(
-  resourceId: string,
+  resourceId: ResourceId,
   input: UpdateServiceInput,
 ): Promise<ServiceResourceRow | undefined> {
   const [updated] = await db
@@ -256,7 +258,7 @@ export async function updateServiceRecord(
 }
 
 export async function updateServiceResourceStatus(
-  resourceId: string,
+  resourceId: ResourceId,
   status: "draft" | "valid" | "invalid",
 ) {
   const [updated] = await db
@@ -268,7 +270,7 @@ export async function updateServiceResourceStatus(
 }
 
 export async function bumpForceUpdateCounter(
-  resourceId: string,
+  resourceId: ResourceId,
 ): Promise<number | undefined> {
   const [updated] = await db
     .update(serviceResource)
@@ -279,7 +281,7 @@ export async function bumpForceUpdateCounter(
 }
 
 export async function setPublicExposure(input: {
-  resourceId: string;
+  resourceId: ResourceId;
   enabled: boolean;
   publicDomain: string | null;
 }) {
@@ -291,6 +293,6 @@ export async function setPublicExposure(input: {
   return updated;
 }
 
-export async function deleteServiceRecord(resourceId: string): Promise<void> {
+export async function deleteServiceRecord(resourceId: ResourceId): Promise<void> {
   await db.delete(resource).where(eq(resource.id, resourceId));
 }

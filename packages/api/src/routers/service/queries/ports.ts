@@ -3,10 +3,11 @@ import { eq } from "drizzle-orm";
 import { db } from "@otterstack/db";
 import { servicePort } from "@otterstack/db/schema/project";
 
+import type { ResourceId } from "../errors";
 import type { ServicePortRow } from ".";
 
 export async function listServicePorts(
-  serviceResourceId: string,
+  serviceResourceId: ResourceId,
 ): Promise<ServicePortRow[]> {
   return db
     .select()
@@ -15,7 +16,7 @@ export async function listServicePorts(
 }
 
 export async function replaceServicePorts(
-  serviceResourceId: string,
+  serviceResourceId: ResourceId,
   ports: Array<{
     containerPort: number;
     protocol?: "tcp" | "udp";

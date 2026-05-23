@@ -4,6 +4,8 @@ import { db } from "@otterstack/db";
 import { environment, project } from "@otterstack/db/schema/project";
 import { createId, ID_PREFIX } from "@otterstack/shared/id";
 
+import type { ProjectId } from "../errors";
+
 export async function listProjectRecordsByOrg(organizationId: string) {
   return db
     .select()
@@ -17,7 +19,7 @@ export async function listProjectRecordsByOrg(organizationId: string) {
  * Returns undefined if no project exists or it belongs to a different org.
  */
 export async function getProjectInOrg(input: {
-  projectId: string;
+  projectId: ProjectId;
   organizationId: string;
 }) {
   const [record] = await db
@@ -33,7 +35,7 @@ export async function getProjectInOrg(input: {
   return record;
 }
 
-export async function getProjectById(projectId: string) {
+export async function getProjectById(projectId: ProjectId) {
   const [record] = await db
     .select()
     .from(project)

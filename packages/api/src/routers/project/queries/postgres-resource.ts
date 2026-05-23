@@ -3,13 +3,16 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@otterstack/db";
 import { databaseResource, resource } from "@otterstack/db/schema/project";
 
+import type { ProjectId } from "../errors";
+import type { ResourceId } from "../../service/errors";
+
 export type DatabaseResourceRecord = {
   resource: typeof resource.$inferSelect;
   database: typeof databaseResource.$inferSelect;
 };
 
 export async function getDatabaseResourceByProjectAndName(
-  projectId: string,
+  projectId: ProjectId,
   name: string,
 ) {
   const [record] = await db
@@ -26,8 +29,8 @@ export async function getDatabaseResourceByProjectAndName(
 }
 
 export async function getDatabaseResourceRecord(
-  projectId: string,
-  resourceId: string,
+  projectId: ProjectId,
+  resourceId: ResourceId,
 ) {
   const [record] = await db
     .select({
@@ -42,7 +45,7 @@ export async function getDatabaseResourceRecord(
   return record;
 }
 
-export async function listDatabaseResourceRecords(projectId: string) {
+export async function listDatabaseResourceRecords(projectId: ProjectId) {
   return db
     .select({
       resource,
@@ -54,7 +57,7 @@ export async function listDatabaseResourceRecords(projectId: string) {
 }
 
 export async function createDatabaseResourceRecord(input: {
-  projectId: string;
+  projectId: ProjectId;
   name: string;
   status?: "draft" | "valid" | "invalid";
   databaseName: string;
@@ -119,7 +122,7 @@ export async function createDatabaseResourceRecord(input: {
 }
 
 export async function updateDatabaseResourceStatus(
-  resourceId: string,
+  resourceId: ResourceId,
   status: "draft" | "valid" | "invalid",
 ) {
   const [updated] = await db
@@ -135,7 +138,7 @@ export async function updateDatabaseResourceStatus(
 }
 
 export async function updateDatabaseResourceRuntime(input: {
-  resourceId: string;
+  resourceId: ResourceId;
   upstreamHost: string;
   upstreamPort: number;
   caddyLayer4Snippet: string;

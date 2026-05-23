@@ -1,6 +1,8 @@
 import { oc } from "@orpc/contract";
 import * as z from "zod";
 
+import { ID_PREFIX, zId } from "@otterstack/shared/id";
+
 const tag = "service";
 const basePath = "/projects/{projectId}/services";
 
@@ -95,7 +97,7 @@ export const envVarSchema = z.object({
 const envKeyRegex = /^[A-Z_][A-Z0-9_]*$/;
 
 export const createServiceInput = z.object({
-  projectId: z.string().min(1),
+  projectId: zId(ID_PREFIX.project),
   name: z.string().min(1).regex(/^[a-z][a-z0-9-]*$/, {
     message: "name must be lowercase letters, digits, and dashes",
   }),
@@ -137,8 +139,8 @@ export const createServiceInput = z.object({
 });
 
 export const updateServiceInput = z.object({
-  projectId: z.string().min(1),
-  resourceId: z.string().min(1),
+  projectId: zId(ID_PREFIX.project),
+  resourceId: zId(ID_PREFIX.resource),
 
   image: z.string().min(1).optional(),
   command: z.array(z.string()).nullable().optional(),
@@ -177,30 +179,30 @@ export const updateServiceInput = z.object({
 });
 
 export const getServiceInput = z.object({
-  projectId: z.string().min(1),
-  resourceId: z.string().min(1),
+  projectId: zId(ID_PREFIX.project),
+  resourceId: zId(ID_PREFIX.resource),
 });
 
 export const listServicesInput = z.object({
-  projectId: z.string().min(1),
+  projectId: zId(ID_PREFIX.project),
 });
 
 export const setEnvInput = z.object({
-  projectId: z.string().min(1),
-  resourceId: z.string().min(1),
+  projectId: zId(ID_PREFIX.project),
+  resourceId: zId(ID_PREFIX.resource),
   key: z.string().regex(envKeyRegex),
   value: z.string(),
 });
 
 export const unsetEnvInput = z.object({
-  projectId: z.string().min(1),
-  resourceId: z.string().min(1),
+  projectId: zId(ID_PREFIX.project),
+  resourceId: zId(ID_PREFIX.resource),
   key: z.string().regex(envKeyRegex),
 });
 
 export const bulkEnvInput = z.object({
-  projectId: z.string().min(1),
-  resourceId: z.string().min(1),
+  projectId: zId(ID_PREFIX.project),
+  resourceId: zId(ID_PREFIX.resource),
   vars: z.array(z.object({ key: z.string().regex(envKeyRegex), value: z.string() })),
 });
 

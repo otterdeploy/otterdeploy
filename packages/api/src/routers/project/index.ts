@@ -1,8 +1,5 @@
 import { orgScopedProcedure } from "../..";
 
-import { type ResourceId } from "../service/errors";
-
-import { type ProjectId } from "./errors";
 import {
   createPostgresResource,
   createProject,
@@ -17,7 +14,7 @@ import {
 export const projectRouter = {
   get: orgScopedProcedure.project.get.handler(async ({ input, context, errors }) => {
     const result = await getProject({
-      id: input.id as ProjectId,
+      id: input.id,
       organizationId: context.activeOrganizationId,
     });
     if (result.isErr()) {
@@ -51,7 +48,7 @@ export const projectRouter = {
     list: orgScopedProcedure.project.proxyRoute.list.handler(
       async ({ input, context, errors }) => {
         const result = await listProjectProxyRoutes({
-          projectId: input.projectId as ProjectId,
+          projectId: input.projectId,
           organizationId: context.activeOrganizationId,
         });
         if (result.isErr()) {
@@ -71,7 +68,7 @@ export const projectRouter = {
         const result = await createPostgresResource(
           {
             ...input,
-            projectId: input.projectId as ProjectId,
+            projectId: input.projectId,
             organizationId: context.activeOrganizationId,
           },
           context.log,
@@ -91,7 +88,7 @@ export const projectRouter = {
     listPostgres: orgScopedProcedure.project.database.listPostgres.handler(
       async ({ input, context, errors }) => {
         const result = await listPostgresResources({
-          projectId: input.projectId as ProjectId,
+          projectId: input.projectId,
           organizationId: context.activeOrganizationId,
         });
         if (result.isErr()) {
@@ -107,8 +104,8 @@ export const projectRouter = {
     getPostgres: orgScopedProcedure.project.database.getPostgres.handler(
       async ({ input, context, errors }) => {
         const result = await getPostgresResource({
-          projectId: input.projectId as ProjectId,
-          resourceId: input.resourceId as ResourceId,
+          projectId: input.projectId,
+          resourceId: input.resourceId,
           organizationId: context.activeOrganizationId,
         });
         if (result.isErr()) {
@@ -125,8 +122,8 @@ export const projectRouter = {
       async ({ input, context, errors }) => {
         const result = await deletePostgresResource(
           {
-            projectId: input.projectId as ProjectId,
-            resourceId: input.resourceId as ResourceId,
+            projectId: input.projectId,
+            resourceId: input.resourceId,
             organizationId: context.activeOrganizationId,
           },
           context.log,

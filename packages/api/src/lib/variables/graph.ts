@@ -7,6 +7,8 @@
  * no separate materialized graph to drift.
  */
 
+import type { ProjectId } from "../../routers/project/errors";
+import type { ResourceId } from "../../routers/service/errors";
 import {
   findServiceDependentsByName,
   getServiceRecord,
@@ -23,13 +25,13 @@ import { extractRefs } from "./parser";
  * `targetResourceName` (to find dependents whose env values mention it).
  */
 export async function findTransitiveDependents(input: {
-  projectId: string;
-  targetResourceId: string;
+  projectId: ProjectId;
+  targetResourceId: ResourceId;
   targetResourceName: string;
-}): Promise<string[]> {
-  const visited = new Set<string>();
-  const result: string[] = [];
-  const queue: Array<{ resourceId: string; resourceName: string }> = [
+}): Promise<ResourceId[]> {
+  const visited = new Set<ResourceId>();
+  const result: ResourceId[] = [];
+  const queue: Array<{ resourceId: ResourceId; resourceName: string }> = [
     {
       resourceId: input.targetResourceId,
       resourceName: input.targetResourceName,

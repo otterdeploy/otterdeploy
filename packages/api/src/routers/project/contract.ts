@@ -1,6 +1,8 @@
 import { oc } from "@orpc/contract";
 import * as z from "zod";
 
+import { ID_PREFIX, zId } from "@otterstack/shared/id";
+
 const tag = "project";
 const basePath = "/projects";
 
@@ -19,7 +21,7 @@ export const createProjectInput = z.object({
 });
 
 export const getProjectInput = z.object({
-  id: z.string().min(1),
+  id: zId(ID_PREFIX.project),
 });
 
 export const postgresResourceSchema = z.object({
@@ -52,22 +54,22 @@ export const postgresResourceSchema = z.object({
 });
 
 export const createPostgresDatabaseInput = z.object({
-  projectId: z.string().min(1),
+  projectId: zId(ID_PREFIX.project),
   name: z.string().min(1),
 });
 
 export const getPostgresDatabaseInput = z.object({
-  projectId: z.string().min(1),
-  resourceId: z.string().min(1),
+  projectId: zId(ID_PREFIX.project),
+  resourceId: zId(ID_PREFIX.resource),
 });
 
 export const deletePostgresDatabaseInput = z.object({
-  projectId: z.string().min(1),
-  resourceId: z.string().min(1),
+  projectId: zId(ID_PREFIX.project),
+  resourceId: zId(ID_PREFIX.resource),
 });
 
 export const listPostgresDatabasesInput = z.object({
-  projectId: z.string().min(1),
+  projectId: zId(ID_PREFIX.project),
 });
 
 export const reconcileResultSchema = z.object({
@@ -98,7 +100,7 @@ export const proxyRouteSchema = z.object({
 });
 
 export const listProxyRoutesInput = z.object({
-  projectId: z.string().min(1),
+  projectId: zId(ID_PREFIX.project),
 });
 
 export const projectContract = {
