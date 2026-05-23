@@ -24,7 +24,7 @@ export function SiteHeader() {
   const isDark = resolvedTheme === "dark";
 
   return (
-    <header className="sticky top-0 z-50 flex w-full items-center border-b bg-background">
+    <header className="sticky top-0 z-50 flex w-full items-center border-b bg-muted">
       <div className="flex h-(--header-height) w-full items-center gap-3 px-3">
         <Button
           className="size-8"

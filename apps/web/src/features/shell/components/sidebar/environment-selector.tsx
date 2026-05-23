@@ -16,8 +16,8 @@ export function EnvironmentSelector({
   value,
   onValueChange,
 }: {
-  environments: Environment[];
   value?: string;
+  environments: Environment[];
   onValueChange: (slug: string) => void;
 }) {
   const { t } = useTranslation();

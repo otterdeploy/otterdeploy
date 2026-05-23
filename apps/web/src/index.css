@@ -3,53 +3,55 @@
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/geist-mono";
+@import "@xyflow/react/dist/style.css";
 
 @custom-variant dark (&:is(.dark *));
 
 /* --- error screens · apps/web/src/shared/features/errors --- */
 @theme {
-  --animate-error-rise: error-rise 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+    --animate-error-rise: error-rise 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 @keyframes error-rise {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
+    from {
+        opacity: 0;
+        transform: translateY(16px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
 }
 @utility error-grid {
-  background-image:
-    linear-gradient(var(--line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--line) 1px, transparent 1px);
-  background-size: 72px 72px;
-  -webkit-mask-image: radial-gradient(
-    ellipse 72% 72% at 50% 50%,
-    #000 32%,
-    transparent 90%
-  );
-  mask-image: radial-gradient(
-    ellipse 72% 72% at 50% 50%,
-    #000 32%,
-    transparent 90%
-  );
+    background-image:
+        linear-gradient(var(--line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 72px 72px;
+    -webkit-mask-image: radial-gradient(
+        ellipse 72% 72% at 50% 50%,
+        #000 32%,
+        transparent 90%
+    );
+    mask-image: radial-gradient(
+        ellipse 72% 72% at 50% 50%,
+        #000 32%,
+        transparent 90%
+    );
 }
 @utility error-glow {
-  background: radial-gradient(
-    36rem 26rem at 50% 48%,
-    var(--glow),
-    transparent 72%
-  );
+    background: radial-gradient(
+        36rem 26rem at 50% 48%,
+        var(--glow),
+        transparent 72%
+    );
 }
 @utility error-grain {
-  background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='160'%20height='160'%3E%3Cfilter%20id='n'%3E%3CfeTurbulence%20type='fractalNoise'%20baseFrequency='0.82'%20numOctaves='2'%20stitchTiles='stitch'/%3E%3C/filter%3E%3Crect%20width='100%25'%20height='100%25'%20filter='url(%23n)'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='160'%20height='160'%3E%3Cfilter%20id='n'%3E%3CfeTurbulence%20type='fractalNoise'%20baseFrequency='0.82'%20numOctaves='2'%20stitchTiles='stitch'/%3E%3C/filter%3E%3Crect%20width='100%25'%20height='100%25'%20filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 @theme {
     --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
-    --font-mono: "Geist Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --font-mono:
+        "Geist Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
     --font-heading: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
 }
 
@@ -85,6 +87,9 @@
     --color-card: var(--card);
     --color-foreground: var(--foreground);
     --color-background: var(--background);
+    --color-success: var(--success);
+    --color-warning: var(--warning);
+    --color-info: var(--info);
     --radius-sm: calc(var(--radius) * 0.6);
     --radius-md: calc(var(--radius) * 0.8);
     --radius-lg: var(--radius);
@@ -131,6 +136,10 @@
     --sidebar-accent-foreground: oklch(0.205 0.003 90);
     --sidebar-border: oklch(0.205 0.003 90 / 9%);
     --sidebar-ring: oklch(0.555 0.005 95);
+    /* Semantic status accents (light) */
+    --success: oklch(0.62 0.15 150);
+    --warning: oklch(0.72 0.15 75);
+    --info: oklch(0.58 0.16 235);
 }
 
 .dark {
@@ -165,6 +174,10 @@
     --sidebar-accent-foreground: oklch(0.965 0.006 95);
     --sidebar-border: oklch(1 0.006 95 / 8%);
     --sidebar-ring: oklch(0.555 0.005 95);
+    /* Semantic status accents (dark — lifted L for visibility) */
+    --success: oklch(0.74 0.16 150);
+    --warning: oklch(0.8 0.15 75);
+    --info: oklch(0.72 0.16 235);
 }
 
 @layer base {
@@ -173,7 +186,6 @@
     }
     body {
         @apply bg-background text-foreground;
-        /* Geist stylistic alternates + tight tracking (matches v2-rebuild demo) */
         font-feature-settings: "cv11", "ss01";
         letter-spacing: -0.005em;
         -webkit-font-smoothing: antialiased;
@@ -191,4 +203,82 @@
     .font-mono {
         font-feature-settings: "zero", "ss03";
     }
+}
+
+/* xyflow — map @xyflow/react CSS variables to shadcn tokens so the graph
+   inherits light/dark theming. Double-class selector beats the library's
+   default `.react-flow { ... }` on specificity. */
+.react-flow.react-flow {
+    --xy-background-color-default: var(--background);
+    --xy-background-pattern-color-default: var(--muted-foreground);
+
+    --xy-node-background-color-default: var(--card);
+    --xy-node-color-default: var(--card-foreground);
+    --xy-node-border-default: 1px solid var(--border);
+    --xy-node-boxshadow-default:
+        0 1px 2px 0 oklch(0 0 0 / 6%),
+        0 0 0 1px oklch(from var(--foreground) l c h / 4%);
+    --xy-node-border-radius-default: calc(var(--radius) + 2px);
+
+    --xy-edge-stroke-default: var(--muted-foreground);
+    --xy-edge-stroke-selected-default: var(--foreground);
+    --xy-edge-stroke-width-default: 1.25px;
+
+    --xy-handle-background-color-default: var(--card);
+    --xy-handle-border-color-default: var(--border);
+
+    --xy-controls-button-background-color-default: var(--card);
+    --xy-controls-button-background-color-hover-default: var(--accent);
+    --xy-controls-button-color-default: var(--card-foreground);
+    --xy-controls-button-color-hover-default: var(--accent-foreground);
+    --xy-controls-button-border-color-default: var(--border);
+
+    --xy-minimap-background-color-default: var(--card);
+    --xy-minimap-mask-background-color-default: oklch(
+        from var(--background) l c h / 60%
+    );
+    --xy-minimap-mask-stroke-color-default: var(--border);
+    --xy-minimap-node-background-color-default: var(--muted-foreground);
+
+    --xy-attribution-background-color-default: transparent;
+}
+
+/* Soften node labels + give the controls/minimap a card-like surround. */
+.react-flow .react-flow__node-default,
+.react-flow .react-flow__node-input,
+.react-flow .react-flow__node-output,
+.react-flow .react-flow__node-group {
+    padding: 10px 14px;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+}
+
+.react-flow .react-flow__controls,
+.react-flow .react-flow__minimap {
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) + 2px);
+    overflow: hidden;
+    box-shadow:
+        0 1px 2px 0 oklch(0 0 0 / 6%),
+        0 8px 24px -12px oklch(0 0 0 / 24%);
+}
+
+.react-flow .react-flow__controls-button {
+    border-bottom: 1px solid var(--border);
+}
+.react-flow .react-flow__controls-button:last-child {
+    border-bottom: none;
+}
+
+.react-flow .react-flow__attribution {
+    color: var(--muted-foreground);
+    opacity: 0.5;
+    font-size: 10px;
+}
+
+.react-flow .react-flow__handle {
+    width: 8px;
+    height: 8px;
+    border-width: 1.5px;
 }
