@@ -21,10 +21,10 @@ import { resource } from "@otterstack/db/schema/project";
 import { eq } from "drizzle-orm";
 import {
   createProjectRecord,
-  getProjectById,
   getProjectBySlug,
+  getProjectInOrg,
   getProjectRecord,
-  listProjectRecords,
+  listProjectRecordsByOrg,
 } from "../../lib/queries/project";
 import {
   createDatabaseResourceRecord,
@@ -120,13 +120,21 @@ type ListProxyRoutesResult =
   | { ok: true; routes: ProxyRouteView[] }
   | { ok: false; reason: "project_not_found" };
 
-export async function listProjects(): Promise<ProjectView[]> {
-  const records = await listProjectRecords();
+export async function listProjects(input: {
+  organizationId: string;
+}): Promise<ProjectView[]> {
+  const records = await listProjectRecordsByOrg(input.organizationId);
   return records.map((record) => mapProject(record));
 }
 
-export async function getProject(input: { id: string }): Promise<GetProjectResult> {
-  const record = await getProjectById(input.id);
+export async function getProject(input: {
+  id: string;
+  organizationId: string;
+}): Promise<GetProjectResult> {
+  const record = await getProjectInOrg({
+    projectId: input.id,
+    organizationId: input.organizationId,
+  });
   if (!record) {
     return { ok: false, reason: "project_not_found" };
   }
@@ -138,6 +146,7 @@ export async function getProject(input: { id: string }): Promise<GetProjectResul
 }
 
 export async function createProject(input: {
+  organizationId: string;
   name: string;
   slug: string;
 }): Promise<CreateProjectResult> {
@@ -150,6 +159,7 @@ export async function createProject(input: {
 
   try {
     const created = await createProjectRecord({
+      organizationId: input.organizationId,
       name: input.name.trim(),
       slug,
     });
@@ -170,6 +180,7 @@ export async function createProject(input: {
 export async function createPostgresResource(
   input: {
     projectId: string;
+    organizationId: string;
     name: string;
   },
   log: RequestLogger,
@@ -178,7 +189,10 @@ export async function createPostgresResource(
     resource: { kind: "postgres", projectId: input.projectId, name: input.name },
   });
 
-  const project = await getProjectRecord(input.projectId);
+  const project = await getProjectInOrg({
+    projectId: input.projectId,
+    organizationId: input.organizationId,
+  });
   if (!project) {
     log.set({ resource: { outcome: "project_not_found" } });
     return { ok: false, reason: "project_not_found" };
@@ -284,8 +298,17 @@ export async function createPostgresResource(
 
 export async function getPostgresResource(input: {
   projectId: string;
+  organizationId: string;
   resourceId: string;
 }): Promise<GetPostgresResourceResult> {
+  const project = await getProjectInOrg({
+    projectId: input.projectId,
+    organizationId: input.organizationId,
+  });
+  if (!project) {
+    return { ok: false, reason: "resource_not_found" };
+  }
+
   const record = await getDatabaseResourceRecord(input.projectId, input.resourceId);
   if (!record) {
     return { ok: false, reason: "resource_not_found" };
@@ -299,8 +322,12 @@ export async function getPostgresResource(input: {
 
 export async function listPostgresResources(input: {
   projectId: string;
+  organizationId: string;
 }): Promise<ListPostgresResourcesResult> {
-  const project = await getProjectRecord(input.projectId);
+  const project = await getProjectInOrg({
+    projectId: input.projectId,
+    organizationId: input.organizationId,
+  });
   if (!project) {
     return { ok: false, reason: "project_not_found" };
   }
@@ -316,18 +343,27 @@ export async function listPostgresResources(input: {
 export async function deletePostgresResource(
   input: {
     projectId: string;
+    organizationId: string;
     resourceId: string;
   },
   log: RequestLogger,
 ): Promise<DeletePostgresResourceResult> {
+  const project = await getProjectInOrg({
+    projectId: input.projectId,
+    organizationId: input.organizationId,
+  });
+  if (!project) {
+    log.set({ resource: { outcome: "resource_not_found" } });
+    return { ok: false, reason: "resource_not_found" };
+  }
+
   const record = await getDatabaseResourceRecord(input.projectId, input.resourceId);
   if (!record) {
     log.set({ resource: { outcome: "resource_not_found" } });
     return { ok: false, reason: "resource_not_found" };
   }
 
-  const project = await getProjectRecord(input.projectId);
-  const projectSlug = project ? sanitizeProjectSlug(project.slug) : input.projectId;
+  const projectSlug = sanitizeProjectSlug(project.slug);
   const serviceName = buildContainerName({ projectSlug, resourceName: record.resource.name });
 
   log.set({
@@ -359,8 +395,12 @@ export async function deletePostgresResource(
 
 export async function listProjectProxyRoutes(input: {
   projectId: string;
+  organizationId: string;
 }): Promise<ListProxyRoutesResult> {
-  const project = await getProjectRecord(input.projectId);
+  const project = await getProjectInOrg({
+    projectId: input.projectId,
+    organizationId: input.organizationId,
+  });
   if (!project) {
     return { ok: false, reason: "project_not_found" };
   }

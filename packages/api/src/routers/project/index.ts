@@ -1,4 +1,4 @@
-import { publicProcedure } from "../..";
+import { orgScopedProcedure } from "../..";
 
 import {
   createProject,
@@ -12,36 +12,50 @@ import {
 } from "./service";
 
 export const projectRouter = {
-  get: publicProcedure.project.get.handler(async ({ input, errors }) => {
-    const result = await getProject(input);
+  get: orgScopedProcedure.project.get.handler(async ({ input, context, errors }) => {
+    const result = await getProject({
+      ...input,
+      organizationId: context.activeOrganizationId,
+    });
     if (!result.ok) {
       throw errors.NOT_FOUND();
     }
     return result.project;
   }),
-  list: publicProcedure.project.list.handler(async () => {
-    return listProjects();
+  list: orgScopedProcedure.project.list.handler(async ({ context }) => {
+    return listProjects({ organizationId: context.activeOrganizationId });
   }),
-  create: publicProcedure.project.create.handler(async ({ input, errors }) => {
-    const result = await createProject(input);
+  create: orgScopedProcedure.project.create.handler(async ({ input, context, errors }) => {
+    const result = await createProject({
+      ...input,
+      organizationId: context.activeOrganizationId,
+    });
     if (!result.ok) {
       throw errors.CONFLICT();
     }
     return result.project;
   }),
   proxyRoute: {
-    list: publicProcedure.project.proxyRoute.list.handler(async ({ input, errors }) => {
-      const result = await listProjectProxyRoutes(input);
-      if (!result.ok) {
-        throw errors.NOT_FOUND();
-      }
-      return result.routes;
-    }),
+    list: orgScopedProcedure.project.proxyRoute.list.handler(
+      async ({ input, context, errors }) => {
+        const result = await listProjectProxyRoutes({
+          ...input,
+          organizationId: context.activeOrganizationId,
+        });
+        if (!result.ok) {
+          throw errors.NOT_FOUND();
+        }
+        return result.routes;
+      },
+    ),
   },
   database: {
-    createPostgres: publicProcedure.project.database.createPostgres.handler(
+    createPostgres: orgScopedProcedure.project.database.createPostgres.handler(
       async ({ input, context, errors }) => {
-        const result = await createPostgresResource(input, context.log);
+        const result = await createPostgresResource(
+          { ...input, organizationId: context.activeOrganizationId },
+          context.log,
+        );
         if (!result.ok) {
           if (result.reason === "project_not_found") {
             throw errors.NOT_FOUND();
@@ -51,25 +65,36 @@ export const projectRouter = {
         return result.resource;
       },
     ),
-    listPostgres: publicProcedure.project.database.listPostgres.handler(
-      async ({ input, errors }) => {
-        const result = await listPostgresResources(input);
+    listPostgres: orgScopedProcedure.project.database.listPostgres.handler(
+      async ({ input, context, errors }) => {
+        const result = await listPostgresResources({
+          ...input,
+          organizationId: context.activeOrganizationId,
+        });
         if (!result.ok) {
           throw errors.NOT_FOUND();
         }
         return result.resources;
       },
     ),
-    getPostgres: publicProcedure.project.database.getPostgres.handler(async ({ input, errors }) => {
-      const result = await getPostgresResource(input);
-      if (!result.ok) {
-        throw errors.NOT_FOUND();
-      }
-      return result.resource;
-    }),
-    deletePostgres: publicProcedure.project.database.deletePostgres.handler(
+    getPostgres: orgScopedProcedure.project.database.getPostgres.handler(
       async ({ input, context, errors }) => {
-        const result = await deletePostgresResource(input, context.log);
+        const result = await getPostgresResource({
+          ...input,
+          organizationId: context.activeOrganizationId,
+        });
+        if (!result.ok) {
+          throw errors.NOT_FOUND();
+        }
+        return result.resource;
+      },
+    ),
+    deletePostgres: orgScopedProcedure.project.database.deletePostgres.handler(
+      async ({ input, context, errors }) => {
+        const result = await deletePostgresResource(
+          { ...input, organizationId: context.activeOrganizationId },
+          context.log,
+        );
         if (!result.ok) {
           throw errors.NOT_FOUND();
         }

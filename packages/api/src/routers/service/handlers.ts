@@ -9,7 +9,7 @@
 
 import type { RequestLogger } from "evlog";
 
-import { getProjectRecord } from "../../lib/queries/project";
+import { getProjectInOrg } from "../../lib/queries/project";
 
 import { reconcile } from "../../caddy";
 import {
@@ -133,8 +133,12 @@ type ServiceResult<T> = Ok<T> | Err<ServiceFailureReason, ResolveError | string>
 
 export async function listServices(input: {
   projectId: string;
+  organizationId: string;
 }): Promise<ServiceResult<ServiceView[]>> {
-  const project = await getProjectRecord(input.projectId);
+  const project = await getProjectInOrg({
+    projectId: input.projectId,
+    organizationId: input.organizationId,
+  });
   if (!project) return { ok: false, reason: "project_not_found" };
 
   const records = await listServiceRecordsByProject(input.projectId);
@@ -144,9 +148,13 @@ export async function listServices(input: {
 
 export async function getService(input: {
   projectId: string;
+  organizationId: string;
   resourceId: string;
 }): Promise<ServiceResult<ServiceView>> {
-  const project = await getProjectRecord(input.projectId);
+  const project = await getProjectInOrg({
+    projectId: input.projectId,
+    organizationId: input.organizationId,
+  });
   if (!project) return { ok: false, reason: "project_not_found" };
 
   const record = await getServiceRecord(input.projectId, input.resourceId);
@@ -157,6 +165,7 @@ export async function getService(input: {
 
 export type CreateServiceInput = {
   projectId: string;
+  organizationId: string;
   name: string;
   image: string;
   command?: string[] | null;
@@ -199,7 +208,10 @@ export async function createService(
 ): Promise<ServiceResult<ServiceView>> {
   log.set({ resource: { kind: "service", projectId: input.projectId, name: input.name } });
 
-  const project = await getProjectRecord(input.projectId);
+  const project = await getProjectInOrg({
+    projectId: input.projectId,
+    organizationId: input.organizationId,
+  });
   if (!project) return { ok: false, reason: "project_not_found" };
 
   const existing = await getServiceRecordByName(input.projectId, input.name);
@@ -281,6 +293,7 @@ export async function createService(
 
 export type UpdateServiceInput = {
   projectId: string;
+  organizationId: string;
   resourceId: string;
   image?: string;
   command?: string[] | null;
@@ -316,7 +329,10 @@ export async function updateService(
   input: UpdateServiceInput,
   log: RequestLogger,
 ): Promise<ServiceResult<ServiceView>> {
-  const project = await getProjectRecord(input.projectId);
+  const project = await getProjectInOrg({
+    projectId: input.projectId,
+    organizationId: input.organizationId,
+  });
   if (!project) return { ok: false, reason: "project_not_found" };
 
   const existing = await getServiceRecord(input.projectId, input.resourceId);
@@ -361,10 +377,13 @@ export async function updateService(
 }
 
 export async function deleteService(
-  input: { projectId: string; resourceId: string },
+  input: { projectId: string; organizationId: string; resourceId: string },
   log: RequestLogger,
 ): Promise<ServiceResult<{ ok: true }>> {
-  const project = await getProjectRecord(input.projectId);
+  const project = await getProjectInOrg({
+    projectId: input.projectId,
+    organizationId: input.organizationId,
+  });
   if (!project) return { ok: false, reason: "project_not_found" };
 
   const record = await getServiceRecord(input.projectId, input.resourceId);
@@ -391,10 +410,13 @@ export async function deleteService(
 }
 
 export async function restartService(
-  input: { projectId: string; resourceId: string },
+  input: { projectId: string; organizationId: string; resourceId: string },
   log: RequestLogger,
 ): Promise<ServiceResult<ServiceView>> {
-  const project = await getProjectRecord(input.projectId);
+  const project = await getProjectInOrg({
+    projectId: input.projectId,
+    organizationId: input.organizationId,
+  });
   if (!project) return { ok: false, reason: "project_not_found" };
 
   const existing = await getServiceRecord(input.projectId, input.resourceId);
@@ -414,10 +436,13 @@ export async function restartService(
 }
 
 export async function exposeService(
-  input: { projectId: string; resourceId: string },
+  input: { projectId: string; organizationId: string; resourceId: string },
   log: RequestLogger,
 ): Promise<ServiceResult<ServiceView>> {
-  const project = await getProjectRecord(input.projectId);
+  const project = await getProjectInOrg({
+    projectId: input.projectId,
+    organizationId: input.organizationId,
+  });
   if (!project) return { ok: false, reason: "project_not_found" };
 
   const record = await getServiceRecord(input.projectId, input.resourceId);
@@ -462,10 +487,13 @@ export async function exposeService(
 }
 
 export async function unexposeService(
-  input: { projectId: string; resourceId: string },
+  input: { projectId: string; organizationId: string; resourceId: string },
   log: RequestLogger,
 ): Promise<ServiceResult<ServiceView>> {
-  const project = await getProjectRecord(input.projectId);
+  const project = await getProjectInOrg({
+    projectId: input.projectId,
+    organizationId: input.organizationId,
+  });
   if (!project) return { ok: false, reason: "project_not_found" };
 
   const record = await getServiceRecord(input.projectId, input.resourceId);
@@ -485,18 +513,34 @@ export async function unexposeService(
 
 export async function listEnv(input: {
   projectId: string;
+  organizationId: string;
   resourceId: string;
 }): Promise<ServiceResult<EnvVarView[]>> {
+  const project = await getProjectInOrg({
+    projectId: input.projectId,
+    organizationId: input.organizationId,
+  });
+  if (!project) return { ok: false, reason: "project_not_found" };
+
   const record = await getServiceRecord(input.projectId, input.resourceId);
   if (!record) return { ok: false, reason: "service_not_found" };
   return { ok: true, value: record.env.map(mapEnvVar) };
 }
 
 export async function setEnv(
-  input: { projectId: string; resourceId: string; key: string; value: string },
+  input: {
+    projectId: string;
+    organizationId: string;
+    resourceId: string;
+    key: string;
+    value: string;
+  },
   log: RequestLogger,
 ): Promise<ServiceResult<EnvVarView>> {
-  const project = await getProjectRecord(input.projectId);
+  const project = await getProjectInOrg({
+    projectId: input.projectId,
+    organizationId: input.organizationId,
+  });
   if (!project) return { ok: false, reason: "project_not_found" };
 
   const record = await getServiceRecord(input.projectId, input.resourceId);
@@ -520,10 +564,13 @@ export async function setEnv(
 }
 
 export async function unsetEnv(
-  input: { projectId: string; resourceId: string; key: string },
+  input: { projectId: string; organizationId: string; resourceId: string; key: string },
   log: RequestLogger,
 ): Promise<ServiceResult<{ ok: true }>> {
-  const project = await getProjectRecord(input.projectId);
+  const project = await getProjectInOrg({
+    projectId: input.projectId,
+    organizationId: input.organizationId,
+  });
   if (!project) return { ok: false, reason: "project_not_found" };
 
   const record = await getServiceRecord(input.projectId, input.resourceId);
@@ -549,12 +596,16 @@ export async function unsetEnv(
 export async function bulkSetEnv(
   input: {
     projectId: string;
+    organizationId: string;
     resourceId: string;
     vars: Array<{ key: string; value: string }>;
   },
   log: RequestLogger,
 ): Promise<ServiceResult<EnvVarView[]>> {
-  const project = await getProjectRecord(input.projectId);
+  const project = await getProjectInOrg({
+    projectId: input.projectId,
+    organizationId: input.organizationId,
+  });
   if (!project) return { ok: false, reason: "project_not_found" };
 
   const record = await getServiceRecord(input.projectId, input.resourceId);

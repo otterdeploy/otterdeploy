@@ -10,6 +10,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { createId, ID_PREFIX } from "@otterstack/shared/id";
+import { organization } from "./auth";
 
 export const projectStatusEnum = pgEnum("project_status", ["draft", "valid", "invalid"]);
 
@@ -19,6 +20,9 @@ export const project = pgTable(
     id: text("id")
       .primaryKey()
       .$defaultFn(() => createId(ID_PREFIX.project)),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     slug: text("slug").notNull().unique(),
     environmentId: text("environment_id").notNull(),
@@ -28,7 +32,10 @@ export const project = pgTable(
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
   },
-  (table) => [index("project_slug_idx").on(table.slug)],
+  (table) => [
+    index("project_slug_idx").on(table.slug),
+    index("project_organization_id_idx").on(table.organizationId),
+  ],
 );
 
 export const environment = pgTable("environment", {

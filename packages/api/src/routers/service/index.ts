@@ -1,4 +1,4 @@
-import { publicProcedure } from "../..";
+import { orgScopedProcedure } from "../..";
 
 import {
   bulkSetEnv,
@@ -42,77 +42,115 @@ const mapErr = (
 };
 
 export const serviceRouter = {
-  list: publicProcedure.service.list.handler(async ({ input, errors }) => {
-    const result = await listServices(input);
+  list: orgScopedProcedure.service.list.handler(async ({ input, context, errors }) => {
+    const result = await listServices({
+      ...input,
+      organizationId: context.activeOrganizationId,
+    });
     if (!result.ok) throw mapErr(result, errors as Record<string, () => Error>);
     return result.value;
   }),
 
-  get: publicProcedure.service.get.handler(async ({ input, errors }) => {
-    const result = await getService(input);
+  get: orgScopedProcedure.service.get.handler(async ({ input, context, errors }) => {
+    const result = await getService({
+      ...input,
+      organizationId: context.activeOrganizationId,
+    });
     if (!result.ok) throw mapErr(result, errors as Record<string, () => Error>);
     return result.value;
   }),
 
-  create: publicProcedure.service.create.handler(async ({ input, context, errors }) => {
-    const result = await createService(input, context.log);
+  create: orgScopedProcedure.service.create.handler(async ({ input, context, errors }) => {
+    const result = await createService(
+      { ...input, organizationId: context.activeOrganizationId },
+      context.log,
+    );
     if (!result.ok) throw mapErr(result, errors as Record<string, () => Error>);
     return result.value;
   }),
 
-  update: publicProcedure.service.update.handler(async ({ input, context, errors }) => {
-    const result = await updateService(input, context.log);
+  update: orgScopedProcedure.service.update.handler(async ({ input, context, errors }) => {
+    const result = await updateService(
+      { ...input, organizationId: context.activeOrganizationId },
+      context.log,
+    );
     if (!result.ok) throw mapErr(result, errors as Record<string, () => Error>);
     return result.value;
   }),
 
-  delete: publicProcedure.service.delete.handler(async ({ input, context, errors }) => {
-    const result = await deleteService(input, context.log);
+  delete: orgScopedProcedure.service.delete.handler(async ({ input, context, errors }) => {
+    const result = await deleteService(
+      { ...input, organizationId: context.activeOrganizationId },
+      context.log,
+    );
     if (!result.ok) throw mapErr(result, errors as Record<string, () => Error>);
     return result.value;
   }),
 
-  restart: publicProcedure.service.restart.handler(async ({ input, context, errors }) => {
-    const result = await restartService(input, context.log);
+  restart: orgScopedProcedure.service.restart.handler(async ({ input, context, errors }) => {
+    const result = await restartService(
+      { ...input, organizationId: context.activeOrganizationId },
+      context.log,
+    );
     if (!result.ok) throw mapErr(result, errors as Record<string, () => Error>);
     return result.value;
   }),
 
-  expose: publicProcedure.service.expose.handler(async ({ input, context, errors }) => {
-    const result = await exposeService(input, context.log);
+  expose: orgScopedProcedure.service.expose.handler(async ({ input, context, errors }) => {
+    const result = await exposeService(
+      { ...input, organizationId: context.activeOrganizationId },
+      context.log,
+    );
     if (!result.ok) throw mapErr(result, errors as Record<string, () => Error>);
     return result.value;
   }),
 
-  unexpose: publicProcedure.service.unexpose.handler(async ({ input, context, errors }) => {
-    const result = await unexposeService(input, context.log);
+  unexpose: orgScopedProcedure.service.unexpose.handler(async ({ input, context, errors }) => {
+    const result = await unexposeService(
+      { ...input, organizationId: context.activeOrganizationId },
+      context.log,
+    );
     if (!result.ok) throw mapErr(result, errors as Record<string, () => Error>);
     return result.value;
   }),
 
   env: {
-    list: publicProcedure.service.env.list.handler(async ({ input, errors }) => {
-      const result = await listEnv(input);
+    list: orgScopedProcedure.service.env.list.handler(async ({ input, context, errors }) => {
+      const result = await listEnv({
+        ...input,
+        organizationId: context.activeOrganizationId,
+      });
       if (!result.ok) throw mapErr(result, errors as Record<string, () => Error>);
       return result.value;
     }),
 
-    set: publicProcedure.service.env.set.handler(async ({ input, context, errors }) => {
-      const result = await setEnv(input, context.log);
+    set: orgScopedProcedure.service.env.set.handler(async ({ input, context, errors }) => {
+      const result = await setEnv(
+        { ...input, organizationId: context.activeOrganizationId },
+        context.log,
+      );
       if (!result.ok) throw mapErr(result, errors as Record<string, () => Error>);
       return result.value;
     }),
 
-    unset: publicProcedure.service.env.unset.handler(async ({ input, context, errors }) => {
-      const result = await unsetEnv(input, context.log);
+    unset: orgScopedProcedure.service.env.unset.handler(async ({ input, context, errors }) => {
+      const result = await unsetEnv(
+        { ...input, organizationId: context.activeOrganizationId },
+        context.log,
+      );
       if (!result.ok) throw mapErr(result, errors as Record<string, () => Error>);
       return result.value;
     }),
 
-    bulkSet: publicProcedure.service.env.bulkSet.handler(async ({ input, context, errors }) => {
-      const result = await bulkSetEnv(input, context.log);
-      if (!result.ok) throw mapErr(result, errors as Record<string, () => Error>);
-      return result.value;
-    }),
+    bulkSet: orgScopedProcedure.service.env.bulkSet.handler(
+      async ({ input, context, errors }) => {
+        const result = await bulkSetEnv(
+          { ...input, organizationId: context.activeOrganizationId },
+          context.log,
+        );
+        if (!result.ok) throw mapErr(result, errors as Record<string, () => Error>);
+        return result.value;
+      },
+    ),
   },
 };

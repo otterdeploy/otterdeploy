@@ -1,11 +1,36 @@
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 
 import { db } from "@otterstack/db";
 import { environment, project } from "@otterstack/db/schema/project";
 import { createId, ID_PREFIX } from "@otterstack/shared/id";
 
-export async function listProjectRecords() {
-  return db.select().from(project).orderBy(asc(project.createdAt), asc(project.name));
+export async function listProjectRecordsByOrg(organizationId: string) {
+  return db
+    .select()
+    .from(project)
+    .where(eq(project.organizationId, organizationId))
+    .orderBy(asc(project.createdAt), asc(project.name));
+}
+
+/**
+ * Loads a project by id and verifies it belongs to the given organization.
+ * Returns undefined if no project exists or it belongs to a different org.
+ */
+export async function getProjectInOrg(input: {
+  projectId: string;
+  organizationId: string;
+}) {
+  const [record] = await db
+    .select()
+    .from(project)
+    .where(
+      and(
+        eq(project.id, input.projectId),
+        eq(project.organizationId, input.organizationId),
+      ),
+    )
+    .limit(1);
+  return record;
 }
 
 export async function getProjectById(projectId: string) {
@@ -29,7 +54,11 @@ export async function getProjectBySlug(slug: string) {
   return record;
 }
 
-export async function createProjectRecord(input: { name: string; slug: string }) {
+export async function createProjectRecord(input: {
+  organizationId: string;
+  name: string;
+  slug: string;
+}) {
   return db.transaction(async (tx) => {
     const projectId = createId(ID_PREFIX.project);
     const environmentId = createId(ID_PREFIX.environment);
@@ -38,6 +67,7 @@ export async function createProjectRecord(input: { name: string; slug: string })
       .insert(project)
       .values({
         id: projectId,
+        organizationId: input.organizationId,
         name: input.name,
         slug: input.slug,
         environmentId,

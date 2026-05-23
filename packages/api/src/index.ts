@@ -33,3 +33,33 @@ const authMiddleware = orpc
   });
 
 export const protectedProcedure = publicProcedure.use(authMiddleware);
+
+/**
+ * Procedure that requires both authentication AND an active organization.
+ * Handlers receive `context.activeOrganizationId` narrowed to `string`.
+ */
+const orgScopedMiddleware = orpc
+  .$context<Context>()
+  .errors({
+    UNAUTHORIZED: { message: "Unauthorized" },
+    NO_ACTIVE_ORGANIZATION: {
+      status: 400,
+      message: "No active organization. Set one before calling this endpoint.",
+    },
+  })
+  .middleware(async ({ context, next, errors }) => {
+    if (!context.session?.user) {
+      throw errors.UNAUTHORIZED();
+    }
+    if (!context.activeOrganizationId) {
+      throw errors.NO_ACTIVE_ORGANIZATION();
+    }
+    return next({
+      context: {
+        session: context.session,
+        activeOrganizationId: context.activeOrganizationId,
+      },
+    });
+  });
+
+export const orgScopedProcedure = publicProcedure.use(orgScopedMiddleware);
