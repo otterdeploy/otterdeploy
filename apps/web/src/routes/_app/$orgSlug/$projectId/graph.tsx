@@ -15,7 +15,7 @@ import {
   type ResourceNodeData,
 } from "@/features/projects/components/graph/resource-node";
 
-export const Route = createFileRoute("/_app/$workspaceId/$projectId/graph")({
+export const Route = createFileRoute("/_app/$orgSlug/$projectId/graph")({
   component: RouteComponent,
   staticData: { crumb: "Graph" },
 });

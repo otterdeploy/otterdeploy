@@ -8,17 +8,19 @@ import { SidebarInset } from "@/shared/components/ui/sidebar";
 const zProjectId = z.object({ projectId: zId(ID_PREFIX.project) });
 const zEnvSearch = z.object({ env: z.string().optional() });
 
-export const Route = createFileRoute("/_app/$workspaceId/$projectId")({
+export const Route = createFileRoute("/_app/$orgSlug/$projectId")({
   component: RouteComponent,
   validateSearch: zEnvSearch,
   params: {
     parse: ({ projectId }) => zProjectId.parse({ projectId }),
   },
   loader: ({ context, params }) => {
-    const workspace = context.workspaces.find(
-      (w) => w.id === params.workspaceId,
+    const organization = context.organizations.find(
+      (o) => o.slug === params.orgSlug,
     );
-    const project = workspace?.projects.find((p) => p.id === params.projectId);
+    const project = organization?.projects.find(
+      (p) => p.id === params.projectId,
+    );
     if (!project) throw notFound();
     return { crumb: project.name, project };
   },

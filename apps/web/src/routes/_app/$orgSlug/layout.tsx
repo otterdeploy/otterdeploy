@@ -1,9 +1,8 @@
-import { WorkspaceSidebar } from "@/features/shell/components/sidebar";
+import { OrganizationSidebar } from "@/features/shell/components/sidebar";
 
 import { SiteHeader } from "@/features/shell/components/site-header";
 
 import { SidebarInset, SidebarProvider } from "@/shared/components/ui/sidebar";
-import { ID_PREFIX, zId } from "@otterstack/shared/id";
 import {
   createFileRoute,
   notFound,
@@ -12,26 +11,32 @@ import {
 } from "@tanstack/react-router";
 import * as z from "zod";
 
-const zWorkspaceId = z.object({ workspaceId: zId(ID_PREFIX.workspace) });
+const zOrgSlug = z.object({
+  orgSlug: z
+    .string()
+    .min(2)
+    .max(48)
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+});
 
-export const Route = createFileRoute("/_app/$workspaceId")({
+export const Route = createFileRoute("/_app/$orgSlug")({
   component: RouteComponent,
   params: {
-    parse: ({ workspaceId }) => zWorkspaceId.parse({ workspaceId }),
+    parse: ({ orgSlug }) => zOrgSlug.parse({ orgSlug }),
   },
   loader: ({ context, params }) => {
-    const workspace = context.workspaces.find(
-      (w) => w.id === params.workspaceId,
+    const organization = context.organizations.find(
+      (o) => o.slug === params.orgSlug,
     );
-    if (!workspace) throw notFound();
-    return { crumb: workspace.name, workspace };
+    if (!organization) throw notFound();
+    return { crumb: organization.name, organization };
   },
 });
 
 function RouteComponent() {
   const { user } = Route.useRouteContext();
   const match = useMatch({
-    from: "/_app/$workspaceId/$projectId",
+    from: "/_app/$orgSlug/$projectId",
     shouldThrow: false,
   });
 
@@ -42,7 +47,7 @@ function RouteComponent() {
         <div className="flex flex-1">
           {!match ? (
             <>
-              <WorkspaceSidebar collapsible="icon" user={user} />
+              <OrganizationSidebar collapsible="icon" user={user} />
               <SidebarInset>
                 <Outlet />
               </SidebarInset>

@@ -1,16 +1,16 @@
 import { createFileRoute, Link, useLoaderData } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/_app/$workspaceId/$projectId/")({
+export const Route = createFileRoute("/_app/$orgSlug/$projectId/")({
   staticData: { crumb: "Overview" },
   component: RouteComponent,
 });
 
 function RouteComponent() {
-  const { workspace } = useLoaderData({
-    from: "/_app/$workspaceId",
+  const { organization } = useLoaderData({
+    from: "/_app/$orgSlug",
   });
   const { project } = useLoaderData({
-    from: "/_app/$workspaceId/$projectId",
+    from: "/_app/$orgSlug/$projectId",
   });
 
   return (
@@ -19,8 +19,8 @@ function RouteComponent() {
       <p className="text-muted-foreground">Project overview / control plane.</p>
 
       <Link
-        params={{ workspaceId: workspace.id, projectId: project.id }}
-        to="/$workspaceId/$projectId/graph"
+        params={{ orgSlug: organization.slug, projectId: project.id }}
+        to="/$orgSlug/$projectId/graph"
       >
         <button>Go to {project.name}</button>
       </Link>
