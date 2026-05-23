@@ -23,6 +23,10 @@
       "passwordPlaceholder": "Your password",
       "forgotPassword": "Forgot password?",
       "submit": "Sign in",
+      "signingIn": "Signing in…",
+      "welcomeBack": "Welcome back",
+      "invalidEmail": "Please enter a valid email",
+      "passwordMinLength": "Password must be at least 8 characters",
       "noAccount": "Don't have an account?",
       "createAccount": "Create one"
     },
@@ -36,6 +40,9 @@
       "passwordLabel": "Password",
       "passwordPlaceholder": "Choose a strong password",
       "submit": "Create account",
+      "creatingAccount": "Creating account…",
+      "accountCreated": "Account created",
+      "nameMinLength": "Name must be at least 2 characters",
       "hasAccount": "Already have an account?",
       "signIn": "Sign in"
     },

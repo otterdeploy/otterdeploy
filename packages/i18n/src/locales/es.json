@@ -23,6 +23,10 @@
       "passwordPlaceholder": "Tu contraseña",
       "forgotPassword": "¿Olvidaste tu contraseña?",
       "submit": "Iniciar sesión",
+      "signingIn": "Iniciando sesión…",
+      "welcomeBack": "Bienvenido de nuevo",
+      "invalidEmail": "Introduce un correo electrónico válido",
+      "passwordMinLength": "La contraseña debe tener al menos 8 caracteres",
       "noAccount": "¿No tienes una cuenta?",
       "createAccount": "Crea una"
     },
@@ -36,6 +40,9 @@
       "passwordLabel": "Contraseña",
       "passwordPlaceholder": "Elige una contraseña segura",
       "submit": "Crear cuenta",
+      "creatingAccount": "Creando cuenta…",
+      "accountCreated": "Cuenta creada",
+      "nameMinLength": "El nombre debe tener al menos 2 caracteres",
       "hasAccount": "¿Ya tienes una cuenta?",
       "signIn": "Iniciar sesión"
     },
