@@ -26,21 +26,21 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { NavUser, type User } from "../nav/nav-user";
 import { StatusDot, type NavItem, type Status } from "./index";
 
-const workspace = [
-  { titleKey: "nav.projects", href: "/$workspaceId", icon: Home01Icon },
+const navItems = [
+  { titleKey: "nav.projects", href: "/$orgSlug", icon: Home01Icon },
   {
     titleKey: "nav.servers",
-    href: "/$workspaceId/servers",
+    href: "/$orgSlug/servers",
     icon: ServerStack01Icon,
     badge: "3",
   },
   {
     titleKey: "nav.networking",
-    href: "/$workspaceId/networking",
+    href: "/$orgSlug/networking",
     icon: EarthIcon,
   },
-  { titleKey: "nav.terminal", href: "/$workspaceId/terminal", icon: FlashIcon },
-  { titleKey: "nav.settings", href: "/$workspaceId/settings", icon: Sun03Icon },
+  { titleKey: "nav.terminal", href: "/$orgSlug/terminal", icon: FlashIcon },
+  { titleKey: "nav.settings", href: "/$orgSlug/settings", icon: Sun03Icon },
 ] as const satisfies ReadonlyArray<NavItem>;
 
 const region = {
@@ -49,7 +49,7 @@ const region = {
   status: "ok" as Status,
 };
 
-export function WorkspaceSidebar({
+export function OrganizationSidebar({
   user,
   ...props
 }: React.ComponentProps<typeof Sidebar> & { user: User }) {
@@ -65,7 +65,7 @@ export function WorkspaceSidebar({
             {t("nav.workspace")}
           </SidebarGroupLabel>
           <SidebarMenu className="gap-2">
-            {workspace.map((item) => (
+            {navItems.map((item) => (
               <SidebarMenuItem key={item.titleKey}>
                 <SidebarMenuButton render={<Link to={item.href} />}>
                   <HugeiconsIcon icon={item.icon} strokeWidth={2} />

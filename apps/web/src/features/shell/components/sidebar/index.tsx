@@ -1,7 +1,7 @@
 import type { Rocket01Icon } from "@hugeicons/core-free-icons";
 import type { LinkProps } from "@tanstack/react-router";
 
-export { WorkspaceSidebar } from "./workspace-sidebar";
+export { OrganizationSidebar } from "./organization-sidebar";
 export { ProjectSidebar } from "./project-sidebar";
 
 export type RoutePath = LinkProps["to"];

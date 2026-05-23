@@ -36,57 +36,57 @@ import { EnvironmentSelector } from "./environment-selector";
 import { StatusDot, type NavItem, type Status } from "./index";
 
 const navItems = [
-  { titleKey: "nav.overview", href: "/$workspaceId/$projectId", icon: Home01Icon },
-  { titleKey: "nav.graph", href: "/$workspaceId/$projectId/graph", icon: Share08Icon },
+  { titleKey: "nav.overview", href: "/$orgSlug/$projectId", icon: Home01Icon },
+  { titleKey: "nav.graph", href: "/$orgSlug/$projectId/graph", icon: Share08Icon },
   {
     titleKey: "nav.deployments",
-    href: "/$workspaceId/$projectId/deployments",
+    href: "/$orgSlug/$projectId/deployments",
     icon: Rocket01Icon,
     badge: "7",
     active: true,
   },
   {
     titleKey: "nav.logs",
-    href: "/$workspaceId/$projectId/logs",
+    href: "/$orgSlug/$projectId/logs",
     icon: TextAlignLeft01Icon,
   },
   {
     titleKey: "nav.metrics",
-    href: "/$workspaceId/$projectId/metrics",
+    href: "/$orgSlug/$projectId/metrics",
     icon: ChartHistogramIcon,
   },
   {
     titleKey: "nav.variables",
-    href: "/$workspaceId/$projectId/variables",
+    href: "/$orgSlug/$projectId/variables",
     icon: VariableIcon,
   },
   {
     titleKey: "nav.networking",
-    href: "/$workspaceId/$projectId/networking",
+    href: "/$orgSlug/$projectId/networking",
     icon: EarthIcon,
   },
   {
     titleKey: "nav.servers",
-    href: "/$workspaceId/$projectId/servers",
+    href: "/$orgSlug/$projectId/servers",
     icon: ServerStack01Icon,
     badge: "3",
   },
   {
     titleKey: "nav.terminal",
-    href: "/$workspaceId/$projectId/terminal",
+    href: "/$orgSlug/$projectId/terminal",
     icon: FlashIcon,
   },
   {
     titleKey: "nav.settings",
-    href: "/$workspaceId/$projectId/settings",
+    href: "/$orgSlug/$projectId/settings",
     icon: Sun03Icon,
   },
 ] as const satisfies ReadonlyArray<NavItem>;
 
 const services = [
-  { name: "web", status: "ok", href: "/$workspaceId/services/web" },
-  { name: "api", status: "ok", href: "/$workspaceId/services/api" },
-  { name: "worker", status: "warn", href: "/$workspaceId/services/worker  " },
+  { name: "web", status: "ok", href: "/$orgSlug/services/web" },
+  { name: "api", status: "ok", href: "/$orgSlug/services/api" },
+  { name: "worker", status: "warn", href: "/$orgSlug/services/worker  " },
   { name: "postgres", status: "ok" },
   { name: "redis", status: "ok" },
   { name: "imgproxy", status: "ok" },
