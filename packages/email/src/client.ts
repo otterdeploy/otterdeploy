@@ -1,4 +1,5 @@
 import { env } from "@otterstack/env/server";
+import { createError, log } from "evlog";
 import { Resend } from "resend";
 
 // Initialize Resend client
@@ -23,27 +24,27 @@ export async function sendEmail(options: SendEmailOptions) {
 
   const fromAddress = from || env.RESEND_FROM_EMAIL;
 
-  try {
-    const { data, error } = await resend.emails.send({
-      from: fromAddress,
-      to: Array.isArray(to) ? to : [to],
-      subject,
-      html,
-      text,
-      react,
-      replyTo,
+  const { data, error } = await resend.emails.send({
+    from: fromAddress,
+    to: Array.isArray(to) ? to : [to],
+    subject,
+    html,
+    text,
+    react,
+    replyTo,
+  });
+
+  if (error) {
+    log.error(error);
+    throw createError({
+      message: "Failed to send email",
+      status: 502,
+      why: error.message,
+      cause: error,
     });
-
-    if (error) {
-      console.error("Failed to send email:", error);
-      throw new Error(`Failed to send email: ${error.message}`);
-    }
-
-    return { success: true, data };
-  } catch (error) {
-    console.error("Email sending error:", error);
-    throw error;
   }
+
+  return { success: true, data };
 }
 
 /**

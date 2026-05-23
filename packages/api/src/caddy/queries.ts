@@ -1,8 +1,14 @@
 import { asc, eq } from "drizzle-orm";
 import type { InferSelectModel } from "drizzle-orm";
+import { createError } from "evlog";
 
 import { db } from "@otterstack/db";
 import { proxyRoute } from "@otterstack/db/schema/proxy-route";
+import { type Id, ID_PREFIX } from "@otterstack/shared/id";
+
+type ProjectId = Id<typeof ID_PREFIX.project>;
+type ResourceId = Id<typeof ID_PREFIX.resource>;
+type ProxyRouteId = Id<typeof ID_PREFIX.proxyRoute>;
 
 export type ProxyRouteRecord = InferSelectModel<typeof proxyRoute>;
 
@@ -14,7 +20,7 @@ export async function listEnabledProxyRoutes(): Promise<ProxyRouteRecord[]> {
     .orderBy(asc(proxyRoute.projectId), asc(proxyRoute.domain));
 }
 
-export async function listProxyRoutesByProject(projectId: string): Promise<ProxyRouteRecord[]> {
+export async function listProxyRoutesByProject(projectId: ProjectId): Promise<ProxyRouteRecord[]> {
   return db
     .select()
     .from(proxyRoute)
@@ -31,7 +37,7 @@ export async function getProxyRouteByDomain(domain: string): Promise<ProxyRouteR
   return record;
 }
 
-export async function getProxyRouteByResourceId(resourceId: string): Promise<ProxyRouteRecord | undefined> {
+export async function getProxyRouteByResourceId(resourceId: ResourceId): Promise<ProxyRouteRecord | undefined> {
   const [record] = await db
     .select()
     .from(proxyRoute)
@@ -41,8 +47,8 @@ export async function getProxyRouteByResourceId(resourceId: string): Promise<Pro
 }
 
 export async function insertProxyRoute(input: {
-  projectId: string;
-  resourceId?: string;
+  projectId: ProjectId;
+  resourceId?: ResourceId;
   type: "http" | "layer4";
   domain: string;
   upstreamHost: string;
@@ -65,14 +71,18 @@ export async function insertProxyRoute(input: {
     .returning();
 
   if (!record) {
-    throw new Error("Failed to insert proxy route.");
+    throw createError({
+      message: "Failed to insert proxy route",
+      status: 500,
+      why: "Database insert returned no row for the proxy route",
+    });
   }
 
   return record;
 }
 
 export async function updateProxyRoute(
-  id: string,
+  id: ProxyRouteId,
   input: Partial<{
     upstreamHost: string;
     upstreamPort: number;
@@ -88,10 +98,10 @@ export async function updateProxyRoute(
   return record;
 }
 
-export async function deleteProxyRoute(id: string): Promise<void> {
+export async function deleteProxyRoute(id: ProxyRouteId): Promise<void> {
   await db.delete(proxyRoute).where(eq(proxyRoute.id, id));
 }
 
-export async function deleteProxyRoutesByResource(resourceId: string): Promise<void> {
+export async function deleteProxyRoutesByResource(resourceId: ResourceId): Promise<void> {
   await db.delete(proxyRoute).where(eq(proxyRoute.resourceId, resourceId));
 }

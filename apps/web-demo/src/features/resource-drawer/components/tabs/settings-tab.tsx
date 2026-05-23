@@ -26,7 +26,7 @@ export function SettingsTab({ projectId, resourceId, name, onDeleted }: Props) {
 
   const deleteMutation = useMutation({
     mutationFn: () =>
-      client.project.database.deletePostgres({ projectId, resourceId }),
+      client.project.database.postgres.delete({ projectId, resourceId }),
     onSuccess: () => {
       setConfirmOpen(false);
       onDeleted();

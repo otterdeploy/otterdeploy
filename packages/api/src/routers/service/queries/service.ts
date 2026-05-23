@@ -1,4 +1,5 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
+import { createError } from "evlog";
 
 import { db } from "@otterstack/db";
 import {
@@ -75,15 +76,24 @@ export async function listServiceRecordsByProject(
   if (rows.length === 0) return [];
 
   const ids = rows.map((r) => r.service.resourceId);
-  const [allPorts, allEnv]: [ServicePortRow[], ServiceEnvVarRow[]] = await Promise.all([
-    db.select().from(servicePort).where(inArray(servicePort.serviceResourceId, ids)),
-    db.select().from(serviceEnvVar).where(inArray(serviceEnvVar.serviceResourceId, ids)),
-  ]);
+  const [allPorts, allEnv]: [ServicePortRow[], ServiceEnvVarRow[]] =
+    await Promise.all([
+      db
+        .select()
+        .from(servicePort)
+        .where(inArray(servicePort.serviceResourceId, ids)),
+      db
+        .select()
+        .from(serviceEnvVar)
+        .where(inArray(serviceEnvVar.serviceResourceId, ids)),
+    ]);
 
   return rows.map((row) => ({
     resource: row.resource,
     service: row.service,
-    ports: allPorts.filter((p) => p.serviceResourceId === row.service.resourceId),
+    ports: allPorts.filter(
+      (p) => p.serviceResourceId === row.service.resourceId,
+    ),
     env: allEnv.filter((e) => e.serviceResourceId === row.service.resourceId),
   }));
 }
@@ -144,7 +154,13 @@ export async function createServiceRecord(
         status: input.status ?? "draft",
       })
       .returning();
-    if (!createdResource) throw new Error("Failed to create service resource row.");
+    if (!createdResource) {
+      throw createError({
+        message: "Failed to create service resource row",
+        status: 500,
+        why: "Database insert returned no row for the service resource",
+      });
+    }
 
     const [createdService] = await tx
       .insert(serviceResource)
@@ -175,35 +191,40 @@ export async function createServiceRecord(
         networkName: input.networkName,
       })
       .returning();
-    if (!createdService) throw new Error("Failed to create service_resource sidecar row.");
+    if (!createdService) {
+      throw createError({
+        message: "Failed to create service_resource sidecar row",
+        status: 500,
+        why: "Database insert returned no row for the service_resource sidecar",
+      });
+    }
 
-    const ports = input.ports.length === 0
-      ? []
-      : await tx
-          .insert(servicePort)
-          .values(
-            input.ports.map((p) => ({
-              serviceResourceId: createdService.resourceId,
-              containerPort: p.containerPort,
-              protocol: p.protocol ?? "tcp",
-              appProtocol: p.appProtocol ?? "http",
-              isPrimary: p.isPrimary ?? false,
-            })),
-          )
-          .returning();
+    const ports = await tx
+      .insert(servicePort)
+      .values(
+        input.ports.map((p) => ({
+          serviceResourceId: createdService.resourceId,
+          containerPort: p.containerPort,
+          protocol: p.protocol ?? "tcp",
+          appProtocol: p.appProtocol ?? "http",
+          isPrimary: p.isPrimary ?? false,
+        })),
+      )
+      .returning();
 
-    const env = !input.env || input.env.length === 0
-      ? []
-      : await tx
-          .insert(serviceEnvVar)
-          .values(
-            input.env.map((e) => ({
-              serviceResourceId: createdService.resourceId,
-              key: e.key,
-              value: e.value,
-            })),
-          )
-          .returning();
+    const env =
+      !input.env || input.env.length === 0
+        ? []
+        : await tx
+            .insert(serviceEnvVar)
+            .values(
+              input.env.map((e) => ({
+                serviceResourceId: createdService.resourceId,
+                key: e.key,
+                value: e.value,
+              })),
+            )
+            .returning();
 
     return { resource: createdResource, service: createdService, ports, env };
   });
@@ -223,16 +244,26 @@ export async function updateServiceRecord(
     .update(serviceResource)
     .set({
       ...(input.image !== undefined ? { image: input.image } : {}),
-      ...(input.imageDigest !== undefined ? { imageDigest: input.imageDigest } : {}),
+      ...(input.imageDigest !== undefined
+        ? { imageDigest: input.imageDigest }
+        : {}),
       ...(input.command !== undefined ? { command: input.command } : {}),
-      ...(input.entrypoint !== undefined ? { entrypoint: input.entrypoint } : {}),
+      ...(input.entrypoint !== undefined
+        ? { entrypoint: input.entrypoint }
+        : {}),
       ...(input.replicas !== undefined ? { replicas: input.replicas } : {}),
-      ...(input.restartCondition !== undefined ? { restartCondition: input.restartCondition } : {}),
+      ...(input.restartCondition !== undefined
+        ? { restartCondition: input.restartCondition }
+        : {}),
       ...(input.restartMaxAttempts !== undefined
         ? { restartMaxAttempts: input.restartMaxAttempts }
         : {}),
-      ...(input.restartDelayMs !== undefined ? { restartDelayMs: input.restartDelayMs } : {}),
-      ...(input.healthcheckCmd !== undefined ? { healthcheckCmd: input.healthcheckCmd } : {}),
+      ...(input.restartDelayMs !== undefined
+        ? { restartDelayMs: input.restartDelayMs }
+        : {}),
+      ...(input.healthcheckCmd !== undefined
+        ? { healthcheckCmd: input.healthcheckCmd }
+        : {}),
       ...(input.healthcheckIntervalMs !== undefined
         ? { healthcheckIntervalMs: input.healthcheckIntervalMs }
         : {}),
@@ -246,8 +277,12 @@ export async function updateServiceRecord(
         ? { healthcheckStartMs: input.healthcheckStartMs }
         : {}),
       ...(input.cpuLimit !== undefined ? { cpuLimit: input.cpuLimit } : {}),
-      ...(input.memoryLimitMb !== undefined ? { memoryLimitMb: input.memoryLimitMb } : {}),
-      ...(input.cpuReservation !== undefined ? { cpuReservation: input.cpuReservation } : {}),
+      ...(input.memoryLimitMb !== undefined
+        ? { memoryLimitMb: input.memoryLimitMb }
+        : {}),
+      ...(input.cpuReservation !== undefined
+        ? { cpuReservation: input.cpuReservation }
+        : {}),
       ...(input.memoryReservationMb !== undefined
         ? { memoryReservationMb: input.memoryReservationMb }
         : {}),
@@ -293,6 +328,8 @@ export async function setPublicExposure(input: {
   return updated;
 }
 
-export async function deleteServiceRecord(resourceId: ResourceId): Promise<void> {
+export async function deleteServiceRecord(
+  resourceId: ResourceId,
+): Promise<void> {
   await db.delete(resource).where(eq(resource.id, resourceId));
 }

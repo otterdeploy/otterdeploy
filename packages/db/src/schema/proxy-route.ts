@@ -1,5 +1,5 @@
 import { boolean, index, integer, pgEnum, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
-import { createId, ID_PREFIX } from "@otterstack/shared/id";
+import { createId, ID_PREFIX, type Id } from "@otterstack/shared/id";
 import { project } from "./project";
 
 export const proxyRouteTypeEnum = pgEnum("proxy_route_type", ["http", "layer4"]);
@@ -10,11 +10,13 @@ export const proxyRoute = pgTable(
   {
     id: text("id")
       .primaryKey()
+      .$type<Id<typeof ID_PREFIX.proxyRoute>>()
       .$defaultFn(() => createId(ID_PREFIX.proxyRoute)),
     projectId: text("project_id")
       .notNull()
-      .references(() => project.id),
-    resourceId: text("resource_id"),
+      .$type<Id<typeof ID_PREFIX.project>>()
+      .references(() => project.id, { onDelete: "cascade" }),
+    resourceId: text("resource_id").$type<Id<typeof ID_PREFIX.resource>>(),
     type: proxyRouteTypeEnum("type").notNull(),
     domain: text("domain").notNull(),
     upstreamHost: text("upstream_host").notNull(),

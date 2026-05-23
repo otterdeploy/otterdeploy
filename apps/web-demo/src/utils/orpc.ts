@@ -21,7 +21,7 @@ type Project = Awaited<ReturnType<AppRouterClient["project"]["get"]>>;
 type Database = Awaited<ReturnType<AppRouterClient["project"]["database"]["listPostgres"]>>[number];
 type ProxyRoute = Awaited<ReturnType<AppRouterClient["project"]["proxyRoute"]["list"]>>[number];
 
-const now = "2026-05-01T00:00:00Z";
+const now = new Date("2026-05-01T00:00:00Z");
 
 const mockProjects: Project[] = [
   {
@@ -159,8 +159,8 @@ const mockClient = {
         name,
         slug,
         environmentId: `env_${id}`,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
       } as Project;
       mockProjects.push(created);
       mockDatabasesByProject[id] = [];
@@ -168,13 +168,15 @@ const mockClient = {
       return delay(created);
     },
     database: {
-      listPostgres: ({ projectId }: { projectId: string }) => delay([...(mockDatabasesByProject[projectId] ?? [])]),
-      getPostgres: ({ projectId, resourceId }: { projectId: string; resourceId: string }) =>
-        delay(findDatabase(projectId, resourceId)),
-      deletePostgres: ({ projectId, resourceId }: { projectId: string; resourceId: string }) => {
-        const list = mockDatabasesByProject[projectId] ?? [];
-        mockDatabasesByProject[projectId] = list.filter((d) => d.resourceId !== resourceId);
-        return delay({ ok: true } as Awaited<ReturnType<AppRouterClient["project"]["database"]["deletePostgres"]>>);
+      postgres: {
+        list: ({ projectId }: { projectId: string }) => delay([...(mockDatabasesByProject[projectId] ?? [])]),
+        get: ({ projectId, resourceId }: { projectId: string; resourceId: string }) =>
+          delay(findDatabase(projectId, resourceId)),
+        delete: ({ projectId, resourceId }: { projectId: string; resourceId: string }) => {
+          const list = mockDatabasesByProject[projectId] ?? [];
+          mockDatabasesByProject[projectId] = list.filter((d) => d.resourceId !== resourceId);
+          return delay({ ok: true } as Awaited<ReturnType<AppRouterClient["project"]["database"]["postgres"]["delete"]>>);
+        },
       },
     },
     proxyRoute: {

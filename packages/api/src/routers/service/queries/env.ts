@@ -1,4 +1,5 @@
 import { and, eq, like } from "drizzle-orm";
+import { createError } from "evlog";
 
 import { db } from "@otterstack/db";
 import {
@@ -37,7 +38,13 @@ export async function upsertServiceEnvVar(input: {
     })
     .returning();
 
-  if (!row) throw new Error("Failed to upsert env var.");
+  if (!row) {
+    throw createError({
+      message: "Failed to upsert env var",
+      status: 500,
+      why: "Database upsert returned no row",
+    });
+  }
   return row;
 }
 

@@ -1,4 +1,5 @@
 import { and, eq } from "drizzle-orm";
+import { createError } from "evlog";
 
 import { db } from "@otterstack/db";
 import { databaseResource, resource } from "@otterstack/db/schema/project";
@@ -85,7 +86,11 @@ export async function createDatabaseResourceRecord(input: {
       .returning();
 
     if (!createdResource) {
-      throw new Error("Failed to create database resource.");
+      throw createError({
+        message: "Failed to create database resource",
+        status: 500,
+        why: "Database insert returned no row for the resource",
+      });
     }
 
     const resourceId = createdResource.id;
@@ -111,7 +116,11 @@ export async function createDatabaseResourceRecord(input: {
       .returning();
 
     if (!createdDatabase) {
-      throw new Error("Failed to create database credentials.");
+      throw createError({
+        message: "Failed to create database credentials",
+        status: 500,
+        why: "Database insert returned no row for database credentials",
+      });
     }
 
     return {

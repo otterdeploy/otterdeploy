@@ -6,6 +6,7 @@ import { dockerContract } from "./routers/docker/contract";
 import { envContract } from "./routers/env/contract";
 import { projectContract } from "./routers/project/contract";
 import { serviceContract } from "./routers/service/contract";
+import type { Id, ID_PREFIX } from "@otterstack/shared/id";
 
 export const publicProcedure = implement({
   docker: dockerContract,
@@ -57,7 +58,9 @@ const orgScopedMiddleware = orpc
     return next({
       context: {
         session: context.session,
-        activeOrganizationId: context.activeOrganizationId,
+        activeOrganizationId: context.activeOrganizationId as Id<
+          typeof ID_PREFIX.organization
+        >,
       },
     });
   });

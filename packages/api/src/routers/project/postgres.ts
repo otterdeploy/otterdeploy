@@ -23,12 +23,16 @@ import { destroySwarmPostgres, provisionSwarmPostgres } from "../../swarm";
 
 import { type ResourceId } from "../service/errors";
 
+import { type Id, ID_PREFIX } from "@otterstack/shared/id";
+
 import {
   PostgresResourceConflictError,
   PostgresResourceNotFoundError,
   ProjectNotFoundError,
   type ProjectId,
 } from "./errors";
+
+type OrgId = Id<typeof ID_PREFIX.organization>;
 import {
   createDatabaseResourceRecord,
   getDatabaseResourceByProjectAndName,
@@ -46,12 +50,12 @@ import {
   sanitizeDatabaseName,
   sanitizeDockerName,
   sanitizeProjectSlug,
-  type PostgresResourceView,
+  type PostgresResource,
 } from "./views";
 
 type ProjectRef = {
   projectId: ProjectId;
-  organizationId: string;
+  organizationId: OrgId;
 };
 
 type PostgresResourceRef = ProjectRef & {
@@ -63,7 +67,7 @@ export async function createPostgresResource(
   log: RequestLogger,
 ): Promise<
   Result<
-    PostgresResourceView,
+    PostgresResource,
     ProjectNotFoundError | PostgresResourceConflictError
   >
 > {
@@ -193,7 +197,7 @@ export async function createPostgresResource(
 
 export async function getPostgresResource(
   input: PostgresResourceRef,
-): Promise<Result<PostgresResourceView, PostgresResourceNotFoundError>> {
+): Promise<Result<PostgresResource, PostgresResourceNotFoundError>> {
   const project = await getProjectInOrg({
     projectId: input.projectId,
     organizationId: input.organizationId,
@@ -216,7 +220,7 @@ export async function getPostgresResource(
 
 export async function listPostgresResources(
   input: ProjectRef,
-): Promise<Result<PostgresResourceView[], ProjectNotFoundError>> {
+): Promise<Result<PostgresResource[], ProjectNotFoundError>> {
   const project = await getProjectInOrg({
     projectId: input.projectId,
     organizationId: input.organizationId,

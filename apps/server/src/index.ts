@@ -36,7 +36,12 @@ const identify = createAuthMiddleware(auth, {
   maskEmail: true,
 });
 
-app.use(evlog());
+app.use(
+  evlog({
+    include: ["/api/**", "/rpc/**"],
+    exclude: ["/api/health"],
+  }),
+);
 app.use(async (c, next) => {
   await identify(c.get("log"), c.req.raw.headers, c.req.path);
   await next();
@@ -53,8 +58,8 @@ app.use(
 );
 
 app.onError((error, c) => {
+  c.get("log").error(error);
   const parsed = parseError(error);
-  c.get("log").error(parsed.message, { code: parsed.code });
   return c.json(
     { message: parsed.message, why: parsed.why, fix: parsed.fix },
     parsed.status as ContentfulStatusCode,

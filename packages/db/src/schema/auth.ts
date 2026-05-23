@@ -1,6 +1,6 @@
 import { relations } from "drizzle-orm";
 import { pgTable, text, timestamp, boolean, index } from "drizzle-orm/pg-core";
-import { createId, ID_PREFIX } from "@otterstack/shared/id";
+import { createId, ID_PREFIX, type Id } from "@otterstack/shared/id";
 
 export const user = pgTable("user", {
   id: text("id")
@@ -22,7 +22,8 @@ export const session = pgTable(
   {
     id: text("id")
       .primaryKey()
-      .$defaultFn(() => createId("session")),
+      .$type<Id<typeof ID_PREFIX.session>>()
+      .$defaultFn(() => createId(ID_PREFIX.session)),
     expiresAt: timestamp("expires_at").notNull(),
     token: text("token").notNull().unique(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -44,7 +45,8 @@ export const account = pgTable(
   {
     id: text("id")
       .primaryKey()
-      .$defaultFn(() => createId("account")),
+      .$type<Id<typeof ID_PREFIX.account>>()
+      .$defaultFn(() => createId(ID_PREFIX.account)),
     accountId: text("account_id").notNull(),
     providerId: text("provider_id").notNull(),
     userId: text("user_id")
@@ -70,7 +72,8 @@ export const verification = pgTable(
   {
     id: text("id")
       .primaryKey()
-      .$defaultFn(() => createId("verification")),
+      .$type<Id<typeof ID_PREFIX.verification>>()
+      .$defaultFn(() => createId(ID_PREFIX.verification)),
     identifier: text("identifier").notNull(),
     value: text("value").notNull(),
     expiresAt: timestamp("expires_at").notNull(),
@@ -86,6 +89,7 @@ export const verification = pgTable(
 export const organization = pgTable("organization", {
   id: text("id")
     .primaryKey()
+    .$type<Id<typeof ID_PREFIX.organization>>()
     .$defaultFn(() => createId(ID_PREFIX.organization)),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
@@ -99,6 +103,7 @@ export const member = pgTable(
   {
     id: text("id")
       .primaryKey()
+      .$type<Id<typeof ID_PREFIX.member>>()
       .$defaultFn(() => createId(ID_PREFIX.member)),
     organizationId: text("organization_id")
       .notNull()
@@ -120,6 +125,7 @@ export const invitation = pgTable(
   {
     id: text("id")
       .primaryKey()
+      .$type<Id<typeof ID_PREFIX.invitation>>()
       .$defaultFn(() => createId(ID_PREFIX.invitation)),
     organizationId: text("organization_id")
       .notNull()

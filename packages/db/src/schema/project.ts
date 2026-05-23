@@ -12,8 +12,13 @@ import {
 import { createId, ID_PREFIX, type Id } from "@otterstack/shared/id";
 import { organization, user } from "./auth";
 
-export const projectStatusEnum = pgEnum("project_status", ["draft", "valid", "invalid"]);
+export const projectStatusEnum = pgEnum("project_status", [
+  "draft",
+  "valid",
+  "invalid",
+]);
 
+type EnvId = Id<typeof ID_PREFIX.environment>;
 export const project = pgTable(
   "project",
   {
@@ -26,7 +31,7 @@ export const project = pgTable(
       .references(() => organization.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     slug: text("slug").notNull().unique(),
-    environmentId: text("environment_id").notNull(),
+    environmentId: text("environment_id").$type<EnvId>().notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -64,15 +69,22 @@ export const environment = pgTable("environment", {
 
   projectId: text("project_id")
     .notNull()
-    .references(() => project.id),
+    .references(() => project.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
 });
 
 // service
 // database
-export const resourceTypeEnum = pgEnum("resource_type", ["database", "service"]);
-export const resourceStatusEnum = pgEnum("resource_status", ["draft", "valid", "invalid"]);
+export const resourceTypeEnum = pgEnum("resource_type", [
+  "database",
+  "service",
+]);
+export const resourceStatusEnum = pgEnum("resource_status", [
+  "draft",
+  "valid",
+  "invalid",
+]);
 export const resource = pgTable(
   "resource",
   {
@@ -83,7 +95,7 @@ export const resource = pgTable(
     projectId: text("project_id")
       .notNull()
       .$type<Id<typeof ID_PREFIX.project>>()
-      .references(() => project.id),
+      .references(() => project.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     type: resourceTypeEnum("type").notNull(),
     status: resourceStatusEnum("status").notNull().default("draft"),
@@ -128,10 +140,16 @@ export const databaseResource = pgTable(
       .notNull(),
   },
   (table) => [
-    uniqueIndex("database_resource_database_name_unique").on(table.databaseName),
+    uniqueIndex("database_resource_database_name_unique").on(
+      table.databaseName,
+    ),
     uniqueIndex("database_resource_username_unique").on(table.username),
-    uniqueIndex("database_resource_public_hostname_unique").on(table.publicHostname),
-    uniqueIndex("database_resource_internal_hostname_unique").on(table.internalHostname),
+    uniqueIndex("database_resource_public_hostname_unique").on(
+      table.publicHostname,
+    ),
+    uniqueIndex("database_resource_internal_hostname_unique").on(
+      table.internalHostname,
+    ),
   ],
 );
 
@@ -190,13 +208,21 @@ export const serviceResource = pgTable(
   },
   (table) => [
     uniqueIndex("service_resource_service_name_unique").on(table.serviceName),
-    uniqueIndex("service_resource_internal_hostname_unique").on(table.internalHostname),
+    uniqueIndex("service_resource_internal_hostname_unique").on(
+      table.internalHostname,
+    ),
     uniqueIndex("service_resource_public_domain_unique").on(table.publicDomain),
   ],
 );
 
-export const servicePortProtocolEnum = pgEnum("service_port_protocol", ["tcp", "udp"]);
-export const serviceAppProtocolEnum = pgEnum("service_app_protocol", ["http", "tcp"]);
+export const servicePortProtocolEnum = pgEnum("service_port_protocol", [
+  "tcp",
+  "udp",
+]);
+export const serviceAppProtocolEnum = pgEnum("service_app_protocol", [
+  "http",
+  "tcp",
+]);
 
 export const servicePort = pgTable(
   "service_port",
@@ -211,7 +237,9 @@ export const servicePort = pgTable(
       .references(() => serviceResource.resourceId, { onDelete: "cascade" }),
     containerPort: integer("container_port").notNull(),
     protocol: servicePortProtocolEnum("protocol").notNull().default("tcp"),
-    appProtocol: serviceAppProtocolEnum("app_protocol").notNull().default("http"),
+    appProtocol: serviceAppProtocolEnum("app_protocol")
+      .notNull()
+      .default("http"),
     isPrimary: boolean("is_primary").notNull().default(false),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
@@ -249,7 +277,12 @@ export const serviceEnvVar = pgTable(
       .notNull(),
   },
   (table) => [
-    uniqueIndex("service_env_var_unique").on(table.serviceResourceId, table.key),
-    index("service_env_var_service_resource_id_idx").on(table.serviceResourceId),
+    uniqueIndex("service_env_var_unique").on(
+      table.serviceResourceId,
+      table.key,
+    ),
+    index("service_env_var_service_resource_id_idx").on(
+      table.serviceResourceId,
+    ),
   ],
 );

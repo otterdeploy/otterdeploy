@@ -14,6 +14,7 @@
   "scripts": {},
   "dependencies": {
     "@otterstack/env": "workspace:*",
+    "evlog": "catalog:",
     "inngest": "^4.2.6"
   },
   "devDependencies": {

@@ -1,12 +1,15 @@
 import { and, asc, eq } from "drizzle-orm";
+import { createError } from "evlog";
 
 import { db } from "@otterstack/db";
 import { environment, project } from "@otterstack/db/schema/project";
-import { createId, ID_PREFIX } from "@otterstack/shared/id";
+import { createId, ID_PREFIX, type Id } from "@otterstack/shared/id";
 
 import type { ProjectId } from "../errors";
 
-export async function listProjectRecordsByOrg(organizationId: string) {
+export async function listProjectRecordsByOrg(
+  organizationId: Id<typeof ID_PREFIX.organization>,
+) {
   return db
     .select()
     .from(project)
@@ -20,7 +23,7 @@ export async function listProjectRecordsByOrg(organizationId: string) {
  */
 export async function getProjectInOrg(input: {
   projectId: ProjectId;
-  organizationId: string;
+  organizationId: Id<typeof ID_PREFIX.organization>;
 }) {
   const [record] = await db
     .select()
@@ -56,8 +59,46 @@ export async function getProjectBySlug(slug: string) {
   return record;
 }
 
+export async function updateProjectRecord(input: {
+  projectId: ProjectId;
+  organizationId: Id<typeof ID_PREFIX.organization>;
+  name?: string;
+  slug?: string;
+}) {
+  const [record] = await db
+    .update(project)
+    .set({
+      ...(input.name !== undefined && { name: input.name }),
+      ...(input.slug !== undefined && { slug: input.slug }),
+    })
+    .where(
+      and(
+        eq(project.id, input.projectId),
+        eq(project.organizationId, input.organizationId),
+      ),
+    )
+    .returning();
+  return record;
+}
+
+export async function deleteProjectRecord(input: {
+  projectId: ProjectId;
+  organizationId: Id<typeof ID_PREFIX.organization>;
+}) {
+  const [record] = await db
+    .delete(project)
+    .where(
+      and(
+        eq(project.id, input.projectId),
+        eq(project.organizationId, input.organizationId),
+      ),
+    )
+    .returning({ id: project.id });
+  return record;
+}
+
 export async function createProjectRecord(input: {
-  organizationId: string;
+  organizationId: Id<typeof ID_PREFIX.organization>;
   name: string;
   slug: string;
 }) {
@@ -77,7 +118,11 @@ export async function createProjectRecord(input: {
       .returning();
 
     if (!createdProject) {
-      throw new Error("Failed to create project.");
+      throw createError({
+        message: "Failed to create project",
+        status: 500,
+        why: "Database insert returned no row for the new project",
+      });
     }
 
     const [createdEnvironment] = await tx
@@ -91,7 +136,11 @@ export async function createProjectRecord(input: {
       .returning();
 
     if (!createdEnvironment) {
-      throw new Error("Failed to create default environment.");
+      throw createError({
+        message: "Failed to create default environment",
+        status: 500,
+        why: "Database insert returned no row for the default environment",
+      });
     }
 
     return {

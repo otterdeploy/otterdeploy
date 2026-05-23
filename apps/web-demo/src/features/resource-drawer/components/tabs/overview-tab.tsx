@@ -15,7 +15,7 @@ export function OverviewTab({ projectId, resourceId }: Props) {
   const query = useQuery({
     queryKey: ["project-database", projectId, resourceId],
     queryFn: () =>
-      client.project.database.getPostgres({ projectId, resourceId }),
+      client.project.database.postgres.get({ projectId, resourceId }),
   });
 
   if (query.isLoading) {

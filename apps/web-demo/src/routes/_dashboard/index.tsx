@@ -26,7 +26,7 @@ function RouteComponent() {
     queries: projects.map((project) => ({
       queryKey: ["project-databases", project.id],
       queryFn: () =>
-        client.project.database.listPostgres({ projectId: project.id }),
+        client.project.database.postgres.list({ projectId: project.id }),
     })),
   });
 

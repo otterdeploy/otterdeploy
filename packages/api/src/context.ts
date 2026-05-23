@@ -2,6 +2,9 @@ import type { Context as HonoContext } from "hono";
 import type { RequestLogger } from "evlog";
 
 import { auth, type Session } from "@otterstack/auth";
+import { type Id, ID_PREFIX } from "@otterstack/shared/id";
+
+type OrgId = Id<typeof ID_PREFIX.organization>;
 
 export type CreateContextOptions = {
   context: HonoContext;
@@ -22,7 +25,9 @@ export async function createContext({
 
   return {
     session,
-    activeOrganizationId: session?.session.activeOrganizationId ?? null,
+    activeOrganizationId: (session?.session.activeOrganizationId ?? null) as
+      | OrgId
+      | null,
     log,
     broadcast,
   };

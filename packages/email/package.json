@@ -19,6 +19,7 @@
     "@otterstack/env": "workspace:*",
     "@react-email/components": "^1.0.12",
     "@react-email/tailwind": "^2.0.7",
+    "evlog": "catalog:",
     "react": "catalog:",
     "react-email": "^6.0.8",
     "resend": "^6.12.2"

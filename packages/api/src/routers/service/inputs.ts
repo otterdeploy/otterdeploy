@@ -5,8 +5,12 @@
  * casts in).
  */
 
+import { type Id, ID_PREFIX } from "@otterstack/shared/id";
+
 import { type ProjectId } from "../project/errors";
 import { type ResourceId } from "./errors";
+
+type OrgId = Id<typeof ID_PREFIX.organization>;
 
 type RestartInput = {
   condition?: "none" | "on-failure" | "any";
@@ -39,19 +43,19 @@ type PortInput = {
 /** Common (projectId, resourceId) addressing tuple used by most handlers. */
 export type ResourceRef = {
   projectId: ProjectId;
-  organizationId: string;
+  organizationId: OrgId;
   resourceId: ResourceId;
 };
 
 /** Project-scoped addressing — used by `listServices`. */
 export type ProjectRef = {
   projectId: ProjectId;
-  organizationId: string;
+  organizationId: OrgId;
 };
 
 export type CreateServiceInput = {
   projectId: ProjectId;
-  organizationId: string;
+  organizationId: OrgId;
   name: string;
   image: string;
   command?: string[] | null;
@@ -66,7 +70,7 @@ export type CreateServiceInput = {
 
 export type UpdateServiceInput = {
   projectId: ProjectId;
-  organizationId: string;
+  organizationId: OrgId;
   resourceId: ResourceId;
   image?: string;
   command?: string[] | null;

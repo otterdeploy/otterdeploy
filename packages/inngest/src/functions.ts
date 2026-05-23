@@ -1,3 +1,5 @@
+import { createError } from "evlog";
+
 import { inngest } from "./client";
 
 /**
@@ -100,7 +102,11 @@ export const processData = inngest.createFunction(
     // Step 1: Validate input
     await step.run("validate", async () => {
       if (!dataId) {
-        throw new Error("Data ID is required");
+        throw createError({
+          message: "Data ID is required",
+          status: 400,
+          why: "The processData event was sent with no dataId field",
+        });
       }
     });
 

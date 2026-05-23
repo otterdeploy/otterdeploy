@@ -1,3 +1,5 @@
+import { createError } from "evlog";
+
 import { orgScopedProcedure } from "../..";
 
 import {
@@ -252,7 +254,12 @@ export const serviceRouter = {
           case "RefCycleError":
           case "RefParseError":
           case "RefUnknownVarError":
-            throw new Error(result.error.message);
+            throw createError({
+              message: result.error.message,
+              status: 500,
+              why: `Variable resolution failed: ${result.error._tag}`,
+              cause: result.error,
+            });
         }
       }
       return result.value;

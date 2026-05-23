@@ -7,8 +7,10 @@
 
 export {
   createProject,
+  deleteProject,
   getProject,
   listProjects,
+  updateProject,
 } from "./projects";
 
 export {
@@ -21,7 +23,7 @@ export {
 export { listProjectProxyRoutes } from "./proxy-routes";
 
 export type {
-  PostgresResourceView,
-  ProjectView,
-  ProxyRouteView,
+  PostgresResource,
+  Project,
+  ProxyRoute,
 } from "./views";

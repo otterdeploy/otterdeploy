@@ -1,6 +1,6 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import { Docker } from "@otterdeploy/docker";
-import { log } from "evlog";
+import { createError, log } from "evlog";
 import { ensureProjectNetwork } from "./client";
 
 export type SwarmServiceRuntime = {
@@ -114,7 +114,11 @@ export async function updateSwarmService(
   const currentVersion = inspectResult.value.Version?.Index;
   if (currentVersion === undefined) {
     docker.destroy();
-    throw new Error("Swarm service has no Version; cannot update.");
+    throw createError({
+      message: "Swarm service has no Version; cannot update",
+      status: 500,
+      why: "Docker Swarm did not return a Version index for the existing service",
+    });
   }
 
   const newSpec = buildServiceSpec(spec, networkName);

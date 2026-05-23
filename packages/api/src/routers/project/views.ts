@@ -1,19 +1,16 @@
 /**
- * View types for the Project primitive plus the small string/identifier
- * helpers shared across the handler split.
- *
- * - `mapProject` hydrates a project row into the wire-shape consumed by the
- *   oRPC contract.
- * - `mapDatabaseResource` does the same for a Postgres database resource,
- *   first reconciling its Swarm runtime via `ensureSwarmRuntimeForRecord`.
- * - The string helpers (`sanitizeProjectSlug`, `sanitizeDatabaseName`,
- *   `buildContainerName`, `buildVolumeName`, `buildConnectionString`,
- *   `clampPostgresIdentifier`, `sanitizeDockerName`) keep the slug/container
- *   conventions in one place.
+ * Wire types and small string/identifier helpers shared across the project
+ * handler split. Wire shapes are inferred from the oRPC contract so there's a
+ * single source of truth.
  */
 
+import type * as z from "zod";
+
 import { reconcile } from "../../caddy";
-import { getProxyRouteByResourceId, updateProxyRoute } from "../../caddy/queries";
+import {
+  getProxyRouteByResourceId,
+  updateProxyRoute,
+} from "../../caddy/queries";
 import { PLATFORM } from "../../constants";
 import {
   inspectSwarmPostgresRuntime,
@@ -22,93 +19,37 @@ import {
 } from "../../swarm";
 
 import {
+  postgresResourceSchema,
+  projectSchema,
+  proxyRouteSchema,
+} from "./contract";
+import {
   type DatabaseResourceRecord,
   getProjectRecord,
   updateDatabaseResourceRuntime,
   updateDatabaseResourceStatus,
 } from "./queries";
 
-// ---------------------------------------------------------------------------
-// View types
-// ---------------------------------------------------------------------------
-
-export type ProjectView = {
-  id: string;
-  name: string;
-  slug: string;
-  environmentId: string;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type PostgresResourceView = {
-  resourceId: string;
-  projectId: string;
-  name: string;
-  type: "database";
-  status: "draft" | "valid" | "invalid";
-  engine: "postgres";
-  databaseName: string;
-  username: string;
-  password: string;
-  publicHostname: string;
-  publicPort: number;
-  publicConnectionString: string;
-  internalHostname: string;
-  internalPort: number;
-  internalConnectionString: string;
-  localConnectionString: string | null;
-  upstreamHost: string;
-  upstreamPort: number;
-  runtime: SwarmPostgresRuntime;
-};
-
-export type ProxyRouteView = {
-  id: string;
-  projectId: string;
-  resourceId: string | null;
-  type: "http" | "layer4";
-  domain: string;
-  upstreamHost: string;
-  upstreamPort: number;
-  protocol: "tcp" | "http";
-  layer4Alpn: string | null;
-  enabled: boolean;
-  createdAt: string;
-  updatedAt: string;
-};
+export type Project = z.infer<typeof projectSchema>;
+export type PostgresResource = z.infer<typeof postgresResourceSchema>;
+export type ProxyRoute = z.infer<typeof proxyRouteSchema>;
 
 // ---------------------------------------------------------------------------
 // View mappers
 // ---------------------------------------------------------------------------
 
-export function mapProject(record: {
-  id: string;
-  name: string;
-  slug: string;
-  environmentId: string;
-  createdAt: Date;
-  updatedAt: Date;
-}): ProjectView {
-  return {
-    id: record.id,
-    name: record.name,
-    slug: record.slug,
-    environmentId: record.environmentId,
-    createdAt: record.createdAt.toISOString(),
-    updatedAt: record.updatedAt.toISOString(),
-  };
-}
-
 export async function mapDatabaseResource(
   record: DatabaseResourceRecord,
   projectSlug?: string,
-): Promise<PostgresResourceView> {
+): Promise<PostgresResource> {
   const resolvedProjectSlug =
     projectSlug ??
     (await getProjectRecord(record.resource.projectId))?.slug ??
     record.resource.projectId;
-  const hydrated = await ensureSwarmRuntimeForRecord(record, resolvedProjectSlug);
+  const hydrated = await ensureSwarmRuntimeForRecord(
+    record,
+    resolvedProjectSlug,
+  );
   const runtime = hydrated.runtime;
   const databaseRecord = hydrated.record.database;
 
@@ -281,7 +222,9 @@ export function buildConnectionString(input: {
   sslmode?: "require";
   sslnegotiation?: "direct";
 }) {
-  const hostPort = input.port ? `${input.hostname}:${input.port}` : input.hostname;
+  const hostPort = input.port
+    ? `${input.hostname}:${input.port}`
+    : input.hostname;
   const url = new URL(
     `postgresql://${encodeURIComponent(input.username)}:${encodeURIComponent(input.password)}@${hostPort}/${encodeURIComponent(input.databaseName)}`,
   );

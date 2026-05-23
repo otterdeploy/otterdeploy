@@ -1,19 +1,19 @@
 import { oc } from "@orpc/contract";
+import { createSelectSchema } from "drizzle-zod";
 import * as z from "zod";
 
+import { project, proxyRoute } from "@otterstack/db/schema";
 import { ID_PREFIX, zId } from "@otterstack/shared/id";
 
 const tag = "project";
 const basePath = "/projects";
 
-export const projectSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  slug: z.string(),
-  environmentId: z.string(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-});
+export const projectSchema = createSelectSchema(project)
+  .omit({ organizationId: true })
+  .extend({
+    id: zId(ID_PREFIX.project),
+    environmentId: zId(ID_PREFIX.environment),
+  });
 
 export const createProjectInput = z.object({
   name: z.string().min(1),
@@ -24,9 +24,19 @@ export const getProjectInput = z.object({
   id: zId(ID_PREFIX.project),
 });
 
+export const updateProjectInput = z.object({
+  id: zId(ID_PREFIX.project),
+  name: z.string().min(1).optional(),
+  slug: z.string().min(1).optional(),
+});
+
+export const deleteProjectInput = z.object({
+  id: zId(ID_PREFIX.project),
+});
+
 export const postgresResourceSchema = z.object({
-  resourceId: z.string(),
-  projectId: z.string(),
+  resourceId: zId(ID_PREFIX.resource),
+  projectId: zId(ID_PREFIX.project),
   name: z.string(),
   type: z.literal("database"),
   status: z.enum(["draft", "valid", "invalid"]),
@@ -84,19 +94,10 @@ export const reconcileResultSchema = z.object({
   loadError: z.string().optional(),
 });
 
-export const proxyRouteSchema = z.object({
-  id: z.string(),
-  projectId: z.string(),
-  resourceId: z.string().nullable(),
-  type: z.enum(["http", "layer4"]),
-  domain: z.string(),
-  upstreamHost: z.string(),
-  upstreamPort: z.number().int().positive(),
-  protocol: z.enum(["tcp", "http"]),
-  layer4Alpn: z.string().nullable(),
-  enabled: z.boolean(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
+export const proxyRouteSchema = createSelectSchema(proxyRoute).extend({
+  id: zId(ID_PREFIX.proxyRoute),
+  projectId: zId(ID_PREFIX.project),
+  resourceId: zId(ID_PREFIX.resource).nullable(),
 });
 
 export const listProxyRoutesInput = z.object({
@@ -139,6 +140,38 @@ export const projectContract = {
     })
     .input(createProjectInput)
     .output(projectSchema),
+  update: oc
+    .errors({
+      NOT_FOUND: {
+        status: 404,
+        message: "Project not found" as const,
+      },
+      CONFLICT: {
+        status: 409,
+        message: "Project slug already in use" as const,
+      },
+    })
+    .meta({
+      path: `${basePath}/{id}`,
+      tag,
+      method: "PATCH",
+    })
+    .input(updateProjectInput)
+    .output(projectSchema),
+  delete: oc
+    .errors({
+      NOT_FOUND: {
+        status: 404,
+        message: "Project not found" as const,
+      },
+    })
+    .meta({
+      path: `${basePath}/{id}`,
+      tag,
+      method: "DELETE",
+    })
+    .input(deleteProjectInput)
+    .output(z.object({ ok: z.boolean() })),
   proxyRoute: {
     list: oc
       .errors({
@@ -156,65 +189,67 @@ export const projectContract = {
       .output(z.array(proxyRouteSchema)),
   },
   database: {
-    createPostgres: oc
-      .errors({
-        NOT_FOUND: {
-          status: 404,
-          message: "Project not found" as const,
-        },
-        CONFLICT: {
-          status: 409,
-          message: "Database resource already exists" as const,
-        },
-      })
-      .meta({
-        path: `${basePath}/{projectId}/databases/postgres`,
-        tag,
-        method: "POST",
-      })
-      .input(createPostgresDatabaseInput)
-      .output(postgresResourceSchema),
-    getPostgres: oc
-      .errors({
-        NOT_FOUND: {
-          status: 404,
-          message: "Database resource not found" as const,
-        },
-      })
-      .meta({
-        path: `${basePath}/{projectId}/databases/{resourceId}`,
-        tag,
-        method: "GET",
-      })
-      .input(getPostgresDatabaseInput)
-      .output(postgresResourceSchema),
-    listPostgres: oc
-      .errors({
-        NOT_FOUND: {
-          status: 404,
-          message: "Project not found" as const,
-        },
-      })
-      .meta({
-        path: `${basePath}/{projectId}/databases`,
-        tag,
-        method: "GET",
-      })
-      .input(listPostgresDatabasesInput)
-      .output(z.array(postgresResourceSchema)),
-    deletePostgres: oc
-      .errors({
-        NOT_FOUND: {
-          status: 404,
-          message: "Database resource not found" as const,
-        },
-      })
-      .meta({
-        path: `${basePath}/{projectId}/databases/{resourceId}`,
-        tag,
-        method: "DELETE",
-      })
-      .input(deletePostgresDatabaseInput)
-      .output(z.object({ ok: z.boolean() })),
+    postgres: {
+      create: oc
+        .errors({
+          NOT_FOUND: {
+            status: 404,
+            message: "Project not found" as const,
+          },
+          CONFLICT: {
+            status: 409,
+            message: "Database resource already exists" as const,
+          },
+        })
+        .meta({
+          path: `${basePath}/{projectId}/databases/postgres`,
+          tag,
+          method: "POST",
+        })
+        .input(createPostgresDatabaseInput)
+        .output(postgresResourceSchema),
+      get: oc
+        .errors({
+          NOT_FOUND: {
+            status: 404,
+            message: "Database resource not found" as const,
+          },
+        })
+        .meta({
+          path: `${basePath}/{projectId}/databases/{resourceId}`,
+          tag,
+          method: "GET",
+        })
+        .input(getPostgresDatabaseInput)
+        .output(postgresResourceSchema),
+      list: oc
+        .errors({
+          NOT_FOUND: {
+            status: 404,
+            message: "Project not found" as const,
+          },
+        })
+        .meta({
+          path: `${basePath}/{projectId}/databases`,
+          tag,
+          method: "GET",
+        })
+        .input(listPostgresDatabasesInput)
+        .output(z.array(postgresResourceSchema)),
+      delete: oc
+        .errors({
+          NOT_FOUND: {
+            status: 404,
+            message: "Database resource not found" as const,
+          },
+        })
+        .meta({
+          path: `${basePath}/{projectId}/databases/{resourceId}`,
+          tag,
+          method: "DELETE",
+        })
+        .input(deletePostgresDatabaseInput)
+        .output(z.object({ ok: z.boolean() })),
+    },
   },
 };

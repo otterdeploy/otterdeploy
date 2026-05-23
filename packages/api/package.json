@@ -31,6 +31,7 @@
     "@otterstack/shared": "workspace:*",
     "better-result": "^2.9.2",
     "drizzle-orm": "catalog:",
+    "drizzle-zod": "catalog:",
     "evlog": "catalog:",
     "hono": "catalog:",
     "zod": "catalog:"

@@ -8,11 +8,13 @@
 
 export {
   createProjectRecord,
+  deleteProjectRecord,
   getProjectById,
   getProjectBySlug,
   getProjectInOrg,
   getProjectRecord,
   listProjectRecordsByOrg,
+  updateProjectRecord,
 } from "./project";
 
 export {
