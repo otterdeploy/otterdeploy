@@ -4,6 +4,7 @@ import { env } from "@otterstack/env/server";
 import { createId, type IdPrefix } from "@otterstack/shared/id";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { organization } from "better-auth/plugins";
 
 export const auth = betterAuth({
   appName: "otterstack",
@@ -38,5 +39,11 @@ export const auth = betterAuth({
   },
   hooks: {},
 
-  plugins: [],
+  plugins: [
+    organization({
+      allowUserToCreateOrganization: true,
+      organizationLimit: 10,
+      teams: { enabled: false },
+    }),
+  ],
 });
