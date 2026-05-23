@@ -10,7 +10,7 @@ export const invalidate = {
       if (!subscriptions.has(msg.resource)) {
         subscriptions.set(msg.resource, new Set());
       }
-      subscriptions.get(msg.resource)!.add(ws);
+      subscriptions.get(msg.resource)?.add(ws);
     } else if (msg.type === "unsubscribe" && typeof msg.resource === "string") {
       subscriptions.get(msg.resource)?.delete(ws);
     }

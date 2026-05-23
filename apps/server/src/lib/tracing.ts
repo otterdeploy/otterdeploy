@@ -4,17 +4,24 @@ import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
 import { NodeSDK } from "@opentelemetry/sdk-node";
-import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from "@opentelemetry/semantic-conventions";
+import {
+  ATTR_SERVICE_NAME,
+  ATTR_SERVICE_VERSION,
+} from "@opentelemetry/semantic-conventions";
+import { Result } from "better-result";
 import { log } from "evlog";
 
+import { env as nodeEnv } from "process";
+
 // Service configuration from environment variables
-const serviceName = process.env.OTEL_SERVICE_NAME || "otterstack-server";
-const serviceVersion = process.env.OTEL_SERVICE_VERSION || "1.0.0";
-const environment = process.env.NODE_ENV || "development";
+const serviceName = nodeEnv.OTEL_SERVICE_NAME || "otterstack-server";
+const serviceVersion = nodeEnv.OTEL_SERVICE_VERSION || "1.0.0";
+const environment = nodeEnv.NODE_ENV || "development";
 
 // OTLP endpoint configuration
 // Default to localhost:4318 for local development with Jaeger or OTEL Collector
-const otlpEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT || "http://localhost:4318";
+const otlpEndpoint =
+  nodeEnv.OTEL_EXPORTER_OTLP_ENDPOINT || "http://localhost:4318";
 
 // Create resource with service information
 const resource = resourceFromAttributes({
@@ -90,12 +97,15 @@ export function startTracing(): void {
  * });
  */
 export async function shutdownTracing(): Promise<void> {
-  try {
-    await sdk.shutdown();
-    log.info({ otel: { event: "tracing-shutdown-complete" } });
-  } catch (error) {
-    log.error(error, { otel: { event: "tracing-shutdown-failed" } });
-  }
+  const shutdown = await Result.tryPromise(() => sdk.shutdown());
+  shutdown.match({
+    ok: () => log.info({ otel: { event: "tracing-shutdown-complete" } }),
+    err: (err) =>
+      log.error({
+        otel: { event: "tracing-shutdown-failed" },
+        error: err.message,
+      }),
+  });
 }
 
 /**

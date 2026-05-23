@@ -1,11 +1,18 @@
 import { Docker } from "@otterdeploy/docker";
 import { Result } from "better-result";
 import { log } from "evlog";
+import { type EvlogVariables } from "evlog/hono";
 import type { ServerWebSocket, Subprocess } from "bun";
 import type { Hono } from "hono";
 import { upgradeWebSocket } from "hono/bun";
 import type { WSContext } from "hono/ws";
 import type { Duplex } from "node:stream";
+import {
+  PtyExecError,
+  PtyMessageError,
+  PtySpawnError,
+  PtyTerminalUnavailableError,
+} from "./lib/errors";
 import { ClientMessage, type ServerMessage } from "./messages";
 
 const SHELL = process.env.SHELL || "bash";
@@ -21,7 +28,7 @@ const docker = Docker.fromEnv();
 // that would leak server-side secrets (DATABASE_URL, BETTER_AUTH_SECRET, …)
 // into the user's shell. Loosen the allowlist if the dev shell needs more.
 function buildBaseEnv(userId: string | undefined): Record<string, string> {
-  const env: Record<string, string> = {
+  const childEnv: Record<string, string> = {
     PATH: process.env.PATH ?? "/usr/local/bin:/usr/bin:/bin",
     HOME: process.env.HOME ?? "/root",
     USER: process.env.USER ?? "root",
@@ -31,8 +38,8 @@ function buildBaseEnv(userId: string | undefined): Record<string, string> {
     LC_ALL: process.env.LC_ALL ?? "C.UTF-8",
     TERM: "xterm-256color",
   };
-  if (userId) env.OTTERSTACK_USER = userId;
-  return env;
+  if (userId) childEnv.OTTERSTACK_USER = userId;
+  return childEnv;
 }
 
 // Rate-limited logger. Backpressure / dropped-frame events come in floods —
@@ -67,6 +74,17 @@ function sampleLogger({
   };
 }
 
+// Run a best-effort side effect and log if it threw. Used for cleanup paths
+// where the caller cannot meaningfully recover but we still want a trail.
+function attempt(fn: () => void, event: string): void {
+  Result.try(fn).tapError((cause) =>
+    log.error({
+      pty: { event },
+      error: cause instanceof Error ? cause.message : String(cause),
+    }),
+  );
+}
+
 // ---------------------------------------------------------------------------
 // PtyBackend — uniform surface over host PTY and container exec
 // ---------------------------------------------------------------------------
@@ -87,6 +105,8 @@ type StartArgs = {
   onExit: (info: ExitInfo) => void;
 };
 
+type StartError = PtySpawnError | PtyTerminalUnavailableError | PtyExecError;
+
 // ---------------------------------------------------------------------------
 // Host shell
 // ---------------------------------------------------------------------------
@@ -95,27 +115,24 @@ function killShell(proc: Subprocess): void {
   // Interactive zsh ignores SIGTERM. SIGHUP is what the kernel sends when the
   // controlling terminal disappears, which is what we want here. SIGKILL is
   // the belt-and-suspenders fallback.
-
-  Result.try(() => proc.kill("SIGHUP")).tapError(() =>
-    log.error({ pty: { event: "kill-failed", signal: "SIGHUP" } }),
-  );
+  attempt(() => proc.kill("SIGHUP"), "kill-failed-sighup");
 
   setTimeout(() => {
     if (proc.exitCode !== null) return;
-    Result.try(() => proc.kill("SIGKILL")).tapError(() =>
-      log.error({ pty: { event: "kill-failed", signal: "SIGKILL" } }),
-    );
+    attempt(() => proc.kill("SIGKILL"), "kill-failed-sigkill");
   }, 250).unref?.();
 }
 
-function startHostShell(args: StartArgs): Result<PtyBackend, Error> {
-  const env = buildBaseEnv(args.userId);
+function startHostShell(
+  args: StartArgs,
+): Result<PtyBackend, PtySpawnError | PtyTerminalUnavailableError> {
+  const childEnv = buildBaseEnv(args.userId);
 
   return Result.try({
     try: () =>
       Bun.spawn([SHELL], {
         cwd: USR_HOME,
-        env,
+        env: childEnv,
         terminal: {
           cols: args.cols,
           rows: args.rows,
@@ -123,11 +140,7 @@ function startHostShell(args: StartArgs): Result<PtyBackend, Error> {
         },
         onExit: (_proc, exitCode, signalCode) => {
           log.info({
-            pty: {
-              event: "host-shell-exit",
-              exitCode,
-              signal: signalCode,
-            },
+            pty: { event: "host-shell-exit", exitCode, signal: signalCode },
           });
           args.onExit({
             exitCode: exitCode ?? null,
@@ -135,28 +148,22 @@ function startHostShell(args: StartArgs): Result<PtyBackend, Error> {
           });
         },
       }),
-    catch: (cause) =>
-      cause instanceof Error
-        ? cause
-        : new Error(`host shell spawn failed: ${String(cause)}`),
-  }).map((proc) => {
+    catch: (cause) => new PtySpawnError({ cause }),
+  }).andThen((proc) => {
     log.info({
       pty: { event: "host-shell-spawned", pid: proc.pid, shell: SHELL },
     });
     const term = proc.terminal;
+    if (!term) return Result.err(new PtyTerminalUnavailableError());
 
-    if (!term) throw new Error("terminal not available");
-
-    return {
+    return Result.ok<PtyBackend>({
       write: (data) => term.write(data),
       resize: (cols, rows) => term.resize(cols, rows),
       dispose: () => {
         killShell(proc);
-        Result.try(() => term.close()).tapError(() =>
-          log.error({ pty: { event: "terminal-close-failed" } }),
-        );
+        attempt(() => term.close(), "terminal-close-failed");
       },
-    };
+    });
   });
 }
 
@@ -168,79 +175,76 @@ type StartContainerArgs = StartArgs & { containerId: string };
 
 async function startContainerExec(
   args: StartContainerArgs,
-): Promise<Result<PtyBackend, Error>> {
+): Promise<Result<PtyBackend, PtyExecError>> {
   const container = docker.containers.getContainer(args.containerId);
 
-  const createRes = await container.exec({
-    Cmd: ["/bin/sh"],
-    AttachStdin: true,
-    AttachStdout: true,
-    AttachStderr: true,
-    Tty: true,
-    Env: args.userId ? [`OTTERSTACK_USER=${args.userId}`] : undefined,
-  });
-  if (createRes.isErr()) {
-    return Result.err(
-      new Error(`exec create failed: ${createRes.error.message}`),
-    );
-  }
-  const exec = createRes.value;
-  log.info({
-    pty: {
-      event: "exec-created",
-      containerId: args.containerId,
-      execId: exec.id,
-    },
-  });
+  return Result.gen(async function* () {
+    const exec = yield* (
+      await container.exec({
+        Cmd: ["/bin/sh"],
+        AttachStdin: true,
+        AttachStdout: true,
+        AttachStderr: true,
+        Tty: true,
+        Env: args.userId ? [`OTTERSTACK_USER=${args.userId}`] : undefined,
+      })
+    ).mapError((cause) => new PtyExecError({ step: "create", cause }));
 
-  const startRes = await exec.start({ stdin: true, Tty: true });
-  if (startRes.isErr()) {
-    return Result.err(
-      new Error(`exec start failed: ${startRes.error.message}`),
-    );
-  }
-  const duplex = startRes.value as Duplex;
-
-  const initialResize = await exec.resize({ h: args.rows, w: args.cols });
-  if (initialResize.isErr()) {
-    log.warn({
+    log.info({
       pty: {
-        event: "initial-exec-resize-failed",
-        detail: initialResize.error.message,
+        event: "exec-created",
+        containerId: args.containerId,
+        execId: exec.id,
       },
     });
-  }
 
-  duplex.on("data", (chunk: Buffer) => args.onData(chunk));
-  duplex.on("end", () => {
-    log.info({ pty: { event: "exec-stream-end", execId: exec.id } });
-    // Docker exec stream end carries no exit code; inspect would be needed.
-    args.onExit({ exitCode: null, signal: null });
-  });
-  duplex.on("error", (err: Error) => {
-    log.error(err, { pty: { event: "exec-stream-error" } });
-    args.onExit({ exitCode: null, signal: null });
-  });
+    const stream = yield* (
+      await exec.start({ stdin: true, Tty: true })
+    ).mapError((cause) => new PtyExecError({ step: "start", cause }));
+    const duplex = stream as Duplex;
 
-  return Result.ok({
-    write: (data) => duplex.write(data),
-    resize: (cols, rows) => {
-      exec.resize({ h: rows, w: cols }).then((r) => {
-        if (r.isErr()) {
-          log.warn({
-            pty: { event: "exec-resize-failed", detail: r.error.message },
-          });
-        }
+    // Initial resize is best-effort: the stream is already live, so we'd
+    // rather log and continue than tear down a working session.
+    const initialResize = await exec.resize({ h: args.rows, w: args.cols });
+    if (initialResize.isErr()) {
+      log.warn({
+        pty: {
+          event: "initial-exec-resize-failed",
+          detail: initialResize.error.message,
+        },
       });
-    },
-    dispose: () => {
-      Result.try(() => duplex.end()).tapError(() => {
-        log.error({ pty: { event: "duplex-end-failed" } });
+    }
+
+    duplex.on("data", (chunk: Buffer) => args.onData(chunk));
+    duplex.on("end", () => {
+      log.info({ pty: { event: "exec-stream-end", execId: exec.id } });
+      // Docker exec stream end carries no exit code; inspect would be needed.
+      args.onExit({ exitCode: null, signal: null });
+    });
+    duplex.on("error", (err: Error) => {
+      log.error({
+        pty: { event: "exec-stream-error" },
+        error: err.message,
       });
-      Result.try(() => duplex.destroy()).tapError(() => {
-        log.error({ pty: { event: "duplex-destroy-failed" } });
-      });
-    },
+      args.onExit({ exitCode: null, signal: null });
+    });
+
+    return Result.ok<PtyBackend>({
+      write: (data) => duplex.write(data),
+      resize: (cols, rows) => {
+        void exec.resize({ h: rows, w: cols }).then((r) => {
+          if (r.isErr()) {
+            log.warn({
+              pty: { event: "exec-resize-failed", detail: r.error.message },
+            });
+          }
+        });
+      },
+      dispose: () => {
+        attempt(() => duplex.end(), "duplex-end-failed");
+        attempt(() => duplex.destroy(), "duplex-destroy-failed");
+      },
+    });
   });
 }
 
@@ -256,7 +260,35 @@ function sendControl(ws: WSContext, msg: ServerMessage): void {
   ws.send(JSON.stringify(msg));
 }
 
-async function startShell(args: StartArgs, id?: string | null) {
+function decodeClientMessage(
+  text: string,
+): Result<ClientMessage, PtyMessageError> {
+  return Result.try({
+    try: () => JSON.parse(text) as unknown,
+    catch: (cause) =>
+      new PtyMessageError({
+        reason: "invalid-json",
+        message: "Invalid JSON",
+        cause,
+      }),
+  }).andThen((value) => {
+    const schema = ClientMessage.safeParse(value);
+    if (!schema.success) {
+      return Result.err(
+        new PtyMessageError({
+          reason: "invalid-schema",
+          message: schema.error.issues[0]?.message ?? "Invalid message",
+        }),
+      );
+    }
+    return Result.ok(schema.data);
+  });
+}
+
+async function startShell(
+  args: StartArgs,
+  id?: string | null,
+): Promise<Result<PtyBackend, StartError>> {
   return id
     ? await startContainerExec({ ...args, containerId: id })
     : startHostShell(args);
@@ -266,10 +298,10 @@ async function startShell(args: StartArgs, id?: string | null) {
 // Route
 // ---------------------------------------------------------------------------
 
-export function registerTerminalRoutes(app: Hono): void {
+export function registerTerminalRoutes(app: Hono<EvlogVariables>): void {
   app.get(
     "/pty",
-    async (c, next) => {
+    async (_c, next) => {
       // const session = await auth.api.getSession({ headers: c.req.raw.headers });
       // if (!session?.user) return c.text("unauthorized", 401);
       // c.set("userId", session.user.id);
@@ -290,10 +322,7 @@ export function registerTerminalRoutes(app: Hono): void {
           const raw = ws.raw as ServerWebSocket<unknown> | undefined;
           if (!raw) {
             log.error({
-              pty: {
-                event: "ws-raw-missing",
-                detail: "not running on Bun?",
-              },
+              pty: { event: "ws-raw-missing", detail: "not running on Bun?" },
             });
             ws.close(1011, "ws.raw missing");
             return;
@@ -336,22 +365,25 @@ export function registerTerminalRoutes(app: Hono): void {
             },
           };
 
-          const backendResult = await startShell(args, containerId);
-
-          if (backendResult.isErr()) {
-            log.error(backendResult.error, {
-              pty: { event: "backend-start-failed" },
-            });
-            sendControl(ws, {
-              type: "error",
-              code: "SPAWN_FAILED",
-              message: backendResult.error.message,
-            });
-            ws.close(1011, "spawn failed");
-            return;
-          }
-
-          state.backend = backendResult.value;
+          const backend = await startShell(args, containerId);
+          backend.match({
+            ok: (b) => {
+              state.backend = b;
+            },
+            err: (err) => {
+              log.error({
+                pty: { event: "backend-start-failed" },
+                error: err.message,
+                tag: err._tag,
+              });
+              sendControl(ws, {
+                type: "error",
+                code: "SPAWN_FAILED",
+                message: err.message,
+              });
+              ws.close(1011, "spawn failed");
+            },
+          });
         },
 
         onMessage(evt, ws) {
@@ -364,40 +396,28 @@ export function registerTerminalRoutes(app: Hono): void {
           }
 
           // Text frame = JSON control message.
-          let parsed: unknown;
-          try {
-            parsed = JSON.parse(evt.data);
-          } catch {
-            sendControl(ws, {
-              type: "error",
-              code: "INVALID_MESSAGE",
-              message: "Invalid JSON",
-            });
-            return;
-          }
-
-          const result = ClientMessage.safeParse(parsed);
-          if (!result.success) {
-            sendControl(ws, {
-              type: "error",
-              code: "INVALID_MESSAGE",
-              message: result.error.issues[0]?.message ?? "Invalid message",
-            });
-            return;
-          }
-
-          const msg = result.data;
-          switch (msg.type) {
-            case "session:resize":
-              state.cols = msg.cols;
-              state.rows = msg.rows;
-              state.backend.resize(msg.cols, msg.rows);
-              return;
-            default: {
-              const _exhaustive: never = msg.type;
-              return _exhaustive;
-            }
-          }
+          decodeClientMessage(evt.data).match({
+            ok: (msg) => {
+              switch (msg.type) {
+                case "session:resize":
+                  state.cols = msg.cols;
+                  state.rows = msg.rows;
+                  state.backend?.resize(msg.cols, msg.rows);
+                  return;
+                default: {
+                  const _exhaustive: never = msg.type;
+                  return _exhaustive;
+                }
+              }
+            },
+            err: (err) => {
+              sendControl(ws, {
+                type: "error",
+                code: "INVALID_MESSAGE",
+                message: err.message,
+              });
+            },
+          });
         },
 
         onClose() {

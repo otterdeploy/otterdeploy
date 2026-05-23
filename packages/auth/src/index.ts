@@ -2,6 +2,7 @@ import { db } from "@otterstack/db";
 import * as schema from "@otterstack/db/schema/auth";
 import { env } from "@otterstack/env/server";
 import { polar, checkout, portal } from "@polar-sh/better-auth";
+import { createId, type IdPrefix } from "@otterstack/shared/id";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 
@@ -32,7 +33,7 @@ export const auth = betterAuth({
       httpOnly: true,
     },
     database: {
-      generateId: () => false,
+      generateId: ({ model }) => createId(model as IdPrefix),
     },
     ipAddress: {
       ipAddressHeaders: ["cf-connecting-ip"], // Cloudflare specific header example
