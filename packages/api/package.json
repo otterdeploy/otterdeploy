@@ -28,6 +28,7 @@
     "@otterstack/auth": "workspace:*",
     "@otterstack/db": "workspace:*",
     "@otterstack/env": "workspace:*",
+    "drizzle-orm": "catalog:",
     "evlog": "catalog:",
     "hono": "catalog:",
     "zod": "catalog:"

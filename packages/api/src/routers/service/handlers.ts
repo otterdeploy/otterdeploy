@@ -448,7 +448,6 @@ export async function exposeService(
     upstreamHost: record.service.internalHostname,
     upstreamPort: primary.containerPort,
     protocol: "http",
-    layer4Alpn: null,
   });
 
   const reconcileResult = await reconcile();

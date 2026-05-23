@@ -8,7 +8,6 @@
 
 import type {
   ResourceRow,
-  ServiceEnvVarRow,
   ServicePortRow,
   ServiceResourceRow,
 } from "../queries/service";

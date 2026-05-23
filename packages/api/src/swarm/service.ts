@@ -117,9 +117,17 @@ export async function updateSwarmService(
     throw new Error("Swarm service has no Version; cannot update.");
   }
 
+  const newSpec = buildServiceSpec(spec, networkName);
   const updateResult = await docker.services
     .getService(existing.serviceId ?? "")
-    .update({ version: currentVersion }, buildServiceSpec(spec, networkName));
+    .update({
+      version: currentVersion,
+      Name: newSpec.Name,
+      Labels: newSpec.Labels,
+      TaskTemplate: newSpec.TaskTemplate,
+      Mode: newSpec.Mode,
+      EndpointSpec: newSpec.EndpointSpec,
+    });
 
   if (updateResult.isErr()) {
     docker.destroy();
@@ -189,7 +197,7 @@ export async function destroySwarmService(input: {
   }
 
   const service = listResult.value.find((s) => s.Spec?.Name === input.serviceName);
-  if (!service) {
+  if (!service || !service.ID) {
     docker.destroy();
     return;
   }
@@ -327,7 +335,7 @@ async function inspectSwarmService(
 
   const taskState = latestTask?.Status?.State;
   return {
-    serviceId: service.ID,
+    serviceId: service.ID ?? null,
     serviceName,
     networkName,
     status: mapTaskStateToStatus(taskState),
