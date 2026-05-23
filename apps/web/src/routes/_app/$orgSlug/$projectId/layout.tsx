@@ -4,6 +4,7 @@ import * as z from "zod";
 
 import type { Project } from "@/routes/_app/layout";
 import { ProjectSidebar } from "@/features/shell/components/sidebar/project-sidebar";
+import { client } from "@/shared/server/orpc";
 import { SidebarInset } from "@/shared/components/ui/sidebar";
 
 const zProjectId = z.object({ projectId: zId(ID_PREFIX.project) });
@@ -15,9 +16,16 @@ export const Route = createFileRoute("/_app/$orgSlug/$projectId")({
   params: {
     parse: ({ projectId }) => zProjectId.parse({ projectId }),
   },
-  loader: (_ctx): { crumb: string; project: Project } => {
-    // TODO: fetch real project from API once project queries are wired
-    throw notFound();
+  loader: async ({ params }) => {
+    const [project, environments] = await Promise.all([
+      client.project.get({ id: params.projectId }).catch(() => null),
+      client.env.list(),
+    ]);
+    if (!project) throw notFound();
+    return {
+      crumb: project.name,
+      project: { ...project, databases: 0, routes: 0, environments },
+    };
   },
 });
 

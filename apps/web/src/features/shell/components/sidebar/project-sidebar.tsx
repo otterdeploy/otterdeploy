@@ -37,7 +37,11 @@ import { StatusDot, type NavItem, type Status } from "./index";
 
 const navItems = [
   { titleKey: "nav.overview", href: "/$orgSlug/$projectId", icon: Home01Icon },
-  { titleKey: "nav.graph", href: "/$orgSlug/$projectId/graph", icon: Share08Icon },
+  {
+    titleKey: "nav.graph",
+    href: "/$orgSlug/$projectId/graph",
+    icon: Share08Icon,
+  },
   {
     titleKey: "nav.deployments",
     href: "/$orgSlug/$projectId/deployments",

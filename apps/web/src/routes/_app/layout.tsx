@@ -1,7 +1,6 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 
 import { authClient } from "@/lib/auth-client";
-import type { Id } from "@otterstack/shared/id";
 
 export type Organization = {
   id: string;
@@ -11,9 +10,11 @@ export type Organization = {
   createdAt: string | Date;
 };
 
-// Legacy shape — still used by project-level sidebar components
+// Shape consumed by the project-level sidebar. Backend `project.get` provides
+// id/name/slug; `environments` come from the env router; `databases`/`routes`
+// are placeholders zeroed until project-resource counts are wired.
 export type Project = {
-  id: Id<"project">;
+  id: string;
   name: string;
   slug: string;
   databases: number;
@@ -21,11 +22,9 @@ export type Project = {
   environments: Environment[];
 };
 export type Environment = {
-  id: Id<"env">;
+  id: string;
   name: string;
   slug: string;
-  databases: number;
-  routes: number;
 };
 
 function initialsOf(name: string): string {
