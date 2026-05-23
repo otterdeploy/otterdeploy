@@ -4,16 +4,15 @@ import { Breadcrumbs } from "@/features/shell/components/breadcrumbs";
 import { useTheme } from "@/shared/components/theme-provider";
 import { Button } from "@/shared/components/ui/button";
 import { useSidebar } from "@/shared/components/ui/sidebar";
-import { Link, useLoaderData } from "@tanstack/react-router";
-import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ArrowDown01Icon,
   Moon02Icon,
   Notification01Icon,
   Search01Icon,
   SidebarLeftIcon,
   Sun03Icon,
 } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { useLoaderData } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 
 export function SiteHeader() {

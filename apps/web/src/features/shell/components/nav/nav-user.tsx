@@ -35,7 +35,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { useTranslation } from "react-i18next";
 
-import { languageNames, supportedLngs } from "@/shared/i18n";
+import { languageNames, supportedLngs } from "@otterstack/i18n";
 
 export type User = {
   name: string;

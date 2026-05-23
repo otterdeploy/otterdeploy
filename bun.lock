@@ -75,6 +75,7 @@
         "@otterstack/api": "workspace:*",
         "@otterstack/auth": "workspace:*",
         "@otterstack/env": "workspace:*",
+        "@otterstack/i18n": "workspace:*",
         "@otterstack/shared": "workspace:*",
         "@polar-sh/better-auth": "^1.8.4",
         "@tailwindcss/vite": "^4.3.0",
@@ -307,6 +308,27 @@
         "@types/bun": "catalog:",
         "typescript": "catalog:",
       },
+    },
+    "packages/i18n": {
+      "name": "@otterstack/i18n",
+      "version": "0.0.0",
+      "dependencies": {
+        "i18next": "^26.2.0",
+        "i18next-browser-languagedetector": "^8.2.1",
+      },
+      "devDependencies": {
+        "@otterstack/config": "workspace:*",
+        "@types/bun": "catalog:",
+        "typescript": "catalog:",
+      },
+      "peerDependencies": {
+        "react": "^19.0.0",
+        "react-i18next": "^17.0.0",
+      },
+      "optionalPeers": [
+        "react",
+        "react-i18next",
+      ],
     },
     "packages/inngest": {
       "name": "@otterstack/inngest",
@@ -890,6 +912,8 @@
     "@otterstack/email": ["@otterstack/email@workspace:packages/email"],
 
     "@otterstack/env": ["@otterstack/env@workspace:packages/env"],
+
+    "@otterstack/i18n": ["@otterstack/i18n@workspace:packages/i18n"],
 
     "@otterstack/inngest": ["@otterstack/inngest@workspace:packages/inngest"],
 

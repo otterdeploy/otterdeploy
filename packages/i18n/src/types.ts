@@ -1,6 +1,4 @@
-import "react-i18next";
-
-import type { resources } from "./config";
+import type { resources } from "./resources";
 
 declare module "react-i18next" {
   interface CustomTypeOptions {

@@ -1,0 +1,31 @@
+{
+  "name": "@otterstack/i18n",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./web": "./src/web.ts",
+    "./locales/*": "./src/locales/*.json"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "i18next": "^26.2.0",
+    "i18next-browser-languagedetector": "^8.2.1"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-i18next": "^17.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": { "optional": true },
+    "react-i18next": { "optional": true }
+  },
+  "devDependencies": {
+    "@otterstack/config": "workspace:*",
+    "@types/bun": "catalog:",
+    "typescript": "catalog:"
+  }
+}
