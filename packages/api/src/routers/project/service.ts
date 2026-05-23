@@ -25,7 +25,7 @@ import {
   getProjectInOrg,
   getProjectRecord,
   listProjectRecordsByOrg,
-} from "../../lib/queries/project";
+} from "./queries";
 import {
   createDatabaseResourceRecord,
   type DatabaseResourceRecord,
@@ -34,7 +34,7 @@ import {
   listDatabaseResourceRecords,
   updateDatabaseResourceRuntime,
   updateDatabaseResourceStatus,
-} from "../../lib/queries/postgres-resource";
+} from "./postgres-resource.queries";
 import { PLATFORM } from "../../constants";
 
 function sanitizeProjectSlug(projectId: string): string {

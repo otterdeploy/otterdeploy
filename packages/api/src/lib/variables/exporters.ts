@@ -10,7 +10,7 @@ import type {
   ResourceRow,
   ServicePortRow,
   ServiceResourceRow,
-} from "../queries/service";
+} from "../../routers/service/queries";
 
 export type PostgresExportInput = {
   resource: ResourceRow;

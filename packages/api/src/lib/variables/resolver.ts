@@ -10,14 +10,14 @@
 import {
   getDatabaseResourceRecord,
   type DatabaseResourceRecord,
-} from "../queries/postgres-resource";
+} from "../../routers/project/postgres-resource.queries";
 
 import {
   getResourceByProjectAndName,
   getServiceRecord,
   type ResourceRow,
   type ServiceRecord,
-} from "../queries/service";
+} from "../../routers/service/queries";
 import { postgresExports, serviceExports } from "./exporters";
 import { parseValue, type Token } from "./parser";
 

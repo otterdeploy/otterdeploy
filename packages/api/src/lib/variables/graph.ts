@@ -11,7 +11,7 @@ import {
   findServiceDependentsByName,
   getServiceRecord,
   type ServiceRecord,
-} from "../queries/service";
+} from "../../routers/service/queries";
 import { extractRefs } from "./parser";
 
 /**

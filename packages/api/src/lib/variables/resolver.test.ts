@@ -1,20 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../queries/service", () => ({
+vi.mock("../../routers/service/queries", () => ({
   getResourceByProjectAndName: vi.fn(),
   getServiceRecord: vi.fn(),
 }));
 
-vi.mock("../queries/postgres-resource", () => ({
+vi.mock("../../routers/project/postgres-resource.queries", () => ({
   getDatabaseResourceRecord: vi.fn(),
 }));
 
-import { getDatabaseResourceRecord } from "../queries/postgres-resource";
+import { getDatabaseResourceRecord } from "../../routers/project/postgres-resource.queries";
 
 import {
   getResourceByProjectAndName,
   getServiceRecord,
-} from "../queries/service";
+} from "../../routers/service/queries";
 import { resolveServiceEnv } from "./resolver";
 
 type Mock = ReturnType<typeof vi.fn>;

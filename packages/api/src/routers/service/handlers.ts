@@ -9,7 +9,7 @@
 
 import type { RequestLogger } from "evlog";
 
-import { getProjectInOrg } from "../../lib/queries/project";
+import { getProjectInOrg } from "../project/queries";
 
 import { reconcile } from "../../caddy";
 import {
@@ -34,7 +34,7 @@ import {
   updateServiceRecord,
   updateServiceResourceStatus,
   upsertServiceEnvVar,
-} from "../../lib/queries/service";
+} from "./queries";
 import {
   findTransitiveDependents,
   resolveServiceEnv,
