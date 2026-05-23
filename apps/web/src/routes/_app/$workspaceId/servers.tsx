@@ -3,5 +3,10 @@ import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_app/$workspaceId/servers")({
   staticData: { crumb: "Servers" },
-  component: () => <Placeholder title="Servers" description="Hosts available to this workspace." />,
+  component: () => (
+    <Placeholder
+      title="Servers"
+      description="List of servers in the workspace."
+    />
+  ),
 });

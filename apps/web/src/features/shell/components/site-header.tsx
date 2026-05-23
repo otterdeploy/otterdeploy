@@ -35,7 +35,7 @@ export function SiteHeader() {
           <HugeiconsIcon icon={SidebarLeftIcon} strokeWidth={2} />
         </Button>
 
-        <Link
+        {/*<Link
           to="/$workspaceId"
           params={{ workspaceId: workspace.id }}
           className="flex items-center gap-2 rounded-md px-2 py-1 text-sm hover:bg-accent"
@@ -49,7 +49,7 @@ export function SiteHeader() {
             strokeWidth={2}
             className="size-3.5 text-muted-foreground"
           />
-        </Link>
+        </Link>*/}
 
         <Breadcrumbs className="hidden md:block" />
 
@@ -59,7 +59,11 @@ export function SiteHeader() {
             className="hidden h-8 gap-2 px-2 text-muted-foreground sm:inline-flex"
             aria-label="Search"
           >
-            <HugeiconsIcon icon={Search01Icon} strokeWidth={2} className="size-4" />
+            <HugeiconsIcon
+              icon={Search01Icon}
+              strokeWidth={2}
+              className="size-4"
+            />
             <span className="text-sm">Search</span>
             <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
               ⌘K
@@ -72,7 +76,11 @@ export function SiteHeader() {
             className="size-8"
             aria-label="Notifications"
           >
-            <HugeiconsIcon icon={Notification01Icon} strokeWidth={2} className="size-4" />
+            <HugeiconsIcon
+              icon={Notification01Icon}
+              strokeWidth={2}
+              className="size-4"
+            />
           </Button>
 
           <Button
@@ -87,10 +95,6 @@ export function SiteHeader() {
               strokeWidth={2}
               className="size-4"
             />
-          </Button>
-
-          <Button variant="ghost" className="h-8 px-3 text-sm" asChild={false}>
-            Sign In
           </Button>
         </div>
       </div>

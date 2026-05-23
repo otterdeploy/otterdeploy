@@ -19,15 +19,10 @@ import { Route as AppWorkspaceIdIndexRouteImport } from "./routes/_app/$workspac
 import { Route as AppWorkspaceIdTeamRouteImport } from "./routes/_app/$workspaceId/team"
 import { Route as AppWorkspaceIdSettingsRouteImport } from "./routes/_app/$workspaceId/settings"
 import { Route as AppWorkspaceIdServersRouteImport } from "./routes/_app/$workspaceId/servers"
-import { Route as AppWorkspaceIdNetworkRouteImport } from "./routes/_app/$workspaceId/network"
-import { Route as AppWorkspaceIdLogsRouteImport } from "./routes/_app/$workspaceId/logs"
-import { Route as AppWorkspaceIdGraphRouteImport } from "./routes/_app/$workspaceId/graph"
-import { Route as AppWorkspaceIdDatabasesRouteImport } from "./routes/_app/$workspaceId/databases"
-import { Route as AppWorkspaceIdDashboardRouteImport } from "./routes/_app/$workspaceId/dashboard"
-import { Route as AppWorkspaceIdActivityRouteImport } from "./routes/_app/$workspaceId/activity"
-import { Route as AppWorkspaceIdProjectsProjectIdLayoutRouteImport } from "./routes/_app/$workspaceId/projects/$projectId/layout"
-import { Route as AppWorkspaceIdProjectsProjectIdIndexRouteImport } from "./routes/_app/$workspaceId/projects/$projectId/index"
-import { Route as AppWorkspaceIdProjectsProjectIdGraphRouteImport } from "./routes/_app/$workspaceId/projects/$projectId/graph"
+import { Route as AppWorkspaceIdNetworkingRouteImport } from "./routes/_app/$workspaceId/networking"
+import { Route as AppWorkspaceIdProjectIdLayoutRouteImport } from "./routes/_app/$workspaceId/$projectId/layout"
+import { Route as AppWorkspaceIdProjectIdIndexRouteImport } from "./routes/_app/$workspaceId/$projectId/index"
+import { Route as AppWorkspaceIdProjectIdGraphRouteImport } from "./routes/_app/$workspaceId/$projectId/graph"
 
 const AuthLayoutRoute = AuthLayoutRouteImport.update({
   id: "/_auth",
@@ -77,53 +72,29 @@ const AppWorkspaceIdServersRoute = AppWorkspaceIdServersRouteImport.update({
   path: "/servers",
   getParentRoute: () => AppWorkspaceIdLayoutRoute,
 } as any)
-const AppWorkspaceIdNetworkRoute = AppWorkspaceIdNetworkRouteImport.update({
-  id: "/network",
-  path: "/network",
-  getParentRoute: () => AppWorkspaceIdLayoutRoute,
-} as any)
-const AppWorkspaceIdLogsRoute = AppWorkspaceIdLogsRouteImport.update({
-  id: "/logs",
-  path: "/logs",
-  getParentRoute: () => AppWorkspaceIdLayoutRoute,
-} as any)
-const AppWorkspaceIdGraphRoute = AppWorkspaceIdGraphRouteImport.update({
-  id: "/graph",
-  path: "/graph",
-  getParentRoute: () => AppWorkspaceIdLayoutRoute,
-} as any)
-const AppWorkspaceIdDatabasesRoute = AppWorkspaceIdDatabasesRouteImport.update({
-  id: "/databases",
-  path: "/databases",
-  getParentRoute: () => AppWorkspaceIdLayoutRoute,
-} as any)
-const AppWorkspaceIdDashboardRoute = AppWorkspaceIdDashboardRouteImport.update({
-  id: "/dashboard",
-  path: "/dashboard",
-  getParentRoute: () => AppWorkspaceIdLayoutRoute,
-} as any)
-const AppWorkspaceIdActivityRoute = AppWorkspaceIdActivityRouteImport.update({
-  id: "/activity",
-  path: "/activity",
-  getParentRoute: () => AppWorkspaceIdLayoutRoute,
-} as any)
-const AppWorkspaceIdProjectsProjectIdLayoutRoute =
-  AppWorkspaceIdProjectsProjectIdLayoutRouteImport.update({
-    id: "/projects/$projectId",
-    path: "/projects/$projectId",
+const AppWorkspaceIdNetworkingRoute =
+  AppWorkspaceIdNetworkingRouteImport.update({
+    id: "/networking",
+    path: "/networking",
     getParentRoute: () => AppWorkspaceIdLayoutRoute,
   } as any)
-const AppWorkspaceIdProjectsProjectIdIndexRoute =
-  AppWorkspaceIdProjectsProjectIdIndexRouteImport.update({
+const AppWorkspaceIdProjectIdLayoutRoute =
+  AppWorkspaceIdProjectIdLayoutRouteImport.update({
+    id: "/$projectId",
+    path: "/$projectId",
+    getParentRoute: () => AppWorkspaceIdLayoutRoute,
+  } as any)
+const AppWorkspaceIdProjectIdIndexRoute =
+  AppWorkspaceIdProjectIdIndexRouteImport.update({
     id: "/",
     path: "/",
-    getParentRoute: () => AppWorkspaceIdProjectsProjectIdLayoutRoute,
+    getParentRoute: () => AppWorkspaceIdProjectIdLayoutRoute,
   } as any)
-const AppWorkspaceIdProjectsProjectIdGraphRoute =
-  AppWorkspaceIdProjectsProjectIdGraphRouteImport.update({
+const AppWorkspaceIdProjectIdGraphRoute =
+  AppWorkspaceIdProjectIdGraphRouteImport.update({
     id: "/graph",
     path: "/graph",
-    getParentRoute: () => AppWorkspaceIdProjectsProjectIdLayoutRoute,
+    getParentRoute: () => AppWorkspaceIdProjectIdLayoutRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -131,36 +102,26 @@ export interface FileRoutesByFullPath {
   "/$workspaceId": typeof AppWorkspaceIdLayoutRouteWithChildren
   "/sign-in": typeof AuthSignInRoute
   "/sign-up": typeof AuthSignUpRoute
-  "/$workspaceId/activity": typeof AppWorkspaceIdActivityRoute
-  "/$workspaceId/dashboard": typeof AppWorkspaceIdDashboardRoute
-  "/$workspaceId/databases": typeof AppWorkspaceIdDatabasesRoute
-  "/$workspaceId/graph": typeof AppWorkspaceIdGraphRoute
-  "/$workspaceId/logs": typeof AppWorkspaceIdLogsRoute
-  "/$workspaceId/network": typeof AppWorkspaceIdNetworkRoute
+  "/$workspaceId/$projectId": typeof AppWorkspaceIdProjectIdLayoutRouteWithChildren
+  "/$workspaceId/networking": typeof AppWorkspaceIdNetworkingRoute
   "/$workspaceId/servers": typeof AppWorkspaceIdServersRoute
   "/$workspaceId/settings": typeof AppWorkspaceIdSettingsRoute
   "/$workspaceId/team": typeof AppWorkspaceIdTeamRoute
   "/$workspaceId/": typeof AppWorkspaceIdIndexRoute
-  "/$workspaceId/projects/$projectId": typeof AppWorkspaceIdProjectsProjectIdLayoutRouteWithChildren
-  "/$workspaceId/projects/$projectId/graph": typeof AppWorkspaceIdProjectsProjectIdGraphRoute
-  "/$workspaceId/projects/$projectId/": typeof AppWorkspaceIdProjectsProjectIdIndexRoute
+  "/$workspaceId/$projectId/graph": typeof AppWorkspaceIdProjectIdGraphRoute
+  "/$workspaceId/$projectId/": typeof AppWorkspaceIdProjectIdIndexRoute
 }
 export interface FileRoutesByTo {
   "/": typeof AppIndexRoute
   "/sign-in": typeof AuthSignInRoute
   "/sign-up": typeof AuthSignUpRoute
-  "/$workspaceId/activity": typeof AppWorkspaceIdActivityRoute
-  "/$workspaceId/dashboard": typeof AppWorkspaceIdDashboardRoute
-  "/$workspaceId/databases": typeof AppWorkspaceIdDatabasesRoute
-  "/$workspaceId/graph": typeof AppWorkspaceIdGraphRoute
-  "/$workspaceId/logs": typeof AppWorkspaceIdLogsRoute
-  "/$workspaceId/network": typeof AppWorkspaceIdNetworkRoute
+  "/$workspaceId/networking": typeof AppWorkspaceIdNetworkingRoute
   "/$workspaceId/servers": typeof AppWorkspaceIdServersRoute
   "/$workspaceId/settings": typeof AppWorkspaceIdSettingsRoute
   "/$workspaceId/team": typeof AppWorkspaceIdTeamRoute
   "/$workspaceId": typeof AppWorkspaceIdIndexRoute
-  "/$workspaceId/projects/$projectId/graph": typeof AppWorkspaceIdProjectsProjectIdGraphRoute
-  "/$workspaceId/projects/$projectId": typeof AppWorkspaceIdProjectsProjectIdIndexRoute
+  "/$workspaceId/$projectId/graph": typeof AppWorkspaceIdProjectIdGraphRoute
+  "/$workspaceId/$projectId": typeof AppWorkspaceIdProjectIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -170,19 +131,14 @@ export interface FileRoutesById {
   "/_auth/sign-in": typeof AuthSignInRoute
   "/_auth/sign-up": typeof AuthSignUpRoute
   "/_app/": typeof AppIndexRoute
-  "/_app/$workspaceId/activity": typeof AppWorkspaceIdActivityRoute
-  "/_app/$workspaceId/dashboard": typeof AppWorkspaceIdDashboardRoute
-  "/_app/$workspaceId/databases": typeof AppWorkspaceIdDatabasesRoute
-  "/_app/$workspaceId/graph": typeof AppWorkspaceIdGraphRoute
-  "/_app/$workspaceId/logs": typeof AppWorkspaceIdLogsRoute
-  "/_app/$workspaceId/network": typeof AppWorkspaceIdNetworkRoute
+  "/_app/$workspaceId/$projectId": typeof AppWorkspaceIdProjectIdLayoutRouteWithChildren
+  "/_app/$workspaceId/networking": typeof AppWorkspaceIdNetworkingRoute
   "/_app/$workspaceId/servers": typeof AppWorkspaceIdServersRoute
   "/_app/$workspaceId/settings": typeof AppWorkspaceIdSettingsRoute
   "/_app/$workspaceId/team": typeof AppWorkspaceIdTeamRoute
   "/_app/$workspaceId/": typeof AppWorkspaceIdIndexRoute
-  "/_app/$workspaceId/projects/$projectId": typeof AppWorkspaceIdProjectsProjectIdLayoutRouteWithChildren
-  "/_app/$workspaceId/projects/$projectId/graph": typeof AppWorkspaceIdProjectsProjectIdGraphRoute
-  "/_app/$workspaceId/projects/$projectId/": typeof AppWorkspaceIdProjectsProjectIdIndexRoute
+  "/_app/$workspaceId/$projectId/graph": typeof AppWorkspaceIdProjectIdGraphRoute
+  "/_app/$workspaceId/$projectId/": typeof AppWorkspaceIdProjectIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -191,36 +147,26 @@ export interface FileRouteTypes {
     | "/$workspaceId"
     | "/sign-in"
     | "/sign-up"
-    | "/$workspaceId/activity"
-    | "/$workspaceId/dashboard"
-    | "/$workspaceId/databases"
-    | "/$workspaceId/graph"
-    | "/$workspaceId/logs"
-    | "/$workspaceId/network"
+    | "/$workspaceId/$projectId"
+    | "/$workspaceId/networking"
     | "/$workspaceId/servers"
     | "/$workspaceId/settings"
     | "/$workspaceId/team"
     | "/$workspaceId/"
-    | "/$workspaceId/projects/$projectId"
-    | "/$workspaceId/projects/$projectId/graph"
-    | "/$workspaceId/projects/$projectId/"
+    | "/$workspaceId/$projectId/graph"
+    | "/$workspaceId/$projectId/"
   fileRoutesByTo: FileRoutesByTo
   to:
     | "/"
     | "/sign-in"
     | "/sign-up"
-    | "/$workspaceId/activity"
-    | "/$workspaceId/dashboard"
-    | "/$workspaceId/databases"
-    | "/$workspaceId/graph"
-    | "/$workspaceId/logs"
-    | "/$workspaceId/network"
+    | "/$workspaceId/networking"
     | "/$workspaceId/servers"
     | "/$workspaceId/settings"
     | "/$workspaceId/team"
     | "/$workspaceId"
-    | "/$workspaceId/projects/$projectId/graph"
-    | "/$workspaceId/projects/$projectId"
+    | "/$workspaceId/$projectId/graph"
+    | "/$workspaceId/$projectId"
   id:
     | "__root__"
     | "/_app"
@@ -229,19 +175,14 @@ export interface FileRouteTypes {
     | "/_auth/sign-in"
     | "/_auth/sign-up"
     | "/_app/"
-    | "/_app/$workspaceId/activity"
-    | "/_app/$workspaceId/dashboard"
-    | "/_app/$workspaceId/databases"
-    | "/_app/$workspaceId/graph"
-    | "/_app/$workspaceId/logs"
-    | "/_app/$workspaceId/network"
+    | "/_app/$workspaceId/$projectId"
+    | "/_app/$workspaceId/networking"
     | "/_app/$workspaceId/servers"
     | "/_app/$workspaceId/settings"
     | "/_app/$workspaceId/team"
     | "/_app/$workspaceId/"
-    | "/_app/$workspaceId/projects/$projectId"
-    | "/_app/$workspaceId/projects/$projectId/graph"
-    | "/_app/$workspaceId/projects/$projectId/"
+    | "/_app/$workspaceId/$projectId/graph"
+    | "/_app/$workspaceId/$projectId/"
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -321,117 +262,70 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppWorkspaceIdServersRouteImport
       parentRoute: typeof AppWorkspaceIdLayoutRoute
     }
-    "/_app/$workspaceId/network": {
-      id: "/_app/$workspaceId/network"
-      path: "/network"
-      fullPath: "/$workspaceId/network"
-      preLoaderRoute: typeof AppWorkspaceIdNetworkRouteImport
+    "/_app/$workspaceId/networking": {
+      id: "/_app/$workspaceId/networking"
+      path: "/networking"
+      fullPath: "/$workspaceId/networking"
+      preLoaderRoute: typeof AppWorkspaceIdNetworkingRouteImport
       parentRoute: typeof AppWorkspaceIdLayoutRoute
     }
-    "/_app/$workspaceId/logs": {
-      id: "/_app/$workspaceId/logs"
-      path: "/logs"
-      fullPath: "/$workspaceId/logs"
-      preLoaderRoute: typeof AppWorkspaceIdLogsRouteImport
+    "/_app/$workspaceId/$projectId": {
+      id: "/_app/$workspaceId/$projectId"
+      path: "/$projectId"
+      fullPath: "/$workspaceId/$projectId"
+      preLoaderRoute: typeof AppWorkspaceIdProjectIdLayoutRouteImport
       parentRoute: typeof AppWorkspaceIdLayoutRoute
     }
-    "/_app/$workspaceId/graph": {
-      id: "/_app/$workspaceId/graph"
-      path: "/graph"
-      fullPath: "/$workspaceId/graph"
-      preLoaderRoute: typeof AppWorkspaceIdGraphRouteImport
-      parentRoute: typeof AppWorkspaceIdLayoutRoute
-    }
-    "/_app/$workspaceId/databases": {
-      id: "/_app/$workspaceId/databases"
-      path: "/databases"
-      fullPath: "/$workspaceId/databases"
-      preLoaderRoute: typeof AppWorkspaceIdDatabasesRouteImport
-      parentRoute: typeof AppWorkspaceIdLayoutRoute
-    }
-    "/_app/$workspaceId/dashboard": {
-      id: "/_app/$workspaceId/dashboard"
-      path: "/dashboard"
-      fullPath: "/$workspaceId/dashboard"
-      preLoaderRoute: typeof AppWorkspaceIdDashboardRouteImport
-      parentRoute: typeof AppWorkspaceIdLayoutRoute
-    }
-    "/_app/$workspaceId/activity": {
-      id: "/_app/$workspaceId/activity"
-      path: "/activity"
-      fullPath: "/$workspaceId/activity"
-      preLoaderRoute: typeof AppWorkspaceIdActivityRouteImport
-      parentRoute: typeof AppWorkspaceIdLayoutRoute
-    }
-    "/_app/$workspaceId/projects/$projectId": {
-      id: "/_app/$workspaceId/projects/$projectId"
-      path: "/projects/$projectId"
-      fullPath: "/$workspaceId/projects/$projectId"
-      preLoaderRoute: typeof AppWorkspaceIdProjectsProjectIdLayoutRouteImport
-      parentRoute: typeof AppWorkspaceIdLayoutRoute
-    }
-    "/_app/$workspaceId/projects/$projectId/": {
-      id: "/_app/$workspaceId/projects/$projectId/"
+    "/_app/$workspaceId/$projectId/": {
+      id: "/_app/$workspaceId/$projectId/"
       path: "/"
-      fullPath: "/$workspaceId/projects/$projectId/"
-      preLoaderRoute: typeof AppWorkspaceIdProjectsProjectIdIndexRouteImport
-      parentRoute: typeof AppWorkspaceIdProjectsProjectIdLayoutRoute
+      fullPath: "/$workspaceId/$projectId/"
+      preLoaderRoute: typeof AppWorkspaceIdProjectIdIndexRouteImport
+      parentRoute: typeof AppWorkspaceIdProjectIdLayoutRoute
     }
-    "/_app/$workspaceId/projects/$projectId/graph": {
-      id: "/_app/$workspaceId/projects/$projectId/graph"
+    "/_app/$workspaceId/$projectId/graph": {
+      id: "/_app/$workspaceId/$projectId/graph"
       path: "/graph"
-      fullPath: "/$workspaceId/projects/$projectId/graph"
-      preLoaderRoute: typeof AppWorkspaceIdProjectsProjectIdGraphRouteImport
-      parentRoute: typeof AppWorkspaceIdProjectsProjectIdLayoutRoute
+      fullPath: "/$workspaceId/$projectId/graph"
+      preLoaderRoute: typeof AppWorkspaceIdProjectIdGraphRouteImport
+      parentRoute: typeof AppWorkspaceIdProjectIdLayoutRoute
     }
   }
 }
 
-interface AppWorkspaceIdProjectsProjectIdLayoutRouteChildren {
-  AppWorkspaceIdProjectsProjectIdGraphRoute: typeof AppWorkspaceIdProjectsProjectIdGraphRoute
-  AppWorkspaceIdProjectsProjectIdIndexRoute: typeof AppWorkspaceIdProjectsProjectIdIndexRoute
+interface AppWorkspaceIdProjectIdLayoutRouteChildren {
+  AppWorkspaceIdProjectIdGraphRoute: typeof AppWorkspaceIdProjectIdGraphRoute
+  AppWorkspaceIdProjectIdIndexRoute: typeof AppWorkspaceIdProjectIdIndexRoute
 }
 
-const AppWorkspaceIdProjectsProjectIdLayoutRouteChildren: AppWorkspaceIdProjectsProjectIdLayoutRouteChildren =
+const AppWorkspaceIdProjectIdLayoutRouteChildren: AppWorkspaceIdProjectIdLayoutRouteChildren =
   {
-    AppWorkspaceIdProjectsProjectIdGraphRoute:
-      AppWorkspaceIdProjectsProjectIdGraphRoute,
-    AppWorkspaceIdProjectsProjectIdIndexRoute:
-      AppWorkspaceIdProjectsProjectIdIndexRoute,
+    AppWorkspaceIdProjectIdGraphRoute: AppWorkspaceIdProjectIdGraphRoute,
+    AppWorkspaceIdProjectIdIndexRoute: AppWorkspaceIdProjectIdIndexRoute,
   }
 
-const AppWorkspaceIdProjectsProjectIdLayoutRouteWithChildren =
-  AppWorkspaceIdProjectsProjectIdLayoutRoute._addFileChildren(
-    AppWorkspaceIdProjectsProjectIdLayoutRouteChildren,
+const AppWorkspaceIdProjectIdLayoutRouteWithChildren =
+  AppWorkspaceIdProjectIdLayoutRoute._addFileChildren(
+    AppWorkspaceIdProjectIdLayoutRouteChildren,
   )
 
 interface AppWorkspaceIdLayoutRouteChildren {
-  AppWorkspaceIdActivityRoute: typeof AppWorkspaceIdActivityRoute
-  AppWorkspaceIdDashboardRoute: typeof AppWorkspaceIdDashboardRoute
-  AppWorkspaceIdDatabasesRoute: typeof AppWorkspaceIdDatabasesRoute
-  AppWorkspaceIdGraphRoute: typeof AppWorkspaceIdGraphRoute
-  AppWorkspaceIdLogsRoute: typeof AppWorkspaceIdLogsRoute
-  AppWorkspaceIdNetworkRoute: typeof AppWorkspaceIdNetworkRoute
+  AppWorkspaceIdProjectIdLayoutRoute: typeof AppWorkspaceIdProjectIdLayoutRouteWithChildren
+  AppWorkspaceIdNetworkingRoute: typeof AppWorkspaceIdNetworkingRoute
   AppWorkspaceIdServersRoute: typeof AppWorkspaceIdServersRoute
   AppWorkspaceIdSettingsRoute: typeof AppWorkspaceIdSettingsRoute
   AppWorkspaceIdTeamRoute: typeof AppWorkspaceIdTeamRoute
   AppWorkspaceIdIndexRoute: typeof AppWorkspaceIdIndexRoute
-  AppWorkspaceIdProjectsProjectIdLayoutRoute: typeof AppWorkspaceIdProjectsProjectIdLayoutRouteWithChildren
 }
 
 const AppWorkspaceIdLayoutRouteChildren: AppWorkspaceIdLayoutRouteChildren = {
-  AppWorkspaceIdActivityRoute: AppWorkspaceIdActivityRoute,
-  AppWorkspaceIdDashboardRoute: AppWorkspaceIdDashboardRoute,
-  AppWorkspaceIdDatabasesRoute: AppWorkspaceIdDatabasesRoute,
-  AppWorkspaceIdGraphRoute: AppWorkspaceIdGraphRoute,
-  AppWorkspaceIdLogsRoute: AppWorkspaceIdLogsRoute,
-  AppWorkspaceIdNetworkRoute: AppWorkspaceIdNetworkRoute,
+  AppWorkspaceIdProjectIdLayoutRoute:
+    AppWorkspaceIdProjectIdLayoutRouteWithChildren,
+  AppWorkspaceIdNetworkingRoute: AppWorkspaceIdNetworkingRoute,
   AppWorkspaceIdServersRoute: AppWorkspaceIdServersRoute,
   AppWorkspaceIdSettingsRoute: AppWorkspaceIdSettingsRoute,
   AppWorkspaceIdTeamRoute: AppWorkspaceIdTeamRoute,
   AppWorkspaceIdIndexRoute: AppWorkspaceIdIndexRoute,
-  AppWorkspaceIdProjectsProjectIdLayoutRoute:
-    AppWorkspaceIdProjectsProjectIdLayoutRouteWithChildren,
 }
 
 const AppWorkspaceIdLayoutRouteWithChildren =

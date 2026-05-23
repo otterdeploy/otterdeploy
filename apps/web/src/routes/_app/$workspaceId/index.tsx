@@ -8,7 +8,6 @@ export const Route = createFileRoute("/_app/$workspaceId/")({
 });
 
 function RouteComponent() {
-  const { workspaceId } = Route.useParams();
   const { workspace } = useLoaderData({ from: "/_app/$workspaceId" });
 
   return (
@@ -21,7 +20,11 @@ function RouteComponent() {
           </p>
         </div>
         <Button variant="outline" className="gap-2">
-          <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-4" />
+          <HugeiconsIcon
+            icon={PlusSignIcon}
+            strokeWidth={2}
+            className="size-4"
+          />
           New project
         </Button>
       </header>
@@ -30,8 +33,8 @@ function RouteComponent() {
         {workspace.projects.map((project) => (
           <li key={project.id}>
             <Link
-              to="/$workspaceId/projects/$projectId"
-              params={{ workspaceId, projectId: project.id }}
+              to="/$workspaceId/$projectId"
+              params={{ workspaceId: workspace.id, projectId: project.id }}
               className="group flex h-full flex-col gap-4 rounded-xl border bg-card p-4 transition-colors hover:bg-accent/40"
             >
               <div className="flex items-start justify-between gap-2">
@@ -87,7 +90,9 @@ function ProjectVisualization({
       }}
     >
       {isEmpty ? (
-        <span className="font-mono text-xs text-muted-foreground/60">empty</span>
+        <span className="font-mono text-xs text-muted-foreground/60">
+          empty
+        </span>
       ) : (
         <>
           {Array.from({ length: project.databases }).map((_, i) => (

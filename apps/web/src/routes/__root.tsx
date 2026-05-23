@@ -60,8 +60,8 @@ function RootComponent() {
         </TooltipProvider>
       </ThemeProvider>
 
-      <TanStackRouterDevtools position="bottom-left" />
-      <ReactQueryDevtools position="bottom" buttonPosition="bottom-right" />
+      {/*<TanStackRouterDevtools position="bottom-left" />
+      <ReactQueryDevtools position="bottom" buttonPosition="bottom-right" />*/}
     </>
   );
 }

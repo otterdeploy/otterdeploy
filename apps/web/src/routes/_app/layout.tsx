@@ -1,8 +1,16 @@
 import type { Id } from "@otterstack/shared/id";
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 
-type Project = {
+export type Project = {
   id: Id<"project">;
+  name: string;
+  slug: string;
+  databases: number;
+  routes: number;
+  environments: Environment[];
+};
+export type Environment = {
+  id: Id<"env">;
   name: string;
   slug: string;
   databases: number;
@@ -18,7 +26,13 @@ type Workspace = {
 
 export const Route = createFileRoute("/_app")({
   beforeLoad: async () => {
-    const user = { id: 1, name: "json time" };
+    const user = {
+      id: 1,
+      name: "json time",
+      initials: "JT",
+      email: "email@example.com",
+      image: "",
+    };
     const workspaces: Workspace[] = [
       {
         id: "wksp_ea22c2xs" as Id<"wksp">,
@@ -31,6 +45,22 @@ export const Route = createFileRoute("/_app")({
             slug: "acme-api",
             databases: 2,
             routes: 2,
+            environments: [
+              {
+                id: "env_acmeapi1" as Id<"env">,
+                name: "Production",
+                slug: "production",
+                databases: 2,
+                routes: 2,
+              },
+              {
+                id: "env_acmeapi2" as Id<"env">,
+                name: "Staging",
+                slug: "staging",
+                databases: 2,
+                routes: 2,
+              },
+            ],
           },
           {
             id: "project_otters02" as Id<"project">,
@@ -38,6 +68,7 @@ export const Route = createFileRoute("/_app")({
             slug: "otters-web",
             databases: 1,
             routes: 1,
+            environments: [],
           },
           {
             id: "project_market03" as Id<"project">,
@@ -45,6 +76,7 @@ export const Route = createFileRoute("/_app")({
             slug: "marketing-site",
             databases: 0,
             routes: 0,
+            environments: [],
           },
         ],
       },
