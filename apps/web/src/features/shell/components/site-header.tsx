@@ -17,7 +17,7 @@ import { useTranslation } from "react-i18next";
 
 export function SiteHeader() {
   const { toggleSidebar } = useSidebar();
-  const { workspace } = useLoaderData({ from: "/_app/$workspaceId" });
+  const { organization } = useLoaderData({ from: "/_app/$orgSlug" });
   const { resolvedTheme, setTheme } = useTheme();
   const { t } = useTranslation();
 
@@ -37,14 +37,14 @@ export function SiteHeader() {
         </Button>
 
         {/*<Link
-          to="/$workspaceId"
-          params={{ workspaceId: workspace.id }}
+          to="/$orgSlug"
+          params={{ orgSlug: organization.slug }}
           className="flex items-center gap-2 rounded-md px-2 py-1 text-sm hover:bg-accent"
         >
           <span className="flex size-5 items-center justify-center rounded-full bg-foreground text-[10px] font-semibold text-background">
-            {workspace.name.charAt(0).toLowerCase()}
+            {organization.name.charAt(0).toLowerCase()}
           </span>
-          <span className="font-medium">{workspace.name}</span>
+          <span className="font-medium">{organization.name}</span>
           <HugeiconsIcon
             icon={ArrowDown01Icon}
             strokeWidth={2}
