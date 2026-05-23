@@ -5,11 +5,13 @@ import { implement, os as orpc } from "@orpc/server";
 import { dockerContract } from "./routers/docker/contract";
 import { envContract } from "./routers/env/contract";
 import { projectContract } from "./routers/project/contract";
+import { serviceContract } from "./routers/service/contract";
 
 export const publicProcedure = implement({
   docker: dockerContract,
   env: envContract,
   project: projectContract,
+  service: serviceContract,
 }).$context<Context>();
 
 const authMiddleware = orpc
