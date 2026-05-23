@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@otterstack/db";
 import { servicePort } from "@otterstack/db/schema/project";
 
-import type { ServicePortRow } from "./queries";
+import type { ServicePortRow } from ".";
 
 export async function listServicePorts(
   serviceResourceId: string,

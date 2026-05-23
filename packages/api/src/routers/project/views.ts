@@ -23,10 +23,10 @@ import {
 
 import {
   type DatabaseResourceRecord,
+  getProjectRecord,
   updateDatabaseResourceRuntime,
   updateDatabaseResourceStatus,
-} from "./postgres-resource.queries";
-import { getProjectRecord } from "./queries";
+} from "./queries";
 
 // ---------------------------------------------------------------------------
 // View types

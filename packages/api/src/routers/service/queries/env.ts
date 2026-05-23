@@ -6,7 +6,7 @@ import {
   serviceEnvVar,
 } from "@otterstack/db/schema/project";
 
-import type { ResourceRow, ServiceEnvVarRow } from "./queries";
+import type { ResourceRow, ServiceEnvVarRow } from ".";
 
 // ---------------------------------------------------------------------------
 // Env vars

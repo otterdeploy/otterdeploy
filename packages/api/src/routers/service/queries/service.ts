@@ -13,9 +13,9 @@ import {
   type ServiceEnvVarRow,
   type ServiceRecord,
   type ServiceResourceRow,
-} from "./queries";
-import { listServicePorts } from "./queries-ports";
-import { listServiceEnvVars } from "./queries-env";
+} from ".";
+import { listServicePorts } from "./ports";
+import { listServiceEnvVars } from "./env";
 
 // ---------------------------------------------------------------------------
 // Reads

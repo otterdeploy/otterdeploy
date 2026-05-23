@@ -21,7 +21,7 @@ import {
 import {
   getDatabaseResourceRecord,
   type DatabaseResourceRecord,
-} from "../../routers/project/postgres-resource.queries";
+} from "../../routers/project/queries";
 
 import {
   getResourceByProjectAndName,

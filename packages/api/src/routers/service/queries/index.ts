@@ -1,11 +1,11 @@
 /**
  * Barrel re-export for the service-router query layer.
  *
- * Implementation is split across siblings to keep each file under the
- * project's 350-line cap:
- *   - queries-service.ts: service_resource CRUD + helpers
- *   - queries-ports.ts:   service_port CRUD
- *   - queries-env.ts:     service_env_var CRUD + cross-resource ref lookups
+ * Implementation is split across files in this folder to keep each module
+ * under the project's 350-line cap:
+ *   - service.ts: service_resource CRUD + helpers
+ *   - ports.ts:   service_port CRUD
+ *   - env.ts:     service_env_var CRUD + cross-resource ref lookups
  */
 
 import type {
@@ -39,13 +39,13 @@ export {
   updateServiceResourceStatus,
   type CreateServiceInput,
   type UpdateServiceInput,
-} from "./queries-service";
+} from "./service";
 
 export {
   getPrimaryHttpPort,
   listServicePorts,
   replaceServicePorts,
-} from "./queries-ports";
+} from "./ports";
 
 export {
   bulkReplaceServiceEnvVars,
@@ -54,4 +54,4 @@ export {
   getResourceByProjectAndName,
   listServiceEnvVars,
   upsertServiceEnvVar,
-} from "./queries-env";
+} from "./env";

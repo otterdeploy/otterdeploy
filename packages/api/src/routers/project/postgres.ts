@@ -33,10 +33,10 @@ import {
   createDatabaseResourceRecord,
   getDatabaseResourceByProjectAndName,
   getDatabaseResourceRecord,
+  getProjectInOrg,
   listDatabaseResourceRecords,
   updateDatabaseResourceStatus,
-} from "./postgres-resource.queries";
-import { getProjectInOrg } from "./queries";
+} from "./queries";
 import {
   buildConnectionString,
   buildContainerName,

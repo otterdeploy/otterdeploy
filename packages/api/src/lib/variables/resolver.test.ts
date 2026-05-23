@@ -5,11 +5,11 @@ vi.mock("../../routers/service/queries", () => ({
   getServiceRecord: vi.fn(),
 }));
 
-vi.mock("../../routers/project/postgres-resource.queries", () => ({
+vi.mock("../../routers/project/queries", () => ({
   getDatabaseResourceRecord: vi.fn(),
 }));
 
-import { getDatabaseResourceRecord } from "../../routers/project/postgres-resource.queries";
+import { getDatabaseResourceRecord } from "../../routers/project/queries";
 
 import {
   getResourceByProjectAndName,
