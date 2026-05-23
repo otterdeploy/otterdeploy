@@ -185,10 +185,7 @@ export async function destroySwarmService(input: {
   const docker = Docker.fromEnv();
 
   const listResult = await docker.services.list({
-    filters: JSON.stringify({ name: [input.serviceName] }) as unknown as Record<
-      string,
-      string[]
-    >,
+    filters: { name: [input.serviceName] },
   });
 
   if (listResult.isErr()) {
@@ -301,10 +298,7 @@ async function inspectSwarmService(
   networkName: string,
 ): Promise<SwarmServiceRuntime | null> {
   const listResult = await docker.services.list({
-    filters: JSON.stringify({ name: [serviceName] }) as unknown as Record<
-      string,
-      string[]
-    >,
+    filters: { name: [serviceName] },
   });
 
   if (listResult.isErr()) {
@@ -315,10 +309,7 @@ async function inspectSwarmService(
   if (!service) return null;
 
   const tasksResult = await docker.tasks.list({
-    filters: JSON.stringify({ service: [serviceName] }) as unknown as Record<
-      string,
-      string[]
-    >,
+    filters: { service: [serviceName] },
   });
 
   if (tasksResult.isErr()) {
