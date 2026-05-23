@@ -41,7 +41,7 @@ export const ID_PREFIX = {
 export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];
 
 // Branded type — gives compile-time safety when passing IDs around
-declare const __brand: unique symbol;
+export declare const __brand: unique symbol;
 
 /** A branded string ID with a known prefix. */
 export type Id<P extends string = string> = string & {
