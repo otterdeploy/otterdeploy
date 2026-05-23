@@ -126,6 +126,7 @@ export const invitation = pgTable(
       .references(() => organization.id, { onDelete: "cascade" }),
     email: text("email").notNull(),
     role: text("role"),
+    teamId: text("team_id"),
     status: text("status").notNull().default("pending"),
     expiresAt: timestamp("expires_at").notNull(),
     inviterId: text("inviter_id")
