@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from "./routes/__root"
 import { Route as SignInRouteImport } from "./routes/sign-in"
 import { Route as AppLayoutRouteImport } from "./routes/_app/layout"
 import { Route as AppIndexRouteImport } from "./routes/_app/index"
+import { Route as OnboardingCreateOrganizationRouteImport } from "./routes/onboarding/create-organization"
 import { Route as AppWorkspaceIdLayoutRouteImport } from "./routes/_app/$workspaceId/layout"
 import { Route as AppWorkspaceIdIndexRouteImport } from "./routes/_app/$workspaceId/index"
 import { Route as AppWorkspaceIdTeamRouteImport } from "./routes/_app/$workspaceId/team"
@@ -36,6 +37,12 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: "/",
   getParentRoute: () => AppLayoutRoute,
 } as any)
+const OnboardingCreateOrganizationRoute =
+  OnboardingCreateOrganizationRouteImport.update({
+    id: "/onboarding/create-organization",
+    path: "/onboarding/create-organization",
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AppWorkspaceIdLayoutRoute = AppWorkspaceIdLayoutRouteImport.update({
   id: "/$workspaceId",
   path: "/$workspaceId",
@@ -90,6 +97,7 @@ export interface FileRoutesByFullPath {
   "/": typeof AppIndexRoute
   "/sign-in": typeof SignInRoute
   "/$workspaceId": typeof AppWorkspaceIdLayoutRouteWithChildren
+  "/onboarding/create-organization": typeof OnboardingCreateOrganizationRoute
   "/$workspaceId/$projectId": typeof AppWorkspaceIdProjectIdLayoutRouteWithChildren
   "/$workspaceId/networking": typeof AppWorkspaceIdNetworkingRoute
   "/$workspaceId/servers": typeof AppWorkspaceIdServersRoute
@@ -101,6 +109,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   "/sign-in": typeof SignInRoute
+  "/onboarding/create-organization": typeof OnboardingCreateOrganizationRoute
   "/": typeof AppIndexRoute
   "/$workspaceId/networking": typeof AppWorkspaceIdNetworkingRoute
   "/$workspaceId/servers": typeof AppWorkspaceIdServersRoute
@@ -115,6 +124,7 @@ export interface FileRoutesById {
   "/_app": typeof AppLayoutRouteWithChildren
   "/sign-in": typeof SignInRoute
   "/_app/$workspaceId": typeof AppWorkspaceIdLayoutRouteWithChildren
+  "/onboarding/create-organization": typeof OnboardingCreateOrganizationRoute
   "/_app/": typeof AppIndexRoute
   "/_app/$workspaceId/$projectId": typeof AppWorkspaceIdProjectIdLayoutRouteWithChildren
   "/_app/$workspaceId/networking": typeof AppWorkspaceIdNetworkingRoute
@@ -131,6 +141,7 @@ export interface FileRouteTypes {
     | "/"
     | "/sign-in"
     | "/$workspaceId"
+    | "/onboarding/create-organization"
     | "/$workspaceId/$projectId"
     | "/$workspaceId/networking"
     | "/$workspaceId/servers"
@@ -142,6 +153,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | "/sign-in"
+    | "/onboarding/create-organization"
     | "/"
     | "/$workspaceId/networking"
     | "/$workspaceId/servers"
@@ -155,6 +167,7 @@ export interface FileRouteTypes {
     | "/_app"
     | "/sign-in"
     | "/_app/$workspaceId"
+    | "/onboarding/create-organization"
     | "/_app/"
     | "/_app/$workspaceId/$projectId"
     | "/_app/$workspaceId/networking"
@@ -169,6 +182,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AppLayoutRoute: typeof AppLayoutRouteWithChildren
   SignInRoute: typeof SignInRoute
+  OnboardingCreateOrganizationRoute: typeof OnboardingCreateOrganizationRoute
 }
 
 declare module "@tanstack/react-router" {
@@ -193,6 +207,13 @@ declare module "@tanstack/react-router" {
       fullPath: "/"
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppLayoutRoute
+    }
+    "/onboarding/create-organization": {
+      id: "/onboarding/create-organization"
+      path: "/onboarding/create-organization"
+      fullPath: "/onboarding/create-organization"
+      preLoaderRoute: typeof OnboardingCreateOrganizationRouteImport
+      parentRoute: typeof rootRouteImport
     }
     "/_app/$workspaceId": {
       id: "/_app/$workspaceId"
@@ -315,6 +336,7 @@ const AppLayoutRouteWithChildren = AppLayoutRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   AppLayoutRoute: AppLayoutRouteWithChildren,
   SignInRoute: SignInRoute,
+  OnboardingCreateOrganizationRoute: OnboardingCreateOrganizationRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
