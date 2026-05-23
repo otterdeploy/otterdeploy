@@ -1,6 +1,12 @@
 import * as React from "react";
 
 import {
+  Link,
+  type FileRoutesByPath,
+  type LinkProps,
+} from "@tanstack/react-router";
+
+import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
@@ -30,11 +36,17 @@ import {
   VariableIcon,
 } from "@hugeicons/core-free-icons";
 
-// ─── data ──────────────────────────────────────────────────────────────────
-// Mirrors the helio dashboard demo on feat/v2-rebuild. Hrefs are placeholders
-// until per-section routes land; replace anchors with TanStack `Link` then.
-
 type Status = "ok" | "warn" | "err";
+
+interface NavItem {
+  title: string;
+  href: RoutePath;
+  icon: typeof Rocket01Icon;
+  badge?: string;
+  active?: boolean;
+}
+
+type RoutePath = LinkProps["to"];
 
 const STATUS_DOT: Record<Status, string> = {
   ok: "bg-emerald-500",
@@ -45,22 +57,45 @@ const STATUS_DOT: Record<Status, string> = {
 const environment = { name: "production", status: "ok" as Status };
 
 const project = [
-  { title: "Overview", href: "#", icon: Home01Icon },
-  { title: "Graph", href: "#", icon: Share08Icon },
-  { title: "Deployments", href: "#", icon: Rocket01Icon, badge: "7", active: true },
-  { title: "Logs", href: "#", icon: TextAlignLeft01Icon },
-  { title: "Metrics", href: "#", icon: ChartHistogramIcon },
-  { title: "Variables", href: "#", icon: VariableIcon },
-  { title: "Networking", href: "#", icon: EarthIcon },
-  { title: "Servers", href: "#", icon: ServerStack01Icon, badge: "3" },
-  { title: "Terminal", href: "#", icon: FlashIcon },
-  { title: "Settings", href: "#", icon: Sun03Icon },
-] as const;
+  { title: "Overview", href: "/$workspaceId", icon: Home01Icon },
+  { title: "Graph", href: "/$workspaceId/graph", icon: Share08Icon },
+  {
+    title: "Deployments",
+    href: "/$workspaceId/deployments",
+    icon: Rocket01Icon,
+    badge: "7",
+    active: true,
+  },
+  { title: "Logs", href: "/$workspaceId/logs", icon: TextAlignLeft01Icon },
+  {
+    title: "Metrics",
+    href: "/$workspaceId/metrics",
+    icon: ChartHistogramIcon,
+  },
+  {
+    title: "Variables",
+    href: "/$workspaceId/variables",
+    icon: VariableIcon,
+  },
+  {
+    title: "Networking",
+    href: "/$workspaceId/networking",
+    icon: EarthIcon,
+  },
+  {
+    title: "Servers",
+    href: "/servers",
+    icon: ServerStack01Icon,
+    badge: "3",
+  },
+  { title: "Terminal", href: "/terminal", icon: FlashIcon },
+  { title: "Settings", href: "/settings", icon: Sun03Icon },
+] as const satisfies ReadonlyArray<NavItem>;
 
 const services = [
-  { name: "web", status: "ok" },
-  { name: "api", status: "ok" },
-  { name: "worker", status: "warn" },
+  { name: "web", status: "ok", href: "/$workspaceId/services/web" },
+  { name: "api", status: "ok", href: "/$workspaceId/services/api" },
+  { name: "worker", status: "warn", href: "/$workspaceId/services/worker  " },
   { name: "postgres", status: "ok" },
   { name: "redis", status: "ok" },
   { name: "imgproxy", status: "ok" },
@@ -74,9 +109,13 @@ const region = {
 
 const user = { name: "Mira Sato", initials: "MS" };
 
-// ─── helpers ───────────────────────────────────────────────────────────────
-
-function StatusDot({ status, className = "" }: { status: Status; className?: string }) {
+function StatusDot({
+  status,
+  className = "",
+}: {
+  status: Status;
+  className?: string;
+}) {
   return (
     <span
       aria-hidden
@@ -84,8 +123,6 @@ function StatusDot({ status, className = "" }: { status: Status; className?: str
     />
   );
 }
-
-// ─── sidebar ───────────────────────────────────────────────────────────────
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
@@ -102,7 +139,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               className="border border-sidebar-border"
             >
               <StatusDot status={environment.status} />
-              <span className="flex-1 text-sm text-foreground">{environment.name}</span>
+              <span className="flex-1 text-sm text-foreground">
+                {environment.name}
+              </span>
               <HugeiconsIcon
                 icon={ArrowDown01Icon}
                 strokeWidth={2}
@@ -115,14 +154,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-[11px] uppercase tracking-wider text-sidebar-foreground/50">Project</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-[11px] uppercase tracking-wider text-sidebar-foreground/50">
+            Project
+          </SidebarGroupLabel>
           <SidebarMenu>
             {project.map((item) => (
               <SidebarMenuItem key={item.title}>
-                <SidebarMenuButton
-                  isActive={"active" in item ? item.active : false}
-                  render={<a href={item.href} />}
-                >
+                <SidebarMenuButton render={<Link to={item.href} />}>
                   <HugeiconsIcon icon={item.icon} strokeWidth={2} />
                   <span>{item.title}</span>
                 </SidebarMenuButton>
@@ -135,7 +173,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel className="text-[11px] uppercase tracking-wider text-sidebar-foreground/50">Services</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-sidebar-foreground/50">
+            Services
+          </SidebarGroupLabel>
           <SidebarGroupAction title="Add service">
             <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
             <span className="sr-only">Add service</span>
@@ -143,7 +183,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenu>
             {services.map((svc) => (
               <SidebarMenuItem key={svc.name}>
-                <SidebarMenuButton render={<a href="#" />}>
+                <SidebarMenuButton render={<Link to="." />}>
                   <HugeiconsIcon icon={ServerStack01Icon} strokeWidth={2} />
                   <span className="font-mono">{svc.name}</span>
                   <StatusDot status={svc.status} className="ml-auto" />
@@ -172,7 +212,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 {user.initials}
               </div>
               <div className="grid flex-1 text-left leading-tight">
-                <span className="truncate text-sm text-foreground">{user.name}</span>
+                <span className="truncate text-sm text-foreground">
+                  {user.name}
+                </span>
               </div>
               <HugeiconsIcon
                 icon={ArrowDown01Icon}

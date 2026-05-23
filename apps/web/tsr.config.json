@@ -1,0 +1,6 @@
+{
+  "routeToken": "layout",
+  "quoteStyle": "double",
+  "autoCodeSplitting": true,
+  "generatedRouteTree": "./src/route-tree.gen.ts"
+}

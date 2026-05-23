@@ -1,52 +1,98 @@
-import { SearchForm } from "@/features/shell/components/search-form";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/shared/components/ui/breadcrumb";
+"use client";
+
+import { Breadcrumbs } from "@/features/shell/components/breadcrumbs";
+import { useTheme } from "@/shared/components/theme-provider";
 import { Button } from "@/shared/components/ui/button";
-import { Separator } from "@/shared/components/ui/separator";
 import { useSidebar } from "@/shared/components/ui/sidebar";
+import { Link, useLoaderData } from "@tanstack/react-router";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { SidebarLeftIcon } from "@hugeicons/core-free-icons";
+import {
+  ArrowDown01Icon,
+  Moon02Icon,
+  Notification01Icon,
+  Search01Icon,
+  SidebarLeftIcon,
+  Sun03Icon,
+} from "@hugeicons/core-free-icons";
 
 export function SiteHeader() {
   const { toggleSidebar } = useSidebar();
+  const { workspace } = useLoaderData({ from: "/_app/$workspaceId" });
+  const { resolvedTheme, setTheme } = useTheme();
+
+  const isDark = resolvedTheme === "dark";
 
   return (
     <header className="sticky top-0 z-50 flex w-full items-center border-b bg-background">
-      <div className="flex h-(--header-height) w-full items-center gap-2 px-4">
+      <div className="flex h-(--header-height) w-full items-center gap-3 px-3">
         <Button
-          className="h-8 w-8"
+          className="size-8"
           variant="ghost"
           size="icon"
           onClick={toggleSidebar}
+          aria-label="Toggle sidebar"
         >
           <HugeiconsIcon icon={SidebarLeftIcon} strokeWidth={2} />
         </Button>
-        <Separator
-          orientation="vertical"
-          className="mr-2 data-vertical:h-4 data-vertical:self-auto"
-        />
-        <Breadcrumb className="hidden sm:block">
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink href="#">paperhouse</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbLink href="#">helio</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage>Overview</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-        <SearchForm className="w-full sm:ml-auto sm:w-auto" />
+
+        <Link
+          to="/$workspaceId"
+          params={{ workspaceId: workspace.id }}
+          className="flex items-center gap-2 rounded-md px-2 py-1 text-sm hover:bg-accent"
+        >
+          <span className="flex size-5 items-center justify-center rounded-full bg-foreground text-[10px] font-semibold text-background">
+            {workspace.name.charAt(0).toLowerCase()}
+          </span>
+          <span className="font-medium">{workspace.name}</span>
+          <HugeiconsIcon
+            icon={ArrowDown01Icon}
+            strokeWidth={2}
+            className="size-3.5 text-muted-foreground"
+          />
+        </Link>
+
+        <Breadcrumbs className="hidden md:block" />
+
+        <div className="ml-auto flex items-center gap-1">
+          <Button
+            variant="ghost"
+            className="hidden h-8 gap-2 px-2 text-muted-foreground sm:inline-flex"
+            aria-label="Search"
+          >
+            <HugeiconsIcon icon={Search01Icon} strokeWidth={2} className="size-4" />
+            <span className="text-sm">Search</span>
+            <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+              ⌘K
+            </kbd>
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8"
+            aria-label="Notifications"
+          >
+            <HugeiconsIcon icon={Notification01Icon} strokeWidth={2} className="size-4" />
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8"
+            onClick={() => setTheme(isDark ? "light" : "dark")}
+            aria-label="Toggle theme"
+          >
+            <HugeiconsIcon
+              icon={isDark ? Sun03Icon : Moon02Icon}
+              strokeWidth={2}
+              className="size-4"
+            />
+          </Button>
+
+          <Button variant="ghost" className="h-8 px-3 text-sm" asChild={false}>
+            Sign In
+          </Button>
+        </div>
       </div>
     </header>
   );
