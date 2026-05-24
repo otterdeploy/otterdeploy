@@ -27,7 +27,7 @@ export const Route = createFileRoute("/_app/$orgSlug/$projectSlug")({
     if (!project) throw notFound();
     // Preload resources for the resolved projectId so the sidebar is ready.
     await createResourceCollection(project.id).preload();
-    return { crumb: project.name };
+    return { crumb: project.name, project };
   },
 });
 
