@@ -75,6 +75,29 @@ export const postgresResourceSchema = z.object({
   }),
 });
 
+export const databaseResourceSchema = z.discriminatedUnion("engine", [
+  postgresResourceSchema,
+]);
+
+export const resourceSchema = z.discriminatedUnion("type", [
+  databaseResourceSchema.options[0], // postgres has `type: "database"`
+]);
+
+export const listProjectResourcesInput = z.object({
+  projectId: zId(ID_PREFIX.project),
+});
+
+export const getProjectResourceInput = z.object({
+  projectId: zId(ID_PREFIX.project),
+  resourceId: zId(ID_PREFIX.resource),
+});
+
+export const deleteProjectResourceInput = z.object({
+  projectId: zId(ID_PREFIX.project),
+  resourceId: zId(ID_PREFIX.resource),
+});
+
+// Engine-specific create inputs (kept; reads/deletes are generic via resource.*)
 export const createPostgresDatabaseInput = z.object({
   projectId: zId(ID_PREFIX.project),
   name: z.string().min(1),
@@ -214,68 +237,73 @@ export const projectContract = {
       .input(listProxyRoutesInput)
       .output(z.array(proxyRouteSchema)),
   },
-  database: {
-    postgres: {
-      create: oc
-        .errors({
-          NOT_FOUND: {
-            status: 404,
-            message: "Project not found" as const,
-          },
-          CONFLICT: {
-            status: 409,
-            message: "Database resource already exists" as const,
-          },
-        })
-        .meta({
-          path: `${basePath}/{projectId}/databases/postgres`,
-          tag,
-          method: "POST",
-        })
-        .input(createPostgresDatabaseInput)
-        .output(postgresResourceSchema),
-      get: oc
-        .errors({
-          NOT_FOUND: {
-            status: 404,
-            message: "Database resource not found" as const,
-          },
-        })
-        .meta({
-          path: `${basePath}/{projectId}/databases/{resourceId}`,
-          tag,
-          method: "GET",
-        })
-        .input(getPostgresDatabaseInput)
-        .output(postgresResourceSchema),
-      list: oc
-        .errors({
-          NOT_FOUND: {
-            status: 404,
-            message: "Project not found" as const,
-          },
-        })
-        .meta({
-          path: `${basePath}/{projectId}/databases`,
-          tag,
-          method: "GET",
-        })
-        .input(listPostgresDatabasesInput)
-        .output(z.array(postgresResourceSchema)),
-      delete: oc
-        .errors({
-          NOT_FOUND: {
-            status: 404,
-            message: "Database resource not found" as const,
-          },
-        })
-        .meta({
-          path: `${basePath}/{projectId}/databases/{resourceId}`,
-          tag,
-          method: "DELETE",
-        })
-        .input(deletePostgresDatabaseInput)
-        .output(z.object({ ok: z.boolean() })),
+  resource: {
+    list: oc
+      .errors({
+        NOT_FOUND: {
+          status: 404,
+          message: "Project not found" as const,
+        },
+      })
+      .meta({
+        path: `${basePath}/{projectId}/resources`,
+        tag,
+        method: "GET",
+      })
+      .input(listProjectResourcesInput)
+      .output(z.array(resourceSchema)),
+
+    get: oc
+      .errors({
+        NOT_FOUND: {
+          status: 404,
+          message: "Resource not found" as const,
+        },
+      })
+      .meta({
+        path: `${basePath}/{projectId}/resources/{resourceId}`,
+        tag,
+        method: "GET",
+      })
+      .input(getProjectResourceInput)
+      .output(resourceSchema),
+
+    delete: oc
+      .errors({
+        NOT_FOUND: {
+          status: 404,
+          message: "Resource not found" as const,
+        },
+      })
+      .meta({
+        path: `${basePath}/{projectId}/resources/{resourceId}`,
+        tag,
+        method: "DELETE",
+      })
+      .input(deleteProjectResourceInput)
+      .output(z.object({ ok: z.boolean() })),
+
+    database: {
+      postgres: {
+        create: oc
+          .errors({
+            NOT_FOUND: {
+              status: 404,
+              message: "Project not found" as const,
+            },
+            CONFLICT: {
+              status: 409,
+              message: "Database resource already exists" as const,
+            },
+          })
+          .meta({
+            path: `${basePath}/{projectId}/resources/database/postgres`,
+            tag,
+            method: "POST",
+          })
+          .input(createPostgresDatabaseInput)
+          .output(postgresResourceSchema),
+      },
     },
   },
 };
