@@ -27,3 +27,10 @@ export {
   updateDatabaseResourceStatus,
   type DatabaseResourceRecord,
 } from "./postgres-resource";
+
+export {
+  deleteResourceById,
+  getResourceById,
+  listProjectResources,
+  type DatabaseResourceJoined,
+} from "./resource";
