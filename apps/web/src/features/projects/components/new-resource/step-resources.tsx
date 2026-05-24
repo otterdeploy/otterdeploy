@@ -4,6 +4,14 @@ import type { AnyFieldApi } from "@tanstack/react-form";
 import { RESOURCE_PRESETS, NODES } from "@/features/projects/data/service-kinds";
 import { I } from "./icons";
 import { SectionH, Field, SettingRow } from "./form-primitives";
+import { Card, CardContent } from "@/shared/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/components/ui/select";
 
 type ResourcesProps = {
   presetIdField: AnyFieldApi;
@@ -11,6 +19,7 @@ type ResourcesProps = {
   customMemField: AnyFieldApi;
   replicasField: AnyFieldApi;
   placementField: AnyFieldApi;
+  pinnedNodeIdField: AnyFieldApi;
   isDb: boolean;
 };
 
@@ -20,6 +29,7 @@ export function StepResources({
   customMemField,
   replicasField,
   placementField,
+  pinnedNodeIdField,
   isDb,
 }: ResourcesProps) {
   const presetId = presetIdField.state.value as string;
@@ -27,6 +37,7 @@ export function StepResources({
   const customMem = customMemField.state.value as number;
   const replicas = replicasField.state.value as number;
   const placement = placementField.state.value as string;
+  const pinnedNodeId = pinnedNodeIdField.state.value as string | null;
 
   const preset = RESOURCE_PRESETS.find((p) => p.id === presetId);
   const cpu = preset?.cpu ?? customCpu;
@@ -150,103 +161,120 @@ export function StepResources({
         </>
       )}
 
-      <div style={{ height: 18 }} />
+      <div className="h-[18px]" />
       <SectionH
         title="Placement"
         sub={`Where should this run? · ${NODES.length} nodes available in the swarm`}
       />
-      <div className="card" style={{ padding: 16, marginTop: 10 }}>
-        <Field label="Placement strategy">
-          <select
-            className="input"
-            value={placement}
-            onChange={(e) => placementField.handleChange(e.target.value)}
-          >
-            <option value="any">Any node — let scheduler decide</option>
-            <option value="spread">Spread across nodes — one replica per node</option>
-            <option value="pack">Pack onto fewest nodes — minimize spread</option>
-            <option value="pin">Pin to specific node</option>
-          </select>
-        </Field>
-
-        <div
-          style={{
-            marginTop: 14,
-            padding: 12,
-            background: "var(--muted)",
-            borderRadius: 6,
-            border: "1px solid var(--border)",
-          }}
-        >
-          <div
-            className="os-muted"
-            style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}
-          >
-            predicted placement
-          </div>
-          <div className="os-row os-gap-2">
-            {NODES.map((n, ni) => {
-              const onThis =
-                placement === "spread"
-                  ? ni < replicas ? 1 : 0
-                  : placement === "pack"
-                    ? ni === 0 ? replicas : 0
-                    : Math.ceil((replicas - ni) / NODES.length);
-              return (
-                <div
-                  key={n.id}
-                  style={{
-                    flex: 1,
-                    padding: 10,
-                    background: "var(--card)",
-                    borderRadius: 5,
-                    border: "1px solid var(--border)",
-                  }}
-                >
-                  <div className="os-row os-gap-2" style={{ fontSize: 11 }}>
-                    <span className="os-mono" style={{ color: "var(--muted-foreground)" }}>{n.name}</span>
-                    <span style={{ flex: 1 }} />
-                    <span className="os-muted">{Math.round((n.cpu.used / n.cpu.total) * 100)}%</span>
-                  </div>
-                  <div className="os-row os-gap-1" style={{ marginTop: 6, flexWrap: "wrap" }}>
-                    {Array.from({ length: Math.max(0, onThis) }).map((_, i) => (
-                      <span
-                        key={i}
-                        style={{
-                          display: "inline-block",
-                          width: 10,
-                          height: 10,
-                          borderRadius: 2,
-                          background: "var(--chart-2)",
-                        }}
-                      />
-                    ))}
-                    {onThis === 0 && <span className="os-muted" style={{ fontSize: 10 }}>—</span>}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      <div style={{ height: 14 }} />
-      <div className="card" style={{ padding: 14, background: "var(--muted)" }}>
-        <div className="os-row os-gap-3">
-          <div>
-            <div
-              className="os-muted"
-              style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}
+      <Card className="mt-2.5 rounded-md">
+        <CardContent>
+          <Field label="Placement strategy">
+            <Select
+              value={placement}
+              onValueChange={(v) => v && placementField.handleChange(v)}
+              items={[
+                { label: "Any node — let scheduler decide", value: "any" },
+                { label: "Spread across nodes — one replica per node", value: "spread" },
+                { label: "Pack onto fewest nodes — minimize spread", value: "pack" },
+                { label: "Pin to specific node", value: "pin" },
+              ]}
             >
-              service total
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="any">Any node — let scheduler decide</SelectItem>
+                <SelectItem value="spread">Spread across nodes — one replica per node</SelectItem>
+                <SelectItem value="pack">Pack onto fewest nodes — minimize spread</SelectItem>
+                <SelectItem value="pin">Pin to specific node</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+
+          {placement === "pin" && (
+            <div className="mt-3">
+              <Field label="Node">
+                <Select
+                  value={pinnedNodeId ?? ""}
+                  onValueChange={(v) => v && pinnedNodeIdField.handleChange(v)}
+                  items={NODES.map((n) => ({
+                    label: `${n.name} · ${n.region} · ${Math.round((n.cpu.used / n.cpu.total) * 100)}% cpu`,
+                    value: n.id,
+                  }))}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Pick a node…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {NODES.map((n) => (
+                      <SelectItem key={n.id} value={n.id}>
+                        {n.name} · {n.region} · {Math.round((n.cpu.used / n.cpu.total) * 100)}% cpu
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
             </div>
-            <div className="os-mono" style={{ fontSize: 14, fontWeight: 500, marginTop: 2 }}>
-              {totalCpu} vCPU · {totalMem} GB
+          )}
+
+          <div className="mt-3.5 p-3 bg-muted rounded-sm border border-border">
+            <div className="os-muted text-[10px] uppercase tracking-[0.06em] mb-2">
+              predicted placement
+            </div>
+            <div className="os-row os-gap-2">
+              {NODES.map((n, ni) => {
+                const onThis =
+                  placement === "spread"
+                    ? ni < replicas ? 1 : 0
+                    : placement === "pack"
+                      ? ni === 0 ? replicas : 0
+                      : placement === "pin"
+                        ? n.id === pinnedNodeId ? replicas : 0
+                        : Math.ceil((replicas - ni) / NODES.length);
+                const isPinned = placement === "pin" && n.id === pinnedNodeId;
+                return (
+                  <div
+                    key={n.id}
+                    className={`flex-1 p-2.5 bg-card rounded-sm border ${isPinned ? "border-foreground" : "border-border"}`}
+                  >
+                    <div className="os-row os-gap-2 text-[11px]">
+                      <span className="os-mono text-muted-foreground">{n.name}</span>
+                      <span className="flex-1" />
+                      <span className="os-muted">{Math.round((n.cpu.used / n.cpu.total) * 100)}%</span>
+                    </div>
+                    <div className="os-row os-gap-1 mt-1.5 flex-wrap">
+                      {Array.from({ length: Math.max(0, onThis) }).map((_, i) => (
+                        <span
+                          key={i}
+                          className="inline-block w-2.5 h-2.5 rounded-[2px] bg-chart-2"
+                        />
+                      ))}
+                      {onThis === 0 && <span className="os-muted text-[10px]">—</span>}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
-          <div style={{ flex: 1 }} />
-        </div>
-      </div>
+        </CardContent>
+      </Card>
+
+      <div className="h-3.5" />
+      <Card className="bg-muted py-3.5 rounded-md">
+        <CardContent className="px-3.5">
+          <div className="os-row os-gap-3">
+            <div>
+              <div className="os-muted text-[10px] uppercase tracking-[0.06em]">
+                service total
+              </div>
+              <div className="os-mono text-sm font-medium mt-0.5">
+                {totalCpu} vCPU · {totalMem} GB
+              </div>
+            </div>
+            <div className="flex-1" />
+          </div>
+        </CardContent>
+      </Card>
     </>
   );
 }

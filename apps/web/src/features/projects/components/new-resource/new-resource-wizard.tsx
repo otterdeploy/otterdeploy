@@ -225,14 +225,19 @@ export function NewResourceWizard({
                           {(replicasField) => (
                             <form.Field name="placement">
                               {(placementField) => (
-                                <StepResources
-                                  presetIdField={presetIdField}
-                                  customCpuField={customCpuField}
-                                  customMemField={customMemField}
-                                  replicasField={replicasField}
-                                  placementField={placementField}
-                                  isDb={isDb}
-                                />
+                                <form.Field name="pinnedNodeId">
+                                  {(pinnedNodeIdField) => (
+                                    <StepResources
+                                      presetIdField={presetIdField}
+                                      customCpuField={customCpuField}
+                                      customMemField={customMemField}
+                                      replicasField={replicasField}
+                                      placementField={placementField}
+                                      pinnedNodeIdField={pinnedNodeIdField}
+                                      isDb={isDb}
+                                    />
+                                  )}
+                                </form.Field>
                               )}
                             </form.Field>
                           )}

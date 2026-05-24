@@ -20,6 +20,7 @@ export const resourceSchema = z.object({
   customMem: z.number().min(128),
   replicas: z.number().int().min(1),
   placement: z.string().min(1),
+  pinnedNodeId: z.string().nullable(),
 
   // Step: storage
   storageGb: z.number().int().min(1),
@@ -40,6 +41,7 @@ export const resourceDefaults: ResourceFormValues = {
   customMem: 512,
   replicas: 1,
   placement: "any",
+  pinnedNodeId: null,
   storageGb: 20,
   backupsEnabled: false,
   backupRetention: 7,
