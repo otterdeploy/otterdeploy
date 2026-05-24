@@ -1,6 +1,6 @@
 // Step_Review — summary table + generated compose snippet.
 // Ported verbatim from apps/web-demo/src/features/otterstack/screens/new-service.tsx lines 2715-3014.
-import { RESOURCE_PRESETS, REGIONS, BUILDERS, type ServiceKindDef } from "@/features/projects/data/service-kinds";
+import { RESOURCE_PRESETS, BUILDERS, type ServiceKindDef } from "@/features/projects/data/service-kinds";
 import type { ResourceFormValues } from "./schema";
 import { SectionH } from "./form-primitives";
 import { I } from "./icons";
@@ -48,7 +48,6 @@ export function StepReview({ values, kind }: ReviewProps) {
     customCpu,
     customMem,
     replicas,
-    region,
     storageGb,
     backupsEnabled,
   } = values;
@@ -56,7 +55,6 @@ export function StepReview({ values, kind }: ReviewProps) {
   const preset = RESOURCE_PRESETS.find((p) => p.id === presetId);
   const cpu = preset?.cpu ?? customCpu;
   const mem = preset?.mem ?? customMem;
-  const reg = REGIONS.find((r) => r.id === region);
   const isDb = kind.group === "data";
 
   const generateCompose = () => {
@@ -128,10 +126,7 @@ volumes:
               />
             )}
             {!isDb && (
-              <ReviewRow
-                label="Replicas"
-                value={`${replicas} · ${reg?.flag} ${reg?.name}`}
-              />
+              <ReviewRow label="Replicas" value={`${replicas}`} />
             )}
             <ReviewRow label="Network" value={`${name}.internal`} last />
           </div>

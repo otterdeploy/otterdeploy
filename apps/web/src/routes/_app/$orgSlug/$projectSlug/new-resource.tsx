@@ -227,21 +227,16 @@ function RouteComponent() {
                         {(customMemField) => (
                           <form.Field name="replicas">
                             {(replicasField) => (
-                              <form.Field name="region">
-                                {(regionField) => (
-                                  <form.Field name="placement">
-                                    {(placementField) => (
-                                      <StepResources
-                                        presetIdField={presetIdField}
-                                        customCpuField={customCpuField}
-                                        customMemField={customMemField}
-                                        replicasField={replicasField}
-                                        regionField={regionField}
-                                        placementField={placementField}
-                                        isDb={isDb}
-                                      />
-                                    )}
-                                  </form.Field>
+                              <form.Field name="placement">
+                                {(placementField) => (
+                                  <StepResources
+                                    presetIdField={presetIdField}
+                                    customCpuField={customCpuField}
+                                    customMemField={customMemField}
+                                    replicasField={replicasField}
+                                    placementField={placementField}
+                                    isDb={isDb}
+                                  />
                                 )}
                               </form.Field>
                             )}

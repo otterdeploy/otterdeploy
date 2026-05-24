@@ -1,7 +1,7 @@
 // Step_Resources — pick a size preset and configure placement.
 // Ported verbatim from apps/web-demo/src/features/otterstack/screens/new-service.tsx lines 1912-2255.
 import type { AnyFieldApi } from "@tanstack/react-form";
-import { RESOURCE_PRESETS, REGIONS, NODES } from "@/features/projects/data/service-kinds";
+import { RESOURCE_PRESETS, NODES } from "@/features/projects/data/service-kinds";
 import { I } from "./icons";
 import { SectionH, Field, SettingRow } from "./form-primitives";
 
@@ -10,7 +10,6 @@ type ResourcesProps = {
   customCpuField: AnyFieldApi;
   customMemField: AnyFieldApi;
   replicasField: AnyFieldApi;
-  regionField: AnyFieldApi;
   placementField: AnyFieldApi;
   isDb: boolean;
 };
@@ -20,7 +19,6 @@ export function StepResources({
   customCpuField,
   customMemField,
   replicasField,
-  regionField,
   placementField,
   isDb,
 }: ResourcesProps) {
@@ -28,7 +26,6 @@ export function StepResources({
   const customCpu = customCpuField.state.value as number;
   const customMem = customMemField.state.value as number;
   const replicas = replicasField.state.value as number;
-  const region = regionField.state.value as string;
   const placement = placementField.state.value as string;
 
   const preset = RESOURCE_PRESETS.find((p) => p.id === presetId);
@@ -36,7 +33,6 @@ export function StepResources({
   const mem = preset?.mem ?? customMem;
   const totalCpu = (cpu * replicas).toFixed(2);
   const totalMem = ((mem * replicas) / 1024).toFixed(2);
-  const totalCost = preset?.cost != null ? preset.cost * replicas : null;
 
   return (
     <>
@@ -74,11 +70,6 @@ export function StepResources({
                 : "configure manually"}
             </div>
             <div className="os-muted" style={{ fontSize: 11, marginTop: 4 }}>{p.sub}</div>
-            {p.cost !== null && (
-              <div className="os-mono" style={{ fontSize: 11, marginTop: 8, color: "var(--muted-foreground)" }}>
-                ~${p.cost}/mo per replica
-              </div>
-            )}
           </button>
         ))}
       </div>
@@ -162,23 +153,9 @@ export function StepResources({
       <div style={{ height: 18 }} />
       <SectionH
         title="Placement"
-        sub={`Where should this run? · ${NODES.length} nodes available in ${REGIONS.length} regions`}
+        sub={`Where should this run? · ${NODES.length} nodes available in the swarm`}
       />
       <div className="card" style={{ padding: 16, marginTop: 10 }}>
-        <Field label="Region">
-          <select
-            className="input"
-            value={region}
-            onChange={(e) => regionField.handleChange(e.target.value)}
-          >
-            {REGIONS.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.flag} {r.name} · {r.nodes} node{r.nodes > 1 ? "s" : ""} · {r.latency}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <div style={{ height: 12 }} />
         <Field label="Placement strategy">
           <select
             className="input"
@@ -268,19 +245,6 @@ export function StepResources({
             </div>
           </div>
           <div style={{ flex: 1 }} />
-          {totalCost !== null && (
-            <div style={{ textAlign: "right" }}>
-              <div
-                className="os-muted"
-                style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}
-              >
-                est. monthly cost
-              </div>
-              <div className="os-mono" style={{ fontSize: 14, fontWeight: 500, marginTop: 2 }}>
-                ${totalCost}/mo
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </>
