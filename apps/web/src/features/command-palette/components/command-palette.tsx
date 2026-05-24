@@ -43,7 +43,7 @@ export function CommandPalette() {
   };
 
   return (
-    <CommandDialog open={open} onOpenChange={setOpen} className="max-w-xl gap-0 p-0">
+    <CommandDialog open={open} onOpenChange={setOpen} className="sm:max-w-2xl gap-0 p-0">
       <Command>
         <div className="flex items-center gap-2 border-b px-3 py-2.5">
           <HugeiconsIcon
