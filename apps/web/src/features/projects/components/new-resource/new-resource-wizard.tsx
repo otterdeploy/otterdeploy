@@ -7,9 +7,12 @@ import { useForm, useStore } from "@tanstack/react-form";
 import { StepKind } from "@/features/projects/components/new-resource/step-kind";
 import { StepVersion } from "@/features/projects/components/new-resource/step-version";
 import { StepImage } from "@/features/projects/components/new-resource/step-image";
+import { StepSource } from "@/features/projects/components/new-resource/step-source";
+import { StepBuilder } from "@/features/projects/components/new-resource/step-builder";
 import { StepNetworking } from "@/features/projects/components/new-resource/step-networking";
 import { StepResources } from "@/features/projects/components/new-resource/step-resources";
 import { StepStorage } from "@/features/projects/components/new-resource/step-storage";
+import { StepVariables } from "@/features/projects/components/new-resource/step-variables";
 import { StepAdvancedDb } from "@/features/projects/components/new-resource/step-advanced-db";
 import { StepReview } from "@/features/projects/components/new-resource/step-review";
 import { Stepper, type Step } from "@/features/projects/components/new-resource/stepper";
@@ -26,11 +29,24 @@ const DB_STEPS: Array<[Step, string, string]> = [
   ["review", "Review", "review"],
 ];
 
-const APP_STEPS: Array<[Step, string, string]> = [
+// Build-from-source flow: app / worker / static / cron / function.
+const SOURCE_STEPS: Array<[Step, string, string]> = [
+  ["kind", "Kind", "pick-kind"],
+  ["source", "Source", "source"],
+  ["builder", "Builder", "builder"],
+  ["networking", "Networking", "networking"],
+  ["resources", "Resources", "pick-resources"],
+  ["variables", "Variables", "variables"],
+  ["review", "Review", "review"],
+];
+
+// Custom OCI image flow.
+const DOCKER_STEPS: Array<[Step, string, string]> = [
   ["kind", "Kind", "pick-kind"],
   ["image", "Image", "pick-image"],
   ["networking", "Networking", "networking"],
   ["resources", "Resources", "pick-resources"],
+  ["variables", "Variables", "variables"],
   ["review", "Review", "review"],
 ];
 
@@ -86,14 +102,16 @@ export function NewResourceWizard({
 
   const kind = SERVICE_KINDS.find((k) => k.id === kindId) ?? null;
   const isDb = !!kind && kind.group === "data";
-  const isApp = !!kind && kind.id === "app";
+  const isSourceBased = !!kind && kind.group === "compute";
+  const isDocker = !!kind && kind.id === "docker";
 
   const steps = useMemo<Array<[Step, string, string]>>(() => {
     if (!kind) return KIND_STEPS;
     if (isDb) return DB_STEPS;
-    if (isApp) return APP_STEPS;
+    if (isSourceBased) return SOURCE_STEPS;
+    if (isDocker) return DOCKER_STEPS;
     return KIND_STEPS;
-  }, [kind, isDb, isApp]);
+  }, [kind, isDb, isSourceBased, isDocker]);
 
   const idx = steps.findIndex((s) => s[0] === step);
   const isLast = idx === steps.length - 1;
@@ -203,13 +221,68 @@ export function NewResourceWizard({
             />
           )}
 
-          {step !== "kind" && !isDb && !isApp && (
+          {step !== "kind" && !isDb && !isSourceBased && !isDocker && (
             <div style={{ padding: 32, textAlign: "center", color: "var(--muted-foreground)", fontSize: 14 }}>
               Coming soon for {kind?.group ?? "this"} resources
             </div>
           )}
 
-          {step === "image" && kind && isApp && (
+          {step === "source" && kind && isSourceBased && (
+            <form.Field name="src">
+              {(srcField) => (
+                <form.Field name="repo">
+                  {(repoField) => (
+                    <form.Field name="branch">
+                      {(branchField) => (
+                        <form.Field name="root">
+                          {(rootField) => (
+                            <form.Field name="autoDeploy">
+                              {(autoDeployField) => (
+                                <form.Field name="previewBranches">
+                                  {(previewBranchesField) => (
+                                    <form.Field name="name">
+                                      {(nameField) => (
+                                        <StepSource
+                                          srcField={srcField}
+                                          repoField={repoField}
+                                          branchField={branchField}
+                                          rootField={rootField}
+                                          autoDeployField={autoDeployField}
+                                          previewBranchesField={previewBranchesField}
+                                          nameField={nameField}
+                                        />
+                                      )}
+                                    </form.Field>
+                                  )}
+                                </form.Field>
+                              )}
+                            </form.Field>
+                          )}
+                        </form.Field>
+                      )}
+                    </form.Field>
+                  )}
+                </form.Field>
+              )}
+            </form.Field>
+          )}
+
+          {step === "builder" && kind && isSourceBased && (
+            <form.Field name="builderId">
+              {(builderIdField) => (
+                <form.Field name="name">
+                  {(nameField) => (
+                    <StepBuilder
+                      builderIdField={builderIdField}
+                      nameField={nameField}
+                    />
+                  )}
+                </form.Field>
+              )}
+            </form.Field>
+          )}
+
+          {step === "image" && kind && isDocker && (
             <form.Field name="registry">
               {(registryField) => (
                 <form.Field name="image">
@@ -234,7 +307,7 @@ export function NewResourceWizard({
             </form.Field>
           )}
 
-          {step === "networking" && kind && isApp && (
+          {step === "networking" && kind && (isSourceBased || isDocker) && (
             <form.Field name="ports">
               {(portsField) => (
                 <form.Field name="healthPath">
@@ -254,7 +327,7 @@ export function NewResourceWizard({
             </form.Field>
           )}
 
-          {step === "resources" && kind && isApp && (
+          {step === "resources" && kind && (isSourceBased || isDocker) && (
             <form.Field name="presetId">
               {(presetIdField) => (
                 <form.Field name="customCpu">
@@ -290,7 +363,23 @@ export function NewResourceWizard({
             </form.Field>
           )}
 
-          {step === "review" && kind && isApp && (
+          {step === "variables" && kind && (isSourceBased || isDocker) && (
+            <form.Field name="variables">
+              {(variablesField) => (
+                <form.Field name="linkedSecrets">
+                  {(linkedSecretsField) => (
+                    <StepVariables
+                      variablesField={variablesField}
+                      linkedSecretsField={linkedSecretsField}
+                      kind={kind}
+                    />
+                  )}
+                </form.Field>
+              )}
+            </form.Field>
+          )}
+
+          {step === "review" && kind && (isSourceBased || isDocker) && (
             <form.Subscribe selector={(s) => s.values}>
               {(values) => <StepReview values={values} kind={kind} />}
             </form.Subscribe>
