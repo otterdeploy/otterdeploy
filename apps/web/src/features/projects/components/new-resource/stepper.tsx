@@ -1,6 +1,6 @@
 // Stepper — ported verbatim from apps/web-demo/src/features/otterstack/screens/new-service.tsx.
 import { Fragment } from "react";
-import { I } from "@/shared/components/icons-demo";
+import { I } from "./icons";
 
 export type Step =
   | "kind"

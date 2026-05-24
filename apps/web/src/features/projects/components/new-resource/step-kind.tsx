@@ -5,7 +5,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useState } from "react";
 
 import { DatabaseLogo } from "@/shared/components/brand/database-logo";
-import { I, type IconKey } from "@/shared/components/icons-demo";
+import { I, type IconKey } from "./icons";
 import { SERVICE_KINDS, TEMPLATES, type ServiceKindDef, type Template } from "@/features/projects/data/service-kinds";
 import { SectionH } from "./form-primitives";
 
