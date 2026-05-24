@@ -6,6 +6,8 @@ import { useForm, useStore } from "@tanstack/react-form";
 
 import { StepKind } from "@/features/projects/components/new-resource/step-kind";
 import { StepVersion } from "@/features/projects/components/new-resource/step-version";
+import { StepImage } from "@/features/projects/components/new-resource/step-image";
+import { StepNetworking } from "@/features/projects/components/new-resource/step-networking";
 import { StepResources } from "@/features/projects/components/new-resource/step-resources";
 import { StepStorage } from "@/features/projects/components/new-resource/step-storage";
 import { StepAdvancedDb } from "@/features/projects/components/new-resource/step-advanced-db";
@@ -21,6 +23,14 @@ const DB_STEPS: Array<[Step, string, string]> = [
   ["resources", "Resources", "pick-resources"],
   ["storage", "Storage & backups", "storage"],
   ["advanced", "Advanced", "advanced"],
+  ["review", "Review", "review"],
+];
+
+const APP_STEPS: Array<[Step, string, string]> = [
+  ["kind", "Kind", "pick-kind"],
+  ["image", "Image", "pick-image"],
+  ["networking", "Networking", "networking"],
+  ["resources", "Resources", "pick-resources"],
   ["review", "Review", "review"],
 ];
 
@@ -76,12 +86,14 @@ export function NewResourceWizard({
 
   const kind = SERVICE_KINDS.find((k) => k.id === kindId) ?? null;
   const isDb = !!kind && kind.group === "data";
+  const isApp = !!kind && kind.id === "app";
 
   const steps = useMemo<Array<[Step, string, string]>>(() => {
     if (!kind) return KIND_STEPS;
     if (isDb) return DB_STEPS;
+    if (isApp) return APP_STEPS;
     return KIND_STEPS;
-  }, [kind, isDb]);
+  }, [kind, isDb, isApp]);
 
   const idx = steps.findIndex((s) => s[0] === step);
   const isLast = idx === steps.length - 1;
@@ -191,10 +203,97 @@ export function NewResourceWizard({
             />
           )}
 
-          {step !== "kind" && !isDb && (
+          {step !== "kind" && !isDb && !isApp && (
             <div style={{ padding: 32, textAlign: "center", color: "var(--muted-foreground)", fontSize: 14 }}>
               Coming soon for {kind?.group ?? "this"} resources
             </div>
+          )}
+
+          {step === "image" && kind && isApp && (
+            <form.Field name="registry">
+              {(registryField) => (
+                <form.Field name="image">
+                  {(imageField) => (
+                    <form.Field name="tag">
+                      {(tagField) => (
+                        <form.Field name="name">
+                          {(nameField) => (
+                            <StepImage
+                              registryField={registryField}
+                              imageField={imageField}
+                              tagField={tagField}
+                              nameField={nameField}
+                            />
+                          )}
+                        </form.Field>
+                      )}
+                    </form.Field>
+                  )}
+                </form.Field>
+              )}
+            </form.Field>
+          )}
+
+          {step === "networking" && kind && isApp && (
+            <form.Field name="ports">
+              {(portsField) => (
+                <form.Field name="healthPath">
+                  {(healthPathField) => (
+                    <form.Field name="healthInterval">
+                      {(healthIntervalField) => (
+                        <StepNetworking
+                          portsField={portsField}
+                          healthPathField={healthPathField}
+                          healthIntervalField={healthIntervalField}
+                        />
+                      )}
+                    </form.Field>
+                  )}
+                </form.Field>
+              )}
+            </form.Field>
+          )}
+
+          {step === "resources" && kind && isApp && (
+            <form.Field name="presetId">
+              {(presetIdField) => (
+                <form.Field name="customCpu">
+                  {(customCpuField) => (
+                    <form.Field name="customMem">
+                      {(customMemField) => (
+                        <form.Field name="replicas">
+                          {(replicasField) => (
+                            <form.Field name="placement">
+                              {(placementField) => (
+                                <form.Field name="pinnedNodeId">
+                                  {(pinnedNodeIdField) => (
+                                    <StepResources
+                                      presetIdField={presetIdField}
+                                      customCpuField={customCpuField}
+                                      customMemField={customMemField}
+                                      replicasField={replicasField}
+                                      placementField={placementField}
+                                      pinnedNodeIdField={pinnedNodeIdField}
+                                      isDb={false}
+                                    />
+                                  )}
+                                </form.Field>
+                              )}
+                            </form.Field>
+                          )}
+                        </form.Field>
+                      )}
+                    </form.Field>
+                  )}
+                </form.Field>
+              )}
+            </form.Field>
+          )}
+
+          {step === "review" && kind && isApp && (
+            <form.Subscribe selector={(s) => s.values}>
+              {(values) => <StepReview values={values} kind={kind} />}
+            </form.Subscribe>
           )}
 
           {step === "version" && kind && isDb && (

@@ -1,18 +1,36 @@
 // Zod schema for the multi-step "create resource" wizard.
-// Pass B scope: database path only (kind → version → resources → storage → advanced → review).
+// Covers DB path (kind → version → resources → storage → advanced → review)
+// and compute (app) path (kind → image → networking → resources → review).
 import * as z from "zod";
+
+const portSchema = z.object({
+  port: z.number().int().min(1).max(65535),
+  protocol: z.string().min(1),
+  public: z.boolean(),
+  host: z.string(),
+});
 
 export const resourceSchema = z.object({
   // Step: kind
   kindId: z.string().min(1, "Select a resource type"),
 
-  // Step: version
+  // Step: version (DB) / shared
   name: z
     .string()
     .slugify()
     .min(2, "Name must be at least 2 characters")
     .max(48, "Name must be 48 characters or fewer"),
   version: z.string().nullable(),
+
+  // Step: image (compute / custom)
+  registry: z.string().min(1),
+  image: z.string(),
+  tag: z.string(),
+
+  // Step: networking (app)
+  ports: z.array(portSchema),
+  healthPath: z.string(),
+  healthInterval: z.number().int().min(1),
 
   // Step: resources
   presetId: z.string().min(1, "Select a size preset"),
@@ -36,6 +54,12 @@ export const resourceDefaults: ResourceFormValues = {
   kindId: "",
   name: "",
   version: null,
+  registry: "docker",
+  image: "ghcr.io/paperhouse/notify",
+  tag: "latest",
+  ports: [{ port: 3000, protocol: "http", public: true, host: "" }],
+  healthPath: "/healthz",
+  healthInterval: 10,
   presetId: "small",
   customCpu: 0.5,
   customMem: 512,
