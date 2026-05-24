@@ -1,10 +1,8 @@
 import type { CSSProperties, ReactNode, SVGProps } from "react";
-import { useTheme } from "next-themes";
+
 import { Mariadb } from "@/shared/components/ui/svgs/mariadb";
-import { MongodbIconDark } from "@/shared/components/ui/svgs/mongodbIconDark";
-import { MongodbIconLight } from "@/shared/components/ui/svgs/mongodbIconLight";
-import { MysqlIconDark } from "@/shared/components/ui/svgs/mysqlIconDark";
-import { MysqlIconLight } from "@/shared/components/ui/svgs/mysqlIconLight";
+import { Mongodb } from "@/shared/components/ui/svgs/mongodb";
+import { Mysql } from "@/shared/components/ui/svgs/mysql";
 import { Postgresql } from "@/shared/components/ui/svgs/postgresql";
 import { Redis } from "@/shared/components/ui/svgs/redis";
 
@@ -26,20 +24,11 @@ type Props = {
   style?: CSSProperties;
 };
 
-const themedBrands: Record<
-  Extract<DatabaseBrand, "mysql" | "mongodb">,
-  { dark: SvgComponent; light: SvgComponent }
-> = {
-  mysql: { dark: MysqlIconDark, light: MysqlIconLight },
-  mongodb: { dark: MongodbIconDark, light: MongodbIconLight },
-};
-
-const staticBrands: Record<
-  Extract<DatabaseBrand, "postgresql" | "mariadb" | "redis">,
-  SvgComponent
-> = {
+const brands: Record<Exclude<DatabaseBrand, "clickhouse">, SvgComponent> = {
   postgresql: Postgresql,
+  mysql: Mysql,
   mariadb: Mariadb,
+  mongodb: Mongodb,
   redis: Redis,
 };
 
@@ -51,8 +40,6 @@ export function DatabaseLogo({
   color = "var(--foreground)",
   style,
 }: Props) {
-  const { resolvedTheme, theme } = useTheme();
-  const isDark = (resolvedTheme ?? theme) === "dark";
   const brand = resolveDatabaseBrand(value);
 
   return (
@@ -75,7 +62,7 @@ export function DatabaseLogo({
       {brand === "clickhouse" ? (
         <ClickHouseMark size={Math.round(size * 0.82)} />
       ) : brand ? (
-        renderBrand(brand, isDark, Math.round(size * 0.82))
+        renderBrand(brand, Math.round(size * 0.82))
       ) : (
         <FallbackMark value={value} size={size} color={color} />
       )}
@@ -85,15 +72,9 @@ export function DatabaseLogo({
 
 function renderBrand(
   brand: Exclude<DatabaseBrand, "clickhouse">,
-  isDark: boolean,
   size: number,
 ) {
-  if (brand === "mysql" || brand === "mongodb") {
-    const Icon = isDark ? themedBrands[brand].dark : themedBrands[brand].light;
-    return <Icon width={size} height={size} />;
-  }
-
-  const Icon = staticBrands[brand];
+  const Icon = brands[brand];
   return <Icon width={size} height={size} />;
 }
 

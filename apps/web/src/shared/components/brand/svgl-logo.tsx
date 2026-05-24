@@ -1,14 +1,12 @@
 import type { CSSProperties, ReactNode, SVGProps } from "react";
-import { useTheme } from "next-themes";
-import { AwsDark } from "@/shared/components/ui/svgs/awsDark";
-import { AwsLight } from "@/shared/components/ui/svgs/awsLight";
+
+import { Aws } from "@/shared/components/ui/svgs/aws";
 import { Azure } from "@/shared/components/ui/svgs/azure";
 import { Discord } from "@/shared/components/ui/svgs/discord";
 import { Docker } from "@/shared/components/ui/svgs/docker";
-import { GithubDark } from "@/shared/components/ui/svgs/githubDark";
-import { GithubLight } from "@/shared/components/ui/svgs/githubLight";
+import { Github } from "@/shared/components/ui/svgs/github";
 import { Gitlab } from "@/shared/components/ui/svgs/gitlab";
-import { GoogleCloud } from "@/shared/components/ui/svgs/googleCloud";
+import { GoogleCloud } from "@/shared/components/ui/svgs/google-cloud";
 import { Slack } from "@/shared/components/ui/svgs/slack";
 import { Telegram } from "@/shared/components/ui/svgs/telegram";
 
@@ -36,24 +34,15 @@ type Props = {
 
 type SvgComponent = (props: SVGProps<SVGSVGElement>) => ReactNode;
 
-const themedBrands: Record<
-  Extract<BrandKey, "GitHub" | "AWS">,
-  { dark: SvgComponent; light: SvgComponent }
-> = {
-  GitHub: { dark: GithubDark, light: GithubLight },
-  AWS: { dark: AwsDark, light: AwsLight },
-};
-
-const staticBrands: Record<
-  Exclude<BrandKey, "GitHub" | "AWS">,
-  SvgComponent
-> = {
+const brands: Record<BrandKey, SvgComponent> = {
+  GitHub: Github,
   GitLab: Gitlab,
   Docker,
   Slack,
   Discord,
   Telegram,
   "Google Cloud": GoogleCloud,
+  AWS: Aws,
   Azure,
 };
 
@@ -67,9 +56,7 @@ export function SvglLogo({
   border = "1px solid var(--border)",
   style,
 }: Props) {
-  const { resolvedTheme, theme } = useTheme();
-  const isDark = (resolvedTheme ?? theme) === "dark";
-  const icon = resolveBrand(search, isDark);
+  const Icon = (brands as Record<string, SvgComponent | undefined>)[search];
 
   return (
     <span
@@ -88,13 +75,13 @@ export function SvglLogo({
         ...style,
       }}
     >
-      {icon ? (
-        icon({
-          width: Math.round(size * 0.68),
-          height: Math.round(size * 0.68),
-          "aria-hidden": alt === "" ? true : undefined,
-          role: alt === "" ? "presentation" : "img",
-        })
+      {Icon ? (
+        <Icon
+          width={Math.round(size * 0.68)}
+          height={Math.round(size * 0.68)}
+          aria-hidden={alt === "" ? true : undefined}
+          role={alt === "" ? "presentation" : "img"}
+        />
       ) : (
         <span
           className="font-mono"
@@ -110,14 +97,4 @@ export function SvglLogo({
       )}
     </span>
   );
-}
-
-function resolveBrand(search: string, isDark: boolean): SvgComponent | null {
-  if (search === "GitHub" || search === "AWS") {
-    return isDark ? themedBrands[search].dark : themedBrands[search].light;
-  }
-  if (search in staticBrands) {
-    return staticBrands[search as keyof typeof staticBrands];
-  }
-  return null;
 }
