@@ -1,5 +1,5 @@
 // Step_Storage — volume size, backups, high availability.
-// Ported verbatim from apps/web-demo/src/features/otterstack/screens/new-service.tsx lines 2257-2394.
+// Change 3: backupsEnabled defaults to false (reflected via prop). Change 4: Tailwind conversion.
 import type { AnyFieldApi } from "@tanstack/react-form";
 import type { ServiceKindDef } from "@/features/projects/data/service-kinds";
 import { SectionH, Field, Switch3, SettingRow } from "./form-primitives";
@@ -37,7 +37,7 @@ export function StepStorage({
         title="Persistent storage"
         sub="Volume mounted at the data directory · backed by SSD"
       />
-      <div className="card" style={{ padding: 16, marginTop: 12 }}>
+      <div className="card p-4 mt-3">
         <Field label={`Volume size · ${storageGb} GB`}>
           <input
             type="range"
@@ -46,18 +46,18 @@ export function StepStorage({
             step="5"
             value={storageGb}
             onChange={(e) => storageGbField.handleChange(+e.target.value)}
-            style={{ width: "100%" }}
+            className="w-full"
           />
-          <div className="os-row os-gap-3" style={{ fontSize: 11, marginTop: 6 }}>
-            <span className="os-muted">5 GB</span>
-            <div style={{ flex: 1 }} />
-            <span className="os-muted os-mono">
+          <div className="flex items-center gap-3 text-[11px] mt-1.5">
+            <span className="text-muted-foreground">5 GB</span>
+            <div className="flex-1" />
+            <span className="text-muted-foreground font-mono">
               ~${(storageGb * 0.1).toFixed(2)}/mo
             </span>
-            <span className="os-muted">2 TB</span>
+            <span className="text-muted-foreground">2 TB</span>
           </div>
         </Field>
-        <div style={{ height: 14 }} />
+        <div className="h-[14px]" />
         <SettingRow
           label="Auto-grow volume"
           defaultOn
@@ -70,13 +70,13 @@ export function StepStorage({
         />
       </div>
 
-      <div style={{ height: 18 }} />
+      <div className="h-[18px]" />
       <SectionH title="Backups" />
-      <div className="card" style={{ padding: 16, marginTop: 10 }}>
-        <div className="os-row os-gap-3">
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13, fontWeight: 500 }}>Daily snapshots</div>
-            <div className="os-muted" style={{ fontSize: 12 }}>
+      <div className="card p-4 mt-[10px]">
+        <div className="flex items-center gap-3">
+          <div className="flex-1">
+            <div className="text-[13px] font-medium">Daily snapshots</div>
+            <div className="text-muted-foreground text-xs">
               Snapshot taken at 03:00 UTC · stored in S3-compatible object storage
             </div>
           </div>
@@ -87,8 +87,8 @@ export function StepStorage({
         </div>
         {backupsEnabled && (
           <>
-            <div style={{ height: 14 }} />
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <div className="h-[14px]" />
+            <div className="grid grid-cols-2 gap-[10px]">
               <Field label={`Retention · ${backupRetention} days`}>
                 <input
                   type="range"
@@ -96,7 +96,7 @@ export function StepStorage({
                   max="90"
                   value={backupRetention}
                   onChange={(e) => backupRetentionField.handleChange(+e.target.value)}
-                  style={{ width: "100%" }}
+                  className="w-full"
                 />
               </Field>
               <Field label="Backup window">
@@ -111,11 +111,11 @@ export function StepStorage({
         )}
         {supportsPitr && (
           <>
-            <div style={{ height: 12 }} />
-            <div className="os-row os-gap-3" style={{ padding: "10px 0", borderTop: "1px solid var(--border)" }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 500 }}>Point-in-time recovery (PITR)</div>
-                <div className="os-muted" style={{ fontSize: 11 }}>
+            <div className="h-3" />
+            <div className="flex items-center gap-3 py-[10px] border-t border-border">
+              <div className="flex-1">
+                <div className="text-[13px] font-medium">Point-in-time recovery (PITR)</div>
+                <div className="text-muted-foreground text-[11px]">
                   Continuous WAL archiving · restore to any point in the last 7 days
                 </div>
               </div>
@@ -128,13 +128,13 @@ export function StepStorage({
         )}
       </div>
 
-      <div style={{ height: 18 }} />
+      <div className="h-[18px]" />
       <SectionH title="High availability" />
-      <div className="card" style={{ padding: 16, marginTop: 10 }}>
-        <div className="os-row os-gap-3">
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13, fontWeight: 500 }}>Standby replica</div>
-            <div className="os-muted" style={{ fontSize: 12 }}>
+      <div className="card p-4 mt-[10px]">
+        <div className="flex items-center gap-3">
+          <div className="flex-1">
+            <div className="text-[13px] font-medium">Standby replica</div>
+            <div className="text-muted-foreground text-xs">
               Sync replica on a different node · failover in &lt; 30s
             </div>
           </div>

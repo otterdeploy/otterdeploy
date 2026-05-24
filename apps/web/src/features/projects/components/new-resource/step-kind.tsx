@@ -1,6 +1,6 @@
 // Step_Kind — engine-picker step, ported verbatim from
 // apps/web-demo/src/features/otterstack/screens/new-service.tsx.
-// Pass A: uses local useState for kindId. Pass B will lift state to tanstack-form.
+// Change 4: Tailwind conversion.
 import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useState } from "react";
 
@@ -8,6 +8,7 @@ import { DatabaseLogo } from "@/shared/components/brand/database-logo";
 import { I, type IconKey } from "./icons";
 import { SERVICE_KINDS, TEMPLATES, type ServiceKindDef, type Template } from "@/features/projects/data/service-kinds";
 import { SectionH } from "./form-primitives";
+import { cn } from "@/shared/lib/utils";
 
 export type KindTab = "compute" | "data" | "template" | "custom";
 
@@ -94,44 +95,34 @@ export function StepKind({
         sub="Pick a service type to get a tailored creation flow"
       />
 
-      <div
-        className="os-row"
-        style={{
-          borderBottom: "1px solid var(--border)",
-          marginTop: 10,
-          gap: 0,
-        }}
-      >
+      <div className="flex items-center border-b border-border mt-[10px]">
         {tabs.map(([id, ic]) => {
           const Ic = I[ic];
           return (
             <button
               key={id}
-              className="os-envtab"
+              className={cn(
+                "relative inline-flex items-center gap-1.5 px-[14px] h-[38px] text-xs text-muted-foreground bg-transparent border-0 border-r border-border cursor-pointer font-[inherit] hover:text-foreground",
+                tab === id && "text-foreground font-medium",
+              )}
               data-active={tab === id}
               onClick={() => setTab(id)}
-              style={{ height: 36, borderRight: 0 }}
             >
               <Ic width={12} height={12} style={{ opacity: 0.7 }} />{" "}
               <span>{groups[id].label}</span>
-              <span className="os-envtab-underline" />
+              {tab === id && (
+                <span className="absolute left-0 right-0 bottom-[-1px] h-0.5 bg-foreground" />
+              )}
             </button>
           );
         })}
       </div>
 
-      <div className="os-muted" style={{ fontSize: 12, marginTop: 10 }}>
+      <div className="text-muted-foreground text-xs mt-[10px]">
         {groups[tab].sub}
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gap: 10,
-          marginTop: 14,
-        }}
-      >
+      <div className="grid grid-cols-3 gap-[10px] mt-[14px]">
         {items.map((it) => {
           const Ic = I[iconKey(it.icon)];
           const active = kindId === it.id;
@@ -143,52 +134,46 @@ export function StepKind({
             <button
               key={it.id}
               onClick={() => setKindId(it.id)}
-              className={`os-builder ${active ? "active" : ""}`}
-              style={{ textAlign: "left", padding: 14, minHeight: 96 }}
+              className={cn(
+                "relative p-[14px] bg-card border border-border rounded-lg cursor-pointer text-left font-[inherit] text-foreground hover:border-ring min-h-[96px]",
+                active && "border-foreground shadow-[0_0_0_1px_var(--foreground)_inset] bg-accent",
+              )}
             >
-              {popular && <span className="os-builder-pop">popular</span>}
-              <div className="os-row os-gap-2">
-                <div className="os-builder-icon">
+              {popular && (
+                <span className="absolute top-2 right-2 text-[9px] uppercase tracking-[0.08em] px-1.5 py-px rounded-[3px] bg-[oklch(from_var(--info)_l_c_h_/_12%)] text-[var(--info)]">
+                  popular
+                </span>
+              )}
+              <div className="flex items-center gap-2">
+                <div className="w-[26px] h-[26px] rounded-[5px] bg-muted border border-border grid place-items-center text-muted-foreground">
                   {renderLauncherKindIcon(it, tab, Ic)}
                 </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13 }}>{it.name}</div>
+                <div className="flex-1">
+                  <div className="font-semibold text-[13px]">{it.name}</div>
                 </div>
                 {active && (
                   <I.check
                     width={12}
                     height={12}
-                    style={{ color: "var(--foreground)" }}
+                    className="text-foreground"
                   />
                 )}
               </div>
-              <div
-                className="os-muted"
-                style={{ fontSize: 11, marginTop: 6, lineHeight: 1.45 }}
-              >
+              <div className="text-muted-foreground text-[11px] mt-1.5 leading-[1.45]">
                 {it.sub}
               </div>
               {examples && (
-                <div
-                  className="os-mono"
-                  style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 6 }}
-                >
+                <div className="font-mono text-[10px] text-muted-foreground mt-1.5">
                   {examples}
                 </div>
               )}
               {versions && (
-                <div
-                  className="os-mono"
-                  style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 6 }}
-                >
+                <div className="font-mono text-[10px] text-muted-foreground mt-1.5">
                   versions: {versions.slice(0, 3).join(", ")}
                 </div>
               )}
               {services !== undefined && (
-                <div
-                  className="os-mono"
-                  style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 6 }}
-                >
+                <div className="font-mono text-[10px] text-muted-foreground mt-1.5">
                   {services} services included
                 </div>
               )}

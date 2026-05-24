@@ -1,5 +1,5 @@
 // Step_AdvancedDb — connection pooling, Postgres extensions, Redis config, maintenance window.
-// Ported verbatim from apps/web-demo/src/features/otterstack/screens/new-service.tsx lines 2598-2713.
+// Change 4: Tailwind conversion.
 import type { ServiceKindDef } from "@/features/projects/data/service-kinds";
 import { SectionH, Field, SettingRow } from "./form-primitives";
 
@@ -10,29 +10,27 @@ export function StepAdvancedDb({ kind }: { kind: ServiceKindDef }) {
   return (
     <>
       <SectionH title="Connection pooling" />
-      <div className="card" style={{ padding: 16, marginTop: 12 }}>
+      <div className="card p-4 mt-3">
         <SettingRow
           label={isPg ? "Enable PgBouncer" : "Enable connection pooler"}
           defaultOn
           sub="Front the database with a transaction-mode pooler"
         />
-        <div
-          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 12 }}
-        >
+        <div className="grid grid-cols-2 gap-[10px] mt-3">
           <Field label="Pool size">
-            <input className="input os-mono" type="number" defaultValue={20} />
+            <input className="input font-mono" type="number" defaultValue={20} />
           </Field>
           <Field label="Max client connections">
-            <input className="input os-mono" type="number" defaultValue={200} />
+            <input className="input font-mono" type="number" defaultValue={200} />
           </Field>
         </div>
       </div>
 
       {isPg && (
         <>
-          <div style={{ height: 18 }} />
+          <div className="h-[18px]" />
           <SectionH title="Extensions" sub="Enable extensions on the postgres instance" />
-          <div className="card" style={{ padding: 16, marginTop: 10 }}>
+          <div className="card p-4 mt-[10px]">
             {[
               "pgvector — vector similarity search",
               "pgcrypto — cryptographic functions",
@@ -55,9 +53,9 @@ export function StepAdvancedDb({ kind }: { kind: ServiceKindDef }) {
 
       {isRedis && (
         <>
-          <div style={{ height: 18 }} />
+          <div className="h-[18px]" />
           <SectionH title="Redis configuration" />
-          <div className="card" style={{ padding: 16, marginTop: 10 }}>
+          <div className="card p-4 mt-[10px]">
             <Field label="Eviction policy">
               <select className="input">
                 <option>allkeys-lru — evict least recently used</option>
@@ -65,7 +63,7 @@ export function StepAdvancedDb({ kind }: { kind: ServiceKindDef }) {
                 <option>noeviction — return errors when full</option>
               </select>
             </Field>
-            <div style={{ height: 12 }} />
+            <div className="h-3" />
             <SettingRow
               label="Persistence (AOF)"
               defaultOn
@@ -80,10 +78,10 @@ export function StepAdvancedDb({ kind }: { kind: ServiceKindDef }) {
         </>
       )}
 
-      <div style={{ height: 18 }} />
+      <div className="h-[18px]" />
       <SectionH title="Maintenance window" sub="When can Otterstack apply patches?" />
-      <div className="card" style={{ padding: 16, marginTop: 10 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+      <div className="card p-4 mt-[10px]">
+        <div className="grid grid-cols-2 gap-[10px]">
           <Field label="Day">
             <select className="input">
               <option>Sunday</option>

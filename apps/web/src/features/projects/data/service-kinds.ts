@@ -44,26 +44,17 @@ export const TEMPLATES: Template[] = [
   { id: "t-langfuse", name: "Langfuse", sub: "LLM observability + Postgres + ClickHouse", services: 3, icon: "metrics" },
 ];
 
-export type ResourcePreset = { id: string; name: string; cpu: number | null; mem: number | null; sub: string; cost: number | null; popular?: boolean };
+export type ResourcePreset = { id: string; name: string; cpu: number | null; mem: number | null; sub: string; popular?: boolean };
 
 export const RESOURCE_PRESETS: ResourcePreset[] = [
-  { id: "micro", name: "Micro", cpu: 0.25, mem: 256, sub: "dev / preview / cron", cost: 4 },
-  { id: "small", name: "Small", cpu: 0.5, mem: 512, sub: "small workers · static · staging api", cost: 9, popular: true },
-  { id: "medium", name: "Medium", cpu: 1, mem: 1024, sub: "most production web apps", cost: 18 },
-  { id: "large", name: "Large", cpu: 2, mem: 2048, sub: "high-traffic api · workers under load", cost: 36 },
-  { id: "xl", name: "XL", cpu: 4, mem: 4096, sub: "database primary · heavy compute", cost: 72 },
-  { id: "custom", name: "Custom", cpu: null, mem: null, sub: "tune CPU and RAM independently", cost: null },
+  { id: "micro", name: "Micro", cpu: 0.25, mem: 256, sub: "dev / preview / cron" },
+  { id: "small", name: "Small", cpu: 0.5, mem: 512, sub: "small workers · static · staging api", popular: true },
+  { id: "medium", name: "Medium", cpu: 1, mem: 1024, sub: "most production web apps" },
+  { id: "large", name: "Large", cpu: 2, mem: 2048, sub: "high-traffic api · workers under load" },
+  { id: "xl", name: "XL", cpu: 4, mem: 4096, sub: "database primary · heavy compute" },
+  { id: "custom", name: "Custom", cpu: null, mem: null, sub: "tune CPU and RAM independently" },
 ];
 
-export type Region = { id: string; name: string; flag: string; latency: string; nodes: number };
-
-export const REGIONS: Region[] = [
-  { id: "sfo", name: "San Francisco", flag: "🇺🇸", latency: "4ms", nodes: 3 },
-  { id: "iad", name: "Virginia", flag: "🇺🇸", latency: "78ms", nodes: 3 },
-  { id: "lhr", name: "London", flag: "🇬🇧", latency: "142ms", nodes: 2 },
-  { id: "fra", name: "Frankfurt", flag: "🇩🇪", latency: "156ms", nodes: 2 },
-  { id: "sgp", name: "Singapore", flag: "🇸🇬", latency: "198ms", nodes: 2 },
-];
 
 export type NodeRole = "manager" | "worker";
 export type NodeStatus = "ready" | "draining" | "down";

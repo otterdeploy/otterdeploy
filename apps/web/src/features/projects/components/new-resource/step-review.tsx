@@ -1,6 +1,6 @@
 // Step_Review — summary table + generated compose snippet.
-// Ported verbatim from apps/web-demo/src/features/otterstack/screens/new-service.tsx lines 2715-3014.
-import { RESOURCE_PRESETS, REGIONS, BUILDERS, type ServiceKindDef } from "@/features/projects/data/service-kinds";
+// Change 1: region row removed. Change 2: cost removed. Change 4: Tailwind conversion.
+import { RESOURCE_PRESETS, type ServiceKindDef } from "@/features/projects/data/service-kinds";
 import type { ResourceFormValues } from "./schema";
 import { SectionH } from "./form-primitives";
 import { I } from "./icons";
@@ -22,18 +22,12 @@ function ReviewRow({
   if (!value) return null;
   return (
     <div
-      className="os-row"
-      style={{
-        padding: "9px 12px",
-        borderBottom: last ? "none" : "1px solid var(--border)",
-        fontSize: 12,
-        alignItems: "flex-start",
-      }}
+      className={`flex items-start py-[9px] px-3 text-xs${last ? "" : " border-b border-border"}`}
     >
-      <span className="os-muted" style={{ width: 100, fontSize: 11, paddingTop: 1, flexShrink: 0 }}>
+      <span className="text-muted-foreground text-[11px] pt-px shrink-0 w-[100px]">
         {label}
       </span>
-      <span className="os-mono" style={{ flex: 1, color: "var(--foreground)", wordBreak: "break-word" }}>
+      <span className="font-mono flex-1 text-foreground break-words">
         {value}
       </span>
     </div>
@@ -48,7 +42,6 @@ export function StepReview({ values, kind }: ReviewProps) {
     customCpu,
     customMem,
     replicas,
-    region,
     storageGb,
     backupsEnabled,
   } = values;
@@ -56,7 +49,6 @@ export function StepReview({ values, kind }: ReviewProps) {
   const preset = RESOURCE_PRESETS.find((p) => p.id === presetId);
   const cpu = preset?.cpu ?? customCpu;
   const mem = preset?.mem ?? customMem;
-  const reg = REGIONS.find((r) => r.id === region);
   const isDb = kind.group === "data";
 
   const generateCompose = () => {
@@ -96,22 +88,12 @@ volumes:
         sub="Confirm and deploy — you can change all of this later"
       />
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 12,
-          marginTop: 14,
-        }}
-      >
+      <div className="grid grid-cols-2 gap-3 mt-[14px]">
         <div>
-          <div
-            className="os-muted"
-            style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}
-          >
+          <div className="text-muted-foreground text-[10px] uppercase tracking-[0.06em] mb-1.5">
             summary
           </div>
-          <div className="card" style={{ overflow: "hidden" }}>
+          <div className="card overflow-hidden">
             <ReviewRow label="Type" value={kind.name} />
             <ReviewRow label="Name" value={name} />
             {isDb && version && (
@@ -130,24 +112,21 @@ volumes:
             {!isDb && (
               <ReviewRow
                 label="Replicas"
-                value={`${replicas} · ${reg?.flag} ${reg?.name}`}
+                value={`${replicas}`}
               />
             )}
             <ReviewRow label="Network" value={`${name}.internal`} last />
           </div>
 
-          <div style={{ height: 14 }} />
-          <div
-            className="card"
-            style={{ padding: 12, background: "var(--muted)", borderColor: "var(--border)" }}
-          >
-            <div className="os-row os-gap-2" style={{ alignItems: "flex-start" }}>
+          <div className="h-[14px]" />
+          <div className="card p-3 bg-muted border-border">
+            <div className="flex items-start gap-2">
               <I.bolt
                 width={14}
                 height={14}
-                style={{ color: "var(--muted-foreground)", flexShrink: 0, marginTop: 2 }}
+                className="text-muted-foreground shrink-0 mt-0.5"
               />
-              <div style={{ fontSize: 12, color: "var(--muted-foreground)", lineHeight: 1.5 }}>
+              <div className="text-xs text-muted-foreground leading-relaxed">
                 Otterstack will{" "}
                 {isDb
                   ? "pull the image, provision a volume, and start the database"
@@ -160,39 +139,23 @@ volumes:
         </div>
 
         <div>
-          <div
-            className="os-muted"
-            style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}
-          >
+          <div className="text-muted-foreground text-[10px] uppercase tracking-[0.06em] mb-1.5">
             generated · compose.yml
           </div>
           <pre
-            className="os-mono"
-            style={{
-              background: "var(--muted)",
-              padding: 14,
-              borderRadius: 8,
-              fontSize: 11.5,
-              lineHeight: 1.65,
-              border: "1px solid var(--border)",
-              color: "var(--muted-foreground)",
-              margin: 0,
-              overflow: "auto",
-              maxHeight: 480,
-              whiteSpace: "pre",
-            }}
+            className="font-mono bg-muted p-[14px] rounded-lg text-[11.5px] leading-[1.65] border border-border text-muted-foreground m-0 overflow-auto max-h-[480px] whitespace-pre"
           >
             {generateCompose()}
           </pre>
-          <div className="os-row os-gap-2" style={{ marginTop: 8 }}>
+          <div className="flex items-center gap-2 mt-2">
             <button type="button" className="btn sm">
               <I.copy width={11} height={11} /> Copy
             </button>
             <button type="button" className="btn sm">
               <I.doc width={11} height={11} /> Save as preset
             </button>
-            <div style={{ flex: 1 }} />
-            <span className="os-muted os-mono" style={{ fontSize: 11, alignSelf: "center" }}>
+            <div className="flex-1" />
+            <span className="text-muted-foreground font-mono text-[11px] self-center">
               otterstack apply
             </span>
           </div>

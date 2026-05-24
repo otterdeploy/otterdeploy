@@ -19,7 +19,6 @@ export const resourceSchema = z.object({
   customCpu: z.number().min(0.1),
   customMem: z.number().min(128),
   replicas: z.number().int().min(1),
-  region: z.string().min(1),
   placement: z.string().min(1),
 
   // Step: storage
@@ -40,10 +39,9 @@ export const resourceDefaults: ResourceFormValues = {
   customCpu: 0.5,
   customMem: 512,
   replicas: 1,
-  region: "sfo",
   placement: "any",
   storageGb: 20,
-  backupsEnabled: true,
+  backupsEnabled: false,
   backupRetention: 7,
   pitr: false,
   highAvailability: false,
