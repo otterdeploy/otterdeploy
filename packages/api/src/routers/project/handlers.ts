@@ -14,12 +14,14 @@ export {
   updateProject,
 } from "./projects";
 
+export { createPostgresResource } from "./postgres";
+
 export {
-  createPostgresResource,
-  deletePostgresResource,
-  getPostgresResource,
-  listPostgresResources,
-} from "./postgres";
+  deleteProjectResource,
+  getProjectResource,
+  listProjectResources,
+  type ProjectResource,
+} from "./resources";
 
 export { listProjectProxyRoutes } from "./proxy-routes";
 

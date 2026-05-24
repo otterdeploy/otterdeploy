@@ -1,33 +1,24 @@
 /**
- * Postgres database-resource orchestration. Owns the create/get/list/delete
- * lifecycle for a Postgres resource attached to a project — including the
- * Swarm provision/destroy and Caddy proxy-route bookkeeping.
+ * Postgres database-resource orchestration. Owns the create lifecycle for a
+ * Postgres resource attached to a project — including the Swarm provision and
+ * Caddy proxy-route bookkeeping. Read/delete are handled generically in
+ * resources.ts.
  */
 
 import { randomBytes } from "node:crypto";
 
 import { Result } from "better-result";
-import { eq } from "drizzle-orm";
 import type { RequestLogger } from "evlog";
 
-import { db } from "@otterstack/db";
-import { resource } from "@otterstack/db/schema/project";
-
 import { reconcile } from "../../caddy";
-import {
-  deleteProxyRoutesByResource,
-  insertProxyRoute,
-} from "../../caddy/queries";
+import { insertProxyRoute } from "../../caddy/queries";
 import { PLATFORM } from "../../constants";
-import { destroySwarmPostgres, provisionSwarmPostgres } from "../../swarm";
-
-import { type ResourceId } from "../service/errors";
+import { provisionSwarmPostgres } from "../../swarm";
 
 import { type Id, ID_PREFIX } from "@otterstack/shared/id";
 
 import {
   PostgresResourceConflictError,
-  PostgresResourceNotFoundError,
   ProjectNotFoundError,
   type ProjectId,
 } from "./errors";
@@ -36,14 +27,11 @@ type OrgId = Id<typeof ID_PREFIX.organization>;
 import {
   createDatabaseResourceRecord,
   getDatabaseResourceByProjectAndName,
-  getDatabaseResourceRecord,
   getProjectInOrg,
-  listDatabaseResourceRecords,
   updateDatabaseResourceStatus,
 } from "./queries";
 import {
   buildConnectionString,
-  buildContainerName,
   clampPostgresIdentifier,
   isUniqueViolation,
   mapDatabaseResource,
@@ -56,10 +44,6 @@ import {
 type ProjectRef = {
   projectId: ProjectId;
   organizationId: OrgId;
-};
-
-type PostgresResourceRef = ProjectRef & {
-  resourceId: ResourceId;
 };
 
 export async function createPostgresResource(
@@ -196,101 +180,4 @@ export async function createPostgresResource(
       project.slug,
     ),
   );
-}
-
-export async function getPostgresResource(
-  input: PostgresResourceRef,
-): Promise<Result<PostgresResource, PostgresResourceNotFoundError>> {
-  const project = await getProjectInOrg({
-    projectId: input.projectId,
-    organizationId: input.organizationId,
-  });
-  if (!project) {
-    return Result.err(
-      new PostgresResourceNotFoundError({ resourceId: input.resourceId }),
-    );
-  }
-
-  const record = await getDatabaseResourceRecord(input.projectId, input.resourceId);
-  if (!record) {
-    return Result.err(
-      new PostgresResourceNotFoundError({ resourceId: input.resourceId }),
-    );
-  }
-
-  return Result.ok(await mapDatabaseResource(record, project.slug));
-}
-
-export async function listPostgresResources(
-  input: ProjectRef,
-): Promise<Result<PostgresResource[], ProjectNotFoundError>> {
-  const project = await getProjectInOrg({
-    projectId: input.projectId,
-    organizationId: input.organizationId,
-  });
-  if (!project) {
-    return Result.err(new ProjectNotFoundError({ projectId: input.projectId }));
-  }
-
-  const records = await listDatabaseResourceRecords(input.projectId);
-  const views = await Promise.all(
-    records.map((record) => mapDatabaseResource(record, project.slug)),
-  );
-  return Result.ok(views);
-}
-
-export async function deletePostgresResource(
-  input: PostgresResourceRef,
-  log: RequestLogger,
-): Promise<Result<{ ok: true }, PostgresResourceNotFoundError>> {
-  const project = await getProjectInOrg({
-    projectId: input.projectId,
-    organizationId: input.organizationId,
-  });
-  if (!project) {
-    log.set({ resource: { outcome: "resource_not_found" } });
-    return Result.err(
-      new PostgresResourceNotFoundError({ resourceId: input.resourceId }),
-    );
-  }
-
-  const record = await getDatabaseResourceRecord(input.projectId, input.resourceId);
-  if (!record) {
-    log.set({ resource: { outcome: "resource_not_found" } });
-    return Result.err(
-      new PostgresResourceNotFoundError({ resourceId: input.resourceId }),
-    );
-  }
-
-  const projectSlug = sanitizeProjectSlug(project.slug);
-  const serviceName = buildContainerName({
-    projectSlug,
-    resourceName: record.resource.name,
-  });
-
-  log.set({
-    resource: {
-      kind: "postgres",
-      projectId: input.projectId,
-      name: record.resource.name,
-    },
-  });
-
-  // 1. Remove proxy route
-  await deleteProxyRoutesByResource(input.resourceId);
-
-  // 2. Stop and remove Swarm service
-  await destroySwarmPostgres({ serviceName }, log);
-
-  // 3. Delete resource from DB (cascades to database_resource)
-  await db.delete(resource).where(eq(resource.id, input.resourceId));
-
-  // 4. Reconcile Caddy to remove the route
-  await reconcile(log);
-
-  log.set({
-    teardown: { proxyRoutesRemoved: true, swarmDestroyed: true, dbDeleted: true },
-  });
-
-  return Result.ok({ ok: true });
 }
