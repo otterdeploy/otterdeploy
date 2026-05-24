@@ -83,8 +83,10 @@ export const databaseResourceSchema = z.discriminatedUnion("engine", [
   postgresResourceSchema,
 ]);
 
+// All database engine variants are `type: "database"`. Spread so adding a new
+// engine to databaseResourceSchema automatically widens resourceSchema too.
 export const resourceSchema = z.discriminatedUnion("type", [
-  databaseResourceSchema.options[0], // postgres has `type: "database"`
+  ...databaseResourceSchema.options,
 ]);
 
 export const listProjectResourcesInput = z.object({
