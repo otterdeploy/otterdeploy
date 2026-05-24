@@ -51,13 +51,14 @@ export async function getEnv(
 }
 
 export async function createEnv(
-  input: { id?: EnvironmentId; name: string; slug: string },
+  input: { id?: EnvironmentId; name: string; slug: string; projectId?: ProjectId },
 ): Promise<Result<EnvironmentRecord, EnvironmentConflictError>> {
   try {
     const created = await createEnvRecord({
       id: input.id,
       name: input.name.trim(),
       slug: input.slug,
+      projectId: input.projectId,
     });
     if (!created) {
       return Result.err(new EnvironmentConflictError({ slug: input.slug }));

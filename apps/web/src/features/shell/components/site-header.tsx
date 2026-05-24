@@ -14,6 +14,7 @@ import { useTranslation } from "react-i18next";
 import { envCollection } from "@/features/projects/data/env";
 
 import { Breadcrumbs } from "@/features/shell/components/breadcrumbs";
+import { EnvironmentCreateDialog } from "@/features/shell/components/environment-create-dialog";
 import { EnvironmentTabs } from "@/features/shell/components/environment-tabs";
 import { EnvironmentTabsLine } from "@/features/shell/components/environment-tabs-line";
 import { ModeToggle } from "@/features/shell/components/mode-toggle";
@@ -41,6 +42,7 @@ export function SiteHeader() {
   );
 
   const [overlayOpen, setOverlayOpen] = useState(false);
+  const [envCreateOpen, setEnvCreateOpen] = useState(false);
 
   return (
     <header className="sticky top-0 z-50 flex w-full flex-col border-b bg-muted">
@@ -96,10 +98,28 @@ export function SiteHeader() {
         </div>
       </div>
 
-      {project && environments.length > 0 && (
+      {project && (
         <div className="flex h-9 w-full items-center gap-3 border-t bg-background px-3">
-          <EnvironmentTabsLine environments={environments} />
+          {environments.length > 0 && (
+            <EnvironmentTabsLine environments={environments} />
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => setEnvCreateOpen(true)}
+          >
+            + New environment
+          </Button>
         </div>
+      )}
+
+      {project && (
+        <EnvironmentCreateDialog
+          projectId={project.id}
+          open={envCreateOpen}
+          onOpenChange={setEnvCreateOpen}
+        />
       )}
 
       {project && (

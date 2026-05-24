@@ -52,13 +52,14 @@ export async function getEnvInOrg(input: {
 }
 
 /**
- * Inserts an env row. Created standalone (projectId=null); a subsequent
- * `project.create` with this env's id is what attaches it.
+ * Inserts an env row. Pass `projectId` to attach immediately; omit it to
+ * create a standalone env that `project.create` can claim later.
  */
 export async function createEnvRecord(input: {
   id?: EnvironmentId;
   name: string;
   slug: string;
+  projectId?: ProjectId;
 }): Promise<EnvironmentRecord | undefined> {
   const [row] = await db.insert(environment).values(input).returning();
   return row;

@@ -28,6 +28,11 @@ export const createEnvInput = z.object({
   id: zId(ID_PREFIX.environment).optional(),
   name: z.string().min(1),
   slug: z.string().slugify().min(2).max(48),
+  /**
+   * Optional project to attach the env to on creation. When omitted, the env
+   * is standalone and must be claimed later via `project.create`.
+   */
+  projectId: zId(ID_PREFIX.project).optional(),
 });
 
 export const deleteEnvInput = z.object({

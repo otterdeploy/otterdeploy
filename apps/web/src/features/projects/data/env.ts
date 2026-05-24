@@ -15,6 +15,7 @@ export const envCollection = createCollection(
             id: m.modified.id,
             name: m.modified.name,
             slug: m.modified.slug,
+            projectId: m.modified.projectId ?? undefined,
           }),
         ),
       );
