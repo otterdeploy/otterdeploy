@@ -257,6 +257,7 @@
         "@otterstack/env": "workspace:*",
         "@otterstack/shared": "workspace:*",
         "better-auth": "catalog:",
+        "drizzle-orm": "catalog:",
         "zod": "catalog:",
       },
       "devDependencies": {
