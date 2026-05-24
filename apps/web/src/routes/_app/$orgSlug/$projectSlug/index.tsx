@@ -29,6 +29,17 @@ function RouteComponent() {
       >
         <button>Go to {project.name}</button>
       </Link>
+
+      <Link
+        params={{
+          orgSlug: organization.slug,
+          projectSlug: project.slug as Slug<typeof ID_PREFIX.project>,
+        }}
+        to="/$orgSlug/$projectSlug/new-resource"
+        className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent"
+      >
+        + Add resource
+      </Link>
     </div>
   );
 }
