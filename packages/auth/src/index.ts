@@ -102,7 +102,13 @@ export const auth = betterAuth({
     organization({
       allowUserToCreateOrganization: true,
       organizationLimit: 10,
-      teams: { enabled: true },
+      teams: {
+        enabled: true,
+        // Don't auto-create a "default project" on org create — our project
+        // schema requires slug+environmentId, and projects are created
+        // explicitly via the CreateProjectDialog flow (env first, then project).
+        defaultTeam: { enabled: false },
+      },
       schema: {
         team: {
           modelName: "project",
