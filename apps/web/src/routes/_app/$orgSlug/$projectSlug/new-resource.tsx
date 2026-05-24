@@ -1,6 +1,5 @@
 // New resource creation — Pass B: multi-step wizard, database path.
 // State lifted into tanstack-form + zod. Step nav is local useState (UI state).
-// Change 1: region removed. Change 4: Tailwind conversion.
 import { useMemo, useState } from "react";
 import { createFileRoute, Link, useLoaderData, useNavigate } from "@tanstack/react-router";
 import { useForm, useStore } from "@tanstack/react-form";
@@ -15,7 +14,6 @@ import { Stepper, type Step } from "@/features/projects/components/new-resource/
 import { SERVICE_KINDS } from "@/features/projects/data/service-kinds";
 import { resourceSchema, resourceDefaults } from "@/features/projects/components/new-resource/schema";
 import { ID_PREFIX, type Slug } from "@otterstack/shared/id";
-import { cn } from "@/shared/lib/utils";
 
 export const Route = createFileRoute("/_app/$orgSlug/$projectSlug/new-resource")({
   staticData: { crumb: "New resource" },
@@ -59,6 +57,7 @@ function RouteComponent() {
   // Read reactive values from the store
   const kindId = useStore(form.store, (s) => s.values.kindId);
   const version = useStore(form.store, (s) => s.values.version);
+  const formErrors = useStore(form.store, (s) => s.errors);
 
   const kind = SERVICE_KINDS.find((k) => k.id === kindId) ?? null;
   const isDb = !!kind && kind.group === "data";
@@ -96,13 +95,38 @@ function RouteComponent() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-background text-foreground">
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        background: "var(--background)",
+        color: "var(--foreground)",
+      }}
+    >
       {/* Header */}
-      <div className="flex items-center gap-3 py-3 px-[22px] border-b border-border bg-card shrink-0">
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          padding: "12px 22px",
+          borderBottom: "1px solid var(--border)",
+          background: "var(--card)",
+          flexShrink: 0,
+        }}
+      >
         <Link
           to="/$orgSlug/$projectSlug"
           params={{ orgSlug, projectSlug }}
-          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground no-underline"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            fontSize: 12,
+            color: "var(--muted-foreground)",
+            textDecoration: "none",
+          }}
         >
           <svg
             viewBox="0 0 16 16"
@@ -118,15 +142,15 @@ function RouteComponent() {
           </svg>
           {project.name}
         </Link>
-        <span className="text-border text-sm">/</span>
-        <span className="text-[13px] font-semibold">Create resource</span>
+        <span style={{ color: "var(--border)", fontSize: 14 }}>/</span>
+        <span style={{ fontSize: 13, fontWeight: 600 }}>Create resource</span>
         {kind && (
-          <span className="text-muted-foreground font-mono ml-1 text-[11px]">
+          <span className="os-muted os-mono" style={{ marginLeft: 4, fontSize: 11 }}>
             · {kind.name}
           </span>
         )}
-        <div className="flex-1" />
-        <span className="text-muted-foreground text-[11px]">
+        <div style={{ flex: 1 }} />
+        <span className="os-muted" style={{ fontSize: 11 }}>
           Step {idx + 1} of {steps.length}
         </span>
       </div>
@@ -135,7 +159,14 @@ function RouteComponent() {
       <Stepper steps={steps} idx={idx} setStep={setStep} />
 
       {/* Body — scrollable */}
-      <div className="flex-1 overflow-y-auto p-[22px]">
+      <div
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          padding: 22,
+        }}
+        className="os-scroll"
+      >
         <div style={{ maxWidth: step === "kind" ? 1100 : 820, margin: "0 auto" }}>
           {step === "kind" && (
             <StepKind
@@ -157,7 +188,14 @@ function RouteComponent() {
           )}
 
           {step !== "kind" && !isDb && (
-            <div className="p-8 text-center text-muted-foreground text-sm">
+            <div
+              style={{
+                padding: 32,
+                textAlign: "center",
+                color: "var(--muted-foreground)",
+                fontSize: 14,
+              }}
+            >
               Coming soon for {kind?.group ?? "this"} resources
             </div>
           )}
@@ -189,16 +227,21 @@ function RouteComponent() {
                         {(customMemField) => (
                           <form.Field name="replicas">
                             {(replicasField) => (
-                              <form.Field name="placement">
-                                {(placementField) => (
-                                  <StepResources
-                                    presetIdField={presetIdField}
-                                    customCpuField={customCpuField}
-                                    customMemField={customMemField}
-                                    replicasField={replicasField}
-                                    placementField={placementField}
-                                    isDb={isDb}
-                                  />
+                              <form.Field name="region">
+                                {(regionField) => (
+                                  <form.Field name="placement">
+                                    {(placementField) => (
+                                      <StepResources
+                                        presetIdField={presetIdField}
+                                        customCpuField={customCpuField}
+                                        customMemField={customMemField}
+                                        replicasField={replicasField}
+                                        regionField={regionField}
+                                        placementField={placementField}
+                                        isDb={isDb}
+                                      />
+                                    )}
+                                  </form.Field>
                                 )}
                               </form.Field>
                             )}
@@ -256,20 +299,58 @@ function RouteComponent() {
       </div>
 
       {/* Bottom bar */}
-      <div className="flex items-center gap-2 py-3 px-[22px] border-t border-border bg-card shrink-0">
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "12px 22px",
+          borderTop: "1px solid var(--border)",
+          background: "var(--card)",
+          flexShrink: 0,
+        }}
+      >
         <Link
           to="/$orgSlug/$projectSlug"
           params={{ orgSlug, projectSlug }}
-          className="inline-flex items-center justify-center h-8 px-[14px] rounded-md border border-border bg-background text-foreground text-[13px] font-medium no-underline cursor-pointer"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            height: 32,
+            padding: "0 14px",
+            borderRadius: 6,
+            border: "1px solid var(--border)",
+            background: "var(--background)",
+            color: "var(--foreground)",
+            fontSize: 13,
+            fontWeight: 500,
+            textDecoration: "none",
+            cursor: "pointer",
+          }}
         >
           Cancel
         </Link>
-        <div className="flex-1" />
+        <div style={{ flex: 1 }} />
         {idx > 0 && (
           <button
             type="button"
             onClick={goPrev}
-            className="inline-flex items-center justify-center h-8 px-[14px] rounded-md border border-border bg-background text-foreground text-[13px] font-medium cursor-pointer font-[inherit]"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              height: 32,
+              padding: "0 14px",
+              borderRadius: 6,
+              border: "1px solid var(--border)",
+              background: "var(--background)",
+              color: "var(--foreground)",
+              fontSize: 13,
+              fontWeight: 500,
+              cursor: "pointer",
+              fontFamily: "inherit",
+            }}
           >
             ← Back
           </button>
@@ -278,10 +359,22 @@ function RouteComponent() {
           type="button"
           onClick={handleContinue}
           disabled={!canAdvance}
-          className={cn(
-            "inline-flex items-center justify-center h-8 px-[14px] rounded-md border border-transparent bg-foreground text-background text-[13px] font-medium font-[inherit]",
-            canAdvance ? "cursor-pointer opacity-100" : "cursor-not-allowed opacity-45",
-          )}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            height: 32,
+            padding: "0 14px",
+            borderRadius: 6,
+            border: "1px solid transparent",
+            background: "var(--foreground)",
+            color: "var(--background)",
+            fontSize: 13,
+            fontWeight: 500,
+            cursor: canAdvance ? "pointer" : "not-allowed",
+            opacity: canAdvance ? 1 : 0.45,
+            fontFamily: "inherit",
+          }}
         >
           {isLast ? "Create & deploy" : "Continue →"}
         </button>

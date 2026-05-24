@@ -1,14 +1,13 @@
 // Form primitives ported from apps/web-demo/src/features/otterstack/components/form.tsx.
 // Pass B extended with Switch3 and SettingRow.
-// Change 4: Tailwind conversion.
 import { useState, type ReactNode } from "react";
 
 // ────────── SectionH ──────────
 export function SectionH({ title, sub }: { title: string; sub?: string }) {
   return (
-    <div className="mb-[10px] flex items-baseline gap-[10px]">
-      <h3 className="m-0 text-[13px] font-semibold tracking-[0.01em]">{title}</h3>
-      {sub && <span className="text-muted-foreground text-xs">{sub}</span>}
+    <div style={{ marginBottom: 10, display: "flex", alignItems: "baseline", gap: 10 }}>
+      <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, letterSpacing: "0.01em" }}>{title}</h3>
+      {sub && <span className="os-muted" style={{ fontSize: 12 }}>{sub}</span>}
     </div>
   );
 }
@@ -16,8 +15,8 @@ export function SectionH({ title, sub }: { title: string; sub?: string }) {
 // ────────── Field ──────────
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label className="flex flex-col gap-1">
-      <span className="text-muted-foreground text-[11px]">{label}</span>
+    <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <span className="os-muted" style={{ fontSize: 11 }}>{label}</span>
       {children}
     </label>
   );
@@ -34,16 +33,28 @@ export function Switch3({ on, onChange }: { on: boolean; onChange?: (v: boolean)
         setV(n);
         onChange?.(n);
       }}
-      className="relative cursor-pointer border-0 shrink-0 rounded-full"
       style={{
         width: 28,
         height: 16,
+        borderRadius: 999,
         background: v ? "var(--foreground)" : "var(--border)",
+        position: "relative",
+        cursor: "pointer",
+        border: 0,
+        flexShrink: 0,
       }}
     >
       <span
-        className="absolute top-0.5 w-3 h-3 rounded-full bg-background transition-[left] duration-[140ms]"
-        style={{ left: v ? 14 : 2 }}
+        style={{
+          position: "absolute",
+          top: 2,
+          left: v ? 14 : 2,
+          width: 12,
+          height: 12,
+          borderRadius: "50%",
+          background: "var(--background)",
+          transition: "left 140ms",
+        }}
       />
     </button>
   );
@@ -61,10 +72,10 @@ export function SettingRow({
 }) {
   const [on, setOn] = useState(!!defaultOn);
   return (
-    <div className="flex items-center gap-3 py-[10px] border-t border-border">
-      <div className="flex-1">
-        <div className="text-[13px] font-medium">{label}</div>
-        {sub && <div className="text-muted-foreground text-[11px]">{sub}</div>}
+    <div className="os-row os-gap-3" style={{ padding: "10px 0", borderTop: "1px solid var(--border)" }}>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 13, fontWeight: 500 }}>{label}</div>
+        {sub && <div className="os-muted" style={{ fontSize: 11 }}>{sub}</div>}
       </div>
       <Switch3 on={on} onChange={setOn} />
     </div>

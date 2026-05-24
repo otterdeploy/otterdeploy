@@ -1,17 +1,16 @@
 // Step_Resources — pick a size preset and configure placement.
 // Ported verbatim from apps/web-demo/src/features/otterstack/screens/new-service.tsx lines 1912-2255.
-// Change 1: region picker removed. Change 2: cost display removed. Change 4: Tailwind conversion.
 import type { AnyFieldApi } from "@tanstack/react-form";
-import { RESOURCE_PRESETS, NODES } from "@/features/projects/data/service-kinds";
+import { RESOURCE_PRESETS, REGIONS, NODES } from "@/features/projects/data/service-kinds";
 import { I } from "./icons";
 import { SectionH, Field, SettingRow } from "./form-primitives";
-import { cn } from "@/shared/lib/utils";
 
 type ResourcesProps = {
   presetIdField: AnyFieldApi;
   customCpuField: AnyFieldApi;
   customMemField: AnyFieldApi;
   replicasField: AnyFieldApi;
+  regionField: AnyFieldApi;
   placementField: AnyFieldApi;
   isDb: boolean;
 };
@@ -21,6 +20,7 @@ export function StepResources({
   customCpuField,
   customMemField,
   replicasField,
+  regionField,
   placementField,
   isDb,
 }: ResourcesProps) {
@@ -28,6 +28,7 @@ export function StepResources({
   const customCpu = customCpuField.state.value as number;
   const customMem = customMemField.state.value as number;
   const replicas = replicasField.state.value as number;
+  const region = regionField.state.value as string;
   const placement = placementField.state.value as string;
 
   const preset = RESOURCE_PRESETS.find((p) => p.id === presetId);
@@ -35,48 +36,55 @@ export function StepResources({
   const mem = preset?.mem ?? customMem;
   const totalCpu = (cpu * replicas).toFixed(2);
   const totalMem = ((mem * replicas) / 1024).toFixed(2);
+  const totalCost = preset?.cost != null ? preset.cost * replicas : null;
 
   return (
     <>
       <SectionH title="Size" sub="How much CPU and memory does each replica get?" />
-      <div className="grid grid-cols-3 gap-[10px] mt-3">
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, 1fr)",
+          gap: 10,
+          marginTop: 12,
+        }}
+      >
         {RESOURCE_PRESETS.map((p) => (
           <button
             key={p.id}
             type="button"
             onClick={() => presetIdField.handleChange(p.id)}
-            className={cn(
-              "relative p-[14px] bg-card border border-border rounded-lg cursor-pointer text-left font-[inherit] text-foreground hover:border-ring min-h-[96px]",
-              presetId === p.id && "border-foreground shadow-[0_0_0_1px_var(--foreground)_inset] bg-accent",
-            )}
+            className={`os-builder ${presetId === p.id ? "active" : ""}`}
+            style={{ minHeight: 96 }}
           >
-            {p.popular && (
-              <span className="absolute top-2 right-2 text-[9px] uppercase tracking-[0.08em] px-1.5 py-px rounded-[3px] bg-[oklch(from_var(--info)_l_c_h_/_12%)] text-[var(--info)]">
-                popular
-              </span>
-            )}
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-sm">{p.name}</span>
+            {p.popular && <span className="os-builder-pop">popular</span>}
+            <div className="os-row os-gap-2">
+              <span style={{ fontWeight: 600, fontSize: 14 }}>{p.name}</span>
               {presetId === p.id && (
                 <I.check
                   width={12}
                   height={12}
-                  className="ml-auto text-foreground"
+                  style={{ marginLeft: "auto", color: "var(--foreground)" }}
                 />
               )}
             </div>
-            <div className="font-mono text-xs mt-1.5 text-muted-foreground">
+            <div className="os-mono" style={{ fontSize: 12, marginTop: 6, color: "var(--muted-foreground)" }}>
               {p.cpu != null && p.mem != null
                 ? `${p.cpu} vCPU · ${p.mem >= 1024 ? p.mem / 1024 + " GB" : p.mem + " MB"}`
                 : "configure manually"}
             </div>
-            <div className="text-muted-foreground text-[11px] mt-1">{p.sub}</div>
+            <div className="os-muted" style={{ fontSize: 11, marginTop: 4 }}>{p.sub}</div>
+            {p.cost !== null && (
+              <div className="os-mono" style={{ fontSize: 11, marginTop: 8, color: "var(--muted-foreground)" }}>
+                ~${p.cost}/mo per replica
+              </div>
+            )}
           </button>
         ))}
       </div>
 
       {presetId === "custom" && (
-        <div className="card p-4 mt-3">
+        <div className="card" style={{ padding: 16, marginTop: 12 }}>
           <Field label={`CPU · ${customCpu} vCPU`}>
             <input
               type="range"
@@ -85,10 +93,10 @@ export function StepResources({
               step="0.1"
               value={customCpu}
               onChange={(e) => customCpuField.handleChange(+e.target.value)}
-              className="w-full"
+              style={{ width: "100%" }}
             />
           </Field>
-          <div className="h-3" />
+          <div style={{ height: 12 }} />
           <Field
             label={`Memory · ${customMem >= 1024 ? (customMem / 1024).toFixed(1) + " GB" : customMem + " MB"}`}
           >
@@ -99,7 +107,7 @@ export function StepResources({
               step="128"
               value={customMem}
               onChange={(e) => customMemField.handleChange(+e.target.value)}
-              className="w-full"
+              style={{ width: "100%" }}
             />
           </Field>
         </div>
@@ -107,10 +115,10 @@ export function StepResources({
 
       {!isDb && (
         <>
-          <div className="h-[18px]" />
+          <div style={{ height: 18 }} />
           <SectionH title="Replicas" sub="How many copies of this service to run?" />
-          <div className="card p-4 mt-[10px]">
-            <div className="flex items-center gap-2">
+          <div className="card" style={{ padding: 16, marginTop: 10 }}>
+            <div className="os-row os-gap-2">
               <button
                 type="button"
                 className="btn ghost icon"
@@ -119,11 +127,11 @@ export function StepResources({
                 <I.x width={11} height={11} />
               </button>
               <input
-                className="input font-mono"
+                className="input os-mono"
                 type="number"
                 value={replicas}
                 onChange={(e) => replicasField.handleChange(+e.target.value || 1)}
-                style={{ width: 70, textAlign: "center", fontSize: 16, height: 36 }} // dynamic size kept inline
+                style={{ width: 70, textAlign: "center", fontSize: 16, height: 36 }}
               />
               <button
                 type="button"
@@ -132,12 +140,12 @@ export function StepResources({
               >
                 <I.plus width={11} height={11} />
               </button>
-              <div className="flex-1" />
-              <span className="text-muted-foreground font-mono text-[11px]">
+              <div style={{ flex: 1 }} />
+              <span className="os-muted os-mono" style={{ fontSize: 11 }}>
                 scale up to {replicas * 5} via autoscaler
               </span>
             </div>
-            <div className="h-[14px]" />
+            <div style={{ height: 14 }} />
             <SettingRow
               label="Enable autoscaling"
               sub={`Scale between ${replicas} and ${replicas * 5} replicas based on CPU > 60%`}
@@ -151,12 +159,26 @@ export function StepResources({
         </>
       )}
 
-      <div className="h-[18px]" />
+      <div style={{ height: 18 }} />
       <SectionH
         title="Placement"
-        sub={`Where should this run? · ${NODES.length} nodes available`}
+        sub={`Where should this run? · ${NODES.length} nodes available in ${REGIONS.length} regions`}
       />
-      <div className="card p-4 mt-[10px]">
+      <div className="card" style={{ padding: 16, marginTop: 10 }}>
+        <Field label="Region">
+          <select
+            className="input"
+            value={region}
+            onChange={(e) => regionField.handleChange(e.target.value)}
+          >
+            {REGIONS.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.flag} {r.name} · {r.nodes} node{r.nodes > 1 ? "s" : ""} · {r.latency}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <div style={{ height: 12 }} />
         <Field label="Placement strategy">
           <select
             className="input"
@@ -170,11 +192,22 @@ export function StepResources({
           </select>
         </Field>
 
-        <div className="mt-[14px] p-3 bg-muted rounded-md border border-border">
-          <div className="text-muted-foreground text-[10px] uppercase tracking-[0.06em] mb-2">
+        <div
+          style={{
+            marginTop: 14,
+            padding: 12,
+            background: "var(--muted)",
+            borderRadius: 6,
+            border: "1px solid var(--border)",
+          }}
+        >
+          <div
+            className="os-muted"
+            style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}
+          >
             predicted placement
           </div>
-          <div className="flex items-center gap-2">
+          <div className="os-row os-gap-2">
             {NODES.map((n, ni) => {
               const onThis =
                 placement === "spread"
@@ -185,21 +218,33 @@ export function StepResources({
               return (
                 <div
                   key={n.id}
-                  className="flex-1 p-[10px] bg-card rounded-[5px] border border-border"
+                  style={{
+                    flex: 1,
+                    padding: 10,
+                    background: "var(--card)",
+                    borderRadius: 5,
+                    border: "1px solid var(--border)",
+                  }}
                 >
-                  <div className="flex items-center gap-2 text-[11px]">
-                    <span className="font-mono text-muted-foreground">{n.name}</span>
-                    <span className="flex-1" />
-                    <span className="text-muted-foreground">{Math.round((n.cpu.used / n.cpu.total) * 100)}%</span>
+                  <div className="os-row os-gap-2" style={{ fontSize: 11 }}>
+                    <span className="os-mono" style={{ color: "var(--muted-foreground)" }}>{n.name}</span>
+                    <span style={{ flex: 1 }} />
+                    <span className="os-muted">{Math.round((n.cpu.used / n.cpu.total) * 100)}%</span>
                   </div>
-                  <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                  <div className="os-row os-gap-1" style={{ marginTop: 6, flexWrap: "wrap" }}>
                     {Array.from({ length: Math.max(0, onThis) }).map((_, i) => (
                       <span
                         key={i}
-                        className="inline-block w-[10px] h-[10px] rounded-[2px] bg-[var(--chart-2)]"
+                        style={{
+                          display: "inline-block",
+                          width: 10,
+                          height: 10,
+                          borderRadius: 2,
+                          background: "var(--chart-2)",
+                        }}
                       />
                     ))}
-                    {onThis === 0 && <span className="text-muted-foreground text-[10px]">—</span>}
+                    {onThis === 0 && <span className="os-muted" style={{ fontSize: 10 }}>—</span>}
                   </div>
                 </div>
               );
@@ -208,17 +253,34 @@ export function StepResources({
         </div>
       </div>
 
-      <div className="h-[14px]" />
-      <div className="card p-[14px] bg-muted">
-        <div className="flex items-center gap-3">
+      <div style={{ height: 14 }} />
+      <div className="card" style={{ padding: 14, background: "var(--muted)" }}>
+        <div className="os-row os-gap-3">
           <div>
-            <div className="text-muted-foreground text-[10px] uppercase tracking-[0.06em]">
+            <div
+              className="os-muted"
+              style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}
+            >
               service total
             </div>
-            <div className="font-mono text-sm font-medium mt-0.5">
+            <div className="os-mono" style={{ fontSize: 14, fontWeight: 500, marginTop: 2 }}>
               {totalCpu} vCPU · {totalMem} GB
             </div>
           </div>
+          <div style={{ flex: 1 }} />
+          {totalCost !== null && (
+            <div style={{ textAlign: "right" }}>
+              <div
+                className="os-muted"
+                style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}
+              >
+                est. monthly cost
+              </div>
+              <div className="os-mono" style={{ fontSize: 14, fontWeight: 500, marginTop: 2 }}>
+                ${totalCost}/mo
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </>
