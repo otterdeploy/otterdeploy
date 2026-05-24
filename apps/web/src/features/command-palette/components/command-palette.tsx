@@ -1,7 +1,7 @@
 import { SearchIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useHotkey, useHotkeySequence } from "@tanstack/react-hotkeys";
-import { useNavigate, useParams } from "@tanstack/react-router";
+import { useMatch, useNavigate, useParams } from "@tanstack/react-router";
 import { Command as CommandPrimitive } from "cmdk";
 
 import {
@@ -24,7 +24,19 @@ export function CommandPalette() {
   const { orgSlug, projectSlug } = useParams({ strict: false });
   const overlay = useNewResourceOverlay();
 
+  // Project loader exposes environments when we're inside a project route.
+  const projectMatch = useMatch({
+    from: "/_app/$orgSlug/$projectSlug",
+    shouldThrow: false,
+  });
+  const environments = projectMatch?.loaderData?.project?.environments ?? [];
+
   const close = () => setOpen(false);
+
+  const switchEnv = (slug: string) => {
+    void navigate({ search: (prev) => ({ ...prev, env: slug }) });
+    close();
+  };
 
   const goNewResource = () => {
     if (orgSlug && projectSlug) {
@@ -127,11 +139,19 @@ export function CommandPalette() {
             </CommandItem>
           </CommandGroup>
 
-          <CommandGroup heading="Environment">
-            <CommandItem onSelect={close}>Switch to production</CommandItem>
-            <CommandItem onSelect={close}>Switch to staging</CommandItem>
-            <CommandItem onSelect={close}>Switch to preview</CommandItem>
-          </CommandGroup>
+          {environments.length > 0 && (
+            <CommandGroup heading="Environment">
+              {environments.map((envOption) => (
+                <CommandItem
+                  key={envOption.slug}
+                  value={`env ${envOption.slug} ${envOption.name}`}
+                  onSelect={() => switchEnv(envOption.slug)}
+                >
+                  Switch to {envOption.name}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          )}
         </CommandList>
 
         <div className="flex items-center gap-4 border-t px-3 py-2 text-xs text-muted-foreground">

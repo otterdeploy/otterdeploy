@@ -11,6 +11,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { useTranslation } from "react-i18next";
 
 import { Breadcrumbs } from "@/features/shell/components/breadcrumbs";
+import { EnvironmentTabs } from "@/features/shell/components/environment-tabs";
 import { ModeToggle } from "@/features/shell/components/mode-toggle";
 import { NewResourceOverlayDialog } from "@/features/projects/components/new-resource/new-resource-dialogs";
 import { Button } from "@/shared/components/ui/button";
@@ -45,6 +46,10 @@ export function SiteHeader() {
         </Link>
 
         <Breadcrumbs className="hidden md:block" />
+
+        {project && project.environments.length > 0 && (
+          <EnvironmentTabs environments={project.environments} />
+        )}
 
         <div className="ml-auto flex items-center gap-2">
           <div className="relative hidden w-72 sm:block">
