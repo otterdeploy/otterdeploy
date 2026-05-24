@@ -59,7 +59,13 @@ export function NewResourceKindDialog({
           <StepKind kindId={kindId} setKindId={setKindId} />
         </div>
         <DialogFooter className="m-0 rounded-none border-t bg-card px-5 py-3">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="outline"
+            onClick={() => {
+              onOpenChange(false);
+              setKindId(null);
+            }}
+          >
             Cancel
           </Button>
           <Button onClick={handleConfirm} disabled={!kindId}>
