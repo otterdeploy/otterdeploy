@@ -16,7 +16,6 @@ import { envCollection } from "@/features/projects/data/env";
 import { Breadcrumbs } from "@/features/shell/components/breadcrumbs";
 import { EnvironmentCreateDialog } from "@/features/shell/components/environment-create-dialog";
 import { EnvironmentTabs } from "@/features/shell/components/environment-tabs";
-import { EnvironmentTabsLine } from "@/features/shell/components/environment-tabs-line";
 import { ModeToggle } from "@/features/shell/components/mode-toggle";
 import { NewResourceOverlayDialog } from "@/features/projects/components/new-resource/new-resource-dialogs";
 import { Button } from "@/shared/components/ui/button";
@@ -45,7 +44,7 @@ export function SiteHeader() {
   const [envCreateOpen, setEnvCreateOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 flex w-full flex-col border-b bg-muted">
+    <header className="sticky top-0 z-50 flex w-full items-center border-b bg-muted">
       <div className="flex h-(--header-height) w-full items-center gap-3 px-3">
         <Link
           to="/$orgSlug"
@@ -63,6 +62,17 @@ export function SiteHeader() {
 
         {project && environments.length > 0 && (
           <EnvironmentTabs environments={environments} />
+        )}
+
+        {project && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => setEnvCreateOpen(true)}
+          >
+            + New environment
+          </Button>
         )}
 
         <div className="ml-auto flex items-center gap-2">
@@ -97,22 +107,6 @@ export function SiteHeader() {
           )}
         </div>
       </div>
-
-      {project && (
-        <div className="flex h-9 w-full items-center gap-3 border-t bg-background px-3">
-          {environments.length > 0 && (
-            <EnvironmentTabsLine environments={environments} />
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 text-xs text-muted-foreground hover:text-foreground"
-            onClick={() => setEnvCreateOpen(true)}
-          >
-            + New environment
-          </Button>
-        </div>
-      )}
 
       {project && (
         <EnvironmentCreateDialog
