@@ -1,13 +1,14 @@
 import { useForm } from "@tanstack/react-form";
+import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
 import * as z from "zod";
 
+import { authClient } from "@/lib/auth-client";
 import { Alert, AlertDescription } from "@/shared/components/ui/alert";
 import { Button } from "@/shared/components/ui/button";
 import { Field, FieldError, FieldLabel } from "@/shared/components/ui/field";
 import { Input } from "@/shared/components/ui/input";
-import { authClient } from "@/lib/auth-client";
+
 import { AuthShell } from "./auth-shell";
 
 const slugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -32,33 +33,40 @@ function deriveSlug(name: string): string {
 
 export function CreateOrganizationForm() {
   const navigate = useNavigate();
-  const [formError, setFormError] = useState<string | null>(null);
-  const [slugTouched, setSlugTouched] = useState(false);
+
+  const createOrgMutation = useMutation({
+    mutationKey: ["createOrganization"],
+    mutationFn: async ({ name, slug }: { name: string; slug: string }) => {
+      const created = await authClient.organization.create({ name, slug });
+
+      if (created.error || !created.data) {
+        throw new Error(
+          created.error?.message ?? "Could not create organization",
+        );
+      }
+
+      const activated = await authClient.organization.setActive({
+        organizationId: created.data.id,
+      });
+      if (activated.error) {
+        throw new Error(
+          `Could not activate organization: ${activated.error.message ?? "Unknown error"}`,
+        );
+      }
+
+      return created.data;
+    },
+  });
 
   const form = useForm({
     defaultValues: { name: "", slug: "" },
     validators: { onChange: schema },
     onSubmit: async ({ value }) => {
-      setFormError(null);
-      const created = await authClient.organization.create({
+      await createOrgMutation.mutateAsync({
         name: value.name,
         slug: value.slug,
       });
-      if (created.error || !created.data) {
-        setFormError(created.error?.message ?? "Could not create organization");
-        return;
-      }
-      const activated = await authClient.organization.setActive({
-        organizationId: created.data.id,
-      });
-      if (activated.error) {
-        setFormError(
-          activated.error.message ?? "Could not activate organization",
-        );
-        return;
-      }
-      // post-rename task wires the real /$orgSlug navigation
-      void navigate({ to: "/" as "/" });
+      void navigate({ to: "/" });
     },
   });
 
@@ -75,9 +83,11 @@ export function CreateOrganizationForm() {
         className="flex flex-col gap-4"
         noValidate
       >
-        {formError ? (
+        {createOrgMutation.error ? (
           <Alert variant="destructive">
-            <AlertDescription>{formError}</AlertDescription>
+            <AlertDescription>
+              {createOrgMutation.error.message}
+            </AlertDescription>
           </Alert>
         ) : null}
 
@@ -93,14 +103,12 @@ export function CreateOrganizationForm() {
                 onChange={(e) => {
                   const next = e.target.value;
                   field.handleChange(next);
-                  if (!slugTouched) {
-                    form.setFieldValue("slug", deriveSlug(next));
-                  }
+                  form.setFieldValue("slug", deriveSlug(next));
                 }}
               />
-              {field.state.meta.errors[0] ? (
-                <FieldError>{String(field.state.meta.errors[0])}</FieldError>
-              ) : null}
+              {field.state.meta.errors.map((err) => (
+                <FieldError key={err?.message}>{err?.message}</FieldError>
+              ))}
             </Field>
           )}
         </form.Field>
@@ -114,14 +122,11 @@ export function CreateOrganizationForm() {
                 name={field.name}
                 value={field.state.value}
                 onBlur={field.handleBlur}
-                onChange={(e) => {
-                  setSlugTouched(true);
-                  field.handleChange(e.target.value);
-                }}
+                onChange={(e) => field.handleChange(e.target.value)}
               />
-              {field.state.meta.errors[0] ? (
-                <FieldError>{String(field.state.meta.errors[0])}</FieldError>
-              ) : null}
+              {field.state.meta.errors.map((err) => (
+                <FieldError key={err?.message}>{err?.message}</FieldError>
+              ))}
             </Field>
           )}
         </form.Field>
