@@ -58,11 +58,11 @@ export const RESOURCE_PRESETS: ResourcePreset[] = [
 export type Region = { id: string; name: string; flag: string; latency: string; nodes: number };
 
 export const REGIONS: Region[] = [
-  { id: "sfo", name: "San Francisco", flag: "US", latency: "4ms", nodes: 3 },
-  { id: "iad", name: "Virginia", flag: "US", latency: "78ms", nodes: 3 },
-  { id: "lhr", name: "London", flag: "GB", latency: "142ms", nodes: 2 },
-  { id: "fra", name: "Frankfurt", flag: "DE", latency: "156ms", nodes: 2 },
-  { id: "sgp", name: "Singapore", flag: "SG", latency: "198ms", nodes: 2 },
+  { id: "sfo", name: "San Francisco", flag: "🇺🇸", latency: "4ms", nodes: 3 },
+  { id: "iad", name: "Virginia", flag: "🇺🇸", latency: "78ms", nodes: 3 },
+  { id: "lhr", name: "London", flag: "🇬🇧", latency: "142ms", nodes: 2 },
+  { id: "fra", name: "Frankfurt", flag: "🇩🇪", latency: "156ms", nodes: 2 },
+  { id: "sgp", name: "Singapore", flag: "🇸🇬", latency: "198ms", nodes: 2 },
 ];
 
 export type NodeRole = "manager" | "worker";
