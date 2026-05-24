@@ -20,6 +20,7 @@ import {
 
 import {
   postgresResourceSchema,
+  projectListItemSchema,
   projectSchema,
   proxyRouteSchema,
 } from "./contract";
@@ -31,6 +32,7 @@ import {
 } from "./queries";
 
 export type Project = z.infer<typeof projectSchema>;
+export type ProjectListItem = z.infer<typeof projectListItemSchema>;
 export type PostgresResource = z.infer<typeof postgresResourceSchema>;
 export type ProxyRoute = z.infer<typeof proxyRouteSchema>;
 

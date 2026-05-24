@@ -31,6 +31,7 @@ import {
   isUniqueViolation,
   sanitizeProjectSlug,
   type Project,
+  type ProjectListItem,
 } from "./views";
 import { type Id, ID_PREFIX } from "@otterstack/shared/id";
 
@@ -40,7 +41,7 @@ type OrgRef = {
   organizationId: OrgId;
 };
 
-export async function listProjects(input: OrgRef): Promise<Project[]> {
+export async function listProjects(input: OrgRef): Promise<ProjectListItem[]> {
   return listProjectRecordsByOrg(input.organizationId);
 }
 

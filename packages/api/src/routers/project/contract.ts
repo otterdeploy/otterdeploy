@@ -15,6 +15,10 @@ export const projectSchema = createSelectSchema(project)
     environmentId: zId(ID_PREFIX.environment).nullable(),
   });
 
+export const projectListItemSchema = projectSchema.extend({
+  databaseCount: z.number().int().nonnegative(),
+});
+
 export const createProjectInput = z.object({
   /**
    * Optional client-supplied project id. Lets the caller pre-allocate a CUID2
@@ -174,7 +178,7 @@ export const projectContract = {
       tag,
       method: "GET",
     })
-    .output(z.array(projectSchema)),
+    .output(z.array(projectListItemSchema)),
   create: oc
     .errors({
       CONFLICT: {

@@ -1,8 +1,8 @@
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { createError } from "evlog";
 
 import { db } from "@otterstack/db";
-import { environment, project } from "@otterstack/db/schema/project";
+import { environment, project, resource } from "@otterstack/db/schema/project";
 import { createId, ID_PREFIX, type Id } from "@otterstack/shared/id";
 
 import type { ProjectId } from "../errors";
@@ -11,9 +11,19 @@ export async function listProjectRecordsByOrg(
   organizationId: Id<typeof ID_PREFIX.organization>,
 ) {
   return db
-    .select()
+    .select({
+      id: project.id,
+      name: project.name,
+      slug: project.slug,
+      environmentId: project.environmentId,
+      createdAt: project.createdAt,
+      updatedAt: project.updatedAt,
+      databaseCount: sql<number>`coalesce(sum(case when ${resource.type} = 'database' then 1 else 0 end), 0)::int`,
+    })
     .from(project)
+    .leftJoin(resource, eq(resource.projectId, project.id))
     .where(eq(project.organizationId, organizationId))
+    .groupBy(project.id)
     .orderBy(asc(project.createdAt), asc(project.name));
 }
 
