@@ -1,11 +1,13 @@
 import { useNavigate, useParams } from "@tanstack/react-router";
+import { Command as CommandPrimitive } from "cmdk";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { SearchIcon } from "@hugeicons/core-free-icons";
 
 import {
   Command,
   CommandDialog,
   CommandEmpty,
   CommandGroup,
-  CommandInput,
   CommandItem,
   CommandList,
   CommandShortcut,
@@ -43,12 +45,19 @@ export function CommandPalette() {
   return (
     <CommandDialog open={open} onOpenChange={setOpen} className="max-w-xl gap-0 p-0">
       <Command>
-        <div className="relative">
-          <CommandInput placeholder="Type a command or search…" />
-          <Kbd className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2">
-            esc
-          </Kbd>
+        <div className="flex items-center gap-2 border-b px-3 py-2.5">
+          <HugeiconsIcon
+            icon={SearchIcon}
+            strokeWidth={2}
+            className="size-4 shrink-0 opacity-50"
+          />
+          <CommandPrimitive.Input
+            placeholder="Type a command or search…"
+            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          />
+          <Kbd>esc</Kbd>
         </div>
+
         <CommandList>
           <CommandEmpty>No matching command.</CommandEmpty>
 
@@ -121,6 +130,24 @@ export function CommandPalette() {
             <CommandItem onSelect={close}>Switch to preview</CommandItem>
           </CommandGroup>
         </CommandList>
+
+        <div className="flex items-center gap-4 border-t px-3 py-2 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <KbdGroup>
+              <Kbd>↑</Kbd>
+              <Kbd>↓</Kbd>
+            </KbdGroup>
+            Navigate
+          </span>
+          <span className="flex items-center gap-1.5">
+            <Kbd>↵</Kbd>
+            Select
+          </span>
+          <span className="flex items-center gap-1.5">
+            <Kbd>esc</Kbd>
+            Close
+          </span>
+        </div>
       </Command>
     </CommandDialog>
   );
