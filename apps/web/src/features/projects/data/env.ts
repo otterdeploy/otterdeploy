@@ -9,7 +9,7 @@ export const envCollection = createCollection(
     queryKey: orpc.env.list.queryKey(),
     queryFn: async () => orpc.env.list.call(),
     onInsert: async ({ transaction }) => {
-      await Promise.allSettled(
+      await Promise.all(
         transaction.mutations.map((m) =>
           orpc.env.create.call({
             id: m.modified.id,
@@ -20,7 +20,7 @@ export const envCollection = createCollection(
       );
     },
     onDelete: async ({ transaction }) => {
-      await Promise.allSettled(
+      await Promise.all(
         transaction.mutations.map((m) =>
           orpc.env.delete.call({ id: m.original.id }),
         ),

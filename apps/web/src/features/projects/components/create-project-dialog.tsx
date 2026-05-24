@@ -1,4 +1,4 @@
-import { useForm } from "@tanstack/react-form";
+import { useForm, useStore } from "@tanstack/react-form";
 import { useState, type ReactElement } from "react";
 import { toast } from "sonner";
 import * as z from "zod";
@@ -18,6 +18,9 @@ import { Input } from "@/shared/components/ui/input";
 import { createId, ID_PREFIX } from "@otterstack/shared/id";
 import { projectCollection } from "../data/project";
 
+import { eq, useLiveQuery } from "@tanstack/react-db";
+import { ChartLegend } from "@/shared/components/ui/chart";
+
 // `.slugify()` alone — used to derive the slug live as the user types the name.
 // Doesn't throw on short/empty input, just normalizes whatever's there.
 const slugifier = z.string().slugify();
@@ -35,7 +38,7 @@ export function CreateProjectDialog({ trigger }: { trigger: ReactElement }) {
   const form = useForm({
     defaultValues: { name: "", slug: "" },
     validators: { onChange: schema },
-    onSubmit: async ({ value }) => {
+    onSubmit: ({ value, ...test }) => {
       const tx = projectCollection.insert({
         ...value,
         environmentId: null,
@@ -44,10 +47,34 @@ export function CreateProjectDialog({ trigger }: { trigger: ReactElement }) {
         updatedAt: new Date(),
       });
 
-      if (tx.error?.message) toast.error(tx.error.message);
-      else setOpen(false);
+      // Close instantly — the optimistic row is already in the collection.
+      // Surface server-side failures asynchronously; tanstack/db rolls back
+      // the optimistic row on rejection.
+      setOpen(false);
+      tx.isPersisted.promise.catch((error) => {
+        toast.error(
+          error instanceof Error ? error.message : "Failed to create project",
+        );
+      });
     },
   });
+
+  // Subscribe to the slug value so this component re-renders on every
+  // keystroke. Without this, `form.getFieldValue("slug")` would only read
+  // the value at the initial render and the live query below would never
+  // re-run.
+  const slug = useStore(form.store, (s) => s.values.slug);
+
+  // Reactive uniqueness check against rows already in the collection. No
+  // server roundtrip needed — `projectCollection` holds the org's projects.
+  const { data: conflict } = useLiveQuery(
+    (q) =>
+      q
+        .from({ p: projectCollection })
+        .where(({ p }) => eq(p.slug, slug))
+        .findOne(),
+    [slug],
+  );
 
   return (
     <Dialog
@@ -97,7 +124,7 @@ export function CreateProjectDialog({ trigger }: { trigger: ReactElement }) {
                   autoFocus
                 />
                 {field.state.meta.errors.map((err) => (
-                  <FieldError>{err?.message}</FieldError>
+                  <FieldError key={err?.message}>{err?.message}</FieldError>
                 ))}
               </Field>
             )}
@@ -117,8 +144,11 @@ export function CreateProjectDialog({ trigger }: { trigger: ReactElement }) {
                   }}
                 />
                 {field.state.meta.errors.map((err) => (
-                  <FieldError>{err?.message}</FieldError>
+                  <FieldError key={err?.message}>{err?.message}</FieldError>
                 ))}
+                {conflict && conflict.slug === slug ? (
+                  <FieldError>Slug "{slug}" is already in use</FieldError>
+                ) : null}
               </Field>
             )}
           </form.Field>
@@ -131,12 +161,23 @@ export function CreateProjectDialog({ trigger }: { trigger: ReactElement }) {
             >
               Cancel
             </Button>
-            <form.Subscribe selector={(s) => s.isSubmitting}>
-              {(isSubmitting) => (
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? "Creating…" : "Create project"}
-                </Button>
-              )}
+            <form.Subscribe
+              selector={(s) => ({
+                isSubmitting: s.isSubmitting,
+                canSubmit: s.canSubmit,
+              })}
+            >
+              {({ isSubmitting, canSubmit }) => {
+                const hasSlugConflict = !!conflict && conflict.slug === slug;
+                return (
+                  <Button
+                    type="submit"
+                    disabled={isSubmitting || !canSubmit || hasSlugConflict}
+                  >
+                    {isSubmitting ? "Creating…" : "Create project"}
+                  </Button>
+                );
+              }}
             </form.Subscribe>
           </DialogFooter>
         </form>

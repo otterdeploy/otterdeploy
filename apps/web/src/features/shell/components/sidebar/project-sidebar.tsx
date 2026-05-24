@@ -36,53 +36,53 @@ import { EnvironmentSelector } from "./environment-selector";
 import { StatusDot, type NavItem, type Status } from "./index";
 
 const navItems = [
-  { titleKey: "nav.overview", href: "/$orgSlug/$projectId", icon: Home01Icon },
+  { titleKey: "nav.overview", href: "/$orgSlug/$projectSlug", icon: Home01Icon },
   {
     titleKey: "nav.graph",
-    href: "/$orgSlug/$projectId/graph",
+    href: "/$orgSlug/$projectSlug/graph",
     icon: Share08Icon,
   },
   {
     titleKey: "nav.deployments",
-    href: "/$orgSlug/$projectId/deployments",
+    href: "/$orgSlug/$projectSlug/deployments",
     icon: Rocket01Icon,
     badge: "7",
     active: true,
   },
   {
     titleKey: "nav.logs",
-    href: "/$orgSlug/$projectId/logs",
+    href: "/$orgSlug/$projectSlug/logs",
     icon: TextAlignLeft01Icon,
   },
   {
     titleKey: "nav.metrics",
-    href: "/$orgSlug/$projectId/metrics",
+    href: "/$orgSlug/$projectSlug/metrics",
     icon: ChartHistogramIcon,
   },
   {
     titleKey: "nav.variables",
-    href: "/$orgSlug/$projectId/variables",
+    href: "/$orgSlug/$projectSlug/variables",
     icon: VariableIcon,
   },
   {
     titleKey: "nav.networking",
-    href: "/$orgSlug/$projectId/networking",
+    href: "/$orgSlug/$projectSlug/networking",
     icon: EarthIcon,
   },
   {
     titleKey: "nav.servers",
-    href: "/$orgSlug/$projectId/servers",
+    href: "/$orgSlug/$projectSlug/servers",
     icon: ServerStack01Icon,
     badge: "3",
   },
   {
     titleKey: "nav.terminal",
-    href: "/$orgSlug/$projectId/terminal",
+    href: "/$orgSlug/$projectSlug/terminal",
     icon: FlashIcon,
   },
   {
     titleKey: "nav.settings",
-    href: "/$orgSlug/$projectId/settings",
+    href: "/$orgSlug/$projectSlug/settings",
     icon: Sun03Icon,
   },
 ] as const satisfies ReadonlyArray<NavItem>;

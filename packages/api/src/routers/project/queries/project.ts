@@ -59,6 +59,23 @@ export async function getProjectBySlug(slug: string) {
   return record;
 }
 
+export async function getProjectBySlugInOrg(input: {
+  slug: string;
+  organizationId: Id<typeof ID_PREFIX.organization>;
+}) {
+  const [record] = await db
+    .select()
+    .from(project)
+    .where(
+      and(
+        eq(project.slug, input.slug),
+        eq(project.organizationId, input.organizationId),
+      ),
+    )
+    .limit(1);
+  return record;
+}
+
 export async function updateProjectRecord(input: {
   projectId: ProjectId;
   organizationId: Id<typeof ID_PREFIX.organization>;

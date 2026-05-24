@@ -11,6 +11,7 @@ export {
   deleteProjectRecord,
   getProjectById,
   getProjectBySlug,
+  getProjectBySlugInOrg,
   getProjectInOrg,
   getProjectRecord,
   listProjectRecordsByOrg,

@@ -26,7 +26,7 @@ export const projectCollection = createCollection(
      * locally; the next refetch confirms the link from the server.
      */
     onInsert: async ({ transaction }) => {
-      await Promise.allSettled(
+      await Promise.all(
         transaction.mutations.map(async (m) => {
           const projectId = m.modified.id;
           const projectSlug = m.modified.slug;
@@ -53,7 +53,7 @@ export const projectCollection = createCollection(
       );
     },
     onUpdate: async ({ transaction }) => {
-      await Promise.allSettled(
+      await Promise.all(
         transaction.mutations.map((m) =>
           orpc.project.update.call({ ...m.changes, id: m.original.id }),
         ),

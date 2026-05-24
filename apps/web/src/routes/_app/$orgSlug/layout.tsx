@@ -36,7 +36,7 @@ export const Route = createFileRoute("/_app/$orgSlug")({
 function RouteComponent() {
   const { user } = Route.useRouteContext();
   const match = useMatch({
-    from: "/_app/$orgSlug/$projectId",
+    from: "/_app/$orgSlug/$projectSlug",
     shouldThrow: false,
   });
 

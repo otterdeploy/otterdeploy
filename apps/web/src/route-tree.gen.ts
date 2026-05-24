@@ -19,9 +19,9 @@ import { Route as AppOrgSlugTeamRouteImport } from "./routes/_app/$orgSlug/team"
 import { Route as AppOrgSlugSettingsRouteImport } from "./routes/_app/$orgSlug/settings"
 import { Route as AppOrgSlugServersRouteImport } from "./routes/_app/$orgSlug/servers"
 import { Route as AppOrgSlugNetworkingRouteImport } from "./routes/_app/$orgSlug/networking"
-import { Route as AppOrgSlugProjectIdLayoutRouteImport } from "./routes/_app/$orgSlug/$projectId/layout"
-import { Route as AppOrgSlugProjectIdIndexRouteImport } from "./routes/_app/$orgSlug/$projectId/index"
-import { Route as AppOrgSlugProjectIdGraphRouteImport } from "./routes/_app/$orgSlug/$projectId/graph"
+import { Route as AppOrgSlugProjectSlugLayoutRouteImport } from "./routes/_app/$orgSlug/$projectSlug/layout"
+import { Route as AppOrgSlugProjectSlugIndexRouteImport } from "./routes/_app/$orgSlug/$projectSlug/index"
+import { Route as AppOrgSlugProjectSlugGraphRouteImport } from "./routes/_app/$orgSlug/$projectSlug/graph"
 
 const SignInRoute = SignInRouteImport.update({
   id: "/sign-in",
@@ -73,23 +73,23 @@ const AppOrgSlugNetworkingRoute = AppOrgSlugNetworkingRouteImport.update({
   path: "/networking",
   getParentRoute: () => AppOrgSlugLayoutRoute,
 } as any)
-const AppOrgSlugProjectIdLayoutRoute =
-  AppOrgSlugProjectIdLayoutRouteImport.update({
-    id: "/$projectId",
-    path: "/$projectId",
+const AppOrgSlugProjectSlugLayoutRoute =
+  AppOrgSlugProjectSlugLayoutRouteImport.update({
+    id: "/$projectSlug",
+    path: "/$projectSlug",
     getParentRoute: () => AppOrgSlugLayoutRoute,
   } as any)
-const AppOrgSlugProjectIdIndexRoute =
-  AppOrgSlugProjectIdIndexRouteImport.update({
+const AppOrgSlugProjectSlugIndexRoute =
+  AppOrgSlugProjectSlugIndexRouteImport.update({
     id: "/",
     path: "/",
-    getParentRoute: () => AppOrgSlugProjectIdLayoutRoute,
+    getParentRoute: () => AppOrgSlugProjectSlugLayoutRoute,
   } as any)
-const AppOrgSlugProjectIdGraphRoute =
-  AppOrgSlugProjectIdGraphRouteImport.update({
+const AppOrgSlugProjectSlugGraphRoute =
+  AppOrgSlugProjectSlugGraphRouteImport.update({
     id: "/graph",
     path: "/graph",
-    getParentRoute: () => AppOrgSlugProjectIdLayoutRoute,
+    getParentRoute: () => AppOrgSlugProjectSlugLayoutRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -97,14 +97,14 @@ export interface FileRoutesByFullPath {
   "/sign-in": typeof SignInRoute
   "/$orgSlug": typeof AppOrgSlugLayoutRouteWithChildren
   "/onboarding/create-organization": typeof OnboardingCreateOrganizationRoute
-  "/$orgSlug/$projectId": typeof AppOrgSlugProjectIdLayoutRouteWithChildren
+  "/$orgSlug/$projectSlug": typeof AppOrgSlugProjectSlugLayoutRouteWithChildren
   "/$orgSlug/networking": typeof AppOrgSlugNetworkingRoute
   "/$orgSlug/servers": typeof AppOrgSlugServersRoute
   "/$orgSlug/settings": typeof AppOrgSlugSettingsRoute
   "/$orgSlug/team": typeof AppOrgSlugTeamRoute
   "/$orgSlug/": typeof AppOrgSlugIndexRoute
-  "/$orgSlug/$projectId/graph": typeof AppOrgSlugProjectIdGraphRoute
-  "/$orgSlug/$projectId/": typeof AppOrgSlugProjectIdIndexRoute
+  "/$orgSlug/$projectSlug/graph": typeof AppOrgSlugProjectSlugGraphRoute
+  "/$orgSlug/$projectSlug/": typeof AppOrgSlugProjectSlugIndexRoute
 }
 export interface FileRoutesByTo {
   "/sign-in": typeof SignInRoute
@@ -115,8 +115,8 @@ export interface FileRoutesByTo {
   "/$orgSlug/settings": typeof AppOrgSlugSettingsRoute
   "/$orgSlug/team": typeof AppOrgSlugTeamRoute
   "/$orgSlug": typeof AppOrgSlugIndexRoute
-  "/$orgSlug/$projectId/graph": typeof AppOrgSlugProjectIdGraphRoute
-  "/$orgSlug/$projectId": typeof AppOrgSlugProjectIdIndexRoute
+  "/$orgSlug/$projectSlug/graph": typeof AppOrgSlugProjectSlugGraphRoute
+  "/$orgSlug/$projectSlug": typeof AppOrgSlugProjectSlugIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -125,14 +125,14 @@ export interface FileRoutesById {
   "/_app/$orgSlug": typeof AppOrgSlugLayoutRouteWithChildren
   "/onboarding/create-organization": typeof OnboardingCreateOrganizationRoute
   "/_app/": typeof AppIndexRoute
-  "/_app/$orgSlug/$projectId": typeof AppOrgSlugProjectIdLayoutRouteWithChildren
+  "/_app/$orgSlug/$projectSlug": typeof AppOrgSlugProjectSlugLayoutRouteWithChildren
   "/_app/$orgSlug/networking": typeof AppOrgSlugNetworkingRoute
   "/_app/$orgSlug/servers": typeof AppOrgSlugServersRoute
   "/_app/$orgSlug/settings": typeof AppOrgSlugSettingsRoute
   "/_app/$orgSlug/team": typeof AppOrgSlugTeamRoute
   "/_app/$orgSlug/": typeof AppOrgSlugIndexRoute
-  "/_app/$orgSlug/$projectId/graph": typeof AppOrgSlugProjectIdGraphRoute
-  "/_app/$orgSlug/$projectId/": typeof AppOrgSlugProjectIdIndexRoute
+  "/_app/$orgSlug/$projectSlug/graph": typeof AppOrgSlugProjectSlugGraphRoute
+  "/_app/$orgSlug/$projectSlug/": typeof AppOrgSlugProjectSlugIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -141,14 +141,14 @@ export interface FileRouteTypes {
     | "/sign-in"
     | "/$orgSlug"
     | "/onboarding/create-organization"
-    | "/$orgSlug/$projectId"
+    | "/$orgSlug/$projectSlug"
     | "/$orgSlug/networking"
     | "/$orgSlug/servers"
     | "/$orgSlug/settings"
     | "/$orgSlug/team"
     | "/$orgSlug/"
-    | "/$orgSlug/$projectId/graph"
-    | "/$orgSlug/$projectId/"
+    | "/$orgSlug/$projectSlug/graph"
+    | "/$orgSlug/$projectSlug/"
   fileRoutesByTo: FileRoutesByTo
   to:
     | "/sign-in"
@@ -159,8 +159,8 @@ export interface FileRouteTypes {
     | "/$orgSlug/settings"
     | "/$orgSlug/team"
     | "/$orgSlug"
-    | "/$orgSlug/$projectId/graph"
-    | "/$orgSlug/$projectId"
+    | "/$orgSlug/$projectSlug/graph"
+    | "/$orgSlug/$projectSlug"
   id:
     | "__root__"
     | "/_app"
@@ -168,14 +168,14 @@ export interface FileRouteTypes {
     | "/_app/$orgSlug"
     | "/onboarding/create-organization"
     | "/_app/"
-    | "/_app/$orgSlug/$projectId"
+    | "/_app/$orgSlug/$projectSlug"
     | "/_app/$orgSlug/networking"
     | "/_app/$orgSlug/servers"
     | "/_app/$orgSlug/settings"
     | "/_app/$orgSlug/team"
     | "/_app/$orgSlug/"
-    | "/_app/$orgSlug/$projectId/graph"
-    | "/_app/$orgSlug/$projectId/"
+    | "/_app/$orgSlug/$projectSlug/graph"
+    | "/_app/$orgSlug/$projectSlug/"
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -256,48 +256,48 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppOrgSlugNetworkingRouteImport
       parentRoute: typeof AppOrgSlugLayoutRoute
     }
-    "/_app/$orgSlug/$projectId": {
-      id: "/_app/$orgSlug/$projectId"
-      path: "/$projectId"
-      fullPath: "/$orgSlug/$projectId"
-      preLoaderRoute: typeof AppOrgSlugProjectIdLayoutRouteImport
+    "/_app/$orgSlug/$projectSlug": {
+      id: "/_app/$orgSlug/$projectSlug"
+      path: "/$projectSlug"
+      fullPath: "/$orgSlug/$projectSlug"
+      preLoaderRoute: typeof AppOrgSlugProjectSlugLayoutRouteImport
       parentRoute: typeof AppOrgSlugLayoutRoute
     }
-    "/_app/$orgSlug/$projectId/": {
-      id: "/_app/$orgSlug/$projectId/"
+    "/_app/$orgSlug/$projectSlug/": {
+      id: "/_app/$orgSlug/$projectSlug/"
       path: "/"
-      fullPath: "/$orgSlug/$projectId/"
-      preLoaderRoute: typeof AppOrgSlugProjectIdIndexRouteImport
-      parentRoute: typeof AppOrgSlugProjectIdLayoutRoute
+      fullPath: "/$orgSlug/$projectSlug/"
+      preLoaderRoute: typeof AppOrgSlugProjectSlugIndexRouteImport
+      parentRoute: typeof AppOrgSlugProjectSlugLayoutRoute
     }
-    "/_app/$orgSlug/$projectId/graph": {
-      id: "/_app/$orgSlug/$projectId/graph"
+    "/_app/$orgSlug/$projectSlug/graph": {
+      id: "/_app/$orgSlug/$projectSlug/graph"
       path: "/graph"
-      fullPath: "/$orgSlug/$projectId/graph"
-      preLoaderRoute: typeof AppOrgSlugProjectIdGraphRouteImport
-      parentRoute: typeof AppOrgSlugProjectIdLayoutRoute
+      fullPath: "/$orgSlug/$projectSlug/graph"
+      preLoaderRoute: typeof AppOrgSlugProjectSlugGraphRouteImport
+      parentRoute: typeof AppOrgSlugProjectSlugLayoutRoute
     }
   }
 }
 
-interface AppOrgSlugProjectIdLayoutRouteChildren {
-  AppOrgSlugProjectIdGraphRoute: typeof AppOrgSlugProjectIdGraphRoute
-  AppOrgSlugProjectIdIndexRoute: typeof AppOrgSlugProjectIdIndexRoute
+interface AppOrgSlugProjectSlugLayoutRouteChildren {
+  AppOrgSlugProjectSlugGraphRoute: typeof AppOrgSlugProjectSlugGraphRoute
+  AppOrgSlugProjectSlugIndexRoute: typeof AppOrgSlugProjectSlugIndexRoute
 }
 
-const AppOrgSlugProjectIdLayoutRouteChildren: AppOrgSlugProjectIdLayoutRouteChildren =
+const AppOrgSlugProjectSlugLayoutRouteChildren: AppOrgSlugProjectSlugLayoutRouteChildren =
   {
-    AppOrgSlugProjectIdGraphRoute: AppOrgSlugProjectIdGraphRoute,
-    AppOrgSlugProjectIdIndexRoute: AppOrgSlugProjectIdIndexRoute,
+    AppOrgSlugProjectSlugGraphRoute: AppOrgSlugProjectSlugGraphRoute,
+    AppOrgSlugProjectSlugIndexRoute: AppOrgSlugProjectSlugIndexRoute,
   }
 
-const AppOrgSlugProjectIdLayoutRouteWithChildren =
-  AppOrgSlugProjectIdLayoutRoute._addFileChildren(
-    AppOrgSlugProjectIdLayoutRouteChildren,
+const AppOrgSlugProjectSlugLayoutRouteWithChildren =
+  AppOrgSlugProjectSlugLayoutRoute._addFileChildren(
+    AppOrgSlugProjectSlugLayoutRouteChildren,
   )
 
 interface AppOrgSlugLayoutRouteChildren {
-  AppOrgSlugProjectIdLayoutRoute: typeof AppOrgSlugProjectIdLayoutRouteWithChildren
+  AppOrgSlugProjectSlugLayoutRoute: typeof AppOrgSlugProjectSlugLayoutRouteWithChildren
   AppOrgSlugNetworkingRoute: typeof AppOrgSlugNetworkingRoute
   AppOrgSlugServersRoute: typeof AppOrgSlugServersRoute
   AppOrgSlugSettingsRoute: typeof AppOrgSlugSettingsRoute
@@ -306,7 +306,8 @@ interface AppOrgSlugLayoutRouteChildren {
 }
 
 const AppOrgSlugLayoutRouteChildren: AppOrgSlugLayoutRouteChildren = {
-  AppOrgSlugProjectIdLayoutRoute: AppOrgSlugProjectIdLayoutRouteWithChildren,
+  AppOrgSlugProjectSlugLayoutRoute:
+    AppOrgSlugProjectSlugLayoutRouteWithChildren,
   AppOrgSlugNetworkingRoute: AppOrgSlugNetworkingRoute,
   AppOrgSlugServersRoute: AppOrgSlugServersRoute,
   AppOrgSlugSettingsRoute: AppOrgSlugSettingsRoute,

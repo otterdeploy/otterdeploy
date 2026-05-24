@@ -1,6 +1,8 @@
 import { createFileRoute, Link, useLoaderData } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/_app/$orgSlug/$projectId/")({
+import { ID_PREFIX, type Slug } from "@otterstack/shared/id";
+
+export const Route = createFileRoute("/_app/$orgSlug/$projectSlug/")({
   staticData: { crumb: "Overview" },
   component: RouteComponent,
 });
@@ -10,7 +12,7 @@ function RouteComponent() {
     from: "/_app/$orgSlug",
   });
   const { project } = useLoaderData({
-    from: "/_app/$orgSlug/$projectId",
+    from: "/_app/$orgSlug/$projectSlug",
   });
 
   return (
@@ -19,8 +21,11 @@ function RouteComponent() {
       <p className="text-muted-foreground">Project overview / control plane.</p>
 
       <Link
-        params={{ orgSlug: organization.slug, projectId: project.id }}
-        to="/$orgSlug/$projectId/graph"
+        params={{
+          orgSlug: organization.slug,
+          projectSlug: project.slug as Slug<typeof ID_PREFIX.project>,
+        }}
+        to="/$orgSlug/$projectSlug/graph"
       >
         <button>Go to {project.name}</button>
       </Link>

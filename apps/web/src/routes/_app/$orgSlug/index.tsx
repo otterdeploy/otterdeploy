@@ -66,14 +66,12 @@ function RouteComponent() {
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-6 p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold tracking-tight">
-            {organization.name}
-          </h1>
+    <div className="grid gap-6 p-6">
+      <div className="flex items-end justify-between gap-4">
+        <div className="grid gap-1">
+          <h1 className="text-2xl font-semibold tracking-tight">Projects</h1>
           <p className="text-sm text-muted-foreground">
-            {projects.length} project{projects.length === 1 ? "" : "s"}
+            Open a project to manage its services, databases, and routes.
           </p>
         </div>
         <CreateProjectDialog

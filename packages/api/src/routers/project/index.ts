@@ -9,6 +9,7 @@ import {
   deleteProject,
   getPostgresResource,
   getProject,
+  getProjectBySlugForOrg,
   listPostgresResources,
   listProjectProxyRoutes,
   listProjects,
@@ -20,6 +21,21 @@ export const projectRouter = {
     async ({ input, context, errors }) => {
       const result = await getProject({
         id: input.id,
+        organizationId: context.activeOrganizationId,
+      });
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          ProjectNotFoundError: () => errors.NOT_FOUND(),
+        });
+      }
+      return result.value;
+    },
+  ),
+
+  getBySlug: orgScopedProcedure.project.getBySlug.handler(
+    async ({ input, context, errors }) => {
+      const result = await getProjectBySlugForOrg({
+        slug: input.slug,
         organizationId: context.activeOrganizationId,
       });
       if (result.isErr()) {

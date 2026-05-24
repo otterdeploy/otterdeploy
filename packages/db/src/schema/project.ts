@@ -73,14 +73,20 @@ export const environment = pgTable(
       .$type<Id<typeof ID_PREFIX.project>>()
       .references(() => project.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
-    slug: text("slug").notNull().unique(),
+    slug: text("slug").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
   },
-  (table) => [index("environment_project_id_idx").on(table.projectId)],
+  (table) => [
+    index("environment_project_id_idx").on(table.projectId),
+    uniqueIndex("environment_project_slug_unique").on(
+      table.projectId,
+      table.slug,
+    ),
+  ],
 );
 
 // service

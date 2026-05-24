@@ -107,4 +107,36 @@ export function zId<P extends IdPrefix>(prefix: P) {
     .transform((s) => s as Id<P>);
 }
 
+/**
+ * Branded string slug. URL-safe identifier scoped to an entity kind
+ * (e.g. `Slug<"project">` for project slugs, `Slug<"env">` for env slugs).
+ *
+ * Same plain-property-brand pattern as `Id<P>` so it survives .d.ts emit.
+ */
+export type Slug<P extends string = string> = string & {
+  readonly __slug: P;
+};
+
+/**
+ * Zod validator that normalizes any string into a slug (lowercase, trimmed,
+ * dashes only) and brands it for the given entity kind. The runtime check is
+ * `.slugify().min(2).max(48)` — the brand is compile-time only.
+ *
+ * @example
+ *   z.object({ slug: zSlug("project") })
+ */
+export function zSlug<P extends string>(brand: P) {
+  // The `brand` arg is type-only at runtime — it just narrows the resulting
+  // Slug<P> generic so TS distinguishes Slug<"project"> from Slug<"env">.
+  void brand;
+  return z
+    .string()
+    .slugify()
+    .min(2)
+    .max(48)
+    .transform((s) => s as Slug<P>);
+}
+
+export type ProjectSlug = Slug<typeof ID_PREFIX.project>;
+export type EnvSlug = Slug<typeof ID_PREFIX.environment>;
 export type WorkspaceId = Id<typeof ID_PREFIX.workspace>;

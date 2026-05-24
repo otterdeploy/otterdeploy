@@ -3,7 +3,7 @@ import { createSelectSchema } from "drizzle-zod";
 import * as z from "zod";
 
 import { project, proxyRoute } from "@otterstack/db/schema";
-import { ID_PREFIX, zId } from "@otterstack/shared/id";
+import { ID_PREFIX, zId, zSlug } from "@otterstack/shared/id";
 
 const tag = "project";
 const basePath = "/projects";
@@ -30,6 +30,10 @@ export const createProjectInput = z.object({
 
 export const getProjectInput = z.object({
   id: zId(ID_PREFIX.project),
+});
+
+export const getProjectBySlugInput = z.object({
+  slug: zSlug(ID_PREFIX.project),
 });
 
 export const updateProjectInput = z.object({
@@ -126,6 +130,20 @@ export const projectContract = {
       method: "GET",
     })
     .input(getProjectInput)
+    .output(projectSchema),
+  getBySlug: oc
+    .errors({
+      NOT_FOUND: {
+        status: 404,
+        message: "Project not found" as const,
+      },
+    })
+    .meta({
+      path: `${basePath}/by-slug/{slug}`,
+      tag,
+      method: "GET",
+    })
+    .input(getProjectBySlugInput)
     .output(projectSchema),
   list: oc
     .meta({

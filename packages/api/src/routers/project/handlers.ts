@@ -9,6 +9,7 @@ export {
   createProject,
   deleteProject,
   getProject,
+  getProjectBySlugForOrg,
   listProjects,
   updateProject,
 } from "./projects";

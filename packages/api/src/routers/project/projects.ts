@@ -19,6 +19,7 @@ import {
   createProjectRecord,
   deleteProjectRecord,
   getProjectBySlug,
+  getProjectBySlugInOrg,
   getProjectInOrg,
   listDatabaseResourceRecords,
   listProjectRecordsByOrg,
@@ -52,6 +53,25 @@ export async function getProject(
   });
   if (!record) {
     return Result.err(new ProjectNotFoundError({ projectId: input.id }));
+  }
+  return Result.ok(record);
+}
+
+export async function getProjectBySlugForOrg(
+  input: { slug: string } & OrgRef,
+): Promise<Result<Project, ProjectNotFoundError>> {
+  const record = await getProjectBySlugInOrg({
+    slug: input.slug,
+    organizationId: input.organizationId,
+  });
+  if (!record) {
+    // We don't have the projectId yet, so pass the slug through as the
+    // identifying detail for the error.
+    return Result.err(
+      new ProjectNotFoundError({
+        projectId: input.slug as unknown as ProjectId,
+      }),
+    );
   }
   return Result.ok(record);
 }
