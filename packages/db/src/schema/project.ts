@@ -2,6 +2,7 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   numeric,
   pgEnum,
   pgTable,
@@ -148,6 +149,7 @@ export const databaseResource = pgTable(
     upstreamHost: text("upstream_host").notNull(),
     upstreamPort: integer("upstream_port").notNull().default(5432),
     caddyLayer4Snippet: text("caddy_layer4_snippet").notNull(),
+    engineConfig: jsonb("engine_config").$type<Record<string, unknown>>().notNull().default({}),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
