@@ -8,7 +8,9 @@ import {
   followProgress,
   type ContainerInspect,
 } from "@otterdeploy/docker";
-import { log } from "evlog";
+import type { RequestLogger } from "evlog";
+
+import { asStepLogger } from "../lib/logger";
 import { PLATFORM } from "../constants";
 
 export type DockerPostgresRuntime = {
@@ -144,9 +146,11 @@ export async function inspectDockerPostgresRuntime(input: {
   }
 }
 
-export async function destroyDockerPostgres(input: {
-  containerName: string;
-}): Promise<void> {
+export async function destroyDockerPostgres(
+  input: { containerName: string },
+  rlog?: RequestLogger,
+): Promise<void> {
+  const log = asStepLogger(rlog);
   const docker = Docker.fromEnv();
 
   try {

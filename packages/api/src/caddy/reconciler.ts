@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
 
-import { log } from "evlog";
+import type { RequestLogger } from "evlog";
 
+import { asStepLogger } from "../lib/logger";
 import {
   buildCaddyfile,
   buildProjectFragment,
@@ -21,10 +22,12 @@ type ReconcileOptions = {
   adminBind: string;
   adapt: (caddyfile: string) => Promise<AdaptResult>;
   load: (caddyfile: string) => Promise<LoadResult>;
+  rlog?: RequestLogger;
 };
 
 export async function reconcileRoutes(options: ReconcileOptions): Promise<ReconcileResult> {
-  const { routes, adminBind, adapt, load } = options;
+  const { routes, adminBind, adapt, load, rlog } = options;
+  const log = asStepLogger(rlog);
 
   log.info({ caddy: { step: "reconcile", status: "starting", routeCount: routes.length } });
 

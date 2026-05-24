@@ -13,11 +13,10 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/shared/components/ui/empty";
-import { client, orpc } from "@/shared/server/orpc";
+import { orpc } from "@/shared/server/orpc";
 
+import { projectCollection } from "@/features/projects/data/project";
 import { useLiveQuery } from "@tanstack/react-db";
-import { eq } from "@tanstack/db";
-import { projectCollection } from "@/features/projects/data/collection";
 
 export const Route = createFileRoute("/_app/$orgSlug/")({
   component: RouteComponent,
@@ -27,19 +26,17 @@ function RouteComponent() {
   const { organization } = useLoaderData({ from: "/_app/$orgSlug" });
   const { orgSlug } = Route.useParams();
 
-  const { data: items } = useQuery(orpc.project.list.queryOptions());
-
   const {
     data: projects,
     isLoading,
     ...rest
   } = useLiveQuery((q) => q.from({ todo: projectCollection }));
 
+  const lastError = projectCollection.utils.lastError;
+
   if (isLoading) return <div>Loading...</div>;
 
-  console.log(projects, items);
-
-  if (rest.status === "error") return <div>Error: {rest.state}</div>;
+  if (lastError) return <div>Error: {lastError.message}</div>;
 
   if (projects.length === 0) {
     return (

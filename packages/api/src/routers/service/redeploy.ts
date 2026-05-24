@@ -33,6 +33,7 @@ export async function provisionFresh(
   projectId: ProjectId,
   record: ServiceRecord,
   projectSlug: string,
+  log?: RequestLogger,
 ): Promise<Result<SwarmServiceRuntime, ResolveError>> {
   const resolved = await resolveServiceEnv(
     projectId,
@@ -45,6 +46,7 @@ export async function provisionFresh(
 
   const runtime = await provisionSwarmService(
     buildSwarmSpec(record, resolved.value, sanitizeSlug(projectSlug)),
+    log,
   );
   await updateServiceResourceStatus(
     record.service.resourceId,
@@ -58,6 +60,7 @@ export async function redeployOne(
   projectId: ProjectId,
   resourceId: ResourceId,
   projectSlug: string,
+  log?: RequestLogger,
 ): Promise<Result<true, ServiceNotFoundError | ResolveError>> {
   const record = await getServiceRecord(projectId, resourceId);
   if (!record) {
@@ -72,6 +75,7 @@ export async function redeployOne(
 
   const runtime = await updateSwarmService(
     buildSwarmSpec(record, resolved.value, sanitizeSlug(projectSlug)),
+    log,
   );
   await updateServiceResourceStatus(
     resourceId,
@@ -87,7 +91,7 @@ export async function redeployAndFanOut(
   projectSlug: string,
   log: RequestLogger,
 ): Promise<Result<true, ServiceNotFoundError | ResolveError>> {
-  const result = await redeployOne(projectId, resourceId, projectSlug);
+  const result = await redeployOne(projectId, resourceId, projectSlug, log);
   if (result.isErr()) return result;
 
   const sourceRecord = await getServiceRecord(projectId, resourceId);
@@ -106,6 +110,7 @@ export async function redeployAndFanOut(
       projectId,
       depId as ResourceId,
       projectSlug,
+      log,
     );
     if (depResult.isErr()) {
       // One failed dependent shouldn't undo the rest, but we surface the first error.

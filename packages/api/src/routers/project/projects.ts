@@ -57,26 +57,32 @@ export async function getProject(
 }
 
 export async function createProject(
-  input: OrgRef & { name: string; slug: string },
+  input: OrgRef & {
+    name: string;
+    slug: string;
+    id?: ProjectId;
+    environmentId?: Id<typeof ID_PREFIX.environment>;
+  },
 ): Promise<Result<Project, ProjectConflictError>> {
-  const slug = sanitizeProjectSlug(input.slug);
-  const existing = await getProjectBySlug(slug);
+  const existing = await getProjectBySlug(input.slug);
 
   if (existing) {
-    return Result.err(new ProjectConflictError({ slug }));
+    return Result.err(new ProjectConflictError({ slug: input.slug }));
   }
 
   try {
     const created = await createProjectRecord({
       organizationId: input.organizationId,
       name: input.name.trim(),
-      slug,
+      slug: input.slug,
+      id: input.id,
+      environmentId: input.environmentId,
     });
 
     return Result.ok(created.project);
   } catch (error) {
     if (isUniqueViolation(error)) {
-      return Result.err(new ProjectConflictError({ slug }));
+      return Result.err(new ProjectConflictError({ slug: input.slug }));
     }
 
     throw error;
@@ -86,8 +92,6 @@ export async function createProject(
 export async function updateProject(
   input: { id: ProjectId; name?: string; slug?: string } & OrgRef,
 ): Promise<Result<Project, ProjectNotFoundError | ProjectConflictError>> {
-  const slug =
-    input.slug !== undefined ? sanitizeProjectSlug(input.slug) : undefined;
   const name = input.name !== undefined ? input.name.trim() : undefined;
 
   try {
@@ -95,15 +99,15 @@ export async function updateProject(
       projectId: input.id,
       organizationId: input.organizationId,
       name,
-      slug,
+      slug: input.slug,
     });
     if (!updated) {
       return Result.err(new ProjectNotFoundError({ projectId: input.id }));
     }
     return Result.ok(updated);
   } catch (error) {
-    if (isUniqueViolation(error) && slug !== undefined) {
-      return Result.err(new ProjectConflictError({ slug }));
+    if (isUniqueViolation(error) && input.slug !== undefined) {
+      return Result.err(new ProjectConflictError({ slug: input.slug }));
     }
     throw error;
   }
@@ -131,7 +135,7 @@ export async function deleteProject(
       projectSlug,
       resourceName: record.resource.name,
     });
-    await destroySwarmPostgres({ serviceName });
+    await destroySwarmPostgres({ serviceName }, log);
   }
 
   // 2. Delete the project row — FKs cascade to children.
@@ -144,7 +148,7 @@ export async function deleteProject(
   }
 
   // 3. Refresh Caddy so removed proxy routes drop out of the live config.
-  await reconcile();
+  await reconcile(log);
 
   log.set({
     teardown: {

@@ -1,33 +1,63 @@
 import { oc } from "@orpc/contract";
+import { createSelectSchema } from "drizzle-zod";
 import * as z from "zod";
 
-const tag = "env";
-const basePath = "/env";
+import { environment } from "@otterstack/db/schema";
+import { ID_PREFIX, zId } from "@otterstack/shared/id";
 
-const envSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  slug: z.string(),
+const tag = "env";
+const basePath = "/envs";
+
+export const envSchema = createSelectSchema(environment).extend({
+  id: zId(ID_PREFIX.environment),
+  projectId: zId(ID_PREFIX.project).nullable(),
+});
+
+export const listEnvsInput = z
+  .object({
+    projectId: zId(ID_PREFIX.project).optional(),
+  })
+  .optional();
+
+export const getEnvInput = z.object({
+  id: zId(ID_PREFIX.environment),
+});
+
+export const createEnvInput = z.object({
+  /** Optional client-supplied id for optimistic UI. */
+  id: zId(ID_PREFIX.environment).optional(),
+  name: z.string().min(1),
+  slug: z.string().slugify().min(2).max(48),
+});
+
+export const deleteEnvInput = z.object({
+  id: zId(ID_PREFIX.environment),
 });
 
 export const envContract = {
+  list: oc
+    .meta({ path: basePath, tag, method: "GET" })
+    .input(listEnvsInput)
+    .output(z.array(envSchema)),
   get: oc
     .errors({
-      NOT_FOUND: {
-        message: "Environment not found" as const,
-      },
+      NOT_FOUND: { status: 404, message: "Environment not found" as const },
     })
     .meta({ path: `${basePath}/{id}`, tag, method: "GET" })
-    .input(z.object({ id: z.string() }))
+    .input(getEnvInput)
     .output(envSchema),
-  list: oc.meta({ path: basePath, tag, method: "GET" }).output(z.array(envSchema)),
   create: oc
-    .meta({ path: `${basePath}/create`, tag, method: "POST" })
     .errors({
-      CONFLICT: {
-        message: "Environment already exists" as const,
-      },
+      CONFLICT: { status: 409, message: "Environment slug already in use" as const },
     })
-    .input(envSchema)
+    .meta({ path: basePath, tag, method: "POST" })
+    .input(createEnvInput)
     .output(envSchema),
+  delete: oc
+    .errors({
+      NOT_FOUND: { status: 404, message: "Environment not found" as const },
+    })
+    .meta({ path: `${basePath}/{id}`, tag, method: "DELETE" })
+    .input(deleteEnvInput)
+    .output(z.object({ ok: z.boolean() })),
 };

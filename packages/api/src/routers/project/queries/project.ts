@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import { createError } from "evlog";
 
 import { db } from "@otterstack/db";
@@ -101,10 +101,13 @@ export async function createProjectRecord(input: {
   organizationId: Id<typeof ID_PREFIX.organization>;
   name: string;
   slug: string;
+  /** Caller-supplied ids for optimistic UI; generated when absent. */
+  id?: ProjectId;
+  environmentId?: Id<typeof ID_PREFIX.environment>;
 }) {
   return db.transaction(async (tx) => {
-    const projectId = createId(ID_PREFIX.project);
-    const environmentId = createId(ID_PREFIX.environment);
+    const projectId = input.id ?? createId(ID_PREFIX.project);
+    const environmentId = input.environmentId ?? createId(ID_PREFIX.environment);
 
     const [createdProject] = await tx
       .insert(project)
@@ -125,15 +128,36 @@ export async function createProjectRecord(input: {
       });
     }
 
-    const [createdEnvironment] = await tx
-      .insert(environment)
-      .values({
-        id: environmentId,
-        projectId,
-        name: "Development",
-        slug: `${input.slug}-development`,
-      })
-      .returning();
+    // If the caller pre-allocated an env id via env.create, claim that
+    // standalone row by stamping the projectId. Otherwise insert a fresh row.
+    let createdEnvironment: typeof environment.$inferSelect | undefined;
+
+    if (input.environmentId) {
+      const [linked] = await tx
+        .update(environment)
+        .set({ projectId })
+        .where(
+          and(
+            eq(environment.id, environmentId),
+            isNull(environment.projectId),
+          ),
+        )
+        .returning();
+      createdEnvironment = linked;
+    }
+
+    if (!createdEnvironment) {
+      const [inserted] = await tx
+        .insert(environment)
+        .values({
+          id: environmentId,
+          projectId,
+          name: "Development",
+          slug: `${input.slug}-development`,
+        })
+        .returning();
+      createdEnvironment = inserted;
+    }
 
     if (!createdEnvironment) {
       throw createError({

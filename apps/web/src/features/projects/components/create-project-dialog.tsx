@@ -1,10 +1,8 @@
 import { useForm } from "@tanstack/react-form";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactElement } from "react";
 import { toast } from "sonner";
 import * as z from "zod";
 
-import { Alert, AlertDescription } from "@/shared/components/ui/alert";
 import { Button } from "@/shared/components/ui/button";
 import {
   Dialog,
@@ -17,73 +15,46 @@ import {
 } from "@/shared/components/ui/dialog";
 import { Field, FieldError, FieldLabel } from "@/shared/components/ui/field";
 import { Input } from "@/shared/components/ui/input";
-import { client, orpc } from "@/shared/server/orpc";
+import { createId, ID_PREFIX } from "@otterstack/shared/id";
+import { projectCollection } from "../data/project";
 
-const slugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+// `.slugify()` alone — used to derive the slug live as the user types the name.
+// Doesn't throw on short/empty input, just normalizes whatever's there.
+const slugifier = z.string().slugify();
 
 const schema = z.object({
   name: z.string().min(1, "Project name is required"),
-  slug: z
-    .string()
+  slug: slugifier
     .min(2, "Slug must be at least 2 characters")
-    .max(48, "Slug must be 48 characters or fewer")
-    .regex(slugRegex, "Lowercase letters, numbers, dashes only"),
+    .max(48, "Slug must be 48 characters or fewer"),
 });
-
-function deriveSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 48);
-}
 
 export function CreateProjectDialog({ trigger }: { trigger: ReactElement }) {
   const [open, setOpen] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [slugTouched, setSlugTouched] = useState(false);
-  const queryClient = useQueryClient();
-
-  const createProject = useMutation({
-    mutationFn: (input: { name: string; slug: string }) =>
-      client.project.create(input),
-    onSuccess: (project) => {
-      void queryClient.invalidateQueries({
-        queryKey: orpc.project.list.queryKey(),
-      });
-      toast.success(`Created project "${project.name}"`);
-      setOpen(false);
-    },
-    onError: (error) => {
-      setFormError(error.message);
-    },
-  });
 
   const form = useForm({
     defaultValues: { name: "", slug: "" },
     validators: { onChange: schema },
     onSubmit: async ({ value }) => {
-      setFormError(null);
-      await createProject.mutateAsync({
-        name: value.name,
-        slug: value.slug,
+      const tx = projectCollection.insert({
+        ...value,
+        environmentId: null,
+        id: createId(ID_PREFIX.project),
+        createdAt: new Date(),
+        updatedAt: new Date(),
       });
+
+      if (tx.error?.message) toast.error(tx.error.message);
+      else setOpen(false);
     },
   });
-
-  function reset() {
-    form.reset();
-    setFormError(null);
-    setSlugTouched(false);
-  }
 
   return (
     <Dialog
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
-        if (!next) reset();
+        if (!next) form.reset();
       }}
     >
       <DialogTrigger render={trigger} />
@@ -103,11 +74,11 @@ export function CreateProjectDialog({ trigger }: { trigger: ReactElement }) {
           className="flex flex-col gap-4"
           noValidate
         >
-          {formError ? (
+          {/*{isError ? (
             <Alert variant="destructive">
-              <AlertDescription>{formError}</AlertDescription>
+              <AlertDescription>{createProject.error.message}</AlertDescription>
             </Alert>
-          ) : null}
+          ) : null}*/}
 
           <form.Field name="name">
             {(field) => (
@@ -121,15 +92,13 @@ export function CreateProjectDialog({ trigger }: { trigger: ReactElement }) {
                   onChange={(e) => {
                     const next = e.target.value;
                     field.handleChange(next);
-                    if (!slugTouched) {
-                      form.setFieldValue("slug", deriveSlug(next));
-                    }
+                    form.setFieldValue("slug", slugifier.parse(next));
                   }}
                   autoFocus
                 />
-                {field.state.meta.errors[0] ? (
-                  <FieldError>{String(field.state.meta.errors[0])}</FieldError>
-                ) : null}
+                {field.state.meta.errors.map((err) => (
+                  <FieldError>{err?.message}</FieldError>
+                ))}
               </Field>
             )}
           </form.Field>
@@ -144,13 +113,12 @@ export function CreateProjectDialog({ trigger }: { trigger: ReactElement }) {
                   value={field.state.value}
                   onBlur={field.handleBlur}
                   onChange={(e) => {
-                    setSlugTouched(true);
                     field.handleChange(e.target.value);
                   }}
                 />
-                {field.state.meta.errors[0] ? (
-                  <FieldError>{String(field.state.meta.errors[0])}</FieldError>
-                ) : null}
+                {field.state.meta.errors.map((err) => (
+                  <FieldError>{err?.message}</FieldError>
+                ))}
               </Field>
             )}
           </form.Field>

@@ -1,0 +1,107 @@
+import { and, asc, eq, isNull } from "drizzle-orm";
+import type { InferSelectModel } from "drizzle-orm";
+
+import { db } from "@otterstack/db";
+import { environment, project } from "@otterstack/db/schema/project";
+import { type Id, ID_PREFIX } from "@otterstack/shared/id";
+
+import type { EnvironmentId } from "./errors";
+import type { ProjectId } from "../project/errors";
+
+type OrgId = Id<typeof ID_PREFIX.organization>;
+
+export type EnvironmentRecord = InferSelectModel<typeof environment>;
+
+/**
+ * Environments scoped to the active organization. Optionally filter by project.
+ */
+export async function listEnvsByOrg(
+  organizationId: OrgId,
+  projectId?: ProjectId,
+): Promise<EnvironmentRecord[]> {
+  const conditions = projectId
+    ? and(eq(project.organizationId, organizationId), eq(environment.projectId, projectId))
+    : eq(project.organizationId, organizationId);
+
+  const rows = await db
+    .select({ environment })
+    .from(environment)
+    .innerJoin(project, eq(project.id, environment.projectId))
+    .where(conditions)
+    .orderBy(asc(environment.createdAt));
+
+  return rows.map((r) => r.environment);
+}
+
+export async function getEnvInOrg(input: {
+  environmentId: EnvironmentId;
+  organizationId: OrgId;
+}): Promise<EnvironmentRecord | undefined> {
+  const [row] = await db
+    .select({ environment })
+    .from(environment)
+    .innerJoin(project, eq(project.id, environment.projectId))
+    .where(
+      and(
+        eq(environment.id, input.environmentId),
+        eq(project.organizationId, input.organizationId),
+      ),
+    )
+    .limit(1);
+  return row?.environment;
+}
+
+/**
+ * Inserts an env row. Created standalone (projectId=null); a subsequent
+ * `project.create` with this env's id is what attaches it.
+ */
+export async function createEnvRecord(input: {
+  id?: EnvironmentId;
+  name: string;
+  slug: string;
+}): Promise<EnvironmentRecord | undefined> {
+  const [row] = await db.insert(environment).values(input).returning();
+  return row;
+}
+
+/**
+ * Looks up a standalone env by id. Used by `project.create` to claim a
+ * pre-allocated env. Returns undefined if the env doesn't exist or has
+ * already been linked to a project.
+ */
+export async function getStandaloneEnv(
+  environmentId: EnvironmentId,
+): Promise<EnvironmentRecord | undefined> {
+  const [row] = await db
+    .select()
+    .from(environment)
+    .where(and(eq(environment.id, environmentId), isNull(environment.projectId)))
+    .limit(1);
+  return row;
+}
+
+/**
+ * Atomic env delete that first null-outs any project pointing at this env
+ * via `project.environmentId` (soft pointer, no DB FK). Without this, the
+ * project row would carry a dangling id after delete.
+ */
+export async function deleteEnvRecord(input: {
+  environmentId: EnvironmentId;
+  organizationId: OrgId;
+}): Promise<{ id: EnvironmentId } | undefined> {
+  const owned = await getEnvInOrg(input);
+  if (!owned) return undefined;
+
+  return db.transaction(async (tx) => {
+    await tx
+      .update(project)
+      .set({ environmentId: null })
+      .where(eq(project.environmentId, input.environmentId));
+
+    const [deleted] = await tx
+      .delete(environment)
+      .where(eq(environment.id, input.environmentId))
+      .returning({ id: environment.id });
+    return deleted;
+  });
+}

@@ -107,15 +107,18 @@ export async function createPostgresResource(
   );
   const internalHostname = `${resourceSlug}.${projectSlug}.${PLATFORM.database.internalBaseDomain}`;
 
-  const runtime = await provisionSwarmPostgres({
-    serviceName: containerName,
-    volumeName,
-    hostnameAlias: internalHostname,
-    databaseName,
-    username,
-    password,
-    projectSlug,
-  });
+  const runtime = await provisionSwarmPostgres(
+    {
+      serviceName: containerName,
+      volumeName,
+      hostnameAlias: internalHostname,
+      databaseName,
+      username,
+      password,
+      projectSlug,
+    },
+    log,
+  );
   log.set({ provision: { service: containerName, status: runtime.status } });
 
   const publicConnectionString = buildConnectionString({
@@ -172,7 +175,7 @@ export async function createPostgresResource(
     layer4Alpn: "postgresql",
   });
 
-  const reconcileResult = await reconcile();
+  const reconcileResult = await reconcile(log);
   const isApplied = reconcileResult.applied.includes(input.projectId);
   log.set({ reconcile: { applied: isApplied } });
 
@@ -277,13 +280,13 @@ export async function deletePostgresResource(
   await deleteProxyRoutesByResource(input.resourceId);
 
   // 2. Stop and remove Swarm service
-  await destroySwarmPostgres({ serviceName });
+  await destroySwarmPostgres({ serviceName }, log);
 
   // 3. Delete resource from DB (cascades to database_resource)
   await db.delete(resource).where(eq(resource.id, input.resourceId));
 
   // 4. Reconcile Caddy to remove the route
-  await reconcile();
+  await reconcile(log);
 
   log.set({
     teardown: { proxyRoutesRemoved: true, swarmDestroyed: true, dbDeleted: true },

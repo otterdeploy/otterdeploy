@@ -31,7 +31,7 @@ export const project = pgTable(
       .references(() => organization.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     slug: text("slug").notNull().unique(),
-    environmentId: text("environment_id").$type<EnvId>().notNull(),
+    environmentId: text("environment_id").$type<EnvId>(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -62,17 +62,26 @@ export const teamMember = pgTable(
   ],
 );
 
-export const environment = pgTable("environment", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => createId(ID_PREFIX.environment)),
-
-  projectId: text("project_id")
-    .notNull()
-    .references(() => project.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  slug: text("slug").notNull().unique(),
-});
+export const environment = pgTable(
+  "environment",
+  {
+    id: text("id")
+      .primaryKey()
+      .$type<Id<typeof ID_PREFIX.environment>>()
+      .$defaultFn(() => createId(ID_PREFIX.environment)),
+    projectId: text("project_id")
+      .$type<Id<typeof ID_PREFIX.project>>()
+      .references(() => project.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    slug: text("slug").notNull().unique(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [index("environment_project_id_idx").on(table.projectId)],
+);
 
 // service
 // database

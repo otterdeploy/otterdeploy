@@ -1,6 +1,8 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import { Docker } from "@otterdeploy/docker";
-import { log } from "evlog";
+import type { RequestLogger } from "evlog";
+
+import { asStepLogger } from "../lib/logger";
 import { PLATFORM } from "../constants";
 import { ensureProjectNetwork } from "./client";
 
@@ -25,10 +27,11 @@ type ProvisionSwarmPostgresInput = {
 
 export async function provisionSwarmPostgres(
   input: ProvisionSwarmPostgresInput,
+  rlog?: RequestLogger,
 ): Promise<SwarmPostgresRuntime> {
   const docker = Docker.fromEnv();
 
-  const networkName = await ensureProjectNetwork(input.projectSlug);
+  const networkName = await ensureProjectNetwork(input.projectSlug, rlog);
 
   const existing = await inspectSwarmService(docker, input.serviceName, networkName);
   if (existing) {
@@ -129,9 +132,11 @@ export async function inspectSwarmPostgresRuntime(input: {
   return runtime;
 }
 
-export async function destroySwarmPostgres(input: {
-  serviceName: string;
-}): Promise<void> {
+export async function destroySwarmPostgres(
+  input: { serviceName: string },
+  rlog?: RequestLogger,
+): Promise<void> {
+  const log = asStepLogger(rlog);
   const docker = Docker.fromEnv();
 
   const listResult = await docker.services.list({

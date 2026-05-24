@@ -1,6 +1,8 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import { Docker } from "@otterdeploy/docker";
-import { createError, log } from "evlog";
+import { createError, type RequestLogger } from "evlog";
+
+import { asStepLogger } from "../lib/logger";
 import { ensureProjectNetwork } from "./client";
 
 export type SwarmServiceRuntime = {
@@ -65,10 +67,11 @@ export type SwarmServiceSpec = {
 
 export async function provisionSwarmService(
   spec: SwarmServiceSpec,
+  rlog?: RequestLogger,
 ): Promise<SwarmServiceRuntime> {
   const docker = Docker.fromEnv();
 
-  const networkName = await ensureProjectNetwork(spec.projectSlug);
+  const networkName = await ensureProjectNetwork(spec.projectSlug, rlog);
 
   const existing = await inspectSwarmService(docker, spec.serviceName, networkName);
   if (existing) {
@@ -94,15 +97,16 @@ export async function provisionSwarmService(
 
 export async function updateSwarmService(
   spec: SwarmServiceSpec,
+  rlog?: RequestLogger,
 ): Promise<SwarmServiceRuntime> {
   const docker = Docker.fromEnv();
 
-  const networkName = await ensureProjectNetwork(spec.projectSlug);
+  const networkName = await ensureProjectNetwork(spec.projectSlug, rlog);
   const existing = await inspectSwarmService(docker, spec.serviceName, networkName);
   if (!existing) {
     // Not yet provisioned — fall through to provision path.
     docker.destroy();
-    return provisionSwarmService(spec);
+    return provisionSwarmService(spec, rlog);
   }
 
   const inspectResult = await docker.services.getService(existing.serviceId ?? "").inspect();
@@ -150,20 +154,21 @@ export async function updateSwarmService(
 
 export async function restartSwarmService(
   spec: SwarmServiceSpec,
+  rlog?: RequestLogger,
 ): Promise<SwarmServiceRuntime> {
-  return updateSwarmService(spec);
+  return updateSwarmService(spec, rlog);
 }
 
 // ---------------------------------------------------------------------------
 // Inspect
 // ---------------------------------------------------------------------------
 
-export async function inspectSwarmServiceRuntime(input: {
-  serviceName: string;
-  projectSlug: string;
-}): Promise<SwarmServiceRuntime> {
+export async function inspectSwarmServiceRuntime(
+  input: { serviceName: string; projectSlug: string },
+  rlog?: RequestLogger,
+): Promise<SwarmServiceRuntime> {
   const docker = Docker.fromEnv();
-  const networkName = await ensureProjectNetwork(input.projectSlug);
+  const networkName = await ensureProjectNetwork(input.projectSlug, rlog);
   const runtime = await inspectSwarmService(docker, input.serviceName, networkName);
   docker.destroy();
 
@@ -183,9 +188,11 @@ export async function inspectSwarmServiceRuntime(input: {
 // Destroy
 // ---------------------------------------------------------------------------
 
-export async function destroySwarmService(input: {
-  serviceName: string;
-}): Promise<void> {
+export async function destroySwarmService(
+  input: { serviceName: string },
+  rlog?: RequestLogger,
+): Promise<void> {
+  const log = asStepLogger(rlog);
   const docker = Docker.fromEnv();
 
   const listResult = await docker.services.list({

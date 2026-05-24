@@ -126,7 +126,7 @@ export async function createService(
     throw error;
   }
 
-  const provisioned = await provisionFresh(input.projectId, record, projectSlug);
+  const provisioned = await provisionFresh(input.projectId, record, projectSlug, log);
   if (provisioned.isErr()) return Result.err(provisioned.error);
   const runtime = provisioned.value;
   log.set({ provision: { service: serviceName, status: runtime.status } });
@@ -182,9 +182,9 @@ export async function deleteService(
   }
 
   await deleteProxyRoutesByResource(input.resourceId);
-  await destroySwarmService({ serviceName: record.service.serviceName });
+  await destroySwarmService({ serviceName: record.service.serviceName }, log);
   await deleteServiceRecord(input.resourceId);
-  await reconcile();
+  await reconcile(log);
 
   log.set({ teardown: { service: record.service.serviceName, ok: true } });
 
@@ -247,7 +247,7 @@ export async function exposeService(
     protocol: "http",
   });
 
-  const reconcileResult = await reconcile();
+  const reconcileResult = await reconcile(log);
   log.set({
     expose: {
       domain: publicDomain,
@@ -271,7 +271,7 @@ export async function unexposeService(
     enabled: false,
     publicDomain: null,
   });
-  await reconcile();
+  await reconcile(log);
   log.set({ unexpose: { service: ctx.value.record.service.serviceName } });
 
   return getService(input);

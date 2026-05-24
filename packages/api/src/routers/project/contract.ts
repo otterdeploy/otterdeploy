@@ -12,12 +12,20 @@ export const projectSchema = createSelectSchema(project)
   .omit({ organizationId: true })
   .extend({
     id: zId(ID_PREFIX.project),
-    environmentId: zId(ID_PREFIX.environment),
+    environmentId: zId(ID_PREFIX.environment).nullable(),
   });
 
 export const createProjectInput = z.object({
+  /**
+   * Optional client-supplied project id. Lets the caller pre-allocate a CUID2
+   * so optimistic UI rows match the persisted row (no flicker on refetch).
+   * Server generates a fresh one when omitted.
+   */
+  id: zId(ID_PREFIX.project).optional(),
+  /** Same idea for the default environment created alongside the project. */
+  environmentId: zId(ID_PREFIX.environment).optional(),
   name: z.string().min(1),
-  slug: z.string().min(1),
+  slug: z.string().slugify().min(2).max(48),
 });
 
 export const getProjectInput = z.object({
@@ -27,7 +35,7 @@ export const getProjectInput = z.object({
 export const updateProjectInput = z.object({
   id: zId(ID_PREFIX.project),
   name: z.string().min(1).optional(),
-  slug: z.string().min(1).optional(),
+  slug: z.string().slugify().min(2).max(48).optional(),
 });
 
 export const deleteProjectInput = z.object({

@@ -1,5 +1,7 @@
 import { Docker, DockerNotFoundError } from "@otterdeploy/docker";
-import { log } from "evlog";
+import type { RequestLogger } from "evlog";
+
+import { asStepLogger } from "../lib/logger";
 import { PLATFORM } from "../constants";
 
 export async function ensureSwarm(): Promise<void> {
@@ -32,7 +34,11 @@ export async function ensureSwarm(): Promise<void> {
  * Network name: otterstack-{projectSlug}
  * Caddy is connected to the network so it can route traffic to project services.
  */
-export async function ensureProjectNetwork(projectSlug: string): Promise<string> {
+export async function ensureProjectNetwork(
+  projectSlug: string,
+  rlog?: RequestLogger,
+): Promise<string> {
+  const log = asStepLogger(rlog);
   const networkName = `${PLATFORM.swarm.networkPrefix}${projectSlug}`;
   const docker = Docker.fromEnv();
 
@@ -42,7 +48,7 @@ export async function ensureProjectNetwork(projectSlug: string): Promise<string>
     const network = inspectResult.value;
 
     if (network.Driver === "overlay") {
-      await connectCaddyToNetwork(docker, networkName);
+      await connectCaddyToNetwork(docker, networkName, rlog);
       docker.destroy();
       return networkName;
     }
@@ -102,7 +108,7 @@ export async function ensureProjectNetwork(projectSlug: string): Promise<string>
     throw createResult.error;
   }
 
-  await connectCaddyToNetwork(docker, networkName);
+  await connectCaddyToNetwork(docker, networkName, rlog);
   docker.destroy();
   return networkName;
 }
@@ -111,7 +117,12 @@ export async function ensureProjectNetwork(projectSlug: string): Promise<string>
  * Connect the Caddy container to a network so it can route traffic.
  * No-op if already connected.
  */
-async function connectCaddyToNetwork(docker: Docker, networkName: string): Promise<void> {
+async function connectCaddyToNetwork(
+  docker: Docker,
+  networkName: string,
+  rlog?: RequestLogger,
+): Promise<void> {
+  const log = asStepLogger(rlog);
   const caddyName = PLATFORM.swarm.caddyContainer;
 
   // Check if Caddy container exists
@@ -144,7 +155,11 @@ async function connectCaddyToNetwork(docker: Docker, networkName: string): Promi
  * Remove a project's overlay network.
  * Disconnects all containers first.
  */
-export async function removeProjectNetwork(projectSlug: string): Promise<void> {
+export async function removeProjectNetwork(
+  projectSlug: string,
+  rlog?: RequestLogger,
+): Promise<void> {
+  const log = asStepLogger(rlog);
   const networkName = `${PLATFORM.swarm.networkPrefix}${projectSlug}`;
   const docker = Docker.fromEnv();
 

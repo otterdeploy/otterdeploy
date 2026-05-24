@@ -1,4 +1,6 @@
-import { log } from "evlog";
+import type { RequestLogger } from "evlog";
+
+import { asStepLogger } from "../lib/logger";
 
 export type AdaptResult =
   | { ok: true; json: unknown }
@@ -8,7 +10,12 @@ export type LoadResult =
   | { ok: true }
   | { ok: false; error: string };
 
-export async function adaptCaddyfile(caddyfile: string, adminUrl: string): Promise<AdaptResult> {
+export async function adaptCaddyfile(
+  caddyfile: string,
+  adminUrl: string,
+  rlog?: RequestLogger,
+): Promise<AdaptResult> {
+  const log = asStepLogger(rlog);
   log.info({ caddy: { step: "adapt", action: "request", adminUrl } });
   try {
     const response = await fetch(new URL("/adapt", adminUrl), {
@@ -33,7 +40,12 @@ export async function adaptCaddyfile(caddyfile: string, adminUrl: string): Promi
   }
 }
 
-export async function loadCaddyfile(caddyfile: string, adminUrl: string): Promise<LoadResult> {
+export async function loadCaddyfile(
+  caddyfile: string,
+  adminUrl: string,
+  rlog?: RequestLogger,
+): Promise<LoadResult> {
+  const log = asStepLogger(rlog);
   log.info({ caddy: { step: "load", action: "request", adminUrl } });
   try {
     const response = await fetch(new URL("/load", adminUrl), {
