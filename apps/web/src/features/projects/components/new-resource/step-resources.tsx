@@ -5,6 +5,7 @@ import { RESOURCE_PRESETS, NODES } from "@/features/projects/data/service-kinds"
 import { I } from "./icons";
 import { SectionH, Field, SettingRow } from "./form-primitives";
 import { Card, CardContent } from "@/shared/components/ui/card";
+import { Checkbox } from "@/shared/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -195,11 +196,7 @@ export function StepResources({
             <div className="os-muted text-[10px] uppercase tracking-[0.06em] mb-2">
               {placement === "pin" ? "pick a node" : "predicted placement"}
             </div>
-            <div
-              className="os-row os-gap-2"
-              role={placement === "pin" ? "radiogroup" : undefined}
-              aria-label={placement === "pin" ? "Node to pin to" : undefined}
-            >
+            <div className="os-row os-gap-2">
               {NODES.map((n, ni) => {
                 const onThis =
                   placement === "spread"
@@ -209,14 +206,22 @@ export function StepResources({
                       : placement === "pin"
                         ? n.id === pinnedNodeId ? replicas : 0
                         : Math.ceil((replicas - ni) / NODES.length);
-                const isInteractive = placement === "pin";
-                const isPinned = isInteractive && n.id === pinnedNodeId;
-                const sharedClass = `flex-1 p-2.5 bg-card rounded-sm border text-left ${
-                  isPinned ? "border-foreground" : "border-border"
-                } ${isInteractive ? "cursor-pointer hover:border-foreground/60 transition-colors" : ""}`;
-                const inner = (
-                  <>
+                const isPinned = placement === "pin" && n.id === pinnedNodeId;
+                return (
+                  <div
+                    key={n.id}
+                    className="flex-1 p-2.5 bg-card rounded-sm border border-border"
+                  >
                     <div className="os-row os-gap-2 text-[11px]">
+                      {placement === "pin" && (
+                        <Checkbox
+                          checked={isPinned}
+                          onCheckedChange={(checked) => {
+                            if (checked) pinnedNodeIdField.handleChange(n.id);
+                          }}
+                          aria-label={`Pin to ${n.name}`}
+                        />
+                      )}
                       <span className="os-mono text-muted-foreground">{n.name}</span>
                       <span className="flex-1" />
                       <span className="os-muted">{Math.round((n.cpu.used / n.cpu.total) * 100)}%</span>
@@ -230,22 +235,6 @@ export function StepResources({
                       ))}
                       {onThis === 0 && <span className="os-muted text-[10px]">—</span>}
                     </div>
-                  </>
-                );
-                return isInteractive ? (
-                  <button
-                    key={n.id}
-                    type="button"
-                    role="radio"
-                    aria-checked={isPinned}
-                    onClick={() => pinnedNodeIdField.handleChange(n.id)}
-                    className={sharedClass}
-                  >
-                    {inner}
-                  </button>
-                ) : (
-                  <div key={n.id} className={sharedClass}>
-                    {inner}
                   </div>
                 );
               })}
