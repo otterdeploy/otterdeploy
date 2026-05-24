@@ -11,6 +11,7 @@ import {
 } from "@/shared/components/ui/dialog";
 import { Button } from "@/shared/components/ui/button";
 import { StepKind } from "@/features/projects/components/new-resource/step-kind";
+import { NewResourceWizard } from "@/features/projects/components/new-resource/new-resource-wizard";
 import { ID_PREFIX, type Slug } from "@otterstack/shared/id";
 
 type NewResourceKindDialogProps = {
@@ -72,6 +73,42 @@ export function NewResourceKindDialog({
             Configure →
           </Button>
         </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+type NewResourceOverlayDialogProps = {
+  orgSlug: string;
+  projectSlug: Slug<typeof ID_PREFIX.project>;
+  projectName: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+};
+
+export function NewResourceOverlayDialog({
+  orgSlug,
+  projectSlug,
+  projectName,
+  open,
+  onOpenChange,
+}: NewResourceOverlayDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[920px] h-[80vh] overflow-hidden flex flex-col gap-0 p-0">
+        <DialogHeader className="px-5 pt-4 pb-3 border-b">
+          <DialogTitle>Add resource to {projectName}</DialogTitle>
+        </DialogHeader>
+        <div className="flex-1 overflow-hidden">
+          <NewResourceWizard
+            layout="dialog"
+            orgSlug={orgSlug}
+            projectSlug={projectSlug}
+            projectName={projectName}
+            onComplete={() => onOpenChange(false)}
+            onCancel={() => onOpenChange(false)}
+          />
+        </div>
       </DialogContent>
     </Dialog>
   );
