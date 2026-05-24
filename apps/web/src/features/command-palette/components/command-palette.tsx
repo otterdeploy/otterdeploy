@@ -1,7 +1,8 @@
+import { SearchIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { useHotkey, useHotkeySequence } from "@tanstack/react-hotkeys";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { Command as CommandPrimitive } from "cmdk";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { SearchIcon } from "@hugeicons/core-free-icons";
 
 import {
   Command,
@@ -13,6 +14,7 @@ import {
   CommandShortcut,
 } from "@/shared/components/ui/command";
 import { Kbd, KbdGroup } from "@/shared/components/ui/kbd";
+
 import { useCommandPalette } from "../hooks/use-command-palette";
 
 export function CommandPalette() {
@@ -42,15 +44,17 @@ export function CommandPalette() {
     close();
   };
 
+  // Global keyboard shortcuts. `ignoreInputs` defaults to true for single keys
+  // and sequences, so these don't fire while the user is typing in any input
+  // (including the palette's own search field).
+  useHotkey("D", goNewResource);
+  useHotkeySequence(["G", "G"], goGraph);
+
   return (
-    <CommandDialog open={open} onOpenChange={setOpen} className="sm:max-w-2xl gap-0 p-0">
+    <CommandDialog open={open} onOpenChange={setOpen} className="gap-0 p-0 sm:max-w-xl">
       <Command>
         <div className="flex items-center gap-2 border-b px-3 py-2.5">
-          <HugeiconsIcon
-            icon={SearchIcon}
-            strokeWidth={2}
-            className="size-4 shrink-0 opacity-50"
-          />
+          <HugeiconsIcon icon={SearchIcon} strokeWidth={2} className="size-4 shrink-0 opacity-50" />
           <CommandPrimitive.Input
             placeholder="Type a command or search…"
             className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
