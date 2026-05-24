@@ -6,9 +6,12 @@ import {
   useLoaderData,
   useMatch,
 } from "@tanstack/react-router";
+import { eq, useLiveQuery } from "@tanstack/react-db";
 import { Search01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useTranslation } from "react-i18next";
+
+import { envCollection } from "@/features/projects/data/env";
 
 import { Breadcrumbs } from "@/features/shell/components/breadcrumbs";
 import { EnvironmentTabs } from "@/features/shell/components/environment-tabs";
@@ -27,6 +30,14 @@ export function SiteHeader() {
     shouldThrow: false,
   });
   const project = projectMatch?.loaderData?.project;
+
+  const { data: environments = [] } = useLiveQuery(
+    (q) =>
+      q
+        .from({ e: envCollection })
+        .where(({ e }) => eq(e.projectId, project?.id ?? "")),
+    [project?.id],
+  );
 
   const [overlayOpen, setOverlayOpen] = useState(false);
 
@@ -47,8 +58,8 @@ export function SiteHeader() {
 
         <Breadcrumbs className="hidden md:block" />
 
-        {project && project.environments.length > 0 && (
-          <EnvironmentTabs environments={project.environments} />
+        {project && environments.length > 0 && (
+          <EnvironmentTabs environments={environments} />
         )}
 
         <div className="ml-auto flex items-center gap-2">

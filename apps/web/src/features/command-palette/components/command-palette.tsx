@@ -2,7 +2,10 @@ import { SearchIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useHotkey, useHotkeySequence } from "@tanstack/react-hotkeys";
 import { useMatch, useNavigate, useParams } from "@tanstack/react-router";
+import { eq, useLiveQuery } from "@tanstack/react-db";
 import { Command as CommandPrimitive } from "cmdk";
+
+import { envCollection } from "@/features/projects/data/env";
 
 import {
   Command,
@@ -24,12 +27,20 @@ export function CommandPalette() {
   const { orgSlug, projectSlug } = useParams({ strict: false });
   const overlay = useNewResourceOverlay();
 
-  // Project loader exposes environments when we're inside a project route.
+  // Live-query environments for the active project (loader exposes the project
+  // but environments are a separate collection, same pattern as the layout).
   const projectMatch = useMatch({
     from: "/_app/$orgSlug/$projectSlug",
     shouldThrow: false,
   });
-  const environments = projectMatch?.loaderData?.project?.environments ?? [];
+  const projectId = projectMatch?.loaderData?.project?.id ?? "";
+  const { data: environments = [] } = useLiveQuery(
+    (q) =>
+      q
+        .from({ e: envCollection })
+        .where(({ e }) => eq(e.projectId, projectId)),
+    [projectId],
+  );
 
   const close = () => setOpen(false);
 
