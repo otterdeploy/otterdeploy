@@ -15,6 +15,7 @@ import { envCollection } from "@/features/projects/data/env";
 
 import { Breadcrumbs } from "@/features/shell/components/breadcrumbs";
 import { EnvironmentTabs } from "@/features/shell/components/environment-tabs";
+import { EnvironmentTabsLine } from "@/features/shell/components/environment-tabs-line";
 import { ModeToggle } from "@/features/shell/components/mode-toggle";
 import { NewResourceOverlayDialog } from "@/features/projects/components/new-resource/new-resource-dialogs";
 import { Button } from "@/shared/components/ui/button";
@@ -42,7 +43,7 @@ export function SiteHeader() {
   const [overlayOpen, setOverlayOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 flex w-full items-center border-b bg-muted">
+    <header className="sticky top-0 z-50 flex w-full flex-col border-b bg-muted">
       <div className="flex h-(--header-height) w-full items-center gap-3 px-3">
         <Link
           to="/$orgSlug"
@@ -94,6 +95,12 @@ export function SiteHeader() {
           )}
         </div>
       </div>
+
+      {project && environments.length > 0 && (
+        <div className="flex h-9 w-full items-center gap-3 border-t bg-background px-3">
+          <EnvironmentTabsLine environments={environments} />
+        </div>
+      )}
 
       {project && (
         <NewResourceOverlayDialog
