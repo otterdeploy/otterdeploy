@@ -20,10 +20,10 @@ export function StepAdvancedDb({ kind }: { kind: ServiceKindDef }) {
           style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 12 }}
         >
           <Field label="Pool size">
-            <input className="input os-mono" type="number" defaultValue={20} />
+            <input className="input font-mono" type="number" defaultValue={20} />
           </Field>
           <Field label="Max client connections">
-            <input className="input os-mono" type="number" defaultValue={200} />
+            <input className="input font-mono" type="number" defaultValue={200} />
           </Field>
         </div>
       </div>

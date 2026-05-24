@@ -7,7 +7,7 @@ export function SectionH({ title, sub }: { title: string; sub?: string }) {
   return (
     <div style={{ marginBottom: 10, display: "flex", alignItems: "baseline", gap: 10 }}>
       <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, letterSpacing: "0.01em" }}>{title}</h3>
-      {sub && <span className="os-muted" style={{ fontSize: 12 }}>{sub}</span>}
+      {sub && <span className="text-muted-foreground" style={{ fontSize: 12 }}>{sub}</span>}
     </div>
   );
 }
@@ -16,7 +16,7 @@ export function SectionH({ title, sub }: { title: string; sub?: string }) {
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      <span className="os-muted" style={{ fontSize: 11 }}>{label}</span>
+      <span className="text-muted-foreground" style={{ fontSize: 11 }}>{label}</span>
       {children}
     </label>
   );
@@ -72,10 +72,10 @@ export function SettingRow({
 }) {
   const [on, setOn] = useState(!!defaultOn);
   return (
-    <div className="os-row os-gap-3" style={{ padding: "10px 0", borderTop: "1px solid var(--border)" }}>
+    <div className="flex items-center gap-3" style={{ padding: "10px 0", borderTop: "1px solid var(--border)" }}>
       <div style={{ flex: 1 }}>
         <div style={{ fontSize: 13, fontWeight: 500 }}>{label}</div>
-        {sub && <div className="os-muted" style={{ fontSize: 11 }}>{sub}</div>}
+        {sub && <div className="text-muted-foreground" style={{ fontSize: 11 }}>{sub}</div>}
       </div>
       <Switch3 on={on} onChange={setOn} />
     </div>

@@ -22,7 +22,7 @@ function ReviewRow({
   if (!value) return null;
   return (
     <div
-      className="os-row"
+      className="flex items-center"
       style={{
         padding: "9px 12px",
         borderBottom: last ? "none" : "1px solid var(--border)",
@@ -30,10 +30,10 @@ function ReviewRow({
         alignItems: "flex-start",
       }}
     >
-      <span className="os-muted" style={{ width: 100, fontSize: 11, paddingTop: 1, flexShrink: 0 }}>
+      <span className="text-muted-foreground" style={{ width: 100, fontSize: 11, paddingTop: 1, flexShrink: 0 }}>
         {label}
       </span>
-      <span className="os-mono" style={{ flex: 1, color: "var(--foreground)", wordBreak: "break-word" }}>
+      <span className="font-mono" style={{ flex: 1, color: "var(--foreground)", wordBreak: "break-word" }}>
         {value}
       </span>
     </div>
@@ -104,7 +104,7 @@ volumes:
       >
         <div>
           <div
-            className="os-muted"
+            className="text-muted-foreground"
             style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}
           >
             summary
@@ -136,7 +136,7 @@ volumes:
             className="card"
             style={{ padding: 12, background: "var(--muted)", borderColor: "var(--border)" }}
           >
-            <div className="os-row os-gap-2" style={{ alignItems: "flex-start" }}>
+            <div className="flex items-center gap-2" style={{ alignItems: "flex-start" }}>
               <I.bolt
                 width={14}
                 height={14}
@@ -156,13 +156,13 @@ volumes:
 
         <div>
           <div
-            className="os-muted"
+            className="text-muted-foreground"
             style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}
           >
             generated · compose.yml
           </div>
           <pre
-            className="os-mono"
+            className="font-mono"
             style={{
               background: "var(--muted)",
               padding: 14,
@@ -179,7 +179,7 @@ volumes:
           >
             {generateCompose()}
           </pre>
-          <div className="os-row os-gap-2" style={{ marginTop: 8 }}>
+          <div className="flex items-center gap-2" style={{ marginTop: 8 }}>
             <button type="button" className="btn sm">
               <I.copy width={11} height={11} /> Copy
             </button>
@@ -187,7 +187,7 @@ volumes:
               <I.doc width={11} height={11} /> Save as preset
             </button>
             <div style={{ flex: 1 }} />
-            <span className="os-muted os-mono" style={{ fontSize: 11, alignSelf: "center" }}>
+            <span className="text-muted-foreground font-mono" style={{ fontSize: 11, alignSelf: "center" }}>
               otterstack apply
             </span>
           </div>

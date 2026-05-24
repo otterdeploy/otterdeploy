@@ -27,7 +27,7 @@ export function Stepper({
 }) {
   return (
     <div
-      className="os-row"
+      className="flex items-center"
       style={{
         padding: "14px 22px",
         gap: 0,
@@ -40,7 +40,7 @@ export function Stepper({
         return (
           <Fragment key={id}>
             <button
-              className="os-row os-gap-2"
+              className="flex items-center gap-2"
               onClick={() => i <= idx && setStep(id)}
               style={{
                 background: "transparent",

@@ -151,12 +151,12 @@ export function NewResourceWizard({
           <span style={{ color: "var(--border)", fontSize: 14 }}>/</span>
           <span style={{ fontSize: 13, fontWeight: 600 }}>Create resource</span>
           {kind && (
-            <span className="os-muted os-mono" style={{ marginLeft: 4, fontSize: 11 }}>
+            <span className="text-muted-foreground font-mono" style={{ marginLeft: 4, fontSize: 11 }}>
               · {kind.name}
             </span>
           )}
           <div style={{ flex: 1 }} />
-          <span className="os-muted" style={{ fontSize: 11 }}>
+          <span className="text-muted-foreground" style={{ fontSize: 11 }}>
             Step {idx + 1} of {steps.length}
           </span>
         </div>

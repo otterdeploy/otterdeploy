@@ -95,7 +95,7 @@ export function StepKind({
       />
 
       <div
-        className="os-row"
+        className="flex items-center"
         style={{
           borderBottom: "1px solid var(--border)",
           marginTop: 10,
@@ -120,7 +120,7 @@ export function StepKind({
         })}
       </div>
 
-      <div className="os-muted" style={{ fontSize: 12, marginTop: 10 }}>
+      <div className="text-muted-foreground" style={{ fontSize: 12, marginTop: 10 }}>
         {groups[tab].sub}
       </div>
 
@@ -147,7 +147,7 @@ export function StepKind({
               style={{ textAlign: "left", padding: 14, minHeight: 96 }}
             >
               {popular && <span className="os-builder-pop">popular</span>}
-              <div className="os-row os-gap-2">
+              <div className="flex items-center gap-2">
                 <div className="os-builder-icon">
                   {renderLauncherKindIcon(it, tab, Ic)}
                 </div>
@@ -163,14 +163,14 @@ export function StepKind({
                 )}
               </div>
               <div
-                className="os-muted"
+                className="text-muted-foreground"
                 style={{ fontSize: 11, marginTop: 6, lineHeight: 1.45 }}
               >
                 {it.sub}
               </div>
               {examples && (
                 <div
-                  className="os-mono"
+                  className="font-mono"
                   style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 6 }}
                 >
                   {examples}
@@ -178,7 +178,7 @@ export function StepKind({
               )}
               {versions && (
                 <div
-                  className="os-mono"
+                  className="font-mono"
                   style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 6 }}
                 >
                   versions: {versions.slice(0, 3).join(", ")}
@@ -186,7 +186,7 @@ export function StepKind({
               )}
               {services !== undefined && (
                 <div
-                  className="os-mono"
+                  className="font-mono"
                   style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 6 }}
                 >
                   {services} services included

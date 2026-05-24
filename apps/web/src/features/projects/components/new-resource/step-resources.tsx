@@ -66,7 +66,7 @@ export function StepResources({
             style={{ minHeight: 96 }}
           >
             {p.popular && <span className="os-builder-pop">popular</span>}
-            <div className="os-row os-gap-2">
+            <div className="flex items-center gap-2">
               <span style={{ fontWeight: 600, fontSize: 14 }}>{p.name}</span>
               {presetId === p.id && (
                 <I.check
@@ -76,12 +76,12 @@ export function StepResources({
                 />
               )}
             </div>
-            <div className="os-mono" style={{ fontSize: 12, marginTop: 6, color: "var(--muted-foreground)" }}>
+            <div className="font-mono" style={{ fontSize: 12, marginTop: 6, color: "var(--muted-foreground)" }}>
               {p.cpu != null && p.mem != null
                 ? `${p.cpu} vCPU · ${p.mem >= 1024 ? p.mem / 1024 + " GB" : p.mem + " MB"}`
                 : "configure manually"}
             </div>
-            <div className="os-muted" style={{ fontSize: 11, marginTop: 4 }}>{p.sub}</div>
+            <div className="text-muted-foreground" style={{ fontSize: 11, marginTop: 4 }}>{p.sub}</div>
           </button>
         ))}
       </div>
@@ -121,7 +121,7 @@ export function StepResources({
           <div style={{ height: 18 }} />
           <SectionH title="Replicas" sub="How many copies of this service to run?" />
           <div className="card" style={{ padding: 16, marginTop: 10 }}>
-            <div className="os-row os-gap-2">
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 className="btn ghost icon"
@@ -130,7 +130,7 @@ export function StepResources({
                 <I.x width={11} height={11} />
               </button>
               <input
-                className="input os-mono"
+                className="input font-mono"
                 type="number"
                 value={replicas}
                 onChange={(e) => replicasField.handleChange(+e.target.value || 1)}
@@ -144,7 +144,7 @@ export function StepResources({
                 <I.plus width={11} height={11} />
               </button>
               <div style={{ flex: 1 }} />
-              <span className="os-muted os-mono" style={{ fontSize: 11 }}>
+              <span className="text-muted-foreground font-mono" style={{ fontSize: 11 }}>
                 scale up to {replicas * 5} via autoscaler
               </span>
             </div>
@@ -193,10 +193,10 @@ export function StepResources({
           </Field>
 
           <div className="mt-3.5 p-3 bg-muted rounded-sm border border-border">
-            <div className="os-muted text-[10px] uppercase tracking-[0.06em] mb-2">
+            <div className="text-muted-foreground text-[10px] uppercase tracking-[0.06em] mb-2">
               {placement === "pin" ? "pick a node" : "predicted placement"}
             </div>
-            <div className="os-row os-gap-2">
+            <div className="flex items-center gap-2">
               {NODES.map((n, ni) => {
                 const onThis =
                   placement === "spread"
@@ -212,7 +212,7 @@ export function StepResources({
                     key={n.id}
                     className="flex-1 p-2.5 bg-card rounded-sm border border-border"
                   >
-                    <div className="os-row os-gap-2 text-[11px]">
+                    <div className="flex items-center gap-2 text-[11px]">
                       {placement === "pin" && (
                         <Checkbox
                           checked={isPinned}
@@ -222,18 +222,18 @@ export function StepResources({
                           aria-label={`Pin to ${n.name}`}
                         />
                       )}
-                      <span className="os-mono text-muted-foreground">{n.name}</span>
+                      <span className="font-mono text-muted-foreground">{n.name}</span>
                       <span className="flex-1" />
-                      <span className="os-muted">{Math.round((n.cpu.used / n.cpu.total) * 100)}%</span>
+                      <span className="text-muted-foreground">{Math.round((n.cpu.used / n.cpu.total) * 100)}%</span>
                     </div>
-                    <div className="os-row os-gap-1 mt-1.5 flex-wrap">
+                    <div className="flex items-center gap-1 mt-1.5 flex-wrap">
                       {Array.from({ length: Math.max(0, onThis) }).map((_, i) => (
                         <span
                           key={i}
                           className="inline-block w-2.5 h-2.5 rounded-[2px] bg-chart-2"
                         />
                       ))}
-                      {onThis === 0 && <span className="os-muted text-[10px]">—</span>}
+                      {onThis === 0 && <span className="text-muted-foreground text-[10px]">—</span>}
                     </div>
                   </div>
                 );
@@ -246,12 +246,12 @@ export function StepResources({
       <div className="h-3.5" />
       <Card className="bg-muted py-3.5 rounded-md">
         <CardContent className="px-3.5">
-          <div className="os-row os-gap-3">
+          <div className="flex items-center gap-3">
             <div>
-              <div className="os-muted text-[10px] uppercase tracking-[0.06em]">
+              <div className="text-muted-foreground text-[10px] uppercase tracking-[0.06em]">
                 service total
               </div>
-              <div className="os-mono text-sm font-medium mt-0.5">
+              <div className="font-mono text-sm font-medium mt-0.5">
                 {totalCpu} vCPU · {totalMem} GB
               </div>
             </div>
