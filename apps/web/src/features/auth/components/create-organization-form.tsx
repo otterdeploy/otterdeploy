@@ -11,25 +11,16 @@ import { Input } from "@/shared/components/ui/input";
 
 import { AuthShell } from "./auth-shell";
 
-const slugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+// `.slugify()` alone — used to derive the slug live as the user types the name.
+// Doesn't throw on short/empty input, just normalizes whatever's there.
+const slugifier = z.string().slugify();
 
 const schema = z.object({
   name: z.string().min(1, "Organization name is required"),
-  slug: z
-    .string()
+  slug: slugifier
     .min(2, "Slug must be at least 2 characters")
-    .max(48, "Slug must be 48 characters or fewer")
-    .regex(slugRegex, "Lowercase letters, numbers, dashes only"),
+    .max(48, "Slug must be 48 characters or fewer"),
 });
-
-function deriveSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 48);
-}
 
 export function CreateOrganizationForm() {
   const navigate = useNavigate();
@@ -103,7 +94,7 @@ export function CreateOrganizationForm() {
                 onChange={(e) => {
                   const next = e.target.value;
                   field.handleChange(next);
-                  form.setFieldValue("slug", deriveSlug(next));
+                  form.setFieldValue("slug", slugifier.parse(next));
                 }}
               />
               {field.state.meta.errors.map((err) => (
