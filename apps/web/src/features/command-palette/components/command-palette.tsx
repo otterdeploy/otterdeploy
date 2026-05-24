@@ -14,6 +14,7 @@ import {
   CommandShortcut,
 } from "@/shared/components/ui/command";
 import { Kbd, KbdGroup } from "@/shared/components/ui/kbd";
+import { useNewResourceOverlay } from "@/features/projects/components/new-resource/overlay-provider";
 
 import { useCommandPalette } from "../hooks/use-command-palette";
 
@@ -21,15 +22,13 @@ export function CommandPalette() {
   const { open, setOpen } = useCommandPalette();
   const navigate = useNavigate();
   const { orgSlug, projectSlug } = useParams({ strict: false });
+  const overlay = useNewResourceOverlay();
 
   const close = () => setOpen(false);
 
   const goNewResource = () => {
     if (orgSlug && projectSlug) {
-      void navigate({
-        to: "/$orgSlug/$projectSlug/new-resource",
-        params: { orgSlug, projectSlug },
-      });
+      overlay.setOpen(true);
     }
     close();
   };

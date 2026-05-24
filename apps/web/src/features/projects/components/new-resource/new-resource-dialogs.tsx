@@ -92,7 +92,7 @@ export function NewResourceKindDialog({
 type NewResourceOverlayDialogProps = {
   orgSlug: string;
   projectSlug: Slug<typeof ID_PREFIX.project>;
-  projectName: string;
+  projectName?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
@@ -108,7 +108,7 @@ export function NewResourceOverlayDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[920px] h-[80vh] overflow-hidden flex flex-col gap-0 p-0">
         <DialogHeader className="px-5 pt-4 pb-3 border-b">
-          <DialogTitle>Add resource to {projectName}</DialogTitle>
+          <DialogTitle>{projectName ? `Add resource to ${projectName}` : "Add resource"}</DialogTitle>
           <DialogDescription>
             Configure and launch a new service for this project.
           </DialogDescription>
@@ -118,7 +118,7 @@ export function NewResourceOverlayDialog({
             layout="dialog"
             orgSlug={orgSlug}
             projectSlug={projectSlug}
-            projectName={projectName}
+            projectName={projectName ?? ""}
             onComplete={() => onOpenChange(false)}
             onCancel={() => onOpenChange(false)}
           />

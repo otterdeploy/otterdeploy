@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 
 import { authClient } from "@/lib/auth-client";
 import { CommandPalette } from "@/features/command-palette";
+import { NewResourceOverlayProvider } from "@/features/projects/components/new-resource/overlay-provider";
 
 export type Organization = {
   id: string;
@@ -80,9 +81,9 @@ export const Route = createFileRoute("/_app")({
 
 function RouteComponent() {
   return (
-    <>
+    <NewResourceOverlayProvider>
       <Outlet />
       <CommandPalette />
-    </>
+    </NewResourceOverlayProvider>
   );
 }
