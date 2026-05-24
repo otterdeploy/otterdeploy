@@ -1,104 +1,93 @@
 "use client";
 
-import { Breadcrumbs } from "@/features/shell/components/breadcrumbs";
-import { useTheme } from "@/shared/components/theme-provider";
-import { Button } from "@/shared/components/ui/button";
-import { useSidebar } from "@/shared/components/ui/sidebar";
+import { useState } from "react";
 import {
-  Moon02Icon,
-  Notification01Icon,
-  Search01Icon,
-  SidebarLeftIcon,
-  Sun03Icon,
-} from "@hugeicons/core-free-icons";
+  Link,
+  useLoaderData,
+  useMatch,
+} from "@tanstack/react-router";
+import { Search01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useLoaderData } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 
-export function SiteHeader() {
-  const { toggleSidebar } = useSidebar();
-  const { organization } = useLoaderData({ from: "/_app/$orgSlug" });
-  const { resolvedTheme, setTheme } = useTheme();
-  const { t } = useTranslation();
+import { Breadcrumbs } from "@/features/shell/components/breadcrumbs";
+import { ModeToggle } from "@/features/shell/components/mode-toggle";
+import { NewResourceOverlayDialog } from "@/features/projects/components/new-resource/new-resource-dialogs";
+import { Button } from "@/shared/components/ui/button";
+import { Input } from "@/shared/components/ui/input";
+import { Github } from "@/shared/components/ui/svgs/github";
+import { ID_PREFIX, type Slug } from "@otterstack/shared/id";
 
-  const isDark = resolvedTheme === "dark";
+export function SiteHeader() {
+  const { t } = useTranslation();
+  const { organization } = useLoaderData({ from: "/_app/$orgSlug" });
+  const projectMatch = useMatch({
+    from: "/_app/$orgSlug/$projectSlug",
+    shouldThrow: false,
+  });
+  const project = projectMatch?.loaderData?.project;
+
+  const [overlayOpen, setOverlayOpen] = useState(false);
 
   return (
     <header className="sticky top-0 z-50 flex w-full items-center border-b bg-muted">
       <div className="flex h-(--header-height) w-full items-center gap-3 px-3">
-        <Button
-          className="size-8"
-          variant="ghost"
-          size="icon"
-          onClick={toggleSidebar}
-          aria-label={t("common.openSidebar")}
-        >
-          <HugeiconsIcon icon={SidebarLeftIcon} strokeWidth={2} />
-        </Button>
-
-        {/*<Link
+        <Link
           to="/$orgSlug"
           params={{ orgSlug: organization.slug }}
-          className="flex items-center gap-2 rounded-md px-2 py-1 text-sm hover:bg-accent"
+          className="flex shrink-0 items-center gap-2"
+          aria-label="otterstack home"
         >
-          <span className="flex size-5 items-center justify-center rounded-full bg-foreground text-[10px] font-semibold text-background">
-            {organization.name.charAt(0).toLowerCase()}
+          <span className="grid size-7 place-items-center rounded-md bg-foreground text-[11px] font-semibold lowercase text-background">
+            os
           </span>
-          <span className="font-medium">{organization.name}</span>
-          <HugeiconsIcon
-            icon={ArrowDown01Icon}
-            strokeWidth={2}
-            className="size-3.5 text-muted-foreground"
-          />
-        </Link>*/}
+          <span className="text-sm font-medium">otterstack</span>
+        </Link>
 
         <Breadcrumbs className="hidden md:block" />
 
-        <div className="ml-auto flex items-center gap-1">
-          <Button
-            variant="ghost"
-            className="hidden h-8 gap-2 px-2 text-muted-foreground sm:inline-flex"
-            aria-label={t("common.search")}
-          >
+        <div className="ml-auto flex items-center gap-2">
+          <div className="relative hidden w-72 sm:block">
             <HugeiconsIcon
               icon={Search01Icon}
               strokeWidth={2}
-              className="size-4"
+              className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
             />
-            <span className="text-sm">{t("common.search")}</span>
-            <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
-              ⌘K
+            <Input
+              type="search"
+              placeholder={t("common.searchOrRun", "Search or run a command...")}
+              className="h-8 bg-background pl-8 pr-9"
+              aria-label={t("common.search")}
+            />
+            <kbd className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+              K
             </kbd>
+          </div>
+
+          <ModeToggle />
+
+          <Button variant="outline" className="h-8 gap-2">
+            <Github className="size-4" />
+            Connect
           </Button>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-8"
-            aria-label={t("common.notifications")}
-          >
-            <HugeiconsIcon
-              icon={Notification01Icon}
-              strokeWidth={2}
-              className="size-4"
-            />
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-8"
-            onClick={() => setTheme(isDark ? "light" : "dark")}
-            aria-label={t("common.toggleTheme")}
-          >
-            <HugeiconsIcon
-              icon={isDark ? Sun03Icon : Moon02Icon}
-              strokeWidth={2}
-              className="size-4"
-            />
-          </Button>
+          {project && (
+            <Button className="h-8" onClick={() => setOverlayOpen(true)}>
+              + New service
+            </Button>
+          )}
         </div>
       </div>
+
+      {project && (
+        <NewResourceOverlayDialog
+          orgSlug={organization.slug}
+          projectSlug={project.slug as Slug<typeof ID_PREFIX.project>}
+          projectName={project.name}
+          open={overlayOpen}
+          onOpenChange={setOverlayOpen}
+        />
+      )}
     </header>
   );
 }
