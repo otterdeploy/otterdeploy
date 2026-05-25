@@ -217,15 +217,14 @@ const initialEdges: Edge[] = [
 
 function RouteComponent() {
   return (
-    <div className="relative flex flex-1 overflow-hidden">
-      <div className="relative flex-1 overflow-hidden">
+    <div className="relative flex flex-1 overflow-hidden p-3">
+      <div className="relative flex-1 overflow-hidden rounded-2xl border">
         <ReactFlowProvider>
           <GraphCanvas />
-        </ReactFlowProvider>
-
-        <div className="pointer-events-none absolute inset-0 top-10 z-100 flex size-full items-end justify-end">
+        <div className="pointer-events-none absolute inset-0 top-10 z-10 flex size-full items-end justify-end">
           <Outlet />
         </div>
+        </ReactFlowProvider>
       </div>
     </div>
   );
@@ -303,11 +302,11 @@ function GraphCanvas() {
         });
       }}
     >
-      <Background gap={20} size={1} className="opacity-20" />
-      <Controls
+      <Background gap={20} size={1}  />
+      {/* <Controls
         showInteractive={false}
         className="rounded-md border border-border/40 bg-background/80 shadow-sm backdrop-blur"
-      />
+      /> */}
     </ReactFlow>
   );
 }

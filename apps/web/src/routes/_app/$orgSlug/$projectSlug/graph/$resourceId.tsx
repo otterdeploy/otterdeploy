@@ -15,6 +15,7 @@ import { Card, CardContent } from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
 
 export const Route = createFileRoute("/_app/$orgSlug/$projectSlug/graph/$resourceId")({
+  staticData: { crumb: "Resource" },
   component: RouteComponent,
 });
 
@@ -40,7 +41,7 @@ function RouteComponent() {
   const close = () => navigate({ to: "/$orgSlug/$projectSlug/graph" });
 
   return (
-    <div className="pointer-events-auto h-full w-2/3 animate-in fade-in-0 slide-in-from-right-2 overflow-hidden rounded-2xl rounded-tr-none border border-r-0 border-border bg-background duration-200">
+    <div className="pointer-events-auto h-full w-3/7 animate-in fade-in-0 slide-in-from-right-2 overflow-hidden rounded-2xl rounded-tr-none border border-r-0 border-border bg-background duration-200">
       <div className="flex items-center gap-2 border-b px-4 py-2.5">
         <Button variant="ghost" size="icon-sm" onClick={close} aria-label="Back">
           <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} />
@@ -143,6 +144,7 @@ type ResourceBodyProps = {
 };
 
 function ResourceBody({ resource }: ResourceBodyProps) {
+
   return (
     <div className="flex flex-col gap-3">
       <Section title="Connection">
@@ -214,7 +216,7 @@ function ReadOnlyField({
         value={value}
         type={secret ? "password" : "text"}
         className="h-8 font-mono text-xs"
-        onClick={(e) => (e.target as HTMLInputElement).select()}
+        onClick={(e) => (e.target as HTMLInputElement)?.select()}
       />
     </div>
   );
