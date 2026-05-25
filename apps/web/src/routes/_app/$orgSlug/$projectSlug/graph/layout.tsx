@@ -46,6 +46,11 @@ const initialNodes: Node<ResourceNodeData>[] = [
         "Public-facing API for the web client. Handles auth, oRPC routes, and Inngest triggers.",
       status: "running",
       tech: { label: "Bun 1.3", icon: FlashIcon },
+      git: {
+        commit: "a3f8b2c4e",
+        message: "fix(api): handle CORS preflight for *.helio.so",
+        branch: "main",
+      },
     },
   },
   {
@@ -58,6 +63,11 @@ const initialNodes: Node<ResourceNodeData>[] = [
       description: "Background job runner. Processes Inngest events and long-running tasks.",
       status: "building",
       tech: { label: "Node 22", icon: CodeIcon },
+      git: {
+        commit: "8b1e9d401",
+        message: "feat(worker): batch outbound webhooks per tenant",
+        branch: "main",
+      },
     },
   },
   {
@@ -70,6 +80,11 @@ const initialNodes: Node<ResourceNodeData>[] = [
       description: "Image resizing and optimization proxy. Cached at the edge.",
       status: "error",
       tech: { label: "Go 1.23", icon: ServerStack01Icon },
+      git: {
+        commit: "c2a5f019d",
+        message: "perf(imgproxy): pre-warm WebP encoder pool on boot",
+        branch: "main",
+      },
     },
   },
 
@@ -83,6 +98,11 @@ const initialNodes: Node<ResourceNodeData>[] = [
       name: "web",
       description: "Marketing site and dashboard shell. SSR via TanStack Start.",
       tech: { label: "Bun 1.3", icon: FlashIcon },
+      git: {
+        commit: "f7c3a911e",
+        message: "refactor(web): drop os-* classes in favor of shadcn primitives",
+        branch: "main",
+      },
     },
   },
   {
@@ -94,6 +114,11 @@ const initialNodes: Node<ResourceNodeData>[] = [
       name: "nightly-cleanup",
       description: "Sweeps stale uploads and rotates audit logs every night at 03:00 UTC.",
       status: "running",
+      git: {
+        commit: "5d6f8b210",
+        message: "chore(cron): rotate audit-log retention to 90 days",
+        branch: "main",
+      },
     },
   },
   {

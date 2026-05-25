@@ -49,6 +49,15 @@ export interface VolumeAttachment {
   mount?: string;
 }
 
+export interface GitInfo {
+  /** Short SHA, e.g. "a3f8b2c". */
+  commit: string;
+  /** Subject line of the commit (first line only). */
+  message: string;
+  /** Optional branch the commit lives on. */
+  branch?: string;
+}
+
 export interface ResourceNodeData extends Record<string, unknown> {
   kind: ResourceKind;
   name: string;
@@ -56,6 +65,8 @@ export interface ResourceNodeData extends Record<string, unknown> {
   engine?: ResourceEngine;
   status?: ResourceStatus;
   tech?: { label: string; icon?: IconType };
+  /** Source-based deploys: latest deployed commit. Renders in the muted footer. */
+  git?: GitInfo;
   /** Database-only: render volumes inline inside the inset MOUNTS tray (Variant A). */
   volumes?: VolumeAttachment[];
 }
@@ -245,30 +256,48 @@ export function ResourceNode({ id, data, selected }: NodeProps<ResourceFlowNode>
           )}
         </div>
 
-        {/* BODY — description + optional tech, always padded so the card never naked-bottoms */}
+        {/* BODY — description only. Tech / commit live in the muted footer. */}
         <div className="px-5 pt-3.5 pb-4">
           <p className="text-[13.5px] leading-[1.55] text-foreground/80">{data.description}</p>
-
-          {data.tech && (
-            <div className="mt-3.5 flex items-center justify-between gap-3">
-              <span className="inline-flex items-center gap-2 font-mono text-[12.5px] whitespace-nowrap text-muted-foreground">
-                {data.tech.icon && (
-                  <HugeiconsIcon
-                    icon={data.tech.icon}
-                    strokeWidth={1.5}
-                    className="size-3.5 text-muted-foreground/50"
-                  />
-                )}
-                {data.tech.label}
-              </span>
-              <HugeiconsIcon
-                icon={CheckmarkCircle02Icon}
-                strokeWidth={1.5}
-                className="size-4 text-muted-foreground/40"
-              />
-            </div>
-          )}
         </div>
+
+        {/* FOOTER — muted strip separated from the body by a hairline border.
+            Houses the runtime tech label (top row) and the deployed commit
+            (bottom row, source-based resources only). */}
+        {(data.tech || data.git) && (
+          <div className="flex flex-col gap-1.5 border-t bg-muted/50 px-5 py-3">
+            {data.tech && (
+              <div className="flex items-center justify-between gap-3">
+                <span className="inline-flex items-center gap-2 font-mono text-[12.5px] whitespace-nowrap text-muted-foreground">
+                  {data.tech.icon && (
+                    <HugeiconsIcon
+                      icon={data.tech.icon}
+                      strokeWidth={1.5}
+                      className="size-3.5 text-muted-foreground/60"
+                    />
+                  )}
+                  {data.tech.label}
+                </span>
+                <HugeiconsIcon
+                  icon={CheckmarkCircle02Icon}
+                  strokeWidth={1.5}
+                  className="size-4 text-muted-foreground/40"
+                />
+              </div>
+            )}
+            {data.git && (
+              <div
+                className="flex min-w-0 items-center gap-2 font-mono text-[12px] text-muted-foreground"
+                title={data.git.branch ? `${data.git.branch} · ${data.git.commit}` : data.git.commit}
+              >
+                <span className="shrink-0 rounded bg-background/70 px-1.5 py-0.5 text-[11px] text-foreground/80">
+                  {data.git.commit.slice(0, 7)}
+                </span>
+                <span className="truncate text-muted-foreground/90">{data.git.message}</span>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* MOUNTS TRAY — Variant A from the design, separated from body by a hairline */}
         {data.volumes && data.volumes.length > 0 && (
