@@ -1,7 +1,12 @@
+import type { serverSchema } from "@otterstack/api/routers/server/contract";
 import { createCollection } from "@tanstack/db";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
+import type { z } from "zod";
 
 import { orpc, queryClient } from "@/shared/server/orpc";
+
+/** Single server row as returned by orpc.server.list / queried via the collection. */
+export type Server = z.infer<typeof serverSchema>;
 
 export const serverCollection = createCollection(
   queryCollectionOptions({

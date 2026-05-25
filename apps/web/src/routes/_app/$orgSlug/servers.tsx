@@ -10,15 +10,13 @@ import {
   ServerStack01Icon,
 } from "@hugeicons/core-free-icons";
 
-import type { serverSchema } from "@otterstack/api/routers/server/contract";
-import type { z } from "zod";
-
 import { ServerCreateDialog } from "@/features/servers/components/server-create-dialog";
-import { serverCollection } from "@/features/servers/data/server";
+import { serverCollection, type Server } from "@/features/servers/data/server";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/shared/components/ui/empty";
+import { Skeleton } from "@/shared/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -35,9 +33,8 @@ export const Route = createFileRoute("/_app/$orgSlug/servers")({
     await serverCollection.preload();
   },
   component: ServersRoute,
+  pendingComponent: ServersPending,
 });
-
-type Server = z.infer<typeof serverSchema>;
 
 function ServersRoute() {
   const { data: servers = [] } = useLiveQuery((q) => q.from({ s: serverCollection }));
@@ -89,7 +86,7 @@ function ServersRoute() {
       </div>
 
       {servers.length === 0 ? (
-        <Empty>
+        <Empty className="rounded-md border border-dashed bg-muted/20 py-12">
           <EmptyHeader>
             <HugeiconsIcon icon={ServerStack01Icon} strokeWidth={1.5} className="size-10 text-muted-foreground/50" />
             <EmptyTitle>No servers registered</EmptyTitle>
@@ -128,6 +125,57 @@ function ServersRoute() {
       )}
 
       <ServerCreateDialog open={createOpen} onOpenChange={setCreateOpen} />
+    </div>
+  );
+}
+
+function ServersPending() {
+  return (
+    <div className="flex flex-1 flex-col gap-5 p-5">
+      <header className="flex items-end justify-between gap-4">
+        <div className="flex flex-col gap-2">
+          <Skeleton className="h-7 w-32" />
+          <Skeleton className="h-4 w-96" />
+        </div>
+        <Skeleton className="h-8 w-28" />
+      </header>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Card key={i} className="rounded-md">
+            <CardContent className="flex items-start gap-3">
+              <Skeleton className="size-9 shrink-0 rounded-md" />
+              <div className="flex flex-1 flex-col gap-1.5">
+                <Skeleton className="h-3 w-16" />
+                <Skeleton className="h-5 w-12" />
+                <Skeleton className="h-3 w-20" />
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <Card className="overflow-hidden rounded-md p-0 gap-0">
+        <div className="flex items-center gap-4 border-b bg-muted/50 px-4 py-3">
+          {Array.from({ length: 7 }).map((_, i) => (
+            <Skeleton key={i} className="h-3 w-16" />
+          ))}
+        </div>
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-4 border-b border-border/60 px-4 py-3 last:border-b-0">
+            <div className="flex flex-1 flex-col gap-1.5">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-3 w-20" />
+            </div>
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-4 w-16" />
+            <Skeleton className="h-4 w-16" />
+            <Skeleton className="h-4 w-16" />
+            <Skeleton className="h-5 w-20 rounded-sm" />
+            <Skeleton className="h-3 w-14" />
+          </div>
+        ))}
+      </Card>
     </div>
   );
 }
