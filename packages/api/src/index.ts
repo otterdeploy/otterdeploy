@@ -5,6 +5,7 @@ import { implement, os as orpc } from "@orpc/server";
 import { dockerContract } from "./routers/docker/contract";
 import { envContract } from "./routers/env/contract";
 import { projectContract } from "./routers/project/contract";
+import { serverContract } from "./routers/server/contract";
 import { serviceContract } from "./routers/service/contract";
 import type { Id, ID_PREFIX } from "@otterstack/shared/id";
 
@@ -12,6 +13,7 @@ export const publicProcedure = implement({
   docker: dockerContract,
   env: envContract,
   project: projectContract,
+  server: serverContract,
   service: serviceContract,
 }).$context<Context>();
 

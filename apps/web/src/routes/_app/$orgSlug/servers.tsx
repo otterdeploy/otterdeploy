@@ -1,4 +1,7 @@
+import { useState } from "react";
+
 import { createFileRoute } from "@tanstack/react-router";
+import { useLiveQuery } from "@tanstack/react-db";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   CpuIcon,
@@ -7,10 +10,15 @@ import {
   ServerStack01Icon,
 } from "@hugeicons/core-free-icons";
 
-import { NODES, type Node } from "@/features/projects/data/service-kinds";
+import type { serverSchema } from "@otterstack/api/routers/server/contract";
+import type { z } from "zod";
+
+import { ServerCreateDialog } from "@/features/servers/components/server-create-dialog";
+import { serverCollection } from "@/features/servers/data/server";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent } from "@/shared/components/ui/card";
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/shared/components/ui/empty";
 import {
   Table,
   TableBody,
@@ -23,15 +31,21 @@ import { cn } from "@/shared/lib/utils";
 
 export const Route = createFileRoute("/_app/$orgSlug/servers")({
   staticData: { crumb: "Servers" },
+  loader: async () => {
+    await serverCollection.preload();
+  },
   component: ServersRoute,
 });
 
+type Server = z.infer<typeof serverSchema>;
+
 function ServersRoute() {
-  const totalCpu = NODES.reduce((acc, n) => acc + n.cpu.total, 0);
-  const usedCpu = NODES.reduce((acc, n) => acc + n.cpu.used, 0);
-  const totalMem = NODES.reduce((acc, n) => acc + n.mem.total, 0);
-  const usedMem = NODES.reduce((acc, n) => acc + n.mem.used, 0);
-  const totalServices = NODES.reduce((acc, n) => acc + n.services, 0);
+  const { data: servers = [] } = useLiveQuery((q) => q.from({ s: serverCollection }));
+  const [createOpen, setCreateOpen] = useState(false);
+
+  const totalCpu = servers.reduce((acc, s) => acc + s.cpuTotal, 0);
+  const totalMem = servers.reduce((acc, s) => acc + s.memTotalGb, 0);
+  const readyCount = servers.filter((s) => s.status === "ready").length;
 
   return (
     <div className="flex flex-1 flex-col gap-5 p-5">
@@ -42,7 +56,7 @@ function ServersRoute() {
             Docker Swarm nodes available to this workspace. Resources here back every project.
           </p>
         </div>
-        <Button size="sm" className="h-8 gap-1.5">
+        <Button size="sm" className="h-8 gap-1.5" onClick={() => setCreateOpen(true)}>
           + Add server
         </Button>
       </header>
@@ -51,50 +65,69 @@ function ServersRoute() {
         <StatTile
           icon={ServerStack01Icon}
           label="Nodes"
-          value={`${NODES.length}`}
-          sub={`${NODES.filter((n) => n.status === "ready").length} ready`}
+          value={`${servers.length}`}
+          sub={`${readyCount} ready`}
         />
         <StatTile
           icon={CpuIcon}
-          label="CPU"
-          value={`${usedCpu.toFixed(1)} / ${totalCpu}`}
-          sub="vCPU in use"
+          label="CPU capacity"
+          value={`${totalCpu}`}
+          sub="vCPU across cluster"
         />
         <StatTile
           icon={RamMemoryIcon}
-          label="Memory"
-          value={`${usedMem} / ${totalMem} GB`}
-          sub="RAM allocated"
+          label="Memory capacity"
+          value={`${totalMem} GB`}
+          sub="RAM across cluster"
         />
         <StatTile
           icon={HardDriveIcon}
-          label="Services"
-          value={`${totalServices}`}
-          sub="running across all nodes"
+          label="Managers"
+          value={`${servers.filter((s) => s.role === "manager").length}`}
+          sub="raft quorum participants"
         />
       </div>
 
-      <Card className="overflow-hidden rounded-md p-0 gap-0">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <TableHead className="pl-4">Node</TableHead>
-              <TableHead>Host</TableHead>
-              <TableHead className="w-[160px]">CPU</TableHead>
-              <TableHead className="w-[160px]">Memory</TableHead>
-              <TableHead className="w-[160px]">Disk</TableHead>
-              <TableHead className="text-center">Services</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="pr-4 text-right">Joined</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {NODES.map((node) => (
-              <ServerRow key={node.id} node={node} />
-            ))}
-          </TableBody>
-        </Table>
-      </Card>
+      {servers.length === 0 ? (
+        <Empty>
+          <EmptyHeader>
+            <HugeiconsIcon icon={ServerStack01Icon} strokeWidth={1.5} className="size-10 text-muted-foreground/50" />
+            <EmptyTitle>No servers registered</EmptyTitle>
+            <EmptyDescription>
+              Join a host to the swarm and register it here. The orchestrator will start scheduling
+              services onto it once it appears.
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Button size="sm" className="h-8" onClick={() => setCreateOpen(true)}>
+              + Add server
+            </Button>
+          </EmptyContent>
+        </Empty>
+      ) : (
+        <Card className="overflow-hidden rounded-md p-0 gap-0">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50 hover:bg-muted/50">
+                <TableHead className="pl-4">Node</TableHead>
+                <TableHead>Host</TableHead>
+                <TableHead className="w-[140px]">CPU</TableHead>
+                <TableHead className="w-[140px]">Memory</TableHead>
+                <TableHead className="w-[140px]">Disk</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="pr-4 text-right">Joined</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {servers.map((server) => (
+                <ServerRow key={server.id} server={server} />
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
+      )}
+
+      <ServerCreateDialog open={createOpen} onOpenChange={setCreateOpen} />
     </div>
   );
 }
@@ -130,67 +163,62 @@ function StatTile({
   );
 }
 
-function ServerRow({ node }: { node: Node }) {
+function ServerRow({ server }: { server: Server }) {
+  const joinedLabel = formatRelative(server.joinedAt ?? server.createdAt);
   return (
     <TableRow>
       <TableCell className="pl-4">
         <div className="flex items-center gap-2">
-          <span className="font-mono text-[13px] font-medium">{node.name}</span>
-          <RoleBadge role={node.role} />
+          <span className="font-mono text-[13px] font-medium">{server.name}</span>
+          <RoleBadge role={server.role} />
         </div>
         <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">
-          {node.region}
-          {node.labels && node.labels.length > 0 && ` · ${node.labels.join(" · ")}`}
+          {server.region}
+          {server.labels.length > 0 && ` · ${server.labels.join(" · ")}`}
         </div>
       </TableCell>
-      <TableCell className="font-mono text-[12px] text-muted-foreground">{node.host}</TableCell>
-      <TableCell>
-        <Usage used={node.cpu.used} total={node.cpu.total} unit="vCPU" />
+      <TableCell className="font-mono text-[12px] text-muted-foreground">{server.host}</TableCell>
+      <TableCell className="font-mono text-[12px]">
+        <span className="text-foreground">{server.cpuTotal}</span>
+        <span className="text-muted-foreground"> vCPU</span>
       </TableCell>
-      <TableCell>
-        <Usage used={node.mem.used} total={node.mem.total} unit="GB" />
+      <TableCell className="font-mono text-[12px]">
+        <span className="text-foreground">{server.memTotalGb}</span>
+        <span className="text-muted-foreground"> GB</span>
       </TableCell>
-      <TableCell>
-        {node.disk ? (
-          <Usage used={node.disk.used} total={node.disk.total} unit={node.disk.unit} />
+      <TableCell className="font-mono text-[12px]">
+        {server.diskTotalGb != null ? (
+          <>
+            <span className="text-foreground">{server.diskTotalGb}</span>
+            <span className="text-muted-foreground"> {server.diskUnit}</span>
+          </>
         ) : (
           <span className="text-muted-foreground/50">—</span>
         )}
       </TableCell>
-      <TableCell className="text-center font-mono text-sm">{node.services}</TableCell>
       <TableCell>
-        <StatusBadge status={node.status} availability={node.availability} />
+        <StatusBadge status={server.status} availability={server.availability} />
       </TableCell>
       <TableCell className="pr-4 text-right text-[12px] text-muted-foreground">
-        {node.joined}
+        {joinedLabel}
       </TableCell>
     </TableRow>
   );
 }
 
-function Usage({ used, total, unit }: { used: number; total: number; unit: string }) {
-  const pct = total === 0 ? 0 : Math.min(100, Math.round((used / total) * 100));
-  const tone =
-    pct >= 85
-      ? "bg-destructive"
-      : pct >= 65
-        ? "bg-warning"
-        : "bg-foreground/70";
-  return (
-    <div className="flex flex-col gap-1">
-      <div className="font-mono text-[11.5px] text-muted-foreground">
-        <span className="text-foreground">{used}</span>
-        {" / "}
-        {total} {unit}
-      </div>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-        <div className={cn("h-full rounded-full transition-all", tone)} style={{ width: `${pct}%` }} />
-      </div>
-    </div>
-  );
+function formatRelative(when: Date | string): string {
+  const d = typeof when === "string" ? new Date(when) : when;
+  const diffMs = Date.now() - d.getTime();
+  const days = Math.floor(diffMs / 86_400_000);
+  if (days > 0) return `${days}d ago`;
+  const hours = Math.floor(diffMs / 3_600_000);
+  if (hours > 0) return `${hours}h ago`;
+  const minutes = Math.floor(diffMs / 60_000);
+  if (minutes > 0) return `${minutes}m ago`;
+  return "just now";
 }
 
-function RoleBadge({ role }: { role: Node["role"] }) {
+function RoleBadge({ role }: { role: Server["role"] }) {
   const tone =
     role === "manager"
       ? "border-info/30 bg-info/10 text-info"
@@ -206,8 +234,8 @@ function StatusBadge({
   status,
   availability,
 }: {
-  status: Node["status"];
-  availability: Node["availability"];
+  status: Server["status"];
+  availability: Server["availability"];
 }) {
   const tone =
     status === "ready" && availability === "active"

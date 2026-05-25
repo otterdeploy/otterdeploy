@@ -34,6 +34,7 @@ export const ID_PREFIX = {
   serviceEnvVar: "senv",
   environment: "env",
   proxyRoute: "proxy_route",
+  server: "server",
   // workspace: "workspace",
   workspace: "wksp",
 } as const;

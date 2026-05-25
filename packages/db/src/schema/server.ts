@@ -1,0 +1,59 @@
+// Swarm node (server) registry — one row per host the org has joined to the
+// Docker Swarm cluster. Live CPU/mem/disk metrics are NOT stored here; this
+// table holds capacity + identity. Runtime stats come from a separate
+// metrics path (TBD).
+import { createId, ID_PREFIX, type Id } from "@otterstack/shared/id";
+import {
+  index,
+  integer,
+  jsonb,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+} from "drizzle-orm/pg-core";
+
+import { organization } from "./auth";
+
+export const serverRoleEnum = pgEnum("server_role", ["manager", "worker"]);
+export const serverStatusEnum = pgEnum("server_status", ["ready", "draining", "down"]);
+export const serverAvailabilityEnum = pgEnum("server_availability", [
+  "active",
+  "drain",
+  "pause",
+]);
+
+export const server = pgTable(
+  "server",
+  {
+    id: text("id")
+      .primaryKey()
+      .$type<Id<typeof ID_PREFIX.server>>()
+      .$defaultFn(() => createId(ID_PREFIX.server)),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    host: text("host").notNull(),
+    region: text("region").notNull(),
+    role: serverRoleEnum("role").notNull().default("worker"),
+    status: serverStatusEnum("status").notNull().default("ready"),
+    availability: serverAvailabilityEnum("availability").notNull().default("active"),
+    cpuTotal: integer("cpu_total").notNull(),
+    memTotalGb: integer("mem_total_gb").notNull(),
+    diskTotalGb: integer("disk_total_gb"),
+    diskUnit: text("disk_unit").notNull().default("GB"),
+    daemonVersion: text("daemon_version"),
+    labels: jsonb("labels").$type<string[]>().notNull().default([]),
+    joinedAt: timestamp("joined_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("server_organization_id_idx").on(table.organizationId),
+    index("server_host_idx").on(table.host),
+  ],
+);
