@@ -215,26 +215,17 @@ export const INITIAL_NODES: Node<ResourceNodeData>[] = [
       tech: { label: "MariaDB 11.4", icon: Database02Icon },
     },
   },
-  {
-    id: "route-public",
-    type: "resource",
-    position: { x: COL[2], y: ROW[3] },
-    data: {
-      kind: "route",
-      name: "helio.so",
-      description:
-        "Caddy edge proxy — fans out by Host header. helio.so → web · api.helio.so → api · img.helio.so → imgproxy. TLS auto-renewed via Let's Encrypt.",
-      status: "running",
-    },
-  },
 ];
 
 /**
- * Edges model real traffic flow:
+ * Edges model real traffic flow inside the project. Caddy (the edge proxy)
+ * is platform infrastructure, not a user resource — it doesn't appear as a
+ * node. "This service is public" is a property of the service itself
+ * (rendered on the service's detail panel as Public URL).
  *
- *   route ──► web ──► api ──► postgres, redis, mongo
- *        ──► api          ◄── worker (queue consumer)
- *        ──► imgproxy ◄── web
+ *   web ──► api ──► postgres, redis, mongo
+ *       ──► imgproxy
+ *           api ◄── worker (queue consumer)
  *
  *   worker ──► postgres, mongo, legacy mysql (importer), mariadb analytics
  *   cron   ──► postgres (cleanup), mongo (log rotation)
@@ -245,16 +236,6 @@ export const INITIAL_NODES: Node<ResourceNodeData>[] = [
  * legacy importer) stay static.
  */
 export const INITIAL_EDGES: Edge[] = [
-  // ─── Public ingress (Caddy edge → public services) ──────────────────
-  { id: "route-web", source: "route-public", target: "web", animated: true },
-  { id: "route-api", source: "route-public", target: "api", animated: true },
-  {
-    id: "route-imgproxy",
-    source: "route-public",
-    target: "imgproxy",
-    animated: true,
-  },
-
   // ─── Web tier → backend / images ────────────────────────────────────
   { id: "web-api", source: "web", target: "api", animated: true },
   { id: "web-imgproxy", source: "web", target: "imgproxy", animated: true },
