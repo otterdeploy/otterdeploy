@@ -23,7 +23,7 @@ import {
 
 import {
   JoinTokenPanel,
-  MANAGER_ADDR,
+  ManagerAddressChip,
   type JoinRole,
 } from "./join-token-panel";
 
@@ -95,11 +95,7 @@ function JoinForm({ onDone }: { onDone: () => void }) {
           <p className="text-sm text-muted-foreground">
             <span className="font-semibold text-foreground">1.</span> SSH into the new host,
             install Docker, then run the join command below. The node will register with the
-            swarm manager at{" "}
-            <code className="rounded-sm bg-muted px-1 py-px font-mono text-[12px] text-foreground">
-              {MANAGER_ADDR}
-            </code>
-            .
+            swarm manager at <ManagerAddressChip />.
           </p>
           <JoinTokenPanel role={role} onRoleChange={setRole} />
         </section>

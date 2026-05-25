@@ -2,21 +2,25 @@ import { useState } from "react";
 
 import { Copy01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useQuery } from "@tanstack/react-query";
 
 import { Button } from "@/shared/components/ui/button";
+import { Skeleton } from "@/shared/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/shared/components/ui/toggle-group";
 import { cn } from "@/shared/lib/utils";
-
-// TODO: pull from the active org's manager + a real swarm.joinToken procedure
-// once that lands in packages/api. Worker vs manager tokens are issued by
-// `docker swarm join-token <role> -q` on the manager.
-export const MANAGER_ADDR = "10.0.0.11:2377";
-const WORKER_TOKEN =
-  "SWMTKN-1-3pe4v5z9qpz2m9k4n6h7r8s2t1u0v9w8x7y6z-4w7r8t9u0v2x3y4z5a6b7c";
-const MANAGER_TOKEN =
-  "SWMTKN-1-mgr-9z8y7x6w5v4u3t2s1r0q9p-3m4n5o6p7q8r9s0t1u2v";
+import { orpc } from "@/shared/server/orpc";
 
 export type JoinRole = "worker" | "manager";
+
+/**
+ * Shared hook for the swarm join tokens + manager advertise address. Both
+ * the panel and the surrounding dialog descriptions read from the same
+ * query — tanstack-query dedupes on queryKey so it's one network call per
+ * dialog open regardless of how many places need the data.
+ */
+export function useSwarmJoinTokens() {
+  return useQuery(orpc.server.joinTokens.queryOptions({ input: undefined }));
+}
 
 interface JoinTokenPanelProps {
   role: JoinRole;
@@ -24,10 +28,12 @@ interface JoinTokenPanelProps {
 }
 
 export function JoinTokenPanel({ role, onRoleChange }: JoinTokenPanelProps) {
+  const { data, isLoading } = useSwarmJoinTokens();
+  const token = role === "worker" ? data?.worker : data?.manager;
+  const managerAddr = data?.managerAddr ?? null;
+
   const command =
-    role === "worker"
-      ? `docker swarm join --token ${WORKER_TOKEN} ${MANAGER_ADDR}`
-      : `docker swarm join --token ${MANAGER_TOKEN} ${MANAGER_ADDR}`;
+    token && managerAddr ? `docker swarm join --token ${token} ${managerAddr}` : null;
 
   return (
     <div className="flex flex-col gap-3">
@@ -47,8 +53,31 @@ export function JoinTokenPanel({ role, onRoleChange }: JoinTokenPanelProps) {
         </ToggleGroupItem>
       </ToggleGroup>
 
-      <CommandBlock command={command} />
+      {isLoading ? (
+        <Skeleton className="h-16 w-full rounded-md" />
+      ) : command ? (
+        <CommandBlock command={command} />
+      ) : (
+        <div className="rounded-md border border-dashed bg-muted/20 p-3 text-[12px] text-muted-foreground">
+          Swarm hasn't been initialized on this host. Run{" "}
+          <code className="rounded-sm bg-muted px-1 py-px font-mono text-foreground">
+            docker swarm init
+          </code>{" "}
+          on the manager, then refresh.
+        </div>
+      )}
     </div>
+  );
+}
+
+/** Inline chip showing the manager join address, self-fetching so callers
+ *  don't have to thread it through props. */
+export function ManagerAddressChip() {
+  const { data } = useSwarmJoinTokens();
+  return (
+    <code className="rounded-sm bg-muted px-1 py-px font-mono text-[12px] text-foreground">
+      {data?.managerAddr ?? "—"}
+    </code>
   );
 }
 

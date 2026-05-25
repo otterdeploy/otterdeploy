@@ -1,4 +1,8 @@
-import { Database02Icon, ServerStack01Icon, FlashIcon } from "@hugeicons/core-free-icons";
+import {
+  Database02Icon,
+  ServerStack01Icon,
+  FlashIcon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useLiveQuery } from "@tanstack/react-db";
 import { useQuery } from "@tanstack/react-query";
@@ -66,8 +70,8 @@ export function OpenTerminalDialog({
   const containers = targets?.containers ?? [];
   const databases = targets?.databases ?? [];
 
-  const { data: servers = [] } = useLiveQuery(
-    (q) => q.from({ s: serverCollection }),
+  const { data: servers = [] } = useLiveQuery((q) =>
+    q.from({ s: serverCollection }),
   );
 
   // Group containers into service rows for the Container tab. A "service"
@@ -126,11 +130,14 @@ export function OpenTerminalDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[640px] gap-0 p-0">
+      <DialogContent className="sm:max-w-160 gap-0 p-0">
         <DialogHeader className="px-5 pt-5 pb-3">
-          <DialogTitle className="text-base font-semibold">Open a terminal</DialogTitle>
+          <DialogTitle className="text-base font-semibold">
+            Open a terminal
+          </DialogTitle>
           <DialogDescription className="sr-only">
-            Pick a container, swarm node, or database to start an interactive session.
+            Pick a container, swarm node, or database to start an interactive
+            session.
           </DialogDescription>
         </DialogHeader>
 
@@ -141,170 +148,192 @@ export function OpenTerminalDialog({
         >
           <TabsList variant="line" className="h-auto bg-transparent p-0">
             <TabsTrigger value="container" className="gap-1.5 px-3 py-2">
-              <HugeiconsIcon icon={ServerStack01Icon} strokeWidth={2} className="size-3.5" />
+              <HugeiconsIcon
+                icon={ServerStack01Icon}
+                strokeWidth={2}
+                className="size-3.5"
+              />
               Container
             </TabsTrigger>
             <TabsTrigger value="ssh" className="gap-1.5 px-3 py-2">
-              <HugeiconsIcon icon={FlashIcon} strokeWidth={2} className="size-3.5" />
+              <HugeiconsIcon
+                icon={FlashIcon}
+                strokeWidth={2}
+                className="size-3.5"
+              />
               SSH (node)
             </TabsTrigger>
             <TabsTrigger value="database" className="gap-1.5 px-3 py-2">
-              <HugeiconsIcon icon={Database02Icon} strokeWidth={2} className="size-3.5" />
+              <HugeiconsIcon
+                icon={Database02Icon}
+                strokeWidth={2}
+                className="size-3.5"
+              />
               Database
             </TabsTrigger>
           </TabsList>
 
           <TabsContents>
-          <TabsContent value="container" className="mt-4">
-            {/* Project filter pills */}
-            <div className="mb-3 flex flex-wrap items-center gap-1.5">
-              <FilterPill
-                active={projectFilter === "all"}
-                onClick={() => setProjectFilter("all")}
-                label="All projects"
-                count={projects.total}
-              />
-              {projects.list.map((p) => (
+            <TabsContent value="container" className="mt-4">
+              {/* Project filter pills */}
+              <div className="mb-3 flex flex-wrap items-center gap-1.5">
                 <FilterPill
-                  key={p.id}
-                  active={projectFilter === p.id}
-                  onClick={() => setProjectFilter(p.id)}
-                  label={p.id}
-                  count={p.count}
-                  dot={p.dot}
+                  active={projectFilter === "all"}
+                  onClick={() => setProjectFilter("all")}
+                  label="All projects"
+                  count={projects.total}
                 />
-              ))}
-            </div>
+                {projects.list.map((p) => (
+                  <FilterPill
+                    key={p.id}
+                    active={projectFilter === p.id}
+                    onClick={() => setProjectFilter(p.id)}
+                    label={p.id}
+                    count={p.count}
+                    dot={p.dot}
+                  />
+                ))}
+              </div>
 
-            <p className="mb-3 text-[12.5px] text-muted-foreground">
-              Pick a service then a specific container (replica) to{" "}
-              <span className="font-mono text-foreground/80">docker exec</span> into.
-            </p>
+              <p className="mb-3 text-[12.5px] text-muted-foreground">
+                Pick a service then a specific container (replica) to{" "}
+                <span className="font-mono text-foreground/80">
+                  docker exec
+                </span>{" "}
+                into.
+              </p>
 
-            <div className="-mx-2.5 max-h-[420px] space-y-2 overflow-y-auto px-2.5">
-              {filteredServices.length === 0 ? (
-                <div className="rounded-md border border-dashed bg-muted/20 py-8 text-center text-sm text-muted-foreground">
-                  No services in {projectFilter}.
+              <div className="-mx-2.5 max-h-105 space-y-2 overflow-y-auto px-2.5">
+                {filteredServices.length === 0 ? (
+                  <div className="rounded-md border border-dashed bg-muted/20 py-8 text-center text-sm text-muted-foreground">
+                    No services in {projectFilter}.
+                  </div>
+                ) : (
+                  filteredServices.map((s) => (
+                    <ServiceRow
+                      key={`${s.project}/${s.name}`}
+                      service={s.name}
+                      project={s.project}
+                      projectDot={
+                        PROJECT_DOT[s.project] ?? "bg-muted-foreground"
+                      }
+                      replicas={s.replicas.map((r) => r.label)}
+                      onPickReplica={(label) => {
+                        const replica = s.replicas.find(
+                          (r) => r.label === label,
+                        );
+                        if (!replica) return;
+                        pick({
+                          kind: "container",
+                          project: s.project,
+                          service: s.name,
+                          replica: replica.label,
+                          containerId: replica.containerId,
+                        });
+                      }}
+                    />
+                  ))
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="ssh" className="mt-4 space-y-2">
+              <p className="text-[12.5px] text-muted-foreground">
+                Open a shell on the host or SSH into a swarm node.
+              </p>
+              {servers.length === 0 ? (
+                <div className="rounded-md border border-dashed bg-muted/20 py-6 text-center text-sm text-muted-foreground">
+                  No servers registered yet.
                 </div>
               ) : (
-                filteredServices.map((s) => (
-                  <ServiceRow
-                    key={`${s.project}/${s.name}`}
-                    service={s.name}
-                    project={s.project}
-                    projectDot={PROJECT_DOT[s.project] ?? "bg-muted-foreground"}
-                    replicas={s.replicas.map((r) => r.label)}
-                    onPickReplica={(label) => {
-                      const replica = s.replicas.find((r) => r.label === label);
-                      if (!replica) return;
-                      pick({
-                        kind: "container",
-                        project: s.project,
-                        service: s.name,
-                        replica: replica.label,
-                        containerId: replica.containerId,
-                      });
-                    }}
-                  />
-                ))
+                servers.map((n) => {
+                  // The bootstrap localhost row is the host shell — only it has
+                  // a wired backend right now (the remote SSH exec path isn't
+                  // implemented yet). Other rows show but route to the
+                  // "not implemented" inline message.
+                  const isLocal = n.labels.includes("bootstrap");
+                  return (
+                    <button
+                      key={n.id}
+                      type="button"
+                      onClick={() =>
+                        pick({
+                          kind: "ssh",
+                          mode: isLocal ? "local" : "remote",
+                          node: n.name,
+                          host: n.host,
+                        })
+                      }
+                      className="flex w-full items-center gap-3 rounded-md border bg-card px-3 py-2.5 text-left transition-colors hover:border-ring"
+                    >
+                      <HugeiconsIcon
+                        icon={ServerStack01Icon}
+                        strokeWidth={1.8}
+                        className="size-4 text-muted-foreground"
+                      />
+                      <span className="font-mono text-[13px]">{n.name}</span>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "font-mono text-[10px] font-normal",
+                          isLocal
+                            ? "border-success/40 bg-success/10 text-success"
+                            : null,
+                        )}
+                      >
+                        {isLocal ? "host" : "swarm node"}
+                      </Badge>
+                      <span className="ml-auto font-mono text-[11px] text-muted-foreground">
+                        {n.host}
+                      </span>
+                    </button>
+                  );
+                })
               )}
-            </div>
-          </TabsContent>
+            </TabsContent>
 
-          <TabsContent value="ssh" className="mt-4 space-y-2">
-            <p className="text-[12.5px] text-muted-foreground">
-              Open a shell on the host or SSH into a swarm node.
-            </p>
-            {servers.length === 0 ? (
-              <div className="rounded-md border border-dashed bg-muted/20 py-6 text-center text-sm text-muted-foreground">
-                No servers registered yet.
-              </div>
-            ) : (
-              servers.map((n) => {
-                // The bootstrap localhost row is the host shell — only it has
-                // a wired backend right now (the remote SSH exec path isn't
-                // implemented yet). Other rows show but route to the
-                // "not implemented" inline message.
-                const isLocal = n.labels.includes("bootstrap");
-                return (
+            <TabsContent value="database" className="mt-4 space-y-2">
+              <p className="text-[12.5px] text-muted-foreground">
+                Open a database console — psql, redis-cli, mongosh, …
+              </p>
+              {databases.length === 0 ? (
+                <div className="rounded-md border border-dashed bg-muted/20 py-6 text-center text-sm text-muted-foreground">
+                  No databases in any project yet.
+                </div>
+              ) : (
+                databases.map((db) => (
                   <button
-                    key={n.id}
+                    key={db.resourceId}
                     type="button"
                     onClick={() =>
                       pick({
-                        kind: "ssh",
-                        mode: isLocal ? "local" : "remote",
-                        node: n.name,
-                        host: n.host,
+                        kind: "database",
+                        engine: db.engine,
+                        service: db.name,
+                        project: db.projectSlug,
                       })
                     }
                     className="flex w-full items-center gap-3 rounded-md border bg-card px-3 py-2.5 text-left transition-colors hover:border-ring"
                   >
                     <HugeiconsIcon
-                      icon={ServerStack01Icon}
+                      icon={Database02Icon}
                       strokeWidth={1.8}
                       className="size-4 text-muted-foreground"
                     />
-                    <span className="font-mono text-[13px]">{n.name}</span>
+                    <span className="font-mono text-[13px]">{db.name}</span>
                     <Badge
                       variant="outline"
-                      className={cn(
-                        "font-mono text-[10px] font-normal",
-                        isLocal
-                          ? "border-success/40 bg-success/10 text-success"
-                          : null,
-                      )}
+                      className="font-mono text-[10px] font-normal"
                     >
-                      {isLocal ? "host" : "swarm node"}
+                      {db.engine}
                     </Badge>
                     <span className="ml-auto font-mono text-[11px] text-muted-foreground">
-                      {n.host}
+                      {db.projectName}
                     </span>
                   </button>
-                );
-              })
-            )}
-          </TabsContent>
-
-          <TabsContent value="database" className="mt-4 space-y-2">
-            <p className="text-[12.5px] text-muted-foreground">
-              Open a database console — psql, redis-cli, mongosh, …
-            </p>
-            {databases.length === 0 ? (
-              <div className="rounded-md border border-dashed bg-muted/20 py-6 text-center text-sm text-muted-foreground">
-                No databases in any project yet.
-              </div>
-            ) : (
-              databases.map((db) => (
-                <button
-                  key={db.resourceId}
-                  type="button"
-                  onClick={() =>
-                    pick({
-                      kind: "database",
-                      engine: db.engine,
-                      service: db.name,
-                      project: db.projectSlug,
-                    })
-                  }
-                  className="flex w-full items-center gap-3 rounded-md border bg-card px-3 py-2.5 text-left transition-colors hover:border-ring"
-                >
-                  <HugeiconsIcon
-                    icon={Database02Icon}
-                    strokeWidth={1.8}
-                    className="size-4 text-muted-foreground"
-                  />
-                  <span className="font-mono text-[13px]">{db.name}</span>
-                  <Badge variant="outline" className="font-mono text-[10px] font-normal">
-                    {db.engine}
-                  </Badge>
-                  <span className="ml-auto font-mono text-[11px] text-muted-foreground">
-                    {db.projectName}
-                  </span>
-                </button>
-              ))
-            )}
-          </TabsContent>
+                ))
+              )}
+            </TabsContent>
           </TabsContents>
         </Tabs>
 
@@ -340,7 +369,9 @@ function FilterPill({
     >
       {dot && <span className={cn("size-1.5 rounded-full", dot)} />}
       <span>{label}</span>
-      <span className="font-mono text-[10px] text-muted-foreground">{count}</span>
+      <span className="font-mono text-[10px] text-muted-foreground">
+        {count}
+      </span>
     </button>
   );
 }
@@ -368,9 +399,13 @@ function ServiceRow({
         />
         <span className="font-mono text-[13px] font-medium">{service}</span>
         <span className="text-[11px] text-muted-foreground">
-          · {replicas.length} {replicas.length === 1 ? "container" : "containers"}
+          · {replicas.length}{" "}
+          {replicas.length === 1 ? "container" : "containers"}
         </span>
-        <Badge variant="outline" className="gap-1 font-mono text-[10px] font-normal">
+        <Badge
+          variant="outline"
+          className="gap-1 font-mono text-[10px] font-normal"
+        >
           <span className={cn("size-1.5 rounded-full", projectDot)} />
           {project}
         </Badge>
@@ -385,7 +420,11 @@ function ServiceRow({
             className="gap-1 font-mono text-[12px]"
             onClick={() => onPickReplica(r)}
           >
-            <HugeiconsIcon icon={FlashIcon} strokeWidth={2} className="size-3" />
+            <HugeiconsIcon
+              icon={FlashIcon}
+              strokeWidth={2}
+              className="size-3"
+            />
             {r}
           </Button>
         ))}

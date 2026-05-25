@@ -23,12 +23,15 @@ import {
   project,
   resource,
 } from "@otterstack/db/schema/project";
-import { type Id, ID_PREFIX as IDP } from "@otterstack/shared/id";
+import {
+  type Id,
+  ID_PREFIX as IDP,
+  type ProjectSlug,
+} from "@otterstack/shared/id";
 
 import type { ResourceId } from "../service/errors";
 
 type OrgId = Id<typeof IDP.organization>;
-type ProjectSlug = string;
 
 export interface TerminalContainer {
   containerId: string;
@@ -60,12 +63,16 @@ export interface TerminalTargets {
  * Parse "myservice.3.abc123" → ("myservice", "3"). Falls back to (full, null)
  * when the name doesn't carry a slot suffix (postgres containers do not).
  */
-function splitTaskName(name: string): { serviceName: string; slot: string | null } {
+function splitTaskName(name: string): {
+  serviceName: string;
+  slot: string | null;
+} {
   // Stripping a leading slash that docker prepends to Names entries.
   const clean = name.replace(/^\//, "");
   // Swarm task naming: `<service>.<slot>.<taskId>` — slot is numeric.
   const match = /^(.*)\.(\d+)\.[a-z0-9]+$/.exec(clean);
-  if (match && match[1]) return { serviceName: match[1], slot: match[2] ?? null };
+  if (match && match[1])
+    return { serviceName: match[1], slot: match[2] ?? null };
   return { serviceName: clean, slot: null };
 }
 
@@ -79,7 +86,8 @@ export async function listTerminalTargets(input: {
     .where(eq(project.organizationId, input.organizationId));
 
   const slugToProject = new Map<string, { id: string; name: string }>();
-  for (const p of projects) slugToProject.set(p.slug, { id: p.id, name: p.name });
+  for (const p of projects)
+    slugToProject.set(p.slug, { id: p.id, name: p.name });
 
   // ── Containers ────────────────────────────────────────────────────────
   // Docker label filter: `otterstack.managed=true`. We narrow further
@@ -112,7 +120,10 @@ export async function listTerminalTargets(input: {
         image: c.Image,
         state: c.State,
         resourceType,
-        projectSlug: labelProjectSlug,
+        // Cast: the slug came off a docker label as a raw string. We've
+        // already verified above (slugToProject.has) that it matches an
+        // org-owned project, so it's safe to brand here.
+        projectSlug: labelProjectSlug as ProjectSlug,
         projectName: slugToProject.get(labelProjectSlug)?.name ?? null,
         serviceResourceId: (labelResourceId as ResourceId | undefined) ?? null,
         serviceName,
@@ -151,7 +162,7 @@ export async function listTerminalTargets(input: {
     resourceId: r.resourceId,
     name: r.name,
     engine: r.engine,
-    projectSlug: r.projectSlug,
+    projectSlug: r.projectSlug as ProjectSlug,
     projectName: r.projectName,
   }));
 

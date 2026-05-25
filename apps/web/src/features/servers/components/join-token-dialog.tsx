@@ -7,7 +7,7 @@ import {
   DialogTitle,
 } from "@/shared/components/ui/dialog";
 
-import { JoinTokenPanel, MANAGER_ADDR, type JoinRole } from "./join-token-panel";
+import { JoinTokenPanel, ManagerAddressChip, type JoinRole } from "./join-token-panel";
 
 interface Props {
   open: boolean;
@@ -24,11 +24,7 @@ export function JoinTokenDialog({ open, onOpenChange }: Props) {
         </DialogHeader>
         <p className="text-sm text-muted-foreground">
           Run on a new host once Docker is installed. The node will register with the
-          swarm manager at{" "}
-          <code className="rounded-sm bg-muted px-1 py-px font-mono text-[12px] text-foreground">
-            {MANAGER_ADDR}
-          </code>
-          .
+          swarm manager at <ManagerAddressChip />.
         </p>
         <JoinTokenPanel role={role} onRoleChange={setRole} />
       </DialogContent>

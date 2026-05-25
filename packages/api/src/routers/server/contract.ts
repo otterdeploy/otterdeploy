@@ -83,6 +83,19 @@ export const serverStatsSchema = z.object({
 
 export const serverStatsInput = z.void();
 
+/**
+ * Swarm join tokens + the manager address operators paste into
+ * `docker swarm join`. Sourced from `docker swarm inspect` + `docker info`
+ * — "—" sentinels when the daemon hasn't been initialized as a swarm yet.
+ */
+export const swarmJoinTokensSchema = z.object({
+  worker: z.string(),
+  manager: z.string(),
+  managerAddr: z.string(),
+});
+
+export const joinTokensInput = z.void();
+
 export const serverContract = {
   list: oc
     .meta({ path: basePath, tag, method: "GET" })
@@ -116,4 +129,8 @@ export const serverContract = {
     .meta({ path: `${basePath}/stats`, tag, method: "GET" })
     .input(serverStatsInput)
     .output(serverStatsSchema),
+  joinTokens: oc
+    .meta({ path: `${basePath}/join-tokens`, tag, method: "GET" })
+    .input(joinTokensInput)
+    .output(swarmJoinTokensSchema),
 };
