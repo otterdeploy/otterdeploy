@@ -1,4 +1,6 @@
 import { Fragment } from "react";
+
+import { cn } from "@/shared/lib/utils";
 import { I } from "../icons";
 
 export type Step =
@@ -36,20 +38,20 @@ export function Stepper({
               type="button"
               onClick={() => !isFuture && setStep(id)}
               disabled={isFuture}
-              className={`flex shrink-0 items-center gap-2 rounded-md px-2.5 py-1 text-xs transition-colors ${
-                isCurrent
-                  ? "font-medium text-foreground"
-                  : isPast
-                    ? "text-muted-foreground hover:text-foreground"
-                    : "text-muted-foreground opacity-50"
-              } ${isFuture ? "cursor-default" : "cursor-pointer"}`}
+              className={cn(
+                "flex shrink-0 items-center gap-2 rounded-md px-2.5 py-1 text-xs transition-colors",
+                isCurrent && "font-medium text-foreground",
+                isPast && "cursor-pointer text-muted-foreground hover:text-foreground",
+                isFuture && "cursor-default text-muted-foreground opacity-50",
+              )}
             >
               <span
-                className={`grid size-[18px] place-items-center rounded-full font-mono text-[10px] font-semibold ${
+                className={cn(
+                  "grid size-[18px] place-items-center rounded-full font-mono text-[10px] font-semibold",
                   isCurrent || isPast
                     ? "bg-foreground text-background"
-                    : "border border-border bg-muted text-muted-foreground"
-                }`}
+                    : "border border-border bg-muted text-muted-foreground",
+                )}
               >
                 {isPast ? <I.check width={10} height={10} /> : i + 1}
               </span>
