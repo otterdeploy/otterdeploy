@@ -1,5 +1,11 @@
+import { useEffect, useRef } from "react";
 import { CodeIcon, Database02Icon, FlashIcon, ServerStack01Icon } from "@hugeicons/core-free-icons";
-import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Outlet,
+  useMatch,
+  useNavigate,
+} from "@tanstack/react-router";
 import {
   Background,
   Controls,
@@ -236,7 +242,23 @@ const FOCUS_ZOOM = 1.15;
 function GraphCanvas() {
   const navigate = useNavigate();
   const { orgSlug, projectSlug } = Route.useParams();
-  const { setCenter } = useReactFlow();
+  const { setCenter, fitView } = useReactFlow();
+
+  // Detect when the resource detail panel closes — fit the whole graph back
+  // into view so the user gets the wide overview instead of staying parked
+  // on the previously-focused node.
+  const resourceMatch = useMatch({
+    from: "/_app/$orgSlug/$projectSlug/graph/$resourceId",
+    shouldThrow: false,
+  });
+  const panelOpen = !!resourceMatch;
+  const wasOpen = useRef(panelOpen);
+  useEffect(() => {
+    if (wasOpen.current && !panelOpen) {
+      void fitView({ padding: 0.2, duration: 400 });
+    }
+    wasOpen.current = panelOpen;
+  }, [panelOpen, fitView]);
 
   const focusNode = (node: Node) => {
     // ReactFlow always renders a wrapper with class="react-flow". Measure it
