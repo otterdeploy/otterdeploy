@@ -11,8 +11,12 @@ import {
 
 import { SvglLogo } from "@/shared/components/brand/svgl-logo";
 import { Badge } from "@/shared/components/ui/badge";
-import { Card, CardContent } from "@/shared/components/ui/card";
-import { Input } from "@/shared/components/ui/input";
+import { Card } from "@/shared/components/ui/card";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@/shared/components/ui/input-group";
 import { I } from "./icons";
 import { SectionH, Field, Switch3 } from "./form-primitives";
 
@@ -165,22 +169,26 @@ export function StepSource({
           <div className="h-[22px]" />
           <SectionH title="Repository" />
           <Card className="mt-2.5 gap-0 overflow-hidden p-0">
-            <div className="flex items-center gap-2 border-b bg-muted/50 px-3 py-2">
-              <HugeiconsIcon
-                icon={Search01Icon}
-                strokeWidth={2}
-                className="size-3.5 shrink-0 text-muted-foreground"
-              />
-              <Input
-                className="h-7 flex-1 border-0 bg-transparent px-0 font-mono shadow-none focus-visible:ring-0"
+            <InputGroup className="rounded-none border-x-0 border-t-0 border-b shadow-none">
+              <InputGroupAddon>
+                <HugeiconsIcon
+                  icon={Search01Icon}
+                  strokeWidth={2}
+                  className="size-4 text-muted-foreground"
+                />
+              </InputGroupAddon>
+              <InputGroupInput
+                className="font-mono"
                 placeholder="search repositories…"
                 defaultValue={repo}
                 onChange={(e) => repoField.handleChange(e.target.value)}
               />
-              <Badge variant="outline" className="font-normal">
-                paperhouse · github app
-              </Badge>
-            </div>
+              <InputGroupAddon align="inline-end">
+                <Badge variant="outline" className="font-normal">
+                  paperhouse · github app
+                </Badge>
+              </InputGroupAddon>
+            </InputGroup>
             <div className="max-h-56 overflow-y-auto">
               {recent.map((r) => {
                 const isSelected = repo === r.repo;
