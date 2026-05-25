@@ -59,7 +59,9 @@
     "db:watch": "turbo -F @otterstack/db db:watch",
     "db:stop": "turbo -F @otterstack/db db:stop",
     "db:down": "turbo -F @otterstack/db db:down",
-    "check": "oxlint && oxfmt --write"
+    "check": "oxlint && oxfmt --write",
+    "format": "oxfmt --write",
+    "lint": "oxlint --fix"
   },
   "dependencies": {
     "@otterstack/env": "workspace:*",

@@ -97,6 +97,7 @@
     "typescript/require-array-sort-compare": "warn",
     "typescript/restrict-template-expressions": "warn",
     "typescript/triple-slash-reference": "warn",
+    "typescript/consistent-type-definitions": "error",
     "typescript/unbound-method": "warn",
     "unicorn/no-await-in-promise-methods": "warn",
     "unicorn/no-empty-file": "warn",
@@ -149,6 +150,9 @@
   "env": {
     "builtin": true
   },
+  "options": {
+    "typeAware": true
+  },
   "globals": {},
-  "ignorePatterns": ["apps/beta-landing/**", "routeTree.gen.ts"]
+  "ignorePatterns": ["apps/beta-landing/**", "routeTree.gen.ts", "**/$*", "**/$*/**"]
 }

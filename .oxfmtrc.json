@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/oxfmt/configuration_schema.json",
-  "ignorePatterns": ["routeTree.gen.ts"],
+  "ignorePatterns": ["routeTree.gen.ts", "**/$*", "**/$*/**"],
   "sortTailwindcss": {
     "stylesheet": "./apps/web/src/index.css",
     "functions": ["clsx", "cn"],
@@ -12,6 +12,7 @@
   "sortImports": {
     "groups": [
       "type-import",
+      "react-libs",
       ["value-builtin", "value-external"],
       "type-internal",
       "value-internal",
