@@ -1,16 +1,20 @@
 // Step_Image — container registry, image path + tag, available tags, service name, update strategy.
 // Ported verbatim from apps/web-demo/src/features/otterstack/screens/new-service.tsx lines 1143-1355.
 import type { AnyFieldApi } from "@tanstack/react-form";
+
 import { SvglLogo } from "@/shared/components/brand/svgl-logo";
+import { Badge } from "@/shared/components/ui/badge";
+import { Card, CardContent } from "@/shared/components/ui/card";
+import { Input } from "@/shared/components/ui/input";
 import { I } from "./icons";
 import { SectionH, Field, SettingRow } from "./form-primitives";
 
-type ImageProps = {
+interface ImageProps {
   imageField: AnyFieldApi;
   tagField: AnyFieldApi;
   registryField: AnyFieldApi;
   nameField: AnyFieldApi;
-};
+}
 
 const registries = [
   { id: "docker", name: "Docker Hub", host: "docker.io", auth: "public" },
@@ -48,7 +52,7 @@ const availableTags = [
   { tag: "main", size: "143 MB", pushed: "12m ago", sha: "f7c3a91" },
 ];
 
-const registryBrandSearch = (id: string): string | null =>
+const getRegistryBrand = (id: string): string | null =>
   id === "docker"
     ? "Docker"
     : id === "ghcr"
@@ -59,12 +63,7 @@ const registryBrandSearch = (id: string): string | null =>
           ? "Google Cloud"
           : null;
 
-export function StepImage({
-  imageField,
-  tagField,
-  registryField,
-  nameField,
-}: ImageProps) {
+export function StepImage({ imageField, tagField, registryField, nameField }: ImageProps) {
   const image = imageField.state.value as string;
   const tag = tagField.state.value as string;
   const registry = registryField.state.value as string;
@@ -74,177 +73,132 @@ export function StepImage({
   return (
     <>
       <SectionH title="Container registry" />
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gap: 10,
-          marginTop: 12,
-        }}
-      >
-        {registries.map((r) => (
-          <button
-            key={r.id}
-            type="button"
-            onClick={() => registryField.handleChange(r.id)}
-            className={`os-builder ${registry === r.id ? "active" : ""}`}
-          >
-            <div className="flex items-center gap-2">
-              {registryBrandSearch(r.id) ? (
-                <SvglLogo
-                  search={registryBrandSearch(r.id)!}
-                  fallback={r.name}
-                  size={16}
-                  background="transparent"
-                  border="0"
-                  color="currentColor"
-                  style={{ borderRadius: 0 }}
-                />
-              ) : (
-                <I.service width={13} height={13} />
-              )}
-              <div style={{ fontWeight: 600, fontSize: 13 }}>{r.name}</div>
-            </div>
-            <div
-              className="text-muted-foreground font-mono"
-              style={{ fontSize: 11, marginTop: 4 }}
+      <div className="mt-3 grid grid-cols-3 gap-2.5">
+        {registries.map((r) => {
+          const registryBrand = getRegistryBrand(r.id);
+          return (
+            <button
+              key={r.id}
+              type="button"
+              onClick={() => registryField.handleChange(r.id)}
+              className={`os-builder ${registry === r.id ? "active" : ""}`}
             >
-              {r.host}
-            </div>
-            <div style={{ marginTop: 6 }}>
-              <span
-                className="inline-flex items-center gap-1 font-mono"
-                style={{
-                  fontSize: 10,
-                  padding: "1px 5px",
-                  borderRadius: 4,
-                  border: "1px solid var(--border)",
-                  background: "var(--muted)",
-                  color: "var(--muted-foreground)",
-                }}
-              >
-                <I.lock width={9} height={9} />
-                {r.auth}
-              </span>
-            </div>
-          </button>
-        ))}
+              <div className="flex items-center gap-2">
+                {registryBrand ? (
+                  <SvglLogo
+                    search={registryBrand}
+                    fallback={r.name}
+                    size={16}
+                    background="transparent"
+                    border="0"
+                    color="currentColor"
+                    style={{ borderRadius: 0 }}
+                  />
+                ) : (
+                  <I.service width={13} height={13} />
+                )}
+                <div className="text-[13px] font-semibold">{r.name}</div>
+              </div>
+              <div className="mt-1 font-mono text-[11px] text-muted-foreground">{r.host}</div>
+              <div className="mt-1.5">
+                <Badge variant="outline" className="gap-1 font-mono text-[10px] font-normal">
+                  <I.lock width={9} height={9} />
+                  {r.auth}
+                </Badge>
+              </div>
+            </button>
+          );
+        })}
       </div>
 
-      <div style={{ height: 22 }} />
+      <div className="h-[22px]" />
       <SectionH title="Image" />
-      <div className="card" style={{ padding: 16, marginTop: 10 }}>
-        <div
-          style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10 }}
-        >
-          <Field label="Image">
-            <input
-              className="input font-mono"
-              value={image}
-              onChange={(e) => imageField.handleChange(e.target.value)}
-            />
-          </Field>
-          <Field label="Tag">
-            <input
-              className="input font-mono"
-              value={tag}
-              onChange={(e) => tagField.handleChange(e.target.value)}
-            />
-          </Field>
-        </div>
-        <div style={{ height: 8 }} />
-        <div
-          className="text-muted-foreground font-mono"
-          style={{ fontSize: 11 }}
-        >
-          resolved →{" "}
-          <span style={{ color: "var(--foreground)" }}>
-            {resolvedHost}/{image}:{tag}
-          </span>
-        </div>
-      </div>
+      <Card className="mt-2.5 rounded-md">
+        <CardContent className="flex flex-col gap-2">
+          <div className="grid grid-cols-[2fr_1fr] gap-2.5">
+            <Field label="Image">
+              <Input
+                className="font-mono"
+                value={image}
+                onChange={(e) => imageField.handleChange(e.target.value)}
+              />
+            </Field>
+            <Field label="Tag">
+              <Input
+                className="font-mono"
+                value={tag}
+                onChange={(e) => tagField.handleChange(e.target.value)}
+              />
+            </Field>
+          </div>
+          <div className="font-mono text-[11px] text-muted-foreground">
+            resolved →{" "}
+            <span className="text-foreground">
+              {resolvedHost}/{image}:{tag}
+            </span>
+          </div>
+        </CardContent>
+      </Card>
 
-      <div style={{ height: 18 }} />
-      <SectionH
-        title="Available tags"
-        sub="Recently pushed to this repository"
-      />
-      <div className="card" style={{ marginTop: 10, overflow: "hidden" }}>
-        {availableTags.map((t, i) => (
-          <button
-            key={t.tag}
-            type="button"
-            onClick={() => tagField.handleChange(t.tag)}
-            className="flex items-center gap-3"
-            style={{
-              width: "100%",
-              padding: "10px 14px",
-              borderTop: "none",
-              borderLeft: "none",
-              borderRight: "none",
-              borderBottom:
-                i === availableTags.length - 1
-                  ? "none"
-                  : "1px solid var(--border)",
-              background: tag === t.tag ? "var(--accent)" : "transparent",
-              textAlign: "left",
-              cursor: "pointer",
-              color: "var(--foreground)",
-            }}
-          >
-            <I.doc width={12} height={12} style={{ color: "var(--muted-foreground)", flexShrink: 0 }} />
-            <span
-              className="font-mono"
-              style={{ fontSize: 13, fontWeight: 500, flex: 1 }}
+      <div className="h-[18px]" />
+      <SectionH title="Available tags" sub="Recently pushed to this repository" />
+      <Card className="mt-2.5 gap-0 overflow-hidden rounded-md p-0">
+        {availableTags.map((t, i) => {
+          const isSelected = tag === t.tag;
+          return (
+            <button
+              key={t.tag}
+              type="button"
+              onClick={() => tagField.handleChange(t.tag)}
+              aria-pressed={isSelected}
+              className={`flex w-full items-center gap-3 px-3.5 py-2.5 text-left text-foreground transition-colors hover:bg-accent/40 ${
+                i === availableTags.length - 1 ? "" : "border-b border-border/60"
+              } ${isSelected ? "bg-accent" : ""}`}
             >
-              {t.tag}
-            </span>
-            <span className="text-muted-foreground font-mono" style={{ fontSize: 11 }}>
-              {t.sha}
-            </span>
-            <span className="text-muted-foreground" style={{ fontSize: 11 }}>
-              {t.size}
-            </span>
-            <span
-              className="text-muted-foreground"
-              style={{ fontSize: 11, width: 80, textAlign: "right" }}
-            >
-              {t.pushed}
-            </span>
-            {tag === t.tag && <I.check width={11} height={11} />}
-          </button>
-        ))}
-      </div>
+              <I.doc width={12} height={12} className="shrink-0 text-muted-foreground" />
+              <span className="flex-1 font-mono text-[13px] font-medium">{t.tag}</span>
+              <span className="font-mono text-[11px] text-muted-foreground">{t.sha}</span>
+              <span className="text-[11px] text-muted-foreground">{t.size}</span>
+              <span className="w-20 text-right text-[11px] text-muted-foreground">{t.pushed}</span>
+              {isSelected && <I.check width={11} height={11} className="text-success" />}
+            </button>
+          );
+        })}
+      </Card>
 
-      <div style={{ height: 18 }} />
+      <div className="h-[18px]" />
       <SectionH title="Service name" />
-      <div className="card" style={{ padding: 16, marginTop: 10 }}>
-        <Field label="Name">
-          <input
-            className="input font-mono"
-            value={nameField.state.value as string}
-            onChange={(e) => nameField.handleChange(e.target.value)}
-          />
-        </Field>
-      </div>
+      <Card className="mt-2.5 rounded-md">
+        <CardContent>
+          <Field label="Name">
+            <Input
+              className="font-mono"
+              value={nameField.state.value as string}
+              onChange={(e) => nameField.handleChange(e.target.value)}
+            />
+          </Field>
+        </CardContent>
+      </Card>
 
-      <div style={{ height: 18 }} />
+      <div className="h-[18px]" />
       <SectionH title="Update strategy" />
-      <div className="card" style={{ padding: 16, marginTop: 10 }}>
-        <SettingRow
-          label="Watch tag for changes"
-          defaultOn
-          sub={`Pull and redeploy when :${tag} digest changes`}
-        />
-        <SettingRow
-          label="Verify image signature (cosign)"
-          sub="Reject pulls that fail signature verification"
-        />
-        <SettingRow
-          label="Allow tag mutation"
-          sub={`Re-pull on every deploy even if :${tag} digest is identical`}
-        />
-      </div>
+      <Card className="mt-2.5 rounded-md">
+        <CardContent>
+          <SettingRow
+            label="Watch tag for changes"
+            defaultOn
+            sub={`Pull and redeploy when :${tag} digest changes`}
+          />
+          <SettingRow
+            label="Verify image signature (cosign)"
+            sub="Reject pulls that fail signature verification"
+          />
+          <SettingRow
+            label="Allow tag mutation"
+            sub={`Re-pull on every deploy even if :${tag} digest is identical`}
+          />
+        </CardContent>
+      </Card>
     </>
   );
 }
