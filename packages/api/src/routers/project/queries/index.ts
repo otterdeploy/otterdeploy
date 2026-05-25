@@ -33,4 +33,5 @@ export {
   getResourceById,
   listProjectResources,
   type DatabaseResourceJoined,
+  type ServiceResourceJoined,
 } from "./resource";

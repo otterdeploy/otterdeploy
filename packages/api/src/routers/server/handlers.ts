@@ -79,7 +79,7 @@ export async function createServer(
         ? new ServerConflictError({ host: input.host })
         : panic("server.createServer: unexpected DB error", cause),
   });
-  if (Result.isError(insert)) return insert;
+  if (Result.isError(insert)) return Result.err(insert.error);
   if (!insert.value) {
     return Result.err(new ServerConflictError({ host: input.host }));
   }

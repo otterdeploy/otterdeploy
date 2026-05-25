@@ -1,24 +1,27 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
   createFileRoute,
   Outlet,
+  useLoaderData,
   useMatch,
   useNavigate,
 } from "@tanstack/react-router";
+import { useLiveQuery } from "@tanstack/react-db";
 import {
   Background,
   Controls,
   ReactFlow,
   ReactFlowProvider,
+  useEdgesState,
+  useNodesState,
   useReactFlow,
   type Node,
 } from "@xyflow/react";
 
-import {
-  INITIAL_EDGES,
-  INITIAL_NODES,
-} from "@/features/projects/components/graph/initial-nodes";
+import { layoutGraph } from "@/features/projects/components/graph/layout-graph";
 import { ResourceNode } from "@/features/projects/components/graph/resource-node";
+import { resourceToNode } from "@/features/projects/components/graph/resource-to-node";
+import { createResourceCollection } from "@/features/projects/data/resource";
 
 export const Route = createFileRoute("/_app/$orgSlug/$projectSlug/graph")({
   component: RouteComponent,
@@ -33,9 +36,9 @@ function RouteComponent() {
       <div className="relative flex-1 overflow-hidden rounded-2xl border">
         <ReactFlowProvider>
           <GraphCanvas />
-        <div className="pointer-events-none absolute inset-0 top-10 z-10 flex size-full items-end justify-end">
-          <Outlet />
-        </div>
+          <div className="pointer-events-none absolute inset-0 top-10 z-10 flex size-full items-end justify-end">
+            <Outlet />
+          </div>
         </ReactFlowProvider>
       </div>
     </div>
@@ -53,7 +56,36 @@ const FOCUS_ZOOM = 1.15;
 function GraphCanvas() {
   const navigate = useNavigate();
   const { orgSlug, projectSlug } = Route.useParams();
+  const { project } = useLoaderData({ from: "/_app/$orgSlug/$projectSlug" });
   const { setCenter, fitView } = useReactFlow();
+
+  // Per-project collection; same factory the resource detail panel uses so
+  // both views share the underlying TanStack-Query cache.
+  const resourceCollection = useMemo(
+    () => createResourceCollection(project.id),
+    [project.id],
+  );
+  const { data: resources = [] } = useLiveQuery(
+    () => resourceCollection,
+    [resourceCollection],
+  );
+
+  // Convert + layout. Edges are D.2 — empty for now, so dagre falls back to
+  // stacking nodes by rank with no flow arrows.
+  const laidOut = useMemo(
+    () => layoutGraph(resources.map(resourceToNode), []),
+    [resources],
+  );
+
+  const [nodes, setNodes, onNodesChange] = useNodesState(laidOut);
+  const [edges, , onEdgesChange] = useEdgesState<never>([]);
+
+  // Sync the laid-out nodes whenever the resource list changes. Per-user drag
+  // state is intentionally not persisted here — dagre is the source of truth
+  // until we add stored positions (out of scope for D.1).
+  useEffect(() => {
+    setNodes(laidOut);
+  }, [laidOut, setNodes]);
 
   // Detect when the resource detail panel closes — fit the whole graph back
   // into view so the user gets the wide overview instead of staying parked
@@ -75,7 +107,7 @@ function GraphCanvas() {
     // ReactFlow always renders a wrapper with class="react-flow". Measure it
     // directly — falling back to window.innerWidth wildly overshoots since the
     // sidebar + chrome eat most of the window.
-    const wrapper = document.querySelector(".react-flow") as HTMLElement | null;
+    const wrapper = document.querySelector(".react-flow");
     const canvasWidth = wrapper?.clientWidth ?? 0;
     const targetX = node.position.x + CARD_W / 2;
     const targetY = node.position.y + CARD_H / 2;
@@ -96,12 +128,16 @@ function GraphCanvas() {
 
   return (
     <ReactFlow
-      defaultNodes={INITIAL_NODES}
-      defaultEdges={INITIAL_EDGES}
+      nodes={nodes}
+      edges={edges}
+      onNodesChange={onNodesChange}
+      onEdgesChange={onEdgesChange}
       nodeTypes={nodeTypes}
+      nodesDraggable={false}
       fitView
       fitViewOptions={{ padding: 0.2 }}
       proOptions={{ hideAttribution: true }}
+      defaultEdgeOptions={{ type: "smoothstep" }}
       onNodeClick={(_event, node) => {
         focusNode(node);
         void navigate({

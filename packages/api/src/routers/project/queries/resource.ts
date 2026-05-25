@@ -1,7 +1,11 @@
 import { and, eq } from "drizzle-orm";
 
 import { db } from "@otterstack/db";
-import { databaseResource, resource } from "@otterstack/db/schema/project";
+import {
+  databaseResource,
+  resource,
+  serviceResource,
+} from "@otterstack/db/schema/project";
 
 import type { ProjectId } from "../errors";
 import type { ResourceId } from "../../service/errors";
@@ -9,6 +13,11 @@ import type { ResourceId } from "../../service/errors";
 export interface DatabaseResourceJoined {
   resource: typeof resource.$inferSelect;
   database: typeof databaseResource.$inferSelect;
+}
+
+export interface ServiceResourceJoined {
+  resource: typeof resource.$inferSelect;
+  service: typeof serviceResource.$inferSelect;
 }
 
 /**
@@ -23,13 +32,23 @@ export async function listProjectResources(projectId: ProjectId) {
     .innerJoin(databaseResource, eq(databaseResource.resourceId, resource.id))
     .where(eq(resource.projectId, projectId));
 
-  return { databases };
+  const services = await db
+    .select({ resource, service: serviceResource })
+    .from(resource)
+    .innerJoin(serviceResource, eq(serviceResource.resourceId, resource.id))
+    .where(eq(resource.projectId, projectId));
+
+  return { databases, services };
 }
 
 export async function getResourceById(
   projectId: ProjectId,
   resourceId: ResourceId,
-): Promise<{ kind: "database"; record: DatabaseResourceJoined } | null> {
+): Promise<
+  | { kind: "database"; record: DatabaseResourceJoined }
+  | { kind: "service"; record: ServiceResourceJoined }
+  | null
+> {
   const [dbRow] = await db
     .select({ resource, database: databaseResource })
     .from(resource)
@@ -38,6 +57,15 @@ export async function getResourceById(
     .limit(1);
 
   if (dbRow) return { kind: "database", record: dbRow };
+
+  const [svcRow] = await db
+    .select({ resource, service: serviceResource })
+    .from(resource)
+    .innerJoin(serviceResource, eq(serviceResource.resourceId, resource.id))
+    .where(and(eq(resource.projectId, projectId), eq(resource.id, resourceId)))
+    .limit(1);
+
+  if (svcRow) return { kind: "service", record: svcRow };
   return null;
 }
 

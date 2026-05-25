@@ -29,8 +29,9 @@ import { getDatabaseProvisioner } from "./provisioners";
 import {
   buildContainerName,
   mapDatabaseResource,
+  mapServiceResource,
   sanitizeProjectSlug,
-  type PostgresResource,
+  type ProjectResource,
 } from "./views";
 
 type OrgId = Id<typeof IDP.organization>;
@@ -44,7 +45,7 @@ type ResourceRef = ProjectRef & {
   resourceId: ResourceId;
 };
 
-export type ProjectResource = PostgresResource; // union grows with new engines
+export type { ProjectResource };
 
 export async function listProjectResources(
   input: ProjectRef,
@@ -57,12 +58,13 @@ export async function listProjectResources(
     return Result.err(new ProjectNotFoundError({ projectId: input.projectId }));
   }
 
-  const { databases } = await listProjectResourcesQuery(input.projectId);
+  const { databases, services } = await listProjectResourcesQuery(input.projectId);
   const databaseViews = await Promise.all(
     databases.map((record) => mapDatabaseResource(record, project.slug)),
   );
+  const serviceViews = services.map((record) => mapServiceResource(record));
 
-  return Result.ok([...databaseViews]);
+  return Result.ok([...databaseViews, ...serviceViews]);
 }
 
 export async function getProjectResource(
@@ -85,8 +87,12 @@ export async function getProjectResource(
     );
   }
 
-  // Today there's only `database`; switch on `kind` when more land.
-  return Result.ok(await mapDatabaseResource(found.record, project.slug));
+  switch (found.kind) {
+    case "database":
+      return Result.ok(await mapDatabaseResource(found.record, project.slug));
+    case "service":
+      return Result.ok(mapServiceResource(found.record));
+  }
 }
 
 export async function deleteProjectResource(
@@ -112,29 +118,48 @@ export async function deleteProjectResource(
     );
   }
 
-  if (found.kind === "database") {
-    const provisioner = getDatabaseProvisioner(found.record.database.engine);
-    const serviceName = buildContainerName({
-      projectSlug: sanitizeProjectSlug(project.slug),
-      resourceName: found.record.resource.name,
-    });
+  switch (found.kind) {
+    case "database": {
+      const provisioner = getDatabaseProvisioner(found.record.database.engine);
+      const serviceName = buildContainerName({
+        projectSlug: sanitizeProjectSlug(project.slug),
+        resourceName: found.record.resource.name,
+      });
 
-    log.set({
-      resource: {
-        kind: found.record.database.engine,
-        projectId: input.projectId,
-        name: found.record.resource.name,
-      },
-    });
+      log.set({
+        resource: {
+          kind: found.record.database.engine,
+          projectId: input.projectId,
+          name: found.record.resource.name,
+        },
+      });
 
-    await deleteProxyRoutesByResource(input.resourceId);
-    await provisioner.destroy({ serviceName }, log);
-    await deleteResourceById(input.resourceId);
-    await reconcile(log);
+      await deleteProxyRoutesByResource(input.resourceId);
+      await provisioner.destroy({ serviceName }, log);
+      await deleteResourceById(input.resourceId);
+      await reconcile(log);
 
-    log.set({
-      teardown: { proxyRoutesRemoved: true, swarmDestroyed: true, dbDeleted: true },
-    });
+      log.set({
+        teardown: { proxyRoutesRemoved: true, swarmDestroyed: true, dbDeleted: true },
+      });
+      break;
+    }
+    case "service": {
+      // No Swarm teardown for services yet — deployment path not wired.
+      // The row delete cascades to service_resource + ports + env vars via
+      // the schema's onDelete: cascade.
+      log.set({
+        resource: {
+          kind: "service",
+          projectId: input.projectId,
+          name: found.record.resource.name,
+        },
+      });
+      await deleteProxyRoutesByResource(input.resourceId);
+      await deleteResourceById(input.resourceId);
+      log.set({ teardown: { proxyRoutesRemoved: true, dbDeleted: true } });
+      break;
+    }
   }
 
   return Result.ok({ ok: true });

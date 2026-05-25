@@ -23,9 +23,11 @@ import {
   projectListItemSchema,
   projectSchema,
   proxyRouteSchema,
+  serviceResourceSchema,
 } from "./contract";
 import {
   type DatabaseResourceRecord,
+  type ServiceResourceJoined,
   getProjectRecord,
   updateDatabaseResourceRuntime,
   updateDatabaseResourceStatus,
@@ -34,11 +36,33 @@ import {
 export type Project = z.infer<typeof projectSchema>;
 export type ProjectListItem = z.infer<typeof projectListItemSchema>;
 export type PostgresResource = z.infer<typeof postgresResourceSchema>;
+export type ServiceResourceView = z.infer<typeof serviceResourceSchema>;
+export type ProjectResource = PostgresResource | ServiceResourceView;
 export type ProxyRoute = z.infer<typeof proxyRouteSchema>;
 
 // ---------------------------------------------------------------------------
 // View mappers
 // ---------------------------------------------------------------------------
+
+/**
+ * Service-resource view mapper. Returns the slim shape exposed by the resource
+ * list — no live task state, no env vars, no ports. Those come later via
+ * dedicated procedures (service.tasks / service.env.list / etc.).
+ */
+export function mapServiceResource(record: ServiceResourceJoined): ServiceResourceView {
+  return {
+    resourceId: record.resource.id,
+    projectId: record.resource.projectId,
+    name: record.resource.name,
+    type: "service" as const,
+    status: record.resource.status,
+    image: record.service.image,
+    imageDigest: record.service.imageDigest,
+    replicas: record.service.replicas,
+    publicEnabled: record.service.publicEnabled,
+    publicDomain: record.service.publicDomain,
+  };
+}
 
 export async function mapDatabaseResource(
   record: DatabaseResourceRecord,

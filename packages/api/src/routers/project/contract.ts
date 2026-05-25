@@ -83,10 +83,29 @@ export const databaseResourceSchema = z.discriminatedUnion("engine", [
   postgresResourceSchema,
 ]);
 
+/**
+ * Minimal service view for the graph and resource list. D.1 keeps this slim
+ * — ports / env vars / live task state are deferred to later sub-slices so
+ * the list response stays cheap.
+ */
+export const serviceResourceSchema = z.object({
+  resourceId: zId(ID_PREFIX.resource),
+  projectId: zId(ID_PREFIX.project),
+  name: z.string(),
+  type: z.literal("service"),
+  status: z.enum(["draft", "valid", "invalid"]),
+  image: z.string(),
+  imageDigest: z.string().nullable(),
+  replicas: z.number().int().min(0),
+  publicEnabled: z.boolean(),
+  publicDomain: z.string().nullable(),
+});
+
 // All database engine variants are `type: "database"`. Spread so adding a new
 // engine to databaseResourceSchema automatically widens resourceSchema too.
 export const resourceSchema = z.discriminatedUnion("type", [
   ...databaseResourceSchema.options,
+  serviceResourceSchema,
 ]);
 
 export const listProjectResourcesInput = z.object({

@@ -75,13 +75,97 @@ function RouteComponent() {
 
   return (
     <div className="pointer-events-auto h-full w-3/5 animate-in fade-in-0 slide-in-from-right-2 overflow-hidden rounded-2xl rounded-tr-none border border-r-0 border-border bg-background duration-200">
-      {resource ? (
+      {resource && resource.type === "database" ? (
         <RealResourcePanel resource={resource} onClose={close} />
+      ) : resource && resource.type === "service" ? (
+        <ServiceResourcePanel resource={resource} onClose={close} />
       ) : demoNode ? (
         <DemoNodePanel node={demoNode.data} onClose={close} />
       ) : (
         <NotFound id={resourceId} onClose={close} />
       )}
+    </div>
+  );
+}
+
+/**
+ * Minimal panel for service resources. The deep postgres-shaped panel
+ * (RealResourcePanel) doesn't apply — services need their own per-section
+ * surface (logs, env, ports, deploys, replicas) which lands in later D.* slices.
+ * For D.1 we show identity + image + replica count so clicking a service node
+ * isn't a dead end.
+ */
+function ServiceResourcePanel({
+  resource,
+  onClose,
+}: {
+  resource: { name: string; image: string; replicas: number; status: string; publicEnabled: boolean; publicDomain: string | null };
+  onClose: () => void;
+}) {
+  return (
+    <div className="flex h-full flex-col overflow-hidden">
+      <div className="flex items-start justify-between gap-4 px-6 pt-6">
+        <div className="flex items-start gap-3">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Back to graph"
+            onClick={onClose}
+            className="mt-1"
+          >
+            <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="size-4" />
+          </Button>
+          <PanelIcon
+            node={{ kind: "service", name: resource.name, description: resource.image }}
+          />
+          <div className="flex flex-col gap-1">
+            <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+              Service
+            </div>
+            <div className="text-[20px] font-semibold leading-tight">{resource.name}</div>
+            <div className="font-mono text-[12px] text-muted-foreground">
+              {resource.image}
+            </div>
+          </div>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Close"
+          onClick={onClose}
+        >
+          <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-4" />
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 px-6 pt-5">
+        <PanelStat label="Replicas (desired)" value={String(resource.replicas)} />
+        <PanelStat label="Status" value={resource.status} />
+        <PanelStat
+          label="Public"
+          value={resource.publicEnabled ? (resource.publicDomain ?? "yes") : "private"}
+        />
+      </div>
+
+      <div className="mx-6 mt-6 rounded-md border border-dashed bg-muted/20 p-5 text-[12px] text-muted-foreground">
+        Service-specific sections (logs, env, ports, deployments, live replica
+        state) land in later D.* slices. The data is in the database and the
+        graph node renders correctly — this panel is intentionally minimal until
+        the per-section procedures ship.
+      </div>
+    </div>
+  );
+}
+
+function PanelStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border bg-card px-3 py-2">
+      <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
+        {label}
+      </div>
+      <div className="mt-0.5 font-mono text-[13px] text-foreground">{value}</div>
     </div>
   );
 }

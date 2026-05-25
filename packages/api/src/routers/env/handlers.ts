@@ -66,7 +66,7 @@ export async function createEnv(
         ? new EnvironmentConflictError({ slug: input.slug })
         : panic("env.createEnv: unexpected DB error", cause),
   });
-  if (Result.isError(insert)) return insert;
+  if (Result.isError(insert)) return Result.err(insert.error);
   if (!insert.value) {
     return Result.err(new EnvironmentConflictError({ slug: input.slug }));
   }
