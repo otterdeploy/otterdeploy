@@ -26,6 +26,30 @@ export function StepVersion({ kind }: StepVersionProps) {
   const version = useStore(form.store, (s) => s.values.version as string | null);
   const name = useStore(form.store, (s) => s.values.name as string);
 
+  // Pre-fill a free default the first time the user lands on this step for
+  // this kind. If the form's current `name` is already taken, replace it
+  // with the suggestion the backend returns. Tracked with a ref so we don't
+  // re-run on every keystroke after the user has typed.
+  const didPrefill = useRef(false);
+
+  const existingName = useMutation(...orpc.project.resource.checkName.mutationOptions(), Ü
+
+
+  );
+
+  const result = await existingName.mutateAsync({ projectId, name });
+  useEffect(() => {
+    if (didPrefill.current) return;
+    if (!name) return;
+    didPrefill.current = true;
+    void (async () => {
+      const res = await orpc.project.resource.checkName.call({ projectId, name });
+      if (!res.available && res.suggestion) {
+        form.setFieldValue("name", res.suggestion);
+      }
+    })();
+  }, [form, name, projectId]);
+
   const port =
     kind.id === "postgres"
       ? 5432
@@ -84,7 +108,26 @@ export function StepVersion({ kind }: StepVersionProps) {
       <SectionHeader title="Database name" />
       <Card className="mt-2.5 rounded-md">
         <CardContent>
-          <form.AppField name="name">
+          <form.AppField
+            name="name"
+            validators={{
+              // Live check on blur. Fires AFTER the user tabs away rather
+              // than on every keystroke so we don't hammer the API while
+              // they're still typing.
+              onBlurAsync: async ({ value }) => {
+                const trimmed = (value ?? "").trim();
+                if (!trimmed) return undefined;
+                const res = await orpc.project.resource.checkName.call({
+                  projectId,
+                  name: trimmed,
+                });
+                if (res.available) return undefined;
+                return res.suggestion
+                  ? `'${trimmed}' is already taken in this project — try '${res.suggestion}'`
+                  : `'${trimmed}' is already taken in this project`;
+              },
+            }}
+          >
             {(f) => (
               <f.TextField
                 label="Service name"
