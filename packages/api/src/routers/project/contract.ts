@@ -178,6 +178,34 @@ export const listDependenciesInput = z.object({
   projectId: zId(ID_PREFIX.project),
 });
 
+/**
+ * Live state of one swarm task. `state` is the high-level bucket used by the
+ * graph (running / building / error); finer-grained docker states are
+ * collapsed into these so the UI doesn't have to know about preparing /
+ * accepted / orphaned distinctions.
+ */
+export const serviceTaskSchema = z.object({
+  id: z.string(),
+  slot: z.number().int().nullable(),
+  /** "<serviceName>.<slot>", e.g. "api.1". Matches docker's display name. */
+  label: z.string(),
+  state: z.enum(["running", "building", "error"]),
+  /** Swarm node id the task was scheduled onto, or null if unscheduled. */
+  nodeId: z.string().nullable(),
+  /** Last reported message from the orchestrator. */
+  message: z.string().nullable(),
+  timestamp: z.string().nullable(),
+});
+
+export const serviceTasksSchema = z.object({
+  resourceId: zId(ID_PREFIX.resource),
+  tasks: z.array(serviceTaskSchema),
+});
+
+export const listServiceTasksInput = z.object({
+  projectId: zId(ID_PREFIX.project),
+});
+
 export const projectContract = {
   get: oc
     .errors({
@@ -290,6 +318,20 @@ export const projectContract = {
     })
     .input(listDependenciesInput)
     .output(z.array(dependencyEdgeSchema)),
+  serviceTasks: oc
+    .errors({
+      NOT_FOUND: {
+        status: 404,
+        message: "Project not found" as const,
+      },
+    })
+    .meta({
+      path: `${basePath}/{projectId}/service-tasks`,
+      tag,
+      method: "GET",
+    })
+    .input(listServiceTasksInput)
+    .output(z.array(serviceTasksSchema)),
   resource: {
     list: oc
       .errors({

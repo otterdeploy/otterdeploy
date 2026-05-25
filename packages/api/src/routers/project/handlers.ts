@@ -25,6 +25,12 @@ export {
 
 export { listProjectDependencies, type DependencyEdge } from "./dependencies";
 
+export {
+  listProjectServiceTasks,
+  type ServiceTasks,
+  type ServiceTaskInfo,
+} from "./service-tasks";
+
 export { listProjectProxyRoutes } from "./proxy-routes";
 
 export type {

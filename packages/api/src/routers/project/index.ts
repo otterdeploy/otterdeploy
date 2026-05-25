@@ -14,6 +14,7 @@ import {
   listProjectProxyRoutes,
   listProjectResources,
   listProjects,
+  listProjectServiceTasks,
   updateProject,
 } from "./handlers";
 
@@ -114,6 +115,22 @@ export const projectRouter = {
     async ({ input, context, errors }) => {
       context.log.set({ target: { type: "project", id: input.projectId } });
       const result = await listProjectDependencies({
+        projectId: input.projectId,
+        organizationId: context.activeOrganizationId,
+      });
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          ProjectNotFoundError: () => errors.NOT_FOUND(),
+        });
+      }
+      return result.value;
+    },
+  ),
+
+  serviceTasks: orgScopedProcedure.project.serviceTasks.handler(
+    async ({ input, context, errors }) => {
+      context.log.set({ target: { type: "project", id: input.projectId } });
+      const result = await listProjectServiceTasks({
         projectId: input.projectId,
         organizationId: context.activeOrganizationId,
       });
