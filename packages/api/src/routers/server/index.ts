@@ -3,6 +3,7 @@ import { matchError } from "better-result";
 import { orgScopedProcedure } from "../..";
 
 import { createServer, deleteServer, getServer, listServers } from "./handlers";
+import { getServerStats } from "./stats";
 
 export const serverRouter = {
   list: orgScopedProcedure.server.list.handler(async ({ context }) => {
@@ -50,5 +51,9 @@ export const serverRouter = {
       });
     }
     return result.value;
+  }),
+
+  stats: orgScopedProcedure.server.stats.handler(async ({ context }) => {
+    return getServerStats({ organizationId: context.activeOrganizationId });
   }),
 };

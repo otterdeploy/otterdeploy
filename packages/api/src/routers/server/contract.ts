@@ -48,6 +48,41 @@ export const deleteServerInput = z.object({
   id: zId(ID_PREFIX.server),
 });
 
+/**
+ * Per-node live aggregates surfaced on the servers page rows. CPU is in
+ * vCPU units (NanoCPUs / 1e9); memory is in GiB. Reservation values come
+ * from each task's `Spec.Resources.Reservations` — falls back to 0 when
+ * no reservation is set, which is honest about under-specified services.
+ */
+export const serverNodeStatsSchema = z.object({
+  serverId: zId(ID_PREFIX.server),
+  tasksRunning: z.number().int().min(0),
+  cpuAllocatedVcpu: z.number().min(0),
+  memoryAllocatedGb: z.number().min(0),
+  /** Project slugs with at least one task placed on this node. */
+  projects: z.array(z.string()),
+});
+
+export const serverClusterStatsSchema = z.object({
+  tasksRunning: z.number().int().min(0),
+  /** Per-project running-task count + display name, used by the project
+   *  filter pills on the servers page header. */
+  projects: z.array(
+    z.object({
+      slug: z.string(),
+      name: z.string(),
+      tasksRunning: z.number().int().min(0),
+    }),
+  ),
+});
+
+export const serverStatsSchema = z.object({
+  perServer: z.array(serverNodeStatsSchema),
+  cluster: serverClusterStatsSchema,
+});
+
+export const serverStatsInput = z.void();
+
 export const serverContract = {
   list: oc
     .meta({ path: basePath, tag, method: "GET" })
@@ -77,4 +112,8 @@ export const serverContract = {
     .meta({ path: `${basePath}/{id}`, tag, method: "DELETE" })
     .input(deleteServerInput)
     .output(z.object({ ok: z.boolean() })),
+  stats: oc
+    .meta({ path: `${basePath}/stats`, tag, method: "GET" })
+    .input(serverStatsInput)
+    .output(serverStatsSchema),
 };

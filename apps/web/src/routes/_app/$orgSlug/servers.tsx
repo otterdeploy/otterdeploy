@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { createFileRoute } from "@tanstack/react-router";
 import { useLiveQuery } from "@tanstack/react-db";
+import { useQuery } from "@tanstack/react-query";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   ArrowRight01Icon,
@@ -15,6 +16,7 @@ import {
 import { JoinTokenDialog } from "@/features/servers/components/join-token-dialog";
 import { ServerCreateDialog } from "@/features/servers/components/server-create-dialog";
 import { serverCollection, type Server } from "@/features/servers/data/server";
+import { orpc } from "@/shared/server/orpc";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent } from "@/shared/components/ui/card";
@@ -56,11 +58,34 @@ function ServersRoute() {
   const { data: servers = [] } = useLiveQuery((q) => q.from({ s: serverCollection }));
   const [createOpen, setCreateOpen] = useState(false);
   const [tokenOpen, setTokenOpen] = useState(false);
+  const [projectFilter, setProjectFilter] = useState<string>("all");
+
+  // Live cluster + per-node aggregates. Polled because tasks land/move
+  // outside our control; 5s matches the graph view's cadence.
+  const { data: stats } = useQuery({
+    ...orpc.server.stats.queryOptions({ input: undefined }),
+    refetchInterval: 5000,
+  });
+  const perServerStats = useMemo(() => {
+    type StatEntry = NonNullable<typeof stats>["perServer"][number];
+    const map = new Map<string, StatEntry>();
+    if (stats) for (const s of stats.perServer) map.set(s.serverId, s);
+    return map;
+  }, [stats]);
+
+  const visibleServers = useMemo(() => {
+    if (projectFilter === "all") return servers;
+    return servers.filter((s) => {
+      const ps = perServerStats.get(s.id);
+      return ps?.projects.includes(projectFilter);
+    });
+  }, [servers, perServerStats, projectFilter]);
 
   const totalCpu = servers.reduce((acc, s) => acc + s.cpuTotal, 0);
   const totalMem = servers.reduce((acc, s) => acc + s.memTotalGb, 0);
   const managerCount = servers.filter((s) => s.role === "manager").length;
   const nodeCount = servers.length;
+  const totalTasks = stats?.cluster.tasksRunning ?? null;
 
   return (
     <div className="flex flex-1 flex-col gap-5 p-5">
@@ -99,7 +124,7 @@ function ServersRoute() {
         <StatTile
           icon={Task01Icon}
           label="Tasks running"
-          value="—"
+          value={totalTasks != null ? String(totalTasks) : "—"}
           sub="across all replicas"
         />
         <StatTile
@@ -109,6 +134,26 @@ function ServersRoute() {
           sub={managerCount >= 1 ? "quorum healthy" : "no manager"}
         />
       </div>
+
+      {stats && stats.cluster.projects.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <FilterPill
+            active={projectFilter === "all"}
+            label="All projects"
+            count={stats.cluster.tasksRunning}
+            onClick={() => setProjectFilter("all")}
+          />
+          {stats.cluster.projects.map((p) => (
+            <FilterPill
+              key={p.slug}
+              active={projectFilter === p.slug}
+              label={p.name}
+              count={p.tasksRunning}
+              onClick={() => setProjectFilter(p.slug)}
+            />
+          ))}
+        </div>
+      )}
 
       {servers.length === 0 ? (
         <Empty className="rounded-md border border-dashed bg-muted/20 py-12">
@@ -145,8 +190,12 @@ function ServersRoute() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {servers.map((server) => (
-                <ServerRow key={server.id} server={server} />
+              {visibleServers.map((server) => (
+                <ServerRow
+                  key={server.id}
+                  server={server}
+                  stats={perServerStats.get(server.id) ?? null}
+                />
               ))}
             </TableBody>
           </Table>
@@ -262,13 +311,26 @@ function StatTile({
   );
 }
 
-function ServerRow({ server }: { server: Server }) {
-  // Allocation/usage live data isn't wired up yet — backend swarm-stats path
-  // pending. Until then the bars render at 0% against capacity so the visual
-  // shell is in place.
-  const cpuUsed = 0;
-  const memUsed = 0;
-  const taskCount: number | null = null;
+interface ServerRowStats {
+  tasksRunning: number;
+  cpuAllocatedVcpu: number;
+  memoryAllocatedGb: number;
+  projects: string[];
+}
+
+function ServerRow({
+  server,
+  stats,
+}: {
+  server: Server;
+  stats: ServerRowStats | null;
+}) {
+  // When stats haven't arrived yet (first paint, swarm unreachable, …) we
+  // render zeros against capacity rather than fake values — honest about
+  // missing live data without crashing the layout.
+  const cpuUsed = stats?.cpuAllocatedVcpu ?? 0;
+  const memUsed = stats?.memoryAllocatedGb ?? 0;
+  const taskCount = stats?.tasksRunning ?? null;
 
   return (
     <TableRow className="group">
@@ -480,6 +542,34 @@ function StatusBadge({
       />
       {label}
     </span>
+  );
+}
+
+function FilterPill({
+  active,
+  label,
+  count,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  count: number;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] transition-colors",
+        active
+          ? "border-foreground bg-card text-foreground"
+          : "border-transparent text-muted-foreground hover:bg-muted",
+      )}
+    >
+      <span>{label}</span>
+      <span className="font-mono text-[10px] text-muted-foreground">{count}</span>
+    </button>
   );
 }
 
