@@ -284,52 +284,6 @@
     border-width: 1.5px;
 }
 
-/* ── Demo design-system primitives (new-resource wizard) ──────────────────────
-   Ported from apps/web-demo tokens.css + screens3.css so the engine-picker
-   renders with the same visual language as the demo. Prefixed `os-` to avoid
-   collisions with Tailwind utilities.                                          */
-
 /* Mono font gets slashed-zero + stylistic alternate globally so the Tailwind
    `font-mono` utility carries the same typographic feel that `os-mono` did. */
 .font-mono { font-feature-settings: 'zero', 'ss03'; }
-
-/* Env tabs — used by the kind-group switcher */
-.os-envtab {
-  position: relative;
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 0 14px; height: 38px;
-  font-size: 12px; color: var(--muted-foreground);
-  background: transparent; border: 0; cursor: pointer;
-  border-right: 1px solid var(--border);
-  font-family: inherit;
-}
-.os-envtab:hover { color: var(--foreground); }
-.os-envtab[data-active="true"] { color: var(--foreground); font-weight: 500; }
-.os-envtab[data-active="true"] .os-envtab-underline {
-  position: absolute; left: 0; right: 0; bottom: -1px; height: 2px;
-  background: var(--foreground);
-}
-
-/* Builder / kind card */
-.os-builder {
-  position: relative; padding: 14px;
-  background: var(--card); border: 1px solid var(--border); border-radius: 8px;
-  cursor: pointer; text-align: left; font-family: inherit; color: var(--foreground);
-}
-.os-builder:hover { border-color: var(--ring); }
-.os-builder.active {
-  border-color: var(--foreground);
-  box-shadow: 0 0 0 1px var(--foreground) inset;
-  background: var(--accent);
-}
-.os-builder-icon {
-  width: 26px; height: 26px; border-radius: 5px;
-  background: var(--muted); border: 1px solid var(--border);
-  display: grid; place-items: center; color: var(--muted-foreground);
-}
-.os-builder-pop {
-  position: absolute; top: 8px; right: 8px;
-  font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em;
-  padding: 1px 6px; border-radius: 3px;
-  background: oklch(from var(--info) l c h / 12%); color: var(--info);
-}

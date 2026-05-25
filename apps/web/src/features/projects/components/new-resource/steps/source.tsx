@@ -16,7 +16,14 @@ import {
 } from "@/shared/components/ui/select";
 import { cn } from "@/shared/lib/utils";
 import { I } from "../icons";
-import { SectionHeader, Field, Switch3 } from "../form-primitives";
+import {
+  SectionHeader,
+  Field,
+  Switch3,
+  builderCardClass,
+  builderCardActiveClass,
+  builderIconClass,
+} from "../form-primitives";
 
 interface SourceProps {
   srcField: AnyFieldApi;
@@ -118,10 +125,10 @@ export function StepSource({
               key={s.id}
               type="button"
               onClick={() => srcField.handleChange(s.id)}
-              className={cn("os-builder", src === s.id && "active")}
+              className={cn(builderCardClass, src === s.id && builderCardActiveClass)}
             >
               <div className="flex items-center gap-2">
-                <div className="os-builder-icon">
+                <div className={builderIconClass}>
                   {svgl ? (
                     <SvglLogo
                       search={svgl}

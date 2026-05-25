@@ -60,7 +60,7 @@ export function ResourceKindDialog({
             What kind of thing do you want to add to this project?
           </DialogDescription>
         </DialogHeader>
-        <div className="os-scroll flex-1 overflow-y-auto px-5 pb-3">
+        <div className="flex-1 overflow-y-auto px-5 pb-3">
           <StepKind kindId={kindId} setKindId={setKindId} />
         </div>
         <DialogFooter className="m-0 flex-row items-center rounded-none border-t bg-card px-5 py-3 sm:justify-between">

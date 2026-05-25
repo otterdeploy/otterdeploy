@@ -11,7 +11,14 @@ import { Card, CardContent } from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
 import { cn } from "@/shared/lib/utils";
 
-import { SectionHeader, Field } from "../form-primitives";
+import {
+  SectionHeader,
+  Field,
+  builderCardClass,
+  builderCardActiveClass,
+  builderIconClass,
+  builderPopClass,
+} from "../form-primitives";
 
 interface VersionProps {
   kind: ServiceKind;
@@ -48,11 +55,11 @@ export function StepVersion({ kind, version, setVersion, nameField }: VersionPro
             key={v}
             type="button"
             onClick={() => setVersion(v)}
-            className={cn("os-builder", version === v && "active")}
+            className={cn(builderCardClass, version === v && builderCardActiveClass)}
           >
-            {i === 0 && <span className="os-builder-pop">latest</span>}
+            {i === 0 && <span className={builderPopClass}>latest</span>}
             <div className="flex items-center gap-2">
-              <div className="os-builder-icon">
+              <div className={builderIconClass}>
                 <DatabaseLogo value={kind.id} size={14} />
               </div>
               <span className="font-mono text-sm font-semibold">

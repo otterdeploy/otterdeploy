@@ -25,6 +25,7 @@ import { StepVersion } from "@/features/projects/components/new-resource/step-ve
 import { Stepper, type Step } from "@/features/projects/components/new-resource/stepper";
 import { SERVICE_KINDS } from "@/features/projects/data/service-kinds";
 import { Button } from "@/shared/components/ui/button";
+import { cn } from "@/shared/lib/utils";
 
 const DB_STEPS: Array<[Step, string, string]> = [
   ["kind", "Kind", "pick-kind"],
@@ -179,9 +180,10 @@ export function ResourceWizard({
       <Stepper steps={steps} idx={idx} setStep={setStep} />
 
       <div
-        className={`os-scroll flex-1 overflow-y-auto ${
-          layout === "dialog" ? "px-[18px] py-4" : "p-[22px]"
-        }`}
+        className={cn(
+          "flex-1 overflow-y-auto",
+          layout === "dialog" ? "px-[18px] py-4" : "p-[22px]",
+        )}
       >
         <div
           className={`mx-auto ${step === "kind" ? "max-w-[1100px]" : "max-w-[820px]"}`}

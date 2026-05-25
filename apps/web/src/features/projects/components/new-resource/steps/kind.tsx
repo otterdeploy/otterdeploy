@@ -14,7 +14,13 @@ import {
 import { DatabaseLogo } from "@/shared/components/brand/database-logo";
 import { cn } from "@/shared/lib/utils";
 
-import { SectionHeader } from "../form-primitives";
+import {
+  SectionHeader,
+  builderCardClass,
+  builderCardActiveClass,
+  builderIconClass,
+  builderPopClass,
+} from "../form-primitives";
 import { I, type IconKey } from "../icons";
 
 export type KindTab = "compute" | "data" | "template" | "custom";
@@ -94,17 +100,21 @@ export function StepKind({
       <div className="mt-2.5 flex items-center border-b">
         {tabs.map(([id, ic]) => {
           const Ic = I[ic];
+          const isActive = tab === id;
           return (
             <button
               key={id}
               type="button"
-              className="os-envtab h-9 border-r-0"
-              data-active={tab === id}
+              data-active={isActive}
               onClick={() => setTab(id)}
+              className={cn(
+                "group/tab relative inline-flex h-9 cursor-pointer items-center gap-1.5 border-0 bg-transparent px-3.5 text-xs text-muted-foreground hover:text-foreground",
+                isActive && "font-medium text-foreground",
+              )}
             >
               <Ic width={12} height={12} className="opacity-70" />
               <span>{groups[id].label}</span>
-              <span className="os-envtab-underline" />
+              <span className="absolute inset-x-0 -bottom-px h-0.5 bg-foreground opacity-0 group-data-[active=true]/tab:opacity-100" />
             </button>
           );
         })}
@@ -125,11 +135,15 @@ export function StepKind({
               key={it.id}
               type="button"
               onClick={() => setKindId(it.id)}
-              className={cn("os-builder min-h-24 text-left", active && "active")}
+              className={cn(
+                builderCardClass,
+                "min-h-24",
+                active && builderCardActiveClass,
+              )}
             >
-              {popular && <span className="os-builder-pop">popular</span>}
+              {popular && <span className={builderPopClass}>popular</span>}
               <div className="flex items-center gap-2">
-                <div className="os-builder-icon">{renderLauncherKindIcon(it, tab, Ic)}</div>
+                <div className={builderIconClass}>{renderLauncherKindIcon(it, tab, Ic)}</div>
                 <div className="flex-1 text-[13px] font-semibold">{it.name}</div>
                 {active && (
                   <I.check width={12} height={12} className="text-foreground" />
