@@ -1,7 +1,10 @@
 import { Database02Icon, ServerStack01Icon, FlashIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useLiveQuery } from "@tanstack/react-db";
+import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 
+import { serverCollection } from "@/features/servers/data/server";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -19,12 +22,8 @@ import {
   TabsTrigger,
 } from "@/shared/components/ui/tabs";
 import { cn } from "@/shared/lib/utils";
+import { orpc } from "@/shared/server/orpc";
 
-import {
-  MOCK_DATABASES,
-  MOCK_NODES,
-  MOCK_SERVICES,
-} from "../data/services";
 import type { SessionSource } from "../types";
 
 type Props = {
@@ -43,6 +42,13 @@ const PROJECT_DOT: Record<string, string> = {
   analytics: "bg-emerald-500",
 };
 
+interface PickerService {
+  project: string;
+  projectName: string;
+  name: string;
+  replicas: Array<{ label: string; containerId: string }>;
+}
+
 export function OpenTerminalDialog({
   open,
   onOpenChange,
@@ -52,11 +58,50 @@ export function OpenTerminalDialog({
   const [tab, setTab] = useState<"container" | "ssh" | "database">("container");
   const [projectFilter, setProjectFilter] = useState(defaultProject);
 
-  // Derive available projects + counts from services data.
+  // Live data: containers + databases come from terminal.targets (one query
+  // covers both tabs). SSH nodes come from the server collection.
+  const { data: targets } = useQuery(
+    orpc.terminal.targets.queryOptions({ input: undefined }),
+  );
+  const containers = targets?.containers ?? [];
+  const databases = targets?.databases ?? [];
+
+  const { data: servers = [] } = useLiveQuery(
+    (q) => q.from({ s: serverCollection }),
+  );
+
+  // Group containers into service rows for the Container tab. A "service"
+  // here is one entry in the list — its replicas are the individual
+  // containers exec is targeting. Postgres containers come through as
+  // single-replica services keyed by their service name.
+  const services = useMemo<PickerService[]>(() => {
+    const byKey = new Map<string, PickerService>();
+    for (const c of containers) {
+      if (!c.projectSlug || !c.serviceName) continue;
+      const key = `${c.projectSlug}/${c.serviceName}`;
+      let svc = byKey.get(key);
+      if (!svc) {
+        svc = {
+          project: c.projectSlug,
+          projectName: c.projectName ?? c.projectSlug,
+          name: c.serviceName,
+          replicas: [],
+        };
+        byKey.set(key, svc);
+      }
+      svc.replicas.push({
+        label: c.replicaSlot ?? c.containerId.slice(0, 12),
+        containerId: c.containerId,
+      });
+    }
+    return [...byKey.values()];
+  }, [containers]);
+
+  // Derive available projects + counts from the live container set.
   const projects = useMemo(() => {
     const counts = new Map<string, number>();
     let total = 0;
-    for (const s of MOCK_SERVICES) {
+    for (const s of services) {
       counts.set(s.project, (counts.get(s.project) ?? 0) + s.replicas.length);
       total += s.replicas.length;
     }
@@ -67,12 +112,12 @@ export function OpenTerminalDialog({
     }));
     list.sort((a, b) => b.count - a.count);
     return { total, list };
-  }, []);
+  }, [services]);
 
   const filteredServices = useMemo(() => {
-    if (projectFilter === "all") return MOCK_SERVICES;
-    return MOCK_SERVICES.filter((s) => s.project === projectFilter);
-  }, [projectFilter]);
+    if (projectFilter === "all") return services;
+    return services.filter((s) => s.project === projectFilter);
+  }, [projectFilter, services]);
 
   function pick(source: SessionSource) {
     onPick(source);
@@ -170,76 +215,95 @@ export function OpenTerminalDialog({
             <p className="text-[12.5px] text-muted-foreground">
               Open a shell on the host or SSH into a swarm node.
             </p>
-            {MOCK_NODES.map((n) => (
-              <button
-                key={n.name}
-                type="button"
-                onClick={() =>
-                  pick({
-                    kind: "ssh",
-                    mode: n.kind === "local" ? "local" : "remote",
-                    node: n.name,
-                    host: n.host,
-                  })
-                }
-                className="flex w-full items-center gap-3 rounded-md border bg-card px-3 py-2.5 text-left transition-colors hover:border-ring"
-              >
-                <HugeiconsIcon
-                  icon={ServerStack01Icon}
-                  strokeWidth={1.8}
-                  className="size-4 text-muted-foreground"
-                />
-                <span className="font-mono text-[13px]">{n.name}</span>
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "font-mono text-[10px] font-normal",
-                    n.kind === "local"
-                      ? "border-success/40 bg-success/10 text-success"
-                      : null,
-                  )}
-                >
-                  {n.kind === "local" ? "host" : "swarm node"}
-                </Badge>
-                <span className="ml-auto font-mono text-[11px] text-muted-foreground">
-                  {n.host}
-                </span>
-              </button>
-            ))}
+            {servers.length === 0 ? (
+              <div className="rounded-md border border-dashed bg-muted/20 py-6 text-center text-sm text-muted-foreground">
+                No servers registered yet.
+              </div>
+            ) : (
+              servers.map((n) => {
+                // The bootstrap localhost row is the host shell — only it has
+                // a wired backend right now (the remote SSH exec path isn't
+                // implemented yet). Other rows show but route to the
+                // "not implemented" inline message.
+                const isLocal = n.labels.includes("bootstrap");
+                return (
+                  <button
+                    key={n.id}
+                    type="button"
+                    onClick={() =>
+                      pick({
+                        kind: "ssh",
+                        mode: isLocal ? "local" : "remote",
+                        node: n.name,
+                        host: n.host,
+                      })
+                    }
+                    className="flex w-full items-center gap-3 rounded-md border bg-card px-3 py-2.5 text-left transition-colors hover:border-ring"
+                  >
+                    <HugeiconsIcon
+                      icon={ServerStack01Icon}
+                      strokeWidth={1.8}
+                      className="size-4 text-muted-foreground"
+                    />
+                    <span className="font-mono text-[13px]">{n.name}</span>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "font-mono text-[10px] font-normal",
+                        isLocal
+                          ? "border-success/40 bg-success/10 text-success"
+                          : null,
+                      )}
+                    >
+                      {isLocal ? "host" : "swarm node"}
+                    </Badge>
+                    <span className="ml-auto font-mono text-[11px] text-muted-foreground">
+                      {n.host}
+                    </span>
+                  </button>
+                );
+              })
+            )}
           </TabsContent>
 
           <TabsContent value="database" className="mt-4 space-y-2">
             <p className="text-[12.5px] text-muted-foreground">
               Open a database console — psql, redis-cli, mongosh, …
             </p>
-            {MOCK_DATABASES.map((db) => (
-              <button
-                key={`${db.project}/${db.name}`}
-                type="button"
-                onClick={() =>
-                  pick({
-                    kind: "database",
-                    engine: db.engine,
-                    service: db.name,
-                    project: db.project,
-                  })
-                }
-                className="flex w-full items-center gap-3 rounded-md border bg-card px-3 py-2.5 text-left transition-colors hover:border-ring"
-              >
-                <HugeiconsIcon
-                  icon={Database02Icon}
-                  strokeWidth={1.8}
-                  className="size-4 text-muted-foreground"
-                />
-                <span className="font-mono text-[13px]">{db.name}</span>
-                <Badge variant="outline" className="font-mono text-[10px] font-normal">
-                  {db.engine}
-                </Badge>
-                <span className="ml-auto font-mono text-[11px] text-muted-foreground">
-                  {db.project}
-                </span>
-              </button>
-            ))}
+            {databases.length === 0 ? (
+              <div className="rounded-md border border-dashed bg-muted/20 py-6 text-center text-sm text-muted-foreground">
+                No databases in any project yet.
+              </div>
+            ) : (
+              databases.map((db) => (
+                <button
+                  key={db.resourceId}
+                  type="button"
+                  onClick={() =>
+                    pick({
+                      kind: "database",
+                      engine: db.engine,
+                      service: db.name,
+                      project: db.projectSlug,
+                    })
+                  }
+                  className="flex w-full items-center gap-3 rounded-md border bg-card px-3 py-2.5 text-left transition-colors hover:border-ring"
+                >
+                  <HugeiconsIcon
+                    icon={Database02Icon}
+                    strokeWidth={1.8}
+                    className="size-4 text-muted-foreground"
+                  />
+                  <span className="font-mono text-[13px]">{db.name}</span>
+                  <Badge variant="outline" className="font-mono text-[10px] font-normal">
+                    {db.engine}
+                  </Badge>
+                  <span className="ml-auto font-mono text-[11px] text-muted-foreground">
+                    {db.projectName}
+                  </span>
+                </button>
+              ))
+            )}
           </TabsContent>
           </TabsContents>
         </Tabs>

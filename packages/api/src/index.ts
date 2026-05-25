@@ -7,6 +7,7 @@ import { envContract } from "./routers/env/contract";
 import { projectContract } from "./routers/project/contract";
 import { serverContract } from "./routers/server/contract";
 import { serviceContract } from "./routers/service/contract";
+import { terminalContract } from "./routers/terminal/contract";
 import type { Id, ID_PREFIX } from "@otterstack/shared/id";
 
 // Per-procedure compliance trail, shaped to the evlog audit schema
@@ -61,6 +62,7 @@ export const publicProcedure = implement({
   project: projectContract,
   server: serverContract,
   service: serviceContract,
+  terminal: terminalContract,
 })
   .$context<Context>()
   .use(traceProcedure);
