@@ -217,8 +217,8 @@ const initialEdges: Edge[] = [
 
 function RouteComponent() {
   return (
-    <div className="relative flex flex-1 overflow-hidden bg-muted/40 p-3">
-      <div className="relative flex-1 overflow-hidden rounded-2xl border bg-background">
+    <div className="relative flex flex-1 overflow-hidden">
+      <div className="relative flex-1 overflow-hidden">
         <ReactFlowProvider>
           <GraphCanvas />
         </ReactFlowProvider>
