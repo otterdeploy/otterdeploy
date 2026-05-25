@@ -1,9 +1,7 @@
-// Step_Builder — builder picker + per-builder config.
-// Adapted from local useState to tanstack-form AnyFieldApi props.
-import type { AnyFieldApi } from "@tanstack/react-form";
+import { useStore } from "@tanstack/react-form";
 
 import { Badge } from "@/shared/components/ui/badge";
-import { Card } from "@/shared/components/ui/card";
+import { Card, CardContent } from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
 import {
   Select,
@@ -16,6 +14,7 @@ import { Textarea } from "@/shared/components/ui/textarea";
 import { cn } from "@/shared/lib/utils";
 
 import { Field, SectionHeader } from "../form-primitives";
+import { useFormContext } from "../form-context";
 import { I, type IconKey } from "../icons";
 
 // ────── Types ──────
@@ -302,17 +301,11 @@ function BuilderConfig({ builderId, service }: { builderId: string; service: str
   );
 }
 
-// ────── Props ──────
-export interface BuilderProps {
-  builderIdField: AnyFieldApi;
-  /** Service name — passed to BuilderConfig for placeholder paths. */
-  nameField: AnyFieldApi;
-}
-
 // ────── StepBuilder ──────
-export function StepBuilder({ builderIdField, nameField }: BuilderProps) {
-  const builderId = builderIdField.state.value as string;
-  const name = nameField.state.value as string;
+export function StepBuilder() {
+  const form = useFormContext();
+  const builderId = useStore(form.store, (s) => s.values.builderId as string);
+  const name = useStore(form.store, (s) => s.values.name as string);
 
   return (
     <>
@@ -345,7 +338,7 @@ export function StepBuilder({ builderIdField, nameField }: BuilderProps) {
             <button
               key={b.id}
               type="button"
-              onClick={() => builderIdField.handleChange(b.id)}
+              onClick={() => form.setFieldValue("builderId", b.id)}
               className={cn(
                 "relative rounded-md border bg-card p-3.5 text-left text-foreground transition-colors hover:border-ring",
                 isActive && "border-foreground bg-accent shadow-[0_0_0_1px_var(--foreground)_inset]",

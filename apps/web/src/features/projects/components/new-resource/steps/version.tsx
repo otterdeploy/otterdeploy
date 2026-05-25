@@ -1,6 +1,4 @@
-// Step_Version — pick a database engine version and set the service name.
-// Ported verbatim from apps/web-demo/src/features/otterstack/screens/new-service.tsx lines 1508-1602.
-import type { AnyFieldApi } from "@tanstack/react-form";
+import { useStore } from "@tanstack/react-form";
 
 import { CheckmarkCircle02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -8,26 +6,26 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { type ServiceKind } from "@/features/projects/data/service-kinds";
 import { DatabaseLogo } from "@/shared/components/brand/database-logo";
 import { Card, CardContent } from "@/shared/components/ui/card";
-import { Input } from "@/shared/components/ui/input";
 import { cn } from "@/shared/lib/utils";
 
 import {
   SectionHeader,
-  Field,
   builderCardClass,
   builderCardActiveClass,
   builderIconClass,
   builderPopClass,
 } from "../form-primitives";
+import { useFormContext } from "../form-context";
 
-interface VersionProps {
+interface StepVersionProps {
   kind: ServiceKind;
-  version: string | null;
-  setVersion: (v: string) => void;
-  nameField: AnyFieldApi;
 }
 
-export function StepVersion({ kind, version, setVersion, nameField }: VersionProps) {
+export function StepVersion({ kind }: StepVersionProps) {
+  const form = useFormContext();
+  const version = useStore(form.store, (s) => s.values.version as string | null);
+  const name = useStore(form.store, (s) => s.values.name as string);
+
   const port =
     kind.id === "postgres"
       ? 5432
@@ -41,8 +39,6 @@ export function StepVersion({ kind, version, setVersion, nameField }: VersionPro
               ? 9000
               : "auto";
 
-  const name = (nameField.state.value as string) ?? "";
-
   return (
     <>
       <SectionHeader
@@ -54,7 +50,7 @@ export function StepVersion({ kind, version, setVersion, nameField }: VersionPro
           <button
             key={v}
             type="button"
-            onClick={() => setVersion(v)}
+            onClick={() => form.setFieldValue("version", v)}
             className={cn(builderCardClass, version === v && builderCardActiveClass)}
           >
             {i === 0 && <span className={builderPopClass}>latest</span>}
@@ -88,25 +84,15 @@ export function StepVersion({ kind, version, setVersion, nameField }: VersionPro
       <SectionHeader title="Database name" />
       <Card className="mt-2.5 rounded-md">
         <CardContent>
-          <Field label="Service name">
-            <Input
-              className="font-mono"
-              value={name}
-              onChange={(e) => nameField.handleChange(e.target.value)}
-              onBlur={nameField.handleBlur}
-            />
-            {nameField.state.meta.errors.length > 0 && (
-              <div className="mt-0.5 text-[11px] text-destructive">
-                {nameField.state.meta.errors.join(", ")}
-              </div>
+          <form.AppField name="name">
+            {(f) => (
+              <f.TextField
+                label="Service name"
+                className="font-mono"
+                description={`Reachable at ${name || kind.id}.internal:${port}`}
+              />
             )}
-            <div className="mt-1 text-[11px] text-muted-foreground">
-              Reachable at{" "}
-              <span className="font-mono text-foreground">
-                {name || kind.id}.internal:{port}
-              </span>
-            </div>
-          </Field>
+          </form.AppField>
         </CardContent>
       </Card>
     </>

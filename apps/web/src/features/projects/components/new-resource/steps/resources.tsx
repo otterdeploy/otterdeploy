@@ -1,55 +1,34 @@
-import type { AnyFieldApi } from "@tanstack/react-form";
+import { useStore } from "@tanstack/react-form";
 
 import { NODES, RESOURCE_PRESETS } from "@/features/projects/data/service-kinds";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { Checkbox } from "@/shared/components/ui/checkbox";
 import { Input } from "@/shared/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/components/ui/select";
-import { Slider } from "@/shared/components/ui/slider";
 import { cn } from "@/shared/lib/utils";
 
 import {
   builderCardActiveClass,
   builderCardClass,
   builderPopClass,
-  Field,
   SectionHeader,
   SettingRow,
 } from "../form-primitives";
+import { useFormContext } from "../form-context";
 import { I } from "../icons";
 
-interface ResourcesProps {
-  presetIdField: AnyFieldApi;
-  customCpuField: AnyFieldApi;
-  customMemField: AnyFieldApi;
-  replicasField: AnyFieldApi;
-  placementField: AnyFieldApi;
-  pinnedNodeIdField: AnyFieldApi;
+interface StepResourcesProps {
   isDb: boolean;
 }
 
-export function StepResources({
-  presetIdField,
-  customCpuField,
-  customMemField,
-  replicasField,
-  placementField,
-  pinnedNodeIdField,
-  isDb,
-}: ResourcesProps) {
-  const presetId = presetIdField.state.value as string;
-  const customCpu = customCpuField.state.value as number;
-  const customMem = customMemField.state.value as number;
-  const replicas = replicasField.state.value as number;
-  const placement = placementField.state.value as string;
-  const pinnedNodeId = pinnedNodeIdField.state.value as string | null;
+export function StepResources({ isDb }: StepResourcesProps) {
+  const form = useFormContext();
+  const presetId = useStore(form.store, (s) => s.values.presetId as string);
+  const customCpu = useStore(form.store, (s) => s.values.customCpu as number);
+  const customMem = useStore(form.store, (s) => s.values.customMem as number);
+  const replicas = useStore(form.store, (s) => s.values.replicas as number);
+  const placement = useStore(form.store, (s) => s.values.placement as string);
+  const pinnedNodeId = useStore(form.store, (s) => s.values.pinnedNodeId as string | null);
 
   const preset = RESOURCE_PRESETS.find((p) => p.id === presetId);
   const cpu = preset?.cpu ?? customCpu;
@@ -67,7 +46,7 @@ export function StepResources({
             <button
               key={p.id}
               type="button"
-              onClick={() => presetIdField.handleChange(p.id)}
+              onClick={() => form.setFieldValue("presetId", p.id)}
               className={cn(
                 builderCardClass,
                 "min-h-24",
@@ -94,34 +73,14 @@ export function StepResources({
 
       {presetId === "custom" && (
         <Card className="mt-3 p-4">
-          <Field label={`CPU · ${customCpu} vCPU`}>
-            <Slider
-              min={0.1}
-              max={8}
-              step={0.1}
-              value={[customCpu]}
-              onValueChange={(v) => {
-                const next = Array.isArray(v) ? v[0] : v;
-                if (typeof next === "number") customCpuField.handleChange(next);
-              }}
-            />
-          </Field>
-          <div className="mt-3">
-            <Field
-              label={`Memory · ${customMem >= 1024 ? (customMem / 1024).toFixed(1) + " GB" : customMem + " MB"}`}
-            >
-              <Slider
-                min={128}
-                max={16384}
-                step={128}
-                value={[customMem]}
-                onValueChange={(v) => {
-                  const next = Array.isArray(v) ? v[0] : v;
-                  if (typeof next === "number") customMemField.handleChange(next);
-                }}
-              />
-            </Field>
-          </div>
+          <CardContent className="grid grid-cols-2 gap-3 p-0">
+            <form.AppField name="customCpu">
+              {(f) => <f.NumberField label="vCPU" min={0.1} step={0.1} className="font-mono" />}
+            </form.AppField>
+            <form.AppField name="customMem">
+              {(f) => <f.NumberField label="Memory (MB)" min={128} step={64} className="font-mono" />}
+            </form.AppField>
+          </CardContent>
         </Card>
       )}
 
@@ -136,7 +95,7 @@ export function StepResources({
                 type="button"
                 variant="ghost"
                 size="icon"
-                onClick={() => replicasField.handleChange(Math.max(1, replicas - 1))}
+                onClick={() => form.setFieldValue("replicas", Math.max(1, replicas - 1))}
                 aria-label="Decrease replicas"
               >
                 <I.x width={11} height={11} />
@@ -144,14 +103,14 @@ export function StepResources({
               <Input
                 type="number"
                 value={replicas}
-                onChange={(e) => replicasField.handleChange(+e.target.value || 1)}
+                onChange={(e) => form.setFieldValue("replicas", +e.target.value || 1)}
                 className="h-9 w-[70px] text-center font-mono text-base"
               />
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                onClick={() => replicasField.handleChange(replicas + 1)}
+                onClick={() => form.setFieldValue("replicas", replicas + 1)}
                 aria-label="Increase replicas"
               >
                 <I.plus width={11} height={11} />
@@ -184,28 +143,19 @@ export function StepResources({
       </div>
       <Card className="mt-2.5 rounded-md">
         <CardContent>
-          <Field label="Placement strategy">
-            <Select
-              value={placement}
-              onValueChange={(v) => v && placementField.handleChange(v)}
-              items={[
-                { label: "Any node — let scheduler decide", value: "any" },
-                { label: "Spread across nodes — one replica per node", value: "spread" },
-                { label: "Pack onto fewest nodes — minimize spread", value: "pack" },
-                { label: "Pin to specific node", value: "pin" },
-              ]}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="any">Any node — let scheduler decide</SelectItem>
-                <SelectItem value="spread">Spread across nodes — one replica per node</SelectItem>
-                <SelectItem value="pack">Pack onto fewest nodes — minimize spread</SelectItem>
-                <SelectItem value="pin">Pin to specific node</SelectItem>
-              </SelectContent>
-            </Select>
-          </Field>
+          <form.AppField name="placement">
+            {(f) => (
+              <f.SelectField
+                label="Placement strategy"
+                items={[
+                  { label: "Any node — let scheduler decide", value: "any" },
+                  { label: "Spread across nodes — one replica per node", value: "spread" },
+                  { label: "Pack onto fewest nodes — minimize spread", value: "pack" },
+                  { label: "Pin to specific node", value: "pin" },
+                ]}
+              />
+            )}
+          </form.AppField>
 
           <div className="mt-3.5 rounded-sm border border-border bg-muted p-3">
             <div className="mb-2 text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
@@ -238,7 +188,7 @@ export function StepResources({
                         <Checkbox
                           checked={isPinned}
                           onCheckedChange={(checked) => {
-                            if (checked) pinnedNodeIdField.handleChange(n.id);
+                            if (checked) form.setFieldValue("pinnedNodeId", n.id);
                           }}
                           aria-label={`Pin to ${n.name}`}
                         />

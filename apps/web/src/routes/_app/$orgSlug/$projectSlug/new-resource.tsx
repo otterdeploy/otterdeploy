@@ -1,10 +1,14 @@
 import { z } from "zod";
 import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 
-import { ResourceWizard } from "@/features/projects/components/new-resource/new-resource-wizard";
+import { PageResourceWizard } from "@/features/projects/components/new-resource/wizard";
+import { STEP_IDS, type Step } from "@/features/projects/components/new-resource/schemas";
 import { ID_PREFIX, type Slug } from "@otterstack/shared/id";
 
-const zNewResourceSearch = z.object({ kind: z.string().optional() });
+const zNewResourceSearch = z.object({
+  kind: z.string().optional(),
+  step: z.enum(STEP_IDS as unknown as readonly [Step, ...Step[]]).optional(),
+});
 
 export const Route = createFileRoute("/_app/$orgSlug/$projectSlug/new-resource")({
   staticData: { crumb: "New resource" },
@@ -18,13 +22,11 @@ function RouteComponent() {
   const { kind } = Route.useSearch();
 
   return (
-    <ResourceWizard
-      layout="page"
+    <PageResourceWizard
       orgSlug={organization.slug}
       projectSlug={project.slug as Slug<typeof ID_PREFIX.project>}
       projectName={project.name}
       initialKind={kind ?? null}
-      initialStep={kind ? "version" : "kind"}
     />
   );
 }

@@ -1,8 +1,8 @@
-// Step_Storage — volume size, backups, high availability.
-import type { AnyFieldApi } from "@tanstack/react-form";
+import { useStore } from "@tanstack/react-form";
 
 import type { ServiceKind } from "@/features/projects/data/service-kinds";
-import { Card } from "@/shared/components/ui/card";
+import { Card, CardContent } from "@/shared/components/ui/card";
+import { Switch } from "@/shared/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -11,32 +11,21 @@ import {
   SelectValue,
 } from "@/shared/components/ui/select";
 import { Slider } from "@/shared/components/ui/slider";
-import { Switch } from "@/shared/components/ui/switch";
 
 import { Field, SectionHeader, SettingRow } from "../form-primitives";
+import { useFormContext } from "../form-context";
 
-interface StorageProps {
-  storageGbField: AnyFieldApi;
-  backupsEnabledField: AnyFieldApi;
-  backupRetentionField: AnyFieldApi;
-  pitrField: AnyFieldApi;
-  highAvailabilityField: AnyFieldApi;
+interface StepStorageProps {
   kind: ServiceKind;
 }
 
-export function StepStorage({
-  storageGbField,
-  backupsEnabledField,
-  backupRetentionField,
-  pitrField,
-  highAvailabilityField,
-  kind,
-}: StorageProps) {
-  const storageGb = storageGbField.state.value as number;
-  const backupsEnabled = backupsEnabledField.state.value as boolean;
-  const backupRetention = backupRetentionField.state.value as number;
-  const pitr = pitrField.state.value as boolean;
-  const highAvailability = highAvailabilityField.state.value as boolean;
+export function StepStorage({ kind }: StepStorageProps) {
+  const form = useFormContext();
+  const storageGb = useStore(form.store, (s) => s.values.storageGb as number);
+  const backupsEnabled = useStore(form.store, (s) => s.values.backupsEnabled as boolean);
+  const backupRetention = useStore(form.store, (s) => s.values.backupRetention as number);
+  const pitr = useStore(form.store, (s) => s.values.pitr as boolean);
+  const highAvailability = useStore(form.store, (s) => s.values.highAvailability as boolean);
 
   const isPostgres = kind.id === "postgres";
   const isMysql = kind.id === "mysql";
@@ -57,7 +46,7 @@ export function StepStorage({
             value={[storageGb]}
             onValueChange={(v) => {
               const next = Array.isArray(v) ? v[0] : v;
-              if (typeof next === "number") storageGbField.handleChange(next);
+              if (typeof next === "number") form.setFieldValue("storageGb", next);
             }}
           />
           <div className="mt-1.5 flex items-center gap-3 text-[11px]">
@@ -89,7 +78,7 @@ export function StepStorage({
           </div>
           <Switch
             checked={backupsEnabled}
-            onCheckedChange={(v) => backupsEnabledField.handleChange(v)}
+            onCheckedChange={(v) => form.setFieldValue("backupsEnabled", v)}
           />
         </div>
 
@@ -102,7 +91,7 @@ export function StepStorage({
                 value={[backupRetention]}
                 onValueChange={(v) => {
                   const next = Array.isArray(v) ? v[0] : v;
-                  if (typeof next === "number") backupRetentionField.handleChange(next);
+                  if (typeof next === "number") form.setFieldValue("backupRetention", next);
                 }}
               />
             </Field>
@@ -136,7 +125,7 @@ export function StepStorage({
                 Continuous WAL archiving · restore to any point in the last 7 days
               </div>
             </div>
-            <Switch checked={pitr} onCheckedChange={(v) => pitrField.handleChange(v)} />
+            <Switch checked={pitr} onCheckedChange={(v) => form.setFieldValue("pitr", v)} />
           </div>
         )}
       </Card>
@@ -154,7 +143,7 @@ export function StepStorage({
           </div>
           <Switch
             checked={highAvailability}
-            onCheckedChange={(v) => highAvailabilityField.handleChange(v)}
+            onCheckedChange={(v) => form.setFieldValue("highAvailability", v)}
           />
         </div>
       </Card>

@@ -1,28 +1,18 @@
-// Step_Image — container registry, image path + tag, available tags, service name, update strategy.
-// Ported verbatim from apps/web-demo/src/features/otterstack/screens/new-service.tsx lines 1143-1355.
-import type { AnyFieldApi } from "@tanstack/react-form";
+import { useStore } from "@tanstack/react-form";
 
 import { SvglLogo } from "@/shared/components/brand/svgl-logo";
 import { Badge } from "@/shared/components/ui/badge";
 import { Card, CardContent } from "@/shared/components/ui/card";
-import { Input } from "@/shared/components/ui/input";
 import { cn } from "@/shared/lib/utils";
 
 import {
   SectionHeader,
-  Field,
   SettingRow,
   builderCardClass,
   builderCardActiveClass,
 } from "../form-primitives";
+import { useFormContext } from "../form-context";
 import { I } from "../icons";
-
-interface ImageProps {
-  imageField: AnyFieldApi;
-  tagField: AnyFieldApi;
-  registryField: AnyFieldApi;
-  nameField: AnyFieldApi;
-}
 
 const registries = [
   { id: "docker", name: "Docker Hub", host: "docker.io", auth: "public" },
@@ -71,10 +61,11 @@ const getRegistryBrand = (id: string): string | null =>
           ? "Google Cloud"
           : null;
 
-export function StepImage({ imageField, tagField, registryField, nameField }: ImageProps) {
-  const image = imageField.state.value as string;
-  const tag = tagField.state.value as string;
-  const registry = registryField.state.value as string;
+export function StepImage() {
+  const form = useFormContext();
+  const registry = useStore(form.store, (s) => s.values.registry as string);
+  const image = useStore(form.store, (s) => s.values.image as string);
+  const tag = useStore(form.store, (s) => s.values.tag as string);
 
   const resolvedHost = registries.find((r) => r.id === registry)?.host ?? "";
 
@@ -88,7 +79,7 @@ export function StepImage({ imageField, tagField, registryField, nameField }: Im
             <button
               key={r.id}
               type="button"
-              onClick={() => registryField.handleChange(r.id)}
+              onClick={() => form.setFieldValue("registry", r.id)}
               className={cn(builderCardClass, registry === r.id && builderCardActiveClass)}
             >
               <div className="flex items-center gap-2">
@@ -125,20 +116,16 @@ export function StepImage({ imageField, tagField, registryField, nameField }: Im
       <Card className="mt-2.5 rounded-md">
         <CardContent className="flex flex-col gap-2">
           <div className="grid grid-cols-[2fr_1fr] gap-2.5">
-            <Field label="Image">
-              <Input
-                className="font-mono"
-                value={image}
-                onChange={(e) => imageField.handleChange(e.target.value)}
-              />
-            </Field>
-            <Field label="Tag">
-              <Input
-                className="font-mono"
-                value={tag}
-                onChange={(e) => tagField.handleChange(e.target.value)}
-              />
-            </Field>
+            <form.AppField name="image">
+              {(f) => (
+                <f.TextField label="Image" className="font-mono" placeholder="ghcr.io/owner/repo" />
+              )}
+            </form.AppField>
+            <form.AppField name="tag">
+              {(f) => (
+                <f.TextField label="Tag" className="font-mono" placeholder="latest" />
+              )}
+            </form.AppField>
           </div>
           <div className="font-mono text-[11px] text-muted-foreground">
             resolved →{" "}
@@ -159,7 +146,7 @@ export function StepImage({ imageField, tagField, registryField, nameField }: Im
             <button
               key={t.tag}
               type="button"
-              onClick={() => tagField.handleChange(t.tag)}
+              onClick={() => form.setFieldValue("tag", t.tag)}
               aria-pressed={isSelected}
               className={`flex w-full items-center gap-3 px-3.5 py-2.5 text-left text-foreground transition-colors hover:bg-accent/40 ${
                 i === availableTags.length - 1 ? "" : "border-b border-border/60"
@@ -181,13 +168,9 @@ export function StepImage({ imageField, tagField, registryField, nameField }: Im
       </div>
       <Card className="mt-2.5 rounded-md">
         <CardContent>
-          <Field label="Name">
-            <Input
-              className="font-mono"
-              value={nameField.state.value as string}
-              onChange={(e) => nameField.handleChange(e.target.value)}
-            />
-          </Field>
+          <form.AppField name="name">
+            {(f) => <f.TextField label="Name" className="font-mono" />}
+          </form.AppField>
         </CardContent>
       </Card>
 

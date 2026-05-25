@@ -1,4 +1,4 @@
-import type { AnyFieldApi } from "@tanstack/react-form";
+import { useStore } from "@tanstack/react-form";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { GitBranchIcon, Search01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 
@@ -7,13 +7,6 @@ import { Badge } from "@/shared/components/ui/badge";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/shared/components/ui/input-group";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/components/ui/select";
 import { Switch } from "@/shared/components/ui/switch";
 import { cn } from "@/shared/lib/utils";
 
@@ -24,17 +17,8 @@ import {
   Field,
   SectionHeader,
 } from "../form-primitives";
+import { useFormContext } from "../form-context";
 import { I } from "../icons";
-
-interface SourceProps {
-  srcField: AnyFieldApi;
-  repoField: AnyFieldApi;
-  branchField: AnyFieldApi;
-  rootField: AnyFieldApi;
-  autoDeployField: AnyFieldApi;
-  previewBranchesField: AnyFieldApi;
-  nameField: AnyFieldApi;
-}
 
 const sources = [
   {
@@ -97,22 +81,15 @@ const sourceBrandSearch = (id: string): string | null =>
 const iconKey = (raw: string): keyof typeof I =>
   (raw as keyof typeof I) in I ? (raw as keyof typeof I) : "doc";
 
-export function StepSource({
-  srcField,
-  repoField,
-  branchField,
-  rootField,
-  autoDeployField,
-  previewBranchesField,
-  nameField,
-}: SourceProps) {
-  const src = srcField.state.value as string;
-  const repo = repoField.state.value as string;
-  const branch = branchField.state.value as string;
-  const root = rootField.state.value as string;
-  const autoDeploy = autoDeployField.state.value as boolean;
-  const previewBranches = previewBranchesField.state.value as boolean;
-  const name = nameField.state.value as string;
+export function StepSource() {
+  const form = useFormContext();
+  const src = useStore(form.store, (s) => s.values.src as string);
+  const repo = useStore(form.store, (s) => s.values.repo as string);
+  const branch = useStore(form.store, (s) => s.values.branch as string);
+  const root = useStore(form.store, (s) => s.values.root as string);
+  const autoDeploy = useStore(form.store, (s) => s.values.autoDeploy as boolean);
+  const previewBranches = useStore(form.store, (s) => s.values.previewBranches as boolean);
+  const name = useStore(form.store, (s) => s.values.name as string);
 
   return (
     <>
@@ -125,7 +102,7 @@ export function StepSource({
             <button
               key={s.id}
               type="button"
-              onClick={() => srcField.handleChange(s.id)}
+              onClick={() => form.setFieldValue("src", s.id as "github" | "gitlab")}
               className={cn(builderCardClass, src === s.id && builderCardActiveClass)}
             >
               <div className="flex items-center gap-2">
@@ -172,7 +149,7 @@ export function StepSource({
                 className="font-mono"
                 placeholder="search repositories…"
                 defaultValue={repo}
-                onChange={(e) => repoField.handleChange(e.target.value)}
+                onChange={(e) => form.setFieldValue("repo", e.target.value)}
               />
               <InputGroupAddon align="inline-end">
                 <Badge variant="outline" className="font-normal">
@@ -187,7 +164,7 @@ export function StepSource({
                   <button
                     key={r.repo}
                     type="button"
-                    onClick={() => repoField.handleChange(r.repo)}
+                    onClick={() => form.setFieldValue("repo", r.repo)}
                     aria-pressed={isSelected}
                     className={`flex w-full items-center gap-3 border-b border-border/60 px-3 py-2 text-left text-foreground last:border-b-0 transition-colors hover:bg-accent/40 ${
                       isSelected ? "bg-accent" : ""
@@ -224,57 +201,43 @@ export function StepSource({
           <Card className="mt-2.5 rounded-md">
             <CardContent className="flex flex-col gap-3">
               <div className="grid grid-cols-2 gap-2.5">
-                <Field label="Branch">
-                  <Select
-                    value={branch}
-                    onValueChange={(v) => v && branchField.handleChange(v)}
-                    items={[
-                      { label: "main", value: "main" },
-                      { label: "develop", value: "develop" },
-                      { label: "staging", value: "staging" },
-                    ]}
-                  >
-                    <SelectTrigger className="w-full font-mono">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="main">main</SelectItem>
-                      <SelectItem value="develop">develop</SelectItem>
-                      <SelectItem value="staging">staging</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field label="Root directory">
-                  <Input
-                    className="font-mono"
-                    value={root}
-                    onChange={(e) => rootField.handleChange(e.target.value)}
-                  />
-                </Field>
+                <form.AppField name="branch">
+                  {(f) => (
+                    <f.SelectField
+                      label="Branch"
+                      items={[
+                        { label: "main", value: "main" },
+                        { label: "develop", value: "develop" },
+                        { label: "staging", value: "staging" },
+                      ]}
+                      className="w-full font-mono"
+                    />
+                  )}
+                </form.AppField>
+                <form.AppField name="root">
+                  {(f) => <f.TextField label="Root directory" className="font-mono" />}
+                </form.AppField>
               </div>
-              <Field label="Service name">
-                <Input
-                  className="font-mono"
-                  value={name}
-                  onChange={(e) => nameField.handleChange(e.target.value)}
-                />
-                <div className="mt-1 text-[11px] text-muted-foreground">
-                  Used in DNS —{" "}
-                  <span className="font-mono text-foreground">{name}.helio.internal</span>
-                </div>
-              </Field>
-
+              <form.AppField name="name">
+                {(f) => (
+                  <f.TextField
+                    label="Service name"
+                    className="font-mono"
+                    description={`Used in DNS — ${name}.helio.internal`}
+                  />
+                )}
+              </form.AppField>
               <ToggleRow
                 label="Auto-deploy on push"
                 description={`Trigger a deploy whenever ${branch} updates`}
                 checked={autoDeploy}
-                onChange={(v) => autoDeployField.handleChange(v)}
+                onChange={(v) => form.setFieldValue("autoDeploy", v)}
               />
               <ToggleRow
                 label="Preview deploys for pull requests"
                 description="Spin up a temporary environment for every PR"
                 checked={previewBranches}
-                onChange={(v) => previewBranchesField.handleChange(v)}
+                onChange={(v) => form.setFieldValue("previewBranches", v)}
               />
               <ToggleRow
                 label="Deploy only when watched paths change"
@@ -301,7 +264,7 @@ export function StepSource({
                 <Input
                   className="font-mono"
                   value={name}
-                  onChange={(e) => nameField.handleChange(e.target.value)}
+                  onChange={(e) => form.setFieldValue("name", e.target.value)}
                 />
               </Field>
             </div>
@@ -329,7 +292,7 @@ $ otterstack push --service ${name} --env production`}
               <Input
                 className="font-mono"
                 value={name}
-                onChange={(e) => nameField.handleChange(e.target.value)}
+                onChange={(e) => form.setFieldValue("name", e.target.value)}
               />
             </Field>
           </CardContent>

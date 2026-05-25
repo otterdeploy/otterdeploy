@@ -1,9 +1,4 @@
-// Step_Networking — port exposure, health checks, edge proxy settings.
-// Ported verbatim from apps/web-demo/src/features/otterstack/screens/new-service.tsx lines 1605-1913.
-import type { AnyFieldApi } from "@tanstack/react-form";
-
 import type { ServiceKind } from "@/features/projects/data/service-kinds";
-import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
 import {
@@ -13,46 +8,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/shared/components/ui/select";
-import { Switch } from "@/shared/components/ui/switch";
-import { cn } from "@/shared/lib/utils";
 
 import { Field, SectionHeader, SettingRow } from "../form-primitives";
-import { I } from "../icons";
+import { useFormContext } from "../form-context";
 
-export interface Port {
-  port: number;
-  protocol: string;
-  public: boolean;
-  host: string;
-}
-
-interface NetworkingProps {
-  portsField: AnyFieldApi;
-  healthPathField: AnyFieldApi;
-  healthIntervalField: AnyFieldApi;
+interface StepNetworkingProps {
   kind: ServiceKind | null;
 }
 
-const PROTOCOLS = [
-  { value: "http", label: "HTTP" },
-  { value: "http2", label: "HTTP/2" },
-  { value: "grpc", label: "gRPC" },
-  { value: "tcp", label: "TCP" },
-  { value: "udp", label: "UDP" },
-];
-
-const PORTS_GRID = "grid grid-cols-[80px_100px_1fr_70px_50px] items-center gap-2";
-
-export function StepNetworking({
-  portsField,
-  healthPathField,
-  healthIntervalField,
-  kind,
-}: NetworkingProps) {
-  const ports = portsField.state.value as Port[];
-  const healthPath = healthPathField.state.value as string;
-  const healthInterval = healthIntervalField.state.value as string;
-
+export function StepNetworking({ kind }: StepNetworkingProps) {
+  const form = useFormContext();
   const isWorker = kind?.id === "worker";
   const isCron = kind?.id === "cron";
   const isStatic = kind?.id === "static";
@@ -137,106 +102,9 @@ export function StepNetworking({
   return (
     <>
       <SectionHeader title="Ports" sub="Which container ports should be exposed?" />
-      <Card className="mt-3 gap-0 overflow-hidden rounded-md p-0">
-        <div
-          className={cn(
-            PORTS_GRID,
-            "border-b bg-muted/50 px-3.5 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground",
-          )}
-        >
-          <span>Port</span>
-          <span>Protocol</span>
-          <span>Public hostname</span>
-          <span>Public</span>
-          <span />
-        </div>
-        {ports.map((p, i) => (
-          <div
-            key={i}
-            className={cn(
-              PORTS_GRID,
-              "px-3.5 py-2",
-              i === ports.length - 1 ? "" : "border-b border-border/60",
-            )}
-          >
-            <Input
-              className="font-mono"
-              type="number"
-              value={p.port}
-              onChange={(e) => {
-                const next = ports.map((x, j) =>
-                  j === i ? { ...x, port: +e.target.value } : x,
-                );
-                portsField.handleChange(next);
-              }}
-            />
-            <Select
-              value={p.protocol}
-              onValueChange={(v) => {
-                if (typeof v !== "string") return;
-                const next = ports.map((x, j) => (j === i ? { ...x, protocol: v } : x));
-                portsField.handleChange(next);
-              }}
-              items={PROTOCOLS}
-            >
-              <SelectTrigger className="w-full font-mono">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PROTOCOLS.map((proto) => (
-                  <SelectItem key={proto.value} value={proto.value}>
-                    {proto.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Input
-              className={cn("font-mono", !p.public && "opacity-50")}
-              value={p.host}
-              onChange={(e) => {
-                const next = ports.map((x, j) => (j === i ? { ...x, host: e.target.value } : x));
-                portsField.handleChange(next);
-              }}
-              disabled={!p.public}
-            />
-            <Switch
-              checked={p.public}
-              onCheckedChange={(v) => {
-                const next = ports.map((x, j) => (j === i ? { ...x, public: v } : x));
-                portsField.handleChange(next);
-              }}
-            />
-            <div className="flex justify-end">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => portsField.handleChange(ports.filter((_, j) => j !== i))}
-                aria-label="Remove port"
-              >
-                <I.x width={11} height={11} />
-              </Button>
-            </div>
-          </div>
-        ))}
-        <div className="px-3.5 py-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={() => {
-              portsField.handleChange([
-                ...ports,
-                { port: 8080, protocol: "http", public: false, host: "" },
-              ]);
-            }}
-          >
-            <I.plus width={11} height={11} />
-            Add port
-          </Button>
-        </div>
-      </Card>
+      <form.AppField name="ports">
+        {(f) => <f.PortsField />}
+      </form.AppField>
 
       {!isStatic && (
         <>
@@ -249,20 +117,12 @@ export function StepNetworking({
           <Card className="mt-2.5 rounded-md">
             <CardContent className="flex flex-col gap-2.5">
               <div className="grid grid-cols-[2fr_1fr_1fr] gap-2.5">
-                <Field label="Path">
-                  <Input
-                    className="font-mono"
-                    value={healthPath}
-                    onChange={(e) => healthPathField.handleChange(e.target.value)}
-                  />
-                </Field>
-                <Field label="Interval">
-                  <Input
-                    className="font-mono"
-                    value={healthInterval}
-                    onChange={(e) => healthIntervalField.handleChange(e.target.value)}
-                  />
-                </Field>
+                <form.AppField name="healthPath">
+                  {(f) => <f.TextField label="Path" className="font-mono" />}
+                </form.AppField>
+                <form.AppField name="healthInterval">
+                  {(f) => <f.NumberField label="Interval (s)" min={1} className="font-mono" />}
+                </form.AppField>
                 <Field label="Timeout">
                   <Input className="font-mono" defaultValue="3s" />
                 </Field>

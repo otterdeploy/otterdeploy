@@ -2,8 +2,8 @@ import { ID_PREFIX, type Slug } from "@otterstack/shared/id";
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
-import { ResourceWizard } from "@/features/projects/components/new-resource/new-resource-wizard";
-import { StepKind } from "@/features/projects/components/new-resource/steps";
+import { DialogResourceWizard } from "@/features/projects/components/new-resource/wizard";
+import { KindPicker } from "@/features/projects/components/new-resource/kind-picker";
 import { SERVICE_KINDS } from "@/features/projects/data/service-kinds";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -61,13 +61,13 @@ export function ResourceKindDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="flex-1 overflow-y-auto px-5 pb-3">
-          <StepKind kindId={kindId} setKindId={setKindId} />
+          <KindPicker value={kindId} onChange={setKindId} />
         </div>
         <DialogFooter className="m-0 flex-row items-center rounded-none border-t bg-card px-5 py-3 sm:justify-between">
           <span className="text-xs text-muted-foreground">
             {pickedKind && !canConfigure
               ? `${pickedKind.name} isn't wired up yet — pick a database to continue.`
-              : " "}
+              : " "}
           </span>
           <div className="flex gap-2">
             <Button
@@ -116,8 +116,7 @@ export function ResourceOverlayDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="flex-1 overflow-hidden">
-          <ResourceWizard
-            layout="dialog"
+          <DialogResourceWizard
             orgSlug={orgSlug}
             projectSlug={projectSlug}
             projectName={projectName ?? ""}
