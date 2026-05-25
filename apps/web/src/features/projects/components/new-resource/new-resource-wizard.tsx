@@ -1,24 +1,30 @@
 // Wizard component — extracted from routes/_app/$orgSlug/$projectSlug/new-resource.tsx
 // so the same wizard can render inside a Dialog (variant B) and the route page.
-import { useMemo, useState } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { ArrowLeft01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons";
+import { ID_PREFIX, type Slug } from "@otterstack/shared/id";
 import { useForm, useStore } from "@tanstack/react-form";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
 
-import { StepKind } from "@/features/projects/components/new-resource/step-kind";
-import { StepVersion } from "@/features/projects/components/new-resource/step-version";
-import { StepImage } from "@/features/projects/components/new-resource/step-image";
-import { StepSource } from "@/features/projects/components/new-resource/step-source";
+import {
+  resourceSchema,
+  resourceDefaults,
+} from "@/features/projects/components/new-resource/schema";
+import { StepAdvancedDb } from "@/features/projects/components/new-resource/step-advanced-db";
 import { StepBuilder } from "@/features/projects/components/new-resource/step-builder";
+import { StepImage } from "@/features/projects/components/new-resource/step-image";
+import { StepKind } from "@/features/projects/components/new-resource/step-kind";
 import { StepNetworking } from "@/features/projects/components/new-resource/step-networking";
 import { StepResources } from "@/features/projects/components/new-resource/step-resources";
+import { StepReview } from "@/features/projects/components/new-resource/step-review";
+import { StepSource } from "@/features/projects/components/new-resource/step-source";
 import { StepStorage } from "@/features/projects/components/new-resource/step-storage";
 import { StepVariables } from "@/features/projects/components/new-resource/step-variables";
-import { StepAdvancedDb } from "@/features/projects/components/new-resource/step-advanced-db";
-import { StepReview } from "@/features/projects/components/new-resource/step-review";
+import { StepVersion } from "@/features/projects/components/new-resource/step-version";
 import { Stepper, type Step } from "@/features/projects/components/new-resource/stepper";
 import { SERVICE_KINDS } from "@/features/projects/data/service-kinds";
-import { resourceSchema, resourceDefaults } from "@/features/projects/components/new-resource/schema";
-import { ID_PREFIX, type Slug } from "@otterstack/shared/id";
+import { Button } from "@/shared/components/ui/button";
 
 const DB_STEPS: Array<[Step, string, string]> = [
   ["kind", "Kind", "pick-kind"],
@@ -50,11 +56,9 @@ const DOCKER_STEPS: Array<[Step, string, string]> = [
   ["review", "Review", "review"],
 ];
 
-const KIND_STEPS: Array<[Step, string, string]> = [
-  ["kind", "Kind", "pick-kind"],
-];
+const KIND_STEPS: Array<[Step, string, string]> = [["kind", "Kind", "pick-kind"]];
 
-export type NewResourceWizardProps = {
+export type ResourceWizardProps = {
   orgSlug: string;
   projectSlug: Slug<typeof ID_PREFIX.project>;
   projectName: string;
@@ -65,7 +69,7 @@ export type NewResourceWizardProps = {
   layout?: "page" | "dialog";
 };
 
-export function NewResourceWizard({
+export function ResourceWizard({
   orgSlug,
   projectSlug,
   projectName,
@@ -74,7 +78,7 @@ export function NewResourceWizard({
   onComplete,
   onCancel,
   layout = "page",
-}: NewResourceWizardProps) {
+}: ResourceWizardProps) {
   const navigate = useNavigate();
 
   const [step, setStep] = useState<Step>(initialStep ?? "kind");
@@ -105,7 +109,7 @@ export function NewResourceWizard({
   const isSourceBased = !!kind && kind.group === "compute";
   const isDocker = !!kind && kind.id === "docker";
 
-  const steps = useMemo<Array<[Step, string, string]>>(() => {
+  const steps = useMemo(() => {
     if (!kind) return KIND_STEPS;
     if (isDb) return DB_STEPS;
     if (isSourceBased) return SOURCE_STEPS;
@@ -123,7 +127,7 @@ export function NewResourceWizard({
     if (idx > 0) setStep(steps[idx - 1][0]);
   };
 
-  const canAdvance: boolean = (() => {
+  const canAdvance = (() => {
     if (step === "kind") return !!kindId;
     if (step === "version") return !!version && version.length > 0;
     return true;
@@ -141,52 +145,32 @@ export function NewResourceWizard({
 
   return (
     <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        height: "100%",
-        background: layout === "page" ? "var(--background)" : "transparent",
-        color: "var(--foreground)",
-      }}
+      className={`flex h-full flex-col text-foreground ${
+        layout === "page" ? "bg-background" : "bg-transparent"
+      }`}
     >
       {showChrome && (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            padding: "12px 22px",
-            borderBottom: "1px solid var(--border)",
-            background: "var(--card)",
-            flexShrink: 0,
-          }}
-        >
-          <Link
-            to="/$orgSlug/$projectSlug"
-            params={{ orgSlug, projectSlug }}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              fontSize: 12,
-              color: "var(--muted-foreground)",
-              textDecoration: "none",
-            }}
+        <div className="flex shrink-0 items-center gap-3 border-b bg-card px-5 py-3">
+          <Button
+            asChild
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1.5 px-2 text-xs text-muted-foreground"
           >
-            <svg viewBox="0 0 16 16" width={12} height={12} fill="none" stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M10 4l-4 4 4 4" />
-            </svg>
-            {projectName}
-          </Link>
-          <span style={{ color: "var(--border)", fontSize: 14 }}>/</span>
-          <span style={{ fontSize: 13, fontWeight: 600 }}>Create resource</span>
+            <Link to="/$orgSlug/$projectSlug" params={{ orgSlug, projectSlug }}>
+              <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="size-3" />
+              {projectName}
+            </Link>
+          </Button>
+          <span className="text-sm text-border">/</span>
+          <span className="text-[13px] font-semibold">Create resource</span>
           {kind && (
-            <span className="text-muted-foreground font-mono" style={{ marginLeft: 4, fontSize: 11 }}>
+            <span className="ml-1 font-mono text-[11px] text-muted-foreground">
               · {kind.name}
             </span>
           )}
-          <div style={{ flex: 1 }} />
-          <span className="text-muted-foreground" style={{ fontSize: 11 }}>
+          <div className="flex-1" />
+          <span className="text-[11px] text-muted-foreground">
             Step {idx + 1} of {steps.length}
           </span>
         </div>
@@ -195,14 +179,13 @@ export function NewResourceWizard({
       <Stepper steps={steps} idx={idx} setStep={setStep} />
 
       <div
-        style={{
-          flex: 1,
-          overflowY: "auto",
-          padding: layout === "dialog" ? "16px 18px" : 22,
-        }}
-        className="os-scroll"
+        className={`os-scroll flex-1 overflow-y-auto ${
+          layout === "dialog" ? "px-[18px] py-4" : "p-[22px]"
+        }`}
       >
-        <div style={{ maxWidth: step === "kind" ? 1100 : 820, margin: "0 auto" }}>
+        <div
+          className={`mx-auto ${step === "kind" ? "max-w-[1100px]" : "max-w-[820px]"}`}
+        >
           {step === "kind" && (
             <StepKind
               kindId={kindId}
@@ -222,7 +205,7 @@ export function NewResourceWizard({
           )}
 
           {step !== "kind" && !isDb && !isSourceBased && !isDocker && (
-            <div style={{ padding: 32, textAlign: "center", color: "var(--muted-foreground)", fontSize: 14 }}>
+            <div className="p-8 text-center text-sm text-muted-foreground">
               Coming soon for {kind?.group ?? "this"} resources
             </div>
           )}
@@ -272,10 +255,7 @@ export function NewResourceWizard({
               {(builderIdField) => (
                 <form.Field name="name">
                   {(nameField) => (
-                    <StepBuilder
-                      builderIdField={builderIdField}
-                      nameField={nameField}
-                    />
+                    <StepBuilder builderIdField={builderIdField} nameField={nameField} />
                   )}
                 </form.Field>
               )}
@@ -480,76 +460,49 @@ export function NewResourceWizard({
       </div>
 
       <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          padding: layout === "dialog" ? "12px 18px" : "12px 22px",
-          borderTop: "1px solid var(--border)",
-          background: layout === "page" ? "var(--card)" : "transparent",
-          flexShrink: 0,
-        }}
+        className={`flex shrink-0 items-center gap-2 border-t ${
+          layout === "page" ? "bg-card" : "bg-transparent"
+        } ${layout === "dialog" ? "px-[18px] py-3" : "px-5 py-3"}`}
       >
         {layout === "page" ? (
-          <Link
-            to="/$orgSlug/$projectSlug"
-            params={{ orgSlug, projectSlug }}
-            style={{
-              display: "inline-flex", alignItems: "center", justifyContent: "center",
-              height: 32, padding: "0 14px", borderRadius: 6,
-              border: "1px solid var(--border)", background: "var(--background)",
-              color: "var(--foreground)", fontSize: 13, fontWeight: 500,
-              textDecoration: "none", cursor: "pointer",
-            }}
-          >
-            Cancel
-          </Link>
+          <Button asChild variant="outline" size="sm" className="h-8">
+            <Link to="/$orgSlug/$projectSlug" params={{ orgSlug, projectSlug }}>
+              Cancel
+            </Link>
+          </Button>
         ) : (
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8"
             onClick={() => onCancel?.()}
-            style={{
-              display: "inline-flex", alignItems: "center", justifyContent: "center",
-              height: 32, padding: "0 14px", borderRadius: 6,
-              border: "1px solid var(--border)", background: "var(--background)",
-              color: "var(--foreground)", fontSize: 13, fontWeight: 500,
-              cursor: "pointer", fontFamily: "inherit",
-            }}
           >
             Cancel
-          </button>
+          </Button>
         )}
-        <div style={{ flex: 1 }} />
+        <div className="flex-1" />
         {idx > 0 && (
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5"
             onClick={goPrev}
-            style={{
-              display: "inline-flex", alignItems: "center", justifyContent: "center",
-              height: 32, padding: "0 14px", borderRadius: 6,
-              border: "1px solid var(--border)", background: "var(--background)",
-              color: "var(--foreground)", fontSize: 13, fontWeight: 500,
-              cursor: "pointer", fontFamily: "inherit",
-            }}
           >
-            ← Back
-          </button>
+            <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="size-3.5" />
+            Back
+          </Button>
         )}
-        <button
-          type="button"
+        <Button
+          size="sm"
+          className="h-8 gap-1.5"
           onClick={handleContinue}
           disabled={!canAdvance}
-          style={{
-            display: "inline-flex", alignItems: "center", justifyContent: "center",
-            height: 32, padding: "0 14px", borderRadius: 6,
-            border: "1px solid transparent", background: "var(--foreground)",
-            color: "var(--background)", fontSize: 13, fontWeight: 500,
-            cursor: canAdvance ? "pointer" : "not-allowed",
-            opacity: canAdvance ? 1 : 0.45, fontFamily: "inherit",
-          }}
         >
-          {isLast ? "Create & deploy" : "Continue →"}
-        </button>
+          {isLast ? "Create & deploy" : "Continue"}
+          {!isLast && (
+            <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-3.5" />
+          )}
+        </Button>
       </div>
     </div>
   );
