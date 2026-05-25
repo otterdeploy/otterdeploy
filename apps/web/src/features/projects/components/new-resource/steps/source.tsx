@@ -14,16 +14,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/shared/components/ui/select";
+import { Switch } from "@/shared/components/ui/switch";
 import { cn } from "@/shared/lib/utils";
-import { I } from "../icons";
+
 import {
-  SectionHeader,
-  Field,
-  Switch3,
-  builderCardClass,
   builderCardActiveClass,
+  builderCardClass,
   builderIconClass,
+  Field,
+  SectionHeader,
 } from "../form-primitives";
+import { I } from "../icons";
 
 interface SourceProps {
   srcField: AnyFieldApi;
@@ -155,8 +156,9 @@ export function StepSource({
 
       {src === "github" && (
         <>
-          <div className="h-[22px]" />
-          <SectionHeader title="Repository" />
+          <div className="mt-5">
+            <SectionHeader title="Repository" />
+          </div>
           <Card className="mt-2.5 gap-0 overflow-hidden p-0">
             <InputGroup className="rounded-none border-x-0 border-t-0 border-b shadow-none">
               <InputGroupAddon>
@@ -216,8 +218,9 @@ export function StepSource({
             </div>
           </Card>
 
-          <div className="h-[18px]" />
-          <SectionHeader title="Configuration" />
+          <div className="mt-4.5">
+            <SectionHeader title="Configuration" />
+          </div>
           <Card className="mt-2.5 rounded-md">
             <CardContent className="flex flex-col gap-3">
               <div className="grid grid-cols-2 gap-2.5">
@@ -355,7 +358,11 @@ function ToggleRow({
         <div className="text-[13px] font-medium">{label}</div>
         <div className="text-[11px] text-muted-foreground">{description}</div>
       </div>
-      <Switch3 on={checked} onChange={readOnly ? undefined : onChange} />
+      <Switch
+        checked={checked}
+        onCheckedChange={readOnly ? undefined : onChange}
+        disabled={readOnly}
+      />
     </div>
   );
 }

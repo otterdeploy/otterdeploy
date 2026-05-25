@@ -24,11 +24,20 @@ export const createServerInput = z.object({
   /** Optional client-supplied id for optimistic UI. */
   id: zId(ID_PREFIX.server).optional(),
   name: z.string().min(1),
+  /**
+   * Operator-reported OS hostname. The join-command flow collects this
+   * separately from `name` so the friendly label and the underlying machine
+   * stay distinct.
+   */
+  hostname: z.string().optional(),
   host: z.string().min(1),
-  region: z.string().min(1),
+  region: z.string().min(1).optional(),
   role: z.enum(["manager", "worker"]).default("worker"),
-  cpuTotal: z.number().int().min(1),
-  memTotalGb: z.number().int().min(1),
+  // Capacity is daemon-reported. The join-command flow registers the node
+  // before the daemon answers, so these default to 0 and get populated when
+  // the agent self-registers.
+  cpuTotal: z.number().int().min(0).default(0),
+  memTotalGb: z.number().int().min(0).default(0),
   diskTotalGb: z.number().int().min(1).optional(),
   diskUnit: z.string().optional(),
   daemonVersion: z.string().optional(),

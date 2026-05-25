@@ -9,6 +9,7 @@ import { appRouter } from "@otterstack/api/routers/index";
 import { initializeSwarm } from "@otterstack/api/swarm";
 import { auth } from "@otterstack/auth";
 import { env } from "@otterstack/env/server";
+import { createWorkers } from "@otterstack/jobs";
 import { Result } from "better-result";
 import { initLogger, log, parseError } from "evlog";
 import { evlog, type EvlogVariables } from "evlog/hono";
@@ -140,7 +141,11 @@ app.get("/", (c) => {
 
 registerTerminalRoutes(app);
 
-// Startup tasks: initialize Docker Swarm, then reconcile Caddy from the DB.
+// Startup tasks: initialize Docker Swarm, then reconcile Caddy from the DB,
+// then boot BullMQ workers (in-process). The worker stop handle is captured
+// so SIGTERM can drain in-flight jobs before the process exits.
+let stopWorkers: (() => Promise<void>) | null = null;
+
 async function bootstrap() {
   const swarm = await Result.tryPromise({
     try: () => initializeSwarm(),
@@ -175,9 +180,34 @@ async function bootstrap() {
         error: err.message,
       }),
   });
+
+  const workers = await Result.tryPromise({
+    try: () => createWorkers(),
+    catch: (cause) => new BootstrapError({ step: "workers", cause }),
+  });
+  workers.match({
+    ok: (handle) => {
+      stopWorkers = handle.stop;
+      log.info({ startup: { step: "workers", status: "ready" } });
+    },
+    err: (err) =>
+      log.error({
+        startup: { step: "workers", status: "failed" },
+        error: err.message,
+      }),
+  });
 }
 
 void bootstrap();
+
+// Drain workers on SIGTERM / SIGINT so in-flight jobs finish before exit.
+for (const signal of ["SIGTERM", "SIGINT"] as const) {
+  process.once(signal, async () => {
+    log.info({ shutdown: { signal, step: "draining-workers" } });
+    if (stopWorkers) await stopWorkers().catch(() => undefined);
+    process.exit(0);
+  });
+}
 
 export default {
   fetch: app.fetch,

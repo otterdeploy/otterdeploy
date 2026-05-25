@@ -40,7 +40,7 @@ This file provides context about the project for AI assistants.
 - AI: vercel-ai
 - Email: resend
 - Payments: polar
-- Job Queue: inngest
+- Job Queue: bullmq
 - Logging: pino
 - Observability: opentelemetry
 
@@ -56,7 +56,7 @@ otterstack/
 │   ├── auth/        # Authentication
 │   ├── db/          # Database schema
 │   ├── email/       # Email (Resend) client & templates
-│   └── inngest/     # Job queue (Inngest) client, functions & triggers
+│   └── jobs/        # Job queue (BullMQ) — workers, triggers, registry
 ```
 
 ## Common Commands

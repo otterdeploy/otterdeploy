@@ -278,11 +278,21 @@ function decodeClientMessage(text: string): Result<ClientMessage, PtyMessageErro
   });
 }
 
+type Target = { kind: "container"; id: string } | { kind: "host" };
+
 async function startShell(
   args: StartArgs,
-  id?: string | null,
+  target: Target,
 ): Promise<Result<PtyBackend, StartError>> {
-  return id ? await startContainerExec({ ...args, containerId: id }) : startHostShell(args);
+  switch (target.kind) {
+    case "container":
+      return startContainerExec({ ...args, containerId: target.id });
+    case "host":
+      // Host-shell access is only reached via an explicit `?host=1` switch
+      // — never as a silent fallback for missing parameters, since that
+      // would let a frontend bug accidentally hand out a server shell.
+      return startHostShell(args);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -301,6 +311,15 @@ export function registerTerminalRoutes(app: Hono<EvlogVariables>): void {
     upgradeWebSocket((c) => {
       const userId = c.get("userId") as string | undefined;
       const containerId = c.req.query("container") || null;
+      const hostFlag = c.req.query("host") === "1";
+
+      // Resolve the target up front. Exactly one of `?container=` or `?host=1`
+      // must be present — never both, never neither.
+      const target: Target | null = containerId
+        ? { kind: "container", id: containerId }
+        : hostFlag
+          ? { kind: "host" }
+          : null;
 
       const state = {
         backend: null as PtyBackend | null,
@@ -316,6 +335,17 @@ export function registerTerminalRoutes(app: Hono<EvlogVariables>): void {
               pty: { event: "ws-raw-missing", detail: "not running on Bun?" },
             });
             ws.close(1011, "ws.raw missing");
+            return;
+          }
+
+          if (!target) {
+            log.warn({ pty: { event: "missing-target-param" } });
+            sendControl(ws, {
+              type: "error",
+              code: "MISSING_TARGET",
+              message: "?container=<id> or ?host=1 required",
+            });
+            ws.close(1008, "target required");
             return;
           }
 
@@ -351,7 +381,7 @@ export function registerTerminalRoutes(app: Hono<EvlogVariables>): void {
             },
           };
 
-          const backend = await startShell(args, containerId);
+          const backend = await startShell(args, target);
           backend.match({
             ok: (b) => {
               state.backend = b;

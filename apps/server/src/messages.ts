@@ -31,7 +31,7 @@ export const ServerMessage = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("error"),
-    code: z.enum(["SPAWN_FAILED", "INVALID_MESSAGE", "INTERNAL"]),
+    code: z.enum(["SPAWN_FAILED", "INVALID_MESSAGE", "INTERNAL", "MISSING_TARGET"]),
     message: z.string(),
   }),
 ]);

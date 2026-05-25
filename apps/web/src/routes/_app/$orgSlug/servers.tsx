@@ -4,18 +4,34 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useLiveQuery } from "@tanstack/react-db";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
+  ArrowRight01Icon,
   CpuIcon,
-  HardDriveIcon,
+  Key01Icon,
   RamMemoryIcon,
   ServerStack01Icon,
+  Task01Icon,
 } from "@hugeicons/core-free-icons";
 
+import { JoinTokenDialog } from "@/features/servers/components/join-token-dialog";
 import { ServerCreateDialog } from "@/features/servers/components/server-create-dialog";
 import { serverCollection, type Server } from "@/features/servers/data/server";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent } from "@/shared/components/ui/card";
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/shared/components/ui/empty";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/shared/components/ui/empty";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/components/ui/select";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import {
   Table,
@@ -39,10 +55,12 @@ export const Route = createFileRoute("/_app/$orgSlug/servers")({
 function ServersRoute() {
   const { data: servers = [] } = useLiveQuery((q) => q.from({ s: serverCollection }));
   const [createOpen, setCreateOpen] = useState(false);
+  const [tokenOpen, setTokenOpen] = useState(false);
 
   const totalCpu = servers.reduce((acc, s) => acc + s.cpuTotal, 0);
   const totalMem = servers.reduce((acc, s) => acc + s.memTotalGb, 0);
-  const readyCount = servers.filter((s) => s.status === "ready").length;
+  const managerCount = servers.filter((s) => s.role === "manager").length;
+  const nodeCount = servers.length;
 
   return (
     <div className="flex flex-1 flex-col gap-5 p-5">
@@ -50,45 +68,56 @@ function ServersRoute() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Servers</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Docker Swarm nodes available to this workspace. Resources here back every project.
+            {nodeCount} node{nodeCount === 1 ? "" : "s"} in this swarm · replicas placed via
+            Docker Stack rolling updates
           </p>
         </div>
-        <Button size="sm" className="h-8 gap-1.5" onClick={() => setCreateOpen(true)}>
-          + Add server
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => setTokenOpen(true)}>
+            <HugeiconsIcon icon={Key01Icon} strokeWidth={2} className="size-3.5" />
+            Join token
+          </Button>
+          <Button size="sm" className="h-8 gap-1.5" onClick={() => setCreateOpen(true)}>
+            + Add server
+          </Button>
+        </div>
       </header>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatTile
-          icon={ServerStack01Icon}
-          label="Nodes"
-          value={`${servers.length}`}
-          sub={`${readyCount} ready`}
-        />
-        <StatTile
           icon={CpuIcon}
-          label="CPU capacity"
-          value={`${totalCpu}`}
-          sub="vCPU across cluster"
+          label="Cluster CPU"
+          value={totalCpu > 0 ? `${totalCpu} vCPU` : "—"}
+          sub="cluster capacity"
         />
         <StatTile
           icon={RamMemoryIcon}
-          label="Memory capacity"
-          value={`${totalMem} GB`}
-          sub="RAM across cluster"
+          label="Cluster memory"
+          value={totalMem > 0 ? `${totalMem} GB` : "—"}
+          sub="cluster capacity"
         />
         <StatTile
-          icon={HardDriveIcon}
-          label="Managers"
-          value={`${servers.filter((s) => s.role === "manager").length}`}
-          sub="raft quorum participants"
+          icon={Task01Icon}
+          label="Tasks running"
+          value="—"
+          sub="across all replicas"
+        />
+        <StatTile
+          icon={ServerStack01Icon}
+          label="Manager nodes"
+          value={`${managerCount} / ${nodeCount}`}
+          sub={managerCount >= 1 ? "quorum healthy" : "no manager"}
         />
       </div>
 
       {servers.length === 0 ? (
         <Empty className="rounded-md border border-dashed bg-muted/20 py-12">
           <EmptyHeader>
-            <HugeiconsIcon icon={ServerStack01Icon} strokeWidth={1.5} className="size-10 text-muted-foreground/50" />
+            <HugeiconsIcon
+              icon={ServerStack01Icon}
+              strokeWidth={1.5}
+              className="size-10 text-muted-foreground/50"
+            />
             <EmptyTitle>No servers registered</EmptyTitle>
             <EmptyDescription>
               Join a host to the swarm and register it here. The orchestrator will start scheduling
@@ -106,13 +135,13 @@ function ServersRoute() {
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50">
-                <TableHead className="pl-4">Node</TableHead>
-                <TableHead>Host</TableHead>
-                <TableHead className="w-[140px]">CPU</TableHead>
-                <TableHead className="w-[140px]">Memory</TableHead>
-                <TableHead className="w-[140px]">Disk</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="pr-4 text-right">Joined</TableHead>
+                <TableHead className="pl-4">Hostname</TableHead>
+                <TableHead className="w-[110px]">Role</TableHead>
+                <TableHead className="w-[140px]">Availability</TableHead>
+                <TableHead>CPU · Memory</TableHead>
+                <TableHead className="w-[80px] text-right">Tasks</TableHead>
+                <TableHead className="w-[110px]">Status</TableHead>
+                <TableHead className="w-[40px] pr-3" aria-label="Open" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -125,6 +154,7 @@ function ServersRoute() {
       )}
 
       <ServerCreateDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <JoinTokenDialog open={tokenOpen} onOpenChange={setTokenOpen} />
     </div>
   );
 }
@@ -137,7 +167,10 @@ function ServersPending() {
           <Skeleton className="h-7 w-32" />
           <Skeleton className="h-4 w-96" />
         </div>
-        <Skeleton className="h-8 w-28" />
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-8 w-24" />
+          <Skeleton className="h-8 w-28" />
+        </div>
       </header>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -162,17 +195,23 @@ function ServersPending() {
           ))}
         </div>
         {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="flex items-center gap-4 border-b border-border/60 px-4 py-3 last:border-b-0">
+          <div
+            key={i}
+            className="flex items-center gap-4 border-b border-border/60 px-4 py-3 last:border-b-0"
+          >
             <div className="flex flex-1 flex-col gap-1.5">
               <Skeleton className="h-4 w-32" />
               <Skeleton className="h-3 w-20" />
             </div>
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-4 w-16" />
-            <Skeleton className="h-4 w-16" />
-            <Skeleton className="h-4 w-16" />
+            <Skeleton className="h-5 w-16 rounded-sm" />
+            <Skeleton className="h-7 w-24 rounded-md" />
+            <div className="flex flex-1 flex-col gap-1.5">
+              <Skeleton className="h-3 w-full" />
+              <Skeleton className="h-3 w-full" />
+            </div>
+            <Skeleton className="h-4 w-8" />
             <Skeleton className="h-5 w-20 rounded-sm" />
-            <Skeleton className="h-3 w-14" />
+            <Skeleton className="size-4 rounded-sm" />
           </div>
         ))}
       </Card>
@@ -193,17 +232,29 @@ function StatTile({
   value: string;
   sub: string;
 }) {
+  const isPlaceholder = value === "—";
   return (
     <Card className="rounded-md">
-      <CardContent className="flex items-start gap-3">
-        <div className="grid size-9 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground">
-          <HugeiconsIcon icon={icon} strokeWidth={1.8} className="size-4" />
+      <CardContent className="flex items-center gap-3">
+        <div className="inline-flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+          <HugeiconsIcon
+            icon={icon}
+            strokeWidth={1.8}
+            className="size-4 shrink-0"
+          />
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70">
             {label}
           </div>
-          <div className="mt-0.5 text-lg font-semibold leading-tight">{value}</div>
+          <div
+            className={cn(
+              "mt-0.5 text-lg font-semibold leading-tight",
+              isPlaceholder && "text-muted-foreground/40",
+            )}
+          >
+            {value}
+          </div>
           <div className="mt-0.5 text-[11px] text-muted-foreground">{sub}</div>
         </div>
       </CardContent>
@@ -212,58 +263,173 @@ function StatTile({
 }
 
 function ServerRow({ server }: { server: Server }) {
-  const joinedLabel = formatRelative(server.joinedAt ?? server.createdAt);
+  // Allocation/usage live data isn't wired up yet — backend swarm-stats path
+  // pending. Until then the bars render at 0% against capacity so the visual
+  // shell is in place.
+  const cpuUsed = 0;
+  const memUsed = 0;
+  const taskCount: number | null = null;
+
   return (
-    <TableRow>
+    <TableRow className="group">
       <TableCell className="pl-4">
-        <div className="flex items-center gap-2">
-          <span className="font-mono text-[13px] font-medium">{server.name}</span>
-          <RoleBadge role={server.role} />
+        <div className="flex items-start gap-2.5">
+          <HugeiconsIcon
+            icon={ServerStack01Icon}
+            strokeWidth={1.8}
+            className="mt-0.5 size-4 shrink-0 text-muted-foreground/70"
+          />
+          <div className="min-w-0 flex-1">
+            <div className="font-mono text-[13px] font-medium">{server.name}</div>
+            <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <span className="font-mono">{server.host}</span>
+              {server.hostname && server.hostname !== server.name && (
+                <>
+                  <span className="text-muted-foreground/50">·</span>
+                  <span className="font-mono">{server.hostname}</span>
+                </>
+              )}
+            </div>
+            {server.labels.length > 0 && (
+              <div className="mt-1 flex flex-wrap gap-1">
+                {server.labels.map((label) => (
+                  <Badge
+                    key={label}
+                    variant="outline"
+                    className="h-4 px-1.5 font-mono text-[10px] font-normal text-muted-foreground"
+                  >
+                    {label}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-        <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">
-          {server.region}
-          {server.labels.length > 0 && ` · ${server.labels.join(" · ")}`}
-        </div>
       </TableCell>
-      <TableCell className="font-mono text-[12px] text-muted-foreground">{server.host}</TableCell>
-      <TableCell className="font-mono text-[12px]">
-        <span className="text-foreground">{server.cpuTotal}</span>
-        <span className="text-muted-foreground"> vCPU</span>
+
+      <TableCell>
+        <RoleBadge role={server.role} />
       </TableCell>
-      <TableCell className="font-mono text-[12px]">
-        <span className="text-foreground">{server.memTotalGb}</span>
-        <span className="text-muted-foreground"> GB</span>
+
+      <TableCell>
+        <AvailabilitySelect server={server} />
       </TableCell>
-      <TableCell className="font-mono text-[12px]">
-        {server.diskTotalGb != null ? (
-          <>
-            <span className="text-foreground">{server.diskTotalGb}</span>
-            <span className="text-muted-foreground"> {server.diskUnit}</span>
-          </>
+
+      <TableCell>
+        <UsageBars
+          cpuUsed={cpuUsed}
+          cpuTotal={server.cpuTotal}
+          memUsed={memUsed}
+          memTotal={server.memTotalGb}
+          draining={server.status === "draining" || server.availability === "drain"}
+        />
+      </TableCell>
+
+      <TableCell className="text-right font-mono text-[12px] tabular-nums">
+        {taskCount === null ? (
+          <span className="text-muted-foreground/40">—</span>
         ) : (
-          <span className="text-muted-foreground/50">—</span>
+          taskCount
         )}
       </TableCell>
+
       <TableCell>
         <StatusBadge status={server.status} availability={server.availability} />
       </TableCell>
-      <TableCell className="pr-4 text-right text-[12px] text-muted-foreground">
-        {joinedLabel}
+
+      <TableCell className="pr-3">
+        <HugeiconsIcon
+          icon={ArrowRight01Icon}
+          strokeWidth={2}
+          className="size-4 text-muted-foreground/40 transition-colors group-hover:text-muted-foreground"
+        />
       </TableCell>
     </TableRow>
   );
 }
 
-function formatRelative(when: Date | string): string {
-  const d = typeof when === "string" ? new Date(when) : when;
-  const diffMs = Date.now() - d.getTime();
-  const days = Math.floor(diffMs / 86_400_000);
-  if (days > 0) return `${days}d ago`;
-  const hours = Math.floor(diffMs / 3_600_000);
-  if (hours > 0) return `${hours}h ago`;
-  const minutes = Math.floor(diffMs / 60_000);
-  if (minutes > 0) return `${minutes}m ago`;
-  return "just now";
+function AvailabilitySelect({ server }: { server: Server }) {
+  // TODO: wire to a `server.setAvailability` procedure once it lands. For now
+  // the Select is controlled but the change is a no-op so the affordance is
+  // visible without claiming we can actually drain a node.
+  return (
+    <Select value={server.availability} onValueChange={() => {}}>
+      <SelectTrigger className="h-7 w-[120px] px-2 text-[12px]">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="active">active</SelectItem>
+        <SelectItem value="drain">drain</SelectItem>
+        <SelectItem value="pause">pause</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+}
+
+function UsageBars({
+  cpuUsed,
+  cpuTotal,
+  memUsed,
+  memTotal,
+  draining,
+}: {
+  cpuUsed: number;
+  cpuTotal: number;
+  memUsed: number;
+  memTotal: number;
+  draining: boolean;
+}) {
+  const cpuPct = cpuTotal > 0 ? Math.min(100, (cpuUsed / cpuTotal) * 100) : 0;
+  const memPct = memTotal > 0 ? Math.min(100, (memUsed / memTotal) * 100) : 0;
+  const fill = draining ? "bg-warning" : "bg-muted-foreground/40";
+  const knownCapacity = cpuTotal > 0 || memTotal > 0;
+
+  return (
+    <div className="flex w-full flex-col gap-1.5">
+      <UsageRow label="cpu" used={cpuUsed} total={cpuTotal} unit="vCPU" pct={cpuPct} fill={fill} unknown={!knownCapacity} />
+      <UsageRow label="mem" used={memUsed} total={memTotal} unit="GB" pct={memPct} fill={fill} unknown={!knownCapacity} />
+    </div>
+  );
+}
+
+function UsageRow({
+  label,
+  used,
+  total,
+  unit,
+  pct,
+  fill,
+  unknown,
+}: {
+  label: string;
+  used: number;
+  total: number;
+  unit: string;
+  pct: number;
+  fill: string;
+  unknown: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-2 font-mono text-[11px]">
+      <span className="w-7 shrink-0 text-muted-foreground">{label}</span>
+      <div className="relative h-1 flex-1 overflow-hidden rounded-full bg-muted">
+        <div
+          className={cn("absolute inset-y-0 left-0 rounded-full", fill)}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className="w-[110px] shrink-0 text-right tabular-nums text-muted-foreground">
+        {unknown ? (
+          <span className="text-muted-foreground/40">— / — {unit}</span>
+        ) : (
+          <>
+            <span className="text-foreground">{used}</span>
+            <span className="text-muted-foreground"> / {total} {unit}</span>
+          </>
+        )}
+      </span>
+    </div>
+  );
 }
 
 function RoleBadge({ role }: { role: Server["role"] }) {
@@ -272,7 +438,7 @@ function RoleBadge({ role }: { role: Server["role"] }) {
       ? "border-info/30 bg-info/10 text-info"
       : "border-border bg-muted text-muted-foreground";
   return (
-    <Badge variant="outline" className={cn("h-4 px-1.5 text-[10px] font-medium uppercase", tone)}>
+    <Badge variant="outline" className={cn("h-5 px-1.5 font-mono text-[10px] font-medium", tone)}>
       {role}
     </Badge>
   );
@@ -294,15 +460,11 @@ function StatusBadge({
           ? "bg-destructive/15 text-destructive border-destructive/30"
           : "bg-muted text-muted-foreground border-border";
   const label =
-    availability === "drain"
-      ? "draining"
-      : availability === "pause"
-        ? "paused"
-        : status;
+    availability === "drain" ? "draining" : availability === "pause" ? "paused" : status;
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-sm border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider",
+        "inline-flex items-center gap-1.5 rounded-sm border px-2 py-0.5 font-mono text-[10px] font-medium",
         tone,
       )}
     >
@@ -320,3 +482,4 @@ function StatusBadge({
     </span>
   );
 }
+

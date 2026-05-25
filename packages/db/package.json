@@ -24,8 +24,9 @@
   "dependencies": {
     "@otterstack/env": "workspace:*",
     "@otterstack/shared": "workspace:*",
-    "@upstash/redis": "^1.37.0",
+    "better-result": "catalog:",
     "drizzle-orm": "catalog:",
+    "evlog": "catalog:",
     "pg": "^8.16.3",
     "zod": "catalog:"
   },

@@ -42,17 +42,25 @@ export async function createServerRecord(input: {
   id?: ServerId;
   organizationId: OrgId;
   name: string;
+  hostname?: string;
   host: string;
-  region: string;
+  region?: string;
   role?: "manager" | "worker";
-  cpuTotal: number;
-  memTotalGb: number;
+  cpuTotal?: number;
+  memTotalGb?: number;
   diskTotalGb?: number;
   diskUnit?: string;
   daemonVersion?: string;
   labels?: string[];
 }): Promise<ServerRecord | undefined> {
-  const [row] = await db.insert(server).values(input).returning();
+  const [row] = await db
+    .insert(server)
+    .values({
+      ...input,
+      cpuTotal: input.cpuTotal ?? 0,
+      memTotalGb: input.memTotalGb ?? 0,
+    })
+    .returning();
   return row;
 }
 
@@ -86,13 +94,17 @@ export async function deleteServerRecord(input: {
 export async function bootstrapLocalhostIfMissing(organizationId: OrgId): Promise<void> {
   const cpuCount = os.cpus().length;
   const memTotalGb = Math.max(1, Math.round(os.totalmem() / 1024 ** 3));
-  const hostname = os.hostname() || "localhost";
+  const hostname = os.hostname() || null;
 
+  // Upsert: insert new orgs, and back-fill the canonical name/hostname pair
+  // on existing rows that were created before the schema split (when the OS
+  // hostname was stored as `name`).
   await db
     .insert(server)
     .values({
       organizationId,
-      name: hostname,
+      name: "localhost",
+      hostname,
       host: "127.0.0.1",
       region: "local",
       role: "manager",
@@ -102,7 +114,8 @@ export async function bootstrapLocalhostIfMissing(organizationId: OrgId): Promis
       memTotalGb,
       labels: ["bootstrap"],
     })
-    .onConflictDoNothing({
+    .onConflictDoUpdate({
       target: [server.organizationId, server.host],
+      set: { name: "localhost", hostname },
     });
 }

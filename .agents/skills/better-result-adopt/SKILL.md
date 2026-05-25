@@ -117,6 +117,63 @@ async function processOrder(orderId: string): Promise<Result<OrderResult, OrderE
 }
 ```
 
+### `isErr()` + `switch (_tag)` → `matchError`
+
+`isErr()` followed by `switch (result.error._tag)` defeats the exhaustiveness
+checker: TypeScript can't tell that every variant is handled, and any new
+`TaggedError` added to the union compiles silently with no warning at the
+existing switch.
+
+Always use `matchError` (exhaustive) or `matchErrorPartial` (subset + fallback).
+The compiler then refuses to build until every variant has a handler.
+
+```ts
+// Bad — exhaustiveness is invisible to TS; new variants slip through silently.
+if (result.isErr()) {
+  switch (result.error._tag) {
+    case "ProjectNotFoundError":
+    case "ServiceNotFoundError":
+      throw errors.NOT_FOUND();
+  }
+}
+
+// Good — compiler errors if a variant is missing.
+import { matchError } from "better-result";
+
+if (result.isErr()) {
+  throw matchError(result.error, {
+    ProjectNotFoundError: () => errors.NOT_FOUND(),
+    ServiceNotFoundError: () => errors.NOT_FOUND(),
+  });
+}
+
+// Or paired with `result.match` for the success path too:
+return result.match({
+  ok: (value) => value,
+  err: (e) =>
+    matchError(e, {
+      ProjectNotFoundError: () => { throw errors.NOT_FOUND(); },
+      ServiceNotFoundError: () => { throw errors.NOT_FOUND(); },
+    }),
+});
+```
+
+When you only care about a subset (and want a default for the rest), use
+`matchErrorPartial`:
+
+```ts
+import { matchErrorPartial } from "better-result";
+
+const status = matchErrorPartial(
+  e,
+  { NotFoundError: () => 404 },
+  () => 500, // fallback covers any current or future variant
+);
+```
+
+See `references/tagged-errors.md` for the full API (pipeable form, type
+guards, integration with `Result.match`).
+
 ## Execution Workflow
 
 1. Audit the target module for `try`, `catch`, `.catch(...)`, `throw`, `null`, `undefined`, and status-flag error handling.
@@ -143,6 +200,10 @@ A migration is complete when:
 - Losing original failure context when mapping errors
 - Mixing `throw`-based and `Result`-based APIs deep in the same flow
 - Catching `Panic` instead of fixing the underlying defect
+- Using `if (result.isErr()) switch (result.error._tag) { ... }` instead of
+  `matchError` / `matchErrorPartial` — the switch can't be checked for
+  exhaustiveness, so adding a new error variant compiles silently with no
+  warning at the existing switch
 
 ## In This Reference
 

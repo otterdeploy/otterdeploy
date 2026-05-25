@@ -27,10 +27,10 @@
     "@otterstack/db": "workspace:*",
     "@otterstack/email": "workspace:*",
     "@otterstack/env": "workspace:*",
-    "@otterstack/inngest": "workspace:*",
+    "@otterstack/jobs": "workspace:*",
     "ai": "^6.0.175",
     "better-auth": "catalog:",
-    "better-result": "^2.9.2",
+    "better-result": "catalog:",
     "evlog": "catalog:",
     "hono": "catalog:",
     "zod": "catalog:"

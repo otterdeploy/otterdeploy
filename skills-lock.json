@@ -57,7 +57,7 @@
     "review-logging-patterns": {
       "source": "evlog.dev",
       "sourceType": "well-known",
-      "computedHash": "16ec9091a37cfce1089d137da6c4d2997d771a8eb914a952df7654afbcdd1f36"
+      "computedHash": "b494c7c38ba05a928321838ba116a7ca7fddc867bd5b2d9a42122123a962a37e"
     },
     "shadcn": {
       "source": "shadcn/ui",

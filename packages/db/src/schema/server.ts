@@ -35,8 +35,14 @@ export const server = pgTable(
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
+    // Operator-visible OS hostname (e.g. "Mac", "prod-04.fra"). Shown as a
+    // secondary label so `name` can be a stable, friendly identifier like
+    // "localhost" while the underlying machine is still surfaced.
+    hostname: text("hostname"),
     host: text("host").notNull(),
-    region: text("region").notNull(),
+    // Nullable: the join-command flow doesn't ask the operator for a region;
+    // the daemon (or a later edit) fills this in when it has real info.
+    region: text("region"),
     role: serverRoleEnum("role").notNull().default("worker"),
     status: serverStatusEnum("status").notNull().default("ready"),
     availability: serverAvailabilityEnum("availability").notNull().default("active"),

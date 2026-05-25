@@ -15,7 +15,14 @@ import {
 import { Slider } from "@/shared/components/ui/slider";
 import { cn } from "@/shared/lib/utils";
 
-import { Field, SectionHeader, SettingRow } from "../form-primitives";
+import {
+  builderCardActiveClass,
+  builderCardClass,
+  builderPopClass,
+  Field,
+  SectionHeader,
+  SettingRow,
+} from "../form-primitives";
 import { I } from "../icons";
 
 interface ResourcesProps {
@@ -62,16 +69,12 @@ export function StepResources({
               type="button"
               onClick={() => presetIdField.handleChange(p.id)}
               className={cn(
-                "relative min-h-24 rounded-md border bg-card p-3.5 text-left text-foreground transition-colors hover:border-ring",
-                isActive &&
-                  "border-foreground bg-accent shadow-[0_0_0_1px_var(--foreground)_inset]",
+                builderCardClass,
+                "min-h-24",
+                isActive && builderCardActiveClass,
               )}
             >
-              {p.popular && (
-                <span className="absolute top-2 right-2 rounded-sm bg-info/12 px-1.5 py-px text-[9px] font-medium uppercase tracking-[0.08em] text-info">
-                  popular
-                </span>
-              )}
+              {p.popular && <span className={builderPopClass}>popular</span>}
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold">{p.name}</span>
                 {isActive && (

@@ -10,6 +10,7 @@ export const serverRouter = {
   }),
 
   get: orgScopedProcedure.server.get.handler(async ({ input, context, errors }) => {
+    context.log.set({ target: { type: "server", id: input.id } });
     const result = await getServer({
       id: input.id,
       organizationId: context.activeOrganizationId,
@@ -23,6 +24,7 @@ export const serverRouter = {
   }),
 
   create: orgScopedProcedure.server.create.handler(async ({ input, context, errors }) => {
+    context.log.set({ target: { type: "server" } });
     const result = await createServer({
       ...input,
       organizationId: context.activeOrganizationId,
@@ -32,10 +34,12 @@ export const serverRouter = {
         ServerConflictError: () => errors.CONFLICT(),
       });
     }
+    context.log.set({ target: { type: "server", id: result.value.id } });
     return result.value;
   }),
 
   delete: orgScopedProcedure.server.delete.handler(async ({ input, context, errors }) => {
+    context.log.set({ target: { type: "server", id: input.id } });
     const result = await deleteServer({
       id: input.id,
       organizationId: context.activeOrganizationId,

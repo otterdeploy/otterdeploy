@@ -1,5 +1,5 @@
 {
-  "name": "@otterstack/inngest",
+  "name": "@otterstack/jobs",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
@@ -14,8 +14,9 @@
   "scripts": {},
   "dependencies": {
     "@otterstack/env": "workspace:*",
+    "bullmq": "^5.65.0",
     "evlog": "catalog:",
-    "inngest": "^4.2.6"
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@otterstack/config": "workspace:*",

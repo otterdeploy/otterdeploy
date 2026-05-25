@@ -119,8 +119,9 @@ export function StepImage({ imageField, tagField, registryField, nameField }: Im
         })}
       </div>
 
-      <div className="h-[22px]" />
-      <SectionHeader title="Image" />
+      <div className="mt-5">
+        <SectionHeader title="Image" />
+      </div>
       <Card className="mt-2.5 rounded-md">
         <CardContent className="flex flex-col gap-2">
           <div className="grid grid-cols-[2fr_1fr] gap-2.5">
@@ -148,8 +149,9 @@ export function StepImage({ imageField, tagField, registryField, nameField }: Im
         </CardContent>
       </Card>
 
-      <div className="h-4" />
-      <SectionHeader title="Available tags" sub="Recently pushed to this repository" />
+      <div className="mt-4">
+        <SectionHeader title="Available tags" sub="Recently pushed to this repository" />
+      </div>
       <Card className="mt-2.5 gap-0 overflow-hidden rounded-md p-0">
         {availableTags.map((t, i) => {
           const isSelected = tag === t.tag;
@@ -174,8 +176,9 @@ export function StepImage({ imageField, tagField, registryField, nameField }: Im
         })}
       </Card>
 
-      <div className="h-4" />
-      <SectionHeader title="Service name" />
+      <div className="mt-4">
+        <SectionHeader title="Service name" />
+      </div>
       <Card className="mt-2.5 rounded-md">
         <CardContent>
           <Field label="Name">
@@ -188,8 +191,9 @@ export function StepImage({ imageField, tagField, registryField, nameField }: Im
         </CardContent>
       </Card>
 
-      <div className="h-4" />
-      <SectionHeader title="Update strategy" />
+      <div className="mt-4">
+        <SectionHeader title="Update strategy" />
+      </div>
       <Card className="mt-2.5 rounded-md">
         <CardContent>
           <SettingRow

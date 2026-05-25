@@ -19,6 +19,7 @@ import {
 export const projectRouter = {
   get: orgScopedProcedure.project.get.handler(
     async ({ input, context, errors }) => {
+      context.log.set({ target: { type: "project", id: input.id } });
       const result = await getProject({
         id: input.id,
         organizationId: context.activeOrganizationId,
@@ -34,6 +35,7 @@ export const projectRouter = {
 
   getBySlug: orgScopedProcedure.project.getBySlug.handler(
     async ({ input, context, errors }) => {
+      context.log.set({ target: { type: "project", slug: input.slug } });
       const result = await getProjectBySlugForOrg({
         slug: input.slug,
         organizationId: context.activeOrganizationId,
@@ -43,6 +45,9 @@ export const projectRouter = {
           ProjectNotFoundError: () => errors.NOT_FOUND(),
         });
       }
+      context.log.set({
+        target: { type: "project", id: result.value.id, slug: input.slug },
+      });
       return result.value;
     },
   ),
@@ -53,6 +58,7 @@ export const projectRouter = {
 
   create: orgScopedProcedure.project.create.handler(
     async ({ input, context, errors }) => {
+      context.log.set({ target: { type: "project" } });
       const result = await createProject({
         ...input,
         organizationId: context.activeOrganizationId,
@@ -62,12 +68,14 @@ export const projectRouter = {
           ProjectConflictError: () => errors.CONFLICT(),
         });
       }
+      context.log.set({ target: { type: "project", id: result.value.id } });
       return result.value;
     },
   ),
 
   update: orgScopedProcedure.project.update.handler(
     async ({ input, context, errors }) => {
+      context.log.set({ target: { type: "project", id: input.id } });
       const result = await updateProject({
         ...input,
         organizationId: context.activeOrganizationId,
@@ -84,6 +92,7 @@ export const projectRouter = {
 
   delete: orgScopedProcedure.project.delete.handler(
     async ({ input, context, errors }) => {
+      context.log.set({ target: { type: "project", id: input.id } });
       const result = await deleteProject(
         {
           id: input.id,
@@ -135,6 +144,9 @@ export const projectRouter = {
 
     get: orgScopedProcedure.project.resource.get.handler(
       async ({ input, context, errors }) => {
+        context.log.set({
+          target: { type: "resource", id: input.resourceId, projectId: input.projectId },
+        });
         const result = await getProjectResource({
           projectId: input.projectId,
           resourceId: input.resourceId,
@@ -151,6 +163,9 @@ export const projectRouter = {
 
     delete: orgScopedProcedure.project.resource.delete.handler(
       async ({ input, context, errors }) => {
+        context.log.set({
+          target: { type: "resource", id: input.resourceId, projectId: input.projectId },
+        });
         const result = await deleteProjectResource(
           {
             projectId: input.projectId,
@@ -172,6 +187,9 @@ export const projectRouter = {
       postgres: {
         create: orgScopedProcedure.project.resource.database.postgres.create.handler(
           async ({ input, context, errors }) => {
+            context.log.set({
+              target: { type: "resource", kind: "postgres", projectId: input.projectId },
+            });
             const result = await createPostgresResource(
               {
                 ...input,
@@ -186,6 +204,14 @@ export const projectRouter = {
                 PostgresResourceConflictError: () => errors.CONFLICT(),
               });
             }
+            context.log.set({
+              target: {
+                type: "resource",
+                kind: "postgres",
+                id: result.value.resourceId,
+                projectId: input.projectId,
+              },
+            });
             return result.value;
           },
         ),

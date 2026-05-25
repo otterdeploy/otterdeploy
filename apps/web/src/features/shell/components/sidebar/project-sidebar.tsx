@@ -77,7 +77,7 @@ const navItems = [
   },
   {
     titleKey: "nav.terminal",
-    href: "/$orgSlug/$projectSlug/terminal",
+    href: "/$orgSlug/terminal",
     icon: FlashIcon,
   },
   {

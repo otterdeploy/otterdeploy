@@ -29,24 +29,24 @@ services:
       timeout: 3s
       retries: 20
 
-  inngest:
-    image: inngest/inngest:latest
-    container_name: otterstack-inngest
+  redis:
+    image: redis:7-alpine
+    container_name: otterstack-redis
     restart: unless-stopped
     command: >
-      inngest dev
-      --host 0.0.0.0
-      --port 8288
-      --no-discovery
-      --sdk-url http://host.docker.internal:3002/api/inngest
+      redis-server
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
     ports:
-      - "8288:8288"
-    environment:
-      INNGEST_DEV: "1"
-      INNGEST_EVENT_KEY: ${INNGEST_EVENT_KEY:-local-dev-event-key}
-      INNGEST_SIGNING_KEY: ${INNGEST_SIGNING_KEY:-local-dev-signing-key}
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - otterstack-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   caddy:
     build:
@@ -83,5 +83,6 @@ services:
 
 volumes:
   otterstack-postgres-data:
+  otterstack-redis-data:
   otterstack-caddy-data:
   otterstack-caddy-state:

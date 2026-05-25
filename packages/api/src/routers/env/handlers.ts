@@ -8,7 +8,7 @@
  * project claims them.
  */
 
-import { Result } from "better-result";
+import { panic, Result } from "better-result";
 
 import { type Id, ID_PREFIX } from "@otterstack/shared/id";
 
@@ -53,23 +53,24 @@ export async function getEnv(
 export async function createEnv(
   input: { id?: EnvironmentId; name: string; slug: string; projectId?: ProjectId },
 ): Promise<Result<EnvironmentRecord, EnvironmentConflictError>> {
-  try {
-    const created = await createEnvRecord({
-      id: input.id,
-      name: input.name.trim(),
-      slug: input.slug,
-      projectId: input.projectId,
-    });
-    if (!created) {
-      return Result.err(new EnvironmentConflictError({ slug: input.slug }));
-    }
-    return Result.ok(created);
-  } catch (error) {
-    if (isUniqueViolation(error)) {
-      return Result.err(new EnvironmentConflictError({ slug: input.slug }));
-    }
-    throw error;
+  const insert = await Result.tryPromise({
+    try: () =>
+      createEnvRecord({
+        id: input.id,
+        name: input.name.trim(),
+        slug: input.slug,
+        projectId: input.projectId,
+      }),
+    catch: (cause) =>
+      isUniqueViolation(cause)
+        ? new EnvironmentConflictError({ slug: input.slug })
+        : panic("env.createEnv: unexpected DB error", cause),
+  });
+  if (Result.isError(insert)) return insert;
+  if (!insert.value) {
+    return Result.err(new EnvironmentConflictError({ slug: input.slug }));
   }
+  return Result.ok(insert.value);
 }
 
 export async function deleteEnv(

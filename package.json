@@ -11,6 +11,7 @@
       "typescript": "^6.0.3",
       "@types/bun": "^1.3.13",
       "@types/react": "^19.2.14",
+      "better-result": "^2.9.2",
       "hono": "^4.12.16",
       "@orpc/server": "^1.14.1",
       "@orpc/openapi": "^1.14.1",

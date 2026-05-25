@@ -49,6 +49,13 @@ export interface VolumeAttachment {
   mount?: string;
 }
 
+export interface ReplicaInfo {
+  /** Replica identifier — typically a swarm task slot like "1", "r1", or a
+   *  short suffix. Used as the visible label. */
+  label: string;
+  status: ResourceStatus;
+}
+
 export interface GitInfo {
   /** Short SHA, e.g. "a3f8b2c". */
   commit: string;
@@ -69,29 +76,74 @@ export interface ResourceNodeData extends Record<string, unknown> {
   git?: GitInfo;
   /** Database-only: render volumes inline inside the inset MOUNTS tray (Variant A). */
   volumes?: VolumeAttachment[];
+  /** Service-only: one entry per scheduled task. Renders an inset REPLICAS
+   *  tray so the operator can see fan-out + per-task health at a glance. */
+  replicas?: ReplicaInfo[];
 }
 
-/** Volume pill — matches the design spec's `.vol-pill` (Variant A, inset tray). */
-function VolumePill({ volume }: { volume: VolumeAttachment }) {
+/** Mount row — name + optional mount-path on the left, size aligned right.
+ *  Restores the design spec's Variant A intent ("stacked rows w/ mount path"). */
+function MountRow({ volume }: { volume: VolumeAttachment }) {
   const [sizeNum, sizeUnit] = (() => {
     const parts = volume.size.trim().split(/\s+/);
     return [parts[0] ?? volume.size, parts.slice(1).join(" ")];
   })();
   return (
-    <span
-      className="inline-flex min-w-0 items-center gap-2 rounded-full border bg-muted py-[3px] pr-3 pl-[3px] font-mono text-[12.5px] leading-none whitespace-nowrap"
+    <div
+      className="flex items-center gap-3 px-2 py-2"
       title={`${volume.name} · ${volume.size}${volume.mount ? ` · ${volume.mount}` : ""}`}
     >
-      <span className="grid size-[22px] shrink-0 place-items-center rounded-full bg-violet-500/20 text-violet-600 dark:text-violet-300">
-        <HugeiconsIcon icon={HardDriveIcon} strokeWidth={1.6} className="size-3" />
+      <span className="grid size-7 shrink-0 place-items-center rounded-md bg-violet-500/15 text-violet-600 dark:text-violet-300">
+        <HugeiconsIcon icon={HardDriveIcon} strokeWidth={1.6} className="size-3.5" />
       </span>
-      <span className="truncate text-card-foreground">{volume.name}</span>
-      <span className="text-muted-foreground/40">·</span>
-      <span className="shrink-0 text-muted-foreground">
+      <div className="min-w-0 flex-1">
+        <div className="truncate font-mono text-[13px] leading-tight text-card-foreground">
+          {volume.name}
+        </div>
+        {volume.mount && (
+          <div className="mt-0.5 truncate font-mono text-[11px] leading-tight text-muted-foreground/80">
+            {volume.mount}
+          </div>
+        )}
+      </div>
+      <span className="shrink-0 font-mono text-[12.5px] text-muted-foreground">
         {sizeNum}
-        {sizeUnit && <span className="ml-[3px] text-muted-foreground/50">{sizeUnit}</span>}
+        {sizeUnit && <span className="ml-1 text-muted-foreground/50">{sizeUnit}</span>}
       </span>
-    </span>
+    </div>
+  );
+}
+
+/** Replica row — small dot + label on the left, state name on the right.
+ *  Mirrors MountRow but tighter since service replicas are typically homogenous
+ *  and you want to fit several per card. */
+function ReplicaRow({ replica }: { replica: ReplicaInfo }) {
+  const meta = statusMeta[replica.status];
+  return (
+    <div
+      className="flex items-center gap-2.5 px-2 py-1.5"
+      title={`${replica.label} · ${meta.label}`}
+    >
+      <span
+        className={cn("size-1.5 shrink-0 rounded-full", meta.dotClass)}
+        aria-hidden
+      />
+      <span className="min-w-0 flex-1 truncate font-mono text-[12.5px] leading-tight text-card-foreground">
+        {replica.label}
+      </span>
+      <span
+        className={cn(
+          "shrink-0 font-mono text-[11px] leading-none",
+          replica.status === "running"
+            ? "text-muted-foreground/80"
+            : replica.status === "building"
+              ? "text-warning"
+              : "text-destructive",
+        )}
+      >
+        {meta.label}
+      </span>
+    </div>
   );
 }
 
@@ -299,25 +351,43 @@ export function ResourceNode({ id, data, selected }: NodeProps<ResourceFlowNode>
           </div>
         )}
 
+        {/* REPLICAS TRAY — service fan-out + per-task health. Matches the
+            MOUNTS visual so the two trays read as the same family. */}
+        {data.replicas && data.replicas.length > 0 && (
+          <>
+            <div className="mx-5 h-px bg-border" />
+            <div className="relative mx-2.5 mt-3.5 mb-2.5 rounded-[14px] border bg-background px-1.5 pt-1 pb-1">
+              <span className="absolute -top-[7px] left-3.5 bg-card px-1.5 font-mono text-[9.5px] leading-none font-semibold tracking-[0.22em] text-muted-foreground/60 uppercase">
+                Replicas · {data.replicas.filter((r) => r.status === "running").length}
+                /{data.replicas.length}
+              </span>
+              <ul className="divide-y divide-border/40">
+                {data.replicas.map((r) => (
+                  <li key={r.label}>
+                    <ReplicaRow replica={r} />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </>
+        )}
+
         {/* MOUNTS TRAY — Variant A from the design, separated from body by a hairline */}
         {data.volumes && data.volumes.length > 0 && (
           <>
             <div className="mx-5 h-px bg-border" />
-            <div className="relative mx-2.5 mt-3.5 mb-2.5 rounded-[14px] border bg-background px-2.5 pt-3 pb-2.5">
+            <div className="relative mx-2.5 mt-3.5 mb-2.5 rounded-[14px] border bg-background px-1.5 pt-1 pb-1">
               <span className="absolute -top-[7px] left-3.5 bg-card px-1.5 font-mono text-[9.5px] leading-none font-semibold tracking-[0.22em] text-muted-foreground/60 uppercase">
                 Mounts
                 {data.volumes.length > 1 ? ` · ${data.volumes.length}` : ""}
               </span>
-              <div
-                className={cn(
-                  "grid gap-x-2 gap-y-1.5",
-                  data.volumes.length === 1 ? "grid-cols-1" : "grid-cols-2",
-                )}
-              >
+              <ul className="divide-y divide-border/40">
                 {data.volumes.map((v) => (
-                  <VolumePill key={v.name} volume={v} />
+                  <li key={v.name}>
+                    <MountRow volume={v} />
+                  </li>
                 ))}
-              </div>
+              </ul>
             </div>
           </>
         )}

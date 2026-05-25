@@ -14,6 +14,7 @@ export const envRouter = {
 
   get: orgScopedProcedure.env.get.handler(
     async ({ input, context, errors }) => {
+      context.log.set({ target: { type: "environment", id: input.id } });
       const result = await getEnv({
         id: input.id,
         organizationId: context.activeOrganizationId,
@@ -28,19 +29,22 @@ export const envRouter = {
   ),
 
   create: orgScopedProcedure.env.create.handler(
-    async ({ input, errors }) => {
+    async ({ input, context, errors }) => {
+      context.log.set({ target: { type: "environment" } });
       const result = await createEnv(input);
       if (result.isErr()) {
         throw matchError(result.error, {
           EnvironmentConflictError: () => errors.CONFLICT(),
         });
       }
+      context.log.set({ target: { type: "environment", id: result.value.id } });
       return result.value;
     },
   ),
 
   delete: orgScopedProcedure.env.delete.handler(
     async ({ input, context, errors }) => {
+      context.log.set({ target: { type: "environment", id: input.id } });
       const result = await deleteEnv({
         id: input.id,
         organizationId: context.activeOrganizationId,
