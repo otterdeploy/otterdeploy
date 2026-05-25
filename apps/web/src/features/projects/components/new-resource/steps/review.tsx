@@ -2,10 +2,10 @@ import { RESOURCE_PRESETS, type ServiceKind } from "@/features/projects/data/ser
 import { Button } from "@/shared/components/ui/button";
 import { Card } from "@/shared/components/ui/card";
 
-import type { ResourceFormValues } from "./schema";
+import type { ResourceFormValues } from "../schema";
 
-import { SectionH } from "./form-primitives";
-import { I } from "./icons";
+import { SectionHeader } from "../form-primitives";
+import { I } from "../icons";
 
 interface ReviewProps {
   values: ResourceFormValues;
@@ -16,13 +16,9 @@ function ReviewRow({ label, value, last }: { label: string; value?: string; last
   if (!value) return null;
   return (
     <div
-      className={`flex items-start px-3 py-2 text-xs ${
-        last ? "" : "border-b border-border/60"
-      }`}
+      className={`flex items-start px-3 py-2 text-xs ${last ? "" : "border-b border-border/60"}`}
     >
-      <span className="w-24 shrink-0 pt-0.5 text-[11px] text-muted-foreground">
-        {label}
-      </span>
+      <span className="w-24 shrink-0 pt-0.5 text-[11px] text-muted-foreground">{label}</span>
       <span className="flex-1 font-mono break-words text-foreground">{value}</span>
     </div>
   );
@@ -71,7 +67,7 @@ volumes:
 
   return (
     <>
-      <SectionH title="Review" sub="Confirm and deploy — you can change all of this later" />
+      <SectionHeader title="Review" sub="Confirm and deploy — you can change all of this later" />
 
       <div className="mt-3.5 grid grid-cols-2 gap-3">
         <div>
@@ -96,11 +92,7 @@ volumes:
 
           <Card className="mt-3.5 rounded-md bg-muted p-3 gap-0">
             <div className="flex items-start gap-2">
-              <I.bolt
-                width={14}
-                height={14}
-                className="mt-0.5 shrink-0 text-muted-foreground"
-              />
+              <I.bolt width={14} height={14} className="mt-0.5 shrink-0 text-muted-foreground" />
               <p className="text-xs leading-relaxed text-muted-foreground">
                 Otterstack will{" "}
                 {isDb

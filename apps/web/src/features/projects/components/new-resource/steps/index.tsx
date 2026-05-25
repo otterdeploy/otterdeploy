@@ -57,12 +57,22 @@ export function Stepper({
               </span>
               <span>{lab}</span>
             </button>
-            {i < steps.length - 1 && (
-              <div className="mx-1.5 h-px min-w-4 flex-1 bg-border" />
-            )}
+            {i < steps.length - 1 && <div className="mx-1.5 h-px min-w-4 flex-1 bg-border" />}
           </Fragment>
         );
       })}
     </div>
   );
 }
+
+export * from "./kind";
+export * from "./source";
+export * from "./builder";
+export * from "./image";
+export * from "./version";
+export * from "./networking";
+export * from "./resources";
+export * from "./storage";
+export * from "./variables";
+export * from "./review";
+export * from "./advanced-db";

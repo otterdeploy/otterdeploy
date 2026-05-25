@@ -3,7 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { ResourceWizard } from "@/features/projects/components/new-resource/new-resource-wizard";
-import { StepKind } from "@/features/projects/components/new-resource/step-kind";
+import { StepKind } from "@/features/projects/components/new-resource/steps";
 import { SERVICE_KINDS } from "@/features/projects/data/service-kinds";
 import { Button } from "@/shared/components/ui/button";
 import {

@@ -11,18 +11,21 @@ import {
   resourceSchema,
   resourceDefaults,
 } from "@/features/projects/components/new-resource/schema";
-import { StepAdvancedDb } from "@/features/projects/components/new-resource/step-advanced-db";
-import { StepBuilder } from "@/features/projects/components/new-resource/step-builder";
-import { StepImage } from "@/features/projects/components/new-resource/step-image";
-import { StepKind } from "@/features/projects/components/new-resource/step-kind";
-import { StepNetworking } from "@/features/projects/components/new-resource/step-networking";
-import { StepResources } from "@/features/projects/components/new-resource/step-resources";
-import { StepReview } from "@/features/projects/components/new-resource/step-review";
-import { StepSource } from "@/features/projects/components/new-resource/step-source";
-import { StepStorage } from "@/features/projects/components/new-resource/step-storage";
-import { StepVariables } from "@/features/projects/components/new-resource/step-variables";
-import { StepVersion } from "@/features/projects/components/new-resource/step-version";
-import { Stepper, type Step } from "@/features/projects/components/new-resource/stepper";
+import {
+  StepAdvancedDb,
+  type Step,
+  StepBuilder,
+  StepImage,
+  StepKind,
+  StepNetworking,
+  StepResources,
+  StepReview,
+  StepSource,
+  StepStorage,
+  StepVariables,
+  StepVersion,
+  Stepper,
+} from "@/features/projects/components/new-resource/steps";
 import { SERVICE_KINDS } from "@/features/projects/data/service-kinds";
 import { Button } from "@/shared/components/ui/button";
 import { cn } from "@/shared/lib/utils";
@@ -153,22 +156,20 @@ export function ResourceWizard({
       {showChrome && (
         <div className="flex shrink-0 items-center gap-3 border-b bg-card px-5 py-3">
           <Button
-            asChild
             variant="ghost"
             size="sm"
             className="h-7 gap-1.5 px-2 text-xs text-muted-foreground"
-          >
-            <Link to="/$orgSlug/$projectSlug" params={{ orgSlug, projectSlug }}>
-              <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="size-3" />
-              {projectName}
-            </Link>
-          </Button>
+            render={() => (
+              <Link to="/$orgSlug/$projectSlug" params={{ orgSlug, projectSlug }}>
+                <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="size-3" />
+                {projectName}
+              </Link>
+            )}
+          />
           <span className="text-sm text-border">/</span>
           <span className="text-[13px] font-semibold">Create resource</span>
           {kind && (
-            <span className="ml-1 font-mono text-[11px] text-muted-foreground">
-              · {kind.name}
-            </span>
+            <span className="ml-1 font-mono text-[11px] text-muted-foreground">· {kind.name}</span>
           )}
           <div className="flex-1" />
           <span className="text-[11px] text-muted-foreground">
@@ -185,9 +186,7 @@ export function ResourceWizard({
           layout === "dialog" ? "px-[18px] py-4" : "p-[22px]",
         )}
       >
-        <div
-          className={`mx-auto ${step === "kind" ? "max-w-[1100px]" : "max-w-[820px]"}`}
-        >
+        <div className={`mx-auto ${step === "kind" ? "max-w-[1100px]" : "max-w-[820px]"}`}>
           {step === "kind" && (
             <StepKind
               kindId={kindId}
@@ -297,6 +296,7 @@ export function ResourceWizard({
                     <form.Field name="healthInterval">
                       {(healthIntervalField) => (
                         <StepNetworking
+                          kind={kind}
                           portsField={portsField}
                           healthPathField={healthPathField}
                           healthIntervalField={healthIntervalField}
@@ -467,39 +467,29 @@ export function ResourceWizard({
         } ${layout === "dialog" ? "px-[18px] py-3" : "px-5 py-3"}`}
       >
         {layout === "page" ? (
-          <Button asChild variant="outline" size="sm" className="h-8">
-            <Link to="/$orgSlug/$projectSlug" params={{ orgSlug, projectSlug }}>
-              Cancel
-            </Link>
-          </Button>
-        ) : (
           <Button
             variant="outline"
             size="sm"
             className="h-8"
-            onClick={() => onCancel?.()}
-          >
+            render={() => (
+              <Link to="/$orgSlug/$projectSlug" params={{ orgSlug, projectSlug }}>
+                Cancel
+              </Link>
+            )}
+          />
+        ) : (
+          <Button variant="outline" size="sm" className="h-8" onClick={() => onCancel?.()}>
             Cancel
           </Button>
         )}
         <div className="flex-1" />
         {idx > 0 && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 gap-1.5"
-            onClick={goPrev}
-          >
+          <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={goPrev}>
             <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="size-3.5" />
             Back
           </Button>
         )}
-        <Button
-          size="sm"
-          className="h-8 gap-1.5"
-          onClick={handleContinue}
-          disabled={!canAdvance}
-        >
+        <Button size="sm" className="h-8 gap-1.5" onClick={handleContinue} disabled={!canAdvance}>
           {isLast ? "Create & deploy" : "Continue"}
           {!isLast && (
             <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-3.5" />

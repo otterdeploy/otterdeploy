@@ -49,7 +49,7 @@ export interface VolumeAttachment {
   mount?: string;
 }
 
-export interface ResourceNodeData {
+export interface ResourceNodeData extends Record<string, unknown> {
   kind: ResourceKind;
   name: string;
   description: string;

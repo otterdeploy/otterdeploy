@@ -7,9 +7,7 @@ import { createId, ID_PREFIX, type Id } from "@otterstack/shared/id";
 
 import type { ProjectId } from "../errors";
 
-export async function listProjectRecordsByOrg(
-  organizationId: Id<typeof ID_PREFIX.organization>,
-) {
+export async function listProjectRecordsByOrg(organizationId: Id<typeof ID_PREFIX.organization>) {
   return db
     .select({
       id: project.id,
@@ -38,22 +36,13 @@ export async function getProjectInOrg(input: {
   const [record] = await db
     .select()
     .from(project)
-    .where(
-      and(
-        eq(project.id, input.projectId),
-        eq(project.organizationId, input.organizationId),
-      ),
-    )
+    .where(and(eq(project.id, input.projectId), eq(project.organizationId, input.organizationId)))
     .limit(1);
   return record;
 }
 
 export async function getProjectById(projectId: ProjectId) {
-  const [record] = await db
-    .select()
-    .from(project)
-    .where(eq(project.id, projectId))
-    .limit(1);
+  const [record] = await db.select().from(project).where(eq(project.id, projectId)).limit(1);
   return record;
 }
 
@@ -61,11 +50,7 @@ export async function getProjectById(projectId: ProjectId) {
 export const getProjectRecord = getProjectById;
 
 export async function getProjectBySlug(slug: string) {
-  const [record] = await db
-    .select()
-    .from(project)
-    .where(eq(project.slug, slug))
-    .limit(1);
+  const [record] = await db.select().from(project).where(eq(project.slug, slug)).limit(1);
   return record;
 }
 
@@ -76,12 +61,7 @@ export async function getProjectBySlugInOrg(input: {
   const [record] = await db
     .select()
     .from(project)
-    .where(
-      and(
-        eq(project.slug, input.slug),
-        eq(project.organizationId, input.organizationId),
-      ),
-    )
+    .where(and(eq(project.slug, input.slug), eq(project.organizationId, input.organizationId)))
     .limit(1);
   return record;
 }
@@ -98,12 +78,7 @@ export async function updateProjectRecord(input: {
       ...(input.name !== undefined && { name: input.name }),
       ...(input.slug !== undefined && { slug: input.slug }),
     })
-    .where(
-      and(
-        eq(project.id, input.projectId),
-        eq(project.organizationId, input.organizationId),
-      ),
-    )
+    .where(and(eq(project.id, input.projectId), eq(project.organizationId, input.organizationId)))
     .returning();
   return record;
 }
@@ -114,12 +89,7 @@ export async function deleteProjectRecord(input: {
 }) {
   const [record] = await db
     .delete(project)
-    .where(
-      and(
-        eq(project.id, input.projectId),
-        eq(project.organizationId, input.organizationId),
-      ),
-    )
+    .where(and(eq(project.id, input.projectId), eq(project.organizationId, input.organizationId)))
     .returning({ id: project.id });
   return record;
 }
@@ -163,12 +133,7 @@ export async function createProjectRecord(input: {
       const [linked] = await tx
         .update(environment)
         .set({ projectId })
-        .where(
-          and(
-            eq(environment.id, environmentId),
-            isNull(environment.projectId),
-          ),
-        )
+        .where(and(eq(environment.id, environmentId), isNull(environment.projectId)))
         .returning();
       createdEnvironment = linked;
     }

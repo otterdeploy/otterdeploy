@@ -13,9 +13,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/shared/components/ui/select";
+import { Switch } from "@/shared/components/ui/switch";
 import { cn } from "@/shared/lib/utils";
 
-import { SectionHeader, Field, Switch3, SettingRow } from "../form-primitives";
+import { Field, SectionHeader, SettingRow } from "../form-primitives";
 import { I } from "../icons";
 
 export interface Port {
@@ -198,9 +199,9 @@ export function StepNetworking({
               }}
               disabled={!p.public}
             />
-            <Switch3
-              on={p.public}
-              onChange={(v) => {
+            <Switch
+              checked={p.public}
+              onCheckedChange={(v) => {
                 const next = ports.map((x, j) => (j === i ? { ...x, public: v } : x));
                 portsField.handleChange(next);
               }}
@@ -239,11 +240,12 @@ export function StepNetworking({
 
       {!isStatic && (
         <>
-          <div className="h-[18px]" />
-          <SectionHeader
-            title="Health check"
-            sub="How does Otterstack know your service is ready to serve traffic?"
-          />
+          <div className="mt-4.5">
+            <SectionHeader
+              title="Health check"
+              sub="How does Otterstack know your service is ready to serve traffic?"
+            />
+          </div>
           <Card className="mt-2.5 rounded-md">
             <CardContent className="flex flex-col gap-2.5">
               <div className="grid grid-cols-[2fr_1fr_1fr] gap-2.5">
@@ -278,8 +280,9 @@ export function StepNetworking({
         </>
       )}
 
-      <div className="h-[18px]" />
-      <SectionHeader title="Edge proxy" />
+      <div className="mt-4.5">
+        <SectionHeader title="Edge proxy" />
+      </div>
       <Card className="mt-2.5 rounded-md">
         <CardContent>
           <SettingRow
