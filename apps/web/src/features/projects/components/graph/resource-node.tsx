@@ -1,9 +1,8 @@
-import { useRef, useState, type ComponentProps } from "react";
-
 import {
   CheckmarkCircle02Icon,
   Database02Icon,
   EarthIcon,
+  HardDriveIcon,
   Loading03Icon,
   PencilEdit01Icon,
   PlusSignIcon,
@@ -18,8 +17,15 @@ import {
   type Node,
   type NodeProps,
 } from "@xyflow/react";
+import { useRef, useState, type ComponentProps, type SVGProps } from "react";
 import { toast } from "sonner";
 
+import { Docker } from "@/shared/components/ui/svgs/docker";
+import { Mariadb } from "@/shared/components/ui/svgs/mariadb";
+import { Mongodb } from "@/shared/components/ui/svgs/mongodb";
+import { Mysql } from "@/shared/components/ui/svgs/mysql";
+import { Postgresql } from "@/shared/components/ui/svgs/postgresql";
+import { Redis } from "@/shared/components/ui/svgs/redis";
 import {
   Tooltip,
   TooltipContent,
@@ -29,74 +35,112 @@ import {
 import { cn } from "@/shared/lib/utils";
 
 type IconType = ComponentProps<typeof HugeiconsIcon>["icon"];
+type BrandSvg = (props: SVGProps<SVGSVGElement>) => React.ReactNode;
 
-export type ResourceKind = "service" | "database" | "route";
+export type ResourceKind = "service" | "database" | "route" | "volume";
+
+export type ResourceEngine = "postgres" | "mysql" | "mariadb" | "redis" | "mongodb" | "docker";
 
 export type ResourceStatus = "running" | "building" | "error";
+
+export type VolumeAttachment = {
+  name: string;
+  size: string;
+  mount?: string;
+};
 
 export type ResourceNodeData = {
   kind: ResourceKind;
   name: string;
   description: string;
+  engine?: ResourceEngine;
   status?: ResourceStatus;
   tech?: { label: string; icon?: IconType };
+  /** Database-only: render volumes inline inside the inset MOUNTS tray (Variant A). */
+  volumes?: VolumeAttachment[];
+};
+
+/** Volume pill — matches the design spec's `.vol-pill` (Variant A, inset tray). */
+function VolumePill({ volume }: { volume: VolumeAttachment }) {
+  const [sizeNum, sizeUnit] = (() => {
+    const parts = volume.size.trim().split(/\s+/);
+    return [parts[0] ?? volume.size, parts.slice(1).join(" ")];
+  })();
+  return (
+    <span
+      className="inline-flex min-w-0 items-center gap-2 rounded-full border bg-muted py-[3px] pr-3 pl-[3px] font-mono text-[12.5px] leading-none whitespace-nowrap"
+      title={`${volume.name} · ${volume.size}${volume.mount ? ` · ${volume.mount}` : ""}`}
+    >
+      <span className="grid size-[22px] shrink-0 place-items-center rounded-full bg-violet-500/20 text-violet-600 dark:text-violet-300">
+        <HugeiconsIcon icon={HardDriveIcon} strokeWidth={1.6} className="size-3" />
+      </span>
+      <span className="truncate text-card-foreground">{volume.name}</span>
+      <span className="text-muted-foreground/40">·</span>
+      <span className="shrink-0 text-muted-foreground">
+        {sizeNum}
+        {sizeUnit && <span className="ml-[3px] text-muted-foreground/50">{sizeUnit}</span>}
+      </span>
+    </span>
+  );
+}
+
+const engineLogos: Record<ResourceEngine, BrandSvg> = {
+  postgres: Postgresql,
+  mysql: Mysql,
+  mariadb: Mariadb,
+  redis: Redis,
+  mongodb: Mongodb,
+  docker: Docker,
 };
 
 export type ResourceFlowNode = Node<ResourceNodeData, "resource">;
 
-const kindMeta: Record<
-  ResourceKind,
-  { label: string; icon: IconType; iconClass: string }
-> = {
+const kindMeta: Record<ResourceKind, { label: string; icon: IconType; iconColor: string }> = {
   service: {
     label: "Service",
     icon: ServerStack01Icon,
-    iconClass:
-      "bg-amber-500/15 text-amber-700 dark:bg-amber-400/15 dark:text-amber-300",
+    iconColor: "text-amber-700 dark:text-amber-300",
   },
   database: {
     label: "Database",
     icon: Database02Icon,
-    iconClass:
-      "bg-sky-500/15 text-sky-700 dark:bg-sky-400/15 dark:text-sky-300",
+    iconColor: "text-sky-700 dark:text-sky-300",
   },
   route: {
     label: "Route",
     icon: EarthIcon,
-    iconClass:
-      "bg-emerald-500/15 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-300",
+    iconColor: "text-emerald-700 dark:text-emerald-300",
+  },
+  volume: {
+    label: "Volume",
+    icon: HardDriveIcon,
+    iconColor: "text-violet-700 dark:text-violet-300",
   },
 };
 
-const statusMeta: Record<
-  ResourceStatus,
-  { label: string; dotClass: string; textClass: string }
-> = {
+const statusMeta: Record<ResourceStatus, { label: string; pillClass: string; dotClass: string }> = {
   running: {
     label: "running",
-    dotClass: "bg-success ring-2 ring-success/20",
-    textClass: "text-success",
+    pillClass: "bg-success/12 text-success",
+    dotClass: "bg-success shadow-[0_0_0_3px] shadow-success/20",
   },
   building: {
     label: "building",
-    dotClass: "bg-warning ring-2 ring-warning/20",
-    textClass: "text-warning",
+    pillClass: "bg-warning/12 text-warning",
+    dotClass: "bg-warning shadow-[0_0_0_3px] shadow-warning/20",
   },
   error: {
     label: "error",
-    dotClass: "bg-destructive ring-2 ring-destructive/20",
-    textClass: "text-destructive",
+    pillClass: "bg-destructive/12 text-destructive",
+    dotClass: "bg-destructive shadow-[0_0_0_3px] shadow-destructive/20",
   },
 };
 
-export function ResourceNode({
-  id,
-  data,
-  selected,
-}: NodeProps<ResourceFlowNode>) {
+export function ResourceNode({ id, data, selected }: NodeProps<ResourceFlowNode>) {
   const { updateNodeData } = useReactFlow<ResourceFlowNode>();
   const meta = kindMeta[data.kind];
   const status = data.status ? statusMeta[data.status] : null;
+  const BrandLogo = data.engine ? engineLogos[data.engine] : null;
 
   const [isHovered, setIsHovered] = useState(false);
   const hideTimer = useRef<number | null>(null);
@@ -155,73 +199,98 @@ export function ResourceNode({
       <Handle
         type="target"
         position={Position.Top}
-        className="size-2! border-[1.5px]! border-border! bg-card!"
+        className="border-1.5 size-2 border-border bg-card"
       />
 
       <div
         className={cn(
-          "w-72 overflow-hidden rounded-xl border bg-card shadow-sm transition-all",
+          "w-92 overflow-hidden rounded-2xl border bg-card shadow-[0_24px_60px_-30px_rgba(0,0,0,0.45)] transition-all",
           selected && "ring-2 ring-ring/40",
         )}
       >
-        <div className="flex items-start gap-3 px-4 pt-3.5 pb-3">
-          <div
-            className={cn(
-              "grid size-8 shrink-0 place-items-center rounded-md",
-              meta.iconClass,
-            )}
-          >
-            <HugeiconsIcon
-              icon={meta.icon}
-              strokeWidth={2}
-              className="size-4"
-            />
-          </div>
-
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-semibold tracking-tight text-card-foreground">
-              {data.name}
+        {/* HEADER */}
+        <div className="flex items-start justify-between gap-3.5 px-5 pt-5">
+          <div className="flex items-center gap-3.5">
+            <div className="grid size-11 shrink-0 place-items-center rounded-[11px] border bg-background">
+              {BrandLogo ? (
+                <BrandLogo className="size-6" aria-label={data.engine} />
+              ) : (
+                <HugeiconsIcon
+                  icon={meta.icon}
+                  strokeWidth={1.8}
+                  className={cn("size-5", meta.iconColor)}
+                />
+              )}
             </div>
-            <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground/80">
-              {meta.label}
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <div className="text-[18px] leading-[1.1] font-bold tracking-[-0.01em] break-words text-card-foreground">
+                {data.name}
+              </div>
+              <div className="font-mono text-[10.5px] font-medium tracking-[0.18em] text-muted-foreground uppercase">
+                {meta.label}
+              </div>
             </div>
           </div>
 
           {status && (
-            <div
+            <span
               className={cn(
-                "inline-flex items-center gap-1.5 text-[11px] font-medium",
-                status.textClass,
+                "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] leading-none font-medium",
+                status.pillClass,
               )}
             >
               <span className={cn("size-1.5 rounded-full", status.dotClass)} />
               {status.label}
+            </span>
+          )}
+        </div>
+
+        {/* BODY — description + optional tech, always padded so the card never naked-bottoms */}
+        <div className="px-5 pt-3.5 pb-4">
+          <p className="text-[13.5px] leading-[1.55] text-foreground/80">{data.description}</p>
+
+          {data.tech && (
+            <div className="mt-3.5 flex items-center justify-between gap-3">
+              <span className="inline-flex items-center gap-2 font-mono text-[12.5px] whitespace-nowrap text-muted-foreground">
+                {data.tech.icon && (
+                  <HugeiconsIcon
+                    icon={data.tech.icon}
+                    strokeWidth={1.5}
+                    className="size-3.5 text-muted-foreground/50"
+                  />
+                )}
+                {data.tech.label}
+              </span>
+              <HugeiconsIcon
+                icon={CheckmarkCircle02Icon}
+                strokeWidth={1.5}
+                className="size-4 text-muted-foreground/40"
+              />
             </div>
           )}
         </div>
 
-        <p className="px-4 pb-3.5 line-clamp-3 text-xs leading-relaxed text-muted-foreground">
-          {data.description}
-        </p>
-
-        {data.tech && (
-          <div className="flex items-center justify-between gap-2 border-t bg-muted/50 px-4 py-2.5 dark:bg-muted/60">
-            <div className="inline-flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
-              {data.tech.icon && (
-                <HugeiconsIcon
-                  icon={data.tech.icon}
-                  strokeWidth={2}
-                  className="size-3"
-                />
-              )}
-              {data.tech.label}
+        {/* MOUNTS TRAY — Variant A from the design, separated from body by a hairline */}
+        {data.volumes && data.volumes.length > 0 && (
+          <>
+            <div className="mx-5 h-px bg-border" />
+            <div className="relative mx-2.5 mt-3.5 mb-2.5 rounded-[14px] border bg-background px-2.5 pt-3 pb-2.5">
+              <span className="absolute -top-[7px] left-3.5 bg-card px-1.5 font-mono text-[9.5px] leading-none font-semibold tracking-[0.22em] text-muted-foreground/60 uppercase">
+                Mounts
+                {data.volumes.length > 1 ? ` · ${data.volumes.length}` : ""}
+              </span>
+              <div
+                className={cn(
+                  "grid gap-x-2 gap-y-1.5",
+                  data.volumes.length === 1 ? "grid-cols-1" : "grid-cols-2",
+                )}
+              >
+                {data.volumes.map((v) => (
+                  <VolumePill key={v.name} volume={v} />
+                ))}
+              </div>
             </div>
-            <HugeiconsIcon
-              icon={CheckmarkCircle02Icon}
-              strokeWidth={2}
-              className="size-3 text-muted-foreground/60"
-            />
-          </div>
+          </>
         )}
       </div>
 
@@ -231,11 +300,7 @@ export function ResourceNode({
         className="size-2! border-[1.5px]! border-border! bg-card!"
       />
 
-      <NodeToolbar
-        position={Position.Right}
-        offset={10}
-        isVisible={selected || isHovered}
-      >
+      <NodeToolbar position={Position.Right} offset={10} isVisible={selected || isHovered}>
         <TooltipProvider delay={200}>
           <div
             className="flex flex-col gap-0.5 rounded-full border bg-card p-1 shadow-md"
@@ -252,11 +317,7 @@ export function ResourceNode({
                       onClick={onClick}
                       className="grid size-7 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                     >
-                      <HugeiconsIcon
-                        icon={icon}
-                        strokeWidth={2}
-                        className="size-3.5"
-                      />
+                      <HugeiconsIcon icon={icon} strokeWidth={2} className="size-3.5" />
                     </button>
                   }
                 />
