@@ -228,38 +228,41 @@ function RouteComponent() {
 // Approx card dimensions for refocus math. Keep in sync with ResourceNode size.
 const CARD_W = 420;
 const CARD_H = 200;
-// Side panel takes the right 2/3 of the canvas; shift focus left so the
-// clicked node lands in the visible left third instead of being hidden behind
-// the panel.
-const PANEL_SHIFT_RATIO = 1 / 3;
+// Side panel covers the right N/D of the canvas. Keep in sync with the
+// panel's Tailwind width class in graph/$resourceId.tsx.
+const PANEL_WIDTH_RATIO = 3 / 7;
 const FOCUS_ZOOM = 1.15;
 
 function GraphCanvas() {
   const navigate = useNavigate();
   const { orgSlug, projectSlug } = Route.useParams();
-  const { setCenter, getViewport } = useReactFlow();
+  const { setCenter } = useReactFlow();
 
   const focusNode = (node: Node) => {
-    const wrapper = document.querySelector(
-      '[data-slot="react-flow-wrapper"]',
-    ) as HTMLElement | null;
-    const canvasWidth = wrapper?.clientWidth ?? window.innerWidth;
-    const { zoom: currentZoom } = getViewport();
-    const targetZoom = FOCUS_ZOOM;
-    // Center the node — then shift right in flow coordinates so the visible
-    // viewport-center sits at the (PANEL_SHIFT_RATIO) point from the left,
-    // placing the node in the uncovered left strip.
-    const xOffset = (canvasWidth * PANEL_SHIFT_RATIO) / targetZoom;
-    const targetX = node.position.x + CARD_W / 2 + xOffset;
+    // ReactFlow always renders a wrapper with class="react-flow". Measure it
+    // directly — falling back to window.innerWidth wildly overshoots since the
+    // sidebar + chrome eat most of the window.
+    const wrapper = document.querySelector(".react-flow") as HTMLElement | null;
+    const canvasWidth = wrapper?.clientWidth ?? 0;
+    const targetX = node.position.x + CARD_W / 2;
     const targetY = node.position.y + CARD_H / 2;
-    // currentZoom keeps the prior camera honest for the transition origin
-    void currentZoom;
-    setCenter(targetX, targetY, { zoom: targetZoom, duration: 400 });
+    if (!canvasWidth) {
+      // No measurable canvas: center honestly, accept the panel covers the
+      // right portion of the node.
+      setCenter(targetX, targetY, { zoom: FOCUS_ZOOM, duration: 400 });
+      return;
+    }
+    // Goal: land the node at the center of the visible left strip (the
+    // (1 - PANEL_WIDTH_RATIO) area not covered by the panel). The visible
+    // strip's center sits PANEL_WIDTH_RATIO/2 to the left of viewport center,
+    // so shift the camera right by that fraction in flow coordinates.
+    const shiftRatio = PANEL_WIDTH_RATIO / 2;
+    const xOffset = (canvasWidth * shiftRatio) / FOCUS_ZOOM;
+    setCenter(targetX + xOffset, targetY, { zoom: FOCUS_ZOOM, duration: 400 });
   };
 
   return (
     <ReactFlow
-      data-slot="react-flow-wrapper"
       defaultNodes={initialNodes}
       defaultEdges={initialEdges}
       nodeTypes={nodeTypes}
