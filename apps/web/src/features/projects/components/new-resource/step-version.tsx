@@ -1,16 +1,19 @@
 // Step_Version — pick a database engine version and set the service name.
 // Ported verbatim from apps/web-demo/src/features/otterstack/screens/new-service.tsx lines 1508-1602.
 import type { AnyFieldApi } from "@tanstack/react-form";
-import { HugeiconsIcon } from "@hugeicons/react";
+
 import { CheckmarkCircle02Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+
+import { type ServiceKind } from "@/features/projects/data/service-kinds";
 import { DatabaseLogo } from "@/shared/components/brand/database-logo";
-import { type ServiceKindDef } from "@/features/projects/data/service-kinds";
-import { SectionH, Field } from "./form-primitives";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
 
+import { SectionH, Field } from "./form-primitives";
+
 type VersionProps = {
-  kind: ServiceKindDef;
+  kind: ServiceKind;
   version: string | null;
   setVersion: (v: string) => void;
   nameField: AnyFieldApi;
@@ -69,7 +72,10 @@ export function StepVersion({ kind, version, setVersion, nameField }: VersionPro
                 />
               )}
             </div>
-            <div className="text-muted-foreground" style={{ fontSize: 11, marginTop: 6, lineHeight: 1.4 }}>
+            <div
+              className="text-muted-foreground"
+              style={{ fontSize: 11, marginTop: 6, lineHeight: 1.4 }}
+            >
               {i === 0
                 ? "Newest stable release · all features available"
                 : i === 1

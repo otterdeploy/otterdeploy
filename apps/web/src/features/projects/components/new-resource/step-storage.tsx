@@ -1,7 +1,9 @@
 // Step_Storage — volume size, backups, high availability.
 // Ported verbatim from apps/web-demo/src/features/otterstack/screens/new-service.tsx lines 2257-2394.
 import type { AnyFieldApi } from "@tanstack/react-form";
-import type { ServiceKindDef } from "@/features/projects/data/service-kinds";
+
+import type { ServiceKind } from "@/features/projects/data/service-kinds";
+
 import { SectionH, Field, Switch3, SettingRow } from "./form-primitives";
 
 type StorageProps = {
@@ -10,7 +12,7 @@ type StorageProps = {
   backupRetentionField: AnyFieldApi;
   pitrField: AnyFieldApi;
   highAvailabilityField: AnyFieldApi;
-  kind: ServiceKindDef;
+  kind: ServiceKind;
 };
 
 export function StepStorage({
@@ -48,7 +50,7 @@ export function StepStorage({
             onChange={(e) => storageGbField.handleChange(+e.target.value)}
             style={{ width: "100%" }}
           />
-          <div className="flex items-center gap-3 text-[11px] mt-1.5">
+          <div className="mt-1.5 flex items-center gap-3 text-[11px]">
             <span className="text-muted-foreground">5 GB</span>
             <div className="flex-1" />
             <span className="text-muted-foreground">2 TB</span>
@@ -60,11 +62,7 @@ export function StepStorage({
           defaultOn
           sub="Add 10 GB when free space drops below 15%"
         />
-        <SettingRow
-          label="Encrypt at rest"
-          defaultOn
-          sub="LUKS · per-project KMS key"
-        />
+        <SettingRow label="Encrypt at rest" defaultOn sub="LUKS · per-project KMS key" />
       </div>
 
       <div style={{ height: 18 }} />
@@ -77,10 +75,7 @@ export function StepStorage({
               Snapshot taken at 03:00 UTC · stored in S3-compatible object storage
             </div>
           </div>
-          <Switch3
-            on={backupsEnabled}
-            onChange={(v) => backupsEnabledField.handleChange(v)}
-          />
+          <Switch3 on={backupsEnabled} onChange={(v) => backupsEnabledField.handleChange(v)} />
         </div>
         {backupsEnabled && (
           <>
@@ -109,17 +104,17 @@ export function StepStorage({
         {supportsPitr && (
           <>
             <div style={{ height: 12 }} />
-            <div className="flex items-center gap-3" style={{ padding: "10px 0", borderTop: "1px solid var(--border)" }}>
+            <div
+              className="flex items-center gap-3"
+              style={{ padding: "10px 0", borderTop: "1px solid var(--border)" }}
+            >
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 500 }}>Point-in-time recovery (PITR)</div>
                 <div className="text-muted-foreground" style={{ fontSize: 11 }}>
                   Continuous WAL archiving · restore to any point in the last 7 days
                 </div>
               </div>
-              <Switch3
-                on={pitr}
-                onChange={(v) => pitrField.handleChange(v)}
-              />
+              <Switch3 on={pitr} onChange={(v) => pitrField.handleChange(v)} />
             </div>
           </>
         )}
@@ -135,10 +130,7 @@ export function StepStorage({
               Sync replica on a different node · failover in &lt; 30s
             </div>
           </div>
-          <Switch3
-            on={highAvailability}
-            onChange={(v) => highAvailabilityField.handleChange(v)}
-          />
+          <Switch3 on={highAvailability} onChange={(v) => highAvailabilityField.handleChange(v)} />
         </div>
       </div>
     </>

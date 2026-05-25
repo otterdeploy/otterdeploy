@@ -2,26 +2,28 @@
 // apps/web-demo/src/features/otterstack/screens/new-service.tsx.
 // Pass A: uses local useState for kindId. Pass B will lift state to tanstack-form.
 import type { CSSProperties, ReactNode } from "react";
+
 import { useEffect, useState } from "react";
 
+import {
+  SERVICE_KINDS,
+  TEMPLATES,
+  type ServiceKind,
+  type Template,
+} from "@/features/projects/data/service-kinds";
 import { DatabaseLogo } from "@/shared/components/brand/database-logo";
-import { I, type IconKey } from "./icons";
-import { SERVICE_KINDS, TEMPLATES, type ServiceKindDef, type Template } from "@/features/projects/data/service-kinds";
+
 import { SectionH } from "./form-primitives";
+import { I, type IconKey } from "./icons";
 
 export type KindTab = "compute" | "data" | "template" | "custom";
 
-const iconKey = (raw: string): IconKey =>
-  (raw as IconKey) in I ? (raw as IconKey) : "doc";
+const iconKey = (raw: string): IconKey => ((raw as IconKey) in I ? (raw as IconKey) : "doc");
 
 function renderLauncherKindIcon(
-  item: ServiceKindDef | Template,
+  item: ServiceKind | Template,
   tab: KindTab,
-  Icon: (props: {
-    width?: number;
-    height?: number;
-    style?: CSSProperties;
-  }) => ReactNode,
+  Icon: (props: { width?: number; height?: number; style?: CSSProperties }) => ReactNode,
 ) {
   if (tab !== "data") return <Icon width={14} height={14} />;
 
@@ -36,11 +38,7 @@ function renderLauncherKindIcon(
 
   if (supportsBrandLogo) {
     return (
-      <DatabaseLogo
-        value={`${item.id} ${item.name}`}
-        size={14}
-        color="var(--muted-foreground)"
-      />
+      <DatabaseLogo value={`${item.id} ${item.name}`} size={14} color="var(--muted-foreground)" />
     );
   }
 
@@ -82,10 +80,8 @@ export function StepKind({
     ["custom", "bolt"],
   ];
 
-  const items: Array<ServiceKindDef | Template> =
-    tab === "template"
-      ? TEMPLATES
-      : SERVICE_KINDS.filter((k) => k.group === tab);
+  const items: Array<ServiceKind | Template> =
+    tab === "template" ? TEMPLATES : SERVICE_KINDS.filter((k) => k.group === tab);
 
   return (
     <>
@@ -112,8 +108,7 @@ export function StepKind({
               onClick={() => setTab(id)}
               style={{ height: 36, borderRight: 0 }}
             >
-              <Ic width={12} height={12} style={{ opacity: 0.7 }} />{" "}
-              <span>{groups[id].label}</span>
+              <Ic width={12} height={12} style={{ opacity: 0.7 }} /> <span>{groups[id].label}</span>
               <span className="os-envtab-underline" />
             </button>
           );
@@ -148,18 +143,12 @@ export function StepKind({
             >
               {popular && <span className="os-builder-pop">popular</span>}
               <div className="flex items-center gap-2">
-                <div className="os-builder-icon">
-                  {renderLauncherKindIcon(it, tab, Ic)}
-                </div>
+                <div className="os-builder-icon">{renderLauncherKindIcon(it, tab, Ic)}</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600, fontSize: 13 }}>{it.name}</div>
                 </div>
                 {active && (
-                  <I.check
-                    width={12}
-                    height={12}
-                    style={{ color: "var(--foreground)" }}
-                  />
+                  <I.check width={12} height={12} style={{ color: "var(--foreground)" }} />
                 )}
               </div>
               <div

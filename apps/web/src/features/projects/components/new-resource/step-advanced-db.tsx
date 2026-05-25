@@ -1,9 +1,8 @@
-// Step_AdvancedDb — connection pooling, Postgres extensions, Redis config, maintenance window.
-// Ported verbatim from apps/web-demo/src/features/otterstack/screens/new-service.tsx lines 2598-2713.
-import type { ServiceKindDef } from "@/features/projects/data/service-kinds";
+import type { ServiceKind } from "@/features/projects/data/service-kinds";
+
 import { SectionH, Field, SettingRow } from "./form-primitives";
 
-export function StepAdvancedDb({ kind }: { kind: ServiceKindDef }) {
+export function StepAdvancedDb({ kind }: { kind: ServiceKind }) {
   const isPg = kind.id === "postgres";
   const isRedis = kind.id === "redis";
 
@@ -16,9 +15,7 @@ export function StepAdvancedDb({ kind }: { kind: ServiceKindDef }) {
           defaultOn
           sub="Front the database with a transaction-mode pooler"
         />
-        <div
-          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 12 }}
-        >
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 12 }}>
           <Field label="Pool size">
             <input className="input font-mono" type="number" defaultValue={20} />
           </Field>
@@ -71,11 +68,7 @@ export function StepAdvancedDb({ kind }: { kind: ServiceKindDef }) {
               defaultOn
               sub="Append-only file fsync every second"
             />
-            <SettingRow
-              label="RDB snapshots"
-              defaultOn
-              sub="Periodic point-in-time dumps"
-            />
+            <SettingRow label="RDB snapshots" defaultOn sub="Periodic point-in-time dumps" />
           </div>
         </>
       )}
@@ -93,9 +86,9 @@ export function StepAdvancedDb({ kind }: { kind: ServiceKindDef }) {
           </Field>
           <Field label="Window">
             <select className="input">
-              <option>03:00 – 05:00 UTC</option>
-              <option>09:00 – 11:00 UTC</option>
-              <option>15:00 – 17:00 UTC</option>
+              <option>03:00 - 05:00 UTC</option>
+              <option>09:00 - 11:00 UTC</option>
+              <option>15:00 - 17:00 UTC</option>
             </select>
           </Field>
         </div>

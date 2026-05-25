@@ -1,12 +1,12 @@
 import { SearchIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { eq, useLiveQuery } from "@tanstack/react-db";
 import { useHotkey, useHotkeySequence } from "@tanstack/react-hotkeys";
 import { useMatch, useNavigate, useParams } from "@tanstack/react-router";
-import { eq, useLiveQuery } from "@tanstack/react-db";
 import { Command as CommandPrimitive } from "cmdk";
 
+import { useResourceOverlay } from "@/features/projects/components/new-resource/overlay-provider";
 import { envCollection } from "@/features/projects/data/env";
-
 import {
   Command,
   CommandDialog,
@@ -17,7 +17,6 @@ import {
   CommandShortcut,
 } from "@/shared/components/ui/command";
 import { Kbd, KbdGroup } from "@/shared/components/ui/kbd";
-import { useNewResourceOverlay } from "@/features/projects/components/new-resource/overlay-provider";
 
 import { useCommandPalette } from "../hooks/use-command-palette";
 
@@ -25,7 +24,7 @@ export function CommandPalette() {
   const { open, setOpen } = useCommandPalette();
   const navigate = useNavigate();
   const { orgSlug, projectSlug } = useParams({ strict: false });
-  const overlay = useNewResourceOverlay();
+  const overlay = useResourceOverlay();
 
   // Live-query environments for the active project (loader exposes the project
   // but environments are a separate collection, same pattern as the layout).
@@ -33,12 +32,9 @@ export function CommandPalette() {
     from: "/_app/$orgSlug/$projectSlug",
     shouldThrow: false,
   });
-  const projectId = projectMatch?.loaderData?.project?.id ?? "";
+  const projectId = projectMatch?.loaderData?.project?.id;
   const { data: environments = [] } = useLiveQuery(
-    (q) =>
-      q
-        .from({ e: envCollection })
-        .where(({ e }) => eq(e.projectId, projectId)),
+    (q) => q.from({ e: envCollection }).where(({ e }) => eq(e.projectId, projectId)),
     [projectId],
   );
 

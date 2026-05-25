@@ -1,24 +1,22 @@
 // Step_Review — summary table + generated compose snippet.
 // Ported verbatim from apps/web-demo/src/features/otterstack/screens/new-service.tsx lines 2715-3014.
-import { RESOURCE_PRESETS, BUILDERS, type ServiceKindDef } from "@/features/projects/data/service-kinds";
+import {
+  RESOURCE_PRESETS,
+  BUILDERS,
+  type ServiceKind,
+} from "@/features/projects/data/service-kinds";
+
 import type { ResourceFormValues } from "./schema";
+
 import { SectionH } from "./form-primitives";
 import { I } from "./icons";
 
 type ReviewProps = {
   values: ResourceFormValues;
-  kind: ServiceKindDef;
+  kind: ServiceKind;
 };
 
-function ReviewRow({
-  label,
-  value,
-  last,
-}: {
-  label: string;
-  value?: string;
-  last?: boolean;
-}) {
+function ReviewRow({ label, value, last }: { label: string; value?: string; last?: boolean }) {
   if (!value) return null;
   return (
     <div
@@ -30,10 +28,16 @@ function ReviewRow({
         alignItems: "flex-start",
       }}
     >
-      <span className="text-muted-foreground" style={{ width: 100, fontSize: 11, paddingTop: 1, flexShrink: 0 }}>
+      <span
+        className="text-muted-foreground"
+        style={{ width: 100, fontSize: 11, paddingTop: 1, flexShrink: 0 }}
+      >
         {label}
       </span>
-      <span className="font-mono" style={{ flex: 1, color: "var(--foreground)", wordBreak: "break-word" }}>
+      <span
+        className="font-mono"
+        style={{ flex: 1, color: "var(--foreground)", wordBreak: "break-word" }}
+      >
         {value}
       </span>
     </div>
@@ -41,16 +45,8 @@ function ReviewRow({
 }
 
 export function StepReview({ values, kind }: ReviewProps) {
-  const {
-    name,
-    version,
-    presetId,
-    customCpu,
-    customMem,
-    replicas,
-    storageGb,
-    backupsEnabled,
-  } = values;
+  const { name, version, presetId, customCpu, customMem, replicas, storageGb, backupsEnabled } =
+    values;
 
   const preset = RESOURCE_PRESETS.find((p) => p.id === presetId);
   const cpu = preset?.cpu ?? customCpu;
@@ -89,10 +85,7 @@ volumes:
 
   return (
     <>
-      <SectionH
-        title="Review"
-        sub="Confirm and deploy — you can change all of this later"
-      />
+      <SectionH title="Review" sub="Confirm and deploy — you can change all of this later" />
 
       <div
         style={{
@@ -105,16 +98,19 @@ volumes:
         <div>
           <div
             className="text-muted-foreground"
-            style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}
+            style={{
+              fontSize: 10,
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+              marginBottom: 6,
+            }}
           >
             summary
           </div>
           <div className="card" style={{ overflow: "hidden" }}>
             <ReviewRow label="Type" value={kind.name} />
             <ReviewRow label="Name" value={name} />
-            {isDb && version && (
-              <ReviewRow label="Version" value={`${kind.id} ${version}`} />
-            )}
+            {isDb && version && <ReviewRow label="Version" value={`${kind.id} ${version}`} />}
             <ReviewRow
               label="Resources"
               value={`${cpu} vCPU · ${mem >= 1024 ? mem / 1024 + " GB" : mem + " MB"} per replica`}
@@ -125,9 +121,7 @@ volumes:
                 value={`${storageGb} GB · backups ${backupsEnabled ? "on" : "off"}`}
               />
             )}
-            {!isDb && (
-              <ReviewRow label="Replicas" value={`${replicas}`} />
-            )}
+            {!isDb && <ReviewRow label="Replicas" value={`${replicas}`} />}
             <ReviewRow label="Network" value={`${name}.internal`} last />
           </div>
 
@@ -147,8 +141,8 @@ volumes:
                 {isDb
                   ? "pull the image, provision a volume, and start the database"
                   : `build the image, push to the internal registry, deploy ${replicas} replica${replicas > 1 ? "s" : ""} via Docker Swarm`}
-                , register internal DNS, and wire it onto the internal network —
-                usually about {isDb ? "45" : "90"} seconds.
+                , register internal DNS, and wire it onto the internal network — usually about{" "}
+                {isDb ? "45" : "90"} seconds.
               </div>
             </div>
           </div>
@@ -157,7 +151,12 @@ volumes:
         <div>
           <div
             className="text-muted-foreground"
-            style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}
+            style={{
+              fontSize: 10,
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+              marginBottom: 6,
+            }}
           >
             generated · compose.yml
           </div>
@@ -187,7 +186,10 @@ volumes:
               <I.doc width={11} height={11} /> Save as preset
             </button>
             <div style={{ flex: 1 }} />
-            <span className="text-muted-foreground font-mono" style={{ fontSize: 11, alignSelf: "center" }}>
+            <span
+              className="font-mono text-muted-foreground"
+              style={{ fontSize: 11, alignSelf: "center" }}
+            >
               otterstack apply
             </span>
           </div>

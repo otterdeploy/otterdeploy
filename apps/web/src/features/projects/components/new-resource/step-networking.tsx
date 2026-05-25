@@ -1,9 +1,11 @@
 // Step_Networking — port exposure, health checks, edge proxy settings.
 // Ported verbatim from apps/web-demo/src/features/otterstack/screens/new-service.tsx lines 1605-1913.
 import type { AnyFieldApi } from "@tanstack/react-form";
-import type { ServiceKindDef } from "@/features/projects/data/service-kinds";
-import { I } from "./icons";
+
+import type { ServiceKind } from "@/features/projects/data/service-kinds";
+
 import { SectionH, Field, Switch3, SettingRow } from "./form-primitives";
+import { I } from "./icons";
 
 export type Port = {
   port: number;
@@ -16,7 +18,7 @@ type NetworkingProps = {
   portsField: AnyFieldApi;
   healthPathField: AnyFieldApi;
   healthIntervalField: AnyFieldApi;
-  kind: ServiceKindDef | null;
+  kind: ServiceKind | null;
 };
 
 export function StepNetworking({
@@ -54,10 +56,7 @@ export function StepNetworking({
           </Field>
           <div style={{ height: 10 }} />
           <Field label="Command">
-            <input
-              className="input mono"
-              defaultValue="node scripts/cleanup.js"
-            />
+            <input className="input mono" defaultValue="node scripts/cleanup.js" />
           </Field>
           <div style={{ height: 10 }} />
           <Field label="Max runtime">
@@ -71,11 +70,7 @@ export function StepNetworking({
             sub="Don't pile up overlapping invocations"
             defaultOn
           />
-          <SettingRow
-            label="Alert on failure"
-            defaultOn
-            sub="Send to #ops Slack channel"
-          />
+          <SettingRow label="Alert on failure" defaultOn sub="Send to #ops Slack channel" />
         </div>
       </>
     );
@@ -90,10 +85,7 @@ export function StepNetworking({
         />
         <div className="card" style={{ padding: 16, marginTop: 12 }}>
           <Field label="Process command">
-            <input
-              className="input mono"
-              defaultValue="celery -A app worker --loglevel=info"
-            />
+            <input className="input mono" defaultValue="celery -A app worker --loglevel=info" />
           </Field>
           <div style={{ height: 10 }} />
           <Field label="Graceful shutdown timeout">
@@ -140,8 +132,7 @@ export function StepNetworking({
             className="row"
             style={{
               padding: "10px 14px",
-              borderBottom:
-                i === ports.length - 1 ? "none" : "1px solid var(--border)",
+              borderBottom: i === ports.length - 1 ? "none" : "1px solid var(--border)",
             }}
           >
             <span style={{ width: 80 }}>
@@ -150,9 +141,7 @@ export function StepNetworking({
                 type="number"
                 value={p.port}
                 onChange={(e) => {
-                  const next = ports.map((x, j) =>
-                    j === i ? { ...x, port: +e.target.value } : x,
-                  );
+                  const next = ports.map((x, j) => (j === i ? { ...x, port: +e.target.value } : x));
                   portsField.handleChange(next);
                 }}
                 style={{ width: 70 }}
@@ -182,9 +171,7 @@ export function StepNetworking({
                 className="input mono"
                 value={p.host}
                 onChange={(e) => {
-                  const next = ports.map((x, j) =>
-                    j === i ? { ...x, host: e.target.value } : x,
-                  );
+                  const next = ports.map((x, j) => (j === i ? { ...x, host: e.target.value } : x));
                   portsField.handleChange(next);
                 }}
                 disabled={!p.public}
@@ -195,9 +182,7 @@ export function StepNetworking({
               <Switch3
                 on={p.public}
                 onChange={(v) => {
-                  const next = ports.map((x, j) =>
-                    j === i ? { ...x, public: v } : x,
-                  );
+                  const next = ports.map((x, j) => (j === i ? { ...x, public: v } : x));
                   portsField.handleChange(next);
                 }}
               />
@@ -257,9 +242,7 @@ export function StepNetworking({
                 <input
                   className="input mono"
                   value={healthInterval}
-                  onChange={(e) =>
-                    healthIntervalField.handleChange(e.target.value)
-                  }
+                  onChange={(e) => healthIntervalField.handleChange(e.target.value)}
                 />
               </Field>
               <Field label="Timeout">
@@ -293,26 +276,10 @@ export function StepNetworking({
           sub="Let's Encrypt · auto-renewed before expiry"
           defaultOn
         />
-        <SettingRow
-          label="HTTP → HTTPS redirect"
-          defaultOn
-          sub="Force secure connections"
-        />
-        <SettingRow
-          label="HTTP/3 (QUIC)"
-          defaultOn
-          sub="Serve over QUIC where available"
-        />
-        <SettingRow
-          label="Compression (zstd, gzip)"
-          defaultOn
-          sub="Encode responses on the wire"
-        />
-        <SettingRow
-          label="WebSocket upgrade"
-          defaultOn
-          sub="Allow ws:// connection upgrades"
-        />
+        <SettingRow label="HTTP → HTTPS redirect" defaultOn sub="Force secure connections" />
+        <SettingRow label="HTTP/3 (QUIC)" defaultOn sub="Serve over QUIC where available" />
+        <SettingRow label="Compression (zstd, gzip)" defaultOn sub="Encode responses on the wire" />
+        <SettingRow label="WebSocket upgrade" defaultOn sub="Allow ws:// connection upgrades" />
         <SettingRow
           label="Forward X-Forwarded-For"
           defaultOn

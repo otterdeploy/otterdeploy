@@ -1,8 +1,7 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
 import { useParams } from "@tanstack/react-router";
+import { createContext, useContext, useState, type ReactNode } from "react";
 
-import { NewResourceOverlayDialog } from "./new-resource-dialogs";
-import { ID_PREFIX, type Slug } from "@otterstack/shared/id";
+import { ResourceOverlayDialog } from "./new-resource-dialogs";
 
 type OverlayContextValue = {
   open: boolean;
@@ -10,9 +9,9 @@ type OverlayContextValue = {
   toggle: () => void;
 };
 
-const NewResourceOverlayContext = createContext<OverlayContextValue | null>(null);
+const ResourceOverlayContext = createContext<OverlayContextValue | null>(null);
 
-export function NewResourceOverlayProvider({ children }: { children: ReactNode }) {
+export function ResourceOverlayProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const { orgSlug, projectSlug } = useParams({ strict: false });
 
@@ -23,26 +22,24 @@ export function NewResourceOverlayProvider({ children }: { children: ReactNode }
   };
 
   return (
-    <NewResourceOverlayContext.Provider value={value}>
+    <ResourceOverlayContext.Provider value={value}>
       {children}
       {orgSlug && projectSlug && (
-        <NewResourceOverlayDialog
+        <ResourceOverlayDialog
           orgSlug={orgSlug}
-          projectSlug={projectSlug as Slug<typeof ID_PREFIX.project>}
+          projectSlug={projectSlug}
           open={open}
           onOpenChange={setOpen}
         />
       )}
-    </NewResourceOverlayContext.Provider>
+    </ResourceOverlayContext.Provider>
   );
 }
 
-export function useNewResourceOverlay(): OverlayContextValue {
-  const ctx = useContext(NewResourceOverlayContext);
+export function useResourceOverlay(): OverlayContextValue {
+  const ctx = useContext(ResourceOverlayContext);
   if (!ctx) {
-    throw new Error(
-      "useNewResourceOverlay must be used inside <NewResourceOverlayProvider>",
-    );
+    throw new Error("useResourceOverlay must be used inside <ResourceOverlayProvider>");
   }
   return ctx;
 }

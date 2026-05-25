@@ -2,9 +2,11 @@
 // Ported verbatim from apps/web-demo/src/features/otterstack/screens/new-service.tsx lines 2397-2599.
 // Adapted from local useState to a single variablesField: AnyFieldApi that owns the Var[].
 import type { AnyFieldApi } from "@tanstack/react-form";
-import type { ServiceKindDef } from "@/features/projects/data/service-kinds";
-import { I } from "./icons";
+
+import type { ServiceKind } from "@/features/projects/data/service-kinds";
+
 import { SectionH, Switch3 } from "./form-primitives";
+import { I } from "./icons";
 
 // ────────── Var type ──────────
 export type Var = {
@@ -20,14 +22,10 @@ type LinkedSecrets = Record<string, boolean>;
 type StepVariablesProps = {
   variablesField: AnyFieldApi;
   linkedSecretsField: AnyFieldApi;
-  kind: ServiceKindDef | null;
+  kind: ServiceKind | null;
 };
 
-export function StepVariables({
-  variablesField,
-  linkedSecretsField,
-  kind,
-}: StepVariablesProps) {
+export function StepVariables({ variablesField, linkedSecretsField, kind }: StepVariablesProps) {
   const vars = variablesField.state.value as Var[];
   const linkedSecrets = linkedSecretsField.state.value as LinkedSecrets;
 
@@ -53,10 +51,7 @@ export function StepVariables({
 
   return (
     <>
-      <SectionH
-        title="Environment variables"
-        sub="Define values to inject at runtime"
-      />
+      <SectionH title="Environment variables" sub="Define values to inject at runtime" />
 
       {suggested.length > 0 && (
         <div className="card" style={{ marginTop: 12, overflow: "hidden" }}>
@@ -85,22 +80,13 @@ export function StepVariables({
               className="row"
               style={{
                 padding: "10px 14px",
-                borderBottom:
-                  i === suggested.length - 1
-                    ? "none"
-                    : "1px solid var(--border)",
+                borderBottom: i === suggested.length - 1 ? "none" : "1px solid var(--border)",
               }}
             >
-              <span
-                className="font-mono"
-                style={{ flex: 1, fontSize: 12, fontWeight: 500 }}
-              >
+              <span className="font-mono" style={{ flex: 1, fontSize: 12, fontWeight: 500 }}>
                 {s.k}
               </span>
-              <span
-                className="font-mono text-muted-foreground"
-                style={{ flex: 2, fontSize: 12 }}
-              >
+              <span className="font-mono text-muted-foreground" style={{ flex: 2, fontSize: 12 }}>
                 {s.v}
               </span>
               <span style={{ width: 100, textAlign: "right" }}>
@@ -151,8 +137,7 @@ export function StepVariables({
             className="row"
             style={{
               padding: "8px 14px",
-              borderBottom:
-                i === vars.length - 1 ? "none" : "1px solid var(--border)",
+              borderBottom: i === vars.length - 1 ? "none" : "1px solid var(--border)",
               gap: 8,
             }}
           >
@@ -164,9 +149,7 @@ export function StepVariables({
                 value={v.key}
                 placeholder="KEY"
                 onChange={(e) => {
-                  const next = vars.map((x, j) =>
-                    j === i ? { ...x, key: e.target.value } : x,
-                  );
+                  const next = vars.map((x, j) => (j === i ? { ...x, key: e.target.value } : x));
                   variablesField.handleChange(next);
                 }}
                 style={{ width: "100%" }}
@@ -181,9 +164,7 @@ export function StepVariables({
                 value={v.value}
                 placeholder={v.secret ? "••••••••" : "value"}
                 onChange={(e) => {
-                  const next = vars.map((x, j) =>
-                    j === i ? { ...x, value: e.target.value } : x,
-                  );
+                  const next = vars.map((x, j) => (j === i ? { ...x, value: e.target.value } : x));
                   variablesField.handleChange(next);
                 }}
                 style={{ width: "100%" }}
@@ -191,18 +172,13 @@ export function StepVariables({
             </span>
 
             {/* Secret toggle */}
-            <span
-              className="flex items-center justify-center"
-              style={{ width: 60 }}
-            >
+            <span className="flex items-center justify-center" style={{ width: 60 }}>
               <button
                 type="button"
                 className="btn ghost icon sm"
                 title={v.secret ? "Mark as plain" : "Mark as secret"}
                 onClick={() => {
-                  const next = vars.map((x, j) =>
-                    j === i ? { ...x, secret: !x.secret } : x,
-                  );
+                  const next = vars.map((x, j) => (j === i ? { ...x, secret: !x.secret } : x));
                   variablesField.handleChange(next);
                 }}
                 style={{ color: v.secret ? "var(--fg-1)" : "var(--fg-3)" }}
@@ -239,10 +215,7 @@ export function StepVariables({
             type="button"
             className="btn sm"
             onClick={() => {
-              variablesField.handleChange([
-                ...vars,
-                { key: "", value: "", secret: false },
-              ]);
+              variablesField.handleChange([...vars, { key: "", value: "", secret: false }]);
             }}
           >
             <I.plus width={11} height={11} /> Add variable
@@ -292,11 +265,7 @@ export function StepVariables({
             }}
           >
             <div style={{ width: 26 }}>
-              <I.lock
-                width={13}
-                height={13}
-                style={{ color: "var(--fg-3)" }}
-              />
+              <I.lock width={13} height={13} style={{ color: "var(--fg-3)" }} />
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 13, fontWeight: 500 }}>{p.name}</div>

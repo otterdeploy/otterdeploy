@@ -1,27 +1,22 @@
 "use client";
 
-import { useState } from "react";
-import {
-  Link,
-  useLoaderData,
-  useMatch,
-} from "@tanstack/react-router";
-import { eq, useLiveQuery } from "@tanstack/react-db";
 import { Search01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { ID_PREFIX, type Slug } from "@otterstack/shared/id";
+import { eq, useLiveQuery } from "@tanstack/react-db";
+import { Link, useLoaderData, useMatch } from "@tanstack/react-router";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ResourceOverlayDialog } from "@/features/projects/components/new-resource/new-resource-dialogs";
 import { envCollection } from "@/features/projects/data/env";
-
 import { Breadcrumbs } from "@/features/shell/components/breadcrumbs";
 import { EnvironmentCreateDialog } from "@/features/shell/components/environment-create-dialog";
 import { EnvironmentTabs } from "@/features/shell/components/environment-tabs";
 import { ModeToggle } from "@/features/shell/components/mode-toggle";
-import { NewResourceOverlayDialog } from "@/features/projects/components/new-resource/new-resource-dialogs";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Github } from "@/shared/components/ui/svgs/github";
-import { ID_PREFIX, type Slug } from "@otterstack/shared/id";
 
 export function SiteHeader() {
   const { t } = useTranslation();
@@ -33,10 +28,7 @@ export function SiteHeader() {
   const project = projectMatch?.loaderData?.project;
 
   const { data: environments = [] } = useLiveQuery(
-    (q) =>
-      q
-        .from({ e: envCollection })
-        .where(({ e }) => eq(e.projectId, project?.id ?? "")),
+    (q) => q.from({ e: envCollection }).where(({ e }) => eq(e.projectId, project?.id ?? "")),
     [project?.id],
   );
 
@@ -52,7 +44,7 @@ export function SiteHeader() {
           className="flex shrink-0 items-center gap-2"
           aria-label="otterstack home"
         >
-          <span className="grid size-7 place-items-center rounded-md bg-foreground text-[11px] font-semibold lowercase text-background">
+          <span className="grid size-7 place-items-center rounded-md bg-foreground text-[11px] font-semibold text-background lowercase">
             os
           </span>
           <span className="text-sm font-medium">otterstack</span>
@@ -60,9 +52,7 @@ export function SiteHeader() {
 
         <Breadcrumbs className="hidden md:block" />
 
-        {project && environments.length > 0 && (
-          <EnvironmentTabs environments={environments} />
-        )}
+        {project && environments.length > 0 && <EnvironmentTabs environments={environments} />}
 
         {project && (
           <Button
@@ -85,7 +75,7 @@ export function SiteHeader() {
             <Input
               type="search"
               placeholder={t("common.searchOrRun", "Search or run a command...")}
-              className="h-8 bg-background pl-8 pr-9"
+              className="h-8 bg-background pr-9 pl-8"
               aria-label={t("common.search")}
             />
             <kbd className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
@@ -117,7 +107,7 @@ export function SiteHeader() {
       )}
 
       {project && (
-        <NewResourceOverlayDialog
+        <ResourceOverlayDialog
           orgSlug={organization.slug}
           projectSlug={project.slug as Slug<typeof ID_PREFIX.project>}
           projectName={project.name}

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 
-import { NewResourceWizard } from "@/features/projects/components/new-resource/new-resource-wizard";
+import { ResourceWizard } from "@/features/projects/components/new-resource/new-resource-wizard";
 import { ID_PREFIX, type Slug } from "@otterstack/shared/id";
 
 const zNewResourceSearch = z.object({ kind: z.string().optional() });
@@ -18,7 +18,7 @@ function RouteComponent() {
   const { kind } = Route.useSearch();
 
   return (
-    <NewResourceWizard
+    <ResourceWizard
       layout="page"
       orgSlug={organization.slug}
       projectSlug={project.slug as Slug<typeof ID_PREFIX.project>}

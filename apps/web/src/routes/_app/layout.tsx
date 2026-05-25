@@ -1,8 +1,8 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 
-import { authClient } from "@/lib/auth-client";
 import { CommandPalette } from "@/features/command-palette";
-import { NewResourceOverlayProvider } from "@/features/projects/components/new-resource/overlay-provider";
+import { ResourceOverlayProvider } from "@/features/projects/components/new-resource/overlay-provider";
+import { authClient } from "@/lib/auth-client";
 
 export type Organization = {
   id: string;
@@ -58,8 +58,7 @@ export const Route = createFileRoute("/_app")({
     }
 
     const activeId = session.data.session.activeOrganizationId;
-    const activeOrg =
-      organizations.find((o) => o.id === activeId) ?? organizations[0];
+    const activeOrg = organizations.find((o) => o.id === activeId) ?? organizations[0];
 
     const u = session.data.user;
     const user = {
@@ -81,9 +80,9 @@ export const Route = createFileRoute("/_app")({
 
 function RouteComponent() {
   return (
-    <NewResourceOverlayProvider>
+    <ResourceOverlayProvider>
       <Outlet />
       <CommandPalette />
-    </NewResourceOverlayProvider>
+    </ResourceOverlayProvider>
   );
 }
