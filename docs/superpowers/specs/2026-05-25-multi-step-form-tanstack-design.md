@@ -138,7 +138,7 @@ Composite fields (`PortsField`, `VariablesField`, `LinkedSecretsField`) follow t
 
 ### 3. `schemas/*` — discriminated union on `__step`
 
-The form carries a `__step` field whose value matches the current wizard step. `resourceFormSchema` is a `z.discriminatedUnion("__step", [...])` where each arm is the slice of requirements for one step. Each arm is **cumulative** — it requires every field needed up to and including that step — and uses `.passthrough()` so fields that aren't yet relevant aren't stripped or rejected.
+The form carries a `__step` field whose value matches the current wizard step. `resourceFormSchema` is a `z.discriminatedUnion("__step", [...])` where each arm is the slice of requirements for one step. Each arm is **cumulative** — it requires every field needed up to and including that step. Arms are plain `z.object` (default `.strip()` behavior); extra fields the form is holding for later steps are silently ignored, which is exactly what we want.
 
 This collapses three previously separate concepts into one:
 
@@ -155,7 +155,7 @@ import * as z from "zod";
 export const kindStepSchema = z.object({
   __step: z.literal("kind"),
   kindId: z.string().min(1, "Select a resource type"),
-}).passthrough();
+});
 
 // schemas/source.ts (cumulative through the source step)
 export const sourceStepSchema = z.object({
@@ -172,7 +172,7 @@ export const sourceStepSchema = z.object({
   root: z.string(),
   autoDeploy: z.boolean(),
   previewBranches: z.boolean(),
-}).passthrough();
+});
 
 // schemas/review.ts (everything required)
 export const reviewStepSchema = z.object({
@@ -180,7 +180,7 @@ export const reviewStepSchema = z.object({
   kindId: z.string().min(1),
   name: z.string().slugify().min(2).max(48),
   // ... every required field across every step
-}).passthrough();
+});
 
 // schemas/index.ts
 import * as z from "zod";
@@ -239,8 +239,6 @@ export const resourceDefaults: ResourceFormState = {
 ```
 
 **Why cumulative variants:** if the user jumps back to a prior step and clears a required value, advancing forward again must catch it. Cumulative variants do that automatically: validating the `source` arm checks `kindId` is still present, not just the source-specific fields.
-
-**Why `.passthrough()`:** Zod's default `.strip()` would silently delete fields that aren't part of the active arm. We don't read the parsed result (TanStack Form only checks `result.issues`), so passthrough is purely defensive against future use.
 
 **Why one type for state, another for validated:** `ResourceFormState` is the flat object the form stores. `ResourceFormValues` is the narrowed union (the type `z.infer` produces). UI code uses `ResourceFormState`; only the submit handler narrows.
 
