@@ -2,9 +2,9 @@ import { useReactFlow } from "@xyflow/react";
 import { MaximizeIcon, MinusIcon, PlusIcon, RotateCcwIcon } from "lucide-react";
 import { Toolbar, ToolbarButton, ToolbarSeparator } from "../ui/toolbar";
 
-type Props = {
+interface Props {
   onUndo?: () => void;
-};
+}
 
 export function CanvasControls({ onUndo }: Props) {
   const flow = useReactFlow();

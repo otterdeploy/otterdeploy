@@ -16,7 +16,7 @@ type ChannelKind =
   | "pagerduty";
 type ChannelStatus = "active" | "warn" | "paused" | "disconnected";
 
-type Channel = {
+interface Channel {
   id: string;
   name: string;
   kind: ChannelKind;
@@ -26,7 +26,7 @@ type Channel = {
   lastDelivery: string;
   status: ChannelStatus;
   note?: string;
-};
+}
 
 const CHANNELS_SEED: Channel[] = [
   {
@@ -84,7 +84,7 @@ const CHANNELS_SEED: Channel[] = [
 
 type Severity = "info" | "ok" | "warn" | "err";
 
-type EventRow = { id: string; label: string; severity: Severity };
+interface EventRow { id: string; label: string; severity: Severity }
 
 const EVENTS: EventRow[] = [
   { id: "deploy.started", label: "Deploy started", severity: "info" },

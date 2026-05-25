@@ -11,7 +11,7 @@ import { StatusBadge } from "../components/status-badge";
 type ProviderKind = "github" | "gitlab" | "gitea" | "bitbucket";
 type AuthMethod = "oauth" | "pat";
 
-type Provider = {
+interface Provider {
   id: string;
   kind: ProviderKind;
   name: string;
@@ -23,7 +23,7 @@ type Provider = {
   lastSync?: string;
   status?: "active" | "warn" | "err";
   connected: boolean;
-};
+}
 
 const PROVIDER_LABEL: Record<ProviderKind, string> = {
   github: "GitHub",

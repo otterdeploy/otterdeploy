@@ -44,14 +44,14 @@ export function STACK_TOML(stack: Service[]): string {
   return lines.join("\n");
 }
 
-type CodeLineProps = {
+interface CodeLineProps {
   num: number;
   text: string;
   active: boolean;
   onHover: () => void;
   onLeave: () => void;
   onClick: () => void;
-};
+}
 
 export function CodeLine({ num, text, active, onHover, onLeave, onClick }: CodeLineProps) {
   const tokens = highlightToml(text);
@@ -181,7 +181,7 @@ export function EdgeRow({ e, idx, tick }: { e: Edge; idx: number; tick: number }
 }
 
 type ActivityKind = "deploy" | "health" | "log" | "env" | "scale";
-type ActivityItem = {
+interface ActivityItem {
   kind: ActivityKind;
   svc: string;
   msg: string;
@@ -189,7 +189,7 @@ type ActivityItem = {
   id: number | string;
   when: string;
   isNew?: boolean;
-};
+}
 
 const ACTIVITY_TEMPLATES: Array<Omit<ActivityItem, "id" | "when">> = [
   { kind: "deploy", svc: "api", msg: "shipped 3f9b042", author: "arjun" },

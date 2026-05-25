@@ -1,4 +1,4 @@
-export type ServerRow = {
+export interface ServerRow {
   id: string;
   name: string;
   role: "manager" | "worker";
@@ -7,4 +7,4 @@ export type ServerRow = {
   diskPercent: number;
   uptime: string;
   status: "ready" | "draining" | "down";
-};
+}

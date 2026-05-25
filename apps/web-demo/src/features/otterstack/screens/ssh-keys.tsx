@@ -8,9 +8,9 @@ import { Field, SectionH } from "../components/form";
 
 type KeyType = "ed25519" | "rsa" | "ecdsa";
 
-type UsedBy = { kind: "git" | "node" | "service"; label: string };
+interface UsedBy { kind: "git" | "node" | "service"; label: string }
 
-type SshKey = {
+interface SshKey {
   id: string;
   name: string;
   type: KeyType;
@@ -21,7 +21,7 @@ type SshKey = {
   lastUsed?: string;
   imported?: boolean;
   warn?: string;
-};
+}
 
 const INITIAL: SshKey[] = [
   {

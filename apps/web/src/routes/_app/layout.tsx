@@ -4,30 +4,30 @@ import { CommandPalette } from "@/features/command-palette";
 import { ResourceOverlayProvider } from "@/features/projects/components/new-resource/overlay-provider";
 import { authClient } from "@/lib/auth-client";
 
-export type Organization = {
+export interface Organization {
   id: string;
   name: string;
   slug: string;
   logo?: string | null;
   createdAt: string | Date;
-};
+}
 
 // Shape consumed by the project-level sidebar. Backend `project.get` provides
 // id/name/slug; `environments` come from the env router; `databases`/`routes`
 // are placeholders zeroed until project-resource counts are wired.
-export type Project = {
+export interface Project {
   id: string;
   name: string;
   slug: string;
   databases: number;
   routes: number;
   environments: Environment[];
-};
-export type Environment = {
+}
+export interface Environment {
   id: string;
   name: string;
   slug: string;
-};
+}
 
 function initialsOf(name: string): string {
   return name

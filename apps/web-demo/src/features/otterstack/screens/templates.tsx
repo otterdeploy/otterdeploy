@@ -25,7 +25,7 @@ type Sort = "popular" | "newest" | "az";
 
 type View = "grid" | "list";
 
-type IncludedSvc = { name: string; image: string; cpu: number; mem: number };
+interface IncludedSvc { name: string; image: string; cpu: number; mem: number }
 
 type ExtendedTemplate = Template & {
   cat: Cat;

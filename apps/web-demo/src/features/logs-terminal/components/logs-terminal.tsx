@@ -50,9 +50,9 @@ const Terminal = lazy(async () => {
   };
 });
 
-type Props = {
+interface Props {
   scope: LogsScope;
-};
+}
 
 const PLACEHOLDER_BANNER = [
   "\x1b[1;33m─── otterstack logs (Plan 6 will wire real streaming) ───\x1b[0m",

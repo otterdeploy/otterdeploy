@@ -9,11 +9,11 @@ import {
 } from "../ui/menu";
 import type { WorkspaceSummary } from "../types";
 
-type Props = {
+interface Props {
   current: WorkspaceSummary;
   workspaces: ReadonlyArray<WorkspaceSummary>;
   onSelect: (workspaceId: string) => void;
-};
+}
 
 export function WorkspaceSwitcherDropdown({
   current,

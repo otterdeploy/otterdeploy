@@ -5,42 +5,42 @@ import { createError, type RequestLogger } from "evlog";
 import { asStepLogger } from "../lib/logger";
 import { ensureProjectNetwork } from "./client";
 
-export type SwarmServiceRuntime = {
+export interface SwarmServiceRuntime {
   serviceId: string | null;
   serviceName: string;
   networkName: string;
   status: "running" | "starting" | "stopped" | "missing" | "error";
   health: "healthy" | "unhealthy" | "starting" | null;
-};
+}
 
-export type SwarmServicePort = {
+export interface SwarmServicePort {
   containerPort: number;
   protocol: "tcp" | "udp";
   appProtocol: "http" | "tcp";
-};
+}
 
-export type SwarmServiceHealthcheck = {
+export interface SwarmServiceHealthcheck {
   cmd: string[];
   intervalMs: number;
   timeoutMs: number;
   retries: number;
   startPeriodMs: number;
-};
+}
 
-export type SwarmServiceResources = {
+export interface SwarmServiceResources {
   cpuLimit?: number | null;
   memoryLimitMb?: number | null;
   cpuReservation?: number | null;
   memoryReservationMb?: number | null;
-};
+}
 
-export type SwarmServiceRestart = {
+export interface SwarmServiceRestart {
   condition: "none" | "on-failure" | "any";
   maxAttempts?: number | null;
   delayMs: number;
-};
+}
 
-export type SwarmServiceSpec = {
+export interface SwarmServiceSpec {
   resourceId: string;
   resourceName: string;
   projectSlug: string;
@@ -59,7 +59,7 @@ export type SwarmServiceSpec = {
   ports: SwarmServicePort[];
 
   forceUpdateCounter: number;
-};
+}
 
 // ---------------------------------------------------------------------------
 // Provision (idempotent on serviceName)

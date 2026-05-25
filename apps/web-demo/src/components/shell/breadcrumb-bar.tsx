@@ -9,14 +9,14 @@ import {
   type WorkspaceSummary,
 } from "@/features/workspace-switcher";
 
-type Props = {
+interface Props {
   workspace: WorkspaceSummary;
   workspaces: ReadonlyArray<WorkspaceSummary>;
   onSelectWorkspace: (workspaceId: string) => void;
   /** Optional middle slot rendered between workspace switcher and the spacer (e.g. project + env switcher). */
   middle?: ReactNode;
   onOpenCommandPalette: () => void;
-};
+}
 
 export function BreadcrumbBar({
   workspace,

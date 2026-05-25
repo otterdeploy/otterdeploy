@@ -1,4 +1,4 @@
-export type ProxyRouteInput = {
+export interface ProxyRouteInput {
   projectId: string;
   type: "http" | "layer4";
   domain: string;
@@ -6,7 +6,7 @@ export type ProxyRouteInput = {
   upstreamPort: number;
   protocol: "tcp" | "http";
   layer4Alpn: string | null;
-};
+}
 
 export function sanitizeMatcherName(domain: string): string {
   return domain.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");

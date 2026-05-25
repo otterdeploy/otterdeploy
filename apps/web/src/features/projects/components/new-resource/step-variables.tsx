@@ -9,21 +9,21 @@ import { SectionH, Switch3 } from "./form-primitives";
 import { I } from "./icons";
 
 // ────────── Var type ──────────
-export type Var = {
+export interface Var {
   key: string;
   value: string;
   secret: boolean;
-};
+}
 
 // ────────── LinkedSecrets ──────────
 type LinkedSecrets = Record<string, boolean>;
 
 // ────────── Props ──────────
-type StepVariablesProps = {
+interface StepVariablesProps {
   variablesField: AnyFieldApi;
   linkedSecretsField: AnyFieldApi;
   kind: ServiceKind | null;
-};
+}
 
 export function StepVariables({ variablesField, linkedSecretsField, kind }: StepVariablesProps) {
   const vars = variablesField.state.value as Var[];

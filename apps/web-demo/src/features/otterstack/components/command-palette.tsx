@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from "react";
 
 import { I } from "../icons";
 
-type Cmd = { id: string; label: string; kbd?: string; section: string };
+interface Cmd { id: string; label: string; kbd?: string; section: string }
 
-type Props = { open: boolean; onClose: () => void; onAction: (id: string) => void };
+interface Props { open: boolean; onClose: () => void; onAction: (id: string) => void }
 
 export function CommandPalette({ open, onClose, onAction }: Props) {
   const [q, setQ] = useState("");

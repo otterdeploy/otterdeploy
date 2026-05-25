@@ -16,7 +16,7 @@ import {
 
 type Tab = "routes" | "caddyfile" | "global" | "tls";
 
-type Route = {
+interface Route {
   id: string;
   name: string;
   kind: ServiceKind;
@@ -29,7 +29,7 @@ type Route = {
   healthcheck: string;
   /** Owner project. Routes inherit from their owning service. */
   project?: string;
-};
+}
 
 export function Networking() {
   const [tab, setTab] = useState<Tab>("routes");

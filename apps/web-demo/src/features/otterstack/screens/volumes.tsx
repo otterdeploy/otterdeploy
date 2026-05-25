@@ -18,7 +18,7 @@ type VolumeDriver = "local-ssd" | "local-hdd" | "nvme" | "network-nfs";
 type VolumeStatus = "attached" | "detached" | "snapshotting" | "resizing";
 type Encryption = "AES-256" | "none";
 
-type Volume = {
+interface Volume {
   id: string;
   name: string;
   driver: VolumeDriver;
@@ -30,7 +30,7 @@ type Volume = {
   lastSnapshot: string;
   project: string;
   status: VolumeStatus;
-};
+}
 
 const SEED: Volume[] = [
   {

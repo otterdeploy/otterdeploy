@@ -9,7 +9,7 @@ import { NODES } from "../data";
 type Tab = "containers" | "images" | "volumes" | "networks" | "tasks";
 
 type ContainerStatus = "running" | "exited" | "restarting" | "paused";
-type Container = {
+interface Container {
   id: string;
   image: string;
   command: string;
@@ -19,37 +19,37 @@ type Container = {
   ports: string;
   name: string;
   node: string;
-};
+}
 
-type Image = {
+interface Image {
   repo: string;
   tag: string;
   id: string;
   created: string;
   size: string;
   inUse: number;
-};
+}
 
-type Volume = {
+interface Volume {
   name: string;
   driver: string;
   mountpoint: string;
   size: string;
   inUse: number;
   created: string;
-};
+}
 
-type Network = {
+interface Network {
   name: string;
   driver: "bridge" | "overlay" | "host" | "null";
   scope: "swarm" | "local";
   subnet: string;
   gateway: string;
   attached: number;
-};
+}
 
 type SwarmTaskState = "running" | "ready" | "shutdown" | "rejected" | "failed" | "preparing";
-type SwarmTask = {
+interface SwarmTask {
   id: string;
   service: string;
   slot: number;
@@ -59,7 +59,7 @@ type SwarmTask = {
   current: SwarmTaskState;
   error?: string;
   age: string;
-};
+}
 
 const STATUS_TONE: Record<ContainerStatus, string> = {
   running: "var(--ok)",

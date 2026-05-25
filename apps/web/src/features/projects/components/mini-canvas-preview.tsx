@@ -1,10 +1,10 @@
 import { useId } from "react";
 
-type Props = {
+interface Props {
   databases: number;
   routes: number;
   className?: string;
-};
+}
 
 const MAX_DATABASE_RECTS = 4;
 

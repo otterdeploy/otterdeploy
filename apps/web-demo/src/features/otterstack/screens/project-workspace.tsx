@@ -11,13 +11,13 @@ import type { Env } from "../data";
 import { ServiceGraph } from "./service-graph";
 import { STACK_TOML, CodeLine, ActivityFeed, EdgeRow } from "../components/workspace-helpers";
 
-type Props = {
+interface Props {
   env: Env;
   onOpenLogs: (id: string) => void;
   onDeploy: () => void;
   onOpenService: (id: string) => void;
   onNewService: () => void;
-};
+}
 
 type DrawerTab = "stack" | "activity" | "traffic";
 
@@ -27,11 +27,11 @@ const MAX_DRAWER_FRAC = 0.7;
 const DEFAULT_DRAWER_PX = 280;
 const COLLAPSED_PX = 38;
 
-type DrawerState = {
+interface DrawerState {
   open: boolean;
   tab: DrawerTab;
   height: number;
-};
+}
 
 function readDrawerState(): DrawerState {
   if (typeof window === "undefined") return { open: true, tab: "stack", height: DEFAULT_DRAWER_PX };

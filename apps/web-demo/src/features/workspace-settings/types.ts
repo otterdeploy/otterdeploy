@@ -1,8 +1,8 @@
-export type SettingsSection = {
+export interface SettingsSection {
   id: string;
   label: string;
   group?: "workspace" | "infrastructure";
-};
+}
 
 export const workspaceSettingsSections: ReadonlyArray<SettingsSection> = [
   { id: "overview", label: "Overview", group: "workspace" },

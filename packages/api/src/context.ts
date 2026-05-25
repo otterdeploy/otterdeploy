@@ -6,10 +6,10 @@ import { type Id, ID_PREFIX } from "@otterstack/shared/id";
 
 type OrgId = Id<typeof ID_PREFIX.organization>;
 
-export type CreateContextOptions = {
+export interface CreateContextOptions {
   context: HonoContext;
   broadcast: (resource: string) => void;
-};
+}
 
 export async function createContext({
   context,

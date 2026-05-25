@@ -9,13 +9,13 @@ import { DEPLOYMENTS, EDGES, ENV_VARS, SERVICES } from "../data";
 import type { Env, Service } from "../data";
 import { StatusBadge } from "../components/status-badge";
 
-type Props = {
+interface Props {
   env: Env;
   onOpenLogs: (id: string) => void;
   onDeploy: () => void;
   onOpenService: (id: string) => void;
   onNewService: () => void;
-};
+}
 
 export function ServiceGraph({ onOpenLogs, onDeploy, onOpenService }: Props) {
   const [selected, setSelected] = useState<string>("api");
@@ -237,12 +237,12 @@ export function ServiceGraph({ onOpenLogs, onDeploy, onOpenService }: Props) {
   );
 }
 
-type GraphNodeProps = {
+interface GraphNodeProps {
   n: Service;
   selected: boolean;
   onSelect: () => void;
   onHover: (id: string | null) => void;
-};
+}
 
 function GraphNode({ n, selected, onSelect, onHover }: GraphNodeProps) {
   const w = 120;
@@ -342,12 +342,12 @@ function GraphNode({ n, selected, onSelect, onHover }: GraphNodeProps) {
   );
 }
 
-type ServiceDrawerProps = {
+interface ServiceDrawerProps {
   service: Service | undefined;
   onOpenLogs: (id: string) => void;
   onDeploy: () => void;
   onOpenService: (id: string) => void;
-};
+}
 
 function ServiceDrawer({
   service,
@@ -586,7 +586,7 @@ function ServiceDrawer({
                     whiteSpace: "nowrap",
                   }}
                 >
-                  {v.secret ? v.v.replace(/[^•@:/.\-]/g, "•") : v.v}
+                  {v.secret ? v.v.replace(/[^•@:/.-]/g, "•") : v.v}
                 </span>
               </div>
             ))}

@@ -18,12 +18,12 @@ import {
   Share2Icon,
 } from "lucide-react";
 
-export type RailItem = {
+export interface RailItem {
   id: string;
   label: string;
   href: string;
   icon: LucideIcon;
-};
+}
 
 export const outerRailItems: ReadonlyArray<RailItem> = [
   { id: "projects", label: "Projects", href: "/", icon: LayoutGridIcon },

@@ -48,12 +48,12 @@ const adminItems: Array<{ id: Tab; label: string; icon: keyof typeof I }> = [
   { id: "cluster-settings", label: "Cluster", icon: "settings" },
 ];
 
-type Props = {
+interface Props {
   tab: Tab | string;
   setTab: (t: Tab | string) => void;
   env: Env;
   setEnv: (e: Env) => void;
-};
+}
 
 export function Sidebar({ tab, setTab, env, setEnv }: Props) {
   return (

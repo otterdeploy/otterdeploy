@@ -7,19 +7,19 @@ import type { ServiceKind } from "@/features/projects/data/service-kinds";
 import { SectionH, Field, Switch3, SettingRow } from "./form-primitives";
 import { I } from "./icons";
 
-export type Port = {
+export interface Port {
   port: number;
   protocol: string;
   public: boolean;
   host: string;
-};
+}
 
-type NetworkingProps = {
+interface NetworkingProps {
   portsField: AnyFieldApi;
   healthPathField: AnyFieldApi;
   healthIntervalField: AnyFieldApi;
   kind: ServiceKind | null;
-};
+}
 
 export function StepNetworking({
   portsField,

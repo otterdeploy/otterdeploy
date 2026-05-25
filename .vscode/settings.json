@@ -1,10 +1,11 @@
 {
-    "cSpell.words": [
-        "healthcheck",
-        "inngest",
-        "orpc",
-        "otterstack",
-        "paralleldrive",
-        "xyflow"
-    ]
+  "cSpell.words": [
+    "clickhouse",
+    "healthcheck",
+    "inngest",
+    "orpc",
+    "otterstack",
+    "paralleldrive",
+    "xyflow"
+  ]
 }

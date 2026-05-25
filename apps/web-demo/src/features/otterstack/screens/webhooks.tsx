@@ -21,7 +21,7 @@ type EventName =
   | "backup.completed"
   | "domain.tls.renewed";
 
-type Webhook = {
+interface Webhook {
   id: string;
   url: string;
   secret: string;
@@ -31,9 +31,9 @@ type Webhook = {
   totalDeliveries: number;
   retry: string;
   status: "active" | "paused" | "failing";
-};
+}
 
-type Delivery = {
+interface Delivery {
   id: string;
   ts: string;
   target: string;
@@ -41,9 +41,9 @@ type Delivery = {
   code: number;
   attempt: number;
   latencyMs: number;
-};
+}
 
-type Inbound = {
+interface Inbound {
   id: string;
   url: string;
   name: string;
@@ -53,7 +53,7 @@ type Inbound = {
   allowedIps: string;
   lastInvocationRel: string;
   status: "active" | "paused";
-};
+}
 
 const ALL_EVENTS: EventName[] = [
   "deploy.succeeded",

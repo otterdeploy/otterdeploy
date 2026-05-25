@@ -17,11 +17,11 @@
 
 import { log as globalLog, type RequestLogger } from "evlog";
 
-export type StepLogger = {
+export interface StepLogger {
   info(event: Record<string, unknown>): void;
   warn(event: Record<string, unknown>): void;
   error(eventOrError: Record<string, unknown> | Error): void;
-};
+}
 
 export function asStepLogger(log?: RequestLogger): StepLogger {
   if (!log) {

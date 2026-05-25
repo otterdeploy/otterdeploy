@@ -2,14 +2,14 @@ import { Docker } from "@otterdeploy/docker";
 
 const docker = Docker.fromEnv();
 
-export type ListedContainer = {
+export interface ListedContainer {
   id: string;
   name: string;
   image: string;
   state: string;
   status: string;
   createdAt: number;
-};
+}
 
 export async function listContainers(opts: {
   all?: boolean;

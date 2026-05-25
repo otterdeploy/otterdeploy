@@ -75,11 +75,11 @@ export type Tab =
 
 type Props = Record<string, never>;
 
-type NewServiceLaunch = {
+interface NewServiceLaunch {
   kindId?: string | null;
   kindTab?: "compute" | "data" | "template" | "custom";
   step?: "kind" | "source" | "builder" | "image" | "compose" | "version" | "networking" | "resources" | "storage" | "variables" | "advanced" | "review";
-};
+}
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function OtterstackApp(_: Props) {

@@ -2,7 +2,7 @@ import type { RequestLogger } from "evlog";
 
 import type { DatabaseEngine } from "@otterstack/shared/database-engines";
 
-export type ProvisionInput = {
+export interface ProvisionInput {
   serviceName: string;
   volumeName: string;
   hostnameAlias: string;
@@ -10,16 +10,16 @@ export type ProvisionInput = {
   username: string;
   password: string;
   projectSlug: string;
-};
+}
 
-export type ProvisionRuntime = {
+export interface ProvisionRuntime {
   serviceId: string | null;
   serviceName: string;
   volumeName: string;
   networkName: string;
   status: "running" | "starting" | "stopped" | "missing" | "error";
   health: "healthy" | "unhealthy" | "starting" | null;
-};
+}
 
 export interface DatabaseProvisioner {
   readonly engine: DatabaseEngine;

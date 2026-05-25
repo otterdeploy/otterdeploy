@@ -102,7 +102,7 @@ export async function listServiceRecordsByProject(
 // Writes
 // ---------------------------------------------------------------------------
 
-export type CreateServiceInput = {
+export interface CreateServiceInput {
   projectId: ProjectId;
   name: string;
   status?: "draft" | "valid" | "invalid";
@@ -139,7 +139,7 @@ export type CreateServiceInput = {
   }>;
 
   env?: Array<{ key: string; value: string }>;
-};
+}
 
 export async function createServiceRecord(
   input: CreateServiceInput,

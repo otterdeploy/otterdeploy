@@ -1,10 +1,10 @@
 import { LogsTerminal } from "@/features/logs-terminal";
 
-type Props = {
+interface Props {
   projectId: string;
   resourceId: string;
   resourceName: string;
-};
+}
 
 export function LogsTab({ projectId, resourceId, resourceName }: Props) {
   return (

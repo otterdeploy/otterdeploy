@@ -3,7 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { SvglLogo } from "../brand/svgl-logo";
 import { I } from "../icons";
 
-type LaunchTarget = {
+interface LaunchTarget {
   kindId?: string | null;
   kindTab?: "compute" | "data" | "template" | "custom";
   step?:
@@ -19,14 +19,14 @@ type LaunchTarget = {
     | "variables"
     | "advanced"
     | "review";
-};
+}
 
-type Props = {
+interface Props {
   open: boolean;
   onClose: () => void;
   onDeploy: (name: string) => void;
   onOpenNewService: (target?: LaunchTarget) => void;
-};
+}
 
 type SourceId =
   | "github"

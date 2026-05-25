@@ -49,13 +49,13 @@ type Step =
 
 type KindTab = "compute" | "data" | "template" | "custom";
 
-type LaunchPreset = {
+interface LaunchPreset {
   kindId?: string | null;
   kindTab?: KindTab;
   step?: Step;
-};
+}
 
-type Port = { port: number; protocol: string; public: boolean; host: string };
+interface Port { port: number; protocol: string; public: boolean; host: string }
 
 type LinkedSecrets = Record<string, boolean>;
 

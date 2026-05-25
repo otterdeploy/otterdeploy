@@ -6,23 +6,17 @@ import { Mysql } from "@/shared/components/ui/svgs/mysql";
 import { Postgresql } from "@/shared/components/ui/svgs/postgresql";
 import { Redis } from "@/shared/components/ui/svgs/redis";
 
-type DatabaseBrand =
-  | "postgresql"
-  | "mysql"
-  | "mariadb"
-  | "mongodb"
-  | "redis"
-  | "clickhouse";
+type DatabaseBrand = "postgresql" | "mysql" | "mariadb" | "mongodb" | "redis" | "clickhouse";
 type SvgComponent = (props: SVGProps<SVGSVGElement>) => ReactNode;
 
-type Props = {
+interface Props {
   value: string;
   size?: number;
   background?: string;
   border?: string;
   color?: string;
   style?: CSSProperties;
-};
+}
 
 const brands: Record<Exclude<DatabaseBrand, "clickhouse">, SvgComponent> = {
   postgresql: Postgresql,
@@ -70,10 +64,7 @@ export function DatabaseLogo({
   );
 }
 
-function renderBrand(
-  brand: Exclude<DatabaseBrand, "clickhouse">,
-  size: number,
-) {
+function renderBrand(brand: Exclude<DatabaseBrand, "clickhouse">, size: number) {
   const Icon = brands[brand];
   return <Icon width={size} height={size} />;
 }
@@ -83,22 +74,13 @@ function resolveDatabaseBrand(value: string): DatabaseBrand | null {
   if (normalized.includes("postgres")) return "postgresql";
   if (normalized.includes("mariadb")) return "mariadb";
   if (normalized.includes("mysql")) return "mysql";
-  if (normalized.includes("mongodb") || normalized.includes("mongo"))
-    return "mongodb";
+  if (normalized.includes("mongodb") || normalized.includes("mongo")) return "mongodb";
   if (normalized.includes("redis")) return "redis";
   if (normalized.includes("clickhouse")) return "clickhouse";
   return null;
 }
 
-function FallbackMark({
-  value,
-  size,
-  color,
-}: {
-  value: string;
-  size: number;
-  color: string;
-}) {
+function FallbackMark({ value, size, color }: { value: string; size: number; color: string }) {
   return (
     <span
       className="font-mono"

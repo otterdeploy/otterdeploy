@@ -20,12 +20,12 @@ export type ServiceResourceRow = typeof serviceResource.$inferSelect;
 export type ServicePortRow = typeof servicePort.$inferSelect;
 export type ServiceEnvVarRow = typeof serviceEnvVar.$inferSelect;
 
-export type ServiceRecord = {
+export interface ServiceRecord {
   resource: ResourceRow;
   service: ServiceResourceRow;
   ports: ServicePortRow[];
   env: ServiceEnvVarRow[];
-};
+}
 
 export {
   createServiceRecord,

@@ -37,9 +37,9 @@ import { type Id, ID_PREFIX } from "@otterstack/shared/id";
 
 type OrgId = Id<typeof ID_PREFIX.organization>;
 
-type OrgRef = {
+interface OrgRef {
   organizationId: OrgId;
-};
+}
 
 export async function listProjects(input: OrgRef): Promise<ProjectListItem[]> {
   return listProjectRecordsByOrg(input.organizationId);

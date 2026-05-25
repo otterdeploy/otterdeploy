@@ -26,11 +26,11 @@ const nodeTypes: NodeTypes = {
   routing: RoutingNode,
 };
 
-type Props = {
+interface Props {
   nodes: ReadonlyArray<CanvasNode>;
   selectedNodeId: string | null;
   onSelectNode: (node: CanvasNode | null) => void;
-};
+}
 
 function CanvasInner({ nodes, selectedNodeId, onSelectNode }: Props) {
   const decoratedNodes = useMemo<Node[]>(

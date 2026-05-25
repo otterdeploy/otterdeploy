@@ -23,11 +23,11 @@ function slugify(value: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-type Props = {
+interface Props {
   projectId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-};
+}
 
 export function EnvironmentCreateDialog({ projectId, open, onOpenChange }: Props) {
   const navigate = useNavigate();

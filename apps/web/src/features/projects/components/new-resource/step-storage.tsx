@@ -6,14 +6,14 @@ import type { ServiceKind } from "@/features/projects/data/service-kinds";
 
 import { SectionH, Field, Switch3, SettingRow } from "./form-primitives";
 
-type StorageProps = {
+interface StorageProps {
   storageGbField: AnyFieldApi;
   backupsEnabledField: AnyFieldApi;
   backupRetentionField: AnyFieldApi;
   pitrField: AnyFieldApi;
   highAvailabilityField: AnyFieldApi;
   kind: ServiceKind;
-};
+}
 
 export function StepStorage({
   storageGbField,

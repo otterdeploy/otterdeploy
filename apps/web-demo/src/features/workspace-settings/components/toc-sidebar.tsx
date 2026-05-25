@@ -1,11 +1,11 @@
 import { cn } from "@/lib/utils";
 import type { SettingsSection } from "../types";
 
-type Props = {
+interface Props {
   sections: ReadonlyArray<SettingsSection>;
   activeId: string;
   onJump: (id: string) => void;
-};
+}
 
 export function TocSidebar({ sections, activeId, onJump }: Props) {
   return (

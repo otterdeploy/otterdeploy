@@ -1,12 +1,12 @@
 import { ProjectCard } from "./project-card";
 
-type ProjectListItem = {
+interface ProjectListItem {
   id: string;
   name: string;
   slug: string;
   databaseCount?: number;
   routeCount?: number;
-};
+}
 
 export function ProjectList({
   orgSlug,

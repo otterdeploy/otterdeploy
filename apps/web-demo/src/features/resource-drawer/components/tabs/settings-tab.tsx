@@ -14,12 +14,12 @@ import { Field, FieldLabel } from "../ui/field";
 import { Input } from "../ui/input";
 import { client } from "@/utils/orpc";
 
-type Props = {
+interface Props {
   projectId: string;
   resourceId: string;
   name: string;
   onDeleted: () => void;
-};
+}
 
 export function SettingsTab({ projectId, resourceId, name, onDeleted }: Props) {
   const [confirmOpen, setConfirmOpen] = useState(false);

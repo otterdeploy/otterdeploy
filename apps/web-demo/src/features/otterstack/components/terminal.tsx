@@ -7,18 +7,18 @@ import { I } from "../icons";
 
 export type TerminalKind = "shell" | "ssh" | "psql" | "redis";
 
-export type TerminalTarget = {
+export interface TerminalTarget {
   /** Connection target label, e.g. "web · replica 2" */
   label: string;
   /** What appears at the start of each line, e.g. "app@web-replica-2:/usr/src/app$" */
   prompt: string;
   /** Pre-populated transcript shown before user input */
   banner?: string[];
-};
+}
 
-type Replica = { id: string; name: string };
+interface Replica { id: string; name: string }
 
-type Props = {
+interface Props {
   kind: TerminalKind;
   target: TerminalTarget;
   /** Optional replica picker — only meaningful for kind=shell */
@@ -29,9 +29,9 @@ type Props = {
   onClose?: () => void;
   /** Take all height of parent. */
   fill?: boolean;
-};
+}
 
-type Line = { kind: "cmd" | "out" | "sys"; text: string };
+interface Line { kind: "cmd" | "out" | "sys"; text: string }
 
 export function Terminal({
   kind,

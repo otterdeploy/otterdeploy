@@ -11,9 +11,9 @@ import {
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import type { VariableScope } from "../types";
 
-type Props = {
+interface Props {
   scope: VariableScope;
-};
+}
 
 export function VariablesTable({ scope }: Props) {
   return (

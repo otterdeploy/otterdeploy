@@ -14,7 +14,7 @@ import {
   matchesProjectFilter,
 } from "./project-filter";
 
-export type TerminalSession = {
+export interface TerminalSession {
   id: string;
   kind: TerminalKind;
   /** Tab label. */
@@ -24,14 +24,14 @@ export type TerminalSession = {
   /** Project tags this session inherits from its source resource. Used for the tab dot + filter. */
   projectTags?: string[];
   target: TerminalTarget;
-};
+}
 
-type Props = {
+interface Props {
   /** Pre-seeded sessions (auto-active = first). */
   initial?: TerminalSession[];
   /** Hide the "Terminal" page-level header (used when the workspace is itself a sub-pane). */
   embedded?: boolean;
-};
+}
 
 export function TerminalWorkspace({ initial = [], embedded = false }: Props) {
   const [sessions, setSessions] = useState<TerminalSession[]>(initial);

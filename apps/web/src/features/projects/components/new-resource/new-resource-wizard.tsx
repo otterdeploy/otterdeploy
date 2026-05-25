@@ -58,7 +58,7 @@ const DOCKER_STEPS: Array<[Step, string, string]> = [
 
 const KIND_STEPS: Array<[Step, string, string]> = [["kind", "Kind", "pick-kind"]];
 
-export type ResourceWizardProps = {
+export interface ResourceWizardProps {
   orgSlug: string;
   projectSlug: Slug<typeof ID_PREFIX.project>;
   projectName: string;
@@ -67,7 +67,7 @@ export type ResourceWizardProps = {
   onComplete?: () => void;
   onCancel?: () => void;
   layout?: "page" | "dialog";
-};
+}
 
 export function ResourceWizard({
   orgSlug,

@@ -15,27 +15,25 @@ import {
 } from "./lib/errors";
 import { ClientMessage, type ServerMessage } from "./messages";
 
-const SHELL = process.env.SHELL || "bash";
-const USR_HOME = process.env.HOME || "/root";
+import { env as nodeEnv } from "node:process";
+
+const SHELL = nodeEnv.SHELL || "bash";
+const USR_HOME = nodeEnv.HOME || "/root";
 
 const docker = Docker.fromEnv();
-
-// ---------------------------------------------------------------------------
-// Utilities
-// ---------------------------------------------------------------------------
 
 // Minimal shell environment. We deliberately do NOT inherit process.env —
 // that would leak server-side secrets (DATABASE_URL, BETTER_AUTH_SECRET, …)
 // into the user's shell. Loosen the allowlist if the dev shell needs more.
 function buildBaseEnv(userId: string | undefined): Record<string, string> {
   const childEnv: Record<string, string> = {
-    PATH: process.env.PATH ?? "/usr/local/bin:/usr/bin:/bin",
-    HOME: process.env.HOME ?? "/root",
-    USER: process.env.USER ?? "root",
-    LOGNAME: process.env.LOGNAME ?? process.env.USER ?? "root",
-    SHELL: process.env.SHELL ?? "/bin/bash",
-    LANG: process.env.LANG ?? "C.UTF-8",
-    LC_ALL: process.env.LC_ALL ?? "C.UTF-8",
+    PATH: nodeEnv.PATH ?? "/usr/local/bin:/usr/bin:/bin",
+    HOME: nodeEnv.HOME ?? "/root",
+    USER: nodeEnv.USER ?? "root",
+    LOGNAME: nodeEnv.LOGNAME ?? nodeEnv.USER ?? "root",
+    SHELL: nodeEnv.SHELL ?? "/bin/bash",
+    LANG: nodeEnv.LANG ?? "C.UTF-8",
+    LC_ALL: nodeEnv.LC_ALL ?? "C.UTF-8",
     TERM: "xterm-256color",
   };
   if (userId) childEnv.OTTERSTACK_USER = userId;
@@ -44,13 +42,7 @@ function buildBaseEnv(userId: string | undefined): Record<string, string> {
 
 // Rate-limited logger. Backpressure / dropped-frame events come in floods —
 // log the first event in each window, every Nth after, summarize at window end.
-function sampleLogger({
-  every,
-  windowMs,
-}: {
-  every: number;
-  windowMs: number;
-}) {
+function sampleLogger({ every, windowMs }: { every: number; windowMs: number }) {
   let count = 0;
   let windowStart = 0;
   return {
@@ -89,21 +81,24 @@ function attempt(fn: () => void, event: string): void {
 // PtyBackend — uniform surface over host PTY and container exec
 // ---------------------------------------------------------------------------
 
-type PtyBackend = {
+interface PtyBackend {
   write: (data: string | Uint8Array) => void;
   resize: (cols: number, rows: number) => void;
   dispose: () => void;
-};
+}
 
-type ExitInfo = { exitCode: number | null; signal: string | null };
+interface ExitInfo {
+  exitCode: number | null;
+  signal: string | null;
+}
 
-type StartArgs = {
+interface StartArgs {
   cols: number;
   rows: number;
   userId?: string;
   onData: (chunk: string | Uint8Array) => void;
   onExit: (info: ExitInfo) => void;
-};
+}
 
 type StartError = PtySpawnError | PtyTerminalUnavailableError | PtyExecError;
 
@@ -198,9 +193,9 @@ async function startContainerExec(
       },
     });
 
-    const stream = yield* (
-      await exec.start({ stdin: true, Tty: true })
-    ).mapError((cause) => new PtyExecError({ step: "start", cause }));
+    const stream = yield* (await exec.start({ stdin: true, Tty: true })).mapError(
+      (cause) => new PtyExecError({ step: "start", cause }),
+    );
     const duplex = stream as Duplex;
 
     // Initial resize is best-effort: the stream is already live, so we'd
@@ -260,9 +255,7 @@ function sendControl(ws: WSContext, msg: ServerMessage): void {
   ws.send(JSON.stringify(msg));
 }
 
-function decodeClientMessage(
-  text: string,
-): Result<ClientMessage, PtyMessageError> {
+function decodeClientMessage(text: string): Result<ClientMessage, PtyMessageError> {
   return Result.try({
     try: () => JSON.parse(text) as unknown,
     catch: (cause) =>
@@ -289,9 +282,7 @@ async function startShell(
   args: StartArgs,
   id?: string | null,
 ): Promise<Result<PtyBackend, StartError>> {
-  return id
-    ? await startContainerExec({ ...args, containerId: id })
-    : startHostShell(args);
+  return id ? await startContainerExec({ ...args, containerId: id }) : startHostShell(args);
 }
 
 // ---------------------------------------------------------------------------
@@ -339,10 +330,7 @@ export function registerTerminalRoutes(app: Hono<EvlogVariables>): void {
               // (backpressure), 0 = dropped (socket closed or over
               // backpressureLimit). Writing into a dropped socket leaks the
               // PTY process — kill the backend when we see 0.
-              const bytes =
-                typeof chunk === "string"
-                  ? new TextEncoder().encode(chunk)
-                  : chunk;
+              const bytes = typeof chunk === "string" ? new TextEncoder().encode(chunk) : chunk;
               const r = raw.send(bytes);
               if (r > 0) return;
               if (r === 0) {
@@ -351,9 +339,7 @@ export function registerTerminalRoutes(app: Hono<EvlogVariables>): void {
                 state.backend = null;
                 return;
               }
-              bpLog.warn(
-                `[pty] backpressure (buffered=${raw.getBufferedAmount()})`,
-              );
+              bpLog.warn(`[pty] backpressure (buffered=${raw.getBufferedAmount()})`);
             },
             onExit: (info) => {
               sendControl(ws, {

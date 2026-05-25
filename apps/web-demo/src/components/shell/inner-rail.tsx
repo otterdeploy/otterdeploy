@@ -3,10 +3,10 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { cn } from "@/lib/utils";
 import { innerRailItems } from "./rail-items";
 
-type Props = {
+interface Props {
   projectId: string;
   currentHref: string;
-};
+}
 
 function buildHref(projectId: string, segment: string): string {
   return segment === ""

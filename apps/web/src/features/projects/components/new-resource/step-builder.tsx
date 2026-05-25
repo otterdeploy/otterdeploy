@@ -7,14 +7,14 @@ import { I, type IconKey } from "./icons";
 import { SectionH, Field } from "./form-primitives";
 
 // ────── Types ──────
-type Builder = {
+interface Builder {
   id: string;
   name: string;
   sub: string;
   icon: string;
   popular?: boolean;
   langs?: string[];
-};
+}
 
 // ────── Data ──────
 const BUILDERS: Builder[] = [
@@ -312,11 +312,11 @@ function BuilderConfig({
 }
 
 // ────── Props ──────
-export type BuilderProps = {
+export interface BuilderProps {
   builderIdField: AnyFieldApi;
   /** Service name — passed to BuilderConfig for placeholder paths. */
   nameField: AnyFieldApi;
-};
+}
 
 // ────── StepBuilder ──────
 export function StepBuilder({ builderIdField, nameField }: BuilderProps) {

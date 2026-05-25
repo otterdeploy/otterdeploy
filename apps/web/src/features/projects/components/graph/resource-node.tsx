@@ -43,13 +43,13 @@ export type ResourceEngine = "postgres" | "mysql" | "mariadb" | "redis" | "mongo
 
 export type ResourceStatus = "running" | "building" | "error";
 
-export type VolumeAttachment = {
+export interface VolumeAttachment {
   name: string;
   size: string;
   mount?: string;
-};
+}
 
-export type ResourceNodeData = {
+export interface ResourceNodeData {
   kind: ResourceKind;
   name: string;
   description: string;
@@ -58,7 +58,7 @@ export type ResourceNodeData = {
   tech?: { label: string; icon?: IconType };
   /** Database-only: render volumes inline inside the inset MOUNTS tray (Variant A). */
   volumes?: VolumeAttachment[];
-};
+}
 
 /** Volume pill — matches the design spec's `.vol-pill` (Variant A, inset tray). */
 function VolumePill({ volume }: { volume: VolumeAttachment }) {

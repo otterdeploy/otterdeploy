@@ -12,7 +12,7 @@ import type {
   ServiceResourceRow,
 } from "../../routers/service/queries";
 
-export type PostgresExportInput = {
+export interface PostgresExportInput {
   resource: ResourceRow;
   database: {
     internalConnectionString: string;
@@ -22,7 +22,7 @@ export type PostgresExportInput = {
     password: string;
     databaseName: string;
   };
-};
+}
 
 export function postgresExports(
   input: PostgresExportInput,
@@ -38,12 +38,12 @@ export function postgresExports(
   };
 }
 
-export type ServiceExportInput = {
+export interface ServiceExportInput {
   resource: ResourceRow;
   service: ServiceResourceRow;
   ports: ServicePortRow[];
   resolvedEnv: Record<string, string>;
-};
+}
 
 /**
  * For service-to-service references, expose:

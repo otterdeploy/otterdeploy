@@ -21,7 +21,7 @@ type Scope =
 
 type TokenStatus = "active" | "revoked" | "expired";
 
-type Token = {
+interface Token {
   id: string;
   name: string;
   scopes: Scope[];
@@ -35,7 +35,7 @@ type Token = {
   status: TokenStatus;
   /** 24h request series, length 24, 0–100. */
   series: number[];
-};
+}
 
 const ALL_SCOPES: { id: Scope; group: string; label: string }[] = [
   { id: "read:projects", group: "Projects", label: "read:projects" },

@@ -13,23 +13,23 @@ import type { RequestLogger } from "evlog";
 import { asStepLogger } from "../lib/logger";
 import { PLATFORM } from "../constants";
 
-export type DockerPostgresRuntime = {
+export interface DockerPostgresRuntime {
   containerName: string;
   volumeName: string;
   networkName: string;
   hostPort: number | null;
   status: "running" | "starting" | "stopped" | "missing" | "error";
   health: "healthy" | "unhealthy" | "starting" | null;
-};
+}
 
-type ProvisionDockerPostgresInput = {
+interface ProvisionDockerPostgresInput {
   containerName: string;
   volumeName: string;
   hostnameAlias: string;
   databaseName: string;
   username: string;
   password: string;
-};
+}
 
 export async function provisionDockerPostgres(
   input: ProvisionDockerPostgresInput,
@@ -295,7 +295,7 @@ async function inspectContainer(docker: Docker, containerName: string) {
 
 async function waitForContainerReady(docker: Docker, containerName: string) {
   for (let attempt = 0; attempt < 30; attempt += 1) {
-    const inspection = await (await docker.containers.inspect(containerName)).unwrap();
+    const inspection = (await docker.containers.inspect(containerName)).unwrap();
     const health = inspection.State.Health?.Status;
 
     if (inspection.State.Running && (health === undefined || health === "healthy")) {

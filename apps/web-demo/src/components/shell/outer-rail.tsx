@@ -3,9 +3,9 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { cn } from "@/lib/utils";
 import { outerRailItems, type RailItem } from "./rail-items";
 
-type Props = {
+interface Props {
   currentHref: string;
-};
+}
 
 function isActive(item: RailItem, currentHref: string): boolean {
   if (item.href === "/") {

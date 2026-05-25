@@ -17,11 +17,11 @@ const labels: Record<string, string> = {
   "new-service": "New service",
 };
 
-type Props = {
+interface Props {
   tab: string;
   openCmd: () => void;
   openDeploy: () => void;
-};
+}
 
 export function Topbar({ tab, openCmd, openDeploy }: Props) {
   const here = tab.startsWith("service:")

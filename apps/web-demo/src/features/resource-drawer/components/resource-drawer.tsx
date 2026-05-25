@@ -13,14 +13,14 @@ import { LogsTab } from "./tabs/logs-tab";
 import { SettingsTab } from "./tabs/settings-tab";
 import type { DrawerSelection } from "../types";
 
-type Props = {
+interface Props {
   open: boolean;
   selection: DrawerSelection;
   onClose: () => void;
   onDeleted: () => void;
   /** Display label for the drawer header (the resource's user-visible name). */
   resourceName: string;
-};
+}
 
 export function ResourceDrawer({
   open,

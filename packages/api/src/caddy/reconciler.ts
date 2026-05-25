@@ -10,20 +10,20 @@ import {
 } from "./builder";
 import type { AdaptResult, LoadResult } from "./client";
 
-export type ReconcileResult = {
+export interface ReconcileResult {
   applied: string[];
   skipped: { projectId: string; error: string }[];
   revision: string;
   loadError?: string;
-};
+}
 
-type ReconcileOptions = {
+interface ReconcileOptions {
   routes: ProxyRouteInput[];
   adminBind: string;
   adapt: (caddyfile: string) => Promise<AdaptResult>;
   load: (caddyfile: string) => Promise<LoadResult>;
   rlog?: RequestLogger;
-};
+}
 
 export async function reconcileRoutes(options: ReconcileOptions): Promise<ReconcileResult> {
   const { routes, adminBind, adapt, load, rlog } = options;

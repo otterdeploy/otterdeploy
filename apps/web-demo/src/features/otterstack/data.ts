@@ -6,7 +6,7 @@ export type ServiceStatus = "healthy" | "degraded" | "down";
 export type Env = "production" | "staging" | "preview";
 export type DeployStatus = "live" | "rolled-back" | "failed" | "building" | "queued";
 
-export type Service = {
+export interface Service {
   id: string;
   name: string;
   kind: ServiceKind;
@@ -30,7 +30,7 @@ export type Service = {
   version?: string;
   /** Owner project. Cross-project consumers reach this resource over internal DNS. */
   project?: string;
-};
+}
 
 export const PROJECT = {
   name: "helio",
@@ -39,7 +39,7 @@ export const PROJECT = {
   envs: ["production", "staging", "preview"] as const satisfies readonly Env[],
 };
 
-export type ProjectRef = { id: string; name: string; color: string };
+export interface ProjectRef { id: string; name: string; color: string }
 
 // Multi-tenant project catalog — many projects can share the same swarm.
 // Tags below cross-reference these ids.
@@ -167,7 +167,7 @@ export const SERVICES: Service[] = [
   },
 ];
 
-export type Edge = { from: string; to: string; kind: "http" | "tcp" | "queue"; rps: number };
+export interface Edge { from: string; to: string; kind: "http" | "tcp" | "queue"; rps: number }
 
 export const EDGES: Edge[] = [
   { from: "web", to: "api", kind: "http", rps: 184 },
@@ -179,7 +179,7 @@ export const EDGES: Edge[] = [
   { from: "worker", to: "redis", kind: "tcp", rps: 64 },
 ];
 
-export type EnvVar = { k: string; v: string; secret: boolean; ref?: string };
+export interface EnvVar { k: string; v: string; secret: boolean; ref?: string }
 
 export const ENV_VARS: Record<string, EnvVar[]> = {
   api: [
@@ -204,7 +204,7 @@ export const ENV_VARS: Record<string, EnvVar[]> = {
   ],
 };
 
-export type Deployment = {
+export interface Deployment {
   id: string;
   service: string;
   status: DeployStatus;
@@ -214,7 +214,7 @@ export type Deployment = {
   when: string;
   dur: string;
   env: Env;
-};
+}
 
 export const DEPLOYMENTS: Deployment[] = [
   { id: "d_8a2c1f9", service: "web", status: "live", commit: "8a2c1f9", msg: "fix: skeleton flash on /pricing", author: "mira", when: "4m ago", dur: "1m 12s", env: "production" },
@@ -226,7 +226,7 @@ export const DEPLOYMENTS: Deployment[] = [
   { id: "d_fe19a02", service: "api", status: "failed", commit: "fe19a02", msg: "try: bun runtime", author: "arjun", when: "2d ago", dur: "0m 47s", env: "preview" },
 ];
 
-export type Domain = { host: string; service: string; port: number; tls: string; status: string };
+export interface Domain { host: string; service: string; port: number; tls: string; status: string }
 
 export const DOMAINS: Domain[] = [
   { host: "helio.so", service: "web", port: 3000, tls: "letsencrypt", status: "active" },
@@ -277,7 +277,7 @@ export const USER = {
   orgs: ["paperhouse", "mira-personal", "helio-labs"],
 };
 
-export type TeamMember = {
+export interface TeamMember {
   id: string;
   name: string;
   email: string;
@@ -286,7 +286,7 @@ export type TeamMember = {
   last: string;
   mfa: boolean;
   you?: boolean;
-};
+}
 
 export const TEAM: TeamMember[] = [
   { id: "t_mira", name: "Mira Sato", email: "mira@paperhouse.dev", initials: "MS", role: "admin", last: "now", mfa: true, you: true },
@@ -296,7 +296,7 @@ export const TEAM: TeamMember[] = [
   { id: "t_dev", name: "Devika Rao", email: "devika@paperhouse.dev", initials: "DR", role: "viewer", last: "12d ago", mfa: true },
 ];
 
-export type SyncProvider = {
+export interface SyncProvider {
   id: string;
   name: string;
   sub: string;
@@ -304,7 +304,7 @@ export type SyncProvider = {
   last?: string;
   count?: number;
   env?: Env;
-};
+}
 
 export const SYNC_PROVIDERS: SyncProvider[] = [
   { id: "infisical", name: "Infisical", sub: "Open-source secret manager", connected: true, last: "2m ago", count: 17, env: "production" },
@@ -315,7 +315,7 @@ export const SYNC_PROVIDERS: SyncProvider[] = [
   { id: "gcp-sm", name: "Google Secret Manager", sub: "GCP-native", connected: false },
 ];
 
-export type Builder = { id: string; name: string; sub: string; icon: string; popular?: boolean; langs?: string[] };
+export interface Builder { id: string; name: string; sub: string; icon: string; popular?: boolean; langs?: string[] }
 
 export const BUILDERS: Builder[] = [
   { id: "railpack", name: "Railpack", sub: "Auto-detect — Node, Python, Go, Rust, Ruby…", icon: "bolt", popular: true, langs: ["node", "python", "go", "rust", "ruby", "php", "elixir"] },
@@ -326,11 +326,11 @@ export const BUILDERS: Builder[] = [
   { id: "static", name: "Static site", sub: "Plain HTML / Vite / Astro / Next export", icon: "globe" },
 ];
 
-export type EnvOverviewKey = {
+export interface EnvOverviewKey {
   k: string;
   secret: boolean;
   status: { production: "set" | "missing" | "empty"; staging: "set" | "missing" | "empty"; preview: "set" | "missing" | "empty" };
-};
+}
 
 export const ENV_OVERVIEW_KEYS: EnvOverviewKey[] = [
   { k: "ADMIN_ALLOWED_EMAILS", secret: false, status: { production: "empty", staging: "empty", preview: "empty" } },
@@ -352,7 +352,7 @@ export const ENV_OVERVIEW_KEYS: EnvOverviewKey[] = [
   { k: "VITE_SERVER_URL", secret: false, status: { production: "set", staging: "missing", preview: "missing" } },
 ];
 
-export type ServiceKindDef = {
+export interface ServiceKindDef {
   id: string;
   name: string;
   sub: string;
@@ -360,7 +360,7 @@ export type ServiceKindDef = {
   group: "compute" | "data" | "custom";
   examples?: string;
   versions?: string[];
-};
+}
 
 export const SERVICE_KINDS: ServiceKindDef[] = [
   { id: "app", name: "Web app", sub: "HTTP service · auto-scaled · public route", icon: "globe", group: "compute", examples: "Next.js · Rails · Django · Express · Laravel" },
@@ -380,7 +380,7 @@ export const SERVICE_KINDS: ServiceKindDef[] = [
   { id: "compose", name: "Docker Compose", sub: "Import a compose.yml · multi-service project", icon: "doc", group: "custom" },
 ];
 
-export type Template = { id: string; name: string; sub: string; services: number; popular?: boolean; icon: string };
+export interface Template { id: string; name: string; sub: string; services: number; popular?: boolean; icon: string }
 
 export const TEMPLATES: Template[] = [
   { id: "t-medusa", name: "Medusa Commerce", sub: "Headless commerce · Medusa + Postgres + Redis + admin", services: 4, popular: true, icon: "service" },
@@ -395,7 +395,7 @@ export const TEMPLATES: Template[] = [
   { id: "t-langfuse", name: "Langfuse", sub: "LLM observability + Postgres + ClickHouse", services: 3, icon: "metrics" },
 ];
 
-export type ResourcePreset = { id: string; name: string; cpu: number | null; mem: number | null; sub: string; cost: number | null; popular?: boolean };
+export interface ResourcePreset { id: string; name: string; cpu: number | null; mem: number | null; sub: string; cost: number | null; popular?: boolean }
 
 export const RESOURCE_PRESETS: ResourcePreset[] = [
   { id: "micro", name: "Micro", cpu: 0.25, mem: 256, sub: "dev / preview / cron", cost: 4 },
@@ -406,7 +406,7 @@ export const RESOURCE_PRESETS: ResourcePreset[] = [
   { id: "custom", name: "Custom", cpu: null, mem: null, sub: "tune CPU and RAM independently", cost: null },
 ];
 
-export type Region = { id: string; name: string; flag: string; latency: string; nodes: number };
+export interface Region { id: string; name: string; flag: string; latency: string; nodes: number }
 
 export const REGIONS: Region[] = [
   { id: "sfo", name: "San Francisco", flag: "🇺🇸", latency: "4ms", nodes: 3 },
@@ -420,7 +420,7 @@ export type NodeRole = "manager" | "worker";
 export type NodeStatus = "ready" | "draining" | "down";
 export type NodeAvailability = "active" | "drain" | "pause";
 
-export type Node = {
+export interface Node {
   id: string;
   name: string;
   region: string;
@@ -437,7 +437,7 @@ export type Node = {
   labels?: string[];
   /** Owner project. Undefined = general pool (any project can place tasks here). */
   project?: string;
-};
+}
 
 export const NODES: Node[] = [
   {

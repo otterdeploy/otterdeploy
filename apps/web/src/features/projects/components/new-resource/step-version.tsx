@@ -12,12 +12,12 @@ import { Input } from "@/shared/components/ui/input";
 
 import { SectionH, Field } from "./form-primitives";
 
-type VersionProps = {
+interface VersionProps {
   kind: ServiceKind;
   version: string | null;
   setVersion: (v: string) => void;
   nameField: AnyFieldApi;
-};
+}
 
 export function StepVersion({ kind, version, setVersion, nameField }: VersionProps) {
   const port =

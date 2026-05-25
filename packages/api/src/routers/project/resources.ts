@@ -35,10 +35,10 @@ import {
 
 type OrgId = Id<typeof IDP.organization>;
 
-type ProjectRef = {
+interface ProjectRef {
   projectId: ProjectId;
   organizationId: OrgId;
-};
+}
 
 type ResourceRef = ProjectRef & {
   resourceId: ResourceId;

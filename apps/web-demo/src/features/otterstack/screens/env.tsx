@@ -449,7 +449,7 @@ function sampleValue(key: string, env: EnvName) {
 }
 
 // ────── Bulk edit modal (helper from screens2/EnvVars2) ──────
-type BulkRow = { k: string; v: string | null; secret: boolean };
+interface BulkRow { k: string; v: string | null; secret: boolean }
 
 function BulkEditModal({
   env,

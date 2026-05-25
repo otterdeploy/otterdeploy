@@ -1,7 +1,7 @@
 // Mock constants ported verbatim from apps/web-demo/src/features/otterstack/data.ts.
 // Pass A — no oRPC wiring. These are the source of truth for the engine picker UI.
 
-export type ServiceKind = {
+export interface ServiceKind {
   id: string;
   name: string;
   sub: string;
@@ -9,7 +9,7 @@ export type ServiceKind = {
   group: "compute" | "data" | "custom";
   examples?: string;
   versions?: string[];
-};
+}
 
 export const SERVICE_KINDS: ServiceKind[] = [
   {
@@ -132,14 +132,14 @@ export const SERVICE_KINDS: ServiceKind[] = [
   },
 ];
 
-export type Template = {
+export interface Template {
   id: string;
   name: string;
   sub: string;
   services: number;
   popular?: boolean;
   icon: string;
-};
+}
 
 export const TEMPLATES: Template[] = [
   {
@@ -204,14 +204,14 @@ export const TEMPLATES: Template[] = [
   },
 ];
 
-export type ResourcePreset = {
+export interface ResourcePreset {
   id: string;
   name: string;
   cpu: number | null;
   mem: number | null;
   sub: string;
   popular?: boolean;
-};
+}
 
 export const RESOURCE_PRESETS: ResourcePreset[] = [
   { id: "micro", name: "Micro", cpu: 0.25, mem: 256, sub: "dev / preview / cron" },
@@ -233,7 +233,7 @@ export type NodeRole = "manager" | "worker";
 export type NodeStatus = "ready" | "draining" | "down";
 export type NodeAvailability = "active" | "drain" | "pause";
 
-export type Node = {
+export interface Node {
   id: string;
   name: string;
   region: string;
@@ -249,7 +249,7 @@ export type Node = {
   daemonVersion: string;
   labels?: string[];
   project?: string;
-};
+}
 
 export const NODES: Node[] = [
   {
@@ -304,14 +304,14 @@ export const NODES: Node[] = [
   },
 ];
 
-export type Builder = {
+export interface Builder {
   id: string;
   name: string;
   sub: string;
   icon: string;
   popular?: boolean;
   langs?: string[];
-};
+}
 
 export const BUILDERS: Builder[] = [
   {

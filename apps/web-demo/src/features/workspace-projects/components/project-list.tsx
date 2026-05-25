@@ -3,9 +3,9 @@ import { ProjectCard } from "./project-card";
 import { CreateProjectDialog } from "./create-project-dialog";
 import type { ProjectSummary } from "../types";
 
-type Props = {
+interface Props {
   summaries: ReadonlyArray<ProjectSummary>;
-};
+}
 
 export function ProjectList({ summaries }: Props) {
   return (

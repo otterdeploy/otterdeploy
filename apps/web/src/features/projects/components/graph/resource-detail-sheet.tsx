@@ -107,11 +107,11 @@ const TABS = [
   "Settings",
 ] as const;
 
-type Props = {
+interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   data: ResourceNodeData | null;
-};
+}
 
 export function ResourceDetailSheet({ open, onOpenChange, data }: Props) {
   const details = useMemo(() => (data ? mockDetails(data) : null), [data]);

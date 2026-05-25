@@ -1,6 +1,6 @@
 export type DeploymentStatus = "queued" | "building" | "deploying" | "success" | "failed" | "rolled-back";
 
-export type DeploymentRow = {
+export interface DeploymentRow {
   id: string;
   serviceName: string;
   commit: { sha: string; message: string };
@@ -8,4 +8,4 @@ export type DeploymentRow = {
   status: DeploymentStatus;
   durationSeconds: number;
   startedAt: string;
-};
+}

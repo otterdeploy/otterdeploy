@@ -2,12 +2,12 @@ import type { Node, Edge } from "@xyflow/react";
 
 export type CanvasNodeKind = "group" | "service" | "database" | "volume" | "routing";
 
-export type GroupNodeData = {
+export interface GroupNodeData {
   kind: "group";
   label: string;
-};
+}
 
-export type ServiceNodeData = {
+export interface ServiceNodeData {
   kind: "service";
   name: string;
   source:
@@ -15,9 +15,9 @@ export type ServiceNodeData = {
     | { type: "github"; repo: string; branch: string };
   status: "running" | "starting" | "stopped" | "missing" | "error";
   publicHostname: string | null;
-};
+}
 
-export type DatabaseNodeData = {
+export interface DatabaseNodeData {
   kind: "database";
   resourceId: string;
   name: string;
@@ -27,18 +27,18 @@ export type DatabaseNodeData = {
   publicHostname: string;
   internalHostname: string;
   volumeName: string;
-};
+}
 
-export type VolumeNodeData = {
+export interface VolumeNodeData {
   kind: "volume";
   source: string;
   target: string;
-};
+}
 
-export type RoutingNodeData = {
+export interface RoutingNodeData {
   kind: "routing";
   domains: ReadonlyArray<{ domain: string; type: "http" | "layer4" }>;
-};
+}
 
 export type CanvasNodeData =
   | GroupNodeData

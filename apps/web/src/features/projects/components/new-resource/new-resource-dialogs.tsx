@@ -15,12 +15,12 @@ import {
   DialogTitle,
 } from "@/shared/components/ui/dialog";
 
-type ResourceKindDialogProps = {
+interface ResourceKindDialogProps {
   orgSlug: string;
   projectSlug: Slug<typeof ID_PREFIX.project>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-};
+}
 
 export function ResourceKindDialog({
   orgSlug,
@@ -89,13 +89,13 @@ export function ResourceKindDialog({
   );
 }
 
-type ResourceOverlayDialogProps = {
+interface ResourceOverlayDialogProps {
   orgSlug: string;
   projectSlug: Slug<typeof ID_PREFIX.project>;
   projectName?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-};
+}
 
 export function ResourceOverlayDialog({
   orgSlug,

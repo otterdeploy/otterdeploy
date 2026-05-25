@@ -6,10 +6,10 @@ import { Badge } from "../ui/badge";
 import { Skeleton } from "../ui/skeleton";
 import { client } from "@/utils/orpc";
 
-type Props = {
+interface Props {
   projectId: string;
   resourceId: string;
-};
+}
 
 export function OverviewTab({ projectId, resourceId }: Props) {
   const query = useQuery({

@@ -20,7 +20,7 @@ type EncryptionMode = "AES-256 GCM" | "KMS-managed" | "customer-key" | "none";
 type RetentionClass = "short" | "standard" | "long" | "archive";
 type RestoreTarget = "in-place" | "as-new" | "download";
 
-type Backup = {
+interface Backup {
   id: string;
   source: string;
   kind: BackupKind;
@@ -42,11 +42,11 @@ type Backup = {
   sourceHost: string;
   log: string[];
   error?: string;
-};
+}
 
 type CronPreset = "hourly" | "daily" | "weekly" | "monthly" | "custom";
 
-type Schedule = {
+interface Schedule {
   id: string;
   name: string;
   sources: string[];
@@ -60,9 +60,9 @@ type Schedule = {
   lastRun: string;
   lastRunStatus: BackupStatus;
   nextRun: string;
-};
+}
 
-type Destination = {
+interface Destination {
   id: DestinationId;
   name: string;
   uri: string;
@@ -72,7 +72,7 @@ type Destination = {
   totalGB?: number;
   encryption: string;
   status: "active" | "degraded";
-};
+}
 
 // ────────── Static catalog ──────────
 const DESTINATIONS: Destination[] = [

@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/shared/components/ui/select";
 
-type ResourcesProps = {
+interface ResourcesProps {
   presetIdField: AnyFieldApi;
   customCpuField: AnyFieldApi;
   customMemField: AnyFieldApi;
@@ -22,7 +22,7 @@ type ResourcesProps = {
   placementField: AnyFieldApi;
   pinnedNodeIdField: AnyFieldApi;
   isDb: boolean;
-};
+}
 
 export function StepResources({
   presetIdField,

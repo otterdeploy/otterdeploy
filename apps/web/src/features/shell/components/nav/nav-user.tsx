@@ -39,12 +39,12 @@ import { useTranslation } from "react-i18next";
 import { authClient } from "@/lib/auth-client";
 import { languageNames, supportedLngs } from "@otterstack/i18n";
 
-export type User = {
+export interface User {
   name: string;
   initials: string;
   email: string;
   image: string;
-};
+}
 export function NavUser({ user }: { user: User }) {
   const { isMobile } = useSidebar();
   const { t, i18n } = useTranslation();

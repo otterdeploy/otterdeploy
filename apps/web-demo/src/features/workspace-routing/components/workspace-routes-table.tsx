@@ -11,9 +11,9 @@ import {
 } from "../ui/table";
 import type { WorkspaceRouteRow } from "../types";
 
-type Props = {
+interface Props {
   rows: ReadonlyArray<WorkspaceRouteRow>;
-};
+}
 
 export function WorkspaceRoutesTable({ rows }: Props) {
   if (rows.length === 0) {

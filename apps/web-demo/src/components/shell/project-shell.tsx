@@ -5,11 +5,11 @@ import { EnvSwitcherDropdown, type EnvName } from "@/features/env-switcher";
 import { InnerRail } from "./inner-rail";
 import { WorkspaceShell } from "./workspace-shell";
 
-type Props = {
+interface Props {
   projectId: string;
   projectName: string;
   children: ReactNode;
-};
+}
 
 export function ProjectShell({ projectId, projectName, children }: Props) {
   const navigate = useNavigate();

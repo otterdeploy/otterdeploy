@@ -7,10 +7,10 @@ import { databaseResource, resource } from "@otterstack/db/schema/project";
 import type { ProjectId } from "../errors";
 import type { ResourceId } from "../../service/errors";
 
-export type DatabaseResourceRecord = {
+export interface DatabaseResourceRecord {
   resource: typeof resource.$inferSelect;
   database: typeof databaseResource.$inferSelect;
-};
+}
 
 export async function getDatabaseResourceByProjectAndName(
   projectId: ProjectId,

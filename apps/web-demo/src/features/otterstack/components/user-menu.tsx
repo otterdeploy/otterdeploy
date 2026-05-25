@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { I } from "../icons";
 import { USER } from "../data";
 
-type Props = { onSettings?: () => void; onSignOut?: () => void };
+interface Props { onSettings?: () => void; onSignOut?: () => void }
 
 export function UserMenu({ onSettings, onSignOut }: Props) {
   const [open, setOpen] = useState(false);

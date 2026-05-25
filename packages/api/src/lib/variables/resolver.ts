@@ -32,11 +32,11 @@ import {
 import { postgresExports, serviceExports } from "./exporters";
 import { parseValue, type Token } from "./parser";
 
-type ResolveContext = {
+interface ResolveContext {
   projectId: ProjectId;
   visited: Set<string>;
   exportsCache: Map<string, Record<string, string>>;
-};
+}
 
 export async function resolveServiceEnv(
   projectId: ProjectId,

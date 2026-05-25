@@ -6,16 +6,16 @@ import { asStepLogger } from "../lib/logger";
 import { PLATFORM } from "../constants";
 import { ensureProjectNetwork } from "./client";
 
-export type SwarmPostgresRuntime = {
+export interface SwarmPostgresRuntime {
   serviceId: string | null;
   serviceName: string;
   volumeName: string;
   networkName: string;
   status: "running" | "starting" | "stopped" | "missing" | "error";
   health: "healthy" | "unhealthy" | "starting" | null;
-};
+}
 
-type ProvisionSwarmPostgresInput = {
+interface ProvisionSwarmPostgresInput {
   serviceName: string;
   volumeName: string;
   hostnameAlias: string;
@@ -23,7 +23,7 @@ type ProvisionSwarmPostgresInput = {
   username: string;
   password: string;
   projectSlug: string;
-};
+}
 
 export async function provisionSwarmPostgres(
   input: ProvisionSwarmPostgresInput,

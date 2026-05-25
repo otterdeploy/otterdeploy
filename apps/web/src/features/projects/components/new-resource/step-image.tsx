@@ -140,7 +140,7 @@ export function StepImage({ imageField, tagField, registryField, nameField }: Im
         </CardContent>
       </Card>
 
-      <div className="h-[18px]" />
+      <div className="h-4" />
       <SectionH title="Available tags" sub="Recently pushed to this repository" />
       <Card className="mt-2.5 gap-0 overflow-hidden rounded-md p-0">
         {availableTags.map((t, i) => {
@@ -166,7 +166,7 @@ export function StepImage({ imageField, tagField, registryField, nameField }: Im
         })}
       </Card>
 
-      <div className="h-[18px]" />
+      <div className="h-4" />
       <SectionH title="Service name" />
       <Card className="mt-2.5 rounded-md">
         <CardContent>
@@ -180,7 +180,7 @@ export function StepImage({ imageField, tagField, registryField, nameField }: Im
         </CardContent>
       </Card>
 
-      <div className="h-[18px]" />
+      <div className="h-4" />
       <SectionH title="Update strategy" />
       <Card className="mt-2.5 rounded-md">
         <CardContent>

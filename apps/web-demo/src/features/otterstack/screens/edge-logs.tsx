@@ -30,7 +30,7 @@ const STATUS_TONE: Record<StatusBucket, string> = {
   "5xx": "var(--err)",
 };
 
-type LogLine = {
+interface LogLine {
   id: string;
   ts: string;
   method: Method;
@@ -52,7 +52,7 @@ type LogLine = {
   reqBytes: number;
   resBytes: number;
   cache: "HIT" | "MISS" | "BYPASS";
-};
+}
 
 const PATHS_BY_HOST: Record<string, string[]> = {
   "helio.so": ["/", "/pricing", "/blog/why-helio", "/login", "/signup", "/_next/static/chunks/main.js", "/og.png"],

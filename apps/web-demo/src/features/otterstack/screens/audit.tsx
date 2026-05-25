@@ -29,7 +29,7 @@ type AuditAction =
 
 type ResourceKind = "service" | "database" | "node" | "token" | "domain" | "user" | "project";
 
-type AuditEvent = {
+interface AuditEvent {
   id: string;
   ts: string;
   tsAbs: string;
@@ -46,7 +46,7 @@ type AuditEvent = {
   request?: Record<string, unknown>;
   responseCode: number;
   anomaly?: string;
-};
+}
 
 const ACTION_COLORS: Record<AuditAction, string> = {
   deploy: "var(--info)",

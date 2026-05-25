@@ -12,11 +12,11 @@ import { type ResourceId } from "./errors";
 
 type OrgId = Id<typeof ID_PREFIX.organization>;
 
-type RestartInput = {
+interface RestartInput {
   condition?: "none" | "on-failure" | "any";
   maxAttempts?: number | null;
   delayMs?: number;
-};
+}
 
 type HealthcheckInput = {
   cmd?: string[] | null;
@@ -26,34 +26,34 @@ type HealthcheckInput = {
   startMs?: number | null;
 } | null;
 
-type ResourcesInput = {
+interface ResourcesInput {
   cpuLimit?: number | null;
   memoryLimitMb?: number | null;
   cpuReservation?: number | null;
   memoryReservationMb?: number | null;
-};
+}
 
-type PortInput = {
+interface PortInput {
   containerPort: number;
   protocol?: "tcp" | "udp";
   appProtocol?: "http" | "tcp";
   isPrimary?: boolean;
-};
+}
 
 /** Common (projectId, resourceId) addressing tuple used by most handlers. */
-export type ResourceRef = {
+export interface ResourceRef {
   projectId: ProjectId;
   organizationId: OrgId;
   resourceId: ResourceId;
-};
+}
 
 /** Project-scoped addressing — used by `listServices`. */
-export type ProjectRef = {
+export interface ProjectRef {
   projectId: ProjectId;
   organizationId: OrgId;
-};
+}
 
-export type CreateServiceInput = {
+export interface CreateServiceInput {
   projectId: ProjectId;
   organizationId: OrgId;
   name: string;
@@ -66,9 +66,9 @@ export type CreateServiceInput = {
   restart?: RestartInput;
   healthcheck?: HealthcheckInput;
   resources?: ResourcesInput;
-};
+}
 
-export type UpdateServiceInput = {
+export interface UpdateServiceInput {
   projectId: ProjectId;
   organizationId: OrgId;
   resourceId: ResourceId;
@@ -80,7 +80,7 @@ export type UpdateServiceInput = {
   restart?: RestartInput;
   healthcheck?: HealthcheckInput;
   resources?: ResourcesInput;
-};
+}
 
 // ---------------------------------------------------------------------------
 // Adapters — translate handler inputs into the loose payload shapes that

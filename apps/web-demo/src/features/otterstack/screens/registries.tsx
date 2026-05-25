@@ -19,7 +19,7 @@ type RegistryKind =
 
 type AuthKind = "anonymous" | "basic" | "token" | "iam" | "cloud";
 
-type Registry = {
+interface Registry {
   id: string;
   kind: RegistryKind;
   name: string;
@@ -30,7 +30,7 @@ type Registry = {
   lastPulled?: string;
   status: "active" | "warn" | "err";
   statusNote?: string;
-};
+}
 
 const REGISTRY_LABEL: Record<RegistryKind, string> = {
   dockerhub: "Docker Hub",

@@ -28,7 +28,7 @@ import {
 } from "./queries";
 
 type OrgId = Id<typeof ID_PREFIX.organization>;
-type OrgRef = { organizationId: OrgId };
+interface OrgRef { organizationId: OrgId }
 type ProjectId = Id<typeof ID_PREFIX.project>;
 
 export async function listEnvs(

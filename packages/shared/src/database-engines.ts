@@ -1,10 +1,10 @@
-export type DatabaseEngineMeta = {
+export interface DatabaseEngineMeta {
   label: string;
   defaultPort: number;
   dockerImage: string;
   versions: ReadonlyArray<string>;
   category: "relational" | "document" | "key-value" | "analytical" | "search";
-};
+}
 
 export const DATABASE_ENGINES = {
   postgres: {

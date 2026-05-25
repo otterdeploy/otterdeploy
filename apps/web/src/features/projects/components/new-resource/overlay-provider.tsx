@@ -3,11 +3,11 @@ import { createContext, useContext, useState, type ReactNode } from "react";
 
 import { ResourceOverlayDialog } from "./new-resource-dialogs";
 
-type OverlayContextValue = {
+interface OverlayContextValue {
   open: boolean;
   setOpen: (next: boolean) => void;
   toggle: () => void;
-};
+}
 
 const ResourceOverlayContext = createContext<OverlayContextValue | null>(null);
 

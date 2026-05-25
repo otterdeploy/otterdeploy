@@ -6,10 +6,10 @@ import { databaseResource, resource } from "@otterstack/db/schema/project";
 import type { ProjectId } from "../errors";
 import type { ResourceId } from "../../service/errors";
 
-export type DatabaseResourceJoined = {
+export interface DatabaseResourceJoined {
   resource: typeof resource.$inferSelect;
   database: typeof databaseResource.$inferSelect;
-};
+}
 
 /**
  * Fetch every resource attached to a project. Returns the parent `resource`

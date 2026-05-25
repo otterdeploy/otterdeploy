@@ -17,14 +17,14 @@ type DatabaseBrand =
   | "clickhouse";
 type SvgComponent = (props: SVGProps<SVGSVGElement>) => ReactNode;
 
-type Props = {
+interface Props {
   value: string;
   size?: number;
   background?: string;
   border?: string;
   color?: string;
   style?: CSSProperties;
-};
+}
 
 const themedBrands: Record<
   Extract<DatabaseBrand, "mysql" | "mongodb">,

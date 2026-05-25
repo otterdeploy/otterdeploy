@@ -66,6 +66,7 @@
   "dependencies": {
     "@otterstack/env": "workspace:*",
     "@standard-schema/spec": "^1.1.0",
+    "oxlint-tsgolint": "^0.23.0",
     "zod": "catalog:"
   },
   "devDependencies": {

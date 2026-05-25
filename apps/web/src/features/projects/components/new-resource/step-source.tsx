@@ -20,7 +20,7 @@ import {
 import { I } from "./icons";
 import { SectionH, Field, Switch3 } from "./form-primitives";
 
-type SourceProps = {
+interface SourceProps {
   srcField: AnyFieldApi;
   repoField: AnyFieldApi;
   branchField: AnyFieldApi;
@@ -28,7 +28,7 @@ type SourceProps = {
   autoDeployField: AnyFieldApi;
   previewBranchesField: AnyFieldApi;
   nameField: AnyFieldApi;
-};
+}
 
 const sources = [
   {

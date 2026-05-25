@@ -21,7 +21,7 @@ type BrandKey =
   | "AWS"
   | "Azure";
 
-type Props = {
+interface Props {
   search: string;
   size?: number;
   alt?: string;
@@ -30,7 +30,7 @@ type Props = {
   color?: string;
   border?: string;
   style?: CSSProperties;
-};
+}
 
 type SvgComponent = (props: SVGProps<SVGSVGElement>) => ReactNode;
 

@@ -16,7 +16,7 @@ import { type ServiceRecord } from "./queries";
 // View types
 // ---------------------------------------------------------------------------
 
-export type ServiceView = {
+export interface ServiceView {
   id: string;
   projectId: string;
   name: string;
@@ -65,25 +65,25 @@ export type ServiceView = {
 
   createdAt: string;
   updatedAt: string;
-};
+}
 
-export type EnvVarView = {
+export interface EnvVarView {
   id: string;
   serviceResourceId: string;
   key: string;
   value: string;
-};
+}
 
 // ---------------------------------------------------------------------------
 // Port input normalization
 // ---------------------------------------------------------------------------
 
-export type PortInput = {
+export interface PortInput {
   containerPort: number;
   protocol?: "tcp" | "udp";
   appProtocol?: "http" | "tcp";
   isPrimary?: boolean;
-};
+}
 
 /**
  * Ensure exactly one primary HTTP port — if the user didn't flag one,

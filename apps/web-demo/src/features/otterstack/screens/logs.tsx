@@ -17,7 +17,7 @@ const LOG_LEVEL_TONE: Record<LogLevel, string> = {
 };
 
 type LogSvc = "api" | "web" | "worker";
-type LogLine = { ts: string; level: LogLevel; svc: string; msg: string; id: string };
+interface LogLine { ts: string; level: LogLevel; svc: string; msg: string; id: string }
 
 function genLogLine(svc: string, force?: LogLevel): LogLine {
   const lv: LogLevel =

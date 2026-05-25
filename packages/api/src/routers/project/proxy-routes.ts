@@ -15,10 +15,10 @@ import { type ProxyRoute } from "./views";
 
 type OrgId = Id<typeof ID_PREFIX.organization>;
 
-type ProjectRef = {
+interface ProjectRef {
   projectId: ProjectId;
   organizationId: OrgId;
-};
+}
 
 export async function listProjectProxyRoutes(
   input: ProjectRef,

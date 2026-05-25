@@ -6,18 +6,18 @@ import { Badge } from "@/shared/components/ui/badge";
 
 import { MiniCanvasPreview } from "./mini-canvas-preview";
 
-type ProjectCardItem = {
+interface ProjectCardItem {
   id: string;
   name: string;
   slug: string;
   databaseCount?: number;
   routeCount?: number;
-};
+}
 
-type Props = {
+interface Props {
   orgSlug: string;
   project: ProjectCardItem;
-};
+}
 
 export function ProjectCard({ orgSlug, project }: Props) {
   const databases = project.databaseCount ?? 0;

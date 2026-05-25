@@ -3,9 +3,9 @@ import { Badge } from "../ui/badge";
 import { MiniCanvasPreview } from "@/features/project-canvas";
 import type { ProjectSummary } from "../types";
 
-type Props = {
+interface Props {
   summary: ProjectSummary;
-};
+}
 
 export function ProjectCard({ summary }: Props) {
   const { project, databases, routes } = summary;

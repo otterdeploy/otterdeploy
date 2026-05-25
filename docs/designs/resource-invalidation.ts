@@ -36,12 +36,12 @@ type Resource = (typeof resources)[number];
  * Queries declare what they `provide`.
  * Mutations declare what they `invalidate`.
  */
-type ProcedureMeta = {
+interface ProcedureMeta {
   /** The resource this query provides data for */
   resource?: Resource;
   /** Resources this mutation will invalidate */
   invalidates?: Resource[];
-};
+}
 
 // ─── Example Router ─────────────────────────────────────────────────
 
@@ -166,13 +166,13 @@ const autoBroadcastMiddleware = /* o.middleware */ (async ({ context, next, proc
  * When a mutation invalidates ["env", "project"], all clients
  * subscribed to either "env" or "project" get notified.
  */
-type InvalidationBroadcaster = {
+interface InvalidationBroadcaster {
   /** Client sends: { type: "subscribe", resources: ["env", "project"] } */
   onMessage(ws: any, data: string): void;
   removeClient(ws: any): void;
   /** Called by middleware with the list of affected resources */
   broadcast(resources: Resource[]): void;
-};
+}
 
 // ─── Client Hook (subscribe by resource) ────────────────────────────
 

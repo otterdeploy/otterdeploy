@@ -9,25 +9,25 @@
  *   VAR           matches [A-Z_][A-Z0-9_]*
  */
 
-export type RefToken = {
+export interface RefToken {
   kind: "ref";
   resource: string;
   var: string;
   raw: string; // original substring including `${{` and `}}`
-};
+}
 
-export type LiteralToken = {
+export interface LiteralToken {
   kind: "literal";
   value: string;
-};
+}
 
 export type Token = RefToken | LiteralToken;
 
-export type ParseError = {
+export interface ParseError {
   kind: "parse_error";
   message: string;
   position: number;
-};
+}
 
 export type ParseResult =
   | { ok: true; tokens: Token[] }

@@ -9,7 +9,7 @@ import { Field, SectionH } from "../components/form";
 type CertStatus = "active" | "renewing" | "failed";
 type KeyAlg = "ECDSA P-256" | "ECDSA P-384" | "RSA 2048" | "RSA 4096";
 
-type ManagedCert = {
+interface ManagedCert {
   id: string;
   hostname: string;
   issuer: string;
@@ -18,9 +18,9 @@ type ManagedCert = {
   expiresInDays: number;
   keyAlg: KeyAlg;
   status: CertStatus;
-};
+}
 
-type CustomCert = {
+interface CustomCert {
   id: string;
   hostname: string;
   issuer: string;
@@ -30,16 +30,16 @@ type CustomCert = {
   keyAlg: KeyAlg;
   uploadedBy: string;
   uploadedAt: string;
-};
+}
 
-type CA = {
+interface CA {
   id: string;
   name: string;
   subject: string;
   fingerprint: string;
   expiresInDays: number;
   trustedBy: number;
-};
+}
 
 const MANAGED: ManagedCert[] = [
   {

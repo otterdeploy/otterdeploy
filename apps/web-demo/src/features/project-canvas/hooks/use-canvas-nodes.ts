@@ -9,10 +9,10 @@ const DATABASE_INNER_X = 20;
 const VOLUME_INNER_X = 20;
 const ROW_HEIGHT = 180;
 
-type Input = {
+interface Input {
   databases: ReadonlyArray<DatabaseFromApi>;
   proxyRoutes: ReadonlyArray<ProxyRouteFromApi>;
-};
+}
 
 export function useCanvasNodes(input: Input): { nodes: CanvasNode[] } {
   const { databases, proxyRoutes } = input;

@@ -41,10 +41,10 @@ import {
   type PostgresResource,
 } from "./views";
 
-type ProjectRef = {
+interface ProjectRef {
   projectId: ProjectId;
   organizationId: OrgId;
-};
+}
 
 export async function createPostgresResource(
   input: ProjectRef & { name: string },

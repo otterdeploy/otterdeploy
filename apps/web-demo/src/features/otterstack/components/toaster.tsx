@@ -1,7 +1,7 @@
 export type ToastKind = "ok" | "warn" | "err" | "info";
-export type Toast = { id: number; msg: string; kind: ToastKind };
+export interface Toast { id: number; msg: string; kind: ToastKind }
 
-type Props = { toasts: Toast[]; dismiss: (id: number) => void };
+interface Props { toasts: Toast[]; dismiss: (id: number) => void }
 
 const kindColor: Record<ToastKind, string> = {
   ok: "var(--ok)",

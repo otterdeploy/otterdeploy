@@ -9,10 +9,10 @@ const dotByColor: Record<"emerald" | "amber" | "rose", string> = {
   rose: "bg-rose-500",
 };
 
-type Props = {
+interface Props {
   current: EnvName;
   onChange: (next: EnvName) => void;
-};
+}
 
 export function EnvSwitcherDropdown({ current, onChange }: Props) {
   const active = envOptions.find((e) => e.name === current) ?? envOptions[0];

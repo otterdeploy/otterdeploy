@@ -14,13 +14,13 @@ const placeholderWorkspace: WorkspaceSummary = {
 
 const placeholderWorkspaces: ReadonlyArray<WorkspaceSummary> = [placeholderWorkspace];
 
-type Props = {
+interface Props {
   /** Optional middle breadcrumb content (project switcher + env switcher). */
   middle?: ReactNode;
   /** Optional second rail (rendered to the right of OuterRail when set). */
   innerRail?: ReactNode;
   children: ReactNode;
-};
+}
 
 export function WorkspaceShell({ middle, innerRail, children }: Props) {
   const location = useRouterState({ select: (s) => s.location.pathname });

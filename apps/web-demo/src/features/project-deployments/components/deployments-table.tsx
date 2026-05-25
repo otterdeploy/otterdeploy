@@ -10,9 +10,9 @@ import {
 } from "../ui/table";
 import { Toolbar, ToolbarButton, ToolbarSeparator } from "../ui/toolbar";
 
-type Props = {
+interface Props {
   scope: "project" | "resource";
-};
+}
 
 export function DeploymentsTable({ scope }: Props) {
   return (
