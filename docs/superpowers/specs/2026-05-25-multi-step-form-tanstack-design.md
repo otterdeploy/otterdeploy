@@ -136,99 +136,170 @@ export function TextField({ label, type = "text", placeholder }: {
 
 Composite fields (`PortsField`, `VariablesField`, `LinkedSecretsField`) follow the same pattern over arrays / records — the existing ~200-line variables table in `step-variables.tsx` moves into `form-fields/variables-field.tsx`, and the step file becomes a layout shell with `<SectionHeader>` + `<form.AppField name="variables">{(f) => <f.VariablesField />}</form.AppField>` + the linked-secrets card.
 
-### 3. `schemas/*`
+### 3. `schemas/*` — discriminated union on `__step`
 
-Each step gets its own Zod object. `schemas/index.ts` merges them and exposes the `STEP_SCHEMAS` map.
+The form carries a `__step` field whose value matches the current wizard step. `resourceFormSchema` is a `z.discriminatedUnion("__step", [...])` where each arm is the slice of requirements for one step. Each arm is **cumulative** — it requires every field needed up to and including that step — and uses `.passthrough()` so fields that aren't yet relevant aren't stripped or rejected.
+
+This collapses three previously separate concepts into one:
+
+- The per-step validation gate is just "set `__step` to the next step's id, run the form's validator, fail if there are issues."
+- The "what's required for review" schema is the `review` arm.
+- The stepper's "is this step failing" check is `safeParse` with `__step` set to that step's id.
+
+There is no separate `STEP_SCHEMAS` map and no merged "global" schema beyond the union itself.
 
 ```ts
-// schemas/source.ts
+// schemas/kind.ts
 import * as z from "zod";
 
-export const sourceSchema = z.object({
+export const kindStepSchema = z.object({
+  __step: z.literal("kind"),
+  kindId: z.string().min(1, "Select a resource type"),
+}).passthrough();
+
+// schemas/source.ts (cumulative through the source step)
+export const sourceStepSchema = z.object({
+  __step: z.literal("source"),
+  kindId: z.string().min(1, "Select a resource type"),
+  name: z
+    .string()
+    .slugify()
+    .min(2, "Name must be at least 2 characters")
+    .max(48, "Name must be 48 characters or fewer"),
   src: z.enum(["github", "gitlab"]),
   repo: z.string().min(1, "Repository is required"),
   branch: z.string().min(1, "Branch is required"),
   root: z.string(),
   autoDeploy: z.boolean(),
   previewBranches: z.boolean(),
-  name: z
-    .string()
-    .slugify()
-    .min(2, "Name must be at least 2 characters")
-    .max(48, "Name must be 48 characters or fewer"),
-});
+}).passthrough();
+
+// schemas/review.ts (everything required)
+export const reviewStepSchema = z.object({
+  __step: z.literal("review"),
+  kindId: z.string().min(1),
+  name: z.string().slugify().min(2).max(48),
+  // ... every required field across every step
+}).passthrough();
 
 // schemas/index.ts
-import type { Step } from "../steps";
-import { kindSchema } from "./kind";
-import { sourceSchema } from "./source";
-// ... others
+import * as z from "zod";
+import { kindStepSchema } from "./kind";
+import { sourceStepSchema } from "./source";
+import { builderStepSchema } from "./builder";
+import { imageStepSchema } from "./image";
+import { versionStepSchema } from "./version";
+import { networkingStepSchema } from "./networking";
+import { resourcesStepSchema } from "./resources";
+import { storageStepSchema } from "./storage";
+import { variablesStepSchema } from "./variables";
+import { advancedStepSchema } from "./advanced";
+import { reviewStepSchema } from "./review";
 
-export const resourceSchema = kindSchema
-  .merge(sourceSchema).merge(builderSchema).merge(imageSchema)
-  .merge(networkingSchema).merge(resourcesSchema).merge(storageSchema)
-  .merge(variablesSchema).merge(versionSchema);
+export const resourceFormSchema = z.discriminatedUnion("__step", [
+  kindStepSchema,
+  sourceStepSchema,
+  builderStepSchema,
+  imageStepSchema,
+  versionStepSchema,
+  networkingStepSchema,
+  resourcesStepSchema,
+  storageStepSchema,
+  variablesStepSchema,
+  advancedStepSchema,
+  reviewStepSchema,
+]);
 
-export type ResourceFormValues = z.infer<typeof resourceSchema>;
+export type ResourceFormValues = z.infer<typeof resourceFormSchema>;
 
-export const STEP_SCHEMAS: Record<Step, z.ZodTypeAny | null> = {
-  kind: kindSchema,
-  source: sourceSchema,
-  builder: builderSchema,
-  image: imageSchema,
-  version: versionSchema,
-  networking: networkingSchema,
-  resources: resourcesSchema,
-  storage: storageSchema,
-  variables: variablesSchema,
-  advanced: null,
-  review: null,
+// The flat shape the form actually stores. The union narrows when validating,
+// but the form holds every field at all times.
+export type ResourceFormState = {
+  __step: Step;
+  kindId: string;
+  name: string;
+  version: string | null;
+  src: "github" | "gitlab";
+  repo: string; branch: string; root: string;
+  autoDeploy: boolean; previewBranches: boolean;
+  builderId: string;
+  registry: string; image: string; tag: string;
+  ports: Port[]; healthPath: string; healthInterval: number;
+  variables: Var[]; linkedSecrets: Record<string, boolean>;
+  presetId: string; customCpu: number; customMem: number;
+  replicas: number; placement: string; pinnedNodeId: string | null;
+  storageGb: number; backupsEnabled: boolean; backupRetention: number;
+  pitr: boolean; highAvailability: boolean;
 };
 
-export const resourceDefaults: ResourceFormValues = { /* same shape as today */ };
+export const resourceDefaults: ResourceFormState = {
+  __step: "kind",
+  // ... same field defaults as today
+};
 ```
 
-The wizard root uses only the global schema on submit:
+**Why cumulative variants:** if the user jumps back to a prior step and clears a required value, advancing forward again must catch it. Cumulative variants do that automatically: validating the `source` arm checks `kindId` is still present, not just the source-specific fields.
 
-```ts
-const form = useAppForm({
-  defaultValues: resourceDefaults,
-  validators: { onSubmit: resourceSchema },
-});
-```
+**Why `.passthrough()`:** Zod's default `.strip()` would silently delete fields that aren't part of the active arm. We don't read the parsed result (TanStack Form only checks `result.issues`), so passthrough is purely defensive against future use.
 
-There is **no** `onChange` validator on the root form. Each step controls its own validation pass via the Continue gate.
+**Why one type for state, another for validated:** `ResourceFormState` is the flat object the form stores. `ResourceFormValues` is the narrowed union (the type `z.infer` produces). UI code uses `ResourceFormState`; only the submit handler narrows.
 
 ### 4. The Continue gate
 
 ```ts
 // wizard.tsx
-async function validateStep(form: ResourceFormApi, step: Step): Promise<boolean> {
-  const schema = STEP_SCHEMAS[step];
-  if (!schema) return true;
-  const result = schema.safeParse(form.state.values);
-  if (result.success) return true;
-  for (const issue of result.error.issues) {
-    const name = issue.path.join(".") as DeepKeys<ResourceFormValues>;
-    form.setFieldMeta(name, (m) => ({
-      ...m,
-      errors: [...m.errors, issue],
-    }));
-  }
-  return false;
-}
-
 const handleContinue = async () => {
-  const ok = await validateStep(form, step);
-  if (!ok) return;
-  if (isLast) await form.handleSubmit();
-  else goTo(steps[idx + 1][0]);
+  const nextStep = isLast ? "review" : steps[idx + 1][0];
+  form.setFieldValue("__step", nextStep);
+  const result = await form.validate("change");
+  if (result.errors.length > 0) {
+    // form.validate already populated field meta — leave __step on the next
+    // step's id so the discriminated union keeps checking the right arm as
+    // the user fixes issues. Stay on the current step visually.
+    return;
+  }
+  if (isLast) {
+    await form.handleSubmit();
+  } else {
+    goTo(nextStep);
+  }
 };
 ```
 
-Bound fields render every issue from `meta.errors`, so the user sees per-field error text the moment Continue is clicked on an invalid step.
+Because the form's `validators.onChange = resourceFormSchema` is wired at the root (see Section 5), changing `__step` automatically re-validates against the new arm. Bound fields re-render with `errors.map(...)` showing every issue per field.
 
-### 5. `wizard.tsx` + `flows.ts`
+The wizard root also subscribes to `form.state.values.__step` so the URL step and form `__step` stay in sync (effect: `useEffect(() => form.setFieldValue("__step", step), [step])`).
+
+### 5. Wizard form setup
+
+```ts
+const form = useAppForm({
+  defaultValues: resourceDefaults,
+  validators: { onChange: resourceFormSchema, onSubmit: resourceFormSchema },
+});
+```
+
+Both `onChange` and `onSubmit` use the same union — `onChange` is now safe because each arm only requires the slice of fields for the active step, so untouched fields don't generate errors. The user gets live feedback on the fields visible right now and nothing else.
+
+**Stepper failure indicator:** the Stepper computes per-step failure by trial-parsing the union with the alternate `__step` value:
+
+```ts
+function stepHasErrors(values: ResourceFormState, stepId: Step): boolean {
+  const probe = { ...values, __step: stepId };
+  return !resourceFormSchema.safeParse(probe).success;
+}
+```
+
+**Submit payload:** before sending to the backend, strip `__step`:
+
+```ts
+onSubmit: async ({ value }) => {
+  const { __step: _, ...payload } = value;
+  await createResource(payload);
+}
+```
+
+### 6. `wizard.tsx` + `flows.ts`
 
 The wizard pulls the flow from `flowFor(kind)` rather than holding the branching logic inline. Each step body shrinks to a single line.
 
@@ -275,7 +346,7 @@ export function flowFor(kind: ServiceKind | null) {
 
 Step files have no prop drilling — they grab the form via `useFormContext()` and render bound fields by name.
 
-### 6. Step in URL
+### 7. Step in URL
 
 `new-resource.tsx` route extends its search schema:
 
@@ -325,16 +396,16 @@ The route renders `<PageResourceWizard>`; `new-resource-dialogs.tsx` renders `<D
 ## Data flow
 
 1. Route loader has no work — `validateSearch` parses `?kind` and `?step`.
-2. Wizard mounts, calls `useAppForm` with `resourceDefaults` (or `{ ...resourceDefaults, kindId: search.kind, name: search.kind }` when `?kind` is present).
-3. User edits fields → bound `<f.TextField>` calls `field.handleChange` → form state updates → no validation runs.
-4. User clicks Continue → `validateStep(form, currentStep)` runs the step's Zod schema → errors are pushed onto the relevant fields via `setFieldMeta` → bound fields re-render with `errors.map(...)`.
-5. If valid, navigate to next step (URL or local) → wizard re-renders with new step body.
-6. On the last step, Continue calls `form.handleSubmit()` → root `onSubmit: resourceSchema` validates the full payload → success path navigates back to project.
+2. Wizard mounts, calls `useAppForm` with `resourceDefaults` (or `{ ...resourceDefaults, __step: search.step ?? "kind", kindId: search.kind ?? "", name: search.kind ?? "" }` when `?kind` is present).
+3. User edits fields → bound `<f.TextField>` calls `field.handleChange` → form state updates → `onChange: resourceFormSchema` re-validates against the current `__step` arm only.
+4. User clicks Continue → wizard sets `__step` to the next step's id, awaits `form.validate("change")`. If any errors, the user stays on the current step but the union now checks the new arm, so fields needed for the next step start surfacing errors.
+5. If valid, navigate to next step (URL or local) → wizard re-renders with new step body. The URL `?step=` change is observed and pushed back into `__step` via effect.
+6. On the last step, Continue sets `__step: "review"`, validates the review arm (full payload), then calls `form.handleSubmit()`. The submit handler strips `__step` before calling the create mutation.
 
 ## Error handling
 
 - **Per-step Zod failures** surface inline on each field (multiple errors per field rendered as separate `<FieldError>`).
-- **Final submit Zod failure** keeps the user on `review` and the failing fields' meta gets populated. The Stepper marks a step as failing by re-running its sub-schema against current values: `STEP_SCHEMAS[stepId]?.safeParse(form.state.values).success === false`. This avoids maintaining a separate `STEP_FIELDS` map.
+- **Final submit Zod failure** keeps the user on `review` — the review arm fails, no submit happens, every missing field shows its error. The Stepper marks a step as failing by trial-parsing the union with that step's id swapped in: `!resourceFormSchema.safeParse({ ...values, __step: stepId }).success`.
 - **Network failure on create** (when wired) sets a wizard-level error banner via local state. The form does not lose values.
 
 ## Testing
@@ -351,10 +422,10 @@ No automated tests added in this refactor. Verification is `bunx tsc --noEmit` p
 ## Migration order
 
 1. Add `form-context.ts` and the bound `form-fields/*` files; no consumers yet.
-2. Add `schemas/*`, keep the old `schema.ts` in place. Confirm both compile.
-3. Add `flows.ts`. Rewrite `wizard.tsx` to use `useAppForm`, `useFormContext`, and bound fields. Rewrite each `steps/*.tsx` to drop props.
+2. Add `schemas/*` with the discriminated-union skeleton (each arm cumulative). Keep the old `schema.ts` in place. Confirm both compile.
+3. Add `flows.ts`. Rewrite `wizard.tsx` to use `useAppForm` with `validators: { onChange: resourceFormSchema, onSubmit: resourceFormSchema }`, `useFormContext`, and bound fields. Rewrite each `steps/*.tsx` to drop props.
 4. Switch `new-resource-dialogs.tsx` and the page route to the new `wizard.tsx`. Delete the old `new-resource-wizard.tsx` and `schema.ts`.
-5. Add `validateSearch` for `?step=`. Wire URL navigation.
+5. Add `validateSearch` for `?step=`. Wire URL navigation and the `__step` ↔ URL sync effect.
 6. Add the deep-link redirect effect.
 
 Each step compiles and the wizard remains usable between commits.

@@ -1,11 +1,13 @@
 {
   "cSpell.words": [
+    "bunx",
     "clickhouse",
     "healthcheck",
     "inngest",
     "orpc",
     "otterstack",
     "paralleldrive",
+    "pitr",
     "xyflow"
   ]
 }
