@@ -198,6 +198,7 @@
     }
     html {
         @apply font-sans;
+        font-size: 15px;
     }
     /* Geist Mono with slashed zero + ss03 — distinctive ID / hash glyphs */
     .font-mono {
