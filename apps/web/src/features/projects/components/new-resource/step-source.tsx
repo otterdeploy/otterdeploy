@@ -2,7 +2,18 @@
 // Ported verbatim from apps/web-demo/src/features/otterstack/screens/new-service.tsx lines 706-1042.
 // Adapted from local useState to tanstack-form AnyFieldApi props.
 import type { AnyFieldApi } from "@tanstack/react-form";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  GitBranchIcon,
+  Lock01Icon,
+  Search01Icon,
+  Tick02Icon,
+} from "@hugeicons/core-free-icons";
+
 import { SvglLogo } from "@/shared/components/brand/svgl-logo";
+import { Badge } from "@/shared/components/ui/badge";
+import { Card, CardContent } from "@/shared/components/ui/card";
+import { Input } from "@/shared/components/ui/input";
 import { I } from "./icons";
 import { SectionH, Field, Switch3 } from "./form-primitives";
 
@@ -152,82 +163,67 @@ export function StepSource({
 
       {src === "github" && (
         <>
-          <div style={{ height: 22 }} />
+          <div className="h-[22px]" />
           <SectionH title="Repository" />
-          <div
-            className="card"
-            style={{ padding: 0, marginTop: 10, overflow: "hidden" }}
-          >
-            <div
-              className="flex items-center gap-2"
-              style={{
-                padding: "10px 14px",
-                borderBottom: "1px solid var(--border)",
-                background: "var(--bg-sunken)",
-              }}
-            >
-              <I.search
-                width={12}
-                height={12}
-                style={{ color: "var(--fg-3)" }}
+          <Card className="mt-2.5 gap-0 overflow-hidden p-0">
+            <div className="flex items-center gap-2 border-b bg-muted/50 px-3 py-2">
+              <HugeiconsIcon
+                icon={Search01Icon}
+                strokeWidth={2}
+                className="size-3.5 shrink-0 text-muted-foreground"
               />
-              <input
-                className="input font-mono"
+              <Input
+                className="h-7 flex-1 border-0 bg-transparent px-0 font-mono shadow-none focus-visible:ring-0"
                 placeholder="search repositories…"
                 defaultValue={repo}
                 onChange={(e) => repoField.handleChange(e.target.value)}
-                style={{
-                  background: "transparent",
-                  border: 0,
-                  padding: 0,
-                  fontSize: 13,
-                  flex: 1,
-                }}
               />
-              <span className="badge">
-                <I.lock width={9} height={9} />
+              <Badge variant="outline" className="gap-1 font-normal">
+                <HugeiconsIcon
+                  icon={Lock01Icon}
+                  strokeWidth={2}
+                  className="size-2.5"
+                />
                 paperhouse · github app
-              </span>
+              </Badge>
             </div>
-            <div style={{ maxHeight: 220, overflow: "auto" }}>
-              {recent.map((r) => (
-                <button
-                  key={r.repo}
-                  type="button"
-                  onClick={() => repoField.handleChange(r.repo)}
-                  className="flex items-center gap-3"
-                  style={{
-                    width: "100%",
-                    padding: "10px 14px",
-                    background:
-                      repo === r.repo ? "var(--bg-overlay)" : "transparent",
-                    border: 0,
-                    borderBottom: "1px solid var(--border)",
-                    textAlign: "left",
-                    cursor: "pointer",
-                    color: "var(--fg)",
-                  }}
-                >
-                  <I.branch
-                    width={12}
-                    height={12}
-                    style={{ color: "var(--fg-3)" }}
-                  />
-                  <span className="font-mono" style={{ fontSize: 13, flex: 1 }}>
-                    {r.repo}
-                  </span>
-                  <span className="badge">{r.lang}</span>
-                  <span
-                    className="text-muted-foreground font-mono"
-                    style={{ fontSize: 11 }}
+            <div className="max-h-56 overflow-y-auto">
+              {recent.map((r) => {
+                const isSelected = repo === r.repo;
+                return (
+                  <button
+                    key={r.repo}
+                    type="button"
+                    onClick={() => repoField.handleChange(r.repo)}
+                    aria-pressed={isSelected}
+                    className={`flex w-full items-center gap-3 border-b border-border/60 px-3 py-2 text-left text-foreground last:border-b-0 transition-colors hover:bg-accent/40 ${
+                      isSelected ? "bg-accent" : ""
+                    }`}
                   >
-                    ★ {r.stars} · {r.updated}
-                  </span>
-                  {repo === r.repo && <I.check width={11} height={11} />}
-                </button>
-              ))}
+                    <HugeiconsIcon
+                      icon={GitBranchIcon}
+                      strokeWidth={2}
+                      className="size-3.5 shrink-0 text-muted-foreground"
+                    />
+                    <span className="flex-1 font-mono text-[13px]">{r.repo}</span>
+                    <Badge variant="secondary" className="font-normal">
+                      {r.lang}
+                    </Badge>
+                    <span className="font-mono text-[11px] text-muted-foreground">
+                      ★ {r.stars} · {r.updated}
+                    </span>
+                    {isSelected && (
+                      <HugeiconsIcon
+                        icon={Tick02Icon}
+                        strokeWidth={2}
+                        className="size-3.5 text-success"
+                      />
+                    )}
+                  </button>
+                );
+              })}
             </div>
-          </div>
+          </Card>
 
           <div style={{ height: 18 }} />
           <SectionH title="Configuration" />
