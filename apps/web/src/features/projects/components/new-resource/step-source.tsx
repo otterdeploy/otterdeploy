@@ -5,7 +5,6 @@ import type { AnyFieldApi } from "@tanstack/react-form";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   GitBranchIcon,
-  Lock01Icon,
   Search01Icon,
   Tick02Icon,
 } from "@hugeicons/core-free-icons";
@@ -178,12 +177,7 @@ export function StepSource({
                 defaultValue={repo}
                 onChange={(e) => repoField.handleChange(e.target.value)}
               />
-              <Badge variant="outline" className="gap-1 font-normal">
-                <HugeiconsIcon
-                  icon={Lock01Icon}
-                  strokeWidth={2}
-                  className="size-2.5"
-                />
+              <Badge variant="outline" className="font-normal">
                 paperhouse · github app
               </Badge>
             </div>
