@@ -1,3 +1,5 @@
+import os from "node:os";
+
 import { and, asc, eq } from "drizzle-orm";
 import type { InferSelectModel } from "drizzle-orm";
 
@@ -68,4 +70,39 @@ export async function deleteServerRecord(input: {
     )
     .returning({ id: server.id });
   return deleted;
+}
+
+/**
+ * Ensure the bootstrap localhost row exists for an org. Every workspace's
+ * first manager is the host running otterstack itself (the same machine
+ * the user would `docker swarm init` on); we surface it as a real DB row
+ * so the UI never shows a "no servers" empty state and `docker service
+ * create` always has a node to schedule against.
+ *
+ * Idempotent: relies on the (organizationId, host) unique index added in
+ * the server schema, so concurrent first-list races resolve to a single
+ * row via ON CONFLICT DO NOTHING.
+ */
+export async function bootstrapLocalhostIfMissing(organizationId: OrgId): Promise<void> {
+  const cpuCount = os.cpus().length;
+  const memTotalGb = Math.max(1, Math.round(os.totalmem() / 1024 ** 3));
+  const hostname = os.hostname() || "localhost";
+
+  await db
+    .insert(server)
+    .values({
+      organizationId,
+      name: hostname,
+      host: "127.0.0.1",
+      region: "local",
+      role: "manager",
+      status: "ready",
+      availability: "active",
+      cpuTotal: cpuCount,
+      memTotalGb,
+      labels: ["bootstrap"],
+    })
+    .onConflictDoNothing({
+      target: [server.organizationId, server.host],
+    });
 }

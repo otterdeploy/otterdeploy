@@ -11,6 +11,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 import { organization } from "./auth";
@@ -54,6 +55,8 @@ export const server = pgTable(
   },
   (table) => [
     index("server_organization_id_idx").on(table.organizationId),
-    index("server_host_idx").on(table.host),
+    // (org, host) is unique so the localhost-bootstrap insert in
+    // listServers can use ON CONFLICT DO NOTHING and stay race-safe.
+    uniqueIndex("server_org_host_unique").on(table.organizationId, table.host),
   ],
 );

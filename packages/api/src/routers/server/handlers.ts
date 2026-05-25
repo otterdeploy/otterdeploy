@@ -18,6 +18,7 @@ import {
   type ServerId,
 } from "./errors";
 import {
+  bootstrapLocalhostIfMissing,
   createServerRecord,
   deleteServerRecord,
   getServerInOrg,
@@ -31,6 +32,9 @@ interface OrgRef {
 }
 
 export async function listServers(input: OrgRef): Promise<ServerRecord[]> {
+  // Guarantee at least the bootstrap localhost row exists for every org.
+  // No-op once the row is present (ON CONFLICT DO NOTHING).
+  await bootstrapLocalhostIfMissing(input.organizationId);
   return listServersByOrg(input.organizationId);
 }
 
