@@ -1,45 +1,29 @@
-// Step_Review — summary table + generated compose snippet.
-// Ported verbatim from apps/web-demo/src/features/otterstack/screens/new-service.tsx lines 2715-3014.
-import {
-  RESOURCE_PRESETS,
-  BUILDERS,
-  type ServiceKind,
-} from "@/features/projects/data/service-kinds";
+import { RESOURCE_PRESETS, type ServiceKind } from "@/features/projects/data/service-kinds";
+import { Button } from "@/shared/components/ui/button";
+import { Card } from "@/shared/components/ui/card";
 
 import type { ResourceFormValues } from "./schema";
 
 import { SectionH } from "./form-primitives";
 import { I } from "./icons";
 
-type ReviewProps = {
+interface ReviewProps {
   values: ResourceFormValues;
   kind: ServiceKind;
-};
+}
 
 function ReviewRow({ label, value, last }: { label: string; value?: string; last?: boolean }) {
   if (!value) return null;
   return (
     <div
-      className="flex items-center"
-      style={{
-        padding: "9px 12px",
-        borderBottom: last ? "none" : "1px solid var(--border)",
-        fontSize: 12,
-        alignItems: "flex-start",
-      }}
+      className={`flex items-start px-3 py-2 text-xs ${
+        last ? "" : "border-b border-border/60"
+      }`}
     >
-      <span
-        className="text-muted-foreground"
-        style={{ width: 100, fontSize: 11, paddingTop: 1, flexShrink: 0 }}
-      >
+      <span className="w-24 shrink-0 pt-0.5 text-[11px] text-muted-foreground">
         {label}
       </span>
-      <span
-        className="font-mono"
-        style={{ flex: 1, color: "var(--foreground)", wordBreak: "break-word" }}
-      >
-        {value}
-      </span>
+      <span className="flex-1 font-mono break-words text-foreground">{value}</span>
     </div>
   );
 }
@@ -83,31 +67,16 @@ volumes:
     networks: [internal]`;
   };
 
+  const compose = generateCompose();
+
   return (
     <>
       <SectionH title="Review" sub="Confirm and deploy — you can change all of this later" />
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 12,
-          marginTop: 14,
-        }}
-      >
+      <div className="mt-3.5 grid grid-cols-2 gap-3">
         <div>
-          <div
-            className="text-muted-foreground"
-            style={{
-              fontSize: 10,
-              textTransform: "uppercase",
-              letterSpacing: "0.06em",
-              marginBottom: 6,
-            }}
-          >
-            summary
-          </div>
-          <div className="card" style={{ overflow: "hidden" }}>
+          <SectionLabel>summary</SectionLabel>
+          <Card className="overflow-hidden rounded-md p-0 gap-0">
             <ReviewRow label="Type" value={kind.name} />
             <ReviewRow label="Name" value={name} />
             {isDb && version && <ReviewRow label="Version" value={`${kind.id} ${version}`} />}
@@ -123,78 +92,61 @@ volumes:
             )}
             {!isDb && <ReviewRow label="Replicas" value={`${replicas}`} />}
             <ReviewRow label="Network" value={`${name}.internal`} last />
-          </div>
+          </Card>
 
-          <div style={{ height: 14 }} />
-          <div
-            className="card"
-            style={{ padding: 12, background: "var(--muted)", borderColor: "var(--border)" }}
-          >
-            <div className="flex items-center gap-2" style={{ alignItems: "flex-start" }}>
+          <Card className="mt-3.5 rounded-md bg-muted p-3 gap-0">
+            <div className="flex items-start gap-2">
               <I.bolt
                 width={14}
                 height={14}
-                style={{ color: "var(--muted-foreground)", flexShrink: 0, marginTop: 2 }}
+                className="mt-0.5 shrink-0 text-muted-foreground"
               />
-              <div style={{ fontSize: 12, color: "var(--muted-foreground)", lineHeight: 1.5 }}>
+              <p className="text-xs leading-relaxed text-muted-foreground">
                 Otterstack will{" "}
                 {isDb
                   ? "pull the image, provision a volume, and start the database"
                   : `build the image, push to the internal registry, deploy ${replicas} replica${replicas > 1 ? "s" : ""} via Docker Swarm`}
                 , register internal DNS, and wire it onto the internal network — usually about{" "}
                 {isDb ? "45" : "90"} seconds.
-              </div>
+              </p>
             </div>
-          </div>
+          </Card>
         </div>
 
         <div>
-          <div
-            className="text-muted-foreground"
-            style={{
-              fontSize: 10,
-              textTransform: "uppercase",
-              letterSpacing: "0.06em",
-              marginBottom: 6,
-            }}
-          >
-            generated · compose.yml
-          </div>
-          <pre
-            className="font-mono"
-            style={{
-              background: "var(--muted)",
-              padding: 14,
-              borderRadius: 8,
-              fontSize: 11.5,
-              lineHeight: 1.65,
-              border: "1px solid var(--border)",
-              color: "var(--muted-foreground)",
-              margin: 0,
-              overflow: "auto",
-              maxHeight: 480,
-              whiteSpace: "pre",
-            }}
-          >
-            {generateCompose()}
+          <SectionLabel>generated · compose.yml</SectionLabel>
+          <pre className="m-0 max-h-[480px] overflow-auto rounded-md border bg-muted p-3.5 font-mono text-[11.5px] leading-relaxed text-muted-foreground whitespace-pre">
+            {compose}
           </pre>
-          <div className="flex items-center gap-2" style={{ marginTop: 8 }}>
-            <button type="button" className="btn sm">
-              <I.copy width={11} height={11} /> Copy
-            </button>
-            <button type="button" className="btn sm">
-              <I.doc width={11} height={11} /> Save as preset
-            </button>
-            <div style={{ flex: 1 }} />
-            <span
-              className="font-mono text-muted-foreground"
-              style={{ fontSize: 11, alignSelf: "center" }}
+          <div className="mt-2 flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1.5 text-xs"
+              onClick={() => void navigator.clipboard.writeText(compose)}
             >
+              <I.copy width={11} height={11} />
+              Copy
+            </Button>
+            <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs">
+              <I.doc width={11} height={11} />
+              Save as preset
+            </Button>
+            <div className="flex-1" />
+            <span className="self-center font-mono text-[11px] text-muted-foreground">
               otterstack apply
             </span>
           </div>
         </div>
       </div>
     </>
+  );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mb-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+      {children}
+    </div>
   );
 }
