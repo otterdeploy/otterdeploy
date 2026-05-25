@@ -23,6 +23,8 @@ export {
   type ProjectResource,
 } from "./resources";
 
+export { listProjectDependencies, type DependencyEdge } from "./dependencies";
+
 export { listProjectProxyRoutes } from "./proxy-routes";
 
 export type {

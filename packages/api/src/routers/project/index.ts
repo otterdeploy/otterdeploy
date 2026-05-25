@@ -10,6 +10,7 @@ import {
   getProject,
   getProjectBySlugForOrg,
   getProjectResource,
+  listProjectDependencies,
   listProjectProxyRoutes,
   listProjectResources,
   listProjects,
@@ -100,6 +101,22 @@ export const projectRouter = {
         },
         context.log,
       );
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          ProjectNotFoundError: () => errors.NOT_FOUND(),
+        });
+      }
+      return result.value;
+    },
+  ),
+
+  dependencies: orgScopedProcedure.project.dependencies.handler(
+    async ({ input, context, errors }) => {
+      context.log.set({ target: { type: "project", id: input.projectId } });
+      const result = await listProjectDependencies({
+        projectId: input.projectId,
+        organizationId: context.activeOrganizationId,
+      });
       if (result.isErr()) {
         throw matchError(result.error, {
           ProjectNotFoundError: () => errors.NOT_FOUND(),

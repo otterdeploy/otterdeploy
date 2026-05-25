@@ -7,6 +7,7 @@ import {
   useNavigate,
 } from "@tanstack/react-router";
 import { useLiveQuery } from "@tanstack/react-db";
+import { useQuery } from "@tanstack/react-query";
 import {
   Background,
   Controls,
@@ -15,6 +16,7 @@ import {
   useEdgesState,
   useNodesState,
   useReactFlow,
+  type Edge,
   type Node,
 } from "@xyflow/react";
 
@@ -22,6 +24,7 @@ import { layoutGraph } from "@/features/projects/components/graph/layout-graph";
 import { ResourceNode } from "@/features/projects/components/graph/resource-node";
 import { resourceToNode } from "@/features/projects/components/graph/resource-to-node";
 import { createResourceCollection } from "@/features/projects/data/resource";
+import { orpc } from "@/shared/server/orpc";
 
 export const Route = createFileRoute("/_app/$orgSlug/$projectSlug/graph")({
   component: RouteComponent,
@@ -70,15 +73,33 @@ function GraphCanvas() {
     [resourceCollection],
   );
 
-  // Convert + layout. Edges are D.2 — empty for now, so dagre falls back to
-  // stacking nodes by rank with no flow arrows.
+  // Edges come from parsing ${{Resource.VAR}} references in service env vars
+  // server-side (project.dependencies). Pure derivation — recomputed on read.
+  const { data: dependencyEdges = [] } = useQuery(
+    orpc.project.dependencies.queryOptions({
+      input: { projectId: project.id },
+    }),
+  );
+
+  const edgesFromDeps = useMemo<Edge[]>(
+    () =>
+      dependencyEdges.map((d) => ({
+        id: `${d.source}->${d.target}`,
+        source: d.source,
+        target: d.target,
+      })),
+    [dependencyEdges],
+  );
+
+  // Lay out with both nodes and edges so dagre ranks consumers above their
+  // dependencies (services above the databases they read from).
   const laidOut = useMemo(
-    () => layoutGraph(resources.map(resourceToNode), []),
-    [resources],
+    () => layoutGraph(resources.map(resourceToNode), edgesFromDeps),
+    [resources, edgesFromDeps],
   );
 
   const [nodes, setNodes, onNodesChange] = useNodesState(laidOut);
-  const [edges, , onEdgesChange] = useEdgesState<never>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(edgesFromDeps);
 
   // Sync the laid-out nodes whenever the resource list changes. Per-user drag
   // state is intentionally not persisted here — dagre is the source of truth
@@ -86,6 +107,9 @@ function GraphCanvas() {
   useEffect(() => {
     setNodes(laidOut);
   }, [laidOut, setNodes]);
+  useEffect(() => {
+    setEdges(edgesFromDeps);
+  }, [edgesFromDeps, setEdges]);
 
   // Detect when the resource detail panel closes — fit the whole graph back
   // into view so the user gets the wide overview instead of staying parked

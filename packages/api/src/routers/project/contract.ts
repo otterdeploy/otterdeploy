@@ -164,6 +164,20 @@ export const listProxyRoutesInput = z.object({
   projectId: zId(ID_PREFIX.project),
 });
 
+/**
+ * One directed edge in the project's resource dependency graph. Derived from
+ * `${{<Resource>.<VAR>}}` references inside service env vars by the resolver
+ * — service A consuming POSTGRES.URL emits `{ source: A, target: POSTGRES }`.
+ */
+export const dependencyEdgeSchema = z.object({
+  source: zId(ID_PREFIX.resource),
+  target: zId(ID_PREFIX.resource),
+});
+
+export const listDependenciesInput = z.object({
+  projectId: zId(ID_PREFIX.project),
+});
+
 export const projectContract = {
   get: oc
     .errors({
@@ -262,6 +276,20 @@ export const projectContract = {
       .input(listProxyRoutesInput)
       .output(z.array(proxyRouteSchema)),
   },
+  dependencies: oc
+    .errors({
+      NOT_FOUND: {
+        status: 404,
+        message: "Project not found" as const,
+      },
+    })
+    .meta({
+      path: `${basePath}/{projectId}/dependencies`,
+      tag,
+      method: "GET",
+    })
+    .input(listDependenciesInput)
+    .output(z.array(dependencyEdgeSchema)),
   resource: {
     list: oc
       .errors({
