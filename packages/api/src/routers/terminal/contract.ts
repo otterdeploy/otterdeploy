@@ -22,7 +22,7 @@ export const terminalContainerSchema = z.object({
   /** Docker state ("running", "exited", …). Only "running" can be exec'd. */
   state: z.string(),
   /** otterstack.resource.type label value (drives picker grouping). */
-  resourceType: z.enum(["service", "postgres"]),
+  resourceType: z.enum(["service", "postgres", "redis", "mariadb", "mongodb"]),
   /** Project slug (otterstack.project label). May be null on legacy rows. */
   projectSlug: zSlug(ID_PREFIX.project).nullable(),
   /** Friendly project name resolved from the DB. Null if the project slug

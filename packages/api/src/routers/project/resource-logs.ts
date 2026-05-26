@@ -22,6 +22,7 @@ import { Docker } from "@otterdeploy/docker";
 
 import { type Id, ID_PREFIX as IDP } from "@otterstack/shared/id";
 
+import { waitForServiceCreate } from "../../swarm";
 import type { ProjectId } from "./errors";
 import { getProjectInOrg } from "./queries";
 import { getResourceById } from "./queries/resource";
@@ -182,7 +183,24 @@ export async function* tailResourceLogs(
           };
           waitingMessageShown = true;
         }
-        await sleep(POLL_INTERVAL_MS);
+        // Event-driven wait. The subscriber pushes `service.create` events
+        // as docker emits them, so we react immediately instead of burning
+        // a 2s poll cycle. The timeout falls back to polling on the off
+        // chance the service was created in the window between our list
+        // call above and the subscribe — extremely tight, but cheap to
+        // cover. There's no replay across reconnects (events are
+        // best-effort), so a polled re-check after the wait is the safety
+        // net for that case too.
+        const matched = await waitForServiceCreate(resolved.serviceName, {
+          timeoutMs: POLL_INTERVAL_MS,
+        }).catch(() => null);
+        if (matched) {
+          yield {
+            stream: "system",
+            line: `Service ${resolved.serviceName} just created — attaching…`,
+            ts: nowIso(),
+          };
+        }
         continue;
       }
 

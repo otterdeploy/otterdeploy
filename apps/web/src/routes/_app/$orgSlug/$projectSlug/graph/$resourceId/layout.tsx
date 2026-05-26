@@ -1841,7 +1841,15 @@ function VarRow({ v, action }: { v: EnvVar; action: "override" | "edit" }) {
 
 type ResourceTerminalMatch =
   | { kind: "service"; resourceId: string }
-  | { kind: "postgres"; serviceName: string };
+  | {
+      kind: "database";
+      /** Engine label expected on the container — terminal-targets stamps
+       *  this from `otterstack.resource.type`. Matches drive whether the
+       *  shell can attach (only running containers with the right engine
+       *  label show up). */
+      engine: "postgres" | "redis" | "mariadb" | "mongodb";
+      serviceName: string;
+    };
 
 function ResourceTerminal({
   match,
@@ -1865,7 +1873,7 @@ function ResourceTerminal({
     }
     return containers.find(
       (c) =>
-        c.resourceType === "postgres" && c.serviceName === match.serviceName,
+        c.resourceType === match.engine && c.serviceName === match.serviceName,
     );
   }, [containers, match]);
 
@@ -2678,7 +2686,8 @@ function RealResourcePanel({
               <Activity mode={tab === "terminal" ? "visible" : "hidden"}>
                 <ResourceTerminal
                   match={{
-                    kind: "postgres",
+                    kind: "database",
+                    engine: resource.engine,
                     serviceName: resource.runtime.serviceName,
                   }}
                   fallbackLabel={resource.runtime.serviceName}

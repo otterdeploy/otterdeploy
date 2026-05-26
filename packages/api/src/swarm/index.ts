@@ -50,3 +50,17 @@ export {
   type ServiceMountInput,
   type SpecMount,
 } from "./file-mounts";
+export {
+  subscribeDockerEvents,
+  subscribeDockerEventsWhere,
+  waitForEvent,
+  waitForServiceContainerStart,
+  waitForServiceCreate,
+  type ContainerEvent,
+  type DockerEvent,
+  type NetworkEvent,
+  type NodeEvent,
+  type ServiceEvent,
+  type TaskEvent,
+  type UnknownEvent,
+} from "./events";

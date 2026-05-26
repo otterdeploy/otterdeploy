@@ -155,6 +155,33 @@ export interface DeploymentWithStats {
   updatedAt: Date;
 }
 
+// Swarm task lifecycle states bucketed by what they mean for a deployment.
+// Reference: https://docs.docker.com/reference/cli/docker/service/ps/
+const BUILDING_STATES = new Set([
+  "new",
+  "allocated",
+  "pending",
+  "assigned",
+  "accepted",
+  "preparing",
+  "ready",
+  "starting",
+]);
+const FAILED_STATES = new Set([
+  "failed",
+  "rejected",
+  "orphaned",
+  "remove",
+  // For a long-running service like a database, `complete` and `shutdown`
+  // on the latest task aren't a normal terminal state — they mean swarm
+  // rolled back (FailureAction=rollback after the new task failed health
+  // or, in the start-first → stop-first transition, the old task got
+  // killed by the new one's volume conflict). Treat as a deploy failure
+  // so the UI doesn't sit on "BUILDING" forever.
+  "complete",
+  "shutdown",
+]);
+
 function deriveDeploymentStatus(
   stored: DeploymentRow["status"],
   isLatest: boolean,
@@ -168,17 +195,16 @@ function deriveDeploymentStatus(
     return stored;
   }
   const hasRunning = taskStates.some((s) => s === "running");
-  const hasFailing = taskStates.some(
-    (s) =>
-      s === "failed" ||
-      s === "rejected" ||
-      s === "orphaned" ||
-      s === "remove",
-  );
+  const hasBuilding = taskStates.some((s) => BUILDING_STATES.has(s));
+  const hasFailing = taskStates.some((s) => FAILED_STATES.has(s));
   if (hasRunning) return "running";
+  // Still actively bringing a task up — only show "building" while at
+  // least one task is in a pre-running phase.
+  if (hasBuilding) return "building";
   if (!isLatest) return "superseded";
   if (hasFailing) return "failed";
-  return "building";
+  // Fallthrough: tasks exist but in unknown state. Honour the DB row.
+  return stored;
 }
 
 interface ListInput {

@@ -10,6 +10,8 @@
 
 import { Docker } from "@otterdeploy/docker";
 
+import { subscribeDockerEvents } from "../../../swarm";
+
 export interface BootLogEvent {
   stream: "stdout" | "stderr";
   line: string;
@@ -31,6 +33,47 @@ async function resolveServiceContainerId(
         | undefined
     )?.Status?.ContainerStatus?.ContainerID ?? null
   );
+}
+
+/**
+ * Resolve the container id for a freshly-created swarm service.
+ *
+ * Strategy: snapshot first (the container might already exist by the time
+ * we're called), then wait on `container.start` events filtered to the
+ * service's label until the deadline. The combination is intentional —
+ * pure event-wait would miss a container that started in the window
+ * between service.create completing and our subscribe; pure poll wastes
+ * 250ms cycles in the common case where the container is seconds away.
+ */
+async function waitForRunningContainer(
+  docker: Docker,
+  serviceName: string,
+  deadlineMs: number,
+): Promise<string | null> {
+  // Snapshot. Cheap and covers the "already running" race.
+  const snap = await resolveServiceContainerId(docker, serviceName);
+  if (snap) return snap;
+
+  return new Promise<string | null>((resolve) => {
+    const timer = setTimeout(() => finish(null), Math.max(0, deadlineMs - Date.now()));
+    const sub = subscribeDockerEvents((event) => {
+      if (event.kind !== "container") return;
+      if (event.action !== "start") return;
+      // Swarm tags every container with the originating service's name.
+      // The label key is `com.docker.swarm.service.name`.
+      if (event.labels["com.docker.swarm.service.name"] !== serviceName) return;
+      finish(event.containerId);
+    });
+
+    let settled = false;
+    function finish(id: string | null): void {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      sub.close();
+      resolve(id);
+    }
+  });
 }
 
 // Parse docker's 8-byte multiplexed log framing and yield whole lines.
@@ -73,14 +116,16 @@ export async function* tailContainerBootLogs(input: {
 }): AsyncGenerator<BootLogEvent, void, void> {
   const docker = Docker.fromEnv();
   try {
-    // Poll briefly for the container id — swarm may have just placed the
-    // task and the container record might not be queryable for a beat.
-    let containerId: string | null = null;
-    const deadlineForResolve = Date.now() + 3_000;
-    while (!containerId && Date.now() < deadlineForResolve) {
-      containerId = await resolveServiceContainerId(docker, input.serviceName);
-      if (!containerId) await new Promise((r) => setTimeout(r, 250));
-    }
+    // Wait for the first container backing this service to enter `start`.
+    // Drops a ~3s polling window down to a single event hop in the common
+    // case — `container.start` typically arrives within tens of ms of swarm
+    // scheduling the task. Bounded at 3s so a stuck service surfaces as a
+    // clean "no container yet" instead of hanging the create stream.
+    const containerId = await waitForRunningContainer(
+      docker,
+      input.serviceName,
+      Date.now() + 3_000,
+    );
     if (!containerId) return;
 
     const logsResult = await docker.containers.getContainer(containerId).logs({

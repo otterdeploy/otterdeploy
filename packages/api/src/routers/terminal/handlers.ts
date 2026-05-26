@@ -38,7 +38,7 @@ export interface TerminalContainer {
   name: string;
   image: string;
   state: string;
-  resourceType: "service" | "postgres";
+  resourceType: "service" | "postgres" | "redis" | "mariadb" | "mongodb";
   projectSlug: ProjectSlug | null;
   projectName: string | null;
   serviceResourceId: ResourceId | null;
@@ -108,7 +108,16 @@ export async function listTerminalTargets(input: {
       if (!labelProjectSlug || !slugToProject.has(labelProjectSlug)) continue;
 
       const resourceType = labels["otterstack.resource.type"];
-      if (resourceType !== "service" && resourceType !== "postgres") continue;
+      // Accept services + every database engine we support. Anything else
+      // (e.g. otterstack-caddy / otterstack-server itself) gets dropped.
+      if (
+        resourceType !== "service" &&
+        resourceType !== "postgres" &&
+        resourceType !== "redis" &&
+        resourceType !== "mariadb" &&
+        resourceType !== "mongodb"
+      )
+        continue;
 
       const rawName = c.Names?.[0] ?? c.Id;
       const { serviceName, slot } = splitTaskName(rawName);
