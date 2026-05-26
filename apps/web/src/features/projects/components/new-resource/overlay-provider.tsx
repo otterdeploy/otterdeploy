@@ -1,4 +1,4 @@
-import { useParams } from "@tanstack/react-router";
+import { useMatch, useParams } from "@tanstack/react-router";
 import { createContext, useContext, useState, type ReactNode } from "react";
 
 import { ResourceOverlayDialog } from "./new-resource-dialogs";
@@ -14,6 +14,14 @@ const ResourceOverlayContext = createContext<OverlayContextValue | null>(null);
 export function ResourceOverlayProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const { orgSlug, projectSlug } = useParams({ strict: false });
+  // Pull the loaded project so the wizard has its id (the create mutation
+  // takes projectId, not projectSlug). Only resolves when we're below
+  // /_app/$orgSlug/$projectSlug — otherwise the dialog wouldn't render anyway.
+  const projectMatch = useMatch({
+    from: "/_app/$orgSlug/$projectSlug",
+    shouldThrow: false,
+  });
+  const project = projectMatch?.loaderData?.project;
 
   const value: OverlayContextValue = {
     open,
@@ -24,10 +32,12 @@ export function ResourceOverlayProvider({ children }: { children: ReactNode }) {
   return (
     <ResourceOverlayContext.Provider value={value}>
       {children}
-      {orgSlug && projectSlug && (
+      {orgSlug && projectSlug && project && (
         <ResourceOverlayDialog
           orgSlug={orgSlug}
           projectSlug={projectSlug}
+          projectId={project.id}
+          projectName={project.name}
           open={open}
           onOpenChange={setOpen}
         />

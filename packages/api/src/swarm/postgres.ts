@@ -23,23 +23,18 @@ interface ProvisionSwarmPostgresInput {
   username: string;
   password: string;
   projectSlug: string;
+  /**
+   * User-added envs merged with the derived POSTGRES_USER/PASSWORD/DB before
+   * the container spec is rendered. Values are stringified verbatim; the
+   * derived three always win on key collision.
+   */
+  extraEnv?: Record<string, string>;
 }
 
-export async function provisionSwarmPostgres(
-  input: ProvisionSwarmPostgresInput,
-  rlog?: RequestLogger,
-): Promise<SwarmPostgresRuntime> {
-  const docker = Docker.fromEnv();
-
-  const networkName = await ensureProjectNetwork(input.projectSlug, rlog);
-
-  const existing = await inspectSwarmService(docker, input.serviceName, networkName);
-  if (existing) {
-    docker.destroy();
-    return existing;
-  }
-
-  const createResult = await docker.services.create({
+// Shared spec builder for create + update so the env merge logic and
+// healthcheck wiring stay in one place.
+function buildPostgresSpec(input: ProvisionSwarmPostgresInput, networkName: string) {
+  return {
     Name: input.serviceName,
     Labels: {
       "otterstack.managed": "true",
@@ -49,14 +44,26 @@ export async function provisionSwarmPostgres(
     TaskTemplate: {
       ContainerSpec: {
         Image: PLATFORM.docker.postgresImage,
+        // Derived envs are appended after `extraEnv` so they overwrite any
+        // user value that collides with the database identity. The DB image
+        // refuses to boot if these are missing, so we never let them be
+        // overridden via the user editor.
         Env: [
+          ...Object.entries(input.extraEnv ?? {})
+            .filter(
+              ([k]) =>
+                k !== "POSTGRES_DB" &&
+                k !== "POSTGRES_USER" &&
+                k !== "POSTGRES_PASSWORD",
+            )
+            .map(([k, v]) => `${k}=${v}`),
           `POSTGRES_DB=${input.databaseName}`,
           `POSTGRES_USER=${input.username}`,
           `POSTGRES_PASSWORD=${input.password}`,
         ],
         Mounts: [
           {
-            Type: "volume",
+            Type: "volume" as const,
             Source: input.volumeName,
             Target: "/var/lib/postgresql/data",
           },
@@ -76,7 +83,7 @@ export async function provisionSwarmPostgres(
         },
       ],
       RestartPolicy: {
-        Condition: "on-failure",
+        Condition: "on-failure" as const,
         MaxAttempts: 5,
         Delay: 5_000_000_000,
       },
@@ -89,17 +96,92 @@ export async function provisionSwarmPostgres(
     EndpointSpec: {
       Ports: [
         {
-          Protocol: "tcp",
+          Protocol: "tcp" as const,
           TargetPort: 5432,
-          PublishMode: "host",
+          PublishMode: "host" as const,
         },
       ],
     },
-  });
+  };
+}
+
+export async function provisionSwarmPostgres(
+  input: ProvisionSwarmPostgresInput,
+  rlog?: RequestLogger,
+): Promise<SwarmPostgresRuntime> {
+  const docker = Docker.fromEnv();
+
+  const networkName = await ensureProjectNetwork(input.projectSlug, rlog);
+
+  const existing = await inspectSwarmService(docker, input.serviceName, networkName);
+  if (existing) {
+    docker.destroy();
+    return existing;
+  }
+
+  const createResult = await docker.services.create(buildPostgresSpec(input, networkName));
 
   if (createResult.isErr()) {
     docker.destroy();
     throw createResult.error;
+  }
+
+  const runtime = await waitForServiceReady(docker, input.serviceName, networkName);
+  docker.destroy();
+  return runtime;
+}
+
+/**
+ * Roll the running Postgres service with a new env array. Inspects the
+ * existing service, bumps its Version, and calls `services.update()` — same
+ * pattern as `updateSwarmService` in service.ts. Volume + network stay put;
+ * only the container Env changes. Existing connections drop while the new
+ * task starts (a few seconds), then come back up.
+ */
+export async function updateSwarmPostgres(
+  input: ProvisionSwarmPostgresInput,
+  rlog?: RequestLogger,
+): Promise<SwarmPostgresRuntime> {
+  const docker = Docker.fromEnv();
+  const networkName = await ensureProjectNetwork(input.projectSlug, rlog);
+
+  const existing = await inspectSwarmService(docker, input.serviceName, networkName);
+  if (!existing || !existing.serviceId) {
+    // Nothing to update — fall back to provision so the resource is in a
+    // consistent state regardless of how we got here.
+    docker.destroy();
+    return provisionSwarmPostgres(input, rlog);
+  }
+
+  const inspectResult = await docker.services.getService(existing.serviceId).inspect();
+  if (inspectResult.isErr()) {
+    docker.destroy();
+    throw inspectResult.error;
+  }
+
+  const currentVersion = inspectResult.value.Version?.Index;
+  if (currentVersion === undefined) {
+    docker.destroy();
+    throw new Error(
+      `Swarm service ${input.serviceName} has no Version index; cannot update`,
+    );
+  }
+
+  const newSpec = buildPostgresSpec(input, networkName);
+  const updateResult = await docker.services
+    .getService(existing.serviceId)
+    .update({
+      version: currentVersion,
+      Name: newSpec.Name,
+      Labels: newSpec.Labels,
+      TaskTemplate: newSpec.TaskTemplate,
+      Mode: newSpec.Mode,
+      EndpointSpec: newSpec.EndpointSpec,
+    });
+
+  if (updateResult.isErr()) {
+    docker.destroy();
+    throw updateResult.error;
   }
 
   const runtime = await waitForServiceReady(docker, input.serviceName, networkName);

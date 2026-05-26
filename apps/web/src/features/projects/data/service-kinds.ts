@@ -58,7 +58,7 @@ export const SERVICE_KINDS: ServiceKind[] = [
     sub: "Managed Postgres · daily backups · PITR optional",
     icon: "db",
     group: "data",
-    versions: ["16.4", "16.3", "15.8", "14.13"],
+    versions: ["18", "17"],
   },
   {
     id: "mysql",

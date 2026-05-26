@@ -7,7 +7,6 @@ import {
   useNavigate,
 } from "@tanstack/react-router";
 import { useLiveQuery } from "@tanstack/react-db";
-import { useQuery } from "@tanstack/react-query";
 import {
   Background,
   Controls,
@@ -24,8 +23,9 @@ import {
   type ResourceNodeData,
 } from "@/features/projects/components/graph/resource-node";
 import { resourceToNode } from "@/features/projects/components/graph/resource-to-node";
+import { createProjectDependenciesCollection } from "@/features/projects/data/dependencies";
 import { createResourceCollection } from "@/features/projects/data/resource";
-import { orpc } from "@/shared/server/orpc";
+import { createServiceTasksCollection } from "@/features/projects/data/service-tasks";
 
 export const Route = createFileRoute("/_app/$orgSlug/$projectSlug/graph")({
   component: RouteComponent,
@@ -75,21 +75,26 @@ function GraphCanvas() {
   );
 
   // Edges come from parsing ${{Resource.VAR}} references in service env vars
-  // server-side (project.dependencies). Pure derivation — recomputed on read.
-  const { data: dependencyEdges = [] } = useQuery(
-    orpc.project.dependencies.queryOptions({
-      input: { projectId: project.id },
-    }),
+  // server-side (project.dependencies). TanStack DB collection so the data
+  // stays cached + reactive across panel open/close without a loading flash.
+  const dependenciesCollection = useMemo(
+    () => createProjectDependenciesCollection(project.id),
+    [project.id],
+  );
+  const { data: dependencyEdges = [] } = useLiveQuery(
+    () => dependenciesCollection,
+    [dependenciesCollection],
   );
 
-  // Live replica state per service. Polled every 5s so the REPLICAS tray on
-  // each service node stays current as the swarm converges.
-  const { data: serviceTasks = [] } = useQuery({
-    ...orpc.project.serviceTasks.queryOptions({
-      input: { projectId: project.id },
-    }),
-    refetchInterval: 5000,
-  });
+  // Live replica state per service — polled at 5s via the collection.
+  const serviceTasksCollection = useMemo(
+    () => createServiceTasksCollection(project.id),
+    [project.id],
+  );
+  const { data: serviceTasks = [] } = useLiveQuery(
+    () => serviceTasksCollection,
+    [serviceTasksCollection],
+  );
 
   const edgesFromDeps = useMemo<Edge[]>(
     () =>

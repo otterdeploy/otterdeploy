@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 
 import { createFileRoute } from "@tanstack/react-router";
 import { useLiveQuery } from "@tanstack/react-db";
-import { useQuery } from "@tanstack/react-query";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   ArrowRight01Icon,
@@ -16,7 +15,10 @@ import {
 import { JoinTokenDialog } from "@/features/servers/components/join-token-dialog";
 import { ServerCreateDialog } from "@/features/servers/components/server-create-dialog";
 import { serverCollection, type Server } from "@/features/servers/data/server";
-import { orpc } from "@/shared/server/orpc";
+import {
+  serverClusterStatsCollection,
+  serverNodeStatsCollection,
+} from "@/features/servers/data/stats";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent } from "@/shared/components/ui/card";
@@ -60,18 +62,22 @@ function ServersRoute() {
   const [tokenOpen, setTokenOpen] = useState(false);
   const [projectFilter, setProjectFilter] = useState<string>("all");
 
-  // Live cluster + per-node aggregates. Polled because tasks land/move
-  // outside our control; 5s matches the graph view's cadence.
-  const { data: stats } = useQuery({
-    ...orpc.server.stats.queryOptions({ input: undefined }),
-    refetchInterval: 5000,
-  });
+  // Live cluster + per-node aggregates via TanStack DB collections sharing
+  // a single server.stats RPC. Sync reads keep tab/filter interactions
+  // instant; polling refreshes silently every 5s.
+  const { data: perServerArr = [] } = useLiveQuery(
+    () => serverNodeStatsCollection,
+  );
+  const { data: clusterArr = [] } = useLiveQuery(
+    () => serverClusterStatsCollection,
+  );
+  const cluster = clusterArr[0] ?? null;
   const perServerStats = useMemo(() => {
-    type StatEntry = NonNullable<typeof stats>["perServer"][number];
+    type StatEntry = (typeof perServerArr)[number];
     const map = new Map<string, StatEntry>();
-    if (stats) for (const s of stats.perServer) map.set(s.serverId, s);
+    for (const s of perServerArr) map.set(s.serverId, s);
     return map;
-  }, [stats]);
+  }, [perServerArr]);
 
   const visibleServers = useMemo(() => {
     if (projectFilter === "all") return servers;
@@ -85,7 +91,7 @@ function ServersRoute() {
   const totalMem = servers.reduce((acc, s) => acc + s.memTotalGb, 0);
   const managerCount = servers.filter((s) => s.role === "manager").length;
   const nodeCount = servers.length;
-  const totalTasks = stats?.cluster.tasksRunning ?? null;
+  const totalTasks = cluster?.tasksRunning ?? null;
 
   return (
     <div className="flex flex-1 flex-col gap-5 p-5">
@@ -135,15 +141,15 @@ function ServersRoute() {
         />
       </div>
 
-      {stats && stats.cluster.projects.length > 0 && (
+      {cluster && cluster.projects.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
           <FilterPill
             active={projectFilter === "all"}
             label="All projects"
-            count={stats.cluster.tasksRunning}
+            count={cluster.tasksRunning}
             onClick={() => setProjectFilter("all")}
           />
-          {stats.cluster.projects.map((p) => (
+          {cluster.projects.map((p) => (
             <FilterPill
               key={p.slug}
               active={projectFilter === p.slug}

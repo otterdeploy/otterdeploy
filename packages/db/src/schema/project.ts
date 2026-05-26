@@ -126,6 +126,11 @@ export const databaseResource = pgTable(
     databaseName: text("database_name").notNull(),
     username: text("username").notNull(),
     password: text("password").notNull(),
+    // Gate for whether the public hostname is actually fronted by the
+    // Caddy proxy. The hostname is always computed (deterministic from
+    // name + project slug) so flipping to true later is a no-op for the
+    // schema; only the proxy route registration depends on this flag.
+    publicEnabled: boolean("public_enabled").notNull().default(false),
     publicHostname: text("public_hostname").notNull(),
     publicPort: integer("public_port").notNull().default(443),
     publicConnectionString: text("public_connection_string").notNull(),
@@ -136,6 +141,11 @@ export const databaseResource = pgTable(
     upstreamPort: integer("upstream_port").notNull().default(5432),
     caddyLayer4Snippet: text("caddy_layer4_snippet").notNull(),
     engineConfig: jsonb("engine_config").$type<Record<string, unknown>>().notNull().default({}),
+    // User-editable env vars injected into the Postgres container alongside
+    // the derived POSTGRES_USER / PASSWORD / DB. Used for tuning knobs like
+    // POSTGRES_INITDB_ARGS, TZ, LANG, POSTGRES_HOST_AUTH_METHOD, etc.
+    // Setting or unsetting triggers a swarm task update (~5s downtime).
+    extraEnv: jsonb("extra_env").$type<Record<string, string>>().notNull().default({}),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -244,6 +254,13 @@ export const servicePort = pgTable(
   ],
 );
 
+// Per-service env vars, scoped to an environment. Service-only values that
+// shouldn't (or can't) be promoted to the project-shared layer.
+//
+// Resolution order at deploy time:
+//   1. projectEnvSubscription -> projectEnvVar (inherited shared values)
+//   2. serviceEnvVar matching (serviceResourceId, environmentId) overlay
+//   3. ${{Resource.VAR}} template expansion on values
 export const serviceEnvVar = pgTable(
   "service_env_var",
   {
@@ -255,8 +272,19 @@ export const serviceEnvVar = pgTable(
       .notNull()
       .$type<Id<typeof ID_PREFIX.resource>>()
       .references(() => serviceResource.resourceId, { onDelete: "cascade" }),
+    // Per-environment scoping. Same (service, key) can carry different values
+    // across production / staging / preview / ad-hoc envs.
+    //
+    // NULLABLE in v1: existing rows pre-date the env model, and the service
+    // router's setEnv / bulkSet handlers don't yet thread an envId through.
+    // Step 7 of the secrets rework backfills + tightens this to NOT NULL.
+    environmentId: text("environment_id")
+      .$type<EnvId>()
+      .references(() => environment.id, { onDelete: "cascade" }),
     key: text("key").notNull(),
     value: text("value").notNull(),
+    // Drives masking in the UI. Does not affect storage (plaintext for v1).
+    isSecret: boolean("is_secret").notNull().default(false),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -264,7 +292,79 @@ export const serviceEnvVar = pgTable(
       .notNull(),
   },
   (table) => [
+    // Old unique kept while environmentId is nullable. Tightens to
+    // (serviceResourceId, environmentId, key) in step 7.
     uniqueIndex("service_env_var_unique").on(table.serviceResourceId, table.key),
     index("service_env_var_service_resource_id_idx").on(table.serviceResourceId),
+    index("service_env_var_environment_id_idx").on(table.environmentId),
+  ],
+);
+
+// Project-scoped shared env var. One row per (projectId, environmentId, key).
+// Services receive these values only when they explicitly subscribe via
+// projectEnvSubscription — sharing is opt-in per service.
+export const projectEnvVar = pgTable(
+  "project_env_var",
+  {
+    id: text("id")
+      .primaryKey()
+      .$type<Id<typeof ID_PREFIX.projectEnvVar>>()
+      .$defaultFn(() => createId(ID_PREFIX.projectEnvVar)),
+    projectId: text("project_id")
+      .notNull()
+      .$type<Id<typeof ID_PREFIX.project>>()
+      .references(() => project.id, { onDelete: "cascade" }),
+    environmentId: text("environment_id")
+      .notNull()
+      .$type<EnvId>()
+      .references(() => environment.id, { onDelete: "cascade" }),
+    key: text("key").notNull(),
+    value: text("value").notNull(),
+    isSecret: boolean("is_secret").notNull().default(true),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("project_env_var_unique").on(
+      table.projectId,
+      table.environmentId,
+      table.key,
+    ),
+    index("project_env_var_project_id_idx").on(table.projectId),
+    index("project_env_var_environment_id_idx").on(table.environmentId),
+    index("project_env_var_key_idx").on(table.projectId, table.key),
+  ],
+);
+
+// Explicit subscription: this service receives this project key at runtime.
+// Without a row, the service does NOT get the value — even if it exists at
+// the project level. Keyed by `projectEnvKey` (not the row id) so renaming a
+// project var key requires explicit re-subscription, surfacing the breakage.
+export const projectEnvSubscription = pgTable(
+  "project_env_subscription",
+  {
+    id: text("id")
+      .primaryKey()
+      .$type<Id<typeof ID_PREFIX.projectEnvSubscription>>()
+      .$defaultFn(() => createId(ID_PREFIX.projectEnvSubscription)),
+    serviceResourceId: text("service_resource_id")
+      .notNull()
+      .$type<Id<typeof ID_PREFIX.resource>>()
+      .references(() => serviceResource.resourceId, { onDelete: "cascade" }),
+    projectEnvKey: text("project_env_key").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("project_env_subscription_unique").on(
+      table.serviceResourceId,
+      table.projectEnvKey,
+    ),
+    index("project_env_subscription_service_resource_id_idx").on(
+      table.serviceResourceId,
+    ),
+    index("project_env_subscription_key_idx").on(table.projectEnvKey),
   ],
 );

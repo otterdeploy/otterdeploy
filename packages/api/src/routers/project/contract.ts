@@ -60,6 +60,9 @@ export const postgresResourceSchema = z.object({
   databaseName: z.string(),
   username: z.string(),
   password: z.string(),
+  /** When false, the public hostname exists but isn't wired through Caddy
+   *  — the DB is only reachable on the internal network. */
+  publicEnabled: z.boolean(),
   publicHostname: z.string(),
   publicPort: z.number().int().positive(),
   publicConnectionString: z.string(),
@@ -77,6 +80,9 @@ export const postgresResourceSchema = z.object({
     status: z.enum(["running", "starting", "stopped", "missing", "error"]),
     health: z.enum(["healthy", "unhealthy", "starting"]).nullable(),
   }),
+  // User-added envs injected into the Postgres container at deploy time.
+  // Editable via project.resource.database.postgres.env.{set,unset}.
+  extraEnv: z.record(z.string(), z.string()),
 });
 
 export const databaseResourceSchema = z.discriminatedUnion("engine", [
@@ -122,15 +128,99 @@ export const deleteProjectResourceInput = z.object({
   resourceId: zId(ID_PREFIX.resource),
 });
 
+/**
+ * Generic per-resource endpoints — work the same for postgres databases,
+ * services, and any future engine. The handler dispatches on resource kind
+ * to source from the right storage (databaseResource.extraEnv vs
+ * serviceEnvVar; pg container name vs serviceResource.serviceName).
+ */
+export const resourceTaskInput = z.object({
+  projectId: zId(ID_PREFIX.project),
+  resourceId: zId(ID_PREFIX.resource),
+});
+
+export const resourceEnvEntrySchema = z.object({
+  key: z.string(),
+  value: z.string(),
+});
+
+export const resourceEnvListInput = z.object({
+  projectId: zId(ID_PREFIX.project),
+  resourceId: zId(ID_PREFIX.resource),
+});
+
+export const resourceEnvBulkSetInput = z.object({
+  projectId: zId(ID_PREFIX.project),
+  resourceId: zId(ID_PREFIX.resource),
+  env: z.array(resourceEnvEntrySchema),
+});
+
+/**
+ * Live name-availability check for the new-resource wizard. Used by the
+ * Service name field's onBlur validator and to pre-fill a free default
+ * when the page mounts. `suggestion` is non-null only when `available` is
+ * false — derived by suffixing "-2", "-3", … until free.
+ */
+export const checkResourceNameInput = z.object({
+  projectId: zId(ID_PREFIX.project),
+  name: z.string().min(1),
+});
+
+export const checkResourceNameSchema = z.object({
+  available: z.boolean(),
+  suggestion: z.string().nullable(),
+});
+
+// Env-key shape — Postgres-image friendly (libc convention). The derived
+// POSTGRES_USER / PASSWORD / DB keys are reserved: setting them via the editor
+// is rejected so the database identity stays a single source of truth.
+const POSTGRES_RESERVED_ENV_KEYS = new Set([
+  "POSTGRES_DB",
+  "POSTGRES_USER",
+  "POSTGRES_PASSWORD",
+]);
+const envKeyShape = z
+  .string()
+  .min(1)
+  .regex(/^[A-Z_][A-Z0-9_]*$/, "must be UPPER_SNAKE_CASE")
+  .refine((k) => !POSTGRES_RESERVED_ENV_KEYS.has(k), {
+    message:
+      "POSTGRES_DB / POSTGRES_USER / POSTGRES_PASSWORD are reserved — use the rotation flow to change credentials.",
+  });
+
+export const setPostgresExtraEnvInput = z.object({
+  projectId: zId(ID_PREFIX.project),
+  resourceId: zId(ID_PREFIX.resource),
+  key: envKeyShape,
+  value: z.string().max(8192),
+});
+
+export const unsetPostgresExtraEnvInput = z.object({
+  projectId: zId(ID_PREFIX.project),
+  resourceId: zId(ID_PREFIX.resource),
+  key: envKeyShape,
+});
+
 // Engine-specific create inputs (kept; reads/deletes are generic via resource.*)
 export const createPostgresDatabaseInput = z.object({
   projectId: zId(ID_PREFIX.project),
   name: z.string().min(1),
+  /** Whether the DB should be reachable from the public internet via the
+   *  Caddy proxy. Defaults to false — internal-only is the safe default. */
+  publicEnabled: z.boolean().optional().default(false),
 });
 
 export const getPostgresDatabaseInput = z.object({
   projectId: zId(ID_PREFIX.project),
   resourceId: zId(ID_PREFIX.resource),
+});
+
+/** Flip the public-exposure flag on an existing postgres resource. The
+ *  Caddy reconciler runs after the toggle so the route state catches up. */
+export const setPostgresPublicInput = z.object({
+  projectId: zId(ID_PREFIX.project),
+  resourceId: zId(ID_PREFIX.resource),
+  publicEnabled: z.boolean(),
 });
 
 export const deletePostgresDatabaseInput = z.object({
@@ -348,6 +438,68 @@ export const projectContract = {
       .input(listProjectResourcesInput)
       .output(z.array(resourceSchema)),
 
+    checkName: oc
+      .errors({
+        NOT_FOUND: {
+          status: 404,
+          message: "Project not found" as const,
+        },
+      })
+      .meta({
+        path: `${basePath}/{projectId}/resources/check-name`,
+        tag,
+        method: "GET",
+      })
+      .input(checkResourceNameInput)
+      .output(checkResourceNameSchema),
+
+    tasks: oc
+      .errors({
+        NOT_FOUND: {
+          status: 404,
+          message: "Resource not found" as const,
+        },
+      })
+      .meta({
+        path: `${basePath}/{projectId}/resources/{resourceId}/tasks`,
+        tag,
+        method: "GET",
+      })
+      .input(resourceTaskInput)
+      .output(z.array(serviceTaskSchema)),
+
+    env: {
+      list: oc
+        .errors({
+          NOT_FOUND: {
+            status: 404,
+            message: "Resource not found" as const,
+          },
+        })
+        .meta({
+          path: `${basePath}/{projectId}/resources/{resourceId}/env`,
+          tag,
+          method: "GET",
+        })
+        .input(resourceEnvListInput)
+        .output(z.array(resourceEnvEntrySchema)),
+
+      bulkSet: oc
+        .errors({
+          NOT_FOUND: {
+            status: 404,
+            message: "Resource not found" as const,
+          },
+        })
+        .meta({
+          path: `${basePath}/{projectId}/resources/{resourceId}/env`,
+          tag,
+          method: "PUT",
+        })
+        .input(resourceEnvBulkSetInput)
+        .output(z.array(resourceEnvEntrySchema)),
+    },
+
     get: oc
       .errors({
         NOT_FOUND: {
@@ -397,6 +549,49 @@ export const projectContract = {
             method: "POST",
           })
           .input(createPostgresDatabaseInput)
+          .output(postgresResourceSchema),
+
+        setPublic: oc
+          .errors({
+            NOT_FOUND: {
+              status: 404,
+              message: "Resource not found" as const,
+            },
+          })
+          .meta({
+            path: `${basePath}/{projectId}/resources/database/postgres/{resourceId}/public`,
+            tag,
+            method: "PATCH",
+          })
+          .input(setPostgresPublicInput)
+          .output(postgresResourceSchema),
+
+        setExtraEnv: oc
+          .errors({
+            NOT_FOUND: { status: 404, message: "Resource not found" as const },
+            INVALID_INPUT: {
+              status: 400,
+              message: "Invalid env key or value" as const,
+            },
+          })
+          .meta({
+            path: `${basePath}/{projectId}/resources/database/postgres/{resourceId}/env/{key}`,
+            tag,
+            method: "PUT",
+          })
+          .input(setPostgresExtraEnvInput)
+          .output(postgresResourceSchema),
+
+        unsetExtraEnv: oc
+          .errors({
+            NOT_FOUND: { status: 404, message: "Resource not found" as const },
+          })
+          .meta({
+            path: `${basePath}/{projectId}/resources/database/postgres/{resourceId}/env/{key}`,
+            tag,
+            method: "DELETE",
+          })
+          .input(unsetPostgresExtraEnvInput)
           .output(postgresResourceSchema),
       },
     },

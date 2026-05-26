@@ -25,6 +25,7 @@ function RouteComponent() {
     <PageResourceWizard
       orgSlug={organization.slug}
       projectSlug={project.slug as Slug<typeof ID_PREFIX.project>}
+      projectId={project.id}
       projectName={project.name}
       initialKind={kind ?? null}
     />

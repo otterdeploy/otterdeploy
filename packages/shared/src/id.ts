@@ -32,6 +32,8 @@ export const ID_PREFIX = {
   resource: "resource",
   servicePort: "port",
   serviceEnvVar: "senv",
+  projectEnvVar: "penv",
+  projectEnvSubscription: "psub",
   environment: "env",
   proxyRoute: "proxy_route",
   server: "server",
@@ -138,6 +140,6 @@ export function zSlug<P extends string>(brand: P) {
     .transform((s) => s as Slug<P>);
 }
 
-export type ProjectSlug = Slug<typeof ID_PREFIX.project>;
 export type EnvSlug = Slug<typeof ID_PREFIX.environment>;
+export type ProjectSlug = Slug<typeof ID_PREFIX.project>;
 export type WorkspaceId = Id<typeof ID_PREFIX.workspace>;

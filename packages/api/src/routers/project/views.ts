@@ -89,17 +89,20 @@ export async function mapDatabaseResource(
     databaseName: databaseRecord.databaseName,
     username: databaseRecord.username,
     password: databaseRecord.password,
+    publicEnabled: databaseRecord.publicEnabled,
     publicHostname: databaseRecord.publicHostname,
     publicPort: databaseRecord.publicPort,
     publicConnectionString: databaseRecord.publicConnectionString,
     internalHostname: databaseRecord.internalHostname,
     internalPort: databaseRecord.internalPort,
     internalConnectionString: databaseRecord.internalConnectionString,
+    // Public-side connection strings never include the port. Everything
+    // public goes through Caddy on 443 — implicit for HTTPS-style URLs and
+    // the operator should never see :443 in copyable text.
     localConnectionString: buildConnectionString({
       username: databaseRecord.username,
       password: databaseRecord.password,
       hostname: PLATFORM.database.localHost,
-      port: PLATFORM.database.publicPort,
       databaseName: databaseRecord.databaseName,
       sslmode: "require",
       sslnegotiation: "direct",
@@ -107,6 +110,7 @@ export async function mapDatabaseResource(
     upstreamHost: databaseRecord.upstreamHost,
     upstreamPort: databaseRecord.upstreamPort,
     runtime,
+    extraEnv: databaseRecord.extraEnv ?? {},
   };
 }
 
@@ -145,6 +149,7 @@ export async function ensureSwarmRuntimeForRecord(
     username: record.database.username,
     password: record.database.password,
     projectSlug,
+    extraEnv: record.database.extraEnv ?? {},
   });
 
   const existingRoute = await getProxyRouteByResourceId(record.resource.id);

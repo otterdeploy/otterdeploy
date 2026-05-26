@@ -1,22 +1,35 @@
 import { useMemo, useState } from "react";
 import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 import { eq, useLiveQuery } from "@tanstack/react-db";
+import { useMutation } from "@tanstack/react-query";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
+  ArrowDown01Icon,
   ArrowLeft01Icon,
   ArrowReloadHorizontalIcon,
+  ArrowRight01Icon,
   Cancel01Icon,
+  Copy01Icon,
   Database02Icon,
+  Delete02Icon,
   EarthIcon,
   HardDriveIcon,
+  InformationCircleIcon,
+  Key01Icon,
+  Link01Icon,
   Maximize01Icon,
+  MoreVerticalIcon,
   PlusSignIcon,
   RocketIcon,
   Search01Icon,
   ServerStack01Icon,
   TerminalIcon,
+  Tick02Icon,
+  ViewIcon,
+  ViewOffIcon,
 } from "@hugeicons/core-free-icons";
 import type { ComponentProps, SVGProps } from "react";
+import { toast } from "sonner";
 
 import { INITIAL_NODES_BY_ID } from "@/features/projects/components/graph/initial-nodes";
 import type {
@@ -25,6 +38,18 @@ import type {
   ResourceNodeData,
 } from "@/features/projects/components/graph/resource-node";
 import { createResourceCollection } from "@/features/projects/data/resource";
+import { createResourceTasksCollection } from "@/features/projects/data/resource-tasks";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/shared/components/ui/alert-dialog";
 import { Button } from "@/shared/components/ui/button";
 import { Docker } from "@/shared/components/ui/svgs/docker";
 import { Mariadb } from "@/shared/components/ui/svgs/mariadb";
@@ -33,6 +58,7 @@ import { Mysql } from "@/shared/components/ui/svgs/mysql";
 import { Postgresql } from "@/shared/components/ui/svgs/postgresql";
 import { Redis } from "@/shared/components/ui/svgs/redis";
 import { Input } from "@/shared/components/ui/input";
+import { Switch } from "@/shared/components/ui/switch";
 import {
   Tabs,
   TabsContent,
@@ -41,6 +67,7 @@ import {
   TabsTrigger,
 } from "@/shared/components/ui/tabs";
 import { cn } from "@/shared/lib/utils";
+import { orpc, queryClient } from "@/shared/server/orpc";
 
 export const Route = createFileRoute(
   "/_app/$orgSlug/$projectSlug/graph/$resourceId",
@@ -76,7 +103,11 @@ function RouteComponent() {
   return (
     <div className="pointer-events-auto h-full w-3/5 animate-in fade-in-0 slide-in-from-right-2 overflow-hidden rounded-2xl rounded-tr-none border border-r-0 border-border bg-background duration-200">
       {resource && resource.type === "database" ? (
-        <RealResourcePanel resource={resource} onClose={close} />
+        <RealResourcePanel
+          resource={resource}
+          projectName={project.name}
+          onClose={close}
+        />
       ) : resource && resource.type === "service" ? (
         <ServiceResourcePanel resource={resource} onClose={close} />
       ) : demoNode ? (
@@ -99,7 +130,14 @@ function ServiceResourcePanel({
   resource,
   onClose,
 }: {
-  resource: { name: string; image: string; replicas: number; status: string; publicEnabled: boolean; publicDomain: string | null };
+  resource: {
+    name: string;
+    image: string;
+    replicas: number;
+    status: string;
+    publicEnabled: boolean;
+    publicDomain: string | null;
+  };
   onClose: () => void;
 }) {
   return (
@@ -114,16 +152,26 @@ function ServiceResourcePanel({
             onClick={onClose}
             className="mt-1"
           >
-            <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="size-4" />
+            <HugeiconsIcon
+              icon={ArrowLeft01Icon}
+              strokeWidth={2}
+              className="size-4"
+            />
           </Button>
           <PanelIcon
-            node={{ kind: "service", name: resource.name, description: resource.image }}
+            node={{
+              kind: "service",
+              name: resource.name,
+              description: resource.image,
+            }}
           />
           <div className="flex flex-col gap-1">
             <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
               Service
             </div>
-            <div className="text-[20px] font-semibold leading-tight">{resource.name}</div>
+            <div className="text-[20px] font-semibold leading-tight">
+              {resource.name}
+            </div>
             <div className="font-mono text-[12px] text-muted-foreground">
               {resource.image}
             </div>
@@ -136,16 +184,27 @@ function ServiceResourcePanel({
           aria-label="Close"
           onClick={onClose}
         >
-          <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-4" />
+          <HugeiconsIcon
+            icon={Cancel01Icon}
+            strokeWidth={2}
+            className="size-4"
+          />
         </Button>
       </div>
 
       <div className="grid grid-cols-2 gap-3 px-6 pt-5">
-        <PanelStat label="Replicas (desired)" value={String(resource.replicas)} />
+        <PanelStat
+          label="Replicas (desired)"
+          value={String(resource.replicas)}
+        />
         <PanelStat label="Status" value={resource.status} />
         <PanelStat
           label="Public"
-          value={resource.publicEnabled ? (resource.publicDomain ?? "yes") : "private"}
+          value={
+            resource.publicEnabled
+              ? (resource.publicDomain ?? "yes")
+              : "private"
+          }
         />
       </div>
 
@@ -165,7 +224,9 @@ function PanelStat({ label, value }: { label: string; value: string }) {
       <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
         {label}
       </div>
-      <div className="mt-0.5 font-mono text-[13px] text-foreground">{value}</div>
+      <div className="mt-0.5 font-mono text-[13px] text-foreground">
+        {value}
+      </div>
     </div>
   );
 }
@@ -270,7 +331,6 @@ function demoMeta(node: ResourceNodeData) {
 }
 
 type ResourceTab =
-  | "details"
   | "deployments"
   | "logs"
   | "metrics"
@@ -278,7 +338,13 @@ type ResourceTab =
   | "terminal"
   | "settings";
 
-function DemoNodePanel({ node, onClose }: { node: ResourceNodeData; onClose: () => void }) {
+function DemoNodePanel({
+  node,
+  onClose,
+}: {
+  node: ResourceNodeData;
+  onClose: () => void;
+}) {
   const meta = demoMeta(node);
   const isOnline = node.status === "running" || node.status === undefined;
   const isBuilding = node.status === "building";
@@ -296,7 +362,7 @@ function DemoNodePanel({ node, onClose }: { node: ResourceNodeData; onClose: () 
       ? "Build in progress…"
       : `Successful deployment (${meta.deployedAt})`;
 
-  const [tab, setTab] = useState<ResourceTab>("details");
+  const [tab, setTab] = useState<ResourceTab>("deployments");
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -311,7 +377,11 @@ function DemoNodePanel({ node, onClose }: { node: ResourceNodeData; onClose: () 
             onClick={onClose}
             className="mt-1"
           >
-            <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="size-4" />
+            <HugeiconsIcon
+              icon={ArrowLeft01Icon}
+              strokeWidth={2}
+              className="size-4"
+            />
           </Button>
           <PanelIcon node={node} />
           <div className="flex flex-col gap-0.5">
@@ -358,7 +428,11 @@ function DemoNodePanel({ node, onClose }: { node: ResourceNodeData; onClose: () 
             onClick={onClose}
             className="ml-1"
           >
-            <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-4" />
+            <HugeiconsIcon
+              icon={Cancel01Icon}
+              strokeWidth={2}
+              className="size-4"
+            />
           </Button>
         </div>
       </div>
@@ -386,9 +460,6 @@ function DemoNodePanel({ node, onClose }: { node: ResourceNodeData; onClose: () 
       >
         <div className="border-b border-border/60 px-6">
           <TabsList variant="line" className="h-auto bg-transparent p-0">
-            <TabsTrigger value="details" className="px-2.5 py-2.5">
-              Details
-            </TabsTrigger>
             <TabsTrigger value="deployments" className="px-2.5 py-2.5">
               Deployments
             </TabsTrigger>
@@ -412,59 +483,6 @@ function DemoNodePanel({ node, onClose }: { node: ResourceNodeData; onClose: () 
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           <TabsContents>
-            {/* ─── Details ────────────────────────────────────────── */}
-            <TabsContent value="details">
-              <DetailRow label="Source" value={meta.repo} />
-              {node.git?.branch && (
-                <DetailRow label="Branch" value={node.git.branch} />
-              )}
-              {node.git && (
-                <DetailRow
-                  label="Commit"
-                  value={
-                    <span className="inline-block rounded-md bg-muted/60 px-2 py-1 font-mono text-[12.5px]">
-                      {node.git.commit.slice(0, 7)}
-                    </span>
-                  }
-                />
-              )}
-              {meta.domain && (
-                <DetailRow
-                  label="Public URL"
-                  value={<span className="text-primary">{meta.domain}</span>}
-                />
-              )}
-              <DetailRow label="Replicas" value={String(meta.replicas)} />
-              <DetailRow label="Region" value={meta.region} />
-
-              <div className="mt-8 px-6 pb-6">
-                <div className="mb-3 text-[10.5px] font-medium uppercase tracking-[0.16em] text-muted-foreground/70">
-                  Resource usage
-                </div>
-                <UsageBar
-                  label="CPU"
-                  value={meta.cpu}
-                  unit="%"
-                  tone="success"
-                />
-                <UsageBar
-                  label="MEM"
-                  value={meta.memory}
-                  unit="%"
-                  tone="success"
-                />
-                {meta.rps != null && (
-                  <UsageBar
-                    label="RPS"
-                    value={meta.rps}
-                    unit=""
-                    tone="info"
-                    max={2000}
-                  />
-                )}
-              </div>
-            </TabsContent>
-
             <TabsContent value="deployments" className="px-6 pt-5 pb-6">
               <SectionLabel>Recent deployments</SectionLabel>
               {node.git && (
@@ -527,62 +545,10 @@ function DemoNodePanel({ node, onClose }: { node: ResourceNodeData; onClose: () 
   );
 }
 
-function DetailRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: React.ReactNode;
-}) {
-  return (
-    <div className="grid grid-cols-[180px_1fr] items-center gap-4 border-b border-border/40 px-6 py-3.5">
-      <span className="text-[13px] text-muted-foreground">{label}</span>
-      <span className="text-[13px] text-foreground">{value}</span>
-    </div>
-  );
-}
-
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <div className="text-[10.5px] font-medium uppercase tracking-[0.16em] text-muted-foreground/70">
       {children}
-    </div>
-  );
-}
-
-function UsageBar({
-  label,
-  value,
-  unit,
-  tone,
-  max,
-}: {
-  label: string;
-  value: number;
-  unit: string;
-  tone: "success" | "info";
-  /** Override the percentage scale (default: treat `value` as a percentage). */
-  max?: number;
-}) {
-  const fillPct = max
-    ? Math.min(100, (value / max) * 100)
-    : Math.min(100, Math.max(0, value));
-  const fill = tone === "success" ? "bg-success/70" : "bg-info/80";
-  return (
-    <div className="grid grid-cols-[40px_1fr_60px] items-center gap-3 py-1.5 font-mono text-xs">
-      <span className="uppercase tracking-wider text-muted-foreground">
-        {label}
-      </span>
-      <div className="h-1 overflow-hidden rounded-full bg-muted">
-        <div
-          className={cn("h-full rounded-full", fill)}
-          style={{ width: `${fillPct}%` }}
-        />
-      </div>
-      <span className="text-right text-foreground/80">
-        {value}
-        {unit}
-      </span>
     </div>
   );
 }
@@ -927,6 +893,749 @@ const SERVICE_VARS: EnvVar[] = [
   { name: "LOG_LEVEL", value: "info", type: "plain", scope: "service" },
 ];
 
+// Postgres Variables tab — Railway-style layout.
+//
+// Two sections:
+//   1. Service Variables — what consumers see when they reference the DB.
+//      Derived from the resource credentials + connection strings; matches
+//      the env names libpq + standard Postgres images expect (PG* and
+//      POSTGRES_*).
+//   2. System variables — otterstack-injected metadata about the container
+//      itself (private/public domains, ports, ids, volume).
+//
+// Both lists are read-only for v1: rotating any of these requires recreating
+// the database. The "+ New Variable" button is gated until the project
+// secrets surface lands and we have somewhere meaningful for user-added
+// service-scoped vars to live.
+function PostgresVariablesTabBody({
+  resource,
+}: {
+  resource: ResourceBodyProps["resource"];
+}) {
+  type DerivedVar = {
+    name: string;
+    value: string;
+    secret: boolean;
+    description?: string;
+  };
+
+  // Persisted user-editable envs. Refetches the resource list on success so
+  // the new env shows up across every panel + the graph.
+  const setExtraEnvMut = useMutation(
+    orpc.project.resource.database.postgres.setExtraEnv.mutationOptions({
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({
+          queryKey: orpc.project.resource.list.queryKey({
+            input: { projectId: resource.projectId },
+          }),
+        });
+        toast.success("Variable applied — service redeploying");
+      },
+      onError: (err) => toast.error(err.message ?? "Failed to set variable"),
+    }),
+  );
+  const unsetExtraEnvMut = useMutation(
+    orpc.project.resource.database.postgres.unsetExtraEnv.mutationOptions({
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({
+          queryKey: orpc.project.resource.list.queryKey({
+            input: { projectId: resource.projectId },
+          }),
+        });
+        toast.success("Variable removed — service redeploying");
+      },
+      onError: (err) => toast.error(err.message ?? "Failed to remove variable"),
+    }),
+  );
+
+  const userEnv = resource.extraEnv ?? {};
+  const userEnvEntries = Object.entries(userEnv).sort(([a], [b]) =>
+    a.localeCompare(b),
+  );
+
+  const [adding, setAdding] = useState(false);
+  const [newKey, setNewKey] = useState("");
+  const [newValue, setNewValue] = useState("");
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+
+  const submitAdd = () => {
+    if (!newKey || setExtraEnvMut.isPending) return;
+    setExtraEnvMut.mutate(
+      {
+        projectId: resource.projectId,
+        resourceId: resource.resourceId,
+        key: newKey,
+        value: newValue,
+      },
+      {
+        onSuccess: () => {
+          setAdding(false);
+          setNewKey("");
+          setNewValue("");
+        },
+      },
+    );
+  };
+
+  const submitEdit = (key: string) => {
+    if (setExtraEnvMut.isPending) return;
+    setExtraEnvMut.mutate(
+      {
+        projectId: resource.projectId,
+        resourceId: resource.resourceId,
+        key,
+        value: editValue,
+      },
+      { onSuccess: () => setEditingKey(null) },
+    );
+  };
+
+  // Only POSTGRES_USER / PASSWORD / DB are actually injected into the swarm
+  // task by provisionSwarmPostgres. PGDATA uses the image default, and the
+  // PG* libpq client envs aren't set — listing them would be a lie.
+  //
+  // DATABASE_URL is a derived convenience (the internal connection string)
+  // so consumer services can reference one canonical key. The public URL
+  // lives on the Details tab's Connection strings section, not here.
+  const serviceVars: DerivedVar[] = [
+    { name: "POSTGRES_USER", value: resource.username, secret: false },
+    { name: "POSTGRES_PASSWORD", value: resource.password, secret: true },
+    { name: "POSTGRES_DB", value: resource.databaseName, secret: false },
+    {
+      name: "DATABASE_URL",
+      value: resource.internalConnectionString,
+      secret: true,
+    },
+  ];
+
+  const systemVars: DerivedVar[] = [
+    {
+      name: "OTTERSTACK_PRIVATE_DOMAIN",
+      value: resource.internalHostname,
+      secret: false,
+      description: "The private DNS name of the service.",
+    },
+    {
+      name: "OTTERSTACK_TCP_PROXY_DOMAIN",
+      value: resource.publicHostname,
+      secret: false,
+      description:
+        "The public TCP proxy domain for the service, if applicable. Always reached over 443 — no port needed.",
+    },
+    {
+      name: "OTTERSTACK_TCP_APPLICATION_PORT",
+      value: String(resource.internalPort),
+      secret: false,
+      description: "The internal port the database listens on.",
+    },
+    {
+      name: "OTTERSTACK_PROJECT_ID",
+      value: resource.projectId,
+      secret: false,
+      description: "The project this resource belongs to.",
+    },
+    {
+      name: "OTTERSTACK_RESOURCE_NAME",
+      value: resource.name,
+      secret: false,
+      description: "The resource name.",
+    },
+    {
+      name: "OTTERSTACK_RESOURCE_ID",
+      value: resource.resourceId,
+      secret: false,
+      description: "The resource ID.",
+    },
+    {
+      name: "OTTERSTACK_SERVICE_NAME",
+      value: resource.runtime.serviceName,
+      secret: false,
+      description: "The swarm service name.",
+    },
+    {
+      name: "OTTERSTACK_NETWORK_NAME",
+      value: resource.runtime.networkName,
+      secret: false,
+      description: "The internal swarm overlay network.",
+    },
+    {
+      name: "OTTERSTACK_VOLUME_NAME",
+      value: resource.runtime.volumeName,
+      secret: false,
+      description: "The name of the attached volume.",
+    },
+    {
+      name: "OTTERSTACK_VOLUME_MOUNT_PATH",
+      value: "/var/lib/postgresql/data",
+      secret: false,
+      description: "The mount path of the attached volume.",
+    },
+  ];
+
+  const [query, setQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [systemOpen, setSystemOpen] = useState(true);
+  const [hintDismissed, setHintDismissed] = useState(false);
+  const [revealed, setRevealed] = useState<Set<string>>(new Set());
+
+  const matches = (name: string) =>
+    !query || name.toLowerCase().includes(query.toLowerCase());
+
+  const filteredService = serviceVars.filter((v) => matches(v.name));
+  const filteredSystem = systemVars.filter((v) => matches(v.name));
+
+  const toggleReveal = (name: string) =>
+    setRevealed((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+
+  // Inline copy affordance — the button itself flashes a tick for ~1.4s,
+  // no global toast. Per-key so multiple in-flight copies stay visually
+  // independent.
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const copyValue = (value: string, name: string) => {
+    void navigator.clipboard?.writeText(value);
+    setCopiedKey(name);
+    window.setTimeout(() => {
+      setCopiedKey((cur) => (cur === name ? null : cur));
+    }, 1400);
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Header row — count + search + actions */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-[14px] font-semibold">
+            {serviceVars.length} Service Variables
+          </span>
+          <button
+            type="button"
+            onClick={() => setSearchOpen((p) => !p)}
+            className="grid size-7 place-items-center rounded text-muted-foreground/70 hover:bg-muted hover:text-foreground"
+            aria-label="Search variables"
+          >
+            <HugeiconsIcon
+              icon={Search01Icon}
+              strokeWidth={2}
+              className="size-3.5"
+            />
+          </button>
+        </div>
+        <Button
+          size="sm"
+          className="h-8 gap-1.5 text-[12px]"
+          onClick={() => {
+            setAdding(true);
+            setEditingKey(null);
+          }}
+        >
+          <HugeiconsIcon
+            icon={PlusSignIcon}
+            strokeWidth={2}
+            className="size-3.5"
+          />
+          New Variable
+        </Button>
+      </div>
+
+      {/* Inline search (revealed by the magnifier) */}
+      {searchOpen && (
+        <Input
+          autoFocus
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Filter by variable name…"
+          className="h-9 font-mono text-[12.5px]"
+        />
+      )}
+
+      {/* Hint banner — only relevant before any consumer service exists */}
+      {!hintDismissed && (
+        <div className="flex items-center justify-between gap-3 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-[12.5px]">
+          <div className="flex items-center gap-2">
+            <HugeiconsIcon
+              icon={Link01Icon}
+              strokeWidth={2}
+              className="size-3.5 text-primary"
+            />
+            <span className="text-foreground/80">
+              Trying to connect this database to a service? Add a{" "}
+              <button
+                type="button"
+                className="font-medium text-primary underline underline-offset-2"
+              >
+                Variable Reference
+              </button>
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setHintDismissed(true)}
+            aria-label="Dismiss"
+            className="grid size-6 place-items-center rounded text-muted-foreground/60 hover:bg-muted hover:text-foreground"
+          >
+            <HugeiconsIcon
+              icon={Cancel01Icon}
+              strokeWidth={2}
+              className="size-3.5"
+            />
+          </button>
+        </div>
+      )}
+
+      {/* Service Variables card */}
+      <div className="overflow-hidden rounded-lg border border-border/40">
+        {filteredService.length === 0 ? (
+          <div className="px-4 py-6 text-center text-[12.5px] text-muted-foreground">
+            No variables match “{query}”.
+          </div>
+        ) : (
+          <div className="divide-y divide-border/30">
+            {filteredService.map((v) => (
+              <PostgresVarRow
+                key={v.name}
+                v={v}
+                revealed={revealed.has(v.name)}
+                copied={copiedKey === v.name}
+                onToggleReveal={() => toggleReveal(v.name)}
+                onCopy={() => copyValue(v.value, v.name)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* User variables — editable, persisted, rolls the swarm task on change */}
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-[14px] font-semibold">
+              {userEnvEntries.length} User Variables
+            </span>
+            <span className="text-[12.5px] text-muted-foreground">
+              · injected alongside POSTGRES_USER / PASSWORD / DB
+            </span>
+          </div>
+          {!adding && userEnvEntries.length > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1.5 text-[12px]"
+              onClick={() => {
+                setAdding(true);
+                setEditingKey(null);
+              }}
+            >
+              <HugeiconsIcon
+                icon={PlusSignIcon}
+                strokeWidth={2}
+                className="size-3"
+              />
+              Add
+            </Button>
+          )}
+        </div>
+
+        <div className="overflow-hidden rounded-lg border border-border/40">
+          {adding && (
+            <div className="flex items-center gap-2 border-b border-border/30 bg-muted/20 px-4 py-2.5">
+              <span className="font-mono text-[11px] text-muted-foreground/50">
+                {`{}`}
+              </span>
+              <Input
+                autoFocus
+                value={newKey}
+                onChange={(e) => setNewKey(e.target.value.toUpperCase())}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") submitAdd();
+                  if (e.key === "Escape") setAdding(false);
+                }}
+                placeholder="MY_ENV_KEY"
+                className="h-8 w-56 font-mono text-[12.5px]"
+              />
+              <Input
+                value={newValue}
+                onChange={(e) => setNewValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") submitAdd();
+                  if (e.key === "Escape") setAdding(false);
+                }}
+                placeholder="value"
+                className="h-8 flex-1 font-mono text-[12px]"
+              />
+              <Button
+                size="sm"
+                className="h-8 text-[12px]"
+                disabled={!newKey || setExtraEnvMut.isPending}
+                onClick={submitAdd}
+              >
+                {setExtraEnvMut.isPending ? "Saving…" : "Save"}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 text-[12px]"
+                onClick={() => {
+                  setAdding(false);
+                  setNewKey("");
+                  setNewValue("");
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          )}
+
+          {userEnvEntries.length === 0 && !adding ? (
+            <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
+              <span className="text-[12.5px] text-muted-foreground">
+                No user variables yet — add tuning knobs like{" "}
+                <code className="font-mono">POSTGRES_INITDB_ARGS</code>,{" "}
+                <code className="font-mono">TZ</code>, or{" "}
+                <code className="font-mono">POSTGRES_HOST_AUTH_METHOD</code>.
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 gap-1.5 text-[12px]"
+                onClick={() => setAdding(true)}
+              >
+                <HugeiconsIcon
+                  icon={PlusSignIcon}
+                  strokeWidth={2}
+                  className="size-3"
+                />
+                Add your first variable
+              </Button>
+            </div>
+          ) : (
+            <div className="divide-y divide-border/30">
+              {userEnvEntries.map(([key, value]) => {
+                const isEditing = editingKey === key;
+                const isRevealed = revealed.has(key);
+                return (
+                  <div
+                    key={key}
+                    className="group flex items-center gap-3 px-4 py-2.5"
+                  >
+                    <span className="font-mono text-[11px] text-muted-foreground/50">
+                      {`{}`}
+                    </span>
+                    <span className="w-56 truncate font-mono text-[12.5px] text-foreground/90">
+                      {key}
+                    </span>
+                    {isEditing ? (
+                      <>
+                        <Input
+                          autoFocus
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") submitEdit(key);
+                            if (e.key === "Escape") setEditingKey(null);
+                          }}
+                          className="h-7 flex-1 font-mono text-[12px]"
+                        />
+                        <Button
+                          size="sm"
+                          className="h-7 text-[12px]"
+                          disabled={setExtraEnvMut.isPending}
+                          onClick={() => submitEdit(key)}
+                        >
+                          Save
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 text-[12px]"
+                          onClick={() => setEditingKey(null)}
+                        >
+                          Cancel
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingKey(key);
+                            setEditValue(value);
+                            setAdding(false);
+                          }}
+                          className="flex-1 truncate text-left font-mono text-[12px] text-muted-foreground hover:text-foreground"
+                          title="Click to edit"
+                        >
+                          {isRevealed ? value : "•••••••"}
+                        </button>
+                        <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                          <button
+                            type="button"
+                            onClick={() => toggleReveal(key)}
+                            aria-label={isRevealed ? "Hide" : "Reveal"}
+                            className="grid size-7 place-items-center rounded text-muted-foreground/70 hover:bg-muted hover:text-foreground"
+                          >
+                            <HugeiconsIcon
+                              icon={isRevealed ? ViewOffIcon : ViewIcon}
+                              strokeWidth={2}
+                              className="size-3.5"
+                            />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => copyValue(value, key)}
+                            aria-label={copiedKey === key ? "Copied" : "Copy"}
+                            className={cn(
+                              "grid size-7 place-items-center rounded transition-colors",
+                              copiedKey === key
+                                ? "text-primary"
+                                : "text-muted-foreground/70 hover:bg-muted hover:text-foreground",
+                            )}
+                          >
+                            <HugeiconsIcon
+                              icon={copiedKey === key ? Tick02Icon : Copy01Icon}
+                              strokeWidth={2}
+                              className="size-3.5"
+                            />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={unsetExtraEnvMut.isPending}
+                            onClick={() =>
+                              unsetExtraEnvMut.mutate({
+                                projectId: resource.projectId,
+                                resourceId: resource.resourceId,
+                                key,
+                              })
+                            }
+                            aria-label={`Delete ${key}`}
+                            className="grid size-7 place-items-center rounded text-muted-foreground/70 hover:bg-destructive/15 hover:text-destructive"
+                          >
+                            <HugeiconsIcon
+                              icon={Delete02Icon}
+                              strokeWidth={2}
+                              className="size-3.5"
+                            />
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* System variables — collapsible */}
+      <div className="flex flex-col gap-2">
+        <button
+          type="button"
+          onClick={() => setSystemOpen((p) => !p)}
+          className="flex items-center gap-2 self-start text-[13px] font-medium text-primary hover:text-primary/80"
+        >
+          <HugeiconsIcon
+            icon={systemOpen ? ArrowDown01Icon : ArrowRight01Icon}
+            strokeWidth={2}
+            className="size-3.5"
+          />
+          {systemVars.length} variables added by otterstack
+        </button>
+
+        {systemOpen && (
+          <>
+            <p className="text-[12.5px] text-muted-foreground">
+              otterstack injects these system variables into every container —
+              read-only and derived from the resource record.
+            </p>
+            {filteredSystem.length === 0 ? (
+              <div className="rounded-lg border border-border/40 px-4 py-6 text-center text-[12.5px] text-muted-foreground">
+                No system variables match “{query}”.
+              </div>
+            ) : (
+              <div className="flex flex-col">
+                {filteredSystem.map((v) => (
+                  <PostgresSystemVarRow
+                    key={v.name}
+                    v={v}
+                    revealed={revealed.has(v.name)}
+                    copied={copiedKey === v.name}
+                    onToggleReveal={() => toggleReveal(v.name)}
+                    onCopy={() => copyValue(v.value, v.name)}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PostgresVarRow({
+  v,
+  revealed,
+  copied,
+  onToggleReveal,
+  onCopy,
+}: {
+  v: { name: string; value: string; secret: boolean };
+  revealed: boolean;
+  copied: boolean;
+  onToggleReveal: () => void;
+  onCopy: () => void;
+}) {
+  const display = v.secret && !revealed ? "•••••••" : v.value;
+  return (
+    <div className="group flex items-center gap-3 px-4 py-2.5">
+      <span className="font-mono text-[11px] text-muted-foreground/50">
+        {`{}`}
+      </span>
+      <span className="w-56 truncate font-mono text-[12.5px] text-foreground/90">
+        {v.name}
+      </span>
+      <span className="flex-1 truncate font-mono text-[12px] text-muted-foreground">
+        {display}
+      </span>
+      <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+        {v.secret && (
+          <button
+            type="button"
+            onClick={onToggleReveal}
+            aria-label={revealed ? "Hide value" : "Reveal value"}
+            className="grid size-7 place-items-center rounded text-muted-foreground/70 hover:bg-muted hover:text-foreground"
+          >
+            <HugeiconsIcon
+              icon={revealed ? ViewOffIcon : ViewIcon}
+              strokeWidth={2}
+              className="size-3.5"
+            />
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={onCopy}
+          aria-label={copied ? "Copied" : `Copy ${v.name}`}
+          className={cn(
+            "grid size-7 place-items-center rounded transition-colors",
+            copied
+              ? "text-primary"
+              : "text-muted-foreground/70 hover:bg-muted hover:text-foreground",
+          )}
+        >
+          <HugeiconsIcon
+            icon={copied ? Tick02Icon : Copy01Icon}
+            strokeWidth={2}
+            className="size-3.5"
+          />
+        </button>
+        <button
+          type="button"
+          aria-label="Variable info"
+          className="grid size-7 place-items-center rounded text-muted-foreground/70 hover:bg-muted hover:text-foreground"
+        >
+          <HugeiconsIcon
+            icon={InformationCircleIcon}
+            strokeWidth={2}
+            className="size-3.5"
+          />
+        </button>
+      </div>
+      <button
+        type="button"
+        aria-label="More actions"
+        className="grid size-7 shrink-0 place-items-center rounded text-muted-foreground/60 hover:bg-muted hover:text-foreground"
+      >
+        <HugeiconsIcon
+          icon={MoreVerticalIcon}
+          strokeWidth={2}
+          className="size-3.5"
+        />
+      </button>
+    </div>
+  );
+}
+
+function PostgresSystemVarRow({
+  v,
+  revealed,
+  copied,
+  onToggleReveal,
+  onCopy,
+}: {
+  v: { name: string; value: string; secret: boolean; description?: string };
+  revealed: boolean;
+  copied: boolean;
+  onToggleReveal: () => void;
+  onCopy: () => void;
+}) {
+  const display = v.secret && !revealed ? "•••••••" : v.value;
+  return (
+    <div className="group flex items-start gap-3 border-b border-border/30 py-3 last:border-b-0">
+      <div className="flex w-56 flex-col gap-0.5">
+        <span className="font-mono text-[12px] text-foreground/90">
+          {v.name}
+        </span>
+        {v.description && (
+          <span className="text-[11.5px] leading-snug text-muted-foreground/80">
+            {v.description}
+          </span>
+        )}
+      </div>
+      <div className="mt-0.5 flex flex-1 items-center gap-1.5">
+        <span className="truncate rounded border border-border/50 bg-muted/30 px-2 py-1 font-mono text-[12px] text-muted-foreground">
+          {display}
+        </span>
+        <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+          {v.secret && (
+            <button
+              type="button"
+              onClick={onToggleReveal}
+              aria-label={revealed ? "Hide value" : "Reveal value"}
+              className="grid size-6 place-items-center rounded text-muted-foreground/70 hover:bg-muted hover:text-foreground"
+            >
+              <HugeiconsIcon
+                icon={revealed ? ViewOffIcon : ViewIcon}
+                strokeWidth={2}
+                className="size-3"
+              />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onCopy}
+            aria-label={copied ? "Copied" : `Copy ${v.name}`}
+            className={cn(
+              "grid size-6 place-items-center rounded transition-colors",
+              copied
+                ? "text-primary"
+                : "text-muted-foreground/70 hover:bg-muted hover:text-foreground",
+            )}
+          >
+            <HugeiconsIcon
+              icon={copied ? Tick02Icon : Copy01Icon}
+              strokeWidth={2}
+              className="size-3"
+            />
+          </button>
+        </div>
+      </div>
+      <button
+        type="button"
+        className="mt-0.5 shrink-0 rounded border border-border/50 bg-card px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+      >
+        Reference
+      </button>
+    </div>
+  );
+}
+
 function VariablesTabBody({ projectName }: { projectName: string }) {
   return (
     <div className="flex flex-col gap-5">
@@ -1136,7 +1845,7 @@ function SettingsTabBody({
     useState<(typeof DEPLOY_STRATEGIES)[number]["id"]>("rolling");
 
   return (
-    <div className="grid grid-cols-[1fr_140px] gap-6">
+    <div className="grid grid-cols-[1fr_140px] gap-6 pb-10">
       <div className="flex flex-col gap-7">
         {/* Filter */}
         <div className="relative">
@@ -1643,12 +2352,14 @@ function FeatureFlag({ title, sub }: { title: string; sub: string }) {
 type ResourceBodyProps = {
   resource: {
     resourceId: string;
+    projectId: string;
     name: string;
     engine: string;
     status: string;
     databaseName: string;
     username: string;
     password: string;
+    publicEnabled: boolean;
     publicHostname: string;
     publicPort: number;
     publicConnectionString: string;
@@ -1664,18 +2375,24 @@ type ResourceBodyProps = {
       status: string;
       health: string | null;
     };
+    extraEnv: Record<string, string>;
   };
 };
 
 function RealResourcePanel({
   resource,
+  projectName,
   onClose,
 }: {
   resource: ResourceBodyProps["resource"];
+  projectName: string;
   onClose: () => void;
 }) {
+  const [tab, setTab] = useState<ResourceTab>("deployments");
+
   return (
     <div className="flex h-full flex-col overflow-hidden">
+      {/* ─── Header ─────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-4 px-6 pt-6">
         <div className="flex items-start gap-3">
           <Button
@@ -1686,7 +2403,11 @@ function RealResourcePanel({
             onClick={onClose}
             className="mt-1"
           >
-            <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="size-4" />
+            <HugeiconsIcon
+              icon={ArrowLeft01Icon}
+              strokeWidth={2}
+              className="size-4"
+            />
           </Button>
           <PanelIcon
             node={{
@@ -1714,10 +2435,15 @@ function RealResourcePanel({
           aria-label="Close panel"
           onClick={onClose}
         >
-          <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-4" />
+          <HugeiconsIcon
+            icon={Cancel01Icon}
+            strokeWidth={2}
+            className="size-4"
+          />
         </Button>
       </div>
 
+      {/* ─── Status row ─────────────────────────────────────────────── */}
       <div className="mt-5 flex items-center gap-3 border-t border-border/40 px-6 py-3">
         <RuntimeStatusBadge status={resource.runtime.status} />
         <span className="text-[13px] text-muted-foreground">
@@ -1725,108 +2451,86 @@ function RealResourcePanel({
         </span>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto pb-6">
-        <DetailRow
-          label="Database"
-          value={<span className="font-mono">{resource.databaseName}</span>}
-        />
-        <DetailRow
-          label="Internal host"
-          value={
-            <span className="font-mono">
-              {resource.internalHostname}:{resource.internalPort}
-            </span>
-          }
-        />
-        <DetailRow
-          label="Public host"
-          value={
-            <span className="font-mono">
-              {resource.publicHostname}:{resource.publicPort}
-            </span>
-          }
-        />
-        <DetailRow
-          label="Service"
-          value={
-            <span className="font-mono">{resource.runtime.serviceName}</span>
-          }
-        />
-        <DetailRow
-          label="Volume"
-          value={
-            <span className="font-mono">{resource.runtime.volumeName}</span>
-          }
-        />
-        <DetailRow
-          label="Network"
-          value={
-            <span className="font-mono">{resource.runtime.networkName}</span>
-          }
-        />
+      {/* ─── Tabs ───────────────────────────────────────────────────── */}
+      <Tabs
+        value={tab}
+        onValueChange={(v) => v && setTab(v as ResourceTab)}
+        className="flex min-h-0 flex-1 flex-col gap-0"
+      >
+        <div className="border-b border-border/60 px-6">
+          <TabsList variant="line" className="h-auto bg-transparent p-0">
+            <TabsTrigger value="deployments" className="px-2.5 py-2.5">
+              Deployments
+            </TabsTrigger>
+            <TabsTrigger value="logs" className="px-2.5 py-2.5">
+              Logs
+            </TabsTrigger>
+            <TabsTrigger value="metrics" className="px-2.5 py-2.5">
+              Metrics
+            </TabsTrigger>
+            <TabsTrigger value="variables" className="px-2.5 py-2.5">
+              Variables
+            </TabsTrigger>
+            <TabsTrigger value="terminal" className="px-2.5 py-2.5">
+              Terminal
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="px-2.5 py-2.5">
+              Settings
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
-        <div className="mt-6 px-6">
-          <SectionLabel>Connection strings</SectionLabel>
-          <div className="mt-3 flex flex-col gap-3">
-            <ReadOnlyField
-              label="Internal"
-              value={resource.internalConnectionString}
-            />
-            <ReadOnlyField
-              label="Public"
-              value={resource.publicConnectionString}
-            />
-            {resource.localConnectionString && (
-              <ReadOnlyField
-                label="Local"
-                value={resource.localConnectionString}
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <TabsContents>
+            {/* ─── Deployments ────────────────────────────────────── */}
+            <TabsContent value="deployments" className="px-6 pt-5 pb-6">
+              <ResourceTasksTab
+                projectId={resource.projectId}
+                resourceId={resource.resourceId}
               />
-            )}
-          </div>
+            </TabsContent>
+
+            {/* ─── Logs ───────────────────────────────────────────── */}
+            <TabsContent value="logs" className="px-6 pt-5 pb-6">
+              <SectionLabel>Logs</SectionLabel>
+              <p className="mt-2 text-[13px] text-muted-foreground">
+                Open the Logs page for full search, filters, and live tail.
+              </p>
+            </TabsContent>
+
+            {/* ─── Metrics ────────────────────────────────────────── */}
+            <TabsContent value="metrics" className="px-6 pt-5 pb-6">
+              <p className="text-[13px] text-muted-foreground">
+                CPU, memory, and connection counts will surface here once the
+                per-container stats stream is wired.
+              </p>
+            </TabsContent>
+
+            {/* ─── Variables ──────────────────────────────────────── */}
+            <TabsContent value="variables" className="px-6 pt-5 pb-6">
+              <PostgresVariablesTabBody resource={resource} />
+            </TabsContent>
+
+            {/* ─── Terminal ───────────────────────────────────────── */}
+            <TabsContent value="terminal" className="px-6 pt-5 pb-6">
+              <SectionLabel>Open a console</SectionLabel>
+              <p className="mt-2 text-[13px] text-muted-foreground">
+                Use the Terminal page to attach to the{" "}
+                <span className="font-mono">
+                  {resource.runtime.serviceName}
+                </span>{" "}
+                container, or run <span className="font-mono">psql</span>{" "}
+                against the Public connection string from your local machine.
+              </p>
+            </TabsContent>
+
+            {/* ─── Settings ───────────────────────────────────────── */}
+            <TabsContent value="settings" className="px-6 pt-5 pb-8">
+              <PostgresSettingsBody resource={resource} onDeleted={onClose} />
+            </TabsContent>
+          </TabsContents>
         </div>
-
-        <div className="mt-6 px-6">
-          <SectionLabel>Credentials</SectionLabel>
-          <div className="mt-3 flex flex-col gap-3">
-            <DetailRowInline label="Username" value={resource.username} />
-            <ReadOnlyField label="Password" value={resource.password} secret />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DetailRowInline({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-baseline gap-3">
-      <span className="w-32 shrink-0 text-[12.5px] text-muted-foreground">
-        {label}
-      </span>
-      <span className="font-mono text-[13px] text-foreground">{value}</span>
-    </div>
-  );
-}
-
-function ReadOnlyField({
-  label,
-  value,
-  secret = false,
-}: {
-  label: string;
-  value: string;
-  secret?: boolean;
-}) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-[11px] text-muted-foreground">{label}</span>
-      <Input
-        readOnly
-        value={value}
-        type={secret ? "password" : "text"}
-        className="h-8 font-mono text-xs"
-        onClick={(e) => (e.target as HTMLInputElement)?.select()}
-      />
+      </Tabs>
     </div>
   );
 }
@@ -1849,6 +2553,122 @@ function RuntimeStatusBadge({ status }: { status: string }) {
   );
 }
 
+// ─── Resource tasks tab ────────────────────────────────────────────────────
+// Generic deployment-history view backed by project.resource.tasks. Works
+// for any container-backed resource (postgres + services), not just one
+// kind — the backend handler dispatches on resource type to derive the
+// right swarm service name.
+
+function ResourceTasksTab({
+  projectId,
+  resourceId,
+}: {
+  projectId: string;
+  resourceId: string;
+}) {
+  // TanStack DB collection — 5s polling baked into the factory, sync reads
+  // on every re-render so tab switches don't flash a loading state.
+  const tasksCollection = useMemo(
+    () =>
+      createResourceTasksCollection(
+        projectId as never,
+        resourceId as never,
+      ),
+    [projectId, resourceId],
+  );
+  const { data: tasks = [], status } = useLiveQuery(
+    () => tasksCollection,
+    [tasksCollection],
+  );
+  const isLoading = status === "loading" && tasks.length === 0;
+
+  return (
+    <div>
+      <SectionLabel>Recent deployments</SectionLabel>
+      <p className="mt-1.5 text-[12px] text-muted-foreground">
+        One row per swarm task. Polled every 5s so a restart or replica
+        cycle shows up live.
+      </p>
+      <div className="mt-3 overflow-hidden rounded-md border bg-card">
+        {isLoading ? (
+          <div className="px-3 py-6 text-center text-[12px] text-muted-foreground">
+            Loading task history…
+          </div>
+        ) : tasks.length === 0 ? (
+          <div className="px-3 py-6 text-center text-[12px] text-muted-foreground">
+            No tasks yet — the swarm service hasn&apos;t scheduled anything for this
+            resource.
+          </div>
+        ) : (
+          <div className="divide-y divide-border/40">
+            {tasks.map((t) => (
+              <ResourceTaskRow key={t.id || `${t.slot}-${t.timestamp}`} task={t} />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ResourceTaskRow({
+  task,
+}: {
+  task: {
+    id: string;
+    slot: number | null;
+    label: string;
+    state: "running" | "building" | "error";
+    nodeId: string | null;
+    message: string | null;
+    timestamp: string | null;
+  };
+}) {
+  return (
+    <div className="grid grid-cols-[100px_80px_1fr_140px] items-center gap-3 px-3 py-2.5">
+      <TaskStateBadge state={task.state} />
+      <span className="font-mono text-[11.5px] text-muted-foreground">
+        {task.slot != null ? `slot.${task.slot}` : "—"}
+      </span>
+      <span className="truncate font-mono text-[12px] text-foreground/85">
+        {task.message ?? "no message"}
+      </span>
+      <span className="text-right font-mono text-[11px] text-muted-foreground">
+        {task.timestamp ? new Date(task.timestamp).toLocaleString() : "—"}
+      </span>
+    </div>
+  );
+}
+
+function TaskStateBadge({ state }: { state: "running" | "building" | "error" }) {
+  const tone =
+    state === "running"
+      ? "bg-success/15 text-success border-success/30"
+      : state === "building"
+        ? "bg-warning/15 text-warning border-warning/30"
+        : "bg-destructive/15 text-destructive border-destructive/30";
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-sm border px-2 py-0.5 font-mono text-[10px] font-medium uppercase",
+        tone,
+      )}
+    >
+      <span
+        className={cn(
+          "size-1.5 rounded-full",
+          state === "running"
+            ? "bg-success"
+            : state === "building"
+              ? "bg-warning"
+              : "bg-destructive",
+        )}
+      />
+      {state}
+    </span>
+  );
+}
+
 function NotFound({ id, onClose }: { id: string; onClose: () => void }) {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
@@ -1865,6 +2685,314 @@ function NotFound({ id, onClose }: { id: string; onClose: () => void }) {
       <Button variant="outline" size="sm" onClick={onClose}>
         Back to graph
       </Button>
+    </div>
+  );
+}
+
+// ─── Settings tab ───────────────────────────────────────────────────────────
+// Real operator surface for a postgres resource. Identity + storage info is
+// read-only (rename / move project aren't wired); maintenance actions are
+// disabled with explicit "not yet wired" labels rather than buttons that
+// silently no-op; danger zone wires the existing project.resource.delete.
+
+function SettingsCard({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="flex flex-col gap-2.5">
+      <div>
+        <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          {title}
+        </div>
+        {description && (
+          <div className="mt-0.5 text-[12px] text-muted-foreground/80">
+            {description}
+          </div>
+        )}
+      </div>
+      <div className="rounded-md border bg-card">{children}</div>
+    </section>
+  );
+}
+
+function SettingsRowReadOnly({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex items-baseline gap-4 border-b border-border/40 px-3 py-2.5 last:border-b-0">
+      <span className="w-40 shrink-0 text-[12px] text-muted-foreground">
+        {label}
+      </span>
+      <span className="break-all font-mono text-[12.5px] text-foreground">
+        {value}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Toggle for public exposure of the postgres resource. Calls the
+ * `project.resource.database.postgres.setPublic` procedure; the backend
+ * registers / unregisters the Caddy proxy route and reconciles. Optimistic
+ * UI is avoided here on purpose — the operator wants to see the truth from
+ * the server before believing the switch flipped.
+ */
+function PublicAccessCard({
+  resource,
+}: {
+  resource: ResourceBodyProps["resource"];
+}) {
+  const setPublic = useMutation({
+    ...orpc.project.resource.database.postgres.setPublic.mutationOptions(),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: orpc.project.resource.list.queryKey({
+          input: { projectId: resource.projectId },
+        }),
+      });
+      toast.success(
+        resource.publicEnabled
+          ? "Public access disabled"
+          : "Public access enabled",
+      );
+    },
+    onError: (err) => {
+      toast.error(err.message ?? "Failed to update public access");
+    },
+  });
+
+  return (
+    <SettingsCard
+      title="Public access"
+      description="Off keeps the DB on the internal network only. On wires the Caddy layer-4 proxy and exposes the public hostname to the open internet."
+    >
+      <div className="flex items-center justify-between gap-3 border-b border-border/40 px-3 py-2.5">
+        <div className="flex flex-col">
+          <span className="text-[13px] font-medium">Expose publicly</span>
+          <span className="text-[11px] text-muted-foreground">
+            {resource.publicEnabled
+              ? `Reachable at ${resource.publicHostname}`
+              : `Internal-only at ${resource.internalHostname}:${resource.internalPort}`}
+          </span>
+        </div>
+        <Switch
+          checked={resource.publicEnabled}
+          disabled={setPublic.isPending}
+          onCheckedChange={(next) =>
+            setPublic.mutate({
+              projectId: resource.projectId,
+              resourceId: resource.resourceId,
+              publicEnabled: next,
+            })
+          }
+        />
+      </div>
+      {resource.publicEnabled && (
+        <SettingsRowReadOnly
+          label="Public endpoint"
+          value={resource.publicHostname}
+        />
+      )}
+    </SettingsCard>
+  );
+}
+
+function PostgresSettingsBody({
+  resource,
+  onDeleted,
+}: {
+  resource: ResourceBodyProps["resource"];
+  onDeleted: () => void;
+}) {
+  const [confirmText, setConfirmText] = useState("");
+  const canConfirm = confirmText.trim() === resource.name;
+
+  const deleteMutation = useMutation({
+    ...orpc.project.resource.delete.mutationOptions(),
+    onSuccess: async () => {
+      toast.success(`Deleted ${resource.name}`);
+      // Bust the resource list so the graph + sidebar drop the row.
+      await queryClient.invalidateQueries({
+        queryKey: orpc.project.resource.list.queryKey({
+          input: { projectId: resource.projectId },
+        }),
+      });
+      onDeleted();
+    },
+    onError: (err) => {
+      toast.error(err.message ?? "Failed to delete resource");
+    },
+  });
+
+  return (
+    <div className="flex flex-col gap-6">
+      <SettingsCard
+        title="Identity"
+        description="Renaming is not yet supported — once it lands the change will rotate the derived service name + hostname."
+      >
+        <SettingsRowReadOnly label="Name" value={resource.name} />
+        <SettingsRowReadOnly label="Engine" value={resource.engine} />
+        <SettingsRowReadOnly
+          label="Database name"
+          value={resource.databaseName}
+        />
+        <SettingsRowReadOnly label="Username" value={resource.username} />
+      </SettingsCard>
+
+      <SettingsCard title="Storage">
+        <SettingsRowReadOnly
+          label="Volume"
+          value={resource.runtime.volumeName}
+        />
+        <SettingsRowReadOnly
+          label="Network"
+          value={resource.runtime.networkName}
+        />
+        <SettingsRowReadOnly
+          label="Internal endpoint"
+          value={`${resource.internalHostname}:${resource.internalPort}`}
+        />
+      </SettingsCard>
+
+      <PublicAccessCard resource={resource} />
+
+      <SettingsCard
+        title="Maintenance"
+        description="Rotation + backup procedures aren't wired yet — buttons are intentionally disabled rather than no-op stubs."
+      >
+        <div className="flex items-center justify-between gap-3 border-b border-border/40 px-3 py-2.5">
+          <div className="flex flex-col">
+            <span className="text-[13px] font-medium">Rotate password</span>
+            <span className="text-[11px] text-muted-foreground">
+              Generates a new password and rolls connection strings.
+            </span>
+          </div>
+          <Button variant="outline" size="sm" disabled className="gap-1.5">
+            <HugeiconsIcon
+              icon={Key01Icon}
+              strokeWidth={2}
+              className="size-3.5"
+            />
+            Rotate
+          </Button>
+        </div>
+        <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+          <div className="flex flex-col">
+            <span className="text-[13px] font-medium">Take backup</span>
+            <span className="text-[11px] text-muted-foreground">
+              Snapshot the volume to off-cluster storage.
+            </span>
+          </div>
+          <Button variant="outline" size="sm" disabled className="gap-1.5">
+            <HugeiconsIcon
+              icon={ArrowReloadHorizontalIcon}
+              strokeWidth={2}
+              className="size-3.5"
+            />
+            Snapshot now
+          </Button>
+        </div>
+      </SettingsCard>
+
+      <SettingsCard
+        title="Danger zone"
+        description="Permanent — the volume, swarm service, and proxy route are all torn down."
+      >
+        <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+          <div className="flex flex-col">
+            <span className="text-[13px] font-medium text-destructive">
+              Delete this database
+            </span>
+            <span className="text-[11px] text-muted-foreground">
+              All data in{" "}
+              <span className="font-mono">{resource.databaseName}</span> will be
+              unrecoverable.
+            </span>
+          </div>
+          <AlertDialog
+            onOpenChange={(open) => {
+              if (!open) setConfirmText("");
+            }}
+          >
+            <AlertDialogTrigger
+              render={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <HugeiconsIcon
+                    icon={Delete02Icon}
+                    strokeWidth={2}
+                    className="size-3.5"
+                  />
+                  Delete
+                </Button>
+              }
+            />
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete {resource.name}?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This permanently destroys the database, its volume, and the
+                  associated proxy route. Type{" "}
+                  <span className="font-mono text-foreground">
+                    {resource.name}
+                  </span>{" "}
+                  to confirm.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <Input
+                autoFocus
+                value={confirmText}
+                onChange={(e) => setConfirmText(e.target.value)}
+                placeholder={resource.name}
+                className="font-mono"
+              />
+              <AlertDialogFooter>
+                <AlertDialogCancel
+                  render={
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={deleteMutation.isPending}
+                    >
+                      Cancel
+                    </Button>
+                  }
+                />
+                <AlertDialogAction
+                  render={
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      disabled={!canConfirm || deleteMutation.isPending}
+                      onClick={() =>
+                        deleteMutation.mutate({
+                          projectId: resource.projectId as never,
+                          resourceId: resource.resourceId as never,
+                        })
+                      }
+                    >
+                      {deleteMutation.isPending ? "Deleting…" : "Delete"}
+                    </Button>
+                  }
+                />
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      </SettingsCard>
     </div>
   );
 }

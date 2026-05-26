@@ -261,7 +261,7 @@ export function ResourceNode({ id, data, selected }: NodeProps<ResourceFlowNode>
     <div className="relative" onMouseEnter={show} onMouseLeave={scheduleHide}>
       <Handle
         type="target"
-        position={Position.Top}
+        position={Position.Left}
         className="border-1.5 size-2 border-border bg-card"
       />
 
@@ -395,11 +395,11 @@ export function ResourceNode({ id, data, selected }: NodeProps<ResourceFlowNode>
 
       <Handle
         type="source"
-        position={Position.Bottom}
+        position={Position.Right}
         className="size-2! border-[1.5px]! border-border! bg-card!"
       />
 
-      <NodeToolbar position={Position.Right} offset={10} isVisible={selected || isHovered}>
+      <NodeToolbar position={Position.Top} offset={10} isVisible={selected || isHovered}>
         <TooltipProvider delay={200}>
           <div
             className="flex flex-col gap-0.5 rounded-full border bg-card p-1 shadow-md"

@@ -64,6 +64,7 @@ export async function createDatabaseResourceRecord(input: {
   databaseName: string;
   username: string;
   password: string;
+  publicEnabled?: boolean;
   publicHostname: string;
   publicPort: number;
   publicConnectionString: string;
@@ -103,6 +104,7 @@ export async function createDatabaseResourceRecord(input: {
         databaseName: input.databaseName,
         username: input.username,
         password: input.password,
+        publicEnabled: input.publicEnabled ?? false,
         publicHostname: input.publicHostname,
         publicPort: input.publicPort,
         publicConnectionString: input.publicConnectionString,
@@ -163,5 +165,32 @@ export async function updateDatabaseResourceRuntime(input: {
     .where(eq(databaseResource.resourceId, input.resourceId))
     .returning();
 
+  return updated;
+}
+
+/** Toggle the public-exposure flag on a database resource. Caller is
+ *  responsible for registering / unregistering the matching proxy route
+ *  and reconciling Caddy after this update. */
+export async function setDatabaseResourcePublic(
+  resourceId: ResourceId,
+  publicEnabled: boolean,
+) {
+  const [updated] = await db
+    .update(databaseResource)
+    .set({ publicEnabled, updatedAt: new Date() })
+    .where(eq(databaseResource.resourceId, resourceId))
+    .returning();
+  return updated;
+}
+
+export async function setDatabaseResourceExtraEnv(
+  resourceId: ResourceId,
+  extraEnv: Record<string, string>,
+) {
+  const [updated] = await db
+    .update(databaseResource)
+    .set({ extraEnv, updatedAt: new Date() })
+    .where(eq(databaseResource.resourceId, resourceId))
+    .returning();
   return updated;
 }

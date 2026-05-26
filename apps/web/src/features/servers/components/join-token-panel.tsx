@@ -19,7 +19,7 @@ export type JoinRole = "worker" | "manager";
  * dialog open regardless of how many places need the data.
  */
 export function useSwarmJoinTokens() {
-  return useQuery(orpc.server.joinTokens.queryOptions({ input: undefined }));
+  return useQuery(orpc.server.joinTokens.queryOptions());
 }
 
 interface JoinTokenPanelProps {

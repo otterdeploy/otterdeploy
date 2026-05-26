@@ -1,13 +1,16 @@
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ArrowLeft01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons";
-import { ID_PREFIX, type Slug } from "@otterstack/shared/id";
+import { ID_PREFIX, type Id, type Slug } from "@otterstack/shared/id";
 import { useStore } from "@tanstack/react-form";
+import { useMutation } from "@tanstack/react-query";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import { SERVICE_KINDS } from "@/features/projects/data/service-kinds";
 import { Button } from "@/shared/components/ui/button";
 import { cn } from "@/shared/lib/utils";
+import { orpc, queryClient } from "@/shared/server/orpc";
 
 import { useAppForm } from "./form-context";
 import { flowFor, type StepEntry } from "./flows";
@@ -30,6 +33,7 @@ import {
 export interface ResourceWizardProps {
   orgSlug: string;
   projectSlug: Slug<typeof ID_PREFIX.project>;
+  projectId: Id<typeof ID_PREFIX.project>;
   projectName: string;
   initialKind?: string | null;
   initialStep?: Step;
@@ -66,6 +70,7 @@ export function DialogResourceWizard(props: ResourceWizardProps) {
 function ResourceWizardBody({
   orgSlug,
   projectSlug,
+  projectId,
   projectName,
   initialKind = null,
   onComplete,
@@ -74,6 +79,35 @@ function ResourceWizardBody({
   step,
   goTo,
 }: BodyProps) {
+  const navigate = useNavigate();
+
+  // Postgres is the first engine wired end-to-end. The mutation hits
+  // project.resource.database.postgres.create which handles Swarm provision,
+  // Caddy proxy-route insert, and DB record. Other kinds fall through with a
+  // "not yet supported" gate on the Create button below.
+  const postgresCreate = useMutation(
+    orpc.project.resource.database.postgres.create.mutationOptions({
+      onSuccess: async (created) => {
+        await queryClient.invalidateQueries({
+          queryKey: orpc.project.resource.list.queryKey({ input: { projectId } }),
+        });
+        toast.success(`Postgres ${created.name} is provisioning`);
+        onComplete?.();
+        void navigate({
+          to: "/$orgSlug/$projectSlug/graph/$resourceId",
+          params: {
+            orgSlug,
+            projectSlug,
+            resourceId: created.resourceId,
+          },
+        });
+      },
+      onError: (err) => {
+        toast.error(err.message ?? "Failed to create Postgres");
+      },
+    }),
+  );
+
   const form = useAppForm({
     defaultValues: initialKind
       ? { ...resourceDefaults, __step: step, kindId: initialKind, name: initialKind }
@@ -81,10 +115,19 @@ function ResourceWizardBody({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     validators: { onChange: resourceFormSchema as any },
     onSubmit: async ({ value }) => {
-      // Strip the discriminator before persisting.
+      // Strip the wizard-only discriminator before passing fields to the API.
       const { __step: _drop, ...payload } = value;
-      console.log("submit", payload);
-      if (onComplete) onComplete();
+      if (payload.kindId === "postgres") {
+        await postgresCreate.mutateAsync({
+          projectId,
+          name: payload.name,
+          publicEnabled: payload.publicEnabled,
+        });
+        return;
+      }
+      // Other engines aren't wired yet — the Create button is gated below so
+      // this branch shouldn't be reachable through the UI.
+      console.warn("[new-resource] submit ignored: kind not wired", payload.kindId);
     },
   });
 
@@ -110,36 +153,44 @@ function ResourceWizardBody({
   }, [layout, idx, goTo]);
 
   // Compute failing-step set so Stepper marks them red.
+  // Only mark steps the user has PASSED (i < idx). The current step is
+  // mid-edit and shouldn't render as an error — its blockers surface in the
+  // footer's "Required" line instead.
   const formValues = useStore(form.store, (s) => s.values);
   const failingSteps = useMemo(() => {
     const out = new Set<Step>();
-    for (const [id] of steps) {
+    steps.forEach(([id], i) => {
+      if (i >= idx) return;
       const probe = { ...formValues, __step: id };
       if (!resourceFormSchema.safeParse(probe).success) out.add(id);
-    }
+    });
     return out;
-  }, [formValues, steps]);
+  }, [formValues, steps, idx]);
+
+  // Issues for the CURRENT step's arm, used to render the footer's
+  // "Required: …" hint so the user always knows why Continue won't advance.
+  const currentStepIssues = useMemo(() => {
+    const probe = { ...formValues, __step: step };
+    const r = resourceFormSchema.safeParse(probe);
+    return r.success ? [] : r.error.issues;
+  }, [formValues, step]);
 
   const handleContinue = async () => {
-    const nextStep: Step = isLast ? "review" : steps[idx + 1][0];
-    // Set __step to next step so the onChange validator validates against that arm
-    form.setFieldValue("__step", nextStep);
+    // Validate against the CURRENT step's arm. __step is already set to the
+    // current step (via the useEffect sync above), so the union validator runs
+    // the right arm. Don't preemptively set __step to next — that would check
+    // the next arm against fields the user hasn't entered yet.
     await form.validate("change");
-    // Check form-level and field-level validity after validation run
     const allErrors = form.getAllErrors();
     const hasFormErrors = allErrors.form.errors.length > 0;
     const hasFieldErrors = Object.values(allErrors.fields).some(
       (f) => f.errors.length > 0,
     );
-    if (hasFormErrors || hasFieldErrors) {
-      // Revert __step back to current so the user stays on the current step
-      form.setFieldValue("__step", step);
-      return;
-    }
+    if (hasFormErrors || hasFieldErrors) return;
     if (isLast) {
       await form.handleSubmit();
     } else {
-      goTo(nextStep);
+      goTo(steps[idx + 1][0]);
     }
   };
 
@@ -147,6 +198,13 @@ function ResourceWizardBody({
     if (idx > 0) goTo(steps[idx - 1][0]);
   };
   const showChrome = layout === "page";
+
+  // Only Postgres is wired through to a real provisioner today. Keep the
+  // wizard browsable for every kind but gate the final Create action so we
+  // don't pretend to deploy something that isn't implemented yet.
+  const kindWired = kindId === "postgres";
+  const isCreating = postgresCreate.isPending;
+  const createDisabled = isLast && (!kindWired || isCreating);
 
   return (
     <form.AppForm>
@@ -183,12 +241,29 @@ function ResourceWizardBody({
             {step === "networking" && kind && (isSourceBased || isDocker) && <StepNetworking kind={kind} />}
             {step === "resources" && kind && <StepResources isDb={isDb} />}
             {step === "variables" && kind && (isSourceBased || isDocker) && <StepVariables kind={kind} />}
-            {step === "version" && kind && isDb && <StepVersion kind={kind} />}
+            {step === "version" && kind && isDb && (
+              <StepVersion kind={kind} projectId={projectId} />
+            )}
             {step === "storage" && kind && isDb && <StepStorage kind={kind} />}
             {step === "advanced" && kind && isDb && <StepAdvancedDb kind={kind} />}
             {step === "review" && kind && <StepReview kind={kind} />}
           </div>
         </div>
+
+        {currentStepIssues.length > 0 && (
+          <div className={`flex shrink-0 items-center gap-2 border-t border-destructive/30 bg-destructive/5 text-[11px] text-destructive ${layout === "dialog" ? "px-[18px] py-2" : "px-5 py-2"}`}>
+            <span className="font-medium">Required to continue:</span>
+            <span className="font-mono text-foreground/80">
+              {Array.from(
+                new Set(
+                  currentStepIssues
+                    .map((i) => i.path[0])
+                    .filter((p): p is string => typeof p === "string" && p !== "__step"),
+                ),
+              ).join(", ")}
+            </span>
+          </div>
+        )}
 
         <div className={`flex shrink-0 items-center gap-2 border-t ${layout === "page" ? "bg-card" : "bg-transparent"} ${layout === "dialog" ? "px-[18px] py-3" : "px-5 py-3"}`}>
           {layout === "page" ? (
@@ -207,15 +282,31 @@ function ResourceWizardBody({
               Cancel
             </Button>
           )}
+          {isLast && !kindWired && kind && (
+            <span className="mr-1 text-[11px] text-muted-foreground">
+              {kind.name} provisioner isn’t wired yet — only Postgres is live today.
+            </span>
+          )}
           <div className="flex-1" />
           {idx > 0 && (
-            <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={goPrev}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5"
+              onClick={goPrev}
+              disabled={isCreating}
+            >
               <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="size-3.5" />
               Back
             </Button>
           )}
-          <Button size="sm" className="h-8 gap-1.5" onClick={() => void handleContinue()}>
-            {isLast ? "Create & deploy" : "Continue"}
+          <Button
+            size="sm"
+            className="h-8 gap-1.5"
+            onClick={() => void handleContinue()}
+            disabled={createDisabled}
+          >
+            {isLast ? (isCreating ? "Provisioning…" : "Create & deploy") : "Continue"}
             {!isLast && <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-3.5" />}
           </Button>
         </div>

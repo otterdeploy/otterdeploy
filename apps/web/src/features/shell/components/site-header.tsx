@@ -110,6 +110,7 @@ export function SiteHeader() {
         <ResourceOverlayDialog
           orgSlug={organization.slug}
           projectSlug={project.slug as Slug<typeof ID_PREFIX.project>}
+          projectId={project.id}
           projectName={project.name}
           open={overlayOpen}
           onOpenChange={setOverlayOpen}

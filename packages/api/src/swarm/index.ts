@@ -1,6 +1,7 @@
 export { initializeSwarm, ensureSwarm, ensureProjectNetwork, removeProjectNetwork } from "./client";
 export {
   provisionSwarmPostgres,
+  updateSwarmPostgres,
   inspectSwarmPostgresRuntime,
   destroySwarmPostgres,
   type SwarmPostgresRuntime,

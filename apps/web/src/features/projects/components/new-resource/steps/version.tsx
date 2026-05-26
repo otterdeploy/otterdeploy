@@ -7,48 +7,37 @@ import { type ServiceKind } from "@/features/projects/data/service-kinds";
 import { DatabaseLogo } from "@/shared/components/brand/database-logo";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { cn } from "@/shared/lib/utils";
+import { orpc } from "@/shared/server/orpc";
+import type { Id, ID_PREFIX } from "@otterstack/shared/id";
 
+import { useMutation } from "@tanstack/react-query";
+import { useFormContext } from "../form-context";
 import {
-  SectionHeader,
-  builderCardClass,
   builderCardActiveClass,
+  builderCardClass,
   builderIconClass,
   builderPopClass,
+  SectionHeader,
 } from "../form-primitives";
-import { useFormContext } from "../form-context";
 
 interface StepVersionProps {
   kind: ServiceKind;
+  projectId: Id<typeof ID_PREFIX.project>;
 }
 
-export function StepVersion({ kind }: StepVersionProps) {
+export function StepVersion({ kind, projectId }: StepVersionProps) {
   const form = useFormContext();
-  const version = useStore(form.store, (s) => s.values.version as string | null);
-  const name = useStore(form.store, (s) => s.values.name as string);
+  const version = useStore(form.store, (s) => s.values.version);
+  const name = useStore(form.store, (s) => s.values.name);
 
-  // Pre-fill a free default the first time the user lands on this step for
-  // this kind. If the form's current `name` is already taken, replace it
-  // with the suggestion the backend returns. Tracked with a ref so we don't
-  // re-run on every keystroke after the user has typed.
-  const didPrefill = useRef(false);
-
-  const existingName = useMutation(...orpc.project.resource.checkName.mutationOptions(), Ü
-
-
-  );
-
-  const result = await existingName.mutateAsync({ projectId, name });
-  useEffect(() => {
-    if (didPrefill.current) return;
-    if (!name) return;
-    didPrefill.current = true;
-    void (async () => {
-      const res = await orpc.project.resource.checkName.call({ projectId, name });
-      if (!res.available && res.suggestion) {
-        form.setFieldValue("name", res.suggestion);
+  const existingName = useMutation({
+    ...orpc.project.resource.checkName.mutationOptions(),
+    onSuccess: (data) => {
+      if (!data.available && data.suggestion) {
+        form.setFieldValue("name", data.suggestion);
       }
-    })();
-  }, [form, name, projectId]);
+    },
+  });
 
   const port =
     kind.id === "postgres"
@@ -75,7 +64,10 @@ export function StepVersion({ kind }: StepVersionProps) {
             key={v}
             type="button"
             onClick={() => form.setFieldValue("version", v)}
-            className={cn(builderCardClass, version === v && builderCardActiveClass)}
+            className={cn(
+              builderCardClass,
+              version === v && builderCardActiveClass,
+            )}
           >
             {i === 0 && <span className={builderPopClass}>latest</span>}
             <div className="flex items-center gap-2">
@@ -104,7 +96,7 @@ export function StepVersion({ kind }: StepVersionProps) {
         ))}
       </div>
 
-      <div className="h-[18px]" />
+      <div className="h-4.5" />
       <SectionHeader title="Database name" />
       <Card className="mt-2.5 rounded-md">
         <CardContent>
@@ -117,7 +109,7 @@ export function StepVersion({ kind }: StepVersionProps) {
               onBlurAsync: async ({ value }) => {
                 const trimmed = (value ?? "").trim();
                 if (!trimmed) return undefined;
-                const res = await orpc.project.resource.checkName.call({
+                const res = await existingName.mutateAsync({
                   projectId,
                   name: trimmed,
                 });
@@ -133,6 +125,24 @@ export function StepVersion({ kind }: StepVersionProps) {
                 label="Service name"
                 className="font-mono"
                 description={`Reachable at ${name || kind.id}.internal:${port}`}
+              />
+            )}
+          </form.AppField>
+        </CardContent>
+      </Card>
+
+      <div className="h-4.5" />
+      <SectionHeader
+        title="Access"
+        sub="Public access wires the Caddy proxy at the public hostname. Off keeps the DB on the internal network only — safer default."
+      />
+      <Card className="mt-2.5 rounded-md">
+        <CardContent>
+          <form.AppField name="publicEnabled">
+            {(f) => (
+              <f.SwitchField
+                label="Expose publicly"
+                description="When on, the DB is reachable from the internet at the deterministic public hostname. When off, only services in this project can connect."
               />
             )}
           </form.AppField>

@@ -6,7 +6,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { Activity, useEffect, useState } from "react";
 
 import { OpenTerminalDialog } from "@/features/terminal/components/open-terminal-dialog";
 import { TerminalSession } from "@/features/terminal/components/terminal-session";
@@ -195,23 +195,20 @@ function RouteComponent() {
         <div className="relative min-h-0 flex-1 overflow-hidden bg-[oklch(0.12_0_0)] p-2">
           {sessions.map((s) => {
             const isActive = s.id === activeId;
+            // <Activity> keeps every session's React tree mounted across
+            // tab switches — state (useState/useRef) is preserved, effects
+            // re-attach cleanly on visibility flip, and we never tear down
+            // the wterm <Terminal> instance.
             return (
-              <div
+              <Activity
                 key={s.id}
-                className={cn(
-                  // Absolute overlays so every session stays measured at the
-                  // panel's real size — autoResize on Ghostty wrecks the
-                  // scrollback if an inactive terminal measures 0×0 and then
-                  // jump-resizes when revealed.
-                  "absolute inset-2 transition-opacity",
-                  isActive
-                    ? "z-10 opacity-100"
-                    : "pointer-events-none z-0 opacity-0",
-                )}
-                aria-hidden={!isActive}
+                mode={isActive ? "visible" : "hidden"}
+                name={s.label}
               >
-                <TerminalSession source={s.source} active={isActive} />
-              </div>
+                <div className="absolute inset-2" aria-hidden={!isActive}>
+                  <TerminalSession source={s.source} active={isActive} />
+                </div>
+              </Activity>
             );
           })}
         </div>

@@ -69,6 +69,8 @@ export interface ResourceFormState {
   backupRetention: number;
   pitr: boolean;
   highAvailability: boolean;
+  /** Database-only: expose via the Caddy public proxy. OFF by default. */
+  publicEnabled: boolean;
 }
 
 export const resourceDefaults: ResourceFormState = {
@@ -102,4 +104,5 @@ export const resourceDefaults: ResourceFormState = {
   backupRetention: 7,
   pitr: false,
   highAvailability: false,
+  publicEnabled: false,
 };

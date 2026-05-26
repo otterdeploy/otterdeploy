@@ -6,7 +6,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { Activity, useMemo, useState } from "react";
 
 import { OpenTerminalDialog } from "@/features/terminal/components/open-terminal-dialog";
 import { TerminalSession } from "@/features/terminal/components/terminal-session";
@@ -61,7 +61,7 @@ function RouteComponent() {
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-3 p-4">
+    <div className="flex h-[calc(100svh-var(--header-height))] flex-col gap-3 p-4">
       {/* Single-row header: title chunk · tab strip · actions */}
       <header className="flex h-9 items-center gap-2">
         <div className="flex shrink-0 items-center gap-1.5">
@@ -158,22 +158,20 @@ function RouteComponent() {
           <div className="relative min-h-0 flex-1 overflow-hidden bg-[oklch(0.12_0_0)] p-2">
             {sessions.map((s) => {
               const isActive = s.id === activeId;
+              // <Activity> keeps every session's React tree mounted across
+              // tab switches — state (useState/useRef) is preserved, the
+              // WebSocket effect re-attaches cleanly on visibility flip, and
+              // we never tear down the wterm <Terminal> instance.
               return (
-                <div
+                <Activity
                   key={s.id}
-                  className={cn(
-                    // All sessions stack as absolute overlays so each one
-                    // stays measured at the panel's real size — even when
-                    // inactive — and Ghostty's autoResize never sees 0×0.
-                    "absolute inset-2 transition-opacity",
-                    isActive
-                      ? "z-10 opacity-100"
-                      : "pointer-events-none z-0 opacity-0",
-                  )}
-                  aria-hidden={!isActive}
+                  mode={isActive ? "visible" : "hidden"}
+                  name={s.label}
                 >
-                  <TerminalSession source={s.source} active={isActive} />
-                </div>
+                  <div className="absolute inset-2" aria-hidden={!isActive}>
+                    <TerminalSession source={s.source} active={isActive} />
+                  </div>
+                </Activity>
               );
             })}
           </div>

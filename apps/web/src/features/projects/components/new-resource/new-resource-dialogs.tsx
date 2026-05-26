@@ -1,4 +1,4 @@
-import { ID_PREFIX, type Slug } from "@otterstack/shared/id";
+import { ID_PREFIX, type Id, type Slug } from "@otterstack/shared/id";
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
@@ -92,6 +92,7 @@ export function ResourceKindDialog({
 interface ResourceOverlayDialogProps {
   orgSlug: string;
   projectSlug: Slug<typeof ID_PREFIX.project>;
+  projectId: Id<typeof ID_PREFIX.project>;
   projectName?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -100,6 +101,7 @@ interface ResourceOverlayDialogProps {
 export function ResourceOverlayDialog({
   orgSlug,
   projectSlug,
+  projectId,
   projectName,
   open,
   onOpenChange,
@@ -119,6 +121,7 @@ export function ResourceOverlayDialog({
           <DialogResourceWizard
             orgSlug={orgSlug}
             projectSlug={projectSlug}
+            projectId={projectId}
             projectName={projectName ?? ""}
             onComplete={() => onOpenChange(false)}
             onCancel={() => onOpenChange(false)}

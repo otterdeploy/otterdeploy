@@ -14,14 +14,27 @@ export {
   updateProject,
 } from "./projects";
 
-export { createPostgresResource } from "./postgres";
+export {
+  createPostgresResource,
+  setPostgresPublic,
+  setPostgresExtraEnvKey,
+  unsetPostgresExtraEnvKey,
+} from "./postgres";
 
 export {
+  checkResourceName,
   deleteProjectResource,
   getProjectResource,
   listProjectResources,
   type ProjectResource,
 } from "./resources";
+
+export {
+  bulkSetResourceEnv,
+  listResourceEnv,
+  listResourceTasks,
+  type EnvEntry,
+} from "./resource-runtime";
 
 export { listProjectDependencies, type DependencyEdge } from "./dependencies";
 

@@ -5,10 +5,13 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useLiveQuery } from "@tanstack/react-db";
-import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 
 import { serverCollection } from "@/features/servers/data/server";
+import {
+  terminalContainersCollection,
+  terminalDatabasesCollection,
+} from "@/features/terminal/data/targets";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -26,17 +29,16 @@ import {
   TabsTrigger,
 } from "@/shared/components/ui/tabs";
 import { cn } from "@/shared/lib/utils";
-import { orpc } from "@/shared/server/orpc";
 
 import type { SessionSource } from "../types";
 
-type Props = {
+interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onPick: (source: SessionSource) => void;
   /** Optional starting project filter. Defaults to "all". */
   defaultProject?: string;
-};
+}
 
 const PROJECT_DOT: Record<string, string> = {
   helio: "bg-success",
@@ -64,11 +66,15 @@ export function OpenTerminalDialog({
 
   // Live data: containers + databases come from terminal.targets (one query
   // covers both tabs). SSH nodes come from the server collection.
-  const { data: targets } = useQuery(
-    orpc.terminal.targets.queryOptions({ input: undefined }),
+  // Two sibling collections share one terminal.targets RPC via the same
+  // queryKey — opening the picker fires a single network call. Sync reads
+  // make re-opening instant.
+  const { data: containers = [] } = useLiveQuery(
+    () => terminalContainersCollection,
   );
-  const containers = targets?.containers ?? [];
-  const databases = targets?.databases ?? [];
+  const { data: databases = [] } = useLiveQuery(
+    () => terminalDatabasesCollection,
+  );
 
   const { data: servers = [] } = useLiveQuery((q) =>
     q.from({ s: serverCollection }),
@@ -203,7 +209,7 @@ export function OpenTerminalDialog({
                 into.
               </p>
 
-              <div className="-mx-2.5 max-h-105 space-y-2 overflow-y-auto px-2.5">
+              <div className="-mx-2.5 max-h-105 space-y-2 overflow-y-auto px-2.5 pb-8">
                 {filteredServices.length === 0 ? (
                   <div className="rounded-md border border-dashed bg-muted/20 py-8 text-center text-sm text-muted-foreground">
                     No services in {projectFilter}.
@@ -237,7 +243,7 @@ export function OpenTerminalDialog({
               </div>
             </TabsContent>
 
-            <TabsContent value="ssh" className="mt-4 space-y-2">
+            <TabsContent value="ssh" className="mt-4 space-y-2 pb-8">
               <p className="text-[12.5px] text-muted-foreground">
                 Open a shell on the host or SSH into a swarm node.
               </p>
@@ -292,7 +298,7 @@ export function OpenTerminalDialog({
               )}
             </TabsContent>
 
-            <TabsContent value="database" className="mt-4 space-y-2">
+            <TabsContent value="database" className="mt-4 space-y-2 pb-8">
               <p className="text-[12.5px] text-muted-foreground">
                 Open a database console — psql, redis-cli, mongosh, …
               </p>

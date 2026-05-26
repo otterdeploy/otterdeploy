@@ -47,6 +47,47 @@ type ResourceRef = ProjectRef & {
 
 export type { ProjectResource };
 
+/**
+ * Live name-availability check for the new-resource wizard. Returns
+ * `{ available: true, suggestion: null }` when the name is free, or
+ * `{ available: false, suggestion: "<base>-N" }` with the lowest free
+ * suffix when taken. Names are unique per `(projectId, name)` via the
+ * `resource_project_name_unique` index — this just lets the UI fail
+ * fast on blur instead of after submit.
+ */
+export async function checkResourceName(
+  input: ProjectRef & { name: string },
+): Promise<Result<{ available: boolean; suggestion: string | null }, ProjectNotFoundError>> {
+  const project = await getProjectInOrg({
+    projectId: input.projectId,
+    organizationId: input.organizationId,
+  });
+  if (!project) {
+    return Result.err(new ProjectNotFoundError({ projectId: input.projectId }));
+  }
+
+  const { databases, services } = await listProjectResourcesQuery(input.projectId);
+  const used = new Set<string>();
+  for (const row of databases) used.add(row.resource.name);
+  for (const row of services) used.add(row.resource.name);
+
+  const requested = input.name.trim();
+  if (!used.has(requested)) {
+    return Result.ok({ available: true, suggestion: null });
+  }
+
+  // Suffix `-N` until we find a free one. Bounded loop — projects with
+  // 1000+ same-base names are extraordinary; cap at 1000 to keep this
+  // cheap and predictable.
+  for (let i = 2; i <= 1000; i++) {
+    const candidate = `${requested}-${i}`;
+    if (!used.has(candidate)) {
+      return Result.ok({ available: false, suggestion: candidate });
+    }
+  }
+  return Result.ok({ available: false, suggestion: null });
+}
+
 export async function listProjectResources(
   input: ProjectRef,
 ): Promise<Result<ProjectResource[], ProjectNotFoundError>> {

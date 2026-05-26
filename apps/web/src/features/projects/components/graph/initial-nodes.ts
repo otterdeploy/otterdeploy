@@ -13,17 +13,32 @@ import type { Edge, Node } from "@xyflow/react";
 
 import type { ResourceNodeData } from "./resource-node";
 
-// Layout: 3 columns × 4 rows. Cards are 420px wide; allow ~60px gap horizontally.
-// Row 3 (databases with MOUNTS trays) sits taller so it gets extra vertical room.
-export const COL = [0, 480, 960] as const;
-export const ROW = [0, 280, 600, 940] as const;
+// Horizontal flow: 4 tiers left → right. Cards are 420px wide; allow ~120px
+// between tiers so the smoothstep edge "elbow" has room to turn. Rows inside
+// a tier are spaced 240px apart (tall enough for cards carrying volume trays).
+//
+//   tier 0   tier 1                tier 2              tier 3
+//   web  →   imgproxy              postgres            mysql
+//            api          ────────►redis     ──────────►mariadb
+//            worker                mongo
+//            cron
+//            vector-bridge
+export const TIER_X = [0, 540, 1080, 1620] as const;
+const ROW_Y = (i: number) => i * 240;
 
 export const INITIAL_NODES: Node<ResourceNodeData>[] = [
-  // Row 1 — services, three statuses
+  // Tier 1 — services. Ordered top-to-bottom so the edges into Tier 2
+  // (postgres / redis / mongo) leave the box in roughly the same y-range
+  // as their target.
+  //   row 0: imgproxy (terminal)
+  //   row 1: api      → postgres, redis, mongo
+  //   row 2: worker   → redis, postgres, mongo, mysql, mariadb
+  //   row 3: cron     → postgres, mongo
+  //   row 4: vector-bridge → mongo
   {
     id: "api",
     type: "resource",
-    position: { x: COL[0], y: ROW[0] },
+    position: { x: TIER_X[1], y: ROW_Y(1) },
     data: {
       kind: "service",
       name: "api",
@@ -46,7 +61,7 @@ export const INITIAL_NODES: Node<ResourceNodeData>[] = [
   {
     id: "worker",
     type: "resource",
-    position: { x: COL[1], y: ROW[0] },
+    position: { x: TIER_X[1], y: ROW_Y(2) },
     data: {
       kind: "service",
       name: "worker",
@@ -67,7 +82,7 @@ export const INITIAL_NODES: Node<ResourceNodeData>[] = [
   {
     id: "imgproxy",
     type: "resource",
-    position: { x: COL[2], y: ROW[0] },
+    position: { x: TIER_X[1], y: ROW_Y(0) },
     data: {
       kind: "service",
       name: "imgproxy",
@@ -86,11 +101,12 @@ export const INITIAL_NODES: Node<ResourceNodeData>[] = [
     },
   },
 
-  // Row 2 — service without status, service without tech footer
+  // Tier 0 — single entry-point service. Sits opposite the api row so the
+  // web → api edge runs flat.
   {
     id: "web",
     type: "resource",
-    position: { x: COL[0], y: ROW[1] },
+    position: { x: TIER_X[0], y: ROW_Y(1) },
     data: {
       kind: "service",
       name: "web",
@@ -111,7 +127,7 @@ export const INITIAL_NODES: Node<ResourceNodeData>[] = [
   {
     id: "cron",
     type: "resource",
-    position: { x: COL[1], y: ROW[1] },
+    position: { x: TIER_X[1], y: ROW_Y(3) },
     data: {
       kind: "service",
       name: "nightly-cleanup",
@@ -127,7 +143,7 @@ export const INITIAL_NODES: Node<ResourceNodeData>[] = [
   {
     id: "docker-custom",
     type: "resource",
-    position: { x: COL[2], y: ROW[1] },
+    position: { x: TIER_X[1], y: ROW_Y(4) },
     data: {
       kind: "service",
       name: "vector-bridge",
@@ -139,12 +155,15 @@ export const INITIAL_NODES: Node<ResourceNodeData>[] = [
     },
   },
 
-  // Row 3 — databases with brand engines, three statuses + 3 volume variants
-  // Variant A (inline): postgres carries its volumes inside the card body.
+  // Tier 2 — primary datastores. Centered vertically against the service
+  // tier so api/worker/cron edges run roughly horizontal.
+  //   row 1: postgres   ← api, worker, cron
+  //   row 2: redis      ← api, worker
+  //   row 3: mongo      ← api, worker, cron, vector-bridge
   {
     id: "postgres",
     type: "resource",
-    position: { x: COL[0], y: ROW[2] },
+    position: { x: TIER_X[2], y: ROW_Y(1) },
     data: {
       kind: "database",
       name: "postgres",
@@ -158,7 +177,7 @@ export const INITIAL_NODES: Node<ResourceNodeData>[] = [
   {
     id: "redis",
     type: "resource",
-    position: { x: COL[1], y: ROW[2] },
+    position: { x: TIER_X[2], y: ROW_Y(2) },
     data: {
       kind: "database",
       name: "redis",
@@ -173,7 +192,7 @@ export const INITIAL_NODES: Node<ResourceNodeData>[] = [
   {
     id: "mongo",
     type: "resource",
-    position: { x: COL[2], y: ROW[2] },
+    position: { x: TIER_X[2], y: ROW_Y(3) },
     data: {
       kind: "database",
       name: "events",
@@ -189,11 +208,11 @@ export const INITIAL_NODES: Node<ResourceNodeData>[] = [
     },
   },
 
-  // Row 4 — extra engines + a route
+  // Tier 3 — legacy / analytics datastores. Only the worker touches these.
   {
     id: "mysql",
     type: "resource",
-    position: { x: COL[0], y: ROW[3] },
+    position: { x: TIER_X[3], y: ROW_Y(2) },
     data: {
       kind: "database",
       name: "legacy",
@@ -206,7 +225,7 @@ export const INITIAL_NODES: Node<ResourceNodeData>[] = [
   {
     id: "mariadb",
     type: "resource",
-    position: { x: COL[1], y: ROW[3] },
+    position: { x: TIER_X[3], y: ROW_Y(3) },
     data: {
       kind: "database",
       name: "analytics",

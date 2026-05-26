@@ -3,7 +3,12 @@ import { matchError } from "better-result";
 import { orgScopedProcedure } from "../../index";
 
 import {
+  bulkSetResourceEnv,
+  checkResourceName,
   createPostgresResource,
+  setPostgresPublic,
+  setPostgresExtraEnvKey,
+  unsetPostgresExtraEnvKey,
   createProject,
   deleteProject,
   deleteProjectResource,
@@ -15,6 +20,8 @@ import {
   listProjectResources,
   listProjects,
   listProjectServiceTasks,
+  listResourceEnv,
+  listResourceTasks,
   updateProject,
 } from "./handlers";
 
@@ -176,6 +183,88 @@ export const projectRouter = {
       },
     ),
 
+    checkName: orgScopedProcedure.project.resource.checkName.handler(
+      async ({ input, context, errors }) => {
+        const result = await checkResourceName({
+          projectId: input.projectId,
+          organizationId: context.activeOrganizationId,
+          name: input.name,
+        });
+        if (result.isErr()) {
+          throw matchError(result.error, {
+            ProjectNotFoundError: () => errors.NOT_FOUND(),
+          });
+        }
+        return result.value;
+      },
+    ),
+
+    tasks: orgScopedProcedure.project.resource.tasks.handler(
+      async ({ input, context, errors }) => {
+        context.log.set({
+          target: { type: "resource", id: input.resourceId, projectId: input.projectId },
+        });
+        const result = await listResourceTasks({
+          projectId: input.projectId,
+          resourceId: input.resourceId,
+          organizationId: context.activeOrganizationId,
+        });
+        if (result.isErr()) {
+          throw matchError(result.error, {
+            ProjectNotFoundError: () => errors.NOT_FOUND(),
+            PostgresResourceNotFoundError: () => errors.NOT_FOUND(),
+          });
+        }
+        return result.value;
+      },
+    ),
+
+    env: {
+      list: orgScopedProcedure.project.resource.env.list.handler(
+        async ({ input, context, errors }) => {
+          context.log.set({
+            target: { type: "resource", id: input.resourceId, projectId: input.projectId },
+          });
+          const result = await listResourceEnv({
+            projectId: input.projectId,
+            resourceId: input.resourceId,
+            organizationId: context.activeOrganizationId,
+          });
+          if (result.isErr()) {
+            throw matchError(result.error, {
+              ProjectNotFoundError: () => errors.NOT_FOUND(),
+              PostgresResourceNotFoundError: () => errors.NOT_FOUND(),
+            });
+          }
+          return result.value;
+        },
+      ),
+
+      bulkSet: orgScopedProcedure.project.resource.env.bulkSet.handler(
+        async ({ input, context, errors }) => {
+          context.log.set({
+            target: { type: "resource", id: input.resourceId, projectId: input.projectId },
+          });
+          const result = await bulkSetResourceEnv(
+            {
+              projectId: input.projectId,
+              resourceId: input.resourceId,
+              organizationId: context.activeOrganizationId,
+              env: input.env,
+            },
+            context.log,
+          );
+          if (result.isErr()) {
+            throw matchError(result.error, {
+              ProjectNotFoundError: () => errors.NOT_FOUND(),
+              PostgresResourceNotFoundError: () => errors.NOT_FOUND(),
+            });
+          }
+          return result.value;
+        },
+      ),
+    },
+
     get: orgScopedProcedure.project.resource.get.handler(
       async ({ input, context, errors }) => {
         context.log.set({
@@ -249,6 +338,98 @@ export const projectRouter = {
             return result.value;
           },
         ),
+
+        setPublic: orgScopedProcedure.project.resource.database.postgres.setPublic.handler(
+          async ({ input, context, errors }) => {
+            context.log.set({
+              target: {
+                type: "resource",
+                kind: "postgres",
+                id: input.resourceId,
+                projectId: input.projectId,
+              },
+            });
+            const result = await setPostgresPublic(
+              {
+                projectId: input.projectId,
+                resourceId: input.resourceId,
+                publicEnabled: input.publicEnabled,
+                organizationId: context.activeOrganizationId,
+              },
+              context.log,
+            );
+            if (result.isErr()) {
+              throw matchError(result.error, {
+                ProjectNotFoundError: () => errors.NOT_FOUND(),
+                PostgresResourceNotFoundError: () => errors.NOT_FOUND(),
+              });
+            }
+            return result.value;
+          },
+        ),
+
+        setExtraEnv:
+          orgScopedProcedure.project.resource.database.postgres.setExtraEnv.handler(
+            async ({ input, context, errors }) => {
+              context.log.set({
+                target: {
+                  type: "resource",
+                  kind: "postgres",
+                  id: input.resourceId,
+                  projectId: input.projectId,
+                },
+                envKey: input.key,
+              });
+              const result = await setPostgresExtraEnvKey(
+                {
+                  projectId: input.projectId,
+                  resourceId: input.resourceId,
+                  key: input.key,
+                  value: input.value,
+                  organizationId: context.activeOrganizationId,
+                },
+                context.log,
+              );
+              if (result.isErr()) {
+                throw matchError(result.error, {
+                  ProjectNotFoundError: () => errors.NOT_FOUND(),
+                  PostgresResourceNotFoundError: () => errors.NOT_FOUND(),
+                });
+              }
+              return result.value;
+            },
+          ),
+
+        unsetExtraEnv:
+          orgScopedProcedure.project.resource.database.postgres.unsetExtraEnv.handler(
+            async ({ input, context, errors }) => {
+              context.log.set({
+                target: {
+                  type: "resource",
+                  kind: "postgres",
+                  id: input.resourceId,
+                  projectId: input.projectId,
+                },
+                envKey: input.key,
+              });
+              const result = await unsetPostgresExtraEnvKey(
+                {
+                  projectId: input.projectId,
+                  resourceId: input.resourceId,
+                  key: input.key,
+                  organizationId: context.activeOrganizationId,
+                },
+                context.log,
+              );
+              if (result.isErr()) {
+                throw matchError(result.error, {
+                  ProjectNotFoundError: () => errors.NOT_FOUND(),
+                  PostgresResourceNotFoundError: () => errors.NOT_FOUND(),
+                });
+              }
+              return result.value;
+            },
+          ),
       },
     },
   },
