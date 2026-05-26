@@ -21,6 +21,7 @@ export default defineConfig({
     },
   },
   server: {
+    allowedHosts: ["*"],
     // oxlint-disable-next-line node/no-process-env
     port: Number(process.env.PORT) || 3001,
   },

@@ -113,7 +113,12 @@ export const resource = pgTable(
   ],
 );
 
-export const databaseEngineEnum = pgEnum("database_engine", ["postgres"]);
+export const databaseEngineEnum = pgEnum("database_engine", [
+  "postgres",
+  "redis",
+  "mariadb",
+  "mongodb",
+]);
 
 export const databaseResource = pgTable(
   "database_resource",

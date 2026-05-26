@@ -2,6 +2,12 @@ import type { RequestLogger } from "evlog";
 
 import type { DatabaseEngine } from "@otterstack/shared/database-engines";
 
+import {
+  destroySwarmDatabase,
+  inspectSwarmDatabaseRuntime,
+  provisionSwarmDatabase,
+} from "../../../swarm";
+
 export interface ProvisionInput {
   serviceName: string;
   volumeName: string;
@@ -10,9 +16,14 @@ export interface ProvisionInput {
   username: string;
   password: string;
   projectSlug: string;
-  /** ID of the deployment row this push is associated with. Stamped onto
-   *  the swarm spec so tasks group under the right deployment. */
+  /** Deployment row id — stamped on the swarm spec so tasks group under
+   *  the right deployment in the Deployments tab. */
   deploymentId: string;
+  /** Optional image override (`<repo>:<tag>`). Defaults to the engine's
+   *  pinned image when omitted. */
+  image?: string;
+  /** User-added envs merged with the engine's identity envs. */
+  extraEnv?: Record<string, string>;
 }
 
 export interface ProvisionRuntime {
@@ -35,10 +46,24 @@ export interface DatabaseProvisioner {
   }): Promise<ProvisionRuntime>;
 }
 
-import { postgresProvisioner } from "./postgres";
+// Single generic provisioner — all engines share the same swarm orchestration
+// (network ensure, service create, wait-ready, etc.). Engine-specific knobs
+// (image, env, healthcheck, mount path, optional --requirepass command) live
+// in the adapters under packages/api/src/swarm/database-engines/.
+const makeProvisioner = (engine: DatabaseEngine): DatabaseProvisioner => ({
+  engine,
+  provision: (input, log) =>
+    provisionSwarmDatabase({ ...input, engine }, log),
+  destroy: ({ serviceName }, log) =>
+    destroySwarmDatabase({ serviceName }, log),
+  inspectRuntime: (input) => inspectSwarmDatabaseRuntime(input),
+});
 
 const PROVISIONERS: Record<DatabaseEngine, DatabaseProvisioner> = {
-  postgres: postgresProvisioner,
+  postgres: makeProvisioner("postgres"),
+  redis: makeProvisioner("redis"),
+  mariadb: makeProvisioner("mariadb"),
+  mongodb: makeProvisioner("mongodb"),
 };
 
 export function getDatabaseProvisioner(engine: DatabaseEngine): DatabaseProvisioner {
