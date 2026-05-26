@@ -60,6 +60,10 @@ export async function listDatabaseResourceRecords(projectId: ProjectId) {
 export async function createDatabaseResourceRecord(input: {
   projectId: ProjectId;
   name: string;
+  /** Database engine. Defaults to postgres for back-compat with the
+   *  original postgres-only call sites. New callers should always pass
+   *  this explicitly. */
+  engine?: "postgres" | "redis" | "mariadb" | "mongodb";
   status?: "draft" | "valid" | "invalid";
   databaseName: string;
   username: string;
@@ -100,7 +104,7 @@ export async function createDatabaseResourceRecord(input: {
       .insert(databaseResource)
       .values({
         resourceId,
-        engine: "postgres",
+        engine: input.engine ?? "postgres",
         databaseName: input.databaseName,
         username: input.username,
         password: input.password,

@@ -942,18 +942,95 @@ const SERVICE_VARS: EnvVar[] = [
 // the database. The "+ New Variable" button is gated until the project
 // secrets surface lands and we have somewhere meaningful for user-added
 // service-scoped vars to live.
+
+interface DerivedVar {
+  name: string;
+  value: string;
+  secret: boolean;
+  description?: string;
+}
+
+// Engine identity envs the swarm spec actually injects. Mirrors the
+// per-engine adapter in packages/api/src/swarm/database-engines/. Keep
+// these two in sync — backend reality first, this is just the display.
+function buildEngineServiceVars(
+  resource: ResourceBodyProps["resource"],
+): DerivedVar[] {
+  switch (resource.engine) {
+    case "postgres":
+      return [
+        { name: "POSTGRES_USER", value: resource.username, secret: false },
+        { name: "POSTGRES_PASSWORD", value: resource.password, secret: true },
+        { name: "POSTGRES_DB", value: resource.databaseName, secret: false },
+        {
+          name: "DATABASE_URL",
+          value: resource.internalConnectionString,
+          secret: true,
+        },
+      ];
+    case "redis":
+      // Redis authenticates via --requirepass (the swarm adapter sets it
+      // on Command, not Env). We surface it here as a "REDIS_PASSWORD" so
+      // consumer services have a canonical key to reference.
+      return [
+        { name: "REDIS_PASSWORD", value: resource.password, secret: true },
+        {
+          name: "REDIS_URL",
+          value: resource.internalConnectionString,
+          secret: true,
+        },
+      ];
+    case "mariadb":
+      return [
+        { name: "MARIADB_USER", value: resource.username, secret: false },
+        { name: "MARIADB_PASSWORD", value: resource.password, secret: true },
+        {
+          name: "MARIADB_ROOT_PASSWORD",
+          value: resource.password,
+          secret: true,
+        },
+        {
+          name: "MARIADB_DATABASE",
+          value: resource.databaseName,
+          secret: false,
+        },
+        {
+          name: "DATABASE_URL",
+          value: resource.internalConnectionString,
+          secret: true,
+        },
+      ];
+    case "mongodb":
+      return [
+        {
+          name: "MONGO_INITDB_ROOT_USERNAME",
+          value: resource.username,
+          secret: false,
+        },
+        {
+          name: "MONGO_INITDB_ROOT_PASSWORD",
+          value: resource.password,
+          secret: true,
+        },
+        {
+          name: "MONGO_INITDB_DATABASE",
+          value: resource.databaseName,
+          secret: false,
+        },
+        {
+          name: "MONGODB_URI",
+          value: resource.internalConnectionString,
+          secret: true,
+        },
+      ];
+  }
+}
+
 function PostgresVariablesTabBody({
   resource,
 }: {
   resource: ResourceBodyProps["resource"];
 }) {
-  interface DerivedVar {
-    name: string;
-    value: string;
-    secret: boolean;
-    description?: string;
-  }
-
   // Persisted user-editable envs. Refetches the resource list on success so
   // the new env shows up across every panel + the graph.
   const setExtraEnvMut = useMutation(
@@ -1026,23 +1103,11 @@ function PostgresVariablesTabBody({
     );
   };
 
-  // Only POSTGRES_USER / PASSWORD / DB are actually injected into the swarm
-  // task by provisionSwarmPostgres. PGDATA uses the image default, and the
-  // PG* libpq client envs aren't set — listing them would be a lie.
-  //
-  // DATABASE_URL is a derived convenience (the internal connection string)
-  // so consumer services can reference one canonical key. The public URL
-  // lives on the Details tab's Connection strings section, not here.
-  const serviceVars: DerivedVar[] = [
-    { name: "POSTGRES_USER", value: resource.username, secret: false },
-    { name: "POSTGRES_PASSWORD", value: resource.password, secret: true },
-    { name: "POSTGRES_DB", value: resource.databaseName, secret: false },
-    {
-      name: "DATABASE_URL",
-      value: resource.internalConnectionString,
-      secret: true,
-    },
-  ];
+  // Engine-specific identity envs — these mirror what the swarm spec
+  // adapter (packages/api/src/swarm/database-engines/<engine>.ts) actually
+  // injects into the container. Plus a derived URL key so consumer
+  // services can reference one canonical connection string.
+  const serviceVars: DerivedVar[] = buildEngineServiceVars(resource);
 
   const systemVars: DerivedVar[] = [
     {

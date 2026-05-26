@@ -22,13 +22,18 @@ import {
   tag,
 } from "./shared";
 
-export const postgresResourceSchema = z.object({
+// Renamed conceptually from postgresResourceSchema to "database resource
+// schema" — the shape is the same across engines (a record with credentials
+// + a set of connection strings), the engine field just enumerates which
+// engine produced those strings. The export alias below keeps the
+// `postgresResourceSchema` import name compiling.
+export const databaseResourceSchema = z.object({
   resourceId: zId(ID_PREFIX.resource),
   projectId: zId(ID_PREFIX.project),
   name: z.string(),
   type: z.literal("database"),
   status: z.enum(["draft", "valid", "invalid"]),
-  engine: z.literal("postgres"),
+  engine: z.enum(["postgres", "redis", "mariadb", "mongodb"]),
   databaseName: z.string(),
   username: z.string(),
   password: z.string(),
@@ -57,9 +62,9 @@ export const postgresResourceSchema = z.object({
   extraEnv: z.record(z.string(), z.string()),
 });
 
-export const databaseResourceSchema = z.discriminatedUnion("engine", [
-  postgresResourceSchema,
-]);
+// Legacy alias for callers that still import the postgres-named schema.
+// Same object, just a different name — drop once all imports rename.
+export const postgresResourceSchema = databaseResourceSchema;
 
 /**
  * Minimal service view for the graph and resource list. Keeps the list
@@ -79,10 +84,11 @@ export const serviceResourceSchema = z.object({
   publicDomain: z.string().nullable(),
 });
 
-// All database engine variants are `type: "database"`. Spread so adding a new
-// engine to databaseResourceSchema automatically widens resourceSchema too.
+// `type` discriminates database vs service. The engine field on database
+// rows is a plain enum (not nested discriminators) — engines share the
+// same record shape, just produce different connection-string formats.
 export const resourceSchema = z.discriminatedUnion("type", [
-  ...databaseResourceSchema.options,
+  databaseResourceSchema,
   serviceResourceSchema,
 ]);
 

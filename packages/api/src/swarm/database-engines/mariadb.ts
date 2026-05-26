@@ -6,6 +6,7 @@ const meta = DATABASE_ENGINES.mariadb;
 
 export const mariadbAdapter: DatabaseEngineAdapter = {
   engine: "mariadb",
+  nameShort: "mariadb",
   defaultImage: `${meta.dockerImage}:${meta.defaultTag}`,
   port: meta.defaultPort,
   // MariaDB writes its datadir to /var/lib/mysql (same path the MySQL image

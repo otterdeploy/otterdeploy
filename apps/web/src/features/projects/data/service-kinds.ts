@@ -61,12 +61,12 @@ export const SERVICE_KINDS: ServiceKind[] = [
     versions: ["18", "17"],
   },
   {
-    id: "mysql",
-    name: "MySQL",
-    sub: "Managed MySQL with replication",
+    id: "mariadb",
+    name: "MariaDB",
+    sub: "MySQL-compatible · drop-in replacement",
     icon: "db",
     group: "data",
-    versions: ["8.4", "8.0", "5.7"],
+    versions: ["11.4", "11.2", "10.11"],
   },
   {
     id: "redis",

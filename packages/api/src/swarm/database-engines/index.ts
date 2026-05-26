@@ -25,6 +25,11 @@ export interface ConnectionStringInput {
 
 export interface DatabaseEngineAdapter {
   readonly engine: DatabaseEngine;
+  /** Short engine slug used in container + volume names (e.g. "pg" for
+   *  postgres, "mongo" for mongodb). Stays compact so the full names
+   *  like `otterstack-pg-<project>-<resource>` don't blow past docker's
+   *  64-char limit on long project + resource names. */
+  readonly nameShort: string;
   /** Default `<repo>:<tag>` for fresh deployments. Honours the catalog's
    *  defaultTag — change the tag in `shared/database-engines.ts` to repin. */
   readonly defaultImage: string;

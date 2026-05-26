@@ -48,8 +48,17 @@ export const unsetPostgresExtraEnvInput = z.object({
 export const createPostgresDatabaseInput = z.object({
   projectId: zId(ID_PREFIX.project),
   name: z.string().min(1),
+  /** Database engine to provision. Default is postgres for back-compat
+   *  with the original postgres-only contract; the wizard sends the
+   *  user's selection explicitly. */
+  engine: z
+    .enum(["postgres", "redis", "mariadb", "mongodb"])
+    .optional()
+    .default("postgres"),
   /** Whether the DB should be reachable from the public internet via the
-   *  Caddy proxy. Defaults to false — internal-only is the safe default. */
+   *  Caddy proxy. Defaults to false — internal-only is the safe default.
+   *  Currently only honoured for postgres (other engines stay internal
+   *  until their TCP proxy paths are wired). */
   publicEnabled: z.boolean().optional().default(false),
 });
 

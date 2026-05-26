@@ -6,6 +6,7 @@ const meta = DATABASE_ENGINES.postgres;
 
 export const postgresAdapter: DatabaseEngineAdapter = {
   engine: "postgres",
+  nameShort: "pg",
   defaultImage: `${meta.dockerImage}:${meta.defaultTag}`,
   port: meta.defaultPort,
   // We pin v17 — postgres 18+ refuses our /var/lib/postgresql/data mount

@@ -97,11 +97,20 @@ function ResourceWizardBody({
     errorMessage: null,
   });
 
-  const runPostgresCreate = useCallback(
+  const runDatabaseCreate = useCallback(
     async (payload: {
+      engine: "postgres" | "redis" | "mariadb" | "mongodb";
       name: string;
       publicEnabled: boolean;
     }) => {
+      // Display label for toasts — caps the engine name without forking
+      // per-engine code paths. Add new engines here when the catalog widens.
+      const engineLabel = {
+        postgres: "Postgres",
+        redis: "Redis",
+        mariadb: "MariaDB",
+        mongodb: "MongoDB",
+      }[payload.engine];
       setProgress({
         status: "running",
         steps: [],
@@ -116,6 +125,7 @@ function ResourceWizardBody({
         const stream = await orpc.project.resource.database.postgres.create.call({
           projectId,
           name: payload.name,
+          engine: payload.engine,
           publicEnabled: payload.publicEnabled,
         });
         let handedOff = false;
@@ -129,7 +139,7 @@ function ResourceWizardBody({
             // can add hundreds of ms if the list query is mid-flight.
             // Awaiting it here was making the wizard appear to hang on the
             // overlay even after `created` arrived.
-            toast.success(`Postgres ${event.resource.name} is provisioning`);
+            toast.success(`${engineLabel} ${event.resource.name} is provisioning`);
             onComplete?.();
             void navigate({
               to: "/$orgSlug/$projectSlug/graph/$resourceId",
@@ -157,7 +167,7 @@ function ResourceWizardBody({
             // Only navigate here if we never handed off (e.g. an unusually
             // fast run where db-record's `created` event was missed).
             if (!handedOff) {
-              toast.success(`Postgres ${event.resource.name} is provisioning`);
+              toast.success(`${engineLabel} ${event.resource.name} is provisioning`);
               onComplete?.();
               void navigate({
                 to: "/$orgSlug/$projectSlug/graph/$resourceId",
@@ -182,7 +192,7 @@ function ResourceWizardBody({
           status: "error",
           errorMessage: message,
         }));
-        toast.error(message || "Failed to create Postgres");
+        toast.error(message || `Failed to create ${engineLabel}`);
       }
     },
     [navigate, onComplete, orgSlug, projectId, projectSlug],
@@ -197,15 +207,25 @@ function ResourceWizardBody({
     onSubmit: async ({ value }) => {
       // Strip the wizard-only discriminator before passing fields to the API.
       const { __step: _drop, ...payload } = value;
-      if (payload.kindId === "postgres") {
-        await runPostgresCreate({
+      // The kind ids in the catalog map 1:1 to backend engine names for the
+      // four database engines we support; anything else (services, custom
+      // images) falls through to the not-wired warning below.
+      if (
+        payload.kindId === "postgres" ||
+        payload.kindId === "redis" ||
+        payload.kindId === "mariadb" ||
+        payload.kindId === "mongodb"
+      ) {
+        await runDatabaseCreate({
+          engine: payload.kindId,
           name: payload.name,
           publicEnabled: payload.publicEnabled,
         });
         return;
       }
-      // Other engines aren't wired yet — the Create button is gated below so
-      // this branch shouldn't be reachable through the UI.
+      // Other kinds (services, custom images, templates) aren't wired yet —
+      // the Create button is gated below so this shouldn't be reachable
+      // through the UI.
       console.warn("[new-resource] submit ignored: kind not wired", payload.kindId);
     },
   });
@@ -281,7 +301,14 @@ function ResourceWizardBody({
   // Only Postgres is wired through to a real provisioner today. Keep the
   // wizard browsable for every kind but gate the final Create action so we
   // don't pretend to deploy something that isn't implemented yet.
-  const kindWired = kindId === "postgres";
+  // Engines whose create path is end-to-end wired today — drives the
+  // Create button gate. As more kinds (services, templates) come online
+  // they get added here.
+  const kindWired =
+    kindId === "postgres" ||
+    kindId === "redis" ||
+    kindId === "mariadb" ||
+    kindId === "mongodb";
   const isCreating = progress.status === "running";
   const createDisabled = isLast && (!kindWired || isCreating);
 

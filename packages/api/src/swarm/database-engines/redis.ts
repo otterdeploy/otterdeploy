@@ -6,6 +6,7 @@ const meta = DATABASE_ENGINES.redis;
 
 export const redisAdapter: DatabaseEngineAdapter = {
   engine: "redis",
+  nameShort: "redis",
   defaultImage: `${meta.dockerImage}:${meta.defaultTag}`,
   port: meta.defaultPort,
   // The redis image defaults to /data for its dump.rdb + appendonly file.

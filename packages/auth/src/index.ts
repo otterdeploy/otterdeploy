@@ -63,7 +63,7 @@ export const auth = betterAuth({
   experimental: {
     joins: true,
   },
-  trustedOrigins: env.CORS_ORIGIN.split(","),
+  trustedOrigins: env.CORS_ORIGIN,
   emailAndPassword: {
     enabled: true,
   },

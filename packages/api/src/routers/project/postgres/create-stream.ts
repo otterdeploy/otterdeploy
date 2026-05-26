@@ -16,10 +16,12 @@ import { PLATFORM } from "../../../constants";
 import { Docker } from "@otterdeploy/docker";
 
 import {
-  provisionSwarmPostgres,
+  getEngineAdapter,
+  provisionSwarmDatabase,
   resolveRegistryAuth,
   streamImagePull,
 } from "../../../swarm";
+import type { DatabaseEngine } from "@otterstack/shared/database-engines";
 import { insertDeployment, markDeploymentFailed } from "../deployments";
 
 import { type Id, ID_PREFIX } from "@otterstack/shared/id";
@@ -40,7 +42,6 @@ import {
 import { tailContainerBootLogs } from "./boot-logs";
 import { snapshotForPostgresCreate } from "./snapshot";
 import {
-  buildConnectionString,
   clampPostgresIdentifier,
   isUniqueViolation,
   mapDatabaseResource,
@@ -127,13 +128,22 @@ export async function validatePostgresCreate(
 export async function* createPostgresResourceStream(
   input: ProjectRef & {
     name: string;
+    /** Database engine to provision. Default is postgres for back-compat
+     *  with callers that haven't plumbed the param through yet. */
+    engine?: DatabaseEngine;
     publicEnabled?: boolean;
     /** Output of validatePostgresCreate so we don't re-fetch the project. */
     project: { id: string; slug: string };
   },
   log: RequestLogger,
 ): AsyncGenerator<CreatePostgresProgress, void, void> {
-  const publicEnabled = input.publicEnabled ?? false;
+  const engine: DatabaseEngine = input.engine ?? "postgres";
+  const adapter = getEngineAdapter(engine);
+  // Caddy layer4 ALPN routing is engine-specific; only postgres has a
+  // wired ALPN today. Other engines stay internal-only until we plumb
+  // their TCP proxy path (redis raw TCP, mariadb mysql ALPN, etc.).
+  const publicEnabled =
+    engine === "postgres" ? (input.publicEnabled ?? false) : false;
   // Note: log.set() calls inside this generator's body are no-ops —
   // hono/evlog flushes the wide event when the response starts streaming,
   // which is BEFORE the first .next() on this generator. The handler sets
@@ -145,11 +155,14 @@ export async function* createPostgresResourceStream(
   const username = clampPostgresIdentifier(`${projectSlug}_${resourceSlug}_user`);
   const password = randomBytes(18).toString("base64url");
   const publicHostname = `${resourceSlug}-${projectSlug}.${PLATFORM.database.publicBaseDomain}`;
+  // Container + volume names use the engine's short slug (`pg` / `redis`
+  // / `mariadb` / `mongo`) so multi-engine deployments don't collide on
+  // a shared name pattern.
   const containerName = sanitizeDockerName(
-    `otterstack-pg-${projectSlug}-${resourceSlug}`,
+    `otterstack-${adapter.nameShort}-${projectSlug}-${resourceSlug}`,
   );
   const volumeName = sanitizeDockerName(
-    `otterstack-pgdata-${projectSlug}-${resourceSlug}`,
+    `otterstack-${adapter.nameShort}data-${projectSlug}-${resourceSlug}`,
   );
   const internalHostname = `${resourceSlug}.${projectSlug}.${PLATFORM.database.internalBaseDomain}`;
 
@@ -162,19 +175,20 @@ export async function* createPostgresResourceStream(
   // the wizard feel hung.
   yield { type: "step", step: "db-record", status: "start", message: null };
 
-  const publicConnectionString = buildConnectionString({
+  const publicConnectionString = adapter.buildConnectionString({
     username,
     password,
-    hostname: publicHostname,
+    host: publicHostname,
+    port: PLATFORM.database.publicPort,
     databaseName,
     sslmode: "require",
     sslnegotiation: "direct",
   });
-  const internalConnectionString = buildConnectionString({
+  const internalConnectionString = adapter.buildConnectionString({
     username,
     password,
-    hostname: internalHostname,
-    port: PLATFORM.database.internalPort,
+    host: internalHostname,
+    port: adapter.port,
     databaseName,
   });
 
@@ -183,6 +197,7 @@ export async function* createPostgresResourceStream(
     created = await createDatabaseResourceRecord({
       projectId: input.projectId,
       name: input.name,
+      engine,
       status: "draft",
       databaseName,
       username,
@@ -192,10 +207,10 @@ export async function* createPostgresResourceStream(
       publicPort: PLATFORM.database.publicPort,
       publicConnectionString,
       internalHostname,
-      internalPort: PLATFORM.database.internalPort,
+      internalPort: adapter.port,
       internalConnectionString,
       upstreamHost: internalHostname,
-      upstreamPort: PLATFORM.database.internalPort,
+      upstreamPort: adapter.port,
       caddyLayer4Snippet: "",
     });
   } catch (error) {
@@ -234,7 +249,7 @@ export async function* createPostgresResourceStream(
       name: created.resource.name,
       type: "database" as const,
       status: created.resource.status,
-      engine: "postgres" as const,
+      engine,
       databaseName: created.database.databaseName,
       username: created.database.username,
       password: created.database.password,
@@ -245,10 +260,11 @@ export async function* createPostgresResourceStream(
       internalHostname: created.database.internalHostname,
       internalPort: created.database.internalPort,
       internalConnectionString: created.database.internalConnectionString,
-      localConnectionString: buildConnectionString({
+      localConnectionString: adapter.buildConnectionString({
         username: created.database.username,
         password: created.database.password,
-        hostname: PLATFORM.database.localHost,
+        host: PLATFORM.database.localHost,
+        port: adapter.port,
         databaseName: created.database.databaseName,
         sslmode: "require",
         sslnegotiation: "direct",
@@ -272,28 +288,25 @@ export async function* createPostgresResourceStream(
   // first task starts immediately instead of stalling on a layer download
   // — and gives the operator live byte-level feedback rather than 30s of
   // silence on the first deploy of a new postgres version.
+  const dbImage = adapter.defaultImage;
   yield {
     type: "step",
     step: "image-pull",
     status: "start",
-    message: PLATFORM.docker.postgresImage,
+    message: dbImage,
   };
   const pullDocker = Docker.fromEnv();
   try {
-    // Public postgres image today; the resolver returns null, no header sent.
-    // The wiring is here so when we add a Registry Credentials settings page,
-    // private postgres builds (e.g. custom postgres extensions baked in) just
-    // start working without a code change at the pull site.
+    // Public image today; resolver returns null, no auth header sent. The
+    // wiring is here so when private engine builds (custom postgres
+    // extensions, redis modules, etc.) land via the Registry Credentials
+    // settings page, the pull site picks them up without changes.
     const pullAuth = await resolveRegistryAuth({
-      image: PLATFORM.docker.postgresImage,
+      image: dbImage,
       organizationId: input.organizationId,
     });
     let pullError: string | null = null;
-    for await (const event of streamImagePull(
-      pullDocker,
-      PLATFORM.docker.postgresImage,
-      pullAuth,
-    )) {
+    for await (const event of streamImagePull(pullDocker, dbImage, pullAuth)) {
       yield {
         type: "pull",
         image: event.image,
@@ -331,10 +344,10 @@ export async function* createPostgresResourceStream(
   // attributable to a deployment in the UI's Deployments tab.
   const deploymentRow = await insertDeployment({
     resourceId: created.resource.id,
-    image: PLATFORM.docker.postgresImage,
+    image: dbImage,
     reason: "create",
     snapshot: snapshotForPostgresCreate({
-      image: PLATFORM.docker.postgresImage,
+      image: dbImage,
       databaseName,
       username,
       password,
@@ -347,10 +360,12 @@ export async function* createPostgresResourceStream(
 
   // ── Provision the swarm service ──────────────────────────────────────
   yield { type: "step", step: "provision-swarm", status: "start", message: null };
-  let runtime: Awaited<ReturnType<typeof provisionSwarmPostgres>>;
+  let runtime: Awaited<ReturnType<typeof provisionSwarmDatabase>>;
   try {
-    runtime = await provisionSwarmPostgres(
+    runtime = await provisionSwarmDatabase(
       {
+        engine,
+        image: dbImage,
         serviceName: containerName,
         volumeName,
         hostnameAlias: internalHostname,
@@ -390,7 +405,7 @@ export async function* createPostgresResourceStream(
     for await (const event of tailContainerBootLogs({
       serviceName: containerName,
       timeoutMs: 8_000,
-      readyPattern: /ready to accept connections/i,
+      readyPattern: adapter.readyPattern,
     })) {
       yield { type: "log", stream: event.stream, line: event.line };
     }

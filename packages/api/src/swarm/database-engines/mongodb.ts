@@ -6,6 +6,7 @@ const meta = DATABASE_ENGINES.mongodb;
 
 export const mongodbAdapter: DatabaseEngineAdapter = {
   engine: "mongodb",
+  nameShort: "mongo",
   defaultImage: `${meta.dockerImage}:${meta.defaultTag}`,
   port: meta.defaultPort,
   mountTarget: "/data/db",
