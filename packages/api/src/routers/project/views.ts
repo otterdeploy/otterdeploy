@@ -25,6 +25,7 @@ import {
   proxyRouteSchema,
   serviceResourceSchema,
 } from "./contract";
+import { insertDeployment } from "./deployments";
 import {
   type DatabaseResourceRecord,
   type ServiceResourceJoined,
@@ -141,6 +142,27 @@ export async function ensureSwarmRuntimeForRecord(
     return { record, runtime: existingRuntime };
   }
 
+  // The swarm service disappeared (manual `docker service rm`, drained
+  // node that never came back, etc.). Re-create it under a fresh
+  // deployment so the recovery shows up in the Deployments tab.
+  const restartDeployment = await insertDeployment({
+    resourceId: record.resource.id,
+    image: PLATFORM.docker.postgresImage,
+    reason: "restart",
+    snapshot: {
+      kind: "postgres",
+      version: 1,
+      image: PLATFORM.docker.postgresImage,
+      databaseName: record.database.databaseName,
+      username: record.database.username,
+      password: record.database.password,
+      publicEnabled: record.database.publicEnabled,
+      publicHostname: record.database.publicHostname,
+      internalHostname: record.database.internalHostname,
+      extraEnv: record.database.extraEnv ?? {},
+    },
+  });
+
   const runtime = await provisionSwarmPostgres({
     serviceName,
     volumeName,
@@ -149,6 +171,7 @@ export async function ensureSwarmRuntimeForRecord(
     username: record.database.username,
     password: record.database.password,
     projectSlug,
+    deploymentId: restartDeployment.id,
     extraEnv: record.database.extraEnv ?? {},
   });
 

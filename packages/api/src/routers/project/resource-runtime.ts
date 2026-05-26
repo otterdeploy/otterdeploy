@@ -16,7 +16,9 @@ import type { RequestLogger } from "evlog";
 
 import { type Id, ID_PREFIX as IDP } from "@otterstack/shared/id";
 
+import { PLATFORM } from "../../constants";
 import { updateSwarmPostgres } from "../../swarm";
+import { insertDeployment } from "./deployments";
 import {
   bulkReplaceServiceEnvVars,
   listServiceEnvVars,
@@ -147,18 +149,34 @@ export async function listResourceTasks(
   return Result.ok(
     tasks.map((t) => {
       const status =
-        (t as { Status?: { State?: string; Message?: string; Timestamp?: string } })
-          .Status ?? {};
+        (t as {
+          Status?: {
+            State?: string;
+            Message?: string;
+            Err?: string;
+            Timestamp?: string;
+            ContainerStatus?: { ContainerID?: string; ExitCode?: number };
+          };
+        }).Status ?? {};
       const slot = (t as { Slot?: number }).Slot ?? null;
       const nodeId = (t as { NodeID?: string }).NodeID ?? null;
+      const desiredState = (t as { DesiredState?: string }).DesiredState ?? null;
       return {
         id: (t as { ID?: string }).ID ?? "",
         slot,
         label:
           slot != null ? `${target.serviceName}.${slot}` : target.serviceName,
         state: collapseTaskState(status.State),
+        rawState: status.State ?? null,
+        desiredState,
         nodeId,
         message: status.Message ?? null,
+        error: status.Err ?? null,
+        containerId: status.ContainerStatus?.ContainerID ?? null,
+        exitCode:
+          typeof status.ContainerStatus?.ExitCode === "number"
+            ? status.ContainerStatus.ExitCode
+            : null,
         timestamp: status.Timestamp ?? null,
       };
     }),
@@ -235,6 +253,23 @@ export async function bulkSetResourceEnv(
     if (dbRecord) {
       const projectSlug = sanitizeProjectSlug(project.slug);
       const resourceName = dbRecord.resource.name;
+      const envDeployment = await insertDeployment({
+        resourceId: input.resourceId,
+        image: PLATFORM.docker.postgresImage,
+        reason: "env-change",
+        snapshot: {
+          kind: "postgres",
+          version: 1,
+          image: PLATFORM.docker.postgresImage,
+          databaseName: dbRecord.database.databaseName,
+          username: dbRecord.database.username,
+          password: dbRecord.database.password,
+          publicEnabled: dbRecord.database.publicEnabled,
+          publicHostname: dbRecord.database.publicHostname,
+          internalHostname: dbRecord.database.internalHostname,
+          extraEnv: next,
+        },
+      });
       await updateSwarmPostgres(
         {
           serviceName: buildContainerName({ projectSlug, resourceName }),
@@ -244,6 +279,7 @@ export async function bulkSetResourceEnv(
           username: dbRecord.database.username,
           password: dbRecord.database.password,
           projectSlug,
+          deploymentId: envDeployment.id,
           extraEnv: next,
         },
         log,

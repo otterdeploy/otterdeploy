@@ -2,9 +2,8 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { ArrowLeft01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons";
 import { ID_PREFIX, type Id, type Slug } from "@otterstack/shared/id";
 import { useStore } from "@tanstack/react-form";
-import { useMutation } from "@tanstack/react-query";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { SERVICE_KINDS } from "@/features/projects/data/service-kinds";
@@ -81,31 +80,112 @@ function ResourceWizardBody({
 }: BodyProps) {
   const navigate = useNavigate();
 
-  // Postgres is the first engine wired end-to-end. The mutation hits
-  // project.resource.database.postgres.create which handles Swarm provision,
-  // Caddy proxy-route insert, and DB record. Other kinds fall through with a
-  // "not yet supported" gate on the Create button below.
-  const postgresCreate = useMutation(
-    orpc.project.resource.database.postgres.create.mutationOptions({
-      onSuccess: async (created) => {
-        await queryClient.invalidateQueries({
-          queryKey: orpc.project.resource.list.queryKey({ input: { projectId } }),
+  // Streaming create — the procedure yields per-step progress events as
+  // the provisioner walks. We track each completed/in-flight step in local
+  // state so the wizard can render a live checklist. Pre-flight failures
+  // (project not found, name conflict) throw oRPC errors caught by the
+  // try/catch; runtime failures come through as `error` events in the
+  // stream and stop progression without throwing.
+  const [progress, setProgress] = useState<CreateProgressState>({
+    status: "idle",
+    steps: [],
+    pullLayers: [],
+    pullSummary: null,
+    pullImage: null,
+    bootLogs: [],
+    bootLogCounter: 0,
+    errorMessage: null,
+  });
+
+  const runPostgresCreate = useCallback(
+    async (payload: {
+      name: string;
+      publicEnabled: boolean;
+    }) => {
+      setProgress({
+        status: "running",
+        steps: [],
+        pullLayers: [],
+        pullSummary: null,
+        pullImage: null,
+        bootLogs: [],
+        bootLogCounter: 0,
+        errorMessage: null,
+      });
+      try {
+        const stream = await orpc.project.resource.database.postgres.create.call({
+          projectId,
+          name: payload.name,
+          publicEnabled: payload.publicEnabled,
         });
-        toast.success(`Postgres ${created.name} is provisioning`);
-        onComplete?.();
-        void navigate({
-          to: "/$orgSlug/$projectSlug/graph/$resourceId",
-          params: {
-            orgSlug,
-            projectSlug,
-            resourceId: created.resourceId,
-          },
-        });
-      },
-      onError: (err) => {
-        toast.error(err.message ?? "Failed to create Postgres");
-      },
-    }),
+        let handedOff = false;
+        for await (const event of stream) {
+          setProgress((prev) => applyProgressEvent(prev, event));
+          if (event.type === "created" && !handedOff) {
+            handedOff = true;
+            // Close the modal and navigate FIRST — those are synchronous
+            // and what the user is waiting for. `invalidateQueries` returns
+            // a Promise that resolves only after the refetch lands, which
+            // can add hundreds of ms if the list query is mid-flight.
+            // Awaiting it here was making the wizard appear to hang on the
+            // overlay even after `created` arrived.
+            toast.success(`Postgres ${event.resource.name} is provisioning`);
+            onComplete?.();
+            void navigate({
+              to: "/$orgSlug/$projectSlug/graph/$resourceId",
+              params: {
+                orgSlug,
+                projectSlug,
+                resourceId: event.resource.resourceId,
+              },
+            });
+            void queryClient.invalidateQueries({
+              queryKey: orpc.project.resource.list.queryKey({
+                input: { projectId },
+              }),
+            });
+            // Keep iterating so the backend generator runs to completion;
+            // setProgress on the unmounted component is a React no-op.
+            continue;
+          }
+          if (event.type === "done") {
+            await queryClient.invalidateQueries({
+              queryKey: orpc.project.resource.list.queryKey({
+                input: { projectId },
+              }),
+            });
+            // Only navigate here if we never handed off (e.g. an unusually
+            // fast run where db-record's `created` event was missed).
+            if (!handedOff) {
+              toast.success(`Postgres ${event.resource.name} is provisioning`);
+              onComplete?.();
+              void navigate({
+                to: "/$orgSlug/$projectSlug/graph/$resourceId",
+                params: {
+                  orgSlug,
+                  projectSlug,
+                  resourceId: event.resource.resourceId,
+                },
+              });
+            }
+            return;
+          }
+          if (event.type === "error") {
+            toast.error(`${event.code}: ${event.message}`);
+            return;
+          }
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        setProgress((prev) => ({
+          ...prev,
+          status: "error",
+          errorMessage: message,
+        }));
+        toast.error(message || "Failed to create Postgres");
+      }
+    },
+    [navigate, onComplete, orgSlug, projectId, projectSlug],
   );
 
   const form = useAppForm({
@@ -118,8 +198,7 @@ function ResourceWizardBody({
       // Strip the wizard-only discriminator before passing fields to the API.
       const { __step: _drop, ...payload } = value;
       if (payload.kindId === "postgres") {
-        await postgresCreate.mutateAsync({
-          projectId,
+        await runPostgresCreate({
           name: payload.name,
           publicEnabled: payload.publicEnabled,
         });
@@ -203,7 +282,7 @@ function ResourceWizardBody({
   // wizard browsable for every kind but gate the final Create action so we
   // don't pretend to deploy something that isn't implemented yet.
   const kindWired = kindId === "postgres";
-  const isCreating = postgresCreate.isPending;
+  const isCreating = progress.status === "running";
   const createDisabled = isLast && (!kindWired || isCreating);
 
   return (
@@ -247,6 +326,14 @@ function ResourceWizardBody({
             {step === "storage" && kind && isDb && <StepStorage kind={kind} />}
             {step === "advanced" && kind && isDb && <StepAdvancedDb kind={kind} />}
             {step === "review" && kind && <StepReview kind={kind} />}
+
+            {/* Provisioning checklist — only shown on the review step while
+                the create stream is open or after it errored. Each step
+                emitted by the backend gets a row; in-progress steps render
+                with a spinner dot, completed ones with a checkmark dot. */}
+            {isLast && (progress.status !== "idle" || progress.steps.length > 0) && (
+              <ProvisionChecklist progress={progress} />
+            )}
           </div>
         </div>
 
@@ -313,4 +400,258 @@ function ResourceWizardBody({
       </div>
     </form.AppForm>
   );
+}
+
+// Friendly labels for each step name emitted by the backend stream. Keep in
+// sync with the swarmStep() calls in packages/api/src/swarm/postgres.ts and
+// the yield events in createPostgresResourceStream.
+const STEP_LABELS: Record<string, string> = {
+  "image-pull": "Pull the postgres image",
+  "provision-swarm": "Provision the swarm service",
+  "container-logs": "Read container boot output",
+  "db-record": "Persist the resource record",
+  "caddy-route": "Register the Caddy proxy route",
+  "caddy-reconcile": "Reconcile the running Caddy config",
+};
+
+function formatBytes(bytes: number | null): string | null {
+  if (bytes == null) return null;
+  if (bytes < 1024) return `${bytes}B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)}GB`;
+}
+
+function PullLayerList({ layers }: { layers: PullLayerState[] }) {
+  if (layers.length === 0) return null;
+  return (
+    <div className="mt-2 ml-4 flex flex-col gap-0.5 border-l border-border/40 pl-3">
+      {layers.map((l) => {
+        const pct =
+          l.total && l.total > 0 && l.current != null
+            ? Math.min(100, Math.round((l.current / l.total) * 100))
+            : null;
+        const tone =
+          l.status === "Pull complete" || l.status === "Already exists"
+            ? "text-success/80"
+            : l.status === "Downloading" || l.status === "Extracting"
+              ? "text-foreground/70"
+              : "text-muted-foreground";
+        const sizes =
+          l.current != null && l.total != null && l.total > 0
+            ? `${formatBytes(l.current)}/${formatBytes(l.total)}`
+            : null;
+        return (
+          <div key={l.id} className="flex items-baseline gap-2 font-mono text-[10.5px]">
+            <span className="w-[80px] shrink-0 truncate text-muted-foreground/70">
+              {l.id.slice(0, 12)}
+            </span>
+            <span className={`flex-1 truncate ${tone}`}>{l.status}</span>
+            {sizes && <span className="text-muted-foreground/60">{sizes}</span>}
+            {pct != null && (
+              <span className="w-9 text-right text-muted-foreground/80">{pct}%</span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function BootLogList({ lines }: { lines: BootLogLine[] }) {
+  if (lines.length === 0) return null;
+  return (
+    <div className="mt-2 ml-4 max-h-40 overflow-auto rounded-sm border border-border/40 bg-[oklch(0.13_0_0)] p-2 font-mono text-[10.5px] leading-relaxed">
+      {lines.map((l) => (
+        <div
+          key={l.id}
+          className={l.stream === "stderr" ? "text-destructive/80" : "text-foreground/75"}
+        >
+          {l.line}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ProvisionChecklist({ progress }: { progress: CreateProgressState }) {
+  return (
+    <div className="mt-5 rounded-md border bg-card p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Provisioning
+        </span>
+        <span className="text-[11px] text-muted-foreground">
+          Live progress from the backend
+        </span>
+      </div>
+      <ul className="flex flex-col gap-2">
+        {progress.steps.map((s) => {
+          const label = STEP_LABELS[s.step] ?? s.step;
+          const tone =
+            s.status === "ok"
+              ? "text-success"
+              : s.status === "error"
+                ? "text-destructive"
+                : "text-muted-foreground";
+          const dot =
+            s.status === "ok"
+              ? "bg-success"
+              : s.status === "error"
+                ? "bg-destructive"
+                : "bg-warning animate-pulse";
+          return (
+            <li key={s.step} className="flex flex-col">
+              <div className="flex items-baseline gap-3">
+                <span className={`mt-1 inline-block size-1.5 rounded-full ${dot}`} aria-hidden />
+                <span className="flex-1 text-[13px] text-foreground">{label}</span>
+                <span className={`font-mono text-[11px] ${tone}`}>
+                  {s.status === "tick" ? "in progress" : s.status}
+                </span>
+                {s.message && (
+                  <span className="font-mono text-[10px] text-muted-foreground/70">
+                    {s.message}
+                  </span>
+                )}
+              </div>
+              {s.step === "image-pull" && (
+                <>
+                  {progress.pullSummary && (
+                    <div className="mt-1 ml-4 font-mono text-[10.5px] text-muted-foreground/70">
+                      {progress.pullSummary}
+                    </div>
+                  )}
+                  <PullLayerList layers={progress.pullLayers} />
+                </>
+              )}
+              {s.step === "container-logs" && (
+                <BootLogList lines={progress.bootLogs} />
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {progress.status === "error" && progress.errorMessage && (
+        <div className="mt-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[12px] text-destructive">
+          {progress.errorMessage}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Create-stream progress state ──────────────────────────────────────────
+// Tracks the latest status for each step name emitted by the create stream.
+// Steps appear in insertion order so the wizard checklist reflects the order
+// the provisioner walks them.
+
+interface CreateStepState {
+  step: string;
+  status: "start" | "ok" | "tick" | "error";
+  message: string | null;
+}
+
+interface PullLayerState {
+  id: string;
+  status: string;
+  current: number | null;
+  total: number | null;
+}
+
+interface BootLogLine {
+  id: number;
+  stream: "stdout" | "stderr";
+  line: string;
+}
+
+interface CreateProgressState {
+  status: "idle" | "running" | "error";
+  steps: CreateStepState[];
+  /** Per-layer pull progress, keyed by layer id, in first-seen order. */
+  pullLayers: PullLayerState[];
+  /** Summary line for pull events with no layer id (e.g. "Pulling from
+   *  library/postgres", "Status: Image is up to date"). */
+  pullSummary: string | null;
+  /** Image being pulled — keeps the header line meaningful even when the
+   *  current event lacks the image string. */
+  pullImage: string | null;
+  /** Container boot output captured during the wait window. Capped to the
+   *  last MAX_BOOT_LOG_LINES so a chatty container doesn't bloat memory. */
+  bootLogs: BootLogLine[];
+  /** Monotonic counter so React keys stay stable as lines come in. */
+  bootLogCounter: number;
+  errorMessage: string | null;
+}
+
+const MAX_BOOT_LOG_LINES = 200;
+
+type CreateProgressEvent =
+  | { type: "step"; step: string; status: "start" | "ok" | "tick" | "error"; message: string | null }
+  | {
+      type: "pull";
+      image: string;
+      id: string | null;
+      status: string;
+      progress: string | null;
+      current: number | null;
+      total: number | null;
+    }
+  | { type: "log"; stream: "stdout" | "stderr"; line: string }
+  | { type: "created"; resource: { resourceId: string; name: string } }
+  | { type: "done"; resource: { resourceId: string; name: string } }
+  | { type: "error"; code: string; message: string };
+
+function applyProgressEvent(
+  prev: CreateProgressState,
+  event: CreateProgressEvent,
+): CreateProgressState {
+  if (event.type === "error") {
+    return { ...prev, status: "error", errorMessage: `${event.code}: ${event.message}` };
+  }
+  if (event.type === "done" || event.type === "created") {
+    return { ...prev, status: "running" };
+  }
+  if (event.type === "pull") {
+    // Events without a layer id are summary/status lines (header + footer).
+    if (!event.id) {
+      return { ...prev, pullSummary: event.status, pullImage: event.image };
+    }
+    const nextLayers = [...prev.pullLayers];
+    const i = nextLayers.findIndex((l) => l.id === event.id);
+    const entry: PullLayerState = {
+      id: event.id,
+      status: event.status,
+      current: event.current,
+      total: event.total,
+    };
+    if (i === -1) nextLayers.push(entry);
+    else nextLayers[i] = entry;
+    return { ...prev, pullLayers: nextLayers, pullImage: event.image };
+  }
+  if (event.type === "log") {
+    const id = prev.bootLogCounter + 1;
+    const next = [
+      ...prev.bootLogs,
+      { id, stream: event.stream, line: event.line },
+    ];
+    return {
+      ...prev,
+      bootLogs:
+        next.length > MAX_BOOT_LOG_LINES
+          ? next.slice(next.length - MAX_BOOT_LOG_LINES)
+          : next,
+      bootLogCounter: id,
+    };
+  }
+  // step event — upsert by step name, preserving insertion order
+  const next = [...prev.steps];
+  const i = next.findIndex((s) => s.step === event.step);
+  const entry: CreateStepState = {
+    step: event.step,
+    status: event.status,
+    message: event.message,
+  };
+  if (i === -1) next.push(entry);
+  else next[i] = entry;
+  return { ...prev, steps: next };
 }

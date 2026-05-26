@@ -8,7 +8,7 @@
  * project claims them.
  */
 
-import { panic, Result } from "better-result";
+import { Result } from "better-result";
 
 import { type Id, ID_PREFIX } from "@otterstack/shared/id";
 
@@ -16,6 +16,7 @@ import { isUniqueViolation } from "../project/views";
 
 import {
   EnvironmentConflictError,
+  EnvironmentDatabaseError,
   EnvironmentNotFoundError,
   type EnvironmentId,
 } from "./errors";
@@ -52,7 +53,15 @@ export async function getEnv(
 
 export async function createEnv(
   input: { id?: EnvironmentId; name: string; slug: string; projectId?: ProjectId },
-): Promise<Result<EnvironmentRecord, EnvironmentConflictError>> {
+): Promise<
+  Result<EnvironmentRecord, EnvironmentConflictError | EnvironmentDatabaseError>
+> {
+  // The catch handler MUST return an error, never throw. Better-result wraps
+  // a throwing catch as a Panic, which surfaces to the operator as the
+  // unhelpful "Result.tryPromise catch handler threw" with no clue what the
+  // underlying DB error was. We map the unique-violation case to a typed
+  // conflict and everything else to a typed DB error carrying the cause
+  // message — the router logs the cause and returns 500 with detail.
   const insert = await Result.tryPromise({
     try: () =>
       createEnvRecord({
@@ -64,7 +73,7 @@ export async function createEnv(
     catch: (cause) =>
       isUniqueViolation(cause)
         ? new EnvironmentConflictError({ slug: input.slug })
-        : panic("env.createEnv: unexpected DB error", cause),
+        : new EnvironmentDatabaseError({ cause }),
   });
   if (Result.isError(insert)) return Result.err(insert.error);
   if (!insert.value) {

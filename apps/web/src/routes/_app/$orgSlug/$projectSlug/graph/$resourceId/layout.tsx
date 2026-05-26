@@ -1,5 +1,11 @@
-import { useMemo, useState } from "react";
-import { createFileRoute, useLoaderData } from "@tanstack/react-router";
+import { Activity, useEffect, useMemo, useRef, useState } from "react";
+import {
+  createFileRoute,
+  Link,
+  Outlet,
+  useChildMatches,
+  useLoaderData,
+} from "@tanstack/react-router";
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import { useMutation } from "@tanstack/react-query";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -31,6 +37,9 @@ import {
 import type { ComponentProps, SVGProps } from "react";
 import { toast } from "sonner";
 
+import * as m from "motion/react-client";
+import { AnimatePresence } from "motion/react";
+
 import { INITIAL_NODES_BY_ID } from "@/features/projects/components/graph/initial-nodes";
 import type {
   ResourceEngine,
@@ -38,7 +47,10 @@ import type {
   ResourceNodeData,
 } from "@/features/projects/components/graph/resource-node";
 import { createResourceCollection } from "@/features/projects/data/resource";
-import { createResourceTasksCollection } from "@/features/projects/data/resource-tasks";
+import { createDeploymentsCollection } from "@/features/projects/data/deployments";
+import { TerminalSession } from "@/features/terminal/components/terminal-session";
+import { terminalContainersCollection } from "@/features/terminal/data/targets";
+import type { SessionSource } from "@/features/terminal/types";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -68,7 +80,9 @@ import {
 } from "@/shared/components/ui/tabs";
 import { cn } from "@/shared/lib/utils";
 import { orpc, queryClient } from "@/shared/server/orpc";
+import { zId } from "@otterstack/shared/id";
 
+const zSearchSchema = zId("resource");
 export const Route = createFileRoute(
   "/_app/$orgSlug/$projectSlug/graph/$resourceId",
 )({
@@ -80,6 +94,11 @@ function RouteComponent() {
   const { resourceId } = Route.useParams();
   const { project } = useLoaderData({ from: "/_app/$orgSlug/$projectSlug" });
   const navigate = Route.useNavigate();
+  // Key the inner Outlet by the active child match so AnimatePresence sees
+  // the deployment overlay come and go. Without this the same <Outlet />
+  // element is rendered for every navigation and the exit never fires.
+  const childMatches = useChildMatches();
+  const deploymentKey = childMatches[0]?.pathname ?? null;
 
   const resourceCollection = useMemo(
     () => createResourceCollection(project.id),
@@ -101,7 +120,14 @@ function RouteComponent() {
   const close = () => navigate({ to: "/$orgSlug/$projectSlug/graph" });
 
   return (
-    <div className="pointer-events-auto h-full w-3/5 animate-in fade-in-0 slide-in-from-right-2 overflow-hidden rounded-2xl rounded-tr-none border border-r-0 border-border bg-background duration-200">
+    <m.div
+      key={resourceId}
+      initial={{ x: "100%" }}
+      animate={{ x: 0 }}
+      exit={{ x: "100%" }}
+      transition={{ type: "spring", stiffness: 320, damping: 32 }}
+      className="pointer-events-auto relative h-full w-3/5 bg-muted rounded-2xl rounded-tr-none border border-r-0 border-border"
+    >
       {resource && resource.type === "database" ? (
         <RealResourcePanel
           resource={resource}
@@ -115,7 +141,14 @@ function RouteComponent() {
       ) : (
         <NotFound id={resourceId} onClose={close} />
       )}
-    </div>
+
+      {/* Nested AnimatePresence drives the deployment overlay's exit when
+          the user closes it. We only mount the Outlet when a child route
+          is active; the key flips when navigating between deployments. */}
+      <AnimatePresence mode="wait">
+        {deploymentKey ? <Outlet key={deploymentKey} /> : null}
+      </AnimatePresence>
+    </m.div>
   );
 }
 
@@ -332,7 +365,6 @@ function demoMeta(node: ResourceNodeData) {
 
 type ResourceTab =
   | "deployments"
-  | "logs"
   | "metrics"
   | "variables"
   | "terminal"
@@ -463,9 +495,6 @@ function DemoNodePanel({
             <TabsTrigger value="deployments" className="px-2.5 py-2.5">
               Deployments
             </TabsTrigger>
-            <TabsTrigger value="logs" className="px-2.5 py-2.5">
-              Logs
-            </TabsTrigger>
             <TabsTrigger value="metrics" className="px-2.5 py-2.5">
               Metrics
             </TabsTrigger>
@@ -509,13 +538,6 @@ function DemoNodePanel({
               )}
             </TabsContent>
 
-            <TabsContent value="logs" className="px-6 pt-5 pb-6">
-              <SectionLabel>Logs</SectionLabel>
-              <p className="mt-2 text-[13px] text-muted-foreground">
-                Open the Logs page for full search, filters, and live tail.
-              </p>
-            </TabsContent>
-
             <TabsContent value="metrics" className="px-6 pt-5 pb-6">
               <MetricsTabBody meta={meta} replicaName={`${node.name}.r1`} />
             </TabsContent>
@@ -528,11 +550,24 @@ function DemoNodePanel({
               />
             </TabsContent>
 
-            <TabsContent value="terminal" className="px-6 pt-5 pb-6">
-              <TerminalTabBody
-                serviceName={node.name}
-                containerName={`otterstack-${node.name}-1`}
-              />
+            {/* keepMounted + <Activity> keeps the terminal session, PTY, and
+                xterm scrollback alive across tab switches. Mode is driven by
+                the current tab — Activity defers initial mount until the
+                user first opens the Terminal tab. */}
+            <TabsContent
+              value="terminal"
+              keepMounted
+              className="px-6 pt-5 pb-6"
+            >
+              <Activity mode={tab === "terminal" ? "visible" : "hidden"}>
+                <ResourceTerminal
+                  match={{
+                    kind: "service",
+                    resourceId: `demo-${node.name}`,
+                  }}
+                  fallbackLabel={`otterstack-${node.name}-1`}
+                />
+              </Activity>
             </TabsContent>
 
             <TabsContent value="settings" className="px-6 pt-5 pb-6">
@@ -859,12 +894,12 @@ function LegendDot({
 
 // ─── Variables tab ───────────────────────────────────────────────────────────
 
-type EnvVar = {
+interface EnvVar {
   name: string;
   value: string;
   type: "plain" | "secret";
   scope: "project" | "service";
-};
+}
 
 const PROJECT_VARS: EnvVar[] = [
   { name: "NODE_ENV", value: "production", type: "plain", scope: "project" },
@@ -912,12 +947,12 @@ function PostgresVariablesTabBody({
 }: {
   resource: ResourceBodyProps["resource"];
 }) {
-  type DerivedVar = {
+  interface DerivedVar {
     name: string;
     value: string;
     secret: boolean;
     description?: string;
-  };
+  }
 
   // Persisted user-editable envs. Refetches the resource list on success so
   // the new env shows up across every panel + the graph.
@@ -1732,25 +1767,73 @@ function VarRow({ v, action }: { v: EnvVar; action: "override" | "edit" }) {
 }
 
 // ─── Terminal tab ────────────────────────────────────────────────────────────
+// Real exec console backed by the same terminalContainersCollection the global
+// Terminal page uses. Two ways to find the container:
+//   - "service": a service resource — match by resource id label.
+//   - "postgres": a database resource — postgres containers carry no
+//     resource-id label, so match by swarm service name + resourceType.
+// "Reconnect" remounts <TerminalSession> so the WebSocket + PTY are recycled.
 
-function TerminalTabBody({
-  serviceName,
-  containerName,
+type ResourceTerminalMatch =
+  | { kind: "service"; resourceId: string }
+  | { kind: "postgres"; serviceName: string };
+
+function ResourceTerminal({
+  match,
+  fallbackLabel,
 }: {
-  serviceName: string;
-  containerName: string;
+  match: ResourceTerminalMatch;
+  fallbackLabel: string;
 }) {
+  const { projectSlug } = Route.useParams();
+  const { data: containers = [] } = useLiveQuery(
+    () => terminalContainersCollection,
+  );
+
+  const target = useMemo(() => {
+    if (match.kind === "service") {
+      return containers.find(
+        (c) =>
+          c.resourceType === "service" &&
+          c.serviceResourceId === match.resourceId,
+      );
+    }
+    return containers.find(
+      (c) =>
+        c.resourceType === "postgres" && c.serviceName === match.serviceName,
+    );
+  }, [containers, match]);
+
+  // Bump to remount <TerminalSession> — clean way to recycle the WebSocket.
+  const [generation, setGeneration] = useState(0);
+
+  const headerLabel = target
+    ? `sh · ${target.name}${target.replicaSlot ? `.${target.replicaSlot}` : ""}`
+    : `sh · ${fallbackLabel}`;
+
   return (
     <div className="flex flex-col gap-0 overflow-hidden rounded-lg border border-border/40 bg-[oklch(0.12_0_0)]">
       <div className="flex items-center justify-between gap-3 border-b border-border/40 bg-muted/10 px-3 py-2">
         <span className="font-mono text-[11px] text-muted-foreground">
-          · {containerName}
+          {headerLabel}
         </span>
         <div className="flex items-center gap-1.5">
-          <Button variant="outline" size="sm" className="h-7 text-[11px]">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-[11px]"
+            disabled={!target}
+            onClick={() => setGeneration((g) => g + 1)}
+          >
             Reconnect
           </Button>
-          <Button variant="outline" size="sm" className="h-7 text-[11px]">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-[11px]"
+            disabled={!target}
+            onClick={() => setGeneration((g) => g + 1)}
+          >
             Clear
           </Button>
           <Button variant="outline" size="icon-sm" aria-label="Fullscreen">
@@ -1762,16 +1845,33 @@ function TerminalTabBody({
           </Button>
         </div>
       </div>
-      <pre className="m-0 min-h-[280px] whitespace-pre-wrap p-3.5 font-mono text-xs leading-relaxed text-muted-foreground">
-        <span>connected to {serviceName} · gravy-truck · production</span>
-        {"\n"}
-        <span>spawning sh in container {containerName} …</span>
-        {"\n"}
-        <span className="text-foreground/80">op #</span>
-        {"\n"}
-        <span className="text-foreground/80">op #</span>{" "}
-        <span className="text-muted-foreground/60">type a command…</span>
-      </pre>
+      <div className="relative h-[460px]">
+        {target ? (
+          <TerminalSession
+            key={`${target.containerId}:${generation}`}
+            source={
+              {
+                kind: "container",
+                project: projectSlug,
+                service: target.serviceName ?? target.name,
+                replica: target.replicaSlot ?? "1",
+                containerId: target.containerId,
+              } satisfies SessionSource
+            }
+            active
+          />
+        ) : (
+          <div className="flex h-full flex-col items-center justify-center gap-1 px-6 text-center">
+            <span className="font-mono text-[12px] text-muted-foreground/80">
+              No running container.
+            </span>
+            <span className="text-[11.5px] text-muted-foreground/60">
+              Once a task is scheduled for this resource, the shell will open
+              automatically.
+            </span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -2349,7 +2449,7 @@ function FeatureFlag({ title, sub }: { title: string; sub: string }) {
 
 // ─── Real-resource (postgres) panel ──────────────────────────────────────────
 
-type ResourceBodyProps = {
+interface ResourceBodyProps {
   resource: {
     resourceId: string;
     projectId: string;
@@ -2377,7 +2477,7 @@ type ResourceBodyProps = {
     };
     extraEnv: Record<string, string>;
   };
-};
+}
 
 function RealResourcePanel({
   resource,
@@ -2462,9 +2562,6 @@ function RealResourcePanel({
             <TabsTrigger value="deployments" className="px-2.5 py-2.5">
               Deployments
             </TabsTrigger>
-            <TabsTrigger value="logs" className="px-2.5 py-2.5">
-              Logs
-            </TabsTrigger>
             <TabsTrigger value="metrics" className="px-2.5 py-2.5">
               Metrics
             </TabsTrigger>
@@ -2490,14 +2587,6 @@ function RealResourcePanel({
               />
             </TabsContent>
 
-            {/* ─── Logs ───────────────────────────────────────────── */}
-            <TabsContent value="logs" className="px-6 pt-5 pb-6">
-              <SectionLabel>Logs</SectionLabel>
-              <p className="mt-2 text-[13px] text-muted-foreground">
-                Open the Logs page for full search, filters, and live tail.
-              </p>
-            </TabsContent>
-
             {/* ─── Metrics ────────────────────────────────────────── */}
             <TabsContent value="metrics" className="px-6 pt-5 pb-6">
               <p className="text-[13px] text-muted-foreground">
@@ -2512,16 +2601,24 @@ function RealResourcePanel({
             </TabsContent>
 
             {/* ─── Terminal ───────────────────────────────────────── */}
-            <TabsContent value="terminal" className="px-6 pt-5 pb-6">
-              <SectionLabel>Open a console</SectionLabel>
-              <p className="mt-2 text-[13px] text-muted-foreground">
-                Use the Terminal page to attach to the{" "}
-                <span className="font-mono">
-                  {resource.runtime.serviceName}
-                </span>{" "}
-                container, or run <span className="font-mono">psql</span>{" "}
-                against the Public connection string from your local machine.
-              </p>
+            {/* keepMounted + <Activity> keeps the terminal session, PTY, and
+                xterm scrollback alive across tab switches. Mode is driven by
+                the current tab — Activity defers initial mount until the
+                user first opens the Terminal tab. */}
+            <TabsContent
+              value="terminal"
+              keepMounted
+              className="px-6 pt-5 pb-6"
+            >
+              <Activity mode={tab === "terminal" ? "visible" : "hidden"}>
+                <ResourceTerminal
+                  match={{
+                    kind: "postgres",
+                    serviceName: resource.runtime.serviceName,
+                  }}
+                  fallbackLabel={resource.runtime.serviceName}
+                />
+              </Activity>
             </TabsContent>
 
             {/* ─── Settings ───────────────────────────────────────── */}
@@ -2553,11 +2650,32 @@ function RuntimeStatusBadge({ status }: { status: string }) {
   );
 }
 
-// ─── Resource tasks tab ────────────────────────────────────────────────────
-// Generic deployment-history view backed by project.resource.tasks. Works
-// for any container-backed resource (postgres + services), not just one
-// kind — the backend handler dispatches on resource type to derive the
-// right swarm service name.
+// ─── Deployments tab ────────────────────────────────────────────────────
+// Backed by project.resource.deployments.list. Each row is one push of the
+// resource (create / env-change / restart). Expand a row to see the swarm
+// tasks scheduled under that deployment — each task expands again to show
+// its own swarm progression + container logs.
+
+interface DeploymentInfo {
+  id: string;
+  resourceId: string;
+  image: string;
+  reason: "create" | "redeploy" | "env-change" | "image-change" | "restart";
+  status:
+    | "pending"
+    | "building"
+    | "running"
+    | "failed"
+    | "superseded"
+    | "removed";
+  errorMessage: string | null;
+  taskCount: number;
+  failedTaskCount: number;
+  runningTaskCount: number;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
 function ResourceTasksTab({
   projectId,
@@ -2566,43 +2684,43 @@ function ResourceTasksTab({
   projectId: string;
   resourceId: string;
 }) {
-  // TanStack DB collection — 5s polling baked into the factory, sync reads
-  // on every re-render so tab switches don't flash a loading state.
-  const tasksCollection = useMemo(
-    () =>
-      createResourceTasksCollection(
-        projectId as never,
-        resourceId as never,
-      ),
+  const deploymentsCollection = useMemo(
+    () => createDeploymentsCollection(projectId as never, resourceId as never),
     [projectId, resourceId],
   );
-  const { data: tasks = [], status } = useLiveQuery(
-    () => tasksCollection,
-    [tasksCollection],
+  const { data: deployments = [], status } = useLiveQuery(
+    () => deploymentsCollection,
+    [deploymentsCollection],
   );
-  const isLoading = status === "loading" && tasks.length === 0;
+  const isLoading = status === "loading" && deployments.length === 0;
 
   return (
     <div>
-      <SectionLabel>Recent deployments</SectionLabel>
+      <SectionLabel>Deployments</SectionLabel>
       <p className="mt-1.5 text-[12px] text-muted-foreground">
-        One row per swarm task. Polled every 5s so a restart or replica
-        cycle shows up live.
+        One row per push of this resource to swarm. Click a deployment to see
+        its tasks, then click a task to read its swarm progression + container
+        logs.
       </p>
       <div className="mt-3 overflow-hidden rounded-md border bg-card">
         {isLoading ? (
           <div className="px-3 py-6 text-center text-[12px] text-muted-foreground">
-            Loading task history…
+            Loading deployments…
           </div>
-        ) : tasks.length === 0 ? (
+        ) : deployments.length === 0 ? (
           <div className="px-3 py-6 text-center text-[12px] text-muted-foreground">
-            No tasks yet — the swarm service hasn&apos;t scheduled anything for this
-            resource.
+            No deployments yet — once this resource is pushed to swarm, each
+            push will show up here.
           </div>
         ) : (
           <div className="divide-y divide-border/40">
-            {tasks.map((t) => (
-              <ResourceTaskRow key={t.id || `${t.slot}-${t.timestamp}`} task={t} />
+            {deployments.map((d) => (
+              <DeploymentRow
+                key={d.id}
+                deployment={d}
+                projectId={projectId}
+                resourceId={resourceId}
+              />
             ))}
           </div>
         )}
@@ -2611,36 +2729,286 @@ function ResourceTasksTab({
   );
 }
 
-function ResourceTaskRow({
-  task,
+function DeploymentRow({
+  deployment,
 }: {
-  task: {
-    id: string;
-    slot: number | null;
-    label: string;
-    state: "running" | "building" | "error";
-    nodeId: string | null;
-    message: string | null;
-    timestamp: string | null;
-  };
+  deployment: DeploymentInfo;
+  projectId: string;
+  resourceId: string;
 }) {
+  const { orgSlug, projectSlug, resourceId } = Route.useParams();
   return (
-    <div className="grid grid-cols-[100px_80px_1fr_140px] items-center gap-3 px-3 py-2.5">
-      <TaskStateBadge state={task.state} />
-      <span className="font-mono text-[11.5px] text-muted-foreground">
-        {task.slot != null ? `slot.${task.slot}` : "—"}
-      </span>
+    <Link
+      to="/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId"
+      params={{
+        orgSlug,
+        projectSlug,
+        resourceId,
+        deploymentId: deployment.id,
+      }}
+      className="grid grid-cols-[100px_1fr_120px_140px] items-center gap-3 px-3 py-2.5 text-left hover:bg-muted/30"
+    >
+      <DeploymentStatusBadge status={deployment.status} />
       <span className="truncate font-mono text-[12px] text-foreground/85">
-        {task.message ?? "no message"}
+        {deployment.image}
+      </span>
+      <span className="font-mono text-[11px] text-muted-foreground">
+        {deployment.reason} · {deployment.taskCount}{" "}
+        {deployment.taskCount === 1 ? "task" : "tasks"}
       </span>
       <span className="text-right font-mono text-[11px] text-muted-foreground">
-        {task.timestamp ? new Date(task.timestamp).toLocaleString() : "—"}
+        {new Date(deployment.createdAt).toLocaleString()}
+      </span>
+    </Link>
+  );
+}
+
+function DeploymentStatusBadge({
+  status,
+}: {
+  status: DeploymentInfo["status"];
+}) {
+  const tone =
+    status === "running"
+      ? "bg-success/15 text-success border-success/30"
+      : status === "failed"
+        ? "bg-destructive/15 text-destructive border-destructive/30"
+        : status === "building" || status === "pending"
+          ? "bg-warning/15 text-warning border-warning/30"
+          : "bg-muted text-muted-foreground border-border/60";
+  const dot =
+    status === "running"
+      ? "bg-success"
+      : status === "failed"
+        ? "bg-destructive"
+        : status === "building" || status === "pending"
+          ? "bg-warning"
+          : "bg-muted-foreground/60";
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-sm border px-2 py-0.5 font-mono text-[10px] font-medium uppercase",
+        tone,
+      )}
+    >
+      <span className={cn("size-1.5 rounded-full", dot)} />
+      {status}
+    </span>
+  );
+}
+
+interface TaskInfo {
+  id: string;
+  slot: number | null;
+  label: string;
+  state: "running" | "building" | "error";
+  rawState: string | null;
+  desiredState: string | null;
+  nodeId: string | null;
+  message: string | null;
+  error: string | null;
+  containerId: string | null;
+  exitCode: number | null;
+  timestamp: string | null;
+}
+
+function ResourceTaskRow({
+  task,
+  projectId,
+  resourceId,
+}: {
+  task: TaskInfo;
+  projectId: string;
+  resourceId: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="flex flex-col">
+      <button
+        type="button"
+        onClick={() => setExpanded((p) => !p)}
+        className="grid grid-cols-[16px_100px_80px_1fr_140px] items-center gap-3 px-3 py-2.5 text-left hover:bg-muted/30"
+      >
+        <HugeiconsIcon
+          icon={expanded ? ArrowDown01Icon : ArrowRight01Icon}
+          strokeWidth={2}
+          className="size-3.5 text-muted-foreground"
+        />
+        <TaskStateBadge state={task.state} />
+        <span className="font-mono text-[11.5px] text-muted-foreground">
+          {task.slot != null ? `slot.${task.slot}` : "—"}
+        </span>
+        <span className="truncate font-mono text-[12px] text-foreground/85">
+          {task.message ?? task.rawState ?? "no message"}
+        </span>
+        <span className="text-right font-mono text-[11px] text-muted-foreground">
+          {task.timestamp ? new Date(task.timestamp).toLocaleString() : "—"}
+        </span>
+      </button>
+
+      {expanded && (
+        <div className="border-t border-border/40 bg-muted/15 px-4 py-3">
+          <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 pb-3 font-mono text-[11px]">
+            <TaskField label="state" value={task.rawState ?? "—"} />
+            <TaskField label="desired" value={task.desiredState ?? "—"} />
+            <TaskField
+              label="container"
+              value={
+                task.containerId
+                  ? task.containerId.slice(0, 12)
+                  : "not yet assigned"
+              }
+            />
+            <TaskField
+              label="node"
+              value={task.nodeId ? task.nodeId.slice(0, 12) : "—"}
+            />
+            <TaskField
+              label="exit code"
+              value={task.exitCode != null ? String(task.exitCode) : "—"}
+              tone={
+                task.exitCode != null && task.exitCode !== 0 ? "error" : "muted"
+              }
+            />
+            <TaskField label="task id" value={task.id.slice(0, 12)} />
+          </div>
+          {task.error && (
+            <div className="mb-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2">
+              <div className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-destructive/80">
+                Task error
+              </div>
+              <div className="mt-1 font-mono text-[12px] text-destructive">
+                {task.error}
+              </div>
+            </div>
+          )}
+          <TaskLogsTail
+            projectId={projectId}
+            resourceId={resourceId}
+            taskId={task.id}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TaskField({
+  label,
+  value,
+  tone = "muted",
+}: {
+  label: string;
+  value: string;
+  tone?: "muted" | "error";
+}) {
+  return (
+    <div className="flex items-baseline gap-2">
+      <span className="w-20 shrink-0 text-[10px] uppercase tracking-[0.12em] text-muted-foreground/70">
+        {label}
+      </span>
+      <span
+        className={cn(
+          "truncate",
+          tone === "error" ? "text-destructive" : "text-foreground/85",
+        )}
+      >
+        {value}
       </span>
     </div>
   );
 }
 
-function TaskStateBadge({ state }: { state: "running" | "building" | "error" }) {
+function TaskLogsTail({
+  projectId,
+  resourceId,
+  taskId,
+}: {
+  projectId: string;
+  resourceId: string;
+  taskId: string;
+}) {
+  const [lines, setLines] = useState<LogLine[]>([]);
+  const [status, setStatus] = useState<
+    "connecting" | "live" | "ended" | "error"
+  >("connecting");
+  const counterRef = useRef(0);
+
+  useEffect(() => {
+    const ctrl = new AbortController();
+    setLines([]);
+    setStatus("connecting");
+    counterRef.current = 0;
+
+    (async () => {
+      try {
+        const stream = await orpc.project.resource.taskLogs.tail.call(
+          {
+            projectId: projectId as never,
+            resourceId: resourceId as never,
+            taskId,
+            tail: 500,
+          },
+          { signal: ctrl.signal },
+        );
+        setStatus("live");
+        for await (const event of stream) {
+          if (ctrl.signal.aborted) break;
+          setLines((prev) => [
+            ...prev,
+            {
+              id: ++counterRef.current,
+              stream: event.stream,
+              line: event.line,
+              ts: event.ts,
+            },
+          ]);
+        }
+        if (!ctrl.signal.aborted) setStatus("ended");
+      } catch (err) {
+        if (ctrl.signal.aborted) return;
+        setStatus("error");
+        setLines((prev) => [
+          ...prev,
+          {
+            id: ++counterRef.current,
+            stream: "system",
+            line: `Stream error: ${err instanceof Error ? err.message : String(err)}`,
+            ts: new Date().toISOString(),
+          },
+        ]);
+      }
+    })();
+
+    return () => ctrl.abort();
+  }, [projectId, resourceId, taskId]);
+
+  return (
+    <div className="flex flex-col">
+      <div className="flex items-center gap-2 pb-1.5">
+        <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground/70">
+          Task logs
+        </span>
+        <LogStreamStatus status={status} />
+      </div>
+      <div className="max-h-[260px] overflow-auto rounded-md border bg-[oklch(0.12_0_0)] p-2.5 font-mono text-[11px] leading-relaxed text-foreground/85">
+        {lines.length === 0 ? (
+          <div className="text-muted-foreground/60">
+            {status === "connecting" ? "Loading task logs…" : "No output."}
+          </div>
+        ) : (
+          lines.map((l) => <LogRow key={l.id} line={l} />)
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TaskStateBadge({
+  state,
+}: {
+  state: "running" | "building" | "error";
+}) {
   const tone =
     state === "running"
       ? "bg-success/15 text-success border-success/30"
@@ -2665,6 +3033,60 @@ function TaskStateBadge({ state }: { state: "running" | "building" | "error" }) 
         )}
       />
       {state}
+    </span>
+  );
+}
+
+// ─── Resource logs tab ─────────────────────────────────────────────────────
+// Live tail of the resource's container stdout/stderr via the streaming
+// project.resource.logs.tail endpoint. Auto-scrolls to bottom; pauses
+// auto-scroll once the user scrolls up (lets them read old lines without
+// the view jumping); Clear button drops the buffer and resumes streaming
+// from the next live line.
+
+interface LogLine {
+  id: number;
+  stream: "stdout" | "stderr" | "system";
+  line: string;
+  ts: string | null;
+}
+
+function LogRow({ line }: { line: LogLine }) {
+  const tone =
+    line.stream === "stderr"
+      ? "text-destructive/90"
+      : line.stream === "system"
+        ? "text-muted-foreground italic"
+        : "text-foreground/85";
+  return (
+    <div className={cn("flex gap-3", tone)}>
+      {line.ts && (
+        <span className="shrink-0 text-muted-foreground/50">
+          {line.ts.replace("T", " ").replace(/\.\d+Z$/, "")}
+        </span>
+      )}
+      <span className="break-all whitespace-pre-wrap">{line.line}</span>
+    </div>
+  );
+}
+
+function LogStreamStatus({
+  status,
+}: {
+  status: "connecting" | "live" | "ended" | "error";
+}) {
+  const { dot, label } =
+    status === "live"
+      ? { dot: "bg-success", label: "live" }
+      : status === "connecting"
+        ? { dot: "bg-warning animate-pulse", label: "connecting" }
+        : status === "ended"
+          ? { dot: "bg-muted-foreground/40", label: "ended" }
+          : { dot: "bg-destructive", label: "error" };
+  return (
+    <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+      <span className={cn("size-1.5 rounded-full", dot)} />
+      {label}
     </span>
   );
 }

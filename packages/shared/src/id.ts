@@ -30,7 +30,9 @@ export const ID_PREFIX = {
 
   project: "project",
   resource: "resource",
+  deployment: "deployment",
   servicePort: "port",
+  serviceMount: "mnt",
   serviceEnvVar: "senv",
   projectEnvVar: "penv",
   projectEnvSubscription: "psub",

@@ -108,12 +108,12 @@ export async function getServerStats(input: {
   const tasks = tasksResult.value;
 
   // Group by hostname (the lookup we can join back to otterstack server rows).
-  type Bucket = {
+  interface Bucket {
     tasksRunning: number;
     cpuAllocatedVcpu: number;
     memoryAllocatedGb: number;
     projects: Set<string>;
-  };
+  }
   const newBucket = (): Bucket => ({
     tasksRunning: 0,
     cpuAllocatedVcpu: 0,

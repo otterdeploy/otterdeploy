@@ -17,11 +17,11 @@ export type SessionSource =
     }
   | { kind: "database"; engine: string; service: string; project: string };
 
-export type Session = {
+export interface Session {
   id: string;
   label: string;
   source: SessionSource;
-};
+}
 
 export function describeSource(source: SessionSource): string {
   switch (source.kind) {

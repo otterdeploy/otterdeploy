@@ -10,6 +10,9 @@ export interface ProvisionInput {
   username: string;
   password: string;
   projectSlug: string;
+  /** ID of the deployment row this push is associated with. Stamped onto
+   *  the swarm spec so tasks group under the right deployment. */
+  deploymentId: string;
 }
 
 export interface ProvisionRuntime {

@@ -1,213 +1,55 @@
 /**
- * Postgres database-resource orchestration. Owns the create lifecycle for a
- * Postgres resource attached to a project — including the Swarm provision and
- * Caddy proxy-route bookkeeping. Read/delete are handled generically in
- * resources.ts.
+ * Postgres resource mutators: public-toggle, env-var writers, rollback.
+ *
+ * All paths through `applyPostgresExtraEnv` are the only way the postgres
+ * container env array changes after creation — they insert a deployment
+ * row, persist the new env, and roll the swarm task. Direct callers
+ * (`setPostgresExtraEnvKey`, `unsetPostgresExtraEnvKey`,
+ * `rollbackPostgresToSnapshot`) just build the desired env map.
  */
-
-import { randomBytes } from "node:crypto";
 
 import { Result } from "better-result";
 import type { RequestLogger } from "evlog";
 
-import { reconcile } from "../../caddy";
+import { reconcile } from "../../../caddy";
 import {
   deleteProxyRoutesByResource,
   insertProxyRoute,
-} from "../../caddy/queries";
-import { PLATFORM } from "../../constants";
-import { provisionSwarmPostgres, updateSwarmPostgres } from "../../swarm";
+} from "../../../caddy/queries";
+import { PLATFORM } from "../../../constants";
+import { updateSwarmPostgres } from "../../../swarm";
 
 import { type Id, ID_PREFIX } from "@otterstack/shared/id";
 
+import { insertDeployment } from "../deployments";
 import {
-  PostgresResourceConflictError,
   PostgresResourceNotFoundError,
   ProjectNotFoundError,
   type ProjectId,
-} from "./errors";
-import type { ResourceId } from "../service/errors";
-
-type OrgId = Id<typeof ID_PREFIX.organization>;
+} from "../errors";
+import type { ResourceId } from "../../service/errors";
 import {
-  createDatabaseResourceRecord,
-  getDatabaseResourceByProjectAndName,
   getDatabaseResourceRecord,
   getProjectInOrg,
   setDatabaseResourceExtraEnv,
   setDatabaseResourcePublic,
-  updateDatabaseResourceStatus,
-} from "./queries";
+} from "../queries";
+import { snapshotForPostgresCreate, type PostgresSnapshotV1 } from "./snapshot";
 import {
-  buildConnectionString,
   buildContainerName,
   buildVolumeName,
-  clampPostgresIdentifier,
-  isUniqueViolation,
   mapDatabaseResource,
-  sanitizeDatabaseName,
-  sanitizeDockerName,
   sanitizeProjectSlug,
   type PostgresResource,
-} from "./views";
+} from "../views";
+
+type OrgId = Id<typeof ID_PREFIX.organization>;
 
 interface ProjectRef {
   projectId: ProjectId;
   organizationId: OrgId;
 }
 
-export async function createPostgresResource(
-  input: ProjectRef & { name: string; publicEnabled?: boolean },
-  log: RequestLogger,
-): Promise<
-  Result<
-    PostgresResource,
-    ProjectNotFoundError | PostgresResourceConflictError
-  >
-> {
-  const publicEnabled = input.publicEnabled ?? false;
-  log.set({
-    resource: { kind: "postgres", projectId: input.projectId, name: input.name },
-  });
-
-  const project = await getProjectInOrg({
-    projectId: input.projectId,
-    organizationId: input.organizationId,
-  });
-  if (!project) {
-    log.set({ resource: { outcome: "project_not_found" } });
-    return Result.err(new ProjectNotFoundError({ projectId: input.projectId }));
-  }
-
-  const existing = await getDatabaseResourceByProjectAndName(
-    input.projectId,
-    input.name,
-  );
-  if (existing) {
-    log.set({ resource: { outcome: "resource_conflict" } });
-    return Result.err(new PostgresResourceConflictError({ name: input.name }));
-  }
-
-  const resourceSlug = sanitizeDatabaseName(input.name);
-  const projectSlug = sanitizeProjectSlug(project.slug);
-  const databaseName = clampPostgresIdentifier(`${projectSlug}_${resourceSlug}_db`);
-  const username = clampPostgresIdentifier(`${projectSlug}_${resourceSlug}_user`);
-  const password = randomBytes(18).toString("base64url");
-  const publicHostname = `${resourceSlug}-${projectSlug}.${PLATFORM.database.publicBaseDomain}`;
-  const containerName = sanitizeDockerName(
-    `otterstack-pg-${projectSlug}-${resourceSlug}`,
-  );
-  const volumeName = sanitizeDockerName(
-    `otterstack-pgdata-${projectSlug}-${resourceSlug}`,
-  );
-  const internalHostname = `${resourceSlug}.${projectSlug}.${PLATFORM.database.internalBaseDomain}`;
-
-  const runtime = await provisionSwarmPostgres(
-    {
-      serviceName: containerName,
-      volumeName,
-      hostnameAlias: internalHostname,
-      databaseName,
-      username,
-      password,
-      projectSlug,
-    },
-    log,
-  );
-  log.set({ provision: { service: containerName, status: runtime.status } });
-
-  const publicConnectionString = buildConnectionString({
-    username,
-    password,
-    hostname: publicHostname,
-    databaseName,
-    sslmode: "require",
-    sslnegotiation: "direct",
-  });
-  const internalConnectionString = buildConnectionString({
-    username,
-    password,
-    hostname: internalHostname,
-    port: PLATFORM.database.internalPort,
-    databaseName,
-  });
-
-  let created: Awaited<ReturnType<typeof createDatabaseResourceRecord>>;
-  try {
-    created = await createDatabaseResourceRecord({
-      projectId: input.projectId,
-      name: input.name,
-      status: "draft",
-      databaseName,
-      username,
-      password,
-      publicEnabled,
-      publicHostname,
-      publicPort: PLATFORM.database.publicPort,
-      publicConnectionString,
-      internalHostname,
-      internalPort: PLATFORM.database.internalPort,
-      internalConnectionString,
-      upstreamHost: internalHostname,
-      upstreamPort: PLATFORM.database.internalPort,
-      caddyLayer4Snippet: "",
-    });
-  } catch (error) {
-    if (isUniqueViolation(error)) {
-      log.set({ resource: { outcome: "resource_conflict" } });
-      return Result.err(new PostgresResourceConflictError({ name: input.name }));
-    }
-    throw error;
-  }
-
-  // Only register the layer-4 proxy route when the operator explicitly
-  // opted in to public exposure. Without this gate, every DB was reachable
-  // from the open internet at provision time — wrong default.
-  if (publicEnabled) {
-    await insertProxyRoute({
-      projectId: input.projectId,
-      resourceId: created.resource.id,
-      type: "layer4",
-      domain: publicHostname,
-      upstreamHost: internalHostname,
-      upstreamPort: PLATFORM.database.internalPort,
-      protocol: "tcp",
-      layer4Alpn: "postgresql",
-    });
-  }
-
-  const reconcileResult = await reconcile(log);
-  const isApplied = reconcileResult.applied.includes(input.projectId);
-  log.set({
-    reconcile: { applied: isApplied },
-    resource: { publicEnabled },
-  });
-
-  await updateDatabaseResourceStatus(
-    created.resource.id,
-    isApplied ? "valid" : "invalid",
-  );
-
-  return Result.ok(
-    await mapDatabaseResource(
-      {
-        ...created,
-        resource: {
-          ...created.resource,
-          status: isApplied ? "valid" : "invalid",
-        },
-      },
-      project.slug,
-    ),
-  );
-}
-
-/**
- * Flip the public-exposure flag on an existing postgres resource. When
- * enabling, registers a layer-4 proxy route to the internal hostname; when
- * disabling, drops every proxy route attached to the resource. Always runs
- * the Caddy reconcile so the running config catches up.
- */
 export async function setPostgresPublic(
   input: ProjectRef & { resourceId: ResourceId; publicEnabled: boolean },
   log: RequestLogger,
@@ -301,6 +143,24 @@ async function applyPostgresExtraEnv(
 
   await setDatabaseResourceExtraEnv(ref.resourceId, ref.nextExtraEnv);
 
+  // New deployment for the env change — labels onto the rolled spec so the
+  // resulting tasks group under this row in the Deployments tab.
+  const envDeployment = await insertDeployment({
+    resourceId: ref.resourceId,
+    image: PLATFORM.docker.postgresImage,
+    reason: "env-change",
+    snapshot: snapshotForPostgresCreate({
+      image: PLATFORM.docker.postgresImage,
+      databaseName: record.database.databaseName,
+      username: record.database.username,
+      password: record.database.password,
+      publicEnabled: record.database.publicEnabled,
+      publicHostname: record.database.publicHostname,
+      internalHostname: record.database.internalHostname,
+      extraEnv: ref.nextExtraEnv,
+    }),
+  });
+
   // Roll the running task with the new env. Volume + network stay put; only
   // the container env array changes. ~5s of dropped connections.
   await updateSwarmPostgres(
@@ -318,6 +178,7 @@ async function applyPostgresExtraEnv(
       username: record.database.username,
       password: record.database.password,
       projectSlug: sanitizeProjectSlug(project.slug),
+      deploymentId: envDeployment.id,
       extraEnv: ref.nextExtraEnv,
     },
     log,
@@ -344,7 +205,7 @@ export async function setPostgresExtraEnvKey(
       new PostgresResourceNotFoundError({ resourceId: input.resourceId }),
     );
   }
-  const next = { ...(record.database.extraEnv ?? {}), [input.key]: input.value };
+  const next = { ...record.database.extraEnv, [input.key]: input.value };
   return applyPostgresExtraEnv(
     {
       projectId: input.projectId,
@@ -366,7 +227,7 @@ export async function unsetPostgresExtraEnvKey(
       new PostgresResourceNotFoundError({ resourceId: input.resourceId }),
     );
   }
-  const current = { ...(record.database.extraEnv ?? {}) };
+  const current = { ...record.database.extraEnv };
   delete current[input.key];
   return applyPostgresExtraEnv(
     {
@@ -374,6 +235,34 @@ export async function unsetPostgresExtraEnvKey(
       organizationId: input.organizationId,
       resourceId: input.resourceId,
       nextExtraEnv: current,
+    },
+    log,
+  );
+}
+
+/**
+ * Apply a postgres snapshot to its resource — the rollback primitive.
+ * Today's postgres snapshot only records env-shaped data (the rest of
+ * the postgres state — credentials, hostnames — is immutable across the
+ * resource's lifetime), so rollback is "set extraEnv to the snapshot's
+ * value." The result is ONE new deployment row (reason: "redeploy")
+ * whose snapshot equals the snapshot we just replayed. If we later let
+ * users edit publicEnabled etc., this function fans out the additional
+ * setPostgres* calls in the same flow.
+ */
+export async function rollbackPostgresToSnapshot(
+  input: ProjectRef & {
+    resourceId: ResourceId;
+    snapshot: PostgresSnapshotV1;
+  },
+  log: RequestLogger,
+) {
+  return applyPostgresExtraEnv(
+    {
+      projectId: input.projectId,
+      organizationId: input.organizationId,
+      resourceId: input.resourceId,
+      nextExtraEnv: input.snapshot.extraEnv,
     },
     log,
   );

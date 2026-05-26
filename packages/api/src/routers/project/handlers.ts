@@ -15,10 +15,12 @@ export {
 } from "./projects";
 
 export {
-  createPostgresResource,
+  createPostgresResourceStream,
   setPostgresPublic,
   setPostgresExtraEnvKey,
   unsetPostgresExtraEnvKey,
+  validatePostgresCreate,
+  type CreatePostgresProgress,
 } from "./postgres";
 
 export {
@@ -35,6 +37,20 @@ export {
   listResourceTasks,
   type EnvEntry,
 } from "./resource-runtime";
+
+export {
+  tailDeploymentLogs,
+  tailResourceLogs,
+  tailTaskLogs,
+  type ResourceLogEvent,
+} from "./resource-logs";
+
+export {
+  listResourceDeployments,
+  listTasksForDeployment,
+  type DeploymentWithStats,
+  type DeploymentTaskInfo,
+} from "./deployments";
 
 export { listProjectDependencies, type DependencyEdge } from "./dependencies";
 

@@ -15,6 +15,7 @@ export {
   getProjectInOrg,
   getProjectRecord,
   listProjectRecordsByOrg,
+  loadProjectEnvBag,
   updateProjectRecord,
 } from "./project";
 

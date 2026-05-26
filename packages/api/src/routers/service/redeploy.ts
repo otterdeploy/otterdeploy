@@ -17,6 +17,7 @@ import type { RequestLogger } from "evlog";
 import { type ProjectId } from "../project/errors";
 import { ServiceNotFoundError, type ResolveError, type ResourceId } from "./errors";
 import {
+  bumpForceUpdateCounter,
   getServiceRecord,
   type ServiceRecord,
   updateServiceResourceStatus,
@@ -44,10 +45,12 @@ export async function provisionFresh(
     return Result.err(resolved.error);
   }
 
-  const runtime = await provisionSwarmService(
-    buildSwarmSpec(record, resolved.value, sanitizeSlug(projectSlug)),
-    log,
+  const swarmSpec = await buildSwarmSpec(
+    record,
+    resolved.value,
+    sanitizeSlug(projectSlug),
   );
+  const runtime = await provisionSwarmService(swarmSpec, log);
   await updateServiceResourceStatus(
     record.service.resourceId,
     runtime.status === "error" ? "invalid" : "valid",
@@ -62,6 +65,15 @@ export async function redeployOne(
   projectSlug: string,
   log?: RequestLogger,
 ): Promise<Result<true, ServiceNotFoundError | ResolveError>> {
+  // Bump ForceUpdate BEFORE loading the record so buildSwarmSpec
+  // serializes the new counter into TaskTemplate.ForceUpdate. Without
+  // this, "redeploy" with no spec changes would no-op at swarm — the
+  // task would never roll because nothing in the diff'd template
+  // changed. updateService callers, env-var setters, and expose paths
+  // all funnel through redeployOne, so doing it here covers every
+  // redeploy entry point instead of relying on each handler to remember.
+  await bumpForceUpdateCounter(resourceId);
+
   const record = await getServiceRecord(projectId, resourceId);
   if (!record) {
     return Result.err(new ServiceNotFoundError({ resourceId }));
@@ -73,10 +85,12 @@ export async function redeployOne(
     return Result.err(resolved.error);
   }
 
-  const runtime = await updateSwarmService(
-    buildSwarmSpec(record, resolved.value, sanitizeSlug(projectSlug)),
-    log,
+  const swarmSpec = await buildSwarmSpec(
+    record,
+    resolved.value,
+    sanitizeSlug(projectSlug),
   );
+  const runtime = await updateSwarmService(swarmSpec, log);
   await updateServiceResourceStatus(
     resourceId,
     runtime.status === "error" ? "invalid" : "valid",

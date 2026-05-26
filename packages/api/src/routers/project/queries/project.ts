@@ -2,7 +2,12 @@ import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { createError } from "evlog";
 
 import { db } from "@otterstack/db";
-import { environment, project, resource } from "@otterstack/db/schema/project";
+import {
+  environment,
+  project,
+  projectEnvVar,
+  resource,
+} from "@otterstack/db/schema/project";
 import { createId, ID_PREFIX, type Id } from "@otterstack/shared/id";
 
 import type { ProjectId } from "../errors";
@@ -164,4 +169,34 @@ export async function createProjectRecord(input: {
       environment: createdEnvironment,
     };
   });
+}
+
+/**
+ * Load all project-level env vars for the given (project, environment)
+ * pair, flattened to a plain `Record<string,string>`. Used by the variable
+ * resolver to back `${{project.X}}` and `${{environment.X}}` references —
+ * both magic names resolve from this same bag today (a project carries
+ * exactly one environment row), keeping the door open for per-environment
+ * specialization when multi-env projects ship.
+ *
+ * Returns an empty record when nothing is configured. Secrets are not
+ * specially masked here — values are emitted verbatim into the container
+ * env, which is the only way a workload can actually consume them.
+ */
+export async function loadProjectEnvBag(input: {
+  projectId: ProjectId;
+  environmentId: Id<typeof ID_PREFIX.environment>;
+}): Promise<Record<string, string>> {
+  const rows = await db
+    .select({ key: projectEnvVar.key, value: projectEnvVar.value })
+    .from(projectEnvVar)
+    .where(
+      and(
+        eq(projectEnvVar.projectId, input.projectId),
+        eq(projectEnvVar.environmentId, input.environmentId),
+      ),
+    );
+  const out: Record<string, string> = {};
+  for (const row of rows) out[row.key] = row.value;
+  return out;
 }

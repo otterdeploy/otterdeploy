@@ -38,7 +38,7 @@ import {
   toUpdateRecordPatch,
 } from "./inputs";
 import {
-  bulkReplaceServiceEnvVars, bumpForceUpdateCounter, createServiceRecord,
+  bulkReplaceServiceEnvVars, createServiceRecord,
   deleteServiceEnvVar, deleteServiceRecord, findServiceDependentsByName,
   getPrimaryHttpPort, getServiceRecord, getServiceRecordByName,
   listServiceRecordsByProject, replaceServicePorts, setPublicExposure,
@@ -198,8 +198,8 @@ export async function restartService(
   const ctx = await loadResource(input);
   if (ctx.isErr()) return Result.err(ctx.error);
 
-  await bumpForceUpdateCounter(input.resourceId);
-
+  // redeployOne now bumps ForceUpdate unconditionally — no explicit bump
+  // needed here.
   const redeployed = await redeployAndFanOut(
     input.projectId,
     input.resourceId,

@@ -5,7 +5,7 @@ import { orgScopedProcedure } from "../../index";
 import {
   bulkSetResourceEnv,
   checkResourceName,
-  createPostgresResource,
+  createPostgresResourceStream,
   setPostgresPublic,
   setPostgresExtraEnvKey,
   unsetPostgresExtraEnvKey,
@@ -21,8 +21,14 @@ import {
   listProjects,
   listProjectServiceTasks,
   listResourceEnv,
+  listResourceDeployments,
   listResourceTasks,
+  listTasksForDeployment,
+  tailDeploymentLogs,
+  tailResourceLogs,
+  tailTaskLogs,
   updateProject,
+  validatePostgresCreate,
 } from "./handlers";
 
 export const projectRouter = {
@@ -265,6 +271,128 @@ export const projectRouter = {
       ),
     },
 
+    logs: {
+      // Streaming. The handler is an async generator that yields demuxed
+      // log lines until the client disconnects. Resource ownership is
+      // verified inside tailResourceLogs (it calls getProjectInOrg) so
+      // cross-tenant log access can't happen.
+      tail: orgScopedProcedure.project.resource.logs.tail.handler(
+        // Eager handler that returns the iterator synchronously. We MUST
+        // call context.log.set() before the body becomes a streaming
+        // response — otherwise evlog has already flushed the wide event by
+        // the time the generator's body would run, and the fields land in
+        // /dev/null. Same reason the `postgres.create` handler does
+        // validation + log.set eagerly before returning its generator.
+        ({ input, context }) => {
+          context.log.set({
+            target: { type: "resource", id: input.resourceId, projectId: input.projectId },
+          });
+          return tailResourceLogs({
+            projectId: input.projectId,
+            resourceId: input.resourceId,
+            organizationId: context.activeOrganizationId,
+            tail: input.tail,
+          });
+        },
+      ),
+    },
+
+    taskLogs: {
+      // Per-task variant — drives the deployment-detail expander. Same
+      // eager-handler pattern as logs.tail above: log.set runs before the
+      // generator body so evlog sees the target fields.
+      tail: orgScopedProcedure.project.resource.taskLogs.tail.handler(
+        ({ input, context }) => {
+          context.log.set({
+            target: {
+              type: "resource",
+              id: input.resourceId,
+              projectId: input.projectId,
+            },
+            taskId: input.taskId,
+          });
+          return tailTaskLogs({
+            projectId: input.projectId,
+            resourceId: input.resourceId,
+            organizationId: context.activeOrganizationId,
+            taskId: input.taskId,
+            tail: input.tail,
+          });
+        },
+      ),
+    },
+
+    deployments: {
+      list: orgScopedProcedure.project.resource.deployments.list.handler(
+        async ({ input, context, errors }) => {
+          context.log.set({
+            target: { type: "resource", id: input.resourceId, projectId: input.projectId },
+          });
+          const result = await listResourceDeployments({
+            projectId: input.projectId,
+            resourceId: input.resourceId,
+            organizationId: context.activeOrganizationId,
+          });
+          if (result.isErr()) {
+            throw matchError(result.error, {
+              ProjectNotFoundError: () => errors.NOT_FOUND(),
+              PostgresResourceNotFoundError: () => errors.NOT_FOUND(),
+            });
+          }
+          return result.value.map((d) => ({
+            ...d,
+            completedAt: d.completedAt ? d.completedAt.toISOString() : null,
+            createdAt: d.createdAt.toISOString(),
+            updatedAt: d.updatedAt.toISOString(),
+          }));
+        },
+      ),
+
+      tasks: orgScopedProcedure.project.resource.deployments.tasks.handler(
+        async ({ input, context, errors }) => {
+          context.log.set({
+            target: { type: "resource", id: input.resourceId, projectId: input.projectId },
+            deploymentId: input.deploymentId,
+          });
+          const result = await listTasksForDeployment({
+            projectId: input.projectId,
+            resourceId: input.resourceId,
+            organizationId: context.activeOrganizationId,
+            deploymentId: input.deploymentId,
+          });
+          if (result.isErr()) {
+            throw matchError(result.error, {
+              ProjectNotFoundError: () => errors.NOT_FOUND(),
+              PostgresResourceNotFoundError: () => errors.NOT_FOUND(),
+            });
+          }
+          return result.value;
+        },
+      ),
+
+      logs: {
+        tail: orgScopedProcedure.project.resource.deployments.logs.tail.handler(
+          ({ input, context }) => {
+            context.log.set({
+              target: {
+                type: "resource",
+                id: input.resourceId,
+                projectId: input.projectId,
+              },
+              deploymentId: input.deploymentId,
+            });
+            return tailDeploymentLogs({
+              projectId: input.projectId,
+              resourceId: input.resourceId,
+              organizationId: context.activeOrganizationId,
+              deploymentId: input.deploymentId,
+              tail: input.tail,
+            });
+          },
+        ),
+      },
+    },
+
     get: orgScopedProcedure.project.resource.get.handler(
       async ({ input, context, errors }) => {
         context.log.set({
@@ -308,34 +436,51 @@ export const projectRouter = {
 
     database: {
       postgres: {
+        // Streaming create. Pre-flight validation (project lookup + name
+        // conflict) happens BEFORE the stream opens — those failures throw
+        // matched oRPC errors. Once the generator runs, runtime failures
+        // surface as `error` events the wizard renders alongside the
+        // already-completed steps.
         create: orgScopedProcedure.project.resource.database.postgres.create.handler(
+          // Eager prelude. Everything that should land in the audit wide
+          // event has to run BEFORE we return the generator — once that
+          // happens oRPC sets up the streaming response, hono's `next()`
+          // resolves, and evlog flushes. Anything log.set() inside the
+          // generator body gets dropped with a warning.
           async ({ input, context, errors }) => {
-            context.log.set({
-              target: { type: "resource", kind: "postgres", projectId: input.projectId },
-            });
-            const result = await createPostgresResource(
-              {
-                ...input,
-                projectId: input.projectId,
-                organizationId: context.activeOrganizationId,
-              },
-              context.log,
-            );
-            if (result.isErr()) {
-              throw matchError(result.error, {
-                ProjectNotFoundError: () => errors.NOT_FOUND(),
-                PostgresResourceConflictError: () => errors.CONFLICT(),
-              });
-            }
             context.log.set({
               target: {
                 type: "resource",
                 kind: "postgres",
-                id: result.value.resourceId,
                 projectId: input.projectId,
+                name: input.name,
               },
             });
-            return result.value;
+
+            const validation = await validatePostgresCreate({
+              projectId: input.projectId,
+              organizationId: context.activeOrganizationId,
+              name: input.name,
+            });
+            if (validation.isErr()) {
+              throw matchError(validation.error, {
+                ProjectNotFoundError: () => errors.NOT_FOUND(),
+                PostgresResourceConflictError: () => errors.CONFLICT(),
+              });
+            }
+
+            // The resource id only exists after the db-record step yields,
+            // long after the wide event flushed. Clients still receive it
+            // via the `created` event payload.
+            return createPostgresResourceStream(
+              {
+                ...input,
+                projectId: input.projectId,
+                organizationId: context.activeOrganizationId,
+                project: validation.value.project,
+              },
+              context.log,
+            );
           },
         ),
 

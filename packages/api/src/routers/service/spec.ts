@@ -4,14 +4,32 @@
  */
 
 import { type ServiceRecord } from "./queries";
-import { type SwarmServiceSpec } from "../../swarm";
+import {
+  materializeServiceMounts,
+  type SpecMount,
+  type SwarmServiceSpec,
+} from "../../swarm";
 import { sanitizeSlug } from "./views";
 
-export function buildSwarmSpec(
+export async function buildSwarmSpec(
   record: ServiceRecord,
   resolvedEnv: Record<string, string>,
   projectSlug: string,
-): SwarmServiceSpec {
+): Promise<SwarmServiceSpec> {
+  // Materialize file-type mounts to disk before we ship the spec to swarm —
+  // a bind-mount with no source on disk causes the container to fail to
+  // start with no useful error. Volume + bind types pass through verbatim.
+  const mounts: SpecMount[] = await materializeServiceMounts(
+    record.service.serviceName,
+    record.mounts.map((m) => ({
+      type: m.type,
+      target: m.target,
+      source: m.source,
+      content: m.content,
+      readOnly: m.readOnly,
+    })),
+  );
+
   return {
     resourceId: record.resource.id,
     resourceName: record.resource.name,
@@ -49,6 +67,7 @@ export function buildSwarmSpec(
       protocol: p.protocol,
       appProtocol: p.appProtocol,
     })),
+    mounts,
     forceUpdateCounter: record.service.forceUpdateCounter,
   };
 }

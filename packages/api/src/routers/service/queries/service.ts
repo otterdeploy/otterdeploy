@@ -5,6 +5,7 @@ import { db } from "@otterstack/db";
 import {
   resource,
   serviceEnvVar,
+  serviceMount,
   servicePort,
   serviceResource,
 } from "@otterstack/db/schema/project";
@@ -12,6 +13,7 @@ import {
 import type { ProjectId } from "../../project/errors";
 import type { ResourceId } from "../errors";
 import {
+  type ServiceMountRow,
   type ServicePortRow,
   type ServiceEnvVarRow,
   type ServiceRecord,
@@ -19,6 +21,7 @@ import {
 } from ".";
 import { listServicePorts } from "./ports";
 import { listServiceEnvVars } from "./env";
+import { listServiceMounts } from "./mounts";
 
 // ---------------------------------------------------------------------------
 // Reads
@@ -37,11 +40,12 @@ export async function getServiceRecord(
 
   if (!row) return undefined;
 
-  const [ports, env] = await Promise.all([
+  const [ports, env, mounts] = await Promise.all([
     listServicePorts(row.service.resourceId),
     listServiceEnvVars(row.service.resourceId),
+    listServiceMounts(row.service.resourceId),
   ]);
-  return { resource: row.resource, service: row.service, ports, env };
+  return { resource: row.resource, service: row.service, ports, env, mounts };
 }
 
 export async function getServiceRecordByName(
@@ -57,11 +61,12 @@ export async function getServiceRecordByName(
 
   if (!row) return undefined;
 
-  const [ports, env] = await Promise.all([
+  const [ports, env, mounts] = await Promise.all([
     listServicePorts(row.service.resourceId),
     listServiceEnvVars(row.service.resourceId),
+    listServiceMounts(row.service.resourceId),
   ]);
-  return { resource: row.resource, service: row.service, ports, env };
+  return { resource: row.resource, service: row.service, ports, env, mounts };
 }
 
 export async function listServiceRecordsByProject(
@@ -76,17 +81,24 @@ export async function listServiceRecordsByProject(
   if (rows.length === 0) return [];
 
   const ids = rows.map((r) => r.service.resourceId);
-  const [allPorts, allEnv]: [ServicePortRow[], ServiceEnvVarRow[]] =
-    await Promise.all([
-      db
-        .select()
-        .from(servicePort)
-        .where(inArray(servicePort.serviceResourceId, ids)),
-      db
-        .select()
-        .from(serviceEnvVar)
-        .where(inArray(serviceEnvVar.serviceResourceId, ids)),
-    ]);
+  const [allPorts, allEnv, allMounts]: [
+    ServicePortRow[],
+    ServiceEnvVarRow[],
+    ServiceMountRow[],
+  ] = await Promise.all([
+    db
+      .select()
+      .from(servicePort)
+      .where(inArray(servicePort.serviceResourceId, ids)),
+    db
+      .select()
+      .from(serviceEnvVar)
+      .where(inArray(serviceEnvVar.serviceResourceId, ids)),
+    db
+      .select()
+      .from(serviceMount)
+      .where(inArray(serviceMount.serviceResourceId, ids)),
+  ]);
 
   return rows.map((row) => ({
     resource: row.resource,
@@ -95,6 +107,9 @@ export async function listServiceRecordsByProject(
       (p) => p.serviceResourceId === row.service.resourceId,
     ),
     env: allEnv.filter((e) => e.serviceResourceId === row.service.resourceId),
+    mounts: allMounts.filter(
+      (m) => m.serviceResourceId === row.service.resourceId,
+    ),
   }));
 }
 
@@ -226,7 +241,13 @@ export async function createServiceRecord(
             )
             .returning();
 
-    return { resource: createdResource, service: createdService, ports, env };
+    return {
+      resource: createdResource,
+      service: createdService,
+      ports,
+      env,
+      mounts: [],
+    };
   });
 }
 

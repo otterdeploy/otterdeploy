@@ -19,3 +19,14 @@ export {
   type SwarmServiceResources,
   type SwarmServiceRestart,
 } from "./service";
+export {
+  streamImagePull,
+  type ImagePullEvent,
+  type RegistryAuth,
+} from "./image-pull";
+export { resolveRegistryAuth } from "./registry-auth";
+export {
+  materializeServiceMounts,
+  type ServiceMountInput,
+  type SpecMount,
+} from "./file-mounts";

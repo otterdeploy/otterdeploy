@@ -27,7 +27,8 @@ import { Route as AppOrgSlugProjectSlugNewResourceRouteImport } from "./routes/_
 import { Route as AppOrgSlugProjectSlugNetworkingRouteImport } from "./routes/_app/$orgSlug/$projectSlug/networking"
 import { Route as AppOrgSlugProjectSlugLogsRouteImport } from "./routes/_app/$orgSlug/$projectSlug/logs"
 import { Route as AppOrgSlugProjectSlugGraphLayoutRouteImport } from "./routes/_app/$orgSlug/$projectSlug/graph/layout"
-import { Route as AppOrgSlugProjectSlugGraphResourceIdRouteImport } from "./routes/_app/$orgSlug/$projectSlug/graph/$resourceId"
+import { Route as AppOrgSlugProjectSlugGraphResourceIdLayoutRouteImport } from "./routes/_app/$orgSlug/$projectSlug/graph/$resourceId/layout"
+import { Route as AppOrgSlugProjectSlugGraphResourceIdDeploymentDeploymentIdRouteImport } from "./routes/_app/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId"
 
 const TerminalRoute = TerminalRouteImport.update({
   id: "/terminal",
@@ -125,11 +126,17 @@ const AppOrgSlugProjectSlugGraphLayoutRoute =
     path: "/graph",
     getParentRoute: () => AppOrgSlugProjectSlugLayoutRoute,
   } as any)
-const AppOrgSlugProjectSlugGraphResourceIdRoute =
-  AppOrgSlugProjectSlugGraphResourceIdRouteImport.update({
+const AppOrgSlugProjectSlugGraphResourceIdLayoutRoute =
+  AppOrgSlugProjectSlugGraphResourceIdLayoutRouteImport.update({
     id: "/$resourceId",
     path: "/$resourceId",
     getParentRoute: () => AppOrgSlugProjectSlugGraphLayoutRoute,
+  } as any)
+const AppOrgSlugProjectSlugGraphResourceIdDeploymentDeploymentIdRoute =
+  AppOrgSlugProjectSlugGraphResourceIdDeploymentDeploymentIdRouteImport.update({
+    id: "/deployment/$deploymentId",
+    path: "/deployment/$deploymentId",
+    getParentRoute: () => AppOrgSlugProjectSlugGraphResourceIdLayoutRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -150,7 +157,8 @@ export interface FileRoutesByFullPath {
   "/$orgSlug/$projectSlug/networking": typeof AppOrgSlugProjectSlugNetworkingRoute
   "/$orgSlug/$projectSlug/new-resource": typeof AppOrgSlugProjectSlugNewResourceRoute
   "/$orgSlug/$projectSlug/": typeof AppOrgSlugProjectSlugIndexRoute
-  "/$orgSlug/$projectSlug/graph/$resourceId": typeof AppOrgSlugProjectSlugGraphResourceIdRoute
+  "/$orgSlug/$projectSlug/graph/$resourceId": typeof AppOrgSlugProjectSlugGraphResourceIdLayoutRouteWithChildren
+  "/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId": typeof AppOrgSlugProjectSlugGraphResourceIdDeploymentDeploymentIdRoute
 }
 export interface FileRoutesByTo {
   "/sign-in": typeof SignInRoute
@@ -168,7 +176,8 @@ export interface FileRoutesByTo {
   "/$orgSlug/$projectSlug/networking": typeof AppOrgSlugProjectSlugNetworkingRoute
   "/$orgSlug/$projectSlug/new-resource": typeof AppOrgSlugProjectSlugNewResourceRoute
   "/$orgSlug/$projectSlug": typeof AppOrgSlugProjectSlugIndexRoute
-  "/$orgSlug/$projectSlug/graph/$resourceId": typeof AppOrgSlugProjectSlugGraphResourceIdRoute
+  "/$orgSlug/$projectSlug/graph/$resourceId": typeof AppOrgSlugProjectSlugGraphResourceIdLayoutRouteWithChildren
+  "/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId": typeof AppOrgSlugProjectSlugGraphResourceIdDeploymentDeploymentIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -190,7 +199,8 @@ export interface FileRoutesById {
   "/_app/$orgSlug/$projectSlug/networking": typeof AppOrgSlugProjectSlugNetworkingRoute
   "/_app/$orgSlug/$projectSlug/new-resource": typeof AppOrgSlugProjectSlugNewResourceRoute
   "/_app/$orgSlug/$projectSlug/": typeof AppOrgSlugProjectSlugIndexRoute
-  "/_app/$orgSlug/$projectSlug/graph/$resourceId": typeof AppOrgSlugProjectSlugGraphResourceIdRoute
+  "/_app/$orgSlug/$projectSlug/graph/$resourceId": typeof AppOrgSlugProjectSlugGraphResourceIdLayoutRouteWithChildren
+  "/_app/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId": typeof AppOrgSlugProjectSlugGraphResourceIdDeploymentDeploymentIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -213,6 +223,7 @@ export interface FileRouteTypes {
     | "/$orgSlug/$projectSlug/new-resource"
     | "/$orgSlug/$projectSlug/"
     | "/$orgSlug/$projectSlug/graph/$resourceId"
+    | "/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId"
   fileRoutesByTo: FileRoutesByTo
   to:
     | "/sign-in"
@@ -231,6 +242,7 @@ export interface FileRouteTypes {
     | "/$orgSlug/$projectSlug/new-resource"
     | "/$orgSlug/$projectSlug"
     | "/$orgSlug/$projectSlug/graph/$resourceId"
+    | "/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId"
   id:
     | "__root__"
     | "/_app"
@@ -252,6 +264,7 @@ export interface FileRouteTypes {
     | "/_app/$orgSlug/$projectSlug/new-resource"
     | "/_app/$orgSlug/$projectSlug/"
     | "/_app/$orgSlug/$projectSlug/graph/$resourceId"
+    | "/_app/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId"
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -393,20 +406,42 @@ declare module "@tanstack/react-router" {
       id: "/_app/$orgSlug/$projectSlug/graph/$resourceId"
       path: "/$resourceId"
       fullPath: "/$orgSlug/$projectSlug/graph/$resourceId"
-      preLoaderRoute: typeof AppOrgSlugProjectSlugGraphResourceIdRouteImport
+      preLoaderRoute: typeof AppOrgSlugProjectSlugGraphResourceIdLayoutRouteImport
       parentRoute: typeof AppOrgSlugProjectSlugGraphLayoutRoute
+    }
+    "/_app/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId": {
+      id: "/_app/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId"
+      path: "/deployment/$deploymentId"
+      fullPath: "/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId"
+      preLoaderRoute: typeof AppOrgSlugProjectSlugGraphResourceIdDeploymentDeploymentIdRouteImport
+      parentRoute: typeof AppOrgSlugProjectSlugGraphResourceIdLayoutRoute
     }
   }
 }
 
+interface AppOrgSlugProjectSlugGraphResourceIdLayoutRouteChildren {
+  AppOrgSlugProjectSlugGraphResourceIdDeploymentDeploymentIdRoute: typeof AppOrgSlugProjectSlugGraphResourceIdDeploymentDeploymentIdRoute
+}
+
+const AppOrgSlugProjectSlugGraphResourceIdLayoutRouteChildren: AppOrgSlugProjectSlugGraphResourceIdLayoutRouteChildren =
+  {
+    AppOrgSlugProjectSlugGraphResourceIdDeploymentDeploymentIdRoute:
+      AppOrgSlugProjectSlugGraphResourceIdDeploymentDeploymentIdRoute,
+  }
+
+const AppOrgSlugProjectSlugGraphResourceIdLayoutRouteWithChildren =
+  AppOrgSlugProjectSlugGraphResourceIdLayoutRoute._addFileChildren(
+    AppOrgSlugProjectSlugGraphResourceIdLayoutRouteChildren,
+  )
+
 interface AppOrgSlugProjectSlugGraphLayoutRouteChildren {
-  AppOrgSlugProjectSlugGraphResourceIdRoute: typeof AppOrgSlugProjectSlugGraphResourceIdRoute
+  AppOrgSlugProjectSlugGraphResourceIdLayoutRoute: typeof AppOrgSlugProjectSlugGraphResourceIdLayoutRouteWithChildren
 }
 
 const AppOrgSlugProjectSlugGraphLayoutRouteChildren: AppOrgSlugProjectSlugGraphLayoutRouteChildren =
   {
-    AppOrgSlugProjectSlugGraphResourceIdRoute:
-      AppOrgSlugProjectSlugGraphResourceIdRoute,
+    AppOrgSlugProjectSlugGraphResourceIdLayoutRoute:
+      AppOrgSlugProjectSlugGraphResourceIdLayoutRouteWithChildren,
   }
 
 const AppOrgSlugProjectSlugGraphLayoutRouteWithChildren =

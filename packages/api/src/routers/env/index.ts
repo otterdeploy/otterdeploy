@@ -35,6 +35,23 @@ export const envRouter = {
       if (result.isErr()) {
         throw matchError(result.error, {
           EnvironmentConflictError: () => errors.CONFLICT(),
+          EnvironmentDatabaseError: (err) => {
+            // Log the actual cause to the operator stream so apps/server
+            // shows what the DB rejected (FK violation, missing column,
+            // bad slug, etc.) — the client only sees a generic 500.
+            context.log.set({
+              database: {
+                cause: err.cause,
+                code: err.pgCode,
+                detail: err.pgDetail,
+                constraint: err.pgConstraint,
+                table: err.pgTable,
+              },
+            });
+            return errors.INTERNAL_SERVER_ERROR({
+              data: { cause: err.cause },
+            });
+          },
         });
       }
       context.log.set({ target: { type: "environment", id: result.value.id } });

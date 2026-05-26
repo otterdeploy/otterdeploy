@@ -33,9 +33,17 @@ export const projectCollection = createCollection(
           const environmentId =
             m.modified.environmentId ?? createId(ID_PREFIX.environment);
 
+          // Env MUST be inserted standalone (projectId=null) — the project
+          // row doesn't exist yet, so passing projectId here would violate
+          // the environment.project_id FK. project.create below claims the
+          // env by id and sets project_id server-side. We pass projectId:
+          // null to the collection insert so the optimistic local row
+          // matches what the server will actually persist; once
+          // project.create returns we refetch the env list to pick up the
+          // server-side link.
           const envTx = envCollection.insert({
             id: environmentId,
-            projectId,
+            projectId: null,
             name: "Development",
             slug: "development",
             createdAt: new Date(),
@@ -43,12 +51,21 @@ export const projectCollection = createCollection(
           });
           await envTx.isPersisted.promise;
 
-          return orpc.project.create.call({
+          const result = await orpc.project.create.call({
             id: projectId,
             environmentId,
             name: m.modified.name,
             slug: projectSlug,
           });
+
+          // Refetch envs so the just-claimed environment shows projectId
+          // set in the local store. Fire-and-forget — the project.create
+          // resolution already unblocks the caller.
+          void queryClient.invalidateQueries({
+            queryKey: orpc.env.list.queryKey(),
+          });
+
+          return result;
         }),
       );
     },

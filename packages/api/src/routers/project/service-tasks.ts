@@ -34,8 +34,13 @@ export interface ServiceTaskInfo {
   slot: number | null;
   label: string;
   state: "running" | "building" | "error";
+  rawState: string | null;
+  desiredState: string | null;
   nodeId: string | null;
   message: string | null;
+  error: string | null;
+  containerId: string | null;
+  exitCode: number | null;
   timestamp: string | null;
 }
 
@@ -133,9 +138,21 @@ export async function listProjectServiceTasks(
     const resourceId = nameToResourceId.get(serviceName);
     if (!resourceId) continue;
 
-    const status = (task as { Status?: { State?: string; Message?: string; Timestamp?: string } }).Status;
+    const status = (
+      task as {
+        Status?: {
+          State?: string;
+          Message?: string;
+          Err?: string;
+          Timestamp?: string;
+          ContainerStatus?: { ContainerID?: string; ExitCode?: number };
+        };
+      }
+    ).Status;
     const slot = (task as { Slot?: number }).Slot ?? null;
     const nodeId = (task as { NodeID?: string }).NodeID ?? null;
+    const desiredState =
+      (task as { DesiredState?: string }).DesiredState ?? null;
 
     const bucket = grouped.get(resourceId);
     if (!bucket) continue;
@@ -144,8 +161,16 @@ export async function listProjectServiceTasks(
       slot,
       label: slot != null ? `${serviceName}.${slot}` : serviceName,
       state: collapseTaskState(status?.State),
+      rawState: status?.State ?? null,
+      desiredState,
       nodeId,
       message: status?.Message ?? null,
+      error: status?.Err ?? null,
+      containerId: status?.ContainerStatus?.ContainerID ?? null,
+      exitCode:
+        typeof status?.ContainerStatus?.ExitCode === "number"
+          ? status.ContainerStatus.ExitCode
+          : null,
       timestamp: status?.Timestamp ?? null,
     });
   }

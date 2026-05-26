@@ -54,7 +54,7 @@ export const Route = createFileRoute("/_app/$orgSlug/$projectSlug/networking")({
 });
 
 // ─── Mock data ─────────────────────────────────────────────────────────────
-type RouteRow = {
+interface RouteRow {
   id: string;
   service: string;
   kind: "service" | "database";
@@ -65,7 +65,7 @@ type RouteRow = {
   publicHost: string | null;
   tls: "letsencrypt" | null;
   isPublic: boolean;
-};
+}
 
 const PROJECTS = [
   { id: "all", name: "All projects", count: 6 },

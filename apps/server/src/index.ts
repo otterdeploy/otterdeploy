@@ -43,6 +43,39 @@ app.use(
     exclude: ["/api/health"],
   }),
 );
+
+// Streaming-tolerant logger wrapper. For event-iterator procedures the
+// response body keeps producing after evlog's `finish()` has already
+// emitted the wide event — any `log.set()` from the generator body races
+// against that flush and gets dropped with a console warning. We silence
+// the noise by intercepting `emit` to flip a local flag, then making
+// post-emit `set` a silent no-op. Pre-emit `set` still works normally;
+// only the "you're too late" case is suppressed. Per-stream observability
+// should go through `log.info(...)` on the global logger anyway, which
+// bypasses the request wide event entirely.
+app.use(async (c, next) => {
+  const logger = c.get("log") as unknown as
+    | {
+        emit?: (...args: unknown[]) => unknown;
+        set?: (data: Record<string, unknown>) => void;
+      }
+    | undefined;
+  if (logger?.emit && logger.set) {
+    let emitted = false;
+    const originalEmit = logger.emit.bind(logger);
+    const originalSet = logger.set.bind(logger);
+    logger.emit = (...args: unknown[]) => {
+      emitted = true;
+      return originalEmit(...args);
+    };
+    logger.set = (data: Record<string, unknown>) => {
+      if (emitted) return;
+      originalSet(data);
+    };
+  }
+  await next();
+});
+
 app.use(async (c, next) => {
   await identify(c.get("log"), c.req.raw.headers, c.req.path);
   await next();

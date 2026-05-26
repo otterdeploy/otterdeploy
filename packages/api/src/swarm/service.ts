@@ -4,6 +4,7 @@ import { createError, type RequestLogger } from "evlog";
 
 import { asStepLogger } from "../lib/logger";
 import { ensureProjectNetwork } from "./client";
+import type { SpecMount } from "./file-mounts";
 
 export interface SwarmServiceRuntime {
   serviceId: string | null;
@@ -57,6 +58,13 @@ export interface SwarmServiceSpec {
   healthcheck?: SwarmServiceHealthcheck | null;
   resources?: SwarmServiceResources;
   ports: SwarmServicePort[];
+  /**
+   * Mounts attached to the container. File-type mounts MUST already be
+   * materialized to disk (see materializeServiceMounts) before this spec
+   * is handed to docker — the SpecMount entries here always reference a
+   * real source path or volume name. Pass an empty array for no mounts.
+   */
+  mounts: SpecMount[];
 
   forceUpdateCounter: number;
 }
@@ -134,6 +142,8 @@ export async function updateSwarmService(
       Labels: newSpec.Labels,
       TaskTemplate: newSpec.TaskTemplate,
       Mode: newSpec.Mode,
+      UpdateConfig: newSpec.UpdateConfig,
+      RollbackConfig: newSpec.RollbackConfig,
       EndpointSpec: newSpec.EndpointSpec,
     });
 
@@ -250,6 +260,13 @@ function buildServiceSpec(spec: SwarmServiceSpec, networkName: string) {
     };
   }
 
+  // Mounts come pre-materialized from the caller — file-type mounts had
+  // their content written to disk in materializeServiceMounts(), and the
+  // SpecMount entries here all reference real paths or volume names.
+  if (spec.mounts.length > 0) {
+    containerSpec.Mounts = spec.mounts;
+  }
+
   const taskTemplate: Record<string, unknown> = {
     ContainerSpec: containerSpec,
     Networks: [
@@ -299,6 +316,28 @@ function buildServiceSpec(spec: SwarmServiceSpec, networkName: string) {
     },
     TaskTemplate: taskTemplate,
     Mode: { Replicated: { Replicas: spec.replicas } },
+    // Zero-downtime rolling update: start the new task before stopping
+    // the old one, fail the deploy + auto-rollback if the new task can't
+    // hold "running" for 10s. Monitor=10s is short enough that operators
+    // see fast feedback on a bad spec; MaxFailureRatio=0 means any
+    // failed task aborts the rollout instead of accepting partial
+    // success.
+    UpdateConfig: {
+      Parallelism: 1,
+      Delay: 0,
+      Order: "start-first" as const,
+      FailureAction: "rollback" as const,
+      Monitor: 10_000_000_000,
+      MaxFailureRatio: 0,
+    },
+    RollbackConfig: {
+      Parallelism: 1,
+      Delay: 0,
+      Order: "start-first" as const,
+      FailureAction: "pause" as const,
+      Monitor: 10_000_000_000,
+      MaxFailureRatio: 0,
+    },
     EndpointSpec: publishedPorts.length > 0 ? { Ports: publishedPorts } : undefined,
   };
 }

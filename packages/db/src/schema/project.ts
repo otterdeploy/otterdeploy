@@ -220,8 +220,130 @@ export const serviceResource = pgTable(
   ],
 );
 
+// Deployment — one logical "push" of a resource to swarm. Each create /
+// redeploy / env-change inserts a new deployment row and tags the swarm
+// spec with `otterstack.deployment.id=<id>` so the tasks docker schedules
+// inherit the link via Spec.ContainerSpec.Labels. The Deployments tab in
+// the UI lists these rows and expands each to show its underlying tasks.
+export const deploymentStatusEnum = pgEnum("deployment_status", [
+  "pending",
+  "building",
+  "running",
+  "failed",
+  "superseded",
+  "removed",
+]);
+
+export const deploymentReasonEnum = pgEnum("deployment_reason", [
+  "create",
+  "redeploy",
+  "env-change",
+  "image-change",
+  "restart",
+]);
+
+export const deployment = pgTable(
+  "deployment",
+  {
+    id: text("id")
+      .primaryKey()
+      .$type<Id<typeof ID_PREFIX.deployment>>()
+      .$defaultFn(() => createId(ID_PREFIX.deployment)),
+    resourceId: text("resource_id")
+      .notNull()
+      .$type<Id<typeof ID_PREFIX.resource>>()
+      .references(() => resource.id, { onDelete: "cascade" }),
+    // Image the deployment was launched with. Captured at insert time so
+    // history survives a platform image-pin change.
+    image: text("image").notNull(),
+    reason: deploymentReasonEnum("reason").notNull().default("create"),
+    status: deploymentStatusEnum("status").notNull().default("pending"),
+    // Full configuration snapshot of the resource at deploy time. The
+    // shape mirrors the resource's own columns (env, ports, healthcheck,
+    // command, mounts, resources, etc.) — enough to reproduce the deploy
+    // by re-applying it. "Rollback to deployment N" means: load this
+    // snapshot, write its fields back onto the resource row, then run a
+    // normal redeploy. The schema is intentionally untyped at the DB
+    // layer (resources differ between database/service kinds) and
+    // validated at the application boundary instead.
+    snapshot: jsonb("snapshot").$type<Record<string, unknown>>().notNull().default({}),
+    // Populated when the deployment finalizes (terminal status reached).
+    errorMessage: text("error_message"),
+    completedAt: timestamp("completed_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("deployment_resource_id_idx").on(table.resourceId),
+    index("deployment_resource_created_idx").on(
+      table.resourceId,
+      table.createdAt,
+    ),
+  ],
+);
+
 export const servicePortProtocolEnum = pgEnum("service_port_protocol", ["tcp", "udp"]);
 export const serviceAppProtocolEnum = pgEnum("service_app_protocol", ["http", "tcp"]);
+
+// Mount type discriminator.
+//   - volume: named docker volume managed by swarm. Source = volume name.
+//   - bind:   bind-mount a path on the host into the container. Source = host path.
+//   - file:   like bind, but the file's content is stored IN THIS TABLE and
+//             materialized to disk under PLATFORM.files.root/<service>/<target>
+//             at deploy time. Lets users author small config files (nginx.conf,
+//             init.sql, etc.) from the UI without ssh'ing to a node.
+export const serviceMountTypeEnum = pgEnum("service_mount_type", [
+  "volume",
+  "bind",
+  "file",
+]);
+
+export const serviceMount = pgTable(
+  "service_mount",
+  {
+    id: text("id")
+      .primaryKey()
+      .$type<Id<typeof ID_PREFIX.serviceMount>>()
+      .$defaultFn(() => createId(ID_PREFIX.serviceMount)),
+    serviceResourceId: text("service_resource_id")
+      .notNull()
+      .$type<Id<typeof ID_PREFIX.resource>>()
+      .references(() => serviceResource.resourceId, { onDelete: "cascade" }),
+    type: serviceMountTypeEnum("type").notNull(),
+    /** Path inside the container where the mount appears. Always set. */
+    target: text("target").notNull(),
+    /**
+     * For type=volume → the docker volume name.
+     * For type=bind   → the absolute host path being bind-mounted.
+     * For type=file   → the relative path under <PLATFORM.files.root>/<service>/
+     *                   where `content` is materialized; the bind target points at
+     *                   that materialized file. May be left null for type=file —
+     *                   the spec builder will default it to the target's basename.
+     */
+    source: text("source"),
+    /**
+     * File contents for type=file. Stored as text (utf-8). Binary blobs aren't
+     * supported here — use type=bind to a pre-staged file for those.
+     */
+    content: text("content"),
+    readOnly: boolean("read_only").notNull().default(false),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("service_mount_target_unique").on(
+      table.serviceResourceId,
+      table.target,
+    ),
+    index("service_mount_service_resource_id_idx").on(table.serviceResourceId),
+  ],
+);
 
 export const servicePort = pgTable(
   "service_port",

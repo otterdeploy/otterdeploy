@@ -1,18 +1,18 @@
 /** Mock service catalog backing the "Open a terminal" picker. Swap for an
  *  oRPC query once the server can enumerate live containers. */
 
-export type ServiceReplica = {
+export interface ServiceReplica {
   /** Real container ID we hand to the WebSocket — `?container=…`. */
   containerId: string;
   /** Short replica label shown in the picker pill (r1, r2, …). */
   label: string;
-};
+}
 
-export type Service = {
+export interface Service {
   name: string;
   project: string;
   replicas: ServiceReplica[];
-};
+}
 
 export const MOCK_SERVICES: Service[] = [
   {
@@ -62,13 +62,13 @@ export const MOCK_SERVICES: Service[] = [
   },
 ];
 
-export type SwarmNode = {
+export interface SwarmNode {
   name: string;
   host: string;
   /** "local" runs as a host shell on the machine running the server (no SSH
    *  hop). "remote" SSHes into a swarm node. */
   kind: "local" | "remote";
-};
+}
 
 export const MOCK_NODES: SwarmNode[] = [
   { name: "localhost", host: "this machine · host shell", kind: "local" },
@@ -77,11 +77,11 @@ export const MOCK_NODES: SwarmNode[] = [
   { name: "helio-prod-03", host: "10.0.4.13", kind: "remote" },
 ];
 
-export type Database = {
+export interface Database {
   name: string;
   engine: "postgres" | "redis" | "mongodb" | "mysql" | "mariadb";
   project: string;
-};
+}
 
 export const MOCK_DATABASES: Database[] = [
   { name: "postgres", engine: "postgres", project: "helio" },

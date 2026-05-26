@@ -399,7 +399,7 @@ export function ResourceNode({ id, data, selected }: NodeProps<ResourceFlowNode>
         className="size-2! border-[1.5px]! border-border! bg-card!"
       />
 
-      <NodeToolbar position={Position.Top} offset={10} isVisible={selected || isHovered}>
+      <NodeToolbar position={Position.Right} offset={16} isVisible={selected || isHovered}>
         <TooltipProvider delay={200}>
           <div
             className="flex flex-col gap-0.5 rounded-full border bg-card p-1 shadow-md"

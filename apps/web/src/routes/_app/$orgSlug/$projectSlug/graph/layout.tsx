@@ -2,10 +2,12 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   createFileRoute,
   Outlet,
+  useChildMatches,
   useLoaderData,
   useMatch,
   useNavigate,
 } from "@tanstack/react-router";
+import { AnimatePresence } from "motion/react";
 import { useLiveQuery } from "@tanstack/react-db";
 import {
   Background,
@@ -17,12 +19,12 @@ import {
   type Node,
 } from "@xyflow/react";
 
-import { layoutGraph } from "@/features/projects/components/graph/layout-graph";
 import {
-  ResourceNode,
-  type ResourceNodeData,
-} from "@/features/projects/components/graph/resource-node";
-import { resourceToNode } from "@/features/projects/components/graph/resource-to-node";
+  buildLiveNodes,
+  buildRouteEdges,
+} from "@/features/projects/components/graph/build-live-nodes";
+import { layoutGraph } from "@/features/projects/components/graph/layout-graph";
+import { ResourceNode } from "@/features/projects/components/graph/resource-node";
 import { createProjectDependenciesCollection } from "@/features/projects/data/dependencies";
 import { createResourceCollection } from "@/features/projects/data/resource";
 import { createServiceTasksCollection } from "@/features/projects/data/service-tasks";
@@ -35,13 +37,24 @@ export const Route = createFileRoute("/_app/$orgSlug/$projectSlug/graph")({
 const nodeTypes = { resource: ResourceNode };
 
 function RouteComponent() {
+  // AnimatePresence only sees its DIRECT children — passing <Outlet /> with
+  // no key would never trigger an exit since the same element re-renders
+  // on every navigation. Keying by the active immediate child match (or
+  // omitting the Outlet entirely when no child is active) makes the
+  // presence change visible to motion so the panel can slide out before
+  // it unmounts.
+  const childMatches = useChildMatches();
+  const childKey = childMatches[0]?.pathname ?? null;
+
   return (
     <div className="relative flex flex-1 overflow-hidden p-3">
-      <div className="relative flex-1 overflow-hidden rounded-2xl border">
+      <div className="relative flex-1 rounded-2xl border">
         <ReactFlowProvider>
           <GraphCanvas />
           <div className="pointer-events-none absolute inset-0 top-10 z-10 flex size-full items-end justify-end">
-            <Outlet />
+            <AnimatePresence mode="wait">
+              {childKey ? <Outlet key={childKey} /> : null}
+            </AnimatePresence>
           </div>
         </ReactFlowProvider>
       </div>
@@ -112,67 +125,18 @@ function GraphCanvas() {
     return m;
   }, [serviceTasks]);
 
-  // Convert resources to nodes, then enrich service nodes with their live
-  // replicas + rolled-up status. The rollup picks the most concerning state
-  // across replicas (error > building > running) so the header pill matches
-  // operator intuition — one failing replica makes the whole service "error".
-  //
-  // Synthetic route nodes (D.5): every service with publicEnabled + a domain
-  // gets a virtual "route" node added in front of it, with an edge
-  // route → service so the graph shows the ingress path.
-  const liveNodes = useMemo<Node<ResourceNodeData, "resource">[]>(() => {
-    const out: Node<ResourceNodeData, "resource">[] = [];
-    for (const r of resources) {
-      const node = resourceToNode(r);
-      if (node.data.kind === "service") {
-        const tasks = tasksByResourceId.get(node.id);
-        if (tasks && tasks.length > 0) {
-          const rolledStatus = tasks.some((t) => t.state === "error")
-            ? "error"
-            : tasks.some((t) => t.state === "building")
-              ? "building"
-              : "running";
-          node.data = {
-            ...node.data,
-            status: rolledStatus,
-            replicas: tasks.map((t) => ({ label: t.label, status: t.state })),
-          };
-        }
-        // D.5: synthesise the route node for services exposed publicly.
-        if (r.type === "service" && r.publicEnabled && r.publicDomain) {
-          out.push({
-            id: `route:${r.resourceId}`,
-            type: "resource",
-            position: { x: 0, y: 0 },
-            data: {
-              kind: "route",
-              name: r.publicDomain,
-              description: `Public route → ${r.name}`,
-              status: node.data.status,
-            },
-          });
-        }
-      }
-      out.push(node);
-    }
-    return out;
-  }, [resources, tasksByResourceId]);
+  // Convert resources to nodes + synthesize public route nodes via the
+  // shared helper. See features/projects/components/graph/build-live-nodes.ts
+  // for the rollup rules (error > building > running) and route handling.
+  const liveNodes = useMemo(
+    () => buildLiveNodes(resources, tasksByResourceId),
+    [resources, tasksByResourceId],
+  );
 
-  // Route → service edges, derived alongside the synthetic nodes so the layout
-  // ranks routes above the services they front.
-  const liveEdges = useMemo<Edge[]>(() => {
-    const routeEdges: Edge[] = [];
-    for (const r of resources) {
-      if (r.type === "service" && r.publicEnabled && r.publicDomain) {
-        routeEdges.push({
-          id: `route:${r.resourceId}->${r.resourceId}`,
-          source: `route:${r.resourceId}`,
-          target: r.resourceId,
-        });
-      }
-    }
-    return [...edgesFromDeps, ...routeEdges];
-  }, [resources, edgesFromDeps]);
+  const liveEdges = useMemo(
+    () => [...edgesFromDeps, ...buildRouteEdges(resources)],
+    [resources, edgesFromDeps],
+  );
 
   // Lay out with both nodes and edges so dagre ranks consumers above their
   // dependencies (routes → services → databases).
@@ -256,7 +220,7 @@ function GraphCanvas() {
       <Controls
         showInteractive={false}
         position="bottom-right"
-        className="!rounded-md !border !border-border/40 !bg-background/80 !shadow-sm !backdrop-blur [&_button]:!border-border/40 [&_button]:!bg-transparent [&_button]:!text-muted-foreground hover:[&_button]:!text-foreground"
+        className="rounded-md! border! border-border/40! bg-background/80! shadow-sm! backdrop-blur! [&_button]:border-border/40! [&_button]:bg-transparent! [&_button]:text-muted-foreground! hover:[&_button]:text-foreground!"
       />
     </ReactFlow>
   );

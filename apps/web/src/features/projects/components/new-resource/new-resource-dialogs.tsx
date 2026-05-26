@@ -53,7 +53,7 @@ export function ResourceKindDialog({
         if (!o) setKindId(null);
       }}
     >
-      <DialogContent className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-[920px]">
+      <DialogContent className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-230">
         <DialogHeader className="px-5 pt-5 pb-3">
           <DialogTitle>Choose a resource type</DialogTitle>
           <DialogDescription>
@@ -108,7 +108,7 @@ export function ResourceOverlayDialog({
 }: ResourceOverlayDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[80vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-[920px]">
+      <DialogContent className="flex h-[80vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-230">
         <DialogHeader className="border-b px-5 pt-4 pb-3">
           <DialogTitle>
             {projectName ? `Add resource to ${projectName}` : "Add resource"}

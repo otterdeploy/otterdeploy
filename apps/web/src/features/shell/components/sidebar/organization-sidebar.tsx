@@ -57,10 +57,10 @@ const navItems = [
  * Workspace-wide concerns that don't have routes yet — render as plain
  * buttons. Swap to `render={<Link to={...} />}` once their route files land.
  */
-type StaticNavItem = {
+interface StaticNavItem {
   title: string;
   icon: typeof Home01Icon;
-};
+}
 
 const infrastructureItems: StaticNavItem[] = [
   { title: "Templates", icon: Folder01Icon },

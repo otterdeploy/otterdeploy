@@ -20,6 +20,8 @@ import {
 } from "../../routers/service/errors";
 import {
   getDatabaseResourceRecord,
+  getProjectRecord,
+  loadProjectEnvBag,
   type DatabaseResourceRecord,
 } from "../../routers/project/queries";
 
@@ -115,6 +117,18 @@ async function loadExports(
   refResourceName: string,
   ctx: ResolveContext,
 ): Promise<Result<Record<string, string>, ResolveError>> {
+  // Magic scopes: `project` and `environment` aren't real resources but
+  // env-var bags shared across every service in the (project, environment)
+  // pair. Both resolve from the same underlying projectEnvVar table today
+  // — semantic split is preserved so when multi-env-per-project lands,
+  // `environment` can specialize without breaking existing service envs.
+  if (refResourceName === "project" || refResourceName === "environment") {
+    const cacheKey = `__${refResourceName}__`;
+    const cached = ctx.exportsCache.get(cacheKey);
+    if (cached) return Result.ok(cached);
+    return loadScopeExports(refResourceName, cacheKey, ctx);
+  }
+
   const resourceRow = await getResourceByProjectAndName(ctx.projectId, refResourceName);
   if (!resourceRow) {
     return Result.err(new RefMissingResourceError({ refResourceName }));
@@ -136,6 +150,26 @@ async function loadExports(
   }
 
   return Result.err(new RefMissingResourceError({ refResourceName }));
+}
+
+async function loadScopeExports(
+  refResourceName: "project" | "environment",
+  cacheKey: string,
+  ctx: ResolveContext,
+): Promise<Result<Record<string, string>, ResolveError>> {
+  // The bag is keyed by (projectId, environmentId). We always look up the
+  // project's current environment — even when the ref is `project.X`, since
+  // a project today owns exactly one environment row.
+  const projectRecord = await getProjectRecord(ctx.projectId);
+  if (!projectRecord?.environmentId) {
+    return Result.err(new RefMissingResourceError({ refResourceName }));
+  }
+  const bag = await loadProjectEnvBag({
+    projectId: ctx.projectId,
+    environmentId: projectRecord.environmentId,
+  });
+  ctx.exportsCache.set(cacheKey, bag);
+  return Result.ok(bag);
 }
 
 async function loadDatabaseExports(

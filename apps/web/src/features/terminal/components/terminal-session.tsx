@@ -20,14 +20,14 @@ export type ConnState =
   | { kind: "closed"; code?: number; reason?: string }
   | { kind: "error"; message: string };
 
-type Props = {
+interface Props {
   source: SessionSource;
   /** Whether this session is the visible tab — inactive sessions stay mounted
    *  with `display: none` so their WebSocket + terminal state survives tab
    *  switches. */
   active: boolean;
   onConnChange?: (conn: ConnState) => void;
-};
+}
 
 function buildWsUrl(source: SessionSource): string | null {
   const base = env.VITE_SERVER_URL.replace(/^http/, "ws");

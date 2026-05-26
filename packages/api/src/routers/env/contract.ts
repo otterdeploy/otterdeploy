@@ -54,6 +54,11 @@ export const envContract = {
   create: oc
     .errors({
       CONFLICT: { status: 409, message: "Environment slug already in use" as const },
+      INTERNAL_SERVER_ERROR: {
+        status: 500,
+        message: "Environment create failed" as const,
+        data: z.object({ cause: z.string() }),
+      },
     })
     .meta({ path: basePath, tag, method: "POST" })
     .input(createEnvInput)

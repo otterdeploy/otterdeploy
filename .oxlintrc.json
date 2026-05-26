@@ -117,8 +117,56 @@
       {
         "case": "kebabCase"
       }
-    ]
+    ],
+    "max-lines": [
+      "error",
+      {
+        "max": 250,
+        "skipBlankLines": true,
+        "skipComments": true
+      }
+    ],
+    "max-lines-per-function": [
+      "error",
+      {
+        "max": 150,
+        "skipBlankLines": true,
+        "skipComments": true,
+        "IIFEs": true
+      }
+    ],
+    "complexity": ["error", { "max": 15 }]
   },
+  "overrides": [
+    {
+      "files": ["apps/web/src/shared/components/ui/**"],
+      "rules": {
+        "max-lines": "off",
+        "max-lines-per-function": "off",
+        "complexity": "off"
+      }
+    },
+    {
+      "files": ["packages/db/src/schema/**"],
+      "rules": {
+        "max-lines": "off"
+      }
+    },
+    {
+      "files": ["**/*.test.ts", "**/__tests__/**"],
+      "rules": {
+        "max-lines": "off",
+        "max-lines-per-function": "off",
+        "complexity": "off"
+      }
+    },
+    {
+      "files": ["**/contract.ts"],
+      "rules": {
+        "max-lines": ["error", { "max": 500, "skipBlankLines": true, "skipComments": true }]
+      }
+    }
+  ],
   "settings": {
     "jsx-a11y": {
       "polymorphicPropName": null,
@@ -154,5 +202,10 @@
     "typeAware": true
   },
   "globals": {},
-  "ignorePatterns": ["apps/beta-landing/**", "routeTree.gen.ts", "**/$*", "**/$*/**"]
+  "ignorePatterns": [
+    "apps/beta-landing/**",
+    "apps/web-demo/**",
+    "**/route-tree.gen.ts",
+    "routeTree.gen.ts"
+  ]
 }
