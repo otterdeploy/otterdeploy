@@ -29,3 +29,10 @@ export {
   loadGithubAppForOrgIfPresent,
   loadGithubAppForProvider,
 } from "./github-app-config";
+
+export {
+  buildManifestRequest,
+  completeManifestExchange,
+  orgHasGithubApp,
+} from "./manifest";
+export type { GithubAppManifest, StartManifestResult } from "./manifest";

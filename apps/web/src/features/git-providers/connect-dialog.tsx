@@ -1,3 +1,23 @@
+/**
+ * Connect-a-git-provider dialog.
+ *
+ * Single primary action: "Connect GitHub". It always Does The Right Thing:
+ *
+ *   - If the org already has a GitHub App configured (a `git_provider`
+ *     row with credentials), `startConnect` returns a fresh install URL
+ *     and we redirect to it.
+ *
+ *   - If not, `startConnect` returns NOT_CONFIGURED — we fall through to
+ *     the manifest flow: call `startManifest`, get back a form action +
+ *     manifest JSON, build a hidden form, auto-submit it. The browser
+ *     leaves our origin and lands on GitHub's app-creation page with
+ *     the manifest pre-filled; on approval, GitHub redirects back to
+ *     `/api/integrations/github/manifest/callback` which persists the
+ *     creds and forwards to the install URL.
+ *
+ * No env vars at any step — matches Coolify/Dokploy.
+ */
+
 import { HugeiconsIcon } from "@hugeicons/react";
 import { GitBranchIcon } from "@hugeicons/core-free-icons";
 import { useMutation } from "@tanstack/react-query";
@@ -22,23 +42,37 @@ interface ConnectDialogProps {
 }
 
 export function ConnectDialog({ open, onOpenChange }: ConnectDialogProps) {
+  const startManifest = useMutation({
+    ...orpc.git.startManifest.mutationOptions(),
+    onSuccess: (res) => {
+      // Build a hidden form and POST it. Cross-origin form submission to
+      // github.com is fine — manifest field carries the App definition.
+      submitManifestForm(res.formActionUrl, res.manifestJson);
+    },
+    onError: (err) => {
+      toast.error(err.message ?? "Failed to start GitHub App creation");
+    },
+  });
+
   const startConnect = useMutation({
     ...orpc.git.startConnect.mutationOptions(),
     onSuccess: (res) => {
-      // Hand the browser off to GitHub. The callback redirects back here
-      // with ?git_install=ok|error.
+      // Existing App for this org — hand the browser off to GitHub's
+      // install page directly.
       window.location.href = res.redirectUrl;
     },
     onError: (err) => {
+      // 503 NOT_CONFIGURED means "no App yet" — fall through to manifest
+      // creation. Any other error is real and gets surfaced as a toast.
       if (err.message?.includes("not configured")) {
-        toast.error(
-          "No GitHub App for this org yet — click \"Create GitHub App\" to set one up.",
-        );
+        startManifest.mutate({});
       } else {
         toast.error(err.message ?? "Failed to start GitHub install");
       }
     },
   });
+
+  const isPending = startConnect.isPending || startManifest.isPending;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -56,18 +90,18 @@ export function ConnectDialog({ open, onOpenChange }: ConnectDialogProps) {
 
         <div className="flex flex-col gap-3">
           <p className="text-[12.5px] text-muted-foreground">
-            Pushes to a project's production branch will trigger a deploy.
-            Otterstack uses a GitHub App — you'll pick which repos it can
-            see on GitHub.
+            Otterstack creates a GitHub App for your org through GitHub's
+            manifest flow — no config, no env vars. You'll review and
+            approve it on GitHub, then pick which repos it can see.
           </p>
 
           <Button
             size="lg"
             onClick={() => startConnect.mutate({ kind: "github" })}
-            disabled={startConnect.isPending}
+            disabled={isPending}
           >
             <SvglLogo search={PROVIDER_SEARCH.github} fallback="GitHub" size={18} />
-            {startConnect.isPending ? "Redirecting…" : "Install on GitHub"}
+            {isPending ? "Redirecting…" : "Connect GitHub"}
           </Button>
 
           <div className="flex flex-col gap-1.5">
@@ -100,4 +134,28 @@ export function ConnectDialog({ open, onOpenChange }: ConnectDialogProps) {
       </DialogContent>
     </Dialog>
   );
+}
+
+/**
+ * GitHub's manifest endpoint takes the manifest in a form field, not a
+ * query param (the JSON is too big for a URL). We build a hidden form
+ * and submit it from the operator's browser so GitHub sees a same-tab
+ * navigation it can redirect back from.
+ */
+function submitManifestForm(actionUrl: string, manifestJson: string): void {
+  const form = document.createElement("form");
+  form.method = "POST";
+  form.action = actionUrl;
+  // _top so iframed instances still leave their frame and land on
+  // github.com fullscreen.
+  form.target = "_top";
+
+  const input = document.createElement("input");
+  input.type = "hidden";
+  input.name = "manifest";
+  input.value = manifestJson;
+  form.appendChild(input);
+
+  document.body.appendChild(form);
+  form.submit();
 }

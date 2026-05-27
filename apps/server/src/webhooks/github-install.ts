@@ -12,7 +12,9 @@
 
 import {
   completeGithubConnect,
+  completeManifestExchange,
   GithubAppNotConfiguredError,
+  signInstallState,
   verifyInstallState,
 } from "@otterstack/api/git";
 import { env } from "@otterstack/env/server";
@@ -74,6 +76,73 @@ export function registerGithubInstallRoutes(app: Hono<EvlogVariables>): void {
         },
       });
       return errorRedirect(`failed:${parsed.code ?? "unknown"}`);
+    }
+  });
+
+  /**
+   * Manifest-flow callback — GitHub redirects here after the operator
+   * approves the App creation page with our manifest. Exchanges the
+   * one-time `code` for App credentials, persists them encrypted on
+   * the org's `git_provider` row, then redirects the operator on to
+   * the install URL so they can pick repos.
+   *
+   * `state` is verified the same way as the install callback above —
+   * same signing scheme, same TTL.
+   */
+  app.get("/api/integrations/github/manifest/callback", async (c) => {
+    const code = c.req.query("code");
+    const stateRaw = c.req.query("state");
+
+    const baseUrl = env.BETTER_AUTH_URL.replace(/\/$/, "");
+    const errorRedirect = (reason: string) =>
+      c.redirect(
+        `${baseUrl}/?git_install=error&reason=${encodeURIComponent(reason)}`,
+      );
+
+    if (!code || !stateRaw) {
+      return errorRedirect("missing-params");
+    }
+
+    const state = await verifyInstallState(stateRaw);
+    if (!state) {
+      return errorRedirect("invalid-state");
+    }
+
+    try {
+      const result = await completeManifestExchange({
+        code,
+        organizationId: state.orgId as Id<typeof ID_PREFIX.organization>,
+      });
+      log.info({
+        github: {
+          event: "manifest.completed",
+          orgId: state.orgId,
+          providerId: result.providerId,
+          appSlug: result.appSlug,
+        },
+      });
+
+      // Carry the install state forward — same orgId + userId — so the
+      // install-callback can finish wiring this org's first installation.
+      // Mint fresh because the manifest-leg state has already burned
+      // most of its 15-minute TTL.
+      const installState = await signInstallState({
+        orgId: state.orgId,
+        userId: state.userId,
+      });
+      const installUrl = new URL(result.installRedirectUrl);
+      installUrl.searchParams.set("state", installState);
+      return c.redirect(installUrl.toString());
+    } catch (cause) {
+      const parsed = parseError(cause);
+      log.error({
+        github: {
+          event: "manifest.failed",
+          orgId: state.orgId,
+          error: parsed.message,
+        },
+      });
+      return errorRedirect(`manifest-failed:${parsed.code ?? "unknown"}`);
     }
   });
 }

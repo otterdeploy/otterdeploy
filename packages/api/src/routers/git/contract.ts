@@ -60,6 +60,22 @@ export const startConnectOutput = z.object({
   redirectUrl: z.string().url(),
 });
 
+export const startManifestInput = z.object({
+  /** Optional GitHub org login — when set, the manifest form POSTs to
+   *  the org's app-creation URL so the operator doesn't have to switch
+   *  account context on GitHub. */
+  accountLogin: z.string().min(1).nullable().optional(),
+  /** Optional override of the App's display name. Defaults to "Otterstack". */
+  appName: z.string().min(1).optional(),
+});
+
+export const startManifestOutput = z.object({
+  /** Where the UI's auto-submitted form should POST. */
+  formActionUrl: z.string().url(),
+  /** JSON string — the value of the form's "manifest" field. */
+  manifestJson: z.string(),
+});
+
 export const disconnectInput = z.object({
   installationId: zId(ID_PREFIX.gitInstallation),
 });
@@ -91,6 +107,10 @@ export const gitContract = {
     .meta({ path: `${basePath}/connect/start`, tag, method: "POST" })
     .input(startConnectInput)
     .output(startConnectOutput),
+  startManifest: oc
+    .meta({ path: `${basePath}/connect/manifest`, tag, method: "POST" })
+    .input(startManifestInput)
+    .output(startManifestOutput),
   disconnect: oc
     .errors({
       NOT_FOUND: { status: 404, message: "Installation not found" as const },

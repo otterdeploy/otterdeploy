@@ -2,8 +2,11 @@ import { db } from "@otterstack/db";
 import { gitProvider } from "@otterstack/db/schema";
 import { and, eq } from "drizzle-orm";
 
+import { env } from "@otterstack/env/server";
+
 import { orgScopedProcedure } from "../..";
 import {
+  buildManifestRequest,
   disconnectGithubInstallation,
   GithubAppNotConfiguredError,
   getInstallationToken,
@@ -53,6 +56,33 @@ export const gitRouter = {
       const url = new URL(`${base}/apps/${provider.appSlug}/installations/new`);
       url.searchParams.set("state", state);
       return { redirectUrl: url.toString() };
+    },
+  ),
+
+  /**
+   * Manifest flow — first half. Returns the form-action URL + manifest
+   * JSON so the UI can auto-submit a form to GitHub's app-creation
+   * page. GitHub then redirects to the callback registered at
+   * `/api/integrations/github/manifest/callback`, which finishes the
+   * exchange and persists the row.
+   *
+   * No NOT_CONFIGURED error — this endpoint IS the configuration path.
+   * It runs even when no provider row exists yet (the common case for
+   * a fresh install).
+   */
+  startManifest: orgScopedProcedure.git.startManifest.handler(
+    async ({ input, context }) => {
+      const state = await signInstallState({
+        orgId: context.activeOrganizationId,
+        userId: context.session.user.id,
+      });
+      const baseUrl = env.BETTER_AUTH_URL;
+      return buildManifestRequest({
+        state,
+        baseUrl,
+        accountLogin: input.accountLogin ?? null,
+        appName: input.appName,
+      });
     },
   ),
 
