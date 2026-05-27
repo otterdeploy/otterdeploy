@@ -11,6 +11,9 @@
     "./caddy": {
       "default": "./src/caddy/index.ts"
     },
+    "./git": {
+      "default": "./src/git/index.ts"
+    },
     "./swarm": {
       "default": "./src/swarm/index.ts"
     }
@@ -28,6 +31,7 @@
     "@otterstack/auth": "workspace:*",
     "@otterstack/db": "workspace:*",
     "@otterstack/env": "workspace:*",
+    "@otterstack/jobs": "workspace:*",
     "@otterstack/shared": "workspace:*",
     "better-result": "^2.9.2",
     "drizzle-orm": "catalog:",

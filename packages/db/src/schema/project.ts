@@ -16,6 +16,27 @@ import { organization, user } from "./auth";
 export const projectStatusEnum = pgEnum("project_status", ["draft", "valid", "invalid"]);
 
 type EnvId = Id<typeof ID_PREFIX.environment>;
+
+/**
+ * User-supplied overrides for `nixpacks build`. Mirrors the subset of the
+ * Nixpacks CLI surface we expose in the UI; runtime values get translated
+ * to CLI args by the builder.
+ *
+ *  - `buildCmd` / `startCmd`: override Nixpacks' auto-detected commands
+ *  - `packages`: extra Nix packages to install
+ *  - `aptPackages`: extra apt packages (Debian-based default base image)
+ *  - `installCmd`: override the install phase
+ *  - `env`: build-time env vars (separate from runtime — those live on
+ *    the service resource)
+ */
+export interface NixpacksConfig {
+  buildCmd?: string;
+  startCmd?: string;
+  installCmd?: string;
+  packages?: string[];
+  aptPackages?: string[];
+  env?: Record<string, string>;
+}
 export const project = pgTable(
   "project",
   {
@@ -44,6 +65,26 @@ export const project = pgTable(
     customDomain: text("custom_domain"),
     customDomainVerifiedAt: timestamp("custom_domain_verified_at"),
     customDomainVerifyToken: text("custom_domain_verify_token"),
+    // Git source binding. When set, pushes to `productionBranch` of the
+    // linked repo trigger a deploy of every service resource in the project
+    // whose source is `git`. Nullable: a project doesn't have to be
+    // git-backed (databases, image-only services, etc.).
+    gitRepoId: text("git_repo_id").$type<Id<typeof ID_PREFIX.gitRepo>>(),
+    productionBranch: text("production_branch").notNull().default("main"),
+    // Build pipeline targeting — which registry the builder pushes to,
+    // what image name (without tag) to push under, and any user-supplied
+    // nixpacks knobs (build/start command, packages, env). All nullable
+    // for projects that don't use the build pipeline (image-only services,
+    // databases). FK is enforced application-side to avoid a cross-schema
+    // import cycle; the constraint lives in container_registry's own
+    // delete-cascade story instead (see build.ts).
+    containerRegistryId: text("container_registry_id").$type<
+      Id<typeof ID_PREFIX.containerRegistry>
+    >(),
+    imageRepository: text("image_repository"),
+    nixpacksConfig: jsonb("nixpacks_config")
+      .$type<NixpacksConfig | null>()
+      .default(null),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -53,6 +94,8 @@ export const project = pgTable(
   (table) => [
     index("project_slug_idx").on(table.slug),
     index("project_organization_id_idx").on(table.organizationId),
+    index("project_git_repo_id_idx").on(table.gitRepoId),
+    index("project_container_registry_id_idx").on(table.containerRegistryId),
   ],
 );
 
@@ -264,6 +307,7 @@ export const deploymentReasonEnum = pgEnum("deployment_reason", [
   "env-change",
   "image-change",
   "restart",
+  "git-push",
 ]);
 
 export const deployment = pgTable(
@@ -291,6 +335,13 @@ export const deployment = pgTable(
     // layer (resources differ between database/service kinds) and
     // validated at the application boundary instead.
     snapshot: jsonb("snapshot").$type<Record<string, unknown>>().notNull().default({}),
+    // Git provenance — populated when the deployment was triggered by a
+    // push (reason="git-push") or built from a repo. Nullable for
+    // image-only / database deployments.
+    gitSha: text("git_sha"),
+    gitRef: text("git_ref"),
+    gitCommitMessage: text("git_commit_message"),
+    gitCommitAuthor: text("git_commit_author"),
     // Populated when the deployment finalizes (terminal status reached).
     errorMessage: text("error_message"),
     completedAt: timestamp("completed_at"),

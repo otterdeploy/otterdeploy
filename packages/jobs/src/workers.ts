@@ -4,18 +4,32 @@ import { createError, log as globalLog } from "evlog";
 import { getConnection } from "./connection";
 import type { JobDef, JobContext } from "./define";
 import { getQueue } from "./queues";
-import { jobs } from "./registry";
+import { jobs as defaultJobs } from "./registry";
 
 /**
  * Spin up a Worker per registered job + (re)schedule any cron jobs. Returns
  * a `stop()` to call on shutdown — it drains in-flight work, closes workers,
  * and disconnects.
+ *
+ * `opts.jobs` overrides the default registry — used by apps that should
+ * only run a subset (e.g. apps/builder runs only `deploy.triggered`,
+ * apps/server runs everything else). Passing a replacement for an
+ * existing job by name lets a process supply its own handler (the
+ * builder rewires `deploy.triggered` to run the real build pipeline,
+ * which can't live in `packages/jobs` itself).
+ *
+ * `opts.concurrency` sets BullMQ Worker concurrency. Default 1.
  */
-export async function createWorkers(): Promise<{ stop: () => Promise<void> }> {
+export async function createWorkers(opts?: {
+  jobs?: ReadonlyArray<JobDef>;
+  concurrency?: number;
+}): Promise<{ stop: () => Promise<void> }> {
   const workers: Worker[] = [];
+  const jobList = opts?.jobs ?? defaultJobs;
+  const concurrency = opts?.concurrency ?? 1;
 
-  for (const job of jobs) {
-    const worker = createWorker(job);
+  for (const job of jobList) {
+    const worker = createWorker(job, concurrency);
     workers.push(worker);
 
     if (job.cron) {
@@ -45,7 +59,7 @@ export async function createWorkers(): Promise<{ stop: () => Promise<void> }> {
   };
 }
 
-function createWorker<TDef extends JobDef>(def: TDef): Worker {
+function createWorker<TDef extends JobDef>(def: TDef, concurrency: number): Worker {
   return new Worker(
     def.name,
     async (job: Job) => {
@@ -89,6 +103,7 @@ function createWorker<TDef extends JobDef>(def: TDef): Worker {
     },
     {
       connection: getConnection(),
+      concurrency,
     },
   );
 }

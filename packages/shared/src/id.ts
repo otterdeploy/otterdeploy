@@ -41,6 +41,15 @@ export const ID_PREFIX = {
   server: "server",
   // workspace: "workspace",
   workspace: "wksp",
+
+  // git source connections
+  gitProvider: "gitprov",
+  gitInstallation: "gitinst",
+  gitRepo: "gitrepo",
+
+  // build pipeline
+  containerRegistry: "regcred",
+  deploymentLog: "dlog",
 } as const;
 
 export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];

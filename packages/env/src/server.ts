@@ -21,6 +21,26 @@ export const env = createEnv({
 
     CADDY_ADMIN_URL: z.url().default("http://127.0.0.1:2019"),
     CADDY_ADMIN_BIND: z.string().min(1).default("0.0.0.0:2019"),
+
+    // GitHub App — source for git-backed deploys. All optional in dev (the
+    // providers page surfaces a "not configured" state); required at
+    // runtime only when an operator actually connects an account.
+    GITHUB_APP_ID: z.string().min(1).optional(),
+    GITHUB_APP_CLIENT_ID: z.string().min(1).optional(),
+    GITHUB_APP_CLIENT_SECRET: z.string().min(1).optional(),
+    // PEM-encoded RSA private key. Pasted as a single string with literal
+    // "\n" sequences (env var conventions); we convert at use time.
+    GITHUB_APP_PRIVATE_KEY: z.string().min(1).optional(),
+    GITHUB_APP_WEBHOOK_SECRET: z.string().min(1).optional(),
+    /** Slug of the App (e.g. "otterstack-deploy"). Used to build the
+     *  install URL `https://github.com/apps/<slug>/installations/new`. */
+    GITHUB_APP_SLUG: z.string().min(1).optional(),
+
+    // Build pipeline — apps/builder. Concurrency is how many deploy
+    // jobs the builder pulls from the queue at once; default 1 keeps
+    // docker builds from contending on the daemon.
+    BUILDER_CONCURRENCY: z.coerce.number().int().positive().default(1),
+
     NODE_ENV: z
       .enum(["development", "production", "test"])
       .default("development"),

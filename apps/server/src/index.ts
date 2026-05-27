@@ -9,7 +9,7 @@ import { appRouter } from "@otterstack/api/routers/index";
 import { initializeSwarm } from "@otterstack/api/swarm";
 import { auth } from "@otterstack/auth";
 import { env } from "@otterstack/env/server";
-import { createWorkers } from "@otterstack/jobs";
+import { createWorkers, jobs as allJobs } from "@otterstack/jobs";
 import { Result } from "better-result";
 import { initLogger, log, parseError } from "evlog";
 import { evlog, type EvlogVariables } from "evlog/hono";
@@ -19,8 +19,9 @@ import { upgradeWebSocket, websocket } from "hono/bun";
 import { cors } from "hono/cors";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { invalidate } from "./lib/invalidate";
-import { registerEventsSseRoutes } from "./events-sse";
 import { registerTerminalRoutes } from "./terminal";
+import { registerGithubWebhookRoutes } from "./webhooks/github";
+import { registerGithubInstallRoutes } from "./webhooks/github-install";
 
 import { createAuthMiddleware } from "evlog/better-auth";
 
@@ -33,6 +34,8 @@ const identify = createAuthMiddleware(auth, {
     "/api/auth/**", // Better Auth itself
     "/api/public/**", // Public endpoints
     "/api/health", // Health checks
+    "/api/webhooks/**", // Inbound webhooks — auth is per-source signature
+    "/api/integrations/github/**", // GitHub App install callback — uses signed state
   ],
   include: ["/api/**"],
   maskEmail: true,
@@ -174,7 +177,8 @@ app.get("/", (c) => {
 });
 
 registerTerminalRoutes(app);
-registerEventsSseRoutes(app);
+registerGithubWebhookRoutes(app);
+registerGithubInstallRoutes(app);
 
 // Startup tasks: initialize Docker Swarm, then reconcile Caddy from the DB,
 // then boot BullMQ workers (in-process). The worker stop handle is captured
@@ -217,7 +221,10 @@ async function bootstrap() {
   });
 
   const workers = await Result.tryPromise({
-    try: () => createWorkers(),
+    // The deploy.triggered worker runs in apps/builder (it needs the
+    // nixpacks + docker binaries). The API still enqueues jobs onto that
+    // queue from the git-webhook receiver — only the consumer moves.
+    try: () => createWorkers({ jobs: allJobs.filter((j) => j.name !== "deploy.triggered") }),
     catch: (cause) => new BootstrapError({ step: "workers", cause }),
   });
   workers.match({
