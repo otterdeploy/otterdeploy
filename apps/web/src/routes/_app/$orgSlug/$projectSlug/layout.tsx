@@ -7,6 +7,7 @@ import * as z from "zod";
 import { envCollection } from "@/features/projects/data/env";
 import { projectCollection } from "@/features/projects/data/project";
 import { createResourceCollection } from "@/features/projects/data/resource";
+import { useProjectEvents } from "@/features/projects/hooks/use-project-events";
 import { ProjectSidebar } from "@/features/shell/components/sidebar/project-sidebar";
 import { SidebarInset } from "@/shared/components/ui/sidebar";
 
@@ -50,6 +51,13 @@ function RouteComponent() {
     () => (project ? createResourceCollection(project.id) : null),
     [project?.id],
   );
+
+  // Open a single project-wide event stream while this layout is mounted.
+  // The hook invalidates the matching React Query caches on every server
+  // push, so the existing useLiveQuery / useQuery hooks across child
+  // routes refetch immediately instead of waiting on their polling
+  // intervals.
+  useProjectEvents(project?.id ?? null);
 
   const { data: resources = [] } = useLiveQuery(
     () => resourceCollection ?? null,

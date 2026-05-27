@@ -18,6 +18,7 @@ export {
 } from "./create-stream";
 
 export {
+  applyPostgresExtraEnv,
   rollbackPostgresToSnapshot,
   setPostgresExtraEnvKey,
   setPostgresPublic,

@@ -37,7 +37,7 @@ npm install -g portless
 ### 2. Start the proxy (once)
 
 ```bash
-sudo portless proxy start --https --tld io -p 443
+sudo portless proxy start --https --lan -p 443
 sudo portless trust  # first time only — adds local CA to system trust store
 ```
 
@@ -52,8 +52,8 @@ bun run dev    # starts web + API through portless
 
 | Service | URL                          |
 | ------- | ---------------------------- |
-| Web     | `https://web.otterstack.io`  |
-| API     | `https://api.otterstack.io`  |
+| Web     | `https://web.otterstack.local`  |
+| API     | `https://api.otterstack.local`  |
 
 ## Database Setup
 

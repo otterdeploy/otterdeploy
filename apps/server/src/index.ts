@@ -19,6 +19,7 @@ import { upgradeWebSocket, websocket } from "hono/bun";
 import { cors } from "hono/cors";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { invalidate } from "./lib/invalidate";
+import { registerEventsSseRoutes } from "./events-sse";
 import { registerTerminalRoutes } from "./terminal";
 
 import { createAuthMiddleware } from "evlog/better-auth";
@@ -173,6 +174,7 @@ app.get("/", (c) => {
 });
 
 registerTerminalRoutes(app);
+registerEventsSseRoutes(app);
 
 // Startup tasks: initialize Docker Swarm, then reconcile Caddy from the DB,
 // then boot BullMQ workers (in-process). The worker stop handle is captured

@@ -25,6 +25,7 @@ import {
 } from "@/features/projects/components/graph/build-live-nodes";
 import { layoutGraph } from "@/features/projects/components/graph/layout-graph";
 import { ResourceNode } from "@/features/projects/components/graph/resource-node";
+import { StackCodePanel } from "@/features/projects/components/stack";
 import { createProjectDependenciesCollection } from "@/features/projects/data/dependencies";
 import { createResourceCollection } from "@/features/projects/data/resource";
 import { createServiceTasksCollection } from "@/features/projects/data/service-tasks";
@@ -45,10 +46,12 @@ function RouteComponent() {
   // it unmounts.
   const childMatches = useChildMatches();
   const childKey = childMatches[0]?.pathname ?? null;
+  const { projectSlug } = Route.useParams();
+  const { project } = useLoaderData({ from: "/_app/$orgSlug/$projectSlug" });
 
   return (
     <div className="relative flex flex-1 overflow-hidden p-3">
-      <div className="relative flex-1 rounded-2xl border">
+      <div className="relative flex-1 overflow-hidden rounded-2xl border">
         <ReactFlowProvider>
           <GraphCanvas />
           <div className="pointer-events-none absolute inset-0 top-10 z-10 flex size-full items-end justify-end">
@@ -56,6 +59,7 @@ function RouteComponent() {
               {childKey ? <Outlet key={childKey} /> : null}
             </AnimatePresence>
           </div>
+          <StackCodePanel projectId={project.id} projectSlug={projectSlug} />
         </ReactFlowProvider>
       </div>
     </div>

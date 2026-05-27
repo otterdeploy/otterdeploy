@@ -45,7 +45,7 @@
   "type": "module",
   "scripts": {
     "infra": "docker compose up -d",
-    "proxy": "sudo portless proxy start --https --tld io -p 443",
+    "proxy": "sudo portless proxy start --https --lan -p 443",
     "dev": "turbo dev",
     "build": "turbo build",
     "check-types": "turbo check-types",
