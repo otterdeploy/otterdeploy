@@ -4,9 +4,12 @@
 // and matching `gitRepo` rows; a push event for a repo whose row is linked
 // to a project (via `project.gitRepoId`) triggers a deploy.
 //
-// Phase 1 only models GitHub App installations. Provider rows exist so the
-// later GitLab / Bitbucket additions land as a new `kind` without a schema
-// migration.
+// GitHub Apps are created through the manifest flow (the operator clicks
+// "Create GitHub App" in the UI; GitHub posts the app's credentials back to
+// our callback, which persists them on the gitProvider row). No env-var
+// configuration of GitHub credentials — every credential field below is
+// nullable so the provider row can also exist for the legacy env-var path
+// during the transition, but new providers always populate them.
 
 import { createId, ID_PREFIX, type Id } from "@otterstack/shared/id";
 import {
@@ -26,8 +29,16 @@ export const gitProviderKindEnum = pgEnum("git_provider_kind", ["github"]);
 
 /**
  * One row per (org, provider kind) — the org's choice to allow that provider
- * for source connections. Holds the org-visible display name. App-level
- * credentials (App ID, private key, webhook secret) live in env, not here.
+ * for source connections. Holds the org-visible display name and (for
+ * GitHub Apps created via the manifest flow) the App's credentials. Secret
+ * fields are AES-GCM ciphertext, encoded as `iv:tag:ciphertext` base64
+ * triples; the key is derived from BETTER_AUTH_SECRET so creds never sit
+ * on disk in plaintext.
+ *
+ * Why nullable: existing dev installs read GITHUB_APP_* from env and have a
+ * provider row with these columns empty. New installs populate them. Once
+ * env-var fallback is removed (the final phase of this work), these become
+ * `.notNull()` for kind="github".
  */
 export const gitProvider = pgTable(
   "git_provider",
@@ -41,6 +52,27 @@ export const gitProvider = pgTable(
       .references(() => organization.id, { onDelete: "cascade" }),
     kind: gitProviderKindEnum("kind").notNull(),
     displayName: text("display_name").notNull(),
+
+    // Host this App lives on. Defaults to github.com; future GitHub
+    // Enterprise installs override this. Drives API + clone URLs.
+    host: text("host").notNull().default("github.com"),
+
+    // GitHub-side identity. App ID is numeric but stored as text to match
+    // GitHub's API responses (which serialize as strings). Slug drives the
+    // `https://github.com/apps/<slug>/installations/new` install URL.
+    externalAppId: text("external_app_id"),
+    appSlug: text("app_slug"),
+
+    // OAuth-on-behalf-of-app pair. clientSecret is encrypted at rest.
+    clientId: text("client_id"),
+    clientSecretCiphertext: text("client_secret_ciphertext"),
+
+    // Webhook signing secret — used by webhook-handler to verify deliveries.
+    webhookSecretCiphertext: text("webhook_secret_ciphertext"),
+
+    // PEM-encoded RSA private key. Used to mint installation tokens.
+    privateKeyPemCiphertext: text("private_key_pem_ciphertext"),
+
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -50,6 +82,9 @@ export const gitProvider = pgTable(
   (table) => [
     uniqueIndex("git_provider_org_kind_unique").on(table.organizationId, table.kind),
     index("git_provider_organization_id_idx").on(table.organizationId),
+    // Webhook deliveries identify their App via X-GitHub-Hook-Installation-
+    // Target-ID. Index so the receiver routes in O(log n).
+    index("git_provider_external_app_id_idx").on(table.externalAppId),
   ],
 );
 
@@ -66,7 +101,7 @@ export const gitInstallationRepoSelectionEnum = pgEnum(
  * A specific install of the GitHub App into a user/org account. `installationId`
  * is the GitHub-side numeric id used to mint short-lived installation access
  * tokens. We don't store the access tokens — they're minted on demand using
- * the App's private key (env).
+ * the App's private key (looked up via the parent `gitProvider` row).
  */
 export const gitInstallation = pgTable(
   "git_installation",

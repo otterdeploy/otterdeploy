@@ -43,6 +43,13 @@
       "when": 1779906792790,
       "tag": "0005_remarkable_solo",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1779911001461,
+      "tag": "0006_short_salo",
+      "breakpoints": true
     }
   ]
 }
