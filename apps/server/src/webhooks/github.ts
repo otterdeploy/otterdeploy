@@ -2,8 +2,11 @@
  * GitHub App webhook endpoint.
  *
  * - Reads the raw body (signature verification needs the exact bytes).
- * - Verifies `X-Hub-Signature-256` HMAC-SHA256 against
- *   `GITHUB_APP_WEBHOOK_SECRET` using a timing-safe compare.
+ * - Routes the delivery to the right Git provider row using GitHub's
+ *   `X-GitHub-Hook-Installation-Target-ID` header (the App ID). Different
+ *   orgs can have different Apps; one shared webhook URL hosts them all.
+ * - Verifies `X-Hub-Signature-256` HMAC-SHA256 against the App's
+ *   per-provider webhook secret (decrypted on the fly), timing-safe compare.
  * - Dispatches the parsed event to the package-level handler in
  *   `@otterstack/api/git`.
  *
@@ -13,8 +16,10 @@
  * the response body but the status stays 200.
  */
 
-import { handleGithubWebhook } from "@otterstack/api/git";
-import { env } from "@otterstack/env/server";
+import {
+  handleGithubWebhook,
+  loadGithubAppByExternalAppIdForWebhook,
+} from "@otterstack/api/git";
 import { log, parseError } from "evlog";
 import { type EvlogVariables } from "evlog/hono";
 import type { Hono } from "hono";
@@ -22,31 +27,53 @@ import type { Hono } from "hono";
 const SIGNATURE_HEADER = "x-hub-signature-256";
 const EVENT_HEADER = "x-github-event";
 const DELIVERY_HEADER = "x-github-delivery";
+const TARGET_APP_HEADER = "x-github-hook-installation-target-id";
 
 export function registerGithubWebhookRoutes(app: Hono<EvlogVariables>): void {
   app.post("/api/webhooks/github", async (c) => {
-    const secret = env.GITHUB_APP_WEBHOOK_SECRET;
-    if (!secret) {
-      log.warn({ github: { event: "webhook.unconfigured" } });
-      return c.json(
-        { ok: false, error: "GitHub App webhook secret not configured" },
-        503,
-      );
-    }
-
     const signature = c.req.header(SIGNATURE_HEADER);
     const event = c.req.header(EVENT_HEADER);
     const deliveryId = c.req.header(DELIVERY_HEADER) ?? "unknown";
+    const targetAppId = c.req.header(TARGET_APP_HEADER);
 
-    if (!signature || !event) {
-      return c.json({ ok: false, error: "missing signature or event header" }, 400);
+    if (!signature || !event || !targetAppId) {
+      return c.json(
+        {
+          ok: false,
+          error: "missing signature, event, or hook-target-id header",
+        },
+        400,
+      );
+    }
+
+    // Look up which org's provider row owns this App. If no row matches,
+    // the App is unknown to us (someone else's webhook hit our endpoint by
+    // mistake, or the provider was deleted) — reply 404 so GitHub stops
+    // retrying.
+    const appConfig = await loadGithubAppByExternalAppIdForWebhook(targetAppId);
+    if (!appConfig) {
+      log.warn({
+        github: {
+          event: "webhook.unknown_app",
+          deliveryId,
+          targetAppId,
+          eventType: event,
+        },
+      });
+      return c.json({ ok: false, error: "unknown app" }, 404);
     }
 
     const rawBody = await c.req.raw.arrayBuffer();
-    const ok = await verifySignature(secret, signature, rawBody);
+    const ok = await verifySignature(appConfig.webhookSecret, signature, rawBody);
     if (!ok) {
       log.warn({
-        github: { event: "webhook.bad_signature", deliveryId, eventType: event },
+        github: {
+          event: "webhook.bad_signature",
+          deliveryId,
+          targetAppId,
+          providerId: appConfig.providerId,
+          eventType: event,
+        },
       });
       return c.json({ ok: false, error: "bad signature" }, 401);
     }

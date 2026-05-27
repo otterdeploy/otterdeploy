@@ -35,10 +35,11 @@ export const gitProviderKindEnum = pgEnum("git_provider_kind", ["github"]);
  * triples; the key is derived from BETTER_AUTH_SECRET so creds never sit
  * on disk in plaintext.
  *
- * Why nullable: existing dev installs read GITHUB_APP_* from env and have a
- * provider row with these columns empty. New installs populate them. Once
- * env-var fallback is removed (the final phase of this work), these become
- * `.notNull()` for kind="github".
+ * Nullable because the row exists before the manifest callback fires —
+ * the row's keyed by (organizationId, kind) and the manifest flow
+ * upserts it with credentials populated. A row with `externalAppId =
+ * null` is "App being created"; queries that mint JWTs treat that as
+ * `GithubAppNotConfiguredError`.
  */
 export const gitProvider = pgTable(
   "git_provider",

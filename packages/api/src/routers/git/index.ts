@@ -1,4 +1,6 @@
-import { env } from "@otterstack/env/server";
+import { db } from "@otterstack/db";
+import { gitProvider } from "@otterstack/db/schema";
+import { and, eq } from "drizzle-orm";
 
 import { orgScopedProcedure } from "../..";
 import {
@@ -6,6 +8,7 @@ import {
   GithubAppNotConfiguredError,
   getInstallationToken,
   listInstallationRepos,
+  loadGithubAppForInstallation,
   signInstallState,
 } from "../../git";
 import { syncRepos } from "../../git/repos";
@@ -23,7 +26,15 @@ export const gitRouter = {
 
   startConnect: orgScopedProcedure.git.startConnect.handler(
     async ({ input: _input, context, errors }) => {
-      if (!env.GITHUB_APP_SLUG) {
+      // The App slug is per-org, set when the manifest flow created the
+      // provider row. No App → no slug → can't build an install URL.
+      const provider = await db.query.gitProvider.findFirst({
+        where: and(
+          eq(gitProvider.organizationId, context.activeOrganizationId),
+          eq(gitProvider.kind, "github"),
+        ),
+      });
+      if (!provider?.appSlug) {
         throw errors.NOT_CONFIGURED();
       }
       const state = await signInstallState({
@@ -32,10 +43,14 @@ export const gitRouter = {
       });
       // GitHub App install URL — the user picks repos on GitHub, then GitHub
       // redirects to the App's configured callback URL with installation_id +
-      // setup_action + our state param.
-      const url = new URL(
-        `https://github.com/apps/${env.GITHUB_APP_SLUG}/installations/new`,
-      );
+      // setup_action + our state param. Built off the host on the provider
+      // row so future GHE installs Just Work.
+      const host = provider.host;
+      const base =
+        host === "github.com"
+          ? "https://github.com"
+          : `https://${host}`;
+      const url = new URL(`${base}/apps/${provider.appSlug}/installations/new`);
       url.searchParams.set("state", state);
       return { redirectUrl: url.toString() };
     },
@@ -74,7 +89,10 @@ export const gitRouter = {
         const tokenResp = await getInstallationToken(
           inst.installation.installationId,
         );
-        const repos = await listInstallationRepos(tokenResp.token);
+        const appConfig = await loadGithubAppForInstallation(
+          inst.installation.installationId,
+        );
+        const repos = await listInstallationRepos(tokenResp.token, appConfig);
         await syncRepos(
           inst.installation.id,
           repos.map((r) => ({

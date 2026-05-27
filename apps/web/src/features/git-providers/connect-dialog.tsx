@@ -32,7 +32,7 @@ export function ConnectDialog({ open, onOpenChange }: ConnectDialogProps) {
     onError: (err) => {
       if (err.message?.includes("not configured")) {
         toast.error(
-          "GitHub App isn't configured on this instance. Set GITHUB_APP_* env vars.",
+          "No GitHub App for this org yet — click \"Create GitHub App\" to set one up.",
         );
       } else {
         toast.error(err.message ?? "Failed to start GitHub install");

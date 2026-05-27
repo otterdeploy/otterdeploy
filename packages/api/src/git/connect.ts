@@ -19,9 +19,11 @@ import { and, eq } from "drizzle-orm";
 
 import {
   getInstallationToken,
+  GithubAppNotConfiguredError,
   listInstallationRepos,
   lookupInstallation,
 } from "./github-app";
+import { loadGithubAppForOrgIfPresent } from "./github-app-config";
 import { syncRepos } from "./repos";
 
 export interface CompleteConnectArgs {
@@ -39,26 +41,34 @@ export interface CompleteConnectResult {
 export async function completeGithubConnect(
   args: CompleteConnectArgs,
 ): Promise<CompleteConnectResult> {
-  const installation = await lookupInstallation(args.installationId);
+  // The provider row must already exist for this org — the manifest flow
+  // creates it before the operator hits "Install" on GitHub. If we got
+  // here without one, the operator skipped the create-app step (or the
+  // manifest callback failed and we still got redirected to install).
+  const appConfig = await loadGithubAppForOrgIfPresent(args.organizationId);
+  if (!appConfig) {
+    throw new GithubAppNotConfiguredError(
+      `no github provider row for org ${args.organizationId}`,
+    );
+  }
 
-  // Provider — one per (org, kind). Upsert by the unique index.
+  const installation = await lookupInstallation(args.installationId, appConfig);
+
+  // Provider — upserted by the manifest flow already. Refresh the display
+  // name so it tracks the connected account.
   const provider = await db
-    .insert(gitProvider)
-    .values({
-      organizationId: args.organizationId,
-      kind: "github",
-      displayName: `GitHub (${installation.account.login})`,
-    })
-    .onConflictDoUpdate({
-      target: [gitProvider.organizationId, gitProvider.kind],
-      set: {
-        displayName: `GitHub (${installation.account.login})`,
-      },
-    })
+    .update(gitProvider)
+    .set({ displayName: `GitHub (${installation.account.login})` })
+    .where(
+      and(
+        eq(gitProvider.organizationId, args.organizationId),
+        eq(gitProvider.kind, "github"),
+      ),
+    )
     .returning();
   const providerRow = provider[0];
   if (!providerRow) {
-    throw new Error("Failed to upsert git_provider row");
+    throw new Error("Provider row vanished between manifest callback and install");
   }
 
   // Installation — upsert by GitHub installation id (unique).
@@ -98,7 +108,7 @@ export async function completeGithubConnect(
 
   // Sync repos via a fresh installation token.
   const tokenResp = await getInstallationToken(args.installationId);
-  const repos = await listInstallationRepos(tokenResp.token);
+  const repos = await listInstallationRepos(tokenResp.token, appConfig);
   await syncRepos(
     instRow.id,
     repos.map((r) => ({

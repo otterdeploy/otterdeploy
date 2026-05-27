@@ -12,9 +12,20 @@ export type { InstallState } from "./state";
 
 export {
   GithubAppNotConfiguredError,
-  loadGithubAppConfig,
+  apiBaseUrlForHost,
   getInstallationToken,
   listInstallationRepos,
   lookupInstallation,
   mintAppJwt,
 } from "./github-app";
+export type {
+  GithubAppConfig,
+  GithubAppConfigWithWebhookSecret,
+} from "./github-app";
+
+export {
+  loadGithubAppByExternalAppIdForWebhook,
+  loadGithubAppForInstallation,
+  loadGithubAppForOrgIfPresent,
+  loadGithubAppForProvider,
+} from "./github-app-config";
