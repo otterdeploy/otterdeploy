@@ -190,10 +190,15 @@ export async function setDatabaseResourcePublic(
 export async function setDatabaseResourceExtraEnv(
   resourceId: ResourceId,
   extraEnv: Record<string, string>,
+  secretKeys?: string[],
 ) {
   const [updated] = await db
     .update(databaseResource)
-    .set({ extraEnv, updatedAt: new Date() })
+    .set({
+      extraEnv,
+      ...(secretKeys !== undefined ? { secretKeys } : {}),
+      updatedAt: new Date(),
+    })
     .where(eq(databaseResource.resourceId, resourceId))
     .returning();
   return updated;

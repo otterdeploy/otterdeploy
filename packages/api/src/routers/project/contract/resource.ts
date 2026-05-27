@@ -60,6 +60,9 @@ export const databaseResourceSchema = z.object({
   // User-added envs injected into the Postgres container at deploy time.
   // Editable via project.resource.database.postgres.env.{set,unset}.
   extraEnv: z.record(z.string(), z.string()),
+  // Keys the operator flagged as sensitive — display hint for the editor
+  // to mask the value behind a reveal toggle. Always present (default []).
+  secretKeys: z.array(z.string()),
 });
 
 // Legacy alias for callers that still import the postgres-named schema.
@@ -129,6 +132,10 @@ export const resourceEnvBulkSetInput = z.object({
   projectId: zId(ID_PREFIX.project),
   resourceId: zId(ID_PREFIX.resource),
   env: z.array(resourceEnvEntrySchema),
+  // Keys to mark as sensitive — server stores this as a display hint;
+  // values still travel the wire in plain. Optional so callers that don't
+  // care about masking can omit it.
+  secretKeys: z.array(z.string()).optional(),
 });
 
 /**
