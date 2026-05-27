@@ -12,6 +12,7 @@ import {
 } from "@/shared/components/ui/select";
 import { Slider } from "@/shared/components/ui/slider";
 
+import { traitsFor } from "../engine-traits";
 import { Field, SectionHeader, SettingRow } from "../form-primitives";
 import { useFormContext } from "../form-context";
 
@@ -27,9 +28,9 @@ export function StepStorage({ kind }: StepStorageProps) {
   const pitr = useStore(form.store, (s) => s.values.pitr as boolean);
   const highAvailability = useStore(form.store, (s) => s.values.highAvailability as boolean);
 
-  const isPostgres = kind.id === "postgres";
-  const isMysql = kind.id === "mysql";
-  const supportsPitr = isPostgres || isMysql;
+  const traits = traitsFor(kind.id);
+  const supportsPitr = traits.supportsPitr;
+  const supportsHa = traits.supportsHaReplica;
 
   return (
     <>
@@ -122,7 +123,7 @@ export function StepStorage({ kind }: StepStorageProps) {
             <div className="flex-1">
               <div className="text-[13px] font-medium">Point-in-time recovery (PITR)</div>
               <div className="text-[11px] text-muted-foreground">
-                Continuous WAL archiving · restore to any point in the last 7 days
+                Continuous transaction-log archiving · restore to any point in the last 7 days
               </div>
             </div>
             <Switch checked={pitr} onCheckedChange={(v) => form.setFieldValue("pitr", v)} />
@@ -130,23 +131,27 @@ export function StepStorage({ kind }: StepStorageProps) {
         )}
       </Card>
 
-      <div className="mt-4.5">
-        <SectionHeader title="High availability" />
-      </div>
-      <Card className="mt-2.5 p-4">
-        <div className="flex items-center gap-3">
-          <div className="flex-1">
-            <div className="text-[13px] font-medium">Standby replica</div>
-            <div className="text-xs text-muted-foreground">
-              Sync replica on a different node · failover in &lt; 30s
-            </div>
+      {supportsHa && (
+        <>
+          <div className="mt-4.5">
+            <SectionHeader title="High availability" />
           </div>
-          <Switch
-            checked={highAvailability}
-            onCheckedChange={(v) => form.setFieldValue("highAvailability", v)}
-          />
-        </div>
-      </Card>
+          <Card className="mt-2.5 p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex-1">
+                <div className="text-[13px] font-medium">Standby replica</div>
+                <div className="text-xs text-muted-foreground">
+                  Sync replica on a different node · failover in &lt; 30s
+                </div>
+              </div>
+              <Switch
+                checked={highAvailability}
+                onCheckedChange={(v) => form.setFieldValue("highAvailability", v)}
+              />
+            </div>
+          </Card>
+        </>
+      )}
     </>
   );
 }

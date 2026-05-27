@@ -5,6 +5,7 @@ import {
 import { Button } from "@/shared/components/ui/button";
 import { Card } from "@/shared/components/ui/card";
 
+import { traitsFor } from "../engine-traits";
 import { useFormContext } from "../form-context";
 import { SectionHeader } from "../form-primitives";
 import { I } from "../icons";
@@ -36,6 +37,7 @@ export function StepReview({ kind }: StepReviewProps) {
         const generateCompose = () => {
           const memStr = mem >= 1024 ? `${mem / 1024}G` : `${mem}M`;
           if (isDb) {
+            const mountTarget = traitsFor(kind.id).mountTarget;
             return `services:
   ${name}:
     image: ${kind.id}:${version}
@@ -44,7 +46,7 @@ export function StepReview({ kind }: StepReviewProps) {
       resources:
         limits: { cpus: '${cpu}', memory: ${memStr} }
     volumes:
-      - ${name}-data:/var/lib/${kind.id === "postgres" ? "postgresql/data" : kind.id}
+      - ${name}-data:${mountTarget}
     networks: [internal]
 
 volumes:

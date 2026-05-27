@@ -11,6 +11,7 @@ import { orpc } from "@/shared/server/orpc";
 import type { Id, ID_PREFIX } from "@otterstack/shared/id";
 
 import { useMutation } from "@tanstack/react-query";
+import { traitsFor } from "../engine-traits";
 import { useFormContext } from "../form-context";
 import {
   builderCardActiveClass,
@@ -39,18 +40,8 @@ export function StepVersion({ kind, projectId }: StepVersionProps) {
     },
   });
 
-  const port =
-    kind.id === "postgres"
-      ? 5432
-      : kind.id === "mysql"
-        ? 3306
-        : kind.id === "redis"
-          ? 6379
-          : kind.id === "mongodb"
-            ? 27017
-            : kind.id === "clickhouse"
-              ? 9000
-              : "auto";
+  const traits = traitsFor(kind.id);
+  const port = traits.port;
 
   return (
     <>
@@ -97,7 +88,7 @@ export function StepVersion({ kind, projectId }: StepVersionProps) {
       </div>
 
       <div className="h-4.5" />
-      <SectionHeader title="Database name" />
+      <SectionHeader title={traits.nameLabel} />
       <Card className="mt-2.5 rounded-md">
         <CardContent>
           <form.AppField
@@ -132,17 +123,18 @@ export function StepVersion({ kind, projectId }: StepVersionProps) {
       </Card>
 
       <div className="h-4.5" />
-      <SectionHeader
-        title="Access"
-        sub="Public access wires the Caddy proxy at the public hostname. Off keeps the DB on the internal network only — safer default."
-      />
+      <SectionHeader title="Access" sub={traits.accessSub} />
       <Card className="mt-2.5 rounded-md">
         <CardContent>
           <form.AppField name="publicEnabled">
             {(f) => (
               <f.SwitchField
                 label="Expose publicly"
-                description="When on, the DB is reachable from the internet at the deterministic public hostname. When off, only services in this project can connect."
+                description={
+                  traits.publicExposureRecommended
+                    ? "When on, the service is reachable from the internet at the deterministic public hostname. When off, only services in this project can connect."
+                    : "Not recommended for this engine. Leave off unless you have a specific reason — this service is exposed to the public internet when on."
+                }
               />
             )}
           </form.AppField>

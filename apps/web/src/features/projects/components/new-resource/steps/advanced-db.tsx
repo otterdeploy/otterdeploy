@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from "@/shared/components/ui/select";
 
+import { traitsFor } from "../engine-traits";
 import { SectionHeader, Field, SettingRow } from "../form-primitives";
 
 const PG_EXTENSIONS = [
@@ -35,29 +36,34 @@ const MAINTENANCE_WINDOWS = [
 ];
 
 export function StepAdvancedDb({ kind }: { kind: ServiceKind }) {
+  const traits = traitsFor(kind.id);
   const isPg = kind.id === "postgres";
   const isRedis = kind.id === "redis";
 
   return (
     <>
-      <SectionHeader title="Connection pooling" />
-      <Card className="mt-3 rounded-md">
-        <CardContent className="flex flex-col gap-3">
-          <SettingRow
-            label={isPg ? "Enable PgBouncer" : "Enable connection pooler"}
-            defaultOn
-            sub="Front the database with a transaction-mode pooler"
-          />
-          <div className="grid grid-cols-2 gap-2.5">
-            <Field label="Pool size">
-              <Input className="font-mono" type="number" defaultValue={20} />
-            </Field>
-            <Field label="Max client connections">
-              <Input className="font-mono" type="number" defaultValue={200} />
-            </Field>
-          </div>
-        </CardContent>
-      </Card>
+      {traits.poolerName && (
+        <>
+          <SectionHeader title="Connection pooling" />
+          <Card className="mt-3 rounded-md">
+            <CardContent className="flex flex-col gap-3">
+              <SettingRow
+                label={`Enable ${traits.poolerName}`}
+                defaultOn
+                sub="Front the database with a transaction-mode pooler"
+              />
+              <div className="grid grid-cols-2 gap-2.5">
+                <Field label="Pool size">
+                  <Input className="font-mono" type="number" defaultValue={20} />
+                </Field>
+                <Field label="Max client connections">
+                  <Input className="font-mono" type="number" defaultValue={200} />
+                </Field>
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
 
       {isPg && (
         <>
