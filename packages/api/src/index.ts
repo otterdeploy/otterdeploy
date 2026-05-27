@@ -7,6 +7,7 @@ import { envContract } from "./routers/env/contract";
 import { gitContract } from "./routers/git/contract";
 import { organizationContract } from "./routers/organization/contract";
 import { projectContract } from "./routers/project/contract";
+import { registryContract } from "./routers/registry/contract";
 import { serverContract } from "./routers/server/contract";
 import { serviceContract } from "./routers/service/contract";
 import { terminalContract } from "./routers/terminal/contract";
@@ -64,6 +65,7 @@ export const publicProcedure = implement({
   git: gitContract,
   organization: organizationContract,
   project: projectContract,
+  registry: registryContract,
   server: serverContract,
   service: serviceContract,
   terminal: terminalContract,

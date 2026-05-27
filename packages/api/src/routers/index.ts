@@ -5,6 +5,7 @@ import { envRouter } from "./env";
 import { gitRouter } from "./git";
 import { organizationRouter } from "./organization";
 import { projectRouter } from "./project";
+import { registryRouter } from "./registry";
 import { serverRouter } from "./server";
 import { serviceRouter } from "./service";
 import { terminalRouter } from "./terminal";
@@ -15,6 +16,7 @@ export const appRouter = {
   git: gitRouter,
   organization: organizationRouter,
   project: projectRouter,
+  registry: registryRouter,
   server: serverRouter,
   service: serviceRouter,
   terminal: terminalRouter,

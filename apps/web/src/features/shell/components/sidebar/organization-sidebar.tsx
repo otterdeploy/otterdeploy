@@ -72,7 +72,7 @@ const infrastructureItems: StaticNavItem[] = [
 
 const clusterAdminItems: StaticNavItem[] = [
   { title: "Git providers", icon: GitBranchIcon, href: "/$orgSlug/git-providers" },
-  { title: "Registries", icon: Database02Icon },
+  { title: "Registries", icon: Database02Icon, href: "/$orgSlug/registries" },
   { title: "SSH keys", icon: Key01Icon },
   { title: "Notifications", icon: Alert01Icon },
   { title: "Certificates", icon: Certificate01Icon },
