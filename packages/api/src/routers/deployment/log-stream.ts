@@ -91,7 +91,7 @@ export async function* streamDeploymentLogs(
   let resolveLive: (() => void) | null = null;
 
   if (subscriber) {
-    subscriber.on("message", (_ch: string, payload: string) => {
+    await subscriber.subscribe(channel, (payload) => {
       try {
         const parsed = JSON.parse(payload) as {
           stream: DeploymentLogLine["stream"];
@@ -109,7 +109,6 @@ export async function* streamDeploymentLogs(
         // and uses JSON.stringify, so this is defensive only.
       }
     });
-    await subscriber.subscribe(channel);
   }
 
   try {
@@ -150,7 +149,7 @@ export async function* streamDeploymentLogs(
   } finally {
     if (subscriber) {
       await subscriber.unsubscribe(channel).catch(() => undefined);
-      await subscriber.quit().catch(() => undefined);
+      subscriber.close();
     }
   }
 }

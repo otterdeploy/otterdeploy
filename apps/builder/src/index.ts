@@ -43,7 +43,7 @@ for (const signal of ["SIGTERM", "SIGINT"] as const) {
   process.once(signal, async () => {
     log.info({ builder: { event: "draining", signal } } as Record<string, unknown>);
     if (stop) await stop().catch(() => undefined);
-    if (publisher) await publisher.quit().catch(() => undefined);
+    if (publisher) publisher.close();
     process.exit(0);
   });
 }

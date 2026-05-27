@@ -30,9 +30,12 @@ describe("encryptSecret/decryptSecret", () => {
 
   it("rejects tampered ciphertext", async () => {
     const ct = await encryptSecret("secret");
-    // Flip one character of the ciphertext segment.
+    // Flip many characters mid-ciphertext so the GCM tag can't possibly
+    // still verify. One-char flips have a ~1/2^16 chance of landing on a
+    // valid tag through luck — too flaky for CI.
     const [v, n, last] = ct.split(".") as [string, string, string];
-    const tampered = `${v}.${n}.${last.replace(/.$/, last.endsWith("A") ? "B" : "A")}`;
+    const mid = Math.floor(last.length / 2);
+    const tampered = `${v}.${n}.${last.slice(0, mid)}AAAA${last.slice(mid + 4)}`;
     await expect(decryptSecret(tampered)).rejects.toThrow();
   });
 

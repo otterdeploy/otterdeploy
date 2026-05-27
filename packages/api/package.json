@@ -38,7 +38,6 @@
     "drizzle-zod": "catalog:",
     "evlog": "catalog:",
     "hono": "catalog:",
-    "ioredis": "^5.10.1",
     "zod": "catalog:"
   },
   "devDependencies": {

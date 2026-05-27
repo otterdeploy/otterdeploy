@@ -1,25 +1,24 @@
 /**
- * ioredis client used outside the BullMQ machinery (live log subscriptions,
- * future pub/sub consumers). BullMQ instantiates its own connections; this
- * module owns the ones that the API process opens directly.
+ * Redis client factory used by the API process outside the BullMQ
+ * machinery (live log subscriptions, future pub/sub consumers).
+ * BullMQ stays on ioredis (its own internal dependency) — we don't
+ * speak to it through this helper.
+ *
+ * Uses Bun's built-in RedisClient, which exposes pub/sub via a
+ * callback signature (`subscribe(channel, (msg, ch) => …)`) rather
+ * than the event-emitter pattern node-redis / ioredis use.
  */
+
+import { RedisClient } from "bun";
 
 import { env } from "@otterstack/env/server";
-import { Redis } from "ioredis";
 
 /**
- * Open a fresh Redis client. Callers own the lifecycle — call `.quit()`
- * when done. A subscriber client (post-`SUBSCRIBE`) can't issue normal
- * commands, so callers expecting to publish + subscribe need two
- * clients (use `subscribeClient = client.duplicate()` or just call
- * `createRedis()` twice).
- *
- * `maxRetriesPerRequest: null` mirrors the BullMQ setting — without
- * it, blocking commands tear down on transient errors.
+ * Open a fresh Bun Redis client. Callers own the lifecycle — call
+ * `.close()` when done. A client that has called `subscribe()` can't
+ * issue normal commands, so publish + subscribe in the same process
+ * need two clients (call `createRedis()` twice or use `.duplicate()`).
  */
-export function createRedis(): Redis {
-  return new Redis(env.REDIS_URL, {
-    maxRetriesPerRequest: null,
-    lazyConnect: false,
-  });
+export function createRedis(): RedisClient {
+  return new RedisClient(env.REDIS_URL);
 }

@@ -18,11 +18,12 @@
  * disconnected.
  */
 
+import type { RedisClient } from "bun";
+
 import { db } from "@otterstack/db";
 import { deploymentLog } from "@otterstack/db/schema";
 import type { Id, ID_PREFIX } from "@otterstack/shared/id";
 import { log as globalLog } from "evlog";
-import type { Redis } from "ioredis";
 
 type DeploymentId = Id<typeof ID_PREFIX.deployment>;
 type Stream = "stdout" | "stderr" | "system";
@@ -44,7 +45,7 @@ export interface LogSink {
 
 export function createLogSink(opts: {
   deploymentId: DeploymentId;
-  publisher: Redis;
+  publisher: RedisClient;
 }): LogSink {
   const channel = `deployment:${opts.deploymentId}:logs`;
   let buffer: PendingLine[] = [];

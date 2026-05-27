@@ -27,9 +27,9 @@ import type { ProjectId } from "@otterstack/api/routers/project/errors";
 import { redeployOne } from "@otterstack/api/routers/service/redeploy";
 import { db } from "@otterstack/db";
 import { serviceResource } from "@otterstack/db/schema";
+import type { RedisClient } from "bun";
 import { eq } from "drizzle-orm";
 import { log as globalLog } from "evlog";
-import type { Redis } from "ioredis";
 
 import { cloneRepoAtSha } from "./clone";
 import { dockerPush } from "./docker-push";
@@ -44,7 +44,7 @@ type DeploymentId = Id<typeof ID_PREFIX.deployment>;
 
 export async function runBuildPipeline(opts: {
   deploymentId: DeploymentId;
-  publisher: Redis;
+  publisher: RedisClient;
 }): Promise<{ ok: true; image: string } | { ok: false; error: string }> {
   const sink = createLogSink({ deploymentId: opts.deploymentId, publisher: opts.publisher });
   let workDir: string | null = null;

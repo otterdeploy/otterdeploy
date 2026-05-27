@@ -16,7 +16,6 @@
     "bullmq": "^5.65.0",
     "drizzle-orm": "catalog:",
     "evlog": "catalog:",
-    "ioredis": "^5.10.1",
     "zod": "catalog:"
   },
   "devDependencies": {
