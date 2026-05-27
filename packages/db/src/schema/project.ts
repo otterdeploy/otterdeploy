@@ -69,7 +69,7 @@ export const project = pgTable(
     // linked repo trigger a deploy of every service resource in the project
     // whose source is `git`. Nullable: a project doesn't have to be
     // git-backed (databases, image-only services, etc.).
-    gitRepoId: text("git_repo_id"),
+    gitRepoId: text("git_repo_id").$type<Id<typeof ID_PREFIX.gitRepo>>(),
     productionBranch: text("production_branch").notNull().default("main"),
     // Build pipeline targeting — which registry the builder pushes to,
     // what image name (without tag) to push under, and any user-supplied
@@ -78,7 +78,9 @@ export const project = pgTable(
     // databases). FK is enforced application-side to avoid a cross-schema
     // import cycle; the constraint lives in container_registry's own
     // delete-cascade story instead (see build.ts).
-    containerRegistryId: text("container_registry_id"),
+    containerRegistryId: text("container_registry_id").$type<
+      Id<typeof ID_PREFIX.containerRegistry>
+    >(),
     imageRepository: text("image_repository"),
     nixpacksConfig: jsonb("nixpacks_config")
       .$type<NixpacksConfig | null>()

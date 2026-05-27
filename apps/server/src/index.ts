@@ -9,7 +9,7 @@ import { appRouter } from "@otterstack/api/routers/index";
 import { initializeSwarm } from "@otterstack/api/swarm";
 import { auth } from "@otterstack/auth";
 import { env } from "@otterstack/env/server";
-import { createWorkers } from "@otterstack/jobs";
+import { createWorkers, jobs as allJobs } from "@otterstack/jobs";
 import { Result } from "better-result";
 import { initLogger, log, parseError } from "evlog";
 import { evlog, type EvlogVariables } from "evlog/hono";
@@ -221,7 +221,10 @@ async function bootstrap() {
   });
 
   const workers = await Result.tryPromise({
-    try: () => createWorkers(),
+    // The deploy.triggered worker runs in apps/builder (it needs the
+    // nixpacks + docker binaries). The API still enqueues jobs onto that
+    // queue from the git-webhook receiver — only the consumer moves.
+    try: () => createWorkers({ jobs: allJobs.filter((j) => j.name !== "deploy.triggered") }),
     catch: (cause) => new BootstrapError({ step: "workers", cause }),
   });
   workers.match({

@@ -1,0 +1,27 @@
+{
+  "name": "builder",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "check-types": "tsc -b",
+    "dev": "bun run --env-file ../../.env --hot src/index.ts",
+    "start": "bun run src/index.ts"
+  },
+  "dependencies": {
+    "@otterstack/api": "workspace:*",
+    "@otterstack/db": "workspace:*",
+    "@otterstack/env": "workspace:*",
+    "@otterstack/jobs": "workspace:*",
+    "@otterstack/shared": "workspace:*",
+    "bullmq": "^5.65.0",
+    "drizzle-orm": "catalog:",
+    "evlog": "catalog:",
+    "ioredis": "^5.10.1",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@otterstack/config": "workspace:*",
+    "@types/bun": "catalog:",
+    "typescript": "catalog:"
+  }
+}

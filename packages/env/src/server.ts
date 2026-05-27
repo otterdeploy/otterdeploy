@@ -36,6 +36,11 @@ export const env = createEnv({
      *  install URL `https://github.com/apps/<slug>/installations/new`. */
     GITHUB_APP_SLUG: z.string().min(1).optional(),
 
+    // Build pipeline — apps/builder. Concurrency is how many deploy
+    // jobs the builder pulls from the queue at once; default 1 keeps
+    // docker builds from contending on the daemon.
+    BUILDER_CONCURRENCY: z.coerce.number().int().positive().default(1),
+
     NODE_ENV: z
       .enum(["development", "production", "test"])
       .default("development"),
