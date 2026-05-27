@@ -64,7 +64,7 @@ export async function redeployOne(
   resourceId: ResourceId,
   projectSlug: string,
   log?: RequestLogger,
-): Promise<Result<true, ServiceNotFoundError | ResolveError>> {
+): Promise<Result<SwarmServiceRuntime, ServiceNotFoundError | ResolveError>> {
   // Bump ForceUpdate BEFORE loading the record so buildSwarmSpec
   // serializes the new counter into TaskTemplate.ForceUpdate. Without
   // this, "redeploy" with no spec changes would no-op at swarm — the
@@ -96,7 +96,7 @@ export async function redeployOne(
     runtime.status === "error" ? "invalid" : "valid",
   );
 
-  return Result.ok(true);
+  return Result.ok(runtime);
 }
 
 export async function redeployAndFanOut(
@@ -106,7 +106,7 @@ export async function redeployAndFanOut(
   log: RequestLogger,
 ): Promise<Result<true, ServiceNotFoundError | ResolveError>> {
   const result = await redeployOne(projectId, resourceId, projectSlug, log);
-  if (result.isErr()) return result;
+  if (result.isErr()) return Result.err(result.error);
 
   const sourceRecord = await getServiceRecord(projectId, resourceId);
   if (!sourceRecord) return Result.ok(true);
@@ -128,7 +128,7 @@ export async function redeployAndFanOut(
     );
     if (depResult.isErr()) {
       // One failed dependent shouldn't undo the rest, but we surface the first error.
-      return depResult;
+      return Result.err(depResult.error);
     }
   }
 

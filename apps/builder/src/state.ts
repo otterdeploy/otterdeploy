@@ -56,3 +56,13 @@ export async function markImageReady(
     .set({ image })
     .where(eq(deployment.id, deploymentId));
 }
+
+/**
+ * Swarm converged on the new image. Terminal happy-path state.
+ */
+export async function markRunning(deploymentId: DeploymentId): Promise<void> {
+  await db
+    .update(deployment)
+    .set({ status: "running", completedAt: new Date() })
+    .where(eq(deployment.id, deploymentId));
+}

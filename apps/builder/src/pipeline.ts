@@ -7,7 +7,10 @@
  *                 →  decrypt registry password
  *                 →  nixpacks build (tags: <repo>:<sha>, <repo>:latest)
  *                 →  docker login → docker push (both tags) → docker logout
- *                 →  mark image-ready (image column = <repo>:<sha>)
+ *                 →  mark image-ready (deployment.image = <repo>:<sha>)
+ *                 →  serviceResource.image := <repo>:<sha>
+ *                 →  redeployOne → swarm spec update → wait for converge
+ *                 →  mark "running" (or "failed" on convergence error)
  *                 →  cleanup tmpfs work dir
  *
  * The function never throws to the caller — every failure is mapped to
@@ -19,6 +22,12 @@ import { rm } from "node:fs/promises";
 
 import { getInstallationToken } from "@otterstack/api/git/github-app";
 import { decryptSecret } from "@otterstack/api/lib/crypto";
+import type { ResourceId } from "@otterstack/api/routers/service/errors";
+import type { ProjectId } from "@otterstack/api/routers/project/errors";
+import { redeployOne } from "@otterstack/api/routers/service/redeploy";
+import { db } from "@otterstack/db";
+import { serviceResource } from "@otterstack/db/schema";
+import { eq } from "drizzle-orm";
 import { log as globalLog } from "evlog";
 import type { Redis } from "ioredis";
 
@@ -27,7 +36,7 @@ import { dockerPush } from "./docker-push";
 import { loadPipelineContext, PipelineLoadError } from "./load";
 import { createLogSink } from "./log-stream";
 import { nixpacksBuild } from "./nixpacks";
-import { markBuilding, markFailed, markImageReady } from "./state";
+import { markBuilding, markFailed, markImageReady, markRunning } from "./state";
 
 import type { Id, ID_PREFIX } from "@otterstack/shared/id";
 
@@ -90,9 +99,38 @@ export async function runBuildPipeline(opts: {
     });
 
     await markImageReady(opts.deploymentId, built.shaTag);
-    sink.system(
-      `image-ready: ${built.shaTag} (swarm service update lands in phase 3c — deployment will remain in "building" until then)`,
+    sink.system(`image-ready: ${built.shaTag} — updating swarm service`);
+
+    // Point the service resource at the new image so the spec
+    // assembled by redeployOne carries the freshly-pushed tag.
+    // imageDigest is cleared — the builder doesn't currently capture
+    // it and a stale digest would pin swarm to an older image than the
+    // new tag points at.
+    await db
+      .update(serviceResource)
+      .set({ image: built.shaTag, imageDigest: null })
+      .where(eq(serviceResource.resourceId, ctx.resource.id as ResourceId));
+
+    const redeployed = await redeployOne(
+      ctx.project.id as ProjectId,
+      ctx.resource.id as ResourceId,
+      ctx.project.slug,
     );
+    if (redeployed.isErr()) {
+      throw new Error(`swarm update failed: ${redeployed.error.message}`);
+    }
+    const runtime = redeployed.value;
+    sink.system(
+      `swarm runtime: status=${runtime.status} health=${runtime.health ?? "n/a"}`,
+    );
+    if (runtime.status === "error") {
+      throw new Error(
+        `swarm convergence failed for service ${runtime.serviceName} (health=${runtime.health ?? "n/a"})`,
+      );
+    }
+
+    await markRunning(opts.deploymentId);
+    sink.system(`deployment running: ${built.shaTag}`);
     return { ok: true, image: built.shaTag };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

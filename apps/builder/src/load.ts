@@ -57,6 +57,12 @@ export async function loadPipelineContext(
     .where(eq(resource.id, dep.resourceId))
     .limit(1);
   if (!res) throw new PipelineLoadError("resource", `${dep.resourceId} not found`);
+  if (res.type !== "service") {
+    throw new PipelineLoadError(
+      "resource.type",
+      `resource ${res.id} is type=${res.type}; only services are built`,
+    );
+  }
 
   const [proj] = await db
     .select()
