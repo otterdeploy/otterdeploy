@@ -39,5 +39,11 @@ function RouteComponent() {
     [resources],
   );
 
-  return <LogsPage services={serviceList} initialService={service ?? null} />;
+  return (
+    <LogsPage
+      projectId={project.id}
+      services={serviceList}
+      initialService={service ?? null}
+    />
+  );
 }

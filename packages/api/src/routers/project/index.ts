@@ -30,6 +30,7 @@ import {
   updateProject,
   validatePostgresCreate,
 } from "./handlers";
+import { tailProjectLogs } from "./project-logs";
 
 export const projectRouter = {
   get: orgScopedProcedure.project.get.handler(
@@ -257,6 +258,7 @@ export const projectRouter = {
               resourceId: input.resourceId,
               organizationId: context.activeOrganizationId,
               env: input.env,
+              secretKeys: input.secretKeys,
             },
             context.log,
           );
@@ -577,5 +579,19 @@ export const projectRouter = {
           ),
       },
     },
+  },
+
+  logs: {
+    // Project-wide fan-in tail. Snapshots services at subscribe time;
+    // operator reconnects on resource list changes from the client.
+    tail: orgScopedProcedure.project.logs.tail.handler(({ input, context }) => {
+      context.log.set({ target: { type: "project", id: input.projectId } });
+      return tailProjectLogs({
+        projectId: input.projectId,
+        organizationId: context.activeOrganizationId,
+        resourceIds: input.resourceIds,
+        tail: input.tail,
+      });
+    }),
   },
 };

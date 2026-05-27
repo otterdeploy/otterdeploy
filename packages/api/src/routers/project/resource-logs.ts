@@ -88,7 +88,9 @@ async function resolveServiceId(
 
 // Parse a docker multiplex frame and emit lines split by `\n`. Buffers
 // partial lines across chunks so the consumer always sees whole entries.
-async function* demuxDockerLogs(
+// Exported so the project-wide log fan-in can reuse the demux without
+// re-implementing the framing logic.
+export async function* demuxDockerLogs(
   stream: NodeJS.ReadableStream,
 ): AsyncGenerator<ResourceLogEvent, void, void> {
   let buffer = Buffer.alloc(0);

@@ -21,6 +21,7 @@ import { deploymentsContractSlice } from "./deployments";
 import { logsContractSlice } from "./logs";
 import { postgresContractSlice } from "./postgres";
 import { projectContractSlice } from "./project";
+import { projectLogsContractSlice } from "./project-logs";
 import { proxyContractSlice } from "./proxy";
 import { resourceContractSlice } from "./resource";
 import { serviceTasksContractSlice } from "./service-tasks";
@@ -30,6 +31,7 @@ export const projectContract = {
   proxyRoute: proxyContractSlice,
   dependencies: dependenciesContractSlice,
   serviceTasks: serviceTasksContractSlice,
+  ...projectLogsContractSlice,
   resource: {
     ...resourceContractSlice,
     ...logsContractSlice,
@@ -75,6 +77,11 @@ export {
   resourceLogsTailInput,
   resourceTaskLogsTailInput,
 } from "./logs";
+
+export {
+  projectLogEventSchema,
+  projectLogsTailInput,
+} from "./project-logs";
 
 export {
   deploymentListInput,
