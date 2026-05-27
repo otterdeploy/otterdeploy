@@ -40,6 +40,7 @@
         "@otterstack/email": "workspace:*",
         "@otterstack/env": "workspace:*",
         "@otterstack/jobs": "workspace:*",
+        "@otterstack/shared": "workspace:*",
         "ai": "^6.0.175",
         "better-auth": "catalog:",
         "better-result": "catalog:",

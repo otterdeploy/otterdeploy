@@ -21,6 +21,7 @@ import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { invalidate } from "./lib/invalidate";
 import { registerTerminalRoutes } from "./terminal";
 import { registerGithubWebhookRoutes } from "./webhooks/github";
+import { registerGithubInstallRoutes } from "./webhooks/github-install";
 
 import { createAuthMiddleware } from "evlog/better-auth";
 
@@ -34,6 +35,7 @@ const identify = createAuthMiddleware(auth, {
     "/api/public/**", // Public endpoints
     "/api/health", // Health checks
     "/api/webhooks/**", // Inbound webhooks — auth is per-source signature
+    "/api/integrations/github/**", // GitHub App install callback — uses signed state
   ],
   include: ["/api/**"],
   maskEmail: true,
@@ -176,6 +178,7 @@ app.get("/", (c) => {
 
 registerTerminalRoutes(app);
 registerGithubWebhookRoutes(app);
+registerGithubInstallRoutes(app);
 
 // Startup tasks: initialize Docker Swarm, then reconcile Caddy from the DB,
 // then boot BullMQ workers (in-process). The worker stop handle is captured
