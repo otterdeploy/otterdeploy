@@ -34,6 +34,26 @@ export class ProjectConflictError extends TaggedError("ProjectConflictError")<{
   }
 }
 
+/**
+ * Raised when an updateProject payload references a git_repo or
+ * container_registry row that doesn't exist in the requesting org.
+ * Always an org-scope violation — the FK column is application-managed
+ * so we have to verify cross-org access before writing.
+ */
+export class ProjectInvalidBindingError extends TaggedError(
+  "ProjectInvalidBindingError",
+)<{
+  message: string;
+  field: "gitRepoId" | "containerRegistryId";
+}>() {
+  constructor(args: { field: "gitRepoId" | "containerRegistryId" }) {
+    super({
+      field: args.field,
+      message: `referenced ${args.field} doesn't belong to this organization`,
+    });
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Postgres resource lifecycle errors
 // ---------------------------------------------------------------------------

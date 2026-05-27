@@ -22,6 +22,21 @@ export const projectListItemSchema = projectSchema.extend({
   databaseCount: z.number().int().nonnegative(),
 });
 
+/**
+ * Nixpacks build configuration knobs exposed via the project settings
+ * UI. Mirrors the `NixpacksConfig` interface in the DB schema; defined
+ * here so the contract carries the wire shape without needing to
+ * import from the schema package directly.
+ */
+export const nixpacksConfigSchema = z.object({
+  buildCmd: z.string().optional(),
+  startCmd: z.string().optional(),
+  installCmd: z.string().optional(),
+  packages: z.array(z.string()).optional(),
+  aptPackages: z.array(z.string()).optional(),
+  env: z.record(z.string(), z.string()).optional(),
+});
+
 export const createProjectInput = z.object({
   /**
    * Optional client-supplied project id. Lets the caller pre-allocate a CUID2
@@ -47,6 +62,14 @@ export const updateProjectInput = z.object({
   id: zId(ID_PREFIX.project),
   name: z.string().min(1).optional(),
   slug: z.string().slugify().min(2).max(48).optional(),
+  // Build pipeline binding. Each field is independently optional;
+  // `null` clears the column, `undefined` leaves it unchanged. The
+  // handler validates FK rows belong to the same org.
+  gitRepoId: zId(ID_PREFIX.gitRepo).nullable().optional(),
+  productionBranch: z.string().min(1).max(255).optional(),
+  containerRegistryId: zId(ID_PREFIX.containerRegistry).nullable().optional(),
+  imageRepository: z.string().min(1).max(255).nullable().optional(),
+  nixpacksConfig: nixpacksConfigSchema.nullable().optional(),
 });
 
 export const deleteProjectInput = z.object({
@@ -78,6 +101,11 @@ export const projectContractSlice = {
     .errors({
       ...projectNotFoundErrors,
       CONFLICT: { status: 409, message: "Project slug already in use" as const },
+      INVALID_BINDING: {
+        status: 400,
+        message:
+          "Referenced git repo or registry doesn't belong to this organization" as const,
+      },
     })
     .meta({ path: `${basePath}/{id}`, tag, method: "PATCH" })
     .input(updateProjectInput)

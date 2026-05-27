@@ -7,6 +7,7 @@ import {
   project,
   projectEnvVar,
   resource,
+  type NixpacksConfig,
 } from "@otterstack/db/schema/project";
 import { createId, ID_PREFIX, type Id } from "@otterstack/shared/id";
 
@@ -88,13 +89,49 @@ export async function updateProjectRecord(input: {
   organizationId: Id<typeof ID_PREFIX.organization>;
   name?: string;
   slug?: string;
+  gitRepoId?: string | null;
+  productionBranch?: string;
+  containerRegistryId?: string | null;
+  imageRepository?: string | null;
+  nixpacksConfig?: NixpacksConfig | null;
 }) {
+  // Build the patch object incrementally so undefined fields stay
+  // unset (drizzle/postgres treat undefined as "no column update").
+  const patch: Partial<typeof project.$inferInsert> = {};
+  if (input.name !== undefined) patch.name = input.name;
+  if (input.slug !== undefined) patch.slug = input.slug;
+  if (input.gitRepoId !== undefined) {
+    patch.gitRepoId = input.gitRepoId as typeof project.$inferInsert.gitRepoId;
+  }
+  if (input.productionBranch !== undefined)
+    patch.productionBranch = input.productionBranch;
+  if (input.containerRegistryId !== undefined) {
+    patch.containerRegistryId =
+      input.containerRegistryId as typeof project.$inferInsert.containerRegistryId;
+  }
+  if (input.imageRepository !== undefined)
+    patch.imageRepository = input.imageRepository;
+  if (input.nixpacksConfig !== undefined)
+    patch.nixpacksConfig = input.nixpacksConfig;
+
+  if (Object.keys(patch).length === 0) {
+    // No-op: return the current row so the caller still gets the view shape.
+    const [row] = await db
+      .select()
+      .from(project)
+      .where(
+        and(
+          eq(project.id, input.projectId),
+          eq(project.organizationId, input.organizationId),
+        ),
+      )
+      .limit(1);
+    return row;
+  }
+
   const [record] = await db
     .update(project)
-    .set({
-      ...(input.name !== undefined && { name: input.name }),
-      ...(input.slug !== undefined && { slug: input.slug }),
-    })
+    .set(patch)
     .where(and(eq(project.id, input.projectId), eq(project.organizationId, input.organizationId)))
     .returning();
   return record;
