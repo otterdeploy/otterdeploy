@@ -101,12 +101,22 @@ export const createServiceInput = z.object({
   name: z.string().min(1).regex(/^[a-z][a-z0-9-]*$/, {
     message: "name must be lowercase letters, digits, and dashes",
   }),
+  // "image" = pre-built docker image, image string is final. "git" =
+  // built by apps/builder from the project's git binding; image is
+  // accepted as a placeholder ("pending:initial") and overwritten on
+  // first build. Defaults to "image" so existing callers don't break.
+  source: z.enum(["image", "git"]).optional(),
+  sourceSubdir: z.string().nullable().optional(),
   image: z.string().min(1),
   command: z.array(z.string()).nullable().optional(),
   entrypoint: z.array(z.string()).nullable().optional(),
   replicas: z.number().int().nonnegative().optional(),
 
-  ports: z.array(servicePortInputSchema).min(1),
+  // Image-sourced services must publish at least one port (otherwise
+  // there's nothing to route to). Git-sourced services may publish zero
+  // ports at create time — the user might be building a worker. Enforced
+  // in the handler since zod can't see `source` from inside the array.
+  ports: z.array(servicePortInputSchema),
   env: z.array(z.object({ key: z.string().regex(envKeyRegex), value: z.string() })).optional(),
 
   restart: z
@@ -218,6 +228,11 @@ const sharedErrors = {
   REF_MISSING: { status: 400, message: "Referenced resource does not exist" as const },
   REF_CYCLE: { status: 400, message: "Variable reference cycle" as const },
   NO_HTTP_PORT: { status: 400, message: "Service has no HTTP port to expose" as const },
+  MISSING_BUILD_BINDING: {
+    status: 412,
+    message:
+      "Project has no git/registry/image binding — configure it in Settings before creating a source-built service" as const,
+  },
 };
 
 export const serviceContract = {
@@ -242,6 +257,7 @@ export const serviceContract = {
       NOT_FOUND: sharedErrors.NOT_FOUND,
       CONFLICT: sharedErrors.CONFLICT,
       INVALID_INPUT: sharedErrors.INVALID_INPUT,
+      MISSING_BUILD_BINDING: sharedErrors.MISSING_BUILD_BINDING,
       REF_MISSING: sharedErrors.REF_MISSING,
       REF_CYCLE: sharedErrors.REF_CYCLE,
     })

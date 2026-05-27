@@ -58,6 +58,27 @@ export class ServiceInUseError extends TaggedError("ServiceInUseError")<{
   }
 }
 
+/**
+ * Raised when creating a git-sourced service in a project that hasn't had
+ * its git binding (gitRepoId + containerRegistryId + imageRepository) set
+ * up yet. The wizard surface this as "configure source in Settings first".
+ */
+export class MissingProjectBuildBindingError extends TaggedError(
+  "MissingProjectBuildBindingError",
+)<{
+  message: string;
+  missing: ReadonlyArray<"gitRepoId" | "containerRegistryId" | "imageRepository">;
+}>() {
+  constructor(args: {
+    missing: ReadonlyArray<"gitRepoId" | "containerRegistryId" | "imageRepository">;
+  }) {
+    super({
+      missing: args.missing,
+      message: `project is missing build binding: ${args.missing.join(", ")}`,
+    });
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Variable reference errors (used by the resolver consumed by service env)
 // ---------------------------------------------------------------------------

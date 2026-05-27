@@ -233,6 +233,22 @@ export const serviceRestartConditionEnum = pgEnum("service_restart_condition", [
   "any",
 ]);
 
+/**
+ * Where a service's image comes from.
+ *
+ *   image  — pre-built image pulled from a registry. `serviceResource.image`
+ *            is the source of truth; the swarm provisioner uses it directly.
+ *            This is what every service created before the build pipeline
+ *            landed is set to.
+ *
+ *   git    — built by apps/builder from the project's git binding. The
+ *            wizard creates the row with `image` set to a `pending:…`
+ *            placeholder; the first build pushes a real tag and bumps the
+ *            column to it. Swarm provisioning is deferred until then so a
+ *            placeholder pull never reaches the daemon.
+ */
+export const serviceSourceEnum = pgEnum("service_source", ["image", "git"]);
+
 export const serviceResource = pgTable(
   "service_resource",
   {
@@ -245,6 +261,14 @@ export const serviceResource = pgTable(
     imageDigest: text("image_digest"),
     command: text("command").array(),
     entrypoint: text("entrypoint").array(),
+
+    // How this service is sourced — see serviceSourceEnum above. Pre-build-
+    // pipeline services default to "image" so the swarm provisioner keeps
+    // working unchanged.
+    source: serviceSourceEnum("source").notNull().default("image"),
+    // Monorepo support: when source = "git", the path within the repo to
+    // hand to nixpacks. Null = repo root.
+    sourceSubdir: text("source_subdir"),
 
     replicas: integer("replicas").notNull().default(1),
 

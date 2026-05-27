@@ -78,6 +78,7 @@ export const serviceRouter = {
       throw matchError(result.error, {
         ProjectNotFoundError: () => errors.NOT_FOUND(),
         ServiceConflictError: () => errors.CONFLICT(),
+        MissingProjectBuildBindingError: () => errors.MISSING_BUILD_BINDING(),
         RefMissingResourceError: () => errors.REF_MISSING(),
         RefCycleError: () => errors.REF_CYCLE(),
         RefParseError: () => errors.INVALID_INPUT(),

@@ -8,7 +8,13 @@
  */
 
 import { db } from "@otterstack/db";
-import { deployment, gitRepo, project, resource } from "@otterstack/db/schema";
+import {
+  deployment,
+  gitRepo,
+  project,
+  resource,
+  serviceResource,
+} from "@otterstack/db/schema";
 import { triggerDeploy } from "@otterstack/jobs";
 import { ID_PREFIX, type Id } from "@otterstack/shared/id";
 import { log } from "evlog";
@@ -77,14 +83,20 @@ export async function handlePush(
 
   let deploymentsCreated = 0;
   for (const p of projects) {
-    // Phase 1: every service resource gets a pending deploy row. Phase 3
-    // narrows this to "services whose source is git".
-    const resources = await db.query.resource.findMany({
-      where: and(
-        eq(resource.projectId, p.id as Id<typeof ID_PREFIX.project>),
-        eq(resource.type, "service"),
-      ),
-    });
+    // Only services whose source is "git" rebuild on push. Image-sourced
+    // services are pinned to whatever tag the operator chose at create
+    // time; they redeploy only on explicit user action.
+    const resources = await db
+      .select({ id: resource.id })
+      .from(resource)
+      .innerJoin(serviceResource, eq(serviceResource.resourceId, resource.id))
+      .where(
+        and(
+          eq(resource.projectId, p.id as Id<typeof ID_PREFIX.project>),
+          eq(resource.type, "service"),
+          eq(serviceResource.source, "git"),
+        ),
+      );
     if (resources.length === 0) continue;
 
     const inserted = await db

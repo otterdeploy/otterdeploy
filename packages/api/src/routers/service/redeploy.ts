@@ -36,6 +36,21 @@ export async function provisionFresh(
   projectSlug: string,
   log?: RequestLogger,
 ): Promise<Result<SwarmServiceRuntime, ResolveError>> {
+  // Git-sourced services start life with a placeholder image (no build
+  // has happened yet). Skip the swarm provision step — the build worker
+  // will set the real image + drive convergence on first push. Return a
+  // synthetic "pending" runtime so callers don't see an error.
+  if (isPendingImage(record.service.image)) {
+    await updateServiceResourceStatus(record.service.resourceId, "valid");
+    return Result.ok({
+      serviceId: null,
+      serviceName: record.service.serviceName,
+      networkName: record.service.networkName,
+      status: "starting",
+      health: null,
+    });
+  }
+
   const resolved = await resolveServiceEnv(
     projectId,
     record.service.resourceId as ResourceId,
@@ -57,6 +72,11 @@ export async function provisionFresh(
   );
 
   return Result.ok(runtime);
+}
+
+/** Placeholder images used by git-sourced services before their first build. */
+function isPendingImage(image: string): boolean {
+  return image.startsWith("pending:");
 }
 
 export async function redeployOne(

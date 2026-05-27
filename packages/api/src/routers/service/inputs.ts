@@ -57,6 +57,8 @@ export interface CreateServiceInput {
   projectId: ProjectId;
   organizationId: OrgId;
   name: string;
+  source?: "image" | "git";
+  sourceSubdir?: string | null;
   image: string;
   command?: string[] | null;
   entrypoint?: string[] | null;
@@ -107,6 +109,8 @@ export function toCreateRecordPayload(
     projectId: input.projectId,
     name: input.name,
     status: "draft" as const,
+    source: input.source ?? "image",
+    sourceSubdir: input.sourceSubdir ?? null,
     image: input.image,
     command: input.command ?? null,
     entrypoint: input.entrypoint ?? null,

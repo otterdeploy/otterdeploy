@@ -24,6 +24,7 @@ import { destroySwarmService } from "../../swarm";
 
 import { loadProject, loadResource } from "./context";
 import {
+  MissingProjectBuildBindingError,
   NoHttpPortError,
   ServiceConflictError,
   ServiceInUseError,
@@ -91,8 +92,18 @@ export async function listEnv(
 export async function createService(
   input: CreateServiceInput,
   log: RequestLogger,
-): Promise<Result<ServiceView, ProjectNotFoundError | ServiceConflictError | ResolveError>> {
-  log.set({ resource: { kind: "service", projectId: input.projectId, name: input.name } });
+): Promise<
+  Result<
+    ServiceView,
+    | ProjectNotFoundError
+    | ServiceConflictError
+    | MissingProjectBuildBindingError
+    | ResolveError
+  >
+> {
+  log.set({
+    resource: { kind: "service", projectId: input.projectId, name: input.name },
+  });
 
   const projectResult = await loadProject(input);
   if (projectResult.isErr()) return Result.err(projectResult.error);
@@ -101,6 +112,22 @@ export async function createService(
   const existing = await getServiceRecordByName(input.projectId, input.name);
   if (existing) {
     return Result.err(new ServiceConflictError({ name: input.name }));
+  }
+
+  const source = input.source ?? "image";
+
+  // Git-sourced services can't exist without a project-level binding —
+  // the build worker reads gitRepoId / containerRegistryId / imageRepository
+  // off the project at build time. Fail fast with a typed error the UI
+  // can use to redirect the operator to Settings.
+  if (source === "git") {
+    const missing: Array<"gitRepoId" | "containerRegistryId" | "imageRepository"> = [];
+    if (!project.gitRepoId) missing.push("gitRepoId");
+    if (!project.containerRegistryId) missing.push("containerRegistryId");
+    if (!project.imageRepository) missing.push("imageRepository");
+    if (missing.length > 0) {
+      return Result.err(new MissingProjectBuildBindingError({ missing }));
+    }
   }
 
   const projectSlug = sanitizeSlug(project.slug);

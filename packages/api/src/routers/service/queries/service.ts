@@ -123,6 +123,10 @@ export interface CreateServiceInput {
   status?: "draft" | "valid" | "invalid";
 
   image: string;
+  /** "image" = pull a pre-built tag; "git" = built by apps/builder. */
+  source?: "image" | "git";
+  /** When source = "git", path within the repo handed to nixpacks. */
+  sourceSubdir?: string | null;
   command?: string[] | null;
   entrypoint?: string[] | null;
   replicas?: number;
@@ -182,6 +186,8 @@ export async function createServiceRecord(
       .values({
         resourceId: createdResource.id,
         image: input.image,
+        source: input.source ?? "image",
+        sourceSubdir: input.sourceSubdir ?? null,
         command: input.command ?? null,
         entrypoint: input.entrypoint ?? null,
         replicas: input.replicas ?? 1,
