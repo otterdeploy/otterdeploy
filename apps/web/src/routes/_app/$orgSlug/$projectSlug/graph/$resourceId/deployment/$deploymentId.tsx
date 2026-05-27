@@ -16,6 +16,8 @@ import {
   TabsTrigger,
 } from "@/shared/components/ui/tabs";
 import { cn } from "@/shared/lib/utils";
+import { env } from "@otterstack/env/web";
+
 import { orpc } from "@/shared/server/orpc";
 
 export const Route = createFileRoute(
@@ -175,7 +177,7 @@ function RouteComponent() {
                 className="flex h-full min-h-0 flex-col px-6 pt-5 pb-6"
               >
                 <Activity mode={tab === "build-logs" ? "visible" : "hidden"}>
-                  <BuildLogsPlaceholder />
+                  <BuildLogsBody deploymentId={deploymentId} />
                 </Activity>
               </TabsContent>
               <TabsContent
@@ -607,15 +609,104 @@ function DeploymentLogsBody({
 // Distinct components rather than a generic message so each can grow its
 // own real-data wiring without changing the page layout.
 
-function BuildLogsPlaceholder() {
-  // Postgres + service resources currently launch from pre-built docker
-  // images — no build step happens on our side. When buildpacks / git-source
-  // services land, this is where their `docker build` output will stream.
+function BuildLogsBody({ deploymentId }: { deploymentId: string }) {
+  // Build pipeline logs are streamed by apps/builder via Redis pub/sub
+  // → SSE (apps/server/src/deployment-logs-sse.ts). Native EventSource
+  // is the natural client — cookies ride along for auth, reconnect is
+  // built in. Mirrors the project-events transport pattern.
+  const [lines, setLines] = useState<LogLine[]>([]);
+  const [status, setStatus] = useState<
+    "connecting" | "live" | "ended" | "error"
+  >("connecting");
+  const counterRef = useRef(0);
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const [autoScroll, setAutoScroll] = useState(true);
+
+  useEffect(() => {
+    setLines([]);
+    setStatus("connecting");
+    counterRef.current = 0;
+
+    const base = env.VITE_SERVER_URL.replace(/\/$/, "");
+    const url = `${base}/sse/deployments/${encodeURIComponent(deploymentId)}/logs`;
+    const es = new EventSource(url, { withCredentials: true });
+
+    const onLine = (event: MessageEvent) => {
+      try {
+        const parsed = JSON.parse(event.data) as {
+          stream: "stdout" | "stderr" | "system";
+          line: string;
+          ts: string;
+        };
+        setStatus("live");
+        setLines((prev) => [
+          ...prev,
+          {
+            id: ++counterRef.current,
+            stream: parsed.stream,
+            line: parsed.line,
+            ts: parsed.ts,
+          },
+        ]);
+      } catch {
+        // Skip malformed events — defensive; server emits well-formed JSON.
+      }
+    };
+    es.addEventListener("stdout", onLine);
+    es.addEventListener("stderr", onLine);
+    es.addEventListener("system", onLine);
+    es.addEventListener("end", () => {
+      setStatus("ended");
+      es.close();
+    });
+    es.addEventListener("error", () => {
+      if (es.readyState === EventSource.CLOSED) {
+        setStatus("error");
+      }
+    });
+
+    return () => es.close();
+  }, [deploymentId]);
+
+  // Auto-scroll while the user is at the bottom; pause if they scroll up.
+  useEffect(() => {
+    if (!autoScroll) return;
+    const el = scrollerRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [lines, autoScroll]);
+
   return (
-    <EmptyTab
-      title="No build step for this deployment"
-      hint="This resource launches from a pre-built docker image, so there's no build phase. Build logs surface here for buildpack and git-source services once those land."
-    />
+    <div className="flex h-full min-h-0 flex-col gap-3">
+      <div
+        ref={scrollerRef}
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 4;
+          if (atBottom !== autoScroll) setAutoScroll(atBottom);
+        }}
+        className="min-h-0 flex-1 overflow-auto rounded-md border bg-[oklch(0.12_0_0)] p-3 font-mono text-[11.5px] leading-relaxed"
+      >
+        {lines.length === 0 ? (
+          <div className="grid h-full place-items-center text-center">
+            <div className="flex flex-col items-center gap-2">
+              <div className="text-[14px] font-medium text-foreground/80">
+                {status === "connecting"
+                  ? "Connecting to build log stream…"
+                  : status === "error"
+                    ? "Stream disconnected"
+                    : "No build output yet"}
+              </div>
+              <div className="text-[12px] text-muted-foreground">
+                Lines appear here as the builder runs.
+              </div>
+            </div>
+          </div>
+        ) : (
+          lines.map((l) => <LogLineRow key={l.id} line={l} />)
+        )}
+      </div>
+    </div>
   );
 }
 

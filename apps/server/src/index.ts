@@ -19,6 +19,7 @@ import { upgradeWebSocket, websocket } from "hono/bun";
 import { cors } from "hono/cors";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { invalidate } from "./lib/invalidate";
+import { registerDeploymentLogsSseRoutes } from "./deployment-logs-sse";
 import { registerTerminalRoutes } from "./terminal";
 import { registerGithubWebhookRoutes } from "./webhooks/github";
 import { registerGithubInstallRoutes } from "./webhooks/github-install";
@@ -179,6 +180,7 @@ app.get("/", (c) => {
 registerTerminalRoutes(app);
 registerGithubWebhookRoutes(app);
 registerGithubInstallRoutes(app);
+registerDeploymentLogsSseRoutes(app);
 
 // Startup tasks: initialize Docker Swarm, then reconcile Caddy from the DB,
 // then boot BullMQ workers (in-process). The worker stop handle is captured
