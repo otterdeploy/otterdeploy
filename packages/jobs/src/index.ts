@@ -9,12 +9,14 @@ export {
   triggerWelcomeSequence,
   triggerEmailBatch,
   runHourlyCleanupNow,
+  triggerDeploy,
 } from "./triggers";
 export type {
   EmailPayload,
   NotificationPayload,
   DataProcessingPayload,
   UserSignupPayload,
+  DeployTriggeredPayload,
 } from "./triggers";
 
 // Worker + queue lifecycle (apps/server boot/shutdown).

@@ -235,6 +235,7 @@
         "@otterstack/auth": "workspace:*",
         "@otterstack/db": "workspace:*",
         "@otterstack/env": "workspace:*",
+        "@otterstack/jobs": "workspace:*",
         "@otterstack/shared": "workspace:*",
         "better-result": "^2.9.2",
         "drizzle-orm": "catalog:",

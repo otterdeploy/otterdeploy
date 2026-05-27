@@ -44,6 +44,12 @@ export const project = pgTable(
     customDomain: text("custom_domain"),
     customDomainVerifiedAt: timestamp("custom_domain_verified_at"),
     customDomainVerifyToken: text("custom_domain_verify_token"),
+    // Git source binding. When set, pushes to `productionBranch` of the
+    // linked repo trigger a deploy of every service resource in the project
+    // whose source is `git`. Nullable: a project doesn't have to be
+    // git-backed (databases, image-only services, etc.).
+    gitRepoId: text("git_repo_id"),
+    productionBranch: text("production_branch").notNull().default("main"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -53,6 +59,7 @@ export const project = pgTable(
   (table) => [
     index("project_slug_idx").on(table.slug),
     index("project_organization_id_idx").on(table.organizationId),
+    index("project_git_repo_id_idx").on(table.gitRepoId),
   ],
 );
 
@@ -264,6 +271,7 @@ export const deploymentReasonEnum = pgEnum("deployment_reason", [
   "env-change",
   "image-change",
   "restart",
+  "git-push",
 ]);
 
 export const deployment = pgTable(
@@ -291,6 +299,13 @@ export const deployment = pgTable(
     // layer (resources differ between database/service kinds) and
     // validated at the application boundary instead.
     snapshot: jsonb("snapshot").$type<Record<string, unknown>>().notNull().default({}),
+    // Git provenance — populated when the deployment was triggered by a
+    // push (reason="git-push") or built from a repo. Nullable for
+    // image-only / database deployments.
+    gitSha: text("git_sha"),
+    gitRef: text("git_ref"),
+    gitCommitMessage: text("git_commit_message"),
+    gitCommitAuthor: text("git_commit_author"),
     // Populated when the deployment finalizes (terminal status reached).
     errorMessage: text("error_message"),
     completedAt: timestamp("completed_at"),

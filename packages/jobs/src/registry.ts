@@ -1,5 +1,6 @@
 import type { JobDef } from "./define";
 import { dailyReportJob } from "./jobs/daily-report";
+import { deployTriggeredJob } from "./jobs/deploy";
 import { sendEmailJob } from "./jobs/email";
 import { hourlyCleanupJob } from "./jobs/hourly-cleanup";
 import { sendNotificationJob } from "./jobs/notification";
@@ -19,6 +20,7 @@ export const jobs = [
   hourlyCleanupJob,
   dailyReportJob,
   welcomeSequenceJob,
+  deployTriggeredJob,
 ] as const satisfies ReadonlyArray<JobDef>;
 
 /** Job name → definition lookup. */

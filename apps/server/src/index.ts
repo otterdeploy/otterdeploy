@@ -20,6 +20,7 @@ import { cors } from "hono/cors";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { invalidate } from "./lib/invalidate";
 import { registerTerminalRoutes } from "./terminal";
+import { registerGithubWebhookRoutes } from "./webhooks/github";
 
 import { createAuthMiddleware } from "evlog/better-auth";
 
@@ -32,6 +33,7 @@ const identify = createAuthMiddleware(auth, {
     "/api/auth/**", // Better Auth itself
     "/api/public/**", // Public endpoints
     "/api/health", // Health checks
+    "/api/webhooks/**", // Inbound webhooks — auth is per-source signature
   ],
   include: ["/api/**"],
   maskEmail: true,
@@ -173,6 +175,7 @@ app.get("/", (c) => {
 });
 
 registerTerminalRoutes(app);
+registerGithubWebhookRoutes(app);
 
 // Startup tasks: initialize Docker Swarm, then reconcile Caddy from the DB,
 // then boot BullMQ workers (in-process). The worker stop handle is captured

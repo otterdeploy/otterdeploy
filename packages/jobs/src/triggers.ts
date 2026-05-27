@@ -4,6 +4,10 @@ import {
   type DataProcessingPayload,
   processDataJob,
 } from "./jobs/process-data";
+import {
+  type DeployTriggeredPayload,
+  deployTriggeredJob,
+} from "./jobs/deploy";
 import { type EmailPayload, sendEmailJob } from "./jobs/email";
 import { hourlyCleanupJob } from "./jobs/hourly-cleanup";
 import {
@@ -16,7 +20,13 @@ import {
 } from "./jobs/welcome-sequence";
 import { getQueue } from "./queues";
 
-export type { EmailPayload, NotificationPayload, DataProcessingPayload, UserSignupPayload };
+export type {
+  EmailPayload,
+  NotificationPayload,
+  DataProcessingPayload,
+  UserSignupPayload,
+  DeployTriggeredPayload,
+};
 
 /**
  * Each trigger validates with the job's schema, then adds to its queue with
@@ -66,6 +76,17 @@ export async function cancelDataProcessing(dataId: string) {
   const toRemove = queued.filter((j) => (j.data as DataProcessingPayload)?.dataId === dataId);
   await Promise.all(toRemove.map((j) => j.remove()));
   return { cancelled: toRemove.length };
+}
+
+export async function triggerDeploy(
+  payload: DeployTriggeredPayload,
+  opts?: JobsOptions,
+) {
+  const parsed = deployTriggeredJob.schema.parse(payload);
+  return enqueue(deployTriggeredJob.name, parsed, {
+    ...deployTriggeredJob.opts,
+    ...opts,
+  });
 }
 
 export async function triggerWelcomeSequence(

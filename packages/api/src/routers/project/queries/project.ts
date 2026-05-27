@@ -26,6 +26,8 @@ export async function listProjectRecordsByOrg(organizationId: Id<typeof ID_PREFI
       customDomain: project.customDomain,
       customDomainVerifiedAt: project.customDomainVerifiedAt,
       customDomainVerifyToken: project.customDomainVerifyToken,
+      gitRepoId: project.gitRepoId,
+      productionBranch: project.productionBranch,
       createdAt: project.createdAt,
       updatedAt: project.updatedAt,
       databaseCount: sql<number>`coalesce(sum(case when ${resource.type} = 'database' then 1 else 0 end), 0)::int`,
