@@ -60,6 +60,7 @@ const navItems = [
 interface StaticNavItem {
   title: string;
   icon: typeof Home01Icon;
+  href?: string;
 }
 
 const infrastructureItems: StaticNavItem[] = [
@@ -70,7 +71,7 @@ const infrastructureItems: StaticNavItem[] = [
 ];
 
 const clusterAdminItems: StaticNavItem[] = [
-  { title: "Git providers", icon: GitBranchIcon },
+  { title: "Git providers", icon: GitBranchIcon, href: "/$orgSlug/git-providers" },
   { title: "Registries", icon: Database02Icon },
   { title: "SSH keys", icon: Key01Icon },
   { title: "Notifications", icon: Alert01Icon },
@@ -147,7 +148,16 @@ export function OrganizationSidebar({
           <SidebarMenu className="gap-2">
             {clusterAdminItems.map((item) => (
               <SidebarMenuItem key={item.title}>
-                <SidebarMenuButton>
+                <SidebarMenuButton
+                  render={
+                    item.href ? (
+                      <Link
+                        to={item.href}
+                        params={params as { orgSlug: string }}
+                      />
+                    ) : undefined
+                  }
+                >
                   <HugeiconsIcon icon={item.icon} strokeWidth={2} />
                   <span>{item.title}</span>
                 </SidebarMenuButton>
