@@ -198,6 +198,56 @@ function ResourceWizardBody({
     [navigate, onComplete, orgSlug, projectId, projectSlug],
   );
 
+  const runServiceCreate = useCallback(
+    async (payload: {
+      name: string;
+      source: "image" | "git";
+      image: string;
+      ports: Array<{ port: number; protocol: string; public: boolean }>;
+    }) => {
+      // Service.create isn't streaming yet — single request, single response.
+      // Skip the rich progress UI the DB flow uses; toast + navigate is
+      // enough until we wire a per-resource SSE stream.
+      try {
+        const created = await orpc.service.create.call({
+          projectId,
+          name: payload.name,
+          source: payload.source,
+          image: payload.image,
+          // Map the wizard's port shape to the contract's. Wizard "http"
+          // → appProtocol=http; tcp → appProtocol=tcp. Default to tcp
+          // protocol since udp is rare and not surfaced in the picker.
+          ports: payload.ports.map((p) => ({
+            containerPort: p.port,
+            protocol: "tcp" as const,
+            appProtocol: (p.protocol === "http" ? "http" : "tcp") as "http" | "tcp",
+          })),
+        });
+        toast.success(`Service ${created.name} created`);
+        onComplete?.();
+        void queryClient.invalidateQueries({
+          queryKey: orpc.project.resource.list.queryKey({ input: { projectId } }),
+        });
+        void navigate({
+          to: "/$orgSlug/$projectSlug/graph/$resourceId",
+          params: { orgSlug, projectSlug, resourceId: created.id as never },
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        // Surface the typed MISSING_BUILD_BINDING from the server with a
+        // link-style toast that points the operator to /settings.
+        if (message.includes("missing build binding") || message.includes("no git/registry")) {
+          toast.error(
+            "Project is missing source binding. Set it up under Settings → Build.",
+          );
+        } else {
+          toast.error(message || "Failed to create service");
+        }
+      }
+    },
+    [navigate, onComplete, orgSlug, projectId, projectSlug],
+  );
+
   const form = useAppForm({
     defaultValues: initialKind
       ? { ...resourceDefaults, __step: step, kindId: initialKind, name: initialKind }
@@ -207,9 +257,7 @@ function ResourceWizardBody({
     onSubmit: async ({ value }) => {
       // Strip the wizard-only discriminator before passing fields to the API.
       const { __step: _drop, ...payload } = value;
-      // The kind ids in the catalog map 1:1 to backend engine names for the
-      // four database engines we support; anything else (services, custom
-      // images) falls through to the not-wired warning below.
+      // Database engines: handled by the streaming DB provisioner.
       if (
         payload.kindId === "postgres" ||
         payload.kindId === "redis" ||
@@ -223,10 +271,25 @@ function ResourceWizardBody({
         });
         return;
       }
-      // Other kinds (services, custom images, templates) aren't wired yet —
-      // the Create button is gated below so this shouldn't be reachable
-      // through the UI.
-      console.warn("[new-resource] submit ignored: kind not wired", payload.kindId);
+      // Pre-built docker image: image step has `image` + `tag`.
+      if (payload.kindId === "docker") {
+        await runServiceCreate({
+          name: payload.name,
+          source: "image",
+          image: payload.tag ? `${payload.image}:${payload.tag}` : payload.image,
+          ports: payload.ports,
+        });
+        return;
+      }
+      // Compute kinds (app/worker/static/etc.): built by apps/builder from
+      // the project's git binding. Placeholder image — the first build
+      // overwrites it.
+      await runServiceCreate({
+        name: payload.name,
+        source: "git",
+        image: "pending:initial",
+        ports: payload.ports,
+      });
     },
   });
 
@@ -298,17 +361,17 @@ function ResourceWizardBody({
   };
   const showChrome = layout === "page";
 
-  // Only Postgres is wired through to a real provisioner today. Keep the
-  // wizard browsable for every kind but gate the final Create action so we
-  // don't pretend to deploy something that isn't implemented yet.
-  // Engines whose create path is end-to-end wired today — drives the
-  // Create button gate. As more kinds (services, templates) come online
-  // they get added here.
+  // Kinds whose create path is end-to-end wired today. Databases go through
+  // the streaming postgres provisioner; "docker" + every compute kind goes
+  // through service.create (image or git source). Templates still wait for a
+  // template registry.
   const kindWired =
     kindId === "postgres" ||
     kindId === "redis" ||
     kindId === "mariadb" ||
-    kindId === "mongodb";
+    kindId === "mongodb" ||
+    kindId === "docker" ||
+    kind?.group === "compute";
   const isCreating = progress.status === "running";
   const createDisabled = isLast && (!kindWired || isCreating);
 
@@ -398,7 +461,7 @@ function ResourceWizardBody({
           )}
           {isLast && !kindWired && kind && (
             <span className="mr-1 text-[11px] text-muted-foreground">
-              {kind.name} provisioner isn’t wired yet — only Postgres is live today.
+              {kind.name} provisioner isn't wired yet.
             </span>
           )}
           <div className="flex-1" />
