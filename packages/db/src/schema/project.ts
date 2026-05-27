@@ -16,6 +16,27 @@ import { organization, user } from "./auth";
 export const projectStatusEnum = pgEnum("project_status", ["draft", "valid", "invalid"]);
 
 type EnvId = Id<typeof ID_PREFIX.environment>;
+
+/**
+ * User-supplied overrides for `nixpacks build`. Mirrors the subset of the
+ * Nixpacks CLI surface we expose in the UI; runtime values get translated
+ * to CLI args by the builder.
+ *
+ *  - `buildCmd` / `startCmd`: override Nixpacks' auto-detected commands
+ *  - `packages`: extra Nix packages to install
+ *  - `aptPackages`: extra apt packages (Debian-based default base image)
+ *  - `installCmd`: override the install phase
+ *  - `env`: build-time env vars (separate from runtime — those live on
+ *    the service resource)
+ */
+export interface NixpacksConfig {
+  buildCmd?: string;
+  startCmd?: string;
+  installCmd?: string;
+  packages?: string[];
+  aptPackages?: string[];
+  env?: Record<string, string>;
+}
 export const project = pgTable(
   "project",
   {
@@ -50,6 +71,18 @@ export const project = pgTable(
     // git-backed (databases, image-only services, etc.).
     gitRepoId: text("git_repo_id"),
     productionBranch: text("production_branch").notNull().default("main"),
+    // Build pipeline targeting — which registry the builder pushes to,
+    // what image name (without tag) to push under, and any user-supplied
+    // nixpacks knobs (build/start command, packages, env). All nullable
+    // for projects that don't use the build pipeline (image-only services,
+    // databases). FK is enforced application-side to avoid a cross-schema
+    // import cycle; the constraint lives in container_registry's own
+    // delete-cascade story instead (see build.ts).
+    containerRegistryId: text("container_registry_id"),
+    imageRepository: text("image_repository"),
+    nixpacksConfig: jsonb("nixpacks_config")
+      .$type<NixpacksConfig | null>()
+      .default(null),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -60,6 +93,7 @@ export const project = pgTable(
     index("project_slug_idx").on(table.slug),
     index("project_organization_id_idx").on(table.organizationId),
     index("project_git_repo_id_idx").on(table.gitRepoId),
+    index("project_container_registry_id_idx").on(table.containerRegistryId),
   ],
 );
 

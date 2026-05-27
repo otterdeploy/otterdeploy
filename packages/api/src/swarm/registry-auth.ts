@@ -7,24 +7,22 @@
  * users can change a token without redeploying every service that
  * references the affected registry.
  *
- * Today the function is a stub: there's no credentials table yet, so it
- * always returns null. Wiring the call sites now (createPostgresStream,
- * provisionSwarmService, etc.) means a future "Registry credentials"
- * settings page only needs a single point of integration — add a DB
- * lookup here and every pull picks up the auth automatically.
- *
- * When the storage layer lands, the planned shape is:
- *   table registry_credential {
- *     id, organizationId, host, username, encryptedPassword, createdAt
- *   }
- * with `host` matched against the image's registry host (the part before
- * the first `/`, defaulting to `docker.io` when omitted).
+ * Backed by the `container_registry` table introduced in the build-
+ * pipeline phase. Passwords are encrypted at rest via `encryptSecret`
+ * (HKDF-derived AES-GCM); we decrypt on each call rather than caching
+ * plaintext.
  */
+
+import { db } from "@otterstack/db";
+import { containerRegistry } from "@otterstack/db/schema";
+import { and, eq } from "drizzle-orm";
+
+import { decryptSecret } from "../lib/crypto";
 
 import type { RegistryAuth } from "./image-pull";
 
 /** Extract the registry hostname from an image ref. */
-function imageRegistry(image: string): string {
+export function imageRegistry(image: string): string {
   // No slash → bare image like "postgres" or "postgres:18" → docker.io.
   const slashIdx = image.indexOf("/");
   if (slashIdx === -1) return "docker.io";
@@ -45,16 +43,40 @@ function imageRegistry(image: string): string {
 
 /**
  * Resolve credentials for the given image's registry under the given org.
- * Returns null when no credentials are configured (public registries +
- * the current bootstrap state where no credential table exists yet).
+ * Returns null when no credentials are configured (public registries, or
+ * the org hasn't added a credential for that host yet).
+ *
+ * If multiple credentials exist for the same host (e.g. a personal account
+ * and a CI bot account), the most recently updated one wins — a credential
+ * rotation is the strongest "use this one now" signal we have without
+ * giving the user a per-image override surface.
  */
-export async function resolveRegistryAuth(_input: {
+export async function resolveRegistryAuth(input: {
   image: string;
   organizationId: string;
 }): Promise<RegistryAuth | null> {
-  // Stub. When the registry-credential table lands, query by
-  // (organizationId, host = imageRegistry(image)) and return the row's
-  // username + decrypted password + serveraddress.
-  void imageRegistry(_input.image);
-  return null;
+  const host = imageRegistry(input.image);
+  const rows = await db
+    .select()
+    .from(containerRegistry)
+    .where(
+      and(
+        eq(containerRegistry.organizationId, input.organizationId),
+        eq(containerRegistry.host, host),
+      ),
+    );
+  if (rows.length === 0) return null;
+
+  // Pick the most-recently-updated credential as the active one.
+  const cred = rows.reduce((a, b) =>
+    a.updatedAt.getTime() >= b.updatedAt.getTime() ? a : b,
+  );
+
+  const password = await decryptSecret(cred.encryptedPassword);
+  return {
+    username: cred.username,
+    password,
+    // Docker expects the serveraddress field to be the host (no scheme).
+    serveraddress: host,
+  };
 }

@@ -46,6 +46,10 @@ export const ID_PREFIX = {
   gitProvider: "gitprov",
   gitInstallation: "gitinst",
   gitRepo: "gitrepo",
+
+  // build pipeline
+  containerRegistry: "regcred",
+  deploymentLog: "dlog",
 } as const;
 
 export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];
