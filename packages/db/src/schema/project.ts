@@ -29,6 +29,21 @@ export const project = pgTable(
     name: text("name").notNull(),
     slug: text("slug").notNull().unique(),
     environmentId: text("environment_id").$type<EnvId>(),
+    // Declarative stack file (compose-compatible YAML with x-otterstack
+    // extensions). Source of truth migration — Phase 1 ships the column
+    // empty; subsequent phases populate + apply it. `stackFileVersion` is
+    // a monotonic counter used for optimistic locking on writes.
+    stackFile: text("stack_file"),
+    stackFileVersion: integer("stack_file_version").notNull().default(0),
+    lastAppliedFile: text("last_applied_file"),
+    lastAppliedAt: timestamp("last_applied_at"),
+    // Per-project domain override. When set + verified, this project's
+    // resources land under it instead of the org's baseDomain — e.g. a
+    // service `web` lands at `web.<customDomain>` (no project slug, since
+    // the apex IS the project). Falls through to org.baseDomain when null.
+    customDomain: text("custom_domain"),
+    customDomainVerifiedAt: timestamp("custom_domain_verified_at"),
+    customDomainVerifyToken: text("custom_domain_verify_token"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -151,6 +166,10 @@ export const databaseResource = pgTable(
     // POSTGRES_INITDB_ARGS, TZ, LANG, POSTGRES_HOST_AUTH_METHOD, etc.
     // Setting or unsetting triggers a swarm task update (~5s downtime).
     extraEnv: jsonb("extra_env").$type<Record<string, string>>().notNull().default({}),
+    // Keys in `extraEnv` that the operator marked sensitive. Display-only
+    // hint — the value still travels the same wire path. Reveal in the UI
+    // is gated by this list; copy/paste audit can also key off it.
+    secretKeys: jsonb("secret_keys").$type<string[]>().notNull().default([]),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()

@@ -22,6 +22,8 @@ import {
   streamImagePull,
 } from "../../../swarm";
 import type { DatabaseEngine } from "@otterstack/shared/database-engines";
+import { loadDomainSourcesForProject } from "../../../lib/domain-sources";
+import { resolvePublicDomain } from "../../../lib/domains";
 import { insertDeployment, markDeploymentFailed } from "../deployments";
 
 import { type Id, ID_PREFIX } from "@otterstack/shared/id";
@@ -154,7 +156,25 @@ export async function* createPostgresResourceStream(
   const databaseName = clampPostgresIdentifier(`${projectSlug}_${resourceSlug}_db`);
   const username = clampPostgresIdentifier(`${projectSlug}_${resourceSlug}_user`);
   const password = randomBytes(18).toString("base64url");
-  const publicHostname = `${resourceSlug}-${projectSlug}.${PLATFORM.database.publicBaseDomain}`;
+  // Walk the org/project/sslip chain to pick the public hostname. The
+  // org and project rows may not exist yet for the first project (the
+  // create flow above only validated the project exists), so a null
+  // sources record falls back to sslip via the resolver's defaults.
+  const domainSources = (await loadDomainSourcesForProject(
+    input.projectId,
+  )) ?? {
+    resourceOverride: null,
+    projectCustomDomain: null,
+    projectCustomDomainVerifiedAt: null,
+    orgBaseDomain: null,
+    orgBaseDomainVerifiedAt: null,
+    serverIp: null,
+  };
+  const resolved = resolvePublicDomain(
+    { resourceSlug, projectSlug, kind: "database" },
+    domainSources,
+  );
+  const publicHostname = resolved.fqdn;
   // Container + volume names use the engine's short slug (`pg` / `redis`
   // / `mariadb` / `mongo`) so multi-engine deployments don't collide on
   // a shared name pattern.
@@ -175,11 +195,13 @@ export async function* createPostgresResourceStream(
   // the wizard feel hung.
   yield { type: "step", step: "db-record", status: "start", message: null };
 
+  // Public URL has no port. Caddy's layer4 listener for this engine sits on
+  // the engine's standard port (5432 postgres, 6379 redis, …), so clients
+  // can rely on the URL scheme's default — the explicit `:5432` was noise.
   const publicConnectionString = adapter.buildConnectionString({
     username,
     password,
     host: publicHostname,
-    port: PLATFORM.database.publicPort,
     databaseName,
     sslmode: "require",
     sslnegotiation: "direct",
@@ -280,6 +302,7 @@ export async function* createPostgresResourceStream(
         health: "starting",
       },
       extraEnv: created.database.extraEnv ?? {},
+      secretKeys: created.database.secretKeys ?? [],
     },
   };
 
@@ -374,6 +397,7 @@ export async function* createPostgresResourceStream(
         password,
         projectSlug,
         deploymentId: deploymentRow.id,
+        public: publicEnabled,
       },
       log,
     );
@@ -431,6 +455,8 @@ export async function* createPostgresResourceStream(
       upstreamPort: PLATFORM.database.internalPort,
       protocol: "tcp",
       layer4Alpn: "postgresql",
+      // ACME only when the resolver returned a verified non-sslip domain.
+      usesAcme: resolved.verified && resolved.source !== "sslip-fallback",
     });
     yield { type: "step", step: "caddy-route", status: "ok", message: null };
   }

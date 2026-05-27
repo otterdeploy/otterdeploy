@@ -27,10 +27,12 @@ export const redisAdapter: DatabaseEngineAdapter = {
   // auth so the healthcheck output stays clean.
   buildHealthcheck: ({ password }) =>
     `redis-cli --no-auth-warning -a ${password} ping | grep -q PONG`,
-  buildConnectionString: ({ password, host, port }) =>
+  buildConnectionString: ({ password, host, port }) => {
     // Redis URLs put the password before the @ with no username — username
     // is optional in redis:// and we don't model one in the spec.
-    `${meta.scheme}://:${password}@${host}:${port}/0`,
+    const hostPort = port == null ? host : `${host}:${port}`;
+    return `${meta.scheme}://:${password}@${hostPort}/0`;
+  },
   // The standard ready message in 7.x is "Ready to accept connections tcp".
   readyPattern: /Ready to accept connections/,
 };

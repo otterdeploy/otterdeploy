@@ -18,6 +18,8 @@ import {
   insertProxyRoute,
 } from "../../caddy/queries";
 import { PLATFORM } from "../../constants";
+import { loadDomainSourcesForProject } from "../../lib/domain-sources";
+import { resolvePublicDomain } from "../../lib/domains";
 import { destroySwarmService } from "../../swarm";
 
 import { loadProject, loadResource } from "./context";
@@ -226,9 +228,23 @@ export async function exposeService(
 
   const projectSlug = sanitizeSlug(project.slug);
   const resourceSlug = sanitizeSlug(record.resource.name);
-  const publicDomain =
-    record.service.publicDomain ??
-    `${resourceSlug}-${projectSlug}.${PLATFORM.service.publicBaseDomain}`;
+  // Walk the chain (resource override → project → org → sslip). The
+  // per-resource `publicDomain` column on serviceResource is what feeds
+  // resourceOverride — operators who already typed a literal FQDN in
+  // the service settings get it back untouched.
+  const sources = (await loadDomainSourcesForProject(input.projectId)) ?? {
+    resourceOverride: null,
+    projectCustomDomain: null,
+    projectCustomDomainVerifiedAt: null,
+    orgBaseDomain: null,
+    orgBaseDomainVerifiedAt: null,
+    serverIp: null,
+  };
+  const resolved = resolvePublicDomain(
+    { resourceSlug, projectSlug, kind: "service" },
+    { ...sources, resourceOverride: record.service.publicDomain },
+  );
+  const publicDomain = resolved.fqdn;
 
   await setPublicExposure({
     resourceId: input.resourceId,
@@ -245,6 +261,9 @@ export async function exposeService(
     upstreamHost: record.service.internalHostname,
     upstreamPort: primary.containerPort,
     protocol: "http",
+    // ACME only when the resolver decided the domain is verified and not
+    // a sslip fallback — same gate as the DB path.
+    usesAcme: resolved.verified && resolved.source !== "sslip-fallback",
   });
 
   const reconcileResult = await reconcile(log);

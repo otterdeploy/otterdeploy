@@ -16,8 +16,7 @@ import type { RequestLogger } from "evlog";
 
 import { type Id, ID_PREFIX as IDP } from "@otterstack/shared/id";
 
-import { PLATFORM } from "../../constants";
-import { updateSwarmPostgres } from "../../swarm";
+import { defaultImageFor, updateSwarmDatabase } from "../../swarm";
 import { insertDeployment } from "./deployments";
 import {
   bulkReplaceServiceEnvVars,
@@ -219,7 +218,7 @@ export async function listResourceEnv(
 }
 
 export async function bulkSetResourceEnv(
-  input: ResourceRef & { env: EnvEntry[] },
+  input: ResourceRef & { env: EnvEntry[]; secretKeys?: string[] },
   log: RequestLogger,
 ): Promise<
   Result<EnvEntry[], ProjectNotFoundError | PostgresResourceNotFoundError>
@@ -244,7 +243,10 @@ export async function bulkSetResourceEnv(
     // postgres container picks up the new env on its next start.
     const next: Record<string, string> = {};
     for (const e of input.env) next[e.key] = e.value;
-    await setDatabaseResourceExtraEnv(input.resourceId, next);
+    // Filter secretKeys to only those that still exist in `next` — guards
+    // against the editor sending a key that was deleted in the same save.
+    const filteredSecrets = input.secretKeys?.filter((k) => k in next);
+    await setDatabaseResourceExtraEnv(input.resourceId, next, filteredSecrets);
 
     const dbRecord = await getDatabaseResourceRecord(
       input.projectId,
@@ -253,14 +255,20 @@ export async function bulkSetResourceEnv(
     if (dbRecord) {
       const projectSlug = sanitizeProjectSlug(project.slug);
       const resourceName = dbRecord.resource.name;
+      // Use the engine from the row — not "postgres" — so redis/mariadb/
+      // mongo containers don't get silently replaced with postgres on
+      // every env edit. Same bug pattern as env.ts; see the comment
+      // there for the full incident.
+      const engine = dbRecord.database.engine;
+      const engineImage = defaultImageFor(engine);
       const envDeployment = await insertDeployment({
         resourceId: input.resourceId,
-        image: PLATFORM.docker.postgresImage,
+        image: engineImage,
         reason: "env-change",
         snapshot: {
           kind: "postgres",
           version: 1,
-          image: PLATFORM.docker.postgresImage,
+          image: engineImage,
           databaseName: dbRecord.database.databaseName,
           username: dbRecord.database.username,
           password: dbRecord.database.password,
@@ -270,8 +278,9 @@ export async function bulkSetResourceEnv(
           extraEnv: next,
         },
       });
-      await updateSwarmPostgres(
+      await updateSwarmDatabase(
         {
+          engine,
           serviceName: buildContainerName({ projectSlug, resourceName }),
           volumeName: buildVolumeName({ projectSlug, resourceName }),
           hostnameAlias: dbRecord.database.internalHostname,
@@ -281,11 +290,12 @@ export async function bulkSetResourceEnv(
           projectSlug,
           deploymentId: envDeployment.id,
           extraEnv: next,
+          public: dbRecord.database.publicEnabled,
         },
         log,
       );
     }
-    log.set({ resource: { kind: "postgres", envKeys: Object.keys(next).length } });
+    log.set({ resource: { kind: dbRecord?.database.engine ?? "postgres", envKeys: Object.keys(next).length } });
     return Result.ok(input.env);
   }
 

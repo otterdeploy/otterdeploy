@@ -44,6 +44,13 @@ export function CreateProjectDialog({ trigger }: { trigger: ReactElement }) {
         environmentId: null,
         id: createId(ID_PREFIX.project),
         databaseCount: 0,
+        stackFile: null,
+        stackFileVersion: 0,
+        lastAppliedFile: null,
+        lastAppliedAt: null,
+        customDomain: null,
+        customDomainVerifiedAt: null,
+        customDomainVerifyToken: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       });

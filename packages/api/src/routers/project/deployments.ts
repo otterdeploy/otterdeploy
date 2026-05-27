@@ -122,6 +122,18 @@ export async function markDeploymentFailed(
     .where(eq(deployment.id, deploymentId));
 }
 
+/** Drop a deployment row. Used by the recovery path in
+ *  `ensureSwarmRuntimeForRecord` when the would-be `restart` deployment
+ *  turned out to be a no-op (the swarm service was already there by the
+ *  time provisioning ran). Leaving the row would leave the UI's
+ *  Deployments tab stuck on a 0-task `building` entry forever, because
+ *  no task ever inherits its deployment.id label. */
+export async function deleteDeploymentById(
+  deploymentId: DeploymentId,
+): Promise<void> {
+  await db.delete(deployment).where(eq(deployment.id, deploymentId));
+}
+
 /** All deployments for a resource, newest first. Status is the value
  *  stored in the row — the API layer can post-process / merge with live
  *  task state if needed. */
@@ -182,16 +194,36 @@ const FAILED_STATES = new Set([
   "shutdown",
 ]);
 
+// A 0-task row this old definitely isn't still spinning up — wait-ready
+// gives swarm 60s before timing out, so 3 minutes is past every legitimate
+// startup window. After that, "building" forever is wrong; "failed"
+// at least surfaces it as broken in the UI instead of pretending it's
+// in flight. Catches phantom rows from caller-vs-provisioner races
+// (see deleteDeploymentById in ensureSwarmRuntimeForRecord) and any old
+// dead rows left over from before that race was closed.
+const ZERO_TASK_STALE_MS = 3 * 60_000;
+
 function deriveDeploymentStatus(
   stored: DeploymentRow["status"],
   isLatest: boolean,
   taskStates: string[],
+  createdAt: Date,
 ): DeploymentRow["status"] {
   if (taskStates.length === 0) {
     // No tasks yet OR docker GC'd them all (very old deployments). Only
     // mark "superseded" when this isn't the most recent — otherwise we'd
     // lose info on a fresh deploy that hasn't scheduled tasks yet.
     if (!isLatest) return "superseded";
+    // Latest row sitting at building/pending with nothing scheduled past
+    // the wait-ready window is a dead deployment — surface it as failed
+    // instead of letting the UI pin on BUILDING.
+    const ageMs = Date.now() - createdAt.getTime();
+    if (
+      (stored === "building" || stored === "pending") &&
+      ageMs > ZERO_TASK_STALE_MS
+    ) {
+      return "failed";
+    }
     return stored;
   }
   const hasRunning = taskStates.some((s) => s === "running");
@@ -284,7 +316,12 @@ export async function listResourceDeployments(
   return Result.ok(
     rows.map((row) => {
       const states = tasksByDeployment.get(row.id) ?? [];
-      const status = deriveDeploymentStatus(row.status, row.id === latestId, states);
+      const status = deriveDeploymentStatus(
+        row.status,
+        row.id === latestId,
+        states,
+        row.createdAt,
+      );
       const failed = states.filter(
         (s) =>
           s === "failed" || s === "rejected" || s === "orphaned" || s === "remove",

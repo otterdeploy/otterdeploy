@@ -13,9 +13,11 @@ import {
 } from "../../caddy/queries";
 import { PLATFORM } from "../../constants";
 import {
-  inspectSwarmPostgresRuntime,
-  provisionSwarmPostgres,
-  type SwarmPostgresRuntime,
+  defaultImageFor,
+  getEngineAdapter,
+  inspectSwarmDatabaseRuntime,
+  provisionSwarmDatabase,
+  type SwarmDatabaseRuntime,
 } from "../../swarm";
 
 import {
@@ -25,7 +27,7 @@ import {
   proxyRouteSchema,
   serviceResourceSchema,
 } from "./contract";
-import { insertDeployment } from "./deployments";
+import { deleteDeploymentById, insertDeployment } from "./deployments";
 import {
   type DatabaseResourceRecord,
   type ServiceResourceJoined,
@@ -86,14 +88,33 @@ export async function mapDatabaseResource(
     name: record.resource.name,
     type: "database" as const,
     status: record.resource.status,
-    engine: "postgres" as const,
+    // Read the engine off the row, not a hardcoded literal — the row IS
+    // the source of truth, the wizard's selection landed here when the
+    // resource was created. Every UI surface (icon, copy, connection
+    // string template) reads this field; hardcoding it made redis /
+    // mariadb / mongo resources all render as postgres.
+    engine: databaseRecord.engine,
     databaseName: databaseRecord.databaseName,
     username: databaseRecord.username,
     password: databaseRecord.password,
     publicEnabled: databaseRecord.publicEnabled,
     publicHostname: databaseRecord.publicHostname,
     publicPort: databaseRecord.publicPort,
-    publicConnectionString: databaseRecord.publicConnectionString,
+    // Recompute from the adapter on every read instead of trusting the
+    // stored column. Stored URLs from before we made port optional still
+    // carry a stale ":5432"; recomputing means old rows auto-heal without
+    // a migration, and any future tweak to the URL format (e.g. query
+    // params) takes effect immediately.
+    publicConnectionString: getEngineAdapter(
+      databaseRecord.engine,
+    ).buildConnectionString({
+      username: databaseRecord.username,
+      password: databaseRecord.password,
+      host: databaseRecord.publicHostname,
+      databaseName: databaseRecord.databaseName,
+      sslmode: "require",
+      sslnegotiation: "direct",
+    }),
     internalHostname: databaseRecord.internalHostname,
     internalPort: databaseRecord.internalPort,
     internalConnectionString: databaseRecord.internalConnectionString,
@@ -112,6 +133,7 @@ export async function mapDatabaseResource(
     upstreamPort: databaseRecord.upstreamPort,
     runtime,
     extraEnv: databaseRecord.extraEnv ?? {},
+    secretKeys: databaseRecord.secretKeys ?? [],
   };
 }
 
@@ -123,7 +145,7 @@ export async function mapDatabaseResource(
 export async function ensureSwarmRuntimeForRecord(
   record: DatabaseResourceRecord,
   projectSlug: string,
-): Promise<{ record: DatabaseResourceRecord; runtime: SwarmPostgresRuntime }> {
+): Promise<{ record: DatabaseResourceRecord; runtime: SwarmDatabaseRuntime }> {
   const serviceName = buildContainerName({
     projectSlug,
     resourceName: record.resource.name,
@@ -132,7 +154,15 @@ export async function ensureSwarmRuntimeForRecord(
     projectSlug,
     resourceName: record.resource.name,
   });
-  const existingRuntime = await inspectSwarmPostgresRuntime({
+  // Engine comes from the row, never from a hardcoded default — the
+  // recovery path here used to call `provisionSwarmPostgres`, which
+  // forced a postgres image regardless of what the user actually
+  // created. That's how a "redis" resource ended up running
+  // `postgres:17-alpine` after its first page load.
+  const engine = record.database.engine;
+  const engineImage = defaultImageFor(engine);
+
+  const existingRuntime = await inspectSwarmDatabaseRuntime({
     serviceName,
     volumeName,
     projectSlug,
@@ -147,12 +177,12 @@ export async function ensureSwarmRuntimeForRecord(
   // deployment so the recovery shows up in the Deployments tab.
   const restartDeployment = await insertDeployment({
     resourceId: record.resource.id,
-    image: PLATFORM.docker.postgresImage,
+    image: engineImage,
     reason: "restart",
     snapshot: {
       kind: "postgres",
       version: 1,
-      image: PLATFORM.docker.postgresImage,
+      image: engineImage,
       databaseName: record.database.databaseName,
       username: record.database.username,
       password: record.database.password,
@@ -163,7 +193,8 @@ export async function ensureSwarmRuntimeForRecord(
     },
   });
 
-  const runtime = await provisionSwarmPostgres({
+  const runtime = await provisionSwarmDatabase({
+    engine,
     serviceName,
     volumeName,
     hostnameAlias: record.database.internalHostname,
@@ -173,7 +204,20 @@ export async function ensureSwarmRuntimeForRecord(
     projectSlug,
     deploymentId: restartDeployment.id,
     extraEnv: record.database.extraEnv ?? {},
+    public: record.database.publicEnabled,
   });
+
+  // Race close-out: between our initial `inspectSwarmDatabaseRuntime`
+  // (which said "missing") and the inner inspect that provisionSwarm-
+  // Database does, another caller may have brought the service up. In
+  // that case provisionSwarmDatabase short-circuits and never schedules
+  // a task carrying our restart deployment.id label — the row would
+  // stay BUILDING with 0 tasks forever. Drop it. The other caller's
+  // deployment row is the truthful one.
+  if (runtime.wasCreated === false) {
+    await deleteDeploymentById(restartDeployment.id);
+    return { record, runtime };
+  }
 
   const existingRoute = await getProxyRouteByResourceId(record.resource.id);
   if (existingRoute) {

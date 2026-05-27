@@ -95,6 +95,20 @@ export const organization = pgTable("organization", {
   slug: text("slug").notNull().unique(),
   logo: text("logo"),
   metadata: text("metadata"),
+  // Apex domain the org's resources are published under. When set + verified,
+  // a service `web` in project `myproj` lands at `web-myproj.apps.<baseDomain>`
+  // and a database lands at `redis-myproj.db.<baseDomain>`. Falls back to
+  // PLATFORM.publicBaseDomain when null, or sslip.io for localhost dev. The
+  // verified flag gates ACME issuance — Caddy only tries Let's Encrypt for
+  // domains the operator has proven control of.
+  baseDomain: text("base_domain"),
+  baseDomainVerifiedAt: timestamp("base_domain_verified_at"),
+  baseDomainVerifyToken: text("base_domain_verify_token"),
+  // Cloudflare DNS API integration (optional). Token must carry
+  // `Zone.DNS:Edit` scope on the chosen zone. Stored as-is for v1; should
+  // move to encrypted secret storage once the secrets pipeline lands.
+  cloudflareApiToken: text("cloudflare_api_token"),
+  cloudflareZoneId: text("cloudflare_zone_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

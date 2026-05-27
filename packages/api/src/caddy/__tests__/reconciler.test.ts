@@ -12,6 +12,7 @@ describe("reconciler", () => {
     upstreamPort: 3000,
     protocol: "http",
     layer4Alpn: null,
+    usesAcme: false,
   };
 
   const layer4Route: ProxyRouteInput = {
@@ -22,6 +23,7 @@ describe("reconciler", () => {
     upstreamPort: 5432,
     protocol: "tcp",
     layer4Alpn: "postgresql",
+    usesAcme: false,
   };
 
   test("applies all routes when all projects validate", async () => {

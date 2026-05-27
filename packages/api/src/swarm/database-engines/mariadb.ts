@@ -39,7 +39,9 @@ export const mariadbAdapter: DatabaseEngineAdapter = {
   // shipped with the mariadb image (mariadbd-launch ensures it's on PATH).
   buildHealthcheck: () =>
     `healthcheck.sh --su-mysql --connect --innodb_initialized`,
-  buildConnectionString: ({ username, password, host, port, databaseName }) =>
-    `${meta.scheme}://${username}:${password}@${host}:${port}/${databaseName}`,
+  buildConnectionString: ({ username, password, host, port, databaseName }) => {
+    const hostPort = port == null ? host : `${host}:${port}`;
+    return `${meta.scheme}://${username}:${password}@${hostPort}/${databaseName}`;
+  },
   readyPattern: /ready for connections/i,
 };

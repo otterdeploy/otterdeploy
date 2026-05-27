@@ -1,0 +1,1 @@
+ALTER TABLE "proxy_route" ADD COLUMN "uses_acme" boolean DEFAULT false NOT NULL;

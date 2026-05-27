@@ -16,7 +16,12 @@ export interface ConnectionStringInput {
   username: string;
   password: string;
   host: string;
-  port: number;
+  /** Omit to render the URL without a port so the client falls back to
+   *  the scheme's default (5432 for postgres, 6379 for redis, etc.).
+   *  Use this for public/Caddy-fronted URLs that live on the engine's
+   *  standard port — `host:5432` reads as noise to operators. Internal
+   *  URLs always pass a port. */
+  port?: number;
   databaseName: string;
   /** Postgres-style SSL controls. Ignored by engines that don't speak it. */
   sslmode?: "require" | "prefer" | "disable";

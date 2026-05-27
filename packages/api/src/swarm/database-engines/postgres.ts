@@ -37,7 +37,8 @@ export const postgresAdapter: DatabaseEngineAdapter = {
     if (sslmode) params.push(`sslmode=${sslmode}`);
     if (sslnegotiation) params.push(`sslnegotiation=${sslnegotiation}`);
     const query = params.length > 0 ? `?${params.join("&")}` : "";
-    return `${meta.scheme}://${username}:${password}@${host}:${port}/${databaseName}${query}`;
+    const hostPort = port == null ? host : `${host}:${port}`;
+    return `${meta.scheme}://${username}:${password}@${hostPort}/${databaseName}${query}`;
   },
   readyPattern: /ready to accept connections/i,
 };

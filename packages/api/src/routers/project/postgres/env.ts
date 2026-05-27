@@ -16,12 +16,13 @@ import {
   deleteProxyRoutesByResource,
   insertProxyRoute,
 } from "../../../caddy/queries";
-import { PLATFORM } from "../../../constants";
-import { updateSwarmPostgres } from "../../../swarm";
+import { loadDomainSourcesForProject } from "../../../lib/domain-sources";
+import { resolvePublicDomain } from "../../../lib/domains";
+import { defaultImageFor, updateSwarmDatabase } from "../../../swarm";
 
 import { type Id, ID_PREFIX } from "@otterstack/shared/id";
 
-import { insertDeployment } from "../deployments";
+import { insertDeployment, markDeploymentFailed } from "../deployments";
 import {
   PostgresResourceNotFoundError,
   ProjectNotFoundError,
@@ -82,6 +83,27 @@ export async function setPostgresPublic(
   await deleteProxyRoutesByResource(input.resourceId);
 
   if (input.publicEnabled) {
+    // Caddy can only issue a public ACME cert for a domain the operator
+    // proved they own — recompute the resolver outcome here so the route
+    // carries the right tls flag regardless of when the DB was created.
+    const domainSources = (await loadDomainSourcesForProject(
+      input.projectId,
+    )) ?? {
+      resourceOverride: null,
+      projectCustomDomain: null,
+      projectCustomDomainVerifiedAt: null,
+      orgBaseDomain: null,
+      orgBaseDomainVerifiedAt: null,
+      serverIp: null,
+    };
+    const resolved = resolvePublicDomain(
+      {
+        resourceSlug: record.resource.name,
+        projectSlug: project.slug,
+        kind: "database",
+      },
+      domainSources,
+    );
     await insertProxyRoute({
       projectId: input.projectId,
       resourceId: input.resourceId,
@@ -91,10 +113,67 @@ export async function setPostgresPublic(
       upstreamPort: record.database.internalPort,
       protocol: "tcp",
       layer4Alpn: "postgresql",
+      // ACME only for resolver-verified domains; sslip + unverified
+      // org/project domains stay on `tls internal`.
+      usesAcme: resolved.verified && resolved.source !== "sslip-fallback",
     });
   }
 
   await setDatabaseResourcePublic(input.resourceId, input.publicEnabled);
+
+  // Re-roll the swarm spec so the host port binding follows the flag.
+  // When public goes ON we add EndpointSpec.Ports (publishes <port>:5432
+  // on the swarm node); when it goes OFF we drop it. App containers in
+  // the same project keep reaching the DB through the overlay network
+  // alias — that path is independent of host publishing.
+  const engine = record.database.engine;
+  const engineImage = defaultImageFor(engine);
+  const publicDeployment = await insertDeployment({
+    resourceId: input.resourceId,
+    image: engineImage,
+    reason: "redeploy",
+    snapshot: snapshotForPostgresCreate({
+      image: engineImage,
+      databaseName: record.database.databaseName,
+      username: record.database.username,
+      password: record.database.password,
+      publicEnabled: input.publicEnabled,
+      publicHostname: record.database.publicHostname,
+      internalHostname: record.database.internalHostname,
+      extraEnv: record.database.extraEnv ?? {},
+    }),
+  });
+  try {
+    await updateSwarmDatabase(
+      {
+        engine,
+        serviceName: buildContainerName({
+          projectSlug: project.slug,
+          resourceName: record.resource.name,
+        }),
+        volumeName: buildVolumeName({
+          projectSlug: project.slug,
+          resourceName: record.resource.name,
+        }),
+        hostnameAlias: record.database.internalHostname,
+        databaseName: record.database.databaseName,
+        username: record.database.username,
+        password: record.database.password,
+        projectSlug: sanitizeProjectSlug(project.slug),
+        deploymentId: publicDeployment.id,
+        extraEnv: record.database.extraEnv ?? {},
+        public: input.publicEnabled,
+      },
+      log,
+    );
+  } catch (err) {
+    await markDeploymentFailed(
+      publicDeployment.id,
+      err instanceof Error ? err.message : String(err),
+    );
+    throw err;
+  }
+
   await reconcile(log);
 
   return Result.ok(
@@ -115,7 +194,7 @@ export async function setPostgresPublic(
  * `extraEnv` — so a stale or malicious key in the editor can't displace the
  * database identity.
  */
-async function applyPostgresExtraEnv(
+export async function applyPostgresExtraEnv(
   ref: ProjectRef & { resourceId: ResourceId; nextExtraEnv: Record<string, string> },
   log: RequestLogger,
 ): Promise<
@@ -143,14 +222,23 @@ async function applyPostgresExtraEnv(
 
   await setDatabaseResourceExtraEnv(ref.resourceId, ref.nextExtraEnv);
 
+  // BUG GUARD: read the engine off the DB record and use it for both
+  // the deployment image and the swarm update. The legacy
+  // `updateSwarmPostgres` hardcoded `engine: "postgres"`, which silently
+  // replaced redis/mariadb/mongo containers with postgres on every env
+  // change. Always route through `updateSwarmDatabase` with the actual
+  // engine from the record.
+  const engine = record.database.engine;
+  const engineImage = defaultImageFor(engine);
+
   // New deployment for the env change — labels onto the rolled spec so the
   // resulting tasks group under this row in the Deployments tab.
   const envDeployment = await insertDeployment({
     resourceId: ref.resourceId,
-    image: PLATFORM.docker.postgresImage,
+    image: engineImage,
     reason: "env-change",
     snapshot: snapshotForPostgresCreate({
-      image: PLATFORM.docker.postgresImage,
+      image: engineImage,
       databaseName: record.database.databaseName,
       username: record.database.username,
       password: record.database.password,
@@ -163,8 +251,9 @@ async function applyPostgresExtraEnv(
 
   // Roll the running task with the new env. Volume + network stay put; only
   // the container env array changes. ~5s of dropped connections.
-  await updateSwarmPostgres(
+  await updateSwarmDatabase(
     {
+      engine,
       serviceName: buildContainerName({
         projectSlug: project.slug,
         resourceName: record.resource.name,
@@ -180,6 +269,7 @@ async function applyPostgresExtraEnv(
       projectSlug: sanitizeProjectSlug(project.slug),
       deploymentId: envDeployment.id,
       extraEnv: ref.nextExtraEnv,
+      public: record.database.publicEnabled,
     },
     log,
   );

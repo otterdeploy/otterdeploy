@@ -20,13 +20,17 @@ export interface ReconcileResult {
 interface ReconcileOptions {
   routes: ProxyRouteInput[];
   adminBind: string;
+  /** ACME registration email passed to the Caddy global block. Required
+   *  for any route with usesAcme=true; ignored when every route is
+   *  internal-only. */
+  acmeEmail?: string | null;
   adapt: (caddyfile: string) => Promise<AdaptResult>;
   load: (caddyfile: string) => Promise<LoadResult>;
   rlog?: RequestLogger;
 }
 
 export async function reconcileRoutes(options: ReconcileOptions): Promise<ReconcileResult> {
-  const { routes, adminBind, adapt, load, rlog } = options;
+  const { routes, adminBind, acmeEmail, adapt, load, rlog } = options;
   const log = asStepLogger(rlog);
 
   log.info({ caddy: { step: "reconcile", status: "starting", routeCount: routes.length } });
@@ -40,7 +44,7 @@ export async function reconcileRoutes(options: ReconcileOptions): Promise<Reconc
   for (const [projectId, projectRoutes] of byProject) {
     log.info({ caddy: { step: "reconcile", status: "validating", projectId, routeCount: projectRoutes.length } });
 
-    const fragment = buildProjectFragment(projectRoutes);
+    const fragment = buildProjectFragment(projectRoutes, { acmeEmail });
     if (!fragment.trim()) {
       log.info({ caddy: { step: "reconcile", status: "empty", projectId } });
       applied.push(projectId);
@@ -59,7 +63,7 @@ export async function reconcileRoutes(options: ReconcileOptions): Promise<Reconc
     }
   }
 
-  const caddyfile = buildCaddyfile(validRoutes, adminBind);
+  const caddyfile = buildCaddyfile(validRoutes, adminBind, { acmeEmail });
   const revision = createHash("sha256").update(caddyfile).digest("hex").slice(0, 12);
 
   log.info({ caddy: { step: "reconcile", status: "loading", revision, validRouteCount: validRoutes.length } });

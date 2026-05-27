@@ -55,6 +55,11 @@ export async function insertProxyRoute(input: {
   upstreamPort: number;
   protocol: "tcp" | "http";
   layer4Alpn?: string;
+  /** True when Caddy should attempt public ACME issuance for this
+   *  domain. Defaults to false (self-signed via tls internal) so an
+   *  unowned domain can't accidentally trigger Let's Encrypt rate
+   *  limits. Callers pass the resolver outcome's `verified` flag. */
+  usesAcme?: boolean;
 }): Promise<ProxyRouteRecord> {
   const [record] = await db
     .insert(proxyRoute)
@@ -67,6 +72,7 @@ export async function insertProxyRoute(input: {
       upstreamPort: input.upstreamPort,
       protocol: input.protocol,
       layer4Alpn: input.layer4Alpn ?? null,
+      usesAcme: input.usesAcme ?? false,
     })
     .returning();
 

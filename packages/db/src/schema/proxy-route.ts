@@ -24,6 +24,13 @@ export const proxyRoute = pgTable(
     protocol: proxyRouteProtocolEnum("protocol").notNull(),
     layer4Alpn: text("layer4_alpn"),
     enabled: boolean("enabled").notNull().default(true),
+    // Whether Caddy should issue a public ACME cert (Let's Encrypt) for
+    // this domain. False = `tls internal` (self-signed) — used for sslip
+    // fallback domains and any verified-but-unowned platform default.
+    // Set at insert time from the resolver outcome (`resolved.verified &&
+    // !sslip`). Stays in sync on subsequent verification changes via the
+    // setBaseDomain / verify flows that rewrite routes for the org.
+    usesAcme: boolean("uses_acme").notNull().default(false),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()

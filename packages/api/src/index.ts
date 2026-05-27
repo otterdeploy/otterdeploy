@@ -4,6 +4,7 @@ import { implement, ORPCError, os as orpc } from "@orpc/server";
 
 import { dockerContract } from "./routers/docker/contract";
 import { envContract } from "./routers/env/contract";
+import { organizationContract } from "./routers/organization/contract";
 import { projectContract } from "./routers/project/contract";
 import { serverContract } from "./routers/server/contract";
 import { serviceContract } from "./routers/service/contract";
@@ -59,6 +60,7 @@ const traceProcedure = orpc
 export const publicProcedure = implement({
   docker: dockerContract,
   env: envContract,
+  organization: organizationContract,
   project: projectContract,
   server: serverContract,
   service: serviceContract,

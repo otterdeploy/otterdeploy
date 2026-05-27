@@ -28,6 +28,15 @@ export interface SwarmDatabaseRuntime {
   networkName: string;
   status: "running" | "starting" | "stopped" | "missing" | "error";
   health: "healthy" | "unhealthy" | "starting" | null;
+  /** Only set by `provisionSwarmDatabase` / `updateSwarmDatabase`: true
+   *  when this call actually issued `docker services create`, false when
+   *  the existing-service guard short-circuited and we returned the
+   *  pre-existing runtime. Lets callers tell "I provisioned a new
+   *  deployment" from "I found one already there" — when false, no task
+   *  will inherit the new deployment.id label, so any deployment row the
+   *  caller inserted would otherwise hang at BUILDING with 0 tasks
+   *  forever. Read-side helpers (inspect*) leave it undefined. */
+  wasCreated?: boolean;
 }
 
 export interface ProvisionSwarmDatabaseInput {
@@ -53,6 +62,13 @@ export interface ProvisionSwarmDatabaseInput {
   /** Monotonic counter for TaskTemplate.ForceUpdate. Bumping it is the
    *  only way to make swarm roll a task when the spec is byte-identical. */
   forceUpdateCounter?: number;
+  /** When true, publish the engine's port on the swarm node's host
+   *  interface (PublishMode=host). Off by default — services in the same
+   *  project reach the DB via overlay DNS at `<serviceName>:<port>`, no
+   *  host binding required. Flip on only when the operator explicitly
+   *  enables "public access" so we don't compete for ephemeral host ports
+   *  on every DB. Coolify / Dokploy follow the same opt-in model. */
+  public?: boolean;
 }
 
 function buildDatabaseSpec(
@@ -159,14 +175,24 @@ function buildDatabaseSpec(
       Monitor: 10_000_000_000,
       MaxFailureRatio: 0,
     },
+    // Host-port publish is opt-in. Internal-only deployments still get a
+    // working DNS entry on the project overlay network (see Aliases above),
+    // so app containers in the same project reach the DB at
+    // `<serviceName>:<port>` without binding anything on the host. When
+    // public is off we still emit EndpointSpec with an empty Ports array
+    // so an `updateSwarmDatabase` call from "on → off" actually clears
+    // the previously-published port (omitting the field would leave the
+    // old binding in place).
     EndpointSpec: {
-      Ports: [
-        {
-          Protocol: "tcp" as const,
-          TargetPort: adapter.port,
-          PublishMode: "host" as const,
-        },
-      ],
+      Ports: input.public
+        ? [
+            {
+              Protocol: "tcp" as const,
+              TargetPort: adapter.port,
+              PublishMode: "host" as const,
+            },
+          ]
+        : [],
     },
   };
 }
@@ -198,7 +224,7 @@ export async function provisionSwarmDatabase(
       runtimeStatus: existing.status,
     });
     docker.destroy();
-    return existing;
+    return { ...existing, wasCreated: false };
   }
   swarmStep({ step: "inspect-existing", status: "missing" });
 
@@ -221,7 +247,7 @@ export async function provisionSwarmDatabase(
   const runtime = await waitForServiceReady(docker, input.serviceName, networkName);
   swarmStep({ step: "wait-ready", status: runtime.status, health: runtime.health });
   docker.destroy();
-  return runtime;
+  return { ...runtime, wasCreated: true };
 }
 
 export async function updateSwarmDatabase(
@@ -329,7 +355,11 @@ export async function updateSwarmDatabase(
   const runtime = await waitForServiceReady(docker, input.serviceName, networkName);
   swarmStep({ step: "wait-ready", status: runtime.status, health: runtime.health });
   docker.destroy();
-  return runtime;
+  // updateSwarmDatabase always bumps ForceUpdate (line 294), so swarm
+  // rolls a fresh task with the new deployment.id label even when the
+  // spec is byte-identical. From the caller's perspective the deployment
+  // it inserted is real.
+  return { ...runtime, wasCreated: true };
 }
 
 export async function inspectSwarmDatabaseRuntime(input: {

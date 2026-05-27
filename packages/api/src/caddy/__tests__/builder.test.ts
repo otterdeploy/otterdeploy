@@ -18,6 +18,7 @@ describe("builder", () => {
     upstreamPort: 3000,
     protocol: "http",
     layer4Alpn: null,
+    usesAcme: false,
   };
 
   const layer4Route: ProxyRouteInput = {
@@ -28,6 +29,7 @@ describe("builder", () => {
     upstreamPort: 5432,
     protocol: "tcp",
     layer4Alpn: "postgresql",
+    usesAcme: false,
   };
 
   test("sanitizeMatcherName converts domain to safe identifier", () => {
@@ -36,8 +38,20 @@ describe("builder", () => {
     );
   });
 
-  test("buildHttpBlock produces a site block with reverse_proxy", () => {
+  test("buildHttpBlock with usesAcme=false emits tls internal", () => {
     const output = buildHttpBlock(httpRoute);
+    expect(output).toBe(
+      [
+        "myapp-acme.otterstack.dev {",
+        "\ttls internal",
+        "\treverse_proxy myapp.acme.otterstack.internal:3000",
+        "}",
+      ].join("\n"),
+    );
+  });
+
+  test("buildHttpBlock with usesAcme=true omits the tls directive (Caddy defaults to ACME)", () => {
+    const output = buildHttpBlock({ ...httpRoute, usesAcme: true });
     expect(output).toBe(
       [
         "myapp-acme.otterstack.dev {",

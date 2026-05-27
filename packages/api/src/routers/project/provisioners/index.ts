@@ -24,6 +24,9 @@ export interface ProvisionInput {
   image?: string;
   /** User-added envs merged with the engine's identity envs. */
   extraEnv?: Record<string, string>;
+  /** When true, publish the engine's port on the swarm node's host
+   *  interface. Off by default — in-cluster apps use overlay DNS. */
+  public?: boolean;
 }
 
 export interface ProvisionRuntime {
