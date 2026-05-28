@@ -1,14 +1,15 @@
-import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
+
 import { oc } from "@orpc/contract";
 import { createSelectSchema } from "drizzle-zod";
 import * as z from "zod";
 
 import { server } from "@otterdeploy/db/schema";
+import { serverIdField } from "../project/contract/shared";
 const tag = "server";
 const basePath = "/servers";
 
 export const serverSchema = createSelectSchema(server).extend({
-  id: zId(ID_PREFIX.server),
+  id: serverIdField,
   // labels is a string[] in DB, jsonb in pg — drizzle-zod widens it; pin it.
   labels: z.array(z.string()),
 });
@@ -16,12 +17,12 @@ export const serverSchema = createSelectSchema(server).extend({
 export const listServersInput = z.void();
 
 export const getServerInput = z.object({
-  id: zId(ID_PREFIX.server),
+  id: serverIdField,
 });
 
 export const createServerInput = z.object({
   /** Optional client-supplied id for optimistic UI. */
-  id: zId(ID_PREFIX.server).optional(),
+  id: serverIdField.optional(),
   name: z.string().min(1),
   /**
    * Operator-reported OS hostname. The join-command flow collects this
@@ -44,7 +45,7 @@ export const createServerInput = z.object({
 });
 
 export const deleteServerInput = z.object({
-  id: zId(ID_PREFIX.server),
+  id: serverIdField,
 });
 
 /**
@@ -54,7 +55,7 @@ export const deleteServerInput = z.object({
  * no reservation is set, which is honest about under-specified services.
  */
 export const serverNodeStatsSchema = z.object({
-  serverId: zId(ID_PREFIX.server),
+  serverId: serverIdField,
   tasksRunning: z.number().int().min(0),
   cpuAllocatedVcpu: z.number().min(0),
   memoryAllocatedGb: z.number().min(0),

@@ -10,10 +10,10 @@
  * caller already knows their active org (via session) and can read the org
  * fields from the existing auth.* shapes.
  */
-import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 
 import { oc } from "@orpc/contract";
 import * as z from "zod";
+import { organizationIdField } from "../project/contract/shared";
 
 const tag = "organization";
 const basePath = "/organizations";
@@ -31,7 +31,7 @@ const fqdnShape = z
   });
 
 export const organizationSettingsSchema = z.object({
-  id: zId(ID_PREFIX.organization),
+  id: organizationIdField,
   name: z.string(),
   slug: z.string(),
   baseDomain: z.string().nullable(),
@@ -45,17 +45,17 @@ export const organizationSettingsSchema = z.object({
 });
 
 export const getOrganizationSettingsInput = z.object({
-  organizationId: zId(ID_PREFIX.organization),
+  organizationId: organizationIdField,
 });
 
 export const setBaseDomainInput = z.object({
-  organizationId: zId(ID_PREFIX.organization),
+  organizationId: organizationIdField,
   /** Empty string clears the domain. */
   baseDomain: fqdnShape,
 });
 
 export const verifyBaseDomainInput = z.object({
-  organizationId: zId(ID_PREFIX.organization),
+  organizationId: organizationIdField,
 });
 
 export const cloudflareZoneSchema = z.object({
@@ -71,14 +71,14 @@ export const listCloudflareZonesInput = z.object({
 });
 
 export const setCloudflareConfigInput = z.object({
-  organizationId: zId(ID_PREFIX.organization),
+  organizationId: organizationIdField,
   /** Empty string clears the integration (also wipes zoneId). */
   token: z.string(),
   zoneId: z.string().nullable(),
 });
 
 export const autoConfigureDomainInput = z.object({
-  organizationId: zId(ID_PREFIX.organization),
+  organizationId: organizationIdField,
 });
 
 export const autoConfigureDomainOutput = z.object({

@@ -1,6 +1,7 @@
-import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
+
 import { oc } from "@orpc/contract";
 import * as z from "zod";
+import { projectIdField, resourceIdField } from "../project/contract/shared";
 
 const tag = "service";
 const basePath = "/projects/{projectId}/services";
@@ -96,7 +97,7 @@ export const envVarSchema = z.object({
 const envKeyRegex = /^[A-Z_][A-Z0-9_]*$/;
 
 export const createServiceInput = z.object({
-  projectId: zId(ID_PREFIX.project),
+  projectId: projectIdField,
   name: z.string().min(1).regex(/^[a-z][a-z0-9-]*$/, {
     message: "name must be lowercase letters, digits, and dashes",
   }),
@@ -148,8 +149,8 @@ export const createServiceInput = z.object({
 });
 
 export const updateServiceInput = z.object({
-  projectId: zId(ID_PREFIX.project),
-  resourceId: zId(ID_PREFIX.resource),
+  projectId: projectIdField,
+  resourceId: resourceIdField,
 
   image: z.string().min(1).optional(),
   command: z.array(z.string()).nullable().optional(),
@@ -188,30 +189,30 @@ export const updateServiceInput = z.object({
 });
 
 export const getServiceInput = z.object({
-  projectId: zId(ID_PREFIX.project),
-  resourceId: zId(ID_PREFIX.resource),
+  projectId: projectIdField,
+  resourceId: resourceIdField,
 });
 
 export const listServicesInput = z.object({
-  projectId: zId(ID_PREFIX.project),
+  projectId: projectIdField,
 });
 
 export const setEnvInput = z.object({
-  projectId: zId(ID_PREFIX.project),
-  resourceId: zId(ID_PREFIX.resource),
+  projectId: projectIdField,
+  resourceId: resourceIdField,
   key: z.string().regex(envKeyRegex),
   value: z.string(),
 });
 
 export const unsetEnvInput = z.object({
-  projectId: zId(ID_PREFIX.project),
-  resourceId: zId(ID_PREFIX.resource),
+  projectId: projectIdField,
+  resourceId: resourceIdField,
   key: z.string().regex(envKeyRegex),
 });
 
 export const bulkEnvInput = z.object({
-  projectId: zId(ID_PREFIX.project),
-  resourceId: zId(ID_PREFIX.resource),
+  projectId: projectIdField,
+  resourceId: resourceIdField,
   vars: z.array(z.object({ key: z.string().regex(envKeyRegex), value: z.string() })),
 });
 

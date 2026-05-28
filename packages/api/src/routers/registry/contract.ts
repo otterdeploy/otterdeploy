@@ -17,10 +17,10 @@
  * `host` is normalized server-side to match the resolver's expectations
  * (lowercase; "docker.io" canonicalized).
  */
-import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 
 import { oc } from "@orpc/contract";
 import * as z from "zod";
+import { containerRegistryIdField } from "../project/contract/shared";
 
 const tag = "registry";
 const basePath = "/registries";
@@ -28,7 +28,7 @@ const basePath = "/registries";
 export const registryAuthTypeSchema = z.enum(["password", "token"]);
 
 export const containerRegistryViewSchema = z.object({
-  id: zId(ID_PREFIX.containerRegistry),
+  id: containerRegistryIdField,
   displayName: z.string(),
   host: z.string(),
   username: z.string(),
@@ -48,7 +48,7 @@ export const createRegistryInput = z.object({
 });
 
 export const updateRegistryInput = z.object({
-  id: zId(ID_PREFIX.containerRegistry),
+  id: containerRegistryIdField,
   displayName: z.string().min(1).max(120).optional(),
   username: z.string().min(1).max(255).optional(),
   /** Empty string is treated the same as omitted — leave password alone. */
@@ -57,7 +57,7 @@ export const updateRegistryInput = z.object({
 });
 
 export const deleteRegistryInput = z.object({
-  id: zId(ID_PREFIX.containerRegistry),
+  id: containerRegistryIdField,
 });
 
 export const registryContract = {

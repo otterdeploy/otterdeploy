@@ -13,12 +13,12 @@
  * Anything that needs more context comes from a follow-up read query —
  * keeps the push channel cheap to maintain and easy to reason about.
  */
-import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 
 import { eventIterator, oc } from "@orpc/contract";
 import * as z from "zod";
 
 import { basePath, projectNotFoundErrors, tag } from "./shared";
+import { projectIdField, resourceIdField } from "./shared";
 
 export const projectEventSchema = z.discriminatedUnion("kind", [
   z.object({
@@ -26,7 +26,7 @@ export const projectEventSchema = z.discriminatedUnion("kind", [
     /** `created`, `updated`, `removed`. Matches the docker `service.*` action
      *  the event was derived from. */
     action: z.enum(["created", "updated", "removed"]),
-    resourceId: zId(ID_PREFIX.resource),
+    resourceId: resourceIdField,
   }),
   z.object({
     kind: z.literal("task"),
@@ -34,7 +34,7 @@ export const projectEventSchema = z.discriminatedUnion("kind", [
      *  `remove`). The frontend doesn't need the full state machine — it
      *  just refetches the deployment + tasks views. */
     action: z.string(),
-    resourceId: zId(ID_PREFIX.resource),
+    resourceId: resourceIdField,
     taskId: z.string(),
     /** Raw docker task state when known (`running`, `failed`, `shutdown`,
      *  …). Optional because some actions don't carry it. */
@@ -44,13 +44,13 @@ export const projectEventSchema = z.discriminatedUnion("kind", [
     kind: z.literal("container"),
     /** `start`, `die`, `kill`, `health_status: healthy`, … */
     action: z.string(),
-    resourceId: zId(ID_PREFIX.resource),
+    resourceId: resourceIdField,
     containerId: z.string(),
   }),
 ]);
 
 export const projectEventsStreamInput = z.object({
-  projectId: zId(ID_PREFIX.project),
+  projectId: projectIdField,
 });
 
 export const projectEventsContractSlice = {

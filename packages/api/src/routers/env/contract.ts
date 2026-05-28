@@ -1,41 +1,42 @@
-import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
+
 import { oc } from "@orpc/contract";
 import { createSelectSchema } from "drizzle-zod";
 import * as z from "zod";
 
 import { environment } from "@otterdeploy/db/schema";
+import { environmentIdField, projectIdField } from "../project/contract/shared";
 const tag = "env";
 const basePath = "/envs";
 
 export const envSchema = createSelectSchema(environment).extend({
-  id: zId(ID_PREFIX.environment),
-  projectId: zId(ID_PREFIX.project).nullable(),
+  id: environmentIdField,
+  projectId: projectIdField.nullable(),
 });
 
 export const listEnvsInput = z
   .object({
-    projectId: zId(ID_PREFIX.project).optional(),
+    projectId: projectIdField.optional(),
   })
   .optional();
 
 export const getEnvInput = z.object({
-  id: zId(ID_PREFIX.environment),
+  id: environmentIdField,
 });
 
 export const createEnvInput = z.object({
   /** Optional client-supplied id for optimistic UI. */
-  id: zId(ID_PREFIX.environment).optional(),
+  id: environmentIdField.optional(),
   name: z.string().min(1),
   slug: z.string().slugify().min(2).max(48),
   /**
    * Optional project to attach the env to on creation. When omitted, the env
    * is standalone and must be claimed later via `project.create`.
    */
-  projectId: zId(ID_PREFIX.project).optional(),
+  projectId: projectIdField.optional(),
 });
 
 export const deleteEnvInput = z.object({
-  id: zId(ID_PREFIX.environment),
+  id: environmentIdField,
 });
 
 export const envContract = {

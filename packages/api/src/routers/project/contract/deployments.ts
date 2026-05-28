@@ -5,7 +5,6 @@
  * redeploy inserts a row + tags the swarm spec; tasks group under their
  * deployment via the `otterdeploy.deployment.id` label on the task's spec.
  */
-import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 
 import { eventIterator, oc } from "@orpc/contract";
 import * as z from "zod";
@@ -13,10 +12,11 @@ import * as z from "zod";
 import { resourceLogEventSchema } from "./logs";
 import { serviceTaskSchema } from "./service-tasks";
 import { basePath, resourceNotFoundErrors, tag } from "./shared";
+import { deploymentIdField, projectIdField, resourceIdField } from "./shared";
 
 export const deploymentSchema = z.object({
-  id: zId(ID_PREFIX.deployment),
-  resourceId: zId(ID_PREFIX.resource),
+  id: deploymentIdField,
+  resourceId: resourceIdField,
   image: z.string(),
   reason: z.enum(["create", "redeploy", "env-change", "image-change", "restart"]),
   status: z.enum([
@@ -37,20 +37,20 @@ export const deploymentSchema = z.object({
 });
 
 export const deploymentListInput = z.object({
-  projectId: zId(ID_PREFIX.project),
-  resourceId: zId(ID_PREFIX.resource),
+  projectId: projectIdField,
+  resourceId: resourceIdField,
 });
 
 export const deploymentTasksInput = z.object({
-  projectId: zId(ID_PREFIX.project),
-  resourceId: zId(ID_PREFIX.resource),
-  deploymentId: zId(ID_PREFIX.deployment),
+  projectId: projectIdField,
+  resourceId: resourceIdField,
+  deploymentId: deploymentIdField,
 });
 
 export const deploymentLogsTailInput = z.object({
-  projectId: zId(ID_PREFIX.project),
-  resourceId: zId(ID_PREFIX.resource),
-  deploymentId: zId(ID_PREFIX.deployment),
+  projectId: projectIdField,
+  resourceId: resourceIdField,
+  deploymentId: deploymentIdField,
   tail: z.number().int().min(0).max(2000).optional().default(500),
 });
 

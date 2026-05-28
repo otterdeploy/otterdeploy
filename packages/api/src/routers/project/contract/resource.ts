@@ -9,7 +9,6 @@
  * list) live in this file's contract slice — handler dispatches on kind to
  * source from the right storage.
  */
-import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 
 import { oc } from "@orpc/contract";
 import * as z from "zod";
@@ -27,8 +26,8 @@ import {
 // engine produced those strings. The export alias below keeps the
 // `postgresResourceSchema` import name compiling.
 export const databaseResourceSchema = z.object({
-  resourceId: zId(ID_PREFIX.resource),
-  projectId: zId(ID_PREFIX.project),
+  resourceId: resourceIdField,
+  projectId: projectIdField,
   name: z.string(),
   type: z.literal("database"),
   status: z.enum(["draft", "valid", "invalid"]),
@@ -74,8 +73,8 @@ export const postgresResourceSchema = databaseResourceSchema;
  * later sub-slices.
  */
 export const serviceResourceSchema = z.object({
-  resourceId: zId(ID_PREFIX.resource),
-  projectId: zId(ID_PREFIX.project),
+  resourceId: resourceIdField,
+  projectId: projectIdField,
   name: z.string(),
   type: z.literal("service"),
   status: z.enum(["draft", "valid", "invalid"]),
@@ -112,17 +111,17 @@ export const resourceSchema = z.discriminatedUnion("type", [
 ]);
 
 export const listProjectResourcesInput = z.object({
-  projectId: zId(ID_PREFIX.project),
+  projectId: projectIdField,
 });
 
 export const getProjectResourceInput = z.object({
-  projectId: zId(ID_PREFIX.project),
-  resourceId: zId(ID_PREFIX.resource),
+  projectId: projectIdField,
+  resourceId: resourceIdField,
 });
 
 export const deleteProjectResourceInput = z.object({
-  projectId: zId(ID_PREFIX.project),
-  resourceId: zId(ID_PREFIX.resource),
+  projectId: projectIdField,
+  resourceId: resourceIdField,
 });
 
 /**
@@ -130,8 +129,8 @@ export const deleteProjectResourceInput = z.object({
  * services, and any future engine. Handler dispatches on resource kind.
  */
 export const resourceTaskInput = z.object({
-  projectId: zId(ID_PREFIX.project),
-  resourceId: zId(ID_PREFIX.resource),
+  projectId: projectIdField,
+  resourceId: resourceIdField,
 });
 
 export const resourceEnvEntrySchema = z.object({
@@ -140,13 +139,13 @@ export const resourceEnvEntrySchema = z.object({
 });
 
 export const resourceEnvListInput = z.object({
-  projectId: zId(ID_PREFIX.project),
-  resourceId: zId(ID_PREFIX.resource),
+  projectId: projectIdField,
+  resourceId: resourceIdField,
 });
 
 export const resourceEnvBulkSetInput = z.object({
-  projectId: zId(ID_PREFIX.project),
-  resourceId: zId(ID_PREFIX.resource),
+  projectId: projectIdField,
+  resourceId: resourceIdField,
   env: z.array(resourceEnvEntrySchema),
   // Keys to mark as sensitive — server stores this as a display hint;
   // values still travel the wire in plain. Optional so callers that don't
@@ -161,7 +160,7 @@ export const resourceEnvBulkSetInput = z.object({
  * false — derived by suffixing "-2", "-3", … until free.
  */
 export const checkResourceNameInput = z.object({
-  projectId: zId(ID_PREFIX.project),
+  projectId: projectIdField,
   name: z.string().min(1),
 });
 
@@ -172,6 +171,7 @@ export const checkResourceNameSchema = z.object({
 
 // Imported by the slice below — see ./service-tasks for the schema definition.
 import { serviceTaskSchema } from "./service-tasks";
+import { projectIdField, resourceIdField } from "./shared";
 
 /**
  * Router slice for the generic resource endpoints — list, checkName, tasks,

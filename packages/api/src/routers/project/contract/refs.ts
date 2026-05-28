@@ -8,12 +8,12 @@
  * masked in the response so the picker can show secrets without
  * leaking them through casual screenshare.
  */
-import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 
 import { oc } from "@orpc/contract";
 import * as z from "zod";
 
 import { basePath, projectNotFoundErrors, tag } from "./shared";
+import { projectIdField } from "./shared";
 
 export const availableReferenceSchema = z.object({
   /** What produces this reference. Drives the icon/label in the
@@ -35,7 +35,7 @@ export const availableReferenceSchema = z.object({
 });
 
 export const listAvailableRefsInput = z.object({
-  projectId: zId(ID_PREFIX.project),
+  projectId: projectIdField,
 });
 
 export const refsContractSlice = {

@@ -28,9 +28,9 @@ export const resourceNotFoundErrors = {
 };
 
 // ─── Field-level shared zod schemas ─────────────────────────────────
-// Hand-rolled `projectId: zId(ID_PREFIX.project)` was duplicated 40+
-// times across contract slices. Pull from here so every input shares
-// the same brand + validation.
+// `projectId: zId(ID_PREFIX.project)` was hand-rolled across 41 oRPC
+// contract slices. Pull from here so every input shares the same
+// brand + validation.
 
 export const projectIdField = zId(ID_PREFIX.project);
 export const resourceIdField = zId(ID_PREFIX.resource);
@@ -42,3 +42,4 @@ export const containerRegistryIdField = zId(ID_PREFIX.containerRegistry);
 export const gitProviderIdField = zId(ID_PREFIX.gitProvider);
 export const gitInstallationIdField = zId(ID_PREFIX.gitInstallation);
 export const gitRepoIdField = zId(ID_PREFIX.gitRepo);
+export const serverIdField = zId(ID_PREFIX.server);

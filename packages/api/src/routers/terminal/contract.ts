@@ -3,10 +3,11 @@
  * targets the operator can attach a shell to right now — exec containers
  * + database consoles. SSH targets live on `server.list` (org-wide nodes).
  */
-import { ID_PREFIX, zId, zSlug } from "@otterdeploy/shared/id";
+import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
 
 import { oc } from "@orpc/contract";
 import * as z from "zod";
+import { resourceIdField } from "../project/contract/shared";
 
 const tag = "terminal";
 const basePath = "/terminal";
@@ -28,7 +29,7 @@ export const terminalContainerSchema = z.object({
    *  isn't an active project in this org. */
   projectName: z.string().nullable(),
   /** Resource id (otterdeploy.resource.id label). Services only. */
-  serviceResourceId: zId(ID_PREFIX.resource).nullable(),
+  serviceResourceId: resourceIdField.nullable(),
   /** Swarm service name — the part before the .slot.taskId suffix. */
   serviceName: z.string().nullable(),
   /** Replica slot ("1", "2", …) parsed out of the swarm task name. */
@@ -36,7 +37,7 @@ export const terminalContainerSchema = z.object({
 });
 
 export const terminalDatabaseSchema = z.object({
-  resourceId: zId(ID_PREFIX.resource),
+  resourceId: resourceIdField,
   name: z.string(),
   engine: z.string(),
   projectSlug: zSlug(ID_PREFIX.project),

@@ -11,15 +11,15 @@
  * healthcheck, new services) are not yet apply-driven — they still flow
  * through resource CRUD.
  */
-import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 
 import { oc } from "@orpc/contract";
 import * as z from "zod";
 
 import { basePath, projectNotFoundErrors, tag } from "./shared";
+import { projectIdField } from "./shared";
 
 export const stackDiffInput = z.object({
-  projectId: zId(ID_PREFIX.project),
+  projectId: projectIdField,
 });
 
 export const stackDiffOutput = z.object({
@@ -29,7 +29,7 @@ export const stackDiffOutput = z.object({
 });
 
 export const stackSaveInput = z.object({
-  projectId: zId(ID_PREFIX.project),
+  projectId: projectIdField,
   yaml: z.string().min(1),
   expectedVersion: z.number().int().nonnegative(),
 });
@@ -39,7 +39,7 @@ export const stackSaveOutput = z.object({
 });
 
 export const stackApplyInput = z.object({
-  projectId: zId(ID_PREFIX.project),
+  projectId: projectIdField,
 });
 
 export const stackApplyResultSchema = z.object({

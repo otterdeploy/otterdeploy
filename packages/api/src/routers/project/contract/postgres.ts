@@ -6,13 +6,13 @@
  * create yields a discriminated-union progress event per provisioning step
  * so the wizard renders a live checklist instead of hanging on a spinner.
  */
-import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 
 import { eventIterator, oc } from "@orpc/contract";
 import * as z from "zod";
 
 import { postgresResourceSchema } from "./resource";
 import { basePath, resourceNotFoundErrors, tag } from "./shared";
+import { projectIdField, resourceIdField } from "./shared";
 
 // Env-key shape — Postgres-image friendly (libc convention). The derived
 // POSTGRES_USER / PASSWORD / DB keys are reserved: setting them via the editor
@@ -32,20 +32,20 @@ const envKeyShape = z
   });
 
 export const setPostgresExtraEnvInput = z.object({
-  projectId: zId(ID_PREFIX.project),
-  resourceId: zId(ID_PREFIX.resource),
+  projectId: projectIdField,
+  resourceId: resourceIdField,
   key: envKeyShape,
   value: z.string().max(8192),
 });
 
 export const unsetPostgresExtraEnvInput = z.object({
-  projectId: zId(ID_PREFIX.project),
-  resourceId: zId(ID_PREFIX.resource),
+  projectId: projectIdField,
+  resourceId: resourceIdField,
   key: envKeyShape,
 });
 
 export const createPostgresDatabaseInput = z.object({
-  projectId: zId(ID_PREFIX.project),
+  projectId: projectIdField,
   name: z.string().min(1),
   /** Database engine to provision. Default is postgres for back-compat
    *  with the original postgres-only contract; the wizard sends the
@@ -132,25 +132,25 @@ export const createPostgresProgressSchema = z.discriminatedUnion("type", [
 ]);
 
 export const getPostgresDatabaseInput = z.object({
-  projectId: zId(ID_PREFIX.project),
-  resourceId: zId(ID_PREFIX.resource),
+  projectId: projectIdField,
+  resourceId: resourceIdField,
 });
 
 /** Flip the public-exposure flag on an existing postgres resource. The
  *  Caddy reconciler runs after the toggle so the route state catches up. */
 export const setPostgresPublicInput = z.object({
-  projectId: zId(ID_PREFIX.project),
-  resourceId: zId(ID_PREFIX.resource),
+  projectId: projectIdField,
+  resourceId: resourceIdField,
   publicEnabled: z.boolean(),
 });
 
 export const deletePostgresDatabaseInput = z.object({
-  projectId: zId(ID_PREFIX.project),
-  resourceId: zId(ID_PREFIX.resource),
+  projectId: projectIdField,
+  resourceId: resourceIdField,
 });
 
 export const listPostgresDatabasesInput = z.object({
-  projectId: zId(ID_PREFIX.project),
+  projectId: projectIdField,
 });
 
 export const postgresContractSlice = {

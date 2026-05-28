@@ -8,10 +8,10 @@
  *   refreshRepos   — re-syncs the installation's repo list from GitHub
  *   listRepos      — accessible repos for an installation (DB-side, no API)
  */
-import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 
 import { oc } from "@orpc/contract";
 import * as z from "zod";
+import { gitInstallationIdField, gitProviderIdField, gitRepoIdField } from "../project/contract/shared";
 
 const tag = "git";
 const basePath = "/git";
@@ -19,7 +19,7 @@ const basePath = "/git";
 export const gitProviderKindSchema = z.enum(["github"]);
 
 export const gitRepoViewSchema = z.object({
-  id: zId(ID_PREFIX.gitRepo),
+  id: gitRepoIdField,
   fullName: z.string(),
   defaultBranch: z.string(),
   isPrivate: z.boolean(),
@@ -27,8 +27,8 @@ export const gitRepoViewSchema = z.object({
 });
 
 export const gitInstallationViewSchema = z.object({
-  id: zId(ID_PREFIX.gitInstallation),
-  providerId: zId(ID_PREFIX.gitProvider),
+  id: gitInstallationIdField,
+  providerId: gitProviderIdField,
   installationId: z.string(),
   accountLogin: z.string(),
   accountType: z.enum(["user", "organization"]),
@@ -41,7 +41,7 @@ export const gitInstallationViewSchema = z.object({
 });
 
 export const gitProviderViewSchema = z.object({
-  id: zId(ID_PREFIX.gitProvider),
+  id: gitProviderIdField,
   kind: gitProviderKindSchema,
   displayName: z.string(),
   installations: z.array(gitInstallationViewSchema),
@@ -76,11 +76,11 @@ export const startManifestOutput = z.object({
 });
 
 export const disconnectInput = z.object({
-  installationId: zId(ID_PREFIX.gitInstallation),
+  installationId: gitInstallationIdField,
 });
 
 export const refreshReposInput = z.object({
-  installationId: zId(ID_PREFIX.gitInstallation),
+  installationId: gitInstallationIdField,
 });
 
 export const refreshReposOutput = z.object({
@@ -88,7 +88,7 @@ export const refreshReposOutput = z.object({
 });
 
 export const listInstallationReposInput = z.object({
-  installationId: zId(ID_PREFIX.gitInstallation),
+  installationId: gitInstallationIdField,
 });
 
 export const connectPublicRepoInput = z.object({
@@ -99,7 +99,7 @@ export const connectPublicRepoInput = z.object({
 });
 
 export const inspectRepoInput = z.object({
-  gitRepoId: zId(ID_PREFIX.gitRepo),
+  gitRepoId: gitRepoIdField,
   /** Repo-relative path to list. Empty string = root. */
   path: z.string().default(""),
 });

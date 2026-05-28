@@ -6,12 +6,12 @@
  * carry control messages from the streamer (e.g. "no running container yet"),
  * not actual container output.
  */
-import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 
 import { eventIterator, oc } from "@orpc/contract";
 import * as z from "zod";
 
 import { basePath, resourceNotFoundErrors, tag } from "./shared";
+import { projectIdField, resourceIdField } from "./shared";
 
 export const resourceLogEventSchema = z.object({
   stream: z.enum(["stdout", "stderr", "system"]),
@@ -20,15 +20,15 @@ export const resourceLogEventSchema = z.object({
 });
 
 export const resourceLogsTailInput = z.object({
-  projectId: zId(ID_PREFIX.project),
-  resourceId: zId(ID_PREFIX.resource),
+  projectId: projectIdField,
+  resourceId: resourceIdField,
   /** Number of historical lines to replay before live-tailing. */
   tail: z.number().int().min(0).max(1000).optional().default(100),
 });
 
 export const resourceTaskLogsTailInput = z.object({
-  projectId: zId(ID_PREFIX.project),
-  resourceId: zId(ID_PREFIX.resource),
+  projectId: projectIdField,
+  resourceId: resourceIdField,
   /** Swarm task id. Returned by `project.resource.tasks`. */
   taskId: z.string().min(1),
   tail: z.number().int().min(0).max(2000).optional().default(500),

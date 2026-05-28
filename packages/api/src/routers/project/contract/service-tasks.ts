@@ -6,12 +6,12 @@
  * to know about preparing / accepted / orphaned distinctions. `rawState`
  * preserves the original docker value for the deployment-detail panel.
  */
-import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 
 import { oc } from "@orpc/contract";
 import * as z from "zod";
 
 import { basePath, projectNotFoundErrors, tag } from "./shared";
+import { projectIdField, resourceIdField } from "./shared";
 
 export const serviceTaskSchema = z.object({
   id: z.string(),
@@ -43,12 +43,12 @@ export const serviceTaskSchema = z.object({
 });
 
 export const serviceTasksSchema = z.object({
-  resourceId: zId(ID_PREFIX.resource),
+  resourceId: resourceIdField,
   tasks: z.array(serviceTaskSchema),
 });
 
 export const listServiceTasksInput = z.object({
-  projectId: zId(ID_PREFIX.project),
+  projectId: projectIdField,
 });
 
 export const serviceTasksContractSlice = oc

@@ -1,7 +1,7 @@
 /**
  * Project CRUD — schemas + contract slice.
  */
-import { ID_PREFIX, zId, zSlug } from "@otterdeploy/shared/id";
+import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
 
 import { oc } from "@orpc/contract";
 import { createSelectSchema } from "drizzle-zod";
@@ -9,6 +9,7 @@ import * as z from "zod";
 
 import { project } from "@otterdeploy/db/schema";
 import { basePath, projectNotFoundErrors, tag } from "./shared";
+import { containerRegistryIdField, environmentIdField, gitRepoIdField, projectIdField } from "./shared";
 
 export const projectSchema = createSelectSchema(project)
   // Manifest payloads are read through `project.manifest.get`, not embedded
@@ -22,8 +23,8 @@ export const projectSchema = createSelectSchema(project)
     lastManifestAppliedAt: true,
   })
   .extend({
-    id: zId(ID_PREFIX.project),
-    environmentId: zId(ID_PREFIX.environment).nullable(),
+    id: projectIdField,
+    environmentId: environmentIdField.nullable(),
   });
 
 export const projectListItemSchema = projectSchema.extend({
@@ -51,15 +52,15 @@ export const createProjectInput = z.object({
    * so optimistic UI rows match the persisted row (no flicker on refetch).
    * Server generates a fresh one when omitted.
    */
-  id: zId(ID_PREFIX.project).optional(),
+  id: projectIdField.optional(),
   /** Same idea for the default environment created alongside the project. */
-  environmentId: zId(ID_PREFIX.environment).optional(),
+  environmentId: environmentIdField.optional(),
   name: z.string().min(1),
   slug: z.string().slugify().min(2).max(48),
 });
 
 export const getProjectInput = z.object({
-  id: zId(ID_PREFIX.project),
+  id: projectIdField,
 });
 
 export const getProjectBySlugInput = z.object({
@@ -67,21 +68,21 @@ export const getProjectBySlugInput = z.object({
 });
 
 export const updateProjectInput = z.object({
-  id: zId(ID_PREFIX.project),
+  id: projectIdField,
   name: z.string().min(1).optional(),
   slug: z.string().slugify().min(2).max(48).optional(),
   // Build pipeline binding. Each field is independently optional;
   // `null` clears the column, `undefined` leaves it unchanged. The
   // handler validates FK rows belong to the same org.
-  gitRepoId: zId(ID_PREFIX.gitRepo).nullable().optional(),
+  gitRepoId: gitRepoIdField.nullable().optional(),
   productionBranch: z.string().min(1).max(255).optional(),
-  containerRegistryId: zId(ID_PREFIX.containerRegistry).nullable().optional(),
+  containerRegistryId: containerRegistryIdField.nullable().optional(),
   imageRepository: z.string().min(1).max(255).nullable().optional(),
   nixpacksConfig: nixpacksConfigSchema.nullable().optional(),
 });
 
 export const deleteProjectInput = z.object({
-  id: zId(ID_PREFIX.project),
+  id: projectIdField,
 });
 
 export const projectContractSlice = {
