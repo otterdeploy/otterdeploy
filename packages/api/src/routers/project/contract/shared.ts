@@ -6,6 +6,8 @@
  * compose paths without restating the prefix.
  */
 
+import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
+
 export const tag = "project";
 export const basePath = "/projects";
 
@@ -24,3 +26,19 @@ export const resourceNotFoundErrors = {
     message: "Resource not found" as const,
   },
 };
+
+// ─── Field-level shared zod schemas ─────────────────────────────────
+// Hand-rolled `projectId: zId(ID_PREFIX.project)` was duplicated 40+
+// times across contract slices. Pull from here so every input shares
+// the same brand + validation.
+
+export const projectIdField = zId(ID_PREFIX.project);
+export const resourceIdField = zId(ID_PREFIX.resource);
+export const deploymentIdField = zId(ID_PREFIX.deployment);
+export const environmentIdField = zId(ID_PREFIX.environment);
+export const organizationIdField = zId(ID_PREFIX.organization);
+export const proxyRouteIdField = zId(ID_PREFIX.proxyRoute);
+export const containerRegistryIdField = zId(ID_PREFIX.containerRegistry);
+export const gitProviderIdField = zId(ID_PREFIX.gitProvider);
+export const gitInstallationIdField = zId(ID_PREFIX.gitInstallation);
+export const gitRepoIdField = zId(ID_PREFIX.gitRepo);
