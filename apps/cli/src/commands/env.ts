@@ -69,9 +69,15 @@ const setEnv = defineCommand({
       );
       process.exit(1);
     }
-    for (const { key, value } of pairs) {
-      await client.service.env.set({ projectId, resourceId, key, value });
-    }
+    // Each service.env.set triggers a swarm redeploy of the service. For
+    // N pairs that would be N sequential rolling updates (slow). Merge
+    // with the existing env and ship one bulkSet — single redeploy.
+    const existing = await client.service.env.list({ projectId, resourceId });
+    const merged = new Map<string, string>();
+    for (const e of existing) merged.set(e.key, e.value);
+    for (const { key, value } of pairs) merged.set(key, value);
+    const vars = [...merged.entries()].map(([key, value]) => ({ key, value }));
+    await client.service.env.bulkSet({ projectId, resourceId, vars });
     consola.success(`Set ${pairs.length} var(s) on ${args.service}.`);
   },
 });
@@ -92,9 +98,14 @@ const unsetEnv = defineCommand({
       consola.error("Pass at least one key, e.g. `env unset --service web OLD_VAR`");
       process.exit(1);
     }
-    for (const key of keys) {
-      await client.service.env.unset({ projectId, resourceId, key });
-    }
+    // Same logic as `set` — one bulkSet/redeploy instead of N. Fetch
+    // existing, drop the requested keys, send the remaining set back.
+    const existing = await client.service.env.list({ projectId, resourceId });
+    const toRemove = new Set(keys);
+    const vars = existing
+      .filter((e) => !toRemove.has(e.key))
+      .map(({ key, value }) => ({ key, value }));
+    await client.service.env.bulkSet({ projectId, resourceId, vars });
     consola.success(`Unset ${keys.length} key(s) on ${args.service}.`);
   },
 });
