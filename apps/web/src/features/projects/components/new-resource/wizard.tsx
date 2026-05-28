@@ -1,6 +1,6 @@
-import type { ProjectId, ProjectSlug, Slug } from "@otterdeploy/shared/id";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { ArrowLeft01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import type { ProjectId, ProjectSlug } from "@otterdeploy/shared/id";
 import { useStore } from "@tanstack/react-form";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -15,8 +15,8 @@ import { cn } from "@/shared/lib/utils";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 import { useStageManifestChange } from "../../hooks/use-manifest-stage";
+import { flowFor } from "./flows";
 import { useAppForm } from "./form-context";
-import { flowFor, type StepEntry } from "./flows";
 import { resourceDefaults, resourceFormSchema, type Step } from "./schemas";
 import {
   StepAdvancedDb,
@@ -129,14 +129,8 @@ function ResourceWizardBody({
   });
 
   const showChrome = layout === "page";
-  const kindWired =
-    kindId === "postgres" ||
-    kindId === "redis" ||
-    kindId === "mariadb" ||
-    kindId === "mongodb" ||
-    kindId === "docker" ||
-    kind?.group === "compute";
   const isCreating = progress.status === "running";
+  const kindWired = isKindWired(kindId, kind);
   const createDisabled = isLast && (!kindWired || isCreating);
 
   return (
@@ -195,6 +189,20 @@ function ResourceWizardBody({
       </div>
     </form.AppForm>
   );
+}
+
+// Which kinds the wizard actually knows how to submit. Hoisted out of
+// the body so the 6-way disjunction doesn't pad ResourceWizardBody's
+// cyclomatic complexity past the cap. Add new kinds here as their
+// flows ship.
+const WIRED_DB_KINDS = new Set(["postgres", "redis", "mariadb", "mongodb"]);
+function isKindWired(
+  kindId: string,
+  kind: (typeof SERVICE_KINDS)[number] | null,
+): boolean {
+  if (kindId === "docker") return true;
+  if (WIRED_DB_KINDS.has(kindId)) return true;
+  return kind?.group === "compute";
 }
 
 // ─── Render helpers ─────────────────────────────────────────────────────
