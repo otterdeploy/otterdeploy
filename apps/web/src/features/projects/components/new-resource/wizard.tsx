@@ -103,8 +103,6 @@ function ResourceWizardBody({
       name: string;
       publicEnabled: boolean;
     }) => {
-      // Display label for toasts — caps the engine name without forking
-      // per-engine code paths. Add new engines here when the catalog widens.
       const engineLabel = {
         postgres: "Postgres",
         redis: "Redis",
@@ -121,69 +119,50 @@ function ResourceWizardBody({
         bootLogCounter: 0,
         errorMessage: null,
       });
+      // Single code path: splice the new database into the manifest and
+      // call manifest.applyChange — same RPC services use, same RPC the
+      // CLI hits. The streaming `database.postgres.create` provisioner
+      // still exists for the stack-editor's preview-then-deploy flow,
+      // but the wizard now uses the unified manifest path so that a
+      // subsequent CLI `pull` sees the new database.
       try {
-        const stream = await orpc.project.resource.database.postgres.create.call({
-          projectId,
-          name: payload.name,
+        const current = await orpc.project.manifest.get.call({ id: projectId });
+        const baseManifest = current.manifest ?? {
+          version: 1 as const,
+          project: projectSlug,
+          services: {},
+          databases: {},
+        };
+        if (baseManifest.databases[payload.name]) {
+          toast.error(`Database "${payload.name}" already exists in the manifest.`);
+          setProgress((prev) => ({ ...prev, status: "idle" }));
+          return;
+        }
+        const nextDatabases = { ...baseManifest.databases };
+        nextDatabases[payload.name] = {
           engine: payload.engine,
-          publicEnabled: payload.publicEnabled,
+          ...(payload.publicEnabled ? { publicEnabled: true } : {}),
+        } as (typeof nextDatabases)[string];
+        const nextManifest = { ...baseManifest, databases: nextDatabases };
+
+        await orpc.project.manifest.applyChange.call({
+          projectId,
+          manifest: nextManifest,
+          expectedVersion: current.version,
         });
-        let handedOff = false;
-        for await (const event of stream) {
-          setProgress((prev) => applyProgressEvent(prev, event));
-          if (event.type === "created" && !handedOff) {
-            handedOff = true;
-            // Close the modal and navigate FIRST — those are synchronous
-            // and what the user is waiting for. `invalidateQueries` returns
-            // a Promise that resolves only after the refetch lands, which
-            // can add hundreds of ms if the list query is mid-flight.
-            // Awaiting it here was making the wizard appear to hang on the
-            // overlay even after `created` arrived.
-            toast.success(`${engineLabel} ${event.resource.name} is provisioning`);
-            onComplete?.();
-            void navigate({
-              to: "/$orgSlug/$projectSlug/graph/$resourceId",
-              params: {
-                orgSlug,
-                projectSlug,
-                resourceId: event.resource.resourceId,
-              },
-            });
-            void queryClient.invalidateQueries({
-              queryKey: orpc.project.resource.list.queryKey({
-                input: { projectId },
-              }),
-            });
-            // Keep iterating so the backend generator runs to completion;
-            // setProgress on the unmounted component is a React no-op.
-            continue;
-          }
-          if (event.type === "done") {
-            await queryClient.invalidateQueries({
-              queryKey: orpc.project.resource.list.queryKey({
-                input: { projectId },
-              }),
-            });
-            // Only navigate here if we never handed off (e.g. an unusually
-            // fast run where db-record's `created` event was missed).
-            if (!handedOff) {
-              toast.success(`${engineLabel} ${event.resource.name} is provisioning`);
-              onComplete?.();
-              void navigate({
-                to: "/$orgSlug/$projectSlug/graph/$resourceId",
-                params: {
-                  orgSlug,
-                  projectSlug,
-                  resourceId: event.resource.resourceId,
-                },
-              });
-            }
-            return;
-          }
-          if (event.type === "error") {
-            toast.error(`${event.code}: ${event.message}`);
-            return;
-          }
+
+        toast.success(`${engineLabel} ${payload.name} is provisioning`);
+        onComplete?.();
+        await queryClient.invalidateQueries({
+          queryKey: orpc.project.resource.list.queryKey({ input: { projectId } }),
+        });
+        const list = await orpc.project.resource.list.call({ projectId });
+        const created = list.find((r) => r.type === "database" && r.name === payload.name);
+        if (created) {
+          void navigate({
+            to: "/$orgSlug/$projectSlug/graph/$resourceId",
+            params: { orgSlug, projectSlug, resourceId: created.resourceId as never },
+          });
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -205,33 +184,57 @@ function ResourceWizardBody({
       image: string;
       ports: Array<{ port: number; protocol: string; public: boolean }>;
     }) => {
-      // Service.create isn't streaming yet — single request, single response.
-      // Skip the rich progress UI the DB flow uses; toast + navigate is
-      // enough until we wire a per-resource SSE stream.
+      // Single code path for "create + deploy" — splice the new service
+      // into the project manifest and call manifest.applyChange. Same
+      // RPC the CLI sync hits; UI and CLI stay in lockstep.
       try {
-        const created = await orpc.service.create.call({
+        const current = await orpc.project.manifest.get.call({ id: projectId });
+        const baseManifest = current.manifest ?? {
+          version: 1 as const,
+          project: projectSlug,
+          services: {},
+          databases: {},
+        };
+        if (baseManifest.services[payload.name]) {
+          toast.error(`Service "${payload.name}" already exists in the manifest.`);
+          return;
+        }
+        const nextServices = { ...baseManifest.services };
+        const ports = payload.ports.map((p, i) => ({
+          container: p.port,
+          protocol: "tcp" as const,
+          appProtocol: (p.protocol === "http" ? "http" : "tcp") as "http" | "tcp",
+          primary: i === 0,
+        }));
+        nextServices[payload.name] =
+          payload.source === "image"
+            ? { source: "image", image: payload.image, ports }
+            : { source: "git", ports };
+        const nextManifest = { ...baseManifest, services: nextServices };
+
+        await orpc.project.manifest.applyChange.call({
           projectId,
-          name: payload.name,
-          source: payload.source,
-          image: payload.image,
-          // Map the wizard's port shape to the contract's. Wizard "http"
-          // → appProtocol=http; tcp → appProtocol=tcp. Default to tcp
-          // protocol since udp is rare and not surfaced in the picker.
-          ports: payload.ports.map((p) => ({
-            containerPort: p.port,
-            protocol: "tcp" as const,
-            appProtocol: (p.protocol === "http" ? "http" : "tcp") as "http" | "tcp",
-          })),
+          manifest: nextManifest,
+          expectedVersion: current.version,
         });
-        toast.success(`Service ${created.name} created`);
+
+        toast.success(`Service ${payload.name} created`);
         onComplete?.();
-        void queryClient.invalidateQueries({
+        await queryClient.invalidateQueries({
           queryKey: orpc.project.resource.list.queryKey({ input: { projectId } }),
         });
-        void navigate({
-          to: "/$orgSlug/$projectSlug/graph/$resourceId",
-          params: { orgSlug, projectSlug, resourceId: created.id as never },
-        });
+
+        // applyChange returns counts but not resource IDs. Look up the
+        // newly-created service in the freshly-invalidated list to get
+        // the resourceId we need for the deep-link.
+        const list = await orpc.project.resource.list.call({ projectId });
+        const created = list.find((r) => r.type === "service" && r.name === payload.name);
+        if (created) {
+          void navigate({
+            to: "/$orgSlug/$projectSlug/graph/$resourceId",
+            params: { orgSlug, projectSlug, resourceId: created.resourceId as never },
+          });
+        }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         // Surface the typed MISSING_BUILD_BINDING from the server with a
