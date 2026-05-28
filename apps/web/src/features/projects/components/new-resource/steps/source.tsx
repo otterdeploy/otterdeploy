@@ -1,24 +1,23 @@
 /**
- * Source step — pick the GitHub installation + repo that this service
- * will build from. Backed by orpc.git.list (installations the org has
- * connected) + orpc.git.listRepos (per-installation accessible repos).
+ * Source step — confirms the project's source binding (gitRepoId +
+ * productionBranch) and lets the operator paste a public Git URL on the
+ * spot if no installation has been connected.
  *
- * The project itself owns the *binding* (gitRepoId + productionBranch
- * live on `project`, set under Settings → Build). This step is more of
- * a confirmation: if the project already has a binding we surface it
- * read-only and let the operator override at Settings; if not, we
- * nudge them there. The wizard never writes project.gitRepoId
- * directly — that's a single-source-of-truth boundary.
+ * State model: the form's `repo` field is the source of truth for the
+ * bound state. It's seeded from the project's gitRepoId at wizard
+ * construction (see wizard.tsx defaultValues) and overwritten by
+ * `form.setFieldValue("repo", repoId)` whenever the PublicRepoCTA
+ * succeeds. The BindingSummary reads the form field via `useStore` so
+ * the UI flips from CTA → green confirmation in the same render that
+ * setFieldValue fires — no query invalidation in the critical path.
  *
- * No other providers (GitLab/Gitea/etc.) are shown — the rest of the
- * stack is GitHub-only today. They surface on the Git Providers page
- * as "coming soon" cards and will light up here when the backend ships.
- *
- * The CLI-push and public-Git-URL options were design mocks for a
- * future CLI we don't ship. Removed entirely until they exist.
+ * The `useBindingSummary` query still loads (a) installations for the
+ * "no provider connected" empty state, (b) repo metadata for displaying
+ * the bound row's `fullName`. Neither is used to gate the binding
+ * check itself.
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useStore } from "@tanstack/react-form";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -32,49 +31,49 @@ import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
-import { orpc, queryClient } from "@/shared/server/orpc";
+import { orpc } from "@/shared/server/orpc";
 
 import { SectionHeader } from "../form-primitives";
 import { useFormContext } from "../form-context";
 
 export function StepSource() {
   const form = useFormContext();
+  // Reactive read — these re-render the step the instant setFieldValue
+  // fires from the PublicRepoCTA below.
   const repo = useStore(form.store, (s) => s.values.repo as string);
   const branch = useStore(form.store, (s) => s.values.branch as string);
-  const root = useStore(form.store, (s) => s.values.root as string);
   const name = useStore(form.store, (s) => s.values.name as string);
   const { orgSlug, projectSlug } = useParams({ strict: false }) as {
     orgSlug: string;
     projectSlug: string;
   };
   const summary = useBindingSummary(projectSlug);
+  const boundFullName =
+    summary.boundRepoFullNameByGitRepoId[repo] ??
+    summary.justBoundFullName ??
+    null;
 
-  // The wizard's `repo` field was originally written by a per-service
-  // repo picker that no longer exists — source binding now lives on the
-  // project. Keep the schema's "required" gate satisfied by syncing the
-  // bound gitRepoId into the form whenever it appears.
-  const boundGitRepoId = summary.binding?.gitRepoId ?? null;
-  const productionBranch = summary.binding?.productionBranch ?? "main";
-  useEffect(() => {
-    if (boundGitRepoId && repo !== boundGitRepoId) {
-      form.setFieldValue("repo", boundGitRepoId);
-    }
-    if (productionBranch && branch !== productionBranch) {
-      form.setFieldValue("branch", productionBranch);
-    }
-  }, [boundGitRepoId, productionBranch, repo, branch, form]);
+  // setRepo cascades to branch — same pattern as kind.tsx where one
+  // pick seeds multiple fields. Keeps the bound-state transition atomic.
+  const onPublicRepoBound = (repoId: string, fullName: string) => {
+    form.setFieldValue("repo", repoId);
+    form.setFieldValue("branch", branch || "main");
+    summary.rememberJustBound(repoId, fullName);
+  };
 
   return (
     <>
       <SectionHeader title="Source" />
 
       <BindingSummary
+        repo={repo}
+        branch={branch}
+        boundFullName={boundFullName}
         hasInstallations={summary.hasInstallations}
-        binding={summary.binding}
-        boundRepoFullName={summary.boundRepoFullName}
         projectId={summary.projectId}
         orgSlug={orgSlug}
         projectSlug={projectSlug}
+        onBound={onPublicRepoBound}
       />
 
       <div className="mt-5">
@@ -102,21 +101,11 @@ export function StepSource() {
             )}
           </form.AppField>
           <div className="text-[11px] text-muted-foreground">
-            Branch is governed by the project binding
-            {summary.binding ? (
-              <>
-                {" "}
-                (<span className="font-mono">{summary.binding.productionBranch}</span>)
-              </>
-            ) : null}
-            . Per-service branch overrides will land alongside preview
+            Branch is governed by the project binding (
+            <span className="font-mono">{branch || "main"}</span>
+            ). Per-service branch overrides will land alongside preview
             environments.
           </div>
-          {/* Keep `branch` in form state so the schema stays satisfied even
-              though the operator can't edit it here. Hidden field. */}
-          <input type="hidden" value={branch} readOnly />
-          <input type="hidden" value={repo} readOnly />
-          <input type="hidden" value={root} readOnly />
         </CardContent>
       </Card>
     </>
@@ -124,17 +113,21 @@ export function StepSource() {
 }
 
 /**
- * Resolves the project's existing source binding (gitRepoId +
- * productionBranch) plus the human-readable repo name for the binding,
- * so StepSource can render it as a single read-only summary card. All
- * the data-prep noise (multiple useQuery calls, branding coercions)
- * lives here so the step body stays focused on layout.
+ * Read-only loader for everything the step needs alongside the form:
+ *   - installations list (for the "no provider connected" empty state)
+ *   - bound-repo fullName lookup keyed by gitRepoId
+ *   - a tiny in-memory store of "just-bound" fullName so the green
+ *     confirmation shows the actual repo name immediately, without
+ *     waiting for the project query to refetch.
+ *
+ * `projectId` is included so the PublicRepoCTA can call project.update.
  */
 function useBindingSummary(projectSlug: string): {
   hasInstallations: boolean;
-  binding: { gitRepoId: string | null; productionBranch: string } | null;
-  boundRepoFullName: string | null;
   projectId: string | null;
+  boundRepoFullNameByGitRepoId: Record<string, string>;
+  justBoundFullName: string | null;
+  rememberJustBound: (repoId: string, fullName: string) => void;
 } {
   const projectQuery = useQuery({
     ...orpc.project.getBySlug.queryOptions({
@@ -158,36 +151,70 @@ function useBindingSummary(projectSlug: string): {
     }),
   );
   const repos = reposQuery.data ?? [];
-  const boundRepo = projectBinding?.gitRepoId
-    ? repos.find((r) => r.id === projectBinding.gitRepoId)
-    : undefined;
+
+  const [justBound, setJustBound] = useState<{
+    repoId: string;
+    fullName: string;
+  } | null>(null);
+
+  const boundRepoFullNameByGitRepoId: Record<string, string> = {};
+  for (const r of repos) boundRepoFullNameByGitRepoId[r.id] = r.fullName;
+  if (justBound) {
+    boundRepoFullNameByGitRepoId[justBound.repoId] = justBound.fullName;
+  }
 
   return {
     hasInstallations: installations.length > 0,
-    binding: projectBinding
-      ? {
-          gitRepoId:
-            projectBinding.gitRepoId == null
-              ? null
-              : String(projectBinding.gitRepoId),
-          productionBranch: String(projectBinding.productionBranch ?? "main"),
-        }
-      : null,
-    boundRepoFullName: boundRepo?.fullName ?? null,
     projectId: projectBinding?.id ? String(projectBinding.id) : null,
+    boundRepoFullNameByGitRepoId,
+    justBoundFullName: justBound?.fullName ?? null,
+    rememberJustBound: (repoId, fullName) =>
+      setJustBound({ repoId, fullName }),
   };
 }
 
 interface BindingSummaryProps {
+  /** Current value of form.values.repo. Non-empty = bound. */
+  repo: string;
+  branch: string;
+  boundFullName: string | null;
   hasInstallations: boolean;
-  binding: { gitRepoId: string | null; productionBranch: string } | null;
-  boundRepoFullName: string | null;
   projectId: string | null;
   orgSlug: string;
   projectSlug: string;
+  onBound: (repoId: string, fullName: string) => void;
 }
 
 function BindingSummary(props: BindingSummaryProps) {
+  // Form-state-driven: a non-empty `repo` means the project is bound,
+  // whether that came from the initial seed or from this session's
+  // PublicRepoCTA. No query refetch sits in the critical path.
+  if (props.repo) {
+    return (
+      <Card className="mt-2.5 rounded-md">
+        <CardContent className="flex items-center gap-3 py-3">
+          <HugeiconsIcon
+            icon={Tick02Icon}
+            strokeWidth={2}
+            className="size-4 shrink-0 text-success"
+          />
+          <div className="min-w-0 flex-1">
+            <div className="font-mono text-[13px]">
+              {props.boundFullName ?? props.repo}
+            </div>
+            <div className="text-[11px] text-muted-foreground">
+              branch <span className="font-mono">{props.branch || "main"}</span>
+              {" · "}registry binding lives on the project
+            </div>
+          </div>
+          <Badge variant="outline" className="font-normal">
+            Project binding
+          </Badge>
+        </CardContent>
+      </Card>
+    );
+  }
+
   if (!props.hasInstallations) {
     return (
       <Card className="mt-2.5 rounded-md">
@@ -212,112 +239,84 @@ function BindingSummary(props: BindingSummaryProps) {
               </Link>
             </div>
           </div>
-          <PublicRepoCTA projectId={props.projectId} projectSlug={props.projectSlug} />
+          <PublicRepoCTA
+            projectId={props.projectId}
+            onBound={props.onBound}
+          />
         </CardContent>
       </Card>
     );
   }
-  if (!props.binding?.gitRepoId) {
-    return (
-      <Card className="mt-2.5 rounded-md">
-        <CardContent className="flex flex-col gap-4 py-4">
-          <div className="flex items-start gap-3">
-            <HugeiconsIcon
-              icon={GitBranchIcon}
-              strokeWidth={2}
-              className="size-5 shrink-0 text-muted-foreground"
-            />
-            <div className="min-w-0 flex-1">
-              <div className="text-[13px] font-semibold">
-                Project has no source binding yet
-              </div>
-              <p className="mt-1 text-[12px] text-muted-foreground">
-                Pick a repo under{" "}
-                <span className="font-mono">Settings → Build</span> for full
-                push-deploy support, or paste a public URL below for a
-                manual-deploy binding right now.
-              </p>
-              <Link
-                to="/$orgSlug/$projectSlug/settings"
-                params={{
-                  orgSlug: props.orgSlug,
-                  projectSlug: props.projectSlug as never,
-                }}
-                className="mt-2 inline-block text-[12px] font-medium underline"
-              >
-                Open Build settings →
-              </Link>
-            </div>
-          </div>
-          <PublicRepoCTA projectId={props.projectId} projectSlug={props.projectSlug} />
-        </CardContent>
-      </Card>
-    );
-  }
+
   return (
     <Card className="mt-2.5 rounded-md">
-      <CardContent className="flex items-center gap-3 py-3">
-        <HugeiconsIcon
-          icon={Tick02Icon}
-          strokeWidth={2}
-          className="size-4 shrink-0 text-success"
-        />
-        <div className="min-w-0 flex-1">
-          <div className="font-mono text-[13px]">
-            {props.boundRepoFullName ?? String(props.binding.gitRepoId)}
-          </div>
-          <div className="text-[11px] text-muted-foreground">
-            branch{" "}
-            <span className="font-mono">
-              {String(props.binding.productionBranch)}
-            </span>
-            {" · "}registry binding lives on the project
+      <CardContent className="flex flex-col gap-4 py-4">
+        <div className="flex items-start gap-3">
+          <HugeiconsIcon
+            icon={GitBranchIcon}
+            strokeWidth={2}
+            className="size-5 shrink-0 text-muted-foreground"
+          />
+          <div className="min-w-0 flex-1">
+            <div className="text-[13px] font-semibold">
+              Project has no source binding yet
+            </div>
+            <p className="mt-1 text-[12px] text-muted-foreground">
+              Pick a repo under{" "}
+              <span className="font-mono">Settings → Build</span> for full
+              push-deploy support, or paste a public URL below for a
+              manual-deploy binding right now.
+            </p>
+            <Link
+              to="/$orgSlug/$projectSlug/settings"
+              params={{
+                orgSlug: props.orgSlug,
+                projectSlug: props.projectSlug as never,
+              }}
+              className="mt-2 inline-block text-[12px] font-medium underline"
+            >
+              Open Build settings →
+            </Link>
           </div>
         </div>
-        <Badge variant="outline" className="font-normal">
-          Project binding
-        </Badge>
+        <PublicRepoCTA projectId={props.projectId} onBound={props.onBound} />
       </CardContent>
     </Card>
   );
 }
 
 /**
- * Bind the project to a public Git URL in one shot — connectPublicRepo
- * creates the gitRepo row, project.update writes the binding, then the
- * BindingSummary above re-renders into the "bound" state.
+ * Connect a public Git URL: creates the gitRepo row server-side, then
+ * persists the binding on the project. On success we hand the new
+ * gitRepoId back to the parent (it owns the form) — the parent's
+ * `setFieldValue` write is what flips BindingSummary's render branch.
  *
- * Renders nothing when projectId hasn't loaded (the parent query is
- * still flying); avoids a flash of an unbound CTA before we know the
- * project exists.
+ * No query invalidation in the success path; the parent already
+ * reflects the new state from form state. The query will catch up on
+ * its own refetch or on the next navigation.
  */
 function PublicRepoCTA({
   projectId,
-  projectSlug,
+  onBound,
 }: {
   projectId: string | null;
-  projectSlug: string;
+  onBound: (repoId: string, fullName: string) => void;
 }) {
   const [url, setUrl] = useState("");
 
   const updateMut = useMutation({
     ...orpc.project.update.mutationOptions(),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: orpc.project.getBySlug.queryKey({
-          input: { slug: projectSlug as never },
-        }),
-      });
-      setUrl("");
-      toast.success("Public repo bound — ready to configure the service");
-    },
-    onError: (err) => toast.error(err.message ?? "Failed to bind public repo"),
+    onError: (err) =>
+      toast.error(err.message ?? "Failed to persist public-repo binding"),
   });
 
   const connectMut = useMutation({
     ...orpc.git.connectPublicRepo.mutationOptions(),
     onSuccess: (repo) => {
       if (!projectId) return;
+      onBound(repo.id, repo.fullName);
+      setUrl("");
+      toast.success(`Bound to ${repo.fullName}`);
       updateMut.mutate({
         id: projectId as never,
         gitRepoId: repo.id as never,
@@ -328,7 +327,7 @@ function PublicRepoCTA({
 
   if (!projectId) return null;
 
-  const submitting = connectMut.isPending || updateMut.isPending;
+  const submitting = connectMut.isPending;
 
   return (
     <div className="rounded-md border border-dashed border-border/60 bg-muted/20 p-3">

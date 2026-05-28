@@ -28,6 +28,8 @@ function RouteComponent() {
       projectId={project.id}
       projectName={project.name}
       initialKind={kind ?? null}
+      initialGitRepoId={project.gitRepoId ? String(project.gitRepoId) : null}
+      initialBranch={project.productionBranch ?? null}
     />
   );
 }

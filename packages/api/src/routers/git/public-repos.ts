@@ -116,14 +116,16 @@ export async function connectPublicRepo(args: {
       providerRepoId,
       fullName,
       cloneUrl,
-      isPrivate: false,
+      // isPrivate isn't written — the `public:` prefix on providerRepoId
+      // is the canonical signal that this is a public-URL row. Anything
+      // reading isPrivate for this row should check the prefix first.
       // defaultBranch falls back to the column default ("main"). The
       // builder reads the actual ref from the deployment row, not from
       // here — this is just a display default for the UI dropdown.
     })
     .onConflictDoUpdate({
       target: gitRepo.providerRepoId,
-      set: { fullName, cloneUrl, isPrivate: false, updatedAt: new Date() },
+      set: { fullName, cloneUrl, updatedAt: new Date() },
     })
     .returning({
       id: gitRepo.id,

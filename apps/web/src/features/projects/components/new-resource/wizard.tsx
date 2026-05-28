@@ -35,6 +35,12 @@ export interface ResourceWizardProps {
   projectSlug: ProjectSlug;
   projectId: ProjectId;
   projectName: string;
+  /** Seed for the `repo` form field — the project's current binding.
+   *  Passed once at form construction so StepSource's bound/unbound
+   *  state derives from form state (reactive) instead of a query. */
+  initialGitRepoId?: string | null;
+  /** Seed for the `branch` form field; defaults to "main". */
+  initialBranch?: string | null;
   initialKind?: string | null;
   initialStep?: Step;
   onComplete?: () => void;
@@ -73,6 +79,8 @@ function ResourceWizardBody({
   projectId,
   projectName,
   initialKind = null,
+  initialGitRepoId = null,
+  initialBranch = null,
   onComplete,
   onCancel,
   layout,
@@ -246,9 +254,13 @@ function ResourceWizardBody({
   );
 
   const form = useAppForm({
-    defaultValues: initialKind
-      ? { ...resourceDefaults, __step: step, kindId: initialKind, name: initialKind }
-      : { ...resourceDefaults, __step: step },
+    defaultValues: {
+      ...resourceDefaults,
+      __step: step,
+      ...(initialKind ? { kindId: initialKind, name: initialKind } : {}),
+      repo: initialGitRepoId ?? "",
+      branch: initialBranch ?? "main",
+    },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     validators: { onChange: resourceFormSchema as any },
     onSubmit: async ({ value }) => {
