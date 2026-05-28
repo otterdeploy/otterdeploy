@@ -85,3 +85,41 @@ export class PostgresResourceConflictError extends TaggedError(
     });
   }
 }
+
+// ---------------------------------------------------------------------------
+// Manifest lifecycle errors
+// ---------------------------------------------------------------------------
+
+export class ManifestVersionConflictError extends TaggedError(
+  "ManifestVersionConflictError",
+)<{
+  message: string;
+  currentVersion: number;
+}>() {
+  constructor(args: { currentVersion: number }) {
+    super({
+      currentVersion: args.currentVersion,
+      message: `manifest was modified concurrently — current server version is ${args.currentVersion}`,
+    });
+  }
+}
+
+/**
+ * Per-resource skip during apply. Not a "fail the whole apply" error —
+ * the reconciler keeps going and surfaces these in the `skipped[]`
+ * result so the operator can see which resources didn't reconcile and
+ * why. Carries the resource kind + name to populate the wire shape.
+ */
+export class ManifestApplySkipError extends TaggedError("ManifestApplySkipError")<{
+  message: string;
+  resource: "service" | "database" | "env";
+  name: string;
+  reason: string;
+}>() {
+  constructor(args: { resource: "service" | "database" | "env"; name: string; reason: string }) {
+    super({
+      ...args,
+      message: `${args.resource} ${args.name} skipped: ${args.reason}`,
+    });
+  }
+}

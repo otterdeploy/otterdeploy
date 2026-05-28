@@ -595,8 +595,12 @@ export const projectRouter = {
           projectId: input.id,
           organizationId: context.activeOrganizationId,
         });
-        if (!row) throw errors.NOT_FOUND();
-        return row;
+        if (row.isErr()) {
+          throw matchError(row.error, {
+            ProjectNotFoundError: () => errors.NOT_FOUND(),
+          });
+        }
+        return row.value;
       },
     ),
 
@@ -610,14 +614,18 @@ export const projectRouter = {
           },
           { manifest: input.manifest, expectedVersion: input.expectedVersion },
         );
-        if (outcome.ok) return { version: outcome.version };
-        if (outcome.reason === "not-found") throw errors.NOT_FOUND();
-        throw errors.CONFLICT();
+        if (outcome.isErr()) {
+          throw matchError(outcome.error, {
+            ProjectNotFoundError: () => errors.NOT_FOUND(),
+            ManifestVersionConflictError: () => errors.CONFLICT(),
+          });
+        }
+        return outcome.value;
       },
     ),
 
     diff: orgScopedProcedure.project.manifest.diff.handler(
-      async ({ input, context }) => {
+      async ({ input, context, errors }) => {
         context.log.set({ target: { type: "project", id: input.projectId } });
         const resolved = await resolvedManifest(
           {
@@ -626,10 +634,15 @@ export const projectRouter = {
           },
           input.environment,
         );
-        if (!resolved) return { resolved: null, changes: [] };
+        if (resolved.isErr()) {
+          throw matchError(resolved.error, {
+            ProjectNotFoundError: () => errors.NOT_FOUND(),
+          });
+        }
+        if (!resolved.value) return { resolved: null, changes: [] };
         const current = await loadCurrentState(input.projectId);
-        const changes = diffManifest(resolved, current);
-        return { resolved, changes };
+        const changes = diffManifest(resolved.value, current);
+        return { resolved: resolved.value, changes };
       },
     ),
 
@@ -642,14 +655,18 @@ export const projectRouter = {
           id: input.projectId,
           organizationId: context.activeOrganizationId,
         });
-        if (projectRow.isErr()) throw errors.NOT_FOUND();
+        if (projectRow.isErr()) {
+          throw matchError(projectRow.error, {
+            ProjectNotFoundError: () => errors.NOT_FOUND(),
+          });
+        }
         const file = await renderProjectFromRows(input.projectId);
         return { yaml: toComposeYaml(file) };
       },
     ),
 
     apply: orgScopedProcedure.project.manifest.apply.handler(
-      async ({ input, context }) => {
+      async ({ input, context, errors }) => {
         context.log.set({ target: { type: "project", id: input.projectId } });
         const resolved = await resolvedManifest(
           {
@@ -658,7 +675,12 @@ export const projectRouter = {
           },
           input.environment,
         );
-        if (!resolved) {
+        if (resolved.isErr()) {
+          throw matchError(resolved.error, {
+            ProjectNotFoundError: () => errors.NOT_FOUND(),
+          });
+        }
+        if (!resolved.value) {
           return {
             appliedCount: 0,
             skipped: [],
@@ -669,7 +691,7 @@ export const projectRouter = {
         return applyManifest({
           projectId: input.projectId,
           organizationId: context.activeOrganizationId,
-          manifest: resolved,
+          manifest: resolved.value,
           current,
           log: context.log,
         });

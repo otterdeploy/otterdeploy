@@ -18,6 +18,7 @@
  */
 
 import { and, eq } from "drizzle-orm";
+import { Result } from "better-result";
 import type { RequestLogger } from "evlog";
 
 import { db } from "@otterstack/db";
@@ -39,6 +40,7 @@ import {
   type ServiceManifest,
   type DatabaseManifest,
 } from "../../stack/manifest";
+import { ManifestApplySkipError } from "./errors";
 import { createPostgresResourceStream, validatePostgresCreate } from "./postgres/create-stream";
 import {
   applyPostgresExtraEnv,
@@ -71,25 +73,25 @@ export interface ApplyInput {
 
 export async function applyManifest(input: ApplyInput): Promise<ApplyResult> {
   const { projectId, organizationId, manifest, current, log } = input;
-  const skipped: ApplyResult["skipped"] = [];
+  const skipped: ManifestApplySkipError[] = [];
   let appliedCount = 0;
 
   const changes = diffManifest(manifest, current);
   const byKind = groupChanges(changes);
 
+  // Per-step result handler — Result.err contributes to skipped[],
+  // Result.ok bumps the applied counter. Keeps the orchestrator's
+  // control flow free of per-call if/else branches.
+  const tally = (result: Result<unknown, ManifestApplySkipError>): void => {
+    if (result.isOk()) appliedCount += 1;
+    else skipped.push(result.error);
+  };
+
   // ── 1. Database creates ─────────────────────────────────────────────
   for (const change of byKind.databaseCreates) {
     const spec = manifest.databases[change.name];
     if (!spec) continue;
-    const outcome = await createDatabase({
-      projectId,
-      organizationId,
-      name: change.name,
-      spec,
-      log,
-    });
-    if (outcome.ok) appliedCount += 1;
-    else skipped.push({ resource: "database", name: change.name, reason: outcome.reason });
+    tally(await createDatabase({ projectId, organizationId, name: change.name, spec, log }));
   }
 
   // ── 2. Build the ref-resolution table for service env ────────────────
@@ -99,28 +101,26 @@ export async function applyManifest(input: ApplyInput): Promise<ApplyResult> {
   const refTable = await loadRefTable(projectId);
 
   // ── 3. Service creates ──────────────────────────────────────────────
-  const createdServiceIds = new Map<string, ResourceId>();
   for (const change of byKind.serviceCreates) {
     const spec = manifest.services[change.name];
     if (!spec) continue;
-    const resolvedEnv = resolveEnv(spec.env, refTable, current.services[change.name]?.env ?? {});
-    if (resolvedEnv.skipped.length > 0) {
-      for (const s of resolvedEnv.skipped) skipped.push(s);
-    }
-    const outcome = await createServiceFromManifest({
-      projectId,
-      organizationId,
-      name: change.name,
-      spec,
-      env: resolvedEnv.values,
-      log,
-    });
-    if (outcome.ok) {
-      appliedCount += 1;
-      createdServiceIds.set(change.name, outcome.resourceId);
-    } else {
-      skipped.push({ resource: "service", name: change.name, reason: outcome.reason });
-    }
+    const resolved = resolveEnv(
+      change.name,
+      spec.env,
+      refTable,
+      current.services[change.name]?.env ?? {},
+    );
+    for (const s of resolved.skipped) skipped.push(s);
+    tally(
+      await createServiceFromManifest({
+        projectId,
+        organizationId,
+        name: change.name,
+        spec,
+        env: resolved.values,
+        log,
+      }),
+    );
   }
 
   // ── 4. Service updates (fields + env) ────────────────────────────────
@@ -128,18 +128,24 @@ export async function applyManifest(input: ApplyInput): Promise<ApplyResult> {
     const spec = manifest.services[change.name];
     const existingId = await lookupServiceId(projectId, change.name);
     if (!spec || !existingId) continue;
-    const resolvedEnv = resolveEnv(spec.env, refTable, current.services[change.name]?.env ?? {});
-    for (const s of resolvedEnv.skipped) skipped.push(s);
-    const outcome = await updateServiceFromManifest({
-      projectId,
-      organizationId,
-      resourceId: existingId,
-      spec,
-      env: resolvedEnv.values,
-      log,
-    });
-    if (outcome.ok) appliedCount += 1;
-    else skipped.push({ resource: "service", name: change.name, reason: outcome.reason });
+    const resolved = resolveEnv(
+      change.name,
+      spec.env,
+      refTable,
+      current.services[change.name]?.env ?? {},
+    );
+    for (const s of resolved.skipped) skipped.push(s);
+    tally(
+      await updateServiceFromManifest({
+        projectId,
+        organizationId,
+        name: change.name,
+        resourceId: existingId,
+        spec,
+        env: resolved.values,
+        log,
+      }),
+    );
   }
 
   // ── 5. Database updates ─────────────────────────────────────────────
@@ -147,16 +153,17 @@ export async function applyManifest(input: ApplyInput): Promise<ApplyResult> {
     const spec = manifest.databases[change.name];
     const existingId = await lookupDatabaseId(projectId, change.name);
     if (!spec || !existingId) continue;
-    const outcome = await updateDatabaseFromManifest({
-      projectId,
-      organizationId,
-      resourceId: existingId,
-      spec,
-      currentExtraEnv: current.databases[change.name]?.extraEnv ?? {},
-      log,
-    });
-    if (outcome.ok) appliedCount += 1;
-    else skipped.push({ resource: "database", name: change.name, reason: outcome.reason });
+    tally(
+      await updateDatabaseFromManifest({
+        projectId,
+        organizationId,
+        name: change.name,
+        resourceId: existingId,
+        spec,
+        currentExtraEnv: current.databases[change.name]?.extraEnv ?? {},
+        log,
+      }),
+    );
   }
 
   // ── 6 + 7. Deletes (services then databases) ─────────────────────────
@@ -166,11 +173,13 @@ export async function applyManifest(input: ApplyInput): Promise<ApplyResult> {
     const result = await deleteService({ projectId, organizationId, resourceId: existingId }, log);
     if (result.isOk()) appliedCount += 1;
     else
-      skipped.push({
-        resource: "service",
-        name: change.name,
-        reason: `delete failed: ${result.error.name}`,
-      });
+      skipped.push(
+        new ManifestApplySkipError({
+          resource: "service",
+          name: change.name,
+          reason: `delete failed: ${result.error.name}`,
+        }),
+      );
   }
   for (const change of byKind.databaseDeletes) {
     const existingId = await lookupDatabaseId(projectId, change.name);
@@ -184,7 +193,15 @@ export async function applyManifest(input: ApplyInput): Promise<ApplyResult> {
     .set({ lastAppliedManifest: manifest, lastManifestAppliedAt: new Date() })
     .where(and(eq(project.id, projectId), eq(project.organizationId, organizationId)));
 
-  return { appliedCount, skipped, lastAppliedAt: new Date().toISOString() };
+  return {
+    appliedCount,
+    skipped: skipped.map((e) => ({
+      resource: e.resource,
+      name: e.name,
+      reason: e.reason,
+    })),
+    lastAppliedAt: new Date().toISOString(),
+  };
 }
 
 // ── Group changes by kind for the orchestrator ─────────────────────────
@@ -276,27 +293,30 @@ async function loadRefTable(projectId: ProjectId): Promise<RefTable> {
 
 interface ResolvedEnv {
   values: Array<{ key: string; value: string }>;
-  skipped: ApplyResult["skipped"];
+  skipped: ManifestApplySkipError[];
 }
 
 function resolveEnv(
+  serviceName: string,
   desired: Record<string, string> | undefined,
   refs: RefTable,
   currentServerEnv: Record<string, string>,
 ): ResolvedEnv {
   const values: ResolvedEnv["values"] = [];
-  const skipped: ResolvedEnv["skipped"] = [];
+  const skipped: ManifestApplySkipError[] = [];
 
   for (const [key, raw] of Object.entries(desired ?? {})) {
     if (isSecretSentinel(raw)) {
       const existing = currentServerEnv[key];
       if (existing === undefined) {
-        skipped.push({
-          resource: "env",
-          name: key,
-          reason:
-            "declared as ${secret} but no value set — run `otterdeploy env set` before applying",
-        });
+        skipped.push(
+          new ManifestApplySkipError({
+            resource: "env",
+            name: `${serviceName}.${key}`,
+            reason:
+              "declared as ${secret} but no value set — run `otterdeploy env set` before applying",
+          }),
+        );
         continue;
       }
       values.push({ key, value: existing });
@@ -305,11 +325,13 @@ function resolveEnv(
 
     const substituted = interpolate(raw, refs);
     if (substituted.unresolved.length > 0) {
-      skipped.push({
-        resource: "env",
-        name: key,
-        reason: `unresolved reference(s): ${substituted.unresolved.join(", ")}`,
-      });
+      skipped.push(
+        new ManifestApplySkipError({
+          resource: "env",
+          name: `${serviceName}.${key}`,
+          reason: `unresolved reference(s): ${substituted.unresolved.join(", ")}`,
+        }),
+      );
       continue;
     }
     values.push({ key, value: substituted.value });
@@ -387,7 +409,7 @@ interface CreateServiceArgs {
 
 async function createServiceFromManifest(
   args: CreateServiceArgs,
-): Promise<{ ok: true; resourceId: ResourceId } | { ok: false; reason: string }> {
+): Promise<Result<{ resourceId: ResourceId }, ManifestApplySkipError>> {
   // Git-sourced services start with a placeholder image — the builder
   // overwrites it on first build. The existing handler accepts the
   // placeholder; we still pass the manifest's command/entrypoint.
@@ -432,13 +454,22 @@ async function createServiceFromManifest(
     },
     args.log,
   );
-  if (result.isErr()) return { ok: false, reason: `create failed: ${result.error.name}` };
-  return { ok: true, resourceId: result.value.id as ResourceId };
+  if (result.isErr()) {
+    return Result.err(
+      new ManifestApplySkipError({
+        resource: "service",
+        name: args.name,
+        reason: `create failed: ${result.error.name}`,
+      }),
+    );
+  }
+  return Result.ok({ resourceId: result.value.id as ResourceId });
 }
 
 interface UpdateServiceArgs {
   projectId: ProjectId;
   organizationId: OrgId;
+  name: string;
   resourceId: ResourceId;
   spec: ServiceManifest;
   env: Array<{ key: string; value: string }>;
@@ -447,7 +478,7 @@ interface UpdateServiceArgs {
 
 async function updateServiceFromManifest(
   args: UpdateServiceArgs,
-): Promise<{ ok: true } | { ok: false; reason: string }> {
+): Promise<Result<{ resourceId: ResourceId }, ManifestApplySkipError>> {
   const patch =
     args.spec.source === "image"
       ? { image: args.spec.image }
@@ -490,7 +521,15 @@ async function updateServiceFromManifest(
     },
     args.log,
   );
-  if (updated.isErr()) return { ok: false, reason: `update failed: ${updated.error.name}` };
+  if (updated.isErr()) {
+    return Result.err(
+      new ManifestApplySkipError({
+        resource: "service",
+        name: args.name,
+        reason: `update failed: ${updated.error.name}`,
+      }),
+    );
+  }
 
   // Reconcile env wholesale — bulkSetEnv replaces the set with what we pass.
   const envResult = await bulkSetEnv(
@@ -502,8 +541,16 @@ async function updateServiceFromManifest(
     },
     args.log,
   );
-  if (envResult.isErr()) return { ok: false, reason: `env reconcile failed: ${envResult.error.name}` };
-  return { ok: true };
+  if (envResult.isErr()) {
+    return Result.err(
+      new ManifestApplySkipError({
+        resource: "service",
+        name: args.name,
+        reason: `env reconcile failed: ${envResult.error.name}`,
+      }),
+    );
+  }
+  return Result.ok({ resourceId: args.resourceId });
 }
 
 // ── Database create/update ─────────────────────────────────────────────
@@ -518,14 +565,20 @@ interface CreateDatabaseArgs {
 
 async function createDatabase(
   args: CreateDatabaseArgs,
-): Promise<{ ok: true } | { ok: false; reason: string }> {
+): Promise<Result<{ name: string }, ManifestApplySkipError>> {
   const validation = await validatePostgresCreate({
     projectId: args.projectId,
     organizationId: args.organizationId,
     name: args.name,
   });
   if (validation.isErr()) {
-    return { ok: false, reason: `validation failed: ${validation.error.name}` };
+    return Result.err(
+      new ManifestApplySkipError({
+        resource: "database",
+        name: args.name,
+        reason: `validation failed: ${validation.error.name}`,
+      }),
+    );
   }
 
   // Drain the create stream to completion — the manifest apply path
@@ -549,7 +602,13 @@ async function createDatabase(
     if (event.type === "error") errorMessage = event.message;
   }
   if (!success) {
-    return { ok: false, reason: errorMessage ?? "create stream ended without done event" };
+    return Result.err(
+      new ManifestApplySkipError({
+        resource: "database",
+        name: args.name,
+        reason: errorMessage ?? "create stream ended without done event",
+      }),
+    );
   }
 
   // extraEnv comes after creation — the create stream doesn't accept it
@@ -569,12 +628,13 @@ async function createDatabase(
     }
   }
 
-  return { ok: true };
+  return Result.ok({ name: args.name });
 }
 
 interface UpdateDatabaseArgs {
   projectId: ProjectId;
   organizationId: OrgId;
+  name: string;
   resourceId: ResourceId;
   spec: DatabaseManifest;
   currentExtraEnv: Record<string, string>;
@@ -583,7 +643,7 @@ interface UpdateDatabaseArgs {
 
 async function updateDatabaseFromManifest(
   args: UpdateDatabaseArgs,
-): Promise<{ ok: true } | { ok: false; reason: string }> {
+): Promise<Result<{ name: string }, ManifestApplySkipError>> {
   const desiredPublic = args.spec.publicEnabled ?? false;
   await setPostgresPublic(
     {
@@ -607,7 +667,7 @@ async function updateDatabaseFromManifest(
       args.log,
     );
   }
-  return { ok: true };
+  return Result.ok({ name: args.name });
 }
 
 // ── DB lookup helpers ──────────────────────────────────────────────────
