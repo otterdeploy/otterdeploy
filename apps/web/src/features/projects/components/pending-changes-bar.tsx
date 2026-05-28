@@ -2,17 +2,17 @@
  * Floating "Apply N change(s)" pill — sits below the top nav whenever
  * the saved manifest diverges from current resources.
  *
- * Reads from manifest.diff (the same diff the CLI `status` command
- * uses), so the UI and CLI agree on what "pending" means:
- *   - someone saved a manifest via CLI `sync --preview` but didn't apply
- *   - a wizard create staged (no apply)
- *   - a postgres delete staged (no apply)
+ * Reads from manifest.diff (same diff CLI `status` uses), so the UI
+ * and CLI agree on what "pending" means:
+ *   - wizard create staged (no apply)
+ *   - postgres delete staged (no apply)
+ *   - CLI `sync --preview` saved without apply
  *   - resources drifted out-of-band
  *
- * Hidden when there are no meaningful changes (`no-op` rows excluded).
- *   - Click the count → expands the change list inline
- *   - Discard → reverts the saved manifest to the last applied snapshot
- *   - Deploy → manifest.apply (no second code path)
+ * Click the count to expand into a per-resource diff view that names
+ * the change (create / update / delete), lists the field-level
+ * current → new values for updates, and surfaces per-resource discard.
+ * Deploy = manifest.apply. Discard = manifest.discard.
  */
 
 import { useState } from "react";
@@ -29,14 +29,19 @@ interface PendingChangesBarProps {
   environment?: string;
 }
 
+type DiffChange = {
+  kind: "create" | "update" | "delete" | "no-op";
+  resource: "service" | "database" | "env";
+  name: string;
+  details?: Record<string, unknown>;
+};
+
 export function PendingChangesBar({ projectId, environment }: PendingChangesBarProps) {
   const [expanded, setExpanded] = useState(false);
 
   const diff = useQuery(
     orpc.project.manifest.diff.queryOptions({
       input: { projectId, environment },
-      // Periodic refetch — picks up out-of-band changes (CLI sync from
-      // another shell, etc.) without needing a project-wide event push.
       refetchInterval: 5_000,
     }),
   );
@@ -81,12 +86,23 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
     }
   };
 
-  const meaningful = (diff.data?.changes ?? []).filter((c) => c.kind !== "no-op");
+  const meaningful = (diff.data?.changes ?? []).filter(
+    (c): c is DiffChange => c.kind !== "no-op",
+  );
   if (meaningful.length === 0) return null;
+
+  // Group by (resource kind + name). One named resource may produce
+  // multiple `env` rows; they all roll up under the parent service for
+  // display so the user sees "service api will be updated · 2 vars".
+  const groups = groupChanges(meaningful);
 
   return (
     <div className="pointer-events-none fixed inset-x-0 top-20 z-40 flex justify-center">
-      <div className="pointer-events-auto flex flex-col items-stretch gap-0 overflow-hidden rounded-2xl border bg-card/95 shadow-lg backdrop-blur">
+      <div
+        className={`pointer-events-auto flex flex-col items-stretch overflow-hidden rounded-2xl border bg-card/95 shadow-lg backdrop-blur ${
+          expanded ? "w-[min(640px,calc(100vw-2rem))]" : ""
+        }`}
+      >
         <div className="flex items-center gap-3 px-4 py-2">
           <button
             type="button"
@@ -120,34 +136,149 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
           </Button>
         </div>
         {expanded && (
-          <ul className="max-h-64 list-none overflow-auto border-t bg-muted/30 px-4 py-2 text-xs">
-            {meaningful.map((c, i) => (
-              <li
-                key={`${c.kind}-${c.resource}-${c.name}-${i}`}
-                className="flex items-center gap-2 py-0.5 font-mono"
-              >
-                <ChangeSymbol kind={c.kind} />
-                <span className="text-muted-foreground">{c.resource}</span>
-                <span className="text-foreground">{c.name}</span>
-              </li>
-            ))}
-          </ul>
+          <div className="max-h-[60vh] overflow-auto border-t bg-muted/30">
+            <ul className="flex flex-col gap-3 p-3">
+              {groups.map((g, i) => (
+                <li key={`${g.resource}-${g.name}-${i}`}>
+                  <ChangeGroupCard group={g} />
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </div>
     </div>
   );
 }
 
-function ChangeSymbol({ kind }: { kind: string }) {
-  const { ch, cls } =
-    kind === "create"
-      ? { ch: "+", cls: "text-success" }
-      : kind === "delete"
-        ? { ch: "−", cls: "text-destructive" }
-        : kind === "update"
-          ? { ch: "~", cls: "text-warning" }
-          : { ch: "·", cls: "text-muted-foreground" };
+// ─── Grouping ─────────────────────────────────────────────────────────
+
+interface GroupedChange {
+  kind: "create" | "update" | "delete";
+  resource: "service" | "database";
+  name: string;
+  // For updates: { fieldName: { from, to } }. May be empty when the
+  // server returned a coarse "update" without a field-level breakdown.
+  fields: Array<{ field: string; from: unknown; to: unknown }>;
+  // Number of env-level changes rolled into this group (set/unset).
+  envChanges: number;
+}
+
+function groupChanges(changes: DiffChange[]): GroupedChange[] {
+  const byKey = new Map<string, GroupedChange>();
+  for (const c of changes) {
+    if (c.resource === "env") {
+      // env keys are emitted as `${serviceName}.${KEY}`.
+      const parent = c.name.split(".")[0] ?? c.name;
+      const key = `service:${parent}`;
+      const existing =
+        byKey.get(key) ??
+        ({
+          kind: "update",
+          resource: "service",
+          name: parent,
+          fields: [],
+          envChanges: 0,
+        } as GroupedChange);
+      existing.envChanges += 1;
+      byKey.set(key, existing);
+      continue;
+    }
+    const key = `${c.resource}:${c.name}`;
+    if (byKey.has(key)) continue;
+    const fieldEntries = extractFields(c.details);
+    byKey.set(key, {
+      kind: c.kind === "no-op" ? "update" : c.kind,
+      resource: c.resource,
+      name: c.name,
+      fields: fieldEntries,
+      envChanges: 0,
+    });
+  }
+  return [...byKey.values()];
+}
+
+function extractFields(details: unknown): GroupedChange["fields"] {
+  if (!details || typeof details !== "object") return [];
+  const fields = (details as { fields?: unknown }).fields;
+  if (!fields || typeof fields !== "object") return [];
+  return Object.entries(fields as Record<string, unknown>).map(([field, value]) => {
+    const v = value as { from?: unknown; to?: unknown };
+    return { field, from: v.from, to: v.to };
+  });
+}
+
+// ─── Per-group card ───────────────────────────────────────────────────
+
+function ChangeGroupCard({ group }: { group: GroupedChange }) {
+  const verb = {
+    create: "will be created",
+    update: "will be updated",
+    delete: "will be deleted",
+  }[group.kind];
+  const tint = {
+    create: "text-success",
+    update: "text-info",
+    delete: "text-destructive",
+  }[group.kind];
+  const settingsCount = group.fields.length + group.envChanges;
   return (
-    <span className={`inline-block w-3 text-center font-semibold ${cls}`}>{ch}</span>
+    <div className="rounded-lg border bg-card">
+      <div className="flex items-center justify-between gap-3 px-3 py-2">
+        <div className="flex items-center gap-2 text-sm">
+          <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+            {group.resource}
+          </span>
+          <span className="font-mono font-medium text-foreground">{group.name}</span>
+          <span className={tint}>{verb}</span>
+        </div>
+        {settingsCount > 0 && (
+          <span className="text-xs text-muted-foreground">
+            {settingsCount} {settingsCount === 1 ? "setting" : "settings"}
+          </span>
+        )}
+      </div>
+      {(group.fields.length > 0 || group.envChanges > 0) && (
+        <div className="border-t px-3 py-2">
+          {group.fields.length > 0 && <FieldTable fields={group.fields} />}
+          {group.envChanges > 0 && (
+            <div className="mt-1 text-xs text-muted-foreground">
+              {group.envChanges} environment variable
+              {group.envChanges === 1 ? "" : "s"} changed
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
+}
+
+function FieldTable({ fields }: { fields: GroupedChange["fields"] }) {
+  return (
+    <table className="w-full text-xs font-mono">
+      <thead>
+        <tr className="text-muted-foreground">
+          <th className="py-1 text-left font-medium">Field</th>
+          <th className="py-1 text-left font-medium">Current</th>
+          <th className="py-1 text-left font-medium">New</th>
+        </tr>
+      </thead>
+      <tbody>
+        {fields.map((f) => (
+          <tr key={f.field} className="border-t border-border/40">
+            <td className="py-1 text-foreground">{f.field}</td>
+            <td className="py-1 text-muted-foreground">{renderValue(f.from)}</td>
+            <td className="py-1 text-foreground">{renderValue(f.to)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function renderValue(v: unknown): string {
+  if (v === null || v === undefined) return "—";
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  return JSON.stringify(v);
 }
