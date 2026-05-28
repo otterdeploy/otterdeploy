@@ -26,6 +26,7 @@ import { projectLogsContractSlice } from "./project-logs";
 import { proxyContractSlice } from "./proxy";
 import { resourceContractSlice } from "./resource";
 import { serviceTasksContractSlice } from "./service-tasks";
+import { stackContractSlice } from "./stack";
 
 export const projectContract = {
   ...projectContractSlice,
@@ -33,6 +34,7 @@ export const projectContract = {
   dependencies: dependenciesContractSlice,
   serviceTasks: serviceTasksContractSlice,
   manifest: manifestContractSlice,
+  stack: stackContractSlice,
   ...projectLogsContractSlice,
   resource: {
     ...resourceContractSlice,
