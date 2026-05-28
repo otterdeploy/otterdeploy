@@ -9,7 +9,6 @@
   },
   "scripts": {
     "check-types": "tsc -b",
-    "dev": "bun run --hot src/index.ts",
     "start": "bun run src/index.ts"
   },
   "dependencies": {

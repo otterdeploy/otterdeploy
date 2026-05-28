@@ -107,7 +107,12 @@ export const auth = betterAuth({
     // verificationUri; the CLI polls /device/token and receives an
     // access_token used with bearer() above.
     deviceAuthorization({
-      verificationUri: "/device",
+      // Absolute URL pointed at the WEB origin (where /device is rendered),
+      // not the API origin. In prod they're typically the same host; in dev
+      // they diverge (api.otterstack.localhost vs. web.otterstack.localhost),
+      // so a relative path would send users to the API server's /device,
+      // which doesn't exist. We use the first CORS_ORIGIN as the web host.
+      verificationUri: `${(env.CORS_ORIGIN[0] ?? env.BETTER_AUTH_URL).replace(/\/$/, "")}/device`,
       // Accept any client_id for now — the CLI sends "otterdeploy-cli".
       // Tighten when we ship third-party integrations.
       validateClient: async () => true,

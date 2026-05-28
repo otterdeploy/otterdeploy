@@ -63,15 +63,16 @@ async function deviceCodeLogin(url: string): Promise<string> {
 
   consola.box(
     [
-      "Open this URL in your browser:",
+      "Opening this URL in your browser:",
       "",
       `  ${fullUrl}`,
       "",
-      "and confirm the code matches:",
+      "If it doesn't open, paste it manually. Confirm the code matches:",
       "",
       `  ${user_code}`,
     ].join("\n"),
   );
+  openInBrowser(fullUrl);
 
   let pollSeconds = interval ?? 5;
   const deadline = Date.now() + (expires_in ?? 1800) * 1000;
@@ -100,4 +101,18 @@ async function deviceCodeLogin(url: string): Promise<string> {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function openInBrowser(url: string): void {
+  const cmd =
+    process.platform === "darwin"
+      ? ["open", url]
+      : process.platform === "win32"
+        ? ["cmd", "/c", "start", "", url]
+        : ["xdg-open", url];
+  try {
+    Bun.spawn(cmd, { stdout: "ignore", stderr: "ignore" });
+  } catch {
+    // Ignore — user has the URL in the box.
+  }
 }

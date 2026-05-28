@@ -1,44 +1,55 @@
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { defineCommand } from "citty";
 import { consola } from "consola";
 
-import { ensureAuthenticated } from "../auth-flow";
 import { createCliClient } from "../client";
-import {
-  DEFAULT_CONFIG_FILENAME,
-  configExists,
-  configPath,
-  writeConfigTemplate,
-} from "../config-file";
+import { configExists, writeConfigTemplate } from "../config-file";
+import { resolveToken, resolveUrl } from "../config";
+
+const TS_FILENAME = "otterdeploy.config.ts";
+const JSON_FILENAME = "otterdeploy.config.json";
 
 export const initCommand = defineCommand({
   meta: {
     name: "init",
-    description: `Scaffold an ${DEFAULT_CONFIG_FILENAME} template`,
+    description: "Scaffold an otterdeploy config and link or create the project",
   },
   args: {
     name: { type: "string", description: "Project display name (prompted if omitted)" },
     slug: { type: "string", description: "Project slug" },
-    url: { type: "string", description: "Override control plane URL" },
-    config: {
+    config: { type: "string", description: "Path to config file (overrides --format)" },
+    format: {
       type: "string",
-      description: `Path to config file (default: ${DEFAULT_CONFIG_FILENAME})`,
+      description: "Config format when no --config given: json (default) | ts",
     },
     yes: { type: "boolean", description: "Skip confirmation prompts" },
   },
   async run({ args }) {
-    const path = configPath(args.config);
-    if (configExists(args.config) && !args.yes) {
-      const ok = await consola.prompt(`${path} already exists. Overwrite?`, {
-        type: "confirm",
-        initial: false,
-      });
+    const url = resolveUrl();
+    const token = resolveToken();
+    if (!url || !token) {
+      consola.error("Not logged in. Run `otterdeploy login <url>` first.");
+      process.exit(1);
+    }
+
+    const targetPath = args.config
+      ? resolve(process.cwd(), args.config)
+      : resolve(process.cwd(), args.format === "ts" ? TS_FILENAME : JSON_FILENAME);
+
+    const alreadyExists = args.config ? existsSync(targetPath) : configExists();
+    if (alreadyExists && !args.yes) {
+      const ok = await consola.prompt(
+        `A config already exists${args.config ? ` at ${targetPath}` : ""}. Overwrite ${targetPath}?`,
+        { type: "confirm", initial: false },
+      );
       if (!ok) {
         consola.info("Aborted.");
         process.exit(1);
       }
     }
 
-    const { url, token } = await ensureAuthenticated(args.url);
     const client = createCliClient({ url, token });
 
     const slug = args.slug ?? (await consola.prompt("Project slug:", { type: "text" }));
@@ -56,12 +67,12 @@ export const initCommand = defineCommand({
     }
 
     writeConfigTemplate({
-      path,
+      path: targetPath,
       schemaUrl: `${url.replace(/\/$/, "")}/otterstack.schema.json`,
       projectSlug: project.slug,
     });
 
-    consola.success(`Wrote ${path}`);
-    consola.info("Next: edit the file, then run `otterdeploy sync`.");
+    consola.success(`Wrote ${targetPath}`);
+    consola.info("Next: edit the file, then run `otterdeploy sync` or `otterdeploy deploy`.");
   },
 });

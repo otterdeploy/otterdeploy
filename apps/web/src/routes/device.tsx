@@ -1,5 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import * as z from "zod";
 
@@ -30,6 +30,26 @@ function DevicePairingPage() {
   const { user_code: prefilled } = Route.useSearch();
   const [code, setCode] = useState(prefilled ?? "");
   const [done, setDone] = useState<"approved" | "denied" | null>(null);
+
+  // Better-auth requires the user_code to be claimed (bound to the current
+  // session's userId) via GET /device before approve/deny will succeed.
+  // We do that as a one-shot query keyed on the entered code; it runs once
+  // when the page mounts with a prefilled code, and again when the user
+  // edits it back to a valid length. Failures here mean "code expired or
+  // unknown" — surfaced to the user via `claim.error`.
+  const claim = useQuery({
+    enabled: code.length > 0,
+    queryKey: ["device", "claim", code],
+    queryFn: async () => {
+      const result = await authClient.device({ query: { user_code: code } });
+      if (result.error) {
+        throw new Error(result.error.error_description ?? "Invalid code");
+      }
+      return result.data;
+    },
+    retry: false,
+    staleTime: Infinity,
+  });
 
   const approve = useMutation({
     mutationFn: async (userCode: string) => {
@@ -67,8 +87,9 @@ function DevicePairingPage() {
     );
   }
 
-  const busy = approve.isPending || deny.isPending;
-  const error = approve.error?.message ?? deny.error?.message;
+  const busy = approve.isPending || deny.isPending || claim.isFetching;
+  const error = claim.error?.message ?? approve.error?.message ?? deny.error?.message;
+  const claimed = claim.isSuccess;
 
   return (
     <Shell title="Authorize a device">
@@ -98,7 +119,7 @@ function DevicePairingPage() {
       <div className="flex gap-2">
         <Button
           type="button"
-          disabled={busy || code.length === 0}
+          disabled={busy || code.length === 0 || !claimed}
           onClick={() => approve.mutate(code)}
           className="flex-1"
         >
@@ -107,7 +128,7 @@ function DevicePairingPage() {
         <Button
           type="button"
           variant="outline"
-          disabled={busy || code.length === 0}
+          disabled={busy || code.length === 0 || !claimed}
           onClick={() => deny.mutate(code)}
           className="flex-1"
         >
