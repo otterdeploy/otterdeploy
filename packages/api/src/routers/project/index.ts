@@ -31,6 +31,8 @@ import {
   validatePostgresCreate,
 } from "./handlers";
 import { loadManifest, resolvedManifest, saveManifest } from "./manifest";
+import { loadCurrentState } from "./manifest-state";
+import { diffManifest } from "../../stack/manifest";
 import { tailProjectLogs } from "./project-logs";
 
 export const projectRouter = {
@@ -622,9 +624,10 @@ export const projectRouter = {
           },
           input.environment,
         );
-        // Phase 4 will compute real changes from current resource state;
-        // Phase 3 returns an empty plan so the wire shape is stable.
-        return { resolved, changes: [] };
+        if (!resolved) return { resolved: null, changes: [] };
+        const current = await loadCurrentState(input.projectId);
+        const changes = diffManifest(resolved, current);
+        return { resolved, changes };
       },
     ),
 

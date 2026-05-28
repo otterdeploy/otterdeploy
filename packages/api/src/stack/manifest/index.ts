@@ -17,3 +17,14 @@ export {
   ManifestRefError,
   type Ref,
 } from "./refs";
+
+export {
+  diffManifest,
+  type Change,
+  type ChangeKind,
+  type ChangeResource,
+  type CurrentDatabase,
+  type CurrentService,
+  type CurrentServicePort,
+  type CurrentState,
+} from "./diff";
