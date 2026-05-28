@@ -17,6 +17,11 @@ import { pathToFileURL } from "node:url";
 
 import { manifestSchema, type Manifest } from "@otterstack/api/manifest";
 
+import { Result, TaggedError } from "better-result";
+
+// import { assert } from "node:test";
+import assert from "node:assert/strict";
+
 // .json is the default format. .ts is supported for users who want
 // type-checked authoring + env-var interpolation; .json is preferred
 // when both are present (rare; usually only one exists).
@@ -46,25 +51,48 @@ export function configExists(override?: string, cwd?: string): boolean {
   );
 }
 
+class LoadConfigError extends TaggedError("ConfigError")<{
+  path: string;
+  message: string;
+}>() {
+  constructor(args: { path: string; message?: string }) {
+    super({ path: args.path, message: args.message ?? `Config error: ${args.path}` });
+  }
+}
+
 export async function loadConfig(override?: string): Promise<Manifest> {
   const path = configPath(override);
   if (!existsSync(path)) {
-    throw new Error(`No config at ${path}. Run \`otterdeploy init\`.`);
+    throw new LoadConfigError({
+      path,
+      message: `No config at ${path}. Run \`otterdeploy init\`.`,
+    });
   }
   const ext = extname(path).toLowerCase();
 
-  let raw: unknown;
-  if (ext === ".json") {
-    raw = await Bun.file(path).json();
-  } else {
-    // file:// URL avoids ESM resolver issues with absolute paths on Windows.
-    const mod = (await import(pathToFileURL(path).href)) as { default?: unknown };
-    if (mod.default === undefined) {
-      throw new Error(`${path} must \`export default\` a config (use defineConfig()).`);
-    }
-    raw = mod.default;
+  const rawResult = await Result.tryPromise({
+    try: async (): Promise<unknown> => {
+      if (ext === ".json") return Bun.file(path).json();
+      // file:// URL avoids ESM resolver issues with absolute paths on
+      // Windows + keeps cache-busting deterministic across reloads.
+      const mod = (await import(pathToFileURL(path).href)) as { default?: unknown };
+      assert(
+        mod.default !== undefined,
+        `${path} must \`export default\` a config (use defineConfig()).`,
+      );
+      return mod.default;
+    },
+    catch: (cause): Error =>
+      cause instanceof Error ? cause : new Error(String(cause)),
+  });
+
+  if (rawResult.isErr()) {
+    // Don't swallow: loadConfig's contract is "returns a Manifest or
+    // throws". Anything else corrupts the downstream save/diff path.
+    throw new LoadConfigError({ path, message: rawResult.error.message });
   }
-  return manifestSchema.parse(raw) as Manifest;
+
+  return manifestSchema.parse(rawResult.value) as Manifest;
 }
 
 // Write a populated manifest back to disk in the same format as the

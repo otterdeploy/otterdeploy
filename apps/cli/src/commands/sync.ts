@@ -9,7 +9,7 @@ import { countByKind, printDiff } from "../lib/diff-printer";
 export const syncCommand = defineCommand({
   meta: {
     name: "sync",
-    description: "Load config, diff, and apply changes",
+    description: "Load config and reconcile resources to match",
   },
   args: {
     config: { type: "string", description: "Path to config file" },
@@ -25,23 +25,22 @@ export const syncCommand = defineCommand({
 
     const manifest = await loadConfig(args.config);
     const project = await client.project.getBySlug({ slug: manifest.project });
-
-    // Save first so the server's diff sees the latest manifest. The
-    // expectedVersion gate makes concurrent edits surface as CONFLICT
-    // instead of silently overwriting.
     const current = await client.project.manifest.get({ id: project.id });
-    const saved = await client.project.manifest.save({
-      projectId: project.id,
-      manifest,
-      expectedVersion: current.version,
-    });
 
-    const diff = await client.project.manifest.diff({
-      projectId: project.id,
-      environment: args.env,
-    });
-
+    // Preview path: save + diff, but skip apply. Lets users see what
+    // `sync` would do without committing. The save still happens so the
+    // server's diff sees the latest manifest — preview is also the
+    // canonical way to publish a draft for the UI to inspect.
     if (args.preview) {
+      const saved = await client.project.manifest.save({
+        projectId: project.id,
+        manifest,
+        expectedVersion: current.version,
+      });
+      const diff = await client.project.manifest.diff({
+        projectId: project.id,
+        environment: args.env,
+      });
       if (args.json) {
         process.stdout.write(`${JSON.stringify(diff, null, 2)}\n`);
         return;
@@ -51,22 +50,33 @@ export const syncCommand = defineCommand({
       return;
     }
 
-    // Confirm before destructive applies (any delete) unless --yes.
-    const counts = countByKind(diff.changes);
-    if ((counts.delete ?? 0) > 0 && !args.yes && !args.json) {
-      printDiff(diff.changes);
-      const ok = await consola.prompt(
-        `${counts.delete} resource(s) will be deleted. Continue?`,
-        { type: "confirm", initial: false },
-      );
-      if (!ok) {
-        consola.info("Aborted.");
-        process.exit(1);
+    // Confirmation path: if there's a destructive change pending (any
+    // delete), surface the diff and prompt before applying. Skipped
+    // under --yes / --json (script-friendly).
+    if (!args.yes && !args.json) {
+      const diff = await client.project.manifest.diff({
+        projectId: project.id,
+        environment: args.env,
+      });
+      const counts = countByKind(diff.changes);
+      if ((counts.delete ?? 0) > 0) {
+        printDiff(diff.changes);
+        const ok = await consola.prompt(
+          `${counts.delete} resource(s) will be deleted. Continue?`,
+          { type: "confirm", initial: false },
+        );
+        if (!ok) {
+          consola.info("Aborted.");
+          process.exit(1);
+        }
       }
     }
 
-    const result = await client.project.manifest.apply({
+    // One RPC — atomic save+apply. Same path the UI Deploy button uses.
+    const result = await client.project.manifest.applyChange({
       projectId: project.id,
+      manifest,
+      expectedVersion: current.version,
       environment: args.env,
     });
 
@@ -74,7 +84,7 @@ export const syncCommand = defineCommand({
       process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
       return;
     }
-    consola.success(`Applied ${result.appliedCount} change(s).`);
+    consola.success(`Applied ${result.appliedCount} change(s) (manifest v${result.version}).`);
     if (result.skipped.length > 0) {
       consola.warn("Skipped:");
       for (const s of result.skipped) {

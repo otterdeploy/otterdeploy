@@ -24,17 +24,15 @@ export const deployCommand = defineCommand({
 
     const manifest = await loadConfig(args.config);
     const project = await client.project.getBySlug({ slug: manifest.project });
-
-    // Always save first — the apply path reads the saved manifest, so
-    // unsaved local edits would otherwise be ignored.
     const current = await client.project.manifest.get({ id: project.id });
-    const saved = await client.project.manifest.save({
-      projectId: project.id,
-      manifest,
-      expectedVersion: current.version,
-    });
 
+    // Dry-run path: save + diff, then bail. Same shape as `sync --preview`.
     if (args["dry-run"]) {
+      const saved = await client.project.manifest.save({
+        projectId: project.id,
+        manifest,
+        expectedVersion: current.version,
+      });
       const diff = await client.project.manifest.diff({
         projectId: project.id,
         environment: args.env,
@@ -48,12 +46,13 @@ export const deployCommand = defineCommand({
       return;
     }
 
-    consola.info(
-      `Saved manifest v${saved.version}. Applying${args.env ? ` (env: ${args.env})` : ""}…`,
-    );
+    consola.info(`Applying${args.env ? ` (env: ${args.env})` : ""}…`);
 
-    const result = await client.project.manifest.apply({
+    // One RPC — same path UI Deploy uses.
+    const result = await client.project.manifest.applyChange({
       projectId: project.id,
+      manifest,
+      expectedVersion: current.version,
       environment: args.env,
     });
 
@@ -62,7 +61,7 @@ export const deployCommand = defineCommand({
       return;
     }
 
-    consola.success(`Applied ${result.appliedCount} change(s).`);
+    consola.success(`Applied ${result.appliedCount} change(s) (manifest v${result.version}).`);
     if (result.skipped.length > 0) {
       consola.warn("Skipped:");
       for (const s of result.skipped) {

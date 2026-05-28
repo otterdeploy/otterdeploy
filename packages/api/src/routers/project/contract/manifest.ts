@@ -74,6 +74,31 @@ export const manifestApplyOutput = z.object({
   lastAppliedAt: z.string(),
 });
 
+// applyChange — atomic save + apply. Single round-trip for the common
+// "I edited the manifest, deploy it now" flow. The CLI's `sync` and
+// the UI's "Deploy" both call this; no daylight between the two paths.
+// `save` + `apply` remain for the stack editor's "preview then deploy"
+// flow where the user wants to inspect the diff before reconciling.
+export const manifestApplyChangeInput = z.object({
+  projectId: getProjectInput.shape.id,
+  manifest: manifestSchema,
+  expectedVersion: z.number().int().nonnegative(),
+  environment: z.string().min(1).optional(),
+});
+
+export const manifestApplyChangeOutput = z.object({
+  version: z.number().int().nonnegative(),
+  appliedCount: z.number().int().nonnegative(),
+  skipped: z.array(
+    z.object({
+      resource: z.enum(["service", "database", "env"]),
+      name: z.string(),
+      reason: z.string(),
+    }),
+  ),
+  lastAppliedAt: z.string(),
+});
+
 export const manifestExportInput = z.object({
   projectId: getProjectInput.shape.id,
 });
@@ -110,6 +135,11 @@ export const manifestContractSlice = {
     .meta({ path: `${basePath}/{projectId}/manifest/apply`, tag, method: "POST" })
     .input(manifestApplyInput)
     .output(manifestApplyOutput),
+  applyChange: oc
+    .errors({ ...projectNotFoundErrors, ...conflict })
+    .meta({ path: `${basePath}/{projectId}/manifest/apply-change`, tag, method: "POST" })
+    .input(manifestApplyChangeInput)
+    .output(manifestApplyChangeOutput),
   // One-way render of the current resource graph as a deployable
   // docker-compose stack file. Disaster-recovery / local-dev / audit
   // escape hatch; not a roundtrip — secret values are resolved in the

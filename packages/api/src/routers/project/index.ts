@@ -697,6 +697,61 @@ export const projectRouter = {
         });
       },
     ),
+
+    // One-shot save+apply. The common path for both CLI sync and UI
+    // Deploy — no daylight between the two code routes. The discrete
+    // save/diff/apply endpoints stay for the stack-code editor's
+    // "preview before deploy" flow where the user wants to inspect
+    // the diff between save and apply.
+    applyChange: orgScopedProcedure.project.manifest.applyChange.handler(
+      async ({ input, context, errors }) => {
+        context.log.set({ target: { type: "project", id: input.projectId } });
+
+        const saved = await saveManifest(
+          {
+            projectId: input.projectId,
+            organizationId: context.activeOrganizationId,
+          },
+          { manifest: input.manifest, expectedVersion: input.expectedVersion },
+        );
+        if (saved.isErr()) {
+          throw matchError(saved.error, {
+            ProjectNotFoundError: () => errors.NOT_FOUND(),
+            ManifestVersionConflictError: () => errors.CONFLICT(),
+          });
+        }
+
+        const resolved = await resolvedManifest(
+          {
+            projectId: input.projectId,
+            organizationId: context.activeOrganizationId,
+          },
+          input.environment,
+        );
+        if (resolved.isErr()) {
+          throw matchError(resolved.error, {
+            ProjectNotFoundError: () => errors.NOT_FOUND(),
+          });
+        }
+        if (!resolved.value) {
+          return {
+            version: saved.value.version,
+            appliedCount: 0,
+            skipped: [],
+            lastAppliedAt: new Date().toISOString(),
+          };
+        }
+        const current = await loadCurrentState(input.projectId);
+        const applied = await applyManifest({
+          projectId: input.projectId,
+          organizationId: context.activeOrganizationId,
+          manifest: resolved.value,
+          current,
+          log: context.log,
+        });
+        return { version: saved.value.version, ...applied };
+      },
+    ),
   },
 
   logs: {
