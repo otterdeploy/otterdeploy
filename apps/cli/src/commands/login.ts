@@ -80,6 +80,9 @@ export const loginCommand = defineCommand({
         saveConfig({
           ...loadConfig(),
           url,
+          // The verification_uri is the web origin's /device URL —
+          // grab its origin so init can write a working $schema URL.
+          webUrl: safeOrigin(fullUrl),
           token: tokenRes.data.access_token,
         });
         consola.success("Logged in.");
@@ -117,6 +120,14 @@ export const loginCommand = defineCommand({
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function safeOrigin(maybeUrl: string): string | undefined {
+  try {
+    return new URL(maybeUrl).origin;
+  } catch {
+    return undefined;
+  }
 }
 
 // Best-effort browser launch. Failure is non-fatal: the URL is also

@@ -6,7 +6,7 @@ import { consola } from "consola";
 
 import { createCliClient } from "../client";
 import { configExists, writeConfigTemplate } from "../config-file";
-import { resolveToken, resolveUrl } from "../config";
+import { loadConfig, resolveToken, resolveUrl } from "../config";
 
 const TS_FILENAME = "otterdeploy.config.ts";
 const JSON_FILENAME = "otterdeploy.config.json";
@@ -66,9 +66,13 @@ export const initCommand = defineCommand({
       consola.info(`Linked to existing project ${slug}`);
     }
 
+    // The schema is served as a static asset on the WEB origin, not the
+    // API. webUrl is captured during login; fall back to the API URL only
+    // if a pre-existing config predates that change.
+    const schemaHost = loadConfig().webUrl ?? url;
     writeConfigTemplate({
       path: targetPath,
-      schemaUrl: `${url.replace(/\/$/, "")}/otterstack.schema.json`,
+      schemaUrl: `${schemaHost.replace(/\/$/, "")}/otterstack.schema.json`,
       projectSlug: project.slug,
     });
 

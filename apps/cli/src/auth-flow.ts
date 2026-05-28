@@ -31,13 +31,13 @@ export async function ensureAuthenticated(urlOverride?: string): Promise<AuthedS
   if (existing) return { url, token: existing };
 
   consola.info(`Not authenticated — starting browser-based login at ${url}.`);
-  const token = await deviceCodeLogin(url);
-  saveConfig({ ...loadConfig(), url, token });
+  const { token, webUrl } = await deviceCodeLogin(url);
+  saveConfig({ ...loadConfig(), url, webUrl, token });
   consola.success("Logged in.");
   return { url, token };
 }
 
-async function deviceCodeLogin(url: string): Promise<string> {
+async function deviceCodeLogin(url: string): Promise<{ token: string; webUrl?: string }> {
   const auth = createCliAuthClient(url);
 
   const codeRes = await auth.device.code({
@@ -84,7 +84,18 @@ async function deviceCodeLogin(url: string): Promise<string> {
       device_code,
       client_id: CLI_CLIENT_ID,
     });
-    if (tokenRes.data?.access_token) return tokenRes.data.access_token;
+    if (tokenRes.data?.access_token) {
+      // verification_uri carries the web origin (in dev that's a
+      // different host than the API). Capture it so init can build a
+      // proper $schema URL without a separate config endpoint.
+      let webUrl: string | undefined;
+      try {
+        webUrl = new URL(fullUrl).origin;
+      } catch {
+        webUrl = undefined;
+      }
+      return { token: tokenRes.data.access_token, webUrl };
+    }
 
     const code = tokenRes.error?.error;
     if (code === "authorization_pending") continue;

@@ -8,6 +8,11 @@ import * as z from "zod";
 // token by the device-code exchange, orgId by `otterdeploy org use`.
 const ConfigSchema = z.object({
   url: z.string().url().optional(),
+  // Origin of the web app — used for `$schema` URLs in generated config
+  // files. Captured from the device-code response's verification_uri
+  // during login (no separate user input). In single-domain prod
+  // deployments this matches `url`; in dev it diverges.
+  webUrl: z.string().url().optional(),
   token: z.string().optional(),
   orgId: z.string().optional(),
 });
