@@ -9,6 +9,7 @@
     "serve": "vite preview",
     "start": "vite",
     "check-types": "tsr generate && tsc --noEmit",
+    "gen:schema": "bun scripts/gen-schema.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

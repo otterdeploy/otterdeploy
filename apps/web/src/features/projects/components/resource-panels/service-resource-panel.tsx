@@ -13,6 +13,30 @@ import { Button } from "@/shared/components/ui/button";
 
 import { PanelIcon } from "./atoms";
 
+// Build config + preDeploy + restartWindowMs + disk/swap/pids land here
+// from the manifest sync path. The wizard doesn't author them yet — for
+// now this panel surfaces whatever has been set so operators can confirm
+// the manifest applied.
+type BuildSummary =
+  | { builder: "auto"; watchPatterns?: string[] }
+  | { builder: "dockerfile"; dockerfilePath?: string | null; watchPatterns?: string[] }
+  | {
+      builder: "nixpacks";
+      buildCommand?: string | null;
+      nixpacksConfigPath?: string | null;
+      watchPatterns?: string[];
+    }
+  | {
+      builder: "railpack";
+      buildCommand?: string | null;
+      watchPatterns?: string[];
+    }
+  | {
+      builder: "compose";
+      composePath?: string | null;
+      watchPatterns?: string[];
+    };
+
 interface ServiceResourcePanelProps {
   resource: {
     name: string;
@@ -21,6 +45,14 @@ interface ServiceResourcePanelProps {
     status: string;
     publicEnabled: boolean;
     publicDomain: string | null;
+    preDeploy?: string[] | null;
+    // The contract types this as unknown (jsonb passthrough) so we
+    // narrow at use-site below.
+    buildConfig?: unknown;
+    restartWindowMs?: number | null;
+    diskLimitMb?: number | null;
+    swapLimitMb?: number | null;
+    pidsLimit?: number | null;
   };
   onClose: () => void;
 }
@@ -92,6 +124,8 @@ export function ServiceResourcePanel({
         />
       </div>
 
+      <ManifestExtras resource={resource} />
+
       <div className="mx-6 mt-6 rounded-md border border-dashed bg-muted/20 p-5 text-[12px] text-muted-foreground">
         Service-specific sections (logs, env, ports, deployments, live replica
         state) land in later D.* slices. The data is in the database and the
@@ -100,6 +134,89 @@ export function ServiceResourcePanel({
       </div>
     </div>
   );
+}
+
+// Read-only display of manifest-authored fields the wizard doesn't ship yet.
+// Renders nothing when every field is null/undefined.
+function ManifestExtras({
+  resource,
+}: {
+  resource: ServiceResourcePanelProps["resource"];
+}) {
+  const build = narrowBuildConfig(resource.buildConfig);
+  const buildSummary = build ? summarizeBuild(build) : null;
+  const watchPatterns = build?.watchPatterns;
+  const hasExtras =
+    buildSummary != null ||
+    (resource.preDeploy && resource.preDeploy.length > 0) ||
+    resource.restartWindowMs != null ||
+    resource.diskLimitMb != null ||
+    resource.swapLimitMb != null ||
+    resource.pidsLimit != null;
+  if (!hasExtras) return null;
+  return (
+    <div className="mx-6 mt-5 flex flex-col gap-3">
+      {buildSummary && <PanelStat label="Build" value={buildSummary} />}
+      {watchPatterns && watchPatterns.length > 0 && (
+        <PanelStat label="Watch patterns" value={watchPatterns.join(", ")} />
+      )}
+      {resource.preDeploy && resource.preDeploy.length > 0 && (
+        <PanelStat label="Pre-deploy" value={resource.preDeploy.join(" ")} />
+      )}
+      <div className="grid grid-cols-2 gap-3">
+        {resource.restartWindowMs != null && (
+          <PanelStat
+            label="Restart window"
+            value={`${resource.restartWindowMs} ms`}
+          />
+        )}
+        {resource.diskLimitMb != null && (
+          <PanelStat label="Disk limit" value={`${resource.diskLimitMb} MB`} />
+        )}
+        {resource.swapLimitMb != null && (
+          <PanelStat label="Swap limit" value={`${resource.swapLimitMb} MB`} />
+        )}
+        {resource.pidsLimit != null && (
+          <PanelStat label="PIDs limit" value={String(resource.pidsLimit)} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Narrow `unknown` (from the contract's jsonb passthrough) to BuildSummary.
+// Returns null if the shape doesn't look like a known build config.
+function narrowBuildConfig(value: unknown): BuildSummary | null {
+  if (!value || typeof value !== "object") return null;
+  const builder = (value as { builder?: unknown }).builder;
+  if (
+    builder !== "auto" &&
+    builder !== "dockerfile" &&
+    builder !== "nixpacks" &&
+    builder !== "railpack" &&
+    builder !== "compose"
+  )
+    return null;
+  return value as BuildSummary;
+}
+
+function summarizeBuild(build: BuildSummary): string {
+  switch (build.builder) {
+    case "auto":
+      return "auto-detect";
+    case "dockerfile":
+      return `dockerfile · ${build.dockerfilePath ?? "./Dockerfile"}`;
+    case "nixpacks": {
+      const cmd = build.buildCommand ? ` · ${build.buildCommand}` : "";
+      return `nixpacks${cmd}`;
+    }
+    case "railpack": {
+      const cmd = build.buildCommand ? ` · ${build.buildCommand}` : "";
+      return `railpack${cmd}`;
+    }
+    case "compose":
+      return `compose · ${build.composePath ?? "./docker-compose.yml"}`;
+  }
 }
 
 function PanelStat({ label, value }: { label: string; value: string }) {

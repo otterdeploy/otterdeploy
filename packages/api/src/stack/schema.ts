@@ -87,6 +87,8 @@ export type StackHealthcheck = z.infer<typeof stackHealthcheckSchema>;
 export const stackResourceLimitsSchema = z.object({
   cpus: z.string().optional(),
   memory: z.string().optional(),
+  // Compose deploy.resources.limits.pids — max PIDs per replica.
+  pids: positiveInt.optional(),
 });
 
 export const stackResourcesSchema = z.object({
@@ -146,6 +148,21 @@ export const stackOtterstackExtensionSchema = z.object({
   graph: z
     .object({ x: z.number(), y: z.number() })
     .optional(),
+
+  // Lifecycle hook — runs once before the new replicas take traffic.
+  // No compose-deploy equivalent; rides under x-otterstack so the
+  // value survives YAML round-trip.
+  preDeploy: z.array(z.string()).optional(),
+
+  // Build configuration for git-sourced services. Same discriminated
+  // shape as the manifest; carried in the extension so the compose
+  // file is a lossless render of the project state.
+  buildConfig: z.unknown().optional(),
+
+  // Extended resource limits with no docker-swarm deploy.resources
+  // slot. Surfaced for tools that want the value (and our own UI).
+  diskLimitMb: z.number().int().positive().optional(),
+  swapLimitMb: z.number().int().positive().optional(),
 });
 export type StackOtterstackExtension = z.infer<
   typeof stackOtterstackExtensionSchema

@@ -45,7 +45,11 @@ function buildHealthcheck(
 function buildResources(s: ServiceRecord["service"]): StackResources {
   const memory = (mb: number | null) => (mb != null ? `${mb}M` : undefined);
   return {
-    limits: { cpus: s.cpuLimit ?? undefined, memory: memory(s.memoryLimitMb) },
+    limits: {
+      cpus: s.cpuLimit ?? undefined,
+      memory: memory(s.memoryLimitMb),
+      pids: s.pidsLimit ?? undefined,
+    },
     reservations: {
       cpus: s.cpuReservation ?? undefined,
       memory: memory(s.memoryReservationMb),
@@ -100,6 +104,7 @@ export function buildServiceEntry(
         condition: s.restartCondition,
         delay: msToCompose(s.restartDelayMs),
         max_attempts: s.restartMaxAttempts ?? undefined,
+        window: msToCompose(s.restartWindowMs),
       },
     },
     "x-otterstack": {
@@ -108,6 +113,10 @@ export function buildServiceEntry(
       projectId: record.resource.projectId,
       publicEnabled: s.publicEnabled,
       publicHostname: s.publicDomain ?? undefined,
+      preDeploy: s.preDeploy ?? undefined,
+      buildConfig: s.buildConfig ?? undefined,
+      diskLimitMb: s.diskLimitMb ?? undefined,
+      swapLimitMb: s.swapLimitMb ?? undefined,
     },
   };
 }
