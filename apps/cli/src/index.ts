@@ -6,6 +6,7 @@ import { envCommand } from "./commands/env";
 import { initCommand } from "./commands/init";
 import { loginCommand } from "./commands/login";
 import { logoutCommand } from "./commands/logout";
+import { logsCommand } from "./commands/logs";
 import { projectCommand } from "./commands/project";
 import { pullCommand } from "./commands/pull";
 import { whoamiCommand } from "./commands/whoami";
@@ -24,6 +25,7 @@ const main = defineCommand({
     deploy: deployCommand,
     pull: pullCommand,
     env: envCommand,
+    logs: logsCommand,
     project: projectCommand,
   },
 });
