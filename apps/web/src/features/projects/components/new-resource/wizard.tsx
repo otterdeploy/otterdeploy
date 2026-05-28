@@ -6,7 +6,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { getDatabaseEngine } from "@otterdeploy/shared/database-engines";
-import { formatBytes } from "@otterdeploy/shared/format";
 
 import {
   SERVICE_KINDS,
@@ -79,7 +78,7 @@ function ResourceWizardBody({
 
   // Provisioner state + create mutators (database + service) hoisted
   // into a hook so this component stays under the file-length cap.
-  const { progress, runDatabaseCreate, runServiceCreate } =
+  const { isCreating, runDatabaseCreate, runServiceCreate } =
     useResourceProvisioner({ projectId, projectSlug, onComplete });
 
   const {
@@ -106,7 +105,6 @@ function ResourceWizardBody({
     runServiceCreate,
   });
 
-  const isCreating = progress.status === "running";
   const kindWired = isKindWired(kindId, kind);
   const createDisabled = isLast && (!kindWired || isCreating);
 
@@ -127,8 +125,6 @@ function ResourceWizardBody({
           isSourceBased={isSourceBased}
           isDocker={isDocker}
           projectId={projectId}
-          isLast={isLast}
-          progress={progress}
         />
 
         {currentStepIssues.length > 0 && (
@@ -206,8 +202,6 @@ function WizardStepBody({
   isSourceBased,
   isDocker,
   projectId,
-  isLast,
-  progress,
 }: {
   step: Step;
   kind: ServiceKind | null;
@@ -215,14 +209,7 @@ function WizardStepBody({
   isSourceBased: boolean;
   isDocker: boolean;
   projectId: ProjectId;
-  isLast: boolean;
-  progress: CreateProgressState;
 }) {
-  // Provisioning checklist — only shown on the review step while the
-  // create stream is open or after it errored.
-  const showChecklist =
-    isLast && (progress.status !== "idle" || progress.steps.length > 0);
-
   return (
     <div className="flex-1 overflow-y-auto p-4">
       <div
@@ -235,7 +222,6 @@ function WizardStepBody({
           isDocker,
           projectId,
         })}
-        {showChecklist && <ProvisionChecklist progress={progress} />}
       </div>
     </div>
   );
@@ -338,278 +324,6 @@ function WizardFooter({
   );
 }
 
-// Friendly labels for each step name emitted by the backend stream. Keep in
-// sync with the swarmStep() calls in packages/api/src/swarm/postgres.ts and
-// the yield events in createPostgresResourceStream.
-const STEP_LABELS: Record<string, string> = {
-  "image-pull": "Pull the postgres image",
-  "provision-swarm": "Provision the swarm service",
-  "container-logs": "Read container boot output",
-  "db-record": "Persist the resource record",
-  "caddy-route": "Register the Caddy proxy route",
-  "caddy-reconcile": "Reconcile the running Caddy config",
-};
-
-function PullLayerList({ layers }: { layers: PullLayerState[] }) {
-  if (layers.length === 0) return null;
-  return (
-    <div className="mt-2 ml-4 flex flex-col gap-0.5 border-l border-border/40 pl-3">
-      {layers.map((layer) => {
-        const pct =
-          layer.total && layer.total > 0 && layer.current != null
-            ? Math.min(100, Math.round((layer.current / layer.total) * 100))
-            : null;
-
-        const sizes =
-          layer.current != null && layer.total != null && layer.total > 0
-            ? `${formatBytes(layer.current)}/${formatBytes(layer.total)}`
-            : null;
-        return (
-          <div
-            key={layer.id}
-            className="flex items-baseline gap-2 font-mono text-[10.5px]"
-          >
-            <span className="w-20 shrink-0 truncate text-muted-foreground/70">
-              {layer.id.slice(0, 12)}
-            </span>
-            <span
-              className={cn("flex-1 truncate text-muted-foreground", {
-                "text-success/80":
-                  layer.status === "Pull complete" ||
-                  layer.status === "Already exists",
-                "text-foreground/70":
-                  layer.status === "Downloading" ||
-                  layer.status === "Extracting",
-              })}
-            >
-              {layer.status}
-            </span>
-            {sizes && <span className="text-muted-foreground/60">{sizes}</span>}
-            {pct != null && (
-              <span className="w-9 text-right text-muted-foreground/80">
-                {pct}%
-              </span>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function BootLogList({ lines }: { lines: BootLogLine[] }) {
-  if (lines.length === 0) return null;
-  return (
-    <div className="mt-2 ml-4 max-h-40 overflow-auto rounded-sm border border-border/40 bg-[oklch(0.13_0_0)] p-2 font-mono text-[10.5px] leading-relaxed">
-      {lines.map((l) => (
-        <div
-          key={l.id}
-          className={
-            l.stream === "stderr" ? "text-destructive/80" : "text-foreground/75"
-          }
-        >
-          {l.line}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function ProvisionChecklist({ progress }: { progress: CreateProgressState }) {
-  return (
-    <div className="mt-5 rounded-md border bg-card p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Provisioning
-        </span>
-        <span className="text-[11px] text-muted-foreground">
-          Live progress from the backend
-        </span>
-      </div>
-      <ul className="flex flex-col gap-2">
-        {progress.steps.map((s) => {
-          const label = STEP_LABELS[s.step] ?? s.step;
-
-          return (
-            <li key={s.step} className="flex flex-col">
-              <div className="flex items-baseline gap-3">
-                <span
-                  className={cn(
-                    "mt-1 inline-block size-1.5 rounded-full bg-warning animate-pulse",
-                    {
-                      "bg-success": s.status !== "ok",
-                      "bg-destructive": s.status === "error",
-                    },
-                  )}
-                  aria-hidden
-                />
-                <span className="flex-1 text-[13px] text-foreground">
-                  {label}
-                </span>
-                <span
-                  className={cn("font-mono text-[11px] text-muted-foreground", {
-                    "text-success": s.status !== "ok",
-                    "text-error": s.status === "error",
-                  })}
-                >
-                  {s.status === "tick" ? "in progress" : s.status}
-                </span>
-                {s.message && (
-                  <span className="font-mono text-[10px] text-muted-foreground/70">
-                    {s.message}
-                  </span>
-                )}
-              </div>
-              {s.step === "image-pull" && (
-                <>
-                  {progress.pullSummary && (
-                    <div className="mt-1 ml-4 font-mono text-[10.5px] text-muted-foreground/70">
-                      {progress.pullSummary}
-                    </div>
-                  )}
-                  <PullLayerList layers={progress.pullLayers} />
-                </>
-              )}
-              {s.step === "container-logs" && (
-                <BootLogList lines={progress.bootLogs} />
-              )}
-            </li>
-          );
-        })}
-      </ul>
-      {progress.status === "error" && progress.errorMessage && (
-        <div className="mt-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[12px] text-destructive">
-          {progress.errorMessage}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Create-stream progress state ──────────────────────────────────────────
-// Tracks the latest status for each step name emitted by the create stream.
-// Steps appear in insertion order so the wizard checklist reflects the order
-// the provisioner walks them.
-
-interface CreateStepState {
-  step: string;
-  status: "start" | "ok" | "tick" | "error";
-  message: string | null;
-}
-
-interface PullLayerState {
-  id: string;
-  status: string;
-  current: number | null;
-  total: number | null;
-}
-
-interface BootLogLine {
-  id: number;
-  stream: "stdout" | "stderr";
-  line: string;
-}
-
-interface CreateProgressState {
-  status: "idle" | "running" | "error";
-  steps: CreateStepState[];
-  /** Per-layer pull progress, keyed by layer id, in first-seen order. */
-  pullLayers: PullLayerState[];
-  /** Summary line for pull events with no layer id (e.g. "Pulling from
-   *  library/postgres", "Status: Image is up to date"). */
-  pullSummary: string | null;
-  /** Image being pulled — keeps the header line meaningful even when the
-   *  current event lacks the image string. */
-  pullImage: string | null;
-  /** Container boot output captured during the wait window. Capped to the
-   *  last MAX_BOOT_LOG_LINES so a chatty container doesn't bloat memory. */
-  bootLogs: BootLogLine[];
-  /** Monotonic counter so React keys stay stable as lines come in. */
-  bootLogCounter: number;
-  errorMessage: string | null;
-}
-
-const MAX_BOOT_LOG_LINES = 200;
-
-type CreateProgressEvent =
-  | {
-      type: "step";
-      step: string;
-      status: "start" | "ok" | "tick" | "error";
-      message: string | null;
-    }
-  | {
-      type: "pull";
-      image: string;
-      id: string | null;
-      status: string;
-      progress: string | null;
-      current: number | null;
-      total: number | null;
-    }
-  | { type: "log"; stream: "stdout" | "stderr"; line: string }
-  | { type: "created"; resource: { resourceId: string; name: string } }
-  | { type: "done"; resource: { resourceId: string; name: string } }
-  | { type: "error"; code: string; message: string };
-
-function applyProgressEvent(
-  prev: CreateProgressState,
-  event: CreateProgressEvent,
-): CreateProgressState {
-  if (event.type === "error") {
-    return {
-      ...prev,
-      status: "error",
-      errorMessage: `${event.code}: ${event.message}`,
-    };
-  }
-  if (event.type === "done" || event.type === "created") {
-    return { ...prev, status: "running" };
-  }
-  if (event.type === "pull") {
-    // Events without a layer id are summary/status lines (header + footer).
-    if (!event.id) {
-      return { ...prev, pullSummary: event.status, pullImage: event.image };
-    }
-    const nextLayers = [...prev.pullLayers];
-    const i = nextLayers.findIndex((l) => l.id === event.id);
-    const entry: PullLayerState = {
-      id: event.id,
-      status: event.status,
-      current: event.current,
-      total: event.total,
-    };
-    if (i === -1) nextLayers.push(entry);
-    else nextLayers[i] = entry;
-    return { ...prev, pullLayers: nextLayers, pullImage: event.image };
-  }
-  if (event.type === "log") {
-    const id = prev.bootLogCounter + 1;
-    const next = [
-      ...prev.bootLogs,
-      { id, stream: event.stream, line: event.line },
-    ];
-    return {
-      ...prev,
-      bootLogs:
-        next.length > MAX_BOOT_LOG_LINES
-          ? next.slice(next.length - MAX_BOOT_LOG_LINES)
-          : next,
-      bootLogCounter: id,
-    };
-  }
-  // step event — upsert by step name, preserving insertion order
-  const next = [...prev.steps];
-  const i = next.findIndex((s) => s.step === event.step);
-  const entry: CreateStepState = {
-    step: event.step,
-    status: event.status,
-    message: event.message,
-  };
-  if (i === -1) next.push(entry);
-  else next[i] = entry;
-  return { ...prev, steps: next };
-}
 
 /**
  * Warm the caches the source step depends on so the dropdown +
@@ -629,14 +343,12 @@ function applyProgressEvent(
  * already cached, so the cost of an extra wizard mount is zero.
  */
 /**
- * Owns the streaming-provisioner state + the two create mutators
- * (database / service) that the wizard's `onSubmit` dispatches to. Both
- * mutators stage into the project manifest; the pending-changes bar
- * surfaces the change and the operator clicks Deploy to reconcile.
- *
- * The hook also keeps the progress reducer fields (pull layers, boot
- * logs, etc.) intact in `progress` so the `ProvisionChecklist` can
- * render its rows without round-tripping through props.
+ * Owns the two create mutators (database / service) that the wizard's
+ * `onSubmit` dispatches to. Both mutators stage into the project
+ * manifest; the pending-changes bar surfaces the change and the
+ * operator clicks Deploy to reconcile. `isCreating` mirrors the
+ * underlying mutation's pending state so the footer can disable the
+ * submit button while the save is in flight.
  */
 function useResourceProvisioner({
   projectId,
@@ -648,16 +360,6 @@ function useResourceProvisioner({
   onComplete?: () => void;
 }) {
   const stage = useStageManifestChange(projectId);
-  const [progress, setProgress] = useState<CreateProgressState>({
-    status: "idle",
-    steps: [],
-    pullLayers: [],
-    pullSummary: null,
-    pullImage: null,
-    bootLogs: [],
-    bootLogCounter: 0,
-    errorMessage: null,
-  });
 
   const runDatabaseCreate = useCallback(
     async (payload: {
@@ -665,23 +367,12 @@ function useResourceProvisioner({
       name: string;
       publicEnabled: boolean;
     }) => {
-      setProgress({
-        status: "running",
-        steps: [],
-        pullLayers: [],
-        pullSummary: null,
-        pullImage: null,
-        bootLogs: [],
-        bootLogCounter: 0,
-        errorMessage: null,
-      });
       try {
         const seen = await orpc.project.manifest.get.call({ id: projectId });
         if (seen.manifest?.databases[payload.name]) {
           toast.error(
             `Database "${payload.name}" already exists in the manifest.`,
           );
-          setProgress((prev) => ({ ...prev, status: "idle" }));
           return;
         }
         await stage.mutateAsync((current) => ({
@@ -698,11 +389,6 @@ function useResourceProvisioner({
         onComplete?.();
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        setProgress((prev) => ({
-          ...prev,
-          status: "error",
-          errorMessage: message,
-        }));
         toast.error(
           message ||
             `Failed to create ${getDatabaseEngine(payload.engine).label}`,
@@ -730,9 +416,8 @@ function useResourceProvisioner({
         const ports = payload.ports.map((p, i) => ({
           container: p.port,
           protocol: "tcp" as const,
-          appProtocol: (p.protocol === "http" ? "http" : "tcp") as
-            | "http"
-            | "tcp",
+          appProtocol:
+            p.protocol === "http" ? ("http" as const) : ("tcp" as const),
           primary: i === 0,
         }));
         await stage.mutateAsync((current) => ({
@@ -766,7 +451,7 @@ function useResourceProvisioner({
     [projectId, projectSlug, onComplete, stage],
   );
 
-  return { progress, runDatabaseCreate, runServiceCreate };
+  return { isCreating: stage.isPending, runDatabaseCreate, runServiceCreate };
 }
 
 /**
