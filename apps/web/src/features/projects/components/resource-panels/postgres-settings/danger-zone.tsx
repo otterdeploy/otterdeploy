@@ -6,8 +6,6 @@
  */
 
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
-import { toast } from "sonner";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Delete02Icon } from "@hugeicons/core-free-icons";
 
@@ -24,8 +22,8 @@ import {
 } from "@/shared/components/ui/alert-dialog";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
-import { orpc, queryClient } from "@/shared/server/orpc";
 
+import { useStageManifestChange } from "../../../hooks/use-manifest-stage";
 import type { ResourceBodyProps } from "../types";
 import { SettingsCard } from "./atoms";
 
@@ -38,40 +36,19 @@ export function DangerZone({ resource, onDeleted }: DangerZoneProps) {
   const [confirmText, setConfirmText] = useState("");
   const canConfirm = confirmText.trim() === resource.name;
 
-  const deleteMutation = useMutation({
-    mutationFn: async () => {
-      const current = await orpc.project.manifest.get.call({
-        id: resource.projectId as never,
-      });
-      const base = current.manifest;
-      if (!base) {
-        throw new Error("No manifest saved yet — can't stage delete.");
-      }
-      const { [resource.name]: _removed, ...remaining } = base.databases;
-      const next = { ...base, databases: remaining };
-      await orpc.project.manifest.save.call({
-        projectId: resource.projectId as never,
-        manifest: next,
-        expectedVersion: current.version,
-      });
+  const stage = useStageManifestChange(resource.projectId as never);
+  const deleteMutation = {
+    isPending: stage.isPending,
+    mutate: () => {
+      stage.mutate(
+        (current) => {
+          const { [resource.name]: _removed, ...remaining } = current.databases;
+          return { ...current, databases: remaining };
+        },
+        { onSuccess: () => onDeleted() },
+      );
     },
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: orpc.project.manifest.diff.queryKey({
-            input: { projectId: resource.projectId as never },
-          }),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: orpc.project.manifest.get.queryKey({
-            input: { id: resource.projectId as never },
-          }),
-        }),
-      ]);
-      onDeleted();
-    },
-    onError: (err) => toast.error(err.message ?? "Failed to stage delete"),
-  });
+  };
 
   return (
     <SettingsCard

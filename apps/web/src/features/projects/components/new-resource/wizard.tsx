@@ -1,4 +1,3 @@
-
 import type { ProjectId, ProjectSlug, Slug } from "@otterdeploy/shared/id";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ArrowLeft01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons";
@@ -7,11 +6,14 @@ import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { getDatabaseEngine } from "@otterdeploy/shared/database-engines";
+
 import { SERVICE_KINDS } from "@/features/projects/data/service-kinds";
 import { Button } from "@/shared/components/ui/button";
 import { cn } from "@/shared/lib/utils";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
+import { useStageManifestChange } from "../../hooks/use-manifest-stage";
 import { useAppForm } from "./form-context";
 import { flowFor, type StepEntry } from "./flows";
 import { resourceDefaults, resourceFormSchema, type Step } from "./schemas";
@@ -55,22 +57,28 @@ interface BodyProps extends ResourceWizardProps {
 
 // Page-layout entry point: step lives in `?step=` search param.
 export function PageResourceWizard(props: ResourceWizardProps) {
-  const search = useSearch({ from: "/_app/$orgSlug/$projectSlug/new-resource" });
+  const search = useSearch({
+    from: "/_app/$orgSlug/$projectSlug/new-resource",
+  });
   const navigate = useNavigate();
-  const step = ((search as Record<string, unknown>).step ?? "kind") as Step;
+  const step = search.step ?? "kind";
   const goTo = (next: Step) =>
     void navigate({
       to: "/$orgSlug/$projectSlug/new-resource",
       params: { orgSlug: props.orgSlug, projectSlug: props.projectSlug },
       search: (s) => ({ ...s, step: next }),
     });
-  return <ResourceWizardBody {...props} layout="page" step={step} goTo={goTo} />;
+  return (
+    <ResourceWizardBody {...props} layout="page" step={step} goTo={goTo} />
+  );
 }
 
 // Dialog-layout entry point: step lives in local state.
 export function DialogResourceWizard(props: ResourceWizardProps) {
   const [step, setStep] = useState<Step>(props.initialStep ?? "kind");
-  return <ResourceWizardBody {...props} layout="dialog" step={step} goTo={setStep} />;
+  return (
+    <ResourceWizardBody {...props} layout="dialog" step={step} goTo={setStep} />
+  );
 }
 
 function ResourceWizardBody({
@@ -87,7 +95,13 @@ function ResourceWizardBody({
   step,
   goTo,
 }: BodyProps) {
+  usePrefetchSourceData(initialGitRepoId ?? null);
   const navigate = useNavigate();
+
+  // Shared manifest-stage hook — handles get → mutate → save →
+  // invalidate(diff/get/resource.list). The wizard just supplies the
+  // mutator.
+  const stage = useStageManifestChange(projectId);
 
   // Streaming create — the procedure yields per-step progress events as
   // the provisioner walks. We track each completed/in-flight step in local
@@ -112,12 +126,6 @@ function ResourceWizardBody({
       name: string;
       publicEnabled: boolean;
     }) => {
-      const engineLabel = {
-        postgres: "Postgres",
-        redis: "Redis",
-        mariadb: "MariaDB",
-        mongodb: "MongoDB",
-      }[payload.engine];
       setProgress({
         status: "running",
         steps: [],
@@ -128,48 +136,27 @@ function ResourceWizardBody({
         bootLogCounter: 0,
         errorMessage: null,
       });
-      // Single code path: splice the new database into the manifest and
-      // call manifest.applyChange — same RPC services use, same RPC the
-      // CLI hits. The streaming `database.postgres.create` provisioner
-      // still exists for the stack-editor's preview-then-deploy flow,
-      // but the wizard now uses the unified manifest path so that a
-      // subsequent CLI `pull` sees the new database.
+      // Stage into the manifest via the shared hook — pending-changes
+      // bar surfaces it; user clicks Deploy to reconcile.
       try {
-        const current = await orpc.project.manifest.get.call({ id: projectId });
-        const baseManifest = current.manifest ?? {
-          version: 1 as const,
-          project: projectSlug,
-          services: {},
-          databases: {},
-        };
-        if (baseManifest.databases[payload.name]) {
+        const seen = await orpc.project.manifest.get.call({ id: projectId });
+        if (seen.manifest?.databases[payload.name]) {
           toast.error(`Database "${payload.name}" already exists in the manifest.`);
           setProgress((prev) => ({ ...prev, status: "idle" }));
           return;
         }
-        const nextDatabases = { ...baseManifest.databases };
-        nextDatabases[payload.name] = {
-          engine: payload.engine,
-          ...(payload.publicEnabled ? { publicEnabled: true } : {}),
-        } as (typeof nextDatabases)[string];
-        const nextManifest = { ...baseManifest, databases: nextDatabases };
-
-        // Stage — pending-changes bar will show it; user clicks Deploy to apply.
-        await orpc.project.manifest.save.call({
-          projectId,
-          manifest: nextManifest,
-          expectedVersion: current.version,
-        });
-
+        await stage.mutateAsync((current) => ({
+          ...current,
+          project: current.project || projectSlug,
+          databases: {
+            ...current.databases,
+            [payload.name]: {
+              engine: payload.engine,
+              ...(payload.publicEnabled ? { publicEnabled: true } : {}),
+            },
+          },
+        }));
         onComplete?.();
-        await Promise.all([
-          queryClient.invalidateQueries({
-            queryKey: orpc.project.manifest.diff.queryKey({ input: { projectId } }),
-          }),
-          queryClient.invalidateQueries({
-            queryKey: orpc.project.manifest.get.queryKey({ input: { id: projectId } }),
-          }),
-        ]);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         setProgress((prev) => ({
@@ -177,7 +164,9 @@ function ResourceWizardBody({
           status: "error",
           errorMessage: message,
         }));
-        toast.error(message || `Failed to create ${engineLabel}`);
+        toast.error(
+          message || `Failed to create ${getDatabaseEngine(payload.engine).label}`,
+        );
       }
     },
     [navigate, onComplete, orgSlug, projectId, projectSlug],
@@ -190,58 +179,38 @@ function ResourceWizardBody({
       image: string;
       ports: Array<{ port: number; protocol: string; public: boolean }>;
     }) => {
-      // Single code path for "create + deploy" — splice the new service
-      // into the project manifest and call manifest.applyChange. Same
-      // RPC the CLI sync hits; UI and CLI stay in lockstep.
       try {
-        const current = await orpc.project.manifest.get.call({ id: projectId });
-        const baseManifest = current.manifest ?? {
-          version: 1 as const,
-          project: projectSlug,
-          services: {},
-          databases: {},
-        };
-        if (baseManifest.services[payload.name]) {
+        const seen = await orpc.project.manifest.get.call({ id: projectId });
+        if (seen.manifest?.services[payload.name]) {
           toast.error(`Service "${payload.name}" already exists in the manifest.`);
           return;
         }
-        const nextServices = { ...baseManifest.services };
         const ports = payload.ports.map((p, i) => ({
           container: p.port,
           protocol: "tcp" as const,
           appProtocol: (p.protocol === "http" ? "http" : "tcp") as "http" | "tcp",
           primary: i === 0,
         }));
-        nextServices[payload.name] =
-          payload.source === "image"
-            ? { source: "image", image: payload.image, ports }
-            : { source: "git", ports };
-        const nextManifest = { ...baseManifest, services: nextServices };
-
-        // Stage the change — manifest.save (no apply). The pending-changes
-        // bar will surface it; clicking Deploy reconciles. Same model as
-        // resource deletes. CLI sync (applyChange) is still atomic — that's
-        // the CLI's explicit deploy step.
-        await orpc.project.manifest.save.call({
-          projectId,
-          manifest: nextManifest,
-          expectedVersion: current.version,
-        });
-
+        await stage.mutateAsync((current) => ({
+          ...current,
+          project: current.project || projectSlug,
+          services: {
+            ...current.services,
+            [payload.name]:
+              payload.source === "image"
+                ? { source: "image", image: payload.image, ports }
+                : { source: "git", ports },
+          },
+        }));
         onComplete?.();
-        await Promise.all([
-          queryClient.invalidateQueries({
-            queryKey: orpc.project.manifest.diff.queryKey({ input: { projectId } }),
-          }),
-          queryClient.invalidateQueries({
-            queryKey: orpc.project.manifest.get.queryKey({ input: { id: projectId } }),
-          }),
-        ]);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         // Surface the typed MISSING_BUILD_BINDING from the server with a
         // link-style toast that points the operator to /settings.
-        if (message.includes("missing build binding") || message.includes("no git/registry")) {
+        if (
+          message.includes("missing build binding") ||
+          message.includes("no git/registry")
+        ) {
           toast.error(
             "Project is missing source binding. Set it up under Settings → Build.",
           );
@@ -285,7 +254,9 @@ function ResourceWizardBody({
         await runServiceCreate({
           name: payload.name,
           source: "image",
-          image: payload.tag ? `${payload.image}:${payload.tag}` : payload.image,
+          image: payload.tag
+            ? `${payload.image}:${payload.tag}`
+            : payload.image,
           ports: payload.ports,
         });
         return;
@@ -386,7 +357,9 @@ function ResourceWizardBody({
 
   return (
     <form.AppForm>
-      <div className={`flex h-full flex-col text-foreground ${layout === "page" ? "bg-background" : "bg-transparent"}`}>
+      <div
+        className={`flex h-full flex-col text-foreground ${layout === "page" ? "bg-background" : "bg-transparent"}`}
+      >
         {showChrome && (
           <div className="flex shrink-0 items-center gap-3 border-b bg-card px-5 py-3">
             <Button
@@ -394,77 +367,124 @@ function ResourceWizardBody({
               size="sm"
               className="h-7 gap-1.5 px-2 text-xs text-muted-foreground"
               render={() => (
-                <Link to="/$orgSlug/$projectSlug" params={{ orgSlug, projectSlug }}>
-                  <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="size-3" />
+                <Link
+                  to="/$orgSlug/$projectSlug"
+                  params={{ orgSlug, projectSlug }}
+                >
+                  <HugeiconsIcon
+                    icon={ArrowLeft01Icon}
+                    strokeWidth={2}
+                    className="size-3"
+                  />
                   {projectName}
                 </Link>
               )}
             />
             <span className="text-sm text-border">/</span>
             <span className="text-[13px] font-semibold">Create resource</span>
-            {kind && <span className="ml-1 font-mono text-[11px] text-muted-foreground">· {kind.name}</span>}
+            {kind && (
+              <span className="ml-1 font-mono text-[11px] text-muted-foreground">
+                · {kind.name}
+              </span>
+            )}
             <div className="flex-1" />
-            <span className="text-[11px] text-muted-foreground">Step {idx + 1} of {steps.length}</span>
+            <span className="text-[11px] text-muted-foreground">
+              Step {idx + 1} of {steps.length}
+            </span>
           </div>
         )}
 
-        <Stepper steps={steps} idx={idx} setStep={goTo} failingSteps={failingSteps} />
+        <Stepper
+          steps={steps}
+          idx={idx}
+          setStep={goTo}
+          failingSteps={failingSteps}
+        />
 
-        <div className={cn("flex-1 overflow-y-auto", layout === "dialog" ? "px-[18px] py-4" : "p-[22px]")}>
-          <div className={`mx-auto ${step === "kind" ? "max-w-[1100px]" : "max-w-[820px]"}`}>
+        <div
+          className={cn(
+            "flex-1 overflow-y-auto",
+            layout === "dialog" ? "px-4 py-4" : "p-[22px]",
+          )}
+        >
+          <div
+            className={`mx-auto ${step === "kind" ? "max-w-[1100px]" : "max-w-[820px]"}`}
+          >
             {step === "kind" && <StepKind />}
             {step === "source" && kind && isSourceBased && <StepSource />}
             {step === "builder" && kind && isSourceBased && <StepBuilder />}
             {step === "image" && kind && isDocker && <StepImage />}
-            {step === "networking" && kind && (isSourceBased || isDocker) && <StepNetworking kind={kind} />}
+            {step === "networking" && kind && (isSourceBased || isDocker) && (
+              <StepNetworking kind={kind} />
+            )}
             {step === "resources" && kind && <StepResources isDb={isDb} />}
-            {step === "variables" && kind && (isSourceBased || isDocker) && <StepVariables kind={kind} />}
+            {step === "variables" && kind && (isSourceBased || isDocker) && (
+              <StepVariables kind={kind} />
+            )}
             {step === "version" && kind && isDb && (
               <StepVersion kind={kind} projectId={projectId} />
             )}
             {step === "storage" && kind && isDb && <StepStorage kind={kind} />}
-            {step === "advanced" && kind && isDb && <StepAdvancedDb kind={kind} />}
+            {step === "advanced" && kind && isDb && (
+              <StepAdvancedDb kind={kind} />
+            )}
             {step === "review" && kind && <StepReview kind={kind} />}
 
             {/* Provisioning checklist — only shown on the review step while
                 the create stream is open or after it errored. Each step
                 emitted by the backend gets a row; in-progress steps render
                 with a spinner dot, completed ones with a checkmark dot. */}
-            {isLast && (progress.status !== "idle" || progress.steps.length > 0) && (
-              <ProvisionChecklist progress={progress} />
-            )}
+            {isLast &&
+              (progress.status !== "idle" || progress.steps.length > 0) && (
+                <ProvisionChecklist progress={progress} />
+              )}
           </div>
         </div>
 
         {currentStepIssues.length > 0 && (
-          <div className={`flex shrink-0 items-center gap-2 border-t border-destructive/30 bg-destructive/5 text-[11px] text-destructive ${layout === "dialog" ? "px-[18px] py-2" : "px-5 py-2"}`}>
+          <div
+            className={`flex shrink-0 items-center gap-2 border-t border-destructive/30 bg-destructive/5 text-[11px] text-destructive ${layout === "dialog" ? "px-4 py-2" : "px-5 py-2"}`}
+          >
             <span className="font-medium">Required to continue:</span>
             <span className="font-mono text-foreground/80">
               {Array.from(
                 new Set(
                   currentStepIssues
                     .map((i) => i.path[0])
-                    .filter((p): p is string => typeof p === "string" && p !== "__step"),
+                    .filter(
+                      (p): p is string =>
+                        typeof p === "string" && p !== "__step",
+                    ),
                 ),
               ).join(", ")}
             </span>
           </div>
         )}
 
-        <div className={`flex shrink-0 items-center gap-2 border-t ${layout === "page" ? "bg-card" : "bg-transparent"} ${layout === "dialog" ? "px-[18px] py-3" : "px-5 py-3"}`}>
+        <div
+          className={`flex shrink-0 items-center gap-2 border-t ${layout === "page" ? "bg-card" : "bg-transparent"} ${layout === "dialog" ? "px-4 py-3" : "px-5 py-3"}`}
+        >
           {layout === "page" ? (
             <Button
               variant="outline"
               size="sm"
               className="h-8"
               render={() => (
-                <Link to="/$orgSlug/$projectSlug" params={{ orgSlug, projectSlug }}>
+                <Link
+                  to="/$orgSlug/$projectSlug"
+                  params={{ orgSlug, projectSlug }}
+                >
                   Cancel
                 </Link>
               )}
             />
           ) : (
-            <Button variant="outline" size="sm" className="h-8" onClick={() => onCancel?.()}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8"
+              onClick={() => onCancel?.()}
+            >
               Cancel
             </Button>
           )}
@@ -482,7 +502,11 @@ function ResourceWizardBody({
               onClick={goPrev}
               disabled={isCreating}
             >
-              <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="size-3.5" />
+              <HugeiconsIcon
+                icon={ArrowLeft01Icon}
+                strokeWidth={2}
+                className="size-3.5"
+              />
               Back
             </Button>
           )}
@@ -492,8 +516,18 @@ function ResourceWizardBody({
             onClick={() => void handleContinue()}
             disabled={createDisabled}
           >
-            {isLast ? (isCreating ? "Provisioning…" : "Create & deploy") : "Continue"}
-            {!isLast && <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-3.5" />}
+            {isLast
+              ? isCreating
+                ? "Provisioning…"
+                : "Create & deploy"
+              : "Continue"}
+            {!isLast && (
+              <HugeiconsIcon
+                icon={ArrowRight01Icon}
+                strokeWidth={2}
+                className="size-3.5"
+              />
+            )}
           </Button>
         </div>
       </div>
@@ -517,7 +551,8 @@ function formatBytes(bytes: number | null): string | null {
   if (bytes == null) return null;
   if (bytes < 1024) return `${bytes}B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+  if (bytes < 1024 * 1024 * 1024)
+    return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)}GB`;
 }
 
@@ -541,14 +576,19 @@ function PullLayerList({ layers }: { layers: PullLayerState[] }) {
             ? `${formatBytes(l.current)}/${formatBytes(l.total)}`
             : null;
         return (
-          <div key={l.id} className="flex items-baseline gap-2 font-mono text-[10.5px]">
+          <div
+            key={l.id}
+            className="flex items-baseline gap-2 font-mono text-[10.5px]"
+          >
             <span className="w-[80px] shrink-0 truncate text-muted-foreground/70">
               {l.id.slice(0, 12)}
             </span>
             <span className={`flex-1 truncate ${tone}`}>{l.status}</span>
             {sizes && <span className="text-muted-foreground/60">{sizes}</span>}
             {pct != null && (
-              <span className="w-9 text-right text-muted-foreground/80">{pct}%</span>
+              <span className="w-9 text-right text-muted-foreground/80">
+                {pct}%
+              </span>
             )}
           </div>
         );
@@ -564,7 +604,9 @@ function BootLogList({ lines }: { lines: BootLogLine[] }) {
       {lines.map((l) => (
         <div
           key={l.id}
-          className={l.stream === "stderr" ? "text-destructive/80" : "text-foreground/75"}
+          className={
+            l.stream === "stderr" ? "text-destructive/80" : "text-foreground/75"
+          }
         >
           {l.line}
         </div>
@@ -587,24 +629,29 @@ function ProvisionChecklist({ progress }: { progress: CreateProgressState }) {
       <ul className="flex flex-col gap-2">
         {progress.steps.map((s) => {
           const label = STEP_LABELS[s.step] ?? s.step;
-          const tone =
-            s.status === "ok"
-              ? "text-success"
-              : s.status === "error"
-                ? "text-destructive"
-                : "text-muted-foreground";
-          const dot =
-            s.status === "ok"
-              ? "bg-success"
-              : s.status === "error"
-                ? "bg-destructive"
-                : "bg-warning animate-pulse";
+
           return (
             <li key={s.step} className="flex flex-col">
               <div className="flex items-baseline gap-3">
-                <span className={`mt-1 inline-block size-1.5 rounded-full ${dot}`} aria-hidden />
-                <span className="flex-1 text-[13px] text-foreground">{label}</span>
-                <span className={`font-mono text-[11px] ${tone}`}>
+                <span
+                  className={cn(
+                    "mt-1 inline-block size-1.5 rounded-full bg-warning animate-pulse",
+                    {
+                      "bg-success": s.status !== "ok",
+                      "bg-destructive": s.status === "error",
+                    },
+                  )}
+                  aria-hidden
+                />
+                <span className="flex-1 text-[13px] text-foreground">
+                  {label}
+                </span>
+                <span
+                  className={cn("font-mono text-[11px] text-muted-foreground", {
+                    "text-success": s.status !== "ok",
+                    "text-error": s.status === "error",
+                  })}
+                >
                   {s.status === "tick" ? "in progress" : s.status}
                 </span>
                 {s.message && (
@@ -685,7 +732,12 @@ interface CreateProgressState {
 const MAX_BOOT_LOG_LINES = 200;
 
 type CreateProgressEvent =
-  | { type: "step"; step: string; status: "start" | "ok" | "tick" | "error"; message: string | null }
+  | {
+      type: "step";
+      step: string;
+      status: "start" | "ok" | "tick" | "error";
+      message: string | null;
+    }
   | {
       type: "pull";
       image: string;
@@ -705,7 +757,11 @@ function applyProgressEvent(
   event: CreateProgressEvent,
 ): CreateProgressState {
   if (event.type === "error") {
-    return { ...prev, status: "error", errorMessage: `${event.code}: ${event.message}` };
+    return {
+      ...prev,
+      status: "error",
+      errorMessage: `${event.code}: ${event.message}`,
+    };
   }
   if (event.type === "done" || event.type === "created") {
     return { ...prev, status: "running" };
@@ -753,4 +809,53 @@ function applyProgressEvent(
   if (i === -1) next.push(entry);
   else next[i] = entry;
   return { ...prev, steps: next };
+}
+
+/**
+ * Warm the caches the source step depends on so the dropdown +
+ * Root Directory picker have data the instant the operator gets to
+ * the source step instead of waterfalling three queries on arrival.
+ *
+ *   - git.list          → providers + installations + repoCount
+ *   - git.listRepos     → repos for the active installation (used by
+ *                         the repo dropdown + the bound-repo fullName
+ *                         lookup)
+ *   - git.inspectRepo   → root listing for the currently-bound repo;
+ *                         the server caches the full tree on this
+ *                         first call so subsequent navigations are
+ *                         free.
+ *
+ * Prefetches fan out in parallel; each is no-op when the data is
+ * already cached, so the cost of an extra wizard mount is zero.
+ */
+function usePrefetchSourceData(initialGitRepoId: string | null) {
+  useEffect(() => {
+    const run = async () => {
+      const providersOptions = orpc.git.list.queryOptions();
+      await queryClient.prefetchQuery(providersOptions);
+      const providers =
+        queryClient.getQueryData(providersOptions.queryKey) ?? [];
+      const installations = providers.flatMap((p) => p.installations);
+      const active = installations[0];
+
+      await Promise.all([
+        queryClient.prefetchQuery(
+          orpc.git.listRepos.queryOptions({
+            input: { installationId: active.id },
+          }),
+        ),
+        queryClient.prefetchQuery({
+          ...orpc.git.inspectRepo.queryOptions({
+            input: {
+              gitRepoId: initialGitRepoId,
+              path: "",
+            },
+          }),
+          staleTime: 5 * 60 * 1000,
+        }),
+      ]);
+    };
+    void run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialGitRepoId]);
 }
