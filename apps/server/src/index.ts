@@ -19,10 +19,15 @@ import { upgradeWebSocket, websocket } from "hono/bun";
 import { cors } from "hono/cors";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { invalidate } from "./lib/invalidate";
-import { registerDeploymentLogsSseRoutes } from "./deployment-logs-sse";
 import { registerTerminalRoutes } from "./terminal";
 import { registerGithubWebhookRoutes } from "./webhooks/github";
 import { registerGithubInstallRoutes } from "./webhooks/github-install";
+
+import * as z from "zod";
+import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
+import { deploymentLogsSseHandler, projectEventsSseHandler } from "./handlers";
+import { requireSseSession } from "./lib/sse-auth";
+import { validateParams } from "./lib/validate";
 
 import { createAuthMiddleware } from "evlog/better-auth";
 
@@ -180,7 +185,21 @@ app.get("/", (c) => {
 registerTerminalRoutes(app);
 registerGithubWebhookRoutes(app);
 registerGithubInstallRoutes(app);
-registerDeploymentLogsSseRoutes(app);
+
+// SSE — cookie auth + zod-validated path params via middleware; the
+// handler files in ./handlers stay focused on the streaming protocol.
+app.get(
+  "/sse/deployments/:deploymentId/logs",
+  validateParams(z.object({ deploymentId: zId(ID_PREFIX.deployment) })),
+  requireSseSession,
+  deploymentLogsSseHandler,
+);
+app.get(
+  "/sse/projects/:projectId/events",
+  validateParams(z.object({ projectId: zId(ID_PREFIX.project) })),
+  requireSseSession,
+  projectEventsSseHandler,
+);
 
 // Startup tasks: initialize Docker Swarm, then reconcile Caddy from the DB,
 // then boot BullMQ workers (in-process). The worker stop handle is captured
