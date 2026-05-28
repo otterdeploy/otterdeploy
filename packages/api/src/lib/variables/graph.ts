@@ -6,16 +6,14 @@
  * values. We rebuild this each time from `service_env_var` rows so there's
  * no separate materialized graph to drift.
  */
+import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
-import type { ProjectId } from "../../routers/project/errors";
-import type { ResourceId } from "../../routers/service/errors";
 import {
   findServiceDependentsByName,
   getServiceRecord,
   type ServiceRecord,
 } from "../../routers/service/queries";
 import { extractRefs } from "./parser";
-
 /**
  * Returns the set of `serviceResourceId`s that transitively depend on the
  * variables exported by `targetResource`. The target itself is NOT included.

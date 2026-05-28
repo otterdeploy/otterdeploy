@@ -23,7 +23,8 @@
  *   - https://docs.github.com/en/rest/apps/apps#create-an-installation-access-token-for-an-app
  */
 
-import { ID_PREFIX, type Id } from "@otterdeploy/shared/id";
+import type { GitProviderId } from "@otterdeploy/shared/id";
+
 import { createError } from "evlog";
 
 import {
@@ -31,8 +32,6 @@ import {
 } from "./github-app-config";
 
 const JWT_TTL_SECONDS = 9 * 60; // 9 minutes — GitHub allows up to 10.
-
-type GitProviderId = Id<typeof ID_PREFIX.gitProvider>;
 
 /**
  * Everything needed to authenticate as a specific GitHub App. Loaded from a

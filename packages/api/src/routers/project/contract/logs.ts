@@ -6,11 +6,10 @@
  * carry control messages from the streamer (e.g. "no running container yet"),
  * not actual container output.
  */
+import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 
 import { eventIterator, oc } from "@orpc/contract";
 import * as z from "zod";
-
-import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 
 import { basePath, resourceNotFoundErrors, tag } from "./shared";
 

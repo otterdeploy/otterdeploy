@@ -2,7 +2,8 @@
 // Docker Swarm cluster. Live CPU/mem/disk metrics are NOT stored here; this
 // table holds capacity + identity. Runtime stats come from a separate
 // metrics path (TBD).
-import { createId, ID_PREFIX, type Id } from "@otterdeploy/shared/id";
+import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
+import type { ServerId } from "@otterdeploy/shared/id";
 import {
   index,
   integer,
@@ -29,7 +30,7 @@ export const server = pgTable(
   {
     id: text("id")
       .primaryKey()
-      .$type<Id<typeof ID_PREFIX.server>>()
+      .$type<ServerId>()
       .$defaultFn(() => createId(ID_PREFIX.server)),
     organizationId: text("organization_id")
       .notNull()

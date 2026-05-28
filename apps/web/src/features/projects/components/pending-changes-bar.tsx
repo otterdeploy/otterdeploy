@@ -15,17 +15,17 @@
  * Deploy = manifest.apply. Discard = manifest.discard.
  */
 
+import type { ProjectId } from "@otterdeploy/shared/id";
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-
-import type { Id, ID_PREFIX } from "@otterdeploy/shared/id";
 
 import { Button } from "@/shared/components/ui/button";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 interface PendingChangesBarProps {
-  projectId: Id<typeof ID_PREFIX.project>;
+  projectId: ProjectId;
   environment?: string;
 }
 

@@ -13,11 +13,10 @@
  * Anything that needs more context comes from a follow-up read query —
  * keeps the push channel cheap to maintain and easy to reason about.
  */
+import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 
 import { eventIterator, oc } from "@orpc/contract";
 import * as z from "zod";
-
-import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 
 import { basePath, projectNotFoundErrors, tag } from "./shared";
 

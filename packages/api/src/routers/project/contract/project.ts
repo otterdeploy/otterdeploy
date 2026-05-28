@@ -1,14 +1,13 @@
 /**
  * Project CRUD — schemas + contract slice.
  */
+import { ID_PREFIX, zId, zSlug } from "@otterdeploy/shared/id";
 
 import { oc } from "@orpc/contract";
 import { createSelectSchema } from "drizzle-zod";
 import * as z from "zod";
 
 import { project } from "@otterdeploy/db/schema";
-import { ID_PREFIX, zId, zSlug } from "@otterdeploy/shared/id";
-
 import { basePath, projectNotFoundErrors, tag } from "./shared";
 
 export const projectSchema = createSelectSchema(project)

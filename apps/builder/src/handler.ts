@@ -10,16 +10,14 @@
  * multiple builder hosts (or bumping BUILDER_CONCURRENCY).
  */
 
+import type { DeploymentId } from "@otterdeploy/shared/id";
+
 import type { RedisClient } from "bun";
 
 import { defineJob } from "@otterdeploy/jobs";
 import { DeployTriggeredPayload, deployTriggeredJob } from "@otterdeploy/jobs/jobs/deploy";
 
 import { runBuildPipeline } from "./pipeline";
-
-import type { Id, ID_PREFIX } from "@otterdeploy/shared/id";
-
-type DeploymentId = Id<typeof ID_PREFIX.deployment>;
 
 export function makeBuildJob(publisher: RedisClient) {
   return defineJob({

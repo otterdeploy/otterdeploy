@@ -1,7 +1,7 @@
+
+import type { ProjectId } from "@otterdeploy/shared/id";
 import { createCollection } from "@tanstack/db";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
-
-import type { Id, ID_PREFIX } from "@otterdeploy/shared/id";
 
 import { orpc, queryClient } from "@/shared/server/orpc";
 
@@ -14,7 +14,7 @@ import { orpc, queryClient } from "@/shared/server/orpc";
  * (e.g. `useMemo`) when calling from a React render — otherwise the collection
  * is recreated every render and the TanStack DB subscription model breaks.
  */
-export function createResourceCollection(projectId: Id<typeof ID_PREFIX.project>) {
+export function createResourceCollection(projectId: ProjectId) {
   return createCollection(
     queryCollectionOptions({
       ...orpc.project.resource.list.queryOptions({ input: { projectId } }),

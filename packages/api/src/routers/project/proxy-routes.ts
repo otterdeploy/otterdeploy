@@ -3,17 +3,17 @@
  * project so the dashboard can render the routing table.
  */
 
-import { Result } from "better-result";
+import type { OrganizationId, ProjectId } from "@otterdeploy/shared/id";
 
-import { type Id, ID_PREFIX } from "@otterdeploy/shared/id";
+import { Result } from "better-result";
 
 import { listProxyRoutesByProject } from "../../caddy/queries";
 
-import { ProjectNotFoundError, type ProjectId } from "./errors";
+import { ProjectNotFoundError } from "./errors";
 import { getProjectInOrg } from "./queries";
 import { type ProxyRoute } from "./views";
 
-type OrgId = Id<typeof ID_PREFIX.organization>;
+type OrgId = OrganizationId;
 
 interface ProjectRef {
   projectId: ProjectId;

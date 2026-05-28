@@ -5,15 +5,13 @@
  * packages/db/src/schema/project.ts for the column semantics.
  */
 
+import type { ResourceId } from "@otterdeploy/shared/id";
+
 import { and, eq } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
 import { serviceMount } from "@otterdeploy/db/schema/project";
-import { type Id, ID_PREFIX } from "@otterdeploy/shared/id";
-
 import type { ServiceMountRow } from "./index";
-
-type ResourceId = Id<typeof ID_PREFIX.resource>;
 
 export async function listServiceMounts(
   serviceResourceId: ResourceId,

@@ -1,3 +1,5 @@
+
+import type { OrganizationId, ServerId } from "@otterdeploy/shared/id";
 import os from "node:os";
 
 import { and, asc, eq } from "drizzle-orm";
@@ -5,11 +7,7 @@ import type { InferSelectModel } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
 import { server } from "@otterdeploy/db/schema/server";
-import { type Id, ID_PREFIX } from "@otterdeploy/shared/id";
-
-import type { ServerId } from "./errors";
-
-type OrgId = Id<typeof ID_PREFIX.organization>;
+type OrgId = OrganizationId;
 
 export type ServerRecord = InferSelectModel<typeof server>;
 

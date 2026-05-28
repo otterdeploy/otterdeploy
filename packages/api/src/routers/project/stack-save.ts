@@ -6,20 +6,19 @@
  * lock on `stackFileVersion`. Returns the new version so the client can
  * track concurrent edits.
  */
+import type { OrganizationId, ProjectId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { project } from "@otterdeploy/db/schema/project";
 import { and, eq } from "drizzle-orm";
 import { Result, TaggedError } from "better-result";
 
-import { type Id, ID_PREFIX as IDP } from "@otterdeploy/shared/id";
-
 import { stackFileSchema } from "../../stack";
 
-import { ProjectNotFoundError, type ProjectId } from "./errors";
+import { ProjectNotFoundError } from "./errors";
 import { getProjectInOrg } from "./queries";
 
-type OrgId = Id<typeof IDP.organization>;
+type OrgId = OrganizationId;
 
 export class StackVersionMismatchError extends TaggedError(
   "StackVersionMismatchError",

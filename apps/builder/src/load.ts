@@ -14,6 +14,8 @@
  * registry = "project not built-pipeline-configured, skip").
  */
 
+import type { DeploymentId } from "@otterdeploy/shared/id";
+
 import { db } from "@otterdeploy/db";
 import {
   containerRegistry,
@@ -22,10 +24,7 @@ import {
   project,
   resource,
 } from "@otterdeploy/db/schema";
-import type { Id, ID_PREFIX } from "@otterdeploy/shared/id";
 import { eq } from "drizzle-orm";
-
-type DeploymentId = Id<typeof ID_PREFIX.deployment>;
 
 export interface PipelineContext {
   deployment: typeof deployment.$inferSelect;
@@ -110,12 +109,10 @@ export async function loadPipelineContext(
   if (!repo) {
     throw new PipelineLoadError("repo", `git_repo ${proj.gitRepoId} not found`);
   }
-  if (!repo.installationId) {
-    throw new PipelineLoadError(
-      "repo.installationId",
-      `git_repo ${repo.id} is not linked to an installation (revoked?)`,
-    );
-  }
+  // installationId is allowed to be null for public-URL bindings — the
+  // pipeline clones anonymously in that case. Only error here when the
+  // row was originally linked to an installation that's now revoked
+  // (no way to distinguish today; deferred until we add a `kind` col).
 
   return {
     deployment: dep,

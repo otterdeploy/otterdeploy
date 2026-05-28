@@ -8,6 +8,7 @@
  * a reason). After the walk, the saved file is promoted to
  * `lastAppliedFile` and `lastAppliedAt` is stamped.
  */
+import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { project } from "@otterdeploy/db/schema/project";
@@ -15,17 +16,14 @@ import { eq } from "drizzle-orm";
 import { Result, TaggedError } from "better-result";
 import type { RequestLogger } from "evlog";
 
-import { type Id, ID_PREFIX as IDP } from "@otterdeploy/shared/id";
-import type { ResourceId } from "../service/errors";
-
 import { stackFileSchema, type StackService } from "../../stack";
 import { getEngineAdapter } from "../../swarm";
 
-import { ProjectNotFoundError, type ProjectId } from "./errors";
+import { ProjectNotFoundError } from "./errors";
 import { applyPostgresExtraEnv } from "./postgres";
 import { getProjectInOrg } from "./queries";
 
-type OrgId = Id<typeof IDP.organization>;
+type OrgId = OrganizationId;
 
 export class StackNotSavedError extends TaggedError("StackNotSavedError")<{
   message: string;

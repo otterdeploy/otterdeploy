@@ -1,10 +1,9 @@
+import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 import { oc } from "@orpc/contract";
 import { createSelectSchema } from "drizzle-zod";
 import * as z from "zod";
 
 import { environment } from "@otterdeploy/db/schema";
-import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
-
 const tag = "env";
 const basePath = "/envs";
 

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "portless web.otterdeploy vite dev",
+    "dev": "portless web.otterstack vite dev",
     "build": "vite build",
     "serve": "vite preview",
     "start": "vite",

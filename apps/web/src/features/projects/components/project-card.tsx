@@ -1,6 +1,6 @@
-import { Link } from "@tanstack/react-router";
 
-import { ID_PREFIX, type Slug } from "@otterdeploy/shared/id";
+import type { ProjectSlug, Slug } from "@otterdeploy/shared/id";
+import { Link } from "@tanstack/react-router";
 
 import { Badge } from "@/shared/components/ui/badge";
 
@@ -28,7 +28,7 @@ export function ProjectCard({ orgSlug, project }: Props) {
       to="/$orgSlug/$projectSlug"
       params={{
         orgSlug,
-        projectSlug: project.slug as Slug<typeof ID_PREFIX.project>,
+        projectSlug: project.slug as ProjectSlug,
       }}
       className="group flex flex-col gap-3 rounded-xl border bg-card p-4 transition-colors hover:border-foreground/20"
     >

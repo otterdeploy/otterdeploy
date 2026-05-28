@@ -1,10 +1,10 @@
+
+import type { ProjectSlug, Slug } from "@otterdeploy/shared/id";
 import { z } from "zod";
 import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 
 import { PageResourceWizard } from "@/features/projects/components/new-resource/wizard";
 import { STEP_IDS, type Step } from "@/features/projects/components/new-resource/schemas";
-import { ID_PREFIX, type Slug } from "@otterdeploy/shared/id";
-
 const zNewResourceSearch = z.object({
   kind: z.string().optional(),
   step: z.enum(STEP_IDS as unknown as readonly [Step, ...Step[]]).optional(),
@@ -24,7 +24,7 @@ function RouteComponent() {
   return (
     <PageResourceWizard
       orgSlug={organization.slug}
-      projectSlug={project.slug as Slug<typeof ID_PREFIX.project>}
+      projectSlug={project.slug as ProjectSlug}
       projectId={project.id}
       projectName={project.name}
       initialKind={kind ?? null}

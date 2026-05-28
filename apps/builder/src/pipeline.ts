@@ -18,12 +18,13 @@
  * iterates a batch of deployments and must keep going if one fails.
  */
 
+import type { DeploymentId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+
 import { rm } from "node:fs/promises";
 
 import { getInstallationToken } from "@otterdeploy/api/git/github-app";
 import { decryptSecret } from "@otterdeploy/api/lib/crypto";
-import type { ResourceId } from "@otterdeploy/api/routers/service/errors";
-import type { ProjectId } from "@otterdeploy/api/routers/project/errors";
+
 import { redeployOne } from "@otterdeploy/api/routers/service/redeploy";
 import { db } from "@otterdeploy/db";
 import { serviceResource } from "@otterdeploy/db/schema";
@@ -37,10 +38,6 @@ import { loadPipelineContext, PipelineLoadError } from "./load";
 import { createLogSink } from "./log-stream";
 import { nixpacksBuild } from "./nixpacks";
 import { markBuilding, markFailed, markImageReady, markRunning } from "./state";
-
-import type { Id, ID_PREFIX } from "@otterdeploy/shared/id";
-
-type DeploymentId = Id<typeof ID_PREFIX.deployment>;
 
 export async function runBuildPipeline(opts: {
   deploymentId: DeploymentId;
@@ -60,20 +57,23 @@ export async function runBuildPipeline(opts: {
     if (!gitSha || !gitRef) {
       throw new Error("deployment has no gitSha / gitRef — not a git-triggered build");
     }
-    // loadPipelineContext already rejected nulls — narrow here so the
-    // type system follows.
+    // Public-URL bindings carry no installationId — we just clone over
+    // anonymous HTTPS. Installation-backed bindings still mint a short-
+    // lived token + inject it.
     const installationId = ctx.repo.installationId;
     const imageRepository = ctx.project.imageRepository;
-    if (!installationId || !imageRepository) {
+    if (!imageRepository) {
       throw new Error("internal: load yielded incomplete context");
     }
 
-    const tokenResp = await getInstallationToken(installationId);
+    const installationToken = installationId
+      ? (await getInstallationToken(installationId)).token
+      : "";
     const cloned = await cloneRepoAtSha({
       cloneUrl: ctx.repo.cloneUrl,
       ref: gitRef,
       sha: gitSha,
-      installationToken: tokenResp.token,
+      installationToken,
       sink,
     });
     workDir = cloned.workDir;

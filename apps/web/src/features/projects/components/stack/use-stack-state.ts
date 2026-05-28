@@ -7,15 +7,13 @@
  * local version state advances on success.
  */
 
+import type { ProjectId } from "@otterdeploy/shared/id";
+
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { type Id, type ID_PREFIX } from "@otterdeploy/shared/id";
-
 import { orpc } from "@/shared/server/orpc";
-
-type ProjectId = Id<typeof ID_PREFIX.project>;
 
 export interface UseStackStateInput {
   projectId: ProjectId;

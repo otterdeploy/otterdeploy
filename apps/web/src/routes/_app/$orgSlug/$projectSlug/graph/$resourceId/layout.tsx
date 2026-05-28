@@ -87,7 +87,12 @@ function RouteComponent() {
           onClose={close}
         />
       ) : resource && resource.type === "service" ? (
-        <ServiceResourcePanel resource={resource} onClose={close} />
+        <ServiceResourcePanel
+          resource={resource}
+          orgSlug={orgSlug}
+          projectSlug={projectSlug}
+          onClose={close}
+        />
       ) : demoNode ? (
         <DemoNodePanel
           node={demoNode.data}

@@ -4,6 +4,8 @@
  * tagged `Result` values.
  */
 
+import type { ContainerRegistryId, EnvironmentId, GitRepoId, OrganizationId, ProjectId } from "@otterdeploy/shared/id";
+
 import { Result } from "better-result";
 import { and, eq } from "drizzle-orm";
 import type { RequestLogger } from "evlog";
@@ -20,12 +22,7 @@ import {
 import { reconcile } from "../../caddy";
 import { destroySwarmPostgres } from "../../swarm";
 
-import {
-  ProjectConflictError,
-  ProjectInvalidBindingError,
-  ProjectNotFoundError,
-  type ProjectId,
-} from "./errors";
+import { ProjectConflictError, ProjectInvalidBindingError, ProjectNotFoundError } from "./errors";
 import {
   createProjectRecord,
   deleteProjectRecord,
@@ -43,11 +40,8 @@ import {
   type Project,
   type ProjectListItem,
 } from "./views";
-import { type Id, ID_PREFIX } from "@otterdeploy/shared/id";
-
-type OrgId = Id<typeof ID_PREFIX.organization>;
-type GitRepoId = Id<typeof ID_PREFIX.gitRepo>;
-type RegistryId = Id<typeof ID_PREFIX.containerRegistry>;
+type OrgId = OrganizationId;
+type RegistryId = ContainerRegistryId;
 
 interface OrgRef {
   organizationId: OrgId;
@@ -94,7 +88,7 @@ export async function createProject(
     name: string;
     slug: string;
     id?: ProjectId;
-    environmentId?: Id<typeof ID_PREFIX.environment>;
+    environmentId?: EnvironmentId;
   },
 ): Promise<Result<Project, ProjectConflictError>> {
   // Slug uniqueness is org-scoped, so a sibling org owning the same slug is fine.
@@ -195,21 +189,36 @@ async function repoBelongsToOrg(
   gitRepoId: string,
   organizationId: string,
 ): Promise<boolean> {
-  // org ownership lives on git_provider, not git_installation —
-  // join through both.
+  // Two valid shapes:
+  //
+  //   1. Installation-backed row → org ownership lives on git_provider;
+  //      join through git_installation + git_provider and require a
+  //      match on organizationId.
+  //
+  //   2. Public-URL row → installationId is null (no provider, no
+  //      org); the row is intentionally tenant-shared because the data
+  //      is public. Isolation is enforced at the project binding
+  //      level, not at the gitRepo row. Just verify the row exists.
   const [row] = await db
-    .select({ id: gitRepo.id })
+    .select({ id: gitRepo.id, installationId: gitRepo.installationId })
     .from(gitRepo)
-    .innerJoin(gitInstallation, eq(gitInstallation.id, gitRepo.installationId))
+    .where(eq(gitRepo.id, gitRepoId as GitRepoId))
+    .limit(1);
+  if (!row) return false;
+  if (row.installationId == null) return true;
+
+  const [owned] = await db
+    .select({ id: gitProvider.id })
+    .from(gitInstallation)
     .innerJoin(gitProvider, eq(gitProvider.id, gitInstallation.providerId))
     .where(
       and(
-        eq(gitRepo.id, gitRepoId as GitRepoId),
+        eq(gitInstallation.id, row.installationId),
         eq(gitProvider.organizationId, organizationId as OrgId),
       ),
     )
     .limit(1);
-  return row !== undefined;
+  return owned !== undefined;
 }
 
 async function registryBelongsToOrg(
@@ -248,6 +257,7 @@ export async function deleteProject(
   //    FK cascade handles environment / resource / database_resource / proxy_route.
   for (const record of dbRecords) {
     const serviceName = buildContainerName({
+      engine: record.database.engine,
       projectSlug,
       resourceName: record.resource.name,
     });

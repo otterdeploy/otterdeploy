@@ -36,6 +36,11 @@ import { loadCurrentState } from "./manifest-state";
 import { diffManifest } from "../../stack/manifest";
 import { renderProjectFromRows, toComposeYaml } from "../../stack/render";
 import { tailProjectLogs } from "./project-logs";
+import { listAvailableRefs } from "./refs";
+import {
+  streamProjectEvents,
+  validateProjectEventsStream,
+} from "./events-stream";
 import { applyProjectStack } from "./stack-apply";
 import { diffProjectStack } from "./stack-diff";
 import { saveProjectStack } from "./stack-save";
@@ -785,6 +790,46 @@ export const projectRouter = {
         tail: input.tail,
       });
     }),
+  },
+
+  refs: {
+    list: orgScopedProcedure.project.refs.list.handler(
+      async ({ input, context, errors }) => {
+        context.log.set({ target: { type: "project", id: input.projectId } });
+        const result = await listAvailableRefs({
+          projectId: input.projectId,
+          organizationId: context.activeOrganizationId,
+        });
+        if (result.isErr()) {
+          throw matchError(result.error, {
+            ProjectNotFoundError: () => errors.NOT_FOUND(),
+          });
+        }
+        return result.value;
+      },
+    ),
+  },
+
+  events: {
+    stream: orgScopedProcedure.project.events.stream.handler(
+      async ({ input, context, errors }) => {
+        context.log.set({ target: { type: "project", id: input.projectId } });
+        const pre = await validateProjectEventsStream({
+          projectId: input.projectId,
+          organizationId: context.activeOrganizationId,
+        });
+        if (pre.isErr()) {
+          throw matchError(pre.error, {
+            ProjectNotFoundError: () => errors.NOT_FOUND(),
+            PostgresResourceNotFoundError: () => errors.NOT_FOUND(),
+          });
+        }
+        return streamProjectEvents({
+          projectId: input.projectId,
+          organizationId: context.activeOrganizationId,
+        });
+      },
+    ),
   },
 
   // YAML stack-code editor surface — separate from the JSON manifest

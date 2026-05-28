@@ -17,20 +17,19 @@
  * client on disconnect so the underlying socket releases promptly when the
  * frontend closes the stream.
  */
+import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { Docker } from "@otterdeploy/docker";
 
-import { type Id, ID_PREFIX as IDP } from "@otterdeploy/shared/id";
-
 import { waitForServiceCreate } from "../../swarm";
-import type { ProjectId } from "./errors";
+
 import { getProjectInOrg } from "./queries";
 import { getResourceById } from "./queries/resource";
-import type { ResourceId } from "../service/errors";
+
 import { buildContainerName } from "./views";
 import { getProjectRecord } from "./queries";
 
-type OrgId = Id<typeof IDP.organization>;
+type OrgId = OrganizationId;
 
 interface LogsRef {
   projectId: ProjectId;
@@ -66,6 +65,7 @@ async function resolveServiceId(
     const project = await getProjectRecord(projectId);
     const slug = project?.slug ?? projectId;
     serviceName = buildContainerName({
+      engine: found.record.database.engine,
       projectSlug: slug,
       resourceName: found.record.resource.name,
     });
@@ -311,6 +311,7 @@ export async function* tailTaskLogs(
     const proj = await getProjectRecord(input.projectId);
     const slug = proj?.slug ?? input.projectId;
     serviceName = buildContainerName({
+      engine: found.record.database.engine,
       projectSlug: slug,
       resourceName: found.record.resource.name,
     });
@@ -471,6 +472,7 @@ export async function* tailDeploymentLogs(
     const proj = await getProjectRecord(input.projectId);
     const slug = proj?.slug ?? input.projectId;
     serviceName = buildContainerName({
+      engine: found.record.database.engine,
       projectSlug: slug,
       resourceName: found.record.resource.name,
     });

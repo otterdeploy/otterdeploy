@@ -19,6 +19,7 @@
  *   - `id: <timestamp>` lets the browser resume after a network blip
  *   - no `retry:` — we leave reconnect intervals to the browser default
  */
+import type { ProjectId } from "@otterdeploy/shared/id";
 
 import type { Hono as HonoApp } from "hono";
 import { streamSSE } from "hono/streaming";
@@ -28,16 +29,11 @@ import { type EvlogVariables } from "evlog/hono";
 import { streamProjectEvents } from "@otterdeploy/api/routers/project/events-stream";
 import { auth, type Session } from "@otterdeploy/auth";
 
-// Branded id types live in @otterdeploy/shared but apps/server intentionally
-// doesn't depend on that package — the streamProjectEvents call site below
-// is the only typed boundary and it accepts strings cast to the branded
-// types via `as never` (the auth+input wiring is the actual safety net).
-type ProjectId = string;
 type OrgId = string;
 
 export function registerEventsSseRoutes(app: HonoApp<EvlogVariables>): void {
   app.get("/sse/projects/:projectId/events", async (c) => {
-    const projectId: ProjectId = c.req.param("projectId");
+    const projectId = c.req.param("projectId") as ProjectId;
 
     // Cookie-auth via better-auth. EventSource can't set headers so the
     // session has to ride in on cookies — which is the browser default

@@ -6,6 +6,8 @@
 
 import type * as z from "zod";
 
+import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
+
 import { reconcile } from "../../caddy";
 import {
   getProxyRouteByResourceId,
@@ -35,6 +37,7 @@ import {
   updateDatabaseResourceRuntime,
   updateDatabaseResourceStatus,
 } from "./queries";
+import { listServiceEnvVars } from "../service/queries";
 
 export type Project = z.infer<typeof projectSchema>;
 export type ProjectListItem = z.infer<typeof projectListItemSchema>;
@@ -48,11 +51,23 @@ export type ProxyRoute = z.infer<typeof proxyRouteSchema>;
 // ---------------------------------------------------------------------------
 
 /**
- * Service-resource view mapper. Returns the slim shape exposed by the resource
- * list — no live task state, no env vars, no ports. Those come later via
- * dedicated procedures (service.tasks / service.env.list / etc.).
+ * Service-resource view mapper. Joins the user-authored env bag into the
+ * response so the resource panel's Variables tab can render without a
+ * second fetch — same shape as the database mapper. Live task state and
+ * ports still come from their dedicated procedures.
  */
-export function mapServiceResource(record: ServiceResourceJoined): ServiceResourceView {
+export async function mapServiceResource(
+  record: ServiceResourceJoined,
+): Promise<ServiceResourceView> {
+  const envRows = await listServiceEnvVars(
+    record.resource.id as unknown as Parameters<typeof listServiceEnvVars>[0],
+  );
+  const extraEnv: Record<string, string> = {};
+  const secretKeys: string[] = [];
+  for (const row of envRows) {
+    extraEnv[row.key] = row.value;
+    if (row.isSecret) secretKeys.push(row.key);
+  }
   return {
     resourceId: record.resource.id,
     projectId: record.resource.projectId,
@@ -64,6 +79,8 @@ export function mapServiceResource(record: ServiceResourceJoined): ServiceResour
     replicas: record.service.replicas,
     publicEnabled: record.service.publicEnabled,
     publicDomain: record.service.publicDomain,
+    extraEnv,
+    secretKeys,
     preDeploy: record.service.preDeploy ?? null,
     buildConfig: record.service.buildConfig ?? null,
     restartWindowMs: record.service.restartWindowMs ?? null,
@@ -152,20 +169,22 @@ export async function ensureSwarmRuntimeForRecord(
   record: DatabaseResourceRecord,
   projectSlug: string,
 ): Promise<{ record: DatabaseResourceRecord; runtime: SwarmDatabaseRuntime }> {
-  const serviceName = buildContainerName({
-    projectSlug,
-    resourceName: record.resource.name,
-  });
-  const volumeName = buildVolumeName({
-    projectSlug,
-    resourceName: record.resource.name,
-  });
   // Engine comes from the row, never from a hardcoded default — the
   // recovery path here used to call `provisionSwarmPostgres`, which
   // forced a postgres image regardless of what the user actually
   // created. That's how a "redis" resource ended up running
   // `postgres:17-alpine` after its first page load.
   const engine = record.database.engine;
+  const serviceName = buildContainerName({
+    engine,
+    projectSlug,
+    resourceName: record.resource.name,
+  });
+  const volumeName = buildVolumeName({
+    engine,
+    projectSlug,
+    resourceName: record.resource.name,
+  });
   const engineImage = defaultImageFor(engine);
 
   const existingRuntime = await inspectSwarmDatabaseRuntime({
@@ -299,21 +318,46 @@ export function sanitizeDockerName(value: string) {
   return sanitized.slice(0, 63) || "otterdeploy-postgres";
 }
 
+// Per-engine prefixes for the swarm service + volume names. `pg`/`pgdata`
+// are kept for postgres so existing rows continue to resolve to the same
+// docker objects after this change ships — non-postgres engines used to
+// silently inherit those same postgres prefixes and ended up named
+// `otterdeploy-pg-<project>-<redis-resource>`, which was nonsense.
+// Resources created against the wrong-prefix names (any non-postgres
+// engine deployed before this fix) need to be torn down and recreated to
+// pick up the correct names — the swarm service is still under the old
+// `pg` name and won't be located by the new lookup.
+const ENGINE_SERVICE_PREFIX: Record<DatabaseEngine, string> = {
+  postgres: "pg",
+  mariadb: "mariadb",
+  redis: "redis",
+  mongodb: "mongo",
+};
+
+const ENGINE_VOLUME_PREFIX: Record<DatabaseEngine, string> = {
+  postgres: "pgdata",
+  mariadb: "mariadbdata",
+  redis: "redisdata",
+  mongodb: "mongodata",
+};
+
 export function buildContainerName(input: {
+  engine: DatabaseEngine;
   projectSlug: string;
   resourceName: string;
 }) {
   return sanitizeDockerName(
-    `otterdeploy-pg-${sanitizeProjectSlug(input.projectSlug)}-${sanitizeDatabaseName(input.resourceName)}`,
+    `otterdeploy-${ENGINE_SERVICE_PREFIX[input.engine]}-${sanitizeProjectSlug(input.projectSlug)}-${sanitizeDatabaseName(input.resourceName)}`,
   );
 }
 
 export function buildVolumeName(input: {
+  engine: DatabaseEngine;
   projectSlug: string;
   resourceName: string;
 }) {
   return sanitizeDockerName(
-    `otterdeploy-pgdata-${sanitizeProjectSlug(input.projectSlug)}-${sanitizeDatabaseName(input.resourceName)}`,
+    `otterdeploy-${ENGINE_VOLUME_PREFIX[input.engine]}-${sanitizeProjectSlug(input.projectSlug)}-${sanitizeDatabaseName(input.resourceName)}`,
   );
 }
 

@@ -14,12 +14,11 @@
  * a `system` log line marking the image-ready point.
  */
 
+import type { DeploymentId } from "@otterdeploy/shared/id";
+
 import { db } from "@otterdeploy/db";
 import { deployment } from "@otterdeploy/db/schema";
-import type { Id, ID_PREFIX } from "@otterdeploy/shared/id";
 import { eq } from "drizzle-orm";
-
-type DeploymentId = Id<typeof ID_PREFIX.deployment>;
 
 export async function markBuilding(deploymentId: DeploymentId): Promise<void> {
   await db

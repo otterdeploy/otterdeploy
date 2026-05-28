@@ -8,9 +8,9 @@
  * via toast.
  */
 
-import { useState } from "react";
+import type { ProjectId } from "@otterdeploy/shared/id";
 
-import { type Id, type ID_PREFIX } from "@otterdeploy/shared/id";
+import { useState } from "react";
 
 import { cn } from "@/shared/lib/utils";
 
@@ -19,8 +19,6 @@ import { PanelHeader, type StackTab } from "./panel-header";
 import { useStackState } from "./use-stack-state";
 import { YamlEditor } from "./yaml-editor";
 import { YamlView } from "./yaml-view";
-
-type ProjectId = Id<typeof ID_PREFIX.project>;
 
 export interface StackCodePanelProps {
   projectId: ProjectId;

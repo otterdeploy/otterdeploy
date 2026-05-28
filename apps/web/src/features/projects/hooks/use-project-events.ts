@@ -17,16 +17,14 @@
  * payloads through this channel so the SSE bandwidth stays trivial.
  */
 
+import type { ProjectId } from "@otterdeploy/shared/id";
+
 import { useEffect } from "react";
 
 import { useQueryClient } from "@tanstack/react-query";
 
 import { env } from "@otterdeploy/env/web";
-import type { ID_PREFIX, Id } from "@otterdeploy/shared/id";
-
 import { orpc } from "@/shared/server/orpc";
-
-type ProjectId = Id<typeof ID_PREFIX.project>;
 
 interface ResourceEvent {
   kind: "resource";

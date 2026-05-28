@@ -16,9 +16,10 @@
  * operator skipped the manifest step.
  */
 
+import type { GitProviderId, OrganizationId } from "@otterdeploy/shared/id";
+
 import { db } from "@otterdeploy/db";
 import { gitInstallation, gitProvider } from "@otterdeploy/db/schema";
-import { ID_PREFIX, type Id } from "@otterdeploy/shared/id";
 import { and, eq } from "drizzle-orm";
 
 import { decryptSecret } from "../lib/crypto";
@@ -30,8 +31,7 @@ import {
   GithubAppNotConfiguredError,
 } from "./github-app";
 
-type GitProviderId = Id<typeof ID_PREFIX.gitProvider>;
-type OrgId = Id<typeof ID_PREFIX.organization>;
+type OrgId = OrganizationId;
 
 /** Look up + decrypt by provider row id (the path most callers take). */
 export async function loadGithubAppForProvider(

@@ -11,8 +11,10 @@
  */
 
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 
+import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 import {
@@ -131,6 +133,67 @@ export function SourceSection(props: SourceSectionProps) {
           />
         </div>
       </div>
+
+      <PublicRepoSubform onGitRepoIdChange={props.onGitRepoIdChange} />
     </section>
+  );
+}
+
+/**
+ * "Or paste a public Git URL" — sidesteps the GitHub-App requirement
+ * for public repos. Pasting + Use stages the gitRepoId in the binding
+ * form; the operator still clicks Save to persist (same as picking
+ * from the installation dropdowns above). Push deploys don't fire on
+ * public-URL bindings — we never registered a webhook — so this is a
+ * manual-deploy path until per-poll-deploy lands.
+ */
+function PublicRepoSubform({
+  onGitRepoIdChange,
+}: {
+  onGitRepoIdChange: (v: string | null) => void;
+}) {
+  const [url, setUrl] = useState("");
+  const connectMut = useMutation({
+    ...orpc.git.connectPublicRepo.mutationOptions(),
+    onSuccess: (repo) => {
+      onGitRepoIdChange(repo.id);
+      setUrl("");
+      toast.success(`Bound to ${repo.fullName} — click Save to persist`);
+    },
+    onError: (err) => toast.error(err.message ?? "Couldn't use that URL"),
+  });
+
+  return (
+    <div className="mt-5 rounded-md border border-dashed bg-muted/20 p-4">
+      <div className="flex items-baseline justify-between gap-3">
+        <div>
+          <Label htmlFor="bind-public-url" className="text-[12.5px]">
+            Or paste a public Git URL
+          </Label>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            HTTPS only. Push deploys don't auto-fire for public URLs — use
+            manual deploy.
+          </p>
+        </div>
+      </div>
+      <div className="mt-2 flex gap-2">
+        <Input
+          id="bind-public-url"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="https://github.com/owner/repo.git"
+          className="font-mono text-[12.5px]"
+          disabled={connectMut.isPending}
+        />
+        <Button
+          type="button"
+          size="sm"
+          disabled={!url.trim() || connectMut.isPending}
+          onClick={() => connectMut.mutate({ cloneUrl: url.trim() })}
+        >
+          {connectMut.isPending ? "Connecting…" : "Use"}
+        </Button>
+      </div>
+    </div>
   );
 }

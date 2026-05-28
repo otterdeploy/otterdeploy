@@ -10,8 +10,9 @@
 // configuration of GitHub credentials — every credential field below is
 // nullable so the provider row can also exist for the legacy env-var path
 // during the transition, but new providers always populate them.
+import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
+import type { GitInstallationId, GitProviderId, GitRepoId } from "@otterdeploy/shared/id";
 
-import { createId, ID_PREFIX, type Id } from "@otterdeploy/shared/id";
 import {
   boolean,
   index,
@@ -46,7 +47,7 @@ export const gitProvider = pgTable(
   {
     id: text("id")
       .primaryKey()
-      .$type<Id<typeof ID_PREFIX.gitProvider>>()
+      .$type<GitProviderId>()
       .$defaultFn(() => createId(ID_PREFIX.gitProvider)),
     organizationId: text("organization_id")
       .notNull()
@@ -109,11 +110,11 @@ export const gitInstallation = pgTable(
   {
     id: text("id")
       .primaryKey()
-      .$type<Id<typeof ID_PREFIX.gitInstallation>>()
+      .$type<GitInstallationId>()
       .$defaultFn(() => createId(ID_PREFIX.gitInstallation)),
     providerId: text("provider_id")
       .notNull()
-      .$type<Id<typeof ID_PREFIX.gitProvider>>()
+      .$type<GitProviderId>()
       .references(() => gitProvider.id, { onDelete: "cascade" }),
     /** GitHub installation id (from the App install callback / webhook). */
     installationId: text("installation_id").notNull(),
@@ -150,10 +151,10 @@ export const gitRepo = pgTable(
   {
     id: text("id")
       .primaryKey()
-      .$type<Id<typeof ID_PREFIX.gitRepo>>()
+      .$type<GitRepoId>()
       .$defaultFn(() => createId(ID_PREFIX.gitRepo)),
     installationId: text("installation_id")
-      .$type<Id<typeof ID_PREFIX.gitInstallation>>()
+      .$type<GitInstallationId>()
       .references(() => gitInstallation.id, { onDelete: "set null" }),
     /** GitHub repo node id (stable across renames) stored as text. */
     providerRepoId: text("provider_repo_id").notNull(),

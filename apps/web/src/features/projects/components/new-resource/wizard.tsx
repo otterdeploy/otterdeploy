@@ -1,6 +1,7 @@
+
+import type { ProjectId, ProjectSlug, Slug } from "@otterdeploy/shared/id";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ArrowLeft01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons";
-import { ID_PREFIX, type Id, type Slug } from "@otterdeploy/shared/id";
 import { useStore } from "@tanstack/react-form";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -31,8 +32,8 @@ import {
 
 export interface ResourceWizardProps {
   orgSlug: string;
-  projectSlug: Slug<typeof ID_PREFIX.project>;
-  projectId: Id<typeof ID_PREFIX.project>;
+  projectSlug: ProjectSlug;
+  projectId: ProjectId;
   projectName: string;
   initialKind?: string | null;
   initialStep?: Step;

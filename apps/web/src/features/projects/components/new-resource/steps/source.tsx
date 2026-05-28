@@ -18,16 +18,21 @@
  * future CLI we don't ship. Removed entirely until they exist.
  */
 
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useStore } from "@tanstack/react-form";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { GitBranchIcon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { Link, useParams } from "@tanstack/react-router";
+import { toast } from "sonner";
 
 import { SvglLogo } from "@/shared/components/brand/svgl-logo";
 import { Badge } from "@/shared/components/ui/badge";
+import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent } from "@/shared/components/ui/card";
-import { orpc } from "@/shared/server/orpc";
+import { Input } from "@/shared/components/ui/input";
+import { Label } from "@/shared/components/ui/label";
+import { orpc, queryClient } from "@/shared/server/orpc";
 
 import { SectionHeader } from "../form-primitives";
 import { useFormContext } from "../form-context";
@@ -44,6 +49,21 @@ export function StepSource() {
   };
   const summary = useBindingSummary(projectSlug);
 
+  // The wizard's `repo` field was originally written by a per-service
+  // repo picker that no longer exists — source binding now lives on the
+  // project. Keep the schema's "required" gate satisfied by syncing the
+  // bound gitRepoId into the form whenever it appears.
+  const boundGitRepoId = summary.binding?.gitRepoId ?? null;
+  const productionBranch = summary.binding?.productionBranch ?? "main";
+  useEffect(() => {
+    if (boundGitRepoId && repo !== boundGitRepoId) {
+      form.setFieldValue("repo", boundGitRepoId);
+    }
+    if (productionBranch && branch !== productionBranch) {
+      form.setFieldValue("branch", productionBranch);
+    }
+  }, [boundGitRepoId, productionBranch, repo, branch, form]);
+
   return (
     <>
       <SectionHeader title="Source" />
@@ -52,6 +72,7 @@ export function StepSource() {
         hasInstallations={summary.hasInstallations}
         binding={summary.binding}
         boundRepoFullName={summary.boundRepoFullName}
+        projectId={summary.projectId}
         orgSlug={orgSlug}
         projectSlug={projectSlug}
       />
@@ -113,6 +134,7 @@ function useBindingSummary(projectSlug: string): {
   hasInstallations: boolean;
   binding: { gitRepoId: string | null; productionBranch: string } | null;
   boundRepoFullName: string | null;
+  projectId: string | null;
 } {
   const projectQuery = useQuery({
     ...orpc.project.getBySlug.queryOptions({
@@ -152,6 +174,7 @@ function useBindingSummary(projectSlug: string): {
         }
       : null,
     boundRepoFullName: boundRepo?.fullName ?? null,
+    projectId: projectBinding?.id ? String(projectBinding.id) : null,
   };
 }
 
@@ -159,6 +182,7 @@ interface BindingSummaryProps {
   hasInstallations: boolean;
   binding: { gitRepoId: string | null; productionBranch: string } | null;
   boundRepoFullName: string | null;
+  projectId: string | null;
   orgSlug: string;
   projectSlug: string;
 }
@@ -167,25 +191,28 @@ function BindingSummary(props: BindingSummaryProps) {
   if (!props.hasInstallations) {
     return (
       <Card className="mt-2.5 rounded-md">
-        <CardContent className="flex items-start gap-3 py-4">
-          <SvglLogo search="GitHub" fallback="GitHub" size={24} />
-          <div className="min-w-0 flex-1">
-            <div className="text-[13px] font-semibold">
-              No git provider connected
+        <CardContent className="flex flex-col gap-4 py-4">
+          <div className="flex items-start gap-3">
+            <SvglLogo search="GitHub" fallback="GitHub" size={24} />
+            <div className="min-w-0 flex-1">
+              <div className="text-[13px] font-semibold">
+                No git provider connected
+              </div>
+              <p className="mt-1 text-[12px] text-muted-foreground">
+                Connect the GitHub App for private repos + push deploys. For
+                a public repo, paste its URL below — no app install needed.
+              </p>
+              <Link
+                to="/$orgSlug/git-providers"
+                params={{ orgSlug: props.orgSlug }}
+                search={{ git_install: undefined, reason: undefined }}
+                className="mt-2 inline-block text-[12px] font-medium underline"
+              >
+                Connect GitHub →
+              </Link>
             </div>
-            <p className="mt-1 text-[12px] text-muted-foreground">
-              Connect the GitHub App so this project can pull source. Other
-              providers (GitLab, Gitea, …) are on the roadmap.
-            </p>
-            <Link
-              to="/$orgSlug/git-providers"
-              params={{ orgSlug: props.orgSlug }}
-              search={{ git_install: undefined, reason: undefined }}
-              className="mt-2 inline-block text-[12px] font-medium underline"
-            >
-              Connect GitHub →
-            </Link>
           </div>
+          <PublicRepoCTA projectId={props.projectId} projectSlug={props.projectSlug} />
         </CardContent>
       </Card>
     );
@@ -193,32 +220,36 @@ function BindingSummary(props: BindingSummaryProps) {
   if (!props.binding?.gitRepoId) {
     return (
       <Card className="mt-2.5 rounded-md">
-        <CardContent className="flex items-start gap-3 py-4">
-          <HugeiconsIcon
-            icon={GitBranchIcon}
-            strokeWidth={2}
-            className="size-5 shrink-0 text-muted-foreground"
-          />
-          <div className="min-w-0 flex-1">
-            <div className="text-[13px] font-semibold">
-              Project has no source binding yet
+        <CardContent className="flex flex-col gap-4 py-4">
+          <div className="flex items-start gap-3">
+            <HugeiconsIcon
+              icon={GitBranchIcon}
+              strokeWidth={2}
+              className="size-5 shrink-0 text-muted-foreground"
+            />
+            <div className="min-w-0 flex-1">
+              <div className="text-[13px] font-semibold">
+                Project has no source binding yet
+              </div>
+              <p className="mt-1 text-[12px] text-muted-foreground">
+                Pick a repo under{" "}
+                <span className="font-mono">Settings → Build</span> for full
+                push-deploy support, or paste a public URL below for a
+                manual-deploy binding right now.
+              </p>
+              <Link
+                to="/$orgSlug/$projectSlug/settings"
+                params={{
+                  orgSlug: props.orgSlug,
+                  projectSlug: props.projectSlug as never,
+                }}
+                className="mt-2 inline-block text-[12px] font-medium underline"
+              >
+                Open Build settings →
+              </Link>
             </div>
-            <p className="mt-1 text-[12px] text-muted-foreground">
-              Set the git repo, branch, and image target under{" "}
-              <span className="font-mono">Settings → Build</span>. Every
-              service in this project builds from that binding.
-            </p>
-            <Link
-              to="/$orgSlug/$projectSlug/settings"
-              params={{
-                orgSlug: props.orgSlug,
-                projectSlug: props.projectSlug as never,
-              }}
-              className="mt-2 inline-block text-[12px] font-medium underline"
-            >
-              Open Build settings →
-            </Link>
           </div>
+          <PublicRepoCTA projectId={props.projectId} projectSlug={props.projectSlug} />
         </CardContent>
       </Card>
     );
@@ -248,5 +279,84 @@ function BindingSummary(props: BindingSummaryProps) {
         </Badge>
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * Bind the project to a public Git URL in one shot — connectPublicRepo
+ * creates the gitRepo row, project.update writes the binding, then the
+ * BindingSummary above re-renders into the "bound" state.
+ *
+ * Renders nothing when projectId hasn't loaded (the parent query is
+ * still flying); avoids a flash of an unbound CTA before we know the
+ * project exists.
+ */
+function PublicRepoCTA({
+  projectId,
+  projectSlug,
+}: {
+  projectId: string | null;
+  projectSlug: string;
+}) {
+  const [url, setUrl] = useState("");
+
+  const updateMut = useMutation({
+    ...orpc.project.update.mutationOptions(),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: orpc.project.getBySlug.queryKey({
+          input: { slug: projectSlug as never },
+        }),
+      });
+      setUrl("");
+      toast.success("Public repo bound — ready to configure the service");
+    },
+    onError: (err) => toast.error(err.message ?? "Failed to bind public repo"),
+  });
+
+  const connectMut = useMutation({
+    ...orpc.git.connectPublicRepo.mutationOptions(),
+    onSuccess: (repo) => {
+      if (!projectId) return;
+      updateMut.mutate({
+        id: projectId as never,
+        gitRepoId: repo.id as never,
+      });
+    },
+    onError: (err) => toast.error(err.message ?? "Couldn't use that URL"),
+  });
+
+  if (!projectId) return null;
+
+  const submitting = connectMut.isPending || updateMut.isPending;
+
+  return (
+    <div className="rounded-md border border-dashed border-border/60 bg-muted/20 p-3">
+      <Label htmlFor="wizard-public-url" className="text-[12px]">
+        Public Git URL
+      </Label>
+      <div className="mt-1.5 flex gap-2">
+        <Input
+          id="wizard-public-url"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="https://github.com/owner/repo.git"
+          className="h-8 font-mono text-[12px]"
+          disabled={submitting}
+        />
+        <Button
+          type="button"
+          size="sm"
+          className="h-8 text-[12px]"
+          disabled={!url.trim() || submitting}
+          onClick={() => connectMut.mutate({ cloneUrl: url.trim() })}
+        >
+          {submitting ? "Binding…" : "Use"}
+        </Button>
+      </div>
+      <p className="mt-1.5 text-[11px] text-muted-foreground">
+        HTTPS only. Public-URL bindings deploy manually (no push webhook).
+      </p>
+    </div>
   );
 }

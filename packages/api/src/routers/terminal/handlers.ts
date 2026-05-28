@@ -13,6 +13,7 @@
  * Docker daemon could spoof them). Instead we pre-load the org's project
  * slugs and only emit containers whose `otterdeploy.project` label matches.
  */
+import type { OrganizationId, ProjectSlug, ResourceId } from "@otterdeploy/shared/id";
 
 import { Docker } from "@otterdeploy/docker";
 import { eq } from "drizzle-orm";
@@ -23,15 +24,7 @@ import {
   project,
   resource,
 } from "@otterdeploy/db/schema/project";
-import {
-  type Id,
-  ID_PREFIX as IDP,
-  type ProjectSlug,
-} from "@otterdeploy/shared/id";
-
-import type { ResourceId } from "../service/errors";
-
-type OrgId = Id<typeof IDP.organization>;
+type OrgId = OrganizationId;
 
 export interface TerminalContainer {
   containerId: string;

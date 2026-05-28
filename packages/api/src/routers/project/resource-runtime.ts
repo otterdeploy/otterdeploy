@@ -9,12 +9,11 @@
  *
  * One frontend call site per tab covers every container-backed resource.
  */
+import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { Docker } from "@otterdeploy/docker";
 import { Result } from "better-result";
 import type { RequestLogger } from "evlog";
-
-import { type Id, ID_PREFIX as IDP } from "@otterdeploy/shared/id";
 
 import { defaultImageFor, updateSwarmDatabase } from "../../swarm";
 import { insertDeployment } from "./deployments";
@@ -24,12 +23,8 @@ import {
 } from "../service/queries";
 import { redeployAndFanOut } from "../service/redeploy";
 
-import {
-  PostgresResourceNotFoundError,
-  ProjectNotFoundError,
-  type ProjectId,
-} from "./errors";
-import type { ResourceId } from "../service/errors";
+import { PostgresResourceNotFoundError, ProjectNotFoundError } from "./errors";
+
 import {
   getDatabaseResourceRecord,
   getProjectInOrg,
@@ -44,7 +39,7 @@ import {
   sanitizeProjectSlug,
 } from "./views";
 
-type OrgId = Id<typeof IDP.organization>;
+type OrgId = OrganizationId;
 
 interface ResourceRef {
   projectId: ProjectId;
@@ -99,6 +94,7 @@ async function resolveSwarmService(
     const slug = project?.slug ?? projectId;
     return {
       serviceName: buildContainerName({
+        engine: found.record.database.engine,
         projectSlug: slug,
         resourceName: found.record.resource.name,
       }),
@@ -281,8 +277,8 @@ export async function bulkSetResourceEnv(
       await updateSwarmDatabase(
         {
           engine,
-          serviceName: buildContainerName({ projectSlug, resourceName }),
-          volumeName: buildVolumeName({ projectSlug, resourceName }),
+          serviceName: buildContainerName({ engine, projectSlug, resourceName }),
+          volumeName: buildVolumeName({ engine, projectSlug, resourceName }),
           hostnameAlias: dbRecord.database.internalHostname,
           databaseName: dbRecord.database.databaseName,
           username: dbRecord.database.username,
@@ -302,7 +298,11 @@ export async function bulkSetResourceEnv(
   // service — reuse the existing service env path which handles bulk
   // replace + ref fan-out. Redeploy is best-effort: we've already saved
   // the env and the next normal deploy picks it up.
-  await bulkReplaceServiceEnvVars(input.resourceId, input.env);
+  const secretSet = new Set(input.secretKeys ?? []);
+  await bulkReplaceServiceEnvVars(
+    input.resourceId,
+    input.env.map((e) => ({ ...e, isSecret: secretSet.has(e.key) })),
+  );
   const redeployed = await redeployAndFanOut(
     input.projectId,
     input.resourceId,

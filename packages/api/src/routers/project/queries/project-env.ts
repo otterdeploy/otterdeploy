@@ -8,18 +8,14 @@
  * row IS a per-environment value.
  */
 
+import type { EnvironmentId, ProjectEnvVarId, ProjectId } from "@otterdeploy/shared/id";
+
 import { and, asc, eq } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
 import { projectEnvVar } from "@otterdeploy/db/schema/project";
-import { type Id, ID_PREFIX } from "@otterdeploy/shared/id";
-
-import type { ProjectId } from "../errors";
-
-type EnvironmentId = Id<typeof ID_PREFIX.environment>;
-
 export interface ProjectEnvVarRow {
-  id: Id<typeof ID_PREFIX.projectEnvVar>;
+  id: ProjectEnvVarId;
   projectId: ProjectId;
   environmentId: EnvironmentId;
   key: string;

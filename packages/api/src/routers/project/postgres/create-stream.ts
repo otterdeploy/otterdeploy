@@ -5,6 +5,8 @@
  * resources.ts.
  */
 
+import type { OrganizationId, ProjectId } from "@otterdeploy/shared/id";
+
 import { randomBytes } from "node:crypto";
 
 import { Result } from "better-result";
@@ -26,15 +28,9 @@ import { loadDomainSourcesForProject } from "../../../lib/domain-sources";
 import { resolvePublicDomain } from "../../../lib/domains";
 import { insertDeployment, markDeploymentFailed } from "../deployments";
 
-import { type Id, ID_PREFIX } from "@otterdeploy/shared/id";
+import { PostgresResourceConflictError, ProjectNotFoundError } from "../errors";
 
-import {
-  PostgresResourceConflictError,
-  ProjectNotFoundError,
-  type ProjectId,
-} from "../errors";
-
-type OrgId = Id<typeof ID_PREFIX.organization>;
+type OrgId = OrganizationId;
 import {
   createDatabaseResourceRecord,
   getDatabaseResourceByProjectAndName,

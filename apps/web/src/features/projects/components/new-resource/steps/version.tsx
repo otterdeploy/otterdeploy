@@ -1,3 +1,5 @@
+
+import type { ProjectId } from "@otterdeploy/shared/id";
 import { useStore } from "@tanstack/react-form";
 
 import { CheckmarkCircle02Icon } from "@hugeicons/core-free-icons";
@@ -8,8 +10,6 @@ import { DatabaseLogo } from "@/shared/components/brand/database-logo";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
-import type { Id, ID_PREFIX } from "@otterdeploy/shared/id";
-
 import { useMutation } from "@tanstack/react-query";
 import { traitsFor } from "../engine-traits";
 import { useFormContext } from "../form-context";
@@ -23,7 +23,7 @@ import {
 
 interface StepVersionProps {
   kind: ServiceKind;
-  projectId: Id<typeof ID_PREFIX.project>;
+  projectId: ProjectId;
 }
 
 export function StepVersion({ kind, projectId }: StepVersionProps) {

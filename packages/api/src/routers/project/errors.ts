@@ -1,10 +1,6 @@
+
+import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import { TaggedError } from "better-result";
-
-import { ID_PREFIX, type Id } from "@otterdeploy/shared/id";
-
-import { type ResourceId } from "../service/errors";
-
-export type ProjectId = Id<typeof ID_PREFIX.project>;
 
 // ---------------------------------------------------------------------------
 // Project lifecycle errors

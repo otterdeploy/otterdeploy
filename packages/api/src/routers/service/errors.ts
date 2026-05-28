@@ -1,8 +1,6 @@
+
+import type { ResourceId } from "@otterdeploy/shared/id";
 import { TaggedError } from "better-result";
-
-import { ID_PREFIX, type Id } from "@otterdeploy/shared/id";
-
-export type ResourceId = Id<typeof ID_PREFIX.resource>;
 
 // ---------------------------------------------------------------------------
 // Service lifecycle errors

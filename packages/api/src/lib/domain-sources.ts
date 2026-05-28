@@ -9,6 +9,8 @@
  * certainly want this instead.
  */
 
+import type { ProjectId } from "@otterdeploy/shared/id";
+
 import { eq } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
@@ -18,12 +20,10 @@ import {
   platformSettings,
 } from "@otterdeploy/db/schema/platform";
 import { project } from "@otterdeploy/db/schema/project";
-import { type Id, ID_PREFIX } from "@otterdeploy/shared/id";
-
 import type { DomainSources } from "./domains";
 
 export async function loadDomainSourcesForProject(
-  projectId: Id<typeof ID_PREFIX.project>,
+  projectId: ProjectId,
 ): Promise<DomainSources | null> {
   const [row] = await db
     .select({

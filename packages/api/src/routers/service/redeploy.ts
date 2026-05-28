@@ -3,6 +3,7 @@
  * fan out to its transitive dependents (services that reference it via
  * `${{<name>.<VAR>}}` env tokens).
  */
+import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { Result } from "better-result";
 
@@ -14,8 +15,7 @@ import {
 } from "../../swarm";
 import type { RequestLogger } from "evlog";
 
-import { type ProjectId } from "../project/errors";
-import { ServiceNotFoundError, type ResolveError, type ResourceId } from "./errors";
+import { ServiceNotFoundError, type ResolveError } from "./errors";
 import {
   bumpForceUpdateCounter,
   getServiceRecord,
@@ -24,7 +24,6 @@ import {
 } from "./queries";
 import { buildSwarmSpec } from "./spec";
 import { sanitizeSlug } from "./views";
-
 /**
  * Resolve env for a freshly-created `ServiceRecord` and provision its
  * swarm service. Mirrors `redeployOne` but uses `provisionSwarmService`

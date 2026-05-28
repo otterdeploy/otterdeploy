@@ -2,11 +2,10 @@
 // single subscription. Per-resource subscriptions still exist
 // (resource.logs.tail) — this one is for the project-wide /logs page where
 // the operator wants to see everything at once.
+import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 
 import { eventIterator, oc } from "@orpc/contract";
 import * as z from "zod";
-
-import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 
 import { basePath, projectNotFoundErrors, tag } from "./shared";
 import { resourceLogEventSchema } from "./logs";

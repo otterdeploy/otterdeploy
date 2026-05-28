@@ -1,7 +1,7 @@
+
+import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import { createCollection } from "@tanstack/db";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
-
-import type { Id, ID_PREFIX } from "@otterdeploy/shared/id";
 
 import { orpc, queryClient } from "@/shared/server/orpc";
 
@@ -17,8 +17,8 @@ import { orpc, queryClient } from "@/shared/server/orpc";
  * @note Memoize with useMemo([projectId, resourceId]) at the call site.
  */
 export function createResourceTasksCollection(
-  projectId: Id<typeof ID_PREFIX.project>,
-  resourceId: Id<typeof ID_PREFIX.resource>,
+  projectId: ProjectId,
+  resourceId: ResourceId,
 ) {
   return createCollection(
     queryCollectionOptions({

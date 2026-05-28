@@ -7,13 +7,12 @@
  * by the team to verify the renderer matches what's actually running
  * before subsequent phases turn this surface read-write.
  */
+import type { OrganizationId, ProjectId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { project } from "@otterdeploy/db/schema/project";
 import { and, eq } from "drizzle-orm";
 import { Result } from "better-result";
-
-import { type Id, ID_PREFIX as IDP } from "@otterdeploy/shared/id";
 
 import {
   applyEngineDefaults,
@@ -22,10 +21,10 @@ import {
   unifiedDiff,
 } from "../../stack";
 
-import { ProjectNotFoundError, type ProjectId } from "./errors";
+import { ProjectNotFoundError } from "./errors";
 import { getProjectInOrg } from "./queries";
 
-type OrgId = Id<typeof IDP.organization>;
+type OrgId = OrganizationId;
 
 export interface StackDiffResult {
   renderedYaml: string;

@@ -17,6 +17,8 @@
  * back into the response, Phase 6 wires CLI consumption.
  */
 
+import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+
 import { and, eq } from "drizzle-orm";
 import { Result } from "better-result";
 import type { RequestLogger } from "evlog";
@@ -28,8 +30,6 @@ import {
   resource,
   serviceResource,
 } from "@otterdeploy/db/schema/project";
-import type { Id, ID_PREFIX } from "@otterdeploy/shared/id";
-
 import {
   type Change,
   type CurrentState,
@@ -53,9 +53,7 @@ import {
   updateService,
 } from "../service/handlers";
 
-type ProjectId = Id<typeof ID_PREFIX.project>;
-type OrgId = Id<typeof ID_PREFIX.organization>;
-type ResourceId = Id<typeof ID_PREFIX.resource>;
+type OrgId = OrganizationId;
 
 export interface ApplyResult {
   appliedCount: number;

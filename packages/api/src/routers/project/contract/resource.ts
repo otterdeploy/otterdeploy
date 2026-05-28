@@ -9,11 +9,10 @@
  * list) live in this file's contract slice — handler dispatches on kind to
  * source from the right storage.
  */
+import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 
 import { oc } from "@orpc/contract";
 import * as z from "zod";
-
-import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 
 import {
   basePath,
@@ -85,6 +84,13 @@ export const serviceResourceSchema = z.object({
   replicas: z.number().int().min(0),
   publicEnabled: z.boolean(),
   publicDomain: z.string().nullable(),
+  // User-authored env bag. Mirrors the database row's `extraEnv` so the
+  // resource panel's Variables tab can reuse the same editor for both.
+  // Always present — empty record when nothing's been set.
+  extraEnv: z.record(z.string(), z.string()),
+  // Keys flagged as sensitive by the operator. Display hint for the
+  // editor; values still travel the wire in plaintext.
+  secretKeys: z.array(z.string()),
   // Manifest-tracked extras (Phase 2 of build config + lifecycle work).
   // Nullable + optional so consumers that don't care can ignore them;
   // surfaced in the list response so the resource panel can show them

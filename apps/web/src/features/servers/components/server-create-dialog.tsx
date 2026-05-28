@@ -1,6 +1,5 @@
+import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
 import { useState } from "react";
-
-import { createId, ID_PREFIX } from "@otterdeploy/shared/id";
 
 import { serverCollection } from "@/features/servers/data/server";
 import { Button } from "@/shared/components/ui/button";

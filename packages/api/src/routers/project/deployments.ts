@@ -16,6 +16,7 @@
  * underlying tasks when the UI reads the list (no background updater
  * required — see `listResourceDeployments`).
  */
+import type { DeploymentId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { Docker } from "@otterdeploy/docker";
 import { Result } from "better-result";
@@ -23,21 +24,12 @@ import { desc, eq } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
 import { deployment } from "@otterdeploy/db/schema/project";
-import { type Id, ID_PREFIX as IDP } from "@otterdeploy/shared/id";
-
-import {
-  PostgresResourceNotFoundError,
-  ProjectNotFoundError,
-  type ProjectId,
-} from "./errors";
+import { PostgresResourceNotFoundError, ProjectNotFoundError } from "./errors";
 import { getProjectInOrg, getProjectRecord } from "./queries";
 import { getResourceById } from "./queries/resource";
 import { buildContainerName } from "./views";
-import type { ResourceId } from "../service/errors";
 
-type OrgId = Id<typeof IDP.organization>;
-
-type DeploymentId = Id<typeof IDP.deployment>;
+type OrgId = OrganizationId;
 
 export interface DeploymentRow {
   id: DeploymentId;
@@ -278,6 +270,7 @@ export async function listResourceDeployments(
     const proj = await getProjectRecord(input.projectId);
     const slug = proj?.slug ?? input.projectId;
     serviceName = buildContainerName({
+      engine: found.record.database.engine,
       projectSlug: slug,
       resourceName: found.record.resource.name,
     });
@@ -431,6 +424,7 @@ export async function listTasksForDeployment(
     const proj = await getProjectRecord(input.projectId);
     const slug = proj?.slug ?? input.projectId;
     serviceName = buildContainerName({
+      engine: found.record.database.engine,
       projectSlug: slug,
       resourceName: found.record.resource.name,
     });

@@ -1,13 +1,16 @@
 /**
- * Branded, prefixed ID generation for KaitoSec entities.
+ * Branded, prefixed ID generation for otterdeploy entities.
  *
  * Every table uses a human-readable prefix so you can identify the entity
- * type from the ID alone (e.g. "risk_clx1abc...", "ctrl_clx2def...").
+ * type from the ID alone (e.g. "project_clx1abc...", "resource_clx2def...").
  *
  * Usage:
- *   import { createId, ID_PREFIX } from "@kaitosec/shared/id";
- *   const id = createId("risk");        // "risk_clx1abc2def3ghi"
- *   const id = createId(ID_PREFIX.risk); // same, but autocompleted
+ *   import { createId, ID_PREFIX, type ProjectId } from "@otterdeploy/shared/id";
+ *   const id = createId("project");        // "project_clx1abc2def3ghi"
+ *   const id = createId(ID_PREFIX.project); // same, but autocompleted
+ *
+ * Prefer the named brand aliases (`ProjectId`, `ResourceId`, …) over the
+ * verbose generic form (`Id<typeof ID_PREFIX.project>`) at callsites.
  */
 
 import { createId as cuid } from "@paralleldrive/cuid2";
@@ -70,13 +73,8 @@ export type Id<P extends string = string> = string & {
  * Create a prefixed, collision-resistant unique ID using cuid2.
  *
  * Format: `{prefix}_{cuid2}`
- *
- * @example
- *   createId("risk")  // "risk_clx1abc2def3ghi"
- *   createId("ctrl")  // "ctrl_clx9xyz8wvu7tsr"
  */
 export function createId<P extends IdPrefix>(prefix: P): Id<P> {
-  // this does not check the prefix properly an runtime
   return `${prefix}_${cuid()}` as Id<P>;
 }
 
@@ -84,7 +82,7 @@ export function createId<P extends IdPrefix>(prefix: P): Id<P> {
  * Extract the prefix from a branded ID.
  *
  * @example
- *   idPrefix("risk_clx1abc2def3ghi") // "risk"
+ *   idPrefix("project_clx1abc2def3ghi") // "project"
  */
 export function idPrefix(id: string): string | null {
   const idx = id.indexOf("_");
@@ -96,7 +94,7 @@ export function idPrefix(id: string): string | null {
  * Check if an ID has a specific prefix.
  *
  * @example
- *   hasPrefix("risk_clx1abc", "risk") // true
+ *   hasPrefix("project_clx1abc", "project") // true
  */
 export function hasPrefix<P extends string>(
   id: string,
@@ -112,7 +110,7 @@ export function hasPrefix<P extends string>(
  * and outputs `Id<P>` (which extends `string`, so it works with Drizzle).
  *
  * @example
- *   z.object({ riskId: zId("risk") })
+ *   z.object({ projectId: zId("project") })
  */
 export function zId<P extends IdPrefix>(prefix: P) {
   return z

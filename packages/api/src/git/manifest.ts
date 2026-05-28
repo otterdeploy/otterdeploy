@@ -28,16 +28,17 @@
  * step of the round-trip.
  */
 
+import type { GitProviderId, OrganizationId } from "@otterdeploy/shared/id";
+
 import { db } from "@otterdeploy/db";
 import { gitProvider } from "@otterdeploy/db/schema";
-import { ID_PREFIX, type Id } from "@otterdeploy/shared/id";
 import { and, eq } from "drizzle-orm";
 
 import { encryptSecret } from "../lib/crypto";
 
 import { apiBaseUrlForHost } from "./github-app";
 
-type OrgId = Id<typeof ID_PREFIX.organization>;
+type OrgId = OrganizationId;
 
 /**
  * Minimum permissions + events required to read source and report build
@@ -154,7 +155,7 @@ export async function completeManifestExchange(opts: {
   organizationId: OrgId;
   host?: string;
 }): Promise<{
-  providerId: Id<typeof ID_PREFIX.gitProvider>;
+  providerId: GitProviderId;
   appSlug: string;
   installRedirectUrl: string;
 }> {

@@ -17,11 +17,10 @@
  * `host` is normalized server-side to match the resolver's expectations
  * (lowercase; "docker.io" canonicalized).
  */
+import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 
 import { oc } from "@orpc/contract";
 import * as z from "zod";
-
-import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 
 const tag = "registry";
 const basePath = "/registries";

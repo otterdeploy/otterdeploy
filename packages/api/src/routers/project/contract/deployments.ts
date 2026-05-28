@@ -5,11 +5,10 @@
  * redeploy inserts a row + tags the swarm spec; tasks group under their
  * deployment via the `otterdeploy.deployment.id` label on the task's spec.
  */
+import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 
 import { eventIterator, oc } from "@orpc/contract";
 import * as z from "zod";
-
-import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 
 import { resourceLogEventSchema } from "./logs";
 import { serviceTaskSchema } from "./service-tasks";

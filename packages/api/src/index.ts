@@ -1,3 +1,5 @@
+import { ID_PREFIX } from "@otterdeploy/shared/id";
+import type { Id } from "@otterdeploy/shared/id";
 import type { Context } from "./context";
 
 import { implement, ORPCError, os as orpc } from "@orpc/server";
@@ -11,8 +13,6 @@ import { registryContract } from "./routers/registry/contract";
 import { serverContract } from "./routers/server/contract";
 import { serviceContract } from "./routers/service/contract";
 import { terminalContract } from "./routers/terminal/contract";
-import type { Id, ID_PREFIX } from "@otterdeploy/shared/id";
-
 // Per-procedure compliance trail, shaped to the evlog audit schema
 // (https://www.evlog.dev/use-cases/audit/schema). Stamps the request-scoped
 // wide event with action, actor, outcome, duration, and reason so every RPC

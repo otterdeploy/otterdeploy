@@ -18,19 +18,14 @@
  * directly, but they invalidate the cache so the next event from the
  * affected service gets resolved fresh.
  */
+import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { Docker } from "@otterdeploy/docker";
 import { Result } from "better-result";
 
-import { type Id, ID_PREFIX as IDP } from "@otterdeploy/shared/id";
-
-import {
-  PostgresResourceNotFoundError,
-  ProjectNotFoundError,
-  type ProjectId,
-} from "./errors";
+import { PostgresResourceNotFoundError, ProjectNotFoundError } from "./errors";
 import { getProjectInOrg } from "./queries";
-import type { ResourceId } from "../service/errors";
+
 import { subscribeDockerEvents, type DockerEvent } from "../../swarm";
 import {
   buildContainerName,
@@ -38,7 +33,7 @@ import {
 } from "./views";
 import { listProjectResources } from "./queries/resource";
 
-type OrgId = Id<typeof IDP.organization>;
+type OrgId = OrganizationId;
 
 export type ProjectStreamEvent =
   | { kind: "resource"; action: "created" | "updated" | "removed"; resourceId: ResourceId }
@@ -76,6 +71,7 @@ async function loadServiceNameMap(
   const { databases, services } = await listProjectResources(projectId);
   for (const row of databases) {
     const serviceName = buildContainerName({
+      engine: row.database.engine,
       projectSlug: sanitizedSlug,
       resourceName: row.resource.name,
     });

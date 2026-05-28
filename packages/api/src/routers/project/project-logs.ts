@@ -8,18 +8,16 @@
 // while the iterator is in flight. The /logs page can reconnect on resource
 // changes from the live resource collection instead — much simpler, and the
 // gap is bounded to one reconnect.
+import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { Docker } from "@otterdeploy/docker";
 
-import { type Id, ID_PREFIX as IDP } from "@otterdeploy/shared/id";
-
-import type { ProjectId } from "./errors";
 import { getProjectInOrg, getProjectRecord, listProjectResources } from "./queries";
-import type { ResourceId } from "../service/errors";
+
 import { buildContainerName } from "./views";
 import { demuxDockerLogs } from "./resource-logs";
 
-type OrgId = Id<typeof IDP.organization>;
+type OrgId = OrganizationId;
 
 interface ProjectLogsRef {
   projectId: ProjectId;
@@ -64,6 +62,7 @@ async function resolveTargets(
     .map((d) => ({
       resourceId: d.resource.id as ResourceId,
       serviceName: buildContainerName({
+        engine: d.database.engine,
         projectSlug: slug,
         resourceName: d.resource.name,
       }),

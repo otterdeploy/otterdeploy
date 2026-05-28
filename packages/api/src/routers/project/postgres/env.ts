@@ -8,6 +8,8 @@
  * `rollbackPostgresToSnapshot`) just build the desired env map.
  */
 
+import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+
 import { Result } from "better-result";
 import type { RequestLogger } from "evlog";
 
@@ -20,15 +22,9 @@ import { loadDomainSourcesForProject } from "../../../lib/domain-sources";
 import { resolvePublicDomain } from "../../../lib/domains";
 import { defaultImageFor, updateSwarmDatabase } from "../../../swarm";
 
-import { type Id, ID_PREFIX } from "@otterdeploy/shared/id";
-
 import { insertDeployment, markDeploymentFailed } from "../deployments";
-import {
-  PostgresResourceNotFoundError,
-  ProjectNotFoundError,
-  type ProjectId,
-} from "../errors";
-import type { ResourceId } from "../../service/errors";
+import { PostgresResourceNotFoundError, ProjectNotFoundError } from "../errors";
+
 import {
   getDatabaseResourceRecord,
   getProjectInOrg,
@@ -44,7 +40,7 @@ import {
   type PostgresResource,
 } from "../views";
 
-type OrgId = Id<typeof ID_PREFIX.organization>;
+type OrgId = OrganizationId;
 
 interface ProjectRef {
   projectId: ProjectId;
@@ -148,10 +144,12 @@ export async function setPostgresPublic(
       {
         engine,
         serviceName: buildContainerName({
+          engine,
           projectSlug: project.slug,
           resourceName: record.resource.name,
         }),
         volumeName: buildVolumeName({
+          engine,
           projectSlug: project.slug,
           resourceName: record.resource.name,
         }),
@@ -255,10 +253,12 @@ export async function applyPostgresExtraEnv(
     {
       engine,
       serviceName: buildContainerName({
+        engine,
         projectSlug: project.slug,
         resourceName: record.resource.name,
       }),
       volumeName: buildVolumeName({
+        engine,
         projectSlug: project.slug,
         resourceName: record.resource.name,
       }),

@@ -1,6 +1,5 @@
+import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import { describe, expect, mock, test } from "bun:test";
-
-import type { Id, ID_PREFIX as IDP } from "@otterdeploy/shared/id";
 
 // Subject-under-test imports
 import {
@@ -9,9 +8,7 @@ import {
   listProjectResources,
 } from "../resources";
 
-type ProjectId = Id<typeof IDP.project>;
-type ResourceId = Id<typeof IDP.resource>;
-type OrgId = Id<typeof IDP.organization>;
+type OrgId = OrganizationId;
 
 const projectId = "project_test" as ProjectId;
 const resourceId = "resource_test" as ResourceId;

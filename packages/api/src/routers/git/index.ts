@@ -21,6 +21,7 @@ import {
   listProvidersForOrg,
   listReposForInstallation,
 } from "./queries";
+import { connectPublicRepo } from "./public-repos";
 
 export const gitRouter = {
   list: orgScopedProcedure.git.list.handler(async ({ context }) => {
@@ -153,6 +154,19 @@ export const gitRouter = {
       });
       if (!inst) throw errors.NOT_FOUND();
       return listReposForInstallation(input.installationId);
+    },
+  ),
+
+  connectPublicRepo: orgScopedProcedure.git.connectPublicRepo.handler(
+    async ({ input, context, errors }) => {
+      context.log.set({ target: { type: "git_public_repo" } });
+      const result = await connectPublicRepo({ cloneUrl: input.cloneUrl });
+      if (result.isErr()) {
+        // Operator-supplied URL was rejected — surface the message so
+        // the form can show what's wrong (missing owner/repo, http://, …).
+        throw errors.INVALID_URL({ message: result.error.message });
+      }
+      return result.value;
     },
   ),
 };

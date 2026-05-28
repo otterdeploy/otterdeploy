@@ -19,8 +19,9 @@
  *     pub/sub channel) can replay missed lines without scanning a JSONB
  *     blob. Rows are written by the builder; the platform never edits.
  */
+import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
+import type { ContainerRegistryId, DeploymentId } from "@otterdeploy/shared/id";
 
-import { createId, ID_PREFIX, type Id } from "@otterdeploy/shared/id";
 import {
   bigserial,
   index,
@@ -53,7 +54,7 @@ export const containerRegistry = pgTable(
   {
     id: text("id")
       .primaryKey()
-      .$type<Id<typeof ID_PREFIX.containerRegistry>>()
+      .$type<ContainerRegistryId>()
       .$defaultFn(() => createId(ID_PREFIX.containerRegistry)),
     organizationId: text("organization_id")
       .notNull()
@@ -107,7 +108,7 @@ export const deploymentLog = pgTable(
     seq: bigserial("seq", { mode: "number" }).primaryKey(),
     deploymentId: text("deployment_id")
       .notNull()
-      .$type<Id<typeof ID_PREFIX.deployment>>()
+      .$type<DeploymentId>()
       .references(() => deployment.id, { onDelete: "cascade" }),
     stream: deploymentLogStreamEnum("stream").notNull(),
     line: text("line").notNull(),

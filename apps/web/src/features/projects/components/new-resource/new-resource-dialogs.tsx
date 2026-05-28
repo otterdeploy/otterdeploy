@@ -1,4 +1,5 @@
-import { ID_PREFIX, type Id, type Slug } from "@otterdeploy/shared/id";
+
+import type { ProjectId, ProjectSlug, Slug } from "@otterdeploy/shared/id";
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
@@ -17,7 +18,7 @@ import {
 
 interface ResourceKindDialogProps {
   orgSlug: string;
-  projectSlug: Slug<typeof ID_PREFIX.project>;
+  projectSlug: ProjectSlug;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -91,8 +92,8 @@ export function ResourceKindDialog({
 
 interface ResourceOverlayDialogProps {
   orgSlug: string;
-  projectSlug: Slug<typeof ID_PREFIX.project>;
-  projectId: Id<typeof ID_PREFIX.project>;
+  projectSlug: ProjectSlug;
+  projectId: ProjectId;
   projectName?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;

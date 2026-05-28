@@ -6,18 +6,11 @@
  * a visited set on the active DFS path. Exporter results are cached for the
  * duration of a single `resolveServiceEnv` call.
  */
+import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { Result } from "better-result";
 
-import { type ProjectId } from "../../routers/project/errors";
-import {
-  RefCycleError,
-  RefMissingResourceError,
-  RefParseError,
-  RefUnknownVarError,
-  type ResolveError,
-  type ResourceId,
-} from "../../routers/service/errors";
+import { RefCycleError, RefMissingResourceError, RefParseError, RefUnknownVarError, type ResolveError } from "../../routers/service/errors";
 import {
   getDatabaseResourceRecord,
   getProjectRecord,
@@ -33,7 +26,6 @@ import {
 } from "../../routers/service/queries";
 import { postgresExports, serviceExports } from "./exporters";
 import { parseValue, type Token } from "./parser";
-
 interface ResolveContext {
   projectId: ProjectId;
   visited: Set<string>;

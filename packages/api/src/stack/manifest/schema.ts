@@ -15,10 +15,10 @@
  * Compose YAML is still produced — as a one-way output of the renderer —
  * for docker-stack escape hatch + local-dev use cases.
  */
+import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
 
 import * as z from "zod";
 
-import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
 import type { BuildConfig } from "@otterdeploy/shared/build-config";
 
 import { parseRefs, ManifestRefError } from "./refs";

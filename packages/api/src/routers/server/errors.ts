@@ -1,8 +1,6 @@
+
+import type { ServerId } from "@otterdeploy/shared/id";
 import { TaggedError } from "better-result";
-
-import { type Id, ID_PREFIX } from "@otterdeploy/shared/id";
-
-export type ServerId = Id<typeof ID_PREFIX.server>;
 
 export class ServerNotFoundError extends TaggedError("ServerNotFoundError")<{
   message: string;

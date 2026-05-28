@@ -1,15 +1,11 @@
+
+import type { ProjectId, ProxyRouteId, ResourceId } from "@otterdeploy/shared/id";
 import { asc, eq } from "drizzle-orm";
 import type { InferSelectModel } from "drizzle-orm";
 import { createError } from "evlog";
 
 import { db } from "@otterdeploy/db";
 import { proxyRoute } from "@otterdeploy/db/schema/proxy-route";
-import { type Id, ID_PREFIX } from "@otterdeploy/shared/id";
-
-type ProjectId = Id<typeof ID_PREFIX.project>;
-type ResourceId = Id<typeof ID_PREFIX.resource>;
-type ProxyRouteId = Id<typeof ID_PREFIX.proxyRoute>;
-
 export type ProxyRouteRecord = InferSelectModel<typeof proxyRoute>;
 
 export async function listEnabledProxyRoutes(): Promise<ProxyRouteRecord[]> {

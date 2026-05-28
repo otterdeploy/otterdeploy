@@ -18,14 +18,14 @@
  * disconnected.
  */
 
+import type { DeploymentId } from "@otterdeploy/shared/id";
+
 import type { RedisClient } from "bun";
 
 import { db } from "@otterdeploy/db";
 import { deploymentLog } from "@otterdeploy/db/schema";
-import type { Id, ID_PREFIX } from "@otterdeploy/shared/id";
 import { log as globalLog } from "evlog";
 
-type DeploymentId = Id<typeof ID_PREFIX.deployment>;
 type Stream = "stdout" | "stderr" | "system";
 
 interface PendingLine {

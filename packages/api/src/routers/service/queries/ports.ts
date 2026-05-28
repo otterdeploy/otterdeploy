@@ -1,11 +1,10 @@
+import type { ResourceId } from "@otterdeploy/shared/id";
 import { eq } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
 import { servicePort } from "@otterdeploy/db/schema/project";
 
-import type { ResourceId } from "../errors";
 import type { ServicePortRow } from ".";
-
 export async function listServicePorts(
   serviceResourceId: ResourceId,
 ): Promise<ServicePortRow[]> {

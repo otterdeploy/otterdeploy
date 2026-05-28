@@ -8,16 +8,16 @@
  * pipeline (apps/builder/src/pipeline.ts) — those two call sites are
  * the only places plaintext is reconstructed.
  */
+import type { ContainerRegistryId, OrganizationId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { containerRegistry, project } from "@otterdeploy/db/schema";
-import { type Id, ID_PREFIX as IDP } from "@otterdeploy/shared/id";
 import { and, asc, eq } from "drizzle-orm";
 
 import { encryptSecret } from "../../lib/crypto";
 
-type OrgId = Id<typeof IDP.organization>;
-type RegistryId = Id<typeof IDP.containerRegistry>;
+type OrgId = OrganizationId;
+type RegistryId = ContainerRegistryId;
 
 const VIEW_COLUMNS = {
   id: containerRegistry.id,

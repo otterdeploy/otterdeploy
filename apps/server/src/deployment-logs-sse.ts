@@ -12,6 +12,7 @@
  * timestamp when the line hasn't landed in the DB yet) to support
  * EventSource's `Last-Event-ID` reconnect.
  */
+import type { DeploymentId } from "@otterdeploy/shared/id";
 
 import type { Hono as HonoApp } from "hono";
 import { streamSSE } from "hono/streaming";
@@ -21,12 +22,11 @@ import { type EvlogVariables } from "evlog/hono";
 import { streamDeploymentLogs } from "@otterdeploy/api/routers/deployment/log-stream";
 import { auth, type Session } from "@otterdeploy/auth";
 
-type DeploymentId = string;
 type OrgId = string;
 
 export function registerDeploymentLogsSseRoutes(app: HonoApp<EvlogVariables>): void {
   app.get("/sse/deployments/:deploymentId/logs", async (c) => {
-    const deploymentId: DeploymentId = c.req.param("deploymentId");
+    const deploymentId = c.req.param("deploymentId") as DeploymentId;
 
     const session = (await auth.api.getSession({
       headers: c.req.raw.headers,

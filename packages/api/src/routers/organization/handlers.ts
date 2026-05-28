@@ -4,9 +4,9 @@
  * the org they're authenticated to.
  */
 
-import { Result } from "better-result";
+import type { OrganizationId } from "@otterdeploy/shared/id";
 
-import { type Id, ID_PREFIX } from "@otterdeploy/shared/id";
+import { Result } from "better-result";
 
 import {
   CloudflareError,
@@ -37,7 +37,7 @@ import {
   setOrganizationCloudflareConfig,
 } from "./queries";
 
-type OrgId = Id<typeof ID_PREFIX.organization>;
+type OrgId = OrganizationId;
 
 interface OrgSettingsView {
   id: OrgId;

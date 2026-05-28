@@ -11,6 +11,7 @@
  * mount path / port so the renderer stays single-source-of-truth with the
  * apply path.
  */
+import type { ProjectId } from "@otterdeploy/shared/id";
 
 import {
   buildContainerName,
@@ -21,7 +22,6 @@ import {
   listDatabaseResourceRecords,
 } from "../../routers/project/queries";
 import { listServiceRecordsByProject } from "../../routers/service/queries";
-import { type ProjectId } from "../../routers/project/errors";
 
 import {
   STACK_FILE_SCHEMA_VERSION,
@@ -32,7 +32,6 @@ import {
 import { buildDatabaseService } from "./from-rows-database";
 import { buildServiceEntry } from "./from-rows-service";
 import { projectNetworkName } from "./network-name";
-
 type DatabaseRows = Awaited<ReturnType<typeof listDatabaseResourceRecords>>;
 type ServiceRecords = Awaited<ReturnType<typeof listServiceRecordsByProject>>;
 
@@ -43,11 +42,14 @@ function renderDatabases(
   volumes: Record<string, Record<string, never>>,
 ): void {
   for (const row of rows) {
+    const engine = row.database.engine;
     const containerName = buildContainerName({
+      engine,
       projectSlug,
       resourceName: row.resource.name,
     });
     const volumeName = buildVolumeName({
+      engine,
       projectSlug,
       resourceName: row.resource.name,
     });

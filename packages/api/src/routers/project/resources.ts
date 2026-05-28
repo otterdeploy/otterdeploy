@@ -3,21 +3,15 @@
  * postgres.ts (and future siblings). Read/delete dispatch through the
  * DatabaseProvisioner factory so each engine plugs its own destroy semantics.
  */
+import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { Result } from "better-result";
 import type { RequestLogger } from "evlog";
 
-import type { Id, ID_PREFIX as IDP } from "@otterdeploy/shared/id";
-
 import { reconcile } from "../../caddy";
 import { deleteProxyRoutesByResource } from "../../caddy/queries";
 
-import {
-  PostgresResourceNotFoundError,
-  ProjectNotFoundError,
-  type ProjectId,
-} from "./errors";
-import type { ResourceId } from "../service/errors";
+import { PostgresResourceNotFoundError, ProjectNotFoundError } from "./errors";
 
 import {
   deleteResourceById,
@@ -34,7 +28,7 @@ import {
   type ProjectResource,
 } from "./views";
 
-type OrgId = Id<typeof IDP.organization>;
+type OrgId = OrganizationId;
 
 interface ProjectRef {
   projectId: ProjectId;
@@ -100,10 +94,10 @@ export async function listProjectResources(
   }
 
   const { databases, services } = await listProjectResourcesQuery(input.projectId);
-  const databaseViews = await Promise.all(
-    databases.map((record) => mapDatabaseResource(record, project.slug)),
-  );
-  const serviceViews = services.map((record) => mapServiceResource(record));
+  const [databaseViews, serviceViews] = await Promise.all([
+    Promise.all(databases.map((record) => mapDatabaseResource(record, project.slug))),
+    Promise.all(services.map((record) => mapServiceResource(record))),
+  ]);
 
   return Result.ok([...databaseViews, ...serviceViews]);
 }
@@ -132,7 +126,7 @@ export async function getProjectResource(
     case "database":
       return Result.ok(await mapDatabaseResource(found.record, project.slug));
     case "service":
-      return Result.ok(mapServiceResource(found.record));
+      return Result.ok(await mapServiceResource(found.record));
   }
 }
 
@@ -163,6 +157,7 @@ export async function deleteProjectResource(
     case "database": {
       const provisioner = getDatabaseProvisioner(found.record.database.engine);
       const serviceName = buildContainerName({
+        engine: found.record.database.engine,
         projectSlug: sanitizeProjectSlug(project.slug),
         resourceName: found.record.resource.name,
       });

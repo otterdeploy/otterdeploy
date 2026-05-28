@@ -3,6 +3,8 @@
  * Adapter only — pure diff logic lives in stack/manifest/diff.ts.
  */
 
+import type { ProjectId } from "@otterdeploy/shared/id";
+
 import { eq, inArray } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
@@ -13,16 +15,12 @@ import {
   servicePort,
   serviceResource,
 } from "@otterdeploy/db/schema/project";
-import type { Id, ID_PREFIX } from "@otterdeploy/shared/id";
-
 import type {
   CurrentDatabase,
   CurrentService,
   CurrentServicePort,
   CurrentState,
 } from "../../stack/manifest/diff";
-
-type ProjectId = Id<typeof ID_PREFIX.project>;
 
 export async function loadCurrentState(projectId: ProjectId): Promise<CurrentState> {
   const [serviceRows, databaseRows] = await Promise.all([

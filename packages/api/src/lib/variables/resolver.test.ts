@@ -1,3 +1,4 @@
+import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../routers/service/queries", () => ({
@@ -15,10 +16,8 @@ import {
   getResourceByProjectAndName,
   getServiceRecord,
 } from "../../routers/service/queries";
-import { type ProjectId } from "../../routers/project/errors";
-import { type ResourceId } from "../../routers/service/errors";
-import { resolveServiceEnv } from "./resolver";
 
+import { resolveServiceEnv } from "./resolver";
 const PROJECT_ID = "project_1" as ProjectId;
 const RESOURCE_ID = "resource_api" as ResourceId;
 

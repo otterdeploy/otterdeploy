@@ -6,17 +6,13 @@
  * all filter on `(server.id, server.organizationId)` to prevent cross-tenant
  * reads.
  */
-import { panic, Result } from "better-result";
 
-import { type Id, ID_PREFIX } from "@otterdeploy/shared/id";
+import type { OrganizationId, ServerId } from "@otterdeploy/shared/id";
+import { panic, Result } from "better-result";
 
 import { isUniqueViolation } from "../project/views";
 
-import {
-  ServerConflictError,
-  ServerNotFoundError,
-  type ServerId,
-} from "./errors";
+import { ServerConflictError, ServerNotFoundError } from "./errors";
 import {
   bootstrapLocalhostIfMissing,
   createServerRecord,
@@ -26,7 +22,7 @@ import {
   type ServerRecord,
 } from "./queries";
 
-type OrgId = Id<typeof ID_PREFIX.organization>;
+type OrgId = OrganizationId;
 interface OrgRef {
   organizationId: OrgId;
 }

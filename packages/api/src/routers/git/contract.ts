@@ -8,11 +8,10 @@
  *   refreshRepos   — re-syncs the installation's repo list from GitHub
  *   listRepos      — accessible repos for an installation (DB-side, no API)
  */
+import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 
 import { oc } from "@orpc/contract";
 import * as z from "zod";
-
-import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 
 const tag = "git";
 const basePath = "/git";
@@ -92,6 +91,13 @@ export const listInstallationReposInput = z.object({
   installationId: zId(ID_PREFIX.gitInstallation),
 });
 
+export const connectPublicRepoInput = z.object({
+  // Any https:// clone URL — the handler validates + normalizes it.
+  // SSH (`git@host:owner/repo.git`) is rejected: we'd need a per-org
+  // deploy key to clone, which is its own credentials surface.
+  cloneUrl: z.string().min(1),
+});
+
 export const gitContract = {
   list: oc
     .meta({ path: `${basePath}/providers`, tag, method: "GET" })
@@ -136,4 +142,17 @@ export const gitContract = {
     .meta({ path: `${basePath}/installations/{installationId}/repos`, tag, method: "GET" })
     .input(listInstallationReposInput)
     .output(z.array(gitRepoViewSchema)),
+  // Register a public Git URL as a gitRepo row (no installation, no
+  // webhook, no token mint). Project-level binding still flows through
+  // project.update — this just makes the gitRepoId exist.
+  connectPublicRepo: oc
+    .errors({
+      INVALID_URL: {
+        status: 400,
+        message: "Clone URL must be an https:// URL" as const,
+      },
+    })
+    .meta({ path: `${basePath}/public-repos`, tag, method: "POST" })
+    .input(connectPublicRepoInput)
+    .output(gitRepoViewSchema),
 };

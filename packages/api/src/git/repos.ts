@@ -3,14 +3,14 @@
  * fresh repo list (installation.created, installation_repositories.added).
  */
 
+import type { GitInstallationId } from "@otterdeploy/shared/id";
+
 import { db } from "@otterdeploy/db";
 import { gitRepo } from "@otterdeploy/db/schema";
-import type { ID_PREFIX, Id } from "@otterdeploy/shared/id";
-
 import type { GithubRepoPayload } from "./types";
 
 export async function syncRepos(
-  installationDbId: Id<typeof ID_PREFIX.gitInstallation>,
+  installationDbId: GitInstallationId,
   repos: GithubRepoPayload[],
 ) {
   // Per-row upsert by providerRepoId. Payloads are small (GitHub caps these

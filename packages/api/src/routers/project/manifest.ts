@@ -6,13 +6,13 @@
  * at which point the diff handler can reuse the same diff routine.
  */
 
+import type { OrganizationId, ProjectId } from "@otterdeploy/shared/id";
+
 import { and, eq, sql } from "drizzle-orm";
 import { Result } from "better-result";
 
 import { db } from "@otterdeploy/db";
 import { project } from "@otterdeploy/db/schema";
-import type { Id, ID_PREFIX } from "@otterdeploy/shared/id";
-
 import {
   type Manifest,
   manifestSchema,
@@ -20,8 +20,7 @@ import {
 } from "../../stack/manifest";
 import { ManifestVersionConflictError, ProjectNotFoundError } from "./errors";
 
-type ProjectId = Id<typeof ID_PREFIX.project>;
-type OrgId = Id<typeof ID_PREFIX.organization>;
+type OrgId = OrganizationId;
 
 export interface ProjectScope {
   projectId: ProjectId;

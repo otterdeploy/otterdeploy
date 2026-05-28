@@ -1,14 +1,15 @@
+
+import type { GitInstallationId, OrganizationId } from "@otterdeploy/shared/id";
 import { db } from "@otterdeploy/db";
 import {
   gitInstallation,
   gitProvider,
   gitRepo,
 } from "@otterdeploy/db/schema";
-import { ID_PREFIX, type Id } from "@otterdeploy/shared/id";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 
 export async function listProvidersForOrg(
-  organizationId: Id<typeof ID_PREFIX.organization>,
+  organizationId: OrganizationId,
 ) {
   const providers = await db.query.gitProvider.findMany({
     where: eq(gitProvider.organizationId, organizationId),
@@ -49,8 +50,8 @@ export async function listProvidersForOrg(
 }
 
 export async function getInstallationForOrg(args: {
-  installationDbId: Id<typeof ID_PREFIX.gitInstallation>;
-  organizationId: Id<typeof ID_PREFIX.organization>;
+  installationDbId: GitInstallationId;
+  organizationId: OrganizationId;
 }) {
   const inst = await db
     .select({ installation: gitInstallation, provider: gitProvider })
@@ -67,7 +68,7 @@ export async function getInstallationForOrg(args: {
 }
 
 export async function listReposForInstallation(
-  installationDbId: Id<typeof ID_PREFIX.gitInstallation>,
+  installationDbId: GitInstallationId,
 ) {
   return db
     .select({

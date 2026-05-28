@@ -7,6 +7,7 @@
  * databases / other services they depend on. Cheap enough to recompute on
  * every read — the project's env-var set is small.
  */
+import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { Result } from "better-result";
 import { eq } from "drizzle-orm";
@@ -16,15 +17,12 @@ import {
   resource,
   serviceEnvVar,
 } from "@otterdeploy/db/schema/project";
-import { type Id, ID_PREFIX as IDP } from "@otterdeploy/shared/id";
-
 import { parseValue } from "../../lib/variables/parser";
 
-import { ProjectNotFoundError, type ProjectId } from "./errors";
+import { ProjectNotFoundError } from "./errors";
 import { getProjectInOrg } from "./queries";
-import type { ResourceId } from "../service/errors";
 
-type OrgId = Id<typeof IDP.organization>;
+type OrgId = OrganizationId;
 
 interface ProjectRef {
   projectId: ProjectId;

@@ -1,8 +1,9 @@
 "use client";
 
+import type { ProjectSlug, Slug } from "@otterdeploy/shared/id";
+
 import { Search01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { ID_PREFIX, type Slug } from "@otterdeploy/shared/id";
 import { Link, useLoaderData, useMatch } from "@tanstack/react-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -80,7 +81,7 @@ export function SiteHeader() {
       {project && (
         <ResourceOverlayDialog
           orgSlug={organization.slug}
-          projectSlug={project.slug as Slug<typeof ID_PREFIX.project>}
+          projectSlug={project.slug as ProjectSlug}
           projectId={project.id}
           projectName={project.name}
           open={overlayOpen}

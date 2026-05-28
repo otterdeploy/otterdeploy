@@ -6,6 +6,7 @@
  * Returns `Result<View, TaggedError>` so the oRPC handler layer can switch
  * on `result.error._tag` to translate to the right wire-level error code.
  */
+import type { ResourceId } from "@otterdeploy/shared/id";
 
 import { Result } from "better-result";
 import type { RequestLogger } from "evlog";
@@ -23,15 +24,7 @@ import { resolvePublicDomain } from "../../lib/domains";
 import { destroySwarmService } from "../../swarm";
 
 import { loadProject, loadResource } from "./context";
-import {
-  MissingProjectBuildBindingError,
-  NoHttpPortError,
-  ServiceConflictError,
-  ServiceInUseError,
-  ServiceNotFoundError,
-  type ResolveError,
-  type ResourceId,
-} from "./errors";
+import { MissingProjectBuildBindingError, NoHttpPortError, ServiceConflictError, ServiceInUseError, ServiceNotFoundError, type ResolveError } from "./errors";
 import {
   type CreateServiceInput,
   type ProjectRef,

@@ -1,3 +1,4 @@
+import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import { and, eq, like } from "drizzle-orm";
 import { createError } from "evlog";
 
@@ -7,10 +8,7 @@ import {
   serviceEnvVar,
 } from "@otterdeploy/db/schema/project";
 
-import type { ProjectId } from "../../project/errors";
-import type { ResourceId } from "../errors";
 import type { ResourceRow, ServiceEnvVarRow } from ".";
-
 // ---------------------------------------------------------------------------
 // Env vars
 // ---------------------------------------------------------------------------
@@ -66,7 +64,7 @@ export async function deleteServiceEnvVar(input: {
 
 export async function bulkReplaceServiceEnvVars(
   serviceResourceId: ResourceId,
-  vars: Array<{ key: string; value: string }>,
+  vars: Array<{ key: string; value: string; isSecret?: boolean }>,
 ): Promise<ServiceEnvVarRow[]> {
   return db.transaction(async (tx) => {
     await tx
@@ -82,6 +80,7 @@ export async function bulkReplaceServiceEnvVars(
           serviceResourceId,
           key: v.key,
           value: v.value,
+          isSecret: v.isSecret ?? false,
         })),
       )
       .returning();

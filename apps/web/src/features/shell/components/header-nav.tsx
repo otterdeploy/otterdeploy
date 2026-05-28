@@ -1,3 +1,5 @@
+
+import type { ProjectSlug, Slug } from "@otterdeploy/shared/id";
 import { useState } from "react";
 import {
   Link,
@@ -14,8 +16,6 @@ import {
   ArrowDown01Icon,
   Tick02Icon,
 } from "@hugeicons/core-free-icons";
-
-import { ID_PREFIX, type Slug } from "@otterdeploy/shared/id";
 
 import { envCollection } from "@/features/projects/data/env";
 import { projectCollection } from "@/features/projects/data/project";
@@ -195,7 +195,7 @@ function ProjectPicker({
                   to="/$orgSlug/$projectSlug"
                   params={{
                     orgSlug,
-                    projectSlug: p.slug as Slug<typeof ID_PREFIX.project>,
+                    projectSlug: p.slug as ProjectSlug,
                   }}
                 />
               }

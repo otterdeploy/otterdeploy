@@ -5,14 +5,14 @@
  * columns we added (baseDomain + verification + Cloudflare).
  */
 
+import type { OrganizationId } from "@otterdeploy/shared/id";
+
 import { randomBytes } from "node:crypto";
 import { eq } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
 import { organization } from "@otterdeploy/db/schema/auth";
-import { type Id, ID_PREFIX } from "@otterdeploy/shared/id";
-
-type OrgId = Id<typeof ID_PREFIX.organization>;
+type OrgId = OrganizationId;
 
 export async function getOrganizationById(orgId: OrgId) {
   const [row] = await db

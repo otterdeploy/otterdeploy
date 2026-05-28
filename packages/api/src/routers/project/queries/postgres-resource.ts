@@ -1,11 +1,9 @@
+import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import { and, eq } from "drizzle-orm";
 import { createError } from "evlog";
 
 import { db } from "@otterdeploy/db";
 import { databaseResource, resource } from "@otterdeploy/db/schema/project";
-
-import type { ProjectId } from "../errors";
-import type { ResourceId } from "../../service/errors";
 
 export interface DatabaseResourceRecord {
   resource: typeof resource.$inferSelect;

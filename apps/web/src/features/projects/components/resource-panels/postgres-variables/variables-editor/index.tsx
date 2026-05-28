@@ -8,14 +8,24 @@ import { toast } from "sonner";
 
 import { orpc, queryClient } from "@/shared/server/orpc";
 
-import type { ResourceBodyProps } from "../../types";
 import { BulkEditDialog } from "./bulk-edit-dialog";
 import { TableView } from "./table-view";
 import { Toolbar } from "./toolbar";
 import { useEditorState } from "./use-editor-state";
 
+// Minimal shape the editor needs from any resource. Database + service
+// rows both project into this — keeps the editor reusable across panels
+// without dragging in the engine/databaseName/etc. fields the database
+// view carries.
+export interface VariablesEditorResource {
+  projectId: string;
+  resourceId: string;
+  extraEnv: Record<string, string>;
+  secretKeys: string[];
+}
+
 interface VariablesEditorProps {
-  resource: ResourceBodyProps["resource"];
+  resource: VariablesEditorResource;
   // Bumped by the tab header's "New Variable" button — when it advances
   // the editor adds an empty row.
   addRowSignal?: number;
@@ -24,9 +34,13 @@ interface VariablesEditorProps {
 export function VariablesEditor({ resource, addRowSignal = 0 }: VariablesEditorProps) {
   const [bulkOpen, setBulkOpen] = useState(false);
 
+  // Tolerate undefined here — the resource list cache predates the
+  // schema gaining extraEnv/secretKeys for services; without these
+  // defaults `Object.entries(undefined)` in rowsFromServer throws and
+  // takes out the whole panel.
   const editor = useEditorState({
-    serverEnv: resource.extraEnv,
-    serverSecretKeys: resource.secretKeys,
+    serverEnv: resource.extraEnv ?? {},
+    serverSecretKeys: resource.secretKeys ?? [],
   });
 
   const lastAddSignal = useRef(0);

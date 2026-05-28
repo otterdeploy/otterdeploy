@@ -1,7 +1,7 @@
+
+import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import { createCollection } from "@tanstack/db";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
-
-import type { Id, ID_PREFIX } from "@otterdeploy/shared/id";
 
 import { orpc, queryClient } from "@/shared/server/orpc";
 
@@ -13,8 +13,8 @@ import { orpc, queryClient } from "@/shared/server/orpc";
  * we list, so we need to poll to catch state transitions on running tasks.
  */
 export function createDeploymentsCollection(
-  projectId: Id<typeof ID_PREFIX.project>,
-  resourceId: Id<typeof ID_PREFIX.resource>,
+  projectId: ProjectId,
+  resourceId: ResourceId,
 ) {
   return createCollection(
     queryCollectionOptions({

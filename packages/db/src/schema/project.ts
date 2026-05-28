@@ -1,4 +1,5 @@
-import { createId, ID_PREFIX, type Id } from "@otterdeploy/shared/id";
+import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
+import type { ContainerRegistryId, DeploymentId, EnvironmentId, GitRepoId, ProjectEnvSubscriptionId, ProjectEnvVarId, ProjectId, ResourceId, ServiceEnvVarId, ServiceMountId, ServicePortId } from "@otterdeploy/shared/id";
 import type { BuildConfig } from "@otterdeploy/shared/build-config";
 import {
   boolean,
@@ -16,7 +17,7 @@ import { organization, user } from "./auth";
 
 export const projectStatusEnum = pgEnum("project_status", ["draft", "valid", "invalid"]);
 
-type EnvId = Id<typeof ID_PREFIX.environment>;
+type EnvId = EnvironmentId;
 
 /**
  * User-supplied overrides for `nixpacks build`. Mirrors the subset of the
@@ -43,7 +44,7 @@ export const project = pgTable(
   {
     id: text("id")
       .primaryKey()
-      .$type<Id<typeof ID_PREFIX.project>>()
+      .$type<ProjectId>()
       .$defaultFn(() => createId(ID_PREFIX.project)),
     organizationId: text("organization_id")
       .notNull()
@@ -83,7 +84,7 @@ export const project = pgTable(
     // linked repo trigger a deploy of every service resource in the project
     // whose source is `git`. Nullable: a project doesn't have to be
     // git-backed (databases, image-only services, etc.).
-    gitRepoId: text("git_repo_id").$type<Id<typeof ID_PREFIX.gitRepo>>(),
+    gitRepoId: text("git_repo_id").$type<GitRepoId>(),
     productionBranch: text("production_branch").notNull().default("main"),
     // Build pipeline targeting — which registry the builder pushes to,
     // what image name (without tag) to push under, and any user-supplied
@@ -93,7 +94,7 @@ export const project = pgTable(
     // import cycle; the constraint lives in container_registry's own
     // delete-cascade story instead (see build.ts).
     containerRegistryId: text("container_registry_id").$type<
-      Id<typeof ID_PREFIX.containerRegistry>
+      ContainerRegistryId
     >(),
     imageRepository: text("image_repository"),
     nixpacksConfig: jsonb("nixpacks_config")
@@ -136,10 +137,10 @@ export const environment = pgTable(
   {
     id: text("id")
       .primaryKey()
-      .$type<Id<typeof ID_PREFIX.environment>>()
+      .$type<EnvironmentId>()
       .$defaultFn(() => createId(ID_PREFIX.environment)),
     projectId: text("project_id")
-      .$type<Id<typeof ID_PREFIX.project>>()
+      .$type<ProjectId>()
       .references(() => project.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     slug: text("slug").notNull(),
@@ -164,11 +165,11 @@ export const resource = pgTable(
   {
     id: text("id")
       .primaryKey()
-      .$type<Id<typeof ID_PREFIX.resource>>()
+      .$type<ResourceId>()
       .$defaultFn(() => createId(ID_PREFIX.resource)),
     projectId: text("project_id")
       .notNull()
-      .$type<Id<typeof ID_PREFIX.project>>()
+      .$type<ProjectId>()
       .references(() => project.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     type: resourceTypeEnum("type").notNull(),
@@ -197,7 +198,7 @@ export const databaseResource = pgTable(
   {
     resourceId: text("resource_id")
       .primaryKey()
-      .$type<Id<typeof ID_PREFIX.resource>>()
+      .$type<ResourceId>()
       .references(() => resource.id, { onDelete: "cascade" }),
     engine: databaseEngineEnum("engine").notNull().default("postgres"),
     databaseName: text("database_name").notNull(),
@@ -268,7 +269,7 @@ export const serviceResource = pgTable(
   {
     resourceId: text("resource_id")
       .primaryKey()
-      .$type<Id<typeof ID_PREFIX.resource>>()
+      .$type<ResourceId>()
       .references(() => resource.id, { onDelete: "cascade" }),
 
     image: text("image").notNull(),
@@ -376,11 +377,11 @@ export const deployment = pgTable(
   {
     id: text("id")
       .primaryKey()
-      .$type<Id<typeof ID_PREFIX.deployment>>()
+      .$type<DeploymentId>()
       .$defaultFn(() => createId(ID_PREFIX.deployment)),
     resourceId: text("resource_id")
       .notNull()
-      .$type<Id<typeof ID_PREFIX.resource>>()
+      .$type<ResourceId>()
       .references(() => resource.id, { onDelete: "cascade" }),
     // Image the deployment was launched with. Captured at insert time so
     // history survives a platform image-pin change.
@@ -442,11 +443,11 @@ export const serviceMount = pgTable(
   {
     id: text("id")
       .primaryKey()
-      .$type<Id<typeof ID_PREFIX.serviceMount>>()
+      .$type<ServiceMountId>()
       .$defaultFn(() => createId(ID_PREFIX.serviceMount)),
     serviceResourceId: text("service_resource_id")
       .notNull()
-      .$type<Id<typeof ID_PREFIX.resource>>()
+      .$type<ResourceId>()
       .references(() => serviceResource.resourceId, { onDelete: "cascade" }),
     type: serviceMountTypeEnum("type").notNull(),
     /** Path inside the container where the mount appears. Always set. */
@@ -486,11 +487,11 @@ export const servicePort = pgTable(
   {
     id: text("id")
       .primaryKey()
-      .$type<Id<typeof ID_PREFIX.servicePort>>()
+      .$type<ServicePortId>()
       .$defaultFn(() => createId(ID_PREFIX.servicePort)),
     serviceResourceId: text("service_resource_id")
       .notNull()
-      .$type<Id<typeof ID_PREFIX.resource>>()
+      .$type<ResourceId>()
       .references(() => serviceResource.resourceId, { onDelete: "cascade" }),
     containerPort: integer("container_port").notNull(),
     protocol: servicePortProtocolEnum("protocol").notNull().default("tcp"),
@@ -524,11 +525,11 @@ export const serviceEnvVar = pgTable(
   {
     id: text("id")
       .primaryKey()
-      .$type<Id<typeof ID_PREFIX.serviceEnvVar>>()
+      .$type<ServiceEnvVarId>()
       .$defaultFn(() => createId(ID_PREFIX.serviceEnvVar)),
     serviceResourceId: text("service_resource_id")
       .notNull()
-      .$type<Id<typeof ID_PREFIX.resource>>()
+      .$type<ResourceId>()
       .references(() => serviceResource.resourceId, { onDelete: "cascade" }),
     // Per-environment scoping. Same (service, key) can carry different values
     // across production / staging / preview / ad-hoc envs.
@@ -566,11 +567,11 @@ export const projectEnvVar = pgTable(
   {
     id: text("id")
       .primaryKey()
-      .$type<Id<typeof ID_PREFIX.projectEnvVar>>()
+      .$type<ProjectEnvVarId>()
       .$defaultFn(() => createId(ID_PREFIX.projectEnvVar)),
     projectId: text("project_id")
       .notNull()
-      .$type<Id<typeof ID_PREFIX.project>>()
+      .$type<ProjectId>()
       .references(() => project.id, { onDelete: "cascade" }),
     environmentId: text("environment_id")
       .notNull()
@@ -606,11 +607,11 @@ export const projectEnvSubscription = pgTable(
   {
     id: text("id")
       .primaryKey()
-      .$type<Id<typeof ID_PREFIX.projectEnvSubscription>>()
+      .$type<ProjectEnvSubscriptionId>()
       .$defaultFn(() => createId(ID_PREFIX.projectEnvSubscription)),
     serviceResourceId: text("service_resource_id")
       .notNull()
-      .$type<Id<typeof ID_PREFIX.resource>>()
+      .$type<ResourceId>()
       .references(() => serviceResource.resourceId, { onDelete: "cascade" }),
     projectEnvKey: text("project_env_key").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),

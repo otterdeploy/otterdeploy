@@ -1,3 +1,5 @@
+import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
+import type { EnvironmentId, OrganizationId, ProjectId } from "@otterdeploy/shared/id";
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { createError } from "evlog";
 
@@ -9,11 +11,7 @@ import {
   resource,
   type NixpacksConfig,
 } from "@otterdeploy/db/schema/project";
-import { createId, ID_PREFIX, type Id } from "@otterdeploy/shared/id";
-
-import type { ProjectId } from "../errors";
-
-export async function listProjectRecordsByOrg(organizationId: Id<typeof ID_PREFIX.organization>) {
+export async function listProjectRecordsByOrg(organizationId: OrganizationId) {
   return db
     .select({
       id: project.id,
@@ -49,7 +47,7 @@ export async function listProjectRecordsByOrg(organizationId: Id<typeof ID_PREFI
  */
 export async function getProjectInOrg(input: {
   projectId: ProjectId;
-  organizationId: Id<typeof ID_PREFIX.organization>;
+  organizationId: OrganizationId;
 }) {
   const [record] = await db
     .select()
@@ -69,7 +67,7 @@ export const getProjectRecord = getProjectById;
 
 export async function getProjectBySlugInOrg(input: {
   slug: string;
-  organizationId: Id<typeof ID_PREFIX.organization>;
+  organizationId: OrganizationId;
 }) {
   const [record] = await db
     .select()
@@ -81,7 +79,7 @@ export async function getProjectBySlugInOrg(input: {
 
 export async function updateProjectRecord(input: {
   projectId: ProjectId;
-  organizationId: Id<typeof ID_PREFIX.organization>;
+  organizationId: OrganizationId;
   name?: string;
   slug?: string;
   gitRepoId?: string | null;
@@ -134,7 +132,7 @@ export async function updateProjectRecord(input: {
 
 export async function deleteProjectRecord(input: {
   projectId: ProjectId;
-  organizationId: Id<typeof ID_PREFIX.organization>;
+  organizationId: OrganizationId;
 }) {
   const [record] = await db
     .delete(project)
@@ -144,12 +142,12 @@ export async function deleteProjectRecord(input: {
 }
 
 export async function createProjectRecord(input: {
-  organizationId: Id<typeof ID_PREFIX.organization>;
+  organizationId: OrganizationId;
   name: string;
   slug: string;
   /** Caller-supplied ids for optimistic UI; generated when absent. */
   id?: ProjectId;
-  environmentId?: Id<typeof ID_PREFIX.environment>;
+  environmentId?: EnvironmentId;
 }) {
   return db.transaction(async (tx) => {
     const projectId = input.id ?? createId(ID_PREFIX.project);
@@ -229,7 +227,7 @@ export async function createProjectRecord(input: {
  */
 export async function loadProjectEnvBag(input: {
   projectId: ProjectId;
-  environmentId: Id<typeof ID_PREFIX.environment>;
+  environmentId: EnvironmentId;
 }): Promise<Record<string, string>> {
   const rows = await db
     .select({ key: projectEnvVar.key, value: projectEnvVar.value })

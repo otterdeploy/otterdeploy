@@ -1,3 +1,5 @@
+import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
+import type { ProjectSlug, Slug } from "@otterdeploy/shared/id";
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 
@@ -13,8 +15,6 @@ import {
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Field, FieldLabel } from "@/shared/components/ui/field";
-import { createId, ID_PREFIX, type Slug } from "@otterdeploy/shared/id";
-
 function slugify(value: string): string {
   return value
     .toLowerCase()
@@ -63,7 +63,7 @@ export function EnvironmentCreateDialog({ projectId, open, onOpenChange }: Props
         id,
         name: name.trim(),
         slug: resolvedSlug,
-        projectId: projectId as Slug<typeof ID_PREFIX.project>,
+        projectId: projectId as ProjectSlug,
         createdAt: new Date(),
       });
       // Switch the URL to the freshly-created env so the user lands on it.

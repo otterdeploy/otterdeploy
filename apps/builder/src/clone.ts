@@ -28,12 +28,17 @@ export async function cloneRepoAtSha(opts: {
   cloneUrl: string;
   ref: string;
   sha: string;
+  /** Empty string when cloning a public repo — no token to inject. */
   installationToken: string;
   sink: LogSink;
 }): Promise<CloneResult> {
   const workDir = await mkdtemp(path.join(tmpdir(), "otterbuild-"));
-  const url = injectToken(opts.cloneUrl, opts.installationToken);
-  const secrets = [opts.installationToken];
+  const url = opts.installationToken
+    ? injectToken(opts.cloneUrl, opts.installationToken)
+    : opts.cloneUrl;
+  // Don't register an empty string as a secret — LogSink would mask
+  // every empty stretch of output.
+  const secrets = opts.installationToken ? [opts.installationToken] : [];
 
   opts.sink.system(`cloning ${opts.cloneUrl} @ ${opts.ref} (${opts.sha.slice(0, 7)}) → ${workDir}`);
 

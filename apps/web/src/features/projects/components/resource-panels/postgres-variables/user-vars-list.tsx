@@ -2,11 +2,11 @@
 // existing tab. The `addingSignal` prop comes from the tab header's
 // "New Variable" button so the editor can react to that external action.
 
-import type { ResourceBodyProps } from "../types";
+import type { VariablesEditorResource } from "./variables-editor";
 import { VariablesEditor } from "./variables-editor";
 
 interface UserVarsListProps {
-  resource: ResourceBodyProps["resource"];
+  resource: VariablesEditorResource;
   addingSignal: number;
 }
 

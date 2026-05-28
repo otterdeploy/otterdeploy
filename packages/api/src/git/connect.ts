@@ -12,9 +12,10 @@
  * metadata without duplicating rows.
  */
 
+import type { GitInstallationId, GitProviderId, OrganizationId } from "@otterdeploy/shared/id";
+
 import { db } from "@otterdeploy/db";
 import { gitInstallation, gitProvider } from "@otterdeploy/db/schema";
-import { ID_PREFIX, type Id } from "@otterdeploy/shared/id";
 import { and, eq } from "drizzle-orm";
 
 import {
@@ -27,13 +28,13 @@ import { loadGithubAppForOrgIfPresent } from "./github-app-config";
 import { syncRepos } from "./repos";
 
 export interface CompleteConnectArgs {
-  organizationId: Id<typeof ID_PREFIX.organization>;
+  organizationId: OrganizationId;
   installationId: string;
 }
 
 export interface CompleteConnectResult {
-  providerId: Id<typeof ID_PREFIX.gitProvider>;
-  installationDbId: Id<typeof ID_PREFIX.gitInstallation>;
+  providerId: GitProviderId;
+  installationDbId: GitInstallationId;
   accountLogin: string;
   repoCount: number;
 }
@@ -136,8 +137,8 @@ export async function completeGithubConnect(
  * resolve their source repo by id even after disconnect.
  */
 export async function disconnectGithubInstallation(args: {
-  organizationId: Id<typeof ID_PREFIX.organization>;
-  installationDbId: Id<typeof ID_PREFIX.gitInstallation>;
+  organizationId: OrganizationId;
+  installationDbId: GitInstallationId;
 }): Promise<void> {
   // Verify the installation belongs to a provider in this org.
   const inst = await db.query.gitInstallation.findFirst({

@@ -5,13 +5,11 @@
  * casts in).
  */
 
-import { type Id, ID_PREFIX } from "@otterdeploy/shared/id";
+import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+
 import type { BuildConfig } from "@otterdeploy/shared/build-config";
 
-import { type ProjectId } from "../project/errors";
-import { type ResourceId } from "./errors";
-
-type OrgId = Id<typeof ID_PREFIX.organization>;
+type OrgId = OrganizationId;
 
 interface RestartInput {
   condition?: "none" | "on-failure" | "any";

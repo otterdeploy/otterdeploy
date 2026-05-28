@@ -3,11 +3,10 @@
  * targets the operator can attach a shell to right now — exec containers
  * + database consoles. SSH targets live on `server.list` (org-wide nodes).
  */
+import { ID_PREFIX, zId, zSlug } from "@otterdeploy/shared/id";
 
 import { oc } from "@orpc/contract";
 import * as z from "zod";
-
-import { ID_PREFIX, zId, zSlug } from "@otterdeploy/shared/id";
 
 const tag = "terminal";
 const basePath = "/terminal";

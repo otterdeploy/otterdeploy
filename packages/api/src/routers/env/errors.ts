@@ -1,8 +1,6 @@
+
+import type { EnvironmentId } from "@otterdeploy/shared/id";
 import { TaggedError } from "better-result";
-
-import { type Id, ID_PREFIX } from "@otterdeploy/shared/id";
-
-export type EnvironmentId = Id<typeof ID_PREFIX.environment>;
 
 export class EnvironmentNotFoundError extends TaggedError(
   "EnvironmentNotFoundError",

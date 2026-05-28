@@ -22,6 +22,8 @@ export { PostgresVariablesTabBody } from "./postgres-variables";
 export { RealResourcePanel } from "./real-resource-panel";
 export { ResourceTasksTab } from "./resource-tasks-tab";
 export { ServiceResourcePanel } from "./service-resource-panel";
+export { ServiceSettingsBody } from "./service-settings";
+export { ServiceVariablesTabBody } from "./service-variables";
 export {
   ResourceTerminal,
   type ResourceTerminalMatch,

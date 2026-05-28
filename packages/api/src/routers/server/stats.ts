@@ -12,6 +12,7 @@
  *   against either, since the bootstrap row's name is "localhost" while the
  *   real OS hostname lives in `hostname`.
  */
+import type { OrganizationId, ServerId } from "@otterdeploy/shared/id";
 
 import { Docker } from "@otterdeploy/docker";
 import { and, eq, inArray } from "drizzle-orm";
@@ -19,10 +20,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@otterdeploy/db";
 import { project } from "@otterdeploy/db/schema/project";
 import { server } from "@otterdeploy/db/schema/server";
-import { type Id, ID_PREFIX as IDP } from "@otterdeploy/shared/id";
-
-type OrgId = Id<typeof IDP.organization>;
-type ServerId = Id<typeof IDP.server>;
+type OrgId = OrganizationId;
 
 export interface ServerNodeStats {
   serverId: ServerId;

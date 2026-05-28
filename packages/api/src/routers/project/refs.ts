@@ -12,12 +12,11 @@
  * service's container at deploy time via the resolver; the picker is
  * a discovery surface, not a viewer.
  */
+import type { OrganizationId, ProjectId } from "@otterdeploy/shared/id";
 
 import { Result } from "better-result";
 
-import { type Id, ID_PREFIX as IDP } from "@otterdeploy/shared/id";
-
-import { ProjectNotFoundError, type ProjectId } from "./errors";
+import { ProjectNotFoundError } from "./errors";
 import {
   getProjectInOrg,
   getProjectRecord,
@@ -27,7 +26,7 @@ import { listProjectResources } from "./queries/resource";
 import { listServiceEnvVars, listServicePorts } from "../service/queries";
 import { postgresExports, serviceExports } from "../../lib/variables/exporters";
 
-type OrgId = Id<typeof IDP.organization>;
+type OrgId = OrganizationId;
 type DatabaseEngine = "postgres" | "redis" | "mariadb" | "mongodb";
 
 export interface AvailableReference {

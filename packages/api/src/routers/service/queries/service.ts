@@ -1,3 +1,4 @@
+import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { createError } from "evlog";
 
@@ -11,8 +12,6 @@ import {
   serviceResource,
 } from "@otterdeploy/db/schema/project";
 
-import type { ProjectId } from "../../project/errors";
-import type { ResourceId } from "../errors";
 import {
   type ServiceMountRow,
   type ServicePortRow,
@@ -23,7 +22,6 @@ import {
 import { listServicePorts } from "./ports";
 import { listServiceEnvVars } from "./env";
 import { listServiceMounts } from "./mounts";
-
 // ---------------------------------------------------------------------------
 // Reads
 // ---------------------------------------------------------------------------

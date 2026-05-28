@@ -7,6 +7,8 @@
  * Build pipeline that consumes those Deployment rows lands in Phase 3.
  */
 
+import type { ProjectId } from "@otterdeploy/shared/id";
+
 import { db } from "@otterdeploy/db";
 import {
   deployment,
@@ -16,7 +18,6 @@ import {
   serviceResource,
 } from "@otterdeploy/db/schema";
 import { triggerDeploy } from "@otterdeploy/jobs";
-import { ID_PREFIX, type Id } from "@otterdeploy/shared/id";
 import { log } from "evlog";
 import { and, eq } from "drizzle-orm";
 
@@ -92,7 +93,7 @@ export async function handlePush(
       .innerJoin(serviceResource, eq(serviceResource.resourceId, resource.id))
       .where(
         and(
-          eq(resource.projectId, p.id as Id<typeof ID_PREFIX.project>),
+          eq(resource.projectId, p.id as ProjectId),
           eq(resource.type, "service"),
           eq(serviceResource.source, "git"),
         ),

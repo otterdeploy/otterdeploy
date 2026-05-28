@@ -1,10 +1,10 @@
+
+import type { OrganizationId } from "@otterdeploy/shared/id";
 import type { Context as HonoContext } from "hono";
 import type { RequestLogger } from "evlog";
 
 import { auth, type Session } from "@otterdeploy/auth";
-import { type Id, ID_PREFIX } from "@otterdeploy/shared/id";
-
-type OrgId = Id<typeof ID_PREFIX.organization>;
+type OrgId = OrganizationId;
 
 export interface CreateContextOptions {
   context: HonoContext;

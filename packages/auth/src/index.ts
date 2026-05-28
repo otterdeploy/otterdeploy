@@ -1,10 +1,11 @@
+import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
+import type { IdPrefix } from "@otterdeploy/shared/id";
 import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
 import * as schema from "@otterdeploy/db/schema";
 import { member, session as sessionTbl } from "@otterdeploy/db/schema/auth";
 import { env } from "@otterdeploy/env/server";
-import { createId, ID_PREFIX, type IdPrefix } from "@otterdeploy/shared/id";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { bearer, deviceAuthorization, organization } from "better-auth/plugins";

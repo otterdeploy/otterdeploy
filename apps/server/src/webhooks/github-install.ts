@@ -10,6 +10,8 @@
  * the GitHub-side redirect chain.
  */
 
+import type { OrganizationId } from "@otterdeploy/shared/id";
+
 import {
   completeGithubConnect,
   completeManifestExchange,
@@ -18,7 +20,6 @@ import {
   verifyInstallState,
 } from "@otterdeploy/api/git";
 import { env } from "@otterdeploy/env/server";
-import { ID_PREFIX, type Id } from "@otterdeploy/shared/id";
 import { log, parseError } from "evlog";
 import { type EvlogVariables } from "evlog/hono";
 import type { Hono } from "hono";
@@ -50,7 +51,7 @@ export function registerGithubInstallRoutes(app: Hono<EvlogVariables>): void {
 
     try {
       const result = await completeGithubConnect({
-        organizationId: state.orgId as Id<typeof ID_PREFIX.organization>,
+        organizationId: state.orgId as OrganizationId,
         installationId,
       });
       log.info({
@@ -111,7 +112,7 @@ export function registerGithubInstallRoutes(app: Hono<EvlogVariables>): void {
     try {
       const result = await completeManifestExchange({
         code,
-        organizationId: state.orgId as Id<typeof ID_PREFIX.organization>,
+        organizationId: state.orgId as OrganizationId,
       });
       log.info({
         github: {
