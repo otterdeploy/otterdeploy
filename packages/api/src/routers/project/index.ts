@@ -31,6 +31,7 @@ import {
   validatePostgresCreate,
 } from "./handlers";
 import { loadManifest, resolvedManifest, saveManifest } from "./manifest";
+import { applyManifest } from "./manifest-apply";
 import { loadCurrentState } from "./manifest-state";
 import { diffManifest } from "../../stack/manifest";
 import { tailProjectLogs } from "./project-logs";
@@ -634,9 +635,6 @@ export const projectRouter = {
     apply: orgScopedProcedure.project.manifest.apply.handler(
       async ({ input, context }) => {
         context.log.set({ target: { type: "project", id: input.projectId } });
-        // Stub — real reconciler lands in Phase 4. Returning a successful
-        // shape with `skipped: all` keeps the CLI/UI working end-to-end
-        // and tells operators exactly why nothing happened.
         const resolved = await resolvedManifest(
           {
             projectId: input.projectId,
@@ -644,26 +642,21 @@ export const projectRouter = {
           },
           input.environment,
         );
-        const skipped =
-          resolved
-            ? [
-                ...Object.keys(resolved.services).map((name) => ({
-                  resource: "service" as const,
-                  name,
-                  reason: "manifest.apply reconciler not implemented yet (Phase 4)",
-                })),
-                ...Object.keys(resolved.databases).map((name) => ({
-                  resource: "database" as const,
-                  name,
-                  reason: "manifest.apply reconciler not implemented yet (Phase 4)",
-                })),
-              ]
-            : [];
-        return {
-          appliedCount: 0,
-          skipped,
-          lastAppliedAt: new Date().toISOString(),
-        };
+        if (!resolved) {
+          return {
+            appliedCount: 0,
+            skipped: [],
+            lastAppliedAt: new Date().toISOString(),
+          };
+        }
+        const current = await loadCurrentState(input.projectId);
+        return applyManifest({
+          projectId: input.projectId,
+          organizationId: context.activeOrganizationId,
+          manifest: resolved,
+          current,
+          log: context.log,
+        });
       },
     ),
   },
