@@ -1,9 +1,13 @@
 #!/usr/bin/env bun
 import { defineCommand, runMain } from "citty";
 
+import { deployCommand } from "./commands/deploy";
+import { envCommand } from "./commands/env";
+import { initCommand } from "./commands/init";
 import { loginCommand } from "./commands/login";
 import { logoutCommand } from "./commands/logout";
 import { projectCommand } from "./commands/project";
+import { pullCommand } from "./commands/pull";
 import { whoamiCommand } from "./commands/whoami";
 
 const main = defineCommand({
@@ -16,6 +20,10 @@ const main = defineCommand({
     login: loginCommand,
     logout: logoutCommand,
     whoami: whoamiCommand,
+    init: initCommand,
+    deploy: deployCommand,
+    pull: pullCommand,
+    env: envCommand,
     project: projectCommand,
   },
 });
