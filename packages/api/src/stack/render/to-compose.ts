@@ -1,11 +1,19 @@
 /**
  * Emit compose-compatible YAML from a StackFile.
  *
- * The `x-otterdeploy` extension block on each service is also projected
- * into compose `deploy.labels` (`otterdeploy.kind`, `otterdeploy.engine`,
- * `otterdeploy.resource.id`, `otterdeploy.project.id`) so tools that only
- * see the compose subset can still identify the owner without parsing
- * extension keys.
+ * The compose YAML is a one-way export — disaster-recovery snapshot,
+ * `docker stack deploy -c` fallback, audit artifact. The DB is the
+ * source of truth; nothing parses this output back in. So everything
+ * we emit should be pure compose.
+ *
+ * We project the otterdeploy identity bits (kind, resource.id,
+ * project.id, engine) into `deploy.labels` so tools that only see the
+ * compose subset — `docker service ls --filter label=...`, `docker
+ * inspect`, third-party operators — can still find and group resources
+ * we own without parsing custom extensions. Other otterdeploy
+ * metadata (preDeploy, buildConfig, publicEnabled, …) is *not*
+ * mirrored into the YAML — read it from the manifest / UI / CLI
+ * instead.
  *
  * Determinism: keys are sorted alphabetically before emit so two
  * structurally-equal inputs always produce byte-identical output.
@@ -29,14 +37,7 @@ function sortDeep(value: SortableValue): SortableValue {
   return out;
 }
 
-// Compose labels carry the *queryable* identity bits — fields a Docker
-// operator can filter by (`docker service ls --filter
-// label=otterdeploy.project.id=…`). Everything else (publicEnabled,
-// publicHostname, preDeploy, buildConfig, etc.) lives in the
-// `x-otterdeploy` extension block, with native types and the same
-// camelCase shape as the rest of the codebase. Don't duplicate fields
-// between the two — pick one home per field.
-function extensionLabels(
+function identityLabels(
   x: StackOtterdeployExtension,
 ): Record<string, string> {
   const labels: Record<string, string> = {
@@ -49,7 +50,7 @@ function extensionLabels(
 }
 
 function prepareService(service: StackService): SortableObject {
-  const labels = extensionLabels(service["x-otterdeploy"]);
+  const labels = identityLabels(service["x-otterdeploy"]);
   const deploy = service.deploy ? { ...service.deploy } : {};
   deploy.labels = { ...labels, ...deploy.labels };
 
@@ -68,24 +69,15 @@ function prepareService(service: StackService): SortableObject {
       read_only: v.read_only,
     };
     if (v.source) out.source = v.source;
-    // Inline file content stays under the otterdeploy extension key so
-    // compose-only consumers ignore it.
-    if (v.x_otterdeploy_content !== undefined) {
-      out["x-otterdeploy-content"] = v.x_otterdeploy_content;
-    }
     return out;
   });
-
-  // Compose `environment` is a string-string map (we model `env` that
-  // way too). Rename on emit.
-  const environment = service.env;
 
   return {
     image: service.image,
     hostname: service.hostname,
     command: service.command,
     entrypoint: service.entrypoint,
-    environment,
+    environment: service.env,
     ports,
     volumes,
     networks: service.networks,
@@ -93,7 +85,6 @@ function prepareService(service: StackService): SortableObject {
     depends_on: service.depends_on,
     deploy,
     labels: service.labels,
-    "x-otterdeploy": service["x-otterdeploy"],
   };
 }
 
@@ -109,7 +100,6 @@ export function toComposeYaml(file: StackFile): string {
     volumes: file.volumes,
     secrets: file.secrets,
     configs: file.configs,
-    "x-otterdeploy-version": file.version,
   };
 
   return Bun.YAML.stringify(sortDeep(doc), null, 2);
