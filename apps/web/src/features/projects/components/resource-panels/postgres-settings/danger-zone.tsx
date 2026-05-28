@@ -1,7 +1,8 @@
 /**
- * Destructive delete confirmation for a postgres resource. Tears down
- * the volume, swarm service, and proxy route in one call via the
- * generic `project.resource.delete` procedure.
+ * Stages a database deletion in the project manifest. The actual swarm
+ * teardown happens when the user clicks Deploy on the pending-changes
+ * bar (manifest.apply). This way deletes surface in the same place as
+ * every other pending change — no second code path.
  */
 
 import { useState } from "react";
@@ -38,17 +39,39 @@ export function DangerZone({ resource, onDeleted }: DangerZoneProps) {
   const canConfirm = confirmText.trim() === resource.name;
 
   const deleteMutation = useMutation({
-    ...orpc.project.resource.delete.mutationOptions(),
-    onSuccess: async () => {
-      toast.success(`Deleted ${resource.name}`);
-      await queryClient.invalidateQueries({
-        queryKey: orpc.project.resource.list.queryKey({
-          input: { projectId: resource.projectId as never },
-        }),
+    mutationFn: async () => {
+      const current = await orpc.project.manifest.get.call({
+        id: resource.projectId as never,
       });
+      const base = current.manifest;
+      if (!base) {
+        throw new Error("No manifest saved yet — can't stage delete.");
+      }
+      const { [resource.name]: _removed, ...remaining } = base.databases;
+      const next = { ...base, databases: remaining };
+      await orpc.project.manifest.save.call({
+        projectId: resource.projectId as never,
+        manifest: next,
+        expectedVersion: current.version,
+      });
+    },
+    onSuccess: async () => {
+      toast.success(`${resource.name} staged for deletion — Deploy to apply`);
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: orpc.project.manifest.diff.queryKey({
+            input: { projectId: resource.projectId as never },
+          }),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: orpc.project.manifest.get.queryKey({
+            input: { id: resource.projectId as never },
+          }),
+        }),
+      ]);
       onDeleted();
     },
-    onError: (err) => toast.error(err.message ?? "Failed to delete resource"),
+    onError: (err) => toast.error(err.message ?? "Failed to stage delete"),
   });
 
   return (
@@ -122,14 +145,9 @@ export function DangerZone({ resource, onDeleted }: DangerZoneProps) {
                     variant="destructive"
                     size="sm"
                     disabled={!canConfirm || deleteMutation.isPending}
-                    onClick={() =>
-                      deleteMutation.mutate({
-                        projectId: resource.projectId as never,
-                        resourceId: resource.resourceId as never,
-                      })
-                    }
+                    onClick={() => deleteMutation.mutate()}
                   >
-                    {deleteMutation.isPending ? "Deleting…" : "Delete"}
+                    {deleteMutation.isPending ? "Staging…" : "Delete"}
                   </Button>
                 }
               />

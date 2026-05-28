@@ -145,25 +145,23 @@ function ResourceWizardBody({
         } as (typeof nextDatabases)[string];
         const nextManifest = { ...baseManifest, databases: nextDatabases };
 
-        await orpc.project.manifest.applyChange.call({
+        // Stage — pending-changes bar will show it; user clicks Deploy to apply.
+        await orpc.project.manifest.save.call({
           projectId,
           manifest: nextManifest,
           expectedVersion: current.version,
         });
 
-        toast.success(`${engineLabel} ${payload.name} is provisioning`);
+        toast.success(`${engineLabel} ${payload.name} staged — Deploy to apply`);
         onComplete?.();
-        await queryClient.invalidateQueries({
-          queryKey: orpc.project.resource.list.queryKey({ input: { projectId } }),
-        });
-        const list = await orpc.project.resource.list.call({ projectId });
-        const created = list.find((r) => r.type === "database" && r.name === payload.name);
-        if (created) {
-          void navigate({
-            to: "/$orgSlug/$projectSlug/graph/$resourceId",
-            params: { orgSlug, projectSlug, resourceId: created.resourceId as never },
-          });
-        }
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: orpc.project.manifest.diff.queryKey({ input: { projectId } }),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: orpc.project.manifest.get.queryKey({ input: { id: projectId } }),
+          }),
+        ]);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         setProgress((prev) => ({
@@ -212,29 +210,26 @@ function ResourceWizardBody({
             : { source: "git", ports };
         const nextManifest = { ...baseManifest, services: nextServices };
 
-        await orpc.project.manifest.applyChange.call({
+        // Stage the change — manifest.save (no apply). The pending-changes
+        // bar will surface it; clicking Deploy reconciles. Same model as
+        // resource deletes. CLI sync (applyChange) is still atomic — that's
+        // the CLI's explicit deploy step.
+        await orpc.project.manifest.save.call({
           projectId,
           manifest: nextManifest,
           expectedVersion: current.version,
         });
 
-        toast.success(`Service ${payload.name} created`);
+        toast.success(`Service ${payload.name} staged — Deploy to apply`);
         onComplete?.();
-        await queryClient.invalidateQueries({
-          queryKey: orpc.project.resource.list.queryKey({ input: { projectId } }),
-        });
-
-        // applyChange returns counts but not resource IDs. Look up the
-        // newly-created service in the freshly-invalidated list to get
-        // the resourceId we need for the deep-link.
-        const list = await orpc.project.resource.list.call({ projectId });
-        const created = list.find((r) => r.type === "service" && r.name === payload.name);
-        if (created) {
-          void navigate({
-            to: "/$orgSlug/$projectSlug/graph/$resourceId",
-            params: { orgSlug, projectSlug, resourceId: created.resourceId as never },
-          });
-        }
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: orpc.project.manifest.diff.queryKey({ input: { projectId } }),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: orpc.project.manifest.get.queryKey({ input: { id: projectId } }),
+          }),
+        ]);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         // Surface the typed MISSING_BUILD_BINDING from the server with a

@@ -59,9 +59,9 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
   if (meaningful.length === 0) return null;
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-6 z-40 flex justify-center">
+    <div className="pointer-events-none fixed inset-x-0 top-20 z-40 flex justify-center">
       <div className="pointer-events-auto flex items-center gap-3 rounded-full border bg-card/95 px-4 py-2 shadow-lg backdrop-blur">
-        <span className="text-sm font-medium text-primary">
+        <span className="text-sm font-medium text-foreground">
           Apply {meaningful.length} change{meaningful.length === 1 ? "" : "s"}
         </span>
         <Button
