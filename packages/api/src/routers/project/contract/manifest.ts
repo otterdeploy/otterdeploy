@@ -74,6 +74,18 @@ export const manifestApplyOutput = z.object({
   lastAppliedAt: z.string(),
 });
 
+// discard — undo pending changes. Resets the saved manifest to the
+// most recent successfully-applied snapshot (the `lastAppliedManifest`
+// column on the project row). After discard, manifest == current state
+// and the pending-changes bar disappears.
+export const manifestDiscardInput = z.object({
+  projectId: getProjectInput.shape.id,
+});
+
+export const manifestDiscardOutput = z.object({
+  version: z.number().int().nonnegative(),
+});
+
 // applyChange — atomic save + apply. Single round-trip for the common
 // "I edited the manifest, deploy it now" flow. The CLI's `sync` and
 // the UI's "Deploy" both call this; no daylight between the two paths.
@@ -140,6 +152,11 @@ export const manifestContractSlice = {
     .meta({ path: `${basePath}/{projectId}/manifest/apply-change`, tag, method: "POST" })
     .input(manifestApplyChangeInput)
     .output(manifestApplyChangeOutput),
+  discard: oc
+    .errors(projectNotFoundErrors)
+    .meta({ path: `${basePath}/{projectId}/manifest/discard`, tag, method: "POST" })
+    .input(manifestDiscardInput)
+    .output(manifestDiscardOutput),
   // One-way render of the current resource graph as a deployable
   // docker-compose stack file. Disaster-recovery / local-dev / audit
   // escape hatch; not a roundtrip — secret values are resolved in the

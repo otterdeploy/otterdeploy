@@ -30,7 +30,7 @@ import {
   updateProject,
   validatePostgresCreate,
 } from "./handlers";
-import { loadManifest, resolvedManifest, saveManifest } from "./manifest";
+import { discardManifest, loadManifest, resolvedManifest, saveManifest } from "./manifest";
 import { applyManifest } from "./manifest-apply";
 import { loadCurrentState } from "./manifest-state";
 import { diffManifest } from "../../stack/manifest";
@@ -695,6 +695,22 @@ export const projectRouter = {
           current,
           log: context.log,
         });
+      },
+    ),
+
+    discard: orgScopedProcedure.project.manifest.discard.handler(
+      async ({ input, context, errors }) => {
+        context.log.set({ target: { type: "project", id: input.projectId } });
+        const result = await discardManifest({
+          projectId: input.projectId,
+          organizationId: context.activeOrganizationId,
+        });
+        if (result.isErr()) {
+          throw matchError(result.error, {
+            ProjectNotFoundError: () => errors.NOT_FOUND(),
+          });
+        }
+        return result.value;
       },
     ),
 

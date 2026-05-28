@@ -83,6 +83,45 @@ export async function saveManifest(
   return Result.err(new ManifestVersionConflictError({ currentVersion: current.version }));
 }
 
+/**
+ * Discard pending manifest changes — revert to the last successfully
+ * applied snapshot. `lastAppliedManifest` is updated by applyManifest
+ * on every successful reconcile; this just copies it back into
+ * `manifest`, bumping the version counter so concurrent CLI/UI sessions
+ * see a fresh state.
+ *
+ * If the project has never been applied, the manifest is cleared (null).
+ */
+export async function discardManifest(
+  scope: ProjectScope,
+): Promise<Result<{ version: number }, ProjectNotFoundError>> {
+  const [row] = await db
+    .select({ lastApplied: project.lastAppliedManifest })
+    .from(project)
+    .where(and(eq(project.id, scope.projectId), eq(project.organizationId, scope.organizationId)))
+    .limit(1);
+  if (!row) return Result.err(new ProjectNotFoundError({ projectId: scope.projectId }));
+
+  const updated = await db
+    .update(project)
+    .set({
+      manifest: row.lastApplied ?? null,
+      manifestVersion: sql`${project.manifestVersion} + 1`,
+    })
+    .where(
+      and(
+        eq(project.id, scope.projectId),
+        eq(project.organizationId, scope.organizationId),
+      ),
+    )
+    .returning({ version: project.manifestVersion });
+
+  if (updated.length === 0) {
+    return Result.err(new ProjectNotFoundError({ projectId: scope.projectId }));
+  }
+  return Result.ok({ version: updated[0]!.version });
+}
+
 /** Resolved manifest for a given environment (or base if none). */
 export async function resolvedManifest(
   scope: ProjectScope,
