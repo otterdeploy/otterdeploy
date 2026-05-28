@@ -9,7 +9,7 @@
  *   3. Group by serviceName, map back to resourceId, collapse docker task
  *      states into the running/building/error bucket the graph cares about.
  */
-import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { ResourceId } from "@otterdeploy/shared/id";
 
 import { Docker } from "@otterdeploy/docker";
 import { Result } from "better-result";
@@ -19,13 +19,7 @@ import { db } from "@otterdeploy/db";
 import { resource, serviceResource } from "@otterdeploy/db/schema/project";
 import { ProjectNotFoundError } from "./errors";
 import { getProjectInOrg } from "./queries";
-
-type OrgId = OrganizationId;
-
-interface ProjectRef {
-  projectId: ProjectId;
-  organizationId: OrgId;
-}
+import type { ProjectRef } from "../scopes";
 
 export interface ServiceTaskInfo {
   id: string;

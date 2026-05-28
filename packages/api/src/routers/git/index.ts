@@ -1,3 +1,4 @@
+import { matchError } from "better-result";
 import { db } from "@otterdeploy/db";
 import { gitProvider } from "@otterdeploy/db/schema";
 import { and, eq } from "drizzle-orm";
@@ -22,6 +23,7 @@ import {
   listReposForInstallation,
 } from "./queries";
 import { connectPublicRepo } from "./public-repos";
+import { inspectRepoTree } from "./inspect";
 
 export const gitRouter = {
   list: orgScopedProcedure.git.list.handler(async ({ context }) => {
@@ -165,6 +167,28 @@ export const gitRouter = {
         // Operator-supplied URL was rejected — surface the message so
         // the form can show what's wrong (missing owner/repo, http://, …).
         throw errors.INVALID_URL({ message: result.error.message });
+      }
+      return result.value;
+    },
+  ),
+
+  inspectRepo: orgScopedProcedure.git.inspectRepo.handler(
+    async ({ input, context, errors }) => {
+      context.log.set({
+        target: { type: "git_repo", id: input.gitRepoId, path: input.path },
+      });
+      const result = await inspectRepoTree({
+        gitRepoId: input.gitRepoId,
+        path: input.path,
+      });
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          InspectRepoNotFoundError: () => errors.NOT_FOUND(),
+          InspectRepoRateLimitedError: (err) =>
+            errors.RATE_LIMITED({ message: err.message }),
+          InspectRepoUpstreamError: (err) =>
+            errors.UPSTREAM({ message: err.message }),
+        });
       }
       return result.value;
     },

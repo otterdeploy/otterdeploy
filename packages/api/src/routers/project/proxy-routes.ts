@@ -3,8 +3,6 @@
  * project so the dashboard can render the routing table.
  */
 
-import type { OrganizationId, ProjectId } from "@otterdeploy/shared/id";
-
 import { Result } from "better-result";
 
 import { listProxyRoutesByProject } from "../../caddy/queries";
@@ -12,13 +10,7 @@ import { listProxyRoutesByProject } from "../../caddy/queries";
 import { ProjectNotFoundError } from "./errors";
 import { getProjectInOrg } from "./queries";
 import { type ProxyRoute } from "./views";
-
-type OrgId = OrganizationId;
-
-interface ProjectRef {
-  projectId: ProjectId;
-  organizationId: OrgId;
-}
+import type { ProjectRef } from "../scopes";
 
 export async function listProjectProxyRoutes(
   input: ProjectRef,

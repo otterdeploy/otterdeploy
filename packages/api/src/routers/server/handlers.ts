@@ -7,12 +7,13 @@
  * reads.
  */
 
-import type { OrganizationId, ServerId } from "@otterdeploy/shared/id";
+import type { ServerId } from "@otterdeploy/shared/id";
 import { panic, Result } from "better-result";
 
 import { isUniqueViolation } from "../project/views";
 
 import { ServerConflictError, ServerNotFoundError } from "./errors";
+import type { OrgRef } from "../scopes";
 import {
   bootstrapLocalhostIfMissing,
   createServerRecord,
@@ -21,11 +22,6 @@ import {
   listServersByOrg,
   type ServerRecord,
 } from "./queries";
-
-type OrgId = OrganizationId;
-interface OrgRef {
-  organizationId: OrgId;
-}
 
 export async function listServers(input: OrgRef): Promise<ServerRecord[]> {
   // Guarantee at least the bootstrap localhost row exists for every org.

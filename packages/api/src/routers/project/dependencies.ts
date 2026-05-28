@@ -7,7 +7,7 @@
  * databases / other services they depend on. Cheap enough to recompute on
  * every read — the project's env-var set is small.
  */
-import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { ResourceId } from "@otterdeploy/shared/id";
 
 import { Result } from "better-result";
 import { eq } from "drizzle-orm";
@@ -21,13 +21,7 @@ import { parseValue } from "../../lib/variables/parser";
 
 import { ProjectNotFoundError } from "./errors";
 import { getProjectInOrg } from "./queries";
-
-type OrgId = OrganizationId;
-
-interface ProjectRef {
-  projectId: ProjectId;
-  organizationId: OrgId;
-}
+import type { ProjectRef } from "../scopes";
 
 export interface DependencyEdge {
   source: ResourceId;

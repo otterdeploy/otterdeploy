@@ -3,7 +3,6 @@
  * postgres.ts (and future siblings). Read/delete dispatch through the
  * DatabaseProvisioner factory so each engine plugs its own destroy semantics.
  */
-import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { Result } from "better-result";
 import type { RequestLogger } from "evlog";
@@ -20,6 +19,7 @@ import {
   listProjectResources as listProjectResourcesQuery,
 } from "./queries";
 import { getDatabaseProvisioner } from "./provisioners";
+import type { ProjectRef, ResourceRef } from "../scopes";
 import {
   buildContainerName,
   mapDatabaseResource,
@@ -27,17 +27,6 @@ import {
   sanitizeProjectSlug,
   type ProjectResource,
 } from "./views";
-
-type OrgId = OrganizationId;
-
-interface ProjectRef {
-  projectId: ProjectId;
-  organizationId: OrgId;
-}
-
-type ResourceRef = ProjectRef & {
-  resourceId: ResourceId;
-};
 
 export type { ProjectResource };
 

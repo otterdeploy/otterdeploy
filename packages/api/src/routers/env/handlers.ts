@@ -8,13 +8,14 @@
  * project claims them.
  */
 
-import type { EnvironmentId, OrganizationId, ProjectId } from "@otterdeploy/shared/id";
+import type { EnvironmentId, ProjectId } from "@otterdeploy/shared/id";
 
 import { Result } from "better-result";
 
 import { isUniqueViolation } from "../project/views";
 
 import { EnvironmentConflictError, EnvironmentDatabaseError, EnvironmentNotFoundError } from "./errors";
+import type { OrgRef } from "../scopes";
 import {
   createEnvRecord,
   deleteEnvRecord,
@@ -22,9 +23,6 @@ import {
   listEnvsByOrg,
   type EnvironmentRecord,
 } from "./queries";
-
-type OrgId = OrganizationId;
-interface OrgRef { organizationId: OrgId }
 
 export async function listEnvs(
   input: OrgRef & { projectId?: ProjectId },

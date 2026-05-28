@@ -33,6 +33,7 @@ import {
   updateProjectRecord,
 } from "./queries";
 
+import type { OrgRef } from "../scopes";
 import {
   buildContainerName,
   isUniqueViolation,
@@ -42,10 +43,6 @@ import {
 } from "./views";
 type OrgId = OrganizationId;
 type RegistryId = ContainerRegistryId;
-
-interface OrgRef {
-  organizationId: OrgId;
-}
 
 export async function listProjects(input: OrgRef): Promise<ProjectListItem[]> {
   return listProjectRecordsByOrg(input.organizationId);

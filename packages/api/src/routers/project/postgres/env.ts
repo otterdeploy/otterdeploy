@@ -8,7 +8,7 @@
  * `rollbackPostgresToSnapshot`) just build the desired env map.
  */
 
-import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { ResourceId } from "@otterdeploy/shared/id";
 
 import { Result } from "better-result";
 import type { RequestLogger } from "evlog";
@@ -32,6 +32,7 @@ import {
   setDatabaseResourcePublic,
 } from "../queries";
 import { snapshotForPostgresCreate, type PostgresSnapshotV1 } from "./snapshot";
+import type { ProjectRef } from "../../scopes";
 import {
   buildContainerName,
   buildVolumeName,
@@ -39,13 +40,6 @@ import {
   sanitizeProjectSlug,
   type PostgresResource,
 } from "../views";
-
-type OrgId = OrganizationId;
-
-interface ProjectRef {
-  projectId: ProjectId;
-  organizationId: OrgId;
-}
 
 export async function setPostgresPublic(
   input: ProjectRef & { resourceId: ResourceId; publicEnabled: boolean },

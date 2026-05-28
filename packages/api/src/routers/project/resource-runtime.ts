@@ -9,7 +9,7 @@
  *
  * One frontend call site per tab covers every container-backed resource.
  */
-import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { Docker } from "@otterdeploy/docker";
 import { Result } from "better-result";
@@ -33,19 +33,12 @@ import {
 } from "./queries";
 import { getResourceById } from "./queries/resource";
 import type { ServiceTaskInfo } from "./service-tasks";
+import type { ResourceRef } from "../scopes";
 import {
   buildContainerName,
   buildVolumeName,
   sanitizeProjectSlug,
 } from "./views";
-
-type OrgId = OrganizationId;
-
-interface ResourceRef {
-  projectId: ProjectId;
-  organizationId: OrgId;
-  resourceId: ResourceId;
-}
 
 export interface EnvEntry {
   key: string;

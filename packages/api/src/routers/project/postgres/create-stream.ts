@@ -5,8 +5,6 @@
  * resources.ts.
  */
 
-import type { OrganizationId, ProjectId } from "@otterdeploy/shared/id";
-
 import { randomBytes } from "node:crypto";
 
 import { Result } from "better-result";
@@ -30,7 +28,6 @@ import { insertDeployment, markDeploymentFailed } from "../deployments";
 
 import { PostgresResourceConflictError, ProjectNotFoundError } from "../errors";
 
-type OrgId = OrganizationId;
 import {
   createDatabaseResourceRecord,
   getDatabaseResourceByProjectAndName,
@@ -39,6 +36,7 @@ import {
 } from "../queries";
 import { tailContainerBootLogs } from "./boot-logs";
 import { snapshotForPostgresCreate } from "./snapshot";
+import type { ProjectRef } from "../../scopes";
 import {
   clampPostgresIdentifier,
   isUniqueViolation,
@@ -48,11 +46,6 @@ import {
   sanitizeProjectSlug,
   type PostgresResource,
 } from "../views";
-
-interface ProjectRef {
-  projectId: ProjectId;
-  organizationId: OrgId;
-}
 
 /**
  * One progress event yielded by the postgres create stream. Mirrors the

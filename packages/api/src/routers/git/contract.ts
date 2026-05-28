@@ -98,6 +98,60 @@ export const connectPublicRepoInput = z.object({
   cloneUrl: z.string().min(1),
 });
 
+export const inspectRepoInput = z.object({
+  gitRepoId: zId(ID_PREFIX.gitRepo),
+  /** Repo-relative path to list. Empty string = root. */
+  path: z.string().default(""),
+});
+
+export const inspectEntrySchema = z.object({
+  name: z.string(),
+  type: z.enum(["dir", "file"]),
+});
+
+export const frameworkKindSchema = z
+  .enum([
+    "next",
+    "nuxt",
+    "vite",
+    "remix",
+    "astro",
+    "sveltekit",
+    "react",
+    "vue",
+    "express",
+    "fastify",
+    "hono",
+    "nest",
+    "node",
+    "bun",
+    "go",
+    "python",
+    "rust",
+    "ruby",
+    "static",
+  ])
+  .nullable();
+
+export const monorepoKindSchema = z
+  .enum([
+    "turbo",
+    "nx",
+    "pnpm-workspace",
+    "yarn-workspace",
+    "npm-workspace",
+    "lerna",
+  ])
+  .nullable();
+
+export const inspectRepoOutput = z.object({
+  path: z.string(),
+  entries: z.array(inspectEntrySchema),
+  framework: frameworkKindSchema,
+  monorepo: monorepoKindSchema,
+  monorepoPackages: z.array(z.string()),
+});
+
 export const gitContract = {
   list: oc
     .meta({ path: `${basePath}/providers`, tag, method: "GET" })
@@ -155,4 +209,18 @@ export const gitContract = {
     .meta({ path: `${basePath}/public-repos`, tag, method: "POST" })
     .input(connectPublicRepoInput)
     .output(gitRepoViewSchema),
+  // Walk the bound repo's file tree + detect framework/monorepo signals
+  // for the Root Directory picker in the new-resource wizard.
+  inspectRepo: oc
+    .errors({
+      NOT_FOUND: { status: 404, message: "Repo not found" as const },
+      UPSTREAM: { status: 502, message: "Upstream error" as const },
+      RATE_LIMITED: {
+        status: 429,
+        message: "GitHub rate-limited the inspection" as const,
+      },
+    })
+    .meta({ path: `${basePath}/repos/{gitRepoId}/inspect`, tag, method: "POST" })
+    .input(inspectRepoInput)
+    .output(inspectRepoOutput),
 };
