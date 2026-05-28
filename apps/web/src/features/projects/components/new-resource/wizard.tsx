@@ -2,14 +2,16 @@ import { ArrowLeft01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import type { ProjectId, ProjectSlug } from "@otterdeploy/shared/id";
 import { useStore } from "@tanstack/react-form";
-import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { getDatabaseEngine } from "@otterdeploy/shared/database-engines";
 import { formatBytes } from "@otterdeploy/shared/format";
 
-import { SERVICE_KINDS } from "@/features/projects/data/service-kinds";
+import {
+  SERVICE_KINDS,
+  type ServiceKind,
+} from "@/features/projects/data/service-kinds";
 import { Button } from "@/shared/components/ui/button";
 import { cn } from "@/shared/lib/utils";
 import { orpc, queryClient } from "@/shared/server/orpc";
@@ -51,48 +53,25 @@ export interface ResourceWizardProps {
 }
 
 interface BodyProps extends ResourceWizardProps {
-  layout: "page" | "dialog";
   step: Step;
   goTo: (next: Step) => void;
 }
 
-// Page-layout entry point: step lives in `?step=` search param.
-export function PageResourceWizard(props: ResourceWizardProps) {
-  const search = useSearch({
-    from: "/_app/$orgSlug/$projectSlug/new-resource",
-  });
-  const navigate = useNavigate();
-  const step = search.step ?? "kind";
-  const goTo = (next: Step) =>
-    void navigate({
-      to: "/$orgSlug/$projectSlug/new-resource",
-      params: { orgSlug: props.orgSlug, projectSlug: props.projectSlug },
-      search: (s) => ({ ...s, step: next }),
-    });
-  return (
-    <ResourceWizardBody {...props} layout="page" step={step} goTo={goTo} />
-  );
-}
-
-// Dialog-layout entry point: step lives in local state.
-export function DialogResourceWizard(props: ResourceWizardProps) {
+// Single dialog-layout entry point — the standalone /new-resource page
+// route was dropped. Step lives in local state.
+export function ResourceWizard(props: ResourceWizardProps) {
   const [step, setStep] = useState<Step>(props.initialStep ?? "kind");
-  return (
-    <ResourceWizardBody {...props} layout="dialog" step={step} goTo={setStep} />
-  );
+  return <ResourceWizardBody {...props} step={step} goTo={setStep} />;
 }
 
 function ResourceWizardBody({
-  orgSlug,
   projectSlug,
   projectId,
-  projectName,
   initialKind = null,
   initialGitRepoId = null,
   initialBranch = null,
   onComplete,
   onCancel,
-  layout,
   step,
   goTo,
 }: BodyProps) {
@@ -120,7 +99,6 @@ function ResourceWizardBody({
   } = useWizardForm({
     step,
     goTo,
-    layout,
     initialKind,
     initialGitRepoId,
     initialBranch,
@@ -128,27 +106,13 @@ function ResourceWizardBody({
     runServiceCreate,
   });
 
-  const showChrome = layout === "page";
   const isCreating = progress.status === "running";
   const kindWired = isKindWired(kindId, kind);
   const createDisabled = isLast && (!kindWired || isCreating);
 
   return (
     <form.AppForm>
-      <div
-        className={`flex h-full flex-col text-foreground ${layout === "page" ? "bg-background" : "bg-transparent"}`}
-      >
-        {showChrome && (
-          <WizardTopBar
-            orgSlug={orgSlug}
-            projectSlug={projectSlug}
-            projectName={projectName}
-            kindName={kind?.name ?? null}
-            stepIdx={idx}
-            stepCount={steps.length}
-          />
-        )}
-
+      <div className="flex h-full flex-col bg-transparent text-foreground">
         <Stepper
           steps={steps}
           idx={idx}
@@ -157,7 +121,6 @@ function ResourceWizardBody({
         />
 
         <WizardStepBody
-          layout={layout}
           step={step}
           kind={kind}
           isDb={isDb}
@@ -169,13 +132,10 @@ function ResourceWizardBody({
         />
 
         {currentStepIssues.length > 0 && (
-          <RequiredHint layout={layout} issues={currentStepIssues} />
+          <RequiredHint issues={currentStepIssues} />
         )}
 
         <WizardFooter
-          layout={layout}
-          orgSlug={orgSlug}
-          projectSlug={projectSlug}
           onCancel={onCancel}
           idx={idx}
           isLast={isLast}
@@ -196,10 +156,7 @@ function ResourceWizardBody({
 // cyclomatic complexity past the cap. Add new kinds here as their
 // flows ship.
 const WIRED_DB_KINDS = new Set(["postgres", "redis", "mariadb", "mongodb"]);
-function isKindWired(
-  kindId: string,
-  kind: (typeof SERVICE_KINDS)[number] | null,
-): boolean {
+function isKindWired(kindId: string, kind: ServiceKind | null): boolean {
   if (kindId === "docker") return true;
   if (WIRED_DB_KINDS.has(kindId)) return true;
   return kind?.group === "compute";
@@ -210,55 +167,39 @@ function isKindWired(
 // cap. Each helper is a pure presentational component over the wizard
 // state the body already computed; no hooks live in this band.
 
-function WizardTopBar({
-  orgSlug,
-  projectSlug,
-  projectName,
-  kindName,
-  stepIdx,
-  stepCount,
-}: {
-  orgSlug: string;
-  projectSlug: ProjectSlug;
-  projectName: string;
-  kindName: string | null;
-  stepIdx: number;
-  stepCount: number;
-}) {
-  return (
-    <div className="flex shrink-0 items-center gap-3 border-b bg-card px-5 py-3">
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-7 gap-1.5 px-2 text-xs text-muted-foreground"
-        render={() => (
-          <Link to="/$orgSlug/$projectSlug" params={{ orgSlug, projectSlug }}>
-            <HugeiconsIcon
-              icon={ArrowLeft01Icon}
-              strokeWidth={2}
-              className="size-3"
-            />
-            {projectName}
-          </Link>
-        )}
-      />
-      <span className="text-sm text-border">/</span>
-      <span className="text-[13px] font-semibold">Create resource</span>
-      {kindName && (
-        <span className="ml-1 font-mono text-[11px] text-muted-foreground">
-          · {kindName}
-        </span>
-      )}
-      <div className="flex-1" />
-      <span className="text-[11px] text-muted-foreground">
-        Step {stepIdx + 1} of {stepCount}
-      </span>
-    </div>
-  );
+// Per-step dispatch table — collapses the 11-way `step === "X" && cond
+// && <StepX />` JSX chain (cyclomatic-36) into a Record lookup. Each
+// entry decides whether it should render for the current context and
+// returns the React node or `null`. WizardStepBody is now one lookup.
+interface StepCtx {
+  kind: ServiceKind | null;
+  isDb: boolean;
+  isSourceBased: boolean;
+  isDocker: boolean;
+  projectId: ProjectId;
 }
+const STEP_RENDERERS: Record<Step, (ctx: StepCtx) => React.ReactNode | null> = {
+  kind: () => <StepKind />,
+  source: ({ kind, isSourceBased }) =>
+    kind && isSourceBased ? <StepSource /> : null,
+  builder: ({ kind, isSourceBased }) =>
+    kind && isSourceBased ? <StepBuilder /> : null,
+  image: ({ kind, isDocker }) => (kind && isDocker ? <StepImage /> : null),
+  networking: ({ kind, isSourceBased, isDocker }) =>
+    kind && (isSourceBased || isDocker) ? <StepNetworking kind={kind} /> : null,
+  resources: ({ kind, isDb }) => (kind ? <StepResources isDb={isDb} /> : null),
+  variables: ({ kind, isSourceBased, isDocker }) =>
+    kind && (isSourceBased || isDocker) ? <StepVariables kind={kind} /> : null,
+  version: ({ kind, isDb, projectId }) =>
+    kind && isDb ? <StepVersion kind={kind} projectId={projectId} /> : null,
+  storage: ({ kind, isDb }) =>
+    kind && isDb ? <StepStorage kind={kind} /> : null,
+  advanced: ({ kind, isDb }) =>
+    kind && isDb ? <StepAdvancedDb kind={kind} /> : null,
+  review: ({ kind }) => (kind ? <StepReview kind={kind} /> : null),
+};
 
 function WizardStepBody({
-  layout,
   step,
   kind,
   isDb,
@@ -268,9 +209,8 @@ function WizardStepBody({
   isLast,
   progress,
 }: {
-  layout: "page" | "dialog";
   step: Step;
-  kind: (typeof SERVICE_KINDS)[number] | null;
+  kind: ServiceKind | null;
   isDb: boolean;
   isSourceBased: boolean;
   isDocker: boolean;
@@ -278,67 +218,43 @@ function WizardStepBody({
   isLast: boolean;
   progress: CreateProgressState;
 }) {
-  return (
-    <div
-      className={cn(
-        "flex-1 overflow-y-auto",
-        layout === "dialog" ? "px-4 py-4" : "p-[22px]",
-      )}
-    >
-      <div
-        className={`mx-auto ${step === "kind" ? "max-w-[1100px]" : "max-w-[820px]"}`}
-      >
-        {step === "kind" && <StepKind />}
-        {step === "source" && kind && isSourceBased && <StepSource />}
-        {step === "builder" && kind && isSourceBased && <StepBuilder />}
-        {step === "image" && kind && isDocker && <StepImage />}
-        {step === "networking" && kind && (isSourceBased || isDocker) && (
-          <StepNetworking kind={kind} />
-        )}
-        {step === "resources" && kind && <StepResources isDb={isDb} />}
-        {step === "variables" && kind && (isSourceBased || isDocker) && (
-          <StepVariables kind={kind} />
-        )}
-        {step === "version" && kind && isDb && (
-          <StepVersion kind={kind} projectId={projectId} />
-        )}
-        {step === "storage" && kind && isDb && <StepStorage kind={kind} />}
-        {step === "advanced" && kind && isDb && <StepAdvancedDb kind={kind} />}
-        {step === "review" && kind && <StepReview kind={kind} />}
+  // Provisioning checklist — only shown on the review step while the
+  // create stream is open or after it errored.
+  const showChecklist =
+    isLast && (progress.status !== "idle" || progress.steps.length > 0);
 
-        {/* Provisioning checklist — only shown on the review step while
-            the create stream is open or after it errored. Each step
-            emitted by the backend gets a row; in-progress steps render
-            with a spinner dot, completed ones with a checkmark dot. */}
-        {isLast &&
-          (progress.status !== "idle" || progress.steps.length > 0) && (
-            <ProvisionChecklist progress={progress} />
-          )}
+  return (
+    <div className="flex-1 overflow-y-auto p-4">
+      <div
+        className={cn("mx-auto max-w-205", { "max-w-275": step === "kind" })}
+      >
+        {STEP_RENDERERS[step]({
+          kind,
+          isDb,
+          isSourceBased,
+          isDocker,
+          projectId,
+        })}
+        {showChecklist && <ProvisionChecklist progress={progress} />}
       </div>
     </div>
   );
 }
 
 function RequiredHint({
-  layout,
   issues,
 }: {
-  layout: "page" | "dialog";
   issues: ReadonlyArray<{ path: ReadonlyArray<PropertyKey> }>;
 }) {
   return (
-    <div
-      className={`flex shrink-0 items-center gap-2 border-t border-destructive/30 bg-destructive/5 text-[11px] text-destructive ${layout === "dialog" ? "px-4 py-2" : "px-5 py-2"}`}
-    >
+    <div className="flex shrink-0 items-center gap-2 border-t border-destructive/30 bg-destructive/5 px-4 py-2 text-[11px] text-destructive">
       <span className="font-medium">Required to continue:</span>
       <span className="font-mono text-foreground/80">
         {Array.from(
           new Set(
             issues
               .map((i) => i.path[0])
-              .filter(
-                (p): p is string => typeof p === "string" && p !== "__step",
-              ),
+              .filter((p) => typeof p === "string" && p !== "__step"),
           ),
         ).join(", ")}
       </span>
@@ -347,9 +263,6 @@ function RequiredHint({
 }
 
 function WizardFooter({
-  layout,
-  orgSlug,
-  projectSlug,
   onCancel,
   idx,
   isLast,
@@ -360,44 +273,26 @@ function WizardFooter({
   goPrev,
   handleContinue,
 }: {
-  layout: "page" | "dialog";
-  orgSlug: string;
-  projectSlug: ProjectSlug;
   onCancel: (() => void) | undefined;
   idx: number;
   isLast: boolean;
   isCreating: boolean;
-  kind: (typeof SERVICE_KINDS)[number] | null;
+  kind: ServiceKind | null;
   kindWired: boolean;
   createDisabled: boolean;
   goPrev: () => void;
   handleContinue: () => void;
 }) {
   return (
-    <div
-      className={`flex shrink-0 items-center gap-2 border-t ${layout === "page" ? "bg-card" : "bg-transparent"} ${layout === "dialog" ? "px-4 py-3" : "px-5 py-3"}`}
-    >
-      {layout === "page" ? (
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-8"
-          render={() => (
-            <Link to="/$orgSlug/$projectSlug" params={{ orgSlug, projectSlug }}>
-              Cancel
-            </Link>
-          )}
-        />
-      ) : (
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-8"
-          onClick={() => onCancel?.()}
-        >
-          Cancel
-        </Button>
-      )}
+    <div className="flex shrink-0 items-center gap-2 border-t bg-transparent px-4 py-3">
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-8"
+        onClick={() => onCancel?.()}
+      >
+        Cancel
+      </Button>
       {isLast && !kindWired && kind && (
         <span className="mr-1 text-[11px] text-muted-foreground">
           {kind.name} provisioner isn't wired yet.
@@ -459,33 +354,35 @@ function PullLayerList({ layers }: { layers: PullLayerState[] }) {
   if (layers.length === 0) return null;
   return (
     <div className="mt-2 ml-4 flex flex-col gap-0.5 border-l border-border/40 pl-3">
-      {layers.map((l) => {
+      {layers.map((layer) => {
         const pct =
-          l.total && l.total > 0 && l.current != null
-            ? Math.min(100, Math.round((l.current / l.total) * 100))
+          layer.total && layer.total > 0 && layer.current != null
+            ? Math.min(100, Math.round((layer.current / layer.total) * 100))
             : null;
 
         const sizes =
-          l.current != null && l.total != null && l.total > 0
-            ? `${formatBytes(l.current)}/${formatBytes(l.total)}`
+          layer.current != null && layer.total != null && layer.total > 0
+            ? `${formatBytes(layer.current)}/${formatBytes(layer.total)}`
             : null;
         return (
           <div
-            key={l.id}
+            key={layer.id}
             className="flex items-baseline gap-2 font-mono text-[10.5px]"
           >
             <span className="w-20 shrink-0 truncate text-muted-foreground/70">
-              {l.id.slice(0, 12)}
+              {layer.id.slice(0, 12)}
             </span>
             <span
               className={cn("flex-1 truncate text-muted-foreground", {
                 "text-success/80":
-                  l.status === "Pull complete" || l.status === "Already exists",
+                  layer.status === "Pull complete" ||
+                  layer.status === "Already exists",
                 "text-foreground/70":
-                  l.status === "Downloading" || l.status === "Extracting",
+                  layer.status === "Downloading" ||
+                  layer.status === "Extracting",
               })}
             >
-              {l.status}
+              {layer.status}
             </span>
             {sizes && <span className="text-muted-foreground/60">{sizes}</span>}
             {pct != null && (
@@ -884,7 +781,6 @@ function useResourceProvisioner({
 function useWizardForm({
   step,
   goTo,
-  layout,
   initialKind,
   initialGitRepoId,
   initialBranch,
@@ -893,7 +789,6 @@ function useWizardForm({
 }: {
   step: Step;
   goTo: (next: Step) => void;
-  layout: "page" | "dialog";
   initialKind: string | null;
   initialGitRepoId: string | null;
   initialBranch: string | null;
@@ -974,13 +869,6 @@ function useWizardForm({
   const steps = useMemo(() => flowFor(kind), [kind]);
   const idx = steps.findIndex((s) => s[0] === step);
   const isLast = idx === steps.length - 1;
-
-  // Page-layout deep-link guard: if the URL step isn't in the current
-  // flow, redirect to kind.
-  useEffect(() => {
-    if (layout !== "page") return;
-    if (idx === -1) goTo("kind");
-  }, [layout, idx, goTo]);
 
   // Failing steps the user has PASSED (i < idx). The current step is
   // mid-edit; its blockers surface in the footer's "Required" line.

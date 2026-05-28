@@ -11,16 +11,15 @@
  * `onChange` callback when the operator clicks Select.
  */
 
-import { useState } from "react";
-import { usePrefetchQuery, useQuery } from "@tanstack/react-query";
-import { HugeiconsIcon } from "@hugeicons/react";
 import {
   ArrowLeft01Icon,
   ArrowRight01Icon,
   FolderIcon,
-  Folder01Icon,
   GithubIcon,
 } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { usePrefetchQuery, useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
@@ -72,13 +71,13 @@ type MonorepoKind =
 // Shape of `git.inspectRepo` output. Mirrored locally so the sub-
 // components below can pass it around without dragging the orpc client
 // types through every prop signature.
-type InspectResult = {
+interface InspectResult {
   path: string;
   entries: Array<{ name: string; type: "dir" | "file" }>;
   framework: FrameworkKind;
   monorepo: MonorepoKind;
   monorepoPackages: string[];
-};
+}
 
 const FRAMEWORK_LABEL: Record<NonNullable<FrameworkKind>, string> = {
   next: "Next.js",
@@ -581,7 +580,7 @@ function humanizeUpstreamMessage(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) return "upstream error";
   try {
-    const parsed = JSON.parse(trimmed) as { message?: string };
+    const parsed = JSON.parse(trimmed);
     if (typeof parsed.message === "string" && parsed.message.length > 0) {
       return parsed.message;
     }
