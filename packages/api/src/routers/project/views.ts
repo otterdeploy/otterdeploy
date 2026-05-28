@@ -64,6 +64,12 @@ export function mapServiceResource(record: ServiceResourceJoined): ServiceResour
     replicas: record.service.replicas,
     publicEnabled: record.service.publicEnabled,
     publicDomain: record.service.publicDomain,
+    preDeploy: record.service.preDeploy ?? null,
+    buildConfig: record.service.buildConfig ?? null,
+    restartWindowMs: record.service.restartWindowMs ?? null,
+    diskLimitMb: record.service.diskLimitMb ?? null,
+    swapLimitMb: record.service.swapLimitMb ?? null,
+    pidsLimit: record.service.pidsLimit ?? null,
   };
 }
 

@@ -1,4 +1,5 @@
 import { createId, ID_PREFIX, type Id } from "@otterstack/shared/id";
+import type { BuildConfig } from "@otterstack/shared/build-config";
 import {
   boolean,
   index,
@@ -290,6 +291,10 @@ export const serviceResource = pgTable(
       .default("on-failure"),
     restartMaxAttempts: integer("restart_max_attempts"),
     restartDelayMs: integer("restart_delay_ms").notNull().default(5000),
+    // Window (ms) over which restartMaxAttempts is counted when
+    // restartCondition = "on-failure". Outside the window the failure
+    // counter resets. Maps to docker swarm `restart_policy.window`.
+    restartWindowMs: integer("restart_window_ms"),
 
     healthcheckCmd: text("healthcheck_cmd").array(),
     healthcheckIntervalMs: integer("healthcheck_interval_ms"),
@@ -301,6 +306,25 @@ export const serviceResource = pgTable(
     memoryLimitMb: integer("memory_limit_mb"),
     cpuReservation: numeric("cpu_reservation", { precision: 4, scale: 2 }),
     memoryReservationMb: integer("memory_reservation_mb"),
+    // Extended resource limits — match the manifest schema additions.
+    // diskLimitMb is enforced via container --storage-opt size on docker
+    // engines that support it; swapLimitMb maps to memory-swap; pidsLimit
+    // maps to --pids-limit / deploy.resources.limits.pids.
+    diskLimitMb: integer("disk_limit_mb"),
+    swapLimitMb: integer("swap_limit_mb"),
+    pidsLimit: integer("pids_limit"),
+
+    // Lifecycle hook — runs once after the build finishes but before
+    // the new replicas take traffic. Exec-form (text[]). Most common
+    // use case: db migrations.
+    preDeploy: text("pre_deploy").array(),
+
+    // Build configuration for git-sourced services. Stored as jsonb so
+    // the builder set can grow without DDL churn. Null for image-sourced
+    // services. The discriminated `BuildConfig` shape is defined in
+    // `@otterstack/shared/build-config` so the api/zod schema, the DB
+    // type, and the service handler inputs all share one definition.
+    buildConfig: jsonb("build_config").$type<BuildConfig>(),
 
     internalHostname: text("internal_hostname").notNull(),
     serviceName: text("service_name").notNull(),

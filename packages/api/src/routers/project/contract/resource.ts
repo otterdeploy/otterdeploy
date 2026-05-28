@@ -85,6 +85,16 @@ export const serviceResourceSchema = z.object({
   replicas: z.number().int().min(0),
   publicEnabled: z.boolean(),
   publicDomain: z.string().nullable(),
+  // Manifest-tracked extras (Phase 2 of build config + lifecycle work).
+  // Nullable + optional so consumers that don't care can ignore them;
+  // surfaced in the list response so the resource panel can show them
+  // without a second fetch.
+  preDeploy: z.array(z.string()).nullable().optional(),
+  buildConfig: z.unknown().nullable().optional(),
+  restartWindowMs: z.number().int().nullable().optional(),
+  diskLimitMb: z.number().int().nullable().optional(),
+  swapLimitMb: z.number().int().nullable().optional(),
+  pidsLimit: z.number().int().nullable().optional(),
 });
 
 // `type` discriminates database vs service. The engine field on database

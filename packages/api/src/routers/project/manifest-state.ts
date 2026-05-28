@@ -77,6 +77,12 @@ export async function loadCurrentState(projectId: ProjectId): Promise<CurrentSta
         ports: portsBySvc.get(row.service.resourceId) ?? [],
         env: envBySvc.get(row.service.resourceId) ?? {},
         publicEnabled: row.service.publicEnabled,
+        preDeploy: row.service.preDeploy ?? null,
+        buildConfig: row.service.buildConfig ?? null,
+        restartWindowMs: row.service.restartWindowMs ?? null,
+        diskLimitMb: row.service.diskLimitMb ?? null,
+        swapLimitMb: row.service.swapLimitMb ?? null,
+        pidsLimit: row.service.pidsLimit ?? null,
       };
     }
   }

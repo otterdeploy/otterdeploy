@@ -422,7 +422,7 @@ async function createServiceFromManifest(
       source: args.spec.source,
       sourceSubdir: args.spec.source === "git" ? (args.spec.sourceSubdir ?? null) : null,
       image,
-      command: args.spec.command ?? null,
+      command: args.spec.startCommand ?? null,
       entrypoint: args.spec.entrypoint ?? null,
       replicas: args.spec.replicas ?? 1,
       ports:
@@ -449,8 +449,13 @@ async function createServiceFromManifest(
             memoryLimitMb: args.spec.resources.memoryMb ?? null,
             cpuReservation: args.spec.resources.cpuReservation ?? null,
             memoryReservationMb: args.spec.resources.memoryReservationMb ?? null,
+            diskLimitMb: args.spec.resources.diskMb ?? null,
+            swapLimitMb: args.spec.resources.swapMb ?? null,
+            pidsLimit: args.spec.resources.pidsLimit ?? null,
           }
         : undefined,
+      preDeploy: args.spec.preDeploy ?? null,
+      buildConfig: args.spec.source === "git" ? (args.spec.build ?? null) : null,
     },
     args.log,
   );
@@ -490,7 +495,7 @@ async function updateServiceFromManifest(
       organizationId: args.organizationId,
       resourceId: args.resourceId,
       ...patch,
-      command: args.spec.command ?? undefined,
+      command: args.spec.startCommand ?? undefined,
       entrypoint: args.spec.entrypoint ?? undefined,
       replicas: args.spec.replicas,
       ports:
@@ -516,8 +521,13 @@ async function updateServiceFromManifest(
             memoryLimitMb: args.spec.resources.memoryMb ?? null,
             cpuReservation: args.spec.resources.cpuReservation ?? null,
             memoryReservationMb: args.spec.resources.memoryReservationMb ?? null,
+            diskLimitMb: args.spec.resources.diskMb ?? null,
+            swapLimitMb: args.spec.resources.swapMb ?? null,
+            pidsLimit: args.spec.resources.pidsLimit ?? null,
           }
         : undefined,
+      preDeploy: args.spec.preDeploy ?? null,
+      buildConfig: args.spec.source === "git" ? (args.spec.build ?? null) : null,
     },
     args.log,
   );

@@ -6,6 +6,7 @@
  */
 
 import { type Id, ID_PREFIX } from "@otterstack/shared/id";
+import type { BuildConfig } from "@otterstack/shared/build-config";
 
 import { type ProjectId } from "../project/errors";
 import { type ResourceId } from "./errors";
@@ -16,6 +17,7 @@ interface RestartInput {
   condition?: "none" | "on-failure" | "any";
   maxAttempts?: number | null;
   delayMs?: number;
+  windowMs?: number | null;
 }
 
 type HealthcheckInput = {
@@ -31,7 +33,15 @@ interface ResourcesInput {
   memoryLimitMb?: number | null;
   cpuReservation?: number | null;
   memoryReservationMb?: number | null;
+  diskLimitMb?: number | null;
+  swapLimitMb?: number | null;
+  pidsLimit?: number | null;
 }
+
+// Re-export so callers can `import { BuildConfigInput }` from the
+// service router without reaching across packages. Same shape as the
+// shared `BuildConfig` discriminated union.
+export type BuildConfigInput = BuildConfig;
 
 interface PortInput {
   containerPort: number;
@@ -68,6 +78,8 @@ export interface CreateServiceInput {
   restart?: RestartInput;
   healthcheck?: HealthcheckInput;
   resources?: ResourcesInput;
+  preDeploy?: string[] | null;
+  buildConfig?: BuildConfigInput | null;
 }
 
 export interface UpdateServiceInput {
@@ -82,6 +94,8 @@ export interface UpdateServiceInput {
   restart?: RestartInput;
   healthcheck?: HealthcheckInput;
   resources?: ResourcesInput;
+  preDeploy?: string[] | null;
+  buildConfig?: BuildConfigInput | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -118,6 +132,7 @@ export function toCreateRecordPayload(
     restartCondition: input.restart?.condition,
     restartMaxAttempts: input.restart?.maxAttempts ?? null,
     restartDelayMs: input.restart?.delayMs,
+    restartWindowMs: input.restart?.windowMs ?? null,
     healthcheckCmd: input.healthcheck?.cmd ?? null,
     healthcheckIntervalMs: input.healthcheck?.intervalMs ?? null,
     healthcheckTimeoutMs: input.healthcheck?.timeoutMs ?? null,
@@ -131,6 +146,11 @@ export function toCreateRecordPayload(
         ? input.resources.cpuReservation.toString()
         : null,
     memoryReservationMb: input.resources?.memoryReservationMb ?? null,
+    diskLimitMb: input.resources?.diskLimitMb ?? null,
+    swapLimitMb: input.resources?.swapLimitMb ?? null,
+    pidsLimit: input.resources?.pidsLimit ?? null,
+    preDeploy: input.preDeploy ?? null,
+    buildConfig: input.buildConfig ?? null,
     internalHostname: extras.internalHostname,
     serviceName: extras.serviceName,
     networkName: extras.networkName,
@@ -149,6 +169,7 @@ export function toUpdateRecordPatch(input: UpdateServiceInput) {
     restartCondition: input.restart?.condition,
     restartMaxAttempts: input.restart?.maxAttempts,
     restartDelayMs: input.restart?.delayMs,
+    restartWindowMs: input.restart?.windowMs,
     healthcheckCmd: input.healthcheck?.cmd,
     healthcheckIntervalMs: input.healthcheck?.intervalMs,
     healthcheckTimeoutMs: input.healthcheck?.timeoutMs,
@@ -162,5 +183,10 @@ export function toUpdateRecordPatch(input: UpdateServiceInput) {
         ? input.resources.cpuReservation.toString()
         : undefined,
     memoryReservationMb: input.resources?.memoryReservationMb,
+    diskLimitMb: input.resources?.diskLimitMb,
+    swapLimitMb: input.resources?.swapLimitMb,
+    pidsLimit: input.resources?.pidsLimit,
+    preDeploy: input.preDeploy,
+    buildConfig: input.buildConfig,
   };
 }

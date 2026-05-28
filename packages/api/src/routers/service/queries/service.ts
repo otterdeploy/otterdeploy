@@ -2,6 +2,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { createError } from "evlog";
 
 import { db } from "@otterstack/db";
+import type { BuildConfig } from "@otterstack/shared/build-config";
 import {
   resource,
   serviceEnvVar,
@@ -134,6 +135,7 @@ export interface CreateServiceInput {
   restartCondition?: "none" | "on-failure" | "any";
   restartMaxAttempts?: number | null;
   restartDelayMs?: number;
+  restartWindowMs?: number | null;
 
   healthcheckCmd?: string[] | null;
   healthcheckIntervalMs?: number | null;
@@ -145,6 +147,12 @@ export interface CreateServiceInput {
   memoryLimitMb?: number | null;
   cpuReservation?: string | null;
   memoryReservationMb?: number | null;
+  diskLimitMb?: number | null;
+  swapLimitMb?: number | null;
+  pidsLimit?: number | null;
+
+  preDeploy?: string[] | null;
+  buildConfig?: BuildConfig | null;
 
   internalHostname: string;
   serviceName: string;
@@ -195,6 +203,7 @@ export async function createServiceRecord(
         restartCondition: input.restartCondition ?? "on-failure",
         restartMaxAttempts: input.restartMaxAttempts ?? null,
         restartDelayMs: input.restartDelayMs ?? 5000,
+        restartWindowMs: input.restartWindowMs ?? null,
 
         healthcheckCmd: input.healthcheckCmd ?? null,
         healthcheckIntervalMs: input.healthcheckIntervalMs ?? null,
@@ -206,6 +215,12 @@ export async function createServiceRecord(
         memoryLimitMb: input.memoryLimitMb ?? null,
         cpuReservation: input.cpuReservation ?? null,
         memoryReservationMb: input.memoryReservationMb ?? null,
+        diskLimitMb: input.diskLimitMb ?? null,
+        swapLimitMb: input.swapLimitMb ?? null,
+        pidsLimit: input.pidsLimit ?? null,
+
+        preDeploy: input.preDeploy ?? null,
+        buildConfig: input.buildConfig ?? null,
 
         internalHostname: input.internalHostname,
         serviceName: input.serviceName,
@@ -313,6 +328,14 @@ export async function updateServiceRecord(
       ...(input.memoryReservationMb !== undefined
         ? { memoryReservationMb: input.memoryReservationMb }
         : {}),
+      ...(input.diskLimitMb !== undefined ? { diskLimitMb: input.diskLimitMb } : {}),
+      ...(input.swapLimitMb !== undefined ? { swapLimitMb: input.swapLimitMb } : {}),
+      ...(input.pidsLimit !== undefined ? { pidsLimit: input.pidsLimit } : {}),
+      ...(input.restartWindowMs !== undefined
+        ? { restartWindowMs: input.restartWindowMs }
+        : {}),
+      ...(input.preDeploy !== undefined ? { preDeploy: input.preDeploy } : {}),
+      ...(input.buildConfig !== undefined ? { buildConfig: input.buildConfig } : {}),
     })
     .where(eq(serviceResource.resourceId, resourceId))
     .returning();
