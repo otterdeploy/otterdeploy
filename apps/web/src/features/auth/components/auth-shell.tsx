@@ -23,7 +23,7 @@ export function AuthShell({
     <main className="flex min-h-svh items-center justify-center bg-muted p-6">
       <div className="flex w-full max-w-[440px] flex-col gap-6">
         <div className="text-center text-sm font-semibold tracking-tight text-foreground">
-          otterstack
+          otterdeploy
         </div>
         <Card>
           <CardHeader>

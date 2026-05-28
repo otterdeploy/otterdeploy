@@ -4,30 +4,30 @@
  * org-scoped server.list — no need to re-source them here.
  *
  * Org scoping:
- *   - Containers: filtered to docker labels { otterstack.managed=true,
- *     otterstack.project=<projectSlug> } for projects in this org.
+ *   - Containers: filtered to docker labels { otterdeploy.managed=true,
+ *     otterdeploy.project=<projectSlug> } for projects in this org.
  *   - Databases: SQL join `resource → project` filtered by organizationId.
  *
  * Container labels are the source of truth for the project mapping — we DO
  * NOT trust labels to identify the org (a different deployment in the same
  * Docker daemon could spoof them). Instead we pre-load the org's project
- * slugs and only emit containers whose `otterstack.project` label matches.
+ * slugs and only emit containers whose `otterdeploy.project` label matches.
  */
 
 import { Docker } from "@otterdeploy/docker";
 import { eq } from "drizzle-orm";
 
-import { db } from "@otterstack/db";
+import { db } from "@otterdeploy/db";
 import {
   databaseResource,
   project,
   resource,
-} from "@otterstack/db/schema/project";
+} from "@otterdeploy/db/schema/project";
 import {
   type Id,
   ID_PREFIX as IDP,
   type ProjectSlug,
-} from "@otterstack/shared/id";
+} from "@otterdeploy/shared/id";
 
 import type { ResourceId } from "../service/errors";
 
@@ -90,26 +90,26 @@ export async function listTerminalTargets(input: {
     slugToProject.set(p.slug, { id: p.id, name: p.name });
 
   // ── Containers ────────────────────────────────────────────────────────
-  // Docker label filter: `otterstack.managed=true`. We narrow further
-  // server-side by checking each container's `otterstack.project` label is
+  // Docker label filter: `otterdeploy.managed=true`. We narrow further
+  // server-side by checking each container's `otterdeploy.project` label is
   // an org-owned slug before emitting.
   const docker = Docker.fromEnv();
   const listed = await docker.containers.list({
     all: false, // running only — exec is meaningless against stopped
-    filters: { label: ["otterstack.managed=true"] },
+    filters: { label: ["otterdeploy.managed=true"] },
   });
 
   const containers: TerminalContainer[] = [];
   if (listed.isOk()) {
     for (const c of listed.value) {
       const labels = c.Labels ?? {};
-      const labelProjectSlug = labels["otterstack.project"] ?? null;
+      const labelProjectSlug = labels["otterdeploy.project"] ?? null;
       // Org guard: drop containers whose project label isn't one of ours.
       if (!labelProjectSlug || !slugToProject.has(labelProjectSlug)) continue;
 
-      const resourceType = labels["otterstack.resource.type"];
+      const resourceType = labels["otterdeploy.resource.type"];
       // Accept services + every database engine we support. Anything else
-      // (e.g. otterstack-caddy / otterstack-server itself) gets dropped.
+      // (e.g. otterdeploy-caddy / otterdeploy-server itself) gets dropped.
       if (
         resourceType !== "service" &&
         resourceType !== "postgres" &&
@@ -121,7 +121,7 @@ export async function listTerminalTargets(input: {
 
       const rawName = c.Names?.[0] ?? c.Id;
       const { serviceName, slot } = splitTaskName(rawName);
-      const labelResourceId = labels["otterstack.resource.id"];
+      const labelResourceId = labels["otterdeploy.resource.id"];
 
       containers.push({
         containerId: c.Id,

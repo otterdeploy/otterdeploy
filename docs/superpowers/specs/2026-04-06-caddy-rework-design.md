@@ -27,8 +27,8 @@ New `proxy_route` table replaces the `caddy_config` table:
 | projectId | text (FK -> project) | Owning project |
 | resourceId | text (FK -> resource, nullable) | Associated resource (if any) |
 | type | enum: `http`, `layer4` | Route type |
-| domain | text | e.g. `myapp-acme.otterstack.dev` |
-| upstreamHost | text | e.g. `myapp.acme.otterstack.internal` |
+| domain | text | e.g. `myapp-acme.otterdeploy.dev` |
+| upstreamHost | text | e.g. `myapp.acme.otterdeploy.internal` |
 | upstreamPort | integer | e.g. 3000 or 5432 |
 | protocol | enum: `tcp`, `http` | Determines proxy directive |
 | layer4Alpn | text (nullable) | e.g. `postgresql` for Layer4 routes |
@@ -88,7 +88,7 @@ Unique constraint on `domain` — no two routes can claim the same domain.
             layer4 {
                 @pg_primary_acme tls {
                     alpn postgresql
-                    sni primary-acme.db.otterstack.dev
+                    sni primary-acme.db.otterdeploy.dev
                 }
                 route @pg_primary_acme {
                     tls {
@@ -96,7 +96,7 @@ Unique constraint on `domain` — no two routes can claim the same domain.
                             alpn postgresql
                         }
                     }
-                    proxy primary-acme.otterstack.internal:5432
+                    proxy primary-acme.otterdeploy.internal:5432
                 }
             }
             tls
@@ -104,8 +104,8 @@ Unique constraint on `domain` — no two routes can claim the same domain.
     }
 }
 
-myapp-acme.otterstack.dev {
-    reverse_proxy myapp.acme.otterstack.internal:3000
+myapp-acme.otterdeploy.dev {
+    reverse_proxy myapp.acme.otterdeploy.internal:3000
 }
 ```
 
@@ -116,8 +116,8 @@ Uncomment the Caddy service. Key changes:
 - Use `--config /etc/caddy/Caddyfile --adapter caddyfile`
 - Mount `./infra/caddy/config:/etc/caddy`
 - Expose ports 80, 443, 2019
-- Join `otterstack-resources` network so Caddy can reach provisioned containers
-- Uncomment volumes `otterstack-caddy-data` and `otterstack-caddy-state`
+- Join `otterdeploy-resources` network so Caddy can reach provisioned containers
+- Uncomment volumes `otterdeploy-caddy-data` and `otterdeploy-caddy-state`
 
 ### What Gets Deleted
 

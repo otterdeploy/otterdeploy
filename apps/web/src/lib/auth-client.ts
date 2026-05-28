@@ -1,5 +1,5 @@
 import { apiKeyClient } from "@better-auth/api-key/client";
-import { env } from "@otterstack/env/web";
+import { env } from "@otterdeploy/env/web";
 import {
   adminClient,
   deviceAuthorizationClient,

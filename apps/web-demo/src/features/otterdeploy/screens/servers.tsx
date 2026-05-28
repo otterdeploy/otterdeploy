@@ -730,7 +730,7 @@ function AddServerModal({ onClose, onAdd }: { onClose: () => void; onAdd: (n: No
 
         <div className="row gap-2" style={{ padding: 14, borderTop: "1px solid var(--border)" }}>
           <span className="muted" style={{ fontSize: 11 }}>
-            Otterstack will retry SSH every 10s until the daemon answers.
+            Otterdeploy will retry SSH every 10s until the daemon answers.
           </span>
           <div style={{ flex: 1 }} />
           <button className="btn" onClick={onClose}>

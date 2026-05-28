@@ -37,7 +37,7 @@ export const welcomeSequenceJob = defineJob({
     // Immediate welcome
     await triggerEmail({
       to: email,
-      subject: "Welcome to otterstack!",
+      subject: "Welcome to otterdeploy!",
       body: `Hi ${name}, welcome aboard!`,
     });
 
@@ -46,7 +46,7 @@ export const welcomeSequenceJob = defineJob({
       {
         to: email,
         subject: "Getting Started Tips",
-        body: `Hi ${name}, here are some tips to get the most out of otterstack...`,
+        body: `Hi ${name}, here are some tips to get the most out of otterdeploy...`,
       },
       { delay: ONE_DAY_MS },
     );

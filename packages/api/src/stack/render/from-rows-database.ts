@@ -6,7 +6,7 @@
  * what the apply path actually deploys.
  */
 
-import type { databaseResource, resource } from "@otterstack/db/schema/project";
+import type { databaseResource, resource } from "@otterdeploy/db/schema/project";
 
 import { getEngineAdapter } from "../../swarm/database-engines";
 import {
@@ -69,7 +69,7 @@ export function buildDatabaseService(
         failure_action: "pause",
       },
     },
-    "x-otterstack": {
+    "x-otterdeploy": {
       kind: "database",
       engine: row.database.engine,
       resourceId: row.resource.id,

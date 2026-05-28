@@ -31,7 +31,7 @@ export async function ensureSwarm(): Promise<void> {
 
 /**
  * Ensure a per-project overlay network exists.
- * Network name: otterstack-{projectSlug}
+ * Network name: otterdeploy-{projectSlug}
  * Caddy is connected to the network so it can route traffic to project services.
  */
 export async function ensureProjectNetwork(
@@ -98,8 +98,8 @@ export async function ensureProjectNetwork(
     Driver: "overlay",
     Attachable: true,
     Labels: {
-      "otterstack.managed": "true",
-      "otterstack.project": projectSlug,
+      "otterdeploy.managed": "true",
+      "otterdeploy.project": projectSlug,
     },
   });
 

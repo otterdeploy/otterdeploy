@@ -14,15 +14,15 @@
  * registry = "project not built-pipeline-configured, skip").
  */
 
-import { db } from "@otterstack/db";
+import { db } from "@otterdeploy/db";
 import {
   containerRegistry,
   deployment,
   gitRepo,
   project,
   resource,
-} from "@otterstack/db/schema";
-import type { Id, ID_PREFIX } from "@otterstack/shared/id";
+} from "@otterdeploy/db/schema";
+import type { Id, ID_PREFIX } from "@otterdeploy/shared/id";
 import { eq } from "drizzle-orm";
 
 type DeploymentId = Id<typeof ID_PREFIX.deployment>;

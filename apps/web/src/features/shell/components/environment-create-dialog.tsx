@@ -13,7 +13,7 @@ import {
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Field, FieldLabel } from "@/shared/components/ui/field";
-import { createId, ID_PREFIX, type Slug } from "@otterstack/shared/id";
+import { createId, ID_PREFIX, type Slug } from "@otterdeploy/shared/id";
 
 function slugify(value: string): string {
   return value

@@ -101,7 +101,7 @@ apps/web/
 - [ ] **Step 1: Confirm `project-flow` has no remaining importers**
 
 ```bash
-cd /Users/jeffersonchukwuka/Developer/playground/otterstack/apps/web && grep -rn "features/project-flow" src/ || echo "clean"
+cd /Users/jeffersonchukwuka/Developer/playground/otterdeploy/apps/web && grep -rn "features/project-flow" src/ || echo "clean"
 ```
 
 If anything matches outside `routeTree.gen.ts`, stop and report NEEDS_CONTEXT — Plan 1's Task 13 should have wiped the only consumer when it rewrote the canvas layout. Anything left is unexpected.
@@ -810,7 +810,7 @@ export function CanvasControls({ onUndo }: Props) {
 - [ ] **Step 2: Verify coss Toolbar primitives**
 
 ```bash
-grep -n "^export" /Users/jeffersonchukwuka/Developer/playground/otterstack/apps/web/src/components/ui/toolbar.tsx
+grep -n "^export" /Users/jeffersonchukwuka/Developer/playground/otterdeploy/apps/web/src/components/ui/toolbar.tsx
 ```
 
 If `ToolbarButton` or `ToolbarSeparator` aren't exported, open the file and adapt. Common alternatives: `Toolbar`, `Toolbar.Button` (compound), or just `Button` inside a styled `Toolbar`. Keep behavior intact (zoom/fit calls flow methods; aria-labels for accessibility).

@@ -20,13 +20,13 @@
 
 import { rm } from "node:fs/promises";
 
-import { getInstallationToken } from "@otterstack/api/git/github-app";
-import { decryptSecret } from "@otterstack/api/lib/crypto";
-import type { ResourceId } from "@otterstack/api/routers/service/errors";
-import type { ProjectId } from "@otterstack/api/routers/project/errors";
-import { redeployOne } from "@otterstack/api/routers/service/redeploy";
-import { db } from "@otterstack/db";
-import { serviceResource } from "@otterstack/db/schema";
+import { getInstallationToken } from "@otterdeploy/api/git/github-app";
+import { decryptSecret } from "@otterdeploy/api/lib/crypto";
+import type { ResourceId } from "@otterdeploy/api/routers/service/errors";
+import type { ProjectId } from "@otterdeploy/api/routers/project/errors";
+import { redeployOne } from "@otterdeploy/api/routers/service/redeploy";
+import { db } from "@otterdeploy/db";
+import { serviceResource } from "@otterdeploy/db/schema";
 import type { RedisClient } from "bun";
 import { eq } from "drizzle-orm";
 import { log as globalLog } from "evlog";
@@ -38,7 +38,7 @@ import { createLogSink } from "./log-stream";
 import { nixpacksBuild } from "./nixpacks";
 import { markBuilding, markFailed, markImageReady, markRunning } from "./state";
 
-import type { Id, ID_PREFIX } from "@otterstack/shared/id";
+import type { Id, ID_PREFIX } from "@otterdeploy/shared/id";
 
 type DeploymentId = Id<typeof ID_PREFIX.deployment>;
 

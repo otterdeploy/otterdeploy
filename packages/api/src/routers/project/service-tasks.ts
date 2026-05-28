@@ -14,9 +14,9 @@ import { Docker } from "@otterdeploy/docker";
 import { Result } from "better-result";
 import { eq } from "drizzle-orm";
 
-import { db } from "@otterstack/db";
-import { resource, serviceResource } from "@otterstack/db/schema/project";
-import { type Id, ID_PREFIX as IDP } from "@otterstack/shared/id";
+import { db } from "@otterdeploy/db";
+import { resource, serviceResource } from "@otterdeploy/db/schema/project";
+import { type Id, ID_PREFIX as IDP } from "@otterdeploy/shared/id";
 
 import { ProjectNotFoundError, type ProjectId } from "./errors";
 import { getProjectInOrg } from "./queries";

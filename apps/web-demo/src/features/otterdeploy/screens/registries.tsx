@@ -82,7 +82,7 @@ const INITIAL: Registry[] = [
     name: "AWS ECR",
     url: "123456789012.dkr.ecr.us-west-2.amazonaws.com",
     auth: "iam",
-    authDetail: "arn:aws:iam::123456789012:role/otterstack-pull",
+    authDetail: "arn:aws:iam::123456789012:role/otterdeploy-pull",
     images: 3,
     lastPulled: "1h ago",
     status: "active",
@@ -499,7 +499,7 @@ function AddRegistryModal({ onClose }: { onClose: () => void }) {
             <Field label="IAM role ARN">
               <input
                 className="input mono"
-                placeholder="arn:aws:iam::123456789012:role/otterstack-pull"
+                placeholder="arn:aws:iam::123456789012:role/otterdeploy-pull"
                 value={iamRole}
                 onChange={(e) => setIamRole(e.target.value)}
               />
@@ -517,7 +517,7 @@ function AddRegistryModal({ onClose }: { onClose: () => void }) {
                 lineHeight: 1.6,
               }}
             >
-              Otterstack will use the swarm node&apos;s instance metadata
+              Otterdeploy will use the swarm node&apos;s instance metadata
               credentials to authenticate pulls. No keys stored.
             </div>
           )}

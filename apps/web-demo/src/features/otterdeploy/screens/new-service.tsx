@@ -758,7 +758,7 @@ function Step_Source({
     {
       id: "cli",
       name: "Push from CLI",
-      sub: "otterstack push from local",
+      sub: "otterdeploy push from local",
       icon: "doc",
     },
   ];
@@ -1016,13 +1016,13 @@ function Step_Source({
             }}
           >
             {`# 1. install once
-$ curl -fsSL https://otterstack.dev/install.sh | sh
+$ curl -fsSL https://otterdeploy.dev/install.sh | sh
 
 # 2. authenticate
-$ otterstack login
+$ otterdeploy login
 
 # 3. push from your project
-$ otterstack push --service ${name} --env production`}
+$ otterdeploy push --service ${name} --env production`}
           </pre>
           <div style={{ height: 12 }} />
           <Field label="Service name">
@@ -1377,7 +1377,7 @@ volumes:
     <>
       <SectionH
         title="Compose file"
-        sub="We'll parse this into individual Otterstack services"
+        sub="We'll parse this into individual Otterdeploy services"
       />
       <div
         className="card"
@@ -1824,7 +1824,7 @@ function Step_Networking({
           <div style={{ height: 18 }} />
           <SectionH
             title="Health check"
-            sub="How does Otterstack know your service is ready to serve traffic?"
+            sub="How does Otterdeploy know your service is ready to serve traffic?"
           />
           <div className="card" style={{ padding: 16, marginTop: 10 }}>
             <div
@@ -2452,7 +2452,7 @@ function Step_Variables({
             <span style={{ flex: 1 }}>Auto-injected</span>
             <span className="badge">
               <I.bolt width={9} height={9} />
-              otterstack-managed
+              otterdeploy-managed
             </span>
           </div>
           {suggested.map((s, i) => (
@@ -2686,7 +2686,7 @@ function Step_AdvancedDb({ kind }: { kind: ServiceKindDef | null }) {
       <div style={{ height: 18 }} />
       <SectionH
         title="Maintenance window"
-        sub="When can Otterstack apply patches?"
+        sub="When can Otterdeploy apply patches?"
       />
       <div className="card" style={{ padding: 16, marginTop: 10 }}>
         <div
@@ -2908,7 +2908,7 @@ volumes:
               <div
                 style={{ fontSize: 12, color: "var(--info)", lineHeight: 1.5 }}
               >
-                Otterstack will{" "}
+                Otterdeploy will{" "}
                 {isDb
                   ? "pull the image, provision a volume, and start the database"
                   : "build the image, push to the internal registry, deploy " +
@@ -2968,7 +2968,7 @@ volumes:
               className="muted mono"
               style={{ fontSize: 11, alignSelf: "center" }}
             >
-              otterstack apply
+              otterdeploy apply
             </span>
           </div>
         </div>

@@ -20,7 +20,7 @@
  *     blob. Rows are written by the builder; the platform never edits.
  */
 
-import { createId, ID_PREFIX, type Id } from "@otterstack/shared/id";
+import { createId, ID_PREFIX, type Id } from "@otterdeploy/shared/id";
 import {
   bigserial,
   index,

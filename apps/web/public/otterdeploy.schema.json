@@ -2149,7 +2149,7 @@
     "project"
   ],
   "additionalProperties": false,
-  "$id": "https://otterstack.com/otterstack.schema.json",
+  "$id": "https://otterdeploy.com/otterdeploy.schema.json",
   "title": "Otterdeploy Manifest",
   "description": "Schema for otterdeploy.config.json — the declarative manifest of services + databases for an otterdeploy project."
 }

@@ -21,7 +21,7 @@ interface Props {
 
 type DrawerTab = "stack" | "activity" | "traffic";
 
-const STORAGE_KEY = "otterstack:workspace-drawer";
+const STORAGE_KEY = "otterdeploy:workspace-drawer";
 const MIN_DRAWER_PX = 160;
 const MAX_DRAWER_FRAC = 0.7;
 const DEFAULT_DRAWER_PX = 280;

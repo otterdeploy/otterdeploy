@@ -1,6 +1,6 @@
 import { SQL } from "bun";
 
-import { env } from "@otterstack/env/server";
+import { env } from "@otterdeploy/env/server";
 
 function getProvisionerUrl() {
   return env.DATABASE_PROVISIONER_URL ?? env.DATABASE_URL;

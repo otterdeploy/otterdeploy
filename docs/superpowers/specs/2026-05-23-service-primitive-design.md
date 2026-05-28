@@ -6,7 +6,7 @@
 
 ## 1. Goal
 
-Add a first-class **Service** resource to otterstack so a user can deploy a
+Add a first-class **Service** resource to otterdeploy so a user can deploy a
 container from a Docker image into a project, with full Railway-parity
 configuration. The first slice ships:
 
@@ -88,7 +88,7 @@ Existing Caddy reconciler is reused unchanged: `expose()` writes a
 | `cpuReservation`      | numeric(4,2) nullable           |                                           |
 | `memoryReservationMb` | int nullable                    |                                           |
 | `internalHostname`    | text not null                   | Alias on project Swarm network            |
-| `serviceName`         | text not null                   | Docker service name (`otterstack-svc-…`)  |
+| `serviceName`         | text not null                   | Docker service name (`otterdeploy-svc-…`)  |
 | `networkName`         | text not null                   |                                           |
 | `publicEnabled`       | bool not null default false     |                                           |
 | `publicDomain`        | text nullable                   | Set when `publicEnabled` flips true       |
@@ -371,10 +371,10 @@ Docker service create spec (built from `service_resource` row + resolved env):
 {
   Name: serviceName,
   Labels: {
-    "otterstack.managed": "true",
-    "otterstack.resource.type": "service",
-    "otterstack.project": projectSlug,
-    "otterstack.resource.id": resourceId,
+    "otterdeploy.managed": "true",
+    "otterdeploy.resource.type": "service",
+    "otterdeploy.project": projectSlug,
+    "otterdeploy.resource.id": resourceId,
   },
   TaskTemplate: {
     ContainerSpec: {
@@ -480,8 +480,8 @@ Add to `packages/api/src/constants.ts`:
 
 ```ts
 service: {
-  publicBaseDomain: "apps.otterstack.dev",
-  serviceNamePrefix: "otterstack-svc-",
+  publicBaseDomain: "apps.otterdeploy.dev",
+  serviceNamePrefix: "otterdeploy-svc-",
 }
 ```
 
@@ -531,7 +531,7 @@ service: {
 - **Image pull secrets** — private registries need credentials. v1
   assumes public images. Add `registry_credential` table later.
 - **Cert provisioning** — Caddy auto-handles via ACME; ensure
-  `apps.otterstack.dev` wildcard DNS is configured. (Out of band.)
+  `apps.otterdeploy.dev` wildcard DNS is configured. (Out of band.)
 - **Project rename** — would change subdomain. Defer; project rename
   isn't supported today.
 - **Deployment history** — every `update` is a "deployment". Adding a
@@ -539,4 +539,4 @@ service: {
 - **Resolver caching** — currently re-scans env vars on every redeploy.
   Cheap at small scale; revisit when projects have >100 services.
 - **Concurrent updates** — two simultaneous updates serialized via
-  Docker's `Spec.version`. No explicit otterstack-side lock in v1.
+  Docker's `Spec.version`. No explicit otterdeploy-side lock in v1.

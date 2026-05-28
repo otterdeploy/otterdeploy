@@ -1,5 +1,5 @@
 {
-  "name": "@otterstack/api",
+  "name": "@otterdeploy/api",
   "type": "module",
   "exports": {
     ".": {
@@ -31,11 +31,11 @@
     "@orpc/server": "catalog:",
     "@orpc/zod": "catalog:",
     "@otterdeploy/docker": "^0.4.0",
-    "@otterstack/auth": "workspace:*",
-    "@otterstack/db": "workspace:*",
-    "@otterstack/env": "workspace:*",
-    "@otterstack/jobs": "workspace:*",
-    "@otterstack/shared": "workspace:*",
+    "@otterdeploy/auth": "workspace:*",
+    "@otterdeploy/db": "workspace:*",
+    "@otterdeploy/env": "workspace:*",
+    "@otterdeploy/jobs": "workspace:*",
+    "@otterdeploy/shared": "workspace:*",
     "better-result": "^2.9.2",
     "drizzle-orm": "catalog:",
     "drizzle-zod": "catalog:",
@@ -44,7 +44,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@otterstack/config": "workspace:*",
+    "@otterdeploy/config": "workspace:*",
     "@vitest/coverage-v8": "catalog:",
     "@vitest/ui": "catalog:",
     "jsdom": "catalog:",

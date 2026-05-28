@@ -55,7 +55,7 @@ interface Props {
 }
 
 const PLACEHOLDER_BANNER = [
-  "\x1b[1;33m─── otterstack logs (Plan 6 will wire real streaming) ───\x1b[0m",
+  "\x1b[1;33m─── otterdeploy logs (Plan 6 will wire real streaming) ───\x1b[0m",
   "",
   "The Ghostty terminal is mounted, sized, and ready to receive log data.",
   "When the server's WebSocket log gateway ships, this terminal will tail",

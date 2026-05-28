@@ -2,7 +2,7 @@
 
 import { Search01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { ID_PREFIX, type Slug } from "@otterstack/shared/id";
+import { ID_PREFIX, type Slug } from "@otterdeploy/shared/id";
 import { Link, useLoaderData, useMatch } from "@tanstack/react-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -32,7 +32,7 @@ export function SiteHeader() {
           to="/$orgSlug"
           params={{ orgSlug: organization.slug }}
           className="flex shrink-0 items-center"
-          aria-label="otterstack home"
+          aria-label="otterdeploy home"
         >
           <span className="grid size-7 place-items-center rounded-md bg-foreground text-[11px] font-semibold text-background lowercase">
             os

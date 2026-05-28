@@ -21,12 +21,12 @@ import {
   resolveRegistryAuth,
   streamImagePull,
 } from "../../../swarm";
-import type { DatabaseEngine } from "@otterstack/shared/database-engines";
+import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
 import { loadDomainSourcesForProject } from "../../../lib/domain-sources";
 import { resolvePublicDomain } from "../../../lib/domains";
 import { insertDeployment, markDeploymentFailed } from "../deployments";
 
-import { type Id, ID_PREFIX } from "@otterstack/shared/id";
+import { type Id, ID_PREFIX } from "@otterdeploy/shared/id";
 
 import {
   PostgresResourceConflictError,
@@ -179,10 +179,10 @@ export async function* createPostgresResourceStream(
   // / `mariadb` / `mongo`) so multi-engine deployments don't collide on
   // a shared name pattern.
   const containerName = sanitizeDockerName(
-    `otterstack-${adapter.nameShort}-${projectSlug}-${resourceSlug}`,
+    `otterdeploy-${adapter.nameShort}-${projectSlug}-${resourceSlug}`,
   );
   const volumeName = sanitizeDockerName(
-    `otterstack-${adapter.nameShort}data-${projectSlug}-${resourceSlug}`,
+    `otterdeploy-${adapter.nameShort}data-${projectSlug}-${resourceSlug}`,
   );
   const internalHostname = `${resourceSlug}.${projectSlug}.${PLATFORM.database.internalBaseDomain}`;
 
@@ -297,7 +297,7 @@ export async function* createPostgresResourceStream(
         serviceId: null,
         serviceName: containerName,
         volumeName,
-        networkName: `otterstack-${projectSlug}`,
+        networkName: `otterdeploy-${projectSlug}`,
         status: "starting",
         health: "starting",
       },

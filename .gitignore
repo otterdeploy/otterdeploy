@@ -48,7 +48,7 @@ coverage
 .cache
 tmp
 temp
-.otterstack
+.otterdeploy
 .superpowers
 
 # Competitor research (local-only reference)

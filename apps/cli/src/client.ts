@@ -1,4 +1,4 @@
-import type { AppRouterClient } from "@otterstack/api/routers/index";
+import type { AppRouterClient } from "@otterdeploy/api/routers/index";
 
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";

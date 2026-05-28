@@ -1,15 +1,15 @@
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { createError } from "evlog";
 
-import { db } from "@otterstack/db";
+import { db } from "@otterdeploy/db";
 import {
   environment,
   project,
   projectEnvVar,
   resource,
   type NixpacksConfig,
-} from "@otterstack/db/schema/project";
-import { createId, ID_PREFIX, type Id } from "@otterstack/shared/id";
+} from "@otterdeploy/db/schema/project";
+import { createId, ID_PREFIX, type Id } from "@otterdeploy/shared/id";
 
 import type { ProjectId } from "../errors";
 

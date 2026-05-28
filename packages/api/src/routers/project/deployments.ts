@@ -6,9 +6,9 @@
  *   - setExtraEnv → redeploy → reason="env-change"
  *
  * The id is also stamped onto the swarm spec as
- *   Spec.Labels["otterstack.deployment.id"]
+ *   Spec.Labels["otterdeploy.deployment.id"]
  * AND
- *   Spec.TaskTemplate.ContainerSpec.Labels["otterstack.deployment.id"]
+ *   Spec.TaskTemplate.ContainerSpec.Labels["otterdeploy.deployment.id"]
  * so every task swarm schedules under this deployment carries the link back.
  * That's how `listDeploymentTasks` groups task history into deployments.
  *
@@ -21,9 +21,9 @@ import { Docker } from "@otterdeploy/docker";
 import { Result } from "better-result";
 import { desc, eq } from "drizzle-orm";
 
-import { db } from "@otterstack/db";
-import { deployment } from "@otterstack/db/schema/project";
-import { type Id, ID_PREFIX as IDP } from "@otterstack/shared/id";
+import { db } from "@otterdeploy/db";
+import { deployment } from "@otterdeploy/db/schema/project";
+import { type Id, ID_PREFIX as IDP } from "@otterdeploy/shared/id";
 
 import {
   PostgresResourceNotFoundError,
@@ -299,7 +299,7 @@ export async function listResourceDeployments(
               Spec?: { ContainerSpec?: { Labels?: Record<string, string> } };
             }
           ).Spec?.ContainerSpec?.Labels ?? {};
-        const deploymentId = labels["otterstack.deployment.id"];
+        const deploymentId = labels["otterdeploy.deployment.id"];
         if (!deploymentId) continue;
         const state =
           (task as { Status?: { State?: string } }).Status?.State ?? "unknown";
@@ -451,7 +451,7 @@ export async function listTasksForDeployment(
           Spec?: { ContainerSpec?: { Labels?: Record<string, string> } };
         }
       ).Spec?.ContainerSpec?.Labels ?? {};
-    return labels["otterstack.deployment.id"] === input.deploymentId;
+    return labels["otterdeploy.deployment.id"] === input.deploymentId;
   });
 
   const sorted = [...filtered].sort((a, b) => {

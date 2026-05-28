@@ -1,5 +1,5 @@
 {
-  "name": "@otterstack/jobs",
+  "name": "@otterdeploy/jobs",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
@@ -13,13 +13,13 @@
   },
   "scripts": {},
   "dependencies": {
-    "@otterstack/env": "workspace:*",
+    "@otterdeploy/env": "workspace:*",
     "bullmq": "^5.65.0",
     "evlog": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@otterstack/config": "workspace:*",
+    "@otterdeploy/config": "workspace:*",
     "typescript": "catalog:"
   }
 }

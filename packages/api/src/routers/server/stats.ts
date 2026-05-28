@@ -1,7 +1,7 @@
 /**
  * Live per-node + cluster stats for the servers page. Aggregates docker
  * swarm tasks by node, sums CPU + memory reservations, and resolves swarm
- * node ids back to otterstack server rows via the hostname pair.
+ * node ids back to otterdeploy server rows via the hostname pair.
  *
  * Mapping note:
  *   The server table doesn't store swarm node ids — the bootstrap row is the
@@ -16,10 +16,10 @@
 import { Docker } from "@otterdeploy/docker";
 import { and, eq, inArray } from "drizzle-orm";
 
-import { db } from "@otterstack/db";
-import { project } from "@otterstack/db/schema/project";
-import { server } from "@otterstack/db/schema/server";
-import { type Id, ID_PREFIX as IDP } from "@otterstack/shared/id";
+import { db } from "@otterdeploy/db";
+import { project } from "@otterdeploy/db/schema/project";
+import { server } from "@otterdeploy/db/schema/server";
+import { type Id, ID_PREFIX as IDP } from "@otterdeploy/shared/id";
 
 type OrgId = Id<typeof IDP.organization>;
 type ServerId = Id<typeof IDP.server>;
@@ -63,7 +63,7 @@ const NANO = 1e9;
 export async function getServerStats(input: {
   organizationId: OrgId;
 }): Promise<ServerStats> {
-  // ── Otterstack servers in this org ────────────────────────────────────
+  // ── Otterdeploy servers in this org ────────────────────────────────────
   const servers = await db
     .select({
       id: server.id,
@@ -76,7 +76,7 @@ export async function getServerStats(input: {
   const docker = Docker.fromEnv();
 
   // ── Swarm node directory ──────────────────────────────────────────────
-  // Lets us map task.NodeID → swarm hostname → otterstack server row.
+  // Lets us map task.NodeID → swarm hostname → otterdeploy server row.
   const nodesResult = await docker.nodes.list({});
   const swarmIdToHostname = new Map<string, string>();
   if (nodesResult.isOk()) {
@@ -87,11 +87,11 @@ export async function getServerStats(input: {
     }
   }
 
-  // ── All otterstack-managed tasks ──────────────────────────────────────
+  // ── All otterdeploy-managed tasks ──────────────────────────────────────
   // Single call, label-filtered so other docker workloads don't leak into
   // the stats. Tasks without a NodeID (still being scheduled) are skipped.
   const tasksResult = await docker.tasks.list({
-    filters: { label: ["otterstack.managed=true"] },
+    filters: { label: ["otterdeploy.managed=true"] },
   });
 
   const empty: ServerStats = {
@@ -107,7 +107,7 @@ export async function getServerStats(input: {
   if (tasksResult.isErr()) return empty;
   const tasks = tasksResult.value;
 
-  // Group by hostname (the lookup we can join back to otterstack server rows).
+  // Group by hostname (the lookup we can join back to otterdeploy server rows).
   interface Bucket {
     tasksRunning: number;
     cpuAllocatedVcpu: number;
@@ -130,7 +130,7 @@ export async function getServerStats(input: {
     const isRunning = state === "running";
     if (isRunning) clusterRunning++;
 
-    const slug = t.Labels?.["otterstack.project"];
+    const slug = t.Labels?.["otterdeploy.project"];
     if (slug && isRunning) {
       projectTaskCount.set(slug, (projectTaskCount.get(slug) ?? 0) + 1);
     }

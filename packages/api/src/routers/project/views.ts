@@ -296,7 +296,7 @@ export function sanitizeDockerName(value: string) {
     .replace(/[^a-z0-9_.-]+/g, "-")
     .replace(/^-+|-+$/g, "");
 
-  return sanitized.slice(0, 63) || "otterstack-postgres";
+  return sanitized.slice(0, 63) || "otterdeploy-postgres";
 }
 
 export function buildContainerName(input: {
@@ -304,7 +304,7 @@ export function buildContainerName(input: {
   resourceName: string;
 }) {
   return sanitizeDockerName(
-    `otterstack-pg-${sanitizeProjectSlug(input.projectSlug)}-${sanitizeDatabaseName(input.resourceName)}`,
+    `otterdeploy-pg-${sanitizeProjectSlug(input.projectSlug)}-${sanitizeDatabaseName(input.resourceName)}`,
   );
 }
 
@@ -313,7 +313,7 @@ export function buildVolumeName(input: {
   resourceName: string;
 }) {
   return sanitizeDockerName(
-    `otterstack-pgdata-${sanitizeProjectSlug(input.projectSlug)}-${sanitizeDatabaseName(input.resourceName)}`,
+    `otterdeploy-pgdata-${sanitizeProjectSlug(input.projectSlug)}-${sanitizeDatabaseName(input.resourceName)}`,
   );
 }
 

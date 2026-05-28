@@ -82,7 +82,7 @@ interface NewServiceLaunch {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function OtterstackApp(_: Props) {
+export function OtterdeployApp(_: Props) {
   const [tab, setTabRaw] = useState<Tab | string>("overview");
   const [env, setEnv] = useState<Env>("production");
   const [cmdOpen, setCmdOpen] = useState(false);

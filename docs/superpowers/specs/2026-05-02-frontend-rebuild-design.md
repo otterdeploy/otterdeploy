@@ -3,7 +3,7 @@
 **Date:** 2026-05-02
 **Status:** Draft
 **Branch:** `feat/v2-rebuild`
-**Companion to:** [`2026-04-07-otterstack-paas-v1-design.md`](./2026-04-07-otterstack-paas-v1-design.md)
+**Companion to:** [`2026-04-07-otterdeploy-paas-v1-design.md`](./2026-04-07-otterdeploy-paas-v1-design.md)
 
 This spec covers only the `apps/web` rebuild. Resource model, runtime, and API surface are unchanged — see the v1 PaaS spec.
 
@@ -11,7 +11,7 @@ This spec covers only the `apps/web` rebuild. Resource model, runtime, and API s
 
 ## 1. Goal & Non-Goals
 
-**Goal.** Rebuild `apps/web` so otterstack feels like a serious, performant PaaS — a tool a solo dev, an agency, or an internal platform team would happily run every day. Match Railway's information architecture and Linear's polish, on top of coss ui primitives.
+**Goal.** Rebuild `apps/web` so otterdeploy feels like a serious, performant PaaS — a tool a solo dev, an agency, or an internal platform team would happily run every day. Match Railway's information architecture and Linear's polish, on top of coss ui primitives.
 
 **Non-goals.**
 - Not changing the API contract or domain model.
@@ -207,7 +207,7 @@ Compact intent per screen. Visual fidelity in implementation; this is enough to 
 
 - Use coss tokens (Cal.com-inspired CSS vars). Override the dark palette in `apps/web/src/index.css`.
 - Defaults: Inter (sans), Geist Mono (mono), Inter (heading).
-- otterstack accent: warm amber/orange gradient reserved for primary buttons and the brand mark. Status colors use coss's `success` / `warning` / `destructive` / `info` tokens (don't introduce new ones).
+- otterdeploy accent: warm amber/orange gradient reserved for primary buttons and the brand mark. Status colors use coss's `success` / `warning` / `destructive` / `info` tokens (don't introduce new ones).
 - Dark-first via `class="dark"` on `<html>`. Light theme exists as a v1.1 toggle — keep tokens var-driven so the switch is one class, not a redesign.
 
 ---
@@ -352,5 +352,5 @@ apps/web/src/
 1. **GroupNode in React Flow.** Railway's grouped layout is non-trivial — drag a service into a group, persist membership, allow group resize. React Flow has a `parentNode` concept; verify it covers our needs before committing. (Risk: medium. Mitigation: prototype groups in week 1.)
 2. **Ghostty WASM bundle weight.** ~400KB is fine if lazy-loaded, but every Logs route mount paying that cost is not. Confirm one-shot init across the app, not per-route.
 3. **Caddy fragment diffing UX.** "Show me what my Caddy file looks like" is a power-user feature; the diff renderer needs to be readable to non-power users too. Likely uses `diff2html` or a hand-rolled coss `Card` line-diff.
-4. **Mobile.** Out of scope for v1. Hard cutoff: < 1024px shows a coss `Empty` saying "otterstack is desktop-only for now."
+4. **Mobile.** Out of scope for v1. Hard cutoff: < 1024px shows a coss `Empty` saying "otterdeploy is desktop-only for now."
 5. **Theme switch infrastructure.** We commit to dark-first but token-var-driven. The switch must not require restyling — just `class="dark"` toggle. Verify coss tokens cover everything we use.

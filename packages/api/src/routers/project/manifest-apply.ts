@@ -21,14 +21,14 @@ import { and, eq } from "drizzle-orm";
 import { Result } from "better-result";
 import type { RequestLogger } from "evlog";
 
-import { db } from "@otterstack/db";
+import { db } from "@otterdeploy/db";
 import {
   databaseResource,
   project,
   resource,
   serviceResource,
-} from "@otterstack/db/schema/project";
-import type { Id, ID_PREFIX } from "@otterstack/shared/id";
+} from "@otterdeploy/db/schema/project";
+import type { Id, ID_PREFIX } from "@otterdeploy/shared/id";
 
 import {
   type Change,

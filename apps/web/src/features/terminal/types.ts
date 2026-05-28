@@ -8,7 +8,7 @@ export type SessionSource =
     }
   | {
       kind: "ssh";
-      /** "local" attaches to the otterstack-server host shell — no SSH hop,
+      /** "local" attaches to the otterdeploy-server host shell — no SSH hop,
        *  legitimately implemented. "remote" is a real SSH into a swarm node
        *  (not wired up yet). */
       mode: "local" | "remote";

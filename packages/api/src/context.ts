@@ -1,8 +1,8 @@
 import type { Context as HonoContext } from "hono";
 import type { RequestLogger } from "evlog";
 
-import { auth, type Session } from "@otterstack/auth";
-import { type Id, ID_PREFIX } from "@otterstack/shared/id";
+import { auth, type Session } from "@otterdeploy/auth";
+import { type Id, ID_PREFIX } from "@otterdeploy/shared/id";
 
 type OrgId = Id<typeof ID_PREFIX.organization>;
 

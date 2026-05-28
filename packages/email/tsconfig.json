@@ -1,5 +1,5 @@
 {
-  "extends": "@otterstack/config/tsconfig.base.json",
+  "extends": "@otterdeploy/config/tsconfig.base.json",
   "compilerOptions": {
     "jsx": "react-jsx",
     "declaration": true,

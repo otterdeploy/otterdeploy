@@ -11,7 +11,7 @@
 // nullable so the provider row can also exist for the legacy env-var path
 // during the transition, but new providers always populate them.
 
-import { createId, ID_PREFIX, type Id } from "@otterstack/shared/id";
+import { createId, ID_PREFIX, type Id } from "@otterdeploy/shared/id";
 import {
   boolean,
   index,

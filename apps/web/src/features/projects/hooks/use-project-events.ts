@@ -21,8 +21,8 @@ import { useEffect } from "react";
 
 import { useQueryClient } from "@tanstack/react-query";
 
-import { env } from "@otterstack/env/web";
-import type { ID_PREFIX, Id } from "@otterstack/shared/id";
+import { env } from "@otterdeploy/env/web";
+import type { ID_PREFIX, Id } from "@otterdeploy/shared/id";
 
 import { orpc } from "@/shared/server/orpc";
 

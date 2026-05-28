@@ -90,7 +90,7 @@ export function ConnectDialog({ open, onOpenChange }: ConnectDialogProps) {
 
         <div className="flex flex-col gap-3">
           <p className="text-[12.5px] text-muted-foreground">
-            Otterstack creates a GitHub App for your org through GitHub's
+            Otterdeploy creates a GitHub App for your org through GitHub's
             manifest flow — no config, no env vars. You'll review and
             approve it on GitHub, then pick which repos it can see.
           </p>

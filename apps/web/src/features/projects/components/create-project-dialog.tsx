@@ -15,7 +15,7 @@ import {
 } from "@/shared/components/ui/dialog";
 import { Field, FieldError, FieldLabel } from "@/shared/components/ui/field";
 import { Input } from "@/shared/components/ui/input";
-import { createId, ID_PREFIX } from "@otterstack/shared/id";
+import { createId, ID_PREFIX } from "@otterdeploy/shared/id";
 import { projectCollection } from "../data/project";
 
 import { eq, useLiveQuery } from "@tanstack/react-db";

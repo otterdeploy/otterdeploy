@@ -2,7 +2,7 @@
  * Organization-scoped settings contract.
  *
  * The `organization` row itself is owned by better-auth (id/name/slug/logo/
- * metadata/createdAt) — this router exposes the otterstack-specific columns
+ * metadata/createdAt) — this router exposes the otterdeploy-specific columns
  * we layered on top: baseDomain (+ verification state), Cloudflare DNS API
  * token, Cloudflare zone id.
  *
@@ -14,7 +14,7 @@
 import { oc } from "@orpc/contract";
 import * as z from "zod";
 
-import { ID_PREFIX, zId } from "@otterstack/shared/id";
+import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 
 const tag = "organization";
 const basePath = "/organizations";
@@ -85,7 +85,7 @@ export const autoConfigureDomainInput = z.object({
 export const autoConfigureDomainOutput = z.object({
   ok: z.boolean(),
   /** Cloudflare record IDs we created/updated — surfaced so the operator
-   *  knows exactly which records are now under otterstack management. */
+   *  knows exactly which records are now under otterdeploy management. */
   txtRecordId: z.string().nullable(),
   aRecordId: z.string().nullable(),
   /** Outcome of the verify step that runs after DNS is in place. Lets
@@ -106,7 +106,7 @@ export const autoConfigureDomainOutput = z.object({
 
 export const verifyBaseDomainOutput = z.object({
   ok: z.boolean(),
-  /** TXT record name we looked up (e.g. `_otterstack-verify.acme.com`).
+  /** TXT record name we looked up (e.g. `_otterdeploy-verify.acme.com`).
    *  Surfaced verbatim in the UI so the user knows the exact name to
    *  add to their DNS. */
   recordName: z.string(),

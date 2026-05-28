@@ -1,4 +1,4 @@
-import { i18n } from "@otterstack/i18n/web";
+import { i18n } from "@otterdeploy/i18n/web";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import ReactDOM from "react-dom/client";

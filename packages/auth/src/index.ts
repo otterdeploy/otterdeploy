@@ -1,10 +1,10 @@
 import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
 
-import { db } from "@otterstack/db";
-import * as schema from "@otterstack/db/schema";
-import { member, session as sessionTbl } from "@otterstack/db/schema/auth";
-import { env } from "@otterstack/env/server";
-import { createId, ID_PREFIX, type IdPrefix } from "@otterstack/shared/id";
+import { db } from "@otterdeploy/db";
+import * as schema from "@otterdeploy/db/schema";
+import { member, session as sessionTbl } from "@otterdeploy/db/schema/auth";
+import { env } from "@otterdeploy/env/server";
+import { createId, ID_PREFIX, type IdPrefix } from "@otterdeploy/shared/id";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { bearer, deviceAuthorization, organization } from "better-auth/plugins";
@@ -50,7 +50,7 @@ async function resolveActiveOrganizationId(
 }
 
 export const auth = betterAuth({
-  appName: "otterstack",
+  appName: "otterdeploy",
   database: drizzleAdapter(db, {
     provider: "pg",
     schema: schema,
@@ -109,7 +109,7 @@ export const auth = betterAuth({
     deviceAuthorization({
       // Absolute URL pointed at the WEB origin (where /device is rendered),
       // not the API origin. In prod they're typically the same host; in dev
-      // they diverge (api.otterstack.localhost vs. web.otterstack.localhost),
+      // they diverge (api.otterdeploy.localhost vs. web.otterdeploy.localhost),
       // so a relative path would send users to the API server's /device,
       // which doesn't exist. We use the first CORS_ORIGIN as the web host.
       verificationUri: `${(env.CORS_ORIGIN[0] ?? env.BETTER_AUTH_URL).replace(/\/$/, "")}/device`,

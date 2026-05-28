@@ -9,8 +9,8 @@
  * Concurrency is configurable via BUILDER_CONCURRENCY (default 1).
  */
 
-import { env } from "@otterstack/env/server";
-import { createWorkers } from "@otterstack/jobs";
+import { env } from "@otterdeploy/env/server";
+import { createWorkers } from "@otterdeploy/jobs";
 import { log } from "evlog";
 
 import { makeBuildJob } from "./handler";

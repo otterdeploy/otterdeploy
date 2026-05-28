@@ -1,6 +1,6 @@
 import type { RequestLogger } from "evlog";
 
-import type { DatabaseEngine } from "@otterstack/shared/database-engines";
+import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
 
 import {
   destroySwarmDatabase,

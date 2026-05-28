@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 
-import { ID_PREFIX, type Slug } from "@otterstack/shared/id";
+import { ID_PREFIX, type Slug } from "@otterdeploy/shared/id";
 
 import { Badge } from "@/shared/components/ui/badge";
 

@@ -1,4 +1,4 @@
-# Otterstack PaaS v1 — Design Spec
+# Otterdeploy PaaS v1 — Design Spec
 
 **Date:** 2026-04-07
 **Status:** Draft
@@ -68,7 +68,7 @@ Single Hono server process with six internal modules that communicate through de
 
 ### Git Integration (GitHub App)
 
-- User installs otterstack GitHub App on their org/repos
+- User installs otterdeploy GitHub App on their org/repos
 - Push webhooks trigger builds automatically
 - Build status reported back as GitHub checks (pending/success/failure)
 - Architected with a Git provider interface so GitLab/Bitbucket adapters slot in later
@@ -107,14 +107,14 @@ Single Hono server process with six internal modules that communicate through de
 
 ### Project Domains
 
-- Each project gets a default domain: `<project-slug>.otterstack.dev`
+- Each project gets a default domain: `<project-slug>.otterdeploy.dev`
 - Users can add a custom domain per project
 - SSL/TLS handled automatically by Caddy (Let's Encrypt for custom domains, internal certs for platform domains)
 
 ### Service Routing (user chooses per service)
 
-- **Subdomain**: `api.myapp.otterstack.dev` or `api.customdomain.com`
-- **Path**: `myapp.otterstack.dev/api`
+- **Subdomain**: `api.myapp.otterdeploy.dev` or `api.customdomain.com`
+- **Path**: `myapp.otterdeploy.dev/api`
 - **Internal-only**: Not exposed publicly, reachable via Swarm overlay network DNS
 
 ### Database Routing
@@ -125,7 +125,7 @@ Single Hono server process with six internal modules that communicate through de
 
 ### Custom Domains
 
-- User adds CNAME pointing their domain to otterstack
+- User adds CNAME pointing their domain to otterdeploy
 - Platform detects the domain, provisions cert via Let's Encrypt, activates routing
 - UI shows DNS verification status
 

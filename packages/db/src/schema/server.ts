@@ -2,7 +2,7 @@
 // Docker Swarm cluster. Live CPU/mem/disk metrics are NOT stored here; this
 // table holds capacity + identity. Runtime stats come from a separate
 // metrics path (TBD).
-import { createId, ID_PREFIX, type Id } from "@otterstack/shared/id";
+import { createId, ID_PREFIX, type Id } from "@otterdeploy/shared/id";
 import {
   index,
   integer,

@@ -7,8 +7,8 @@ import type { WorkspaceSummary } from "@/features/workspace-switcher";
 
 const placeholderWorkspace: WorkspaceSummary = {
   id: "ws_default",
-  name: "otterstack",
-  slug: "otterstack",
+  name: "otterdeploy",
+  slug: "otterdeploy",
   role: "owner",
 };
 

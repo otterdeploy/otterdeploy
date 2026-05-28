@@ -8,14 +8,14 @@ import { Result } from "better-result";
 import { and, eq } from "drizzle-orm";
 import type { RequestLogger } from "evlog";
 
-import { db } from "@otterstack/db";
+import { db } from "@otterdeploy/db";
 import {
   containerRegistry,
   gitInstallation,
   gitProvider,
   gitRepo,
   type NixpacksConfig,
-} from "@otterstack/db/schema";
+} from "@otterdeploy/db/schema";
 
 import { reconcile } from "../../caddy";
 import { destroySwarmPostgres } from "../../swarm";
@@ -43,7 +43,7 @@ import {
   type Project,
   type ProjectListItem,
 } from "./views";
-import { type Id, ID_PREFIX } from "@otterstack/shared/id";
+import { type Id, ID_PREFIX } from "@otterdeploy/shared/id";
 
 type OrgId = Id<typeof ID_PREFIX.organization>;
 type GitRepoId = Id<typeof ID_PREFIX.gitRepo>;

@@ -1573,7 +1573,7 @@ export function StepNetworking({ kind }: StepNetworkingProps) {
       {!isStatic && (
         <>
           <div className="mt-4.5">
-            <SectionHeader title="Health check" sub="How does Otterstack know your service is ready to serve traffic?" />
+            <SectionHeader title="Health check" sub="How does Otterdeploy know your service is ready to serve traffic?" />
           </div>
           <Card className="mt-2.5 rounded-md">
             <CardContent className="flex flex-col gap-2.5">
@@ -1968,7 +1968,7 @@ git commit -m "refactor(web): drop values prop from StepReview, subscribe intern
 // apps/web/src/features/projects/components/new-resource/wizard.tsx
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ArrowLeft01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons";
-import { ID_PREFIX, type Slug } from "@otterstack/shared/id";
+import { ID_PREFIX, type Slug } from "@otterdeploy/shared/id";
 import { useStore } from "@tanstack/react-form";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
@@ -2180,7 +2180,7 @@ import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 
 import { PageResourceWizard } from "@/features/projects/components/new-resource/wizard";
 import { STEP_IDS, type Step } from "@/features/projects/components/new-resource/schemas";
-import { ID_PREFIX, type Slug } from "@otterstack/shared/id";
+import { ID_PREFIX, type Slug } from "@otterdeploy/shared/id";
 
 const zNewResourceSearch = z.object({
   kind: z.string().optional(),
@@ -2214,7 +2214,7 @@ Replace the `ResourceWizard` import with `DialogResourceWizard`. The kind-picker
 
 ```tsx
 // apps/web/src/features/projects/components/new-resource/new-resource-dialogs.tsx
-import { ID_PREFIX, type Slug } from "@otterstack/shared/id";
+import { ID_PREFIX, type Slug } from "@otterdeploy/shared/id";
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
@@ -2250,7 +2250,7 @@ Run: `bunx tanstack-router-cli generate` (or the project's equivalent — `bun d
 - [ ] **Step 6: Manual browser smoke**
 
 Start: `bun dev`
-- Open `http://otterstack.localhost/<org>/<proj>/new-resource`. Confirm the wizard renders, kind step is interactive.
+- Open `http://otterdeploy.localhost/<org>/<proj>/new-resource`. Confirm the wizard renders, kind step is interactive.
 - Pick a database kind. Confirm advancing to Version step updates the URL to `?step=version`.
 - Refresh the page. Confirm you land on the same step.
 - Click browser Back. Confirm you return to `?step=kind`.

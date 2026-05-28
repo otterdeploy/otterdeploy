@@ -1,4 +1,4 @@
-import { DATABASE_ENGINES } from "@otterstack/shared/database-engines";
+import { DATABASE_ENGINES } from "@otterdeploy/shared/database-engines";
 
 import type { DatabaseEngineAdapter } from "./index";
 

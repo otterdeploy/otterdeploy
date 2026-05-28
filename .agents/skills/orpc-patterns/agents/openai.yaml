@@ -1,4 +1,4 @@
 interface:
   display_name: "orpc pattern"
   short_description: "orpc pattern procedure and router rules"
-  default_prompt: "Use $orpc-patterns  to add or refactor an oRPC procedure in Otterstack."
+  default_prompt: "Use $orpc-patterns  to add or refactor an oRPC procedure in Otterdeploy."

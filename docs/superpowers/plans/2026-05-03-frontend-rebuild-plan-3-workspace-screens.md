@@ -1360,7 +1360,7 @@ export function SettingsPage() {
         <Section id="general" title="General">
           <Field>
             <FieldLabel htmlFor="ws-name">Workspace name</FieldLabel>
-            <Input id="ws-name" defaultValue="otterstack" disabled />
+            <Input id="ws-name" defaultValue="otterdeploy" disabled />
             <FieldDescription>Persistence ships when the workspace settings API lands in Plan 6.</FieldDescription>
           </Field>
           <SaveButton />

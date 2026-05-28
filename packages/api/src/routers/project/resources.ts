@@ -7,7 +7,7 @@
 import { Result } from "better-result";
 import type { RequestLogger } from "evlog";
 
-import type { Id, ID_PREFIX as IDP } from "@otterstack/shared/id";
+import type { Id, ID_PREFIX as IDP } from "@otterdeploy/shared/id";
 
 import { reconcile } from "../../caddy";
 import { deleteProxyRoutesByResource } from "../../caddy/queries";

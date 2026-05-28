@@ -3,9 +3,9 @@
  * fresh repo list (installation.created, installation_repositories.added).
  */
 
-import { db } from "@otterstack/db";
-import { gitRepo } from "@otterstack/db/schema";
-import type { ID_PREFIX, Id } from "@otterstack/shared/id";
+import { db } from "@otterdeploy/db";
+import { gitRepo } from "@otterdeploy/db/schema";
+import type { ID_PREFIX, Id } from "@otterdeploy/shared/id";
 
 import type { GithubRepoPayload } from "./types";
 

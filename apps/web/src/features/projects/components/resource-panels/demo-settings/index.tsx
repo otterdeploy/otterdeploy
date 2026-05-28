@@ -59,7 +59,7 @@ export function SettingsTabBody({ node, meta }: SettingsTabBodyProps) {
             <div>
               <div className="text-[13px] font-medium">Health probe</div>
               <div className="text-[11.5px] text-muted-foreground">
-                Otterstack pings this every{" "}
+                Otterdeploy pings this every{" "}
                 <span className="text-foreground/80">15s</span>. Replicas that
                 fail 3 consecutive checks are restarted.
               </div>

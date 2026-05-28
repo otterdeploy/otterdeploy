@@ -23,9 +23,9 @@
     "@orpc/client": "catalog:",
     "@orpc/server": "catalog:",
     "@orpc/tanstack-query": "^1.14.1",
-    "@otterstack/api": "workspace:*",
-    "@otterstack/auth": "workspace:*",
-    "@otterstack/env": "workspace:*",
+    "@otterdeploy/api": "workspace:*",
+    "@otterdeploy/auth": "workspace:*",
+    "@otterdeploy/env": "workspace:*",
     "@tailwindcss/vite": "^4.2.4",
     "@tanstack/query-db-collection": "catalog:",
     "@tanstack/react-db": "catalog:",
@@ -63,7 +63,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@otterstack/config": "workspace:*",
+    "@otterdeploy/config": "workspace:*",
     "@tanstack/react-query-devtools": "catalog:",
     "@tanstack/react-router-devtools": "catalog:",
     "@tanstack/router-cli": "catalog:",

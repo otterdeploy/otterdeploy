@@ -1,5 +1,5 @@
 {
-  "name": "@otterstack/cli",
+  "name": "@otterdeploy/cli",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -13,14 +13,14 @@
   },
   "dependencies": {
     "@orpc/client": "catalog:",
-    "@otterstack/api": "workspace:*",
+    "@otterdeploy/api": "workspace:*",
     "better-auth": "catalog:",
     "citty": "^0.1.6",
     "consola": "^3.2.3",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@otterstack/config": "workspace:*",
+    "@otterdeploy/config": "workspace:*",
     "@types/bun": "catalog:",
     "typescript": "catalog:"
   }

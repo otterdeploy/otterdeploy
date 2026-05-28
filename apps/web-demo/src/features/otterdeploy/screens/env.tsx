@@ -1,5 +1,5 @@
 // Variables (v3) — Infisical-style overview matrix + per-env tabs + bulk-edit modal.
-// Ported from /tmp/anth-design-qP3sS7/otterstack/project/screens3.jsx (EnvVars3, OverviewMatrix,
+// Ported from /tmp/anth-design-qP3sS7/otterdeploy/project/screens3.jsx (EnvVars3, OverviewMatrix,
 // PerEnvTable, SyncIntegrations) and screens2.jsx (BulkEditModal helper).
 
 import { useMemo, useState, type ReactNode } from "react";
@@ -128,7 +128,7 @@ function OverviewMatrix({ onJump }: { onJump: (env: EnvName) => void }) {
         </div>
 
         <div className="muted" style={{ fontSize: 12, marginBottom: 12 }}>
-          Inject secrets via the <span className="mono" style={{ color: "var(--fg-2)" }}>otterstack</span> CLI, runtime API,
+          Inject secrets via the <span className="mono" style={{ color: "var(--fg-2)" }}>otterdeploy</span> CLI, runtime API,
           or build-time env-injection. Click <span style={{ color: "var(--fg-2)" }}>Explore</span> on any environment to see
           and edit values.
         </div>
@@ -1019,8 +1019,8 @@ function ProviderModal({ p, onClose }: { p: SyncProvider; onClose: () => void })
           {step === "config" && (
             <div className="col gap-3">
               <div className="muted" style={{ fontSize: 12 }}>
-                Map remote secret paths to Otterstack environments. Sync runs every 60 seconds; conflicts surface as
-                warnings — Otterstack never overwrites a value you set manually.
+                Map remote secret paths to Otterdeploy environments. Sync runs every 60 seconds; conflicts surface as
+                warnings — Otterdeploy never overwrites a value you set manually.
               </div>
               {(["production", "staging", "preview"] as const).map((env) => (
                 <div key={env} className="card" style={{ padding: 12 }}>

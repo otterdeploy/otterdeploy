@@ -99,7 +99,7 @@ const DESTINATIONS: Destination[] = [
   {
     id: "local",
     name: "Local disk",
-    uri: "/var/backups/otterstack",
+    uri: "/var/backups/otterdeploy",
     kind: "local",
     sub: "Manager node · /var/backups",
     usedGB: 4.2,
@@ -196,7 +196,7 @@ const SEED_BACKUPS: Backup[] = [
       "11:00:02 [info] dump.rdb (96 MB) generated at /data/dump.rdb",
       "11:00:04 [info] tar -czf redis-2026-05-03T11.tgz dump.rdb",
       "11:00:05 [info] sha256sum redis-2026-05-03T11.tgz",
-      "11:00:06 [ok]   copied → /var/backups/otterstack/redis/",
+      "11:00:06 [ok]   copied → /var/backups/otterdeploy/redis/",
     ],
   },
   {
@@ -223,7 +223,7 @@ const SEED_BACKUPS: Backup[] = [
       "10:00:02 [info] dump.rdb (92 MB) generated at /data/dump.rdb",
       "10:00:03 [info] tar -czf redis-2026-05-03T10.tgz dump.rdb",
       "10:00:04 [info] sha256sum redis-2026-05-03T10.tgz",
-      "10:00:05 [ok]   copied → /var/backups/otterstack/redis/",
+      "10:00:05 [ok]   copied → /var/backups/otterdeploy/redis/",
     ],
   },
   {
@@ -299,9 +299,9 @@ const SEED_BACKUPS: Backup[] = [
     sourceSizeMB: 0.012,
     compressedSizeMB: 0.004,
     sourceService: "stack manifest watcher",
-    sourceHost: "helio-prod-01:/etc/otterstack/stack.yml",
+    sourceHost: "helio-prod-01:/etc/otterdeploy/stack.yml",
     log: [
-      "04:00:00 [info] watcher: detected change in /etc/otterstack/stack.yml",
+      "04:00:00 [info] watcher: detected change in /etc/otterdeploy/stack.yml",
       "04:00:00 [info] git diff @{1} stack.yml > /tmp/stack.diff",
       "04:00:00 [info] tar -czf stack-2026-05-03T04.tgz stack.yml stack.diff",
       "04:00:01 [info] sha256sum stack-2026-05-03T04.tgz",
@@ -462,7 +462,7 @@ const SEED_BACKUPS: Backup[] = [
     sourceSizeMB: 0.008,
     compressedSizeMB: 0,
     sourceService: "stack manifest watcher",
-    sourceHost: "helio-prod-01:/etc/otterstack/marketing/stack.yml",
+    sourceHost: "helio-prod-01:/etc/otterdeploy/marketing/stack.yml",
     log: ["12:01:00 [info] queued behind 1 running job"],
   },
   {

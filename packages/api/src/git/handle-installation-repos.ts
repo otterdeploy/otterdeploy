@@ -3,8 +3,8 @@
  * selection is narrowed/widened in the GitHub UI.
  */
 
-import { db } from "@otterstack/db";
-import { gitInstallation, gitRepo } from "@otterstack/db/schema";
+import { db } from "@otterdeploy/db";
+import { gitInstallation, gitRepo } from "@otterdeploy/db/schema";
 import { log } from "evlog";
 import { and, eq, inArray } from "drizzle-orm";
 

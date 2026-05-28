@@ -8,11 +8,11 @@ This doc is the implementation plan; pick it up when prereqs land.
 A one-click flow for connecting an org's base domain to Cloudflare DNS:
 
 ```
-[ otterstack settings ]
+[ otterdeploy settings ]
    user clicks "Connect via Cloudflare"
         │
         ▼
-[ self-hosted install ]  ── POST /api/relay/start ──▶  [ otterstack.dev (SaaS relay) ]
+[ self-hosted install ]  ── POST /api/relay/start ──▶  [ otterdeploy.dev (SaaS relay) ]
                                                           signs a Domain Connect apply URL
                                                           stores { state, callbackUrl } briefly (≤10 min)
                                                           returns apply URL
@@ -21,11 +21,11 @@ A one-click flow for connecting an org's base domain to Cloudflare DNS:
         │
         ▼
 [ dash.cloudflare.com Domain Connect UI ]
-   "otterstack wants to add these records to acme.com — Confirm?"
+   "otterdeploy wants to add these records to acme.com — Confirm?"
    user confirms
         │
-        ▼  redirect_uri = app.otterstack.dev/api/relay/cb?state=…
-[ otterstack.dev (relay) ]
+        ▼  redirect_uri = app.otterdeploy.dev/api/relay/cb?state=…
+[ otterdeploy.dev (relay) ]
    decrypts state → bounces 302 to <callbackUrl>?cloudflare=ok
         │
         ▼
@@ -34,10 +34,10 @@ A one-click flow for connecting an org's base domain to Cloudflare DNS:
    marks domain verified, refetches org.settings
 ```
 
-Both ends of the relay are otterstack code — same monorepo. The SaaS install
-(`otterstack.dev`) runs with `OTTERSTACK_ROLE=relay`; the self-hosted install
-runs without that flag and points `OTTERSTACK_SAAS_RELAY_URL` at the SaaS host
-(default `https://app.otterstack.dev`).
+Both ends of the relay are otterdeploy code — same monorepo. The SaaS install
+(`otterdeploy.dev`) runs with `OTTERDEPLOY_ROLE=relay`; the self-hosted install
+runs without that flag and points `OTTERDEPLOY_SAAS_RELAY_URL` at the SaaS host
+(default `https://app.otterdeploy.dev`).
 
 When the SaaS isn't reachable, the UI silently falls back to the paste-token
 flow that's already shipped — no broken state.
@@ -46,12 +46,12 @@ flow that's already shipped — no broken state.
 
 Each self-hosted install can't register its own Domain Connect template:
 Cloudflare approves templates per-org via a manual GitHub PR + email review.
-Hundreds of `otterstack-john.base-domain.json` PRs would get closed. So the
+Hundreds of `otterdeploy-john.base-domain.json` PRs would get closed. So the
 SaaS install owns the template (and the signing key) and signs apply URLs on
 behalf of any self-hosted install that opts in.
 
 Trade-offs we accept by going this way:
-- Self-hosted installs depend on `otterstack.dev` being up for the one-click
+- Self-hosted installs depend on `otterdeploy.dev` being up for the one-click
   path to work. Paste-token fallback covers outages.
 - The SaaS relay sees which domains every install is connecting. We don't
   log the domain in the relay's request store; the relay only needs it
@@ -65,33 +65,33 @@ self-hosted install at their own relay. The env var makes this swap-in clean.
 
 | # | What | Owner | Blocking |
 |---|------|-------|----------|
-| 1 | Deploy `app.otterstack.dev` (SaaS) | platform team | yes — relay has to live somewhere |
+| 1 | Deploy `app.otterdeploy.dev` (SaaS) | platform team | yes — relay has to live somewhere |
 | 2 | Generate RSA-2048 keypair for Domain Connect signing | platform team | yes — Cloudflare rejects unsigned URLs |
-| 3 | Publish public key as TXT record `_dck1.otterstack.dev` | platform team | yes — Cloudflare DNS-resolves this to verify signatures |
+| 3 | Publish public key as TXT record `_dck1.otterdeploy.dev` | platform team | yes — Cloudflare DNS-resolves this to verify signatures |
 | 4 | Store private key in SaaS secret manager (env var or Vault) | platform team | yes |
-| 5 | Write template JSON (`otterstack.base-domain.json`) | platform team | yes — defines which records get added |
+| 5 | Write template JSON (`otterdeploy.base-domain.json`) | platform team | yes — defines which records get added |
 | 6 | PR template to [Domain-Connect/Templates](https://github.com/Domain-Connect/Templates) | platform team | yes — Cloudflare pulls from this repo |
 | 7 | Email `domain-connect@cloudflare.com` with template link + `syncPubKeyDomain` + SVG logo + proxy preferences | platform team | yes — multi-day async, blocks everything below |
 | 8 | Wait for Cloudflare approval | Cloudflare | yes |
 
 Template JSON skeleton (to be saved as
-`otterstack.base-domain.json` in the Templates repo):
+`otterdeploy.base-domain.json` in the Templates repo):
 
 ```json
 {
-  "providerId":   "otterstack",
-  "providerName": "otterstack",
+  "providerId":   "otterdeploy",
+  "providerName": "otterdeploy",
   "serviceId":    "base-domain",
-  "serviceName":  "otterstack base domain",
+  "serviceName":  "otterdeploy base domain",
   "version":      1,
   "syncBlock":    false,
-  "syncPubKeyDomain": "otterstack.dev",
-  "logoUrl":      "https://app.otterstack.dev/static/logo.svg",
-  "description":  "Connect your domain to otterstack — points the apex at your server and adds the verification TXT.",
+  "syncPubKeyDomain": "otterdeploy.dev",
+  "logoUrl":      "https://app.otterdeploy.dev/static/logo.svg",
+  "description":  "Connect your domain to otterdeploy — points the apex at your server and adds the verification TXT.",
   "records": [
     {
       "type":  "TXT",
-      "host":  "_otterstack-verify.@",
+      "host":  "_otterdeploy-verify.@",
       "data":  "%verifyToken%",
       "ttl":   300
     },
@@ -127,7 +127,7 @@ Six discrete changes, in dependency order.
 ### 1. SaaS relay endpoint — `POST /api/relay/cloudflare/start`
 
 New router slice at `packages/api/src/routers/relay/`. Available only when
-`OTTERSTACK_ROLE=relay` is set.
+`OTTERDEPLOY_ROLE=relay` is set.
 
 Input:
 - `domain`        (the customer's apex)
@@ -156,14 +156,14 @@ Query: `?state=<token>&success=<true|false>`
 
 Behavior:
 1. Look up `state` in the KV. If missing/expired, render a generic
-   "Session expired, try again from your otterstack instance" page.
+   "Session expired, try again from your otterdeploy instance" page.
 2. Pull `callbackUrl` out of the KV. Delete the entry (single-use).
 3. 302 to `<callbackUrl>?cloudflare=<ok|denied>`.
 
 ### 3. Self-hosted client — `lib/cloudflare-relay.ts`
 
-Thin client that POSTs to the relay. Reads `OTTERSTACK_SAAS_RELAY_URL`
-(default `https://app.otterstack.dev`). When unset or the request fails,
+Thin client that POSTs to the relay. Reads `OTTERDEPLOY_SAAS_RELAY_URL`
+(default `https://app.otterdeploy.dev`). When unset or the request fails,
 the existing paste-token UI is the fallback path — no relay code throws.
 
 ### 4. Self-hosted callback handler
@@ -200,7 +200,7 @@ on DNS on every load.
 
 | Concern | Mitigation |
 |---------|------------|
-| Open-redirect via attacker-supplied `callbackUrl` | Allowlist scheme=https + suffix-match against a configurable list of self-hosted otterstack origins. For dev, allow `http://localhost:*`. |
+| Open-redirect via attacker-supplied `callbackUrl` | Allowlist scheme=https + suffix-match against a configurable list of self-hosted otterdeploy origins. For dev, allow `http://localhost:*`. |
 | Replay of signed apply URL | Apply URLs include `state` (single-use) and a short `iat` claim. Cloudflare rejects requests older than 10 minutes anyway per spec. |
 | Private key exposure | Private key never leaves the SaaS process. Stored in env var or secrets manager. Never logged. |
 | SaaS sees customer domains | We don't log `domain` in the KV (only the state token + callbackUrl). The signed URL passes through memory only. |
@@ -212,8 +212,8 @@ on DNS on every load.
   TXT parser; state-token TTL.
 - **Integration:** mock Cloudflare DNS lookups; assert the apply URL string
   matches a snapshot for known inputs.
-- **Local dev:** override `OTTERSTACK_SAAS_RELAY_URL=http://localhost:3001`
-  and run a second instance of otterstack with `OTTERSTACK_ROLE=relay`.
+- **Local dev:** override `OTTERDEPLOY_SAAS_RELAY_URL=http://localhost:3001`
+  and run a second instance of otterdeploy with `OTTERDEPLOY_ROLE=relay`.
   Use a test Cloudflare zone; verify the full flow once.
 - **Production smoke:** end-to-end test after Cloudflare approval lands.
   Test domain on the SaaS team's own Cloudflare account.

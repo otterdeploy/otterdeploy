@@ -1,4 +1,4 @@
-import type { AppRouterClient } from "@otterstack/api/routers/index";
+import type { AppRouterClient } from "@otterdeploy/api/routers/index";
 
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { QueryCache, QueryClient } from "@tanstack/react-query";

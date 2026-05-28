@@ -18,8 +18,8 @@ import { streamSSE } from "hono/streaming";
 
 import { type EvlogVariables } from "evlog/hono";
 
-import { streamDeploymentLogs } from "@otterstack/api/routers/deployment/log-stream";
-import { auth, type Session } from "@otterstack/auth";
+import { streamDeploymentLogs } from "@otterdeploy/api/routers/deployment/log-stream";
+import { auth, type Session } from "@otterdeploy/auth";
 
 type DeploymentId = string;
 type OrgId = string;

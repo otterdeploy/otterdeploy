@@ -27,7 +27,7 @@ export type ResourceTerminalMatch =
   | {
       kind: "database";
       /** Engine label expected on the container — terminal-targets
-       *  stamps this from `otterstack.resource.type`. Drives whether the
+       *  stamps this from `otterdeploy.resource.type`. Drives whether the
        *  shell can attach (only running containers with the matching
        *  engine label show up). */
       engine: "postgres" | "redis" | "mariadb" | "mongodb";

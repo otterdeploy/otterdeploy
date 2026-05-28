@@ -2,7 +2,7 @@
  * Loaders that turn a `git_provider` row into a `GithubAppConfig` (the
  * thing the JWT/token helpers in `github-app.ts` consume). Kept separate
  * from the primitives so callers can pass a config without pulling
- * `@otterstack/db` into unit tests of the primitives.
+ * `@otterdeploy/db` into unit tests of the primitives.
  *
  * Three flavours, depending on what the caller knows:
  *
@@ -16,9 +16,9 @@
  * operator skipped the manifest step.
  */
 
-import { db } from "@otterstack/db";
-import { gitInstallation, gitProvider } from "@otterstack/db/schema";
-import { ID_PREFIX, type Id } from "@otterstack/shared/id";
+import { db } from "@otterdeploy/db";
+import { gitInstallation, gitProvider } from "@otterdeploy/db/schema";
+import { ID_PREFIX, type Id } from "@otterdeploy/shared/id";
 import { and, eq } from "drizzle-orm";
 
 import { decryptSecret } from "../lib/crypto";

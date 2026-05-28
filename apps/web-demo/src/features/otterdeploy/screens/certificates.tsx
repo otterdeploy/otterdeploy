@@ -95,7 +95,7 @@ const MANAGED: ManagedCert[] = [
   {
     id: "cert_internal",
     hostname: "*.helio.internal",
-    issuer: "otterstack-mTLS-CA",
+    issuer: "otterdeploy-mTLS-CA",
     serial: "08:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff",
     san: ["*.helio.internal"],
     expiresInDays: 365,
@@ -140,8 +140,8 @@ const CAS: CA[] = [
   },
   {
     id: "ca_internal",
-    name: "otterstack-mTLS-CA",
-    subject: "CN=otterstack-mTLS-CA, O=paperhouse",
+    name: "otterdeploy-mTLS-CA",
+    subject: "CN=otterdeploy-mTLS-CA, O=paperhouse",
     fingerprint: "ab:cd:ef:01:23:45:67:89:00:11:22:33:44:55:66:77",
     expiresInDays: 1820,
     trustedBy: 1,
@@ -623,7 +623,7 @@ function UploadCertModal({ onClose }: { onClose: () => void }) {
       footer={
         <>
           <span className="muted" style={{ fontSize: 11 }}>
-            Otterstack validates chain + key pair before applying
+            Otterdeploy validates chain + key pair before applying
           </span>
           <div style={{ flex: 1 }} />
           <button className="btn" onClick={onClose}>Cancel</button>

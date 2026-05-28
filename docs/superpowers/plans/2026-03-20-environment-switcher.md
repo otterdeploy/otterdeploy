@@ -411,7 +411,7 @@ return (
 - [ ] **Step 5: Verify it works**
 
 ```bash
-cd /Users/jeffersonchukwuka/Developer/playground/otterstack && bun dev
+cd /Users/jeffersonchukwuka/Developer/playground/otterdeploy && bun dev
 ```
 
 Open the project page in the browser. Press `E` — overlay should appear. Arrow keys should move between cards. Enter should select. Escape should dismiss. Dots should be clickable.

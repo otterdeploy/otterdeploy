@@ -1,4 +1,4 @@
-import { env } from "@otterstack/env/web";
+import { env } from "@otterdeploy/env/web";
 import { createFileRoute } from "@tanstack/react-router";
 import { GhosttyCore } from "@wterm/ghostty";
 import { Terminal, useTerminal } from "@wterm/react";

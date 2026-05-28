@@ -77,7 +77,7 @@ export const ID_PREFIX = {
 - [ ] **Step 2: Type-check the package**
 
 ```bash
-bun turbo check-types --filter=@otterstack/shared
+bun turbo check-types --filter=@otterdeploy/shared
 ```
 
 Expected: clean.
@@ -124,7 +124,7 @@ plugins: [
 - [ ] **Step 2: Type-check the package**
 
 ```bash
-bun turbo check-types --filter=@otterstack/auth
+bun turbo check-types --filter=@otterdeploy/auth
 ```
 
 Expected: clean (the Polar deps drift is unrelated and pre-existing).
@@ -262,7 +262,7 @@ Expected: prompt confirms creation of `organization`, `member`, `invitation` tab
 - [ ] **Step 5: Type-check**
 
 ```bash
-bun turbo check-types --filter=@otterstack/db --filter=@otterstack/auth
+bun turbo check-types --filter=@otterdeploy/db --filter=@otterdeploy/auth
 ```
 
 Expected: clean.
@@ -311,7 +311,7 @@ export function AuthShell({
     <main className="flex min-h-svh items-center justify-center bg-muted p-6">
       <div className="flex w-full max-w-[440px] flex-col gap-6">
         <div className="text-center text-sm font-semibold tracking-tight text-foreground">
-          otterstack
+          otterdeploy
         </div>
         <Card>
           <CardHeader>
@@ -394,7 +394,7 @@ export function SignInForm() {
 
   return (
     <AuthShell
-      title="Sign in to otterstack"
+      title="Sign in to otterdeploy"
       description="Enter your email and password to continue."
       footer={
         <>
@@ -573,7 +573,7 @@ export function SignUpForm() {
 
   return (
     <AuthShell
-      title="Create your otterstack account"
+      title="Create your otterdeploy account"
       description="Sign up with email and a password."
       footer={
         <>

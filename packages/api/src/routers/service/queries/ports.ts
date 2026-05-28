@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 
-import { db } from "@otterstack/db";
-import { servicePort } from "@otterstack/db/schema/project";
+import { db } from "@otterdeploy/db";
+import { servicePort } from "@otterdeploy/db/schema/project";
 
 import type { ResourceId } from "../errors";
 import type { ServicePortRow } from ".";

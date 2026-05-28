@@ -80,7 +80,7 @@ function ensureVolumes(
 }
 
 function applyOne(name: string, service: StackService): StackService {
-  const x = service["x-otterstack"];
+  const x = service["x-otterdeploy"];
   if (x.kind !== "database" || !x.engine) return service;
   const adapter = getEngineAdapter(x.engine);
   const identity = deriveIdentity(name, service);

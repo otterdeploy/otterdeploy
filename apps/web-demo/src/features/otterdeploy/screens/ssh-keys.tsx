@@ -26,7 +26,7 @@ interface SshKey {
 const INITIAL: SshKey[] = [
   {
     id: "key_" + rid(),
-    name: "otterstack-deploy",
+    name: "otterdeploy-deploy",
     type: "ed25519",
     bits: 4096,
     fingerprint: "SHA256:Ad7QmKv9b3xRjW2NfqL4tGc8eUpBnY1HsZkXoVrwZk=",
@@ -304,7 +304,7 @@ function GenerateModal({ onClose }: { onClose: () => void }) {
     const body =
       "AAAAC3NzaC1lZDI1NTE5AAAAIBz8KqW9p7n0xRjVfL3tGc6eUpBnY2HsZkXoVrxYqM" +
       rid().toUpperCase();
-    const tag = comment || `${name || "otterstack"}@otterstack`;
+    const tag = comment || `${name || "otterdeploy"}@otterdeploy`;
     return `${algo} ${body} ${tag}`;
   }, [type, name, comment]);
 
@@ -348,7 +348,7 @@ function GenerateModal({ onClose }: { onClose: () => void }) {
           <Field label="Name">
             <input
               className="input mono"
-              placeholder="otterstack-prod"
+              placeholder="otterdeploy-prod"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -411,7 +411,7 @@ function GenerateModal({ onClose }: { onClose: () => void }) {
           <Field label="Comment">
             <input
               className="input mono"
-              placeholder="otterstack@helio"
+              placeholder="otterdeploy@helio"
               value={comment}
               onChange={(e) => setComment(e.target.value)}
             />

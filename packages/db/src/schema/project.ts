@@ -1,5 +1,5 @@
-import { createId, ID_PREFIX, type Id } from "@otterstack/shared/id";
-import type { BuildConfig } from "@otterstack/shared/build-config";
+import { createId, ID_PREFIX, type Id } from "@otterdeploy/shared/id";
+import type { BuildConfig } from "@otterdeploy/shared/build-config";
 import {
   boolean,
   index,
@@ -54,7 +54,7 @@ export const project = pgTable(
     // index below.
     slug: text("slug").notNull(),
     environmentId: text("environment_id").$type<EnvId>(),
-    // Declarative stack file (compose-compatible YAML with x-otterstack
+    // Declarative stack file (compose-compatible YAML with x-otterdeploy
     // extensions). Source of truth migration — Phase 1 ships the column
     // empty; subsequent phases populate + apply it. `stackFileVersion` is
     // a monotonic counter used for optimistic locking on writes.
@@ -322,7 +322,7 @@ export const serviceResource = pgTable(
     // Build configuration for git-sourced services. Stored as jsonb so
     // the builder set can grow without DDL churn. Null for image-sourced
     // services. The discriminated `BuildConfig` shape is defined in
-    // `@otterstack/shared/build-config` so the api/zod schema, the DB
+    // `@otterdeploy/shared/build-config` so the api/zod schema, the DB
     // type, and the service handler inputs all share one definition.
     buildConfig: jsonb("build_config").$type<BuildConfig>(),
 
@@ -350,7 +350,7 @@ export const serviceResource = pgTable(
 
 // Deployment — one logical "push" of a resource to swarm. Each create /
 // redeploy / env-change inserts a new deployment row and tags the swarm
-// spec with `otterstack.deployment.id=<id>` so the tasks docker schedules
+// spec with `otterdeploy.deployment.id=<id>` so the tasks docker schedules
 // inherit the link via Spec.ContainerSpec.Labels. The Deployments tab in
 // the UI lists these rows and expands each to show its underlying tasks.
 export const deploymentStatusEnum = pgEnum("deployment_status", [

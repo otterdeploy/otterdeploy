@@ -745,7 +745,7 @@ function AddOutboundModal({
           </div>
           <div className="muted" style={{ fontSize: 11 }}>
             We will generate an HMAC secret and sign every payload with the{" "}
-            <span className="mono" style={{ color: "var(--fg-2)" }}>X-Otterstack-Signature</span> header.
+            <span className="mono" style={{ color: "var(--fg-2)" }}>X-Otterdeploy-Signature</span> header.
           </div>
         </div>
         <div className="row gap-2" style={{ padding: 14, borderTop: "1px solid var(--border)" }}>
@@ -811,7 +811,7 @@ function AddInboundModal({
 
   const curlCmd = useMemo(() => {
     if (!created) return "";
-    const sigLine = created.secret !== "—" ? ` \\\n  -H "X-Otterstack-Signature: <sha256-hmac>"` : "";
+    const sigLine = created.secret !== "—" ? ` \\\n  -H "X-Otterdeploy-Signature: <sha256-hmac>"` : "";
     return `curl -X POST ${created.url} \\\n  -H "Content-Type: application/json"${sigLine} \\\n  -d '{"event":"trigger"}'`;
   }, [created]);
 

@@ -20,7 +20,7 @@ import { loadDomainSourcesForProject } from "../../../lib/domain-sources";
 import { resolvePublicDomain } from "../../../lib/domains";
 import { defaultImageFor, updateSwarmDatabase } from "../../../swarm";
 
-import { type Id, ID_PREFIX } from "@otterstack/shared/id";
+import { type Id, ID_PREFIX } from "@otterdeploy/shared/id";
 
 import { insertDeployment, markDeploymentFailed } from "../deployments";
 import {

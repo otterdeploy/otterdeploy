@@ -1,7 +1,7 @@
 import { defineCommand } from "citty";
 import { consola } from "consola";
 
-import type { Manifest } from "@otterstack/api/manifest";
+import type { Manifest } from "@otterdeploy/api/manifest";
 
 import { loadConfig, writeConfig } from "../config-file";
 

@@ -16,9 +16,9 @@ import {
   GithubAppNotConfiguredError,
   signInstallState,
   verifyInstallState,
-} from "@otterstack/api/git";
-import { env } from "@otterstack/env/server";
-import { ID_PREFIX, type Id } from "@otterstack/shared/id";
+} from "@otterdeploy/api/git";
+import { env } from "@otterdeploy/env/server";
+import { ID_PREFIX, type Id } from "@otterdeploy/shared/id";
 import { log, parseError } from "evlog";
 import { type EvlogVariables } from "evlog/hono";
 import type { Hono } from "hono";

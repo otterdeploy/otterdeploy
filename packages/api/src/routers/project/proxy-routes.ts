@@ -5,7 +5,7 @@
 
 import { Result } from "better-result";
 
-import { type Id, ID_PREFIX } from "@otterstack/shared/id";
+import { type Id, ID_PREFIX } from "@otterdeploy/shared/id";
 
 import { listProxyRoutesByProject } from "../../caddy/queries";
 

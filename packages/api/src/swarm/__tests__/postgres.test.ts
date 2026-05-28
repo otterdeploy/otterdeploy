@@ -6,9 +6,9 @@ describe("SwarmPostgresRuntime", () => {
   test("runtime type has expected shape", () => {
     const runtime: SwarmPostgresRuntime = {
       serviceId: "svc_abc123",
-      serviceName: "otterstack-pg-acme-primary",
-      volumeName: "otterstack-pgdata-acme-primary",
-      networkName: "otterstack-resources",
+      serviceName: "otterdeploy-pg-acme-primary",
+      volumeName: "otterdeploy-pgdata-acme-primary",
+      networkName: "otterdeploy-resources",
       status: "running",
       health: "healthy",
     };
@@ -21,9 +21,9 @@ describe("SwarmPostgresRuntime", () => {
   test("missing runtime has null serviceId", () => {
     const runtime: SwarmPostgresRuntime = {
       serviceId: null,
-      serviceName: "otterstack-pg-acme-primary",
-      volumeName: "otterstack-pgdata-acme-primary",
-      networkName: "otterstack-resources",
+      serviceName: "otterdeploy-pg-acme-primary",
+      volumeName: "otterdeploy-pgdata-acme-primary",
+      networkName: "otterdeploy-resources",
       status: "missing",
       health: null,
     };

@@ -1,5 +1,5 @@
 {
-  "name": "@otterstack/email",
+  "name": "@otterdeploy/email",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
@@ -16,7 +16,7 @@
   },
   "scripts": {},
   "dependencies": {
-    "@otterstack/env": "workspace:*",
+    "@otterdeploy/env": "workspace:*",
     "@react-email/components": "^1.0.12",
     "@react-email/tailwind": "^2.0.7",
     "evlog": "catalog:",
@@ -25,7 +25,7 @@
     "resend": "^6.12.2"
   },
   "devDependencies": {
-    "@otterstack/config": "workspace:*",
+    "@otterdeploy/config": "workspace:*",
     "@types/react": "catalog:",
     "typescript": "catalog:"
   }

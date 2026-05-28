@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { OtterstackApp } from "@/features/otterstack/app";
+import { OtterdeployApp } from "@/features/otterdeploy/app";
 
 export const Route = createFileRoute("/project/$projectId")({
   component: RouteComponent,
@@ -9,7 +9,7 @@ export const Route = createFileRoute("/project/$projectId")({
 function RouteComponent() {
   return (
     <div style={{ width: "100vw", height: "100vh", overflow: "hidden" }}>
-      <OtterstackApp />
+      <OtterdeployApp />
     </div>
   );
 }

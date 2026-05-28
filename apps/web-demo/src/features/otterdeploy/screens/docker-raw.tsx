@@ -101,7 +101,7 @@ const CONTAINERS: Container[] = [
   { id: shortId("api-r4"), image: "registry.helio.internal/api:3f9b042", command: "node dist/server.js", created: "2h ago", status: "restarting", statusDetail: "Restarting (1) 14 seconds ago", ports: "8080/tcp", name: "helio_api.4", node: NODE_IDS[2]! },
   { id: shortId("postgres"), image: "postgres:16.2", command: "docker-entrypoint.sh postgres", created: "62d ago", status: "running", statusDetail: "Up 62 days (healthy)", ports: "5432/tcp", name: "helio_postgres.1", node: NODE_IDS[0]! },
   { id: shortId("redis"), image: "redis:7.2-alpine", command: "redis-server /etc/redis.conf", created: "62d ago", status: "running", statusDetail: "Up 62 days (healthy)", ports: "6379/tcp", name: "helio_redis.1", node: NODE_IDS[0]! },
-  { id: shortId("agent"), image: "otterstack/agent:v1.4.2", command: "/agent --node", created: "62d ago", status: "running", statusDetail: "Up 62 days", ports: "", name: "otterstack-agent", node: NODE_IDS[0]! },
+  { id: shortId("agent"), image: "otterdeploy/agent:v1.4.2", command: "/agent --node", created: "62d ago", status: "running", statusDetail: "Up 62 days", ports: "", name: "otterdeploy-agent", node: NODE_IDS[0]! },
   { id: shortId("caddy"), image: "caddy:2.8-alpine", command: "caddy run --config /etc/caddy/Caddyfile", created: "12d ago", status: "running", statusDetail: "Up 12 days (healthy)", ports: "80/tcp,443/tcp,443/udp", name: "helio_caddy-edge.1", node: NODE_IDS[0]! },
   { id: shortId("worker"), image: "registry.helio.internal/worker:c1ad5e2", command: "celery -A app worker -c 8", created: "38m ago", status: "running", statusDetail: "Up 38 minutes", ports: "", name: "helio_worker.1", node: NODE_IDS[1]! },
   { id: shortId("worker2"), image: "registry.helio.internal/worker:c1ad5e2", command: "celery -A app worker -c 8", created: "38m ago", status: "running", statusDetail: "Up 38 minutes", ports: "", name: "helio_worker.2", node: NODE_IDS[2]! },
@@ -118,7 +118,7 @@ const IMAGES: Image[] = [
   { repo: "redis", tag: "7.2-alpine", id: shortId("img-redis"), created: "5mo ago", size: "32 MB", inUse: 1 },
   { repo: "caddy", tag: "2.8-alpine", id: shortId("img-caddy"), created: "12d ago", size: "48 MB", inUse: 1 },
   { repo: "darthsim/imgproxy", tag: "v3", id: shortId("img-img"), created: "84d ago", size: "164 MB", inUse: 1 },
-  { repo: "otterstack/agent", tag: "v1.4.2", id: shortId("img-agent"), created: "62d ago", size: "22 MB", inUse: 3 },
+  { repo: "otterdeploy/agent", tag: "v1.4.2", id: shortId("img-agent"), created: "62d ago", size: "22 MB", inUse: 3 },
   { repo: "<none>", tag: "<none>", id: shortId("img-dangling"), created: "9d ago", size: "176 MB", inUse: 0 },
 ];
 

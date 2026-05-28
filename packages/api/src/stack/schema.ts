@@ -3,8 +3,8 @@
  *
  * One YAML document per project. The shape is compose-compatible so the
  * eventual apply path can hand the rendered string straight to
- * `docker stack deploy -c <file>`. Otterstack-specific knobs ride the
- * `x-otterstack` extension key — compose ignores top-level + service-level
+ * `docker stack deploy -c <file>`. Otterdeploy-specific knobs ride the
+ * `x-otterdeploy` extension key — compose ignores top-level + service-level
  * `x-*` fields, so a third party can still parse / lint the file.
  *
  * `version` here is OUR schema version, not compose's. Compose's `version`
@@ -69,8 +69,8 @@ export const stackVolumeMountSchema = z.object({
   source: z.string().optional(),
   target: z.string(),
   read_only: z.boolean().optional(),
-  /** otterstack-only: inline file content materialized at deploy time. */
-  x_otterstack_content: z.string().optional(),
+  /** otterdeploy-only: inline file content materialized at deploy time. */
+  x_otterdeploy_content: z.string().optional(),
 });
 export type StackVolumeMount = z.infer<typeof stackVolumeMountSchema>;
 
@@ -131,9 +131,9 @@ export const stackDeploySchema = z.object({
 });
 export type StackDeploy = z.infer<typeof stackDeploySchema>;
 
-// ── otterstack extension block ─────────────────────────────────────────
+// ── otterdeploy extension block ─────────────────────────────────────────
 
-export const stackOtterstackExtensionSchema = z.object({
+export const stackOtterdeployExtensionSchema = z.object({
   kind: z.enum(["database", "service"]),
   engine: z.enum(["postgres", "redis", "mariadb", "mongodb"]).optional(),
   resourceId: z.string(),
@@ -150,7 +150,7 @@ export const stackOtterstackExtensionSchema = z.object({
     .optional(),
 
   // Lifecycle hook — runs once before the new replicas take traffic.
-  // No compose-deploy equivalent; rides under x-otterstack so the
+  // No compose-deploy equivalent; rides under x-otterdeploy so the
   // value survives YAML round-trip.
   preDeploy: z.array(z.string()).optional(),
 
@@ -164,8 +164,8 @@ export const stackOtterstackExtensionSchema = z.object({
   diskLimitMb: z.number().int().positive().optional(),
   swapLimitMb: z.number().int().positive().optional(),
 });
-export type StackOtterstackExtension = z.infer<
-  typeof stackOtterstackExtensionSchema
+export type StackOtterdeployExtension = z.infer<
+  typeof stackOtterdeployExtensionSchema
 >;
 
 // ── Service ────────────────────────────────────────────────────────────
@@ -183,7 +183,7 @@ export const stackServiceSchema = z.object({
   depends_on: z.array(z.string()).optional(),
   deploy: stackDeploySchema.optional(),
   labels: z.record(z.string(), z.string()).optional(),
-  "x-otterstack": stackOtterstackExtensionSchema,
+  "x-otterdeploy": stackOtterdeployExtensionSchema,
 });
 export type StackService = z.infer<typeof stackServiceSchema>;
 

@@ -1,7 +1,7 @@
 import { createCollection } from "@tanstack/db";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
 
-import { createId, ID_PREFIX } from "@otterstack/shared/id";
+import { createId, ID_PREFIX } from "@otterdeploy/shared/id";
 
 import { orpc, queryClient } from "@/shared/server/orpc";
 

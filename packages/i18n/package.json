@@ -1,5 +1,5 @@
 {
-  "name": "@otterstack/i18n",
+  "name": "@otterdeploy/i18n",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -24,7 +24,7 @@
     "react-i18next": { "optional": true }
   },
   "devDependencies": {
-    "@otterstack/config": "workspace:*",
+    "@otterdeploy/config": "workspace:*",
     "@types/bun": "catalog:",
     "typescript": "catalog:"
   }

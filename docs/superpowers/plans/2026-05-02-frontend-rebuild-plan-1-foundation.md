@@ -208,7 +208,7 @@ git commit -m "chore(web): add wterm/ghostty, react-virtual, vitest config"
 **Files:**
 - Modify: `apps/web/src/index.css`
 
-The dark theme is already configured (default in `ThemeProvider`); we only need otterstack's amber brand accent so primary CTAs and the otter logo can use a token, not a hex.
+The dark theme is already configured (default in `ThemeProvider`); we only need otterdeploy's amber brand accent so primary CTAs and the otter logo can use a token, not a hex.
 
 - [ ] **Step 1: Append brand tokens at the end of `:root`**
 
@@ -1040,8 +1040,8 @@ import type { WorkspaceSummary } from "@/features/workspace-switcher";
 
 const placeholderWorkspace: WorkspaceSummary = {
   id: "ws_default",
-  name: "otterstack",
-  slug: "otterstack",
+  name: "otterdeploy",
+  slug: "otterdeploy",
   role: "owner",
 };
 

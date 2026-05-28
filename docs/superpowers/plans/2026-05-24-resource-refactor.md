@@ -191,8 +191,8 @@ Create `packages/api/src/routers/project/queries/resource.ts`:
 ```ts
 import { and, eq } from "drizzle-orm";
 
-import { db } from "@otterstack/db";
-import { databaseResource, resource } from "@otterstack/db/schema/project";
+import { db } from "@otterdeploy/db";
+import { databaseResource, resource } from "@otterdeploy/db/schema/project";
 
 import type { ProjectId } from "../errors";
 import type { ResourceId } from "../../service/errors";
@@ -311,7 +311,7 @@ Create `packages/api/src/routers/project/provisioners/index.ts`:
 ```ts
 import type { RequestLogger } from "evlog";
 
-import type { DatabaseEngine } from "@otterstack/shared/database-engines";
+import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
 
 import type { ResourceId } from "../../service/errors";
 
@@ -539,7 +539,7 @@ Create `packages/api/src/routers/project/__tests__/resources.test.ts`:
 ```ts
 import { describe, expect, mock, test } from "bun:test";
 
-import type { Id, ID_PREFIX as IDP } from "@otterstack/shared/id";
+import type { Id, ID_PREFIX as IDP } from "@otterdeploy/shared/id";
 
 // Subject-under-test imports
 import {
@@ -618,7 +618,7 @@ Create `packages/api/src/routers/project/resources.ts`:
 import { Result } from "better-result";
 import type { RequestLogger } from "evlog";
 
-import type { Id, ID_PREFIX as IDP } from "@otterstack/shared/id";
+import type { Id, ID_PREFIX as IDP } from "@otterdeploy/shared/id";
 
 import { reconcile } from "../../caddy";
 import { deleteProxyRoutesByResource } from "../../caddy/queries";
@@ -1029,7 +1029,7 @@ git commit -m "feat(web): add per-project resourceCollection backed by project.r
 Replace the body of `apps/web/src/routes/_app/$orgSlug/$projectSlug/layout.tsx` (everything currently in the file) with:
 
 ```tsx
-import { ID_PREFIX, zSlug } from "@otterstack/shared/id";
+import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import { createFileRoute, notFound, Outlet } from "@tanstack/react-router";
 import { useMemo } from "react";
@@ -1171,7 +1171,7 @@ For this task pick **B**. Apply server-side. Implement:
 1. In `packages/api/src/routers/project/queries/project.ts`, change `listProjectRecordsByOrg` to:
 
 ```ts
-import { resource } from "@otterstack/db/schema/project";
+import { resource } from "@otterdeploy/db/schema/project";
 import { count, eq, sql } from "drizzle-orm";
 
 export async function listProjectRecordsByOrg(organizationId: OrgId) {

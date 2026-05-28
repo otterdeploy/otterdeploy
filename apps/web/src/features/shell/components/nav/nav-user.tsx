@@ -37,7 +37,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 
 import { authClient } from "@/lib/auth-client";
-import { languageNames, supportedLngs } from "@otterstack/i18n";
+import { languageNames, supportedLngs } from "@otterdeploy/i18n";
 
 export interface User {
   name: string;

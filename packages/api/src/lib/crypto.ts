@@ -21,11 +21,11 @@
  * Each call uses a fresh random nonce — never reuse one with the same key.
  */
 
-import { env } from "@otterstack/env/server";
+import { env } from "@otterdeploy/env/server";
 
 const FORMAT_VERSION = "v1";
 const NONCE_BYTES = 12;
-const HKDF_INFO = "otterstack/secret-encryption/v1";
+const HKDF_INFO = "otterdeploy/secret-encryption/v1";
 
 let cachedKey: CryptoKey | null = null;
 
@@ -46,7 +46,7 @@ async function getKey(): Promise<CryptoKey> {
       // Deterministic salt — the env secret is the entropy source, the
       // salt only domain-separates this key from other HKDF uses of the
       // same secret (cookie signing, etc.).
-      salt: new TextEncoder().encode("otterstack-secret-salt"),
+      salt: new TextEncoder().encode("otterdeploy-secret-salt"),
       info: new TextEncoder().encode(HKDF_INFO),
     },
     baseKey,

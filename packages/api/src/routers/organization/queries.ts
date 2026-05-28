@@ -1,5 +1,5 @@
 /**
- * Organization-row queries for the otterstack-specific columns we layered
+ * Organization-row queries for the otterdeploy-specific columns we layered
  * onto better-auth's `organization` table. The auth flow continues to own
  * id/name/slug/logo/metadata/createdAt — these helpers only touch the
  * columns we added (baseDomain + verification + Cloudflare).
@@ -8,9 +8,9 @@
 import { randomBytes } from "node:crypto";
 import { eq } from "drizzle-orm";
 
-import { db } from "@otterstack/db";
-import { organization } from "@otterstack/db/schema/auth";
-import { type Id, ID_PREFIX } from "@otterstack/shared/id";
+import { db } from "@otterdeploy/db";
+import { organization } from "@otterdeploy/db/schema/auth";
+import { type Id, ID_PREFIX } from "@otterdeploy/shared/id";
 
 type OrgId = Id<typeof ID_PREFIX.organization>;
 

@@ -7,9 +7,9 @@
 
 import { and, eq } from "drizzle-orm";
 
-import { db } from "@otterstack/db";
-import { serviceMount } from "@otterstack/db/schema/project";
-import { type Id, ID_PREFIX } from "@otterstack/shared/id";
+import { db } from "@otterdeploy/db";
+import { serviceMount } from "@otterdeploy/db/schema/project";
+import { type Id, ID_PREFIX } from "@otterdeploy/shared/id";
 
 import type { ServiceMountRow } from "./index";
 

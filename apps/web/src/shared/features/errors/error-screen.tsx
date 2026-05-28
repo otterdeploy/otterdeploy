@@ -107,7 +107,7 @@ export function ErrorScreen({
 
       <header className="pointer-events-none absolute inset-x-0 top-0 z-3 flex justify-between px-8 py-6 text-[0.72rem] uppercase tracking-[0.16em] text-(--dim)">
         <span>
-          <span className="text-accent">◆</span> OTTERSTACK
+          <span className="text-accent">◆</span> OTTERDEPLOY
         </span>
         <span>
           ERR / <b className="font-normal text-(--ink)">{code}</b>
@@ -153,7 +153,7 @@ export function ErrorScreen({
         <span>
           STATUS: <span className="text-accent">{statusTag}</span>
         </span>
-        <span>OTTERSTACK PLATFORM</span>
+        <span>OTTERDEPLOY PLATFORM</span>
       </footer>
     </div>
   );

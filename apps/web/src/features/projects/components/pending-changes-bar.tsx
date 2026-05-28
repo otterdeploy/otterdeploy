@@ -19,7 +19,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import type { Id, ID_PREFIX } from "@otterstack/shared/id";
+import type { Id, ID_PREFIX } from "@otterdeploy/shared/id";
 
 import { Button } from "@/shared/components/ui/button";
 import { orpc, queryClient } from "@/shared/server/orpc";

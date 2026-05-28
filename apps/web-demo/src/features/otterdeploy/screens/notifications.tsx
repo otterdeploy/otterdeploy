@@ -31,7 +31,7 @@ interface Channel {
 const CHANNELS_SEED: Channel[] = [
   {
     id: "ch_slack",
-    name: "#otterstack-deploys",
+    name: "#otterdeploy-deploys",
     kind: "slack",
     target: "hooks.slack.com/services/T0XXX/B0YYY/zzz••••",
     transport: "incoming-webhook",
@@ -583,7 +583,7 @@ function AddChannelModal({
     { name: string; target: string; transport: string }
   > = {
     slack: {
-      name: "#otterstack-deploys",
+      name: "#otterdeploy-deploys",
       target: "https://hooks.slack.com/services/...",
       transport: "incoming-webhook",
     },
@@ -736,7 +736,7 @@ function AddChannelModal({
                 <Field label="From address">
                   <input
                     className="input mono"
-                    defaultValue="alerts@otterstack.dev"
+                    defaultValue="alerts@otterdeploy.dev"
                   />
                 </Field>
               </div>
@@ -777,7 +777,7 @@ function AddChannelModal({
           )}
 
           <div className="muted" style={{ fontSize: 11 }}>
-            Otterstack will deliver a synthetic{" "}
+            Otterdeploy will deliver a synthetic{" "}
             <span className="mono" style={{ color: "var(--fg-2)" }}>
               test.ping
             </span>{" "}

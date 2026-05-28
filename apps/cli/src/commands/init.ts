@@ -72,7 +72,7 @@ export const initCommand = defineCommand({
     const schemaHost = loadConfig().webUrl ?? url;
     writeConfigTemplate({
       path: targetPath,
-      schemaUrl: `${schemaHost.replace(/\/$/, "")}/otterstack.schema.json`,
+      schemaUrl: `${schemaHost.replace(/\/$/, "")}/otterdeploy.schema.json`,
       projectSlug: project.slug,
     });
 

@@ -5,7 +5,7 @@
     "healthcheck",
     "inngest",
     "orpc",
-    "otterstack",
+    "otterdeploy",
     "paralleldrive",
     "pitr",
     "xyflow"

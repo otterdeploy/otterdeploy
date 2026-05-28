@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { createId, ID_PREFIX } from "@otterstack/shared/id";
+import { createId, ID_PREFIX } from "@otterdeploy/shared/id";
 
 import { serverCollection } from "@/features/servers/data/server";
 import { Button } from "@/shared/components/ui/button";
@@ -162,7 +162,7 @@ function JoinForm({ onDone }: { onDone: () => void }) {
 
       <DialogFooter className="flex-row items-center sm:justify-between">
         <span className="text-[12px] text-muted-foreground">
-          Otterstack will retry SSH every 10s until the daemon answers.
+          Otterdeploy will retry SSH every 10s until the daemon answers.
         </span>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" className="h-8" onClick={onDone} disabled={submitting}>

@@ -12,12 +12,12 @@
 
 import type { RedisClient } from "bun";
 
-import { defineJob } from "@otterstack/jobs";
-import { DeployTriggeredPayload, deployTriggeredJob } from "@otterstack/jobs/jobs/deploy";
+import { defineJob } from "@otterdeploy/jobs";
+import { DeployTriggeredPayload, deployTriggeredJob } from "@otterdeploy/jobs/jobs/deploy";
 
 import { runBuildPipeline } from "./pipeline";
 
-import type { Id, ID_PREFIX } from "@otterstack/shared/id";
+import type { Id, ID_PREFIX } from "@otterdeploy/shared/id";
 
 type DeploymentId = Id<typeof ID_PREFIX.deployment>;
 

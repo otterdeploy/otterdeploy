@@ -1,10 +1,10 @@
-import { db } from "@otterstack/db";
+import { db } from "@otterdeploy/db";
 import {
   gitInstallation,
   gitProvider,
   gitRepo,
-} from "@otterstack/db/schema";
-import { ID_PREFIX, type Id } from "@otterstack/shared/id";
+} from "@otterdeploy/db/schema";
+import { ID_PREFIX, type Id } from "@otterdeploy/shared/id";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 
 export async function listProvidersForOrg(

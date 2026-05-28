@@ -14,7 +14,7 @@ import { log } from "evlog";
 import { env as nodeEnv } from "process";
 
 // Service configuration from environment variables
-const serviceName = nodeEnv.OTEL_SERVICE_NAME || "otterstack-server";
+const serviceName = nodeEnv.OTEL_SERVICE_NAME || "otterdeploy-server";
 const serviceVersion = nodeEnv.OTEL_SERVICE_VERSION || "1.0.0";
 const environment = nodeEnv.NODE_ENV || "development";
 
@@ -132,7 +132,7 @@ export { trace, context, SpanStatusCode } from "@opentelemetry/api";
 /**
  * Environment Variables:
  *
- * OTEL_SERVICE_NAME - Service name for tracing (default: otterstack-server)
+ * OTEL_SERVICE_NAME - Service name for tracing (default: otterdeploy-server)
  * OTEL_SERVICE_VERSION - Service version (default: 1.0.0)
  * OTEL_EXPORTER_OTLP_ENDPOINT - OTLP collector endpoint (default: http://localhost:4318)
  *

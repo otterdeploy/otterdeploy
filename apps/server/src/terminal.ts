@@ -36,7 +36,7 @@ function buildBaseEnv(userId: string | undefined): Record<string, string> {
     LC_ALL: nodeEnv.LC_ALL ?? "C.UTF-8",
     TERM: "xterm-256color",
   };
-  if (userId) childEnv.OTTERSTACK_USER = userId;
+  if (userId) childEnv.OTTERDEPLOY_USER = userId;
   return childEnv;
 }
 
@@ -181,7 +181,7 @@ async function startContainerExec(
         AttachStdout: true,
         AttachStderr: true,
         Tty: true,
-        Env: args.userId ? [`OTTERSTACK_USER=${args.userId}`] : undefined,
+        Env: args.userId ? [`OTTERDEPLOY_USER=${args.userId}`] : undefined,
       })
     ).mapError((cause) => new PtyExecError({ step: "create", cause }));
 

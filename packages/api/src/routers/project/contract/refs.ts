@@ -12,7 +12,7 @@
 import { oc } from "@orpc/contract";
 import * as z from "zod";
 
-import { ID_PREFIX, zId } from "@otterstack/shared/id";
+import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 
 import { basePath, projectNotFoundErrors, tag } from "./shared";
 

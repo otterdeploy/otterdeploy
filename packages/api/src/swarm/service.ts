@@ -309,10 +309,10 @@ function buildServiceSpec(spec: SwarmServiceSpec, networkName: string) {
   return {
     Name: spec.serviceName,
     Labels: {
-      "otterstack.managed": "true",
-      "otterstack.resource.type": "service",
-      "otterstack.project": spec.projectSlug,
-      "otterstack.resource.id": spec.resourceId,
+      "otterdeploy.managed": "true",
+      "otterdeploy.resource.type": "service",
+      "otterdeploy.project": spec.projectSlug,
+      "otterdeploy.resource.id": spec.resourceId,
     },
     TaskTemplate: taskTemplate,
     Mode: { Replicated: { Replicas: spec.replicas } },

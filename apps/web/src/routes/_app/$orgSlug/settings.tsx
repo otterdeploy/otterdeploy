@@ -31,7 +31,7 @@ export const Route = createFileRoute("/_app/$orgSlug/settings")({
 // (Cloudflare doesn't offer OAuth for DNS, so this is as close to
 // one-click as their dashboard allows.)
 const CLOUDFLARE_TOKEN_TEMPLATE_URL =
-  "https://dash.cloudflare.com/profile/api-tokens?permissionGroups=Zone.DNS%3AEdit&name=otterstack";
+  "https://dash.cloudflare.com/profile/api-tokens?permissionGroups=Zone.DNS%3AEdit&name=otterdeploy";
 
 function SettingsRoute() {
   const { organization } = useLoaderData({ from: "/_app/$orgSlug" });
@@ -154,7 +154,7 @@ function DomainCard({ organizationId }: { organizationId: never }) {
               domain. Once the record propagates, hit Verify.
             </div>
             <pre className="overflow-x-auto rounded bg-warning/10 px-2 py-1.5 font-mono text-[11px] text-warning/90">
-              {`Name:  _otterstack-verify.${current}\nType:  TXT\nValue: ${verifyToken}`}
+              {`Name:  _otterdeploy-verify.${current}\nType:  TXT\nValue: ${verifyToken}`}
             </pre>
             <div className="flex items-center justify-end gap-2">
               {settingsQuery.data?.cloudflareTokenConfigured && (

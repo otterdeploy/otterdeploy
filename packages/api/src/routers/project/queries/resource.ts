@@ -1,11 +1,11 @@
 import { and, eq } from "drizzle-orm";
 
-import { db } from "@otterstack/db";
+import { db } from "@otterdeploy/db";
 import {
   databaseResource,
   resource,
   serviceResource,
-} from "@otterstack/db/schema/project";
+} from "@otterdeploy/db/schema/project";
 
 import type { ProjectId } from "../errors";
 import type { ResourceId } from "../../service/errors";

@@ -7,7 +7,7 @@
 import { oc } from "@orpc/contract";
 import * as z from "zod";
 
-import { ID_PREFIX, zId, zSlug } from "@otterstack/shared/id";
+import { ID_PREFIX, zId, zSlug } from "@otterdeploy/shared/id";
 
 const tag = "terminal";
 const basePath = "/terminal";
@@ -21,14 +21,14 @@ export const terminalContainerSchema = z.object({
   image: z.string(),
   /** Docker state ("running", "exited", …). Only "running" can be exec'd. */
   state: z.string(),
-  /** otterstack.resource.type label value (drives picker grouping). */
+  /** otterdeploy.resource.type label value (drives picker grouping). */
   resourceType: z.enum(["service", "postgres", "redis", "mariadb", "mongodb"]),
-  /** Project slug (otterstack.project label). May be null on legacy rows. */
+  /** Project slug (otterdeploy.project label). May be null on legacy rows. */
   projectSlug: zSlug(ID_PREFIX.project).nullable(),
   /** Friendly project name resolved from the DB. Null if the project slug
    *  isn't an active project in this org. */
   projectName: z.string().nullable(),
-  /** Resource id (otterstack.resource.id label). Services only. */
+  /** Resource id (otterdeploy.resource.id label). Services only. */
   serviceResourceId: zId(ID_PREFIX.resource).nullable(),
   /** Swarm service name — the part before the .slot.taskId suffix. */
   serviceName: z.string().nullable(),

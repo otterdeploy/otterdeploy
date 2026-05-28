@@ -15,7 +15,7 @@ import { existsSync, writeFileSync } from "node:fs";
 import { extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { manifestSchema, type Manifest } from "@otterstack/api/manifest";
+import { manifestSchema, type Manifest } from "@otterdeploy/api/manifest";
 
 import { Result, TaggedError } from "better-result";
 
@@ -113,7 +113,7 @@ export function writeConfig(manifest: Manifest, override?: string): string {
   const body =
     ext === ".json"
       ? `${JSON.stringify(ordered, null, 2)}\n`
-      : `import { defineConfig } from "@otterstack/api/manifest";\n\nexport default defineConfig(${JSON.stringify(ordered, null, 2)});\n`;
+      : `import { defineConfig } from "@otterdeploy/api/manifest";\n\nexport default defineConfig(${JSON.stringify(ordered, null, 2)});\n`;
   writeFileSync(path, body);
   return path;
 }
@@ -144,7 +144,7 @@ export function writeConfigTemplate({
     return path;
   }
 
-  const body = `import { defineConfig } from "@otterstack/api/manifest";
+  const body = `import { defineConfig } from "@otterdeploy/api/manifest";
 
 export default defineConfig({
   $schema: ${JSON.stringify(schemaUrl)},

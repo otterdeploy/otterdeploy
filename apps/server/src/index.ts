@@ -3,13 +3,13 @@ import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
 import { onError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
-import { createContext } from "@otterstack/api/context";
-import { reconcile } from "@otterstack/api/caddy";
-import { appRouter } from "@otterstack/api/routers/index";
-import { initializeSwarm } from "@otterstack/api/swarm";
-import { auth } from "@otterstack/auth";
-import { env } from "@otterstack/env/server";
-import { createWorkers, jobs as allJobs } from "@otterstack/jobs";
+import { createContext } from "@otterdeploy/api/context";
+import { reconcile } from "@otterdeploy/api/caddy";
+import { appRouter } from "@otterdeploy/api/routers/index";
+import { initializeSwarm } from "@otterdeploy/api/swarm";
+import { auth } from "@otterdeploy/auth";
+import { env } from "@otterdeploy/env/server";
+import { createWorkers, jobs as allJobs } from "@otterdeploy/jobs";
 import { Result } from "better-result";
 import { initLogger, log, parseError } from "evlog";
 import { evlog, type EvlogVariables } from "evlog/hono";
@@ -26,7 +26,7 @@ import { registerGithubInstallRoutes } from "./webhooks/github-install";
 
 import { createAuthMiddleware } from "evlog/better-auth";
 
-initLogger({ env: { service: "otterstack-server" } });
+initLogger({ env: { service: "otterdeploy-server" } });
 
 const app = new Hono<EvlogVariables>();
 

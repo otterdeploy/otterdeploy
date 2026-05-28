@@ -7,7 +7,7 @@
  * truthful preview before committing to apply.
  */
 
-import type { BuildConfig } from "@otterstack/shared/build-config";
+import type { BuildConfig } from "@otterdeploy/shared/build-config";
 
 import type { Manifest, ServiceManifest, DatabaseManifest } from "./schema";
 

@@ -1,7 +1,7 @@
 /**
  * Declarative manifest — JSON-native source of truth for a project's
  * resources. Lives in `project.manifest` (jsonb) and on disk as
- * `otterstack.json`. The CLI sends/receives this shape directly via the
+ * `otterdeploy.json`. The CLI sends/receives this shape directly via the
  * `manifest.*` oRPC contract.
  *
  * Differences from `../schema.ts` (compose-shaped `StackFile`):
@@ -18,8 +18,8 @@
 
 import * as z from "zod";
 
-import { ID_PREFIX, zSlug } from "@otterstack/shared/id";
-import type { BuildConfig } from "@otterstack/shared/build-config";
+import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
+import type { BuildConfig } from "@otterdeploy/shared/build-config";
 
 import { parseRefs, ManifestRefError } from "./refs";
 
@@ -135,7 +135,7 @@ const buildComposeSchema = z.object({
 
 // Constrained to match the shared `BuildConfig` discriminated union —
 // the `satisfies` ensures the zod inferred type stays in lockstep with
-// the canonical TS type defined in `@otterstack/shared/build-config`.
+// the canonical TS type defined in `@otterdeploy/shared/build-config`.
 export const buildSchema = z.discriminatedUnion("builder", [
   buildAutoSchema,
   buildDockerfileSchema,

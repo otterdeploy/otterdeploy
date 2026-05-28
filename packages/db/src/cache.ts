@@ -1,6 +1,6 @@
 import type { CacheConfig } from "drizzle-orm/cache/core/types";
 
-import { env } from "@otterstack/env/server";
+import { env } from "@otterdeploy/env/server";
 import { Result } from "better-result";
 import { Table, getTableName } from "drizzle-orm";
 import { Cache, type MutationOption } from "drizzle-orm/cache/core";

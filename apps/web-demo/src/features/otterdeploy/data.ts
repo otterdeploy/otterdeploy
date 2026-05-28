@@ -1,4 +1,4 @@
-// Otterstack design data — ported 1:1 from /tmp/anth-design-qP3sS7/otterstack/project/data.jsx
+// Otterdeploy design data — ported 1:1 from /tmp/anth-design-qP3sS7/otterdeploy/project/data.jsx
 // All shapes match the prototype so screens can drive directly off it.
 
 export type ServiceKind = "service" | "database";

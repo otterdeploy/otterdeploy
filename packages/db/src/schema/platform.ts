@@ -17,8 +17,8 @@ export const PLATFORM_SETTINGS_ID = "platform";
 
 export const platformSettings = pgTable("platform_settings", {
   id: text("id").primaryKey().default(PLATFORM_SETTINGS_ID),
-  /** Hostname the otterstack UI itself answers on. Seeded from
-   *  OTTERSTACK_CONTROL_PLANE_HOST. Caddy uses this to issue the cert for
+  /** Hostname the otterdeploy UI itself answers on. Seeded from
+   *  OTTERDEPLOY_CONTROL_PLANE_HOST. Caddy uses this to issue the cert for
    *  the control plane; better-auth uses it for trusted-origins. */
   controlPlaneFqdn: text("control_plane_fqdn"),
   /** Public IP the swarm manager exposes — used to build sslip.io

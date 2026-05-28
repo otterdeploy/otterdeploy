@@ -1,4 +1,4 @@
-// Mock constants ported verbatim from apps/web-demo/src/features/otterstack/data.ts.
+// Mock constants ported verbatim from apps/web-demo/src/features/otterdeploy/data.ts.
 // Pass A — no oRPC wiring. These are the source of truth for the engine picker UI.
 
 export interface ServiceKind {

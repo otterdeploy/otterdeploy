@@ -12,7 +12,7 @@
  * Timing-safe compare on verify.
  */
 
-import { env } from "@otterstack/env/server";
+import { env } from "@otterdeploy/env/server";
 
 const TTL_SECONDS = 15 * 60;
 

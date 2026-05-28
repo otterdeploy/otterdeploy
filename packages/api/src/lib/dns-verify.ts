@@ -1,6 +1,6 @@
 /**
  * DNS TXT-record verification. Used to prove the operator controls a
- * domain before otterstack writes a Caddy/ACME route for it — without
+ * domain before otterdeploy writes a Caddy/ACME route for it — without
  * this gate, anyone could type someone else's domain into the settings
  * page and trigger a Let's Encrypt cert request for a name they don't
  * own. (Rate-limited at the ACME side, but still noise the operator
@@ -14,7 +14,7 @@
 
 import { promises as dns } from "node:dns";
 
-export const VERIFY_TXT_PREFIX = "_otterstack-verify";
+export const VERIFY_TXT_PREFIX = "_otterdeploy-verify";
 
 export interface VerifyOutcome {
   ok: boolean;

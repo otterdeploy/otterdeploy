@@ -1,5 +1,5 @@
 import { defineConfig } from "drizzle-kit";
-import { env } from "@otterstack/env/server";
+import { env } from "@otterdeploy/env/server";
 
 export default defineConfig({
   schema: "./src/schema",

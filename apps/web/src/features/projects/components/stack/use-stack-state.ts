@@ -11,7 +11,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { type Id, type ID_PREFIX } from "@otterstack/shared/id";
+import { type Id, type ID_PREFIX } from "@otterdeploy/shared/id";
 
 import { orpc } from "@/shared/server/orpc";
 

@@ -11,14 +11,14 @@
 
 import { eq } from "drizzle-orm";
 
-import { db } from "@otterstack/db";
-import { organization } from "@otterstack/db/schema/auth";
+import { db } from "@otterdeploy/db";
+import { organization } from "@otterdeploy/db/schema/auth";
 import {
   PLATFORM_SETTINGS_ID,
   platformSettings,
-} from "@otterstack/db/schema/platform";
-import { project } from "@otterstack/db/schema/project";
-import { type Id, ID_PREFIX } from "@otterstack/shared/id";
+} from "@otterdeploy/db/schema/platform";
+import { project } from "@otterdeploy/db/schema/project";
+import { type Id, ID_PREFIX } from "@otterdeploy/shared/id";
 
 import type { DomainSources } from "./domains";
 

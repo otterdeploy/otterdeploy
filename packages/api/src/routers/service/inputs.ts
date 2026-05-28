@@ -5,8 +5,8 @@
  * casts in).
  */
 
-import { type Id, ID_PREFIX } from "@otterstack/shared/id";
-import type { BuildConfig } from "@otterstack/shared/build-config";
+import { type Id, ID_PREFIX } from "@otterdeploy/shared/id";
+import type { BuildConfig } from "@otterdeploy/shared/build-config";
 
 import { type ProjectId } from "../project/errors";
 import { type ResourceId } from "./errors";

@@ -31,7 +31,7 @@ export function Topbar({ tab, openCmd, openDeploy }: Props) {
     <header className="os-topbar">
       <div className="os-brand">
         <div className="os-brand-mark">os</div>
-        <span>otterstack</span>
+        <span>otterdeploy</span>
       </div>
       <span
         style={{

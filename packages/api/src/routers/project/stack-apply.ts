@@ -9,13 +9,13 @@
  * `lastAppliedFile` and `lastAppliedAt` is stamped.
  */
 
-import { db } from "@otterstack/db";
-import { project } from "@otterstack/db/schema/project";
+import { db } from "@otterdeploy/db";
+import { project } from "@otterdeploy/db/schema/project";
 import { eq } from "drizzle-orm";
 import { Result, TaggedError } from "better-result";
 import type { RequestLogger } from "evlog";
 
-import { type Id, ID_PREFIX as IDP } from "@otterstack/shared/id";
+import { type Id, ID_PREFIX as IDP } from "@otterdeploy/shared/id";
 import type { ResourceId } from "../service/errors";
 
 import { stackFileSchema, type StackService } from "../../stack";
@@ -101,7 +101,7 @@ async function applyServiceFromStack(
   },
   log: RequestLogger,
 ): Promise<ServiceOutcome> {
-  const ext = input.service["x-otterstack"];
+  const ext = input.service["x-otterdeploy"];
   if (ext.kind !== "database") {
     return {
       kind: "skipped",

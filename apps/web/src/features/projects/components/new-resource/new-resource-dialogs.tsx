@@ -1,4 +1,4 @@
-import { ID_PREFIX, type Id, type Slug } from "@otterstack/shared/id";
+import { ID_PREFIX, type Id, type Slug } from "@otterdeploy/shared/id";
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 

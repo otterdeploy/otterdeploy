@@ -1,15 +1,15 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { createError } from "evlog";
 
-import { db } from "@otterstack/db";
-import type { BuildConfig } from "@otterstack/shared/build-config";
+import { db } from "@otterdeploy/db";
+import type { BuildConfig } from "@otterdeploy/shared/build-config";
 import {
   resource,
   serviceEnvVar,
   serviceMount,
   servicePort,
   serviceResource,
-} from "@otterstack/db/schema/project";
+} from "@otterdeploy/db/schema/project";
 
 import type { ProjectId } from "../../project/errors";
 import type { ResourceId } from "../errors";

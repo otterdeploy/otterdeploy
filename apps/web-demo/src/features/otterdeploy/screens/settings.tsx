@@ -1,5 +1,5 @@
 // Settings — build configs, scaling, team, integrations, account, danger zone.
-// Ported from /tmp/anth-design-qP3sS7/otterstack/project/screens3.jsx (Settings + sub-tabs).
+// Ported from /tmp/anth-design-qP3sS7/otterdeploy/project/screens3.jsx (Settings + sub-tabs).
 
 import { useEffect, useState } from "react";
 
@@ -713,7 +713,7 @@ function IntegrationsSettings() {
 function AccountSettings() {
   return (
     <div style={{ padding: 24, maxWidth: 760, margin: "0 auto" }}>
-      <SectionH title="Account" sub="Personal preferences for your Otterstack login" />
+      <SectionH title="Account" sub="Personal preferences for your Otterdeploy login" />
 
       <div
         className="card"
@@ -787,10 +787,10 @@ function AccountSettings() {
         </Field>
         <div style={{ height: 12 }} />
         <div className="muted" style={{ fontSize: 11, lineHeight: 1.6 }}>
-          Use this token with the <span className="mono" style={{ color: "var(--fg-2)" }}>otterstack</span> CLI:
+          Use this token with the <span className="mono" style={{ color: "var(--fg-2)" }}>otterdeploy</span> CLI:
           <br />
           <span className="mono" style={{ color: "var(--fg-2)", display: "inline-block", marginTop: 4 }}>
-            $ otterstack login --token $OTTS_TOKEN
+            $ otterdeploy login --token $OTTS_TOKEN
           </span>
         </div>
       </div>

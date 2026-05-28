@@ -96,7 +96,7 @@ export async function ensureOverlayNetwork(): Promise<void> {
         Driver: "overlay",
         Attachable: true,
         Labels: {
-          "otterstack.managed": "true",
+          "otterdeploy.managed": "true",
         },
       })
     ).unwrap();
@@ -143,18 +143,18 @@ Replace the current `PLATFORM` constant:
 // packages/api/src/constants.ts
 export const PLATFORM = {
   database: {
-    publicBaseDomain: "db.otterstack.dev",
+    publicBaseDomain: "db.otterdeploy.dev",
     publicPort: 5432,
-    internalBaseDomain: "otterstack.internal",
+    internalBaseDomain: "otterdeploy.internal",
     internalPort: 5432,
     localHost: "127.0.0.1",
   },
   docker: {
-    resourceNetwork: "otterstack-resources",
+    resourceNetwork: "otterdeploy-resources",
     postgresImage: "postgres:18-alpine",
   },
   swarm: {
-    resourceNetwork: "otterstack-resources",
+    resourceNetwork: "otterdeploy-resources",
   },
 } as const;
 ```
@@ -226,8 +226,8 @@ export async function provisionSwarmPostgres(
       await docker.services.create({
         Name: input.serviceName,
         Labels: {
-          "otterstack.managed": "true",
-          "otterstack.resource.type": "postgres",
+          "otterdeploy.managed": "true",
+          "otterdeploy.resource.type": "postgres",
         },
         TaskTemplate: {
           ContainerSpec: {
@@ -513,9 +513,9 @@ describe("SwarmPostgresRuntime", () => {
   test("runtime type has expected shape", () => {
     const runtime: SwarmPostgresRuntime = {
       serviceId: "svc_abc123",
-      serviceName: "otterstack-pg-acme-primary",
-      volumeName: "otterstack-pgdata-acme-primary",
-      networkName: "otterstack-resources",
+      serviceName: "otterdeploy-pg-acme-primary",
+      volumeName: "otterdeploy-pgdata-acme-primary",
+      networkName: "otterdeploy-resources",
       status: "running",
       health: "healthy",
     };
@@ -528,9 +528,9 @@ describe("SwarmPostgresRuntime", () => {
   test("missing runtime has null serviceId", () => {
     const runtime: SwarmPostgresRuntime = {
       serviceId: null,
-      serviceName: "otterstack-pg-acme-primary",
-      volumeName: "otterstack-pgdata-acme-primary",
-      networkName: "otterstack-resources",
+      serviceName: "otterdeploy-pg-acme-primary",
+      volumeName: "otterdeploy-pgdata-acme-primary",
+      networkName: "otterdeploy-resources",
       status: "missing",
       health: null,
     };
@@ -653,7 +653,7 @@ Find the provisioning section (around line 192) and replace:
   });
 ```
 
-Note: The variable is still called `containerName` for naming consistency with the existing slug generation. The name format (`otterstack-pg-{project}-{resource}`) works for both containers and Swarm services. We'll keep using the same naming functions.
+Note: The variable is still called `containerName` for naming consistency with the existing slug generation. The name format (`otterdeploy-pg-{project}-{resource}`) works for both containers and Swarm services. We'll keep using the same naming functions.
 
 - [ ] **Step 4: Update `mapDatabaseResource()`**
 
@@ -840,7 +840,7 @@ Look for the main server file in `apps/server/src/`. It will be the file that cr
 Add the `initializeSwarm()` call before the server starts listening:
 
 ```typescript
-import { initializeSwarm } from "@otterstack/api/swarm";
+import { initializeSwarm } from "@otterdeploy/api/swarm";
 
 // Add after other initialization, before server.listen:
 console.log("[server] initializing Docker Swarm...");
@@ -866,7 +866,7 @@ git commit -m "feat(server): initialize Docker Swarm on startup"
 
 - [ ] **Step 1: Update the network configuration**
 
-The `otterstack-resources` network needs to be an overlay network for Swarm. However, `docker compose up` (non-Swarm mode for dev infra) doesn't support overlay networks. The solution: the platform infra (postgres, inngest, caddy) stays on docker-compose with a bridge network. The overlay network for managed resources is created programmatically by `initializeSwarm()`.
+The `otterdeploy-resources` network needs to be an overlay network for Swarm. However, `docker compose up` (non-Swarm mode for dev infra) doesn't support overlay networks. The solution: the platform infra (postgres, inngest, caddy) stays on docker-compose with a bridge network. The overlay network for managed resources is created programmatically by `initializeSwarm()`.
 
 Remove the external network from docker-compose since it's now managed by the platform:
 
@@ -877,15 +877,15 @@ Remove the external network from docker-compose since it's now managed by the pl
 # the external network reference but the platform code will create it.
 
 networks:
-  otterstack-resources:
+  otterdeploy-resources:
     external: true
-    name: ${DOCKER_RESOURCE_NETWORK:-otterstack-resources}
+    name: ${DOCKER_RESOURCE_NETWORK:-otterdeploy-resources}
 ```
 
 Actually, keep this as-is. The overlay network with `Attachable: true` (set in Task 1) allows non-Swarm containers to join it. Caddy, running via docker-compose, will attach to this overlay network. The only change needed is ensuring the network is created before `docker compose up` — which `initializeSwarm()` handles.
 
 **Important**: The dev startup sequence becomes:
-1. Start Swarm: platform server runs `initializeSwarm()` (or manually: `docker swarm init && docker network create --driver overlay --attachable otterstack-resources`)
+1. Start Swarm: platform server runs `initializeSwarm()` (or manually: `docker swarm init && docker network create --driver overlay --attachable otterdeploy-resources`)
 2. Start infra: `docker compose up`
 3. Start dev server: `bun dev`
 
@@ -896,7 +896,7 @@ Add a comment at the top of docker-compose.yml:
 ```yaml
 # Prerequisites:
 # 1. Docker Swarm must be initialized: docker swarm init
-# 2. Overlay network must exist: docker network create --driver overlay --attachable otterstack-resources
+# 2. Overlay network must exist: docker network create --driver overlay --attachable otterdeploy-resources
 # These are handled automatically by the platform server on startup.
 ```
 
@@ -980,11 +980,11 @@ Delete the database resource. Verify:
 - [ ] **Step 7: Verify the old Docker container approach is fully replaced**
 
 ```bash
-# Should show NO otterstack-pg-* containers
-docker ps -a --filter "label=otterstack.managed=true" --format "{{.Names}}"
+# Should show NO otterdeploy-pg-* containers
+docker ps -a --filter "label=otterdeploy.managed=true" --format "{{.Names}}"
 
-# Should show otterstack-pg-* services (if database is still running)
-docker service ls --filter "label=otterstack.managed=true"
+# Should show otterdeploy-pg-* services (if database is still running)
+docker service ls --filter "label=otterdeploy.managed=true"
 ```
 
 - [ ] **Step 8: Commit any final fixes**

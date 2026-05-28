@@ -1,11 +1,11 @@
 import { eq } from "drizzle-orm";
 
-import { db } from "@otterstack/db";
+import { db } from "@otterdeploy/db";
 import {
   PLATFORM_SETTINGS_ID,
   platformSettings,
-} from "@otterstack/db/schema/platform";
-import { env } from "@otterstack/env/server";
+} from "@otterdeploy/db/schema/platform";
+import { env } from "@otterdeploy/env/server";
 import type { RequestLogger } from "evlog";
 
 import { asStepLogger } from "../lib/logger";

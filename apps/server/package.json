@@ -6,7 +6,7 @@
     "build": "tsdown",
     "check-types": "tsc -b",
     "compile": "bun build --compile --minify --sourcemap --bytecode ./src/index.ts --outfile server",
-    "dev": "portless api.otterstack bun run --env-file ../../.env --hot src/index.ts",
+    "dev": "portless api.otterdeploy bun run --env-file ../../.env --hot src/index.ts",
     "start": "bun run dist/index.js"
   },
   "dependencies": {
@@ -22,13 +22,13 @@
     "@orpc/server": "catalog:",
     "@orpc/zod": "catalog:",
     "@otterdeploy/docker": "^0.4.0",
-    "@otterstack/api": "workspace:*",
-    "@otterstack/auth": "workspace:*",
-    "@otterstack/db": "workspace:*",
-    "@otterstack/email": "workspace:*",
-    "@otterstack/env": "workspace:*",
-    "@otterstack/jobs": "workspace:*",
-    "@otterstack/shared": "workspace:*",
+    "@otterdeploy/api": "workspace:*",
+    "@otterdeploy/auth": "workspace:*",
+    "@otterdeploy/db": "workspace:*",
+    "@otterdeploy/email": "workspace:*",
+    "@otterdeploy/env": "workspace:*",
+    "@otterdeploy/jobs": "workspace:*",
+    "@otterdeploy/shared": "workspace:*",
     "ai": "^6.0.175",
     "better-auth": "catalog:",
     "better-result": "catalog:",
@@ -37,7 +37,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@otterstack/config": "workspace:*",
+    "@otterdeploy/config": "workspace:*",
     "@types/bun": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "@vitest/ui": "catalog:",

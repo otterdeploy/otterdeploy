@@ -6,7 +6,7 @@ import "@wterm/react/css";
 import { useEffect, useRef, useState } from "react";
 
 import { ClientMessage, ServerMessage } from "@/messages";
-import { env } from "@otterstack/env/web";
+import { env } from "@otterdeploy/env/web";
 
 import type { SessionSource } from "../types";
 
@@ -35,7 +35,7 @@ function buildWsUrl(source: SessionSource): string | null {
     case "container":
       return `${base}/pty?container=${encodeURIComponent(source.containerId)}`;
     case "ssh":
-      // Local SSH ("localhost") is the otterstack-server host shell — a real
+      // Local SSH ("localhost") is the otterdeploy-server host shell — a real
       // implemented backend reached via an explicit `?host=1` switch.
       // Remote SSH (real ssh hop into a swarm node) isn't wired yet.
       if (source.mode === "local") return `${base}/pty?host=1`;

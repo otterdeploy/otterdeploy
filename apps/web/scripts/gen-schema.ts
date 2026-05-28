@@ -1,12 +1,12 @@
 #!/usr/bin/env bun
-// Regenerates apps/web/public/otterstack.schema.json from the zod
+// Regenerates apps/web/public/otterdeploy.schema.json from the zod
 // manifestSchema. The file is served as a static asset so editors
 // (VS Code, JetBrains, …) can resolve it via the `$schema` field
 // embedded in user-authored otterdeploy.config.json files.
 
 import { resolve } from "node:path";
 
-import { manifestSchema } from "@otterstack/api/manifest";
+import { manifestSchema } from "@otterdeploy/api/manifest";
 import * as z from "zod";
 
 const json = z.toJSONSchema(manifestSchema, {
@@ -42,12 +42,12 @@ function relaxDefaultedRequired(node: unknown): void {
 }
 relaxDefaultedRequired(json);
 
-json.$id = "https://otterstack.com/otterstack.schema.json";
+json.$id = "https://otterdeploy.com/otterdeploy.schema.json";
 json.title = "Otterdeploy Manifest";
 json.description =
   "Schema for otterdeploy.config.json — the declarative manifest of services + databases for an otterdeploy project.";
 
-const out = resolve(import.meta.dirname, "../public/otterstack.schema.json");
+const out = resolve(import.meta.dirname, "../public/otterdeploy.schema.json");
 await Bun.write(out, `${JSON.stringify(json, null, 2)}\n`);
 
 console.log(`Wrote ${out}`);

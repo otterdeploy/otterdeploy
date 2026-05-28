@@ -20,7 +20,7 @@
 
 import { Docker } from "@otterdeploy/docker";
 
-import { type Id, ID_PREFIX as IDP } from "@otterstack/shared/id";
+import { type Id, ID_PREFIX as IDP } from "@otterdeploy/shared/id";
 
 import { waitForServiceCreate } from "../../swarm";
 import type { ProjectId } from "./errors";
@@ -507,7 +507,7 @@ export async function* tailDeploymentLogs(
     }
     const tasks = (tasksResult.value as TaskShape[]).filter(
       (t) =>
-        t.Spec?.ContainerSpec?.Labels?.["otterstack.deployment.id"] ===
+        t.Spec?.ContainerSpec?.Labels?.["otterdeploy.deployment.id"] ===
         input.deploymentId,
     );
 

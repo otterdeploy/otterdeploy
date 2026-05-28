@@ -1,4 +1,4 @@
-// Public surface for @otterstack/jobs.
+// Public surface for @otterdeploy/jobs.
 
 // Triggers — drop-in replacement for the old inngest send* helpers.
 export {

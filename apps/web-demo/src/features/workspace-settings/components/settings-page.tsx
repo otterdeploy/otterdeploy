@@ -74,7 +74,7 @@ export function SettingsPage() {
         <Section id="overview" title="Overview">
           <Field>
             <FieldLabel htmlFor="ws-name">Workspace name</FieldLabel>
-            <Input id="ws-name" defaultValue="otterstack" disabled />
+            <Input id="ws-name" defaultValue="otterdeploy" disabled />
             <FieldDescription>
               Workspace metadata persistence lands with the settings API.
             </FieldDescription>
@@ -82,7 +82,7 @@ export function SettingsPage() {
           <div className="grid gap-4 md:grid-cols-3">
             <StatCard
               label="Admin URL"
-              value="ops.otterstack.local"
+              value="ops.otterdeploy.local"
               sub="Pinned to the control plane ingress"
             />
             <StatCard
@@ -159,7 +159,7 @@ export function SettingsPage() {
               <FieldLabel htmlFor="profile-email">Email</FieldLabel>
               <Input
                 id="profile-email"
-                defaultValue="jefferson@otterstack.dev"
+                defaultValue="jefferson@otterdeploy.dev"
                 disabled
               />
             </Field>
@@ -203,11 +203,11 @@ export function SettingsPage() {
               id="caddy-preview"
               disabled
               defaultValue={`{
-  email ops@otterstack.dev
+  email ops@otterdeploy.dev
   admin off
 }
 
-*.otterstack.local {
+*.otterdeploy.local {
   encode gzip zstd
   tls {
     dns cloudflare {env.CLOUDFLARE_API_TOKEN}
@@ -334,7 +334,7 @@ export function SettingsPage() {
             <TableBody>
               {[
                 [
-                  "*.otterstack.local",
+                  "*.otterdeploy.local",
                   "Let's Encrypt",
                   "in 67 days",
                   "healthy",
@@ -410,7 +410,7 @@ export function SettingsPage() {
               ["Discord", "ops-war-room", "incident-only fanout", "healthy"],
               [
                 "Email",
-                "oncall@otterstack.dev",
+                "oncall@otterdeploy.dev",
                 "digest + critical alerts",
                 "healthy",
               ],

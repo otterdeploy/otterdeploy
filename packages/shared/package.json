@@ -1,5 +1,5 @@
 {
-  "name": "@otterstack/shared",
+  "name": "@otterdeploy/shared",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -11,7 +11,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@otterstack/config": "workspace:*",
+    "@otterdeploy/config": "workspace:*",
     "@types/bun": "catalog:",
     "typescript": "catalog:"
   }

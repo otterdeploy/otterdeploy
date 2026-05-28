@@ -21,9 +21,9 @@
  * scrollback only — the generator returns immediately after.
  */
 
-import { db } from "@otterstack/db";
-import { deployment, deploymentLog, resource, project } from "@otterstack/db/schema";
-import { type Id, ID_PREFIX as IDP } from "@otterstack/shared/id";
+import { db } from "@otterdeploy/db";
+import { deployment, deploymentLog, resource, project } from "@otterdeploy/db/schema";
+import { type Id, ID_PREFIX as IDP } from "@otterdeploy/shared/id";
 import { and, asc, eq } from "drizzle-orm";
 
 import { createRedis } from "../../lib/redis";

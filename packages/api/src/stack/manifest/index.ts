@@ -10,7 +10,7 @@ export {
   type EnvironmentOverride,
 } from "./schema";
 
-// BuildConfig + Builder live in @otterstack/shared so layers below the
+// BuildConfig + Builder live in @otterdeploy/shared so layers below the
 // api package (db schema, etc.) can use the same definition. Re-exported
 // here so callers don't need to dive cross-package.
 export {
@@ -22,7 +22,7 @@ export {
   type BuildNixpacksConfig,
   type BuildRailpackConfig,
   type BuildComposeConfig,
-} from "@otterstack/shared/build-config";
+} from "@otterdeploy/shared/build-config";
 
 // Identity helper for otterdeploy.config.ts authors — gives editor
 // autocomplete + a tighter type than `satisfies Manifest` because the

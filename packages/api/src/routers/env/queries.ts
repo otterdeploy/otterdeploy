@@ -1,9 +1,9 @@
 import { and, asc, eq, isNull } from "drizzle-orm";
 import type { InferSelectModel } from "drizzle-orm";
 
-import { db } from "@otterstack/db";
-import { environment, project } from "@otterstack/db/schema/project";
-import { type Id, ID_PREFIX } from "@otterstack/shared/id";
+import { db } from "@otterdeploy/db";
+import { environment, project } from "@otterdeploy/db/schema/project";
+import { type Id, ID_PREFIX } from "@otterdeploy/shared/id";
 
 import type { EnvironmentId } from "./errors";
 import type { ProjectId } from "../project/errors";

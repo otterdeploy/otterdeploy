@@ -8,7 +8,7 @@
  *   - the service handler input/update payloads
  *
  * Keep this file zod-free so it can be consumed from layers that don't
- * (and shouldn't) depend on `@otterstack/api`.
+ * (and shouldn't) depend on `@otterdeploy/api`.
  *
  * `watchPatterns` is shared across every variant — globs against changed
  * paths in a push event; a push only triggers a redeploy when at least

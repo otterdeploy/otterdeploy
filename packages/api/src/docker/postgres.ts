@@ -100,8 +100,8 @@ export async function provisionDockerPostgres(
             Retries: 20,
           },
           Labels: {
-            "otterstack.managed": "true",
-            "otterstack.resource.type": "postgres",
+            "otterdeploy.managed": "true",
+            "otterdeploy.resource.type": "postgres",
           },
         })
       ).unwrap();
@@ -254,7 +254,7 @@ async function ensureNetwork(docker: Docker, networkName: string) {
       Driver: "bridge",
       Attachable: true,
       Labels: {
-        "otterstack.managed": "true",
+        "otterdeploy.managed": "true",
       },
     })
   ).unwrap();
@@ -274,7 +274,7 @@ async function ensureVolume(docker: Docker, volumeName: string) {
     await docker.volumes.create({
       Name: volumeName,
       Labels: {
-        "otterstack.managed": "true",
+        "otterdeploy.managed": "true",
       },
     })
   ).unwrap();

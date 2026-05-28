@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test";
 
-import type { Id, ID_PREFIX as IDP } from "@otterstack/shared/id";
+import type { Id, ID_PREFIX as IDP } from "@otterdeploy/shared/id";
 
 // Subject-under-test imports
 import {

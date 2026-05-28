@@ -38,13 +38,13 @@ export function SystemVarsList({
           strokeWidth={2}
           className="size-3.5"
         />
-        {systemVars.length} variables added by otterstack
+        {systemVars.length} variables added by otterdeploy
       </button>
 
       {open && (
         <>
           <p className="text-[12.5px] text-muted-foreground">
-            otterstack injects these system variables into every container —
+            otterdeploy injects these system variables into every container —
             read-only and derived from the resource record.
           </p>
           {filteredSystem.length === 0 ? (

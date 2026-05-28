@@ -1,4 +1,4 @@
-// Demo icons — ported verbatim from apps/web-demo/src/features/otterstack/icons.tsx.
+// Demo icons — ported verbatim from apps/web-demo/src/features/otterdeploy/icons.tsx.
 // Renamed to icons-demo to avoid collision with the HugeIcons set used throughout apps/web.
 import type { SVGProps } from "react";
 

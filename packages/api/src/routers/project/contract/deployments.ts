@@ -3,13 +3,13 @@
  *
  * One row = one logical "push" of the resource. Each create / env-change /
  * redeploy inserts a row + tags the swarm spec; tasks group under their
- * deployment via the `otterstack.deployment.id` label on the task's spec.
+ * deployment via the `otterdeploy.deployment.id` label on the task's spec.
  */
 
 import { eventIterator, oc } from "@orpc/contract";
 import * as z from "zod";
 
-import { ID_PREFIX, zId } from "@otterstack/shared/id";
+import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 
 import { resourceLogEventSchema } from "./logs";
 import { serviceTaskSchema } from "./service-tasks";
@@ -69,7 +69,7 @@ export const deploymentsContractSlice = {
     .output(z.array(deploymentSchema)),
 
   // Tasks scheduled under one specific deployment (matched by the
-  // `otterstack.deployment.id` label on each task's container spec).
+  // `otterdeploy.deployment.id` label on each task's container spec).
   tasks: oc
     .errors(resourceNotFoundErrors)
     .meta({

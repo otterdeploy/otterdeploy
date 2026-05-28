@@ -18,7 +18,7 @@ export function NetworkingBlock({ node, domain }: NetworkingBlockProps) {
         mono
       />
       <SettingsRow label="Upstream port" value="3000" mono />
-      <SettingsRow label="Network" value={`otterstack-${node.name}`} mono />
+      <SettingsRow label="Network" value={`otterdeploy-${node.name}`} mono />
 
       <SubLabel className="mt-5">
         Public route{" "}

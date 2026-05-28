@@ -1,5 +1,5 @@
 import { boolean, index, integer, pgEnum, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
-import { createId, ID_PREFIX, type Id } from "@otterstack/shared/id";
+import { createId, ID_PREFIX, type Id } from "@otterdeploy/shared/id";
 import { project } from "./project";
 
 export const proxyRouteTypeEnum = pgEnum("proxy_route_type", ["http", "layer4"]);

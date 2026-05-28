@@ -753,9 +753,9 @@ export function shellTarget(
     label: `${serviceName} · ${replicaName}`,
     prompt: `app@${serviceName}-${replicaId}:/usr/src/app$`,
     banner: [
-      `[otterstack] connecting to ${serviceName} · container ${replicaId}…`,
-      `[otterstack] docker exec -it ${serviceName}.${replicaId}.task /bin/sh`,
-      `[otterstack] connected. type 'help' for demo commands.`,
+      `[otterdeploy] connecting to ${serviceName} · container ${replicaId}…`,
+      `[otterdeploy] docker exec -it ${serviceName}.${replicaId}.task /bin/sh`,
+      `[otterdeploy] connected. type 'help' for demo commands.`,
       ``,
     ],
   };
@@ -766,8 +766,8 @@ export function sshTarget(nodeName: string, host: string): TerminalTarget {
     label: `${nodeName} · ${host}`,
     prompt: `root@${nodeName}:~#`,
     banner: [
-      `[otterstack] SSH to root@${host} (port 22)…`,
-      `[otterstack] using ed25519 deploy key`,
+      `[otterdeploy] SSH to root@${host} (port 22)…`,
+      `[otterdeploy] using ed25519 deploy key`,
       `Linux ${nodeName} 6.6.16 #1 SMP x86_64 GNU/Linux`,
       ``,
     ],

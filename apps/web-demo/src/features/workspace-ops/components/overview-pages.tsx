@@ -213,7 +213,7 @@ export function RequestsOverview() {
                 ],
                 [
                   "GET",
-                  "preview.otterstack.dev",
+                  "preview.otterdeploy.dev",
                   "/assets/index.js",
                   "503",
                   "861 ms",

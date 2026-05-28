@@ -23,7 +23,7 @@
  *   - https://docs.github.com/en/rest/apps/apps#create-an-installation-access-token-for-an-app
  */
 
-import { ID_PREFIX, type Id } from "@otterstack/shared/id";
+import { ID_PREFIX, type Id } from "@otterdeploy/shared/id";
 import { createError } from "evlog";
 
 import {

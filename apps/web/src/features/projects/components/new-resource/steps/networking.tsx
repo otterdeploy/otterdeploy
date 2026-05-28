@@ -111,7 +111,7 @@ export function StepNetworking({ kind }: StepNetworkingProps) {
           <div className="mt-4.5">
             <SectionHeader
               title="Health check"
-              sub="How does Otterstack know your service is ready to serve traffic?"
+              sub="How does Otterdeploy know your service is ready to serve traffic?"
             />
           </div>
           <Card className="mt-2.5 rounded-md">

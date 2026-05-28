@@ -3,7 +3,7 @@
  * polling on the resource/deployments/logs pages.
  *
  * The server subscribes to the docker event bus, filters events to the
- * caller's project (via the `otterstack.project` label on the underlying
+ * caller's project (via the `otterdeploy.project` label on the underlying
  * service), and yields one slim event per change. Frontend consumers
  * react by invalidating the queries that own the affected data — the
  * actual data fetches still go through the existing oRPC endpoints, so
@@ -17,7 +17,7 @@
 import { eventIterator, oc } from "@orpc/contract";
 import * as z from "zod";
 
-import { ID_PREFIX, zId } from "@otterstack/shared/id";
+import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 
 import { basePath, projectNotFoundErrors, tag } from "./shared";
 

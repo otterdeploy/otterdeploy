@@ -1,4 +1,4 @@
-import type { serverSchema } from "@otterstack/api/routers/server/contract";
+import type { serverSchema } from "@otterdeploy/api/routers/server/contract";
 import { createCollection } from "@tanstack/db";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
 import type { z } from "zod";

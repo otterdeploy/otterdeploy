@@ -8,18 +8,18 @@
     "start": "bun run src/index.ts"
   },
   "dependencies": {
-    "@otterstack/api": "workspace:*",
-    "@otterstack/db": "workspace:*",
-    "@otterstack/env": "workspace:*",
-    "@otterstack/jobs": "workspace:*",
-    "@otterstack/shared": "workspace:*",
+    "@otterdeploy/api": "workspace:*",
+    "@otterdeploy/db": "workspace:*",
+    "@otterdeploy/env": "workspace:*",
+    "@otterdeploy/jobs": "workspace:*",
+    "@otterdeploy/shared": "workspace:*",
     "bullmq": "^5.65.0",
     "drizzle-orm": "catalog:",
     "evlog": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@otterstack/config": "workspace:*",
+    "@otterdeploy/config": "workspace:*",
     "@types/bun": "catalog:",
     "typescript": "catalog:"
   }

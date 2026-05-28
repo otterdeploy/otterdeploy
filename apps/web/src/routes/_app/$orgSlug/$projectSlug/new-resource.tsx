@@ -3,7 +3,7 @@ import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 
 import { PageResourceWizard } from "@/features/projects/components/new-resource/wizard";
 import { STEP_IDS, type Step } from "@/features/projects/components/new-resource/schemas";
-import { ID_PREFIX, type Slug } from "@otterstack/shared/id";
+import { ID_PREFIX, type Slug } from "@otterdeploy/shared/id";
 
 const zNewResourceSearch = z.object({
   kind: z.string().optional(),

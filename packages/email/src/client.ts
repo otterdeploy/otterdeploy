@@ -1,4 +1,4 @@
-import { env } from "@otterstack/env/server";
+import { env } from "@otterdeploy/env/server";
 import { createError, log } from "evlog";
 import { Resend } from "resend";
 

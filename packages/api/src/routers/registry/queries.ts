@@ -9,9 +9,9 @@
  * the only places plaintext is reconstructed.
  */
 
-import { db } from "@otterstack/db";
-import { containerRegistry, project } from "@otterstack/db/schema";
-import { type Id, ID_PREFIX as IDP } from "@otterstack/shared/id";
+import { db } from "@otterdeploy/db";
+import { containerRegistry, project } from "@otterdeploy/db/schema";
+import { type Id, ID_PREFIX as IDP } from "@otterdeploy/shared/id";
 import { and, asc, eq } from "drizzle-orm";
 
 import { encryptSecret } from "../../lib/crypto";

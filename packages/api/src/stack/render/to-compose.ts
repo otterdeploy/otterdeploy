@@ -1,9 +1,9 @@
 /**
  * Emit compose-compatible YAML from a StackFile.
  *
- * The `x-otterstack` extension block on each service is also projected
- * into compose `deploy.labels` (`otterstack.kind`, `otterstack.engine`,
- * `otterstack.resource.id`, `otterstack.project.id`) so tools that only
+ * The `x-otterdeploy` extension block on each service is also projected
+ * into compose `deploy.labels` (`otterdeploy.kind`, `otterdeploy.engine`,
+ * `otterdeploy.resource.id`, `otterdeploy.project.id`) so tools that only
  * see the compose subset can still identify the owner without parsing
  * extension keys.
  *
@@ -11,7 +11,7 @@
  * structurally-equal inputs always produce byte-identical output.
  */
 
-import type { StackFile, StackOtterstackExtension, StackService } from "../schema";
+import type { StackFile, StackOtterdeployExtension, StackService } from "../schema";
 
 type SortableObject = Record<string, unknown>;
 type SortableValue = unknown;
@@ -30,23 +30,23 @@ function sortDeep(value: SortableValue): SortableValue {
 }
 
 function extensionLabels(
-  x: StackOtterstackExtension,
+  x: StackOtterdeployExtension,
 ): Record<string, string> {
   const labels: Record<string, string> = {
-    "otterstack.kind": x.kind,
-    "otterstack.resource.id": x.resourceId,
-    "otterstack.project.id": x.projectId,
+    "otterdeploy.kind": x.kind,
+    "otterdeploy.resource.id": x.resourceId,
+    "otterdeploy.project.id": x.projectId,
   };
-  if (x.engine) labels["otterstack.engine"] = x.engine;
+  if (x.engine) labels["otterdeploy.engine"] = x.engine;
   if (x.publicEnabled !== undefined) {
-    labels["otterstack.public.enabled"] = x.publicEnabled ? "true" : "false";
+    labels["otterdeploy.public.enabled"] = x.publicEnabled ? "true" : "false";
   }
-  if (x.publicHostname) labels["otterstack.public.hostname"] = x.publicHostname;
+  if (x.publicHostname) labels["otterdeploy.public.hostname"] = x.publicHostname;
   return labels;
 }
 
 function prepareService(service: StackService): SortableObject {
-  const labels = extensionLabels(service["x-otterstack"]);
+  const labels = extensionLabels(service["x-otterdeploy"]);
   const deploy = service.deploy ? { ...service.deploy } : {};
   deploy.labels = { ...labels, ...deploy.labels };
 
@@ -65,10 +65,10 @@ function prepareService(service: StackService): SortableObject {
       read_only: v.read_only,
     };
     if (v.source) out.source = v.source;
-    // Inline file content stays under the otterstack extension key so
+    // Inline file content stays under the otterdeploy extension key so
     // compose-only consumers ignore it.
-    if (v.x_otterstack_content !== undefined) {
-      out["x-otterstack-content"] = v.x_otterstack_content;
+    if (v.x_otterdeploy_content !== undefined) {
+      out["x-otterdeploy-content"] = v.x_otterdeploy_content;
     }
     return out;
   });
@@ -90,7 +90,7 @@ function prepareService(service: StackService): SortableObject {
     depends_on: service.depends_on,
     deploy,
     labels: service.labels,
-    "x-otterstack": service["x-otterstack"],
+    "x-otterdeploy": service["x-otterdeploy"],
   };
 }
 
@@ -106,7 +106,7 @@ export function toComposeYaml(file: StackFile): string {
     volumes: file.volumes,
     secrets: file.secrets,
     configs: file.configs,
-    "x-otterstack-version": file.version,
+    "x-otterdeploy-version": file.version,
   };
 
   return Bun.YAML.stringify(sortDeep(doc), null, 2);

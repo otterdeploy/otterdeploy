@@ -107,7 +107,7 @@ export function DemoTabs({ node, meta, tab, setTab, projectSlug }: DemoTabsProps
                   kind: "service",
                   resourceId: `demo-${node.name}`,
                 }}
-                fallbackLabel={`otterstack-${node.name}-1`}
+                fallbackLabel={`otterdeploy-${node.name}-1`}
                 projectSlug={projectSlug}
               />
             </Activity>

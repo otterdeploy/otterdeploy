@@ -110,7 +110,7 @@ volumes:
                       className="mt-0.5 shrink-0 text-muted-foreground"
                     />
                     <p className="text-xs leading-relaxed text-muted-foreground">
-                      Otterstack will{" "}
+                      Otterdeploy will{" "}
                       {isDb
                         ? "pull the image, provision a volume, and start the database"
                         : `build the image, push to the internal registry, deploy ${replicas} replica${replicas > 1 ? "s" : ""} via Docker Swarm`}
@@ -146,7 +146,7 @@ volumes:
                   </Button>
                   <div className="flex-1" />
                   <span className="self-center font-mono text-[11px] text-muted-foreground">
-                    otterstack apply
+                    otterdeploy apply
                   </span>
                 </div>
               </div>

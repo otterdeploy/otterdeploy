@@ -1,4 +1,4 @@
-# otterstack
+# otterdeploy
 
 This project was created with [Better Fullstack](https://github.com/Marve10s/Better-Fullstack), a modern TypeScript stack that combines React, TanStack Router, Hono, ORPC, and more.
 
@@ -52,8 +52,8 @@ bun run dev    # starts web + API through portless
 
 | Service | URL                          |
 | ------- | ---------------------------- |
-| Web     | `https://web.otterstack.local`  |
-| API     | `https://api.otterstack.local`  |
+| Web     | `https://web.otterdeploy.local`  |
+| API     | `https://api.otterdeploy.local`  |
 
 ## Database Setup
 
@@ -72,7 +72,7 @@ bun run db:push
 ## Project Structure
 
 ```
-otterstack/
+otterdeploy/
 ├── apps/
 │   ├── web/         # Frontend application (React + TanStack Router)
 │   └── server/      # Backend API (Hono, ORPC)

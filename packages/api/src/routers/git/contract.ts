@@ -12,7 +12,7 @@
 import { oc } from "@orpc/contract";
 import * as z from "zod";
 
-import { ID_PREFIX, zId } from "@otterstack/shared/id";
+import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 
 const tag = "git";
 const basePath = "/git";
@@ -65,7 +65,7 @@ export const startManifestInput = z.object({
    *  the org's app-creation URL so the operator doesn't have to switch
    *  account context on GitHub. */
   accountLogin: z.string().min(1).nullable().optional(),
-  /** Optional override of the App's display name. Defaults to "Otterstack". */
+  /** Optional override of the App's display name. Defaults to "Otterdeploy". */
   appName: z.string().min(1).optional(),
 });
 

@@ -1,5 +1,5 @@
 {
-  "name": "@otterstack/db",
+  "name": "@otterdeploy/db",
   "type": "module",
   "exports": {
     ".": {
@@ -22,8 +22,8 @@
     "db:stop": "docker compose stop"
   },
   "dependencies": {
-    "@otterstack/env": "workspace:*",
-    "@otterstack/shared": "workspace:*",
+    "@otterdeploy/env": "workspace:*",
+    "@otterdeploy/shared": "workspace:*",
     "better-result": "catalog:",
     "drizzle-orm": "catalog:",
     "evlog": "catalog:",
@@ -31,7 +31,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@otterstack/config": "workspace:*",
+    "@otterdeploy/config": "workspace:*",
     "@types/pg": "^8.20.0",
     "drizzle-kit": "^0.31.10",
     "typescript": "catalog:"

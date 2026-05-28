@@ -13,7 +13,7 @@
  *   3. Org base domain       — org.baseDomain ➜ `<resource>-<project>.<kindBase>.<baseDomain>`
  *   4. sslip.io fallback     — `<resource>-<project>.<serverIp>.sslip.io`
  *
- * No "platform default" branch: the `*.otterstack.dev` constants are
+ * No "platform default" branch: the `*.otterdeploy.dev` constants are
  * only correct for the SaaS install that actually owns that domain.
  * That install seeds `org.baseDomain` for its main org explicitly; every
  * other install reaches sslip when nothing higher is set, which works
@@ -97,8 +97,8 @@ export function resolvePublicDomain(
   }
 
   // 3. Org base — `<resource>-<project>.<kindBase>.<baseDomain>`. Mirrors
-  //    the platform-default pattern (`*.apps.otterstack.dev` /
-  //    `*.db.otterstack.dev`) so service and database namespaces don't
+  //    the platform-default pattern (`*.apps.otterdeploy.dev` /
+  //    `*.db.otterdeploy.dev`) so service and database namespaces don't
   //    collide under a shared org apex.
   if (sources.orgBaseDomain && sources.orgBaseDomain.trim().length > 0) {
     return {

@@ -28,9 +28,9 @@
  * step of the round-trip.
  */
 
-import { db } from "@otterstack/db";
-import { gitProvider } from "@otterstack/db/schema";
-import { ID_PREFIX, type Id } from "@otterstack/shared/id";
+import { db } from "@otterdeploy/db";
+import { gitProvider } from "@otterdeploy/db/schema";
+import { ID_PREFIX, type Id } from "@otterdeploy/shared/id";
 import { and, eq } from "drizzle-orm";
 
 import { encryptSecret } from "../lib/crypto";
@@ -86,7 +86,7 @@ export function buildManifestRequest(opts: {
   const host = opts.host ?? "github.com";
   const base = opts.baseUrl.replace(/\/$/, "");
   const manifest: GithubAppManifest = {
-    name: opts.appName ?? "Otterstack",
+    name: opts.appName ?? "Otterdeploy",
     url: base,
     hook_attributes: {
       url: `${base}/api/webhooks/github`,

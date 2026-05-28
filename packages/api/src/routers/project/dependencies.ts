@@ -11,12 +11,12 @@
 import { Result } from "better-result";
 import { eq } from "drizzle-orm";
 
-import { db } from "@otterstack/db";
+import { db } from "@otterdeploy/db";
 import {
   resource,
   serviceEnvVar,
-} from "@otterstack/db/schema/project";
-import { type Id, ID_PREFIX as IDP } from "@otterstack/shared/id";
+} from "@otterdeploy/db/schema/project";
+import { type Id, ID_PREFIX as IDP } from "@otterdeploy/shared/id";
 
 import { parseValue } from "../../lib/variables/parser";
 

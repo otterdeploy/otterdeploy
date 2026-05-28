@@ -1,13 +1,13 @@
 export const PLATFORM = {
   database: {
-    publicBaseDomain: "db.otterstack.dev",
+    publicBaseDomain: "db.otterdeploy.dev",
     publicPort: 5432,
-    internalBaseDomain: "otterstack.internal",
+    internalBaseDomain: "otterdeploy.internal",
     internalPort: 5432,
     localHost: "127.0.0.1",
   },
   docker: {
-    resourceNetwork: "otterstack-resources",
+    resourceNetwork: "otterdeploy-resources",
     // Pinned to 17 — postgres:18+ refuses our /var/lib/postgresql/data mount
     // (the v18 image manages its own version/cluster subdirs and considers a
     // mount placed directly at .../data to be an "unused volume"). Upgrade
@@ -15,8 +15,8 @@ export const PLATFORM = {
     postgresImage: "postgres:17-alpine",
   },
   swarm: {
-    networkPrefix: "otterstack-",
-    caddyContainer: "otterstack-caddy",
+    networkPrefix: "otterdeploy-",
+    caddyContainer: "otterdeploy-caddy",
   },
   files: {
     // Host path that file-type mounts get materialized under. Each service
@@ -24,11 +24,11 @@ export const PLATFORM = {
     // file-mount rows write to relative paths beneath that. Must exist
     // and be writable on every swarm node that could schedule a task —
     // either via a shared filesystem or by bind-mounting the same host
-    // path on every node. Override via OTTERSTACK_FILES_ROOT for tests.
-    root: process.env.OTTERSTACK_FILES_ROOT ?? "/var/lib/otterstack/files",
+    // path on every node. Override via OTTERDEPLOY_FILES_ROOT for tests.
+    root: process.env.OTTERDEPLOY_FILES_ROOT ?? "/var/lib/otterdeploy/files",
   },
   service: {
-    publicBaseDomain: "apps.otterstack.dev",
-    serviceNamePrefix: "otterstack-svc-",
+    publicBaseDomain: "apps.otterdeploy.dev",
+    serviceNamePrefix: "otterdeploy-svc-",
   },
 } as const;

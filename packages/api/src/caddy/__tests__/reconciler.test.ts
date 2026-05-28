@@ -7,8 +7,8 @@ describe("reconciler", () => {
   const httpRoute: ProxyRouteInput = {
     projectId: "project_abc",
     type: "http",
-    domain: "myapp.otterstack.dev",
-    upstreamHost: "myapp.otterstack.internal",
+    domain: "myapp.otterdeploy.dev",
+    upstreamHost: "myapp.otterdeploy.internal",
     upstreamPort: 3000,
     protocol: "http",
     layer4Alpn: null,
@@ -18,8 +18,8 @@ describe("reconciler", () => {
   const layer4Route: ProxyRouteInput = {
     projectId: "project_xyz",
     type: "layer4",
-    domain: "db.otterstack.dev",
-    upstreamHost: "db.otterstack.internal",
+    domain: "db.otterdeploy.dev",
+    upstreamHost: "db.otterdeploy.internal",
     upstreamPort: 5432,
     protocol: "tcp",
     layer4Alpn: "postgresql",
@@ -45,7 +45,7 @@ describe("reconciler", () => {
 
   test("skips a project whose fragment fails validation", async () => {
     const adaptFn = mock((caddyfile: string) => {
-      if (caddyfile.includes("myapp.otterstack.dev")) {
+      if (caddyfile.includes("myapp.otterdeploy.dev")) {
         return Promise.resolve({ ok: false as const, error: "bad config" });
       }
       return Promise.resolve({ ok: true as const, json: {} });

@@ -3,7 +3,7 @@
  *
  * `PostgresVarRow` is the dense one-line row for the "Service Variables"
  * card (the engine identity envs). `PostgresSystemVarRow` is the looser
- * two-line treatment for the collapsible "added by otterstack" section
+ * two-line treatment for the collapsible "added by otterdeploy" section
  * where each var carries a description.
  */
 

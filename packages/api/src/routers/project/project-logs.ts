@@ -11,7 +11,7 @@
 
 import { Docker } from "@otterdeploy/docker";
 
-import { type Id, ID_PREFIX as IDP } from "@otterstack/shared/id";
+import { type Id, ID_PREFIX as IDP } from "@otterdeploy/shared/id";
 
 import type { ProjectId } from "./errors";
 import { getProjectInOrg, getProjectRecord, listProjectResources } from "./queries";

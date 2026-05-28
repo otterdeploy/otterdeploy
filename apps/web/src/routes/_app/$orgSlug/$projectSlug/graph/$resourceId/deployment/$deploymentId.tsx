@@ -16,7 +16,7 @@ import {
   TabsTrigger,
 } from "@/shared/components/ui/tabs";
 import { cn } from "@/shared/lib/utils";
-import { env } from "@otterstack/env/web";
+import { env } from "@otterdeploy/env/web";
 
 import { orpc } from "@/shared/server/orpc";
 

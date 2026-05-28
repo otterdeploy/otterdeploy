@@ -1,5 +1,5 @@
 {
-  "name": "otterstack",
+  "name": "otterdeploy",
   "private": true,
   "workspaces": {
     "packages": [
@@ -52,26 +52,26 @@
     "dev:native": "turbo -F native dev",
     "dev:web": "turbo -F web dev",
     "dev:server": "turbo -F server dev",
-    "db:push": "turbo -F @otterstack/db db:push",
-    "db:studio": "turbo -F @otterstack/db db:studio",
-    "db:generate": "turbo -F @otterstack/db db:generate",
-    "db:migrate": "turbo -F @otterstack/db db:migrate",
-    "db:start": "turbo -F @otterstack/db db:start",
-    "db:watch": "turbo -F @otterstack/db db:watch",
-    "db:stop": "turbo -F @otterstack/db db:stop",
-    "db:down": "turbo -F @otterstack/db db:down",
+    "db:push": "turbo -F @otterdeploy/db db:push",
+    "db:studio": "turbo -F @otterdeploy/db db:studio",
+    "db:generate": "turbo -F @otterdeploy/db db:generate",
+    "db:migrate": "turbo -F @otterdeploy/db db:migrate",
+    "db:start": "turbo -F @otterdeploy/db db:start",
+    "db:watch": "turbo -F @otterdeploy/db db:watch",
+    "db:stop": "turbo -F @otterdeploy/db db:stop",
+    "db:down": "turbo -F @otterdeploy/db db:down",
     "check": "oxlint && oxfmt --write",
     "format": "oxfmt --write",
     "lint": "oxlint --fix"
   },
   "dependencies": {
-    "@otterstack/env": "workspace:*",
+    "@otterdeploy/env": "workspace:*",
     "@standard-schema/spec": "^1.1.0",
     "oxlint-tsgolint": "^0.23.0",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@otterstack/config": "workspace:*",
+    "@otterdeploy/config": "workspace:*",
     "@types/bun": "catalog:",
     "oxfmt": "^0.47.0",
     "oxlint": "^1.62.0",

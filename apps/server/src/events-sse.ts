@@ -25,10 +25,10 @@ import { streamSSE } from "hono/streaming";
 
 import { type EvlogVariables } from "evlog/hono";
 
-import { streamProjectEvents } from "@otterstack/api/routers/project/events-stream";
-import { auth, type Session } from "@otterstack/auth";
+import { streamProjectEvents } from "@otterdeploy/api/routers/project/events-stream";
+import { auth, type Session } from "@otterdeploy/auth";
 
-// Branded id types live in @otterstack/shared but apps/server intentionally
+// Branded id types live in @otterdeploy/shared but apps/server intentionally
 // doesn't depend on that package — the streamProjectEvents call site below
 // is the only typed boundary and it accepts strings cast to the branded
 // types via `as never` (the auth+input wiring is the actual safety net).

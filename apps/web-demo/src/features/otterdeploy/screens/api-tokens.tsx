@@ -1,4 +1,4 @@
-// API tokens — personal access tokens for the otterstack CLI and CI integrations.
+// API tokens — personal access tokens for the otterdeploy CLI and CI integrations.
 // Tokens are shown once at creation; the success modal is the only place the
 // raw secret is rendered. Below the table sits a tiny per-token sparkline.
 
@@ -201,7 +201,7 @@ export function ApiTokens() {
           <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
             <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>API tokens</h3>
             <span className="muted" style={{ fontSize: 12 }}>
-              Personal access tokens for the otterstack CLI and CI integrations.
+              Personal access tokens for the otterdeploy CLI and CI integrations.
             </span>
           </div>
           <div style={{ flex: 1 }} />

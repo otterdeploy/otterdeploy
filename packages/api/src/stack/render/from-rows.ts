@@ -3,7 +3,7 @@
  *
  * Read-only: this function never writes. Each database resource and each
  * service resource maps to one entry under `services.<key>`. The entry
- * carries an `x-otterstack:` extension block stamping the IDs +
+ * carries an `x-otterdeploy:` extension block stamping the IDs +
  * engine + public-exposure flag so a future round-trip (file → DB) is
  * lossless.
  *
@@ -57,7 +57,7 @@ function renderDatabases(
     // can be located without a parallel name table.
     entry.deploy = {
       ...entry.deploy,
-      labels: { "otterstack.service.name": containerName },
+      labels: { "otterdeploy.service.name": containerName },
     };
     out[row.resource.name] = entry;
   }

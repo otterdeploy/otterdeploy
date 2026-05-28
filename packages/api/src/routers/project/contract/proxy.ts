@@ -8,8 +8,8 @@ import { oc } from "@orpc/contract";
 import { createSelectSchema } from "drizzle-zod";
 import * as z from "zod";
 
-import { proxyRoute } from "@otterstack/db/schema";
-import { ID_PREFIX, zId } from "@otterstack/shared/id";
+import { proxyRoute } from "@otterdeploy/db/schema";
+import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 
 import { basePath, projectNotFoundErrors, tag } from "./shared";
 

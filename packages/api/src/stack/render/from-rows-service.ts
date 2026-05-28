@@ -64,7 +64,7 @@ function mapServiceMount(mount: ServiceRecord["mounts"][number]): StackVolumeMou
       source: mount.source ?? mount.target,
       target: mount.target,
       read_only: mount.readOnly,
-      x_otterstack_content: mount.content ?? "",
+      x_otterdeploy_content: mount.content ?? "",
     };
   }
   return {
@@ -107,7 +107,7 @@ export function buildServiceEntry(
         window: msToCompose(s.restartWindowMs),
       },
     },
-    "x-otterstack": {
+    "x-otterdeploy": {
       kind: "service",
       resourceId: record.resource.id,
       projectId: record.resource.projectId,

@@ -14,7 +14,7 @@ import { Docker } from "@otterdeploy/docker";
 import { Result } from "better-result";
 import type { RequestLogger } from "evlog";
 
-import { type Id, ID_PREFIX as IDP } from "@otterstack/shared/id";
+import { type Id, ID_PREFIX as IDP } from "@otterdeploy/shared/id";
 
 import { defaultImageFor, updateSwarmDatabase } from "../../swarm";
 import { insertDeployment } from "./deployments";

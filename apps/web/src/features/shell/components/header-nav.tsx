@@ -15,7 +15,7 @@ import {
   Tick02Icon,
 } from "@hugeicons/core-free-icons";
 
-import { ID_PREFIX, type Slug } from "@otterstack/shared/id";
+import { ID_PREFIX, type Slug } from "@otterdeploy/shared/id";
 
 import { envCollection } from "@/features/projects/data/env";
 import { projectCollection } from "@/features/projects/data/project";

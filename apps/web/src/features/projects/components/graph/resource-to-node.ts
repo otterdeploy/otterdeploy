@@ -9,7 +9,7 @@ import type { Node } from "@xyflow/react";
 
 import type { InferRouterOutputs } from "@orpc/server";
 
-import type { AppRouter } from "@otterstack/api/routers/index";
+import type { AppRouter } from "@otterdeploy/api/routers/index";
 
 import type {
   ResourceNodeData,

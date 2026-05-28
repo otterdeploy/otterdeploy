@@ -1,6 +1,6 @@
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ArrowLeft01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons";
-import { ID_PREFIX, type Id, type Slug } from "@otterstack/shared/id";
+import { ID_PREFIX, type Id, type Slug } from "@otterdeploy/shared/id";
 import { useStore } from "@tanstack/react-form";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";

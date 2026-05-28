@@ -1,8 +1,8 @@
 import { and, eq } from "drizzle-orm";
 import { createError } from "evlog";
 
-import { db } from "@otterstack/db";
-import { databaseResource, resource } from "@otterstack/db/schema/project";
+import { db } from "@otterdeploy/db";
+import { databaseResource, resource } from "@otterdeploy/db/schema/project";
 
 import type { ProjectId } from "../errors";
 import type { ResourceId } from "../../service/errors";

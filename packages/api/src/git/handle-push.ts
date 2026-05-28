@@ -7,16 +7,16 @@
  * Build pipeline that consumes those Deployment rows lands in Phase 3.
  */
 
-import { db } from "@otterstack/db";
+import { db } from "@otterdeploy/db";
 import {
   deployment,
   gitRepo,
   project,
   resource,
   serviceResource,
-} from "@otterstack/db/schema";
-import { triggerDeploy } from "@otterstack/jobs";
-import { ID_PREFIX, type Id } from "@otterstack/shared/id";
+} from "@otterdeploy/db/schema";
+import { triggerDeploy } from "@otterdeploy/jobs";
+import { ID_PREFIX, type Id } from "@otterdeploy/shared/id";
 import { log } from "evlog";
 import { and, eq } from "drizzle-orm";
 

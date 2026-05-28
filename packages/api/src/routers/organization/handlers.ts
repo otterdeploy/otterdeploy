@@ -6,7 +6,7 @@
 
 import { Result } from "better-result";
 
-import { type Id, ID_PREFIX } from "@otterstack/shared/id";
+import { type Id, ID_PREFIX } from "@otterdeploy/shared/id";
 
 import {
   CloudflareError,
@@ -24,11 +24,11 @@ import {
 import {
   eq,
 } from "drizzle-orm";
-import { db } from "@otterstack/db";
+import { db } from "@otterdeploy/db";
 import {
   PLATFORM_SETTINGS_ID,
   platformSettings,
-} from "@otterstack/db/schema/platform";
+} from "@otterdeploy/db/schema/platform";
 
 import {
   getOrganizationById,

@@ -114,7 +114,7 @@ export function StepAdvancedDb({ kind }: { kind: ServiceKind }) {
       )}
 
       <div className="h-[18px]" />
-      <SectionHeader title="Maintenance window" sub="When can Otterstack apply patches?" />
+      <SectionHeader title="Maintenance window" sub="When can Otterdeploy apply patches?" />
       <Card className="mt-2.5 rounded-md">
         <CardContent>
           <div className="grid grid-cols-2 gap-2.5">

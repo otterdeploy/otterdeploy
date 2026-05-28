@@ -87,7 +87,7 @@ Create `packages/db/src/schema/proxy-route.ts`:
 
 ```ts
 import { boolean, index, integer, pgEnum, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
-import { createId, ID_PREFIX } from "@otterstack/shared/id";
+import { createId, ID_PREFIX } from "@otterdeploy/shared/id";
 import { project } from "./project";
 
 export const proxyRouteTypeEnum = pgEnum("proxy_route_type", ["http", "layer4"]);
@@ -167,8 +167,8 @@ Create `packages/api/src/caddy/queries.ts`:
 import { asc, eq } from "drizzle-orm";
 import type { InferSelectModel } from "drizzle-orm";
 
-import { db } from "@otterstack/db";
-import { proxyRoute } from "@otterstack/db/schema/proxy-route";
+import { db } from "@otterdeploy/db";
+import { proxyRoute } from "@otterdeploy/db/schema/proxy-route";
 
 export type ProxyRouteRecord = InferSelectModel<typeof proxyRoute>;
 
@@ -310,8 +310,8 @@ describe("builder", () => {
   const httpRoute: ProxyRouteInput = {
     projectId: "project_abc",
     type: "http",
-    domain: "myapp-acme.otterstack.dev",
-    upstreamHost: "myapp.acme.otterstack.internal",
+    domain: "myapp-acme.otterdeploy.dev",
+    upstreamHost: "myapp.acme.otterdeploy.internal",
     upstreamPort: 3000,
     protocol: "http",
     layer4Alpn: null,
@@ -320,16 +320,16 @@ describe("builder", () => {
   const layer4Route: ProxyRouteInput = {
     projectId: "project_abc",
     type: "layer4",
-    domain: "primary-acme.db.otterstack.dev",
-    upstreamHost: "primary-acme.otterstack.internal",
+    domain: "primary-acme.db.otterdeploy.dev",
+    upstreamHost: "primary-acme.otterdeploy.internal",
     upstreamPort: 5432,
     protocol: "tcp",
     layer4Alpn: "postgresql",
   };
 
   test("sanitizeMatcherName converts domain to safe identifier", () => {
-    expect(sanitizeMatcherName("primary-acme.db.otterstack.dev")).toBe(
-      "primary_acme_db_otterstack_dev",
+    expect(sanitizeMatcherName("primary-acme.db.otterdeploy.dev")).toBe(
+      "primary_acme_db_otterdeploy_dev",
     );
   });
 
@@ -337,8 +337,8 @@ describe("builder", () => {
     const output = buildHttpBlock(httpRoute);
     expect(output).toBe(
       [
-        "myapp-acme.otterstack.dev {",
-        "\treverse_proxy myapp.acme.otterstack.internal:3000",
+        "myapp-acme.otterdeploy.dev {",
+        "\treverse_proxy myapp.acme.otterdeploy.internal:3000",
         "}",
       ].join("\n"),
     );
@@ -346,10 +346,10 @@ describe("builder", () => {
 
   test("buildLayer4Route produces matcher and route block", () => {
     const output = buildLayer4Route(layer4Route);
-    expect(output).toContain("@pg_primary_acme_db_otterstack_dev tls {");
+    expect(output).toContain("@pg_primary_acme_db_otterdeploy_dev tls {");
     expect(output).toContain("alpn postgresql");
-    expect(output).toContain("sni primary-acme.db.otterstack.dev");
-    expect(output).toContain("proxy primary-acme.otterstack.internal:5432");
+    expect(output).toContain("sni primary-acme.db.otterdeploy.dev");
+    expect(output).toContain("proxy primary-acme.otterdeploy.internal:5432");
   });
 
   test("buildGlobalBlock includes layer4 routes in listener_wrappers", () => {
@@ -357,7 +357,7 @@ describe("builder", () => {
     expect(output).toContain("admin 0.0.0.0:2019");
     expect(output).toContain("listener_wrappers {");
     expect(output).toContain("layer4 {");
-    expect(output).toContain("sni primary-acme.db.otterstack.dev");
+    expect(output).toContain("sni primary-acme.db.otterdeploy.dev");
     expect(output).toContain("tls\n");
   });
 
@@ -371,16 +371,16 @@ describe("builder", () => {
   test("buildCaddyfile assembles global block + http blocks", () => {
     const output = buildCaddyfile([httpRoute, layer4Route], "0.0.0.0:2019");
     expect(output).toContain("admin 0.0.0.0:2019");
-    expect(output).toContain("myapp-acme.otterstack.dev {");
-    expect(output).toContain("reverse_proxy myapp.acme.otterstack.internal:3000");
-    expect(output).toContain("sni primary-acme.db.otterstack.dev");
-    expect(output).toContain("proxy primary-acme.otterstack.internal:5432");
+    expect(output).toContain("myapp-acme.otterdeploy.dev {");
+    expect(output).toContain("reverse_proxy myapp.acme.otterdeploy.internal:3000");
+    expect(output).toContain("sni primary-acme.db.otterdeploy.dev");
+    expect(output).toContain("proxy primary-acme.otterdeploy.internal:5432");
   });
 
   test("buildCaddyfile with only http routes omits layer4", () => {
     const output = buildCaddyfile([httpRoute], "0.0.0.0:2019");
     expect(output).toContain("admin 0.0.0.0:2019");
-    expect(output).toContain("myapp-acme.otterstack.dev {");
+    expect(output).toContain("myapp-acme.otterdeploy.dev {");
     expect(output).not.toContain("layer4");
   });
 
@@ -395,7 +395,7 @@ describe("builder", () => {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd /Users/jeffersonchukwuka/Developer/playground/otterstack && bun test packages/api/src/caddy/__tests__/builder.test.ts`
+Run: `cd /Users/jeffersonchukwuka/Developer/playground/otterdeploy && bun test packages/api/src/caddy/__tests__/builder.test.ts`
 
 Expected: FAIL — module `../builder` not found.
 
@@ -502,7 +502,7 @@ export function buildProjectFragment(routes: ProxyRouteInput[]): string {
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cd /Users/jeffersonchukwuka/Developer/playground/otterstack && bun test packages/api/src/caddy/__tests__/builder.test.ts`
+Run: `cd /Users/jeffersonchukwuka/Developer/playground/otterdeploy && bun test packages/api/src/caddy/__tests__/builder.test.ts`
 
 Expected: All 7 tests PASS.
 
@@ -611,8 +611,8 @@ describe("reconciler", () => {
   const httpRoute: ProxyRouteInput = {
     projectId: "project_abc",
     type: "http",
-    domain: "myapp.otterstack.dev",
-    upstreamHost: "myapp.otterstack.internal",
+    domain: "myapp.otterdeploy.dev",
+    upstreamHost: "myapp.otterdeploy.internal",
     upstreamPort: 3000,
     protocol: "http",
     layer4Alpn: null,
@@ -621,8 +621,8 @@ describe("reconciler", () => {
   const layer4Route: ProxyRouteInput = {
     projectId: "project_xyz",
     type: "layer4",
-    domain: "db.otterstack.dev",
-    upstreamHost: "db.otterstack.internal",
+    domain: "db.otterdeploy.dev",
+    upstreamHost: "db.otterdeploy.internal",
     upstreamPort: 5432,
     protocol: "tcp",
     layer4Alpn: "postgresql",
@@ -646,7 +646,7 @@ describe("reconciler", () => {
 
   test("skips a project whose fragment fails validation", async () => {
     const adaptFn = mock((caddyfile: string) => {
-      if (caddyfile.includes("myapp.otterstack.dev")) {
+      if (caddyfile.includes("myapp.otterdeploy.dev")) {
         return Promise.resolve({ ok: false as const, error: "bad config" });
       }
       return Promise.resolve({ ok: true as const, json: {} });
@@ -704,7 +704,7 @@ describe("reconciler", () => {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd /Users/jeffersonchukwuka/Developer/playground/otterstack && bun test packages/api/src/caddy/__tests__/reconciler.test.ts`
+Run: `cd /Users/jeffersonchukwuka/Developer/playground/otterdeploy && bun test packages/api/src/caddy/__tests__/reconciler.test.ts`
 
 Expected: FAIL — module `../reconciler` not found.
 
@@ -800,7 +800,7 @@ function wrapForValidation(fragment: string): string {
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cd /Users/jeffersonchukwuka/Developer/playground/otterstack && bun test packages/api/src/caddy/__tests__/reconciler.test.ts`
+Run: `cd /Users/jeffersonchukwuka/Developer/playground/otterdeploy && bun test packages/api/src/caddy/__tests__/reconciler.test.ts`
 
 Expected: All 4 tests PASS.
 
@@ -825,7 +825,7 @@ This wires the reconciler to the DB and Caddy client. It's the function that `se
 Create `packages/api/src/caddy/index.ts`:
 
 ```ts
-import { env } from "@otterstack/env/server";
+import { env } from "@otterdeploy/env/server";
 
 import type { ProxyRouteInput } from "./builder";
 import { adaptCaddyfile, loadCaddyfile } from "./client";
@@ -1300,7 +1300,7 @@ Run: `grep -r "caddy/service" packages/api/src/ packages/db/src/ --include="*.ts
 
 Expected: No output.
 
-Run: `grep -r "from.*@otterstack/db.*caddy" packages/ --include="*.ts" | grep -v node_modules`
+Run: `grep -r "from.*@otterdeploy/db.*caddy" packages/ --include="*.ts" | grep -v node_modules`
 
 Expected: No output.
 
@@ -1328,7 +1328,7 @@ Replace the commented-out caddy block and volumes/networks with:
     build:
       context: .
       dockerfile: ./infra/caddy/Dockerfile
-    container_name: otterstack-caddy
+    container_name: otterdeploy-caddy
     restart: unless-stopped
     command: sh -c "caddy run --config /etc/caddy/Caddyfile --adapter caddyfile"
     ports:
@@ -1338,13 +1338,13 @@ Replace the commented-out caddy block and volumes/networks with:
       - "127.0.0.1:2019:2019"
     volumes:
       - ./infra/caddy/config:/etc/caddy
-      - otterstack-caddy-data:/data
-      - otterstack-caddy-state:/config
+      - otterdeploy-caddy-data:/data
+      - otterdeploy-caddy-state:/config
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
       - default
-      - otterstack-resources
+      - otterdeploy-resources
     healthcheck:
       test:
         [
@@ -1364,9 +1364,9 @@ Uncomment the volumes:
 
 ```yaml
 volumes:
-  otterstack-postgres-data:
-  otterstack-caddy-data:
-  otterstack-caddy-state:
+  otterdeploy-postgres-data:
+  otterdeploy-caddy-data:
+  otterdeploy-caddy-state:
 ```
 
 Note: Removed `--resume` flag from the command. Config is rebuilt from DB by the reconciler on server start.
@@ -1396,13 +1396,13 @@ git commit -m "feat: uncomment Caddy in docker-compose, update seed Caddyfile"
 
 - [ ] **Step 1: Run all caddy tests**
 
-Run: `cd /Users/jeffersonchukwuka/Developer/playground/otterstack && bun test packages/api/src/caddy/`
+Run: `cd /Users/jeffersonchukwuka/Developer/playground/otterdeploy && bun test packages/api/src/caddy/`
 
 Expected: All tests in `builder.test.ts` and `reconciler.test.ts` pass.
 
 - [ ] **Step 2: Type check**
 
-Run: `cd /Users/jeffersonchukwuka/Developer/playground/otterstack && bun run build` (or `bunx tsc --noEmit` if build isn't configured)
+Run: `cd /Users/jeffersonchukwuka/Developer/playground/otterdeploy && bun run build` (or `bunx tsc --noEmit` if build isn't configured)
 
 Expected: No type errors.
 

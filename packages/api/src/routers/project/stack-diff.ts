@@ -8,12 +8,12 @@
  * before subsequent phases turn this surface read-write.
  */
 
-import { db } from "@otterstack/db";
-import { project } from "@otterstack/db/schema/project";
+import { db } from "@otterdeploy/db";
+import { project } from "@otterdeploy/db/schema/project";
 import { and, eq } from "drizzle-orm";
 import { Result } from "better-result";
 
-import { type Id, ID_PREFIX as IDP } from "@otterstack/shared/id";
+import { type Id, ID_PREFIX as IDP } from "@otterdeploy/shared/id";
 
 import {
   applyEngineDefaults,

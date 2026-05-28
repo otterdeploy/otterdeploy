@@ -7,8 +7,8 @@
  * rows that the connect flow has already claimed by installation id.
  */
 
-import { db } from "@otterstack/db";
-import { gitInstallation, gitRepo } from "@otterstack/db/schema";
+import { db } from "@otterdeploy/db";
+import { gitInstallation, gitRepo } from "@otterdeploy/db/schema";
 import { log } from "evlog";
 import { eq } from "drizzle-orm";
 

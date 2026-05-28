@@ -1,4 +1,4 @@
-// Logs viewer (v2) — ported from /tmp/anth-design-qP3sS7/otterstack/project/screens2.jsx
+// Logs viewer (v2) — ported from /tmp/anth-design-qP3sS7/otterdeploy/project/screens2.jsx
 // volume histogram + filter toolbar + log table + expand-to-details + wrap toggle.
 
 import { useEffect, useMemo, useRef, useState } from "react";

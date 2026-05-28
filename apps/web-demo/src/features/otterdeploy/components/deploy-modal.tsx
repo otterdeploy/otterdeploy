@@ -191,7 +191,7 @@ export function DeployModal({
           {step === 0 && (
             <div className="col gap-4">
               <div className="muted" style={{ fontSize: 13 }}>
-                Pick what you want to launch. Otterstack can build app code,
+                Pick what you want to launch. Otterdeploy can build app code,
                 pull images, import compose stacks, or provision a database in{" "}
                 <b style={{ color: "var(--fg)" }}>production</b>.
               </div>

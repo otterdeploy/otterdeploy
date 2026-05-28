@@ -1,5 +1,5 @@
 {
-  "name": "@otterstack/auth",
+  "name": "@otterdeploy/auth",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
@@ -14,15 +14,15 @@
   "scripts": {},
   "dependencies": {
     "@better-auth/drizzle-adapter": "^1.6.9",
-    "@otterstack/db": "workspace:*",
-    "@otterstack/env": "workspace:*",
-    "@otterstack/shared": "workspace:*",
+    "@otterdeploy/db": "workspace:*",
+    "@otterdeploy/env": "workspace:*",
+    "@otterdeploy/shared": "workspace:*",
     "better-auth": "catalog:",
     "drizzle-orm": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@otterstack/config": "workspace:*",
+    "@otterdeploy/config": "workspace:*",
     "typescript": "catalog:"
   }
 }

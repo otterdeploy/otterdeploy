@@ -1,4 +1,4 @@
-// Cluster settings — for the otterstack control plane itself (not project-scoped).
+// Cluster settings — for the otterdeploy control plane itself (not project-scoped).
 
 import { useState } from "react";
 
@@ -89,10 +89,10 @@ export function ClusterSettings() {
 function GeneralPane() {
   return (
     <div style={{ padding: 24, maxWidth: 880, margin: "0 auto" }}>
-      <SectionH title="General" sub="Identity and primary endpoint of this otterstack control plane" />
+      <SectionH title="General" sub="Identity and primary endpoint of this otterdeploy control plane" />
       <div className="card" style={{ padding: 18, marginTop: 14 }}>
         <Field label="Cluster name">
-          <input className="input mono" defaultValue="otterstack-helio-prod" />
+          <input className="input mono" defaultValue="otterdeploy-helio-prod" />
         </Field>
         <div style={{ height: 12 }} />
         <Field label="Admin URL">
@@ -302,7 +302,7 @@ function ImageCachePane() {
         />
         <div style={{ height: 12 }} />
         <Field label="Cache root path">
-          <input className="input mono" defaultValue="/var/lib/otterstack/cache" />
+          <input className="input mono" defaultValue="/var/lib/otterdeploy/cache" />
         </Field>
         <div style={{ height: 14 }} />
         <Field label={`Max size · ${size} GB`}>
@@ -370,7 +370,7 @@ function LogRetentionPane() {
     <div style={{ padding: 24, maxWidth: 880, margin: "0 auto" }}>
       <SectionH
         title="Log retention"
-        sub="Per-stream policies for how long otterstack keeps logs locally"
+        sub="Per-stream policies for how long otterdeploy keeps logs locally"
       />
       <div className="card" style={{ padding: 0, marginTop: 14, overflow: "hidden" }}>
         <div className="os-pe-head" style={{ padding: "10px 14px" }}>
@@ -558,7 +558,7 @@ function SecurityPane() {
         <div style={{ height: 12 }} />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <Field label="Client ID">
-            <input className="input mono" defaultValue="otterstack-admin" />
+            <input className="input mono" defaultValue="otterdeploy-admin" />
           </Field>
           <Field label="Client secret">
             <div className="row gap-2">
@@ -639,7 +639,7 @@ function TelemetryPane() {
     <div style={{ padding: 24, maxWidth: 880, margin: "0 auto" }}>
       <SectionH
         title="Telemetry"
-        sub="What otterstack sends back so we can fix bugs and prioritise features"
+        sub="What otterdeploy sends back so we can fix bugs and prioritise features"
       />
       <div className="card" style={{ padding: 18, marginTop: 14 }}>
         <SettingRow
@@ -674,7 +674,7 @@ function TelemetryPane() {
           />
         </Field>
         <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>
-          Routes otterstack&apos;s own exceptions to your Sentry project · separate from per-service Sentry config.
+          Routes otterdeploy&apos;s own exceptions to your Sentry project · separate from per-service Sentry config.
         </div>
         <div style={{ height: 12 }} />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>

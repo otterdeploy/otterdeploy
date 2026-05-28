@@ -13,8 +13,8 @@
  * plaintext.
  */
 
-import { db } from "@otterstack/db";
-import { containerRegistry } from "@otterstack/db/schema";
+import { db } from "@otterdeploy/db";
+import { containerRegistry } from "@otterdeploy/db/schema";
 import { and, eq } from "drizzle-orm";
 
 import { decryptSecret } from "../lib/crypto";

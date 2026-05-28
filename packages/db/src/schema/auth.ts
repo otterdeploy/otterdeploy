@@ -1,6 +1,6 @@
 import { relations } from "drizzle-orm";
 import { pgTable, text, timestamp, boolean, integer, index } from "drizzle-orm/pg-core";
-import { createId, ID_PREFIX, type Id } from "@otterstack/shared/id";
+import { createId, ID_PREFIX, type Id } from "@otterdeploy/shared/id";
 
 export const user = pgTable("user", {
   id: text("id")

@@ -7,7 +7,7 @@ The current "create new resource" flow on the project page is a single Link butt
 - **Variant A — Kind-picker dialog:** A dialog appears first with only the kind picker. After picking a kind, the user is routed to the page wizard, which skips the kind step. Front-loads the most consequential choice and reduces friction for users who know what they want.
 - **Variant B — Full overlay wizard:** The entire wizard runs inside a large centered modal. The user never leaves the project page. Cancel is a single Esc instead of a back navigation. No half-state where the user has routed to `/new-resource` but hasn't committed to anything.
 
-We want to ship both variants alongside the existing page-route flow so they can be compared in the live demo (`otterstack-demo-1.pages.dev/project/proj_acme`) before picking a winner.
+We want to ship both variants alongside the existing page-route flow so they can be compared in the live demo (`otterdeploy-demo-1.pages.dev/project/proj_acme`) before picking a winner.
 
 ## Scope
 

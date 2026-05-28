@@ -12,9 +12,9 @@
  * metadata without duplicating rows.
  */
 
-import { db } from "@otterstack/db";
-import { gitInstallation, gitProvider } from "@otterstack/db/schema";
-import { ID_PREFIX, type Id } from "@otterstack/shared/id";
+import { db } from "@otterdeploy/db";
+import { gitInstallation, gitProvider } from "@otterdeploy/db/schema";
+import { ID_PREFIX, type Id } from "@otterdeploy/shared/id";
 import { and, eq } from "drizzle-orm";
 
 import {

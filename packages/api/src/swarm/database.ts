@@ -13,7 +13,7 @@ import { log, type RequestLogger } from "evlog";
 import {
   type DatabaseEngine,
   DATABASE_ENGINES,
-} from "@otterstack/shared/database-engines";
+} from "@otterdeploy/shared/database-engines";
 
 import { asStepLogger } from "../lib/logger";
 import { PLATFORM } from "../constants";
@@ -97,20 +97,20 @@ function buildDatabaseSpec(
   // terminal-targets handler uses to populate the picker / per-resource
   // shell). Skipping ContainerSpec.Labels here meant terminals couldn't
   // find their own running container.
-  const otterstackLabels = {
-    "otterstack.managed": "true",
-    "otterstack.resource.type": input.engine,
-    "otterstack.project": input.projectSlug,
-    "otterstack.deployment.id": input.deploymentId,
+  const otterdeployLabels = {
+    "otterdeploy.managed": "true",
+    "otterdeploy.resource.type": input.engine,
+    "otterdeploy.project": input.projectSlug,
+    "otterdeploy.deployment.id": input.deploymentId,
   };
 
   return {
     Name: input.serviceName,
-    Labels: otterstackLabels,
+    Labels: otterdeployLabels,
     TaskTemplate: {
       ContainerSpec: {
         Image: image,
-        Labels: otterstackLabels,
+        Labels: otterdeployLabels,
         Env: [...userEnv, ...identityEnv],
         ...(command ? { Command: command } : {}),
         Mounts: [

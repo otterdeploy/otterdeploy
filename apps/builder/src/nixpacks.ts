@@ -19,7 +19,7 @@
  * `:latest` tag (a convenience for `docker run` operators).
  */
 
-import type { NixpacksConfig } from "@otterstack/db/schema";
+import type { NixpacksConfig } from "@otterdeploy/db/schema";
 
 import type { LogSink } from "./log-stream";
 import { runProcess } from "./run-process";

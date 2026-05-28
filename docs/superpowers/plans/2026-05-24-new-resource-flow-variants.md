@@ -63,7 +63,7 @@ import { StepReview } from "@/features/projects/components/new-resource/step-rev
 import { Stepper, type Step } from "@/features/projects/components/new-resource/stepper";
 import { SERVICE_KINDS } from "@/features/projects/data/service-kinds";
 import { resourceSchema, resourceDefaults } from "@/features/projects/components/new-resource/schema";
-import { ID_PREFIX, type Slug } from "@otterstack/shared/id";
+import { ID_PREFIX, type Slug } from "@otterdeploy/shared/id";
 
 const DB_STEPS: Array<[Step, string, string]> = [
   ["kind", "Kind", "pick-kind"],
@@ -421,7 +421,7 @@ Open `apps/web/src/routes/_app/$orgSlug/$projectSlug/new-resource.tsx`. Replace 
 import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 
 import { NewResourceWizard } from "@/features/projects/components/new-resource/new-resource-wizard";
-import { ID_PREFIX, type Slug } from "@otterstack/shared/id";
+import { ID_PREFIX, type Slug } from "@otterdeploy/shared/id";
 
 export const Route = createFileRoute("/_app/$orgSlug/$projectSlug/new-resource")({
   staticData: { crumb: "New resource" },
@@ -455,7 +455,7 @@ Expected: `OK: no errors in touched files`. Pre-existing errors in unrelated fil
 
 - [ ] **Step 4: Manual verification — original page wizard still works**
 
-Open `https://otterstack-demo-1.pages.dev/project/proj_acme` (or local dev equivalent), click `+ Add resource`. The page should look and behave identically to before this task — header chrome with project name and "Step 1 of N", the kind picker with 4 tabs, Continue button disabled until a kind is picked, full multi-step flow for postgres.
+Open `https://otterdeploy-demo-1.pages.dev/project/proj_acme` (or local dev equivalent), click `+ Add resource`. The page should look and behave identically to before this task — header chrome with project name and "Step 1 of N", the kind picker with 4 tabs, Continue button disabled until a kind is picked, full multi-step flow for postgres.
 
 If anything looks different, stop and reconcile against the original `new-resource.tsx:38–379` you replaced.
 
@@ -495,7 +495,7 @@ import { z } from "zod";
 import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 
 import { NewResourceWizard } from "@/features/projects/components/new-resource/new-resource-wizard";
-import { ID_PREFIX, type Slug } from "@otterstack/shared/id";
+import { ID_PREFIX, type Slug } from "@otterdeploy/shared/id";
 
 const zNewResourceSearch = z.object({ kind: z.string().optional() });
 
@@ -580,7 +580,7 @@ import {
 } from "@/shared/components/ui/dialog";
 import { Button } from "@/shared/components/ui/button";
 import { StepKind } from "@/features/projects/components/new-resource/step-kind";
-import { ID_PREFIX, type Slug } from "@otterstack/shared/id";
+import { ID_PREFIX, type Slug } from "@otterdeploy/shared/id";
 
 type NewResourceKindDialogProps = {
   orgSlug: string;
@@ -769,7 +769,7 @@ import {
   NewResourceKindDialog,
   NewResourceOverlayDialog,
 } from "@/features/projects/components/new-resource/new-resource-dialogs";
-import { ID_PREFIX, type Slug } from "@otterstack/shared/id";
+import { ID_PREFIX, type Slug } from "@otterdeploy/shared/id";
 
 export const Route = createFileRoute("/_app/$orgSlug/$projectSlug/")({
   staticData: { crumb: "Overview" },

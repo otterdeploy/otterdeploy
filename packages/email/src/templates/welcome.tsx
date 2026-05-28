@@ -24,12 +24,12 @@ export function WelcomeEmail({
   return (
     <Html>
       <Head />
-      <Preview>Welcome to otterstack!</Preview>
+      <Preview>Welcome to otterdeploy!</Preview>
       <Tailwind>
         <Body className="bg-gray-100 font-sans">
           <Container className="mx-auto mb-16 max-w-[600px] rounded-md bg-white px-0 pb-12 pt-5">
             <Heading className="my-10 text-center text-2xl font-bold text-gray-800">
-              Welcome to otterstack!
+              Welcome to otterdeploy!
             </Heading>
             <Text className="px-12 text-base leading-7 text-gray-800">
               Hi {username},

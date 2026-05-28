@@ -1,6 +1,6 @@
 import { TaggedError } from "better-result";
 
-import { ID_PREFIX, type Id } from "@otterstack/shared/id";
+import { ID_PREFIX, type Id } from "@otterdeploy/shared/id";
 
 import { type ResourceId } from "../service/errors";
 

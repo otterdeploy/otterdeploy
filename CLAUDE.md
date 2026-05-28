@@ -1,4 +1,4 @@
-# otterstack
+# otterdeploy
 
 This file provides context about the project for AI assistants.
 
@@ -47,7 +47,7 @@ This file provides context about the project for AI assistants.
 ## Project Structure
 
 ```
-otterstack/
+otterdeploy/
 ├── apps/
 │   ├── web/         # Frontend application
 │   ├── server/      # Backend API

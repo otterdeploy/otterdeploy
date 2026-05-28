@@ -1,6 +1,6 @@
 import { TaggedError } from "better-result";
 
-import { type Id, ID_PREFIX } from "@otterstack/shared/id";
+import { type Id, ID_PREFIX } from "@otterdeploy/shared/id";
 
 export type EnvironmentId = Id<typeof ID_PREFIX.environment>;
 

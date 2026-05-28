@@ -14,7 +14,7 @@ import type {
   serviceMount,
   servicePort,
   serviceResource,
-} from "@otterstack/db/schema/project";
+} from "@otterdeploy/db/schema/project";
 
 export type ResourceRow = typeof resource.$inferSelect;
 export type ServiceResourceRow = typeof serviceResource.$inferSelect;

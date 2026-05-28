@@ -1,4 +1,4 @@
-import { ID_PREFIX, zSlug } from "@otterstack/shared/id";
+import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import { createFileRoute, notFound, Outlet } from "@tanstack/react-router";
 import { useMemo } from "react";

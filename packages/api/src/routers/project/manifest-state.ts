@@ -5,15 +5,15 @@
 
 import { eq, inArray } from "drizzle-orm";
 
-import { db } from "@otterstack/db";
+import { db } from "@otterdeploy/db";
 import {
   databaseResource,
   resource,
   serviceEnvVar,
   servicePort,
   serviceResource,
-} from "@otterstack/db/schema/project";
-import type { Id, ID_PREFIX } from "@otterstack/shared/id";
+} from "@otterdeploy/db/schema/project";
+import type { Id, ID_PREFIX } from "@otterdeploy/shared/id";
 
 import type {
   CurrentDatabase,

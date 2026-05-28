@@ -88,7 +88,7 @@ export function buildEngineServiceVars(
 }
 
 /**
- * Platform-injected OTTERSTACK_* envs every container receives. Read-only;
+ * Platform-injected OTTERDEPLOY_* envs every container receives. Read-only;
  * derived from the resource record.
  */
 export function buildSystemVars(
@@ -96,62 +96,62 @@ export function buildSystemVars(
 ): DerivedVar[] {
   return [
     {
-      name: "OTTERSTACK_PRIVATE_DOMAIN",
+      name: "OTTERDEPLOY_PRIVATE_DOMAIN",
       value: resource.internalHostname,
       secret: false,
       description: "The private DNS name of the service.",
     },
     {
-      name: "OTTERSTACK_TCP_PROXY_DOMAIN",
+      name: "OTTERDEPLOY_TCP_PROXY_DOMAIN",
       value: resource.publicHostname,
       secret: false,
       description:
         "The public TCP proxy domain for the service, if applicable. Always reached over 443 — no port needed.",
     },
     {
-      name: "OTTERSTACK_TCP_APPLICATION_PORT",
+      name: "OTTERDEPLOY_TCP_APPLICATION_PORT",
       value: String(resource.internalPort),
       secret: false,
       description: "The internal port the database listens on.",
     },
     {
-      name: "OTTERSTACK_PROJECT_ID",
+      name: "OTTERDEPLOY_PROJECT_ID",
       value: resource.projectId,
       secret: false,
       description: "The project this resource belongs to.",
     },
     {
-      name: "OTTERSTACK_RESOURCE_NAME",
+      name: "OTTERDEPLOY_RESOURCE_NAME",
       value: resource.name,
       secret: false,
       description: "The resource name.",
     },
     {
-      name: "OTTERSTACK_RESOURCE_ID",
+      name: "OTTERDEPLOY_RESOURCE_ID",
       value: resource.resourceId,
       secret: false,
       description: "The resource ID.",
     },
     {
-      name: "OTTERSTACK_SERVICE_NAME",
+      name: "OTTERDEPLOY_SERVICE_NAME",
       value: resource.runtime.serviceName,
       secret: false,
       description: "The swarm service name.",
     },
     {
-      name: "OTTERSTACK_NETWORK_NAME",
+      name: "OTTERDEPLOY_NETWORK_NAME",
       value: resource.runtime.networkName,
       secret: false,
       description: "The internal swarm overlay network.",
     },
     {
-      name: "OTTERSTACK_VOLUME_NAME",
+      name: "OTTERDEPLOY_VOLUME_NAME",
       value: resource.runtime.volumeName,
       secret: false,
       description: "The name of the attached volume.",
     },
     {
-      name: "OTTERSTACK_VOLUME_MOUNT_PATH",
+      name: "OTTERDEPLOY_VOLUME_MOUNT_PATH",
       value: "/var/lib/postgresql/data",
       secret: false,
       description: "The mount path of the attached volume.",

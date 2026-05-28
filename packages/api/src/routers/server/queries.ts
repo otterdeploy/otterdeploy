@@ -3,9 +3,9 @@ import os from "node:os";
 import { and, asc, eq } from "drizzle-orm";
 import type { InferSelectModel } from "drizzle-orm";
 
-import { db } from "@otterstack/db";
-import { server } from "@otterstack/db/schema/server";
-import { type Id, ID_PREFIX } from "@otterstack/shared/id";
+import { db } from "@otterdeploy/db";
+import { server } from "@otterdeploy/db/schema/server";
+import { type Id, ID_PREFIX } from "@otterdeploy/shared/id";
 
 import type { ServerId } from "./errors";
 
@@ -82,7 +82,7 @@ export async function deleteServerRecord(input: {
 
 /**
  * Ensure the bootstrap localhost row exists for an org. Every workspace's
- * first manager is the host running otterstack itself (the same machine
+ * first manager is the host running otterdeploy itself (the same machine
  * the user would `docker swarm init` on); we surface it as a real DB row
  * so the UI never shows a "no servers" empty state and `docker service
  * create` always has a node to schedule against.

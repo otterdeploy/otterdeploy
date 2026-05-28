@@ -20,7 +20,7 @@ function minimalPostgresFile(): StackFile {
           POSTGRES_PASSWORD: "pw",
           POSTGRES_DB: "appdb",
         },
-        "x-otterstack": {
+        "x-otterdeploy": {
           kind: "database",
           engine: "postgres",
           resourceId: "resource_test_pg",
@@ -37,7 +37,7 @@ describe("stack/schema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("rejects a service missing the x-otterstack block", () => {
+  it("rejects a service missing the x-otterdeploy block", () => {
     const result = stackFileSchema.safeParse({
       version: STACK_FILE_SCHEMA_VERSION,
       services: {
@@ -83,7 +83,7 @@ describe("stack/render/applyEngineDefaults", () => {
             { type: "volume", source: "v", target: "/var/lib/postgresql/data" },
           ],
           healthcheck: { test: "CMD-SHELL pg_isready -U u -d d" },
-          "x-otterstack": {
+          "x-otterdeploy": {
             kind: "database",
             engine: "postgres",
             resourceId: "resource_x",
@@ -103,7 +103,7 @@ describe("stack/render/applyEngineDefaults", () => {
       services: {
         web: {
           image: "nginx:1",
-          "x-otterstack": {
+          "x-otterdeploy": {
             kind: "service",
             resourceId: "resource_web",
             projectId: "project_x",
@@ -132,12 +132,12 @@ describe("stack/render/toComposeYaml", () => {
     expect(env["POSTGRES_USER"]).toBe("owner");
   });
 
-  it("projects the otterstack extension into deploy.labels", () => {
+  it("projects the otterdeploy extension into deploy.labels", () => {
     const yaml = toComposeYaml(applyEngineDefaults(minimalPostgresFile()));
-    expect(yaml).toContain("otterstack.kind: database");
-    expect(yaml).toContain("otterstack.engine: postgres");
-    expect(yaml).toContain("otterstack.resource.id: resource_test_pg");
-    expect(yaml).toContain("otterstack.project.id: project_test");
+    expect(yaml).toContain("otterdeploy.kind: database");
+    expect(yaml).toContain("otterdeploy.engine: postgres");
+    expect(yaml).toContain("otterdeploy.resource.id: resource_test_pg");
+    expect(yaml).toContain("otterdeploy.project.id: project_test");
   });
 
   it("is byte-deterministic for structurally identical inputs", () => {
@@ -160,7 +160,7 @@ describe("stack/render/toComposeYaml", () => {
     const yaml = toComposeYaml(file);
     const parsed = parse(yaml) as { services: Record<string, unknown> };
     const primary = parsed.services["primary"] as Record<string, unknown>;
-    const ext = primary["x-otterstack"] as Record<string, unknown>;
+    const ext = primary["x-otterdeploy"] as Record<string, unknown>;
     expect(ext["kind"]).toBe("database");
     expect(ext["engine"]).toBe("postgres");
     expect(ext["resourceId"]).toBe("resource_test_pg");

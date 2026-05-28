@@ -10,7 +10,7 @@
 
 import { useState } from "react";
 
-import { type Id, type ID_PREFIX } from "@otterstack/shared/id";
+import { type Id, type ID_PREFIX } from "@otterdeploy/shared/id";
 
 import { cn } from "@/shared/lib/utils";
 

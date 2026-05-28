@@ -276,17 +276,31 @@ function RouteComponent() {
           </TabsContent>
 
           <TabsContent value="caddyfile" className="mt-5">
-            <Card className="bg-muted/30 p-4 font-mono text-[12px] leading-relaxed text-muted-foreground">
-              {rows.length === 0 ? (
-                <span className="text-muted-foreground">
-                  # No routes published yet
-                </span>
-              ) : (
+            {rows.length === 0 ? (
+              <Empty className="border-dashed">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <HugeiconsIcon
+                      icon={ServerStack01Icon}
+                      strokeWidth={1.6}
+                      className="size-5 text-muted-foreground"
+                    />
+                  </EmptyMedia>
+                  <EmptyTitle>No Caddyfile yet</EmptyTitle>
+                  <EmptyDescription>
+                    The Caddyfile is auto-generated once at least one route is
+                    published. Expose a service or enable public access on a
+                    database to see the rendered HTTP blocks here.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            ) : (
+              <Card className="bg-muted/30 p-4 font-mono text-[12px] leading-relaxed text-muted-foreground">
                 <pre className="m-0 whitespace-pre-wrap">
                   {renderCaddyfilePreview(rows)}
                 </pre>
-              )}
-            </Card>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="global" className="mt-5">
@@ -362,7 +376,7 @@ function mapRoute(
 }
 
 function deriveNameFromUpstream(host: string): string {
-  // Upstream hosts look like "<resource>.<project>.otterstack.internal". Surface
+  // Upstream hosts look like "<resource>.<project>.otterdeploy.internal". Surface
   // the leading label so platform routes (no resourceId) still show something
   // human-readable.
   const label = host.split(".")[0];

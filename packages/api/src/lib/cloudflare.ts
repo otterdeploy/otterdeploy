@@ -1,6 +1,6 @@
 /**
  * Thin Cloudflare API v4 client — just enough to support the
- * "auto-configure DNS for an otterstack-managed apex" flow.
+ * "auto-configure DNS for an otterdeploy-managed apex" flow.
  *
  * Scoped to three operations:
  *   - verifyToken    → assert the API token is valid + has any access

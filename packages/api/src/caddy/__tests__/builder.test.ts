@@ -13,8 +13,8 @@ describe("builder", () => {
   const httpRoute: ProxyRouteInput = {
     projectId: "project_abc",
     type: "http",
-    domain: "myapp-acme.otterstack.dev",
-    upstreamHost: "myapp.acme.otterstack.internal",
+    domain: "myapp-acme.otterdeploy.dev",
+    upstreamHost: "myapp.acme.otterdeploy.internal",
     upstreamPort: 3000,
     protocol: "http",
     layer4Alpn: null,
@@ -24,8 +24,8 @@ describe("builder", () => {
   const layer4Route: ProxyRouteInput = {
     projectId: "project_abc",
     type: "layer4",
-    domain: "primary-acme.db.otterstack.dev",
-    upstreamHost: "primary-acme.otterstack.internal",
+    domain: "primary-acme.db.otterdeploy.dev",
+    upstreamHost: "primary-acme.otterdeploy.internal",
     upstreamPort: 5432,
     protocol: "tcp",
     layer4Alpn: "postgresql",
@@ -33,8 +33,8 @@ describe("builder", () => {
   };
 
   test("sanitizeMatcherName converts domain to safe identifier", () => {
-    expect(sanitizeMatcherName("primary-acme.db.otterstack.dev")).toBe(
-      "primary_acme_db_otterstack_dev",
+    expect(sanitizeMatcherName("primary-acme.db.otterdeploy.dev")).toBe(
+      "primary_acme_db_otterdeploy_dev",
     );
   });
 
@@ -42,9 +42,9 @@ describe("builder", () => {
     const output = buildHttpBlock(httpRoute);
     expect(output).toBe(
       [
-        "myapp-acme.otterstack.dev {",
+        "myapp-acme.otterdeploy.dev {",
         "\ttls internal",
-        "\treverse_proxy myapp.acme.otterstack.internal:3000",
+        "\treverse_proxy myapp.acme.otterdeploy.internal:3000",
         "}",
       ].join("\n"),
     );
@@ -54,8 +54,8 @@ describe("builder", () => {
     const output = buildHttpBlock({ ...httpRoute, usesAcme: true });
     expect(output).toBe(
       [
-        "myapp-acme.otterstack.dev {",
-        "\treverse_proxy myapp.acme.otterstack.internal:3000",
+        "myapp-acme.otterdeploy.dev {",
+        "\treverse_proxy myapp.acme.otterdeploy.internal:3000",
         "}",
       ].join("\n"),
     );
@@ -63,12 +63,12 @@ describe("builder", () => {
 
   test("buildLayer4Block produces TLS SNI matcher with connection_policy", () => {
     const output = buildLayer4Block([layer4Route]);
-    expect(output).toContain("@primary_acme_db_otterstack_dev tls sni primary-acme.db.otterstack.dev");
-    expect(output).toContain("route @primary_acme_db_otterstack_dev {");
+    expect(output).toContain("@primary_acme_db_otterdeploy_dev tls sni primary-acme.db.otterdeploy.dev");
+    expect(output).toContain("route @primary_acme_db_otterdeploy_dev {");
     expect(output).toContain("tls {");
     expect(output).toContain("connection_policy {");
     expect(output).toContain("alpn postgresql");
-    expect(output).toContain("proxy primary-acme.otterstack.internal:5432");
+    expect(output).toContain("proxy primary-acme.otterdeploy.internal:5432");
     expect(output).toContain(":5432 {");
   });
 
@@ -77,16 +77,16 @@ describe("builder", () => {
     expect(output).toContain("admin 0.0.0.0:2019");
     expect(output).toContain("layer4 {");
     expect(output).toContain(":5432 {");
-    expect(output).toContain("tls sni primary-acme.db.otterstack.dev");
-    expect(output).toContain("myapp-acme.otterstack.dev {");
-    expect(output).toContain("reverse_proxy myapp.acme.otterstack.internal:3000");
+    expect(output).toContain("tls sni primary-acme.db.otterdeploy.dev");
+    expect(output).toContain("myapp-acme.otterdeploy.dev {");
+    expect(output).toContain("reverse_proxy myapp.acme.otterdeploy.internal:3000");
     // Dummy site block for cert automation
     expect(output).toContain('respond "ok" 200');
   });
 
   test("buildCaddyfile with only http routes omits layer4", () => {
     const output = buildCaddyfile([httpRoute], "0.0.0.0:2019");
-    expect(output).toContain("myapp-acme.otterstack.dev {");
+    expect(output).toContain("myapp-acme.otterdeploy.dev {");
     expect(output).not.toContain("layer4");
     expect(output).not.toContain("respond");
   });
@@ -102,7 +102,7 @@ describe("builder", () => {
     const output = buildProjectFragment([layer4Route]);
     expect(output).toContain("admin off");
     expect(output).toContain("layer4 {");
-    expect(output).toContain("tls sni primary-acme.db.otterstack.dev");
+    expect(output).toContain("tls sni primary-acme.db.otterdeploy.dev");
     expect(output).toContain("connection_policy {");
   });
 

@@ -10,9 +10,9 @@
 
 import { and, asc, eq } from "drizzle-orm";
 
-import { db } from "@otterstack/db";
-import { projectEnvVar } from "@otterstack/db/schema/project";
-import { type Id, ID_PREFIX } from "@otterstack/shared/id";
+import { db } from "@otterdeploy/db";
+import { projectEnvVar } from "@otterdeploy/db/schema/project";
+import { type Id, ID_PREFIX } from "@otterdeploy/shared/id";
 
 import type { ProjectId } from "../errors";
 

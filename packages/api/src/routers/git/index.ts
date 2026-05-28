@@ -1,8 +1,8 @@
-import { db } from "@otterstack/db";
-import { gitProvider } from "@otterstack/db/schema";
+import { db } from "@otterdeploy/db";
+import { gitProvider } from "@otterdeploy/db/schema";
 import { and, eq } from "drizzle-orm";
 
-import { env } from "@otterstack/env/server";
+import { env } from "@otterdeploy/env/server";
 
 import { orgScopedProcedure } from "../..";
 import {

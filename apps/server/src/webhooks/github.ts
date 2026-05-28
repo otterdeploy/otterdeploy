@@ -8,7 +8,7 @@
  * - Verifies `X-Hub-Signature-256` HMAC-SHA256 against the App's
  *   per-provider webhook secret (decrypted on the fly), timing-safe compare.
  * - Dispatches the parsed event to the package-level handler in
- *   `@otterstack/api/git`.
+ *   `@otterdeploy/api/git`.
  *
  * Always responds 2xx once the signature passes — GitHub retries on any
  * non-2xx and we don't want a transient handler error to repeatedly
@@ -19,7 +19,7 @@
 import {
   handleGithubWebhook,
   loadGithubAppByExternalAppIdForWebhook,
-} from "@otterstack/api/git";
+} from "@otterdeploy/api/git";
 import { log, parseError } from "evlog";
 import { type EvlogVariables } from "evlog/hono";
 import type { Hono } from "hono";
