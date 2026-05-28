@@ -35,6 +35,7 @@ import { orpc } from "@/shared/server/orpc";
 
 import { SectionHeader } from "../form-primitives";
 import { useFormContext } from "../form-context";
+import { RootDirectoryPicker } from "../root-directory-picker";
 
 export function StepSource() {
   const form = useFormContext();
@@ -42,6 +43,7 @@ export function StepSource() {
   // fires from the PublicRepoCTA below.
   const repo = useStore(form.store, (s) => s.values.repo as string);
   const branch = useStore(form.store, (s) => s.values.branch as string);
+  const root = useStore(form.store, (s) => s.values.root as string);
   const name = useStore(form.store, (s) => s.values.name as string);
   const { orgSlug, projectSlug } = useParams({ strict: false }) as {
     orgSlug: string;
@@ -90,16 +92,21 @@ export function StepSource() {
               />
             )}
           </form.AppField>
-          <form.AppField name="root">
-            {(f) => (
-              <f.TextField
-                label="Root directory (monorepo)"
-                className="font-mono"
-                placeholder="apps/web"
-                description="Path within the repo — leave blank for repo root"
-              />
-            )}
-          </form.AppField>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[12.5px] font-medium">
+              Root directory (monorepo)
+            </label>
+            <RootDirectoryPicker
+              gitRepoId={repo || null}
+              value={root}
+              repoFullName={boundFullName}
+              onChange={(next) => form.setFieldValue("root", next)}
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Browse the repo to pick the folder for this service. Empty = repo
+              root.
+            </p>
+          </div>
           <div className="text-[11px] text-muted-foreground">
             Branch is governed by the project binding (
             <span className="font-mono">{branch || "main"}</span>

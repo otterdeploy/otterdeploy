@@ -43,7 +43,7 @@ function RouteComponent() {
   // panel re-renders as status changes. Polling lives in the collection
   // factory, no need to wire our own interval here.
   const deploymentsCollection = useMemo(
-    () => createDeploymentsCollection(project.id as never, resourceId as never),
+    () => createDeploymentsCollection(project.id, resourceId),
     [project.id, resourceId],
   );
   const { data: matches = [] } = useLiveQuery(
