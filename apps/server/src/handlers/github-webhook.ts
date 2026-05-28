@@ -20,6 +20,7 @@ import {
   handleGithubWebhook,
   loadGithubAppByExternalAppIdForWebhook,
 } from "@otterdeploy/api/git";
+import { bytesToHex, timingSafeEqual } from "@otterdeploy/shared/crypto";
 import { Result } from "better-result";
 import { log, parseError } from "evlog";
 import type { Handler } from "hono";
@@ -131,22 +132,7 @@ async function verifySignature(
     ["sign"],
   );
   const macBuf = await crypto.subtle.sign("HMAC", key, body);
-  const actual = hex(new Uint8Array(macBuf));
+  const actual = bytesToHex(new Uint8Array(macBuf));
 
-  return timingSafeEqualHex(expected, actual);
-}
-
-function hex(bytes: Uint8Array): string {
-  let out = "";
-  for (const b of bytes) out += b.toString(16).padStart(2, "0");
-  return out;
-}
-
-function timingSafeEqualHex(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let mismatch = 0;
-  for (let i = 0; i < a.length; i++) {
-    mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  }
-  return mismatch === 0;
+  return timingSafeEqual(expected, actual);
 }

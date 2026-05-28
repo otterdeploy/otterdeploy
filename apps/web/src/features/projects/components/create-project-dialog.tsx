@@ -51,6 +51,14 @@ export function CreateProjectDialog({ trigger }: { trigger: ReactElement }) {
         customDomain: null,
         customDomainVerifiedAt: null,
         customDomainVerifyToken: null,
+        // Build pipeline binding — wired later via Settings → Build, so
+        // the optimistic row starts unconfigured. Defaults match the
+        // server's row defaults so a refetch doesn't flip these out.
+        gitRepoId: null,
+        productionBranch: "main",
+        containerRegistryId: null,
+        imageRepository: null,
+        nixpacksConfig: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       });

@@ -65,8 +65,9 @@ export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];
  * trips TS4058 ("cannot be named") in consumers that emit .d.ts files.
  * Same level of safety: a plain string can't satisfy `Id<P>` without a cast.
  */
+export declare const __brand: unique symbol;
 export type Id<P extends string = string> = string & {
-  readonly __brand: P;
+  readonly [__brand]: P;
 };
 
 /**
@@ -175,7 +176,9 @@ export type ServicePortId = Id<typeof ID_PREFIX.servicePort>;
 export type ServiceMountId = Id<typeof ID_PREFIX.serviceMount>;
 export type ServiceEnvVarId = Id<typeof ID_PREFIX.serviceEnvVar>;
 export type ProjectEnvVarId = Id<typeof ID_PREFIX.projectEnvVar>;
-export type ProjectEnvSubscriptionId = Id<typeof ID_PREFIX.projectEnvSubscription>;
+export type ProjectEnvSubscriptionId = Id<
+  typeof ID_PREFIX.projectEnvSubscription
+>;
 export type EnvironmentId = Id<typeof ID_PREFIX.environment>;
 export type ProxyRouteId = Id<typeof ID_PREFIX.proxyRoute>;
 export type ServerId = Id<typeof ID_PREFIX.server>;
@@ -184,6 +187,7 @@ export type WorkspaceId = Id<typeof ID_PREFIX.workspace>;
 // Git source
 export type GitProviderId = Id<typeof ID_PREFIX.gitProvider>;
 export type GitInstallationId = Id<typeof ID_PREFIX.gitInstallation>;
+
 export type GitRepoId = Id<typeof ID_PREFIX.gitRepo>;
 
 // Build pipeline

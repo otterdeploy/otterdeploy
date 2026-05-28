@@ -1,6 +1,8 @@
 import { defineCommand } from "citty";
 import { consola } from "consola";
 
+import { sleep } from "@otterdeploy/shared/promise";
+
 import { CLI_CLIENT_ID, createCliAuthClient } from "../auth-client";
 import { loadConfig, saveConfig } from "../config";
 
@@ -117,10 +119,6 @@ export const loginCommand = defineCommand({
     process.exit(1);
   },
 });
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 function safeOrigin(maybeUrl: string): string | undefined {
   try {

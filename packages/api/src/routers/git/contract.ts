@@ -11,7 +11,11 @@
 
 import { oc } from "@orpc/contract";
 import * as z from "zod";
-import { gitInstallationIdField, gitProviderIdField, gitRepoIdField } from "../project/contract/shared";
+import {
+  gitInstallationIdField,
+  gitProviderIdField,
+  gitRepoIdField,
+} from "../project/contract/shared";
 
 const tag = "git";
 const basePath = "/git";
@@ -175,7 +179,11 @@ export const gitContract = {
     .errors({
       NOT_FOUND: { status: 404, message: "Installation not found" as const },
     })
-    .meta({ path: `${basePath}/installations/{installationId}`, tag, method: "DELETE" })
+    .meta({
+      path: `${basePath}/installations/{installationId}`,
+      tag,
+      method: "DELETE",
+    })
     .input(disconnectInput)
     .output(z.object({ ok: z.boolean() })),
   refreshRepos: oc
@@ -186,14 +194,22 @@ export const gitContract = {
         message: "GitHub App is not configured on this instance" as const,
       },
     })
-    .meta({ path: `${basePath}/installations/{installationId}/refresh`, tag, method: "POST" })
+    .meta({
+      path: `${basePath}/installations/{installationId}/refresh`,
+      tag,
+      method: "POST",
+    })
     .input(refreshReposInput)
     .output(refreshReposOutput),
   listRepos: oc
     .errors({
       NOT_FOUND: { status: 404, message: "Installation not found" as const },
     })
-    .meta({ path: `${basePath}/installations/{installationId}/repos`, tag, method: "GET" })
+    .meta({
+      path: `${basePath}/installations/{installationId}/repos`,
+      tag,
+      method: "GET",
+    })
     .input(listInstallationReposInput)
     .output(z.array(gitRepoViewSchema)),
   // Register a public Git URL as a gitRepo row (no installation, no
@@ -220,7 +236,11 @@ export const gitContract = {
         message: "GitHub rate-limited the inspection" as const,
       },
     })
-    .meta({ path: `${basePath}/repos/{gitRepoId}/inspect`, tag, method: "POST" })
+    .meta({
+      path: `${basePath}/repos/{gitRepoId}/inspect`,
+      tag,
+      method: "POST",
+    })
     .input(inspectRepoInput)
     .output(inspectRepoOutput),
 };

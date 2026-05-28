@@ -18,6 +18,7 @@
  * frontend closes the stream.
  */
 import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import { sleep } from "@otterdeploy/shared/promise";
 
 import { Docker } from "@otterdeploy/docker";
 
@@ -259,10 +260,6 @@ export async function* tailResourceLogs(
     // return method runs into this finally block).
     docker.destroy();
   }
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 interface TaskLogsRef {

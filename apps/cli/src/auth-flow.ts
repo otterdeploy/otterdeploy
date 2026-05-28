@@ -10,6 +10,8 @@
 
 import { consola } from "consola";
 
+import { sleep } from "@otterdeploy/shared/promise";
+
 import { CLI_CLIENT_ID, createCliAuthClient } from "./auth-client";
 import { loadConfig, resolveToken, resolveUrl, saveConfig } from "./config";
 
@@ -108,10 +110,6 @@ async function deviceCodeLogin(url: string): Promise<{ token: string; webUrl?: s
     throw new Error(`Login failed: ${code ?? tokenRes.error?.error_description ?? "unknown"}`);
   }
   throw new Error("Timed out waiting for approval.");
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function openInBrowser(url: string): void {

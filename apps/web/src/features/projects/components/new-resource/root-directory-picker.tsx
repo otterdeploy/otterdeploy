@@ -12,7 +12,7 @@
  */
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { usePrefetchQuery, useQuery } from "@tanstack/react-query";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   ArrowLeft01Icon,
@@ -69,6 +69,17 @@ type MonorepoKind =
   | "lerna"
   | null;
 
+// Shape of `git.inspectRepo` output. Mirrored locally so the sub-
+// components below can pass it around without dragging the orpc client
+// types through every prop signature.
+type InspectResult = {
+  path: string;
+  entries: Array<{ name: string; type: "dir" | "file" }>;
+  framework: FrameworkKind;
+  monorepo: MonorepoKind;
+  monorepoPackages: string[];
+};
+
 const FRAMEWORK_LABEL: Record<NonNullable<FrameworkKind>, string> = {
   next: "Next.js",
   nuxt: "Nuxt",
@@ -124,6 +135,12 @@ export function RootDirectoryPicker({
   // picking it (e.g. opens `apps/` to confirm `apps/web` is in there).
   const [browsePath, setBrowsePath] = useState<string>(value);
   const [selected, setSelected] = useState<string>(value);
+
+  usePrefetchQuery({
+    ...orpc.git.inspectRepo.queryOptions({
+      input: { gitRepoId: gitRepoId, path },
+    }),
+  });
 
   const onOpenChange = (next: boolean) => {
     if (next) {
@@ -250,122 +267,224 @@ function BrowsePane({
   // 5min staleTime matches the server-side CACHE_TTL_MS.
   const inspectQuery = useQuery({
     ...orpc.git.inspectRepo.queryOptions({
-      input: { gitRepoId: gitRepoId as never, path },
+      input: { gitRepoId: gitRepoId, path },
     }),
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
   });
 
+  const inspect = inspectQuery.data;
+
+  return (
+    <div className="flex flex-col gap-2">
+      <BrowsePaneHeader path={path} onNavigate={onNavigate} inspect={inspect} />
+      <BrowsePaneBody
+        path={path}
+        selected={selected}
+        onNavigate={onNavigate}
+        onSelect={onSelect}
+        inspect={inspect}
+        isLoading={inspectQuery.isLoading}
+        rateLimited={isRateLimitedError(inspectQuery.error)}
+        errorMessage={inspectQuery.isError ? inspectQuery.error?.message : null}
+      />
+      {inspect?.framework && <DetectedStack framework={inspect.framework} />}
+    </div>
+  );
+}
+
+function BrowsePaneHeader({
+  path,
+  onNavigate,
+  inspect,
+}: {
+  path: string;
+  onNavigate: (next: string) => void;
+  inspect: InspectResult | undefined;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <Breadcrumbs path={path} onNavigate={onNavigate} />
+      {inspect?.monorepo && (
+        <Badge variant="outline" className="font-normal">
+          {MONOREPO_LABEL[inspect.monorepo]}
+        </Badge>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Renders one of four states: loading spinner, rate-limit warning,
+ * generic upstream error, or the actual folder list. Splitting this out
+ * keeps `BrowsePane`'s cyclomatic complexity inside the linter's cap.
+ */
+function BrowsePaneBody({
+  path,
+  selected,
+  onNavigate,
+  onSelect,
+  inspect,
+  isLoading,
+  rateLimited,
+  errorMessage,
+}: {
+  path: string;
+  selected: string;
+  onNavigate: (next: string) => void;
+  onSelect: (next: string) => void;
+  inspect: InspectResult | undefined;
+  isLoading: boolean;
+  rateLimited: boolean;
+  errorMessage: string | null | undefined;
+}) {
+  if (isLoading) {
+    return (
+      <div className="flex h-48 items-center justify-center">
+        <Spinner />
+      </div>
+    );
+  }
+  if (rateLimited) return <RateLimitedNotice />;
+  if (errorMessage != null) {
+    return <UpstreamErrorNotice path={path} rawMessage={errorMessage} />;
+  }
+  return (
+    <FolderList
+      path={path}
+      selected={selected}
+      onNavigate={onNavigate}
+      onSelect={onSelect}
+      inspect={inspect}
+    />
+  );
+}
+
+function FolderList({
+  path,
+  selected,
+  onNavigate,
+  onSelect,
+  inspect,
+}: {
+  path: string;
+  selected: string;
+  onNavigate: (next: string) => void;
+  onSelect: (next: string) => void;
+  inspect: InspectResult | undefined;
+}) {
   const isRoot = path === "";
   const parent = isRoot ? null : path.split("/").slice(0, -1).join("/");
-
-  const inspect = inspectQuery.data;
-  const rateLimited = isRateLimitedError(inspectQuery.error);
   const dirs = (inspect?.entries ?? []).filter((e) => e.type === "dir");
   const monorepoPackages = new Set(inspect?.monorepoPackages ?? []);
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between gap-2">
-        <Breadcrumbs path={path} onNavigate={onNavigate} />
-        {inspect?.monorepo ? (
-          <Badge variant="outline" className="font-normal">
-            {MONOREPO_LABEL[inspect.monorepo]}
-          </Badge>
-        ) : null}
-      </div>
+    // The radio group's `value` is the committed selection. Each row's
+    // RadioGroupItem carries the folder path as its value; RadioGroup's
+    // `onValueChange` lifts the pick.
+    <RadioGroup
+      value={selected}
+      onValueChange={(next) => {
+        if (typeof next === "string") onSelect(next);
+      }}
+      className="max-h-72 gap-0 overflow-y-auto rounded-md border bg-card"
+    >
+      {parent !== null && <ParentRow onClick={() => onNavigate(parent)} />}
 
-      {inspectQuery.isLoading ? (
-        <div className="flex h-48 items-center justify-center">
-          <Spinner />
-        </div>
-      ) : rateLimited ? (
-        <div className="rounded-md border border-warning/40 bg-warning/5 px-3 py-3 text-[12.5px] text-warning">
-          <div className="font-semibold">Rate-limited by GitHub</div>
-          <p className="mt-1 text-warning/80">
-            Anonymous reads are capped at 60/hour per IP. Connect the GitHub
-            App from the Source card above for a 5000/hour limit, or wait a
-            few minutes and retry.
-          </p>
-        </div>
-      ) : inspectQuery.isError ? (
-        <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-[12.5px] text-destructive">
-          Couldn't read repo at <span className="font-mono">/{path}</span> —{" "}
-          {humanizeUpstreamMessage(inspectQuery.error?.message ?? "")}
-        </div>
-      ) : (
-        // The radio group's `value` is the committed selection. Each
-        // row's RadioGroupItem carries the folder path as its value;
-        // RadioGroup's `onValueChange` lifts the pick.
-        <RadioGroup
-          value={selected}
-          onValueChange={(next) => {
-            if (typeof next === "string") onSelect(next);
-          }}
-          className="max-h-72 gap-0 overflow-y-auto rounded-md border bg-card"
-        >
-          {!isRoot && parent !== null && (
-            <button
-              type="button"
-              onClick={() => onNavigate(parent)}
-              className="flex w-full items-center gap-2 border-b border-border/40 px-3 py-2 text-left hover:bg-muted/40"
-            >
-              <HugeiconsIcon
-                icon={ArrowLeft01Icon}
-                strokeWidth={2}
-                className="size-3.5 text-muted-foreground"
-              />
-              <span className="font-mono text-[12.5px] text-muted-foreground">
-                ..
-              </span>
-            </button>
-          )}
-
-          {/* (root) pseudo-row, only at the repo root — gives the
-              operator an explicit way to commit "deploy from repo root"
-              without picking a subfolder. */}
-          {isRoot && (
-            <FolderRow
-              label="(root)"
-              fullPath=""
-              isPackage={false}
-              isSelected={selected === ""}
-              canNavigateIn={false}
-              onNavigateIn={() => undefined}
-            />
-          )}
-
-          {dirs.map((entry) => {
-            const fullPath = path ? `${path}/${entry.name}` : entry.name;
-            return (
-              <FolderRow
-                key={fullPath}
-                label={entry.name}
-                fullPath={fullPath}
-                isPackage={monorepoPackages.has(fullPath)}
-                isSelected={selected === fullPath}
-                canNavigateIn
-                onNavigateIn={() => onNavigate(fullPath)}
-              />
-            );
-          })}
-
-          {dirs.length === 0 && !isRoot && (
-            <div className="px-3 py-4 text-center text-[12px] text-muted-foreground">
-              No subfolders here
-            </div>
-          )}
-        </RadioGroup>
+      {/* (root) pseudo-row, only at the repo root — gives the operator
+          an explicit way to commit "deploy from repo root" without
+          picking a subfolder. */}
+      {isRoot && (
+        <FolderRow
+          label="(root)"
+          fullPath=""
+          isPackage={false}
+          isSelected={selected === ""}
+          canNavigateIn={false}
+          onNavigateIn={() => undefined}
+        />
       )}
 
-      {inspect?.framework && (
-        <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
-          <span>Detected stack:</span>
-          <Badge variant="outline" className="font-normal">
-            {FRAMEWORK_LABEL[inspect.framework]}
-          </Badge>
+      {dirs.map((entry) => {
+        const fullPath = path ? `${path}/${entry.name}` : entry.name;
+        return (
+          <FolderRow
+            key={fullPath}
+            label={entry.name}
+            fullPath={fullPath}
+            isPackage={monorepoPackages.has(fullPath)}
+            isSelected={selected === fullPath}
+            canNavigateIn
+            onNavigateIn={() => onNavigate(fullPath)}
+          />
+        );
+      })}
+
+      {dirs.length === 0 && !isRoot && (
+        <div className="px-3 py-4 text-center text-[12px] text-muted-foreground">
+          No subfolders here
         </div>
       )}
+    </RadioGroup>
+  );
+}
+
+function ParentRow({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center gap-2 border-b border-border/40 px-3 py-2 text-left hover:bg-muted/40"
+    >
+      <HugeiconsIcon
+        icon={ArrowLeft01Icon}
+        strokeWidth={2}
+        className="size-3.5 text-muted-foreground"
+      />
+      <span className="font-mono text-[12.5px] text-muted-foreground">..</span>
+    </button>
+  );
+}
+
+function RateLimitedNotice() {
+  return (
+    <div className="rounded-md border border-warning/40 bg-warning/5 px-3 py-3 text-[12.5px] text-warning">
+      <div className="font-semibold">Rate-limited by GitHub</div>
+      <p className="mt-1 text-warning/80">
+        Anonymous reads are capped at 60/hour per IP. Connect the GitHub App
+        from the Source card above for a 5000/hour limit, or wait a few minutes
+        and retry.
+      </p>
+    </div>
+  );
+}
+
+function UpstreamErrorNotice({
+  path,
+  rawMessage,
+}: {
+  path: string;
+  rawMessage: string;
+}) {
+  return (
+    <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-[12.5px] text-destructive">
+      Couldn't read repo at <span className="font-mono">/{path}</span> —{" "}
+      {humanizeUpstreamMessage(rawMessage)}
+    </div>
+  );
+}
+
+function DetectedStack({
+  framework,
+}: {
+  framework: NonNullable<InspectResult["framework"]>;
+}) {
+  return (
+    <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
+      <span>Detected stack:</span>
+      <Badge variant="outline" className="font-normal">
+        {FRAMEWORK_LABEL[framework]}
+      </Badge>
     </div>
   );
 }

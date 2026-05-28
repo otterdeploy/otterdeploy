@@ -11,6 +11,13 @@ import { project } from "@otterdeploy/db/schema";
 import { basePath, projectNotFoundErrors, tag } from "./shared";
 import { containerRegistryIdField, environmentIdField, gitRepoIdField, projectIdField } from "./shared";
 
+// Every branded id column on the `project` row is re-emitted here as a
+// typed `<X>IdField` rather than the `z.string()` drizzle-zod would
+// otherwise produce. drizzle-zod 1.0-beta14 drops `$type` brands when
+// it generates schemas for `text` columns (only `json/jsonb` reads
+// `_.data`), so without these overrides the wire shape loses the brand
+// and the React hover ends up showing a plain `string` for ids that
+// should carry their nominal type end-to-end.
 export const projectSchema = createSelectSchema(project)
   // Manifest payloads are read through `project.manifest.get`, not embedded
   // in every project row — keeps list/get cheap and avoids shipping a
@@ -25,6 +32,8 @@ export const projectSchema = createSelectSchema(project)
   .extend({
     id: projectIdField,
     environmentId: environmentIdField.nullable(),
+    gitRepoId: gitRepoIdField.nullable(),
+    containerRegistryId: containerRegistryIdField.nullable(),
   });
 
 export const projectListItemSchema = projectSchema.extend({

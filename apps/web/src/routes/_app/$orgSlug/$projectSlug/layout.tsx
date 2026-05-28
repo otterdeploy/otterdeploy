@@ -26,6 +26,7 @@ export const Route = createFileRoute("/_app/$orgSlug/$projectSlug")({
     const project = projectCollection.toArray.find(
       (p) => p.slug === params.projectSlug,
     );
+
     if (!project) throw notFound();
     // Preload resources for the resolved projectId so the sidebar is ready.
     await createResourceCollection(project.id).preload();

@@ -69,10 +69,37 @@ export const projectCollection = createCollection(
       );
     },
     onUpdate: async ({ transaction }) => {
+      // The collection's row shape includes server-managed fields
+      // (createdAt, stackFile, lastAppliedAt, …) that the update input
+      // doesn't accept. Pick only the user-settable fields so the spread
+      // doesn't trip the input's strict shape.
       await Promise.all(
-        transaction.mutations.map((m) =>
-          orpc.project.update.call({ ...m.changes, id: m.original.id }),
-        ),
+        transaction.mutations.map((m) => {
+          const c = m.changes as Partial<typeof m.original>;
+          return orpc.project.update.call({
+            id: m.original.id,
+            ...(c.name !== undefined && { name: c.name }),
+            ...(c.slug !== undefined && { slug: c.slug }),
+            ...(c.gitRepoId !== undefined && { gitRepoId: c.gitRepoId }),
+            ...(c.productionBranch !== undefined && {
+              productionBranch: c.productionBranch,
+            }),
+            ...(c.containerRegistryId !== undefined && {
+              containerRegistryId: c.containerRegistryId,
+            }),
+            ...(c.imageRepository !== undefined && {
+              imageRepository: c.imageRepository,
+            }),
+            // nixpacksConfig: the collection's jsonb column is typed
+            // as the recursive `Json` (drizzle-zod doesn't honour the
+            // column's `.$type<NixpacksConfig | null>` on jsonb either);
+            // the update input wants the structured shape. Cast through
+            // so we forward whatever the collection holds.
+            ...(c.nixpacksConfig !== undefined && {
+              nixpacksConfig: c.nixpacksConfig as never,
+            }),
+          });
+        }),
       );
     },
     queryClient,
