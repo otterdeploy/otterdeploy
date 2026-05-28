@@ -152,7 +152,6 @@ function ResourceWizardBody({
           expectedVersion: current.version,
         });
 
-        toast.success(`${engineLabel} ${payload.name} staged — Deploy to apply`);
         onComplete?.();
         await Promise.all([
           queryClient.invalidateQueries({
@@ -220,7 +219,6 @@ function ResourceWizardBody({
           expectedVersion: current.version,
         });
 
-        toast.success(`Service ${payload.name} staged — Deploy to apply`);
         onComplete?.();
         await Promise.all([
           queryClient.invalidateQueries({

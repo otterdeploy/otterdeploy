@@ -79,6 +79,11 @@ export interface ResourceNodeData extends Record<string, unknown> {
   /** Service-only: one entry per scheduled task. Renders an inset REPLICAS
    *  tray so the operator can see fan-out + per-task health at a glance. */
   replicas?: ReplicaInfo[];
+  /** Pending manifest change — set when the node represents a staged
+   *  create/update/delete that hasn't been applied yet. Rendered with
+   *  reduced opacity + a dashed border so it's visually distinct from
+   *  an applied resource. */
+  pending?: "create" | "update" | "delete";
 }
 
 /** Mount row — name + optional mount-path on the left, size aligned right.
@@ -269,6 +274,12 @@ export function ResourceNode({ id, data, selected }: NodeProps<ResourceFlowNode>
         className={cn(
           "w-92 overflow-hidden rounded-2xl border bg-card shadow-[0_24px_60px_-30px_rgba(0,0,0,0.45)] transition-all",
           selected && "ring-2 ring-ring/40",
+          // Pending markers — visible state for staged manifest changes.
+          // Render this on the node itself so the operator sees the diff
+          // without opening the pending-changes bar.
+          data.pending === "create" && "border-dashed border-success/60 opacity-70",
+          data.pending === "delete" && "border-dashed border-destructive/60 opacity-70",
+          data.pending === "update" && "border-dashed border-info/60",
         )}
       >
         {/* HEADER */}
@@ -295,7 +306,26 @@ export function ResourceNode({ id, data, selected }: NodeProps<ResourceFlowNode>
             </div>
           </div>
 
-          {status && (
+          {data.pending ? (
+            <span
+              className={cn(
+                "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] leading-none font-medium",
+                data.pending === "create" && "bg-success/15 text-success",
+                data.pending === "delete" && "bg-destructive/15 text-destructive",
+                data.pending === "update" && "bg-info/15 text-info",
+              )}
+            >
+              <span
+                className={cn(
+                  "size-1.5 rounded-full",
+                  data.pending === "create" && "bg-success",
+                  data.pending === "delete" && "bg-destructive",
+                  data.pending === "update" && "bg-info",
+                )}
+              />
+              pending {data.pending}
+            </span>
+          ) : status ? (
             <span
               className={cn(
                 "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] leading-none font-medium",
@@ -305,7 +335,7 @@ export function ResourceNode({ id, data, selected }: NodeProps<ResourceFlowNode>
               <span className={cn("size-1.5 rounded-full", status.dotClass)} />
               {status.label}
             </span>
-          )}
+          ) : null}
         </div>
 
         {/* BODY — description only. Tech / commit live in the muted footer. */}

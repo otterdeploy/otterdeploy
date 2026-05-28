@@ -56,7 +56,6 @@ export function DangerZone({ resource, onDeleted }: DangerZoneProps) {
       });
     },
     onSuccess: async () => {
-      toast.success(`${resource.name} staged for deletion — Deploy to apply`);
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: orpc.project.manifest.diff.queryKey({

@@ -19,9 +19,12 @@ import {
   type Node,
 } from "@xyflow/react";
 
+import { useQuery } from "@tanstack/react-query";
+
 import {
   buildLiveNodes,
   buildRouteEdges,
+  type PendingByName,
 } from "@/features/projects/components/graph/build-live-nodes";
 import { layoutGraph } from "@/features/projects/components/graph/layout-graph";
 import { ResourceNode } from "@/features/projects/components/graph/resource-node";
@@ -29,6 +32,7 @@ import { StackCodePanel } from "@/features/projects/components/stack";
 import { createProjectDependenciesCollection } from "@/features/projects/data/dependencies";
 import { createResourceCollection } from "@/features/projects/data/resource";
 import { createServiceTasksCollection } from "@/features/projects/data/service-tasks";
+import { orpc } from "@/shared/server/orpc";
 
 export const Route = createFileRoute("/_app/$orgSlug/$projectSlug/graph")({
   component: RouteComponent,
@@ -129,12 +133,44 @@ function GraphCanvas() {
     return m;
   }, [serviceTasks]);
 
+  // Pending manifest changes — overlay as ghost nodes for creates and
+  // markers on existing nodes for updates/deletes. Polled on the same
+  // 5s cadence as the pending-changes bar.
+  const diff = useQuery(
+    orpc.project.manifest.diff.queryOptions({
+      input: { projectId: project.id },
+      refetchInterval: 5_000,
+    }),
+  );
+
+  const pendingByName = useMemo<PendingByName>(() => {
+    const creates: PendingByName["creates"] = [];
+    const marker = new Map<string, "update" | "delete">();
+    const resourceIdByName = new Map<string, string>();
+    for (const r of resources) {
+      if (r.type === "service" || r.type === "database") {
+        resourceIdByName.set(`${r.type}:${r.name}`, r.resourceId);
+      }
+    }
+    for (const c of diff.data?.changes ?? []) {
+      if (c.kind === "no-op" || c.resource === "env") continue;
+      const key = `${c.resource}:${c.name}`;
+      const id = resourceIdByName.get(key);
+      if (c.kind === "create" && !id) {
+        creates.push({ resource: c.resource, name: c.name });
+      } else if (id && (c.kind === "update" || c.kind === "delete")) {
+        marker.set(id, c.kind);
+      }
+    }
+    return { creates, marker };
+  }, [resources, diff.data]);
+
   // Convert resources to nodes + synthesize public route nodes via the
   // shared helper. See features/projects/components/graph/build-live-nodes.ts
   // for the rollup rules (error > building > running) and route handling.
   const liveNodes = useMemo(
-    () => buildLiveNodes(resources, tasksByResourceId),
-    [resources, tasksByResourceId],
+    () => buildLiveNodes(resources, tasksByResourceId, pendingByName),
+    [resources, tasksByResourceId, pendingByName],
   );
 
   const liveEdges = useMemo(

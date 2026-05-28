@@ -76,6 +76,18 @@ const buildRouteEdge = (r: PublicService): Edge => ({
 
 // ---------- public API ----------
 
+/** Pending manifest changes the graph should overlay onto its nodes.
+ *  Keyed by `${resourceType}:${name}` so create-stubs and existing-node
+ *  markers stay aligned with whatever the diff reports. */
+export interface PendingByName {
+  /** Set of `${resource}:${name}` pairs that should render as ghost
+   *  nodes — they exist in the manifest but not yet in current state. */
+  creates: Array<{ resource: "service" | "database"; name: string }>;
+  /** Lookup: existing node IDs whose corresponding resource has a
+   *  pending update or delete in the manifest. */
+  marker: Map<string, "update" | "delete">;
+}
+
 /**
  * Turn raw resources + live task data into the full node list, including
  * synthetic route nodes that sit in front of publicly-exposed services.
@@ -83,20 +95,48 @@ const buildRouteEdge = (r: PublicService): Edge => ({
  * The rollup picks the most concerning state across replicas
  * (error > building > running) so the header pill matches operator intuition —
  * one failing replica makes the whole service "error".
+ *
+ * `pending` overlays staged manifest changes onto the result:
+ *   - creates are appended as ghost nodes with `pending: "create"`
+ *   - existing nodes are tagged with `pending: "update" | "delete"`
  */
 export const buildLiveNodes = (
   resources: Resource[],
   tasksByResourceId: Map<string, Task[]>,
-): LiveNode[] =>
-  resources.flatMap((r) => {
+  pending?: PendingByName,
+): LiveNode[] => {
+  const realNodes = resources.flatMap((r) => {
     const base = resourceToNode(r);
-    if (base.data.kind !== "service") return [base];
+    const marker = pending?.marker.get(base.id);
+    const baseWithPending: LiveNode = marker
+      ? { ...base, data: { ...base.data, pending: marker } }
+      : base;
+    if (baseWithPending.data.kind !== "service") return [baseWithPending];
 
-    const node = withReplicas(base, tasksByResourceId.get(base.id) ?? []);
+    const node = withReplicas(baseWithPending, tasksByResourceId.get(base.id) ?? []);
     return hasPublicRoute(r)
       ? [buildRouteNode(r, node.data.status ?? "running"), node]
       : [node];
   });
+
+  if (!pending || pending.creates.length === 0) return realNodes;
+
+  // Synthesize ghost nodes for staged creates so the graph reflects
+  // operator intent, not just current state. They get a synthetic ID
+  // (`pending:${resource}:${name}`) since no resourceId exists yet.
+  const ghosts: LiveNode[] = pending.creates.map((c) => ({
+    id: `pending:${c.resource}:${c.name}`,
+    type: "resource",
+    position: { x: 0, y: 0 },
+    data: {
+      kind: c.resource,
+      name: c.name,
+      description: c.resource === "database" ? "pending create" : "pending create",
+      pending: "create",
+    } as ResourceNodeData,
+  }));
+  return [...realNodes, ...ghosts];
+};
 
 /** Synthetic route → service edges for every publicly-exposed service. */
 export const buildRouteEdges = (resources: Resource[]): Edge[] =>
