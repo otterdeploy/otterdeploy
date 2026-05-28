@@ -1,40 +1,49 @@
 import { defineCommand } from "citty";
 import { consola } from "consola";
 
+import { ensureAuthenticated } from "../auth-flow";
 import { createCliClient } from "../client";
-import { resolveToken, resolveUrl } from "../config";
-import { MANIFEST_FILENAME, manifestExists, writeManifestFile } from "../manifest-file";
+import {
+  DEFAULT_CONFIG_FILENAME,
+  configExists,
+  configPath,
+  writeConfigTemplate,
+} from "../config-file";
 
 export const initCommand = defineCommand({
   meta: {
     name: "init",
-    description: `Create an ${MANIFEST_FILENAME} in the current directory and link it to a project`,
+    description: `Scaffold an ${DEFAULT_CONFIG_FILENAME} template`,
   },
   args: {
     name: { type: "string", description: "Project display name (prompted if omitted)" },
     slug: { type: "string", description: "Project slug" },
     url: { type: "string", description: "Override control plane URL" },
-    force: { type: "boolean", description: `Overwrite an existing ${MANIFEST_FILENAME}` },
+    config: {
+      type: "string",
+      description: `Path to config file (default: ${DEFAULT_CONFIG_FILENAME})`,
+    },
+    yes: { type: "boolean", description: "Skip confirmation prompts" },
   },
   async run({ args }) {
-    if (manifestExists() && !args.force) {
-      consola.error(`${MANIFEST_FILENAME} already exists. Re-run with --force to overwrite.`);
-      process.exit(1);
+    const path = configPath(args.config);
+    if (configExists(args.config) && !args.yes) {
+      const ok = await consola.prompt(`${path} already exists. Overwrite?`, {
+        type: "confirm",
+        initial: false,
+      });
+      if (!ok) {
+        consola.info("Aborted.");
+        process.exit(1);
+      }
     }
 
-    const url = resolveUrl(args.url);
-    const token = resolveToken();
-    if (!url || !token) {
-      consola.error("Not logged in. Run `otterdeploy login <url>`.");
-      process.exit(1);
-    }
+    const { url, token } = await ensureAuthenticated(args.url);
     const client = createCliClient({ url, token });
 
     const slug = args.slug ?? (await consola.prompt("Project slug:", { type: "text" }));
     const name = args.name ?? slug;
 
-    // Link to existing or create. project.create returns CONFLICT if the
-    // slug is taken in this org — fall back to fetching the existing row.
     let project: { id: string; slug: string };
     try {
       project = await client.project.create({ name, slug });
@@ -46,15 +55,13 @@ export const initCommand = defineCommand({
       consola.info(`Linked to existing project ${slug}`);
     }
 
-    const path = writeManifestFile({
-      $schema: `${url.replace(/\/$/, "")}/otterstack.schema.json`,
-      version: 1,
-      project: project.slug,
-      services: {},
-      databases: {},
-    } as never);
+    writeConfigTemplate({
+      path,
+      schemaUrl: `${url.replace(/\/$/, "")}/otterstack.schema.json`,
+      projectSlug: project.slug,
+    });
 
     consola.success(`Wrote ${path}`);
-    consola.info("Next: edit the file, then run `otterdeploy deploy`.");
+    consola.info("Next: edit the file, then run `otterdeploy sync`.");
   },
 });

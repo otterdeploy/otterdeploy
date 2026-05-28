@@ -1,36 +1,25 @@
 #!/usr/bin/env bun
 import { defineCommand, runMain } from "citty";
 
-import { addCommand } from "./commands/add";
-import { deployCommand } from "./commands/deploy";
-import { envCommand } from "./commands/env";
-import { exportCommand } from "./commands/export";
+import { destroyCommand } from "./commands/destroy";
 import { initCommand } from "./commands/init";
-import { loginCommand } from "./commands/login";
-import { logoutCommand } from "./commands/logout";
-import { logsCommand } from "./commands/logs";
-import { projectCommand } from "./commands/project";
-import { pullCommand } from "./commands/pull";
-import { whoamiCommand } from "./commands/whoami";
+import { previewCommand } from "./commands/preview";
+import { statusCommand } from "./commands/status";
+import { syncCommand } from "./commands/sync";
 
 const main = defineCommand({
   meta: {
     name: "otterdeploy",
     version: "0.0.0",
-    description: "CLI for otterdeploy",
+    description:
+      "Declarative CLI for otterdeploy. Define your project in otterdeploy.config.ts, then sync.",
   },
   subCommands: {
-    login: loginCommand,
-    logout: logoutCommand,
-    whoami: whoamiCommand,
     init: initCommand,
-    add: addCommand,
-    deploy: deployCommand,
-    pull: pullCommand,
-    export: exportCommand,
-    env: envCommand,
-    logs: logsCommand,
-    project: projectCommand,
+    sync: syncCommand,
+    preview: previewCommand,
+    status: statusCommand,
+    destroy: destroyCommand,
   },
 });
 
