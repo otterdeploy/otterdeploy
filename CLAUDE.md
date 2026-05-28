@@ -50,10 +50,12 @@ This file provides context about the project for AI assistants.
 otterstack/
 ├── apps/
 │   ├── web/         # Frontend application
-│   └── server/      # Backend API
+│   ├── server/      # Backend API
+│   ├── builder/     # BullMQ build worker — git-sourced services
+│   └── cli/         # End-user CLI (`otterdeploy`)
 ├── packages/
-│   ├── api/         # API layer
-│   ├── auth/        # Authentication
+│   ├── api/         # API layer (oRPC contracts + handlers + manifest schema)
+│   ├── auth/        # Authentication (better-auth)
 │   ├── db/          # Database schema
 │   ├── email/       # Email (Resend) client & templates
 │   └── jobs/        # Job queue (BullMQ) — workers, triggers, registry

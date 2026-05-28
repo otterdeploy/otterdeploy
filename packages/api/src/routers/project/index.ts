@@ -34,6 +34,7 @@ import { loadManifest, resolvedManifest, saveManifest } from "./manifest";
 import { applyManifest } from "./manifest-apply";
 import { loadCurrentState } from "./manifest-state";
 import { diffManifest } from "../../stack/manifest";
+import { renderProjectFromRows, toComposeYaml } from "../../stack/render";
 import { tailProjectLogs } from "./project-logs";
 
 export const projectRouter = {
@@ -629,6 +630,21 @@ export const projectRouter = {
         const current = await loadCurrentState(input.projectId);
         const changes = diffManifest(resolved, current);
         return { resolved, changes };
+      },
+    ),
+
+    export: orgScopedProcedure.project.manifest.export.handler(
+      async ({ input, context, errors }) => {
+        context.log.set({ target: { type: "project", id: input.projectId } });
+        // Authorize by loading the project for the org first; the
+        // renderer reads by projectId without a tenant check itself.
+        const projectRow = await getProject({
+          id: input.projectId,
+          organizationId: context.activeOrganizationId,
+        });
+        if (projectRow.isErr()) throw errors.NOT_FOUND();
+        const file = await renderProjectFromRows(input.projectId);
+        return { yaml: toComposeYaml(file) };
       },
     ),
 

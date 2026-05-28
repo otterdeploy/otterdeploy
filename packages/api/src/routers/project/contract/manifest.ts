@@ -74,6 +74,14 @@ export const manifestApplyOutput = z.object({
   lastAppliedAt: z.string(),
 });
 
+export const manifestExportInput = z.object({
+  projectId: getProjectInput.shape.id,
+});
+
+export const manifestExportOutput = z.object({
+  yaml: z.string(),
+});
+
 const conflict = {
   CONFLICT: {
     status: 409,
@@ -102,4 +110,13 @@ export const manifestContractSlice = {
     .meta({ path: `${basePath}/{projectId}/manifest/apply`, tag, method: "POST" })
     .input(manifestApplyInput)
     .output(manifestApplyOutput),
+  // One-way render of the current resource graph as a deployable
+  // docker-compose stack file. Disaster-recovery / local-dev / audit
+  // escape hatch; not a roundtrip — secret values are resolved in the
+  // output and ${database:…} / ${service:…} refs are inlined.
+  export: oc
+    .errors(projectNotFoundErrors)
+    .meta({ path: `${basePath}/{projectId}/manifest/compose`, tag, method: "GET" })
+    .input(manifestExportInput)
+    .output(manifestExportOutput),
 };
