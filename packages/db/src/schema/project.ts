@@ -61,6 +61,16 @@ export const project = pgTable(
     stackFileVersion: integer("stack_file_version").notNull().default(0),
     lastAppliedFile: text("last_applied_file"),
     lastAppliedAt: timestamp("last_applied_at"),
+    // JSON-native declarative manifest — CLI-facing source of truth.
+    // Lives alongside `stackFile` while the compose-shaped storage is
+    // phased out; the renderer can still emit compose from this column.
+    // `manifestVersion` is a monotonic counter for optimistic locking on
+    // writes (separate from stackFileVersion so a YAML edit and a JSON
+    // edit don't accidentally race).
+    manifest: jsonb("manifest").$type<Record<string, unknown> | null>(),
+    manifestVersion: integer("manifest_version").notNull().default(0),
+    lastAppliedManifest: jsonb("last_applied_manifest").$type<Record<string, unknown> | null>(),
+    lastManifestAppliedAt: timestamp("last_manifest_applied_at"),
     // Per-project domain override. When set + verified, this project's
     // resources land under it instead of the org's baseDomain — e.g. a
     // service `web` lands at `web.<customDomain>` (no project slug, since

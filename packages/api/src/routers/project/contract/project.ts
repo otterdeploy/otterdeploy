@@ -12,7 +12,16 @@ import { ID_PREFIX, zId, zSlug } from "@otterstack/shared/id";
 import { basePath, projectNotFoundErrors, tag } from "./shared";
 
 export const projectSchema = createSelectSchema(project)
-  .omit({ organizationId: true })
+  // Manifest payloads are read through `project.manifest.get`, not embedded
+  // in every project row — keeps list/get cheap and avoids shipping a
+  // potentially large jsonb on every navigation.
+  .omit({
+    organizationId: true,
+    manifest: true,
+    manifestVersion: true,
+    lastAppliedManifest: true,
+    lastManifestAppliedAt: true,
+  })
   .extend({
     id: zId(ID_PREFIX.project),
     environmentId: zId(ID_PREFIX.environment).nullable(),

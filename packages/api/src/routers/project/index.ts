@@ -30,6 +30,7 @@ import {
   updateProject,
   validatePostgresCreate,
 } from "./handlers";
+import { loadManifest, resolvedManifest, saveManifest } from "./manifest";
 import { tailProjectLogs } from "./project-logs";
 
 export const projectRouter = {
@@ -580,6 +581,88 @@ export const projectRouter = {
           ),
       },
     },
+  },
+
+  manifest: {
+    get: orgScopedProcedure.project.manifest.get.handler(
+      async ({ input, context, errors }) => {
+        context.log.set({ target: { type: "project", id: input.id } });
+        const row = await loadManifest({
+          projectId: input.id,
+          organizationId: context.activeOrganizationId,
+        });
+        if (!row) throw errors.NOT_FOUND();
+        return row;
+      },
+    ),
+
+    save: orgScopedProcedure.project.manifest.save.handler(
+      async ({ input, context, errors }) => {
+        context.log.set({ target: { type: "project", id: input.projectId } });
+        const outcome = await saveManifest(
+          {
+            projectId: input.projectId,
+            organizationId: context.activeOrganizationId,
+          },
+          { manifest: input.manifest, expectedVersion: input.expectedVersion },
+        );
+        if (outcome.ok) return { version: outcome.version };
+        if (outcome.reason === "not-found") throw errors.NOT_FOUND();
+        throw errors.CONFLICT();
+      },
+    ),
+
+    diff: orgScopedProcedure.project.manifest.diff.handler(
+      async ({ input, context }) => {
+        context.log.set({ target: { type: "project", id: input.projectId } });
+        const resolved = await resolvedManifest(
+          {
+            projectId: input.projectId,
+            organizationId: context.activeOrganizationId,
+          },
+          input.environment,
+        );
+        // Phase 4 will compute real changes from current resource state;
+        // Phase 3 returns an empty plan so the wire shape is stable.
+        return { resolved, changes: [] };
+      },
+    ),
+
+    apply: orgScopedProcedure.project.manifest.apply.handler(
+      async ({ input, context }) => {
+        context.log.set({ target: { type: "project", id: input.projectId } });
+        // Stub — real reconciler lands in Phase 4. Returning a successful
+        // shape with `skipped: all` keeps the CLI/UI working end-to-end
+        // and tells operators exactly why nothing happened.
+        const resolved = await resolvedManifest(
+          {
+            projectId: input.projectId,
+            organizationId: context.activeOrganizationId,
+          },
+          input.environment,
+        );
+        const skipped =
+          resolved
+            ? [
+                ...Object.keys(resolved.services).map((name) => ({
+                  resource: "service" as const,
+                  name,
+                  reason: "manifest.apply reconciler not implemented yet (Phase 4)",
+                })),
+                ...Object.keys(resolved.databases).map((name) => ({
+                  resource: "database" as const,
+                  name,
+                  reason: "manifest.apply reconciler not implemented yet (Phase 4)",
+                })),
+              ]
+            : [];
+        return {
+          appliedCount: 0,
+          skipped,
+          lastAppliedAt: new Date().toISOString(),
+        };
+      },
+    ),
   },
 
   logs: {

@@ -8,6 +8,9 @@
     "./*": {
       "default": "./src/*.ts"
     },
+    "./manifest": {
+      "default": "./src/stack/manifest/index.ts"
+    },
     "./caddy": {
       "default": "./src/caddy/index.ts"
     },

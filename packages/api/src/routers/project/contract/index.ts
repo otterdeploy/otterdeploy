@@ -19,6 +19,7 @@
 import { dependenciesContractSlice } from "./dependencies";
 import { deploymentsContractSlice } from "./deployments";
 import { logsContractSlice } from "./logs";
+import { manifestContractSlice } from "./manifest";
 import { postgresContractSlice } from "./postgres";
 import { projectContractSlice } from "./project";
 import { projectLogsContractSlice } from "./project-logs";
@@ -31,6 +32,7 @@ export const projectContract = {
   proxyRoute: proxyContractSlice,
   dependencies: dependenciesContractSlice,
   serviceTasks: serviceTasksContractSlice,
+  manifest: manifestContractSlice,
   ...projectLogsContractSlice,
   resource: {
     ...resourceContractSlice,
@@ -117,3 +119,13 @@ export {
   serviceTaskSchema,
   serviceTasksSchema,
 } from "./service-tasks";
+
+export {
+  manifestApplyInput,
+  manifestApplyOutput,
+  manifestDiffInput,
+  manifestDiffOutput,
+  manifestGetOutput,
+  manifestSaveInput,
+  manifestSaveOutput,
+} from "./manifest";

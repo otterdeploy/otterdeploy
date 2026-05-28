@@ -64,6 +64,13 @@
       "when": 1779946169167,
       "tag": "0008_project_slug_org_unique",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1779946531429,
+      "tag": "0009_project_manifest",
+      "breakpoints": true
     }
   ]
 }

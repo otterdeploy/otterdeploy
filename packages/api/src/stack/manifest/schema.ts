@@ -1,0 +1,214 @@
+/**
+ * Declarative manifest — JSON-native source of truth for a project's
+ * resources. Lives in `project.manifest` (jsonb) and on disk as
+ * `otterstack.json`. The CLI sends/receives this shape directly via the
+ * `manifest.*` oRPC contract.
+ *
+ * Differences from `../schema.ts` (compose-shaped `StackFile`):
+ *   - JSON-first; no docker-compose vocabulary.
+ *   - Services and databases live in named maps, not arrays.
+ *   - Discriminated unions: service `source` (image|git), database `engine`.
+ *   - Environment overrides ride a top-level `environments.<name>` block
+ *     and merge deeply onto the base; the compose `StackFile` carries one
+ *     rendered environment at a time.
+ *
+ * Compose YAML is still produced — as a one-way output of the renderer —
+ * for docker-stack escape hatch + local-dev use cases.
+ */
+
+import * as z from "zod";
+
+import { ID_PREFIX, zSlug } from "@otterstack/shared/id";
+
+import { parseRefs, ManifestRefError } from "./refs";
+
+export const MANIFEST_SCHEMA_VERSION = 1;
+
+// ── Shared primitives ──────────────────────────────────────────────────
+
+/**
+ * Env values are plain strings. Refs (`${secret}`, `${database:…}`,
+ * `${service:…}`) are valid contents — validated up-front so a typo in the
+ * grammar fails fast at manifest validation, not at deploy time.
+ */
+const envValue = z.string().superRefine((value, ctx) => {
+  try {
+    parseRefs(value);
+  } catch (error) {
+    if (error instanceof ManifestRefError) {
+      ctx.addIssue({ code: "custom", message: error.message });
+    } else {
+      throw error;
+    }
+  }
+});
+
+const envMap = z.record(z.string().regex(/^[A-Z_][A-Z0-9_]*$/, "env key must be UPPER_SNAKE"), envValue);
+
+const portSchema = z.object({
+  container: z.number().int().positive(),
+  protocol: z.enum(["tcp", "udp"]).optional(),
+  appProtocol: z.enum(["http", "tcp"]).optional(),
+  primary: z.boolean().optional(),
+  // Optional name; needed for `${service:foo.port.<name>}` references.
+  name: z.string().regex(/^[a-z][a-z0-9-]*$/).optional(),
+});
+
+const healthcheckSchema = z.object({
+  cmd: z.array(z.string()),
+  intervalMs: z.number().int().positive().optional(),
+  timeoutMs: z.number().int().positive().optional(),
+  retries: z.number().int().nonnegative().optional(),
+  startMs: z.number().int().nonnegative().optional(),
+});
+
+const resourcesSchema = z.object({
+  cpuLimit: z.number().nonnegative().optional(),
+  memoryMb: z.number().int().positive().optional(),
+  cpuReservation: z.number().nonnegative().optional(),
+  memoryReservationMb: z.number().int().positive().optional(),
+});
+
+const restartSchema = z.object({
+  condition: z.enum(["none", "on-failure", "any"]),
+  maxAttempts: z.number().int().nonnegative().nullable().optional(),
+  delayMs: z.number().int().nonnegative().optional(),
+});
+
+// ── Service ─────────────────────────────────────────────────────────────
+
+const serviceCommonSchema = z.object({
+  replicas: z.number().int().nonnegative().optional(),
+  ports: z.array(portSchema).optional(),
+  env: envMap.optional(),
+  command: z.array(z.string()).nullable().optional(),
+  entrypoint: z.array(z.string()).nullable().optional(),
+  healthcheck: healthcheckSchema.nullable().optional(),
+  resources: resourcesSchema.optional(),
+  restart: restartSchema.optional(),
+});
+
+const imageServiceSchema = serviceCommonSchema.extend({
+  source: z.literal("image"),
+  image: z.string().min(1),
+});
+
+const gitServiceSchema = serviceCommonSchema.extend({
+  source: z.literal("git"),
+  sourceSubdir: z.string().nullable().optional(),
+});
+
+export const serviceSchema = z.discriminatedUnion("source", [
+  imageServiceSchema,
+  gitServiceSchema,
+]);
+export type ServiceManifest = z.infer<typeof serviceSchema>;
+
+// ── Databases ───────────────────────────────────────────────────────────
+//
+// Engine is the discriminator inside each database block. Each engine has
+// its own valid fields; unknown engine-specific keys are rejected.
+
+const databaseCommonSchema = z.object({
+  resources: resourcesSchema.optional(),
+  publicEnabled: z.boolean().optional(),
+  // Extra container env injected alongside the derived POSTGRES_* / etc.
+  // Same ref grammar as service env.
+  extraEnv: envMap.optional(),
+});
+
+const postgresSchema = databaseCommonSchema.extend({
+  engine: z.literal("postgres"),
+  version: z.string().min(1).optional(),
+  extensions: z.array(z.string()).optional(),
+});
+
+const redisSchema = databaseCommonSchema.extend({
+  engine: z.literal("redis"),
+  version: z.string().min(1).optional(),
+  maxmemoryPolicy: z
+    .enum([
+      "noeviction",
+      "allkeys-lru",
+      "allkeys-lfu",
+      "allkeys-random",
+      "volatile-lru",
+      "volatile-lfu",
+      "volatile-random",
+      "volatile-ttl",
+    ])
+    .optional(),
+});
+
+const mariadbSchema = databaseCommonSchema.extend({
+  engine: z.literal("mariadb"),
+  version: z.string().min(1).optional(),
+});
+
+const mongodbSchema = databaseCommonSchema.extend({
+  engine: z.literal("mongodb"),
+  version: z.string().min(1).optional(),
+});
+
+export const databaseSchema = z.discriminatedUnion("engine", [
+  postgresSchema,
+  redisSchema,
+  mariadbSchema,
+  mongodbSchema,
+]);
+export type DatabaseManifest = z.infer<typeof databaseSchema>;
+
+// ── Named resource maps ────────────────────────────────────────────────
+//
+// Identity is the map key (the user-chosen name). Resource names share the
+// `resource.name` slug shape — lowercase letters, digits, dashes; starts
+// with a letter; <= 63 chars (matches docker service name limits).
+
+const resourceName = z.string().regex(/^[a-z][a-z0-9-]{0,62}$/, {
+  message: "resource name must be lowercase letters, digits, and dashes; 1–63 chars",
+});
+
+const servicesMap = z.record(resourceName, serviceSchema);
+const databasesMap = z.record(resourceName, databaseSchema);
+
+// ── Environment overrides ──────────────────────────────────────────────
+//
+// An environment block can redeclare any service/database with the same
+// discriminator. The CLI deep-merges these onto the base before sending.
+// Validation is intentionally permissive here — the *merged* result is
+// what the server validates strictly. This block validates only that
+// keys/types are well-formed, not that they're complete.
+
+const partialServiceSchema = z.union([
+  imageServiceSchema.partial(),
+  gitServiceSchema.partial(),
+  // Permits an override that doesn't declare `source` and just tweaks fields.
+  serviceCommonSchema,
+]);
+
+const partialDatabaseSchema = z.union([
+  postgresSchema.partial(),
+  redisSchema.partial(),
+  mariadbSchema.partial(),
+  mongodbSchema.partial(),
+  databaseCommonSchema,
+]);
+
+const environmentBlockSchema = z.object({
+  services: z.record(resourceName, partialServiceSchema).optional(),
+  databases: z.record(resourceName, partialDatabaseSchema).optional(),
+});
+export type EnvironmentOverride = z.infer<typeof environmentBlockSchema>;
+
+// ── Top-level manifest ─────────────────────────────────────────────────
+
+export const manifestSchema = z.object({
+  $schema: z.string().optional(),
+  version: z.literal(MANIFEST_SCHEMA_VERSION).optional(),
+  project: zSlug(ID_PREFIX.project),
+  services: servicesMap.default({}),
+  databases: databasesMap.default({}),
+  environments: z.record(z.string().min(1), environmentBlockSchema).optional(),
+});
+
+export type Manifest = z.infer<typeof manifestSchema>;
