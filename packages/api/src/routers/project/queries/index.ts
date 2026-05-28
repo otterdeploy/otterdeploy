@@ -10,7 +10,6 @@ export {
   createProjectRecord,
   deleteProjectRecord,
   getProjectById,
-  getProjectBySlug,
   getProjectBySlugInOrg,
   getProjectInOrg,
   getProjectRecord,

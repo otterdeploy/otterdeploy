@@ -48,7 +48,10 @@ export const project = pgTable(
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
-    slug: text("slug").notNull().unique(),
+    // Slug is unique per organization, not globally — two orgs can each have
+    // a project named "web". Enforced by the (organization_id, slug) unique
+    // index below.
+    slug: text("slug").notNull(),
     environmentId: text("environment_id").$type<EnvId>(),
     // Declarative stack file (compose-compatible YAML with x-otterstack
     // extensions). Source of truth migration — Phase 1 ships the column
@@ -92,7 +95,7 @@ export const project = pgTable(
       .notNull(),
   },
   (table) => [
-    index("project_slug_idx").on(table.slug),
+    uniqueIndex("project_org_slug_unique").on(table.organizationId, table.slug),
     index("project_organization_id_idx").on(table.organizationId),
     index("project_git_repo_id_idx").on(table.gitRepoId),
     index("project_container_registry_id_idx").on(table.containerRegistryId),

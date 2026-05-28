@@ -29,7 +29,6 @@ import {
 import {
   createProjectRecord,
   deleteProjectRecord,
-  getProjectBySlug,
   getProjectBySlugInOrg,
   getProjectInOrg,
   listDatabaseResourceRecords,
@@ -98,7 +97,11 @@ export async function createProject(
     environmentId?: Id<typeof ID_PREFIX.environment>;
   },
 ): Promise<Result<Project, ProjectConflictError>> {
-  const existing = await getProjectBySlug(input.slug);
+  // Slug uniqueness is org-scoped, so a sibling org owning the same slug is fine.
+  const existing = await getProjectBySlugInOrg({
+    slug: input.slug,
+    organizationId: input.organizationId,
+  });
 
   if (existing) {
     return Result.err(new ProjectConflictError({ slug: input.slug }));

@@ -57,6 +57,13 @@
       "when": 1779945755259,
       "tag": "0007_device_code_table",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1779946169167,
+      "tag": "0008_project_slug_org_unique",
+      "breakpoints": true
     }
   ]
 }

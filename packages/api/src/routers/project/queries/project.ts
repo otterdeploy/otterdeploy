@@ -67,11 +67,6 @@ export async function getProjectById(projectId: ProjectId) {
 /** Alias for getProjectById — kept so existing call sites continue to read naturally. */
 export const getProjectRecord = getProjectById;
 
-export async function getProjectBySlug(slug: string) {
-  const [record] = await db.select().from(project).where(eq(project.slug, slug)).limit(1);
-  return record;
-}
-
 export async function getProjectBySlugInOrg(input: {
   slug: string;
   organizationId: Id<typeof ID_PREFIX.organization>;
