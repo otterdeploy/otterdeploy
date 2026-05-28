@@ -29,6 +29,13 @@ function sortDeep(value: SortableValue): SortableValue {
   return out;
 }
 
+// Compose labels carry the *queryable* identity bits — fields a Docker
+// operator can filter by (`docker service ls --filter
+// label=otterdeploy.project.id=…`). Everything else (publicEnabled,
+// publicHostname, preDeploy, buildConfig, etc.) lives in the
+// `x-otterdeploy` extension block, with native types and the same
+// camelCase shape as the rest of the codebase. Don't duplicate fields
+// between the two — pick one home per field.
 function extensionLabels(
   x: StackOtterdeployExtension,
 ): Record<string, string> {
@@ -38,10 +45,6 @@ function extensionLabels(
     "otterdeploy.project.id": x.projectId,
   };
   if (x.engine) labels["otterdeploy.engine"] = x.engine;
-  if (x.publicEnabled !== undefined) {
-    labels["otterdeploy.public.enabled"] = x.publicEnabled ? "true" : "false";
-  }
-  if (x.publicHostname) labels["otterdeploy.public.hostname"] = x.publicHostname;
   return labels;
 }
 

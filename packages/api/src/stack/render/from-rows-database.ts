@@ -75,7 +75,12 @@ export function buildDatabaseService(
       resourceId: row.resource.id,
       projectId: row.resource.projectId,
       publicEnabled: row.database.publicEnabled,
-      publicHostname: row.database.publicHostname,
+      // Only emit the hostname when public access is actually on. A
+      // stale `publicHostname` on a private resource is just noise and
+      // misleads readers into thinking the resource is reachable.
+      ...(row.database.publicEnabled && row.database.publicHostname
+        ? { publicHostname: row.database.publicHostname }
+        : {}),
     },
   };
 }

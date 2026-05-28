@@ -112,7 +112,11 @@ export function buildServiceEntry(
       resourceId: record.resource.id,
       projectId: record.resource.projectId,
       publicEnabled: s.publicEnabled,
-      publicHostname: s.publicDomain ?? undefined,
+      // Only emit hostname when public is actually on; a stale
+      // hostname on a private service is noise + misleading.
+      ...(s.publicEnabled && s.publicDomain
+        ? { publicHostname: s.publicDomain }
+        : {}),
       preDeploy: s.preDeploy ?? undefined,
       buildConfig: s.buildConfig ?? undefined,
       diskLimitMb: s.diskLimitMb ?? undefined,
