@@ -111,6 +111,12 @@ export const auth = betterAuth({
       // Accept any client_id for now — the CLI sends "otterdeploy-cli".
       // Tighten when we ship third-party integrations.
       validateClient: async () => true,
+      // Required by the plugin's option schema even though the docs
+      // example omits it — `schema` is declared without `.optional()`,
+      // so leaving it out throws a ZodError at registration. Empty
+      // object means "use the plugin's default table + field names"
+      // (we hand-rolled the matching deviceCode table in db/schema/auth.ts).
+      schema: {},
     }),
     organization({
       allowUserToCreateOrganization: true,
