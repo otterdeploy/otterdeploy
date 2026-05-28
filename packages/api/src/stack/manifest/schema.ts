@@ -19,6 +19,7 @@
 import * as z from "zod";
 
 import { ID_PREFIX, zSlug } from "@otterstack/shared/id";
+import type { BuildConfig } from "@otterstack/shared/build-config";
 
 import { parseRefs, ManifestRefError } from "./refs";
 
@@ -67,13 +68,81 @@ const resourcesSchema = z.object({
   memoryMb: z.number().int().positive().optional(),
   cpuReservation: z.number().nonnegative().optional(),
   memoryReservationMb: z.number().int().positive().optional(),
+  diskMb: z.number().int().positive().optional(),
+  swapMb: z.number().int().positive().optional(),
+  pidsLimit: z.number().int().positive().optional(),
 });
 
 const restartSchema = z.object({
   condition: z.enum(["none", "on-failure", "any"]),
   maxAttempts: z.number().int().nonnegative().nullable().optional(),
   delayMs: z.number().int().nonnegative().optional(),
+  // Window (ms) over which `maxAttempts` is counted when condition is
+  // `on-failure`. Matches docker swarm's restart_policy.window. Outside
+  // the window, the failure counter resets to zero.
+  windowMs: z.number().int().nonnegative().optional(),
 });
+
+// Build config — only meaningful for git-sourced services. Discriminated
+// by `builder`; each variant carries only the fields that builder
+// honors. All path fields are repo-relative; they're applied relative
+// to `sourceSubdir` if that's set.
+//
+// `watchPatterns` is shared across all builders — globs against changed
+// paths in a push event; a push only triggers a redeploy if at least
+// one path matches. When unset, every push redeploys.
+const watchPatterns = z.array(z.string()).optional();
+
+// Auto-detect: inspect the repo (Dockerfile present → dockerfile;
+// language markers → nixpacks; else railpack). No other config needed.
+const buildAutoSchema = z.object({
+  builder: z.literal("auto"),
+  watchPatterns,
+});
+
+// Dockerfile: build from a Dockerfile in the repo. dockerfilePath
+// defaults to ./Dockerfile (relative to sourceSubdir if set).
+const buildDockerfileSchema = z.object({
+  builder: z.literal("dockerfile"),
+  dockerfilePath: z.string().nullable().optional(),
+  watchPatterns,
+});
+
+// Nixpacks: zero-config builder; buildCommand overrides the detected
+// build step. nixpacksConfigPath points at an optional nixpacks.toml.
+const buildNixpacksSchema = z.object({
+  builder: z.literal("nixpacks"),
+  buildCommand: z.string().nullable().optional(),
+  nixpacksConfigPath: z.string().nullable().optional(),
+  watchPatterns,
+});
+
+// Railpack: nixpacks-like, different generator. buildCommand overrides
+// the detected build step.
+const buildRailpackSchema = z.object({
+  builder: z.literal("railpack"),
+  buildCommand: z.string().nullable().optional(),
+  watchPatterns,
+});
+
+// Compose: build/orchestrate from a docker-compose file. composePath
+// defaults to ./docker-compose.yml (relative to sourceSubdir if set).
+const buildComposeSchema = z.object({
+  builder: z.literal("compose"),
+  composePath: z.string().nullable().optional(),
+  watchPatterns,
+});
+
+// Constrained to match the shared `BuildConfig` discriminated union —
+// the `satisfies` ensures the zod inferred type stays in lockstep with
+// the canonical TS type defined in `@otterstack/shared/build-config`.
+export const buildSchema = z.discriminatedUnion("builder", [
+  buildAutoSchema,
+  buildDockerfileSchema,
+  buildNixpacksSchema,
+  buildRailpackSchema,
+  buildComposeSchema,
+]) satisfies z.ZodType<BuildConfig>;
 
 // ── Service ─────────────────────────────────────────────────────────────
 
@@ -81,11 +150,18 @@ const serviceCommonSchema = z.object({
   replicas: z.number().int().nonnegative().optional(),
   ports: z.array(portSchema).optional(),
   env: envMap.optional(),
-  command: z.array(z.string()).nullable().optional(),
+  // Exec-form start command. Array, not string — `["bun", "run", "start"]`
+  // not `"bun run start"`. Wrap shell expressions yourself if you need them:
+  // `["sh", "-c", "x && y"]`.
+  startCommand: z.array(z.string()).nullable().optional(),
   entrypoint: z.array(z.string()).nullable().optional(),
   healthcheck: healthcheckSchema.nullable().optional(),
   resources: resourcesSchema.optional(),
   restart: restartSchema.optional(),
+  // Lifecycle hook — runs once after the build finishes but before the
+  // new replicas take traffic. Most common use: db migrations. Same
+  // exec-form shape as startCommand.
+  preDeploy: z.array(z.string()).nullable().optional(),
 });
 
 const imageServiceSchema = serviceCommonSchema.extend({
@@ -96,6 +172,7 @@ const imageServiceSchema = serviceCommonSchema.extend({
 const gitServiceSchema = serviceCommonSchema.extend({
   source: z.literal("git"),
   sourceSubdir: z.string().nullable().optional(),
+  build: buildSchema.optional(),
 });
 
 export const serviceSchema = z.discriminatedUnion("source", [

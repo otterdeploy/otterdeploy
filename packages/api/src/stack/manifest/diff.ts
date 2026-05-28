@@ -7,6 +7,8 @@
  * truthful preview before committing to apply.
  */
 
+import type { BuildConfig } from "@otterstack/shared/build-config";
+
 import type { Manifest, ServiceManifest, DatabaseManifest } from "./schema";
 
 export type ChangeKind = "create" | "update" | "delete" | "no-op";
@@ -44,6 +46,14 @@ export interface CurrentService {
   ports: CurrentServicePort[];
   env: Record<string, string>;
   publicEnabled: boolean;
+  // New manifest-tracked fields. Null/undefined means "not set on the
+  // current resource"; diff treats them like any other field.
+  preDeploy: string[] | null;
+  buildConfig: BuildConfig | null;
+  restartWindowMs: number | null;
+  diskLimitMb: number | null;
+  swapLimitMb: number | null;
+  pidsLimit: number | null;
 }
 
 export interface CurrentDatabase {
@@ -162,7 +172,7 @@ function diffService(name: string, desired: ServiceManifest, current: CurrentSer
     fieldChanges.replicas = { from: current.replicas, to: desiredReplicas };
   }
 
-  const desiredCmd = desired.command ?? null;
+  const desiredCmd = desired.startCommand ?? null;
   if (!sameStringArray(desiredCmd, current.command)) {
     fieldChanges.command = { from: current.command, to: desiredCmd };
   }
@@ -173,6 +183,36 @@ function diffService(name: string, desired: ServiceManifest, current: CurrentSer
 
   const portsDiff = diffPorts(desired.ports ?? [], current.ports);
   if (portsDiff) fieldChanges.ports = portsDiff;
+
+  const desiredPreDeploy = desired.preDeploy ?? null;
+  if (!sameStringArray(desiredPreDeploy, current.preDeploy)) {
+    fieldChanges.preDeploy = { from: current.preDeploy, to: desiredPreDeploy };
+  }
+
+  const desiredRestartWindow = desired.restart?.windowMs ?? null;
+  if (desiredRestartWindow !== current.restartWindowMs) {
+    fieldChanges.restartWindowMs = { from: current.restartWindowMs, to: desiredRestartWindow };
+  }
+
+  const desiredDisk = desired.resources?.diskMb ?? null;
+  if (desiredDisk !== current.diskLimitMb) {
+    fieldChanges.diskLimitMb = { from: current.diskLimitMb, to: desiredDisk };
+  }
+  const desiredSwap = desired.resources?.swapMb ?? null;
+  if (desiredSwap !== current.swapLimitMb) {
+    fieldChanges.swapLimitMb = { from: current.swapLimitMb, to: desiredSwap };
+  }
+  const desiredPids = desired.resources?.pidsLimit ?? null;
+  if (desiredPids !== current.pidsLimit) {
+    fieldChanges.pidsLimit = { from: current.pidsLimit, to: desiredPids };
+  }
+
+  if (desired.source === "git") {
+    const desiredBuild = desired.build ?? null;
+    if (!sameBuildConfig(desiredBuild, current.buildConfig)) {
+      fieldChanges.buildConfig = { from: current.buildConfig, to: desiredBuild };
+    }
+  }
 
   const envChanges = diffEnv(desired.env ?? {}, current.env);
   const out: Change[] = [];
@@ -363,6 +403,15 @@ function sameStringArray(a: string[] | null, b: string[] | null): boolean {
   if (a === null || b === null) return false;
   if (a.length !== b.length) return false;
   return a.every((v, i) => v === b[i]);
+}
+
+// Both shapes are small JSON blobs (≤ 6 fields). Deep-compare via stable
+// JSON; key order-sensitive but the manifest-write path always orders
+// keys the same way (discriminator first via the zod shape).
+function sameBuildConfig(a: BuildConfig | null, b: BuildConfig | null): boolean {
+  if (a === null && b === null) return true;
+  if (a === null || b === null) return false;
+  return JSON.stringify(a) === JSON.stringify(b);
 }
 
 function summarizeService(s: ServiceManifest): Record<string, unknown> {
