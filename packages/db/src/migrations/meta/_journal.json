@@ -50,6 +50,13 @@
       "when": 1779911001461,
       "tag": "0006_short_salo",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1779945755259,
+      "tag": "0007_device_code_table",
+      "breakpoints": true
     }
   ]
 }

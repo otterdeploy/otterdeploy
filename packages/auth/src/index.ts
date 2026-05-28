@@ -7,7 +7,7 @@ import { env } from "@otterstack/env/server";
 import { createId, ID_PREFIX, type IdPrefix } from "@otterstack/shared/id";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { organization } from "better-auth/plugins";
+import { bearer, deviceAuthorization, organization } from "better-auth/plugins";
 
 /**
  * Pick the org to make active on a fresh session. Prefers the org from the
@@ -99,6 +99,19 @@ export const auth = betterAuth({
   },
 
   plugins: [
+    // Honors `Authorization: Bearer <token>` on auth.api.getSession.
+    // Required by deviceAuthorization so CLI clients can authenticate.
+    bearer(),
+    // OAuth 2.0 Device Authorization Grant (RFC 8628). The CLI requests a
+    // user_code, prints it; the user approves it in a browser at the
+    // verificationUri; the CLI polls /device/token and receives an
+    // access_token used with bearer() above.
+    deviceAuthorization({
+      verificationUri: "/device",
+      // Accept any client_id for now — the CLI sends "otterdeploy-cli".
+      // Tighten when we ship third-party integrations.
+      validateClient: async () => true,
+    }),
     organization({
       allowUserToCreateOrganization: true,
       organizationLimit: 10,

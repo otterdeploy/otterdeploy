@@ -2,6 +2,7 @@ import { apiKeyClient } from "@better-auth/api-key/client";
 import { env } from "@otterstack/env/web";
 import {
   adminClient,
+  deviceAuthorizationClient,
   magicLinkClient,
   organizationClient,
 } from "better-auth/client/plugins";
@@ -14,6 +15,7 @@ export const authClient = createAuthClient({
     adminClient(),
     magicLinkClient(),
     apiKeyClient(),
+    deviceAuthorizationClient(),
   ],
 });
 

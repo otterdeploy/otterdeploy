@@ -1,0 +1,28 @@
+{
+  "name": "@otterstack/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "bin": {
+    "otterdeploy": "./src/index.ts"
+  },
+  "scripts": {
+    "check-types": "tsc -b",
+    "dev": "bun run --hot src/index.ts",
+    "start": "bun run src/index.ts"
+  },
+  "dependencies": {
+    "@orpc/client": "catalog:",
+    "@otterstack/api": "workspace:*",
+    "better-auth": "catalog:",
+    "citty": "^0.1.6",
+    "consola": "^3.2.3",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@otterstack/config": "workspace:*",
+    "@types/bun": "catalog:",
+    "typescript": "catalog:"
+  }
+}

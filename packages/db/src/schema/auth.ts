@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm";
-import { pgTable, text, timestamp, boolean, index } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, boolean, integer, index } from "drizzle-orm/pg-core";
 import { createId, ID_PREFIX, type Id } from "@otterstack/shared/id";
 
 export const user = pgTable("user", {
@@ -65,6 +65,35 @@ export const account = pgTable(
       .notNull(),
   },
   (table) => [index("account_userId_idx").on(table.userId)],
+);
+
+// Device Authorization Grant (RFC 8628). One row per outstanding device-code
+// pairing — created when a CLI calls /device/code, claimed by the user from
+// a browser at /device, then exchanged for an access_token via /device/token.
+// Rows expire (default 30m) and are cleaned up by better-auth.
+export const deviceCode = pgTable(
+  "device_code",
+  {
+    id: text("id").primaryKey(),
+    deviceCode: text("device_code").notNull().unique(),
+    userCode: text("user_code").notNull().unique(),
+    userId: text("user_id"),
+    clientId: text("client_id"),
+    scope: text("scope"),
+    status: text("status").notNull().default("pending"),
+    expiresAt: timestamp("expires_at").notNull(),
+    lastPolledAt: timestamp("last_polled_at"),
+    pollingInterval: integer("polling_interval"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("device_code_user_code_idx").on(table.userCode),
+    index("device_code_device_code_idx").on(table.deviceCode),
+  ],
 );
 
 export const verification = pgTable(
