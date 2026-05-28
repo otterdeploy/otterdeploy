@@ -1,9 +1,7 @@
 import { Docker } from "@otterdeploy/docker";
 import { Result } from "better-result";
 import { log } from "evlog";
-import { type EvlogVariables } from "evlog/hono";
 import type { ServerWebSocket, Subprocess } from "bun";
-import type { Hono } from "hono";
 import { upgradeWebSocket } from "hono/bun";
 import type { WSContext } from "hono/ws";
 import type { Duplex } from "node:stream";
@@ -12,8 +10,8 @@ import {
   PtyMessageError,
   PtySpawnError,
   PtyTerminalUnavailableError,
-} from "./lib/errors";
-import { ClientMessage, type ServerMessage } from "./messages";
+} from "../lib/errors";
+import { ClientMessage, type ServerMessage } from "../messages";
 
 import { env as nodeEnv } from "node:process";
 
@@ -296,22 +294,16 @@ async function startShell(
 }
 
 // ---------------------------------------------------------------------------
-// Route
+// WebSocket handler — wired by index.ts:
+//   app.get("/pty", terminalWebSocketHandler);
+// Auth middleware (when re-enabled) sits in front of this and stashes
+// `userId` via c.set("userId", ...).
 // ---------------------------------------------------------------------------
 
-export function registerTerminalRoutes(app: Hono<EvlogVariables>): void {
-  app.get(
-    "/pty",
-    async (_c, next) => {
-      // const session = await auth.api.getSession({ headers: c.req.raw.headers });
-      // if (!session?.user) return c.text("unauthorized", 401);
-      // c.set("userId", session.user.id);
-      await next();
-    },
-    upgradeWebSocket((c) => {
-      const userId = c.get("userId") as string | undefined;
-      const containerId = c.req.query("container") || null;
-      const hostFlag = c.req.query("host") === "1";
+export const terminalWebSocketHandler = upgradeWebSocket((c) => {
+  const userId = c.get("userId") as string | undefined;
+  const containerId = c.req.query("container") || null;
+  const hostFlag = c.req.query("host") === "1";
 
       // Resolve the target up front. Exactly one of `?container=` or `?host=1`
       // must be present — never both, never neither.
@@ -448,6 +440,4 @@ export function registerTerminalRoutes(app: Hono<EvlogVariables>): void {
           state.backend = null;
         },
       };
-    }),
-  );
-}
+});

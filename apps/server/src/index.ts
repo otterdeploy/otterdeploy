@@ -19,13 +19,17 @@ import { upgradeWebSocket, websocket } from "hono/bun";
 import { cors } from "hono/cors";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { invalidate } from "./lib/invalidate";
-import { registerTerminalRoutes } from "./terminal";
-import { registerGithubWebhookRoutes } from "./webhooks/github";
-import { registerGithubInstallRoutes } from "./webhooks/github-install";
 
 import * as z from "zod";
 import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
-import { deploymentLogsSseHandler, projectEventsSseHandler } from "./handlers";
+import {
+  deploymentLogsSseHandler,
+  githubInstallCallbackHandler,
+  githubManifestCallbackHandler,
+  githubWebhookHandler,
+  projectEventsSseHandler,
+  terminalWebSocketHandler,
+} from "./handlers";
 import { requireSseSession } from "./lib/sse-auth";
 import { validateParams } from "./lib/validate";
 
@@ -182,12 +186,19 @@ app.get("/", (c) => {
   return c.text("OK");
 });
 
-registerTerminalRoutes(app);
-registerGithubWebhookRoutes(app);
-registerGithubInstallRoutes(app);
+// ─── Terminal websocket ────────────────────────────────────────────
+// Auth seam left here for when better-auth cookie verification is
+// re-enabled (handler reads c.var.userId).
+app.get("/pty", terminalWebSocketHandler);
 
-// SSE — cookie auth + zod-validated path params via middleware; the
-// handler files in ./handlers stay focused on the streaming protocol.
+// ─── GitHub webhooks + install callbacks ───────────────────────────
+app.post("/api/webhooks/github", githubWebhookHandler);
+app.get("/api/integrations/github/install/callback", githubInstallCallbackHandler);
+app.get("/api/integrations/github/manifest/callback", githubManifestCallbackHandler);
+
+// ─── SSE ───────────────────────────────────────────────────────────
+// Cookie auth + zod-validated path params via middleware; handler
+// files in ./handlers stay focused on the streaming protocol.
 app.get(
   "/sse/deployments/:deploymentId/logs",
   validateParams(z.object({ deploymentId: zId(ID_PREFIX.deployment) })),
