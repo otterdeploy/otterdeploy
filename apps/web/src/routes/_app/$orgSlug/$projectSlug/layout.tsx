@@ -8,6 +8,7 @@ import { envCollection } from "@/features/projects/data/env";
 import { projectCollection } from "@/features/projects/data/project";
 import { createResourceCollection } from "@/features/projects/data/resource";
 import { useProjectEvents } from "@/features/projects/hooks/use-project-events";
+import { PendingChangesBar } from "@/features/projects/components/pending-changes-bar";
 import { ProjectSidebar } from "@/features/shell/components/sidebar/project-sidebar";
 import { SidebarInset } from "@/shared/components/ui/sidebar";
 
@@ -101,6 +102,7 @@ function RouteComponent() {
       <SidebarInset>
         <Outlet />
       </SidebarInset>
+      <PendingChangesBar projectId={project.id} environment={envSlug} />
     </>
   );
 }
