@@ -14,7 +14,6 @@ import { DatabaseLogo } from "@/shared/components/brand/database-logo";
 import { cn } from "@/shared/lib/utils";
 
 import {
-  SectionHeader,
   builderCardClass,
   builderCardActiveClass,
   builderIconClass,
@@ -89,12 +88,7 @@ export function KindPicker({ value, onChange, initialTab }: KindPickerProps) {
 
   return (
     <>
-      <SectionHeader
-        title="What do you want to deploy?"
-        sub="Pick a service type to get a tailored creation flow"
-      />
-
-      <div className="mt-2.5 flex items-center border-b">
+      <div className="flex items-center border-b">
         {tabs.map(([id, ic]) => {
           const Ic = I[ic];
           const isActive = tab === id;

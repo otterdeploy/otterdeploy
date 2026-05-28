@@ -3,16 +3,12 @@
 import { Search01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ID_PREFIX, type Slug } from "@otterstack/shared/id";
-import { eq, useLiveQuery } from "@tanstack/react-db";
 import { Link, useLoaderData, useMatch } from "@tanstack/react-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ResourceOverlayDialog } from "@/features/projects/components/new-resource/new-resource-dialogs";
-import { envCollection } from "@/features/projects/data/env";
-import { Breadcrumbs } from "@/features/shell/components/breadcrumbs";
-import { EnvironmentCreateDialog } from "@/features/shell/components/environment-create-dialog";
-import { EnvironmentTabs } from "@/features/shell/components/environment-tabs";
+import { HeaderNav } from "@/features/shell/components/header-nav";
 import { ModeToggle } from "@/features/shell/components/mode-toggle";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
@@ -27,43 +23,23 @@ export function SiteHeader() {
   });
   const project = projectMatch?.loaderData?.project;
 
-  const { data: environments = [] } = useLiveQuery(
-    (q) => q.from({ e: envCollection }).where(({ e }) => eq(e.projectId, project?.id ?? "")),
-    [project?.id],
-  );
-
   const [overlayOpen, setOverlayOpen] = useState(false);
-  const [envCreateOpen, setEnvCreateOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 flex w-full items-center border-b bg-muted">
-      <div className="flex h-(--header-height) w-full items-center gap-3 px-3">
+    <header className="sticky top-0 z-50 flex w-full items-center bg-sidebar">
+      <div className="flex h-(--header-height) w-full items-center gap-2 px-3">
         <Link
           to="/$orgSlug"
           params={{ orgSlug: organization.slug }}
-          className="flex shrink-0 items-center gap-2"
+          className="flex shrink-0 items-center"
           aria-label="otterstack home"
         >
           <span className="grid size-7 place-items-center rounded-md bg-foreground text-[11px] font-semibold text-background lowercase">
             os
           </span>
-          <span className="text-sm font-medium">otterstack</span>
         </Link>
 
-        <Breadcrumbs className="hidden md:block" />
-
-        {project && environments.length > 0 && <EnvironmentTabs environments={environments} />}
-
-        {project && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 text-xs text-muted-foreground hover:text-foreground"
-            onClick={() => setEnvCreateOpen(true)}
-          >
-            + New environment
-          </Button>
-        )}
+        <HeaderNav />
 
         <div className="ml-auto flex items-center gap-2">
           <div className="relative hidden w-72 sm:block">
@@ -74,7 +50,10 @@ export function SiteHeader() {
             />
             <Input
               type="search"
-              placeholder={t("common.searchOrRun", "Search or run a command...")}
+              placeholder={t(
+                "common.searchOrRun",
+                "Search or run a command...",
+              )}
               className="h-8 bg-background pr-9 pl-8"
               aria-label={t("common.search")}
             />
@@ -97,14 +76,6 @@ export function SiteHeader() {
           )}
         </div>
       </div>
-
-      {project && (
-        <EnvironmentCreateDialog
-          projectId={project.id}
-          open={envCreateOpen}
-          onOpenChange={setEnvCreateOpen}
-        />
-      )}
 
       {project && (
         <ResourceOverlayDialog
