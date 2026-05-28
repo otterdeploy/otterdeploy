@@ -38,9 +38,11 @@ export async function handlePush(
   }
 
   const providerRepoId = String(ev.repository.node_id ?? ev.repository.id);
-  const repo = await db.query.gitRepo.findFirst({
-    where: eq(gitRepo.providerRepoId, providerRepoId),
-  });
+  const [repo] = await db
+    .select()
+    .from(gitRepo)
+    .where(eq(gitRepo.providerRepoId, providerRepoId))
+    .limit(1);
   if (!repo) {
     log.info({
       github: {
@@ -65,12 +67,15 @@ export async function handlePush(
     ? ev.ref.slice("refs/heads/".length)
     : ev.ref;
 
-  const projects = await db.query.project.findMany({
-    where: and(
-      eq(project.gitRepoId, repo.id),
-      eq(project.productionBranch, branch),
-    ),
-  });
+  const projects = await db
+    .select()
+    .from(project)
+    .where(
+      and(
+        eq(project.gitRepoId, repo.id),
+        eq(project.productionBranch, branch),
+      ),
+    );
 
   if (projects.length === 0) {
     return {

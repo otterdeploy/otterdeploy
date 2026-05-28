@@ -34,12 +34,16 @@ export const gitRouter = {
     async ({ input: _input, context, errors }) => {
       // The App slug is per-org, set when the manifest flow created the
       // provider row. No App → no slug → can't build an install URL.
-      const provider = await db.query.gitProvider.findFirst({
-        where: and(
-          eq(gitProvider.organizationId, context.activeOrganizationId),
-          eq(gitProvider.kind, "github"),
-        ),
-      });
+      const [provider] = await db
+        .select()
+        .from(gitProvider)
+        .where(
+          and(
+            eq(gitProvider.organizationId, context.activeOrganizationId),
+            eq(gitProvider.kind, "github"),
+          ),
+        )
+        .limit(1);
       if (!provider?.appSlug) {
         throw errors.NOT_CONFIGURED();
       }

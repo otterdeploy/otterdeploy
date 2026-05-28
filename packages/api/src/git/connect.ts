@@ -140,19 +140,22 @@ export async function disconnectGithubInstallation(args: {
   organizationId: OrganizationId;
   installationDbId: GitInstallationId;
 }): Promise<void> {
-  // Verify the installation belongs to a provider in this org.
-  const inst = await db.query.gitInstallation.findFirst({
-    where: eq(gitInstallation.id, args.installationDbId),
-    with: { provider: true },
-  });
-  if (!inst) return;
-  const providerOrg = await db.query.gitProvider.findFirst({
-    where: and(
-      eq(gitProvider.id, inst.providerId),
-      eq(gitProvider.organizationId, args.organizationId),
-    ),
-  });
-  if (!providerOrg) {
+  // Verify the installation belongs to a provider in this org. Done in
+  // a single join — RQB v2's `with` is unnecessary here because we
+  // never read the joined provider columns, just need the existence
+  // check.
+  const [match] = await db
+    .select({ installationId: gitInstallation.id })
+    .from(gitInstallation)
+    .innerJoin(gitProvider, eq(gitProvider.id, gitInstallation.providerId))
+    .where(
+      and(
+        eq(gitInstallation.id, args.installationDbId),
+        eq(gitProvider.organizationId, args.organizationId),
+      ),
+    )
+    .limit(1);
+  if (!match) {
     throw new Error("Installation does not belong to this organization");
   }
 

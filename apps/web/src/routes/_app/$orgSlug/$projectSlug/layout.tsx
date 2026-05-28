@@ -20,7 +20,7 @@ const zEnvSearch = z.object({ env: z.string().optional() });
 export const Route = createFileRoute("/_app/$orgSlug/$projectSlug")({
   component: RouteComponent,
   validateSearch: zEnvSearch,
-  params: { parse: zProjectSlugParam.parse },
+  params: { parse: (params) => zProjectSlugParam.parse(params) },
   loader: async ({ params }) => {
     await Promise.all([projectCollection.preload(), envCollection.preload()]);
     const project = projectCollection.toArray.find(
@@ -65,7 +65,7 @@ function RouteComponent() {
     [resourceCollection],
   );
 
-  const { data: environments = [] } = useLiveQuery(
+  const { data: environments } = useLiveQuery(
     (q) =>
       q
         .from({ e: envCollection })

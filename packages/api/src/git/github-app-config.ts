@@ -37,9 +37,11 @@ type OrgId = OrganizationId;
 export async function loadGithubAppForProvider(
   providerId: GitProviderId,
 ): Promise<GithubAppConfig> {
-  const row = await db.query.gitProvider.findFirst({
-    where: eq(gitProvider.id, providerId),
-  });
+  const [row] = await db
+    .select()
+    .from(gitProvider)
+    .where(eq(gitProvider.id, providerId))
+    .limit(1);
   if (!row) throw new GithubAppNotConfiguredError(`provider ${providerId} not found`);
   return rowToConfig(row);
 }
@@ -48,9 +50,11 @@ export async function loadGithubAppForProvider(
 export async function loadGithubAppForInstallation(
   installationId: string,
 ): Promise<GithubAppConfig> {
-  const inst = await db.query.gitInstallation.findFirst({
-    where: eq(gitInstallation.installationId, installationId),
-  });
+  const [inst] = await db
+    .select()
+    .from(gitInstallation)
+    .where(eq(gitInstallation.installationId, installationId))
+    .limit(1);
   if (!inst) {
     throw new GithubAppNotConfiguredError(
       `no installation row for ${installationId}`,
@@ -65,12 +69,16 @@ export async function loadGithubAppForInstallation(
 export async function loadGithubAppForOrgIfPresent(
   orgId: OrgId,
 ): Promise<GithubAppConfig | null> {
-  const row = await db.query.gitProvider.findFirst({
-    where: and(
-      eq(gitProvider.organizationId, orgId),
-      eq(gitProvider.kind, "github"),
-    ),
-  });
+  const [row] = await db
+    .select()
+    .from(gitProvider)
+    .where(
+      and(
+        eq(gitProvider.organizationId, orgId),
+        eq(gitProvider.kind, "github"),
+      ),
+    )
+    .limit(1);
   if (!row || !row.externalAppId || !row.privateKeyPemCiphertext) return null;
   return rowToConfig(row);
 }
@@ -84,9 +92,11 @@ export async function loadGithubAppForOrgIfPresent(
 export async function loadGithubAppByExternalAppIdForWebhook(
   externalAppId: string,
 ): Promise<GithubAppConfigWithWebhookSecret | null> {
-  const row = await db.query.gitProvider.findFirst({
-    where: eq(gitProvider.externalAppId, externalAppId),
-  });
+  const [row] = await db
+    .select()
+    .from(gitProvider)
+    .where(eq(gitProvider.externalAppId, externalAppId))
+    .limit(1);
   if (
     !row ||
     !row.externalAppId ||

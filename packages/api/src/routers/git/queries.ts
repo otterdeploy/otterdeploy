@@ -11,10 +11,11 @@ import { and, asc, eq, inArray, sql } from "drizzle-orm";
 export async function listProvidersForOrg(
   organizationId: OrganizationId,
 ) {
-  const providers = await db.query.gitProvider.findMany({
-    where: eq(gitProvider.organizationId, organizationId),
-    orderBy: asc(gitProvider.createdAt),
-  });
+  const providers = await db
+    .select()
+    .from(gitProvider)
+    .where(eq(gitProvider.organizationId, organizationId))
+    .orderBy(asc(gitProvider.createdAt));
   if (providers.length === 0) return [];
 
   const providerIds = providers.map((p) => p.id);

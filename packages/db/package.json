@@ -33,7 +33,7 @@
   "devDependencies": {
     "@otterdeploy/config": "workspace:*",
     "@types/pg": "^8.20.0",
-    "drizzle-kit": "^0.31.10",
+    "drizzle-kit": "^1.0.0-rc.3",
     "typescript": "catalog:"
   }
 }

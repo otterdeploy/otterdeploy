@@ -20,9 +20,11 @@ export async function handleInstallation(
   deliveryId: string,
 ): Promise<GithubWebhookResult> {
   const installationId = String(ev.installation.id);
-  const existing = await db.query.gitInstallation.findFirst({
-    where: eq(gitInstallation.installationId, installationId),
-  });
+  const [existing] = await db
+    .select()
+    .from(gitInstallation)
+    .where(eq(gitInstallation.installationId, installationId))
+    .limit(1);
 
   if (ev.action === "deleted") {
     if (!existing) {

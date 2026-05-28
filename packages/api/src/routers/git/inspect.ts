@@ -29,7 +29,7 @@
 
 import { gitInstallation } from "@otterdeploy/db/schema";
 
-import { Result } from "better-result";
+import { Result, TaggedError } from "better-result";
 
 import { db } from "@otterdeploy/db";
 import { gitRepo } from "@otterdeploy/db/schema";
@@ -37,36 +37,39 @@ import { eq } from "drizzle-orm";
 
 import { getInstallationToken } from "../../git/github-app";
 
-export class InspectRepoNotFoundError extends Error {
+// Tagged so the oRPC handler can dispatch via `matchError` — same shape
+// as ProjectNotFoundError etc. in routers/project/errors.ts.
+export class InspectRepoNotFoundError extends TaggedError(
+  "InspectRepoNotFoundError",
+)<{ message: string }>() {
   constructor() {
-    super("Repo not found");
-    this.name = "InspectRepoNotFoundError";
+    super({ message: "Repo not found" });
   }
 }
 
-export class InspectRepoUpstreamError extends Error {
-  constructor(
-    public readonly status: number,
-    message: string,
-  ) {
-    super(message);
-    this.name = "InspectRepoUpstreamError";
+export class InspectRepoUpstreamError extends TaggedError(
+  "InspectRepoUpstreamError",
+)<{ message: string; status: number }>() {
+  constructor(status: number, message: string) {
+    super({ status, message });
   }
 }
 
-export class InspectRepoRateLimitedError extends Error {
-  constructor(
-    /** Unix seconds when the limit resets (from X-RateLimit-Reset). */
-    public readonly resetsAt: number | null,
-    /** Whether we were authenticated when GitHub limited us. */
-    public readonly authenticated: boolean,
-  ) {
-    super(
-      authenticated
+export class InspectRepoRateLimitedError extends TaggedError(
+  "InspectRepoRateLimitedError",
+)<{
+  message: string;
+  resetsAt: number | null;
+  authenticated: boolean;
+}>() {
+  constructor(resetsAt: number | null, authenticated: boolean) {
+    super({
+      resetsAt,
+      authenticated,
+      message: authenticated
         ? "GitHub rate-limited the installation — try again in a few minutes."
         : "GitHub anonymous rate limit exceeded — connect the GitHub App for higher limits, or wait a few minutes.",
-    );
-    this.name = "InspectRepoRateLimitedError";
+    });
   }
 }
 

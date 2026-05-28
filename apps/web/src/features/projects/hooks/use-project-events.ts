@@ -17,7 +17,7 @@
  * payloads through this channel so the SSE bandwidth stays trivial.
  */
 
-import type { ProjectId } from "@otterdeploy/shared/id";
+import { type ProjectId, type ResourceId, zId } from "@otterdeploy/shared/id";
 
 import { useEffect } from "react";
 
@@ -26,26 +26,30 @@ import { useQueryClient } from "@tanstack/react-query";
 import { env } from "@otterdeploy/env/web";
 import { orpc } from "@/shared/server/orpc";
 
-interface ResourceEvent {
-  kind: "resource";
-  action: "created" | "updated" | "removed";
-  resourceId: string;
-}
-interface TaskEvent {
-  kind: "task";
-  action: string;
-  resourceId: string;
-  taskId: string;
-  state: string | null;
-}
-interface ContainerEvent {
-  kind: "container";
-  action: string;
-  resourceId: string;
-  containerId: string;
-}
+import * as z from "zod/v4";
 
-export function useProjectEvents(projectId: ProjectId | null | undefined): void {
+const resourceEventSchema = z.object({
+  kind: z.literal("resource"),
+  action: z.enum(["created", "updated", "removed"]),
+  resourceId: zId("resource"),
+});
+
+const taskEventSchema = z.object({
+  kind: z.literal("task"),
+  action: z.string(),
+  resourceId: zId("resource"),
+  taskId: z.string(),
+  state: z.string().nullable(),
+});
+
+const containerEventSchema = z.object({
+  kind: z.literal("container"),
+  action: z.string(),
+  resourceId: zId("resource"),
+  containerId: z.string(),
+});
+
+export function useProjectEvents(projectId?: ProjectId | null): void {
   const qc = useQueryClient();
 
   useEffect(() => {
@@ -57,51 +61,59 @@ export function useProjectEvents(projectId: ProjectId | null | undefined): void 
     // Per-resource invalidations — narrow to the affected resource's
     // queries so other resources' caches stay warm. Each call is a
     // no-op if no consumer is mounted.
-    const bumpResource = (resourceId: string) => {
+    const bumpResource = (resourceId: ResourceId) => {
       void qc.invalidateQueries({
         queryKey: orpc.project.resource.get.queryKey({
-          input: { projectId, resourceId: resourceId as never },
+          input: { projectId, resourceId },
         }),
       });
       void qc.invalidateQueries({
         queryKey: orpc.project.resource.tasks.queryKey({
-          input: { projectId, resourceId: resourceId as never },
+          input: { projectId, resourceId },
         }),
       });
       void qc.invalidateQueries({
         queryKey: orpc.project.resource.deployments.list.queryKey({
-          input: { projectId, resourceId: resourceId as never },
+          input: { projectId, resourceId },
         }),
       });
     };
 
     es.addEventListener("resource", (e) => {
-      const event = parse<ResourceEvent>(e);
+      const event = parseEvent(e, resourceEventSchema);
       if (!event) return;
       bumpResource(event.resourceId);
       if (event.action === "created" || event.action === "removed") {
         // List membership changed — bounce the project-wide views so a
         // new card appears or a removed one disappears.
         void qc.invalidateQueries({
-          queryKey: orpc.project.resource.list.queryKey({ input: { projectId } }),
+          queryKey: orpc.project.resource.list.queryKey({
+            input: { projectId },
+          }),
         });
         void qc.invalidateQueries({
-          queryKey: orpc.project.dependencies.queryKey({ input: { projectId } }),
+          queryKey: orpc.project.dependencies.queryKey({
+            input: { projectId },
+          }),
         });
         void qc.invalidateQueries({
-          queryKey: orpc.project.serviceTasks.queryKey({ input: { projectId } }),
+          queryKey: orpc.project.serviceTasks.queryKey({
+            input: { projectId },
+          }),
         });
       }
     });
 
     es.addEventListener("task", (e) => {
-      const event = parse<TaskEvent>(e);
-      if (event) bumpResource(event.resourceId);
+      const event = parseEvent(e, taskEventSchema);
+      if (!event) return;
+      bumpResource(event.resourceId);
     });
 
     es.addEventListener("container", (e) => {
-      const event = parse<ContainerEvent>(e);
-      if (event) bumpResource(event.resourceId);
+      const event = parseEvent(e, containerEventSchema);
+      if (!event) return;
+      bumpResource(event.resourceId);
     });
 
     // Heartbeat & error frames — log only, EventSource auto-reconnects.
@@ -120,12 +132,29 @@ export function useProjectEvents(projectId: ProjectId | null | undefined): void 
   }, [projectId, qc]);
 }
 
-function parse<T>(event: MessageEvent): T | null {
+/**
+ * Decode the SSE frame's `data` field and validate it against `schema`
+ * in one shot. Returns the parsed value typed by the schema, or `null`
+ * if the payload didn't parse as JSON or didn't match — errors are
+ * logged once and swallowed so one malformed frame can't take down the
+ * subscription.
+ */
+function parseEvent<TSchema extends z.ZodType>(
+  e: MessageEvent,
+  schema: TSchema,
+): z.infer<TSchema> | null {
+  let raw: unknown;
   try {
-    return JSON.parse(event.data) as T;
+    raw = JSON.parse(e.data);
   } catch {
     return null;
   }
+  const { data, error } = schema.safeParse(raw);
+  if (error) {
+    console.error("[project-events] invalid event payload", error);
+    return null;
+  }
+  return data;
 }
 
 function sseUrl(projectId: ProjectId): string {

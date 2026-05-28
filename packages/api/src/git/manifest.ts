@@ -236,12 +236,15 @@ export async function completeManifestExchange(opts: {
  *  populated — UI uses this to skip the manifest step and go straight to
  *  the install URL. */
 export async function orgHasGithubApp(orgId: OrgId): Promise<boolean> {
-  const row = await db.query.gitProvider.findFirst({
-    where: and(
-      eq(gitProvider.organizationId, orgId),
-      eq(gitProvider.kind, "github"),
-    ),
-    columns: { externalAppId: true },
-  });
+  const [row] = await db
+    .select({ externalAppId: gitProvider.externalAppId })
+    .from(gitProvider)
+    .where(
+      and(
+        eq(gitProvider.organizationId, orgId),
+        eq(gitProvider.kind, "github"),
+      ),
+    )
+    .limit(1);
   return Boolean(row?.externalAppId);
 }
