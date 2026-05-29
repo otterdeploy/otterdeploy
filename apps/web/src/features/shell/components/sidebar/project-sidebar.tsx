@@ -36,7 +36,11 @@ import { EnvironmentSelector } from "./environment-selector";
 import { StatusDot, type NavItem, type Status } from "./index";
 
 const navItems = [
-  { titleKey: "nav.overview", href: "/$orgSlug/$projectSlug", icon: Home01Icon },
+  {
+    titleKey: "nav.overview",
+    href: "/$orgSlug/$projectSlug",
+    icon: Home01Icon,
+  },
   {
     titleKey: "nav.graph",
     href: "/$orgSlug/$projectSlug/graph",
@@ -96,6 +100,13 @@ const services = [
   { name: "imgproxy", status: "ok" },
 ] as const satisfies ReadonlyArray<{ name: string; status: Status }>;
 
+/**
+ * Single sidebar for both org-level and project-level routes. Pass
+ * `project={undefined}` from the org layout (no project active) — the
+ * project-section items are hidden and only the org switcher + footer
+ * render. Replaces the old `OrganizationSidebar` so the app has one
+ * dashboard shell, not two.
+ */
 export function ProjectSidebar({
   user,
   project,
@@ -104,9 +115,9 @@ export function ProjectSidebar({
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
   user: User;
-  project: Project;
+  project?: Project;
   envSlug?: string;
-  onEnvSlugChange: (slug: string) => void;
+  onEnvSlugChange?: (slug: string) => void;
 }) {
   const { t } = useTranslation();
   return (
@@ -114,58 +125,50 @@ export function ProjectSidebar({
       className="top-(--header-height) h-[calc(100svh-var(--header-height))]!"
       {...props}
     >
-      <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <EnvironmentSelector
-              environments={project.environments}
-              value={envSlug}
-              onValueChange={onEnvSlugChange}
-            />
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarHeader>
-
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-[11px] uppercase tracking-wider text-sidebar-foreground/50">
-            {t("nav.project")}
-          </SidebarGroupLabel>
-          <SidebarMenu>
-            {navItems.map((item) => (
-              <SidebarMenuItem key={item.titleKey}>
-                <SidebarMenuButton render={<Link to={item.href} />}>
-                  <HugeiconsIcon icon={item.icon} strokeWidth={2} />
-                  <span>{t(item.titleKey)}</span>
-                </SidebarMenuButton>
-                {"badge" in item && item.badge ? (
-                  <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>
-                ) : null}
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarGroup>
+        {project && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-[11px] uppercase tracking-wider text-sidebar-foreground/50">
+              {t("nav.project")}
+            </SidebarGroupLabel>
+            <SidebarMenu>
+              {navItems.map((item) => (
+                <SidebarMenuItem key={item.titleKey}>
+                  <SidebarMenuButton render={<Link to={item.href} />}>
+                    <HugeiconsIcon icon={item.icon} strokeWidth={2} />
+                    <span>{t(item.titleKey)}</span>
+                  </SidebarMenuButton>
+                  {"badge" in item && item.badge ? (
+                    <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>
+                  ) : null}
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroup>
+        )}
 
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-sidebar-foreground/50">
-            {t("nav.services")}
-          </SidebarGroupLabel>
-          <SidebarGroupAction title={t("nav.addService")}>
-            <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
-            <span className="sr-only">{t("nav.addService")}</span>
-          </SidebarGroupAction>
-          <SidebarMenu>
-            {services.map((svc) => (
-              <SidebarMenuItem key={svc.name}>
-                <SidebarMenuButton render={<Link to="." />}>
-                  <HugeiconsIcon icon={ServerStack01Icon} strokeWidth={2} />
-                  <span className="font-mono">{svc.name}</span>
-                  <StatusDot status={svc.status} className="ml-auto" />
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarGroup>
+        {project && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-sidebar-foreground/50">
+              {t("nav.services")}
+            </SidebarGroupLabel>
+            <SidebarGroupAction title={t("nav.addService")}>
+              <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
+              <span className="sr-only">{t("nav.addService")}</span>
+            </SidebarGroupAction>
+            <SidebarMenu>
+              {services.map((svc) => (
+                <SidebarMenuItem key={svc.name}>
+                  <SidebarMenuButton render={<Link to="." />}>
+                    <HugeiconsIcon icon={ServerStack01Icon} strokeWidth={2} />
+                    <span className="font-mono">{svc.name}</span>
+                    <StatusDot status={svc.status} className="ml-auto" />
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter className="gap-2">

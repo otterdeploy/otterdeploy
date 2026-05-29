@@ -1,4 +1,4 @@
-import { OrganizationSidebar } from "@/features/shell/components/sidebar";
+import { ProjectSidebar } from "@/features/shell/components/sidebar/project-sidebar";
 
 import { SiteHeader } from "@/features/shell/components/site-header";
 
@@ -47,7 +47,10 @@ function RouteComponent() {
         <div className="flex flex-1">
           {!match ? (
             <>
-              <OrganizationSidebar collapsible="icon" user={user} />
+              {/* No project here — sidebar collapses to just the org
+                  switcher + footer. Project sections appear once the
+                  user navigates into a project. */}
+              <ProjectSidebar collapsible="icon" user={user} />
               <SidebarInset>
                 <Outlet />
               </SidebarInset>
