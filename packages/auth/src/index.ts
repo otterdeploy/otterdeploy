@@ -61,9 +61,12 @@ export const auth = betterAuth({
     window: 60, // time window in seconds
     max: 100, // max requests in the window
   },
-  experimental: {
-    joins: true,
-  },
+  // `experimental.joins` makes the Drizzle adapter use the relational
+  // query builder (`db.query.user.findFirst(...)`). That requires a
+  // `relations` object passed to `drizzle()` in packages/db/src/client.ts,
+  // which we don't define today. Leave joins off until that's wired —
+  // the adapter falls back to plain selects, which works against our
+  // schema as-is.
   trustedOrigins: env.CORS_ORIGIN,
   emailAndPassword: {
     enabled: true,
