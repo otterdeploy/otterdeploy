@@ -61,13 +61,11 @@ export const auth = betterAuth({
     window: 60, // time window in seconds
     max: 100, // max requests in the window
   },
-  // Drizzle adapter uses the RQB v2 query builder for join fetches
-  // (one round-trip for session + user instead of two). Relations are
-  // defined in @otterdeploy/db (src/relations.ts) and wired into the
-  // drizzle client.
-  experimental: {
-    joins: true,
-  },
+  // `experimental.joins` would let the Drizzle adapter use the RQB
+  // v2 query builder (`db.query.user.findFirst({ with: { session } })`).
+  // That requires `relations` passed to drizzle() in
+  // packages/db/src/client.ts, which is intentionally not wired today.
+  // The adapter falls back to plain selects without it.
   trustedOrigins: env.CORS_ORIGIN,
   emailAndPassword: {
     enabled: true,
