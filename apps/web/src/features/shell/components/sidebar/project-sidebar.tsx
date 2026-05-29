@@ -1,6 +1,6 @@
 import * as React from "react";
 
-import { Link } from "@tanstack/react-router";
+import { Link, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 
 import type { Project } from "@/routes/_app/layout";
@@ -16,24 +16,68 @@ import {
   SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarSeparator,
 } from "@/shared/components/ui/sidebar";
 import {
+  Alert01Icon,
+  Certificate01Icon,
   ChartHistogramIcon,
+  Database02Icon,
+  DatabaseIcon,
   EarthIcon,
+  File01Icon,
   FlashIcon,
+  Folder01Icon,
+  GitBranchIcon,
   Home01Icon,
+  Key01Icon,
+  Key02Icon,
   PlusSignIcon,
   Rocket01Icon,
   ServerStack01Icon,
+  Settings01Icon,
   Share08Icon,
   Sun03Icon,
   TextAlignLeft01Icon,
   VariableIcon,
+  WebhookIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { NavUser, type User } from "../nav/nav-user";
 import { EnvironmentSelector } from "./environment-selector";
 import { StatusDot, type NavItem, type Status } from "./index";
+
+interface StaticNavItem {
+  title: string;
+  icon: typeof Home01Icon;
+  href?: string;
+}
+
+const infrastructureItems: StaticNavItem[] = [
+  { title: "Templates", icon: Folder01Icon },
+  { title: "Backups", icon: DatabaseIcon },
+  { title: "Volumes", icon: ServerStack01Icon },
+  { title: "Edge logs", icon: EarthIcon },
+  { title: "Audit", icon: File01Icon },
+  { title: "Docker", icon: ServerStack01Icon },
+];
+
+const clusterAdminItems: StaticNavItem[] = [
+  { title: "Git providers", icon: GitBranchIcon, href: "/$orgSlug/git-providers" },
+  { title: "Registries", icon: Database02Icon, href: "/$orgSlug/registries" },
+  { title: "SSH keys", icon: Key01Icon },
+  { title: "Notifications", icon: Alert01Icon },
+  { title: "Certificates", icon: Certificate01Icon },
+  { title: "API tokens", icon: Key02Icon },
+  { title: "Webhooks", icon: WebhookIcon },
+  { title: "Cluster", icon: Settings01Icon },
+];
+
+const region = {
+  label: "self-hosted · sf-bay / rack-2",
+  version: "v1.4.2-rc.1",
+  status: "ok" as Status,
+};
 
 const navItems = [
   {
@@ -120,6 +164,9 @@ export function ProjectSidebar({
   onEnvSlugChange?: (slug: string) => void;
 }) {
   const { t } = useTranslation();
+  // Org-scoped links use `useParams({ strict: false })` so they resolve
+  // their `{ orgSlug }` regardless of which route is currently matched.
+  const params = useParams({ strict: false }) as { orgSlug?: string };
   return (
     <Sidebar
       className="top-(--header-height) h-[calc(100svh-var(--header-height))]!"
@@ -169,10 +216,58 @@ export function ProjectSidebar({
             </SidebarMenu>
           </SidebarGroup>
         )}
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-[11px] uppercase tracking-wider text-sidebar-foreground/50">
+            Infrastructure
+          </SidebarGroupLabel>
+          <SidebarMenu>
+            {infrastructureItems.map((item) => (
+              <SidebarMenuItem key={item.title}>
+                <SidebarMenuButton>
+                  <HugeiconsIcon icon={item.icon} strokeWidth={2} />
+                  <span>{item.title}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-[11px] uppercase tracking-wider text-sidebar-foreground/50">
+            Cluster admin
+          </SidebarGroupLabel>
+          <SidebarMenu>
+            {clusterAdminItems.map((item) => (
+              <SidebarMenuItem key={item.title}>
+                <SidebarMenuButton
+                  render={
+                    item.href && params.orgSlug ? (
+                      <Link
+                        to={item.href}
+                        params={{ orgSlug: params.orgSlug }}
+                      />
+                    ) : undefined
+                  }
+                >
+                  <HugeiconsIcon icon={item.icon} strokeWidth={2} />
+                  <span>{item.title}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </SidebarGroup>
       </SidebarContent>
 
       <SidebarFooter className="gap-2">
-        {/* User */}
+        {/* Region / version */}
+        <div className="flex items-start gap-2 px-2 py-1 text-xs text-muted-foreground">
+          <StatusDot status={region.status} className="mt-1.5" />
+          <span className="flex-1 leading-snug">{region.label}</span>
+          <span className="font-mono">{region.version}</span>
+        </div>
+
+        <SidebarSeparator />
+
         <NavUser user={user} />
       </SidebarFooter>
     </Sidebar>
