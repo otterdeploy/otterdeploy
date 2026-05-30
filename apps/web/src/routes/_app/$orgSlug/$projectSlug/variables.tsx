@@ -26,7 +26,7 @@ import {
   Link01Icon,
   Refresh01Icon,
   RemoveCircleIcon,
-  ScaleIcon,
+  BalanceScaleIcon,
   Search01Icon,
   Settings01Icon,
   Tick02Icon,
@@ -123,7 +123,7 @@ function VariablesRoute() {
           className="h-10 w-full justify-start gap-1 px-4"
         >
           <TabsTrigger value="overview" className="gap-1.5">
-            <HugeiconsIcon icon={ScaleIcon} className="size-3.5" />
+            <HugeiconsIcon icon={BalanceScaleIcon} className="size-3.5" />
             Overview
           </TabsTrigger>
           {ENVS.map((e) => (
