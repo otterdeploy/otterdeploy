@@ -21,12 +21,15 @@ import {
   DatabaseIcon,
   EarthIcon,
   File01Icon,
+  FlashIcon,
   Folder01Icon,
   GitBranchIcon,
+  Home01Icon,
   Key01Icon,
   Key02Icon,
   ServerStack01Icon,
   Settings01Icon,
+  Sun03Icon,
   WebhookIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -38,6 +41,14 @@ interface StaticNavItem {
   icon: typeof Folder01Icon;
   href?: string;
 }
+
+const workspaceItems: StaticNavItem[] = [
+  { title: "Projects", icon: Home01Icon, href: "/$orgSlug" },
+  { title: "Servers", icon: ServerStack01Icon, href: "/$orgSlug/servers" },
+  { title: "Networking", icon: EarthIcon, href: "/$orgSlug/networking" },
+  { title: "Terminal", icon: FlashIcon, href: "/$orgSlug/terminal" },
+  { title: "Settings", icon: Sun03Icon, href: "/$orgSlug/settings" },
+];
 
 const infrastructureItems: StaticNavItem[] = [
   { title: "Templates", icon: Folder01Icon },
@@ -66,13 +77,14 @@ const region = {
 };
 
 /**
- * Workspace sidebar. Holds Infrastructure + Cluster admin. Project nav
- * (Overview / Graph / Deployments / …) lives in a horizontal tab row
- * above the page now (see `ProjectTabs`). Services live on the Overview
- * page itself, not in the sidebar. The env switcher lives in the top
- * `HeaderNav`. The `project` prop is unused right now but kept on the
- * signature so the project layout can keep passing it for future
- * project-scoped sidebar groups.
+ * Workspace sidebar. Three groups: Workspace (org-scoped pages —
+ * Projects list, Servers, Networking, Terminal, Settings),
+ * Infrastructure, Cluster admin. Project nav (Overview / Graph /
+ * Deployments / …) lives in a horizontal tab row above the page —
+ * see `ProjectTabs`. Services live on the Overview page itself.
+ * The env switcher lives in the top `HeaderNav`. The `project` prop
+ * is unused right now but kept on the signature so the project layout
+ * can keep passing it for future project-scoped sidebar groups.
  */
 export function ProjectSidebar({
   user,
@@ -92,6 +104,31 @@ export function ProjectSidebar({
       {...props}
     >
       <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-[11px] uppercase tracking-wider text-sidebar-foreground/50">
+            Workspace
+          </SidebarGroupLabel>
+          <SidebarMenu>
+            {workspaceItems.map((item) => (
+              <SidebarMenuItem key={item.title}>
+                <SidebarMenuButton
+                  render={
+                    item.href && params.orgSlug ? (
+                      <Link
+                        to={item.href}
+                        params={{ orgSlug: params.orgSlug }}
+                      />
+                    ) : undefined
+                  }
+                >
+                  <HugeiconsIcon icon={item.icon} strokeWidth={2} />
+                  <span>{item.title}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </SidebarGroup>
+
         <SidebarGroup>
           <SidebarGroupLabel className="text-[11px] uppercase tracking-wider text-sidebar-foreground/50">
             Infrastructure
