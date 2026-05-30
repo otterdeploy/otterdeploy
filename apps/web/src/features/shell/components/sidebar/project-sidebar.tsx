@@ -11,9 +11,7 @@ import {
   SidebarGroup,
   SidebarGroupAction,
   SidebarGroupLabel,
-  SidebarHeader,
   SidebarMenu,
-  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarSeparator,
@@ -21,35 +19,26 @@ import {
 import {
   Alert01Icon,
   Certificate01Icon,
-  ChartHistogramIcon,
   Database02Icon,
   DatabaseIcon,
   EarthIcon,
   File01Icon,
-  FlashIcon,
   Folder01Icon,
   GitBranchIcon,
-  Home01Icon,
   Key01Icon,
   Key02Icon,
   PlusSignIcon,
-  Rocket01Icon,
   ServerStack01Icon,
   Settings01Icon,
-  Share08Icon,
-  Sun03Icon,
-  TextAlignLeft01Icon,
-  VariableIcon,
   WebhookIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { NavUser, type User } from "../nav/nav-user";
-import { EnvironmentSelector } from "./environment-selector";
-import { StatusDot, type NavItem, type Status } from "./index";
+import { StatusDot, type Status } from "./index";
 
 interface StaticNavItem {
   title: string;
-  icon: typeof Home01Icon;
+  icon: typeof Folder01Icon;
   href?: string;
 }
 
@@ -79,62 +68,6 @@ const region = {
   status: "ok" as Status,
 };
 
-const navItems = [
-  {
-    titleKey: "nav.overview",
-    href: "/$orgSlug/$projectSlug",
-    icon: Home01Icon,
-  },
-  {
-    titleKey: "nav.graph",
-    href: "/$orgSlug/$projectSlug/graph",
-    icon: Share08Icon,
-  },
-  {
-    titleKey: "nav.deployments",
-    href: "/$orgSlug/$projectSlug/deployments",
-    icon: Rocket01Icon,
-    badge: "7",
-    active: true,
-  },
-  {
-    titleKey: "nav.logs",
-    href: "/$orgSlug/$projectSlug/logs",
-    icon: TextAlignLeft01Icon,
-  },
-  {
-    titleKey: "nav.metrics",
-    href: "/$orgSlug/$projectSlug/metrics",
-    icon: ChartHistogramIcon,
-  },
-  {
-    titleKey: "nav.variables",
-    href: "/$orgSlug/$projectSlug/variables",
-    icon: VariableIcon,
-  },
-  {
-    titleKey: "nav.networking",
-    href: "/$orgSlug/$projectSlug/networking",
-    icon: EarthIcon,
-  },
-  {
-    titleKey: "nav.servers",
-    href: "/$orgSlug/$projectSlug/servers",
-    icon: ServerStack01Icon,
-    badge: "3",
-  },
-  {
-    titleKey: "nav.terminal",
-    href: "/$orgSlug/terminal",
-    icon: FlashIcon,
-  },
-  {
-    titleKey: "nav.settings",
-    href: "/$orgSlug/$projectSlug/settings",
-    icon: Sun03Icon,
-  },
-] as const satisfies ReadonlyArray<NavItem>;
-
 const services = [
   { name: "web", status: "ok", href: "/$orgSlug/services/web" },
   { name: "api", status: "ok", href: "/$orgSlug/services/api" },
@@ -145,23 +78,18 @@ const services = [
 ] as const satisfies ReadonlyArray<{ name: string; status: Status }>;
 
 /**
- * Single sidebar for both org-level and project-level routes. Pass
- * `project={undefined}` from the org layout (no project active) — the
- * project-section items are hidden and only the org switcher + footer
- * render. Replaces the old `OrganizationSidebar` so the app has one
- * dashboard shell, not two.
+ * Workspace sidebar. Holds Services (project-scoped, gated on `project`),
+ * Infrastructure, and Cluster admin. Project nav (Overview / Graph /
+ * Deployments / …) lives in a horizontal tab row above the page now —
+ * see `ProjectTabs`. The env switcher lives in the top `HeaderNav`.
  */
 export function ProjectSidebar({
   user,
   project,
-  envSlug,
-  onEnvSlugChange,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
   user: User;
   project?: Project;
-  envSlug?: string;
-  onEnvSlugChange?: (slug: string) => void;
 }) {
   const { t } = useTranslation();
   // Org-scoped links use `useParams({ strict: false })` so they resolve
@@ -173,27 +101,6 @@ export function ProjectSidebar({
       {...props}
     >
       <SidebarContent>
-        {project && (
-          <SidebarGroup>
-            <SidebarGroupLabel className="text-[11px] uppercase tracking-wider text-sidebar-foreground/50">
-              {t("nav.project")}
-            </SidebarGroupLabel>
-            <SidebarMenu>
-              {navItems.map((item) => (
-                <SidebarMenuItem key={item.titleKey}>
-                  <SidebarMenuButton render={<Link to={item.href} />}>
-                    <HugeiconsIcon icon={item.icon} strokeWidth={2} />
-                    <span>{t(item.titleKey)}</span>
-                  </SidebarMenuButton>
-                  {"badge" in item && item.badge ? (
-                    <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>
-                  ) : null}
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroup>
-        )}
-
         {project && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-sidebar-foreground/50">

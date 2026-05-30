@@ -9,6 +9,7 @@ import { projectCollection } from "@/features/projects/data/project";
 import { createResourceCollection } from "@/features/projects/data/resource";
 import { useProjectEvents } from "@/features/projects/hooks/use-project-events";
 import { PendingChangesBar } from "@/features/projects/components/pending-changes-bar";
+import { ProjectTabs } from "@/features/projects/components/project-tabs";
 import { ProjectSidebar } from "@/features/shell/components/sidebar/project-sidebar";
 import { SidebarInset } from "@/shared/components/ui/sidebar";
 
@@ -38,7 +39,6 @@ function RouteComponent() {
   const { user } = Route.useRouteContext();
   const { projectSlug } = Route.useParams();
   const { env } = Route.useSearch();
-  const navigate = Route.useNavigate();
 
   const { data: project } = useLiveQuery(
     (q) =>
@@ -95,12 +95,9 @@ function RouteComponent() {
           routes: routes.length,
           environments,
         }}
-        envSlug={envSlug}
-        onEnvSlugChange={(slug) =>
-          navigate({ search: (prev) => ({ ...prev, env: slug }) })
-        }
       />
       <SidebarInset>
+        <ProjectTabs />
         <Outlet />
       </SidebarInset>
       <PendingChangesBar projectId={project.id} environment={envSlug} />
