@@ -80,6 +80,13 @@ export const serviceResourceSchema = z.object({
   status: z.enum(["draft", "valid", "invalid"]),
   image: z.string(),
   imageDigest: z.string().nullable(),
+  // Where the service's image came from. "image" = pre-built pull;
+  // "git" = built from the project's gitRepoId. Drives the graph view's
+  // "look up framework via inspectRepo" path on the client.
+  source: z.enum(["image", "git"]),
+  // Path within the repo to hand to the builder. Null = repo root.
+  // Only meaningful when `source === "git"`.
+  sourceSubdir: z.string().nullable(),
   replicas: z.number().int().min(0),
   publicEnabled: z.boolean(),
   publicDomain: z.string().nullable(),

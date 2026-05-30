@@ -28,6 +28,7 @@ import {
 } from "@/features/projects/components/graph/build-live-nodes";
 import { layoutGraph } from "@/features/projects/components/graph/layout-graph";
 import { ResourceNode } from "@/features/projects/components/graph/resource-node";
+import { useServiceFrameworks } from "@/features/projects/components/graph/use-service-frameworks";
 import { StackCodePanel } from "@/features/projects/components/stack";
 import { createProjectDependenciesCollection } from "@/features/projects/data/dependencies";
 import { createResourceCollection } from "@/features/projects/data/resource";
@@ -165,12 +166,21 @@ function GraphCanvas() {
     return { creates, marker };
   }, [resources, diff.data]);
 
+  // Detect framework per git-bound service. One inspectRepo call per
+  // unique (gitRepoId, sourceSubdir) — React Query dedupes across
+  // re-renders. The map merges into node data downstream so the
+  // header tile renders the framework's brand SVG.
+  const frameworksByResourceId = useServiceFrameworks(
+    project.gitRepoId,
+    resources,
+  );
+
   // Convert resources to nodes + synthesize public route nodes via the
   // shared helper. See features/projects/components/graph/build-live-nodes.ts
   // for the rollup rules (error > building > running) and route handling.
   const liveNodes = useMemo(
-    () => buildLiveNodes(resources, tasksByResourceId, pendingByName),
-    [resources, tasksByResourceId, pendingByName],
+    () => buildLiveNodes(resources, tasksByResourceId, pendingByName, frameworksByResourceId),
+    [resources, tasksByResourceId, pendingByName, frameworksByResourceId],
   );
 
   const liveEdges = useMemo(

@@ -76,6 +76,8 @@ export async function mapServiceResource(
     status: record.resource.status,
     image: record.service.image,
     imageDigest: record.service.imageDigest,
+    source: record.service.source,
+    sourceSubdir: record.service.sourceSubdir,
     replicas: record.service.replicas,
     publicEnabled: record.service.publicEnabled,
     publicDomain: record.service.publicDomain,

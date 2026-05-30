@@ -1,5 +1,6 @@
 import type { Edge, Node } from "@xyflow/react";
 
+import type { FrameworkKind } from "@/features/projects/components/graph/framework-logo";
 import {
   resourceToNode,
   type ProjectResource,
@@ -104,16 +105,26 @@ export const buildLiveNodes = (
   resources: Resource[],
   tasksByResourceId: Map<string, Task[]>,
   pending?: PendingByName,
+  /** Detected framework per service resource — populated by
+   *  useServiceFrameworks. Merged into service node data so the
+   *  header tile can render the framework brand mark. */
+  frameworksByResourceId?: Map<string, FrameworkKind>,
 ): LiveNode[] => {
   const realNodes = resources.flatMap((r) => {
     const base = resourceToNode(r);
+    const framework = frameworksByResourceId?.get(base.id);
     const marker = pending?.marker.get(base.id);
-    const baseWithPending: LiveNode = marker
-      ? { ...base, data: { ...base.data, pending: marker } }
-      : base;
-    if (baseWithPending.data.kind !== "service") return [baseWithPending];
+    const baseWithExtras: LiveNode = {
+      ...base,
+      data: {
+        ...base.data,
+        ...(marker ? { pending: marker } : {}),
+        ...(framework ? { framework } : {}),
+      },
+    };
+    if (baseWithExtras.data.kind !== "service") return [baseWithExtras];
 
-    const node = withReplicas(baseWithPending, tasksByResourceId.get(base.id) ?? []);
+    const node = withReplicas(baseWithExtras, tasksByResourceId.get(base.id) ?? []);
     return hasPublicRoute(r)
       ? [buildRouteNode(r, node.data.status ?? "running"), node]
       : [node];

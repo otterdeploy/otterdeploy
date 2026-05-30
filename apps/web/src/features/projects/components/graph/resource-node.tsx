@@ -27,6 +27,10 @@ import { Mysql } from "@/shared/components/ui/svgs/mysql";
 import { Postgresql } from "@/shared/components/ui/svgs/postgresql";
 import { Redis } from "@/shared/components/ui/svgs/redis";
 import {
+  FrameworkLogo,
+  type FrameworkKind,
+} from "@/features/projects/components/graph/framework-logo";
+import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -70,6 +74,11 @@ export interface ResourceNodeData extends Record<string, unknown> {
   name: string;
   description: string;
   engine?: ResourceEngine;
+  /** Detected framework for git-sourced services (next/node/python/…).
+   *  When present, the header tile renders the framework's brand SVG
+   *  in place of the generic kind icon, and the tech footer prefixes
+   *  the framework label. */
+  framework?: FrameworkKind | null;
   status?: ResourceStatus;
   tech?: { label: string; icon?: IconType };
   /** Source-based deploys: latest deployed commit. Renders in the muted footer. */
@@ -209,6 +218,7 @@ export function ResourceNode({ id, data, selected }: NodeProps<ResourceFlowNode>
   const meta = kindMeta[data.kind];
   const status = data.status ? statusMeta[data.status] : null;
   const BrandLogo = data.engine ? engineLogos[data.engine] : null;
+  const framework = data.framework ?? null;
 
   const [isHovered, setIsHovered] = useState(false);
   const hideTimer = useRef<number | null>(null);
@@ -286,7 +296,9 @@ export function ResourceNode({ id, data, selected }: NodeProps<ResourceFlowNode>
         <div className="flex items-start justify-between gap-3.5 px-5 pt-5">
           <div className="flex items-center gap-3.5">
             <div className="grid size-11 shrink-0 place-items-center rounded-[11px] border bg-background">
-              {BrandLogo ? (
+              {framework ? (
+                <FrameworkLogo framework={framework} className="size-6" />
+              ) : BrandLogo ? (
                 <BrandLogo className="size-6" aria-label={data.engine} />
               ) : (
                 <HugeiconsIcon
