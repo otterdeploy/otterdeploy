@@ -1,7 +1,8 @@
 import { useStore } from "@tanstack/react-form";
+import { skipToken, useQuery } from "@tanstack/react-query";
 
 import { Badge } from "@/shared/components/ui/badge";
-import { Card, CardContent } from "@/shared/components/ui/card";
+import { Card } from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
 import {
   Select,
@@ -10,19 +11,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/shared/components/ui/select";
+import { Spinner } from "@/shared/components/ui/spinner";
 import { Textarea } from "@/shared/components/ui/textarea";
 import { cn } from "@/shared/lib/utils";
+import { orpc } from "@/shared/server/orpc";
 
+import { BuilderLogo } from "../builder-logo";
 import { Field, SectionHeader } from "../form-primitives";
 import { useFormContext } from "../form-context";
-import { I, type IconKey } from "../icons";
+import { frameworkLabel, monorepoLabel } from "../frameworks";
+import { I } from "../icons";
 
 // ────── Types ──────
 interface Builder {
   id: string;
   name: string;
   sub: string;
-  icon: string;
   popular?: boolean;
   langs?: string[];
 }
@@ -33,7 +37,6 @@ const BUILDERS: Builder[] = [
     id: "railpack",
     name: "Railpack",
     sub: "Auto-detect — Node, Python, Go, Rust, Ruby…",
-    icon: "bolt",
     popular: true,
     langs: ["node", "python", "go", "rust", "ruby", "php", "elixir"],
   },
@@ -41,43 +44,28 @@ const BUILDERS: Builder[] = [
     id: "dockerfile",
     name: "Dockerfile",
     sub: "Use the Dockerfile in your repo",
-    icon: "doc",
   },
   {
     id: "compose",
     name: "Docker Compose",
     sub: "Multi-container from compose.yml",
-    icon: "service",
   },
   {
     id: "buildpack",
     name: "Buildpacks",
     sub: "CNB / Heroku-style cloud-native buildpacks",
-    icon: "folder",
   },
   {
     id: "nixpack",
     name: "Nixpacks",
     sub: "Reproducible Nix-derived images",
-    icon: "graph",
   },
   {
     id: "static",
     name: "Static site",
     sub: "Plain HTML / Vite / Astro / Next export",
-    icon: "globe",
   },
 ];
-
-const detected = {
-  lang: "Node 20",
-  file: "package.json",
-  framework: "Next.js 15",
-  detector: "railpack",
-};
-
-const iconKey = (raw: string): IconKey =>
-  (raw as IconKey) in I ? (raw as IconKey) : "doc";
 
 // ────── BuilderConfigHeader ──────
 function ConfigHeader({
@@ -99,60 +87,34 @@ function ConfigHeader({
 }
 
 // ────── BuilderConfig ──────
-function BuilderConfig({ builderId, service }: { builderId: string; service: string }) {
+// All inputs are blank with placeholders — these are the operator's choices,
+// not claims about their repo. Auto-detection lives in the banner above,
+// driven by the real `git.inspectRepo` result.
+function BuilderConfig({ builderId }: { builderId: string }) {
   if (builderId === "railpack") {
     return (
       <Card className="p-4.5">
         <ConfigHeader
           icon={<I.bolt width={14} height={14} className="text-muted-foreground" />}
           title="Railpack auto-detect"
-        >
-          <Badge variant="outline" className="gap-1 border-success/40 bg-success/10 text-success">
-            <span className="size-1.5 rounded-full bg-success" />
-            Node 20 detected
-          </Badge>
-        </ConfigHeader>
+        />
         <p className="mb-3.5 text-xs text-muted-foreground">
-          Railpack inspects your repo and assembles an OCI image automatically. Override individual
-          layers below if needed.
+          Railpack inspects your repo and assembles an OCI image automatically.
+          Override individual layers below if needed.
         </p>
         <div className="grid grid-cols-2 gap-2.5">
           <Field label="Install command (override)">
-            <Input className="font-mono" placeholder="auto: pnpm install --frozen-lockfile" />
+            <Input className="font-mono" placeholder="auto" />
           </Field>
           <Field label="Build command (override)">
-            <Input
-              className="font-mono"
-              placeholder={service === "web" ? "auto: pnpm build" : "auto: tsc -p ."}
-            />
+            <Input className="font-mono" placeholder="auto" />
           </Field>
         </div>
         <div className="mt-2.5">
           <Field label="Root directory">
-            <Input className="font-mono" defaultValue={`apps/${service}`} />
+            <Input className="font-mono" placeholder="e.g. apps/web · empty = repo root" />
           </Field>
         </div>
-        <div className="mt-3 text-[11px] text-muted-foreground">Detected layers</div>
-        <Card className="mt-1.5 gap-0 bg-muted p-2.5">
-          <div className="font-mono text-[11px] leading-relaxed text-muted-foreground">
-            <div>
-              1. <span className="text-info">setup</span>
-              {"     "}· alpine + corepack
-            </div>
-            <div>
-              2. <span className="text-info">install</span>
-              {"   "}· pnpm install --frozen-lockfile
-            </div>
-            <div>
-              3. <span className="text-info">build</span>
-              {"     "}· pnpm --filter ./apps/{service} build
-            </div>
-            <div>
-              4. <span className="text-info">runtime</span>
-              {"   "}· gcr.io/distroless/nodejs20-debian12
-            </div>
-          </div>
-        </Card>
       </Card>
     );
   }
@@ -166,10 +128,10 @@ function BuilderConfig({ builderId, service }: { builderId: string; service: str
         />
         <div className="grid grid-cols-2 gap-2.5">
           <Field label="Dockerfile path">
-            <Input className="font-mono" defaultValue={`apps/${service}/Dockerfile`} />
+            <Input className="font-mono" placeholder="Dockerfile" />
           </Field>
           <Field label="Build context">
-            <Input className="font-mono" defaultValue="." />
+            <Input className="font-mono" placeholder="." />
           </Field>
         </div>
         <div className="mt-2.5">
@@ -182,7 +144,7 @@ function BuilderConfig({ builderId, service }: { builderId: string; service: str
             <Textarea
               className="font-mono"
               rows={3}
-              defaultValue={`NODE_VERSION=20\nGIT_SHA=$COMMIT_SHA`}
+              placeholder={"NODE_VERSION=24\nGIT_SHA=$COMMIT_SHA"}
             />
           </Field>
         </div>
@@ -203,20 +165,13 @@ function BuilderConfig({ builderId, service }: { builderId: string; service: str
           </Badge>
         </ConfigHeader>
         <Field label="Compose file">
-          <Input className="font-mono" defaultValue="compose.yml" />
+          <Input className="font-mono" placeholder="compose.yml" />
         </Field>
         <div className="mt-2.5">
           <Field label="Profiles (comma separated)">
             <Input className="font-mono" placeholder="prod, observability" />
           </Field>
         </div>
-        <div className="mt-3 text-[11px] text-muted-foreground">Detected services</div>
-        <Card className="mt-1.5 bg-muted p-2.5">
-          <div className="font-mono text-[11px] leading-relaxed">
-            web (build: ./apps/web) · api (build: ./apps/api) · worker (build: ./apps/worker) ·
-            postgres:16 · redis:7
-          </div>
-        </Card>
       </Card>
     );
   }
@@ -253,11 +208,11 @@ function BuilderConfig({ builderId, service }: { builderId: string; service: str
           </Select>
         </Field>
         <div className="mt-2.5">
-          <Field label="Buildpacks (in order)">
+          <Field label="Buildpacks (in order, one per line)">
             <Textarea
               className="font-mono"
               rows={3}
-              defaultValue={`paketo-buildpacks/nodejs\npaketo-buildpacks/npm-install\npaketo-buildpacks/npm-start`}
+              placeholder={"auto — leave blank to let the builder choose"}
             />
           </Field>
         </div>
@@ -270,14 +225,16 @@ function BuilderConfig({ builderId, service }: { builderId: string; service: str
       <Card className="p-4.5">
         <ConfigHeader icon={<I.graph width={14} height={14} />} title="Nixpacks" />
         <Field label="Nixpacks providers (comma separated)">
-          <Input className="font-mono" defaultValue="node, pnpm" />
+          <Input className="font-mono" placeholder="auto · e.g. node, pnpm" />
         </Field>
         <div className="mt-2.5">
           <Field label="Custom nixpacks.toml">
             <Textarea
               className="font-mono"
               rows={5}
-              defaultValue={`[phases.setup]\nnixPkgs = ['nodejs_20', 'pnpm']\n\n[phases.build]\ncmds = ['pnpm build']`}
+              placeholder={
+                "[phases.setup]\nnixPkgs = ['nodejs_24', 'pnpm']\n\n[phases.build]\ncmds = ['pnpm build']"
+              }
             />
           </Field>
         </div>
@@ -290,12 +247,81 @@ function BuilderConfig({ builderId, service }: { builderId: string; service: str
     <Card className="p-4.5">
       <ConfigHeader icon={<I.globe width={14} height={14} />} title="Static site" />
       <Field label="Build command">
-        <Input className="font-mono" defaultValue="pnpm build" />
+        <Input className="font-mono" placeholder="e.g. pnpm build" />
       </Field>
       <div className="mt-2.5">
         <Field label="Output directory">
-          <Input className="font-mono" defaultValue="dist" />
+          <Input className="font-mono" placeholder="e.g. dist" />
         </Field>
+      </div>
+    </Card>
+  );
+}
+
+// ────── DetectionBanner ──────
+// Real auto-detect, straight from `git.inspectRepo` for the bound repo + root.
+function DetectionBanner() {
+  const form = useFormContext();
+  const repo = useStore(form.store, (s) => s.values.repo as string);
+  const root = useStore(form.store, (s) => s.values.root as string);
+
+  const inspect = useQuery({
+    ...orpc.git.inspectRepo.queryOptions({
+      input: repo ? { gitRepoId: repo, path: root || "" } : skipToken,
+    }),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  if (!repo) {
+    return (
+      <Card className="mt-3 p-3.5 text-[13px] text-muted-foreground">
+        Bind a repository on the Source step to auto-detect its framework.
+      </Card>
+    );
+  }
+
+  if (inspect.isLoading) {
+    return (
+      <Card className="mt-3 flex flex-row items-center gap-2 p-3.5 text-[13px] text-muted-foreground">
+        <Spinner className="size-4" />
+        Inspecting repo…
+      </Card>
+    );
+  }
+
+  const framework = inspect.data?.framework ?? null;
+  const monorepo = inspect.data?.monorepo ?? null;
+
+  if (!framework) {
+    return (
+      <Card className="mt-3 p-3.5 text-[13px] text-muted-foreground">
+        No framework auto-detected{root ? ` in /${root}` : ""}. Pick a builder
+        below.
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="mt-3 border-info/40 bg-info/10 p-3.5">
+      <div className="flex items-center gap-2">
+        <I.check width={14} height={14} className="text-info" />
+        <div className="flex-1 text-[13px]">
+          <div className="font-medium text-info">
+            Detected: {frameworkLabel(framework)}
+          </div>
+          <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+            from {root ? `/${root}` : "repo root"} · git.inspectRepo
+          </div>
+        </div>
+        {monorepo && (
+          <Badge variant="outline" className="gap-1">
+            {monorepoLabel(monorepo)}
+          </Badge>
+        )}
+        <Badge variant="outline" className="gap-1">
+          <I.bolt width={9} height={9} />
+          railpack recommended
+        </Badge>
       </div>
     </Card>
   );
@@ -305,7 +331,6 @@ function BuilderConfig({ builderId, service }: { builderId: string; service: str
 export function StepBuilder() {
   const form = useFormContext();
   const builderId = useStore(form.store, (s) => s.values.builderId as string);
-  const name = useStore(form.store, (s) => s.values.name as string);
 
   return (
     <>
@@ -314,25 +339,10 @@ export function StepBuilder() {
         sub="Auto-detected from your repo — change it if you need to"
       />
 
-      <Card className="mt-3 border-info/40 bg-info/10 p-3.5">
-        <div className="flex items-center gap-2">
-          <I.check width={14} height={14} className="text-info" />
-          <div className="flex-1 text-[13px]">
-            <div className="font-medium text-info">Detected: {detected.framework}</div>
-            <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">
-              {detected.lang} · {detected.file} · resolved by {detected.detector}
-            </div>
-          </div>
-          <Badge variant="outline" className="gap-1">
-            <I.bolt width={9} height={9} />
-            railpack recommended
-          </Badge>
-        </div>
-      </Card>
+      <DetectionBanner />
 
       <div className="mt-3 mb-4 grid grid-cols-2 gap-2.5">
         {BUILDERS.map((b) => {
-          const Ic = I[iconKey(b.icon)];
           const isActive = builderId === b.id;
           return (
             <button
@@ -350,9 +360,7 @@ export function StepBuilder() {
                 </span>
               )}
               <div className="flex items-center gap-2">
-                <div className="grid size-[26px] place-items-center rounded-[5px] border bg-muted text-muted-foreground">
-                  <Ic width={14} height={14} />
-                </div>
+                <BuilderLogo id={b.id} />
                 <span className="text-[13px] font-semibold">{b.name}</span>
                 {isActive && (
                   <I.check width={12} height={12} className="ml-auto text-foreground" />
@@ -366,7 +374,7 @@ export function StepBuilder() {
 
       <SectionHeader title="Configuration" />
       <div className="mt-3">
-        <BuilderConfig builderId={builderId} service={name} />
+        <BuilderConfig builderId={builderId} />
       </div>
     </>
   );
