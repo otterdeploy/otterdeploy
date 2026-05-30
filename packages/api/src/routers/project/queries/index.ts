@@ -37,3 +37,11 @@ export {
   type DatabaseResourceJoined,
   type ServiceResourceJoined,
 } from "./resource";
+
+export {
+  bulkReplaceProjectEnvVars,
+  deleteProjectEnvVar,
+  listProjectEnvVars,
+  upsertProjectEnvVar,
+  type ProjectEnvVarRow,
+} from "./project-env";

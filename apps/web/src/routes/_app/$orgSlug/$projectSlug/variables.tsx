@@ -1,32 +1,33 @@
 /**
  * Variables — Infisical-style overview matrix + per-env table + bulk-edit
- * modal + sync integrations. Ported from
- * apps/web-demo/src/features/otterdeploy/screens/env.tsx, translated
- * from the demo's bespoke `os-*` CSS classes onto shadcn / Tailwind so
- * the page reads in the same idiom as the rest of apps/web.
+ * modal + sync integrations. UI structure ported from
+ * apps/web-demo/src/features/otterdeploy/screens/env.tsx; data wired to
+ * `orpc.project.envVar.{list,upsert,delete,bulkReplace}`.
  *
- * All data is currently mocked (matches the demo). Wiring to a real
- * `project.variable.list` / write API is a follow-up — the backend
- * ships in Plan 6 per the demo's notes.
+ * Tabs are dynamic — one per project environment (whatever slugs the
+ * org has set up, not the hard-coded production/staging/preview). The
+ * Sync tab still renders a static provider list — the sync-source
+ * backend is a separate Plan 7 follow-up.
  */
 
-import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { eq, useLiveQuery } from "@tanstack/react-db";
+import { useMutation, useQueries } from "@tanstack/react-query";
+import { createFileRoute, useLoaderData } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import {
   AddSquareIcon,
   ArrowDown01Icon,
+  BalanceScaleIcon,
   Cancel01Icon,
   Copy01Icon,
   Download01Icon,
   FilterIcon,
-  FlashIcon,
-  GitBranchIcon,
   Key01Icon,
   Link01Icon,
   Refresh01Icon,
   RemoveCircleIcon,
-  BalanceScaleIcon,
   Search01Icon,
   Settings01Icon,
   Tick02Icon,
@@ -35,6 +36,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
+import { envCollection } from "@/features/projects/data/env";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Checkbox } from "@/shared/components/ui/checkbox";
@@ -54,44 +56,31 @@ import {
 } from "@/shared/components/ui/tabs";
 import { Textarea } from "@/shared/components/ui/textarea";
 import { cn } from "@/shared/lib/utils";
+import { orpc, queryClient } from "@/shared/server/orpc";
 
 export const Route = createFileRoute("/_app/$orgSlug/$projectSlug/variables")({
   staticData: { crumb: "Variables" },
   component: VariablesRoute,
 });
 
-// ────── Mock data — ported verbatim from apps/web-demo/features/otterdeploy/data.ts ──────
+// ────── Shared types ──────
 
-type EnvName = "production" | "staging" | "preview";
 type CellStatus = "set" | "missing" | "empty";
 
-interface EnvOverviewKey {
-  k: string;
-  secret: boolean;
-  status: Record<EnvName, CellStatus>;
+interface EnvironmentRef {
+  id: string;
+  slug: string;
+  name: string;
 }
 
-const ENVS: EnvName[] = ["production", "staging", "preview"];
+interface EnvVarRow {
+  id: string;
+  key: string;
+  value: string;
+  isSecret: boolean;
+}
 
-const ENV_OVERVIEW_KEYS: EnvOverviewKey[] = [
-  { k: "ADMIN_ALLOWED_EMAILS", secret: false, status: { production: "empty", staging: "empty", preview: "empty" } },
-  { k: "APPLE_APP_BUNDLE_ID", secret: true, status: { production: "set", staging: "missing", preview: "missing" } },
-  { k: "APPLE_CLIENT_ID", secret: false, status: { production: "empty", staging: "missing", preview: "missing" } },
-  { k: "APPLE_KEY_ID", secret: false, status: { production: "empty", staging: "missing", preview: "missing" } },
-  { k: "APPLE_PRIVATE_KEY", secret: true, status: { production: "empty", staging: "missing", preview: "missing" } },
-  { k: "APPLE_TEAM_ID", secret: false, status: { production: "empty", staging: "missing", preview: "missing" } },
-  { k: "BETTER_AUTH_SECRET", secret: true, status: { production: "set", staging: "missing", preview: "missing" } },
-  { k: "BETTER_AUTH_URL", secret: true, status: { production: "set", staging: "missing", preview: "missing" } },
-  { k: "CORS_ORIGIN", secret: true, status: { production: "set", staging: "missing", preview: "missing" } },
-  { k: "DATABASE_URL", secret: true, status: { production: "set", staging: "set", preview: "set" } },
-  { k: "GEMINI_API_KEY", secret: true, status: { production: "empty", staging: "missing", preview: "missing" } },
-  { k: "GOOGLE_CLIENT_ID", secret: false, status: { production: "empty", staging: "missing", preview: "missing" } },
-  { k: "GOOGLE_CLIENT_SECRET", secret: true, status: { production: "empty", staging: "missing", preview: "missing" } },
-  { k: "MICROSOFT_CLIENT_ID", secret: false, status: { production: "empty", staging: "missing", preview: "missing" } },
-  { k: "MICROSOFT_CLIENT_SECRET", secret: true, status: { production: "empty", staging: "missing", preview: "missing" } },
-  { k: "OPENROUTER_API_KEY", secret: true, status: { production: "empty", staging: "missing", preview: "missing" } },
-  { k: "VITE_SERVER_URL", secret: false, status: { production: "set", staging: "missing", preview: "missing" } },
-];
+// ────── Sync providers — static for now (Plan 7) ──────
 
 interface SyncProvider {
   id: string;
@@ -100,14 +89,14 @@ interface SyncProvider {
   connected: boolean;
   last?: string;
   count?: number;
-  env?: EnvName;
+  envSlug?: string;
 }
 
 const SYNC_PROVIDERS: SyncProvider[] = [
-  { id: "infisical", name: "Infisical", sub: "Open-source secret manager", connected: true, last: "2m ago", count: 17, env: "production" },
+  { id: "infisical", name: "Infisical", sub: "Open-source secret manager", connected: true, last: "2m ago", count: 17, envSlug: "production" },
   { id: "vault", name: "HashiCorp Vault", sub: "Self-hosted, dynamic secrets", connected: false },
   { id: "aws-sm", name: "AWS Secrets Manager", sub: "KMS-backed cloud secrets", connected: false },
-  { id: "doppler", name: "Doppler", sub: "SaaS secret platform", connected: true, last: "1h ago", count: 12, env: "staging" },
+  { id: "doppler", name: "Doppler", sub: "SaaS secret platform", connected: true, last: "1h ago", count: 12, envSlug: "staging" },
   { id: "1password", name: "1Password Connect", sub: "Vault-based, audit-friendly", connected: false },
   { id: "gcp-sm", name: "Google Secret Manager", sub: "GCP-native", connected: false },
 ];
@@ -115,6 +104,60 @@ const SYNC_PROVIDERS: SyncProvider[] = [
 // ────── Route ──────
 
 function VariablesRoute() {
+  const { project } = useLoaderData({ from: "/_app/$orgSlug/$projectSlug" });
+  const projectId = project.id;
+
+  // All envs for this project, slug-sorted so the tab order is stable
+  // across renders (the collection isn't intrinsically ordered).
+  const { data: environments = [] } = useLiveQuery(
+    (q) =>
+      q
+        .from({ e: envCollection })
+        .where(({ e }) => eq(e.projectId, projectId))
+        .orderBy(({ e }) => e.slug),
+    [projectId],
+  );
+
+  // One env-var list query per environment, in parallel. The orpc query
+  // key is keyed on (projectId, environmentId), so the cache buckets
+  // automatically.
+  const envVarQueries = useQueries({
+    queries: environments.map((env) =>
+      orpc.project.envVar.list.queryOptions({
+        input: {
+          projectId: projectId as never,
+          environmentId: env.id as never,
+        },
+      }),
+    ),
+  });
+
+  // Map<envId, EnvVarRow[]> — what each tab renders. Used by the
+  // overview matrix to compute per-cell status too.
+  const byEnv = useMemo(() => {
+    const map = new Map<string, EnvVarRow[]>();
+    environments.forEach((env, i) => {
+      map.set(env.id, (envVarQueries[i]?.data ?? []) as EnvVarRow[]);
+    });
+    return map;
+  }, [environments, envVarQueries]);
+
+  // Union of every key seen in any env — the rows of the overview
+  // matrix. Sorted alphabetically so the order matches the demo.
+  const allKeys = useMemo(() => {
+    const set = new Set<string>();
+    for (const rows of byEnv.values()) {
+      for (const r of rows) set.add(r.key);
+    }
+    return Array.from(set).sort();
+  }, [byEnv]);
+
+  const envRefs: EnvironmentRef[] = environments.map((e) => ({
+    id: e.id,
+    slug: e.slug,
+    name: e.name,
+  }));
+
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <Tabs defaultValue="overview" className="flex flex-1 flex-col gap-0">
@@ -126,16 +169,19 @@ function VariablesRoute() {
             <HugeiconsIcon icon={BalanceScaleIcon} className="size-3.5" />
             Overview
           </TabsTrigger>
-          {ENVS.map((e) => (
-            <TabsTrigger key={e} value={e} className="gap-1.5 capitalize">
-              {e}
-              {(e === "production" || e === "staging") && (
-                <Badge variant="secondary" className="ml-1 h-4 rounded-sm px-1.5 font-mono text-[10px]">
-                  17
-                </Badge>
-              )}
-            </TabsTrigger>
-          ))}
+          {envRefs.map((env) => {
+            const count = byEnv.get(env.id)?.length ?? 0;
+            return (
+              <TabsTrigger key={env.id} value={env.id} className="gap-1.5 capitalize">
+                {env.name || env.slug}
+                {count > 0 && (
+                  <Badge variant="secondary" className="ml-1 h-4 rounded-sm px-1.5 font-mono text-[10px]">
+                    {count}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            );
+          })}
           <TabsTrigger value="sync" className="gap-1.5">
             <HugeiconsIcon icon={Refresh01Icon} className="size-3.5" />
             Sync
@@ -143,11 +189,15 @@ function VariablesRoute() {
         </TabsList>
 
         <TabsContent value="overview" className="flex-1 overflow-auto">
-          <OverviewMatrix />
+          <OverviewMatrix envs={envRefs} byEnv={byEnv} allKeys={allKeys} />
         </TabsContent>
-        {ENVS.map((e) => (
-          <TabsContent key={e} value={e} className="flex-1 overflow-auto">
-            <PerEnvTable env={e} />
+        {envRefs.map((env) => (
+          <TabsContent key={env.id} value={env.id} className="flex-1 overflow-auto">
+            <PerEnvTable
+              projectId={projectId}
+              env={env}
+              rows={byEnv.get(env.id) ?? []}
+            />
           </TabsContent>
         ))}
         <TabsContent value="sync" className="flex-1 overflow-auto">
@@ -160,33 +210,53 @@ function VariablesRoute() {
 
 // ────── Overview matrix ──────
 
-function OverviewMatrix() {
+function cellStatus(rows: EnvVarRow[], key: string): CellStatus {
+  const row = rows.find((r) => r.key === key);
+  if (!row) return "missing";
+  return row.value === "" ? "empty" : "set";
+}
+
+function OverviewMatrix({
+  envs,
+  byEnv,
+  allKeys,
+}: {
+  envs: EnvironmentRef[];
+  byEnv: Map<string, EnvVarRow[]>;
+  allKeys: string[];
+}) {
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  const filtered = ENV_OVERVIEW_KEYS.filter(
-    (r) => !q || r.k.toLowerCase().includes(q.toLowerCase()),
-  );
+  const filtered = allKeys.filter((k) => !q || k.toLowerCase().includes(q.toLowerCase()));
 
+  // Count defined keys per env — every row counts (both `set` and
+  // `empty`); only `missing` (no row) doesn't contribute.
   const counts = useMemo(() => {
-    const out: Record<EnvName, number> = { production: 0, staging: 0, preview: 0 };
-    for (const r of ENV_OVERVIEW_KEYS) {
-      for (const e of ENVS) {
-        if (r.status[e] === "set" || r.status[e] === "empty") out[e]++;
-      }
+    const out = new Map<string, number>();
+    for (const env of envs) {
+      out.set(env.id, (byEnv.get(env.id) ?? []).length);
     }
     return out;
-  }, []);
+  }, [envs, byEnv]);
 
   const toggleAll = () => {
     if (selected.size === filtered.length) setSelected(new Set());
-    else setSelected(new Set(filtered.map((r) => r.k)));
+    else setSelected(new Set(filtered));
   };
+
+  if (envs.length === 0) {
+    return (
+      <div className="mx-auto max-w-2xl p-6 text-center text-sm text-muted-foreground">
+        This project has no environments. Create one to start adding variables.
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto w-full max-w-6xl p-6">
       <div className="mb-4 flex items-center gap-2">
-        <h2 className="text-lg font-semibold">Project Overview</h2>
+        <h2 className="text-lg font-semibold">Project overview</h2>
         <div className="flex-1" />
         <Button variant="outline" size="sm" className="gap-1.5">
           <HugeiconsIcon icon={FilterIcon} className="size-3.5" />
@@ -204,19 +274,18 @@ function OverviewMatrix() {
             className="h-8 w-72 pl-8"
           />
         </div>
-        <Button size="sm" className="gap-1.5">
-          <HugeiconsIcon icon={AddSquareIcon} className="size-3.5" />
-          Add secret
-        </Button>
       </div>
 
       <p className="mb-3 text-xs text-muted-foreground">
         Inject secrets via the <code className="font-mono text-foreground/80">otterdeploy</code> CLI,
-        runtime API, or build-time env-injection. Click any environment to see and edit values.
+        runtime API, or build-time env-injection. Switch to an environment tab to add or edit values.
       </p>
 
       <div className="overflow-hidden rounded-md border bg-card">
-        <div className="grid grid-cols-[28px_1fr_28px_repeat(3,minmax(96px,1fr))] items-center gap-2 border-b bg-muted/30 px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+        <div
+          className="grid items-center gap-2 border-b bg-muted/30 px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground"
+          style={{ gridTemplateColumns: `28px 1fr 28px repeat(${envs.length}, minmax(96px, 1fr))` }}
+        >
           <Checkbox
             checked={selected.size > 0 && selected.size === filtered.length}
             onCheckedChange={toggleAll}
@@ -226,47 +295,57 @@ function OverviewMatrix() {
             Name <HugeiconsIcon icon={ArrowDown01Icon} className="size-3 opacity-50" />
           </span>
           <span />
-          {ENVS.map((e) => (
-            <span key={e} className="flex items-center gap-1.5 capitalize">
-              {e}
+          {envs.map((env) => (
+            <span key={env.id} className="flex items-center gap-1.5 capitalize">
+              {env.name || env.slug}
               <span className="rounded bg-muted px-1 text-[10px] text-muted-foreground">
-                {counts[e]}
+                {counts.get(env.id) ?? 0}
               </span>
             </span>
           ))}
         </div>
-        {filtered.map((r) => (
-          <div
-            key={r.k}
-            className="grid grid-cols-[28px_1fr_28px_repeat(3,minmax(96px,1fr))] items-center gap-2 border-b px-3 py-2 last:border-b-0 hover:bg-muted/30"
-          >
-            <Checkbox
-              checked={selected.has(r.k)}
-              onCheckedChange={() =>
-                setSelected((s) => {
-                  const next = new Set(s);
-                  if (next.has(r.k)) next.delete(r.k);
-                  else next.add(r.k);
-                  return next;
-                })
-              }
-              aria-label={`Select ${r.k}`}
-            />
-            <span className="flex items-center gap-1.5">
-              <HugeiconsIcon
-                icon={Key01Icon}
-                className="size-3 text-muted-foreground/70"
-              />
-              <span className="font-mono text-xs font-medium">{r.k}</span>
-            </span>
-            <span />
-            {ENVS.map((e) => (
-              <span key={e} className="flex items-center">
-                <StatusGlyph status={r.status[e]} />
-              </span>
-            ))}
+
+        {filtered.length === 0 ? (
+          <div className="px-3 py-8 text-center text-xs text-muted-foreground">
+            {allKeys.length === 0
+              ? "No variables defined yet. Open an environment to add one."
+              : "No keys match this search."}
           </div>
-        ))}
+        ) : (
+          filtered.map((key) => (
+            <div
+              key={key}
+              className="grid items-center gap-2 border-b px-3 py-2 last:border-b-0 hover:bg-muted/30"
+              style={{ gridTemplateColumns: `28px 1fr 28px repeat(${envs.length}, minmax(96px, 1fr))` }}
+            >
+              <Checkbox
+                checked={selected.has(key)}
+                onCheckedChange={() =>
+                  setSelected((s) => {
+                    const next = new Set(s);
+                    if (next.has(key)) next.delete(key);
+                    else next.add(key);
+                    return next;
+                  })
+                }
+                aria-label={`Select ${key}`}
+              />
+              <span className="flex items-center gap-1.5">
+                <HugeiconsIcon
+                  icon={Key01Icon}
+                  className="size-3 text-muted-foreground/70"
+                />
+                <span className="font-mono text-xs font-medium">{key}</span>
+              </span>
+              <span />
+              {envs.map((env) => (
+                <span key={env.id} className="flex items-center">
+                  <StatusGlyph status={cellStatus(byEnv.get(env.id) ?? [], key)} />
+                </span>
+              ))}
+            </div>
+          ))
+        )}
       </div>
 
       <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
@@ -322,29 +401,45 @@ function StatusGlyph({ status }: { status: CellStatus }) {
 
 // ────── Per-env table ──────
 
-function PerEnvTable({ env }: { env: EnvName }) {
+function PerEnvTable({
+  projectId,
+  env,
+  rows,
+}: {
+  projectId: string;
+  env: EnvironmentRef;
+  rows: EnvVarRow[];
+}) {
   const [q, setQ] = useState("");
   const [revealAll, setRevealAll] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkOpen, setBulkOpen] = useState(false);
 
-  const rows = useMemo(() => {
-    return ENV_OVERVIEW_KEYS.map((r) => {
-      const status = r.status[env];
-      let v: string | null = "";
-      if (status === "set") v = r.secret ? "••••••••••••••••••••••••" : sampleValue(r.k, env);
-      else if (status === "empty") v = "";
-      else v = null;
-      return { ...r, v, status };
-    }).filter((r) => r.status !== "missing");
-  }, [env]);
-
-  const filtered = rows.filter((r) => !q || r.k.toLowerCase().includes(q.toLowerCase()));
+  const filtered = rows.filter((r) => !q || r.key.toLowerCase().includes(q.toLowerCase()));
 
   const toggleAll = () => {
     if (selected.size === filtered.length) setSelected(new Set());
-    else setSelected(new Set(filtered.map((r) => r.k)));
+    else setSelected(new Set(filtered.map((r) => r.key)));
   };
+
+  const invalidate = () => {
+    void queryClient.invalidateQueries({
+      queryKey: orpc.project.envVar.list.queryKey({
+        input: {
+          projectId: projectId as never,
+          environmentId: env.id as never,
+        },
+      }),
+    });
+  };
+
+  const deleteMut = useMutation({
+    ...orpc.project.envVar.delete.mutationOptions(),
+    onSuccess: () => {
+      invalidate();
+    },
+    onError: (err) => toast.error(err.message ?? "Couldn't delete"),
+  });
 
   return (
     <div className="mx-auto w-full max-w-6xl p-6">
@@ -382,18 +477,14 @@ function PerEnvTable({ env }: { env: EnvName }) {
           <HugeiconsIcon icon={Copy01Icon} className="size-3.5" />
           Bulk edit
         </Button>
-        <Button variant="outline" size="sm" className="gap-1.5">
-          <HugeiconsIcon icon={GitBranchIcon} className="size-3.5" />
-          3 commits
-        </Button>
-        <Button size="sm" className="gap-1.5">
+        <Button size="sm" className="gap-1.5" onClick={() => setBulkOpen(true)}>
           <HugeiconsIcon icon={AddSquareIcon} className="size-3.5" />
           Add secret
         </Button>
       </div>
 
       <div className="overflow-hidden rounded-md border bg-card">
-        <div className="grid grid-cols-[32px_24px_1fr_2fr_200px] items-center gap-2 border-b bg-muted/30 px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+        <div className="grid grid-cols-[32px_24px_1fr_2fr_120px] items-center gap-2 border-b bg-muted/30 px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
           <Checkbox
             checked={selected.size > 0 && selected.size === filtered.length}
             onCheckedChange={toggleAll}
@@ -406,56 +497,87 @@ function PerEnvTable({ env }: { env: EnvName }) {
           <span className="border-l pl-3">Value</span>
           <span />
         </div>
-        {filtered.map((r) => (
-          <div
-            key={r.k}
-            className="group grid grid-cols-[32px_24px_1fr_2fr_200px] items-center gap-2 border-b px-3 py-2 last:border-b-0 hover:bg-muted/30"
-          >
-            <Checkbox
-              checked={selected.has(r.k)}
-              onCheckedChange={() =>
-                setSelected((s) => {
-                  const next = new Set(s);
-                  if (next.has(r.k)) next.delete(r.k);
-                  else next.add(r.k);
-                  return next;
-                })
-              }
-              aria-label={`Select ${r.k}`}
-            />
-            <HugeiconsIcon
-              icon={Key01Icon}
-              className="size-3 text-muted-foreground/70"
-            />
-            <span className="font-mono text-xs font-medium">{r.k}</span>
-            <span className="min-w-0 truncate border-l pl-3">
-              {r.v === "" ? (
-                <span className="font-mono text-[10px] tracking-wider text-muted-foreground/60">
-                  EMPTY
-                </span>
-              ) : (
-                <span
-                  className={cn(
-                    "font-mono text-xs",
-                    r.secret && !revealAll
-                      ? "text-muted-foreground"
-                      : "text-foreground/85",
-                  )}
-                >
-                  {r.secret && !revealAll ? "••••••••••••••••••••••••••••" : r.v}
-                </span>
-              )}
-            </span>
-            <span className="flex justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-              <RowAction title="Copy" icon={Copy01Icon} />
-              <RowAction title="Tag" icon={FlashIcon} />
-              <RowAction title="Pin" icon={Link01Icon} />
-              <RowAction title="History" icon={GitBranchIcon} />
-              <RowAction title="Reference" icon={Refresh01Icon} />
-              <RowAction title="Delete" icon={Cancel01Icon} />
-            </span>
+
+        {filtered.length === 0 ? (
+          <div className="px-3 py-10 text-center text-xs text-muted-foreground">
+            {rows.length === 0
+              ? `No variables in ${env.name || env.slug}. Use Bulk edit to paste a .env block.`
+              : "No keys match this search."}
           </div>
-        ))}
+        ) : (
+          filtered.map((r) => (
+            <div
+              key={r.id}
+              className="group grid grid-cols-[32px_24px_1fr_2fr_120px] items-center gap-2 border-b px-3 py-2 last:border-b-0 hover:bg-muted/30"
+            >
+              <Checkbox
+                checked={selected.has(r.key)}
+                onCheckedChange={() =>
+                  setSelected((s) => {
+                    const next = new Set(s);
+                    if (next.has(r.key)) next.delete(r.key);
+                    else next.add(r.key);
+                    return next;
+                  })
+                }
+                aria-label={`Select ${r.key}`}
+              />
+              <HugeiconsIcon
+                icon={Key01Icon}
+                className="size-3 text-muted-foreground/70"
+              />
+              <span className="font-mono text-xs font-medium">{r.key}</span>
+              <span className="min-w-0 truncate border-l pl-3">
+                {r.value === "" ? (
+                  <span className="font-mono text-[10px] tracking-wider text-muted-foreground/60">
+                    EMPTY
+                  </span>
+                ) : (
+                  <span
+                    className={cn(
+                      "font-mono text-xs",
+                      r.isSecret && !revealAll
+                        ? "text-muted-foreground"
+                        : "text-foreground/85",
+                    )}
+                  >
+                    {r.isSecret && !revealAll ? "••••••••••••••••••••••••••••" : r.value}
+                  </span>
+                )}
+              </span>
+              <span className="flex justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-6"
+                  title="Copy"
+                  onClick={() => {
+                    void navigator.clipboard?.writeText(r.value);
+                    toast.success(`Copied ${r.key}`);
+                  }}
+                >
+                  <HugeiconsIcon icon={Copy01Icon} className="size-3" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-6 text-rose-500 hover:text-rose-500"
+                  title="Delete"
+                  disabled={deleteMut.isPending}
+                  onClick={() =>
+                    deleteMut.mutate({
+                      projectId: projectId as never,
+                      environmentId: env.id as never,
+                      key: r.key,
+                    })
+                  }
+                >
+                  <HugeiconsIcon icon={Cancel01Icon} className="size-3" />
+                </Button>
+              </span>
+            </div>
+          ))
+        )}
 
         <div className="flex items-center gap-2 border-t bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
           <HugeiconsIcon icon={Key01Icon} className="size-3" />
@@ -471,83 +593,60 @@ function PerEnvTable({ env }: { env: EnvName }) {
           className="size-5 text-muted-foreground"
         />
         <div className="text-sm text-foreground/80">
-          Drag and drop a <code className="font-mono">.env</code>,{" "}
-          <code className="font-mono">.json</code>,{" "}
-          <code className="font-mono">.csv</code>, or{" "}
-          <code className="font-mono">.yml</code> file here.
+          Paste or drag a <code className="font-mono">.env</code> block into bulk edit.
         </div>
-        <div className="text-[10px] uppercase tracking-wider text-muted-foreground">or</div>
         <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setBulkOpen(true)}>
           <HugeiconsIcon icon={Copy01Icon} className="size-3.5" />
-          Paste secrets
+          Open bulk edit
         </Button>
       </div>
 
       <BulkEditDialog
+        projectId={projectId}
         env={env}
-        rows={rows}
+        currentRows={rows}
         open={bulkOpen}
         onOpenChange={setBulkOpen}
+        onSaved={invalidate}
       />
     </div>
   );
 }
 
-function RowAction({
-  title,
-  icon,
-}: {
-  title: string;
-  icon: typeof Copy01Icon;
-}) {
-  return (
-    <Button variant="ghost" size="icon" className="size-6" title={title}>
-      <HugeiconsIcon icon={icon} className="size-3" />
-    </Button>
-  );
-}
-
-function sampleValue(key: string, env: EnvName) {
-  const e = env === "preview" ? "dev" : env === "staging" ? "stg" : "prod";
-  const samples: Record<string, string> = {
-    DATABASE_URL: `postgres://helio:•••@${e}-postgres:5432/helio`,
-    BETTER_AUTH_URL: `https://${e === "prod" ? "" : e + "."}helio.so`,
-    CORS_ORIGIN: `https://${e === "prod" ? "" : e + "."}helio.so`,
-    VITE_SERVER_URL: `https://api.${e === "prod" ? "" : e + "."}helio.so`,
-    BETTER_AUTH_SECRET: "sk_••••••••••••••",
-    APPLE_APP_BUNDLE_ID: "com.paperhouse.helio",
-  };
-  return samples[key] || `${key.toLowerCase()}_value`;
-}
-
 // ────── Bulk edit ──────
 
-interface BulkRow {
-  k: string;
-  v: string | null;
-  secret: boolean;
-}
-
 interface ParsedVar {
-  k: string;
-  v: string;
-  secret: boolean;
+  key: string;
+  value: string;
+  isSecret: boolean;
 }
 
 function BulkEditDialog({
+  projectId,
   env,
-  rows,
+  currentRows,
   open,
   onOpenChange,
+  onSaved,
 }: {
-  env: EnvName;
-  rows: BulkRow[];
+  projectId: string;
+  env: EnvironmentRef;
+  currentRows: EnvVarRow[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSaved: () => void;
 }) {
-  const initial = rows.map((v) => `${v.k}=${v.v ?? ""}`).join("\n");
+  const initial = useMemo(
+    () => currentRows.map((v) => `${v.key}=${v.value}`).join("\n"),
+    [currentRows],
+  );
   const [text, setText] = useState(initial);
-  const [target, setTarget] = useState<Set<EnvName>>(new Set([env]));
+
+  // Re-hydrate when the dialog opens or the rows refetch so a stale
+  // edit doesn't persist between visits to the same env tab.
+  useEffect(() => {
+    setText(initial);
+  }, [initial]);
 
   const parsed = useMemo<ParsedVar[]>(() => {
     const out: ParsedVar[] = [];
@@ -562,10 +661,20 @@ function BulkEditDialog({
         v = v.slice(1, -1);
       }
       if (k.startsWith("export ")) k = k.slice(7).trim();
-      out.push({ k, v, secret: /SECRET|KEY|TOKEN|PASS|DSN/i.test(k) });
+      out.push({ key: k, value: v, isSecret: /SECRET|KEY|TOKEN|PASS|DSN/i.test(k) });
     }
     return out;
   }, [text]);
+
+  const bulkMut = useMutation({
+    ...orpc.project.envVar.bulkReplace.mutationOptions(),
+    onSuccess: () => {
+      onSaved();
+      onOpenChange(false);
+      toast.success(`Saved ${parsed.length} variables to ${env.name || env.slug}`);
+    },
+    onError: (err) => toast.error(err.message ?? "Couldn't save"),
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -574,7 +683,7 @@ function BulkEditDialog({
           <DialogTitle className="flex items-baseline gap-2 text-sm font-semibold">
             Bulk edit
             <span className="font-mono text-xs font-normal text-muted-foreground capitalize">
-              · {env}
+              · {env.name || env.slug}
             </span>
             <span className="text-xs font-normal text-muted-foreground">
               Paste a .env, or edit inline
@@ -614,27 +723,15 @@ function BulkEditDialog({
           <div className="flex flex-col gap-3 p-4">
             <div>
               <div className="mb-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                Apply to
+                Target environment
               </div>
-              <div className="flex flex-col gap-1">
-                {ENVS.map((e) => (
-                  <label key={e} className="flex cursor-pointer items-center gap-2 py-1 text-xs">
-                    <Checkbox
-                      checked={target.has(e)}
-                      onCheckedChange={() =>
-                        setTarget((s) => {
-                          const next = new Set(s);
-                          if (next.has(e)) next.delete(e);
-                          else next.add(e);
-                          return next;
-                        })
-                      }
-                    />
-                    <EnvDot env={e} />
-                    <span className="capitalize">{e}</span>
-                  </label>
-                ))}
+              <div className="flex items-center gap-2 text-xs">
+                <EnvDot slug={env.slug} />
+                <span className="capitalize">{env.name || env.slug}</span>
               </div>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Cross-env apply is a follow-up. Bulk replace runs against this env only.
+              </p>
             </div>
 
             <div className="h-px bg-border" />
@@ -647,7 +744,7 @@ function BulkEditDialog({
                 {parsed.length} variables parsed
               </div>
               <div className="font-mono text-[11px] text-muted-foreground">
-                {parsed.filter((p) => p.secret).length} marked secret
+                {parsed.filter((p) => p.isSecret).length} marked secret
               </div>
             </div>
 
@@ -659,11 +756,11 @@ function BulkEditDialog({
               </div>
               <div className="max-h-40 overflow-auto font-mono text-[11px] text-foreground/80">
                 {parsed.slice(0, 12).map((p) => (
-                  <div key={p.k} className="flex gap-1.5 py-0.5">
-                    <span className={p.secret ? "text-amber-500" : "text-muted-foreground"}>
-                      {p.secret ? "••" : "  "}
+                  <div key={p.key} className="flex gap-1.5 py-0.5">
+                    <span className={p.isSecret ? "text-amber-500" : "text-muted-foreground"}>
+                      {p.isSecret ? "••" : "  "}
                     </span>
-                    <span className="truncate">{p.k}</span>
+                    <span className="truncate">{p.key}</span>
                   </div>
                 ))}
                 {parsed.length > 12 && (
@@ -678,14 +775,28 @@ function BulkEditDialog({
 
         <div className="flex items-center gap-2 border-t px-4 py-3">
           <span className="text-[11px] text-muted-foreground">
-            Hot-reload to all replicas in {[...target].join(", ") || "(none selected)"}
+            Replaces every variable in {env.name || env.slug} atomically.
           </span>
           <div className="flex-1" />
           <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button size="sm" onClick={() => onOpenChange(false)}>
-            Apply {parsed.length} vars →
+          <Button
+            size="sm"
+            disabled={bulkMut.isPending}
+            onClick={() =>
+              bulkMut.mutate({
+                projectId: projectId as never,
+                environmentId: env.id as never,
+                vars: parsed.map((p) => ({
+                  key: p.key,
+                  value: p.value,
+                  isSecret: p.isSecret,
+                })),
+              })
+            }
+          >
+            {bulkMut.isPending ? "Saving…" : `Apply ${parsed.length} vars →`}
           </Button>
         </div>
       </DialogContent>
@@ -693,21 +804,22 @@ function BulkEditDialog({
   );
 }
 
-function EnvDot({ env }: { env: EnvName }) {
+function EnvDot({ slug }: { slug: string }) {
+  // Slug-based tone — production/main → emerald, staging → amber,
+  // anything else (preview / feature branches) → blue.
   const tone =
-    env === "production"
+    slug === "production" || slug === "main" || slug === "prod"
       ? "bg-emerald-500"
-      : env === "staging"
+      : slug === "staging" || slug === "stage" || slug === "stg"
         ? "bg-amber-500"
         : "bg-blue-500";
   return <span className={cn("size-1.5 rounded-full", tone)} />;
 }
 
-// ────── Sync integrations ──────
+// ────── Sync integrations (still mocked — separate backend) ──────
 
 function SyncIntegrations() {
   const [providers, setProviders] = useState<SyncProvider[]>(SYNC_PROVIDERS);
-
   const connected = providers.filter((p) => p.connected).length;
 
   return (
@@ -739,7 +851,7 @@ function SyncIntegrations() {
               setProviders((ps) =>
                 ps.map((x) =>
                   x.id === p.id
-                    ? { ...x, connected: true, last: "just now", count: 0, env: "production" }
+                    ? { ...x, connected: true, last: "just now", count: 0, envSlug: "production" }
                     : x,
                 ),
               )
@@ -813,12 +925,12 @@ function ProviderCard({
         <div className="flex items-center gap-4 border-t pt-3 text-[11px]">
           <Stat label="last sync" value={p.last ?? ""} />
           <Stat label="syncing" value={`${p.count ?? 0} secrets`} />
-          {p.env && (
+          {p.envSlug && (
             <Stat
               label="target env"
               value={
                 <span className="flex items-center gap-1 capitalize">
-                  <EnvDot env={p.env} /> {p.env}
+                  <EnvDot slug={p.envSlug} /> {p.envSlug}
                 </span>
               }
             />

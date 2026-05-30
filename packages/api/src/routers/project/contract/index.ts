@@ -18,6 +18,7 @@
 
 import { dependenciesContractSlice } from "./dependencies";
 import { deploymentsContractSlice } from "./deployments";
+import { projectEnvVarContractSlice } from "./env-var";
 import { projectEventsContractSlice } from "./events";
 import { logsContractSlice } from "./logs";
 import { manifestContractSlice } from "./manifest";
@@ -38,6 +39,7 @@ export const projectContract = {
   manifest: manifestContractSlice,
   stack: stackContractSlice,
   refs: refsContractSlice,
+  envVar: projectEnvVarContractSlice,
   events: projectEventsContractSlice,
   ...projectLogsContractSlice,
   resource: {
@@ -135,3 +137,11 @@ export {
   manifestSaveInput,
   manifestSaveOutput,
 } from "./manifest";
+
+export {
+  bulkReplaceProjectEnvVarsInput,
+  deleteProjectEnvVarInput,
+  listProjectEnvVarsInput,
+  projectEnvVarSchema,
+  upsertProjectEnvVarInput,
+} from "./env-var";

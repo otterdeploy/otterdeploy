@@ -62,6 +62,13 @@ export {
 
 export { listProjectProxyRoutes } from "./proxy-routes";
 
+export {
+  bulkReplaceProjectEnvVarsForOrg,
+  deleteProjectEnvVarForOrg,
+  listProjectEnvVarsForOrg,
+  upsertProjectEnvVarForOrg,
+} from "./env-var";
+
 export type {
   PostgresResource,
   Project,
