@@ -1,7 +1,6 @@
 import * as React from "react";
 
 import { Link, useParams } from "@tanstack/react-router";
-import { useTranslation } from "react-i18next";
 
 import type { Project } from "@/routes/_app/layout";
 import {
@@ -9,7 +8,6 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
-  SidebarGroupAction,
   SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
@@ -27,7 +25,6 @@ import {
   GitBranchIcon,
   Key01Icon,
   Key02Icon,
-  PlusSignIcon,
   ServerStack01Icon,
   Settings01Icon,
   WebhookIcon,
@@ -68,30 +65,24 @@ const region = {
   status: "ok" as Status,
 };
 
-const services = [
-  { name: "web", status: "ok", href: "/$orgSlug/services/web" },
-  { name: "api", status: "ok", href: "/$orgSlug/services/api" },
-  { name: "worker", status: "warn", href: "/$orgSlug/services/worker  " },
-  { name: "postgres", status: "ok" },
-  { name: "redis", status: "ok" },
-  { name: "imgproxy", status: "ok" },
-] as const satisfies ReadonlyArray<{ name: string; status: Status }>;
-
 /**
- * Workspace sidebar. Holds Services (project-scoped, gated on `project`),
- * Infrastructure, and Cluster admin. Project nav (Overview / Graph /
- * Deployments / …) lives in a horizontal tab row above the page now —
- * see `ProjectTabs`. The env switcher lives in the top `HeaderNav`.
+ * Workspace sidebar. Holds Infrastructure + Cluster admin. Project nav
+ * (Overview / Graph / Deployments / …) lives in a horizontal tab row
+ * above the page now (see `ProjectTabs`). Services live on the Overview
+ * page itself, not in the sidebar. The env switcher lives in the top
+ * `HeaderNav`. The `project` prop is unused right now but kept on the
+ * signature so the project layout can keep passing it for future
+ * project-scoped sidebar groups.
  */
 export function ProjectSidebar({
   user,
-  project,
+  // biome-ignore lint/correctness/noUnusedFunctionParameters: kept for forward-compat with project-scoped groups
+  project: _project,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
   user: User;
   project?: Project;
 }) {
-  const { t } = useTranslation();
   // Org-scoped links use `useParams({ strict: false })` so they resolve
   // their `{ orgSlug }` regardless of which route is currently matched.
   const params = useParams({ strict: false }) as { orgSlug?: string };
@@ -101,28 +92,6 @@ export function ProjectSidebar({
       {...props}
     >
       <SidebarContent>
-        {project && (
-          <SidebarGroup>
-            <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-sidebar-foreground/50">
-              {t("nav.services")}
-            </SidebarGroupLabel>
-            <SidebarGroupAction title={t("nav.addService")}>
-              <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
-              <span className="sr-only">{t("nav.addService")}</span>
-            </SidebarGroupAction>
-            <SidebarMenu>
-              {services.map((svc) => (
-                <SidebarMenuItem key={svc.name}>
-                  <SidebarMenuButton render={<Link to="." />}>
-                    <HugeiconsIcon icon={ServerStack01Icon} strokeWidth={2} />
-                    <span className="font-mono">{svc.name}</span>
-                    <StatusDot status={svc.status} className="ml-auto" />
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroup>
-        )}
         <SidebarGroup>
           <SidebarGroupLabel className="text-[11px] uppercase tracking-wider text-sidebar-foreground/50">
             Infrastructure
