@@ -19,8 +19,6 @@ const tabs: readonly Tab[] = [
   { titleKey: "nav.metrics", to: "/$orgSlug/$projectSlug/metrics" },
   { titleKey: "nav.variables", to: "/$orgSlug/$projectSlug/variables" },
   { titleKey: "nav.networking", to: "/$orgSlug/$projectSlug/networking" },
-  { titleKey: "nav.servers", to: "/$orgSlug/$projectSlug/servers" },
-  { titleKey: "nav.terminal", to: "/$orgSlug/terminal" },
   { titleKey: "nav.settings", to: "/$orgSlug/$projectSlug/settings" },
 ] as const;
 
@@ -49,6 +47,7 @@ export function ProjectTabs() {
           className={cn(
             "shrink-0 rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors",
             "hover:bg-accent hover:text-foreground",
+            "outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
           )}
           activeProps={{
             className: "bg-accent text-foreground font-medium",
