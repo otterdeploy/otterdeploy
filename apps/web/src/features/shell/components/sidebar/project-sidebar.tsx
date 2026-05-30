@@ -1,7 +1,10 @@
 import * as React from "react";
 
+import { useLiveQuery } from "@tanstack/react-db";
 import { Link, useParams } from "@tanstack/react-router";
 
+import { projectCollection } from "@/features/projects/data/project";
+import { serverCollection } from "@/features/servers/data/server";
 import type { Project } from "@/routes/_app/layout";
 import {
   Sidebar,
@@ -10,6 +13,7 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarSeparator,
@@ -98,6 +102,22 @@ export function ProjectSidebar({
   // Org-scoped links use `useParams({ strict: false })` so they resolve
   // their `{ orgSlug }` regardless of which route is currently matched.
   const params = useParams({ strict: false }) as { orgSlug?: string };
+
+  // Live counts shown as menu badges next to Projects / Servers. Both
+  // collections are already loaded by the outer `_app` layout's loader,
+  // so this hook is a cheap subscription — no extra fetch.
+  const { data: projects = [] } = useLiveQuery(
+    (q) => q.from({ p: projectCollection }),
+    [],
+  );
+  const { data: servers = [] } = useLiveQuery(
+    (q) => q.from({ s: serverCollection }),
+    [],
+  );
+  const workspaceCounts: Record<string, number> = {
+    Projects: projects.length,
+    Servers: servers.length,
+  };
   return (
     <Sidebar
       className="top-(--header-height) h-[calc(100svh-var(--header-height))]!"
@@ -109,23 +129,29 @@ export function ProjectSidebar({
             Workspace
           </SidebarGroupLabel>
           <SidebarMenu>
-            {workspaceItems.map((item) => (
-              <SidebarMenuItem key={item.title}>
-                <SidebarMenuButton
-                  render={
-                    item.href && params.orgSlug ? (
-                      <Link
-                        to={item.href}
-                        params={{ orgSlug: params.orgSlug }}
-                      />
-                    ) : undefined
-                  }
-                >
-                  <HugeiconsIcon icon={item.icon} strokeWidth={2} />
-                  <span>{item.title}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
+            {workspaceItems.map((item) => {
+              const count = workspaceCounts[item.title];
+              return (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    render={
+                      item.href && params.orgSlug ? (
+                        <Link
+                          to={item.href}
+                          params={{ orgSlug: params.orgSlug }}
+                        />
+                      ) : undefined
+                    }
+                  >
+                    <HugeiconsIcon icon={item.icon} strokeWidth={2} />
+                    <span>{item.title}</span>
+                  </SidebarMenuButton>
+                  {count !== undefined && count > 0 && (
+                    <SidebarMenuBadge>{count}</SidebarMenuBadge>
+                  )}
+                </SidebarMenuItem>
+              );
+            })}
           </SidebarMenu>
         </SidebarGroup>
 
