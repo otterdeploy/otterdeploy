@@ -122,6 +122,7 @@ export async function updateProject(
     id: ProjectId;
     name?: string;
     slug?: string;
+    customDomain?: string | null;
     gitRepoId?: string | null;
     productionBranch?: string;
     containerRegistryId?: string | null;
@@ -163,6 +164,10 @@ export async function updateProject(
       organizationId: input.organizationId,
       name,
       slug: input.slug,
+      customDomain:
+        input.customDomain !== undefined
+          ? input.customDomain?.trim().toLowerCase() || null
+          : undefined,
       gitRepoId: input.gitRepoId,
       productionBranch: input.productionBranch,
       containerRegistryId: input.containerRegistryId,

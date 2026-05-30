@@ -8,6 +8,7 @@ import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 import { toast } from "sonner";
 
+import { DomainSection } from "@/features/projects/components/settings/domain-section";
 import { NixpacksSection } from "@/features/projects/components/settings/nixpacks-section";
 import { RegistrySection } from "@/features/projects/components/settings/registry-section";
 import { SourceSection } from "@/features/projects/components/settings/source-section";
@@ -49,6 +50,7 @@ function BindingForm({ project }: { project: ProjectBindingFields }) {
   const onSave = () => {
     updateMut.mutate({
       id: project.id as never,
+      customDomain: state.customDomain.trim() || null,
       gitRepoId: (state.gitRepoId ?? null) as never,
       productionBranch: state.productionBranch.trim() || "main",
       containerRegistryId: (state.containerRegistryId ?? null) as never,
@@ -67,6 +69,12 @@ function BindingForm({ project }: { project: ProjectBindingFields }) {
           How this project's services get from a git push to a running container.
         </p>
       </header>
+
+      <DomainSection
+        customDomain={state.customDomain}
+        verifiedAt={project.customDomainVerifiedAt ?? null}
+        onCustomDomainChange={(v) => update("customDomain", v)}
+      />
 
       <SourceSection
         gitRepoId={state.gitRepoId}

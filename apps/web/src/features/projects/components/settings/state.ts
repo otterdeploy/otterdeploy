@@ -15,6 +15,8 @@ import { useEffect, useState } from "react";
 export interface ProjectBindingFields {
   id: string;
   updatedAt: Date;
+  customDomain: string | null;
+  customDomainVerifiedAt: Date | null;
   gitRepoId: string | null;
   productionBranch: string;
   containerRegistryId: string | null;
@@ -29,6 +31,7 @@ export interface ProjectBindingFields {
 }
 
 export interface BindingState {
+  customDomain: string;
   gitRepoId: string | null;
   productionBranch: string;
   containerRegistryId: string | null;
@@ -43,6 +46,7 @@ export interface BindingState {
 function fromProject(project: ProjectBindingFields): BindingState {
   const nx = fromNixpacksConfig(project.nixpacksConfig);
   return {
+    customDomain: project.customDomain ?? "",
     gitRepoId: project.gitRepoId ?? null,
     productionBranch: project.productionBranch ?? "main",
     containerRegistryId: project.containerRegistryId ?? null,

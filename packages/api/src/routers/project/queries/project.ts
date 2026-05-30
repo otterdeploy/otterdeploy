@@ -82,6 +82,7 @@ export async function updateProjectRecord(input: {
   organizationId: OrganizationId;
   name?: string;
   slug?: string;
+  customDomain?: string | null;
   gitRepoId?: string | null;
   productionBranch?: string;
   containerRegistryId?: string | null;
@@ -93,6 +94,14 @@ export async function updateProjectRecord(input: {
   const patch: Partial<typeof project.$inferInsert> = {};
   if (input.name !== undefined) patch.name = input.name;
   if (input.slug !== undefined) patch.slug = input.slug;
+  if (input.customDomain !== undefined) {
+    patch.customDomain = input.customDomain;
+    // Changing the bound domain invalidates any previous verification —
+    // operator has to re-prove ownership of the new one. `null` clears
+    // back to org fallback, also no verification needed.
+    patch.customDomainVerifiedAt = null;
+    patch.customDomainVerifyToken = null;
+  }
   if (input.gitRepoId !== undefined) {
     patch.gitRepoId = input.gitRepoId as typeof project.$inferInsert.gitRepoId;
   }

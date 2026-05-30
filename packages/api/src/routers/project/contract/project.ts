@@ -80,6 +80,13 @@ export const updateProjectInput = z.object({
   id: projectIdField,
   name: z.string().min(1).optional(),
   slug: z.string().slugify().min(2).max(48).optional(),
+  // Per-project custom domain. Setting this changes where the project's
+  // services land (web.<customDomain> instead of falling through to the
+  // org's baseDomain). Writing the column clears any previous
+  // verification; the verify-token + verified-at columns get reset by
+  // the handler so the operator can't bind an unverified domain and
+  // skip the check. `null` clears (falls back to org default).
+  customDomain: z.string().min(1).max(253).nullable().optional(),
   // Build pipeline binding. Each field is independently optional;
   // `null` clears the column, `undefined` leaves it unchanged. The
   // handler validates FK rows belong to the same org.
