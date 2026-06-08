@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { BellIcon } from "lucide-react";
-import { Kbd } from "../ui/kbd";
-import { Separator } from "../ui/separator";
+import { Kbd } from "@/components/ui/kbd";
+import { Separator } from "@/components/ui/separator";
 import { ModeToggle } from "../mode-toggle";
 import UserMenu from "../user-menu";
 import {

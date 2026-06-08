@@ -3,7 +3,7 @@
  *
  * Single-purpose process: pulls `deploy.triggered` jobs off the queue
  * and runs the build pipeline. Lives apart from apps/server because it
- * needs the `nixpacks` binary, the docker CLI, and a docker socket —
+ * needs the `railpack` CLI, the docker CLI/buildx, and a docker socket —
  * none of which the API process should depend on.
  *
  * Concurrency is configurable via BUILDER_CONCURRENCY (default 1).

@@ -86,7 +86,7 @@ apps/web/
 - **No `Co-Authored-By` trailers** on commits. Plain `git commit -m "..."` (use `-c commit.gpgsign=false` if signing is required).
 - **All commits on `feat/v2-rebuild`** (current branch).
 - **No new deps.** Don't reach for a new library; the toolset is fixed.
-- **`bun run tsc --noEmit` is the type-check signal.** `bun run check-types` has a known pre-existing routeTree-regen quirk; use direct tsc when verifying.
+- **`bun run tsc --noEmit` is the type-check signal.** `bun run typecheck` has a known pre-existing routeTree-regen quirk; use direct tsc when verifying.
 
 ---
 

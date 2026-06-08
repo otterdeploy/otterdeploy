@@ -1,6 +1,6 @@
 import type { Edge, Node } from "@xyflow/react";
 
-import type { FrameworkKind } from "@/features/projects/components/graph/framework-logo";
+import type { FrameworkKind } from "@/features/projects/components/framework-logo";
 import {
   resourceToNode,
   type ProjectResource,
@@ -75,8 +75,6 @@ const buildRouteEdge = (r: PublicService): Edge => ({
   target: r.resourceId,
 });
 
-// ---------- public API ----------
-
 /** Pending manifest changes the graph should overlay onto its nodes.
  *  Keyed by `${resourceType}:${name}` so create-stubs and existing-node
  *  markers stay aligned with whatever the diff reports. */
@@ -124,7 +122,10 @@ export const buildLiveNodes = (
     };
     if (baseWithExtras.data.kind !== "service") return [baseWithExtras];
 
-    const node = withReplicas(baseWithExtras, tasksByResourceId.get(base.id) ?? []);
+    const node = withReplicas(
+      baseWithExtras,
+      tasksByResourceId.get(base.id) ?? [],
+    );
     return hasPublicRoute(r)
       ? [buildRouteNode(r, node.data.status ?? "running"), node]
       : [node];
@@ -142,7 +143,10 @@ export const buildLiveNodes = (
     data: {
       kind: c.resource,
       name: c.name,
-      description: c.resource === "database" ? "pending create" : "pending create",
+      description:
+        c.resource === "database"
+          ? "New database (pending)"
+          : "New service (pending)",
       pending: "create",
     } as ResourceNodeData,
   }));

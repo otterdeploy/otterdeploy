@@ -8,6 +8,7 @@ import {
   checkResourceName,
   createPostgresResourceStream,
   setPostgresPublic,
+  setPostgresExtensions,
   setPostgresExtraEnvKey,
   unsetPostgresExtraEnvKey,
   createProject,
@@ -532,6 +533,38 @@ export const projectRouter = {
             return result.value;
           },
         ),
+
+        setExtensions:
+          orgScopedProcedure.project.resource.database.postgres.setExtensions.handler(
+            async ({ input, context, errors }) => {
+              context.log.set({
+                target: {
+                  type: "resource",
+                  kind: "postgres",
+                  id: input.resourceId,
+                  projectId: input.projectId,
+                },
+              });
+              const result = await setPostgresExtensions(
+                {
+                  projectId: input.projectId,
+                  resourceId: input.resourceId,
+                  extensions: input.extensions,
+                  organizationId: context.activeOrganizationId,
+                },
+                context.log,
+              );
+              if (result.isErr()) {
+                throw matchError(result.error, {
+                  ProjectNotFoundError: () => errors.NOT_FOUND(),
+                  PostgresResourceNotFoundError: () => errors.NOT_FOUND(),
+                  IncompatibleExtensionsError: (e) =>
+                    errors.INVALID_INPUT({ message: e.message }),
+                });
+              }
+              return result.value;
+            },
+          ),
 
         setExtraEnv:
           orgScopedProcedure.project.resource.database.postgres.setExtraEnv.handler(

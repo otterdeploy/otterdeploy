@@ -82,6 +82,25 @@ export class PostgresResourceConflictError extends TaggedError(
   }
 }
 
+/**
+ * Raised when the requested extension set needs two different bundled
+ * images (e.g. postgis + timescaledb) — a single service runs a single
+ * image, so the combination is rejected rather than silently dropping one.
+ */
+export class IncompatibleExtensionsError extends TaggedError(
+  "IncompatibleExtensionsError",
+)<{
+  message: string;
+  conflict: string[];
+}>() {
+  constructor(args: { conflict: string[] }) {
+    super({
+      conflict: args.conflict,
+      message: `these extensions need different images and can't be combined: ${args.conflict.join(", ")}`,
+    });
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Manifest lifecycle errors
 // ---------------------------------------------------------------------------

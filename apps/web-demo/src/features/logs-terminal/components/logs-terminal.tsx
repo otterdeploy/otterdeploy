@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useRef } from "react";
-import { Skeleton } from "../ui/skeleton";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { LogsScope } from "../types";
 import type { TerminalHandle } from "@wterm/react";
 import "@wterm/dom/css";

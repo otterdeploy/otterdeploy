@@ -13,7 +13,6 @@
   },
   "scripts": {},
   "dependencies": {
-    "@better-auth/drizzle-adapter": "^1.6.9",
     "@otterdeploy/db": "workspace:*",
     "@otterdeploy/env": "workspace:*",
     "@otterdeploy/shared": "workspace:*",

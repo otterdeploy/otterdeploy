@@ -3,7 +3,7 @@
 // Click a node to drawer it open. Edges animate with traffic.
 
 import { useState } from "react";
-import { DatabaseLogo } from "../brand/database-logo";
+import { DatabaseLogo } from "@/components/brand/database-logo";
 import { I } from "../icons";
 import { DEPLOYMENTS, EDGES, ENV_VARS, SERVICES } from "../data";
 import type { Env, Service } from "../data";

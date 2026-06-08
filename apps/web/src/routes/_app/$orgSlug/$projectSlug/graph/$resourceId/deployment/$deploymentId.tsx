@@ -1,12 +1,15 @@
-import { Activity, useEffect, useMemo, useRef, useState } from "react";
+import { Activity, useEffect, useRef, useState } from "react";
 import { createFileRoute, Link, useLoaderData } from "@tanstack/react-router";
-import { eq, useLiveQuery } from "@tanstack/react-db";
+import { and, eq, useLiveQuery } from "@tanstack/react-db";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Cancel01Icon, Search01Icon } from "@hugeicons/core-free-icons";
 import * as m from "motion/react-client";
 
-import { createDeploymentsCollection } from "@/features/projects/data/deployments";
-import { createResourceCollection } from "@/features/projects/data/resource";
+import type { ServiceTaskInfo } from "@otterdeploy/api/routers/project/service-tasks";
+
+import { deploymentTasksCollection } from "@/features/projects/data/deployment-tasks";
+import { deploymentsCollection } from "@/features/projects/data/deployments";
+import { resourceCollection } from "@/features/projects/data/resource";
 import { Input } from "@/shared/components/ui/input";
 import {
   Tabs,
@@ -34,48 +37,44 @@ type DeploymentTab =
   | "http-logs"
   | "network-logs";
 
+function getSubline(resource?: Resource | undefined): string {
+  if (resource?.type === "database") return resource.internalHostname;
+  if (resource?.type === "service") return resource.publicDomain ?? "";
+  return "";
+}
+
 function RouteComponent() {
   const { orgSlug, projectSlug, resourceId, deploymentId } = Route.useParams();
   const { project } = useLoaderData({ from: "/_app/$orgSlug/$projectSlug" });
   const [tab, setTab] = useState<DeploymentTab>("deploy-logs");
 
-  // Pull this deployment out of the resource's deployment collection so the
-  // panel re-renders as status changes. Polling lives in the collection
-  // factory, no need to wire our own interval here.
-  const deploymentsCollection = useMemo(
-    () => createDeploymentsCollection(project.id, resourceId),
-    [project.id, resourceId],
-  );
-  const { data: matches = [] } = useLiveQuery(
+  const { data: deployment = null } = useLiveQuery(
     (q) =>
       q
         .from({ d: deploymentsCollection })
-        .where(({ d }) => eq(d.id, deploymentId)),
-    [deploymentId, deploymentsCollection],
+        .where(({ d }) =>
+          and(
+            eq(d.projectId, project.id),
+            eq(d.resourceId, resourceId),
+            eq(d.id, deploymentId),
+          ),
+        )
+        .findOne(),
+    [project.id, resourceId, deploymentId],
   );
-  const deployment = matches[0] ?? null;
 
-  // Resource name powers the header breadcrumb. Same collection used by the
-  // resource panel under us, so it's already warm.
-  const resourceCollection = useMemo(
-    () => createResourceCollection(project.id),
-    [project.id],
-  );
   const { data: resource } = useLiveQuery(
     (q) =>
       q
         .from({ r: resourceCollection })
-        .where(({ r }) => eq(r.resourceId, resourceId))
+        .where(({ r }) =>
+          and(eq(r.projectId, project.id), eq(r.resourceId, resourceId)),
+        )
         .findOne(),
-    [resourceId, resourceCollection],
+    [project.id, resourceId],
   );
 
-  const subline =
-    resource?.type === "database"
-      ? resource.internalHostname
-      : resource?.type === "service"
-        ? (resource.publicDomain ?? "")
-        : "";
+  const subline = getSubline(resource);
 
   return (
     <m.div
@@ -315,21 +314,6 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-interface TaskInfo {
-  id: string;
-  slot: number | null;
-  label: string;
-  state: "running" | "building" | "error";
-  rawState: string | null;
-  desiredState: string | null;
-  nodeId: string | null;
-  message: string | null;
-  error: string | null;
-  containerId: string | null;
-  exitCode: number | null;
-  timestamp: string | null;
-}
-
 function DeploymentTasksList({
   projectId,
   resourceId,
@@ -339,42 +323,27 @@ function DeploymentTasksList({
   resourceId: string;
   deploymentId: string;
 }) {
-  const [tasks, setTasks] = useState<TaskInfo[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setTasks(null);
-    setError(null);
-    (async () => {
-      try {
-        const result = await orpc.project.resource.deployments.tasks.call({
-          projectId: projectId as never,
-          resourceId: resourceId as never,
-          deploymentId: deploymentId as never,
-        });
-        if (cancelled) return;
-        setTasks(result);
-      } catch (err) {
-        if (cancelled) return;
-        setError(err instanceof Error ? err.message : String(err));
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [projectId, resourceId, deploymentId]);
+  const { data: tasks, status } = useLiveQuery(
+    (q) =>
+      q
+        .from({ d: deploymentTasksCollection })
+        .where(({ d }) =>
+          and(
+            eq(d.projectId, projectId),
+            eq(d.resourceId, resourceId),
+            eq(d.deploymentId, deploymentId),
+          ),
+        ),
+    [projectId, resourceId, deploymentId],
+  );
+  const isLoading = status === "loading" && tasks.length === 0;
 
   return (
     <div className="flex flex-col gap-2">
       <div className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-muted-foreground/70">
         Tasks
       </div>
-      {error ? (
-        <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 font-mono text-[12px] text-destructive">
-          {error}
-        </div>
-      ) : tasks === null ? (
+      {isLoading ? (
         <div className="font-mono text-[11.5px] text-muted-foreground">
           Loading tasks…
         </div>
@@ -395,7 +364,7 @@ function DeploymentTasksList({
   );
 }
 
-function DeploymentTaskRow({ task }: { task: TaskInfo }) {
+function DeploymentTaskRow({ task }: { task: ServiceTaskInfo }) {
   return (
     <div className="grid grid-cols-[100px_80px_140px_1fr_140px] items-center gap-3 px-3 py-2.5 font-mono text-[11.5px]">
       <TaskStateBadge state={task.state} />
@@ -418,29 +387,25 @@ function DeploymentTaskRow({ task }: { task: TaskInfo }) {
   );
 }
 
-function TaskStateBadge({ state }: { state: TaskInfo["state"] }) {
-  const tone =
-    state === "running"
-      ? "bg-success/15 text-success border-success/30"
-      : state === "building"
-        ? "bg-warning/15 text-warning border-warning/30"
-        : "bg-destructive/15 text-destructive border-destructive/30";
+function TaskStateBadge({ state }: { state: ServiceTaskInfo["state"] }) {
   return (
     <span
       className={cn(
         "inline-flex items-center gap-1.5 rounded-sm border px-2 py-0.5 text-[10px] font-medium uppercase",
-        tone,
+        {
+          "bg-success/15 text-success border-success/30": state === "running",
+          "bg-warning/15 text-warning border-warning/30": state === "building",
+          "bg-destructive/15 text-destructive border-destructive/30":
+            state === "error",
+        },
       )}
     >
       <span
-        className={cn(
-          "size-1.5 rounded-full",
-          state === "running"
-            ? "bg-success"
-            : state === "building"
-              ? "bg-warning"
-              : "bg-destructive",
-        )}
+        className={cn("size-1.5 rounded-full", {
+          "bg-success": state === "running",
+          "bg-warning": state === "building",
+          "bg-destructive": state === "error",
+        })}
       />
       {state}
     </span>
@@ -452,19 +417,17 @@ function DeploymentStatusBadge({
 }: {
   status: DeploymentRow["status"];
 }) {
-  const tone =
-    status === "running"
-      ? "bg-success/15 text-success border-success/30"
-      : status === "failed"
-        ? "bg-destructive/15 text-destructive border-destructive/30"
-        : status === "building" || status === "pending"
-          ? "bg-warning/15 text-warning border-warning/30"
-          : "bg-muted text-muted-foreground border-border/60";
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-sm border px-2 py-0.5 font-mono text-[10px] font-medium uppercase",
-        tone,
+        "inline-flex items-center gap-1.5 rounded-sm border px-2 py-0.5 font-mono text-[10px] font-medium uppercase bg-muted text-muted-foreground border-border/60",
+        {
+          "bg-success/15 text-success border-success/30": status === "running",
+          "bg-destructive/15 text-destructive border-destructive/30":
+            status === "failed",
+          "bg-warning/15 text-warning border-warning/30":
+            status === "building" || status === "pending",
+        },
       )}
     >
       {status}
@@ -494,8 +457,8 @@ function DeploymentLogsBody({
   const [status, setStatus] = useState<
     "connecting" | "live" | "ended" | "error"
   >("connecting");
-  const [filter, setFilter] = useState("");
   const counterRef = useRef(0);
+  const [filter, setFilter] = useState("");
   const scrollerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -659,7 +622,35 @@ function BuildLogsBody({ deploymentId }: { deploymentId: string }) {
       setStatus("ended");
       es.close();
     });
-    es.addEventListener("error", () => {
+    es.addEventListener("error", (event) => {
+      // Two different things dispatch to "error":
+      //  1. A server-sent `event: error` (a MessageEvent carrying a `.data`
+      //     payload) — the stream hit a real error mid-flight. Surface the
+      //     message as a log line and stop; otherwise it reads as an endless
+      //     "Connecting…" with no explanation.
+      //  2. A native EventSource connection error (a bare Event, no data) —
+      //     only terminal once the browser gives up reconnecting (CLOSED).
+      if (event instanceof MessageEvent && typeof event.data === "string") {
+        let message = "Build log stream error";
+        try {
+          const parsed = JSON.parse(event.data) as { message?: unknown };
+          if (typeof parsed.message === "string") message = parsed.message;
+        } catch {
+          if (event.data) message = event.data;
+        }
+        setStatus("error");
+        setLines((prev) => [
+          ...prev,
+          {
+            id: ++counterRef.current,
+            stream: "stderr",
+            line: message,
+            ts: new Date().toISOString(),
+          },
+        ]);
+        es.close();
+        return;
+      }
       if (es.readyState === EventSource.CLOSED) {
         setStatus("error");
       }
@@ -728,14 +719,14 @@ function EmptyTab({ title, hint }: { title: string; hint: string }) {
 }
 
 function LogLineRow({ line }: { line: LogLine }) {
-  const tone =
-    line.stream === "stderr"
-      ? "text-destructive/90"
-      : line.stream === "system"
-        ? "italic text-muted-foreground"
-        : "text-foreground/85";
   return (
-    <div className={cn("flex gap-3", tone)}>
+    <div
+      className={cn("flex gap-3", {
+        "text-destructive/90": line.stream === "stderr",
+        "italic text-muted-foreground": line.stream === "system",
+        "text-foreground/85": line.stream === "stdout",
+      })}
+    >
       {line.ts && (
         <span className="shrink-0 text-muted-foreground/50">
           {line.ts.replace("T", " ").replace(/\.\d+Z$/, "")}

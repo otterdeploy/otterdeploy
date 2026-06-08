@@ -26,10 +26,15 @@ import type { RequestLogger } from "evlog";
 import { db } from "@otterdeploy/db";
 import {
   databaseResource,
+  deployment,
   project,
   resource,
   serviceResource,
 } from "@otterdeploy/db/schema/project";
+import { gitInstallation, gitRepo } from "@otterdeploy/db/schema/git";
+import { triggerDeploy } from "@otterdeploy/jobs";
+
+import { fetchBranchHeadSha } from "../../git/github-app";
 import {
   type Change,
   type CurrentState,
@@ -41,7 +46,9 @@ import {
   type DatabaseManifest,
 } from "../../stack/manifest";
 import { ManifestApplySkipError } from "./errors";
+import { deleteResourceById } from "./queries";
 import { createPostgresResourceStream, validatePostgresCreate } from "./postgres/create-stream";
+import { setPostgresExtensions } from "./postgres/extensions";
 import {
   applyPostgresExtraEnv,
   setPostgresPublic,
@@ -99,6 +106,12 @@ export async function applyManifest(input: ApplyInput): Promise<ApplyResult> {
   const refTable = await loadRefTable(projectId);
 
   // ── 3. Service creates ──────────────────────────────────────────────
+  // Git-sourced services land in the DB with a `pending:initial` image and
+  // skip swarm (provisionFresh) — they only become real once the builder
+  // clones + builds + pushes + rolls the swarm service. Collect them so we
+  // can enqueue that build below; without this a UI "Deploy" creates the
+  // row but nothing ever builds (the node sits at "pending create").
+  const gitBuilds: Array<{ resourceId: ResourceId; name: string }> = [];
   for (const change of byKind.serviceCreates) {
     const spec = manifest.services[change.name];
     if (!spec) continue;
@@ -109,16 +122,18 @@ export async function applyManifest(input: ApplyInput): Promise<ApplyResult> {
       current.services[change.name]?.env ?? {},
     );
     for (const s of resolved.skipped) skipped.push(s);
-    tally(
-      await createServiceFromManifest({
-        projectId,
-        organizationId,
-        name: change.name,
-        spec,
-        env: resolved.values,
-        log,
-      }),
-    );
+    const created = await createServiceFromManifest({
+      projectId,
+      organizationId,
+      name: change.name,
+      spec,
+      env: resolved.values,
+      log,
+    });
+    tally(created);
+    if (created.isOk() && spec.source === "git") {
+      gitBuilds.push({ resourceId: created.value.resourceId, name: change.name });
+    }
   }
 
   // ── 4. Service updates (fields + env) ────────────────────────────────
@@ -144,6 +159,20 @@ export async function applyManifest(input: ApplyInput): Promise<ApplyResult> {
         log,
       }),
     );
+    // A git service that was created but never successfully built sits on a
+    // `pending:*` image with no deployment. Builds normally fire only on
+    // create (or git push), so without this a "Deploy" on such a stuck
+    // service no-ops forever. If it's still pending, enqueue the build now.
+    if (spec.source === "git") {
+      const [svc] = await db
+        .select({ image: serviceResource.image })
+        .from(serviceResource)
+        .where(eq(serviceResource.resourceId, existingId))
+        .limit(1);
+      if (svc?.image.startsWith("pending:")) {
+        gitBuilds.push({ resourceId: existingId, name: change.name });
+      }
+    }
   }
 
   // ── 5. Database updates ─────────────────────────────────────────────
@@ -184,6 +213,30 @@ export async function applyManifest(input: ApplyInput): Promise<ApplyResult> {
     if (!existingId) continue;
     await db.delete(resource).where(eq(resource.id, existingId));
     appliedCount += 1;
+  }
+
+  // ── Enqueue builds for git-sourced service creates ───────────────────
+  // Mirrors the git-push path (git/handle-push.ts): resolve the production
+  // branch head, insert a deployment row, and enqueue `deploy.triggered`
+  // so the builder clones → builds → pushes → rolls swarm. A failure here
+  // means the resource exists but won't build, so it joins skipped[] for
+  // the operator to see.
+  for (const b of gitBuilds) {
+    const enqueued = await enqueueGitBuild({
+      projectId,
+      organizationId,
+      resourceId: b.resourceId,
+      log,
+    });
+    if (enqueued.isErr()) {
+      skipped.push(
+        new ManifestApplySkipError({
+          resource: "service",
+          name: b.name,
+          reason: `created but build not started: ${enqueued.error}`,
+        }),
+      );
+    }
   }
 
   await db
@@ -287,6 +340,110 @@ async function loadRefTable(projectId: ProjectId): Promise<RefTable> {
   }
 
   return { databases, services };
+}
+
+// ── Git build enqueue (UI "Deploy" of a git-sourced service) ───────────
+//
+// The git-push webhook (git/handle-push.ts) is the only other place that
+// kicks a build; this is its UI-triggered twin. We resolve the head SHA of
+// the project's production branch ourselves (no push payload to read it
+// from), insert a pending deployment row keyed to the resource, and enqueue
+// the build job. Errors are returned as strings so the caller can fold them
+// into skipped[] without a typed-error taxonomy for every GitHub failure.
+export async function enqueueGitBuild(args: {
+  projectId: ProjectId;
+  organizationId: OrgId;
+  resourceId: ResourceId;
+  log: RequestLogger;
+}): Promise<Result<{ deploymentId: string }, string>> {
+  const [proj] = await db
+    .select({
+      gitRepoId: project.gitRepoId,
+      productionBranch: project.productionBranch,
+      imageRepository: project.imageRepository,
+      containerRegistryId: project.containerRegistryId,
+    })
+    .from(project)
+    .where(
+      and(eq(project.id, args.projectId), eq(project.organizationId, args.organizationId)),
+    )
+    .limit(1);
+  if (!proj?.gitRepoId) return Result.err("project has no git repo binding");
+  // Registry binding is optional — the builder defaults to a registry-less
+  // local image (built straight into the swarm node's daemon). Only an
+  // external registry needs imageRepository + containerRegistryId, and the
+  // builder resolves that itself; no gate here.
+
+  const [repo] = await db
+    .select({
+      fullName: gitRepo.fullName,
+      defaultBranch: gitRepo.defaultBranch,
+      installationRowId: gitRepo.installationId,
+    })
+    .from(gitRepo)
+    .where(eq(gitRepo.id, proj.gitRepoId))
+    .limit(1);
+  if (!repo) return Result.err("git repo not found");
+
+  // Resolve an installation token only when the repo is linked to one.
+  // With no installation we build anonymously — the head-SHA lookup below
+  // and the builder's clone both fall back to unauthenticated access, which
+  // works for public repos. A genuinely private repo with no installation
+  // fails the SHA lookup with a clear 404 below; we deliberately don't
+  // pre-judge on the `is_private` flag, which defaults to true and is often
+  // stale/wrong (a public repo can be recorded as private).
+  let installationId: string | null = null;
+  if (repo.installationRowId) {
+    const [inst] = await db
+      .select({ installationId: gitInstallation.installationId })
+      .from(gitInstallation)
+      .where(eq(gitInstallation.id, repo.installationRowId))
+      .limit(1);
+    if (!inst) return Result.err("git installation not found");
+    installationId = inst.installationId;
+  }
+
+  const branch = proj.productionBranch || repo.defaultBranch || "main";
+  const [owner, repoName] = repo.fullName.split("/");
+  if (!owner || !repoName) {
+    return Result.err(`unexpected repo full name: ${repo.fullName}`);
+  }
+
+  // fetchBranchHeadSha throws on failure (github-app.ts idiom); wrap it so
+  // GitHub/network errors fold into skipped[] rather than aborting apply.
+  const shaResult = await Result.tryPromise({
+    try: () => fetchBranchHeadSha(installationId, owner, repoName, branch),
+    catch: (cause) => (cause instanceof Error ? cause.message : String(cause)),
+  });
+  if (shaResult.isErr()) {
+    return Result.err(`could not resolve ${branch} head: ${shaResult.error}`);
+  }
+  const sha = shaResult.value;
+
+  const ref = `refs/heads/${branch}`;
+  const [row] = await db
+    .insert(deployment)
+    .values({
+      resourceId: args.resourceId,
+      // Rewritten to the real registry tag by the builder once known.
+      image: `pending:${sha.slice(0, 12)}`,
+      reason: "create" as const,
+      status: "pending" as const,
+      gitSha: sha,
+      gitRef: ref,
+    })
+    .returning({ id: deployment.id });
+  if (!row) return Result.err("failed to insert deployment row");
+
+  await triggerDeploy({
+    projectId: args.projectId,
+    gitRepoId: proj.gitRepoId,
+    ref,
+    sha,
+    deploymentIds: [row.id],
+  });
+  args.log.set({ manifestBuild: { resourceId: args.resourceId, sha, ref } });
+  return Result.ok({ deploymentId: row.id });
 }
 
 interface ResolvedEnv {
@@ -418,6 +575,11 @@ async function createServiceFromManifest(
       organizationId: args.organizationId,
       name: args.name,
       source: args.spec.source,
+      // A git create on an unbound project should still land as a
+      // `pending:initial` row (swarm skipped) — the missing build binding
+      // surfaces below as a non-fatal "build not started" skip, not a hard
+      // create failure that leaves the ghost stuck forever.
+      skipBuildBindingCheck: true,
       sourceSubdir: args.spec.source === "git" ? (args.spec.sourceSubdir ?? null) : null,
       image,
       command: args.spec.startCommand ?? null,
@@ -462,7 +624,7 @@ async function createServiceFromManifest(
       new ManifestApplySkipError({
         resource: "service",
         name: args.name,
-        reason: `create failed: ${result.error.name}`,
+        reason: `create failed: ${result.error.message}`,
       }),
     );
   }
@@ -534,7 +696,7 @@ async function updateServiceFromManifest(
       new ManifestApplySkipError({
         resource: "service",
         name: args.name,
-        reason: `update failed: ${updated.error.name}`,
+        reason: `update failed: ${updated.error.message}`,
       }),
     );
   }
@@ -554,7 +716,7 @@ async function updateServiceFromManifest(
       new ManifestApplySkipError({
         resource: "service",
         name: args.name,
-        reason: `env reconcile failed: ${envResult.error.name}`,
+        reason: `env reconcile failed: ${envResult.error.message}`,
       }),
     );
   }
@@ -584,7 +746,7 @@ async function createDatabase(
       new ManifestApplySkipError({
         resource: "database",
         name: args.name,
-        reason: `validation failed: ${validation.error.name}`,
+        reason: `validation failed: ${validation.error.message}`,
       }),
     );
   }
@@ -605,11 +767,20 @@ async function createDatabase(
 
   let success = false;
   let errorMessage: string | null = null;
+  let createdResourceId: ResourceId | null = null;
   for await (const event of stream) {
+    if (event.type === "created") {
+      createdResourceId = event.resource.resourceId as ResourceId;
+    }
     if (event.type === "done") success = true;
     if (event.type === "error") errorMessage = event.message;
   }
   if (!success) {
+    // Roll back the draft row a failed create left behind. Otherwise the
+    // half-created database lands in loadCurrentState, the next diff sees
+    // the manifest entry as already-existing and flips create → no-op: the
+    // ghost vanishes and the operator can never cleanly retry.
+    if (createdResourceId) await deleteResourceById(createdResourceId);
     return Result.err(
       new ManifestApplySkipError({
         resource: "database",
@@ -619,17 +790,32 @@ async function createDatabase(
     );
   }
 
-  // extraEnv comes after creation — the create stream doesn't accept it
-  // as input today, so we apply it as a second step.
-  if (args.spec.extraEnv && Object.keys(args.spec.extraEnv).length > 0) {
+  // extraEnv + extensions come after creation — the create stream doesn't
+  // accept them as input today, so we apply them as second steps. Both
+  // need the resource id, so resolve it once.
+  const needsExtraEnv =
+    args.spec.extraEnv && Object.keys(args.spec.extraEnv).length > 0;
+  const specExtensions = manifestExtensions(args.spec);
+  if (needsExtraEnv || specExtensions.length > 0) {
     const dbId = await lookupDatabaseId(args.projectId, args.name);
-    if (dbId) {
+    if (dbId && needsExtraEnv) {
       await applyPostgresExtraEnv(
         {
           projectId: args.projectId,
           organizationId: args.organizationId,
           resourceId: dbId,
-          nextExtraEnv: args.spec.extraEnv,
+          nextExtraEnv: args.spec.extraEnv ?? {},
+        },
+        args.log,
+      );
+    }
+    if (dbId && specExtensions.length > 0) {
+      await setPostgresExtensions(
+        {
+          projectId: args.projectId,
+          organizationId: args.organizationId,
+          resourceId: dbId,
+          extensions: specExtensions,
         },
         args.log,
       );
@@ -637,6 +823,13 @@ async function createDatabase(
   }
 
   return Result.ok({ name: args.name });
+}
+
+/** Extensions only exist on the postgres manifest variant — read them off
+ *  the spec without assuming the discriminant has been narrowed. */
+function manifestExtensions(spec: DatabaseManifest): string[] {
+  const value = (spec as { extensions?: unknown }).extensions;
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
 }
 
 interface UpdateDatabaseArgs {
@@ -671,6 +864,23 @@ async function updateDatabaseFromManifest(
         organizationId: args.organizationId,
         resourceId: args.resourceId,
         nextExtraEnv: desiredExtra,
+      },
+      args.log,
+    );
+  }
+
+  // Reconcile extensions to the manifest's desired set. setPostgresExtensions
+  // is idempotent (diffs against the current list), so calling it
+  // unconditionally is safe — but skip when the manifest declares none and
+  // the resource also has none, to avoid a no-op redeploy.
+  const desiredExtensions = manifestExtensions(args.spec);
+  if (desiredExtensions.length > 0) {
+    await setPostgresExtensions(
+      {
+        projectId: args.projectId,
+        organizationId: args.organizationId,
+        resourceId: args.resourceId,
+        extensions: desiredExtensions,
       },
       args.log,
     );

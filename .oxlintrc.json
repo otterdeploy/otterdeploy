@@ -1,5 +1,5 @@
 {
-  "plugins": ["unicorn", "typescript", "oxc", "node"],
+  "plugins": ["unicorn", "typescript", "oxc", "node", "react"],
   "categories": {},
   "rules": {
     "constructor-super": "warn",
@@ -37,6 +37,8 @@
     "no-self-assign": "warn",
     "no-setter-return": "warn",
     "no-console": "warn",
+    "react/rules-of-hooks": "error",
+    "react/exhaustive-deps": "warn",
     "node/no-process-env": "error",
     "typescript/no-explicit-any": "error",
     "typescript/no-unsafe-return": "error",
@@ -164,6 +166,12 @@
       "files": ["**/contract.ts"],
       "rules": {
         "max-lines": ["error", { "max": 500, "skipBlankLines": true, "skipComments": true }]
+      }
+    },
+    {
+      "files": ["apps/server/src/index.ts"],
+      "rules": {
+        "max-lines": ["error", { "max": 350, "skipBlankLines": true, "skipComments": true }]
       }
     }
   ],

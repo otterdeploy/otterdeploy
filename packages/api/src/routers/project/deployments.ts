@@ -144,6 +144,7 @@ export async function listDeploymentsByResource(
 
 export interface DeploymentWithStats {
   id: DeploymentId;
+  projectId: ProjectId;
   resourceId: ResourceId;
   image: string;
   reason: DeploymentRow["reason"];
@@ -322,6 +323,7 @@ export async function listResourceDeployments(
       const running = states.filter((s) => s === "running").length;
       return {
         id: row.id,
+        projectId: input.projectId,
         resourceId: row.resourceId,
         image: row.image,
         reason: row.reason,
@@ -358,6 +360,9 @@ interface TasksByDeploymentInput extends ListInput {
 
 export interface DeploymentTaskInfo {
   id: string;
+  projectId: ProjectId;
+  resourceId: ResourceId;
+  deploymentId: DeploymentId;
   slot: number | null;
   label: string;
   state: "running" | "building" | "error";
@@ -480,6 +485,9 @@ export async function listTasksForDeployment(
         (t as { DesiredState?: string }).DesiredState ?? null;
       return {
         id: (t as { ID?: string }).ID ?? "",
+        projectId: input.projectId,
+        resourceId: input.resourceId,
+        deploymentId: input.deploymentId as DeploymentId,
         slot,
         label: slot != null ? `${serviceName}.${slot}` : serviceName,
         state: collapseTaskState(status.State),

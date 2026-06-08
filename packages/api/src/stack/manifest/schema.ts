@@ -93,8 +93,8 @@ const restartSchema = z.object({
 // one path matches. When unset, every push redeploys.
 const watchPatterns = z.array(z.string()).optional();
 
-// Auto-detect: inspect the repo (Dockerfile present → dockerfile;
-// language markers → nixpacks; else railpack). No other config needed.
+// Auto-detect: inspect the repo (Dockerfile present → dockerfile; else
+// railpack). No other config needed.
 const buildAutoSchema = z.object({
   builder: z.literal("auto"),
   watchPatterns,
@@ -108,20 +108,14 @@ const buildDockerfileSchema = z.object({
   watchPatterns,
 });
 
-// Nixpacks: zero-config builder; buildCommand overrides the detected
-// build step. nixpacksConfigPath points at an optional nixpacks.toml.
-const buildNixpacksSchema = z.object({
-  builder: z.literal("nixpacks"),
-  buildCommand: z.string().nullable().optional(),
-  nixpacksConfigPath: z.string().nullable().optional(),
-  watchPatterns,
-});
-
-// Railpack: nixpacks-like, different generator. buildCommand overrides
-// the detected build step.
+// Railpack: zero-config builder. buildCommand overrides the detected build
+// step. For static sites, `spa` enables index.html fallback routing and
+// `staticRoot` overrides the served dir (default dist).
 const buildRailpackSchema = z.object({
   builder: z.literal("railpack"),
   buildCommand: z.string().nullable().optional(),
+  spa: z.boolean().nullable().optional(),
+  staticRoot: z.string().nullable().optional(),
   watchPatterns,
 });
 
@@ -139,7 +133,6 @@ const buildComposeSchema = z.object({
 export const buildSchema = z.discriminatedUnion("builder", [
   buildAutoSchema,
   buildDockerfileSchema,
-  buildNixpacksSchema,
   buildRailpackSchema,
   buildComposeSchema,
 ]) satisfies z.ZodType<BuildConfig>;

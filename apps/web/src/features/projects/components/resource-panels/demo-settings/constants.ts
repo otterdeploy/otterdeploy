@@ -28,7 +28,6 @@ export const BUILDERS = [
     name: "Dockerfile",
     sub: "Use the Dockerfile in the repo",
   },
-  { id: "nixpacks", name: "Nixpacks", sub: "Reproducible builds via Nix" },
   {
     id: "compose",
     name: "docker-compose",

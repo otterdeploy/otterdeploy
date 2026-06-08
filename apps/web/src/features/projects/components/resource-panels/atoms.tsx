@@ -18,6 +18,7 @@ import type {
   ResourceKind,
   ResourceNodeData,
 } from "@/features/projects/components/graph/resource-node";
+import { FrameworkLogo } from "@/features/projects/components/framework-logo";
 import { Docker } from "@/shared/components/ui/svgs/docker";
 import { Mariadb } from "@/shared/components/ui/svgs/mariadb";
 import { Mongodb } from "@/shared/components/ui/svgs/mongodb";
@@ -72,6 +73,16 @@ const ENGINE_LOGO: Record<ResourceEngine, BrandSvg> = {
  * node rendering for visual continuity between graph + detail panel.
  */
 export function PanelIcon({ node }: { node: ResourceNodeData }) {
+  // Detected framework wins for git-sourced services — same precedence as
+  // the graph node header tile (framework > engine > kind), so the drawer
+  // header matches the node the operator just clicked.
+  if (node.framework) {
+    return (
+      <div className="grid size-10 shrink-0 place-items-center rounded-lg border bg-background">
+        <FrameworkLogo framework={node.framework} className="size-5" />
+      </div>
+    );
+  }
   if (node.engine) {
     const Brand = ENGINE_LOGO[node.engine];
     if (Brand) {

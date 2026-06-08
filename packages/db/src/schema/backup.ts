@@ -1,0 +1,283 @@
+/**
+ * Backups schema — destinations, schedules, runs, and run logs.
+ *
+ * Three control-plane tables describe desired + historical backup state, plus
+ * an append-only log stream cloned from `deploymentLog`. The execution plane
+ * (a builder-style worker) is the only thing that runs `pg_dump`/`tar`/`rclone`;
+ * these rows only ever describe what should happen and what did happen.
+ *
+ *   backup_destination — where backups go (S3 / local disk / SFTP). S3 creds
+ *     are stored encrypted via `encryptSecret` (AES-GCM keyed off
+ *     BETTER_AUTH_SECRET — see packages/api/src/lib/crypto.ts). Never store
+ *     plaintext secrets here.
+ *
+ *   backup_schedule — when + what to back up, with a retention policy. A single
+ *     scanning cron (cron.backup-scheduler) reads these rows so user edits take
+ *     effect without reconfiguring BullMQ schedulers — the DB is the source of
+ *     truth for cron + retention.
+ *
+ *   backup — one row per run (manual "backup now" or scheduler-enqueued). Holds
+ *     terminal result: status, sizes, checksum, storage path, error.
+ *
+ *   backup_log — append-only per-run output, one line per row (clone of
+ *     deploymentLog). Lets the detail panel paginate + live-tail via Redis
+ *     pub/sub without scanning a JSONB blob.
+ */
+import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
+import type {
+  BackupDestinationId,
+  BackupId,
+  BackupScheduleId,
+  OrganizationId,
+  ProjectId,
+  ResourceId,
+} from "@otterdeploy/shared/id";
+
+import {
+  bigint,
+  bigserial,
+  boolean,
+  index,
+  integer,
+  jsonb,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+} from "drizzle-orm/pg-core";
+
+import { organization } from "./auth";
+import { project, resource } from "./project";
+
+// ---------------------------------------------------------------------------
+// Enums (shared across backup tables)
+// ---------------------------------------------------------------------------
+
+export const backupDestinationTypeEnum = pgEnum("backup_destination_type", [
+  "s3",
+  "local",
+  "sftp",
+]);
+
+export const backupDestinationStatusEnum = pgEnum(
+  "backup_destination_status",
+  ["active", "degraded"],
+);
+
+export const backupKindEnum = pgEnum("backup_kind", [
+  "database",
+  "volume",
+  "stack",
+]);
+
+export const backupStatusEnum = pgEnum("backup_status", [
+  "queued",
+  "running",
+  "succeeded",
+  "failed",
+]);
+
+/**
+ * Encryption-at-rest mode applied to the produced archive. v1 only implements
+ * `aes-256-gcm` (reuses the registry crypto) and `none`; `kms-managed` and
+ * `customer-key` are reserved for later and rejected by the engine for now.
+ */
+export const backupEncryptionEnum = pgEnum("backup_encryption", [
+  "none",
+  "aes-256-gcm",
+  "kms-managed",
+  "customer-key",
+]);
+
+export const backupRetentionClassEnum = pgEnum("backup_retention_class", [
+  "short",
+  "standard",
+  "long",
+  "archive",
+]);
+
+export const backupLogStreamEnum = pgEnum("backup_log_stream", [
+  "stdout",
+  "stderr",
+  "system",
+]);
+
+// ---------------------------------------------------------------------------
+// backup_destination — where backups are stored
+// ---------------------------------------------------------------------------
+
+/**
+ * `config` holds non-secret connection params (bucket / region / endpoint /
+ * prefix for S3, or `path` for local). `encryptedSecret` is the AES-GCM
+ * ciphertext blob (access key + secret, or SFTP key) — base64url, never logged,
+ * nullable because `local` destinations have no secret.
+ */
+export const backupDestination = pgTable(
+  "backup_destination",
+  {
+    id: text("id")
+      .primaryKey()
+      .$type<BackupDestinationId>()
+      .$defaultFn(() => createId(ID_PREFIX.backupDestination)),
+    organizationId: text("organization_id")
+      .notNull()
+      .$type<OrganizationId>()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    type: backupDestinationTypeEnum("type").notNull(),
+    config: jsonb("config")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    encryptedSecret: text("encrypted_secret"),
+    status: backupDestinationStatusEnum("status").notNull().default("active"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [index("backup_destination_org_idx").on(table.organizationId)],
+);
+
+// ---------------------------------------------------------------------------
+// backup_schedule — when + what + retention policy
+// ---------------------------------------------------------------------------
+
+export const backupSchedule = pgTable(
+  "backup_schedule",
+  {
+    id: text("id")
+      .primaryKey()
+      .$type<BackupScheduleId>()
+      .$defaultFn(() => createId(ID_PREFIX.backupSchedule)),
+    organizationId: text("organization_id")
+      .notNull()
+      .$type<OrganizationId>()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    // Null = org-wide schedule not scoped to a single project.
+    projectId: text("project_id")
+      .$type<ProjectId>()
+      .references(() => project.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    // Resource refs this schedule backs up (resource ids or source names).
+    sources: jsonb("sources").$type<string[]>().notNull().default([]),
+    cron: text("cron").notNull(),
+    // Retention windows (Coolify-style): count-based tiers plus optional
+    // age (days) and storage (GB) ceilings, enforced by the forget-policy.
+    keepDaily: integer("keep_daily").notNull().default(0),
+    keepWeekly: integer("keep_weekly").notNull().default(0),
+    keepMonthly: integer("keep_monthly").notNull().default(0),
+    keepYearly: integer("keep_yearly").notNull().default(0),
+    retentionDays: integer("retention_days"),
+    maxStorageGb: integer("max_storage_gb"),
+    destinationId: text("destination_id")
+      .notNull()
+      .$type<BackupDestinationId>()
+      .references(() => backupDestination.id, { onDelete: "restrict" }),
+    encryption: backupEncryptionEnum("encryption")
+      .notNull()
+      .default("aes-256-gcm"),
+    pitr: boolean("pitr").notNull().default(false),
+    enabled: boolean("enabled").notNull().default(true),
+    preHook: text("pre_hook"),
+    notifyChannel: text("notify_channel"),
+    lastRunAt: timestamp("last_run_at"),
+    lastRunStatus: backupStatusEnum("last_run_status"),
+    nextRunAt: timestamp("next_run_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("backup_schedule_org_idx").on(table.organizationId),
+    index("backup_schedule_destination_idx").on(table.destinationId),
+    // Hot path for the scanning cron: "schedules due now".
+    index("backup_schedule_next_run_idx").on(table.enabled, table.nextRunAt),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// backup — one row per run
+// ---------------------------------------------------------------------------
+
+export const backup = pgTable(
+  "backup",
+  {
+    id: text("id")
+      .primaryKey()
+      .$type<BackupId>()
+      .$defaultFn(() => createId(ID_PREFIX.backup)),
+    organizationId: text("organization_id")
+      .notNull()
+      .$type<OrganizationId>()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    resourceId: text("resource_id")
+      .notNull()
+      .$type<ResourceId>()
+      .references(() => resource.id, { onDelete: "cascade" }),
+    // Null = manual "backup now"; set = produced by a schedule.
+    scheduleId: text("schedule_id")
+      .$type<BackupScheduleId>()
+      .references(() => backupSchedule.id, { onDelete: "set null" }),
+    kind: backupKindEnum("kind").notNull().default("database"),
+    status: backupStatusEnum("status").notNull().default("queued"),
+    // e.g. "pg_dump --format=custom -Z9".
+    method: text("method"),
+    destinationId: text("destination_id")
+      .notNull()
+      .$type<BackupDestinationId>()
+      .references(() => backupDestination.id, { onDelete: "restrict" }),
+    encryption: backupEncryptionEnum("encryption")
+      .notNull()
+      .default("aes-256-gcm"),
+    sourceSizeBytes: bigint("source_size_bytes", { mode: "number" }),
+    compressedSizeBytes: bigint("compressed_size_bytes", { mode: "number" }),
+    checksum: text("checksum"),
+    // S3 key or local path of the produced archive.
+    storagePath: text("storage_path"),
+    retention: backupRetentionClassEnum("retention")
+      .notNull()
+      .default("standard"),
+    durationMs: integer("duration_ms"),
+    errorMessage: text("error_message"),
+    startedAt: timestamp("started_at"),
+    // Set only on a terminal (succeeded|failed) transition.
+    completedAt: timestamp("completed_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("backup_org_idx").on(table.organizationId),
+    index("backup_resource_idx").on(table.resourceId),
+    index("backup_schedule_idx").on(table.scheduleId),
+    index("backup_status_idx").on(table.status),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// backup_log — append-only per-run output (clone of deploymentLog)
+// ---------------------------------------------------------------------------
+
+export const backupLog = pgTable(
+  "backup_log",
+  {
+    seq: bigserial("seq", { mode: "number" }).primaryKey(),
+    backupId: text("backup_id")
+      .notNull()
+      .$type<BackupId>()
+      .references(() => backup.id, { onDelete: "cascade" }),
+    stream: backupLogStreamEnum("stream").notNull(),
+    line: text("line").notNull(),
+    ts: timestamp("ts").defaultNow().notNull(),
+  },
+  (table) => [
+    // "give me lines for backup X after seq Y" — ordering + pagination cursor.
+    index("backup_log_backup_seq_idx").on(table.backupId, table.seq),
+  ],
+);

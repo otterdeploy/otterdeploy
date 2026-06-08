@@ -9,9 +9,23 @@ import { appRouter } from "@otterdeploy/api/routers/index";
 import { initializeSwarm } from "@otterdeploy/api/swarm";
 import { auth } from "@otterdeploy/auth";
 import { env } from "@otterdeploy/env/server";
-import { createWorkers, jobs as allJobs } from "@otterdeploy/jobs";
+import {
+  createWorkers,
+  jobs as allJobs,
+  workbenchQueues,
+} from "@otterdeploy/jobs";
+import { workbench } from "@getworkbench/hono";
 import { Result } from "better-result";
-import { initLogger, log, parseError } from "evlog";
+import {
+  auditEnricher,
+  auditOnly,
+  drainPlugin,
+  enricherPlugin,
+  initLogger,
+  log,
+  parseError,
+} from "evlog";
+import { createAuditPgDrain } from "@otterdeploy/api/audit/pg-drain";
 import { evlog, type EvlogVariables } from "evlog/hono";
 import { BootstrapError } from "./lib/errors";
 import { Hono } from "hono";
@@ -35,7 +49,18 @@ import { validateParams } from "./lib/validate";
 
 import { createAuthMiddleware } from "evlog/better-auth";
 
-initLogger({ env: { service: "otterdeploy-server" } });
+initLogger({
+  env: { service: "otterdeploy-server" },
+  plugins: [
+    // Auto-fill audit.context (requestId / traceId / ip / userAgent) on every
+    // request-scoped audit event.
+    enricherPlugin("audit-context", auditEnricher()),
+    // Persist audit events to Postgres. `auditOnly` filters to events with
+    // `event.audit` set; `await` makes the write crash-safe. Runs alongside
+    // the default console drain — normal logging is untouched.
+    drainPlugin("audit-pg", auditOnly(createAuditPgDrain(), { await: true })),
+  ],
+});
 
 const app = new Hono<EvlogVariables>();
 
@@ -53,7 +78,7 @@ const identify = createAuthMiddleware(auth, {
 
 app.use(
   evlog({
-    include: ["/api/**", "/rpc/**"],
+    include: ["/api/**", "/rpc/**", "/jobs/**", "/**"],
     exclude: ["/api/health"],
   }),
 );
@@ -68,17 +93,12 @@ app.use(
 // should go through `log.info(...)` on the global logger anyway, which
 // bypasses the request wide event entirely.
 app.use(async (c, next) => {
-  const logger = c.get("log") as unknown as
-    | {
-        emit?: (...args: unknown[]) => unknown;
-        set?: (data: Record<string, unknown>) => void;
-      }
-    | undefined;
+  const logger = c.get("log");
   if (logger?.emit && logger.set) {
     let emitted = false;
     const originalEmit = logger.emit.bind(logger);
     const originalSet = logger.set.bind(logger);
-    logger.emit = (...args: unknown[]) => {
+    logger.emit = (...args: Parameters<typeof originalEmit>) => {
       emitted = true;
       return originalEmit(...args);
     };
@@ -143,7 +163,7 @@ const rpcHandler = new RPCHandler(appRouter, {
 app.use("/*", async (c, next) => {
   const context = await createContext({
     context: c,
-    broadcast: invalidate.broadcast,
+    broadcast: (resource) => invalidate.broadcast(resource),
   });
 
   const rpcResult = await rpcHandler.handle(c.req.raw, {
@@ -186,6 +206,21 @@ app.get("/", (c) => {
   return c.text("OK");
 });
 
+// ─── Workbench: BullMQ dashboard ───────────────────────────────────
+// Shows every registry queue, including the builder's deploy.triggered
+// (consumed in apps/builder — same Redis keys). Mounted only when
+// WORKBENCH_USER/PASS are set; basic-auth gated since it can mutate jobs.
+// if (env.WORKBENCH_USER && env.WORKBENCH_PASS) {
+app.route(
+  "/jobs",
+  workbench({
+    queues: workbenchQueues(),
+    title: "otterdeploy jobs",
+    // auth: { username: env.WORKBENCH_USER, password: env.WORKBENCH_PASS },
+  }),
+);
+// }
+
 // ─── Terminal websocket ────────────────────────────────────────────
 // Auth seam left here for when better-auth cookie verification is
 // re-enabled (handler reads c.var.userId).
@@ -193,8 +228,14 @@ app.get("/pty", terminalWebSocketHandler);
 
 // ─── GitHub webhooks + install callbacks ───────────────────────────
 app.post("/api/webhooks/github", githubWebhookHandler);
-app.get("/api/integrations/github/install/callback", githubInstallCallbackHandler);
-app.get("/api/integrations/github/manifest/callback", githubManifestCallbackHandler);
+app.get(
+  "/api/integrations/github/install/callback",
+  githubInstallCallbackHandler,
+);
+app.get(
+  "/api/integrations/github/manifest/callback",
+  githubManifestCallbackHandler,
+);
 
 // ─── SSE ───────────────────────────────────────────────────────────
 // Cookie auth + zod-validated path params via middleware; handler
@@ -254,11 +295,15 @@ async function bootstrap() {
 
   const workers = await Result.tryPromise({
     // The deploy.triggered worker runs in apps/builder (it needs the
-    // nixpacks + docker binaries). The API still enqueues jobs onto that
+    // railpack + docker binaries). The API still enqueues jobs onto that
     // queue from the git-webhook receiver — only the consumer moves.
-    try: () => createWorkers({ jobs: allJobs.filter((j) => j.name !== "deploy.triggered") }),
+    try: () =>
+      createWorkers({
+        jobs: allJobs.filter((j) => j.name !== "deploy.triggered"),
+      }),
     catch: (cause) => new BootstrapError({ step: "workers", cause }),
   });
+
   workers.match({
     ok: (handle) => {
       stopWorkers = handle.stop;

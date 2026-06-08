@@ -25,7 +25,7 @@
     "build-audit-logs": {
       "source": "evlog.dev",
       "sourceType": "well-known",
-      "computedHash": "10e462fd3fea48c1868fd81cf4e2fcc28bc4cc35e3351c61fdb0bb0b50adb48a"
+      "computedHash": "3b87c33bc858bfe0349a1f3dcf362416c311fb184c9ad35148d5f9d010488ab9"
     },
     "coss": {
       "source": "cosscom/coss",
@@ -43,6 +43,12 @@
       "sourceType": "github",
       "computedHash": "747d7f73bd9e2ec5317b8ef88dc70f97df716d00e3d02de4051feebaa48b062d"
     },
+    "fallow": {
+      "source": "fallow-rs/fallow",
+      "sourceType": "github",
+      "skillPath": "npm/fallow/skills/fallow/SKILL.md",
+      "computedHash": "f430022920bab51f4ff9a0d0864b4af8b61807d550272599b501eaf0924b9e39"
+    },
     "frontend-design": {
       "source": "anthropics/skills",
       "sourceType": "github",
@@ -57,7 +63,7 @@
     "review-logging-patterns": {
       "source": "evlog.dev",
       "sourceType": "well-known",
-      "computedHash": "b494c7c38ba05a928321838ba116a7ca7fddc867bd5b2d9a42122123a962a37e"
+      "computedHash": "4d42fe1804c0026f44ba26243f8e0593edf2cc60a7e8035e25956e983918287f"
     },
     "shadcn": {
       "source": "shadcn/ui",
@@ -70,6 +76,18 @@
       "sourceType": "github",
       "skillPath": "plugins/developer-kit-typescript/skills/tailwind-css-patterns/SKILL.md",
       "computedHash": "6092620c3af955a46ea2b94ca8a40197ac8392e6bbdc8c7515659328b186c770"
+    },
+    "tanstack-db": {
+      "source": "tanstack-skills/tanstack-skills",
+      "sourceType": "github",
+      "skillPath": "plugins/tanstack-db/skills/tanstack-db/SKILL.md",
+      "computedHash": "9d21b2c472a9e642273ff70b52b1107839e414860462cad6ce6df3ae15debbda"
+    },
+    "tanstack-form": {
+      "source": "tanstack-skills/tanstack-skills",
+      "sourceType": "github",
+      "skillPath": "plugins/tanstack-form/skills/tanstack-form/SKILL.md",
+      "computedHash": "1eb9f9fc43ab2777f586f916b2234c5340ed98f296a98b22c75cbbafcbd29b86"
     },
     "two-factor-authentication-best-practices": {
       "source": "better-auth/skills",

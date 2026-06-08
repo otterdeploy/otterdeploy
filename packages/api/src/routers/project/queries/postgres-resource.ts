@@ -201,3 +201,18 @@ export async function setDatabaseResourceExtraEnv(
     .returning();
   return updated;
 }
+
+/** Persist the enabled-extensions list for a database resource. Caller is
+ *  responsible for rolling the swarm service (the image may change) and
+ *  applying CREATE/DROP EXTENSION against the live database afterward. */
+export async function setDatabaseResourceExtensions(
+  resourceId: ResourceId,
+  extensions: string[],
+) {
+  const [updated] = await db
+    .update(databaseResource)
+    .set({ extensions, updatedAt: new Date() })
+    .where(eq(databaseResource.resourceId, resourceId))
+    .returning();
+  return updated;
+}

@@ -4,10 +4,10 @@ import { toast } from "sonner";
 import * as z from "zod";
 
 import { authClient } from "@/lib/auth";
-import Loader from "../loader";
-import { Button } from "../ui/button";
-import { Field, FieldError, FieldLabel } from "../ui/field";
-import { Input } from "../ui/input";
+import Loader from "@/components/loader";
+import { Button } from "@/components/ui/button";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 
 export default function SignInForm({
   onSwitchToSignUp,

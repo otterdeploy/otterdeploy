@@ -77,7 +77,7 @@ export const ID_PREFIX = {
 - [ ] **Step 2: Type-check the package**
 
 ```bash
-bun turbo check-types --filter=@otterdeploy/shared
+bun turbo typecheck --filter=@otterdeploy/shared
 ```
 
 Expected: clean.
@@ -124,7 +124,7 @@ plugins: [
 - [ ] **Step 2: Type-check the package**
 
 ```bash
-bun turbo check-types --filter=@otterdeploy/auth
+bun turbo typecheck --filter=@otterdeploy/auth
 ```
 
 Expected: clean (the Polar deps drift is unrelated and pre-existing).
@@ -262,7 +262,7 @@ Expected: prompt confirms creation of `organization`, `member`, `invitation` tab
 - [ ] **Step 5: Type-check**
 
 ```bash
-bun turbo check-types --filter=@otterdeploy/db --filter=@otterdeploy/auth
+bun turbo typecheck --filter=@otterdeploy/db --filter=@otterdeploy/auth
 ```
 
 Expected: clean.
@@ -504,7 +504,7 @@ Expected: `routeTree.gen.ts` updates without errors.
 - [ ] **Step 4: Type-check**
 
 ```bash
-bun turbo check-types --filter=web-demo
+bun turbo typecheck --filter=web-demo
 ```
 
 Expected: clean.
@@ -691,7 +691,7 @@ export const Route = createFileRoute("/_auth/sign-up")({
 
 ```bash
 cd apps/web && bun x tsr generate && cd ../..
-bun turbo check-types --filter=web-demo
+bun turbo typecheck --filter=web-demo
 ```
 
 Expected: clean.
@@ -880,7 +880,7 @@ export const Route = createFileRoute("/_auth/onboarding/create-organization")({
 
 ```bash
 cd apps/web && bun x tsr generate && cd ../..
-bun turbo check-types --filter=web-demo
+bun turbo typecheck --filter=web-demo
 ```
 
 Expected: clean. (The `/$orgSlug` reference inside the form will compile only after Task 9 — for now `tsr generate` will keep the existing `$workspaceId` route; the path is still typed because `to: "/$orgSlug"` will surface a router-type error if the rename is reverted. If this step fails, proceed and re-verify after Task 9.)
@@ -932,7 +932,7 @@ export const Route = createFileRoute("/_auth")({
 - [ ] **Step 2: Type-check**
 
 ```bash
-bun turbo check-types --filter=web-demo
+bun turbo typecheck --filter=web-demo
 ```
 
 Expected: clean.
@@ -1030,7 +1030,7 @@ function RouteComponent() {
 }
 ```
 
-Note `OrganizationSidebar` is created/renamed in Task 11; until then this file will not type-check. That's expected — the type-check step in this task only runs `tsr generate`, not full `check-types`.
+Note `OrganizationSidebar` is created/renamed in Task 11; until then this file will not type-check. That's expected — the type-check step in this task only runs `tsr generate`, not full `typecheck`.
 
 - [ ] **Step 3: Update remaining route file paths**
 
@@ -1291,7 +1291,7 @@ export const Route = createFileRoute("/_app/")({
 
 ```bash
 cd apps/web && bun x tsr generate && cd ../..
-bun turbo check-types --filter=web-demo
+bun turbo typecheck --filter=web-demo
 ```
 
 Expected: clean. If there are any leftover `workspaceId` / `WorkspaceSidebar` / `workspace.` references, fix them as the compiler reports them. None should be expected at this point.

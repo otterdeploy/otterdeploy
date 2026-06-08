@@ -1,6 +1,6 @@
 import { useReactFlow } from "@xyflow/react";
 import { MaximizeIcon, MinusIcon, PlusIcon, RotateCcwIcon } from "lucide-react";
-import { Toolbar, ToolbarButton, ToolbarSeparator } from "../ui/toolbar";
+import { Toolbar, ToolbarButton, ToolbarSeparator } from "@/components/ui/toolbar";
 
 interface Props {
   onUndo?: () => void;

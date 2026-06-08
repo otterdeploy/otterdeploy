@@ -4,9 +4,9 @@
   "main": "src/index.ts",
   "scripts": {
     "build": "tsdown",
-    "check-types": "tsc -b",
+    "typecheck": "tsc -b",
     "compile": "bun build --compile --minify --sourcemap --bytecode ./src/index.ts --outfile server",
-    "dev": "portless api.otterstack bun run --env-file ../../.env --hot src/index.ts",
+    "dev": "portless api.otterstack --force bun run --env-file ../../.env --hot src/index.ts",
     "start": "bun run dist/index.js"
   },
   "dependencies": {
@@ -21,6 +21,7 @@
     "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",
     "@orpc/zod": "catalog:",
+    "@getworkbench/hono": "^0.9.1",
     "@otterdeploy/docker": "^0.4.0",
     "@otterdeploy/api": "workspace:*",
     "@otterdeploy/auth": "workspace:*",
@@ -29,9 +30,9 @@
     "@otterdeploy/env": "workspace:*",
     "@otterdeploy/jobs": "workspace:*",
     "@otterdeploy/shared": "workspace:*",
-    "ai": "^6.0.175",
     "better-auth": "catalog:",
     "better-result": "catalog:",
+    "bullmq": "^5.65.0",
     "evlog": "catalog:",
     "hono": "catalog:",
     "zod": "catalog:"

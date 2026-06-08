@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQueries, useQuery } from "@tanstack/react-query";
-import { Skeleton } from "../ui/skeleton";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   WorkspaceRoutesTable,
   useWorkspaceRoutes,

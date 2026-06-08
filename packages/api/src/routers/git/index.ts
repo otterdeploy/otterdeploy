@@ -1,6 +1,6 @@
 import { matchError } from "better-result";
 import { db } from "@otterdeploy/db";
-import { gitProvider } from "@otterdeploy/db/schema";
+import { gitProvider, gitRepo } from "@otterdeploy/db/schema";
 import { and, eq } from "drizzle-orm";
 
 import { env } from "@otterdeploy/env/server";
@@ -23,7 +23,7 @@ import {
   listReposForInstallation,
 } from "./queries";
 import { connectPublicRepo } from "./public-repos";
-import { inspectRepoTree } from "./inspect";
+import { inspectEnvFiles, inspectRepoTree, listRepoBranches } from "./inspect";
 
 export const gitRouter = {
   list: orgScopedProcedure.git.list.handler(async ({ context }) => {
@@ -185,6 +185,63 @@ export const gitRouter = {
         gitRepoId: input.gitRepoId,
         path: input.path,
       });
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          InspectRepoNotFoundError: () => errors.NOT_FOUND(),
+          InspectRepoRateLimitedError: (err) =>
+            errors.RATE_LIMITED({ message: err.message }),
+          InspectRepoUpstreamError: (err) =>
+            errors.UPSTREAM({ message: err.message }),
+        });
+      }
+      return result.value;
+    },
+  ),
+
+  listBranches: orgScopedProcedure.git.listBranches.handler(
+    async ({ input, context, errors }) => {
+      context.log.set({
+        target: { type: "git_repo", id: input.gitRepoId },
+      });
+      const result = await listRepoBranches(input.gitRepoId);
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          InspectRepoNotFoundError: () => errors.NOT_FOUND(),
+          InspectRepoRateLimitedError: (err) =>
+            errors.RATE_LIMITED({ message: err.message }),
+          InspectRepoUpstreamError: (err) =>
+            errors.UPSTREAM({ message: err.message }),
+        });
+      }
+      return result.value;
+    },
+  ),
+
+  getRepo: orgScopedProcedure.git.getRepo.handler(
+    async ({ input, errors }) => {
+      const [row] = await db
+        .select({
+          fullName: gitRepo.fullName,
+          defaultBranch: gitRepo.defaultBranch,
+        })
+        .from(gitRepo)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .where(eq(gitRepo.id, input.gitRepoId as any))
+        .limit(1);
+      if (!row) throw errors.NOT_FOUND();
+      return {
+        fullName: row.fullName,
+        defaultBranch: row.defaultBranch ?? "main",
+      };
+    },
+  ),
+
+  inspectEnv: orgScopedProcedure.git.inspectEnv.handler(
+    async ({ input, context, errors }) => {
+      context.log.set({
+        target: { type: "git_repo", id: input.gitRepoId, path: input.path },
+      });
+      const result = await inspectEnvFiles(input.gitRepoId, input.path);
       if (result.isErr()) {
         throw matchError(result.error, {
           InspectRepoNotFoundError: () => errors.NOT_FOUND(),

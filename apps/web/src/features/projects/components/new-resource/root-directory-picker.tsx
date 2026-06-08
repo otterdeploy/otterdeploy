@@ -18,7 +18,7 @@ import {
   GithubIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { usePrefetchQuery, useQuery } from "@tanstack/react-query";
+import { skipToken, usePrefetchQuery, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { Badge } from "@/shared/components/ui/badge";
@@ -36,6 +36,8 @@ import { RadioGroup, RadioGroupItem } from "@/shared/components/ui/radio-group";
 import { Spinner } from "@/shared/components/ui/spinner";
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
+
+import { Result } from "better-result";
 
 type FrameworkKind =
   | "next"
@@ -135,11 +137,14 @@ export function RootDirectoryPicker({
   const [browsePath, setBrowsePath] = useState<string>(value);
   const [selected, setSelected] = useState<string>(value);
 
-  usePrefetchQuery({
-    ...orpc.git.inspectRepo.queryOptions({
-      input: { gitRepoId: gitRepoId, path },
+  // This hook runs above the `if (!gitRepoId) return` guard, and
+  // usePrefetchQuery ignores `enabled` — it always prefetches. So gate the
+  // request itself with skipToken: no repo bound = no queryFn = no call.
+  usePrefetchQuery(
+    orpc.git.inspectRepo.queryOptions({
+      input: gitRepoId ? { gitRepoId, path: browsePath } : skipToken,
     }),
-  });
+  );
 
   const onOpenChange = (next: boolean) => {
     if (next) {
@@ -266,23 +271,33 @@ function BrowsePane({
   // 5min staleTime matches the server-side CACHE_TTL_MS.
   const inspectQuery = useQuery({
     ...orpc.git.inspectRepo.queryOptions({
-      input: { gitRepoId: gitRepoId, path },
+      input: { gitRepoId, path },
     }),
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
   });
 
   const inspect = inspectQuery.data;
+  // Dotfolders (.github, .changeset, …) are almost never a deploy root, so
+  // they're hidden by default with an opt-in toggle.
+  const [showHidden, setShowHidden] = useState(false);
 
   return (
     <div className="flex flex-col gap-2">
-      <BrowsePaneHeader path={path} onNavigate={onNavigate} inspect={inspect} />
+      <BrowsePaneHeader
+        path={path}
+        onNavigate={onNavigate}
+        inspect={inspect}
+        showHidden={showHidden}
+        onToggleHidden={() => setShowHidden((v) => !v)}
+      />
       <BrowsePaneBody
         path={path}
         selected={selected}
         onNavigate={onNavigate}
         onSelect={onSelect}
         inspect={inspect}
+        showHidden={showHidden}
         isLoading={inspectQuery.isLoading}
         rateLimited={isRateLimitedError(inspectQuery.error)}
         errorMessage={inspectQuery.isError ? inspectQuery.error?.message : null}
@@ -292,23 +307,49 @@ function BrowsePane({
   );
 }
 
+/** A directory entry that's conventionally hidden (dot-prefixed). */
+function isHiddenDir(name: string): boolean {
+  return name.startsWith(".");
+}
+
 function BrowsePaneHeader({
   path,
   onNavigate,
   inspect,
+  showHidden,
+  onToggleHidden,
 }: {
   path: string;
   onNavigate: (next: string) => void;
   inspect: InspectResult | undefined;
+  showHidden: boolean;
+  onToggleHidden: () => void;
 }) {
+  const hiddenCount = (inspect?.entries ?? []).filter(
+    (e) => e.type === "dir" && isHiddenDir(e.name),
+  ).length;
+
   return (
     <div className="flex items-center justify-between gap-2">
       <Breadcrumbs path={path} onNavigate={onNavigate} />
-      {inspect?.monorepo && (
-        <Badge variant="outline" className="font-normal">
-          {MONOREPO_LABEL[inspect.monorepo]}
-        </Badge>
-      )}
+      <div className="flex items-center gap-2">
+        {inspect?.monorepo && (
+          <Badge variant="outline" className="font-normal">
+            {MONOREPO_LABEL[inspect.monorepo]}
+          </Badge>
+        )}
+        {hiddenCount > 0 && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-[11px] text-muted-foreground"
+            onClick={onToggleHidden}
+          >
+            {showHidden ? "Hide" : "Show"} hidden ({hiddenCount})
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
@@ -324,6 +365,7 @@ function BrowsePaneBody({
   onNavigate,
   onSelect,
   inspect,
+  showHidden,
   isLoading,
   rateLimited,
   errorMessage,
@@ -333,6 +375,7 @@ function BrowsePaneBody({
   onNavigate: (next: string) => void;
   onSelect: (next: string) => void;
   inspect: InspectResult | undefined;
+  showHidden: boolean;
   isLoading: boolean;
   rateLimited: boolean;
   errorMessage: string | null | undefined;
@@ -355,6 +398,7 @@ function BrowsePaneBody({
       onNavigate={onNavigate}
       onSelect={onSelect}
       inspect={inspect}
+      showHidden={showHidden}
     />
   );
 }
@@ -365,16 +409,20 @@ function FolderList({
   onNavigate,
   onSelect,
   inspect,
+  showHidden,
 }: {
   path: string;
   selected: string;
   onNavigate: (next: string) => void;
   onSelect: (next: string) => void;
   inspect: InspectResult | undefined;
+  showHidden: boolean;
 }) {
   const isRoot = path === "";
   const parent = isRoot ? null : path.split("/").slice(0, -1).join("/");
-  const dirs = (inspect?.entries ?? []).filter((e) => e.type === "dir");
+  const dirs = (inspect?.entries ?? []).filter(
+    (e) => e.type === "dir" && (showHidden || !isHiddenDir(e.name)),
+  );
   const monorepoPackages = new Set(inspect?.monorepoPackages ?? []);
 
   return (
@@ -579,15 +627,18 @@ function isRateLimitedError(err: unknown): boolean {
 function humanizeUpstreamMessage(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) return "upstream error";
-  try {
-    const parsed = JSON.parse(trimmed);
-    if (typeof parsed.message === "string" && parsed.message.length > 0) {
-      return parsed.message;
-    }
-  } catch {
-    /* not json */
-  }
-  return trimmed;
+
+  return Result.try(() => JSON.parse(trimmed))
+    .map((parsed) => {
+      if (
+        "message" in parsed &&
+        typeof parsed.message === "string" &&
+        parsed.message.length > 0
+      ) {
+        return parsed.message;
+      }
+    })
+    .unwrapOr("upstream error");
 }
 
 function Breadcrumbs({

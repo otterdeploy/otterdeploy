@@ -15,4 +15,6 @@ export const networkingStepSchema = z.object({
   ports: z.array(portSchema),
   healthPath: z.string(),
   healthInterval: z.number().int().min(1),
+  // Static-kind only: SPA index.html fallback. Ignored for other kinds.
+  spa: z.boolean(),
 });

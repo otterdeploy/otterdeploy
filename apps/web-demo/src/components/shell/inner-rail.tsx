@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { innerRailItems } from "./rail-items";
 

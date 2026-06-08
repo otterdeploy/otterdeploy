@@ -1,4 +1,4 @@
-import { Empty, EmptyDescription, EmptyTitle } from "../ui/empty";
+import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
 import { ProjectCard } from "./project-card";
 import { CreateProjectDialog } from "./create-project-dialog";
 import type { ProjectSummary } from "../types";

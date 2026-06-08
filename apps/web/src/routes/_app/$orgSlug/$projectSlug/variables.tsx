@@ -678,7 +678,7 @@ function BulkEditDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl gap-0 p-0">
+      <DialogContent className="sm:max-w-4xl gap-0 p-0">
         <DialogHeader className="border-b px-5 py-3">
           <DialogTitle className="flex items-baseline gap-2 text-sm font-semibold">
             Bulk edit

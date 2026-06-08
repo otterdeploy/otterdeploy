@@ -5,17 +5,17 @@ import {
   HardDriveIcon,
   ShieldCheckIcon,
 } from "lucide-react";
-import { Badge } from "../ui/badge";
-import { Button } from "../ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "../ui/card";
-import { Field, FieldDescription, FieldLabel } from "../ui/field";
-import { Input } from "../ui/input";
+} from "@/components/ui/card";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -23,8 +23,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../ui/table";
-import { Textarea } from "../ui/textarea";
+} from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 
 export function SettingsPage() {
   return (

@@ -14,8 +14,21 @@ import { serviceTaskSchema } from "./service-tasks";
 import { basePath, resourceNotFoundErrors, tag } from "./shared";
 import { deploymentIdField, projectIdField, resourceIdField } from "./shared";
 
+/**
+ * A swarm task under one specific deployment. Extends the shared service-task
+ * shape with the (project, resource, deployment) ids so the client collection
+ * can scope subsets by them via `where` filters (loadSubset). The sibling
+ * service-task endpoints keep the plain `serviceTaskSchema`.
+ */
+export const deploymentTaskSchema = serviceTaskSchema.extend({
+  projectId: projectIdField,
+  resourceId: resourceIdField,
+  deploymentId: deploymentIdField,
+});
+
 export const deploymentSchema = z.object({
   id: deploymentIdField,
+  projectId: projectIdField,
   resourceId: resourceIdField,
   image: z.string(),
   reason: z.enum(["create", "redeploy", "env-change", "image-change", "restart"]),
@@ -77,7 +90,7 @@ export const deploymentsContractSlice = {
       method: "GET",
     })
     .input(deploymentTasksInput)
-    .output(z.array(serviceTaskSchema)),
+    .output(z.array(deploymentTaskSchema)),
 
   // Streaming logs aggregated across every task under a deployment.
   // Powers the Deploy Logs tab in the deployment-detail route.

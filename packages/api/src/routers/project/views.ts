@@ -159,6 +159,7 @@ export async function mapDatabaseResource(
     runtime,
     extraEnv: databaseRecord.extraEnv ?? {},
     secretKeys: databaseRecord.secretKeys ?? [],
+    extensions: databaseRecord.extensions ?? [],
   };
 }
 

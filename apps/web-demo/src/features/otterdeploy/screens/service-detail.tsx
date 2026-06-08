@@ -3,7 +3,7 @@
 
 import { useMemo, useState } from "react";
 
-import { DatabaseLogo } from "../brand/database-logo";
+import { DatabaseLogo } from "@/components/brand/database-logo";
 import { I, type IconKey } from "../icons";
 import {
   BUILDERS,

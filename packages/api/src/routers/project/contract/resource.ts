@@ -61,6 +61,10 @@ export const databaseResourceSchema = z.object({
   // Keys the operator flagged as sensitive — display hint for the editor
   // to mask the value behind a reveal toggle. Always present (default []).
   secretKeys: z.array(z.string()),
+  // Enabled Postgres extensions (canonical CREATE EXTENSION names). Drives
+  // the settings-panel toggles and, for non-contrib entries, the service
+  // image. Always present (default []); empty for non-postgres engines.
+  extensions: z.array(z.string()),
 });
 
 // Legacy alias for callers that still import the postgres-named schema.

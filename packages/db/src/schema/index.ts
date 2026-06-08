@@ -1,4 +1,6 @@
+export * from "./audit";
 export * from "./auth";
+export * from "./backup";
 export * from "./build";
 export * from "./git";
 export * from "./platform";

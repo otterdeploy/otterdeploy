@@ -64,7 +64,34 @@ export async function provisionFresh(
     resolved.value,
     sanitizeSlug(projectSlug),
   );
-  const runtime = await provisionSwarmService(swarmSpec, log);
+  // provisionSwarmService THROWS on any Docker/Swarm infra error (no
+  // reachable manager, network create failure, …). Letting that escape
+  // would crash the whole `manifest.apply` (a single unreachable swarm →
+  // HTTP 500, "Apply failed") and strand a draft row. Convert it into an
+  // errored runtime instead: the resource lands marked `invalid` and shows
+  // as an error node on the graph, recoverable via the panel's redeploy —
+  // far better than a 500 that deploys nothing visible.
+  const provisioned = await Result.tryPromise({
+    try: () => provisionSwarmService(swarmSpec, log),
+    catch: (cause) => (cause instanceof Error ? cause.message : String(cause)),
+  });
+  const runtime: SwarmServiceRuntime = provisioned.isOk()
+    ? provisioned.value
+    : {
+        serviceId: null,
+        serviceName: record.service.serviceName,
+        networkName: record.service.networkName,
+        status: "error",
+        health: null,
+      };
+  if (provisioned.isErr()) {
+    log?.set({
+      provisionError: {
+        service: record.service.serviceName,
+        reason: provisioned.error,
+      },
+    });
+  }
   await updateServiceResourceStatus(
     record.service.resourceId,
     runtime.status === "error" ? "invalid" : "valid",

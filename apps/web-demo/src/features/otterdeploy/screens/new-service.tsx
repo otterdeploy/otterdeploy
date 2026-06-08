@@ -11,8 +11,8 @@
 import type { CSSProperties, ReactNode } from "react";
 import { Fragment, useEffect, useMemo, useState } from "react";
 
-import { DatabaseLogo } from "../brand/database-logo";
-import { SvglLogo } from "../brand/svgl-logo";
+import { DatabaseLogo } from "@/components/brand/database-logo";
+import { SvglLogo } from "@/components/brand/svgl-logo";
 import { I, type IconKey } from "../icons";
 import {
   BUILDERS,

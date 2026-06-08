@@ -8,7 +8,7 @@
     "otterdeploy": "./src/index.ts"
   },
   "scripts": {
-    "check-types": "tsc -b",
+    "typecheck": "tsc -b",
     "start": "bun run src/index.ts"
   },
   "dependencies": {

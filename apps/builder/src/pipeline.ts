@@ -4,9 +4,8 @@
  *   load context  →  mark "building"
  *                 →  mint installation token
  *                 →  git clone @ sha
- *                 →  decrypt registry password
- *                 →  nixpacks build (tags: <repo>:<sha>, <repo>:latest)
- *                 →  docker login → docker push (both tags) → docker logout
+ *                 →  railpack build (--load into host daemon) → tags: <repo>:<sha>, <repo>:latest
+ *                 →  push to external registry IFF one is bound (else local-only)
  *                 →  mark image-ready (deployment.image = <repo>:<sha>)
  *                 →  serviceResource.image := <repo>:<sha>
  *                 →  redeployOne → swarm spec update → wait for converge
@@ -36,7 +35,7 @@ import { cloneRepoAtSha } from "./clone";
 import { dockerPush } from "./docker-push";
 import { loadPipelineContext, PipelineLoadError } from "./load";
 import { createLogSink } from "./log-stream";
-import { nixpacksBuild } from "./nixpacks";
+import { railpackBuild } from "./railpack";
 import { markBuilding, markFailed, markImageReady, markRunning } from "./state";
 
 export async function runBuildPipeline(opts: {
@@ -61,10 +60,7 @@ export async function runBuildPipeline(opts: {
     // anonymous HTTPS. Installation-backed bindings still mint a short-
     // lived token + inject it.
     const installationId = ctx.repo.installationId;
-    const imageRepository = ctx.project.imageRepository;
-    if (!imageRepository) {
-      throw new Error("internal: load yielded incomplete context");
-    }
+    const imageRepository = ctx.imageRepository;
 
     const installationToken = installationId
       ? (await getInstallationToken(installationId)).token
@@ -78,34 +74,48 @@ export async function runBuildPipeline(opts: {
     });
     workDir = cloned.workDir;
 
-    const password = await decryptSecret(ctx.registry.encryptedPassword);
-
-    const built = await nixpacksBuild({
+    // Railpack is the only builder: it analyses the repo, builds through its
+    // BuildKit frontend, and `--load`s the result into the host daemon
+    // (which, on a single-node swarm, is the same daemon the container runs
+    // in). Static sites get a Caddy image with optional SPA fallback. The
+    // railpack-shaped config only applies when explicitly chosen; auto/null
+    // falls through to railpack's zero-config detection.
+    const buildConfig = ctx.service.buildConfig;
+    const railpackConfig =
+      buildConfig?.builder === "railpack" ? buildConfig : null;
+    const built = await railpackBuild({
       workDir: cloned.workDir,
       imageRepository,
       sha: gitSha,
-      config: ctx.project.nixpacksConfig ?? null,
+      config: railpackConfig,
       sink,
     });
 
-    await dockerPush({
-      tags: [built.shaTag, built.latestTag],
-      credentials: {
-        host: ctx.registry.host,
-        username: ctx.registry.username,
-        password,
-      },
-      sink,
-    });
+    // Push only when the project binds an external registry (remote or
+    // multi-node swarm needs to pull it). The default path keeps the image
+    // local — it's already `--load`ed into the swarm node's daemon.
+    if (ctx.registry) {
+      const password = await decryptSecret(ctx.registry.encryptedPassword);
+      await dockerPush({
+        tags: [built.shaTag, built.latestTag],
+        credentials: {
+          host: ctx.registry.host,
+          username: ctx.registry.username,
+          password,
+        },
+        sink,
+      });
+    } else {
+      sink.system(`local build — skipping registry push for ${built.shaTag}`);
+    }
 
     await markImageReady(opts.deploymentId, built.shaTag);
     sink.system(`image-ready: ${built.shaTag} — updating swarm service`);
 
-    // Point the service resource at the new image so the spec
-    // assembled by redeployOne carries the freshly-pushed tag.
-    // imageDigest is cleared — the builder doesn't currently capture
-    // it and a stale digest would pin swarm to an older image than the
-    // new tag points at.
+    // Point the service resource at the new image so the spec assembled by
+    // redeployOne carries the new tag. imageDigest is cleared — the builder
+    // doesn't capture it, and a stale digest would pin swarm to an older
+    // image than the tag points at (and the local-build path has no digest).
     await db
       .update(serviceResource)
       .set({ image: built.shaTag, imageDigest: null })

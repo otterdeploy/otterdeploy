@@ -48,9 +48,14 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
 
   const refreshAll = async () => {
     await Promise.all([
+      // Partial-input invalidation — the graph layout queries diff
+      // without `environment` in its input, so a key matching only
+      // projectId catches both that query and the bar's own
+      // (projectId, environment) query. Otherwise the graph keeps the
+      // ghost create-node until its 5s refetchInterval catches up.
       queryClient.invalidateQueries({
         queryKey: orpc.project.manifest.diff.queryKey({
-          input: { projectId, environment },
+          input: { projectId },
         }),
       }),
       queryClient.invalidateQueries({
@@ -65,8 +70,29 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
   const apply = async () => {
     try {
       const result = await orpc.project.manifest.apply.call({ projectId, environment });
-      toast.success(`Applied ${result.appliedCount} change(s)`);
       await refreshAll();
+
+      // The reconciler reports per-resource failures in `skipped[]` rather
+      // than throwing — a create that hits a missing build binding or an
+      // unresolved ${secret} lands here, not in the catch. Surfacing it is
+      // the difference between "Deploy did nothing and the pill is stuck
+      // forever" and an actionable error.
+      if (result.skipped.length > 0) {
+        const detail = result.skipped
+          .map((s) => `${s.resource} ${s.name}: ${s.reason}`)
+          .join("; ");
+        if (result.appliedCount === 0) {
+          // Nothing landed — keep the bar open so the operator can fix the
+          // cause (e.g. bind the project's repo/registry) and retry.
+          toast.error(`Nothing deployed — ${detail}`);
+          return;
+        }
+        toast.warning(
+          `Applied ${result.appliedCount}, skipped ${result.skipped.length} — ${detail}`,
+        );
+      } else {
+        toast.success(`Applied ${result.appliedCount} change(s)`);
+      }
       setExpanded(false);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

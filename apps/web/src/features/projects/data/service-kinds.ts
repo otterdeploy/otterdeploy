@@ -335,7 +335,6 @@ export const BUILDERS: Builder[] = [
     sub: "CNB / Heroku-style cloud-native buildpacks",
     icon: "folder",
   },
-  { id: "nixpack", name: "Nixpacks", sub: "Reproducible Nix-derived images", icon: "graph" },
   {
     id: "static",
     name: "Static site",

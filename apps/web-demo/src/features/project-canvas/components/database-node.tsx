@@ -1,6 +1,6 @@
 import { type NodeProps } from "@xyflow/react";
 import { GlobeIcon, NetworkIcon } from "lucide-react";
-import { DatabaseLogo } from "../brand/database-logo";
+import { DatabaseLogo } from "@/components/brand/database-logo";
 import { cn } from "@/lib/utils";
 import type { DatabaseNode as DatabaseNodeType } from "../types";
 

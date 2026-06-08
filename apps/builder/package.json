@@ -3,7 +3,7 @@
   "type": "module",
   "main": "src/index.ts",
   "scripts": {
-    "check-types": "tsc -b",
+    "typecheck": "tsc -b",
     "dev": "bun run --env-file ../../.env --hot src/index.ts",
     "start": "bun run src/index.ts"
   },

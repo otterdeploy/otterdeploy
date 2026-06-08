@@ -1,12 +1,12 @@
 import { ChevronsUpDownIcon } from "lucide-react";
-import { Avatar, AvatarFallback } from "../ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Menu,
   MenuItem,
   MenuPopup,
   MenuSeparator,
   MenuTrigger,
-} from "../ui/menu";
+} from "@/components/ui/menu";
 import type { WorkspaceSummary } from "../types";
 
 interface Props {

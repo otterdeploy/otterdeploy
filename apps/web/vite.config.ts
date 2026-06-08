@@ -13,7 +13,11 @@ export default defineConfig({
       autoCodeSplitting: true,
       generatedRouteTree: "./src/route-tree.gen.ts",
     }),
-    react(),
+    react({
+      babel: {
+        plugins: ["babel-plugin-react-compiler"],
+      },
+    }),
   ],
   resolve: {
     alias: {

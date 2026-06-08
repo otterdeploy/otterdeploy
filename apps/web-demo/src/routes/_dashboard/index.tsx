@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQueries, useQuery } from "@tanstack/react-query";
 
-import { Skeleton } from "../ui/skeleton";
-import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import {
   ProjectList,

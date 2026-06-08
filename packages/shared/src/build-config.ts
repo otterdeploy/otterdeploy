@@ -18,7 +18,6 @@
 export const BUILDERS = [
   "auto",
   "dockerfile",
-  "nixpacks",
   "railpack",
   "compose",
 ] as const;
@@ -29,8 +28,8 @@ interface BuildCommon {
   watchPatterns?: string[];
 }
 
-/** Auto-detect: inspect the repo (Dockerfile → dockerfile, language
- *  markers → nixpacks, else railpack). No builder-specific knobs. */
+/** Auto-detect: inspect the repo (Dockerfile → dockerfile, else railpack).
+ *  No builder-specific knobs. */
 export interface BuildAutoConfig extends BuildCommon {
   builder: "auto";
 }
@@ -42,19 +41,22 @@ export interface BuildDockerfileConfig extends BuildCommon {
   dockerfilePath?: string | null;
 }
 
-/** Nixpacks: zero-config builder. `buildCommand` overrides the detected
- *  build step; `nixpacksConfigPath` points at an optional nixpacks.toml. */
-export interface BuildNixpacksConfig extends BuildCommon {
-  builder: "nixpacks";
-  buildCommand?: string | null;
-  nixpacksConfigPath?: string | null;
-}
-
-/** Railpack: nixpacks-like, different generator. `buildCommand` overrides
- *  the detected build step. */
+/** Railpack: zero-config builder. `buildCommand` overrides the detected
+ *  build step.
+ *
+ *  Railpack's static-site provider builds an image that runs Caddy to serve
+ *  static assets. `spa` enables single-page-app routing (Caddy falls back to
+ *  index.html for unmatched routes) by passing `RAILPACK_SPA_OUTPUT_DIR` to
+ *  `railpack prepare` — the env var railpack reads to switch to its static
+ *  provider. `staticRoot` sets that directory (defaults to `dist`, the Vite
+ *  output) — override it for frameworks that emit elsewhere (e.g. CRA's
+ *  `build`). Both are honored only when the build is detected/configured as
+ *  static. */
 export interface BuildRailpackConfig extends BuildCommon {
   builder: "railpack";
   buildCommand?: string | null;
+  spa?: boolean | null;
+  staticRoot?: string | null;
 }
 
 /** Compose: build/orchestrate from a docker-compose file. `composePath`
@@ -67,6 +69,5 @@ export interface BuildComposeConfig extends BuildCommon {
 export type BuildConfig =
   | BuildAutoConfig
   | BuildDockerfileConfig
-  | BuildNixpacksConfig
   | BuildRailpackConfig
   | BuildComposeConfig;

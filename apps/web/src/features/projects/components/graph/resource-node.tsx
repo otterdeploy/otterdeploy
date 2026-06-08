@@ -29,7 +29,7 @@ import { Redis } from "@/shared/components/ui/svgs/redis";
 import {
   FrameworkLogo,
   type FrameworkKind,
-} from "@/features/projects/components/graph/framework-logo";
+} from "@/features/projects/components/framework-logo";
 import {
   Tooltip,
   TooltipContent,

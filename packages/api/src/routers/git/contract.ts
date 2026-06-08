@@ -108,6 +108,38 @@ export const inspectRepoInput = z.object({
   path: z.string().default(""),
 });
 
+export const listBranchesInput = z.object({
+  gitRepoId: gitRepoIdField,
+});
+
+export const listBranchesOutput = z.object({
+  branches: z.array(z.string()),
+  defaultBranch: z.string(),
+});
+
+export const getRepoInput = z.object({
+  gitRepoId: gitRepoIdField,
+});
+
+export const getRepoOutput = z.object({
+  fullName: z.string(),
+  defaultBranch: z.string(),
+});
+
+export const inspectEnvInput = z.object({
+  gitRepoId: gitRepoIdField,
+  path: z.string().default(""),
+});
+
+export const inspectEnvOutput = z.object({
+  /** Name of a committed real env file (.env, …), or null. Security flag. */
+  committedEnv: z.string().nullable(),
+  /** Template file the keys came from (.env.example, …), or null. */
+  templateFile: z.string().nullable(),
+  /** Variable names harvested from the template. */
+  keys: z.array(z.string()),
+});
+
 export const inspectEntrySchema = z.object({
   name: z.string(),
   type: z.enum(["dir", "file"]),
@@ -149,6 +181,7 @@ export const monorepoKindSchema = z
   .nullable();
 
 export const inspectRepoOutput = z.object({
+  fullName: z.string(),
   path: z.string(),
   entries: z.array(inspectEntrySchema),
   framework: frameworkKindSchema,
@@ -243,4 +276,52 @@ export const gitContract = {
     })
     .input(inspectRepoInput)
     .output(inspectRepoOutput),
+  // Branches of the bound repo, for the wizard's branch picker.
+  listBranches: oc
+    .errors({
+      NOT_FOUND: { status: 404, message: "Repo not found" as const },
+      UPSTREAM: { status: 502, message: "Upstream error" as const },
+      RATE_LIMITED: {
+        status: 429,
+        message: "GitHub rate-limited the branch listing" as const,
+      },
+    })
+    .meta({
+      path: `${basePath}/repos/{gitRepoId}/branches`,
+      tag,
+      method: "GET",
+    })
+    .input(listBranchesInput)
+    .output(listBranchesOutput),
+  // Bound repo's name/default branch straight from the DB — no GitHub call,
+  // so the binding display never depends on (rate-limitable) inspect.
+  getRepo: oc
+    .errors({
+      NOT_FOUND: { status: 404, message: "Repo not found" as const },
+    })
+    .meta({
+      path: `${basePath}/repos/{gitRepoId}`,
+      tag,
+      method: "GET",
+    })
+    .input(getRepoInput)
+    .output(getRepoOutput),
+  // Detect committed .env (security flag) + harvest keys from .env.example
+  // for the new-resource wizard's Variables step.
+  inspectEnv: oc
+    .errors({
+      NOT_FOUND: { status: 404, message: "Repo not found" as const },
+      UPSTREAM: { status: 502, message: "Upstream error" as const },
+      RATE_LIMITED: {
+        status: 429,
+        message: "GitHub rate-limited the inspection" as const,
+      },
+    })
+    .meta({
+      path: `${basePath}/repos/{gitRepoId}/env`,
+      tag,
+      method: "GET",
+    })
+    .input(inspectEnvInput)
+    .output(inspectEnvOutput),
 };

@@ -1,5 +1,5 @@
 import { ChevronsUpDownIcon } from "lucide-react";
-import { Menu, MenuItem, MenuPopup, MenuTrigger } from "../ui/menu";
+import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu";
 import { cn } from "@/lib/utils";
 import { envOptions, type EnvName } from "../types";
 

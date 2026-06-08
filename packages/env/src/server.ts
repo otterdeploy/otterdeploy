@@ -34,6 +34,12 @@ export const env = createEnv({
     // docker builds from contending on the daemon.
     BUILDER_CONCURRENCY: z.coerce.number().int().positive().default(1),
 
+    // Basic-auth creds for the Workbench BullMQ dashboard (/jobs on the
+    // server). Both must be set for the dashboard to mount — it can
+    // retry/remove jobs, so it never runs unauthenticated.
+    WORKBENCH_USER: z.string().min(1).optional(),
+    WORKBENCH_PASS: z.string().min(1).optional(),
+
     NODE_ENV: z
       .enum(["development", "production", "test"])
       .default("development"),

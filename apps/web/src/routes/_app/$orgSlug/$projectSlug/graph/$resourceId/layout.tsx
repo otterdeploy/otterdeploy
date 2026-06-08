@@ -17,13 +17,14 @@ import {
   useChildMatches,
   useLoaderData,
 } from "@tanstack/react-router";
-import { eq, useLiveQuery } from "@tanstack/react-db";
+import { and, eq, useLiveQuery } from "@tanstack/react-db";
 
 import * as m from "motion/react-client";
 import { AnimatePresence } from "motion/react";
 
 import { INITIAL_NODES_BY_ID } from "@/features/projects/components/graph/initial-nodes";
-import { createResourceCollection } from "@/features/projects/data/resource";
+import { useServiceFrameworks } from "@/features/projects/components/graph/use-service-frameworks";
+import { resourceCollection } from "@/features/projects/data/resource";
 
 import {
   DemoNodePanel,
@@ -50,22 +51,30 @@ function RouteComponent() {
   const childMatches = useChildMatches();
   const deploymentKey = childMatches[0]?.pathname ?? null;
 
-  const resourceCollection = useMemo(
-    () => createResourceCollection(project.id),
-    [project.id],
-  );
-
   const { data: matches = [] } = useLiveQuery(
     (q) =>
       q
         .from({ r: resourceCollection })
-        .where(({ r }) => eq(r.resourceId, resourceId)),
-    [resourceId, resourceCollection],
+        .where(({ r }) =>
+          and(eq(r.projectId, project.id), eq(r.resourceId, resourceId)),
+        ),
+    [project.id, resourceId],
   );
 
   const resource = matches[0] ?? null;
   // Fall back to the static graph node when nothing's in the DB yet.
   const demoNode = !resource ? (INITIAL_NODES_BY_ID[resourceId] ?? null) : null;
+
+  // Detect the framework for this one service so the drawer header tile shows
+  // the same brand mark as the graph node. Reuses the graph's inspectRepo
+  // hook — React Query dedupes against the canvas's call for this repo+path,
+  // so opening the panel doesn't fire a second request.
+  const frameworkResources = useMemo(
+    () => (resource && resource.type === "service" ? [resource] : []),
+    [resource],
+  );
+  const frameworks = useServiceFrameworks(project.gitRepoId, frameworkResources);
+  const serviceFramework = resource ? (frameworks.get(resource.resourceId) ?? null) : null;
 
   const close = () => navigate({ to: "/$orgSlug/$projectSlug/graph" });
 
@@ -76,7 +85,7 @@ function RouteComponent() {
       animate={{ x: 0 }}
       exit={{ x: "100%" }}
       transition={{ type: "spring", stiffness: 320, damping: 32 }}
-      className="pointer-events-auto relative h-full w-3/5 bg-muted rounded-2xl rounded-tr-none border border-r-0 border-border"
+      className="pointer-events-auto relative h-full w-3/5 bg-card rounded-2xl rounded-tr-none border border-r-0 border-border"
     >
       {resource && resource.type === "database" ? (
         <RealResourcePanel
@@ -89,6 +98,7 @@ function RouteComponent() {
       ) : resource && resource.type === "service" ? (
         <ServiceResourcePanel
           resource={resource}
+          framework={serviceFramework}
           orgSlug={orgSlug}
           projectSlug={projectSlug}
           onClose={close}

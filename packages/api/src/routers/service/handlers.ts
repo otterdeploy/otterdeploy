@@ -113,7 +113,7 @@ export async function createService(
   // the build worker reads gitRepoId / containerRegistryId / imageRepository
   // off the project at build time. Fail fast with a typed error the UI
   // can use to redirect the operator to Settings.
-  if (source === "git") {
+  if (source === "git" && !input.skipBuildBindingCheck) {
     const missing: Array<"gitRepoId" | "containerRegistryId" | "imageRepository"> = [];
     if (!project.gitRepoId) missing.push("gitRepoId");
     if (!project.containerRegistryId) missing.push("containerRegistryId");

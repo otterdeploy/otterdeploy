@@ -5,7 +5,7 @@ import {
   CommandEmpty,
   CommandInput,
   CommandList,
-} from "../ui/command";
+} from "@/components/ui/command";
 import { useCommandPalette } from "../hooks/use-command-palette";
 
 export function CommandPalette() {

@@ -22,6 +22,7 @@ import {
 } from "@/shared/components/ui/dialog";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
+import { cn } from "@/shared/lib/utils";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 import { HOST_PRESETS, type RegistryView } from "./shared";
@@ -178,15 +179,28 @@ function RegistryFormFields(props: FormFieldsProps) {
           onChange={(e) => props.onHostChange(e.target.value)}
           placeholder="ghcr.io"
           disabled={props.isEdit}
-          list="reg-host-presets"
+          className="font-mono"
         />
-        <datalist id="reg-host-presets">
-          {HOST_PRESETS.map((h) => (
-            <option key={h.value} value={h.value}>
-              {h.label}
-            </option>
-          ))}
-        </datalist>
+        {!props.isEdit && (
+          <div className="flex flex-wrap gap-1.5">
+            {HOST_PRESETS.map((h) => (
+              <button
+                key={h.value}
+                type="button"
+                title={h.label}
+                onClick={() => props.onHostChange(h.value)}
+                className={cn(
+                  "rounded-md border px-2 py-1 font-mono text-[11px] transition-colors",
+                  props.host === h.value
+                    ? "border-foreground bg-accent text-foreground"
+                    : "border-border text-muted-foreground hover:bg-muted/40 hover:text-foreground",
+                )}
+              >
+                {h.value}
+              </button>
+            ))}
+          </div>
+        )}
         {props.isEdit && (
           <p className="text-[11px] text-muted-foreground">
             Host is locked. To use a different one, delete this credential

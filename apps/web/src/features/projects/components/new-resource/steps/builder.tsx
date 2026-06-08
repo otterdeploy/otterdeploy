@@ -56,11 +56,6 @@ const BUILDERS: Builder[] = [
     sub: "CNB / Heroku-style cloud-native buildpacks",
   },
   {
-    id: "nixpack",
-    name: "Nixpacks",
-    sub: "Reproducible Nix-derived images",
-  },
-  {
     id: "static",
     name: "Static site",
     sub: "Plain HTML / Vite / Astro / Next export",
@@ -213,28 +208,6 @@ function BuilderConfig({ builderId }: { builderId: string }) {
               className="font-mono"
               rows={3}
               placeholder={"auto — leave blank to let the builder choose"}
-            />
-          </Field>
-        </div>
-      </Card>
-    );
-  }
-
-  if (builderId === "nixpack") {
-    return (
-      <Card className="p-4.5">
-        <ConfigHeader icon={<I.graph width={14} height={14} />} title="Nixpacks" />
-        <Field label="Nixpacks providers (comma separated)">
-          <Input className="font-mono" placeholder="auto · e.g. node, pnpm" />
-        </Field>
-        <div className="mt-2.5">
-          <Field label="Custom nixpacks.toml">
-            <Textarea
-              className="font-mono"
-              rows={5}
-              placeholder={
-                "[phases.setup]\nnixPkgs = ['nodejs_24', 'pnpm']\n\n[phases.build]\ncmds = ['pnpm build']"
-              }
             />
           </Field>
         </div>

@@ -1,14 +1,14 @@
 import { KeyRoundIcon } from "lucide-react";
-import { Button } from "../ui/button";
-import { Empty, EmptyDescription, EmptyTitle } from "../ui/empty";
+import { Button } from "@/components/ui/button";
+import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
 import {
   Table,
   TableBody,
   TableHead,
   TableHeader,
   TableRow,
-} from "../ui/table";
-import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
+} from "@/components/ui/table";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip";
 import type { VariableScope } from "../types";
 
 interface Props {

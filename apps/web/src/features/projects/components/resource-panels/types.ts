@@ -33,5 +33,6 @@ export interface ResourceBodyProps {
     };
     extraEnv: Record<string, string>;
     secretKeys: string[];
+    extensions: string[];
   };
 }

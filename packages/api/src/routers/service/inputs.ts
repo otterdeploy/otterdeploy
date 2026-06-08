@@ -68,6 +68,16 @@ export interface CreateServiceInput {
   source?: "image" | "git";
   sourceSubdir?: string | null;
   image: string;
+  /**
+   * Skip the up-front git build-binding gate (gitRepoId / containerRegistryId
+   * / imageRepository). The manifest reconciler sets this: a git service
+   * should still be CREATED (as a `pending:initial` row that skips swarm) on
+   * a project that hasn't bound its registry yet — the missing binding is
+   * reported later as a non-fatal "build not started" skip, not a hard
+   * create failure. The direct `service.create` endpoint leaves this unset
+   * so it keeps failing fast with MISSING_BUILD_BINDING.
+   */
+  skipBuildBindingCheck?: boolean;
   command?: string[] | null;
   entrypoint?: string[] | null;
   replicas?: number;

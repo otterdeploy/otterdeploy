@@ -11,6 +11,7 @@ import { Deployments } from "./screens/deployments";
 import { Logs } from "./screens/logs";
 import { EnvVars } from "./screens/env";
 import { Databases } from "./screens/databases";
+import { DataViewer } from "./screens/data-viewer";
 import { Networking } from "./screens/networking";
 import { Metrics } from "./screens/metrics";
 import { Settings } from "./screens/settings";
@@ -49,6 +50,7 @@ export type Tab =
   | "metrics"
   | "env"
   | "databases"
+  | "data-viewer"
   | "networking"
   | "servers"
   | "terminal"
@@ -223,7 +225,8 @@ export function OtterdeployApp(_: Props) {
   else if (tab === "deployments") hero = <Deployments deployments={deployments} onRollback={onRollback} />;
   else if (tab === "logs") hero = <Logs target={logTarget} />;
   else if (tab === "env") hero = <EnvVars />;
-  else if (tab === "databases") hero = <Databases />;
+  else if (tab === "databases") hero = <Databases onBrowse={() => setTab("data-viewer")} />;
+  else if (tab === "data-viewer") hero = <DataViewer />;
   else if (tab === "networking") hero = <Networking />;
   else if (tab === "servers") hero = <Servers />;
   else if (tab === "terminal") hero = <TerminalWorkspace />;

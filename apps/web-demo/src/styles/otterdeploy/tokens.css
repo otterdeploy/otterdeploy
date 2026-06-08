@@ -324,3 +324,29 @@ input, textarea { font: inherit; color: inherit; }
 .gap-6 { gap: var(--gap-6); }
 .muted { color: var(--fg-3); }
 .muted-2 { color: var(--fg-4); }
+
+/* Data viewer grid row hover (selected row keeps its inline background) */
+.dv-row:hover { background: var(--bg-overlay); }
+
+/* Data viewer: object-tree hover-reveal copy icon */
+.dv-copy { transition: opacity 80ms; }
+.dv-tree:hover .dv-copy { opacity: 0.6 !important; }
+
+/* Data viewer: popover menu items */
+.dv-menu-item {
+  display: flex; align-items: center; gap: var(--gap-2);
+  width: 100%; padding: 7px 8px; border-radius: 6px;
+  text-align: left; color: var(--fg);
+}
+.dv-menu-item:hover:not(:disabled) { background: var(--bg-overlay); }
+
+/* Data viewer: grid cell truncation (numeric cells right-align via inline style) */
+.dv-cell { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Data viewer: small UQ/constraint tag */
+.dv-tag {
+  display: inline-flex; align-items: center; height: 14px; padding: 0 4px;
+  border-radius: 3px; font-family: var(--font-mono); font-size: 9px;
+  font-weight: 600; letter-spacing: 0.04em;
+  color: var(--info); background: var(--info-bg);
+}

@@ -19,7 +19,7 @@
 import { useQueries } from "@tanstack/react-query";
 import { useMemo } from "react";
 
-import type { FrameworkKind } from "@/features/projects/components/graph/framework-logo";
+import type { FrameworkKind } from "@/features/projects/components/framework-logo";
 import type { ProjectResource } from "@/features/projects/components/graph/resource-to-node";
 import { orpc } from "@/shared/server/orpc";
 

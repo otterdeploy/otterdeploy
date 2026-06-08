@@ -264,6 +264,12 @@ export const databaseResource = pgTable(
     // hint — the value still travels the same wire path. Reveal in the UI
     // is gated by this list; copy/paste audit can also key off it.
     secretKeys: jsonb("secret_keys").$type<string[]>().notNull().default([]),
+    // Enabled Postgres extensions (canonical `CREATE EXTENSION` names, e.g.
+    // "pgcrypto", "vector", "postgis"). Non-contrib entries also drive the
+    // service image: see packages/shared/postgres-extensions. Empty for
+    // non-postgres engines. Changing this rolls the service (image may
+    // change) and runs CREATE/DROP EXTENSION against the live database.
+    extensions: jsonb("extensions").$type<string[]>().notNull().default([]),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -386,7 +392,14 @@ export const serviceResource = pgTable(
   },
   (table) => [
     uniqueIndex("service_resource_service_name_unique").on(table.serviceName),
-    uniqueIndex("service_resource_internal_hostname_unique").on(
+    // internalHostname is the service's DNS alias on its project overlay
+    // network — it only has to be unique *within that network*, not globally.
+    // Two different projects (each on its own `otterdeploy-<project>` network)
+    // can both run a service called "dealort". Scope the uniqueness to
+    // (networkName, internalHostname) so same-named services across projects
+    // don't collide.
+    uniqueIndex("service_resource_network_hostname_unique").on(
+      table.networkName,
       table.internalHostname,
     ),
     uniqueIndex("service_resource_public_domain_unique").on(table.publicDomain),

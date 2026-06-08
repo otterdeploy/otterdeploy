@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { SvglLogo } from "../brand/svgl-logo";
+import { SvglLogo } from "@/components/brand/svgl-logo";
 import { I } from "../icons";
 import { rid } from "../data";
 import { Field, SectionH } from "../components/form";

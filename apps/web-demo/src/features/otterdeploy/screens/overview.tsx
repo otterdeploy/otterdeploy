@@ -1,4 +1,4 @@
-import { DatabaseLogo } from "../brand/database-logo";
+import { DatabaseLogo } from "@/components/brand/database-logo";
 import { I } from "../icons";
 import { DEPLOYMENTS, SERVICES, type Env, type Service } from "../data";
 import { StatusBadge } from "../components/status-badge";

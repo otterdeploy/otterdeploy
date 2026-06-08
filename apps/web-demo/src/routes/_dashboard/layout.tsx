@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
-import { WorkspaceShell } from "../shell/workspace-shell";
+import { WorkspaceShell } from "@/components/shell/workspace-shell";
 
 export const Route = createFileRoute("/_dashboard")({
   component: RouteComponent,

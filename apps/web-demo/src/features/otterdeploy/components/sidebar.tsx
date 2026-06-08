@@ -1,4 +1,4 @@
-import { DatabaseLogo } from "../brand/database-logo";
+import { DatabaseLogo } from "@/components/brand/database-logo";
 import { I } from "../icons";
 import { PROJECT, SERVICES, DEPLOYMENTS, type Env } from "../data";
 import { EnvSwitcher } from "./env-switcher";
@@ -22,6 +22,7 @@ const projectItems: Array<{
   { id: "logs", label: "Logs", icon: "log" },
   { id: "metrics", label: "Metrics", icon: "metrics" },
   { id: "env", label: "Variables", icon: "env" },
+  { id: "data-viewer", label: "Data viewer", icon: "db" },
   { id: "networking", label: "Networking", icon: "globe" },
   { id: "servers", label: "Servers", icon: "server", count: 3 },
   { id: "terminal", label: "Terminal", icon: "bolt" },

@@ -71,7 +71,7 @@ volumes:
           <>
             <SectionHeader
               title="Review"
-              sub="Confirm and deploy — you can change all of this later"
+              sub="Add this resource, then apply it from the pending-changes bar — you can change all of this later"
             />
 
             <div className="mt-3.5 grid grid-cols-2 gap-3">
@@ -110,7 +110,7 @@ volumes:
                       className="mt-0.5 shrink-0 text-muted-foreground"
                     />
                     <p className="text-xs leading-relaxed text-muted-foreground">
-                      Otterdeploy will{" "}
+                      On apply, Otterdeploy will{" "}
                       {isDb
                         ? "pull the image, provision a volume, and start the database"
                         : `build the image, push to the internal registry, deploy ${replicas} replica${replicas > 1 ? "s" : ""} via Docker Swarm`}

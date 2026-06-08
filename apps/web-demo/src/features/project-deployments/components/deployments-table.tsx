@@ -1,14 +1,14 @@
 import { RotateCcwIcon } from "lucide-react";
-import { Badge } from "../ui/badge";
-import { Empty, EmptyDescription, EmptyTitle } from "../ui/empty";
+import { Badge } from "@/components/ui/badge";
+import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
 import {
   Table,
   TableBody,
   TableHead,
   TableHeader,
   TableRow,
-} from "../ui/table";
-import { Toolbar, ToolbarButton, ToolbarSeparator } from "../ui/toolbar";
+} from "@/components/ui/table";
+import { Toolbar, ToolbarButton, ToolbarSeparator } from "@/components/ui/toolbar";
 
 interface Props {
   scope: "project" | "resource";

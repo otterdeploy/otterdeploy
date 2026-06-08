@@ -15,6 +15,7 @@ import { Button } from "@/shared/components/ui/button";
 import type { ResourceBodyProps } from "../types";
 import { SettingsCard, SettingsRowReadOnly } from "./atoms";
 import { DangerZone } from "./danger-zone";
+import { ExtensionsCard } from "./extensions-card";
 import { PublicAccessCard } from "./public-access-card";
 
 interface PostgresSettingsBodyProps {
@@ -48,6 +49,8 @@ export function PostgresSettingsBody({
       </SettingsCard>
 
       <PublicAccessCard resource={resource} />
+
+      {resource.engine === "postgres" && <ExtensionsCard resource={resource} />}
 
       <SettingsCard
         title="Maintenance"

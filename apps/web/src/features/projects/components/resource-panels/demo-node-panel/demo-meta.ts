@@ -38,7 +38,7 @@ export function demoMeta(node: ResourceNodeData): DemoMeta {
 }
 
 function imageForTech(tech: string): string {
-  if (tech.includes("Node")) return "node:20-alpine";
+  if (tech.includes("Node")) return "node:24-alpine";
   if (tech.includes("Bun")) return "oven/bun:1.3";
   if (tech.includes("Go")) return "golang:1.23-alpine";
   if (tech.includes("Postgres")) return "postgres:16-alpine";

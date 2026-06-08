@@ -23,6 +23,9 @@ export interface PostgresSnapshotV1 {
   publicHostname: string;
   internalHostname: string;
   extraEnv: Record<string, string>;
+  /** Enabled extensions at snapshot time. Optional so snapshots written
+   *  before the extensions feature still parse — treat absent as []. */
+  extensions?: string[];
 }
 
 export function snapshotForPostgresCreate(input: {
@@ -34,6 +37,7 @@ export function snapshotForPostgresCreate(input: {
   publicHostname: string;
   internalHostname: string;
   extraEnv: Record<string, string>;
+  extensions?: string[];
 }): Record<string, unknown> {
   const snap: PostgresSnapshotV1 = {
     kind: "postgres",
@@ -46,6 +50,7 @@ export function snapshotForPostgresCreate(input: {
     publicHostname: input.publicHostname,
     internalHostname: input.internalHostname,
     extraEnv: input.extraEnv,
+    extensions: input.extensions ?? [],
   };
   return snap as unknown as Record<string, unknown>;
 }

@@ -292,6 +292,7 @@ export async function* createPostgresResourceStream(
       },
       extraEnv: created.database.extraEnv ?? {},
       secretKeys: created.database.secretKeys ?? [],
+      extensions: created.database.extensions ?? [],
     },
   };
 

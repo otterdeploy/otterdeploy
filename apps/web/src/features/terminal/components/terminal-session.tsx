@@ -17,8 +17,15 @@ const core = await GhosttyCore.load();
 export type ConnState =
   | { kind: "connecting" }
   | { kind: "connected" }
+  | { kind: "reconnecting"; attempt: number }
   | { kind: "closed"; code?: number; reason?: string }
   | { kind: "error"; message: string };
+
+// Reconnect backoff bounds. Start at 1s and double up to 30s — same curve the
+// upstream @wterm/core WebSocketTransport uses, minus the all-binary protocol
+// that's incompatible with our text/binary frame discriminator.
+const RECONNECT_BASE_MS = 1000;
+const RECONNECT_MAX_MS = 30_000;
 
 interface Props {
   source: SessionSource;
@@ -98,59 +105,99 @@ export function TerminalSession({ source, active, onConnChange }: Props) {
       return;
     }
 
-    const ws = new WebSocket(url);
-    wsRef.current = ws;
-    ws.binaryType = "arraybuffer";
+    // `disposed` guards against the effect cleanup racing a pending reconnect:
+    // once we tear down we must never reopen. Backoff state lives here so it
+    // resets on every successful open and persists across reconnect attempts.
+    let disposed = false;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let reconnectDelay = RECONNECT_BASE_MS;
+    let attempt = 0;
 
     const update = (next: ConnState) => {
       setConn(next);
       onConnChangeRef.current?.(next);
     };
 
-    ws.onopen = () => update({ kind: "connected" });
-    ws.onerror = () => update({ kind: "error", message: "WebSocket error" });
-    ws.onclose = (e) => update({ kind: "closed", code: e.code, reason: e.reason });
+    const connect = () => {
+      const ws = new WebSocket(url);
+      wsRef.current = ws;
+      ws.binaryType = "arraybuffer";
 
-    ws.onmessage = (e) => {
-      if (e.data instanceof ArrayBuffer) {
-        writeRef.current(new Uint8Array(e.data));
-        return;
-      }
-      if (typeof e.data !== "string") return;
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(e.data);
-      } catch {
-        return;
-      }
-      const result = ServerMessage.safeParse(parsed);
-      if (!result.success) return;
-      const msg = result.data;
-      switch (msg.type) {
-        case "session:exit": {
-          const detail =
-            msg.exitCode != null
-              ? ` with code ${msg.exitCode}`
-              : msg.signal
-                ? ` (${msg.signal})`
-                : "";
-          writeRef.current(`\r\n[process exited${detail}]\r\n`);
+      ws.onopen = () => {
+        reconnectDelay = RECONNECT_BASE_MS;
+        attempt = 0;
+        update({ kind: "connected" });
+      };
+      ws.onerror = () => update({ kind: "error", message: "WebSocket error" });
+      ws.onclose = (e) => {
+        if (disposed) return;
+        // Code 1000 is a deliberate server-side end (the shell exited, see
+        // terminal-ws.ts) — leave it closed. Any other code is an abnormal
+        // drop, so reconnect with exponential backoff. The server spawns a
+        // fresh shell per connection, so this starts a new session rather
+        // than resuming the old one.
+        if (e.code === 1000) {
+          update({ kind: "closed", code: e.code, reason: e.reason });
           return;
         }
-        case "error":
-          update({ kind: "error", message: `[${msg.code}] ${msg.message}` });
-          writeRef.current(`\r\n[${msg.code}] ${msg.message}\r\n`);
+        attempt += 1;
+        update({ kind: "reconnecting", attempt });
+        writeRef.current(
+          `\r\n\x1b[33m[connection lost — reconnecting in ${Math.round(
+            reconnectDelay / 1000,
+          )}s…]\x1b[0m\r\n`,
+        );
+        reconnectTimer = setTimeout(connect, reconnectDelay);
+        reconnectDelay = Math.min(reconnectDelay * 2, RECONNECT_MAX_MS);
+      };
+
+      ws.onmessage = (e) => {
+        if (e.data instanceof ArrayBuffer) {
+          writeRef.current(new Uint8Array(e.data));
           return;
-        default: {
-          const _exhaustive: never = msg;
-          return _exhaustive;
         }
-      }
+        if (typeof e.data !== "string") return;
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(e.data);
+        } catch {
+          return;
+        }
+        const result = ServerMessage.safeParse(parsed);
+        if (!result.success) return;
+        const msg = result.data;
+        switch (msg.type) {
+          case "session:exit": {
+            const detail =
+              msg.exitCode != null
+                ? ` with code ${msg.exitCode}`
+                : msg.signal
+                  ? ` (${msg.signal})`
+                  : "";
+            writeRef.current(`\r\n[process exited${detail}]\r\n`);
+            return;
+          }
+          case "error":
+            update({ kind: "error", message: `[${msg.code}] ${msg.message}` });
+            writeRef.current(`\r\n[${msg.code}] ${msg.message}\r\n`);
+            return;
+          default: {
+            const _exhaustive: never = msg;
+            return _exhaustive;
+          }
+        }
+      };
     };
 
+    update({ kind: "connecting" });
+    connect();
+
     return () => {
+      disposed = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      const ws = wsRef.current;
       wsRef.current = null;
-      ws.close();
+      ws?.close();
     };
   }, [source]);
 

@@ -15,7 +15,8 @@
   "scripts": {
     "db:push": "bun --env-file ../../.env -- drizzle-kit push",
     "db:generate": "bun --env-file ../../.env drizzle-kit generate",
-    "dev": "bun --env-file ../../.env drizzle-kit studio",
+    "db:studio": "bun --env-file ../../ drizzle-kit studio",
+    "dev": "",
     "db:migrate": "bun --env-file ../../.env drizzle-kit migrate",
     "db:start": "docker compose up -d",
     "db:watch": "docker compose up",
@@ -27,12 +28,10 @@
     "better-result": "catalog:",
     "drizzle-orm": "catalog:",
     "evlog": "catalog:",
-    "pg": "^8.16.3",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@otterdeploy/config": "workspace:*",
-    "@types/pg": "^8.20.0",
     "drizzle-kit": "^1.0.0-rc.3",
     "typescript": "catalog:"
   }

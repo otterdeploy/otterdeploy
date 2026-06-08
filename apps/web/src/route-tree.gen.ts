@@ -24,8 +24,12 @@ import { Route as AppOrgSlugServersRouteImport } from "./routes/_app/$orgSlug/se
 import { Route as AppOrgSlugRegistriesRouteImport } from "./routes/_app/$orgSlug/registries"
 import { Route as AppOrgSlugNetworkingRouteImport } from "./routes/_app/$orgSlug/networking"
 import { Route as AppOrgSlugGitProvidersRouteImport } from "./routes/_app/$orgSlug/git-providers"
+import { Route as AppOrgSlugDockerRouteImport } from "./routes/_app/$orgSlug/docker"
+import { Route as AppOrgSlugBackupsRouteImport } from "./routes/_app/$orgSlug/backups"
+import { Route as AppOrgSlugAuditRouteImport } from "./routes/_app/$orgSlug/audit"
 import { Route as AppOrgSlugProjectSlugLayoutRouteImport } from "./routes/_app/$orgSlug/$projectSlug/layout"
 import { Route as AppOrgSlugProjectSlugIndexRouteImport } from "./routes/_app/$orgSlug/$projectSlug/index"
+import { Route as AppOrgSlugProjectSlugVariablesRouteImport } from "./routes/_app/$orgSlug/$projectSlug/variables"
 import { Route as AppOrgSlugProjectSlugSettingsRouteImport } from "./routes/_app/$orgSlug/$projectSlug/settings"
 import { Route as AppOrgSlugProjectSlugNetworkingRouteImport } from "./routes/_app/$orgSlug/$projectSlug/networking"
 import { Route as AppOrgSlugProjectSlugLogsRouteImport } from "./routes/_app/$orgSlug/$projectSlug/logs"
@@ -108,6 +112,21 @@ const AppOrgSlugGitProvidersRoute = AppOrgSlugGitProvidersRouteImport.update({
   path: "/git-providers",
   getParentRoute: () => AppOrgSlugLayoutRoute,
 } as any)
+const AppOrgSlugDockerRoute = AppOrgSlugDockerRouteImport.update({
+  id: "/docker",
+  path: "/docker",
+  getParentRoute: () => AppOrgSlugLayoutRoute,
+} as any)
+const AppOrgSlugBackupsRoute = AppOrgSlugBackupsRouteImport.update({
+  id: "/backups",
+  path: "/backups",
+  getParentRoute: () => AppOrgSlugLayoutRoute,
+} as any)
+const AppOrgSlugAuditRoute = AppOrgSlugAuditRouteImport.update({
+  id: "/audit",
+  path: "/audit",
+  getParentRoute: () => AppOrgSlugLayoutRoute,
+} as any)
 const AppOrgSlugProjectSlugLayoutRoute =
   AppOrgSlugProjectSlugLayoutRouteImport.update({
     id: "/$projectSlug",
@@ -118,6 +137,12 @@ const AppOrgSlugProjectSlugIndexRoute =
   AppOrgSlugProjectSlugIndexRouteImport.update({
     id: "/",
     path: "/",
+    getParentRoute: () => AppOrgSlugProjectSlugLayoutRoute,
+  } as any)
+const AppOrgSlugProjectSlugVariablesRoute =
+  AppOrgSlugProjectSlugVariablesRouteImport.update({
+    id: "/variables",
+    path: "/variables",
     getParentRoute: () => AppOrgSlugProjectSlugLayoutRoute,
   } as any)
 const AppOrgSlugProjectSlugSettingsRoute =
@@ -165,6 +190,9 @@ export interface FileRoutesByFullPath {
   "/$orgSlug": typeof AppOrgSlugLayoutRouteWithChildren
   "/onboarding/create-organization": typeof OnboardingCreateOrganizationRoute
   "/$orgSlug/$projectSlug": typeof AppOrgSlugProjectSlugLayoutRouteWithChildren
+  "/$orgSlug/audit": typeof AppOrgSlugAuditRoute
+  "/$orgSlug/backups": typeof AppOrgSlugBackupsRoute
+  "/$orgSlug/docker": typeof AppOrgSlugDockerRoute
   "/$orgSlug/git-providers": typeof AppOrgSlugGitProvidersRoute
   "/$orgSlug/networking": typeof AppOrgSlugNetworkingRoute
   "/$orgSlug/registries": typeof AppOrgSlugRegistriesRoute
@@ -177,6 +205,7 @@ export interface FileRoutesByFullPath {
   "/$orgSlug/$projectSlug/logs": typeof AppOrgSlugProjectSlugLogsRoute
   "/$orgSlug/$projectSlug/networking": typeof AppOrgSlugProjectSlugNetworkingRoute
   "/$orgSlug/$projectSlug/settings": typeof AppOrgSlugProjectSlugSettingsRoute
+  "/$orgSlug/$projectSlug/variables": typeof AppOrgSlugProjectSlugVariablesRoute
   "/$orgSlug/$projectSlug/": typeof AppOrgSlugProjectSlugIndexRoute
   "/$orgSlug/$projectSlug/graph/$resourceId": typeof AppOrgSlugProjectSlugGraphResourceIdLayoutRouteWithChildren
   "/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId": typeof AppOrgSlugProjectSlugGraphResourceIdDeploymentDeploymentIdRoute
@@ -187,6 +216,9 @@ export interface FileRoutesByTo {
   "/terminal": typeof TerminalRoute
   "/onboarding/create-organization": typeof OnboardingCreateOrganizationRoute
   "/": typeof AppIndexRoute
+  "/$orgSlug/audit": typeof AppOrgSlugAuditRoute
+  "/$orgSlug/backups": typeof AppOrgSlugBackupsRoute
+  "/$orgSlug/docker": typeof AppOrgSlugDockerRoute
   "/$orgSlug/git-providers": typeof AppOrgSlugGitProvidersRoute
   "/$orgSlug/networking": typeof AppOrgSlugNetworkingRoute
   "/$orgSlug/registries": typeof AppOrgSlugRegistriesRoute
@@ -199,6 +231,7 @@ export interface FileRoutesByTo {
   "/$orgSlug/$projectSlug/logs": typeof AppOrgSlugProjectSlugLogsRoute
   "/$orgSlug/$projectSlug/networking": typeof AppOrgSlugProjectSlugNetworkingRoute
   "/$orgSlug/$projectSlug/settings": typeof AppOrgSlugProjectSlugSettingsRoute
+  "/$orgSlug/$projectSlug/variables": typeof AppOrgSlugProjectSlugVariablesRoute
   "/$orgSlug/$projectSlug": typeof AppOrgSlugProjectSlugIndexRoute
   "/$orgSlug/$projectSlug/graph/$resourceId": typeof AppOrgSlugProjectSlugGraphResourceIdLayoutRouteWithChildren
   "/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId": typeof AppOrgSlugProjectSlugGraphResourceIdDeploymentDeploymentIdRoute
@@ -213,6 +246,9 @@ export interface FileRoutesById {
   "/onboarding/create-organization": typeof OnboardingCreateOrganizationRoute
   "/_app/": typeof AppIndexRoute
   "/_app/$orgSlug/$projectSlug": typeof AppOrgSlugProjectSlugLayoutRouteWithChildren
+  "/_app/$orgSlug/audit": typeof AppOrgSlugAuditRoute
+  "/_app/$orgSlug/backups": typeof AppOrgSlugBackupsRoute
+  "/_app/$orgSlug/docker": typeof AppOrgSlugDockerRoute
   "/_app/$orgSlug/git-providers": typeof AppOrgSlugGitProvidersRoute
   "/_app/$orgSlug/networking": typeof AppOrgSlugNetworkingRoute
   "/_app/$orgSlug/registries": typeof AppOrgSlugRegistriesRoute
@@ -225,6 +261,7 @@ export interface FileRoutesById {
   "/_app/$orgSlug/$projectSlug/logs": typeof AppOrgSlugProjectSlugLogsRoute
   "/_app/$orgSlug/$projectSlug/networking": typeof AppOrgSlugProjectSlugNetworkingRoute
   "/_app/$orgSlug/$projectSlug/settings": typeof AppOrgSlugProjectSlugSettingsRoute
+  "/_app/$orgSlug/$projectSlug/variables": typeof AppOrgSlugProjectSlugVariablesRoute
   "/_app/$orgSlug/$projectSlug/": typeof AppOrgSlugProjectSlugIndexRoute
   "/_app/$orgSlug/$projectSlug/graph/$resourceId": typeof AppOrgSlugProjectSlugGraphResourceIdLayoutRouteWithChildren
   "/_app/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId": typeof AppOrgSlugProjectSlugGraphResourceIdDeploymentDeploymentIdRoute
@@ -239,6 +276,9 @@ export interface FileRouteTypes {
     | "/$orgSlug"
     | "/onboarding/create-organization"
     | "/$orgSlug/$projectSlug"
+    | "/$orgSlug/audit"
+    | "/$orgSlug/backups"
+    | "/$orgSlug/docker"
     | "/$orgSlug/git-providers"
     | "/$orgSlug/networking"
     | "/$orgSlug/registries"
@@ -251,6 +291,7 @@ export interface FileRouteTypes {
     | "/$orgSlug/$projectSlug/logs"
     | "/$orgSlug/$projectSlug/networking"
     | "/$orgSlug/$projectSlug/settings"
+    | "/$orgSlug/$projectSlug/variables"
     | "/$orgSlug/$projectSlug/"
     | "/$orgSlug/$projectSlug/graph/$resourceId"
     | "/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId"
@@ -261,6 +302,9 @@ export interface FileRouteTypes {
     | "/terminal"
     | "/onboarding/create-organization"
     | "/"
+    | "/$orgSlug/audit"
+    | "/$orgSlug/backups"
+    | "/$orgSlug/docker"
     | "/$orgSlug/git-providers"
     | "/$orgSlug/networking"
     | "/$orgSlug/registries"
@@ -273,6 +317,7 @@ export interface FileRouteTypes {
     | "/$orgSlug/$projectSlug/logs"
     | "/$orgSlug/$projectSlug/networking"
     | "/$orgSlug/$projectSlug/settings"
+    | "/$orgSlug/$projectSlug/variables"
     | "/$orgSlug/$projectSlug"
     | "/$orgSlug/$projectSlug/graph/$resourceId"
     | "/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId"
@@ -286,6 +331,9 @@ export interface FileRouteTypes {
     | "/onboarding/create-organization"
     | "/_app/"
     | "/_app/$orgSlug/$projectSlug"
+    | "/_app/$orgSlug/audit"
+    | "/_app/$orgSlug/backups"
+    | "/_app/$orgSlug/docker"
     | "/_app/$orgSlug/git-providers"
     | "/_app/$orgSlug/networking"
     | "/_app/$orgSlug/registries"
@@ -298,6 +346,7 @@ export interface FileRouteTypes {
     | "/_app/$orgSlug/$projectSlug/logs"
     | "/_app/$orgSlug/$projectSlug/networking"
     | "/_app/$orgSlug/$projectSlug/settings"
+    | "/_app/$orgSlug/$projectSlug/variables"
     | "/_app/$orgSlug/$projectSlug/"
     | "/_app/$orgSlug/$projectSlug/graph/$resourceId"
     | "/_app/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId"
@@ -418,6 +467,27 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppOrgSlugGitProvidersRouteImport
       parentRoute: typeof AppOrgSlugLayoutRoute
     }
+    "/_app/$orgSlug/docker": {
+      id: "/_app/$orgSlug/docker"
+      path: "/docker"
+      fullPath: "/$orgSlug/docker"
+      preLoaderRoute: typeof AppOrgSlugDockerRouteImport
+      parentRoute: typeof AppOrgSlugLayoutRoute
+    }
+    "/_app/$orgSlug/backups": {
+      id: "/_app/$orgSlug/backups"
+      path: "/backups"
+      fullPath: "/$orgSlug/backups"
+      preLoaderRoute: typeof AppOrgSlugBackupsRouteImport
+      parentRoute: typeof AppOrgSlugLayoutRoute
+    }
+    "/_app/$orgSlug/audit": {
+      id: "/_app/$orgSlug/audit"
+      path: "/audit"
+      fullPath: "/$orgSlug/audit"
+      preLoaderRoute: typeof AppOrgSlugAuditRouteImport
+      parentRoute: typeof AppOrgSlugLayoutRoute
+    }
     "/_app/$orgSlug/$projectSlug": {
       id: "/_app/$orgSlug/$projectSlug"
       path: "/$projectSlug"
@@ -430,6 +500,13 @@ declare module "@tanstack/react-router" {
       path: "/"
       fullPath: "/$orgSlug/$projectSlug/"
       preLoaderRoute: typeof AppOrgSlugProjectSlugIndexRouteImport
+      parentRoute: typeof AppOrgSlugProjectSlugLayoutRoute
+    }
+    "/_app/$orgSlug/$projectSlug/variables": {
+      id: "/_app/$orgSlug/$projectSlug/variables"
+      path: "/variables"
+      fullPath: "/$orgSlug/$projectSlug/variables"
+      preLoaderRoute: typeof AppOrgSlugProjectSlugVariablesRouteImport
       parentRoute: typeof AppOrgSlugProjectSlugLayoutRoute
     }
     "/_app/$orgSlug/$projectSlug/settings": {
@@ -512,6 +589,7 @@ interface AppOrgSlugProjectSlugLayoutRouteChildren {
   AppOrgSlugProjectSlugLogsRoute: typeof AppOrgSlugProjectSlugLogsRoute
   AppOrgSlugProjectSlugNetworkingRoute: typeof AppOrgSlugProjectSlugNetworkingRoute
   AppOrgSlugProjectSlugSettingsRoute: typeof AppOrgSlugProjectSlugSettingsRoute
+  AppOrgSlugProjectSlugVariablesRoute: typeof AppOrgSlugProjectSlugVariablesRoute
   AppOrgSlugProjectSlugIndexRoute: typeof AppOrgSlugProjectSlugIndexRoute
 }
 
@@ -522,6 +600,7 @@ const AppOrgSlugProjectSlugLayoutRouteChildren: AppOrgSlugProjectSlugLayoutRoute
     AppOrgSlugProjectSlugLogsRoute: AppOrgSlugProjectSlugLogsRoute,
     AppOrgSlugProjectSlugNetworkingRoute: AppOrgSlugProjectSlugNetworkingRoute,
     AppOrgSlugProjectSlugSettingsRoute: AppOrgSlugProjectSlugSettingsRoute,
+    AppOrgSlugProjectSlugVariablesRoute: AppOrgSlugProjectSlugVariablesRoute,
     AppOrgSlugProjectSlugIndexRoute: AppOrgSlugProjectSlugIndexRoute,
   }
 
@@ -532,6 +611,9 @@ const AppOrgSlugProjectSlugLayoutRouteWithChildren =
 
 interface AppOrgSlugLayoutRouteChildren {
   AppOrgSlugProjectSlugLayoutRoute: typeof AppOrgSlugProjectSlugLayoutRouteWithChildren
+  AppOrgSlugAuditRoute: typeof AppOrgSlugAuditRoute
+  AppOrgSlugBackupsRoute: typeof AppOrgSlugBackupsRoute
+  AppOrgSlugDockerRoute: typeof AppOrgSlugDockerRoute
   AppOrgSlugGitProvidersRoute: typeof AppOrgSlugGitProvidersRoute
   AppOrgSlugNetworkingRoute: typeof AppOrgSlugNetworkingRoute
   AppOrgSlugRegistriesRoute: typeof AppOrgSlugRegistriesRoute
@@ -545,6 +627,9 @@ interface AppOrgSlugLayoutRouteChildren {
 const AppOrgSlugLayoutRouteChildren: AppOrgSlugLayoutRouteChildren = {
   AppOrgSlugProjectSlugLayoutRoute:
     AppOrgSlugProjectSlugLayoutRouteWithChildren,
+  AppOrgSlugAuditRoute: AppOrgSlugAuditRoute,
+  AppOrgSlugBackupsRoute: AppOrgSlugBackupsRoute,
+  AppOrgSlugDockerRoute: AppOrgSlugDockerRoute,
   AppOrgSlugGitProvidersRoute: AppOrgSlugGitProvidersRoute,
   AppOrgSlugNetworkingRoute: AppOrgSlugNetworkingRoute,
   AppOrgSlugRegistriesRoute: AppOrgSlugRegistriesRoute,

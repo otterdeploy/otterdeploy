@@ -234,6 +234,56 @@ export async function listInstallationRepos(
   return out;
 }
 
+/**
+ * Resolve the head commit SHA of a branch via the installation token.
+ * Used by the UI "Deploy" path (manifest apply) to mint a build the same
+ * way a git push would — the push webhook gets the SHA from its payload,
+ * but a UI-triggered build has to ask GitHub for the branch head itself.
+ *
+ * Throws (createError) on failure, matching this module's idiom; callers
+ * in Result-returning code wrap with `Result.tryPromise`.
+ */
+export async function fetchBranchHeadSha(
+  installationId: string | null,
+  owner: string,
+  repo: string,
+  branch: string,
+): Promise<string> {
+  // Public repos resolve their head SHA anonymously (no installation
+  // linked). GitHub's commits endpoint is readable without auth for public
+  // repos — rate-limited to 60/hr per IP, fine for the UI deploy path.
+  // Private repos pass a real installation token.
+  const token = installationId
+    ? (await getInstallationToken(installationId)).token
+    : null;
+  const res = await fetch(
+    `${apiBaseUrlForHost("github.com")}/repos/${owner}/${repo}/commits/${encodeURIComponent(branch)}`,
+    {
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+    },
+  );
+  if (!res.ok) {
+    const body = await res.text();
+    throw createError({
+      message: `GitHub commit lookup failed for ${owner}/${repo}@${branch} (${res.status})`,
+      status: 502,
+      why: body.slice(0, 500),
+    });
+  }
+  const json = (await res.json()) as { sha?: string };
+  if (!json.sha) {
+    throw createError({
+      message: `GitHub returned no SHA for ${owner}/${repo}@${branch}`,
+      status: 502,
+    });
+  }
+  return json.sha;
+}
+
 // ---------------------------------------------------------------------------
 // helpers
 // ---------------------------------------------------------------------------

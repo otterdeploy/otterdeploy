@@ -20,9 +20,13 @@ export const builderPopClass =
 
 export function SectionHeader({ title, sub }: { title: string; sub?: string }) {
   return (
-    <div className="mb-2.5 flex items-baseline gap-2.5">
+    <div className="mb-2.5">
       <h3 className="text-[13px] font-semibold tracking-[0.01em]">{title}</h3>
-      {sub && <span className="text-xs text-muted-foreground">{sub}</span>}
+      {sub && (
+        <p className="mt-1 max-w-prose text-xs leading-relaxed text-muted-foreground">
+          {sub}
+        </p>
+      )}
     </div>
   );
 }

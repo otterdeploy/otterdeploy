@@ -10,8 +10,9 @@ import {
   type ServiceKind,
   type Template,
 } from "@/features/projects/data/service-kinds";
-import { DatabaseLogo } from "@/shared/components/brand/database-logo";
 import { cn } from "@/shared/lib/utils";
+
+import { DatabaseLogo } from "@/shared/components/brand/database-logo";
 
 import {
   builderCardClass,

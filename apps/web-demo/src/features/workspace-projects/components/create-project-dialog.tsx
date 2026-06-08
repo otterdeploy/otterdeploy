@@ -3,8 +3,8 @@ import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { AlertCircle, FolderPlus, Loader2, PlusIcon } from "lucide-react";
 
-import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
-import { Button } from "../ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogDescription,
@@ -13,9 +13,9 @@ import {
   DialogPopup,
   DialogTitle,
   DialogTrigger,
-} from "../ui/dialog";
-import { Field, FieldDescription, FieldLabel } from "../ui/field";
-import { Input } from "../ui/input";
+} from "@/components/ui/dialog";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { client, queryClient } from "@/utils/orpc";
 
 function toSlug(value: string): string {

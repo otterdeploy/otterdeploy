@@ -28,6 +28,34 @@ type ProjectId = Id<typeof ID_PREFIX.project>;
 /** A pure transform producing the next manifest from the current one. */
 export type ManifestMutator = (current: Manifest) => Manifest;
 
+/** Seed an empty manifest so a mutator never has to special-case the
+ *  first-ever change on a fresh project. */
+const emptyManifest = (): Manifest =>
+  ({
+    version: 1 as const,
+    project: "" as Manifest["project"],
+    services: {},
+    databases: {},
+  }) as Manifest;
+
+/** Invalidate everything the pending-changes bar, graph, and resource
+ *  panels read so a manifest write is reflected without a manual refresh.
+ *  Partial-input keys (projectId only) catch the graph's diff query and
+ *  the bar's (projectId, environment) query alike. */
+async function invalidateManifestConsumers(projectId: ProjectId) {
+  await Promise.all([
+    queryClient.invalidateQueries({
+      queryKey: orpc.project.manifest.diff.queryKey({ input: { projectId } }),
+    }),
+    queryClient.invalidateQueries({
+      queryKey: orpc.project.manifest.get.queryKey({ input: { id: projectId } }),
+    }),
+    queryClient.invalidateQueries({
+      queryKey: orpc.project.resource.list.queryKey({ input: { projectId } }),
+    }),
+  ]);
+}
+
 interface UseStageManifestChangeOptions {
   /**
    * Toast on success. Default `null` — the staging bar is the feedback
@@ -45,18 +73,7 @@ export function useStageManifestChange(
   return useMutation({
     mutationFn: async (mutate: ManifestMutator) => {
       const current = await orpc.project.manifest.get.call({ id: projectId });
-      // First-stage on a fresh project — seed an empty manifest so the
-      // caller's mutator doesn't have to special-case `current.manifest
-      // === null`.
-      const base: Manifest =
-        current.manifest ??
-        ({
-          version: 1 as const,
-          project: "" as Manifest["project"],
-          services: {},
-          databases: {},
-        } as Manifest);
-      const next = mutate(base);
+      const next = mutate(current.manifest ?? emptyManifest());
       await orpc.project.manifest.save.call({
         projectId,
         manifest: next,
@@ -66,21 +83,71 @@ export function useStageManifestChange(
     },
     onSuccess: async () => {
       if (successToast) toast.success(successToast);
-      // Invalidate everything the pending-changes bar + graph + panel
-      // consume so the staged change becomes visible immediately
-      // without a manual refresh.
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: orpc.project.manifest.diff.queryKey({ input: { projectId } }),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: orpc.project.manifest.get.queryKey({ input: { id: projectId } }),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: orpc.project.resource.list.queryKey({ input: { projectId } }),
-        }),
-      ]);
+      await invalidateManifestConsumers(projectId);
     },
     onError: (err) => toast.error(err.message ?? "Failed to stage change"),
+  });
+}
+
+/** Per-resource failures the reconciler reports instead of throwing. */
+interface SkippedChange {
+  resource: "service" | "database" | "env";
+  name: string;
+  reason: string;
+}
+
+export interface ApplyManifestResult {
+  appliedCount: number;
+  skipped: SkippedChange[];
+  /** True when at least one change reconciled — the caller can treat this
+   *  as "the resource exists / a deploy started" and e.g. navigate to the
+   *  graph. False means everything landed in `skipped` (nothing deployed). */
+  applied: boolean;
+}
+
+/**
+ * One-shot create + deploy. Mirrors {@link useStageManifestChange} but
+ * calls `manifest.applyChange` (atomic save + reconcile) so a single
+ * action both records the change AND provisions it — no separate trip to
+ * the pending-changes bar's Deploy button.
+ *
+ * The reconciler reports per-resource failures in `skipped[]` rather than
+ * throwing (a git create with no build binding, an unresolved `${secret}`,
+ * …). We surface those as toasts and return them so the caller can decide
+ * whether to navigate. The change is still saved on partial/total failure,
+ * so the pending-changes bar + graph ghost remain as a recovery surface.
+ */
+export function useApplyManifestChange(projectId: ProjectId) {
+  return useMutation({
+    mutationFn: async (mutate: ManifestMutator): Promise<ApplyManifestResult> => {
+      const current = await orpc.project.manifest.get.call({ id: projectId });
+      const next = mutate(current.manifest ?? emptyManifest());
+      const result = await orpc.project.manifest.applyChange.call({
+        projectId,
+        manifest: next,
+        expectedVersion: current.version,
+      });
+      return {
+        appliedCount: result.appliedCount,
+        skipped: result.skipped,
+        applied: result.appliedCount > 0,
+      };
+    },
+    onSuccess: async (result) => {
+      await invalidateManifestConsumers(projectId);
+      const detail = result.skipped
+        .map((s) => `${s.resource} ${s.name}: ${s.reason}`)
+        .join("; ");
+      if (result.skipped.length === 0) {
+        toast.success(`Deployed ${result.appliedCount} change${result.appliedCount === 1 ? "" : "s"}`);
+      } else if (result.appliedCount === 0) {
+        // Nothing landed — the change is saved (pending) but couldn't be
+        // provisioned. Point the operator at the actionable reason.
+        toast.error(`Nothing deployed — ${detail}`);
+      } else {
+        toast.warning(`Deployed ${result.appliedCount}, skipped ${result.skipped.length} — ${detail}`);
+      }
+    },
+    onError: (err) => toast.error(err.message ?? "Failed to deploy change"),
   });
 }

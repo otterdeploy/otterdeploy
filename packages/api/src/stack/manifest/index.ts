@@ -19,7 +19,6 @@ export {
   type BuildConfig,
   type BuildAutoConfig,
   type BuildDockerfileConfig,
-  type BuildNixpacksConfig,
   type BuildRailpackConfig,
   type BuildComposeConfig,
 } from "@otterdeploy/shared/build-config";

@@ -1,14 +1,11 @@
 "use client";
 
-import type { ProjectSlug, Slug } from "@otterdeploy/shared/id";
-
 import { Search01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Link, useLoaderData, useMatch } from "@tanstack/react-router";
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ResourceOverlayDialog } from "@/features/projects/components/new-resource/new-resource-dialogs";
+import { useResourceOverlay } from "@/features/projects/components/new-resource/overlay-provider";
 import { HeaderNav } from "@/features/shell/components/header-nav";
 import { ModeToggle } from "@/features/shell/components/mode-toggle";
 import { Button } from "@/shared/components/ui/button";
@@ -23,11 +20,13 @@ export function SiteHeader() {
     shouldThrow: false,
   });
   const project = projectMatch?.loaderData?.project;
-
-  const [overlayOpen, setOverlayOpen] = useState(false);
+  // Single, provider-owned wizard dialog (mounted in ResourceOverlayProvider).
+  // The header just asks it to open — no second dialog instance with its own
+  // state to drift out of sync.
+  const overlay = useResourceOverlay();
 
   return (
-    <header className="sticky top-0 z-50 flex w-full items-center bg-sidebar">
+    <header className="sticky top-0 z-50 flex w-full items-center bg-background border-b">
       <div className="flex h-(--header-height) w-full items-center gap-2 px-3">
         <Link
           to="/$orgSlug"
@@ -71,23 +70,12 @@ export function SiteHeader() {
           </Button>
 
           {project && (
-            <Button className="h-8" onClick={() => setOverlayOpen(true)}>
+            <Button className="h-8" onClick={() => overlay.setOpen(true)}>
               + New service
             </Button>
           )}
         </div>
       </div>
-
-      {project && (
-        <ResourceOverlayDialog
-          orgSlug={organization.slug}
-          projectSlug={project.slug as ProjectSlug}
-          projectId={project.id}
-          projectName={project.name}
-          open={overlayOpen}
-          onOpenChange={setOverlayOpen}
-        />
-      )}
     </header>
   );
 }

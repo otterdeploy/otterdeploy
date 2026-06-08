@@ -23,6 +23,7 @@ export {
   getDatabaseResourceByProjectAndName,
   getDatabaseResourceRecord,
   listDatabaseResourceRecords,
+  setDatabaseResourceExtensions,
   setDatabaseResourceExtraEnv,
   setDatabaseResourcePublic,
   updateDatabaseResourceRuntime,

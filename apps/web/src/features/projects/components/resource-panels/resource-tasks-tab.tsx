@@ -6,8 +6,7 @@
  * task progression + container logs.
  */
 
-import { useMemo } from "react";
-import { useLiveQuery } from "@tanstack/react-db";
+import { and, eq, useLiveQuery } from "@tanstack/react-db";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
@@ -16,7 +15,7 @@ import {
   PlayIcon,
 } from "@hugeicons/core-free-icons";
 
-import { createDeploymentsCollection } from "@/features/projects/data/deployments";
+import { deploymentsCollection } from "@/features/projects/data/deployments";
 import { Button } from "@/shared/components/ui/button";
 import {
   DropdownMenu,
@@ -62,13 +61,14 @@ export function ResourceTasksTab({
   orgSlug,
   projectSlug,
 }: ResourceTasksTabProps) {
-  const deploymentsCollection = useMemo(
-    () => createDeploymentsCollection(projectId as never, resourceId as never),
+  const { data: deployments, status } = useLiveQuery(
+    (q) =>
+      q
+        .from({ d: deploymentsCollection })
+        .where(({ d }) =>
+          and(eq(d.projectId, projectId), eq(d.resourceId, resourceId)),
+        ),
     [projectId, resourceId],
-  );
-  const { data: deployments = [], status } = useLiveQuery(
-    () => deploymentsCollection,
-    [deploymentsCollection],
   );
   const isLoading = status === "loading" && deployments.length === 0;
 
@@ -78,7 +78,9 @@ export function ResourceTasksTab({
   // queries. Falls back to the very latest so a fresh in-flight create
   // gets the hero spot rather than an empty state.
   const active =
-    deployments.find((d) => d.status === "running") ?? deployments.at(0) ?? null;
+    deployments.find((d) => d.status === "running") ??
+    deployments.at(0) ??
+    null;
   const history = deployments.filter((d) => d.id !== active?.id);
 
   return (
@@ -86,8 +88,8 @@ export function ResourceTasksTab({
       <div>
         <SectionLabel>Active deployment</SectionLabel>
         <p className="mt-1.5 text-[12px] text-muted-foreground">
-          The deployment currently serving this resource. Click to see its
-          tasks (containers) and tail their swarm progression + logs.
+          The deployment currently serving this resource. Click to see its tasks
+          (containers) and tail their swarm progression + logs.
         </p>
         <div className="mt-3">
           {isLoading ? (
@@ -310,37 +312,28 @@ function DeploymentStatusBadge({
   status: DeploymentInfo["status"];
   compact?: boolean;
 }) {
-  const tone =
-    status === "running"
-      ? "bg-success/15 text-success border-success/30"
-      : status === "failed"
-        ? "bg-destructive/15 text-destructive border-destructive/30"
-        : status === "building" || status === "pending"
-          ? "bg-warning/15 text-warning border-warning/30"
-          : "bg-muted text-muted-foreground border-border/60";
-  const dot =
-    status === "running"
-      ? "bg-success"
-      : status === "failed"
-        ? "bg-destructive"
-        : status === "building" || status === "pending"
-          ? "bg-warning"
-          : "bg-muted-foreground/60";
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-sm border font-mono font-medium uppercase",
-        compact ? "px-2 py-0.5 text-[10px]" : "px-2.5 py-1 text-[11px]",
-        tone,
+        "inline-flex items-center gap-1.5 rounded-sm border font-mono px-2.5 py-1 text-[11px] font-medium uppercase bg-muted text-muted-foreground border-border/60",
+        {
+          "px-2 py-0.5 text-[10px]": compact,
+          "bg-success/15 text-success border-success/30": status === "running",
+          "bg-destructive/15 text-destructive border-destructive/30":
+            status === "failed",
+          "bg-warning/15 text-warning border-warning/30":
+            status === "building" || status === "pending",
+        },
       )}
     >
       <span
-        className={cn(
-          "rounded-full",
-          dot,
-          compact ? "size-1.5" : "size-2",
-          status === "running" && "animate-pulse",
-        )}
+        className={cn("rounded-full size-2 bg-muted-foreground/60", {
+          "size-1.5": compact,
+          "bg-success": status === "running",
+          "bg-destructive": status === "failed",
+          "bg-warning": status === "building" || status === "pending",
+          "animate-pulse": status === "running",
+        })}
       />
       {status}
     </span>

@@ -1,7 +1,7 @@
 import { ActivityIcon } from "lucide-react";
-import { Button } from "../ui/button";
-import { Empty, EmptyDescription, EmptyTitle } from "../ui/empty";
-import { Toolbar, ToolbarButton, ToolbarSeparator } from "../ui/toolbar";
+import { Button } from "@/components/ui/button";
+import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
+import { Toolbar, ToolbarButton, ToolbarSeparator } from "@/components/ui/toolbar";
 
 export function ActivityFeed() {
   return (

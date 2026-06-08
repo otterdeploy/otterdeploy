@@ -12,11 +12,10 @@
 import { Buildpacks } from "@/shared/components/ui/svgs/buildpacks";
 import { Docker } from "@/shared/components/ui/svgs/docker";
 import { Html5 } from "@/shared/components/ui/svgs/html5";
-import { Nixpacks } from "@/shared/components/ui/svgs/nixpacks";
 import { Railway } from "@/shared/components/ui/svgs/railway";
 import { cn } from "@/shared/lib/utils";
 
-type BuilderId = "railpack" | "dockerfile" | "compose" | "buildpack" | "nixpack" | "static";
+type BuilderId = "railpack" | "dockerfile" | "compose" | "buildpack" | "static";
 
 const TILE = "grid size-[26px] place-items-center rounded-[5px] border bg-muted/40";
 
@@ -39,13 +38,6 @@ export function BuilderLogo({ id }: { id: string }) {
     return (
       <div className={TILE}>
         <Buildpacks className="size-[18px]" />
-      </div>
-    );
-  }
-  if (id === "nixpack") {
-    return (
-      <div className={TILE}>
-        <Nixpacks className="size-[14px]" />
       </div>
     );
   }

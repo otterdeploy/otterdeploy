@@ -56,11 +56,11 @@ const workspaceItems: StaticNavItem[] = [
 
 const infrastructureItems: StaticNavItem[] = [
   { title: "Templates", icon: Folder01Icon },
-  { title: "Backups", icon: DatabaseIcon },
+  { title: "Backups", icon: DatabaseIcon, href: "/$orgSlug/backups" },
   { title: "Volumes", icon: ServerStack01Icon },
   { title: "Edge logs", icon: EarthIcon },
-  { title: "Audit", icon: File01Icon },
-  { title: "Docker", icon: ServerStack01Icon },
+  { title: "Audit", icon: File01Icon, href: "/$orgSlug/audit" },
+  { title: "Docker", icon: ServerStack01Icon, href: "/$orgSlug/docker" },
 ];
 
 const clusterAdminItems: StaticNavItem[] = [
@@ -162,7 +162,16 @@ export function ProjectSidebar({
           <SidebarMenu>
             {infrastructureItems.map((item) => (
               <SidebarMenuItem key={item.title}>
-                <SidebarMenuButton>
+                <SidebarMenuButton
+                  render={
+                    item.href && params.orgSlug ? (
+                      <Link
+                        to={item.href}
+                        params={{ orgSlug: params.orgSlug }}
+                      />
+                    ) : undefined
+                  }
+                >
                   <HugeiconsIcon icon={item.icon} strokeWidth={2} />
                   <span>{item.title}</span>
                 </SidebarMenuButton>

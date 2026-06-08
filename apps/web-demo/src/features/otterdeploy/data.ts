@@ -322,7 +322,6 @@ export const BUILDERS: Builder[] = [
   { id: "dockerfile", name: "Dockerfile", sub: "Use the Dockerfile in your repo", icon: "doc" },
   { id: "compose", name: "Docker Compose", sub: "Multi-container from compose.yml", icon: "service" },
   { id: "buildpack", name: "Buildpacks", sub: "CNB / Heroku-style cloud-native buildpacks", icon: "folder" },
-  { id: "nixpack", name: "Nixpacks", sub: "Reproducible Nix-derived images", icon: "graph" },
   { id: "static", name: "Static site", sub: "Plain HTML / Vite / Astro / Next export", icon: "globe" },
 ];
 

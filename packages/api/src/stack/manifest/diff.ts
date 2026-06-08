@@ -405,13 +405,28 @@ function sameStringArray(a: string[] | null, b: string[] | null): boolean {
   return a.every((v, i) => v === b[i]);
 }
 
-// Both shapes are small JSON blobs (≤ 6 fields). Deep-compare via stable
-// JSON; key order-sensitive but the manifest-write path always orders
-// keys the same way (discriminator first via the zod shape).
+// Compare buildConfigs semantically, independent of key order. The desired
+// side comes from the manifest (keys in insertion order, discriminator
+// first); the current side is read back from a postgres `jsonb` column,
+// which returns keys in its own normalized order (e.g. `spa` before
+// `builder`). A plain `JSON.stringify` comparison would treat
+// `{builder,spa}` and `{spa,builder}` as different and surface a permanent
+// phantom "update" that can never be applied away or discarded.
 function sameBuildConfig(a: BuildConfig | null, b: BuildConfig | null): boolean {
   if (a === null && b === null) return true;
   if (a === null || b === null) return false;
-  return JSON.stringify(a) === JSON.stringify(b);
+  return canonicalJson(a) === canonicalJson(b);
+}
+
+// Stable JSON: object keys sorted recursively, array order preserved.
+function canonicalJson(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value) ?? "null";
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  const obj = value as Record<string, unknown>;
+  const keys = Object.keys(obj)
+    .filter((k) => obj[k] !== undefined)
+    .sort();
+  return `{${keys.map((k) => `${JSON.stringify(k)}:${canonicalJson(obj[k])}`).join(",")}}`;
 }
 
 function summarizeService(s: ServiceManifest): Record<string, unknown> {

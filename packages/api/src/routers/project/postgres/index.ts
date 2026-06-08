@@ -25,6 +25,8 @@ export {
   unsetPostgresExtraEnvKey,
 } from "./env";
 
+export { setPostgresExtensions } from "./extensions";
+
 export {
   snapshotForPostgresCreate,
   type PostgresSnapshotV1,

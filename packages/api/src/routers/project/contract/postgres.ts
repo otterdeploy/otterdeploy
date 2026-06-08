@@ -144,6 +144,18 @@ export const setPostgresPublicInput = z.object({
   publicEnabled: z.boolean(),
 });
 
+/** Replace the full set of enabled extensions on a postgres resource. The
+ *  handler persists the list, rolls the service (image may change for
+ *  non-contrib extensions like postgis/pgvector), then runs CREATE/DROP
+ *  EXTENSION against the live database. */
+export const setPostgresExtensionsInput = z.object({
+  projectId: projectIdField,
+  resourceId: resourceIdField,
+  /** Canonical CREATE EXTENSION names (e.g. "pgcrypto", "vector"). Unknown
+   *  names are rejected; the desired set fully replaces the current one. */
+  extensions: z.array(z.string()).max(32),
+});
+
 export const deletePostgresDatabaseInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
@@ -184,6 +196,22 @@ export const postgresContractSlice = {
       method: "PATCH",
     })
     .input(setPostgresPublicInput)
+    .output(postgresResourceSchema),
+
+  setExtensions: oc
+    .errors({
+      ...resourceNotFoundErrors,
+      INVALID_INPUT: {
+        status: 400,
+        message: "Unknown or incompatible extensions" as const,
+      },
+    })
+    .meta({
+      path: `${basePath}/{projectId}/resources/database/postgres/{resourceId}/extensions`,
+      tag,
+      method: "PUT",
+    })
+    .input(setPostgresExtensionsInput)
     .output(postgresResourceSchema),
 
   setExtraEnv: oc

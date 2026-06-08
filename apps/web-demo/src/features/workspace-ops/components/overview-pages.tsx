@@ -10,15 +10,15 @@ import {
   ServerIcon,
   WorkflowIcon,
 } from "lucide-react";
-import { Badge } from "../ui/badge";
-import { Button } from "../ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "../ui/card";
+} from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -26,8 +26,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../ui/table";
-import { Toolbar, ToolbarButton, ToolbarSeparator } from "../ui/toolbar";
+} from "@/components/ui/table";
+import { Toolbar, ToolbarButton, ToolbarSeparator } from "@/components/ui/toolbar";
 
 export function MonitoringOverview() {
   return (

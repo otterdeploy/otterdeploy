@@ -193,6 +193,12 @@ export const getServiceInput = z.object({
   resourceId: resourceIdField,
 });
 
+// `service.build` returns just the id of the pending deployment row it
+// enqueued — the UI watches it via the Deployments tab / SSE log stream.
+export const buildServiceOutput = z.object({
+  deploymentId: z.string(),
+});
+
 export const listServicesInput = z.object({
   projectId: projectIdField,
 });
@@ -292,6 +298,23 @@ export const serviceContract = {
     .meta({ path: `${basePath}/{resourceId}/restart`, tag, method: "POST" })
     .input(getServiceInput)
     .output(serviceSchema),
+
+  // Trigger a build for a git-sourced service from the current head of its
+  // project's production branch. The first-build-on-create path and the git
+  // push webhook are the only other build triggers; this is the manual
+  // "Deploy" for an already-created service (e.g. one whose initial build
+  // never ran). No-op for image-sourced services (NOT_GIT_SOURCED).
+  build: oc
+    .errors({
+      NOT_FOUND: sharedErrors.NOT_FOUND,
+      NOT_GIT_SOURCED: {
+        status: 400,
+        message: "Only git-sourced services can be built.",
+      },
+    })
+    .meta({ path: `${basePath}/{resourceId}/build`, tag, method: "POST" })
+    .input(getServiceInput)
+    .output(buildServiceOutput),
 
   expose: oc
     .errors({

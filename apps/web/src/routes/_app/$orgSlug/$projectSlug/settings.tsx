@@ -1,7 +1,7 @@
 /**
  * Project settings — currently focused on the build-pipeline binding
- * (source → image target → nixpacks overrides). Other project-level
- * knobs (rename, delete, custom domain) will join this page over time.
+ * (source → optional image target). Other project-level knobs (rename,
+ * delete, custom domain) will join this page over time.
  */
 
 import { useMutation } from "@tanstack/react-query";
@@ -9,11 +9,9 @@ import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 import { toast } from "sonner";
 
 import { DomainSection } from "@/features/projects/components/settings/domain-section";
-import { NixpacksSection } from "@/features/projects/components/settings/nixpacks-section";
 import { RegistrySection } from "@/features/projects/components/settings/registry-section";
 import { SourceSection } from "@/features/projects/components/settings/source-section";
 import {
-  buildNixpacksPatch,
   useBindingFormState,
   type ProjectBindingFields,
 } from "@/features/projects/components/settings/state";
@@ -55,7 +53,6 @@ function BindingForm({ project }: { project: ProjectBindingFields }) {
       productionBranch: state.productionBranch.trim() || "main",
       containerRegistryId: (state.containerRegistryId ?? null) as never,
       imageRepository: state.imageRepository.trim() || null,
-      nixpacksConfig: buildNixpacksPatch(state),
     });
   };
 
@@ -88,15 +85,6 @@ function BindingForm({ project }: { project: ProjectBindingFields }) {
         imageRepository={state.imageRepository}
         onContainerRegistryIdChange={(v) => update("containerRegistryId", v)}
         onImageRepositoryChange={(v) => update("imageRepository", v)}
-      />
-
-      <NixpacksSection
-        buildCmd={state.buildCmd}
-        startCmd={state.startCmd}
-        installCmd={state.installCmd}
-        packages={state.packages}
-        aptPackages={state.aptPackages}
-        onChange={(key, value) => update(key, value)}
       />
 
       <div className="flex justify-end gap-2 pt-1">

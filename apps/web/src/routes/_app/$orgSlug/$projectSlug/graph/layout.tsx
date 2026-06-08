@@ -19,6 +19,8 @@ import {
   type Node,
 } from "@xyflow/react";
 
+import { eq } from "@tanstack/db";
+
 import { useQuery } from "@tanstack/react-query";
 
 import {
@@ -30,8 +32,8 @@ import { layoutGraph } from "@/features/projects/components/graph/layout-graph";
 import { ResourceNode } from "@/features/projects/components/graph/resource-node";
 import { useServiceFrameworks } from "@/features/projects/components/graph/use-service-frameworks";
 import { StackCodePanel } from "@/features/projects/components/stack";
-import { createProjectDependenciesCollection } from "@/features/projects/data/dependencies";
-import { createResourceCollection } from "@/features/projects/data/resource";
+import { dependenciesCollection } from "@/features/projects/data/dependencies";
+import { resourceCollection } from "@/features/projects/data/resource";
 import { createServiceTasksCollection } from "@/features/projects/data/service-tasks";
 import { orpc } from "@/shared/server/orpc";
 
@@ -85,27 +87,25 @@ function GraphCanvas() {
   const { project } = useLoaderData({ from: "/_app/$orgSlug/$projectSlug" });
   const { setCenter, fitView } = useReactFlow();
 
-  // Per-project collection; same factory the resource detail panel uses so
-  // both views share the underlying TanStack-Query cache.
-  const resourceCollection = useMemo(
-    () => createResourceCollection(project.id),
-    [project.id],
-  );
+  // Shared resource collection scoped to this project; the resource detail
+  // panel reads the same collection so both views share the TanStack-Query cache.
   const { data: resources = [] } = useLiveQuery(
-    () => resourceCollection,
-    [resourceCollection],
+    (q) =>
+      q
+        .from({ r: resourceCollection })
+        .where(({ r }) => eq(r.projectId, project.id)),
+    [project.id],
   );
 
   // Edges come from parsing ${{Resource.VAR}} references in service env vars
   // server-side (project.dependencies). TanStack DB collection so the data
   // stays cached + reactive across panel open/close without a loading flash.
-  const dependenciesCollection = useMemo(
-    () => createProjectDependenciesCollection(project.id),
-    [project.id],
-  );
   const { data: dependencyEdges = [] } = useLiveQuery(
-    () => dependenciesCollection,
-    [dependenciesCollection],
+    (q) =>
+      q
+        .from({ d: dependenciesCollection })
+        .where(({ d }) => eq(d.projectId, project.id)),
+    [project.id],
   );
 
   // Live replica state per service — polled at 5s via the collection.
@@ -179,7 +179,13 @@ function GraphCanvas() {
   // shared helper. See features/projects/components/graph/build-live-nodes.ts
   // for the rollup rules (error > building > running) and route handling.
   const liveNodes = useMemo(
-    () => buildLiveNodes(resources, tasksByResourceId, pendingByName, frameworksByResourceId),
+    () =>
+      buildLiveNodes(
+        resources,
+        tasksByResourceId,
+        pendingByName,
+        frameworksByResourceId,
+      ),
     [resources, tasksByResourceId, pendingByName, frameworksByResourceId],
   );
 

@@ -53,6 +53,15 @@ export const ID_PREFIX = {
   // build pipeline
   containerRegistry: "regcred",
   deploymentLog: "dlog",
+
+  // backups
+  backup: "bak",
+  backupSchedule: "baksched",
+  backupDestination: "bakdest",
+  backupLog: "blog",
+
+  // audit trail
+  auditLog: "audit",
 } as const;
 
 export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];
@@ -193,6 +202,14 @@ export type GitRepoId = Id<typeof ID_PREFIX.gitRepo>;
 // Build pipeline
 export type ContainerRegistryId = Id<typeof ID_PREFIX.containerRegistry>;
 export type DeploymentLogId = Id<typeof ID_PREFIX.deploymentLog>;
+
+// Backups
+export type BackupId = Id<typeof ID_PREFIX.backup>;
+export type BackupScheduleId = Id<typeof ID_PREFIX.backupSchedule>;
+export type BackupDestinationId = Id<typeof ID_PREFIX.backupDestination>;
+export type BackupLogId = Id<typeof ID_PREFIX.backupLog>;
+
+export type AuditLogId = Id<typeof ID_PREFIX.auditLog>;
 
 // Slugs (URL-safe identifiers, distinct from cuid IDs)
 export type ProjectSlug = Slug<typeof ID_PREFIX.project>;

@@ -20,13 +20,12 @@ export interface SseAuthVariables {
   organizationId: string;
 }
 
-export const requireSseSession: MiddlewareHandler<{ Variables: SseAuthVariables }> = async (
-  c,
-  next,
-) => {
-  const session = (await auth.api.getSession({
+export const requireSseSession: MiddlewareHandler<{
+  Variables: SseAuthVariables;
+}> = async (c, next) => {
+  const session = await auth.api.getSession({
     headers: c.req.raw.headers,
-  })) as Session | null;
+  });
   if (!session?.user) {
     return c.text("Unauthorized", 401);
   }

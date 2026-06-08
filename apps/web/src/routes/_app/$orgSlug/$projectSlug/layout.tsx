@@ -1,12 +1,11 @@
 import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import { createFileRoute, notFound, Outlet } from "@tanstack/react-router";
-import { useMemo } from "react";
 import * as z from "zod";
 
 import { envCollection } from "@/features/projects/data/env";
 import { projectCollection } from "@/features/projects/data/project";
-import { createResourceCollection } from "@/features/projects/data/resource";
+import { resourceCollection } from "@/features/projects/data/resource";
 import { useProjectEvents } from "@/features/projects/hooks/use-project-events";
 import { PendingChangesBar } from "@/features/projects/components/pending-changes-bar";
 import { ProjectTabs } from "@/features/projects/components/project-tabs";
@@ -29,8 +28,6 @@ export const Route = createFileRoute("/_app/$orgSlug/$projectSlug")({
     );
 
     if (!project) throw notFound();
-    // Preload resources for the resolved projectId so the sidebar is ready.
-    await createResourceCollection(project.id).preload();
     return { crumb: project.name, project };
   },
 });
@@ -49,11 +46,6 @@ function RouteComponent() {
     [projectSlug],
   );
 
-  const resourceCollection = useMemo(
-    () => (project ? createResourceCollection(project.id) : null),
-    [project?.id],
-  );
-
   // Open a single project-wide event stream while this layout is mounted.
   // The hook invalidates the matching React Query caches on every server
   // push, so the existing useLiveQuery / useQuery hooks across child
@@ -62,8 +54,11 @@ function RouteComponent() {
   useProjectEvents(project?.id ?? null);
 
   const { data: resources = [] } = useLiveQuery(
-    () => resourceCollection ?? null,
-    [resourceCollection],
+    (q) =>
+      q
+        .from({ r: resourceCollection })
+        .where(({ r }) => eq(r.projectId, project?.id ?? "")),
+    [project?.id],
   );
 
   const { data: environments } = useLiveQuery(

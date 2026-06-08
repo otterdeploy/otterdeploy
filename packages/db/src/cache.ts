@@ -11,6 +11,53 @@ const KEY_PREFIX = "drizzle:cache:";
 const TABLE_SET_PREFIX = "drizzle:cache:tables:";
 const TAG_PREFIX = "drizzle:cache:tag:";
 
+// JSON can't represent every value the driver hands back, so we tag the
+// problem types on the way out and rebuild them on the way in — keeping the
+// cached shape byte-for-byte identical to a fresh query. Without this a cache
+// hit would differ from a cache miss (or, for BigInt, the put would throw and
+// take the whole query down). The tag keys are deliberately obscure to avoid
+// colliding with a jsonb payload that happens to hold the same field.
+//
+//   - Date: a naive round-trip turns every `timestamp` column into a bare ISO
+//     string, but downstream code calls `.toISOString()` / `.getTime()` on a
+//     real Date — a cache hit would throw where a cache miss works.
+//   - BigInt: `JSON.stringify` throws outright on a BigInt. Bun's SQL driver
+//     returns `bigint`/`bigserial` columns as native BigInt (drizzle's
+//     `mode:"number"` mapping runs AFTER the cache serializes the raw row), so
+//     any query touching such a column (e.g. `deployment_log.seq`) would crash
+//     the cache put and reject the query. Tag → toString, revive → BigInt so
+//     the value stays exact and drizzle's column mapper still applies on read.
+const DATE_TAG = "__otterCacheDate__";
+const BIGINT_TAG = "__otterCacheBigInt__";
+
+function tagRichValues(this: Record<string, unknown>, key: string, value: unknown): unknown {
+  // Date has a `toJSON`, so by the time the replacer sees `value` it's already
+  // an ISO string — reach for the untouched original on `this`. BigInt has no
+  // `toJSON`, so `value` is still the raw BigInt here.
+  const original = this[key];
+  if (original instanceof Date) {
+    return { [DATE_TAG]: original.toISOString() };
+  }
+  if (typeof value === "bigint") {
+    return { [BIGINT_TAG]: value.toString() };
+  }
+  return value;
+}
+
+function reviveRichValues(_key: string, value: unknown): unknown {
+  if (value !== null && typeof value === "object") {
+    const date = (value as Record<string, unknown>)[DATE_TAG];
+    if (typeof date === "string") {
+      return new Date(date);
+    }
+    const big = (value as Record<string, unknown>)[BIGINT_TAG];
+    if (typeof big === "string") {
+      return BigInt(big);
+    }
+  }
+  return value;
+}
+
 interface RedisCacheOptions {
   /** Default TTL (seconds) for cached entries. */
   ttl?: number;
@@ -69,7 +116,7 @@ export class RedisCache extends Cache {
     const raw = result.value;
     if (raw == null) return undefined;
     try {
-      return JSON.parse(raw) as unknown[];
+      return JSON.parse(raw, reviveRichValues) as unknown[];
     } catch (error) {
       globalLog.warn({
         message: "[cache] Cached value failed to parse; treating as cache miss",
@@ -89,7 +136,7 @@ export class RedisCache extends Cache {
   ): Promise<void> {
     const ttl = config?.ex ?? this.defaultTtl;
     const fullKey = (isTag ? TAG_PREFIX : KEY_PREFIX) + key;
-    const value = JSON.stringify(response);
+    const value = JSON.stringify(response, tagRichValues);
 
     const setResult = await Result.tryPromise(() =>
       this.client.set(fullKey, value, "EX", ttl),

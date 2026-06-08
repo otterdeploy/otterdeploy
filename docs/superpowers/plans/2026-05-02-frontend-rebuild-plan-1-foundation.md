@@ -280,7 +280,7 @@ rm apps/web/src/routes/_dashboard/playground.tsx
 - [ ] **Step 3: Regenerate the route tree**
 
 ```bash
-cd apps/web && bun run check-types
+cd apps/web && bun run typecheck
 ```
 This runs `tsr generate && tsc --noEmit`. Expected: clean type-check; the regenerated `routeTree.gen.ts` no longer references `playground`. Pre-existing errors in unrelated files are out of scope.
 
@@ -795,7 +795,7 @@ export type { WorkspaceSummary } from "./types";
 - [ ] **Step 4: Type-check passes**
 
 ```bash
-cd apps/web && bun run check-types
+cd apps/web && bun run typecheck
 ```
 
 If `MenuSeparator` isn't exported from `@/components/ui/menu`, drop it and use `Separator` from `@/components/ui/separator`.
@@ -885,7 +885,7 @@ export function BreadcrumbBar({
 - [ ] **Step 2: Verify imports compile**
 
 ```bash
-cd apps/web && bun run check-types
+cd apps/web && bun run typecheck
 ```
 If `Kbd` is named differently in `apps/web/src/components/ui/kbd.tsx`, adjust import.
 
@@ -1086,7 +1086,7 @@ export function WorkspaceShell({ middle, innerRail, children }: Props) {
 - [ ] **Step 2: Type-check passes**
 
 ```bash
-cd apps/web && bun run check-types
+cd apps/web && bun run typecheck
 ```
 
 - [ ] **Step 3: Commit**
@@ -1154,7 +1154,7 @@ export function ProjectShell({ projectId, projectName, children }: Props) {
 - [ ] **Step 2: Type-check passes**
 
 ```bash
-cd apps/web && bun run check-types
+cd apps/web && bun run typecheck
 ```
 
 - [ ] **Step 3: Commit**
@@ -1341,7 +1341,7 @@ function RouteComponent() {
 - [ ] **Step 7: Type-check + verify route generation**
 
 ```bash
-cd apps/web && bun run check-types
+cd apps/web && bun run typecheck
 ```
 Expected: `routeTree.gen.ts` regenerates without observability and settings under `$projectId/` (Task 14 will re-add settings as a placeholder). No new type errors compared to before this task.
 
@@ -1414,7 +1414,7 @@ Apply with these values:
 - [ ] **Step 2: Type-check + route generation**
 
 ```bash
-cd apps/web && bun run check-types
+cd apps/web && bun run typecheck
 ```
 Expected: every new route appears in `routeTree.gen.ts`.
 
@@ -1570,7 +1570,7 @@ Sign out, hit the sign-in route, sign in with a test account. The form should va
 - [ ] **Step 4: Type-check**
 
 ```bash
-cd apps/web && bun run check-types
+cd apps/web && bun run typecheck
 ```
 If `Field` subcomponent names in coss differ (e.g. `FieldErrors` instead of `FieldError`), open `apps/web/src/components/ui/field.tsx` and align. Ditto for `FieldControl` — some coss builds export it as `FieldRoot`.
 
@@ -1595,7 +1595,7 @@ Expected: green for all written tests (OuterRail, InnerRail, EnvSwitcherDropdown
 - [ ] **Step 2: Run type-check across the app**
 
 ```bash
-cd apps/web && bun run check-types
+cd apps/web && bun run typecheck
 ```
 Expected: no type errors.
 

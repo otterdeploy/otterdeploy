@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { DatabaseLogo } from "../brand/database-logo";
+import { DatabaseLogo } from "@/components/brand/database-logo";
 import { I } from "../icons";
 import { PROJECTS, SERVICES, type Service } from "../data";
 import { StatusBadge } from "../components/status-badge";
@@ -14,7 +14,7 @@ import {
   matchesProjectFilter,
 } from "../components/project-filter";
 
-export function Databases() {
+export function Databases({ onBrowse }: { onBrowse?: (db: Service) => void } = {}) {
   const allDbs = useMemo(
     () => SERVICES.filter((s) => s.kind === "database"),
     [],
@@ -72,6 +72,7 @@ export function Databases() {
               key={db.id}
               db={db}
               onConsole={() => setConsoleDb(db)}
+              onBrowse={() => onBrowse?.(db)}
               onProject={(project) => setProject(db.id, project)}
             />
           ))}
@@ -195,10 +196,12 @@ function SectionH({ title, sub }: { title: string; sub?: string }) {
 function DBCard({
   db,
   onConsole,
+  onBrowse,
   onProject,
 }: {
   db: Service;
   onConsole: () => void;
+  onBrowse: () => void;
   onProject: (project: string | undefined) => void;
 }) {
   const storage = db.storage ?? { used: 0, total: 1, unit: "GB" };
@@ -311,6 +314,9 @@ function DBCard({
           <I.copy width={12} height={12} />
         </button>
         <div style={{ flex: 1 }} />
+        <button className="btn sm primary" onClick={onBrowse}>
+          <I.db width={11} height={11} /> Browse data
+        </button>
         <button className="btn sm" onClick={onConsole}>
           <I.bolt width={11} height={11} /> Console
         </button>

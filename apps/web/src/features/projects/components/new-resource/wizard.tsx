@@ -2,21 +2,24 @@ import { ArrowLeft01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import type { ProjectId, ProjectSlug } from "@otterdeploy/shared/id";
 import { useStore } from "@tanstack/react-form";
+import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-
-import { getDatabaseEngine } from "@otterdeploy/shared/database-engines";
 
 import {
   SERVICE_KINDS,
   type ServiceKind,
 } from "@/features/projects/data/service-kinds";
 import { Button } from "@/shared/components/ui/button";
+import { Switch } from "@/shared/components/ui/switch";
 import { cn } from "@/shared/lib/utils";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 import { useStageManifestChange } from "../../hooks/use-manifest-stage";
 import { flowFor } from "./flows";
+import { buildDatabaseSpec, buildServiceSpec } from "./to-manifest";
+import type { Port } from "./form-fields/ports-field";
+import type { Var } from "./form-fields/variables-field";
 import { useAppForm } from "./form-context";
 import { resourceDefaults, resourceFormSchema, type Step } from "./schemas";
 import {
@@ -64,6 +67,7 @@ export function ResourceWizard(props: ResourceWizardProps) {
 }
 
 function ResourceWizardBody({
+  orgSlug,
   projectSlug,
   projectId,
   initialKind = null,
@@ -79,7 +83,7 @@ function ResourceWizardBody({
   // Provisioner state + create mutators (database + service) hoisted
   // into a hook so this component stays under the file-length cap.
   const { isCreating, runDatabaseCreate, runServiceCreate } =
-    useResourceProvisioner({ projectId, projectSlug, onComplete });
+    useResourceProvisioner({ projectId, orgSlug, projectSlug, onComplete });
 
   const {
     form,
@@ -95,6 +99,8 @@ function ResourceWizardBody({
     currentStepIssues,
     handleContinue,
     goPrev,
+    advancedSetup,
+    setAdvanced,
   } = useWizardForm({
     step,
     goTo,
@@ -141,6 +147,9 @@ function ResourceWizardBody({
           createDisabled={createDisabled}
           goPrev={goPrev}
           handleContinue={handleContinue}
+          showAdvancedToggle={idx === 0 && !!kind}
+          advancedSetup={advancedSetup}
+          onAdvancedChange={setAdvanced}
         />
       </div>
     </form.AppForm>
@@ -258,6 +267,9 @@ function WizardFooter({
   createDisabled,
   goPrev,
   handleContinue,
+  showAdvancedToggle,
+  advancedSetup,
+  onAdvancedChange,
 }: {
   onCancel: (() => void) | undefined;
   idx: number;
@@ -268,6 +280,9 @@ function WizardFooter({
   createDisabled: boolean;
   goPrev: () => void;
   handleContinue: () => void;
+  showAdvancedToggle: boolean;
+  advancedSetup: boolean;
+  onAdvancedChange: (next: boolean) => void;
 }) {
   return (
     <div className="flex shrink-0 items-center gap-2 border-t bg-transparent px-4 py-3">
@@ -279,6 +294,12 @@ function WizardFooter({
       >
         Cancel
       </Button>
+      {showAdvancedToggle && (
+        <label className="ml-1 flex cursor-pointer items-center gap-2 text-[11px] text-muted-foreground select-none">
+          <Switch checked={advancedSetup} onCheckedChange={onAdvancedChange} />
+          Advanced setup
+        </label>
+      )}
       {isLast && !kindWired && kind && (
         <span className="mr-1 text-[11px] text-muted-foreground">
           {kind.name} provisioner isn't wired yet.
@@ -309,8 +330,8 @@ function WizardFooter({
       >
         {isLast
           ? isCreating
-            ? "Provisioning…"
-            : "Create & deploy"
+            ? "Adding…"
+            : "Add resource"
           : "Continue"}
         {!isLast && (
           <HugeiconsIcon
@@ -352,27 +373,40 @@ function WizardFooter({
  */
 function useResourceProvisioner({
   projectId,
+  orgSlug,
   projectSlug,
   onComplete,
 }: {
   projectId: ProjectId;
+  orgSlug: string;
   projectSlug: ProjectSlug;
   onComplete?: () => void;
 }) {
-  const stage = useStageManifestChange(projectId);
+  const stage = useStageManifestChange(projectId, {
+    successToast: "Resource staged — review and click Deploy to apply",
+  });
+  const navigate = useNavigate();
+
+  // After a create stages, close the dialog and drop the operator on the
+  // graph — that's where the new node lives (as a pending "ghost" until
+  // deployed) and where the pending-changes bar's Deploy button sits.
+  // Without this the wizard just closed in place and the resource appeared
+  // "nowhere". useStageManifestChange owns the staged/failed toasts, so
+  // this only handles routing.
+  const finish = useCallback(() => {
+    onComplete?.();
+    void navigate({
+      to: "/$orgSlug/$projectSlug/graph",
+      params: { orgSlug, projectSlug },
+    });
+  }, [navigate, onComplete, orgSlug, projectSlug]);
 
   const runDatabaseCreate = useCallback(
-    async (payload: {
-      engine: "postgres" | "redis" | "mariadb" | "mongodb";
-      name: string;
-      publicEnabled: boolean;
-    }) => {
+    async (payload: DatabaseCreatePayload) => {
       try {
         const seen = await orpc.project.manifest.get.call({ id: projectId });
         if (seen.manifest?.databases[payload.name]) {
-          toast.error(
-            `Database "${payload.name}" already exists in the manifest.`,
-          );
+          toast.error(`Database "${payload.name}" already exists in the manifest.`);
           return;
         }
         await stage.mutateAsync((current) => ({
@@ -380,78 +414,75 @@ function useResourceProvisioner({
           project: current.project || projectSlug,
           databases: {
             ...current.databases,
-            [payload.name]: {
-              engine: payload.engine,
-              ...(payload.publicEnabled ? { publicEnabled: true } : {}),
-            },
+            [payload.name]: buildDatabaseSpec(payload),
           },
         }));
-        onComplete?.();
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        toast.error(
-          message ||
-            `Failed to create ${getDatabaseEngine(payload.engine).label}`,
-        );
+        finish();
+      } catch {
+        // Network/version-conflict errors are toasted by the stage hook;
+        // keep the dialog open so the operator can adjust and retry.
       }
     },
-    [projectId, projectSlug, onComplete, stage],
+    [projectId, projectSlug, stage, finish],
   );
 
   const runServiceCreate = useCallback(
-    async (payload: {
-      name: string;
-      source: "image" | "git";
-      image: string;
-      ports: Array<{ port: number; protocol: string; public: boolean }>;
-    }) => {
+    async (payload: ServiceCreatePayload) => {
       try {
+        // Git-sourced services build with railpack straight into the swarm
+        // node's docker daemon — no container registry required. A project
+        // may still bind an external registry (for remote/multi-node pulls);
+        // when it does, the builder pushes there, but it's never a gate on
+        // creating the service.
         const seen = await orpc.project.manifest.get.call({ id: projectId });
         if (seen.manifest?.services[payload.name]) {
-          toast.error(
-            `Service "${payload.name}" already exists in the manifest.`,
-          );
+          toast.error(`Service "${payload.name}" already exists in the manifest.`);
           return;
         }
-        const ports = payload.ports.map((p, i) => ({
-          container: p.port,
-          protocol: "tcp" as const,
-          appProtocol:
-            p.protocol === "http" ? ("http" as const) : ("tcp" as const),
-          primary: i === 0,
-        }));
         await stage.mutateAsync((current) => ({
           ...current,
           project: current.project || projectSlug,
           services: {
             ...current.services,
-            [payload.name]:
-              payload.source === "image"
-                ? { source: "image", image: payload.image, ports }
-                : { source: "git", ports },
+            [payload.name]: buildServiceSpec(payload),
           },
         }));
-        onComplete?.();
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        // Surface the typed MISSING_BUILD_BINDING from the server with
-        // a link-style toast that points the operator to /settings.
-        if (
-          message.includes("missing build binding") ||
-          message.includes("no git/registry")
-        ) {
-          toast.error(
-            "Project is missing source binding. Set it up under Settings → Build.",
-          );
-        } else {
-          toast.error(message || "Failed to create service");
-        }
+        finish();
+      } catch {
+        // See runDatabaseCreate — stage hook owns failure toasts.
       }
     },
-    [projectId, projectSlug, onComplete, stage],
+    [projectId, projectSlug, stage, finish],
   );
 
   return { isCreating: stage.isPending, runDatabaseCreate, runServiceCreate };
+}
+
+interface DatabaseCreatePayload {
+  engine: "postgres" | "redis" | "mariadb" | "mongodb";
+  name: string;
+  publicEnabled: boolean;
+  extensions: string[];
+  version: string | null;
+  presetId: string;
+  customCpu: number;
+  customMem: number;
+}
+
+interface ServiceCreatePayload {
+  name: string;
+  source: "image" | "git";
+  kindId: string;
+  image: string;
+  ports: Port[];
+  variables: Var[];
+  replicas: number;
+  presetId: string;
+  customCpu: number;
+  customMem: number;
+  builderId: string;
+  spa: boolean;
+  root: string;
 }
 
 /**
@@ -477,17 +508,8 @@ function useWizardForm({
   initialKind: string | null;
   initialGitRepoId: string | null;
   initialBranch: string | null;
-  runDatabaseCreate: (payload: {
-    engine: "postgres" | "redis" | "mariadb" | "mongodb";
-    name: string;
-    publicEnabled: boolean;
-  }) => Promise<void>;
-  runServiceCreate: (payload: {
-    name: string;
-    source: "image" | "git";
-    image: string;
-    ports: Array<{ port: number; protocol: string; public: boolean }>;
-  }) => Promise<void>;
+  runDatabaseCreate: (payload: DatabaseCreatePayload) => Promise<void>;
+  runServiceCreate: (payload: ServiceCreatePayload) => Promise<void>;
 }) {
   const form = useAppForm({
     defaultValues: {
@@ -502,6 +524,12 @@ function useWizardForm({
     onSubmit: async ({ value }) => {
       // Strip the wizard-only discriminator before passing fields to the API.
       const { __step: _drop, ...payload } = value;
+      // Sizing is shared across every kind — preset id (or custom sliders).
+      const sizing = {
+        presetId: payload.presetId,
+        customCpu: payload.customCpu,
+        customMem: payload.customMem,
+      };
       // Database engines: handled by the streaming DB provisioner.
       if (
         payload.kindId === "postgres" ||
@@ -513,6 +541,10 @@ function useWizardForm({
           engine: payload.kindId,
           name: payload.name,
           publicEnabled: payload.publicEnabled,
+          // Extensions are postgres-only; other engines ignore the field.
+          extensions: payload.kindId === "postgres" ? payload.extensions : [],
+          version: payload.version,
+          ...sizing,
         });
         return;
       }
@@ -521,10 +553,17 @@ function useWizardForm({
         await runServiceCreate({
           name: payload.name,
           source: "image",
+          kindId: payload.kindId,
           image: payload.tag
             ? `${payload.image}:${payload.tag}`
             : payload.image,
           ports: payload.ports,
+          variables: payload.variables,
+          replicas: payload.replicas,
+          builderId: payload.builderId,
+          spa: payload.spa,
+          root: payload.root,
+          ...sizing,
         });
         return;
       }
@@ -534,8 +573,15 @@ function useWizardForm({
       await runServiceCreate({
         name: payload.name,
         source: "git",
+        kindId: payload.kindId,
         image: "pending:initial",
         ports: payload.ports,
+        variables: payload.variables,
+        replicas: payload.replicas,
+        builderId: payload.builderId,
+        spa: payload.spa,
+        root: payload.root,
+        ...sizing,
       });
     },
   });
@@ -551,7 +597,10 @@ function useWizardForm({
   const isSourceBased = !!kind && kind.group === "compute";
   const isDocker = !!kind && kind.id === "docker";
 
-  const steps = useMemo(() => flowFor(kind), [kind]);
+  const advancedSetup = useStore(form.store, (s) => s.values.advancedSetup);
+  const setAdvanced = (next: boolean) =>
+    form.setFieldValue("advancedSetup", next);
+  const steps = useMemo(() => flowFor(kind, advancedSetup), [kind, advancedSetup]);
   const idx = steps.findIndex((s) => s[0] === step);
   const isLast = idx === steps.length - 1;
 
@@ -614,6 +663,8 @@ function useWizardForm({
     currentStepIssues,
     handleContinue,
     goPrev,
+    advancedSetup,
+    setAdvanced,
   };
 }
 

@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { DatabaseLogo } from "../brand/database-logo";
+import { DatabaseLogo } from "@/components/brand/database-logo";
 import { I } from "../icons";
 import { NODES, PROJECTS, SERVICES } from "../data";
 import { Terminal, type TerminalKind, type TerminalTarget } from "./terminal";

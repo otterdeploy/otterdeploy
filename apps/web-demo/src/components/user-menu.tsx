@@ -8,7 +8,7 @@ import {
   MenuPopup,
   MenuSeparator,
   MenuTrigger,
-} from "../ui/menu";
+} from "@/components/ui/menu";
 import { authClient } from "@/lib/auth";
 
 import { Button } from "./ui/button";

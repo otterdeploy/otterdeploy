@@ -1,4 +1,4 @@
-import { SvglLogo } from "../brand/svgl-logo";
+import { SvglLogo } from "@/components/brand/svgl-logo";
 import { I } from "../icons";
 import { PROJECT } from "../data";
 

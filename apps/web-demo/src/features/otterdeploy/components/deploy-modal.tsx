@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 
-import { SvglLogo } from "../brand/svgl-logo";
+import { SvglLogo } from "@/components/brand/svgl-logo";
 import { I } from "../icons";
 
 interface LaunchTarget {

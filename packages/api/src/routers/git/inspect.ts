@@ -110,6 +110,8 @@ export interface InspectEntry {
 }
 
 export interface InspectResult {
+  /** owner/repo of the bound repository. */
+  fullName: string;
   path: string;
   entries: InspectEntry[];
   framework: FrameworkKind;
@@ -531,12 +533,164 @@ export async function inspectRepoTree(args: {
   }
 
   return Result.ok({
+    fullName: `${binding.owner}/${binding.repo}`,
     path,
     entries,
     framework,
     monorepo,
     monorepoPackages,
   });
+}
+
+// Files that, if committed, leak real secrets — flagged to the operator.
+const COMMITTED_ENV_FILES = [".env", ".env.local", ".env.production"];
+// Template files we harvest keys from, in precedence order.
+const ENV_TEMPLATE_FILES = [
+  ".env.example",
+  ".env.sample",
+  ".env.template",
+  ".env.dist",
+];
+const ENV_KEY_RE = /^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=/;
+
+/** Pull the variable names out of a dotenv-format file (values ignored). */
+function parseEnvKeys(content: string): string[] {
+  const keys = new Set<string>();
+  for (const raw of content.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || line.startsWith("#")) continue;
+    const m = ENV_KEY_RE.exec(line);
+    if (m?.[1]) keys.add(m[1]);
+  }
+  return Array.from(keys);
+}
+
+/** Raw text read of a single file (no JSON parse), mirroring fetchPackageJson. */
+async function fetchTextFile(
+  binding: RepoBinding,
+  path: string,
+): Promise<string | null> {
+  const url = new URL(
+    `https://api.github.com/repos/${binding.owner}/${binding.repo}/contents/${path}`,
+  );
+  url.searchParams.set("ref", binding.defaultBranch);
+  const headers = await ghHeaders(binding.installationGithubId);
+  headers.Accept = "application/vnd.github.raw+json";
+  const res = await fetch(url, { headers });
+  if (!res.ok) return null;
+  return await res.text();
+}
+
+export interface EnvInspection {
+  /** A real env file is committed to the repo — a security red flag. */
+  committedEnv: string | null;
+  /** Which template file the keys came from, if any. */
+  templateFile: string | null;
+  /** Variable names harvested from the template (values intentionally dropped). */
+  keys: string[];
+}
+
+/**
+ * Inspect a bound repo for env files at the given root: detect a committed
+ * `.env` (security flaw) and harvest keys from a `.env.example`/`.env.sample`
+ * template so the wizard can prefill the Variables step.
+ */
+export async function inspectEnvFiles(
+  gitRepoId: string,
+  path: string,
+): Promise<
+  Result<
+    EnvInspection,
+    | InspectRepoNotFoundError
+    | InspectRepoUpstreamError
+    | InspectRepoRateLimitedError
+  >
+> {
+  const binding = await resolveRepoBinding(gitRepoId);
+  if (!binding) return Result.err(new InspectRepoNotFoundError());
+
+  const snapshot = await getTreeSnapshot(binding, gitRepoId);
+  if (snapshot.isErr()) return Result.err(snapshot.error);
+
+  const base = path ? `${path.replace(/\/+$/, "")}/` : "";
+  const isFile = (name: string) =>
+    snapshot.value.pathTypes.get(`${base}${name}`) === "file";
+
+  const committedEnv = COMMITTED_ENV_FILES.find(isFile) ?? null;
+  const templateFile = ENV_TEMPLATE_FILES.find(isFile) ?? null;
+
+  let keys: string[] = [];
+  if (templateFile) {
+    const content = await fetchTextFile(binding, `${base}${templateFile}`);
+    if (content) keys = parseEnvKeys(content);
+  }
+
+  return Result.ok({ committedEnv, templateFile, keys });
+}
+
+/** Cap branch pagination — 5 pages × 100 covers any sane repo. */
+const BRANCH_PAGE_CAP = 5;
+
+/**
+ * List a bound repo's branches for the new-resource wizard's branch picker.
+ * Reuses inspectRepoTree's binding resolution, auth, and rate-limit handling.
+ * The default branch is surfaced first so the Select can preselect it.
+ */
+export async function listRepoBranches(
+  gitRepoId: string,
+): Promise<
+  Result<
+    { branches: string[]; defaultBranch: string },
+    | InspectRepoNotFoundError
+    | InspectRepoUpstreamError
+    | InspectRepoRateLimitedError
+  >
+> {
+  const binding = await resolveRepoBinding(gitRepoId);
+  if (!binding) return Result.err(new InspectRepoNotFoundError());
+
+  const headers = await ghHeaders(binding.installationGithubId);
+  const authenticated = binding.installationGithubId != null;
+  const names: string[] = [];
+
+  for (let page = 1; page <= BRANCH_PAGE_CAP; page++) {
+    const url = `https://api.github.com/repos/${binding.owner}/${binding.repo}/branches?per_page=100&page=${page}`;
+    const res = await fetch(url, { headers });
+    const body = await res.text();
+
+    if (isRateLimited(res, body)) {
+      return Result.err(
+        new InspectRepoRateLimitedError(rateLimitReset(res), authenticated),
+      );
+    }
+    if (!res.ok) {
+      return Result.err(
+        new InspectRepoUpstreamError(
+          res.status,
+          humanizeUpstreamBody(body, res.status),
+        ),
+      );
+    }
+
+    const parsed = Result.try(() => JSON.parse(body) as unknown);
+    if (parsed.isErr()) {
+      return Result.err(
+        new InspectRepoUpstreamError(502, "Could not parse GitHub response"),
+      );
+    }
+    const pageItems = parsed.value;
+    if (!Array.isArray(pageItems)) break;
+    for (const b of pageItems) {
+      const name = (b as { name?: unknown })?.name;
+      if (typeof name === "string") names.push(name);
+    }
+    if (pageItems.length < 100) break;
+  }
+
+  // Default branch first, then the rest, de-duped — and guarantee the
+  // default is present even if the listing came back empty.
+  const branches = Array.from(new Set([binding.defaultBranch, ...names]));
+  return Result.ok({ branches, defaultBranch: binding.defaultBranch });
 }
 
 /**

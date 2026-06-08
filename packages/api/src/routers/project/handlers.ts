@@ -17,6 +17,7 @@ export {
 export {
   createPostgresResourceStream,
   setPostgresPublic,
+  setPostgresExtensions,
   setPostgresExtraEnvKey,
   unsetPostgresExtraEnvKey,
   validatePostgresCreate,

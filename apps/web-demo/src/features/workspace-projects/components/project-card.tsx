@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Badge } from "../ui/badge";
+import { Badge } from "@/components/ui/badge";
 import { MiniCanvasPreview } from "@/features/project-canvas";
 import type { ProjectSummary } from "../types";
 

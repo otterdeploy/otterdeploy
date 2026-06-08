@@ -7,8 +7,15 @@
  */
 
 import { Activity, useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { ArrowLeft01Icon, Cancel01Icon } from "@hugeicons/core-free-icons";
+import {
+  ArrowLeft01Icon,
+  Cancel01Icon,
+  RefreshIcon,
+  RocketIcon,
+} from "@hugeicons/core-free-icons";
 
 import {
   Tabs,
@@ -18,6 +25,8 @@ import {
   TabsTrigger,
 } from "@/shared/components/ui/tabs";
 import { Button } from "@/shared/components/ui/button";
+import type { FrameworkKind } from "@/features/projects/components/framework-logo";
+import { orpc } from "@/shared/server/orpc";
 
 import { PanelIcon } from "./atoms";
 import { ResourceTasksTab } from "./resource-tasks-tab";
@@ -33,6 +42,7 @@ interface ServiceResourcePanelProps {
     projectId: string;
     name: string;
     image: string;
+    source: "image" | "git";
     replicas: number;
     status: string;
     publicEnabled: boolean;
@@ -40,6 +50,10 @@ interface ServiceResourcePanelProps {
     extraEnv: Record<string, string>;
     secretKeys: string[];
   };
+  /** Detected framework for git-sourced services — drives the header tile's
+   *  brand mark so the drawer matches the graph node. Null when undetected
+   *  or for image-sourced services. */
+  framework?: FrameworkKind | null;
   orgSlug: string;
   projectSlug: string;
   onClose: () => void;
@@ -47,11 +61,43 @@ interface ServiceResourcePanelProps {
 
 export function ServiceResourcePanel({
   resource,
+  framework,
   orgSlug,
   projectSlug,
   onClose,
 }: ServiceResourcePanelProps) {
   const [tab, setTab] = useState<ServiceTab>("deployments");
+
+  // Manual build trigger for git services. The first build fires on create
+  // and on git push; this is the "build it now" path (e.g. a service whose
+  // initial build never ran, or to deploy the latest commit on demand).
+  const buildMut = useMutation({
+    ...orpc.service.build.mutationOptions(),
+    onSuccess: () => {
+      toast.success("Build started", {
+        description: "Track progress in the Deployments tab.",
+      });
+      setTab("deployments");
+    },
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : "Failed to start build"),
+  });
+
+  // Re-roll the current deployment without a rebuild. Works for both image
+  // and git services — this is "redeploy this one service" (the same image,
+  // bounced through the swarm). Distinct from Build & deploy, which produces
+  // a fresh image from the git HEAD.
+  const restartMut = useMutation({
+    ...orpc.service.restart.mutationOptions(),
+    onSuccess: () => {
+      toast.success("Restarting service", {
+        description: "Track progress in the Deployments tab.",
+      });
+      setTab("deployments");
+    },
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : "Failed to restart"),
+  });
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -76,6 +122,7 @@ export function ServiceResourcePanel({
               kind: "service",
               name: resource.name,
               description: resource.image,
+              framework,
             }}
           />
           <div className="flex flex-col gap-0.5">
@@ -87,19 +134,60 @@ export function ServiceResourcePanel({
             </span>
           </div>
         </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Close panel"
-          onClick={onClose}
-        >
-          <HugeiconsIcon
-            icon={Cancel01Icon}
-            strokeWidth={2}
-            className="size-4"
-          />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              restartMut.mutate({
+                projectId: resource.projectId as never,
+                resourceId: resource.resourceId as never,
+              })
+            }
+            disabled={restartMut.isPending}
+          >
+            <HugeiconsIcon
+              icon={RefreshIcon}
+              strokeWidth={2}
+              className="size-3.5"
+            />
+            {restartMut.isPending ? "Restarting…" : "Restart"}
+          </Button>
+          {resource.source === "git" ? (
+            <Button
+              type="button"
+              size="sm"
+              onClick={() =>
+                buildMut.mutate({
+                  projectId: resource.projectId as never,
+                  resourceId: resource.resourceId as never,
+                })
+              }
+              disabled={buildMut.isPending}
+            >
+              <HugeiconsIcon
+                icon={RocketIcon}
+                strokeWidth={2}
+                className="size-3.5"
+              />
+              {buildMut.isPending ? "Starting…" : "Build & deploy"}
+            </Button>
+          ) : null}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Close panel"
+            onClick={onClose}
+          >
+            <HugeiconsIcon
+              icon={Cancel01Icon}
+              strokeWidth={2}
+              className="size-4"
+            />
+          </Button>
+        </div>
       </div>
 
       <div className="mt-5 flex items-center gap-3 border-t border-border/40 px-6 py-3">

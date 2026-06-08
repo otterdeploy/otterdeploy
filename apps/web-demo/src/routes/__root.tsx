@@ -8,8 +8,8 @@ import {
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 
-import { ThemeProvider } from "../theme-provider";
-import { Toaster } from "../ui/sonner";
+import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "@/components/ui/sonner";
 import { orpc } from "@/utils/orpc";
 
 import "../index.css";

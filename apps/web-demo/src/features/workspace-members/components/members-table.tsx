@@ -1,7 +1,7 @@
-import { Avatar, AvatarFallback } from "../ui/avatar";
-import { Badge } from "../ui/badge";
-import { Button } from "../ui/button";
-import { Skeleton } from "../ui/skeleton";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -9,8 +9,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../ui/table";
-import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
+} from "@/components/ui/table";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip";
 import { authClient } from "@/lib/auth";
 import type { MemberRow } from "../types";
 

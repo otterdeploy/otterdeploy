@@ -6,11 +6,11 @@ export const sourceStepSchema = z.object({
   ...kindFragment,
   ...nameFragment,
   src: z.enum(["github", "gitlab"]),
-  // repo + branch aren't validated here: the source binding lives on
-  // the project (set via the BindingSummary / Settings → Build) and the
-  // create handler reads it from there, not from this form. Validating
-  // them in the wizard was a vestige from the per-service picker.
-  repo: z.string(),
+  // A source-based service can't proceed without a bound repo — the step
+  // gates Continue on this. Binding happens in-wizard (paste a public URL or
+  // connect the GitHub App), which writes `repo` via setFieldValue; an empty
+  // value means nothing's bound yet.
+  repo: z.string().min(1, "Connect a repository to continue."),
   branch: z.string(),
   root: z.string(),
   autoDeploy: z.boolean(),

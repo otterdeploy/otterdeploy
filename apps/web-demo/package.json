@@ -8,7 +8,7 @@
     "build": "vite build",
     "serve": "vite preview",
     "start": "vite",
-    "check-types": "tsr generate && tsc --noEmit",
+    "typecheck": "tsr generate && tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
   },

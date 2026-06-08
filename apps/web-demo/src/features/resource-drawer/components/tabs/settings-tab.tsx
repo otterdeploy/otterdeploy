@@ -8,10 +8,10 @@ import {
   AlertDialogHeader,
   AlertDialogPopup,
   AlertDialogTitle,
-} from "../ui/alert-dialog";
-import { Button } from "../ui/button";
-import { Field, FieldLabel } from "../ui/field";
-import { Input } from "../ui/input";
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { client } from "@/utils/orpc";
 
 interface Props {

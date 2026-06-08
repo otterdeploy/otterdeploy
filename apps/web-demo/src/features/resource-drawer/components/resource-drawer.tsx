@@ -4,8 +4,8 @@ import {
   SheetHeader,
   SheetTitle,
   SheetDescription,
-} from "../ui/sheet";
-import { Tabs, TabsList, TabsTab, TabsPanel } from "../ui/tabs";
+} from "@/components/ui/sheet";
+import { Tabs, TabsList, TabsTab, TabsPanel } from "@/components/ui/tabs";
 import { OverviewTab } from "./tabs/overview-tab";
 import { DeploymentsTab } from "./tabs/deployments-tab";
 import { VariablesTab } from "./tabs/variables-tab";

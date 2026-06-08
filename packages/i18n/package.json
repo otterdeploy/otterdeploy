@@ -9,7 +9,7 @@
     "./locales/*": "./src/locales/*.json"
   },
   "scripts": {
-    "check-types": "tsc --noEmit"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "i18next": "^26.2.0",
@@ -20,8 +20,12 @@
     "react-i18next": "^17.0.0"
   },
   "peerDependenciesMeta": {
-    "react": { "optional": true },
-    "react-i18next": { "optional": true }
+    "react": {
+      "optional": true
+    },
+    "react-i18next": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@otterdeploy/config": "workspace:*",

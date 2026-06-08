@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { AlertCircle } from "lucide-react";
-import { DatabaseLogo } from "../brand/database-logo";
-import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
-import { Badge } from "../ui/badge";
-import { Skeleton } from "../ui/skeleton";
+import { DatabaseLogo } from "@/components/brand/database-logo";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { client } from "@/utils/orpc";
 
 interface Props {

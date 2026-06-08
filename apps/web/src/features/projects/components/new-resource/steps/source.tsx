@@ -17,24 +17,38 @@
  * check itself.
  */
 
-import { useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { skipToken, useMutation, useQuery } from "@tanstack/react-query";
 import { useStore } from "@tanstack/react-form";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { GitBranchIcon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { Link, useParams } from "@tanstack/react-router";
 import { toast } from "sonner";
 
+import {
+  FrameworkLogo,
+  type FrameworkKind,
+} from "@/features/projects/components/framework-logo";
 import { SvglLogo } from "@/shared/components/brand/svgl-logo";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "@/shared/components/ui/combobox";
+import { Spinner } from "@/shared/components/ui/spinner";
 import { orpc } from "@/shared/server/orpc";
 
 import { SectionHeader } from "../form-primitives";
 import { useFormContext } from "../form-context";
+import { frameworkLabel, monorepoLabel } from "../frameworks";
 import { RootDirectoryPicker } from "../root-directory-picker";
 
 export function StepSource() {
@@ -45,21 +59,44 @@ export function StepSource() {
   const branch = useStore(form.store, (s) => s.values.branch as string);
   const root = useStore(form.store, (s) => s.values.root as string);
   const name = useStore(form.store, (s) => s.values.name as string);
+  const kindId = useStore(form.store, (s) => s.values.kindId as string);
   const { orgSlug, projectSlug } = useParams({ strict: false }) as {
     orgSlug: string;
     projectSlug: string;
   };
   const summary = useBindingSummary(projectSlug);
+  // Resolve the bound repo's owner/repo from the DB (no GitHub call), so the
+  // binding card shows the real name even for public-URL bindings that aren't
+  // in any installation repo list — and regardless of GitHub rate limits.
+  // Without this it falls back to the raw gitRepo_… id.
+  const repoMeta = useQuery({
+    ...orpc.git.getRepo.queryOptions({
+      input: repo ? { gitRepoId: repo } : skipToken,
+    }),
+    staleTime: 5 * 60 * 1000,
+  });
   const boundFullName =
     summary.boundRepoFullNameByGitRepoId[repo] ??
     summary.justBoundFullName ??
+    repoMeta.data?.fullName ??
     null;
 
-  // setRepo cascades to branch — same pattern as kind.tsx where one
-  // pick seeds multiple fields. Keeps the bound-state transition atomic.
+  // Default the service name from the repo once one is bound. `kind.tsx`
+  // seeds `name` with the kind id (e.g. "app") as a placeholder; we only
+  // override that auto-default (or an empty value), never a name the user
+  // actually typed.
+  useEffect(() => {
+    if (!repo || !boundFullName) return;
+    if (name && name !== kindId) return;
+    const derived = deriveServiceName(boundFullName);
+    if (derived && derived !== name) form.setFieldValue("name", derived);
+  }, [repo, boundFullName, name, kindId, form]);
+
+  // Bind the repo; leave `branch` empty so the BranchPicker below can seed it
+  // from the repo's real default branch once `git.listBranches` resolves
+  // (forcing "main" here would mask a master/develop default).
   const onPublicRepoBound = (repoId: string, fullName: string) => {
     form.setFieldValue("repo", repoId);
-    form.setFieldValue("branch", branch || "main");
     summary.rememberJustBound(repoId, fullName);
   };
 
@@ -78,44 +115,219 @@ export function StepSource() {
         onBound={onPublicRepoBound}
       />
 
-      <div className="mt-5">
-        <SectionHeader title="This service" />
-      </div>
-      <Card className="mt-2.5 rounded-md">
-        <CardContent className="flex flex-col gap-3">
-          <form.AppField name="name">
-            {(f) => (
-              <f.TextField
-                label="Service name"
-                className="font-mono"
-                description={`Internal hostname: ${name || "<name>"}`}
-              />
-            )}
-          </form.AppField>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[12.5px] font-medium">
-              Root directory (monorepo)
-            </label>
-            <RootDirectoryPicker
-              gitRepoId={repo || null}
-              value={root}
-              repoFullName={boundFullName}
-              onChange={(next) => form.setFieldValue("root", next)}
-            />
-            <p className="text-[11px] text-muted-foreground">
-              Browse the repo to pick the folder for this service. Empty = repo
-              root.
-            </p>
+      {/* Service config only appears once a repo is bound — paste/connect a
+          source first, we check it, then this reveals. No point configuring a
+          service with nothing to build. */}
+      {repo && (
+        <>
+          <div className="mt-5">
+            <SectionHeader title="This service" />
           </div>
-          <div className="text-[11px] text-muted-foreground">
-            Branch is governed by the project binding (
-            <span className="font-mono">{branch || "main"}</span>
-            ). Per-service branch overrides will land alongside preview
-            environments.
-          </div>
-        </CardContent>
-      </Card>
+          <RepoCheck gitRepoId={repo} root={root} />
+          <Card className="mt-2.5 rounded-md">
+            <CardContent className="flex flex-col gap-3">
+              <form.AppField name="name">
+                {(f) => (
+                  <f.TextField
+                    label="Service name"
+                    className="font-mono"
+                    description={`Internal hostname: ${name || "<name>"}`}
+                  />
+                )}
+              </form.AppField>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[12.5px] font-medium">
+                  Root directory (monorepo)
+                </label>
+                <RootDirectoryPicker
+                  gitRepoId={repo || null}
+                  value={root}
+                  repoFullName={boundFullName}
+                  onChange={(next) => form.setFieldValue("root", next)}
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Browse the repo to pick the folder for this service. Empty =
+                  repo root.
+                </p>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[12.5px] font-medium">Branch</label>
+                <BranchPicker
+                  gitRepoId={repo}
+                  value={branch}
+                  onChange={(b) => form.setFieldValue("branch", b)}
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Deploys track this branch. Manual-deploy bindings redeploy on
+                  demand; push deploys fire on commits to it.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
     </>
+  );
+}
+
+/** Repo full_name → a sane default service name (DNS-label-ish). */
+function deriveServiceName(fullName: string): string {
+  const last = fullName.split("/").pop() ?? fullName;
+  return last
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 63);
+}
+
+/**
+ * Branch selector backed by the real `git.listBranches`. Defaults the
+ * selection to the repo's default branch. Falls back to a free-text input if
+ * the listing fails (rate-limited / unreachable) so the operator can still
+ * name a branch.
+ */
+function BranchPicker({
+  gitRepoId,
+  value,
+  onChange,
+}: {
+  gitRepoId: string;
+  value: string;
+  onChange: (branch: string) => void;
+}) {
+  const query = useQuery(
+    orpc.git.listBranches.queryOptions({ input: { gitRepoId } }),
+  );
+
+  const defaultBranch = query.data?.defaultBranch;
+  // Seed the form's branch from the repo default once it loads, if unset.
+  useEffect(() => {
+    if (!value && defaultBranch) onChange(defaultBranch);
+  }, [value, defaultBranch, onChange]);
+
+  if (query.isLoading) {
+    return (
+      <div className="flex h-8 items-center gap-2 rounded-md border bg-muted/20 px-3 text-[12px] text-muted-foreground">
+        <Spinner className="size-3.5" />
+        Loading branches…
+      </div>
+    );
+  }
+
+  if (query.isError) {
+    return (
+      <Input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="main"
+        className="h-8 font-mono text-[12.5px]"
+      />
+    );
+  }
+
+  const branches = query.data?.branches ?? [];
+  const selected = value || defaultBranch || "";
+
+  // Searchable — repos like cal.com have hundreds of branches, so a plain
+  // Select is unusable. Combobox filters as you type.
+  return (
+    <Combobox
+      items={branches}
+      value={selected}
+      onValueChange={(v) => v && onChange(v)}
+    >
+      <ComboboxInput
+        placeholder="Search branches…"
+        className="h-8 font-mono text-[12.5px]"
+      />
+      <ComboboxContent>
+        <ComboboxEmpty>No matching branches.</ComboboxEmpty>
+        <ComboboxList>
+          {(b: string) => (
+            <ComboboxItem key={b} value={b} className="font-mono text-[12.5px]">
+              {b}
+            </ComboboxItem>
+          )}
+        </ComboboxList>
+      </ComboboxContent>
+    </Combobox>
+  );
+}
+
+/**
+ * The "check" after binding a source — runs the real `git.inspectRepo`
+ * against the bound repo + root. Surfaces a reachable/unreachable verdict and
+ * the detected framework, so the operator knows we actually read the repo
+ * before they configure the service.
+ */
+function RepoCheck({ gitRepoId, root }: { gitRepoId: string; root: string }) {
+  const inspect = useQuery({
+    ...orpc.git.inspectRepo.queryOptions({
+      input: { gitRepoId, path: root || "" },
+    }),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  if (inspect.isLoading) {
+    return (
+      <div className="mt-2.5 flex items-center gap-2 rounded-md border bg-muted/20 px-3 py-2 text-[12px] text-muted-foreground">
+        <Spinner className="size-3.5" />
+        Checking repository…
+      </div>
+    );
+  }
+
+  if (inspect.isError) {
+    return (
+      <div className="mt-2.5 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-[12px] text-destructive">
+        Couldn't read the repository
+        {root ? (
+          <>
+            {" "}
+            at <span className="font-mono">/{root}</span>
+          </>
+        ) : null}
+        {" — "}
+        {inspect.error?.message ?? "check the URL and try again."}
+      </div>
+    );
+  }
+
+  const frameworkKind = (inspect.data?.framework ?? null) as FrameworkKind | null;
+  const framework = frameworkLabel(inspect.data?.framework);
+  const monorepo = monorepoLabel(inspect.data?.monorepo);
+
+  return (
+    <div className="mt-2.5 flex items-center gap-2 rounded-md border border-success/30 bg-success/5 px-3 py-2 text-[12px]">
+      {frameworkKind ? (
+        <FrameworkLogo
+          framework={frameworkKind}
+          className="size-4 shrink-0"
+        />
+      ) : (
+        <HugeiconsIcon
+          icon={Tick02Icon}
+          strokeWidth={2}
+          className="size-3.5 shrink-0 text-success"
+        />
+      )}
+      <span className="text-muted-foreground">
+        Repository reachable
+        {framework ? (
+          <>
+            {" · detected "}
+            <span className="font-medium text-foreground">{framework}</span>
+          </>
+        ) : (
+          " · no framework auto-detected"
+        )}
+      </span>
+      {monorepo && (
+        <Badge variant="outline" className="ml-auto font-normal">
+          {monorepo}
+        </Badge>
+      )}
+    </div>
   );
 }
 

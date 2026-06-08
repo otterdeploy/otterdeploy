@@ -8,7 +8,6 @@
  * (see `isSecret`). Server-side encryption-at-rest is a Plan 7 follow-up
  * that doesn't change this wire shape.
  */
-
 import { oc } from "@orpc/contract";
 import * as z from "zod";
 

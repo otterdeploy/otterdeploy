@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
-import { Badge } from "../ui/badge";
-import { Empty, EmptyDescription, EmptyTitle } from "../ui/empty";
+import { Badge } from "@/components/ui/badge";
+import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
 import {
   Table,
   TableBody,
@@ -8,7 +8,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../ui/table";
+} from "@/components/ui/table";
 import type { WorkspaceRouteRow } from "../types";
 
 interface Props {

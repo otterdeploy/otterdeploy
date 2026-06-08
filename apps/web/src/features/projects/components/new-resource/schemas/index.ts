@@ -40,6 +40,10 @@ import type { Var } from "../form-fields/variables-field";
 
 export interface ResourceFormState {
   __step: Step;
+  /** Reveal the full step flow (builder, sizing, variables, storage,
+   *  advanced). Off by default → the short fast path; sensible defaults
+   *  fill the hidden steps. Chosen on the first (kind) step. */
+  advancedSetup: boolean;
   kindId: string;
   name: string;
   version: string | null;
@@ -56,6 +60,8 @@ export interface ResourceFormState {
   ports: Port[];
   healthPath: string;
   healthInterval: number;
+  /** Static-kind only: serve index.html for unmatched routes (SPA). */
+  spa: boolean;
   variables: Var[];
   linkedSecrets: Record<string, boolean>;
   presetId: string;
@@ -71,10 +77,14 @@ export interface ResourceFormState {
   highAvailability: boolean;
   /** Database-only: expose via the Caddy public proxy. OFF by default. */
   publicEnabled: boolean;
+  /** Postgres-only: enabled extensions (canonical CREATE EXTENSION names).
+   *  Staged into the manifest at create time. */
+  extensions: string[];
 }
 
 export const resourceDefaults: ResourceFormState = {
   __step: "kind",
+  advancedSetup: false,
   kindId: "",
   name: "",
   version: null,
@@ -91,6 +101,7 @@ export const resourceDefaults: ResourceFormState = {
   ports: [{ port: 3000, protocol: "http", public: true, host: "" }],
   healthPath: "/healthz",
   healthInterval: 10,
+  spa: true,
   variables: [],
   linkedSecrets: {},
   presetId: "small",
@@ -105,4 +116,5 @@ export const resourceDefaults: ResourceFormState = {
   pitr: false,
   highAvailability: false,
   publicEnabled: false,
+  extensions: [],
 };

@@ -10,7 +10,11 @@
  * `XxxRef & { ... }` for whatever extra params the call needs.
  */
 
-import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type {
+  OrganizationId,
+  ProjectId,
+  ResourceId,
+} from "@otterdeploy/shared/id";
 
 export interface OrgRef {
   organizationId: OrganizationId;
@@ -23,10 +27,3 @@ export interface ProjectRef extends OrgRef {
 export interface ResourceRef extends ProjectRef {
   resourceId: ResourceId;
 }
-
-/**
- * Legacy alias for `ProjectRef` — kept so existing `manifest.ts`
- * `loadManifest({ projectId, organizationId })` callers don't need
- * to rename in this pass.
- */
-export type ProjectScope = ProjectRef;

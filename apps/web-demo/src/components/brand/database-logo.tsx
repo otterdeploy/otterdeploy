@@ -1,12 +1,12 @@
 import type { CSSProperties, ReactNode, SVGProps } from "react";
-import { useTheme } from "../theme-provider";
-import { Mariadb } from "../ui/svgs/mariadb";
-import { MongodbIconDark } from "../ui/svgs/mongodbIconDark";
-import { MongodbIconLight } from "../ui/svgs/mongodbIconLight";
-import { MysqlIconDark } from "../ui/svgs/mysqlIconDark";
-import { MysqlIconLight } from "../ui/svgs/mysqlIconLight";
-import { Postgresql } from "../ui/svgs/postgresql";
-import { Redis } from "../ui/svgs/redis";
+import { useTheme } from "@/components/theme-provider";
+import { Mariadb } from "@/components/ui/svgs/mariadb";
+import { MongodbIconDark } from "@/components/ui/svgs/mongodbIconDark";
+import { MongodbIconLight } from "@/components/ui/svgs/mongodbIconLight";
+import { MysqlIconDark } from "@/components/ui/svgs/mysqlIconDark";
+import { MysqlIconLight } from "@/components/ui/svgs/mysqlIconLight";
+import { Postgresql } from "@/components/ui/svgs/postgresql";
+import { Redis } from "@/components/ui/svgs/redis";
 
 type DatabaseBrand =
   | "postgresql"
