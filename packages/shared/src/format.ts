@@ -21,6 +21,21 @@ export function formatBytes(bytes: number | null | undefined): string | null {
 }
 
 /**
+ * Group-separated integer/decimal for display (thousands separators per the
+ * runtime locale). Cached `Intl.NumberFormat` so repeated calls in a list
+ * don't re-build the formatter. `null`/`undefined`/non-finite → "—".
+ *
+ *   formatNumber(17687)   // "17,687"
+ *   formatNumber(0)       // "0"
+ *   formatNumber(null)    // "—"
+ */
+const numberFormatter = new Intl.NumberFormat();
+export function formatNumber(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return "—";
+  return numberFormatter.format(value);
+}
+
+/**
  * "x minutes ago" / "x days ago" string for a timestamp. Accepts a
  * `Date` or anything `new Date(x)` can parse (string, number). Tops
  * out at years — beyond that there's not much value in "47y ago".

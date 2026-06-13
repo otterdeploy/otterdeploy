@@ -9,11 +9,20 @@
 # railpack-frontend image (pulled on demand). On the default local-build path
 # the resulting image is `--load`ed into the host daemon and never pushed.
 #
-# This is a placeholder Dockerfile — the monorepo build (bun install +
-# turbo build) is left to whichever process image-builds this. Wire it
-# into infra/docker-compose.yml when the deploy story is ready.
+# Wired into docker-compose.yml as the `builder` service. It mounts the host
+# docker socket (Docker-out-of-Docker) so `buildx --load` lands images in the
+# SAME daemon the single-node swarm runs from — DinD would build into an
+# isolated daemon the swarm can't see. bun runs the worker's TypeScript
+# directly, so there's no separate compile step; `bun install` resolves the
+# whole workspace for the image's architecture (see .dockerignore).
 
-FROM oven/bun:1-debian
+# Pinned (NOT the floating `1-debian`) so `bun install --frozen-lockfile`
+# stays reproducible. The floating tag regressed to bun 1.3.1, which fails
+# this lockfile with a bare "Failed to install N packages" (exit 1) — newer
+# bun installs the identical lockfile cleanly. Keep this at/above the bun
+# version that writes bun.lock locally to avoid old-bun-on-new-lockfile skew.
+ARG BUN_VERSION=1.3.14
+FROM oven/bun:${BUN_VERSION}-debian
 
 # Docker CLI + buildx (no daemon — we use the host's via the mounted socket).
 RUN apt-get update \
@@ -33,7 +42,15 @@ RUN apt-get update \
 # binary onto $PATH. The `railpack --version` line fails the build loudly if
 # the install didn't land, instead of surfacing later as a runtime
 # "Executable not found in $PATH" on the first deploy.
-RUN curl -sSL https://railpack.com/install.sh | sh -s -- --yes --bin-dir /usr/local/bin \
+#
+# Pinned (NOT `latest`, via RAILPACK_VERSION) so the CLI that emits the plan
+# stays in lockstep with the railpack-frontend image that executes it — the
+# RAILPACK_FRONTEND tag in src/railpack.ts MUST match this. A CLI/frontend skew
+# surfaces as cryptic BuildKit errors like "secret RAILPACK_SPA_OUTPUT_DIR: not
+# found"; `latest` on both pointers drifts independently and breaks builds.
+ARG RAILPACK_VERSION=0.26.1
+RUN RAILPACK_VERSION="${RAILPACK_VERSION}" sh -c \
+    'curl -sSL https://railpack.com/install.sh | sh -s -- --yes --bin-dir /usr/local/bin' \
  && railpack --version
 
 WORKDIR /app

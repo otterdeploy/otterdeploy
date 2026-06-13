@@ -2,9 +2,13 @@ import { type RouterClient } from "@orpc/server";
 
 import { auditRouter } from "./audit";
 import { backupsRouter } from "./backups";
+import { databaseRouter } from "./database";
 import { dockerRouter } from "./docker";
+import { edgeLogsRouter } from "./edge-logs";
 import { envRouter } from "./env";
+import { firewallRouter } from "./firewall";
 import { gitRouter } from "./git";
+import { metricsRouter } from "./metrics";
 import { organizationRouter } from "./organization";
 import { projectRouter } from "./project";
 import { registryRouter } from "./registry";
@@ -15,9 +19,13 @@ import { terminalRouter } from "./terminal";
 export const appRouter = {
   audit: auditRouter,
   backups: backupsRouter,
+  database: databaseRouter,
   docker: dockerRouter,
+  edgeLogs: edgeLogsRouter,
   env: envRouter,
+  firewall: firewallRouter,
   git: gitRouter,
+  metrics: metricsRouter,
   organization: organizationRouter,
   project: projectRouter,
   registry: registryRouter,

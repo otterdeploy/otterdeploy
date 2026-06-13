@@ -7,6 +7,8 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import * as z from "zod";
 
+import { env } from "@otterdeploy/env/web";
+
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -19,6 +21,19 @@ import {
 } from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
+
+/** The only legitimate absolute post-login redirect is the deployment-
+ *  protection authorize endpoint, which lives on the server origin. Anything
+ *  else is an open-redirect attempt — return null so the caller drops it. */
+function safeServerRedirect(target: string): string | null {
+  try {
+    const url = new URL(target);
+    if (url.origin === new URL(env.VITE_SERVER_URL).origin) return url.toString();
+  } catch {
+    // not a parseable absolute URL
+  }
+  return null;
+}
 
 export function SignInForm({
   onSwitchToSignUp,
@@ -39,8 +54,19 @@ export function SignInForm({
       return result.data;
     },
     onSuccess: () => {
-      void navigate({ to: (redirect ?? "/") as "/", replace: true });
       toast.success(t("auth.signIn.welcomeBack"));
+      // Deployment-protection sends an absolute `redirect` (the auth-wall
+      // authorize URL on the server origin) — that needs a full navigation,
+      // not TanStack's internal router. Internal paths use navigate().
+      if (redirect && /^https?:\/\//i.test(redirect)) {
+        const safe = safeServerRedirect(redirect);
+        // Untrusted absolute URL ⇒ drop it (open-redirect guard) and land home.
+        void (safe
+          ? (window.location.href = safe)
+          : navigate({ to: "/", replace: true }));
+        return;
+      }
+      void navigate({ to: (redirect ?? "/") as "/", replace: true });
     },
     onError: (error) => {
       toast.error(error.message);

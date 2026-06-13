@@ -4,10 +4,15 @@
 //
 // `paused` keeps the existing buffer but suspends new pushes — flips back to
 // live without dropping rows, so the operator can scroll back to read.
+//
+// Transport + buffering are the shared `useLogStream`; this hook only adds the
+// project-fan-in line shape (service/level/resource) and level inference.
 
-import { useEffect, useRef, useState } from "react";
+import { useMemo } from "react";
 
 import { orpc } from "@/shared/server/orpc";
+
+import { useLogStream, type LogStreamStatus } from "./use-log-stream";
 
 export const LOG_LEVELS = ["debug", "info", "warn", "error"] as const;
 export type LogLevel = (typeof LOG_LEVELS)[number];
@@ -31,8 +36,6 @@ interface UseProjectLogStreamArgs {
   bufferSize?: number;
 }
 
-type Status = "connecting" | "live" | "ended" | "error";
-
 function inferLevel(stream: "stdout" | "stderr" | "system", line: string): LogLevel {
   if (stream === "system") return "debug";
   if (/\b(ERROR|FATAL|PANIC)\b/i.test(line) || line.startsWith("panic:")) {
@@ -40,6 +43,30 @@ function inferLevel(stream: "stdout" | "stderr" | "system", line: string): LogLe
   }
   if (/\bWARN(ING)?\b/i.test(line)) return "warn";
   return stream === "stderr" ? "warn" : "info";
+}
+
+// Multi-line log output (stack traces, pretty-printed error objects) reaches us
+// as one docker event *per physical line* — `timestamps=true` stamps each one.
+// Indented lines and lone closing brackets are continuations of the entry above
+// them, not new events, so fold them in rather than spawning a row each.
+function isContinuationLine(msg: string): boolean {
+  return /^\s/.test(msg) || /^[)\]}]+[,;]?\s*$/.test(msg) || msg === "";
+}
+
+// Collapse continuation lines into the preceding entry (same resource only, so
+// interleaved services don't bleed into each other). The head line keeps its
+// level/timestamp/id; the block renders as one expandable, multi-line entry.
+function coalesceMultiline(lines: LogLine[]): LogLine[] {
+  const out: LogLine[] = [];
+  for (const ln of lines) {
+    const head = out.length ? out[out.length - 1] : null;
+    if (head && head.resourceId === ln.resourceId && isContinuationLine(ln.msg)) {
+      out[out.length - 1] = { ...head, msg: `${head.msg}\n${ln.msg}` };
+    } else {
+      out.push(ln);
+    }
+  }
+  return out;
 }
 
 function shortTs(iso: string | null): string {
@@ -58,74 +85,49 @@ export function useProjectLogStream({
   resourceIds,
   paused,
   bufferSize = 500,
-}: UseProjectLogStreamArgs) {
-  const [lines, setLines] = useState<LogLine[]>([]);
-  const [status, setStatus] = useState<Status>("connecting");
-  const pausedRef = useRef(paused);
-  pausedRef.current = paused;
-  const counterRef = useRef(0);
-
+}: UseProjectLogStreamArgs): { lines: LogLine[]; status: LogStreamStatus } {
   // Key the resource list by sorted-join so resourceIds = [a, b] and [b, a]
   // don't trigger reconnects.
   const key = resourceIds ? [...resourceIds].sort().join(",") : "";
 
-  useEffect(() => {
-    const ctrl = new AbortController();
-    setLines([]);
-    setStatus("connecting");
-    counterRef.current = 0;
+  const { lines: rawLines, status } = useLogStream({
+    open: (signal) =>
+      orpc.project.logs.tail.call(
+        {
+          projectId: projectId as never,
+          resourceIds: (resourceIds ?? undefined) as never,
+          tail: 50,
+        },
+        { signal, context: { retry: Number.POSITIVE_INFINITY } },
+      ),
+    map: (ev, id): LogLine => ({
+      id: String(id),
+      ts: shortTs(ev.ts),
+      tsIso: ev.ts,
+      level: inferLevel(ev.stream, ev.line),
+      svc: ev.serviceName || "system",
+      resourceId: ev.resourceId,
+      stream: ev.stream,
+      msg: ev.line,
+    }),
+    onError: (err, id): LogLine => {
+      const iso = new Date().toISOString();
+      return {
+        id: `err-${id}`,
+        ts: shortTs(iso),
+        tsIso: iso,
+        level: "error",
+        svc: "system",
+        resourceId: "",
+        stream: "system",
+        msg: `Log stream error: ${err instanceof Error ? err.message : String(err)}`,
+      };
+    },
+    bufferSize,
+    paused,
+    deps: [projectId, key, bufferSize],
+  });
 
-    void (async () => {
-      try {
-        const stream = await orpc.project.logs.tail.call(
-          {
-            projectId: projectId as never,
-            resourceIds: (resourceIds ?? undefined) as never,
-            tail: 50,
-          },
-          { signal: ctrl.signal },
-        );
-        setStatus("live");
-        for await (const ev of stream) {
-          if (ctrl.signal.aborted) break;
-          if (pausedRef.current) continue;
-          const ln: LogLine = {
-            id: `${Date.now().toString(36)}-${counterRef.current++}`,
-            ts: shortTs(ev.ts),
-            tsIso: ev.ts,
-            level: inferLevel(ev.stream, ev.line),
-            svc: ev.serviceName || "system",
-            resourceId: ev.resourceId,
-            stream: ev.stream,
-            msg: ev.line,
-          };
-          setLines((prev) =>
-            prev.length >= bufferSize ? [...prev.slice(-bufferSize + 1), ln] : [...prev, ln],
-          );
-        }
-        if (!ctrl.signal.aborted) setStatus("ended");
-      } catch (err) {
-        if (ctrl.signal.aborted) return;
-        setStatus("error");
-        const msg = err instanceof Error ? err.message : String(err);
-        setLines((prev) => [
-          ...prev,
-          {
-            id: `err-${counterRef.current++}`,
-            ts: shortTs(new Date().toISOString()),
-            tsIso: new Date().toISOString(),
-            level: "error",
-            svc: "system",
-            resourceId: "",
-            stream: "system",
-            msg: `Log stream error: ${msg}`,
-          },
-        ]);
-      }
-    })();
-
-    return () => ctrl.abort();
-  }, [projectId, key, bufferSize, resourceIds]);
-
+  const lines = useMemo(() => coalesceMultiline(rawLines), [rawLines]);
   return { lines, status };
 }

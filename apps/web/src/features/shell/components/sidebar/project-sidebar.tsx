@@ -33,7 +33,9 @@ import {
   Key02Icon,
   ServerStack01Icon,
   Settings01Icon,
+  ShieldKeyIcon,
   Sun03Icon,
+  UserMultipleIcon,
   WebhookIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -51,6 +53,7 @@ const workspaceItems: StaticNavItem[] = [
   { title: "Servers", icon: ServerStack01Icon, href: "/$orgSlug/servers" },
   { title: "Networking", icon: EarthIcon, href: "/$orgSlug/networking" },
   { title: "Terminal", icon: FlashIcon, href: "/$orgSlug/terminal" },
+  { title: "Team", icon: UserMultipleIcon, href: "/$orgSlug/team" },
   { title: "Settings", icon: Sun03Icon, href: "/$orgSlug/settings" },
 ];
 
@@ -58,16 +61,17 @@ const infrastructureItems: StaticNavItem[] = [
   { title: "Templates", icon: Folder01Icon },
   { title: "Backups", icon: DatabaseIcon, href: "/$orgSlug/backups" },
   { title: "Volumes", icon: ServerStack01Icon },
-  { title: "Edge logs", icon: EarthIcon },
+  { title: "Edge logs", icon: EarthIcon, href: "/$orgSlug/edge-logs" },
   { title: "Audit", icon: File01Icon, href: "/$orgSlug/audit" },
   { title: "Docker", icon: ServerStack01Icon, href: "/$orgSlug/docker" },
 ];
 
 const clusterAdminItems: StaticNavItem[] = [
+  { title: "Firewall", icon: ShieldKeyIcon, href: "/$orgSlug/firewall" },
   { title: "Git providers", icon: GitBranchIcon, href: "/$orgSlug/git-providers" },
   { title: "Registries", icon: Database02Icon, href: "/$orgSlug/registries" },
   { title: "SSH keys", icon: Key01Icon },
-  { title: "Notifications", icon: Alert01Icon },
+  { title: "Notifications", icon: Alert01Icon, href: "/$orgSlug/notifications" },
   { title: "Certificates", icon: Certificate01Icon },
   { title: "API tokens", icon: Key02Icon },
   { title: "Webhooks", icon: WebhookIcon },

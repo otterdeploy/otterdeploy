@@ -5,10 +5,14 @@ import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
 import { db } from "@otterdeploy/db";
 import * as schema from "@otterdeploy/db/schema";
 import { member, session as sessionTbl } from "@otterdeploy/db/schema/auth";
+import { OrganizationInvitationEmail, sendEmail } from "@otterdeploy/email";
 import { env } from "@otterdeploy/env/server";
 import { betterAuth } from "better-auth";
+import { log } from "evlog";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { bearer, deviceAuthorization, organization } from "better-auth/plugins";
+
+import { ac, roles } from "./permissions";
 
 /**
  * Pick the org to make active on a fresh session. Prefers the org from the
@@ -129,6 +133,53 @@ export const auth = betterAuth({
     organization({
       allowUserToCreateOrganization: true,
       organizationLimit: 10,
+      // Invitations: an invite link expires after 48h if unaccepted; once
+      // accepted, membership is permanent until revoked. Re-inviting the same
+      // email cancels the prior pending invite so duplicates don't pile up.
+      invitationExpiresIn: 60 * 60 * 48,
+      cancelPendingInvitationsOnReInvite: true,
+      sendInvitationEmail: async (data) => {
+        // Build the accept link against the WEB origin (where /accept-invite
+        // renders), not the API origin — same resolution as the device flow.
+        const webOrigin = (env.CORS_ORIGIN[0] ?? env.BETTER_AUTH_URL).replace(
+          /\/$/,
+          "",
+        );
+        const inviteUrl = `${webOrigin}/accept-invite/${data.invitation.id}`;
+        // Non-fatal by design: the invitation row is already persisted before
+        // this runs, so a failed email send (e.g. missing/placeholder
+        // RESEND_API_KEY in dev) must NOT fail inviteMember. Swallow the error
+        // and log the accept link for out-of-band delivery; the invite still
+        // shows in the org's pending list either way.
+        try {
+          await sendEmail({
+            to: data.email,
+            subject: `Join ${data.organization.name} on otterdeploy`,
+            react: OrganizationInvitationEmail({
+              organizationName: data.organization.name,
+              inviterName: data.inviter.user.name,
+              inviteUrl,
+              role: String(data.role ?? "member"),
+            }),
+          });
+        } catch (error) {
+          log.warn({
+            invite: {
+              status: "email-failed",
+              email: data.email,
+              // Logged so the operator can deliver the link out-of-band when
+              // email isn't configured (e.g. placeholder RESEND_API_KEY in dev).
+              inviteUrl,
+              detail: error instanceof Error ? error.message : String(error),
+            },
+          });
+        }
+      },
+      // RBAC: custom access-control statements + owner/admin/member roles
+      // (packages/auth/src/permissions.ts). `auth.api.hasPermission` resolves
+      // the active member's role against these — no manual member lookups.
+      ac,
+      roles,
       teams: {
         enabled: true,
         // Don't auto-create a "default project" on org create — our project

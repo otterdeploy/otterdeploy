@@ -6,8 +6,10 @@
  *   diff    — preview the merge result vs current server-side state
  *   apply   — reconcile resources to match the saved manifest
  *
- * `apply` and `diff` ship as stubs in Phase 3 and gain the full
- * reconciler in Phase 4.
+ * `diff` runs the pure `diffManifest` against `loadCurrentState`; `apply`
+ * runs the full `applyManifest` reconciler (creates/updates/deletes services,
+ * databases, and env; enqueues git builds). See routers/project/index.ts and
+ * routers/project/manifest-apply.ts.
  */
 
 import { oc } from "@orpc/contract";
@@ -45,8 +47,7 @@ export const manifestDiffInput = z.object({
 export const manifestDiffOutput = z.object({
   // The resolved manifest the server would apply if `apply` ran now.
   resolved: manifestSchema.nullable(),
-  // High-level changes the apply would make. Phase 4 fills this in;
-  // Phase 3 returns an empty array.
+  // High-level changes the apply would make (from `diffManifest`).
   changes: z.array(
     z.object({
       kind: z.enum(["create", "update", "delete", "no-op"]),

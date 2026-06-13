@@ -110,12 +110,15 @@ const buildDockerfileSchema = z.object({
 
 // Railpack: zero-config builder. buildCommand overrides the detected build
 // step. For static sites, `spa` enables index.html fallback routing and
-// `staticRoot` overrides the served dir (default dist).
+// `staticRoot` overrides the served dir (default dist). `packageManager`
+// (e.g. "bun@1.3.13", "pnpm@9.12.0") overrides the repo's packageManager field
+// — the builder rewrites the workspace-root package.json before building.
 const buildRailpackSchema = z.object({
   builder: z.literal("railpack"),
   buildCommand: z.string().nullable().optional(),
   spa: z.boolean().nullable().optional(),
   staticRoot: z.string().nullable().optional(),
+  packageManager: z.string().nullable().optional(),
   watchPatterns,
 });
 

@@ -27,6 +27,8 @@ import { EventEmitter } from "node:events";
 import { Docker } from "@otterdeploy/docker";
 import { log } from "evlog";
 
+import { readLines } from "../stream-parse";
+
 import { normalizeDockerEvent } from "./normalize";
 import type { DockerEvent } from "./types";
 
@@ -130,17 +132,9 @@ class DockerEventBus {
   private async drain(): Promise<void> {
     const stream = this.stream;
     if (!stream) return;
-    let buffer = "";
     try {
-      for await (const chunk of stream as AsyncIterable<Buffer | string>) {
-        buffer += typeof chunk === "string" ? chunk : chunk.toString("utf8");
-        let nl = buffer.indexOf("\n");
-        while (nl !== -1) {
-          const line = buffer.slice(0, nl).trim();
-          buffer = buffer.slice(nl + 1);
-          if (line.length > 0) this.dispatch(line);
-          nl = buffer.indexOf("\n");
-        }
+      for await (const line of readLines(stream)) {
+        this.dispatch(line);
       }
     } catch (err) {
       log.warn({

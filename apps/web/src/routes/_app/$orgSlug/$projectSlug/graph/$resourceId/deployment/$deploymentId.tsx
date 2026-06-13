@@ -1,4 +1,4 @@
-import { Activity, useEffect, useRef, useState } from "react";
+import { Activity, useState } from "react";
 import { createFileRoute, Link, useLoaderData } from "@tanstack/react-router";
 import { and, eq, useLiveQuery } from "@tanstack/react-db";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -7,9 +7,11 @@ import * as m from "motion/react-client";
 
 import type { ServiceTaskInfo } from "@otterdeploy/api/routers/project/service-tasks";
 
-import { deploymentTasksCollection } from "@/features/projects/data/deployment-tasks";
-import { deploymentsCollection } from "@/features/projects/data/deployments";
-import { resourceCollection } from "@/features/projects/data/resource";
+import {
+  deploymentTasksCollection,
+  deploymentsCollection,
+} from "@/features/resources/data/deployments";
+import { resourceCollection } from "@/features/resources/data/resource";
 import { Input } from "@/shared/components/ui/input";
 import {
   Tabs,
@@ -19,9 +21,13 @@ import {
   TabsTrigger,
 } from "@/shared/components/ui/tabs";
 import { cn } from "@/shared/lib/utils";
-import { env } from "@otterdeploy/env/web";
 
 import { orpc } from "@/shared/server/orpc";
+import {
+  LogViewer,
+  type LogLine,
+} from "@/features/logs/components/log-viewer";
+import { useLogStream } from "@/features/logs/data/use-log-stream";
 
 export const Route = createFileRoute(
   "/_app/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId",
@@ -437,13 +443,6 @@ function DeploymentStatusBadge({
 
 // ─── Deploy Logs tab ──────────────────────────────────────────────────────
 
-interface LogLine {
-  id: number;
-  stream: "stdout" | "stderr" | "system";
-  line: string;
-  ts: string | null;
-}
-
 function DeploymentLogsBody({
   projectId,
   resourceId,
@@ -453,69 +452,32 @@ function DeploymentLogsBody({
   resourceId: string;
   deploymentId: string;
 }) {
-  const [lines, setLines] = useState<LogLine[]>([]);
-  const [status, setStatus] = useState<
-    "connecting" | "live" | "ended" | "error"
-  >("connecting");
-  const counterRef = useRef(0);
   const [filter, setFilter] = useState("");
-  const scrollerRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const ctrl = new AbortController();
-    setLines([]);
-    setStatus("connecting");
-    counterRef.current = 0;
-    (async () => {
-      try {
-        const stream = await orpc.project.resource.deployments.logs.tail.call(
-          {
-            projectId: projectId as never,
-            resourceId: resourceId as never,
-            deploymentId: deploymentId as never,
-            tail: 500,
-          },
-          { signal: ctrl.signal },
-        );
-        setStatus("live");
-        for await (const event of stream) {
-          if (ctrl.signal.aborted) break;
-          setLines((prev) => [
-            ...prev,
-            {
-              id: ++counterRef.current,
-              stream: event.stream,
-              line: event.line,
-              ts: event.ts,
-            },
-          ]);
-        }
-        if (!ctrl.signal.aborted) setStatus("ended");
-      } catch (err) {
-        if (ctrl.signal.aborted) return;
-        setStatus("error");
-        setLines((prev) => [
-          ...prev,
-          {
-            id: ++counterRef.current,
-            stream: "system",
-            line: `Stream error: ${err instanceof Error ? err.message : String(err)}`,
-            ts: new Date().toISOString(),
-          },
-        ]);
-      }
-    })();
-    return () => ctrl.abort();
-  }, [projectId, resourceId, deploymentId]);
-
-  // Auto-scroll to bottom on new lines; pauses if the user scrolls away.
-  const [autoScroll, setAutoScroll] = useState(true);
-  useEffect(() => {
-    if (!autoScroll) return;
-    const el = scrollerRef.current;
-    if (!el) return;
-    el.scrollTop = el.scrollHeight;
-  }, [lines, autoScroll]);
+  const { lines, status } = useLogStream({
+    open: (signal) =>
+      orpc.project.resource.deployments.logs.tail.call(
+        {
+          projectId: projectId as never,
+          resourceId: resourceId as never,
+          deploymentId: deploymentId as never,
+          tail: 500,
+        },
+        { signal, context: { retry: Number.POSITIVE_INFINITY } },
+      ),
+    map: (e, id): LogLine => ({
+      id,
+      stream: e.stream,
+      line: e.line,
+      ts: e.ts,
+    }),
+    onError: (err, id): LogLine => ({
+      id,
+      stream: "system",
+      line: `Stream error: ${err instanceof Error ? err.message : String(err)}`,
+      ts: new Date().toISOString(),
+    }),
+    deps: [projectId, resourceId, deploymentId],
+  });
 
   const filtered = filter
     ? lines.filter((l) => l.line.toLowerCase().includes(filter.toLowerCase()))
@@ -536,34 +498,21 @@ function DeploymentLogsBody({
           className="h-9 pl-8 font-mono text-[12px]"
         />
       </div>
-      <div
-        ref={scrollerRef}
-        onScroll={(e) => {
-          const el = e.currentTarget;
-          const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 4;
-          if (atBottom !== autoScroll) setAutoScroll(atBottom);
-        }}
-        className="min-h-0 flex-1 overflow-auto rounded-md border bg-[oklch(0.12_0_0)] p-3 font-mono text-[11.5px] leading-relaxed"
-      >
-        {filtered.length === 0 ? (
-          <div className="grid h-full place-items-center text-center">
-            <div className="flex flex-col items-center gap-2">
-              <div className="text-[14px] font-medium text-foreground/80">
-                {status === "connecting"
-                  ? "Loading deployment logs…"
-                  : filter
-                    ? "No logs match this filter"
-                    : "No logs in this time range"}
-              </div>
-              <div className="text-[12px] text-muted-foreground">
-                Logs will show up here as they are found.
-              </div>
-            </div>
-          </div>
-        ) : (
-          filtered.map((l) => <LogLineRow key={l.id} line={l} />)
-        )}
-      </div>
+      <LogViewer
+        lines={filtered}
+        empty={
+          <LogEmpty
+            title={
+              status === "connecting"
+                ? "Loading deployment logs…"
+                : filter
+                  ? "No logs match this filter"
+                  : "No logs in this time range"
+            }
+            hint="Logs will show up here as they are found."
+          />
+        }
+      />
     </div>
   );
 }
@@ -573,133 +522,56 @@ function DeploymentLogsBody({
 // own real-data wiring without changing the page layout.
 
 function BuildLogsBody({ deploymentId }: { deploymentId: string }) {
-  // Build pipeline logs are streamed by apps/builder via Redis pub/sub
-  // → SSE (apps/server/src/deployment-logs-sse.ts). Native EventSource
-  // is the natural client — cookies ride along for auth, reconnect is
-  // built in. Mirrors the project-events transport pattern.
-  const [lines, setLines] = useState<LogLine[]>([]);
-  const [status, setStatus] = useState<
-    "connecting" | "live" | "ended" | "error"
-  >("connecting");
-  const counterRef = useRef(0);
-  const scrollerRef = useRef<HTMLDivElement | null>(null);
-  const [autoScroll, setAutoScroll] = useState(true);
-
-  useEffect(() => {
-    setLines([]);
-    setStatus("connecting");
-    counterRef.current = 0;
-
-    const base = env.VITE_SERVER_URL.replace(/\/$/, "");
-    const url = `${base}/sse/deployments/${encodeURIComponent(deploymentId)}/logs`;
-    const es = new EventSource(url, { withCredentials: true });
-
-    const onLine = (event: MessageEvent) => {
-      try {
-        const parsed = JSON.parse(event.data) as {
-          stream: "stdout" | "stderr" | "system";
-          line: string;
-          ts: string;
-        };
-        setStatus("live");
-        setLines((prev) => [
-          ...prev,
-          {
-            id: ++counterRef.current,
-            stream: parsed.stream,
-            line: parsed.line,
-            ts: parsed.ts,
-          },
-        ]);
-      } catch {
-        // Skip malformed events — defensive; server emits well-formed JSON.
-      }
-    };
-    es.addEventListener("stdout", onLine);
-    es.addEventListener("stderr", onLine);
-    es.addEventListener("system", onLine);
-    es.addEventListener("end", () => {
-      setStatus("ended");
-      es.close();
-    });
-    es.addEventListener("error", (event) => {
-      // Two different things dispatch to "error":
-      //  1. A server-sent `event: error` (a MessageEvent carrying a `.data`
-      //     payload) — the stream hit a real error mid-flight. Surface the
-      //     message as a log line and stop; otherwise it reads as an endless
-      //     "Connecting…" with no explanation.
-      //  2. A native EventSource connection error (a bare Event, no data) —
-      //     only terminal once the browser gives up reconnecting (CLOSED).
-      if (event instanceof MessageEvent && typeof event.data === "string") {
-        let message = "Build log stream error";
-        try {
-          const parsed = JSON.parse(event.data) as { message?: unknown };
-          if (typeof parsed.message === "string") message = parsed.message;
-        } catch {
-          if (event.data) message = event.data;
-        }
-        setStatus("error");
-        setLines((prev) => [
-          ...prev,
-          {
-            id: ++counterRef.current,
-            stream: "stderr",
-            line: message,
-            ts: new Date().toISOString(),
-          },
-        ]);
-        es.close();
-        return;
-      }
-      if (es.readyState === EventSource.CLOSED) {
-        setStatus("error");
-      }
-    });
-
-    return () => es.close();
-  }, [deploymentId]);
-
-  // Auto-scroll while the user is at the bottom; pause if they scroll up.
-  useEffect(() => {
-    if (!autoScroll) return;
-    const el = scrollerRef.current;
-    if (!el) return;
-    el.scrollTop = el.scrollHeight;
-  }, [lines, autoScroll]);
+  // Build pipeline logs come from apps/builder via Redis pub/sub +
+  // deployment_log, streamed over the oRPC event-iterator
+  // (project.resource.deployments.buildLogs.stream). `context.retry` opts
+  // this call into the client retry plugin's auto-reconnect; on reconnect
+  // the server resumes from the last seen seq via lastEventId.
+  const { lines, status } = useLogStream({
+    open: (signal) =>
+      orpc.project.resource.deployments.buildLogs.stream.call(
+        { deploymentId: deploymentId as never },
+        { signal, context: { retry: Number.POSITIVE_INFINITY } },
+      ),
+    map: (e, id): LogLine => ({
+      id,
+      stream: e.stream,
+      line: e.line,
+      ts: e.ts,
+    }),
+    onError: (err, id): LogLine => ({
+      id,
+      stream: "stderr",
+      line: `Build log stream error: ${err instanceof Error ? err.message : String(err)}`,
+      ts: new Date().toISOString(),
+    }),
+    deps: [deploymentId],
+  });
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
-      <div
-        ref={scrollerRef}
-        onScroll={(e) => {
-          const el = e.currentTarget;
-          const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 4;
-          if (atBottom !== autoScroll) setAutoScroll(atBottom);
-        }}
-        className="min-h-0 flex-1 overflow-auto rounded-md border bg-[oklch(0.12_0_0)] p-3 font-mono text-[11.5px] leading-relaxed"
-      >
-        {lines.length === 0 ? (
-          <div className="grid h-full place-items-center text-center">
-            <div className="flex flex-col items-center gap-2">
-              <div className="text-[14px] font-medium text-foreground/80">
-                {status === "connecting"
-                  ? "Connecting to build log stream…"
-                  : status === "error"
-                    ? "Stream disconnected"
-                    : "No build output yet"}
-              </div>
-              <div className="text-[12px] text-muted-foreground">
-                Lines appear here as the builder runs.
-              </div>
-            </div>
-          </div>
-        ) : (
-          lines.map((l) => <LogLineRow key={l.id} line={l} />)
-        )}
-      </div>
+      <LogViewer
+        lines={lines}
+        empty={
+          <LogEmpty
+            title={
+              status === "connecting"
+                ? "Connecting to build log stream…"
+                : status === "error"
+                  ? "Stream disconnected"
+                  : "No build output yet"
+            }
+            hint="Lines appear here as the builder runs."
+          />
+        }
+      />
     </div>
   );
 }
+
+// ─── Build / HTTP / Network placeholders ─────────────────────────────────
+// Distinct components rather than a generic message so each can grow its
+// own real-data wiring without changing the page layout.
 
 function NotImplementedTab({ title, hint }: { title: string; hint: string }) {
   return <EmptyTab title={title} hint={hint} />;
@@ -718,21 +590,14 @@ function EmptyTab({ title, hint }: { title: string; hint: string }) {
   );
 }
 
-function LogLineRow({ line }: { line: LogLine }) {
+// Centered empty/loading copy rendered inside a LogViewer's scroller.
+function LogEmpty({ title, hint }: { title: string; hint: string }) {
   return (
-    <div
-      className={cn("flex gap-3", {
-        "text-destructive/90": line.stream === "stderr",
-        "italic text-muted-foreground": line.stream === "system",
-        "text-foreground/85": line.stream === "stdout",
-      })}
-    >
-      {line.ts && (
-        <span className="shrink-0 text-muted-foreground/50">
-          {line.ts.replace("T", " ").replace(/\.\d+Z$/, "")}
-        </span>
-      )}
-      <span className="whitespace-pre-wrap break-all">{line.line}</span>
+    <div className="grid h-full place-items-center text-center">
+      <div className="flex flex-col items-center gap-2">
+        <div className="text-[14px] font-medium text-foreground/80">{title}</div>
+        <div className="text-[12px] text-muted-foreground">{hint}</div>
+      </div>
     </div>
   );
 }

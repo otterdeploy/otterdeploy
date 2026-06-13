@@ -29,6 +29,14 @@ interface LogRowProps {
 }
 
 export function LogRow({ line, expanded, wrap, onToggle }: LogRowProps) {
+  // A coalesced entry (stack trace / pretty-printed object) carries its
+  // continuation lines in `msg` joined by newlines. Collapsed, we show just the
+  // first line as a summary; expanded reveals the whole block.
+  const firstBreak = line.msg.indexOf("\n");
+  const isMulti = firstBreak !== -1;
+  const summary = isMulti ? line.msg.slice(0, firstBreak) : line.msg;
+  const extra = isMulti ? line.msg.split("\n").length - 1 : 0;
+
   return (
     <div
       role="button"
@@ -76,10 +84,15 @@ export function LogRow({ line, expanded, wrap, onToggle }: LogRowProps) {
       <span
         className={cn(
           "flex-1 px-3 py-1.5 text-xs text-foreground",
-          wrap ? "whitespace-pre-wrap wrap-break-word" : "truncate",
+          expanded || wrap ? "whitespace-pre-wrap wrap-break-word" : "truncate",
         )}
       >
-        {line.msg}
+        {expanded ? line.msg : summary}
+        {!expanded && extra > 0 && (
+          <span className="ml-2 rounded-sm bg-muted px-1.5 py-0.5 align-middle text-[10px] font-medium text-muted-foreground/80">
+            +{extra}
+          </span>
+        )}
         {expanded && (
           <div className="mt-2 rounded-sm border border-border/40 bg-card/60 p-2.5 text-[11px] leading-relaxed text-muted-foreground">
             <MetaField label="stream" value={line.stream} />

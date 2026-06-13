@@ -10,7 +10,6 @@
  * whole panel rather than mutating in place.
  */
 
-import { useMemo } from "react";
 import {
   createFileRoute,
   Outlet,
@@ -23,15 +22,14 @@ import * as m from "motion/react-client";
 import { AnimatePresence } from "motion/react";
 
 import { INITIAL_NODES_BY_ID } from "@/features/projects/components/graph/initial-nodes";
-import { useServiceFrameworks } from "@/features/projects/components/graph/use-service-frameworks";
-import { resourceCollection } from "@/features/projects/data/resource";
+import { resourceCollection } from "@/features/resources/data/resource";
 
 import {
   DemoNodePanel,
   NotFound,
   RealResourcePanel,
   ServiceResourcePanel,
-} from "@/features/projects/components/resource-panels";
+} from "@/features/resources/components";
 
 export const Route = createFileRoute(
   "/_app/$orgSlug/$projectSlug/graph/$resourceId",
@@ -65,16 +63,13 @@ function RouteComponent() {
   // Fall back to the static graph node when nothing's in the DB yet.
   const demoNode = !resource ? (INITIAL_NODES_BY_ID[resourceId] ?? null) : null;
 
-  // Detect the framework for this one service so the drawer header tile shows
-  // the same brand mark as the graph node. Reuses the graph's inspectRepo
-  // hook — React Query dedupes against the canvas's call for this repo+path,
-  // so opening the panel doesn't fire a second request.
-  const frameworkResources = useMemo(
-    () => (resource && resource.type === "service" ? [resource] : []),
-    [resource],
-  );
-  const frameworks = useServiceFrameworks(project.gitRepoId, frameworkResources);
-  const serviceFramework = resource ? (frameworks.get(resource.resourceId) ?? null) : null;
+  // Framework brand mark for the drawer header tile — same value the graph
+  // node uses, read straight off the stored resource record (detected at build
+  // time). No git-API call when the panel opens.
+  const serviceFramework =
+    resource && resource.type === "service"
+      ? (resource.framework ?? null)
+      : null;
 
   const close = () => navigate({ to: "/$orgSlug/$projectSlug/graph" });
 

@@ -1,0 +1,13 @@
+# Build-context hygiene for the builder image (apps/builder/Dockerfile).
+# node_modules / dist are reinstalled / rebuilt in-image for the image's
+# architecture; secrets (.env) are injected at runtime via docker-compose and
+# must never be baked into the image layer.
+**/node_modules
+**/dist
+**/.turbo
+**/*.tsbuildinfo
+**/*.log
+.git
+.env
+.env.*
+.claude

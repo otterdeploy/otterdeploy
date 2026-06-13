@@ -67,6 +67,25 @@ export const deploymentLogsTailInput = z.object({
   tail: z.number().int().min(0).max(2000).optional().default(500),
 });
 
+/**
+ * One line of the builder pipeline's output (git clone → build → push),
+ * persisted in `deployment_log` and live-published over Redis. `seq` is the
+ * DB insert-order id for scrollback rows (the event-iterator id used for
+ * `lastEventId` resume) and null for live lines that haven't been flushed to
+ * the DB yet. Distinct from `resourceLogEventSchema` (docker task tails),
+ * which has no durable sequence.
+ */
+export const deploymentBuildLogEventSchema = z.object({
+  seq: z.number().int().nullable(),
+  stream: z.enum(["stdout", "stderr", "system"]),
+  line: z.string(),
+  ts: z.string(),
+});
+
+export const deploymentBuildLogsInput = z.object({
+  deploymentId: deploymentIdField,
+});
+
 export const deploymentsContractSlice = {
   // Deployment history: one row per `docker service create / update`
   // we did. Status is live-derived from underlying tasks.
@@ -104,5 +123,21 @@ export const deploymentsContractSlice = {
       })
       .input(deploymentLogsTailInput)
       .output(eventIterator(resourceLogEventSchema)),
+  },
+
+  // Streaming logs from the BUILD pipeline (git clone → build → push) the
+  // builder publishes via Redis + persists in `deployment_log`. Powers the
+  // Build Logs tab. Keyed by deploymentId alone — org ownership is derived
+  // from the deployment row. Supports `lastEventId` resume via the line seq.
+  buildLogs: {
+    stream: oc
+      .errors(resourceNotFoundErrors)
+      .meta({
+        path: `${basePath}/deployments/{deploymentId}/build-logs`,
+        tag,
+        method: "GET",
+      })
+      .input(deploymentBuildLogsInput)
+      .output(eventIterator(deploymentBuildLogEventSchema)),
   },
 };

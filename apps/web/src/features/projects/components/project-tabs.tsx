@@ -10,6 +10,8 @@ interface Tab {
   to: RoutePath;
   /** True only for the index route — TanStack's exact match opt-in. */
   exact?: boolean;
+  /** Default label when the i18n key isn't defined yet. */
+  fallback?: string;
 }
 
 const tabs: readonly Tab[] = [
@@ -20,6 +22,11 @@ const tabs: readonly Tab[] = [
   { titleKey: "nav.metrics", to: "/$orgSlug/$projectSlug/metrics" },
   { titleKey: "nav.variables", to: "/$orgSlug/$projectSlug/variables" },
   { titleKey: "nav.networking", to: "/$orgSlug/$projectSlug/networking" },
+  {
+    titleKey: "nav.edgeLogs",
+    to: "/$orgSlug/$projectSlug/edge-logs",
+    fallback: "Edge logs",
+  },
   { titleKey: "nav.settings", to: "/$orgSlug/$projectSlug/settings" },
 ] as const;
 
@@ -97,7 +104,7 @@ export function ProjectTabs() {
               className: "text-foreground font-medium",
             }}
           >
-            {t(tab.titleKey)}
+            {t(tab.titleKey, tab.fallback ? { defaultValue: tab.fallback } : undefined)}
           </Link>
         ))}
         <span

@@ -6,7 +6,7 @@
 
 import type { OrganizationId } from "@otterdeploy/shared/id";
 
-import { Result } from "better-result";
+import { Result, TaggedError } from "better-result";
 
 import {
   CloudflareError,
@@ -66,10 +66,12 @@ function toView(row: NonNullable<Awaited<ReturnType<typeof getOrganizationById>>
   };
 }
 
-export class OrganizationNotFoundError extends Error {
-  readonly _tag = "OrganizationNotFoundError" as const;
-  constructor(public organizationId: OrgId) {
-    super(`organization ${organizationId} not found`);
+export class OrganizationNotFoundError extends TaggedError("OrganizationNotFoundError")<{
+  organizationId: OrgId;
+  message: string;
+}>() {
+  constructor(organizationId: OrgId) {
+    super({ organizationId, message: `organization ${organizationId} not found` });
   }
 }
 
@@ -97,10 +99,12 @@ export interface VerifyDomainResponse extends VerifyOutcome {
   settings: OrgSettingsView | null;
 }
 
-export class CloudflareConfigError extends Error {
-  readonly _tag = "CloudflareConfigError" as const;
-  constructor(public reason: "token" | "zone" | "domain" | "api", message: string) {
-    super(message);
+export class CloudflareConfigError extends TaggedError("CloudflareConfigError")<{
+  reason: "token" | "zone" | "domain" | "api";
+  message: string;
+}>() {
+  constructor(reason: "token" | "zone" | "domain" | "api", message: string) {
+    super({ reason, message });
   }
 }
 

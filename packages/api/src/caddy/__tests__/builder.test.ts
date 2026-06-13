@@ -61,6 +61,64 @@ describe("builder", () => {
     );
   });
 
+  test("buildHttpBlock with protected=true emits forward_auth + ungated reserved-path handle", () => {
+    const output = buildHttpBlock(
+      { ...httpRoute, usesAcme: true, protected: true },
+      { authzUpstream: "control-plane:3000" },
+    );
+    expect(output).toBe(
+      [
+        "myapp-acme.otterdeploy.dev {",
+        "\thandle /.well-known/otterdeploy/* {",
+        "\t\treverse_proxy control-plane:3000",
+        "\t}",
+        "\thandle {",
+        "\t\trequest_header -Remote-User",
+        "\t\trequest_header -Remote-Email",
+        "\t\tforward_auth control-plane:3000 {",
+        "\t\t\turi /api/internal/deploy-authz?domain=myapp-acme.otterdeploy.dev",
+        "\t\t\tcopy_headers Remote-User Remote-Email",
+        "\t\t}",
+        "\t\treverse_proxy myapp.acme.otterdeploy.internal:3000",
+        "\t}",
+        "}",
+      ].join("\n"),
+    );
+  });
+
+  test("crowdsec: global app config + order + per-site directive", () => {
+    const output = buildCaddyfile([httpRoute], "0.0.0.0:2019", {
+      crowdsec: { apiUrl: "http://crowdsec:8080", apiKey: "k3y" },
+    });
+    expect(output).toContain("order crowdsec first");
+    expect(output).toContain("crowdsec {");
+    expect(output).toContain("api_url http://crowdsec:8080");
+    expect(output).toContain("api_key k3y");
+    // per-site directive present on the http block
+    expect(output).toMatch(/myapp-acme\.otterdeploy\.dev \{[\s\S]*\tcrowdsec\n/);
+  });
+
+  test("crowdsec absent ⇒ no crowdsec directives (existing behaviour)", () => {
+    const output = buildCaddyfile([httpRoute], "0.0.0.0:2019");
+    expect(output).not.toContain("crowdsec");
+    expect(output).not.toContain("order crowdsec");
+  });
+
+  test("edgeLogSink emits per-site access log + request-id header", () => {
+    const output = buildHttpBlock(httpRoute, { edgeLogSink: "host.docker.internal:9100" });
+    expect(output).toContain("log {");
+    expect(output).toContain("output net host.docker.internal:9100");
+    expect(output).toContain("format json");
+    expect(output).toContain("header X-Request-Id {http.request.uuid}");
+    expect(output).toContain("request_header X-Request-Id {http.request.uuid}");
+  });
+
+  test("buildHttpBlock protected=false is unchanged (no forward_auth)", () => {
+    const output = buildHttpBlock({ ...httpRoute, protected: false });
+    expect(output).not.toContain("forward_auth");
+    expect(output).toContain("reverse_proxy myapp.acme.otterdeploy.internal:3000");
+  });
+
   test("buildLayer4Block produces TLS SNI matcher with connection_policy", () => {
     const output = buildLayer4Block([layer4Route]);
     expect(output).toContain("@primary_acme_db_otterdeploy_dev tls sni primary-acme.db.otterdeploy.dev");

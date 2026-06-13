@@ -19,7 +19,7 @@
 import type { DeploymentId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { Docker } from "@otterdeploy/docker";
-import { Result } from "better-result";
+import { Result, TaggedError } from "better-result";
 import { desc, eq } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
@@ -138,6 +138,22 @@ export async function listDeploymentsByResource(
     .where(eq(deployment.resourceId, resourceId))
     .orderBy(desc(deployment.createdAt));
   return rows as DeploymentRow[];
+}
+
+/** The most-recent deployment for a resource (stored row status, no docker).
+ *  Cheap single-row read — the service-resource view uses it so the graph
+ *  node can reflect build-time states (pending/building/failed) that produce
+ *  zero swarm tasks and so never show up in the live-task rollup. */
+export async function getLatestDeploymentForResource(
+  resourceId: ResourceId,
+): Promise<DeploymentRow | null> {
+  const [row] = await db
+    .select()
+    .from(deployment)
+    .where(eq(deployment.resourceId, resourceId))
+    .orderBy(desc(deployment.createdAt))
+    .limit(1);
+  return (row as DeploymentRow | undefined) ?? null;
 }
 
 // ─── API-layer endpoints ────────────────────────────────────────────────
@@ -340,17 +356,21 @@ export async function listResourceDeployments(
   );
 }
 
-export class DeploymentNotFoundError extends Error {
-  readonly _tag = "DeploymentNotFoundError" as const;
-  constructor(public deploymentId: DeploymentId) {
-    super(`deployment ${deploymentId} not found for this resource`);
+export class DeploymentNotFoundError extends TaggedError("DeploymentNotFoundError")<{
+  deploymentId: DeploymentId;
+  message: string;
+}>() {
+  constructor(deploymentId: DeploymentId) {
+    super({ deploymentId, message: `deployment ${deploymentId} not found for this resource` });
   }
 }
 
-export class UnsupportedSnapshotError extends Error {
-  readonly _tag = "UnsupportedSnapshotError" as const;
-  constructor(public reason: string) {
-    super(`cannot replay snapshot: ${reason}`);
+export class UnsupportedSnapshotError extends TaggedError("UnsupportedSnapshotError")<{
+  reason: string;
+  message: string;
+}>() {
+  constructor(reason: string) {
+    super({ reason, message: `cannot replay snapshot: ${reason}` });
   }
 }
 

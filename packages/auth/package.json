@@ -14,10 +14,12 @@
   "scripts": {},
   "dependencies": {
     "@otterdeploy/db": "workspace:*",
+    "@otterdeploy/email": "workspace:*",
     "@otterdeploy/env": "workspace:*",
     "@otterdeploy/shared": "workspace:*",
     "better-auth": "catalog:",
     "drizzle-orm": "catalog:",
+    "evlog": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

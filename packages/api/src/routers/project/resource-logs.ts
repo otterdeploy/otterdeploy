@@ -17,12 +17,20 @@
  * client on disconnect so the underlying socket releases promptly when the
  * frontend closes the stream.
  */
-import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type {
+  OrganizationId,
+  ProjectId,
+  ResourceId,
+} from "@otterdeploy/shared/id";
 import { sleep } from "@otterdeploy/shared/promise";
 
 import { Docker } from "@otterdeploy/docker";
 
 import { waitForServiceCreate } from "../../swarm";
+import {
+  demuxDockerStream,
+  splitDockerTimestamp,
+} from "../../swarm/stream-parse";
 
 import { getProjectInOrg } from "./queries";
 import { getResourceById } from "./queries/resource";
@@ -49,6 +57,28 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
+// Resolve a resource id to its swarm service name. Databases derive the name
+// from project slug + resource name (we don't store a serviceName for them);
+// service resources store it directly. Returns null when the resource row
+// doesn't exist. Shared by every log-tail entry point in this file.
+async function resolveServiceName(
+  projectId: ProjectId,
+  resourceId: ResourceId,
+): Promise<string | null> {
+  const found = await getResourceById(projectId, resourceId);
+  if (!found) return null;
+  if (found.kind === "database") {
+    const project = await getProjectRecord(projectId);
+    const slug = project?.slug ?? projectId;
+    return buildContainerName({
+      engine: found.record.database.engine,
+      projectSlug: slug,
+      resourceName: found.record.resource.name,
+    });
+  }
+  return found.record.service.serviceName;
+}
+
 // Resolve a resource id to the swarm service that owns it. Returns null when
 // the resource doesn't exist OR the swarm service hasn't been created yet —
 // for a freshly-inserted draft postgres resource, the row exists in our DB
@@ -58,21 +88,8 @@ async function resolveServiceId(
   resourceId: ResourceId,
   docker: Docker,
 ): Promise<{ serviceName: string; serviceId: string | null } | null> {
-  const found = await getResourceById(projectId, resourceId);
-  if (!found) return null;
-
-  let serviceName: string;
-  if (found.kind === "database") {
-    const project = await getProjectRecord(projectId);
-    const slug = project?.slug ?? projectId;
-    serviceName = buildContainerName({
-      engine: found.record.database.engine,
-      projectSlug: slug,
-      resourceName: found.record.resource.name,
-    });
-  } else {
-    serviceName = found.record.service.serviceName;
-  }
+  const serviceName = await resolveServiceName(projectId, resourceId);
+  if (!serviceName) return null;
 
   const listResult = await docker.services.list({
     filters: { name: [serviceName] },
@@ -87,53 +104,16 @@ async function resolveServiceId(
   };
 }
 
-// Parse a docker multiplex frame and emit lines split by `\n`. Buffers
-// partial lines across chunks so the consumer always sees whole entries.
-// Exported so the project-wide log fan-in can reuse the demux without
-// re-implementing the framing logic.
+// Demux a docker log stream into ResourceLogEvents, peeling the ISO timestamp
+// docker prepends (we attach `timestamps=true`). Thin adapter over the shared
+// `demuxDockerStream` framing — exported so the project-wide log fan-in can
+// reuse it without re-implementing the framing logic.
 export async function* demuxDockerLogs(
   stream: NodeJS.ReadableStream,
 ): AsyncGenerator<ResourceLogEvent, void, void> {
-  let buffer = Buffer.alloc(0);
-  const partial: Record<"stdout" | "stderr", string> = { stdout: "", stderr: "" };
-
-  for await (const chunk of stream as AsyncIterable<Buffer>) {
-    buffer = Buffer.concat([buffer, chunk]);
-
-    while (buffer.length >= 8) {
-      const streamByte = buffer[0];
-      const payloadLen = buffer.readUInt32BE(4);
-      if (buffer.length < 8 + payloadLen) break; // wait for more data
-
-      const payload = buffer.subarray(8, 8 + payloadLen).toString("utf8");
-      buffer = buffer.subarray(8 + payloadLen);
-
-      const which: "stdout" | "stderr" = streamByte === 2 ? "stderr" : "stdout";
-
-      // Append to the line buffer for this stream; flush each complete line.
-      let combined = partial[which] + payload;
-      // Strip any leading ISO timestamp + space that docker prepends when
-      // timestamps=true is passed. Format: "2026-05-26T12:34:56.789Z line".
-      const lines = combined.split("\n");
-      // Last entry may be a partial line — stash it for the next chunk.
-      const lastIdx = lines.length - 1;
-      partial[which] = lines[lastIdx] ?? "";
-      for (let i = 0; i < lastIdx; i++) {
-        const raw = lines[i] ?? "";
-        if (raw.length === 0) continue;
-        const match = /^(\S+)\s(.*)$/.exec(raw);
-        const ts = match && /^\d{4}-\d{2}-\d{2}T/.test(match[1] ?? "") ? match[1] : null;
-        const line = ts ? (match?.[2] ?? raw) : raw;
-        yield { stream: which, line, ts: ts ?? null };
-      }
-    }
-  }
-
-  // Final flush of any trailing partials.
-  for (const which of ["stdout", "stderr"] as const) {
-    if (partial[which].length > 0) {
-      yield { stream: which, line: partial[which], ts: null };
-    }
+  for await (const chunk of demuxDockerStream(stream)) {
+    const { ts, line } = splitDockerTimestamp(chunk.line);
+    yield { stream: chunk.stream, line, ts };
   }
 }
 
@@ -297,23 +277,13 @@ export async function* tailTaskLogs(
     return;
   }
 
-  const found = await getResourceById(input.projectId, input.resourceId);
-  if (!found) {
+  const serviceName = await resolveServiceName(
+    input.projectId,
+    input.resourceId,
+  );
+  if (!serviceName) {
     yield { stream: "system", line: "Resource not found", ts: nowIso() };
     return;
-  }
-
-  let serviceName: string;
-  if (found.kind === "database") {
-    const proj = await getProjectRecord(input.projectId);
-    const slug = proj?.slug ?? input.projectId;
-    serviceName = buildContainerName({
-      engine: found.record.database.engine,
-      projectSlug: slug,
-      resourceName: found.record.resource.name,
-    });
-  } else {
-    serviceName = found.record.service.serviceName;
   }
 
   const docker = Docker.fromEnv();
@@ -369,9 +339,16 @@ export async function* tailTaskLogs(
       };
     }
     if (status?.Err) {
-      yield { stream: "stderr", line: `Task error: ${status.Err}`, ts: nowIso() };
+      yield {
+        stream: "stderr",
+        line: `Task error: ${status.Err}`,
+        ts: nowIso(),
+      };
     }
-    if (typeof status?.ContainerStatus?.ExitCode === "number" && status.ContainerStatus.ExitCode !== 0) {
+    if (
+      typeof status?.ContainerStatus?.ExitCode === "number" &&
+      status.ContainerStatus.ExitCode !== 0
+    ) {
       yield {
         stream: "stderr",
         line: `Container exited with code ${status.ContainerStatus.ExitCode}`,
@@ -458,23 +435,13 @@ export async function* tailDeploymentLogs(
     return;
   }
 
-  const found = await getResourceById(input.projectId, input.resourceId);
-  if (!found) {
+  const serviceName = await resolveServiceName(
+    input.projectId,
+    input.resourceId,
+  );
+  if (!serviceName) {
     yield { stream: "system", line: "Resource not found", ts: nowIso() };
     return;
-  }
-
-  let serviceName: string;
-  if (found.kind === "database") {
-    const proj = await getProjectRecord(input.projectId);
-    const slug = proj?.slug ?? input.projectId;
-    serviceName = buildContainerName({
-      engine: found.record.database.engine,
-      projectSlug: slug,
-      resourceName: found.record.resource.name,
-    });
-  } else {
-    serviceName = found.record.service.serviceName;
   }
 
   const docker = Docker.fromEnv();
@@ -539,15 +506,16 @@ export async function* tailDeploymentLogs(
         ts: nowIso(),
       };
       if (status.Err) {
-        yield { stream: "stderr", line: `Task error: ${status.Err}`, ts: nowIso() };
-      }
-      if (
-        typeof status.ContainerStatus?.ExitCode === "number" &&
-        status.ContainerStatus.ExitCode !== 0
-      ) {
         yield {
           stream: "stderr",
-          line: `Container exited with code ${status.ContainerStatus.ExitCode}`,
+          line: `Task error: ${status.Err}`,
+          ts: nowIso(),
+        };
+      }
+      if (status.ContainerStatus?.ExitCode !== 0) {
+        yield {
+          stream: "stderr",
+          line: `Container exited with code ${status.ContainerStatus?.ExitCode}`,
           ts: nowIso(),
         };
       }
@@ -556,13 +524,15 @@ export async function* tailDeploymentLogs(
 
       // Only follow=true for the last (most recent) task. Earlier tasks
       // are terminal — replay what docker still has and move on.
-      const logsResult = await docker.containers.getContainer(containerId).logs({
-        follow: isLast,
-        stdout: true,
-        stderr: true,
-        tail: String(input.tail ?? 500),
-        timestamps: true,
-      });
+      const logsResult = await docker.containers
+        .getContainer(containerId)
+        .logs({
+          follow: isLast,
+          stdout: true,
+          stderr: true,
+          tail: String(input.tail ?? 500),
+          timestamps: true,
+        });
       if (logsResult.isErr()) {
         yield {
           stream: "system",

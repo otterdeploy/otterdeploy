@@ -84,6 +84,7 @@ export async function setPostgresPublic(
       projectCustomDomainVerifiedAt: null,
       orgBaseDomain: null,
       orgBaseDomainVerifiedAt: null,
+      localBaseDomain: null,
       serverIp: null,
     };
     const resolved = resolvePublicDomain(

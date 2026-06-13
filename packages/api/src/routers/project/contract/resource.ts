@@ -13,6 +13,8 @@
 import { oc } from "@orpc/contract";
 import * as z from "zod";
 
+import { FRAMEWORK_KINDS } from "@otterdeploy/shared/framework";
+
 import {
   basePath,
   projectNotFoundErrors,
@@ -82,15 +84,28 @@ export const serviceResourceSchema = z.object({
   name: z.string(),
   type: z.literal("service"),
   status: z.enum(["draft", "valid", "invalid"]),
+  // Status of the resource's most-recent deployment. Drives the graph node's
+  // runtime pill for build-time states (pending/building/failed) that produce
+  // zero swarm tasks — those never appear in the live-task rollup, so without
+  // this the node stays blank while the deployment panel already shows FAILED.
+  // Null when the service has never been deployed. Running services with live
+  // tasks still derive their pill from the task rollup, which takes precedence.
+  latestDeploymentStatus: z
+    .enum(["pending", "building", "running", "failed", "superseded", "removed"])
+    .nullable(),
   image: z.string(),
   imageDigest: z.string().nullable(),
   // Where the service's image came from. "image" = pre-built pull;
-  // "git" = built from the project's gitRepoId. Drives the graph view's
-  // "look up framework via inspectRepo" path on the client.
+  // "git" = built from the project's gitRepoId.
   source: z.enum(["image", "git"]),
   // Path within the repo to hand to the builder. Null = repo root.
   // Only meaningful when `source === "git"`.
   sourceSubdir: z.string().nullable(),
+  // Framework detected at build time (next/vite/go/…). The graph renders the
+  // matching brand logo on the node. Captured by the builder from the cloned
+  // repo — the graph reads this stored value, it does NOT call the git API.
+  // Null until the first successful build, or when nothing was detected.
+  framework: z.enum(FRAMEWORK_KINDS).nullable(),
   replicas: z.number().int().min(0),
   publicEnabled: z.boolean(),
   publicDomain: z.string().nullable(),

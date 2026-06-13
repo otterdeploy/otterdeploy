@@ -48,6 +48,79 @@ services:
       timeout: 3s
       retries: 20
 
+  builder:
+    build:
+      context: .
+      dockerfile: ./apps/builder/Dockerfile
+    # Pinned tag so the worker can spawn this same image as the per-build
+    # helper container (BUILDER_HELPER_IMAGE below must match).
+    image: otterstack-builder:latest
+    container_name: otterstack-builder
+    restart: unless-stopped
+    # Required env (DB/Redis/auth secret/…) comes from the project .env; the two
+    # connection URLs are then overridden below so the worker — and the helper
+    # containers it forwards them to — reach the compose Postgres/Redis by
+    # service DNS instead of host-localhost.
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-postgres}
+      REDIS_URL: redis://redis:6379
+      # Per-build helper containers: image to spawn + network to attach them to
+      # (this compose project's default network, so they resolve postgres/redis).
+      BUILDER_HELPER_IMAGE: otterstack-builder:latest
+      BUILDER_HELPER_NETWORK: otterstack_default
+    volumes:
+      # Docker-out-of-Docker: drive the HOST daemon so railpack's
+      # `buildx --load` (and the optional `docker push`) land images in the same
+      # daemon the swarm runs from. DinD would isolate them where swarm can't
+      # pull. `Docker.fromEnv()` in the swarm client picks up this socket too.
+      - /var/run/docker.sock:/var/run/docker.sock
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # CrowdSec agent + Local API (LAPI) — the IP-reputation layer the Firewall
+  # page surfaces. Bundled but OPT-IN: only starts under the `firewall` profile
+  # (COMPOSE_PROFILES=firewall, or `docker compose --profile firewall up -d`),
+  # and only enforces once the control plane has CROWDSEC_LAPI_URL +
+  # CROWDSEC_BOUNCER_KEY set — then the reconciler wires the `crowdsec` gate
+  # into the generated Caddyfile (hot reload, no image rebuild; the bouncer
+  # plugin is already compiled into infra/caddy/Dockerfile).
+  #
+  # Phase 1 (now): the community blocklist (CAPI) — known-bad IPs pulled
+  # automatically on first boot, no log acquisition needed. Local log-based
+  # scenarios (brute-force, path-scanning, …) are a follow-up: Caddy access
+  # logs currently stream `output net` to the control plane, not to a file the
+  # agent can tail.
+  crowdsec:
+    image: crowdsecurity/crowdsec:latest
+    container_name: otterstack-crowdsec
+    profiles: ["firewall"]
+    restart: unless-stopped
+    environment:
+      # Auto-register the Caddy bouncer with our shared key on first boot, so
+      # the edge authenticates to LAPI with no manual `cscli bouncers add`.
+      BOUNCER_KEY_caddy: ${CROWDSEC_BOUNCER_KEY:-}
+    volumes:
+      - otterstack-crowdsec-config:/etc/crowdsec
+      - otterstack-crowdsec-data:/var/lib/crowdsec/data
+    expose:
+      # LAPI — internal only. Reachable on the compose network as
+      # http://crowdsec:8080 by Caddy (bouncer) and the control plane
+      # (decision reads). Intentionally NOT published to the host: LAPI is
+      # sensitive and the bouncer key grants decision access.
+      - "8080"
+    healthcheck:
+      test: ["CMD", "cscli", "lapi", "status"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
   caddy:
     build:
       context: .
@@ -86,3 +159,5 @@ volumes:
   otterstack-redis-data:
   otterstack-caddy-data:
   otterstack-caddy-state:
+  otterstack-crowdsec-config:
+  otterstack-crowdsec-data:

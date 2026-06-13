@@ -16,6 +16,8 @@
  * about encryption-at-rest separately.
  */
 
+import { TaggedError } from "better-result";
+
 const CLOUDFLARE_API = "https://api.cloudflare.com/client/v4";
 
 interface CFEnvelope<T> {
@@ -49,10 +51,12 @@ async function cfFetch<T>(
   return body.result;
 }
 
-export class CloudflareError extends Error {
-  readonly _tag = "CloudflareError" as const;
-  constructor(message: string, public code: number) {
-    super(message);
+export class CloudflareError extends TaggedError("CloudflareError")<{
+  message: string;
+  code: number;
+}>() {
+  constructor(message: string, code: number) {
+    super({ message, code });
   }
 }
 

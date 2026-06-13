@@ -1,10 +1,12 @@
 /**
  * apps/builder entry point.
  *
- * Single-purpose process: pulls `deploy.triggered` jobs off the queue
- * and runs the build pipeline. Lives apart from apps/server because it
- * needs the `railpack` CLI, the docker CLI/buildx, and a docker socket —
- * none of which the API process should depend on.
+ * Single-purpose process: pulls `deploy.triggered` jobs off the queue and
+ * spawns a throwaway helper container per deployment to run the build (see
+ * handler.ts + build-one.ts). The worker itself only needs the docker CLI and
+ * a socket to launch those containers — the railpack toolchain and the
+ * pipeline run inside them. Lives apart from apps/server, which shouldn't
+ * depend on docker at all.
  *
  * Concurrency is configurable via BUILDER_CONCURRENCY (default 1).
  */
@@ -14,10 +16,8 @@ import { createWorkers } from "@otterdeploy/jobs";
 import { log } from "evlog";
 
 import { makeBuildJob } from "./handler";
-import { createPublisher } from "./redis";
 
 let stop: (() => Promise<void>) | null = null;
-let publisher: ReturnType<typeof createPublisher> | null = null;
 
 async function bootstrap() {
   log.info({ builder: { event: "starting", concurrency: env.BUILDER_CONCURRENCY } } as Record<
@@ -25,11 +25,8 @@ async function bootstrap() {
     unknown
   >);
 
-  publisher = createPublisher();
-  const job = makeBuildJob(publisher);
-
   const workers = await createWorkers({
-    jobs: [job],
+    jobs: [makeBuildJob()],
     concurrency: env.BUILDER_CONCURRENCY,
   });
   stop = workers.stop;
@@ -43,7 +40,6 @@ for (const signal of ["SIGTERM", "SIGINT"] as const) {
   process.once(signal, async () => {
     log.info({ builder: { event: "draining", signal } } as Record<string, unknown>);
     if (stop) await stop().catch(() => undefined);
-    if (publisher) publisher.close();
     process.exit(0);
   });
 }

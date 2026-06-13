@@ -61,7 +61,16 @@ export {
   type ServiceTaskInfo,
 } from "./service-tasks";
 
-export { listProjectProxyRoutes } from "./proxy-routes";
+export {
+  createDeploymentBypassToken,
+  createDeploymentShareLink,
+  getProjectCaddyfile,
+  inviteDeploymentGuest,
+  listDeploymentGuests,
+  listProjectProxyRoutes,
+  removeDeploymentGuest,
+  setProxyRouteProtection,
+} from "./proxy-routes";
 
 export {
   bulkReplaceProjectEnvVarsForOrg,

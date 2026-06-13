@@ -67,6 +67,17 @@ export interface SwarmServiceSpec {
   mounts: SpecMount[];
 
   forceUpdateCounter: number;
+
+  /**
+   * The deployment row this rollout serves. Stamped as the
+   * `otterdeploy.deployment.id` label on BOTH the service and the container
+   * spec so live swarm tasks can be bucketed back to their deployment — that's
+   * what feeds the per-deployment task counts (the "N/M replica" badge and
+   * "N tasks" history) in the deployments tab. Mirrors the database spec.
+   * Null when no deployment row exists yet (e.g. an image service created
+   * before its first deploy); the label is then omitted.
+   */
+  deploymentId?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -236,10 +247,29 @@ export async function destroySwarmService(
 function buildServiceSpec(spec: SwarmServiceSpec, networkName: string) {
   const envArray = Object.entries(spec.env).map(([k, v]) => `${k}=${v}`);
 
+  // Identity labels mirror onto BOTH the service spec (so `docker service ls`
+  // filters work) AND the container spec (so they propagate to each live task —
+  // the deployments query buckets tasks back to their deployment via the
+  // `otterdeploy.deployment.id` container label, and terminal targets find
+  // running containers by label). The database spec does the same; services
+  // previously set neither the container labels nor the deployment id, so every
+  // deployment matched 0 tasks ("0/1 replica", "0 tasks"). deployment.id is
+  // only included when known.
+  const otterdeployLabels: Record<string, string> = {
+    "otterdeploy.managed": "true",
+    "otterdeploy.resource.type": "service",
+    "otterdeploy.project": spec.projectSlug,
+    "otterdeploy.resource.id": spec.resourceId,
+    ...(spec.deploymentId
+      ? { "otterdeploy.deployment.id": spec.deploymentId }
+      : {}),
+  };
+
   const containerSpec: Record<string, unknown> = {
     Image: spec.image,
     Env: envArray,
     Hostname: spec.internalHostname,
+    Labels: otterdeployLabels,
   };
 
   // Docker spec: ContainerSpec.Command = ENTRYPOINT, ContainerSpec.Args = CMD.
@@ -308,12 +338,7 @@ function buildServiceSpec(spec: SwarmServiceSpec, networkName: string) {
 
   return {
     Name: spec.serviceName,
-    Labels: {
-      "otterdeploy.managed": "true",
-      "otterdeploy.resource.type": "service",
-      "otterdeploy.project": spec.projectSlug,
-      "otterdeploy.resource.id": spec.resourceId,
-    },
+    Labels: otterdeployLabels,
     TaskTemplate: taskTemplate,
     Mode: { Replicated: { Replicas: spec.replicas } },
     // Zero-downtime rolling update: start the new task before stopping

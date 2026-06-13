@@ -11,6 +11,8 @@
 
 import type { SVGProps } from "react";
 
+import type { Framework } from "@otterdeploy/shared/framework";
+
 import { Astro } from "@/shared/components/ui/svgs/astro";
 import { BunLogo } from "@/shared/components/ui/svgs/bun";
 import { Express } from "@/shared/components/ui/svgs/express";
@@ -30,26 +32,10 @@ import { Svelte } from "@/shared/components/ui/svgs/svelte";
 import { Vite } from "@/shared/components/ui/svgs/vite";
 import { Vuejs } from "@/shared/components/ui/svgs/vuejs";
 
-export type FrameworkKind =
-  | "next"
-  | "nuxt"
-  | "vite"
-  | "remix"
-  | "astro"
-  | "sveltekit"
-  | "react"
-  | "vue"
-  | "express"
-  | "fastify"
-  | "hono"
-  | "nest"
-  | "node"
-  | "bun"
-  | "go"
-  | "python"
-  | "rust"
-  | "ruby"
-  | "static";
+// Canonical set lives in @otterdeploy/shared/framework (shared with the DB
+// column, the resource contract, and the builder's detector). The non-null
+// `Framework` is exactly the set we have a brand mark for.
+export type FrameworkKind = Framework;
 
 type BrandSvg = (props: SVGProps<SVGSVGElement>) => React.ReactNode;
 

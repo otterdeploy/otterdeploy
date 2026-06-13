@@ -30,11 +30,10 @@ import {
 } from "@/features/projects/components/graph/build-live-nodes";
 import { layoutGraph } from "@/features/projects/components/graph/layout-graph";
 import { ResourceNode } from "@/features/projects/components/graph/resource-node";
-import { useServiceFrameworks } from "@/features/projects/components/graph/use-service-frameworks";
 import { StackCodePanel } from "@/features/projects/components/stack";
 import { dependenciesCollection } from "@/features/projects/data/dependencies";
-import { resourceCollection } from "@/features/projects/data/resource";
-import { createServiceTasksCollection } from "@/features/projects/data/service-tasks";
+import { resourceCollection } from "@/features/resources/data/resource";
+import { serviceTasksCollection } from "@/features/resources/data/service-tasks";
 import { orpc } from "@/shared/server/orpc";
 
 export const Route = createFileRoute("/_app/$orgSlug/$projectSlug/graph")({
@@ -87,9 +86,7 @@ function GraphCanvas() {
   const { project } = useLoaderData({ from: "/_app/$orgSlug/$projectSlug" });
   const { setCenter, fitView } = useReactFlow();
 
-  // Shared resource collection scoped to this project; the resource detail
-  // panel reads the same collection so both views share the TanStack-Query cache.
-  const { data: resources = [] } = useLiveQuery(
+  const { data: resources } = useLiveQuery(
     (q) =>
       q
         .from({ r: resourceCollection })
@@ -100,7 +97,7 @@ function GraphCanvas() {
   // Edges come from parsing ${{Resource.VAR}} references in service env vars
   // server-side (project.dependencies). TanStack DB collection so the data
   // stays cached + reactive across panel open/close without a loading flash.
-  const { data: dependencyEdges = [] } = useLiveQuery(
+  const { data: dependencyEdges } = useLiveQuery(
     (q) =>
       q
         .from({ d: dependenciesCollection })
@@ -108,14 +105,12 @@ function GraphCanvas() {
     [project.id],
   );
 
-  // Live replica state per service — polled at 5s via the collection.
-  const serviceTasksCollection = useMemo(
-    () => createServiceTasksCollection(project.id),
+  const { data: serviceTasks } = useLiveQuery(
+    (q) =>
+      q
+        .from({ d: serviceTasksCollection })
+        .where(({ d }) => eq(d.projectId, project.id)),
     [project.id],
-  );
-  const { data: serviceTasks = [] } = useLiveQuery(
-    () => serviceTasksCollection,
-    [serviceTasksCollection],
   );
 
   const edgesFromDeps = useMemo<Edge[]>(
@@ -166,27 +161,14 @@ function GraphCanvas() {
     return { creates, marker };
   }, [resources, diff.data]);
 
-  // Detect framework per git-bound service. One inspectRepo call per
-  // unique (gitRepoId, sourceSubdir) — React Query dedupes across
-  // re-renders. The map merges into node data downstream so the
-  // header tile renders the framework's brand SVG.
-  const frameworksByResourceId = useServiceFrameworks(
-    project.gitRepoId,
-    resources,
-  );
-
   // Convert resources to nodes + synthesize public route nodes via the
   // shared helper. See features/projects/components/graph/build-live-nodes.ts
   // for the rollup rules (error > building > running) and route handling.
+  // The framework brand logo rides on each resource record (detected at build
+  // time, stored on the row) — no per-service git-API lookup on render.
   const liveNodes = useMemo(
-    () =>
-      buildLiveNodes(
-        resources,
-        tasksByResourceId,
-        pendingByName,
-        frameworksByResourceId,
-      ),
-    [resources, tasksByResourceId, pendingByName, frameworksByResourceId],
+    () => buildLiveNodes(resources, tasksByResourceId, pendingByName),
+    [resources, tasksByResourceId, pendingByName],
   );
 
   const liveEdges = useMemo(

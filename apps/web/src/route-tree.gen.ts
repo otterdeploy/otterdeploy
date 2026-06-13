@@ -15,6 +15,7 @@ import { Route as DeviceRouteImport } from "./routes/device"
 import { Route as AppLayoutRouteImport } from "./routes/_app/layout"
 import { Route as AppIndexRouteImport } from "./routes/_app/index"
 import { Route as OnboardingCreateOrganizationRouteImport } from "./routes/onboarding/create-organization"
+import { Route as AcceptInviteInvitationIdRouteImport } from "./routes/accept-invite.$invitationId"
 import { Route as AppOrgSlugLayoutRouteImport } from "./routes/_app/$orgSlug/layout"
 import { Route as AppOrgSlugIndexRouteImport } from "./routes/_app/$orgSlug/index"
 import { Route as AppOrgSlugTerminalRouteImport } from "./routes/_app/$orgSlug/terminal"
@@ -22,8 +23,11 @@ import { Route as AppOrgSlugTeamRouteImport } from "./routes/_app/$orgSlug/team"
 import { Route as AppOrgSlugSettingsRouteImport } from "./routes/_app/$orgSlug/settings"
 import { Route as AppOrgSlugServersRouteImport } from "./routes/_app/$orgSlug/servers"
 import { Route as AppOrgSlugRegistriesRouteImport } from "./routes/_app/$orgSlug/registries"
+import { Route as AppOrgSlugNotificationsRouteImport } from "./routes/_app/$orgSlug/notifications"
 import { Route as AppOrgSlugNetworkingRouteImport } from "./routes/_app/$orgSlug/networking"
 import { Route as AppOrgSlugGitProvidersRouteImport } from "./routes/_app/$orgSlug/git-providers"
+import { Route as AppOrgSlugFirewallRouteImport } from "./routes/_app/$orgSlug/firewall"
+import { Route as AppOrgSlugEdgeLogsRouteImport } from "./routes/_app/$orgSlug/edge-logs"
 import { Route as AppOrgSlugDockerRouteImport } from "./routes/_app/$orgSlug/docker"
 import { Route as AppOrgSlugBackupsRouteImport } from "./routes/_app/$orgSlug/backups"
 import { Route as AppOrgSlugAuditRouteImport } from "./routes/_app/$orgSlug/audit"
@@ -33,6 +37,7 @@ import { Route as AppOrgSlugProjectSlugVariablesRouteImport } from "./routes/_ap
 import { Route as AppOrgSlugProjectSlugSettingsRouteImport } from "./routes/_app/$orgSlug/$projectSlug/settings"
 import { Route as AppOrgSlugProjectSlugNetworkingRouteImport } from "./routes/_app/$orgSlug/$projectSlug/networking"
 import { Route as AppOrgSlugProjectSlugLogsRouteImport } from "./routes/_app/$orgSlug/$projectSlug/logs"
+import { Route as AppOrgSlugProjectSlugEdgeLogsRouteImport } from "./routes/_app/$orgSlug/$projectSlug/edge-logs"
 import { Route as AppOrgSlugProjectSlugGraphLayoutRouteImport } from "./routes/_app/$orgSlug/$projectSlug/graph/layout"
 import { Route as AppOrgSlugProjectSlugGraphResourceIdLayoutRouteImport } from "./routes/_app/$orgSlug/$projectSlug/graph/$resourceId/layout"
 import { Route as AppOrgSlugProjectSlugGraphResourceIdDeploymentDeploymentIdRouteImport } from "./routes/_app/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId"
@@ -65,6 +70,12 @@ const OnboardingCreateOrganizationRoute =
   OnboardingCreateOrganizationRouteImport.update({
     id: "/onboarding/create-organization",
     path: "/onboarding/create-organization",
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AcceptInviteInvitationIdRoute =
+  AcceptInviteInvitationIdRouteImport.update({
+    id: "/accept-invite/$invitationId",
+    path: "/accept-invite/$invitationId",
     getParentRoute: () => rootRouteImport,
   } as any)
 const AppOrgSlugLayoutRoute = AppOrgSlugLayoutRouteImport.update({
@@ -102,6 +113,11 @@ const AppOrgSlugRegistriesRoute = AppOrgSlugRegistriesRouteImport.update({
   path: "/registries",
   getParentRoute: () => AppOrgSlugLayoutRoute,
 } as any)
+const AppOrgSlugNotificationsRoute = AppOrgSlugNotificationsRouteImport.update({
+  id: "/notifications",
+  path: "/notifications",
+  getParentRoute: () => AppOrgSlugLayoutRoute,
+} as any)
 const AppOrgSlugNetworkingRoute = AppOrgSlugNetworkingRouteImport.update({
   id: "/networking",
   path: "/networking",
@@ -110,6 +126,16 @@ const AppOrgSlugNetworkingRoute = AppOrgSlugNetworkingRouteImport.update({
 const AppOrgSlugGitProvidersRoute = AppOrgSlugGitProvidersRouteImport.update({
   id: "/git-providers",
   path: "/git-providers",
+  getParentRoute: () => AppOrgSlugLayoutRoute,
+} as any)
+const AppOrgSlugFirewallRoute = AppOrgSlugFirewallRouteImport.update({
+  id: "/firewall",
+  path: "/firewall",
+  getParentRoute: () => AppOrgSlugLayoutRoute,
+} as any)
+const AppOrgSlugEdgeLogsRoute = AppOrgSlugEdgeLogsRouteImport.update({
+  id: "/edge-logs",
+  path: "/edge-logs",
   getParentRoute: () => AppOrgSlugLayoutRoute,
 } as any)
 const AppOrgSlugDockerRoute = AppOrgSlugDockerRouteImport.update({
@@ -163,6 +189,12 @@ const AppOrgSlugProjectSlugLogsRoute =
     path: "/logs",
     getParentRoute: () => AppOrgSlugProjectSlugLayoutRoute,
   } as any)
+const AppOrgSlugProjectSlugEdgeLogsRoute =
+  AppOrgSlugProjectSlugEdgeLogsRouteImport.update({
+    id: "/edge-logs",
+    path: "/edge-logs",
+    getParentRoute: () => AppOrgSlugProjectSlugLayoutRoute,
+  } as any)
 const AppOrgSlugProjectSlugGraphLayoutRoute =
   AppOrgSlugProjectSlugGraphLayoutRouteImport.update({
     id: "/graph",
@@ -188,13 +220,17 @@ export interface FileRoutesByFullPath {
   "/sign-in": typeof SignInRoute
   "/terminal": typeof TerminalRoute
   "/$orgSlug": typeof AppOrgSlugLayoutRouteWithChildren
+  "/accept-invite/$invitationId": typeof AcceptInviteInvitationIdRoute
   "/onboarding/create-organization": typeof OnboardingCreateOrganizationRoute
   "/$orgSlug/$projectSlug": typeof AppOrgSlugProjectSlugLayoutRouteWithChildren
   "/$orgSlug/audit": typeof AppOrgSlugAuditRoute
   "/$orgSlug/backups": typeof AppOrgSlugBackupsRoute
   "/$orgSlug/docker": typeof AppOrgSlugDockerRoute
+  "/$orgSlug/edge-logs": typeof AppOrgSlugEdgeLogsRoute
+  "/$orgSlug/firewall": typeof AppOrgSlugFirewallRoute
   "/$orgSlug/git-providers": typeof AppOrgSlugGitProvidersRoute
   "/$orgSlug/networking": typeof AppOrgSlugNetworkingRoute
+  "/$orgSlug/notifications": typeof AppOrgSlugNotificationsRoute
   "/$orgSlug/registries": typeof AppOrgSlugRegistriesRoute
   "/$orgSlug/servers": typeof AppOrgSlugServersRoute
   "/$orgSlug/settings": typeof AppOrgSlugSettingsRoute
@@ -202,6 +238,7 @@ export interface FileRoutesByFullPath {
   "/$orgSlug/terminal": typeof AppOrgSlugTerminalRoute
   "/$orgSlug/": typeof AppOrgSlugIndexRoute
   "/$orgSlug/$projectSlug/graph": typeof AppOrgSlugProjectSlugGraphLayoutRouteWithChildren
+  "/$orgSlug/$projectSlug/edge-logs": typeof AppOrgSlugProjectSlugEdgeLogsRoute
   "/$orgSlug/$projectSlug/logs": typeof AppOrgSlugProjectSlugLogsRoute
   "/$orgSlug/$projectSlug/networking": typeof AppOrgSlugProjectSlugNetworkingRoute
   "/$orgSlug/$projectSlug/settings": typeof AppOrgSlugProjectSlugSettingsRoute
@@ -214,13 +251,17 @@ export interface FileRoutesByTo {
   "/device": typeof DeviceRoute
   "/sign-in": typeof SignInRoute
   "/terminal": typeof TerminalRoute
+  "/accept-invite/$invitationId": typeof AcceptInviteInvitationIdRoute
   "/onboarding/create-organization": typeof OnboardingCreateOrganizationRoute
   "/": typeof AppIndexRoute
   "/$orgSlug/audit": typeof AppOrgSlugAuditRoute
   "/$orgSlug/backups": typeof AppOrgSlugBackupsRoute
   "/$orgSlug/docker": typeof AppOrgSlugDockerRoute
+  "/$orgSlug/edge-logs": typeof AppOrgSlugEdgeLogsRoute
+  "/$orgSlug/firewall": typeof AppOrgSlugFirewallRoute
   "/$orgSlug/git-providers": typeof AppOrgSlugGitProvidersRoute
   "/$orgSlug/networking": typeof AppOrgSlugNetworkingRoute
+  "/$orgSlug/notifications": typeof AppOrgSlugNotificationsRoute
   "/$orgSlug/registries": typeof AppOrgSlugRegistriesRoute
   "/$orgSlug/servers": typeof AppOrgSlugServersRoute
   "/$orgSlug/settings": typeof AppOrgSlugSettingsRoute
@@ -228,6 +269,7 @@ export interface FileRoutesByTo {
   "/$orgSlug/terminal": typeof AppOrgSlugTerminalRoute
   "/$orgSlug": typeof AppOrgSlugIndexRoute
   "/$orgSlug/$projectSlug/graph": typeof AppOrgSlugProjectSlugGraphLayoutRouteWithChildren
+  "/$orgSlug/$projectSlug/edge-logs": typeof AppOrgSlugProjectSlugEdgeLogsRoute
   "/$orgSlug/$projectSlug/logs": typeof AppOrgSlugProjectSlugLogsRoute
   "/$orgSlug/$projectSlug/networking": typeof AppOrgSlugProjectSlugNetworkingRoute
   "/$orgSlug/$projectSlug/settings": typeof AppOrgSlugProjectSlugSettingsRoute
@@ -243,14 +285,18 @@ export interface FileRoutesById {
   "/sign-in": typeof SignInRoute
   "/terminal": typeof TerminalRoute
   "/_app/$orgSlug": typeof AppOrgSlugLayoutRouteWithChildren
+  "/accept-invite/$invitationId": typeof AcceptInviteInvitationIdRoute
   "/onboarding/create-organization": typeof OnboardingCreateOrganizationRoute
   "/_app/": typeof AppIndexRoute
   "/_app/$orgSlug/$projectSlug": typeof AppOrgSlugProjectSlugLayoutRouteWithChildren
   "/_app/$orgSlug/audit": typeof AppOrgSlugAuditRoute
   "/_app/$orgSlug/backups": typeof AppOrgSlugBackupsRoute
   "/_app/$orgSlug/docker": typeof AppOrgSlugDockerRoute
+  "/_app/$orgSlug/edge-logs": typeof AppOrgSlugEdgeLogsRoute
+  "/_app/$orgSlug/firewall": typeof AppOrgSlugFirewallRoute
   "/_app/$orgSlug/git-providers": typeof AppOrgSlugGitProvidersRoute
   "/_app/$orgSlug/networking": typeof AppOrgSlugNetworkingRoute
+  "/_app/$orgSlug/notifications": typeof AppOrgSlugNotificationsRoute
   "/_app/$orgSlug/registries": typeof AppOrgSlugRegistriesRoute
   "/_app/$orgSlug/servers": typeof AppOrgSlugServersRoute
   "/_app/$orgSlug/settings": typeof AppOrgSlugSettingsRoute
@@ -258,6 +304,7 @@ export interface FileRoutesById {
   "/_app/$orgSlug/terminal": typeof AppOrgSlugTerminalRoute
   "/_app/$orgSlug/": typeof AppOrgSlugIndexRoute
   "/_app/$orgSlug/$projectSlug/graph": typeof AppOrgSlugProjectSlugGraphLayoutRouteWithChildren
+  "/_app/$orgSlug/$projectSlug/edge-logs": typeof AppOrgSlugProjectSlugEdgeLogsRoute
   "/_app/$orgSlug/$projectSlug/logs": typeof AppOrgSlugProjectSlugLogsRoute
   "/_app/$orgSlug/$projectSlug/networking": typeof AppOrgSlugProjectSlugNetworkingRoute
   "/_app/$orgSlug/$projectSlug/settings": typeof AppOrgSlugProjectSlugSettingsRoute
@@ -274,13 +321,17 @@ export interface FileRouteTypes {
     | "/sign-in"
     | "/terminal"
     | "/$orgSlug"
+    | "/accept-invite/$invitationId"
     | "/onboarding/create-organization"
     | "/$orgSlug/$projectSlug"
     | "/$orgSlug/audit"
     | "/$orgSlug/backups"
     | "/$orgSlug/docker"
+    | "/$orgSlug/edge-logs"
+    | "/$orgSlug/firewall"
     | "/$orgSlug/git-providers"
     | "/$orgSlug/networking"
+    | "/$orgSlug/notifications"
     | "/$orgSlug/registries"
     | "/$orgSlug/servers"
     | "/$orgSlug/settings"
@@ -288,6 +339,7 @@ export interface FileRouteTypes {
     | "/$orgSlug/terminal"
     | "/$orgSlug/"
     | "/$orgSlug/$projectSlug/graph"
+    | "/$orgSlug/$projectSlug/edge-logs"
     | "/$orgSlug/$projectSlug/logs"
     | "/$orgSlug/$projectSlug/networking"
     | "/$orgSlug/$projectSlug/settings"
@@ -300,13 +352,17 @@ export interface FileRouteTypes {
     | "/device"
     | "/sign-in"
     | "/terminal"
+    | "/accept-invite/$invitationId"
     | "/onboarding/create-organization"
     | "/"
     | "/$orgSlug/audit"
     | "/$orgSlug/backups"
     | "/$orgSlug/docker"
+    | "/$orgSlug/edge-logs"
+    | "/$orgSlug/firewall"
     | "/$orgSlug/git-providers"
     | "/$orgSlug/networking"
+    | "/$orgSlug/notifications"
     | "/$orgSlug/registries"
     | "/$orgSlug/servers"
     | "/$orgSlug/settings"
@@ -314,6 +370,7 @@ export interface FileRouteTypes {
     | "/$orgSlug/terminal"
     | "/$orgSlug"
     | "/$orgSlug/$projectSlug/graph"
+    | "/$orgSlug/$projectSlug/edge-logs"
     | "/$orgSlug/$projectSlug/logs"
     | "/$orgSlug/$projectSlug/networking"
     | "/$orgSlug/$projectSlug/settings"
@@ -328,14 +385,18 @@ export interface FileRouteTypes {
     | "/sign-in"
     | "/terminal"
     | "/_app/$orgSlug"
+    | "/accept-invite/$invitationId"
     | "/onboarding/create-organization"
     | "/_app/"
     | "/_app/$orgSlug/$projectSlug"
     | "/_app/$orgSlug/audit"
     | "/_app/$orgSlug/backups"
     | "/_app/$orgSlug/docker"
+    | "/_app/$orgSlug/edge-logs"
+    | "/_app/$orgSlug/firewall"
     | "/_app/$orgSlug/git-providers"
     | "/_app/$orgSlug/networking"
+    | "/_app/$orgSlug/notifications"
     | "/_app/$orgSlug/registries"
     | "/_app/$orgSlug/servers"
     | "/_app/$orgSlug/settings"
@@ -343,6 +404,7 @@ export interface FileRouteTypes {
     | "/_app/$orgSlug/terminal"
     | "/_app/$orgSlug/"
     | "/_app/$orgSlug/$projectSlug/graph"
+    | "/_app/$orgSlug/$projectSlug/edge-logs"
     | "/_app/$orgSlug/$projectSlug/logs"
     | "/_app/$orgSlug/$projectSlug/networking"
     | "/_app/$orgSlug/$projectSlug/settings"
@@ -357,6 +419,7 @@ export interface RootRouteChildren {
   DeviceRoute: typeof DeviceRoute
   SignInRoute: typeof SignInRoute
   TerminalRoute: typeof TerminalRoute
+  AcceptInviteInvitationIdRoute: typeof AcceptInviteInvitationIdRoute
   OnboardingCreateOrganizationRoute: typeof OnboardingCreateOrganizationRoute
 }
 
@@ -402,6 +465,13 @@ declare module "@tanstack/react-router" {
       path: "/onboarding/create-organization"
       fullPath: "/onboarding/create-organization"
       preLoaderRoute: typeof OnboardingCreateOrganizationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    "/accept-invite/$invitationId": {
+      id: "/accept-invite/$invitationId"
+      path: "/accept-invite/$invitationId"
+      fullPath: "/accept-invite/$invitationId"
+      preLoaderRoute: typeof AcceptInviteInvitationIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     "/_app/$orgSlug": {
@@ -453,6 +523,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppOrgSlugRegistriesRouteImport
       parentRoute: typeof AppOrgSlugLayoutRoute
     }
+    "/_app/$orgSlug/notifications": {
+      id: "/_app/$orgSlug/notifications"
+      path: "/notifications"
+      fullPath: "/$orgSlug/notifications"
+      preLoaderRoute: typeof AppOrgSlugNotificationsRouteImport
+      parentRoute: typeof AppOrgSlugLayoutRoute
+    }
     "/_app/$orgSlug/networking": {
       id: "/_app/$orgSlug/networking"
       path: "/networking"
@@ -465,6 +542,20 @@ declare module "@tanstack/react-router" {
       path: "/git-providers"
       fullPath: "/$orgSlug/git-providers"
       preLoaderRoute: typeof AppOrgSlugGitProvidersRouteImport
+      parentRoute: typeof AppOrgSlugLayoutRoute
+    }
+    "/_app/$orgSlug/firewall": {
+      id: "/_app/$orgSlug/firewall"
+      path: "/firewall"
+      fullPath: "/$orgSlug/firewall"
+      preLoaderRoute: typeof AppOrgSlugFirewallRouteImport
+      parentRoute: typeof AppOrgSlugLayoutRoute
+    }
+    "/_app/$orgSlug/edge-logs": {
+      id: "/_app/$orgSlug/edge-logs"
+      path: "/edge-logs"
+      fullPath: "/$orgSlug/edge-logs"
+      preLoaderRoute: typeof AppOrgSlugEdgeLogsRouteImport
       parentRoute: typeof AppOrgSlugLayoutRoute
     }
     "/_app/$orgSlug/docker": {
@@ -530,6 +621,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppOrgSlugProjectSlugLogsRouteImport
       parentRoute: typeof AppOrgSlugProjectSlugLayoutRoute
     }
+    "/_app/$orgSlug/$projectSlug/edge-logs": {
+      id: "/_app/$orgSlug/$projectSlug/edge-logs"
+      path: "/edge-logs"
+      fullPath: "/$orgSlug/$projectSlug/edge-logs"
+      preLoaderRoute: typeof AppOrgSlugProjectSlugEdgeLogsRouteImport
+      parentRoute: typeof AppOrgSlugProjectSlugLayoutRoute
+    }
     "/_app/$orgSlug/$projectSlug/graph": {
       id: "/_app/$orgSlug/$projectSlug/graph"
       path: "/graph"
@@ -586,6 +684,7 @@ const AppOrgSlugProjectSlugGraphLayoutRouteWithChildren =
 
 interface AppOrgSlugProjectSlugLayoutRouteChildren {
   AppOrgSlugProjectSlugGraphLayoutRoute: typeof AppOrgSlugProjectSlugGraphLayoutRouteWithChildren
+  AppOrgSlugProjectSlugEdgeLogsRoute: typeof AppOrgSlugProjectSlugEdgeLogsRoute
   AppOrgSlugProjectSlugLogsRoute: typeof AppOrgSlugProjectSlugLogsRoute
   AppOrgSlugProjectSlugNetworkingRoute: typeof AppOrgSlugProjectSlugNetworkingRoute
   AppOrgSlugProjectSlugSettingsRoute: typeof AppOrgSlugProjectSlugSettingsRoute
@@ -597,6 +696,7 @@ const AppOrgSlugProjectSlugLayoutRouteChildren: AppOrgSlugProjectSlugLayoutRoute
   {
     AppOrgSlugProjectSlugGraphLayoutRoute:
       AppOrgSlugProjectSlugGraphLayoutRouteWithChildren,
+    AppOrgSlugProjectSlugEdgeLogsRoute: AppOrgSlugProjectSlugEdgeLogsRoute,
     AppOrgSlugProjectSlugLogsRoute: AppOrgSlugProjectSlugLogsRoute,
     AppOrgSlugProjectSlugNetworkingRoute: AppOrgSlugProjectSlugNetworkingRoute,
     AppOrgSlugProjectSlugSettingsRoute: AppOrgSlugProjectSlugSettingsRoute,
@@ -614,8 +714,11 @@ interface AppOrgSlugLayoutRouteChildren {
   AppOrgSlugAuditRoute: typeof AppOrgSlugAuditRoute
   AppOrgSlugBackupsRoute: typeof AppOrgSlugBackupsRoute
   AppOrgSlugDockerRoute: typeof AppOrgSlugDockerRoute
+  AppOrgSlugEdgeLogsRoute: typeof AppOrgSlugEdgeLogsRoute
+  AppOrgSlugFirewallRoute: typeof AppOrgSlugFirewallRoute
   AppOrgSlugGitProvidersRoute: typeof AppOrgSlugGitProvidersRoute
   AppOrgSlugNetworkingRoute: typeof AppOrgSlugNetworkingRoute
+  AppOrgSlugNotificationsRoute: typeof AppOrgSlugNotificationsRoute
   AppOrgSlugRegistriesRoute: typeof AppOrgSlugRegistriesRoute
   AppOrgSlugServersRoute: typeof AppOrgSlugServersRoute
   AppOrgSlugSettingsRoute: typeof AppOrgSlugSettingsRoute
@@ -630,8 +733,11 @@ const AppOrgSlugLayoutRouteChildren: AppOrgSlugLayoutRouteChildren = {
   AppOrgSlugAuditRoute: AppOrgSlugAuditRoute,
   AppOrgSlugBackupsRoute: AppOrgSlugBackupsRoute,
   AppOrgSlugDockerRoute: AppOrgSlugDockerRoute,
+  AppOrgSlugEdgeLogsRoute: AppOrgSlugEdgeLogsRoute,
+  AppOrgSlugFirewallRoute: AppOrgSlugFirewallRoute,
   AppOrgSlugGitProvidersRoute: AppOrgSlugGitProvidersRoute,
   AppOrgSlugNetworkingRoute: AppOrgSlugNetworkingRoute,
+  AppOrgSlugNotificationsRoute: AppOrgSlugNotificationsRoute,
   AppOrgSlugRegistriesRoute: AppOrgSlugRegistriesRoute,
   AppOrgSlugServersRoute: AppOrgSlugServersRoute,
   AppOrgSlugSettingsRoute: AppOrgSlugSettingsRoute,
@@ -662,6 +768,7 @@ const rootRouteChildren: RootRouteChildren = {
   DeviceRoute: DeviceRoute,
   SignInRoute: SignInRoute,
   TerminalRoute: TerminalRoute,
+  AcceptInviteInvitationIdRoute: AcceptInviteInvitationIdRoute,
   OnboardingCreateOrganizationRoute: OnboardingCreateOrganizationRoute,
 }
 export const routeTree = rootRouteImport

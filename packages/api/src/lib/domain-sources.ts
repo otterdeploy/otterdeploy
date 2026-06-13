@@ -14,6 +14,7 @@ import type { ProjectId } from "@otterdeploy/shared/id";
 import { eq } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
+import { env } from "@otterdeploy/env/server";
 import { organization } from "@otterdeploy/db/schema/auth";
 import {
   PLATFORM_SETTINGS_ID,
@@ -50,6 +51,10 @@ export async function loadDomainSourcesForProject(
     projectCustomDomainVerifiedAt: row.projectCustomDomainVerifiedAt,
     orgBaseDomain: row.orgBaseDomain,
     orgBaseDomainVerifiedAt: row.orgBaseDomainVerifiedAt,
+    // Dev only — a real install issues ACME certs off org/project domains,
+    // so the local wildcard must never leak into production resolution.
+    localBaseDomain:
+      env.NODE_ENV === "development" ? (env.LOCAL_BASE_DOMAIN ?? null) : null,
     serverIp: settings?.serverIp ?? null,
   };
 }

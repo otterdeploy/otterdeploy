@@ -11,7 +11,14 @@
  *   1. Resource override     — service.publicDomain (literal FQDN)
  *   2. Project custom domain — project.customDomain ➜ `<resource>.<customDomain>`
  *   3. Org base domain       — org.baseDomain ➜ `<resource>-<project>.<kindBase>.<baseDomain>`
- *   4. sslip.io fallback     — `<resource>-<project>.<serverIp>.sslip.io`
+ *   4. Local base domain     — `<resource>-<project>.<localBaseDomain>` (dev)
+ *   5. sslip.io fallback     — `<resource>-<project>.<serverIp>.sslip.io`
+ *
+ * The local-base level only carries a value in development (the loader
+ * gates it on NODE_ENV) — it lets exposed services resolve to the dev
+ * domain (`<name>.otterstack.localhost`, loopback → Caddy on :443) instead
+ * of the `127.0.0.1.sslip.io` form. Unverified like sslip, so `tls
+ * internal` — `.localhost` can't get a real cert anyway.
  *
  * No "platform default" branch: the `*.otterdeploy.dev` constants are
  * only correct for the SaaS install that actually owns that domain.
@@ -44,6 +51,10 @@ export interface DomainSources {
   /** Org-level apex (organization.baseDomain). */
   orgBaseDomain: string | null;
   orgBaseDomainVerifiedAt: Date | null;
+  /** Dev-only local wildcard (e.g. `otterstack.localhost`). Sits above the
+   *  sslip fallback so local installs publish a clean loopback-backed name
+   *  instead of an IP literal. Null outside development. */
+  localBaseDomain: string | null;
   /** Platform settings — used for sslip.io fallback. */
   serverIp: string | null;
 }
@@ -58,6 +69,7 @@ export interface ResolvedDomain {
     | "resource-override"
     | "project-custom"
     | "org-base"
+    | "local-base"
     | "sslip-fallback";
   /** True only when this domain was verified (TXT record check). Drives
    *  ACME issuance — unverified domains fall back to self-signed certs
@@ -108,7 +120,20 @@ export function resolvePublicDomain(
     };
   }
 
-  // 4. sslip.io fallback — works without any DNS setup at all. Uses the
+  // 4. Local base domain — dev only. A configured wildcard (`otterstack.
+  //    localhost`) that resolves to loopback, so exposed services reach the
+  //    Caddy edge on :443 under a clean name. Resource slugs are unique per
+  //    project across services + databases, so no kindBase split is needed.
+  //    Unverified ➜ `tls internal` (a `.localhost` name can't get ACME).
+  if (sources.localBaseDomain && sources.localBaseDomain.trim().length > 0) {
+    return {
+      fqdn: `${ctx.resourceSlug}-${ctx.projectSlug}.${sources.localBaseDomain.trim().toLowerCase()}`,
+      source: "local-base",
+      verified: false,
+    };
+  }
+
+  // 5. sslip.io fallback — works without any DNS setup at all. Uses the
   //    server's public IP as the rightmost label of a free sslip.io
   //    subdomain. Cert is self-signed (sslip can't get Let's Encrypt and
   //    we don't try). Verified=false so the rest of the pipeline knows

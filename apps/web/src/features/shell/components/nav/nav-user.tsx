@@ -26,16 +26,23 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   UnfoldMoreIcon,
-  SparklesIcon,
-  CheckmarkBadgeIcon,
-  CreditCardIcon,
+  CommandIcon,
+  CommandLineIcon,
+  PaintBoardIcon,
+  SunIcon,
+  MoonIcon,
+  ComputerIcon,
   LanguageCircleIcon,
-  NotificationIcon,
+  Settings01Icon,
+  DeviceAccessIcon,
   LogoutIcon,
 } from "@hugeicons/core-free-icons";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useParams } from "@tanstack/react-router";
+import { useTheme } from "next-themes";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 
+import { setCommandPaletteOpen } from "@/features/command-palette";
 import { authClient } from "@/lib/auth-client";
 import { languageNames, supportedLngs } from "@otterdeploy/i18n";
 
@@ -45,10 +52,19 @@ export interface User {
   email: string;
   image: string;
 }
+
+const THEMES = [
+  { value: "system", label: "System", icon: ComputerIcon },
+  { value: "light", label: "Light", icon: SunIcon },
+  { value: "dark", label: "Dark", icon: MoonIcon },
+] as const;
+
 export function NavUser({ user }: { user: User }) {
   const { isMobile } = useSidebar();
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const { theme, setTheme } = useTheme();
+  const { orgSlug } = useParams({ strict: false }) as { orgSlug?: string };
 
   async function handleSignOut() {
     await authClient.signOut();
@@ -75,7 +91,7 @@ export function NavUser({ user }: { user: User }) {
           >
             <Avatar>
               <AvatarImage src={user.image} alt={user.name} />
-              <AvatarFallback>CN</AvatarFallback>
+              <AvatarFallback>{user.initials}</AvatarFallback>
             </Avatar>
             <div className="grid flex-1 text-left text-sm leading-tight">
               <span className="truncate font-medium">{user.name}</span>
@@ -88,46 +104,61 @@ export function NavUser({ user }: { user: User }) {
             />
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="min-w-56 rounded-lg"
+            className="min-w-60 rounded-lg"
             side={isMobile ? "bottom" : "right"}
             align="end"
             sideOffset={4}
           >
-            <DropdownMenuGroup>
-              <DropdownMenuLabel className="p-0 font-normal">
-                <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                  <Avatar>
-                    <AvatarImage src={user.image} alt={user.name} />
-                    <AvatarFallback>CN</AvatarFallback>
-                  </Avatar>
-                  <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-medium">{user.name}</span>
-                    <span className="truncate text-xs">{user.email}</span>
-                  </div>
+            {/* Identity */}
+            <DropdownMenuLabel className="p-0 font-normal">
+              <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+                <Avatar>
+                  <AvatarImage src={user.image} alt={user.name} />
+                  <AvatarFallback>{user.initials}</AvatarFallback>
+                </Avatar>
+                <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-medium">{user.name}</span>
+                  <span className="truncate text-xs">{user.email}</span>
                 </div>
-              </DropdownMenuLabel>
-            </DropdownMenuGroup>
+              </div>
+            </DropdownMenuLabel>
+
             <DropdownMenuSeparator />
+
+            {/* Command surface */}
             <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <HugeiconsIcon icon={SparklesIcon} strokeWidth={2} />
-                {t("user.upgradeToPro")}
+              <DropdownMenuItem onClick={() => setCommandPaletteOpen(true)}>
+                <HugeiconsIcon icon={CommandIcon} strokeWidth={2} />
+                Command menu
+                <kbd className="ml-auto font-mono text-[11px] tracking-wider text-muted-foreground">
+                  ⌘K
+                </kbd>
               </DropdownMenuItem>
             </DropdownMenuGroup>
+
             <DropdownMenuSeparator />
+
+            {/* Environment: appearance + language */}
             <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <HugeiconsIcon icon={CheckmarkBadgeIcon} strokeWidth={2} />
-                {t("user.account")}
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <HugeiconsIcon icon={CreditCardIcon} strokeWidth={2} />
-                {t("user.billing")}
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <HugeiconsIcon icon={NotificationIcon} strokeWidth={2} />
-                {t("user.notifications")}
-              </DropdownMenuItem>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <HugeiconsIcon icon={PaintBoardIcon} strokeWidth={2} />
+                  Appearance
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="min-w-40">
+                  <DropdownMenuRadioGroup
+                    value={theme ?? "system"}
+                    onValueChange={(v) => setTheme(v)}
+                  >
+                    {THEMES.map((o) => (
+                      <DropdownMenuRadioItem key={o.value} value={o.value}>
+                        <HugeiconsIcon icon={o.icon} strokeWidth={2} />
+                        {o.label}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
                   <HugeiconsIcon icon={LanguageCircleIcon} strokeWidth={2} />
@@ -149,13 +180,55 @@ export function NavUser({ user }: { user: User }) {
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
             </DropdownMenuGroup>
+
             <DropdownMenuSeparator />
+
+            {/* Operator: account + machine access */}
             <DropdownMenuGroup>
-              <DropdownMenuItem onClick={() => void handleSignOut()}>
-                <HugeiconsIcon icon={LogoutIcon} strokeWidth={2} />
-                {t("user.logout")}
+              <DropdownMenuItem
+                disabled={!orgSlug}
+                onClick={() => {
+                  if (orgSlug) {
+                    void navigate({
+                      to: "/$orgSlug/settings",
+                      params: { orgSlug },
+                    });
+                  }
+                }}
+              >
+                <HugeiconsIcon icon={Settings01Icon} strokeWidth={2} />
+                {t("user.account")}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() =>
+                  toast.info("Connect CLI", {
+                    description:
+                      "Authenticate the otterdeploy CLI from here — coming soon.",
+                  })
+                }
+              >
+                <HugeiconsIcon icon={CommandLineIcon} strokeWidth={2} />
+                Connect CLI
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() =>
+                  toast.info("Active sessions", {
+                    description:
+                      "Review and revoke your signed-in devices — coming soon.",
+                  })
+                }
+              >
+                <HugeiconsIcon icon={DeviceAccessIcon} strokeWidth={2} />
+                Active sessions
               </DropdownMenuItem>
             </DropdownMenuGroup>
+
+            <DropdownMenuSeparator />
+
+            <DropdownMenuItem onClick={() => void handleSignOut()}>
+              <HugeiconsIcon icon={LogoutIcon} strokeWidth={2} />
+              {t("user.logout")}
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

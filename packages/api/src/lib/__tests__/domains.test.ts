@@ -20,6 +20,7 @@ const empty = {
   projectCustomDomainVerifiedAt: null,
   orgBaseDomain: null,
   orgBaseDomainVerifiedAt: null,
+  localBaseDomain: null,
   serverIp: null,
 };
 
@@ -72,6 +73,28 @@ describe("resolvePublicDomain", () => {
     expect(db.source).toBe("org-base");
   });
 
+  it("prefers the local base domain over sslip (dev), unverified", () => {
+    const r = resolvePublicDomain(ctx(), {
+      ...empty,
+      localBaseDomain: "otterstack.localhost",
+      serverIp: "203.0.113.7",
+    });
+    expect(r.fqdn).toBe("web-myproj.otterstack.localhost");
+    expect(r.source).toBe("local-base");
+    expect(r.verified).toBe(false);
+  });
+
+  it("org base domain wins over the local base domain", () => {
+    const r = resolvePublicDomain(ctx(), {
+      ...empty,
+      orgBaseDomain: "acme.com",
+      orgBaseDomainVerifiedAt: new Date(),
+      localBaseDomain: "otterstack.localhost",
+    });
+    expect(r.fqdn).toBe("web-myproj.apps.acme.com");
+    expect(r.source).toBe("org-base");
+  });
+
   it("falls back to sslip.io with the server IP", () => {
     const r = resolvePublicDomain(ctx(), { ...empty, serverIp: "203.0.113.7" });
     expect(r.fqdn).toBe("web-myproj.203.0.113.7.sslip.io");
@@ -92,6 +115,7 @@ describe("resolvePublicDomain", () => {
       projectCustomDomainVerifiedAt: new Date(),
       orgBaseDomain: "org.example",
       orgBaseDomainVerifiedAt: new Date(),
+      localBaseDomain: "otterstack.localhost",
       serverIp: "1.2.3.4",
     });
     expect(r.fqdn).toBe("literal.example");

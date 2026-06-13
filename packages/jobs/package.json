@@ -13,8 +13,11 @@
   },
   "scripts": {},
   "dependencies": {
+    "@otterdeploy/db": "workspace:*",
+    "@otterdeploy/email": "workspace:*",
     "@otterdeploy/env": "workspace:*",
     "bullmq": "^5.65.0",
+    "drizzle-orm": "catalog:",
     "evlog": "catalog:",
     "zod": "catalog:"
   },

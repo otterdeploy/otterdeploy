@@ -14,11 +14,20 @@
     "./caddy": {
       "default": "./src/caddy/index.ts"
     },
+    "./edge-logs": {
+      "default": "./src/edge-logs/index.ts"
+    },
     "./git": {
       "default": "./src/git/index.ts"
     },
     "./swarm": {
       "default": "./src/swarm/index.ts"
+    },
+    "./backups": {
+      "default": "./src/backups/index.ts"
+    },
+    "./metrics": {
+      "default": "./src/metrics/index.ts"
     }
   },
   "scripts": {
@@ -31,6 +40,7 @@
     "@orpc/server": "catalog:",
     "@orpc/zod": "catalog:",
     "@otterdeploy/docker": "^0.4.0",
+    "cron-parser": "^4.9.0",
     "@otterdeploy/auth": "workspace:*",
     "@otterdeploy/db": "workspace:*",
     "@otterdeploy/env": "workspace:*",

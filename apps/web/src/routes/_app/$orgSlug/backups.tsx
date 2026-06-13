@@ -1734,7 +1734,7 @@ function ScheduleEditorBody({
   };
 
   return (
-    <DialogContent className="gap-0 p-0">
+    <DialogContent className="max-w-2xl gap-0 p-0">
       <DialogHeader className="border-b px-5 py-3">
         <DialogTitle className="text-sm font-semibold">
           {initial ? `Edit schedule · ${initial.name}` : "New backup schedule"}

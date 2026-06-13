@@ -92,6 +92,34 @@ export async function decryptSecret(blob: string): Promise<string> {
   return new TextDecoder().decode(plaintext);
 }
 
+/**
+ * Binary AES-GCM for backup archives — same derived key as `encryptSecret`,
+ * but operates on raw bytes (no base64 round-trip) so large dumps don't bloat.
+ * Framing: 12-byte nonce prefix, then AES-GCM ciphertext+tag.
+ */
+export async function encryptBytes(plaintext: Uint8Array): Promise<Buffer> {
+  const key = await getKey();
+  const nonce = crypto.getRandomValues(new Uint8Array(NONCE_BYTES));
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv: nonce },
+    key,
+    plaintext as unknown as ArrayBuffer,
+  );
+  return Buffer.concat([Buffer.from(nonce), Buffer.from(ciphertext)]);
+}
+
+export async function decryptBytes(blob: Uint8Array): Promise<Buffer> {
+  const nonce = blob.subarray(0, NONCE_BYTES);
+  const ciphertext = blob.subarray(NONCE_BYTES);
+  const key = await getKey();
+  const plaintext = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: nonce as unknown as ArrayBuffer },
+    key,
+    ciphertext as unknown as ArrayBuffer,
+  );
+  return Buffer.from(plaintext);
+}
+
 function base64UrlEncode(bytes: Uint8Array): string {
   let bin = "";
   for (const b of bytes) bin += String.fromCharCode(b);

@@ -23,7 +23,7 @@ import { eq } from "drizzle-orm";
 export async function markBuilding(deploymentId: DeploymentId): Promise<void> {
   await db
     .update(deployment)
-    .set({ status: "building" })
+    .set({ status: "building", errorMessage: null, completedAt: null })
     .where(eq(deployment.id, deploymentId));
 }
 
@@ -52,7 +52,7 @@ export async function markImageReady(
 ): Promise<void> {
   await db
     .update(deployment)
-    .set({ image })
+    .set({ image, errorMessage: null })
     .where(eq(deployment.id, deploymentId));
 }
 
@@ -62,6 +62,6 @@ export async function markImageReady(
 export async function markRunning(deploymentId: DeploymentId): Promise<void> {
   await db
     .update(deployment)
-    .set({ status: "running", completedAt: new Date() })
+    .set({ status: "running", errorMessage: null, completedAt: new Date() })
     .where(eq(deployment.id, deploymentId));
 }

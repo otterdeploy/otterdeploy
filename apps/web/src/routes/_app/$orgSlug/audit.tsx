@@ -27,7 +27,10 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@/shared/components/ui/empty";
+import { formatNumber } from "@otterdeploy/shared/format";
+
 import { Input } from "@/shared/components/ui/input";
+import { JsonView } from "@/shared/components/ui/json-view";
 import {
   NativeSelect,
   NativeSelectOption,
@@ -178,16 +181,16 @@ function AuditRoute() {
 
       {/* Stat tiles */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <StatTile label="Events" value={String(counts.total)} sub="matching filters" />
+        <StatTile label="Events" value={counts.total} sub="matching filters" />
         <StatTile
           label="Failed"
-          value={String(counts.failed)}
+          value={counts.failed}
           sub="errored actions"
           tone={counts.failed > 0 ? "warn" : undefined}
         />
         <StatTile
           label="Denied"
-          value={String(counts.denied)}
+          value={counts.denied}
           sub="authz-blocked"
           tone={counts.denied > 0 ? "danger" : undefined}
         />
@@ -269,7 +272,7 @@ function AuditRoute() {
           {items.length < total && (
             <div className="flex items-center justify-center gap-3 border-t bg-muted/30 px-4 py-2.5 text-[12px] text-muted-foreground">
               <span>
-                {items.length} of {total}
+                {formatNumber(items.length)} of {formatNumber(total)}
               </span>
               <Button
                 variant="outline"
@@ -299,7 +302,7 @@ function StatTile({
   tone,
 }: {
   label: string;
-  value: string;
+  value: number;
   sub: string;
   tone?: "warn" | "danger";
 }) {
@@ -316,7 +319,7 @@ function StatTile({
             tone === "danger" && "text-destructive",
           )}
         >
-          {value}
+          {formatNumber(value)}
         </div>
         <div className="mt-0.5 text-[11px] text-muted-foreground">{sub}</div>
       </CardContent>
@@ -361,7 +364,7 @@ function EventDrawer({
 }) {
   return (
     <Sheet open={!!event} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent side="right" className="sm:max-w-lg">
+      <SheetContent side="right" className="w-full sm:max-w-3xl">
         {event && (
           <>
             <SheetHeader className="border-b">
@@ -417,16 +420,18 @@ function EventDrawer({
 
               {event.changes && (
                 <Section label="Changes">
-                  <pre className="max-h-48 overflow-auto rounded-md border bg-muted/30 p-3 font-mono text-[11px] leading-relaxed">
-                    {JSON.stringify(event.changes, null, 2)}
-                  </pre>
+                  <JsonView
+                    data={event.changes}
+                    className="max-h-72 rounded-lg border bg-muted/30 p-3.5 text-[13px]"
+                  />
                 </Section>
               )}
 
               <Section label="Full event">
-                <pre className="max-h-64 overflow-auto rounded-md border bg-muted/30 p-3 font-mono text-[10.5px] leading-relaxed">
-                  {JSON.stringify(event, null, 2)}
-                </pre>
+                <JsonView
+                  data={event}
+                  className="max-h-96 rounded-lg border bg-muted/30 p-3.5 text-[13px]"
+                />
               </Section>
             </div>
           </>

@@ -1,10 +1,20 @@
 import { matchError } from "better-result";
 
-import { orgScopedProcedure } from "../..";
-
-import type { BackupRow, DestinationRow, ScheduleRow } from "./queries";
+import { orgScopedProcedure, requirePermission } from "../..";
 import {
-  type DestinationResult,
+  createBackupRun,
+  executeBackup,
+  getDatabaseResourceInOrg,
+  listBackupLogs,
+  restoreBackup,
+} from "../../backups";
+import {
+  createScheduleRecord,
+  deleteScheduleRecord,
+  updateScheduleRecord,
+} from "../../backups/schedule-db";
+
+import {
   createDestination,
   deleteDestination,
   getBackup,
@@ -14,31 +24,12 @@ import {
   testDestination,
   updateDestination,
 } from "./service";
-
-/** Flatten an enriched backup row into the contract's `backupSchema`. */
-function presentBackup(row: BackupRow) {
-  return {
-    ...row.backup,
-    source: row.source,
-    project: row.project,
-    sourceService: row.sourceService,
-    sourceHost: row.sourceHost,
-    destinationName: row.destinationName,
-    destinationType: row.destinationType,
-  };
-}
-
-function presentSchedule(row: ScheduleRow) {
-  return { ...row.schedule, destinationName: row.destinationName };
-}
-
-function presentDestination(row: DestinationRow) {
-  return { ...row.destination, usedBytes: row.usedBytes };
-}
-
-function presentDestinationResult(row: DestinationResult) {
-  return row;
-}
+import {
+  presentBackup,
+  presentDestination,
+  presentDestinationResult,
+  presentSchedule,
+} from "./presenters";
 
 export const backupsRouter = {
   list: orgScopedProcedure.backups.list.handler(async ({ input, context }) => {
@@ -68,6 +59,65 @@ export const backupsRouter = {
     },
   ),
 
+  // Manual "backup now" — RBAC: backup:run.
+  run: requirePermission({ backup: ["run"] }).backups.run.handler(
+    async ({ input, context, errors }) => {
+      const dbResource = await getDatabaseResourceInOrg({
+        organizationId: context.activeOrganizationId,
+        resourceId: input.resourceId,
+      });
+      if (!dbResource) throw errors.INVALID();
+
+      const id = await createBackupRun({
+        organizationId: context.activeOrganizationId,
+        resourceId: input.resourceId,
+        destinationId: input.destinationId,
+        encryption: input.encryption,
+        method: "manual",
+      });
+      context.log.set({ target: { type: "backup", id } });
+      // Run detached — status + logs are observable via get/logs.
+      void executeBackup(id);
+      return { id, status: "queued" };
+    },
+  ),
+
+  // Restore a succeeded backup — RBAC: backup:restore.
+  restore: requirePermission({ backup: ["restore"] }).backups.restore.handler(
+    async ({ input, context, errors }) => {
+      context.log.set({ target: { type: "backup", id: input.id } });
+      // Scope check: the backup must belong to the caller's org.
+      const found = await getBackup({
+        id: input.id,
+        organizationId: context.activeOrganizationId,
+      });
+      if (found.isErr()) {
+        throw matchError(found.error, {
+          BackupNotFoundError: () => errors.NOT_FOUND(),
+        });
+      }
+      const result = await restoreBackup({ backupId: input.id, mode: input.mode });
+      return {
+        ok: result.ok,
+        mode: input.mode,
+        data: result.bytes ? result.bytes.toString("base64") : null,
+        filename: result.bytes ? `${input.id}.dump` : null,
+      };
+    },
+  ),
+
+  logs: orgScopedProcedure.backups.logs.handler(
+    async ({ input, context }) => {
+      // Scope check: a backup in another org (or none) yields an empty stream.
+      const found = await getBackup({
+        id: input.id,
+        organizationId: context.activeOrganizationId,
+      });
+      if (found.isErr()) return [];
+      return listBackupLogs(input.id, input.afterSeq);
+    },
+  ),
+
   schedules: {
     list: orgScopedProcedure.backups.schedules.list.handler(
       async ({ context }) => {
@@ -75,6 +125,55 @@ export const backupsRouter = {
           organizationId: context.activeOrganizationId,
         });
         return rows.map(presentSchedule);
+      },
+    ),
+
+    create: requirePermission({ backup: ["create"] }).backups.schedules.create.handler(
+      async ({ input, context }) => {
+        const row = await createScheduleRecord({
+          organizationId: context.activeOrganizationId,
+          name: input.name,
+          sources: input.sources,
+          cron: input.cron,
+          destinationId: input.destinationId,
+          projectId: input.projectId ?? null,
+          keepDaily: input.keepDaily,
+          retentionDays: input.retentionDays,
+          encryption: input.encryption,
+          enabled: input.enabled,
+        });
+        context.log.set({ target: { type: "backup_schedule", id: row.id } });
+        return presentSchedule({ schedule: row, destinationName: null });
+      },
+    ),
+
+    update: requirePermission({ backup: ["update"] }).backups.schedules.update.handler(
+      async ({ input, context, errors }) => {
+        context.log.set({ target: { type: "backup_schedule", id: input.id } });
+        const row = await updateScheduleRecord({
+          organizationId: context.activeOrganizationId,
+          id: input.id,
+          name: input.name,
+          sources: input.sources,
+          cron: input.cron,
+          keepDaily: input.keepDaily,
+          retentionDays: input.retentionDays,
+          enabled: input.enabled,
+        });
+        if (!row) throw errors.NOT_FOUND();
+        return presentSchedule({ schedule: row, destinationName: null });
+      },
+    ),
+
+    delete: requirePermission({ backup: ["delete"] }).backups.schedules.delete.handler(
+      async ({ input, context, errors }) => {
+        context.log.set({ target: { type: "backup_schedule", id: input.id } });
+        const ok = await deleteScheduleRecord({
+          organizationId: context.activeOrganizationId,
+          id: input.id,
+        });
+        if (!ok) throw errors.NOT_FOUND();
+        return { ok: true };
       },
     ),
   },
@@ -89,7 +188,7 @@ export const backupsRouter = {
       },
     ),
 
-    create: orgScopedProcedure.backups.destinations.create.handler(
+    create: requirePermission({ backup: ["create"] }).backups.destinations.create.handler(
       async ({ input, context }) => {
         const row = await createDestination({
           organizationId: context.activeOrganizationId,
@@ -105,7 +204,7 @@ export const backupsRouter = {
       },
     ),
 
-    update: orgScopedProcedure.backups.destinations.update.handler(
+    update: requirePermission({ backup: ["update"] }).backups.destinations.update.handler(
       async ({ input, context, errors }) => {
         context.log.set({
           target: { type: "backup_destination", id: input.id },
@@ -126,7 +225,7 @@ export const backupsRouter = {
       },
     ),
 
-    delete: orgScopedProcedure.backups.destinations.delete.handler(
+    delete: requirePermission({ backup: ["delete"] }).backups.destinations.delete.handler(
       async ({ input, context, errors }) => {
         context.log.set({
           target: { type: "backup_destination", id: input.id },

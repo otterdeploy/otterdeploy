@@ -1,5 +1,5 @@
 
-import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { ProjectId, ProxyRouteId, ResourceId } from "@otterdeploy/shared/id";
 import { TaggedError } from "better-result";
 
 // ---------------------------------------------------------------------------
@@ -14,6 +14,23 @@ export class ProjectNotFoundError extends TaggedError("ProjectNotFoundError")<{
     super({
       projectId: args.projectId,
       message: `project ${args.projectId} not found`,
+    });
+  }
+}
+
+/** Raised when a proxy-route mutation targets a route that doesn't exist
+ *  or doesn't belong to the caller's org (the two are indistinguishable to
+ *  the caller by design — never leak cross-org existence). */
+export class ProxyRouteNotFoundError extends TaggedError(
+  "ProxyRouteNotFoundError",
+)<{
+  message: string;
+  routeId: ProxyRouteId;
+}>() {
+  constructor(args: { routeId: ProxyRouteId }) {
+    super({
+      routeId: args.routeId,
+      message: `proxy route ${args.routeId} not found`,
     });
   }
 }

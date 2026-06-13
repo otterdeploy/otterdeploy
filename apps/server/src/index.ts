@@ -5,7 +5,14 @@ import { RPCHandler } from "@orpc/server/fetch";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { createContext } from "@otterdeploy/api/context";
 import { reconcile } from "@otterdeploy/api/caddy";
+import { startBackupScheduler } from "@otterdeploy/api/backups";
+import { startMetricsSampler } from "@otterdeploy/api/metrics";
+import {
+  startEdgeLogPersistence,
+  startEdgeLogSink,
+} from "@otterdeploy/api/edge-logs";
 import { appRouter } from "@otterdeploy/api/routers/index";
+import { ensureServerIp } from "@otterdeploy/api/lib/server-ip";
 import { initializeSwarm } from "@otterdeploy/api/swarm";
 import { auth } from "@otterdeploy/auth";
 import { env } from "@otterdeploy/env/server";
@@ -34,18 +41,19 @@ import { cors } from "hono/cors";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { invalidate } from "./lib/invalidate";
 
-import * as z from "zod";
-import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 import {
-  deploymentLogsSseHandler,
+  deployAccessHandler,
+  deployAuthorizeHandler,
+  deployAuthzHandler,
+  deployCallbackHandler,
+  deployOtpRequestHandler,
+  deployOtpVerifyHandler,
+  deployShareHandler,
   githubInstallCallbackHandler,
   githubManifestCallbackHandler,
   githubWebhookHandler,
-  projectEventsSseHandler,
   terminalWebSocketHandler,
 } from "./handlers";
-import { requireSseSession } from "./lib/sse-auth";
-import { validateParams } from "./lib/validate";
 
 import { createAuthMiddleware } from "evlog/better-auth";
 
@@ -237,28 +245,62 @@ app.get(
   githubManifestCallbackHandler,
 );
 
-// ─── SSE ───────────────────────────────────────────────────────────
-// Cookie auth + zod-validated path params via middleware; handler
-// files in ./handlers stay focused on the streaming protocol.
-app.get(
-  "/sse/deployments/:deploymentId/logs",
-  validateParams(z.object({ deploymentId: zId(ID_PREFIX.deployment) })),
-  requireSseSession,
-  deploymentLogsSseHandler,
-);
-app.get(
-  "/sse/projects/:projectId/events",
-  validateParams(z.object({ projectId: zId(ID_PREFIX.project) })),
-  requireSseSession,
-  projectEventsSseHandler,
-);
+// ─── Deployment protection (auth wall) ─────────────────────────────
+// forward_auth target (internal subrequest from Caddy) + the cross-domain
+// handoff endpoints. /api/internal/deploy-authz gates each request; the
+// /.well-known/otterdeploy/* routes run the authority→callback handoff and
+// shareable-link exchange. See docs/designs/deployment-protection.md.
+app.get("/api/internal/deploy-authz", deployAuthzHandler);
+app.get("/.well-known/otterdeploy/authorize", deployAuthorizeHandler);
+app.get("/.well-known/otterdeploy/callback", deployCallbackHandler);
+app.get("/.well-known/otterdeploy/share", deployShareHandler);
+// Guest access (email one-time PIN) — served on the deployment domain.
+app.get("/.well-known/otterdeploy/access", deployAccessHandler);
+app.post("/.well-known/otterdeploy/otp/request", deployOtpRequestHandler);
+app.post("/.well-known/otterdeploy/otp/verify", deployOtpVerifyHandler);
+
+// Live streams (deployment build logs, project events, container/task log
+// tails) all run over oRPC event-iterators on /rpc — see packages/api. The
+// client retry plugin gives them EventSource-style auto-reconnect, so there
+// are no bespoke /sse/* routes to maintain here.
 
 // Startup tasks: initialize Docker Swarm, then reconcile Caddy from the DB,
 // then boot BullMQ workers (in-process). The worker stop handle is captured
 // so SIGTERM can drain in-flight jobs before the process exits.
 let stopWorkers: (() => Promise<void>) | null = null;
+let stopBackupScheduler: (() => void) | null = null;
+let stopMetricsSampler: (() => void) | null = null;
 
 async function bootstrap() {
+  // Edge-log sink: bind the TCP listener Caddy streams access logs to.
+  // Only when EDGE_LOG_SINK is configured (otherwise the Caddyfile carries
+  // no `output net`, so nothing would connect anyway).
+  if (env.EDGE_LOG_SINK) {
+    Result.try({
+      try: () => {
+        startEdgeLogSink(env.EDGE_LOG_PORT);
+        // Persist behind the live ring unless explicitly disabled, so the
+        // 24h/7d ranges and percentiles work and survive restarts.
+        if (env.EDGE_LOG_PERSIST) startEdgeLogPersistence();
+      },
+      catch: (cause) => new BootstrapError({ step: "edge-log-sink", cause }),
+    }).match({
+      ok: () =>
+        log.info({
+          startup: {
+            step: "edge-log-sink",
+            port: env.EDGE_LOG_PORT,
+            persist: env.EDGE_LOG_PERSIST,
+          },
+        }),
+      err: (err) =>
+        log.error({
+          startup: { step: "edge-log-sink", status: "failed" },
+          error: err.message,
+        }),
+    });
+  }
+
   const swarm = await Result.tryPromise({
     try: () => initializeSwarm(),
     catch: (cause) => new BootstrapError({ step: "swarm", cause }),
@@ -268,6 +310,29 @@ async function bootstrap() {
     err: (err) =>
       log.error({
         startup: { step: "swarm", status: "failed" },
+        error: err.message,
+      }),
+  });
+
+  // Resolve the public IP for sslip.io fallback domains before reconcile,
+  // so a fresh install publishes a reachable hostname instead of loopback.
+  // Override via SERVER_IP; auto-detected in production; skipped in dev.
+  const serverIp = await Result.tryPromise({
+    try: () =>
+      ensureServerIp({
+        override: env.SERVER_IP ?? null,
+        allowDetect: env.NODE_ENV !== "development",
+      }),
+    catch: (cause) => new BootstrapError({ step: "server-ip", cause }),
+  });
+  serverIp.match({
+    ok: (result) =>
+      log.info({
+        startup: { step: "server-ip", source: result.source, ip: result.ip },
+      }),
+    err: (err) =>
+      log.error({
+        startup: { step: "server-ip", status: "failed" },
         error: err.message,
       }),
   });
@@ -315,6 +380,17 @@ async function bootstrap() {
         error: err.message,
       }),
   });
+
+  // Backup schedule scanner — scans backup_schedule rows every minute and
+  // runs due backups + retention (docs/designs/backups.md). DB is the source
+  // of truth so cron/retention edits take effect immediately.
+  stopBackupScheduler = startBackupScheduler();
+  log.info({ startup: { step: "backup-scheduler", status: "ready" } });
+
+  // Metrics sampler — records CPU/memory/network for managed containers into
+  // resource_metric every 30s (feeds the service-node metrics charts).
+  stopMetricsSampler = startMetricsSampler();
+  log.info({ startup: { step: "metrics-sampler", status: "ready" } });
 }
 
 void bootstrap();
@@ -323,9 +399,39 @@ void bootstrap();
 for (const signal of ["SIGTERM", "SIGINT"] as const) {
   process.once(signal, async () => {
     log.info({ shutdown: { signal, step: "draining-workers" } });
+    if (stopBackupScheduler) stopBackupScheduler();
+    if (stopMetricsSampler) stopMetricsSampler();
     if (stopWorkers) await stopWorkers().catch(() => undefined);
     process.exit(0);
   });
+}
+
+// Dev-only fixed-port listener so the Caddy container can always reach the
+// control plane at a stable address for forward_auth + the cross-domain
+// auth-handoff callback/share routes. The main server's port is assigned
+// dynamically by portless, so host.docker.internal:<that> isn't knowable;
+// this binds a deterministic port (DEPLOY_AUTHZ_UPSTREAM points here). In
+// production the server is a Swarm service with stable DNS, so
+// CONTROL_PLANE_PORT is left unset and this is skipped. Bound once across
+// --hot reloads via a global guard (avoids EADDRINUSE).
+const g = globalThis as typeof globalThis & {
+  __controlPlaneListener?: { reload: (o: { fetch: typeof app.fetch }) => void };
+};
+if (env.CONTROL_PLANE_PORT) {
+  if (g.__controlPlaneListener) {
+    // --hot reloaded: swap the handler in place so the auth routes pick up
+    // edits without a rebind (avoids both EADDRINUSE and stale code).
+    g.__controlPlaneListener.reload({ fetch: app.fetch });
+  } else {
+    g.__controlPlaneListener = Bun.serve({
+      port: env.CONTROL_PLANE_PORT,
+      hostname: "0.0.0.0",
+      fetch: app.fetch,
+    });
+    log.info({
+      startup: { step: "control-plane-listener", port: env.CONTROL_PLANE_PORT },
+    });
+  }
 }
 
 export default {

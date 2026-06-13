@@ -25,6 +25,7 @@
 
 import type { GitProviderId } from "@otterdeploy/shared/id";
 
+import { TaggedError } from "better-result";
 import { createError } from "evlog";
 
 import {
@@ -54,12 +55,13 @@ export interface GithubAppConfigWithWebhookSecret extends GithubAppConfig {
   providerId: GitProviderId;
 }
 
-export class GithubAppNotConfiguredError extends Error {
+export class GithubAppNotConfiguredError extends TaggedError("GithubAppNotConfiguredError")<{
+  message: string;
+}>() {
   constructor(reason?: string) {
-    super(
-      `GitHub App not configured${reason ? ` (${reason})` : ""} — create one via the manifest flow in Settings → Git Providers`,
-    );
-    this.name = "GithubAppNotConfiguredError";
+    super({
+      message: `GitHub App not configured${reason ? ` (${reason})` : ""} — create one via the manifest flow in Settings → Git Providers`,
+    });
   }
 }
 

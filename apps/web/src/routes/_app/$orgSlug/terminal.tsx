@@ -61,7 +61,7 @@ function RouteComponent() {
   }
 
   return (
-    <div className="flex h-[calc(100svh-var(--header-height))] flex-col gap-3 p-4">
+    <div className="flex h-[calc(100svh-var(--header-height))] min-h-0 min-w-0 flex-col gap-3 overflow-hidden p-4">
       {/* Single-row header: title chunk · tab strip · actions */}
       <header className="flex h-9 items-center gap-2">
         <div className="flex shrink-0 items-center gap-1.5">

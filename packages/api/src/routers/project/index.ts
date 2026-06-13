@@ -1,6 +1,9 @@
 import { matchError } from "better-result";
+import { withEventMeta } from "@orpc/server";
 
 import { orgScopedProcedure } from "../../index";
+
+import { streamDeploymentLogs } from "../deployment/log-stream";
 
 import {
   bulkReplaceProjectEnvVarsForOrg,
@@ -18,9 +21,16 @@ import {
   getProject,
   getProjectBySlugForOrg,
   getProjectResource,
+  createDeploymentBypassToken,
+  createDeploymentShareLink,
+  inviteDeploymentGuest,
+  listDeploymentGuests,
+  removeDeploymentGuest,
   listProjectDependencies,
   listProjectEnvVarsForOrg,
+  getProjectCaddyfile,
   listProjectProxyRoutes,
+  setProxyRouteProtection,
   listProjectResources,
   listProjects,
   listProjectServiceTasks,
@@ -186,6 +196,124 @@ export const projectRouter = {
         if (result.isErr()) {
           throw matchError(result.error, {
             ProjectNotFoundError: () => errors.NOT_FOUND(),
+          });
+        }
+        return result.value;
+      },
+    ),
+
+    caddyfile: orgScopedProcedure.project.proxyRoute.caddyfile.handler(
+      async ({ input, context, errors }) => {
+        const result = await getProjectCaddyfile({
+          projectId: input.projectId,
+          organizationId: context.activeOrganizationId,
+        });
+        if (result.isErr()) {
+          throw matchError(result.error, {
+            ProjectNotFoundError: () => errors.NOT_FOUND(),
+          });
+        }
+        return result.value;
+      },
+    ),
+
+    setProtection: orgScopedProcedure.project.proxyRoute.setProtection.handler(
+      async ({ input, context, errors }) => {
+        context.log.set({ target: { type: "proxy-route", id: input.routeId } });
+        const result = await setProxyRouteProtection(
+          {
+            routeId: input.routeId,
+            protected: input.protected,
+            organizationId: context.activeOrganizationId,
+          },
+          context.log,
+        );
+        if (result.isErr()) {
+          throw matchError(result.error, {
+            ProxyRouteNotFoundError: () => errors.NOT_FOUND(),
+          });
+        }
+        return result.value;
+      },
+    ),
+
+    createShareLink:
+      orgScopedProcedure.project.proxyRoute.createShareLink.handler(
+        async ({ input, context, errors }) => {
+          const result = await createDeploymentShareLink({
+            routeId: input.routeId,
+            expiresInHours: input.expiresInHours,
+            organizationId: context.activeOrganizationId,
+          });
+          if (result.isErr()) {
+            throw matchError(result.error, {
+              ProxyRouteNotFoundError: () => errors.NOT_FOUND(),
+            });
+          }
+          return result.value;
+        },
+      ),
+
+    createBypassToken:
+      orgScopedProcedure.project.proxyRoute.createBypassToken.handler(
+        async ({ input, context, errors }) => {
+          const result = await createDeploymentBypassToken({
+            routeId: input.routeId,
+            expiresInDays: input.expiresInDays,
+            organizationId: context.activeOrganizationId,
+          });
+          if (result.isErr()) {
+            throw matchError(result.error, {
+              ProxyRouteNotFoundError: () => errors.NOT_FOUND(),
+            });
+          }
+          return result.value;
+        },
+      ),
+
+    listGuests: orgScopedProcedure.project.proxyRoute.listGuests.handler(
+      async ({ input, context, errors }) => {
+        const result = await listDeploymentGuests({
+          routeId: input.routeId,
+          organizationId: context.activeOrganizationId,
+        });
+        if (result.isErr()) {
+          throw matchError(result.error, {
+            ProxyRouteNotFoundError: () => errors.NOT_FOUND(),
+          });
+        }
+        return result.value;
+      },
+    ),
+
+    inviteGuest: orgScopedProcedure.project.proxyRoute.inviteGuest.handler(
+      async ({ input, context, errors }) => {
+        const result = await inviteDeploymentGuest({
+          routeId: input.routeId,
+          email: input.email,
+          sessionHours: input.sessionHours,
+          organizationId: context.activeOrganizationId,
+          invitedByUserId: context.session.user.id,
+        });
+        if (result.isErr()) {
+          throw matchError(result.error, {
+            ProxyRouteNotFoundError: () => errors.NOT_FOUND(),
+          });
+        }
+        return result.value;
+      },
+    ),
+
+    removeGuest: orgScopedProcedure.project.proxyRoute.removeGuest.handler(
+      async ({ input, context, errors }) => {
+        const result = await removeDeploymentGuest({
+          routeId: input.routeId,
+          guestId: input.guestId,
+          organizationId: context.activeOrganizationId,
+        });
+        if (result.isErr()) {
+          throw matchError(result.error, {
+            ProxyRouteNotFoundError: () => errors.NOT_FOUND(),
           });
         }
         return result.value;
@@ -411,6 +539,29 @@ export const projectRouter = {
             });
           },
         ),
+      },
+
+      // Build-pipeline logs (builder → Redis + deployment_log table). Each
+      // scrollback line carries its DB seq as the event-iterator id so the
+      // client retry plugin can resume via `lastEventId` instead of replaying
+      // the whole log on reconnect. Live lines (seq null) ship without an id.
+      buildLogs: {
+        stream:
+          orgScopedProcedure.project.resource.deployments.buildLogs.stream.handler(
+            async function* ({ input, context, lastEventId }) {
+              context.log.set({ deploymentId: input.deploymentId });
+              const generator = streamDeploymentLogs({
+                deploymentId: input.deploymentId,
+                organizationId: context.activeOrganizationId,
+                afterSeq: lastEventId != null ? Number(lastEventId) : null,
+              });
+              for await (const line of generator) {
+                yield line.seq != null
+                  ? withEventMeta(line, { id: String(line.seq) })
+                  : line;
+              }
+            },
+          ),
       },
     },
 

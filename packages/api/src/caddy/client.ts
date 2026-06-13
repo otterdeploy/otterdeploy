@@ -10,6 +10,12 @@ export type LoadResult =
   | { ok: true }
   | { ok: false; error: string };
 
+const CADDY_ADMIN_TIMEOUT_MS = 5_000;
+
+function timeoutSignal(): AbortSignal {
+  return AbortSignal.timeout(CADDY_ADMIN_TIMEOUT_MS);
+}
+
 export async function adaptCaddyfile(
   caddyfile: string,
   adminUrl: string,
@@ -22,6 +28,7 @@ export async function adaptCaddyfile(
       method: "POST",
       headers: { "Content-Type": "text/caddyfile" },
       body: caddyfile,
+      signal: timeoutSignal(),
     });
 
     if (!response.ok) {
@@ -55,6 +62,7 @@ export async function loadCaddyfile(
         "Cache-Control": "must-revalidate",
       },
       body: caddyfile,
+      signal: timeoutSignal(),
     });
 
     if (!response.ok) {

@@ -24,6 +24,8 @@ import { Readable } from "node:stream";
 import type { Docker } from "@otterdeploy/docker";
 import { DockerNotFoundError } from "@otterdeploy/docker";
 
+import { readNdjson } from "./stream-parse";
+
 export interface ImagePullEvent {
   image: string;
   id: string | null;
@@ -54,37 +56,6 @@ interface DockerPullLine {
   progressDetail?: { current?: number; total?: number };
   error?: string;
   errorDetail?: { message?: string };
-}
-
-// Read the JSON-line stream and yield one parsed line per object. Buffers
-// partial lines across chunks so we never split a JSON document.
-async function* readJsonLines(stream: NodeJS.ReadableStream): AsyncGenerator<DockerPullLine, void, void> {
-  let buffer = "";
-  for await (const chunk of stream as AsyncIterable<Buffer | string>) {
-    buffer += typeof chunk === "string" ? chunk : chunk.toString("utf8");
-    let nl = buffer.indexOf("\n");
-    while (nl !== -1) {
-      const raw = buffer.slice(0, nl).trim();
-      buffer = buffer.slice(nl + 1);
-      if (raw.length > 0) {
-        try {
-          yield JSON.parse(raw) as DockerPullLine;
-        } catch {
-          // The docker daemon occasionally emits multiple JSON objects on a
-          // single line. Don't fall over — drop the unparseable line and
-          // continue the stream.
-        }
-      }
-      nl = buffer.indexOf("\n");
-    }
-  }
-  if (buffer.trim().length > 0) {
-    try {
-      yield JSON.parse(buffer.trim()) as DockerPullLine;
-    } catch {
-      // ignore final partial
-    }
-  }
 }
 
 function toEvent(image: string, line: DockerPullLine): ImagePullEvent {
@@ -135,7 +106,7 @@ export async function* streamImagePull(
       ? pullResult.value
       : Readable.from(pullResult.value as NodeJS.ReadableStream);
 
-  for await (const line of readJsonLines(stream)) {
+  for await (const line of readNdjson<DockerPullLine>(stream)) {
     yield toEvent(image, line);
     if (line.error || line.errorDetail) {
       // Surface the error event and stop iterating — caller decides whether

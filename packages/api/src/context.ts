@@ -28,6 +28,10 @@ export async function createContext({
     activeOrganizationId: (session?.session.activeOrganizationId ?? null) as
       | OrgId
       | null,
+    // Raw request headers — carried so org-scoped middleware can delegate
+    // role/permission checks to better-auth's `auth.api.hasPermission`
+    // (which resolves the active member from the session cookie/bearer).
+    headers: context.req.raw.headers,
     log,
     broadcast,
   };

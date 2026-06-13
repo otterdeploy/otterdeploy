@@ -1,12 +1,10 @@
-import { createCollection, type SimpleComparison } from "@tanstack/db";
+import { createCollection } from "@tanstack/db";
 import {
   parseLoadSubsetOptions,
   queryCollectionOptions,
 } from "@tanstack/query-db-collection";
 
-import { z } from "zod";
-
-import { zId } from "@otterdeploy/shared/id";
+import { parseCol, projectIdSchema } from "@/shared/lib/utils";
 
 import { orpc, queryClient } from "@/shared/server/orpc";
 
@@ -20,29 +18,24 @@ import { orpc, queryClient } from "@/shared/server/orpc";
  * filter as `loadSubsetOptions`, from which `queryKey` / `queryFn` recover the
  * `projectId` to fetch (and cache) the right subset.
  */
-function parseCol<T extends z.ZodType>(
-  schema: T,
-  filters: SimpleComparison[],
-  field = "id",
-): z.infer<T> {
-  // `field` on a SimpleComparison is a path array (e.g. ["projectId"]); match
-  // on its leaf segment.
-  const expr = filters.find((f) => f.field.at(-1) === field);
-  if (!expr) throw new Error(`${field} is required`);
-  return schema.parse(expr.value);
-}
-
-const projectIdSchema = zId("project");
-
 export const dependenciesCollection = createCollection(
   queryCollectionOptions({
+    syncMode: "on-demand",
     queryKey: (opts) => {
+      const baseQuery = ["dependencies"];
       const { filters } = parseLoadSubsetOptions(opts);
+
+      if (!filters.at(0)) return baseQuery;
+
       const projectId = parseCol(projectIdSchema, filters, "projectId");
-      return orpc.project.dependencies.queryKey({ input: { projectId } });
+      const queryKey = orpc.project.dependencies.queryKey({
+        input: { projectId },
+      });
+      return [...baseQuery, ...queryKey];
     },
     queryFn: async (ctx) => {
       const { filters } = parseLoadSubsetOptions(ctx.meta?.loadSubsetOptions);
+
       const projectId = parseCol(projectIdSchema, filters, "projectId");
       return orpc.project.dependencies.call({ projectId });
     },

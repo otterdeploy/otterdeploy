@@ -112,6 +112,67 @@ export const testResultSchema = z.object({
   message: z.string(),
 });
 
+// ─── Execution + schedule inputs ─────────────────────────────────────────
+
+export const runBackupInput = z.object({
+  resourceId: resourceIdField,
+  destinationId: backupDestinationIdField,
+  encryption: z.enum(["none", "aes-256-gcm"]).default("aes-256-gcm"),
+});
+
+export const restoreBackupInput = z.object({
+  id: backupIdField,
+  mode: z.enum(["download", "in-place"]).default("in-place"),
+});
+
+export const backupLogsInput = z.object({
+  id: backupIdField,
+  afterSeq: z.number().int().nonnegative().default(0),
+});
+
+export const backupLogLineSchema = z.object({
+  seq: z.number(),
+  stream: z.string(),
+  line: z.string(),
+  ts: z.date(),
+});
+
+export const createScheduleInput = z.object({
+  name: z.string().min(1).max(120),
+  sources: z.array(z.string()).default([]),
+  cron: z.string().min(1),
+  destinationId: backupDestinationIdField,
+  projectId: projectIdField.optional(),
+  keepDaily: z.number().int().nonnegative().default(0),
+  retentionDays: z.number().int().positive().nullable().default(null),
+  encryption: z.enum(["none", "aes-256-gcm"]).default("aes-256-gcm"),
+  enabled: z.boolean().default(true),
+});
+
+export const updateScheduleInput = z.object({
+  id: backupScheduleIdField,
+  name: z.string().min(1).max(120).optional(),
+  sources: z.array(z.string()).optional(),
+  cron: z.string().min(1).optional(),
+  keepDaily: z.number().int().nonnegative().optional(),
+  retentionDays: z.number().int().positive().nullable().optional(),
+  enabled: z.boolean().optional(),
+});
+
+export const scheduleIdInput = z.object({ id: backupScheduleIdField });
+
+const scheduleNotFound = {
+  NOT_FOUND: { status: 404 as const, message: "Schedule not found" as const },
+};
+
+const backupRunNotFound = {
+  NOT_FOUND: { status: 404 as const, message: "Backup not found" as const },
+  INVALID: {
+    status: 422 as const,
+    message: "Resource is not a database" as const,
+  },
+};
+
 // ─── Contract ──────────────────────────────────────────────────────────
 
 export const backupsContract = {
@@ -126,11 +187,56 @@ export const backupsContract = {
     .input(getBackupInput)
     .output(backupSchema),
 
+  // Enqueue + execute a manual "backup now" run for a database resource.
+  run: oc
+    .errors(backupRunNotFound)
+    .meta({ path: `${basePath}/run`, tag, method: "POST" })
+    .input(runBackupInput)
+    .output(z.object({ id: backupIdField, status: z.string() })),
+
+  // Restore a succeeded backup (download bytes as base64, or in-place).
+  restore: oc
+    .errors(backupNotFound)
+    .meta({ path: `${basePath}/{id}/restore`, tag, method: "POST" })
+    .input(restoreBackupInput)
+    .output(
+      z.object({
+        ok: z.boolean(),
+        mode: z.enum(["download", "in-place"]),
+        // base64-encoded archive, present only for `download`.
+        data: z.string().nullable(),
+        filename: z.string().nullable(),
+      }),
+    ),
+
+  // Paginated per-run log lines (cursor = afterSeq).
+  logs: oc
+    .meta({ path: `${basePath}/{id}/logs`, tag, method: "GET" })
+    .input(backupLogsInput)
+    .output(z.array(backupLogLineSchema)),
+
   schedules: {
     list: oc
       .meta({ path: `${basePath}/schedules`, tag, method: "GET" })
       .input(z.object({}).optional())
       .output(z.array(scheduleSchema)),
+
+    create: oc
+      .meta({ path: `${basePath}/schedules`, tag, method: "POST" })
+      .input(createScheduleInput)
+      .output(scheduleSchema),
+
+    update: oc
+      .errors(scheduleNotFound)
+      .meta({ path: `${basePath}/schedules/{id}`, tag, method: "PATCH" })
+      .input(updateScheduleInput)
+      .output(scheduleSchema),
+
+    delete: oc
+      .errors(scheduleNotFound)
+      .meta({ path: `${basePath}/schedules/{id}`, tag, method: "DELETE" })
+      .input(scheduleIdInput)
+      .output(z.object({ ok: z.boolean() })),
   },
 
   destinations: {

@@ -41,6 +41,7 @@ export const ID_PREFIX = {
   projectEnvSubscription: "psub",
   environment: "env",
   proxyRoute: "proxy_route",
+  deploymentGuest: "guest",
   server: "server",
   // workspace: "workspace",
   workspace: "wksp",
@@ -62,6 +63,9 @@ export const ID_PREFIX = {
 
   // audit trail
   auditLog: "audit",
+
+  // in-app notifications
+  notification: "notif",
 } as const;
 
 export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];
@@ -190,6 +194,7 @@ export type ProjectEnvSubscriptionId = Id<
 >;
 export type EnvironmentId = Id<typeof ID_PREFIX.environment>;
 export type ProxyRouteId = Id<typeof ID_PREFIX.proxyRoute>;
+export type DeploymentGuestId = Id<typeof ID_PREFIX.deploymentGuest>;
 export type ServerId = Id<typeof ID_PREFIX.server>;
 export type WorkspaceId = Id<typeof ID_PREFIX.workspace>;
 
@@ -210,6 +215,8 @@ export type BackupDestinationId = Id<typeof ID_PREFIX.backupDestination>;
 export type BackupLogId = Id<typeof ID_PREFIX.backupLog>;
 
 export type AuditLogId = Id<typeof ID_PREFIX.auditLog>;
+
+export type NotificationId = Id<typeof ID_PREFIX.notification>;
 
 // Slugs (URL-safe identifiers, distinct from cuid IDs)
 export type ProjectSlug = Slug<typeof ID_PREFIX.project>;

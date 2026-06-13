@@ -51,12 +51,21 @@ export interface BuildDockerfileConfig extends BuildCommon {
  *  provider. `staticRoot` sets that directory (defaults to `dist`, the Vite
  *  output) — override it for frameworks that emit elsewhere (e.g. CRA's
  *  `build`). Both are honored only when the build is detected/configured as
- *  static. */
+ *  static.
+ *
+ *  `packageManager` overrides the repo's `packageManager` field (e.g.
+ *  "bun@1.3.13", "pnpm@9.12.0") — the builder rewrites the workspace-root
+ *  `package.json` before building, so the pin applies to every manager: bun
+ *  resolves its version from that field via mise, while pnpm/yarn/npm are
+ *  installed by Corepack, which reads the same field. Use it to escape a repo
+ *  pinned to a broken release (e.g. bun 1.3.1's failing native install on Linux
+ *  ARM64). Unset = use the repo's own field, or railpack's default if none. */
 export interface BuildRailpackConfig extends BuildCommon {
   builder: "railpack";
   buildCommand?: string | null;
   spa?: boolean | null;
   staticRoot?: string | null;
+  packageManager?: string | null;
 }
 
 /** Compose: build/orchestrate from a docker-compose file. `composePath`

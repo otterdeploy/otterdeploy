@@ -98,10 +98,16 @@ export function createLogSink(opts: {
     // absent (no live tail viewer), and a publish failure here is
     // never worth failing the build over.
     opts.publisher
-      .publish(channel, JSON.stringify({ stream, line: clean, ts: ts.toISOString() }))
+      .publish(
+        channel,
+        JSON.stringify({ stream, line: clean, ts: ts.toISOString() }),
+      )
       .catch((err) =>
         globalLog.warn({
-          build: { event: "log-publish-failed", deploymentId: opts.deploymentId },
+          build: {
+            event: "log-publish-failed",
+            deploymentId: opts.deploymentId,
+          },
           error: err instanceof Error ? err.message : String(err),
         } as Record<string, unknown>),
       );

@@ -13,6 +13,7 @@ import type {
   ServicePortId,
 } from "@otterdeploy/shared/id";
 import type { BuildConfig } from "@otterdeploy/shared/build-config";
+import type { FrameworkKind } from "@otterdeploy/shared/framework";
 import {
   boolean,
   index,
@@ -332,6 +333,12 @@ export const serviceResource = pgTable(
     // Monorepo support: when source = "git", the path within the repo to
     // hand to nixpacks. Null = repo root.
     sourceSubdir: text("source_subdir"),
+    // Framework/language detected at build time (next/vite/go/python/…), used
+    // by the graph to render the service's brand logo. Captured by the builder
+    // from the cloned repo + railpack's analysis — NOT from the git API — and
+    // stored here so the graph reads it without any network call. Null until
+    // the first successful build, or when nothing recognisable was detected.
+    framework: text("framework").$type<FrameworkKind>(),
 
     replicas: integer("replicas").notNull().default(1),
 

@@ -1,3 +1,5 @@
+import { auth } from "@otterdeploy/auth";
+import type { PermissionCheck } from "@otterdeploy/auth/permissions";
 import { ID_PREFIX } from "@otterdeploy/shared/id";
 import type { Id } from "@otterdeploy/shared/id";
 import type { Context } from "./context";
@@ -6,9 +8,13 @@ import { implement, ORPCError, os as orpc } from "@orpc/server";
 
 import { auditContract } from "./routers/audit/contract";
 import { backupsContract } from "./routers/backups/contract";
+import { databaseContract } from "./routers/database/contract";
 import { dockerContract } from "./routers/docker/contract";
+import { edgeLogsContract } from "./routers/edge-logs/contract";
 import { envContract } from "./routers/env/contract";
+import { firewallContract } from "./routers/firewall/contract";
 import { gitContract } from "./routers/git/contract";
+import { metricsContract } from "./routers/metrics/contract";
 import { organizationContract } from "./routers/organization/contract";
 import { projectContract } from "./routers/project/contract";
 import { registryContract } from "./routers/registry/contract";
@@ -89,9 +95,13 @@ const traceProcedure = orpc
 export const publicProcedure = implement({
   audit: auditContract,
   backups: backupsContract,
+  database: databaseContract,
   docker: dockerContract,
+  edgeLogs: edgeLogsContract,
   env: envContract,
+  firewall: firewallContract,
   git: gitContract,
+  metrics: metricsContract,
   organization: organizationContract,
   project: projectContract,
   registry: registryContract,
@@ -153,3 +163,38 @@ const orgScopedMiddleware = orpc
   });
 
 export const orgScopedProcedure = publicProcedure.use(orgScopedMiddleware);
+
+/**
+ * Build an org-scoped procedure that additionally requires a specific RBAC
+ * permission. Role resolution + the permission check are delegated to
+ * better-auth's `auth.api.hasPermission` (statements/roles defined in
+ * `@otterdeploy/auth/permissions`) — no hand-rolled member-table lookups.
+ *
+ * Usage:
+ *   requirePermission({ backup: ["run"] }).backups.run.handler(...)
+ *   requirePermission({ member: ["create"] }).organization.invite.handler(...)
+ */
+export function requirePermission(permission: PermissionCheck) {
+  const permissionMiddleware = orpc
+    .$context<Context>()
+    .errors({
+      FORBIDDEN: {
+        status: 403,
+        message: "You don't have permission to perform this action.",
+      },
+    })
+    .middleware(async ({ context, next, errors }) => {
+      const { success } = await auth.api.hasPermission({
+        headers: context.headers,
+        body: {
+          permissions: permission as Record<string, string[]>,
+        },
+      });
+      if (!success) {
+        throw errors.FORBIDDEN();
+      }
+      return next();
+    });
+
+  return orgScopedProcedure.use(permissionMiddleware);
+}

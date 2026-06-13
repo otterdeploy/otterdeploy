@@ -17,6 +17,7 @@
 
 import type { DeploymentId } from "@otterdeploy/shared/id";
 
+import { TaggedError } from "better-result";
 import { db } from "@otterdeploy/db";
 import {
   containerRegistry,
@@ -45,9 +46,12 @@ export interface PipelineContext {
   repo: typeof gitRepo.$inferSelect;
 }
 
-export class PipelineLoadError extends Error {
-  constructor(public readonly step: string, message: string) {
-    super(`pipeline-load: ${step}: ${message}`);
+export class PipelineLoadError extends TaggedError("PipelineLoadError")<{
+  step: string;
+  message: string;
+}>() {
+  constructor(step: string, reason: string) {
+    super({ step, message: `pipeline-load: ${step}: ${reason}` });
   }
 }
 

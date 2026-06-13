@@ -24,7 +24,7 @@ import type { DeploymentId, OrganizationId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { deployment, deploymentLog, resource, project } from "@otterdeploy/db/schema";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, gt } from "drizzle-orm";
 
 import { createRedis } from "../../lib/redis";
 
@@ -42,6 +42,9 @@ export interface DeploymentLogLine {
 interface StreamInput {
   deploymentId: DeploymentId;
   organizationId: OrgId;
+  /** Resume cursor from the client's `lastEventId` — skip scrollback rows at
+   *  or before this seq so a reconnect doesn't replay the whole log. */
+  afterSeq?: number | null;
 }
 
 const TERMINAL_STATUSES: ReadonlySet<string> = new Set([
@@ -111,6 +114,10 @@ export async function* streamDeploymentLogs(
   }
 
   try {
+    const afterSeq =
+      typeof input.afterSeq === "number" && Number.isFinite(input.afterSeq)
+        ? input.afterSeq
+        : null;
     const scrollback = await db
       .select({
         seq: deploymentLog.seq,
@@ -119,7 +126,14 @@ export async function* streamDeploymentLogs(
         ts: deploymentLog.ts,
       })
       .from(deploymentLog)
-      .where(eq(deploymentLog.deploymentId, input.deploymentId))
+      .where(
+        afterSeq == null
+          ? eq(deploymentLog.deploymentId, input.deploymentId)
+          : and(
+              eq(deploymentLog.deploymentId, input.deploymentId),
+              gt(deploymentLog.seq, afterSeq),
+            ),
+      )
       .orderBy(asc(deploymentLog.seq));
 
     for (const row of scrollback) {

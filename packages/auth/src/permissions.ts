@@ -1,0 +1,85 @@
+/**
+ * Organization access control (RBAC).
+ *
+ * Built on better-auth's access-control primitives so role resolution and
+ * permission checks go through `auth.api.hasPermission` — no hand-rolled
+ * `member`-table lookups scattered across handlers. Statements below extend
+ * better-auth's org defaults (organization/member/invitation/team/ac) with
+ * otterdeploy's own resources.
+ *
+ * Roles:
+ *   - owner  : full control, including deleting the org
+ *   - admin  : manage everything except deleting the org
+ *   - member : read everything, create/update + deploy app resources, but no
+ *              destructive infra deletes and no member/org administration
+ */
+import { createAccessControl } from "better-auth/plugins/access";
+import {
+  adminAc as orgAdminAc,
+  memberAc as orgMemberAc,
+  ownerAc as orgOwnerAc,
+  defaultStatements,
+} from "better-auth/plugins/organization/access";
+
+export const statements = {
+  // better-auth org defaults (organization/member/invitation/team/ac).
+  ...defaultStatements,
+
+  // otterdeploy resources.
+  project: ["create", "read", "update", "delete"],
+  service: ["create", "read", "update", "delete", "deploy"],
+  database: ["create", "read", "update", "delete", "query"],
+  backup: ["create", "read", "update", "delete", "run", "restore"],
+  route: ["create", "read", "update", "delete"],
+  env: ["read", "update"],
+  server: ["create", "read", "update", "delete"],
+  firewall: ["read", "update"],
+} as const;
+
+export const ac = createAccessControl(statements);
+
+/** Read everything; mutate the app-resource surface; no admin/destructive ops. */
+export const member = ac.newRole({
+  ...orgMemberAc.statements,
+  project: ["create", "read", "update"],
+  service: ["create", "read", "update", "deploy"],
+  database: ["create", "read", "update", "query"],
+  backup: ["create", "read", "run", "restore"],
+  route: ["create", "read", "update"],
+  env: ["read", "update"],
+  server: ["read"],
+  firewall: ["read"],
+});
+
+/** Everything except deleting the org. */
+export const admin = ac.newRole({
+  ...orgAdminAc.statements,
+  project: ["create", "read", "update", "delete"],
+  service: ["create", "read", "update", "delete", "deploy"],
+  database: ["create", "read", "update", "delete", "query"],
+  backup: ["create", "read", "update", "delete", "run", "restore"],
+  route: ["create", "read", "update", "delete"],
+  env: ["read", "update"],
+  server: ["create", "read", "update", "delete"],
+  firewall: ["read", "update"],
+});
+
+/** Full control. */
+export const owner = ac.newRole({
+  ...orgOwnerAc.statements,
+  project: ["create", "read", "update", "delete"],
+  service: ["create", "read", "update", "delete", "deploy"],
+  database: ["create", "read", "update", "delete", "query"],
+  backup: ["create", "read", "update", "delete", "run", "restore"],
+  route: ["create", "read", "update", "delete"],
+  env: ["read", "update"],
+  server: ["create", "read", "update", "delete"],
+  firewall: ["read", "update"],
+});
+
+export const roles = { member, admin, owner };
+
+/** A single `{ resource: actions[] }` permission check. */
+export type PermissionCheck = {
+  [K in keyof typeof statements]?: Array<(typeof statements)[K][number]>;
+};

@@ -1,6 +1,5 @@
 import type { Edge, Node } from "@xyflow/react";
 
-import type { FrameworkKind } from "@/features/projects/components/framework-logo";
 import {
   resourceToNode,
   type ProjectResource,
@@ -42,39 +41,6 @@ const withReplicas = (node: LiveNode, tasks: Task[]): LiveNode =>
         },
       };
 
-// Discriminated narrowing for "publicly-exposed service" — picks the service
-// variant of the ProjectResource union AND asserts publicDomain is non-null.
-type PublicService = Extract<Resource, { type: "service" }> & {
-  publicDomain: string;
-};
-
-/** Whether this resource is a publicly-exposed service that needs a route node. */
-const hasPublicRoute = (r: Resource): r is PublicService =>
-  r.type === "service" && !!r.publicEnabled && !!r.publicDomain;
-
-/** Synthetic ingress node sitting in front of a publicly-exposed service. */
-const buildRouteNode = (
-  r: PublicService,
-  status: ResourceStatus,
-): LiveNode => ({
-  id: `route:${r.resourceId}`,
-  type: "resource",
-  position: { x: 0, y: 0 },
-  data: {
-    kind: "route",
-    name: r.publicDomain,
-    description: `Public route → ${r.name}`,
-    status,
-  } as ResourceNodeData,
-});
-
-/** Route → service edge so dagre ranks the route above its service. */
-const buildRouteEdge = (r: PublicService): Edge => ({
-  id: `route:${r.resourceId}->${r.resourceId}`,
-  source: `route:${r.resourceId}`,
-  target: r.resourceId,
-});
-
 /** Pending manifest changes the graph should overlay onto its nodes.
  *  Keyed by `${resourceType}:${name}` so create-stubs and existing-node
  *  markers stay aligned with whatever the diff reports. */
@@ -88,8 +54,7 @@ export interface PendingByName {
 }
 
 /**
- * Turn raw resources + live task data into the full node list, including
- * synthetic route nodes that sit in front of publicly-exposed services.
+ * Turn raw resources + live task data into the full node list.
  *
  * The rollup picks the most concerning state across replicas
  * (error > building > running) so the header pill matches operator intuition —
@@ -103,21 +68,17 @@ export const buildLiveNodes = (
   resources: Resource[],
   tasksByResourceId: Map<string, Task[]>,
   pending?: PendingByName,
-  /** Detected framework per service resource — populated by
-   *  useServiceFrameworks. Merged into service node data so the
-   *  header tile can render the framework brand mark. */
-  frameworksByResourceId?: Map<string, FrameworkKind>,
 ): LiveNode[] => {
   const realNodes = resources.flatMap((r) => {
+    // The framework (brand logo) already rides on base.data — resourceToNode
+    // reads it straight off the stored resource record. No live lookup.
     const base = resourceToNode(r);
-    const framework = frameworksByResourceId?.get(base.id);
     const marker = pending?.marker.get(base.id);
     const baseWithExtras: LiveNode = {
       ...base,
       data: {
         ...base.data,
         ...(marker ? { pending: marker } : {}),
-        ...(framework ? { framework } : {}),
       },
     };
     if (baseWithExtras.data.kind !== "service") return [baseWithExtras];
@@ -126,9 +87,7 @@ export const buildLiveNodes = (
       baseWithExtras,
       tasksByResourceId.get(base.id) ?? [],
     );
-    return hasPublicRoute(r)
-      ? [buildRouteNode(r, node.data.status ?? "running"), node]
-      : [node];
+    return [node];
   });
 
   if (!pending || pending.creates.length === 0) return realNodes;
@@ -153,6 +112,5 @@ export const buildLiveNodes = (
   return [...realNodes, ...ghosts];
 };
 
-/** Synthetic route → service edges for every publicly-exposed service. */
-export const buildRouteEdges = (resources: Resource[]): Edge[] =>
-  resources.filter(hasPublicRoute).map(buildRouteEdge);
+/** Public routes are service metadata, not graph resources. */
+export const buildRouteEdges = (_resources: Resource[]): Edge[] => [];

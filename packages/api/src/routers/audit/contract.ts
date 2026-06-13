@@ -9,8 +9,10 @@ export const auditOutcomeSchema = z.enum(["success", "failure", "denied"]);
 
 export const auditEventSchema = z.object({
   id: z.string(),
-  /** ISO-8601 event timestamp. */
-  timestamp: z.iso.time(),
+  /** ISO-8601 event timestamp (full date+time, e.g. 2026-06-11T22:23:00.051Z).
+   *  The handler emits `Date.toISOString()`, so this must be `datetime()` — not
+   *  `time()`, which only accepts a time-of-day string and rejects every row. */
+  timestamp: z.iso.datetime(),
   action: z.string(),
   actorType: auditActorTypeSchema,
   actorId: z.string(),

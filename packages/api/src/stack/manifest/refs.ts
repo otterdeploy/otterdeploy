@@ -14,6 +14,8 @@
  * Phase 3 parses + classifies; Phase 4 will resolve them server-side at apply.
  */
 
+import { TaggedError } from "better-result";
+
 export type Ref =
   | { kind: "secret" }
   | {
@@ -94,6 +96,10 @@ function parseToken(body: string): Ref {
   throw new ManifestRefError(`Unknown reference namespace "${namespace}" in \${${body}}.`);
 }
 
-export class ManifestRefError extends Error {
-  override readonly name = "ManifestRefError";
+export class ManifestRefError extends TaggedError("ManifestRefError")<{
+  message: string;
+}>() {
+  constructor(message: string) {
+    super({ message });
+  }
 }

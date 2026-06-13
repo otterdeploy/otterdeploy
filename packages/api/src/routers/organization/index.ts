@@ -1,6 +1,10 @@
 import { matchError } from "better-result";
 
-import { orgScopedProcedure } from "../..";
+import { orgScopedProcedure, requirePermission } from "../..";
+
+// Mutating org-settings endpoints require the `organization:update` permission
+// (owner/admin). Reads stay open to any member.
+const orgUpdateProcedure = requirePermission({ organization: ["update"] });
 
 import {
   autoConfigureBaseDomainViaCloudflare,
@@ -23,7 +27,7 @@ export const organizationRouter = {
     },
   ),
 
-  setBaseDomain: orgScopedProcedure.organization.setBaseDomain.handler(
+  setBaseDomain: orgUpdateProcedure.organization.setBaseDomain.handler(
     async ({ input, context }) => {
       context.log.set({
         target: { type: "organization", id: input.organizationId },
@@ -35,7 +39,7 @@ export const organizationRouter = {
     },
   ),
 
-  verifyBaseDomain: orgScopedProcedure.organization.verifyBaseDomain.handler(
+  verifyBaseDomain: orgUpdateProcedure.organization.verifyBaseDomain.handler(
     async ({ input, context }) => {
       context.log.set({
         target: { type: "organization", id: input.organizationId },
@@ -65,7 +69,7 @@ export const organizationRouter = {
     ),
 
   setCloudflareConfig:
-    orgScopedProcedure.organization.setCloudflareConfig.handler(
+    orgUpdateProcedure.organization.setCloudflareConfig.handler(
       async ({ input, context }) => {
         context.log.set({
           target: { type: "organization", id: input.organizationId },
@@ -81,7 +85,7 @@ export const organizationRouter = {
     ),
 
   autoConfigureBaseDomain:
-    orgScopedProcedure.organization.autoConfigureBaseDomain.handler(
+    orgUpdateProcedure.organization.autoConfigureBaseDomain.handler(
       async ({ input, context, errors }) => {
         context.log.set({
           target: { type: "organization", id: input.organizationId },

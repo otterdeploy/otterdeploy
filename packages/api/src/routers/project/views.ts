@@ -29,7 +29,11 @@ import {
   proxyRouteSchema,
   serviceResourceSchema,
 } from "./contract";
-import { deleteDeploymentById, insertDeployment } from "./deployments";
+import {
+  deleteDeploymentById,
+  getLatestDeploymentForResource,
+  insertDeployment,
+} from "./deployments";
 import {
   type DatabaseResourceRecord,
   type ServiceResourceJoined,
@@ -68,16 +72,25 @@ export async function mapServiceResource(
     extraEnv[row.key] = row.value;
     if (row.isSecret) secretKeys.push(row.key);
   }
+  // Latest deployment's stored status — surfaced so the graph node reflects
+  // build-time states (failed/building/pending) that schedule no swarm tasks
+  // and thus never show up in the live-task rollup. Single indexed row, no
+  // docker round-trip.
+  const latestDeployment = await getLatestDeploymentForResource(
+    record.resource.id as Parameters<typeof getLatestDeploymentForResource>[0],
+  );
   return {
     resourceId: record.resource.id,
     projectId: record.resource.projectId,
     name: record.resource.name,
     type: "service" as const,
     status: record.resource.status,
+    latestDeploymentStatus: latestDeployment?.status ?? null,
     image: record.service.image,
     imageDigest: record.service.imageDigest,
     source: record.service.source,
     sourceSubdir: record.service.sourceSubdir,
+    framework: record.service.framework ?? null,
     replicas: record.service.replicas,
     publicEnabled: record.service.publicEnabled,
     publicDomain: record.service.publicDomain,

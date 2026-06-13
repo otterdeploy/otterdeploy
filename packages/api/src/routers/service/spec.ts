@@ -9,6 +9,7 @@ import {
   type SpecMount,
   type SwarmServiceSpec,
 } from "../../swarm";
+import { getLatestDeploymentForResource } from "../project/deployments";
 import { sanitizeSlug } from "./views";
 
 export async function buildSwarmSpec(
@@ -16,6 +17,14 @@ export async function buildSwarmSpec(
   resolvedEnv: Record<string, string>,
   projectSlug: string,
 ): Promise<SwarmServiceSpec> {
+  // Stamp the rollout with the resource's latest deployment row. By the time
+  // we build the spec the latest deployment IS the one being applied (the
+  // build worker inserts the row before driving convergence; restart/expose/
+  // update reapply against the current active deployment). This rides onto the
+  // task labels so the deployments tab can count tasks per deployment.
+  const latestDeployment = await getLatestDeploymentForResource(
+    record.service.resourceId,
+  );
   // Materialize file-type mounts to disk before we ship the spec to swarm —
   // a bind-mount with no source on disk causes the container to fail to
   // start with no useful error. Volume + bind types pass through verbatim.
@@ -69,5 +78,6 @@ export async function buildSwarmSpec(
     })),
     mounts,
     forceUpdateCounter: record.service.forceUpdateCounter,
+    deploymentId: latestDeployment?.id ?? null,
   };
 }

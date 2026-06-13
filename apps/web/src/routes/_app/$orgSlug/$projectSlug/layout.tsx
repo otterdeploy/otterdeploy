@@ -5,7 +5,7 @@ import * as z from "zod";
 
 import { envCollection } from "@/features/projects/data/env";
 import { projectCollection } from "@/features/projects/data/project";
-import { resourceCollection } from "@/features/projects/data/resource";
+import { resourceCollection } from "@/features/resources/data/resource";
 import { useProjectEvents } from "@/features/projects/hooks/use-project-events";
 import { PendingChangesBar } from "@/features/projects/components/pending-changes-bar";
 import { ProjectTabs } from "@/features/projects/components/project-tabs";
@@ -53,7 +53,7 @@ function RouteComponent() {
   // intervals.
   useProjectEvents(project?.id ?? null);
 
-  const { data: resources = [] } = useLiveQuery(
+  const { data: resources } = useLiveQuery(
     (q) =>
       q
         .from({ r: resourceCollection })

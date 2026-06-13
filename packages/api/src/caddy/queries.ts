@@ -42,6 +42,15 @@ export async function getProxyRouteByResourceId(resourceId: ResourceId): Promise
   return record;
 }
 
+export async function getProxyRouteById(id: ProxyRouteId): Promise<ProxyRouteRecord | undefined> {
+  const [record] = await db
+    .select()
+    .from(proxyRoute)
+    .where(eq(proxyRoute.id, id))
+    .limit(1);
+  return record;
+}
+
 export async function insertProxyRoute(input: {
   projectId: ProjectId;
   resourceId?: ResourceId;
@@ -89,6 +98,7 @@ export async function updateProxyRoute(
     upstreamHost: string;
     upstreamPort: number;
     enabled: boolean;
+    protected: boolean;
   }>,
 ): Promise<ProxyRouteRecord | undefined> {
   const [record] = await db

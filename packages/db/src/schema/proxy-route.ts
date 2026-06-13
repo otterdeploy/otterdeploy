@@ -32,6 +32,12 @@ export const proxyRoute = pgTable(
     // !sslip`). Stays in sync on subsequent verification changes via the
     // setBaseDomain / verify flows that rewrite routes for the org.
     usesAcme: boolean("uses_acme").notNull().default(false),
+    // Deployment protection (Vercel-Authentication-style auth wall). When
+    // true, buildHttpBlock wraps the route in a forward_auth gate plus an
+    // ungated reserved-path handle for the cross-domain auth handoff. The
+    // authorizing org is derived from projectId → project.organizationId.
+    // See docs/designs/deployment-protection.md.
+    protected: boolean("protected").notNull().default(false),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()

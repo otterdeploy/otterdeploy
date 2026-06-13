@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import * as z from "zod";
 
 import { LogsPage } from "@/features/logs/components/logs-page";
-import { resourceCollection } from "@/features/projects/data/resource";
+import { resourceCollection } from "@/features/resources/data/resource";
 
 const zLogsSearch = z.object({
   service: z.string().optional(),

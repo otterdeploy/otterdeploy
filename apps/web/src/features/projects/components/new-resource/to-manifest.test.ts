@@ -125,7 +125,11 @@ describe("buildServiceSpec", () => {
       builderId: "dockerfile",
       spa: true,
     });
-    expect(spec).toMatchObject({ source: "git", build: { builder: "railpack", spa: true } });
+    expect(spec).toMatchObject({
+      source: "git",
+      build: { builder: "railpack", spa: true, staticRoot: "apps/web/dist" },
+      ports: [{ container: 80, protocol: "tcp", appProtocol: "http", primary: true }],
+    });
   });
 
   it("omits spa from the static build when the toggle is off", () => {
@@ -138,7 +142,7 @@ describe("buildServiceSpec", () => {
     });
     expect(spec).toMatchObject({ source: "git" });
     const build = (spec as { build?: Record<string, unknown> }).build;
-    expect(build).toEqual({ builder: "railpack" });
+    expect(build).toEqual({ builder: "railpack", staticRoot: "apps/web/dist" });
   });
 
   it("assembles an image spec and omits git-only fields", () => {

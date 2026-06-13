@@ -29,6 +29,11 @@
 
 import { gitInstallation } from "@otterdeploy/db/schema";
 
+import {
+  detectFrameworkFromPkg,
+  type FrameworkKind,
+} from "@otterdeploy/shared/framework";
+
 import { Result, TaggedError } from "better-result";
 
 import { db } from "@otterdeploy/db";
@@ -73,27 +78,10 @@ export class InspectRepoRateLimitedError extends TaggedError(
   }
 }
 
-export type FrameworkKind =
-  | "next"
-  | "nuxt"
-  | "vite"
-  | "remix"
-  | "astro"
-  | "sveltekit"
-  | "react"
-  | "vue"
-  | "express"
-  | "fastify"
-  | "hono"
-  | "nest"
-  | "node"
-  | "bun"
-  | "go"
-  | "python"
-  | "rust"
-  | "ruby"
-  | "static"
-  | null;
+// Canonical type lives in @otterdeploy/shared/framework (single source of
+// truth shared with the DB column, the resource contract, the builder's
+// detector, and the web logo map). Re-exported here for existing callers.
+export type { FrameworkKind };
 
 export type MonorepoKind =
   | "turbo"
@@ -351,26 +339,12 @@ async function fetchPackageJson(
   return parsed;
 }
 
-function detectFromPkg(pkg: PkgJson | null): FrameworkKind {
-  if (!pkg) return null;
-  const all = {
-    ...(pkg.dependencies ?? {}),
-    ...(pkg.devDependencies ?? {}),
-  };
-  if (all["next"]) return "next";
-  if (all["nuxt"] || all["nuxt3"]) return "nuxt";
-  if (all["@remix-run/react"] || all["@remix-run/node"]) return "remix";
-  if (all["astro"]) return "astro";
-  if (all["@sveltejs/kit"]) return "sveltekit";
-  if (all["vite"]) return "vite";
-  if (all["@nestjs/core"]) return "nest";
-  if (all["hono"]) return "hono";
-  if (all["fastify"]) return "fastify";
-  if (all["express"]) return "express";
-  if (all["vue"]) return "vue";
-  if (all["react"]) return "react";
-  return "node";
-}
+// Framework detection from a parsed package.json lives in
+// @otterdeploy/shared/framework — the SAME heuristic the builder runs against
+// the locally-cloned package.json at build time, so the wizard preview and the
+// stored framework agree. `PkgJson` here is structurally compatible with the
+// shared `PackageJsonLike` (it carries the dependency maps the detector reads).
+const detectFromPkg = detectFrameworkFromPkg;
 
 /** Detect monorepo signal from the cached path list — no extra HTTP. */
 function detectMonorepoFromPaths(

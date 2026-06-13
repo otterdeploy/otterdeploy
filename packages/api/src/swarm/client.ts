@@ -123,16 +123,32 @@ async function connectCaddyToNetwork(
   rlog?: RequestLogger,
 ): Promise<void> {
   const log = asStepLogger(rlog);
-  const caddyName = PLATFORM.swarm.caddyContainer;
+  const caddyNames = [
+    PLATFORM.swarm.caddyContainer,
+    // Local compose names the edge container after the repo, while
+    // production installs keep the otterdeploy-* name.
+    "otterstack-caddy",
+    "caddy",
+  ];
 
-  // Check if Caddy container exists
-  const inspectResult = await docker.containers.inspect(caddyName);
-  if (inspectResult.isErr()) {
-    // Caddy not running — skip silently, it'll connect on next compose up
+  let container: {
+    Id: string;
+    NetworkSettings?: { Networks?: Record<string, unknown> };
+  } | null = null;
+
+  for (const caddyName of caddyNames) {
+    const inspectResult = await docker.containers.inspect(caddyName);
+    if (inspectResult.isOk()) {
+      container = inspectResult.value;
+      break;
+    }
+  }
+
+  if (!container) {
+    // Caddy not running — skip silently, it'll connect on next provision.
     return;
   }
 
-  const container = inspectResult.value;
   const connectedNetworks = container.NetworkSettings?.Networks ?? {};
 
   if (networkName in connectedNetworks) {

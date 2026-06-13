@@ -83,6 +83,23 @@ export function portsToManifest(ports: Port[]): ManifestPort[] {
     }));
 }
 
+const STATIC_SITE_PORT: ManifestPort = {
+  container: 80,
+  protocol: "tcp",
+  appProtocol: "http",
+  primary: true,
+};
+
+function staticSiteBuildConfig(input: ServiceSpecInput): BuildConfig {
+  return {
+    builder: "railpack",
+    ...(input.spa ? { spa: true } : {}),
+    ...(input.root
+      ? { staticRoot: `${input.root.replace(/\/+$/, "")}/dist` }
+      : {}),
+  };
+}
+
 /** Builder picker id → manifest BuildConfig. Builders without a manifest
  *  variant (buildpack, static) fall back to auto-detect. */
 export function buildFromBuilderId(builderId: string): BuildConfig {
@@ -120,9 +137,17 @@ export interface ServiceSpecInput {
 /** Assemble the full manifest service spec from wizard state. */
 export function buildServiceSpec(input: ServiceSpecInput): ServiceSpec {
   const env = envFromVars(input.variables);
-  const resources = resourcesFromForm(input.presetId, input.customCpu, input.customMem);
+  const resources = resourcesFromForm(
+    input.presetId,
+    input.customCpu,
+    input.customMem,
+  );
+  const ports =
+    input.kindId === "static"
+      ? [STATIC_SITE_PORT]
+      : portsToManifest(input.ports);
   const common = {
-    ports: portsToManifest(input.ports),
+    ports,
     ...(env ? { env } : {}),
     ...(input.replicas > 1 ? { replicas: input.replicas } : {}),
     ...(resources ? { resources } : {}),
@@ -133,9 +158,9 @@ export function buildServiceSpec(input: ServiceSpecInput): ServiceSpec {
   // Static sites always build with railpack (which emits a Caddy image to
   // serve the assets); the SPA toggle becomes an index.html fallback.
   // Every other compute kind honors the picked builder.
-  const build: BuildConfig =
+  const build =
     input.kindId === "static"
-      ? { builder: "railpack", ...(input.spa ? { spa: true } : {}) }
+      ? staticSiteBuildConfig(input)
       : buildFromBuilderId(input.builderId);
   return {
     source: "git",
@@ -157,7 +182,11 @@ export interface DatabaseSpecInput {
 
 /** Assemble the full manifest database spec from wizard state. */
 export function buildDatabaseSpec(input: DatabaseSpecInput): DatabaseSpec {
-  const resources = resourcesFromForm(input.presetId, input.customCpu, input.customMem);
+  const resources = resourcesFromForm(
+    input.presetId,
+    input.customCpu,
+    input.customMem,
+  );
   const base = {
     ...(input.publicEnabled ? { publicEnabled: true } : {}),
     ...(resources ? { resources } : {}),

@@ -11,6 +11,61 @@ export interface ProxyRouteInput {
    *  — the only safe choice for sslip.io domains and any apex the
    *  operator hasn't proven ownership of. */
   usesAcme: boolean;
+  /** When true, the route is wrapped in a forward_auth gate (deployment
+   *  protection). Optional so existing call sites/fixtures that predate
+   *  the feature keep compiling; absent ⇒ unprotected. See
+   *  docs/designs/deployment-protection.md. */
+  protected?: boolean;
+}
+
+/** Reserved, ungated path prefix on every protected deployment domain.
+ *  The cross-domain auth handoff callback lands here and is proxied to the
+ *  control plane (the only place that can Set-Cookie for the deployment
+ *  domain). `.well-known` per RFC 8615; we intercept only this subtree so
+ *  the app's other `.well-known/*` paths fall through untouched. */
+export const RESERVED_AUTH_PREFIX = "/.well-known/otterdeploy";
+
+/** Control-plane path the forward_auth subrequest hits. */
+const DEPLOY_AUTHZ_PATH = "/api/internal/deploy-authz";
+
+/** Fallback control-plane upstream Caddy proxies auth subrequests to when
+ *  the reconcile layer doesn't supply one. Dev default: Caddy runs in a
+ *  container and reaches the host-run server via host.docker.internal.
+ *  Production (Swarm) passes the real service DNS via reconcile options. */
+const DEFAULT_AUTHZ_UPSTREAM = "host.docker.internal:3000";
+
+interface HttpBlockOptions {
+  /** host:port Caddy proxies forward_auth + reserved-path requests to. */
+  authzUpstream?: string;
+  /** host:port the per-site access log streams to (Caddy `output net`).
+   *  When set, every HTTP site emits structured JSON access logs to the
+   *  control-plane edge-log sink. Absent ⇒ no access logging (and existing
+   *  callers/tests are unaffected). See packages/api/src/edge-logs. */
+  edgeLogSink?: string;
+  /** When true, emit the `crowdsec` IP-reputation handler on the site. The
+   *  matching global `crowdsec { … }` app config + `order crowdsec first`
+   *  are emitted by buildCaddyfile. Identity-blind — runs before
+   *  forward_auth. See docs/designs/deployment-protection.md §10. */
+  crowdsec?: boolean;
+}
+
+/** CrowdSec LAPI connection for the global Caddy `crowdsec` app config. */
+export interface CrowdsecConfig {
+  apiUrl: string;
+  apiKey: string;
+}
+
+/** Global-block lines for the CrowdSec bouncer app: `order crowdsec first`
+ *  so the per-site handler runs ahead of forward_auth/reverse_proxy, plus
+ *  the LAPI connection. Emitted once, in the global options block. */
+function crowdsecGlobalLines(cfg: CrowdsecConfig): string[] {
+  return [
+    "\torder crowdsec first",
+    "\tcrowdsec {",
+    `\t\tapi_url ${cfg.apiUrl}`,
+    `\t\tapi_key ${cfg.apiKey}`,
+    "\t}",
+  ];
 }
 
 /** Single source of truth for the global block. ACME registration email
@@ -26,7 +81,7 @@ export function sanitizeMatcherName(domain: string): string {
   return domain.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
 }
 
-export function buildHttpBlock(route: ProxyRouteInput): string {
+export function buildHttpBlock(route: ProxyRouteInput, options: HttpBlockOptions = {}): string {
   const lines = [`${route.domain} {`];
   // Pre-Phase-2 the global `local_certs` covered everything; now we
   // emit per-site `tls internal` for any route that hasn't earned ACME
@@ -35,7 +90,55 @@ export function buildHttpBlock(route: ProxyRouteInput): string {
   if (!route.usesAcme) {
     lines.push("\ttls internal");
   }
-  lines.push(`\treverse_proxy ${route.upstreamHost}:${route.upstreamPort}`);
+
+  // Structured access logging → the edge-log sink (live tail + metrics).
+  if (options.edgeLogSink) {
+    lines.push("\tlog {");
+    lines.push(`\t\toutput net ${options.edgeLogSink}`);
+    lines.push("\t\tformat json");
+    lines.push("\t}");
+    // Generate a request id: returned to the client + logged (resp_headers)
+    // and forwarded to the app for end-to-end tracing.
+    lines.push("\theader X-Request-Id {http.request.uuid}");
+    lines.push("\trequest_header X-Request-Id {http.request.uuid}");
+  }
+
+  // CrowdSec IP-reputation gate — runs first (global `order crowdsec first`),
+  // before forward_auth. Identity-blind: blocks banned IPs with 403.
+  if (options.crowdsec) {
+    lines.push("\tcrowdsec");
+  }
+
+  if (route.protected) {
+    const authzUpstream = options.authzUpstream ?? DEFAULT_AUTHZ_UPSTREAM;
+    // Ungated reserved-path handle FIRST: the auth-handoff callback must
+    // run on this domain (to Set-Cookie for it) and must not be gated by
+    // the very wall it exists to satisfy.
+    lines.push(`\thandle ${RESERVED_AUTH_PREFIX}/* {`);
+    lines.push(`\t\treverse_proxy ${authzUpstream}`);
+    lines.push("\t}");
+    // Everything else: forward_auth gate, then the app. forward_auth
+    // copies the request (incl. Cookie) to the control plane; 2xx ⇒
+    // proceed, any other status (e.g. 302 → login) ⇒ relayed to the
+    // browser. The domain is baked into the uri so the endpoint never
+    // trusts a client-set header for *which* deployment.
+    lines.push("\thandle {");
+    // Strip any client-supplied identity headers BEFORE the gate. copy_headers
+    // only overwrites headers the auth response actually sets; on the
+    // share/bypass/guest paths it doesn't set Remote-User, so without this an
+    // attacker could inject one and spoof identity to the backend app.
+    lines.push("\t\trequest_header -Remote-User");
+    lines.push("\t\trequest_header -Remote-Email");
+    lines.push(`\t\tforward_auth ${authzUpstream} {`);
+    lines.push(`\t\t\turi ${DEPLOY_AUTHZ_PATH}?domain=${encodeURIComponent(route.domain)}`);
+    lines.push("\t\t\tcopy_headers Remote-User Remote-Email");
+    lines.push("\t\t}");
+    lines.push(`\t\treverse_proxy ${route.upstreamHost}:${route.upstreamPort}`);
+    lines.push("\t}");
+  } else {
+    lines.push(`\treverse_proxy ${route.upstreamHost}:${route.upstreamPort}`);
+  }
+
   lines.push("}");
   return lines.join("\n");
 }
@@ -63,7 +166,12 @@ export function buildLayer4Block(routes: ProxyRouteInput[], listenPort = ":5432"
 export function buildCaddyfile(
   routes: ProxyRouteInput[],
   adminBind: string,
-  options: { acmeEmail?: string | null } = {},
+  options: {
+    acmeEmail?: string | null;
+    authzUpstream?: string;
+    edgeLogSink?: string;
+    crowdsec?: CrowdsecConfig;
+  } = {},
 ): string {
   const httpRoutes = routes.filter((r) => r.type === "http");
   const layer4Routes = routes.filter((r) => r.type === "layer4");
@@ -80,6 +188,9 @@ export function buildCaddyfile(
   if (!anyUsesAcme) {
     lines.push("\tlocal_certs");
   }
+  if (options.crowdsec) {
+    lines.push(...crowdsecGlobalLines(options.crowdsec));
+  }
 
   if (layer4Routes.length > 0) {
     lines.push("\tlayer4 {");
@@ -91,7 +202,13 @@ export function buildCaddyfile(
 
   for (const route of httpRoutes) {
     lines.push("");
-    lines.push(buildHttpBlock(route));
+    lines.push(
+      buildHttpBlock(route, {
+        authzUpstream: options.authzUpstream,
+        edgeLogSink: options.edgeLogSink,
+        crowdsec: Boolean(options.crowdsec),
+      }),
+    );
   }
 
   // Layer4 needs an HTTPS site block per domain (Caddy issues the cert
@@ -125,7 +242,12 @@ export function buildCaddyfile(
 
 export function buildProjectFragment(
   routes: ProxyRouteInput[],
-  options: { acmeEmail?: string | null } = {},
+  options: {
+    acmeEmail?: string | null;
+    authzUpstream?: string;
+    edgeLogSink?: string;
+    crowdsec?: CrowdsecConfig;
+  } = {},
 ): string {
   const httpRoutes = routes.filter((r) => r.type === "http");
   const layer4Routes = routes.filter((r) => r.type === "layer4");
@@ -142,6 +264,9 @@ export function buildProjectFragment(
   if (!anyUsesAcme) {
     lines.push("\tlocal_certs");
   }
+  if (options.crowdsec) {
+    lines.push(...crowdsecGlobalLines(options.crowdsec));
+  }
 
   if (layer4Routes.length > 0) {
     lines.push("\tlayer4 {");
@@ -153,7 +278,13 @@ export function buildProjectFragment(
 
   for (const route of httpRoutes) {
     lines.push("");
-    lines.push(buildHttpBlock(route));
+    lines.push(
+      buildHttpBlock(route, {
+        authzUpstream: options.authzUpstream,
+        edgeLogSink: options.edgeLogSink,
+        crowdsec: Boolean(options.crowdsec),
+      }),
+    );
   }
 
   const tlsInternalDomains = layer4Routes

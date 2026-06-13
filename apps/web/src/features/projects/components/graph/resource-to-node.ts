@@ -40,6 +40,29 @@ function databaseStatus(
   }
 }
 
+/**
+ * Map a service's latest-deployment status to the node pill. This is the only
+ * status signal for build-time states — a failed/pending/building deployment
+ * schedules no swarm tasks, so the live-task rollup in build-live-nodes can't
+ * surface it. Once tasks exist that rollup takes precedence over this base.
+ * `superseded`/`removed`/null → no pill (historical or never-deployed).
+ */
+function serviceDeploymentStatus(
+  status: Extract<ProjectResource, { type: "service" }>["latestDeploymentStatus"],
+): ResourceStatus | undefined {
+  switch (status) {
+    case "running":
+      return "running";
+    case "building":
+    case "pending":
+      return "building";
+    case "failed":
+      return "error";
+    default:
+      return undefined;
+  }
+}
+
 export function resourceToNode(r: ProjectResource): ResourceFlowNode {
   switch (r.type) {
     case "database":
@@ -69,6 +92,15 @@ export function resourceToNode(r: ProjectResource): ResourceFlowNode {
           // most informative single line we can show.
           description: r.image,
           tech: { label: r.image },
+          // Brand logo for the header tile. Detected at build time and stored
+          // on the resource — read straight off the record, no git-API call.
+          // Undefined (no logo) until the first build populates it.
+          framework: r.framework ?? undefined,
+          // Base pill from the latest deployment. build-live-nodes overrides
+          // this with the live-task rollup once tasks exist; until then (and
+          // for build failures, which never schedule tasks) this is what
+          // surfaces — so a failed build shows "error" instead of nothing.
+          status: serviceDeploymentStatus(r.latestDeploymentStatus),
         },
       };
   }

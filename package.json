@@ -46,7 +46,7 @@
   "scripts": {
     "infra": "docker compose up -d  --remove-orphans",
     "proxy": "sudo portless proxy start --https --lan -p 443",
-    "dev": "turbo dev",
+    "dev": "turbo dev --filter=!builder",
     "build": "turbo build",
     "typecheck": "turbo typecheck",
     "dev:native": "turbo -F native dev",

@@ -11,7 +11,9 @@ import { resourceLogEventSchema } from "./logs";
 import { projectIdField, resourceIdField } from "./shared";
 
 export const projectLogEventSchema = resourceLogEventSchema.extend({
-  resourceId: resourceIdField,
+  // Project-level control lines ("Tailing N services", "Project not found")
+  // aren't tied to a resource and carry "". Real log lines carry a branded id.
+  resourceId: z.union([resourceIdField, z.literal("")]),
   serviceName: z.string(),
 });
 

@@ -6,6 +6,7 @@ import { asStepLogger } from "../lib/logger";
 import {
   buildCaddyfile,
   buildProjectFragment,
+  type CrowdsecConfig,
   type ProxyRouteInput,
 } from "./builder";
 import type { AdaptResult, LoadResult } from "./client";
@@ -24,13 +25,22 @@ interface ReconcileOptions {
    *  for any route with usesAcme=true; ignored when every route is
    *  internal-only. */
   acmeEmail?: string | null;
+  /** host:port Caddy proxies forward_auth + reserved-path requests to for
+   *  protected routes (the control plane). Env-driven so dev
+   *  (host.docker.internal) and Swarm (service DNS) differ. */
+  authzUpstream?: string;
+  /** host:port every HTTP site streams JSON access logs to (`output net`). */
+  edgeLogSink?: string;
+  /** CrowdSec LAPI connection; when set, every HTTP site gets the `crowdsec`
+   *  IP-reputation gate + the global bouncer app config. */
+  crowdsec?: CrowdsecConfig;
   adapt: (caddyfile: string) => Promise<AdaptResult>;
   load: (caddyfile: string) => Promise<LoadResult>;
   rlog?: RequestLogger;
 }
 
 export async function reconcileRoutes(options: ReconcileOptions): Promise<ReconcileResult> {
-  const { routes, adminBind, acmeEmail, adapt, load, rlog } = options;
+  const { routes, adminBind, acmeEmail, authzUpstream, edgeLogSink, crowdsec, adapt, load, rlog } = options;
   const log = asStepLogger(rlog);
 
   log.info({ caddy: { step: "reconcile", status: "starting", routeCount: routes.length } });
@@ -44,7 +54,7 @@ export async function reconcileRoutes(options: ReconcileOptions): Promise<Reconc
   for (const [projectId, projectRoutes] of byProject) {
     log.info({ caddy: { step: "reconcile", status: "validating", projectId, routeCount: projectRoutes.length } });
 
-    const fragment = buildProjectFragment(projectRoutes, { acmeEmail });
+    const fragment = buildProjectFragment(projectRoutes, { acmeEmail, authzUpstream, edgeLogSink, crowdsec });
     if (!fragment.trim()) {
       log.info({ caddy: { step: "reconcile", status: "empty", projectId } });
       applied.push(projectId);
@@ -63,7 +73,7 @@ export async function reconcileRoutes(options: ReconcileOptions): Promise<Reconc
     }
   }
 
-  const caddyfile = buildCaddyfile(validRoutes, adminBind, { acmeEmail });
+  const caddyfile = buildCaddyfile(validRoutes, adminBind, { acmeEmail, authzUpstream, edgeLogSink, crowdsec });
   const revision = createHash("sha256").update(caddyfile).digest("hex").slice(0, 12);
 
   log.info({ caddy: { step: "reconcile", status: "loading", revision, validRouteCount: validRoutes.length } });

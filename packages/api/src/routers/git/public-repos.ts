@@ -14,15 +14,16 @@
  * IS public; org isolation happens at the project binding level.
  */
 
-import { Result } from "better-result";
+import { Result, TaggedError } from "better-result";
 
 import { db } from "@otterdeploy/db";
 import { gitRepo } from "@otterdeploy/db/schema";
 
-export class InvalidCloneUrlError extends Error {
+export class InvalidCloneUrlError extends TaggedError("InvalidCloneUrlError")<{
+  message: string;
+}>() {
   constructor(message: string) {
-    super(message);
-    this.name = "InvalidCloneUrlError";
+    super({ message });
   }
 }
 
