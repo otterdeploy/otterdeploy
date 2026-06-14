@@ -18,25 +18,11 @@ export const PROVIDER_SEARCH: Record<ProviderKind, string> = {
 // "coming soon" placeholders.
 export const SUPPORTED_KINDS = new Set<ProviderKind>(["github"]);
 
-export interface InstallationView {
-  id: string;
-  installationId: string;
-  accountLogin: string;
-  accountType: "user" | "organization";
-  accountAvatarUrl: string | null;
-  repoSelection: "all" | "selected";
-  suspendedAt: Date | null;
-  revokedAt: Date | null;
-  createdAt: Date;
-  repoCount: number;
-}
-
-export interface ProviderView {
-  id: string;
-  kind: ProviderKind;
-  displayName: string;
-  installations: InstallationView[];
-  createdAt: Date;
-}
+// `ProviderView` / `InstallationView` are inferred from the API contract — see
+// ./data/git-providers. Re-exported here so existing import sites keep working.
+export type {
+  InstallationView,
+  ProviderView,
+} from "./data/git-providers";
 
 export { formatRelative } from "@otterdeploy/shared/format";

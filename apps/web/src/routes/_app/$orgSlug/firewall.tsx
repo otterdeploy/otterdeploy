@@ -3,6 +3,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 
+import { Page, PageHeader } from "@/shared/components/page";
 import { Badge } from "@/shared/components/ui/badge";
 import { Card } from "@/shared/components/ui/card";
 import {
@@ -35,15 +36,11 @@ function RouteComponent() {
   const rows = decisions.data ?? [];
 
   return (
-    <div className="flex flex-1 flex-col gap-4 p-4">
-      <div>
-        <h1 className="text-base font-semibold">Firewall</h1>
-        <p className="mt-0.5 text-[13px] text-muted-foreground">
-          CrowdSec IP-reputation decisions enforced at the Caddy edge — banned
-          IPs, ranges, and the community blocklist. Identity-blind; runs before
-          the auth wall.
-        </p>
-      </div>
+    <Page>
+      <PageHeader
+        title="Firewall"
+        description="CrowdSec IP-reputation decisions enforced at the Caddy edge — banned IPs, ranges, and the community blocklist. Identity-blind; runs before the auth wall."
+      />
 
       {/* Status banner */}
       {!s?.configured ? (
@@ -146,7 +143,7 @@ function RouteComponent() {
           </TableBody>
         </Table>
       </Card>
-    </div>
+    </Page>
   );
 }
 

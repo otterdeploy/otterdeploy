@@ -101,6 +101,14 @@ export const project = pgTable(
     customDomain: text("custom_domain"),
     customDomainVerifiedAt: timestamp("custom_domain_verified_at"),
     customDomainVerifyToken: text("custom_domain_verify_token"),
+    // Operator-authored Caddy config (standalone site blocks / snippets)
+    // appended to this project's generated fragment. Lets users define whole
+    // custom sites, redirects, or reusable snippets alongside the auto-managed
+    // routes. Validated together with the project's generated blocks via Caddy
+    // /adapt on save + every reconcile — invalid config skips just this project
+    // (the rest of the edge keeps serving). Null = none. See buildCaddyfile /
+    // buildProjectFragment.
+    customCaddyConfig: text("custom_caddy_config"),
     // Git source binding. When set, pushes to `productionBranch` of the
     // linked repo trigger a deploy of every service resource in the project
     // whose source is `git`. Nullable: a project doesn't have to be

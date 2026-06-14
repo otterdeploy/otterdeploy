@@ -10,10 +10,10 @@
  * backend is a separate Plan 7 follow-up.
  */
 
-import { eq, useLiveQuery } from "@tanstack/react-db";
-import { useMutation, useQueries } from "@tanstack/react-query";
+import { and, eq, useLiveQuery } from "@tanstack/react-db";
+import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, useLoaderData } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -37,6 +37,10 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { envCollection } from "@/features/projects/data/env";
+import {
+  variablesCollection,
+  type VariableRow,
+} from "@/features/projects/data/variables";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Checkbox } from "@/shared/components/ui/checkbox";
@@ -73,12 +77,9 @@ interface EnvironmentRef {
   name: string;
 }
 
-interface EnvVarRow {
-  id: string;
-  key: string;
-  value: string;
-  isSecret: boolean;
-}
+// Row shape inferred from the collection (the wire shape of
+// `project.envVar.list`) — never hand-written.
+type EnvVarRow = VariableRow;
 
 // ────── Sync providers — static for now (Plan 7) ──────
 
@@ -109,7 +110,7 @@ function VariablesRoute() {
 
   // All envs for this project, slug-sorted so the tab order is stable
   // across renders (the collection isn't intrinsically ordered).
-  const { data: environments = [] } = useLiveQuery(
+  const { data: environments } = useLiveQuery(
     (q) =>
       q
         .from({ e: envCollection })
@@ -118,29 +119,17 @@ function VariablesRoute() {
     [projectId],
   );
 
-  // One env-var list query per environment, in parallel. The orpc query
-  // key is keyed on (projectId, environmentId), so the cache buckets
-  // automatically.
-  const envVarQueries = useQueries({
-    queries: environments.map((env) =>
-      orpc.project.envVar.list.queryOptions({
-        input: {
-          projectId: projectId as never,
-          environmentId: env.id as never,
-        },
-      }),
-    ),
-  });
-
-  // Map<envId, EnvVarRow[]> — what each tab renders. Used by the
-  // overview matrix to compute per-cell status too.
-  const byEnv = useMemo(() => {
-    const map = new Map<string, EnvVarRow[]>();
-    environments.forEach((env, i) => {
-      map.set(env.id, (envVarQueries[i]?.data ?? []) as EnvVarRow[]);
+  // Map<envId, EnvVarRow[]> — what each tab + the overview matrix render.
+  // Populated by the per-env subscribers below; the on-demand
+  // `variablesCollection` loads one (projectId, environmentId) subset each.
+  const [byEnv, setByEnv] = useState<Map<string, EnvVarRow[]>>(new Map());
+  const registerEnv = useCallback((envId: string, rows: EnvVarRow[]) => {
+    setByEnv((prev) => {
+      const next = new Map(prev);
+      next.set(envId, rows);
+      return next;
     });
-    return map;
-  }, [environments, envVarQueries]);
+  }, []);
 
   // Union of every key seen in any env — the rows of the overview
   // matrix. Sorted alphabetically so the order matches the demo.
@@ -188,6 +177,18 @@ function VariablesRoute() {
           </TabsTrigger>
         </TabsList>
 
+        {/* One subscriber per env keeps `byEnv` in sync with the
+            on-demand collection — each loads its own (projectId,
+            environmentId) subset. Headless: renders nothing. */}
+        {envRefs.map((env) => (
+          <EnvVarsSubscriber
+            key={env.id}
+            projectId={projectId}
+            envId={env.id}
+            onRows={registerEnv}
+          />
+        ))}
+
         <TabsContent value="overview" className="flex-1 overflow-auto">
           <OverviewMatrix envs={envRefs} byEnv={byEnv} allKeys={allKeys} />
         </TabsContent>
@@ -206,6 +207,42 @@ function VariablesRoute() {
       </Tabs>
     </div>
   );
+}
+
+// ────── Per-env subscriber (headless) ──────
+
+/**
+ * Subscribes to one env's vars via the on-demand `variablesCollection`
+ * (scoped by projectId + environmentId) and lifts the rows into the
+ * parent's `byEnv` map. Renders nothing.
+ */
+function EnvVarsSubscriber({
+  projectId,
+  envId,
+  onRows,
+}: {
+  projectId: string;
+  envId: string;
+  onRows: (envId: string, rows: EnvVarRow[]) => void;
+}) {
+  const { data: rows } = useLiveQuery(
+    (q) =>
+      q
+        .from({ v: variablesCollection })
+        .where(({ v }) =>
+          and(
+            eq(v.projectId, projectId as never),
+            eq(v.environmentId, envId as never),
+          ),
+        ),
+    [projectId, envId],
+  );
+
+  useEffect(() => {
+    onRows(envId, rows);
+  }, [envId, rows, onRows]);
+
+  return null;
 }
 
 // ────── Overview matrix ──────
@@ -422,24 +459,22 @@ function PerEnvTable({
     else setSelected(new Set(filtered.map((r) => r.key)));
   };
 
+  // bulkReplace is an atomic whole-env replace (not row-level), so it stays a
+  // direct orpc call; afterwards we invalidate the collection's subset query so
+  // the live rows refresh.
   const invalidate = () => {
     void queryClient.invalidateQueries({
-      queryKey: orpc.project.envVar.list.queryKey({
-        input: {
-          projectId: projectId as never,
-          environmentId: env.id as never,
-        },
-      }),
+      queryKey: [
+        "projectVariables",
+        ...orpc.project.envVar.list.queryKey({
+          input: {
+            projectId: projectId as never,
+            environmentId: env.id as never,
+          },
+        }),
+      ],
     });
   };
-
-  const deleteMut = useMutation({
-    ...orpc.project.envVar.delete.mutationOptions(),
-    onSuccess: () => {
-      invalidate();
-    },
-    onError: (err) => toast.error(err.message ?? "Couldn't delete"),
-  });
 
   return (
     <div className="mx-auto w-full max-w-6xl p-6">
@@ -563,14 +598,14 @@ function PerEnvTable({
                   size="icon"
                   className="size-6 text-rose-500 hover:text-rose-500"
                   title="Delete"
-                  disabled={deleteMut.isPending}
-                  onClick={() =>
-                    deleteMut.mutate({
-                      projectId: projectId as never,
-                      environmentId: env.id as never,
-                      key: r.key,
-                    })
-                  }
+                  onClick={() => {
+                    const tx = variablesCollection.delete(r.id);
+                    tx.isPersisted.promise.catch((err: unknown) =>
+                      toast.error(
+                        err instanceof Error ? err.message : "Couldn't delete",
+                      ),
+                    );
+                  }}
                 >
                   <HugeiconsIcon icon={Cancel01Icon} className="size-3" />
                 </Button>

@@ -15,6 +15,13 @@ import {
 } from "@hugeicons/core-free-icons";
 
 import { Button } from "@/shared/components/ui/button";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/shared/components/ui/empty";
 import { JsonView } from "@/shared/components/ui/json-view";
 import { ScrollArea } from "@/shared/components/ui/scroll-area";
 import { ToggleGroup, ToggleGroupItem } from "@/shared/components/ui/toggle-group";
@@ -207,26 +214,27 @@ function CenterNote({
   tone?: "error";
 }) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-10 text-center">
-      <div
-        className={cn(
-          "flex size-12 items-center justify-center rounded-2xl border bg-muted/30",
-          tone === "error" && "border-destructive/30 bg-destructive/5",
-        )}
-      >
-        <HugeiconsIcon
-          icon={icon}
-          strokeWidth={1.5}
+    <Empty className="min-h-0 flex-1">
+      <EmptyHeader>
+        <EmptyMedia
+          variant="icon"
           className={cn(
-            "size-6 text-muted-foreground",
-            tone === "error" && "text-destructive",
+            "size-12 rounded-2xl border bg-muted/30",
+            tone === "error" && "border-destructive/30 bg-destructive/5",
           )}
-        />
-      </div>
-      <div className="max-w-sm space-y-1">
-        <p className="text-sm font-semibold">{title}</p>
-        <p className="text-[13px] leading-relaxed text-muted-foreground">{body}</p>
-      </div>
-    </div>
+        >
+          <HugeiconsIcon
+            icon={icon}
+            strokeWidth={1.5}
+            className={cn(
+              "size-6 text-muted-foreground",
+              tone === "error" && "text-destructive",
+            )}
+          />
+        </EmptyMedia>
+        <EmptyTitle>{title}</EmptyTitle>
+        <EmptyDescription>{body}</EmptyDescription>
+      </EmptyHeader>
+    </Empty>
   );
 }

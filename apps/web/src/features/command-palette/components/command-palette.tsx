@@ -1,12 +1,22 @@
-import { SearchIcon } from "@hugeicons/core-free-icons";
+import {
+  Folder01Icon,
+  Moon02Icon,
+  Rocket01Icon,
+  SearchIcon,
+  Settings01Icon,
+  Sun02Icon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { eq, useLiveQuery } from "@tanstack/react-db";
-import { useHotkey, useHotkeySequence } from "@tanstack/react-hotkeys";
+import { useHotkey } from "@tanstack/react-hotkeys";
 import { useMatch, useNavigate, useParams } from "@tanstack/react-router";
 import { Command as CommandPrimitive } from "cmdk";
+import { useTheme } from "next-themes";
 
 import { useResourceOverlay } from "@/features/projects/components/new-resource/overlay-provider";
 import { envCollection } from "@/features/projects/data/env";
+import { projectCollection } from "@/features/projects/data/project";
+import type { RoutePath } from "@/features/shell/components/sidebar";
 import {
   Command,
   CommandDialog,
@@ -19,12 +29,22 @@ import {
 import { Kbd, KbdGroup } from "@/shared/components/ui/kbd";
 
 import { useCommandPalette } from "../hooks/use-command-palette";
+import { useProjectNavHotkeys } from "../hooks/use-project-nav-hotkeys";
+import {
+  CLUSTER_NAV,
+  INFRA_NAV,
+  NavGroup,
+  PaletteFooter,
+  PROJECT_NAV,
+  WORKSPACE_NAV,
+} from "./nav-items";
 
 export function CommandPalette() {
   const { open, setOpen } = useCommandPalette();
   const navigate = useNavigate();
   const { orgSlug, projectSlug } = useParams({ strict: false });
   const overlay = useResourceOverlay();
+  const { setTheme } = useTheme();
 
   // Live-query environments for the active project (loader exposes the project
   // but environments are a separate collection, same pattern as the layout).
@@ -33,40 +53,52 @@ export function CommandPalette() {
     shouldThrow: false,
   });
   const projectId = projectMatch?.loaderData?.project?.id;
-  const { data: environments = [] } = useLiveQuery(
+  const { data: environments } = useLiveQuery(
     (q) => q.from({ e: envCollection }).where(({ e }) => eq(e.projectId, projectId)),
     [projectId],
   );
 
-  const close = () => setOpen(false);
+  // All projects in the org — the palette doubles as a project switcher.
+  const { data: projects } = useLiveQuery((q) => q.from({ p: projectCollection }), []);
 
-  const switchEnv = (slug: string) => {
-    void navigate({ search: (prev) => ({ ...prev, env: slug }) });
-    close();
+  const run = (fn: () => void) => {
+    setOpen(false);
+    fn();
   };
 
-  const goNewResource = () => {
-    if (orgSlug && projectSlug) {
-      overlay.setOpen(true);
-    }
-    close();
+  // Router params differ per route, so the widened RoutePath union defeats
+  // param inference at this single call site — navigate with a localized cast.
+  const go = (to: RoutePath, params: Record<string, string>) =>
+    run(() => void navigate({ to, params } as never));
+
+  const goOrg = (to: RoutePath) => {
+    if (orgSlug) go(to, { orgSlug });
+  };
+  const goProject = (to: RoutePath) => {
+    if (orgSlug && projectSlug) go(to, { orgSlug, projectSlug });
+  };
+  const openProject = (slug: string) => {
+    if (orgSlug) go("/$orgSlug/$projectSlug", { orgSlug, projectSlug: slug });
   };
 
-  const goGraph = () => {
-    if (orgSlug && projectSlug) {
+  const goNewResource = () =>
+    run(() => {
+      if (orgSlug && projectSlug) overlay.setOpen(true);
+    });
+
+  const switchEnv = (slug: string) =>
+    run(() =>
       void navigate({
-        to: "/$orgSlug/$projectSlug/graph",
-        params: { orgSlug, projectSlug },
-      });
-    }
-    close();
-  };
+        search: (prev: Record<string, unknown>) => ({ ...prev, env: slug }),
+      } as never),
+    );
 
   // Global keyboard shortcuts. `ignoreInputs` defaults to true for single keys
-  // and sequences, so these don't fire while the user is typing in any input
-  // (including the palette's own search field).
+  // and sequences, so these don't fire while the user is typing in any input.
   useHotkey("D", goNewResource);
-  useHotkeySequence(["G", "G"], goGraph);
+  useProjectNavHotkeys(goProject);
+
+  const inProject = Boolean(orgSlug && projectSlug);
 
   return (
     <CommandDialog open={open} onOpenChange={setOpen} className="gap-0 p-0 sm:max-w-xl">
@@ -83,68 +115,36 @@ export function CommandPalette() {
         <CommandList>
           <CommandEmpty>No matching command.</CommandEmpty>
 
-          <CommandGroup heading="Actions">
-            <CommandItem onSelect={goNewResource}>
-              Deploy a new service…
-              <CommandShortcut>
-                <Kbd>D</Kbd>
-              </CommandShortcut>
-            </CommandItem>
-            <CommandItem onSelect={close}>
-              Rollback last deployment
-              <CommandShortcut>
-                <KbdGroup>
-                  <Kbd>⇧</Kbd>
-                  <Kbd>R</Kbd>
-                </KbdGroup>
-              </CommandShortcut>
-            </CommandItem>
-          </CommandGroup>
-
-          <CommandGroup heading="Logs">
-            <CommandItem onSelect={close}>Tail logs · api</CommandItem>
-            <CommandItem onSelect={close}>Tail logs · web</CommandItem>
-            <CommandItem onSelect={close}>Tail logs · worker</CommandItem>
-          </CommandGroup>
-
-          <CommandGroup heading="Navigate">
-            <CommandItem onSelect={goGraph}>
-              Go to graph
-              <CommandShortcut>
-                <KbdGroup>
-                  <Kbd>G</Kbd>
-                  <Kbd>G</Kbd>
-                </KbdGroup>
-              </CommandShortcut>
-            </CommandItem>
-            <CommandItem onSelect={close}>
-              Go to deployments
-              <CommandShortcut>
-                <KbdGroup>
-                  <Kbd>G</Kbd>
+          {inProject && (
+            <CommandGroup heading="This project">
+              <CommandItem value="action new-service deploy" onSelect={goNewResource}>
+                <HugeiconsIcon icon={Rocket01Icon} strokeWidth={2} />
+                Deploy a new service…
+                <CommandShortcut>
                   <Kbd>D</Kbd>
-                </KbdGroup>
-              </CommandShortcut>
-            </CommandItem>
-            <CommandItem onSelect={close}>
-              Go to variables
-              <CommandShortcut>
-                <KbdGroup>
-                  <Kbd>G</Kbd>
-                  <Kbd>V</Kbd>
-                </KbdGroup>
-              </CommandShortcut>
-            </CommandItem>
-            <CommandItem onSelect={close}>
-              Go to metrics
-              <CommandShortcut>
-                <KbdGroup>
-                  <Kbd>G</Kbd>
-                  <Kbd>M</Kbd>
-                </KbdGroup>
-              </CommandShortcut>
-            </CommandItem>
-          </CommandGroup>
+                </CommandShortcut>
+              </CommandItem>
+              {PROJECT_NAV.map((item) => (
+                <CommandItem
+                  key={item.label}
+                  value={`project ${item.label} ${(item.keywords ?? []).join(" ")}`}
+                  keywords={item.keywords}
+                  onSelect={() => goProject(item.to)}
+                >
+                  <HugeiconsIcon icon={item.icon} strokeWidth={2} />
+                  {item.label}
+                  {item.chord ? (
+                    <CommandShortcut>
+                      <KbdGroup>
+                        <Kbd>G</Kbd>
+                        <Kbd>{item.chord}</Kbd>
+                      </KbdGroup>
+                    </CommandShortcut>
+                  ) : null}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          )}
 
           {environments.length > 0 && (
             <CommandGroup heading="Environment">
@@ -154,30 +154,49 @@ export function CommandPalette() {
                   value={`env ${envOption.slug} ${envOption.name}`}
                   onSelect={() => switchEnv(envOption.slug)}
                 >
+                  <HugeiconsIcon icon={Folder01Icon} strokeWidth={2} />
                   Switch to {envOption.name}
                 </CommandItem>
               ))}
             </CommandGroup>
           )}
+
+          {projects.length > 0 && (
+            <CommandGroup heading="Projects">
+              {projects.map((project) => (
+                <CommandItem
+                  key={project.id}
+                  value={`open-project ${project.name} ${project.slug}`}
+                  onSelect={() => openProject(project.slug)}
+                >
+                  <HugeiconsIcon icon={Folder01Icon} strokeWidth={2} />
+                  {project.name}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          )}
+
+          <NavGroup heading="Workspace" items={WORKSPACE_NAV} onGo={goOrg} />
+          <NavGroup heading="Infrastructure" items={INFRA_NAV} onGo={goOrg} />
+          <NavGroup heading="Cluster admin" items={CLUSTER_NAV} onGo={goOrg} />
+
+          <CommandGroup heading="Appearance">
+            <CommandItem value="theme light" onSelect={() => run(() => setTheme("light"))}>
+              <HugeiconsIcon icon={Sun02Icon} strokeWidth={2} />
+              Light theme
+            </CommandItem>
+            <CommandItem value="theme dark" onSelect={() => run(() => setTheme("dark"))}>
+              <HugeiconsIcon icon={Moon02Icon} strokeWidth={2} />
+              Dark theme
+            </CommandItem>
+            <CommandItem value="theme system" onSelect={() => run(() => setTheme("system"))}>
+              <HugeiconsIcon icon={Settings01Icon} strokeWidth={2} />
+              System theme
+            </CommandItem>
+          </CommandGroup>
         </CommandList>
 
-        <div className="flex items-center gap-4 border-t px-3 py-2 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1.5">
-            <KbdGroup>
-              <Kbd>↑</Kbd>
-              <Kbd>↓</Kbd>
-            </KbdGroup>
-            Navigate
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Kbd>↵</Kbd>
-            Select
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Kbd>esc</Kbd>
-            Close
-          </span>
-        </div>
+        <PaletteFooter />
       </Command>
     </CommandDialog>
   );

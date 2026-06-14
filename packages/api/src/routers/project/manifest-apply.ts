@@ -17,7 +17,12 @@
  * back into the response, Phase 6 wires CLI consumption.
  */
 
-import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type {
+  OrganizationId,
+  ProjectId,
+  ProxyRouteId,
+  ResourceId,
+} from "@otterdeploy/shared/id";
 
 import { and, eq } from "drizzle-orm";
 import { Result } from "better-result";
@@ -45,6 +50,7 @@ import {
   type ServiceManifest,
   type DatabaseManifest,
 } from "../../stack/manifest";
+import { emitDeployStarted } from "./deployments";
 import { ManifestApplySkipError } from "./errors";
 import { deleteResourceById } from "./queries";
 import { createPostgresResourceStream, validatePostgresCreate } from "./postgres/create-stream";
@@ -57,8 +63,10 @@ import {
   bulkSetEnv,
   createService,
   deleteService,
+  exposeService,
   updateService,
 } from "../service/handlers";
+import { addServiceDomain, setPrimaryServiceDomain } from "../service/domains";
 
 type OrgId = OrganizationId;
 
@@ -133,6 +141,21 @@ export async function applyManifest(input: ApplyInput): Promise<ApplyResult> {
     tally(created);
     if (created.isOk() && spec.source === "git") {
       gitBuilds.push({ resourceId: created.value.resourceId, name: change.name });
+    }
+    // Seed manifest-declared public domains onto the freshly-created service
+    // (create-time only). Failures are non-fatal skips — the service itself
+    // is already created; a bad/portless domain shouldn't roll that back.
+    if (created.isOk() && spec.domains?.length) {
+      for (const s of await seedServiceDomains({
+        projectId,
+        organizationId,
+        resourceId: created.value.resourceId,
+        name: change.name,
+        domains: spec.domains,
+        log,
+      })) {
+        skipped.push(s);
+      }
     }
   }
 
@@ -435,6 +458,12 @@ export async function enqueueGitBuild(args: {
     .returning({ id: deployment.id });
   if (!row) return Result.err("failed to insert deployment row");
 
+  await emitDeployStarted({
+    deploymentId: row.id,
+    resourceId: args.resourceId,
+    reason: "create",
+  });
+
   await triggerDeploy({
     projectId: args.projectId,
     gitRepoId: proj.gitRepoId,
@@ -629,6 +658,64 @@ async function createServiceFromManifest(
     );
   }
   return Result.ok({ resourceId: result.value.id as ResourceId });
+}
+
+/**
+ * Attach manifest-declared public domains to a just-created service, reusing
+ * the same handlers the domains UI calls. Order matters: add the custom
+ * routes first (they land disabled while the service is still unexposed),
+ * then `exposeService` enables them in place — it won't mint a throwaway
+ * generated host because real custom routes already exist — and finally pin
+ * the operator's chosen primary. Every step's failure becomes a non-fatal
+ * skip so a single bad domain never rolls back the created service.
+ */
+async function seedServiceDomains(args: {
+  projectId: ProjectId;
+  organizationId: OrgId;
+  resourceId: ResourceId;
+  name: string;
+  domains: NonNullable<ServiceManifest["domains"]>;
+  log: RequestLogger;
+}): Promise<ManifestApplySkipError[]> {
+  const skips: ManifestApplySkipError[] = [];
+  const ref = {
+    projectId: args.projectId,
+    organizationId: args.organizationId,
+    resourceId: args.resourceId,
+  };
+  const skip = (reason: string) =>
+    skips.push(
+      new ManifestApplySkipError({ resource: "service", name: args.name, reason }),
+    );
+
+  let primaryRouteId: ProxyRouteId | null = null;
+  for (const d of args.domains) {
+    const added = await addServiceDomain({ ...ref, domain: d.domain }, args.log);
+    if (added.isErr()) {
+      skip(`domain ${d.domain} skipped: ${added.error.message}`);
+      continue;
+    }
+    if (d.primary) primaryRouteId = added.value.id as ProxyRouteId;
+  }
+
+  // Nothing landed (e.g. no http port → every add failed) — don't expose.
+  const routesAdded = primaryRouteId !== null || skips.length < args.domains.length;
+  if (!routesAdded) return skips;
+
+  const exposed = await exposeService(ref, args.log);
+  if (exposed.isErr()) {
+    skip(`expose skipped: ${exposed.error.message}`);
+    return skips;
+  }
+
+  if (primaryRouteId) {
+    const primed = await setPrimaryServiceDomain(
+      { ...ref, routeId: primaryRouteId },
+      args.log,
+    );
+    if (primed.isErr()) skip(`set primary domain skipped: ${primed.error.message}`);
+  }
+  return skips;
 }
 
 interface UpdateServiceArgs {

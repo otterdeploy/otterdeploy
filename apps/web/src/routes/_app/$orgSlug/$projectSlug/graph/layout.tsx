@@ -28,7 +28,15 @@ import {
   buildRouteEdges,
   type PendingByName,
 } from "@/features/projects/components/graph/build-live-nodes";
-import { layoutGraph } from "@/features/projects/components/graph/layout-graph";
+import {
+  clearAppliedCreate,
+  useAppliedCreates,
+} from "@/features/projects/components/graph/applied-creates-store";
+import {
+  incrementalLayout,
+  topologySignature,
+  type XY,
+} from "@/features/projects/components/graph/layout-graph";
 import { ResourceNode } from "@/features/projects/components/graph/resource-node";
 import { StackCodePanel } from "@/features/projects/components/stack";
 import { dependenciesCollection } from "@/features/projects/data/dependencies";
@@ -139,6 +147,11 @@ function GraphCanvas() {
     }),
   );
 
+  // Create-ghosts the operator just Deployed. Kept mounted until the matching
+  // resource lands in the collection so the node doesn't blink out and back
+  // across the diff/collection refetch gap. See applied-creates-store.ts.
+  const appliedCreates = useAppliedCreates(project.id);
+
   const pendingByName = useMemo<PendingByName>(() => {
     const creates: PendingByName["creates"] = [];
     const marker = new Map<string, "update" | "delete">();
@@ -148,18 +161,44 @@ function GraphCanvas() {
         resourceIdByName.set(`${r.type}:${r.name}`, r.resourceId);
       }
     }
+    const createKeys = new Set<string>();
     for (const c of diff.data?.changes ?? []) {
       if (c.kind === "no-op" || c.resource === "env") continue;
       const key = `${c.resource}:${c.name}`;
       const id = resourceIdByName.get(key);
       if (c.kind === "create" && !id) {
         creates.push({ resource: c.resource, name: c.name });
+        createKeys.add(key);
       } else if (id && (c.kind === "update" || c.kind === "delete")) {
-        marker.set(id, c.kind);
+        // Key by the node id (`${resource}:${name}`), which is what the node
+        // carries — not the resourceId.
+        marker.set(key, c.kind);
       }
     }
+    // Bridge the apply gap: a create that was just Deployed but whose resource
+    // hasn't streamed in yet keeps its ghost so the node stays put. Skip ones
+    // diff still reports (already added) or that have already landed (the real
+    // node renders for those — keys are cleared in the effect below).
+    for (const key of appliedCreates) {
+      if (createKeys.has(key) || resourceIdByName.has(key)) continue;
+      const sep = key.indexOf(":");
+      const resource = key.slice(0, sep) as "service" | "database";
+      const name = key.slice(sep + 1);
+      creates.push({ resource, name });
+    }
     return { creates, marker };
-  }, [resources, diff.data]);
+  }, [resources, diff.data, appliedCreates]);
+
+  // Once a just-Deployed create's resource has landed, stop bridging it so the
+  // store doesn't pin a ghost over the now-real node.
+  useEffect(() => {
+    if (appliedCreates.size === 0) return;
+    for (const r of resources) {
+      if (r.type !== "service" && r.type !== "database") continue;
+      const key = `${r.type}:${r.name}`;
+      if (appliedCreates.has(key)) clearAppliedCreate(project.id, key);
+    }
+  }, [appliedCreates, resources, project.id]);
 
   // Convert resources to nodes + synthesize public route nodes via the
   // shared helper. See features/projects/components/graph/build-live-nodes.ts
@@ -177,16 +216,46 @@ function GraphCanvas() {
   );
 
   // Lay out with both nodes and edges so dagre ranks consumers above their
-  // dependencies (routes → services → databases).
-  const laidOutNodes = useMemo(
-    () => layoutGraph(liveNodes, liveEdges),
-    [liveNodes, liveEdges],
-  );
+  // dependencies (routes → services → databases) — but only when the topology
+  // actually changes, and even then without disturbing already-placed nodes.
+  // Two problems this guards against:
+  //   1. The manifest diff polls every 5s and task statuses tick constantly;
+  //      re-running dagre on each one repacked the whole graph and made
+  //      unrelated nodes jitter. A topology signature (node id set + edges)
+  //      gates relayout to genuine add/remove only.
+  //   2. Even on a real add (staging a create → a ghost node appears), a full
+  //      relayout shoved existing services aside — yanking the node a detail
+  //      panel was anchored on. incrementalLayout pins existing nodes and only
+  //      places the new one.
+  // Cached positions accumulate across topology changes; mutating a ref during
+  // render is React's sanctioned render-cache pattern (idempotent per sig).
+  const layoutCache = useRef<{ sig: string; positions: Map<string, XY> }>({
+    sig: "",
+    positions: new Map(),
+  });
+
+  const laidOutNodes = useMemo(() => {
+    const sig = topologySignature(liveNodes, liveEdges);
+    if (sig !== layoutCache.current.sig) {
+      layoutCache.current = {
+        sig,
+        positions: incrementalLayout(
+          liveNodes,
+          liveEdges,
+          layoutCache.current.positions,
+        ),
+      };
+    }
+    const { positions } = layoutCache.current;
+    return liveNodes.map((n) => {
+      const pos = positions.get(n.id);
+      return pos ? { ...n, position: pos } : n;
+    });
+  }, [liveNodes, liveEdges]);
 
   // Fully derived — no internal state, no setNodes-via-useEffect loops with
-  // React Flow's store updater. Selection state is ephemeral; positions are
-  // re-derived from dagre on every data change. nodesDraggable={false} +
-  // empty change handlers because dagre owns layout.
+  // React Flow's store updater. Selection state is ephemeral.
+  // nodesDraggable={false} + empty change handlers because dagre owns layout.
   const noopChange = useCallback(() => {}, []);
 
   // Detect when the resource detail panel closes — fit the whole graph back
@@ -241,13 +310,22 @@ function GraphCanvas() {
       proOptions={{ hideAttribution: true }}
       defaultEdgeOptions={{ type: "smoothstep" }}
       onNodeClick={(_event, node) => {
+        // Pending-deletion nodes are disabled — no focus, no navigation.
+        if (node.data.pending === "delete") return;
         focusNode(node);
         // Synthetic route nodes don't have a detail page — skip navigation.
         if (node.id.startsWith("route:")) return;
+        // Applied resources carry the real resourceId on data; pending-create
+        // ghosts have none, so fall back to the node id (`${kind}:${name}`).
+        // The $resourceId route resolves either form — by resourceId for real
+        // resources, or by `${kind}:${name}` for a ghost (against the manifest
+        // diff) and across the ghost→applied handover.
+        const real = node.data.resourceId;
+        const resourceId = typeof real === "string" ? real : node.id;
         void navigate({
           to: "/$orgSlug/$projectSlug/graph/$resourceId",
           params: {
-            resourceId: node.id,
+            resourceId,
             orgSlug,
             projectSlug,
           },
@@ -260,6 +338,16 @@ function GraphCanvas() {
         position="bottom-right"
         className="rounded-md! border! border-border/40! bg-background/80! shadow-sm! backdrop-blur! [&_button]:border-border/40! [&_button]:bg-transparent! [&_button]:text-muted-foreground! hover:[&_button]:text-foreground!"
       />
+      {laidOutNodes.length === 0 ? (
+        <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-1 text-center">
+          <div className="text-sm font-medium text-muted-foreground">
+            No resources yet
+          </div>
+          <div className="text-xs text-muted-foreground/70">
+            Add a service or database to see it on the graph.
+          </div>
+        </div>
+      ) : null}
     </ReactFlow>
   );
 }

@@ -158,7 +158,13 @@ export const TEMPLATES: Template[] = [
     popular: true,
     icon: "db",
   },
-  { id: "t-strapi", name: "Strapi CMS", sub: "Headless CMS + Postgres", services: 2, icon: "doc" },
+  {
+    id: "t-strapi",
+    name: "Strapi CMS",
+    sub: "Headless CMS + Postgres",
+    services: 2,
+    icon: "doc",
+  },
   {
     id: "t-ghost",
     name: "Ghost",
@@ -187,7 +193,13 @@ export const TEMPLATES: Template[] = [
     services: 2,
     icon: "metrics",
   },
-  { id: "t-n8n", name: "n8n", sub: "Workflow automation", services: 1, icon: "bolt" },
+  {
+    id: "t-n8n",
+    name: "n8n",
+    sub: "Workflow automation",
+    services: 1,
+    icon: "bolt",
+  },
   {
     id: "t-grafana",
     name: "Grafana + Prometheus",
@@ -214,7 +226,13 @@ export interface ResourcePreset {
 }
 
 export const RESOURCE_PRESETS: ResourcePreset[] = [
-  { id: "micro", name: "Micro", cpu: 0.25, mem: 256, sub: "dev / preview / cron" },
+  {
+    id: "micro",
+    name: "Micro",
+    cpu: 0.25,
+    mem: 256,
+    sub: "dev / preview / cron",
+  },
   {
     id: "small",
     name: "Small",
@@ -223,10 +241,34 @@ export const RESOURCE_PRESETS: ResourcePreset[] = [
     sub: "small workers · static · staging api",
     popular: true,
   },
-  { id: "medium", name: "Medium", cpu: 1, mem: 1024, sub: "most production web apps" },
-  { id: "large", name: "Large", cpu: 2, mem: 2048, sub: "high-traffic api · workers under load" },
-  { id: "xl", name: "XL", cpu: 4, mem: 4096, sub: "database primary · heavy compute" },
-  { id: "custom", name: "Custom", cpu: null, mem: null, sub: "tune CPU and RAM independently" },
+  {
+    id: "medium",
+    name: "Medium",
+    cpu: 1,
+    mem: 1024,
+    sub: "most production web apps",
+  },
+  {
+    id: "large",
+    name: "Large",
+    cpu: 2,
+    mem: 2048,
+    sub: "high-traffic api · workers under load",
+  },
+  {
+    id: "xl",
+    name: "XL",
+    cpu: 4,
+    mem: 4096,
+    sub: "database primary · heavy compute",
+  },
+  {
+    id: "custom",
+    name: "Custom",
+    cpu: null,
+    mem: null,
+    sub: "tune CPU and RAM independently",
+  },
 ];
 
 export type NodeRole = "manager" | "worker";
@@ -251,59 +293,6 @@ export interface Node {
   project?: string;
 }
 
-export const NODES: Node[] = [
-  {
-    id: "n1",
-    name: "helio-prod-01",
-    region: "sfo",
-    host: "10.0.4.11",
-    cpu: { used: 6.4, total: 16 },
-    mem: { used: 12, total: 32 },
-    disk: { used: 84, total: 500, unit: "GB" },
-    services: 8,
-    status: "ready",
-    role: "manager",
-    availability: "active",
-    joined: "62d ago",
-    daemonVersion: "26.1.4",
-    labels: ["primary", "ssd"],
-  },
-  {
-    id: "n2",
-    name: "helio-prod-02",
-    region: "sfo",
-    host: "10.0.4.12",
-    cpu: { used: 5.1, total: 16 },
-    mem: { used: 9, total: 32 },
-    disk: { used: 71, total: 500, unit: "GB" },
-    services: 7,
-    status: "ready",
-    role: "worker",
-    availability: "active",
-    joined: "62d ago",
-    daemonVersion: "26.1.4",
-    labels: ["ssd"],
-    project: "helio",
-  },
-  {
-    id: "n3",
-    name: "helio-prod-03",
-    region: "sfo",
-    host: "10.0.4.13",
-    cpu: { used: 7.2, total: 16 },
-    mem: { used: 14, total: 32 },
-    disk: { used: 112, total: 500, unit: "GB" },
-    services: 9,
-    status: "ready",
-    role: "worker",
-    availability: "active",
-    joined: "47d ago",
-    daemonVersion: "26.1.4",
-    labels: ["gpu", "ssd"],
-    project: "marketing",
-  },
-];
-
 export interface Builder {
   id: string;
   name: string;
@@ -322,7 +311,12 @@ export const BUILDERS: Builder[] = [
     popular: true,
     langs: ["node", "python", "go", "rust", "ruby", "php", "elixir"],
   },
-  { id: "dockerfile", name: "Dockerfile", sub: "Use the Dockerfile in your repo", icon: "doc" },
+  {
+    id: "dockerfile",
+    name: "Dockerfile",
+    sub: "Use the Dockerfile in your repo",
+    icon: "doc",
+  },
   {
     id: "compose",
     name: "Docker Compose",

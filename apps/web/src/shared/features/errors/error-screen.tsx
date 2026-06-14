@@ -107,7 +107,7 @@ export function ErrorScreen({
 
       <header className="pointer-events-none absolute inset-x-0 top-0 z-3 flex justify-between px-8 py-6 text-[0.72rem] uppercase tracking-[0.16em] text-(--dim)">
         <span>
-          <span className="text-accent">◆</span> OTTERDEPLOY
+          <span className="text-(--accent)">◆</span> OTTERDEPLOY
         </span>
         <span>
           ERR / <b className="font-normal text-(--ink)">{code}</b>
@@ -117,13 +117,13 @@ export function ErrorScreen({
       <main className="relative z-2 flex min-h-full items-center justify-center px-[8vw] py-[11vh]">
         <div className="w-full max-w-150 text-center">
           <div
-            className={`${reveal} mb-[1.7rem] text-[0.74rem] uppercase tracking-[0.26em] text-accent`}
+            className={`${reveal} mb-[1.7rem] text-[0.74rem] uppercase tracking-[0.26em] text-(--accent)`}
             style={{ animationDelay: "0.1s" }}
           >
             {eyebrow}
           </div>
           <div
-            className={`${reveal} font-bold leading-none tracking-[-0.04em] text-accent text-[clamp(3.2rem,9vw,6rem)] [text-shadow:0_0_52px_var(--glow)]`}
+            className={`${reveal} font-bold leading-none tracking-[-0.04em] text-(--accent) text-[clamp(3.2rem,9vw,6rem)] [text-shadow:0_0_52px_var(--glow)]`}
             style={{ animationDelay: "0.19s" }}
           >
             {code}
@@ -151,7 +151,7 @@ export function ErrorScreen({
 
       <footer className="pointer-events-none absolute inset-x-0 bottom-0 z-3 flex justify-between px-8 py-6 text-[0.72rem] uppercase tracking-[0.16em] text-(--dim)">
         <span>
-          STATUS: <span className="text-accent">{statusTag}</span>
+          STATUS: <span className="text-(--accent)">{statusTag}</span>
         </span>
         <span>OTTERDEPLOY PLATFORM</span>
       </footer>

@@ -73,7 +73,7 @@ const clusterAdminItems: StaticNavItem[] = [
   { title: "SSH keys", icon: Key01Icon },
   { title: "Notifications", icon: Alert01Icon, href: "/$orgSlug/notifications" },
   { title: "Certificates", icon: Certificate01Icon },
-  { title: "API tokens", icon: Key02Icon },
+  { title: "API tokens", icon: Key02Icon, href: "/$orgSlug/api-keys" },
   { title: "Webhooks", icon: WebhookIcon },
   { title: "Cluster", icon: Settings01Icon },
 ];
@@ -110,11 +110,11 @@ export function ProjectSidebar({
   // Live counts shown as menu badges next to Projects / Servers. Both
   // collections are already loaded by the outer `_app` layout's loader,
   // so this hook is a cheap subscription — no extra fetch.
-  const { data: projects = [] } = useLiveQuery(
+  const { data: projects } = useLiveQuery(
     (q) => q.from({ p: projectCollection }),
     [],
   );
-  const { data: servers = [] } = useLiveQuery(
+  const { data: servers } = useLiveQuery(
     (q) => q.from({ s: serverCollection }),
     [],
   );

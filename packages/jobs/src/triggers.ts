@@ -15,6 +15,10 @@ import {
   sendNotificationJob,
 } from "./jobs/notification";
 import {
+  type PlatformEventPayload,
+  notificationEventJob,
+} from "./jobs/notification-event";
+import {
   type UserSignupPayload,
   welcomeSequenceJob,
 } from "./jobs/welcome-sequence";
@@ -23,6 +27,7 @@ import { getQueue } from "./queues";
 export type {
   EmailPayload,
   NotificationPayload,
+  PlatformEventPayload,
   DataProcessingPayload,
   UserSignupPayload,
   DeployTriggeredPayload,
@@ -53,6 +58,22 @@ export async function triggerNotification(
   const parsed = sendNotificationJob.schema.parse(payload);
   return enqueue(sendNotificationJob.name, parsed, {
     ...sendNotificationJob.opts,
+    ...opts,
+  });
+}
+
+/**
+ * Fan a platform event (deploy/build/backup/health/cert/ssh/audit) out to
+ * every channel subscribed to it. Pass `channelId` for a single-channel test
+ * delivery that bypasses the subscription matrix.
+ */
+export async function triggerPlatformEvent(
+  payload: PlatformEventPayload,
+  opts?: JobsOptions,
+) {
+  const parsed = notificationEventJob.schema.parse(payload);
+  return enqueue(notificationEventJob.name, parsed, {
+    ...notificationEventJob.opts,
     ...opts,
   });
 }

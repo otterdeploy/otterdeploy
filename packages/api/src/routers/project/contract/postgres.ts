@@ -44,6 +44,11 @@ export const unsetPostgresExtraEnvInput = z.object({
   key: envKeyShape,
 });
 
+export const restartPostgresInput = z.object({
+  projectId: projectIdField,
+  resourceId: resourceIdField,
+});
+
 export const createPostgresDatabaseInput = z.object({
   projectId: projectIdField,
   name: z.string().min(1),
@@ -196,6 +201,19 @@ export const postgresContractSlice = {
       method: "PATCH",
     })
     .input(setPostgresPublicInput)
+    .output(postgresResourceSchema),
+
+  // Re-roll the running database with its current spec — same image, env, and
+  // public flag. Forces swarm to schedule a fresh task (and re-applies the
+  // container labels, so a DB created before a label change picks it up).
+  restart: oc
+    .errors(resourceNotFoundErrors)
+    .meta({
+      path: `${basePath}/{projectId}/resources/database/postgres/{resourceId}/restart`,
+      tag,
+      method: "POST",
+    })
+    .input(restartPostgresInput)
     .output(postgresResourceSchema),
 
   setExtensions: oc

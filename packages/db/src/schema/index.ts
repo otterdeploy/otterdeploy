@@ -9,6 +9,7 @@ export * from "./deployment-guest";
 // from "@otterdeploy/db/schema/edge-log" for queries.
 export * from "./git";
 export * from "./notification";
+export * from "./notification-channel";
 export * from "./platform";
 export * from "./project";
 export * from "./proxy-route";

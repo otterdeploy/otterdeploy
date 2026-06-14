@@ -104,11 +104,17 @@ function frameworkFromRailpackInfo(info: RailpackInfo | null): FrameworkKind {
  */
 export async function detectServiceFramework(opts: {
   workDir: string;
-  /** Service's repo subdirectory (monorepo); null = repo root. */
+  /** Service's repo subdirectory (monorepo); null = repo root. The app's own
+   *  package.json always lives here, even for a workspace built from the root. */
   sourceSubdir: string | null;
+  /** Directory railpack actually wrote `railpack-info.json` to. For a workspace
+   *  service this is the repo root (not the subdir); defaults to the subdir. */
+  buildDir?: string;
   sink: LogSink;
 }): Promise<FrameworkKind> {
   // 1. Local package.json heuristic — finest granularity for Node services.
+  //    Always the app's own package.json (its subdir), even when the build ran
+  //    from the workspace root.
   const pkg = await readJsonFile<PackageJsonLike>(
     join(opts.workDir, opts.sourceSubdir ?? "", "package.json"),
   );
@@ -119,10 +125,10 @@ export async function detectServiceFramework(opts: {
   }
 
   // 2. railpack's analysis — non-Node languages + bun + plain node. Written by
-  //    `railpack prepare` into the build dir (the service's subdir for a
-  //    monorepo), so read it from the same subdir.
+  //    `railpack prepare` into the build dir (the repo root for a workspace
+  //    service, else the service's subdir), so read it from there.
   const info = await readJsonFile<RailpackInfo>(
-    join(opts.workDir, opts.sourceSubdir ?? "", RAILPACK_INFO_FILE),
+    join(opts.buildDir ?? join(opts.workDir, opts.sourceSubdir ?? ""), RAILPACK_INFO_FILE),
   );
   const fromRailpack = frameworkFromRailpackInfo(info);
   const framework = fromRailpack ?? fromPkg ?? null;

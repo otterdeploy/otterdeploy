@@ -43,7 +43,8 @@ export interface EdgeLogFilter {
   /** Multi-select method/status filters; empty/undefined ⇒ no filter. */
   methods?: string[];
   statuses?: EdgeStatusBucket[];
-  host?: string;
+  /** User-selected host subset (within the org scope above); empty ⇒ all. */
+  selectedHosts?: string[];
   /** Free-text match across path / client IP / status. */
   search?: string;
   limit?: number;

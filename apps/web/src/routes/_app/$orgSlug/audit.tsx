@@ -29,6 +29,7 @@ import {
 } from "@/shared/components/ui/empty";
 import { formatNumber } from "@otterdeploy/shared/format";
 
+import { Page, PageHeader } from "@/shared/components/page";
 import { Input } from "@/shared/components/ui/input";
 import { JsonView } from "@/shared/components/ui/json-view";
 import {
@@ -120,26 +121,27 @@ function AuditRoute() {
   const opening = items.find((e) => e.id === openId) ?? null;
 
   return (
-    <div className="flex flex-1 flex-col gap-5 p-5">
-      <header className="flex items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Audit log</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Append-only record of every administrative action across this
-            workspace — mutations and denials.
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-8 gap-1.5"
-          disabled={items.length === 0}
-          onClick={() => exportCsv(items)}
-        >
-          <HugeiconsIcon icon={Download01Icon} strokeWidth={2} className="size-3.5" />
-          Export CSV
-        </Button>
-      </header>
+    <Page>
+      <PageHeader
+        title="Audit log"
+        description="Append-only record of every administrative action across this workspace — mutations and denials."
+        actions={
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5"
+            disabled={items.length === 0}
+            onClick={() => exportCsv(items)}
+          >
+            <HugeiconsIcon
+              icon={Download01Icon}
+              strokeWidth={2}
+              className="size-3.5"
+            />
+            Export CSV
+          </Button>
+        }
+      />
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">
@@ -289,7 +291,7 @@ function AuditRoute() {
       )}
 
       <EventDrawer event={opening} onClose={() => setOpenId(null)} />
-    </div>
+    </Page>
   );
 }
 

@@ -7,6 +7,8 @@ import type { VariablesEditorResource } from "@/features/resources/components/_s
 import { SettingsCard, SettingsRowReadOnly } from "@/features/resources/components/_shared/settings-card";
 import { ServiceBuildCard } from "./build-card";
 import { ServiceDangerZone } from "./danger-zone";
+import { ServiceDomainsCard } from "./domains-card";
+import { ManifestDomainsCard } from "./manifest-domains-card";
 import { ServiceProtectionCard } from "./protection-card";
 import { ServicePublicAccessCard } from "./public-access-card";
 
@@ -25,11 +27,16 @@ export interface ServiceSettingsResource extends VariablesEditorResource {
 interface ServiceSettingsBodyProps {
   resource: ServiceSettingsResource;
   onDeleted: () => void;
+  // Pending-create mode: the service isn't provisioned, so resource-scoped
+  // cards (live public-access toggle, protection, DNS recheck) don't apply.
+  // Editing targets the manifest entry instead.
+  pending?: boolean;
 }
 
 export function ServiceSettingsBody({
   resource,
   onDeleted,
+  pending = false,
 }: ServiceSettingsBodyProps) {
   return (
     <div className="flex flex-col gap-6">
@@ -49,11 +56,19 @@ export function ServiceSettingsBody({
         <ServiceBuildCard resource={resource} />
       ) : null}
 
-      <ServicePublicAccessCard resource={resource} />
+      {pending ? (
+        // Manifest-backed domains; the live public-access + protection cards
+        // need a running resource, so they're omitted until after Deploy.
+        <ManifestDomainsCard projectId={resource.projectId} serviceName={resource.name} />
+      ) : (
+        <>
+          <ServicePublicAccessCard resource={resource} />
+          <ServiceDomainsCard resource={resource} />
+          <ServiceProtectionCard resource={resource} />
+        </>
+      )}
 
-      <ServiceProtectionCard resource={resource} />
-
-      <ServiceDangerZone resource={resource} onDeleted={onDeleted} />
+      <ServiceDangerZone resource={resource} onDeleted={onDeleted} pending={pending} />
     </div>
   );
 }

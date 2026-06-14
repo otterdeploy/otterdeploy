@@ -165,13 +165,19 @@
     {
       "files": ["**/contract.ts"],
       "rules": {
-        "max-lines": ["error", { "max": 500, "skipBlankLines": true, "skipComments": true }]
+        "max-lines": [
+          "error",
+          { "max": 500, "skipBlankLines": true, "skipComments": true }
+        ]
       }
     },
     {
       "files": ["apps/server/src/index.ts"],
       "rules": {
-        "max-lines": ["error", { "max": 350, "skipBlankLines": true, "skipComments": true }]
+        "max-lines": [
+          "error",
+          { "max": 350, "skipBlankLines": true, "skipComments": true }
+        ]
       }
     }
   ],
@@ -214,6 +220,8 @@
     "apps/beta-landing/**",
     "apps/web-demo/**",
     "**/route-tree.gen.ts",
-    "routeTree.gen.ts"
+    "routeTree.gen.ts",
+    ".agents/",
+    ".claude/"
   ]
 }

@@ -4,15 +4,15 @@
  * push under. Tags get appended by the builder: `<sha>` + `latest`.
  */
 
-import { useQuery } from "@tanstack/react-query";
+import { useLiveQuery } from "@tanstack/react-db";
 
+import { registryCollection } from "@/features/registries/data/registries";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 import {
   NativeSelect,
   NativeSelectOption,
 } from "@/shared/components/ui/native-select";
-import { orpc } from "@/shared/server/orpc";
 
 interface RegistrySectionProps {
   containerRegistryId: string | null;
@@ -22,10 +22,9 @@ interface RegistrySectionProps {
 }
 
 export function RegistrySection(props: RegistrySectionProps) {
-  const registriesQuery = useQuery(
-    orpc.registry.list.queryOptions({ input: undefined }),
+  const { data: registries } = useLiveQuery((q) =>
+    q.from({ r: registryCollection }),
   );
-  const registries = registriesQuery.data ?? [];
 
   return (
     <section className="rounded-md border bg-card p-5">

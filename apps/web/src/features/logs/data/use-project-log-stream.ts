@@ -17,6 +17,22 @@ import { useLogStream, type LogStreamStatus } from "./use-log-stream";
 export const LOG_LEVELS = ["debug", "info", "warn", "error"] as const;
 export type LogLevel = (typeof LOG_LEVELS)[number];
 
+// INFO uses --primary so the log palette stays aligned with every other
+// interactive accent in the app. One token, one place to tweak.
+export const LEVEL_TEXT: Record<LogLevel, string> = {
+  debug: "text-muted-foreground",
+  info: "text-info",
+  warn: "text-warning",
+  error: "text-destructive",
+};
+
+export const LEVEL_STRIPE: Record<LogLevel, string> = {
+  debug: "bg-muted-foreground/40",
+  info: "bg-info",
+  warn: "bg-warning",
+  error: "bg-destructive",
+};
+
 export interface LogLine {
   id: string;
   ts: string;
@@ -84,7 +100,9 @@ export function useProjectLogStream({
   projectId,
   resourceIds,
   paused,
-  bufferSize = 500,
+  // Virtualized table keeps the DOM light, so we can afford a much deeper
+  // scrollback than the old per-row-DOM list (which capped at 500).
+  bufferSize = 5000,
 }: UseProjectLogStreamArgs): { lines: LogLine[]; status: LogStreamStatus } {
   // Key the resource list by sorted-join so resourceIds = [a, b] and [b, a]
   // don't trigger reconnects.

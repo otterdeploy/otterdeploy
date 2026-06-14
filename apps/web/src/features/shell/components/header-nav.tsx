@@ -173,7 +173,7 @@ function ProjectPicker({
   activeProjectId: string;
   activeProjectName: string;
 }) {
-  const { data: projects = [] } = useLiveQuery(
+  const { data: projects } = useLiveQuery(
     (q) => q.from({ p: projectCollection }),
     [],
   );
@@ -216,7 +216,7 @@ function EnvPicker({ projectId }: { projectId: string }) {
   const { env } = useSearch({ from: "/_app/$orgSlug/$projectSlug" });
   const [createOpen, setCreateOpen] = useState(false);
 
-  const { data: environments = [] } = useLiveQuery(
+  const { data: environments } = useLiveQuery(
     (q) => q.from({ e: envCollection }).where(({ e }) => eq(e.projectId, projectId)),
     [projectId],
   );

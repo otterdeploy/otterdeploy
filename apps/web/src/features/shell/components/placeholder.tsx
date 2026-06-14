@@ -1,3 +1,14 @@
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Rocket01Icon } from "@hugeicons/core-free-icons";
+
+import { Page, PageHeader } from "@/shared/components/page";
+import {
+  Empty,
+  EmptyHeader,
+  EmptyTitle,
+  EmptyDescription,
+} from "@/shared/components/ui/empty";
+
 export function Placeholder({
   title,
   description,
@@ -6,16 +17,21 @@ export function Placeholder({
   description?: string;
 }) {
   return (
-    <div className="flex flex-1 flex-col gap-6 p-6">
-      <header>
-        <h1 className="text-2xl font-semibold">{title}</h1>
-        {description ? (
-          <p className="text-sm text-muted-foreground">{description}</p>
-        ) : null}
-      </header>
-      <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
-        Coming soon
-      </div>
-    </div>
+    <Page>
+      <PageHeader title={title} description={description} />
+      <Empty className="rounded-md border border-dashed bg-muted/20 py-12">
+        <EmptyHeader>
+          <HugeiconsIcon
+            icon={Rocket01Icon}
+            strokeWidth={1.5}
+            className="size-10 text-muted-foreground/50"
+          />
+          <EmptyTitle>Coming soon</EmptyTitle>
+          {description ? (
+            <EmptyDescription>{description}</EmptyDescription>
+          ) : null}
+        </EmptyHeader>
+      </Empty>
+    </Page>
   );
 }

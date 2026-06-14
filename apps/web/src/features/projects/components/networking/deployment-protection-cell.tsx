@@ -41,6 +41,9 @@ export function DeploymentProtectionCell({
 
   return (
     <div className="flex items-center gap-2.5">
+      <span className="font-mono text-[11px] text-muted-foreground">
+        {route.protected ? "login required" : "public"}
+      </span>
       <ProtectionSwitch route={route} projectId={projectId} />
       {route.protected ? (
         <AccessDialog routeId={route.id} domain={route.domain} />

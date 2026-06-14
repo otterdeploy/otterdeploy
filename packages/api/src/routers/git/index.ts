@@ -1,4 +1,5 @@
 import { matchError } from "better-result";
+import { ORPCError } from "@orpc/server";
 import { db } from "@otterdeploy/db";
 import { gitProvider, gitRepo } from "@otterdeploy/db/schema";
 import { and, eq } from "drizzle-orm";
@@ -47,6 +48,11 @@ export const gitRouter = {
       if (!provider?.appSlug) {
         throw errors.NOT_CONFIGURED();
       }
+      // App-install flow binds the GitHub callback to the initiating user —
+      // session-only; API-key actors have no user identity.
+      if (!context.session?.user) {
+        throw new ORPCError("UNAUTHORIZED");
+      }
       const state = await signInstallState({
         orgId: context.activeOrganizationId,
         userId: context.session.user.id,
@@ -79,6 +85,11 @@ export const gitRouter = {
    */
   startManifest: orgScopedProcedure.git.startManifest.handler(
     async ({ input, context }) => {
+      // Manifest flow binds the GitHub callback to the initiating user —
+      // session-only; API-key actors have no user identity.
+      if (!context.session?.user) {
+        throw new ORPCError("UNAUTHORIZED");
+      }
       const state = await signInstallState({
         orgId: context.activeOrganizationId,
         userId: context.session.user.id,

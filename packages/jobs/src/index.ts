@@ -10,10 +10,12 @@ export {
   triggerEmailBatch,
   runHourlyCleanupNow,
   triggerDeploy,
+  triggerPlatformEvent,
 } from "./triggers";
 export type {
   EmailPayload,
   NotificationPayload,
+  PlatformEventPayload,
   DataProcessingPayload,
   UserSignupPayload,
   DeployTriggeredPayload,
@@ -28,6 +30,9 @@ export { workbenchQueues } from "./dashboard";
 
 // Registry — exposed so admin endpoints / tooling can enumerate jobs.
 export { jobs, jobsByName } from "./registry";
+
+// Boot-time reconciliation — reset deployments stranded by a crash.
+export { reconcileInterruptedDeployments } from "./reconcile";
 
 // Definition helper — exported for callers adding new jobs in apps.
 export { defineJob } from "./define";

@@ -376,6 +376,22 @@ export async function setPublicExposure(input: {
   return updated;
 }
 
+/** Update only the denormalized primary-domain mirror, leaving the
+ *  publicEnabled toggle untouched. Used when the operator picks a new
+ *  primary among several hosts — the set of routes (and thus reachability)
+ *  doesn't change, just which host the panel/graph/views surface. */
+export async function setServicePublicDomain(
+  resourceId: ResourceId,
+  publicDomain: string | null,
+) {
+  const [updated] = await db
+    .update(serviceResource)
+    .set({ publicDomain })
+    .where(eq(serviceResource.resourceId, resourceId))
+    .returning();
+  return updated;
+}
+
 export async function deleteServiceRecord(
   resourceId: ResourceId,
 ): Promise<void> {

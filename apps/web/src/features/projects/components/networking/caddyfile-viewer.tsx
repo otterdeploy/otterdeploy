@@ -13,6 +13,12 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/shared/components/ui/empty";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { cn } from "@/shared/lib/utils";
 import { CaddyfileToolbar } from "@/features/projects/components/networking/caddyfile-toolbar";
@@ -83,7 +89,11 @@ export function CaddyfileViewer({
     <div
       ref={rootRef}
       className={cn(
-        "flex h-[70vh] flex-col overflow-hidden rounded-xl border bg-muted/20",
+        // The layout chain doesn't pass a definite height down (SidebarProvider
+        // is min-h-svh, not h-svh), so flex-fill can't reach the viewport
+        // bottom — size against the viewport like EdgeLogsView does. Offset =
+        // header + project tabs + page padding + the in-page tab strip.
+        "flex h-[calc(100svh-var(--header-height)-9rem)] min-h-80 flex-col overflow-hidden rounded-xl border bg-muted/20",
         className,
       )}
     >
@@ -175,11 +185,14 @@ function LoadingBody() {
 
 function EmptyBody() {
   return (
-    <div className="flex flex-1 items-center justify-center p-6 text-center">
-      <p className="max-w-sm text-[12.5px] text-muted-foreground">
-        No enabled routes contribute to the Caddyfile yet. Enable a route on the
-        Routes tab to see its generated HTTP / Layer4 blocks here.
-      </p>
-    </div>
+    <Empty className="flex-1">
+      <EmptyHeader>
+        <EmptyTitle>No routes contribute to the Caddyfile yet</EmptyTitle>
+        <EmptyDescription>
+          Enable a route on the Routes tab to see its generated HTTP / Layer4
+          blocks here.
+        </EmptyDescription>
+      </EmptyHeader>
+    </Empty>
   );
 }

@@ -13,6 +13,7 @@
   },
   "scripts": {},
   "dependencies": {
+    "@better-auth/api-key": "^1.6.11",
     "@otterdeploy/db": "workspace:*",
     "@otterdeploy/email": "workspace:*",
     "@otterdeploy/env": "workspace:*",

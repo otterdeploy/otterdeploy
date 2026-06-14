@@ -14,9 +14,18 @@ import type {
 import { Result } from "better-result";
 import type { RequestLogger } from "evlog";
 
-import { reconcile, renderProjectCaddyfile, type ProjectCaddyfile } from "../../caddy";
+import {
+  reconcile,
+  renderProjectCaddyfile,
+  saveProjectCustomConfig,
+  saveRouteCustomDirectives,
+  type ProjectCaddyfile,
+  type SaveCustomConfigResult,
+  type SaveRouteDirectivesResult,
+} from "../../caddy";
 import { RESERVED_AUTH_PREFIX } from "../../caddy/builder";
 import {
+  getProjectCustomConfig,
   getProxyRouteById,
   listProxyRoutesByProject,
   updateProxyRoute,
@@ -65,6 +74,52 @@ export async function getProjectCaddyfile(
 
   const rendered = await renderProjectCaddyfile(input.projectId);
   return Result.ok(rendered);
+}
+
+/** Read a project's raw custom Caddy config for the editor (org-scoped). */
+export async function getProjectCustomCaddyConfig(
+  input: ProjectRef,
+): Promise<Result<{ config: string | null }, ProjectNotFoundError>> {
+  const project = await getProjectInOrg({
+    projectId: input.projectId,
+    organizationId: input.organizationId,
+  });
+  if (!project) {
+    return Result.err(new ProjectNotFoundError({ projectId: input.projectId }));
+  }
+  const config = await getProjectCustomConfig(input.projectId);
+  return Result.ok({ config });
+}
+
+/** Validate + persist a project's custom Caddy config, then reconcile. Invalid
+ *  config is rejected (not saved) with Caddy's error so the live edge stays
+ *  intact — see saveProjectCustomConfig. */
+export async function saveProjectCustomCaddyConfig(
+  input: ProjectRef & { config: string | null },
+  rlog?: RequestLogger,
+): Promise<Result<SaveCustomConfigResult, ProjectNotFoundError>> {
+  const project = await getProjectInOrg({
+    projectId: input.projectId,
+    organizationId: input.organizationId,
+  });
+  if (!project) {
+    return Result.err(new ProjectNotFoundError({ projectId: input.projectId }));
+  }
+  const result = await saveProjectCustomConfig(input.projectId, input.config, rlog);
+  return Result.ok(result);
+}
+
+/** Validate + persist per-route custom directives, then reconcile. */
+export async function setProxyRouteDirectives(
+  input: OrgRef & { routeId: ProxyRouteId; directives: string | null },
+  rlog?: RequestLogger,
+): Promise<Result<SaveRouteDirectivesResult, ProxyRouteNotFoundError>> {
+  const route = await getRouteInOrg(input.routeId, input.organizationId);
+  if (!route) {
+    return Result.err(new ProxyRouteNotFoundError({ routeId: input.routeId }));
+  }
+  const result = await saveRouteCustomDirectives(route, input.directives, rlog);
+  return Result.ok(result);
 }
 
 /** Load a route and verify it belongs to a project in the caller's org.

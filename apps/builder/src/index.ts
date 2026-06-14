@@ -12,7 +12,11 @@
  */
 
 import { env } from "@otterdeploy/env/server";
-import { createWorkers } from "@otterdeploy/jobs";
+import {
+  createWorkers,
+  reconcileInterruptedDeployments,
+} from "@otterdeploy/jobs";
+import { Result } from "better-result";
 import { log } from "evlog";
 
 import { makeBuildJob } from "./handler";
@@ -24,6 +28,26 @@ async function bootstrap() {
     string,
     unknown
   >);
+
+  // Reset deployments stranded by a previous crash before we start pulling
+  // new jobs. Best-effort: a reconcile failure must never block the worker.
+  (
+    await Result.tryPromise({
+      try: () => reconcileInterruptedDeployments(),
+      catch: (cause) => cause,
+    })
+  ).match({
+    ok: (summary) =>
+      log.info({ builder: { event: "reconciled", ...summary } } as Record<
+        string,
+        unknown
+      >),
+    err: (cause) =>
+      log.warn({ builder: { event: "reconcile-failed", cause: String(cause) } } as Record<
+        string,
+        unknown
+      >),
+  });
 
   const workers = await createWorkers({
     jobs: [makeBuildJob()],

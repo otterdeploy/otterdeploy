@@ -34,6 +34,12 @@ export const statements = {
   env: ["read", "update"],
   server: ["create", "read", "update", "delete"],
   firewall: ["read", "update"],
+  notificationChannel: ["create", "read", "update", "delete", "test"],
+  // Org-scoped API keys. The better-auth apiKey plugin resolves these same
+  // actions against this AC on every create/read/update/delete (org owners pass
+  // automatically via `allowCreatorAllPermissions`); the apiKeys oRPC create
+  // procedure gates on `create` too.
+  apiKey: ["create", "read", "update", "delete"],
 } as const;
 
 export const ac = createAccessControl(statements);
@@ -49,6 +55,9 @@ export const member = ac.newRole({
   env: ["read", "update"],
   server: ["read"],
   firewall: ["read"],
+  notificationChannel: ["create", "read", "update", "test"],
+  // Members can see the workspace's keys but not mint or revoke them.
+  apiKey: ["read"],
 });
 
 /** Everything except deleting the org. */
@@ -62,6 +71,8 @@ export const admin = ac.newRole({
   env: ["read", "update"],
   server: ["create", "read", "update", "delete"],
   firewall: ["read", "update"],
+  notificationChannel: ["create", "read", "update", "delete", "test"],
+  apiKey: ["create", "read", "update", "delete"],
 });
 
 /** Full control. */
@@ -75,6 +86,8 @@ export const owner = ac.newRole({
   env: ["read", "update"],
   server: ["create", "read", "update", "delete"],
   firewall: ["read", "update"],
+  notificationChannel: ["create", "read", "update", "delete", "test"],
+  apiKey: ["create", "read", "update", "delete"],
 });
 
 export const roles = { member, admin, owner };

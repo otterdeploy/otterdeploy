@@ -1,9 +1,9 @@
 import { GhosttyCore } from "@wterm/ghostty";
-import { Terminal, useTerminal } from "@wterm/react";
+import { Terminal, useTerminal, type WTerm } from "@wterm/react";
 // @ts-expect-error — CSS-only side-effect import; @wterm/react ships a
 // `/css` entry that Vite injects. No type declarations.
 import "@wterm/react/css";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ClientMessage, ServerMessage } from "@/messages";
 import { env } from "@otterdeploy/env/web";
@@ -92,6 +92,33 @@ export function TerminalSession({ source, active, onConnChange }: Props) {
   useEffect(() => {
     onConnChangeRef.current = onConnChange;
   }, [onConnChange]);
+
+  // Scrollback. wterm keeps a 10k-line history and prepends it into its root
+  // element, flipping that element to `overflow-y:auto` once there's history
+  // (`.wterm.has-scrollback`). In our embedding the wheel event was bubbling
+  // past that scroll container and scrolling the page instead of the buffer,
+  // so history was effectively unreachable. Capture the wheel on the terminal
+  // element and drive `scrollTop` ourselves — and only swallow the event when
+  // there's actually scrollback to move through, so a terminal that fits its
+  // viewport still lets the page scroll normally.
+  const detachWheelRef = useRef<(() => void) | null>(null);
+  const handleReady = useCallback((wt: WTerm) => {
+    const el = wt.element;
+    const onWheel = (e: WheelEvent) => {
+      // scrollHeight > clientHeight means there's history above the viewport.
+      if (el.scrollHeight - el.clientHeight <= 1) return;
+      // Normalise the delta: trackpads report pixels (deltaMode 0), but mouse
+      // wheels often report lines (1) or pages (2), which would otherwise
+      // scroll a few pixels per notch.
+      const step =
+        e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? el.clientHeight : 1;
+      el.scrollTop += e.deltaY * step;
+      e.preventDefault();
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    detachWheelRef.current = () => el.removeEventListener("wheel", onWheel);
+  }, []);
+  useEffect(() => () => detachWheelRef.current?.(), []);
 
   useEffect(() => {
     const url = buildWsUrl(source);
@@ -213,6 +240,7 @@ export function TerminalSession({ source, active, onConnChange }: Props) {
         core={core}
         autoResize
         className="absolute inset-0"
+        onReady={handleReady}
         onData={(data) => {
           const ws = wsRef.current;
           if (ws?.readyState === WebSocket.OPEN) {

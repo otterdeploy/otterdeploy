@@ -48,8 +48,8 @@ export interface PendingByName {
   /** Set of `${resource}:${name}` pairs that should render as ghost
    *  nodes — they exist in the manifest but not yet in current state. */
   creates: Array<{ resource: "service" | "database"; name: string }>;
-  /** Lookup: existing node IDs whose corresponding resource has a
-   *  pending update or delete in the manifest. */
+  /** Lookup keyed by `${resource}:${name}` (the node id) → pending
+   *  update/delete marker for an already-applied resource. */
   marker: Map<string, "update" | "delete">;
 }
 
@@ -93,10 +93,13 @@ export const buildLiveNodes = (
   if (!pending || pending.creates.length === 0) return realNodes;
 
   // Synthesize ghost nodes for staged creates so the graph reflects
-  // operator intent, not just current state. They get a synthetic ID
-  // (`pending:${resource}:${name}`) since no resourceId exists yet.
+  // operator intent, not just current state. The ghost shares the SAME id
+  // its applied counterpart will get (`${resource}:${name}`) so that when
+  // Apply lands the real resource, React Flow updates the node in place
+  // instead of unmounting the ghost and mounting a resourceId-keyed node —
+  // the swap that made nodes vanish and reappear. No resourceId in data yet.
   const ghosts: LiveNode[] = pending.creates.map((c) => ({
-    id: `pending:${c.resource}:${c.name}`,
+    id: `${c.resource}:${c.name}`,
     type: "resource",
     position: { x: 0, y: 0 },
     data: {

@@ -3,9 +3,16 @@ import type { PermissionCheck } from "@otterdeploy/auth/permissions";
 import { ID_PREFIX } from "@otterdeploy/shared/id";
 import type { Id } from "@otterdeploy/shared/id";
 import type { Context } from "./context";
+import {
+  authorizeKeyScope,
+  authorizeRoleScope,
+  isReadAction as isReadActionPath,
+  requireProjectScope,
+} from "./authz/api-key-scope";
 
 import { implement, ORPCError, os as orpc } from "@orpc/server";
 
+import { apiKeysContract } from "./routers/apiKeys/contract";
 import { auditContract } from "./routers/audit/contract";
 import { backupsContract } from "./routers/backups/contract";
 import { databaseContract } from "./routers/database/contract";
@@ -15,6 +22,7 @@ import { envContract } from "./routers/env/contract";
 import { firewallContract } from "./routers/firewall/contract";
 import { gitContract } from "./routers/git/contract";
 import { metricsContract } from "./routers/metrics/contract";
+import { notificationsContract } from "./routers/notifications/contract";
 import { organizationContract } from "./routers/organization/contract";
 import { projectContract } from "./routers/project/contract";
 import { registryContract } from "./routers/registry/contract";
@@ -49,7 +57,9 @@ const traceProcedure = orpc
     const user = context.session?.user;
     const actor = user
       ? { type: "user" as const, id: user.id, email: user.email }
-      : { type: "api" as const, id: "anonymous" };
+      : context.apiKey
+        ? { type: "api" as const, id: context.apiKey.id }
+        : { type: "api" as const, id: "anonymous" };
     // Top-level fields keep the console/observability wide event informative.
     context.log.set({
       action,
@@ -93,6 +103,7 @@ const traceProcedure = orpc
   });
 
 export const publicProcedure = implement({
+  apiKeys: apiKeysContract,
   audit: auditContract,
   backups: backupsContract,
   database: databaseContract,
@@ -102,6 +113,7 @@ export const publicProcedure = implement({
   firewall: firewallContract,
   git: gitContract,
   metrics: metricsContract,
+  notifications: notificationsContract,
   organization: organizationContract,
   project: projectContract,
   registry: registryContract,
@@ -120,12 +132,16 @@ const authMiddleware = orpc
     },
   })
   .middleware(async ({ context, next, errors }) => {
-    if (!context.session?.user) {
+    // A session/cookie/CLI-bearer user OR a verified API-key actor counts as
+    // authenticated. Session-identity handlers still read `context.session`
+    // directly (null for key actors) — guard there if they need a real user.
+    if (!context.session?.user && !context.apiKey) {
       throw errors.UNAUTHORIZED();
     }
     return next({
       context: {
         session: context.session,
+        apiKey: context.apiKey,
       },
     });
   });
@@ -146,7 +162,10 @@ const orgScopedMiddleware = orpc
     },
   })
   .middleware(async ({ context, next, errors }) => {
-    if (!context.session?.user) {
+    // Session/cookie/CLI-bearer user OR a verified API-key actor. For a key
+    // actor `activeOrganizationId` was already populated from the key's owning
+    // org in createContext, so the NO_ACTIVE_ORGANIZATION gate still holds.
+    if (!context.session?.user && !context.apiKey) {
       throw errors.UNAUTHORIZED();
     }
     if (!context.activeOrganizationId) {
@@ -155,6 +174,7 @@ const orgScopedMiddleware = orpc
     return next({
       context: {
         session: context.session,
+        apiKey: context.apiKey,
         activeOrganizationId: context.activeOrganizationId as Id<
           typeof ID_PREFIX.organization
         >,
@@ -183,7 +203,29 @@ export function requirePermission(permission: PermissionCheck) {
         message: "You don't have permission to perform this action.",
       },
     })
-    .middleware(async ({ context, next, errors }) => {
+    .middleware(async ({ context, path, next, errors }) => {
+      // API-key actor: session-bound `hasPermission` can't see the key, so we
+      // enforce scope ourselves. Effective permission = min(key scope, member
+      // role) — DECISION A in authz/api-key-scope.ts. A read-only key
+      // additionally blocks any non-read action.
+      if (context.apiKey) {
+        if (
+          context.apiKey.accessLevel === "read" &&
+          !isReadActionPath(path.join("."))
+        ) {
+          throw errors.FORBIDDEN({ message: "This API key is read-only." });
+        }
+        const ok =
+          authorizeKeyScope(context.apiKey.permissions, permission) &&
+          authorizeRoleScope(permission);
+        if (!ok) {
+          throw errors.FORBIDDEN();
+        }
+        return next();
+      }
+
+      // Session actor (cookie / CLI device-grant bearer) — unchanged path:
+      // delegate role resolution to better-auth's session-bound check.
       const { success } = await auth.api.hasPermission({
         headers: context.headers,
         body: {
@@ -198,3 +240,41 @@ export function requirePermission(permission: PermissionCheck) {
 
   return orgScopedProcedure.use(permissionMiddleware);
 }
+
+/**
+ * Org-scoped procedure that additionally constrains an API-key actor to the
+ * project(s) its scope allows. The `projectId` is read from validated input
+ * (handlers vary in whether it's required, so the middleware no-ops when it's
+ * absent). Session/cookie actors are never project-restricted — only keys
+ * minted with `projectScope: "selected"` are gated.
+ *
+ * Defined for incremental adoption: wire it onto high-value mutating
+ * project-scoped routers as `projectScopedProcedure.<router>.<proc>.handler(...)`
+ * in place of `orgScopedProcedure`. Not mass-applied here — the core key-scope +
+ * role intersection is enforced on every `requirePermission` procedure already.
+ */
+const projectScopeMiddleware = orpc
+  .$context<Context>()
+  .errors({
+    FORBIDDEN: {
+      status: 403,
+      message: "This API key is not scoped to that project.",
+    },
+  })
+  .middleware(async ({ context, next, errors }, input) => {
+    if (context.apiKey) {
+      const projectId = (input as { projectId?: unknown } | undefined)
+        ?.projectId;
+      if (
+        typeof projectId === "string" &&
+        !requireProjectScope(context.apiKey, projectId)
+      ) {
+        throw errors.FORBIDDEN();
+      }
+    }
+    return next();
+  });
+
+export const projectScopedProcedure = orgScopedProcedure.use(
+  projectScopeMiddleware,
+);

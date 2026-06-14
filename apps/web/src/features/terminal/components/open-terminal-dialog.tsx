@@ -22,6 +22,12 @@ import {
   DialogTitle,
 } from "@/shared/components/ui/dialog";
 import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/shared/components/ui/empty";
+import {
   Tabs,
   TabsContent,
   TabsContents,
@@ -76,7 +82,7 @@ export function OpenTerminalDialog({
     () => terminalDatabasesCollection,
   );
 
-  const { data: servers = [] } = useLiveQuery((q) =>
+  const { data: servers } = useLiveQuery((q) =>
     q.from({ s: serverCollection }),
   );
 
@@ -211,9 +217,19 @@ export function OpenTerminalDialog({
 
               <div className="-mx-2.5 max-h-105 space-y-2 overflow-y-auto px-2.5 pb-8">
                 {filteredServices.length === 0 ? (
-                  <div className="rounded-md border border-dashed bg-muted/20 py-8 text-center text-sm text-muted-foreground">
-                    No services in {projectFilter}.
-                  </div>
+                  <Empty className="rounded-md border border-dashed bg-muted/20 py-8">
+                    <EmptyHeader>
+                      <HugeiconsIcon
+                        icon={ServerStack01Icon}
+                        strokeWidth={1.5}
+                        className="size-10 text-muted-foreground/50"
+                      />
+                      <EmptyTitle>No services</EmptyTitle>
+                      <EmptyDescription>
+                        No services in {projectFilter} to exec into.
+                      </EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
                 ) : (
                   filteredServices.map((s) => (
                     <ServiceRow
@@ -248,9 +264,19 @@ export function OpenTerminalDialog({
                 Open a shell on the host or SSH into a swarm node.
               </p>
               {servers.length === 0 ? (
-                <div className="rounded-md border border-dashed bg-muted/20 py-6 text-center text-sm text-muted-foreground">
-                  No servers registered yet.
-                </div>
+                <Empty className="rounded-md border border-dashed bg-muted/20 py-8">
+                  <EmptyHeader>
+                    <HugeiconsIcon
+                      icon={ServerStack01Icon}
+                      strokeWidth={1.5}
+                      className="size-10 text-muted-foreground/50"
+                    />
+                    <EmptyTitle>No servers</EmptyTitle>
+                    <EmptyDescription>
+                      No servers registered yet.
+                    </EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
               ) : (
                 servers.map((n) => {
                   // The bootstrap localhost row is the host shell — only it has
@@ -303,9 +329,19 @@ export function OpenTerminalDialog({
                 Open a database console — psql, redis-cli, mongosh, …
               </p>
               {databases.length === 0 ? (
-                <div className="rounded-md border border-dashed bg-muted/20 py-6 text-center text-sm text-muted-foreground">
-                  No databases in any project yet.
-                </div>
+                <Empty className="rounded-md border border-dashed bg-muted/20 py-8">
+                  <EmptyHeader>
+                    <HugeiconsIcon
+                      icon={Database02Icon}
+                      strokeWidth={1.5}
+                      className="size-10 text-muted-foreground/50"
+                    />
+                    <EmptyTitle>No databases</EmptyTitle>
+                    <EmptyDescription>
+                      No databases in any project yet.
+                    </EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
               ) : (
                 databases.map((db) => (
                   <button

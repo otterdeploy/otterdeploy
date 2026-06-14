@@ -41,6 +41,11 @@ export interface SwarmDatabaseRuntime {
 
 export interface ProvisionSwarmDatabaseInput {
   engine: DatabaseEngine;
+  /** Resource row id, stamped on the container as `otterdeploy.resource.id`
+   *  so the metrics sampler can key its CPU/memory/network samples back to
+   *  this resource. Services set the same label; without it the sampler skips
+   *  the container and the resource charts no metrics. */
+  resourceId: string;
   serviceName: string;
   volumeName: string;
   hostnameAlias: string;
@@ -100,6 +105,7 @@ function buildDatabaseSpec(
   const otterdeployLabels = {
     "otterdeploy.managed": "true",
     "otterdeploy.resource.type": input.engine,
+    "otterdeploy.resource.id": input.resourceId,
     "otterdeploy.project": input.projectSlug,
     "otterdeploy.deployment.id": input.deploymentId,
   };

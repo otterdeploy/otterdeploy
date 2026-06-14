@@ -20,6 +20,48 @@
         transform: none;
     }
 }
+
+/* Comet border — a single bright red segment with a fading tail travels
+   around a node's rounded border. Used to flag a resource that's pending
+   deletion. Animating a registered @property angle (not an element
+   transform) keeps the rounded-rect ring fixed and rotates only the
+   gradient, so the light follows the border instead of spinning a square. */
+@property --comet-angle {
+    syntax: "<angle>";
+    initial-value: 0deg;
+    inherits: false;
+}
+@keyframes comet-spin {
+    to {
+        --comet-angle: 360deg;
+    }
+}
+@utility comet-border {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1.6px;
+    /* Override --comet-color inline to recolor the travelling light
+       (e.g. blue for pending create, yellow for pending delete). */
+    --comet-color: var(--destructive);
+    background: conic-gradient(
+        from var(--comet-angle),
+        transparent 0deg,
+        transparent 230deg,
+        color-mix(in oklab, var(--comet-color) 35%, transparent) 300deg,
+        var(--comet-color) 344deg,
+        color-mix(in oklab, var(--comet-color) 60%, white) 353deg,
+        transparent 360deg
+    );
+    /* Cut the interior so only the border-width ring paints. */
+    -webkit-mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    animation: comet-spin 2.2s linear infinite;
+    pointer-events: none;
+}
 @utility error-grid {
     background-image:
         linear-gradient(var(--line) 1px, transparent 1px),
@@ -301,4 +343,29 @@
    `font-mono` utility carries the same typographic feel that `os-mono` did. */
 .font-mono {
     font-feature-settings: "zero", "ss03";
+}
+
+/* Terminal (wterm) scrollback. The buffer scrolls natively on the `.wterm`
+   root once there's history; the default overlay scrollbar is invisible on the
+   near-black terminal surface, so give it a quiet, always-present rail that
+   reads as scrollable. Wheel capture lives in terminal-session.tsx. */
+.wterm {
+    scrollbar-width: thin;
+    scrollbar-color: oklch(1 0 0 / 18%) transparent;
+}
+.wterm::-webkit-scrollbar {
+    width: 10px;
+}
+.wterm::-webkit-scrollbar-track {
+    background: transparent;
+}
+.wterm::-webkit-scrollbar-thumb {
+    background: oklch(1 0 0 / 16%);
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background-clip: padding-box;
+}
+.wterm::-webkit-scrollbar-thumb:hover {
+    background: oklch(1 0 0 / 28%);
+    background-clip: padding-box;
 }

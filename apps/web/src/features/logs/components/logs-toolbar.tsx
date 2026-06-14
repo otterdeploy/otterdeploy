@@ -18,8 +18,7 @@ import {
 } from "@/shared/components/ui/select";
 import { cn } from "@/shared/lib/utils";
 
-import { LOG_LEVELS, type LogLevel } from "../data/use-project-log-stream";
-import { LEVEL_TEXT } from "./log-row";
+import { LEVEL_TEXT, LOG_LEVELS, type LogLevel } from "../data/use-project-log-stream";
 
 export interface StatusBadge {
   label: string;
@@ -41,6 +40,9 @@ interface LogsToolbarProps {
   paused: boolean;
   onTogglePause: () => void;
   onCopy: () => void;
+  selectedCount?: number;
+  onCopySelected?: () => void;
+  onClearSelection?: () => void;
 }
 
 export function LogsToolbar({
@@ -57,6 +59,9 @@ export function LogsToolbar({
   paused,
   onTogglePause,
   onCopy,
+  selectedCount = 0,
+  onCopySelected,
+  onClearSelection,
 }: LogsToolbarProps) {
   return (
     <div className="flex flex-wrap items-center gap-2 border-b px-4 py-2.5">
@@ -120,6 +125,26 @@ export function LogsToolbar({
       </span>
 
       <div className="flex-1" />
+
+      {selectedCount > 0 && (
+        <div className="flex items-center gap-1.5 rounded-md border bg-muted/40 px-2 py-0.5 text-[11px]">
+          <span className="font-medium text-foreground">{selectedCount} selected</span>
+          <button
+            type="button"
+            onClick={onCopySelected}
+            className="rounded px-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            Copy
+          </button>
+          <button
+            type="button"
+            onClick={onClearSelection}
+            className="rounded px-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            Clear
+          </button>
+        </div>
+      )}
 
       <Button
         type="button"

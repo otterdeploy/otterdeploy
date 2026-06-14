@@ -32,7 +32,12 @@ export interface DueSchedule {
   destinationId: BackupDestinationId;
   encryption: "none" | "aes-256-gcm" | "kms-managed" | "customer-key";
   keepDaily: number;
+  keepWeekly: number;
+  keepMonthly: number;
+  keepYearly: number;
   retentionDays: number | null;
+  maxStorageGb: number | null;
+  preHook: string | null;
   // Null = freshly created, never scheduled — initialize without backfilling.
   nextRunAt: Date | null;
 }
@@ -49,7 +54,12 @@ export async function listDueSchedules(now: Date): Promise<DueSchedule[]> {
       destinationId: backupSchedule.destinationId,
       encryption: backupSchedule.encryption,
       keepDaily: backupSchedule.keepDaily,
+      keepWeekly: backupSchedule.keepWeekly,
+      keepMonthly: backupSchedule.keepMonthly,
+      keepYearly: backupSchedule.keepYearly,
       retentionDays: backupSchedule.retentionDays,
+      maxStorageGb: backupSchedule.maxStorageGb,
+      preHook: backupSchedule.preHook,
       nextRunAt: backupSchedule.nextRunAt,
     })
     .from(backupSchedule)
@@ -60,6 +70,39 @@ export async function listDueSchedules(now: Date): Promise<DueSchedule[]> {
       ),
     );
   return rows as DueSchedule[];
+}
+
+/** A schedule's run inputs (sources + destination) for a manual "run now". */
+export interface ScheduleRunTarget {
+  id: BackupScheduleId;
+  organizationId: OrganizationId;
+  sources: string[];
+  destinationId: BackupDestinationId;
+  encryption: "none" | "aes-256-gcm" | "kms-managed" | "customer-key";
+}
+
+/** Org-scoped fetch of a single schedule's run inputs. */
+export async function getScheduleRunTarget(input: {
+  organizationId: OrganizationId;
+  id: BackupScheduleId;
+}): Promise<ScheduleRunTarget | null> {
+  const [row] = await db
+    .select({
+      id: backupSchedule.id,
+      organizationId: backupSchedule.organizationId,
+      sources: backupSchedule.sources,
+      destinationId: backupSchedule.destinationId,
+      encryption: backupSchedule.encryption,
+    })
+    .from(backupSchedule)
+    .where(
+      and(
+        eq(backupSchedule.id, input.id),
+        eq(backupSchedule.organizationId, input.organizationId),
+      ),
+    )
+    .limit(1);
+  return (row as ScheduleRunTarget | undefined) ?? null;
 }
 
 /** Org-agnostic destination read for system-side retention (no org filter). */
@@ -122,13 +165,19 @@ export async function resolveScheduleSources(
 export async function listScheduleBackups(
   scheduleId: BackupScheduleId,
 ): Promise<
-  Array<{ id: BackupId; storagePath: string | null; completedAt: Date | null }>
+  Array<{
+    id: BackupId;
+    storagePath: string | null;
+    completedAt: Date | null;
+    compressedSizeBytes: number | null;
+  }>
 > {
   return db
     .select({
       id: backup.id,
       storagePath: backup.storagePath,
       completedAt: backup.completedAt,
+      compressedSizeBytes: backup.compressedSizeBytes,
     })
     .from(backup)
     .where(and(eq(backup.scheduleId, scheduleId), eq(backup.status, "succeeded")))
@@ -137,89 +186,4 @@ export async function listScheduleBackups(
 
 export async function deleteBackupRow(backupId: BackupId): Promise<void> {
   await db.delete(backup).where(eq(backup.id, backupId));
-}
-
-// ─── Schedule CRUD (org-scoped) ──────────────────────────────────────────
-
-export async function createScheduleRecord(input: {
-  organizationId: OrganizationId;
-  name: string;
-  sources: string[];
-  cron: string;
-  destinationId: BackupDestinationId;
-  projectId?: ProjectId | null;
-  keepDaily: number;
-  retentionDays: number | null;
-  encryption: "none" | "aes-256-gcm";
-  enabled: boolean;
-}): Promise<typeof backupSchedule.$inferSelect> {
-  const [row] = await db
-    .insert(backupSchedule)
-    .values({
-      organizationId: input.organizationId,
-      name: input.name,
-      sources: input.sources,
-      cron: input.cron,
-      destinationId: input.destinationId,
-      projectId: input.projectId ?? null,
-      keepDaily: input.keepDaily,
-      retentionDays: input.retentionDays,
-      encryption: input.encryption,
-      enabled: input.enabled,
-    })
-    .returning();
-  if (!row) throw new Error("createScheduleRecord: insert returned no rows");
-  return row;
-}
-
-export async function updateScheduleRecord(input: {
-  organizationId: OrganizationId;
-  id: BackupScheduleId;
-  name?: string;
-  sources?: string[];
-  cron?: string;
-  keepDaily?: number;
-  retentionDays?: number | null;
-  enabled?: boolean;
-}): Promise<typeof backupSchedule.$inferSelect | null> {
-  const patch: Partial<typeof backupSchedule.$inferInsert> = {};
-  if (input.name !== undefined) patch.name = input.name;
-  if (input.sources !== undefined) patch.sources = input.sources;
-  if (input.cron !== undefined) {
-    patch.cron = input.cron;
-    // Recompute on next tick.
-    patch.nextRunAt = null;
-  }
-  if (input.keepDaily !== undefined) patch.keepDaily = input.keepDaily;
-  if (input.retentionDays !== undefined)
-    patch.retentionDays = input.retentionDays;
-  if (input.enabled !== undefined) patch.enabled = input.enabled;
-
-  const [row] = await db
-    .update(backupSchedule)
-    .set(patch)
-    .where(
-      and(
-        eq(backupSchedule.id, input.id),
-        eq(backupSchedule.organizationId, input.organizationId),
-      ),
-    )
-    .returning();
-  return row ?? null;
-}
-
-export async function deleteScheduleRecord(input: {
-  organizationId: OrganizationId;
-  id: BackupScheduleId;
-}): Promise<boolean> {
-  const [row] = await db
-    .delete(backupSchedule)
-    .where(
-      and(
-        eq(backupSchedule.id, input.id),
-        eq(backupSchedule.organizationId, input.organizationId),
-      ),
-    )
-    .returning({ id: backupSchedule.id });
-  return Boolean(row);
 }

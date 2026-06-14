@@ -77,8 +77,11 @@ export const edgeLogsRouter = {
     async ({ input, context }) => {
       const orgId = context.activeOrganizationId;
       const projectId = input.projectId;
+      // `input.hosts` is the user-selected subset; `hosts` is the org scope
+      // (the visibility guard). Keep them distinct in the filter.
+      const { hosts: selectedHosts, ...rest } = input;
       const hosts = await resolveHosts(orgId, input.projectId);
-      const filter = { ...input, hosts };
+      const filter = { ...rest, hosts, selectedHosts };
       const now = Date.now();
 
       // TEMP diagnostic: the project edge-logs view comes back empty. Compare the

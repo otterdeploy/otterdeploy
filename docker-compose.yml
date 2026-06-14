@@ -8,7 +8,11 @@ name: otterstack
 
 services:
   postgres:
-    image: postgres:18-alpine
+    # Pinned to 17 — postgres:18+ refuses our /var/lib/postgresql/data mount
+    # (the v18 image manages its own version/cluster subdir and treats a mount
+    # placed directly at .../data as an "unused volume"). Matches the pin in
+    # packages/api/src/constants.ts and the swarm database engines.
+    image: postgres:17-alpine
     container_name: otterstack-postgres
     restart: unless-stopped
     environment:

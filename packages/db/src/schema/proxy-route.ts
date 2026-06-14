@@ -5,6 +5,24 @@ import { project } from "./project";
 
 export const proxyRouteTypeEnum = pgEnum("proxy_route_type", ["http", "layer4"]);
 export const proxyRouteProtocolEnum = pgEnum("proxy_route_protocol", ["tcp", "http"]);
+// Where a route's domain came from. "generated" = the auto-resolved
+// hostname minted on expose (resource override → project → org → sslip
+// chain). "custom" = a domain the operator typed in themselves.
+export const proxyRouteSourceEnum = pgEnum("proxy_route_source", ["generated", "custom"]);
+
+// Reachability of a custom domain, refreshed by the DNS check (on add /
+// recheck / edit). Drives the UI status chip and the ACME decision —
+// "pointed" earns a real Let's Encrypt cert; "proxied" (resolves into a
+// Cloudflare IP range) stays on `tls internal` because Cloudflare
+// terminates TLS at its edge; "unpointed"/"unknown" also stay self-signed
+// until the operator points DNS at us. Generated routes are "pointed" by
+// construction.
+export const proxyRouteDnsStateEnum = pgEnum("proxy_route_dns_state", [
+  "pointed",
+  "proxied",
+  "unpointed",
+  "unknown",
+]);
 
 export const proxyRoute = pgTable(
   "proxy_route",
@@ -24,7 +42,25 @@ export const proxyRoute = pgTable(
     upstreamPort: integer("upstream_port").notNull(),
     protocol: proxyRouteProtocolEnum("protocol").notNull(),
     layer4Alpn: text("layer4_alpn"),
+    // A resource can carry several routes (one per host). `enabled` gates
+    // whether reconcile renders it into the Caddyfile at all — generated
+    // routes are enabled on expose; custom routes stay disabled until DNS
+    // verification passes (and flip back to disabled on unexpose).
     enabled: boolean("enabled").notNull().default(true),
+    // "generated" (auto-resolved on expose) vs "custom" (operator-typed,
+    // gated behind DNS verification). Drives both the UI badge and whether
+    // a verify token is expected.
+    source: proxyRouteSourceEnum("source").notNull().default("generated"),
+    // The canonical host for the resource — mirrored into
+    // serviceResource.publicDomain so the panel/graph/views keep reading a
+    // single string. Exactly one route per resource carries this flag.
+    isPrimary: boolean("is_primary").notNull().default(false),
+    // Last observed reachability of a custom domain (add-and-go model — the
+    // host is live immediately; this just reflects whether DNS points here
+    // yet and drives the ACME decision). Refreshed on add / recheck / edit.
+    dnsState: proxyRouteDnsStateEnum("dns_state").notNull().default("unknown"),
+    // When the reachability above was last refreshed (for "checked 2m ago").
+    dnsCheckedAt: timestamp("dns_checked_at"),
     // Whether Caddy should issue a public ACME cert (Let's Encrypt) for
     // this domain. False = `tls internal` (self-signed) — used for sslip
     // fallback domains and any verified-but-unowned platform default.
@@ -38,6 +74,13 @@ export const proxyRoute = pgTable(
     // authorizing org is derived from projectId → project.organizationId.
     // See docs/designs/deployment-protection.md.
     protected: boolean("protected").notNull().default(false),
+    // Operator-authored Caddy directives spliced INSIDE this route's site
+    // block (e.g. `header`, `encode`, `rate_limit`, `basic_auth`). Only used
+    // for http routes. Validated as part of the project's fragment via Caddy
+    // /adapt during reconcile — if it doesn't parse, the whole project is
+    // skipped (not just this route), so the edge never half-applies. Null =
+    // no custom directives. See buildHttpBlock.
+    customDirectives: text("custom_directives"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()

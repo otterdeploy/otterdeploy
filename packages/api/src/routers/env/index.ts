@@ -1,11 +1,16 @@
 import { matchError } from "better-result";
 
 import { orgScopedProcedure } from "../..";
+import {
+  enforceEnvScope,
+  enforceProjectScope,
+} from "../../authz/project-scope-guards";
 
 import { createEnv, deleteEnv, getEnv, listEnvs } from "./handlers";
 
 export const envRouter = {
   list: orgScopedProcedure.env.list.handler(async ({ input, context }) => {
+    await enforceProjectScope(context, input?.projectId);
     return listEnvs({
       organizationId: context.activeOrganizationId,
       projectId: input?.projectId,
@@ -15,6 +20,7 @@ export const envRouter = {
   get: orgScopedProcedure.env.get.handler(
     async ({ input, context, errors }) => {
       context.log.set({ target: { type: "environment", id: input.id } });
+      await enforceEnvScope(context, input.id);
       const result = await getEnv({
         id: input.id,
         organizationId: context.activeOrganizationId,
@@ -31,6 +37,7 @@ export const envRouter = {
   create: orgScopedProcedure.env.create.handler(
     async ({ input, context, errors }) => {
       context.log.set({ target: { type: "environment" } });
+      await enforceProjectScope(context, input.projectId);
       const result = await createEnv(input);
       if (result.isErr()) {
         throw matchError(result.error, {
@@ -62,6 +69,7 @@ export const envRouter = {
   delete: orgScopedProcedure.env.delete.handler(
     async ({ input, context, errors }) => {
       context.log.set({ target: { type: "environment", id: input.id } });
+      await enforceEnvScope(context, input.id);
       const result = await deleteEnv({
         id: input.id,
         organizationId: context.activeOrganizationId,

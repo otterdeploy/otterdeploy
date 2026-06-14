@@ -4,6 +4,7 @@ import { InviteMemberForm } from "@/features/team/components/invite-member-form"
 import { MembersList } from "@/features/team/components/members-list";
 import { PendingInvitations } from "@/features/team/components/pending-invitations";
 import { useMembers } from "@/features/team/data/use-team";
+import { Page, PageHeader } from "@/shared/components/page";
 
 export const Route = createFileRoute("/_app/$orgSlug/team")({
   staticData: { crumb: "Team" },
@@ -22,19 +23,23 @@ function RouteComponent() {
   const canManage = myRole === "owner" || myRole === "admin";
 
   return (
-    <div className="flex flex-1 flex-col gap-5 p-4">
-      <div>
-        <h2 className="text-base font-semibold">Team</h2>
-        <p className="mt-0.5 text-[13px] text-muted-foreground">
-          Everyone in{" "}
-          <span className="font-medium text-foreground/80">{organization.name}</span>{" "}
-          can access every project in this workspace, gated by role.
-        </p>
-      </div>
+    <Page width="narrow">
+      <PageHeader
+        title="Team"
+        description={
+          <>
+            Everyone in{" "}
+            <span className="font-medium text-foreground/80">
+              {organization.name}
+            </span>{" "}
+            can access every project in this workspace, gated by role.
+          </>
+        }
+      />
 
       {canManage ? <InviteMemberForm organizationId={orgId} /> : null}
       <MembersList organizationId={orgId} currentUserId={user.id} canManage={canManage} />
       <PendingInvitations organizationId={orgId} canManage={canManage} />
-    </div>
+    </Page>
   );
 }

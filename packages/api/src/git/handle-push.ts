@@ -21,6 +21,8 @@ import { triggerDeploy } from "@otterdeploy/jobs";
 import { log } from "evlog";
 import { and, eq } from "drizzle-orm";
 
+import { emitDeployStarted } from "../routers/project/deployments";
+
 import type { GithubWebhookResult, PushEvent } from "./types";
 
 export async function handlePush(
@@ -124,6 +126,19 @@ export async function handlePush(
       .returning({ id: deployment.id });
 
     deploymentsCreated += inserted.length;
+
+    // deploy.started per service (inserted is index-aligned with resources).
+    for (let i = 0; i < inserted.length; i++) {
+      const dep = inserted[i];
+      const res = resources[i];
+      if (dep && res) {
+        await emitDeployStarted({
+          deploymentId: dep.id,
+          resourceId: res.id,
+          reason: "git-push",
+        });
+      }
+    }
 
     await triggerDeploy({
       projectId: p.id,

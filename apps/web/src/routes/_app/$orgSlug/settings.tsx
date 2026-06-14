@@ -11,6 +11,7 @@ import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { Page, PageHeader } from "@/shared/components/page";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import {
@@ -36,21 +37,23 @@ const CLOUDFLARE_TOKEN_TEMPLATE_URL =
 function SettingsRoute() {
   const { organization } = useLoaderData({ from: "/_app/$orgSlug" });
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-8">
-      <div>
-        <h1 className="text-xl font-semibold">Settings</h1>
-        <p className="text-[13px] text-muted-foreground">
-          Workspace-wide configuration for{" "}
-          <span className="font-medium text-foreground">
-            {organization.name}
-          </span>
-          .
-        </p>
-      </div>
+    <Page width="narrow">
+      <PageHeader
+        title="Settings"
+        description={
+          <>
+            Workspace-wide configuration for{" "}
+            <span className="font-medium text-foreground">
+              {organization.name}
+            </span>
+            .
+          </>
+        }
+      />
 
       <DomainCard organizationId={organization.id as never} />
       <CloudflareCard organizationId={organization.id as never} />
-    </div>
+    </Page>
   );
 }
 

@@ -31,7 +31,7 @@ export function SettingsCard({
           </div>
         )}
       </div>
-      <div className="rounded-md border bg-card">{children}</div>
+      <div className="overflow-hidden rounded-md border bg-card">{children}</div>
     </section>
   );
 }

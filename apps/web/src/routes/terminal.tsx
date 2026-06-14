@@ -21,6 +21,13 @@ import {
   terminalSearchSchema,
 } from "@/features/terminal/url";
 import { Button } from "@/shared/components/ui/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/shared/components/ui/empty";
 import { cn } from "@/shared/lib/utils";
 
 export const Route = createFileRoute("/terminal")({
@@ -174,23 +181,31 @@ function RouteComponent() {
       </header>
 
       {sessions.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-16 text-center">
-          <div className="font-mono text-2xl text-muted-foreground/60">$_</div>
-          <div className="text-[15px] font-medium">No active sessions</div>
-          <p className="max-w-md text-[13px] text-muted-foreground">
-            Open a shell into any container, an SSH into a swarm node, or a database
-            console.
-          </p>
-          <Button
-            type="button"
-            size="sm"
-            className="mt-2 gap-1.5"
-            onClick={() => setPickerOpen(true)}
-          >
-            <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-3.5" />
-            Open a terminal
-          </Button>
-        </div>
+        <Empty className="flex-1">
+          <EmptyHeader>
+            <HugeiconsIcon
+              icon={TerminalIcon}
+              strokeWidth={1.5}
+              className="size-10 text-muted-foreground/50"
+            />
+            <EmptyTitle>No active sessions</EmptyTitle>
+            <EmptyDescription>
+              Open a shell into any container, an SSH into a swarm node, or a
+              database console.
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Button
+              type="button"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setPickerOpen(true)}
+            >
+              <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-3.5" />
+              Open a terminal
+            </Button>
+          </EmptyContent>
+        </Empty>
       ) : (
         <div className="relative min-h-0 flex-1 overflow-hidden bg-[oklch(0.12_0_0)] p-2">
           {sessions.map((s) => {

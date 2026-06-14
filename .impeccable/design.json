@@ -1,0 +1,179 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-14T00:00:00.000Z",
+  "title": "Design System: otterdeploy",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Signal Blue",
+        "canonical": "oklch(0.488 0.243 264.376)",
+        "tonalRamp": ["oklch(0.22 0.10 264)", "oklch(0.30 0.15 264)", "oklch(0.38 0.20 264)", "oklch(0.488 0.243 264)", "oklch(0.58 0.21 264)", "oklch(0.70 0.16 264)", "oklch(0.82 0.10 264)", "oklch(0.93 0.04 264)"]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Warm Ink",
+        "canonical": "#141412",
+        "tonalRamp": ["#141412", "#2a2a26", "#4a4a46", "#7a7a74", "#a8a8a0", "#c9c9c2", "#e6e6e0", "#fbfbfa"]
+      },
+      "background": {
+        "role": "neutral",
+        "displayName": "Soft Canvas",
+        "canonical": "#fbfbfa",
+        "tonalRamp": ["#0c0c0b", "#161614", "#2a2a26", "#4a4a46", "#7a7a74", "#a8a8a0", "#e6e6e0", "#fbfbfa"]
+      },
+      "destructive": {
+        "role": "tertiary",
+        "displayName": "Destructive Red",
+        "canonical": "#b42318",
+        "tonalRamp": ["#3a0c08", "#5c130d", "#7e1a12", "#b42318", "#d14237", "#e57c74", "#f3b8b3", "#fbe5e3"]
+      },
+      "success": {
+        "role": "tertiary",
+        "displayName": "Healthy Green",
+        "canonical": "#1f7a3f",
+        "tonalRamp": ["#0a2916", "#103f22", "#16562e", "#1f7a3f", "#2fa257", "#5fc080", "#9bdcb1", "#d6f2e0"]
+      },
+      "warning": {
+        "role": "tertiary",
+        "displayName": "Attention Amber",
+        "canonical": "#8a6a00",
+        "tonalRamp": ["#2e2300", "#473700", "#604a00", "#8a6a00", "#b58c00", "#d9b52e", "#ecd47e", "#f8edc4"]
+      },
+      "info": {
+        "role": "tertiary",
+        "displayName": "Notice Blue",
+        "canonical": "#1f5fa8",
+        "tonalRamp": ["#0a1f38", "#102f54", "#163f70", "#1f5fa8", "#3a7fc4", "#6ba3da", "#a5c8ec", "#dceaf8"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Page titles — the largest heading in any view. The ceiling; never shouts." },
+      "title": { "displayName": "Title", "purpose": "Section/card headings and dialog titles." },
+      "body": { "displayName": "Body", "purpose": "Default running text and UI copy. Prose caps 65–75ch." },
+      "label": { "displayName": "Label", "purpose": "Buttons, form labels, nav items, table headers. Medium weight UI default." },
+      "mono": { "displayName": "Mono", "purpose": "IDs, hashes, env keys, log lines, command output. Slashed zero + ss03." }
+    },
+    "shadows": [
+      { "name": "lifted-surface", "value": "0 1px 2px 0 oklch(0 0 0 / 6%), 0 0 0 1px oklch(0 0 0 / 4%)", "purpose": "Graph nodes and lightly raised elements — a near-invisible seat, mostly a tonal ring." },
+      { "name": "floating-panel", "value": "0 1px 2px 0 oklch(0 0 0 / 6%), 0 8px 24px -12px oklch(0 0 0 / 24%)", "purpose": "Menus, popovers, dialogs, graph controls/minimap — clearly detached from canvas." }
+    ],
+    "motion": [
+      { "name": "transition-default", "value": "150ms-250ms ease", "purpose": "State transitions on most interactive components (transition-all)." },
+      { "name": "press", "value": "translateY(1px)", "purpose": "Tactile active-state nudge on buttons (suppressed on menu triggers)." },
+      { "name": "error-rise", "value": "0.6s cubic-bezier(0.2, 0.7, 0.2, 1)", "purpose": "Error / empty-state entrance: fade up 16px." },
+      { "name": "comet-spin", "value": "2.2s linear infinite", "purpose": "Travelling light around a pending node's border (animated @property angle)." }
+    ],
+    "breakpoints": [
+      { "name": "md", "value": "768px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one solid-fill action per context. Signal Blue.",
+      "html": "<button class=\"ds-btn-primary\">Deploy</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; height: 32px; padding: 0 10px; gap: 6px; border: 1px solid transparent; border-radius: 0.625rem; background: oklch(0.488 0.243 264.376); color: #f5f5f0; font-family: 'Geist Variable', ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; font-weight: 500; letter-spacing: -0.005em; cursor: pointer; transition: all 0.18s ease; outline: none; } .ds-btn-primary:hover { background: oklch(0.488 0.243 264.376 / 0.85); } .ds-btn-primary:focus-visible { border-color: #a8a8a0; box-shadow: 0 0 0 3px oklch(0.488 0.243 264.376 / 0.5); } .ds-btn-primary:active { transform: translateY(1px); }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Default-emphasis action sitting on the canvas.",
+      "html": "<button class=\"ds-btn-outline\">Cancel</button>",
+      "css": ".ds-btn-outline { display: inline-flex; align-items: center; justify-content: center; height: 32px; padding: 0 10px; gap: 6px; border: 1px solid rgba(20,20,18,0.09); border-radius: 0.625rem; background: #fbfbfa; color: #141412; font-family: 'Geist Variable', ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; font-weight: 500; letter-spacing: -0.005em; cursor: pointer; transition: all 0.18s ease; outline: none; } .ds-btn-outline:hover { background: rgba(20,20,18,0.04); } .ds-btn-outline:focus-visible { border-color: #a8a8a0; box-shadow: 0 0 0 3px oklch(0.488 0.243 264.376 / 0.5); } .ds-btn-outline:active { transform: translateY(1px); }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Low-emphasis toolbar action; transparent until hover.",
+      "html": "<button class=\"ds-btn-ghost\">Logs</button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; justify-content: center; height: 32px; padding: 0 10px; gap: 6px; border: 1px solid transparent; border-radius: 0.625rem; background: transparent; color: #141412; font-family: 'Geist Variable', ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; font-weight: 500; letter-spacing: -0.005em; cursor: pointer; transition: all 0.18s ease; outline: none; } .ds-btn-ghost:hover { background: rgba(20,20,18,0.04); } .ds-btn-ghost:focus-visible { box-shadow: 0 0 0 3px oklch(0.488 0.243 264.376 / 0.5); } .ds-btn-ghost:active { transform: translateY(1px); }"
+    },
+    {
+      "name": "Destructive Button",
+      "kind": "button",
+      "refersTo": "button-destructive",
+      "description": "Dangerous action as a tint, not a solid fill (The State-Tint Rule).",
+      "html": "<button class=\"ds-btn-destructive\">Delete service</button>",
+      "css": ".ds-btn-destructive { display: inline-flex; align-items: center; justify-content: center; height: 32px; padding: 0 10px; gap: 6px; border: 1px solid transparent; border-radius: 0.625rem; background: rgba(180,35,24,0.10); color: #b42318; font-family: 'Geist Variable', ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; font-weight: 500; letter-spacing: -0.005em; cursor: pointer; transition: all 0.18s ease; outline: none; } .ds-btn-destructive:hover { background: rgba(180,35,24,0.20); } .ds-btn-destructive:focus-visible { border-color: rgba(180,35,24,0.4); box-shadow: 0 0 0 3px rgba(180,35,24,0.2); } .ds-btn-destructive:active { transform: translateY(1px); }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input-default",
+      "description": "Standard field; same focus signature as buttons.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"my-service\" />",
+      "css": ".ds-input { height: 32px; width: 220px; padding: 4px 10px; border: 1px solid rgba(20,20,18,0.12); border-radius: 0.625rem; background: transparent; color: #141412; font-family: 'Geist Variable', ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; letter-spacing: -0.005em; outline: none; transition: border-color 0.18s ease, box-shadow 0.18s ease; } .ds-input::placeholder { color: #7a7a74; } .ds-input:focus-visible { border-color: #a8a8a0; box-shadow: 0 0 0 3px oklch(0.488 0.243 264.376 / 0.5); }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card-default",
+      "description": "Flat surface lifted off the canvas by a hairline ring, no shadow at rest.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-title\">web</div><div class=\"ds-card-body\">Running · <span class=\"ds-mono\">a4c5e1f</span></div></div>",
+      "css": ".ds-card { display: flex; flex-direction: column; gap: 4px; padding: 16px; border-radius: 0.625rem; background: #ffffff; color: #141412; box-shadow: inset 0 0 0 1px rgba(20,20,18,0.10); font-family: 'Geist Variable', ui-sans-serif, system-ui, sans-serif; } .ds-card-title { font-size: 1.125rem; font-weight: 600; letter-spacing: -0.015em; } .ds-card-body { font-size: 0.875rem; color: #7a7a74; } .ds-mono { font-family: 'Geist Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace; font-feature-settings: 'zero','ss03'; font-size: 0.8125rem; color: #141412; }"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "refersTo": "badge-default",
+      "description": "Pill carrying the semantic state vocabulary (success shown).",
+      "html": "<span class=\"ds-badge-success\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 6 9 17l-5-5\"/></svg>Running</span>",
+      "css": ".ds-badge-success { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 2px 8px; border-radius: 9999px; background: rgba(31,122,63,0.12); color: #1f7a3f; font-family: 'Geist Variable', ui-sans-serif, system-ui, sans-serif; font-size: 0.75rem; font-weight: 500; letter-spacing: -0.005em; }"
+    },
+    {
+      "name": "Sidebar Nav Item",
+      "kind": "nav",
+      "refersTo": "button-ghost",
+      "description": "Sidebar shares the canvas; active item uses Signal Blue, hover is a faint ink tint.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item ds-nav-active\" href=\"#\">Projects</a><a class=\"ds-nav-item\" href=\"#\">Logs</a><a class=\"ds-nav-item\" href=\"#\">Settings</a></nav>",
+      "css": ".ds-nav { display: flex; flex-direction: column; gap: 2px; width: 200px; padding: 8px; background: #fbfbfa; } .ds-nav-item { display: flex; align-items: center; height: 32px; padding: 0 10px; border-radius: 0.625rem; color: #4a4a46; font-family: 'Geist Variable', ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; font-weight: 500; letter-spacing: -0.005em; text-decoration: none; transition: background 0.18s ease, color 0.18s ease; } .ds-nav-item:hover { background: rgba(20,20,18,0.04); color: #141412; } .ds-nav-active, .ds-nav-active:hover { background: oklch(0.546 0.245 262.881 / 0.10); color: oklch(0.488 0.243 264.376); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Quiet Instrument",
+    "overview": "otterdeploy is a precision tool that disappears into the hand. You feel the craft — the hairline rings, the slashed-zero monospace, the 1px nudge a button makes when you press it — but you never notice it, because nothing competes with the task. The interface earns trust by being calm, fast, and honest, not by being loud. The palette is a warm-neutral monochrome with a single OKLCH blue accent reserved for primary actions and current selection; state is carried by a tight semantic vocabulary that reads identically in light and dark. Typography is one family, Geist, in two cuts: variable sans for everything human-readable, mono for everything machine-readable. It explicitly rejects the cluttered self-host UI, the enterprise cloud console, and the generic AI-SaaS template.",
+    "keyCharacteristics": [
+      "Warm-neutral monochrome surfaces; one OKLCH blue accent on ≤10% of any screen.",
+      "One type family (Geist sans + Geist mono), tight negative tracking, fixed rem scale — no fluid headings.",
+      "Flat by default: separation comes from hairline rings, not drop shadows.",
+      "Dense but orderly; legibility is never traded for compactness.",
+      "Semantic state color (success/warning/info/destructive) standardized and theme-symmetric.",
+      "First-class dark mode, held to the same contrast bar as light."
+    ],
+    "rules": [
+      { "name": "The One Voice Rule", "body": "Signal Blue appears on ≤10% of any given screen. It marks the primary action and the current selection — nothing else. Its rarity is what makes it read as 'do this.'", "section": "colors" },
+      { "name": "The Warm-Black Rule", "body": "No pure #000 and no pure #fff anywhere. Ink is #141412, canvas is #fbfbfa. The faint warmth is the whole point; pure values read as cheap.", "section": "colors" },
+      { "name": "The State-Tint Rule", "body": "Semantic color signals state through a low-opacity tint of its own hue plus same-hue text (bg-destructive/10 text-destructive), not a saturated fill. Reserve solid fills for the single most consequential action on a screen.", "section": "colors" },
+      { "name": "The Two-Cuts Rule", "body": "Sans for the human, mono for the machine. Anything a user could copy and paste into a terminal — an ID, a hash, a domain, a log line — is mono. Everything else is sans. No third font, ever.", "section": "typography" },
+      { "name": "The Fixed-Scale Rule", "body": "No clamp() headings in product UI. Users view at consistent DPI; a heading that shrinks inside a sidebar looks broken, not responsive.", "section": "typography" },
+      { "name": "The Flat-By-Default Rule", "body": "Resting surfaces have no drop shadow. If a card needs a shadow to be distinguishable, the ring (ring-foreground/10) or background tone is wrong — fix that first. Shadows mean 'floating above the page,' not 'is a card.'", "section": "elevation" },
+      { "name": "The Ring-Not-Border Rule", "body": "Card separation uses ring-1 ring-foreground/10 (a transparency of the ink), so it reads as a hairline regardless of theme. Audit test: if a divider looks grey rather than like a faint edge of the ink, it's a hardcoded grey — replace it.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep Signal Blue to ≤10% of any screen — primary action and current selection only (The One Voice Rule).",
+      "Do use #141412 for ink and #fbfbfa for canvas; never pure black or white (The Warm-Black Rule).",
+      "Do render state as a tint of its own hue plus same-hue text, reserving solid fills for the single most consequential action.",
+      "Do set every machine-readable string — IDs, hashes, domains, env keys, log lines — in Geist Mono with slashed zero (The Two-Cuts Rule).",
+      "Do separate surfaces with ring-1 ring-foreground/10; flat at rest, shadows only on floating layers (The Flat-By-Default Rule).",
+      "Do pair semantic color with an icon and label so state never depends on color alone.",
+      "Do use 150–250ms transitions, skeletons over spinners, and the active translate-y-px press; honor prefers-reduced-motion on every animation including the comet border.",
+      "Do design every state — loading, pending, degraded, error, empty, success — truthfully. Empty states teach the interface."
+    ],
+    "donts": [
+      "Don't build the cluttered self-host UI — density without hierarchy, utilitarian noise. Density is fine; noise is not.",
+      "Don't build the enterprise cloud console — gray walls of nested config, endless tabs, no sense of state.",
+      "Don't reach for the generic AI-SaaS template: cream/sand backgrounds, gradient text, hero-metric blocks, identical icon-card grids, or a tracked-uppercase eyebrow above every section.",
+      "Don't introduce a second accent hue or a third font family. One blue, one family in two cuts.",
+      "Don't put drop shadows on resting cards, or use border-left/border-right >1px as a colored accent stripe.",
+      "Don't nest a card inside a card.",
+      "Don't use clamp() / fluid headings in product UI (The Fixed-Scale Rule).",
+      "Don't ship fake, mock, or seeded data; unbuilt features show a 'Coming soon' placeholder, never invented content.",
+      "Don't let Muted Ink body text drop below 4.5:1 on its surface in either theme."
+    ]
+  }
+}

@@ -4,6 +4,7 @@
   "main": "src/index.ts",
   "scripts": {
     "typecheck": "tsc -b",
+    "test": "bun test",
     "dev": "bun run --env-file ../../.env --hot src/index.ts",
     "start": "bun run src/index.ts"
   },

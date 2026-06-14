@@ -41,6 +41,43 @@ export const projectCaddyfileSchema = z.object({
   revision: z.string(),
 });
 
+// ─── Custom Caddy config (operator-authored) ────────────────────────
+/** Max length for an operator-authored config blob (project-level or
+ *  per-route). Generous — a Caddyfile snippet, not a whole site. */
+const CUSTOM_CONFIG_MAX = 20_000;
+
+/** A project's raw custom config for editing (null when unset). */
+export const projectCustomConfigSchema = z.object({
+  config: z.string().nullable(),
+});
+
+export const setProjectCustomConfigInput = z.object({
+  projectId: projectIdField,
+  /** Standalone Caddy blocks/snippets. Empty or null clears it. */
+  config: z.string().max(CUSTOM_CONFIG_MAX).nullable(),
+});
+
+export const setRouteDirectivesInput = z.object({
+  routeId: proxyRouteIdField,
+  /** Directives spliced inside the route's site block. Empty/null clears. */
+  directives: z.string().max(CUSTOM_CONFIG_MAX).nullable(),
+});
+
+/** Result of saving custom config: the post-change render, plus whether it
+ *  validated + went live (`applied`) or was rejected with Caddy's `error`. */
+export const saveCustomConfigResultSchema = z.object({
+  caddyfile: z.string(),
+  revision: z.string(),
+  applied: z.boolean(),
+  error: z.string().nullable(),
+});
+
+export const saveRouteDirectivesResultSchema = z.object({
+  route: proxyRouteSchema,
+  applied: z.boolean(),
+  error: z.string().nullable(),
+});
+
 // ─── Deployment protection (auth wall) ──────────────────────────────
 export const setProtectionInput = z.object({
   routeId: proxyRouteIdField,
@@ -113,6 +150,36 @@ export const proxyContractSlice = {
     })
     .input(listProxyRoutesInput)
     .output(projectCaddyfileSchema),
+
+  customConfig: oc
+    .errors(projectNotFoundErrors)
+    .meta({
+      path: `${basePath}/{projectId}/custom-config`,
+      tag,
+      method: "GET",
+    })
+    .input(listProxyRoutesInput)
+    .output(projectCustomConfigSchema),
+
+  setCustomConfig: oc
+    .errors(projectNotFoundErrors)
+    .meta({
+      path: `${basePath}/{projectId}/custom-config`,
+      tag,
+      method: "POST",
+    })
+    .input(setProjectCustomConfigInput)
+    .output(saveCustomConfigResultSchema),
+
+  setRouteDirectives: oc
+    .errors(resourceNotFoundErrors)
+    .meta({
+      path: `${basePath}/proxy-routes/{routeId}/directives`,
+      tag,
+      method: "POST",
+    })
+    .input(setRouteDirectivesInput)
+    .output(saveRouteDirectivesResultSchema),
 
   setProtection: oc
     .errors(resourceNotFoundErrors)

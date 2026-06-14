@@ -158,6 +158,20 @@ const serviceCommonSchema = z.object({
   // new replicas take traffic. Most common use: db migrations. Same
   // exec-form shape as startCommand.
   preDeploy: z.array(z.string()).nullable().optional(),
+  // Public domains to attach when the service is first created by Apply —
+  // a create-time seed so an operator can set a domain *before* deploy.
+  // The reconciler creates the proxy routes (and exposes the service) on
+  // create; thereafter domains are managed via the resource's domains UI,
+  // so this field is intentionally not diffed for drift. Requires the
+  // service to declare an http port.
+  domains: z
+    .array(
+      z.object({
+        domain: z.string().min(1),
+        primary: z.boolean().optional(),
+      }),
+    )
+    .optional(),
 });
 
 const imageServiceSchema = serviceCommonSchema.extend({

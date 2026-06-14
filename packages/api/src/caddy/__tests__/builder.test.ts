@@ -167,4 +167,68 @@ describe("builder", () => {
   test("buildProjectFragment returns empty string for no routes", () => {
     expect(buildProjectFragment([])).toBe("");
   });
+
+  // ─── Custom config ────────────────────────────────────────────────
+  test("buildHttpBlock injects custom directives inside the site block", () => {
+    const output = buildHttpBlock({
+      ...httpRoute,
+      customDirectives: "encode gzip\nheader X-Foo bar",
+    });
+    expect(output).toBe(
+      [
+        "myapp-acme.otterdeploy.dev {",
+        "\ttls internal",
+        "\treverse_proxy myapp.acme.otterdeploy.internal:3000",
+        "\tencode gzip",
+        "\theader X-Foo bar",
+        "}",
+      ].join("\n"),
+    );
+  });
+
+  test("buildHttpBlock re-indents nested custom directives, preserving structure", () => {
+    const output = buildHttpBlock({
+      ...httpRoute,
+      // Over-indented input dedents so the block opener sits at one tab while
+      // its relative nesting is preserved.
+      customDirectives: "    header {\n      X-Foo bar\n    }",
+    });
+    const lines = output.split("\n");
+    expect(lines).toContain("\theader {");
+    expect(lines).toContain("\t}");
+    // The nested line is indented deeper than its opener.
+    const nested = lines.find((l) => l.includes("X-Foo bar")) ?? "";
+    const indentLen = (s: string) => s.match(/^\s*/)?.[0].length ?? 0;
+    expect(indentLen(nested)).toBeGreaterThan(indentLen("\theader {"));
+  });
+
+  test("empty/whitespace custom directives are ignored", () => {
+    expect(buildHttpBlock({ ...httpRoute, customDirectives: "   \n  " })).toBe(
+      buildHttpBlock(httpRoute),
+    );
+  });
+
+  test("buildCaddyfile appends custom standalone blocks after generated sites", () => {
+    const block = "redirect.example.com {\n\tredir https://example.com{uri}\n}";
+    const output = buildCaddyfile([httpRoute], ":2019", {
+      customBlocks: [block],
+    });
+    expect(output).toContain("reverse_proxy myapp.acme.otterdeploy.internal:3000");
+    expect(output).toContain(block);
+    // Generated site comes before the custom block.
+    expect(output.indexOf("myapp-acme.otterdeploy.dev {")).toBeLessThan(
+      output.indexOf("redirect.example.com {"),
+    );
+  });
+
+  test("buildProjectFragment emits custom config even with no routes", () => {
+    const block = "redirect.example.com {\n\tredir https://example.com{uri}\n}";
+    const output = buildProjectFragment([], { customConfig: block });
+    expect(output).toContain("admin off");
+    expect(output).toContain(block);
+  });
+
+  test("buildProjectFragment stays empty when routes and custom config are empty", () => {
+    expect(buildProjectFragment([], { customConfig: "  \n " })).toBe("");
+  });
 });

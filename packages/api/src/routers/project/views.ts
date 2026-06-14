@@ -236,6 +236,7 @@ export async function ensureSwarmRuntimeForRecord(
 
   const runtime = await provisionSwarmDatabase({
     engine,
+    resourceId: record.resource.id,
     serviceName,
     volumeName,
     hostnameAlias: record.database.internalHostname,

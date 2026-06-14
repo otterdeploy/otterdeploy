@@ -23,6 +23,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/shared/components/ui/empty";
 import { cn } from "@/shared/lib/utils";
 
 import { SectionLabel } from "./atoms";
@@ -105,10 +111,20 @@ export function ResourceTasksTab({
               resourceId={resourceId}
             />
           ) : (
-            <div className="rounded-lg border border-dashed bg-card px-4 py-8 text-center text-[12px] text-muted-foreground">
-              No deployments yet — once this resource is pushed to swarm, the
-              active one will appear here.
-            </div>
+            <Empty className="rounded-md border border-dashed bg-muted/20 py-12">
+              <EmptyHeader>
+                <HugeiconsIcon
+                  icon={ContainerIcon}
+                  strokeWidth={1.5}
+                  className="size-10 text-muted-foreground/50"
+                />
+                <EmptyTitle>No deployments yet</EmptyTitle>
+                <EmptyDescription>
+                  Once this resource is pushed to swarm, the active one will
+                  appear here.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           )}
         </div>
       </div>

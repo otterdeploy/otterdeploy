@@ -44,6 +44,7 @@ import {
   SwarmConvergenceError,
   SwarmUpdateError,
 } from "./errors";
+import { dockerfileBuild, resolveDockerfileBuild } from "./dockerfile";
 import { loadPipelineContext, PipelineLoadError } from "./load";
 import { createLogSink, type LogSink } from "./log-stream";
 import { railpackBuild } from "./railpack";
@@ -158,26 +159,64 @@ function runBuildSteps(
     );
     work.path = cloned.workDir;
 
-    // Railpack is the only builder: it analyses the repo, builds through its
-    // BuildKit frontend, and `--load`s the result into the host daemon
-    // (which, on a single-node swarm, is the same daemon the container runs
-    // in). Static sites get a Caddy image with optional SPA fallback. The
-    // railpack-shaped config only applies when explicitly chosen; auto/null
-    // falls through to railpack's zero-config detection.
+    // Pick the builder. Two paths produce the same `{ shaTag, latestTag,
+    // buildDir }` shape so everything below is builder-agnostic:
+    //   - dockerfile: build the repo's Dockerfile via `docker buildx build
+    //     --load` (resolved/path-checked by resolveDockerfileBuild).
+    //   - railpack: analyse the repo, build through its BuildKit frontend, and
+    //     `--load` the result into the host daemon (which, on a single-node
+    //     swarm, is the same daemon the container runs in). Static sites get a
+    //     Caddy image with optional SPA fallback.
+    // `auto`/null resolves to dockerfile when a Dockerfile is present, else
+    // railpack's zero-config detection. The railpack-shaped config only applies
+    // when railpack is explicitly chosen. `compose` isn't supported yet — we
+    // say so out loud and build with railpack rather than silently doing so.
     const buildConfig = ctx.service.buildConfig;
-    const railpackConfig =
-      buildConfig?.builder === "railpack" ? buildConfig : null;
+    const builder = buildConfig?.builder ?? "auto";
+    if (builder === "compose") {
+      sink.system(
+        "compose builds are not yet supported; falling back to railpack",
+      );
+    }
+    // Resolve inside the build step so any HARD throw (bad/missing Dockerfile
+    // path when pinned to dockerfile) becomes a tagged BuildStepError.
     const image = yield* (
-      await step("build", () =>
-        railpackBuild({
+      await step("build", () => {
+        // `compose` has no dockerfile config; resolve it as railpack so the
+        // fallback above takes effect.
+        const resolveBuilder = builder === "compose" ? "railpack" : builder;
+        const resolution = resolveDockerfileBuild({
+          builder: resolveBuilder,
+          dockerfilePath:
+            buildConfig?.builder === "dockerfile"
+              ? buildConfig.dockerfilePath
+              : null,
+          workDir: cloned.workDir,
+          sourceSubdir: ctx.service.sourceSubdir,
+        });
+        for (const warning of resolution.warnings) sink.system(warning);
+
+        if (resolution.kind === "dockerfile") {
+          return dockerfileBuild({
+            workDir: cloned.workDir,
+            sourceSubdir: ctx.service.sourceSubdir,
+            dockerfilePath: resolution.dockerfilePath,
+            contextDir: resolution.contextDir,
+            relativePath: resolution.relativePath,
+            imageRepository,
+            sha: gitSha,
+            sink,
+          });
+        }
+        return railpackBuild({
           workDir: cloned.workDir,
           sourceSubdir: ctx.service.sourceSubdir,
           imageRepository,
           sha: gitSha,
-          config: railpackConfig,
+          config: buildConfig?.builder === "railpack" ? buildConfig : null,
           sink,
-        }),
-      )
+        });
+      })
     );
 
     // Push only when the project binds an external registry (remote or
@@ -218,6 +257,7 @@ function runBuildSteps(
     const framework = await detectServiceFramework({
       workDir: cloned.workDir,
       sourceSubdir: ctx.service.sourceSubdir,
+      buildDir: image.buildDir,
       sink,
     });
 

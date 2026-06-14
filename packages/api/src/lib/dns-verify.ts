@@ -12,7 +12,7 @@
  * reasons (CDN, shared IP, etc.) and shouldn't grant publishing rights.
  */
 
-import { promises as dns } from "node:dns";
+import { resolveTxtRobust } from "./dns-resolver";
 
 export const VERIFY_TXT_PREFIX = "_otterdeploy-verify";
 
@@ -54,10 +54,9 @@ export async function verifyDomainTxt(input: {
   }
 
   try {
-    // resolveTxt returns each record as an array of strings (DNS TXT
-    // chunks); join them per record before comparing.
-    const raw = await dns.resolveTxt(recordName);
-    const found = raw.map((chunks) => chunks.join(""));
+    // Query public resolvers (with system fallback) so a lagging or
+    // split-horizon local resolver doesn't report a live record as missing.
+    const found = await resolveTxtRobust(recordName);
     if (found.length === 0) {
       return {
         ok: false,

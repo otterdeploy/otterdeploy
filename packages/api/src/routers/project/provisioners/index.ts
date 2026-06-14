@@ -9,6 +9,9 @@ import {
 } from "../../../swarm";
 
 export interface ProvisionInput {
+  /** Resource row id — stamped on the swarm spec as `otterdeploy.resource.id`
+   *  so the metrics sampler can attribute samples to this resource. */
+  resourceId: string;
   serviceName: string;
   volumeName: string;
   hostnameAlias: string;

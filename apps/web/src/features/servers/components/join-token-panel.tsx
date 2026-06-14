@@ -1,10 +1,17 @@
 import { useState } from "react";
 
-import { Copy01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
+import { Copy01Icon, ServerStack01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useQuery } from "@tanstack/react-query";
 
 import { Button } from "@/shared/components/ui/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/shared/components/ui/empty";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/shared/components/ui/toggle-group";
 import { cn } from "@/shared/lib/utils";
@@ -58,13 +65,24 @@ export function JoinTokenPanel({ role, onRoleChange }: JoinTokenPanelProps) {
       ) : command ? (
         <CommandBlock command={command} />
       ) : (
-        <div className="rounded-md border border-dashed bg-muted/20 p-3 text-[12px] text-muted-foreground">
-          Swarm hasn't been initialized on this host. Run{" "}
-          <code className="rounded-sm bg-muted px-1 py-px font-mono text-foreground">
-            docker swarm init
-          </code>{" "}
-          on the manager, then refresh.
-        </div>
+        <Empty className="rounded-md border border-dashed bg-muted/20 py-12">
+          <EmptyHeader>
+            <HugeiconsIcon
+              icon={ServerStack01Icon}
+              strokeWidth={1.5}
+              className="size-10 text-muted-foreground/50"
+            />
+            <EmptyTitle>Swarm hasn't been initialized</EmptyTitle>
+            <EmptyDescription>
+              Run the command below on the manager, then refresh.
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <code className="rounded-sm bg-muted px-1 py-px font-mono text-[12px] text-foreground">
+              docker swarm init
+            </code>
+          </EmptyContent>
+        </Empty>
       )}
     </div>
   );

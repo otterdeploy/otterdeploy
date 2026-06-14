@@ -6,13 +6,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/components/ui/select";
-import {
   Table,
   TableBody,
   TableCell,
@@ -22,6 +15,8 @@ import {
 } from "@/shared/components/ui/table";
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
+
+import { HostFilter } from "./host-filter";
 
 type EdgeLog = Awaited<
   ReturnType<typeof orpc.edgeLogs.query.call>
@@ -70,7 +65,7 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
   const [range, setRange] = useState<Range>("1h");
   const [methods, setMethods] = useState<Set<string>>(new Set());
   const [statuses, setStatuses] = useState<Set<string>>(new Set());
-  const [host, setHost] = useState<string>("all");
+  const [hostFilter, setHostFilter] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [live, setLive] = useState(true);
   const [wrap, setWrap] = useState(false);
@@ -85,7 +80,7 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
         statuses: statuses.size
           ? ([...statuses] as ("2xx" | "3xx" | "4xx" | "5xx")[])
           : undefined,
-        host: host === "all" ? undefined : host,
+        hosts: hostFilter.length ? hostFilter : undefined,
         search: search.trim() || undefined,
       },
     }),
@@ -94,7 +89,7 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
 
   const data = query.data;
   const rows = data?.rows ?? [];
-  const hosts = useMemo(
+  const hostOptions = useMemo(
     () => (data?.hostStats ?? []).map((s) => s.host).sort(),
     [data?.hostStats],
   );
@@ -149,21 +144,11 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
           colors={BUCKET_TEXT}
           onToggle={(v) => setStatuses((s) => toggleSet(s, v))}
         />
-        <Select value={host} onValueChange={(v) => setHost(v ?? "all")}>
-          <SelectTrigger className="h-8 w-[170px] text-[12px]">
-            <SelectValue>
-              {(value) => (value && value !== "all" ? (value as string) : "All hosts")}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All hosts</SelectItem>
-            {hosts.map((h) => (
-              <SelectItem key={h} value={h}>
-                {h}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <HostFilter
+          options={hostOptions}
+          value={hostFilter}
+          onChange={setHostFilter}
+        />
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}

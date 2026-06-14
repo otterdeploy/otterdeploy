@@ -1,0 +1,192 @@
+@import "tailwindcss";
+@import "fumadocs-ui/css/neutral.css";
+@import "fumadocs-ui/css/preset.css";
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Fonts — Geist, matching apps/web.
+   ───────────────────────────────────────────────────────────────────────── */
+@theme {
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono:
+    "Geist Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-heading: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   shadcn token → Tailwind utility mapping (subset of apps/web/src/index.css),
+   so `bg-background`, `text-primary`, etc. behave identically here.
+   ───────────────────────────────────────────────────────────────────────── */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Brand tokens — copied verbatim from apps/web/src/index.css (warm-neutral
+   mono palette) so the marketing site and dashboard read as one product.
+   ───────────────────────────────────────────────────────────────────────── */
+:root {
+  --background: #fbfbfa;
+  --foreground: #141412;
+  --card: #ffffff;
+  --card-foreground: #141412;
+  --popover: #ffffff;
+  --popover-foreground: #141412;
+  --primary: oklch(0.488 0.243 264.376);
+  --primary-foreground: oklch(0.97 0.014 254.604);
+  --secondary: rgba(20, 20, 18, 0.04);
+  --secondary-foreground: #141412;
+  --muted: rgba(20, 20, 18, 0.04);
+  --muted-foreground: #7a7a74;
+  --accent: rgba(20, 20, 18, 0.04);
+  --accent-foreground: #141412;
+  --destructive: #b42318;
+  --destructive-foreground: #b42318;
+  --border: rgba(20, 20, 18, 0.09);
+  --input: rgba(20, 20, 18, 0.12);
+  --ring: #a8a8a0;
+  --radius: 0.625rem;
+  --info: #1f5fa8;
+  --info-foreground: #1f5fa8;
+  --success: #1f7a3f;
+  --success-foreground: #1f7a3f;
+  --warning: #8a6a00;
+  --warning-foreground: #8a6a00;
+}
+
+/* Explicit light scope — lets a subtree force the light palette even when the
+   Fumadocs theme toggle has put `.dark` on <html>. Mirrors :root so the
+   marketing landing's light bands stay light regardless of system theme. */
+.light {
+  --background: #fbfbfa;
+  --foreground: #141412;
+  --card: #ffffff;
+  --card-foreground: #141412;
+  --popover: #ffffff;
+  --popover-foreground: #141412;
+  --primary: oklch(0.488 0.243 264.376);
+  --primary-foreground: oklch(0.97 0.014 254.604);
+  --secondary: rgba(20, 20, 18, 0.04);
+  --secondary-foreground: #141412;
+  --muted: rgba(20, 20, 18, 0.04);
+  --muted-foreground: #7a7a74;
+  --accent: rgba(20, 20, 18, 0.04);
+  --accent-foreground: #141412;
+  --destructive: #b42318;
+  --destructive-foreground: #b42318;
+  --border: rgba(20, 20, 18, 0.09);
+  --input: rgba(20, 20, 18, 0.12);
+  --ring: #a8a8a0;
+  --info: #1f5fa8;
+  --info-foreground: #1f5fa8;
+  --success: #1f7a3f;
+  --success-foreground: #1f7a3f;
+  --warning: #8a6a00;
+  --warning-foreground: #8a6a00;
+}
+
+.dark {
+  --background: #0c0c0b;
+  --foreground: #f5f5f0;
+  --card: #161614;
+  --card-foreground: #f5f5f0;
+  --popover: #161614;
+  --popover-foreground: #f5f5f0;
+  --primary: oklch(0.424 0.199 265.638);
+  --primary-foreground: oklch(0.97 0.014 254.604);
+  --secondary: rgba(255, 255, 250, 0.04);
+  --secondary-foreground: #f5f5f0;
+  --muted: rgba(255, 255, 250, 0.04);
+  --muted-foreground: #7a7a72;
+  --accent: rgba(255, 255, 250, 0.04);
+  --accent-foreground: #f5f5f0;
+  --destructive: #f87171;
+  --destructive-foreground: #f87171;
+  --border: rgba(255, 255, 250, 0.08);
+  --input: rgba(255, 255, 250, 0.1);
+  --ring: #525248;
+  --info: #60a5fa;
+  --info-foreground: #60a5fa;
+  --success: #4ade80;
+  --success-foreground: #4ade80;
+  --warning: #fbbf24;
+  --warning-foreground: #fbbf24;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Map Fumadocs UI (--color-fd-*) onto our brand tokens. Declared once at
+   :root referencing the brand vars — the inner var() resolves at use-site, so
+   `.dark` scopes inherit the dark brand values automatically. Overrides the
+   neutral/preset imports above by source order.
+   ───────────────────────────────────────────────────────────────────────── */
+:root {
+  --color-fd-background: var(--background);
+  --color-fd-foreground: var(--foreground);
+  --color-fd-card: var(--card);
+  --color-fd-card-foreground: var(--card-foreground);
+  --color-fd-popover: var(--popover);
+  --color-fd-popover-foreground: var(--popover-foreground);
+  --color-fd-primary: var(--primary);
+  --color-fd-primary-foreground: var(--primary-foreground);
+  --color-fd-secondary: var(--secondary);
+  --color-fd-secondary-foreground: var(--secondary-foreground);
+  --color-fd-muted: var(--muted);
+  --color-fd-muted-foreground: var(--muted-foreground);
+  --color-fd-accent: var(--accent);
+  --color-fd-accent-foreground: var(--accent-foreground);
+  --color-fd-border: var(--border);
+  --color-fd-ring: var(--ring);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Base — typography settings from apps/web.
+   ───────────────────────────────────────────────────────────────────────── */
+@layer base {
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "cv11", "ss01";
+    letter-spacing: -0.005em;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  html {
+    @apply font-sans;
+    scrollbar-gutter: stable;
+  }
+  .font-mono {
+    font-feature-settings: "zero", "ss03";
+  }
+}
+
+html > body[data-scroll-locked] {
+  margin-right: 0px !important;
+  --removed-body-scroll-bar-size: 0px !important;
+}

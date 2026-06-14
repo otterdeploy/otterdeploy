@@ -1,7 +1,9 @@
+import { RocketIcon } from "@hugeicons/core-free-icons";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import * as z from "zod";
 
+import { AuthLayout } from "@/features/auth/components/auth-layout";
 import { SignInForm } from "@/features/auth/components/sign-in-form";
 import { SignUpForm } from "@/features/auth/components/sign-up-form";
 
@@ -16,16 +18,38 @@ function SignInPage() {
   const [mode, setMode] = useState<"sign-in" | "sign-up">("sign-in");
 
   return (
-    <div className="grid min-h-svh place-items-center bg-background p-6">
-      <div className="relative z-10 mx-4 w-full max-w-[420px]">
-        <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-          {mode === "sign-in" ? (
-            <SignInForm onSwitchToSignUp={() => setMode("sign-up")} />
-          ) : (
-            <SignUpForm onSwitchToSignIn={() => setMode("sign-in")} />
-          )}
-        </div>
-      </div>
-    </div>
+    <AuthLayout
+      eyebrow={mode === "sign-in" ? "Welcome back" : "Get started"}
+      headline={
+        mode === "sign-in" ? (
+          <>
+            Ship your stack.
+            <br />
+            <span className="font-normal text-muted-foreground">
+              Sign in to deploy.
+            </span>
+          </>
+        ) : (
+          <>
+            One account.
+            <br />
+            <span className="font-normal text-muted-foreground">
+              Every deploy.
+            </span>
+          </>
+        )
+      }
+      pill={{
+        icon: RocketIcon,
+        label: "Deploy from git in",
+        value: "~ 90 seconds",
+      }}
+    >
+      {mode === "sign-in" ? (
+        <SignInForm onSwitchToSignUp={() => setMode("sign-up")} />
+      ) : (
+        <SignUpForm onSwitchToSignIn={() => setMode("sign-in")} />
+      )}
+    </AuthLayout>
   );
 }

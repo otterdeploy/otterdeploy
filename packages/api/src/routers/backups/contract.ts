@@ -143,8 +143,14 @@ export const createScheduleInput = z.object({
   cron: z.string().min(1),
   destinationId: backupDestinationIdField,
   projectId: projectIdField.optional(),
+  // GFS retention tiers — keep the most recent archive per bucket up to N.
   keepDaily: z.number().int().nonnegative().default(0),
+  keepWeekly: z.number().int().nonnegative().default(0),
+  keepMonthly: z.number().int().nonnegative().default(0),
+  keepYearly: z.number().int().nonnegative().default(0),
   retentionDays: z.number().int().positive().nullable().default(null),
+  maxStorageGb: z.number().int().positive().nullable().default(null),
+  preHook: z.string().max(2000).nullable().default(null),
   encryption: z.enum(["none", "aes-256-gcm"]).default("aes-256-gcm"),
   enabled: z.boolean().default(true),
 });
@@ -155,7 +161,12 @@ export const updateScheduleInput = z.object({
   sources: z.array(z.string()).optional(),
   cron: z.string().min(1).optional(),
   keepDaily: z.number().int().nonnegative().optional(),
+  keepWeekly: z.number().int().nonnegative().optional(),
+  keepMonthly: z.number().int().nonnegative().optional(),
+  keepYearly: z.number().int().nonnegative().optional(),
   retentionDays: z.number().int().positive().nullable().optional(),
+  maxStorageGb: z.number().int().positive().nullable().optional(),
+  preHook: z.string().max(2000).nullable().optional(),
   enabled: z.boolean().optional(),
 });
 
@@ -237,6 +248,13 @@ export const backupsContract = {
       .meta({ path: `${basePath}/schedules/{id}`, tag, method: "DELETE" })
       .input(scheduleIdInput)
       .output(z.object({ ok: z.boolean() })),
+
+    // Trigger a schedule's backups immediately, out-of-band from its cron.
+    run: oc
+      .errors(scheduleNotFound)
+      .meta({ path: `${basePath}/schedules/{id}/run`, tag, method: "POST" })
+      .input(scheduleIdInput)
+      .output(z.object({ queued: z.number() })),
   },
 
   destinations: {

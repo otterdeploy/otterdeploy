@@ -12,6 +12,7 @@ import {
   Task01Icon,
 } from "@hugeicons/core-free-icons";
 
+import { Page, PageHeader } from "@/shared/components/page";
 import { JoinTokenDialog } from "@/features/servers/components/join-token-dialog";
 import { ServerCreateDialog } from "@/features/servers/components/server-create-dialog";
 import { serverCollection, type Server } from "@/features/servers/data/server";
@@ -57,7 +58,7 @@ export const Route = createFileRoute("/_app/$orgSlug/servers")({
 });
 
 function ServersRoute() {
-  const { data: servers = [] } = useLiveQuery((q) => q.from({ s: serverCollection }));
+  const { data: servers } = useLiveQuery((q) => q.from({ s: serverCollection }));
   const [createOpen, setCreateOpen] = useState(false);
   const [tokenOpen, setTokenOpen] = useState(false);
   const [projectFilter, setProjectFilter] = useState<string>("all");
@@ -94,25 +95,22 @@ function ServersRoute() {
   const totalTasks = cluster?.tasksRunning ?? null;
 
   return (
-    <div className="flex flex-1 flex-col gap-5 p-5">
-      <header className="flex items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Servers</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {nodeCount} node{nodeCount === 1 ? "" : "s"} in this swarm · replicas placed via
-            Docker Stack rolling updates
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => setTokenOpen(true)}>
-            <HugeiconsIcon icon={Key01Icon} strokeWidth={2} className="size-3.5" />
-            Join token
-          </Button>
-          <Button size="sm" className="h-8 gap-1.5" onClick={() => setCreateOpen(true)}>
-            + Add server
-          </Button>
-        </div>
-      </header>
+    <Page>
+      <PageHeader
+        title="Servers"
+        description={`${nodeCount} node${nodeCount === 1 ? "" : "s"} in this swarm · replicas placed via Docker Stack rolling updates`}
+        actions={
+          <>
+            <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => setTokenOpen(true)}>
+              <HugeiconsIcon icon={Key01Icon} strokeWidth={2} className="size-3.5" />
+              Join token
+            </Button>
+            <Button size="sm" className="h-8 gap-1.5" onClick={() => setCreateOpen(true)}>
+              + Add server
+            </Button>
+          </>
+        }
+      />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatTile
@@ -210,13 +208,13 @@ function ServersRoute() {
 
       <ServerCreateDialog open={createOpen} onOpenChange={setCreateOpen} />
       <JoinTokenDialog open={tokenOpen} onOpenChange={setTokenOpen} />
-    </div>
+    </Page>
   );
 }
 
 function ServersPending() {
   return (
-    <div className="flex flex-1 flex-col gap-5 p-5">
+    <Page>
       <header className="flex items-end justify-between gap-4">
         <div className="flex flex-col gap-2">
           <Skeleton className="h-7 w-32" />
@@ -270,7 +268,7 @@ function ServersPending() {
           </div>
         ))}
       </Card>
-    </div>
+    </Page>
   );
 }
 

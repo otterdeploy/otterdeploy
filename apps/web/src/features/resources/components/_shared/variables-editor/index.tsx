@@ -29,9 +29,21 @@ interface VariablesEditorProps {
   // Bumped by the tab header's "New Variable" button — when it advances
   // the editor adds an empty row.
   addRowSignal?: number;
+  // Override persistence. Default = the live-resource `env.bulkSet` mutation.
+  // A pending-create resource has no resourceId yet, so it passes a handler
+  // that stages the env onto its manifest entry instead. Secret keys are
+  // forwarded but the manifest path ignores them (manifest env is plaintext).
+  onSave?: (
+    env: Array<{ key: string; value: string }>,
+    secretKeys: string[],
+  ) => Promise<void>;
 }
 
-export function VariablesEditor({ resource, addRowSignal = 0 }: VariablesEditorProps) {
+export function VariablesEditor({
+  resource,
+  addRowSignal = 0,
+  onSave,
+}: VariablesEditorProps) {
   const [bulkOpen, setBulkOpen] = useState(false);
 
   // Tolerate undefined here — the resource list cache predates the
@@ -54,6 +66,7 @@ export function VariablesEditor({ resource, addRowSignal = 0 }: VariablesEditorP
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [addRowSignal]);
 
+  const [stagingSave, setStagingSave] = useState(false);
   const saveMut = useMutation(
     orpc.project.resource.env.bulkSet.mutationOptions({
       onSuccess: async () => {
@@ -78,6 +91,14 @@ export function VariablesEditor({ resource, addRowSignal = 0 }: VariablesEditorP
       .filter((r) => r.isSecret && r.key.trim().length > 0)
       .map((r) => r.key.trim());
 
+    if (onSave) {
+      // Staging invalidates the manifest query, which re-feeds serverEnv and
+      // re-baselines the editor — same refresh path as the live mutation.
+      setStagingSave(true);
+      void onSave(env, secretKeys).finally(() => setStagingSave(false));
+      return;
+    }
+
     saveMut.mutate({
       projectId: resource.projectId as never,
       resourceId: resource.resourceId as never,
@@ -92,7 +113,7 @@ export function VariablesEditor({ resource, addRowSignal = 0 }: VariablesEditorP
         totalCount={editor.rows.length}
         hasPending={editor.hasPending}
         diff={editor.diff}
-        saving={saveMut.isPending}
+        saving={onSave ? stagingSave : saveMut.isPending}
         onBulkEdit={() => setBulkOpen(true)}
         onDiscard={editor.discard}
         onSave={save}

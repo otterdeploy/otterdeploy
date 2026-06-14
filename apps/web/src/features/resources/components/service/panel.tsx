@@ -29,13 +29,19 @@ import type { FrameworkKind } from "@/features/projects/components/framework-log
 import { orpc } from "@/shared/server/orpc";
 
 import { PanelIcon } from "@/features/resources/components/_shared/atoms";
+import { MetricsTab } from "@/features/resources/components/_shared/metrics/metrics-tab";
 import { ResourceTasksTab } from "@/features/resources/components/_shared/resource-tasks-tab";
 import { ResourceTerminal } from "@/features/resources/components/_shared/resource-terminal";
 
 import { ServiceSettingsBody } from "./tabs/settings";
 import { ServiceVariablesTabBody } from "./tabs/variables";
 
-type ServiceTab = "deployments" | "variables" | "terminal" | "settings";
+type ServiceTab =
+  | "deployments"
+  | "metrics"
+  | "variables"
+  | "terminal"
+  | "settings";
 
 interface ServiceResourcePanelProps {
   resource: {
@@ -61,6 +67,10 @@ interface ServiceResourcePanelProps {
   orgSlug: string;
   projectSlug: string;
   onClose: () => void;
+  // Pending-create mode: the service isn't deployed yet. Runtime tabs +
+  // header actions (restart / build) are disabled, edits target the manifest,
+  // and the panel opens on Variables (the first thing to set up pre-deploy).
+  pending?: boolean;
 }
 
 export function ServiceResourcePanel({
@@ -69,8 +79,9 @@ export function ServiceResourcePanel({
   orgSlug,
   projectSlug,
   onClose,
+  pending = false,
 }: ServiceResourcePanelProps) {
-  const [tab, setTab] = useState<ServiceTab>("deployments");
+  const [tab, setTab] = useState<ServiceTab>(pending ? "variables" : "deployments");
 
   // Manual build trigger for git services. The first build fires on create
   // and on git push; this is the "build it now" path (e.g. a service whose
@@ -139,45 +150,51 @@ export function ServiceResourcePanel({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              restartMut.mutate({
-                projectId: resource.projectId as never,
-                resourceId: resource.resourceId as never,
-              })
-            }
-            disabled={restartMut.isPending}
-          >
-            <HugeiconsIcon
-              icon={RefreshIcon}
-              strokeWidth={2}
-              className="size-3.5"
-            />
-            {restartMut.isPending ? "Restarting…" : "Restart"}
-          </Button>
-          {resource.source === "git" ? (
-            <Button
-              type="button"
-              size="sm"
-              onClick={() =>
-                buildMut.mutate({
-                  projectId: resource.projectId as never,
-                  resourceId: resource.resourceId as never,
-                })
-              }
-              disabled={buildMut.isPending}
-            >
-              <HugeiconsIcon
-                icon={RocketIcon}
-                strokeWidth={2}
-                className="size-3.5"
-              />
-              {buildMut.isPending ? "Starting…" : "Build & deploy"}
-            </Button>
-          ) : null}
+          {/* Runtime actions need a deployed service — omit them while the
+              service is still a staged create (Deploy from the pending bar). */}
+          {pending ? null : (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  restartMut.mutate({
+                    projectId: resource.projectId as never,
+                    resourceId: resource.resourceId as never,
+                  })
+                }
+                disabled={restartMut.isPending}
+              >
+                <HugeiconsIcon
+                  icon={RefreshIcon}
+                  strokeWidth={2}
+                  className="size-3.5"
+                />
+                {restartMut.isPending ? "Restarting…" : "Restart"}
+              </Button>
+              {resource.source === "git" ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() =>
+                    buildMut.mutate({
+                      projectId: resource.projectId as never,
+                      resourceId: resource.resourceId as never,
+                    })
+                  }
+                  disabled={buildMut.isPending}
+                >
+                  <HugeiconsIcon
+                    icon={RocketIcon}
+                    strokeWidth={2}
+                    className="size-3.5"
+                  />
+                  {buildMut.isPending ? "Starting…" : "Build & deploy"}
+                </Button>
+              ) : null}
+            </>
+          )}
           <Button
             type="button"
             variant="ghost"
@@ -213,13 +230,18 @@ export function ServiceResourcePanel({
       >
         <div className="border-b border-border/60 px-6">
           <TabsList variant="line" className="h-auto bg-transparent p-0">
-            <TabsTrigger value="deployments" className="px-2.5 py-2.5">
+            {/* Runtime tabs are disabled until the service is deployed —
+                there are no tasks, metrics, or container to attach to yet. */}
+            <TabsTrigger value="deployments" className="px-2.5 py-2.5" disabled={pending}>
               Deployments
+            </TabsTrigger>
+            <TabsTrigger value="metrics" className="px-2.5 py-2.5" disabled={pending}>
+              Metrics
             </TabsTrigger>
             <TabsTrigger value="variables" className="px-2.5 py-2.5">
               Variables
             </TabsTrigger>
-            <TabsTrigger value="terminal" className="px-2.5 py-2.5">
+            <TabsTrigger value="terminal" className="px-2.5 py-2.5" disabled={pending}>
               Terminal
             </TabsTrigger>
             <TabsTrigger value="settings" className="px-2.5 py-2.5">
@@ -228,29 +250,55 @@ export function ServiceResourcePanel({
           </TabsList>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <TabsContents>
-            <TabsContent value="deployments" className="px-6 pt-5 pb-6">
-              <ResourceTasksTab
-                projectId={resource.projectId}
-                resourceId={resource.resourceId}
-                orgSlug={orgSlug}
-                projectSlug={projectSlug}
-              />
-            </TabsContent>
+        <div className="relative min-h-0 flex-1">
+          <div className="h-full overflow-y-auto">
+            <TabsContents>
+              {/* Runtime tabs only mount their live components once deployed —
+                  they query tasks/metrics by resourceId, which doesn't exist
+                  for a staged create. */}
+              {!pending && (
+                <TabsContent value="deployments" className="px-6 pt-5 pb-6">
+                  <ResourceTasksTab
+                    projectId={resource.projectId}
+                    resourceId={resource.resourceId}
+                    orgSlug={orgSlug}
+                    projectSlug={projectSlug}
+                  />
+                </TabsContent>
+              )}
 
-            <TabsContent value="variables" className="px-6 pt-5 pb-6">
-              <ServiceVariablesTabBody resource={resource} />
-            </TabsContent>
+              {!pending && (
+                <TabsContent value="metrics" className="px-6 pt-5 pb-6">
+                  <MetricsTab resourceId={resource.resourceId} />
+                </TabsContent>
+              )}
 
-            {/* keepMounted + Activity keeps the terminal session, PTY,
-                and xterm scrollback alive across tab switches. */}
-            <TabsContent
-              value="terminal"
-              keepMounted
-              className="px-6 pt-5 pb-6"
-            >
-              <Activity mode={tab === "terminal" ? "visible" : "hidden"}>
+              <TabsContent value="variables" className="px-6 pt-5 pb-6">
+                <ServiceVariablesTabBody
+                  resource={resource}
+                  pending={pending}
+                  serviceName={resource.name}
+                />
+              </TabsContent>
+
+              <TabsContent value="settings" className="px-6 pt-5 pb-8">
+                <ServiceSettingsBody
+                  resource={resource}
+                  onDeleted={onClose}
+                  pending={pending}
+                />
+              </TabsContent>
+            </TabsContents>
+          </div>
+
+          {/* Terminal lives OUTSIDE the height-animated <TabsContents> (which
+              sizes to its content) so it can absolutely fill this region
+              instead of collapsing. keepMounted via Activity keeps the PTY +
+              scrollback alive across tab switches. Not mounted for a staged
+              create — there's no container to attach a PTY to. */}
+          {!pending && (
+            <Activity mode={tab === "terminal" ? "visible" : "hidden"}>
+              <div className="absolute inset-0 flex flex-col p-px">
                 <ResourceTerminal
                   match={{
                     kind: "service",
@@ -259,13 +307,9 @@ export function ServiceResourcePanel({
                   fallbackLabel={resource.name}
                   projectSlug={projectSlug}
                 />
-              </Activity>
-            </TabsContent>
-
-            <TabsContent value="settings" className="px-6 pt-5 pb-8">
-              <ServiceSettingsBody resource={resource} onDeleted={onClose} />
-            </TabsContent>
-          </TabsContents>
+              </div>
+            </Activity>
+          )}
         </div>
       </Tabs>
     </div>

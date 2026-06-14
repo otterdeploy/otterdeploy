@@ -30,6 +30,8 @@ export const ID_PREFIX = {
   organization: "org",
   member: "member",
   invitation: "invite",
+  // api keys (better-auth apiKey plugin — table name is `apikey`)
+  apiKey: "apikey",
 
   project: "project",
   resource: "resource",
@@ -66,6 +68,11 @@ export const ID_PREFIX = {
 
   // in-app notifications
   notification: "notif",
+
+  // notification channels (routing config + delivery log)
+  notificationChannel: "notifchan",
+  notificationSubscription: "notifsub",
+  notificationDelivery: "notifdlv",
 } as const;
 
 export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];
@@ -79,7 +86,7 @@ export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];
  * Same level of safety: a plain string can't satisfy `Id<P>` without a cast.
  */
 export declare const __brand: unique symbol;
-export type Id<P extends string = string> = string & {
+export type Id<P extends string = string> =string & {
   readonly [__brand]: P;
 };
 
@@ -217,6 +224,13 @@ export type BackupLogId = Id<typeof ID_PREFIX.backupLog>;
 export type AuditLogId = Id<typeof ID_PREFIX.auditLog>;
 
 export type NotificationId = Id<typeof ID_PREFIX.notification>;
+
+// Notification channels
+export type NotificationChannelId = Id<typeof ID_PREFIX.notificationChannel>;
+export type NotificationSubscriptionId = Id<
+  typeof ID_PREFIX.notificationSubscription
+>;
+export type NotificationDeliveryId = Id<typeof ID_PREFIX.notificationDelivery>;
 
 // Slugs (URL-safe identifiers, distinct from cuid IDs)
 export type ProjectSlug = Slug<typeof ID_PREFIX.project>;

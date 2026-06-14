@@ -1,21 +1,20 @@
 import { useEffect, useState } from "react";
 
 import { createFileRoute, useSearch } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useLiveQuery } from "@tanstack/react-db";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { PlusSignIcon } from "@hugeicons/core-free-icons";
 import { toast } from "sonner";
 
+import { Page, PageHeader } from "@/shared/components/page";
 import { Button } from "@/shared/components/ui/button";
 import { ConnectDialog } from "@/features/git-providers/connect-dialog";
+import { gitProvidersCollection } from "@/features/git-providers/data/git-providers";
 import {
   ConnectedProviderCard,
   DisconnectedProviderCard,
 } from "@/features/git-providers/provider-card";
-import {
-  type ProviderKind,
-  type ProviderView,
-} from "@/features/git-providers/shared";
+import { type ProviderKind } from "@/features/git-providers/shared";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 export const Route = createFileRoute("/_app/$orgSlug/git-providers")({
@@ -30,31 +29,28 @@ export const Route = createFileRoute("/_app/$orgSlug/git-providers")({
 function GitProvidersRoute() {
   useInstallCallbackToast();
 
-  const providersQuery = useQuery(
-    orpc.git.list.queryOptions({ input: undefined }),
+  const { data: providers } = useLiveQuery((q) =>
+    q.from({ p: gitProvidersCollection }),
   );
-  const providers = (providersQuery.data ?? []) as ProviderView[];
   const [open, setOpen] = useState(false);
 
   const allKinds: ProviderKind[] = ["github", "gitlab", "gitea", "bitbucket"];
-  const byKind = new Map(providers.map((p) => [p.kind, p]));
+  const byKind = new Map<ProviderKind, (typeof providers)[number]>(
+    providers.map((p) => [p.kind, p]),
+  );
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-6 py-6">
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <h1 className="text-[15px] font-semibold tracking-tight">
-            Git providers
-          </h1>
-          <p className="text-[12.5px] text-muted-foreground">
-            Source control connections used to deploy services on push.
-          </p>
-        </div>
-        <Button size="sm" onClick={() => setOpen(true)}>
-          <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
-          Connect provider
-        </Button>
-      </div>
+    <Page width="narrow">
+      <PageHeader
+        title="Git providers"
+        description="Source control connections used to deploy services on push."
+        actions={
+          <Button size="sm" onClick={() => setOpen(true)}>
+            <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
+            Connect provider
+          </Button>
+        }
+      />
 
       <div className="flex flex-col gap-3">
         {allKinds.map((kind) => {
@@ -78,7 +74,7 @@ function GitProvidersRoute() {
       </p>
 
       <ConnectDialog open={open} onOpenChange={setOpen} />
-    </div>
+    </Page>
   );
 }
 

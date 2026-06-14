@@ -15,6 +15,7 @@ import { gunzipSync, gzipSync } from "node:zlib";
 import { Docker } from "@otterdeploy/docker";
 
 import { decryptBytes, decryptSecret, encryptBytes } from "../lib/crypto";
+import { emitPlatformEvent } from "../notifications/emit";
 import { buildContainerName } from "../routers/project/views";
 
 import {
@@ -102,6 +103,28 @@ function shellQuote(s: string): string {
   return `'${s.replace(/'/g, "'\\''")}'`;
 }
 
+type LogFn = (stream: "stdout" | "stderr" | "system", line: string) => Promise<void>;
+
+/**
+ * Run a schedule's pre-backup hook inside the DB container before dumping. No-op
+ * when unset; a non-zero exit aborts the backup (the caller catches + fails it).
+ */
+async function runPreHook(
+  docker: Docker,
+  containerId: string,
+  preHook: string | null,
+  log: LogFn,
+): Promise<void> {
+  if (!preHook || !preHook.trim()) return;
+  await log("system", `Running pre-hook: ${preHook}`);
+  const hook = await execCapture(docker, containerId, ["sh", "-c", preHook], {
+    allowNonZero: true,
+  });
+  if (hook.stdout.trim()) await log("stdout", hook.stdout.trim().slice(0, 4000));
+  if (hook.stderr.trim()) await log("stderr", hook.stderr.trim().slice(0, 4000));
+  if (hook.exitCode !== 0) throw new Error(`pre-hook exited ${hook.exitCode}`);
+}
+
 /**
  * Execute a queued backup run end-to-end. Always resolves — terminal status is
  * written to the row and surfaced via the log stream — so callers can fire it
@@ -139,6 +162,8 @@ export async function executeBackup(backupId: string): Promise<void> {
     }
     await log("system", `Exec into ${serviceName} (${containerId.slice(0, 12)})`);
 
+    await runPreHook(docker, containerId, ctx.preHook, log);
+
     const { cmd, env, ext, method } = dumpCommand(ctx);
     const dump = await execDump(docker, containerId, cmd, env);
     if (dump.exitCode !== 0) {
@@ -151,7 +176,7 @@ export async function executeBackup(backupId: string): Promise<void> {
     await log("system", `Dumped ${sourceSize} bytes; compressing`);
 
     // Compress, then optionally encrypt at rest.
-    let body = gzipSync(dump.archive);
+    let body: Buffer = gzipSync(dump.archive);
     if (ctx.encryption === "aes-256-gcm") {
       body = await encryptBytes(body);
       await log("system", "Encrypted archive (aes-256-gcm)");
@@ -189,10 +214,34 @@ export async function executeBackup(backupId: string): Promise<void> {
       method,
     });
     await log("system", "Backup succeeded");
+    await emitPlatformEvent({
+      organizationId: ctx.organizationId,
+      eventId: "backup.succeeded",
+      title: "Backup succeeded",
+      message: `${ctx.resourceName} (${ctx.projectSlug}) backed up successfully.`,
+      data: {
+        backupId: ctx.backupId,
+        resourceId: ctx.resourceId,
+        resource: ctx.resourceName,
+        project: ctx.projectSlug,
+      },
+    });
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : String(cause);
     await log("system", `Backup failed: ${message}`);
     await markBackupFailed(ctx.backupId, message);
+    await emitPlatformEvent({
+      organizationId: ctx.organizationId,
+      eventId: "backup.failed",
+      title: "Backup failed",
+      message: `${ctx.resourceName} (${ctx.projectSlug}): ${message}`,
+      data: {
+        backupId: ctx.backupId,
+        resourceId: ctx.resourceId,
+        resource: ctx.resourceName,
+        project: ctx.projectSlug,
+      },
+    });
   } finally {
     docker.destroy();
   }

@@ -34,13 +34,17 @@ interface ReconcileOptions {
   /** CrowdSec LAPI connection; when set, every HTTP site gets the `crowdsec`
    *  IP-reputation gate + the global bouncer app config. */
   crowdsec?: CrowdsecConfig;
+  /** projectId → operator-authored standalone Caddy config. Appended to each
+   *  project's fragment, validated with it, and (when valid) merged into the
+   *  global file. A project can appear here with no routes. */
+  projectCustomConfig?: Map<string, string>;
   adapt: (caddyfile: string) => Promise<AdaptResult>;
   load: (caddyfile: string) => Promise<LoadResult>;
   rlog?: RequestLogger;
 }
 
 export async function reconcileRoutes(options: ReconcileOptions): Promise<ReconcileResult> {
-  const { routes, adminBind, acmeEmail, authzUpstream, edgeLogSink, crowdsec, adapt, load, rlog } = options;
+  const { routes, adminBind, acmeEmail, authzUpstream, edgeLogSink, crowdsec, projectCustomConfig, adapt, load, rlog } = options;
   const log = asStepLogger(rlog);
 
   log.info({ caddy: { step: "reconcile", status: "starting", routeCount: routes.length } });
@@ -50,11 +54,21 @@ export async function reconcileRoutes(options: ReconcileOptions): Promise<Reconc
   const applied: string[] = [];
   const skipped: { projectId: string; error: string }[] = [];
   const validRoutes: ProxyRouteInput[] = [];
+  const validCustomBlocks: string[] = [];
 
-  for (const [projectId, projectRoutes] of byProject) {
+  // A project may have custom config but no routes, so reconcile the union of
+  // both id sets.
+  const projectIds = new Set<string>([
+    ...byProject.keys(),
+    ...(projectCustomConfig?.keys() ?? []),
+  ]);
+
+  for (const projectId of projectIds) {
+    const projectRoutes = byProject.get(projectId) ?? [];
+    const customConfig = projectCustomConfig?.get(projectId);
     log.info({ caddy: { step: "reconcile", status: "validating", projectId, routeCount: projectRoutes.length } });
 
-    const fragment = buildProjectFragment(projectRoutes, { acmeEmail, authzUpstream, edgeLogSink, crowdsec });
+    const fragment = buildProjectFragment(projectRoutes, { acmeEmail, authzUpstream, edgeLogSink, crowdsec, customConfig });
     if (!fragment.trim()) {
       log.info({ caddy: { step: "reconcile", status: "empty", projectId } });
       applied.push(projectId);
@@ -65,6 +79,9 @@ export async function reconcileRoutes(options: ReconcileOptions): Promise<Reconc
 
     if (result.ok) {
       validRoutes.push(...projectRoutes);
+      if (customConfig && customConfig.trim().length > 0) {
+        validCustomBlocks.push(customConfig);
+      }
       applied.push(projectId);
       log.info({ caddy: { step: "reconcile", status: "validated", projectId } });
     } else {
@@ -73,7 +90,7 @@ export async function reconcileRoutes(options: ReconcileOptions): Promise<Reconc
     }
   }
 
-  const caddyfile = buildCaddyfile(validRoutes, adminBind, { acmeEmail, authzUpstream, edgeLogSink, crowdsec });
+  const caddyfile = buildCaddyfile(validRoutes, adminBind, { acmeEmail, authzUpstream, edgeLogSink, crowdsec, customBlocks: validCustomBlocks });
   const revision = createHash("sha256").update(caddyfile).digest("hex").slice(0, 12);
 
   log.info({ caddy: { step: "reconcile", status: "loading", revision, validRouteCount: validRoutes.length } });

@@ -1,6 +1,12 @@
 {
   "$schema": "node_modules/oxfmt/configuration_schema.json",
-  "ignorePatterns": ["routeTree.gen.ts", "**/$*", "**/$*/**"],
+  "ignorePatterns": [
+    "routeTree.gen.ts",
+    "**/$*",
+    "**/$*/**",
+    ".agents/",
+    ".claude/"
+  ],
   "sortTailwindcss": {
     "stylesheet": "./apps/web/src/index.css",
     "functions": ["clsx", "cn"],

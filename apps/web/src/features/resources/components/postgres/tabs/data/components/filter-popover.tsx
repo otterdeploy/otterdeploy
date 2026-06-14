@@ -68,12 +68,7 @@ export function FilterPopover({
 
         {/* Natural-language hint (decorative for now) */}
         <div className="border-b px-3 py-2.5">
-          <Input
-            value={nl}
-            onChange={(e) => setNl(e.target.value)}
-            placeholder="e.g. status = active and revenue > 100"
-            className="h-8 border-0 bg-transparent px-0 text-[13px] shadow-none focus-visible:ring-0"
-          />
+          <span>{"e.g. status = active and revenue > 100"}</span>
         </div>
 
         {/* Filter rows */}

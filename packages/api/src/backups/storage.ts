@@ -196,7 +196,7 @@ async function s3Request(
   };
   // Only attach a body for write verbs — fetch rejects a body on GET.
   if (body && method !== "GET") {
-    init.body = body as unknown as BodyInit;
+    init.body = body as unknown as RequestInit["body"];
   }
   const res = await fetch(url, init);
   if (!res.ok && !(method === "DELETE" && res.status === 404)) {

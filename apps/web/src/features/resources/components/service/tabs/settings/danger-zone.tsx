@@ -28,9 +28,17 @@ import { SettingsCard } from "@/features/resources/components/_shared/settings-c
 interface DangerZoneProps {
   resource: { projectId: string; name: string };
   onDeleted: () => void;
+  // Pending-create mode: the service was never provisioned, so removing it
+  // from the manifest *discards the staged create* rather than tearing down
+  // anything live. Same mutation, different framing.
+  pending?: boolean;
 }
 
-export function ServiceDangerZone({ resource, onDeleted }: DangerZoneProps) {
+export function ServiceDangerZone({
+  resource,
+  onDeleted,
+  pending = false,
+}: DangerZoneProps) {
   const [confirmText, setConfirmText] = useState("");
   const canConfirm = confirmText.trim() === resource.name;
 
@@ -72,16 +80,22 @@ export function ServiceDangerZone({ resource, onDeleted }: DangerZoneProps) {
   return (
     <SettingsCard
       title="Danger zone"
-      description="Permanent — the swarm service, proxy routes, and stored env vars are all torn down on the next Deploy."
+      description={
+        pending
+          ? "This service hasn't been deployed — discarding drops the staged create and its config."
+          : "Permanent — the swarm service, proxy routes, and stored env vars are all torn down on the next Deploy."
+      }
     >
       <div className="flex items-center justify-between gap-3 px-3 py-2.5">
         <div className="flex flex-col">
           <span className="text-[13px] font-medium text-destructive">
-            Delete this service
+            {pending ? "Discard this staged service" : "Delete this service"}
           </span>
           <span className="text-[11px] text-muted-foreground">
-            <span className="font-mono">{resource.name}</span> and all of its
-            stored variables will be removed when the change deploys.
+            <span className="font-mono">{resource.name}</span>
+            {pending
+              ? " and its staged configuration will be removed."
+              : " and all of its stored variables will be removed when the change deploys."}
           </span>
         </div>
         <AlertDialog
@@ -101,16 +115,19 @@ export function ServiceDangerZone({ resource, onDeleted }: DangerZoneProps) {
                   strokeWidth={2}
                   className="size-3.5"
                 />
-                Delete
+                {pending ? "Discard" : "Delete"}
               </Button>
             }
           />
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete {resource.name}?</AlertDialogTitle>
+              <AlertDialogTitle>
+                {pending ? "Discard" : "Delete"} {resource.name}?
+              </AlertDialogTitle>
               <AlertDialogDescription>
-                This stages the deletion of the service, its proxy routes, and
-                its stored env vars. Type{" "}
+                {pending
+                  ? "This drops the staged service and its configuration. Type "
+                  : "This stages the deletion of the service, its proxy routes, and its stored env vars. Type "}
                 <span className="font-mono text-foreground">
                   {resource.name}
                 </span>{" "}
@@ -144,7 +161,13 @@ export function ServiceDangerZone({ resource, onDeleted }: DangerZoneProps) {
                     disabled={!canConfirm || deleteMutation.isPending}
                     onClick={() => deleteMutation.mutate()}
                   >
-                    {deleteMutation.isPending ? "Staging…" : "Delete"}
+                    {deleteMutation.isPending
+                      ? pending
+                        ? "Discarding…"
+                        : "Staging…"
+                      : pending
+                        ? "Discard"
+                        : "Delete"}
                   </Button>
                 }
               />

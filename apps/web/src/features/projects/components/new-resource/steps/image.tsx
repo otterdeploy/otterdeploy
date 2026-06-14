@@ -11,11 +11,11 @@
  */
 
 import { useStore } from "@tanstack/react-form";
-import { useQuery } from "@tanstack/react-query";
+import { useLiveQuery } from "@tanstack/react-db";
 
+import { registryCollection } from "@/features/registries/data/registries";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { cn } from "@/shared/lib/utils";
-import { orpc } from "@/shared/server/orpc";
 
 import {
   SectionHeader,
@@ -38,10 +38,9 @@ export function StepImage() {
   const image = useStore(form.store, (s) => s.values.image as string);
   const tag = useStore(form.store, (s) => s.values.tag as string);
 
-  const registriesQuery = useQuery(
-    orpc.registry.list.queryOptions({ input: undefined }),
+  const { data: registries } = useLiveQuery((q) =>
+    q.from({ r: registryCollection }),
   );
-  const registries = registriesQuery.data ?? [];
 
   const options: Array<{
     id: string;

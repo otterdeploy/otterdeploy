@@ -28,6 +28,9 @@ export const projectSchema = createSelectSchema(project)
     manifestVersion: true,
     lastAppliedManifest: true,
     lastManifestAppliedAt: true,
+    // Read/written through the dedicated proxyRoute.customConfig endpoints —
+    // kept off the list/get rows so a config blob doesn't ride every nav.
+    customCaddyConfig: true,
   })
   .extend({
     id: projectIdField,

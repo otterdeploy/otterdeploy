@@ -5,6 +5,7 @@ import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 
 import { CreateProjectDialog } from "@/features/projects/components/create-project-dialog";
 import { ProjectList } from "@/features/projects/components/project-list";
+import { Page, PageHeader } from "@/shared/components/page";
 import { Button } from "@/shared/components/ui/button";
 import {
   Empty,
@@ -66,24 +67,22 @@ function RouteComponent() {
   }
 
   return (
-    <div className="grid gap-6 p-6">
-      <div className="flex items-end justify-between gap-4">
-        <div className="grid gap-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Projects</h1>
-          <p className="text-sm text-muted-foreground">
-            Open a project to manage its services, databases, and routes.
-          </p>
-        </div>
-        <CreateProjectDialog
-          trigger={
-            <Button size="sm">
-              <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
-              New project
-            </Button>
-          }
-        />
-      </div>
+    <Page>
+      <PageHeader
+        title="Projects"
+        description="Open a project to manage its services, databases, and routes."
+        actions={
+          <CreateProjectDialog
+            trigger={
+              <Button size="sm">
+                <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
+                New project
+              </Button>
+            }
+          />
+        }
+      />
       <ProjectList orgSlug={orgSlug} projects={projects} />
-    </div>
+    </Page>
   );
 }

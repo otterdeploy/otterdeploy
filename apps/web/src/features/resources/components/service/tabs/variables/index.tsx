@@ -7,8 +7,11 @@ import { useState } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { PlusSignIcon, Search01Icon } from "@hugeicons/core-free-icons";
 
+import type { ProjectId } from "@otterdeploy/shared/id";
+
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
+import { useStageManifestChange } from "@/features/projects/hooks/use-manifest-stage";
 
 import { VariableRefHint } from "@/features/resources/components/_shared/hint-banner";
 import {
@@ -18,9 +21,37 @@ import {
 
 export function ServiceVariablesTabBody({
   resource,
+  pending = false,
+  serviceName,
 }: {
   resource: VariablesEditorResource;
+  // Pending-create mode: no resourceId yet, so saves stage onto the manifest
+  // entry (`services[serviceName].env`) instead of hitting the live resource.
+  pending?: boolean;
+  serviceName?: string;
 }) {
+  const stage = useStageManifestChange(resource.projectId as ProjectId, {
+    successToast: "Variables staged — Deploy to apply",
+  });
+  const onSave =
+    pending && serviceName
+      ? async (env: Array<{ key: string; value: string }>) => {
+          await stage.mutateAsync((m) => {
+            const svc = m.services[serviceName];
+            if (!svc) return m;
+            return {
+              ...m,
+              services: {
+                ...m.services,
+                [serviceName]: {
+                  ...svc,
+                  env: Object.fromEntries(env.map((e) => [e.key, e.value])),
+                },
+              },
+            };
+          });
+        }
+      : undefined;
   const [hintDismissed, setHintDismissed] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -73,7 +104,11 @@ export function ServiceVariablesTabBody({
         <VariableRefHint onDismiss={() => setHintDismissed(true)} />
       )}
 
-      <VariablesEditor resource={resource} addRowSignal={addingSignal} />
+      <VariablesEditor
+        resource={resource}
+        addRowSignal={addingSignal}
+        onSave={onSave}
+      />
     </div>
   );
 }

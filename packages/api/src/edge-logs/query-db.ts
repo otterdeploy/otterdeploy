@@ -8,7 +8,7 @@
  * if volume demands it.
  */
 
-import { and, desc, eq, gte, inArray, lt, or, ilike } from "drizzle-orm";
+import { and, desc, gte, inArray, lt, or, ilike } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
@@ -39,7 +39,8 @@ export async function queryEdgeLogsDb(
     inArray(edgeLog.host, filter.hosts),
     gte(edgeLog.ts, since),
   ];
-  if (filter.host) conds.push(eq(edgeLog.host, filter.host));
+  if (filter.selectedHosts?.length)
+    conds.push(inArray(edgeLog.host, filter.selectedHosts));
   if (filter.methods?.length) conds.push(inArray(edgeLog.method, filter.methods));
   if (filter.statuses?.length) {
     const ranges = filter.statuses.map((s) => {

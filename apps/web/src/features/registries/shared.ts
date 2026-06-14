@@ -1,14 +1,9 @@
 /** Shared client-side types and helpers for the registries settings page. */
 
-export interface RegistryView {
-  id: string;
-  displayName: string;
-  host: string;
-  username: string;
-  authType: "password" | "token";
-  createdAt: Date;
-  updatedAt: Date;
-}
+import type { registryCollection } from "./data/registries";
+
+/** Inferred row type from the collection's `registry.list` projection. */
+export type RegistryRow = (typeof registryCollection.toArray)[number];
 
 /** Convenience presets surfaced in the "add registry" dialog. */
 export const HOST_PRESETS: ReadonlyArray<{ value: string; label: string }> = [

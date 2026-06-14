@@ -13,6 +13,9 @@ export interface SendEmailOptions {
   react?: React.ReactElement;
   from?: string;
   replyTo?: string;
+  /** Per-call Resend API key. Falls back to the env key when omitted — lets a
+   * notification channel bring its own key without touching server config. */
+  apiKey?: string;
 }
 
 /**
@@ -20,11 +23,12 @@ export interface SendEmailOptions {
  * @see https://resend.com/docs/send-with-nodejs
  */
 export async function sendEmail(options: SendEmailOptions) {
-  const { to, subject, html, text, react, from, replyTo } = options;
+  const { to, subject, html, text, react, from, replyTo, apiKey } = options;
 
   const fromAddress = from || env.RESEND_FROM_EMAIL;
+  const client = apiKey ? new Resend(apiKey) : resend;
 
-  const { data, error } = await resend.emails.send({
+  const { data, error } = await client.emails.send({
     from: fromAddress,
     to: Array.isArray(to) ? to : [to],
     subject,

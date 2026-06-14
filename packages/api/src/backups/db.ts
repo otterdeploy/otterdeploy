@@ -11,12 +11,14 @@ import type {
   OrganizationId,
   ResourceId,
 } from "@otterdeploy/shared/id";
-import { and, eq, sql } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
 import {
   backup,
+  backupDestination,
   backupLog,
+  backupSchedule,
   databaseResource,
   project,
   resource,
@@ -35,6 +37,8 @@ export interface ExecutionContext {
   username: string;
   password: string;
   encryption: "none" | "aes-256-gcm" | "kms-managed" | "customer-key";
+  /** Pre-backup command (scheduled runs only) — exec'd in the DB container. */
+  preHook: string | null;
   destination: {
     id: BackupDestinationId;
     type: "s3" | "local" | "sftp";
@@ -63,6 +67,8 @@ export async function getExecutionContext(
       destType: backupDestination.type,
       destConfig: backupDestination.config,
       destSecret: backupDestination.encryptedSecret,
+      // Pre-hook lives on the schedule; null for manual (scheduleId null) runs.
+      preHook: backupSchedule.preHook,
     })
     .from(backup)
     .innerJoin(resource, eq(resource.id, backup.resourceId))
@@ -72,6 +78,7 @@ export async function getExecutionContext(
       eq(databaseResource.resourceId, backup.resourceId),
     )
     .innerJoin(backupDestination, eq(backupDestination.id, backup.destinationId))
+    .leftJoin(backupSchedule, eq(backupSchedule.id, backup.scheduleId))
     .where(eq(backup.id, backupId))
     .limit(1);
 
@@ -87,6 +94,7 @@ export async function getExecutionContext(
     username: row.username,
     password: row.password,
     encryption: row.encryption,
+    preHook: row.preHook ?? null,
     destination: {
       id: row.destId,
       type: row.destType,

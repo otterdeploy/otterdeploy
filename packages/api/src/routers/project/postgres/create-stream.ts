@@ -379,6 +379,7 @@ export async function* createPostgresResourceStream(
     runtime = await provisionSwarmDatabase(
       {
         engine,
+        resourceId: created.resource.id,
         image: dbImage,
         serviceName: containerName,
         volumeName,

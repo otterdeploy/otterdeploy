@@ -1,0 +1,14 @@
+# build output
+dist
+.output
+.nitro
+.tanstack
+
+# fumadocs generated source
+.source
+
+# generated route tree
+src/routeTree.gen.ts
+
+node_modules
+*.log

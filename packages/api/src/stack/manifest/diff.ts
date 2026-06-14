@@ -435,6 +435,7 @@ function summarizeService(s: ServiceManifest): Record<string, unknown> {
   if (s.source === "git" && s.sourceSubdir) summary.sourceSubdir = s.sourceSubdir;
   if (s.ports?.length) summary.ports = s.ports;
   if (s.env && Object.keys(s.env).length > 0) summary.envKeys = Object.keys(s.env);
+  if (s.domains?.length) summary.domains = s.domains.map((d) => d.domain);
   return summary;
 }
 

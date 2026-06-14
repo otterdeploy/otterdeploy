@@ -7,7 +7,6 @@
  */
 
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Database02Icon,
@@ -27,29 +26,36 @@ import {
   AlertDialogTitle,
 } from "@/shared/components/ui/alert-dialog";
 import { Button } from "@/shared/components/ui/button";
-import { orpc, queryClient } from "@/shared/server/orpc";
 
-import { formatRelative, type RegistryView } from "./shared";
+import { registryCollection } from "./data/registries";
+import { formatRelative, type RegistryRow } from "./shared";
 
 interface RegistryCardProps {
-  registry: RegistryView;
-  onEdit: (r: RegistryView) => void;
+  registry: RegistryRow;
+  onEdit: (r: RegistryRow) => void;
 }
 
 export function RegistryCard({ registry, onEdit }: RegistryCardProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-  const deleteMut = useMutation({
-    ...orpc.registry.delete.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Registry removed");
-      void queryClient.invalidateQueries({
-        queryKey: orpc.registry.list.queryKey({ input: undefined }),
-      });
-      setConfirmOpen(false);
-    },
-    onError: (err) => toast.error(err.message ?? "Failed to remove registry"),
-  });
+  // Optimistic delete: the collection drops the row locally and fires
+  // `registry.delete` via `onDelete`; TanStack DB rolls back on reject.
+  const remove = () => {
+    setBusy(true);
+    const tx = registryCollection.delete(registry.id);
+    tx.isPersisted.promise
+      .then(() => {
+        toast.success("Registry removed");
+        setConfirmOpen(false);
+      })
+      .catch((err: unknown) =>
+        toast.error(
+          err instanceof Error ? err.message : "Failed to remove registry",
+        ),
+      )
+      .finally(() => setBusy(false));
+  };
 
   return (
     <div className="rounded-md border bg-card p-4">
@@ -113,17 +119,15 @@ export function RegistryCard({ registry, onEdit }: RegistryCardProps) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteMut.isPending}>
-              Cancel
-            </AlertDialogCancel>
+            <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault();
-                deleteMut.mutate({ id: registry.id as never });
+                remove();
               }}
-              disabled={deleteMut.isPending}
+              disabled={busy}
             >
-              {deleteMut.isPending ? "Removing…" : "Remove"}
+              {busy ? "Removing…" : "Remove"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

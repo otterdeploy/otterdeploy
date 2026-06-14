@@ -7,10 +7,17 @@
  */
 
 import { Activity, useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { ArrowLeft01Icon, Cancel01Icon } from "@hugeicons/core-free-icons";
+import {
+  ArrowLeft01Icon,
+  Cancel01Icon,
+  RefreshIcon,
+} from "@hugeicons/core-free-icons";
 
 import type { ResourceEngine } from "@/features/projects/components/graph/resource-node";
+import { orpc } from "@/shared/server/orpc";
 import {
   Tabs,
   TabsContent,
@@ -21,10 +28,13 @@ import {
 import { Button } from "@/shared/components/ui/button";
 
 import { PanelIcon } from "@/features/resources/components/_shared/atoms";
+import { MetricsTab } from "@/features/resources/components/_shared/metrics/metrics-tab";
 import { ResourceTasksTab } from "@/features/resources/components/_shared/resource-tasks-tab";
 import { ResourceTerminal } from "@/features/resources/components/_shared/resource-terminal";
 import type { PostgresBodyProps } from "./types";
 
+import { UnsupportedDataViewer } from "@/features/resources/components/_shared/data/unsupported-data-viewer";
+import { RedisDataTabBody } from "@/features/resources/components/redis/tabs/data";
 import { DataTabBody } from "./tabs/data";
 import { PostgresSettingsBody } from "./tabs/settings";
 import { PostgresVariablesTabBody } from "./tabs/variables";
@@ -52,6 +62,22 @@ export function RealResourcePanel({
   onClose,
 }: RealResourcePanelProps) {
   const [tab, setTab] = useState<ResourceTab>("deployments");
+
+  // Re-roll the running container with its current spec — same image, env,
+  // and public flag. Distinct from the wizard's create; this just bounces the
+  // swarm task (and re-applies container labels, so a DB created before a
+  // label change starts reporting metrics).
+  const restartMut = useMutation({
+    ...orpc.project.resource.database.postgres.restart.mutationOptions(),
+    onSuccess: () => {
+      toast.success("Restarting database", {
+        description: "Track progress in the Deployments tab.",
+      });
+      setTab("deployments");
+    },
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : "Failed to restart"),
+  });
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -90,19 +116,40 @@ export function RealResourcePanel({
             </span>
           </div>
         </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Close panel"
-          onClick={onClose}
-        >
-          <HugeiconsIcon
-            icon={Cancel01Icon}
-            strokeWidth={2}
-            className="size-4"
-          />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              restartMut.mutate({
+                projectId: resource.projectId as never,
+                resourceId: resource.resourceId as never,
+              })
+            }
+            disabled={restartMut.isPending}
+          >
+            <HugeiconsIcon
+              icon={RefreshIcon}
+              strokeWidth={2}
+              className="size-3.5"
+            />
+            {restartMut.isPending ? "Restarting…" : "Restart"}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Close panel"
+            onClick={onClose}
+          >
+            <HugeiconsIcon
+              icon={Cancel01Icon}
+              strokeWidth={2}
+              className="size-4"
+            />
+          </Button>
+        </div>
       </div>
 
       <div className="mt-5 flex items-center gap-3 border-t border-border/40 px-6 py-3">
@@ -142,52 +189,61 @@ export function RealResourcePanel({
           </TabsList>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <TabsContents>
-            <TabsContent value="deployments" className="px-6 pt-5 pb-6">
-              <ResourceTasksTab
-                projectId={resource.projectId}
-                resourceId={resource.resourceId}
-                orgSlug={orgSlug}
-                projectSlug={projectSlug}
-              />
-            </TabsContent>
-
-            <TabsContent value="data" className="min-h-0 px-6 pt-5 pb-6">
-              <DataTabBody resource={resource} />
-            </TabsContent>
-
-            <TabsContent value="metrics" className="px-6 pt-5 pb-6">
-              <p className="text-[13px] text-muted-foreground">
-                CPU, memory, and connection counts will surface here once the
-                per-container stats stream is wired.
-              </p>
-            </TabsContent>
-
-            <TabsContent value="variables" className="px-6 pt-5 pb-6">
-              <PostgresVariablesTabBody resource={resource} />
-            </TabsContent>
-
-            {/* keepMounted + Activity keeps the terminal session, PTY,
-                and xterm scrollback alive across tab switches. */}
-            <TabsContent value="terminal" keepMounted className="px-6 pt-5 pb-6">
-              <Activity mode={tab === "terminal" ? "visible" : "hidden"}>
-                <ResourceTerminal
-                  match={{
-                    kind: "database",
-                    engine: resource.engine as "postgres" | "redis" | "mariadb" | "mongodb",
-                    serviceName: resource.runtime.serviceName,
-                  }}
-                  fallbackLabel={resource.runtime.serviceName}
+        <div className="relative min-h-0 flex-1">
+          <div className="h-full overflow-y-auto">
+            <TabsContents>
+              <TabsContent value="deployments" className="px-6 pt-5 pb-6">
+                <ResourceTasksTab
+                  projectId={resource.projectId}
+                  resourceId={resource.resourceId}
+                  orgSlug={orgSlug}
                   projectSlug={projectSlug}
                 />
-              </Activity>
-            </TabsContent>
+              </TabsContent>
 
-            <TabsContent value="settings" className="px-6 pt-5 pb-8">
-              <PostgresSettingsBody resource={resource} onDeleted={onClose} />
-            </TabsContent>
-          </TabsContents>
+              {/* Each engine gets its native browser; unsupported engines say so
+                  plainly rather than falling back to the SQL console. */}
+              <TabsContent value="data" className="min-h-0 px-6 pt-5 pb-6">
+                {resource.engine === "postgres" ? (
+                  <DataTabBody resource={resource} />
+                ) : resource.engine === "redis" ? (
+                  <RedisDataTabBody resource={resource} />
+                ) : (
+                  <UnsupportedDataViewer engine={resource.engine} />
+                )}
+              </TabsContent>
+
+              <TabsContent value="metrics" className="px-6 pt-5 pb-6">
+                <MetricsTab resourceId={resource.resourceId} />
+              </TabsContent>
+
+              <TabsContent value="variables" className="px-6 pt-5 pb-6">
+                <PostgresVariablesTabBody resource={resource} />
+              </TabsContent>
+
+              <TabsContent value="settings" className="px-6 pt-5 pb-8">
+                <PostgresSettingsBody resource={resource} onDeleted={onClose} />
+              </TabsContent>
+            </TabsContents>
+          </div>
+
+          {/* Terminal lives OUTSIDE the height-animated <TabsContents> (which
+              sizes to its content) so it can absolutely fill this region
+              instead of collapsing. keepMounted via Activity keeps the PTY +
+              scrollback alive across tab switches. */}
+          <Activity mode={tab === "terminal" ? "visible" : "hidden"}>
+            <div className="absolute inset-0 flex flex-col p-px">
+              <ResourceTerminal
+                match={{
+                  kind: "database",
+                  engine: resource.engine as "postgres" | "redis" | "mariadb" | "mongodb",
+                  serviceName: resource.runtime.serviceName,
+                }}
+                fallbackLabel={resource.runtime.serviceName}
+                projectSlug={projectSlug}
+              />
+            </div>
+          </Activity>
         </div>
       </Tabs>
     </div>

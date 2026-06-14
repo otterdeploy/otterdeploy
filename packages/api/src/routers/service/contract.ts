@@ -90,6 +90,23 @@ export const envVarSchema = z.object({
   value: z.string(),
 });
 
+// One published host for a service. `id` is the underlying proxy_route id —
+// the same id the deployment-protection / guest surfaces address.
+export const serviceDomainSchema = z.object({
+  id: z.string(),
+  domain: z.string(),
+  source: z.enum(["generated", "custom"]),
+  isPrimary: z.boolean(),
+  status: z.enum(["live", "disabled"]),
+  // Reachability of the host (add-and-go): does DNS point here yet, and how.
+  dnsState: z.enum(["pointed", "proxied", "unpointed", "unknown"]),
+  dnsCheckedAt: z.string().nullable(),
+  usesAcme: z.boolean(),
+  protected: z.boolean(),
+  // The IP to point an A record at (our server). Null when unknown (dev).
+  dnsTarget: z.string().nullable(),
+});
+
 // ---------------------------------------------------------------------------
 // Input schemas
 // ---------------------------------------------------------------------------
@@ -222,6 +239,38 @@ export const bulkEnvInput = z.object({
   vars: z.array(z.object({ key: z.string().regex(envKeyRegex), value: z.string() })),
 });
 
+// --- Custom domains ---
+
+const domainField = z
+  .string()
+  .min(1)
+  .max(253)
+  .transform((s) => s.trim().toLowerCase());
+
+export const listDomainsInput = z.object({
+  projectId: projectIdField,
+  resourceId: resourceIdField,
+});
+
+export const addDomainInput = z.object({
+  projectId: projectIdField,
+  resourceId: resourceIdField,
+  domain: domainField,
+});
+
+export const updateDomainInput = z.object({
+  projectId: projectIdField,
+  resourceId: resourceIdField,
+  routeId: z.string(),
+  domain: domainField,
+});
+
+export const domainRouteInput = z.object({
+  projectId: projectIdField,
+  resourceId: resourceIdField,
+  routeId: z.string(),
+});
+
 // ---------------------------------------------------------------------------
 // Contract
 // ---------------------------------------------------------------------------
@@ -234,6 +283,8 @@ const sharedErrors = {
   REF_MISSING: { status: 400, message: "Referenced resource does not exist" as const },
   REF_CYCLE: { status: 400, message: "Variable reference cycle" as const },
   NO_HTTP_PORT: { status: 400, message: "Service has no HTTP port to expose" as const },
+  DOMAIN_CONFLICT: { status: 409, message: "Domain is already in use or invalid" as const },
+  DOMAIN_NOT_FOUND: { status: 404, message: "Domain not found" as const },
   MISSING_BUILD_BINDING: {
     status: 412,
     message:
@@ -371,5 +422,64 @@ export const serviceContract = {
       .meta({ path: `${basePath}/{resourceId}/env`, tag, method: "POST" })
       .input(bulkEnvInput)
       .output(z.array(envVarSchema)),
+  },
+
+  // Custom-domain management. A service publishes on one generated host
+  // plus any number of operator-added custom hosts (DNS-verified before
+  // they go live). Each host is one proxy_route, so deployment protection
+  // and guests apply per domain.
+  domains: {
+    list: oc
+      .errors({ NOT_FOUND: sharedErrors.NOT_FOUND })
+      .meta({ path: `${basePath}/{resourceId}/domains`, tag, method: "GET" })
+      .input(listDomainsInput)
+      .output(z.array(serviceDomainSchema)),
+
+    add: oc
+      .errors({
+        NOT_FOUND: sharedErrors.NOT_FOUND,
+        NO_HTTP_PORT: sharedErrors.NO_HTTP_PORT,
+        DOMAIN_CONFLICT: sharedErrors.DOMAIN_CONFLICT,
+      })
+      .meta({ path: `${basePath}/{resourceId}/domains`, tag, method: "POST" })
+      .input(addDomainInput)
+      .output(serviceDomainSchema),
+
+    update: oc
+      .errors({
+        NOT_FOUND: sharedErrors.NOT_FOUND,
+        DOMAIN_NOT_FOUND: sharedErrors.DOMAIN_NOT_FOUND,
+        DOMAIN_CONFLICT: sharedErrors.DOMAIN_CONFLICT,
+      })
+      .meta({ path: `${basePath}/{resourceId}/domains/{routeId}`, tag, method: "PATCH" })
+      .input(updateDomainInput)
+      .output(serviceDomainSchema),
+
+    recheck: oc
+      .errors({
+        NOT_FOUND: sharedErrors.NOT_FOUND,
+        DOMAIN_NOT_FOUND: sharedErrors.DOMAIN_NOT_FOUND,
+      })
+      .meta({ path: `${basePath}/{resourceId}/domains/{routeId}/recheck`, tag, method: "POST" })
+      .input(domainRouteInput)
+      .output(serviceDomainSchema),
+
+    setPrimary: oc
+      .errors({
+        NOT_FOUND: sharedErrors.NOT_FOUND,
+        DOMAIN_NOT_FOUND: sharedErrors.DOMAIN_NOT_FOUND,
+      })
+      .meta({ path: `${basePath}/{resourceId}/domains/{routeId}/primary`, tag, method: "POST" })
+      .input(domainRouteInput)
+      .output(serviceDomainSchema),
+
+    remove: oc
+      .errors({
+        NOT_FOUND: sharedErrors.NOT_FOUND,
+        DOMAIN_NOT_FOUND: sharedErrors.DOMAIN_NOT_FOUND,
+      })
+      .meta({ path: `${basePath}/{resourceId}/domains/{routeId}`, tag, method: "DELETE" })
+      .input(domainRouteInput)
+      .output(z.object({ ok: z.boolean() })),
   },
 };

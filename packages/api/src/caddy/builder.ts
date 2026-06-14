@@ -16,6 +16,28 @@ export interface ProxyRouteInput {
    *  the feature keep compiling; absent ⇒ unprotected. See
    *  docs/designs/deployment-protection.md. */
   protected?: boolean;
+  /** Operator-authored directives spliced inside this route's site block
+   *  (http only) — e.g. `header`, `encode`, `rate_limit`. Indentation is
+   *  normalized on emit; null/absent ⇒ none. */
+  customDirectives?: string | null;
+}
+
+/** Re-indent an operator-authored directive block to sit one level inside a
+ *  site block. Caddy is whitespace-insensitive, so this is purely cosmetic
+ *  (keeps the rendered + viewer output tidy): dedent by the block's common
+ *  leading indentation (preserving relative nesting), then prefix every
+ *  non-blank line with `depth` tabs. */
+function indentDirectives(raw: string, depth = 1): string {
+  const tab = "\t".repeat(depth);
+  const lines = raw.replace(/\r\n/g, "\n").split("\n").map((l) => l.replace(/\s+$/, ""));
+  const indents = lines
+    .filter((l) => l.trim().length > 0)
+    .map((l) => l.match(/^[\t ]*/)?.[0].length ?? 0);
+  const common = indents.length ? Math.min(...indents) : 0;
+  return lines
+    .map((l) => (l.trim().length === 0 ? "" : tab + l.slice(common)))
+    .join("\n")
+    .replace(/\n+$/, "");
 }
 
 /** Reserved, ungated path prefix on every protected deployment domain.
@@ -139,6 +161,15 @@ export function buildHttpBlock(route: ProxyRouteInput, options: HttpBlockOptions
     lines.push(`\treverse_proxy ${route.upstreamHost}:${route.upstreamPort}`);
   }
 
+  // Operator-authored directives, spliced at the site-block level. Caddy
+  // orders handler directives by its built-in directive order regardless of
+  // source position, so placement here is safe for the common cases (header,
+  // encode, rate_limit, basic_auth). A parse error is caught by the per-
+  // project /adapt pass in the reconciler.
+  if (route.customDirectives && route.customDirectives.trim().length > 0) {
+    lines.push(indentDirectives(route.customDirectives));
+  }
+
   lines.push("}");
   return lines.join("\n");
 }
@@ -171,6 +202,10 @@ export function buildCaddyfile(
     authzUpstream?: string;
     edgeLogSink?: string;
     crowdsec?: CrowdsecConfig;
+    /** Operator-authored, already-validated standalone Caddyfile blocks
+     *  (one entry per project that has custom config), appended verbatim
+     *  after the generated site blocks. */
+    customBlocks?: string[];
   } = {},
 ): string {
   const httpRoutes = routes.filter((r) => r.type === "http");
@@ -237,6 +272,13 @@ export function buildCaddyfile(
     lines.push("}");
   }
 
+  for (const block of options.customBlocks ?? []) {
+    const trimmed = block.trim();
+    if (trimmed.length === 0) continue;
+    lines.push("");
+    lines.push(trimmed);
+  }
+
   return lines.join("\n") + "\n";
 }
 
@@ -247,12 +289,16 @@ export function buildProjectFragment(
     authzUpstream?: string;
     edgeLogSink?: string;
     crowdsec?: CrowdsecConfig;
+    /** Operator-authored standalone Caddyfile blocks for this project,
+     *  appended after the generated blocks and validated together with them. */
+    customConfig?: string | null;
   } = {},
 ): string {
   const httpRoutes = routes.filter((r) => r.type === "http");
   const layer4Routes = routes.filter((r) => r.type === "layer4");
+  const customConfig = options.customConfig?.trim() ?? "";
 
-  if (httpRoutes.length === 0 && layer4Routes.length === 0) {
+  if (httpRoutes.length === 0 && layer4Routes.length === 0 && customConfig.length === 0) {
     return "";
   }
 
@@ -305,6 +351,11 @@ export function buildProjectFragment(
     lines.push(`${acmeDomains.join(", ")} {`);
     lines.push('\trespond "ok" 200');
     lines.push("}");
+  }
+
+  if (customConfig.length > 0) {
+    lines.push("");
+    lines.push(customConfig);
   }
 
   return lines.join("\n") + "\n";

@@ -85,10 +85,16 @@ export function CreateOrganizationForm() {
         <form.Field name="name">
           {(field) => (
             <Field>
-              <FieldLabel htmlFor={field.name}>Name</FieldLabel>
+              <FieldLabel
+                htmlFor={field.name}
+                className="font-mono text-[11px] uppercase tracking-[0.04em] text-muted-foreground"
+              >
+                Name
+              </FieldLabel>
               <Input
                 id={field.name}
                 name={field.name}
+                className="h-11 rounded-lg bg-muted px-3.5"
                 value={field.state.value}
                 onBlur={field.handleBlur}
                 onChange={(e) => {
@@ -107,10 +113,16 @@ export function CreateOrganizationForm() {
         <form.Field name="slug">
           {(field) => (
             <Field>
-              <FieldLabel htmlFor={field.name}>URL slug</FieldLabel>
+              <FieldLabel
+                htmlFor={field.name}
+                className="font-mono text-[11px] uppercase tracking-[0.04em] text-muted-foreground"
+              >
+                URL slug
+              </FieldLabel>
               <Input
                 id={field.name}
                 name={field.name}
+                className="h-11 rounded-lg bg-muted px-3.5"
                 value={field.state.value}
                 onBlur={field.handleBlur}
                 onChange={(e) => field.handleChange(e.target.value)}
@@ -124,7 +136,11 @@ export function CreateOrganizationForm() {
 
         <form.Subscribe selector={(s) => s.isSubmitting}>
           {(isSubmitting) => (
-            <Button type="submit" disabled={isSubmitting} className="w-full">
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="h-11 w-full rounded-lg bg-foreground font-semibold text-background hover:bg-foreground/90"
+            >
               {isSubmitting ? "Creating…" : "Create organization"}
             </Button>
           )}

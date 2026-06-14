@@ -54,15 +54,19 @@ function DropdownMenuGroup({ ...props }: MenuPrimitive.Group.Props) {
   return <MenuPrimitive.Group data-slot="dropdown-menu-group" {...props} />
 }
 
+// Base UI's Menu only ships `Menu.GroupLabel`, which throws unless it has a
+// `Menu.Group` ancestor. shadcn's `DropdownMenuLabel` is a standalone styled
+// label (often a menu header, not a group caption), so render a plain element
+// — wrap it in `DropdownMenuGroup` yourself when you do want a group caption.
 function DropdownMenuLabel({
   className,
   inset,
   ...props
-}: MenuPrimitive.GroupLabel.Props & {
+}: React.ComponentProps<"div"> & {
   inset?: boolean
 }) {
   return (
-    <MenuPrimitive.GroupLabel
+    <div
       data-slot="dropdown-menu-label"
       data-inset={inset}
       className={cn(

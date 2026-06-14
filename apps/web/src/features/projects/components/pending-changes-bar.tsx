@@ -22,6 +22,7 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";
+import { markAppliedCreates } from "@/features/projects/components/graph/applied-creates-store";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 interface PendingChangesBarProps {
@@ -70,6 +71,18 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
   const apply = async () => {
     try {
       const result = await orpc.project.manifest.apply.call({ projectId, environment });
+
+      // Tell the graph which creates just landed so it keeps their ghost nodes
+      // mounted across the refetch gap (manifest.diff drops the create before
+      // the resource collection gains the row) — otherwise the node blinks out
+      // and back. Skipped creates never become resources, so exclude them.
+      const skipped = new Set(result.skipped.map((s) => `${s.resource}:${s.name}`));
+      const appliedCreateKeys = (diff.data?.changes ?? [])
+        .filter((c) => c.kind === "create" && c.resource !== "env")
+        .map((c) => `${c.resource}:${c.name}`)
+        .filter((key) => !skipped.has(key));
+      markAppliedCreates(projectId, appliedCreateKeys);
+
       await refreshAll();
 
       // The reconciler reports per-resource failures in `skipped[]` rather

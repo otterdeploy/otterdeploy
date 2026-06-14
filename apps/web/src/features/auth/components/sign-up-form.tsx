@@ -9,14 +9,6 @@ import * as z from "zod";
 
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/shared/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 
@@ -70,132 +62,144 @@ export function SignUpForm({
   });
 
   return (
-    <Card className="border-none bg-transparent shadow-none ring-0">
-      <CardHeader className="pb-0 text-center">
-        <CardTitle className="text-xl font-semibold tracking-tight">
+    <div>
+      <div className="mb-8">
+        <h2 className="text-xl font-semibold tracking-[-0.03em] text-foreground">
           {t("auth.signUp.title")}
-        </CardTitle>
-        <CardDescription>{t("auth.signUp.subtitle")}</CardDescription>
-      </CardHeader>
-
-      <CardContent>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            void form.handleSubmit();
-          }}
-          className="space-y-4"
-        >
-          <form.Field name="name">
-            {(field) => (
-              <div className="space-y-2">
-                <Label htmlFor={field.name}>{t("auth.signUp.nameLabel")}</Label>
-                <Input
-                  id={field.name}
-                  name={field.name}
-                  autoComplete="name"
-                  placeholder={t("auth.signUp.namePlaceholder")}
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                />
-                {field.state.meta.errors.map((error) => (
-                  <p key={error?.message} className="text-sm text-destructive">
-                    {error?.message}
-                  </p>
-                ))}
-              </div>
-            )}
-          </form.Field>
-
-          <form.Field name="email">
-            {(field) => (
-              <div className="space-y-2">
-                <Label htmlFor={field.name}>
-                  {t("auth.signUp.emailLabel")}
-                </Label>
-                <Input
-                  id={field.name}
-                  name={field.name}
-                  type="email"
-                  autoComplete="email"
-                  placeholder={t("auth.signUp.emailPlaceholder")}
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                />
-                {field.state.meta.errors.map((error) => (
-                  <p key={error?.message} className="text-sm text-destructive">
-                    {error?.message}
-                  </p>
-                ))}
-              </div>
-            )}
-          </form.Field>
-
-          <form.Field name="password">
-            {(field) => (
-              <div className="space-y-2">
-                <Label htmlFor={field.name}>
-                  {t("auth.signUp.passwordLabel")}
-                </Label>
-                <Input
-                  id={field.name}
-                  name={field.name}
-                  type="password"
-                  autoComplete="new-password"
-                  placeholder={t("auth.signUp.passwordPlaceholder")}
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                />
-                {field.state.meta.errors.map((error) => (
-                  <p key={error?.message} className="text-sm text-destructive">
-                    {error?.message}
-                  </p>
-                ))}
-              </div>
-            )}
-          </form.Field>
-
-          <form.Subscribe selector={(state) => state}>
-            {(state) => (
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={!state.canSubmit || state.isSubmitting}
-              >
-                {state.isSubmitting ? (
-                  <span className="flex items-center gap-2">
-                    <HugeiconsIcon
-                      icon={Loading03Icon}
-                      strokeWidth={2}
-                      className="size-4 animate-spin"
-                    />
-                    {t("auth.signUp.creatingAccount")}
-                  </span>
-                ) : (
-                  t("auth.signUp.submit")
-                )}
-              </Button>
-            )}
-          </form.Subscribe>
-        </form>
-      </CardContent>
-
-      <CardFooter className="justify-center">
-        <p className="text-sm text-muted-foreground">
-          {t("auth.signUp.hasAccount")}{" "}
-          <Button
-            variant="link"
-            className="h-auto p-0 text-sm"
-            onClick={onSwitchToSignIn}
-          >
-            {t("auth.signUp.signIn")}
-          </Button>
+        </h2>
+        <p className="mt-1.5 text-[13px] text-muted-foreground">
+          {t("auth.signUp.subtitle")}
         </p>
-      </CardFooter>
-    </Card>
+      </div>
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          void form.handleSubmit();
+        }}
+        className="space-y-5"
+      >
+        <form.Field name="name">
+          {(field) => (
+            <div className="space-y-2">
+              <Label
+                htmlFor={field.name}
+                className="font-mono text-[11px] uppercase tracking-[0.04em] text-muted-foreground"
+              >
+                {t("auth.signUp.nameLabel")}
+              </Label>
+              <Input
+                id={field.name}
+                name={field.name}
+                autoComplete="name"
+                placeholder={t("auth.signUp.namePlaceholder")}
+                className="h-11 rounded-lg bg-muted px-3.5"
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(e) => field.handleChange(e.target.value)}
+              />
+              {field.state.meta.errors.map((error) => (
+                <p key={error?.message} className="text-sm text-destructive">
+                  {error?.message}
+                </p>
+              ))}
+            </div>
+          )}
+        </form.Field>
+
+        <form.Field name="email">
+          {(field) => (
+            <div className="space-y-2">
+              <Label
+                htmlFor={field.name}
+                className="font-mono text-[11px] uppercase tracking-[0.04em] text-muted-foreground"
+              >
+                {t("auth.signUp.emailLabel")}
+              </Label>
+              <Input
+                id={field.name}
+                name={field.name}
+                type="email"
+                autoComplete="email"
+                placeholder={t("auth.signUp.emailPlaceholder")}
+                className="h-11 rounded-lg bg-muted px-3.5"
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(e) => field.handleChange(e.target.value)}
+              />
+              {field.state.meta.errors.map((error) => (
+                <p key={error?.message} className="text-sm text-destructive">
+                  {error?.message}
+                </p>
+              ))}
+            </div>
+          )}
+        </form.Field>
+
+        <form.Field name="password">
+          {(field) => (
+            <div className="space-y-2">
+              <Label
+                htmlFor={field.name}
+                className="font-mono text-[11px] uppercase tracking-[0.04em] text-muted-foreground"
+              >
+                {t("auth.signUp.passwordLabel")}
+              </Label>
+              <Input
+                id={field.name}
+                name={field.name}
+                type="password"
+                autoComplete="new-password"
+                placeholder={t("auth.signUp.passwordPlaceholder")}
+                className="h-11 rounded-lg bg-muted px-3.5"
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(e) => field.handleChange(e.target.value)}
+              />
+              {field.state.meta.errors.map((error) => (
+                <p key={error?.message} className="text-sm text-destructive">
+                  {error?.message}
+                </p>
+              ))}
+            </div>
+          )}
+        </form.Field>
+
+        <form.Subscribe selector={(state) => state}>
+          {(state) => (
+            <Button
+              type="submit"
+              className="h-11 w-full rounded-lg bg-foreground font-semibold text-background hover:bg-foreground/90"
+              disabled={!state.canSubmit || state.isSubmitting}
+            >
+              {state.isSubmitting ? (
+                <>
+                  <HugeiconsIcon
+                    icon={Loading03Icon}
+                    strokeWidth={2}
+                    className="size-4 animate-spin"
+                  />
+                  {t("auth.signUp.creatingAccount")}
+                </>
+              ) : (
+                <>{t("auth.signUp.submit")}</>
+              )}
+            </Button>
+          )}
+        </form.Subscribe>
+      </form>
+
+      <p className="mt-6 text-[13px] text-muted-foreground">
+        {t("auth.signUp.hasAccount")}{" "}
+        <button
+          type="button"
+          onClick={onSwitchToSignIn}
+          className="font-medium text-foreground underline-offset-4 hover:underline"
+        >
+          {t("auth.signUp.signIn")}
+        </button>
+      </p>
+    </div>
   );
 }

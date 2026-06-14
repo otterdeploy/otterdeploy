@@ -17,6 +17,13 @@ import {
 } from "@/features/terminal/types";
 import { sessionSourcesToSearchParams } from "@/features/terminal/url";
 import { Button } from "@/shared/components/ui/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/shared/components/ui/empty";
 import { cn } from "@/shared/lib/utils";
 
 export const Route = createFileRoute("/_app/$orgSlug/terminal")({
@@ -189,17 +196,25 @@ function RouteComponent() {
 
 function EmptyState({ onOpen }: { onOpen: () => void }) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-3 py-16 text-center">
-      <div className="font-mono text-2xl text-muted-foreground/60">$_</div>
-      <div className="text-[15px] font-medium">No active sessions</div>
-      <p className="max-w-md text-[13px] text-muted-foreground">
-        Open a shell into any container, an SSH into a swarm node, or a database console.
-        Multiple sessions stay live as separate tabs.
-      </p>
-      <Button type="button" size="sm" className="mt-2 gap-1.5" onClick={onOpen}>
-        <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-3.5" />
-        Open a terminal
-      </Button>
-    </div>
+    <Empty className="flex-1 border-none bg-transparent">
+      <EmptyHeader>
+        <HugeiconsIcon
+          icon={TerminalIcon}
+          strokeWidth={1.5}
+          className="size-10 text-muted-foreground/50"
+        />
+        <EmptyTitle>No active sessions</EmptyTitle>
+        <EmptyDescription>
+          Open a shell into any container, an SSH into a swarm node, or a
+          database console. Multiple sessions stay live as separate tabs.
+        </EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent>
+        <Button type="button" size="sm" className="gap-1.5" onClick={onOpen}>
+          <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-3.5" />
+          Open a terminal
+        </Button>
+      </EmptyContent>
+    </Empty>
   );
 }

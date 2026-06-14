@@ -8,6 +8,7 @@ import { member, session as sessionTbl } from "@otterdeploy/db/schema/auth";
 import { OrganizationInvitationEmail, sendEmail } from "@otterdeploy/email";
 import { env } from "@otterdeploy/env/server";
 import { betterAuth } from "better-auth";
+import { apiKey } from "@better-auth/api-key";
 import { log } from "evlog";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { bearer, deviceAuthorization, organization } from "better-auth/plugins";
@@ -109,6 +110,21 @@ export const auth = betterAuth({
     // Honors `Authorization: Bearer <token>` on auth.api.getSession.
     // Required by deviceAuthorization so CLI clients can authenticate.
     bearer(),
+    // Workspace-scoped API keys. `references: "organization"` means a key is
+    // owned by an org (referenceId = organizationId), not an individual user,
+    // so any owner/admin can manage the workspace's keys — matching how every
+    // other resource here is org-scoped. Keys are hashed at rest; the plaintext
+    // is returned only once from `create`. `enableMetadata` lets us tag keys,
+    // and `requireName` forces a human label so the list stays identifiable.
+    // The matching `apikey` table lives in db/schema/auth.ts (schema: {} uses
+    // the plugin's default field names).
+    apiKey({
+      references: "organization",
+      defaultPrefix: "otter_",
+      enableMetadata: true,
+      requireName: true,
+      schema: {},
+    }),
     // OAuth 2.0 Device Authorization Grant (RFC 8628). The CLI requests a
     // user_code, prints it; the user approves it in a browser at the
     // verificationUri; the CLI polls /device/token and receives an

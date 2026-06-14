@@ -22,6 +22,7 @@ import {
   updateScheduleAfterRun,
 } from "./schedule-db";
 import { executeBackup } from "./engine";
+import { selectBackupsToPrune } from "./retention";
 import { type ResolvedDestination, removeArchive } from "./storage";
 import { decryptSecret } from "../lib/crypto";
 
@@ -97,26 +98,23 @@ async function runSchedule(schedule: DueSchedule, now: Date): Promise<void> {
   });
 }
 
-/** Count + age based retention. Keeps the newest `keepDaily` archives and
- *  drops anything older than `retentionDays`. Both prune the stored archive
- *  AND the row so usage totals stay honest. */
+/** GFS retention. Keeps the most recent archive per day/week/month/year up to
+ *  each tier's count, enforces an optional hard max age and storage ceiling,
+ *  then prunes the rest. Both the stored archive AND the row are removed so
+ *  usage totals stay honest. */
 async function applyRetention(schedule: DueSchedule): Promise<void> {
-  const keep = schedule.keepDaily > 0 ? schedule.keepDaily : Infinity;
-  const cutoff =
-    schedule.retentionDays != null
-      ? Date.now() - schedule.retentionDays * 24 * 60 * 60 * 1000
-      : null;
-
   const backups = await listScheduleBackups(schedule.id);
-  const secret = await resolveDestinationSecret(schedule.destinationId);
-
-  const toPrune = backups.filter((b, idx) => {
-    const tooMany = idx >= keep;
-    const tooOld =
-      cutoff != null && b.completedAt != null && b.completedAt.getTime() < cutoff;
-    return tooMany || tooOld;
+  const toPrune = selectBackupsToPrune(backups, {
+    keepDaily: schedule.keepDaily,
+    keepWeekly: schedule.keepWeekly,
+    keepMonthly: schedule.keepMonthly,
+    keepYearly: schedule.keepYearly,
+    retentionDays: schedule.retentionDays,
+    maxStorageGb: schedule.maxStorageGb,
   });
+  if (toPrune.length === 0) return;
 
+  const secret = await resolveDestinationSecret(schedule.destinationId);
   for (const b of toPrune) {
     if (b.storagePath && secret) {
       await removeArchive(secret, b.storagePath).catch(() => undefined);

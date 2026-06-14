@@ -94,7 +94,7 @@ function uid(): string {
  * straight to the collections (which persist + broadcast to other tabs).
  */
 export function useSqlSnippets(resourceId: string) {
-  const { data: folders = [] } = useLiveQuery(
+  const { data: folders } = useLiveQuery(
     (q) =>
       q
         .from({ f: sqlFolderCollection })
@@ -102,7 +102,7 @@ export function useSqlSnippets(resourceId: string) {
     [resourceId],
   );
 
-  const { data: snippets = [] } = useLiveQuery(
+  const { data: snippets } = useLiveQuery(
     (q) =>
       q
         .from({ s: sqlSnippetCollection })
@@ -111,7 +111,7 @@ export function useSqlSnippets(resourceId: string) {
     [resourceId],
   );
 
-  const { data: playgroundRows = [] } = useLiveQuery(
+  const { data: playgroundRows } = useLiveQuery(
     (q) =>
       q
         .from({ p: sqlPlaygroundCollection })

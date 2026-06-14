@@ -62,7 +62,7 @@ export function bucketOf(status: number): EdgeStatusBucket {
 function matches(line: EdgeLogLine, f: EdgeLogFilter, sinceMs: number): boolean {
   if (Date.parse(line.ts) < sinceMs) return false;
   if (!f.hosts.includes(line.host)) return false;
-  if (f.host && line.host !== f.host) return false;
+  if (f.selectedHosts?.length && !f.selectedHosts.includes(line.host)) return false;
   if (f.methods?.length && !f.methods.includes(line.method)) return false;
   if (f.statuses?.length && !f.statuses.includes(bucketOf(line.status))) return false;
   if (f.search) {

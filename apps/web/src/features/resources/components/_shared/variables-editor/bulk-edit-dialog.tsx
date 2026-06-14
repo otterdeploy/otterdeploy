@@ -3,7 +3,7 @@
 // replaceAll on the draft (baselines for unchanged keys survive so the
 // per-row status pills still tell the truth).
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Copy01Icon } from "@hugeicons/core-free-icons";
 
@@ -29,18 +29,33 @@ interface BulkEditDialogProps {
 }
 
 export function BulkEditDialog({ open, rows, onClose, onApply }: BulkEditDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      {/* Keying on `open` remounts the body on every reopen, so the textarea
+          re-seeds from the live draft — cancel really cancels, with no
+          useEffect-reset. Editing stays sticky while the dialog is open. */}
+      {open && (
+        <BulkEditBody
+          key={String(open)}
+          rows={rows}
+          onClose={onClose}
+          onApply={onApply}
+        />
+      )}
+    </Dialog>
+  );
+}
+
+function BulkEditBody({
+  rows,
+  onClose,
+  onApply,
+}: Omit<BulkEditDialogProps, "open">) {
   const initial = useMemo(
     () => serializeDotenv(rows.map((r) => ({ key: r.key, value: r.value }))),
     [rows],
   );
   const [text, setText] = useState(initial);
-
-  // Reset to the live draft whenever the dialog re-opens so cancel really
-  // does cancel — staying open between sessions keeps edits but a close+
-  // reopen always starts from the current state.
-  useEffect(() => {
-    if (open) setText(initial);
-  }, [open, initial]);
 
   const parsed = useMemo(() => parseDotenv(text), [text]);
   const secretMap = useMemo(
@@ -67,8 +82,7 @@ export function BulkEditDialog({ open, rows, onClose, onApply }: BulkEditDialogP
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-4xl">
+    <DialogContent className="sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>Bulk edit · variables</DialogTitle>
           <DialogDescription>
@@ -121,6 +135,5 @@ export function BulkEditDialog({ open, rows, onClose, onApply }: BulkEditDialogP
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
   );
 }

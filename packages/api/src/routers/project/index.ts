@@ -1,5 +1,5 @@
 import { matchError } from "better-result";
-import { withEventMeta } from "@orpc/server";
+import { ORPCError, withEventMeta } from "@orpc/server";
 
 import { orgScopedProcedure } from "../../index";
 
@@ -10,6 +10,7 @@ import {
   bulkSetResourceEnv,
   checkResourceName,
   createPostgresResourceStream,
+  restartDatabaseResource,
   setPostgresPublic,
   setPostgresExtensions,
   setPostgresExtraEnvKey,
@@ -29,6 +30,9 @@ import {
   listProjectDependencies,
   listProjectEnvVarsForOrg,
   getProjectCaddyfile,
+  getProjectCustomCaddyConfig,
+  saveProjectCustomCaddyConfig,
+  setProxyRouteDirectives,
   listProjectProxyRoutes,
   setProxyRouteProtection,
   listProjectResources,
@@ -217,6 +221,63 @@ export const projectRouter = {
       },
     ),
 
+    customConfig: orgScopedProcedure.project.proxyRoute.customConfig.handler(
+      async ({ input, context, errors }) => {
+        const result = await getProjectCustomCaddyConfig({
+          projectId: input.projectId,
+          organizationId: context.activeOrganizationId,
+        });
+        if (result.isErr()) {
+          throw matchError(result.error, {
+            ProjectNotFoundError: () => errors.NOT_FOUND(),
+          });
+        }
+        return result.value;
+      },
+    ),
+
+    setCustomConfig:
+      orgScopedProcedure.project.proxyRoute.setCustomConfig.handler(
+        async ({ input, context, errors }) => {
+          context.log.set({ target: { type: "project", id: input.projectId } });
+          const result = await saveProjectCustomCaddyConfig(
+            {
+              projectId: input.projectId,
+              config: input.config,
+              organizationId: context.activeOrganizationId,
+            },
+            context.log,
+          );
+          if (result.isErr()) {
+            throw matchError(result.error, {
+              ProjectNotFoundError: () => errors.NOT_FOUND(),
+            });
+          }
+          return result.value;
+        },
+      ),
+
+    setRouteDirectives:
+      orgScopedProcedure.project.proxyRoute.setRouteDirectives.handler(
+        async ({ input, context, errors }) => {
+          context.log.set({ target: { type: "proxy-route", id: input.routeId } });
+          const result = await setProxyRouteDirectives(
+            {
+              routeId: input.routeId,
+              directives: input.directives,
+              organizationId: context.activeOrganizationId,
+            },
+            context.log,
+          );
+          if (result.isErr()) {
+            throw matchError(result.error, {
+              ProxyRouteNotFoundError: () => errors.NOT_FOUND(),
+            });
+          }
+          return result.value;
+        },
+      ),
+
     setProtection: orgScopedProcedure.project.proxyRoute.setProtection.handler(
       async ({ input, context, errors }) => {
         context.log.set({ target: { type: "proxy-route", id: input.routeId } });
@@ -288,6 +349,11 @@ export const projectRouter = {
 
     inviteGuest: orgScopedProcedure.project.proxyRoute.inviteGuest.handler(
       async ({ input, context, errors }) => {
+        // Guest invites are attributed to the inviting user — a session-only
+        // operation; reject API-key actors (which have no user identity).
+        if (!context.session?.user) {
+          throw new ORPCError("UNAUTHORIZED");
+        }
         const result = await inviteDeploymentGuest({
           routeId: input.routeId,
           email: input.email,
@@ -671,6 +737,34 @@ export const projectRouter = {
                 projectId: input.projectId,
                 resourceId: input.resourceId,
                 publicEnabled: input.publicEnabled,
+                organizationId: context.activeOrganizationId,
+              },
+              context.log,
+            );
+            if (result.isErr()) {
+              throw matchError(result.error, {
+                ProjectNotFoundError: () => errors.NOT_FOUND(),
+                PostgresResourceNotFoundError: () => errors.NOT_FOUND(),
+              });
+            }
+            return result.value;
+          },
+        ),
+
+        restart: orgScopedProcedure.project.resource.database.postgres.restart.handler(
+          async ({ input, context, errors }) => {
+            context.log.set({
+              target: {
+                type: "resource",
+                kind: "postgres",
+                id: input.resourceId,
+                projectId: input.projectId,
+              },
+            });
+            const result = await restartDatabaseResource(
+              {
+                projectId: input.projectId,
+                resourceId: input.resourceId,
                 organizationId: context.activeOrganizationId,
               },
               context.log,

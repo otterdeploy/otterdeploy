@@ -1,15 +1,19 @@
 /**
  * Invite a new member to the organization by email + role. Owners/admins
- * only (the Team page gates rendering). On success better-auth sends the
- * invitation email (sendInvitationEmail) and we refresh the pending list.
+ * only (the Team page gates rendering). Inserts optimistically into
+ * `invitationsCollection`; `onInsert` calls `authClient.organization
+ * .inviteMember` (which sends the email) and refetches so the real row
+ * (server id, resolved expiry) replaces the optimistic one. After the
+ * transaction persists we look the real invite up by email to offer a
+ * copyable accept link (for when email delivery isn't configured).
  */
 
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
 
-import { authClient } from "@/lib/auth-client";
 import { Button } from "@/shared/components/ui/button";
+import { Field, FieldLabel } from "@/shared/components/ui/field";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 import {
@@ -20,7 +24,10 @@ import {
   SelectValue,
 } from "@/shared/components/ui/select";
 import { CopyLinkButton } from "@/features/team/components/copy-link-button";
-import { acceptInviteUrl, teamKeys } from "@/features/team/data/use-team";
+import {
+  acceptInviteUrl,
+  invitationsCollection,
+} from "@/features/team/data/use-team";
 
 const INVITE_ROLES = [
   { value: "member", label: "Member" },
@@ -28,34 +35,45 @@ const INVITE_ROLES = [
 ] as const;
 
 export function InviteMemberForm({ organizationId }: { organizationId: string }) {
-  const queryClient = useQueryClient();
-  const [email, setEmail] = useState("");
-  const [role, setRole] = useState<string>("member");
   const [sent, setSent] = useState<{ email: string; url: string } | null>(null);
 
-  const invite = useMutation({
-    mutationFn: async (vars: { email: string; role: string }) => {
-      const res = await authClient.organization.inviteMember({
-        email: vars.email,
-        role: vars.role as "member" | "admin",
+  const form = useForm({
+    defaultValues: {
+      email: "",
+      role: "member" as "member" | "admin",
+    },
+    onSubmit: async ({ value }) => {
+      const email = value.email.trim();
+      if (!email) return;
+
+      // Optimistic insert: `onInsert` mints the invite server-side (and sends
+      // the email), then refetches so the real row replaces this temp one.
+      // Expiry is resolved server-side; the temp row uses a placeholder until
+      // the refetch lands.
+      const tx = invitationsCollection.insert({
+        id: crypto.randomUUID(),
         organizationId,
+        email,
+        role: value.role,
+        expiresAt: new Date(),
       });
-      if (res.error) {
-        throw new Error(res.error.message ?? "Failed to send invitation");
-      }
-      return res.data;
+
+      form.reset();
+      tx.isPersisted.promise
+        .then(() => {
+          toast.success(`Invitation sent to ${email}`);
+          // Recover the real invitation (server id) for the share link.
+          const real = invitationsCollection
+            .toArray
+            .find((i) => i.email === email);
+          if (real) setSent({ email, url: acceptInviteUrl(real.id) });
+        })
+        .catch((err: unknown) =>
+          toast.error(
+            err instanceof Error ? err.message : "Failed to send invitation",
+          ),
+        );
     },
-    onSuccess: (data, vars) => {
-      toast.success(`Invitation sent to ${vars.email}`);
-      if (data?.id) {
-        setSent({ email: vars.email, url: acceptInviteUrl(data.id) });
-      }
-      setEmail("");
-      void queryClient.invalidateQueries({
-        queryKey: teamKeys.invitations(organizationId),
-      });
-    },
-    onError: (err) => toast.error(err.message ?? "Failed to send invitation"),
   });
 
   return (
@@ -72,41 +90,66 @@ export function InviteMemberForm({ organizationId }: { organizationId: string })
         className="flex flex-col gap-2 sm:flex-row sm:items-end"
         onSubmit={(e) => {
           e.preventDefault();
-          if (!email.trim() || invite.isPending) return;
-          invite.mutate({ email: email.trim(), role });
+          void form.handleSubmit();
         }}
+        noValidate
       >
-        <div className="flex flex-1 flex-col gap-1.5">
-          <Label htmlFor="invite-email" className="text-[12px]">
-            Email
-          </Label>
-          <Input
-            id="invite-email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="teammate@company.com"
-            className="h-9"
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label className="text-[12px]">Role</Label>
-          <Select value={role} onValueChange={(v) => setRole(v ?? "member")}>
-            <SelectTrigger className="h-9 w-[130px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {INVITE_ROLES.map((r) => (
-                <SelectItem key={r.value} value={r.value}>
-                  {r.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <Button type="submit" disabled={!email.trim() || invite.isPending} className="h-9">
-          Send invite
-        </Button>
+        <form.Field
+          name="email"
+          validators={{
+            onChange: ({ value }) =>
+              value.trim().length === 0 ? "Email is required" : undefined,
+          }}
+        >
+          {(field) => (
+            <Field className="flex-1">
+              <FieldLabel htmlFor="invite-email" className="text-[12px]">
+                Email
+              </FieldLabel>
+              <Input
+                id="invite-email"
+                type="email"
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(e) => field.handleChange(e.target.value)}
+                placeholder="teammate@company.com"
+                className="h-9"
+              />
+            </Field>
+          )}
+        </form.Field>
+        <form.Field name="role">
+          {(field) => (
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-[12px]">Role</Label>
+              <Select
+                items={INVITE_ROLES.map((r) => ({ label: r.label, value: r.value }))}
+                value={field.state.value}
+                onValueChange={(v) =>
+                  field.handleChange((v ?? "member") as "member" | "admin")
+                }
+              >
+                <SelectTrigger className="h-9 w-[130px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {INVITE_ROLES.map((r) => (
+                    <SelectItem key={r.value} value={r.value}>
+                      {r.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </form.Field>
+        <form.Subscribe selector={(s) => [s.canSubmit, s.isSubmitting] as const}>
+          {([canSubmit, isSubmitting]) => (
+            <Button type="submit" disabled={!canSubmit || isSubmitting} className="h-9">
+              Send invite
+            </Button>
+          )}
+        </form.Subscribe>
       </form>
 
       {sent ? (

@@ -27,7 +27,7 @@
  * `:latest` tag.
  */
 
-import { readFile, writeFile } from "node:fs/promises";
+import { access, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import type { BuildRailpackConfig } from "@otterdeploy/shared/build-config";
@@ -60,37 +60,82 @@ export const RAILPACK_INFO_FILE = "railpack-info.json";
 
 export async function railpackBuild(opts: {
   workDir: string;
-  /** Service's repo subdirectory (monorepo); null/"" = repo root. The build
-   *  runs against this dir, NOT the clone root — railpack analyses a monorepo
-   *  root as a workspace and finds no start command, producing a runnable-less
-   *  image whose container exits on boot (swarm never converges). */
+  /** Service's repo subdirectory (monorepo); null/"" = repo root. */
   sourceSubdir: string | null;
   /** Full image reference without tag, e.g. "ghcr.io/acme/web". */
   imageRepository: string;
   sha: string;
   config: BuildRailpackConfig | null;
   sink: LogSink;
-}): Promise<{ shaTag: string; latestTag: string }> {
+}): Promise<{ shaTag: string; latestTag: string; buildDir: string }> {
   const shaTag = `${opts.imageRepository}:${opts.sha}`;
   const latestTag = `${opts.imageRepository}:latest`;
-  // For a monorepo service, build the subdirectory holding the app (where its
-  // package.json lives) — railpack detects the framework + start command there.
-  // Pointed at the clone root it sees a multi-package workspace and bails on the
-  // start command. The buildx context is this same dir.
-  const buildDir = opts.sourceSubdir
-    ? join(opts.workDir, opts.sourceSubdir)
-    : opts.workDir;
+
+  const subdir = opts.sourceSubdir?.trim() || null;
+
+  // Monorepo workspaces: when the service lives in a subdirectory of a workspace
+  // repo (npm/yarn/bun `workspaces`, or pnpm-workspace.yaml), railpack MUST
+  // analyse and build from the repo ROOT — that's where the lockfile, the
+  // workspace catalog, and the sibling `packages/*` the app depends on live.
+  // Pointed at the subdir alone it misdetects the package manager (no
+  // lockfile / `packageManager` field there → falls back to npm) and the buildx
+  // context is missing every workspace dependency, so install dies (e.g.
+  // `npm error Unsupported URL Type "catalog:"`). Instead keep the root as the
+  // context and target the app via cd-wrapped build/start commands — Railpack's
+  // own recommended monorepo flow (https://railpack.com/languages/node).
+  //
+  // A subdir that is NOT inside a workspace (a self-contained app folder with
+  // its own lockfile) keeps building from the subdir, exactly as before — there
+  // railpack detects the framework + start command directly.
+  const isWorkspace = subdir ? await rootIsWorkspace(opts.workDir) : false;
+  const buildDir =
+    subdir && !isWorkspace ? join(opts.workDir, subdir) : opts.workDir;
   const planPath = join(buildDir, "railpack-plan.json");
   // railpack's `prepare` also emits a machine-readable analysis of what it
   // detected (providers, node runtime/framework, resolved package versions).
   // We ask for it via `--info-out` and read it back to capture the service's
   // framework for the graph logo — no second invocation, no git-API call.
   // Written next to the plan in the build dir; `detect-framework.ts` reads it
-  // (from the same subdir) before the pipeline removes the work tree.
+  // back from this same dir before the pipeline removes the work tree.
   const infoPath = join(buildDir, RAILPACK_INFO_FILE);
-  const spaOutputDir = opts.config?.spa
+
+  // SPA output dir is relative to the build context. For a workspace build the
+  // context is the repo root, so the app's output sits under its subdir.
+  const staticRoot = opts.config?.spa
     ? opts.config.staticRoot?.trim() || DEFAULT_STATIC_ROOT
     : null;
+  const spaOutputDir = staticRoot
+    ? isWorkspace && subdir
+      ? `${subdir}/${staticRoot}`
+      : staticRoot
+    : null;
+
+  // Non-workspace builds: pass the user's build command through unchanged and
+  // let railpack auto-detect the start command. Workspace builds: derive both
+  // from the app's own package.json and run them inside its subdir (node
+  // resolves the hoisted root node_modules) — railpack analysing the root finds
+  // no start script and would fail `--error-missing-start`.
+  let buildCmd = opts.config?.buildCommand?.trim() || null;
+  let startCmd: string | null = null;
+  if (isWorkspace && subdir) {
+    const appPkg = await readJson<{ scripts?: Record<string, string> }>(
+      join(opts.workDir, subdir, "package.json"),
+    );
+    const scripts = appPkg?.scripts ?? {};
+    const pmRun = await detectPackageManagerRun(opts.workDir);
+    const rawBuild = buildCmd ?? (scripts.build ? `${pmRun} run build` : null);
+    buildCmd = rawBuild ? `cd ${subdir} && ${rawBuild}` : null;
+    // SPA images are served by Caddy and need no start command. Otherwise wrap
+    // the app's own start script so the container boots the right workspace app.
+    if (!spaOutputDir && scripts.start) {
+      startCmd = `cd ${subdir} && ${pmRun} run start`;
+    }
+    opts.sink.system(
+      `monorepo workspace build: context=repo root, app="${subdir}"` +
+        (buildCmd ? `, build="${buildCmd}"` : "") +
+        (startCmd ? `, start="${startCmd}"` : ""),
+    );
+  }
 
   opts.sink.system(`preparing railpack plan for ${shaTag}`);
   const prepareArgs = [
@@ -107,9 +152,8 @@ export async function railpackBuild(opts: {
     // a `main` field, or set RAILPACK_SPA_OUTPUT_DIR for a static site).
     "--error-missing-start",
   ];
-  if (opts.config?.buildCommand) {
-    prepareArgs.push("--build-cmd", opts.config.buildCommand);
-  }
+  if (buildCmd) prepareArgs.push("--build-cmd", buildCmd);
+  if (startCmd) prepareArgs.push("--start-cmd", startCmd);
   // Static SPA: railpack emits a Caddy image serving the built assets with
   // history fallback when RAILPACK_SPA_OUTPUT_DIR names the build output dir.
   // It's read at prepare time, so it has to ride on the `prepare` invocation.
@@ -165,7 +209,72 @@ export async function railpackBuild(opts: {
     throw new Error(`railpack build failed (exit ${built.exitCode})`);
   }
 
-  return { shaTag, latestTag };
+  return { shaTag, latestTag, buildDir };
+}
+
+/** Read + JSON.parse a file, returning null on any error (missing/malformed). */
+async function readJson<T>(path: string): Promise<T | null> {
+  try {
+    return JSON.parse(await readFile(path, "utf8")) as T;
+  } catch {
+    return null;
+  }
+}
+
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** True when the repo root declares a package workspace — npm/yarn/bun via the
+ *  `workspaces` field (string[] or bun's `{ packages: [] }`), pnpm via
+ *  pnpm-workspace.yaml. This is the signal that a subdir service must build from
+ *  the root so its lockfile, catalog, and sibling packages resolve. */
+async function rootIsWorkspace(workDir: string): Promise<boolean> {
+  const pkg = await readJson<{ workspaces?: unknown }>(
+    join(workDir, "package.json"),
+  );
+  const ws = pkg?.workspaces;
+  if (Array.isArray(ws) && ws.length > 0) return true;
+  if (
+    ws &&
+    typeof ws === "object" &&
+    Array.isArray((ws as { packages?: unknown }).packages)
+  ) {
+    return true;
+  }
+  return fileExists(join(workDir, "pnpm-workspace.yaml"));
+}
+
+/** The `<pm> run` prefix used to invoke a workspace app's scripts, derived from
+ *  the root `packageManager` field then lockfile presence. npm/bun/pnpm/yarn all
+ *  accept `<pm> run <script>`. */
+async function detectPackageManagerRun(workDir: string): Promise<string> {
+  const pkg = await readJson<{ packageManager?: string }>(
+    join(workDir, "package.json"),
+  );
+  const declared = pkg?.packageManager?.split("@")[0]?.trim();
+  if (
+    declared === "bun" ||
+    declared === "pnpm" ||
+    declared === "yarn" ||
+    declared === "npm"
+  ) {
+    return `${declared} run`;
+  }
+  if (
+    (await fileExists(join(workDir, "bun.lock"))) ||
+    (await fileExists(join(workDir, "bun.lockb")))
+  ) {
+    return "bun run";
+  }
+  if (await fileExists(join(workDir, "pnpm-lock.yaml"))) return "pnpm run";
+  if (await fileExists(join(workDir, "yarn.lock"))) return "yarn run";
+  return "npm run";
 }
 
 /**

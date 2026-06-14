@@ -270,6 +270,7 @@ export async function bulkSetResourceEnv(
       await updateSwarmDatabase(
         {
           engine,
+          resourceId: input.resourceId,
           serviceName: buildContainerName({ engine, projectSlug, resourceName }),
           volumeName: buildVolumeName({ engine, projectSlug, resourceName }),
           hostnameAlias: dbRecord.database.internalHostname,

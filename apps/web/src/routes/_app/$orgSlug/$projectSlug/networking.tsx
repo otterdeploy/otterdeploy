@@ -1,9 +1,11 @@
-import { useMemo } from "react";
+import { Fragment, useMemo } from "react";
 import {
   ArrowRight01Icon,
+  CodeIcon,
   Database02Icon,
   EarthIcon,
   Link01Icon,
+  LinkSquare02Icon,
   CheckmarkCircle02Icon,
   RefreshIcon,
   ServerStack01Icon,
@@ -11,7 +13,10 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useQuery } from "@tanstack/react-query";
+import { eq, useLiveQuery } from "@tanstack/react-db";
 import { createFileRoute, useLoaderData } from "@tanstack/react-router";
+
+import { proxyRoutesCollection } from "@/features/projects/data/proxy-routes";
 
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
@@ -35,15 +40,16 @@ import {
 import {
   Tabs,
   TabsContent,
-  TabsContents,
   TabsList,
   TabsTrigger,
 } from "@/shared/components/ui/tabs";
 import { cn } from "@/shared/lib/utils";
 import { CaddyfileViewer } from "@/features/projects/components/networking/caddyfile-viewer";
+import { CustomConfigEditor } from "@/features/projects/components/networking/custom-config-editor";
 import { DeploymentAccessTab } from "@/features/projects/components/networking/deployment-access-tab";
 import { DeploymentProtectionCell } from "@/features/projects/components/networking/deployment-protection-cell";
-import { orpc } from "@/shared/server/orpc";
+import { RouteDirectivesButton } from "@/features/projects/components/networking/route-directives-dialog";
+import { orpc, queryClient } from "@/shared/server/orpc";
 
 export const Route = createFileRoute("/_app/$orgSlug/$projectSlug/networking")({
   staticData: { crumb: "Networking" },
@@ -69,16 +75,28 @@ interface RouteRow {
   enabled: boolean;
   isHttp: boolean;
   protected: boolean;
+  customDirectives: string | null;
+}
+
+interface RouteGroup {
+  key: string;
+  name: string;
+  kind: RouteRow["kind"];
+  internalHost: string;
+  internalPort: number;
+  routes: RouteRow[];
 }
 
 function RouteComponent() {
   const { project } = useLoaderData({ from: "/_app/$orgSlug/$projectSlug" });
   const projectId = project.id;
 
-  const routesQuery = useQuery(
-    orpc.project.proxyRoute.list.queryOptions({
-      input: { projectId: projectId as never },
-    }),
+  const { data: routesData, isLoading: routesLoading } = useLiveQuery(
+    (q) =>
+      q
+        .from({ r: proxyRoutesCollection })
+        .where(({ r }) => eq(r.projectId, projectId)),
+    [projectId],
   );
   const resourcesQuery = useQuery(
     orpc.project.resource.list.queryOptions({
@@ -92,16 +110,48 @@ function RouteComponent() {
   );
 
   const rows = useMemo<RouteRow[]>(() => {
-    const routes = routesQuery.data ?? [];
+    const routes = routesData ?? [];
     const resources = resourcesQuery.data ?? [];
     const byResourceId = new Map<string, ResourceListItem>();
     for (const r of resources) byResourceId.set(r.resourceId, r);
     return routes.map((r) => mapRoute(r, byResourceId));
-  }, [routesQuery.data, resourcesQuery.data]);
+  }, [routesData, resourcesQuery.data]);
 
-  const isLoading = routesQuery.isLoading || resourcesQuery.isLoading;
+  // Group routes by service so a multi-domain service collapses into one header
+  // instead of repeating its name + internal address on every row.
+  const groups = useMemo<RouteGroup[]>(() => {
+    const map = new Map<string, RouteGroup>();
+    for (const r of rows) {
+      const key = `${r.name}@${r.internalHost}:${r.internalPort}`;
+      let group = map.get(key);
+      if (!group) {
+        group = {
+          key,
+          name: r.name,
+          kind: r.kind,
+          internalHost: r.internalHost,
+          internalPort: r.internalPort,
+          routes: [],
+        };
+        map.set(key, group);
+      }
+      group.routes.push(r);
+    }
+    return Array.from(map.values());
+  }, [rows]);
+
+  const isLoading = routesLoading || resourcesQuery.isLoading;
   const acmeCount = rows.filter((r) => r.tls === "letsencrypt" && r.enabled).length;
   const httpCount = rows.filter((r) => r.isHttp).length;
+  // Public ports are derived from the routes actually published: HTTP terminates
+  // on :443, a TCP route (e.g. an exposed database) contributes its own port.
+  const publicPorts = Array.from(
+    new Set(
+      rows
+        .filter((r) => r.enabled)
+        .map((r) => (r.isHttp ? 443 : r.internalPort)),
+    ),
+  ).sort((a, b) => a - b);
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
@@ -120,6 +170,10 @@ function RouteComponent() {
               <HugeiconsIcon icon={ServerStack01Icon} strokeWidth={2} className="size-3.5" />
               Caddyfile
             </TabsTrigger>
+            <TabsTrigger value="custom" className="gap-1.5 px-3 py-2">
+              <HugeiconsIcon icon={CodeIcon} strokeWidth={2} className="size-3.5" />
+              Custom config
+            </TabsTrigger>
             <TabsTrigger value="global" className="gap-1.5 px-3 py-2">
               <HugeiconsIcon icon={EarthIcon} strokeWidth={2} className="size-3.5" />
               Global options
@@ -134,7 +188,11 @@ function RouteComponent() {
             size="sm"
             className="gap-1.5"
             onClick={() => {
-              void routesQuery.refetch();
+              void queryClient.invalidateQueries({
+                queryKey: orpc.project.proxyRoute.list.queryKey({
+                  input: { projectId: projectId as never },
+                }),
+              });
               void resourcesQuery.refetch();
               void caddyfileQuery.refetch();
             }}
@@ -144,7 +202,7 @@ function RouteComponent() {
           </Button>
         </div>
 
-        <TabsContents>
+        <div className="relative flex-1">
           <TabsContent value="routes" className="pt-5 flex flex-col gap-4">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -164,7 +222,11 @@ function RouteComponent() {
               <FlowCard
                 icon={EarthIcon}
                 label="Public internet"
-                detail=":443 / :5432"
+                detail={
+                  publicPorts.length
+                    ? publicPorts.map((p) => `:${p}`).join(" · ")
+                    : "no ports exposed"
+                }
               />
               <FlowArrow />
               <FlowCard
@@ -186,12 +248,6 @@ function RouteComponent() {
                 <TableHeader>
                   <TableRow className="bg-muted/40">
                     <TableHead className="text-[10px] font-semibold uppercase tracking-[0.08em]">
-                      Service
-                    </TableHead>
-                    <TableHead className="text-[10px] font-semibold uppercase tracking-[0.08em]">
-                      Internal address
-                    </TableHead>
-                    <TableHead className="text-[10px] font-semibold uppercase tracking-[0.08em]">
                       Public hostname
                     </TableHead>
                     <TableHead className="text-[10px] font-semibold uppercase tracking-[0.08em]">
@@ -203,14 +259,17 @@ function RouteComponent() {
                     <TableHead className="text-[10px] font-semibold uppercase tracking-[0.08em]">
                       Status
                     </TableHead>
+                    <TableHead className="w-10 text-right text-[10px] font-semibold uppercase tracking-[0.08em]">
+                      Custom
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoading && rows.length === 0 ? (
                     <SkeletonRows />
-                  ) : rows.length === 0 ? (
+                  ) : groups.length === 0 ? (
                     <TableRow className="hover:bg-transparent">
-                      <TableCell colSpan={6} className="p-0">
+                      <TableCell colSpan={5} className="p-0">
                         <Empty className="border-0 bg-transparent">
                           <EmptyHeader>
                             <EmptyMedia variant="icon">
@@ -230,59 +289,110 @@ function RouteComponent() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    rows.map((r) => (
-                      <TableRow key={r.id}>
-                        <TableCell className="py-3">
-                          <div className="flex items-center gap-2">
-                            <HugeiconsIcon
-                              icon={
-                                r.kind === "database" ? Database02Icon : ServerStack01Icon
-                              }
-                              strokeWidth={1.8}
-                              className="size-4 text-muted-foreground"
-                            />
-                            <span className="font-mono text-[13px]">{r.name}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-mono text-[12.5px] text-foreground/80">
-                          {r.internalHost}
-                          <span className="text-muted-foreground">:{r.internalPort}</span>
-                        </TableCell>
-                        <TableCell>
-                          <span
-                            className={cn(
-                              "font-mono text-[12.5px]",
-                              r.enabled ? "text-success" : "text-muted-foreground",
-                            )}
+                    groups.map((group) => (
+                      <Fragment key={group.key}>
+                        <TableRow className="border-b-0 bg-muted/25 hover:bg-muted/25">
+                          <TableCell colSpan={5} className="py-2.5">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-2">
+                                <HugeiconsIcon
+                                  icon={
+                                    group.kind === "database"
+                                      ? Database02Icon
+                                      : ServerStack01Icon
+                                  }
+                                  strokeWidth={1.8}
+                                  className="size-4 text-muted-foreground"
+                                />
+                                <span className="font-mono text-[13px] font-medium">
+                                  {group.name}
+                                </span>
+                                <span className="font-mono text-[12px] text-muted-foreground">
+                                  {group.internalHost}:{group.internalPort}
+                                </span>
+                              </div>
+                              <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+                                {group.routes.length} route
+                                {group.routes.length === 1 ? "" : "s"}
+                              </span>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                        {group.routes.map((r, i) => (
+                          <TableRow
+                            key={r.id}
+                            className={
+                              i === group.routes.length - 1 ? undefined : "border-b-0"
+                            }
                           >
-                            {r.publicHost}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <span className="inline-flex items-center gap-1.5 font-mono text-[12px]">
-                            <span
-                              className={cn(
-                                "size-1.5 rounded-full",
-                                r.tls === "letsencrypt"
-                                  ? "bg-success"
-                                  : "bg-muted-foreground/60",
-                              )}
-                            />
-                            {r.tls}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <DeploymentProtectionCell route={r} projectId={projectId} />
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={r.enabled ? "outline" : "secondary"}
-                            className="font-mono text-[10px] font-normal"
-                          >
-                            {r.enabled ? "enabled" : "disabled"}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
+                            <TableCell className="py-2.5">
+                              <div className="flex items-center gap-2 pl-6">
+                                <span className="text-muted-foreground/40">└</span>
+                                {r.isHttp ? (
+                                  <a
+                                    href={r.publicHost}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={cn(
+                                      "group inline-flex items-center gap-1 font-mono text-[12.5px] hover:underline",
+                                      r.enabled ? "text-success" : "text-muted-foreground",
+                                    )}
+                                  >
+                                    {r.publicHost}
+                                    <HugeiconsIcon
+                                      icon={LinkSquare02Icon}
+                                      strokeWidth={2}
+                                      className="size-3 opacity-0 transition-opacity group-hover:opacity-60"
+                                    />
+                                  </a>
+                                ) : (
+                                  <span
+                                    className={cn(
+                                      "font-mono text-[12.5px]",
+                                      r.enabled ? "text-success" : "text-muted-foreground",
+                                    )}
+                                  >
+                                    {r.publicHost}
+                                  </span>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <span className="inline-flex items-center gap-1.5 font-mono text-[12px]">
+                                <span
+                                  className={cn(
+                                    "size-1.5 rounded-full",
+                                    r.tls === "letsencrypt"
+                                      ? "bg-success"
+                                      : "bg-muted-foreground/60",
+                                  )}
+                                />
+                                {r.tls}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <DeploymentProtectionCell route={r} projectId={projectId} />
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={r.enabled ? "outline" : "secondary"}
+                                className="font-mono text-[10px] font-normal"
+                              >
+                                {r.enabled ? "enabled" : "disabled"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {r.isHttp ? (
+                                <RouteDirectivesButton
+                                  routeId={r.id}
+                                  domain={r.domain}
+                                  customDirectives={r.customDirectives}
+                                />
+                              ) : null}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </Fragment>
                     ))
                   )}
                 </TableBody>
@@ -332,6 +442,10 @@ function RouteComponent() {
             )}
           </TabsContent>
 
+          <TabsContent value="custom" className="pt-5">
+            <CustomConfigEditor projectId={projectId} />
+          </TabsContent>
+
           <TabsContent value="global" className="pt-5">
             <Empty className="border-dashed">
               <EmptyHeader>
@@ -370,7 +484,7 @@ function RouteComponent() {
               </EmptyHeader>
             </Empty>
           </TabsContent>
-        </TabsContents>
+        </div>
       </Tabs>
     </div>
   );
@@ -403,6 +517,7 @@ function mapRoute(
     enabled: route.enabled,
     isHttp,
     protected: route.protected,
+    customDirectives: route.customDirectives ?? null,
   };
 }
 
@@ -419,7 +534,7 @@ function SkeletonRows() {
     <>
       {Array.from({ length: 3 }).map((_, i) => (
         <TableRow key={i}>
-          {Array.from({ length: 6 }).map((__, j) => (
+          {Array.from({ length: 5 }).map((__, j) => (
             <TableCell key={j} className="py-3">
               <Skeleton className="h-4 w-full" />
             </TableCell>

@@ -8,8 +8,8 @@
  * a different registry" — operators should delete and re-add.
  */
 
-import { useEffect, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
+import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";
@@ -21,16 +21,44 @@ import {
   DialogTitle,
 } from "@/shared/components/ui/dialog";
 import { Input } from "@/shared/components/ui/input";
-import { Label } from "@/shared/components/ui/label";
-import { cn } from "@/shared/lib/utils";
-import { orpc, queryClient } from "@/shared/server/orpc";
 
-import { HOST_PRESETS, type RegistryView } from "./shared";
+import { registryCollection } from "./data/registries";
+import { FieldShell, HostField } from "./registry-fields";
+import { type RegistryRow } from "./shared";
 
 interface RegistryDialogProps {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  existing: RegistryView | null;
+  existing: RegistryRow | null;
+}
+
+interface RegistryFormValues {
+  displayName: string;
+  host: string;
+  username: string;
+  password: string;
+}
+
+/** The dialog's form instance — extracted so the field-set component can be
+ * typed without re-spelling TanStack Form's generic surface. */
+type RegistryForm = ReturnType<typeof useRegistryForm>;
+
+function useRegistryForm(args: {
+  existing: RegistryRow | null;
+  onSubmit: (value: RegistryFormValues) => void;
+}) {
+  return useForm({
+    // Re-hydrate per render so opening an edit / create row starts from the
+    // right values — TanStack Form keeps the live state once mounted; `reset`
+    // on close clears it for the next open.
+    defaultValues: {
+      displayName: args.existing?.displayName ?? "",
+      host: args.existing?.host ?? "",
+      username: args.existing?.username ?? "",
+      password: "",
+    },
+    onSubmit: ({ value }) => args.onSubmit(value),
+  });
 }
 
 export function RegistryDialog({
@@ -38,219 +66,177 @@ export function RegistryDialog({
   onOpenChange,
   existing,
 }: RegistryDialogProps) {
-  const [displayName, setDisplayName] = useState("");
-  const [host, setHost] = useState("");
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const isEdit = existing !== null;
 
-  // Reset / hydrate when the dialog opens or the row being edited changes.
-  useEffect(() => {
-    if (!open) return;
-    if (existing) {
-      setDisplayName(existing.displayName);
-      setHost(existing.host);
-      setUsername(existing.username);
-      setPassword("");
-    } else {
-      setDisplayName("");
-      setHost("");
-      setUsername("");
-      setPassword("");
-    }
-  }, [open, existing]);
+  const form = useRegistryForm({
+    existing,
+    onSubmit: (value) => {
+      // Optimistic mutate: close instantly, surface the outcome off the
+      // transaction's persisted promise — TanStack DB rolls back on reject.
+      const tx = existing
+        ? registryCollection.update(
+            existing.id,
+            { metadata: { password: value.password } },
+            (draft) => {
+              draft.displayName = value.displayName.trim();
+              draft.username = value.username.trim();
+            },
+          )
+        : registryCollection.insert(
+            {
+              id: createId(ID_PREFIX.containerRegistry),
+              displayName: value.displayName.trim(),
+              host: value.host.trim(),
+              username: value.username.trim(),
+              authType: "password",
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+            { metadata: { password: value.password } },
+          );
 
-  const invalidate = () =>
-    queryClient.invalidateQueries({
-      queryKey: orpc.registry.list.queryKey({ input: undefined }),
-    });
-
-  const createMut = useMutation({
-    ...orpc.registry.create.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Registry credential added");
-      void invalidate();
-      onOpenChange(false);
+      setOpen(false);
+      tx.isPersisted.promise
+        .then(() =>
+          toast.success(
+            isEdit ? "Registry credential updated" : "Registry credential added",
+          ),
+        )
+        .catch((err: unknown) =>
+          toast.error(
+            err instanceof Error ? err.message : "Failed to save registry",
+          ),
+        );
     },
-    onError: (err) => toast.error(err.message ?? "Failed to add registry"),
   });
 
-  const updateMut = useMutation({
-    ...orpc.registry.update.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Registry credential updated");
-      void invalidate();
-      onOpenChange(false);
-    },
-    onError: (err) => toast.error(err.message ?? "Failed to update registry"),
-  });
-
-  const pending = createMut.isPending || updateMut.isPending;
-
-  const onSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (existing) {
-      updateMut.mutate({
-        id: existing.id as never,
-        displayName: displayName.trim(),
-        username: username.trim(),
-        password,
-      });
-    } else {
-      createMut.mutate({
-        displayName: displayName.trim(),
-        host: host.trim(),
-        username: username.trim(),
-        password,
-        authType: "password",
-      });
-    }
+  // Clear the form on close so the next open starts fresh.
+  const setOpen = (next: boolean) => {
+    if (!next) form.reset();
+    onOpenChange(next);
   };
 
-  const isEdit = existing !== null;
-  const canSubmit =
-    displayName.trim().length > 0 &&
-    host.trim().length > 0 &&
-    username.trim().length > 0 &&
-    (isEdit || password.length > 0);
-
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
             {isEdit ? "Edit registry credential" : "Add registry credential"}
           </DialogTitle>
         </DialogHeader>
-        <RegistryFormFields
-          displayName={displayName}
-          host={host}
-          username={username}
-          password={password}
-          isEdit={isEdit}
-          onDisplayNameChange={setDisplayName}
-          onHostChange={setHost}
-          onUsernameChange={setUsername}
-          onPasswordChange={setPassword}
-          onSubmit={onSubmit}
-          onCancel={() => onOpenChange(false)}
-          canSubmit={canSubmit}
-          pending={pending}
-        />
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void form.handleSubmit();
+          }}
+          className="flex flex-col gap-3"
+          noValidate
+        >
+          <RegistryFormBody form={form} isEdit={isEdit} onCancel={() => setOpen(false)} />
+        </form>
       </DialogContent>
     </Dialog>
   );
 }
 
-interface FormFieldsProps {
-  displayName: string;
-  host: string;
-  username: string;
-  password: string;
+/** Field set + footer for the registry dialog — split out to keep the
+ * dialog component under the per-function line budget. */
+function RegistryFormBody({
+  form,
+  isEdit,
+  onCancel,
+}: {
+  form: RegistryForm;
   isEdit: boolean;
-  onDisplayNameChange: (v: string) => void;
-  onHostChange: (v: string) => void;
-  onUsernameChange: (v: string) => void;
-  onPasswordChange: (v: string) => void;
-  onSubmit: (e: React.FormEvent) => void;
   onCancel: () => void;
-  canSubmit: boolean;
-  pending: boolean;
-}
-
-function RegistryFormFields(props: FormFieldsProps) {
+}) {
   return (
-    <form onSubmit={props.onSubmit} className="flex flex-col gap-3">
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="reg-display">Display name</Label>
-        <Input
-          id="reg-display"
-          value={props.displayName}
-          onChange={(e) => props.onDisplayNameChange(e.target.value)}
-          placeholder="GHCR (ci-bot)"
-          autoFocus
-        />
-      </div>
-
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="reg-host">Registry host</Label>
-        <Input
-          id="reg-host"
-          value={props.host}
-          onChange={(e) => props.onHostChange(e.target.value)}
-          placeholder="ghcr.io"
-          disabled={props.isEdit}
-          className="font-mono"
-        />
-        {!props.isEdit && (
-          <div className="flex flex-wrap gap-1.5">
-            {HOST_PRESETS.map((h) => (
-              <button
-                key={h.value}
-                type="button"
-                title={h.label}
-                onClick={() => props.onHostChange(h.value)}
-                className={cn(
-                  "rounded-md border px-2 py-1 font-mono text-[11px] transition-colors",
-                  props.host === h.value
-                    ? "border-foreground bg-accent text-foreground"
-                    : "border-border text-muted-foreground hover:bg-muted/40 hover:text-foreground",
-                )}
-              >
-                {h.value}
-              </button>
-            ))}
-          </div>
+    <>
+      <form.Field name="displayName">
+        {(field) => (
+          <FieldShell label="Display name" htmlFor="reg-display">
+            <Input
+              id="reg-display"
+              value={field.state.value}
+              onChange={(e) => field.handleChange(e.target.value)}
+              placeholder="GHCR (ci-bot)"
+              autoFocus
+            />
+          </FieldShell>
         )}
-        {props.isEdit && (
-          <p className="text-[11px] text-muted-foreground">
-            Host is locked. To use a different one, delete this credential
-            and add a new one.
-          </p>
+      </form.Field>
+
+      <form.Field name="host">
+        {(field) => (
+          <HostField
+            value={field.state.value}
+            onChange={field.handleChange}
+            isEdit={isEdit}
+          />
         )}
-      </div>
+      </form.Field>
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="reg-username">Username</Label>
-        <Input
-          id="reg-username"
-          value={props.username}
-          onChange={(e) => props.onUsernameChange(e.target.value)}
-          placeholder="ci-bot"
-          autoComplete="off"
-        />
-      </div>
+      <form.Field name="username">
+        {(field) => (
+          <FieldShell label="Username" htmlFor="reg-username">
+            <Input
+              id="reg-username"
+              value={field.state.value}
+              onChange={(e) => field.handleChange(e.target.value)}
+              placeholder="ci-bot"
+              autoComplete="off"
+            />
+          </FieldShell>
+        )}
+      </form.Field>
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="reg-password">
-          {props.isEdit ? "New password / token (optional)" : "Password / token"}
-        </Label>
-        <Input
-          id="reg-password"
-          type="password"
-          value={props.password}
-          onChange={(e) => props.onPasswordChange(e.target.value)}
-          placeholder={props.isEdit ? "Leave blank to keep current" : ""}
-          autoComplete="new-password"
-        />
-        <p className="text-[11px] text-muted-foreground">
-          Stored encrypted (AES-GCM, key derived from the auth secret).
-        </p>
-      </div>
+      <form.Field name="password">
+        {(field) => (
+          <FieldShell
+            label={isEdit ? "New password / token (optional)" : "Password / token"}
+            htmlFor="reg-password"
+          >
+            <Input
+              id="reg-password"
+              type="password"
+              value={field.state.value}
+              onChange={(e) => field.handleChange(e.target.value)}
+              placeholder={isEdit ? "Leave blank to keep current" : ""}
+              autoComplete="new-password"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Stored encrypted (AES-GCM, key derived from the auth secret).
+            </p>
+          </FieldShell>
+        )}
+      </form.Field>
 
       <DialogFooter className="mt-2">
-        <Button
-          size="sm"
-          variant="outline"
-          type="button"
-          onClick={props.onCancel}
-          disabled={props.pending}
-        >
+        <Button size="sm" variant="outline" type="button" onClick={onCancel}>
           Cancel
         </Button>
-        <Button size="sm" type="submit" disabled={!props.canSubmit || props.pending}>
-          {props.pending ? "Saving…" : props.isEdit ? "Save changes" : "Add registry"}
-        </Button>
+        <form.Subscribe
+          selector={(s) => ({
+            displayName: s.values.displayName,
+            host: s.values.host,
+            username: s.values.username,
+            password: s.values.password,
+          })}
+        >
+          {(v) => {
+            const canSubmit =
+              v.displayName.trim().length > 0 &&
+              v.host.trim().length > 0 &&
+              v.username.trim().length > 0 &&
+              (isEdit || v.password.length > 0);
+            return (
+              <Button size="sm" type="submit" disabled={!canSubmit}>
+                {isEdit ? "Save changes" : "Add registry"}
+              </Button>
+            );
+          }}
+        </form.Subscribe>
       </DialogFooter>
-    </form>
+    </>
   );
 }

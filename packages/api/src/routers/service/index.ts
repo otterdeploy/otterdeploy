@@ -1,11 +1,20 @@
+import type { ProxyRouteId } from "@otterdeploy/shared/id";
 import { matchError } from "better-result";
 import { createError } from "evlog";
 
-import { orgScopedProcedure } from "../..";
+import { projectScopedProcedure } from "../..";
 
 import { enqueueGitBuild } from "../project/manifest-apply";
 
 import { loadResource } from "./context";
+import {
+  addServiceDomain,
+  listServiceDomains,
+  recheckServiceDomain,
+  removeServiceDomain,
+  setPrimaryServiceDomain,
+  updateServiceDomain,
+} from "./domains";
 import type { ResolveError } from "./errors";
 import {
   bulkSetEnv,
@@ -34,7 +43,7 @@ const refToServerError = (e: ResolveError) =>
   });
 
 export const serviceRouter = {
-  list: orgScopedProcedure.service.list.handler(async ({ input, context, errors }) => {
+  list: projectScopedProcedure.service.list.handler(async ({ input, context, errors }) => {
     const result = await listServices({
       projectId: input.projectId,
       organizationId: context.activeOrganizationId,
@@ -47,7 +56,7 @@ export const serviceRouter = {
     return result.value;
   }),
 
-  get: orgScopedProcedure.service.get.handler(async ({ input, context, errors }) => {
+  get: projectScopedProcedure.service.get.handler(async ({ input, context, errors }) => {
     context.log.set({
       target: { type: "resource", id: input.resourceId, projectId: input.projectId },
     });
@@ -65,7 +74,7 @@ export const serviceRouter = {
     return result.value;
   }),
 
-  create: orgScopedProcedure.service.create.handler(async ({ input, context, errors }) => {
+  create: projectScopedProcedure.service.create.handler(async ({ input, context, errors }) => {
     context.log.set({
       target: { type: "resource", kind: "service", projectId: input.projectId },
     });
@@ -99,7 +108,7 @@ export const serviceRouter = {
     return result.value;
   }),
 
-  update: orgScopedProcedure.service.update.handler(async ({ input, context, errors }) => {
+  update: projectScopedProcedure.service.update.handler(async ({ input, context, errors }) => {
     context.log.set({
       target: { type: "resource", id: input.resourceId, projectId: input.projectId },
     });
@@ -125,7 +134,7 @@ export const serviceRouter = {
     return result.value;
   }),
 
-  delete: orgScopedProcedure.service.delete.handler(async ({ input, context, errors }) => {
+  delete: projectScopedProcedure.service.delete.handler(async ({ input, context, errors }) => {
     context.log.set({
       target: { type: "resource", id: input.resourceId, projectId: input.projectId },
     });
@@ -147,7 +156,7 @@ export const serviceRouter = {
     return result.value;
   }),
 
-  restart: orgScopedProcedure.service.restart.handler(async ({ input, context, errors }) => {
+  restart: projectScopedProcedure.service.restart.handler(async ({ input, context, errors }) => {
     context.log.set({
       target: { type: "resource", id: input.resourceId, projectId: input.projectId },
     });
@@ -174,7 +183,7 @@ export const serviceRouter = {
     return result.value;
   }),
 
-  build: orgScopedProcedure.service.build.handler(async ({ input, context, errors }) => {
+  build: projectScopedProcedure.service.build.handler(async ({ input, context, errors }) => {
     context.log.set({
       target: { type: "resource", id: input.resourceId, projectId: input.projectId },
     });
@@ -211,7 +220,7 @@ export const serviceRouter = {
     return { deploymentId: enqueued.value.deploymentId };
   }),
 
-  expose: orgScopedProcedure.service.expose.handler(async ({ input, context, errors }) => {
+  expose: projectScopedProcedure.service.expose.handler(async ({ input, context, errors }) => {
     context.log.set({
       target: { type: "resource", id: input.resourceId, projectId: input.projectId },
     });
@@ -233,7 +242,7 @@ export const serviceRouter = {
     return result.value;
   }),
 
-  unexpose: orgScopedProcedure.service.unexpose.handler(async ({ input, context, errors }) => {
+  unexpose: projectScopedProcedure.service.unexpose.handler(async ({ input, context, errors }) => {
     context.log.set({
       target: { type: "resource", id: input.resourceId, projectId: input.projectId },
     });
@@ -255,7 +264,7 @@ export const serviceRouter = {
   }),
 
   env: {
-    list: orgScopedProcedure.service.env.list.handler(async ({ input, context, errors }) => {
+    list: projectScopedProcedure.service.env.list.handler(async ({ input, context, errors }) => {
       context.log.set({
         target: { type: "resource", id: input.resourceId, projectId: input.projectId },
       });
@@ -273,7 +282,7 @@ export const serviceRouter = {
       return result.value;
     }),
 
-    set: orgScopedProcedure.service.env.set.handler(async ({ input, context, errors }) => {
+    set: projectScopedProcedure.service.env.set.handler(async ({ input, context, errors }) => {
       context.log.set({
         target: { type: "resource", id: input.resourceId, projectId: input.projectId },
       });
@@ -299,7 +308,7 @@ export const serviceRouter = {
       return result.value;
     }),
 
-    unset: orgScopedProcedure.service.env.unset.handler(async ({ input, context, errors }) => {
+    unset: projectScopedProcedure.service.env.unset.handler(async ({ input, context, errors }) => {
       context.log.set({
         target: { type: "resource", id: input.resourceId, projectId: input.projectId },
       });
@@ -325,7 +334,7 @@ export const serviceRouter = {
       return result.value;
     }),
 
-    bulkSet: orgScopedProcedure.service.env.bulkSet.handler(
+    bulkSet: projectScopedProcedure.service.env.bulkSet.handler(
       async ({ input, context, errors }) => {
         context.log.set({
           target: { type: "resource", id: input.resourceId, projectId: input.projectId },
@@ -347,6 +356,156 @@ export const serviceRouter = {
             RefCycleError: () => errors.REF_CYCLE(),
             RefParseError: () => errors.INVALID_INPUT(),
             RefUnknownVarError: () => errors.INVALID_INPUT(),
+          });
+        }
+        return result.value;
+      },
+    ),
+  },
+
+  domains: {
+    list: projectScopedProcedure.service.domains.list.handler(
+      async ({ input, context, errors }) => {
+        context.log.set({
+          target: { type: "resource", id: input.resourceId, projectId: input.projectId },
+        });
+        const result = await listServiceDomains({
+          projectId: input.projectId,
+          resourceId: input.resourceId,
+          organizationId: context.activeOrganizationId,
+        });
+        if (result.isErr()) {
+          throw matchError(result.error, {
+            ProjectNotFoundError: () => errors.NOT_FOUND(),
+            ServiceNotFoundError: () => errors.NOT_FOUND(),
+          });
+        }
+        return result.value;
+      },
+    ),
+
+    add: projectScopedProcedure.service.domains.add.handler(
+      async ({ input, context, errors }) => {
+        context.log.set({
+          target: { type: "resource", id: input.resourceId, projectId: input.projectId },
+        });
+        const result = await addServiceDomain(
+          {
+            projectId: input.projectId,
+            resourceId: input.resourceId,
+            organizationId: context.activeOrganizationId,
+            domain: input.domain,
+          },
+          context.log,
+        );
+        if (result.isErr()) {
+          throw matchError(result.error, {
+            ProjectNotFoundError: () => errors.NOT_FOUND(),
+            ServiceNotFoundError: () => errors.NOT_FOUND(),
+            NoHttpPortError: () => errors.NO_HTTP_PORT(),
+            DomainConflictError: () => errors.DOMAIN_CONFLICT(),
+          });
+        }
+        return result.value;
+      },
+    ),
+
+    update: projectScopedProcedure.service.domains.update.handler(
+      async ({ input, context, errors }) => {
+        context.log.set({
+          target: { type: "resource", id: input.resourceId, projectId: input.projectId },
+        });
+        const result = await updateServiceDomain(
+          {
+            projectId: input.projectId,
+            resourceId: input.resourceId,
+            organizationId: context.activeOrganizationId,
+            routeId: input.routeId as ProxyRouteId,
+            domain: input.domain,
+          },
+          context.log,
+        );
+        if (result.isErr()) {
+          throw matchError(result.error, {
+            ProjectNotFoundError: () => errors.NOT_FOUND(),
+            ServiceNotFoundError: () => errors.NOT_FOUND(),
+            DomainNotFoundError: () => errors.DOMAIN_NOT_FOUND(),
+            DomainConflictError: () => errors.DOMAIN_CONFLICT(),
+          });
+        }
+        return result.value;
+      },
+    ),
+
+    recheck: projectScopedProcedure.service.domains.recheck.handler(
+      async ({ input, context, errors }) => {
+        context.log.set({
+          target: { type: "resource", id: input.resourceId, projectId: input.projectId },
+        });
+        const result = await recheckServiceDomain(
+          {
+            projectId: input.projectId,
+            resourceId: input.resourceId,
+            organizationId: context.activeOrganizationId,
+            routeId: input.routeId as ProxyRouteId,
+          },
+          context.log,
+        );
+        if (result.isErr()) {
+          throw matchError(result.error, {
+            ProjectNotFoundError: () => errors.NOT_FOUND(),
+            ServiceNotFoundError: () => errors.NOT_FOUND(),
+            DomainNotFoundError: () => errors.DOMAIN_NOT_FOUND(),
+          });
+        }
+        return result.value;
+      },
+    ),
+
+    setPrimary: projectScopedProcedure.service.domains.setPrimary.handler(
+      async ({ input, context, errors }) => {
+        context.log.set({
+          target: { type: "resource", id: input.resourceId, projectId: input.projectId },
+        });
+        const result = await setPrimaryServiceDomain(
+          {
+            projectId: input.projectId,
+            resourceId: input.resourceId,
+            organizationId: context.activeOrganizationId,
+            routeId: input.routeId as ProxyRouteId,
+          },
+          context.log,
+        );
+        if (result.isErr()) {
+          throw matchError(result.error, {
+            ProjectNotFoundError: () => errors.NOT_FOUND(),
+            ServiceNotFoundError: () => errors.NOT_FOUND(),
+            DomainNotFoundError: () => errors.DOMAIN_NOT_FOUND(),
+          });
+        }
+        return result.value;
+      },
+    ),
+
+    remove: projectScopedProcedure.service.domains.remove.handler(
+      async ({ input, context, errors }) => {
+        context.log.set({
+          target: { type: "resource", id: input.resourceId, projectId: input.projectId },
+        });
+        const result = await removeServiceDomain(
+          {
+            projectId: input.projectId,
+            resourceId: input.resourceId,
+            organizationId: context.activeOrganizationId,
+            routeId: input.routeId as ProxyRouteId,
+          },
+          context.log,
+        );
+        if (result.isErr()) {
+          throw matchError(result.error, {
+            ProjectNotFoundError: () => errors.NOT_FOUND(),
+            ServiceNotFoundError: () => errors.NOT_FOUND(),
+            DomainNotFoundError: () => errors.DOMAIN_NOT_FOUND(),
           });
         }
         return result.value;

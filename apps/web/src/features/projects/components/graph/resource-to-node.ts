@@ -67,7 +67,12 @@ export function resourceToNode(r: ProjectResource): ResourceFlowNode {
   switch (r.type) {
     case "database":
       return {
-        id: r.resourceId,
+        // Identity is `${type}:${name}`, NOT the resourceId. A staged-create
+        // ghost shares this id, so when Apply lands the real resource the node
+        // updates in place instead of unmounting (old id) + remounting (new
+        // resourceId) — which is what made nodes "disappear and reappear". The
+        // real resourceId rides on data for navigation/actions.
+        id: `database:${r.name}`,
         type: "resource",
         // Dagre will overwrite these — keep at origin so an un-laid-out node
         // is still mountable (useful in tests).
@@ -76,13 +81,15 @@ export function resourceToNode(r: ProjectResource): ResourceFlowNode {
           kind: "database",
           name: r.name,
           description: `${r.engine} database`,
+          projectId: r.projectId,
+          resourceId: r.resourceId,
           engine: r.engine,
           status: databaseStatus(r.runtime),
         },
       };
     case "service":
       return {
-        id: r.resourceId,
+        id: `service:${r.name}`,
         type: "resource",
         position: { x: 0, y: 0 },
         data: {
@@ -91,6 +98,8 @@ export function resourceToNode(r: ProjectResource): ResourceFlowNode {
           // Until services carry a description field, the image string is the
           // most informative single line we can show.
           description: r.image,
+          projectId: r.projectId,
+          resourceId: r.resourceId,
           tech: { label: r.image },
           // Brand logo for the header tile. Detected at build time and stored
           // on the resource — read straight off the record, no git-API call.

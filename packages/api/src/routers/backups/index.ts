@@ -2,6 +2,12 @@ import { matchError } from "better-result";
 
 import { orgScopedProcedure, requirePermission } from "../..";
 import {
+  enforceBackupScope,
+  enforceProjectScope,
+  enforceResourceScope,
+  enforceScheduleScope,
+} from "../../authz/project-scope-guards";
+import {
   createBackupRun,
   executeBackup,
   getDatabaseResourceInOrg,
@@ -9,10 +15,14 @@ import {
   restoreBackup,
 } from "../../backups";
 import {
+  getScheduleRunTarget,
+  resolveScheduleSources,
+} from "../../backups/schedule-db";
+import {
   createScheduleRecord,
   deleteScheduleRecord,
   updateScheduleRecord,
-} from "../../backups/schedule-db";
+} from "../../backups/schedule-crud";
 
 import {
   createDestination,
@@ -62,6 +72,7 @@ export const backupsRouter = {
   // Manual "backup now" — RBAC: backup:run.
   run: requirePermission({ backup: ["run"] }).backups.run.handler(
     async ({ input, context, errors }) => {
+      await enforceResourceScope(context, input.resourceId);
       const dbResource = await getDatabaseResourceInOrg({
         organizationId: context.activeOrganizationId,
         resourceId: input.resourceId,
@@ -86,6 +97,7 @@ export const backupsRouter = {
   restore: requirePermission({ backup: ["restore"] }).backups.restore.handler(
     async ({ input, context, errors }) => {
       context.log.set({ target: { type: "backup", id: input.id } });
+      await enforceBackupScope(context, input.id);
       // Scope check: the backup must belong to the caller's org.
       const found = await getBackup({
         id: input.id,
@@ -108,6 +120,7 @@ export const backupsRouter = {
 
   logs: orgScopedProcedure.backups.logs.handler(
     async ({ input, context }) => {
+      await enforceBackupScope(context, input.id);
       // Scope check: a backup in another org (or none) yields an empty stream.
       const found = await getBackup({
         id: input.id,
@@ -130,6 +143,7 @@ export const backupsRouter = {
 
     create: requirePermission({ backup: ["create"] }).backups.schedules.create.handler(
       async ({ input, context }) => {
+        await enforceProjectScope(context, input.projectId);
         const row = await createScheduleRecord({
           organizationId: context.activeOrganizationId,
           name: input.name,
@@ -138,7 +152,12 @@ export const backupsRouter = {
           destinationId: input.destinationId,
           projectId: input.projectId ?? null,
           keepDaily: input.keepDaily,
+          keepWeekly: input.keepWeekly,
+          keepMonthly: input.keepMonthly,
+          keepYearly: input.keepYearly,
           retentionDays: input.retentionDays,
+          maxStorageGb: input.maxStorageGb,
+          preHook: input.preHook,
           encryption: input.encryption,
           enabled: input.enabled,
         });
@@ -150,6 +169,7 @@ export const backupsRouter = {
     update: requirePermission({ backup: ["update"] }).backups.schedules.update.handler(
       async ({ input, context, errors }) => {
         context.log.set({ target: { type: "backup_schedule", id: input.id } });
+        await enforceScheduleScope(context, input.id);
         const row = await updateScheduleRecord({
           organizationId: context.activeOrganizationId,
           id: input.id,
@@ -157,7 +177,12 @@ export const backupsRouter = {
           sources: input.sources,
           cron: input.cron,
           keepDaily: input.keepDaily,
+          keepWeekly: input.keepWeekly,
+          keepMonthly: input.keepMonthly,
+          keepYearly: input.keepYearly,
           retentionDays: input.retentionDays,
+          maxStorageGb: input.maxStorageGb,
+          preHook: input.preHook,
           enabled: input.enabled,
         });
         if (!row) throw errors.NOT_FOUND();
@@ -165,9 +190,43 @@ export const backupsRouter = {
       },
     ),
 
+    // Manual trigger — enqueue + execute a run for each of the schedule's
+    // database sources now. RBAC: backup:run.
+    run: requirePermission({ backup: ["run"] }).backups.schedules.run.handler(
+      async ({ input, context, errors }) => {
+        context.log.set({ target: { type: "backup_schedule", id: input.id } });
+        await enforceScheduleScope(context, input.id);
+        const schedule = await getScheduleRunTarget({
+          organizationId: context.activeOrganizationId,
+          id: input.id,
+        });
+        if (!schedule) throw errors.NOT_FOUND();
+
+        const resourceIds = await resolveScheduleSources(
+          context.activeOrganizationId,
+          schedule.sources,
+        );
+        for (const resourceId of resourceIds) {
+          const id = await createBackupRun({
+            organizationId: context.activeOrganizationId,
+            resourceId,
+            destinationId: schedule.destinationId,
+            scheduleId: schedule.id,
+            encryption:
+              schedule.encryption === "aes-256-gcm" ? "aes-256-gcm" : "none",
+            method: "manual-schedule",
+          });
+          // Run detached — status + logs observable via get/logs.
+          void executeBackup(id);
+        }
+        return { queued: resourceIds.length };
+      },
+    ),
+
     delete: requirePermission({ backup: ["delete"] }).backups.schedules.delete.handler(
       async ({ input, context, errors }) => {
         context.log.set({ target: { type: "backup_schedule", id: input.id } });
+        await enforceScheduleScope(context, input.id);
         const ok = await deleteScheduleRecord({
           organizationId: context.activeOrganizationId,
           id: input.id,

@@ -15,8 +15,12 @@ import type { ProjectNotFoundError } from "../project/errors";
 
 import { reconcile } from "../../caddy";
 import {
+  clearPrimaryForResource,
   deleteProxyRoutesByResource,
   insertProxyRoute,
+  listProxyRoutesByResourceId,
+  setRoutesEnabledForResource,
+  updateProxyRoute,
 } from "../../caddy/queries";
 import { PLATFORM } from "../../constants";
 import { loadDomainSourcesForProject } from "../../lib/domain-sources";
@@ -246,45 +250,85 @@ export async function exposeService(
     return Result.err(new NoHttpPortError({ resourceId: input.resourceId }));
   }
 
-  const projectSlug = sanitizeSlug(project.slug);
-  const resourceSlug = sanitizeSlug(record.resource.name);
-  // Walk the chain (resource override → project → org → sslip). The
-  // per-resource `publicDomain` column on serviceResource is what feeds
-  // resourceOverride — operators who already typed a literal FQDN in
-  // the service settings get it back untouched.
-  const sources = (await loadDomainSourcesForProject(input.projectId)) ?? {
-    resourceOverride: null,
-    projectCustomDomain: null,
-    projectCustomDomainVerifiedAt: null,
-    orgBaseDomain: null,
-    orgBaseDomainVerifiedAt: null,
-    localBaseDomain: null,
-    serverIp: null,
-  };
-  const resolved = resolvePublicDomain(
-    { resourceSlug, projectSlug, kind: "service" },
-    { ...sources, resourceOverride: record.service.publicDomain },
-  );
-  const publicDomain = resolved.fqdn;
+  // A service can carry several hosts (one proxy_route each). Expose no
+  // longer wipes-and-reinserts a single route — that would drop the
+  // operator's custom domains and their guests. It brings already-verified
+  // hosts back live, and guarantees at least one live host by minting the
+  // generated one whenever nothing else is serving.
+  await setRoutesEnabledForResource(input.resourceId, true);
+  for (const r of await listProxyRoutesByResourceId(input.resourceId)) {
+    // Refresh the upstream in case the primary HTTP port moved while the
+    // service was unexposed.
+    if (
+      r.upstreamPort !== primary.containerPort ||
+      r.upstreamHost !== record.service.internalHostname
+    ) {
+      await updateProxyRoute(r.id, {
+        upstreamPort: primary.containerPort,
+        upstreamHost: record.service.internalHostname,
+      });
+    }
+  }
+
+  let routes = await listProxyRoutesByResourceId(input.resourceId);
+  if (!routes.some((r) => r.enabled)) {
+    // Nothing live — either a first expose or every host is still a pending
+    // custom. Mint the generated host so expose actually exposes something.
+    const projectSlug = sanitizeSlug(project.slug);
+    const resourceSlug = sanitizeSlug(record.resource.name);
+    // Walk the chain (resource override → project → org → sslip). The
+    // per-resource `publicDomain` column on serviceResource is what feeds
+    // resourceOverride — operators who already typed a literal FQDN in
+    // the service settings get it back untouched.
+    const sources = (await loadDomainSourcesForProject(input.projectId)) ?? {
+      resourceOverride: null,
+      projectCustomDomain: null,
+      projectCustomDomainVerifiedAt: null,
+      orgBaseDomain: null,
+      orgBaseDomainVerifiedAt: null,
+      localBaseDomain: null,
+      serverIp: null,
+    };
+    const resolved = resolvePublicDomain(
+      { resourceSlug, projectSlug, kind: "service" },
+      { ...sources, resourceOverride: record.service.publicDomain },
+    );
+    await insertProxyRoute({
+      projectId: input.projectId,
+      resourceId: input.resourceId,
+      type: "http",
+      domain: resolved.fqdn,
+      upstreamHost: record.service.internalHostname,
+      upstreamPort: primary.containerPort,
+      protocol: "http",
+      // ACME only when the resolver decided the domain is verified and not
+      // a sslip fallback — same gate as the DB path.
+      usesAcme: resolved.verified && resolved.source !== "sslip-fallback",
+      enabled: true,
+      source: "generated",
+      // Becomes primary only if no other route already claims it.
+      isPrimary: !routes.some((r) => r.isPrimary),
+      // Generated hosts resolve to us by construction (sslip/local/org apex).
+      dnsState: "pointed",
+    });
+    routes = await listProxyRoutesByResourceId(input.resourceId);
+  }
+
+  // Settle the primary on a live host: keep the flagged one if it's live,
+  // else promote any live route (falling back to any route at all).
+  const flagged = routes.find((r) => r.isPrimary && r.enabled);
+  const primaryRoute =
+    flagged ?? routes.find((r) => r.enabled) ?? routes.find((r) => r.isPrimary) ?? routes[0];
+  if (primaryRoute && !primaryRoute.isPrimary) {
+    await clearPrimaryForResource(input.resourceId);
+    await updateProxyRoute(primaryRoute.id, { isPrimary: true });
+  }
+  const publicDomain = primaryRoute?.domain ?? null;
 
   await setPublicExposure({
     resourceId: input.resourceId,
     enabled: true,
     publicDomain,
-  });
-
-  await deleteProxyRoutesByResource(input.resourceId);
-  await insertProxyRoute({
-    projectId: input.projectId,
-    resourceId: input.resourceId,
-    type: "http",
-    domain: publicDomain,
-    upstreamHost: record.service.internalHostname,
-    upstreamPort: primary.containerPort,
-    protocol: "http",
-    // ACME only when the resolver decided the domain is verified and not
-    // a sslip fallback — same gate as the DB path.
-    usesAcme: resolved.verified && resolved.source !== "sslip-fallback",
   });
 
   const reconcileResult = await reconcile(log);
@@ -305,7 +349,10 @@ export async function unexposeService(
   const ctx = await loadResource(input);
   if (ctx.isErr()) return Result.err(ctx.error);
 
-  await deleteProxyRoutesByResource(input.resourceId);
+  // Disable every host without deleting the rows — the operator's custom
+  // domains, their verification, and their guests survive so a later
+  // re-expose brings them straight back.
+  await setRoutesEnabledForResource(input.resourceId, false);
   await setPublicExposure({
     resourceId: input.resourceId,
     enabled: false,

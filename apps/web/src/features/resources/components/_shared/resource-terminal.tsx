@@ -15,12 +15,19 @@
 import { useMemo, useState } from "react";
 import { useLiveQuery } from "@tanstack/react-db";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Maximize01Icon } from "@hugeicons/core-free-icons";
+import { Maximize01Icon, Minimize01Icon } from "@hugeicons/core-free-icons";
 
 import { TerminalSession } from "@/features/terminal/components/terminal-session";
 import { terminalContainersCollection } from "@/features/terminal/data/targets";
 import type { SessionSource } from "@/features/terminal/types";
 import { Button } from "@/shared/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/shared/components/ui/dialog";
+import { cn } from "@/shared/lib/utils";
 
 export type ResourceTerminalMatch =
   | { kind: "service"; resourceId: string }
@@ -64,13 +71,100 @@ export function ResourceTerminal({
   }, [containers, match]);
 
   const [generation, setGeneration] = useState(0);
+  const [expanded, setExpanded] = useState(false);
 
   const headerLabel = target
     ? `sh · ${target.name}${target.replicaSlot ? `.${target.replicaSlot}` : ""}`
     : `sh · ${fallbackLabel}`;
 
+  const session: Extract<SessionSource, { kind: "container" }> | null = target
+    ? {
+        kind: "container",
+        project: projectSlug,
+        service: target.serviceName ?? target.name,
+        replica: target.replicaSlot ?? "1",
+        containerId: target.containerId,
+      }
+    : null;
+
+  // Reconnect / Clear both recycle the underlying WebSocket + PTY by bumping
+  // the generation key — mirrors the original behaviour.
+  const recycle = () => setGeneration((g) => g + 1);
+
   return (
-    <div className="flex flex-col gap-0 overflow-hidden rounded-lg border border-border/40 bg-[oklch(0.12_0_0)]">
+    <>
+      {/* Inline shell. The panel mounts us as a flex child of an
+          `absolute inset-0` flex column with a real height, so `flex-1` fills
+          it — no viewport math, no leftover gap. `flex-1` (not `h-full`)
+          because a percentage height won't resolve against a flex/absolute
+          parent, which leaves xterm unable to measure and stuck at its
+          default ~24-row size. */}
+      <TerminalShell
+        headerLabel={headerLabel}
+        session={session}
+        generation={generation}
+        onReconnect={recycle}
+        expanded={expanded}
+        onToggleExpand={() => setExpanded(true)}
+        boxClassName="min-h-0 flex-1"
+      />
+
+      {/* Fullscreen — a portal overlay, same mechanism the Data tab uses. */}
+      <Dialog open={expanded} onOpenChange={setExpanded}>
+        <DialogContent className="left-0 top-0 flex h-screen w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 sm:max-w-none">
+          <DialogHeader className="sr-only">
+            <DialogTitle>{headerLabel}</DialogTitle>
+          </DialogHeader>
+          <div className="flex min-h-0 flex-1 p-4">
+            <TerminalShell
+              headerLabel={headerLabel}
+              session={session}
+              generation={generation}
+              onReconnect={recycle}
+              expanded={expanded}
+              onToggleExpand={() => setExpanded(false)}
+              boxClassName="min-h-0 flex-1"
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+interface TerminalShellProps {
+  headerLabel: string;
+  session: Extract<SessionSource, { kind: "container" }> | null;
+  generation: number;
+  onReconnect: () => void;
+  expanded: boolean;
+  onToggleExpand: () => void;
+  /** Sizing for the outer box — the height chain lives here, not inside. */
+  boxClassName?: string;
+}
+
+/**
+ * The terminal card itself: header (label + Reconnect/Clear/Fullscreen) over a
+ * `flex-1` body that the xterm `autoResize` ResizeObserver fits into. Rendered
+ * both inline and inside the fullscreen Dialog, so the only thing that varies
+ * is `boxClassName`.
+ */
+function TerminalShell({
+  headerLabel,
+  session,
+  generation,
+  onReconnect,
+  expanded,
+  onToggleExpand,
+  boxClassName,
+}: TerminalShellProps) {
+  return (
+    <div
+      className={cn(
+        "flex flex-col gap-0 overflow-hidden rounded-lg border border-border/40 bg-[oklch(0.12_0_0)]",
+        boxClassName,
+      )}
+    >
       <div className="flex items-center justify-between gap-3 border-b border-border/40 bg-muted/10 px-3 py-2">
         <span className="font-mono text-[11px] text-muted-foreground">
           {headerLabel}
@@ -80,8 +174,8 @@ export function ResourceTerminal({
             variant="outline"
             size="sm"
             className="h-7 text-[11px]"
-            disabled={!target}
-            onClick={() => setGeneration((g) => g + 1)}
+            disabled={!session}
+            onClick={onReconnect}
           >
             Reconnect
           </Button>
@@ -89,33 +183,30 @@ export function ResourceTerminal({
             variant="outline"
             size="sm"
             className="h-7 text-[11px]"
-            disabled={!target}
-            onClick={() => setGeneration((g) => g + 1)}
+            disabled={!session}
+            onClick={onReconnect}
           >
             Clear
           </Button>
-          <Button variant="outline" size="icon-sm" aria-label="Fullscreen">
+          <Button
+            variant="outline"
+            size="icon-sm"
+            aria-label={expanded ? "Exit fullscreen" : "Fullscreen"}
+            onClick={onToggleExpand}
+          >
             <HugeiconsIcon
-              icon={Maximize01Icon}
+              icon={expanded ? Minimize01Icon : Maximize01Icon}
               strokeWidth={2}
               className="size-3.5"
             />
           </Button>
         </div>
       </div>
-      <div className="relative h-[460px]">
-        {target ? (
+      <div className="relative min-h-0 flex-1">
+        {session ? (
           <TerminalSession
-            key={`${target.containerId}:${generation}`}
-            source={
-              {
-                kind: "container",
-                project: projectSlug,
-                service: target.serviceName ?? target.name,
-                replica: target.replicaSlot ?? "1",
-                containerId: target.containerId,
-              } satisfies SessionSource
-            }
+            key={`${session.containerId}:${generation}`}
+            source={session}
             active
           />
         ) : (

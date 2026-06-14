@@ -20,10 +20,12 @@ import type { DeploymentId, OrganizationId, ProjectId, ResourceId } from "@otter
 
 import { Docker } from "@otterdeploy/docker";
 import { Result, TaggedError } from "better-result";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
-import { deployment } from "@otterdeploy/db/schema/project";
+import { deployment, project, resource } from "@otterdeploy/db/schema/project";
+
+import { emitPlatformEvent } from "../../notifications/emit";
 import { PostgresResourceNotFoundError, ProjectNotFoundError } from "./errors";
 import { getProjectInOrg, getProjectRecord } from "./queries";
 import { getResourceById } from "./queries/resource";
@@ -77,7 +79,108 @@ export async function insertDeployment(input: InsertInput): Promise<DeploymentRo
   if (!row) {
     throw new Error("Failed to insert deployment row");
   }
+
+  await emitDeployStarted({
+    deploymentId: row.id,
+    resourceId: input.resourceId,
+    reason: input.reason,
+  });
+
   return row as DeploymentRow;
+}
+
+/** Resolve org + project/resource display names from a resource id, for the
+ *  deploy.* notification emitters. Returns null if the resource is gone. */
+async function resolveDeployContext(resourceId: ResourceId): Promise<{
+  organizationId: OrganizationId;
+  resourceName: string;
+  projectName: string;
+} | null> {
+  const [info] = await db
+    .select({
+      organizationId: project.organizationId,
+      resourceName: resource.name,
+      projectName: project.name,
+    })
+    .from(resource)
+    .innerJoin(project, eq(project.id, resource.projectId))
+    .where(eq(resource.id, resourceId));
+  return info ? { ...info, organizationId: info.organizationId as OrganizationId } : null;
+}
+
+/**
+ * Fan a `deploy.started` event out to subscribed notification channels.
+ * Best-effort — never throws into the deploy path. Call this right after a
+ * deployment row is created, from EVERY path that inserts one: insertDeployment
+ * (databases), manifest-apply (service create/deploy), and handle-push (git
+ * push).
+ */
+export async function emitDeployStarted(input: {
+  deploymentId: DeploymentId;
+  resourceId: ResourceId;
+  reason: string;
+}): Promise<void> {
+  const info = await resolveDeployContext(input.resourceId);
+  if (!info) return;
+  await emitPlatformEvent({
+    organizationId: info.organizationId,
+    eventId: "deploy.started",
+    title: "Deploy started",
+    message: `${info.resourceName} — ${input.reason}`,
+    data: {
+      deploymentId: input.deploymentId,
+      resource: info.resourceName,
+      project: info.projectName,
+    },
+  });
+}
+
+async function emitDeploySucceeded(input: {
+  deploymentId: DeploymentId;
+  resourceId: ResourceId;
+}): Promise<void> {
+  const info = await resolveDeployContext(input.resourceId);
+  if (!info) return;
+  await emitPlatformEvent({
+    organizationId: info.organizationId,
+    eventId: "deploy.succeeded",
+    title: "Deploy succeeded",
+    message: `${info.resourceName} is now running`,
+    data: {
+      deploymentId: input.deploymentId,
+      resource: info.resourceName,
+      project: info.projectName,
+    },
+  });
+}
+
+/**
+ * Persist the building/pending → running flip for deployments whose tasks have
+ * come up, and emit `deploy.succeeded` exactly once per deployment. The
+ * conditional UPDATE (status still building/pending) is the concurrency guard:
+ * only the caller whose update actually changes a row emits, so concurrent
+ * list requests can't double-fire. This is the "success detector" — there is
+ * no background updater; status is reconciled lazily when the list is read.
+ */
+async function reconcileDeploySuccess(
+  deploymentIds: DeploymentId[],
+  resourceId: ResourceId,
+): Promise<void> {
+  for (const id of deploymentIds) {
+    const flipped = await db
+      .update(deployment)
+      .set({ status: "running", completedAt: new Date() })
+      .where(
+        and(
+          eq(deployment.id, id),
+          inArray(deployment.status, ["building", "pending"]),
+        ),
+      )
+      .returning({ id: deployment.id });
+    if (flipped.length > 0) {
+      await emitDeploySucceeded({ deploymentId: id, resourceId });
+    }
+  }
 }
 
 /** Look up a single deployment by id, scoped to a resource. Returns null
@@ -112,6 +215,32 @@ export async function markDeploymentFailed(
       completedAt: new Date(),
     })
     .where(eq(deployment.id, deploymentId));
+
+  // Fan a deploy.failed event out to subscribed notification channels.
+  // Best-effort: emitPlatformEvent never throws into this path.
+  const [info] = await db
+    .select({
+      organizationId: project.organizationId,
+      resourceName: resource.name,
+      projectName: project.name,
+    })
+    .from(deployment)
+    .innerJoin(resource, eq(resource.id, deployment.resourceId))
+    .innerJoin(project, eq(project.id, resource.projectId))
+    .where(eq(deployment.id, deploymentId));
+  if (info) {
+    await emitPlatformEvent({
+      organizationId: info.organizationId as OrganizationId,
+      eventId: "deploy.failed",
+      title: "Deploy failed",
+      message: `${info.resourceName}: ${errorMessage}`,
+      data: {
+        deploymentId,
+        resource: info.resourceName,
+        project: info.projectName,
+      },
+    });
+  }
 }
 
 /** Drop a deployment row. Used by the recovery path in
@@ -323,8 +452,8 @@ export async function listResourceDeployments(
   }
 
   const latestId = rows[0]?.id;
-  return Result.ok(
-    rows.map((row) => {
+  const justSucceeded: DeploymentId[] = [];
+  const result = rows.map((row) => {
       const states = tasksByDeployment.get(row.id) ?? [];
       const status = deriveDeploymentStatus(
         row.status,
@@ -332,6 +461,14 @@ export async function listResourceDeployments(
         states,
         row.createdAt,
       );
+      // A row stored building/pending whose tasks are now running has just
+      // succeeded — flag it for the reconcile + emit below.
+      if (
+        status === "running" &&
+        (row.status === "building" || row.status === "pending")
+      ) {
+        justSucceeded.push(row.id);
+      }
       const failed = states.filter(
         (s) =>
           s === "failed" || s === "rejected" || s === "orphaned" || s === "remove",
@@ -352,8 +489,12 @@ export async function listResourceDeployments(
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
       };
-    }),
-  );
+  });
+
+  if (justSucceeded.length > 0) {
+    await reconcileDeploySuccess(justSucceeded, input.resourceId);
+  }
+  return Result.ok(result);
 }
 
 export class DeploymentNotFoundError extends TaggedError("DeploymentNotFoundError")<{

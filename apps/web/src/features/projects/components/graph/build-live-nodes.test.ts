@@ -16,13 +16,15 @@ describe("buildLiveNodes ghost synthesis", () => {
     const nodes = buildLiveNodes([], noTasks, pending);
     expect(nodes).toHaveLength(2);
 
-    const web = nodes.find((n) => n.id === "pending:service:web");
+    // Ghost shares the id its applied counterpart will get (`${kind}:${name}`)
+    // — not a `pending:`-prefixed synthetic id — so Apply updates in place.
+    const web = nodes.find((n) => n.id === "service:web");
     expect(web).toMatchObject({
       type: "resource",
       data: { kind: "service", name: "web", pending: "create", description: "New service (pending)" },
     });
 
-    const db = nodes.find((n) => n.id === "pending:database:db");
+    const db = nodes.find((n) => n.id === "database:db");
     expect(db).toMatchObject({
       data: { kind: "database", name: "db", pending: "create", description: "New database (pending)" },
     });

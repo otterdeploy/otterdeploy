@@ -184,6 +184,56 @@ export const invitation = pgTable(
   (table) => [index("invitation_organizationId_idx").on(table.organizationId)],
 );
 
+// API keys (better-auth `apiKey` plugin, configured with
+// `references: "organization"` in packages/auth/src/index.ts — so `referenceId`
+// holds an organization id, not a user id). The plugin owns every column here;
+// property keys MUST stay camelCase to match the plugin's model field names
+// (the drizzle adapter maps field name → table property), while DB columns are
+// snake_case to match the rest of the schema. `key` is the hashed token; the
+// plaintext value is returned only once at creation time and never stored.
+export const apikey = pgTable(
+  "apikey",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => createId(ID_PREFIX.apiKey)),
+    // The configuration this key belongs to (the plugin's `configId`). Plain
+    // text, set by the plugin; not a foreign key — configs live in code.
+    configId: text("config_id").notNull(),
+    name: text("name"),
+    // First few characters of the key (incl. prefix) for display in the UI.
+    start: text("start"),
+    prefix: text("prefix"),
+    // Organization id that owns the key (because `references: "organization"`).
+    referenceId: text("reference_id").notNull(),
+    // Hashed key value — never the plaintext.
+    key: text("key").notNull(),
+    refillInterval: integer("refill_interval"),
+    refillAmount: integer("refill_amount"),
+    lastRefillAt: timestamp("last_refill_at"),
+    enabled: boolean("enabled").default(true).notNull(),
+    rateLimitEnabled: boolean("rate_limit_enabled").default(true).notNull(),
+    rateLimitTimeWindow: integer("rate_limit_time_window"),
+    rateLimitMax: integer("rate_limit_max"),
+    requestCount: integer("request_count").default(0).notNull(),
+    remaining: integer("remaining"),
+    lastRequest: timestamp("last_request"),
+    expiresAt: timestamp("expires_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+    // JSON-encoded permissions ({ resource: actions[] }) and arbitrary metadata.
+    permissions: text("permissions"),
+    metadata: text("metadata"),
+  },
+  (table) => [
+    index("apikey_referenceId_idx").on(table.referenceId),
+    index("apikey_key_idx").on(table.key),
+  ],
+);
+
 // `relations()` was removed from drizzle-orm 1.0 in favour of the
 // `defineRelations()` RQB v2 API. None of the exports above were
 // consumed at runtime (better-auth talks to drizzle via plain selects),

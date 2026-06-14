@@ -1,23 +1,19 @@
 /**
  * Event → channel routing grid. Rows are events (with a severity dot),
- * columns are channels; each cell is a Switch that toggles whether that
- * event delivers to that channel. Disconnected channels render disabled.
+ * columns are channels; each cell is a Switch that toggles whether that event
+ * delivers to that channel. Backed by the server subscription matrix; paused /
+ * disconnected channels render disabled.
  */
-
 import { SvglLogo } from "@/shared/components/brand/svgl-logo";
 import { Switch } from "@/shared/components/ui/switch";
 
-import {
-  type Channel,
-  EVENTS,
-  KIND_META,
-  SEVERITY_DOT,
-} from "./shared";
+import { type Channel, EVENTS, KIND_META, SEVERITY_DOT } from "./shared";
 
 interface SubscriptionMatrixProps {
   channels: Channel[];
+  /** channelId → set of subscribed event ids. */
   subs: Record<string, Set<string>>;
-  onToggle: (channelId: string, eventId: string) => void;
+  onToggle: (channelId: string, eventId: string, enabled: boolean) => void;
 }
 
 export function SubscriptionMatrix({
@@ -48,7 +44,11 @@ export function SubscriptionMatrix({
           <span>Severity</span>
           {channels.map((c) => (
             <span key={c.id} className="flex items-center gap-2">
-              <SvglLogo search={KIND_META[c.kind].search} fallback={KIND_META[c.kind].label} size={18} />
+              <SvglLogo
+                search={KIND_META[c.kind].search}
+                fallback={KIND_META[c.kind].label}
+                size={18}
+              />
               <span className="text-[11px] normal-case tracking-normal text-foreground">
                 {KIND_META[c.kind].label}
               </span>
@@ -68,9 +68,7 @@ export function SubscriptionMatrix({
           >
             <span className="text-foreground">{ev.label}</span>
             <span className="flex items-center gap-2">
-              <span
-                className={`size-2 rounded-full ${SEVERITY_DOT[ev.severity]}`}
-              />
+              <span className={`size-2 rounded-full ${SEVERITY_DOT[ev.severity]}`} />
               <span className="font-mono text-[10px] text-muted-foreground">
                 {ev.severity}
               </span>
@@ -84,7 +82,7 @@ export function SubscriptionMatrix({
                     size="sm"
                     checked={on}
                     disabled={disabled}
-                    onCheckedChange={() => onToggle(c.id, ev.id)}
+                    onCheckedChange={(next) => onToggle(c.id, ev.id, next)}
                     aria-label={`${ev.label} → ${KIND_META[c.kind].label}`}
                   />
                 </span>

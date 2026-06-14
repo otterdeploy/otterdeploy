@@ -41,10 +41,10 @@ export const edgeLogQueryInput = z.object({
   /** Restrict to one project's domains; omitted ⇒ all the org's domains. */
   projectId: zId("project").optional(),
   range: timeRange.default("1h"),
-  /** Multi-select method/status filters; empty/omitted ⇒ no filter. */
+  /** Multi-select method/status/host filters; empty/omitted ⇒ no filter. */
   methods: z.array(z.string()).optional(),
   statuses: z.array(statusBucket).optional(),
-  host: z.string().optional(),
+  hosts: z.array(z.string()).optional(),
   search: z.string().optional(),
   limit: z.number().int().positive().max(1000).optional(),
 });

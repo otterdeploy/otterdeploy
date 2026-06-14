@@ -1,20 +1,23 @@
 /**
  * Pending (unaccepted) organization invitations. Owners/admins can cancel
  * one before it's accepted. Hidden entirely when there are none.
+ *
+ * Reads/mutates `invitationsCollection` directly: cancel is an optimistic
+ * `collection.delete`, with rollback/toast off the transaction's
+ * `isPersisted` promise.
  */
 
+import { useState } from "react";
 import { Cancel01Icon, MailAtSign01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { authClient } from "@/lib/auth-client";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { CopyLinkButton } from "@/features/team/components/copy-link-button";
 import {
   acceptInviteUrl,
-  teamKeys,
+  invitationsCollection,
   useInvitations,
   type PendingInvite,
 } from "@/features/team/data/use-team";
@@ -26,8 +29,7 @@ export function PendingInvitations({
   organizationId: string;
   canManage: boolean;
 }) {
-  const invitations = useInvitations(organizationId);
-  const rows = invitations.data ?? [];
+  const { data: rows } = useInvitations(organizationId);
 
   if (rows.length === 0) return null;
 
@@ -36,12 +38,7 @@ export function PendingInvitations({
       <h3 className="text-sm font-semibold">Pending invitations ({rows.length})</h3>
       <div className="flex flex-col divide-y rounded-xl border">
         {rows.map((invite) => (
-          <InviteRow
-            key={invite.id}
-            invite={invite}
-            organizationId={organizationId}
-            canManage={canManage}
-          />
+          <InviteRow key={invite.id} invite={invite} canManage={canManage} />
         ))}
       </div>
     </section>
@@ -50,32 +47,25 @@ export function PendingInvitations({
 
 function InviteRow({
   invite,
-  organizationId,
   canManage,
 }: {
   invite: PendingInvite;
-  organizationId: string;
   canManage: boolean;
 }) {
-  const queryClient = useQueryClient();
-  const cancel = useMutation({
-    mutationFn: async () => {
-      const res = await authClient.organization.cancelInvitation({
-        invitationId: invite.id,
-      });
-      if (res.error) {
-        throw new Error(res.error.message ?? "Failed to cancel invitation");
-      }
-      return res.data;
-    },
-    onSuccess: () => {
-      toast.success(`Invitation to ${invite.email} cancelled`);
-      void queryClient.invalidateQueries({
-        queryKey: teamKeys.invitations(organizationId),
-      });
-    },
-    onError: (err) => toast.error(err.message ?? "Failed to cancel invitation"),
-  });
+  const [busy, setBusy] = useState(false);
+
+  const cancel = () => {
+    setBusy(true);
+    const tx = invitationsCollection.delete(invite.id);
+    tx.isPersisted.promise
+      .then(() => toast.success(`Invitation to ${invite.email} cancelled`))
+      .catch((err: unknown) =>
+        toast.error(
+          err instanceof Error ? err.message : "Failed to cancel invitation",
+        ),
+      )
+      .finally(() => setBusy(false));
+  };
 
   return (
     <div className="flex items-center gap-3 px-4 py-2.5">
@@ -99,8 +89,8 @@ function InviteRow({
           variant="ghost"
           size="icon"
           className="size-7 text-muted-foreground"
-          disabled={cancel.isPending}
-          onClick={() => cancel.mutate()}
+          disabled={busy}
+          onClick={cancel}
           aria-label={`Cancel invitation to ${invite.email}`}
         >
           <HugeiconsIcon icon={Cancel01Icon} strokeWidth={1.8} className="size-3.5" />

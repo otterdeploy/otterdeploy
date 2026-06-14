@@ -1,30 +1,37 @@
 /**
  * Handler input types — kept separate from `handlers.ts` to keep the
- * orchestration file readable. These mirror the zod schemas in
- * `contract.ts` (lossy in the brand types, which the handler boundary
- * casts in).
+ * orchestration file readable.
+ *
+ * The wire shape is the single source of truth: `Create*`/`Update*` are
+ * `z.infer` of the contract schemas, so they can't drift from what oRPC
+ * actually validates (and the branded id fields survive, since the
+ * contract uses `zId`, not a plain `z.string()`). Handlers layer two
+ * things on top of the wire shape via intersection:
+ *   1. `organizationId` — injected server-side from the request context,
+ *      so it's never part of the public input.
+ *   2. internal-caller-only fields (set by the manifest reconciler, not
+ *      exposed on the HTTP contract): `skipBuildBindingCheck`, the extra
+ *      `restart`/`resources` knobs, `preDeploy`, `buildConfig`.
  */
 
 import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import type { BuildConfig } from "@otterdeploy/shared/build-config";
+import type * as z from "zod";
+
+import type { createServiceInput, updateServiceInput } from "./contract";
 
 type OrgId = OrganizationId;
 
+// Supersets of the wire `restart`/`resources` objects — the manifest
+// reconciler sets fields (window, disk/swap/pids) that the public contract
+// doesn't yet expose but the record adapters below still read.
 interface RestartInput {
   condition?: "none" | "on-failure" | "any";
   maxAttempts?: number | null;
   delayMs?: number;
   windowMs?: number | null;
 }
-
-type HealthcheckInput = {
-  cmd?: string[] | null;
-  intervalMs?: number | null;
-  timeoutMs?: number | null;
-  retries?: number | null;
-  startMs?: number | null;
-} | null;
 
 interface ResourcesInput {
   cpuLimit?: number | null;
@@ -41,13 +48,6 @@ interface ResourcesInput {
 // shared `BuildConfig` discriminated union.
 export type BuildConfigInput = BuildConfig;
 
-interface PortInput {
-  containerPort: number;
-  protocol?: "tcp" | "udp";
-  appProtocol?: "http" | "tcp";
-  isPrimary?: boolean;
-}
-
 /** Common (projectId, resourceId) addressing tuple used by most handlers. */
 export interface ResourceRef {
   projectId: ProjectId;
@@ -61,13 +61,9 @@ export interface ProjectRef {
   organizationId: OrgId;
 }
 
-export interface CreateServiceInput {
-  projectId: ProjectId;
+export interface CreateServiceInput
+  extends Omit<z.infer<typeof createServiceInput>, "restart" | "resources"> {
   organizationId: OrgId;
-  name: string;
-  source?: "image" | "git";
-  sourceSubdir?: string | null;
-  image: string;
   /**
    * Skip the up-front git build-binding gate (gitRepoId / containerRegistryId
    * / imageRepository). The manifest reconciler sets this: a git service
@@ -78,29 +74,16 @@ export interface CreateServiceInput {
    * so it keeps failing fast with MISSING_BUILD_BINDING.
    */
   skipBuildBindingCheck?: boolean;
-  command?: string[] | null;
-  entrypoint?: string[] | null;
-  replicas?: number;
-  ports: PortInput[];
-  env?: Array<{ key: string; value: string }>;
   restart?: RestartInput;
-  healthcheck?: HealthcheckInput;
   resources?: ResourcesInput;
   preDeploy?: string[] | null;
   buildConfig?: BuildConfigInput | null;
 }
 
-export interface UpdateServiceInput {
-  projectId: ProjectId;
+export interface UpdateServiceInput
+  extends Omit<z.infer<typeof updateServiceInput>, "restart" | "resources"> {
   organizationId: OrgId;
-  resourceId: ResourceId;
-  image?: string;
-  command?: string[] | null;
-  entrypoint?: string[] | null;
-  replicas?: number;
-  ports?: PortInput[];
   restart?: RestartInput;
-  healthcheck?: HealthcheckInput;
   resources?: ResourcesInput;
   preDeploy?: string[] | null;
   buildConfig?: BuildConfigInput | null;

@@ -124,6 +124,7 @@ export async function setPostgresExtensions(
     await updateSwarmDatabase(
       {
         engine,
+        resourceId: input.resourceId,
         image,
         serviceName: buildContainerName({
           engine,

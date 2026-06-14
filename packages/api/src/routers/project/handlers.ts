@@ -16,6 +16,7 @@ export {
 
 export {
   createPostgresResourceStream,
+  restartDatabaseResource,
   setPostgresPublic,
   setPostgresExtensions,
   setPostgresExtraEnvKey,
@@ -65,6 +66,9 @@ export {
   createDeploymentBypassToken,
   createDeploymentShareLink,
   getProjectCaddyfile,
+  getProjectCustomCaddyConfig,
+  saveProjectCustomCaddyConfig,
+  setProxyRouteDirectives,
   inviteDeploymentGuest,
   listDeploymentGuests,
   listProjectProxyRoutes,

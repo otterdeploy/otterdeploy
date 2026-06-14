@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import { Switch } from "@/shared/components/ui/switch";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
-import { SettingsCard, SettingsRowReadOnly } from "@/features/resources/components/_shared/settings-card";
+import { SettingsCard } from "@/features/resources/components/_shared/settings-card";
 
 export function ServicePublicAccessCard({
   resource,
@@ -83,13 +83,6 @@ export function ServicePublicAccessCard({
           }}
         />
       </div>
-      {resource.publicEnabled && resource.publicDomain && (
-        <SettingsRowReadOnly
-          label="Public endpoint"
-          value={`https://${resource.publicDomain}`}
-          href={`https://${resource.publicDomain}`}
-        />
-      )}
     </SettingsCard>
   );
 }

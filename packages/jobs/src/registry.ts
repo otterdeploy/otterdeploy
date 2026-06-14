@@ -4,6 +4,7 @@ import { deployTriggeredJob } from "./jobs/deploy";
 import { sendEmailJob } from "./jobs/email";
 import { hourlyCleanupJob } from "./jobs/hourly-cleanup";
 import { sendNotificationJob } from "./jobs/notification";
+import { notificationEventJob } from "./jobs/notification-event";
 import { processDataJob } from "./jobs/process-data";
 import { welcomeSequenceJob } from "./jobs/welcome-sequence";
 
@@ -16,6 +17,7 @@ import { welcomeSequenceJob } from "./jobs/welcome-sequence";
 export const jobs = [
   sendEmailJob,
   sendNotificationJob,
+  notificationEventJob,
   processDataJob,
   hourlyCleanupJob,
   dailyReportJob,

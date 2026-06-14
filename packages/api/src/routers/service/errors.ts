@@ -1,5 +1,5 @@
 
-import type { ResourceId } from "@otterdeploy/shared/id";
+import type { ProxyRouteId, ResourceId } from "@otterdeploy/shared/id";
 import { TaggedError } from "better-result";
 
 // ---------------------------------------------------------------------------
@@ -73,6 +73,38 @@ export class MissingProjectBuildBindingError extends TaggedError(
     super({
       missing: args.missing,
       message: `project is missing build binding: ${args.missing.join(", ")}`,
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Custom-domain errors
+// ---------------------------------------------------------------------------
+
+/** A domain the operator tried to add/edit is already routed (globally
+ *  unique across the install). Surfaced as 409. */
+export class DomainConflictError extends TaggedError("DomainConflictError")<{
+  message: string;
+  domain: string;
+}>() {
+  constructor(args: { domain: string }) {
+    super({
+      domain: args.domain,
+      message: `domain "${args.domain}" is already in use`,
+    });
+  }
+}
+
+/** The route the caller named doesn't exist (or belongs to another
+ *  resource/org). Surfaced as 404 — never leaks cross-tenant existence. */
+export class DomainNotFoundError extends TaggedError("DomainNotFoundError")<{
+  message: string;
+  routeId: ProxyRouteId;
+}>() {
+  constructor(args: { routeId: ProxyRouteId }) {
+    super({
+      routeId: args.routeId,
+      message: `domain route ${args.routeId} not found`,
     });
   }
 }

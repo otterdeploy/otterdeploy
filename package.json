@@ -51,6 +51,7 @@
     "typecheck": "turbo typecheck",
     "dev:native": "turbo -F native dev",
     "dev:web": "turbo -F web dev",
+    "dev:www": "turbo -F www dev",
     "dev:server": "turbo -F server dev",
     "db:push": "turbo -F @otterdeploy/db db:push",
     "db:studio": "turbo -F @otterdeploy/db db:studio",

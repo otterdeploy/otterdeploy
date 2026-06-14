@@ -2,9 +2,15 @@
  * A single notification channel row: brand mark, delivery stats, status pill,
  * and inline actions (test / edit / pause-resume / delete). Mirrors the
  * registries card idiom — `rounded-md border bg-card` shell + outline button
- * cluster.
+ * cluster. Stats + status come from the server (live delivery log).
+ *
+ * Delete rides `channelsCollection` (optimistic). Test and pause stay direct
+ * `client.notifications.channels.*` calls: `test` has no row to mutate and
+ * `pause` flips a server-computed status (active ⇆ paused) that isn't a plain
+ * settable field — both refetch the list on success.
  */
 
+import { useState } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Alert02Icon,
@@ -12,12 +18,20 @@ import {
   FlashIcon,
   PencilEdit01Icon,
 } from "@hugeicons/core-free-icons";
+import { toast } from "sonner";
 
 import { SvglLogo } from "@/shared/components/brand/svgl-logo";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
+import { client, orpc, queryClient } from "@/shared/server/orpc";
 
-import { type Channel, type ChannelStatus, KIND_META } from "./shared";
+import { channelsCollection } from "./data/notifications";
+import {
+  type Channel,
+  type ChannelStatus,
+  KIND_META,
+  relativeTime,
+} from "./shared";
 
 function StatusPill({ status }: { status: ChannelStatus }) {
   const meta: Record<ChannelStatus, { label: string; dot: string }> = {
@@ -35,22 +49,56 @@ function StatusPill({ status }: { status: ChannelStatus }) {
   );
 }
 
-interface ChannelCardProps {
-  channel: Channel;
-  onTest: (c: Channel) => void;
-  onEdit: (c: Channel) => void;
-  onPause: (c: Channel) => void;
-  onDelete: (c: Channel) => void;
-}
-
 export function ChannelCard({
   channel,
-  onTest,
   onEdit,
-  onPause,
-  onDelete,
-}: ChannelCardProps) {
+}: {
+  channel: Channel;
+  onEdit: (c: Channel) => void;
+}) {
   const meta = KIND_META[channel.kind];
+  const [busy, setBusy] = useState(false);
+
+  const test = () => {
+    setBusy(true);
+    client.notifications.channels
+      .test({ id: channel.id })
+      .then((res) => toast.success(res.message))
+      .catch((err: unknown) =>
+        toast.error(err instanceof Error ? err.message : "Couldn't send test"),
+      )
+      .finally(() => setBusy(false));
+  };
+
+  const pause = () => {
+    setBusy(true);
+    client.notifications.channels
+      .pause({ id: channel.id })
+      .then(() =>
+        queryClient.invalidateQueries({
+          queryKey: orpc.notifications.channels.list.queryKey(),
+        }),
+      )
+      .catch((err: unknown) =>
+        toast.error(
+          err instanceof Error ? err.message : "Couldn't update channel",
+        ),
+      )
+      .finally(() => setBusy(false));
+  };
+
+  const remove = () => {
+    setBusy(true);
+    channelsCollection
+      .delete(channel.id)
+      .isPersisted.promise.then(() => toast.success("Channel removed"))
+      .catch((err: unknown) =>
+        toast.error(
+          err instanceof Error ? err.message : "Couldn't remove channel",
+        ),
+      )
+      .finally(() => setBusy(false));
+  };
 
   return (
     <div className="rounded-md border bg-card p-3.5">
@@ -66,7 +114,6 @@ export function ChannelCard({
             <span className="text-[11px] text-muted-foreground">
               {channel.transport}
             </span>
-            <div className="flex-1" />
             <StatusPill status={channel.status} />
           </div>
 
@@ -76,15 +123,13 @@ export function ChannelCard({
 
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
             <span>
-              <span className="font-mono text-foreground">
-                {channel.events7d}
-              </span>{" "}
+              <span className="font-mono text-foreground">{channel.events7d}</span>{" "}
               events · 7d
             </span>
             <span>
               last delivery{" "}
               <span className="font-mono text-foreground">
-                {channel.lastDelivery}
+                {relativeTime(channel.lastDelivery)}
               </span>
             </span>
             {channel.note && (
@@ -101,7 +146,7 @@ export function ChannelCard({
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5 self-center">
-          <Button size="sm" variant="outline" onClick={() => onTest(channel)}>
+          <Button size="sm" variant="outline" disabled={busy} onClick={test}>
             <HugeiconsIcon icon={FlashIcon} strokeWidth={2} className="size-3.5" />
             Test
           </Button>
@@ -113,16 +158,27 @@ export function ChannelCard({
             />
             Edit
           </Button>
-          <Button size="sm" variant="outline" onClick={() => onPause(channel)}>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={busy}
+            onClick={pause}
+          >
             {channel.status === "paused" ? "Resume" : "Pause"}
           </Button>
           <Button
             size="sm"
             variant="ghost"
-            onClick={() => onDelete(channel)}
+            disabled={busy}
+            onClick={remove}
             aria-label="Delete channel"
+            className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
           >
-            <HugeiconsIcon icon={Delete01Icon} strokeWidth={2} className="size-3.5" />
+            <HugeiconsIcon
+              icon={Delete01Icon}
+              strokeWidth={2}
+              className="size-3.5"
+            />
           </Button>
         </div>
       </div>

@@ -56,7 +56,7 @@ export function ProjectTabs() {
     if (!node) return;
 
     const update = () => {
-      const active = node.querySelector<HTMLElement>("[data-active]");
+      const active = node.querySelector("[data-active]");
       if (active) {
         setIndicator({ left: active.offsetLeft, width: active.offsetWidth });
       }
@@ -86,7 +86,7 @@ export function ProjectTabs() {
     >
       <div
         ref={listRef}
-        className="relative flex h-10 items-center gap-0.5 overflow-x-auto px-3"
+        className="relative flex h-10 items-center gap-0.5 overflow-x-auto px-3 overflow-y-hidden"
       >
         {tabs.map((tab) => (
           <Link
@@ -104,12 +104,15 @@ export function ProjectTabs() {
               className: "text-foreground font-medium",
             }}
           >
-            {t(tab.titleKey, tab.fallback ? { defaultValue: tab.fallback } : undefined)}
+            {t(
+              tab.titleKey,
+              tab.fallback ? { defaultValue: tab.fallback } : undefined,
+            )}
           </Link>
         ))}
         <span
           aria-hidden
-          className="pointer-events-none absolute bottom-[-1px] h-0.5 rounded-full bg-foreground transition-[left,width] duration-300 ease-out"
+          className="pointer-events-none absolute -bottom-px h-0.5 rounded-full bg-foreground transition-[left,width] duration-300 ease-out"
           style={{ left: indicator.left, width: indicator.width }}
         />
       </div>

@@ -17,9 +17,17 @@ import {
   type Node,
   type NodeProps,
 } from "@xyflow/react";
-import { useRef, useState, type ComponentProps, type SVGProps } from "react";
+import { useMutation } from "@tanstack/react-query";
+import {
+  useRef,
+  useState,
+  type ComponentProps,
+  type CSSProperties,
+  type SVGProps,
+} from "react";
 import { toast } from "sonner";
 
+import { orpc } from "@/shared/server/orpc";
 import { Docker } from "@/shared/components/ui/svgs/docker";
 import { Mariadb } from "@/shared/components/ui/svgs/mariadb";
 import { Mongodb } from "@/shared/components/ui/svgs/mongodb";
@@ -73,6 +81,14 @@ export interface ResourceNodeData extends Record<string, unknown> {
   kind: ResourceKind;
   name: string;
   description: string;
+  /** Owning project id — needed by the node's inline actions (restart) to
+   *  target the right oRPC mutation. */
+  projectId?: string;
+  /** Real resource id. The React-Flow node id is `${kind}:${name}` (stable
+   *  across the staged-create ghost → applied-resource transition), so the
+   *  resourceId the API needs lives here, not in the node id. Absent on ghost
+   *  (pending-create) nodes, which have no resource yet. */
+  resourceId?: string;
   engine?: ResourceEngine;
   /** Detected framework for git-sourced services (next/node/python/…).
    *  When present, the header tile renders the framework's brand SVG
@@ -236,10 +252,53 @@ export function ResourceNode({ id, data, selected }: NodeProps<ResourceFlowNode>
     hideTimer.current = window.setTimeout(() => setIsHovered(false), 150);
   }
 
+  // Restart re-rolls the running container. Databases and services use
+  // different oRPC surfaces; both take { projectId, resourceId } and the node
+  // id is the resource id. Status flips to "building" optimistically — the
+  // live resource collection corrects it once the new task settles.
+  const dbRestart = useMutation({
+    ...orpc.project.resource.database.postgres.restart.mutationOptions(),
+    onSuccess: () =>
+      toast.success(`Restarting ${data.name}…`, {
+        description: "Track progress in the resource's Deployments tab.",
+      }),
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : "Failed to restart"),
+  });
+  const serviceRestart = useMutation({
+    ...orpc.service.restart.mutationOptions(),
+    onSuccess: () =>
+      toast.success(`Restarting ${data.name}…`, {
+        description: "Track progress in the resource's Deployments tab.",
+      }),
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : "Failed to restart"),
+  });
+
+  function restartResource() {
+    if (!data.projectId || !data.resourceId) return;
+    const args = {
+      projectId: data.projectId as never,
+      resourceId: data.resourceId as never,
+    };
+    // updateNodeData keys by the React-Flow node id (`${kind}:${name}`); the
+    // mutation keys by the real resourceId from data — they're not the same.
+    updateNodeData(id, { status: "building" });
+    if (data.kind === "database") dbRestart.mutate(args);
+    else if (data.kind === "service") serviceRestart.mutate(args);
+  }
+
+  const canRestart =
+    (data.kind === "service" || data.kind === "database") &&
+    !!data.projectId &&
+    !!data.resourceId;
+  const restartPending = dbRestart.isPending || serviceRestart.isPending;
+
   const actions: {
     icon: IconType;
     label: string;
     description: string;
+    disabled?: boolean;
     onClick: () => void;
   }[] = [
     {
@@ -251,16 +310,18 @@ export function ResourceNode({ id, data, selected }: NodeProps<ResourceFlowNode>
           description: "Pick a resource to connect to",
         }),
     },
-    {
-      icon: Loading03Icon,
-      label: "Restart",
-      description: "Cycle this resource and re-run its deploy.",
-      onClick: () => {
-        updateNodeData(id, { status: "building" });
-        toast(`Restarting ${data.name}…`);
-        setTimeout(() => updateNodeData(id, { status: "running" }), 1500);
-      },
-    },
+    // Only resources backed by a container can be restarted.
+    ...(canRestart
+      ? [
+          {
+            icon: Loading03Icon,
+            label: "Restart",
+            description: "Cycle this resource and re-run its deploy.",
+            disabled: restartPending,
+            onClick: restartResource,
+          },
+        ]
+      : []),
     {
       icon: PencilEdit01Icon,
       label: "Edit",
@@ -286,12 +347,31 @@ export function ResourceNode({ id, data, selected }: NodeProps<ResourceFlowNode>
           selected && "ring-2 ring-ring/40",
           // Pending markers — visible state for staged manifest changes.
           // Render this on the node itself so the operator sees the diff
-          // without opening the pending-changes bar.
-          data.pending === "create" && "border-dashed border-success/60 opacity-70",
-          data.pending === "delete" && "border-dashed border-destructive/60 opacity-70",
+          // without opening the pending-changes bar. Create/delete both get the
+          // animated comet border (below); delete additionally reads as
+          // disabled (dimmed + not-allowed cursor).
+          data.pending === "delete" && "cursor-not-allowed opacity-80",
           data.pending === "update" && "border-dashed border-info/60",
         )}
       >
+        {/* Comet border — a light travels the edge while this resource has a
+            staged change. Blue for a pending create (new resource), yellow for
+            a pending delete. Decorative: sits above content but never eats
+            clicks (delete nodes are already click-disabled in onNodeClick). */}
+        {data.pending === "create" && (
+          <span
+            aria-hidden
+            className="comet-border z-20 rounded-2xl"
+            style={{ "--comet-color": "var(--info)" } as CSSProperties}
+          />
+        )}
+        {data.pending === "delete" && (
+          <span
+            aria-hidden
+            className="comet-border z-20 rounded-2xl"
+            style={{ "--comet-color": "var(--warning)" } as CSSProperties}
+          />
+        )}
         {/* HEADER */}
         <div className="flex items-start justify-between gap-3.5 px-5 pt-5">
           <div className="flex items-center gap-3.5">
@@ -322,16 +402,17 @@ export function ResourceNode({ id, data, selected }: NodeProps<ResourceFlowNode>
             <span
               className={cn(
                 "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] leading-none font-medium",
-                data.pending === "create" && "bg-success/15 text-success",
-                data.pending === "delete" && "bg-destructive/15 text-destructive",
+                // Match the node's comet border: create = blue, delete = yellow.
+                data.pending === "create" && "bg-info/15 text-info",
+                data.pending === "delete" && "bg-warning/15 text-warning",
                 data.pending === "update" && "bg-info/15 text-info",
               )}
             >
               <span
                 className={cn(
                   "size-1.5 rounded-full",
-                  data.pending === "create" && "bg-success",
-                  data.pending === "delete" && "bg-destructive",
+                  data.pending === "create" && "bg-info",
+                  data.pending === "delete" && "bg-warning",
                   data.pending === "update" && "bg-info",
                 )}
               />
@@ -441,14 +522,19 @@ export function ResourceNode({ id, data, selected }: NodeProps<ResourceFlowNode>
         className="size-2! border-[1.5px]! border-border! bg-card!"
       />
 
-      <NodeToolbar position={Position.Right} offset={16} isVisible={selected || isHovered}>
+      <NodeToolbar
+        position={Position.Right}
+        offset={16}
+        // A resource pending deletion is disabled — no action affordances.
+        isVisible={(selected || isHovered) && data.pending !== "delete"}
+      >
         <TooltipProvider delay={200}>
           <div
             className="flex flex-col gap-0.5 rounded-full border bg-card p-1 shadow-md"
             onMouseEnter={show}
             onMouseLeave={scheduleHide}
           >
-            {actions.map(({ icon, label, description, onClick }) => (
+            {actions.map(({ icon, label, description, onClick, disabled }) => (
               <Tooltip key={label}>
                 <TooltipTrigger
                   render={
@@ -456,9 +542,14 @@ export function ResourceNode({ id, data, selected }: NodeProps<ResourceFlowNode>
                       type="button"
                       aria-label={label}
                       onClick={onClick}
-                      className="grid size-7 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                      disabled={disabled}
+                      className="grid size-7 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
                     >
-                      <HugeiconsIcon icon={icon} strokeWidth={2} className="size-3.5" />
+                      <HugeiconsIcon
+                        icon={icon}
+                        strokeWidth={2}
+                        className={cn("size-3.5", disabled && "animate-spin")}
+                      />
                     </button>
                   }
                 />

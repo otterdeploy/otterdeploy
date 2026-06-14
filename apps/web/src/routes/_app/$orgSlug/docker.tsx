@@ -4,6 +4,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { PageHeader } from "@/shared/components/page";
 import { Badge } from "@/shared/components/ui/badge";
 import { Card } from "@/shared/components/ui/card";
 import {
@@ -88,20 +89,16 @@ function DockerRoute() {
       onValueChange={(v) => setTab(v as Tab)}
       className="flex flex-1 flex-col gap-0"
     >
-      <div className="border-b px-5 pb-0 pt-5">
-        <header className="flex items-end justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Docker</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Raw daemon-level inventory — containers, images, volumes,
-              networks, and swarm tasks outside the project and Stack
-              abstraction.
-            </p>
-          </div>
-          <span className="text-xs text-muted-foreground">
-            {containers.isFetching ? "refreshing…" : null}
-          </span>
-        </header>
+      <div className="border-b px-6 pb-0 pt-6">
+        <PageHeader
+          title="Docker"
+          description="Raw daemon-level inventory — containers, images, volumes, networks, and swarm tasks outside the project and Stack abstraction."
+          actions={
+            <span className="text-xs text-muted-foreground">
+              {containers.isFetching ? "refreshing…" : null}
+            </span>
+          }
+        />
 
         <TabsList variant="line" className="mt-3.5 h-9 justify-start gap-1">
           {tabs.map(([id, label, count]) => (
@@ -120,7 +117,7 @@ function DockerRoute() {
         </TabsList>
       </div>
 
-      <div className="flex-1 overflow-auto p-5">
+      <div className="flex-1 overflow-auto p-6">
         <TabsContent value="containers">
           <ContainersTable query={containers} />
         </TabsContent>
