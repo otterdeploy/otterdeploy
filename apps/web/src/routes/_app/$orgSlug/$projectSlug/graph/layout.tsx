@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   createFileRoute,
   Outlet,
@@ -17,6 +17,7 @@ import {
   useReactFlow,
   type Edge,
   type Node,
+  type NodeChange,
 } from "@xyflow/react";
 
 import { eq } from "@tanstack/db";
@@ -37,7 +38,10 @@ import {
   topologySignature,
   type XY,
 } from "@/features/projects/components/graph/layout-graph";
-import { ResourceNode } from "@/features/projects/components/graph/resource-node";
+import {
+  ResourceNode,
+  type ComposeServiceInfo,
+} from "@/features/projects/components/graph/resource-node";
 import { StackCodePanel } from "@/features/projects/components/stack";
 import { dependenciesCollection } from "@/features/projects/data/dependencies";
 import { resourceCollection } from "@/features/resources/data/resource";
@@ -50,6 +54,33 @@ export const Route = createFileRoute("/_app/$orgSlug/$projectSlug/graph")({
 });
 
 const nodeTypes = { resource: ResourceNode };
+
+/** Map a compose `create` change's parsed `details.services` (set server-side
+ *  by enrichComposeCreates) into the ghost group's member cards. Every service
+ *  reads `pending` — the stack hasn't deployed yet, so nothing is running. */
+function composeGhostServices(
+  details: Record<string, unknown> | undefined,
+): ComposeServiceInfo[] {
+  const raw = details?.services;
+  if (!Array.isArray(raw)) return [];
+  return raw.map((s) => {
+    const svc = s as {
+      name?: unknown;
+      image?: unknown;
+      hasBuild?: unknown;
+      volumes?: unknown;
+    };
+    return {
+      name: typeof svc.name === "string" ? svc.name : "",
+      image: typeof svc.image === "string" ? svc.image : null,
+      hasBuild: svc.hasBuild === true,
+      volumes: Array.isArray(svc.volumes)
+        ? svc.volumes.filter((v): v is string => typeof v === "string")
+        : [],
+      status: "pending" as const,
+    };
+  });
+}
 
 function RouteComponent() {
   // AnimatePresence only sees its DIRECT children — passing <Outlet /> with
@@ -157,7 +188,7 @@ function GraphCanvas() {
     const marker = new Map<string, "update" | "delete">();
     const resourceIdByName = new Map<string, string>();
     for (const r of resources) {
-      if (r.type === "service" || r.type === "database") {
+      if (r.type === "service" || r.type === "database" || r.type === "compose") {
         resourceIdByName.set(`${r.type}:${r.name}`, r.resourceId);
       }
     }
@@ -167,7 +198,15 @@ function GraphCanvas() {
       const key = `${c.resource}:${c.name}`;
       const id = resourceIdByName.get(key);
       if (c.kind === "create" && !id) {
-        creates.push({ resource: c.resource, name: c.name });
+        creates.push({
+          resource: c.resource,
+          name: c.name,
+          // Compose creates carry a parsed service summary (enrichComposeCreates
+          // on the server) so the ghost group renders its member cards.
+          ...(c.resource === "compose"
+            ? { services: composeGhostServices(c.details) }
+            : {}),
+        });
         createKeys.add(key);
       } else if (id && (c.kind === "update" || c.kind === "delete")) {
         // Key by the node id (`${resource}:${name}`), which is what the node
@@ -182,7 +221,7 @@ function GraphCanvas() {
     for (const key of appliedCreates) {
       if (createKeys.has(key) || resourceIdByName.has(key)) continue;
       const sep = key.indexOf(":");
-      const resource = key.slice(0, sep) as "service" | "database";
+      const resource = key.slice(0, sep) as "service" | "database" | "compose";
       const name = key.slice(sep + 1);
       creates.push({ resource, name });
     }
@@ -194,7 +233,8 @@ function GraphCanvas() {
   useEffect(() => {
     if (appliedCreates.size === 0) return;
     for (const r of resources) {
-      if (r.type !== "service" && r.type !== "database") continue;
+      if (r.type !== "service" && r.type !== "database" && r.type !== "compose")
+        continue;
       const key = `${r.type}:${r.name}`;
       if (appliedCreates.has(key)) clearAppliedCreate(project.id, key);
     }
@@ -229,12 +269,73 @@ function GraphCanvas() {
   //      places the new one.
   // Cached positions accumulate across topology changes; mutating a ref during
   // render is React's sanctioned render-cache pattern (idempotent per sig).
+  // Seed from the project's persisted layout so saved positions render on the
+  // first paint and dagre only auto-places nodes that have never been arranged.
   const layoutCache = useRef<{ sig: string; positions: Map<string, XY> }>({
     sig: "",
-    positions: new Map(),
+    positions: new Map(Object.entries(project.graphLayout ?? {})),
   });
 
+  // Operator drag overrides. dagre still computes the initial layout, but once
+  // a node is dragged we honor that placement for the rest of the session,
+  // layering it over dagre's position. React Flow is a controlled graph here
+  // (we own the `nodes` prop), so a drag only sticks if we capture its position
+  // change and feed it back — otherwise the next poll-driven render snaps the
+  // node home. Kept in state so a drag re-renders.
+  const [dragged, setDragged] = useState<Map<string, XY>>(
+    () => new Map(Object.entries(project.graphLayout ?? {})),
+  );
+  // True while a node is actively being dragged. The graph polls every 5s
+  // (diff / resources / tasks) and each poll rebuilds the node list; if one
+  // lands mid-drag it swaps the node set under React Flow and the node you're
+  // holding unmounts then remounts — the fast-drag flicker. While dragging we
+  // freeze the rendered set so no poll can add/remove a node until you drop.
+  const [dragging, setDragging] = useState(false);
+
+  const onNodesChange = useCallback((changes: NodeChange[]) => {
+    setDragged((prev) => {
+      let next = prev;
+      for (const c of changes) {
+        if (c.type === "position" && c.position) {
+          if (next === prev) next = new Map(prev);
+          next.set(c.id, c.position);
+          // Mirror into the layout cache so a later incremental relayout
+          // (on a real topology change) pins from where the operator left it.
+          layoutCache.current.positions.set(c.id, c.position);
+        }
+      }
+      return next;
+    });
+    for (const c of changes) {
+      if (c.type === "position" && typeof c.dragging === "boolean") {
+        setDragging(c.dragging);
+      }
+    }
+  }, []);
+  // Edges stay derived — dagre/data own them, so their change handler is inert.
+  const noopChange = useCallback(() => {}, []);
+
+  // Last node set we handed React Flow. Reused while dragging so a mid-drag
+  // poll can't churn the array (render-cache ref pattern, like layoutCache).
+  const renderedNodesRef = useRef<Node[]>([]);
+
+  // Distinguishes a drag from a click so a drag doesn't open the detail panel.
+  // Set on drag-start, checked in onNodeClick, cleared a frame after drag-stop
+  // (the synthetic click some browsers fire on mouseup runs before that frame,
+  // so it still sees the flag; the next genuine click does not).
+  const didDragRef = useRef(false);
+
   const laidOutNodes = useMemo(() => {
+    if (dragging && renderedNodesRef.current.length > 0) {
+      // Mid-drag: keep the exact node set we last rendered — only move the
+      // node(s) under the cursor. No add/remove, so nothing can flicker out.
+      const out = renderedNodesRef.current.map((n) => {
+        const pos = dragged.get(n.id);
+        return pos ? { ...n, position: pos } : n;
+      });
+      renderedNodesRef.current = out;
+      return out;
+    }
     const sig = topologySignature(liveNodes, liveEdges);
     if (sig !== layoutCache.current.sig) {
       layoutCache.current = {
@@ -247,16 +348,14 @@ function GraphCanvas() {
       };
     }
     const { positions } = layoutCache.current;
-    return liveNodes.map((n) => {
-      const pos = positions.get(n.id);
+    const out = liveNodes.map((n) => {
+      // A dragged position wins over dagre's computed one.
+      const pos = dragged.get(n.id) ?? positions.get(n.id);
       return pos ? { ...n, position: pos } : n;
     });
-  }, [liveNodes, liveEdges]);
-
-  // Fully derived — no internal state, no setNodes-via-useEffect loops with
-  // React Flow's store updater. Selection state is ephemeral.
-  // nodesDraggable={false} + empty change handlers because dagre owns layout.
-  const noopChange = useCallback(() => {}, []);
+    renderedNodesRef.current = out;
+    return out;
+  }, [liveNodes, liveEdges, dragged, dragging]);
 
   // Detect when the resource detail panel closes — fit the whole graph back
   // into view so the user gets the wide overview instead of staying parked
@@ -301,15 +400,44 @@ function GraphCanvas() {
     <ReactFlow
       nodes={laidOutNodes}
       edges={liveEdges}
-      onNodesChange={noopChange}
+      onNodesChange={onNodesChange}
       onEdgesChange={noopChange}
       nodeTypes={nodeTypes}
-      nodesDraggable={false}
+      nodesDraggable
       fitView
       fitViewOptions={{ padding: 0.2 }}
       proOptions={{ hideAttribution: true }}
       defaultEdgeOptions={{ type: "smoothstep" }}
+      onNodeDragStart={() => {
+        didDragRef.current = true;
+        // Drag begins → get the right-hand detail panel out of the way.
+        if (panelOpen) {
+          void navigate({
+            to: "/$orgSlug/$projectSlug/graph",
+            params: { orgSlug, projectSlug },
+          });
+        }
+      }}
+      onNodeDragStop={(_event, node) => {
+        // Clear the drag flag a frame later so the synthetic click that may
+        // follow mouseup still sees it (and doesn't reopen the panel).
+        requestAnimationFrame(() => {
+          didDragRef.current = false;
+        });
+        // Persist the dropped position (shared per-project layout). Merged
+        // server-side, so sending just this node is enough. Best-effort —
+        // the in-memory override already keeps the node placed locally.
+        void orpc.project.saveGraphLayout
+          .call({
+            id: project.id,
+            positions: { [node.id]: { x: node.position.x, y: node.position.y } },
+          })
+          .catch(() => {});
+      }}
       onNodeClick={(_event, node) => {
+        // A drag just ended — don't treat its mouseup as a click that would
+        // reopen the panel.
+        if (didDragRef.current) return;
         // Pending-deletion nodes are disabled — no focus, no navigation.
         if (node.data.pending === "delete") return;
         focusNode(node);

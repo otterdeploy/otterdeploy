@@ -16,16 +16,19 @@
   },
   "scripts": {},
   "dependencies": {
+    "@otterdeploy/db": "workspace:*",
     "@otterdeploy/env": "workspace:*",
     "@react-email/components": "^1.0.12",
     "@react-email/tailwind": "^2.0.7",
+    "drizzle-orm": "catalog:",
     "evlog": "catalog:",
+    "nodemailer": "^8.0.11",
     "react": "catalog:",
-    "react-email": "^6.0.8",
     "resend": "^6.12.2"
   },
   "devDependencies": {
     "@otterdeploy/config": "workspace:*",
+    "@types/nodemailer": "^8.0.1",
     "@types/react": "catalog:",
     "typescript": "catalog:"
   }

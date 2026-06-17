@@ -1,6 +1,11 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 
 import { useFieldContext } from "../form-context";
+import { ReferencePicker } from "@/features/projects/components/variables";
+import {
+  hasOpenRefToken,
+  insertRefToken,
+} from "@/features/resources/components/_shared/ref-token";
 import { Button } from "@/shared/components/ui/button";
 import { Card } from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
@@ -50,10 +55,17 @@ function serializeEnv(vars: Var[]): string {
   return vars.map((v) => `${v.key}=${v.value}`).join("\n");
 }
 
-export function VariablesField() {
+export function VariablesField({ projectId }: { projectId?: string }) {
   const field = useFieldContext<Var[]>();
   const vars = field.state.value;
   const [bulk, setBulk] = useState(false);
+  // Which row's reference picker is open. Opened by typing `${{` (autocomplete)
+  // or clicking the `{ }` button in a value cell.
+  const [pickerRow, setPickerRow] = useState<number | null>(null);
+
+  const setValue = (i: number, value: string) => {
+    field.handleChange(vars.map((x, j) => (j === i ? { ...x, value } : x)));
+  };
 
   if (bulk) {
     return (
@@ -102,65 +114,108 @@ export function VariablesField() {
         </TableHeader>
         <TableBody>
           {vars.map((v, i) => (
-            <TableRow key={i}>
-              <TableCell className="py-2">
-                <Input
-                  type="text"
-                  value={v.key}
-                  placeholder="KEY"
-                  onChange={(e) => {
-                    const next = vars.map((x, j) =>
-                      j === i ? { ...x, key: e.target.value } : x,
-                    );
-                    field.handleChange(next);
-                  }}
-                  className="h-8 font-mono"
-                />
-              </TableCell>
-              <TableCell className="py-2">
-                <Input
-                  type={v.secret ? "password" : "text"}
-                  value={v.value}
-                  placeholder={v.secret ? "••••••••" : "value"}
-                  onChange={(e) => {
-                    const next = vars.map((x, j) =>
-                      j === i ? { ...x, value: e.target.value } : x,
-                    );
-                    field.handleChange(next);
-                  }}
-                  className="h-8 font-mono"
-                />
-              </TableCell>
-              <TableCell className="py-2 text-center">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  title={v.secret ? "Mark as plain" : "Mark as secret"}
-                  onClick={() => {
-                    const next = vars.map((x, j) =>
-                      j === i ? { ...x, secret: !x.secret } : x,
-                    );
-                    field.handleChange(next);
-                  }}
-                  className={v.secret ? "text-foreground" : "text-muted-foreground"}
-                >
-                  <I.lock width={12} height={12} />
-                </Button>
-              </TableCell>
-              <TableCell className="py-2 text-right">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => {
-                    field.handleChange(vars.filter((_, j) => j !== i));
-                  }}
-                >
-                  <I.x width={11} height={11} />
-                </Button>
-              </TableCell>
-            </TableRow>
+            <Fragment key={i}>
+              <TableRow>
+                <TableCell className="py-2">
+                  <Input
+                    type="text"
+                    value={v.key}
+                    placeholder="KEY"
+                    onChange={(e) => {
+                      const next = vars.map((x, j) =>
+                        j === i ? { ...x, key: e.target.value } : x,
+                      );
+                      field.handleChange(next);
+                    }}
+                    className="h-8 font-mono"
+                  />
+                </TableCell>
+                <TableCell className="py-2">
+                  <div className="relative">
+                    <Input
+                      type={v.secret ? "password" : "text"}
+                      value={v.value}
+                      placeholder={v.secret ? "••••••••" : "value"}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setValue(i, val);
+                        // Autocomplete: an unclosed `${{` opens the picker; a
+                        // completed/removed token closes it again.
+                        if (projectId && hasOpenRefToken(val)) setPickerRow(i);
+                        else if (pickerRow === i) setPickerRow(null);
+                      }}
+                      className="h-8 pr-8 font-mono"
+                    />
+                    {projectId && (
+                      <button
+                        type="button"
+                        aria-label="Insert reference"
+                        title="Insert a ${{ resource.KEY }} reference"
+                        onClick={() =>
+                          setPickerRow((cur) => (cur === i ? null : i))
+                        }
+                        className={cn(
+                          "absolute right-1 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded transition-colors",
+                          pickerRow === i
+                            ? "bg-muted text-foreground"
+                            : "text-muted-foreground/70 hover:bg-muted hover:text-foreground",
+                        )}
+                      >
+                        <span className="font-mono text-[10.5px] leading-none">
+                          {"{ }"}
+                        </span>
+                      </button>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell className="py-2 text-center">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    title={v.secret ? "Mark as plain" : "Mark as secret"}
+                    onClick={() => {
+                      const next = vars.map((x, j) =>
+                        j === i ? { ...x, secret: !x.secret } : x,
+                      );
+                      field.handleChange(next);
+                    }}
+                    className={
+                      v.secret ? "text-foreground" : "text-muted-foreground"
+                    }
+                  >
+                    <I.lock width={12} height={12} />
+                  </Button>
+                </TableCell>
+                <TableCell className="py-2 text-right">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => {
+                      field.handleChange(vars.filter((_, j) => j !== i));
+                      if (pickerRow === i) setPickerRow(null);
+                    }}
+                  >
+                    <I.x width={11} height={11} />
+                  </Button>
+                </TableCell>
+              </TableRow>
+              {projectId && pickerRow === i && (
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={4} className="py-0 pb-2">
+                    <ReferencePicker
+                      projectId={projectId}
+                      onPick={(token) => {
+                        setValue(i, insertRefToken(v.value, token));
+                        setPickerRow(null);
+                      }}
+                      onClose={() => setPickerRow(null)}
+                    />
+                  </TableCell>
+                </TableRow>
+              )}
+            </Fragment>
           ))}
         </TableBody>
       </Table>

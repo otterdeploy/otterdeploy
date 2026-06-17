@@ -18,6 +18,12 @@ import { containerRegistryIdField, environmentIdField, gitRepoIdField, projectId
 // `_.data`), so without these overrides the wire shape loses the brand
 // and the React hover ends up showing a plain `string` for ids that
 // should carry their nominal type end-to-end.
+/** Operator-arranged graph layout: node id (`${kind}:${name}`) → {x,y}. */
+const graphLayoutSchema = z.record(
+  z.string(),
+  z.object({ x: z.number(), y: z.number() }),
+);
+
 export const projectSchema = createSelectSchema(project)
   // Manifest payloads are read through `project.manifest.get`, not embedded
   // in every project row — keeps list/get cheap and avoids shipping a
@@ -37,6 +43,9 @@ export const projectSchema = createSelectSchema(project)
     environmentId: environmentIdField.nullable(),
     gitRepoId: gitRepoIdField.nullable(),
     containerRegistryId: containerRegistryIdField.nullable(),
+    // drizzle-zod infers jsonb loosely; pin the wire shape explicitly so the
+    // graph reads a typed `Record<nodeId, {x,y}>`.
+    graphLayout: graphLayoutSchema,
   });
 
 export const projectListItemSchema = projectSchema.extend({
@@ -49,7 +58,7 @@ export const projectListItemSchema = projectSchema.extend({
  * here so the contract carries the wire shape without needing to
  * import from the schema package directly.
  */
-export const nixpacksConfigSchema = z.object({
+const nixpacksConfigSchema = z.object({
   buildCmd: z.string().optional(),
   startCmd: z.string().optional(),
   installCmd: z.string().optional(),
@@ -58,7 +67,7 @@ export const nixpacksConfigSchema = z.object({
   env: z.record(z.string(), z.string()).optional(),
 });
 
-export const createProjectInput = z.object({
+const createProjectInput = z.object({
   /**
    * Optional client-supplied project id. Lets the caller pre-allocate a CUID2
    * so optimistic UI rows match the persisted row (no flicker on refetch).
@@ -75,11 +84,11 @@ export const getProjectInput = z.object({
   id: projectIdField,
 });
 
-export const getProjectBySlugInput = z.object({
+const getProjectBySlugInput = z.object({
   slug: zSlug(ID_PREFIX.project),
 });
 
-export const updateProjectInput = z.object({
+const updateProjectInput = z.object({
   id: projectIdField,
   name: z.string().min(1).optional(),
   slug: z.string().slugify().min(2).max(48).optional(),
@@ -100,8 +109,15 @@ export const updateProjectInput = z.object({
   nixpacksConfig: nixpacksConfigSchema.nullable().optional(),
 });
 
-export const deleteProjectInput = z.object({
+const deleteProjectInput = z.object({
   id: projectIdField,
+});
+
+const saveGraphLayoutInput = z.object({
+  id: projectIdField,
+  // Partial map — only the nodes that moved. Merged into the stored layout
+  // server-side so other nodes' positions are preserved.
+  positions: graphLayoutSchema,
 });
 
 export const projectContractSlice = {
@@ -142,5 +158,10 @@ export const projectContractSlice = {
     .errors(projectNotFoundErrors)
     .meta({ path: `${basePath}/{id}`, tag, method: "DELETE" })
     .input(deleteProjectInput)
+    .output(z.object({ ok: z.boolean() })),
+  saveGraphLayout: oc
+    .errors(projectNotFoundErrors)
+    .meta({ path: `${basePath}/{id}/graph-layout`, tag, method: "PATCH" })
+    .input(saveGraphLayoutInput)
     .output(z.object({ ok: z.boolean() })),
 };

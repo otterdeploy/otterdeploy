@@ -136,6 +136,7 @@ export const relations = defineRelations(schema, (r) => ({
     }),
     database: r.one.databaseResource({ optional: true }),
     service: r.one.serviceResource({ optional: true }),
+    compose: r.one.composeResource({ optional: true }),
     deployments: r.many.deployment(),
     backups: r.many.backup(),
     proxyRoutes: r.many.proxyRoute(),
@@ -143,6 +144,13 @@ export const relations = defineRelations(schema, (r) => ({
   databaseResource: {
     resource: r.one.resource({
       from: r.databaseResource.resourceId,
+      to: r.resource.id,
+      optional: false,
+    }),
+  },
+  composeResource: {
+    resource: r.one.resource({
+      from: r.composeResource.resourceId,
       to: r.resource.id,
       optional: false,
     }),
@@ -294,7 +302,8 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.organization.id,
       optional: false,
     }),
-    schedules: r.many.backupSchedule(),
+    // Schedules reference destinations via a jsonb id array, not an FK, so
+    // there's no relational back-ref to declare here.
     backups: r.many.backup(),
   },
   backupSchedule: {
@@ -308,11 +317,8 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.project.id,
       optional: true,
     }),
-    destination: r.one.backupDestination({
-      from: r.backupSchedule.destinationId,
-      to: r.backupDestination.id,
-      optional: false,
-    }),
+    // No `destination` relation: a schedule fans out to many destinations
+    // (jsonb `destinationIds`), so there's no single FK to relate.
     backups: r.many.backup(),
   },
   backup: {

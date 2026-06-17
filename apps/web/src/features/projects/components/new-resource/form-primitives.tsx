@@ -40,7 +40,7 @@ export function Field({ label, children }: { label: string; children: ReactNode 
   );
 }
 
-export function Switch3({ on, onChange }: { on: boolean; onChange?: (v: boolean) => void }) {
+function Switch3({ on, onChange }: { on: boolean; onChange?: (v: boolean) => void }) {
   const [v, setV] = useState(on);
   return (
     <Switch

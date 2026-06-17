@@ -20,9 +20,9 @@ import {
 const tag = "git";
 const basePath = "/git";
 
-export const gitProviderKindSchema = z.enum(["github"]);
+const gitProviderKindSchema = z.enum(["github"]);
 
-export const gitRepoViewSchema = z.object({
+const gitRepoViewSchema = z.object({
   id: gitRepoIdField,
   fullName: z.string(),
   defaultBranch: z.string(),
@@ -52,18 +52,20 @@ export const gitProviderViewSchema = z.object({
   createdAt: z.date(),
 });
 
-export const listGitProvidersInput = z.void();
+// GET input must be object/any/unknown for the OpenAPI generator; optional
+// empty object keeps "no input" valid.
+const listGitProvidersInput = z.object({}).optional();
 
-export const startConnectInput = z.object({
+const startConnectInput = z.object({
   kind: gitProviderKindSchema,
 });
 
-export const startConnectOutput = z.object({
+const startConnectOutput = z.object({
   /** Absolute URL the operator should be redirected to. */
   redirectUrl: z.string().url(),
 });
 
-export const startManifestInput = z.object({
+const startManifestInput = z.object({
   /** Optional GitHub org login — when set, the manifest form POSTs to
    *  the org's app-creation URL so the operator doesn't have to switch
    *  account context on GitHub. */
@@ -72,66 +74,66 @@ export const startManifestInput = z.object({
   appName: z.string().min(1).optional(),
 });
 
-export const startManifestOutput = z.object({
+const startManifestOutput = z.object({
   /** Where the UI's auto-submitted form should POST. */
   formActionUrl: z.string().url(),
   /** JSON string — the value of the form's "manifest" field. */
   manifestJson: z.string(),
 });
 
-export const disconnectInput = z.object({
+const disconnectInput = z.object({
   installationId: gitInstallationIdField,
 });
 
-export const refreshReposInput = z.object({
+const refreshReposInput = z.object({
   installationId: gitInstallationIdField,
 });
 
-export const refreshReposOutput = z.object({
+const refreshReposOutput = z.object({
   repoCount: z.number().int().min(0),
 });
 
-export const listInstallationReposInput = z.object({
+const listInstallationReposInput = z.object({
   installationId: gitInstallationIdField,
 });
 
-export const connectPublicRepoInput = z.object({
+const connectPublicRepoInput = z.object({
   // Any https:// clone URL — the handler validates + normalizes it.
   // SSH (`git@host:owner/repo.git`) is rejected: we'd need a per-org
   // deploy key to clone, which is its own credentials surface.
   cloneUrl: z.string().min(1),
 });
 
-export const inspectRepoInput = z.object({
+const inspectRepoInput = z.object({
   gitRepoId: gitRepoIdField,
   /** Repo-relative path to list. Empty string = root. */
   path: z.string().default(""),
 });
 
-export const listBranchesInput = z.object({
+const listBranchesInput = z.object({
   gitRepoId: gitRepoIdField,
 });
 
-export const listBranchesOutput = z.object({
+const listBranchesOutput = z.object({
   branches: z.array(z.string()),
   defaultBranch: z.string(),
 });
 
-export const getRepoInput = z.object({
+const getRepoInput = z.object({
   gitRepoId: gitRepoIdField,
 });
 
-export const getRepoOutput = z.object({
+const getRepoOutput = z.object({
   fullName: z.string(),
   defaultBranch: z.string(),
 });
 
-export const inspectEnvInput = z.object({
+const inspectEnvInput = z.object({
   gitRepoId: gitRepoIdField,
   path: z.string().default(""),
 });
 
-export const inspectEnvOutput = z.object({
+const inspectEnvOutput = z.object({
   /** Name of a committed real env file (.env, …), or null. Security flag. */
   committedEnv: z.string().nullable(),
   /** Template file the keys came from (.env.example, …), or null. */
@@ -140,12 +142,12 @@ export const inspectEnvOutput = z.object({
   keys: z.array(z.string()),
 });
 
-export const inspectEntrySchema = z.object({
+const inspectEntrySchema = z.object({
   name: z.string(),
   type: z.enum(["dir", "file"]),
 });
 
-export const frameworkKindSchema = z
+const frameworkKindSchema = z
   .enum([
     "next",
     "nuxt",
@@ -169,7 +171,7 @@ export const frameworkKindSchema = z
   ])
   .nullable();
 
-export const monorepoKindSchema = z
+const monorepoKindSchema = z
   .enum([
     "turbo",
     "nx",
@@ -180,7 +182,7 @@ export const monorepoKindSchema = z
   ])
   .nullable();
 
-export const inspectRepoOutput = z.object({
+const inspectRepoOutput = z.object({
   fullName: z.string(),
   path: z.string(),
   entries: z.array(inspectEntrySchema),

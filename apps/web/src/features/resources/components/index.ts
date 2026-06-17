@@ -8,21 +8,16 @@
  * prop types) live in `_shared/`.
  */
 
-export { PanelIcon, SectionLabel } from "./_shared/atoms";
 export { NotFound } from "./_shared/not-found";
 export {
   StagedResourcePanel,
   type StagedCreate,
 } from "./_shared/staged-panel";
-export { PostgresSettingsBody } from "./postgres/tabs/settings";
-export { PostgresVariablesTabBody } from "./postgres/tabs/variables";
 export { RealResourcePanel } from "./postgres/panel";
-export { ResourceTasksTab } from "./_shared/resource-tasks-tab";
+export type { PostgresBodyProps } from "./postgres/types";
 export { ServiceResourcePanel } from "./service/panel";
-export { ServiceSettingsBody } from "./service/tabs/settings";
-export { ServiceVariablesTabBody } from "./service/tabs/variables";
+export { ComposeResourcePanel } from "./compose/panel";
 export {
   ResourceTerminal,
   type ResourceTerminalMatch,
 } from "./_shared/resource-terminal";
-export { TaskLogsTail } from "./_shared/task-logs-tail";

@@ -14,5 +14,47 @@
     "minOccurrences": 3,
     "ignore": ["apps/web-demo/**"]
   },
-  "rules": {}
+  "rules": {},
+  "ignoreExports": [
+    {
+      "file": "apps/web/src/features/projects/components/new-resource/form-primitives.tsx",
+      "exports": ["*"]
+    },
+    {
+      "file": "apps/web/src/shared/components/ui/field.tsx",
+      "exports": ["*"]
+    },
+    {
+      "file": "apps/web/src/features/projects/components/graph/resource-node.tsx",
+      "exports": ["*"]
+    },
+    {
+      "file": "apps/web/src/features/projects/components/graph/resource-to-node.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "apps/web/src/features/projects/components/framework-logo.tsx",
+      "exports": ["*"]
+    },
+    {
+      "file": "apps/web/src/features/projects/components/new-resource/frameworks.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "apps/cli/src/config-file.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "apps/cli/src/config.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "packages/api/src/routers/backups/contract.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "packages/api/src/routers/notifications/contract.ts",
+      "exports": ["*"]
+    }
+  ]
 }

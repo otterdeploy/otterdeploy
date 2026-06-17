@@ -8,9 +8,12 @@ const orgUpdateProcedure = requirePermission({ organization: ["update"] });
 
 import {
   autoConfigureBaseDomainViaCloudflare,
+  getEmailSettings,
   getOrganizationSettings,
   listZonesForToken,
+  saveEmailSettings,
   saveOrganizationCloudflareConfig,
+  sendTestEmail,
   updateOrganizationBaseDomain,
   verifyOrganizationBaseDomain,
 } from "./handlers";
@@ -109,4 +112,31 @@ export const organizationRouter = {
         return result.value;
       },
     ),
+
+  // ─── Outbound email transport (platform-wide) ─────────────────────
+  getEmailSettings: orgScopedProcedure.organization.getEmailSettings.handler(
+    async () => getEmailSettings(),
+  ),
+
+  setEmailSettings: orgUpdateProcedure.organization.setEmailSettings.handler(
+    async ({ input, context }) => {
+      context.log.set({
+        target: { type: "organization", id: input.organizationId },
+      });
+      return saveEmailSettings({
+        provider: input.provider,
+        from: input.from,
+        resendApiKey: input.resendApiKey,
+        smtpHost: input.smtpHost,
+        smtpPort: input.smtpPort,
+        smtpSecure: input.smtpSecure,
+        smtpUser: input.smtpUser,
+        smtpPassword: input.smtpPassword,
+      });
+    },
+  ),
+
+  testEmail: orgUpdateProcedure.organization.testEmail.handler(
+    async ({ input }) => sendTestEmail(input.to),
+  ),
 };

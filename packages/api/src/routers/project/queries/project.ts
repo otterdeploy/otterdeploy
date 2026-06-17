@@ -30,6 +30,7 @@ export async function listProjectRecordsByOrg(organizationId: OrganizationId) {
       containerRegistryId: project.containerRegistryId,
       imageRepository: project.imageRepository,
       nixpacksConfig: project.nixpacksConfig,
+      graphLayout: project.graphLayout,
       createdAt: project.createdAt,
       updatedAt: project.updatedAt,
       databaseCount: sql<number>`coalesce(sum(case when ${resource.type} = 'database' then 1 else 0 end), 0)::int`,
@@ -136,6 +137,25 @@ export async function updateProjectRecord(input: {
     .set(patch)
     .where(and(eq(project.id, input.projectId), eq(project.organizationId, input.organizationId)))
     .returning();
+  return record;
+}
+
+/** Overwrite the project's whole graph-layout map (callers merge first). */
+export async function setProjectGraphLayout(input: {
+  projectId: ProjectId;
+  organizationId: OrganizationId;
+  graphLayout: Record<string, { x: number; y: number }>;
+}) {
+  const [record] = await db
+    .update(project)
+    .set({ graphLayout: input.graphLayout })
+    .where(
+      and(
+        eq(project.id, input.projectId),
+        eq(project.organizationId, input.organizationId),
+      ),
+    )
+    .returning({ id: project.id });
   return record;
 }
 

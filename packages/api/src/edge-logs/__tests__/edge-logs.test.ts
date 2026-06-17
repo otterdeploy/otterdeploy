@@ -1,5 +1,12 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 
+import { parseCaddyEvent } from "../event-parse";
+import {
+  __resetEdgeEvents,
+  pushEdgeEvent,
+  queryEdgeEvents,
+  subscribeEdgeEvents,
+} from "../event-ring";
 import { parseCaddyAccessLog } from "../parse";
 import {
   __resetEdgeLogs,
@@ -8,7 +15,7 @@ import {
   queryEdgeLogs,
   subscribeEdgeLogs,
 } from "../ring";
-import type { EdgeLogLine } from "../types";
+import type { EdgeEventLine, EdgeLogLine } from "../types";
 
 const caddyEntry = {
   ts: 1_700_000_000.5,
@@ -157,5 +164,141 @@ describe("ring buffer", () => {
     pushEdgeLog(line({ path: "/b" }));
     expect(seen).toHaveLength(1);
     expect(seen[0]!.path).toBe("/a");
+  });
+});
+
+describe("parseCaddyEvent", () => {
+  test("classifies an ACME challenge error (cert, host)", () => {
+    const out = parseCaddyEvent({
+      level: "error",
+      ts: 1_700_000_000,
+      logger: "http",
+      msg: "looking up info for HTTP challenge",
+      host: "www.somnara.de",
+      error: "no information found to solve challenge for identifier: www.somnara.de",
+    })!;
+    expect(out.category).toBe("cert");
+    expect(out.level).toBe("error");
+    expect(out.host).toBe("www.somnara.de");
+    expect(out.error).toContain("no information found");
+  });
+
+  test("keeps cert-management batch (info level) with domains, no host", () => {
+    const out = parseCaddyEvent({
+      level: "info",
+      logger: "http",
+      msg: "enabling automatic TLS certificate management",
+      domains: ["a.example.com", "b.example.com"],
+    })!;
+    expect(out.category).toBe("cert");
+    expect(out.host).toBeNull();
+    expect(out.domains).toEqual(["a.example.com", "b.example.com"]);
+  });
+
+  test("classifies a reverse_proxy error and strips sensitive headers from raw", () => {
+    const out = parseCaddyEvent({
+      level: "error",
+      logger: "http.handlers.reverse_proxy",
+      msg: "aborting with incomplete response",
+      upstream: "10.0.6.7:3000",
+      error: "reading: context canceled",
+      request: {
+        host: "trigger.example.com",
+        headers: { Authorization: ["secret"], Cookie: ["s=1"], "User-Agent": ["node"] },
+      },
+    })!;
+    expect(out.category).toBe("upstream");
+    expect(out.host).toBe("trigger.example.com");
+    expect(out.upstream).toBe("10.0.6.7:3000");
+    expect(out.raw).not.toContain("secret");
+    expect(out.raw).not.toContain("Cookie");
+    expect(out.raw).toContain("User-Agent");
+  });
+
+  test("drops info-level noise that isn't cert (reloads, lifecycle)", () => {
+    expect(
+      parseCaddyEvent({ level: "info", logger: "docker-proxy", msg: "New Config JSON" }),
+    ).toBeNull();
+    expect(
+      parseCaddyEvent({ level: "info", logger: "http.log", msg: "server running" }),
+    ).toBeNull();
+    expect(parseCaddyEvent("garbage")).toBeNull();
+    expect(parseCaddyEvent({})).toBeNull();
+  });
+});
+
+describe("event ring", () => {
+  beforeEach(() => __resetEdgeEvents());
+
+  function ev(partial: Partial<EdgeEventLine>): EdgeEventLine {
+    return {
+      id: Math.random().toString(36),
+      ts: new Date().toISOString(),
+      level: "error",
+      category: "upstream",
+      logger: "http.handlers.reverse_proxy",
+      msg: "aborting with incomplete response",
+      host: "plane.com",
+      domains: [],
+      upstream: "10.0.0.1:3000",
+      error: "context canceled",
+      raw: "{}",
+      ...partial,
+    };
+  }
+
+  test("query is scoped to the caller's hosts", () => {
+    pushEdgeEvent(ev({ host: "plane.com" }));
+    pushEdgeEvent(ev({ host: "evil.com" }));
+    const res = queryEdgeEvents({ hosts: ["plane.com"], range: "1h" }, Date.now());
+    expect(res.total).toBe(1);
+    expect(res.rows[0]!.host).toBe("plane.com");
+  });
+
+  test("batch event is visible via an owned domain and redacted to it", () => {
+    pushEdgeEvent(
+      ev({
+        category: "cert",
+        host: null,
+        msg: "enabling automatic TLS certificate management",
+        domains: ["plane.com", "evil.com"],
+      }),
+    );
+    const res = queryEdgeEvents({ hosts: ["plane.com"], range: "1h" }, Date.now());
+    expect(res.total).toBe(1);
+    expect(res.rows[0]!.domains).toEqual(["plane.com"]);
+  });
+
+  test("host-less, domain-less events are not surfaced per tenant", () => {
+    pushEdgeEvent(ev({ host: null, domains: [], category: "config" }));
+    const res = queryEdgeEvents({ hosts: ["plane.com"], range: "1h" }, Date.now());
+    expect(res.total).toBe(0);
+  });
+
+  test("category + level filters narrow the result", () => {
+    pushEdgeEvent(ev({ category: "cert", level: "info" }));
+    pushEdgeEvent(ev({ category: "upstream", level: "error" }));
+    const byCat = queryEdgeEvents(
+      { hosts: ["plane.com"], range: "1h", categories: ["cert"] },
+      Date.now(),
+    );
+    expect(byCat.total).toBe(1);
+    expect(byCat.rows[0]!.category).toBe("cert");
+    const byLevel = queryEdgeEvents(
+      { hosts: ["plane.com"], range: "1h", levels: ["error"] },
+      Date.now(),
+    );
+    expect(byLevel.total).toBe(1);
+    expect(byLevel.rows[0]!.level).toBe("error");
+  });
+
+  test("subscribe delivers live events and unsubscribes", () => {
+    const seen: EdgeEventLine[] = [];
+    const unsub = subscribeEdgeEvents((e) => seen.push(e));
+    pushEdgeEvent(ev({ msg: "first" }));
+    unsub();
+    pushEdgeEvent(ev({ msg: "second" }));
+    expect(seen).toHaveLength(1);
+    expect(seen[0]!.msg).toBe("first");
   });
 });

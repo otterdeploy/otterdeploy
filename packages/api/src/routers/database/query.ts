@@ -65,6 +65,28 @@ export async function runReadOnlyQuery(
   sql: string,
   limit: number,
 ): Promise<QueryGrid> {
+  return runQuery(conn, sql, limit, { readOnly: true });
+}
+
+/**
+ * Run a write statement (the data viewer's row mutations) and parse the
+ * `RETURNING` grid. No read-only envelope — the caller must already have
+ * checked the `database:write` capability. Throws on query error.
+ */
+export async function runWriteQuery(
+  conn: DbConnInfo,
+  sql: string,
+  limit: number,
+): Promise<QueryGrid> {
+  return runQuery(conn, sql, limit, { readOnly: false });
+}
+
+async function runQuery(
+  conn: DbConnInfo,
+  sql: string,
+  limit: number,
+  opts: { readOnly: boolean },
+): Promise<QueryGrid> {
   if (conn.engine !== "postgres") {
     throw new UnsupportedEngineError(conn.engine);
   }
@@ -99,8 +121,11 @@ export async function runReadOnlyQuery(
       {
         env: [
           `PGPASSWORD=${conn.password}`,
-          // Read-only guard: any write statement errors at the server.
-          "PGOPTIONS=-c default_transaction_read_only=on",
+          // Read path: the read-only guard makes any write error at the server,
+          // no matter what SQL arrives. Write path drops it (default read-write).
+          ...(opts.readOnly
+            ? ["PGOPTIONS=-c default_transaction_read_only=on"]
+            : []),
         ],
         allowNonZero: true,
       },
@@ -124,6 +149,77 @@ export async function runReadOnlyQuery(
   }
 }
 
+// ── Write SQL builders ──────────────────────────────────────────────────────
+// Built server-side from the structured `mutateRow` input so a client can never
+// inject a raw statement. Each mutation is wrapped in a CTE whose outer SELECT
+// returns the affected rows, so psql --csv emits a clean grid (no command-tag
+// line to special-case) and the row count is exactly the affected count.
+
+/** Quote a SQL identifier (embedded double quotes doubled). */
+function quoteIdent(name: string): string {
+  return `"${name.replace(/"/g, '""')}"`;
+}
+
+/**
+ * Render a value as a SQL literal. `null` → `NULL`; everything else is a quoted
+ * text literal — Postgres resolves the unknown-typed literal to the column type
+ * via assignment/comparison cast (same discipline as the read path's builders).
+ */
+function literal(value: string | null): string {
+  if (value === null) return "NULL";
+  return `'${value.replace(/'/g, "''")}'`;
+}
+
+export interface ColumnValue {
+  column: string;
+  value: string | null;
+}
+
+function qualifiedTable(schema: string, table: string): string {
+  return `${quoteIdent(schema)}.${quoteIdent(table)}`;
+}
+
+/** `col = val AND …` predicate over the primary-key columns. */
+function pkPredicate(pk: ColumnValue[]): string {
+  return pk
+    .map((p) =>
+      p.value === null
+        ? `${quoteIdent(p.column)} IS NULL`
+        : `${quoteIdent(p.column)} = ${literal(p.value)}`,
+    )
+    .join(" AND ");
+}
+
+export function buildUpdateSql(
+  schema: string,
+  table: string,
+  set: ColumnValue[],
+  pk: ColumnValue[],
+): string {
+  const assignments = set
+    .map((s) => `${quoteIdent(s.column)} = ${literal(s.value)}`)
+    .join(", ");
+  return `WITH __r AS (UPDATE ${qualifiedTable(schema, table)} SET ${assignments} WHERE ${pkPredicate(pk)} RETURNING *) SELECT * FROM __r`;
+}
+
+export function buildDeleteSql(
+  schema: string,
+  table: string,
+  pk: ColumnValue[],
+): string {
+  return `WITH __r AS (DELETE FROM ${qualifiedTable(schema, table)} WHERE ${pkPredicate(pk)} RETURNING *) SELECT * FROM __r`;
+}
+
+export function buildInsertSql(
+  schema: string,
+  table: string,
+  set: ColumnValue[],
+): string {
+  const cols = set.map((s) => quoteIdent(s.column)).join(", ");
+  const vals = set.map((s) => literal(s.value)).join(", ");
+  return `WITH __r AS (INSERT INTO ${qualifiedTable(schema, table)} (${cols}) VALUES (${vals}) RETURNING *) SELECT * FROM __r`;
+}
+
 export class UnsupportedEngineError extends Error {
   constructor(public engine: string) {
     super(`engine ${engine} is not supported`);
@@ -143,7 +239,7 @@ export class QueryError extends Error {
  * embedded commas/newlines, and doubled quotes. Empty unquoted field → null,
  * empty quoted field ("") → "" (psql distinguishes NULL from empty string).
  */
-export function parseCsv(input: string): Array<Array<string | null>> {
+function parseCsv(input: string): Array<Array<string | null>> {
   const rows: Array<Array<string | null>> = [];
   let row: Array<string | null> = [];
   let field = "";

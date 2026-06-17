@@ -16,15 +16,24 @@ import { Result } from "better-result";
 import { eq } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
-import { resource, serviceResource } from "@otterdeploy/db/schema/project";
+import {
+  composeResource,
+  resource,
+  serviceResource,
+} from "@otterdeploy/db/schema/project";
 import { ProjectNotFoundError } from "./errors";
 import { getProjectInOrg } from "./queries";
+import { composeSwarmServiceName } from "../../stack/compose";
 import type { ProjectRef } from "../scopes";
 
 export interface ServiceTaskInfo {
   id: string;
   slot: number | null;
   label: string;
+  /** For a compose stack: the sub-service (compose key) this task belongs to,
+   *  so the group node can roll status up per service. `null` for a plain
+   *  single-service resource (the whole resource is one service). */
+  service: string | null;
   state: "running" | "building" | "error";
   rawState: string | null;
   desiredState: string | null;
@@ -92,32 +101,73 @@ export async function listProjectServiceTasks(
     .innerJoin(serviceResource, eq(serviceResource.resourceId, resource.id))
     .where(eq(resource.projectId, input.projectId));
 
-  if (services.length === 0) return Result.ok([]);
+  // Compose stacks fan out to N swarm services (`${stack}-${svc}`), each
+  // labelled with the stack's resourceId. We resolve every sub-service's swarm
+  // name up front so its tasks map back to the stack AND to the sub-service the
+  // group node rolls status up per — that's what makes "which service is up?"
+  // answerable instead of one pill for the whole stack.
+  const composes = await db
+    .select({
+      resourceId: resource.id,
+      stackName: composeResource.stackName,
+      services: composeResource.services,
+    })
+    .from(resource)
+    .innerJoin(composeResource, eq(composeResource.resourceId, resource.id))
+    .where(eq(resource.projectId, input.projectId));
 
-  // serviceName -> resourceId for grouping after the docker call.
-  const nameToResourceId = new Map<string, ResourceId>();
-  for (const s of services) nameToResourceId.set(s.serviceName, s.resourceId);
+  // swarmName -> { resourceId, service }. `service` is the compose sub-service
+  // key (null for plain single-service resources).
+  const swarmNameToOwner = new Map<
+    string,
+    { resourceId: ResourceId; service: string | null }
+  >();
+  for (const s of services) {
+    swarmNameToOwner.set(s.serviceName, {
+      resourceId: s.resourceId,
+      service: null,
+    });
+  }
+  for (const c of composes) {
+    for (const sub of c.services) {
+      const swarmName = composeSwarmServiceName(c.stackName, sub.name);
+      swarmNameToOwner.set(swarmName, {
+        resourceId: c.resourceId,
+        service: sub.name,
+      });
+    }
+  }
+
+  // Every resource that should appear in the result, even with zero tasks, so
+  // the graph can render a node/group as "offline" rather than omit it.
+  const resourceIds = [
+    ...new Set<ResourceId>([
+      ...services.map((s) => s.resourceId),
+      ...composes.map((c) => c.resourceId),
+    ]),
+  ];
+  if (resourceIds.length === 0) return Result.ok([]);
 
   // One docker call covers every service in the project. The filter accepts
   // multiple service names — `{ service: [a, b, c] }` means OR.
   const docker = Docker.fromEnv();
   const tasksResult = await docker.tasks.list({
-    filters: { service: services.map((s) => s.serviceName) },
+    filters: { service: [...swarmNameToOwner.keys()] },
   });
 
   // Swarm may be missing / unreachable. Surface as an empty result rather
   // than failing the whole graph load — the UI can keep rendering nodes
   // without live state.
   if (tasksResult.isErr()) {
-    return Result.ok(services.map((s) => ({ resourceId: s.resourceId, tasks: [] })));
+    return Result.ok(resourceIds.map((resourceId) => ({ resourceId, tasks: [] })));
   }
 
   const grouped = new Map<ResourceId, ServiceTaskInfo[]>();
-  for (const s of services) grouped.set(s.resourceId, []);
+  for (const resourceId of resourceIds) grouped.set(resourceId, []);
 
   for (const task of tasksResult.value) {
     // Tasks identify their service by name via Spec.ContainerSpec, but the
-    // simpler path is to walk our nameToResourceId map: docker echoes the
+    // simpler path is to walk our swarmNameToOwner map: docker echoes the
     // service name we filtered by in the task's labels under
     // `com.docker.swarm.service.name`.
     const serviceName =
@@ -127,8 +177,9 @@ export async function listProjectServiceTasks(
       ] ??
       null;
     if (!serviceName) continue;
-    const resourceId = nameToResourceId.get(serviceName);
-    if (!resourceId) continue;
+    const owner = swarmNameToOwner.get(serviceName);
+    if (!owner) continue;
+    const resourceId = owner.resourceId;
 
     const status = (
       task as {
@@ -148,10 +199,14 @@ export async function listProjectServiceTasks(
 
     const bucket = grouped.get(resourceId);
     if (!bucket) continue;
+    // For a compose sub-service, label by the compose key (not the namespaced
+    // swarm name) so the group's per-service rows read cleanly.
+    const labelBase = owner.service ?? serviceName;
     bucket.push({
       id: (task as { ID?: string }).ID ?? "",
       slot,
-      label: slot != null ? `${serviceName}.${slot}` : serviceName,
+      label: slot != null ? `${labelBase}.${slot}` : labelBase,
+      service: owner.service,
       state: collapseTaskState(status?.State),
       rawState: status?.State ?? null,
       desiredState,
@@ -168,9 +223,9 @@ export async function listProjectServiceTasks(
   }
 
   return Result.ok(
-    services.map((s) => ({
-      resourceId: s.resourceId,
-      tasks: grouped.get(s.resourceId) ?? [],
+    resourceIds.map((resourceId) => ({
+      resourceId,
+      tasks: grouped.get(resourceId) ?? [],
     })),
   );
 }

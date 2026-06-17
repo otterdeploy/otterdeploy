@@ -76,7 +76,7 @@ function isFile(path: string): boolean {
  * Throws (HARD) on a bad path only when `builder === "dockerfile"`; under
  * `auto` the same conditions warn + fall back to railpack.
  */
-export function resolveDockerfileBuild(opts: {
+function resolveDockerfileBuild(opts: {
   builder: Builder;
   dockerfilePath: string | null | undefined;
   workDir: string;
@@ -160,7 +160,7 @@ export function resolveDockerfileBuild(opts: {
  * we pass NO build-args today (parity with railpack); the loop is wired so a
  * future build-env channel only has to feed this map.
  */
-export function dockerfileBuildArgs(opts: {
+function dockerfileBuildArgs(opts: {
   dockerfilePath: string;
   contextDir: string;
   shaTag: string;
@@ -195,7 +195,7 @@ export function dockerfileBuildArgs(opts: {
  * same shape. Throws a plain Error on a non-zero exit — the pipeline's `step()`
  * wrapper converts it to a tagged BuildStepError (same idiom as railpack.ts).
  */
-export async function dockerfileBuild(opts: {
+async function dockerfileBuild(opts: {
   workDir: string;
   sourceSubdir: string | null;
   dockerfilePath: string;

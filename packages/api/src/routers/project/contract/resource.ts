@@ -27,7 +27,7 @@ import {
 // + a set of connection strings), the engine field just enumerates which
 // engine produced those strings. The export alias below keeps the
 // `postgresResourceSchema` import name compiling.
-export const databaseResourceSchema = z.object({
+const databaseResourceSchema = z.object({
   resourceId: resourceIdField,
   projectId: projectIdField,
   name: z.string(),
@@ -107,6 +107,9 @@ export const serviceResourceSchema = z.object({
   // Null until the first successful build, or when nothing was detected.
   framework: z.enum(FRAMEWORK_KINDS).nullable(),
   replicas: z.number().int().min(0),
+  // Owning compose stack (the compose resource id), when this service is a
+  // member of a stack — drives graph grouping. Null for a standalone service.
+  stackId: z.string().nullable(),
   publicEnabled: z.boolean(),
   publicDomain: z.string().nullable(),
   // User-authored env bag. Mirrors the database row's `extraEnv` so the
@@ -121,6 +124,7 @@ export const serviceResourceSchema = z.object({
   // surfaced in the list response so the resource panel can show them
   // without a second fetch.
   preDeploy: z.array(z.string()).nullable().optional(),
+  postDeploy: z.array(z.string()).nullable().optional(),
   buildConfig: z.unknown().nullable().optional(),
   restartWindowMs: z.number().int().nullable().optional(),
   diskLimitMb: z.number().int().nullable().optional(),
@@ -128,24 +132,51 @@ export const serviceResourceSchema = z.object({
   pidsLimit: z.number().int().nullable().optional(),
 });
 
-// `type` discriminates database vs service. The engine field on database
-// rows is a plain enum (not nested discriminators) — engines share the
-// same record shape, just produce different connection-string formats.
-export const resourceSchema = z.discriminatedUnion("type", [
+// A Docker Compose stack — one resource that owns N swarm services. The graph
+// renders it as a node listing those services (the parsed summary).
+export const composeResourceSchema = z.object({
+  resourceId: resourceIdField,
+  projectId: projectIdField,
+  name: z.string(),
+  type: z.literal("compose"),
+  status: z.enum(["draft", "valid", "invalid"]),
+  latestDeploymentStatus: z
+    .enum(["pending", "building", "running", "failed", "superseded", "removed"])
+    .nullable(),
+  source: z.enum(["inline", "git"]),
+  stackName: z.string(),
+  services: z.array(
+    z.object({
+      name: z.string(),
+      image: z.string().nullable(),
+      hasBuild: z.boolean(),
+      ports: z.array(z.number()),
+      // Named-volume sources the service mounts (chips on the group card).
+      // Defaulted so pre-volumes rows still validate without a migration.
+      volumes: z.array(z.string()).default([]),
+    }),
+  ),
+});
+
+// `type` discriminates database vs service vs compose. The engine field on
+// database rows is a plain enum (not nested discriminators) — engines share
+// the same record shape, just produce different connection-string formats.
+const resourceSchema = z.discriminatedUnion("type", [
   databaseResourceSchema,
   serviceResourceSchema,
+  composeResourceSchema,
 ]);
 
-export const listProjectResourcesInput = z.object({
+const listProjectResourcesInput = z.object({
   projectId: projectIdField,
 });
 
-export const getProjectResourceInput = z.object({
+const getProjectResourceInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
 });
 
-export const deleteProjectResourceInput = z.object({
+const deleteProjectResourceInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
 });
@@ -154,22 +185,22 @@ export const deleteProjectResourceInput = z.object({
  * Generic per-resource endpoints — same shape for postgres databases,
  * services, and any future engine. Handler dispatches on resource kind.
  */
-export const resourceTaskInput = z.object({
+const resourceTaskInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
 });
 
-export const resourceEnvEntrySchema = z.object({
+const resourceEnvEntrySchema = z.object({
   key: z.string(),
   value: z.string(),
 });
 
-export const resourceEnvListInput = z.object({
+const resourceEnvListInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
 });
 
-export const resourceEnvBulkSetInput = z.object({
+const resourceEnvBulkSetInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
   env: z.array(resourceEnvEntrySchema),
@@ -185,12 +216,12 @@ export const resourceEnvBulkSetInput = z.object({
  * when the page mounts. `suggestion` is non-null only when `available` is
  * false — derived by suffixing "-2", "-3", … until free.
  */
-export const checkResourceNameInput = z.object({
+const checkResourceNameInput = z.object({
   projectId: projectIdField,
   name: z.string().min(1),
 });
 
-export const checkResourceNameSchema = z.object({
+const checkResourceNameSchema = z.object({
   available: z.boolean(),
   suggestion: z.string().nullable(),
 });

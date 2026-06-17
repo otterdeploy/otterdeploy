@@ -31,25 +31,25 @@ const envKeyShape = z
       "POSTGRES_DB / POSTGRES_USER / POSTGRES_PASSWORD are reserved — use the rotation flow to change credentials.",
   });
 
-export const setPostgresExtraEnvInput = z.object({
+const setPostgresExtraEnvInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
   key: envKeyShape,
   value: z.string().max(8192),
 });
 
-export const unsetPostgresExtraEnvInput = z.object({
+const unsetPostgresExtraEnvInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
   key: envKeyShape,
 });
 
-export const restartPostgresInput = z.object({
+const restartPostgresInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
 });
 
-export const createPostgresDatabaseInput = z.object({
+const createPostgresDatabaseInput = z.object({
   projectId: projectIdField,
   name: z.string().min(1),
   /** Database engine to provision. Default is postgres for back-compat
@@ -72,7 +72,7 @@ export const createPostgresDatabaseInput = z.object({
  * instead of hanging on a spinner. The final `done` event carries the
  * fully-mapped resource so the client can route to the detail panel.
  */
-export const createPostgresProgressSchema = z.discriminatedUnion("type", [
+const createPostgresProgressSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("step"),
     /** Step identifier — matches the log.info step names emitted by the
@@ -136,14 +136,14 @@ export const createPostgresProgressSchema = z.discriminatedUnion("type", [
   }),
 ]);
 
-export const getPostgresDatabaseInput = z.object({
+const getPostgresDatabaseInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
 });
 
 /** Flip the public-exposure flag on an existing postgres resource. The
  *  Caddy reconciler runs after the toggle so the route state catches up. */
-export const setPostgresPublicInput = z.object({
+const setPostgresPublicInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
   publicEnabled: z.boolean(),
@@ -153,7 +153,7 @@ export const setPostgresPublicInput = z.object({
  *  handler persists the list, rolls the service (image may change for
  *  non-contrib extensions like postgis/pgvector), then runs CREATE/DROP
  *  EXTENSION against the live database. */
-export const setPostgresExtensionsInput = z.object({
+const setPostgresExtensionsInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
   /** Canonical CREATE EXTENSION names (e.g. "pgcrypto", "vector"). Unknown
@@ -161,12 +161,35 @@ export const setPostgresExtensionsInput = z.object({
   extensions: z.array(z.string()).max(32),
 });
 
-export const deletePostgresDatabaseInput = z.object({
+/** Mint (or read) the credentials for a database STAGED in the manifest but not
+ *  yet provisioned. A database's identity is deterministic from its name; the
+ *  password is minted once and reused at deploy. Lets the pending panel show
+ *  real connection details before the container exists. */
+const draftCredentialsInput = z.object({
+  projectId: projectIdField,
+  /** Manifest resource name (the `databases[name]` key). */
+  name: z.string().min(1),
+  engine: z
+    .enum(["postgres", "redis", "mariadb", "mongodb"])
+    .optional()
+    .default("postgres"),
+});
+
+const draftCredentialsOutput = z.object({
+  username: z.string(),
+  password: z.string(),
+  databaseName: z.string(),
+  internalHostname: z.string(),
+  internalPort: z.number().int(),
+  internalConnectionString: z.string(),
+});
+
+const deletePostgresDatabaseInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
 });
 
-export const listPostgresDatabasesInput = z.object({
+const listPostgresDatabasesInput = z.object({
   projectId: projectIdField,
 });
 
@@ -192,6 +215,21 @@ export const postgresContractSlice = {
     })
     .input(createPostgresDatabaseInput)
     .output(eventIterator(createPostgresProgressSchema)),
+
+  // Mint/read the staged credentials for a not-yet-provisioned database.
+  // POST because it writes (mints the password on first call); the client
+  // still reads it via queryOptions, like manifest.diff.
+  draftCredentials: oc
+    .errors({
+      NOT_FOUND: { status: 404, message: "Project not found" as const },
+    })
+    .meta({
+      path: `${basePath}/{projectId}/resources/database/draft-credentials`,
+      tag,
+      method: "POST",
+    })
+    .input(draftCredentialsInput)
+    .output(draftCredentialsOutput),
 
   setPublic: oc
     .errors(resourceNotFoundErrors)

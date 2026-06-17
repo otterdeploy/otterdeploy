@@ -31,12 +31,10 @@ import { Kbd, KbdGroup } from "@/shared/components/ui/kbd";
 import { useCommandPalette } from "../hooks/use-command-palette";
 import { useProjectNavHotkeys } from "../hooks/use-project-nav-hotkeys";
 import {
-  CLUSTER_NAV,
-  INFRA_NAV,
   NavGroup,
+  ORG_NAV_GROUPS,
   PaletteFooter,
   PROJECT_NAV,
-  WORKSPACE_NAV,
 } from "./nav-items";
 
 export function CommandPalette() {
@@ -176,9 +174,14 @@ export function CommandPalette() {
             </CommandGroup>
           )}
 
-          <NavGroup heading="Workspace" items={WORKSPACE_NAV} onGo={goOrg} />
-          <NavGroup heading="Infrastructure" items={INFRA_NAV} onGo={goOrg} />
-          <NavGroup heading="Cluster admin" items={CLUSTER_NAV} onGo={goOrg} />
+          {ORG_NAV_GROUPS.map((group) => (
+            <NavGroup
+              key={group.heading}
+              heading={group.heading}
+              items={group.items}
+              onGo={goOrg}
+            />
+          ))}
 
           <CommandGroup heading="Appearance">
             <CommandItem value="theme light" onSelect={() => run(() => setTheme("light"))}>

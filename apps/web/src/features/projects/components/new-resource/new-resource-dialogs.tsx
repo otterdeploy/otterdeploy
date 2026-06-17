@@ -30,11 +30,17 @@ export function ResourceOverlayDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex h-[80vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-230">
         <DialogHeader className="border-b px-5 pt-4 pb-3">
-          <DialogTitle>
-            {projectName ? `Add resource to ${projectName}` : "Add resource"}
-          </DialogTitle>
+          <DialogTitle>Deploy a new service</DialogTitle>
           <DialogDescription>
-            Configure and launch a new service for this project.
+            Pick what you want to launch. Otterdeploy can build app code, pull
+            images, import compose stacks, or provision a database
+            {projectName ? (
+              <>
+                {" "}
+                in <span className="font-medium text-foreground">{projectName}</span>
+              </>
+            ) : null}
+            .
           </DialogDescription>
         </DialogHeader>
         <div className="flex-1 overflow-hidden">

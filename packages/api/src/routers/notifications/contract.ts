@@ -14,7 +14,7 @@ import { EVENT_IDS } from "./events";
 const tag = "notifications";
 const basePath = "/notifications";
 
-export const channelIdField = zId(ID_PREFIX.notificationChannel);
+const channelIdField = zId(ID_PREFIX.notificationChannel);
 
 const channelKind = z.enum([
   "slack",
@@ -35,7 +35,7 @@ const eventId = z.enum(EVENT_IDS as [string, ...string[]]);
 // ─── Output schemas ──────────────────────────────────────────────────────
 
 /** A channel as the UI sees it — masked target, computed stats, no secret. */
-export const channelSchema = z.object({
+const channelSchema = z.object({
   id: channelIdField,
   kind: channelKind,
   name: z.string(),
@@ -64,7 +64,7 @@ const channelNotFound = {
   NOT_FOUND: { status: 404 as const, message: "Channel not found" as const },
 };
 
-export const createChannelInput = z.object({
+const createChannelInput = z.object({
   kind: channelKind,
   name: z.string().min(1).max(120),
   target: z.string().min(1).max(2048),
@@ -75,7 +75,7 @@ export const createChannelInput = z.object({
   secret: z.string().max(4096).optional(),
 });
 
-export const updateChannelInput = z.object({
+const updateChannelInput = z.object({
   id: channelIdField,
   name: z.string().min(1).max(120).optional(),
   target: z.string().min(1).max(2048).optional(),
@@ -85,15 +85,15 @@ export const updateChannelInput = z.object({
   secret: z.string().max(4096).optional(),
 });
 
-export const channelIdInput = z.object({ id: channelIdField });
+const channelIdInput = z.object({ id: channelIdField });
 
-export const toggleSubscriptionInput = z.object({
+const toggleSubscriptionInput = z.object({
   channelId: channelIdField,
   eventId,
   enabled: z.boolean(),
 });
 
-export const testResultSchema = z.object({ message: z.string() });
+const testResultSchema = z.object({ message: z.string() });
 
 // ─── Contract ────────────────────────────────────────────────────────────
 

@@ -20,6 +20,7 @@ import {
   builderPopClass,
   SectionHeader,
 } from "../form-primitives";
+import { PostgresExtensionsSection } from "./postgres-extensions-section";
 
 interface StepVersionProps {
   kind: ServiceKind;
@@ -140,6 +141,13 @@ export function StepVersion({ kind, projectId }: StepVersionProps) {
           </form.AppField>
         </CardContent>
       </Card>
+
+      {kind.id === "postgres" && (
+        <>
+          <div className="h-4.5" />
+          <PostgresExtensionsSection />
+        </>
+      )}
     </>
   );
 }

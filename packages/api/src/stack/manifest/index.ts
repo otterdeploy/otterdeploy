@@ -3,10 +3,12 @@ export {
   manifestSchema,
   serviceSchema,
   databaseSchema,
+  composeSchema,
   buildSchema,
   type Manifest,
   type ServiceManifest,
   type DatabaseManifest,
+  type ComposeManifest,
   type EnvironmentOverride,
 } from "./schema";
 
@@ -46,6 +48,7 @@ export {
   type Change,
   type ChangeKind,
   type ChangeResource,
+  type CurrentCompose,
   type CurrentDatabase,
   type CurrentService,
   type CurrentServicePort,

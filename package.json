@@ -67,10 +67,8 @@
   },
   "dependencies": {
     "@otterdeploy/env": "workspace:*",
-    "@standard-schema/spec": "^1.1.0",
-    "fallow": "^2.86.0",
-    "portless": "^0.14.0",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "portless": "^0.14.0"
   },
   "devDependencies": {
     "@otterdeploy/config": "workspace:*",

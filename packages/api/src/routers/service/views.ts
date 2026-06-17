@@ -6,10 +6,8 @@
  * by the oRPC contract; `mapEnvVar` does the same for env-var rows.
  */
 
-import {
-  inspectSwarmServiceRuntime,
-  type SwarmServiceRuntime,
-} from "../../swarm";
+import { type SwarmServiceRuntime } from "../../swarm";
+import { runtime as activeRuntime } from "../../runtime";
 import { type ServiceRecord } from "./queries";
 
 // ---------------------------------------------------------------------------
@@ -120,7 +118,7 @@ export async function mapServiceView(
 ): Promise<ServiceView> {
   const live =
     runtime ??
-    (await inspectSwarmServiceRuntime({
+    (await activeRuntime().inspect({
       serviceName: record.service.serviceName,
       projectSlug: sanitizeSlug(projectSlug),
     }));

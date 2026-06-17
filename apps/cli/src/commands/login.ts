@@ -4,6 +4,7 @@ import { consola } from "consola";
 import { sleep } from "@otterdeploy/shared/promise";
 
 import { CLI_CLIENT_ID, createCliAuthClient } from "../auth-client";
+import { promptForUrl } from "../auth-flow";
 import { loadConfig, saveConfig } from "../config";
 
 export const loginCommand = defineCommand({
@@ -12,14 +13,18 @@ export const loginCommand = defineCommand({
     description: "Authenticate with an otterdeploy control plane",
   },
   args: {
+    // A `--url` flag, matching every other command. The bare positional form
+    // (`otterdeploy login https://…`) still works via `args._` below.
     url: {
-      type: "positional",
-      required: false,
+      type: "string",
       description: "Control plane URL (e.g. https://otter.acme.com)",
     },
   },
   async run({ args }) {
-    const url = args.url ?? loadConfig().url;
+    // Resolution order: --url flag → bare positional → stored config → prompt.
+    const positional = args._?.[0];
+    const url =
+      args.url ?? positional ?? loadConfig().url ?? (await promptForUrl());
     if (!url) {
       consola.error(
         "No URL provided. Run `otterdeploy login <url>` (e.g. https://otter.acme.com).",

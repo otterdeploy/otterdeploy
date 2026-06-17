@@ -5,7 +5,12 @@
  */
 import { useForm } from "@tanstack/react-form";
 import { useLiveQuery } from "@tanstack/react-db";
-import { FlashIcon, SquareLock01Icon } from "@hugeicons/core-free-icons";
+import {
+  CloudServerIcon,
+  FlashIcon,
+  PlusSignIcon,
+  SquareLock01Icon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
 
@@ -22,22 +27,30 @@ import { terminalDatabasesCollection } from "@/features/terminal/data/targets";
 
 import type { Destination } from "./data/destinations";
 import { runBackup } from "./data/backups";
-import { SelectField } from "./form-fields";
-import { destUri } from "./shared";
+import { DatabaseCombobox } from "./database-combobox";
+import { MultiSelectCombobox } from "./multi-combobox";
+import { Field, destUri } from "./shared";
 
 export function BackupNowDialog({
   open,
   onOpenChange,
   destinations,
+  onAddDestination,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   destinations: Destination[];
+  /** Close this dialog and jump to the destination editor. */
+  onAddDestination?: () => void;
 }) {
   if (!open) return null;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <BackupNowBody onClose={() => onOpenChange(false)} destinations={destinations} />
+      <BackupNowBody
+        onClose={() => onOpenChange(false)}
+        destinations={destinations}
+        onAddDestination={onAddDestination}
+      />
     </Dialog>
   );
 }
@@ -45,46 +58,59 @@ export function BackupNowDialog({
 function BackupNowBody({
   onClose,
   destinations,
+  onAddDestination,
 }: {
   onClose: () => void;
   destinations: Destination[];
+  onAddDestination?: () => void;
 }) {
   const { data: databases } = useLiveQuery((q) =>
     q.from({ d: terminalDatabasesCollection }),
   );
 
   const form = useForm({
-    defaultValues: { resourceId: "", destinationId: "", encrypted: true },
+    defaultValues: {
+      resourceId: "",
+      destinationIds: [] as string[],
+      encrypted: true,
+    },
     onSubmit: async ({ value }) => {
       try {
         await runBackup({
           resourceId: value.resourceId as never,
-          destinationId: value.destinationId as never,
+          destinationIds: value.destinationIds as never,
           encryption: value.encrypted ? "aes-256-gcm" : "none",
         });
-        toast.success("Backup started");
+        toast.success(
+          value.destinationIds.length > 1
+            ? `Backup started → ${value.destinationIds.length} destinations`
+            : "Backup started",
+        );
         onClose();
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Couldn't start backup");
+        toast.error(
+          err instanceof Error ? err.message : "Couldn't start backup",
+        );
       }
     },
   });
 
-  const dbItems = databases.map((d) => ({
-    label: `${d.name} · ${d.projectName}`,
-    value: d.resourceId,
-  }));
-  const destItems = destinations.map((d) => ({
-    label: `${d.name} — ${destUri(d)}`,
+  const destOptions = destinations.map((d) => ({
     value: d.id,
+    label: d.name,
+    tag: d.type,
+    keywords: destUri(d),
   }));
 
   return (
-    <DialogContent className="max-w-2xl gap-0 p-0">
+    <DialogContent className="sm:max-w-3xl gap-0 p-0 ">
       <DialogHeader className="border-b px-5 py-3">
-        <DialogTitle className="text-sm font-semibold">Run a backup now</DialogTitle>
+        <DialogTitle className="text-sm font-semibold">
+          Run a backup now
+        </DialogTitle>
         <p className="text-xs text-muted-foreground">
-          Dump a database to a destination. Runs out-of-band from any schedule.
+          Dump a database to one or more destinations. Runs out-of-band from
+          any schedule.
         </p>
       </DialogHeader>
 
@@ -98,28 +124,66 @@ function BackupNowBody({
         <div className="flex flex-col gap-4 p-5">
           <form.Field name="resourceId">
             {(field) => (
-              <SelectField
-                label="Database"
-                placeholder={dbItems.length ? "Select a database" : "No databases found"}
-                items={dbItems}
-                value={field.state.value}
-                onChange={field.handleChange}
-                mono
-              />
+              <Field label="Database">
+                <DatabaseCombobox
+                  databases={databases}
+                  value={field.state.value}
+                  onChange={field.handleChange}
+                />
+              </Field>
             )}
           </form.Field>
 
-          <form.Field name="destinationId">
-            {(field) => (
-              <SelectField
-                label="Destination"
-                placeholder={destItems.length ? "Select a destination" : "Add a destination first"}
-                items={destItems}
-                value={field.state.value}
-                onChange={field.handleChange}
-              />
-            )}
-          </form.Field>
+          {destOptions.length ? (
+            <form.Field name="destinationIds">
+              {(field) => (
+                <Field label="Destinations">
+                  <MultiSelectCombobox
+                    options={destOptions}
+                    value={field.state.value}
+                    onChange={field.handleChange}
+                    placeholder="Select destinations…"
+                    searchPlaceholder="Search destinations…"
+                    emptyText="No destinations yet."
+                  />
+                </Field>
+              )}
+            </form.Field>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs text-muted-foreground">Destinations</span>
+              <div className="flex items-center gap-3 rounded-md border border-dashed bg-muted/20 px-3 py-2.5">
+                <HugeiconsIcon
+                  icon={CloudServerIcon}
+                  className="size-3.5 shrink-0 text-muted-foreground"
+                />
+                <div className="flex flex-1 flex-col">
+                  <span className="text-xs font-medium">
+                    No destinations yet
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    Backups need somewhere to land — local disk, an S3 bucket,
+                    or SFTP.
+                  </span>
+                </div>
+                {onAddDestination ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    type="button"
+                    className="shrink-0 gap-1.5"
+                    onClick={() => {
+                      onClose();
+                      onAddDestination();
+                    }}
+                  >
+                    <HugeiconsIcon icon={PlusSignIcon} className="size-3" />
+                    Add
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+          )}
 
           <form.Field name="encrypted">
             {(field) => (
@@ -134,7 +198,10 @@ function BackupNowBody({
                     AES-256 GCM · key derived from the deployment secret
                   </span>
                 </div>
-                <Switch checked={field.state.value} onCheckedChange={field.handleChange} />
+                <Switch
+                  checked={field.state.value}
+                  onCheckedChange={field.handleChange}
+                />
               </div>
             )}
           </form.Field>
@@ -146,15 +213,19 @@ function BackupNowBody({
           </Button>
           <form.Subscribe
             selector={(s) =>
-              [s.isSubmitting, s.values.resourceId, s.values.destinationId] as const
+              [
+                s.isSubmitting,
+                s.values.resourceId,
+                s.values.destinationIds.length,
+              ] as const
             }
           >
-            {([isSubmitting, resourceId, destinationId]) => (
+            {([isSubmitting, resourceId, destCount]) => (
               <Button
                 size="sm"
                 type="submit"
                 className="gap-1.5"
-                disabled={isSubmitting || !resourceId || !destinationId}
+                disabled={isSubmitting || !resourceId || destCount === 0}
               >
                 <HugeiconsIcon icon={FlashIcon} className="size-3" />
                 {isSubmitting ? "Starting…" : "Start backup"}

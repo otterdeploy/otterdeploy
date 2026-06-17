@@ -118,6 +118,7 @@ export function buildServiceEntry(
         ? { publicHostname: s.publicDomain }
         : {}),
       preDeploy: s.preDeploy ?? undefined,
+      postDeploy: s.postDeploy ?? undefined,
       buildConfig: s.buildConfig ?? undefined,
       diskLimitMb: s.diskLimitMb ?? undefined,
       swapLimitMb: s.swapLimitMb ?? undefined,

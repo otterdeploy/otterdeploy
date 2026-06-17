@@ -15,7 +15,8 @@ import { Docker } from "@otterdeploy/docker";
 import { Result } from "better-result";
 import type { RequestLogger } from "evlog";
 
-import { defaultImageFor, updateSwarmDatabase } from "../../swarm";
+import { defaultImageFor } from "../../swarm";
+import { updateSwarmDatabase } from "../../runtime/db";
 import { insertDeployment } from "./deployments";
 import {
   bulkReplaceServiceEnvVars,
@@ -154,6 +155,8 @@ export async function listResourceTasks(
         slot,
         label:
           slot != null ? `${target.serviceName}.${slot}` : target.serviceName,
+        // Single-service runtime view — no compose sub-service breakdown here.
+        service: null,
         state: collapseTaskState(status.State),
         rawState: status.State ?? null,
         desiredState,

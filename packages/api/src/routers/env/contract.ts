@@ -8,22 +8,22 @@ import { environmentIdField, projectIdField } from "../project/contract/shared";
 const tag = "env";
 const basePath = "/envs";
 
-export const envSchema = createSelectSchema(environment).extend({
+const envSchema = createSelectSchema(environment).extend({
   id: environmentIdField,
   projectId: projectIdField.nullable(),
 });
 
-export const listEnvsInput = z
+const listEnvsInput = z
   .object({
     projectId: projectIdField.optional(),
   })
   .optional();
 
-export const getEnvInput = z.object({
+const getEnvInput = z.object({
   id: environmentIdField,
 });
 
-export const createEnvInput = z.object({
+const createEnvInput = z.object({
   /** Optional client-supplied id for optimistic UI. */
   id: environmentIdField.optional(),
   name: z.string().min(1),
@@ -35,7 +35,7 @@ export const createEnvInput = z.object({
   projectId: projectIdField.optional(),
 });
 
-export const deleteEnvInput = z.object({
+const deleteEnvInput = z.object({
   id: environmentIdField,
 });
 

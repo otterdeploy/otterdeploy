@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "fumadocs-ui/css/neutral.css";
 @import "fumadocs-ui/css/preset.css";
+@import "fumadocs-openapi/css/preset.css";
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/geist-mono";
 
@@ -189,4 +190,116 @@
 html > body[data-scroll-locked] {
   margin-right: 0px !important;
   --removed-body-scroll-bar-size: 0px !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Docs chrome → Better Auth feel. Fumadocs bakes its styling into utility
+   classes, so these higher-specificity (id/attribute) rules retune the
+   sidebar + content panels to match the marketing surfaces.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Sidebar → Better Auth: a vertical stack of full-width, edge-to-edge bordered
+   rows (version + search + section folders), a neutral active state (not the
+   default blue), and indented sub-pages. */
+
+/* Drop the viewport's horizontal padding so row borders span edge to edge. */
+#nd-sidebar [data-radix-scroll-area-viewport] {
+  padding-inline: 0 !important;
+  padding-top: 0 !important;
+}
+
+/* Top-level rows: page links + section (folder) triggers → bordered rows. */
+#nd-sidebar [data-radix-scroll-area-viewport] > div > a,
+#nd-sidebar [data-radix-scroll-area-viewport] > div > button {
+  width: 100%;
+  gap: 0.75rem;
+  border-radius: 0;
+  border-bottom: 1px solid var(--color-fd-border);
+  padding: 0.95rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* Section icons read at the reference's larger ~20px. */
+#nd-sidebar [data-radix-scroll-area-viewport] > div > a > svg:first-child,
+#nd-sidebar [data-radix-scroll-area-viewport] > div > button > svg:first-child {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+/* Neutral active row (not the blue tint). */
+#nd-sidebar a[data-active="true"] {
+  background-color: color-mix(in oklab, var(--color-fd-foreground) 7%, transparent);
+  color: var(--color-fd-foreground);
+}
+#nd-sidebar a[data-active="true"] svg {
+  color: var(--color-fd-foreground);
+}
+#nd-sidebar
+  [data-radix-scroll-area-viewport]
+  > div
+  > a[data-active="false"]:hover,
+#nd-sidebar [data-radix-scroll-area-viewport] > div > button:hover {
+  background-color: color-mix(in oklab, var(--color-fd-foreground) 4%, transparent);
+}
+
+/* Section icons + chevrons read as muted; chevron pinned right. */
+#nd-sidebar [data-radix-scroll-area-viewport] > div > button > svg:last-child {
+  margin-inline-start: auto;
+}
+
+/* Nested sub-pages under a section: indented, lighter, no border. */
+#nd-sidebar [data-radix-scroll-area-viewport] [data-state] a {
+  padding-block: 0.5rem;
+  padding-inline-start: 2.9rem;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: var(--color-fd-muted-foreground);
+}
+#nd-sidebar [data-radix-scroll-area-viewport] [data-state] a[data-active="true"] {
+  font-weight: 500;
+  color: var(--color-fd-foreground);
+}
+
+/* Search trigger → a bordered row that matches the stack. */
+#nd-sidebar [data-search-full] {
+  width: 100%;
+  border-radius: 0;
+  border-width: 0 0 1px 0;
+  background-color: transparent;
+  padding-inline: 1.25rem;
+}
+
+/* Content cards (Card/Cards in MDX): dark panel with a faint corner grid that
+   fades out, like Better Auth's feature cards. The grid sits on a masked
+   ::before behind the content (isolate + z-index) so the text stays crisp. */
+#nd-page a[href][class*="bg-fd-card"] {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+}
+#nd-page a[href][class*="bg-fd-card"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: radial-gradient(
+    circle,
+    var(--color-fd-border) 1px,
+    transparent 1px
+  );
+  background-size: 16px 16px;
+  opacity: 0.7;
+  -webkit-mask-image: radial-gradient(
+    ellipse 60% 65% at 100% 0%,
+    #000,
+    transparent 72%
+  );
+  mask-image: radial-gradient(
+    ellipse 60% 65% at 100% 0%,
+    #000,
+    transparent 72%
+  );
 }

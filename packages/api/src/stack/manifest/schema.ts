@@ -154,10 +154,12 @@ const serviceCommonSchema = z.object({
   healthcheck: healthcheckSchema.nullable().optional(),
   resources: resourcesSchema.optional(),
   restart: restartSchema.optional(),
-  // Lifecycle hook — runs once after the build finishes but before the
-  // new replicas take traffic. Most common use: db migrations. Same
-  // exec-form shape as startCommand.
+  // Lifecycle hooks — exec-form, run in order, each in a throwaway
+  // container off the new image. preDeploy runs after the build but
+  // before the new replicas take traffic (db migrations); postDeploy
+  // runs after they're live + healthy (cache warmup, smoke checks).
   preDeploy: z.array(z.string()).nullable().optional(),
+  postDeploy: z.array(z.string()).nullable().optional(),
   // Public domains to attach when the service is first created by Apply —
   // a create-time seed so an operator can set a domain *before* deploy.
   // The reconciler creates the proxy routes (and exposes the service) on
@@ -245,6 +247,49 @@ export const databaseSchema = z.discriminatedUnion("engine", [
 ]);
 export type DatabaseManifest = z.infer<typeof databaseSchema>;
 
+// ── Compose stacks ──────────────────────────────────────────────────────
+//
+// A compose stack is a Docker Compose file deployed as one unit (N swarm
+// services on the project overlay net). `source` is the discriminator:
+// `inline` carries the raw YAML; `git` points at a public repo whose
+// compose file the builder resolves. `env` seeds the project variables the
+// file's `${VAR}` refs resolve against — a create-time seed (like service
+// `domains`), intentionally not diffed for drift. `exposed` maps a
+// `service:port` to a public domain. See docs/designs/compose.md.
+
+// Compose `${VAR}` names are author-chosen and NOT restricted to UPPER_SNAKE
+// the way service env keys are (a compose file may use `${db_password}`), so
+// this map is deliberately looser than the service/database `envMap`.
+const composeEnvMap = z.record(z.string().min(1), z.string());
+
+const composeExposedSchema = z.object({
+  service: z.string().min(1),
+  port: z.number().int().positive(),
+  domain: z.string().optional(),
+});
+
+const composeInlineSchema = z.object({
+  source: z.literal("inline"),
+  content: z.string().min(1),
+  env: composeEnvMap.optional(),
+  exposed: z.array(composeExposedSchema).optional(),
+});
+
+const composeGitSchema = z.object({
+  source: z.literal("git"),
+  gitRepoUrl: z.string().min(1),
+  gitRef: z.string().nullable().optional(),
+  composePath: z.string().nullable().optional(),
+  env: composeEnvMap.optional(),
+  exposed: z.array(composeExposedSchema).optional(),
+});
+
+export const composeSchema = z.discriminatedUnion("source", [
+  composeInlineSchema,
+  composeGitSchema,
+]);
+export type ComposeManifest = z.infer<typeof composeSchema>;
+
 // ── Named resource maps ────────────────────────────────────────────────
 //
 // Identity is the map key (the user-chosen name). Resource names share the
@@ -257,6 +302,7 @@ const resourceName = z.string().regex(/^[a-z][a-z0-9-]{0,62}$/, {
 
 const servicesMap = z.record(resourceName, serviceSchema);
 const databasesMap = z.record(resourceName, databaseSchema);
+const composesMap = z.record(resourceName, composeSchema);
 
 // ── Environment overrides ──────────────────────────────────────────────
 //
@@ -295,6 +341,11 @@ export const manifestSchema = z.object({
   project: zSlug(ID_PREFIX.project),
   services: servicesMap.default({}),
   databases: databasesMap.default({}),
+  // Compose stacks. Optional + defaulted so manifests written before compose
+  // joined the manifest still parse. Environment overrides intentionally don't
+  // apply to compose (no `composes` on environmentBlockSchema) — a stack is an
+  // atomic unit, not a per-env-tunable resource, in v1.
+  composes: composesMap.default({}),
   environments: z.record(z.string().min(1), environmentBlockSchema).optional(),
 });
 

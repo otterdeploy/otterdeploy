@@ -17,12 +17,15 @@ import { PLATFORM } from "../../constants";
 import {
   defaultImageFor,
   getEngineAdapter,
-  inspectSwarmDatabaseRuntime,
-  provisionSwarmDatabase,
   type SwarmDatabaseRuntime,
 } from "../../swarm";
+import {
+  inspectSwarmDatabaseRuntime,
+  provisionSwarmDatabase,
+} from "../../runtime/db";
 
 import {
+  composeResourceSchema,
   postgresResourceSchema,
   projectListItemSchema,
   projectSchema,
@@ -35,6 +38,7 @@ import {
   insertDeployment,
 } from "./deployments";
 import {
+  type ComposeResourceJoined,
   type DatabaseResourceRecord,
   type ServiceResourceJoined,
   getProjectRecord,
@@ -47,7 +51,11 @@ export type Project = z.infer<typeof projectSchema>;
 export type ProjectListItem = z.infer<typeof projectListItemSchema>;
 export type PostgresResource = z.infer<typeof postgresResourceSchema>;
 export type ServiceResourceView = z.infer<typeof serviceResourceSchema>;
-export type ProjectResource = PostgresResource | ServiceResourceView;
+export type ComposeResourceView = z.infer<typeof composeResourceSchema>;
+export type ProjectResource =
+  | PostgresResource
+  | ServiceResourceView
+  | ComposeResourceView;
 export type ProxyRoute = z.infer<typeof proxyRouteSchema>;
 
 // ---------------------------------------------------------------------------
@@ -92,16 +100,37 @@ export async function mapServiceResource(
     sourceSubdir: record.service.sourceSubdir,
     framework: record.service.framework ?? null,
     replicas: record.service.replicas,
+    stackId: record.service.stackId ?? null,
     publicEnabled: record.service.publicEnabled,
     publicDomain: record.service.publicDomain,
     extraEnv,
     secretKeys,
     preDeploy: record.service.preDeploy ?? null,
+    postDeploy: record.service.postDeploy ?? null,
     buildConfig: record.service.buildConfig ?? null,
     restartWindowMs: record.service.restartWindowMs ?? null,
     diskLimitMb: record.service.diskLimitMb ?? null,
     swapLimitMb: record.service.swapLimitMb ?? null,
     pidsLimit: record.service.pidsLimit ?? null,
+  };
+}
+
+export async function mapComposeResource(
+  record: ComposeResourceJoined,
+): Promise<ComposeResourceView> {
+  const latestDeployment = await getLatestDeploymentForResource(
+    record.resource.id as Parameters<typeof getLatestDeploymentForResource>[0],
+  );
+  return {
+    resourceId: record.resource.id,
+    projectId: record.resource.projectId,
+    name: record.resource.name,
+    type: "compose" as const,
+    status: record.resource.status,
+    latestDeploymentStatus: latestDeployment?.status ?? null,
+    source: record.compose.source,
+    stackName: record.compose.stackName,
+    services: record.compose.services,
   };
 }
 
@@ -181,7 +210,7 @@ export async function mapDatabaseResource(
  * if missing. Keeps the proxy route and DB status in sync with whatever the
  * Caddy reconciler reports.
  */
-export async function ensureSwarmRuntimeForRecord(
+async function ensureSwarmRuntimeForRecord(
   record: DatabaseResourceRecord,
   projectSlug: string,
 ): Promise<{ record: DatabaseResourceRecord; runtime: SwarmDatabaseRuntime }> {
@@ -378,7 +407,7 @@ export function buildVolumeName(input: {
   );
 }
 
-export function buildConnectionString(input: {
+function buildConnectionString(input: {
   username: string;
   password: string;
   hostname: string;
@@ -405,11 +434,13 @@ export function buildConnectionString(input: {
   return url.toString();
 }
 
-export function isUniqueViolation(error: unknown): error is { code: string } {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code: unknown }).code === "23505"
-  );
+export function isUniqueViolation(error: unknown): boolean {
+  // Drizzle wraps the driver error in a DrizzleQueryError, so the Postgres
+  // `23505` code sits on `.cause` — walk the chain to find it.
+  let e: unknown = error;
+  for (let depth = 0; depth < 5 && e && typeof e === "object"; depth++) {
+    if ((e as { code?: unknown }).code === "23505") return true;
+    e = (e as { cause?: unknown }).cause;
+  }
+  return false;
 }

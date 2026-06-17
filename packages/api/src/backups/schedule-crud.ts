@@ -19,7 +19,7 @@ export async function createScheduleRecord(input: {
   name: string;
   sources: string[];
   cron: string;
-  destinationId: BackupDestinationId;
+  destinationIds: BackupDestinationId[];
   projectId?: ProjectId | null;
   keepDaily: number;
   keepWeekly: number;
@@ -38,7 +38,7 @@ export async function createScheduleRecord(input: {
       name: input.name,
       sources: input.sources,
       cron: input.cron,
-      destinationId: input.destinationId,
+      destinationIds: input.destinationIds,
       projectId: input.projectId ?? null,
       keepDaily: input.keepDaily,
       keepWeekly: input.keepWeekly,

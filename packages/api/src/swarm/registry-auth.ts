@@ -22,7 +22,7 @@ import { decryptSecret } from "../lib/crypto";
 import type { RegistryAuth } from "./image-pull";
 
 /** Extract the registry hostname from an image ref. */
-export function imageRegistry(image: string): string {
+function imageRegistry(image: string): string {
   // No slash → bare image like "postgres" or "postgres:18" → docker.io.
   const slashIdx = image.indexOf("/");
   if (slashIdx === -1) return "docker.io";

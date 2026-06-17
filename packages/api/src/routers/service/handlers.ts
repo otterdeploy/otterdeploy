@@ -25,7 +25,7 @@ import {
 import { PLATFORM } from "../../constants";
 import { loadDomainSourcesForProject } from "../../lib/domain-sources";
 import { resolvePublicDomain } from "../../lib/domains";
-import { destroySwarmService } from "../../swarm";
+import { runtime } from "../../runtime";
 
 import { loadProject, loadResource } from "./context";
 import { MissingProjectBuildBindingError, NoHttpPortError, ServiceConflictError, ServiceInUseError, ServiceNotFoundError, type ResolveError } from "./errors";
@@ -208,7 +208,7 @@ export async function deleteService(
   }
 
   await deleteProxyRoutesByResource(input.resourceId);
-  await destroySwarmService({ serviceName: record.service.serviceName }, log);
+  await runtime().destroy({ serviceName: record.service.serviceName }, log);
   await deleteServiceRecord(input.resourceId);
   await reconcile(log);
 

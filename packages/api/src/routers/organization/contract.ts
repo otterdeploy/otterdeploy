@@ -30,7 +30,7 @@ const fqdnShape = z
     message: "must be a hostname like acme.com (no scheme, no path)",
   });
 
-export const organizationSettingsSchema = z.object({
+const organizationSettingsSchema = z.object({
   id: organizationIdField,
   name: z.string(),
   slug: z.string(),
@@ -44,44 +44,44 @@ export const organizationSettingsSchema = z.object({
   cloudflareTokenConfigured: z.boolean(),
 });
 
-export const getOrganizationSettingsInput = z.object({
+const getOrganizationSettingsInput = z.object({
   organizationId: organizationIdField,
 });
 
-export const setBaseDomainInput = z.object({
+const setBaseDomainInput = z.object({
   organizationId: organizationIdField,
   /** Empty string clears the domain. */
   baseDomain: fqdnShape,
 });
 
-export const verifyBaseDomainInput = z.object({
+const verifyBaseDomainInput = z.object({
   organizationId: organizationIdField,
 });
 
-export const cloudflareZoneSchema = z.object({
+const cloudflareZoneSchema = z.object({
   id: z.string(),
   name: z.string(),
   status: z.string(),
 });
 
-export const listCloudflareZonesInput = z.object({
+const listCloudflareZonesInput = z.object({
   /** Token is passed inline (not stored) so the UI can list zones BEFORE
    *  committing — operator can see the zone they'd pick before saving. */
   token: z.string().min(1),
 });
 
-export const setCloudflareConfigInput = z.object({
+const setCloudflareConfigInput = z.object({
   organizationId: organizationIdField,
   /** Empty string clears the integration (also wipes zoneId). */
   token: z.string(),
   zoneId: z.string().nullable(),
 });
 
-export const autoConfigureDomainInput = z.object({
+const autoConfigureDomainInput = z.object({
   organizationId: organizationIdField,
 });
 
-export const autoConfigureDomainOutput = z.object({
+const autoConfigureDomainOutput = z.object({
   ok: z.boolean(),
   /** Cloudflare record IDs we created/updated — surfaced so the operator
    *  knows exactly which records are now under otterdeploy management. */
@@ -103,7 +103,7 @@ export const autoConfigureDomainOutput = z.object({
   settings: organizationSettingsSchema,
 });
 
-export const verifyBaseDomainOutput = z.object({
+const verifyBaseDomainOutput = z.object({
   ok: z.boolean(),
   /** TXT record name we looked up (e.g. `_otterdeploy-verify.acme.com`).
    *  Surfaced verbatim in the UI so the user knows the exact name to
@@ -125,6 +125,52 @@ export const verifyBaseDomainOutput = z.object({
   /** Echo back the updated settings on success so the UI doesn't need a
    *  separate refetch. Null on failure (no state change happened). */
   settings: organizationSettingsSchema.nullable(),
+});
+
+// ─── Outbound email transport (platform-wide) ───────────────────────
+// Stored on the platform_settings singleton; surfaced here under the org
+// settings the operator already manages. Single-tenant beta: any org
+// owner/admin edits the one install-wide transport. Secrets are write-only —
+// reads return `*Configured` booleans, never the key/password.
+const emailProviderEnum = z.enum(["resend", "smtp"]);
+
+const emailSettingsSchema = z.object({
+  provider: emailProviderEnum.nullable(),
+  from: z.string().nullable(),
+  resendConfigured: z.boolean(),
+  smtpHost: z.string().nullable(),
+  smtpPort: z.number().nullable(),
+  smtpSecure: z.boolean().nullable(),
+  smtpUser: z.string().nullable(),
+  smtpPasswordConfigured: z.boolean(),
+  envConfigured: z.boolean(),
+});
+
+const getEmailSettingsInput = z.object({
+  organizationId: organizationIdField,
+});
+
+const setEmailSettingsInput = z.object({
+  organizationId: organizationIdField,
+  provider: emailProviderEnum.nullable(),
+  from: z.string().trim().max(320).nullable(),
+  // Write-only secrets: a string sets it, `null` clears it, omitted leaves it.
+  resendApiKey: z.string().min(1).nullable().optional(),
+  smtpHost: z.string().trim().max(255).nullable(),
+  smtpPort: z.number().int().positive().max(65535).nullable(),
+  smtpSecure: z.boolean().nullable(),
+  smtpUser: z.string().trim().max(255).nullable(),
+  smtpPassword: z.string().min(1).nullable().optional(),
+});
+
+const testEmailInput = z.object({
+  organizationId: organizationIdField,
+  to: z.email(),
+});
+
+const testEmailOutput = z.object({
+  ok: z.boolean(),
+  error: z.string().nullable(),
 });
 
 export const organizationContract = {
@@ -190,4 +236,19 @@ export const organizationContract = {
     })
     .input(autoConfigureDomainInput)
     .output(autoConfigureDomainOutput),
+
+  getEmailSettings: oc
+    .meta({ path: `${basePath}/{organizationId}/email`, tag, method: "GET" })
+    .input(getEmailSettingsInput)
+    .output(emailSettingsSchema),
+
+  setEmailSettings: oc
+    .meta({ path: `${basePath}/{organizationId}/email`, tag, method: "PATCH" })
+    .input(setEmailSettingsInput)
+    .output(emailSettingsSchema),
+
+  testEmail: oc
+    .meta({ path: `${basePath}/{organizationId}/email/test`, tag, method: "POST" })
+    .input(testEmailInput)
+    .output(testEmailOutput),
 };

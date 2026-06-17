@@ -29,7 +29,8 @@ import { SQL } from "bun";
 import { Result } from "better-result";
 import type { RequestLogger } from "evlog";
 
-import { defaultImageFor, updateSwarmDatabase } from "../../../swarm";
+import { defaultImageFor } from "../../../swarm";
+import { updateSwarmDatabase } from "../../../runtime/db";
 import { insertDeployment, markDeploymentFailed } from "../deployments";
 import {
   IncompatibleExtensionsError,

@@ -12,6 +12,7 @@ import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/shared/components/ui/button";
+import { Spinner } from "@/shared/components/ui/spinner";
 
 export const Route = createFileRoute("/accept-invite/$invitationId")({
   beforeLoad: async ({ params }) => {
@@ -84,9 +85,10 @@ function AcceptInvitePage() {
     <div className="grid min-h-svh place-items-center bg-background p-6">
       <div className="w-full max-w-[420px] rounded-xl border bg-card p-6 shadow-sm">
         {invitation.isLoading ? (
-          <p className="text-center text-sm text-muted-foreground">
+          <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
+            <Spinner className="size-4" />
             Loading invitation…
-          </p>
+          </div>
         ) : invitation.isError ? (
           <div className="flex flex-col items-center gap-4 text-center">
             <div>

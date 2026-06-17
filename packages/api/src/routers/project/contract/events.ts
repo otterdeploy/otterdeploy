@@ -20,7 +20,7 @@ import * as z from "zod";
 import { basePath, projectNotFoundErrors, tag } from "./shared";
 import { projectIdField, resourceIdField } from "./shared";
 
-export const projectEventSchema = z.discriminatedUnion("kind", [
+const projectEventSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("resource"),
     /** `created`, `updated`, `removed`. Matches the docker `service.*` action
@@ -49,7 +49,7 @@ export const projectEventSchema = z.discriminatedUnion("kind", [
   }),
 ]);
 
-export const projectEventsStreamInput = z.object({
+const projectEventsStreamInput = z.object({
   projectId: projectIdField,
 });
 

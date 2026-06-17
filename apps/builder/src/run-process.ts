@@ -28,7 +28,7 @@ export interface RunResult {
   tail: string;
 }
 
-export async function runProcess(opts: {
+async function runProcess(opts: {
   cmd: string;
   args: string[];
   cwd?: string;

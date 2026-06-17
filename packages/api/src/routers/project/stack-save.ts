@@ -20,7 +20,7 @@ import { getProjectInOrg } from "./queries";
 
 type OrgId = OrganizationId;
 
-export class StackVersionMismatchError extends TaggedError(
+class StackVersionMismatchError extends TaggedError(
   "StackVersionMismatchError",
 )<{
   message: string;
@@ -36,7 +36,7 @@ export class StackVersionMismatchError extends TaggedError(
   }
 }
 
-export class StackParseError extends TaggedError("StackParseError")<{
+class StackParseError extends TaggedError("StackParseError")<{
   message: string;
 }>() {
   constructor(args: { reason: string }) {

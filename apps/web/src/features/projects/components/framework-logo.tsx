@@ -83,7 +83,7 @@ const FRAMEWORK_LABELS: Record<FrameworkKind, string> = {
   static: "Static",
 };
 
-export function frameworkLabel(framework: FrameworkKind): string {
+function frameworkLabel(framework: FrameworkKind): string {
   return FRAMEWORK_LABELS[framework];
 }
 

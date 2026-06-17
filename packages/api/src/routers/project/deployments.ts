@@ -186,7 +186,7 @@ async function reconcileDeploySuccess(
 /** Look up a single deployment by id, scoped to a resource. Returns null
  *  when the id doesn't exist or belongs to a different resource — the
  *  rollback path uses this to refuse cross-resource snapshot loads. */
-export async function getDeploymentForResource(
+async function getDeploymentForResource(
   resourceId: ResourceId,
   deploymentId: DeploymentId,
 ): Promise<DeploymentRow | null> {
@@ -258,7 +258,7 @@ export async function deleteDeploymentById(
 /** All deployments for a resource, newest first. Status is the value
  *  stored in the row — the API layer can post-process / merge with live
  *  task state if needed. */
-export async function listDeploymentsByResource(
+async function listDeploymentsByResource(
   resourceId: ResourceId,
 ): Promise<DeploymentRow[]> {
   const rows = await db
@@ -497,7 +497,7 @@ export async function listResourceDeployments(
   return Result.ok(result);
 }
 
-export class DeploymentNotFoundError extends TaggedError("DeploymentNotFoundError")<{
+class DeploymentNotFoundError extends TaggedError("DeploymentNotFoundError")<{
   deploymentId: DeploymentId;
   message: string;
 }>() {
@@ -506,7 +506,7 @@ export class DeploymentNotFoundError extends TaggedError("DeploymentNotFoundErro
   }
 }
 
-export class UnsupportedSnapshotError extends TaggedError("UnsupportedSnapshotError")<{
+class UnsupportedSnapshotError extends TaggedError("UnsupportedSnapshotError")<{
   reason: string;
   message: string;
 }>() {

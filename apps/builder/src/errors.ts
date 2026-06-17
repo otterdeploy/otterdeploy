@@ -15,7 +15,7 @@ import { TaggedError } from "better-result";
 /** A build step that shells out (clone, railpack, docker) or hits the DB
  *  threw. Wraps the cause with the step label so the failure stays
  *  attributable without a raw `throw new Error`. */
-export class BuildStepError extends TaggedError("BuildStepError")<{
+class BuildStepError extends TaggedError("BuildStepError")<{
   step: string;
   message: string;
   cause: unknown;
@@ -33,7 +33,7 @@ export class BuildStepError extends TaggedError("BuildStepError")<{
 
 /** The deployment row carries no gitSha / gitRef — it isn't a git-triggered
  *  build, so there's nothing to check out. */
-export class InvalidDeploymentError extends TaggedError("InvalidDeploymentError")<{
+class InvalidDeploymentError extends TaggedError("InvalidDeploymentError")<{
   deploymentId: DeploymentId;
   message: string;
 }>() {
@@ -46,7 +46,7 @@ export class InvalidDeploymentError extends TaggedError("InvalidDeploymentError"
 }
 
 /** `redeployOne` returned an error — the swarm spec couldn't be re-applied. */
-export class SwarmUpdateError extends TaggedError("SwarmUpdateError")<{
+class SwarmUpdateError extends TaggedError("SwarmUpdateError")<{
   message: string;
   cause: unknown;
 }>() {
@@ -55,8 +55,21 @@ export class SwarmUpdateError extends TaggedError("SwarmUpdateError")<{
   }
 }
 
+/** A pre/post-deploy lifecycle hook failed — either the env couldn't be
+ *  resolved, the hook container couldn't launch, or a command exited non-zero.
+ *  A failed pre-deploy hook aborts the rollout; a failed post-deploy hook marks
+ *  the deployment failed even though the new replicas are already live. */
+class DeployHookError extends TaggedError("DeployHookError")<{
+  phase: string;
+  message: string;
+}>() {
+  constructor(args: { phase: string; reason: string }) {
+    super({ phase: args.phase, message: `${args.phase} hook failed: ${args.reason}` });
+  }
+}
+
 /** Swarm accepted the spec but the service never converged to healthy. */
-export class SwarmConvergenceError extends TaggedError("SwarmConvergenceError")<{
+class SwarmConvergenceError extends TaggedError("SwarmConvergenceError")<{
   serviceName: string;
   health: string | null;
   message: string;

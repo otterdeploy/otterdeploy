@@ -25,7 +25,7 @@ import { getProjectInOrg } from "./queries";
 
 type OrgId = OrganizationId;
 
-export class StackNotSavedError extends TaggedError("StackNotSavedError")<{
+class StackNotSavedError extends TaggedError("StackNotSavedError")<{
   message: string;
 }>() {
   constructor() {

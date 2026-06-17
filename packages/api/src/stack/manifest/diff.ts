@@ -9,10 +9,15 @@
 
 import type { BuildConfig } from "@otterdeploy/shared/build-config";
 
-import type { Manifest, ServiceManifest, DatabaseManifest } from "./schema";
+import type {
+  Manifest,
+  ServiceManifest,
+  DatabaseManifest,
+  ComposeManifest,
+} from "./schema";
 
 export type ChangeKind = "create" | "update" | "delete" | "no-op";
-export type ChangeResource = "service" | "database" | "env";
+export type ChangeResource = "service" | "database" | "env" | "compose";
 
 export interface Change {
   kind: ChangeKind;
@@ -49,6 +54,7 @@ export interface CurrentService {
   // New manifest-tracked fields. Null/undefined means "not set on the
   // current resource"; diff treats them like any other field.
   preDeploy: string[] | null;
+  postDeploy: string[] | null;
   buildConfig: BuildConfig | null;
   restartWindowMs: number | null;
   diskLimitMb: number | null;
@@ -63,9 +69,20 @@ export interface CurrentDatabase {
   extraEnv: Record<string, string>;
 }
 
+/**
+ * Current-state view of a compose stack. Only identity is tracked: compose
+ * stacks are diffed at create granularity (see {@link diffComposes}), so the
+ * diff never needs the stack's contents — just whether one by this name
+ * already exists.
+ */
+export interface CurrentCompose {
+  name: string;
+}
+
 export interface CurrentState {
   services: Record<string, CurrentService>;
   databases: Record<string, CurrentDatabase>;
+  composes: Record<string, CurrentCompose>;
 }
 
 // ── Diff entry point ───────────────────────────────────────────────────
@@ -99,7 +116,44 @@ export function diffManifest(manifest: Manifest, current: CurrentState): Change[
     }),
   }).forEach((c) => changes.push(c));
 
+  diffComposes(manifest.composes, current.composes).forEach((c) => changes.push(c));
+
   return changes;
+}
+
+// ── Compose diff (create-only) ─────────────────────────────────────────
+//
+// Compose stacks are diffed at a deliberately coarse granularity: a stack
+// declared in the manifest but absent from current state is a `create`;
+// anything else is a `no-op`. Two things fall out of this on purpose:
+//
+//   - No UPDATE. The stack's `${VAR}` values and per-service env become
+//     editable, real resources only AFTER the first deploy (each compose
+//     service materializes as its own service_resource). Editing the file
+//     itself rides the stack's own redeploy, not the manifest — so the diff
+//     never emits a compose update and can't manufacture a phantom one.
+//   - No DELETE. Stacks created before compose joined the manifest live in
+//     current state but not in any saved manifest; emitting deletes for them
+//     would show every pre-existing stack as "pending delete". Deletion stays
+//     on the stack node's own delete action.
+function diffComposes(
+  desired: Record<string, ComposeManifest>,
+  current: Record<string, CurrentCompose>,
+): Change[] {
+  const out: Change[] = [];
+  for (const [name, spec] of Object.entries(desired)) {
+    if (current[name]) {
+      out.push({ kind: "no-op", resource: "compose", name });
+      continue;
+    }
+    out.push({
+      kind: "create",
+      resource: "compose",
+      name,
+      details: { source: spec.source, ...summarizeCompose(spec) },
+    });
+  }
+  return out;
 }
 
 // ── Generic resource-map diff (services + databases share this) ────────
@@ -187,6 +241,11 @@ function diffService(name: string, desired: ServiceManifest, current: CurrentSer
   const desiredPreDeploy = desired.preDeploy ?? null;
   if (!sameStringArray(desiredPreDeploy, current.preDeploy)) {
     fieldChanges.preDeploy = { from: current.preDeploy, to: desiredPreDeploy };
+  }
+
+  const desiredPostDeploy = desired.postDeploy ?? null;
+  if (!sameStringArray(desiredPostDeploy, current.postDeploy)) {
+    fieldChanges.postDeploy = { from: current.postDeploy, to: desiredPostDeploy };
   }
 
   const desiredRestartWindow = desired.restart?.windowMs ?? null;
@@ -436,6 +495,16 @@ function summarizeService(s: ServiceManifest): Record<string, unknown> {
   if (s.ports?.length) summary.ports = s.ports;
   if (s.env && Object.keys(s.env).length > 0) summary.envKeys = Object.keys(s.env);
   if (s.domains?.length) summary.domains = s.domains.map((d) => d.domain);
+  return summary;
+}
+
+function summarizeCompose(c: ComposeManifest): Record<string, unknown> {
+  const summary: Record<string, unknown> = {};
+  if (c.source === "git") summary.gitRepoUrl = c.gitRepoUrl;
+  if (c.env && Object.keys(c.env).length > 0) summary.envKeys = Object.keys(c.env);
+  if (c.exposed?.length) {
+    summary.exposed = c.exposed.map((e) => `${e.service}:${e.port}`);
+  }
   return summary;
 }
 

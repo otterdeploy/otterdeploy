@@ -22,6 +22,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/shared/components/ui/pagination";
+import { ErrorState } from "@/shared/components/ui/error-state";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import {
   Tabs,
@@ -145,6 +146,7 @@ type QueryLike<T> = {
   isLoading: boolean;
   isError: boolean;
   error: unknown;
+  refetch: () => void;
 };
 
 function ContainersTable({ query }: { query: QueryLike<Container> }) {
@@ -410,10 +412,11 @@ function Panel<T>({
   if (query.isLoading) return <PanelSkeleton cols={headers.length} />;
   if (query.isError) {
     return (
-      <p className="text-sm text-destructive">
-        {(query.error as Error | null)?.message ??
-          "Failed to load from the Docker daemon."}
-      </p>
+      <ErrorState
+        title="Couldn't reach the Docker daemon"
+        message={(query.error as Error | null)?.message}
+        onRetry={() => void query.refetch()}
+      />
     );
   }
   const rows = query.data ?? [];

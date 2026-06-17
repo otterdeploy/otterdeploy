@@ -41,17 +41,26 @@ export interface InstallationReposEvent {
   repositories_removed?: GithubRepoPayload[];
 }
 
+/** A single commit in a push payload. `added`/`removed`/`modified` are
+ *  repo-root-relative paths — GitHub omits them on very large pushes, so
+ *  treat an absent/empty list as "unknown", not "nothing changed". */
+export interface GithubCommitPayload {
+  id: string;
+  message: string;
+  author?: { name?: string; email?: string };
+  added?: string[];
+  removed?: string[];
+  modified?: string[];
+}
+
 export interface PushEvent {
   ref: string;
   after: string;
   deleted?: boolean;
   repository: GithubRepoPayload;
   installation?: { id: number | string };
-  head_commit?: {
-    id: string;
-    message: string;
-    author?: { name?: string; email?: string };
-  };
+  head_commit?: GithubCommitPayload;
+  commits?: GithubCommitPayload[];
 }
 
 export type GithubWebhookResult =

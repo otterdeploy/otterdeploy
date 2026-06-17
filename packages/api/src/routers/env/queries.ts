@@ -67,7 +67,7 @@ export async function createEnvRecord(input: {
  * pre-allocated env. Returns undefined if the env doesn't exist or has
  * already been linked to a project.
  */
-export async function getStandaloneEnv(
+async function getStandaloneEnv(
   environmentId: EnvironmentId,
 ): Promise<EnvironmentRecord | undefined> {
   const [row] = await db

@@ -4,7 +4,8 @@
  * path is identical to the equivalent UI clicks; the manifest just
  * decides what to call.
  *
- * Execution order:
+ * Execution order (phases run in sequence; resources WITHIN a phase run in
+ * parallel — they're mutually independent once the prior phase has settled):
  *   1. Database creates                     (services may reference them)
  *   2. Resolve refs in service env values   (database rows exist by step 1)
  *   3. Service creates
@@ -52,7 +53,11 @@ import {
 } from "../../stack/manifest";
 import { emitDeployStarted } from "./deployments";
 import { ManifestApplySkipError } from "./errors";
-import { deleteResourceById } from "./queries";
+import {
+  deleteDraftCredential,
+  deleteResourceById,
+  getDraftCredentialPassword,
+} from "./queries";
 import { createPostgresResourceStream, validatePostgresCreate } from "./postgres/create-stream";
 import { setPostgresExtensions } from "./postgres/extensions";
 import {
@@ -67,12 +72,17 @@ import {
   updateService,
 } from "../service/handlers";
 import { addServiceDomain, setPrimaryServiceDomain } from "../service/domains";
+import { createComposeFromManifest } from "../compose/manifest-reconcile";
 
 type OrgId = OrganizationId;
 
 export interface ApplyResult {
   appliedCount: number;
-  skipped: Array<{ resource: "service" | "database" | "env"; name: string; reason: string }>;
+  skipped: Array<{
+    resource: "service" | "database" | "env" | "compose";
+    name: string;
+    reason: string;
+  }>;
   lastAppliedAt: string;
 }
 
@@ -100,12 +110,18 @@ export async function applyManifest(input: ApplyInput): Promise<ApplyResult> {
     else skipped.push(result.error);
   };
 
-  // ── 1. Database creates ─────────────────────────────────────────────
-  for (const change of byKind.databaseCreates) {
-    const spec = manifest.databases[change.name];
-    if (!spec) continue;
-    tally(await createDatabase({ projectId, organizationId, name: change.name, spec, log }));
-  }
+  // ── 1. Database creates (parallel) ──────────────────────────────────
+  // Each create provisions an independent database, so fan them out and
+  // await the batch instead of draining one stream before starting the
+  // next. tally() runs after to fold results in deterministically.
+  const dbCreateResults = await Promise.all(
+    byKind.databaseCreates.map((change) => {
+      const spec = manifest.databases[change.name];
+      if (!spec) return null;
+      return createDatabase({ projectId, organizationId, name: change.name, spec, log });
+    }),
+  );
+  for (const r of dbCreateResults) if (r) tally(r);
 
   // ── 2. Build the ref-resolution table for service env ────────────────
   // Databases created in step 1 (and any pre-existing ones) live in DB
@@ -119,60 +135,72 @@ export async function applyManifest(input: ApplyInput): Promise<ApplyResult> {
   // clones + builds + pushes + rolls the swarm service. Collect them so we
   // can enqueue that build below; without this a UI "Deploy" creates the
   // row but nothing ever builds (the node sits at "pending create").
+  // Services are mutually independent (refs were already resolved against
+  // databases in step 2), so create them in parallel. Each task returns its
+  // own result + collected skips + git-build entries; we fold them in order
+  // afterward so the shared tally/skipped/gitBuilds state isn't raced.
   const gitBuilds: Array<{ resourceId: ResourceId; name: string }> = [];
-  for (const change of byKind.serviceCreates) {
-    const spec = manifest.services[change.name];
-    if (!spec) continue;
-    const resolved = resolveEnv(
-      change.name,
-      spec.env,
-      refTable,
-      current.services[change.name]?.env ?? {},
-    );
-    for (const s of resolved.skipped) skipped.push(s);
-    const created = await createServiceFromManifest({
-      projectId,
-      organizationId,
-      name: change.name,
-      spec,
-      env: resolved.values,
-      log,
-    });
-    tally(created);
-    if (created.isOk() && spec.source === "git") {
-      gitBuilds.push({ resourceId: created.value.resourceId, name: change.name });
-    }
-    // Seed manifest-declared public domains onto the freshly-created service
-    // (create-time only). Failures are non-fatal skips — the service itself
-    // is already created; a bad/portless domain shouldn't roll that back.
-    if (created.isOk() && spec.domains?.length) {
-      for (const s of await seedServiceDomains({
+  const svcCreateResults = await Promise.all(
+    byKind.serviceCreates.map(async (change) => {
+      const spec = manifest.services[change.name];
+      if (!spec) return null;
+      const resolved = resolveEnv(
+        change.name,
+        spec.env,
+        refTable,
+        current.services[change.name]?.env ?? {},
+      );
+      const localSkipped = [...resolved.skipped];
+      const created = await createServiceFromManifest({
         projectId,
         organizationId,
-        resourceId: created.value.resourceId,
         name: change.name,
-        domains: spec.domains,
+        spec,
+        env: resolved.values,
         log,
-      })) {
-        skipped.push(s);
+      });
+      const builds: Array<{ resourceId: ResourceId; name: string }> = [];
+      if (created.isOk() && spec.source === "git") {
+        builds.push({ resourceId: created.value.resourceId, name: change.name });
       }
-    }
+      // Seed manifest-declared public domains onto the freshly-created service
+      // (create-time only). Failures are non-fatal skips — the service itself
+      // is already created; a bad/portless domain shouldn't roll that back.
+      if (created.isOk() && spec.domains?.length) {
+        for (const s of await seedServiceDomains({
+          projectId,
+          organizationId,
+          resourceId: created.value.resourceId,
+          name: change.name,
+          domains: spec.domains,
+          log,
+        })) {
+          localSkipped.push(s);
+        }
+      }
+      return { created, builds, localSkipped };
+    }),
+  );
+  for (const r of svcCreateResults) {
+    if (!r) continue;
+    for (const s of r.localSkipped) skipped.push(s);
+    tally(r.created);
+    gitBuilds.push(...r.builds);
   }
 
-  // ── 4. Service updates (fields + env) ────────────────────────────────
-  for (const change of byKind.serviceUpdates) {
-    const spec = manifest.services[change.name];
-    const existingId = await lookupServiceId(projectId, change.name);
-    if (!spec || !existingId) continue;
-    const resolved = resolveEnv(
-      change.name,
-      spec.env,
-      refTable,
-      current.services[change.name]?.env ?? {},
-    );
-    for (const s of resolved.skipped) skipped.push(s);
-    tally(
-      await updateServiceFromManifest({
+  // ── 4. Service updates (fields + env, parallel) ──────────────────────
+  const svcUpdateResults = await Promise.all(
+    byKind.serviceUpdates.map(async (change) => {
+      const spec = manifest.services[change.name];
+      const existingId = await lookupServiceId(projectId, change.name);
+      if (!spec || !existingId) return null;
+      const resolved = resolveEnv(
+        change.name,
+        spec.env,
+        refTable,
+        current.services[change.name]?.env ?? {},
+      );
+      const updated = await updateServiceFromManifest({
         projectId,
         organizationId,
         name: change.name,
@@ -180,31 +208,60 @@ export async function applyManifest(input: ApplyInput): Promise<ApplyResult> {
         spec,
         env: resolved.values,
         log,
-      }),
-    );
-    // A git service that was created but never successfully built sits on a
-    // `pending:*` image with no deployment. Builds normally fire only on
-    // create (or git push), so without this a "Deploy" on such a stuck
-    // service no-ops forever. If it's still pending, enqueue the build now.
-    if (spec.source === "git") {
-      const [svc] = await db
-        .select({ image: serviceResource.image })
-        .from(serviceResource)
-        .where(eq(serviceResource.resourceId, existingId))
-        .limit(1);
-      if (svc?.image.startsWith("pending:")) {
-        gitBuilds.push({ resourceId: existingId, name: change.name });
+      });
+      // A git service that was created but never successfully built sits on a
+      // `pending:*` image with no deployment. Builds normally fire only on
+      // create (or git push), so without this a "Deploy" on such a stuck
+      // service no-ops forever. If it's still pending, enqueue the build now.
+      const builds: Array<{ resourceId: ResourceId; name: string }> = [];
+      if (spec.source === "git") {
+        const [svc] = await db
+          .select({ image: serviceResource.image })
+          .from(serviceResource)
+          .where(eq(serviceResource.resourceId, existingId))
+          .limit(1);
+        if (svc?.image.startsWith("pending:")) {
+          builds.push({ resourceId: existingId, name: change.name });
+        }
       }
-    }
+      return { updated, builds, localSkipped: resolved.skipped };
+    }),
+  );
+  for (const r of svcUpdateResults) {
+    if (!r) continue;
+    for (const s of r.localSkipped) skipped.push(s);
+    tally(r.updated);
+    gitBuilds.push(...r.builds);
   }
 
-  // ── 5. Database updates ─────────────────────────────────────────────
-  for (const change of byKind.databaseUpdates) {
-    const spec = manifest.databases[change.name];
-    const existingId = await lookupDatabaseId(projectId, change.name);
-    if (!spec || !existingId) continue;
-    tally(
-      await updateDatabaseFromManifest({
+  // ── 4b. Compose stack creates (parallel) ─────────────────────────────
+  // A staged compose stack materializes its row + swarm services here.
+  // Inline stacks deploy now; git stacks enqueue a build that deploys on
+  // completion. Each is independent (refs resolve against project vars, not
+  // sibling stacks), so fan them out. The diff only ever emits compose
+  // creates — see diffComposes — so there's no compose update/delete phase.
+  const composeCreateResults = await Promise.all(
+    byKind.composeCreates.map((change) => {
+      const spec = manifest.composes[change.name];
+      if (!spec) return null;
+      return createComposeFromManifest({
+        projectId,
+        organizationId,
+        name: change.name,
+        spec,
+        log,
+      });
+    }),
+  );
+  for (const r of composeCreateResults) if (r) tally(r);
+
+  // ── 5. Database updates (parallel) ──────────────────────────────────
+  const dbUpdateResults = await Promise.all(
+    byKind.databaseUpdates.map(async (change) => {
+      const spec = manifest.databases[change.name];
+      const existingId = await lookupDatabaseId(projectId, change.name);
+      if (!spec || !existingId) return null;
+      return updateDatabaseFromManifest({
         projectId,
         organizationId,
         name: change.name,
@@ -212,31 +269,46 @@ export async function applyManifest(input: ApplyInput): Promise<ApplyResult> {
         spec,
         currentExtraEnv: current.databases[change.name]?.extraEnv ?? {},
         log,
-      }),
-    );
-  }
+      });
+    }),
+  );
+  for (const r of dbUpdateResults) if (r) tally(r);
 
   // ── 6 + 7. Deletes (services then databases) ─────────────────────────
-  for (const change of byKind.serviceDeletes) {
-    const existingId = await lookupServiceId(projectId, change.name);
-    if (!existingId) continue;
-    const result = await deleteService({ projectId, organizationId, resourceId: existingId }, log);
-    if (result.isOk()) appliedCount += 1;
+  // Services delete before databases (a service may reference a database),
+  // but within each kind the deletes are independent — fan them out.
+  const svcDeleteResults = await Promise.all(
+    byKind.serviceDeletes.map(async (change) => {
+      const existingId = await lookupServiceId(projectId, change.name);
+      if (!existingId) return null;
+      const result = await deleteService(
+        { projectId, organizationId, resourceId: existingId },
+        log,
+      );
+      return { name: change.name, result };
+    }),
+  );
+  for (const r of svcDeleteResults) {
+    if (!r) continue;
+    if (r.result.isOk()) appliedCount += 1;
     else
       skipped.push(
         new ManifestApplySkipError({
           resource: "service",
-          name: change.name,
-          reason: `delete failed: ${result.error.name}`,
+          name: r.name,
+          reason: `delete failed: ${r.result.error.name}`,
         }),
       );
   }
-  for (const change of byKind.databaseDeletes) {
-    const existingId = await lookupDatabaseId(projectId, change.name);
-    if (!existingId) continue;
-    await db.delete(resource).where(eq(resource.id, existingId));
-    appliedCount += 1;
-  }
+  const dbDeleteResults = await Promise.all(
+    byKind.databaseDeletes.map(async (change) => {
+      const existingId = await lookupDatabaseId(projectId, change.name);
+      if (!existingId) return false;
+      await db.delete(resource).where(eq(resource.id, existingId));
+      return true;
+    }),
+  );
+  for (const ok of dbDeleteResults) if (ok) appliedCount += 1;
 
   // ── Enqueue builds for git-sourced service creates ───────────────────
   // Mirrors the git-push path (git/handle-push.ts): resolve the production
@@ -244,18 +316,23 @@ export async function applyManifest(input: ApplyInput): Promise<ApplyResult> {
   // so the builder clones → builds → pushes → rolls swarm. A failure here
   // means the resource exists but won't build, so it joins skipped[] for
   // the operator to see.
-  for (const b of gitBuilds) {
-    const enqueued = await enqueueGitBuild({
-      projectId,
-      organizationId,
-      resourceId: b.resourceId,
-      log,
-    });
+  const buildResults = await Promise.all(
+    gitBuilds.map(async (b) => ({
+      name: b.name,
+      enqueued: await enqueueGitBuild({
+        projectId,
+        organizationId,
+        resourceId: b.resourceId,
+        log,
+      }),
+    })),
+  );
+  for (const { name, enqueued } of buildResults) {
     if (enqueued.isErr()) {
       skipped.push(
         new ManifestApplySkipError({
           resource: "service",
-          name: b.name,
+          name,
           reason: `created but build not started: ${enqueued.error}`,
         }),
       );
@@ -287,6 +364,7 @@ interface GroupedChanges {
   databaseCreates: Change[];
   databaseUpdates: Change[];
   databaseDeletes: Change[];
+  composeCreates: Change[];
 }
 
 function groupChanges(changes: Change[]): GroupedChanges {
@@ -297,6 +375,7 @@ function groupChanges(changes: Change[]): GroupedChanges {
     databaseCreates: [],
     databaseUpdates: [],
     databaseDeletes: [],
+    composeCreates: [],
   };
   for (const c of changes) {
     if (c.kind === "no-op") continue;
@@ -308,6 +387,9 @@ function groupChanges(changes: Change[]): GroupedChanges {
       if (c.kind === "create") out.databaseCreates.push(c);
       else if (c.kind === "update") out.databaseUpdates.push(c);
       else if (c.kind === "delete") out.databaseDeletes.push(c);
+    } else if (c.resource === "compose") {
+      // diffComposes only ever emits create (or no-op, skipped above).
+      if (c.kind === "create") out.composeCreates.push(c);
     }
     // env changes are handled per-service inside resolveEnv → bulkSetEnv;
     // we don't need to track them at the orchestrator level.
@@ -644,6 +726,7 @@ async function createServiceFromManifest(
           }
         : undefined,
       preDeploy: args.spec.preDeploy ?? null,
+      postDeploy: args.spec.postDeploy ?? null,
       buildConfig: args.spec.source === "git" ? (args.spec.build ?? null) : null,
     },
     args.log,
@@ -774,6 +857,7 @@ async function updateServiceFromManifest(
           }
         : undefined,
       preDeploy: args.spec.preDeploy ?? null,
+      postDeploy: args.spec.postDeploy ?? null,
       buildConfig: args.spec.source === "git" ? (args.spec.build ?? null) : null,
     },
     args.log,
@@ -838,6 +922,12 @@ async function createDatabase(
     );
   }
 
+  // Reuse the password minted when the database was staged (shown in the
+  // pending panel), so the connection details the operator copied pre-deploy
+  // keep working. Null → the create stream generates a fresh one.
+  const draftPassword =
+    (await getDraftCredentialPassword(args.projectId, args.name)) ?? undefined;
+
   // Drain the create stream to completion — the manifest apply path
   // doesn't surface per-step progress (Phase 6 will).
   const stream = createPostgresResourceStream(
@@ -847,6 +937,7 @@ async function createDatabase(
       name: args.name,
       engine: args.spec.engine,
       publicEnabled: args.spec.publicEnabled ?? false,
+      password: draftPassword,
       project: validation.value.project,
     },
     args.log,
@@ -876,6 +967,10 @@ async function createDatabase(
       }),
     );
   }
+
+  // Provisioned — the real database_resource row now owns the password, so the
+  // staged draft credential is redundant. Drop it.
+  await deleteDraftCredential(args.projectId, args.name);
 
   // extraEnv + extensions come after creation — the create stream doesn't
   // accept them as input today, so we apply them as second steps. Both

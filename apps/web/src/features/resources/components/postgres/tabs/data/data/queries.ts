@@ -17,10 +17,10 @@ export type ColumnVariant = "short-text" | "date" | "number" | "boolean";
 export const SQL_RESULT_CAP = 1000;
 
 /** Escape a single-quoted SQL string literal. */
-export const escLiteral = (v: string) => v.replace(/'/g, "''");
+const escLiteral = (v: string) => v.replace(/'/g, "''");
 
 /** Quote a SQL identifier (embedded double quotes doubled). */
-export const quoteIdent = (c: string) => `"${c.replace(/"/g, '""')}"`;
+const quoteIdent = (c: string) => `"${c.replace(/"/g, '""')}"`;
 
 /** Map an information_schema.data_type to a grid cell variant. */
 export function pgTypeToVariant(type: string): ColumnVariant {
@@ -91,4 +91,16 @@ export function tableColumnsSql(table: TableRef): string {
 /** A single referenced row, for the FK popover. */
 export function referencedRowSql(fk: FkTarget, value: string): string {
   return `SELECT * FROM ${quoteIdent(fk.schema)}.${quoteIdent(fk.table)} WHERE ${quoteIdent(fk.column)} = '${escLiteral(value)}' LIMIT 1`;
+}
+
+/** Primary-key column names for a table, in key order — the write path needs
+ *  them to target a row (editing is disabled when a table has none). */
+export function primaryKeysSql(table: TableRef): string {
+  return `SELECT kcu.column_name
+     FROM information_schema.table_constraints tc
+     JOIN information_schema.key_column_usage kcu
+       ON kcu.constraint_name = tc.constraint_name AND kcu.constraint_schema = tc.constraint_schema
+    WHERE tc.constraint_type = 'PRIMARY KEY'
+      AND tc.table_schema = '${escLiteral(table.schema)}' AND tc.table_name = '${escLiteral(table.name)}'
+    ORDER BY kcu.ordinal_position`;
 }

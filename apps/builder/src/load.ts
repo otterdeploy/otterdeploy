@@ -46,7 +46,7 @@ export interface PipelineContext {
   repo: typeof gitRepo.$inferSelect;
 }
 
-export class PipelineLoadError extends TaggedError("PipelineLoadError")<{
+class PipelineLoadError extends TaggedError("PipelineLoadError")<{
   step: string;
   message: string;
 }>() {
@@ -55,7 +55,7 @@ export class PipelineLoadError extends TaggedError("PipelineLoadError")<{
   }
 }
 
-export async function loadPipelineContext(
+async function loadPipelineContext(
   deploymentId: DeploymentId,
 ): Promise<PipelineContext> {
   const [dep] = await db

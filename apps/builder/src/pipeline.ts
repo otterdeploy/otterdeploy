@@ -36,10 +36,14 @@ import { eq } from "drizzle-orm";
 import { log as globalLog } from "evlog";
 
 import { cloneRepoAtSha } from "./clone";
+import { pruneStaleBuilds } from "./build-workdir";
+import { isComposeDeployment, runComposeBuild } from "./compose-build";
+import { runDeployHooks } from "./deploy-hook";
 import { detectServiceFramework } from "./detect-framework";
 import { dockerPush } from "./docker-push";
 import {
   BuildStepError,
+  DeployHookError,
   InvalidDeploymentError,
   SwarmConvergenceError,
   SwarmUpdateError,
@@ -54,6 +58,7 @@ import { markBuilding, markFailed, markImageReady, markRunning } from "./state";
 type BuildPipelineError =
   | PipelineLoadError
   | BuildStepError
+  | DeployHookError
   | InvalidDeploymentError
   | SwarmUpdateError
   | SwarmConvergenceError;
@@ -62,6 +67,9 @@ type BuildPipelineError =
  *  when a later step fails (the dir is created mid-pipeline). */
 interface WorkDirRef {
   path: string | null;
+  /** True when `path` is under the data folder → a failed build's clone is kept
+   *  for inspection rather than cleaned. */
+  persistent: boolean;
 }
 
 /** Run a throwing infra step (clone, railpack, docker, DB) as a Result,
@@ -80,26 +88,37 @@ function step<T>(
  *  now points at; on failure it's the surfaced error message (the row has
  *  already been marked failed). The pipeline never rejects — a batch handler
  *  must keep going if one deployment fails. */
-export async function runBuildPipeline(opts: {
+async function runBuildPipeline(opts: {
   deploymentId: DeploymentId;
   publisher: RedisClient;
 }): Promise<Result<string, string>> {
   const sink = createLogSink({ deploymentId: opts.deploymentId, publisher: opts.publisher });
-  const work: WorkDirRef = { path: null };
+  const work: WorkDirRef = { path: null, persistent: false };
+
+  // Reclaim disk from old kept-on-failure clones before we start (no-op unless
+  // the data folder is in use).
+  await pruneStaleBuilds().catch(() => undefined);
 
   const built = await runBuildSteps(opts, sink, work);
 
   // On failure: mark the row + log (side effects via tapErrorAsync, runs only
   // on Err and passes the Result through), then collapse the tagged error to
-  // its message for the caller. Cleanup runs unconditionally afterwards.
+  // its message for the caller.
   const outcome = (
     await built.tapErrorAsync((err) => handleFailure(opts.deploymentId, sink, err))
   ).mapError((err) => err.message);
 
-  await sink.close();
+  // Successful builds + ephemeral (tmpdir) work dirs are cleaned immediately. A
+  // FAILED build under the data folder is KEPT for inspection; the TTL sweep
+  // above reclaims it after BUILD_TTL_MS.
   if (work.path) {
-    await rm(work.path, { recursive: true, force: true }).catch(() => undefined);
+    if (outcome.isErr() && work.persistent) {
+      sink.system(`build failed — work dir kept for inspection: ${work.path}`);
+    } else {
+      await rm(work.path, { recursive: true, force: true }).catch(() => undefined);
+    }
   }
+  await sink.close();
   return outcome;
 }
 
@@ -112,6 +131,20 @@ function runBuildSteps(
   work: WorkDirRef,
 ): Promise<Result<string, BuildPipelineError>> {
   return Result.gen(async function* () {
+    // Compose stacks build N services from one repo — a separate path that
+    // reuses the same builders per build-context. Image-only stacks never
+    // enqueue a build, so reaching here means there's at least one `build:`.
+    const isCompose = yield* (
+      await Result.tryPromise({
+        try: () => isComposeDeployment(opts.deploymentId),
+        catch: (cause): BuildPipelineError =>
+          new BuildStepError({ step: "dispatch", cause }),
+      })
+    );
+    if (isCompose) {
+      return await runComposeBuild(opts, sink, work);
+    }
+
     // loadPipelineContext throws PipelineLoadError (already tagged) on a bad
     // row; keep that tag and wrap anything else as a generic load failure.
     const ctx = yield* (
@@ -152,12 +185,14 @@ function runBuildSteps(
           cloneUrl: ctx.repo.cloneUrl,
           ref: gitRef,
           sha: gitSha,
+          deploymentId: opts.deploymentId,
           installationToken,
           sink,
         }),
       )
     );
     work.path = cloned.workDir;
+    work.persistent = cloned.persistent;
 
     // Pick the builder. Two paths produce the same `{ shaTag, latestTag,
     // buildDir }` shape so everything below is builder-agnostic:
@@ -276,6 +311,25 @@ function runBuildSteps(
       )
     );
 
+    // Pre-deploy hooks run off the new image BEFORE the rollout — the slot for
+    // db migrations. A non-zero exit short-circuits the flow (marks the row
+    // failed) so the old replicas keep serving and the bad version never rolls.
+    const preDeploy = ctx.service.preDeploy ?? [];
+    if (preDeploy.length > 0) {
+      yield* (
+        await runDeployHooks({
+          phase: "pre-deploy",
+          commands: preDeploy,
+          image: image.shaTag,
+          projectId: ctx.project.id as ProjectId,
+          resourceId: ctx.resource.id as ResourceId,
+          projectSlug: ctx.project.slug,
+          deploymentId: opts.deploymentId,
+          sink,
+        })
+      );
+    }
+
     const runtime = yield* (
       await redeployOne(
         ctx.project.id as ProjectId,
@@ -297,6 +351,29 @@ function runBuildSteps(
 
     yield* (await step("mark-running", () => markRunning(opts.deploymentId)));
     sink.system(`deployment running: ${image.shaTag}`);
+
+    // Post-deploy hooks run AFTER the new replicas are live + healthy (cache
+    // warmup, smoke checks, deploy pings). The rollout already succeeded, so a
+    // hook failure is surfaced loudly but does NOT flip a live, healthy
+    // deployment to "failed" — that status would contradict reality.
+    const postDeploy = ctx.service.postDeploy ?? [];
+    if (postDeploy.length > 0) {
+      const hooked = await runDeployHooks({
+        phase: "post-deploy",
+        commands: postDeploy,
+        image: image.shaTag,
+        projectId: ctx.project.id as ProjectId,
+        resourceId: ctx.resource.id as ResourceId,
+        projectSlug: ctx.project.slug,
+        deploymentId: opts.deploymentId,
+        sink,
+      });
+      if (hooked.isErr()) {
+        sink.system(
+          `post-deploy hook failed (deployment stays live): ${hooked.error.message}`,
+        );
+      }
+    }
     return Result.ok(image.shaTag);
   });
 }

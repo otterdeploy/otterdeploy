@@ -25,9 +25,9 @@ import { containerRegistryIdField } from "../project/contract/shared";
 const tag = "registry";
 const basePath = "/registries";
 
-export const registryAuthTypeSchema = z.enum(["password", "token"]);
+const registryAuthTypeSchema = z.enum(["password", "token"]);
 
-export const containerRegistryViewSchema = z.object({
+const containerRegistryViewSchema = z.object({
   id: containerRegistryIdField,
   displayName: z.string(),
   host: z.string(),
@@ -37,9 +37,11 @@ export const containerRegistryViewSchema = z.object({
   updatedAt: z.date(),
 });
 
-export const listRegistriesInput = z.void();
+// GET input must be object/any/unknown for the OpenAPI generator; optional
+// empty object keeps "no input" valid.
+const listRegistriesInput = z.object({}).optional();
 
-export const createRegistryInput = z.object({
+const createRegistryInput = z.object({
   displayName: z.string().min(1).max(120),
   host: z.string().min(1).max(255),
   username: z.string().min(1).max(255),
@@ -47,7 +49,7 @@ export const createRegistryInput = z.object({
   authType: registryAuthTypeSchema.default("password"),
 });
 
-export const updateRegistryInput = z.object({
+const updateRegistryInput = z.object({
   id: containerRegistryIdField,
   displayName: z.string().min(1).max(120).optional(),
   username: z.string().min(1).max(255).optional(),
@@ -56,7 +58,7 @@ export const updateRegistryInput = z.object({
   authType: registryAuthTypeSchema.optional(),
 });
 
-export const deleteRegistryInput = z.object({
+const deleteRegistryInput = z.object({
   id: containerRegistryIdField,
 });
 

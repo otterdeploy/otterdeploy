@@ -61,7 +61,7 @@ function RestoreWizardBody({
 
   const run = () => {
     setRunning(true);
-    restoreBackup({ id: backup.id, mode })
+    restoreBackup({ id: backup.id, mode, confirm: mode === "in-place" ? confirm : undefined })
       .then((res) => {
         if (mode === "download") {
           if (res.data && res.filename) downloadBase64(res.data, res.filename);
@@ -78,7 +78,7 @@ function RestoreWizardBody({
   };
 
   return (
-    <DialogContent className="max-w-2xl gap-0 p-0">
+    <DialogContent className="sm:max-w-3xl gap-0 p-0">
       <DialogHeader className="border-b px-5 py-3">
         <DialogTitle className="text-sm font-semibold">
           Restore · {source}

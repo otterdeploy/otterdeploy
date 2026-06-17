@@ -10,7 +10,7 @@
  * scoped spotlight. Writes are a later phase — see docs/designs/data-viewer.md.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { format as formatSql } from "sql-formatter";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -66,6 +66,7 @@ import { cn } from "@/shared/lib/utils";
 import type { PostgresBodyProps } from "../../types";
 import type { FkTarget } from "@/shared/components/data-grid/types";
 
+import type { ColumnValue } from "./components/dice-grid";
 import { FilterPopover } from "./components/filter-popover";
 import { ResultsPanel, type ResultView } from "./components/results-panel";
 import { SchemaExplorer } from "./components/schema-explorer";
@@ -75,9 +76,12 @@ import { SqlEditor, type SqlEditorHandle } from "./components/sql-editor";
 import { buildWhere, type Filter, isFilterActive, newFilter } from "./data/filters";
 import { browseRowsSql, SQL_RESULT_CAP, type TableRef } from "./data/queries";
 import {
+  useDataCapabilities,
   useDatabaseTables,
+  useMutateRow,
   useQueryRows,
   useTableColumnMeta,
+  useTablePrimaryKey,
 } from "./data/use-database";
 import { PLAYGROUND_ID, useSqlSnippets } from "./data/use-sql-snippets";
 
@@ -89,11 +93,13 @@ const PAGE_SIZES = [50, 100, 200, 500];
 
 export function DataTabBody({ resource }: DataTabBodyProps) {
   const [expanded, setExpanded] = useState(false);
+  const canWrite =
+    useDataCapabilities(String(resource.resourceId)).data?.canWrite ?? false;
 
   return (
     <div className="flex min-h-0 flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
-        <DbIdentity resource={resource} />
+        <DbIdentity resource={resource} canWrite={canWrite} />
         <Button
           variant="outline"
           size="sm"
@@ -120,7 +126,7 @@ export function DataTabBody({ resource }: DataTabBodyProps) {
         <DialogContent className="left-0 top-0 flex h-screen w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 sm:max-w-none">
           <DialogHeader className="border-b px-4 py-3">
             <DialogTitle className="flex items-center gap-2 text-sm">
-              <DbIdentity resource={resource} />
+              <DbIdentity resource={resource} canWrite={canWrite} />
             </DialogTitle>
           </DialogHeader>
           <div className="min-h-0 flex-1 p-4">
@@ -136,7 +142,13 @@ export function DataTabBody({ resource }: DataTabBodyProps) {
   );
 }
 
-function DbIdentity({ resource }: { resource: DataTabBodyProps["resource"] }) {
+function DbIdentity({
+  resource,
+  canWrite,
+}: {
+  resource: DataTabBodyProps["resource"];
+  canWrite: boolean;
+}) {
   return (
     <div className="flex items-center gap-2 text-[13px]">
       <HugeiconsIcon
@@ -148,7 +160,7 @@ function DbIdentity({ resource }: { resource: DataTabBodyProps["resource"] }) {
       <span className="text-muted-foreground/50">·</span>
       <span className="text-muted-foreground">{resource.engine}</span>
       <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] tracking-wide text-muted-foreground">
-        READ-ONLY
+        {canWrite ? "EDITABLE" : "READ-ONLY"}
       </span>
     </div>
   );
@@ -248,6 +260,51 @@ function DataStudio({
     table: selected,
     enabled: mode === "table",
   });
+
+  // ── Write path ───────────────────────────────────────────────────────
+  // Inline edit / delete are offered only in table-browse mode, when the actor
+  // has the write capability and the open table has a primary key to target.
+  const canWrite = useDataCapabilities(String(resourceId)).data?.canWrite ?? false;
+  const primaryKey = useTablePrimaryKey({
+    resourceId: String(resourceId),
+    table: selected,
+    enabled: mode === "table" && canWrite,
+  });
+  const mutateRow = useMutateRow();
+  const editable = mode === "table" && canWrite && Boolean(selected);
+
+  const onUpdateRow = useCallback(
+    async (pk: ColumnValue[], set: ColumnValue[]) => {
+      if (!selected) return;
+      await mutateRow.mutateAsync({
+        resourceId: resourceId as never,
+        schema: selected.schema,
+        table: selected.name,
+        op: "update",
+        pk,
+        set,
+      });
+      // Reconcile with server truth (triggers / computed columns / defaults).
+      void rowsQuery.refetch();
+    },
+    [selected, mutateRow, resourceId, rowsQuery],
+  );
+
+  const onDeleteRow = useCallback(
+    async (pk: ColumnValue[]) => {
+      if (!selected) return;
+      await mutateRow.mutateAsync({
+        resourceId: resourceId as never,
+        schema: selected.schema,
+        table: selected.name,
+        op: "delete",
+        pk,
+        set: [],
+      });
+      void rowsQuery.refetch();
+    },
+    [selected, mutateRow, resourceId, rowsQuery],
+  );
 
   // Jump to a referenced table, pre-filtered to the row (from a FK popover).
   function openRefTable(fk: FkTarget, value: string) {
@@ -372,6 +429,10 @@ function DataStudio({
       errorMessage={errMessage(rowsQuery.error)}
       hasResult={Boolean(result)}
       exportName={mode === "table" && selected ? selected.name : "query"}
+      editable={editable}
+      primaryKey={mode === "table" ? primaryKey : undefined}
+      onUpdateRow={mode === "table" ? onUpdateRow : undefined}
+      onDeleteRow={mode === "table" ? onDeleteRow : undefined}
       emptyIcon={mode === "sql" ? PlayIcon : Database01Icon}
       emptyTitle={mode === "sql" ? "Run a query" : "Select a table"}
       emptyBody={

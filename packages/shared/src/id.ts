@@ -73,6 +73,12 @@ export const ID_PREFIX = {
   notificationChannel: "notifchan",
   notificationSubscription: "notifsub",
   notificationDelivery: "notifdlv",
+
+  // firewall — managed IP blocklists synced into CrowdSec
+  blocklist: "blocklist",
+
+  // SSH keys — org-scoped keypairs for Git auth + node management
+  sshKey: "sshkey",
 } as const;
 
 export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];
@@ -222,6 +228,8 @@ export type BackupDestinationId = Id<typeof ID_PREFIX.backupDestination>;
 export type BackupLogId = Id<typeof ID_PREFIX.backupLog>;
 
 export type AuditLogId = Id<typeof ID_PREFIX.auditLog>;
+export type BlocklistId = Id<typeof ID_PREFIX.blocklist>;
+export type SshKeyId = Id<typeof ID_PREFIX.sshKey>;
 
 export type NotificationId = Id<typeof ID_PREFIX.notification>;
 

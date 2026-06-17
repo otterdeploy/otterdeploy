@@ -15,7 +15,7 @@ import * as z from "zod";
 import { basePath, projectNotFoundErrors, tag } from "./shared";
 import { projectIdField } from "./shared";
 
-export const availableReferenceSchema = z.object({
+const availableReferenceSchema = z.object({
   /** What produces this reference. Drives the icon/label in the
    *  picker — UI keeps a small switch on this field. */
   sourceKind: z.enum(["database", "service", "project", "environment"]),
@@ -34,7 +34,7 @@ export const availableReferenceSchema = z.object({
   isSecret: z.boolean(),
 });
 
-export const listAvailableRefsInput = z.object({
+const listAvailableRefsInput = z.object({
   projectId: projectIdField,
 });
 

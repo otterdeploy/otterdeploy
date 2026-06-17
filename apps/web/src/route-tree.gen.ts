@@ -20,6 +20,7 @@ import { Route as AppOrgSlugLayoutRouteImport } from "./routes/_app/$orgSlug/lay
 import { Route as AppOrgSlugIndexRouteImport } from "./routes/_app/$orgSlug/index"
 import { Route as AppOrgSlugTerminalRouteImport } from "./routes/_app/$orgSlug/terminal"
 import { Route as AppOrgSlugTeamRouteImport } from "./routes/_app/$orgSlug/team"
+import { Route as AppOrgSlugSshKeysRouteImport } from "./routes/_app/$orgSlug/ssh-keys"
 import { Route as AppOrgSlugSettingsRouteImport } from "./routes/_app/$orgSlug/settings"
 import { Route as AppOrgSlugServersRouteImport } from "./routes/_app/$orgSlug/servers"
 import { Route as AppOrgSlugRegistriesRouteImport } from "./routes/_app/$orgSlug/registries"
@@ -98,6 +99,11 @@ const AppOrgSlugTerminalRoute = AppOrgSlugTerminalRouteImport.update({
 const AppOrgSlugTeamRoute = AppOrgSlugTeamRouteImport.update({
   id: "/team",
   path: "/team",
+  getParentRoute: () => AppOrgSlugLayoutRoute,
+} as any)
+const AppOrgSlugSshKeysRoute = AppOrgSlugSshKeysRouteImport.update({
+  id: "/ssh-keys",
+  path: "/ssh-keys",
   getParentRoute: () => AppOrgSlugLayoutRoute,
 } as any)
 const AppOrgSlugSettingsRoute = AppOrgSlugSettingsRouteImport.update({
@@ -248,6 +254,7 @@ export interface FileRoutesByFullPath {
   "/$orgSlug/registries": typeof AppOrgSlugRegistriesRoute
   "/$orgSlug/servers": typeof AppOrgSlugServersRoute
   "/$orgSlug/settings": typeof AppOrgSlugSettingsRoute
+  "/$orgSlug/ssh-keys": typeof AppOrgSlugSshKeysRoute
   "/$orgSlug/team": typeof AppOrgSlugTeamRoute
   "/$orgSlug/terminal": typeof AppOrgSlugTerminalRoute
   "/$orgSlug/": typeof AppOrgSlugIndexRoute
@@ -281,6 +288,7 @@ export interface FileRoutesByTo {
   "/$orgSlug/registries": typeof AppOrgSlugRegistriesRoute
   "/$orgSlug/servers": typeof AppOrgSlugServersRoute
   "/$orgSlug/settings": typeof AppOrgSlugSettingsRoute
+  "/$orgSlug/ssh-keys": typeof AppOrgSlugSshKeysRoute
   "/$orgSlug/team": typeof AppOrgSlugTeamRoute
   "/$orgSlug/terminal": typeof AppOrgSlugTerminalRoute
   "/$orgSlug": typeof AppOrgSlugIndexRoute
@@ -318,6 +326,7 @@ export interface FileRoutesById {
   "/_app/$orgSlug/registries": typeof AppOrgSlugRegistriesRoute
   "/_app/$orgSlug/servers": typeof AppOrgSlugServersRoute
   "/_app/$orgSlug/settings": typeof AppOrgSlugSettingsRoute
+  "/_app/$orgSlug/ssh-keys": typeof AppOrgSlugSshKeysRoute
   "/_app/$orgSlug/team": typeof AppOrgSlugTeamRoute
   "/_app/$orgSlug/terminal": typeof AppOrgSlugTerminalRoute
   "/_app/$orgSlug/": typeof AppOrgSlugIndexRoute
@@ -355,6 +364,7 @@ export interface FileRouteTypes {
     | "/$orgSlug/registries"
     | "/$orgSlug/servers"
     | "/$orgSlug/settings"
+    | "/$orgSlug/ssh-keys"
     | "/$orgSlug/team"
     | "/$orgSlug/terminal"
     | "/$orgSlug/"
@@ -388,6 +398,7 @@ export interface FileRouteTypes {
     | "/$orgSlug/registries"
     | "/$orgSlug/servers"
     | "/$orgSlug/settings"
+    | "/$orgSlug/ssh-keys"
     | "/$orgSlug/team"
     | "/$orgSlug/terminal"
     | "/$orgSlug"
@@ -424,6 +435,7 @@ export interface FileRouteTypes {
     | "/_app/$orgSlug/registries"
     | "/_app/$orgSlug/servers"
     | "/_app/$orgSlug/settings"
+    | "/_app/$orgSlug/ssh-keys"
     | "/_app/$orgSlug/team"
     | "/_app/$orgSlug/terminal"
     | "/_app/$orgSlug/"
@@ -525,6 +537,13 @@ declare module "@tanstack/react-router" {
       path: "/team"
       fullPath: "/$orgSlug/team"
       preLoaderRoute: typeof AppOrgSlugTeamRouteImport
+      parentRoute: typeof AppOrgSlugLayoutRoute
+    }
+    "/_app/$orgSlug/ssh-keys": {
+      id: "/_app/$orgSlug/ssh-keys"
+      path: "/ssh-keys"
+      fullPath: "/$orgSlug/ssh-keys"
+      preLoaderRoute: typeof AppOrgSlugSshKeysRouteImport
       parentRoute: typeof AppOrgSlugLayoutRoute
     }
     "/_app/$orgSlug/settings": {
@@ -764,6 +783,7 @@ interface AppOrgSlugLayoutRouteChildren {
   AppOrgSlugRegistriesRoute: typeof AppOrgSlugRegistriesRoute
   AppOrgSlugServersRoute: typeof AppOrgSlugServersRoute
   AppOrgSlugSettingsRoute: typeof AppOrgSlugSettingsRoute
+  AppOrgSlugSshKeysRoute: typeof AppOrgSlugSshKeysRoute
   AppOrgSlugTeamRoute: typeof AppOrgSlugTeamRoute
   AppOrgSlugTerminalRoute: typeof AppOrgSlugTerminalRoute
   AppOrgSlugIndexRoute: typeof AppOrgSlugIndexRoute
@@ -784,6 +804,7 @@ const AppOrgSlugLayoutRouteChildren: AppOrgSlugLayoutRouteChildren = {
   AppOrgSlugRegistriesRoute: AppOrgSlugRegistriesRoute,
   AppOrgSlugServersRoute: AppOrgSlugServersRoute,
   AppOrgSlugSettingsRoute: AppOrgSlugSettingsRoute,
+  AppOrgSlugSshKeysRoute: AppOrgSlugSshKeysRoute,
   AppOrgSlugTeamRoute: AppOrgSlugTeamRoute,
   AppOrgSlugTerminalRoute: AppOrgSlugTerminalRoute,
   AppOrgSlugIndexRoute: AppOrgSlugIndexRoute,

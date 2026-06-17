@@ -25,6 +25,7 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@/shared/components/ui/empty";
+import { Skeleton } from "@/shared/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -88,8 +89,18 @@ function RouteComponent() {
       />
 
       {isLoading ? (
-        <div className="rounded-md border bg-card p-6 text-center text-[12.5px] text-muted-foreground">
-          Loading…
+        <div className="flex flex-col gap-1 rounded-md border bg-card p-2">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-4 px-3 py-2.5">
+              <div className="flex flex-1 flex-col gap-1.5">
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="h-3 w-24" />
+              </div>
+              <Skeleton className="h-5 w-16 rounded-sm" />
+              <Skeleton className="h-5 w-20 rounded-sm" />
+              <Skeleton className="size-7 rounded-md" />
+            </div>
+          ))}
         </div>
       ) : keys.length === 0 ? (
         <Empty className="flex-1 rounded-md border border-dashed bg-muted/20 py-12">

@@ -212,7 +212,7 @@
     --destructive: #f87171;
     --destructive-foreground: #f87171;
     --border: rgba(255, 255, 250, 0.08);
-    --input: rgba(255, 255, 250, 0.10);
+    --input: rgba(255, 255, 250, 0.1);
     --ring: #525248;
     --chart-1: #525248;
     --chart-2: #7a7a72;
@@ -368,4 +368,35 @@
 .wterm::-webkit-scrollbar-thumb:hover {
     background: oklch(1 0 0 / 28%);
     background-clip: padding-box;
+}
+
+/* Text selection — the one blue accent, not an off-brand color. Solid fill
+   guarantees contrast over syntax-highlighted code + mono text alike. Tuned per
+   theme so the highlight reads against its canvas. */
+
+/* Light theme (canvas #fbfbfa) — the system accent blue. */
+::selection {
+    background: var(--primary);
+    color: var(--primary-foreground);
+    text-shadow: none;
+}
+
+::-moz-selection {
+    background: var(--primary);
+    color: var(--primary-foreground);
+    text-shadow: none;
+}
+
+/* Dark theme (canvas #0c0c0b) — a brighter blue so the selection pops on black;
+   the darker button-blue (--primary) would otherwise sink into the canvas. */
+.dark ::selection {
+    background: oklch(0.55 0.2 264.4);
+    color: var(--primary-foreground);
+    text-shadow: none;
+}
+
+.dark ::-moz-selection {
+    background: oklch(0.55 0.2 264.4);
+    color: var(--primary-foreground);
+    text-shadow: none;
 }

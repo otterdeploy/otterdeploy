@@ -35,7 +35,7 @@ export function encodeSessionToken(source: SessionSource): string {
   }
 }
 
-export function decodeSessionToken(token: string): SessionSource | null {
+function decodeSessionToken(token: string): SessionSource | null {
   const parts = token.split(":");
   switch (parts[0]) {
     case "container": {

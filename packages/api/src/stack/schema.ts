@@ -21,7 +21,7 @@ const composeDuration = z
 
 // ── Volumes / networks / secrets / configs (compose top-level entries) ──
 
-export const stackVolumeSchema = z.object({
+const stackVolumeSchema = z.object({
   driver: z.string().optional(),
   driver_opts: z.record(z.string(), z.string()).optional(),
   external: z.boolean().optional(),
@@ -30,7 +30,7 @@ export const stackVolumeSchema = z.object({
 });
 export type StackVolume = z.infer<typeof stackVolumeSchema>;
 
-export const stackNetworkSchema = z.object({
+const stackNetworkSchema = z.object({
   driver: z.string().optional(),
   attachable: z.boolean().optional(),
   external: z.boolean().optional(),
@@ -39,14 +39,14 @@ export const stackNetworkSchema = z.object({
 });
 export type StackNetwork = z.infer<typeof stackNetworkSchema>;
 
-export const stackSecretSchema = z.object({
+const stackSecretSchema = z.object({
   external: z.boolean().optional(),
   file: z.string().optional(),
   name: z.string().optional(),
 });
 export type StackSecret = z.infer<typeof stackSecretSchema>;
 
-export const stackConfigSchema = z.object({
+const stackConfigSchema = z.object({
   external: z.boolean().optional(),
   file: z.string().optional(),
   name: z.string().optional(),
@@ -55,7 +55,7 @@ export type StackConfig = z.infer<typeof stackConfigSchema>;
 
 // ── Service sub-shapes (compose) ───────────────────────────────────────
 
-export const stackPortSchema = z.object({
+const stackPortSchema = z.object({
   target: positiveInt,
   published: positiveInt.optional(),
   protocol: z.enum(["tcp", "udp"]).optional(),
@@ -64,7 +64,7 @@ export const stackPortSchema = z.object({
 });
 export type StackPort = z.infer<typeof stackPortSchema>;
 
-export const stackVolumeMountSchema = z.object({
+const stackVolumeMountSchema = z.object({
   type: z.enum(["volume", "bind", "tmpfs"]),
   source: z.string().optional(),
   target: z.string(),
@@ -74,7 +74,7 @@ export const stackVolumeMountSchema = z.object({
 });
 export type StackVolumeMount = z.infer<typeof stackVolumeMountSchema>;
 
-export const stackHealthcheckSchema = z.object({
+const stackHealthcheckSchema = z.object({
   test: z.union([z.string(), z.array(z.string())]),
   interval: composeDuration.optional(),
   timeout: composeDuration.optional(),
@@ -84,27 +84,27 @@ export const stackHealthcheckSchema = z.object({
 });
 export type StackHealthcheck = z.infer<typeof stackHealthcheckSchema>;
 
-export const stackResourceLimitsSchema = z.object({
+const stackResourceLimitsSchema = z.object({
   cpus: z.string().optional(),
   memory: z.string().optional(),
   // Compose deploy.resources.limits.pids — max PIDs per replica.
   pids: positiveInt.optional(),
 });
 
-export const stackResourcesSchema = z.object({
+const stackResourcesSchema = z.object({
   limits: stackResourceLimitsSchema.optional(),
   reservations: stackResourceLimitsSchema.optional(),
 });
 export type StackResources = z.infer<typeof stackResourcesSchema>;
 
-export const stackRestartPolicySchema = z.object({
+const stackRestartPolicySchema = z.object({
   condition: z.enum(["none", "on-failure", "any"]).optional(),
   delay: composeDuration.optional(),
   max_attempts: positiveInt.optional(),
   window: composeDuration.optional(),
 });
 
-export const stackUpdateConfigSchema = z.object({
+const stackUpdateConfigSchema = z.object({
   parallelism: positiveInt.optional(),
   delay: composeDuration.optional(),
   failure_action: z.enum(["continue", "rollback", "pause"]).optional(),
@@ -113,7 +113,7 @@ export const stackUpdateConfigSchema = z.object({
   order: z.enum(["stop-first", "start-first"]).optional(),
 });
 
-export const stackDeploySchema = z.object({
+const stackDeploySchema = z.object({
   replicas: positiveInt.optional(),
   mode: z.enum(["replicated", "global"]).optional(),
   endpoint_mode: z.enum(["vip", "dnsrr"]).optional(),
@@ -133,7 +133,7 @@ export type StackDeploy = z.infer<typeof stackDeploySchema>;
 
 // ── otterdeploy extension block ─────────────────────────────────────────
 
-export const stackOtterdeployExtensionSchema = z.object({
+const stackOtterdeployExtensionSchema = z.object({
   kind: z.enum(["database", "service"]),
   engine: z.enum(["postgres", "redis", "mariadb", "mongodb"]).optional(),
   resourceId: z.string(),
@@ -149,10 +149,11 @@ export const stackOtterdeployExtensionSchema = z.object({
     .object({ x: z.number(), y: z.number() })
     .optional(),
 
-  // Lifecycle hook — runs once before the new replicas take traffic.
-  // No compose-deploy equivalent; rides under x-otterdeploy so the
-  // value survives YAML round-trip.
+  // Lifecycle hooks — no compose-deploy equivalent; ride under
+  // x-otterdeploy so the values survive YAML round-trip. preDeploy runs
+  // before the new replicas take traffic, postDeploy after they're live.
   preDeploy: z.array(z.string()).optional(),
+  postDeploy: z.array(z.string()).optional(),
 
   // Build configuration for git-sourced services. Same discriminated
   // shape as the manifest; carried in the extension so the compose
@@ -170,7 +171,7 @@ export type StackOtterdeployExtension = z.infer<
 
 // ── Service ────────────────────────────────────────────────────────────
 
-export const stackServiceSchema = z.object({
+const stackServiceSchema = z.object({
   image: z.string().optional(),
   command: z.union([z.string(), z.array(z.string())]).optional(),
   entrypoint: z.union([z.string(), z.array(z.string())]).optional(),

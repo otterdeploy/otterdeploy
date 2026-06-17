@@ -171,10 +171,13 @@ export const backupSchedule = pgTable(
     keepYearly: integer("keep_yearly").notNull().default(0),
     retentionDays: integer("retention_days"),
     maxStorageGb: integer("max_storage_gb"),
-    destinationId: text("destination_id")
+    // Storage destinations this schedule fans each run out to (a single dump is
+    // copied to every id). No FK — like `sources`, it's a jsonb id array;
+    // referential integrity is enforced at write time in the router.
+    destinationIds: jsonb("destination_ids")
+      .$type<BackupDestinationId[]>()
       .notNull()
-      .$type<BackupDestinationId>()
-      .references(() => backupDestination.id, { onDelete: "restrict" }),
+      .default([]),
     encryption: backupEncryptionEnum("encryption")
       .notNull()
       .default("aes-256-gcm"),
@@ -193,7 +196,6 @@ export const backupSchedule = pgTable(
   },
   (table) => [
     index("backup_schedule_org_idx").on(table.organizationId),
-    index("backup_schedule_destination_idx").on(table.destinationId),
     // Hot path for the scanning cron: "schedules due now".
     index("backup_schedule_next_run_idx").on(table.enabled, table.nextRunAt),
   ],

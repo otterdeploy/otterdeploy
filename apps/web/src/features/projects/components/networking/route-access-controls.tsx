@@ -42,7 +42,7 @@ import { orpc } from "@/shared/server/orpc";
 // round-trip instead of returning a generic "Input validation failed" toast.
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export const GUEST_DURATIONS = [
+const GUEST_DURATIONS = [
   { label: "1 hour", hours: 1 },
   { label: "8 hours", hours: 8 },
   { label: "24 hours", hours: 24 },
@@ -50,14 +50,14 @@ export const GUEST_DURATIONS = [
   { label: "30 days", hours: 720 },
 ] as const;
 
-export const SHARE_LINK_DURATIONS = [
+const SHARE_LINK_DURATIONS = [
   { label: "1 day", hours: 24 },
   { label: "3 days", hours: 72 },
   { label: "7 days", hours: 168 },
   { label: "30 days", hours: 720 },
 ] as const;
 
-export const BYPASS_TOKEN_DURATIONS = [
+const BYPASS_TOKEN_DURATIONS = [
   { label: "30 days", days: 30 },
   { label: "90 days", days: 90 },
   { label: "180 days", days: 180 },
@@ -148,7 +148,7 @@ function DurationSelect({
   );
 }
 
-export function GuestsSection({ routeId }: { routeId: string }) {
+function GuestsSection({ routeId }: { routeId: string }) {
   const [email, setEmail] = useState("");
   const [hours, setHours] = useState("24");
   const [adding, setAdding] = useState(false);
@@ -303,7 +303,7 @@ export function GuestsSection({ routeId }: { routeId: string }) {
   );
 }
 
-export function ShareLinkSection({ routeId }: { routeId: string }) {
+function ShareLinkSection({ routeId }: { routeId: string }) {
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [hours, setHours] = useState("72");
   const createShareLink = useMutation({
@@ -342,7 +342,7 @@ export function ShareLinkSection({ routeId }: { routeId: string }) {
   );
 }
 
-export function BypassTokenSection({ routeId }: { routeId: string }) {
+function BypassTokenSection({ routeId }: { routeId: string }) {
   const [bypassToken, setBypassToken] = useState<string | null>(null);
   const [days, setDays] = useState("90");
   const createBypassToken = useMutation({
@@ -381,7 +381,7 @@ export function BypassTokenSection({ routeId }: { routeId: string }) {
   );
 }
 
-export function CopyField({
+function CopyField({
   value,
   onReset,
 }: {

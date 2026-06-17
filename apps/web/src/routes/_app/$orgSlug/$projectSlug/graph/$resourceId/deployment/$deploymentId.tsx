@@ -7,12 +7,15 @@ import * as m from "motion/react-client";
 
 import type { ServiceTaskInfo } from "@otterdeploy/api/routers/project/service-tasks";
 
+import type { ProjectResource } from "@/features/projects/components/graph/resource-to-node";
+
 import {
   deploymentTasksCollection,
   deploymentsCollection,
 } from "@/features/resources/data/deployments";
 import { resourceCollection } from "@/features/resources/data/resource";
 import { Input } from "@/shared/components/ui/input";
+import { Spinner } from "@/shared/components/ui/spinner";
 import {
   Tabs,
   TabsContent,
@@ -43,9 +46,13 @@ type DeploymentTab =
   | "http-logs"
   | "network-logs";
 
-function getSubline(resource?: Resource | undefined): string {
+function getSubline(resource?: ProjectResource | undefined): string {
   if (resource?.type === "database") return resource.internalHostname;
   if (resource?.type === "service") return resource.publicDomain ?? "";
+  if (resource?.type === "compose")
+    return resource.services.length === 1
+      ? "1 service"
+      : `${resource.services.length} services`;
   return "";
 }
 
@@ -266,7 +273,8 @@ function DeploymentDetailsBody({
 }) {
   if (!deployment) {
     return (
-      <div className="text-[13px] text-muted-foreground">
+      <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
+        <Spinner className="size-3.5" />
         Loading deployment…
       </div>
     );
@@ -350,7 +358,8 @@ function DeploymentTasksList({
         Tasks
       </div>
       {isLoading ? (
-        <div className="font-mono text-[11.5px] text-muted-foreground">
+        <div className="flex items-center gap-2 font-mono text-[11.5px] text-muted-foreground">
+          <Spinner className="size-3" />
           Loading tasks…
         </div>
       ) : tasks.length === 0 ? (

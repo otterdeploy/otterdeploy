@@ -2,7 +2,7 @@
 // returns. Shared by the Source and Builder steps so detection copy stays
 // consistent.
 
-export const FRAMEWORK_LABEL: Record<string, string> = {
+const FRAMEWORK_LABEL: Record<string, string> = {
   next: "Next.js",
   nuxt: "Nuxt",
   vite: "Vite",
@@ -24,7 +24,7 @@ export const FRAMEWORK_LABEL: Record<string, string> = {
   static: "Static",
 };
 
-export const MONOREPO_LABEL: Record<string, string> = {
+const MONOREPO_LABEL: Record<string, string> = {
   turbo: "Turborepo",
   nx: "Nx",
   "pnpm-workspace": "pnpm workspaces",

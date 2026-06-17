@@ -12,7 +12,7 @@ import { resourceIdField } from "../project/contract/shared";
 const tag = "terminal";
 const basePath = "/terminal";
 
-export const terminalContainerSchema = z.object({
+const terminalContainerSchema = z.object({
   /** Container id — passed to /pty?container=… to start the exec. */
   containerId: z.string(),
   /** Display name (last segment of docker Names, slash-stripped). */
@@ -36,7 +36,7 @@ export const terminalContainerSchema = z.object({
   replicaSlot: z.string().nullable(),
 });
 
-export const terminalDatabaseSchema = z.object({
+const terminalDatabaseSchema = z.object({
   resourceId: resourceIdField,
   name: z.string(),
   engine: z.string(),
@@ -44,12 +44,14 @@ export const terminalDatabaseSchema = z.object({
   projectName: z.string(),
 });
 
-export const terminalTargetsSchema = z.object({
+const terminalTargetsSchema = z.object({
   containers: z.array(terminalContainerSchema),
   databases: z.array(terminalDatabaseSchema),
 });
 
-export const listTargetsInput = z.void();
+// GET input must be object/any/unknown for the OpenAPI generator; optional
+// empty object keeps "no input" valid.
+const listTargetsInput = z.object({}).optional();
 
 export const terminalContract = {
   targets: oc

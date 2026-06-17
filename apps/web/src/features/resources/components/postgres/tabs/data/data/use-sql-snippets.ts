@@ -31,14 +31,14 @@ SELECT * FROM <table> LIMIT 10;`;
 
 // ─── Schemas ──────────────────────────────────────────────────────────────
 
-export const sqlFolderSchema = z.object({
+const sqlFolderSchema = z.object({
   id: z.string(),
   resourceId: z.string(),
   name: z.string(),
 });
 export type SqlFolder = z.infer<typeof sqlFolderSchema>;
 
-export const sqlSnippetSchema = z.object({
+const sqlSnippetSchema = z.object({
   id: z.string(),
   resourceId: z.string(),
   name: z.string(),
@@ -56,7 +56,7 @@ const sqlPlaygroundSchema = z.object({
 
 // ─── Collections (module-level singletons) ──────────────────────────────────
 
-export const sqlFolderCollection = createCollection(
+const sqlFolderCollection = createCollection(
   localStorageCollectionOptions({
     id: "sql-folders",
     storageKey: "otter:sql-folders",
@@ -65,7 +65,7 @@ export const sqlFolderCollection = createCollection(
   }),
 );
 
-export const sqlSnippetCollection = createCollection(
+const sqlSnippetCollection = createCollection(
   localStorageCollectionOptions({
     id: "sql-snippets",
     storageKey: "otter:sql-snippets",

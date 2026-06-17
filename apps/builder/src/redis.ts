@@ -8,6 +8,6 @@ import { RedisClient } from "bun";
 
 import { env } from "@otterdeploy/env/server";
 
-export function createPublisher(): RedisClient {
+function createPublisher(): RedisClient {
   return new RedisClient(env.REDIS_URL);
 }

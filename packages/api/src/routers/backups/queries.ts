@@ -125,25 +125,33 @@ export async function getBackupInOrg(input: {
 
 export interface ScheduleRow {
   schedule: typeof backupSchedule.$inferSelect;
-  destinationName: string | null;
+  /** Names for `schedule.destinationIds`, order-preserved, missing ones dropped. */
+  destinationNames: string[];
 }
 
 export async function listSchedulesByOrg(
   organizationId: OrganizationId,
 ): Promise<ScheduleRow[]> {
-  const rows = await db
-    .select({ schedule: backupSchedule, destName: backupDestination.name })
-    .from(backupSchedule)
-    .leftJoin(
-      backupDestination,
-      eq(backupDestination.id, backupSchedule.destinationId),
-    )
-    .where(eq(backupSchedule.organizationId, organizationId))
-    .orderBy(asc(backupSchedule.createdAt));
+  // `destinationIds` is a jsonb array, not an FK, so resolve names via a small
+  // org-wide destination lookup rather than a join.
+  const [schedules, dests] = await Promise.all([
+    db
+      .select()
+      .from(backupSchedule)
+      .where(eq(backupSchedule.organizationId, organizationId))
+      .orderBy(asc(backupSchedule.createdAt)),
+    db
+      .select({ id: backupDestination.id, name: backupDestination.name })
+      .from(backupDestination)
+      .where(eq(backupDestination.organizationId, organizationId)),
+  ]);
 
-  return rows.map((r) => ({
-    schedule: r.schedule,
-    destinationName: r.destName,
+  const nameById = new Map(dests.map((d) => [d.id, d.name]));
+  return schedules.map((schedule) => ({
+    schedule,
+    destinationNames: schedule.destinationIds
+      .map((id) => nameById.get(id))
+      .filter((n): n is string => Boolean(n)),
   }));
 }
 
@@ -169,7 +177,7 @@ export type DestinationView = Omit<
   "encryptedSecret"
 >;
 
-export async function getDestinationForOrg(input: {
+async function getDestinationForOrg(input: {
   organizationId: OrganizationId;
   id: BackupDestinationId;
 }): Promise<DestinationView | null> {
@@ -269,6 +277,22 @@ export async function updateDestinationRecord(input: {
   return row ?? null;
 }
 
+/** Resolve destination ids → names (org-scoped), order-preserved. */
+export async function resolveDestinationNames(input: {
+  organizationId: OrganizationId;
+  ids: BackupDestinationId[];
+}): Promise<string[]> {
+  if (input.ids.length === 0) return [];
+  const dests = await db
+    .select({ id: backupDestination.id, name: backupDestination.name })
+    .from(backupDestination)
+    .where(eq(backupDestination.organizationId, input.organizationId));
+  const nameById = new Map(dests.map((d) => [d.id, d.name]));
+  return input.ids
+    .map((id) => nameById.get(id))
+    .filter((n): n is string => Boolean(n));
+}
+
 /** Count schedules + backups still pointing at a destination (delete guard). */
 export async function countDestinationReferences(input: {
   organizationId: OrganizationId;
@@ -277,7 +301,8 @@ export async function countDestinationReferences(input: {
   const [sched] = await db
     .select({ n: sql<string>`count(*)` })
     .from(backupSchedule)
-    .where(eq(backupSchedule.destinationId, input.id));
+    // jsonb containment: schedules whose destinationIds array holds this id.
+    .where(sql`${backupSchedule.destinationIds} @> ${JSON.stringify([input.id])}::jsonb`);
   const [bak] = await db
     .select({ n: sql<string>`count(*)` })
     .from(backup)

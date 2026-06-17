@@ -107,7 +107,9 @@ export function ScheduleCard({
           </span>
           <span className="flex items-center gap-1 text-xs text-foreground/80">
             <HugeiconsIcon icon={CloudServerIcon} className="size-3 text-muted-foreground" />
-            <span className="font-mono">{s.destinationName ?? "—"}</span>
+            <span className="truncate font-mono">
+              {s.destinationNames.length ? s.destinationNames.join(", ") : "—"}
+            </span>
           </span>
         </div>
       </div>

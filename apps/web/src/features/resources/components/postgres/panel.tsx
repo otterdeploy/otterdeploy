@@ -53,6 +53,13 @@ interface RealResourcePanelProps {
   orgSlug: string;
   projectSlug: string;
   onClose: () => void;
+  // Pending-create mode: the database is staged in the manifest but not
+  // provisioned. Runtime tabs (deployments/data/metrics/terminal) + Restart
+  // are disabled; Variables + Settings edit the manifest entry; opens on
+  // Variables. Mirrors ServiceResourcePanel's `pending`.
+  pending?: boolean;
+  /** Manifest key for the staged database — the edit target in pending mode. */
+  dbName?: string;
 }
 
 export function RealResourcePanel({
@@ -60,8 +67,10 @@ export function RealResourcePanel({
   orgSlug,
   projectSlug,
   onClose,
+  pending = false,
+  dbName,
 }: RealResourcePanelProps) {
-  const [tab, setTab] = useState<ResourceTab>("deployments");
+  const [tab, setTab] = useState<ResourceTab>(pending ? "variables" : "deployments");
 
   // Re-roll the running container with its current spec — same image, env,
   // and public flag. Distinct from the wizard's create; this just bounces the
@@ -110,32 +119,41 @@ export function RealResourcePanel({
               {resource.name}
             </span>
             <span className="font-mono text-xs text-muted-foreground">
-              {resource.engine}{" "}
-              <span className="text-muted-foreground/50">·</span>{" "}
-              {resource.databaseName}
+              {resource.engine}
+              {!pending && (
+                <>
+                  {" "}
+                  <span className="text-muted-foreground/50">·</span>{" "}
+                  {resource.databaseName}
+                </>
+              )}
             </span>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              restartMut.mutate({
-                projectId: resource.projectId as never,
-                resourceId: resource.resourceId as never,
-              })
-            }
-            disabled={restartMut.isPending}
-          >
-            <HugeiconsIcon
-              icon={RefreshIcon}
-              strokeWidth={2}
-              className="size-3.5"
-            />
-            {restartMut.isPending ? "Restarting…" : "Restart"}
-          </Button>
+          {/* Restart needs a running container — omit it while the database is
+              still a staged create (Deploy from the pending bar). */}
+          {!pending && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                restartMut.mutate({
+                  projectId: resource.projectId as never,
+                  resourceId: resource.resourceId as never,
+                })
+              }
+              disabled={restartMut.isPending}
+            >
+              <HugeiconsIcon
+                icon={RefreshIcon}
+                strokeWidth={2}
+                className="size-3.5"
+              />
+              {restartMut.isPending ? "Restarting…" : "Restart"}
+            </Button>
+          )}
           <Button
             type="button"
             variant="ghost"
@@ -153,10 +171,23 @@ export function RealResourcePanel({
       </div>
 
       <div className="mt-5 flex items-center gap-3 border-t border-border/40 px-6 py-3">
-        <RuntimeStatusBadge status={resource.runtime.status} />
-        <span className="text-[13px] text-muted-foreground">
-          {resource.runtime.health ?? "Provisioned"}
-        </span>
+        {pending ? (
+          <>
+            <span className="rounded-md bg-info/12 px-2 py-1 font-mono text-[10.5px] font-semibold tracking-[0.18em] text-info">
+              PENDING
+            </span>
+            <span className="text-[13px] text-muted-foreground">
+              Staged — Deploy the pending changes to create it
+            </span>
+          </>
+        ) : (
+          <>
+            <RuntimeStatusBadge status={resource.runtime.status} />
+            <span className="text-[13px] text-muted-foreground">
+              {resource.runtime.health ?? "Provisioned"}
+            </span>
+          </>
+        )}
       </div>
 
       <Tabs
@@ -168,19 +199,21 @@ export function RealResourcePanel({
       >
         <div className="border-b border-border/60 px-6">
           <TabsList variant="line" className="h-auto bg-transparent p-0">
-            <TabsTrigger value="deployments" className="px-2.5 py-2.5">
+            {/* Runtime tabs are disabled until the database is deployed —
+                no tasks, data, metrics, or container exist yet. */}
+            <TabsTrigger value="deployments" className="px-2.5 py-2.5" disabled={pending}>
               Deployments
             </TabsTrigger>
-            <TabsTrigger value="data" className="px-2.5 py-2.5">
+            <TabsTrigger value="data" className="px-2.5 py-2.5" disabled={pending}>
               Data
             </TabsTrigger>
-            <TabsTrigger value="metrics" className="px-2.5 py-2.5">
+            <TabsTrigger value="metrics" className="px-2.5 py-2.5" disabled={pending}>
               Metrics
             </TabsTrigger>
             <TabsTrigger value="variables" className="px-2.5 py-2.5">
               Variables
             </TabsTrigger>
-            <TabsTrigger value="terminal" className="px-2.5 py-2.5">
+            <TabsTrigger value="terminal" className="px-2.5 py-2.5" disabled={pending}>
               Terminal
             </TabsTrigger>
             <TabsTrigger value="settings" className="px-2.5 py-2.5">
@@ -192,37 +225,54 @@ export function RealResourcePanel({
         <div className="relative min-h-0 flex-1">
           <div className="h-full overflow-y-auto">
             <TabsContents>
-              <TabsContent value="deployments" className="px-6 pt-5 pb-6">
-                <ResourceTasksTab
-                  projectId={resource.projectId}
-                  resourceId={resource.resourceId}
-                  orgSlug={orgSlug}
-                  projectSlug={projectSlug}
-                />
-              </TabsContent>
+              {/* Runtime tabs query tasks/data/metrics by resourceId, which
+                  doesn't exist for a staged create — only mount once deployed. */}
+              {!pending && (
+                <TabsContent value="deployments" className="px-6 pt-5 pb-6">
+                  <ResourceTasksTab
+                    projectId={resource.projectId}
+                    resourceId={resource.resourceId}
+                    orgSlug={orgSlug}
+                    projectSlug={projectSlug}
+                  />
+                </TabsContent>
+              )}
 
               {/* Each engine gets its native browser; unsupported engines say so
                   plainly rather than falling back to the SQL console. */}
-              <TabsContent value="data" className="min-h-0 px-6 pt-5 pb-6">
-                {resource.engine === "postgres" ? (
-                  <DataTabBody resource={resource} />
-                ) : resource.engine === "redis" ? (
-                  <RedisDataTabBody resource={resource} />
-                ) : (
-                  <UnsupportedDataViewer engine={resource.engine} />
-                )}
-              </TabsContent>
+              {!pending && (
+                <TabsContent value="data" className="min-h-0 px-6 pt-5 pb-6">
+                  {resource.engine === "postgres" ? (
+                    <DataTabBody resource={resource} />
+                  ) : resource.engine === "redis" ? (
+                    <RedisDataTabBody resource={resource} />
+                  ) : (
+                    <UnsupportedDataViewer engine={resource.engine} />
+                  )}
+                </TabsContent>
+              )}
 
-              <TabsContent value="metrics" className="px-6 pt-5 pb-6">
-                <MetricsTab resourceId={resource.resourceId} />
-              </TabsContent>
+              {!pending && (
+                <TabsContent value="metrics" className="px-6 pt-5 pb-6">
+                  <MetricsTab resourceId={resource.resourceId} />
+                </TabsContent>
+              )}
 
               <TabsContent value="variables" className="px-6 pt-5 pb-6">
-                <PostgresVariablesTabBody resource={resource} />
+                <PostgresVariablesTabBody
+                  resource={resource}
+                  pending={pending}
+                  dbName={dbName}
+                />
               </TabsContent>
 
               <TabsContent value="settings" className="px-6 pt-5 pb-8">
-                <PostgresSettingsBody resource={resource} onDeleted={onClose} />
+                <PostgresSettingsBody
+                  resource={resource}
+                  onDeleted={onClose}
+                  pending={pending}
+                  dbName={dbName}
+                />
               </TabsContent>
             </TabsContents>
           </div>
@@ -231,19 +281,21 @@ export function RealResourcePanel({
               sizes to its content) so it can absolutely fill this region
               instead of collapsing. keepMounted via Activity keeps the PTY +
               scrollback alive across tab switches. */}
-          <Activity mode={tab === "terminal" ? "visible" : "hidden"}>
-            <div className="absolute inset-0 flex flex-col p-px">
-              <ResourceTerminal
-                match={{
-                  kind: "database",
-                  engine: resource.engine as "postgres" | "redis" | "mariadb" | "mongodb",
-                  serviceName: resource.runtime.serviceName,
-                }}
-                fallbackLabel={resource.runtime.serviceName}
-                projectSlug={projectSlug}
-              />
-            </div>
-          </Activity>
+          {!pending && (
+            <Activity mode={tab === "terminal" ? "visible" : "hidden"}>
+              <div className="absolute inset-0 flex flex-col p-px">
+                <ResourceTerminal
+                  match={{
+                    kind: "database",
+                    engine: resource.engine as "postgres" | "redis" | "mariadb" | "mongodb",
+                    serviceName: resource.runtime.serviceName,
+                  }}
+                  fallbackLabel={resource.runtime.serviceName}
+                  projectSlug={projectSlug}
+                />
+              </div>
+            </Activity>
+          )}
         </div>
       </Tabs>
     </div>

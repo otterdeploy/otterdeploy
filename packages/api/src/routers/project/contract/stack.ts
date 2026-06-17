@@ -18,31 +18,31 @@ import * as z from "zod";
 import { basePath, projectNotFoundErrors, tag } from "./shared";
 import { projectIdField } from "./shared";
 
-export const stackDiffInput = z.object({
+const stackDiffInput = z.object({
   projectId: projectIdField,
 });
 
-export const stackDiffOutput = z.object({
+const stackDiffOutput = z.object({
   renderedYaml: z.string(),
   savedYaml: z.string().nullable(),
   diff: z.string(),
 });
 
-export const stackSaveInput = z.object({
+const stackSaveInput = z.object({
   projectId: projectIdField,
   yaml: z.string().min(1),
   expectedVersion: z.number().int().nonnegative(),
 });
 
-export const stackSaveOutput = z.object({
+const stackSaveOutput = z.object({
   version: z.number().int().nonnegative(),
 });
 
-export const stackApplyInput = z.object({
+const stackApplyInput = z.object({
   projectId: projectIdField,
 });
 
-export const stackApplyResultSchema = z.object({
+const stackApplyResultSchema = z.object({
   appliedCount: z.number().int().nonnegative(),
   skipped: z.array(
     z.object({

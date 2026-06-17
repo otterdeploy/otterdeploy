@@ -28,7 +28,7 @@ export const resourceFormSchema = z.discriminatedUnion("__step", [
 
 export type ResourceFormValues = z.infer<typeof resourceFormSchema>;
 export type Step = ResourceFormValues["__step"];
-export const STEP_IDS: readonly Step[] = [
+const STEP_IDS: readonly Step[] = [
   "kind", "source", "builder", "image", "version", "networking",
   "resources", "storage", "variables", "advanced", "review",
 ] as const;

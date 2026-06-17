@@ -32,7 +32,7 @@ export const schedulesCollection = createCollection(
             name: row.name,
             sources: row.sources,
             cron: row.cron,
-            destinationId: row.destinationId,
+            destinationIds: row.destinationIds,
             ...(row.projectId ? { projectId: row.projectId } : {}),
             keepDaily: row.keepDaily,
             keepWeekly: row.keepWeekly,

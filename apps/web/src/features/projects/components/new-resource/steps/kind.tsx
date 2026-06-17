@@ -3,21 +3,22 @@ import { useStore } from "@tanstack/react-form";
 import { SERVICE_KINDS } from "@/features/projects/data/service-kinds";
 
 import { useFormContext } from "../form-context";
-import { KindPicker, type KindTab } from "../kind-picker";
-
-export type { KindTab };
+import { KindPicker } from "../kind-picker";
 
 interface StepKindProps {
-  initialTab?: KindTab;
+  dbView: boolean;
+  onDbViewChange: (open: boolean) => void;
 }
 
-export function StepKind({ initialTab }: StepKindProps) {
+export function StepKind({ dbView, onDbViewChange }: StepKindProps) {
   const form = useFormContext();
   const kindId = useStore(form.store, (s) => s.values.kindId as string | "");
 
   return (
     <KindPicker
       value={kindId || null}
+      dbView={dbView}
+      onDbViewChange={onDbViewChange}
       onChange={(id) => {
         form.setFieldValue("kindId", id);
         const k = SERVICE_KINDS.find((x) => x.id === id);
@@ -29,7 +30,6 @@ export function StepKind({ initialTab }: StepKindProps) {
           );
         }
       }}
-      initialTab={initialTab}
     />
   );
 }

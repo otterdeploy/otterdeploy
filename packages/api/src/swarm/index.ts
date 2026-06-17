@@ -40,6 +40,12 @@ export {
   type SwarmServiceRestart,
 } from "./service";
 export {
+  deployComposeStack,
+  removeComposeStack,
+  inspectComposeStack,
+  type ComposeStackRuntime,
+} from "./compose";
+export {
   streamImagePull,
   type ImagePullEvent,
   type RegistryAuth,

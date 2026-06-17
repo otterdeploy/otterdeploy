@@ -27,7 +27,18 @@ const notDatabase = {
   },
 };
 
-export const queryInput = z.object({
+// The write path adds one more failure mode: a row mutation that can't be
+// safely targeted because the table has no primary key (we refuse rather than
+// guess with `ctid`, which the read path never exposes).
+const notMutable = {
+  ...notDatabase,
+  NO_PRIMARY_KEY: {
+    status: 422 as const,
+    message: "Table has no primary key, so rows can't be edited safely" as const,
+  },
+};
+
+const queryInput = z.object({
   resourceId: resourceIdField,
   sql: z.string().min(1).max(100_000),
   // Hard cap on returned rows (UI grid). The engine still streams the full
@@ -35,7 +46,7 @@ export const queryInput = z.object({
   limit: z.number().int().positive().max(5000).default(200),
 });
 
-export const queryResultSchema = z.object({
+const queryResultSchema = z.object({
   columns: z.array(z.string()),
   rows: z.array(z.array(z.string().nullable())),
   rowCount: z.number(),
@@ -43,12 +54,51 @@ export const queryResultSchema = z.object({
   durationMs: z.number(),
 });
 
-export const tablesInput = z.object({ resourceId: resourceIdField });
+const tablesInput = z.object({ resourceId: resourceIdField });
 
-export const tablesResultSchema = z.object({
+const tablesResultSchema = z.object({
   tables: z.array(
     z.object({ schema: z.string(), name: z.string() }),
   ),
+});
+
+// ── Write path (Phase 2) ────────────────────────────────────────────────────
+// Structured row mutations that back inline grid editing — the SERVER builds
+// the SQL from this shape (never trusting a client-sent statement) so writes
+// stay primary-key-guarded and gated by the `database:write` capability.
+
+/** One column predicate / assignment. `value: null` is SQL NULL. */
+const columnValue = z.object({
+  column: z.string().min(1).max(255),
+  value: z.string().nullable(),
+});
+
+const mutateRowInput = z.object({
+  resourceId: resourceIdField,
+  schema: z.string().min(1).max(255),
+  table: z.string().min(1).max(255),
+  op: z.enum(["update", "insert", "delete"]),
+  // Identifies the target row (required for update/delete). Every primary-key
+  // column, so exactly one row is matched.
+  pk: z.array(columnValue).default([]),
+  // Column assignments (required for update/insert).
+  set: z.array(columnValue).default([]),
+});
+
+const mutateRowResultSchema = z.object({
+  // The affected row(s), from `RETURNING *` — shaped like a query grid so the
+  // client can reconcile its in-memory row. 0 rows = the predicate matched none.
+  columns: z.array(z.string()),
+  rows: z.array(z.array(z.string().nullable())),
+  rowsAffected: z.number(),
+});
+
+const capabilitiesInput = z.object({ resourceId: resourceIdField });
+
+const capabilitiesResultSchema = z.object({
+  // Whether the current actor may mutate data (drives read-only vs editable UI;
+  // the write handlers enforce it server-side regardless).
+  canWrite: z.boolean(),
 });
 
 // ── Redis (key-value) ──────────────────────────────────────────────────────
@@ -56,9 +106,9 @@ export const tablesResultSchema = z.object({
 // keyspace overview, a cursor-paged key list, and a per-type value read. All
 // read-only — there is no arbitrary-command input.
 
-export const redisKeyspaceInput = z.object({ resourceId: resourceIdField });
+const redisKeyspaceInput = z.object({ resourceId: resourceIdField });
 
-export const redisKeyspaceResultSchema = z.object({
+const redisKeyspaceResultSchema = z.object({
   databases: z.array(
     z.object({
       index: z.number(),
@@ -68,7 +118,7 @@ export const redisKeyspaceResultSchema = z.object({
   ),
 });
 
-export const redisKeysInput = z.object({
+const redisKeysInput = z.object({
   resourceId: resourceIdField,
   db: z.number().int().min(0).max(63).default(0),
   // SCAN MATCH glob (e.g. `user:*`). Defaults to all keys.
@@ -78,7 +128,7 @@ export const redisKeysInput = z.object({
   count: z.number().int().positive().max(1000).default(200),
 });
 
-export const redisKeysResultSchema = z.object({
+const redisKeysResultSchema = z.object({
   cursor: z.string(),
   keys: z.array(
     z.object({
@@ -90,7 +140,7 @@ export const redisKeysResultSchema = z.object({
   ),
 });
 
-export const redisValueInput = z.object({
+const redisValueInput = z.object({
   resourceId: resourceIdField,
   db: z.number().int().min(0).max(63).default(0),
   key: z.string().min(1).max(10_000),
@@ -98,7 +148,7 @@ export const redisValueInput = z.object({
   limit: z.number().int().positive().max(5000).default(500),
 });
 
-export const redisValueResultSchema = z.object({
+const redisValueResultSchema = z.object({
   key: z.string(),
   type: z.enum(["string", "list", "set", "hash", "zset", "stream", "none"]),
   ttl: z.number(),
@@ -130,6 +180,21 @@ export const databaseContract = {
     .meta({ path: `${basePath}/{resourceId}/query`, tag, method: "POST" })
     .input(queryInput)
     .output(queryResultSchema),
+
+  // What the current actor may do against this database (read-only vs editable).
+  capabilities: oc
+    .errors(notDatabase)
+    .meta({ path: `${basePath}/{resourceId}/capabilities`, tag, method: "GET" })
+    .input(capabilitiesInput)
+    .output(capabilitiesResultSchema),
+
+  // Mutate a single row (insert/update/delete), primary-key-guarded. Requires
+  // the `database:write` capability.
+  mutateRow: oc
+    .errors(notMutable)
+    .meta({ path: `${basePath}/{resourceId}/mutate-row`, tag, method: "POST" })
+    .input(mutateRowInput)
+    .output(mutateRowResultSchema),
 
   // ── Redis ────────────────────────────────────────────────────────────────
   // Per-database key counts (the db picker).

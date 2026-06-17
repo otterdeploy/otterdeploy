@@ -20,7 +20,6 @@ import {
 } from "@/shared/components/ui/sidebar";
 import {
   Alert01Icon,
-  Certificate01Icon,
   Database02Icon,
   DatabaseIcon,
   EarthIcon,
@@ -32,11 +31,9 @@ import {
   Key01Icon,
   Key02Icon,
   ServerStack01Icon,
-  Settings01Icon,
   ShieldKeyIcon,
   Sun03Icon,
   UserMultipleIcon,
-  WebhookIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { NavUser, type User } from "../nav/nav-user";
@@ -48,34 +45,61 @@ interface StaticNavItem {
   href?: string;
 }
 
-const workspaceItems: StaticNavItem[] = [
-  { title: "Projects", icon: Home01Icon, href: "/$orgSlug" },
-  { title: "Servers", icon: ServerStack01Icon, href: "/$orgSlug/servers" },
-  { title: "Networking", icon: EarthIcon, href: "/$orgSlug/networking" },
-  { title: "Terminal", icon: FlashIcon, href: "/$orgSlug/terminal" },
-  { title: "Team", icon: UserMultipleIcon, href: "/$orgSlug/team" },
-  { title: "Settings", icon: Sun03Icon, href: "/$orgSlug/settings" },
-];
+interface NavGroup {
+  label: string;
+  items: StaticNavItem[];
+}
 
-const infrastructureItems: StaticNavItem[] = [
-  { title: "Templates", icon: Folder01Icon },
-  { title: "Backups", icon: DatabaseIcon, href: "/$orgSlug/backups" },
-  { title: "Volumes", icon: ServerStack01Icon },
-  { title: "Edge logs", icon: EarthIcon, href: "/$orgSlug/edge-logs" },
-  { title: "Audit", icon: File01Icon, href: "/$orgSlug/audit" },
-  { title: "Docker", icon: ServerStack01Icon, href: "/$orgSlug/docker" },
-];
-
-const clusterAdminItems: StaticNavItem[] = [
-  { title: "Firewall", icon: ShieldKeyIcon, href: "/$orgSlug/firewall" },
-  { title: "Git providers", icon: GitBranchIcon, href: "/$orgSlug/git-providers" },
-  { title: "Registries", icon: Database02Icon, href: "/$orgSlug/registries" },
-  { title: "SSH keys", icon: Key01Icon },
-  { title: "Notifications", icon: Alert01Icon, href: "/$orgSlug/notifications" },
-  { title: "Certificates", icon: Certificate01Icon },
-  { title: "API tokens", icon: Key02Icon, href: "/$orgSlug/api-keys" },
-  { title: "Webhooks", icon: WebhookIcon },
-  { title: "Cluster", icon: Settings01Icon },
+// Grouped by the noun the user is reasoning about, ordered most- to
+// least-frequently accessed. Every item links to a real route; the `href`
+// stays optional on the type so a future not-yet-built page can be added back
+// as a non-clickable placeholder. Keep this in sync with the command palette's
+// `ORG_NAV_GROUPS` in command-palette/.../nav-items.tsx.
+const navGroups: NavGroup[] = [
+  {
+    label: "Workspace",
+    items: [
+      { title: "Projects", icon: Home01Icon, href: "/$orgSlug" },
+      { title: "Servers", icon: ServerStack01Icon, href: "/$orgSlug/servers" },
+      { title: "Terminal", icon: FlashIcon, href: "/$orgSlug/terminal" },
+    ],
+  },
+  {
+    label: "Networking & Edge",
+    items: [
+      { title: "Networking", icon: EarthIcon, href: "/$orgSlug/networking" },
+      { title: "Edge logs", icon: EarthIcon, href: "/$orgSlug/edge-logs" },
+      { title: "Firewall", icon: ShieldKeyIcon, href: "/$orgSlug/firewall" },
+    ],
+  },
+  {
+    label: "Data & Runtime",
+    items: [
+      { title: "Backups", icon: DatabaseIcon, href: "/$orgSlug/backups" },
+      { title: "Docker", icon: ServerStack01Icon, href: "/$orgSlug/docker" },
+      { title: "Registries", icon: Database02Icon, href: "/$orgSlug/registries" },
+    ],
+  },
+  {
+    label: "Observability",
+    items: [{ title: "Audit", icon: File01Icon, href: "/$orgSlug/audit" }],
+  },
+  {
+    label: "Integrations",
+    items: [
+      { title: "Git providers", icon: GitBranchIcon, href: "/$orgSlug/git-providers" },
+      { title: "Notifications", icon: Alert01Icon, href: "/$orgSlug/notifications" },
+    ],
+  },
+  {
+    label: "Organization",
+    items: [
+      { title: "Team", icon: UserMultipleIcon, href: "/$orgSlug/team" },
+      { title: "API tokens", icon: Key02Icon, href: "/$orgSlug/api-keys" },
+      { title: "SSH keys", icon: Key01Icon, href: "/$orgSlug/ssh-keys" },
+      { title: "Settings", icon: Sun03Icon, href: "/$orgSlug/settings" },
+    ],
+  },
 ];
 
 const region = {
@@ -128,86 +152,40 @@ export function ProjectSidebar({
       {...props}
     >
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-[11px] uppercase tracking-wider text-sidebar-foreground/50">
-            Workspace
-          </SidebarGroupLabel>
-          <SidebarMenu>
-            {workspaceItems.map((item) => {
-              const count = workspaceCounts[item.title];
-              return (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    render={
-                      item.href && params.orgSlug ? (
-                        <Link
-                          to={item.href}
-                          params={{ orgSlug: params.orgSlug }}
-                        />
-                      ) : undefined
-                    }
-                  >
-                    <HugeiconsIcon icon={item.icon} strokeWidth={2} />
-                    <span>{item.title}</span>
-                  </SidebarMenuButton>
-                  {count !== undefined && count > 0 && (
-                    <SidebarMenuBadge>{count}</SidebarMenuBadge>
-                  )}
-                </SidebarMenuItem>
-              );
-            })}
-          </SidebarMenu>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-[11px] uppercase tracking-wider text-sidebar-foreground/50">
-            Infrastructure
-          </SidebarGroupLabel>
-          <SidebarMenu>
-            {infrastructureItems.map((item) => (
-              <SidebarMenuItem key={item.title}>
-                <SidebarMenuButton
-                  render={
-                    item.href && params.orgSlug ? (
-                      <Link
-                        to={item.href}
-                        params={{ orgSlug: params.orgSlug }}
-                      />
-                    ) : undefined
-                  }
-                >
-                  <HugeiconsIcon icon={item.icon} strokeWidth={2} />
-                  <span>{item.title}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-[11px] uppercase tracking-wider text-sidebar-foreground/50">
-            Cluster admin
-          </SidebarGroupLabel>
-          <SidebarMenu>
-            {clusterAdminItems.map((item) => (
-              <SidebarMenuItem key={item.title}>
-                <SidebarMenuButton
-                  render={
-                    item.href && params.orgSlug ? (
-                      <Link
-                        to={item.href}
-                        params={{ orgSlug: params.orgSlug }}
-                      />
-                    ) : undefined
-                  }
-                >
-                  <HugeiconsIcon icon={item.icon} strokeWidth={2} />
-                  <span>{item.title}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarGroup>
+        {navGroups.map((group) => (
+          <SidebarGroup key={group.label}>
+            <SidebarGroupLabel className="text-[11px] uppercase tracking-wider text-sidebar-foreground/50">
+              {group.label}
+            </SidebarGroupLabel>
+            <SidebarMenu>
+              {group.items.map((item) => {
+                const count = workspaceCounts[item.title];
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      render={
+                        item.href && params.orgSlug ? (
+                          <Link
+                            to={item.href}
+                            params={{ orgSlug: params.orgSlug }}
+                            activeOptions={{ exact: item.href === "/$orgSlug" }}
+                            activeProps={{ "data-active": "" }}
+                          />
+                        ) : undefined
+                      }
+                    >
+                      <HugeiconsIcon icon={item.icon} strokeWidth={2} />
+                      <span>{item.title}</span>
+                    </SidebarMenuButton>
+                    {count !== undefined && count > 0 && (
+                      <SidebarMenuBadge>{count}</SidebarMenuBadge>
+                    )}
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
 
       <SidebarFooter className="gap-2">

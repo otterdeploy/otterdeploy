@@ -31,6 +31,7 @@ import {
   listBackups,
   listDestinations,
   listSchedules,
+  scheduleDestinationNames,
   testDestination,
   updateDestination,
 } from "./service";
@@ -79,17 +80,22 @@ export const backupsRouter = {
       });
       if (!dbResource) throw errors.INVALID();
 
-      const id = await createBackupRun({
-        organizationId: context.activeOrganizationId,
-        resourceId: input.resourceId,
-        destinationId: input.destinationId,
-        encryption: input.encryption,
-        method: "manual",
-      });
-      context.log.set({ target: { type: "backup", id } });
-      // Run detached — status + logs are observable via get/logs.
-      void executeBackup(id);
-      return { id, status: "queued" };
+      // One backup record per destination; the dump runs once per record.
+      const ids: Awaited<ReturnType<typeof createBackupRun>>[] = [];
+      for (const destinationId of input.destinationIds) {
+        const id = await createBackupRun({
+          organizationId: context.activeOrganizationId,
+          resourceId: input.resourceId,
+          destinationId,
+          encryption: input.encryption,
+          method: "manual",
+        });
+        ids.push(id);
+        // Run detached — status + logs are observable via get/logs.
+        void executeBackup(id);
+      }
+      context.log.set({ target: { type: "backup", id: ids[0] } });
+      return { ids, status: "queued" };
     },
   ),
 
@@ -108,7 +114,11 @@ export const backupsRouter = {
           BackupNotFoundError: () => errors.NOT_FOUND(),
         });
       }
-      const result = await restoreBackup({ backupId: input.id, mode: input.mode });
+      const result = await restoreBackup({
+        backupId: input.id,
+        mode: input.mode,
+        confirm: input.confirm,
+      });
       return {
         ok: result.ok,
         mode: input.mode,
@@ -149,7 +159,7 @@ export const backupsRouter = {
           name: input.name,
           sources: input.sources,
           cron: input.cron,
-          destinationId: input.destinationId,
+          destinationIds: input.destinationIds,
           projectId: input.projectId ?? null,
           keepDaily: input.keepDaily,
           keepWeekly: input.keepWeekly,
@@ -162,7 +172,13 @@ export const backupsRouter = {
           enabled: input.enabled,
         });
         context.log.set({ target: { type: "backup_schedule", id: row.id } });
-        return presentSchedule({ schedule: row, destinationName: null });
+        return presentSchedule({
+          schedule: row,
+          destinationNames: await scheduleDestinationNames({
+            organizationId: context.activeOrganizationId,
+            ids: row.destinationIds,
+          }),
+        });
       },
     ),
 
@@ -186,7 +202,13 @@ export const backupsRouter = {
           enabled: input.enabled,
         });
         if (!row) throw errors.NOT_FOUND();
-        return presentSchedule({ schedule: row, destinationName: null });
+        return presentSchedule({
+          schedule: row,
+          destinationNames: await scheduleDestinationNames({
+            organizationId: context.activeOrganizationId,
+            ids: row.destinationIds,
+          }),
+        });
       },
     ),
 
@@ -206,20 +228,24 @@ export const backupsRouter = {
           context.activeOrganizationId,
           schedule.sources,
         );
+        let queued = 0;
         for (const resourceId of resourceIds) {
-          const id = await createBackupRun({
-            organizationId: context.activeOrganizationId,
-            resourceId,
-            destinationId: schedule.destinationId,
-            scheduleId: schedule.id,
-            encryption:
-              schedule.encryption === "aes-256-gcm" ? "aes-256-gcm" : "none",
-            method: "manual-schedule",
-          });
-          // Run detached — status + logs observable via get/logs.
-          void executeBackup(id);
+          for (const destinationId of schedule.destinationIds) {
+            const id = await createBackupRun({
+              organizationId: context.activeOrganizationId,
+              resourceId,
+              destinationId,
+              scheduleId: schedule.id,
+              encryption:
+                schedule.encryption === "aes-256-gcm" ? "aes-256-gcm" : "none",
+              method: "manual-schedule",
+            });
+            queued += 1;
+            // Run detached — status + logs observable via get/logs.
+            void executeBackup(id);
+          }
         }
-        return { queued: resourceIds.length };
+        return { queued };
       },
     ),
 

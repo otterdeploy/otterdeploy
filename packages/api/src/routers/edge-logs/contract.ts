@@ -12,7 +12,7 @@ import * as z from "zod";
 
 const tag = "edge-logs";
 
-export const edgeLogLineSchema = z.object({
+const edgeLogLineSchema = z.object({
   id: z.string(),
   ts: z.string(),
   method: z.string(),
@@ -37,7 +37,7 @@ export const edgeLogLineSchema = z.object({
 const timeRange = z.enum(["5m", "1h", "6h", "24h", "7d"]);
 const statusBucket = z.enum(["2xx", "3xx", "4xx", "5xx"]);
 
-export const edgeLogQueryInput = z.object({
+const edgeLogQueryInput = z.object({
   /** Restrict to one project's domains; omitted ⇒ all the org's domains. */
   projectId: zId("project").optional(),
   range: timeRange.default("1h"),
@@ -49,12 +49,12 @@ export const edgeLogQueryInput = z.object({
   limit: z.number().int().positive().max(1000).optional(),
 });
 
-export const edgeLogTailInput = z.object({
+const edgeLogTailInput = z.object({
   projectId: zId("project").optional(),
   host: z.string().optional(),
 });
 
-export const edgeHistogramBucketSchema = z.object({
+const edgeHistogramBucketSchema = z.object({
   t: z.string(),
   c2xx: z.number(),
   c3xx: z.number(),
@@ -62,7 +62,7 @@ export const edgeHistogramBucketSchema = z.object({
   c5xx: z.number(),
 });
 
-export const edgeHostStatSchema = z.object({
+const edgeHostStatSchema = z.object({
   host: z.string(),
   rps: z.number(),
   errorRate: z.number(),
@@ -71,10 +71,49 @@ export const edgeHostStatSchema = z.object({
   p99: z.number(),
 });
 
-export const edgeLogQueryResultSchema = z.object({
+const edgeLogQueryResultSchema = z.object({
   rows: z.array(edgeLogLineSchema),
   histogram: z.array(edgeHistogramBucketSchema),
   hostStats: z.array(edgeHostStatSchema),
+  total: z.number(),
+});
+
+// ─── Operational log plane (Phase 3) ──────────────────────────────────────
+
+const eventCategory = z.enum(["cert", "upstream", "config", "other"]);
+const eventLevel = z.enum(["debug", "info", "warn", "error"]);
+
+const edgeEventLineSchema = z.object({
+  id: z.string(),
+  ts: z.string(),
+  level: eventLevel,
+  category: eventCategory,
+  logger: z.string(),
+  msg: z.string(),
+  host: z.string().nullable(),
+  domains: z.array(z.string()),
+  upstream: z.string().nullable(),
+  error: z.string().nullable(),
+  raw: z.string(),
+});
+
+const edgeEventQueryInput = z.object({
+  projectId: zId("project").optional(),
+  range: timeRange.default("1h"),
+  categories: z.array(eventCategory).optional(),
+  levels: z.array(eventLevel).optional(),
+  hosts: z.array(z.string()).optional(),
+  search: z.string().optional(),
+  limit: z.number().int().positive().max(1000).optional(),
+});
+
+const edgeEventTailInput = z.object({
+  projectId: zId("project").optional(),
+  host: z.string().optional(),
+});
+
+const edgeEventQueryResultSchema = z.object({
+  rows: z.array(edgeEventLineSchema),
   total: z.number(),
 });
 
@@ -88,4 +127,18 @@ export const edgeLogsContract = {
     .meta({ path: "/edge-logs/tail", tag, method: "GET" })
     .input(edgeLogTailInput)
     .output(eventIterator(edgeLogLineSchema)),
+
+  // Operational events (cert/ACME, upstream errors) — the second Caddy log
+  // plane. Same org host-scope guard as access logs.
+  events: {
+    query: oc
+      .meta({ path: "/edge-logs/events", tag, method: "GET" })
+      .input(edgeEventQueryInput)
+      .output(edgeEventQueryResultSchema),
+
+    tail: oc
+      .meta({ path: "/edge-logs/events/tail", tag, method: "GET" })
+      .input(edgeEventTailInput)
+      .output(eventIterator(edgeEventLineSchema)),
+  },
 };

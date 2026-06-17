@@ -3,6 +3,7 @@ import { type RouterClient } from "@orpc/server";
 import { apiKeysRouter } from "./apiKeys";
 import { auditRouter } from "./audit";
 import { backupsRouter } from "./backups";
+import { composeRouter } from "./compose";
 import { databaseRouter } from "./database";
 import { dockerRouter } from "./docker";
 import { edgeLogsRouter } from "./edge-logs";
@@ -16,12 +17,14 @@ import { projectRouter } from "./project";
 import { registryRouter } from "./registry";
 import { serverRouter } from "./server";
 import { serviceRouter } from "./service";
+import { sshKeysRouter } from "./sshKeys";
 import { terminalRouter } from "./terminal";
 
 export const appRouter = {
   apiKeys: apiKeysRouter,
   audit: auditRouter,
   backups: backupsRouter,
+  compose: composeRouter,
   database: databaseRouter,
   docker: dockerRouter,
   edgeLogs: edgeLogsRouter,
@@ -35,6 +38,7 @@ export const appRouter = {
   registry: registryRouter,
   server: serverRouter,
   service: serviceRouter,
+  sshKeys: sshKeysRouter,
   terminal: terminalRouter,
 };
 export type AppRouter = typeof appRouter;

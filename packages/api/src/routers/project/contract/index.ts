@@ -69,6 +69,7 @@ export {
 export {
   checkResourceNameInput,
   checkResourceNameSchema,
+  composeResourceSchema,
   databaseResourceSchema,
   deleteProjectResourceInput,
   getProjectResourceInput,

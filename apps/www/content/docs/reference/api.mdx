@@ -1,0 +1,27 @@
+---
+title: API reference
+description: The Otterstack oRPC API and its interactive reference.
+icon: Terminal
+---
+
+The Otterstack API is built on [oRPC](https://orpc.unnoq.com). The server emits an
+**OpenAPI 3.1** document from the same Zod-typed contracts that power the
+dashboard, and these docs render it as a browsable, interactive reference with a
+built-in "Send Request" playground.
+
+<Cards>
+  <Card title="Open the interactive reference" href="/docs/openapi" />
+</Cards>
+
+## The pipeline
+
+```text
+oRPC contracts (packages/api)
+  └─ OpenAPIHandler  (apps/server/src/index.ts)   → live spec at /api/reference/spec.json
+       └─ fumadocs-openapi (apps/www)             → reference pages + playground
+```
+
+The reference is generated from the **live** spec at `/api/reference/spec.json`,
+so it always tracks the deployed contracts. Point `OTTERSTACK_OPENAPI_SPEC_URL`
+at your API to build the reference against a specific environment (it defaults to
+the local dev server).

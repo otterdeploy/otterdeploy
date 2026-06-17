@@ -20,7 +20,7 @@ import {
 } from "@otterdeploy/db/schema";
 
 import { reconcile } from "../../caddy";
-import { destroySwarmPostgres } from "../../swarm";
+import { destroySwarmPostgres } from "../../runtime/db";
 
 import { ProjectConflictError, ProjectInvalidBindingError, ProjectNotFoundError } from "./errors";
 import {
@@ -30,6 +30,7 @@ import {
   getProjectInOrg,
   listDatabaseResourceRecords,
   listProjectRecordsByOrg,
+  setProjectGraphLayout,
   updateProjectRecord,
 } from "./queries";
 
@@ -185,6 +186,33 @@ export async function updateProject(
     }
     throw error;
   }
+}
+
+/**
+ * Merge operator-dragged node positions into the project's stored graph
+ * layout. Partial map in (only the nodes that moved); the rest of the layout
+ * is preserved. Shared per project — see the `graphLayout` column.
+ */
+export async function saveProjectGraphLayout(
+  input: OrgRef & {
+    projectId: ProjectId;
+    positions: Record<string, { x: number; y: number }>;
+  },
+): Promise<Result<{ ok: true }, ProjectNotFoundError>> {
+  const record = await getProjectInOrg({
+    projectId: input.projectId,
+    organizationId: input.organizationId,
+  });
+  if (!record) {
+    return Result.err(new ProjectNotFoundError({ projectId: input.projectId }));
+  }
+  const merged = { ...(record.graphLayout ?? {}), ...input.positions };
+  await setProjectGraphLayout({
+    projectId: input.projectId,
+    organizationId: input.organizationId,
+    graphLayout: merged,
+  });
+  return Result.ok({ ok: true });
 }
 
 async function repoBelongsToOrg(

@@ -45,6 +45,7 @@ import {
 } from "@/shared/components/ui/combobox";
 import { Spinner } from "@/shared/components/ui/spinner";
 import { orpc } from "@/shared/server/orpc";
+import { cn } from "@/shared/lib/utils";
 
 import { SectionHeader } from "../form-primitives";
 import { useFormContext } from "../form-context";
@@ -126,6 +127,10 @@ export function StepSource() {
           <RepoCheck gitRepoId={repo} root={root} />
           <Card className="mt-2.5 rounded-md">
             <CardContent className="flex flex-col gap-3">
+              <ServiceTypeSelector
+                kindId={kindId}
+                onChange={(next) => form.setFieldValue("kindId", next)}
+              />
               <form.AppField name="name">
                 {(f) => (
                   <f.TextField
@@ -167,6 +172,58 @@ export function StepSource() {
         </>
       )}
     </>
+  );
+}
+
+/**
+ * Workload-type picker for a git-sourced service. Source and role are
+ * orthogonal — you can build a web app OR a static site from the same repo —
+ * so the role lives here as a field rather than as a top-level launch card.
+ * Drives `kindId` directly: "app" (dynamic) ↔ "static". `to-manifest` reads
+ * the static kind to emit a Caddy static build; everything else is a normal
+ * railpack app. Worker / cron / one-off jobs aren't distinctly wired yet.
+ */
+function ServiceTypeSelector({
+  kindId,
+  onChange,
+}: {
+  kindId: string;
+  onChange: (kindId: string) => void;
+}) {
+  const isStatic = kindId === "static";
+  const options: Array<[string, string]> = [
+    ["app", "Web app"],
+    ["static", "Static site"],
+  ];
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-[12.5px] font-medium">Service type</label>
+      <div className="inline-flex w-fit rounded-md border p-0.5">
+        {options.map(([id, label]) => {
+          const active = id === "static" ? isStatic : !isStatic;
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => onChange(id)}
+              className={cn(
+                "cursor-pointer rounded-[5px] px-3 py-1 text-[12px] transition-colors",
+                active
+                  ? "bg-foreground text-background"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-[11px] text-muted-foreground">
+        {isStatic
+          ? "Pre-built HTML/CSS/JS served from the edge."
+          : "HTTP service built from your repo. Worker, cron & one-off jobs — coming soon."}
+      </p>
+    </div>
   );
 }
 

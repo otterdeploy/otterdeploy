@@ -3,10 +3,13 @@ import { and, eq } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
 import {
+  composeResource,
   databaseResource,
   resource,
   serviceResource,
 } from "@otterdeploy/db/schema/project";
+
+import { removeResourceDir } from "../../../lib/data-dir";
 
 export interface DatabaseResourceJoined {
   resource: typeof resource.$inferSelect;
@@ -16,6 +19,11 @@ export interface DatabaseResourceJoined {
 export interface ServiceResourceJoined {
   resource: typeof resource.$inferSelect;
   service: typeof serviceResource.$inferSelect;
+}
+
+export interface ComposeResourceJoined {
+  resource: typeof resource.$inferSelect;
+  compose: typeof composeResource.$inferSelect;
 }
 
 /**
@@ -36,7 +44,13 @@ export async function listProjectResources(projectId: ProjectId) {
     .innerJoin(serviceResource, eq(serviceResource.resourceId, resource.id))
     .where(eq(resource.projectId, projectId));
 
-  return { databases, services };
+  const composes = await db
+    .select({ resource, compose: composeResource })
+    .from(resource)
+    .innerJoin(composeResource, eq(composeResource.resourceId, resource.id))
+    .where(eq(resource.projectId, projectId));
+
+  return { databases, services, composes };
 }
 
 export async function getResourceById(
@@ -69,4 +83,7 @@ export async function getResourceById(
 
 export async function deleteResourceById(resourceId: ResourceId) {
   await db.delete(resource).where(eq(resource.id, resourceId));
+  // Drop the resource's host artifact dir (no-op unless the data folder is in
+  // use). Best-effort — never blocks the row delete. See lib/data-dir.ts.
+  await removeResourceDir(resourceId);
 }

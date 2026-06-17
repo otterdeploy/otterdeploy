@@ -134,7 +134,7 @@ function DestinationEditorBody({
   });
 
   return (
-    <DialogContent className="max-w-2xl gap-0 p-0">
+    <DialogContent className="sm:max-w-3xl gap-0 p-0">
       <DialogHeader className="border-b px-5 py-3">
         <DialogTitle className="text-sm font-semibold">
           {editing ? "Edit destination" : "Add destination"}

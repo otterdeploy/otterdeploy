@@ -74,3 +74,60 @@ export interface EdgeLogQueryResult {
   hostStats: EdgeHostStat[];
   total: number;
 }
+
+// ─── Operational log plane (Phase 3) ──────────────────────────────────────
+//
+// The *other* Caddy log stream: not per-request access logs, but the proxy's
+// own default logger — TLS/ACME lifecycle, reverse_proxy upstream errors, and
+// config events. Shipped to the same sink via a global `log { output net }`
+// (see docs/designs/edge-logs.md §7). One object per operational log line we
+// keep (info-level noise that isn't cert/upstream is dropped at parse).
+
+/** What an operational event is about. `cert` = TLS/ACME/OCSP lifecycle;
+ *  `upstream` = reverse_proxy dial/stream errors; `config` = reload/admin;
+ *  `other` = anything else we kept (warn/error level). */
+export type EdgeEventCategory = "cert" | "upstream" | "config" | "other";
+export type EdgeEventLevel = "debug" | "info" | "warn" | "error";
+
+export interface EdgeEventLine {
+  id: string;
+  /** ISO-8601. */
+  ts: string;
+  level: EdgeEventLevel;
+  category: EdgeEventCategory;
+  /** Caddy logger name (e.g. `tls`, `http.handlers.reverse_proxy`). */
+  logger: string;
+  msg: string;
+  /** Public domain this event is attributable to, when resolvable (the
+   *  multi-tenant scope key — see the router). Null for batch/global events. */
+  host: string | null;
+  /** Domains named in a cert-management batch; redacted by the router to the
+   *  caller's owned subset. */
+  domains: string[];
+  /** Selected upstream dial address, for reverse_proxy errors. */
+  upstream: string | null;
+  /** Error string, when the line carried one. */
+  error: string | null;
+  /** Sanitized raw JSON line (sensitive request headers stripped, capped) for
+   *  the expandable detail view. */
+  raw: string;
+}
+
+export interface EdgeEventFilter {
+  /** Restrict to events attributable to these hosts (the caller's domains). */
+  hosts: string[];
+  range: EdgeTimeRange;
+  /** Multi-select category/level filters; empty/undefined ⇒ no filter. */
+  categories?: EdgeEventCategory[];
+  levels?: EdgeEventLevel[];
+  /** User-selected host subset (within the org scope above); empty ⇒ all. */
+  selectedHosts?: string[];
+  /** Free-text match across msg / host / upstream / error / logger. */
+  search?: string;
+  limit?: number;
+}
+
+export interface EdgeEventQueryResult {
+  rows: EdgeEventLine[];
+  total: number;
+}

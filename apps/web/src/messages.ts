@@ -9,7 +9,7 @@
 import { z } from "zod/v4";
 
 // Client -> Server control messages.
-export const ClientMessage = z.discriminatedUnion("type", [
+const ClientMessage = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("session:resize"),
     cols: z.number().int().min(1).max(1000),

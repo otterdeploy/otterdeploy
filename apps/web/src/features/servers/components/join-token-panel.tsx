@@ -25,7 +25,7 @@ export type JoinRole = "worker" | "manager";
  * query — tanstack-query dedupes on queryKey so it's one network call per
  * dialog open regardless of how many places need the data.
  */
-export function useSwarmJoinTokens() {
+function useSwarmJoinTokens() {
   return useQuery(orpc.server.joinTokens.queryOptions());
 }
 

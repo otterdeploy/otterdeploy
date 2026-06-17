@@ -37,12 +37,12 @@ import { queryClient } from "@/shared/server/orpc";
 const organizationIdSchema = z.string().min(1);
 
 /** React-query key for one org's members subset. */
-export function membersSubsetKey(organizationId: string) {
+function membersSubsetKey(organizationId: string) {
   return ["org", organizationId, "members"] as const;
 }
 
 /** React-query key for one org's invitations subset. */
-export function invitationsSubsetKey(organizationId: string) {
+function invitationsSubsetKey(organizationId: string) {
   return ["org", organizationId, "invitations"] as const;
 }
 

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { diffManifest, type CurrentState } from "../diff";
 import { manifestSchema, type Manifest } from "../schema";
 
-const empty: CurrentState = { services: {}, databases: {} };
+const empty: CurrentState = { services: {}, databases: {}, composes: {} };
 
 function manifest(input: unknown): Manifest {
   return manifestSchema.parse(input);
@@ -53,6 +53,7 @@ describe("diffManifest", () => {
           env: {},
           publicEnabled: false,
           preDeploy: null,
+          postDeploy: null,
           buildConfig: null,
           restartWindowMs: null,
           diskLimitMb: null,
@@ -61,6 +62,7 @@ describe("diffManifest", () => {
         },
       },
       databases: {},
+      composes: {},
     };
     expect(diffManifest(m, current)).toEqual([
       { kind: "delete", resource: "service", name: "old" },
@@ -88,6 +90,7 @@ describe("diffManifest", () => {
           env: {},
           publicEnabled: false,
           preDeploy: null,
+          postDeploy: null,
           buildConfig: null,
           restartWindowMs: null,
           diskLimitMb: null,
@@ -96,6 +99,7 @@ describe("diffManifest", () => {
         },
       },
       databases: {},
+      composes: {},
     };
     expect(diffManifest(m, current)).toEqual([
       { kind: "no-op", resource: "service", name: "web" },
@@ -128,6 +132,7 @@ describe("diffManifest", () => {
           env: { LOG_LEVEL: "info", DEPRECATED: "x" },
           publicEnabled: false,
           preDeploy: null,
+          postDeploy: null,
           buildConfig: null,
           restartWindowMs: null,
           diskLimitMb: null,
@@ -136,6 +141,7 @@ describe("diffManifest", () => {
         },
       },
       databases: {},
+      composes: {},
     };
     const changes = diffManifest(m, current);
     expect(changes).toContainEqual({
@@ -172,6 +178,39 @@ describe("diffManifest", () => {
     });
   });
 
+  it("plans a create for a compose stack absent from current state", () => {
+    const m = manifest({
+      project: "acme-api",
+      composes: {
+        web: {
+          source: "inline",
+          content: "services:\n  app:\n    image: nginx\n",
+          exposed: [{ service: "app", port: 80 }],
+        },
+      },
+    });
+    expect(diffManifest(m, empty)).toEqual([
+      {
+        kind: "create",
+        resource: "compose",
+        name: "web",
+        details: { source: "inline", exposed: ["app:80"] },
+      },
+    ]);
+  });
+
+  it("emits no-op for a compose stack that already exists; never a delete", () => {
+    const m = manifest({ project: "acme-api" });
+    const current: CurrentState = {
+      services: {},
+      databases: {},
+      composes: { web: { name: "web" } },
+    };
+    // Stack exists in current but not the manifest → intentionally NO change
+    // (deletion stays on the stack's own action, not the manifest diff).
+    expect(diffManifest(m, current)).toEqual([]);
+  });
+
   it("represents discriminator change as delete + create", () => {
     const m = manifest({
       project: "acme-api",
@@ -193,6 +232,7 @@ describe("diffManifest", () => {
           env: {},
           publicEnabled: false,
           preDeploy: null,
+          postDeploy: null,
           buildConfig: null,
           restartWindowMs: null,
           diskLimitMb: null,
@@ -201,6 +241,7 @@ describe("diffManifest", () => {
         },
       },
       databases: {},
+      composes: {},
     };
     const changes = diffManifest(m, current);
     expect(changes[0]).toMatchObject({ kind: "delete", resource: "service", name: "web" });

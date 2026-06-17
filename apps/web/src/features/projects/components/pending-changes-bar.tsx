@@ -32,7 +32,7 @@ interface PendingChangesBarProps {
 
 type DiffChange = {
   kind: "create" | "update" | "delete" | "no-op";
-  resource: "service" | "database" | "env";
+  resource: "service" | "database" | "env" | "compose";
   name: string;
   details?: Record<string, unknown>;
 };
@@ -69,19 +69,23 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
   };
 
   const apply = async () => {
+    // Bridge the graph's ghost nodes BEFORE kicking off apply, not after.
+    // apply() drains each resource's create stream, so the call runs for
+    // seconds — and manifest.diff keeps polling on its 5s cadence the whole
+    // time. The instant a create's DB row inserts (mid-stream), the next diff
+    // poll stops reporting it as a create; if the resource-list poll hasn't
+    // landed the row yet, the node belongs to neither source and blinks out,
+    // then back when the row arrives. Recording the create keys up front keeps
+    // those ghosts pinned across the entire apply + the post-apply refetch gap.
+    // Skipped creates stay ghosts via the diff's own create list anyway, and a
+    // 30s TTL evicts any key whose resource never lands. See applied-creates-store.
+    const appliedCreateKeys = (diff.data?.changes ?? [])
+      .filter((c) => c.kind === "create" && c.resource !== "env")
+      .map((c) => `${c.resource}:${c.name}`);
+    markAppliedCreates(projectId, appliedCreateKeys);
+
     try {
       const result = await orpc.project.manifest.apply.call({ projectId, environment });
-
-      // Tell the graph which creates just landed so it keeps their ghost nodes
-      // mounted across the refetch gap (manifest.diff drops the create before
-      // the resource collection gains the row) — otherwise the node blinks out
-      // and back. Skipped creates never become resources, so exclude them.
-      const skipped = new Set(result.skipped.map((s) => `${s.resource}:${s.name}`));
-      const appliedCreateKeys = (diff.data?.changes ?? [])
-        .filter((c) => c.kind === "create" && c.resource !== "env")
-        .map((c) => `${c.resource}:${c.name}`)
-        .filter((key) => !skipped.has(key));
-      markAppliedCreates(projectId, appliedCreateKeys);
 
       await refreshAll();
 
@@ -194,7 +198,7 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
 
 interface GroupedChange {
   kind: "create" | "update" | "delete";
-  resource: "service" | "database";
+  resource: "service" | "database" | "compose";
   name: string;
   // For updates: { fieldName: { from, to } }. May be empty when the
   // server returned a coarse "update" without a field-level breakdown.

@@ -13,6 +13,7 @@ import { projectCommand } from "./commands/project";
 import { pullCommand } from "./commands/pull";
 import { statusCommand } from "./commands/status";
 import { syncCommand } from "./commands/sync";
+import { upCommand } from "./commands/up";
 import { whoamiCommand } from "./commands/whoami";
 
 const main = defineCommand({
@@ -26,6 +27,7 @@ const main = defineCommand({
     logout: logoutCommand,
     whoami: whoamiCommand,
     init: initCommand,
+    up: upCommand,
     add: addCommand,
     deploy: deployCommand,
     pull: pullCommand,
@@ -38,4 +40,4 @@ const main = defineCommand({
   },
 });
 
-runMain(main);
+void runMain(main);

@@ -13,13 +13,14 @@ import type { Var } from "../form-fields/variables-field";
 
 interface StepVariablesProps {
   kind: ServiceKind | null;
+  projectId: string;
 }
 
 // Keys that look like credentials get the secret lock on by default.
 const SECRETISH =
   /(SECRET|TOKEN|PASSWORD|PASSWD|PRIVATE|API_?KEY|ACCESS_?KEY|CREDENTIAL|DSN|AUTH|SALT|WEBHOOK|SIGNING)/i;
 
-export function StepVariables(_props: StepVariablesProps) {
+export function StepVariables({ projectId }: StepVariablesProps) {
   const form = useFormContext();
   const repo = useStore(form.store, (s) => s.values.repo as string);
   const root = useStore(form.store, (s) => s.values.root as string);
@@ -51,7 +52,7 @@ export function StepVariables(_props: StepVariablesProps) {
     <>
       <SectionHeader
         title="Environment variables"
-        sub="Add key/value pairs — toggle the lock to mark a value as secret. Cross-resource references can be added after the service is created."
+        sub="Add key/value pairs — toggle the lock to mark a value as secret. Type ${{ to reference another resource's variables (e.g. a database URL)."
       />
 
       {env.data?.committedEnv && (
@@ -69,7 +70,7 @@ export function StepVariables(_props: StepVariablesProps) {
       )}
 
       <form.AppField name="variables">
-        {(f) => <f.VariablesField />}
+        {(f) => <f.VariablesField projectId={projectId} />}
       </form.AppField>
     </>
   );

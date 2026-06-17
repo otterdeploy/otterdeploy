@@ -20,13 +20,13 @@ import { deploymentIdField, projectIdField, resourceIdField } from "./shared";
  * can scope subsets by them via `where` filters (loadSubset). The sibling
  * service-task endpoints keep the plain `serviceTaskSchema`.
  */
-export const deploymentTaskSchema = serviceTaskSchema.extend({
+const deploymentTaskSchema = serviceTaskSchema.extend({
   projectId: projectIdField,
   resourceId: resourceIdField,
   deploymentId: deploymentIdField,
 });
 
-export const deploymentSchema = z.object({
+const deploymentSchema = z.object({
   id: deploymentIdField,
   projectId: projectIdField,
   resourceId: resourceIdField,
@@ -49,18 +49,18 @@ export const deploymentSchema = z.object({
   updatedAt: z.string(),
 });
 
-export const deploymentListInput = z.object({
+const deploymentListInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
 });
 
-export const deploymentTasksInput = z.object({
+const deploymentTasksInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
   deploymentId: deploymentIdField,
 });
 
-export const deploymentLogsTailInput = z.object({
+const deploymentLogsTailInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
   deploymentId: deploymentIdField,
@@ -75,14 +75,14 @@ export const deploymentLogsTailInput = z.object({
  * the DB yet. Distinct from `resourceLogEventSchema` (docker task tails),
  * which has no durable sequence.
  */
-export const deploymentBuildLogEventSchema = z.object({
+const deploymentBuildLogEventSchema = z.object({
   seq: z.number().int().nullable(),
   stream: z.enum(["stdout", "stderr", "system"]),
   line: z.string(),
   ts: z.string(),
 });
 
-export const deploymentBuildLogsInput = z.object({
+const deploymentBuildLogsInput = z.object({
   deploymentId: deploymentIdField,
 });
 

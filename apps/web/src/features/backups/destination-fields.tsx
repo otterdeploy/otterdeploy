@@ -14,14 +14,15 @@ import { Field, type DestinationKind } from "./shared";
 export const DEST_TYPE_FIELDS: Record<
   DestinationKind,
   {
-    config: { key: string; label: string; placeholder?: string }[];
+    /** `half` fields pair up two-per-row; the rest span the full width. */
+    config: { key: string; label: string; placeholder?: string; half?: boolean }[];
     secret: { key: string; label: string }[];
   }
 > = {
   s3: {
     config: [
-      { key: "bucket", label: "Bucket" },
-      { key: "region", label: "Region", placeholder: "us-east-1" },
+      { key: "bucket", label: "Bucket", half: true },
+      { key: "region", label: "Region", placeholder: "us-east-1", half: true },
       {
         key: "endpoint",
         label: "Endpoint (optional)",
@@ -42,8 +43,8 @@ export const DEST_TYPE_FIELDS: Record<
   },
   sftp: {
     config: [
-      { key: "host", label: "Host" },
-      { key: "port", label: "Port", placeholder: "22" },
+      { key: "host", label: "Host", half: true },
+      { key: "port", label: "Port", placeholder: "22", half: true },
       { key: "username", label: "Username" },
       { key: "path", label: "Remote path", placeholder: "/backups" },
     ],
@@ -82,15 +83,21 @@ export function DestinationTypeFields({
   const fields = DEST_TYPE_FIELDS[type];
   return (
     <>
-      {fields.config.map((f) => (
-        <Field key={f.key} label={f.label}>
-          <Input
-            value={config[f.key] ?? ""}
-            placeholder={f.placeholder}
-            onChange={(e) => onConfig({ ...config, [f.key]: e.target.value })}
-          />
-        </Field>
-      ))}
+      <div className="grid grid-cols-2 gap-4">
+        {fields.config.map((f) => (
+          <Field
+            key={f.key}
+            label={f.label}
+            className={f.half ? undefined : "col-span-2"}
+          >
+            <Input
+              value={config[f.key] ?? ""}
+              placeholder={f.placeholder}
+              onChange={(e) => onConfig({ ...config, [f.key]: e.target.value })}
+            />
+          </Field>
+        ))}
+      </div>
       {fields.secret.length > 0 && (
         <div className="flex flex-col gap-3 rounded-md border bg-muted/30 p-3">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">

@@ -15,6 +15,7 @@ import { implement, ORPCError, os as orpc } from "@orpc/server";
 import { apiKeysContract } from "./routers/apiKeys/contract";
 import { auditContract } from "./routers/audit/contract";
 import { backupsContract } from "./routers/backups/contract";
+import { composeContract } from "./routers/compose/contract";
 import { databaseContract } from "./routers/database/contract";
 import { dockerContract } from "./routers/docker/contract";
 import { edgeLogsContract } from "./routers/edge-logs/contract";
@@ -28,6 +29,7 @@ import { projectContract } from "./routers/project/contract";
 import { registryContract } from "./routers/registry/contract";
 import { serverContract } from "./routers/server/contract";
 import { serviceContract } from "./routers/service/contract";
+import { sshKeysContract } from "./routers/sshKeys/contract";
 import { terminalContract } from "./routers/terminal/contract";
 // Per-procedure compliance trail, shaped to the evlog audit schema
 // (https://www.evlog.dev/use-cases/audit/schema). Stamps the request-scoped
@@ -55,11 +57,10 @@ const traceProcedure = orpc
   .middleware(async ({ context, path, next }) => {
     const action = path.join(".");
     const user = context.session?.user;
+
     const actor = user
       ? { type: "user" as const, id: user.id, email: user.email }
-      : context.apiKey
-        ? { type: "api" as const, id: context.apiKey.id }
-        : { type: "api" as const, id: "anonymous" };
+      : { type: "api" as const, id: context.apiKey?.id ?? "anonymous" };
     // Top-level fields keep the console/observability wide event informative.
     context.log.set({
       action,
@@ -69,7 +70,10 @@ const traceProcedure = orpc
     const start = performance.now();
     try {
       const result = await next();
-      context.log.set({ outcome: "success", durationMs: performance.now() - start });
+      context.log.set({
+        outcome: "success",
+        durationMs: performance.now() - start,
+      });
       // Persist mutations; skip read successes. Tenant id rides on the
       // top-level `context.tenantId` set above (the pg drain reads it); request
       // meta (ip/ua/requestId) is filled into `audit.context` by auditEnricher.
@@ -106,6 +110,7 @@ export const publicProcedure = implement({
   apiKeys: apiKeysContract,
   audit: auditContract,
   backups: backupsContract,
+  compose: composeContract,
   database: databaseContract,
   docker: dockerContract,
   edgeLogs: edgeLogsContract,
@@ -119,6 +124,7 @@ export const publicProcedure = implement({
   registry: registryContract,
   server: serverContract,
   service: serviceContract,
+  sshKeys: sshKeysContract,
   terminal: terminalContract,
 })
   .$context<Context>()
@@ -263,8 +269,7 @@ const projectScopeMiddleware = orpc
   })
   .middleware(async ({ context, next, errors }, input) => {
     if (context.apiKey) {
-      const projectId = (input as { projectId?: unknown } | undefined)
-        ?.projectId;
+      const projectId = input?.projectId;
       if (
         typeof projectId === "string" &&
         !requireProjectScope(context.apiKey, projectId)

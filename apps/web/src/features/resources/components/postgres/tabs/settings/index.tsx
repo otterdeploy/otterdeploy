@@ -21,12 +21,35 @@ import { PublicAccessCard } from "./public-access-card";
 interface PostgresSettingsBodyProps {
   resource: PostgresBodyProps["resource"];
   onDeleted: () => void;
+  // Pending-create mode: the database isn't provisioned yet, so only the
+  // settings that map to the manifest (public access + extensions) are
+  // editable. Identity / storage / maintenance / danger need a live resource
+  // and are omitted until after the first deploy.
+  pending?: boolean;
+  dbName?: string;
 }
 
 export function PostgresSettingsBody({
   resource,
   onDeleted,
+  pending = false,
+  dbName,
 }: PostgresSettingsBodyProps) {
+  if (pending) {
+    return (
+      <div className="flex flex-col gap-6">
+        <PublicAccessCard resource={resource} pending dbName={dbName} />
+        {resource.engine === "postgres" && (
+          <ExtensionsCard resource={resource} pending dbName={dbName} />
+        )}
+        <p className="text-[11px] text-muted-foreground/70">
+          Identity, storage, and maintenance settings unlock once the database
+          is deployed.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <SettingsCard

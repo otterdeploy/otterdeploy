@@ -22,6 +22,7 @@ import { getDatabaseProvisioner } from "./provisioners";
 import type { ProjectRef, ResourceRef } from "../scopes";
 import {
   buildContainerName,
+  mapComposeResource,
   mapDatabaseResource,
   mapServiceResource,
   sanitizeProjectSlug,
@@ -82,13 +83,15 @@ export async function listProjectResources(
     return Result.err(new ProjectNotFoundError({ projectId: input.projectId }));
   }
 
-  const { databases, services } = await listProjectResourcesQuery(input.projectId);
-  const [databaseViews, serviceViews] = await Promise.all([
+  const { databases, services, composes } =
+    await listProjectResourcesQuery(input.projectId);
+  const [databaseViews, serviceViews, composeViews] = await Promise.all([
     Promise.all(databases.map((record) => mapDatabaseResource(record, project.slug))),
     Promise.all(services.map((record) => mapServiceResource(record))),
+    Promise.all(composes.map((record) => mapComposeResource(record))),
   ]);
 
-  return Result.ok([...databaseViews, ...serviceViews]);
+  return Result.ok([...databaseViews, ...serviceViews, ...composeViews]);
 }
 
 export async function getProjectResource(

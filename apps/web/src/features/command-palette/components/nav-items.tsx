@@ -17,6 +17,7 @@ import {
   Folder01Icon,
   GitBranchIcon,
   Home01Icon,
+  Key01Icon,
   Key02Icon,
   ServerStack01Icon,
   Settings01Icon,
@@ -59,29 +60,57 @@ export const PROJECT_NAV: readonly NavEntry[] = [
   { to: "/$orgSlug/$projectSlug/settings", label: "Settings", icon: Settings01Icon, chord: "S" },
 ];
 
-// Org-scoped destinations, grouped to match the sidebar.
-export const WORKSPACE_NAV: readonly NavEntry[] = [
-  { to: "/$orgSlug", label: "Projects", icon: Home01Icon },
-  { to: "/$orgSlug/servers", label: "Servers", icon: ServerStack01Icon, keywords: ["nodes", "swarm"] },
-  { to: "/$orgSlug/networking", label: "Networking", icon: EarthIcon },
-  { to: "/$orgSlug/terminal", label: "Terminal", icon: FlashIcon, keywords: ["shell", "ssh"] },
-  { to: "/$orgSlug/team", label: "Team", icon: UserMultipleIcon, keywords: ["members", "invite"] },
-  { to: "/$orgSlug/settings", label: "Settings", icon: Settings01Icon },
-];
-
-export const INFRA_NAV: readonly NavEntry[] = [
-  { to: "/$orgSlug/backups", label: "Backups", icon: DatabaseIcon, keywords: ["restore", "snapshot"] },
-  { to: "/$orgSlug/edge-logs", label: "Edge logs", icon: EarthIcon, keywords: ["access", "traffic"] },
-  { to: "/$orgSlug/audit", label: "Audit", icon: File01Icon, keywords: ["activity", "history"] },
-  { to: "/$orgSlug/docker", label: "Docker", icon: ServerStack01Icon, keywords: ["containers", "images"] },
-];
-
-export const CLUSTER_NAV: readonly NavEntry[] = [
-  { to: "/$orgSlug/firewall", label: "Firewall", icon: ShieldKeyIcon, keywords: ["crowdsec", "block"] },
-  { to: "/$orgSlug/git-providers", label: "Git providers", icon: GitBranchIcon, keywords: ["github", "source"] },
-  { to: "/$orgSlug/registries", label: "Registries", icon: Database02Icon, keywords: ["docker", "image"] },
-  { to: "/$orgSlug/notifications", label: "Notifications", icon: Alert01Icon, keywords: ["slack", "discord", "alerts"] },
-  { to: "/$orgSlug/api-keys", label: "API tokens", icon: Key02Icon, keywords: ["keys", "access"] },
+// Org-scoped destinations, grouped + ordered to match the sidebar
+// (`navGroups` in shell/.../project-sidebar.tsx). Only routes that really
+// exist are listed — unbuilt sidebar placeholders are intentionally omitted,
+// which is why some groups are shorter here than in the sidebar.
+export const ORG_NAV_GROUPS: readonly { heading: string; items: readonly NavEntry[] }[] = [
+  {
+    heading: "Workspace",
+    items: [
+      { to: "/$orgSlug", label: "Projects", icon: Home01Icon },
+      { to: "/$orgSlug/servers", label: "Servers", icon: ServerStack01Icon, keywords: ["nodes", "swarm"] },
+      { to: "/$orgSlug/terminal", label: "Terminal", icon: FlashIcon, keywords: ["shell", "ssh"] },
+    ],
+  },
+  {
+    heading: "Networking & Edge",
+    items: [
+      { to: "/$orgSlug/networking", label: "Networking", icon: EarthIcon, keywords: ["domains", "routes", "caddy"] },
+      { to: "/$orgSlug/edge-logs", label: "Edge logs", icon: EarthIcon, keywords: ["access", "traffic"] },
+      { to: "/$orgSlug/firewall", label: "Firewall", icon: ShieldKeyIcon, keywords: ["crowdsec", "blocklist", "ip"] },
+    ],
+  },
+  {
+    heading: "Data & Runtime",
+    items: [
+      { to: "/$orgSlug/backups", label: "Backups", icon: DatabaseIcon, keywords: ["restore", "snapshot"] },
+      { to: "/$orgSlug/docker", label: "Docker", icon: ServerStack01Icon, keywords: ["containers", "images"] },
+      { to: "/$orgSlug/registries", label: "Registries", icon: Database02Icon, keywords: ["docker", "image"] },
+    ],
+  },
+  {
+    heading: "Observability",
+    items: [
+      { to: "/$orgSlug/audit", label: "Audit", icon: File01Icon, keywords: ["activity", "history"] },
+    ],
+  },
+  {
+    heading: "Integrations",
+    items: [
+      { to: "/$orgSlug/git-providers", label: "Git providers", icon: GitBranchIcon, keywords: ["github", "source"] },
+      { to: "/$orgSlug/notifications", label: "Notifications", icon: Alert01Icon, keywords: ["slack", "discord", "alerts"] },
+    ],
+  },
+  {
+    heading: "Organization",
+    items: [
+      { to: "/$orgSlug/team", label: "Team", icon: UserMultipleIcon, keywords: ["members", "invite"] },
+      { to: "/$orgSlug/api-keys", label: "API tokens", icon: Key02Icon, keywords: ["keys", "access"] },
+      { to: "/$orgSlug/ssh-keys", label: "SSH keys", icon: Key01Icon, keywords: ["ssh", "deploy key", "git", "node"] },
+      { to: "/$orgSlug/settings", label: "Settings", icon: Settings01Icon },
+    ],
+  },
 ];
 
 export function NavGroup({

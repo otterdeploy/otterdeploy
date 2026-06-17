@@ -1,4 +1,9 @@
 import {
+  POSTGRES_EXTENSIONS,
+  resolvePostgresImage,
+} from "@otterdeploy/shared/postgres-extensions";
+
+import {
   RESOURCE_PRESETS,
   type ServiceKind,
 } from "@/features/projects/data/service-kinds";
@@ -28,26 +33,45 @@ export function StepReview({ kind }: StepReviewProps) {
           replicas,
           storageGb,
           backupsEnabled,
+          publicEnabled,
         } = values;
         const preset = RESOURCE_PRESETS.find((p) => p.id === presetId);
         const cpu = preset?.cpu ?? customCpu;
         const mem = preset?.mem ?? customMem;
-        const isDb = kind.group === "data";
+        const isDb = kind.group === "database";
+
+        // Selected postgres extensions (names), with their display labels.
+        const extensions = (values.extensions as string[] | undefined) ?? [];
+        const isPg = kind.id === "postgres";
+        const extensionLabels = extensions
+          .map((n) => POSTGRES_EXTENSIONS.find((e) => e.name === n)?.label ?? n)
+          .join(", ");
+        // Non-contrib extensions pin a specific image — reflect that in the
+        // preview so the image line matches what actually deploys.
+        const resolved = isPg
+          ? resolvePostgresImage(extensions, `${kind.id}:${version}`)
+          : null;
+        const dbImage =
+          resolved && resolved.ok ? resolved.image : `${kind.id}:${version}`;
 
         const generateCompose = () => {
           const memStr = mem >= 1024 ? `${mem / 1024}G` : `${mem}M`;
           if (isDb) {
             const mountTarget = traitsFor(kind.id).mountTarget;
+            const extLine =
+              isPg && extensions.length > 0
+                ? `\n    # extensions: ${extensions.join(", ")}`
+                : "";
             return `services:
   ${name}:
-    image: ${kind.id}:${version}
+    image: ${dbImage}${extLine}
     deploy:
       replicas: 1
       resources:
         limits: { cpus: '${cpu}', memory: ${memStr} }
     volumes:
       - ${name}-data:${mountTarget}
-    networks: [internal]
+    networks: [internal${publicEnabled ? ", public" : ""}]
 
 volumes:
   ${name}-data:
@@ -96,9 +120,16 @@ volumes:
                       value={`${storageGb} GB · backups ${backupsEnabled ? "on" : "off"}`}
                     />
                   )}
+                  {isPg && extensions.length > 0 && (
+                    <ReviewRow label="Extensions" value={extensionLabels} />
+                  )}
                   {!isDb && (
                     <ReviewRow label="Replicas" value={`${replicas}`} />
                   )}
+                  <ReviewRow
+                    label="Access"
+                    value={publicEnabled ? "Public (exposed)" : "Internal only"}
+                  />
                   <ReviewRow label="Network" value={`${name}.internal`} last />
                 </Card>
 

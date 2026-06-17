@@ -99,7 +99,7 @@ const editorTheme = EditorView.theme(
     ".cm-gutters": {
       backgroundColor: "transparent",
       border: "none",
-      color: "hsl(var(--muted-foreground))",
+      color: "var(--muted-foreground)",
     },
     ".cm-lineNumbers .cm-gutterElement": { padding: "0 6px 0 12px" },
     ".cm-activeLineGutter": { backgroundColor: "transparent" },
@@ -130,7 +130,7 @@ const highlightStyle = HighlightStyle.define([
   { tag: t.function(t.variableName), color: "#d2a8ff" },
   {
     tag: [t.lineComment, t.blockComment],
-    color: "hsl(var(--muted-foreground))",
+    color: "var(--muted-foreground)",
     fontStyle: "italic",
   },
 ]);

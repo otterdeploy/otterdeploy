@@ -19,7 +19,7 @@ import { Result, TaggedError } from "better-result";
 import { db } from "@otterdeploy/db";
 import { gitRepo } from "@otterdeploy/db/schema";
 
-export class InvalidCloneUrlError extends TaggedError("InvalidCloneUrlError")<{
+class InvalidCloneUrlError extends TaggedError("InvalidCloneUrlError")<{
   message: string;
 }>() {
   constructor(message: string) {

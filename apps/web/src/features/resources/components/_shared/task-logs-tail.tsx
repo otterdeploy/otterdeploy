@@ -26,7 +26,7 @@ interface TaskLogsTailProps {
   taskId: string;
 }
 
-export function TaskLogsTail({
+function TaskLogsTail({
   projectId,
   resourceId,
   taskId,

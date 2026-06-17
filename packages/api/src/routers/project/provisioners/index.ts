@@ -6,7 +6,7 @@ import {
   destroySwarmDatabase,
   inspectSwarmDatabaseRuntime,
   provisionSwarmDatabase,
-} from "../../../swarm";
+} from "../../../runtime/db";
 
 export interface ProvisionInput {
   /** Resource row id — stamped on the swarm spec as `otterdeploy.resource.id`

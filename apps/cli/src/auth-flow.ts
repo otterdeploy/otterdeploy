@@ -9,11 +9,39 @@
  */
 
 import { consola } from "consola";
+import * as z from "zod";
 
 import { sleep } from "@otterdeploy/shared/promise";
 
 import { CLI_CLIENT_ID, createCliAuthClient } from "./auth-client";
 import { loadConfig, resolveToken, resolveUrl, saveConfig } from "./config";
+
+/**
+ * Ask the operator for the control plane URL on stdin when none was supplied
+ * (no flag, no env, no stored config). Interactive only — in a non-TTY context
+ * (CI, piped input) there's nobody to answer, so we return null and let the
+ * caller print its actionable "set OTTERDEPLOY_URL / pass --url" error instead
+ * of hanging on a prompt that never resolves.
+ *
+ * Bare hosts get an https:// scheme; the result is validated as a URL and the
+ * trailing slash is stripped so it composes cleanly with `${url}/api/auth`.
+ */
+export async function promptForUrl(): Promise<string | null> {
+  if (!process.stdin.isTTY) return null;
+  const raw = await consola.prompt(
+    "Control plane URL (e.g. https://otter.acme.com):",
+    { type: "text" },
+  );
+  if (typeof raw !== "string") return null; // cancelled (Ctrl-C)
+  let url = raw.trim();
+  if (!url) return null;
+  if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+  if (!z.url().safeParse(url).success) {
+    consola.error(`"${url}" is not a valid URL.`);
+    return null;
+  }
+  return url.replace(/\/$/, "");
+}
 
 export interface AuthedSession {
   url: string;
@@ -21,7 +49,7 @@ export interface AuthedSession {
 }
 
 export async function ensureAuthenticated(urlOverride?: string): Promise<AuthedSession> {
-  const url = resolveUrl(urlOverride);
+  const url = resolveUrl(urlOverride) ?? (await promptForUrl());
   if (!url) {
     consola.error(
       "No control plane URL configured. Set OTTERDEPLOY_URL or pass --url <https://…>.",

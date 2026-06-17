@@ -115,9 +115,9 @@ services:
       - otterstack-crowdsec-data:/var/lib/crowdsec/data
     expose:
       # LAPI — internal only. Reachable on the compose network as
-      # http://crowdsec:8080 by Caddy (bouncer) and the control plane
-      # (decision reads). Intentionally NOT published to the host: LAPI is
-      # sensitive and the bouncer key grants decision access.
+      # http://crowdsec:8080 by Caddy (the bouncer). The control plane reads
+      # decisions by exec'ing `cscli` inside this container over the Docker
+      # socket, so LAPI never needs to be published to the host.
       - "8080"
     healthcheck:
       test: ["CMD", "cscli", "lapi", "status"]

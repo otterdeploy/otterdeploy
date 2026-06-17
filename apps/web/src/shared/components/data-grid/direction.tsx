@@ -22,4 +22,4 @@ function useDirection(localDir?: Direction): Direction {
   return localDir ?? "ltr";
 }
 
-export { DirectionProvider, useDirection };
+export { useDirection };

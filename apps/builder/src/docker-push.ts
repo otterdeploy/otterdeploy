@@ -20,7 +20,7 @@ export interface PushCredentials {
   password: string;
 }
 
-export async function dockerPush(opts: {
+async function dockerPush(opts: {
   tags: string[];
   credentials: PushCredentials;
   sink: LogSink;

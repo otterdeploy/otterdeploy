@@ -33,14 +33,22 @@ import {
 import { Button } from "@/shared/components/ui/button";
 import { Switch } from "@/shared/components/ui/switch";
 import { orpc, queryClient } from "@/shared/server/orpc";
+import { useStageManifestChange } from "@/features/projects/hooks/use-manifest-stage";
 
 import type { PostgresBodyProps } from "../../types";
 import { SettingsCard } from "@/features/resources/components/_shared/settings-card";
 
 export function ExtensionsCard({
   resource,
+  pending = false,
+  dbName,
 }: {
   resource: PostgresBodyProps["resource"];
+  // Pending-create mode: no resource row yet, so toggles stage onto the
+  // manifest entry (`databases[dbName].extensions`) instead of the live API.
+  // There's no running image to swap, so the swap-confirm dialog is skipped.
+  pending?: boolean;
+  dbName?: string;
 }) {
   const enabled = resource.extensions ?? [];
 
@@ -65,10 +73,15 @@ export function ExtensionsCard({
     onError: (err) => toast.error(err.message ?? "Failed to update extensions"),
   });
 
+  const stage = useStageManifestChange(resource.projectId as never, {
+    successToast: "Extensions staged — Deploy to apply",
+  });
+
   // Contrib extensions enable live; non-contrib ones swap the image and need
-  // explicit confirmation first.
+  // explicit confirmation first. Pending stacks never run, so nothing to swap —
+  // every toggle stages immediately.
   const requestToggle = (ext: (typeof POSTGRES_EXTENSIONS)[number], on: boolean) => {
-    if (ext.contrib) {
+    if (pending || ext.contrib) {
       apply(ext.name, on);
       return;
     }
@@ -91,12 +104,26 @@ export function ExtensionsCard({
       return;
     }
 
+    if (pending && dbName) {
+      void stage.mutateAsync((m) => {
+        const db = m.databases[dbName];
+        if (!db || db.engine !== "postgres") return m;
+        return {
+          ...m,
+          databases: { ...m.databases, [dbName]: { ...db, extensions: next } },
+        };
+      });
+      return;
+    }
+
     setExtensions.mutate({
       projectId: resource.projectId as never,
       resourceId: resource.resourceId as never,
       extensions: next,
     });
   };
+
+  const busy = pending ? stage.isPending : setExtensions.isPending;
 
   return (
     <SettingsCard
@@ -125,7 +152,7 @@ export function ExtensionsCard({
             </div>
             <Switch
               checked={isOn}
-              disabled={setExtensions.isPending}
+              disabled={busy}
               onCheckedChange={(next) => requestToggle(ext, next)}
             />
           </div>
@@ -156,7 +183,7 @@ export function ExtensionsCard({
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={setExtensions.isPending}
+                  disabled={busy}
                 >
                   Cancel
                 </Button>

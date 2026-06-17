@@ -624,4 +624,3 @@ function createTaskUpdateWakeup(serviceName: string): {
 }
 
 // ─── Catalog re-exports for convenience ────────────────────────────────
-export { DATABASE_ENGINES };

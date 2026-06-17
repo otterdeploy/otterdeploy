@@ -19,12 +19,12 @@ import { manifestSchema } from "../../../stack/manifest";
 import { basePath, projectNotFoundErrors, tag } from "./shared";
 import { getProjectInput } from "./project";
 
-export const manifestGetOutput = z.object({
+const manifestGetOutput = z.object({
   manifest: manifestSchema.nullable(),
   version: z.number().int().nonnegative(),
 });
 
-export const manifestSaveInput = z.object({
+const manifestSaveInput = z.object({
   projectId: getProjectInput.shape.id,
   manifest: manifestSchema,
   // Monotonic counter; the server bumps it on every save. Pass the
@@ -33,41 +33,41 @@ export const manifestSaveInput = z.object({
   expectedVersion: z.number().int().nonnegative(),
 });
 
-export const manifestSaveOutput = z.object({
+const manifestSaveOutput = z.object({
   version: z.number().int().nonnegative(),
 });
 
-export const manifestDiffInput = z.object({
+const manifestDiffInput = z.object({
   projectId: getProjectInput.shape.id,
   // Resolve overrides for this environment before diffing. Omit to diff
   // the base manifest as-is.
   environment: z.string().min(1).optional(),
 });
 
-export const manifestDiffOutput = z.object({
+const manifestDiffOutput = z.object({
   // The resolved manifest the server would apply if `apply` ran now.
   resolved: manifestSchema.nullable(),
   // High-level changes the apply would make (from `diffManifest`).
   changes: z.array(
     z.object({
       kind: z.enum(["create", "update", "delete", "no-op"]),
-      resource: z.enum(["service", "database", "env"]),
+      resource: z.enum(["service", "database", "env", "compose"]),
       name: z.string(),
       details: z.record(z.string(), z.unknown()).optional(),
     }),
   ),
 });
 
-export const manifestApplyInput = z.object({
+const manifestApplyInput = z.object({
   projectId: getProjectInput.shape.id,
   environment: z.string().min(1).optional(),
 });
 
-export const manifestApplyOutput = z.object({
+const manifestApplyOutput = z.object({
   appliedCount: z.number().int().nonnegative(),
   skipped: z.array(
     z.object({
-      resource: z.enum(["service", "database", "env"]),
+      resource: z.enum(["service", "database", "env", "compose"]),
       name: z.string(),
       reason: z.string(),
     }),
@@ -79,11 +79,11 @@ export const manifestApplyOutput = z.object({
 // most recent successfully-applied snapshot (the `lastAppliedManifest`
 // column on the project row). After discard, manifest == current state
 // and the pending-changes bar disappears.
-export const manifestDiscardInput = z.object({
+const manifestDiscardInput = z.object({
   projectId: getProjectInput.shape.id,
 });
 
-export const manifestDiscardOutput = z.object({
+const manifestDiscardOutput = z.object({
   version: z.number().int().nonnegative(),
 });
 
@@ -92,19 +92,19 @@ export const manifestDiscardOutput = z.object({
 // the UI's "Deploy" both call this; no daylight between the two paths.
 // `save` + `apply` remain for the stack editor's "preview then deploy"
 // flow where the user wants to inspect the diff before reconciling.
-export const manifestApplyChangeInput = z.object({
+const manifestApplyChangeInput = z.object({
   projectId: getProjectInput.shape.id,
   manifest: manifestSchema,
   expectedVersion: z.number().int().nonnegative(),
   environment: z.string().min(1).optional(),
 });
 
-export const manifestApplyChangeOutput = z.object({
+const manifestApplyChangeOutput = z.object({
   version: z.number().int().nonnegative(),
   appliedCount: z.number().int().nonnegative(),
   skipped: z.array(
     z.object({
-      resource: z.enum(["service", "database", "env"]),
+      resource: z.enum(["service", "database", "env", "compose"]),
       name: z.string(),
       reason: z.string(),
     }),
@@ -112,11 +112,11 @@ export const manifestApplyChangeOutput = z.object({
   lastAppliedAt: z.string(),
 });
 
-export const manifestExportInput = z.object({
+const manifestExportInput = z.object({
   projectId: getProjectInput.shape.id,
 });
 
-export const manifestExportOutput = z.object({
+const manifestExportOutput = z.object({
   yaml: z.string(),
 });
 

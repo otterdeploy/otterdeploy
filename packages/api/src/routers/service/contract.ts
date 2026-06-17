@@ -10,7 +10,7 @@ const basePath = "/projects/{projectId}/services";
 // Shared schemas
 // ---------------------------------------------------------------------------
 
-export const servicePortSchema = z.object({
+const servicePortSchema = z.object({
   id: z.string(),
   containerPort: z.number().int().positive(),
   protocol: z.enum(["tcp", "udp"]),
@@ -18,20 +18,20 @@ export const servicePortSchema = z.object({
   isPrimary: z.boolean(),
 });
 
-export const servicePortInputSchema = z.object({
+const servicePortInputSchema = z.object({
   containerPort: z.number().int().positive(),
   protocol: z.enum(["tcp", "udp"]).optional(),
   appProtocol: z.enum(["http", "tcp"]).optional(),
   isPrimary: z.boolean().optional(),
 });
 
-export const serviceRestartSchema = z.object({
+const serviceRestartSchema = z.object({
   condition: z.enum(["none", "on-failure", "any"]),
   maxAttempts: z.number().int().nonnegative().nullable(),
   delayMs: z.number().int().nonnegative(),
 });
 
-export const serviceHealthcheckSchema = z
+const serviceHealthcheckSchema = z
   .object({
     cmd: z.array(z.string()).nullable(),
     intervalMs: z.number().int().positive().nullable(),
@@ -41,14 +41,14 @@ export const serviceHealthcheckSchema = z
   })
   .nullable();
 
-export const serviceResourcesSchema = z.object({
+const serviceResourcesSchema = z.object({
   cpuLimit: z.number().nonnegative().nullable(),
   memoryLimitMb: z.number().int().positive().nullable(),
   cpuReservation: z.number().nonnegative().nullable(),
   memoryReservationMb: z.number().int().positive().nullable(),
 });
 
-export const serviceRuntimeSchema = z.object({
+const serviceRuntimeSchema = z.object({
   serviceId: z.string().nullable(),
   serviceName: z.string(),
   networkName: z.string(),
@@ -56,7 +56,7 @@ export const serviceRuntimeSchema = z.object({
   health: z.enum(["healthy", "unhealthy", "starting"]).nullable(),
 });
 
-export const serviceSchema = z.object({
+const serviceSchema = z.object({
   id: z.string(),
   projectId: z.string(),
   name: z.string(),
@@ -83,7 +83,7 @@ export const serviceSchema = z.object({
   updatedAt: z.string(),
 });
 
-export const envVarSchema = z.object({
+const envVarSchema = z.object({
   id: z.string(),
   serviceResourceId: z.string(),
   key: z.string(),
@@ -92,7 +92,7 @@ export const envVarSchema = z.object({
 
 // One published host for a service. `id` is the underlying proxy_route id —
 // the same id the deployment-protection / guest surfaces address.
-export const serviceDomainSchema = z.object({
+const serviceDomainSchema = z.object({
   id: z.string(),
   domain: z.string(),
   source: z.enum(["generated", "custom"]),
@@ -163,6 +163,12 @@ export const createServiceInput = z.object({
       memoryReservationMb: z.number().int().positive().nullable().optional(),
     })
     .optional(),
+
+  // Lifecycle hooks — exec-form shell commands, run in order off the new
+  // image. preDeploy runs before the rollout (db migrations); postDeploy
+  // after the new replicas are live (cache warmup, smoke checks).
+  preDeploy: z.array(z.string()).nullable().optional(),
+  postDeploy: z.array(z.string()).nullable().optional(),
 });
 
 export const updateServiceInput = z.object({
@@ -203,37 +209,42 @@ export const updateServiceInput = z.object({
       memoryReservationMb: z.number().int().positive().nullable().optional(),
     })
     .optional(),
+
+  // Lifecycle hooks — see createServiceInput. Null clears; omitted leaves
+  // the stored value untouched (patch semantics).
+  preDeploy: z.array(z.string()).nullable().optional(),
+  postDeploy: z.array(z.string()).nullable().optional(),
 });
 
-export const getServiceInput = z.object({
+const getServiceInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
 });
 
 // `service.build` returns just the id of the pending deployment row it
 // enqueued — the UI watches it via the Deployments tab / SSE log stream.
-export const buildServiceOutput = z.object({
+const buildServiceOutput = z.object({
   deploymentId: z.string(),
 });
 
-export const listServicesInput = z.object({
+const listServicesInput = z.object({
   projectId: projectIdField,
 });
 
-export const setEnvInput = z.object({
+const setEnvInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
   key: z.string().regex(envKeyRegex),
   value: z.string(),
 });
 
-export const unsetEnvInput = z.object({
+const unsetEnvInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
   key: z.string().regex(envKeyRegex),
 });
 
-export const bulkEnvInput = z.object({
+const bulkEnvInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
   vars: z.array(z.object({ key: z.string().regex(envKeyRegex), value: z.string() })),
@@ -247,25 +258,25 @@ const domainField = z
   .max(253)
   .transform((s) => s.trim().toLowerCase());
 
-export const listDomainsInput = z.object({
+const listDomainsInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
 });
 
-export const addDomainInput = z.object({
+const addDomainInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
   domain: domainField,
 });
 
-export const updateDomainInput = z.object({
+const updateDomainInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
   routeId: z.string(),
   domain: domainField,
 });
 
-export const domainRouteInput = z.object({
+const domainRouteInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
   routeId: z.string(),

@@ -91,7 +91,7 @@ export const resourceCollection = createCollection(
  *
  * @note Memoize with useMemo([projectId, resourceId]) at the call site.
  */
-export function createResourceTasksCollection(
+function createResourceTasksCollection(
   projectId: ProjectId,
   resourceId: ResourceId,
 ) {

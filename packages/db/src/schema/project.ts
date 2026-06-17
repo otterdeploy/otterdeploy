@@ -13,6 +13,10 @@ import type {
   ServicePortId,
 } from "@otterdeploy/shared/id";
 import type { BuildConfig } from "@otterdeploy/shared/build-config";
+import type {
+  ComposeExposed,
+  ComposeServiceSummary,
+} from "@otterdeploy/shared/compose";
 import type { FrameworkKind } from "@otterdeploy/shared/framework";
 import {
   boolean,
@@ -22,6 +26,7 @@ import {
   numeric,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -129,6 +134,15 @@ export const project = pgTable(
     nixpacksConfig: jsonb("nixpacks_config")
       .$type<NixpacksConfig | null>()
       .default(null),
+    // Operator-arranged graph layout: node id (`${kind}:${name}`) → {x,y}.
+    // Keyed by node id (not resourceId) so a position set on a pending node
+    // carries over when the resource lands — the id is stable across that
+    // handover. Shared per project; nodes with no saved position fall back to
+    // dagre auto-layout. Written by `project.saveGraphLayout`.
+    graphLayout: jsonb("graph_layout")
+      .$type<Record<string, { x: number; y: number }>>()
+      .notNull()
+      .default({}),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -193,6 +207,9 @@ export const environment = pgTable(
 export const resourceTypeEnum = pgEnum("resource_type", [
   "database",
   "service",
+  // A Docker Compose stack: one resource that fans out to N swarm services.
+  // Config lives in `compose_resource`. See docs/designs/compose.md.
+  "compose",
 ]);
 export const resourceStatusEnum = pgEnum("resource_status", [
   "draft",
@@ -299,6 +316,36 @@ export const databaseResource = pgTable(
   ],
 );
 
+/**
+ * Credentials minted for a database that's STAGED in the manifest but not yet
+ * provisioned. A database's identity (db name, username, hostname) is
+ * deterministic from its name; only the password is random — so we generate it
+ * the moment the operator adds the database, store it here, and show the real
+ * connection details in the pending panel. At Deploy the provisioner reuses
+ * this exact password, so what the operator copied pre-deploy keeps working.
+ *
+ * The row is transient: deleted once the real `database_resource` row exists
+ * (post-provision) or when the staged change is discarded. Keyed by
+ * (projectId, name) — the same identity the manifest uses for the entry.
+ */
+export const databaseDraftCredential = pgTable(
+  "database_draft_credential",
+  {
+    projectId: text("project_id")
+      .notNull()
+      .$type<ProjectId>()
+      .references(() => project.id, { onDelete: "cascade" }),
+    // Manifest resource name (the `databases[name]` key).
+    name: text("name").notNull(),
+    // Random password generated at stage time, reused verbatim at deploy.
+    password: text("password").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.projectId, table.name] }),
+  ],
+);
+
 export const serviceRestartConditionEnum = pgEnum("service_restart_condition", [
   "none",
   "on-failure",
@@ -378,10 +425,15 @@ export const serviceResource = pgTable(
     swapLimitMb: integer("swap_limit_mb"),
     pidsLimit: integer("pids_limit"),
 
-    // Lifecycle hook — runs once after the build finishes but before
-    // the new replicas take traffic. Exec-form (text[]). Most common
-    // use case: db migrations.
+    // Lifecycle hooks — each runs once in a throwaway container off the
+    // freshly-built image, on the project network, with the resolved env.
+    // Exec-form (text[], one shell command per entry, run in order).
+    //   preDeploy  — after the build, BEFORE the new replicas take traffic.
+    //                A non-zero exit aborts the rollout. Use: db migrations.
+    //   postDeploy — after the new replicas are live + healthy. Use: cache
+    //                warmup, smoke checks, deploy pings.
     preDeploy: text("pre_deploy").array(),
+    postDeploy: text("post_deploy").array(),
 
     // Build configuration for git-sourced services. Stored as jsonb so
     // the builder set can grow without DDL churn. Null for image-sourced
@@ -397,6 +449,16 @@ export const serviceResource = pgTable(
     publicEnabled: boolean("public_enabled").notNull().default(false),
     publicDomain: text("public_domain"),
 
+    // When set, this service is a member of a Docker Compose stack — it was
+    // materialized from the stack's compose file and is owned by it. Null for a
+    // standalone service. Drives graph grouping (services sharing a stackId
+    // render inside the stack's group) and stack teardown. We clear it + delete
+    // the rows explicitly on stack delete, so SET NULL keeps the FK safe without
+    // surprise-cascading the parent resource rows.
+    stackId: text("stack_id")
+      .$type<ResourceId>()
+      .references(() => composeResource.resourceId, { onDelete: "set null" }),
+
     forceUpdateCounter: integer("force_update_counter").notNull().default(0),
 
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -407,6 +469,7 @@ export const serviceResource = pgTable(
   },
   (table) => [
     uniqueIndex("service_resource_service_name_unique").on(table.serviceName),
+    index("service_resource_stack_id_idx").on(table.stackId),
     // internalHostname is the service's DNS alias on its project overlay
     // network — it only has to be unique *within that network*, not globally.
     // Two different projects (each on its own `otterdeploy-<project>` network)
@@ -420,6 +483,50 @@ export const serviceResource = pgTable(
     uniqueIndex("service_resource_public_domain_unique").on(table.publicDomain),
   ],
 );
+
+// ── Compose stack ───────────────────────────────────────────────────────
+// A `type: compose` resource. One compose file → one swarm "stack" (N services
+// on the project overlay network, all labelled `otterdeploy.stack=<resourceId>`
+// so they list/remove as a unit). The file is the source of truth; `services`
+// is a derived parse summary for the UI, refreshed on save/deploy. See
+// docs/designs/compose.md.
+export const composeSourceEnum = pgEnum("compose_source", ["inline", "git"]);
+
+export const composeResource = pgTable("compose_resource", {
+  resourceId: text("resource_id")
+    .primaryKey()
+    .$type<ResourceId>()
+    .references(() => resource.id, { onDelete: "cascade" }),
+  source: composeSourceEnum("source").notNull().default("inline"),
+  // inline source: the raw compose YAML pasted by the user.
+  composeContent: text("compose_content"),
+  // git source: repo + path to the compose file (default ./compose.yml).
+  gitRepoUrl: text("git_repo_url"),
+  gitRef: text("git_ref"),
+  sourceSubdir: text("source_subdir"),
+  composePath: text("compose_path"),
+  // Swarm stack namespace — unique, derived `<projectSlug>-<resourceSlug>`.
+  stackName: text("stack_name").notNull(),
+  // Derived parse summary (service name, image, hasBuild, ports) for the UI.
+  // NOT authoritative — recomputed from the file on every save/deploy.
+  services: jsonb("services").$type<ComposeServiceSummary[]>().notNull().default([]),
+  // Built image tags for `build:` services (service name → image ref), written
+  // by the build worker. Image-only services aren't listed. See compose.md.
+  builtImages: jsonb("built_images")
+    .$type<Record<string, string>>()
+    .notNull()
+    .default({}),
+  // Which `service:port` are fronted by a public domain.
+  exposed: jsonb("exposed").$type<ComposeExposed[]>().notNull().default([]),
+  forceUpdateCounter: integer("force_update_counter").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => /* @__PURE__ */ new Date())
+    .notNull(),
+}, (table) => [
+  uniqueIndex("compose_resource_stack_name_unique").on(table.stackName),
+]);
 
 // Deployment — one logical "push" of a resource to swarm. Each create /
 // redeploy / env-change inserts a new deployment row and tags the swarm

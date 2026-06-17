@@ -17,10 +17,10 @@ import { Docker } from "@otterdeploy/docker";
 
 import {
   getEngineAdapter,
-  provisionSwarmDatabase,
   resolveRegistryAuth,
   streamImagePull,
 } from "../../../swarm";
+import { provisionSwarmDatabase } from "../../../runtime/db";
 import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
 import { loadDomainSourcesForProject } from "../../../lib/domain-sources";
 import { resolvePublicDomain } from "../../../lib/domains";
@@ -35,10 +35,10 @@ import {
   updateDatabaseResourceStatus,
 } from "../queries";
 import { tailContainerBootLogs } from "./boot-logs";
+import { deriveInternalDbCredentials } from "./credentials";
 import { snapshotForPostgresCreate } from "./snapshot";
 import type { ProjectRef } from "../../scopes";
 import {
-  clampPostgresIdentifier,
   isUniqueViolation,
   mapDatabaseResource,
   sanitizeDatabaseName,
@@ -123,6 +123,10 @@ export async function* createPostgresResourceStream(
      *  with callers that haven't plumbed the param through yet. */
     engine?: DatabaseEngine;
     publicEnabled?: boolean;
+    /** Pre-minted password from the stage-time draft. When set, the provision
+     *  reuses it so the credentials the operator saw pre-deploy stay valid.
+     *  Absent (e.g. legacy direct-create) → a fresh random password. */
+    password?: string;
     /** Output of validatePostgresCreate so we don't re-fetch the project. */
     project: { id: string; slug: string };
   },
@@ -142,9 +146,23 @@ export async function* createPostgresResourceStream(
   const project = input.project;
   const resourceSlug = sanitizeDatabaseName(input.name);
   const projectSlug = sanitizeProjectSlug(project.slug);
-  const databaseName = clampPostgresIdentifier(`${projectSlug}_${resourceSlug}_db`);
-  const username = clampPostgresIdentifier(`${projectSlug}_${resourceSlug}_user`);
-  const password = randomBytes(18).toString("base64url");
+  // Reuse the password minted at stage time (so the credentials the operator
+  // copied from the pending panel keep working), else generate a fresh one.
+  const password = input.password ?? randomBytes(18).toString("base64url");
+  // Internal identity (db name, username, hostname, connection string) is the
+  // shared deriver's output — the SAME function the draft-credentials endpoint
+  // uses, so pending-panel display and deployed reality can't drift.
+  const {
+    databaseName,
+    username,
+    internalHostname,
+    internalConnectionString,
+  } = deriveInternalDbCredentials({
+    engine,
+    projectSlug: project.slug,
+    resourceName: input.name,
+    password,
+  });
   // Walk the org/project/sslip chain to pick the public hostname. The
   // org and project rows may not exist yet for the first project (the
   // create flow above only validated the project exists), so a null
@@ -174,7 +192,6 @@ export async function* createPostgresResourceStream(
   const volumeName = sanitizeDockerName(
     `otterdeploy-${adapter.nameShort}data-${projectSlug}-${resourceSlug}`,
   );
-  const internalHostname = `${resourceSlug}.${projectSlug}.${PLATFORM.database.internalBaseDomain}`;
 
   // ── Persist the resource row (FIRST) ─────────────────────────────────
   // We insert the row as `draft` before any docker work so the wizard can
@@ -196,14 +213,6 @@ export async function* createPostgresResourceStream(
     sslmode: "require",
     sslnegotiation: "direct",
   });
-  const internalConnectionString = adapter.buildConnectionString({
-    username,
-    password,
-    host: internalHostname,
-    port: adapter.port,
-    databaseName,
-  });
-
   let created: Awaited<ReturnType<typeof createDatabaseResourceRecord>>;
   try {
     created = await createDatabaseResourceRecord({

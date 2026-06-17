@@ -4,10 +4,10 @@ import * as z from "zod";
 const tag = "audit";
 const basePath = "/audit";
 
-export const auditActorTypeSchema = z.enum(["user", "system", "api", "agent"]);
-export const auditOutcomeSchema = z.enum(["success", "failure", "denied"]);
+const auditActorTypeSchema = z.enum(["user", "system", "api", "agent"]);
+const auditOutcomeSchema = z.enum(["success", "failure", "denied"]);
 
-export const auditEventSchema = z.object({
+const auditEventSchema = z.object({
   id: z.string(),
   /** ISO-8601 event timestamp (full date+time, e.g. 2026-06-11T22:23:00.051Z).
    *  The handler emits `Date.toISOString()`, so this must be `datetime()` — not
@@ -31,7 +31,7 @@ export const auditEventSchema = z.object({
   causationId: z.string().nullable(),
 });
 
-export const listAuditInput = z.object({
+const listAuditInput = z.object({
   action: z.string().optional(),
   actorId: z.string().optional(),
   outcome: auditOutcomeSchema.optional(),
@@ -45,7 +45,7 @@ export const listAuditInput = z.object({
   offset: z.number().int().min(0).default(0),
 });
 
-export const listAuditOutput = z.object({
+const listAuditOutput = z.object({
   items: z.array(auditEventSchema),
   /** Total matching the filters (for the stat header + pagination). */
   total: z.number(),

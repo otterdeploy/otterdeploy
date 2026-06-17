@@ -25,11 +25,11 @@ import { resourceCollection } from "@/features/resources/data/resource";
 import { orpc } from "@/shared/server/orpc";
 
 import {
+  ComposeResourcePanel,
   NotFound,
+  type PostgresBodyProps,
   RealResourcePanel,
   ServiceResourcePanel,
-  StagedResourcePanel,
-  type StagedCreate,
 } from "@/features/resources/components";
 
 export const Route = createFileRoute(
@@ -70,10 +70,9 @@ function RouteComponent() {
     ) ?? null;
 
   // No applied resource → this is a staged-create ghost. Read its full spec
-  // from the manifest (cached) so the panel can edit it. A staged service
-  // renders the *real* ServiceResourcePanel in pending mode (editable env +
-  // domains, runtime tabs disabled); a staged database still shows the
-  // read-only preview for now.
+  // from the manifest (cached) so the panel can edit it. Both staged services
+  // and staged databases render their *real* panels in pending mode (editable
+  // env / extensions / settings via the manifest, runtime tabs disabled).
   const manifest = useQuery(
     orpc.project.manifest.get.queryOptions({ input: { id: project.id } }),
   );
@@ -105,18 +104,29 @@ function RouteComponent() {
       }
     : null;
 
-  // Staged database create → read-only preview (from the diff summary).
+  // Staged database create → the REAL database panel in pending mode (editable
+  // extensions / variables / public access via the manifest, runtime tabs
+  // disabled). Mirrors the staged-service path above. Only the fields the
+  // pending tab bodies read are real; runtime/credential fields are unused
+  // while pending, so the draft is cast to the full resource view.
   const dbSpec =
     !resource && resourceId.startsWith("database:")
       ? manifest.data?.manifest?.databases?.[pendingName]
       : undefined;
-  const stagedDbCreate: StagedCreate | null = dbSpec
-    ? {
-        kind: "create",
-        resource: "database",
+  const draftDatabase = dbSpec
+    ? ({
+        resourceId: "",
+        projectId: project.id,
         name: pendingName,
-        details: { engine: dbSpec.engine },
-      }
+        type: "database",
+        status: "draft",
+        engine: dbSpec.engine,
+        publicEnabled: dbSpec.publicEnabled ?? false,
+        extraEnv: dbSpec.extraEnv ?? {},
+        secretKeys: [],
+        extensions:
+          dbSpec.engine === "postgres" ? (dbSpec.extensions ?? []) : [],
+      } as unknown as PostgresBodyProps["resource"])
     : null;
 
   // Framework brand mark for the drawer header tile — same value the graph
@@ -152,6 +162,16 @@ function RouteComponent() {
         />
       );
     }
+    if (resource && resource.type === "compose") {
+      return (
+        <ComposeResourcePanel
+          resource={resource}
+          orgSlug={orgSlug}
+          projectSlug={projectSlug}
+          onClose={close}
+        />
+      );
+    }
     if (draftService) {
       return (
         <ServiceResourcePanel
@@ -164,8 +184,18 @@ function RouteComponent() {
         />
       );
     }
-    if (stagedDbCreate) {
-      return <StagedResourcePanel change={stagedDbCreate} onClose={close} />;
+    if (draftDatabase) {
+      return (
+        <RealResourcePanel
+          resource={draftDatabase}
+          projectName={project.name}
+          orgSlug={orgSlug}
+          projectSlug={projectSlug}
+          onClose={close}
+          pending
+          dbName={pendingName}
+        />
+      );
     }
     // Manifest still loading for a staged ghost — hold the panel blank rather
     // than flashing "not found".

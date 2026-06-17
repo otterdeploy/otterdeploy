@@ -4,10 +4,10 @@ import type { Step } from "./schemas";
 
 export type StepEntry = [Step, string];
 
-export const KIND_STEPS: StepEntry[] = [["kind", "Kind"]];
+const KIND_STEPS: StepEntry[] = [["kind", "Source"]];
 
-export const DB_STEPS: StepEntry[] = [
-  ["kind", "Kind"],
+const DB_STEPS: StepEntry[] = [
+  ["kind", "Source"],
   ["version", "Version"],
   ["resources", "Resources"],
   ["storage", "Storage & backups"],
@@ -15,9 +15,9 @@ export const DB_STEPS: StepEntry[] = [
   ["review", "Review"],
 ];
 
-export const SOURCE_STEPS: StepEntry[] = [
-  ["kind", "Kind"],
-  ["source", "Source"],
+const SOURCE_STEPS: StepEntry[] = [
+  ["kind", "Source"],
+  ["source", "Repository"],
   ["builder", "Builder"],
   ["networking", "Networking"],
   ["resources", "Resources"],
@@ -25,8 +25,8 @@ export const SOURCE_STEPS: StepEntry[] = [
   ["review", "Review"],
 ];
 
-export const DOCKER_STEPS: StepEntry[] = [
-  ["kind", "Kind"],
+const DOCKER_STEPS: StepEntry[] = [
+  ["kind", "Source"],
   ["image", "Image"],
   ["networking", "Networking"],
   ["resources", "Resources"],
@@ -41,30 +41,34 @@ export const DOCKER_STEPS: StepEntry[] = [
 // revealed by the "Advanced setup" toggle. Keeps "create a resource" to 3–4
 // clicks instead of 6–7.
 
-export const SOURCE_FAST_STEPS: StepEntry[] = [
-  ["kind", "Kind"],
-  ["source", "Source"],
+const SOURCE_FAST_STEPS: StepEntry[] = [
+  ["kind", "Source"],
+  ["source", "Repository"],
   ["networking", "Networking"],
+  // Env vars are essential for almost every app (DATABASE_URL, API keys, …) —
+  // keep them in the default flow, not just behind "Advanced setup".
+  ["variables", "Variables"],
   ["review", "Review"],
 ];
 
-export const DOCKER_FAST_STEPS: StepEntry[] = [
-  ["kind", "Kind"],
+const DOCKER_FAST_STEPS: StepEntry[] = [
+  ["kind", "Source"],
   ["image", "Image"],
   ["networking", "Networking"],
+  ["variables", "Variables"],
   ["review", "Review"],
 ];
 
-export const DB_FAST_STEPS: StepEntry[] = [
-  ["kind", "Kind"],
+const DB_FAST_STEPS: StepEntry[] = [
+  ["kind", "Source"],
   ["version", "Version"],
   ["review", "Review"],
 ];
 
 export function flowFor(kind: ServiceKind | null, advanced = false): StepEntry[] {
   if (!kind) return KIND_STEPS;
-  if (kind.group === "data") return advanced ? DB_STEPS : DB_FAST_STEPS;
+  if (kind.group === "database") return advanced ? DB_STEPS : DB_FAST_STEPS;
   if (kind.id === "docker") return advanced ? DOCKER_STEPS : DOCKER_FAST_STEPS;
-  if (kind.group === "compute") return advanced ? SOURCE_STEPS : SOURCE_FAST_STEPS;
+  if (kind.group === "source") return advanced ? SOURCE_STEPS : SOURCE_FAST_STEPS;
   return KIND_STEPS;
 }

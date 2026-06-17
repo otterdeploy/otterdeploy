@@ -9,7 +9,7 @@
  */
 
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 
 import type { FkTarget } from "@/shared/components/data-grid/types";
 import { orpc } from "@/shared/server/orpc";
@@ -18,6 +18,7 @@ import {
   columnTypesSql,
   foreignKeysSql,
   pgTypeToVariant,
+  primaryKeysSql,
   referencedRowSql,
   tableColumnsSql,
   type ColumnVariant,
@@ -31,6 +32,52 @@ export function useDatabaseTables(resourceId: string) {
       input: { resourceId: resourceId as never },
     }),
   );
+}
+
+/** Whether the actor may mutate data (drives read-only vs editable grid). */
+export function useDataCapabilities(resourceId: string) {
+  return useQuery(
+    orpc.database.capabilities.queryOptions({
+      input: { resourceId: resourceId as never },
+    }),
+  );
+}
+
+/**
+ * Primary-key columns for the selected table, in key order. An empty array
+ * (table has no PK) means rows can't be edited — the grid stays read-only.
+ */
+export function useTablePrimaryKey({
+  resourceId,
+  table,
+  enabled,
+}: {
+  resourceId: string;
+  table: TableRef | null;
+  enabled: boolean;
+}) {
+  const query = useQuery({
+    ...orpc.database.query.queryOptions({
+      input: {
+        resourceId: resourceId as never,
+        sql: table ? primaryKeysSql(table) : "",
+        limit: 100,
+      },
+    }),
+    enabled: enabled && Boolean(table),
+    staleTime: 5 * 60 * 1000,
+  });
+  const pkColumns = useMemo(
+    () => (query.data?.rows ?? []).map((r) => r[0]).filter((c): c is string => c != null),
+    [query.data],
+  );
+  return pkColumns;
+}
+
+/** Run a structured row mutation (insert/update/delete) on the server. The
+ *  caller passes the full input (resourceId + schema/table/op/pk/set). */
+export function useMutateRow() {
+  return useMutation(orpc.database.mutateRow.mutationOptions());
 }
 
 /**

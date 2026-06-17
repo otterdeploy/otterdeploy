@@ -12,7 +12,7 @@ import { proxyRoute } from "@otterdeploy/db/schema";
 import { basePath, projectNotFoundErrors, resourceNotFoundErrors, tag } from "./shared";
 import { projectIdField, proxyRouteIdField, resourceIdField } from "./shared";
 
-export const reconcileResultSchema = z.object({
+const reconcileResultSchema = z.object({
   applied: z.array(z.string()),
   skipped: z.array(
     z.object({
@@ -30,15 +30,40 @@ export const proxyRouteSchema = createSelectSchema(proxyRoute).extend({
   resourceId: resourceIdField.nullable(),
 });
 
-export const listProxyRoutesInput = z.object({
+const listProxyRoutesInput = z.object({
   projectId: projectIdField,
 });
 
 /** Read-only render of a project's contribution to the edge Caddyfile —
  *  the reconciler's per-project fragment plus the short revision SHA. */
-export const projectCaddyfileSchema = z.object({
+const projectCaddyfileSchema = z.object({
   caddyfile: z.string(),
   revision: z.string(),
+});
+
+// ─── TLS certificates (live edge probe) ─────────────────────────────
+/** One probed certificate — what Caddy actually serves for a domain right
+ *  now (issuer/expiry/SANs), or an error when the probe couldn't connect. */
+const certificateSchema = z.object({
+  domain: z.string(),
+  ok: z.boolean(),
+  error: z.string().nullable(),
+  issuer: z.string().nullable(),
+  subject: z.string().nullable(),
+  sans: z.array(z.string()),
+  notBefore: z.string().nullable(),
+  notAfter: z.string().nullable(),
+  daysRemaining: z.number().nullable(),
+  serial: z.string().nullable(),
+  fingerprint: z.string().nullable(),
+  selfSigned: z.boolean(),
+  status: z.enum(["valid", "expiring", "expired", "internal", "error"]),
+});
+
+const projectCertificatesSchema = z.object({
+  edgeHost: z.string(),
+  probedAt: z.string(),
+  certificates: z.array(certificateSchema),
 });
 
 // ─── Custom Caddy config (operator-authored) ────────────────────────
@@ -47,17 +72,17 @@ export const projectCaddyfileSchema = z.object({
 const CUSTOM_CONFIG_MAX = 20_000;
 
 /** A project's raw custom config for editing (null when unset). */
-export const projectCustomConfigSchema = z.object({
+const projectCustomConfigSchema = z.object({
   config: z.string().nullable(),
 });
 
-export const setProjectCustomConfigInput = z.object({
+const setProjectCustomConfigInput = z.object({
   projectId: projectIdField,
   /** Standalone Caddy blocks/snippets. Empty or null clears it. */
   config: z.string().max(CUSTOM_CONFIG_MAX).nullable(),
 });
 
-export const setRouteDirectivesInput = z.object({
+const setRouteDirectivesInput = z.object({
   routeId: proxyRouteIdField,
   /** Directives spliced inside the route's site block. Empty/null clears. */
   directives: z.string().max(CUSTOM_CONFIG_MAX).nullable(),
@@ -65,43 +90,43 @@ export const setRouteDirectivesInput = z.object({
 
 /** Result of saving custom config: the post-change render, plus whether it
  *  validated + went live (`applied`) or was rejected with Caddy's `error`. */
-export const saveCustomConfigResultSchema = z.object({
+const saveCustomConfigResultSchema = z.object({
   caddyfile: z.string(),
   revision: z.string(),
   applied: z.boolean(),
   error: z.string().nullable(),
 });
 
-export const saveRouteDirectivesResultSchema = z.object({
+const saveRouteDirectivesResultSchema = z.object({
   route: proxyRouteSchema,
   applied: z.boolean(),
   error: z.string().nullable(),
 });
 
 // ─── Deployment protection (auth wall) ──────────────────────────────
-export const setProtectionInput = z.object({
+const setProtectionInput = z.object({
   routeId: proxyRouteIdField,
   protected: z.boolean(),
 });
 
-export const createShareLinkInput = z.object({
+const createShareLinkInput = z.object({
   routeId: proxyRouteIdField,
   /** Link lifetime. Capped at 30 days. */
   expiresInHours: z.number().int().positive().max(24 * 30).default(72),
 });
 
-export const shareLinkSchema = z.object({
+const shareLinkSchema = z.object({
   url: z.string(),
   expiresAt: z.string(),
 });
 
-export const createBypassTokenInput = z.object({
+const createBypassTokenInput = z.object({
   routeId: proxyRouteIdField,
   /** Bypass-token lifetime for CI/automation. Capped at 1 year. */
   expiresInDays: z.number().int().positive().max(365).default(90),
 });
 
-export const bypassTokenSchema = z.object({
+const bypassTokenSchema = z.object({
   /** The header automation must set, e.g. `x-otter-bypass`. */
   header: z.string(),
   token: z.string(),
@@ -109,23 +134,23 @@ export const bypassTokenSchema = z.object({
 });
 
 // ─── Guests (email one-time PIN, Cloudflare-style) ──────────────────
-export const guestSchema = z.object({
+const guestSchema = z.object({
   id: z.string(),
   email: z.string(),
   sessionHours: z.number(),
   createdAt: z.string(),
 });
 
-export const listGuestsInput = z.object({ routeId: proxyRouteIdField });
+const listGuestsInput = z.object({ routeId: proxyRouteIdField });
 
-export const inviteGuestInput = z.object({
+const inviteGuestInput = z.object({
   routeId: proxyRouteIdField,
   email: z.email(),
   /** Session length after a successful code, in hours. Default 24. */
   sessionHours: z.number().int().positive().max(24 * 365).default(24),
 });
 
-export const removeGuestInput = z.object({
+const removeGuestInput = z.object({
   routeId: proxyRouteIdField,
   guestId: z.string(),
 });
@@ -150,6 +175,16 @@ export const proxyContractSlice = {
     })
     .input(listProxyRoutesInput)
     .output(projectCaddyfileSchema),
+
+  certificates: oc
+    .errors(projectNotFoundErrors)
+    .meta({
+      path: `${basePath}/{projectId}/certificates`,
+      tag,
+      method: "GET",
+    })
+    .input(listProxyRoutesInput)
+    .output(projectCertificatesSchema),
 
   customConfig: oc
     .errors(projectNotFoundErrors)

@@ -144,11 +144,15 @@ export class ManifestVersionConflictError extends TaggedError(
  */
 export class ManifestApplySkipError extends TaggedError("ManifestApplySkipError")<{
   message: string;
-  resource: "service" | "database" | "env";
+  resource: "service" | "database" | "env" | "compose";
   name: string;
   reason: string;
 }>() {
-  constructor(args: { resource: "service" | "database" | "env"; name: string; reason: string }) {
+  constructor(args: {
+    resource: "service" | "database" | "env" | "compose";
+    name: string;
+    reason: string;
+  }) {
     super({
       ...args,
       message: `${args.resource} ${args.name} skipped: ${args.reason}`,

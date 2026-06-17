@@ -11,7 +11,7 @@ import * as z from "zod";
 const tag = "apiKeys";
 const basePath = "/api-keys";
 
-export const createApiKeyInput = z.object({
+const createApiKeyInput = z.object({
   name: z.string().min(1).max(64),
   /** Seconds until expiry, or null for a key that never expires. */
   expiresIn: z.number().int().positive().nullable(),
@@ -34,7 +34,7 @@ export const createApiKeyInput = z.object({
 });
 
 /** The created key — the only time the plaintext `key` is ever returned. */
-export const createdApiKeySchema = z.object({
+const createdApiKeySchema = z.object({
   id: z.string(),
   /** Full plaintext token. Shown once, never persisted in readable form. */
   key: z.string(),

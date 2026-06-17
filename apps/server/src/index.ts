@@ -7,6 +7,7 @@ import { createContext } from "@otterdeploy/api/context";
 import { reconcile } from "@otterdeploy/api/caddy";
 import { startBackupScheduler } from "@otterdeploy/api/backups";
 import { startMetricsSampler } from "@otterdeploy/api/metrics";
+import { startBlocklistScheduler } from "@otterdeploy/api/routers/firewall/scheduler";
 import {
   startEdgeLogPersistence,
   startEdgeLogSink,
@@ -184,7 +185,7 @@ app.use("/*", async (c, next) => {
   }
 
   const apiResult = await apiHandler.handle(c.req.raw, {
-    prefix: "/api-reference",
+    prefix: "/api/reference",
     context: context,
   });
 
@@ -227,14 +228,12 @@ app.route(
     // auth: { username: env.WORKBENCH_USER, password: env.WORKBENCH_PASS },
   }),
 );
-// }
 
-// ─── Terminal websocket ────────────────────────────────────────────
+// Terminal websocket
 // Auth seam left here for when better-auth cookie verification is
 // re-enabled (handler reads c.var.userId).
 app.get("/pty", terminalWebSocketHandler);
 
-// ─── GitHub webhooks + install callbacks ───────────────────────────
 app.post("/api/webhooks/github", githubWebhookHandler);
 app.get(
   "/api/integrations/github/install/callback",
@@ -270,9 +269,11 @@ app.post("/.well-known/otterdeploy/otp/verify", deployOtpVerifyHandler);
 let stopWorkers: (() => Promise<void>) | null = null;
 let stopBackupScheduler: (() => void) | null = null;
 let stopMetricsSampler: (() => void) | null = null;
+let stopBlocklistScheduler: (() => void) | null = null;
 
 async function bootstrap() {
-  // Edge-log sink: bind the TCP listener Caddy streams access logs to.
+  // Edge-log sink: bind the TCP listener Caddy streams logs to — both per-site
+  // access logs and the global default logger's operational events (Phase 3).
   // Only when EDGE_LOG_SINK is configured (otherwise the Caddyfile carries
   // no `output net`, so nothing would connect anyway).
   if (env.EDGE_LOG_SINK) {
@@ -391,6 +392,11 @@ async function bootstrap() {
   // resource_metric every 30s (feeds the service-node metrics charts).
   stopMetricsSampler = startMetricsSampler();
   log.info({ startup: { step: "metrics-sampler", status: "ready" } });
+
+  // Managed blocklists — re-import enabled public/custom lists into CrowdSec on
+  // their interval so the imported decisions refresh before they expire.
+  stopBlocklistScheduler = startBlocklistScheduler();
+  log.info({ startup: { step: "blocklist-scheduler", status: "ready" } });
 }
 
 void bootstrap();
@@ -401,6 +407,7 @@ for (const signal of ["SIGTERM", "SIGINT"] as const) {
     log.info({ shutdown: { signal, step: "draining-workers" } });
     if (stopBackupScheduler) stopBackupScheduler();
     if (stopMetricsSampler) stopMetricsSampler();
+    if (stopBlocklistScheduler) stopBlocklistScheduler();
     if (stopWorkers) await stopWorkers().catch(() => undefined);
     process.exit(0);
   });

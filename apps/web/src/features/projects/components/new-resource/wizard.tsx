@@ -16,6 +16,7 @@ import { cn } from "@/shared/lib/utils";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 import { useStageManifestChange } from "../../hooks/use-manifest-stage";
+import { ComposeWizard } from "./compose-wizard";
 import { flowFor } from "./flows";
 import { buildDatabaseSpec, buildServiceSpec } from "./to-manifest";
 import type { Port } from "./form-fields/ports-field";
@@ -114,6 +115,30 @@ function ResourceWizardBody({
   const kindWired = isKindWired(kindId, kind);
   const createDisabled = isLast && (!kindWired || isCreating);
 
+  // Database engine sub-view of the first (Source) step. Owned here so its
+  // "Back" can live in the footer next to Continue instead of inline.
+  const [dbEngineView, setDbEngineView] = useState(false);
+  const exitDbEngineView = useCallback(() => {
+    setDbEngineView(false);
+    form.setFieldValue("kindId", "");
+    form.setFieldValue("version", null);
+  }, [form]);
+  const showDbBack = step === "kind" && dbEngineView;
+
+  // Compose is its own resource type, not a manifest-staged service — once it's
+  // picked, hand off to the dedicated compose flow.
+  if (kindId === "compose") {
+    return (
+      <ComposeWizard
+        orgSlug={orgSlug}
+        projectId={projectId}
+        projectSlug={projectSlug}
+        onComplete={onComplete}
+        onCancel={onCancel}
+      />
+    );
+  }
+
   return (
     <form.AppForm>
       <div className="flex h-full flex-col bg-transparent text-foreground">
@@ -131,6 +156,8 @@ function ResourceWizardBody({
           isSourceBased={isSourceBased}
           isDocker={isDocker}
           projectId={projectId}
+          dbView={dbEngineView}
+          onDbViewChange={setDbEngineView}
         />
 
         {currentStepIssues.length > 0 && (
@@ -147,9 +174,11 @@ function ResourceWizardBody({
           createDisabled={createDisabled}
           goPrev={goPrev}
           handleContinue={handleContinue}
-          showAdvancedToggle={idx === 0 && !!kind}
+          showAdvancedToggle={idx === 0 && !!kind && !showDbBack}
           advancedSetup={advancedSetup}
           onAdvancedChange={setAdvanced}
+          showDbBack={showDbBack}
+          onDbBack={exitDbEngineView}
         />
       </div>
     </form.AppForm>
@@ -164,7 +193,7 @@ const WIRED_DB_KINDS = new Set(["postgres", "redis", "mariadb", "mongodb"]);
 function isKindWired(kindId: string, kind: ServiceKind | null): boolean {
   if (kindId === "docker") return true;
   if (WIRED_DB_KINDS.has(kindId)) return true;
-  return kind?.group === "compute";
+  return kind?.group === "source";
 }
 
 // ─── Render helpers ─────────────────────────────────────────────────────
@@ -182,9 +211,13 @@ interface StepCtx {
   isSourceBased: boolean;
   isDocker: boolean;
   projectId: ProjectId;
+  dbView: boolean;
+  onDbViewChange: (open: boolean) => void;
 }
 const STEP_RENDERERS: Record<Step, (ctx: StepCtx) => React.ReactNode | null> = {
-  kind: () => <StepKind />,
+  kind: ({ dbView, onDbViewChange }) => (
+    <StepKind dbView={dbView} onDbViewChange={onDbViewChange} />
+  ),
   source: ({ kind, isSourceBased }) =>
     kind && isSourceBased ? <StepSource /> : null,
   builder: ({ kind, isSourceBased }) =>
@@ -193,8 +226,10 @@ const STEP_RENDERERS: Record<Step, (ctx: StepCtx) => React.ReactNode | null> = {
   networking: ({ kind, isSourceBased, isDocker }) =>
     kind && (isSourceBased || isDocker) ? <StepNetworking kind={kind} /> : null,
   resources: ({ kind, isDb }) => (kind ? <StepResources isDb={isDb} /> : null),
-  variables: ({ kind, isSourceBased, isDocker }) =>
-    kind && (isSourceBased || isDocker) ? <StepVariables kind={kind} /> : null,
+  variables: ({ kind, isSourceBased, isDocker, projectId }) =>
+    kind && (isSourceBased || isDocker) ? (
+      <StepVariables kind={kind} projectId={projectId} />
+    ) : null,
   version: ({ kind, isDb, projectId }) =>
     kind && isDb ? <StepVersion kind={kind} projectId={projectId} /> : null,
   storage: ({ kind, isDb }) =>
@@ -211,6 +246,8 @@ function WizardStepBody({
   isSourceBased,
   isDocker,
   projectId,
+  dbView,
+  onDbViewChange,
 }: {
   step: Step;
   kind: ServiceKind | null;
@@ -218,6 +255,8 @@ function WizardStepBody({
   isSourceBased: boolean;
   isDocker: boolean;
   projectId: ProjectId;
+  dbView: boolean;
+  onDbViewChange: (open: boolean) => void;
 }) {
   return (
     <div className="flex-1 overflow-y-auto p-4">
@@ -230,6 +269,8 @@ function WizardStepBody({
           isSourceBased,
           isDocker,
           projectId,
+          dbView,
+          onDbViewChange,
         })}
       </div>
     </div>
@@ -270,6 +311,8 @@ function WizardFooter({
   showAdvancedToggle,
   advancedSetup,
   onAdvancedChange,
+  showDbBack,
+  onDbBack,
 }: {
   onCancel: (() => void) | undefined;
   idx: number;
@@ -283,6 +326,10 @@ function WizardFooter({
   showAdvancedToggle: boolean;
   advancedSetup: boolean;
   onAdvancedChange: (next: boolean) => void;
+  /** In the database-engine sub-view of the Source step: render a Back that
+   *  returns to the launch cards, sitting next to Continue. */
+  showDbBack: boolean;
+  onDbBack: () => void;
 }) {
   return (
     <div className="flex shrink-0 items-center gap-2 border-t bg-transparent px-4 py-3">
@@ -306,12 +353,12 @@ function WizardFooter({
         </span>
       )}
       <div className="flex-1" />
-      {idx > 0 && (
+      {(idx > 0 || showDbBack) && (
         <Button
           variant="outline"
           size="sm"
           className="h-8 gap-1.5"
-          onClick={goPrev}
+          onClick={showDbBack ? onDbBack : goPrev}
           disabled={isCreating}
         >
           <HugeiconsIcon
@@ -328,12 +375,15 @@ function WizardFooter({
         onClick={() => void handleContinue()}
         disabled={createDisabled}
       >
-        {isLast
+        {/* In the engine sub-view, kindId is empty until an engine is picked,
+            which collapses the flow to one step — so guard the "Add resource"
+            label behind !showDbBack and read "Continue" instead. */}
+        {isLast && !showDbBack
           ? isCreating
             ? "Adding…"
             : "Add resource"
           : "Continue"}
-        {!isLast && (
+        {(!isLast || showDbBack) && (
           <HugeiconsIcon
             icon={ArrowRight01Icon}
             strokeWidth={2}
@@ -593,8 +643,8 @@ function useWizardForm({
 
   const kindId = useStore(form.store, (s) => s.values.kindId);
   const kind = SERVICE_KINDS.find((k) => k.id === kindId) ?? null;
-  const isDb = !!kind && kind.group === "data";
-  const isSourceBased = !!kind && kind.group === "compute";
+  const isDb = !!kind && kind.group === "database";
+  const isSourceBased = !!kind && kind.group === "source";
   const isDocker = !!kind && kind.id === "docker";
 
   const advancedSetup = useStore(form.store, (s) => s.values.advancedSetup);

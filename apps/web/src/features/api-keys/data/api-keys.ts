@@ -10,6 +10,7 @@ import { parseCol } from "@/shared/lib/utils";
 
 import { authClient } from "@/lib/auth-client";
 import { client, queryClient } from "@/shared/server/orpc";
+import { zId } from "@otterdeploy/shared/id";
 
 /**
  * Org-scoped API keys for the viewed organization. List/update/delete ride the
@@ -31,7 +32,7 @@ import { client, queryClient } from "@/shared/server/orpc";
 const organizationIdSchema = z.string().min(1);
 
 /** React-query key for one org's key subset. */
-export function apiKeysSubsetKey(organizationId: string) {
+function apiKeysSubsetKey(organizationId: string) {
   return ["apiKeys", organizationId] as const;
 }
 
@@ -86,7 +87,9 @@ export const apiKeysCollection = createCollection(
           // `create` wants seconds-until-expiry; the optimistic row holds the
           // resolved `expiresAt` — recover the delta.
           const expiresIn = row.expiresAt
-            ? Math.round((new Date(row.expiresAt).getTime() - Date.now()) / 1000)
+            ? Math.round(
+                (new Date(row.expiresAt).getTime() - Date.now()) / 1000,
+              )
             : null;
           const created = await client.apiKeys.create({
             name: row.name ?? "",

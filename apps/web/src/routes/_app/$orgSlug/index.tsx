@@ -1,10 +1,10 @@
 import { FolderIcon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 
 import { CreateProjectDialog } from "@/features/projects/components/create-project-dialog";
 import { ProjectList } from "@/features/projects/components/project-list";
+import { ProjectsSkeleton } from "@/features/projects/components/projects-skeleton";
 import { Page, PageHeader } from "@/shared/components/page";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -14,30 +14,44 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/shared/components/ui/empty";
-import { orpc } from "@/shared/server/orpc";
+import { ErrorState } from "@/shared/components/ui/error-state";
+import { orpc, queryClient } from "@/shared/server/orpc";
 
 import { projectCollection } from "@/features/projects/data/project";
 import { useLiveQuery } from "@tanstack/react-db";
 
 export const Route = createFileRoute("/_app/$orgSlug/")({
+  loader: async () => {
+    await projectCollection.preload();
+  },
   component: RouteComponent,
+  pendingComponent: ProjectsSkeleton,
 });
 
 function RouteComponent() {
   const { organization } = useLoaderData({ from: "/_app/$orgSlug" });
   const { orgSlug } = Route.useParams();
 
-  const {
-    data: projects,
-    isLoading,
-    ...rest
-  } = useLiveQuery((q) => q.from({ todo: projectCollection }));
+  const { data: projects, isLoading } = useLiveQuery((q) =>
+    q.from({ todo: projectCollection }),
+  );
 
   const lastError = projectCollection.utils.lastError;
 
-  if (isLoading) return <div>Loading...</div>;
+  if (isLoading) return <ProjectsSkeleton />;
 
-  if (lastError) return <div>Error: {lastError.message}</div>;
+  if (lastError)
+    return (
+      <ErrorState
+        title="Couldn't load projects"
+        message={lastError.message}
+        onRetry={() =>
+          void queryClient.invalidateQueries({
+            queryKey: orpc.project.list.queryKey(),
+          })
+        }
+      />
+    );
 
   if (projects.length === 0) {
     return (

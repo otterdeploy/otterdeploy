@@ -29,7 +29,7 @@ function presetFromCron(cron: string): CronPreset {
 
 export interface ScheduleFormValues {
   name: string;
-  sourcesText: string;
+  sources: string[];
   preset: CronPreset;
   cron: string;
   keepDaily: number;
@@ -39,14 +39,14 @@ export interface ScheduleFormValues {
   retentionDays: string;
   maxStorageGb: string;
   preHook: string;
-  destinationId: string;
+  destinationIds: string[];
   encryptionNone: boolean;
   enabled: boolean;
 }
 
 const NEW_SCHEDULE: ScheduleFormValues = {
   name: "New backup schedule",
-  sourcesText: "",
+  sources: [],
   preset: "daily",
   cron: PRESET_CRON.daily,
   keepDaily: 14,
@@ -56,7 +56,7 @@ const NEW_SCHEDULE: ScheduleFormValues = {
   retentionDays: "",
   maxStorageGb: "",
   preHook: "",
-  destinationId: "",
+  destinationIds: [],
   encryptionNone: false,
   enabled: true,
 };
@@ -66,10 +66,13 @@ function scheduleDefaults(
   destinations: Destination[],
 ): ScheduleFormValues {
   if (!initial)
-    return { ...NEW_SCHEDULE, destinationId: destinations[0]?.id ?? "" };
+    return {
+      ...NEW_SCHEDULE,
+      destinationIds: destinations[0] ? [destinations[0].id] : [],
+    };
   return {
     name: initial.name,
-    sourcesText: initial.sources.join(", "),
+    sources: initial.sources,
     preset: presetFromCron(initial.cron),
     cron: initial.cron,
     keepDaily: initial.keepDaily,
@@ -81,7 +84,7 @@ function scheduleDefaults(
     maxStorageGb:
       initial.maxStorageGb != null ? String(initial.maxStorageGb) : "",
     preHook: initial.preHook ?? "",
-    destinationId: initial.destinationId,
+    destinationIds: initial.destinationIds,
     encryptionNone: initial.encryption === "none",
     enabled: initial.enabled,
   };
@@ -94,10 +97,7 @@ function saveSchedule(
   value: ScheduleFormValues,
   destinations: Destination[],
 ) {
-  const sources = value.sourcesText
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const sources = value.sources;
   const retentionDays = value.retentionDays.trim()
     ? Math.max(1, Number(value.retentionDays))
     : null;
@@ -135,7 +135,7 @@ function saveSchedule(
     retentionDays,
     maxStorageGb,
     preHook,
-    destinationId: value.destinationId as Schedule["destinationId"],
+    destinationIds: value.destinationIds as Schedule["destinationIds"],
     encryption: value.encryptionNone ? "none" : "aes-256-gcm",
     pitr: false,
     enabled: value.enabled,
@@ -145,8 +145,9 @@ function saveSchedule(
     nextRunAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
-    destinationName:
-      destinations.find((d) => d.id === value.destinationId)?.name ?? null,
+    destinationNames: value.destinationIds
+      .map((id) => destinations.find((d) => d.id === id)?.name)
+      .filter((n): n is string => Boolean(n)),
   });
 }
 

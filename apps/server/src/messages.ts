@@ -23,7 +23,7 @@ export type ClientMessageOf<T extends ClientMessage["type"]> = Extract<
 >;
 
 // Server -> Client control messages.
-export const ServerMessage = z.discriminatedUnion("type", [
+const ServerMessage = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("session:exit"),
     exitCode: z.number().int().nullable(),

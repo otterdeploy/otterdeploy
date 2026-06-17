@@ -8,11 +8,8 @@ import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import { Result } from "better-result";
 
 import { findTransitiveDependents, resolveServiceEnv } from "../../lib/variables";
-import {
-  provisionSwarmService,
-  updateSwarmService,
-  type SwarmServiceRuntime,
-} from "../../swarm";
+import type { SwarmServiceRuntime } from "../../swarm";
+import { runtime } from "../../runtime";
 import type { RequestLogger } from "evlog";
 
 import { ServiceNotFoundError, type ResolveError } from "./errors";
@@ -72,10 +69,10 @@ export async function provisionFresh(
   // as an error node on the graph, recoverable via the panel's redeploy —
   // far better than a 500 that deploys nothing visible.
   const provisioned = await Result.tryPromise({
-    try: () => provisionSwarmService(swarmSpec, log),
+    try: () => runtime().provision(swarmSpec, log),
     catch: (cause) => (cause instanceof Error ? cause.message : String(cause)),
   });
-  const runtime: SwarmServiceRuntime = provisioned.isOk()
+  const result: SwarmServiceRuntime = provisioned.isOk()
     ? provisioned.value
     : {
         serviceId: null,
@@ -94,10 +91,10 @@ export async function provisionFresh(
   }
   await updateServiceResourceStatus(
     record.service.resourceId,
-    runtime.status === "error" ? "invalid" : "valid",
+    result.status === "error" ? "invalid" : "valid",
   );
 
-  return Result.ok(runtime);
+  return Result.ok(result);
 }
 
 /** Placeholder images used by git-sourced services before their first build. */
@@ -136,13 +133,13 @@ export async function redeployOne(
     resolved.value,
     sanitizeSlug(projectSlug),
   );
-  const runtime = await updateSwarmService(swarmSpec, log);
+  const result = await runtime().update(swarmSpec, log);
   await updateServiceResourceStatus(
     resourceId,
-    runtime.status === "error" ? "invalid" : "valid",
+    result.status === "error" ? "invalid" : "valid",
   );
 
-  return Result.ok(runtime);
+  return Result.ok(result);
 }
 
 export async function redeployAndFanOut(

@@ -231,12 +231,14 @@ export function ProjectTagBadge({ id }: { id: string }) {
 export function Field({
   label,
   children,
+  className,
 }: {
   label: string;
   children: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <label className="flex flex-col gap-1.5">
+    <label className={cn("flex flex-col gap-1.5", className)}>
       <span className="text-xs text-muted-foreground">{label}</span>
       {children}
     </label>
@@ -262,7 +264,7 @@ export function Segmented<T extends string>({
   options: Array<{ id: T; label: string }>;
 }) {
   return (
-    <div className="inline-flex items-center gap-1 rounded-md border bg-muted/40 p-0.5">
+    <div className="inline-flex w-fit items-center gap-1 rounded-md border bg-muted/40 p-0.5">
       {options.map((o) => {
         const active = value === o.id;
         return (

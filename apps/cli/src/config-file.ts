@@ -25,11 +25,11 @@ import assert from "node:assert/strict";
 // .json is the default format. .ts is supported for users who want
 // type-checked authoring + env-var interpolation; .json is preferred
 // when both are present (rare; usually only one exists).
-export const DEFAULT_CONFIG_BASENAMES = [
+const DEFAULT_CONFIG_BASENAMES = [
   "otterdeploy.config.json",
   "otterdeploy.config.ts",
 ] as const;
-export const DEFAULT_CONFIG_FILENAME = DEFAULT_CONFIG_BASENAMES[0];
+const DEFAULT_CONFIG_FILENAME = DEFAULT_CONFIG_BASENAMES[0];
 
 // Resolve to a concrete on-disk path:
 //   - explicit --config wins

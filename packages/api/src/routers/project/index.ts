@@ -31,6 +31,7 @@ import {
   listProjectEnvVarsForOrg,
   getProjectCaddyfile,
   getProjectCustomCaddyConfig,
+  listProjectCertificates,
   saveProjectCustomCaddyConfig,
   setProxyRouteDirectives,
   listProjectProxyRoutes,
@@ -42,6 +43,7 @@ import {
   listResourceDeployments,
   listResourceTasks,
   listTasksForDeployment,
+  saveProjectGraphLayout,
   tailDeploymentLogs,
   tailResourceLogs,
   tailTaskLogs,
@@ -52,7 +54,14 @@ import {
 import { discardManifest, loadManifest, resolvedManifest, saveManifest } from "./manifest";
 import { applyManifest } from "./manifest-apply";
 import { loadCurrentState } from "./manifest-state";
-import { diffManifest } from "../../stack/manifest";
+import {
+  deleteDraftCredentialsNotIn,
+  ensureDraftCredentialPassword,
+  getProjectInOrg,
+} from "./queries";
+import { deriveInternalDbCredentials } from "./postgres/credentials";
+import { diffManifest, type Change, type Manifest } from "../../stack/manifest";
+import { parseCompose, summarizeCompose } from "../../stack/compose";
 import { renderProjectFromRows, toComposeYaml } from "../../stack/render";
 import { tailProjectLogs } from "./project-logs";
 import { listAvailableRefs } from "./refs";
@@ -63,6 +72,24 @@ import {
 import { applyProjectStack } from "./stack-apply";
 import { diffProjectStack } from "./stack-diff";
 import { saveProjectStack } from "./stack-save";
+
+/**
+ * Attach a parsed service summary to each compose `create` change so the graph
+ * can render the staged stack as a ghost group node WITH its service cards —
+ * not an empty "No services parsed yet" box. Parsing lives here (the handler),
+ * not in the pure `diffManifest`, so the diff stays YAML-free and testable.
+ * Git stacks have no inline file to parse; their cards appear after the build.
+ */
+function enrichComposeCreates(changes: Change[], manifest: Manifest): Change[] {
+  return changes.map((c) => {
+    if (c.resource !== "compose" || c.kind !== "create") return c;
+    const spec = manifest.composes[c.name];
+    if (!spec || spec.source !== "inline") return c;
+    const parsed = parseCompose(spec.content);
+    if (parsed.isErr()) return c;
+    return { ...c, details: { ...c.details, services: summarizeCompose(parsed.value) } };
+  });
+}
 
 export const projectRouter = {
   get: orgScopedProcedure.project.get.handler(
@@ -158,6 +185,23 @@ export const projectRouter = {
     },
   ),
 
+  saveGraphLayout: orgScopedProcedure.project.saveGraphLayout.handler(
+    async ({ input, context, errors }) => {
+      context.log.set({ target: { type: "project", id: input.id } });
+      const result = await saveProjectGraphLayout({
+        projectId: input.id,
+        organizationId: context.activeOrganizationId,
+        positions: input.positions,
+      });
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          ProjectNotFoundError: () => errors.NOT_FOUND(),
+        });
+      }
+      return result.value;
+    },
+  ),
+
   dependencies: orgScopedProcedure.project.dependencies.handler(
     async ({ input, context, errors }) => {
       context.log.set({ target: { type: "project", id: input.projectId } });
@@ -209,6 +253,21 @@ export const projectRouter = {
     caddyfile: orgScopedProcedure.project.proxyRoute.caddyfile.handler(
       async ({ input, context, errors }) => {
         const result = await getProjectCaddyfile({
+          projectId: input.projectId,
+          organizationId: context.activeOrganizationId,
+        });
+        if (result.isErr()) {
+          throw matchError(result.error, {
+            ProjectNotFoundError: () => errors.NOT_FOUND(),
+          });
+        }
+        return result.value;
+      },
+    ),
+
+    certificates: orgScopedProcedure.project.proxyRoute.certificates.handler(
+      async ({ input, context, errors }) => {
+        const result = await listProjectCertificates({
           projectId: input.projectId,
           organizationId: context.activeOrganizationId,
         });
@@ -722,6 +781,36 @@ export const projectRouter = {
           },
         ),
 
+        draftCredentials:
+          orgScopedProcedure.project.resource.database.postgres.draftCredentials.handler(
+            async ({ input, context, errors }) => {
+              const project = await getProjectInOrg({
+                projectId: input.projectId,
+                organizationId: context.activeOrganizationId,
+              });
+              if (!project) throw errors.NOT_FOUND();
+              // Mint (or read) the stable password, then derive the rest.
+              const password = await ensureDraftCredentialPassword(
+                input.projectId,
+                input.name,
+              );
+              const creds = deriveInternalDbCredentials({
+                engine: input.engine,
+                projectSlug: project.slug,
+                resourceName: input.name,
+                password,
+              });
+              return {
+                username: creds.username,
+                password: creds.password,
+                databaseName: creds.databaseName,
+                internalHostname: creds.internalHostname,
+                internalPort: creds.internalPort,
+                internalConnectionString: creds.internalConnectionString,
+              };
+            },
+          ),
+
         setPublic: orgScopedProcedure.project.resource.database.postgres.setPublic.handler(
           async ({ input, context, errors }) => {
             context.log.set({
@@ -931,7 +1020,10 @@ export const projectRouter = {
         }
         if (!resolved.value) return { resolved: null, changes: [] };
         const current = await loadCurrentState(input.projectId);
-        const changes = diffManifest(resolved.value, current);
+        const changes = enrichComposeCreates(
+          diffManifest(resolved.value, current),
+          resolved.value,
+        );
         return { resolved: resolved.value, changes };
       },
     ),
@@ -999,6 +1091,18 @@ export const projectRouter = {
           throw matchError(result.error, {
             ProjectNotFoundError: () => errors.NOT_FOUND(),
           });
+        }
+        // Drop draft credentials for any staged database the discard removed —
+        // keep only the ones the reverted manifest still declares.
+        const reverted = await loadManifest({
+          projectId: input.projectId,
+          organizationId: context.activeOrganizationId,
+        });
+        if (reverted.isOk()) {
+          await deleteDraftCredentialsNotIn(
+            input.projectId,
+            Object.keys(reverted.value.manifest?.databases ?? {}),
+          );
         }
         return result.value;
       },

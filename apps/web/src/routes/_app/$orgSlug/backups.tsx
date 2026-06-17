@@ -171,6 +171,10 @@ function BackupsRoute() {
         open={backupNowOpen}
         onOpenChange={setBackupNowOpen}
         destinations={destinations}
+        onAddDestination={() => {
+          setBackupNowOpen(false);
+          setDestEditor("new");
+        }}
       />
       <ScheduleEditorDialog
         initial={scheduleEditor === "new" ? null : scheduleEditor}

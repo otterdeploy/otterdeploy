@@ -1,4 +1,3 @@
-
 import type { OrganizationId } from "@otterdeploy/shared/id";
 import type { Context as HonoContext } from "hono";
 import type { RequestLogger } from "evlog";
@@ -93,9 +92,9 @@ export async function createContext({
 }: CreateContextOptions) {
   const headers = context.req.raw.headers;
 
-  const session = (await auth.api.getSession({
+  const session = await auth.api.getSession({
     headers,
-  })) as Session | null;
+  });
 
   // Org-scoped API keys never resolve via getSession (the apiKey plugin's
   // session hook is default-off and rejects references !== "user"), so detect

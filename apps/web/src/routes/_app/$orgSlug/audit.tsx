@@ -42,6 +42,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/shared/components/ui/sheet";
+import { ErrorState } from "@/shared/components/ui/error-state";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import {
   Table,
@@ -202,9 +203,11 @@ function AuditRoute() {
       {query.isLoading ? (
         <AuditPending />
       ) : query.isError ? (
-        <p className="text-sm text-destructive">
-          {(query.error as Error | null)?.message ?? "Failed to load audit events."}
-        </p>
+        <ErrorState
+          title="Couldn't load audit events"
+          message={(query.error as Error | null)?.message}
+          onRetry={() => void query.refetch()}
+        />
       ) : items.length === 0 ? (
         <Empty className="rounded-md border border-dashed bg-muted/20 py-12">
           <EmptyHeader>

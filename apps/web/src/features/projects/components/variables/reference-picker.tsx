@@ -28,6 +28,19 @@ import { Redis } from "@/shared/components/ui/svgs/redis";
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
+type RefSourceKind = "database" | "service" | "project" | "environment";
+
+interface RefGroup {
+  key: string;
+  kind: RefSourceKind;
+  engine: "postgres" | "redis" | "mariadb" | "mongodb" | null;
+  /** Resource name, or "Shared variables" for project/environment scope. */
+  label: string;
+  /** Small qualifier under the label (e.g. "database", "service"). */
+  sub: string;
+  items: Array<{ key: string; token: string; isSecret: boolean }>;
+}
+
 export interface ReferencePickerProps {
   /** Accepts either a branded project id or the plain string the
    *  caller has on hand — branded types are launder via `as never` at
@@ -100,6 +113,36 @@ export function ReferencePicker({
     );
   }, [refs, excludeToken, query]);
 
+  // Group by source so each row's owner is unambiguous: resource exports sit
+  // under the resource's own name, shared project/environment vars under
+  // "Shared variables". Databases first, then services, then shared.
+  const groups = useMemo(() => {
+    const order = { database: 0, service: 1, project: 2, environment: 3 };
+    const map = new Map<string, RefGroup>();
+    for (const r of filtered) {
+      const groupKey = `${r.sourceKind}:${r.sourceName}`;
+      const existing = map.get(groupKey);
+      if (existing) existing.items.push(r);
+      else
+        map.set(groupKey, {
+          key: groupKey,
+          kind: r.sourceKind,
+          engine: r.engine,
+          label: r.sourceName,
+          sub:
+            r.sourceKind === "database"
+              ? "database"
+              : r.sourceKind === "service"
+                ? "service"
+                : "project · all environments",
+          items: [r],
+        });
+    }
+    return [...map.values()].sort(
+      (a, b) => order[a.kind] - order[b.kind] || a.label.localeCompare(b.label),
+    );
+  }, [filtered]);
+
   return (
     <div
       className={cn(
@@ -125,29 +168,45 @@ export function ReferencePicker({
           <div className="px-3 py-6 text-center text-[11px] text-muted-foreground">
             Loading references…
           </div>
-        ) : filtered.length === 0 ? (
+        ) : groups.length === 0 ? (
           <div className="px-3 py-6 text-center text-[11px] text-muted-foreground">
             {query
               ? "No references match your filter"
               : "No references defined yet in this project"}
           </div>
         ) : (
-          filtered.map((r) => (
-            <button
-              key={r.token}
-              type="button"
-              onClick={() => {
-                onPick(r.token);
-                onClose?.();
-              }}
-              className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent/40"
-            >
-              <SourceIcon kind={r.sourceKind} engine={r.engine} />
-              <span className="font-mono text-[11.5px]">{r.key}</span>
-              <span className="ml-auto text-[11px] text-muted-foreground">
-                {r.sourceName}
-              </span>
-            </button>
+          groups.map((g) => (
+            <div key={g.key} className="mb-1 last:mb-0">
+              {/* Group header names the owner — a resource, or the shared
+                  project/environment scope — so each token's origin is clear. */}
+              <div className="flex items-center gap-2 px-3 py-1.5">
+                <SourceIcon kind={g.kind} engine={g.engine} />
+                <span className="text-[11.5px] font-semibold text-foreground">
+                  {g.label}
+                </span>
+                <span className="rounded bg-muted px-1.5 py-0.5 text-[9.5px] uppercase tracking-wide text-muted-foreground">
+                  {g.sub}
+                </span>
+              </div>
+              {g.items.map((r) => (
+                <button
+                  key={r.token}
+                  type="button"
+                  onClick={() => {
+                    onPick(r.token);
+                    onClose?.();
+                  }}
+                  className="flex w-full items-center gap-2 py-1.5 pl-9 pr-3 text-left hover:bg-accent/40"
+                >
+                  <span className="font-mono text-[11.5px]">{r.key}</span>
+                  {r.isSecret && (
+                    <span className="ml-auto text-[10px] text-muted-foreground/70">
+                      secret
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
           ))
         )}
       </div>

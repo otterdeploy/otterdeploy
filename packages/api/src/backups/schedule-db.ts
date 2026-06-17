@@ -29,7 +29,7 @@ export interface DueSchedule {
   projectId: ProjectId | null;
   sources: string[];
   cron: string;
-  destinationId: BackupDestinationId;
+  destinationIds: BackupDestinationId[];
   encryption: "none" | "aes-256-gcm" | "kms-managed" | "customer-key";
   keepDaily: number;
   keepWeekly: number;
@@ -51,7 +51,7 @@ export async function listDueSchedules(now: Date): Promise<DueSchedule[]> {
       projectId: backupSchedule.projectId,
       sources: backupSchedule.sources,
       cron: backupSchedule.cron,
-      destinationId: backupSchedule.destinationId,
+      destinationIds: backupSchedule.destinationIds,
       encryption: backupSchedule.encryption,
       keepDaily: backupSchedule.keepDaily,
       keepWeekly: backupSchedule.keepWeekly,
@@ -77,7 +77,7 @@ export interface ScheduleRunTarget {
   id: BackupScheduleId;
   organizationId: OrganizationId;
   sources: string[];
-  destinationId: BackupDestinationId;
+  destinationIds: BackupDestinationId[];
   encryption: "none" | "aes-256-gcm" | "kms-managed" | "customer-key";
 }
 
@@ -91,7 +91,7 @@ export async function getScheduleRunTarget(input: {
       id: backupSchedule.id,
       organizationId: backupSchedule.organizationId,
       sources: backupSchedule.sources,
-      destinationId: backupSchedule.destinationId,
+      destinationIds: backupSchedule.destinationIds,
       encryption: backupSchedule.encryption,
     })
     .from(backupSchedule)
@@ -167,6 +167,7 @@ export async function listScheduleBackups(
 ): Promise<
   Array<{
     id: BackupId;
+    destinationId: BackupDestinationId;
     storagePath: string | null;
     completedAt: Date | null;
     compressedSizeBytes: number | null;
@@ -175,6 +176,7 @@ export async function listScheduleBackups(
   return db
     .select({
       id: backup.id,
+      destinationId: backup.destinationId,
       storagePath: backup.storagePath,
       completedAt: backup.completedAt,
       compressedSizeBytes: backup.compressedSizeBytes,

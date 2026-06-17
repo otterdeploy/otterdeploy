@@ -18,6 +18,9 @@ export const serviceTaskSchema = z.object({
   slot: z.number().int().nullable(),
   /** "<serviceName>.<slot>", e.g. "api.1". Matches docker's display name. */
   label: z.string(),
+  /** Compose sub-service key this task belongs to (so a stack group can roll
+   *  status up per service); null for a plain single-service resource. */
+  service: z.string().nullable().default(null),
   state: z.enum(["running", "building", "error"]),
   /** Raw docker task state — "running" / "starting" / "preparing" / "failed"
    *  / "shutdown" / etc. The graph uses the collapsed `state` above; the
@@ -42,12 +45,12 @@ export const serviceTaskSchema = z.object({
   timestamp: z.string().nullable(),
 });
 
-export const serviceTasksSchema = z.object({
+const serviceTasksSchema = z.object({
   resourceId: resourceIdField,
   tasks: z.array(serviceTaskSchema),
 });
 
-export const listServiceTasksInput = z.object({
+const listServiceTasksInput = z.object({
   projectId: projectIdField,
 });
 

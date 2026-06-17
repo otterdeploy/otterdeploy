@@ -16,7 +16,12 @@ export const env = createEnv({
       .transform((data) => data.split(",").map((s) => s.trim()))
       .pipe(z.array(z.url())),
 
-    RESEND_API_KEY: z.string().min(1),
+    // Optional: this is a self-hosted install. Email can be left unconfigured
+    // (the server boots fine) or configured at runtime in Settings → Email
+    // (Resend or SMTP). When unset AND no platform_settings transport is saved,
+    // sendEmail() fails with a clear "email isn't configured" error rather than
+    // a cryptic Resend 502 from a placeholder key.
+    RESEND_API_KEY: z.string().min(1).optional(),
     RESEND_FROM_EMAIL: z.email().default("onboarding@resend.dev"),
 
     // Notification channels (packages/jobs notification.send). All optional —
@@ -65,11 +70,12 @@ export const env = createEnv({
     // *authority* (master session + getSession) is BETTER_AUTH_URL.
     PUBLIC_WEB_URL: z.url().optional(),
 
-    // Edge access logs (packages/api/src/edge-logs). EDGE_LOG_SINK is the
-    // host:port Caddy streams JSON access logs to via `output net` (dev:
-    // host.docker.internal:9100; Swarm: server service DNS). EDGE_LOG_PORT
-    // is the port the server's TCP sink binds. Both unset ⇒ access logging
-    // off (the Edge Logs page shows an empty live tail).
+    // Edge logs (packages/api/src/edge-logs). EDGE_LOG_SINK is the host:port
+    // Caddy streams JSON to via `output net` (dev: host.docker.internal:9100;
+    // Swarm: server service DNS) — BOTH the per-site access logs and, via the
+    // global default logger, the operational events (cert/ACME, upstream
+    // errors — Phase 3). EDGE_LOG_PORT is the port the server's TCP sink binds.
+    // Both unset ⇒ edge logging off (the Edge Logs page shows an empty tail).
     EDGE_LOG_SINK: z.string().min(1).optional(),
     EDGE_LOG_PORT: z.coerce.number().int().positive().default(9100),
     // Persist access logs to the edge_log table behind the live ring
@@ -122,6 +128,12 @@ export const env = createEnv({
     NODE_ENV: z
       .enum(["development", "production", "test"])
       .default("development"),
+
+    // Container runtime backend. `docker` (default) runs each service/database
+    // as a plain container on a per-project bridge network — single node, no
+    // Swarm required. `swarm` is opt-in for scaling across nodes (replicas,
+    // overlay networking). See docs/designs/runtime.md.
+    DEPLOY_RUNTIME: z.enum(["docker", "swarm"]).default("docker"),
   },
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,

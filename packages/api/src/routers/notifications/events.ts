@@ -13,7 +13,7 @@ export interface PlatformEventDef {
   severity: EventSeverity;
 }
 
-export const PLATFORM_EVENTS: readonly PlatformEventDef[] = [
+const PLATFORM_EVENTS: readonly PlatformEventDef[] = [
   { id: "deploy.started", label: "Deploy started", severity: "info" },
   { id: "deploy.succeeded", label: "Deploy succeeded", severity: "ok" },
   { id: "deploy.failed", label: "Deploy failed", severity: "err" },
@@ -36,6 +36,6 @@ export function eventSeverity(eventId: string): EventSeverity {
   return SEVERITY_BY_ID.get(eventId) ?? "info";
 }
 
-export function isKnownEvent(eventId: string): boolean {
+function isKnownEvent(eventId: string): boolean {
   return SEVERITY_BY_ID.has(eventId);
 }

@@ -14,13 +14,15 @@ export const serverSchema = createSelectSchema(server).extend({
   labels: z.array(z.string()),
 });
 
-export const listServersInput = z.void();
+// GET input must be object/any/unknown for the OpenAPI generator; optional
+// empty object keeps "no input" valid.
+const listServersInput = z.object({}).optional();
 
-export const getServerInput = z.object({
+const getServerInput = z.object({
   id: serverIdField,
 });
 
-export const createServerInput = z.object({
+const createServerInput = z.object({
   /** Optional client-supplied id for optimistic UI. */
   id: serverIdField.optional(),
   name: z.string().min(1),
@@ -44,7 +46,7 @@ export const createServerInput = z.object({
   labels: z.array(z.string()).optional(),
 });
 
-export const deleteServerInput = z.object({
+const deleteServerInput = z.object({
   id: serverIdField,
 });
 
@@ -54,7 +56,7 @@ export const deleteServerInput = z.object({
  * from each task's `Spec.Resources.Reservations` — falls back to 0 when
  * no reservation is set, which is honest about under-specified services.
  */
-export const serverNodeStatsSchema = z.object({
+const serverNodeStatsSchema = z.object({
   serverId: serverIdField,
   tasksRunning: z.number().int().min(0),
   cpuAllocatedVcpu: z.number().min(0),
@@ -63,7 +65,7 @@ export const serverNodeStatsSchema = z.object({
   projects: z.array(z.string()),
 });
 
-export const serverClusterStatsSchema = z.object({
+const serverClusterStatsSchema = z.object({
   tasksRunning: z.number().int().min(0),
   /** Per-project running-task count + display name, used by the project
    *  filter pills on the servers page header. */
@@ -76,25 +78,25 @@ export const serverClusterStatsSchema = z.object({
   ),
 });
 
-export const serverStatsSchema = z.object({
+const serverStatsSchema = z.object({
   perServer: z.array(serverNodeStatsSchema),
   cluster: serverClusterStatsSchema,
 });
 
-export const serverStatsInput = z.void();
+const serverStatsInput = z.object({}).optional();
 
 /**
  * Swarm join tokens + the manager address operators paste into
  * `docker swarm join`. Sourced from `docker swarm inspect` + `docker info`
  * — "—" sentinels when the daemon hasn't been initialized as a swarm yet.
  */
-export const swarmJoinTokensSchema = z.object({
+const swarmJoinTokensSchema = z.object({
   worker: z.string(),
   manager: z.string(),
   managerAddr: z.string(),
 });
 
-export const joinTokensInput = z.void();
+const joinTokensInput = z.object({}).optional();
 
 export const serverContract = {
   list: oc

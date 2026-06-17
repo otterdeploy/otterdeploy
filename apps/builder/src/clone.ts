@@ -1,5 +1,8 @@
 /**
- * Clone a repo at a specific commit into a tmpfs work dir.
+ * Clone a repo at a specific commit into a build work dir under the host data
+ * folder (`<DATA_ROOT>/builds/<deploymentId>`), falling back to an ephemeral
+ * `tmpdir()` when the data folder isn't writable (local dev). See
+ * docs/designs/data-folder.md.
  *
  * Tokenization: the installation access token is injected into the URL
  * as the basic-auth username (`https://x-access-token:<token>@github.com/…`).
@@ -12,9 +15,12 @@
  * appears in the persisted build output.
  */
 
-import { mkdtemp } from "node:fs/promises";
+import { mkdir, mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+
+import type { DeploymentId } from "@otterdeploy/shared/id";
+import { buildDir } from "@otterdeploy/shared/paths";
 
 import type { LogSink } from "./log-stream";
 import { runProcess } from "./run-process";
@@ -22,17 +28,45 @@ import { runProcess } from "./run-process";
 export interface CloneResult {
   /** Absolute path of the work tree. Caller is responsible for cleanup. */
   workDir: string;
+  /** True when the work dir lives under the data folder (so a FAILED build's
+   *  clone can be kept for inspection + reclaimed by the TTL sweep). False for
+   *  the ephemeral tmpdir fallback, which is always cleaned. */
+  persistent: boolean;
 }
 
-export async function cloneRepoAtSha(opts: {
+/**
+ * Work dir for a build: `<DATA_ROOT>/builds/<deploymentId>` when the data folder
+ * is writable (predictable + inspectable + cap-able), else an ephemeral
+ * `tmpdir()` so local dev — where `/data` isn't writable and no
+ * `OTTERDEPLOY_DATA_DIR` is set — keeps working unchanged. Either way the dir is
+ * empty, which `git clone <url> <dir>` requires.
+ */
+async function resolveWorkDir(
+  deploymentId: DeploymentId,
+): Promise<{ path: string; persistent: boolean }> {
+  const preferred = buildDir(deploymentId);
+  try {
+    await mkdir(preferred, { recursive: true });
+    return { path: preferred, persistent: true };
+  } catch {
+    return {
+      path: await mkdtemp(path.join(tmpdir(), "otterbuild-")),
+      persistent: false,
+    };
+  }
+}
+
+async function cloneRepoAtSha(opts: {
   cloneUrl: string;
   ref: string;
   sha: string;
+  /** Names the build's work dir under the data folder. */
+  deploymentId: DeploymentId;
   /** Empty string when cloning a public repo — no token to inject. */
   installationToken: string;
   sink: LogSink;
 }): Promise<CloneResult> {
-  const workDir = await mkdtemp(path.join(tmpdir(), "otterbuild-"));
+  const { path: workDir, persistent } = await resolveWorkDir(opts.deploymentId);
   const url = opts.installationToken
     ? injectToken(opts.cloneUrl, opts.installationToken)
     : opts.cloneUrl;
@@ -89,7 +123,7 @@ export async function cloneRepoAtSha(opts: {
     throw new Error(`git reset --hard ${opts.sha} failed (exit ${reset.exitCode}): ${truncate(reset.tail, 500)}`);
   }
 
-  return { workDir };
+  return { workDir, persistent };
 }
 
 function injectToken(cloneUrl: string, token: string): string {

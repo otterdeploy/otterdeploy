@@ -91,7 +91,7 @@ export function useStageManifestChange(
 
 /** Per-resource failures the reconciler reports instead of throwing. */
 interface SkippedChange {
-  resource: "service" | "database" | "env";
+  resource: "service" | "database" | "env" | "compose";
   name: string;
   reason: string;
 }
@@ -117,7 +117,7 @@ export interface ApplyManifestResult {
  * whether to navigate. The change is still saved on partial/total failure,
  * so the pending-changes bar + graph ghost remain as a recovery surface.
  */
-export function useApplyManifestChange(projectId: ProjectId) {
+function useApplyManifestChange(projectId: ProjectId) {
   return useMutation({
     mutationFn: async (mutate: ManifestMutator): Promise<ApplyManifestResult> => {
       const current = await orpc.project.manifest.get.call({ id: projectId });

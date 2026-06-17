@@ -64,7 +64,7 @@ function ScheduleEditorBody({
   const form = useScheduleForm({ initial, organizationId, destinations, onClose });
 
   return (
-    <DialogContent className="max-w-2xl gap-0 p-0">
+    <DialogContent className="sm:max-w-3xl gap-0 p-0">
       <DialogHeader className="border-b px-5 py-3">
         <DialogTitle className="text-sm font-semibold">
           {editing ? `Edit schedule · ${initial.name}` : "New backup schedule"}
@@ -88,14 +88,16 @@ function ScheduleEditorBody({
             Cancel
           </Button>
           <form.Subscribe
-            selector={(s) => [s.values.name, s.values.destinationId] as const}
+            selector={(s) =>
+              [s.values.name, s.values.destinationIds.length] as const
+            }
           >
-            {([name, destinationId]) => (
+            {([name, destCount]) => (
               <Button
                 size="sm"
                 type="submit"
                 className="gap-1.5"
-                disabled={!name.trim() || !destinationId}
+                disabled={!name.trim() || destCount === 0}
               >
                 <HugeiconsIcon icon={Tick02Icon} className="size-3" />
                 Save schedule

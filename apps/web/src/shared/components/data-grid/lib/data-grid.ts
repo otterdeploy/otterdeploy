@@ -445,7 +445,7 @@ type TemporalDate =
   | { kind: "datetime"; value: Temporal.PlainDateTime }
   | { kind: "date"; value: Temporal.PlainDate };
 
-export function toTemporal(input: string): TemporalDate | null {
+function toTemporal(input: string): TemporalDate | null {
   const str = input.trim();
   if (!str) return null;
   const norm = str.replace(" ", "T"); // Postgres space → ISO `T`

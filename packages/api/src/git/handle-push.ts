@@ -24,6 +24,7 @@ import { and, eq } from "drizzle-orm";
 import { emitDeployStarted } from "../routers/project/deployments";
 
 import type { GithubWebhookResult, PushEvent } from "./types";
+import { changedPathsFromPush, matchesWatchPatterns } from "./watch-match";
 
 export async function handlePush(
   ev: PushEvent,
@@ -89,13 +90,17 @@ export async function handlePush(
     };
   }
 
+  // Globs are matched against the paths this push touched. Computed once —
+  // it's the same set for every project bound to the repo.
+  const changedPaths = changedPathsFromPush(ev);
+
   let deploymentsCreated = 0;
   for (const p of projects) {
     // Only services whose source is "git" rebuild on push. Image-sourced
     // services are pinned to whatever tag the operator chose at create
     // time; they redeploy only on explicit user action.
-    const resources = await db
-      .select({ id: resource.id })
+    const candidates = await db
+      .select({ id: resource.id, buildConfig: serviceResource.buildConfig })
       .from(resource)
       .innerJoin(serviceResource, eq(serviceResource.resourceId, resource.id))
       .where(
@@ -105,6 +110,12 @@ export async function handlePush(
           eq(serviceResource.source, "git"),
         ),
       );
+
+    // Drop services whose watchPatterns don't match anything in this push.
+    // Unset patterns (or an unknown change set) fall through as a rebuild.
+    const resources = candidates.filter((r) =>
+      matchesWatchPatterns(changedPaths, r.buildConfig?.watchPatterns),
+    );
     if (resources.length === 0) continue;
 
     const inserted = await db

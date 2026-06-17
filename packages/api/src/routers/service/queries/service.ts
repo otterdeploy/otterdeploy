@@ -4,6 +4,7 @@ import { createError } from "evlog";
 
 import { db } from "@otterdeploy/db";
 import type { BuildConfig } from "@otterdeploy/shared/build-config";
+import { omitUndefined } from "@otterdeploy/shared/object";
 import {
   resource,
   serviceEnvVar,
@@ -150,11 +151,16 @@ export interface CreateServiceInput {
   pidsLimit?: number | null;
 
   preDeploy?: string[] | null;
+  postDeploy?: string[] | null;
   buildConfig?: BuildConfig | null;
 
   internalHostname: string;
   serviceName: string;
   networkName: string;
+
+  /** Owning compose stack (the compose resource id). Null/omitted for a
+   *  standalone service. Set when this service is materialized from a stack. */
+  stackId?: ResourceId | null;
 
   ports: Array<{
     containerPort: number;
@@ -218,11 +224,13 @@ export async function createServiceRecord(
         pidsLimit: input.pidsLimit ?? null,
 
         preDeploy: input.preDeploy ?? null,
+        postDeploy: input.postDeploy ?? null,
         buildConfig: input.buildConfig ?? null,
 
         internalHostname: input.internalHostname,
         serviceName: input.serviceName,
         networkName: input.networkName,
+        stackId: input.stackId ?? null,
       })
       .returning();
     if (!createdService) {
@@ -280,61 +288,23 @@ export async function updateServiceRecord(
   resourceId: ResourceId,
   input: UpdateServiceInput,
 ): Promise<ServiceResourceRow | undefined> {
+  // Identity / ownership / placement columns are never patched through this
+  // path — strip them out, then drop undefined so only explicitly-provided
+  // spec fields land in the SET list (every remaining key maps 1:1 to a
+  // serviceResource column).
+  const {
+    status: _status,
+    source: _source,
+    sourceSubdir: _sourceSubdir,
+    internalHostname: _internalHostname,
+    serviceName: _serviceName,
+    networkName: _networkName,
+    stackId: _stackId,
+    ...spec
+  } = input;
   const [updated] = await db
     .update(serviceResource)
-    .set({
-      ...(input.image !== undefined ? { image: input.image } : {}),
-      ...(input.imageDigest !== undefined
-        ? { imageDigest: input.imageDigest }
-        : {}),
-      ...(input.command !== undefined ? { command: input.command } : {}),
-      ...(input.entrypoint !== undefined
-        ? { entrypoint: input.entrypoint }
-        : {}),
-      ...(input.replicas !== undefined ? { replicas: input.replicas } : {}),
-      ...(input.restartCondition !== undefined
-        ? { restartCondition: input.restartCondition }
-        : {}),
-      ...(input.restartMaxAttempts !== undefined
-        ? { restartMaxAttempts: input.restartMaxAttempts }
-        : {}),
-      ...(input.restartDelayMs !== undefined
-        ? { restartDelayMs: input.restartDelayMs }
-        : {}),
-      ...(input.healthcheckCmd !== undefined
-        ? { healthcheckCmd: input.healthcheckCmd }
-        : {}),
-      ...(input.healthcheckIntervalMs !== undefined
-        ? { healthcheckIntervalMs: input.healthcheckIntervalMs }
-        : {}),
-      ...(input.healthcheckTimeoutMs !== undefined
-        ? { healthcheckTimeoutMs: input.healthcheckTimeoutMs }
-        : {}),
-      ...(input.healthcheckRetries !== undefined
-        ? { healthcheckRetries: input.healthcheckRetries }
-        : {}),
-      ...(input.healthcheckStartMs !== undefined
-        ? { healthcheckStartMs: input.healthcheckStartMs }
-        : {}),
-      ...(input.cpuLimit !== undefined ? { cpuLimit: input.cpuLimit } : {}),
-      ...(input.memoryLimitMb !== undefined
-        ? { memoryLimitMb: input.memoryLimitMb }
-        : {}),
-      ...(input.cpuReservation !== undefined
-        ? { cpuReservation: input.cpuReservation }
-        : {}),
-      ...(input.memoryReservationMb !== undefined
-        ? { memoryReservationMb: input.memoryReservationMb }
-        : {}),
-      ...(input.diskLimitMb !== undefined ? { diskLimitMb: input.diskLimitMb } : {}),
-      ...(input.swapLimitMb !== undefined ? { swapLimitMb: input.swapLimitMb } : {}),
-      ...(input.pidsLimit !== undefined ? { pidsLimit: input.pidsLimit } : {}),
-      ...(input.restartWindowMs !== undefined
-        ? { restartWindowMs: input.restartWindowMs }
-        : {}),
-      ...(input.preDeploy !== undefined ? { preDeploy: input.preDeploy } : {}),
-      ...(input.buildConfig !== undefined ? { buildConfig: input.buildConfig } : {}),
-    })
+    .set(omitUndefined(spec))
     .where(eq(serviceResource.resourceId, resourceId))
     .returning();
   return updated;

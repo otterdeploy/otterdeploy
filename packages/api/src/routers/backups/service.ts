@@ -33,6 +33,7 @@ import {
   listBackupsByOrg,
   listDestinationsByOrg,
   listSchedulesByOrg,
+  resolveDestinationNames,
   updateDestinationRecord,
 } from "./queries";
 
@@ -66,6 +67,16 @@ export async function getBackup(
 
 export async function listSchedules(input: OrgRef): Promise<ScheduleRow[]> {
   return listSchedulesByOrg(input.organizationId);
+}
+
+/** Resolve a schedule's destination ids → names for the presenter. */
+export async function scheduleDestinationNames(
+  input: OrgRef & { ids: BackupDestinationId[] },
+): Promise<string[]> {
+  return resolveDestinationNames({
+    organizationId: input.organizationId,
+    ids: input.ids,
+  });
 }
 
 export async function listDestinations(

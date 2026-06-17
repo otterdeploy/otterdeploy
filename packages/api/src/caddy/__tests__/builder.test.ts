@@ -113,6 +113,24 @@ describe("builder", () => {
     expect(output).toContain("request_header X-Request-Id {http.request.uuid}");
   });
 
+  test("edgeLogSink emits a global default-logger sink (operational plane)", () => {
+    const output = buildCaddyfile([httpRoute], "0.0.0.0:2019", {
+      edgeLogSink: "host.docker.internal:9100",
+    });
+    // The global block (before the first site block) carries the default-logger
+    // `log { output net … }` so Caddy's operational logs reach the same sink.
+    const globalBlock = output.slice(0, output.indexOf("\n\n"));
+    expect(globalBlock).toContain("log {");
+    expect(globalBlock).toContain("output net host.docker.internal:9100");
+    expect(globalBlock).toContain("format json");
+  });
+
+  test("edgeLogSink absent ⇒ no global log block (existing behaviour)", () => {
+    const output = buildCaddyfile([httpRoute], "0.0.0.0:2019");
+    const globalBlock = output.slice(0, output.indexOf("\n\n"));
+    expect(globalBlock).not.toContain("log {");
+  });
+
   test("buildHttpBlock protected=false is unchanged (no forward_auth)", () => {
     const output = buildHttpBlock({ ...httpRoute, protected: false });
     expect(output).not.toContain("forward_auth");

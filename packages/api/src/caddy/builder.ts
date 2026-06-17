@@ -90,6 +90,15 @@ function crowdsecGlobalLines(cfg: CrowdsecConfig): string[] {
   ];
 }
 
+/** Global-block lines for the operational log plane (Phase 3): ship Caddy's
+ *  default logger (TLS/ACME lifecycle, reverse_proxy errors, config events) to
+ *  the same edge-log sink as the per-site access logs. The two use different
+ *  loggers, so access logs are NOT duplicated here — see edge-logs/ingest.ts
+ *  for the access-vs-event split. */
+function edgeLogGlobalLines(sink: string): string[] {
+  return ["\tlog {", `\t\toutput net ${sink}`, "\t\tformat json", "\t}"];
+}
+
 /** Single source of truth for the global block. ACME registration email
  *  is required by Let's Encrypt for any non-internal cert; omitted when
  *  no usesAcme route exists so a pure-internal install doesn't need to
@@ -226,6 +235,9 @@ export function buildCaddyfile(
   if (options.crowdsec) {
     lines.push(...crowdsecGlobalLines(options.crowdsec));
   }
+  if (options.edgeLogSink) {
+    lines.push(...edgeLogGlobalLines(options.edgeLogSink));
+  }
 
   if (layer4Routes.length > 0) {
     lines.push("\tlayer4 {");
@@ -312,6 +324,9 @@ export function buildProjectFragment(
   }
   if (options.crowdsec) {
     lines.push(...crowdsecGlobalLines(options.crowdsec));
+  }
+  if (options.edgeLogSink) {
+    lines.push(...edgeLogGlobalLines(options.edgeLogSink));
   }
 
   if (layer4Routes.length > 0) {

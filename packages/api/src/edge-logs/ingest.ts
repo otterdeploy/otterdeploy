@@ -10,6 +10,8 @@
 
 import { log } from "evlog";
 
+import { parseCaddyEvent } from "./event-parse";
+import { pushEdgeEvent } from "./event-ring";
 import { lookupCountry } from "./geo";
 import { parseCaddyAccessLog } from "./parse";
 import { enqueueEdgeLog } from "./persist";
@@ -58,6 +60,19 @@ export function startEdgeLogSink(port: number): void {
   log.info({ edgeLog: { sink: "listening", port } });
 }
 
+/** Both planes share this socket: per-site access logs (their own logger) and
+ *  the global default logger (operational events). Access logs use the
+ *  `http.log.access.*` logger and Caddy's "handled request" message — route
+ *  those to the access path, everything else to the event path. Without this
+ *  split, a reverse_proxy error (which embeds a `request`) would mis-parse as
+ *  a status-0 access row. */
+function isAccessLog(json: unknown): boolean {
+  if (typeof json !== "object" || json === null) return false;
+  const o = json as Record<string, unknown>;
+  const logger = typeof o.logger === "string" ? o.logger : "";
+  return logger.includes("log.access") || o.msg === "handled request";
+}
+
 function ingestLine(line: string): void {
   let json: unknown;
   try {
@@ -65,12 +80,21 @@ function ingestLine(line: string): void {
   } catch {
     return; // Caddy runtime log lines that aren't JSON, or partial — skip.
   }
-  const parsed = parseCaddyAccessLog(json);
-  if (!parsed) return;
-  // GeoIP enrichment (null until a database is configured — see geo.ts).
-  parsed.country = lookupCountry(parsed.clientIp);
-  pushEdgeLog(parsed); // live tail
-  enqueueEdgeLog(parsed); // persistence (no-op unless started)
+
+  if (isAccessLog(json)) {
+    const parsed = parseCaddyAccessLog(json);
+    if (!parsed) return;
+    // GeoIP enrichment (null until a database is configured — see geo.ts).
+    parsed.country = lookupCountry(parsed.clientIp);
+    pushEdgeLog(parsed); // live tail
+    enqueueEdgeLog(parsed); // persistence (no-op unless started)
+    return;
+  }
+
+  // Operational log plane (Phase 3): cert/ACME, upstream errors, etc. Live
+  // tail only (no persistence) — parse drops info-level noise.
+  const event = parseCaddyEvent(json);
+  if (event) pushEdgeEvent(event);
 }
 
 export function stopEdgeLogSink(): void {

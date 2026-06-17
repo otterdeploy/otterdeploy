@@ -1,30 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
-import {
-  CtaBand,
-  DeployBand,
-  FeatureTabs,
-  Footer,
-  Hero,
-  Nav,
-  ValueColumns,
-} from "@/components/landing/landing";
+
+import { ReadmeLanding } from "@/components/landing/readme-landing";
 
 export const Route = createFileRoute("/")({
   component: Home,
 });
 
-// Variant A — dark drench. Every section carries the `dark` flag, so the whole
-// page uses the existing dark token values from styles/app.css.
+// Better-Auth-style split-screen README landing: a fixed left brand panel and a
+// right column that scrolls like a project README. Light-first; the theme
+// toggle re-scopes the shared design tokens. See readme-landing.tsx.
 function Home() {
-  return (
-    <main className="dark bg-background text-foreground">
-      <Nav dark />
-      <Hero dark />
-      <DeployBand dark />
-      <FeatureTabs dark />
-      <ValueColumns dark />
-      <CtaBand />
-      <Footer dark />
-    </main>
-  );
+  return <ReadmeLanding />;
 }

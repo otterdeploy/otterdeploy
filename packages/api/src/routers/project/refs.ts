@@ -133,10 +133,13 @@ export async function listAvailableRefs(
     }
   }
 
-  // ── Project / environment scopes. Both back onto the projectEnvVar
-  // table today (one bag per (project, environment)); the resolver
-  // exposes them under both magic names so the picker offers both
-  // labels — UI can fold them together when the distinction matters.
+  // ── Shared (project / environment) variables. Both magic scopes back the
+  // SAME (project, environment) bag today, so emitting one ref per key under
+  // each scope produced a confusing duplicate list (S3_BUCKET·project +
+  // S3_BUCKET·environment, identical value). Collapse to ONE entry per key,
+  // tokenized under the project scope — the broader scope that resolves in
+  // every environment. (When env-specific overrides become a distinct bag,
+  // emit the environment variant only for keys whose value actually differs.)
   const projectRecord = await getProjectRecord(input.projectId);
   if (projectRecord?.environmentId) {
     const bag = await loadProjectEnvBag({
@@ -146,18 +149,10 @@ export async function listAvailableRefs(
     for (const key of Object.keys(bag)) {
       refs.push({
         sourceKind: "project",
-        sourceName: "project",
+        sourceName: "Shared variables",
         engine: null,
         key,
         token: `\${{project.${key}}}`,
-        isSecret: isSecretKey(key),
-      });
-      refs.push({
-        sourceKind: "environment",
-        sourceName: "environment",
-        engine: null,
-        key,
-        token: `\${{environment.${key}}}`,
         isSecret: isSecretKey(key),
       });
     }

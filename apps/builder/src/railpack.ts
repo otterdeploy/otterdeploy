@@ -56,9 +56,9 @@ const MIN_BUN_VERSION = "1.3.13";
 
 /** Filename railpack writes its `--info-out` analysis to, inside the clone
  *  dir. Read by `detect-framework.ts` after `prepare`. */
-export const RAILPACK_INFO_FILE = "railpack-info.json";
+const RAILPACK_INFO_FILE = "railpack-info.json";
 
-export async function railpackBuild(opts: {
+async function railpackBuild(opts: {
   workDir: string;
   /** Service's repo subdirectory (monorepo); null/"" = repo root. */
   sourceSubdir: string | null;

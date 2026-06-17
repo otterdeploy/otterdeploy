@@ -8,6 +8,7 @@
  *   3. computes the next fire time from the cron expression
  *   4. applies the retention policy (prune old archives + rows)
  */
+import type { BackupDestinationId } from "@otterdeploy/shared/id";
 import { parseExpression } from "cron-parser";
 import { log } from "evlog";
 
@@ -74,18 +75,22 @@ async function runSchedule(schedule: DueSchedule, now: Date): Promise<void> {
   );
 
   let lastStatus: "succeeded" | "failed" | "queued" = "queued";
-  if (resourceIds.length > 0) {
+  if (resourceIds.length > 0 && schedule.destinationIds.length > 0) {
+    // One dump per (source × destination) — each is its own single-destination
+    // backup record, so the engine, restore, and retention stay unchanged.
     for (const resourceId of resourceIds) {
-      const backupId = await createBackupRun({
-        organizationId: schedule.organizationId,
-        resourceId,
-        destinationId: schedule.destinationId,
-        scheduleId: schedule.id,
-        encryption:
-          schedule.encryption === "aes-256-gcm" ? "aes-256-gcm" : "none",
-        method: "scheduled",
-      });
-      await executeBackup(backupId);
+      for (const destinationId of schedule.destinationIds) {
+        const backupId = await createBackupRun({
+          organizationId: schedule.organizationId,
+          resourceId,
+          destinationId,
+          scheduleId: schedule.id,
+          encryption:
+            schedule.encryption === "aes-256-gcm" ? "aes-256-gcm" : "none",
+          method: "scheduled",
+        });
+        await executeBackup(backupId);
+      }
     }
     lastStatus = "succeeded";
     await applyRetention(schedule);
@@ -103,28 +108,47 @@ async function runSchedule(schedule: DueSchedule, now: Date): Promise<void> {
  *  then prunes the rest. Both the stored archive AND the row are removed so
  *  usage totals stay honest. */
 async function applyRetention(schedule: DueSchedule): Promise<void> {
-  const backups = await listScheduleBackups(schedule.id);
-  const toPrune = selectBackupsToPrune(backups, {
+  const all = await listScheduleBackups(schedule.id);
+  if (all.length === 0) return;
+
+  // GFS tiers are counted independently per destination — a "keep 7 daily"
+  // policy means 7 in EACH location, so prune per-destination group.
+  const byDest = new Map<BackupDestinationId, typeof all>();
+  for (const b of all) {
+    const group = byDest.get(b.destinationId);
+    if (group) group.push(b);
+    else byDest.set(b.destinationId, [b]);
+  }
+
+  const policy = {
     keepDaily: schedule.keepDaily,
     keepWeekly: schedule.keepWeekly,
     keepMonthly: schedule.keepMonthly,
     keepYearly: schedule.keepYearly,
     retentionDays: schedule.retentionDays,
     maxStorageGb: schedule.maxStorageGb,
-  });
-  if (toPrune.length === 0) return;
+  };
 
-  const secret = await resolveDestinationSecret(schedule.destinationId);
-  for (const b of toPrune) {
-    if (b.storagePath && secret) {
-      await removeArchive(secret, b.storagePath).catch(() => undefined);
+  const secretCache = new Map<BackupDestinationId, ResolvedDestination | null>();
+  for (const [destinationId, group] of byDest) {
+    const toPrune = selectBackupsToPrune(group, policy);
+    if (toPrune.length === 0) continue;
+    let secret = secretCache.get(destinationId);
+    if (secret === undefined) {
+      secret = await resolveDestinationSecret(destinationId);
+      secretCache.set(destinationId, secret);
     }
-    await deleteBackupRow(b.id);
+    for (const b of toPrune) {
+      if (b.storagePath && secret) {
+        await removeArchive(secret, b.storagePath).catch(() => undefined);
+      }
+      await deleteBackupRow(b.id);
+    }
   }
 }
 
 async function resolveDestinationSecret(
-  destinationId: DueSchedule["destinationId"],
+  destinationId: BackupDestinationId,
 ): Promise<ResolvedDestination | null> {
   const row = await getDestinationByIdWithSecret(destinationId);
   if (!row) return null;

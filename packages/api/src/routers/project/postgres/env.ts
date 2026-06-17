@@ -20,7 +20,8 @@ import {
 } from "../../../caddy/queries";
 import { loadDomainSourcesForProject } from "../../../lib/domain-sources";
 import { resolvePublicDomain } from "../../../lib/domains";
-import { defaultImageFor, updateSwarmDatabase } from "../../../swarm";
+import { defaultImageFor } from "../../../swarm";
+import { updateSwarmDatabase } from "../../../runtime/db";
 
 import { insertDeployment, markDeploymentFailed } from "../deployments";
 import { PostgresResourceNotFoundError, ProjectNotFoundError } from "../errors";
@@ -337,7 +338,7 @@ export async function unsetPostgresExtraEnvKey(
  * users edit publicEnabled etc., this function fans out the additional
  * setPostgres* calls in the same flow.
  */
-export async function rollbackPostgresToSnapshot(
+async function rollbackPostgresToSnapshot(
   input: ProjectRef & {
     resourceId: ResourceId;
     snapshot: PostgresSnapshotV1;

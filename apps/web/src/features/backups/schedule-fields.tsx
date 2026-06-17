@@ -1,8 +1,13 @@
 /** Field layout for the schedule editor. Form plumbing lives in `./schedule-form`. */
+import { useLiveQuery } from "@tanstack/react-db";
+
+import { terminalDatabasesCollection } from "@/features/terminal/data/targets";
+
 import type { Destination } from "./data/destinations";
 import { NumberField, SelectField, TextField } from "./form-fields";
+import { MultiSelectCombobox } from "./multi-combobox";
 import { PRESET_CRON, type ScheduleFormApi } from "./schedule-form";
-import { Segmented } from "./shared";
+import { Field, Segmented, destUri } from "./shared";
 
 export function ScheduleFields({
   form,
@@ -13,7 +18,22 @@ export function ScheduleFields({
   editing: boolean;
   destinations: Destination[];
 }) {
-  const destItems = destinations.map((d) => ({ label: d.name, value: d.id }));
+  const { data: databases } = useLiveQuery((q) =>
+    q.from({ d: terminalDatabasesCollection }),
+  );
+  const dbOptions = databases.map((d) => ({
+    value: d.resourceId,
+    label: d.name,
+    tag: d.projectName,
+    keywords: `${d.engine} ${d.projectSlug}`,
+    mono: true,
+  }));
+  const destOptions = destinations.map((d) => ({
+    value: d.id,
+    label: d.name,
+    tag: d.type,
+    keywords: destUri(d),
+  }));
   const encItems = [
     { label: "AES-256 GCM", value: "aes" },
     { label: "None (not recommended)", value: "none" },
@@ -27,14 +47,18 @@ export function ScheduleFields({
         )}
       </form.Field>
 
-      <form.Field name="sourcesText">
+      <form.Field name="sources">
         {(f) => (
-          <TextField
-            label="Sources (comma-separated resource ids / names)"
-            value={f.state.value}
-            onChange={f.handleChange}
-            mono
-          />
+          <Field label="Databases to back up">
+            <MultiSelectCombobox
+              options={dbOptions}
+              value={f.state.value}
+              onChange={f.handleChange}
+              placeholder="Select databases…"
+              searchPlaceholder="Search databases or projects…"
+              emptyText="No matching databases."
+            />
+          </Field>
         )}
       </form.Field>
 
@@ -89,16 +113,19 @@ export function ScheduleFields({
       </form.Field>
 
       <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-        <form.Field name="destinationId">
+        <form.Field name="destinationIds">
           {(f) => (
-            <SelectField
-              label="Destination"
-              placeholder="Select a destination"
-              items={destItems}
-              value={f.state.value}
-              onChange={f.handleChange}
-              disabled={editing}
-            />
+            <Field label="Destinations">
+              <MultiSelectCombobox
+                options={destOptions}
+                value={f.state.value}
+                onChange={f.handleChange}
+                placeholder="Select destinations…"
+                searchPlaceholder="Search destinations…"
+                emptyText="No destinations yet."
+                disabled={editing}
+              />
+            </Field>
           )}
         </form.Field>
         <form.Field name="encryptionNone">

@@ -16,6 +16,22 @@ const NODE_HEIGHT = 220;
 const RANK_SEP = 140;
 const NODE_SEP = 80;
 
+// A compose stack renders as a group: a header plus one card per service, so
+// it's far taller than a single resource card. Estimate its height from the
+// service count so dagre doesn't overlap it with the node below. Keep roughly
+// in sync with ComposeGroupNode's card metrics.
+const GROUP_HEADER_H = 96;
+const GROUP_CARD_H = 104;
+
+function nodeHeight(node: Node): number {
+  const data = node.data as { kind?: unknown; services?: unknown };
+  if (data?.kind === "compose") {
+    const count = Array.isArray(data.services) ? data.services.length : 0;
+    return GROUP_HEADER_H + Math.max(count, 1) * GROUP_CARD_H;
+  }
+  return NODE_HEIGHT;
+}
+
 export interface XY {
   x: number;
   y: number;
@@ -98,7 +114,7 @@ export function topologySignature(nodes: Node[], edges: Edge[]): string {
   return `${nodeKeys}|${edgeKeys}`;
 }
 
-export function layoutGraph<TNode extends Node>(
+function layoutGraph<TNode extends Node>(
   nodes: TNode[],
   edges: Edge[],
 ): TNode[] {
@@ -114,8 +130,11 @@ export function layoutGraph<TNode extends Node>(
     marginy: 40,
   });
 
+  const heights = new Map<string, number>();
   for (const node of nodes) {
-    g.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
+    const height = nodeHeight(node);
+    heights.set(node.id, height);
+    g.setNode(node.id, { width: NODE_WIDTH, height });
   }
   for (const edge of edges) {
     g.setEdge(edge.source, edge.target);
@@ -124,7 +143,7 @@ export function layoutGraph<TNode extends Node>(
   dagre.layout(g);
 
   // Dagre reports center coordinates; React Flow wants top-left. Subtract
-  // half the node dimensions to convert.
+  // half the node's own dimensions to convert (height varies for groups).
   return nodes.map((node) => {
     const laid = g.node(node.id);
     if (!laid) return node;
@@ -132,7 +151,7 @@ export function layoutGraph<TNode extends Node>(
       ...node,
       position: {
         x: laid.x - NODE_WIDTH / 2,
-        y: laid.y - NODE_HEIGHT / 2,
+        y: laid.y - (heights.get(node.id) ?? NODE_HEIGHT) / 2,
       },
     };
   });

@@ -11,7 +11,7 @@ const serverError = {
   },
 };
 
-export const containerSchema = z.object({
+const containerSchema = z.object({
   id: z.string(),
   name: z.string(),
   image: z.string(),
@@ -20,7 +20,7 @@ export const containerSchema = z.object({
   createdAt: z.number(),
 });
 
-export const imageSchema = z.object({
+const imageSchema = z.object({
   id: z.string(),
   repoTags: z.array(z.string()),
   size: z.number(),
@@ -29,7 +29,7 @@ export const imageSchema = z.object({
   containers: z.number(),
 });
 
-export const volumeSchema = z.object({
+const volumeSchema = z.object({
   name: z.string(),
   driver: z.string(),
   mountpoint: z.string(),
@@ -41,7 +41,7 @@ export const volumeSchema = z.object({
   refCount: z.number(),
 });
 
-export const networkSchema = z.object({
+const networkSchema = z.object({
   id: z.string(),
   name: z.string(),
   driver: z.string(),
@@ -53,7 +53,7 @@ export const networkSchema = z.object({
   containers: z.number(),
 });
 
-export const taskSchema = z.object({
+const taskSchema = z.object({
   id: z.string(),
   serviceId: z.string(),
   slot: z.number().nullable(),
@@ -64,11 +64,11 @@ export const taskSchema = z.object({
   createdAt: z.string().nullable(),
 });
 
-export const listContainersInput = z.object({
+const listContainersInput = z.object({
   all: z.boolean().optional(),
 });
 
-export const listImagesInput = z.object({
+const listImagesInput = z.object({
   all: z.boolean().optional(),
 });
 

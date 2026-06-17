@@ -1,9 +1,12 @@
 /** Small labelled form-field primitives shared by the backups dialogs. */
+import { cn } from "@/shared/lib/utils";
 import { Input } from "@/shared/components/ui/input";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/shared/components/ui/select";
@@ -96,15 +99,18 @@ export function SelectField({
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>
-          {items.map((it) => (
-            <SelectItem
-              key={it.value}
-              value={it.value}
-              className={mono ? "font-mono" : undefined}
-            >
-              {it.label}
-            </SelectItem>
-          ))}
+          <SelectGroup className="p-1.5">
+            <SelectLabel className="px-2 pt-1 pb-1.5">{label}</SelectLabel>
+            {items.map((it) => (
+              <SelectItem
+                key={it.value}
+                value={it.value}
+                className={cn("py-1.5 pl-2", mono && "font-mono")}
+              >
+                {it.label}
+              </SelectItem>
+            ))}
+          </SelectGroup>
         </SelectContent>
       </Select>
     </Field>

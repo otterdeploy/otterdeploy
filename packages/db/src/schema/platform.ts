@@ -11,7 +11,7 @@
  * needed later, write to a separate audit log.
  */
 
-import { pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 export const PLATFORM_SETTINGS_ID = "platform";
 
@@ -30,6 +30,25 @@ export const platformSettings = pgTable("platform_settings", {
    *  notifications + recovery. Required before any real (non-sslip)
    *  domain can be issued a public cert. */
   acmeEmail: text("acme_email"),
+
+  // ─── Outbound email transport (system emails: verification, invites,
+  //     guest OTP). Configured in the UI; falls back to env (RESEND_API_KEY /
+  //     RESEND_FROM_EMAIL) when unset. Secrets are encrypted at rest with the
+  //     same pipeline as registry/backup secrets. See packages/email/transport.
+  /** "resend" | "smtp" | null (null ⇒ use env defaults). */
+  emailProvider: text("email_provider"),
+  /** From address override (e.g. "otterdeploy <no-reply@acme.com>"). */
+  emailFrom: text("email_from"),
+  /** Resend API key, encrypted (encryptSecret blob). */
+  resendApiKeyCiphertext: text("resend_api_key_ciphertext"),
+  smtpHost: text("smtp_host"),
+  smtpPort: integer("smtp_port"),
+  /** TLS-on-connect (465). false ⇒ STARTTLS (587). */
+  smtpSecure: boolean("smtp_secure"),
+  smtpUser: text("smtp_user"),
+  /** SMTP password, encrypted (encryptSecret blob). */
+  smtpPasswordCiphertext: text("smtp_password_ciphertext"),
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()

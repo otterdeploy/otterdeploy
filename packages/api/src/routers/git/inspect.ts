@@ -44,7 +44,7 @@ import { getInstallationToken } from "../../git/github-app";
 
 // Tagged so the oRPC handler can dispatch via `matchError` — same shape
 // as ProjectNotFoundError etc. in routers/project/errors.ts.
-export class InspectRepoNotFoundError extends TaggedError(
+class InspectRepoNotFoundError extends TaggedError(
   "InspectRepoNotFoundError",
 )<{ message: string }>() {
   constructor() {
@@ -52,7 +52,7 @@ export class InspectRepoNotFoundError extends TaggedError(
   }
 }
 
-export class InspectRepoUpstreamError extends TaggedError(
+class InspectRepoUpstreamError extends TaggedError(
   "InspectRepoUpstreamError",
 )<{ message: string; status: number }>() {
   constructor(status: number, message: string) {
@@ -60,7 +60,7 @@ export class InspectRepoUpstreamError extends TaggedError(
   }
 }
 
-export class InspectRepoRateLimitedError extends TaggedError(
+class InspectRepoRateLimitedError extends TaggedError(
   "InspectRepoRateLimitedError",
 )<{
   message: string;

@@ -257,11 +257,26 @@ export type RestoreMode = "download" | "in-place";
 export async function restoreBackup(input: {
   backupId: string;
   mode: RestoreMode;
+  /** Typed-name confirmation, required for the destructive in-place mode.
+   *  Must equal the resource's name (or id). The UI collects it; we re-check
+   *  here so a direct API call can't skip the gate. */
+  confirm?: string;
 }): Promise<{ ok: true; bytes?: Buffer }> {
   const ctx = await getExecutionContext(
     input.backupId as ExecutionContext["backupId"],
   );
   if (!ctx) throw new Error("backup execution context not found");
+
+  // In-place overwrites live data — require the typed-name confirmation
+  // server-side, not just in the dialog.
+  if (input.mode === "in-place") {
+    const expected = [ctx.resourceName, ctx.resourceId];
+    if (!input.confirm || !expected.includes(input.confirm)) {
+      throw new Error(
+        `restore confirmation required: type "${ctx.resourceName}" to confirm in-place restore`,
+      );
+    }
+  }
 
   const secret = await resolveSecret(ctx);
   const dest: ResolvedDestination = {
@@ -317,7 +332,12 @@ export async function restoreBackup(input: {
       containerId,
       ["sh", "-c", `echo ${shellQuote(b64)} | base64 -d > ${tmp}`],
     );
-    await execCapture(
+    // pg_restore exits non-zero on a genuinely failed restore. We allow
+    // non-zero at the exec layer ONLY so we can capture stderr and surface it
+    // — a silent `{ ok: true }` on a failed restore would mislead the caller
+    // into thinking a corrupted/half-restored DB is fine. Always `rm -f` the
+    // temp dump (separate exec so its exit can't mask pg_restore's).
+    const restore = await execCapture(
       docker,
       containerId,
       [
@@ -325,10 +345,18 @@ export async function restoreBackup(input: {
         "-c",
         `pg_restore --clean --if-exists --no-owner -U ${shellQuote(
           ctx.username,
-        )} -d ${shellQuote(ctx.databaseName)} ${tmp}; rm -f ${tmp}`,
+        )} -d ${shellQuote(ctx.databaseName)} ${tmp}`,
       ],
       { env: [`PGPASSWORD=${ctx.password}`], allowNonZero: true },
     );
+    await execCapture(docker, containerId, ["rm", "-f", tmp], {
+      allowNonZero: true,
+    });
+    if (restore.exitCode !== 0) {
+      throw new Error(
+        `pg_restore failed (exit ${restore.exitCode}): ${restore.stderr.slice(0, 2000)}`,
+      );
+    }
     return { ok: true };
   } finally {
     docker.destroy();

@@ -34,7 +34,7 @@ import { cn } from "@/shared/lib/utils";
 
 import type { FkTarget } from "@/shared/components/data-grid/types";
 
-import { type ColumnVariant, DiceResultGrid } from "./dice-grid";
+import { type ColumnValue, type ColumnVariant, DiceResultGrid } from "./dice-grid";
 
 export type ResultView = "grid" | "json";
 
@@ -59,6 +59,11 @@ interface ResultsPanelProps {
   footerSlot?: React.ReactNode;
   /** Suggested filename stem for CSV export. */
   exportName?: string;
+  /** Inline edit / delete (table-browse mode, actor has write capability). */
+  editable?: boolean;
+  primaryKey?: string[];
+  onUpdateRow?: (pk: ColumnValue[], set: ColumnValue[]) => Promise<void>;
+  onDeleteRow?: (pk: ColumnValue[]) => Promise<void>;
 }
 
 function downloadCsv(
@@ -102,6 +107,10 @@ export function ResultsPanel({
   leftSlot,
   footerSlot,
   exportName = "query",
+  editable = false,
+  primaryKey,
+  onUpdateRow,
+  onDeleteRow,
 }: ResultsPanelProps) {
   const jsonData = useMemo(
     () =>
@@ -192,6 +201,10 @@ export function ResultsPanel({
           columnVariants={columnVariants}
           columnFks={columnFks}
           onOpenRef={onOpenRef}
+          editable={editable}
+          primaryKey={primaryKey}
+          onUpdateRow={onUpdateRow}
+          onDeleteRow={onDeleteRow}
         />
       )}
 

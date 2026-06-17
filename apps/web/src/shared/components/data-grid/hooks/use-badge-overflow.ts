@@ -174,6 +174,6 @@ export function useBadgeOverflow<T>({
   return result;
 }
 
-export function clearBadgeWidthCache(): void {
+function clearBadgeWidthCache(): void {
   badgeWidthCache.clear();
 }

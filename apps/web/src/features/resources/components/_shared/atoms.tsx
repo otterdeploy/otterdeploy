@@ -7,6 +7,7 @@ import type { ComponentProps, SVGProps } from "react";
 
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
+  ContainerIcon,
   Database02Icon,
   EarthIcon,
   HardDriveIcon,
@@ -54,6 +55,10 @@ const KIND_ICON: Record<ResourceKind, { icon: HugeIcon; tint: string }> = {
   volume: {
     icon: HardDriveIcon,
     tint: "bg-violet-500/15 text-violet-700 dark:text-violet-300",
+  },
+  compose: {
+    icon: ContainerIcon,
+    tint: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
   },
 };
 

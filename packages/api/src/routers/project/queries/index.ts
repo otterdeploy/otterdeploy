@@ -15,13 +15,18 @@ export {
   getProjectRecord,
   listProjectRecordsByOrg,
   loadProjectEnvBag,
+  setProjectGraphLayout,
   updateProjectRecord,
 } from "./project";
 
 export {
   createDatabaseResourceRecord,
+  deleteDraftCredential,
+  deleteDraftCredentialsNotIn,
+  ensureDraftCredentialPassword,
   getDatabaseResourceByProjectAndName,
   getDatabaseResourceRecord,
+  getDraftCredentialPassword,
   listDatabaseResourceRecords,
   setDatabaseResourceExtensions,
   setDatabaseResourceExtraEnv,
@@ -35,6 +40,7 @@ export {
   deleteResourceById,
   getResourceById,
   listProjectResources,
+  type ComposeResourceJoined,
   type DatabaseResourceJoined,
   type ServiceResourceJoined,
 } from "./resource";

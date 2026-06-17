@@ -21,9 +21,9 @@ import { projectIdField, resourceIdField } from "../project/contract/shared";
 const tag = "backups";
 const basePath = "/backups";
 
-export const backupIdField = zId(ID_PREFIX.backup);
-export const backupScheduleIdField = zId(ID_PREFIX.backupSchedule);
-export const backupDestinationIdField = zId(ID_PREFIX.backupDestination);
+const backupIdField = zId(ID_PREFIX.backup);
+const backupScheduleIdField = zId(ID_PREFIX.backupSchedule);
+const backupDestinationIdField = zId(ID_PREFIX.backupDestination);
 
 const backupKind = z.enum(["database", "volume", "stack"]);
 const destinationType = z.enum(["s3", "local", "sftp"]);
@@ -45,11 +45,12 @@ export const backupSchema = createSelectSchema(backup).extend({
 
 export const scheduleSchema = createSelectSchema(backupSchedule).extend({
   id: backupScheduleIdField,
-  destinationId: backupDestinationIdField,
-  // drizzle-zod can't recover the `.$type<string[]>()` off a jsonb column;
-  // restate it explicitly so the output type is `string[]`, not `$strip[]`.
+  // drizzle-zod can't recover `.$type<…[]>()` off jsonb columns; restate them
+  // so the output types are real arrays, not `$strip[]`.
   sources: z.array(z.string()),
-  destinationName: z.string().nullable(),
+  destinationIds: z.array(backupDestinationIdField),
+  // Resolved names for `destinationIds`, in the same order (best-effort).
+  destinationNames: z.array(z.string()),
 });
 
 /** Destination — never exposes `encryptedSecret`; adds computed usage. */
@@ -63,7 +64,7 @@ export const destinationSchema = createSelectSchema(backupDestination)
 
 // ─── Inputs ────────────────────────────────────────────────────────────
 
-export const listBackupsInput = z
+const listBackupsInput = z
   .object({
     projectId: projectIdField.optional(),
     kind: backupKind.optional(),
@@ -72,7 +73,7 @@ export const listBackupsInput = z
   })
   .optional();
 
-export const getBackupInput = z.object({ id: backupIdField });
+const getBackupInput = z.object({ id: backupIdField });
 
 const backupNotFound = {
   NOT_FOUND: { status: 404 as const, message: "Backup not found" as const },
@@ -91,14 +92,14 @@ const destinationConfigInput = z.record(z.string(), z.unknown());
 // rest, never returned. Omitted for `local` destinations.
 const destinationSecretInput = z.record(z.string(), z.string());
 
-export const createDestinationInput = z.object({
+const createDestinationInput = z.object({
   name: z.string().min(1).max(120),
   type: destinationType,
   config: destinationConfigInput.default({}),
   secret: destinationSecretInput.optional(),
 });
 
-export const updateDestinationInput = z.object({
+const updateDestinationInput = z.object({
   id: backupDestinationIdField,
   name: z.string().min(1).max(120).optional(),
   config: destinationConfigInput.optional(),
@@ -106,42 +107,46 @@ export const updateDestinationInput = z.object({
   secret: destinationSecretInput.optional(),
 });
 
-export const destinationIdInput = z.object({ id: backupDestinationIdField });
+const destinationIdInput = z.object({ id: backupDestinationIdField });
 
-export const testResultSchema = z.object({
+const testResultSchema = z.object({
   message: z.string(),
 });
 
 // ─── Execution + schedule inputs ─────────────────────────────────────────
 
-export const runBackupInput = z.object({
+const runBackupInput = z.object({
   resourceId: resourceIdField,
-  destinationId: backupDestinationIdField,
+  // One dump fanned out to every destination — one backup record per id.
+  destinationIds: z.array(backupDestinationIdField).min(1),
   encryption: z.enum(["none", "aes-256-gcm"]).default("aes-256-gcm"),
 });
 
-export const restoreBackupInput = z.object({
+const restoreBackupInput = z.object({
   id: backupIdField,
   mode: z.enum(["download", "in-place"]).default("in-place"),
+  /** Typed-name confirmation (the resource name). Required for in-place;
+   *  enforced server-side so the destructive path can't be called blind. */
+  confirm: z.string().optional(),
 });
 
-export const backupLogsInput = z.object({
+const backupLogsInput = z.object({
   id: backupIdField,
   afterSeq: z.number().int().nonnegative().default(0),
 });
 
-export const backupLogLineSchema = z.object({
+const backupLogLineSchema = z.object({
   seq: z.number(),
   stream: z.string(),
   line: z.string(),
   ts: z.date(),
 });
 
-export const createScheduleInput = z.object({
+const createScheduleInput = z.object({
   name: z.string().min(1).max(120),
   sources: z.array(z.string()).default([]),
   cron: z.string().min(1),
-  destinationId: backupDestinationIdField,
+  destinationIds: z.array(backupDestinationIdField).min(1),
   projectId: projectIdField.optional(),
   // GFS retention tiers — keep the most recent archive per bucket up to N.
   keepDaily: z.number().int().nonnegative().default(0),
@@ -155,7 +160,7 @@ export const createScheduleInput = z.object({
   enabled: z.boolean().default(true),
 });
 
-export const updateScheduleInput = z.object({
+const updateScheduleInput = z.object({
   id: backupScheduleIdField,
   name: z.string().min(1).max(120).optional(),
   sources: z.array(z.string()).optional(),
@@ -170,7 +175,7 @@ export const updateScheduleInput = z.object({
   enabled: z.boolean().optional(),
 });
 
-export const scheduleIdInput = z.object({ id: backupScheduleIdField });
+const scheduleIdInput = z.object({ id: backupScheduleIdField });
 
 const scheduleNotFound = {
   NOT_FOUND: { status: 404 as const, message: "Schedule not found" as const },
@@ -203,7 +208,7 @@ export const backupsContract = {
     .errors(backupRunNotFound)
     .meta({ path: `${basePath}/run`, tag, method: "POST" })
     .input(runBackupInput)
-    .output(z.object({ id: backupIdField, status: z.string() })),
+    .output(z.object({ ids: z.array(backupIdField), status: z.string() })),
 
   // Restore a succeeded backup (download bytes as base64, or in-place).
   restore: oc

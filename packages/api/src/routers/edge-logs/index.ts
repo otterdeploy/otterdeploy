@@ -12,10 +12,14 @@ import { edgeLog } from "@otterdeploy/db/schema/edge-log";
 
 import { orgScopedProcedure } from "../..";
 import {
+  type EdgeEventLine,
   type EdgeLogLine,
+  eventHosts,
   persistenceEnabled,
+  queryEdgeEvents,
   queryEdgeLogs,
   queryEdgeLogsDb,
+  subscribeEdgeEvents,
   subscribeEdgeLogs,
 } from "../../edge-logs";
 
@@ -50,6 +54,50 @@ async function* streamEdgeLogs(
     if (!hosts.has(line.host)) return;
     if (hostFilter && line.host !== hostFilter) return;
     queue.push(line);
+    wake?.();
+  });
+  const onAbort = () => wake?.();
+  signal?.addEventListener("abort", onAbort);
+
+  try {
+    while (!signal?.aborted) {
+      if (queue.length === 0) {
+        await new Promise<void>((resolve) => {
+          wake = resolve;
+        });
+        wake = null;
+        continue;
+      }
+      yield queue?.shift();
+    }
+  } finally {
+    unsub();
+    signal?.removeEventListener("abort", onAbort);
+  }
+}
+
+/** Operational-event tail: bridge the event ring's pub/sub, scoped to the
+ *  caller's hosts. An event passes if any host it's attributable to (its host
+ *  or a batch domain) is in scope; batch `domains` are redacted to the owned
+ *  subset so a box-wide cert line only shows this tenant's domains. */
+async function* streamEdgeEvents(
+  hosts: Set<string>,
+  hostFilter: string | undefined,
+  signal: AbortSignal | undefined,
+): AsyncGenerator<EdgeEventLine> {
+  const queue: EdgeEventLine[] = [];
+  let wake: (() => void) | null = null;
+
+  const unsub = subscribeEdgeEvents((line) => {
+    const attributable = eventHosts(line);
+    if (!attributable.some((h) => hosts.has(h))) return;
+    if (hostFilter && !attributable.includes(hostFilter)) return;
+    const owned = line.domains.filter((d) => hosts.has(d));
+    queue.push(
+      line.domains.length && owned.length !== line.domains.length
+        ? { ...line, domains: owned }
+        : line,
+    );
     wake?.();
   });
   const onAbort = () => wake?.();
@@ -157,4 +205,27 @@ export const edgeLogsRouter = {
       };
     }
   }),
+
+  // Operational log plane (Phase 3): cert/ACME + upstream-error events, scoped
+  // to the caller's domains exactly like the access logs above.
+  events: {
+    query: orgScopedProcedure.edgeLogs.events.query.handler(
+      async ({ input, context }) => {
+        const orgId = context.activeOrganizationId;
+        const { hosts: selectedHosts, ...rest } = input;
+        const hosts = await resolveHosts(orgId, input.projectId);
+        return queryEdgeEvents({ ...rest, hosts, selectedHosts }, Date.now());
+      },
+    ),
+
+    tail: orgScopedProcedure.edgeLogs.events.tail.handler(async function* ({
+      input,
+      context,
+      signal,
+    }) {
+      const orgId = context.activeOrganizationId;
+      const hosts = new Set(await resolveHosts(orgId, input.projectId));
+      yield* streamEdgeEvents(hosts, input.host, signal);
+    }),
+  },
 };

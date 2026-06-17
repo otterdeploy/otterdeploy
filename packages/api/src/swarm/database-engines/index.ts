@@ -97,6 +97,6 @@ export function defaultImageFor(engine: DatabaseEngine): string {
 
 /** Re-export catalog metadata for callers that want both engine config
  *  (this adapter) and presentation metadata (label/category) in one go. */
-export function catalogFor(engine: DatabaseEngine) {
+function catalogFor(engine: DatabaseEngine) {
   return DATABASE_ENGINES[engine];
 }

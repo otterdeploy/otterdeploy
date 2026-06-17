@@ -77,6 +77,7 @@ export interface CreateServiceInput
   restart?: RestartInput;
   resources?: ResourcesInput;
   preDeploy?: string[] | null;
+  postDeploy?: string[] | null;
   buildConfig?: BuildConfigInput | null;
 }
 
@@ -86,6 +87,7 @@ export interface UpdateServiceInput
   restart?: RestartInput;
   resources?: ResourcesInput;
   preDeploy?: string[] | null;
+  postDeploy?: string[] | null;
   buildConfig?: BuildConfigInput | null;
 }
 
@@ -141,6 +143,7 @@ export function toCreateRecordPayload(
     swapLimitMb: input.resources?.swapLimitMb ?? null,
     pidsLimit: input.resources?.pidsLimit ?? null,
     preDeploy: input.preDeploy ?? null,
+    postDeploy: input.postDeploy ?? null,
     buildConfig: input.buildConfig ?? null,
     internalHostname: extras.internalHostname,
     serviceName: extras.serviceName,
@@ -178,6 +181,7 @@ export function toUpdateRecordPatch(input: UpdateServiceInput) {
     swapLimitMb: input.resources?.swapLimitMb,
     pidsLimit: input.resources?.pidsLimit,
     preDeploy: input.preDeploy,
+    postDeploy: input.postDeploy,
     buildConfig: input.buildConfig,
   };
 }

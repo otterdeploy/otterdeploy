@@ -36,7 +36,7 @@ PORT=3002 bunx --bun vite dev    # from apps/www
 
 The server already emits an OpenAPI 3.1 spec from the oRPC contracts
 (`apps/server/src/index.ts`, `OpenAPIHandler` + `OpenAPIReferencePlugin`),
-served live at `/api-reference/spec.json`.
+served live at `/api/reference/spec.json`.
 
 To turn `content/docs/api.mdx` into a generated, interactive ("Send Request")
 reference:

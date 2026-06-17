@@ -18,7 +18,8 @@ import type { ResourceId } from "@otterdeploy/shared/id";
 import { Result } from "better-result";
 import type { RequestLogger } from "evlog";
 
-import { defaultImageFor, updateSwarmDatabase } from "../../../swarm";
+import { defaultImageFor } from "../../../swarm";
+import { updateSwarmDatabase } from "../../../runtime/db";
 
 import {
   getLatestDeploymentForResource,

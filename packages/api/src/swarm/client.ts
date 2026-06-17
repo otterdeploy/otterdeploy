@@ -117,7 +117,10 @@ export async function ensureProjectNetwork(
  * Connect the Caddy container to a network so it can route traffic.
  * No-op if already connected.
  */
-async function connectCaddyToNetwork(
+// Exported so the plain-Docker runtime can attach Caddy to a project's bridge
+// network too (the edge reaches containers by name on the shared network in
+// both runtimes).
+export async function connectCaddyToNetwork(
   docker: Docker,
   networkName: string,
   rlog?: RequestLogger,

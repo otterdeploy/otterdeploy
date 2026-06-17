@@ -14,6 +14,7 @@ import type { AppRouter } from "@otterdeploy/api/routers/index";
 import type {
   ResourceNodeData,
   ResourceStatus,
+  StackServiceStatus,
 } from "./resource-node";
 
 export type ProjectResource = InferRouterOutputs<AppRouter>["project"]["resource"]["list"][number];
@@ -60,6 +61,30 @@ function serviceDeploymentStatus(
       return "error";
     default:
       return undefined;
+  }
+}
+
+/**
+ * Build-time base status for a compose sub-service, derived from the stack's
+ * latest deployment. This is the resting state before live swarm tasks arrive;
+ * build-live-nodes overrides each service with its own task rollup once tasks
+ * exist (so a running stack with one dead service shows that service offline).
+ */
+function baseStackServiceStatus(
+  dep: Extract<ProjectResource, { type: "compose" }>["latestDeploymentStatus"],
+): StackServiceStatus | undefined {
+  switch (dep) {
+    case "building":
+    case "pending":
+      return "building";
+    case "failed":
+      return "error";
+    case "running":
+      // Deployed — let the live-task rollup decide running vs offline.
+      return undefined;
+    default:
+      // Never deployed (null) → staged. superseded/removed → unknown.
+      return dep == null ? "pending" : undefined;
   }
 }
 
@@ -110,6 +135,33 @@ export function resourceToNode(r: ProjectResource): ResourceFlowNode {
           // for build failures, which never schedule tasks) this is what
           // surfaces — so a failed build shows "error" instead of nothing.
           status: serviceDeploymentStatus(r.latestDeploymentStatus),
+        },
+      };
+    case "compose":
+      return {
+        id: `compose:${r.name}`,
+        type: "resource",
+        position: { x: 0, y: 0 },
+        data: {
+          kind: "compose",
+          name: r.name,
+          // Stack source + service count is the most useful single line.
+          description:
+            r.services.length === 1
+              ? "1 service"
+              : `${r.services.length} services`,
+          projectId: r.projectId,
+          resourceId: r.resourceId,
+          // The group has NO single status pill — each service answers for
+          // itself. build-live-nodes enriches these with live per-service task
+          // state; this is the build-time base derived from the stack deploy.
+          services: r.services.map((s) => ({
+            name: s.name,
+            image: s.image,
+            hasBuild: s.hasBuild,
+            volumes: s.volumes,
+            status: baseStackServiceStatus(r.latestDeploymentStatus),
+          })),
         },
       };
   }

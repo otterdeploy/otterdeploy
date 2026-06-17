@@ -1,5 +1,6 @@
 import {
   CheckmarkCircle02Icon,
+  ContainerIcon,
   Database02Icon,
   EarthIcon,
   HardDriveIcon,
@@ -18,6 +19,7 @@ import {
   type NodeProps,
 } from "@xyflow/react";
 import { useMutation } from "@tanstack/react-query";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import {
   useRef,
   useState,
@@ -49,7 +51,7 @@ import { cn } from "@/shared/lib/utils";
 type IconType = ComponentProps<typeof HugeiconsIcon>["icon"];
 type BrandSvg = (props: SVGProps<SVGSVGElement>) => React.ReactNode;
 
-export type ResourceKind = "service" | "database" | "route" | "volume";
+export type ResourceKind = "service" | "database" | "route" | "volume" | "compose";
 
 export type ResourceEngine = "postgres" | "mysql" | "mariadb" | "redis" | "mongodb" | "docker";
 
@@ -66,6 +68,35 @@ export interface ReplicaInfo {
    *  short suffix. Used as the visible label. */
   label: string;
   status: ResourceStatus;
+}
+
+/**
+ * Per-service state inside a compose stack. Distinct from a top-level node's
+ * `ResourceStatus` because a stack service has two extra resting states the
+ * single-pill model can't express: `offline` (deployed but no running task —
+ * "which one is down?") and `pending` (staged, never deployed). This is the
+ * whole point of rendering a stack as a group: each service answers for itself.
+ */
+export type StackServiceStatus =
+  | "running"
+  | "building"
+  | "error"
+  | "offline"
+  | "pending";
+
+/** One service inside a compose stack's group card. */
+export interface ComposeServiceInfo {
+  name: string;
+  /** Resolved image ref, or null when the service is built from source. */
+  image: string | null;
+  hasBuild: boolean;
+  /** Named-volume sources the service mounts — rendered as chips. */
+  volumes: string[];
+  /** This service's own runtime state. Undefined → treated as offline. */
+  status?: StackServiceStatus;
+  /** Real service resource id — present once the stack is deployed, so the
+   *  card opens that service's full detail panel. Absent pre-first-deploy. */
+  resourceId?: string;
 }
 
 export interface GitInfo {
@@ -104,6 +135,9 @@ export interface ResourceNodeData extends Record<string, unknown> {
   /** Service-only: one entry per scheduled task. Renders an inset REPLICAS
    *  tray so the operator can see fan-out + per-task health at a glance. */
   replicas?: ReplicaInfo[];
+  /** Compose-only: the stack's parsed services. Renders an inset SERVICES
+   *  tray so the operator sees every container the stack will create. */
+  services?: ComposeServiceInfo[];
   /** Pending manifest change — set when the node represents a staged
    *  create/update/delete that hasn't been applied yet. Rendered with
    *  reduced opacity + a dashed border so it's visually distinct from
@@ -177,6 +211,144 @@ function ReplicaRow({ replica }: { replica: ReplicaInfo }) {
   );
 }
 
+/** Pick a brand SVG for a compose service from its image ref — postgres/redis/
+ *  etc. get their real logo, everything else falls back to the Docker mark. */
+function brandForImage(image: string | null): BrandSvg {
+  if (!image) return Docker;
+  // Strip registry/tag, keep the bare image name (e.g. "library/postgres:16"
+  // → "postgres"). Match on substring so "bitnami/postgresql" still resolves.
+  const base = image.split("/").pop()?.split(":")[0]?.toLowerCase() ?? "";
+  if (base.includes("postgres")) return Postgresql;
+  if (base.includes("mariadb")) return Mariadb;
+  if (base.includes("mysql")) return Mysql;
+  if (base.includes("mongo")) return Mongodb;
+  if (base.includes("redis") || base.includes("valkey")) return Redis;
+  return Docker;
+}
+
+/** Per-service status → its row's label + colour. `offline`/`pending` are the
+ *  states a single top-level pill can't express (see StackServiceStatus). */
+const stackStatusMeta: Record<
+  StackServiceStatus,
+  { label: string; dotClass: string; textClass: string }
+> = {
+  running: {
+    label: "Running",
+    dotClass: "bg-success shadow-[0_0_0_3px] shadow-success/20",
+    textClass: "text-success",
+  },
+  building: {
+    label: "Building",
+    dotClass: "bg-warning shadow-[0_0_0_3px] shadow-warning/20",
+    textClass: "text-warning",
+  },
+  error: {
+    label: "Failed",
+    dotClass: "bg-destructive shadow-[0_0_0_3px] shadow-destructive/20",
+    textClass: "text-destructive",
+  },
+  offline: {
+    label: "Service is offline",
+    dotClass: "bg-muted-foreground/40",
+    textClass: "text-muted-foreground",
+  },
+  pending: {
+    label: "Pending",
+    dotClass: "bg-info shadow-[0_0_0_3px] shadow-info/20",
+    textClass: "text-info",
+  },
+};
+
+/** One service card inside a compose stack group — brand icon + name, an
+ *  independent status line, and any named-volume chips. Each card answers for
+ *  itself so a half-up stack reads honestly (one failed, one running). When the
+ *  service is deployed (has a resourceId), the card opens its full panel. */
+function StackServiceCard({
+  service,
+  onOpen,
+}: {
+  service: ComposeServiceInfo;
+  onOpen?: (resourceId: string) => void;
+}) {
+  const Brand = brandForImage(service.image);
+  // `error` reads as "Build failed" only for from-source services; a pulled
+  // image that won't run is a runtime error, not a build one.
+  const status = stackStatusMeta[service.status ?? "offline"];
+  const label =
+    service.status === "error" && service.hasBuild ? "Build failed" : status.label;
+  const clickable = Boolean(service.resourceId && onOpen);
+  return (
+    <div
+      // `nodrag` so interacting with the card doesn't drag the whole stack node.
+      className={cn(
+        "nodrag rounded-xl border bg-card px-3.5 py-3 shadow-sm transition-colors",
+        clickable && "cursor-pointer hover:border-ring/40 hover:bg-muted/30",
+      )}
+      role={clickable ? "button" : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onClick={
+        clickable
+          ? (e) => {
+              // Don't let the click bubble to the stack node (which would
+              // navigate to the stack instead of this service).
+              e.stopPropagation();
+              onOpen?.(service.resourceId as string);
+            }
+          : undefined
+      }
+      onKeyDown={
+        clickable
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                e.stopPropagation();
+                onOpen?.(service.resourceId as string);
+              }
+            }
+          : undefined
+      }
+    >
+      <div className="flex items-center gap-2.5">
+        <span className="grid size-7 shrink-0 place-items-center rounded-lg border bg-background">
+          <Brand className="size-4" aria-hidden />
+        </span>
+        <span className="min-w-0 flex-1 truncate text-[14px] leading-tight font-semibold text-card-foreground">
+          {service.name}
+        </span>
+        {service.hasBuild && !service.image ? (
+          <span className="shrink-0 rounded bg-foreground/5 px-1.5 py-0.5 font-mono text-[10px] leading-none text-muted-foreground/80">
+            build
+          </span>
+        ) : null}
+      </div>
+      <div className="mt-2 flex items-center gap-2">
+        <span className={cn("size-1.5 shrink-0 rounded-full", status.dotClass)} aria-hidden />
+        <span className={cn("truncate text-[12.5px] leading-none", status.textClass)}>
+          {label}
+        </span>
+      </div>
+      {service.volumes.length > 0 && (
+        <div className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t pt-2.5">
+          {service.volumes.map((v) => (
+            <span
+              key={v}
+              className="inline-flex items-center gap-1.5 rounded-md bg-muted/60 px-1.5 py-1 font-mono text-[11px] leading-none text-muted-foreground"
+              title={`Volume · ${v}`}
+            >
+              <HugeiconsIcon
+                icon={HardDriveIcon}
+                strokeWidth={1.6}
+                className="size-3 text-muted-foreground/60"
+              />
+              {v}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const engineLogos: Record<ResourceEngine, BrandSvg> = {
   postgres: Postgresql,
   mysql: Mysql,
@@ -209,6 +381,11 @@ const kindMeta: Record<ResourceKind, { label: string; icon: IconType; iconColor:
     icon: HardDriveIcon,
     iconColor: "text-violet-700 dark:text-violet-300",
   },
+  compose: {
+    label: "Stack",
+    icon: ContainerIcon,
+    iconColor: "text-blue-700 dark:text-blue-300",
+  },
 };
 
 const statusMeta: Record<ResourceStatus, { label: string; pillClass: string; dotClass: string }> = {
@@ -229,7 +406,265 @@ const statusMeta: Record<ResourceStatus, { label: string; pillClass: string; dot
   },
 };
 
-export function ResourceNode({ id, data, selected }: NodeProps<ResourceFlowNode>) {
+/**
+ * Roll a stack's per-service states up to one header summary — WITHOUT
+ * collapsing them. The summary says "2/3 running"; the cards below say which 2.
+ * Worst-state-wins for the dot colour so a single failure colours the header.
+ */
+function stackRollup(services: ComposeServiceInfo[]): {
+  summary: string;
+  tone: "running" | "building" | "error" | "offline";
+} {
+  const total = services.length;
+  const running = services.filter((s) => s.status === "running").length;
+  const anyError = services.some((s) => s.status === "error");
+  const anyBuilding = services.some(
+    (s) => s.status === "building" || s.status === "pending",
+  );
+  if (anyError)
+    return { summary: `${running}/${total} running`, tone: "error" };
+  if (anyBuilding) return { summary: "Deploying…", tone: "building" };
+  if (total > 0 && running === total)
+    return { summary: "All running", tone: "running" };
+  return { summary: `${running}/${total} running`, tone: "offline" };
+}
+
+const stackToneClass: Record<
+  ReturnType<typeof stackRollup>["tone"],
+  { pill: string; dot: string }
+> = {
+  running: { pill: "bg-success/12 text-success", dot: "bg-success" },
+  building: { pill: "bg-warning/12 text-warning", dot: "bg-warning" },
+  error: { pill: "bg-destructive/12 text-destructive", dot: "bg-destructive" },
+  offline: {
+    pill: "bg-muted text-muted-foreground",
+    dot: "bg-muted-foreground/50",
+  },
+};
+
+/**
+ * A compose stack rendered as a GROUP: a titled container wrapping one card per
+ * service, each with its own status. This is the deliberate answer to "one pill
+ * for a multi-service stack is a lie" — the operator sees, at a glance, which
+ * service is up, which failed to build, which is offline.
+ */
+function ComposeGroupNode({
+  data,
+  selected,
+}: NodeProps<ResourceFlowNode>) {
+  const meta = kindMeta.compose;
+  const services = data.services ?? [];
+  const roll = stackRollup(services);
+  const tone = stackToneClass[roll.tone];
+
+  // Open a member service's full detail panel. Each stack service is a real
+  // service resource, so this routes to the same panel a standalone service
+  // gets (deployments/logs/terminal/variables/settings).
+  const navigate = useNavigate();
+  const params = useParams({ strict: false }) as {
+    orgSlug?: string;
+    projectSlug?: string;
+  };
+  const openService = (resourceId: string) => {
+    if (!params.orgSlug || !params.projectSlug) return;
+    void navigate({
+      to: "/$orgSlug/$projectSlug/graph/$resourceId",
+      params: {
+        orgSlug: params.orgSlug,
+        projectSlug: params.projectSlug as never,
+        resourceId,
+      },
+    });
+  };
+
+  const [isHovered, setIsHovered] = useState(false);
+  const hideTimer = useRef<number | null>(null);
+  function show() {
+    if (hideTimer.current !== null) {
+      clearTimeout(hideTimer.current);
+      hideTimer.current = null;
+    }
+    setIsHovered(true);
+  }
+  function scheduleHide() {
+    if (hideTimer.current !== null) clearTimeout(hideTimer.current);
+    hideTimer.current = window.setTimeout(() => setIsHovered(false), 150);
+  }
+
+  const redeploy = useMutation({
+    ...orpc.compose.redeploy.mutationOptions(),
+    onSuccess: () =>
+      toast.success(`Redeploying ${data.name}…`, {
+        description: "Track progress in the stack's Deployments tab.",
+      }),
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : "Failed to redeploy"),
+  });
+
+  const subline =
+    services.length === 1 ? "Stack · 1 service" : `Stack · ${services.length} services`;
+
+  return (
+    <div className="relative" onMouseEnter={show} onMouseLeave={scheduleHide}>
+      <Handle
+        type="target"
+        position={Position.Left}
+        className="border-1.5 size-2 border-border bg-card"
+      />
+
+      <div
+        className={cn(
+          "w-92 overflow-hidden rounded-2xl border bg-muted/30 shadow-[0_24px_60px_-30px_rgba(0,0,0,0.45)] transition-all",
+          selected && "ring-2 ring-ring/40",
+          data.pending === "delete" && "cursor-not-allowed opacity-80",
+          data.pending === "update" && "border-dashed border-info/60",
+        )}
+      >
+        {data.pending === "create" && (
+          <span
+            aria-hidden
+            className="comet-border z-20 rounded-2xl"
+            style={{ "--comet-color": "var(--info)" } as CSSProperties}
+          />
+        )}
+        {data.pending === "delete" && (
+          <span
+            aria-hidden
+            className="comet-border z-20 rounded-2xl"
+            style={{ "--comet-color": "var(--warning)" } as CSSProperties}
+          />
+        )}
+
+        {/* GROUP HEADER */}
+        <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="grid size-9 shrink-0 place-items-center rounded-[10px] border bg-background">
+              <HugeiconsIcon
+                icon={meta.icon}
+                strokeWidth={1.8}
+                className={cn("size-5", meta.iconColor)}
+              />
+            </div>
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <div className="truncate text-[16px] leading-[1.1] font-bold tracking-[-0.01em] text-card-foreground">
+                {data.name}
+              </div>
+              <div className="font-mono text-[10px] font-medium tracking-[0.18em] text-muted-foreground uppercase">
+                {subline}
+              </div>
+            </div>
+          </div>
+          {data.pending ? (
+            <span
+              className={cn(
+                "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] leading-none font-medium",
+                data.pending === "delete" ? "bg-warning/15 text-warning" : "bg-info/15 text-info",
+              )}
+            >
+              <span
+                className={cn(
+                  "size-1.5 rounded-full",
+                  data.pending === "delete" ? "bg-warning" : "bg-info",
+                )}
+              />
+              pending {data.pending}
+            </span>
+          ) : services.length > 0 ? (
+            <span
+              className={cn(
+                "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] leading-none font-medium",
+                tone.pill,
+              )}
+            >
+              <span className={cn("size-1.5 rounded-full", tone.dot)} />
+              {roll.summary}
+            </span>
+          ) : null}
+        </div>
+
+        {/* CHILD SERVICE CARDS — one per compose service, independent status. */}
+        <div className="flex flex-col gap-2.5 px-2.5 pb-2.5">
+          {services.length === 0 ? (
+            <div className="rounded-xl border border-dashed bg-card/40 px-3.5 py-4 text-center text-[12.5px] text-muted-foreground">
+              No services parsed yet
+            </div>
+          ) : (
+            services.map((s) => (
+              <StackServiceCard key={s.name} service={s} onOpen={openService} />
+            ))
+          )}
+        </div>
+      </div>
+
+      <Handle
+        type="source"
+        position={Position.Right}
+        className="size-2! border-[1.5px]! border-border! bg-card!"
+      />
+
+      <NodeToolbar
+        position={Position.Right}
+        offset={16}
+        isVisible={(selected || isHovered) && data.pending !== "delete"}
+      >
+        <TooltipProvider delay={200}>
+          <div
+            className="flex flex-col gap-0.5 rounded-full border bg-card p-1 shadow-md"
+            onMouseEnter={show}
+            onMouseLeave={scheduleHide}
+          >
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <button
+                    type="button"
+                    aria-label="Redeploy stack"
+                    disabled={redeploy.isPending || !data.projectId || !data.resourceId}
+                    onClick={() => {
+                      if (!data.projectId || !data.resourceId) return;
+                      redeploy.mutate({
+                        projectId: data.projectId as never,
+                        resourceId: data.resourceId as never,
+                      });
+                    }}
+                    className="grid size-7 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+                  >
+                    <HugeiconsIcon
+                      icon={Loading03Icon}
+                      strokeWidth={2}
+                      className={cn("size-3.5", redeploy.isPending && "animate-spin")}
+                    />
+                  </button>
+                }
+              />
+              <TooltipContent side="right" sideOffset={10}>
+                <div className="flex flex-col gap-0.5 text-left">
+                  <div className="text-xs font-medium">Redeploy stack</div>
+                  <div className="text-[10px] opacity-80">
+                    Re-run every service in this stack.
+                  </div>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </TooltipProvider>
+      </NodeToolbar>
+    </div>
+  );
+}
+
+export function ResourceNode(props: NodeProps<ResourceFlowNode>) {
+  // A compose stack is a group, not a single card — render its dedicated node.
+  if (props.data.kind === "compose") return <ComposeGroupNode {...props} />;
+  return <ResourceCardNode {...props} />;
+}
+
+function ResourceCardNode({
+  id,
+  data,
+  selected,
+  dragging,
+}: NodeProps<ResourceFlowNode>) {
   const { updateNodeData } = useReactFlow<ResourceFlowNode>();
   const meta = kindMeta[data.kind];
   const status = data.status ? statusMeta[data.status] : null;
@@ -526,7 +961,12 @@ export function ResourceNode({ id, data, selected }: NodeProps<ResourceFlowNode>
         position={Position.Right}
         offset={16}
         // A resource pending deletion is disabled — no action affordances.
-        isVisible={(selected || isHovered) && data.pending !== "delete"}
+        // Also hidden mid-drag: NodeToolbar positions off the node's measured
+        // rect, which lags the dragged node and makes the pill flicker (often
+        // snapping to the wrong side) until the drag settles.
+        isVisible={
+          (selected || isHovered) && !dragging && data.pending !== "delete"
+        }
       >
         <TooltipProvider delay={200}>
           <div

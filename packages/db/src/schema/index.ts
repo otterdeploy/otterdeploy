@@ -1,6 +1,7 @@
 export * from "./audit";
 export * from "./auth";
 export * from "./backup";
+export * from "./blocklist";
 export * from "./build";
 export * from "./deployment-guest";
 // edge_log is intentionally NOT re-exported: it's a RANGE-partitioned table
@@ -15,3 +16,4 @@ export * from "./project";
 export * from "./proxy-route";
 export * from "./resource-metric";
 export * from "./server";
+export * from "./ssh-key";

@@ -28,7 +28,10 @@ export const statements = {
   // otterdeploy resources.
   project: ["create", "read", "update", "delete"],
   service: ["create", "read", "update", "delete", "deploy"],
-  database: ["create", "read", "update", "delete", "query"],
+  // `query` = run read-only SQL / browse rows; `write` = mutate data (inline
+  // edit, insert, delete, DML) through the data viewer. Split so members can
+  // read the live database without being able to change it.
+  database: ["create", "read", "update", "delete", "query", "write"],
   backup: ["create", "read", "update", "delete", "run", "restore"],
   route: ["create", "read", "update", "delete"],
   env: ["read", "update"],
@@ -40,6 +43,9 @@ export const statements = {
   // automatically via `allowCreatorAllPermissions`); the apiKeys oRPC create
   // procedure gates on `create` too.
   apiKey: ["create", "read", "update", "delete"],
+  // Org-scoped SSH keys (Git deploy keys + node management). Generated/imported
+  // via the sshKeys oRPC router; gated on these actions there.
+  sshKey: ["create", "read", "update", "delete"],
 } as const;
 
 export const ac = createAccessControl(statements);
@@ -58,6 +64,8 @@ export const member = ac.newRole({
   notificationChannel: ["create", "read", "update", "test"],
   // Members can see the workspace's keys but not mint or revoke them.
   apiKey: ["read"],
+  // SSH keys: same posture — read-only for members.
+  sshKey: ["read"],
 });
 
 /** Everything except deleting the org. */
@@ -65,7 +73,7 @@ export const admin = ac.newRole({
   ...orgAdminAc.statements,
   project: ["create", "read", "update", "delete"],
   service: ["create", "read", "update", "delete", "deploy"],
-  database: ["create", "read", "update", "delete", "query"],
+  database: ["create", "read", "update", "delete", "query", "write"],
   backup: ["create", "read", "update", "delete", "run", "restore"],
   route: ["create", "read", "update", "delete"],
   env: ["read", "update"],
@@ -73,6 +81,7 @@ export const admin = ac.newRole({
   firewall: ["read", "update"],
   notificationChannel: ["create", "read", "update", "delete", "test"],
   apiKey: ["create", "read", "update", "delete"],
+  sshKey: ["create", "read", "update", "delete"],
 });
 
 /** Full control. */
@@ -80,7 +89,7 @@ export const owner = ac.newRole({
   ...orgOwnerAc.statements,
   project: ["create", "read", "update", "delete"],
   service: ["create", "read", "update", "delete", "deploy"],
-  database: ["create", "read", "update", "delete", "query"],
+  database: ["create", "read", "update", "delete", "query", "write"],
   backup: ["create", "read", "update", "delete", "run", "restore"],
   route: ["create", "read", "update", "delete"],
   env: ["read", "update"],
@@ -88,6 +97,7 @@ export const owner = ac.newRole({
   firewall: ["read", "update"],
   notificationChannel: ["create", "read", "update", "delete", "test"],
   apiKey: ["create", "read", "update", "delete"],
+  sshKey: ["create", "read", "update", "delete"],
 });
 
 export const roles = { member, admin, owner };

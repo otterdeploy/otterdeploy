@@ -11,6 +11,7 @@ export {
   getProject,
   getProjectBySlugForOrg,
   listProjects,
+  saveProjectGraphLayout,
   updateProject,
 } from "./projects";
 
@@ -67,6 +68,7 @@ export {
   createDeploymentShareLink,
   getProjectCaddyfile,
   getProjectCustomCaddyConfig,
+  listProjectCertificates,
   saveProjectCustomCaddyConfig,
   setProxyRouteDirectives,
   inviteDeploymentGuest,

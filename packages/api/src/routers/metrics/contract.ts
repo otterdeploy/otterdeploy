@@ -12,13 +12,13 @@ const basePath = "/metrics";
 
 const resourceIdField = zId(ID_PREFIX.resource);
 
-export const metricsQueryInput = z.object({
+const metricsQueryInput = z.object({
   resourceId: resourceIdField,
   // Look-back window in minutes (default 30, max 24h).
   windowMinutes: z.number().int().positive().max(1440).default(30),
 });
 
-export const metricPointSchema = z.object({
+const metricPointSchema = z.object({
   ts: z.date(),
   cpuPct: z.number(),
   memBytes: z.number(),

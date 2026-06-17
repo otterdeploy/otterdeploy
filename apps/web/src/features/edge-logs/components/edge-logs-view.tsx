@@ -103,7 +103,7 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
   );
 
   return (
-    <div className="flex h-[calc(100svh-var(--header-height))] min-w-0 flex-col overflow-hidden">
+    <div className="flex h-full min-w-0 flex-col overflow-hidden">
       {/* Header */}
       <div className="px-4 pt-4">
         <div className="flex items-center gap-2">
