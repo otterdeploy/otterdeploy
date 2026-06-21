@@ -47,6 +47,17 @@ class ComposeDeployError extends Error {
   }
 }
 
+/** Message for an empty-content deploy. A git stack shouldn't reach a direct
+ *  deploy (it goes through the builder), so empty content there means its first
+ *  build hasn't finished — point the user at redeploy rather than "empty file". */
+function emptyContentError(source: string): ComposeDeployError {
+  return new ComposeDeployError(
+    source === "git"
+      ? "This git stack hasn't finished its first build yet — redeploy to build it."
+      : "Compose file is empty",
+  );
+}
+
 export interface ComposeDeployResult {
   /** running = all services rolled out; partial = some failed; failed = none. */
   status: "running" | "partial" | "failed";
@@ -76,13 +87,14 @@ export async function deployCompose(
     return Result.err(new ComposeDeployError("Project not found"));
   }
 
+  // Invariant: only inline stacks reach a direct deploy. Git stacks always go
+  // through the build worker (compose/index.ts redeploy + create, and
+  // manifest-reconcile), which clones, builds, and persists `composeContent`
+  // before deploying. So empty content here means a git stack slipped through
+  // (e.g. a build that never finished) — surface it as such, not "empty file".
   const content = record.compose.composeContent;
   if (!content) {
-    return Result.err(
-      new ComposeDeployError(
-        "Compose file is empty (git-sourced builds not implemented yet)",
-      ),
-    );
+    return Result.err(emptyContentError(record.compose.source));
   }
 
   const parsed = parseCompose(content);

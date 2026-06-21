@@ -4,10 +4,6 @@
  */
 import { Result } from "better-result";
 
-import { db } from "@otterdeploy/db";
-import { deployment } from "@otterdeploy/db/schema/project";
-import { triggerDeploy } from "@otterdeploy/jobs";
-
 import { projectScopedProcedure } from "../..";
 import { fetchBranchHeadSha } from "../../git/github-app";
 import { parseCompose, summarizeCompose } from "../../stack/compose";
@@ -19,6 +15,7 @@ import { getProjectInOrg } from "../project/queries";
 import { isUniqueViolation } from "../project/views";
 
 import { removeResourceDir } from "../../lib/data-dir";
+import { enqueueComposeBuild } from "./build-trigger";
 import { cleanupOrphanedComposeVars } from "./cleanup-vars";
 import { deployCompose, removeComposeDomains } from "./deploy";
 import { removeStackServices } from "./reconcile";
@@ -165,26 +162,14 @@ export const composeRouter = {
           throw created.error;
         }
 
-        const [dep] = await db
-          .insert(deployment)
-          .values({
-            resourceId: created.value.resource.id,
-            image: `pending:${shaRes.value.slice(0, 12)}`,
-            reason: "create",
-            status: "pending",
-            gitSha: shaRes.value,
-            gitRef: ref,
-          })
-          .returning({ id: deployment.id });
-
-        await triggerDeploy({
+        await enqueueComposeBuild({
           projectId: input.projectId,
-          // gitRepoId is logging-only in the job; the build loads the clone URL
-          // off the compose row. Use the project repo when bound, else the id.
-          gitRepoId: project.gitRepoId ?? created.value.resource.id,
-          ref,
+          resourceId: created.value.resource.id,
+          gitRepoUrl: gh.cloneUrl,
+          gitRef: ref,
+          projectGitRepoId: project.gitRepoId ?? null,
+          reason: "create",
           sha: shaRes.value,
-          deploymentIds: [dep?.id ?? ""],
         });
 
         return {
@@ -264,6 +249,33 @@ export const composeRouter = {
     async ({ input, context, errors }) => {
       const rec = await getComposeRecord(input.projectId, input.resourceId);
       if (!rec) throw errors.NOT_FOUND();
+
+      // Git-sourced stacks always redeploy through the build worker: it
+      // re-clones at the branch head, rebuilds any `build:` services, and
+      // refetches the compose file before deploying. A direct `deployCompose`
+      // would redeploy stale persisted content — or, for a stack whose first
+      // build never finished, throw on absent content.
+      if (rec.compose.source === "git") {
+        if (!rec.compose.gitRepoUrl || !rec.compose.gitRef) {
+          return {
+            ok: false,
+            error: "Git stack is missing its repo URL or ref",
+            status: "failed",
+          };
+        }
+        const enq = await enqueueComposeBuild({
+          projectId: input.projectId,
+          resourceId: input.resourceId,
+          gitRepoUrl: rec.compose.gitRepoUrl,
+          gitRef: rec.compose.gitRef,
+          projectGitRepoId: null,
+          reason: "redeploy",
+        });
+        return enq.isOk()
+          ? { ok: true, error: null, status: "building" }
+          : { ok: false, error: enq.error, status: "failed" };
+      }
+
       const d = await deployCompose(
         { projectId: input.projectId, resourceId: input.resourceId },
         "redeploy",
