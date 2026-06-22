@@ -173,6 +173,43 @@ const testEmailOutput = z.object({
   error: z.string().nullable(),
 });
 
+// ─── Members + invitations (delegated to better-auth's org plugin) ────────
+const orgRef = z.object({ organizationId: organizationIdField });
+
+const memberViewSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  email: z.string(),
+  name: z.string(),
+  role: z.string(),
+  createdAt: z.string(),
+});
+
+const invitationViewSchema = z.object({
+  id: z.string(),
+  email: z.string(),
+  role: z.string(),
+  status: z.string(),
+  expiresAt: z.string().nullable(),
+});
+
+const removeMemberInput = z.object({
+  organizationId: organizationIdField,
+  // better-auth accepts a member id or the member's email.
+  memberIdOrEmail: z.string().min(1),
+});
+
+const updateMemberRoleInput = z.object({
+  organizationId: organizationIdField,
+  memberId: z.string().min(1),
+  role: z.enum(["admin", "member"]),
+});
+
+const cancelInvitationInput = z.object({
+  organizationId: organizationIdField,
+  invitationId: z.string().min(1),
+});
+
 export const organizationContract = {
   settings: oc
     .meta({
@@ -251,4 +288,39 @@ export const organizationContract = {
     .meta({ path: `${basePath}/{organizationId}/email/test`, tag, method: "POST" })
     .input(testEmailInput)
     .output(testEmailOutput),
+
+  // ── Members + invitations ──────────────────────────────────────────
+  listMembers: oc
+    .meta({ path: `${basePath}/{organizationId}/members`, tag, method: "GET" })
+    .input(orgRef)
+    .output(z.array(memberViewSchema)),
+
+  removeMember: oc
+    .errors({ NOT_FOUND: { status: 404, message: "Member not found" as const } })
+    .meta({ path: `${basePath}/{organizationId}/members`, tag, method: "DELETE" })
+    .input(removeMemberInput)
+    .output(z.object({ ok: z.boolean() })),
+
+  updateMemberRole: oc
+    .errors({ NOT_FOUND: { status: 404, message: "Member not found" as const } })
+    .meta({ path: `${basePath}/{organizationId}/members/role`, tag, method: "PATCH" })
+    .input(updateMemberRoleInput)
+    .output(memberViewSchema),
+
+  listInvitations: oc
+    .meta({ path: `${basePath}/{organizationId}/invitations`, tag, method: "GET" })
+    .input(orgRef)
+    .output(z.array(invitationViewSchema)),
+
+  cancelInvitation: oc
+    .errors({
+      NOT_FOUND: { status: 404, message: "Invitation not found" as const },
+    })
+    .meta({
+      path: `${basePath}/{organizationId}/invitations/cancel`,
+      tag,
+      method: "POST",
+    })
+    .input(cancelInvitationInput)
+    .output(z.object({ ok: z.boolean() })),
 };

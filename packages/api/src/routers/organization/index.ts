@@ -1,10 +1,61 @@
-import { matchError } from "better-result";
+import { matchError, Result } from "better-result";
+
+import { auth } from "@otterdeploy/auth";
 
 import { orgScopedProcedure, requirePermission } from "../..";
 
 // Mutating org-settings endpoints require the `organization:update` permission
 // (owner/admin). Reads stay open to any member.
 const orgUpdateProcedure = requirePermission({ organization: ["update"] });
+
+// Member/invitation management maps to better-auth's own org `member`/
+// `invitation` statements: owner/admin manage, members can only list. The
+// underlying auth.api calls ALSO re-check the session's role, so this is
+// defence-in-depth + the API-key cap (keys are capped at the member role).
+const orgMemberDelete = requirePermission({ member: ["delete"] });
+const orgMemberUpdate = requirePermission({ member: ["update"] });
+const orgInviteCancel = requirePermission({ invitation: ["cancel"] });
+
+/** Shape better-auth's member row into the contract view (email/name live on
+ *  the nested `user`). */
+function toMemberView(m: {
+  id: string;
+  userId: string;
+  role: string;
+  createdAt: Date | string;
+  user?: { email?: string | null; name?: string | null } | null;
+}) {
+  return {
+    id: m.id,
+    userId: m.userId,
+    email: m.user?.email ?? "",
+    name: m.user?.name ?? "",
+    role: m.role,
+    createdAt:
+      m.createdAt instanceof Date ? m.createdAt.toISOString() : String(m.createdAt),
+  };
+}
+
+function toInvitationView(i: {
+  id: string;
+  email: string;
+  role?: string | null;
+  status: string;
+  expiresAt?: Date | string | null;
+}) {
+  return {
+    id: i.id,
+    email: i.email,
+    role: i.role ?? "member",
+    status: i.status,
+    expiresAt:
+      i.expiresAt == null
+        ? null
+        : i.expiresAt instanceof Date
+          ? i.expiresAt.toISOString()
+          : String(i.expiresAt),
+  };
+}
 
 import {
   autoConfigureBaseDomainViaCloudflare,
@@ -138,5 +189,107 @@ export const organizationRouter = {
 
   testEmail: orgUpdateProcedure.organization.testEmail.handler(
     async ({ input }) => sendTestEmail(input.to),
+  ),
+
+  // ─── Members + invitations (better-auth org plugin) ───────────────
+  listMembers: orgScopedProcedure.organization.listMembers.handler(
+    async ({ input, context }) => {
+      context.log.set({
+        target: { type: "organization", id: input.organizationId },
+      });
+      const res = await Result.tryPromise({
+        try: () =>
+          auth.api.listMembers({
+            query: { organizationId: input.organizationId },
+            headers: context.headers,
+          }),
+        catch: (e) => (e instanceof Error ? e : new Error(String(e))),
+      });
+      if (res.isErr()) throw res.error;
+      return (res.value.members ?? []).map(toMemberView);
+    },
+  ),
+
+  removeMember: orgMemberDelete.organization.removeMember.handler(
+    async ({ input, context, errors }) => {
+      context.log.set({
+        target: { type: "organization", id: input.organizationId },
+      });
+      const res = await Result.tryPromise({
+        try: () =>
+          auth.api.removeMember({
+            body: {
+              memberIdOrEmail: input.memberIdOrEmail,
+              organizationId: input.organizationId,
+            },
+            headers: context.headers,
+          }),
+        catch: (e) => (e instanceof Error ? e : new Error(String(e))),
+      });
+      if (res.isErr()) throw errors.NOT_FOUND({ message: res.error.message });
+      return { ok: true };
+    },
+  ),
+
+  updateMemberRole: orgMemberUpdate.organization.updateMemberRole.handler(
+    async ({ input, context, errors }) => {
+      context.log.set({
+        target: { type: "organization", id: input.organizationId },
+      });
+      const res = await Result.tryPromise({
+        try: () =>
+          auth.api.updateMemberRole({
+            body: {
+              memberId: input.memberId,
+              role: input.role,
+              organizationId: input.organizationId,
+            },
+            headers: context.headers,
+          }),
+        catch: (e) => (e instanceof Error ? e : new Error(String(e))),
+      });
+      if (res.isErr()) throw errors.NOT_FOUND({ message: res.error.message });
+      return toMemberView(res.value as Parameters<typeof toMemberView>[0]);
+    },
+  ),
+
+  listInvitations: orgScopedProcedure.organization.listInvitations.handler(
+    async ({ input, context }) => {
+      context.log.set({
+        target: { type: "organization", id: input.organizationId },
+      });
+      const res = await Result.tryPromise({
+        try: () =>
+          auth.api.listInvitations({
+            query: { organizationId: input.organizationId },
+            headers: context.headers,
+          }),
+        catch: (e) => (e instanceof Error ? e : new Error(String(e))),
+      });
+      if (res.isErr()) throw res.error;
+      // Surface only still-actionable invites (pending), not accepted/expired.
+      const list = (res.value ?? []) as Parameters<typeof toInvitationView>[0][];
+      return list
+        .filter((i) => i.status === "pending")
+        .map(toInvitationView);
+    },
+  ),
+
+  cancelInvitation: orgInviteCancel.organization.cancelInvitation.handler(
+    async ({ input, context, errors }) => {
+      context.log.set({
+        target: { type: "organization", id: input.organizationId },
+      });
+      const res = await Result.tryPromise({
+        try: () =>
+          auth.api.cancelInvitation({
+            body: { invitationId: input.invitationId },
+            headers: context.headers,
+          }),
+        catch: (e) => (e instanceof Error ? e : new Error(String(e))),
+      });
+      if (res.isErr()) throw errors.NOT_FOUND({ message: res.error.message });
+      return { ok: true };
+    },
   ),
 };
