@@ -7,6 +7,7 @@ import { createContext } from "@otterdeploy/api/context";
 import { reconcile } from "@otterdeploy/api/caddy";
 import { startBackupScheduler } from "@otterdeploy/api/backups";
 import { startDataFolderSweep } from "@otterdeploy/api/lib/data-folder-sweep";
+import { startAuditAnomalyScan } from "@otterdeploy/api/notifications/audit-anomaly";
 import { startMetricsSampler } from "@otterdeploy/api/metrics";
 import { startBlocklistScheduler } from "@otterdeploy/api/routers/firewall/scheduler";
 import {
@@ -277,6 +278,7 @@ let stopBackupScheduler: (() => void) | null = null;
 let stopMetricsSampler: (() => void) | null = null;
 let stopBlocklistScheduler: (() => void) | null = null;
 let stopDataFolderSweep: (() => void) | null = null;
+let stopAuditAnomalyScan: (() => void) | null = null;
 let stopTracing: (() => Promise<void>) | null = null;
 
 async function bootstrap() {
@@ -420,6 +422,11 @@ async function bootstrap() {
   // (docs/designs/data-folder.md, Phase 5). No-op when /data isn't in use.
   stopDataFolderSweep = startDataFolderSweep();
   log.info({ startup: { step: "data-folder-sweep", status: "ready" } });
+
+  // Audit-anomaly scan — periodic, conservative rules over recent audit rows
+  // (denial bursts, mass deletions) that emit `audit.anomaly` notifications.
+  stopAuditAnomalyScan = startAuditAnomalyScan();
+  log.info({ startup: { step: "audit-anomaly-scan", status: "ready" } });
 }
 
 void bootstrap();
@@ -432,6 +439,7 @@ for (const signal of ["SIGTERM", "SIGINT"] as const) {
     if (stopMetricsSampler) stopMetricsSampler();
     if (stopBlocklistScheduler) stopBlocklistScheduler();
     if (stopDataFolderSweep) stopDataFolderSweep();
+    if (stopAuditAnomalyScan) stopAuditAnomalyScan();
     if (stopTracing) await stopTracing().catch(() => undefined);
     if (stopWorkers) await stopWorkers().catch(() => undefined);
     process.exit(0);

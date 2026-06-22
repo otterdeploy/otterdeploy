@@ -16,6 +16,8 @@ import { log } from "evlog";
 import { db } from "@otterdeploy/db";
 import { resourceMetric } from "@otterdeploy/db/schema";
 
+import { healthFromStatus, recordHealthObservations } from "./health-detector";
+
 const RESOURCE_ID_LABEL = "otterdeploy.resource.id";
 
 interface DockerStatsFrame {
@@ -107,9 +109,15 @@ export async function sampleAllContainers(): Promise<void> {
     if (list.isErr()) return;
 
     const rows: Array<typeof resourceMetric.$inferInsert> = [];
+    const healthObserved: Array<{ resourceId: ResourceId; health: "healthy" | "unhealthy" }> = [];
     for (const container of list.value) {
       const resourceId = container.Labels?.[RESOURCE_ID_LABEL];
       if (!resourceId) continue; // only chart label-tagged resources
+
+      // Observe health BEFORE the (fallible) stats read so a stats hiccup never
+      // hides a health transition. Only healthcheck-bearing containers signal.
+      const health = healthFromStatus(container.Status);
+      if (health) healthObserved.push({ resourceId: resourceId as ResourceId, health });
 
       const statsResult = await docker.containers
         .getContainer(container.Id)
@@ -134,6 +142,10 @@ export async function sampleAllContainers(): Promise<void> {
     if (rows.length > 0) {
       await db.insert(resourceMetric).values(rows);
     }
+
+    // Emit health.degraded / health.recovered on any flip vs the last tick.
+    // Best-effort — guarded so it can never break sampling.
+    await recordHealthObservations(healthObserved).catch(() => undefined);
   } catch (cause) {
     log.error({
       metrics: { step: "sample", status: "error" },
