@@ -10,8 +10,11 @@
  * Roles:
  *   - owner  : full control, including deleting the org
  *   - admin  : manage everything except deleting the org
- *   - member : read everything, create/update + deploy app resources, but no
- *              destructive infra deletes and no member/org administration
+ *   - member : full mutation of the app + infra resource surface (create/update/
+ *              delete/deploy projects, services, databases, environments,
+ *              servers, registries, routes) — RBAC-governed so it can be
+ *              tightened with a custom role — but NO org/member administration
+ *              and no data-plane writes (database `write`) or key minting.
  */
 import { createAccessControl } from "better-auth/plugins/access";
 import {
@@ -56,20 +59,21 @@ export const statements = {
 
 export const ac = createAccessControl(statements);
 
-/** Read everything; mutate the app-resource surface; no admin/destructive ops. */
+/** Full app + infra resource mutation (the pre-RBAC default — members could do
+ *  all of this before it was enforced). Excludes org/member administration,
+ *  data-plane writes (`database:write`), and key minting. Tighten via a custom
+ *  role if you want a more restricted member. */
 export const member = ac.newRole({
   ...orgMemberAc.statements,
-  project: ["create", "read", "update"],
-  service: ["create", "read", "update", "deploy"],
-  database: ["create", "read", "update", "query"],
+  project: ["create", "read", "update", "delete"],
+  service: ["create", "read", "update", "delete", "deploy"],
+  // `query` = read-only browse; `write` (data-plane mutation) stays admin/owner.
+  database: ["create", "read", "update", "delete", "query"],
   backup: ["create", "read", "run", "restore"],
-  route: ["create", "read", "update"],
-  // Members create environments + manage their variables, but can't delete a
-  // whole environment (destructive).
-  env: ["create", "read", "update"],
-  server: ["read"],
-  // Read registries (to bind a service); managing them is admin/owner.
-  registry: ["read"],
+  route: ["create", "read", "update", "delete"],
+  env: ["create", "read", "update", "delete"],
+  server: ["create", "read", "update", "delete"],
+  registry: ["create", "read", "update", "delete"],
   firewall: ["read"],
   notificationChannel: ["create", "read", "update", "test"],
   // Members can see the workspace's keys but not mint or revoke them.

@@ -38,20 +38,20 @@ describe("authorizeKeyScope (per-key permission map)", () => {
 });
 
 describe("authorizeRoleScope (DECISION A — member-role cap)", () => {
-  test("members lack server:delete ⇒ denied even if key would list it", () => {
-    expect(authorizeRoleScope({ server: ["delete"] })).toBe(false);
+  test("members lack database:write ⇒ denied even if key would list it", () => {
+    expect(authorizeRoleScope({ database: ["write"] })).toBe(false);
   });
 
   test("members may service:deploy ⇒ allowed", () => {
     expect(authorizeRoleScope({ service: ["deploy"] })).toBe(true);
   });
 
-  test("combined gate: key covers server:delete but role cap still denies", () => {
-    const keyAllows = authorizeKeyScope({ server: ["delete"] }, {
-      server: ["delete"],
+  test("combined gate: key covers database:write but role cap still denies", () => {
+    const keyAllows = authorizeKeyScope({ database: ["write"] }, {
+      database: ["write"],
     });
     expect(keyAllows).toBe(true);
-    expect(keyAllows && authorizeRoleScope({ server: ["delete"] })).toBe(false);
+    expect(keyAllows && authorizeRoleScope({ database: ["write"] })).toBe(false);
   });
 });
 
