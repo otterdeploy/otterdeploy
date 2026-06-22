@@ -207,6 +207,7 @@ export async function executeBackup(backupId: string): Promise<void> {
     // off-cluster) upload — predictable staging that stays put if the upload
     // throws, for inspection/retry. The data-folder sweep reclaims stale ones.
     const staged = await stageBackupArchive({
+      projectId: ctx.projectId,
       resourceId: ctx.resourceId,
       backupId: ctx.backupId,
       ext,

@@ -184,6 +184,7 @@ async function runComposeBuild(
           cloneUrl: ctx.cloneUrl,
           ref: gitRef,
           sha: gitSha,
+          projectId: ctx.project.id as ProjectId,
           deploymentId: opts.deploymentId,
           installationToken,
           // Compose stacks bind a public repo URL (installationId is always

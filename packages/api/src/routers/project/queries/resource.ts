@@ -82,8 +82,15 @@ export async function getResourceById(
 }
 
 export async function deleteResourceById(resourceId: ResourceId) {
+  // Capture the project before the row is gone — the artifact dir is nested
+  // under it (`resources/<projectId>/<resourceId>`).
+  const [row] = await db
+    .select({ projectId: resource.projectId })
+    .from(resource)
+    .where(eq(resource.id, resourceId))
+    .limit(1);
   await db.delete(resource).where(eq(resource.id, resourceId));
   // Drop the resource's host artifact dir (no-op unless the data folder is in
   // use). Best-effort — never blocks the row delete. See lib/data-dir.ts.
-  await removeResourceDir(resourceId);
+  if (row) await removeResourceDir(row.projectId, resourceId);
 }

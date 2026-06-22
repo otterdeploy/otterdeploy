@@ -9,6 +9,7 @@ import type {
   BackupId,
   BackupScheduleId,
   OrganizationId,
+  ProjectId,
   ResourceId,
 } from "@otterdeploy/shared/id";
 import { and, asc, eq, sql } from "drizzle-orm";
@@ -31,6 +32,7 @@ export interface ExecutionContext {
   organizationId: OrganizationId;
   resourceId: ResourceId;
   resourceName: string;
+  projectId: ProjectId;
   projectSlug: string;
   engine: DatabaseEngine;
   databaseName: string;
@@ -58,6 +60,7 @@ export async function getExecutionContext(
       resourceId: backup.resourceId,
       encryption: backup.encryption,
       resourceName: resource.name,
+      projectId: resource.projectId,
       projectSlug: project.slug,
       engine: databaseResource.engine,
       databaseName: databaseResource.databaseName,
@@ -88,6 +91,7 @@ export async function getExecutionContext(
     organizationId: row.organizationId,
     resourceId: row.resourceId,
     resourceName: row.resourceName,
+    projectId: row.projectId,
     projectSlug: row.projectSlug,
     engine: row.engine as DatabaseEngine,
     databaseName: row.databaseName,

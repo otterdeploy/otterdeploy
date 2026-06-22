@@ -6,8 +6,10 @@
  * (create / guarded remove / availability check) live in
  * `packages/api/src/lib/data-dir.ts`.
  *
- * Keyed by the stable `resourceId` (not the `${kind}:${name}` node id), so the
- * tree survives renames and can't collide. See docs/designs/data-folder.md.
+ * Grouped by `projectId`, then keyed by the stable child id (`resourceId` /
+ * `deploymentId`, not the `${kind}:${name}` node id). The project level makes
+ * the tree navigable per project on disk; the stable child id keeps it
+ * rename-safe and collision-free. See docs/designs/data-folder.md.
  */
 import type { DeploymentId, ProjectId, ResourceId } from "./id";
 
@@ -20,17 +22,22 @@ export const DATA_ROOT = (
   process.env.OTTERDEPLOY_DATA_DIR ?? "/data/otterdeploy"
 ).replace(/\/+$/, "");
 
-/** Per-resource artifact dir — db ssl/init material, etc. */
-export const resourceDir = (id: ResourceId): string =>
-  `${DATA_ROOT}/resources/${id}`;
+/** Per-resource artifact dir — db ssl/init material, etc. Nested under its
+ *  project: `resources/<projectId>/<resourceId>`. */
+export const resourceDir = (projectId: ProjectId, id: ResourceId): string =>
+  `${DATA_ROOT}/resources/${projectId}/${id}`;
 
-/** Per-build clone + context. Ephemeral; cleaned after each build. */
-export const buildDir = (deploymentId: DeploymentId): string =>
-  `${DATA_ROOT}/builds/${deploymentId}`;
+/** Per-build clone + context. Ephemeral; cleaned after each build. Nested under
+ *  its project: `builds/<projectId>/<deploymentId>`. */
+export const buildDir = (
+  projectId: ProjectId,
+  deploymentId: DeploymentId,
+): string => `${DATA_ROOT}/builds/${projectId}/${deploymentId}`;
 
-/** Backup dumps staged before off-cluster upload. */
-export const backupDir = (id: ResourceId): string =>
-  `${DATA_ROOT}/backups/${id}`;
+/** Backup dumps staged before off-cluster upload. Nested under its project:
+ *  `backups/<projectId>/<resourceId>`. */
+export const backupDir = (projectId: ProjectId, id: ResourceId): string =>
+  `${DATA_ROOT}/backups/${projectId}/${id}`;
 
 /** Per-project DR escape hatch — exported manifest + rendered compose. */
 export const projectDir = (id: ProjectId): string =>

@@ -3,16 +3,17 @@
  * docs/designs/data-folder.md. Removes artifact dirs whose owning row is gone:
  * the failure mode Dokploy has (a crashed teardown leaves a dir forever).
  *
- * Each artifact tree is keyed by a DB id we can check:
- *   - resources/<resourceId>  → gone with its `resource` row
- *   - projects/<projectId>    → orphaned DR escape hatch (gone with its `project`)
- *   - backups/<resourceId>/   → gone with the resource; for a LIVE resource,
- *                               individual staged archives past a TTL (a failed
- *                               upload that was kept for retry) are reclaimed
- * `builds/<deploymentId>` is left to the builder's own `pruneStaleBuilds` TTL.
+ * Artifacts are nested under their project, so the sweep reconciles two levels:
+ *   - projects/<projectId>              → orphaned DR escape hatch (project gone)
+ *   - resources/<projectId>/<resourceId> → whole bucket gone with the project,
+ *                                          else each child gone with its resource
+ *   - backups/<projectId>/<resourceId>   → same; for a LIVE resource, staged
+ *                                          archives past a TTL are reclaimed
+ * `builds/<projectId>/<deploymentId>` is left to the builder's own
+ * `pruneStaleBuilds` TTL.
  *
- * Best-effort + guarded: removals go through the same `endsWith(id)` +
- * inside-`DATA_ROOT` guards as the delete paths, and the whole sweep never
+ * Best-effort + guarded: every removal re-checks the resolved path sits inside
+ * `DATA_ROOT` and ends with the id it claims to be, and the whole sweep never
  * throws (it logs and swallows), so it can't take the control plane down.
  */
 import { readdir, rm, stat } from "node:fs/promises";
@@ -45,17 +46,38 @@ async function listDirNames(path: string): Promise<string[]> {
   }
 }
 
-/** Remove a backups dir, guarded to `backups/<resourceId>` inside DATA_ROOT. */
-async function removeBackupsDir(id: ResourceId): Promise<void> {
-  const dir = resolve(backupDir(id));
+/** Guarded removal of a whole `<category>/<projectId>` bucket (the project
+ *  itself is gone). The resolved path must sit inside `<DATA_ROOT>/<category>`
+ *  and end with the projectId. */
+async function removeProjectBucket(
+  category: string,
+  projectId: string,
+): Promise<void> {
+  const base = resolve(join(DATA_ROOT, category));
+  const dir = resolve(join(base, projectId));
+  if (!dir.startsWith(base + sep) || !dir.endsWith(projectId)) return;
+  await rm(dir, { recursive: true, force: true }).catch(() => undefined);
+}
+
+/** Guarded removal of one resource's backups dir
+ *  (`backups/<projectId>/<resourceId>`). */
+async function removeBackupsDir(
+  projectId: ProjectId,
+  id: ResourceId,
+): Promise<void> {
+  const dir = resolve(backupDir(projectId, id));
   if (!dir.startsWith(resolve(DATA_ROOT) + sep) || !dir.endsWith(id)) return;
   await rm(dir, { recursive: true, force: true }).catch(() => undefined);
 }
 
 /** Reclaim staged archives older than the TTL inside one live resource's backups
  *  dir. Returns how many were removed. */
-async function reclaimStaleStaged(id: ResourceId, now: number): Promise<number> {
-  const dir = backupDir(id);
+async function reclaimStaleStaged(
+  projectId: ProjectId,
+  id: ResourceId,
+  now: number,
+): Promise<number> {
+  const dir = backupDir(projectId, id);
   let removed = 0;
   let files: string[];
   try {
@@ -79,8 +101,9 @@ async function reclaimStaleStaged(id: ResourceId, now: number): Promise<number> 
 }
 
 /**
- * One reconcile pass. Lists each artifact tree and removes dirs whose id is
- * absent from the DB. Never throws; returns the number of paths removed.
+ * One reconcile pass. Walks each nested artifact tree and removes dirs whose id
+ * is absent from the DB (a whole project bucket when the project is gone, else
+ * the individual child). Never throws; returns the number of paths removed.
  * No-ops when the data folder isn't writable.
  */
 export async function sweepDataFolder(now = Date.now()): Promise<number> {
@@ -92,16 +115,11 @@ export async function sweepDataFolder(now = Date.now()): Promise<number> {
     const resourceIds = new Set(
       (await db.select({ id: resource.id }).from(resource)).map((r) => r.id),
     );
-    for (const name of await listDirNames(join(root, "resources"))) {
-      if (!resourceIds.has(name as ResourceId)) {
-        await removeResourceDir(name as ResourceId);
-        removed += 1;
-      }
-    }
-
     const projectIds = new Set(
       (await db.select({ id: project.id }).from(project)).map((p) => p.id),
     );
+
+    // projects/<projectId> — orphaned DR escape hatches.
     for (const name of await listDirNames(join(root, "projects"))) {
       if (!projectIds.has(name as ProjectId)) {
         await removeProjectDir(name as ProjectId);
@@ -109,12 +127,50 @@ export async function sweepDataFolder(now = Date.now()): Promise<number> {
       }
     }
 
-    for (const name of await listDirNames(join(root, "backups"))) {
-      if (!resourceIds.has(name as ResourceId)) {
-        await removeBackupsDir(name as ResourceId);
+    // resources/<projectId>/<resourceId>.
+    for (const projectId of await listDirNames(join(root, "resources"))) {
+      if (!projectIds.has(projectId as ProjectId)) {
+        await removeProjectBucket("resources", projectId);
         removed += 1;
-      } else {
-        removed += await reclaimStaleStaged(name as ResourceId, now);
+        continue;
+      }
+      for (const resourceId of await listDirNames(
+        join(root, "resources", projectId),
+      )) {
+        if (!resourceIds.has(resourceId as ResourceId)) {
+          await removeResourceDir(
+            projectId as ProjectId,
+            resourceId as ResourceId,
+          );
+          removed += 1;
+        }
+      }
+    }
+
+    // backups/<projectId>/<resourceId> — same shape; live resources keep their
+    // dir but shed staged archives past the TTL.
+    for (const projectId of await listDirNames(join(root, "backups"))) {
+      if (!projectIds.has(projectId as ProjectId)) {
+        await removeProjectBucket("backups", projectId);
+        removed += 1;
+        continue;
+      }
+      for (const resourceId of await listDirNames(
+        join(root, "backups", projectId),
+      )) {
+        if (!resourceIds.has(resourceId as ResourceId)) {
+          await removeBackupsDir(
+            projectId as ProjectId,
+            resourceId as ResourceId,
+          );
+          removed += 1;
+        } else {
+          removed += await reclaimStaleStaged(
+            projectId as ProjectId,
+            resourceId as ResourceId,
+            now,
+          );
+        }
       }
     }
 

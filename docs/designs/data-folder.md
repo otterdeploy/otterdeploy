@@ -51,24 +51,27 @@ What genuinely benefits from a host folder:
 
 ## Layout
 
-Keyed by **`resourceId`**, deliberately. The graph node id is `${kind}:${name}`,
-but the DB id is the stable `resourceId` — keying folders by it survives renames
-and can't collide, sidestepping Dokploy's `appName`-churn and matching Coolify's
-stable-uuid approach.
+Grouped by **`projectId`**, then keyed by the stable child id. The graph node id
+is `${kind}:${name}`, but the DB id is the stable `resourceId` / `deploymentId` —
+keying by it survives renames and can't collide (sidestepping Dokploy's
+`appName`-churn, matching Coolify's stable-uuid approach). The project level on
+top makes the tree navigable per project on disk ("everything for project X")
+and lets the orphan sweep reclaim a whole `<projectId>` subtree in one step when
+a project is deleted.
 
 ```
-/data/otterdeploy/                         # OTTERDEPLOY_DATA_DIR overrides the root
+/data/otterdeploy/                              # OTTERDEPLOY_DATA_DIR overrides the root
 ├── projects/<projectId>/
-│   ├── otterdeploy.json         # exported manifest snapshot (DR / audit)
-│   └── compose.yml              # rendered escape hatch (manifest.export output)
-├── resources/<resourceId>/
-│   ├── meta.json                # { kind, name, projectId } — self-describing → orphan sweep
-│   ├── ssl/                     # db TLS material, if any
-│   └── init/                    # db init-script seed (cf. Coolify's docker-entrypoint-initdb.d)
-├── builds/<deploymentId>/       # build clone + context (replaces the ephemeral tmpdir)
-├── backups/<resourceId>/<ts>.dump
-├── caddy/                       # reconciled Caddyfile + per-project snippets
-└── ssh/                         # deploy keys (future remote/multi-node), 0700
+│   ├── otterdeploy.json              # exported manifest snapshot (DR / audit)
+│   └── compose.yml                   # rendered escape hatch (manifest.export output)
+├── resources/<projectId>/<resourceId>/
+│   ├── meta.json                     # { kind, name, projectId } — self-describing → orphan sweep
+│   ├── ssl/                          # db TLS material, if any
+│   └── init/                         # db init-script seed (cf. Coolify's docker-entrypoint-initdb.d)
+├── builds/<projectId>/<deploymentId>/  # build clone + context (replaces the ephemeral tmpdir)
+├── backups/<projectId>/<resourceId>/<ts>.dump
+├── caddy/                            # reconciled Caddyfile + per-project snippets
+└── ssh/                              # deploy keys (future remote/multi-node), 0700
 ```
 
 ## One paths helper
@@ -76,12 +79,12 @@ stable-uuid approach.
 The path lives in exactly one place — mirror Coolify's `base_configuration_dir()`:
 
 ```ts
-// packages/api/src/lib/paths.ts
+// packages/shared/src/paths.ts
 export const DATA_ROOT = process.env.OTTERDEPLOY_DATA_DIR ?? "/data/otterdeploy";
-export const resourceDir = (id: ResourceId)    => join(DATA_ROOT, "resources", id);
-export const buildDir    = (dep: DeploymentId) => join(DATA_ROOT, "builds", dep);
-export const backupDir   = (id: ResourceId)    => join(DATA_ROOT, "backups", id);
-export const projectDir  = (id: ProjectId)     => join(DATA_ROOT, "projects", id);
+export const resourceDir = (p: ProjectId, id: ResourceId)    => join(DATA_ROOT, "resources", p, id);
+export const buildDir    = (p: ProjectId, dep: DeploymentId) => join(DATA_ROOT, "builds", p, dep);
+export const backupDir   = (p: ProjectId, id: ResourceId)    => join(DATA_ROOT, "backups", p, id);
+export const projectDir  = (id: ProjectId)                   => join(DATA_ROOT, "projects", id);
 ```
 
 ## Lifecycle + guarded cleanup
@@ -152,12 +155,15 @@ of any world-readable mount or backup that isn't itself encrypted.
    rows to `projects/<projectId>/compose.yml` + `otterdeploy.json` (best-effort,
    `0600`, never blocks the apply); `removeProjectDir` drops it on project delete.
    **DR/audit only — never `up`'d by the platform.**
-5. ✅ **Orphan sweep** — `lib/data-folder-sweep.ts` reconciles `resources/*`,
-   `projects/*`, and `backups/*` against the DB on a control-plane tick
-   (`startDataFolderSweep`, started from the server bootstrap): a dir whose id is
-   absent from the DB is reclaimed via the same guarded removers, and staged
-   backup archives past a TTL are swept. `builds/*` stays with the builder's own
-   `pruneStaleBuilds`. Best-effort + `unref`'d, like the backup scheduler.
+5. ✅ **Orphan sweep** — `lib/data-folder-sweep.ts` reconciles the nested trees
+   (`resources/<projectId>/<resourceId>`, `backups/<projectId>/<resourceId>`, and
+   `projects/<projectId>`) against the DB on a control-plane tick
+   (`startDataFolderSweep`, started from the server bootstrap): a whole
+   `<projectId>` bucket is reclaimed when its project is gone, else the
+   individual child when its resource is gone — all via the same guarded
+   removers. Staged backup archives past a TTL are swept. `builds/*` stays with
+   the builder's own `pruneStaleBuilds`. Best-effort + `unref`'d, like the
+   backup scheduler.
 
 ## Deferred / non-goals
 

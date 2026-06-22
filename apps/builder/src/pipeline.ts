@@ -203,6 +203,7 @@ function runBuildSteps(
           cloneUrl: ctx.repo.cloneUrl,
           ref: gitRef,
           sha: gitSha,
+          projectId: ctx.project.id as ProjectId,
           deploymentId: opts.deploymentId,
           installationToken,
           bindingKind,

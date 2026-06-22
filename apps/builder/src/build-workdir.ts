@@ -9,7 +9,7 @@
  * dir won't exist, so there's nothing to sweep — and ephemeral tmpdir work dirs
  * are cleaned on failure anyway (only `persistent` dirs are kept).
  */
-import { readdir, rm, stat } from "node:fs/promises";
+import { readdir, rm, rmdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 
 import { DATA_ROOT } from "@otterdeploy/shared/paths";
@@ -20,26 +20,44 @@ const BUILDS_DIR = join(DATA_ROOT, "builds");
  *  reclaims it. */
 const BUILD_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 
-/** Remove build dirs whose mtime is older than {@link BUILD_TTL_MS}. Best-effort
- *  and racy-safe — a vanished/locked entry is skipped, never thrown. */
-async function pruneStaleBuilds(now = Date.now()): Promise<void> {
-  let entries: string[];
+/**
+ * Remove build dirs whose mtime is older than {@link BUILD_TTL_MS}. Build clones
+ * now live two levels deep — `builds/<projectId>/<deploymentId>` — so this walks
+ * each project's bucket, prunes stale deployment dirs, then drops the project
+ * bucket once it's empty (`rmdir` fails on a non-empty dir, which we ignore).
+ * Best-effort + racy-safe: a vanished/locked entry is skipped, never thrown.
+ */
+export async function pruneStaleBuilds(now = Date.now()): Promise<void> {
+  let projectBuckets: string[];
   try {
-    entries = await readdir(BUILDS_DIR);
+    projectBuckets = await readdir(BUILDS_DIR);
   } catch {
     return; // builds dir absent → nothing to prune
   }
   await Promise.all(
-    entries.map(async (name) => {
-      const dir = join(BUILDS_DIR, name);
+    projectBuckets.map(async (projectId) => {
+      const bucket = join(BUILDS_DIR, projectId);
+      let builds: string[];
       try {
-        const info = await stat(dir);
-        if (now - info.mtimeMs > BUILD_TTL_MS) {
-          await rm(dir, { recursive: true, force: true });
-        }
+        builds = await readdir(bucket);
       } catch {
-        // entry vanished or is mid-use — leave it for the next sweep
+        return; // not a dir / vanished
       }
+      await Promise.all(
+        builds.map(async (name) => {
+          const dir = join(bucket, name);
+          try {
+            const info = await stat(dir);
+            if (now - info.mtimeMs > BUILD_TTL_MS) {
+              await rm(dir, { recursive: true, force: true });
+            }
+          } catch {
+            // entry vanished or is mid-use — leave it for the next sweep
+          }
+        }),
+      );
+      // Reclaim the project bucket if pruning emptied it.
+      await rmdir(bucket).catch(() => undefined);
     }),
   );
 }

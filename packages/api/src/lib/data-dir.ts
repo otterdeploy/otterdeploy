@@ -39,9 +39,12 @@ export function dataRootAvailable(): Promise<boolean> {
  * against a path bug nuking the wrong tree (borrowed from Coolify's
  * `endsWith(uuid)` guard). Best-effort: never throws, so it can't fail a delete.
  */
-export async function removeResourceDir(id: ResourceId): Promise<void> {
+export async function removeResourceDir(
+  projectId: ProjectId,
+  id: ResourceId,
+): Promise<void> {
   if (!(await dataRootAvailable())) return;
-  const dir = resolve(resourceDir(id));
+  const dir = resolve(resourceDir(projectId, id));
   const root = resolve(DATA_ROOT);
   if (!dir.startsWith(root + sep) || !dir.endsWith(id)) return;
   await rm(dir, { recursive: true, force: true }).catch(() => undefined);
@@ -61,13 +64,14 @@ export async function removeProjectDir(id: ProjectId): Promise<void> {
 }
 
 /**
- * Stage a backup archive under `backups/<resourceId>/<backupId>.<ext>` before
- * the (possibly off-cluster) upload — the design's landing zone, inspectable if
- * the upload then fails. Returns the path, or null when the data folder isn't
- * writable (the caller just uploads straight from memory). Best-effort: a
- * staging failure never fails the backup.
+ * Stage a backup archive under `backups/<projectId>/<resourceId>/<backupId>.<ext>`
+ * before the (possibly off-cluster) upload — the design's landing zone,
+ * inspectable if the upload then fails. Returns the path, or null when the data
+ * folder isn't writable (the caller just uploads straight from memory).
+ * Best-effort: a staging failure never fails the backup.
  */
 export async function stageBackupArchive(input: {
+  projectId: ProjectId;
   resourceId: ResourceId;
   backupId: string;
   ext: string;
@@ -75,7 +79,7 @@ export async function stageBackupArchive(input: {
 }): Promise<string | null> {
   if (!(await dataRootAvailable())) return null;
   try {
-    const dir = backupDir(input.resourceId);
+    const dir = backupDir(input.projectId, input.resourceId);
     await mkdir(dir, { recursive: true, mode: 0o700 });
     const path = join(dir, `${input.backupId}.${input.ext}`);
     await writeFile(path, input.body, { mode: 0o600 });

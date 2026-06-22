@@ -303,7 +303,7 @@ export const composeRouter = {
       // Drop the stack's host artifact dir (deleteComposeRecord removes the row
       // directly, bypassing deleteResourceById's cleanup). No-op unless the data
       // folder is in use.
-      await removeResourceDir(input.resourceId);
+      await removeResourceDir(input.projectId, input.resourceId);
       // Drop the project variables this stack seeded that nothing else uses.
       await cleanupOrphanedComposeVars(
         {

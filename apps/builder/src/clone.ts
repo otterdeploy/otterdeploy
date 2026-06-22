@@ -1,7 +1,7 @@
 /**
  * Clone a repo at a specific commit into a build work dir under the host data
- * folder (`<DATA_ROOT>/builds/<deploymentId>`), falling back to an ephemeral
- * `tmpdir()` when the data folder isn't writable (local dev). See
+ * folder (`<DATA_ROOT>/builds/<projectId>/<deploymentId>`), falling back to an
+ * ephemeral `tmpdir()` when the data folder isn't writable (local dev). See
  * docs/designs/data-folder.md.
  *
  * Tokenization: the installation access token is injected into the URL
@@ -19,7 +19,7 @@ import { mkdir, mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import type { DeploymentId } from "@otterdeploy/shared/id";
+import type { DeploymentId, ProjectId } from "@otterdeploy/shared/id";
 import { buildDir } from "@otterdeploy/shared/paths";
 
 import type { LogSink } from "./log-stream";
@@ -35,16 +35,17 @@ export interface CloneResult {
 }
 
 /**
- * Work dir for a build: `<DATA_ROOT>/builds/<deploymentId>` when the data folder
- * is writable (predictable + inspectable + cap-able), else an ephemeral
+ * Work dir for a build: `<DATA_ROOT>/builds/<projectId>/<deploymentId>` when the
+ * data folder is writable (predictable + inspectable + cap-able), else an ephemeral
  * `tmpdir()` so local dev — where `/data` isn't writable and no
  * `OTTERDEPLOY_DATA_DIR` is set — keeps working unchanged. Either way the dir is
  * empty, which `git clone <url> <dir>` requires.
  */
 async function resolveWorkDir(
+  projectId: ProjectId,
   deploymentId: DeploymentId,
 ): Promise<{ path: string; persistent: boolean }> {
-  const preferred = buildDir(deploymentId);
+  const preferred = buildDir(projectId, deploymentId);
   try {
     await mkdir(preferred, { recursive: true });
     return { path: preferred, persistent: true };
@@ -60,6 +61,8 @@ export async function cloneRepoAtSha(opts: {
   cloneUrl: string;
   ref: string;
   sha: string;
+  /** Groups the build's work dir under its project on disk. */
+  projectId: ProjectId;
   /** Names the build's work dir under the data folder. */
   deploymentId: DeploymentId;
   /** Empty string when cloning a public repo — no token to inject. */
@@ -70,7 +73,10 @@ export async function cloneRepoAtSha(opts: {
   bindingKind?: "github_app" | "public_url";
   sink: LogSink;
 }): Promise<CloneResult> {
-  const { path: workDir, persistent } = await resolveWorkDir(opts.deploymentId);
+  const { path: workDir, persistent } = await resolveWorkDir(
+    opts.projectId,
+    opts.deploymentId,
+  );
   const url = opts.installationToken
     ? injectToken(opts.cloneUrl, opts.installationToken)
     : opts.cloneUrl;
