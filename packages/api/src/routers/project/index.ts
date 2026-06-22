@@ -31,6 +31,8 @@ import {
   listProjectEnvVarsForOrg,
   getProjectCaddyfile,
   getProjectCustomCaddyConfig,
+  getGlobalCaddyOptions,
+  saveGlobalCaddyOptions,
   listProjectCertificates,
   saveProjectCustomCaddyConfig,
   setProxyRouteDirectives,
@@ -313,6 +315,26 @@ export const projectRouter = {
             });
           }
           return result.value;
+        },
+      ),
+
+    globalOptions: orgScopedProcedure.project.proxyRoute.globalOptions.handler(
+      async () => getGlobalCaddyOptions(),
+    ),
+
+    // Instance-wide edge options — gated on firewall:update (admin/owner), since
+    // a single project's member shouldn't change the whole install's HTTPS behavior.
+    setGlobalOptions:
+      requirePermission({ firewall: ["update"] }).project.proxyRoute.setGlobalOptions.handler(
+        async ({ input, context }) => {
+          context.log.set({ target: { type: "project", id: input.projectId } });
+          return saveGlobalCaddyOptions(
+            {
+              acmeEmail: input.acmeEmail,
+              httpsAutoRedirect: input.httpsAutoRedirect,
+            },
+            context.log,
+          );
         },
       ),
 

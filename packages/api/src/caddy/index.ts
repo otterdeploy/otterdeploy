@@ -52,6 +52,7 @@ function toRouteInput(r: ProxyRouteRecord): ProxyRouteInput {
 
 interface CaddyBuildOptions {
   acmeEmail: string | null;
+  httpsAutoRedirect: boolean | null;
   authzUpstream: string;
   edgeLogSink?: string;
   crowdsec?: CrowdsecConfig;
@@ -63,13 +64,17 @@ interface CaddyBuildOptions {
  *  Read on every call so a settings change takes effect without a restart. */
 async function loadCaddyOptions(): Promise<CaddyBuildOptions> {
   const [settings] = await db
-    .select({ acmeEmail: platformSettings.acmeEmail })
+    .select({
+      acmeEmail: platformSettings.acmeEmail,
+      httpsAutoRedirect: platformSettings.httpsAutoRedirect,
+    })
     .from(platformSettings)
     .where(eq(platformSettings.id, PLATFORM_SETTINGS_ID))
     .limit(1);
 
   return {
     acmeEmail: settings?.acmeEmail ?? null,
+    httpsAutoRedirect: settings?.httpsAutoRedirect ?? null,
     authzUpstream: env.DEPLOY_AUTHZ_UPSTREAM,
     edgeLogSink: env.EDGE_LOG_SINK,
     crowdsec:

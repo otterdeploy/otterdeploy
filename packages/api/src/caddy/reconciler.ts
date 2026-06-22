@@ -34,6 +34,8 @@ interface ReconcileOptions {
   /** CrowdSec LAPI connection; when set, every HTTP site gets the `crowdsec`
    *  IP-reputation gate + the global bouncer app config. */
   crowdsec?: CrowdsecConfig;
+  /** false ⇒ disable Caddy's automatic HTTP→HTTPS redirect in the global block. */
+  httpsAutoRedirect?: boolean | null;
   /** projectId → operator-authored standalone Caddy config. Appended to each
    *  project's fragment, validated with it, and (when valid) merged into the
    *  global file. A project can appear here with no routes. */
@@ -44,7 +46,7 @@ interface ReconcileOptions {
 }
 
 export async function reconcileRoutes(options: ReconcileOptions): Promise<ReconcileResult> {
-  const { routes, adminBind, acmeEmail, authzUpstream, edgeLogSink, crowdsec, projectCustomConfig, adapt, load, rlog } = options;
+  const { routes, adminBind, acmeEmail, authzUpstream, edgeLogSink, crowdsec, httpsAutoRedirect, projectCustomConfig, adapt, load, rlog } = options;
   const log = asStepLogger(rlog);
 
   log.info({ caddy: { step: "reconcile", status: "starting", routeCount: routes.length } });
@@ -90,7 +92,7 @@ export async function reconcileRoutes(options: ReconcileOptions): Promise<Reconc
     }
   }
 
-  const caddyfile = buildCaddyfile(validRoutes, adminBind, { acmeEmail, authzUpstream, edgeLogSink, crowdsec, customBlocks: validCustomBlocks });
+  const caddyfile = buildCaddyfile(validRoutes, adminBind, { acmeEmail, authzUpstream, edgeLogSink, crowdsec, httpsAutoRedirect, customBlocks: validCustomBlocks });
   const revision = createHash("sha256").update(caddyfile).digest("hex").slice(0, 12);
 
   log.info({ caddy: { step: "reconcile", status: "loading", revision, validRouteCount: validRoutes.length } });

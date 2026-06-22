@@ -216,6 +216,9 @@ export function buildCaddyfile(
     authzUpstream?: string;
     edgeLogSink?: string;
     crowdsec?: CrowdsecConfig;
+    /** false ⇒ emit `auto_https disable_redirects` (operator runs HTTP→HTTPS
+     *  elsewhere). Undefined/true keeps Caddy's default auto-redirect. */
+    httpsAutoRedirect?: boolean | null;
     /** Operator-authored, already-validated standalone Caddyfile blocks
      *  (one entry per project that has custom config), appended verbatim
      *  after the generated site blocks. */
@@ -236,6 +239,11 @@ export function buildCaddyfile(
   }
   if (!anyUsesAcme) {
     lines.push("\tlocal_certs");
+  }
+  // Operator opted out of Caddy's automatic HTTP→HTTPS redirect (e.g. a
+  // downstream LB already does it). Certs still issue; only the redirect drops.
+  if (options.httpsAutoRedirect === false) {
+    lines.push("\tauto_https disable_redirects");
   }
   if (options.crowdsec) {
     lines.push(...crowdsecGlobalLines(options.crowdsec));

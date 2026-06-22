@@ -30,6 +30,10 @@ export const platformSettings = pgTable("platform_settings", {
    *  notifications + recovery. Required before any real (non-sslip)
    *  domain can be issued a public cert. */
   acmeEmail: text("acme_email"),
+  /** Whether Caddy auto-redirects HTTP→HTTPS. null/true ⇒ on (Caddy's
+   *  default); false ⇒ render `auto_https disable_redirects` in the global
+   *  block (e.g. a downstream load balancer already terminates/redirects TLS). */
+  httpsAutoRedirect: boolean("https_auto_redirect"),
 
   // ─── Outbound email transport (system emails: verification, invites,
   //     guest OTP). Configured in the UI; falls back to env (RESEND_API_KEY /

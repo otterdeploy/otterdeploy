@@ -47,6 +47,7 @@ import { cn } from "@/shared/lib/utils";
 import { CaddyfileViewer } from "@/features/projects/components/networking/caddyfile-viewer";
 import { CertificatesTab } from "@/features/projects/components/networking/certificates-tab";
 import { CustomConfigEditor } from "@/features/projects/components/networking/custom-config-editor";
+import { GlobalOptionsEditor } from "@/features/projects/components/networking/global-options-editor";
 import { DeploymentAccessTab } from "@/features/projects/components/networking/deployment-access-tab";
 import { DeploymentProtectionCell } from "@/features/projects/components/networking/deployment-protection-cell";
 import { RouteDirectivesButton } from "@/features/projects/components/networking/route-directives-dialog";
@@ -448,22 +449,7 @@ function RouteComponent() {
           </TabsContent>
 
           <TabsContent value="global" className="pt-5">
-            <Empty className="border-dashed">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <HugeiconsIcon
-                    icon={EarthIcon}
-                    strokeWidth={1.6}
-                    className="size-5 text-muted-foreground"
-                  />
-                </EmptyMedia>
-                <EmptyTitle>Global options</EmptyTitle>
-                <EmptyDescription>
-                  Admin endpoint, default SNI, automatic HTTPS, and access-log
-                  configuration. Coming soon.
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
+            <GlobalOptionsEditor projectId={projectId} />
           </TabsContent>
 
           <TabsContent value="tls" className="pt-5">

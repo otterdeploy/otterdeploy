@@ -172,6 +172,48 @@ export async function saveProjectCustomCaddyConfig(
   return Result.ok(result);
 }
 
+export interface GlobalCaddyOptions {
+  /** ACME registration email (Let's Encrypt). Null = none configured. */
+  acmeEmail: string | null;
+  /** Caddy auto HTTP→HTTPS redirect. Defaults on. */
+  httpsAutoRedirect: boolean;
+}
+
+/** Read the instance-wide global Caddy options (the `platform_settings`
+ *  singleton). Org-agnostic — there's one edge proxy per install. */
+export async function getGlobalCaddyOptions(): Promise<GlobalCaddyOptions> {
+  const [s] = await db
+    .select({
+      acmeEmail: platformSettings.acmeEmail,
+      httpsAutoRedirect: platformSettings.httpsAutoRedirect,
+    })
+    .from(platformSettings)
+    .where(eq(platformSettings.id, PLATFORM_SETTINGS_ID))
+    .limit(1);
+  return {
+    acmeEmail: s?.acmeEmail ?? null,
+    httpsAutoRedirect: s?.httpsAutoRedirect ?? true,
+  };
+}
+
+/** Persist the global Caddy options, then reconcile so they take effect. These
+ *  options (an email + a redirect toggle) can't produce invalid global syntax,
+ *  and reconcile only swaps the live config in after a successful adapt — so a
+ *  bad value can't take routes offline. */
+export async function saveGlobalCaddyOptions(
+  input: GlobalCaddyOptions,
+  rlog?: RequestLogger,
+): Promise<GlobalCaddyOptions> {
+  const acmeEmail = input.acmeEmail?.trim() || null;
+  const next = { acmeEmail, httpsAutoRedirect: input.httpsAutoRedirect };
+  await db
+    .insert(platformSettings)
+    .values({ id: PLATFORM_SETTINGS_ID, ...next })
+    .onConflictDoUpdate({ target: platformSettings.id, set: next });
+  await reconcile(rlog);
+  return next;
+}
+
 /** Validate + persist per-route custom directives, then reconcile. */
 export async function setProxyRouteDirectives(
   input: OrgRef & { routeId: ProxyRouteId; directives: string | null },
@@ -261,7 +303,7 @@ export async function createDeploymentBypassToken(
 
 // ─── Guests (email one-time PIN) ────────────────────────────────────
 
-type GuestView = { id: string; email: string; sessionHours: number; createdAt: string };
+interface GuestView { id: string; email: string; sessionHours: number; createdAt: string }
 const toGuestView = (g: GuestRecord): GuestView => ({
   id: g.id,
   email: g.email,

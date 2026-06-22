@@ -12,17 +12,7 @@ import { proxyRoute } from "@otterdeploy/db/schema";
 import { basePath, projectNotFoundErrors, resourceNotFoundErrors, tag } from "./shared";
 import { projectIdField, proxyRouteIdField, resourceIdField } from "./shared";
 
-const reconcileResultSchema = z.object({
-  applied: z.array(z.string()),
-  skipped: z.array(
-    z.object({
-      projectId: z.string(),
-      error: z.string(),
-    }),
-  ),
-  revision: z.string(),
-  loadError: z.string().optional(),
-});
+
 
 export const proxyRouteSchema = createSelectSchema(proxyRoute).extend({
   id: proxyRouteIdField,
@@ -86,6 +76,21 @@ const setRouteDirectivesInput = z.object({
   routeId: proxyRouteIdField,
   /** Directives spliced inside the route's site block. Empty/null clears. */
   directives: z.string().max(CUSTOM_CONFIG_MAX).nullable(),
+});
+
+// ─── Global edge-proxy options (instance-wide platform_settings) ─────
+const globalCaddyOptionsSchema = z.object({
+  /** ACME registration email (Let's Encrypt). Null when unset. */
+  acmeEmail: z.string().nullable(),
+  /** Caddy auto HTTP→HTTPS redirect; false ⇒ `auto_https disable_redirects`. */
+  httpsAutoRedirect: z.boolean(),
+});
+
+const setGlobalOptionsInput = z.object({
+  /** Project context for auth/scoping; the options themselves are instance-wide. */
+  projectId: projectIdField,
+  acmeEmail: z.string().max(254).nullable(),
+  httpsAutoRedirect: z.boolean(),
 });
 
 /** Result of saving custom config: the post-change render, plus whether it
@@ -205,6 +210,26 @@ export const proxyContractSlice = {
     })
     .input(setProjectCustomConfigInput)
     .output(saveCustomConfigResultSchema),
+
+  globalOptions: oc
+    .errors(projectNotFoundErrors)
+    .meta({
+      path: `${basePath}/{projectId}/global-options`,
+      tag,
+      method: "GET",
+    })
+    .input(listProxyRoutesInput)
+    .output(globalCaddyOptionsSchema),
+
+  setGlobalOptions: oc
+    .errors(projectNotFoundErrors)
+    .meta({
+      path: `${basePath}/{projectId}/global-options`,
+      tag,
+      method: "POST",
+    })
+    .input(setGlobalOptionsInput)
+    .output(globalCaddyOptionsSchema),
 
   setRouteDirectives: oc
     .errors(resourceNotFoundErrors)
