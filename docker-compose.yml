@@ -74,12 +74,21 @@ services:
       # (this compose project's default network, so they resolve postgres/redis).
       BUILDER_HELPER_IMAGE: otterstack-builder:latest
       BUILDER_HELPER_NETWORK: otterstack_default
+      # Host data folder. Must match the bind-mount path below AND be a real host
+      # path, since the worker bind-mounts <dir>/buildx-cache into helper
+      # containers via the HOST daemon for the persistent BuildKit cache.
+      OTTERDEPLOY_DATA_DIR: ${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}
     volumes:
       # Docker-out-of-Docker: drive the HOST daemon so railpack's
       # `buildx --load` (and the optional `docker push`) land images in the same
       # daemon the swarm runs from. DinD would isolate them where swarm can't
       # pull. `Docker.fromEnv()` in the swarm client picks up this socket too.
       - /var/run/docker.sock:/var/run/docker.sock
+      # Data folder, same path inside + on host so the worker can see it
+      # (existsSync gate) and the buildx-cache bind mounts it gives helper
+      # containers resolve to the same host dir. Holds the persistent BuildKit
+      # layer cache (see apps/builder/src/buildx.ts).
+      - ${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}:${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

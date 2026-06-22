@@ -35,6 +35,7 @@ import { isAbsolute, join, relative, resolve } from "node:path";
 
 import type { Builder } from "@otterdeploy/shared/build-config";
 
+import { builderFlags, cacheFlags } from "./buildx";
 import type { LogSink } from "./log-stream";
 import { runProcess } from "./run-process";
 
@@ -168,6 +169,11 @@ export function dockerfileBuildArgs(opts: {
   shaTag: string;
   latestTag: string;
   buildArgs?: Record<string, string>;
+  /** Name of the docker-container cache builder (`--builder`), or null for the
+   *  default driver. */
+  builderName?: string | null;
+  /** Local BuildKit cache dir; only honored alongside `builderName`. */
+  cachePath?: string | null;
 }): string[] {
   const buildArgs = opts.buildArgs ?? {};
   const buildArgFlags = Object.entries(buildArgs).flatMap(([key, value]) => [
@@ -177,6 +183,7 @@ export function dockerfileBuildArgs(opts: {
   return [
     "buildx",
     "build",
+    ...builderFlags(opts.builderName),
     "-f",
     opts.dockerfilePath,
     "--load",
@@ -187,6 +194,7 @@ export function dockerfileBuildArgs(opts: {
     "-t",
     opts.latestTag,
     ...buildArgFlags,
+    ...cacheFlags(opts.builderName, opts.cachePath),
     opts.contextDir,
   ];
 }
@@ -208,6 +216,9 @@ export async function dockerfileBuild(opts: {
   sha: string;
   /** Configured `--build-arg`s from `BuildDockerfileConfig.buildArgs`. */
   buildArgs?: Record<string, string>;
+  /** Cache builder name + local cache dir (best-effort; both or neither). */
+  builderName?: string | null;
+  cachePath?: string | null;
   sink: LogSink;
 }): Promise<{ shaTag: string; latestTag: string; buildDir: string }> {
   const shaTag = `${opts.imageRepository}:${opts.sha}`;
@@ -222,6 +233,8 @@ export async function dockerfileBuild(opts: {
       shaTag,
       latestTag,
       buildArgs: opts.buildArgs ?? {},
+      builderName: opts.builderName,
+      cachePath: opts.cachePath,
     }),
     sink: opts.sink,
   });

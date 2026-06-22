@@ -37,6 +37,7 @@ import { log as globalLog } from "evlog";
 
 import { cloneRepoAtSha } from "./clone";
 import { pruneStaleBuilds } from "./build-workdir";
+import { ensureBuildxBuilder, cachePathFor } from "./buildx";
 import { isComposeDeployment, runComposeBuild } from "./compose-build";
 import { runDeployHooks } from "./deploy-hook";
 import { detectServiceFramework } from "./detect-framework";
@@ -231,6 +232,14 @@ function runBuildSteps(
         "compose builds are not yet supported; falling back to railpack",
       );
     }
+
+    // Best-effort persistent layer cache: when a docker-container buildx builder
+    // can be set up, route the build through it with a local cache keyed by the
+    // image repo. Returns null (→ no cache, default-driver `--load`) on any
+    // failure, so a build never depends on the cache being available.
+    const cacheBuilder = await ensureBuildxBuilder(sink);
+    const cachePath = cacheBuilder ? cachePathFor(imageRepository) : null;
+
     // Resolve inside the build step so any HARD throw (bad/missing Dockerfile
     // path when pinned to dockerfile) becomes a tagged BuildStepError.
     const image = yield* (
@@ -264,6 +273,8 @@ function runBuildSteps(
               buildConfig?.builder === "dockerfile"
                 ? (buildConfig.buildArgs ?? undefined)
                 : undefined,
+            builderName: cacheBuilder,
+            cachePath,
             sink,
           });
         }
@@ -273,6 +284,8 @@ function runBuildSteps(
           imageRepository,
           sha: gitSha,
           config: buildConfig?.builder === "railpack" ? buildConfig : null,
+          builderName: cacheBuilder,
+          cachePath,
           sink,
         });
       })

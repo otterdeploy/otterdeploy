@@ -32,6 +32,7 @@ import { join } from "node:path";
 
 import type { BuildRailpackConfig } from "@otterdeploy/shared/build-config";
 
+import { builderFlags, cacheFlags } from "./buildx";
 import type { LogSink } from "./log-stream";
 import { applyPackageManager } from "./railpack-packagemanager";
 import { runProcess } from "./run-process";
@@ -59,6 +60,9 @@ export async function railpackBuild(opts: {
   imageRepository: string;
   sha: string;
   config: BuildRailpackConfig | null;
+  /** Cache builder name + local cache dir (best-effort; both or neither). */
+  builderName?: string | null;
+  cachePath?: string | null;
   sink: LogSink;
 }): Promise<{ shaTag: string; latestTag: string; buildDir: string }> {
   const shaTag = `${opts.imageRepository}:${opts.sha}`;
@@ -104,7 +108,15 @@ export async function railpackBuild(opts: {
   opts.sink.system(`building image ${shaTag} with railpack`);
   const built = await runProcess({
     cmd: "docker",
-    args: buildBuildxArgs({ planPath, shaTag, latestTag, buildDir, spaOutputDir }),
+    args: buildBuildxArgs({
+      planPath,
+      shaTag,
+      latestTag,
+      buildDir,
+      spaOutputDir,
+      builderName: opts.builderName,
+      cachePath: opts.cachePath,
+    }),
     env: spaOutputDir ? { RAILPACK_SPA_OUTPUT_DIR: spaOutputDir } : undefined,
     sink: opts.sink,
   });
@@ -274,10 +286,13 @@ function buildBuildxArgs(opts: {
   latestTag: string;
   buildDir: string;
   spaOutputDir: string | null;
+  builderName?: string | null;
+  cachePath?: string | null;
 }): string[] {
   return [
     "buildx",
     "build",
+    ...builderFlags(opts.builderName),
     "--build-arg",
     `BUILDKIT_SYNTAX=${RAILPACK_FRONTEND}`,
     ...(opts.spaOutputDir
@@ -290,6 +305,7 @@ function buildBuildxArgs(opts: {
     opts.shaTag,
     "-t",
     opts.latestTag,
+    ...cacheFlags(opts.builderName, opts.cachePath),
     opts.buildDir,
   ];
 }

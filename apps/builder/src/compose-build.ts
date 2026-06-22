@@ -34,6 +34,7 @@ import type {
 import { Result } from "better-result";
 import { eq } from "drizzle-orm";
 
+import { ensureBuildxBuilder, cachePathFor } from "./buildx";
 import { cloneRepoAtSha } from "./clone";
 import { dockerPush } from "./docker-push";
 import { dockerfileBuild, resolveDockerfileBuild } from "./dockerfile";
@@ -233,6 +234,10 @@ async function runComposeBuild(
       );
     }
 
+    // Best-effort persistent layer cache, shared across this stack's services
+    // (each keyed by its own image repo below). Null → no cache, default build.
+    const cacheBuilder = await ensureBuildxBuilder(sink);
+
     // Build each `build:` service to its own image; image-only services pass
     // through untouched.
     const builtImages: Record<string, string> = {};
@@ -240,6 +245,7 @@ async function runComposeBuild(
       if (!svc.build) continue;
       const subdir = svc.build.context.replace(/^\.\//, "").replace(/\/$/, "");
       const repoBase = `${ctx.imageRepository}-${svc.name}`.toLowerCase();
+      const cachePath = cacheBuilder ? cachePathFor(repoBase) : null;
 
       const image = yield* await Result.tryPromise({
         try: () => {
@@ -259,6 +265,8 @@ async function runComposeBuild(
               relativePath: resolution.relativePath,
               imageRepository: repoBase,
               sha: gitSha,
+              builderName: cacheBuilder,
+              cachePath,
               sink,
             });
           }
@@ -268,6 +276,8 @@ async function runComposeBuild(
             imageRepository: repoBase,
             sha: gitSha,
             config: null,
+            builderName: cacheBuilder,
+            cachePath,
             sink,
           });
         },

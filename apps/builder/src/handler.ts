@@ -19,10 +19,13 @@
  */
 
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 
 import type { DeploymentId } from "@otterdeploy/shared/id";
 
 import { env } from "@otterdeploy/env/server";
+import { DATA_ROOT } from "@otterdeploy/shared/paths";
 import { defineJob } from "@otterdeploy/jobs";
 import { DeployTriggeredPayload, deployTriggeredJob } from "@otterdeploy/jobs/jobs/deploy";
 
@@ -30,7 +33,9 @@ import { markFailed } from "./state";
 
 /** Env keys forwarded by name into the helper container (`docker run -e KEY`
  *  passes the worker's current value). Only those actually set are forwarded —
- *  the rest fall back to the env schema's defaults inside the helper. */
+ *  the rest fall back to the env schema's defaults inside the helper.
+ *  OTTERDEPLOY_DATA_DIR rides along so the helper resolves the SAME DATA_ROOT as
+ *  the host — the buildx cache path + bind mount below must agree. */
 const FORWARDED_ENV = [
   "DATABASE_URL",
   "DATABASE_PROVISIONER_URL",
@@ -42,7 +47,13 @@ const FORWARDED_ENV = [
   "RESEND_FROM_EMAIL",
   "PUBLIC_WEB_URL",
   "NODE_ENV",
+  "OTTERDEPLOY_DATA_DIR",
 ] as const;
+
+/** Host dir holding the persistent BuildKit layer cache + buildx instance state
+ *  (see buildx.ts). Bind-mounted into each helper at the same path so the cache
+ *  survives the `--rm`, and shared by every build on this host. */
+const CACHE_ROOT = join(DATA_ROOT, "buildx-cache");
 
 interface HelperResult {
   exitCode: number;
@@ -58,6 +69,21 @@ function runHelperContainer(deploymentId: DeploymentId): Promise<HelperResult> {
     (key) => process.env[key] !== undefined,
   ).flatMap((key) => ["-e", key]);
 
+  // Persist the BuildKit layer cache + the buildx instance registration across
+  // these throwaway containers, but only when the data folder is actually
+  // present (prod / data-folder hosts). The bind source resolves on the HOST
+  // daemon (docker-out-of-docker), so the path must exist on the host — which,
+  // for the compose builder service, means DATA_ROOT is mounted into it too.
+  // Absent (dev) → no flags → builds run with no persistent cache, unchanged.
+  const cacheFlags = existsSync(DATA_ROOT)
+    ? [
+        "-v",
+        `${CACHE_ROOT}:${CACHE_ROOT}`,
+        "-e",
+        `BUILDX_CONFIG=${join(CACHE_ROOT, ".buildx-state")}`,
+      ]
+    : [];
+
   const args = [
     "run",
     "--rm",
@@ -69,6 +95,7 @@ function runHelperContainer(deploymentId: DeploymentId): Promise<HelperResult> {
     // to the host daemon through this socket — same one the worker uses.
     "-v",
     "/var/run/docker.sock:/var/run/docker.sock",
+    ...cacheFlags,
     ...envFlags,
     env.BUILDER_HELPER_IMAGE,
     "bun",

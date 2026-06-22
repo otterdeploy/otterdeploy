@@ -248,4 +248,47 @@ describe("dockerfileBuildArgs", () => {
       "--build-arg",
     );
   });
+
+  const cacheBase = {
+    dockerfilePath: "/work/Dockerfile",
+    contextDir: "/work",
+    shaTag: "repo:sha",
+    latestTag: "repo:latest",
+  };
+
+  test("adds --builder + local cache flags when a cache builder is set", () => {
+    const args = dockerfileBuildArgs({
+      ...cacheBase,
+      builderName: "otterdeploy-cache",
+      cachePath: "/data/otterdeploy/buildx-cache/repo",
+    });
+    // --builder comes right after `buildx build`
+    expect(args.slice(0, 4)).toEqual([
+      "buildx",
+      "build",
+      "--builder",
+      "otterdeploy-cache",
+    ]);
+    expect(args).toContain("--cache-from");
+    expect(args).toContain("type=local,src=/data/otterdeploy/buildx-cache/repo");
+    expect(args).toContain("--cache-to");
+    expect(args).toContain(
+      "type=local,dest=/data/otterdeploy/buildx-cache/repo,mode=max",
+    );
+    // context dir stays last
+    expect(args[args.length - 1]).toBe("/work");
+  });
+
+  test("emits NO cache/builder flags without a builder (default driver)", () => {
+    // The default docker driver rejects cache export — flags must be absent.
+    const noBuilder = dockerfileBuildArgs({
+      ...cacheBase,
+      cachePath: "/data/otterdeploy/buildx-cache/repo",
+    });
+    expect(noBuilder).not.toContain("--builder");
+    expect(noBuilder).not.toContain("--cache-from");
+    expect(noBuilder).not.toContain("--cache-to");
+    // byte-identical to the no-cache-args form
+    expect(noBuilder).toEqual(dockerfileBuildArgs(cacheBase));
+  });
 });
