@@ -166,6 +166,50 @@ const redisValueResultSchema = z.object({
     .nullable(),
 });
 
+// ── MariaDB / MySQL (relational, read-only table browser) ───────────────────
+// Like Postgres but with no free-text console: list tables, then page a table's
+// rows. Every statement is server-built, so it's read-only by construction.
+
+const mariadbTablesInput = z.object({ resourceId: resourceIdField });
+
+const mariadbBrowseInput = z.object({
+  resourceId: resourceIdField,
+  schema: z.string().min(1).max(255),
+  table: z.string().min(1).max(255),
+  limit: z.number().int().positive().max(1000).default(100),
+  offset: z.number().int().min(0).default(0),
+});
+
+const mariadbGridSchema = z.object({
+  columns: z.array(z.string()),
+  rows: z.array(z.array(z.string().nullable())),
+  // Another page exists (fetched limit + 1).
+  hasMore: z.boolean(),
+});
+
+// ── MongoDB (document store, read-only browser) ─────────────────────────────
+
+const mongoCollectionsInput = z.object({ resourceId: resourceIdField });
+
+const mongoCollectionsResultSchema = z.object({
+  collections: z.array(
+    z.object({ name: z.string(), count: z.number() }),
+  ),
+});
+
+const mongoDocumentsInput = z.object({
+  resourceId: resourceIdField,
+  collection: z.string().min(1).max(255),
+  limit: z.number().int().positive().max(500).default(50),
+  skip: z.number().int().min(0).default(0),
+});
+
+const mongoDocumentsResultSchema = z.object({
+  // Each document as a pretty Extended-JSON string.
+  docs: z.array(z.string()),
+  hasMore: z.boolean(),
+});
+
 export const databaseContract = {
   // List user tables in the database (excludes catalog/system schemas).
   tables: oc
@@ -217,4 +261,34 @@ export const databaseContract = {
     .meta({ path: `${basePath}/{resourceId}/redis/value`, tag, method: "POST" })
     .input(redisValueInput)
     .output(redisValueResultSchema),
+
+  // ── MariaDB ──────────────────────────────────────────────────────────────
+  // List user tables.
+  mariadbTables: oc
+    .errors(notDatabase)
+    .meta({ path: `${basePath}/{resourceId}/mariadb/tables`, tag, method: "GET" })
+    .input(mariadbTablesInput)
+    .output(tablesResultSchema),
+
+  // Page through a table's rows.
+  mariadbRows: oc
+    .errors(notDatabase)
+    .meta({ path: `${basePath}/{resourceId}/mariadb/rows`, tag, method: "GET" })
+    .input(mariadbBrowseInput)
+    .output(mariadbGridSchema),
+
+  // ── MongoDB ──────────────────────────────────────────────────────────────
+  // List collections with estimated counts.
+  mongoCollections: oc
+    .errors(notDatabase)
+    .meta({ path: `${basePath}/{resourceId}/mongo/collections`, tag, method: "GET" })
+    .input(mongoCollectionsInput)
+    .output(mongoCollectionsResultSchema),
+
+  // Page through a collection's documents.
+  mongoDocuments: oc
+    .errors(notDatabase)
+    .meta({ path: `${basePath}/{resourceId}/mongo/documents`, tag, method: "GET" })
+    .input(mongoDocumentsInput)
+    .output(mongoDocumentsResultSchema),
 };

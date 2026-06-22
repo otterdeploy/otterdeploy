@@ -35,6 +35,8 @@ import type { PostgresBodyProps } from "./types";
 
 import { UnsupportedDataViewer } from "@/features/resources/components/_shared/data/unsupported-data-viewer";
 import { RedisDataTabBody } from "@/features/resources/components/redis/tabs/data";
+import { MariadbDataTabBody } from "@/features/resources/components/mariadb/tabs/data";
+import { MongoDataTabBody } from "@/features/resources/components/mongo/tabs/data";
 import { DataTabBody } from "./tabs/data";
 import { PostgresSettingsBody } from "./tabs/settings";
 import { PostgresVariablesTabBody } from "./tabs/variables";
@@ -246,6 +248,10 @@ export function RealResourcePanel({
                     <DataTabBody resource={resource} />
                   ) : resource.engine === "redis" ? (
                     <RedisDataTabBody resource={resource} />
+                  ) : resource.engine === "mariadb" ? (
+                    <MariadbDataTabBody resource={resource} />
+                  ) : resource.engine === "mongodb" ? (
+                    <MongoDataTabBody resource={resource} />
                   ) : (
                     <UnsupportedDataViewer engine={resource.engine} />
                   )}
