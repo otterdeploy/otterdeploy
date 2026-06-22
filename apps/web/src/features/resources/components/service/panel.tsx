@@ -263,6 +263,7 @@ export function ServiceResourcePanel({
                     resourceId={resource.resourceId}
                     orgSlug={orgSlug}
                     projectSlug={projectSlug}
+                    canRollback
                   />
                 </TabsContent>
               )}

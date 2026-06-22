@@ -37,7 +37,14 @@ export interface DeploymentRow {
   id: DeploymentId;
   resourceId: ResourceId;
   image: string;
-  reason: "create" | "redeploy" | "env-change" | "image-change" | "restart";
+  reason:
+    | "create"
+    | "redeploy"
+    | "env-change"
+    | "image-change"
+    | "restart"
+    | "git-push"
+    | "rollback";
   status:
     | "pending"
     | "building"
@@ -281,6 +288,26 @@ export async function getLatestDeploymentForResource(
     .from(deployment)
     .where(eq(deployment.resourceId, resourceId))
     .orderBy(desc(deployment.createdAt))
+    .limit(1);
+  return (row as DeploymentRow | undefined) ?? null;
+}
+
+/** Load one deployment by id, scoped to its resource. Returns null when the
+ *  row is missing or belongs to a different resource — the scope guard keeps
+ *  rollback from replaying another resource's image. */
+export async function getResourceDeploymentById(
+  resourceId: ResourceId,
+  deploymentId: DeploymentId,
+): Promise<DeploymentRow | null> {
+  const [row] = await db
+    .select()
+    .from(deployment)
+    .where(
+      and(
+        eq(deployment.id, deploymentId),
+        eq(deployment.resourceId, resourceId),
+      ),
+    )
     .limit(1);
   return (row as DeploymentRow | undefined) ?? null;
 }

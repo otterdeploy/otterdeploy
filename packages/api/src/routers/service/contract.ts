@@ -221,6 +221,13 @@ const getServiceInput = z.object({
   resourceId: resourceIdField,
 });
 
+const rollbackServiceInput = z.object({
+  projectId: projectIdField,
+  resourceId: resourceIdField,
+  /** The prior deployment whose image to roll back to. */
+  deploymentId: z.string(),
+});
+
 // `service.build` returns just the id of the pending deployment row it
 // enqueued — the UI watches it via the Deployments tab / SSE log stream.
 const buildServiceOutput = z.object({
@@ -359,6 +366,24 @@ export const serviceContract = {
     })
     .meta({ path: `${basePath}/{resourceId}/restart`, tag, method: "POST" })
     .input(getServiceInput)
+    .output(serviceSchema),
+
+  // Roll a service back to a prior deployment's image (image-only — current
+  // env/config is kept). Records a new reason="rollback" deployment.
+  rollback: oc
+    .errors({
+      NOT_FOUND: sharedErrors.NOT_FOUND,
+      NOT_ROLLBACKABLE: {
+        status: 400,
+        message: "This deployment can't be rolled back to" as const,
+      },
+    })
+    .meta({
+      path: `${basePath}/{resourceId}/rollback/{deploymentId}`,
+      tag,
+      method: "POST",
+    })
+    .input(rollbackServiceInput)
     .output(serviceSchema),
 
   // Trigger a build for a git-sourced service from the current head of its

@@ -57,6 +57,23 @@ export class ServiceInUseError extends TaggedError("ServiceInUseError")<{
 }
 
 /**
+ * The deployment a rollback targets can't be rolled back to — it's still
+ * building/failed (no live image), or its image is a `pending:` placeholder
+ * from a build that never produced an artifact.
+ */
+export class NotRollbackableError extends TaggedError("NotRollbackableError")<{
+  message: string;
+  resourceId: ResourceId;
+}>() {
+  constructor(args: { resourceId: ResourceId; reason: string }) {
+    super({
+      resourceId: args.resourceId,
+      message: `deployment can't be rolled back to: ${args.reason}`,
+    });
+  }
+}
+
+/**
  * Raised when creating a git-sourced service in a project that hasn't had
  * its git binding (gitRepoId + containerRegistryId + imageRepository) set
  * up yet. The wizard surface this as "configure source in Settings first".

@@ -1,4 +1,4 @@
-import type { ProxyRouteId } from "@otterdeploy/shared/id";
+import type { DeploymentId, ProxyRouteId } from "@otterdeploy/shared/id";
 import { matchError } from "better-result";
 import { createError } from "evlog";
 
@@ -25,6 +25,7 @@ import {
   listEnv,
   listServices,
   restartService,
+  rollbackService,
   setEnv,
   unexposeService,
   unsetEnv,
@@ -174,6 +175,34 @@ export const serviceRouter = {
       throw matchError(result.error, {
         ProjectNotFoundError: () => errors.NOT_FOUND(),
         ServiceNotFoundError: () => errors.NOT_FOUND(),
+        RefMissingResourceError: (e) => new Error(e.message),
+        RefCycleError: (e) => new Error(e.message),
+        RefParseError: (e) => new Error(e.message),
+        RefUnknownVarError: (e) => new Error(e.message),
+      });
+    }
+    return result.value;
+  }),
+
+  rollback: projectScopedProcedure.service.rollback.handler(async ({ input, context, errors }) => {
+    context.log.set({
+      target: { type: "resource", id: input.resourceId, projectId: input.projectId },
+      rollbackToDeploymentId: input.deploymentId,
+    });
+    const result = await rollbackService(
+      {
+        projectId: input.projectId,
+        resourceId: input.resourceId,
+        organizationId: context.activeOrganizationId,
+        deploymentId: input.deploymentId as DeploymentId,
+      },
+      context.log,
+    );
+    if (result.isErr()) {
+      throw matchError(result.error, {
+        ProjectNotFoundError: () => errors.NOT_FOUND(),
+        ServiceNotFoundError: () => errors.NOT_FOUND(),
+        NotRollbackableError: (e) => errors.NOT_ROLLBACKABLE({ message: e.message }),
         RefMissingResourceError: (e) => new Error(e.message),
         RefCycleError: (e) => new Error(e.message),
         RefParseError: (e) => new Error(e.message),

@@ -6,12 +6,20 @@
  * Returns `Result<View, TaggedError>` so the oRPC handler layer can switch
  * on `result.error._tag` to translate to the right wire-level error code.
  */
-import type { ResourceId } from "@otterdeploy/shared/id";
+import type { DeploymentId, ResourceId } from "@otterdeploy/shared/id";
 
+import { db } from "@otterdeploy/db";
+import { deployment, serviceResource } from "@otterdeploy/db/schema/project";
 import { Result } from "better-result";
+import { eq } from "drizzle-orm";
 import type { RequestLogger } from "evlog";
 
 import type { ProjectNotFoundError } from "../project/errors";
+import {
+  getResourceDeploymentById,
+  insertDeployment,
+  markDeploymentFailed,
+} from "../project/deployments";
 
 import { reconcile } from "../../caddy";
 import {
@@ -28,7 +36,7 @@ import { resolvePublicDomain } from "../../lib/domains";
 import { runtime } from "../../runtime";
 
 import { loadProject, loadResource } from "./context";
-import { MissingProjectBuildBindingError, NoHttpPortError, ServiceConflictError, ServiceInUseError, ServiceNotFoundError, type ResolveError } from "./errors";
+import { MissingProjectBuildBindingError, NoHttpPortError, NotRollbackableError, ServiceConflictError, ServiceInUseError, ServiceNotFoundError, type ResolveError } from "./errors";
 import {
   type CreateServiceInput,
   type ProjectRef,
@@ -233,6 +241,83 @@ export async function restartService(
     log,
   );
   if (redeployed.isErr()) return Result.err(redeployed.error);
+
+  return getService(input);
+}
+
+/**
+ * Roll a service back to a prior deployment's image. Image-only: it re-points
+ * `serviceResource.image` at the target deployment's tag and re-rolls — the
+ * service's current env/config/secrets are kept (you want the old code with
+ * today's config, not an old env that may reference deleted resources). The
+ * roll is recorded as a new `reason:"rollback"` deployment so it shows in
+ * history and can itself be rolled back. The target must be a settled deploy
+ * with a real (non-`pending:`) image.
+ */
+export async function rollbackService(
+  input: ResourceRef & { deploymentId: DeploymentId },
+  log: RequestLogger,
+): Promise<Result<ServiceView, RedeployFailure | NotRollbackableError>> {
+  const ctx = await loadResource(input);
+  if (ctx.isErr()) return Result.err(ctx.error);
+
+  const target = await getResourceDeploymentById(
+    input.resourceId,
+    input.deploymentId,
+  );
+  if (!target) {
+    return Result.err(new ServiceNotFoundError({ resourceId: input.resourceId }));
+  }
+  if (target.status !== "running" && target.status !== "superseded") {
+    return Result.err(
+      new NotRollbackableError({
+        resourceId: input.resourceId,
+        reason: `deployment is ${target.status}, not a settled successful deploy`,
+      }),
+    );
+  }
+  if (!target.image || target.image.startsWith("pending:")) {
+    return Result.err(
+      new NotRollbackableError({
+        resourceId: input.resourceId,
+        reason: "deployment has no built image",
+      }),
+    );
+  }
+
+  const previousImage = ctx.value.record.service.image;
+  // Pin by the target's tag; clear the digest (the deployment row stores no
+  // digest, and the tag still resolves the rolled-back image).
+  await db
+    .update(serviceResource)
+    .set({ image: target.image, imageDigest: null })
+    .where(eq(serviceResource.resourceId, input.resourceId));
+
+  const row = await insertDeployment({
+    resourceId: input.resourceId,
+    image: target.image,
+    reason: "rollback",
+    snapshot: {
+      rolledBackToDeploymentId: target.id,
+      previousImage,
+    },
+  });
+
+  const redeployed = await redeployAndFanOut(
+    input.projectId,
+    input.resourceId,
+    ctx.value.project.slug,
+    log,
+  );
+  if (redeployed.isErr()) {
+    await markDeploymentFailed(row.id, redeployed.error.message);
+    return Result.err(redeployed.error);
+  }
+
+  await db
+    .update(deployment)
+    .set({ status: "running", completedAt: new Date() })
+    .where(eq(deployment.id, row.id));
 
   return getService(input);
 }

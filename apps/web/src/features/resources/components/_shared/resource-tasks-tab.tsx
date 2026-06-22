@@ -7,15 +7,19 @@
  */
 
 import { and, eq, useLiveQuery } from "@tanstack/react-db";
+import { useMutation } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   ContainerIcon,
   MoreHorizontalCircle01Icon,
   PlayIcon,
+  RotateLeft01Icon,
 } from "@hugeicons/core-free-icons";
+import { toast } from "sonner";
 
 import { deploymentsCollection } from "@/features/resources/data/deployments";
+import { orpc } from "@/shared/server/orpc";
 import { Button } from "@/shared/components/ui/button";
 import {
   DropdownMenu,
@@ -37,7 +41,14 @@ interface DeploymentInfo {
   id: string;
   resourceId: string;
   image: string;
-  reason: "create" | "redeploy" | "env-change" | "image-change" | "restart";
+  reason:
+    | "create"
+    | "redeploy"
+    | "env-change"
+    | "image-change"
+    | "restart"
+    | "git-push"
+    | "rollback";
   status:
     | "pending"
     | "building"
@@ -59,6 +70,9 @@ interface ResourceTasksTabProps {
   resourceId: string;
   orgSlug: string;
   projectSlug: string;
+  /** Services support one-click image rollback from a past deployment; other
+   *  resource kinds (databases, compose) don't. Off by default. */
+  canRollback?: boolean;
 }
 
 export function ResourceTasksTab({
@@ -66,6 +80,7 @@ export function ResourceTasksTab({
   resourceId,
   orgSlug,
   projectSlug,
+  canRollback = false,
 }: ResourceTasksTabProps) {
   const { data: deployments, status } = useLiveQuery(
     (q) =>
@@ -140,7 +155,9 @@ export function ResourceTasksTab({
                   deployment={d}
                   orgSlug={orgSlug}
                   projectSlug={projectSlug}
+                  projectId={projectId}
                   resourceId={resourceId}
+                  canRollback={canRollback}
                 />
               ))}
             </div>
@@ -227,12 +244,16 @@ function HistoryRow({
   deployment,
   orgSlug,
   projectSlug,
+  projectId,
   resourceId,
+  canRollback,
 }: {
   deployment: DeploymentInfo;
   orgSlug: string;
   projectSlug: string;
+  projectId: string;
   resourceId: string;
+  canRollback: boolean;
 }) {
   return (
     <div className="group grid grid-cols-[100px_1fr_120px_160px_32px] items-center gap-3 px-3 py-2 text-left hover:bg-muted/20">
@@ -259,27 +280,59 @@ function HistoryRow({
         </span>
       </Link>
       <HistoryRowMenu
-        deploymentId={deployment.id}
+        deployment={deployment}
         orgSlug={orgSlug}
         projectSlug={projectSlug}
+        projectId={projectId}
         resourceId={resourceId}
+        canRollback={canRollback}
       />
     </div>
   );
 }
 
+/** A past deployment can be rolled back to when it's a settled successful
+ *  deploy with a real built image (not a `pending:` placeholder). */
+function isRollbackable(d: DeploymentInfo): boolean {
+  return (
+    (d.status === "running" || d.status === "superseded") &&
+    !!d.image &&
+    !d.image.startsWith("pending:")
+  );
+}
+
 function HistoryRowMenu({
-  deploymentId,
+  deployment,
   orgSlug,
   projectSlug,
+  projectId,
   resourceId,
+  canRollback,
 }: {
-  deploymentId: string;
+  deployment: DeploymentInfo;
   orgSlug: string;
   projectSlug: string;
+  projectId: string;
   resourceId: string;
+  canRollback: boolean;
 }) {
   const navigate = useNavigate();
+  const deploymentId = deployment.id;
+
+  // Re-points the service at this deployment's image and re-rolls. The live
+  // deployments collection picks up the new rollback row on its next sync.
+  const rollbackMut = useMutation({
+    ...orpc.service.rollback.mutationOptions(),
+    onSuccess: () =>
+      toast.success("Rolling back", {
+        description: `Re-deploying ${deployment.image}. Track it above.`,
+      }),
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : "Failed to roll back"),
+  });
+
+  const showRollback = canRollback && isRollbackable(deployment);
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -300,7 +353,7 @@ function HistoryRowMenu({
           className="size-3.5"
         />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-40">
+      <DropdownMenuContent align="end" className="w-44">
         <DropdownMenuItem
           onSelect={() =>
             navigate({
@@ -317,6 +370,28 @@ function HistoryRowMenu({
           <HugeiconsIcon icon={PlayIcon} strokeWidth={2} className="size-3.5" />
           View logs
         </DropdownMenuItem>
+        {showRollback && (
+          <DropdownMenuItem
+            disabled={rollbackMut.isPending}
+            onSelect={() => {
+              if (
+                !window.confirm(
+                  `Roll back to ${deployment.image}? This re-deploys the old image with the service's current config.`,
+                )
+              ) {
+                return;
+              }
+              rollbackMut.mutate({ projectId, resourceId, deploymentId });
+            }}
+          >
+            <HugeiconsIcon
+              icon={RotateLeft01Icon}
+              strokeWidth={2}
+              className="size-3.5"
+            />
+            {rollbackMut.isPending ? "Rolling back…" : "Roll back to this"}
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

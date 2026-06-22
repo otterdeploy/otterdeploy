@@ -549,6 +549,7 @@ export const deploymentReasonEnum = pgEnum("deployment_reason", [
   "image-change",
   "restart",
   "git-push",
+  "rollback",
 ]);
 
 export const deployment = pgTable(
