@@ -1,14 +1,17 @@
 # Host data folder — `/data/otterdeploy`
 
-Status: **proposed** (not built). Owner: platform.
+Status: **partially built.** Phases 1 (foundation), 2 (builds), and 4 (DR escape
+hatch) are done; 3 (backups staging) and 5 (orphan sweep) remain. Owner: platform.
 
 A single, predictable host directory for the artifacts the platform *generates* —
 build clones, backup dumps, a disaster-recovery escape hatch, db init material —
-keyed by `resourceId`, with a guarded teardown. Today we have **no such folder**:
-the builder clones to an ephemeral `mkdtemp(tmpdir(), "otterbuild-")`
-(`apps/builder/src/clone.ts`), and everything else is Postgres + the Docker/Swarm
-API. This doc proposes adding one and says exactly what does (and does **not**)
-belong in it.
+keyed by `resourceId`, with a guarded teardown. The path helper lives in
+`packages/shared/src/paths.ts` (`DATA_ROOT`, default `/data/otterdeploy`, override
+`OTTERDEPLOY_DATA_DIR`) and the guarded `fs` ops in `packages/api/src/lib/data-dir.ts`.
+The builder clones to `<DATA_ROOT>/builds/<deploymentId>` (falling back to an
+ephemeral `mkdtemp` when the folder isn't writable), and a layer cache lives under
+`<DATA_ROOT>/buildx-cache/`. Everything else is still Postgres + the Docker/Swarm
+API. This doc says exactly what does (and does **not**) belong in the folder.
 
 ## Why — and why it's NOT load-bearing for us
 
@@ -133,12 +136,20 @@ of any world-readable mount or backup that isn't itself encrypted.
 
 ## Phases
 
-1. **Foundation** — `paths.ts` helper + guarded `removeResourceDir` + wire it into
-   the existing delete paths (no-op when the folder doesn't exist yet).
-2. **Builds** — point the builder at `buildDir(deploymentId)`; add a TTL sweep for
-   crashed builds.
-3. **Backups** — stage dumps under `backupDir(id)`.
-4. **DR escape hatch** — persist `manifest.export` output to `projectDir` on apply.
+1. ✅ **Foundation** — `paths.ts` helper + guarded `removeResourceDir` /
+   `removeProjectDir` (`lib/data-dir.ts`), wired into the delete paths
+   (`compose/index.ts`, `queries/resource.ts`, `deleteProject`). No-op when the
+   folder isn't writable.
+2. ✅ **Builds** — builder clones to `buildDir(deploymentId)` with a `mkdtemp`
+   fallback (`clone.ts`); `pruneStaleBuilds` TTL sweep (`build-workdir.ts`);
+   layer cache under `buildx-cache/` (`buildx.ts`).
+3. **Backups** — stage dumps under `backupDir(id)`. *(Helper exists; backups still
+   stage elsewhere — not yet wired.)*
+4. ✅ **DR escape hatch** — on every successful `applyManifest`,
+   `writeProjectEscapeHatch` (`lib/escape-hatch.ts`) renders the project's current
+   rows to `projects/<projectId>/compose.yml` + `otterdeploy.json` (best-effort,
+   `0600`, never blocks the apply); `removeProjectDir` drops it on project delete.
+   **DR/audit only — never `up`'d by the platform.**
 5. **Orphan sweep** — periodic reconcile of `resources/*`/`builds/*` against the DB.
 
 ## Deferred / non-goals

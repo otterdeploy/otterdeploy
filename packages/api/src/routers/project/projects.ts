@@ -20,6 +20,7 @@ import {
 } from "@otterdeploy/db/schema";
 
 import { reconcile } from "../../caddy";
+import { removeProjectDir } from "../../lib/data-dir";
 import { destroySwarmPostgres } from "../../runtime/db";
 
 import { ProjectConflictError, ProjectInvalidBindingError, ProjectNotFoundError } from "./errors";
@@ -206,7 +207,7 @@ export async function saveProjectGraphLayout(
   if (!record) {
     return Result.err(new ProjectNotFoundError({ projectId: input.projectId }));
   }
-  const merged = { ...(record.graphLayout ?? {}), ...input.positions };
+  const merged = { ...record.graphLayout, ...input.positions };
   await setProjectGraphLayout({
     projectId: input.projectId,
     organizationId: input.organizationId,
@@ -305,6 +306,10 @@ export async function deleteProject(
 
   // 3. Refresh Caddy so removed proxy routes drop out of the live config.
   await reconcile(log);
+
+  // 4. Drop the project's DR escape-hatch dir (rendered compose + snapshot).
+  //    Guarded + best-effort; no-op when the data folder isn't in use.
+  await removeProjectDir(input.id);
 
   log.set({
     teardown: {

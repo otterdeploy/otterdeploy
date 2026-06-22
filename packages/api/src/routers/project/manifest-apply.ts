@@ -29,6 +29,7 @@ import { and, eq } from "drizzle-orm";
 import { Result } from "better-result";
 import type { RequestLogger } from "evlog";
 
+import { writeProjectEscapeHatch } from "../../lib/escape-hatch";
 import { db } from "@otterdeploy/db";
 import {
   databaseResource,
@@ -343,6 +344,11 @@ export async function applyManifest(input: ApplyInput): Promise<ApplyResult> {
     .update(project)
     .set({ lastAppliedManifest: manifest, lastManifestAppliedAt: new Date() })
     .where(and(eq(project.id, projectId), eq(project.organizationId, organizationId)));
+
+  // Refresh the project's DR escape hatch (rendered compose + JSON snapshot)
+  // from the now-current rows. Best-effort — it never throws, never blocks the
+  // apply result, and no-ops when the data folder isn't writable.
+  await writeProjectEscapeHatch(projectId);
 
   return {
     appliedCount,

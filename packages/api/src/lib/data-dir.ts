@@ -10,8 +10,8 @@
 import { mkdir, rm } from "node:fs/promises";
 import { resolve, sep } from "node:path";
 
-import type { ResourceId } from "@otterdeploy/shared/id";
-import { DATA_ROOT, resourceDir } from "@otterdeploy/shared/paths";
+import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import { DATA_ROOT, projectDir, resourceDir } from "@otterdeploy/shared/paths";
 
 let availability: Promise<boolean> | null = null;
 
@@ -21,7 +21,7 @@ let availability: Promise<boolean> | null = null;
  * `/data` isn't writable, so callers can guard a write/cleanup without a
  * try/catch and the whole feature gracefully no-ops in dev.
  */
-function dataRootAvailable(): Promise<boolean> {
+export function dataRootAvailable(): Promise<boolean> {
   availability ??= mkdir(DATA_ROOT, { recursive: true, mode: 0o700 })
     .then(() => true)
     .catch(() => false);
@@ -37,6 +37,19 @@ function dataRootAvailable(): Promise<boolean> {
 export async function removeResourceDir(id: ResourceId): Promise<void> {
   if (!(await dataRootAvailable())) return;
   const dir = resolve(resourceDir(id));
+  const root = resolve(DATA_ROOT);
+  if (!dir.startsWith(root + sep) || !dir.endsWith(id)) return;
+  await rm(dir, { recursive: true, force: true }).catch(() => undefined);
+}
+
+/**
+ * Remove a project's escape-hatch dir (`projects/<projectId>/`) on delete. Same
+ * `endsWith(id)` + inside-`DATA_ROOT` guard as {@link removeResourceDir}.
+ * Best-effort: never throws, so it can't fail a project teardown.
+ */
+export async function removeProjectDir(id: ProjectId): Promise<void> {
+  if (!(await dataRootAvailable())) return;
+  const dir = resolve(projectDir(id));
   const root = resolve(DATA_ROOT);
   if (!dir.startsWith(root + sep) || !dir.endsWith(id)) return;
   await rm(dir, { recursive: true, force: true }).catch(() => undefined);
