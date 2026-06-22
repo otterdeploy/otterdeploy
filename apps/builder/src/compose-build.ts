@@ -77,14 +77,16 @@ async function loadComposeBuildContext(
     .from(deployment)
     .where(eq(deployment.id, deploymentId))
     .limit(1);
-  if (!dep) throw new PipelineLoadError("deployment", `${deploymentId} missing`);
+  if (!dep)
+    throw new PipelineLoadError("deployment", `${deploymentId} missing`);
 
   const [res] = await db
     .select()
     .from(resource)
     .where(eq(resource.id, dep.resourceId))
     .limit(1);
-  if (!res) throw new PipelineLoadError("resource", `${dep.resourceId} missing`);
+  if (!res)
+    throw new PipelineLoadError("resource", `${dep.resourceId} missing`);
 
   const [comp] = await db
     .select()
@@ -92,7 +94,10 @@ async function loadComposeBuildContext(
     .where(eq(composeResource.resourceId, res.id))
     .limit(1);
   if (!comp) {
-    throw new PipelineLoadError("compose", `compose_resource ${res.id} missing`);
+    throw new PipelineLoadError(
+      "compose",
+      `compose_resource ${res.id} missing`,
+    );
   }
 
   const [proj] = await db
@@ -104,7 +109,10 @@ async function loadComposeBuildContext(
 
   // Compose brings its OWN repo url (public clone, anonymous).
   if (!comp.gitRepoUrl) {
-    throw new PipelineLoadError("compose.gitRepoUrl", `${comp.resourceId} has no repo url`);
+    throw new PipelineLoadError(
+      "compose.gitRepoUrl",
+      `${comp.resourceId} has no repo url`,
+    );
   }
 
   let registry: typeof containerRegistry.$inferSelect | null = null;
@@ -138,24 +146,22 @@ async function runComposeBuild(
   opts: { deploymentId: DeploymentId },
   sink: LogSink,
   work: { path: string | null },
-): Promise<Result<string, PipelineLoadError | BuildStepError | InvalidDeploymentError>> {
+): Promise<
+  Result<string, PipelineLoadError | BuildStepError | InvalidDeploymentError>
+> {
   return Result.gen(async function* () {
-    const ctx = yield* (
-      await Result.tryPromise({
-        try: () => loadComposeBuildContext(opts.deploymentId),
-        catch: (cause): PipelineLoadError | BuildStepError =>
-          cause instanceof PipelineLoadError
-            ? cause
-            : new BuildStepError({ step: "load", cause }),
-      })
-    );
+    const ctx = yield* await Result.tryPromise({
+      try: () => loadComposeBuildContext(opts.deploymentId),
+      catch: (cause) =>
+        cause instanceof PipelineLoadError
+          ? cause
+          : new BuildStepError({ step: "load", cause }),
+    });
 
-    yield* (
-      await Result.tryPromise({
-        try: () => markBuilding(opts.deploymentId),
-        catch: (cause) => new BuildStepError({ step: "mark-building", cause }),
-      })
-    );
+    yield* await Result.tryPromise({
+      try: () => markBuilding(opts.deploymentId),
+      catch: (cause) => new BuildStepError({ step: "mark-building", cause }),
+    });
 
     const { gitSha, gitRef } = ctx.deployment;
     if (!gitSha || !gitRef) {
@@ -164,28 +170,28 @@ async function runComposeBuild(
 
     let installationToken = "";
     if (ctx.installationId) {
-      const minted = yield* (
-        await Result.tryPromise({
-          try: () => getInstallationToken(ctx.installationId as string),
-          catch: (cause) => new BuildStepError({ step: "token", cause }),
-        })
-      );
+      const minted = yield* await Result.tryPromise({
+        try: () => getInstallationToken(ctx.installationId as string),
+        catch: (cause) => new BuildStepError({ step: "token", cause }),
+      });
       installationToken = minted.token;
     }
 
-    const cloned = yield* (
-      await Result.tryPromise({
-        try: () =>
-          cloneRepoAtSha({
-            cloneUrl: ctx.cloneUrl,
-            ref: gitRef,
-            sha: gitSha,
-            installationToken,
-            sink,
-          }),
-        catch: (cause) => new BuildStepError({ step: "clone", cause }),
-      })
-    );
+    const cloned = yield* await Result.tryPromise({
+      try: () =>
+        cloneRepoAtSha({
+          cloneUrl: ctx.cloneUrl,
+          ref: gitRef,
+          sha: gitSha,
+          deploymentId: opts.deploymentId,
+          installationToken,
+          // Compose stacks bind a public repo URL (installationId is always
+          // null), so clone failures stay generic.
+          bindingKind: "public_url",
+          sink,
+        }),
+      catch: (cause) => new BuildStepError({ step: "clone", cause }),
+    });
     work.path = cloned.workDir;
 
     // Resolve the compose file: the explicit path if set, else the common
@@ -212,12 +218,10 @@ async function runComposeBuild(
       );
     }
     sink.system(`using compose file: ${join(subdir, found)}`);
-    const content = yield* (
-      await Result.tryPromise({
-        try: () => readFile(join(cloned.workDir, subdir, found), "utf8"),
-        catch: (cause) => new BuildStepError({ step: "read-compose", cause }),
-      })
-    );
+    const content = yield* await Result.tryPromise({
+      try: () => readFile(join(cloned.workDir, subdir, found), "utf8"),
+      catch: (cause) => new BuildStepError({ step: "read-compose", cause }),
+    });
 
     const parsed = parseCompose(content);
     if (parsed.isErr()) {
@@ -237,66 +241,60 @@ async function runComposeBuild(
       const subdir = svc.build.context.replace(/^\.\//, "").replace(/\/$/, "");
       const repoBase = `${ctx.imageRepository}-${svc.name}`.toLowerCase();
 
-      const image = yield* (
-        await Result.tryPromise({
-          try: () => {
-            const resolution = resolveDockerfileBuild({
-              builder: "auto",
-              dockerfilePath: svc.build?.dockerfile ?? null,
+      const image = yield* await Result.tryPromise({
+        try: () => {
+          const resolution = resolveDockerfileBuild({
+            builder: "auto",
+            dockerfilePath: svc.build?.dockerfile ?? null,
+            workDir: cloned.workDir,
+            sourceSubdir: subdir || null,
+          });
+          for (const w of resolution.warnings) sink.system(w);
+          if (resolution.kind === "dockerfile") {
+            return dockerfileBuild({
               workDir: cloned.workDir,
               sourceSubdir: subdir || null,
-            });
-            for (const w of resolution.warnings) sink.system(w);
-            if (resolution.kind === "dockerfile") {
-              return dockerfileBuild({
-                workDir: cloned.workDir,
-                sourceSubdir: subdir || null,
-                dockerfilePath: resolution.dockerfilePath,
-                contextDir: resolution.contextDir,
-                relativePath: resolution.relativePath,
-                imageRepository: repoBase,
-                sha: gitSha,
-                sink,
-              });
-            }
-            return railpackBuild({
-              workDir: cloned.workDir,
-              sourceSubdir: subdir || null,
+              dockerfilePath: resolution.dockerfilePath,
+              contextDir: resolution.contextDir,
+              relativePath: resolution.relativePath,
               imageRepository: repoBase,
               sha: gitSha,
-              config: null,
               sink,
             });
-          },
-          catch: (cause) =>
-            new BuildStepError({ step: `build:${svc.name}`, cause }),
-        })
-      );
+          }
+          return railpackBuild({
+            workDir: cloned.workDir,
+            sourceSubdir: subdir || null,
+            imageRepository: repoBase,
+            sha: gitSha,
+            config: null,
+            sink,
+          });
+        },
+        catch: (cause) =>
+          new BuildStepError({ step: `build:${svc.name}`, cause }),
+      });
 
       if (ctx.registry) {
-        const password = yield* (
-          await Result.tryPromise({
-            try: () => decryptSecret(ctx.registry!.encryptedPassword),
-            catch: (cause) =>
-              new BuildStepError({ step: "decrypt-registry", cause }),
-          })
-        );
-        yield* (
-          await Result.tryPromise({
-            try: () =>
-              dockerPush({
-                tags: [image.shaTag, image.latestTag],
-                credentials: {
-                  host: ctx.registry!.host,
-                  username: ctx.registry!.username,
-                  password,
-                },
-                sink,
-              }),
-            catch: (cause) =>
-              new BuildStepError({ step: `push:${svc.name}`, cause }),
-          })
-        );
+        const password = yield* await Result.tryPromise({
+          try: () => decryptSecret(ctx.registry!.encryptedPassword),
+          catch: (cause) =>
+            new BuildStepError({ step: "decrypt-registry", cause }),
+        });
+        yield* await Result.tryPromise({
+          try: () =>
+            dockerPush({
+              tags: [image.shaTag, image.latestTag],
+              credentials: {
+                host: ctx.registry!.host,
+                username: ctx.registry!.username,
+                password,
+              },
+              sink,
+            }),
+          catch: (cause) =>
+            new BuildStepError({ step: `push:${svc.name}`, cause }),
+        });
       } else {
         sink.system(`local build — skipping push for ${image.shaTag}`);
       }
@@ -306,55 +304,47 @@ async function runComposeBuild(
 
     // Persist the fetched file, summary, and built tags so the api deploy reads
     // a complete, image-resolved stack.
-    yield* (
-      await Result.tryPromise({
-        try: () =>
-          db
-            .update(composeResource)
-            .set({
-              composeContent: content,
-              services: summarizeCompose(parsed.value),
-              builtImages,
-            })
-            .where(eq(composeResource.resourceId, ctx.resource.id as ResourceId)),
-        catch: (cause) => new BuildStepError({ step: "set-compose", cause }),
-      })
-    );
+    yield* await Result.tryPromise({
+      try: () =>
+        db
+          .update(composeResource)
+          .set({
+            composeContent: content,
+            services: summarizeCompose(parsed.value),
+            builtImages,
+          })
+          .where(eq(composeResource.resourceId, ctx.resource.id as ResourceId)),
+      catch: (cause) => new BuildStepError({ step: "set-compose", cause }),
+    });
 
-    yield* (
-      await Result.tryPromise({
-        try: () => markImageReady(opts.deploymentId, ctx.compose.stackName),
-        catch: (cause) => new BuildStepError({ step: "image-ready", cause }),
-      })
-    );
+    yield* await Result.tryPromise({
+      try: () => markImageReady(opts.deploymentId, ctx.compose.stackName),
+      catch: (cause) => new BuildStepError({ step: "image-ready", cause }),
+    });
 
     // Apply the stack against THIS deployment row (ownsDeployment=false →
     // deployCompose won't open a second deployment or flip status; the build
     // worker's mark-running does that).
-    yield* (
-      await Result.tryPromise({
-        try: async () => {
-          const r = await deployCompose(
-            {
-              projectId: ctx.project.id as ProjectId,
-              resourceId: ctx.resource.id as ResourceId,
-              deploymentId: opts.deploymentId,
-            },
-            "redeploy",
-          );
-          if (r.isErr()) throw new Error(r.error.message);
-          return r.value;
-        },
-        catch: (cause) => new BuildStepError({ step: "deploy", cause }),
-      })
-    );
+    yield* await Result.tryPromise({
+      try: async () => {
+        const r = await deployCompose(
+          {
+            projectId: ctx.project.id as ProjectId,
+            resourceId: ctx.resource.id as ResourceId,
+            deploymentId: opts.deploymentId,
+          },
+          "redeploy",
+        );
+        if (r.isErr()) throw new Error(r.error.message);
+        return r.value;
+      },
+      catch: (cause) => new BuildStepError({ step: "deploy", cause }),
+    });
 
-    yield* (
-      await Result.tryPromise({
-        try: () => markRunning(opts.deploymentId),
-        catch: (cause) => new BuildStepError({ step: "mark-running", cause }),
-      })
-    );
+    yield* await Result.tryPromise({
+      try: () => markRunning(opts.deploymentId),
+      catch: (cause) => new BuildStepError({ step: "mark-running", cause }),
+    });
 
     return Result.ok(ctx.compose.stackName);
   });

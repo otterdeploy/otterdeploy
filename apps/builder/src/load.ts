@@ -55,7 +55,7 @@ class PipelineLoadError extends TaggedError("PipelineLoadError")<{
   }
 }
 
-async function loadPipelineContext(
+export async function loadPipelineContext(
   deploymentId: DeploymentId,
 ): Promise<PipelineContext> {
   const [dep] = await db
@@ -63,14 +63,16 @@ async function loadPipelineContext(
     .from(deployment)
     .where(eq(deployment.id, deploymentId))
     .limit(1);
-  if (!dep) throw new PipelineLoadError("deployment", `${deploymentId} not found`);
+  if (!dep)
+    throw new PipelineLoadError("deployment", `${deploymentId} not found`);
 
   const [res] = await db
     .select()
     .from(resource)
     .where(eq(resource.id, dep.resourceId))
     .limit(1);
-  if (!res) throw new PipelineLoadError("resource", `${dep.resourceId} not found`);
+  if (!res)
+    throw new PipelineLoadError("resource", `${dep.resourceId} not found`);
   if (res.type !== "service") {
     throw new PipelineLoadError(
       "resource.type",
@@ -84,7 +86,10 @@ async function loadPipelineContext(
     .where(eq(serviceResource.resourceId, res.id))
     .limit(1);
   if (!svc) {
-    throw new PipelineLoadError("service", `service_resource for ${res.id} not found`);
+    throw new PipelineLoadError(
+      "service",
+      `service_resource for ${res.id} not found`,
+    );
   }
 
   const [proj] = await db
@@ -92,7 +97,8 @@ async function loadPipelineContext(
     .from(project)
     .where(eq(project.id, res.projectId))
     .limit(1);
-  if (!proj) throw new PipelineLoadError("project", `${res.projectId} not found`);
+  if (!proj)
+    throw new PipelineLoadError("project", `${res.projectId} not found`);
 
   if (!proj.gitRepoId) {
     throw new PipelineLoadError(

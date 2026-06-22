@@ -105,6 +105,21 @@ const buildAutoSchema = z.object({
 const buildDockerfileSchema = z.object({
   builder: z.literal("dockerfile"),
   dockerfilePath: z.string().nullable().optional(),
+  // Plain `--build-arg key=value` pairs (not secrets — they land in image
+  // history). Keys are validated to Docker's arg-name rule so a bad name fails
+  // at save time, not opaquely at `docker build`.
+  buildArgs: z
+    .record(
+      z
+        .string()
+        .regex(
+          /^[A-Za-z_][A-Za-z0-9_]*$/,
+          "build-arg name must start with a letter or underscore and contain only letters, digits, and underscores",
+        ),
+      z.string(),
+    )
+    .nullable()
+    .optional(),
   watchPatterns,
 });
 

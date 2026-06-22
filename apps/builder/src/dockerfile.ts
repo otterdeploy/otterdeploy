@@ -76,7 +76,7 @@ function isFile(path: string): boolean {
  * Throws (HARD) on a bad path only when `builder === "dockerfile"`; under
  * `auto` the same conditions warn + fall back to railpack.
  */
-function resolveDockerfileBuild(opts: {
+export function resolveDockerfileBuild(opts: {
   builder: Builder;
   dockerfilePath: string | null | undefined;
   workDir: string;
@@ -119,7 +119,9 @@ function resolveDockerfileBuild(opts: {
   }
 
   const resolvedPath = resolve(appDir, relativePath);
-  const escapesAppDir = relative(resolve(appDir), resolvedPath).startsWith("..");
+  const escapesAppDir = relative(resolve(appDir), resolvedPath).startsWith(
+    "..",
+  );
   if (escapesAppDir) {
     if (builder === "dockerfile") {
       throw new Error(
@@ -156,11 +158,11 @@ function resolveDockerfileBuild(opts: {
 
 /**
  * Build the `docker` argv for a Dockerfile build. PURE — no side effects — so
- * it's testable without invoking docker. `buildArgs` defaults to {} (empty):
- * we pass NO build-args today (parity with railpack); the loop is wired so a
- * future build-env channel only has to feed this map.
+ * it's testable without invoking docker. `buildArgs` is the service's
+ * configured Dockerfile build-args (`BuildDockerfileConfig.buildArgs`), emitted
+ * as `--build-arg key=value`; defaults to {} when none are set.
  */
-function dockerfileBuildArgs(opts: {
+export function dockerfileBuildArgs(opts: {
   dockerfilePath: string;
   contextDir: string;
   shaTag: string;
@@ -195,7 +197,7 @@ function dockerfileBuildArgs(opts: {
  * same shape. Throws a plain Error on a non-zero exit — the pipeline's `step()`
  * wrapper converts it to a tagged BuildStepError (same idiom as railpack.ts).
  */
-async function dockerfileBuild(opts: {
+export async function dockerfileBuild(opts: {
   workDir: string;
   sourceSubdir: string | null;
   dockerfilePath: string;
@@ -204,6 +206,8 @@ async function dockerfileBuild(opts: {
   /** Full image reference without tag, e.g. "ghcr.io/acme/web". */
   imageRepository: string;
   sha: string;
+  /** Configured `--build-arg`s from `BuildDockerfileConfig.buildArgs`. */
+  buildArgs?: Record<string, string>;
   sink: LogSink;
 }): Promise<{ shaTag: string; latestTag: string; buildDir: string }> {
   const shaTag = `${opts.imageRepository}:${opts.sha}`;
@@ -212,13 +216,12 @@ async function dockerfileBuild(opts: {
   opts.sink.system(`building image ${shaTag} from ${opts.relativePath}`);
   const built = await runProcess({
     cmd: "docker",
-    // No build-args today (parity with railpack); pass an empty map.
     args: dockerfileBuildArgs({
       dockerfilePath: opts.dockerfilePath,
       contextDir: opts.contextDir,
       shaTag,
       latestTag,
-      buildArgs: {},
+      buildArgs: opts.buildArgs ?? {},
     }),
     sink: opts.sink,
   });

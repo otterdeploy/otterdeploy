@@ -27,12 +27,13 @@
  * `:latest` tag.
  */
 
-import { access, readFile, writeFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import type { BuildRailpackConfig } from "@otterdeploy/shared/build-config";
 
 import type { LogSink } from "./log-stream";
+import { applyPackageManager } from "./railpack-packagemanager";
 import { runProcess } from "./run-process";
 
 /** Frontend image that executes the BuildKit plan. Pinned to an explicit tag
@@ -46,19 +47,11 @@ const RAILPACK_FRONTEND = "ghcr.io/railwayapp/railpack-frontend:v0.26.1";
  *  frameworks that emit elsewhere (e.g. CRA's `build`). */
 const DEFAULT_STATIC_ROOT = "dist";
 
-/** Lowest bun version we'll build with. bun 1.3.1 (and earlier 1.3.x) abort
- *  `bun install` on Linux ARM64 while building optional native deps
- *  (msgpackr-extract via node-gyp-build-optional-packages); 1.3.13 fixed it.
- *  A repo pinning an older bun is transparently bumped to this floor so the
- *  deploy doesn't fail on a known-broken upstream release. An explicit
- *  `config.packageManager` override always wins over this. */
-const MIN_BUN_VERSION = "1.3.13";
-
 /** Filename railpack writes its `--info-out` analysis to, inside the clone
  *  dir. Read by `detect-framework.ts` after `prepare`. */
 const RAILPACK_INFO_FILE = "railpack-info.json";
 
-async function railpackBuild(opts: {
+export async function railpackBuild(opts: {
   workDir: string;
   /** Service's repo subdirectory (monorepo); null/"" = repo root. */
   sourceSubdir: string | null;
@@ -71,98 +64,24 @@ async function railpackBuild(opts: {
   const shaTag = `${opts.imageRepository}:${opts.sha}`;
   const latestTag = `${opts.imageRepository}:latest`;
 
-  const subdir = opts.sourceSubdir?.trim() || null;
+  const layout = await resolveBuildLayout(opts);
+  const { buildDir, planPath, spaOutputDir } = layout;
 
-  // Monorepo workspaces: when the service lives in a subdirectory of a workspace
-  // repo (npm/yarn/bun `workspaces`, or pnpm-workspace.yaml), railpack MUST
-  // analyse and build from the repo ROOT — that's where the lockfile, the
-  // workspace catalog, and the sibling `packages/*` the app depends on live.
-  // Pointed at the subdir alone it misdetects the package manager (no
-  // lockfile / `packageManager` field there → falls back to npm) and the buildx
-  // context is missing every workspace dependency, so install dies (e.g.
-  // `npm error Unsupported URL Type "catalog:"`). Instead keep the root as the
-  // context and target the app via cd-wrapped build/start commands — Railpack's
-  // own recommended monorepo flow (https://railpack.com/languages/node).
-  //
-  // A subdir that is NOT inside a workspace (a self-contained app folder with
-  // its own lockfile) keeps building from the subdir, exactly as before — there
-  // railpack detects the framework + start command directly.
-  const isWorkspace = subdir ? await rootIsWorkspace(opts.workDir) : false;
-  const buildDir =
-    subdir && !isWorkspace ? join(opts.workDir, subdir) : opts.workDir;
-  const planPath = join(buildDir, "railpack-plan.json");
-  // railpack's `prepare` also emits a machine-readable analysis of what it
-  // detected (providers, node runtime/framework, resolved package versions).
-  // We ask for it via `--info-out` and read it back to capture the service's
-  // framework for the graph logo — no second invocation, no git-API call.
-  // Written next to the plan in the build dir; `detect-framework.ts` reads it
-  // back from this same dir before the pipeline removes the work tree.
-  const infoPath = join(buildDir, RAILPACK_INFO_FILE);
-
-  // SPA output dir is relative to the build context. For a workspace build the
-  // context is the repo root, so the app's output sits under its subdir.
-  const staticRoot = opts.config?.spa
-    ? opts.config.staticRoot?.trim() || DEFAULT_STATIC_ROOT
-    : null;
-  const spaOutputDir = staticRoot
-    ? isWorkspace && subdir
-      ? `${subdir}/${staticRoot}`
-      : staticRoot
-    : null;
-
-  // Non-workspace builds: pass the user's build command through unchanged and
-  // let railpack auto-detect the start command. Workspace builds: derive both
-  // from the app's own package.json and run them inside its subdir (node
-  // resolves the hoisted root node_modules) — railpack analysing the root finds
-  // no start script and would fail `--error-missing-start`.
-  let buildCmd = opts.config?.buildCommand?.trim() || null;
-  let startCmd: string | null = null;
-  if (isWorkspace && subdir) {
-    const appPkg = await readJson<{ scripts?: Record<string, string> }>(
-      join(opts.workDir, subdir, "package.json"),
-    );
-    const scripts = appPkg?.scripts ?? {};
-    const pmRun = await detectPackageManagerRun(opts.workDir);
-    const rawBuild = buildCmd ?? (scripts.build ? `${pmRun} run build` : null);
-    buildCmd = rawBuild ? `cd ${subdir} && ${rawBuild}` : null;
-    // SPA images are served by Caddy and need no start command. Otherwise wrap
-    // the app's own start script so the container boots the right workspace app.
-    if (!spaOutputDir && scripts.start) {
-      startCmd = `cd ${subdir} && ${pmRun} run start`;
-    }
-    opts.sink.system(
-      `monorepo workspace build: context=repo root, app="${subdir}"` +
-        (buildCmd ? `, build="${buildCmd}"` : "") +
-        (startCmd ? `, start="${startCmd}"` : ""),
-    );
-  }
+  const { buildCmd, startCmd } = await resolveBuildCommands({
+    workDir: opts.workDir,
+    layout,
+    configBuildCommand: opts.config?.buildCommand ?? null,
+    sink: opts.sink,
+  });
 
   opts.sink.system(`preparing railpack plan for ${shaTag}`);
-  const prepareArgs = [
-    "prepare",
-    buildDir,
-    "--plan-out",
-    planPath,
-    "--info-out",
-    infoPath,
-    // Fail the build LOUDLY at analysis time when railpack can't find a way to
-    // start the app, instead of emitting a runnable-less image that builds fine
-    // but exits on boot — surfacing only as an opaque "swarm convergence failed"
-    // much later. railpack prints an actionable message (add a `start` script,
-    // a `main` field, or set RAILPACK_SPA_OUTPUT_DIR for a static site).
-    "--error-missing-start",
-  ];
-  if (buildCmd) prepareArgs.push("--build-cmd", buildCmd);
-  if (startCmd) prepareArgs.push("--start-cmd", startCmd);
-  // Static SPA: railpack emits a Caddy image serving the built assets with
-  // history fallback when RAILPACK_SPA_OUTPUT_DIR names the build output dir.
-  // It's read at prepare time, so it has to ride on the `prepare` invocation.
-  if (spaOutputDir) {
-    prepareArgs.push("--env", `RAILPACK_SPA_OUTPUT_DIR=${spaOutputDir}`);
-    opts.sink.system(
-      `SPA mode: serving "${spaOutputDir}" via Caddy with history fallback`,
-    );
-  }
+  const prepareArgs = buildPrepareArgs({
+    layout,
+    buildCmd,
+    startCmd,
+    sink: opts.sink,
+  });
+
   // Package-manager pinning: rewrite the repo's `packageManager` field before
   // railpack reads it. This is the one lever that works across every manager —
   // bun resolves its version from `packageManager` via mise, while pnpm/yarn/
@@ -185,23 +104,7 @@ async function railpackBuild(opts: {
   opts.sink.system(`building image ${shaTag} with railpack`);
   const built = await runProcess({
     cmd: "docker",
-    args: [
-      "buildx",
-      "build",
-      "--build-arg",
-      `BUILDKIT_SYNTAX=${RAILPACK_FRONTEND}`,
-      ...(spaOutputDir
-        ? ["--secret", "id=RAILPACK_SPA_OUTPUT_DIR,env=RAILPACK_SPA_OUTPUT_DIR"]
-        : []),
-      "-f",
-      planPath,
-      "--load",
-      "-t",
-      shaTag,
-      "-t",
-      latestTag,
-      buildDir,
-    ],
+    args: buildBuildxArgs({ planPath, shaTag, latestTag, buildDir, spaOutputDir }),
     env: spaOutputDir ? { RAILPACK_SPA_OUTPUT_DIR: spaOutputDir } : undefined,
     sink: opts.sink,
   });
@@ -210,6 +113,185 @@ async function railpackBuild(opts: {
   }
 
   return { shaTag, latestTag, buildDir };
+}
+
+interface BuildLayout {
+  /** Service subdir (monorepo), or null when building from the repo root. */
+  subdir: string | null;
+  /** Repo root declares a package workspace — a subdir service builds from root. */
+  isWorkspace: boolean;
+  /** Build context dir passed to railpack/buildx. */
+  buildDir: string;
+  /** Where railpack writes the BuildKit plan. */
+  planPath: string;
+  /** Where railpack writes its `--info-out` analysis (read by detect-framework). */
+  infoPath: string;
+  /** SPA output dir relative to the build context, or null for a non-SPA build. */
+  spaOutputDir: string | null;
+}
+
+/**
+ * Resolve where (and how) railpack builds from the checked-out tree.
+ *
+ * Monorepo workspaces: when the service lives in a subdirectory of a workspace
+ * repo (npm/yarn/bun `workspaces`, or pnpm-workspace.yaml), railpack MUST
+ * analyse and build from the repo ROOT — that's where the lockfile, the
+ * workspace catalog, and the sibling `packages/*` the app depends on live.
+ * Pointed at the subdir alone it misdetects the package manager (no lockfile /
+ * `packageManager` field there → falls back to npm) and the buildx context is
+ * missing every workspace dependency, so install dies (e.g. `npm error
+ * Unsupported URL Type "catalog:"`). We keep the root as the context and target
+ * the app via cd-wrapped build/start commands (see `resolveBuildCommands`) —
+ * Railpack's own recommended monorepo flow (https://railpack.com/languages/node).
+ *
+ * A subdir NOT inside a workspace (a self-contained app folder with its own
+ * lockfile) keeps building from the subdir, exactly as before.
+ *
+ * `infoPath` is railpack's `--info-out` analysis (providers, runtime/framework,
+ * resolved versions) written next to the plan; `detect-framework.ts` reads it
+ * back from the build dir before the pipeline removes the work tree.
+ */
+async function resolveBuildLayout(opts: {
+  workDir: string;
+  sourceSubdir: string | null;
+  config: BuildRailpackConfig | null;
+}): Promise<BuildLayout> {
+  const subdir = opts.sourceSubdir?.trim() || null;
+  const isWorkspace = subdir ? await rootIsWorkspace(opts.workDir) : false;
+  const buildDir =
+    subdir && !isWorkspace ? join(opts.workDir, subdir) : opts.workDir;
+
+  // SPA output dir is relative to the build context. For a workspace build the
+  // context is the repo root, so the app's output sits under its subdir.
+  const staticRoot = opts.config?.spa
+    ? opts.config.staticRoot?.trim() || DEFAULT_STATIC_ROOT
+    : null;
+  const spaOutputDir = staticRoot
+    ? isWorkspace && subdir
+      ? `${subdir}/${staticRoot}`
+      : staticRoot
+    : null;
+
+  return {
+    subdir,
+    isWorkspace,
+    buildDir,
+    planPath: join(buildDir, "railpack-plan.json"),
+    infoPath: join(buildDir, RAILPACK_INFO_FILE),
+    spaOutputDir,
+  };
+}
+
+/**
+ * Derive the build/start commands for the railpack `prepare` step.
+ *
+ * Non-workspace builds: pass the user's build command through unchanged and let
+ * railpack auto-detect the start command. Workspace builds: derive both from the
+ * app's own package.json and run them inside its subdir (node resolves the
+ * hoisted root node_modules) — railpack analysing the root finds no start script
+ * and would fail `--error-missing-start`.
+ */
+async function resolveBuildCommands(opts: {
+  workDir: string;
+  layout: BuildLayout;
+  configBuildCommand: string | null;
+  sink: LogSink;
+}): Promise<{ buildCmd: string | null; startCmd: string | null }> {
+  const { subdir, isWorkspace, spaOutputDir } = opts.layout;
+  const configBuild = opts.configBuildCommand?.trim() || null;
+
+  if (!isWorkspace || !subdir) {
+    return { buildCmd: configBuild, startCmd: null };
+  }
+
+  const appPkg = await readJson<{ scripts?: Record<string, string> }>(
+    join(opts.workDir, subdir, "package.json"),
+  );
+  const scripts = appPkg?.scripts ?? {};
+  const pmRun = await detectPackageManagerRun(opts.workDir);
+
+  const rawBuild = configBuild ?? (scripts.build ? `${pmRun} run build` : null);
+  const buildCmd = rawBuild ? `cd ${subdir} && ${rawBuild}` : null;
+  // SPA images are served by Caddy and need no start command. Otherwise wrap the
+  // app's own start script so the container boots the right workspace app.
+  const startCmd =
+    !spaOutputDir && scripts.start ? `cd ${subdir} && ${pmRun} run start` : null;
+
+  opts.sink.system(
+    `monorepo workspace build: context=repo root, app="${subdir}"` +
+      (buildCmd ? `, build="${buildCmd}"` : "") +
+      (startCmd ? `, start="${startCmd}"` : ""),
+  );
+
+  return { buildCmd, startCmd };
+}
+
+/**
+ * Assemble the `railpack prepare` args. `--error-missing-start` fails the build
+ * LOUDLY at analysis time when railpack can't find a way to start the app,
+ * instead of emitting a runnable-less image that builds fine but exits on boot
+ * (surfacing only as an opaque "swarm convergence failed" much later — railpack
+ * instead prints an actionable message: add a `start` script, a `main` field, or
+ * set RAILPACK_SPA_OUTPUT_DIR for a static site). A static SPA rides on the
+ * `--env RAILPACK_SPA_OUTPUT_DIR` flag, which railpack reads at prepare time.
+ */
+function buildPrepareArgs(opts: {
+  layout: BuildLayout;
+  buildCmd: string | null;
+  startCmd: string | null;
+  sink: LogSink;
+}): string[] {
+  const { buildDir, planPath, infoPath, spaOutputDir } = opts.layout;
+  const args = [
+    "prepare",
+    buildDir,
+    "--plan-out",
+    planPath,
+    "--info-out",
+    infoPath,
+    "--error-missing-start",
+  ];
+  if (opts.buildCmd) args.push("--build-cmd", opts.buildCmd);
+  if (opts.startCmd) args.push("--start-cmd", opts.startCmd);
+  if (spaOutputDir) {
+    args.push("--env", `RAILPACK_SPA_OUTPUT_DIR=${spaOutputDir}`);
+    opts.sink.system(
+      `SPA mode: serving "${spaOutputDir}" via Caddy with history fallback`,
+    );
+  }
+  return args;
+}
+
+/**
+ * Assemble the `docker buildx build` args: execute the railpack plan through the
+ * pinned BuildKit frontend, `--load` the result into the local daemon, and tag
+ * both `:<sha>` and `:latest`. A static SPA additionally forwards the output dir
+ * as a build secret so the plan can resolve `RAILPACK_SPA_OUTPUT_DIR`.
+ */
+function buildBuildxArgs(opts: {
+  planPath: string;
+  shaTag: string;
+  latestTag: string;
+  buildDir: string;
+  spaOutputDir: string | null;
+}): string[] {
+  return [
+    "buildx",
+    "build",
+    "--build-arg",
+    `BUILDKIT_SYNTAX=${RAILPACK_FRONTEND}`,
+    ...(opts.spaOutputDir
+      ? ["--secret", "id=RAILPACK_SPA_OUTPUT_DIR,env=RAILPACK_SPA_OUTPUT_DIR"]
+      : []),
+    "-f",
+    opts.planPath,
+    "--load",
+    "-t",
+    opts.shaTag,
+    "-t",
+    opts.latestTag,
+    opts.buildDir,
+  ];
 }
 
 /** Read + JSON.parse a file, returning null on any error (missing/malformed). */
@@ -243,7 +325,8 @@ async function rootIsWorkspace(workDir: string): Promise<boolean> {
   if (
     ws &&
     typeof ws === "object" &&
-    Array.isArray((ws as { packages?: unknown }).packages)
+    "packages" in ws &&
+    Array.isArray(ws.packages)
   ) {
     return true;
   }
@@ -275,90 +358,4 @@ async function detectPackageManagerRun(workDir: string): Promise<string> {
   if (await fileExists(join(workDir, "pnpm-lock.yaml"))) return "pnpm run";
   if (await fileExists(join(workDir, "yarn.lock"))) return "yarn run";
   return "npm run";
-}
-
-/**
- * Rewrite the repo's `packageManager` field so railpack/Corepack install a
- * known-good toolchain instead of whatever the repo declared. Rewrites the
- * `package.json` in the build dir — the one railpack actually reads (the
- * service's subdir for a monorepo, else the clone root).
- *
- * Resolution (see `resolvePackageManager`):
- *   1. explicit `override` (UI / manifest) always wins — the escape hatch.
- *   2. else auto-bump a bun pin below MIN_BUN_VERSION to the floor.
- *   3. else leave the repo's field untouched.
- *
- * No-ops when nothing needs changing or there's no `package.json` there. The
- * clone is an ephemeral tmpfs dir, so this never touches the user's repo.
- */
-async function applyPackageManager(
-  buildDir: string,
-  override: string | null | undefined,
-  sink: LogSink,
-): Promise<void> {
-  const pkgPath = join(buildDir, "package.json");
-  let raw: string;
-  try {
-    raw = await readFile(pkgPath, "utf8");
-  } catch {
-    const explicit = override?.trim();
-    if (explicit) {
-      sink.system(
-        `packageManager override "${explicit}" skipped — no root package.json`,
-      );
-    }
-    return;
-  }
-
-  const pkg = JSON.parse(raw) as { packageManager?: string };
-  const previous = pkg.packageManager;
-  const pinned = resolvePackageManager(override, previous, sink);
-  if (!pinned || pinned === previous) return;
-
-  pkg.packageManager = pinned;
-  await writeFile(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
-  sink.system(`pinned packageManager ${previous ?? "(unset)"} → ${pinned}`);
-}
-
-/**
- * Decide the `packageManager` value to build with. Returns the new value, or
- * null to leave the repo's field as-is. See `applyPackageManager` for the order.
- */
-function resolvePackageManager(
-  override: string | null | undefined,
-  current: string | undefined,
-  sink: LogSink,
-): string | null {
-  const explicit = override?.trim();
-  if (explicit) return explicit;
-
-  // Auto-heal: only bun is known to ship a broken release we must dodge.
-  // `packageManager` is always `<name>@<version>(+<hash>)?`.
-  if (!current) return null;
-  const [name, versionSpec] = current.split("@");
-  if (name !== "bun" || !versionSpec) return null;
-
-  const version = versionSpec.split(/[+-]/)[0] ?? versionSpec;
-  if (compareVersions(version, MIN_BUN_VERSION) >= 0) return null;
-
-  sink.system(
-    `repo pins bun@${version} — below the supported floor; building with bun@${MIN_BUN_VERSION}`,
-  );
-  return `bun@${MIN_BUN_VERSION}`;
-}
-
-/** Compare dotted numeric versions (`1.3.1` vs `1.3.13`). Returns <0 / 0 / >0.
- *  Ignores any `+build` / `-prerelease` suffix — enough for the bun floor. */
-function compareVersions(a: string, b: string): number {
-  const parts = (v: string) =>
-    (v.split(/[+-]/)[0] ?? v)
-      .split(".")
-      .map((n) => Number.parseInt(n, 10) || 0);
-  const av = parts(a);
-  const bv = parts(b);
-  for (let i = 0; i < Math.max(av.length, bv.length); i++) {
-    const diff = (av[i] ?? 0) - (bv[i] ?? 0);
-    if (diff !== 0) return diff;
-  }
-  return 0;
 }

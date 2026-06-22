@@ -56,7 +56,7 @@ async function resolveWorkDir(
   }
 }
 
-async function cloneRepoAtSha(opts: {
+export async function cloneRepoAtSha(opts: {
   cloneUrl: string;
   ref: string;
   sha: string;
@@ -64,6 +64,10 @@ async function cloneRepoAtSha(opts: {
   deploymentId: DeploymentId;
   /** Empty string when cloning a public repo — no token to inject. */
   installationToken: string;
+  /** How the repo is bound. `github_app` cloning failures point the user at
+   *  reconnecting GitHub (a revoked/narrowed install fails the clone here);
+   *  `public_url` failures stay generic. Defaults to public_url. */
+  bindingKind?: "github_app" | "public_url";
   sink: LogSink;
 }): Promise<CloneResult> {
   const { path: workDir, persistent } = await resolveWorkDir(opts.deploymentId);
@@ -74,7 +78,9 @@ async function cloneRepoAtSha(opts: {
   // every empty stretch of output.
   const secrets = opts.installationToken ? [opts.installationToken] : [];
 
-  opts.sink.system(`cloning ${opts.cloneUrl} @ ${opts.ref} (${opts.sha.slice(0, 7)}) → ${workDir}`);
+  opts.sink.system(
+    `cloning ${opts.cloneUrl} @ ${opts.ref} (${opts.sha.slice(0, 7)}) → ${workDir}`,
+  );
 
   const clone = await runProcess({
     cmd: "git",
@@ -91,7 +97,16 @@ async function cloneRepoAtSha(opts: {
     secrets,
   });
   if (clone.exitCode !== 0) {
-    throw new Error(`git clone failed (exit ${clone.exitCode}): ${truncate(clone.tail, 500)}`);
+    const detail = truncate(clone.tail, 500);
+    if (opts.bindingKind === "github_app") {
+      // A live install whose token minted but whose repo access was narrowed or
+      // revoked fails right here — make the remedy explicit instead of leaking a
+      // raw "Authentication failed" / "Repository not found" from git.
+      throw new Error(
+        `git clone failed (exit ${clone.exitCode}) — the GitHub App installation may have lost access to this repository (removed or repo de-selected). Reconnect GitHub in Settings → Git. Details: ${detail}`,
+      );
+    }
+    throw new Error(`git clone failed (exit ${clone.exitCode}): ${detail}`);
   }
 
   // The pushed SHA may differ from the branch tip if another push landed
@@ -120,7 +135,9 @@ async function cloneRepoAtSha(opts: {
     secrets,
   });
   if (reset.exitCode !== 0) {
-    throw new Error(`git reset --hard ${opts.sha} failed (exit ${reset.exitCode}): ${truncate(reset.tail, 500)}`);
+    throw new Error(
+      `git reset --hard ${opts.sha} failed (exit ${reset.exitCode}): ${truncate(reset.tail, 500)}`,
+    );
   }
 
   return { workDir, persistent };

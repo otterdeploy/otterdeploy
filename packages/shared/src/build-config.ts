@@ -35,10 +35,16 @@ export interface BuildAutoConfig extends BuildCommon {
 }
 
 /** Build from a Dockerfile. `dockerfilePath` defaults to `./Dockerfile`
- *  (relative to `sourceSubdir` if set). */
+ *  (relative to `sourceSubdir` if set).
+ *
+ *  `buildArgs` are passed to `docker build` as `--build-arg key=value` — plain
+ *  build-time variables (NOT secrets: they land in the image history, same as
+ *  any `--build-arg`). Use them for non-sensitive build toggles; for secrets,
+ *  prefer runtime env on the service. Unset = no build-args. */
 export interface BuildDockerfileConfig extends BuildCommon {
   builder: "dockerfile";
   dockerfilePath?: string | null;
+  buildArgs?: Record<string, string> | null;
 }
 
 /** Railpack: zero-config builder. `buildCommand` overrides the detected

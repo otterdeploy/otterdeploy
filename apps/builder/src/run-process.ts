@@ -28,7 +28,7 @@ export interface RunResult {
   tail: string;
 }
 
-async function runProcess(opts: {
+export async function runProcess(opts: {
   cmd: string;
   args: string[];
   cwd?: string;
@@ -107,7 +107,9 @@ function pipeLines(
 }
 
 function maskCommand(cmd: string, args: string[], secrets?: string[]): string {
-  const joined = [cmd, ...args].map((a) => (a.includes(" ") ? `"${a}"` : a)).join(" ");
+  const joined = [cmd, ...args]
+    .map((a) => (a.includes(" ") ? `"${a}"` : a))
+    .join(" ");
   return maskSecrets(joined, secrets);
 }
 

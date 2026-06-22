@@ -170,11 +170,28 @@ function runBuildSteps(
     // Public-URL bindings carry no installationId — clone over anonymous
     // HTTPS. Installation-backed bindings mint a short-lived token + inject it.
     const installationId = ctx.repo.installationId;
+    const bindingKind = installationId ? "github_app" : "public_url";
     const imageRepository = ctx.imageRepository;
     let installationToken = "";
     if (installationId) {
+      // A fully revoked/suspended install fails the token mint (GitHub won't
+      // issue one) — reframe that to the same "reconnect GitHub" remedy the
+      // clone step gives for a narrowed install, so both paths read the same.
       const minted = yield* (
         await step("token", () => getInstallationToken(installationId))
+      ).mapError(
+        (err) =>
+          new BuildStepError({
+            step: "token",
+            // Use the underlying cause, not err.message — the latter already
+            // carries the `build step "token" failed:` prefix step() added, so
+            // reusing it would double the prefix.
+            cause: new Error(
+              `couldn't mint a GitHub token for this installation — it may have been removed or suspended; reconnect GitHub in Settings → Git (${
+                err.cause instanceof Error ? err.cause.message : String(err.cause)
+              })`,
+            ),
+          }),
       );
       installationToken = minted.token;
     }
@@ -187,6 +204,7 @@ function runBuildSteps(
           sha: gitSha,
           deploymentId: opts.deploymentId,
           installationToken,
+          bindingKind,
           sink,
         }),
       )
@@ -240,6 +258,12 @@ function runBuildSteps(
             relativePath: resolution.relativePath,
             imageRepository,
             sha: gitSha,
+            // Build-args only apply to the Dockerfile builder; an `auto` build
+            // that resolves to a Dockerfile carries none (none configurable).
+            buildArgs:
+              buildConfig?.builder === "dockerfile"
+                ? (buildConfig.buildArgs ?? undefined)
+                : undefined,
             sink,
           });
         }
@@ -257,12 +281,17 @@ function runBuildSteps(
     // Push only when the project binds an external registry (remote or
     // multi-node swarm needs to pull it). The default path keeps the image
     // local — it's already `--load`ed into the swarm node's daemon.
+    //
+    // The registry push is also where we learn the image's content digest
+    // (`repo@sha256:…`), captured for `serviceResource.imageDigest`. The
+    // local path has no registry digest, so it stays null.
     const registry = ctx.registry;
+    let imageDigest: string | null = null;
     if (registry) {
       const password = yield* (
         await step("decrypt-registry", () => decryptSecret(registry.encryptedPassword))
       );
-      yield* (
+      const pushed = yield* (
         await step("push", () =>
           dockerPush({
             tags: [image.shaTag, image.latestTag],
@@ -275,6 +304,7 @@ function runBuildSteps(
           }),
         )
       );
+      imageDigest = pushed.digest;
     } else {
       sink.system(`local build — skipping registry push for ${image.shaTag}`);
     }
@@ -297,16 +327,16 @@ function runBuildSteps(
     });
 
     // Point the service resource at the new image so the spec assembled by
-    // redeployOne carries the new tag. imageDigest is cleared — the builder
-    // doesn't capture it, and a stale digest would pin swarm to an older
-    // image than the tag points at (and the local-build path has no digest).
-    // `framework` rides along on the same write — it's a property of this
-    // build, captured above.
+    // redeployOne carries the new tag. `imageDigest` is the content digest
+    // captured from this build's registry push (`repo@sha256:…`), or null for
+    // the local path (no registry, no digest) — it always describes THIS build,
+    // never a stale prior one. `framework` rides along on the same write — also
+    // a property of this build, captured above.
     yield* (
       await step("set-image", () =>
         db
           .update(serviceResource)
-          .set({ image: image.shaTag, imageDigest: null, framework })
+          .set({ image: image.shaTag, imageDigest, framework })
           .where(eq(serviceResource.resourceId, ctx.resource.id as ResourceId)),
       )
     );

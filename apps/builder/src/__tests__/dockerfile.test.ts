@@ -217,4 +217,35 @@ describe("dockerfileBuildArgs", () => {
     const nodeIdx = args.indexOf("NODE_ENV=production");
     expect(args[nodeIdx - 1]).toBe("--build-arg");
   });
+
+  test("preserves values verbatim — equals signs, spaces, empty", () => {
+    const args = dockerfileBuildArgs({
+      dockerfilePath: "/work/Dockerfile",
+      contextDir: "/work",
+      shaTag: "repo:sha",
+      latestTag: "repo:latest",
+      // Values are passed as a single argv entry (no shell), so `=`, spaces,
+      // and empty values are safe — they reach docker exactly as typed.
+      buildArgs: { DSN: "a=b=c", FLAGS: "  --opt x  ", EMPTY: "" },
+    });
+    expect(args).toContain("DSN=a=b=c");
+    expect(args).toContain("FLAGS=  --opt x  ");
+    expect(args).toContain("EMPTY=");
+    // still one argv entry per build-arg, flag then K=V
+    const dsnIdx = args.indexOf("DSN=a=b=c");
+    expect(args[dsnIdx - 1]).toBe("--build-arg");
+  });
+
+  test("omits build-arg flags entirely for an empty / unset map", () => {
+    const base = {
+      dockerfilePath: "/work/Dockerfile",
+      contextDir: "/work",
+      shaTag: "repo:sha",
+      latestTag: "repo:latest",
+    };
+    expect(dockerfileBuildArgs(base)).not.toContain("--build-arg");
+    expect(dockerfileBuildArgs({ ...base, buildArgs: {} })).not.toContain(
+      "--build-arg",
+    );
+  });
 });

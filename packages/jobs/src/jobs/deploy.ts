@@ -3,12 +3,19 @@ import * as z from "zod";
 import { defineJob } from "../define";
 
 /**
- * Triggered when a git push arrives for a repo bound to a project.
+ * Triggered when a git push arrives for a repo bound to a project (also enqueued
+ * by manual rebuilds, manifest applies, and compose deploys).
  *
- * Phase 1: handler logs the payload only — the real build pipeline (clone,
- * docker build, registry push, swarm service update) lands in Phase 3+.
- * Deployment rows are still inserted by the webhook receiver so the UI
- * shows the queued deploy.
+ * The real work lives in `apps/builder/src/handler.ts` (`makeBuildJob`), which
+ * registers the `deploy.triggered` worker that OWNS the full pipeline — git
+ * clone @ sha → build (railpack/Dockerfile/compose) → push → swarm rollout —
+ * running each deployment in a throwaway docker container for isolation.
+ * `apps/server` deliberately excludes `deploy.triggered` from its in-process
+ * workers (it needs the railpack/docker toolchain), so the builder host runs it.
+ * The inline `handler` below is only a fallback acknowledgement for environments
+ * with no builder attached; the builder's worker supersedes it. Deployment rows
+ * are pre-inserted by the enqueuing caller so the UI shows the queued deploy
+ * before the build starts.
  */
 export const DeployTriggeredPayload = z.object({
   projectId: z.string().min(1),
