@@ -4,7 +4,7 @@
  */
 import { Result } from "better-result";
 
-import { projectScopedProcedure } from "../..";
+import { projectScopedProcedure, requirePermission } from "../..";
 import { fetchBranchHeadSha } from "../../git/github-app";
 import { parseCompose, summarizeCompose } from "../../stack/compose";
 import { upsertProjectEnvVar } from "../project/queries";
@@ -86,7 +86,9 @@ export const composeRouter = {
     },
   ),
 
-  create: projectScopedProcedure.compose.create.handler(
+  // A compose stack is a group of services, so it rides the `service`
+  // permissions (members create/redeploy, only admins/owners delete).
+  create: requirePermission({ service: ["create"] }).compose.create.handler(
     async ({ input, context, errors }) => {
       const project = await getProjectInOrg({
         projectId: input.projectId,
@@ -245,7 +247,7 @@ export const composeRouter = {
     },
   ),
 
-  redeploy: projectScopedProcedure.compose.redeploy.handler(
+  redeploy: requirePermission({ service: ["deploy"] }).compose.redeploy.handler(
     async ({ input, context, errors }) => {
       const rec = await getComposeRecord(input.projectId, input.resourceId);
       if (!rec) throw errors.NOT_FOUND();
@@ -287,7 +289,7 @@ export const composeRouter = {
     },
   ),
 
-  delete: projectScopedProcedure.compose.delete.handler(
+  delete: requirePermission({ service: ["delete"] }).compose.delete.handler(
     async ({ input, context, errors }) => {
       const rec = await getComposeRecord(input.projectId, input.resourceId);
       if (!rec) throw errors.NOT_FOUND();

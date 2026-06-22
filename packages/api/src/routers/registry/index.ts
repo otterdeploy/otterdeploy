@@ -5,7 +5,7 @@
  */
 
 import { isUniqueViolation } from "../project/views";
-import { orgScopedProcedure } from "../..";
+import { orgScopedProcedure, requirePermission } from "../..";
 
 import {
   canonicalizeHost,
@@ -22,7 +22,7 @@ export const registryRouter = {
     return listRegistriesForOrg(context.activeOrganizationId);
   }),
 
-  create: orgScopedProcedure.registry.create.handler(
+  create: requirePermission({ registry: ["create"] }).registry.create.handler(
     async ({ input, context, errors }) => {
       const host = canonicalizeHost(input.host);
       // Pre-check the uniqueness so we can return a typed 409 even when
@@ -54,7 +54,7 @@ export const registryRouter = {
     },
   ),
 
-  update: orgScopedProcedure.registry.update.handler(
+  update: requirePermission({ registry: ["update"] }).registry.update.handler(
     async ({ input, context, errors }) => {
       const existing = await getRegistryForOrg(
         context.activeOrganizationId,
@@ -80,7 +80,7 @@ export const registryRouter = {
     },
   ),
 
-  delete: orgScopedProcedure.registry.delete.handler(
+  delete: requirePermission({ registry: ["delete"] }).registry.delete.handler(
     async ({ input, context, errors }) => {
       const existing = await getRegistryForOrg(
         context.activeOrganizationId,

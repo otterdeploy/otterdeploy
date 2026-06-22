@@ -2,7 +2,7 @@ import type { DeploymentId, ProxyRouteId } from "@otterdeploy/shared/id";
 import { matchError } from "better-result";
 import { createError } from "evlog";
 
-import { projectScopedProcedure } from "../..";
+import { projectScopedProcedure, requirePermission } from "../..";
 
 import { enqueueGitBuild } from "../project/manifest-apply";
 
@@ -75,7 +75,7 @@ export const serviceRouter = {
     return result.value;
   }),
 
-  create: projectScopedProcedure.service.create.handler(async ({ input, context, errors }) => {
+  create: requirePermission({ service: ["create"] }).service.create.handler(async ({ input, context, errors }) => {
     context.log.set({
       target: { type: "resource", kind: "service", projectId: input.projectId },
     });
@@ -109,7 +109,7 @@ export const serviceRouter = {
     return result.value;
   }),
 
-  update: projectScopedProcedure.service.update.handler(async ({ input, context, errors }) => {
+  update: requirePermission({ service: ["update"] }).service.update.handler(async ({ input, context, errors }) => {
     context.log.set({
       target: { type: "resource", id: input.resourceId, projectId: input.projectId },
     });
@@ -135,7 +135,7 @@ export const serviceRouter = {
     return result.value;
   }),
 
-  delete: projectScopedProcedure.service.delete.handler(async ({ input, context, errors }) => {
+  delete: requirePermission({ service: ["delete"] }).service.delete.handler(async ({ input, context, errors }) => {
     context.log.set({
       target: { type: "resource", id: input.resourceId, projectId: input.projectId },
     });
@@ -157,7 +157,7 @@ export const serviceRouter = {
     return result.value;
   }),
 
-  restart: projectScopedProcedure.service.restart.handler(async ({ input, context, errors }) => {
+  restart: requirePermission({ service: ["deploy"] }).service.restart.handler(async ({ input, context, errors }) => {
     context.log.set({
       target: { type: "resource", id: input.resourceId, projectId: input.projectId },
     });
@@ -184,7 +184,7 @@ export const serviceRouter = {
     return result.value;
   }),
 
-  rollback: projectScopedProcedure.service.rollback.handler(async ({ input, context, errors }) => {
+  rollback: requirePermission({ service: ["deploy"] }).service.rollback.handler(async ({ input, context, errors }) => {
     context.log.set({
       target: { type: "resource", id: input.resourceId, projectId: input.projectId },
       rollbackToDeploymentId: input.deploymentId,
@@ -212,7 +212,7 @@ export const serviceRouter = {
     return result.value;
   }),
 
-  build: projectScopedProcedure.service.build.handler(async ({ input, context, errors }) => {
+  build: requirePermission({ service: ["deploy"] }).service.build.handler(async ({ input, context, errors }) => {
     context.log.set({
       target: { type: "resource", id: input.resourceId, projectId: input.projectId },
     });
@@ -249,7 +249,7 @@ export const serviceRouter = {
     return { deploymentId: enqueued.value.deploymentId };
   }),
 
-  expose: projectScopedProcedure.service.expose.handler(async ({ input, context, errors }) => {
+  expose: requirePermission({ service: ["update"] }).service.expose.handler(async ({ input, context, errors }) => {
     context.log.set({
       target: { type: "resource", id: input.resourceId, projectId: input.projectId },
     });
@@ -271,7 +271,7 @@ export const serviceRouter = {
     return result.value;
   }),
 
-  unexpose: projectScopedProcedure.service.unexpose.handler(async ({ input, context, errors }) => {
+  unexpose: requirePermission({ service: ["update"] }).service.unexpose.handler(async ({ input, context, errors }) => {
     context.log.set({
       target: { type: "resource", id: input.resourceId, projectId: input.projectId },
     });
@@ -311,7 +311,7 @@ export const serviceRouter = {
       return result.value;
     }),
 
-    set: projectScopedProcedure.service.env.set.handler(async ({ input, context, errors }) => {
+    set: requirePermission({ service: ["update"] }).service.env.set.handler(async ({ input, context, errors }) => {
       context.log.set({
         target: { type: "resource", id: input.resourceId, projectId: input.projectId },
       });
@@ -337,7 +337,7 @@ export const serviceRouter = {
       return result.value;
     }),
 
-    unset: projectScopedProcedure.service.env.unset.handler(async ({ input, context, errors }) => {
+    unset: requirePermission({ service: ["update"] }).service.env.unset.handler(async ({ input, context, errors }) => {
       context.log.set({
         target: { type: "resource", id: input.resourceId, projectId: input.projectId },
       });
@@ -363,7 +363,7 @@ export const serviceRouter = {
       return result.value;
     }),
 
-    bulkSet: projectScopedProcedure.service.env.bulkSet.handler(
+    bulkSet: requirePermission({ service: ["update"] }).service.env.bulkSet.handler(
       async ({ input, context, errors }) => {
         context.log.set({
           target: { type: "resource", id: input.resourceId, projectId: input.projectId },
@@ -413,7 +413,7 @@ export const serviceRouter = {
       },
     ),
 
-    add: projectScopedProcedure.service.domains.add.handler(
+    add: requirePermission({ service: ["update"] }).service.domains.add.handler(
       async ({ input, context, errors }) => {
         context.log.set({
           target: { type: "resource", id: input.resourceId, projectId: input.projectId },
@@ -439,7 +439,7 @@ export const serviceRouter = {
       },
     ),
 
-    update: projectScopedProcedure.service.domains.update.handler(
+    update: requirePermission({ service: ["update"] }).service.domains.update.handler(
       async ({ input, context, errors }) => {
         context.log.set({
           target: { type: "resource", id: input.resourceId, projectId: input.projectId },
@@ -466,7 +466,7 @@ export const serviceRouter = {
       },
     ),
 
-    recheck: projectScopedProcedure.service.domains.recheck.handler(
+    recheck: requirePermission({ service: ["update"] }).service.domains.recheck.handler(
       async ({ input, context, errors }) => {
         context.log.set({
           target: { type: "resource", id: input.resourceId, projectId: input.projectId },
@@ -491,7 +491,7 @@ export const serviceRouter = {
       },
     ),
 
-    setPrimary: projectScopedProcedure.service.domains.setPrimary.handler(
+    setPrimary: requirePermission({ service: ["update"] }).service.domains.setPrimary.handler(
       async ({ input, context, errors }) => {
         context.log.set({
           target: { type: "resource", id: input.resourceId, projectId: input.projectId },
@@ -516,7 +516,7 @@ export const serviceRouter = {
       },
     ),
 
-    remove: projectScopedProcedure.service.domains.remove.handler(
+    remove: requirePermission({ service: ["update"] }).service.domains.remove.handler(
       async ({ input, context, errors }) => {
         context.log.set({
           target: { type: "resource", id: input.resourceId, projectId: input.projectId },

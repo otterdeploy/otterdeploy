@@ -34,8 +34,14 @@ export const statements = {
   database: ["create", "read", "update", "delete", "query", "write"],
   backup: ["create", "read", "update", "delete", "run", "restore"],
   route: ["create", "read", "update", "delete"],
-  env: ["read", "update"],
+  // `env` covers both environments (the entity — create/delete) and their
+  // variables (read/update). Members manage env + vars; only admins/owners
+  // delete a whole environment.
+  env: ["create", "read", "update", "delete"],
   server: ["create", "read", "update", "delete"],
+  // Org-scoped container registries (image push/pull creds). Infra-level, like
+  // servers: members read (to bind a service), admins/owners manage.
+  registry: ["create", "read", "update", "delete"],
   firewall: ["read", "update"],
   notificationChannel: ["create", "read", "update", "delete", "test"],
   // Org-scoped API keys. The better-auth apiKey plugin resolves these same
@@ -58,8 +64,12 @@ export const member = ac.newRole({
   database: ["create", "read", "update", "query"],
   backup: ["create", "read", "run", "restore"],
   route: ["create", "read", "update"],
-  env: ["read", "update"],
+  // Members create environments + manage their variables, but can't delete a
+  // whole environment (destructive).
+  env: ["create", "read", "update"],
   server: ["read"],
+  // Read registries (to bind a service); managing them is admin/owner.
+  registry: ["read"],
   firewall: ["read"],
   notificationChannel: ["create", "read", "update", "test"],
   // Members can see the workspace's keys but not mint or revoke them.
@@ -76,8 +86,9 @@ export const admin = ac.newRole({
   database: ["create", "read", "update", "delete", "query", "write"],
   backup: ["create", "read", "update", "delete", "run", "restore"],
   route: ["create", "read", "update", "delete"],
-  env: ["read", "update"],
+  env: ["create", "read", "update", "delete"],
   server: ["create", "read", "update", "delete"],
+  registry: ["create", "read", "update", "delete"],
   firewall: ["read", "update"],
   notificationChannel: ["create", "read", "update", "delete", "test"],
   apiKey: ["create", "read", "update", "delete"],
@@ -92,8 +103,9 @@ export const owner = ac.newRole({
   database: ["create", "read", "update", "delete", "query", "write"],
   backup: ["create", "read", "update", "delete", "run", "restore"],
   route: ["create", "read", "update", "delete"],
-  env: ["read", "update"],
+  env: ["create", "read", "update", "delete"],
   server: ["create", "read", "update", "delete"],
+  registry: ["create", "read", "update", "delete"],
   firewall: ["read", "update"],
   notificationChannel: ["create", "read", "update", "delete", "test"],
   apiKey: ["create", "read", "update", "delete"],

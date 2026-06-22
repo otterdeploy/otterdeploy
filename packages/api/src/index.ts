@@ -191,10 +191,42 @@ const orgScopedMiddleware = orpc
 export const orgScopedProcedure = publicProcedure.use(orgScopedMiddleware);
 
 /**
+ * Constrains an API-key actor to the project(s) its scope allows. `projectId`
+ * is read from validated input (handlers vary in whether it's required, so it
+ * no-ops when absent). Session/cookie actors are never project-restricted —
+ * only keys minted with `projectScope: "selected"` are gated. Folded into both
+ * `requirePermission` and `projectScopedProcedure` below, so every gated
+ * project mutation also honours the key's project scope.
+ */
+const projectScopeMiddleware = orpc
+  .$context<Context>()
+  .errors({
+    FORBIDDEN: {
+      status: 403,
+      message: "This API key is not scoped to that project.",
+    },
+  })
+  .middleware(async ({ context, next, errors }, input) => {
+    if (context.apiKey) {
+      const projectId = input?.projectId;
+      if (
+        typeof projectId === "string" &&
+        !requireProjectScope(context.apiKey, projectId)
+      ) {
+        throw errors.FORBIDDEN();
+      }
+    }
+    return next();
+  });
+
+/**
  * Build an org-scoped procedure that additionally requires a specific RBAC
  * permission. Role resolution + the permission check are delegated to
  * better-auth's `auth.api.hasPermission` (statements/roles defined in
- * `@otterdeploy/auth/permissions`) — no hand-rolled member-table lookups.
+ * `@otterdeploy/auth/permissions`) — no hand-rolled member-table lookups. The
+ * returned procedure ALSO carries the api-key project-scope guard, so a gated
+ * mutation enforces RBAC, the key's resource scope, AND the key's project scope
+ * in one place.
  *
  * Usage:
  *   requirePermission({ backup: ["run"] }).backups.run.handler(...)
@@ -244,42 +276,17 @@ export function requirePermission(permission: PermissionCheck) {
       return next();
     });
 
-  return orgScopedProcedure.use(permissionMiddleware);
+  return orgScopedProcedure
+    .use(permissionMiddleware)
+    .use(projectScopeMiddleware);
 }
 
 /**
- * Org-scoped procedure that additionally constrains an API-key actor to the
- * project(s) its scope allows. The `projectId` is read from validated input
- * (handlers vary in whether it's required, so the middleware no-ops when it's
- * absent). Session/cookie actors are never project-restricted — only keys
- * minted with `projectScope: "selected"` are gated.
- *
- * Defined for incremental adoption: wire it onto high-value mutating
- * project-scoped routers as `projectScopedProcedure.<router>.<proc>.handler(...)`
- * in place of `orgScopedProcedure`. Not mass-applied here — the core key-scope +
- * role intersection is enforced on every `requirePermission` procedure already.
+ * Org-scoped procedure with the api-key project-scope guard but no specific RBAC
+ * permission — for project-scoped READ procedures (and any mutation gated some
+ * other way). Mutating project procedures should prefer `requirePermission`,
+ * which layers the RBAC check on top of this same project-scope guard.
  */
-const projectScopeMiddleware = orpc
-  .$context<Context>()
-  .errors({
-    FORBIDDEN: {
-      status: 403,
-      message: "This API key is not scoped to that project.",
-    },
-  })
-  .middleware(async ({ context, next, errors }, input) => {
-    if (context.apiKey) {
-      const projectId = input?.projectId;
-      if (
-        typeof projectId === "string" &&
-        !requireProjectScope(context.apiKey, projectId)
-      ) {
-        throw errors.FORBIDDEN();
-      }
-    }
-    return next();
-  });
-
 export const projectScopedProcedure = orgScopedProcedure.use(
   projectScopeMiddleware,
 );

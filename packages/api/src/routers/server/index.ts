@@ -1,6 +1,6 @@
 import { matchError } from "better-result";
 
-import { orgScopedProcedure } from "../..";
+import { orgScopedProcedure, requirePermission } from "../..";
 
 import { createServer, deleteServer, getServer, listServers } from "./handlers";
 import { getSwarmJoinTokens } from "./join-tokens";
@@ -25,7 +25,7 @@ export const serverRouter = {
     return result.value;
   }),
 
-  create: orgScopedProcedure.server.create.handler(async ({ input, context, errors }) => {
+  create: requirePermission({ server: ["create"] }).server.create.handler(async ({ input, context, errors }) => {
     context.log.set({ target: { type: "server" } });
     const result = await createServer({
       ...input,
@@ -40,7 +40,7 @@ export const serverRouter = {
     return result.value;
   }),
 
-  delete: orgScopedProcedure.server.delete.handler(async ({ input, context, errors }) => {
+  delete: requirePermission({ server: ["delete"] }).server.delete.handler(async ({ input, context, errors }) => {
     context.log.set({ target: { type: "server", id: input.id } });
     const result = await deleteServer({
       id: input.id,

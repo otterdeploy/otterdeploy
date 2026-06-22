@@ -1,7 +1,7 @@
 import { matchError } from "better-result";
 import { ORPCError, withEventMeta } from "@orpc/server";
 
-import { orgScopedProcedure } from "../../index";
+import { orgScopedProcedure, requirePermission } from "../../index";
 
 import { streamDeploymentLogs } from "../deployment/log-stream";
 
@@ -131,7 +131,7 @@ export const projectRouter = {
     return listProjects({ organizationId: context.activeOrganizationId });
   }),
 
-  create: orgScopedProcedure.project.create.handler(
+  create: requirePermission({ project: ["create"] }).project.create.handler(
     async ({ input, context, errors }) => {
       context.log.set({ target: { type: "project" } });
       const result = await createProject({
@@ -148,7 +148,7 @@ export const projectRouter = {
     },
   ),
 
-  update: orgScopedProcedure.project.update.handler(
+  update: requirePermission({ project: ["update"] }).project.update.handler(
     async ({ input, context, errors }) => {
       context.log.set({ target: { type: "project", id: input.id } });
       const result = await updateProject({
@@ -166,7 +166,7 @@ export const projectRouter = {
     },
   ),
 
-  delete: orgScopedProcedure.project.delete.handler(
+  delete: requirePermission({ project: ["delete"] }).project.delete.handler(
     async ({ input, context, errors }) => {
       context.log.set({ target: { type: "project", id: input.id } });
       const result = await deleteProject(
@@ -185,7 +185,7 @@ export const projectRouter = {
     },
   ),
 
-  saveGraphLayout: orgScopedProcedure.project.saveGraphLayout.handler(
+  saveGraphLayout: requirePermission({ project: ["update"] }).project.saveGraphLayout.handler(
     async ({ input, context, errors }) => {
       context.log.set({ target: { type: "project", id: input.id } });
       const result = await saveProjectGraphLayout({
@@ -296,7 +296,7 @@ export const projectRouter = {
     ),
 
     setCustomConfig:
-      orgScopedProcedure.project.proxyRoute.setCustomConfig.handler(
+      requirePermission({ route: ["update"] }).project.proxyRoute.setCustomConfig.handler(
         async ({ input, context, errors }) => {
           context.log.set({ target: { type: "project", id: input.projectId } });
           const result = await saveProjectCustomCaddyConfig(
@@ -317,7 +317,7 @@ export const projectRouter = {
       ),
 
     setRouteDirectives:
-      orgScopedProcedure.project.proxyRoute.setRouteDirectives.handler(
+      requirePermission({ route: ["update"] }).project.proxyRoute.setRouteDirectives.handler(
         async ({ input, context, errors }) => {
           context.log.set({ target: { type: "proxy-route", id: input.routeId } });
           const result = await setProxyRouteDirectives(
@@ -337,7 +337,7 @@ export const projectRouter = {
         },
       ),
 
-    setProtection: orgScopedProcedure.project.proxyRoute.setProtection.handler(
+    setProtection: requirePermission({ route: ["update"] }).project.proxyRoute.setProtection.handler(
       async ({ input, context, errors }) => {
         context.log.set({ target: { type: "proxy-route", id: input.routeId } });
         const result = await setProxyRouteProtection(
@@ -358,7 +358,7 @@ export const projectRouter = {
     ),
 
     createShareLink:
-      orgScopedProcedure.project.proxyRoute.createShareLink.handler(
+      requirePermission({ route: ["update"] }).project.proxyRoute.createShareLink.handler(
         async ({ input, context, errors }) => {
           const result = await createDeploymentShareLink({
             routeId: input.routeId,
@@ -375,7 +375,7 @@ export const projectRouter = {
       ),
 
     createBypassToken:
-      orgScopedProcedure.project.proxyRoute.createBypassToken.handler(
+      requirePermission({ route: ["update"] }).project.proxyRoute.createBypassToken.handler(
         async ({ input, context, errors }) => {
           const result = await createDeploymentBypassToken({
             routeId: input.routeId,
@@ -406,7 +406,7 @@ export const projectRouter = {
       },
     ),
 
-    inviteGuest: orgScopedProcedure.project.proxyRoute.inviteGuest.handler(
+    inviteGuest: requirePermission({ route: ["update"] }).project.proxyRoute.inviteGuest.handler(
       async ({ input, context, errors }) => {
         // Guest invites are attributed to the inviting user — a session-only
         // operation; reject API-key actors (which have no user identity).
@@ -429,7 +429,7 @@ export const projectRouter = {
       },
     ),
 
-    removeGuest: orgScopedProcedure.project.proxyRoute.removeGuest.handler(
+    removeGuest: requirePermission({ route: ["update"] }).project.proxyRoute.removeGuest.handler(
       async ({ input, context, errors }) => {
         const result = await removeDeploymentGuest({
           routeId: input.routeId,
@@ -519,7 +519,7 @@ export const projectRouter = {
         },
       ),
 
-      bulkSet: orgScopedProcedure.project.resource.env.bulkSet.handler(
+      bulkSet: requirePermission({ env: ["update"] }).project.resource.env.bulkSet.handler(
         async ({ input, context, errors }) => {
           context.log.set({
             target: { type: "resource", id: input.resourceId, projectId: input.projectId },
@@ -709,7 +709,7 @@ export const projectRouter = {
       },
     ),
 
-    delete: orgScopedProcedure.project.resource.delete.handler(
+    delete: requirePermission({ service: ["delete"] }).project.resource.delete.handler(
       async ({ input, context, errors }) => {
         context.log.set({
           target: { type: "resource", id: input.resourceId, projectId: input.projectId },
@@ -738,7 +738,7 @@ export const projectRouter = {
         // matched oRPC errors. Once the generator runs, runtime failures
         // surface as `error` events the wizard renders alongside the
         // already-completed steps.
-        create: orgScopedProcedure.project.resource.database.postgres.create.handler(
+        create: requirePermission({ database: ["create"] }).project.resource.database.postgres.create.handler(
           // Eager prelude. Everything that should land in the audit wide
           // event has to run BEFORE we return the generator — once that
           // happens oRPC sets up the streaming response, hono's `next()`
@@ -811,7 +811,7 @@ export const projectRouter = {
             },
           ),
 
-        setPublic: orgScopedProcedure.project.resource.database.postgres.setPublic.handler(
+        setPublic: requirePermission({ database: ["update"] }).project.resource.database.postgres.setPublic.handler(
           async ({ input, context, errors }) => {
             context.log.set({
               target: {
@@ -840,7 +840,7 @@ export const projectRouter = {
           },
         ),
 
-        restart: orgScopedProcedure.project.resource.database.postgres.restart.handler(
+        restart: requirePermission({ database: ["update"] }).project.resource.database.postgres.restart.handler(
           async ({ input, context, errors }) => {
             context.log.set({
               target: {
@@ -869,7 +869,7 @@ export const projectRouter = {
         ),
 
         setExtensions:
-          orgScopedProcedure.project.resource.database.postgres.setExtensions.handler(
+          requirePermission({ database: ["update"] }).project.resource.database.postgres.setExtensions.handler(
             async ({ input, context, errors }) => {
               context.log.set({
                 target: {
@@ -901,7 +901,7 @@ export const projectRouter = {
           ),
 
         setExtraEnv:
-          orgScopedProcedure.project.resource.database.postgres.setExtraEnv.handler(
+          requirePermission({ database: ["update"] }).project.resource.database.postgres.setExtraEnv.handler(
             async ({ input, context, errors }) => {
               context.log.set({
                 target: {
@@ -933,7 +933,7 @@ export const projectRouter = {
           ),
 
         unsetExtraEnv:
-          orgScopedProcedure.project.resource.database.postgres.unsetExtraEnv.handler(
+          requirePermission({ database: ["update"] }).project.resource.database.postgres.unsetExtraEnv.handler(
             async ({ input, context, errors }) => {
               context.log.set({
                 target: {
@@ -983,7 +983,7 @@ export const projectRouter = {
       },
     ),
 
-    save: orgScopedProcedure.project.manifest.save.handler(
+    save: requirePermission({ project: ["update"] }).project.manifest.save.handler(
       async ({ input, context, errors }) => {
         context.log.set({ target: { type: "project", id: input.projectId } });
         const outcome = await saveManifest(
@@ -1047,7 +1047,7 @@ export const projectRouter = {
       },
     ),
 
-    apply: orgScopedProcedure.project.manifest.apply.handler(
+    apply: requirePermission({ project: ["update"] }).project.manifest.apply.handler(
       async ({ input, context, errors }) => {
         context.log.set({ target: { type: "project", id: input.projectId } });
         const resolved = await resolvedManifest(
@@ -1080,7 +1080,7 @@ export const projectRouter = {
       },
     ),
 
-    discard: orgScopedProcedure.project.manifest.discard.handler(
+    discard: requirePermission({ project: ["update"] }).project.manifest.discard.handler(
       async ({ input, context, errors }) => {
         context.log.set({ target: { type: "project", id: input.projectId } });
         const result = await discardManifest({
@@ -1113,7 +1113,7 @@ export const projectRouter = {
     // save/diff/apply endpoints stay for the stack-code editor's
     // "preview before deploy" flow where the user wants to inspect
     // the diff between save and apply.
-    applyChange: orgScopedProcedure.project.manifest.applyChange.handler(
+    applyChange: requirePermission({ project: ["update"] }).project.manifest.applyChange.handler(
       async ({ input, context, errors }) => {
         context.log.set({ target: { type: "project", id: input.projectId } });
 
@@ -1214,7 +1214,7 @@ export const projectRouter = {
       },
     ),
 
-    upsert: orgScopedProcedure.project.envVar.upsert.handler(
+    upsert: requirePermission({ env: ["update"] }).project.envVar.upsert.handler(
       async ({ input, context, errors }) => {
         context.log.set({
           target: { type: "project", id: input.projectId },
@@ -1237,7 +1237,7 @@ export const projectRouter = {
       },
     ),
 
-    delete: orgScopedProcedure.project.envVar.delete.handler(
+    delete: requirePermission({ env: ["update"] }).project.envVar.delete.handler(
       async ({ input, context, errors }) => {
         context.log.set({
           target: { type: "project", id: input.projectId },
@@ -1258,7 +1258,7 @@ export const projectRouter = {
       },
     ),
 
-    bulkReplace: orgScopedProcedure.project.envVar.bulkReplace.handler(
+    bulkReplace: requirePermission({ env: ["update"] }).project.envVar.bulkReplace.handler(
       async ({ input, context, errors }) => {
         context.log.set({
           target: { type: "project", id: input.projectId },
@@ -1321,7 +1321,7 @@ export const projectRouter = {
         return result.value;
       },
     ),
-    save: orgScopedProcedure.project.stack.save.handler(
+    save: requirePermission({ project: ["update"] }).project.stack.save.handler(
       async ({ input, context, errors }) => {
         context.log.set({ target: { type: "project", id: input.projectId } });
         const result = await saveProjectStack({
@@ -1343,7 +1343,7 @@ export const projectRouter = {
         return result.value;
       },
     ),
-    apply: orgScopedProcedure.project.stack.apply.handler(
+    apply: requirePermission({ project: ["update"] }).project.stack.apply.handler(
       async ({ input, context, errors }) => {
         context.log.set({ target: { type: "project", id: input.projectId } });
         const result = await applyProjectStack(
