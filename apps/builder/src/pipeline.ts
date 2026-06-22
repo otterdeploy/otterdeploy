@@ -26,10 +26,17 @@ import { rm } from "node:fs/promises";
 
 import { getInstallationToken } from "@otterdeploy/api/git/github-app";
 import { decryptSecret } from "@otterdeploy/api/lib/crypto";
+import { emitPlatformEvent } from "@otterdeploy/api/notifications/emit";
 
 import { redeployOne } from "@otterdeploy/api/routers/service/redeploy";
 import { db } from "@otterdeploy/db";
-import { serviceResource } from "@otterdeploy/db/schema";
+import {
+  deployment,
+  project,
+  resource,
+  serviceResource,
+} from "@otterdeploy/db/schema";
+import type { OrganizationId } from "@otterdeploy/shared/id";
 import { Result } from "better-result";
 import type { RedisClient } from "bun";
 import { eq } from "drizzle-orm";
@@ -445,6 +452,10 @@ async function handleFailure(
       error: stateErr instanceof Error ? stateErr.message : String(stateErr),
     } as Record<string, unknown>);
   });
+  // Best-effort: fan a `build.failed` event out to subscribed channels — the
+  // only failure notification the builder produces (the row is marked failed
+  // here, not via the API's deploy.failed path). Never blocks the failure flow.
+  await emitBuildFailed(deploymentId, message).catch(() => undefined);
   if (err instanceof PipelineLoadError) {
     globalLog.warn({
       build: {
@@ -455,4 +466,39 @@ async function handleFailure(
       error: message,
     } as Record<string, unknown>);
   }
+}
+
+/**
+ * Emit a `build.failed` platform event for a failed deployment. Resolves the
+ * org + display names from the deployment's resource/project; best-effort, so a
+ * missing row (e.g. the resource was deleted mid-build) or a notification
+ * problem is swallowed by the caller's `.catch`.
+ */
+async function emitBuildFailed(
+  deploymentId: DeploymentId,
+  message: string,
+): Promise<void> {
+  const [ctx] = await db
+    .select({
+      organizationId: project.organizationId,
+      resourceName: resource.name,
+      projectName: project.name,
+    })
+    .from(deployment)
+    .innerJoin(resource, eq(resource.id, deployment.resourceId))
+    .innerJoin(project, eq(project.id, resource.projectId))
+    .where(eq(deployment.id, deploymentId))
+    .limit(1);
+  if (!ctx) return;
+  await emitPlatformEvent({
+    organizationId: ctx.organizationId as OrganizationId,
+    eventId: "build.failed",
+    title: "Build failed",
+    message: `${ctx.resourceName}: ${message}`.slice(0, 500),
+    data: {
+      deploymentId,
+      resource: ctx.resourceName,
+      project: ctx.projectName,
+    },
+  });
 }

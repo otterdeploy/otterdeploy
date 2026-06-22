@@ -10,6 +10,7 @@ import type { OrganizationId, SshKeyId } from "@otterdeploy/shared/id";
 import { panic, Result } from "better-result";
 
 import { encryptSecret } from "../../lib/crypto";
+import { emitPlatformEvent } from "../../notifications/emit";
 import { isUniqueViolation } from "../project/views";
 import type { OrgRef } from "../scopes";
 
@@ -134,6 +135,21 @@ export async function rotateSshKey(
   });
   if (Result.isError(updated)) return Result.err(updated.error);
   if (!updated.value) return Result.err(new SshKeyNotFoundError({ id: input.id }));
+
+  // Best-effort: notify subscribed channels the key was rotated (its old
+  // material is now invalid anywhere it was authorized). emitPlatformEvent
+  // never throws, so it can't fail the rotation.
+  await emitPlatformEvent({
+    organizationId: input.organizationId,
+    eventId: "ssh.rotated",
+    title: "SSH key rotated",
+    message: `${updated.value.name} — new fingerprint ${updated.value.fingerprint}`,
+    data: {
+      sshKeyId: input.id,
+      name: updated.value.name,
+      fingerprint: updated.value.fingerprint,
+    },
+  });
   return Result.ok(updated.value);
 }
 
