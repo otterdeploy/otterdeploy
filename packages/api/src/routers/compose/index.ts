@@ -17,7 +17,11 @@ import { isUniqueViolation } from "../project/views";
 import { removeResourceDir } from "../../lib/data-dir";
 import { enqueueComposeBuild } from "./build-trigger";
 import { cleanupOrphanedComposeVars } from "./cleanup-vars";
-import { deployCompose, removeComposeDomains } from "./deploy";
+import {
+  deployCompose,
+  reconcileComposeDomains,
+  removeComposeDomains,
+} from "./deploy";
 import { removeStackServices } from "./reconcile";
 import {
   type ComposeRecord,
@@ -25,6 +29,7 @@ import {
   deleteComposeRecord,
   getComposeRecord,
   listComposeRecords,
+  updateComposeExposed,
 } from "./queries";
 
 function toView(rec: ComposeRecord) {
@@ -35,6 +40,7 @@ function toView(rec: ComposeRecord) {
     composeContent: rec.compose.composeContent,
     stackName: rec.compose.stackName,
     services: rec.compose.services,
+    exposed: rec.compose.exposed,
   };
 }
 
@@ -286,6 +292,36 @@ export const composeRouter = {
       return d.isOk()
         ? { ok: true, error: null, status: d.value.status }
         : { ok: false, error: d.error.message, status: "failed" };
+    },
+  ),
+
+  // Change which service:port pairs are publicly exposed on a live stack. Drops
+  // exposures that don't reference a real service, persists the list, then
+  // re-mints the Caddy routes (reconcileComposeDomains is idempotent: it clears
+  // the stack's generated routes and re-creates one per exposure).
+  setExposed: requirePermission({ service: ["update"] }).compose.setExposed.handler(
+    async ({ input, context, errors }) => {
+      const rec = await getComposeRecord(input.projectId, input.resourceId);
+      if (!rec) throw errors.NOT_FOUND();
+      const project = await getProjectInOrg({
+        projectId: input.projectId,
+        organizationId: context.activeOrganizationId,
+      });
+      if (!project) throw errors.NOT_FOUND();
+
+      const known = new Set(rec.compose.services.map((s) => s.name));
+      const exposed = input.exposed
+        .filter((e) => known.has(e.service))
+        .map((e) => ({ service: e.service, port: e.port, domain: e.domain }));
+
+      await updateComposeExposed({ resourceId: input.resourceId, exposed });
+      const updated =
+        (await getComposeRecord(input.projectId, input.resourceId)) ?? rec;
+      await reconcileComposeDomains(updated, {
+        id: input.projectId,
+        slug: project.slug,
+      });
+      return toView(updated);
     },
   ),
 

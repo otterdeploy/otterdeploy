@@ -130,6 +130,18 @@ async function updateComposeContent(input: {
     .where(eq(composeResource.resourceId, input.resourceId));
 }
 
+/** Replace the stack's `exposed` (service:port→domain) list. The caller
+ *  re-runs the Caddy domain reconcile afterwards from the refreshed record. */
+export async function updateComposeExposed(input: {
+  resourceId: ResourceId;
+  exposed: ComposeExposed[];
+}): Promise<void> {
+  await db
+    .update(composeResource)
+    .set({ exposed: input.exposed })
+    .where(eq(composeResource.resourceId, input.resourceId));
+}
+
 /** Bump the force counter so swarm sees a task diff on a no-config redeploy. */
 async function bumpComposeForceCounter(
   resourceId: ResourceId,

@@ -211,7 +211,7 @@ export async function deployCompose(
  * drops the stack's existing generated routes and re-mints one per exposed
  * `service:port`, pointing Caddy at the swarm service's network alias.
  */
-async function reconcileComposeDomains(
+export async function reconcileComposeDomains(
   record: ComposeRecord,
   project: { id: ProjectId; slug: string },
 ): Promise<void> {

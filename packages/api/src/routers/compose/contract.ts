@@ -20,6 +20,12 @@ const composeServiceSummarySchema = z.object({
   volumes: z.array(z.string()).default([]),
 });
 
+const composeExposedSchema = z.object({
+  service: z.string(),
+  port: z.number().int(),
+  domain: z.string(),
+});
+
 const composeViewSchema = z.object({
   resourceId: resourceIdField,
   name: z.string(),
@@ -27,6 +33,8 @@ const composeViewSchema = z.object({
   composeContent: z.string().nullable(),
   stackName: z.string(),
   services: z.array(composeServiceSummarySchema),
+  /** Which service:port pairs are published, and on what domain. */
+  exposed: z.array(composeExposedSchema).default([]),
 });
 
 /** Stateless parse for the wizard preview — never touches the DB. */
@@ -136,4 +144,24 @@ export const composeContract = {
     .meta({ path: `${basePath}/{resourceId}`, tag, method: "DELETE" })
     .input(z.object({ projectId: projectIdField, resourceId: resourceIdField }))
     .output(z.object({ ok: z.boolean() })),
+
+  // Replace which service:port pairs are publicly exposed on a LIVE stack —
+  // re-mints the Caddy routes without re-staging the manifest.
+  setExposed: oc
+    .errors({ NOT_FOUND: sharedErrors.NOT_FOUND })
+    .meta({ path: `${basePath}/{resourceId}/exposed`, tag, method: "POST" })
+    .input(
+      z.object({
+        projectId: projectIdField,
+        resourceId: resourceIdField,
+        exposed: z.array(
+          z.object({
+            service: z.string(),
+            port: z.number().int(),
+            domain: z.string().default(""),
+          }),
+        ),
+      }),
+    )
+    .output(composeViewSchema),
 };

@@ -48,6 +48,7 @@ import { cn } from "@/shared/lib/utils";
 
 import { PanelIcon } from "@/features/resources/components/_shared/atoms";
 import { ResourceTasksTab } from "@/features/resources/components/_shared/resource-tasks-tab";
+import { ComposeExposedEditor } from "@/features/resources/components/compose/exposed-editor";
 
 type ComposeTab = "deployments" | "services" | "file" | "settings";
 
@@ -171,7 +172,7 @@ export function ComposeResourcePanel({
   // Live per-service status from swarm tasks (the same feed the graph group
   // uses). Each task carries its compose sub-service key, so we roll up per
   // service — "which one is down?" is answerable here too.
-  const { data: taskRows = [] } = useLiveQuery(
+  const { data: taskRows } = useLiveQuery(
     (q) =>
       q
         .from({ d: serviceTasksCollection })
@@ -417,6 +418,12 @@ export function ComposeResourcePanel({
               </TabsContent>
 
               <TabsContent value="settings" className="px-6 pt-5 pb-8">
+                <div className="mb-4">
+                  <ComposeExposedEditor
+                    projectId={resource.projectId}
+                    resourceId={resource.resourceId}
+                  />
+                </div>
                 <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
                   <div className="text-[13px] font-semibold text-destructive">
                     Delete stack
