@@ -42,6 +42,11 @@ import { upgradeWebSocket, websocket } from "hono/bun";
 import { cors } from "hono/cors";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { invalidate } from "./lib/invalidate";
+import {
+  isTracingConfigured,
+  shutdownTracing,
+  startTracing,
+} from "./lib/tracing";
 
 import {
   deployAccessHandler,
@@ -272,8 +277,18 @@ let stopBackupScheduler: (() => void) | null = null;
 let stopMetricsSampler: (() => void) | null = null;
 let stopBlocklistScheduler: (() => void) | null = null;
 let stopDataFolderSweep: (() => void) | null = null;
+let stopTracing: (() => Promise<void>) | null = null;
 
 async function bootstrap() {
+  // OpenTelemetry — opt-in, started first so auto-instrumentation patches as
+  // much as possible. Dormant unless an OTLP collector is configured (else the
+  // exporters would spam connection-refused against a default localhost:4318).
+  if (isTracingConfigured()) {
+    startTracing();
+    stopTracing = shutdownTracing;
+    log.info({ startup: { step: "otel-tracing", status: "ready" } });
+  }
+
   // Edge-log sink: bind the TCP listener Caddy streams logs to — both per-site
   // access logs and the global default logger's operational events (Phase 3).
   // Only when EDGE_LOG_SINK is configured (otherwise the Caddyfile carries
@@ -417,6 +432,7 @@ for (const signal of ["SIGTERM", "SIGINT"] as const) {
     if (stopMetricsSampler) stopMetricsSampler();
     if (stopBlocklistScheduler) stopBlocklistScheduler();
     if (stopDataFolderSweep) stopDataFolderSweep();
+    if (stopTracing) await stopTracing().catch(() => undefined);
     if (stopWorkers) await stopWorkers().catch(() => undefined);
     process.exit(0);
   });

@@ -36,7 +36,7 @@ import { eq } from "drizzle-orm";
 import { log as globalLog } from "evlog";
 
 import { cloneRepoAtSha } from "./clone";
-import { pruneStaleBuilds } from "./build-workdir";
+import { pruneStaleBuildCache, pruneStaleBuilds } from "./build-workdir";
 import { ensureBuildxBuilder, cachePathFor } from "./buildx";
 import { isComposeDeployment, runComposeBuild } from "./compose-build";
 import { runDeployHooks } from "./deploy-hook";
@@ -96,9 +96,11 @@ async function runBuildPipeline(opts: {
   const sink = createLogSink({ deploymentId: opts.deploymentId, publisher: opts.publisher });
   const work: WorkDirRef = { path: null, persistent: false };
 
-  // Reclaim disk from old kept-on-failure clones before we start (no-op unless
-  // the data folder is in use).
+  // Reclaim disk before we start (no-op unless the data folder is in use): old
+  // kept-on-failure clones, and BuildKit layer-cache dirs unused past their TTL
+  // (the cache has no GC of its own).
   await pruneStaleBuilds().catch(() => undefined);
+  await pruneStaleBuildCache().catch(() => undefined);
 
   const built = await runBuildSteps(opts, sink, work);
 
@@ -171,7 +173,12 @@ function runBuildSteps(
     // Public-URL bindings carry no installationId — clone over anonymous
     // HTTPS. Installation-backed bindings mint a short-lived token + inject it.
     const installationId = ctx.repo.installationId;
-    const bindingKind = installationId ? "github_app" : "public_url";
+    // A revoked GitHub App install soft-deletes by nulling installationId, which
+    // would otherwise read as a public bind. A still-private repo with no
+    // installation is exactly that case → treat it as github_app so the clone
+    // failure surfaces "reconnect GitHub" rather than a generic git error.
+    const bindingKind =
+      installationId || ctx.repo.isPrivate ? "github_app" : "public_url";
     const imageRepository = ctx.imageRepository;
     let installationToken = "";
     if (installationId) {

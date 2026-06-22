@@ -75,6 +75,17 @@ const sdk = new NodeSDK({
  * // Then import and start your application
  * import { app } from './app';
  */
+/**
+ * Whether an OTLP collector is explicitly configured. When false, callers must
+ * NOT start tracing: the endpoint would default to an absent `localhost:4318`
+ * and the exporters would spam connection-refused errors on every flush. Gating
+ * the *call* on this keeps the SDK fully dormant until an operator opts in by
+ * setting `OTEL_EXPORTER_OTLP_ENDPOINT`.
+ */
+export function isTracingConfigured(): boolean {
+  return Boolean(nodeEnv.OTEL_EXPORTER_OTLP_ENDPOINT);
+}
+
 export function startTracing(): void {
   sdk.start();
   log.info({
