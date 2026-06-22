@@ -53,25 +53,25 @@ path tags `otterstack-local/<svc>` and runs straight from the host daemon.
 
 | # | Gap | Evidence | Impact |
 |---|-----|----------|--------|
-| 1 | **Git-sourced compose deploy throws** when `composeContent` is empty | `compose/deploy.ts:83`. `deployCompose` is called directly from `compose/index.ts:244/267` and `manifest-reconcile.ts:162`. Only the builder path (`compose-build.ts`) clones + populates content first. | Deploying a git-backed compose stack outside a build (e.g. a re-apply / reconcile before first build) fails with a confusing "file is empty" error. Need: fetch-on-deploy, or gate the UI/handler so git compose only deploys via a build. |
-| 2 | **Local-only images don't work multi-node** | Local path keeps the image in the build host's daemon (`load.ts:109-127`); other swarm nodes can't pull it. | Any git service on a >1-node cluster without a configured registry silently can't schedule on other nodes. Either require a registry for multi-node, auto-provision an in-cluster registry, or honestly gate it (ties to the runtime-driver / multi-server honesty work). |
+| 1 | ~~**Git-sourced compose deploy throws** when `composeContent` is empty~~ ✅ **DONE** | `compose/redeploy` now routes git stacks through the build worker via `enqueueComposeBuild` (`compose/build-trigger.ts`); inline stacks keep the direct path; `deployCompose`'s empty-content guard is now an honest invariant message. | Resolved. |
+| 2 | **Local-only images don't work multi-node** | Local path keeps the image in the build host's daemon (`load.ts:109-127`); other swarm nodes can't pull it. | Any git service on a >1-node cluster without a configured registry silently can't schedule on other nodes. Either require a registry for multi-node, auto-provision an in-cluster registry, or honestly gate it (ties to the runtime-driver / multi-server honesty work). **Still open** — needs a registry-strategy decision. |
 
 ### P2 — expected features, currently absent
 
 | # | Gap | Evidence | Impact |
 |---|-----|----------|--------|
 | 3 | ~~**`watchPatterns` defined but never enforced**~~ ✅ **DONE** | Enforced in `git/handle-push.ts` via `git/watch-match.ts` (`Bun.Glob` match of pushed paths against each service's `buildConfig.watchPatterns`). Unset patterns or an unknown/truncated change set fail open → rebuild. Tests: `git/watch-match.test.ts`. | Resolved. |
-| 4 | **Dockerfile build-args not plumbed** | `dockerfile.ts:160` — loop is wired but `buildArgs` is always `{}`. No path from `buildConfig` → build-args. | Users can't pass build-time args/secrets to a Dockerfile build. Needs a `buildArgs` channel in `BuildConfig` + UI + reconciler. |
-| 5 | **No build layer cache across builds** | No `--cache-from/--cache-to` in `railpack.ts` / `dockerfile.ts`; only same-host buildx local cache (`handler.ts:16`). data-folder design Phase 2 (deferred). | Cold/slow builds, especially after host churn or on multi-node. Registry-backed or data-folder-backed BuildKit cache. |
-| 6 | **`imageDigest` never populated** | `serviceResource.imageDigest` column exists (`schema/project.ts:380`) but no code captures the pushed/pulled digest. | No pin-to-digest / reproducible redeploy; "redeploy" of an image tag can drift. Capture digest from push/pull and store. |
+| 4 | ~~**Dockerfile build-args not plumbed**~~ ✅ **DONE** | `BuildDockerfileConfig.buildArgs` (manifest zod with key-name validation) → `pipeline.ts` → `dockerfileBuild` → `--build-arg`; key/value editor in the service build card. Plain build-args (not secrets); applies to the explicit Dockerfile builder only. | Resolved. |
+| 5 | ~~**No build layer cache across builds**~~ ✅ **DONE** (needs real-host smoke test) | `buildx.ts`: a shared persistent `docker-container` builder + `--cache-from/--cache-to type=local,mode=max` under the data folder; best-effort with exact fallback to the default-driver `--load` path. Cache-dir growth is unbounded — a prune is a follow-up. | Resolved pending live verification. |
+| 6 | ~~**`imageDigest` never populated**~~ ✅ **DONE** | `dockerPush` captures the pushed digest (`docker inspect` RepoDigests); pipeline persists it on set-image. Local (no-registry) builds stay null. | Resolved (capture only; runtime pin-to-digest is a separate change). |
 
 ### P3 — robustness / polish
 
 | # | Gap | Evidence | Impact |
 |---|-----|----------|--------|
-| 7 | **Revoked GitHub installation indistinguishable from public-URL bind** | `load.ts:140` — "deferred until we add a `kind` col". | A revoked GH App install produces an opaque clone failure instead of a clear "reconnect GitHub" message. Needs a `kind` discriminator on the git binding. |
-| 8 | **Stale Phase-1 comment** | `jobs/deploy.ts:5-11` claims the handler only logs. | Misleads every reader (it misled this audit's first pass). Update to point at `apps/builder`. |
-| 9 | **Rollback API not surfaced in UI (verify)** | Rollback wired in API (`project/contract/deployments.ts`); no obvious button in the Deployments tab. | Confirm whether the UI exposes one-click rollback; if not, wire it. |
+| 7 | ~~**Revoked GitHub installation indistinguishable from public-URL bind**~~ ✅ **DONE** (one residual) | clone + token-mint failures for an installation-backed repo now surface "reconnect GitHub", discriminated by `installationId` (no schema change). **Residual:** when a revoked install cascades `gitRepo.installationId` → null (soft-delete), it again looks like a public bind — fully closing that needs a `kind`/`isPrivate` discriminator. | Resolved for the common cases. |
+| 8 | ~~**Stale Phase-1 comment**~~ ✅ **DONE** | `jobs/deploy.ts` comment rewritten to point at `apps/builder/handler.ts` (`makeBuildJob`). | Resolved. |
+| 9 | ~~**Rollback API not surfaced in UI**~~ ✅ **DONE** | The doc was wrong — no general rollback existed. Built `service.rollback` (image-only) + a "Roll back to this" action on settled deployments. ⚠️ adds a `deployment_reason` enum value → needs `bun db:push`. | Resolved (image-only; full-snapshot replay deferred). |
 
 ## Also shipped this pass — deploy lifecycle hooks ✅
 
