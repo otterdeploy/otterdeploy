@@ -57,7 +57,9 @@
   },
   "optionalDependencies": {
     "//": "maxmind: optional GeoIP reader for edge logs — only loaded when EDGE_LOG_GEOIP_DB is set; code degrades to null country without it (see edge-logs/geo.ts).",
-    "maxmind": "^4.3.24"
+    "maxmind": "^4.3.24",
+    "//ssh2-sftp-client": "loaded lazily only for sftp backup destinations (storage.ts); optional so ssh2's native build can't break install for local/s3-only operators — sftp runs fail with an actionable 'run bun install' message until present.",
+    "ssh2-sftp-client": "^11.0.0"
   },
   "devDependencies": {
     "@otterdeploy/config": "workspace:*",
