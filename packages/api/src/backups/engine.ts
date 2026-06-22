@@ -26,6 +26,7 @@ import {
   markBackupRunning,
   markBackupSucceeded,
 } from "./db";
+import { removeStagedBackup, stageBackupArchive } from "../lib/data-dir";
 import { execCapture, execDump, findServiceContainerId } from "./exec";
 import {
   type ResolvedDestination,
@@ -202,8 +203,22 @@ export async function executeBackup(backupId: string): Promise<void> {
       backupId: ctx.backupId,
       ext,
     });
+    // Land the archive in the host data folder before the (possibly
+    // off-cluster) upload — predictable staging that stays put if the upload
+    // throws, for inspection/retry. The data-folder sweep reclaims stale ones.
+    const staged = await stageBackupArchive({
+      resourceId: ctx.resourceId,
+      backupId: ctx.backupId,
+      ext,
+      body,
+    });
+    if (staged) await log("system", `Staged archive → ${staged}`);
+
     const { storagePath } = await putArchive(dest, key, body);
     await log("system", `Stored ${body.length} bytes → ${storagePath}`);
+
+    // Upload landed — drop the staging copy (kept only when the upload failed).
+    if (staged) await removeStagedBackup(staged);
 
     await markBackupSucceeded(ctx.backupId, {
       storagePath,

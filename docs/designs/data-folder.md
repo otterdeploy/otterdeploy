@@ -1,7 +1,7 @@
 # Host data folder — `/data/otterdeploy`
 
-Status: **partially built.** Phases 1 (foundation), 2 (builds), and 4 (DR escape
-hatch) are done; 3 (backups staging) and 5 (orphan sweep) remain. Owner: platform.
+Status: **built.** All five phases are done — foundation, builds, backups
+staging, DR escape hatch, and the orphan sweep. Owner: platform.
 
 A single, predictable host directory for the artifacts the platform *generates* —
 build clones, backup dumps, a disaster-recovery escape hatch, db init material —
@@ -143,14 +143,21 @@ of any world-readable mount or backup that isn't itself encrypted.
 2. ✅ **Builds** — builder clones to `buildDir(deploymentId)` with a `mkdtemp`
    fallback (`clone.ts`); `pruneStaleBuilds` TTL sweep (`build-workdir.ts`);
    layer cache under `buildx-cache/` (`buildx.ts`).
-3. **Backups** — stage dumps under `backupDir(id)`. *(Helper exists; backups still
-   stage elsewhere — not yet wired.)*
+3. ✅ **Backups** — the engine stages each archive to `backupDir(resourceId)`
+   before the (possibly off-cluster) upload (`backups/engine.ts` +
+   `stageBackupArchive`); the staged copy is dropped on a successful upload and
+   left behind on failure for inspection/retry (the sweep reclaims stale ones).
 4. ✅ **DR escape hatch** — on every successful `applyManifest`,
    `writeProjectEscapeHatch` (`lib/escape-hatch.ts`) renders the project's current
    rows to `projects/<projectId>/compose.yml` + `otterdeploy.json` (best-effort,
    `0600`, never blocks the apply); `removeProjectDir` drops it on project delete.
    **DR/audit only — never `up`'d by the platform.**
-5. **Orphan sweep** — periodic reconcile of `resources/*`/`builds/*` against the DB.
+5. ✅ **Orphan sweep** — `lib/data-folder-sweep.ts` reconciles `resources/*`,
+   `projects/*`, and `backups/*` against the DB on a control-plane tick
+   (`startDataFolderSweep`, started from the server bootstrap): a dir whose id is
+   absent from the DB is reclaimed via the same guarded removers, and staged
+   backup archives past a TTL are swept. `builds/*` stays with the builder's own
+   `pruneStaleBuilds`. Best-effort + `unref`'d, like the backup scheduler.
 
 ## Deferred / non-goals
 

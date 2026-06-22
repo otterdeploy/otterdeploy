@@ -6,6 +6,7 @@ import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { createContext } from "@otterdeploy/api/context";
 import { reconcile } from "@otterdeploy/api/caddy";
 import { startBackupScheduler } from "@otterdeploy/api/backups";
+import { startDataFolderSweep } from "@otterdeploy/api/lib/data-folder-sweep";
 import { startMetricsSampler } from "@otterdeploy/api/metrics";
 import { startBlocklistScheduler } from "@otterdeploy/api/routers/firewall/scheduler";
 import {
@@ -270,6 +271,7 @@ let stopWorkers: (() => Promise<void>) | null = null;
 let stopBackupScheduler: (() => void) | null = null;
 let stopMetricsSampler: (() => void) | null = null;
 let stopBlocklistScheduler: (() => void) | null = null;
+let stopDataFolderSweep: (() => void) | null = null;
 
 async function bootstrap() {
   // Edge-log sink: bind the TCP listener Caddy streams logs to — both per-site
@@ -397,6 +399,12 @@ async function bootstrap() {
   // their interval so the imported decisions refresh before they expire.
   stopBlocklistScheduler = startBlocklistScheduler();
   log.info({ startup: { step: "blocklist-scheduler", status: "ready" } });
+
+  // Data-folder orphan sweep — reclaims artifact dirs (resources/projects/
+  // backups) whose owning DB row is gone, e.g. after a crashed teardown
+  // (docs/designs/data-folder.md, Phase 5). No-op when /data isn't in use.
+  stopDataFolderSweep = startDataFolderSweep();
+  log.info({ startup: { step: "data-folder-sweep", status: "ready" } });
 }
 
 void bootstrap();
@@ -408,6 +416,7 @@ for (const signal of ["SIGTERM", "SIGINT"] as const) {
     if (stopBackupScheduler) stopBackupScheduler();
     if (stopMetricsSampler) stopMetricsSampler();
     if (stopBlocklistScheduler) stopBlocklistScheduler();
+    if (stopDataFolderSweep) stopDataFolderSweep();
     if (stopWorkers) await stopWorkers().catch(() => undefined);
     process.exit(0);
   });
