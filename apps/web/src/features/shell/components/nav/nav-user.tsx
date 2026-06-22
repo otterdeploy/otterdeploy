@@ -40,11 +40,15 @@ import {
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useTheme } from "next-themes";
 import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
+
+import { useState } from "react";
 
 import { setCommandPaletteOpen } from "@/features/command-palette";
 import { authClient } from "@/lib/auth-client";
 import { languageNames, supportedLngs } from "@otterdeploy/i18n";
+
+import { ActiveSessionsDialog } from "./active-sessions-dialog";
+import { ConnectCliDialog } from "./connect-cli-dialog";
 
 export interface User {
   name: string;
@@ -65,6 +69,8 @@ export function NavUser({ user }: { user: User }) {
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
   const { orgSlug } = useParams({ strict: false }) as { orgSlug?: string };
+  const [cliOpen, setCliOpen] = useState(false);
+  const [sessionsOpen, setSessionsOpen] = useState(false);
 
   async function handleSignOut() {
     await authClient.signOut();
@@ -78,7 +84,8 @@ export function NavUser({ user }: { user: User }) {
   ).split("-")[0] as (typeof supportedLngs)[number];
 
   return (
-    <SidebarMenu>
+    <>
+      <SidebarMenu>
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger
@@ -199,25 +206,11 @@ export function NavUser({ user }: { user: User }) {
                 <HugeiconsIcon icon={Settings01Icon} strokeWidth={2} />
                 {t("user.account")}
               </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() =>
-                  toast.info("Connect CLI", {
-                    description:
-                      "Authenticate the otterdeploy CLI from here — coming soon.",
-                  })
-                }
-              >
+              <DropdownMenuItem onClick={() => setCliOpen(true)}>
                 <HugeiconsIcon icon={CommandLineIcon} strokeWidth={2} />
                 Connect CLI
               </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() =>
-                  toast.info("Active sessions", {
-                    description:
-                      "Review and revoke your signed-in devices — coming soon.",
-                  })
-                }
-              >
+              <DropdownMenuItem onClick={() => setSessionsOpen(true)}>
                 <HugeiconsIcon icon={DeviceAccessIcon} strokeWidth={2} />
                 Active sessions
               </DropdownMenuItem>
@@ -232,6 +225,12 @@ export function NavUser({ user }: { user: User }) {
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>
-    </SidebarMenu>
+      </SidebarMenu>
+      <ConnectCliDialog open={cliOpen} onOpenChange={setCliOpen} />
+      <ActiveSessionsDialog
+        open={sessionsOpen}
+        onOpenChange={setSessionsOpen}
+      />
+    </>
   );
 }
