@@ -6,6 +6,7 @@ import type { VariablesEditorResource } from "@/features/resources/components/_s
 
 import { SettingsCard, SettingsRowReadOnly } from "@/features/resources/components/_shared/settings-card";
 import { ServiceBuildCard } from "./build-card";
+import { ServiceDeployHooksCard } from "./deploy-hooks-card";
 import { ServiceDangerZone } from "./danger-zone";
 import { ServiceDomainsCard } from "./domains-card";
 import { ManifestDomainsCard } from "./manifest-domains-card";
@@ -53,7 +54,13 @@ export function ServiceSettingsBody({
       </SettingsCard>
 
       {resource.source === "git" ? (
-        <ServiceBuildCard resource={resource} />
+        <>
+          <ServiceBuildCard resource={resource} />
+          <ServiceDeployHooksCard
+            projectId={resource.projectId}
+            serviceName={resource.name}
+          />
+        </>
       ) : null}
 
       {pending ? (
