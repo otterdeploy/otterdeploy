@@ -372,7 +372,7 @@ function WizardFooter({
       <Button
         size="sm"
         className="h-8 gap-1.5"
-        onClick={() => void handleContinue()}
+        onClick={() =>  handleContinue()}
         disabled={createDisabled}
       >
         {/* In the engine sub-view, kindId is empty until an engine is picked,
@@ -619,13 +619,16 @@ function useWizardForm({
       }
       // Compute kinds (app/worker/static/etc.): built by apps/builder from
       // the project's git binding. Placeholder image — the first build
-      // overwrites it.
+      // overwrites it. A port-less kind (worker) skips the Networking step, so
+      // force no ports rather than inheriting the default web port.
+      const portless =
+        SERVICE_KINDS.find((k) => k.id === payload.kindId)?.portless === true;
       await runServiceCreate({
         name: payload.name,
         source: "git",
         kindId: payload.kindId,
         image: "pending:initial",
-        ports: payload.ports,
+        ports: portless ? [] : payload.ports,
         variables: payload.variables,
         replicas: payload.replicas,
         builderId: payload.builderId,

@@ -65,10 +65,20 @@ const DB_FAST_STEPS: StepEntry[] = [
   ["review", "Review"],
 ];
 
+// A port-less compute service (background worker): same git build flow, minus
+// the Networking step — it publishes no port and gets no public route.
+const dropNetworking = (steps: StepEntry[]): StepEntry[] =>
+  steps.filter(([step]) => step !== "networking");
+const WORKER_STEPS = dropNetworking(SOURCE_STEPS);
+const WORKER_FAST_STEPS = dropNetworking(SOURCE_FAST_STEPS);
+
 export function flowFor(kind: ServiceKind | null, advanced = false): StepEntry[] {
   if (!kind) return KIND_STEPS;
   if (kind.group === "database") return advanced ? DB_STEPS : DB_FAST_STEPS;
   if (kind.id === "docker") return advanced ? DOCKER_STEPS : DOCKER_FAST_STEPS;
-  if (kind.group === "source") return advanced ? SOURCE_STEPS : SOURCE_FAST_STEPS;
+  if (kind.group === "source") {
+    if (kind.portless) return advanced ? WORKER_STEPS : WORKER_FAST_STEPS;
+    return advanced ? SOURCE_STEPS : SOURCE_FAST_STEPS;
+  }
   return KIND_STEPS;
 }

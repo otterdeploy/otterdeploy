@@ -18,6 +18,10 @@ export interface ServiceKind {
    *  Gates roadmap kinds behind a "Coming soon" chip instead of letting
    *  the operator click through to a dead-end Review step. */
   comingSoon?: boolean;
+  /** A long-running compute service with no HTTP port (a background worker).
+   *  Skips the Networking step and is created with no published port / no
+   *  public route — the swarm spec omits the EndpointSpec entirely. */
+  portless?: boolean;
 }
 
 export const SERVICE_KINDS: ServiceKind[] = [
@@ -36,14 +40,18 @@ export const SERVICE_KINDS: ServiceKind[] = [
     icon: "service",
     group: "source",
     examples: "Sidekiq · Celery · BullMQ · Resque",
+    portless: true,
   },
   {
+    // Needs a scheduler the platform doesn't have yet (swarm has no native
+    // cron) — gated until that lands rather than creating a job nothing fires.
     id: "cron",
     name: "Scheduled job",
     sub: "Run a command on a cron schedule",
     icon: "clock",
     group: "source",
     examples: "nightly migrations · weekly reports · TTL cleanup",
+    comingSoon: true,
   },
   {
     id: "static",
@@ -54,12 +62,15 @@ export const SERVICE_KINDS: ServiceKind[] = [
     examples: "Vite · Astro · Next export · plain HTML",
   },
   {
+    // "Auto-shuts down" needs RestartPolicy:none + run-to-completion tracking
+    // the runtime driver doesn't model yet — gated until that lands.
     id: "function",
     name: "One-off function",
     sub: "Triggered manually or via webhook · auto-shuts down",
     icon: "bolt",
     group: "source",
     examples: "data import · webhook handler · seed script",
+    comingSoon: true,
   },
   {
     id: "postgres",
@@ -205,80 +216,7 @@ export interface Template {
   icon: string;
 }
 
-const TEMPLATES: Template[] = [
-  {
-    id: "t-medusa",
-    name: "Medusa Commerce",
-    sub: "Headless commerce · Medusa + Postgres + Redis + admin",
-    services: 4,
-    popular: true,
-    icon: "service",
-  },
-  {
-    id: "t-supabase",
-    name: "Supabase",
-    sub: "Auth · Postgres · Realtime · Storage · Studio",
-    services: 6,
-    popular: true,
-    icon: "db",
-  },
-  {
-    id: "t-strapi",
-    name: "Strapi CMS",
-    sub: "Headless CMS + Postgres",
-    services: 2,
-    icon: "doc",
-  },
-  {
-    id: "t-ghost",
-    name: "Ghost",
-    sub: "Publishing platform · Ghost + MySQL",
-    services: 2,
-    icon: "doc",
-  },
-  {
-    id: "t-nocodb",
-    name: "NocoDB",
-    sub: "Airtable alternative · NocoDB + Postgres",
-    services: 2,
-    icon: "db",
-  },
-  {
-    id: "t-plausible",
-    name: "Plausible Analytics",
-    sub: "Plausible + ClickHouse + Postgres",
-    services: 3,
-    icon: "metrics",
-  },
-  {
-    id: "t-umami",
-    name: "Umami",
-    sub: "Privacy-focused analytics + Postgres",
-    services: 2,
-    icon: "metrics",
-  },
-  {
-    id: "t-n8n",
-    name: "n8n",
-    sub: "Workflow automation",
-    services: 1,
-    icon: "bolt",
-  },
-  {
-    id: "t-grafana",
-    name: "Grafana + Prometheus",
-    sub: "Observability stack",
-    services: 3,
-    icon: "metrics",
-  },
-  {
-    id: "t-langfuse",
-    name: "Langfuse",
-    sub: "LLM observability + Postgres + ClickHouse",
-    services: 3,
-    icon: "metrics",
-  },
-];
+
 
 export interface ResourcePreset {
   id: string;
@@ -366,37 +304,4 @@ export interface Builder {
   langs?: string[];
 }
 
-const BUILDERS: Builder[] = [
-  {
-    id: "railpack",
-    name: "Railpack",
-    sub: "Auto-detect — Node, Python, Go, Rust, Ruby…",
-    icon: "bolt",
-    popular: true,
-    langs: ["node", "python", "go", "rust", "ruby", "php", "elixir"],
-  },
-  {
-    id: "dockerfile",
-    name: "Dockerfile",
-    sub: "Use the Dockerfile in your repo",
-    icon: "doc",
-  },
-  {
-    id: "compose",
-    name: "Docker Compose",
-    sub: "Multi-container from compose.yml",
-    icon: "service",
-  },
-  {
-    id: "buildpack",
-    name: "Buildpacks",
-    sub: "CNB / Heroku-style cloud-native buildpacks",
-    icon: "folder",
-  },
-  {
-    id: "static",
-    name: "Static site",
-    sub: "Plain HTML / Vite / Astro / Next export",
-    icon: "globe",
-  },
-];
+
