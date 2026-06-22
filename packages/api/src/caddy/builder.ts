@@ -128,6 +128,11 @@ export function buildHttpBlock(route: ProxyRouteInput, options: HttpBlockOptions
     lines.push(`\t\toutput net ${options.edgeLogSink}`);
     lines.push("\t\tformat json");
     lines.push("\t}");
+    // Append the chosen reverse_proxy upstream to each access-log entry — the
+    // placeholder resolves at log-write time (after the proxy dials), so the
+    // edge-log parser can populate the `upstream` field. Empty for static /
+    // non-proxied responses.
+    lines.push("\tlog_append upstream {http.reverse_proxy.upstream.hostport}");
     // Generate a request id: returned to the client + logged (resp_headers)
     // and forwarded to the app for end-to-end tracing.
     lines.push("\theader X-Request-Id {http.request.uuid}");

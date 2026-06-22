@@ -75,15 +75,29 @@ function redact(line: EdgeEventLine, hosts: string[]): EdgeEventLine {
   return domains.length === line.domains.length ? line : { ...line, domains };
 }
 
-export function queryEdgeEvents(
+/**
+ * Apply the event filter (time window, host scope, category/level/search) to an
+ * arbitrary ascending-ordered source and return the newest `limit`, redacted to
+ * the caller's owned domains. Shared by the live ring (below) and the DB-backed
+ * query (event-query-db.ts) so both paths filter/scope/redact identically.
+ */
+export function filterEdgeEvents(
+  source: EdgeEventLine[],
   filter: EdgeEventFilter,
   now: number,
 ): EdgeEventQueryResult {
   const sinceMs = now - RANGE_MS[filter.range];
-  const matched = state.buffer.filter((l) => matches(l, filter, sinceMs));
+  const matched = source.filter((l) => matches(l, filter, sinceMs));
   const limit = filter.limit ?? 200;
   const rows = matched.slice(-limit).reverse().map((l) => redact(l, filter.hosts));
   return { rows, total: matched.length };
+}
+
+export function queryEdgeEvents(
+  filter: EdgeEventFilter,
+  now: number,
+): EdgeEventQueryResult {
+  return filterEdgeEvents(state.buffer, filter, now);
 }
 
 /** Test seam — drain the buffer between tests. */

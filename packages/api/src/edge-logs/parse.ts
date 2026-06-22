@@ -53,6 +53,10 @@ const CaddyAccessLogSchema = z.object({
   bytes_read: z.number().optional(),
   request_id: z.string().optional(),
   resp_headers: HeaderMapSchema.optional(),
+  // Selected reverse_proxy upstream, surfaced via a `log_append upstream
+  // {http.reverse_proxy.upstream.hostport}` directive in the rendered site
+  // block (caddy/builder.ts). Absent for static / non-proxied responses.
+  upstream: z.string().optional(),
 });
 
 type HeaderMap = z.infer<typeof HeaderMapSchema>;
@@ -108,6 +112,7 @@ export function parseCaddyAccessLog(raw: unknown): EdgeLogLine | null {
     bytes_read,
     request_id,
     resp_headers,
+    upstream,
   } = result.data;
 
   const parsedTs = parseTs(ts);
@@ -150,7 +155,7 @@ export function parseCaddyAccessLog(raw: unknown): EdgeLogLine | null {
     referer,
     tlsVersion,
     tlsCipher,
-    upstream: null,
+    upstream: upstream ?? null,
     cache: cacheRaw,
     reqBytes: bytes_read ?? 0,
     resBytes: size ?? 0,

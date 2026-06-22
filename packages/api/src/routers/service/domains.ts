@@ -69,6 +69,10 @@ export interface ServiceDomainView {
   /** Where the host currently resolves (custom hosts). */
   dnsState: DnsState;
   dnsCheckedAt: string | null;
+  /** TLS cert lifecycle, promoted from Caddy ACME events (edge-logs). */
+  certState: "unknown" | "obtaining" | "valid" | "failed";
+  certError: string | null;
+  certCheckedAt: string | null;
   usesAcme: boolean;
   protected: boolean;
   /** The IP to point an A record at (our server). Null when unknown (dev). */
@@ -84,6 +88,9 @@ function toDomainView(route: ProxyRouteRecord, dnsTarget: string | null): Servic
     status: route.enabled ? "live" : "disabled",
     dnsState: route.dnsState,
     dnsCheckedAt: route.dnsCheckedAt ? route.dnsCheckedAt.toISOString() : null,
+    certState: route.certState,
+    certError: route.certError,
+    certCheckedAt: route.certCheckedAt ? route.certCheckedAt.toISOString() : null,
     usesAcme: route.usesAcme,
     protected: route.protected,
     dnsTarget,

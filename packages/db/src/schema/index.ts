@@ -4,6 +4,8 @@ export * from "./backup";
 export * from "./blocklist";
 export * from "./build";
 export * from "./deployment-guest";
+// edge_event (operational-log events) IS drizzle-managed — sparse, plain table.
+export * from "./edge-event";
 // edge_log is intentionally NOT re-exported: it's a RANGE-partitioned table
 // (drizzle-kit can't express PARTITION BY), owned by the runtime bootstrap in
 // packages/api/src/edge-logs/partition.ts. Import its typed object directly

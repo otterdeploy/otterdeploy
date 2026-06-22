@@ -86,6 +86,11 @@ export const env = createEnv({
       .union([z.boolean(), z.string()])
       .transform((v) => v === true || v === "true" || v === "1")
       .default(true),
+    // Absolute path to a MaxMind GeoLite2-Country .mmdb file. When set (and the
+    // optional `maxmind` package is installed), edge-log rows get a country
+    // code; unset ⇒ the country column stays null. License-gated DB, so the
+    // operator supplies it — see edge-logs/geo.ts.
+    EDGE_LOG_GEOIP_DB: z.string().min(1).optional(),
 
     // CrowdSec IP-reputation bouncer (deployment-protection.md §10). When
     // both are set, the Caddyfile gains the global `crowdsec` app + a

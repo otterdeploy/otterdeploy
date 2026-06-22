@@ -24,6 +24,20 @@ export const proxyRouteDnsStateEnum = pgEnum("proxy_route_dns_state", [
   "unknown",
 ]);
 
+// TLS certificate lifecycle for the route's domain, promoted from Caddy's
+// operational log plane (the global `log { output net }` event stream — see
+// edge-logs/ingest.ts). "obtaining" = ACME issuance/renewal in flight;
+// "valid" = a cert was obtained/renewed successfully; "failed" = the last
+// issuance attempt errored (challenge failure, rate limit, …); "unknown" =
+// nothing observed yet (the default — also the steady state for `tls internal`
+// self-signed routes, which never emit ACME events).
+export const proxyRouteCertStateEnum = pgEnum("proxy_route_cert_state", [
+  "unknown",
+  "obtaining",
+  "valid",
+  "failed",
+]);
+
 export const proxyRoute = pgTable(
   "proxy_route",
   {
@@ -61,6 +75,13 @@ export const proxyRoute = pgTable(
     dnsState: proxyRouteDnsStateEnum("dns_state").notNull().default("unknown"),
     // When the reachability above was last refreshed (for "checked 2m ago").
     dnsCheckedAt: timestamp("dns_checked_at"),
+    // TLS cert lifecycle, promoted from Caddy's ACME/cert log events by
+    // edge-logs/ingest.ts (best-effort). Drives the domains-card cert badge.
+    certState: proxyRouteCertStateEnum("cert_state").notNull().default("unknown"),
+    // Last cert-issuance error message (when certState = "failed").
+    certError: text("cert_error"),
+    // When a cert event last touched this row.
+    certCheckedAt: timestamp("cert_checked_at"),
     // Whether Caddy should issue a public ACME cert (Let's Encrypt) for
     // this domain. False = `tls internal` (self-signed) — used for sslip
     // fallback domains and any verified-but-unowned platform default.

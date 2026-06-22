@@ -55,6 +55,10 @@
     "yaml": "^2.9.0",
     "zod": "catalog:"
   },
+  "optionalDependencies": {
+    "//": "maxmind: optional GeoIP reader for edge logs — only loaded when EDGE_LOG_GEOIP_DB is set; code degrades to null country without it (see edge-logs/geo.ts).",
+    "maxmind": "^4.3.24"
+  },
   "devDependencies": {
     "@otterdeploy/config": "workspace:*",
     "@vitest/coverage-v8": "catalog:",

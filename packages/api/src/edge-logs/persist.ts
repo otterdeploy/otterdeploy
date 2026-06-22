@@ -17,6 +17,10 @@ import {
   ensureEdgeLogTable,
   ensurePartitions,
 } from "./partition";
+import {
+  startEventPersistence,
+  stopEventPersistence,
+} from "./event-persist";
 import type { EdgeLogLine } from "./types";
 
 const FLUSH_INTERVAL_MS = 2_000;
@@ -62,6 +66,8 @@ export function startEdgeLogPersistence(): void {
   })();
   state.flushTimer = setInterval(() => void flush(), FLUSH_INTERVAL_MS);
   state.sweepTimer = setInterval(() => void sweep(), SWEEP_INTERVAL_MS);
+  // The sparse operational-event plane shares this toggle (its own plain table).
+  startEventPersistence();
   log.info({ edgeLog: { persist: "started" } });
 }
 
@@ -72,6 +78,7 @@ export async function stopEdgeLogPersistence(): Promise<void> {
   state.flushTimer = null;
   state.sweepTimer = null;
   await flush();
+  await stopEventPersistence();
 }
 
 /** Queue a parsed line for persistence. No-op until startEdgeLogPersistence. */

@@ -10,9 +10,11 @@
 
 import { log } from "evlog";
 
+import { promoteCertEvent } from "./cert-promote";
 import { parseCaddyEvent } from "./event-parse";
+import { enqueueEdgeEvent } from "./event-persist";
 import { pushEdgeEvent } from "./event-ring";
-import { lookupCountry } from "./geo";
+import { initGeo, lookupCountry } from "./geo";
 import { parseCaddyAccessLog } from "./parse";
 import { enqueueEdgeLog } from "./persist";
 import { pushEdgeLog } from "./ring";
@@ -27,6 +29,10 @@ const g = globalThis as typeof globalThis & {
 
 export function startEdgeLogSink(port: number): void {
   if (g.__edgeLogSink) return;
+  // Open the GeoIP reader (no-op unless EDGE_LOG_GEOIP_DB + the optional
+  // `maxmind` package are both present). Fire-and-forget — lookups before it
+  // resolves just return null.
+  void initGeo();
   const partials = new WeakMap<object, { buf: string }>();
 
   g.__edgeLogSink = Bun.listen({
@@ -92,9 +98,15 @@ function ingestLine(line: string): void {
   }
 
   // Operational log plane (Phase 3): cert/ACME, upstream errors, etc. Live
-  // tail only (no persistence) — parse drops info-level noise.
+  // tail + DB persistence (no-op unless started); parse drops info-level noise.
   const event = parseCaddyEvent(json);
-  if (event) pushEdgeEvent(event);
+  if (event) {
+    pushEdgeEvent(event); // live tail
+    enqueueEdgeEvent(event); // persistence (no-op unless started)
+    // Promote cert/ACME lifecycle onto the proxy_route rows + fire cert.renewed.
+    // Fire-and-forget: never blocks ingest, never throws.
+    if (event.category === "cert") void promoteCertEvent(event);
+  }
 }
 
 export function stopEdgeLogSink(): void {

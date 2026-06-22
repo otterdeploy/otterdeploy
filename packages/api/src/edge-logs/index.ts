@@ -25,12 +25,18 @@ export {
 export {
   pushEdgeEvent,
   queryEdgeEvents,
+  filterEdgeEvents,
   subscribeEdgeEvents,
   eventHosts,
   __resetEdgeEvents,
 } from "./event-ring";
+export {
+  enqueueEdgeEvent,
+  eventPersistenceEnabled,
+} from "./event-persist";
+export { queryEdgeEventsDb } from "./event-query-db";
 export { queryEdgeLogsDb } from "./query-db";
-export { lookupCountry } from "./geo";
+export { lookupCountry, initGeo } from "./geo";
 export {
   startEdgeLogPersistence,
   stopEdgeLogPersistence,

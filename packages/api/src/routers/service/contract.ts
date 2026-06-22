@@ -101,6 +101,10 @@ const serviceDomainSchema = z.object({
   // Reachability of the host (add-and-go): does DNS point here yet, and how.
   dnsState: z.enum(["pointed", "proxied", "unpointed", "unknown"]),
   dnsCheckedAt: z.string().nullable(),
+  // TLS cert lifecycle, promoted from Caddy's ACME log events.
+  certState: z.enum(["unknown", "obtaining", "valid", "failed"]),
+  certError: z.string().nullable(),
+  certCheckedAt: z.string().nullable(),
   usesAcme: z.boolean(),
   protected: z.boolean(),
   // The IP to point an A record at (our server). Null when unknown (dev).

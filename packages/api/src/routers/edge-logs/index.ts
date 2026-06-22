@@ -15,8 +15,10 @@ import {
   type EdgeEventLine,
   type EdgeLogLine,
   eventHosts,
+  eventPersistenceEnabled,
   persistenceEnabled,
   queryEdgeEvents,
+  queryEdgeEventsDb,
   queryEdgeLogs,
   queryEdgeLogsDb,
   subscribeEdgeEvents,
@@ -214,7 +216,21 @@ export const edgeLogsRouter = {
         const orgId = context.activeOrganizationId;
         const { hosts: selectedHosts, ...rest } = input;
         const hosts = await resolveHosts(orgId, input.projectId);
-        return queryEdgeEvents({ ...rest, hosts, selectedHosts }, Date.now());
+        const filter = { ...rest, hosts, selectedHosts };
+        const now = Date.now();
+        // DB-backed when persistence is on (survives restarts); else the ring.
+        // Fall back to the ring on a DB error so the page still renders.
+        if (!eventPersistenceEnabled()) return queryEdgeEvents(filter, now);
+        const res = await Result.tryPromise({
+          try: () => queryEdgeEventsDb(filter, now),
+          catch: (cause) => cause,
+        });
+        if (res.isOk()) return res.value;
+        log.warn({
+          edgeLog: { eventsQuery: "db-failed-fallback-ring" },
+          error: res.error instanceof Error ? res.error.message : String(res.error),
+        });
+        return queryEdgeEvents(filter, now);
       },
     ),
 
