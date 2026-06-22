@@ -10,6 +10,12 @@
  * backup engine + other viewers use (no overlay-network connection). Output is
  * Extended JSON (`EJSON.stringify`) wrapped in sentinels so we can pull our
  * payload out of any shell chatter.
+ *
+ * Requires `mongosh` (and `EJSON`), which ship in mongo 6+. We only support
+ * mongo 6+ — the same assumption the engine adapter's healthcheck already makes
+ * (swarm/database-engines/mongodb.ts) and the pinned default image (`mongo:7`).
+ * Legacy `mongo:4/5` (which shipped the old `mongo` shell) is unsupported; the
+ * exec would fail with a clear error rather than silently misbehave.
  */
 import { Docker } from "@otterdeploy/docker";
 
