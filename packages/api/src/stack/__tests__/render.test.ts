@@ -155,14 +155,21 @@ describe("stack/render/toComposeYaml", () => {
     expect(c).toBe(a);
   });
 
-  it("round-trips: rendered → YAML → parsed compose contains the extension block", () => {
+  it("round-trips: rendered → YAML → parsed compose carries identity in deploy.labels", () => {
+    // The renderer projects the x-otterdeploy identity into deploy.labels (pure
+    // compose — nothing parses our output back in), NOT an x-otterdeploy block.
+    // Assert it survives the full render → YAML → parse round-trip as structured
+    // labels (the string form is covered by the projection test above).
     const file = applyEngineDefaults(minimalPostgresFile());
     const yaml = toComposeYaml(file);
     const parsed = parse(yaml) as { services: Record<string, unknown> };
     const primary = parsed.services["primary"] as Record<string, unknown>;
-    const ext = primary["x-otterdeploy"] as Record<string, unknown>;
-    expect(ext["kind"]).toBe("database");
-    expect(ext["engine"]).toBe("postgres");
-    expect(ext["resourceId"]).toBe("resource_test_pg");
+    expect(primary["x-otterdeploy"]).toBeUndefined();
+    const deploy = primary["deploy"] as Record<string, unknown>;
+    const labels = deploy["labels"] as Record<string, unknown>;
+    expect(labels["otterdeploy.kind"]).toBe("database");
+    expect(labels["otterdeploy.engine"]).toBe("postgres");
+    expect(labels["otterdeploy.resource.id"]).toBe("resource_test_pg");
+    expect(labels["otterdeploy.project.id"]).toBe("project_test");
   });
 });
