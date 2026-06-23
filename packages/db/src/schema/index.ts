@@ -15,6 +15,7 @@ export * from "./notification";
 export * from "./notification-channel";
 export * from "./platform";
 export * from "./project";
+export * from "./platform-metric";
 export * from "./proxy-route";
 export * from "./resource-metric";
 export * from "./server";

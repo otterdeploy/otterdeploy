@@ -82,7 +82,10 @@ const navGroups: NavGroup[] = [
   },
   {
     label: "Observability",
-    items: [{ title: "Audit", icon: File01Icon, href: "/$orgSlug/audit" }],
+    items: [
+      { title: "Platform", icon: FlashIcon, href: "/$orgSlug/platform" },
+      { title: "Audit", icon: File01Icon, href: "/$orgSlug/audit" },
+    ],
   },
   {
     label: "Integrations",

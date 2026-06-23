@@ -27,9 +27,45 @@ const metricPointSchema = z.object({
   netTxBytes: z.number(),
 });
 
+const platformInput = z.object({
+  windowMinutes: z.number().int().positive().max(1440).default(60),
+});
+
+const queueSnapshotSchema = z.object({
+  queue: z.string(),
+  waiting: z.number(),
+  active: z.number(),
+  failed: z.number(),
+  delayed: z.number(),
+  completed: z.number(),
+});
+
+const seriesPointSchema = z.object({ ts: z.date(), value: z.number() });
+
 export const metricsContract = {
   query: oc
     .meta({ path: `${basePath}/{resourceId}`, tag, method: "GET" })
     .input(metricsQueryInput)
     .output(z.object({ points: z.array(metricPointSchema) })),
+
+  // Install-wide platform health: live queue backlog snapshot, queue
+  // waiting/active over the window, and org deploy throughput. Queue metrics
+  // are install-wide (shared across orgs); deploy throughput is org-scoped.
+  platform: oc
+    .meta({ path: `${basePath}/platform`, tag, method: "GET" })
+    .input(platformInput)
+    .output(
+      z.object({
+        queueSnapshot: z.array(queueSnapshotSchema),
+        waitingSeries: z.array(seriesPointSchema),
+        activeSeries: z.array(seriesPointSchema),
+        deploy: z.object({
+          succeeded: z.number(),
+          failed: z.number(),
+          inProgress: z.number(),
+          total: z.number(),
+          failureRate: z.number(),
+        }),
+      }),
+    ),
 };

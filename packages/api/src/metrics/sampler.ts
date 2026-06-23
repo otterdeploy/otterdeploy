@@ -16,6 +16,8 @@ import { log } from "evlog";
 import { db } from "@otterdeploy/db";
 import { resourceMetric } from "@otterdeploy/db/schema";
 
+import { samplePlatformMetrics } from "./platform";
+
 import { healthFromStatus, recordHealthObservations } from "./health-detector";
 
 const RESOURCE_ID_LABEL = "otterdeploy.resource.id";
@@ -157,9 +159,13 @@ export async function sampleAllContainers(): Promise<void> {
   }
 }
 
-/** Start the periodic sampler. Returns a stop handle. */
+/** Start the periodic sampler. Returns a stop handle. Each tick samples both
+ *  per-container stats and install-wide platform metrics (queue backlog). */
 export function startMetricsSampler(intervalMs = 30_000): () => void {
-  const timer = setInterval(() => void sampleAllContainers(), intervalMs);
+  const timer = setInterval(() => {
+    void sampleAllContainers();
+    void samplePlatformMetrics();
+  }, intervalMs);
   timer.unref?.();
   return () => clearInterval(timer);
 }
