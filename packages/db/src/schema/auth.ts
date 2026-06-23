@@ -9,6 +9,9 @@ export const user = pgTable("user", {
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").default(false).notNull(),
   image: text("image"),
+  // better-auth `twoFactor` plugin: flipped true after the user verifies their
+  // first TOTP code. The secret + backup codes live in the `two_factor` table.
+  twoFactorEnabled: boolean("two_factor_enabled").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()
@@ -93,6 +96,24 @@ export const deviceCode = pgTable(
     index("device_code_user_code_idx").on(table.userCode),
     index("device_code_device_code_idx").on(table.deviceCode),
   ],
+);
+
+// better-auth `twoFactor` plugin store. One row per user with 2FA configured:
+// the TOTP `secret` (encrypted at rest with BETTER_AUTH_SECRET) and the
+// single-use `backupCodes` (encrypted). The plugin owns every column — property
+// keys stay camelCase to match its model field names. Like `device_code`, the
+// id is minted by better-auth's `generateId`, so no `$defaultFn` here.
+export const twoFactor = pgTable(
+  "two_factor",
+  {
+    id: text("id").primaryKey(),
+    secret: text("secret").notNull(),
+    backupCodes: text("backup_codes").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+  },
+  (table) => [index("two_factor_userId_idx").on(table.userId)],
 );
 
 export const verification = pgTable(

@@ -5,6 +5,7 @@ import {
   deviceAuthorizationClient,
   magicLinkClient,
   organizationClient,
+  twoFactorClient,
 } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 
@@ -16,6 +17,10 @@ export const authClient = createAuthClient({
     magicLinkClient(),
     apiKeyClient(),
     deviceAuthorizationClient(),
+    // TOTP two-factor. On a 2FA-enabled sign-in, the server returns
+    // `twoFactorRedirect`; the sign-in form handles the challenge inline rather
+    // than via `onTwoFactorRedirect`, so no redirect callback is configured.
+    twoFactorClient(),
   ],
 });
 

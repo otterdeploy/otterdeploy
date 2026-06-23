@@ -11,7 +11,12 @@ import { betterAuth } from "better-auth";
 import { apiKey } from "@better-auth/api-key";
 import { log } from "evlog";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { bearer, deviceAuthorization, organization } from "better-auth/plugins";
+import {
+  bearer,
+  deviceAuthorization,
+  organization,
+  twoFactor,
+} from "better-auth/plugins";
 
 import { ac, roles } from "./permissions";
 
@@ -110,6 +115,13 @@ export const auth = betterAuth({
     // Honors `Authorization: Bearer <token>` on auth.api.getSession.
     // Required by deviceAuthorization so CLI clients can authenticate.
     bearer(),
+    // TOTP two-factor auth (authenticator apps) + single-use backup codes.
+    // Only applies to credential (email/password) accounts. The TOTP secret and
+    // backup codes are encrypted at rest (BETTER_AUTH_SECRET) and stored in the
+    // `two_factor` table; `user.twoFactorEnabled` flips true after the first
+    // successful TOTP verification. On sign-in, an account with 2FA returns
+    // `twoFactorRedirect` instead of a session until a code is verified.
+    twoFactor({ issuer: "otterdeploy" }),
     // Workspace-scoped API keys. `references: "organization"` means a key is
     // owned by an org (referenceId = organizationId), not an individual user,
     // so any owner/admin can manage the workspace's keys — matching how every

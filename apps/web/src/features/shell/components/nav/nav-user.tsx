@@ -35,6 +35,7 @@ import {
   LanguageCircleIcon,
   Settings01Icon,
   DeviceAccessIcon,
+  ShieldKeyIcon,
   LogoutIcon,
 } from "@hugeicons/core-free-icons";
 import { useNavigate, useParams } from "@tanstack/react-router";
@@ -49,6 +50,7 @@ import { languageNames, supportedLngs } from "@otterdeploy/i18n";
 
 import { ActiveSessionsDialog } from "./active-sessions-dialog";
 import { ConnectCliDialog } from "./connect-cli-dialog";
+import { TwoFactorDialog } from "./two-factor-dialog";
 
 export interface User {
   name: string;
@@ -71,6 +73,7 @@ export function NavUser({ user }: { user: User }) {
   const { orgSlug } = useParams({ strict: false }) as { orgSlug?: string };
   const [cliOpen, setCliOpen] = useState(false);
   const [sessionsOpen, setSessionsOpen] = useState(false);
+  const [twoFactorOpen, setTwoFactorOpen] = useState(false);
 
   async function handleSignOut() {
     await authClient.signOut();
@@ -214,6 +217,10 @@ export function NavUser({ user }: { user: User }) {
                 <HugeiconsIcon icon={DeviceAccessIcon} strokeWidth={2} />
                 Active sessions
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setTwoFactorOpen(true)}>
+                <HugeiconsIcon icon={ShieldKeyIcon} strokeWidth={2} />
+                Two-factor authentication
+              </DropdownMenuItem>
             </DropdownMenuGroup>
 
             <DropdownMenuSeparator />
@@ -231,6 +238,7 @@ export function NavUser({ user }: { user: User }) {
         open={sessionsOpen}
         onOpenChange={setSessionsOpen}
       />
+      <TwoFactorDialog open={twoFactorOpen} onOpenChange={setTwoFactorOpen} />
     </>
   );
 }

@@ -3,6 +3,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import * as z from "zod";
@@ -37,6 +38,24 @@ export function SignInForm({
   const { redirect } = useSearch({ from: "/sign-in" });
   const { t } = useTranslation();
 
+  // Set once email+password succeed for a 2FA-enabled account — swaps the form
+  // for the TOTP/backup-code challenge before a session is granted.
+  const [twoFactorRequired, setTwoFactorRequired] = useState(false);
+
+  /** Finish login (after password, or after the 2FA challenge): honor a safe
+   *  absolute deployment-protection redirect, else land on the internal path. */
+  const completeLogin = () => {
+    toast.success(t("auth.signIn.welcomeBack"));
+    if (redirect && /^https?:\/\//i.test(redirect)) {
+      const safe = safeServerRedirect(redirect);
+      void (safe
+        ? (window.location.href = safe)
+        : navigate({ to: "/", replace: true }));
+      return;
+    }
+    void navigate({ to: (redirect ?? "/") as "/", replace: true });
+  };
+
   const signIn = useMutation({
     mutationFn: async (input: { email: string; password: string }) => {
       const result = await authClient.signIn.email(input);
@@ -46,20 +65,14 @@ export function SignInForm({
         );
       return result.data;
     },
-    onSuccess: () => {
-      toast.success(t("auth.signIn.welcomeBack"));
-      // Deployment-protection sends an absolute `redirect` (the auth-wall
-      // authorize URL on the server origin) — that needs a full navigation,
-      // not TanStack's internal router. Internal paths use navigate().
-      if (redirect && /^https?:\/\//i.test(redirect)) {
-        const safe = safeServerRedirect(redirect);
-        // Untrusted absolute URL ⇒ drop it (open-redirect guard) and land home.
-        void (safe
-          ? (window.location.href = safe)
-          : navigate({ to: "/", replace: true }));
+    onSuccess: (data) => {
+      // 2FA-enabled accounts get no session yet — the server signals a pending
+      // challenge instead. Show the code step rather than navigating.
+      if ((data as { twoFactorRedirect?: boolean } | null)?.twoFactorRedirect) {
+        setTwoFactorRequired(true);
         return;
       }
-      void navigate({ to: (redirect ?? "/") as "/", replace: true });
+      completeLogin();
     },
     onError: (error) => {
       toast.error(error.message);
@@ -81,6 +94,12 @@ export function SignInForm({
       }),
     },
   });
+
+  // All hooks above run unconditionally; the 2FA challenge swaps the rendered
+  // tree only after they've been called.
+  if (twoFactorRequired) {
+    return <TwoFactorChallenge onVerified={completeLogin} />;
+  }
 
   return (
     <div>
@@ -193,6 +212,120 @@ export function SignInForm({
           {t("auth.signIn.createAccount")}
         </button>
       </p>
+    </div>
+  );
+}
+
+/**
+ * Second factor prompt shown after a correct password on a 2FA-enabled account.
+ * Verifies a 6-digit authenticator code (or a one-time backup code) — only then
+ * is the session granted. `trustDevice` skips the prompt on this device for 30d.
+ */
+function TwoFactorChallenge({ onVerified }: { onVerified: () => void }) {
+  const [code, setCode] = useState("");
+  const [trustDevice, setTrustDevice] = useState(false);
+  const [useBackup, setUseBackup] = useState(false);
+
+  const verify = useMutation({
+    mutationFn: async () => {
+      const value = code.trim();
+      const result = useBackup
+        ? await authClient.twoFactor.verifyBackupCode({ code: value })
+        : await authClient.twoFactor.verifyTotp({ code: value, trustDevice });
+      if (result.error)
+        throw new Error(
+          result.error.message ?? result.error.statusText ?? "Invalid code",
+        );
+      return result.data;
+    },
+    onSuccess: onVerified,
+    onError: (error) => toast.error(error.message),
+  });
+
+  return (
+    <div>
+      <div className="mb-8">
+        <h2 className="text-xl font-semibold tracking-[-0.03em] text-foreground">
+          Two-factor authentication
+        </h2>
+        <p className="mt-1.5 text-[13px] text-muted-foreground">
+          {useBackup
+            ? "Enter one of your saved backup codes."
+            : "Enter the 6-digit code from your authenticator app."}
+        </p>
+      </div>
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (code.trim()) verify.mutate();
+        }}
+        className="space-y-5"
+      >
+        <div className="space-y-2">
+          <Label
+            htmlFor="two-factor-code"
+            className="font-mono text-[11px] uppercase tracking-[0.04em] text-muted-foreground"
+          >
+            {useBackup ? "Backup code" : "Authenticator code"}
+          </Label>
+          <Input
+            id="two-factor-code"
+            name="two-factor-code"
+            inputMode={useBackup ? "text" : "numeric"}
+            autoComplete="one-time-code"
+            autoFocus
+            placeholder={useBackup ? "xxxxxxxxxx" : "123456"}
+            className="h-11 rounded-lg bg-muted px-3.5 font-mono tracking-[0.2em]"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+          />
+        </div>
+
+        {!useBackup && (
+          <label className="flex items-center gap-2 text-[13px] text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={trustDevice}
+              onChange={(e) => setTrustDevice(e.target.checked)}
+              className="size-3.5"
+            />
+            Trust this device for 30 days
+          </label>
+        )}
+
+        <Button
+          type="submit"
+          className="h-11 w-full rounded-lg bg-foreground font-semibold text-background hover:bg-foreground/90"
+          disabled={!code.trim() || verify.isPending}
+        >
+          {verify.isPending ? (
+            <>
+              <HugeiconsIcon
+                icon={Loading03Icon}
+                strokeWidth={2}
+                className="size-4 animate-spin"
+              />
+              Verifying…
+            </>
+          ) : (
+            <>Verify</>
+          )}
+        </Button>
+      </form>
+
+      <button
+        type="button"
+        onClick={() => {
+          setUseBackup((v) => !v);
+          setCode("");
+        }}
+        className="mt-6 text-[13px] font-medium text-foreground underline-offset-4 hover:underline"
+      >
+        {useBackup
+          ? "Use your authenticator app instead"
+          : "Use a backup code instead"}
+      </button>
     </div>
   );
 }
