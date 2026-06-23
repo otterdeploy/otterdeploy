@@ -247,6 +247,10 @@ export const databaseEngineEnum = pgEnum("database_engine", [
   "redis",
   "mariadb",
   "mongodb",
+  "clickhouse",
+  "rabbitmq",
+  "minio",
+  "meilisearch",
 ]);
 
 export const databaseResource = pgTable(

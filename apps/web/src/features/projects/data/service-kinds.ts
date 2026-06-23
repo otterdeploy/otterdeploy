@@ -111,7 +111,6 @@ export const SERVICE_KINDS: ServiceKind[] = [
     icon: "db",
     group: "database",
     versions: ["24.8", "24.3", "23.8"],
-    comingSoon: true,
   },
   {
     id: "rabbitmq",
@@ -120,7 +119,6 @@ export const SERVICE_KINDS: ServiceKind[] = [
     icon: "service",
     group: "database",
     versions: ["3.13", "3.12"],
-    comingSoon: true,
   },
   {
     id: "minio",
@@ -128,8 +126,7 @@ export const SERVICE_KINDS: ServiceKind[] = [
     sub: "S3-compatible object storage",
     icon: "folder",
     group: "database",
-    versions: ["latest", "2024-08"],
-    comingSoon: true,
+    versions: ["latest"],
   },
   {
     id: "meilisearch",
@@ -137,8 +134,7 @@ export const SERVICE_KINDS: ServiceKind[] = [
     sub: "Typo-tolerant full-text search",
     icon: "service",
     group: "database",
-    versions: ["1.10", "1.9"],
-    comingSoon: true,
+    versions: ["v1.10", "v1.9"],
   },
   {
     id: "docker",

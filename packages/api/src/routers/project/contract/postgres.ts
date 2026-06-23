@@ -56,7 +56,7 @@ const createPostgresDatabaseInput = z.object({
    *  with the original postgres-only contract; the wizard sends the
    *  user's selection explicitly. */
   engine: z
-    .enum(["postgres", "redis", "mariadb", "mongodb"])
+    .enum(["postgres", "redis", "mariadb", "mongodb", "clickhouse", "rabbitmq", "minio", "meilisearch"])
     .optional()
     .default("postgres"),
   /** Whether the DB should be reachable from the public internet via the
@@ -136,10 +136,7 @@ const createPostgresProgressSchema = z.discriminatedUnion("type", [
   }),
 ]);
 
-const getPostgresDatabaseInput = z.object({
-  projectId: projectIdField,
-  resourceId: resourceIdField,
-});
+
 
 /** Flip the public-exposure flag on an existing postgres resource. The
  *  Caddy reconciler runs after the toggle so the route state catches up. */
@@ -170,7 +167,7 @@ const draftCredentialsInput = z.object({
   /** Manifest resource name (the `databases[name]` key). */
   name: z.string().min(1),
   engine: z
-    .enum(["postgres", "redis", "mariadb", "mongodb"])
+    .enum(["postgres", "redis", "mariadb", "mongodb", "clickhouse", "rabbitmq", "minio", "meilisearch"])
     .optional()
     .default("postgres"),
 });
@@ -184,14 +181,9 @@ const draftCredentialsOutput = z.object({
   internalConnectionString: z.string(),
 });
 
-const deletePostgresDatabaseInput = z.object({
-  projectId: projectIdField,
-  resourceId: resourceIdField,
-});
 
-const listPostgresDatabasesInput = z.object({
-  projectId: projectIdField,
-});
+
+
 
 export const postgresContractSlice = {
   // Streaming create — yields per-step progress events as the

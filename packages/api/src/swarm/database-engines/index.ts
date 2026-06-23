@@ -77,12 +77,20 @@ import { postgresAdapter } from "./postgres";
 import { redisAdapter } from "./redis";
 import { mariadbAdapter } from "./mariadb";
 import { mongodbAdapter } from "./mongodb";
+import { clickhouseAdapter } from "./clickhouse";
+import { rabbitmqAdapter } from "./rabbitmq";
+import { minioAdapter } from "./minio";
+import { meilisearchAdapter } from "./meilisearch";
 
 const ADAPTERS: Record<DatabaseEngine, DatabaseEngineAdapter> = {
   postgres: postgresAdapter,
   redis: redisAdapter,
   mariadb: mariadbAdapter,
   mongodb: mongodbAdapter,
+  clickhouse: clickhouseAdapter,
+  rabbitmq: rabbitmqAdapter,
+  minio: minioAdapter,
+  meilisearch: meilisearchAdapter,
 };
 
 export function getEngineAdapter(engine: DatabaseEngine): DatabaseEngineAdapter {
