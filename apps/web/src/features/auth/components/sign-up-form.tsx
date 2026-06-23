@@ -12,6 +12,8 @@ import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 
+import { SocialSignIn } from "./social-sign-in";
+
 export function SignUpForm({
   onSwitchToSignIn,
 }: {
@@ -189,6 +191,8 @@ export function SignUpForm({
           )}
         </form.Subscribe>
       </form>
+
+      <SocialSignIn dividerLabel="or sign up with" />
 
       <p className="mt-6 text-[13px] text-muted-foreground">
         {t("auth.signUp.hasAccount")}{" "}

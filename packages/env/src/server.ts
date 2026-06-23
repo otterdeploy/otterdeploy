@@ -130,6 +130,20 @@ export const env = createEnv({
     WORKBENCH_USER: z.string().min(1).optional(),
     WORKBENCH_PASS: z.string().min(1).optional(),
 
+    // Social sign-in (SSO). All optional — a provider is only registered when
+    // BOTH its client id + secret are set, so leaving these unset is a clean
+    // no-op. Distinct from the GitHub *App* used for git providers (that's
+    // configured in the UI, not env). The web mirrors which are enabled via
+    // VITE_AUTH_SOCIAL_PROVIDERS so it only renders configured buttons.
+    GITHUB_OAUTH_CLIENT_ID: z.string().min(1).optional(),
+    GITHUB_OAUTH_CLIENT_SECRET: z.string().min(1).optional(),
+    GOOGLE_OAUTH_CLIENT_ID: z.string().min(1).optional(),
+    GOOGLE_OAUTH_CLIENT_SECRET: z.string().min(1).optional(),
+    GITLAB_OAUTH_CLIENT_ID: z.string().min(1).optional(),
+    GITLAB_OAUTH_CLIENT_SECRET: z.string().min(1).optional(),
+    // Self-hosted GitLab instance URL (default gitlab.com).
+    GITLAB_OAUTH_ISSUER: z.url().optional(),
+
     NODE_ENV: z
       .enum(["development", "production", "test"])
       .default("development"),

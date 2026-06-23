@@ -60,8 +60,55 @@ async function resolveActiveOrganizationId(
   return firstMembership?.organizationId ?? null;
 }
 
+/**
+ * Social providers, included ONLY when both the client id + secret are present,
+ * so an unconfigured provider is a clean no-op (the build/boot doesn't require
+ * any OAuth creds). Distinct from the GitHub *App* used for git providers.
+ */
+const configuredSocialProviders = {
+  ...(env.GITHUB_OAUTH_CLIENT_ID && env.GITHUB_OAUTH_CLIENT_SECRET
+    ? {
+        github: {
+          clientId: env.GITHUB_OAUTH_CLIENT_ID,
+          clientSecret: env.GITHUB_OAUTH_CLIENT_SECRET,
+        },
+      }
+    : {}),
+  ...(env.GOOGLE_OAUTH_CLIENT_ID && env.GOOGLE_OAUTH_CLIENT_SECRET
+    ? {
+        google: {
+          clientId: env.GOOGLE_OAUTH_CLIENT_ID,
+          clientSecret: env.GOOGLE_OAUTH_CLIENT_SECRET,
+        },
+      }
+    : {}),
+  ...(env.GITLAB_OAUTH_CLIENT_ID && env.GITLAB_OAUTH_CLIENT_SECRET
+    ? {
+        gitlab: {
+          clientId: env.GITLAB_OAUTH_CLIENT_ID,
+          clientSecret: env.GITLAB_OAUTH_CLIENT_SECRET,
+          ...(env.GITLAB_OAUTH_ISSUER ? { issuer: env.GITLAB_OAUTH_ISSUER } : {}),
+        },
+      }
+    : {}),
+};
+
+/** Provider ids the server has configured — handy for logging / parity checks
+ *  with the web's VITE_AUTH_SOCIAL_PROVIDERS. */
+export const enabledSocialProviders = Object.keys(configuredSocialProviders);
+
 export const auth = betterAuth({
   appName: "otterdeploy",
+  // Social sign-in (env-gated above) + account linking, so signing in with a
+  // provider whose email matches an existing account links to it rather than
+  // erroring or creating a duplicate.
+  socialProviders: configuredSocialProviders,
+  account: {
+    accountLinking: {
+      enabled: true,
+      trustedProviders: ["github", "google", "gitlab"],
+    },
+  },
   database: drizzleAdapter(db, {
     provider: "pg",
     schema: schema,
