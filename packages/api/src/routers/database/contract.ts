@@ -225,6 +225,15 @@ export const databaseContract = {
     .input(queryInput)
     .output(queryResultSchema),
 
+  // Run ARBITRARY SQL (DML/DDL) without the read-only envelope. Requires the
+  // `database:write` capability; every call is audited. Same grid shape as
+  // `query` — rowCount doubles as rows-affected for INSERT/UPDATE/DELETE.
+  execute: oc
+    .errors(notDatabase)
+    .meta({ path: `${basePath}/{resourceId}/execute`, tag, method: "POST" })
+    .input(queryInput)
+    .output(queryResultSchema),
+
   // What the current actor may do against this database (read-only vs editable).
   capabilities: oc
     .errors(notDatabase)

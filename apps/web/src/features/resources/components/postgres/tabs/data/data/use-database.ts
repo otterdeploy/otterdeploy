@@ -80,6 +80,12 @@ export function useMutateRow() {
   return useMutation(orpc.database.mutateRow.mutationOptions());
 }
 
+/** Run ARBITRARY SQL (DML/DDL) — the write console. `database:write` gated +
+ *  audited server-side; returns the grid (rowCount = rows affected). */
+export function useExecuteSql() {
+  return useMutation(orpc.database.execute.mutationOptions());
+}
+
 /**
  * Run a read-only query and return its rows. Drives both the table browser
  * (`keepPrevious` holds rows on screen across sort/page changes) and the SQL

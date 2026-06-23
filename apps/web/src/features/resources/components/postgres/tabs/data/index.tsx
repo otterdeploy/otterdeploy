@@ -78,11 +78,14 @@ import { browseRowsSql, SQL_RESULT_CAP, type TableRef } from "./data/queries";
 import {
   useDataCapabilities,
   useDatabaseTables,
+  useExecuteSql,
   useMutateRow,
   useQueryRows,
   useTableColumnMeta,
   useTablePrimaryKey,
 } from "./data/use-database";
+import { toast } from "sonner";
+import { Switch } from "@/shared/components/ui/switch";
 import { PLAYGROUND_ID, useSqlSnippets } from "./data/use-sql-snippets";
 
 interface DataTabBodyProps {
@@ -236,7 +239,7 @@ function DataStudio({
     return tables.filter((t) =>
       `${t.schema}.${t.name}`.toLowerCase().includes(q),
     );
-  }, [tables, tableSearch]);
+  }, [tableSearch]);
 
   const where = buildWhere(filters);
   const tableSql = selected
@@ -272,6 +275,12 @@ function DataStudio({
   });
   const mutateRow = useMutateRow();
   const editable = mode === "table" && canWrite && Boolean(selected);
+
+  // SQL-console write mode: when on (write-capable actors only), the Run action
+  // executes arbitrary DML/DDL via `database.execute` (audited server-side)
+  // behind a confirm, instead of the read-only query path.
+  const [writeMode, setWriteMode] = useState(false);
+  const executeSql = useExecuteSql();
 
   const onUpdateRow = useCallback(
     async (pk: ColumnValue[], set: ColumnValue[]) => {
@@ -327,13 +336,42 @@ function DataStudio({
       if (cols.length) m[selected.name] = cols;
     }
     return m;
-  }, [tables, selected, columnVariants]);
+  }, [selected, columnVariants]);
 
   // ── Actions ──────────────────────────────────────────────────────────
   const runSql = (sqlText: string) => {
     const trimmed = sqlText.trim();
     if (!trimmed) return;
     setMode("sql");
+
+    // Write mode → run arbitrary SQL through the audited `database.execute`
+    // path, behind a confirm. Refreshes the schema + open rows afterward so
+    // DDL/DML is reflected. Read-only query path stays the default.
+    if (writeMode && canWrite) {
+      if (
+        !window.confirm(
+          "Run this against the live database? INSERT / UPDATE / DELETE / DDL take effect immediately and can't be undone.",
+        )
+      ) {
+        return;
+      }
+      executeSql.mutate(
+        { resourceId: String(resourceId), sql: trimmed, limit: SQL_RESULT_CAP },
+        {
+          onSuccess: (res) => {
+            toast.success(
+              `Statement ran — ${res.rowCount} row${res.rowCount === 1 ? "" : "s"} affected`,
+            );
+            void tablesQuery.refetch();
+            void rowsQuery.refetch();
+          },
+          onError: (err) =>
+            toast.error(err instanceof Error ? err.message : "Statement failed"),
+        },
+      );
+      return;
+    }
+
     if (trimmed === ranSql) void rowsQuery.refetch();
     else setRanSql(trimmed);
   };
@@ -361,7 +399,7 @@ function DataStudio({
       autoOpenedRef.current = true;
       openTable(tables[0]);
     }
-  }, [tables, selected]);
+  }, [selected]);
 
   const prettify = () => {
     try {
@@ -726,6 +764,36 @@ function DataStudio({
                     />
                     Prettify
                   </Button>
+                  {canWrite ? (
+                    <>
+                      <Separator orientation="vertical" className="mx-1 h-4" />
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <label className="flex cursor-pointer items-center gap-1.5 text-[12px]">
+                            <Switch
+                              checked={writeMode}
+                              onCheckedChange={setWriteMode}
+                              disabled={executeSql.isPending}
+                              aria-label="SQL write mode"
+                            />
+                            <span
+                              className={
+                                writeMode
+                                  ? "font-medium text-amber-500"
+                                  : "text-muted-foreground"
+                              }
+                            >
+                              {executeSql.isPending ? "Running…" : "Write"}
+                            </span>
+                          </label>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          Run arbitrary DML/DDL (audited) instead of a read-only
+                          query.
+                        </TooltipContent>
+                      </Tooltip>
+                    </>
+                  ) : null}
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button

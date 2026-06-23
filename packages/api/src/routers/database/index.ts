@@ -79,6 +79,37 @@ export const databaseRouter = {
     },
   ),
 
+  // Run arbitrary SQL (DML/DDL) WITHOUT the read-only envelope. `database:write`
+  // gated; the statement is recorded on the request's wide event so the audit
+  // drain captures who ran what (mirrors mutateRow's logging, plus the SQL).
+  execute: requirePermission({ database: ["write"] }).database.execute.handler(
+    async ({ input, context, errors }) => {
+      context.log.set({
+        target: { type: "resource", id: input.resourceId },
+        dbExecute: { sql: input.sql.slice(0, 2000) },
+      });
+      await enforceResourceScope(context, input.resourceId);
+      const conn = await getDatabaseConnInfo({
+        organizationId: context.activeOrganizationId,
+        resourceId: input.resourceId,
+      });
+      if (!conn) throw errors.NOT_FOUND();
+      if (conn.engine !== "postgres") throw errors.UNSUPPORTED();
+
+      try {
+        return await runWriteQuery(conn, input.sql, input.limit);
+      } catch (cause) {
+        if (cause instanceof UnsupportedEngineError) throw errors.UNSUPPORTED();
+        if (cause instanceof QueryError) {
+          throw errors.QUERY_FAILED({ data: { reason: cause.message } });
+        }
+        throw errors.QUERY_FAILED({
+          data: { reason: cause instanceof Error ? cause.message : String(cause) },
+        });
+      }
+    },
+  ),
+
   // Whether the actor may mutate data — drives the read-only vs editable UI.
   // Read-gated (anyone who can open the viewer can ask); the write handlers
   // enforce `database:write` themselves regardless of what this returns.
