@@ -153,7 +153,7 @@ export const backupsRouter = {
 
     create: requirePermission({ backup: ["create"] }).backups.schedules.create.handler(
       async ({ input, context }) => {
-        await enforceProjectScope(context, input.projectId);
+         enforceProjectScope(context, input.projectId);
         const row = await createScheduleRecord({
           organizationId: context.activeOrganizationId,
           name: input.name,

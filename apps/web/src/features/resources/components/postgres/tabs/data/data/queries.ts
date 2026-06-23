@@ -8,7 +8,7 @@
 import type { FkTarget } from "@/shared/components/data-grid/types";
 
 /** A schema-qualified table reference (the unit the browser navigates by). */
-export type TableRef = { schema: string; name: string };
+export interface TableRef { schema: string; name: string }
 
 /** Grid cell rendering variant, derived from a column's Postgres data_type. */
 export type ColumnVariant = "short-text" | "date" | "number" | "boolean";

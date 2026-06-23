@@ -12,7 +12,6 @@ import { log, type RequestLogger } from "evlog";
 
 import {
   type DatabaseEngine,
-  DATABASE_ENGINES,
 } from "@otterdeploy/shared/database-engines";
 
 import { asStepLogger } from "../lib/logger";

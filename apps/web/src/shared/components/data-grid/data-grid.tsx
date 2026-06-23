@@ -53,7 +53,7 @@ export function DataGrid<TData>({
   onRowAdd: onRowAddProp,
   height = 600,
   stretchColumns = false,
-  adjustLayout = false,
+  adjustLayout,
   className,
   ...props
 }: DataGridProps<TData>) {
@@ -66,7 +66,7 @@ export function DataGrid<TData>({
 
   const onRowAdd = React.useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
-      onRowAddRef.current?.(event);
+      void onRowAddRef.current?.(event);
     },
     [onRowAddRef],
   );
@@ -84,7 +84,7 @@ export function DataGrid<TData>({
 
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
-        onRowAddRef.current();
+        void onRowAddRef.current();
       }
     },
     [onRowAddRef],

@@ -55,7 +55,7 @@ function RouteComponent() {
   // or `${kind}:${name}` (a staged-create ghost, and the URL that lingers
   // across the ghost→applied handover — same collection GraphCanvas loads, so
   // no extra fetch).
-  const { data: resources = [] } = useLiveQuery(
+  const { data: resources } = useLiveQuery(
     (q) =>
       q
         .from({ r: resourceCollection })

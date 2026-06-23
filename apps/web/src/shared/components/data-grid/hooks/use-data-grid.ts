@@ -2218,7 +2218,12 @@ function useDataGrid<TData>({
       colSizes[`--col-${header.column.id}-size`] = header.column.getSize();
     }
     return colSizes;
-  }, [columns, table.getState().columnSizingInfo, table.getState().columnSizing]);
+  }, [
+	columns,
+	table.getState().columnSizingInfo,
+	table.getState().columnSizing,
+	table
+]);
 
   const isFirefox = React.useSyncExternalStore(
     React.useCallback(() => () => {}, []),
@@ -2239,7 +2244,11 @@ function useDataGrid<TData>({
       ((columnPinning.left?.length ?? 0) > 0 ||
         (columnPinning.right?.length ?? 0) > 0)
     );
-  }, [isFirefox, table.getState().columnPinning]);
+  }, [
+	isFirefox,
+	table.getState().columnPinning,
+	table
+]);
 
   const rowVirtualizer = useVirtualizer({
     count: table.getRowModel().rows.length,
@@ -2383,7 +2392,7 @@ function useDataGrid<TData>({
       const targetRowIndex = result.rowIndex ?? initialRowCount;
       const targetColumnId = result.columnId;
 
-      onScrollToRow({
+      void onScrollToRow({
         rowIndex: targetRowIndex,
         columnId: targetColumnId,
       });
@@ -2462,7 +2471,7 @@ function useDataGrid<TData>({
 
         if (rowIndices.size > 0) {
           event.preventDefault();
-          onRowsDelete(Array.from(rowIndices));
+          void onRowsDelete(Array.from(rowIndices));
         }
         return;
       }
@@ -2479,7 +2488,7 @@ function useDataGrid<TData>({
 
       if (isCtrlPressed && !shiftKey && key === "c") {
         event.preventDefault();
-        onCellsCopy();
+        void onCellsCopy();
         return;
       }
 
@@ -2490,7 +2499,7 @@ function useDataGrid<TData>({
         !propsRef.current.readOnly
       ) {
         event.preventDefault();
-        onCellsCut();
+        void onCellsCut();
         return;
       }
 
@@ -2502,7 +2511,7 @@ function useDataGrid<TData>({
         !propsRef.current.readOnly
       ) {
         event.preventDefault();
-        onCellsPaste();
+        void onCellsPaste();
         return;
       }
 
@@ -2576,7 +2585,7 @@ function useDataGrid<TData>({
             const targetRowIndex = result.rowIndex ?? initialRowCount;
             const targetColumnId = result.columnId ?? currentColumnId;
 
-            onScrollToRow({
+            void onScrollToRow({
               rowIndex: targetRowIndex,
               columnId: targetColumnId,
             });

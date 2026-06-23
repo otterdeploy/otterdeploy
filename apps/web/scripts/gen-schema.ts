@@ -50,4 +50,4 @@ json.description =
 const out = resolve(import.meta.dirname, "../public/otterdeploy.schema.json");
 await Bun.write(out, `${JSON.stringify(json, null, 2)}\n`);
 
-console.log(`Wrote ${out}`);
+

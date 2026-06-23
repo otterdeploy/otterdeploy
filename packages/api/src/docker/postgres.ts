@@ -44,7 +44,7 @@ export async function provisionDockerPostgres(
     const existing = await inspectContainer(docker, input.containerName);
     if (existing) {
       if (!existing.State.Running) {
-        await (await docker.containers.getContainer(existing.Id).start()).unwrap();
+         (await docker.containers.getContainer(existing.Id).start()).unwrap();
       }
 
       const ready = await waitForContainerReady(docker, input.containerName);
@@ -224,7 +224,7 @@ async function ensureImage(docker: Docker, image: string) {
     throw inspectResult.error;
   }
 
-  const stream = await (await docker.pull(image)).unwrap();
+  const stream =  (await docker.pull(image)).unwrap();
 
   await new Promise<void>((resolve, reject) => {
     followProgress(stream, (error) => {
@@ -248,7 +248,7 @@ async function ensureNetwork(docker: Docker, networkName: string) {
     throw inspectResult.error;
   }
 
-  await (
+   (
     await docker.networks.create({
       Name: networkName,
       Driver: "bridge",
@@ -270,7 +270,7 @@ async function ensureVolume(docker: Docker, volumeName: string) {
     throw inspectResult.error;
   }
 
-  await (
+   (
     await docker.volumes.create({
       Name: volumeName,
       Labels: {

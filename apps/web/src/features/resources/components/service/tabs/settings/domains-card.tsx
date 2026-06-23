@@ -26,7 +26,7 @@ import { SettingsCard } from "@/features/resources/components/_shared/settings-c
 
 type DnsState = "pointed" | "proxied" | "unpointed" | "unknown";
 
-type DomainView = {
+interface DomainView {
   id: string;
   domain: string;
   source: "generated" | "custom";
@@ -37,7 +37,7 @@ type DomainView = {
   usesAcme: boolean;
   protected: boolean;
   dnsTarget: string | null;
-};
+}
 
 export function ServiceDomainsCard({
   resource,

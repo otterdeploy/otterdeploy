@@ -16,7 +16,7 @@ const organizationId = "org_test" as OrgId;
 
 describe("listProjectResources", () => {
   test("returns NOT_FOUND error when project does not exist", async () => {
-    mock.module("../queries", () => ({
+    void mock.module("../queries", () => ({
       getProjectInOrg: async () => null,
       listProjectResources: async () => ({ databases: [] }),
     }));
@@ -27,7 +27,7 @@ describe("listProjectResources", () => {
 
 describe("getProjectResource", () => {
   test("returns NOT_FOUND when project missing", async () => {
-    mock.module("../queries", () => ({
+    void mock.module("../queries", () => ({
       getProjectInOrg: async () => null,
       getResourceById: async () => null,
     }));
@@ -42,7 +42,7 @@ describe("getProjectResource", () => {
 
 describe("deleteProjectResource", () => {
   test("returns NOT_FOUND when resource missing", async () => {
-    mock.module("../queries", () => ({
+    void mock.module("../queries", () => ({
       getProjectInOrg: async () => ({ id: projectId, slug: "p" }),
       getResourceById: async () => null,
       deleteResourceById: async () => undefined,

@@ -30,12 +30,12 @@ interface PendingChangesBarProps {
   environment?: string;
 }
 
-type DiffChange = {
+interface DiffChange {
   kind: "create" | "update" | "delete" | "no-op";
   resource: "service" | "database" | "env" | "compose";
   name: string;
   details?: Record<string, unknown>;
-};
+}
 
 export function PendingChangesBar({ projectId, environment }: PendingChangesBarProps) {
   const [expanded, setExpanded] = useState(false);

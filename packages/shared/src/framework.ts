@@ -63,13 +63,14 @@ export interface PackageJsonLike {
  * Order matters: more specific signals win (next before react, sveltekit/
  * remix before vite, etc.).
  */
+// oxlint-disable-next-line complexity
 export function detectFrameworkFromPkg(
   pkg: PackageJsonLike | null,
 ): FrameworkKind {
   if (!pkg) return null;
   const all = {
-    ...(pkg.dependencies ?? {}),
-    ...(pkg.devDependencies ?? {}),
+    ...pkg.dependencies,
+    ...pkg.devDependencies,
   };
   if (all["next"]) return "next";
   if (all["nuxt"] || all["nuxt3"]) return "nuxt";

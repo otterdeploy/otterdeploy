@@ -19,7 +19,7 @@ export namespace Temporal {
    * Options for assigning fields using `with()` or entire objects with
    * `from()`.
    * */
-  type AssignmentOptions = {
+  interface AssignmentOptions {
     /**
      * How to deal with out-of-range values
      *
@@ -31,14 +31,14 @@ export namespace Temporal {
      * The default is `'constrain'`.
      */
     overflow?: 'constrain' | 'reject' | undefined;
-  };
+  }
 
   /**
    * Options for assigning fields using `Duration.prototype.with()` or entire
    * objects with `Duration.from()`, and for arithmetic with
    * `Duration.prototype.add()` and `Duration.prototype.subtract()`.
    * */
-  type DurationOptions = {
+  interface DurationOptions {
     /**
      * How to deal with out-of-range values
      *
@@ -50,12 +50,12 @@ export namespace Temporal {
      * The default is `'constrain'`.
      */
     overflow?: 'constrain' | 'balance' | undefined;
-  };
+  }
 
   /**
    * Options for conversions of `Temporal.PlainDateTime` to `Temporal.Instant`
    * */
-  type ToInstantOptions = {
+  interface ToInstantOptions {
     /**
      * Controls handling of invalid or ambiguous times caused by time zone
      * offset changes like Daylight Saving time (DST) transitions.
@@ -80,9 +80,9 @@ export namespace Temporal {
      *
      * */
     disambiguation?: 'compatible' | 'earlier' | 'later' | 'reject' | undefined;
-  };
+  }
 
-  type OffsetDisambiguationOptions = {
+  interface OffsetDisambiguationOptions {
     /**
      * Time zone definitions can change. If an application stores data about
      * events in the future, then stored data about future events may become
@@ -116,14 +116,14 @@ export namespace Temporal {
      * then the `disambiguation` option will be ignored.
      */
     offset?: 'use' | 'prefer' | 'ignore' | 'reject' | undefined;
-  };
+  }
 
   type ZonedDateTimeAssignmentOptions = AssignmentOptions & ToInstantOptions & OffsetDisambiguationOptions;
 
   /**
    * Options for arithmetic operations like `add()` and `subtract()`
    * */
-  type ArithmeticOptions = {
+  interface ArithmeticOptions {
     /**
      * Controls handling of out-of-range arithmetic results.
      *
@@ -133,7 +133,7 @@ export namespace Temporal {
      * The default is `'constrain'`.
      */
     overflow?: 'constrain' | 'reject' | undefined;
-  };
+  }
 
   type DateUnit = 'year' | 'month' | 'week' | 'day';
   type TimeUnit = 'hour' | 'minute' | 'second' | 'millisecond' | 'microsecond' | 'nanosecond';
@@ -164,7 +164,7 @@ export namespace Temporal {
   /**
    * Options for outputting precision in toString() on types with seconds
    */
-  type ToStringPrecisionOptions = {
+  interface ToStringPrecisionOptions {
     fractionalSecondDigits?: 'auto' | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | undefined;
     smallestUnit?: SmallestUnit<'minute' | 'second' | 'millisecond' | 'microsecond' | 'nanosecond'> | undefined;
 
@@ -183,11 +183,11 @@ export namespace Temporal {
      *   is recommended for most use cases.
      */
     roundingMode?: RoundingMode | undefined;
-  };
+  }
 
-  type ShowCalendarOption = {
+  interface ShowCalendarOption {
     calendarName?: 'auto' | 'always' | 'never' | 'critical' | undefined;
-  };
+  }
 
   type CalendarTypeToStringOptions = ToStringPrecisionOptions & ShowCalendarOption;
 
@@ -510,7 +510,7 @@ export namespace Temporal {
    */
   type TransitionDirection = 'next' | 'previous' | { direction: 'next' | 'previous' };
 
-  type DurationLike = {
+  interface DurationLike {
     years?: number | undefined;
     months?: number | undefined;
     weeks?: number | undefined;
@@ -521,12 +521,12 @@ export namespace Temporal {
     milliseconds?: number | undefined;
     microseconds?: number | undefined;
     nanoseconds?: number | undefined;
-  };
+  }
 
   /**
    * Options for Intl.DurationFormat
    */
-  export type DurationFormatOptions = {
+  export interface DurationFormatOptions {
     localeMatcher?: 'lookup' | 'best fit' | undefined;
     numberingSystem?: string | undefined;
     style?: 'long' | 'short' | 'narrow' | 'digital' | undefined;
@@ -551,7 +551,7 @@ export namespace Temporal {
     nanoseconds?: 'long' | 'short' | 'narrow' | 'numeric' | undefined;
     nanosecondsDisplay?: 'always' | 'auto' | undefined;
     fractionalDigits?: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | undefined;
-  };
+  }
 
   /**
    *
@@ -658,7 +658,7 @@ export namespace Temporal {
    * */
   export type CalendarLike = string | ZonedDateTime | PlainDateTime | PlainDate | PlainYearMonth | PlainMonthDay;
 
-  type PlainDateLike = {
+  interface PlainDateLike {
     era?: string | undefined;
     eraYear?: number | undefined;
     year?: number | undefined;
@@ -666,7 +666,7 @@ export namespace Temporal {
     monthCode?: string | undefined;
     day?: number | undefined;
     calendar?: CalendarLike | undefined;
-  };
+  }
 
   /**
    * A `Temporal.PlainDate` represents a calendar date. "Calendar date" refers to the
@@ -731,7 +731,7 @@ export namespace Temporal {
     readonly [Symbol.toStringTag]: 'Temporal.PlainDate';
   }
 
-  type PlainDateTimeLike = {
+  interface PlainDateTimeLike {
     era?: string | undefined;
     eraYear?: number | undefined;
     year?: number | undefined;
@@ -745,7 +745,7 @@ export namespace Temporal {
     microsecond?: number | undefined;
     nanosecond?: number | undefined;
     calendar?: CalendarLike | undefined;
-  };
+  }
 
   /**
    * A `Temporal.PlainDateTime` represents a calendar date and wall-clock time, with
@@ -834,7 +834,7 @@ export namespace Temporal {
     readonly [Symbol.toStringTag]: 'Temporal.PlainDateTime';
   }
 
-  type PlainMonthDayLike = {
+  interface PlainMonthDayLike {
     era?: string | undefined;
     eraYear?: number | undefined;
     year?: number | undefined;
@@ -842,7 +842,7 @@ export namespace Temporal {
     monthCode?: string | undefined;
     day?: number | undefined;
     calendar?: CalendarLike | undefined;
-  };
+  }
 
   /**
    * A `Temporal.PlainMonthDay` represents a particular day on the calendar, but
@@ -870,14 +870,14 @@ export namespace Temporal {
     readonly [Symbol.toStringTag]: 'Temporal.PlainMonthDay';
   }
 
-  type PlainTimeLike = {
+  interface PlainTimeLike {
     hour?: number | undefined;
     minute?: number | undefined;
     second?: number | undefined;
     millisecond?: number | undefined;
     microsecond?: number | undefined;
     nanosecond?: number | undefined;
-  };
+  }
 
   /**
    * A `Temporal.PlainTime` represents a wall-clock time, with a precision in
@@ -941,14 +941,14 @@ export namespace Temporal {
    * */
   type TimeZoneLike = string | ZonedDateTime;
 
-  type PlainYearMonthLike = {
+  interface PlainYearMonthLike {
     era?: string | undefined;
     eraYear?: number | undefined;
     year?: number | undefined;
     month?: number | undefined;
     monthCode?: string | undefined;
     calendar?: CalendarLike | undefined;
-  };
+  }
 
   /**
    * A `Temporal.PlainYearMonth` represents a particular month on the calendar. For
@@ -1000,7 +1000,7 @@ export namespace Temporal {
     readonly [Symbol.toStringTag]: 'Temporal.PlainYearMonth';
   }
 
-  type ZonedDateTimeLike = {
+  interface ZonedDateTimeLike {
     era?: string | undefined;
     eraYear?: number | undefined;
     year?: number | undefined;
@@ -1016,7 +1016,7 @@ export namespace Temporal {
     offset?: string | undefined;
     timeZone?: TimeZoneLike | undefined;
     calendar?: CalendarLike | undefined;
-  };
+  }
 
   class ZonedDateTime {
     static from(

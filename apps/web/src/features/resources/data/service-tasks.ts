@@ -1,4 +1,3 @@
-import type { ProjectId } from "@otterdeploy/shared/id";
 import { createCollection } from "@tanstack/db";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
 

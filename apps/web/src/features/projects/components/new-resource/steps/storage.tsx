@@ -1,7 +1,7 @@
 import { useStore } from "@tanstack/react-form";
 
 import type { ServiceKind } from "@/features/projects/data/service-kinds";
-import { Card, CardContent } from "@/shared/components/ui/card";
+import { Card } from "@/shared/components/ui/card";
 import { Switch } from "@/shared/components/ui/switch";
 import {
   Select,

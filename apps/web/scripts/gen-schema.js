@@ -45,4 +45,4 @@ json.description =
     "Schema for otterdeploy.config.json — the declarative manifest of services + databases for an otterdeploy project.";
 const out = resolve(import.meta.dirname, "../public/otterdeploy.schema.json");
 await Bun.write(out, `${JSON.stringify(json, null, 2)}\n`);
-console.log(`Wrote ${out}`);
+

@@ -1,5 +1,5 @@
 
-import type { ProjectSlug, Slug } from "@otterdeploy/shared/id";
+import type { ProjectSlug } from "@otterdeploy/shared/id";
 import { useState } from "react";
 import {
   Link,

@@ -28,11 +28,11 @@ const DEFAULT_FEATURES = [
   "Logs, metrics & tracing built in",
 ];
 
-export type AuthPill = {
+export interface AuthPill {
   icon: IconSvgElement;
   label: string;
   value: string;
-};
+}
 
 /**
  * Split-screen auth shell: a branded marketing panel on the left, the form

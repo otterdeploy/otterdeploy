@@ -14,7 +14,6 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { FilterIcon, PlusSignIcon } from "@hugeicons/core-free-icons";
 
 import { Button } from "@/shared/components/ui/button";
-import { Input } from "@/shared/components/ui/input";
 import {
   Popover,
   PopoverContent,
@@ -37,7 +36,7 @@ export function FilterPopover({
 }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<Filter[]>(filters);
-  const [nl, setNl] = useState("");
+  const [,setNl] = useState("");
 
   useEffect(() => {
     if (open) {

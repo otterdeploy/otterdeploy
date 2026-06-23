@@ -96,7 +96,7 @@ function RouteComponent() {
 
   function close() {
     if (window.history.length > 1) router.history.back();
-    else router.navigate({ to: "/" });
+    else void router.navigate({ to: "/" });
   }
 
   return (

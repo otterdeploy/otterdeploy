@@ -10,7 +10,6 @@ import { parseCol } from "@/shared/lib/utils";
 
 import { authClient } from "@/lib/auth-client";
 import { client, queryClient } from "@/shared/server/orpc";
-import { zId } from "@otterdeploy/shared/id";
 
 /**
  * Org-scoped API keys for the viewed organization. List/update/delete ride the

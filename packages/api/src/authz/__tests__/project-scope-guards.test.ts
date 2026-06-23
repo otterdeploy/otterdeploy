@@ -121,7 +121,7 @@ describe("enforceProjectScope", () => {
 describe("enforceResourceScope", () => {
   test("resolves resource→project, in-scope ⇒ allowed", async () => {
     const { client } = dbReturning([{ projectId: "proj_1" }]);
-    await expect(
+     expect(
       enforceResourceScope(
         ctx(selectedKey(["proj_1"])),
         "res_1" as never,
@@ -132,7 +132,7 @@ describe("enforceResourceScope", () => {
 
   test("resolves resource→project, out-of-scope ⇒ FORBIDDEN", async () => {
     const { client } = dbReturning([{ projectId: "proj_2" }]);
-    await expect(
+     expect(
       enforceResourceScope(
         ctx(selectedKey(["proj_1"])),
         "res_1" as never,
@@ -143,7 +143,7 @@ describe("enforceResourceScope", () => {
 
   test("resource not found (wrong org) ⇒ no-op (handler's NOT_FOUND fires)", async () => {
     const { client } = dbReturning([]);
-    await expect(
+     expect(
       enforceResourceScope(
         ctx(selectedKey(["proj_1"])),
         "res_1" as never,
@@ -172,7 +172,7 @@ describe("enforceResourceScope", () => {
 describe("enforceBackupScope", () => {
   test("resolves backup→resource→project, in-scope ⇒ allowed", async () => {
     const { client } = dbReturning([{ projectId: "proj_1" }]);
-    await expect(
+     expect(
       enforceBackupScope(
         ctx(selectedKey(["proj_1"])),
         "backup_1" as never,
@@ -183,7 +183,7 @@ describe("enforceBackupScope", () => {
 
   test("out-of-scope ⇒ FORBIDDEN", async () => {
     const { client } = dbReturning([{ projectId: "proj_9" }]);
-    await expect(
+     expect(
       enforceBackupScope(
         ctx(selectedKey(["proj_1"])),
         "backup_1" as never,
@@ -194,7 +194,7 @@ describe("enforceBackupScope", () => {
 
   test("not found ⇒ no-op", async () => {
     const { client } = dbReturning([]);
-    await expect(
+     expect(
       enforceBackupScope(
         ctx(selectedKey(["proj_1"])),
         "backup_1" as never,
@@ -217,7 +217,7 @@ describe("enforceBackupScope", () => {
 describe("enforceScheduleScope", () => {
   test("project-scoped schedule, out-of-scope ⇒ FORBIDDEN", async () => {
     const { client } = dbReturning([{ projectId: "proj_9" }]);
-    await expect(
+     expect(
       enforceScheduleScope(
         ctx(selectedKey(["proj_1"])),
         "sched_1" as never,
@@ -228,7 +228,7 @@ describe("enforceScheduleScope", () => {
 
   test("org-wide schedule (null projectId) ⇒ no-op (can't pin a project)", async () => {
     const { client } = dbReturning([{ projectId: null }]);
-    await expect(
+     expect(
       enforceScheduleScope(
         ctx(selectedKey(["proj_1"])),
         "sched_1" as never,
@@ -239,7 +239,7 @@ describe("enforceScheduleScope", () => {
 
   test("not found ⇒ no-op", async () => {
     const { client } = dbReturning([]);
-    await expect(
+     expect(
       enforceScheduleScope(
         ctx(selectedKey(["proj_1"])),
         "sched_1" as never,
@@ -256,21 +256,21 @@ describe("enforceScheduleScope", () => {
 describe("enforceEnvScope", () => {
   test("project env, in-scope ⇒ allowed", async () => {
     const { client } = dbReturning([{ projectId: "proj_1" }]);
-    await expect(
+     expect(
       enforceEnvScope(ctx(selectedKey(["proj_1"])), "env_1" as never, client),
     ).resolves.toBeUndefined();
   });
 
   test("project env, out-of-scope ⇒ FORBIDDEN", async () => {
     const { client } = dbReturning([{ projectId: "proj_2" }]);
-    await expect(
+     expect(
       enforceEnvScope(ctx(selectedKey(["proj_1"])), "env_1" as never, client),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   test("standalone/org env (not joinable) ⇒ no-op", async () => {
     const { client } = dbReturning([]);
-    await expect(
+     expect(
       enforceEnvScope(ctx(selectedKey(["proj_1"])), "env_1" as never, client),
     ).resolves.toBeUndefined();
   });

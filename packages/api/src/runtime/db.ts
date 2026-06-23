@@ -10,11 +10,11 @@ import type { RequestLogger } from "evlog";
 import { runtime } from "./index";
 import type { DatabaseSpec, DatabaseStatus } from "./types";
 
-type DbInspectInput = {
+interface DbInspectInput {
   serviceName: string;
   volumeName: string;
   projectSlug: string;
-};
+}
 type PostgresInput = Omit<DatabaseSpec, "engine">;
 
 export const provisionSwarmDatabase = (

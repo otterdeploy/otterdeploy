@@ -353,11 +353,11 @@ function diffDatabase(
 //   manifest plain value      = manifest is the source of truth
 //   manifest missing key      = delete from server (manifest declares shape)
 
-type EnvChange = {
+interface EnvChange {
   key: string;
   action: "create" | "update" | "delete" | "no-op";
   details?: Record<string, unknown>;
-};
+}
 
 function diffEnv(
   desired: Record<string, string>,

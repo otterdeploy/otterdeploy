@@ -66,4 +66,4 @@ export function resolveToken(): string | undefined {
   return process.env.OTTERDEPLOY_TOKEN ?? loadConfig().token;
 }
 
-const CONFIG_PATH_FOR_DISPLAY = CONFIG_PATH;
+

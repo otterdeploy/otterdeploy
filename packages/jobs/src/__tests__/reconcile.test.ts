@@ -141,7 +141,7 @@ function makeDb(rows: Row[], joins: Record<string, JoinInfo> = {}) {
 // to emit predicates the mock understands: { __id, __allowed }.
 
 const realDrizzle = await import("drizzle-orm");
-mock.module("drizzle-orm", () => ({
+void mock.module("drizzle-orm", () => ({
   ...realDrizzle,
   eq: (col: { __col?: string }, val: unknown) =>
     col?.__col === "id" ? { __id: val } : { __eq: val },
@@ -154,7 +154,7 @@ mock.module("drizzle-orm", () => ({
 // Real schema (pure table defs — no env) spread through, but override
 // `deployment` so its `id` column carries a marker the stubbed eq() recognises.
 const realSchema = await import("@otterdeploy/db/schema");
-mock.module("@otterdeploy/db/schema", () => ({
+void mock.module("@otterdeploy/db/schema", () => ({
   ...realSchema,
   deployment: {
     ...realSchema.deployment,

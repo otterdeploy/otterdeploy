@@ -2,7 +2,7 @@ import type { OrganizationId } from "@otterdeploy/shared/id";
 import type { Context as HonoContext } from "hono";
 import type { RequestLogger } from "evlog";
 
-import { auth, type Session } from "@otterdeploy/auth";
+import { auth } from "@otterdeploy/auth";
 import { Result } from "better-result";
 type OrgId = OrganizationId;
 

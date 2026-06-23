@@ -77,6 +77,11 @@ function isFile(path: string): boolean {
  * Throws (HARD) on a bad path only when `builder === "dockerfile"`; under
  * `auto` the same conditions warn + fall back to railpack.
  */
+
+const railpack = (extraWarnings: string[] = []): DockerfileResolution => ({
+  kind: "railpack",
+  warnings: extraWarnings,
+});
 export function resolveDockerfileBuild(opts: {
   builder: Builder;
   dockerfilePath: string | null | undefined;
@@ -89,11 +94,6 @@ export function resolveDockerfileBuild(opts: {
 
   const customPath = opts.dockerfilePath?.trim() || "";
   const relativePath = customPath || DEFAULT_DOCKERFILE;
-
-  const railpack = (extraWarnings: string[] = []): DockerfileResolution => ({
-    kind: "railpack",
-    warnings: extraWarnings,
-  });
 
   // Pinned to railpack: never build the Dockerfile, but don't let a present
   // Dockerfile (or a set custom path) be a silent surprise.

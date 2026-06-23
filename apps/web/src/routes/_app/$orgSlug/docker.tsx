@@ -139,15 +139,13 @@ function DockerRoute() {
   );
 }
 
-// --- Tables ----------------------------------------------------------------
-
-type QueryLike<T> = {
+interface QueryLike<T> {
   data?: T[];
   isLoading: boolean;
   isError: boolean;
   error: unknown;
   refetch: () => void;
-};
+}
 
 function ContainersTable({ query }: { query: QueryLike<Container> }) {
   return (
@@ -415,7 +413,7 @@ function Panel<T>({
       <ErrorState
         title="Couldn't reach the Docker daemon"
         message={(query.error as Error | null)?.message}
-        onRetry={() => void query.refetch()}
+        onRetry={() => query.refetch()}
       />
     );
   }
@@ -449,7 +447,10 @@ function Panel<T>({
             {headers.map((h, i) => (
               <TableHead
                 key={h}
-                className={cn(i === 0 && "pl-4", i === headers.length - 1 && "pr-4")}
+                className={cn(
+                  i === 0 && "pl-4",
+                  i === headers.length - 1 && "pr-4",
+                )}
               >
                 {h}
               </TableHead>
@@ -475,7 +476,10 @@ function Panel<T>({
 }
 
 /** Windowed page list: first/last always shown, current ±1, ellipsis fills gaps. */
-function pageWindow(current: number, total: number): Array<number | "ellipsis"> {
+function pageWindow(
+  current: number,
+  total: number,
+): Array<number | "ellipsis"> {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i);
   const out: Array<number | "ellipsis"> = [0];
   const left = Math.max(1, current - 1);
@@ -598,7 +602,10 @@ function formatBytes(n: number): string {
   if (n < 0) return "—";
   if (n === 0) return "0 B";
   const units = ["B", "KB", "MB", "GB", "TB"];
-  const i = Math.min(Math.floor(Math.log(n) / Math.log(1024)), units.length - 1);
+  const i = Math.min(
+    Math.floor(Math.log(n) / Math.log(1024)),
+    units.length - 1,
+  );
   const v = n / 1024 ** i;
   return `${i === 0 ? v : v.toFixed(1)} ${units[i]}`;
 }

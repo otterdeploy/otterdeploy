@@ -43,9 +43,9 @@ function mergeResources(
   override: Record<string, unknown> | undefined,
   discriminator: string,
 ): Record<string, unknown> {
-  if (!override) return { ...(base ?? {}) };
+  if (!override) return { ...base };
 
-  const result: Record<string, unknown> = { ...(base ?? {}) };
+  const result: Record<string, unknown> = { ...base };
   for (const [name, overrideBlock] of Object.entries(override)) {
     if (overrideBlock === null) {
       delete result[name];

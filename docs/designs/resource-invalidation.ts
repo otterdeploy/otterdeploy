@@ -49,93 +49,9 @@ import { z } from "zod";
 
 // Pretend these are real oRPC procedures
 declare const publicProcedure: any;
-declare const protectedProcedure: any;
 
-const exampleRouter = {
-  env: {
-    // Query: "I provide env data"
-    all: publicProcedure.meta({ resource: "env" } satisfies ProcedureMeta).handler(() => {
-      /* return envs */
-    }),
 
-    byId: publicProcedure
-      .meta({ resource: "env" } satisfies ProcedureMeta)
-      .input(z.object({ id: z.string() }))
-      .handler(() => {
-        /* return env */
-      }),
 
-    // Mutation: "I change env, which also affects the parent project"
-    create: publicProcedure
-      .meta({ invalidates: ["env", "project"] } satisfies ProcedureMeta)
-      .input(
-        z.object({
-          id: z.string(),
-          name: z.string(),
-          slug: z.string(),
-          projectId: z.string(),
-        }),
-      )
-      .handler(({ input, context }: any) => {
-        // ... insert env
-        // context.broadcast reads meta.invalidates automatically
-      }),
-
-    delete: publicProcedure
-      .meta({
-        invalidates: ["env", "project", "deployment"],
-      } satisfies ProcedureMeta)
-      .input(z.object({ id: z.string() }))
-      .handler(({ input, context }: any) => {
-        // Deleting an env cascades:
-        //   - "env"        → env list refreshes
-        //   - "project"    → project's env count updates
-        //   - "deployment" → deployments tied to this env are gone
-      }),
-  },
-
-  project: {
-    all: publicProcedure.meta({ resource: "project" } satisfies ProcedureMeta).handler(() => {}),
-
-    // Deleting a project is the widest blast radius
-    delete: publicProcedure
-      .meta({
-        invalidates: ["project", "env", "service", "deployment"],
-      } satisfies ProcedureMeta)
-      .handler(({ input, context }) => {
-        // Everything under the project is gone
-      }),
-  },
-
-  deployment: {
-    all: publicProcedure.meta({ resource: "deployment" } satisfies ProcedureMeta).handler(() => {}),
-
-    // Promoting a deployment touches the target env too
-    promote: publicProcedure
-      .meta({
-        invalidates: ["deployment", "env"],
-      } satisfies ProcedureMeta)
-      .input(z.object({ id: z.string(), targetEnvId: z.string() }))
-      .handler(({ input, context }: any) => {
-        // - "deployment" → deployment status changes
-        // - "env"        → env's active deployment changes
-      }),
-  },
-
-  team: {
-    members: publicProcedure.meta({ resource: "team" } satisfies ProcedureMeta).handler(() => {}),
-
-    addMember: publicProcedure
-      .meta({
-        invalidates: ["team", "project", "audit"],
-      } satisfies ProcedureMeta)
-      .handler(({ input, context }: any) => {
-        // - "team"    → member list updates
-        // - "project" → project access list may change
-        // - "audit"   → new audit log entry
-      }),
-  },
-};
 
 // ─── Server-side Middleware (automatic broadcast) ───────────────────
 

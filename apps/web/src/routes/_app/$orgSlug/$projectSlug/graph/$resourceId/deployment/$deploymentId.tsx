@@ -46,7 +46,7 @@ type DeploymentTab =
   | "http-logs"
   | "network-logs";
 
-function getSubline(resource?: ProjectResource | undefined): string {
+function getSubline(resource?: ProjectResource  ): string {
   if (resource?.type === "database") return resource.internalHostname;
   if (resource?.type === "service") return resource.publicDomain ?? "";
   if (resource?.type === "compose")

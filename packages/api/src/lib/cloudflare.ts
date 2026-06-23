@@ -38,7 +38,7 @@ async function cfFetch<T>(
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
-      ...(init.headers ?? {}),
+      ...init.headers,
     },
   });
   const body = (await res.json()) as CFEnvelope<T>;

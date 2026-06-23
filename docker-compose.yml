@@ -12,26 +12,26 @@ services:
     # (the v18 image manages its own version/cluster subdir and treats a mount
     # placed directly at .../data as an "unused volume"). Matches the pin in
     # packages/api/src/constants.ts and the swarm database engines.
-    image: postgres:17-alpine
-    container_name: otterstack-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
-      POSTGRES_DB: ${POSTGRES_DB:-postgres}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
-    volumes:
-      - otterstack-postgres-data:/var/lib/postgresql/data
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}",
-        ]
-      interval: 5s
-      timeout: 3s
-      retries: 20
+    # image: postgres:17-alpine
+    # container_name: otterstack-postgres
+    # restart: unless-stopped
+    # environment:
+    #   POSTGRES_USER: ${POSTGRES_USER:-postgres}
+    #   POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+    #   POSTGRES_DB: ${POSTGRES_DB:-postgres}
+    # ports:
+    #   - "${POSTGRES_PORT:-5432}:5432"
+    # volumes:
+    #   - otterstack-postgres-data:/var/lib/postgresql/data
+    # healthcheck:
+    #   test:
+    #     [
+    #       "CMD-SHELL",
+    #       "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}",
+    #     ]
+    #   interval: 5s
+    #   timeout: 3s
+    #   retries: 20
 
   redis:
     image: redis:7-alpine
@@ -68,8 +68,11 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-postgres}
-      REDIS_URL: redis://redis:6379
+      # DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-postgres}
+      # DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-postgres}
+      DATABASE_URL: ${DATABASE_URL}
+      # REDIS_URL: redis://redis:6379
+      REDIS_URL: ${REDIS_URL}
       # Per-build helper containers: image to spawn + network to attach them to
       # (this compose project's default network, so they resolve postgres/redis).
       BUILDER_HELPER_IMAGE: otterstack-builder:latest

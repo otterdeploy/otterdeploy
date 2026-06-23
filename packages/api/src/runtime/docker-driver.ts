@@ -101,12 +101,12 @@ async function pullImage(docker: Docker, image: string): Promise<void> {
   });
 }
 
-type Summary = {
+interface Summary {
   Names: string[];
   State: string;
   Id: string;
   Health?: { Status?: string };
-};
+}
 
 async function findContainer(
   docker: Docker,

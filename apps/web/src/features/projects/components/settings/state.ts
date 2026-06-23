@@ -53,7 +53,11 @@ export function useBindingFormState(project: ProjectBindingFields) {
     // Tracking the project row's updatedAt is sufficient — every server
     // write bumps it, so the local state hydrates exactly when the
     // server-side picture changes.
-  }, [project.updatedAt, project.id]);
+  }, [
+	project.updatedAt,
+	project.id,
+	project
+]);
 
   const update = <K extends keyof BindingState>(key: K, value: BindingState[K]) =>
     setState((s) => ({ ...s, [key]: value }));

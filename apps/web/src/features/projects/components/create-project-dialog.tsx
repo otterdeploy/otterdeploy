@@ -19,7 +19,6 @@ import { Input } from "@/shared/components/ui/input";
 import { projectCollection } from "../data/project";
 
 import { eq, useLiveQuery } from "@tanstack/react-db";
-import { ChartLegend } from "@/shared/components/ui/chart";
 
 // `.slugify()` alone — used to derive the slug live as the user types the name.
 // Doesn't throw on short/empty input, just normalizes whatever's there.

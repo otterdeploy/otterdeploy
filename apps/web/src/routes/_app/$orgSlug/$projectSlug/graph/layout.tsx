@@ -384,7 +384,7 @@ function GraphCanvas() {
     if (!canvasWidth) {
       // No measurable canvas: center honestly, accept the panel covers the
       // right portion of the node.
-      setCenter(targetX, targetY, { zoom: FOCUS_ZOOM, duration: 400 });
+      void setCenter(targetX, targetY, { zoom: FOCUS_ZOOM, duration: 400 });
       return;
     }
     // Goal: land the node at the center of the visible left strip (the
@@ -393,7 +393,7 @@ function GraphCanvas() {
     // so shift the camera right by that fraction in flow coordinates.
     const shiftRatio = PANEL_WIDTH_RATIO / 2;
     const xOffset = (canvasWidth * shiftRatio) / FOCUS_ZOOM;
-    setCenter(targetX + xOffset, targetY, { zoom: FOCUS_ZOOM, duration: 400 });
+    void setCenter(targetX + xOffset, targetY, { zoom: FOCUS_ZOOM, duration: 400 });
   };
 
   return (

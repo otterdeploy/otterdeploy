@@ -9,7 +9,6 @@
 import {
   Alert01Icon,
   ArrowRight01Icon,
-  Cancel01Icon,
   Download01Icon,
   Search01Icon,
 } from "@hugeicons/core-free-icons";

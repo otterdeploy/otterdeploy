@@ -11,7 +11,7 @@ export type TerminalLineType =
   | "metric"
   | "comment";
 
-export type TerminalLine = { text: string; type: TerminalLineType };
+export interface TerminalLine { text: string; type: TerminalLineType }
 
 // Hero deploy walkthrough (typed out on view).
 export const DEPLOY_LINES: TerminalLine[] = [
@@ -44,12 +44,12 @@ export const README_TABS: { id: string; label: string }[] = [
 // Numbered feature cells (01–09). `detail` is a short machine-voice line shown
 // in mono at the bottom of each cell — the equivalent of Better Auth's tiny
 // inline widgets, but honest one-liners instead of faux UI.
-export type FeatureCell = {
+export interface FeatureCell {
   n: string;
   title: string;
   desc: string;
   detail: string;
-};
+}
 
 export const FEATURE_CELLS: FeatureCell[] = [
   {
