@@ -63,7 +63,7 @@
       "eyebrow": "Error interno",
       "title": "Algo salió mal.",
       "statusTag": "FAULT",
-      "messageDefault": "OtterStack encontró un error inesperado al renderizar esta página. El fallo ha sido registrado — esto es culpa nuestra, no tuya. Inténtalo de nuevo en un momento.",
+      "messageDefault": "Otterdeploy encontró un error inesperado al renderizar esta página. El fallo ha sido registrado — esto es culpa nuestra, no tuya. Inténtalo de nuevo en un momento.",
       "retry": "⟳ Reintentar",
       "returnHome": "↩ Volver al inicio"
     }

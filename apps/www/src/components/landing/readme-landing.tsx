@@ -157,7 +157,7 @@ function Wordmark() {
   return (
     <a href="/" className="inline-flex items-baseline gap-1">
       <span className="text-base font-semibold tracking-tight text-foreground">
-        otterstack
+        otterdeploy
       </span>
       <span className="size-1.5 -translate-y-px rounded-full bg-primary" />
     </a>
@@ -568,7 +568,7 @@ export function ReadmeLanding() {
           <section id="readme" className="scroll-mt-16">
             <SectionHeading>Readme</SectionHeading>
             <p className="mt-4 text-[1.05rem] leading-relaxed text-foreground/90">
-              Otterstack is a deployment platform that{" "}
+              Otterdeploy is a deployment platform that{" "}
               <span className="font-medium text-foreground">
                 runs on your own servers
               </span>
@@ -616,7 +616,7 @@ export function ReadmeLanding() {
               Push your repo. Railpack detects the framework, builds it, and the
               Caddy edge serves it over HTTPS — zero-downtime, automatic TLS.
             </p>
-            <CodeCard title="otterstack deploy" lines={DEPLOY_LINES} />
+            <CodeCard title="otterdeploy deploy" lines={DEPLOY_LINES} />
           </section>
         </div>
 
@@ -625,7 +625,7 @@ export function ReadmeLanding() {
           <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-3">
             <Wordmark />
             <span className="font-mono text-[11px] text-muted-foreground">
-              © {new Date().getFullYear()} otterstack · built for people who run
+              © {new Date().getFullYear()} otterdeploy · built for people who run
               their own infra
             </span>
           </div>

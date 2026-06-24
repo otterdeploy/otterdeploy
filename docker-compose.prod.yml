@@ -1,0 +1,199 @@
+# otterdeploy — PRODUCTION stack (published images)
+# =================================================
+# This is the image-based compose the installer fetches to a host and runs with
+#   docker compose -f docker-compose.yml --env-file .env up -d
+# It is the published counterpart of the dev docker-compose.yml (which builds
+# from source). Differences that matter:
+#   - every service is a PINNED published image (${OTTERDEPLOY_VERSION}); no build.
+#   - includes the `server` control plane (dashboard/API on ${CONTROL_PLANE_PORT}).
+#   - all services join the shared EXTERNAL `otterdeploy` network the installer
+#     created (see `networks:` at the bottom).
+#   - the `firewall` profile (CrowdSec) is preserved, still opt-in.
+#   - 5432 is intentionally NOT published — the control plane reaches its own
+#     Postgres over the container network; databases are never exposed on the host.
+#
+# All values come from the installer-generated .env (OTTERDEPLOY_VERSION,
+# POSTGRES_*, DATABASE_URL, REDIS_URL, BETTER_AUTH_SECRET, OTTERDEPLOY_DATA_DIR,
+# CONTROL_PLANE_PORT, BRANCH_ZFS_POOL, …). Image registry overridable via
+# OTTERDEPLOY_REGISTRY (default ghcr.io/otterdeploy).
+
+name: otterdeploy
+
+services:
+  # ── control-plane datastore ───────────────────────────────────────────────
+  postgres:
+    # Pinned to 17 — postgres:18+ refuses our /var/lib/postgresql/data mount
+    # (matches the pin in packages/api/src/constants.ts and the db engines).
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-otterdeploy}
+      # Always written by the installer; the postgres image itself rejects an
+      # empty password, so no `:?` guard (which would break pre-.env validation).
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-otterdeploy}
+    volumes:
+      - otterdeploy-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-otterdeploy} -d ${POSTGRES_DB:-otterdeploy}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    volumes:
+      - otterdeploy-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # ── control plane (dashboard + API + runtime driver) ──────────────────────
+  server:
+    image: ${OTTERDEPLOY_REGISTRY:-ghcr.io/otterdeploy}/server:${OTTERDEPLOY_VERSION:-latest}
+    restart: unless-stopped
+    # The dashboard/API listens on 3000; publish it straight to the host. Caddy
+    # (80/443) fronts USER-deployed apps, not this dashboard.
+    ports:
+      - "${CONTROL_PLANE_PORT:-3000}:3000"
+    env_file:
+      - .env
+    environment:
+      # Reach the compose datastores by service DNS (override any host-localhost
+      # value that may be present in .env).
+      DATABASE_URL: postgres://${POSTGRES_USER:-otterdeploy}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-otterdeploy}
+      REDIS_URL: redis://redis:6379
+    volumes:
+      # Drive the HOST Docker daemon — this is how the runtime() driver
+      # provisions services/databases/compose stacks.
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Host data folder at the SAME path inside + out, so paths the control
+      # plane writes (caddy config, backups, build clones, escape hatches)
+      # resolve identically when bind-mounted into helper/edge containers.
+      - ${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}:${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      # The server image ships curl + a /health route; nothing depends on this
+      # being healthy (the installer gates on the port from the host), so a
+      # misconfigured probe never blocks the stack.
+      test: ["CMD-SHELL", "curl -fsS http://localhost:3000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    # NOTE: ZFS-backed database branching (BRANCH_ZFS_POOL) requires the control
+    # plane to run `zfs`/`zpool` on the HOST. Wiring that host-exec path
+    # (privileged + /dev/zfs, or a host agent) is deferred; until then the
+    # logical (pg_dump) branching tier works with no extra mounts.
+
+  # ── build worker (git-sourced services) ───────────────────────────────────
+  builder:
+    image: ${OTTERDEPLOY_REGISTRY:-ghcr.io/otterdeploy}/builder:${OTTERDEPLOY_VERSION:-latest}
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-otterdeploy}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-otterdeploy}
+      REDIS_URL: redis://redis:6379
+      # Per-build helper containers: which image to spawn + which network to
+      # attach them to (the shared otterdeploy network, so they resolve
+      # postgres/redis by name).
+      BUILDER_HELPER_IMAGE: ${OTTERDEPLOY_REGISTRY:-ghcr.io/otterdeploy}/builder:${OTTERDEPLOY_VERSION:-latest}
+      BUILDER_HELPER_NETWORK: ${OTTERDEPLOY_NETWORK:-otterdeploy}
+      OTTERDEPLOY_DATA_DIR: ${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}
+    volumes:
+      # Docker-out-of-Docker: build images land in the same daemon the stack
+      # runs from (so the runtime can pull them).
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Same-path data folder — holds the persistent BuildKit layer cache.
+      - ${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}:${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── edge proxy ────────────────────────────────────────────────────────────
+  caddy:
+    # Custom image: Caddy + the CrowdSec bouncer plugin + Staticfile support
+    # (xcaddy build, published from infra/caddy).
+    image: ${OTTERDEPLOY_REGISTRY:-ghcr.io/otterdeploy}/caddy:${OTTERDEPLOY_VERSION:-latest}
+    restart: unless-stopped
+    # Seed a placeholder Caddyfile on first boot so Caddy starts before the
+    # control plane has reconciled the real one; the server then pushes config
+    # via the admin API (127.0.0.1:2019).
+    command: >
+      sh -c "mkdir -p /etc/caddy &&
+             [ -s /etc/caddy/Caddyfile ] ||
+               printf ':80 {\n  respond \"otterdeploy is starting…\" 503\n}\n' > /etc/caddy/Caddyfile &&
+             caddy run --config /etc/caddy/Caddyfile --adapter caddyfile"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+      - "127.0.0.1:2019:2019"
+    volumes:
+      # Reconciled Caddyfile lives under the data folder (written by the server).
+      - ${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}/caddy:/etc/caddy
+      - otterdeploy-caddy-data:/data
+      - otterdeploy-caddy-state:/config
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:2019/config/"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ── firewall (opt-in: COMPOSE_PROFILES=firewall) ──────────────────────────
+  crowdsec:
+    image: crowdsecurity/crowdsec:latest
+    profiles: ["firewall"]
+    restart: unless-stopped
+    environment:
+      # Auto-register the Caddy bouncer with our shared key on first boot.
+      BOUNCER_KEY_caddy: ${CROWDSEC_BOUNCER_KEY:-}
+    volumes:
+      - otterdeploy-crowdsec-config:/etc/crowdsec
+      - otterdeploy-crowdsec-data:/var/lib/crowdsec/data
+    expose:
+      # LAPI — internal only; reached as http://crowdsec:8080 by the Caddy
+      # bouncer, and by the control plane via `cscli` over the Docker socket.
+      - "8080"
+    healthcheck:
+      test: ["CMD", "cscli", "lapi", "status"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+# All services attach to the shared network the installer created
+# (`docker network create otterdeploy`). Per-project resource networks are
+# created dynamically by the control plane on top of this.
+networks:
+  default:
+    name: ${OTTERDEPLOY_NETWORK:-otterdeploy}
+    external: true
+
+volumes:
+  otterdeploy-postgres-data:
+  otterdeploy-redis-data:
+  otterdeploy-caddy-data:
+  otterdeploy-caddy-state:
+  otterdeploy-crowdsec-config:
+  otterdeploy-crowdsec-data:

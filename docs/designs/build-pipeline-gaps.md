@@ -45,7 +45,7 @@ End-to-end flow (verified):
 
 Builders supported: **Railpack** (auto-detect, monorepo-aware, SPA/static),
 user **Dockerfile**, and **Compose** (per-service build). Local-registry-less
-path tags `otterstack-local/<svc>` and runs straight from the host daemon.
+path tags `otterdeploy-local/<svc>` and runs straight from the host daemon.
 
 ## Gap inventory (prioritized)
 

@@ -41,8 +41,8 @@ describe("cachePathFor", () => {
   });
 
   test("collapses registry host + slashes so distinct repos don't collide dirs", () => {
-    expect(cachePathFor("otterstack-local/web")).not.toEqual(
-      cachePathFor("otterstack-local/api"),
+    expect(cachePathFor("otterdeploy-local/web")).not.toEqual(
+      cachePathFor("otterdeploy-local/api"),
     );
     // same repo → same dir (stable cache key)
     expect(cachePathFor("repo/x")).toEqual(cachePathFor("repo/x"));

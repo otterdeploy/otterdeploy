@@ -44,7 +44,7 @@ export const errorPathClass =
 const reveal = "animate-error-rise motion-reduce:animate-none";
 
 /**
- * Full-screen error screen in the OtterStack console aesthetic. Presentational
+ * Full-screen error screen in the Otterdeploy console aesthetic. Presentational
  * only — `NotFound` and `ServerError` wrap it with code-specific content.
  *
  * Styling is Tailwind utilities; the grid / glow / grain / reveal-keyframe live

@@ -1,6 +1,6 @@
 ---
 title: Getting started
-description: Deploy your first service with Otterstack.
+description: Deploy your first service with Otterdeploy.
 icon: Rocket
 ---
 
@@ -8,18 +8,18 @@ This guide walks through deploying your first service.
 
 ## 1. Connect a repository
 
-Point Otterstack at a Git repository. On the next push, the builder detects your
+Point Otterdeploy at a Git repository. On the next push, the builder detects your
 framework with Railpack and produces an image — no Dockerfile required.
 
 ## 2. Add a domain
 
-Each service can have one or more domains. Otterstack provisions HTTPS through
+Each service can have one or more domains. Otterdeploy provisions HTTPS through
 the Caddy edge automatically and checks DNS reachability as you go.
 
 ## 3. Ship it
 
 ```bash
-otterstack deploy
+otterdeploy deploy
 ```
 
 Watch the build and runtime logs stream live, and check per-resource metrics

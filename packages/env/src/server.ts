@@ -45,7 +45,7 @@ export const env = createEnv({
     // isn't reachable on :443 anyway), so set this if you need it locally.
     SERVER_IP: z.string().min(1).optional(),
 
-    // Dev-only local wildcard base domain (e.g. `otterstack.localhost`).
+    // Dev-only local wildcard base domain (e.g. `otterdeploy.localhost`).
     // When set AND NODE_ENV=development, exposed services resolve to
     // `<resource>-<project>.<LOCAL_BASE_DOMAIN>` — which resolves to loopback
     // and hits the Caddy edge on :443 — instead of the `127.0.0.1.sslip.io`
@@ -121,8 +121,8 @@ export const env = createEnv({
     // IMAGE is what it runs (the builder image itself, which carries the
     // railpack/docker toolchain + this code); NETWORK is the docker network
     // it joins so it can reach Postgres/Redis. Defaults match docker-compose.
-    BUILDER_HELPER_IMAGE: z.string().min(1).default("otterstack-builder:latest"),
-    BUILDER_HELPER_NETWORK: z.string().min(1).default("otterstack_default"),
+    BUILDER_HELPER_IMAGE: z.string().min(1).default("otterdeploy-builder:latest"),
+    BUILDER_HELPER_NETWORK: z.string().min(1).default("otterdeploy_default"),
 
     // Basic-auth creds for the Workbench BullMQ dashboard (/jobs on the
     // server). Both must be set for the dashboard to mount — it can

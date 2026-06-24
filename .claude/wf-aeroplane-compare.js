@@ -1,6 +1,6 @@
 export const meta = {
   name: 'aeroplane-compare',
-  description: 'Compare otterstack vs vendored aeroplane competitor across all subsystems; verify claims against real files; synthesize a cited report',
+  description: 'Compare otterdeploy vs vendored aeroplane competitor across all subsystems; verify claims against real files; synthesize a cited report',
   phases: [
     { title: 'Compare' },
     { title: 'Verify' },
@@ -12,7 +12,7 @@ export const meta = {
 // Both codebases are local. OUR code = apps/* + packages/*. THEIR code = research/aeroplane/src/*.
 const PREAMBLE = `You are comparing TWO self-hosted deployment-platform codebases that both build with Railpack and route with Caddy.
 
-OURS ("otterstack"/"otterdeploy"): a Bun monorepo. Backend logic lives in packages/api/src (oRPC routers + subsystem dirs), packages/jobs (BullMQ workers), packages/db (Postgres+Drizzle), packages/auth (better-auth + orgs/RBAC). Build worker is apps/builder/src. Edge/control-plane HTTP handlers are apps/server/src. Frontend is apps/web/src (TanStack Router + shadcn/Base UI). CLI is apps/cli.
+OURS ("otterdeploy"/"otterdeploy"): a Bun monorepo. Backend logic lives in packages/api/src (oRPC routers + subsystem dirs), packages/jobs (BullMQ workers), packages/db (Postgres+Drizzle), packages/auth (better-auth + orgs/RBAC). Build worker is apps/builder/src. Edge/control-plane HTTP handlers are apps/server/src. Frontend is apps/web/src (TanStack Router + shadcn/Base UI). CLI is apps/cli.
 
 THEIRS ("aeroplane", github.com/xt42io/aeroplane): a single Node/Hono app under research/aeroplane/src. Server logic is research/aeroplane/src/server/*.ts (flat files). Storage is SQLite via better-sqlite3 (research/aeroplane/src/server/schema.ts, db.ts). Frontend is research/aeroplane/src/client. It is single-tenant (one owner, no orgs).
 
@@ -263,7 +263,7 @@ const REPORT_SCHEMA = {
 }
 
 const report = await agent(
-  `You are the lead synthesizer. Below is verified per-dimension comparison data between OUR platform (otterstack) and the AEROPLANE competitor, plus web context on Railway/PaaS norms.
+  `You are the lead synthesizer. Below is verified per-dimension comparison data between OUR platform (otterdeploy) and the AEROPLANE competitor, plus web context on Railway/PaaS norms.
 
 Rules:
 - Only use claims whose verdict is 'confirmed' or 'adjusted' (use the corrected text for adjusted). DROP 'refuted' claims entirely.

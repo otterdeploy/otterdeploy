@@ -36,7 +36,7 @@ async function loadSpec(): Promise<Document> {
 
 export const openapi = createOpenAPI({
   // Record key → the schema id; `baseDir: "openapi"` mounts pages under it.
-  input: { "otterstack.json": loadSpec },
+  input: { "otterdeploy.json": loadSpec },
   // Always re-read so the reference tracks the live contracts in dev.
   disableCache: true,
 });

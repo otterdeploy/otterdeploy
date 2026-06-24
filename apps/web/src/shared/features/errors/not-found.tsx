@@ -9,7 +9,7 @@ import {
 
 /**
  * 404 screen — wired into the router as `defaultNotFoundComponent` (see main.tsx).
- * Renders for any unmatched route in the OtterStack control panel.
+ * Renders for any unmatched route in the Otterdeploy control panel.
  */
 export function NotFound() {
   const { t } = useTranslation();

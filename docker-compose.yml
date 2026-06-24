@@ -4,7 +4,7 @@
 # Per-project overlay networks are created dynamically and Caddy is
 # connected to them automatically when resources are provisioned.
 
-name: otterstack
+name: otterdeploy
 
 services:
   postgres:
@@ -13,7 +13,7 @@ services:
     # placed directly at .../data as an "unused volume"). Matches the pin in
     # packages/api/src/constants.ts and the swarm database engines.
     # image: postgres:17-alpine
-    # container_name: otterstack-postgres
+    # container_name: otterdeploy-postgres
     # restart: unless-stopped
     # environment:
     #   POSTGRES_USER: ${POSTGRES_USER:-postgres}
@@ -22,7 +22,7 @@ services:
     # ports:
     #   - "${POSTGRES_PORT:-5432}:5432"
     # volumes:
-    #   - otterstack-postgres-data:/var/lib/postgresql/data
+    #   - otterdeploy-postgres-data:/var/lib/postgresql/data
     # healthcheck:
     #   test:
     #     [
@@ -35,7 +35,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: otterstack-redis
+    container_name: otterdeploy-redis
     restart: unless-stopped
     command: >
       redis-server
@@ -45,7 +45,7 @@ services:
     ports:
       - "${REDIS_PORT:-6379}:6379"
     volumes:
-      - otterstack-redis-data:/data
+      - otterdeploy-redis-data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -58,8 +58,8 @@ services:
       dockerfile: ./apps/builder/Dockerfile
     # Pinned tag so the worker can spawn this same image as the per-build
     # helper container (BUILDER_HELPER_IMAGE below must match).
-    image: otterstack-builder:latest
-    container_name: otterstack-builder
+    image: otterdeploy-builder:latest
+    container_name: otterdeploy-builder
     restart: unless-stopped
     # Required env (DB/Redis/auth secret/…) comes from the project .env; the two
     # connection URLs are then overridden below so the worker — and the helper
@@ -75,8 +75,8 @@ services:
       REDIS_URL: ${REDIS_URL}
       # Per-build helper containers: image to spawn + network to attach them to
       # (this compose project's default network, so they resolve postgres/redis).
-      BUILDER_HELPER_IMAGE: otterstack-builder:latest
-      BUILDER_HELPER_NETWORK: otterstack_default
+      BUILDER_HELPER_IMAGE: otterdeploy-builder:latest
+      BUILDER_HELPER_NETWORK: otterdeploy_default
       # Host data folder. Must match the bind-mount path below AND be a real host
       # path, since the worker bind-mounts <dir>/buildx-cache into helper
       # containers via the HOST daemon for the persistent BuildKit cache.
@@ -115,7 +115,7 @@ services:
   # agent can tail.
   crowdsec:
     image: crowdsecurity/crowdsec:latest
-    container_name: otterstack-crowdsec
+    container_name: otterdeploy-crowdsec
     profiles: ["firewall"]
     restart: unless-stopped
     environment:
@@ -123,8 +123,8 @@ services:
       # the edge authenticates to LAPI with no manual `cscli bouncers add`.
       BOUNCER_KEY_caddy: ${CROWDSEC_BOUNCER_KEY:-}
     volumes:
-      - otterstack-crowdsec-config:/etc/crowdsec
-      - otterstack-crowdsec-data:/var/lib/crowdsec/data
+      - otterdeploy-crowdsec-config:/etc/crowdsec
+      - otterdeploy-crowdsec-data:/var/lib/crowdsec/data
     expose:
       # LAPI — internal only. Reachable on the compose network as
       # http://crowdsec:8080 by Caddy (the bouncer). The control plane reads
@@ -141,7 +141,7 @@ services:
     build:
       context: .
       dockerfile: ./infra/caddy/Dockerfile
-    container_name: otterstack-caddy
+    container_name: otterdeploy-caddy
     restart: unless-stopped
     command: sh -c "caddy run --config /etc/caddy/Caddyfile --adapter caddyfile"
     ports:
@@ -152,8 +152,8 @@ services:
       - "127.0.0.1:${CADDY_ADMIN_HOST_PORT:-2019}:2019"
     volumes:
       - ./infra/caddy/config:/etc/caddy
-      - otterstack-caddy-data:/data
-      - otterstack-caddy-state:/config
+      - otterdeploy-caddy-data:/data
+      - otterdeploy-caddy-state:/config
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:
@@ -171,9 +171,9 @@ services:
       retries: 5
 
 volumes:
-  otterstack-postgres-data:
-  otterstack-redis-data:
-  otterstack-caddy-data:
-  otterstack-caddy-state:
-  otterstack-crowdsec-config:
-  otterstack-crowdsec-data:
+  otterdeploy-postgres-data:
+  otterdeploy-redis-data:
+  otterdeploy-caddy-data:
+  otterdeploy-caddy-state:
+  otterdeploy-crowdsec-config:
+  otterdeploy-crowdsec-data:

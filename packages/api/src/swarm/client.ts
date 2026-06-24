@@ -130,7 +130,7 @@ export async function connectCaddyToNetwork(
     PLATFORM.swarm.caddyContainer,
     // Local compose names the edge container after the repo, while
     // production installs keep the otterdeploy-* name.
-    "otterstack-caddy",
+    "otterdeploy-caddy",
     "caddy",
   ];
 

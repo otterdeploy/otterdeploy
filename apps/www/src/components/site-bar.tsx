@@ -33,7 +33,7 @@ export function SiteBar() {
       <div className="flex h-full items-center gap-6 px-5 lg:px-6">
         <a href="/" className="inline-flex items-baseline gap-1">
           <span className="text-base font-semibold tracking-tight text-foreground">
-            otterstack
+            otterdeploy
           </span>
           <span className="size-1.5 translate-y-[-1px] rounded-full bg-primary" />
         </a>

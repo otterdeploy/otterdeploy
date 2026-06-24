@@ -5,7 +5,7 @@
   "type": "module",
   "sideEffects": false,
   "scripts": {
-    "dev": "portless www.otterstack --force vite dev",
+    "dev": "portless www.otterdeploy --force vite dev",
     "build": "vite build",
     "serve": "vite preview",
     "start": "vite preview",

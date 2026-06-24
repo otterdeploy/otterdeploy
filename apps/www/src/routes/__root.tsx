@@ -17,7 +17,7 @@ export const Route = createRootRoute({
       {
         name: "description",
         content:
-          "Otterstack is a self-hostable deployment platform. Ship apps, databases, and services with a Caddy edge, live logs, and built-in observability.",
+          "Otterdeploy is a self-hostable deployment platform. Ship apps, databases, and services with a Caddy edge, live logs, and built-in observability.",
       },
     ],
     links: [{ rel: "stylesheet", href: appCss }],

@@ -130,7 +130,7 @@ export function FirewallView() {
               <div className="min-w-0 flex-1">
                 <h2 className="text-[13px] font-semibold">Firewall isn't enabled</h2>
                 <p className="mt-0.5 text-[13px] text-muted-foreground">
-                  The CrowdSec agent ships with otterstack — it just stays off
+                  The CrowdSec agent ships with otterdeploy — it just stays off
                   until you switch it on. Two steps:
                 </p>
                 <ol className="mt-3 space-y-2.5 text-[13px]">

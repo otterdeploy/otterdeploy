@@ -1,5 +1,5 @@
-export const INSTALL_CMD = "curl -fsSL https://get.otterstack.sh | sh";
-export const GITHUB_URL = "https://github.com/otterstack/otterstack";
+export const INSTALL_CMD = "curl -fsSL https://get.otterdeploy.sh | sh";
+export const GITHUB_URL = "https://github.com/otterdeploy/otterdeploy";
 
 export type TerminalLineType =
   | "command"
@@ -15,7 +15,7 @@ export interface TerminalLine { text: string; type: TerminalLineType }
 
 // Hero deploy walkthrough (typed out on view).
 export const DEPLOY_LINES: TerminalLine[] = [
-  { text: "$ otterstack deploy", type: "command" },
+  { text: "$ otterdeploy deploy", type: "command" },
   { text: "", type: "blank" },
   { text: "→ Detecting framework…", type: "header" },
   { text: "  ✓ Railpack: Bun + Vite (static SPA)", type: "success" },
@@ -24,10 +24,10 @@ export const DEPLOY_LINES: TerminalLine[] = [
   { text: "", type: "blank" },
   { text: "→ Publishing…", type: "header" },
   { text: "  ✓ Image pushed to registry", type: "success" },
-  { text: "  ✓ Caddy route → https://app.otterstack.com", type: "success" },
+  { text: "  ✓ Caddy route → https://app.otterdeploy.com", type: "success" },
   { text: "  ✓ TLS certificate issued (auto)", type: "success" },
   { text: "", type: "blank" },
-  { text: "✓ Live in 19s · https://app.otterstack.com", type: "final" },
+  { text: "✓ Live in 19s · https://app.otterdeploy.com", type: "final" },
 ];
 
 
@@ -104,12 +104,12 @@ export const FEATURE_CELLS: FeatureCell[] = [
     n: "09",
     title: "CLI + typed API",
     desc: "Drive everything from the CLI or the end-to-end typed oRPC API.",
-    detail: "npx otterstack status",
+    detail: "npx otterdeploy status",
   },
 ];
 
 // "Built on" strip — replaces Better Auth's "trusted by" partner logos with the
-// real open stack underneath otterstack. Honest, not seeded.
+// real open stack underneath otterdeploy. Honest, not seeded.
 export const BUILT_ON = [
   "Caddy",
   "Postgres",

@@ -160,5 +160,5 @@ export async function loadPipelineContext(
  *  and lowercased so it never collides with a public docker.io repo; swarm
  *  on the same node runs it straight from the daemon's local store. */
 function localImageRepository(serviceName: string): string {
-  return `otterstack-local/${serviceName.toLowerCase()}`;
+  return `otterdeploy-local/${serviceName.toLowerCase()}`;
 }

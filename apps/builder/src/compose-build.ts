@@ -128,7 +128,7 @@ async function loadComposeBuildContext(
     registry = reg;
     imageRepository = proj.imageRepository;
   } else {
-    imageRepository = `otterstack-local/${comp.stackName.toLowerCase()}`;
+    imageRepository = `otterdeploy-local/${comp.stackName.toLowerCase()}`;
   }
 
   return {

@@ -63,7 +63,7 @@
       "eyebrow": "Internal error",
       "title": "Something Went Wrong.",
       "statusTag": "FAULT",
-      "messageDefault": "OtterStack hit an unexpected error rendering this page. The failure has been logged — this one's on us, not you. Try again in a moment.",
+      "messageDefault": "Otterdeploy hit an unexpected error rendering this page. The failure has been logged — this one's on us, not you. Try again in a moment.",
       "retry": "⟳ Retry",
       "returnHome": "↩ Return home"
     }

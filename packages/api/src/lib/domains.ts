@@ -16,7 +16,7 @@
  *
  * The local-base level only carries a value in development (the loader
  * gates it on NODE_ENV) — it lets exposed services resolve to the dev
- * domain (`<name>.otterstack.localhost`, loopback → Caddy on :443) instead
+ * domain (`<name>.otterdeploy.localhost`, loopback → Caddy on :443) instead
  * of the `127.0.0.1.sslip.io` form. Unverified like sslip, so `tls
  * internal` — `.localhost` can't get a real cert anyway.
  *
@@ -51,7 +51,7 @@ export interface DomainSources {
   /** Org-level apex (organization.baseDomain). */
   orgBaseDomain: string | null;
   orgBaseDomainVerifiedAt: Date | null;
-  /** Dev-only local wildcard (e.g. `otterstack.localhost`). Sits above the
+  /** Dev-only local wildcard (e.g. `otterdeploy.localhost`). Sits above the
    *  sslip fallback so local installs publish a clean loopback-backed name
    *  instead of an IP literal. Null outside development. */
   localBaseDomain: string | null;
@@ -120,7 +120,7 @@ export function resolvePublicDomain(
     };
   }
 
-  // 4. Local base domain — dev only. A configured wildcard (`otterstack.
+  // 4. Local base domain — dev only. A configured wildcard (`otterdeploy.
   //    localhost`) that resolves to loopback, so exposed services reach the
   //    Caddy edge on :443 under a clean name. Resource slugs are unique per
   //    project across services + databases, so no kindBase split is needed.
