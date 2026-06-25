@@ -49,6 +49,7 @@
     "dev": "turbo dev --filter=!builder",
     "build": "turbo build",
     "typecheck": "turbo typecheck --concurrency=4 --filter=!web-demo",
+    "test": "turbo test --filter=!web-demo",
     "dev:native": "turbo -F native dev",
     "dev:web": "turbo -F web dev",
     "dev:www": "turbo -F www dev",
@@ -61,9 +62,8 @@
     "db:watch": "turbo -F @otterdeploy/db db:watch",
     "db:stop": "turbo -F @otterdeploy/db db:stop",
     "db:down": "turbo -F @otterdeploy/db db:down",
-    "check": "oxlint --type-aware --threads=4 && oxfmt --write",
     "format": "oxfmt --write",
-    "lint": "oxlint --fix"
+    "lint": "oxlint --type-aware --threads=4 --fix"
   },
   "dependencies": {
     "@otterdeploy/env": "workspace:*",

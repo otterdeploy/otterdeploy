@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Cancel superseded runs on the same ref (e.g. rapid pushes to a PR branch).
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: ${{ matrix.task }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        task: [typecheck, lint, test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.10
+
+      # Turbo's local cache — keyed on the lockfile + the turbo config so a
+      # dependency or pipeline change busts it.
+      - name: Cache turbo
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: turbo-${{ matrix.task }}-${{ runner.os }}-${{ hashFiles('bun.lock', 'turbo.json') }}
+          restore-keys: |
+            turbo-${{ matrix.task }}-${{ runner.os }}-
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      # `bun run typecheck` = turbo typecheck --concurrency=4 --filter=!web-demo
+      # (TS 7 `tsc --checkers`; the web leg runs `tsr generate` itself).
+      - name: Typecheck
+        if: matrix.task == 'typecheck'
+        run: bun run typecheck --cache-dir=.turbo
+
+      # oxlint (type-aware) + oxfmt --check — non-mutating CI form (the `check`
+      # script formats in place with --write).
+      - name: Lint & format check
+        if: matrix.task == 'lint'
+        run: bunx oxlint --type-aware --threads=4 && bunx oxfmt --check
+
+      - name: Test
+        if: matrix.task == 'test'
+        run: bun run test --cache-dir=.turbo
