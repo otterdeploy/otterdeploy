@@ -19,7 +19,7 @@ import {
   tag,
 } from "./shared";
 
-const projectEnvVarSchema = z.object({
+export const projectEnvVarSchema = z.object({
   id: z.string(),
   projectId: projectIdField,
   environmentId: environmentIdField,
@@ -30,12 +30,12 @@ const projectEnvVarSchema = z.object({
   updatedAt: z.date(),
 });
 
-const listProjectEnvVarsInput = z.object({
+export const listProjectEnvVarsInput = z.object({
   projectId: projectIdField,
   environmentId: environmentIdField,
 });
 
-const upsertProjectEnvVarInput = z.object({
+export const upsertProjectEnvVarInput = z.object({
   projectId: projectIdField,
   environmentId: environmentIdField,
   key: z.string().min(1).max(255),
@@ -43,13 +43,13 @@ const upsertProjectEnvVarInput = z.object({
   isSecret: z.boolean().optional(),
 });
 
-const deleteProjectEnvVarInput = z.object({
+export const deleteProjectEnvVarInput = z.object({
   projectId: projectIdField,
   environmentId: environmentIdField,
   key: z.string().min(1).max(255),
 });
 
-const bulkReplaceProjectEnvVarsInput = z.object({
+export const bulkReplaceProjectEnvVarsInput = z.object({
   projectId: projectIdField,
   environmentId: environmentIdField,
   vars: z.array(

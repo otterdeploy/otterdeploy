@@ -49,7 +49,7 @@ interface RunHooksOpts {
 const msg = (cause: unknown): string =>
   cause instanceof Error ? cause.message : String(cause);
 
-async function runDeployHooks(
+export async function runDeployHooks(
   opts: RunHooksOpts,
 ): Promise<Result<void, DeployHookError>> {
   const { phase, commands, sink } = opts;
@@ -67,7 +67,9 @@ async function runDeployHooks(
     );
   }
   const { env, networkName } = ctx.value;
-  const secrets = Object.values(env).filter((v) => v.length > 0);
+  const secrets: string[] = Object.values(env).filter(
+    (v): v is string => typeof v === "string" && v.length > 0,
+  );
 
   // Stage env to a temp file (off the logged argv). Result-wrapped — no raw
   // try/catch in this Result-returning flow.

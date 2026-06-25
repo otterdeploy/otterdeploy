@@ -9,7 +9,7 @@
     "./locales/*": "./src/locales/*.json"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit --checkers 4"
   },
   "dependencies": {
     "i18next": "^26.2.0",

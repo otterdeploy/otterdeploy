@@ -45,12 +45,12 @@ export const serviceTaskSchema = z.object({
   timestamp: z.string().nullable(),
 });
 
-const serviceTasksSchema = z.object({
+export const serviceTasksSchema = z.object({
   resourceId: resourceIdField,
   tasks: z.array(serviceTaskSchema),
 });
 
-const listServiceTasksInput = z.object({
+export const listServiceTasksInput = z.object({
   projectId: projectIdField,
 });
 

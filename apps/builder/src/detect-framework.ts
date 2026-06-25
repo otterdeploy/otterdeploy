@@ -102,7 +102,7 @@ function frameworkFromRailpackInfo(info: RailpackInfo | null): FrameworkKind {
  * after `railpack prepare` has written `railpack-info.json` and before the
  * pipeline removes the clone dir.
  */
-async function detectServiceFramework(opts: {
+export async function detectServiceFramework(opts: {
   workDir: string;
   /** Service's repo subdirectory (monorepo); null = repo root. The app's own
    *  package.json always lives here, even for a workspace built from the root. */

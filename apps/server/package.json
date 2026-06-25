@@ -4,7 +4,7 @@
   "main": "src/index.ts",
   "scripts": {
     "build": "tsdown",
-    "typecheck": "tsc -b",
+    "typecheck": "tsc -b --checkers 4",
     "compile": "bun build --compile --minify --sourcemap --bytecode ./src/index.ts --outfile server",
     "dev": "portless api.otterdeploy --force bun run --env-file ../../.env --hot src/index.ts",
     "start": "bun run dist/index.js"

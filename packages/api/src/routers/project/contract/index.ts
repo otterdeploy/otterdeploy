@@ -104,9 +104,6 @@ export {
 export {
   createPostgresDatabaseInput,
   createPostgresProgressSchema,
-  deletePostgresDatabaseInput,
-  getPostgresDatabaseInput,
-  listPostgresDatabasesInput,
   setPostgresExtraEnvInput,
   setPostgresPublicInput,
   unsetPostgresExtraEnvInput,
@@ -115,7 +112,6 @@ export {
 export {
   listProxyRoutesInput,
   proxyRouteSchema,
-  reconcileResultSchema,
 } from "./proxy";
 
 export {

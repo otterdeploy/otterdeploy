@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 
 import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
 import { and, eq, notInArray } from "drizzle-orm";
 import { createError } from "evlog";
 
@@ -67,7 +68,7 @@ export async function createDatabaseResourceRecord(input: {
   /** Database engine. Defaults to postgres for back-compat with the
    *  original postgres-only call sites. New callers should always pass
    *  this explicitly. */
-  engine?: "postgres" | "redis" | "mariadb" | "mongodb";
+  engine?: DatabaseEngine;
   status?: "draft" | "valid" | "invalid";
   databaseName: string;
   username: string;

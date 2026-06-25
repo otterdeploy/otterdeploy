@@ -19,7 +19,7 @@
 import type { DeploymentId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { Docker } from "@otterdeploy/docker";
-import { Result, TaggedError } from "better-result";
+import { Result } from "better-result";
 import { and, desc, eq, inArray } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
@@ -188,23 +188,6 @@ async function reconcileDeploySuccess(
       await emitDeploySucceeded({ deploymentId: id, resourceId });
     }
   }
-}
-
-/** Look up a single deployment by id, scoped to a resource. Returns null
- *  when the id doesn't exist or belongs to a different resource — the
- *  rollback path uses this to refuse cross-resource snapshot loads. */
-async function getDeploymentForResource(
-  resourceId: ResourceId,
-  deploymentId: DeploymentId,
-): Promise<DeploymentRow | null> {
-  const [row] = await db
-    .select()
-    .from(deployment)
-    .where(eq(deployment.id, deploymentId))
-    .limit(1);
-  if (!row) return null;
-  if (row.resourceId !== resourceId) return null;
-  return row as DeploymentRow;
 }
 
 /** Mark an existing deployment terminal (failed) — used when provisioning
@@ -522,24 +505,6 @@ export async function listResourceDeployments(
     await reconcileDeploySuccess(justSucceeded, input.resourceId);
   }
   return Result.ok(result);
-}
-
-class DeploymentNotFoundError extends TaggedError("DeploymentNotFoundError")<{
-  deploymentId: DeploymentId;
-  message: string;
-}>() {
-  constructor(deploymentId: DeploymentId) {
-    super({ deploymentId, message: `deployment ${deploymentId} not found for this resource` });
-  }
-}
-
-class UnsupportedSnapshotError extends TaggedError("UnsupportedSnapshotError")<{
-  reason: string;
-  message: string;
-}>() {
-  constructor(reason: string) {
-    super({ reason, message: `cannot replay snapshot: ${reason}` });
-  }
 }
 
 interface TasksByDeploymentInput extends ListInput {

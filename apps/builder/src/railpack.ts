@@ -50,7 +50,7 @@ const DEFAULT_STATIC_ROOT = "dist";
 
 /** Filename railpack writes its `--info-out` analysis to, inside the clone
  *  dir. Read by `detect-framework.ts` after `prepare`. */
-const RAILPACK_INFO_FILE = "railpack-info.json";
+export const RAILPACK_INFO_FILE = "railpack-info.json";
 
 export async function railpackBuild(opts: {
   workDir: string;

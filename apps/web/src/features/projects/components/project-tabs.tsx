@@ -5,9 +5,20 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/shared/lib/utils";
 import type { RoutePath } from "@/features/shell/components/sidebar";
 
+/**
+ * Only the project-scoped routes — those carrying both `$orgSlug` and
+ * `$projectSlug` path params. Narrowing `to` to this subset lets TanStack
+ * statically resolve the `params` object below; the broad `RoutePath`
+ * union can't tell which params a given `to` requires.
+ */
+type ProjectRoutePath = Extract<
+  RoutePath,
+  `/$orgSlug/$projectSlug${string}`
+>;
+
 interface Tab {
   titleKey: string;
-  to: RoutePath;
+  to: ProjectRoutePath;
   /** True only for the index route — TanStack's exact match opt-in. */
   exact?: boolean;
   /** Default label when the i18n key isn't defined yet. */
@@ -17,7 +28,6 @@ interface Tab {
 const tabs: readonly Tab[] = [
   { titleKey: "nav.overview", to: "/$orgSlug/$projectSlug", exact: true },
   { titleKey: "nav.graph", to: "/$orgSlug/$projectSlug/graph" },
-  { titleKey: "nav.deployments", to: "/$orgSlug/$projectSlug/deployments" },
   { titleKey: "nav.logs", to: "/$orgSlug/$projectSlug/logs" },
   { titleKey: "nav.metrics", to: "/$orgSlug/$projectSlug/metrics" },
   { titleKey: "nav.variables", to: "/$orgSlug/$projectSlug/variables" },
@@ -56,7 +66,7 @@ export function ProjectTabs() {
     if (!node) return;
 
     const update = () => {
-      const active = node.querySelector("[data-active]");
+      const active = node.querySelector<HTMLElement>("[data-active]");
       if (active) {
         setIndicator({ left: active.offsetLeft, width: active.offsetWidth });
       }

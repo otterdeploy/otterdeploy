@@ -96,7 +96,7 @@ function step<T>(
  *  now points at; on failure it's the surfaced error message (the row has
  *  already been marked failed). The pipeline never rejects — a batch handler
  *  must keep going if one deployment fails. */
-async function runBuildPipeline(opts: {
+export async function runBuildPipeline(opts: {
   deploymentId: DeploymentId;
   publisher: RedisClient;
 }): Promise<Result<string, string>> {

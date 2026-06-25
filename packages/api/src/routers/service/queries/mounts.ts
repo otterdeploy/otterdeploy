@@ -22,7 +22,7 @@ export async function listServiceMounts(
     .where(eq(serviceMount.serviceResourceId, serviceResourceId));
 }
 
-async function upsertServiceMount(input: {
+export async function upsertServiceMount(input: {
   serviceResourceId: ResourceId;
   type: "volume" | "bind" | "file";
   target: string;
@@ -58,7 +58,7 @@ async function upsertServiceMount(input: {
   return row;
 }
 
-async function deleteServiceMount(input: {
+export async function deleteServiceMount(input: {
   serviceResourceId: ResourceId;
   target: string;
 }): Promise<void> {
@@ -79,7 +79,7 @@ async function deleteServiceMount(input: {
  * upserted. File content lives in `content`; pass undefined to leave it
  * unchanged when only metadata is editing.
  */
-async function bulkReplaceServiceMounts(
+export async function bulkReplaceServiceMounts(
   serviceResourceId: ResourceId,
   next: ReadonlyArray<{
     type: "volume" | "bind" | "file";

@@ -8,7 +8,7 @@
     "build": "vite build",
     "serve": "vite preview",
     "start": "vite",
-    "typecheck": "tsr generate && tsc --noEmit",
+    "typecheck": "tsr generate && tsc --noEmit --checkers 4",
     "gen:schema": "bun scripts/gen-schema.ts",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -79,9 +79,12 @@
   },
   "devDependencies": {
     "@otterdeploy/config": "workspace:*",
+    "@rolldown/plugin-babel": "^0.2.3",
     "@tanstack/react-query-devtools": "catalog:",
     "@tanstack/react-router-devtools": "catalog:",
+    "@tanstack/router-cli": "catalog:",
     "@tanstack/router-plugin": "catalog:",
+    "@types/babel__core": "^7.20.5",
     "@types/dagre": "^0.7.54",
     "@types/node": "^25.9.1",
     "@types/react": "^19.2.15",
@@ -92,7 +95,7 @@
     "babel-plugin-react-compiler": "^1.0.0",
     "postcss": "^8.5.15",
     "tailwindcss": "^4.3.0",
-    "typescript": "^6.0.3",
+    "typescript": "catalog:",
     "vite": "^8.0.14",
     "vitest": "^4.1.7",
     "wrangler": "^4.94.0"

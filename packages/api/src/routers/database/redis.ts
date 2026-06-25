@@ -236,7 +236,7 @@ export async function redisReadValue(
       length: number;
       value?: unknown;
     }>(out);
-    return shapeValue(opts.key, p, opts.limit);
+    return shapeValue(opts.key, p);
   });
 }
 
@@ -244,7 +244,6 @@ export async function redisReadValue(
 function shapeValue(
   key: string,
   p: { type: RedisValue["type"]; ttl: number; length: number; value?: unknown },
-  limit: number,
 ): RedisValue {
   const base = {
     key,

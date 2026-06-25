@@ -1,6 +1,6 @@
 
 import type { EnvironmentId, OrganizationId, ProjectId } from "@otterdeploy/shared/id";
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import type { InferSelectModel } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
@@ -59,22 +59,6 @@ export async function createEnvRecord(input: {
   projectId?: ProjectId;
 }): Promise<EnvironmentRecord | undefined> {
   const [row] = await db.insert(environment).values(input).returning();
-  return row;
-}
-
-/**
- * Looks up a standalone env by id. Used by `project.create` to claim a
- * pre-allocated env. Returns undefined if the env doesn't exist or has
- * already been linked to a project.
- */
-async function getStandaloneEnv(
-  environmentId: EnvironmentId,
-): Promise<EnvironmentRecord | undefined> {
-  const [row] = await db
-    .select()
-    .from(environment)
-    .where(and(eq(environment.id, environmentId), isNull(environment.projectId)))
-    .limit(1);
   return row;
 }
 

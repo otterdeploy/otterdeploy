@@ -67,7 +67,7 @@ const nixpacksConfigSchema = z.object({
   env: z.record(z.string(), z.string()).optional(),
 });
 
-const createProjectInput = z.object({
+export const createProjectInput = z.object({
   /**
    * Optional client-supplied project id. Lets the caller pre-allocate a CUID2
    * so optimistic UI rows match the persisted row (no flicker on refetch).
@@ -84,11 +84,11 @@ export const getProjectInput = z.object({
   id: projectIdField,
 });
 
-const getProjectBySlugInput = z.object({
+export const getProjectBySlugInput = z.object({
   slug: zSlug(ID_PREFIX.project),
 });
 
-const updateProjectInput = z.object({
+export const updateProjectInput = z.object({
   id: projectIdField,
   name: z.string().min(1).optional(),
   slug: z.string().slugify().min(2).max(48).optional(),
@@ -109,7 +109,7 @@ const updateProjectInput = z.object({
   nixpacksConfig: nixpacksConfigSchema.nullable().optional(),
 });
 
-const deleteProjectInput = z.object({
+export const deleteProjectInput = z.object({
   id: projectIdField,
 });
 

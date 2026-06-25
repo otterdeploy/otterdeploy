@@ -146,10 +146,9 @@ export function ResultsPanel({
         <div className="flex min-w-0 items-center gap-2">{leftSlot}</div>
         <div className="flex items-center gap-1.5">
           <ToggleGroup
-            type="single"
             size="sm"
-            value={view}
-            onValueChange={(v) => v && onViewChange(v as ResultView)}
+            value={[view]}
+            onValueChange={([v]) => v && onViewChange(v as ResultView)}
             className="gap-0.5"
           >
             <ToggleGroupItem value="grid" aria-label="Grid view" className="h-6 px-1.5">
@@ -160,16 +159,18 @@ export function ResultsPanel({
             </ToggleGroupItem>
           </ToggleGroup>
           <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                disabled={!canExport}
-                onClick={() => downloadCsv(columns, rows, exportName)}
-                aria-label="Export CSV"
-              >
-                <HugeiconsIcon icon={Download01Icon} strokeWidth={2} className="size-3.5" />
-              </Button>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  disabled={!canExport}
+                  onClick={() => downloadCsv(columns, rows, exportName)}
+                  aria-label="Export CSV"
+                />
+              }
+            >
+              <HugeiconsIcon icon={Download01Icon} strokeWidth={2} className="size-3.5" />
             </TooltipTrigger>
             <TooltipContent>Export CSV</TooltipContent>
           </Tooltip>

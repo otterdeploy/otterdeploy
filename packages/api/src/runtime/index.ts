@@ -23,7 +23,7 @@ export function runtime(): RuntimeDriver {
 }
 
 /** True when running on Swarm (scale mode) — used to gate replicas>1 etc. */
-function isSwarmRuntime(): boolean {
+export function isSwarmRuntime(): boolean {
   return mode() === "swarm";
 }
 

@@ -19,12 +19,12 @@ import { manifestSchema } from "../../../stack/manifest";
 import { basePath, projectNotFoundErrors, tag } from "./shared";
 import { getProjectInput } from "./project";
 
-const manifestGetOutput = z.object({
+export const manifestGetOutput = z.object({
   manifest: manifestSchema.nullable(),
   version: z.number().int().nonnegative(),
 });
 
-const manifestSaveInput = z.object({
+export const manifestSaveInput = z.object({
   projectId: getProjectInput.shape.id,
   manifest: manifestSchema,
   // Monotonic counter; the server bumps it on every save. Pass the
@@ -33,18 +33,18 @@ const manifestSaveInput = z.object({
   expectedVersion: z.number().int().nonnegative(),
 });
 
-const manifestSaveOutput = z.object({
+export const manifestSaveOutput = z.object({
   version: z.number().int().nonnegative(),
 });
 
-const manifestDiffInput = z.object({
+export const manifestDiffInput = z.object({
   projectId: getProjectInput.shape.id,
   // Resolve overrides for this environment before diffing. Omit to diff
   // the base manifest as-is.
   environment: z.string().min(1).optional(),
 });
 
-const manifestDiffOutput = z.object({
+export const manifestDiffOutput = z.object({
   // The resolved manifest the server would apply if `apply` ran now.
   resolved: manifestSchema.nullable(),
   // High-level changes the apply would make (from `diffManifest`).
@@ -58,12 +58,12 @@ const manifestDiffOutput = z.object({
   ),
 });
 
-const manifestApplyInput = z.object({
+export const manifestApplyInput = z.object({
   projectId: getProjectInput.shape.id,
   environment: z.string().min(1).optional(),
 });
 
-const manifestApplyOutput = z.object({
+export const manifestApplyOutput = z.object({
   appliedCount: z.number().int().nonnegative(),
   skipped: z.array(
     z.object({

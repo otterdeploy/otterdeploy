@@ -35,7 +35,3 @@ const SEVERITY_BY_ID = new Map(PLATFORM_EVENTS.map((e) => [e.id, e.severity]));
 export function eventSeverity(eventId: string): EventSeverity {
   return SEVERITY_BY_ID.get(eventId) ?? "info";
 }
-
-function isKnownEvent(eventId: string): boolean {
-  return SEVERITY_BY_ID.has(eventId);
-}

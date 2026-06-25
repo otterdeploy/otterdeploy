@@ -77,11 +77,11 @@ function saveDestination(
   if (initial) {
     return destinationsCollection.update(
       initial.id,
+      { metadata },
       (draft) => {
         draft.name = value.name.trim();
         draft.config = cleanConfig;
       },
-      { metadata },
     );
   }
   return destinationsCollection.insert(

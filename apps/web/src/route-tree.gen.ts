@@ -24,6 +24,7 @@ import { Route as AppOrgSlugSshKeysRouteImport } from "./routes/_app/$orgSlug/ss
 import { Route as AppOrgSlugSettingsRouteImport } from "./routes/_app/$orgSlug/settings"
 import { Route as AppOrgSlugServersRouteImport } from "./routes/_app/$orgSlug/servers"
 import { Route as AppOrgSlugRegistriesRouteImport } from "./routes/_app/$orgSlug/registries"
+import { Route as AppOrgSlugPlatformRouteImport } from "./routes/_app/$orgSlug/platform"
 import { Route as AppOrgSlugNotificationsRouteImport } from "./routes/_app/$orgSlug/notifications"
 import { Route as AppOrgSlugNetworkingRouteImport } from "./routes/_app/$orgSlug/networking"
 import { Route as AppOrgSlugGitProvidersRouteImport } from "./routes/_app/$orgSlug/git-providers"
@@ -119,6 +120,11 @@ const AppOrgSlugServersRoute = AppOrgSlugServersRouteImport.update({
 const AppOrgSlugRegistriesRoute = AppOrgSlugRegistriesRouteImport.update({
   id: "/registries",
   path: "/registries",
+  getParentRoute: () => AppOrgSlugLayoutRoute,
+} as any)
+const AppOrgSlugPlatformRoute = AppOrgSlugPlatformRouteImport.update({
+  id: "/platform",
+  path: "/platform",
   getParentRoute: () => AppOrgSlugLayoutRoute,
 } as any)
 const AppOrgSlugNotificationsRoute = AppOrgSlugNotificationsRouteImport.update({
@@ -251,6 +257,7 @@ export interface FileRoutesByFullPath {
   "/$orgSlug/git-providers": typeof AppOrgSlugGitProvidersRoute
   "/$orgSlug/networking": typeof AppOrgSlugNetworkingRoute
   "/$orgSlug/notifications": typeof AppOrgSlugNotificationsRoute
+  "/$orgSlug/platform": typeof AppOrgSlugPlatformRoute
   "/$orgSlug/registries": typeof AppOrgSlugRegistriesRoute
   "/$orgSlug/servers": typeof AppOrgSlugServersRoute
   "/$orgSlug/settings": typeof AppOrgSlugSettingsRoute
@@ -285,6 +292,7 @@ export interface FileRoutesByTo {
   "/$orgSlug/git-providers": typeof AppOrgSlugGitProvidersRoute
   "/$orgSlug/networking": typeof AppOrgSlugNetworkingRoute
   "/$orgSlug/notifications": typeof AppOrgSlugNotificationsRoute
+  "/$orgSlug/platform": typeof AppOrgSlugPlatformRoute
   "/$orgSlug/registries": typeof AppOrgSlugRegistriesRoute
   "/$orgSlug/servers": typeof AppOrgSlugServersRoute
   "/$orgSlug/settings": typeof AppOrgSlugSettingsRoute
@@ -323,6 +331,7 @@ export interface FileRoutesById {
   "/_app/$orgSlug/git-providers": typeof AppOrgSlugGitProvidersRoute
   "/_app/$orgSlug/networking": typeof AppOrgSlugNetworkingRoute
   "/_app/$orgSlug/notifications": typeof AppOrgSlugNotificationsRoute
+  "/_app/$orgSlug/platform": typeof AppOrgSlugPlatformRoute
   "/_app/$orgSlug/registries": typeof AppOrgSlugRegistriesRoute
   "/_app/$orgSlug/servers": typeof AppOrgSlugServersRoute
   "/_app/$orgSlug/settings": typeof AppOrgSlugSettingsRoute
@@ -361,6 +370,7 @@ export interface FileRouteTypes {
     | "/$orgSlug/git-providers"
     | "/$orgSlug/networking"
     | "/$orgSlug/notifications"
+    | "/$orgSlug/platform"
     | "/$orgSlug/registries"
     | "/$orgSlug/servers"
     | "/$orgSlug/settings"
@@ -395,6 +405,7 @@ export interface FileRouteTypes {
     | "/$orgSlug/git-providers"
     | "/$orgSlug/networking"
     | "/$orgSlug/notifications"
+    | "/$orgSlug/platform"
     | "/$orgSlug/registries"
     | "/$orgSlug/servers"
     | "/$orgSlug/settings"
@@ -432,6 +443,7 @@ export interface FileRouteTypes {
     | "/_app/$orgSlug/git-providers"
     | "/_app/$orgSlug/networking"
     | "/_app/$orgSlug/notifications"
+    | "/_app/$orgSlug/platform"
     | "/_app/$orgSlug/registries"
     | "/_app/$orgSlug/servers"
     | "/_app/$orgSlug/settings"
@@ -565,6 +577,13 @@ declare module "@tanstack/react-router" {
       path: "/registries"
       fullPath: "/$orgSlug/registries"
       preLoaderRoute: typeof AppOrgSlugRegistriesRouteImport
+      parentRoute: typeof AppOrgSlugLayoutRoute
+    }
+    "/_app/$orgSlug/platform": {
+      id: "/_app/$orgSlug/platform"
+      path: "/platform"
+      fullPath: "/$orgSlug/platform"
+      preLoaderRoute: typeof AppOrgSlugPlatformRouteImport
       parentRoute: typeof AppOrgSlugLayoutRoute
     }
     "/_app/$orgSlug/notifications": {
@@ -780,6 +799,7 @@ interface AppOrgSlugLayoutRouteChildren {
   AppOrgSlugGitProvidersRoute: typeof AppOrgSlugGitProvidersRoute
   AppOrgSlugNetworkingRoute: typeof AppOrgSlugNetworkingRoute
   AppOrgSlugNotificationsRoute: typeof AppOrgSlugNotificationsRoute
+  AppOrgSlugPlatformRoute: typeof AppOrgSlugPlatformRoute
   AppOrgSlugRegistriesRoute: typeof AppOrgSlugRegistriesRoute
   AppOrgSlugServersRoute: typeof AppOrgSlugServersRoute
   AppOrgSlugSettingsRoute: typeof AppOrgSlugSettingsRoute
@@ -801,6 +821,7 @@ const AppOrgSlugLayoutRouteChildren: AppOrgSlugLayoutRouteChildren = {
   AppOrgSlugGitProvidersRoute: AppOrgSlugGitProvidersRoute,
   AppOrgSlugNetworkingRoute: AppOrgSlugNetworkingRoute,
   AppOrgSlugNotificationsRoute: AppOrgSlugNotificationsRoute,
+  AppOrgSlugPlatformRoute: AppOrgSlugPlatformRoute,
   AppOrgSlugRegistriesRoute: AppOrgSlugRegistriesRoute,
   AppOrgSlugServersRoute: AppOrgSlugServersRoute,
   AppOrgSlugSettingsRoute: AppOrgSlugSettingsRoute,

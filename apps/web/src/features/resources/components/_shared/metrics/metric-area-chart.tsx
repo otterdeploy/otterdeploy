@@ -155,7 +155,7 @@ export function MetricAreaChart({
                       style={{ background: item.color }}
                     />
                     <span className="text-muted-foreground">
-                      {config[name]?.label ?? name}
+                      {(name != null ? config[name]?.label : undefined) ?? name}
                     </span>
                   </div>
                   <span className="font-mono font-medium tabular-nums text-foreground">

@@ -338,7 +338,7 @@ export async function unsetPostgresExtraEnvKey(
  * users edit publicEnabled etc., this function fans out the additional
  * setPostgres* calls in the same flow.
  */
-async function rollbackPostgresToSnapshot(
+export async function rollbackPostgresToSnapshot(
   input: ProjectRef & {
     resourceId: ResourceId;
     snapshot: PostgresSnapshotV1;

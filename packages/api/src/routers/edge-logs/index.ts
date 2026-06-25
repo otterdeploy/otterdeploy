@@ -70,7 +70,9 @@ async function* streamEdgeLogs(
         wake = null;
         continue;
       }
-      yield queue?.shift();
+      const line = queue.shift();
+      if (line === undefined) continue;
+      yield line;
     }
   } finally {
     unsub();
@@ -114,7 +116,9 @@ async function* streamEdgeEvents(
         wake = null;
         continue;
       }
-      yield queue?.shift();
+      const line = queue.shift();
+      if (line === undefined) continue;
+      yield line;
     }
   } finally {
     unsub();

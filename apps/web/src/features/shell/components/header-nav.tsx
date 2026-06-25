@@ -238,8 +238,11 @@ function EnvPicker({ projectId }: { projectId: string }) {
               key={e.id}
               onClick={() =>
                 void navigate({
-                  search: (prev) => ({ ...prev, env: e.slug }),
-                })
+                  search: (prev: Record<string, unknown>) => ({
+                    ...prev,
+                    env: e.slug,
+                  }),
+                } as never)
               }
               className="gap-2"
             >

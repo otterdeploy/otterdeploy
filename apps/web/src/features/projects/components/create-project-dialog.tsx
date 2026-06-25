@@ -58,6 +58,7 @@ export function CreateProjectDialog({ trigger }: { trigger: ReactElement }) {
         containerRegistryId: null,
         imageRepository: null,
         nixpacksConfig: null,
+        graphLayout: {},
         createdAt: new Date(),
         updatedAt: new Date(),
       });

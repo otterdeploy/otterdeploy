@@ -1,5 +1,5 @@
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
-import type { ProjectSlug } from "@otterdeploy/shared/id";
+import type { ProjectId } from "@otterdeploy/shared/id";
 import { useForm } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -46,12 +46,15 @@ export function EnvironmentCreateDialog({ projectId, open, onOpenChange }: Props
         id,
         name: value.name.trim(),
         slug,
-        projectId: projectId as ProjectSlug,
+        projectId: projectId as ProjectId,
         createdAt: new Date(),
+        updatedAt: new Date(),
       });
 
       // Switch the URL to the freshly-created env so the user lands on it.
-      void navigate({ search: (prev) => ({ ...prev, env: slug }) });
+      void navigate({
+        search: (prev: Record<string, unknown>) => ({ ...prev, env: slug }),
+      } as never);
       setOpen(false);
       tx.isPersisted.promise.catch((err: unknown) =>
         toast.error(

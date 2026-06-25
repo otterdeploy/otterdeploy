@@ -53,7 +53,17 @@ type BrandSvg = (props: SVGProps<SVGSVGElement>) => React.ReactNode;
 
 export type ResourceKind = "service" | "database" | "route" | "volume" | "compose";
 
-export type ResourceEngine = "postgres" | "mysql" | "mariadb" | "redis" | "mongodb" | "docker";
+export type ResourceEngine =
+  | "postgres"
+  | "mysql"
+  | "mariadb"
+  | "redis"
+  | "mongodb"
+  | "docker"
+  | "clickhouse"
+  | "rabbitmq"
+  | "minio"
+  | "meilisearch";
 
 export type ResourceStatus = "running" | "building" | "error";
 
@@ -349,7 +359,9 @@ function StackServiceCard({
   );
 }
 
-const engineLogos: Record<ResourceEngine, BrandSvg> = {
+// Partial: engines without a dedicated brand logo (clickhouse, rabbitmq, minio,
+// meilisearch) fall back to the generic icon at the call site (`BrandLogo ?`).
+const engineLogos: Partial<Record<ResourceEngine, BrandSvg>> = {
   postgres: Postgresql,
   mysql: Mysql,
   mariadb: Mariadb,

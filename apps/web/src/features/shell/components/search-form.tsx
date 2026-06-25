@@ -6,7 +6,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { SearchIcon } from "@hugeicons/core-free-icons"
 import { useTranslation } from "react-i18next"
 
-export function SearchForm({ ...props }: React.ComponentProps<"form">) {
+export function SearchForm(props: React.ComponentPropsWithoutRef<"form">) {
   const { t } = useTranslation()
   return (
     <form {...props}>

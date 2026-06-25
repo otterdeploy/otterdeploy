@@ -20,7 +20,7 @@ export const serverCollection = createCollection(
             id: m.modified.id,
             name: m.modified.name,
             host: m.modified.host,
-            region: m.modified.region,
+            region: m.modified.region ?? undefined,
             role: m.modified.role,
             cpuTotal: m.modified.cpuTotal,
             memTotalGb: m.modified.memTotalGb,

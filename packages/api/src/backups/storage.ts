@@ -14,6 +14,8 @@ import { createHash, createHmac } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, posix, resolve } from "node:path";
 
+import { omitUndefined } from "@otterdeploy/shared/object";
+
 export type DestinationType = "s3" | "local" | "sftp";
 
 export interface ResolvedDestination {
@@ -203,7 +205,7 @@ function sftpThrow(op: string, p: SftpParams, cause: unknown): never {
  *  local/s3 paths or this module's load. */
 async function loadSftpClient(): Promise<new () => SftpClientLike> {
   try {
-    const mod = (await import("ssh2-sftp-client")) as {
+    const mod = (await import("ssh2-sftp-client")) as unknown as {
       default?: new () => SftpClientLike;
     };
     const Ctor = mod.default ?? (mod as unknown as new () => SftpClientLike);
@@ -229,16 +231,17 @@ async function withSftp<T>(
   const client = new Client();
   try {
     await client
-      .connect({
-        host: p.host,
-        port: p.port,
-        username: p.username,
-        readyTimeout: 20_000,
-        ...(p.password ? { password: p.password } : {}),
-        ...(p.privateKey
-          ? { privateKey: p.privateKey, passphrase: p.passphrase }
-          : {}),
-      })
+      .connect(
+        omitUndefined({
+          host: p.host,
+          port: p.port,
+          username: p.username,
+          readyTimeout: 20_000,
+          password: p.password,
+          privateKey: p.privateKey,
+          passphrase: p.passphrase,
+        }),
+      )
       .catch((cause: unknown) => sftpThrow("connect", p, cause));
     return await fn(client, p);
   } finally {

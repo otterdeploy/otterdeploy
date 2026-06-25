@@ -8,6 +8,7 @@
  */
 
 import type { BuildConfig } from "@otterdeploy/shared/build-config";
+import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
 
 import type {
   Manifest,
@@ -64,7 +65,7 @@ export interface CurrentService {
 
 export interface CurrentDatabase {
   name: string;
-  engine: "postgres" | "redis" | "mariadb" | "mongodb";
+  engine: DatabaseEngine;
   publicEnabled: boolean;
   extraEnv: Record<string, string>;
 }

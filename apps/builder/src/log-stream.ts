@@ -43,7 +43,7 @@ export interface LogSink {
   close(): Promise<void>;
 }
 
-function createLogSink(opts: {
+export function createLogSink(opts: {
   deploymentId: DeploymentId;
   publisher: RedisClient;
 }): LogSink {

@@ -46,7 +46,7 @@ export interface PipelineContext {
   repo: typeof gitRepo.$inferSelect;
 }
 
-class PipelineLoadError extends TaggedError("PipelineLoadError")<{
+export class PipelineLoadError extends TaggedError("PipelineLoadError")<{
   step: string;
   message: string;
 }>() {

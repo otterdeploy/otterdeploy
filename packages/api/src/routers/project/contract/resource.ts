@@ -27,13 +27,13 @@ import {
 // + a set of connection strings), the engine field just enumerates which
 // engine produced those strings. The export alias below keeps the
 // `postgresResourceSchema` import name compiling.
-const databaseResourceSchema = z.object({
+export const databaseResourceSchema = z.object({
   resourceId: resourceIdField,
   projectId: projectIdField,
   name: z.string(),
   type: z.literal("database"),
   status: z.enum(["draft", "valid", "invalid"]),
-  engine: z.enum(["postgres", "redis", "mariadb", "mongodb"]),
+  engine: z.enum(["postgres", "redis", "mariadb", "mongodb", "clickhouse", "rabbitmq", "minio", "meilisearch"]),
   databaseName: z.string(),
   username: z.string(),
   password: z.string(),
@@ -161,22 +161,22 @@ export const composeResourceSchema = z.object({
 // `type` discriminates database vs service vs compose. The engine field on
 // database rows is a plain enum (not nested discriminators) — engines share
 // the same record shape, just produce different connection-string formats.
-const resourceSchema = z.discriminatedUnion("type", [
+export const resourceSchema = z.discriminatedUnion("type", [
   databaseResourceSchema,
   serviceResourceSchema,
   composeResourceSchema,
 ]);
 
-const listProjectResourcesInput = z.object({
+export const listProjectResourcesInput = z.object({
   projectId: projectIdField,
 });
 
-const getProjectResourceInput = z.object({
+export const getProjectResourceInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
 });
 
-const deleteProjectResourceInput = z.object({
+export const deleteProjectResourceInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
 });
@@ -185,22 +185,22 @@ const deleteProjectResourceInput = z.object({
  * Generic per-resource endpoints — same shape for postgres databases,
  * services, and any future engine. Handler dispatches on resource kind.
  */
-const resourceTaskInput = z.object({
+export const resourceTaskInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
 });
 
-const resourceEnvEntrySchema = z.object({
+export const resourceEnvEntrySchema = z.object({
   key: z.string(),
   value: z.string(),
 });
 
-const resourceEnvListInput = z.object({
+export const resourceEnvListInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
 });
 
-const resourceEnvBulkSetInput = z.object({
+export const resourceEnvBulkSetInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
   env: z.array(resourceEnvEntrySchema),
@@ -216,12 +216,12 @@ const resourceEnvBulkSetInput = z.object({
  * when the page mounts. `suggestion` is non-null only when `available` is
  * false — derived by suffixing "-2", "-3", … until free.
  */
-const checkResourceNameInput = z.object({
+export const checkResourceNameInput = z.object({
   projectId: projectIdField,
   name: z.string().min(1),
 });
 
-const checkResourceNameSchema = z.object({
+export const checkResourceNameSchema = z.object({
   available: z.boolean(),
   suggestion: z.string().nullable(),
 });

@@ -30,7 +30,7 @@ export interface DeployHookContext {
   networkName: string;
 }
 
-async function resolveDeployHookContext(
+export async function resolveDeployHookContext(
   projectId: ProjectId,
   resourceId: ResourceId,
   projectSlug: string,

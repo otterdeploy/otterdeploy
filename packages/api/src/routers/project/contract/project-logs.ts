@@ -10,14 +10,14 @@ import { basePath, projectNotFoundErrors, tag } from "./shared";
 import { resourceLogEventSchema } from "./logs";
 import { projectIdField, resourceIdField } from "./shared";
 
-const projectLogEventSchema = resourceLogEventSchema.extend({
+export const projectLogEventSchema = resourceLogEventSchema.extend({
   // Project-level control lines ("Tailing N services", "Project not found")
   // aren't tied to a resource and carry "". Real log lines carry a branded id.
   resourceId: z.union([resourceIdField, z.literal("")]),
   serviceName: z.string(),
 });
 
-const projectLogsTailInput = z.object({
+export const projectLogsTailInput = z.object({
   projectId: projectIdField,
   // Whitelist of resource ids to follow. Empty / undefined = every service
   // resource in the project (databases are excluded by default — they have

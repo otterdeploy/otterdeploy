@@ -3,7 +3,7 @@
  * row (type=compose) + a `compose_resource` row holding the file and derived
  * summary. See docs/designs/compose.md.
  */
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
 import { composeResource, resource } from "@otterdeploy/db/schema/project";
@@ -83,25 +83,6 @@ export async function getComposeRecord(
   return row ?? null;
 }
 
-async function getComposeRecordByName(
-  projectId: ProjectId,
-  name: string,
-): Promise<ComposeRecord | null> {
-  const [row] = await db
-    .select({ resource, compose: composeResource })
-    .from(resource)
-    .innerJoin(composeResource, eq(composeResource.resourceId, resource.id))
-    .where(
-      and(
-        eq(resource.projectId, projectId),
-        eq(resource.name, name),
-        eq(resource.type, "compose"),
-      ),
-    )
-    .limit(1);
-  return row ?? null;
-}
-
 export async function listComposeRecords(
   projectId: ProjectId,
 ): Promise<ComposeRecord[]> {
@@ -111,23 +92,6 @@ export async function listComposeRecords(
     .innerJoin(composeResource, eq(composeResource.resourceId, resource.id))
     .where(and(eq(resource.projectId, projectId), eq(resource.type, "compose")))
     .orderBy(asc(resource.createdAt));
-}
-
-/** Update the stored file + derived summary (edit flow). */
-async function updateComposeContent(input: {
-  resourceId: ResourceId;
-  composeContent: string;
-  services: ComposeServiceSummary[];
-  exposed?: ComposeExposed[];
-}): Promise<void> {
-  await db
-    .update(composeResource)
-    .set({
-      composeContent: input.composeContent,
-      services: input.services,
-      ...(input.exposed ? { exposed: input.exposed } : {}),
-    })
-    .where(eq(composeResource.resourceId, input.resourceId));
 }
 
 /** Replace the stack's `exposed` (service:port→domain) list. The caller
@@ -140,18 +104,6 @@ export async function updateComposeExposed(input: {
     .update(composeResource)
     .set({ exposed: input.exposed })
     .where(eq(composeResource.resourceId, input.resourceId));
-}
-
-/** Bump the force counter so swarm sees a task diff on a no-config redeploy. */
-async function bumpComposeForceCounter(
-  resourceId: ResourceId,
-): Promise<number> {
-  const [row] = await db
-    .update(composeResource)
-    .set({ forceUpdateCounter: sql`${composeResource.forceUpdateCounter} + 1` })
-    .where(eq(composeResource.resourceId, resourceId))
-    .returning({ n: composeResource.forceUpdateCounter });
-  return row?.n ?? 0;
 }
 
 export async function deleteComposeRecord(

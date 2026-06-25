@@ -8,6 +8,7 @@
 
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
+import type { ID_PREFIX, Slug } from "@otterdeploy/shared/id";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ArrowDown01Icon, ArrowUp01Icon } from "@hugeicons/core-free-icons";
 
@@ -34,7 +35,7 @@ const STATUS_DOT: Record<string, string> = {
 interface ResourceMetricsCardProps {
   resource: ProjectResource;
   orgSlug: string;
-  projectSlug: string;
+  projectSlug: Slug<typeof ID_PREFIX.project>;
   windowMinutes: number;
 }
 

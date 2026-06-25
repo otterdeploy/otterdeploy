@@ -62,7 +62,10 @@ const KIND_ICON: Record<ResourceKind, { icon: HugeIcon; tint: string }> = {
   },
 };
 
-const ENGINE_LOGO: Record<ResourceEngine, BrandSvg> = {
+// Engines without a dedicated brand SVG (clickhouse, meilisearch, minio,
+// rabbitmq) fall through to the tinted kind icon — `PanelIcon` guards on the
+// lookup, so a partial map is intentional here.
+const ENGINE_LOGO: Partial<Record<ResourceEngine, BrandSvg>> = {
   postgres: Postgresql,
   mysql: Mysql,
   mariadb: Mariadb,

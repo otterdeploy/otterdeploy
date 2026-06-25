@@ -1,6 +1,7 @@
+import babel from "@rolldown/plugin-babel";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
-import react from "@vitejs/plugin-react";
+import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import path from "node:path";
 import { defineConfig } from "vite";
 
@@ -13,11 +14,10 @@ export default defineConfig({
       autoCodeSplitting: true,
       generatedRouteTree: "./src/route-tree.gen.ts",
     }),
-    react({
-      babel: {
-        plugins: ["babel-plugin-react-compiler"],
-      },
-    }),
+    react(),
+    // React Compiler moved out of plugin-react's inline `babel` option in v6 —
+    // it's now wired through @rolldown/plugin-babel + the exported preset.
+    babel({ presets: [reactCompilerPreset()] }),
   ],
   resolve: {
     alias: {

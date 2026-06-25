@@ -8,7 +8,7 @@
     ],
     "catalog": {
       "zod": "^4.4.3",
-      "typescript": "^6.0.3",
+      "typescript": "^7.0.1-rc",
       "@types/bun": "^1.3.13",
       "@types/react": "^19.2.14",
       "better-result": "^2.9.2",
@@ -48,7 +48,7 @@
     "proxy": "sudo portless proxy start --https --lan -p 443",
     "dev": "turbo dev --filter=!builder",
     "build": "turbo build",
-    "typecheck": "turbo typecheck",
+    "typecheck": "turbo typecheck --concurrency=4 --filter=!web-demo",
     "dev:native": "turbo -F native dev",
     "dev:web": "turbo -F web dev",
     "dev:www": "turbo -F www dev",
@@ -61,7 +61,7 @@
     "db:watch": "turbo -F @otterdeploy/db db:watch",
     "db:stop": "turbo -F @otterdeploy/db db:stop",
     "db:down": "turbo -F @otterdeploy/db db:down",
-    "check": "oxlint --type-aware && oxfmt --write",
+    "check": "oxlint --type-aware --threads=4 && oxfmt --write",
     "format": "oxfmt --write",
     "lint": "oxlint --fix"
   },

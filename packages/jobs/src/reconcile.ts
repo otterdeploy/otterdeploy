@@ -73,33 +73,39 @@ export interface ReconcileSummary {
 
 // ─── Redis run-once lock ─────────────────────────────────────────────────
 
-/** Default lock: SET key token NX PX ttl on the shared BullMQ connection.
- *  Returns a release fn (best-effort DEL) or null when another process holds
- *  it. Uses ioredis directly — getConnection() hands us the same options
- *  BullMQ feeds its own clients. */
+/** Default lock: SET key token NX PX ttl via Bun's built-in Redis client.
+ *  Returns a release fn (best-effort compare-and-DEL) or null when another
+ *  process holds it. Raw `send()` is used so we can pass the NX/PX flags and
+ *  run the release Lua — Bun's typed `.set()` doesn't expose them. */
 async function defaultAcquireLock(): Promise<(() => Promise<void>) | null> {
   // Imported lazily so that pulling in the reconcile module (e.g. in unit
-  // tests with an injected lock) doesn't require Redis env / ioredis.
-  const { Redis } = await import("ioredis");
-  const { getConnection } = await import("./connection");
-  const client = new Redis(getConnection() as ConstructorParameters<typeof Redis>[0]);
+  // tests with an injected lock) doesn't require the Redis env.
+  const { RedisClient } = await import("bun");
+  const { env } = await import("@otterdeploy/env/server");
+  const client = new RedisClient(env.REDIS_URL);
   const token = `${process.pid}:${Date.now()}`;
-  const res = await client.set(LOCK_KEY, token, "PX", LOCK_TTL_MS, "NX");
+  const res = await client.send("SET", [
+    LOCK_KEY,
+    token,
+    "PX",
+    String(LOCK_TTL_MS),
+    "NX",
+  ]);
   if (res !== "OK") {
-    await client.quit().catch(() => undefined);
+    client.close();
     return null;
   }
   return async () => {
     // Only release if we still own the token, then close the client.
     await client
-      .eval(
+      .send("EVAL", [
         "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
-        1,
+        "1",
         LOCK_KEY,
         token,
-      )
+      ])
       .catch(() => undefined);
-    await client.quit().catch(() => undefined);
+    client.close();
   };
 }
 

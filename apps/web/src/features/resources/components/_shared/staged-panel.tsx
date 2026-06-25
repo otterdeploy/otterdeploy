@@ -91,7 +91,7 @@ function envKeys(c: StagedCreate): string[] {
   return Array.isArray(raw) ? raw.filter((k): k is string => typeof k === "string") : [];
 }
 
-function StagedResourcePanel({
+export function StagedResourcePanel({
   change,
   onClose,
 }: {

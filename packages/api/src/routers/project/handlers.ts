@@ -66,6 +66,7 @@ export {
 export {
   createDeploymentBypassToken,
   createDeploymentShareLink,
+  getGlobalCaddyOptions,
   getProjectCaddyfile,
   getProjectCustomCaddyConfig,
   listProjectCertificates,
@@ -75,6 +76,7 @@ export {
   listDeploymentGuests,
   listProjectProxyRoutes,
   removeDeploymentGuest,
+  saveGlobalCaddyOptions,
   setProxyRouteProtection,
 } from "./proxy-routes";
 

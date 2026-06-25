@@ -20,7 +20,7 @@ export const proxyRouteSchema = createSelectSchema(proxyRoute).extend({
   resourceId: resourceIdField.nullable(),
 });
 
-const listProxyRoutesInput = z.object({
+export const listProxyRoutesInput = z.object({
   projectId: projectIdField,
 });
 

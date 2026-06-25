@@ -716,19 +716,21 @@ function DataStudio({
                       </span>
                     </Button>
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          size="sm"
-                          className="rounded-l-none border-l border-primary-foreground/20 px-1.5"
-                          disabled={editorEmpty}
-                          aria-label="Run options"
-                        >
-                          <HugeiconsIcon
-                            icon={ArrowDown01Icon}
-                            strokeWidth={2}
-                            className="size-3.5"
+                      <DropdownMenuTrigger
+                        render={
+                          <Button
+                            size="sm"
+                            className="rounded-l-none border-l border-primary-foreground/20 px-1.5"
+                            disabled={editorEmpty}
+                            aria-label="Run options"
                           />
-                        </Button>
+                        }
+                      >
+                        <HugeiconsIcon
+                          icon={ArrowDown01Icon}
+                          strokeWidth={2}
+                          className="size-3.5"
+                        />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="start">
                         <DropdownMenuItem
@@ -768,24 +770,26 @@ function DataStudio({
                     <>
                       <Separator orientation="vertical" className="mx-1 h-4" />
                       <Tooltip>
-                        <TooltipTrigger asChild>
-                          <label className="flex cursor-pointer items-center gap-1.5 text-[12px]">
-                            <Switch
-                              checked={writeMode}
-                              onCheckedChange={setWriteMode}
-                              disabled={executeSql.isPending}
-                              aria-label="SQL write mode"
-                            />
-                            <span
-                              className={
-                                writeMode
-                                  ? "font-medium text-amber-500"
-                                  : "text-muted-foreground"
-                              }
-                            >
-                              {executeSql.isPending ? "Running…" : "Write"}
-                            </span>
-                          </label>
+                        <TooltipTrigger
+                          render={
+                            <label className="flex cursor-pointer items-center gap-1.5 text-[12px]" />
+                          }
+                        >
+                          <Switch
+                            checked={writeMode}
+                            onCheckedChange={setWriteMode}
+                            disabled={executeSql.isPending}
+                            aria-label="SQL write mode"
+                          />
+                          <span
+                            className={
+                              writeMode
+                                ? "font-medium text-amber-500"
+                                : "text-muted-foreground"
+                            }
+                          >
+                            {executeSql.isPending ? "Running…" : "Write"}
+                          </span>
                         </TooltipTrigger>
                         <TooltipContent>
                           Run arbitrary DML/DDL (audited) instead of a read-only
@@ -795,19 +799,21 @@ function DataStudio({
                     </>
                   ) : null}
                   <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={() => setShowLeft((v) => !v)}
-                        aria-label="Toggle snippets panel"
-                      >
-                        <HugeiconsIcon
-                          icon={SidebarLeft01Icon}
-                          strokeWidth={2}
-                          className="size-3.5"
+                    <TooltipTrigger
+                      render={
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => setShowLeft((v) => !v)}
+                          aria-label="Toggle snippets panel"
                         />
-                      </Button>
+                      }
+                    >
+                      <HugeiconsIcon
+                        icon={SidebarLeft01Icon}
+                        strokeWidth={2}
+                        className="size-3.5"
+                      />
                     </TooltipTrigger>
                     <TooltipContent>Snippets</TooltipContent>
                   </Tooltip>

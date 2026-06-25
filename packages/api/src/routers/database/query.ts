@@ -6,6 +6,7 @@
  * plane. Postgres only for v1.
  */
 import type { OrganizationId, ResourceId } from "@otterdeploy/shared/id";
+import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
 import { Docker } from "@otterdeploy/docker";
 import { and, eq } from "drizzle-orm";
 
@@ -16,7 +17,7 @@ import { execCapture, findServiceContainerId } from "../../backups/exec";
 import { buildContainerName } from "../project/views";
 
 export interface DbConnInfo {
-  engine: "postgres" | "redis" | "mariadb" | "mongodb";
+  engine: DatabaseEngine;
   username: string;
   password: string;
   databaseName: string;

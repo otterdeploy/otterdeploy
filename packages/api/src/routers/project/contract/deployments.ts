@@ -26,12 +26,12 @@ const deploymentTaskSchema = serviceTaskSchema.extend({
   deploymentId: deploymentIdField,
 });
 
-const deploymentSchema = z.object({
+export const deploymentSchema = z.object({
   id: deploymentIdField,
   projectId: projectIdField,
   resourceId: resourceIdField,
   image: z.string(),
-  reason: z.enum(["create", "redeploy", "env-change", "image-change", "restart"]),
+  reason: z.enum(["create", "redeploy", "env-change", "image-change", "restart", "git-push", "rollback"]),
   status: z.enum([
     "pending",
     "building",
@@ -49,18 +49,18 @@ const deploymentSchema = z.object({
   updatedAt: z.string(),
 });
 
-const deploymentListInput = z.object({
+export const deploymentListInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
 });
 
-const deploymentTasksInput = z.object({
+export const deploymentTasksInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
   deploymentId: deploymentIdField,
 });
 
-const deploymentLogsTailInput = z.object({
+export const deploymentLogsTailInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
   deploymentId: deploymentIdField,

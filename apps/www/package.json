@@ -9,7 +9,7 @@
     "build": "vite build",
     "serve": "vite preview",
     "start": "vite preview",
-    "typecheck": "fumadocs-mdx && tsc --noEmit",
+    "typecheck": "fumadocs-mdx && tsc --noEmit --checkers 4",
     "postinstall": "fumadocs-mdx"
   },
   "dependencies": {

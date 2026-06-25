@@ -15,7 +15,6 @@ interface DbInspectInput {
   volumeName: string;
   projectSlug: string;
 }
-type PostgresInput = Omit<DatabaseSpec, "engine">;
 
 export const provisionSwarmDatabase = (
   input: DatabaseSpec,
@@ -36,24 +35,10 @@ export const inspectSwarmDatabaseRuntime = (
   input: DbInspectInput,
 ): Promise<DatabaseStatus> => runtime().inspectDatabase(input);
 
-// ── Legacy postgres-pinned wrappers ──
-const provisionSwarmPostgres = (
-  input: PostgresInput,
-  log?: RequestLogger,
-): Promise<DatabaseStatus> =>
-  runtime().provisionDatabase({ ...input, engine: "postgres" }, log);
-
-const updateSwarmPostgres = (
-  input: PostgresInput,
-  log?: RequestLogger,
-): Promise<DatabaseStatus> =>
-  runtime().updateDatabase({ ...input, engine: "postgres" }, log);
-
+// ── Legacy postgres-pinned wrapper ──
+// provision/update/inspect-postgres live in swarm/postgres.ts (exported via
+// swarm/index.ts); only the destroy wrapper is consumed through this shim.
 export const destroySwarmPostgres = (
   input: { serviceName: string },
   log?: RequestLogger,
 ): Promise<void> => runtime().destroyDatabase(input, log);
-
-const inspectSwarmPostgresRuntime = (
-  input: DbInspectInput,
-): Promise<DatabaseStatus> => runtime().inspectDatabase(input);

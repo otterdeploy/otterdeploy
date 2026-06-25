@@ -10,8 +10,10 @@ import { TextField } from "./form-fields/text-field";
 import { VariablesField } from "./form-fields/variables-field";
 import type { ResourceFormState } from "./schemas";
 
-const { fieldContext, formContext, useFormContext: _useFormContext } =
+const { fieldContext, formContext, useFieldContext, useFormContext: _useFormContext } =
   createFormHookContexts();
+
+export { useFieldContext };
 
 const formHook = createFormHook({
   fieldContext,
@@ -30,7 +32,7 @@ const formHook = createFormHook({
   },
 });
 
-const { } = formHook;
+export const { useAppForm, withForm } = formHook;
 
 // Typed context hook — step files call this to get a fully-typed form.
 // useTypedAppFormContext takes the same props as useAppForm to infer TFormData,

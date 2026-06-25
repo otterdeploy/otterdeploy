@@ -58,7 +58,7 @@ interface ComposeBuildContext {
 }
 
 /** True when the deployment's resource is a compose stack (drives dispatch). */
-async function isComposeDeployment(
+export async function isComposeDeployment(
   deploymentId: DeploymentId,
 ): Promise<boolean> {
   const [row] = await db
@@ -143,7 +143,7 @@ async function loadComposeBuildContext(
   };
 }
 
-async function runComposeBuild(
+export async function runComposeBuild(
   opts: { deploymentId: DeploymentId },
   sink: LogSink,
   work: { path: string | null },

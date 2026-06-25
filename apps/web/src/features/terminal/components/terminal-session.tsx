@@ -5,7 +5,8 @@ import { Terminal, useTerminal, type WTerm } from "@wterm/react";
 import "@wterm/react/css";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { ClientMessage, ServerMessage } from "@/messages";
+import { ServerMessage } from "@/messages";
+import type { ClientMessage } from "@/messages";
 import { env } from "@otterdeploy/env/web";
 
 import type { SessionSource } from "../types";

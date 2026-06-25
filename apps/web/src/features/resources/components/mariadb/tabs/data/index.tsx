@@ -41,7 +41,7 @@ export function MariadbDataTabBody({
 }) {
   const resourceId = resource.resourceId;
   const tablesQuery = useMariadbTables(resourceId);
-  const [selected, setSelected] = useState<{ schema: string; table: string } | null>(
+  const [selected, setSelected] = useState<{ schema: string; name: string } | null>(
     null,
   );
   const [offset, setOffset] = useState(0);
@@ -52,13 +52,13 @@ export function MariadbDataTabBody({
   const rowsQuery = useMariadbRows({
     resourceId,
     schema: active?.schema ?? "",
-    table: active?.table ?? "",
+    table: active?.name ?? "",
     limit: PAGE,
     offset,
     enabled: Boolean(active),
   });
 
-  const pick = (t: { schema: string; table: string }) => {
+  const pick = (t: { schema: string; name: string }) => {
     setSelected(t);
     setOffset(0);
   };
@@ -83,12 +83,12 @@ export function MariadbDataTabBody({
         ) : (
           <ul className="p-1">
             {tables.map((t) => {
-              const isActive = active?.schema === t.schema && active?.table === t.table;
+              const isActive = active?.schema === t.schema && active?.name === t.name;
               return (
                 <li key={`${t.schema}.${t.name}`}>
                   <button
                     type="button"
-                    onClick={() => pick({ schema: t.schema, table: t.name })}
+                    onClick={() => pick({ schema: t.schema, name: t.name })}
                     className={cn(
                       "flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-left text-[12px] font-mono",
                       isActive ? "bg-accent text-accent-foreground" : "hover:bg-muted",
@@ -120,7 +120,7 @@ export function MariadbDataTabBody({
           <>
             <div className="flex items-center justify-between gap-2 border-b border-border/40 px-3 py-2">
               <span className="truncate font-mono text-[12px]">
-                {active.schema}.{active.table}
+                {active.schema}.{active.name}
               </span>
               <Pager
                 offset={offset}

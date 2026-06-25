@@ -206,9 +206,12 @@ const projectScopeMiddleware = orpc
       message: "This API key is not scoped to that project.",
     },
   })
-  .middleware(async ({ context, next, errors }, input) => {
+  .middleware(async ({ context, next, errors }, input: unknown) => {
     if (context.apiKey) {
-      const projectId = input?.projectId;
+      const projectId =
+        input && typeof input === "object" && "projectId" in input
+          ? (input as { projectId?: unknown }).projectId
+          : undefined;
       if (
         typeof projectId === "string" &&
         !requireProjectScope(context.apiKey, projectId)
