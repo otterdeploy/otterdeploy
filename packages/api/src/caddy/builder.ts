@@ -188,22 +188,42 @@ export function buildHttpBlock(route: ProxyRouteInput, options: HttpBlockOptions
   return lines.join("\n");
 }
 
-export function buildLayer4Block(routes: ProxyRouteInput[], listenPort = ":5432"): string {
-  const lines = [`\t${listenPort} {`];
+// The layer4 routing for public databases lives in a `layer4` *listener
+// wrapper*, not a standalone listener — it wraps the HTTP server's existing
+// :443 listener (the trailing `tls` wrapper terminates everything the layer4
+// wrapper doesn't consume). So public Postgres rides on :443 by TLS-SNI next
+// to HTTP, with no second port. Emitted inside the global `{ }` block.
+export function buildLayer4Block(routes: ProxyRouteInput[]): string {
+  const lines = ["\tservers {", "\t\tlistener_wrappers {", "\t\t\tlayer4 {"];
 
   for (const route of routes) {
     const name = sanitizeMatcherName(route.domain);
-    lines.push(`\t\t@${name} tls sni ${route.domain}`);
-    lines.push(`\t\troute @${name} {`);
-    lines.push("\t\t\ttls {");
-    lines.push("\t\t\t\tconnection_policy {");
-    lines.push("\t\t\t\t\talpn postgresql");
+    const alpn = route.layer4Alpn;
+    // Match by SNI *and* ALPN. A bare-SNI match would also catch this domain's
+    // ACME TLS-ALPN-01 challenge (ALPN `acme-tls/1`) and route it to the proxy,
+    // so the cert could never issue. Scoping to the engine's ALPN lets the
+    // challenge fall through to the `tls` wrapper, which answers it.
+    lines.push(`\t\t\t\t@${name} tls {`);
+    if (alpn) lines.push(`\t\t\t\t\talpn ${alpn}`);
+    lines.push(`\t\t\t\t\tsni ${route.domain}`);
     lines.push("\t\t\t\t}");
-    lines.push("\t\t\t}");
-    lines.push(`\t\t\tproxy ${route.upstreamHost}:${route.upstreamPort}`);
-    lines.push("\t\t}");
+    lines.push(`\t\t\t\troute @${name} {`);
+    // Terminate TLS here (Caddy presents the domain's managed cert) and proxy
+    // plaintext to the engine over the overlay network.
+    if (alpn) {
+      lines.push("\t\t\t\t\ttls {");
+      lines.push("\t\t\t\t\t\tconnection_policy {");
+      lines.push(`\t\t\t\t\t\t\talpn ${alpn}`);
+      lines.push("\t\t\t\t\t\t}");
+      lines.push("\t\t\t\t\t}");
+    }
+    lines.push(`\t\t\t\t\tproxy ${route.upstreamHost}:${route.upstreamPort}`);
+    lines.push("\t\t\t\t}");
   }
 
+  lines.push("\t\t\t}");
+  lines.push("\t\t\ttls");
+  lines.push("\t\t}");
   lines.push("\t}");
   return lines.join("\n");
 }
@@ -253,9 +273,7 @@ export function buildCaddyfile(
   }
 
   if (layer4Routes.length > 0) {
-    lines.push("\tlayer4 {");
     lines.push(buildLayer4Block(layer4Routes));
-    lines.push("\t}");
   }
 
   lines.push("}");
@@ -343,9 +361,7 @@ export function buildProjectFragment(
   }
 
   if (layer4Routes.length > 0) {
-    lines.push("\tlayer4 {");
     lines.push(buildLayer4Block(layer4Routes));
-    lines.push("\t}");
   }
 
   lines.push("}");

@@ -23,34 +23,32 @@ export function ErrorState({
   return (
     <div
       className={cn(
-        "flex flex-1 items-center justify-center p-8",
+        "flex w-full flex-col items-center gap-3 rounded-md border border-dashed bg-muted/20 px-8 py-12 text-center",
         className,
       )}
     >
-      <div className="flex max-w-sm flex-col items-center gap-3 rounded-xl border border-dashed bg-card/40 px-8 py-10 text-center">
-        <div className="flex size-10 items-center justify-center rounded-full bg-destructive/10 text-destructive">
-          <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} className="size-5" />
-        </div>
-        <div className="flex flex-col gap-1">
-          <p className="text-sm font-semibold">{title}</p>
-          {message ? (
-            <p className="text-xs break-words text-muted-foreground">
-              {message}
-            </p>
-          ) : null}
-        </div>
-        {onRetry ? (
-          <Button
-            variant="outline"
-            size="sm"
-            className="mt-1 gap-1.5"
-            onClick={onRetry}
-          >
-            <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} className="size-3.5" />
-            Try again
-          </Button>
+      <div className="flex size-10 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+        <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} className="size-5" />
+      </div>
+      <div className="flex max-w-sm flex-col gap-1">
+        <p className="text-sm font-semibold">{title}</p>
+        {message ? (
+          <p className="text-xs break-words text-muted-foreground">
+            {message}
+          </p>
         ) : null}
       </div>
+      {onRetry ? (
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-1 gap-1.5"
+          onClick={onRetry}
+        >
+          <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} className="size-3.5" />
+          Try again
+        </Button>
+      ) : null}
     </div>
   );
 }

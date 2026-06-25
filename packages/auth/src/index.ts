@@ -87,7 +87,9 @@ const configuredSocialProviders = {
         gitlab: {
           clientId: env.GITLAB_OAUTH_CLIENT_ID,
           clientSecret: env.GITLAB_OAUTH_CLIENT_SECRET,
-          ...(env.GITLAB_OAUTH_ISSUER ? { issuer: env.GITLAB_OAUTH_ISSUER } : {}),
+          ...(env.GITLAB_OAUTH_ISSUER
+            ? { issuer: env.GITLAB_OAUTH_ISSUER }
+            : {}),
         },
       }
     : {}),
@@ -135,8 +137,15 @@ export const auth = betterAuth({
     },
     database: {
       // BA's "team" model is backed by the `project` table — emit project_ ids.
-      generateId: ({ model }) =>
-        createId((model === "team" ? ID_PREFIX.project : model) as IdPrefix),
+      generateId: ({ model }) => {
+        const prefix =
+          model === "team"
+            ? ID_PREFIX.project
+            : model === "organization"
+              ? "org"
+              : model;
+        return createId(prefix as IdPrefix);
+      },
     },
     ipAddress: {
       ipAddressHeaders: ["cf-connecting-ip"], // Cloudflare specific header example

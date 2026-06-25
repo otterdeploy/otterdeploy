@@ -113,11 +113,10 @@ export async function setPostgresPublic(
 
   await setDatabaseResourcePublic(input.resourceId, input.publicEnabled);
 
-  // Re-roll the swarm spec so the host port binding follows the flag.
-  // When public goes ON we add EndpointSpec.Ports (publishes <port>:5432
-  // on the swarm node); when it goes OFF we drop it. App containers in
-  // the same project keep reaching the DB through the overlay network
-  // alias — that path is independent of host publishing.
+  // Re-roll the swarm spec. The DB is never host-published (no raw 5432 on the
+  // node) — public access is the layer4 `proxy_route` inserted above, served by
+  // Caddy on :443. The redeploy just keeps the running spec in sync; app
+  // containers in the same project always reach the DB via the overlay alias.
   const engine = record.database.engine;
   const engineImage = defaultImageFor(engine);
   const publicDeployment = await insertDeployment({

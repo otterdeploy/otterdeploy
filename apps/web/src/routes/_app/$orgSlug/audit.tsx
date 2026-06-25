@@ -1,10 +1,12 @@
 /**
  * Audit log — queryable, append-only record of every audit-worthy action
- * (mutations + all denials) across the org. Real data via `orpc.audit.list`,
- * which reads the `audit_log` table the evlog Postgres drain populates.
+ * (mutations + all denials) across the org.
  *
- * Ported from the demo's audit screen: stat tiles + filters + event table +
- * a right-side detail drawer + CSV export — all wired to live events.
+ * Filters are a TanStack Form (used as a reactive container — no submit; value
+ * changes drive the reads). Rows ride a TanStack DB query collection consumed
+ * via `useLiveQuery`; the server-truth aggregates (`counts`/`total`) the
+ * collection can't represent come from a tiny companion query. See
+ * `features/audit/data/audit.ts` for why the reads are split this way.
  */
 import {
   Alert01Icon,
@@ -13,10 +15,22 @@ import {
   Search01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { eq, useLiveQuery } from "@tanstack/react-db";
+import { useForm, useStore } from "@tanstack/react-form";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
+import {
+  type AuditEvent,
+  type Outcome,
+  auditCollection,
+  auditSubsetKey,
+  DEFAULT_AUDIT_FILTER,
+  RANGES,
+  toAuditInput,
+} from "@/features/audit/data/audit";
+import { Page, PageHeader } from "@/shared/components/page";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent } from "@/shared/components/ui/card";
@@ -26,9 +40,7 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@/shared/components/ui/empty";
-import { formatNumber } from "@otterdeploy/shared/format";
-
-import { Page, PageHeader } from "@/shared/components/page";
+import { ErrorState } from "@/shared/components/ui/error-state";
 import { Input } from "@/shared/components/ui/input";
 import { JsonView } from "@/shared/components/ui/json-view";
 import {
@@ -36,12 +48,18 @@ import {
   NativeSelectOption,
 } from "@/shared/components/ui/native-select";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/components/ui/select";
+import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
 } from "@/shared/components/ui/sheet";
-import { ErrorState } from "@/shared/components/ui/error-state";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import {
   Table,
@@ -53,71 +71,75 @@ import {
 } from "@/shared/components/ui/table";
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
+import { formatNumber } from "@otterdeploy/shared/format";
 
 export const Route = createFileRoute("/_app/$orgSlug/audit")({
   staticData: { crumb: "Audit" },
   component: AuditRoute,
 });
 
-type Outcome = "success" | "failure" | "denied";
-interface AuditEvent {
-  id: string;
-  timestamp: string;
-  action: string;
-  actorType: "user" | "system" | "api" | "agent";
-  actorId: string;
-  actorEmail: string | null;
-  actorLabel: string | null;
-  targetType: string | null;
-  targetId: string | null;
-  target: Record<string, unknown> | null;
-  outcome: Outcome;
-  reason: string | null;
-  durationMs: number | null;
-  changes: Record<string, unknown> | null;
-  ip: string | null;
-  userAgent: string | null;
-  correlationId: string | null;
-  causationId: string | null;
-}
-
-const RANGES = [
-  { id: "24h", label: "Last 24h", ms: 24 * 60 * 60 * 1000 },
-  { id: "7d", label: "Last 7 days", ms: 7 * 24 * 60 * 60 * 1000 },
-  { id: "30d", label: "Last 30 days", ms: 30 * 24 * 60 * 60 * 1000 },
-  { id: "all", label: "All time", ms: 0 },
-] as const;
+// Base UI <SelectValue> renders the selected option's *label* only when the
+// root <Select> is given a matching `items` list — see the outcome filter.
+const OUTCOME_ITEMS: { label: string; value: string }[] = [
+  { label: "All outcomes", value: "any" },
+  { label: "Success", value: "success" },
+  { label: "Denied", value: "denied" },
+  { label: "Failed", value: "failure" },
+];
 
 function AuditRoute() {
-  const [range, setRange] = useState<string>("7d");
-  const [outcome, setOutcome] = useState<string>("any");
-  const [q, setQ] = useState("");
-  const [limit, setLimit] = useState(50);
   const [openId, setOpenId] = useState<string | null>(null);
 
-  const from = useMemo(() => {
-    const r = RANGES.find((x) => x.id === range);
-    if (!r || r.ms === 0) return undefined;
-    return new Date(Date.now() - r.ms).toISOString();
-  }, [range]);
+  // Filters live in a TanStack Form used purely as a reactive state container.
+  // No submit — `useStore` re-renders on every value change, which re-derives
+  // the query input below.
+  const form = useForm({ defaultValues: DEFAULT_AUDIT_FILTER });
+  const filter = useStore(form.store, (s) => s.values);
 
-  const query = useQuery({
-    ...orpc.audit.list.queryOptions({
-      input: {
-        q: q.trim() || undefined,
-        outcome: outcome === "any" ? undefined : (outcome as Outcome),
-        from,
-        limit,
-        offset: 0,
-      },
-    }),
+  // Each distinct filter is its own on-demand collection subset, so typing in
+  // the search box would refetch on every keystroke. Debounce the term that
+  // reaches the queries while the input itself stays instant.
+  const debouncedQ = useDebouncedValue(filter.q, 250);
+
+  // Memoize so `from` (which reads "now") is stable across renders and doesn't
+  // thrash the subset / query keys.
+  const queryFilter = useMemo(
+    () => ({ ...filter, q: debouncedQ }),
+    [filter.range, filter.outcome, debouncedQ, filter.limit],
+  );
+  const input = useMemo(() => toAuditInput(queryFilter), [queryFilter]);
+  const key = useMemo(() => auditSubsetKey(queryFilter), [queryFilter]);
+
+  // Companion read for the server-truth aggregates the collection can't hold.
+  // `limit: 1` keeps the payload tiny — `counts`/`total` span the whole filtered
+  // set regardless of limit. Also the page's loading / error / retry source.
+  // Key on the *filter selection* (`key`), not the resolved input — same trick
+  // as the rows subset. `input.from` is recomputed from "now" on every mount, so
+  // keying on it made each remount a cache miss and flashed the full loading
+  // state on every return to the route. The queryFn still sends the fresh
+  // `from`; only the cache identity is stabilized.
+  const stats = useQuery({
+    ...orpc.audit.list.queryOptions({ input: { ...input, limit: 1 } }),
+    queryKey: ["audit", "stats", key],
     placeholderData: keepPreviousData,
+    staleTime: 15_000,
     refetchInterval: 15_000,
   });
+  const counts = stats.data?.counts ?? { total: 0, failed: 0, denied: 0 };
+  const total = stats.data?.total ?? 0;
 
-  const items = (query.data?.items ?? []) as AuditEvent[];
-  const counts = query.data?.counts ?? { total: 0, failed: 0, denied: 0 };
-  const total = query.data?.total ?? 0;
+  // Rows ride the query collection: the `eq(a.key, …)` filter forwards as a
+  // subset load, so this both fetches the page and subscribes to it live.
+  const { data: items } = useLiveQuery(
+    (q) =>
+      q
+        .from({ a: auditCollection })
+        .where(({ a }) => eq(a.key, key))
+        .orderBy(({ a }) => a.timestamp, "desc")
+        .limit(queryFilter.limit),
+    [key, queryFilter.limit],
+  );
+
   const opening = items.find((e) => e.id === openId) ?? null;
 
   return (
@@ -145,39 +167,57 @@ function AuditRoute() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">
-        <NativeSelect
-          value={range}
-          onChange={(e) => setRange(e.target.value)}
-          className="h-8 w-36"
-        >
-          {RANGES.map((r) => (
-            <NativeSelectOption key={r.id} value={r.id}>
-              {r.label}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
-        <NativeSelect
-          value={outcome}
-          onChange={(e) => setOutcome(e.target.value)}
-          className="h-8 w-40"
-        >
-          <NativeSelectOption value="any">All outcomes</NativeSelectOption>
-          <NativeSelectOption value="success">Success</NativeSelectOption>
-          <NativeSelectOption value="denied">Denied</NativeSelectOption>
-          <NativeSelectOption value="failure">Failed</NativeSelectOption>
-        </NativeSelect>
+        <form.Field name="range">
+          {(field) => (
+            <NativeSelect
+              value={field.state.value}
+              onChange={(e) => field.handleChange(e.target.value)}
+              className="h-8 w-36"
+            >
+              {RANGES.map((r) => (
+                <NativeSelectOption key={r.id} value={r.id}>
+                  {r.label}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          )}
+        </form.Field>
+        <form.Field name="outcome">
+          {(field) => (
+            <Select
+              items={OUTCOME_ITEMS}
+              value={field.state.value}
+              onValueChange={(v) => field.handleChange(v ?? field.state.value)}
+            >
+              <SelectTrigger className="h-8 w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {OUTCOME_ITEMS.map((it) => (
+                  <SelectItem key={it.value} value={it.value}>
+                    {it.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </form.Field>
         <div className="relative ml-auto">
           <HugeiconsIcon
             icon={Search01Icon}
             strokeWidth={2}
             className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
           />
-          <Input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search action / actor / target"
-            className="h-8 w-64 pl-8"
-          />
+          <form.Field name="q">
+            {(field) => (
+              <Input
+                value={field.state.value}
+                onChange={(e) => field.handleChange(e.target.value)}
+                placeholder="Search action / actor / target"
+                className="h-8 w-64 pl-8"
+              />
+            )}
+          </form.Field>
         </div>
       </div>
 
@@ -199,15 +239,15 @@ function AuditRoute() {
       </div>
 
       {/* Table */}
-      {query.isLoading ? (
+      {stats.isLoading ? (
         <AuditPending />
-      ) : query.isError ? (
+      ) : stats.isError ? (
         <ErrorState
           title="Couldn't load audit events"
-          message={(query.error as Error | null)?.message}
-          onRetry={() => void query.refetch()}
+          message={stats.error?.message}
+          onRetry={() => void stats.refetch()}
         />
-      ) : items.length === 0 ? (
+      ) : !stats.isFetching && items.length === 0 ? (
         <Empty className="rounded-md border border-dashed bg-muted/20 py-12">
           <EmptyHeader>
             <HugeiconsIcon
@@ -252,7 +292,9 @@ function AuditRoute() {
                   <TableCell>
                     <ActorChip event={e} />
                   </TableCell>
-                  <TableCell className="font-mono text-xs">{e.action}</TableCell>
+                  <TableCell className="font-mono text-xs">
+                    {e.action}
+                  </TableCell>
                   <TableCell className="font-mono text-xs text-muted-foreground">
                     {e.targetId ?? e.targetType ?? "—"}
                   </TableCell>
@@ -282,10 +324,10 @@ function AuditRoute() {
                 variant="outline"
                 size="sm"
                 className="h-7"
-                disabled={query.isFetching}
-                onClick={() => setLimit((n) => n + 50)}
+                disabled={stats.isFetching}
+                onClick={() => form.setFieldValue("limit", filter.limit + 50)}
               >
-                {query.isFetching ? "Loading…" : "Load more"}
+                {stats.isFetching ? "Loading…" : "Load more"}
               </Button>
             </div>
           )}
@@ -296,8 +338,6 @@ function AuditRoute() {
     </Page>
   );
 }
-
-// --- pieces -----------------------------------------------------------------
 
 function StatTile({
   label,
@@ -401,7 +441,11 @@ function EventDrawer({
               </Section>
 
               <Section label="When · where">
-                <KV k="Timestamp" v={new Date(event.timestamp).toLocaleString()} mono />
+                <KV
+                  k="Timestamp"
+                  v={new Date(event.timestamp).toLocaleString()}
+                  mono
+                />
                 <KV k="IP" v={event.ip ?? "—"} mono />
                 <KV
                   k="Duration"
@@ -497,6 +541,16 @@ function AuditPending() {
 }
 
 // --- helpers ----------------------------------------------------------------
+
+/** Trailing-edge debounce — the input stays instant, the query waits a beat. */
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(id);
+  }, [value, delayMs]);
+  return debounced;
+}
 
 const RELATIVE_UNITS: Array<[Intl.RelativeTimeFormatUnit, number]> = [
   ["day", 86400],

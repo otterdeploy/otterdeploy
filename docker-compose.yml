@@ -7,31 +7,31 @@
 name: otterdeploy
 
 services:
-  postgres:
-    # Pinned to 17 — postgres:18+ refuses our /var/lib/postgresql/data mount
-    # (the v18 image manages its own version/cluster subdir and treats a mount
-    # placed directly at .../data as an "unused volume"). Matches the pin in
-    # packages/api/src/constants.ts and the swarm database engines.
-    # image: postgres:17-alpine
-    # container_name: otterdeploy-postgres
-    # restart: unless-stopped
-    # environment:
-    #   POSTGRES_USER: ${POSTGRES_USER:-postgres}
-    #   POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
-    #   POSTGRES_DB: ${POSTGRES_DB:-postgres}
-    # ports:
-    #   - "${POSTGRES_PORT:-5432}:5432"
-    # volumes:
-    #   - otterdeploy-postgres-data:/var/lib/postgresql/data
-    # healthcheck:
-    #   test:
-    #     [
-    #       "CMD-SHELL",
-    #       "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}",
-    #     ]
-    #   interval: 5s
-    #   timeout: 3s
-    #   retries: 20
+  # postgres:
+  # Pinned to 17 — postgres:18+ refuses our /var/lib/postgresql/data mount
+  # (the v18 image manages its own version/cluster subdir and treats a mount
+  # placed directly at .../data as an "unused volume"). Matches the pin in
+  # packages/api/src/constants.ts and the swarm database engines.
+  # image: postgres:17-alpine
+  # container_name: otterdeploy-postgres
+  # restart: unless-stopped
+  # environment:
+  #   POSTGRES_USER: ${POSTGRES_USER:-postgres}
+  #   POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+  #   POSTGRES_DB: ${POSTGRES_DB:-postgres}
+  # ports:
+  #   - "${POSTGRES_PORT:-5432}:5432"
+  # volumes:
+  #   - otterdeploy-postgres-data:/var/lib/postgresql/data
+  # healthcheck:
+  #   test:
+  #     [
+  #       "CMD-SHELL",
+  #       "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}",
+  #     ]
+  #   interval: 5s
+  #   timeout: 3s
+  #   retries: 20
 
   redis:
     image: redis:7-alpine
@@ -95,8 +95,8 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
-      postgres:
-        condition: service_healthy
+      # postgres:
+      #   condition: service_healthy
       redis:
         condition: service_healthy
 

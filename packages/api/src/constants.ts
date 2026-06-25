@@ -1,7 +1,9 @@
 export const PLATFORM = {
   database: {
-    publicBaseDomain: "db.otterdeploy.dev",
-    publicPort: 5432,
+    // Public Postgres rides on :443 by TLS-SNI (caddy-l4 listener wrapper),
+    // next to HTTP — never a raw 5432 on the host. See
+    // docs/designs/db-tls-multiplex-443.md.
+    publicPort: 443,
     internalBaseDomain: "otterdeploy.internal",
     internalPort: 5432,
     localHost: "127.0.0.1",
@@ -28,7 +30,6 @@ export const PLATFORM = {
     root: process.env.OTTERDEPLOY_FILES_ROOT ?? "/var/lib/otterdeploy/files",
   },
   service: {
-    publicBaseDomain: "apps.otterdeploy.dev",
     serviceNamePrefix: "otterdeploy-svc-",
   },
 } as const;

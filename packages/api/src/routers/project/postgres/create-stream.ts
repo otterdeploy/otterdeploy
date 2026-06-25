@@ -202,13 +202,15 @@ export async function* createPostgresResourceStream(
   // the wizard feel hung.
   yield { type: "step", step: "db-record", status: "start", message: null };
 
-  // Public URL has no port. Caddy's layer4 listener for this engine sits on
-  // the engine's standard port (5432 postgres, 6379 redis, …), so clients
-  // can rely on the URL scheme's default — the explicit `:5432` was noise.
+  // Public Postgres is reached on :443 (caddy-l4 listener wrapper SNI-routes
+  // it next to HTTP — never a raw 5432 on the host), so the port is explicit
+  // and non-default. `sslnegotiation: direct` is what makes the SNI routing
+  // work: the client opens with a TLS ClientHello carrying SNI + ALPN.
   const publicConnectionString = adapter.buildConnectionString({
     username,
     password,
     host: publicHostname,
+    port: PLATFORM.database.publicPort,
     databaseName,
     sslmode: "require",
     sslnegotiation: "direct",

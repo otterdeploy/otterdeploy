@@ -11,11 +11,12 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TerminalRouteImport } from './routes/terminal'
 import { Route as ContainersRouteImport } from './routes/containers'
-import { Route as DashboardIndexRouteImport } from './routes/_dashboard/index'
 import { Route as ProjectLayoutRouteImport } from './routes/project/layout'
+import { Route as AuthLayoutRouteImport } from './routes/auth/layout'
+import { Route as DashboardLayoutRouteImport } from './routes/_dashboard/layout'
+import { Route as DashboardIndexRouteImport } from './routes/_dashboard/index'
 import { Route as AuthSignUpRouteImport } from './routes/auth/sign-up'
 import { Route as AuthSignInRouteImport } from './routes/auth/sign-in'
-import { Route as AuthLayoutRouteImport } from './routes/auth/layout'
 import { Route as DashboardSwarmRouteImport } from './routes/_dashboard/swarm'
 import { Route as DashboardSettingsRouteImport } from './routes/_dashboard/settings'
 import { Route as DashboardServersRouteImport } from './routes/_dashboard/servers'
@@ -23,7 +24,6 @@ import { Route as DashboardRoutingRouteImport } from './routes/_dashboard/routin
 import { Route as DashboardRequestsRouteImport } from './routes/_dashboard/requests'
 import { Route as DashboardMonitoringRouteImport } from './routes/_dashboard/monitoring'
 import { Route as DashboardMembersRouteImport } from './routes/_dashboard/members'
-import { Route as DashboardLayoutRouteImport } from './routes/_dashboard/layout'
 import { Route as DashboardDockerRouteImport } from './routes/_dashboard/docker'
 import { Route as DashboardActivityRouteImport } from './routes/_dashboard/activity'
 import { Route as ProjectProjectIdLayoutRouteImport } from './routes/project/$projectId/layout'
@@ -38,93 +38,95 @@ const ContainersRoute = ContainersRouteImport.update({
   path: '/containers',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DashboardIndexRoute = DashboardIndexRouteImport.update({
-  id: '/_dashboard/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ProjectLayoutRoute = ProjectLayoutRouteImport.update({
-  id: '/project/layout',
-  path: '/project/layout',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthSignUpRoute = AuthSignUpRouteImport.update({
-  id: '/auth/sign-up',
-  path: '/auth/sign-up',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthSignInRoute = AuthSignInRouteImport.update({
-  id: '/auth/sign-in',
-  path: '/auth/sign-in',
+  id: '/project',
+  path: '/project',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthLayoutRoute = AuthLayoutRouteImport.update({
-  id: '/auth/layout',
-  path: '/auth/layout',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DashboardSwarmRoute = DashboardSwarmRouteImport.update({
-  id: '/_dashboard/swarm',
-  path: '/swarm',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
-  id: '/_dashboard/settings',
-  path: '/settings',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DashboardServersRoute = DashboardServersRouteImport.update({
-  id: '/_dashboard/servers',
-  path: '/servers',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DashboardRoutingRoute = DashboardRoutingRouteImport.update({
-  id: '/_dashboard/routing',
-  path: '/routing',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DashboardRequestsRoute = DashboardRequestsRouteImport.update({
-  id: '/_dashboard/requests',
-  path: '/requests',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DashboardMonitoringRoute = DashboardMonitoringRouteImport.update({
-  id: '/_dashboard/monitoring',
-  path: '/monitoring',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DashboardMembersRoute = DashboardMembersRouteImport.update({
-  id: '/_dashboard/members',
-  path: '/members',
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardLayoutRoute = DashboardLayoutRouteImport.update({
-  id: '/_dashboard/layout',
-  path: '/layout',
+  id: '/_dashboard',
   getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardIndexRoute = DashboardIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DashboardLayoutRoute,
+} as any)
+const AuthSignUpRoute = AuthSignUpRouteImport.update({
+  id: '/sign-up',
+  path: '/sign-up',
+  getParentRoute: () => AuthLayoutRoute,
+} as any)
+const AuthSignInRoute = AuthSignInRouteImport.update({
+  id: '/sign-in',
+  path: '/sign-in',
+  getParentRoute: () => AuthLayoutRoute,
+} as any)
+const DashboardSwarmRoute = DashboardSwarmRouteImport.update({
+  id: '/swarm',
+  path: '/swarm',
+  getParentRoute: () => DashboardLayoutRoute,
+} as any)
+const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => DashboardLayoutRoute,
+} as any)
+const DashboardServersRoute = DashboardServersRouteImport.update({
+  id: '/servers',
+  path: '/servers',
+  getParentRoute: () => DashboardLayoutRoute,
+} as any)
+const DashboardRoutingRoute = DashboardRoutingRouteImport.update({
+  id: '/routing',
+  path: '/routing',
+  getParentRoute: () => DashboardLayoutRoute,
+} as any)
+const DashboardRequestsRoute = DashboardRequestsRouteImport.update({
+  id: '/requests',
+  path: '/requests',
+  getParentRoute: () => DashboardLayoutRoute,
+} as any)
+const DashboardMonitoringRoute = DashboardMonitoringRouteImport.update({
+  id: '/monitoring',
+  path: '/monitoring',
+  getParentRoute: () => DashboardLayoutRoute,
+} as any)
+const DashboardMembersRoute = DashboardMembersRouteImport.update({
+  id: '/members',
+  path: '/members',
+  getParentRoute: () => DashboardLayoutRoute,
 } as any)
 const DashboardDockerRoute = DashboardDockerRouteImport.update({
-  id: '/_dashboard/docker',
+  id: '/docker',
   path: '/docker',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => DashboardLayoutRoute,
 } as any)
 const DashboardActivityRoute = DashboardActivityRouteImport.update({
-  id: '/_dashboard/activity',
+  id: '/activity',
   path: '/activity',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => DashboardLayoutRoute,
 } as any)
 const ProjectProjectIdLayoutRoute = ProjectProjectIdLayoutRouteImport.update({
-  id: '/project/$projectId/layout',
-  path: '/project/$projectId/layout',
-  getParentRoute: () => rootRouteImport,
+  id: '/$projectId',
+  path: '/$projectId',
+  getParentRoute: () => ProjectLayoutRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
+  '/': typeof DashboardIndexRoute
+  '/auth': typeof AuthLayoutRouteWithChildren
+  '/project': typeof ProjectLayoutRouteWithChildren
   '/containers': typeof ContainersRoute
   '/terminal': typeof TerminalRoute
+  '/project/$projectId': typeof ProjectProjectIdLayoutRoute
   '/activity': typeof DashboardActivityRoute
   '/docker': typeof DashboardDockerRoute
-  '/layout': typeof DashboardLayoutRoute
   '/members': typeof DashboardMembersRoute
   '/monitoring': typeof DashboardMonitoringRoute
   '/requests': typeof DashboardRequestsRoute
@@ -132,19 +134,17 @@ export interface FileRoutesByFullPath {
   '/servers': typeof DashboardServersRoute
   '/settings': typeof DashboardSettingsRoute
   '/swarm': typeof DashboardSwarmRoute
-  '/auth/layout': typeof AuthLayoutRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
-  '/project/layout': typeof ProjectLayoutRoute
-  '/': typeof DashboardIndexRoute
-  '/project/$projectId/layout': typeof ProjectProjectIdLayoutRoute
 }
 export interface FileRoutesByTo {
+  '/auth': typeof AuthLayoutRouteWithChildren
+  '/project': typeof ProjectLayoutRouteWithChildren
   '/containers': typeof ContainersRoute
   '/terminal': typeof TerminalRoute
+  '/project/$projectId': typeof ProjectProjectIdLayoutRoute
   '/activity': typeof DashboardActivityRoute
   '/docker': typeof DashboardDockerRoute
-  '/layout': typeof DashboardLayoutRoute
   '/members': typeof DashboardMembersRoute
   '/monitoring': typeof DashboardMonitoringRoute
   '/requests': typeof DashboardRequestsRoute
@@ -152,20 +152,20 @@ export interface FileRoutesByTo {
   '/servers': typeof DashboardServersRoute
   '/settings': typeof DashboardSettingsRoute
   '/swarm': typeof DashboardSwarmRoute
-  '/auth/layout': typeof AuthLayoutRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
-  '/project/layout': typeof ProjectLayoutRoute
   '/': typeof DashboardIndexRoute
-  '/project/$projectId/layout': typeof ProjectProjectIdLayoutRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/_dashboard': typeof DashboardLayoutRouteWithChildren
+  '/auth': typeof AuthLayoutRouteWithChildren
+  '/project': typeof ProjectLayoutRouteWithChildren
   '/containers': typeof ContainersRoute
   '/terminal': typeof TerminalRoute
+  '/project/$projectId': typeof ProjectProjectIdLayoutRoute
   '/_dashboard/activity': typeof DashboardActivityRoute
   '/_dashboard/docker': typeof DashboardDockerRoute
-  '/_dashboard/layout': typeof DashboardLayoutRoute
   '/_dashboard/members': typeof DashboardMembersRoute
   '/_dashboard/monitoring': typeof DashboardMonitoringRoute
   '/_dashboard/requests': typeof DashboardRequestsRoute
@@ -173,21 +173,21 @@ export interface FileRoutesById {
   '/_dashboard/servers': typeof DashboardServersRoute
   '/_dashboard/settings': typeof DashboardSettingsRoute
   '/_dashboard/swarm': typeof DashboardSwarmRoute
-  '/auth/layout': typeof AuthLayoutRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
-  '/project/layout': typeof ProjectLayoutRoute
   '/_dashboard/': typeof DashboardIndexRoute
-  '/project/$projectId/layout': typeof ProjectProjectIdLayoutRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
+    | '/'
+    | '/auth'
+    | '/project'
     | '/containers'
     | '/terminal'
+    | '/project/$projectId'
     | '/activity'
     | '/docker'
-    | '/layout'
     | '/members'
     | '/monitoring'
     | '/requests'
@@ -195,19 +195,17 @@ export interface FileRouteTypes {
     | '/servers'
     | '/settings'
     | '/swarm'
-    | '/auth/layout'
     | '/auth/sign-in'
     | '/auth/sign-up'
-    | '/project/layout'
-    | '/'
-    | '/project/$projectId/layout'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/auth'
+    | '/project'
     | '/containers'
     | '/terminal'
+    | '/project/$projectId'
     | '/activity'
     | '/docker'
-    | '/layout'
     | '/members'
     | '/monitoring'
     | '/requests'
@@ -215,19 +213,19 @@ export interface FileRouteTypes {
     | '/servers'
     | '/settings'
     | '/swarm'
-    | '/auth/layout'
     | '/auth/sign-in'
     | '/auth/sign-up'
-    | '/project/layout'
     | '/'
-    | '/project/$projectId/layout'
   id:
     | '__root__'
+    | '/_dashboard'
+    | '/auth'
+    | '/project'
     | '/containers'
     | '/terminal'
+    | '/project/$projectId'
     | '/_dashboard/activity'
     | '/_dashboard/docker'
-    | '/_dashboard/layout'
     | '/_dashboard/members'
     | '/_dashboard/monitoring'
     | '/_dashboard/requests'
@@ -235,33 +233,17 @@ export interface FileRouteTypes {
     | '/_dashboard/servers'
     | '/_dashboard/settings'
     | '/_dashboard/swarm'
-    | '/auth/layout'
     | '/auth/sign-in'
     | '/auth/sign-up'
-    | '/project/layout'
     | '/_dashboard/'
-    | '/project/$projectId/layout'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  DashboardLayoutRoute: typeof DashboardLayoutRouteWithChildren
+  AuthLayoutRoute: typeof AuthLayoutRouteWithChildren
+  ProjectLayoutRoute: typeof ProjectLayoutRouteWithChildren
   ContainersRoute: typeof ContainersRoute
   TerminalRoute: typeof TerminalRoute
-  DashboardActivityRoute: typeof DashboardActivityRoute
-  DashboardDockerRoute: typeof DashboardDockerRoute
-  DashboardLayoutRoute: typeof DashboardLayoutRoute
-  DashboardMembersRoute: typeof DashboardMembersRoute
-  DashboardMonitoringRoute: typeof DashboardMonitoringRoute
-  DashboardRequestsRoute: typeof DashboardRequestsRoute
-  DashboardRoutingRoute: typeof DashboardRoutingRoute
-  DashboardServersRoute: typeof DashboardServersRoute
-  DashboardSettingsRoute: typeof DashboardSettingsRoute
-  DashboardSwarmRoute: typeof DashboardSwarmRoute
-  AuthLayoutRoute: typeof AuthLayoutRoute
-  AuthSignInRoute: typeof AuthSignInRoute
-  AuthSignUpRoute: typeof AuthSignUpRoute
-  ProjectLayoutRoute: typeof ProjectLayoutRoute
-  DashboardIndexRoute: typeof DashboardIndexRoute
-  ProjectProjectIdLayoutRoute: typeof ProjectProjectIdLayoutRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -280,127 +262,137 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContainersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/project': {
+      id: '/project'
+      path: '/project'
+      fullPath: '/project'
+      preLoaderRoute: typeof ProjectLayoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthLayoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_dashboard': {
+      id: '/_dashboard'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof DashboardLayoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_dashboard/': {
       id: '/_dashboard/'
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof DashboardIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/project/layout': {
-      id: '/project/layout'
-      path: '/project/layout'
-      fullPath: '/project/layout'
-      preLoaderRoute: typeof ProjectLayoutRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof DashboardLayoutRoute
     }
     '/auth/sign-up': {
       id: '/auth/sign-up'
-      path: '/auth/sign-up'
+      path: '/sign-up'
       fullPath: '/auth/sign-up'
       preLoaderRoute: typeof AuthSignUpRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AuthLayoutRoute
     }
     '/auth/sign-in': {
       id: '/auth/sign-in'
-      path: '/auth/sign-in'
+      path: '/sign-in'
       fullPath: '/auth/sign-in'
       preLoaderRoute: typeof AuthSignInRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth/layout': {
-      id: '/auth/layout'
-      path: '/auth/layout'
-      fullPath: '/auth/layout'
-      preLoaderRoute: typeof AuthLayoutRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AuthLayoutRoute
     }
     '/_dashboard/swarm': {
       id: '/_dashboard/swarm'
       path: '/swarm'
       fullPath: '/swarm'
       preLoaderRoute: typeof DashboardSwarmRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof DashboardLayoutRoute
     }
     '/_dashboard/settings': {
       id: '/_dashboard/settings'
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof DashboardSettingsRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof DashboardLayoutRoute
     }
     '/_dashboard/servers': {
       id: '/_dashboard/servers'
       path: '/servers'
       fullPath: '/servers'
       preLoaderRoute: typeof DashboardServersRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof DashboardLayoutRoute
     }
     '/_dashboard/routing': {
       id: '/_dashboard/routing'
       path: '/routing'
       fullPath: '/routing'
       preLoaderRoute: typeof DashboardRoutingRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof DashboardLayoutRoute
     }
     '/_dashboard/requests': {
       id: '/_dashboard/requests'
       path: '/requests'
       fullPath: '/requests'
       preLoaderRoute: typeof DashboardRequestsRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof DashboardLayoutRoute
     }
     '/_dashboard/monitoring': {
       id: '/_dashboard/monitoring'
       path: '/monitoring'
       fullPath: '/monitoring'
       preLoaderRoute: typeof DashboardMonitoringRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof DashboardLayoutRoute
     }
     '/_dashboard/members': {
       id: '/_dashboard/members'
       path: '/members'
       fullPath: '/members'
       preLoaderRoute: typeof DashboardMembersRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_dashboard/layout': {
-      id: '/_dashboard/layout'
-      path: '/layout'
-      fullPath: '/layout'
-      preLoaderRoute: typeof DashboardLayoutRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof DashboardLayoutRoute
     }
     '/_dashboard/docker': {
       id: '/_dashboard/docker'
       path: '/docker'
       fullPath: '/docker'
       preLoaderRoute: typeof DashboardDockerRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof DashboardLayoutRoute
     }
     '/_dashboard/activity': {
       id: '/_dashboard/activity'
       path: '/activity'
       fullPath: '/activity'
       preLoaderRoute: typeof DashboardActivityRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof DashboardLayoutRoute
     }
-    '/project/$projectId/layout': {
-      id: '/project/$projectId/layout'
-      path: '/project/$projectId/layout'
-      fullPath: '/project/$projectId/layout'
+    '/project/$projectId': {
+      id: '/project/$projectId'
+      path: '/$projectId'
+      fullPath: '/project/$projectId'
       preLoaderRoute: typeof ProjectProjectIdLayoutRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof ProjectLayoutRoute
     }
   }
 }
 
-const rootRouteChildren: RootRouteChildren = {
-  ContainersRoute: ContainersRoute,
-  TerminalRoute: TerminalRoute,
+interface DashboardLayoutRouteChildren {
+  DashboardActivityRoute: typeof DashboardActivityRoute
+  DashboardDockerRoute: typeof DashboardDockerRoute
+  DashboardMembersRoute: typeof DashboardMembersRoute
+  DashboardMonitoringRoute: typeof DashboardMonitoringRoute
+  DashboardRequestsRoute: typeof DashboardRequestsRoute
+  DashboardRoutingRoute: typeof DashboardRoutingRoute
+  DashboardServersRoute: typeof DashboardServersRoute
+  DashboardSettingsRoute: typeof DashboardSettingsRoute
+  DashboardSwarmRoute: typeof DashboardSwarmRoute
+  DashboardIndexRoute: typeof DashboardIndexRoute
+}
+
+const DashboardLayoutRouteChildren: DashboardLayoutRouteChildren = {
   DashboardActivityRoute: DashboardActivityRoute,
   DashboardDockerRoute: DashboardDockerRoute,
-  DashboardLayoutRoute: DashboardLayoutRoute,
   DashboardMembersRoute: DashboardMembersRoute,
   DashboardMonitoringRoute: DashboardMonitoringRoute,
   DashboardRequestsRoute: DashboardRequestsRoute,
@@ -408,12 +400,45 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardServersRoute: DashboardServersRoute,
   DashboardSettingsRoute: DashboardSettingsRoute,
   DashboardSwarmRoute: DashboardSwarmRoute,
-  AuthLayoutRoute: AuthLayoutRoute,
+  DashboardIndexRoute: DashboardIndexRoute,
+}
+
+const DashboardLayoutRouteWithChildren = DashboardLayoutRoute._addFileChildren(
+  DashboardLayoutRouteChildren,
+)
+
+interface AuthLayoutRouteChildren {
+  AuthSignInRoute: typeof AuthSignInRoute
+  AuthSignUpRoute: typeof AuthSignUpRoute
+}
+
+const AuthLayoutRouteChildren: AuthLayoutRouteChildren = {
   AuthSignInRoute: AuthSignInRoute,
   AuthSignUpRoute: AuthSignUpRoute,
-  ProjectLayoutRoute: ProjectLayoutRoute,
-  DashboardIndexRoute: DashboardIndexRoute,
+}
+
+const AuthLayoutRouteWithChildren = AuthLayoutRoute._addFileChildren(
+  AuthLayoutRouteChildren,
+)
+
+interface ProjectLayoutRouteChildren {
+  ProjectProjectIdLayoutRoute: typeof ProjectProjectIdLayoutRoute
+}
+
+const ProjectLayoutRouteChildren: ProjectLayoutRouteChildren = {
   ProjectProjectIdLayoutRoute: ProjectProjectIdLayoutRoute,
+}
+
+const ProjectLayoutRouteWithChildren = ProjectLayoutRoute._addFileChildren(
+  ProjectLayoutRouteChildren,
+)
+
+const rootRouteChildren: RootRouteChildren = {
+  DashboardLayoutRoute: DashboardLayoutRouteWithChildren,
+  AuthLayoutRoute: AuthLayoutRouteWithChildren,
+  ProjectLayoutRoute: ProjectLayoutRouteWithChildren,
+  ContainersRoute: ContainersRoute,
+  TerminalRoute: TerminalRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -137,23 +137,30 @@ describe("builder", () => {
     expect(output).toContain("reverse_proxy myapp.acme.otterdeploy.internal:3000");
   });
 
-  test("buildLayer4Block produces TLS SNI matcher with connection_policy", () => {
+  test("buildLayer4Block produces a listener-wrapper SNI+ALPN matcher (no :5432 listener)", () => {
     const output = buildLayer4Block([layer4Route]);
-    expect(output).toContain("@primary_acme_db_otterdeploy_dev tls sni primary-acme.db.otterdeploy.dev");
-    expect(output).toContain("route @primary_acme_db_otterdeploy_dev {");
-    expect(output).toContain("tls {");
-    expect(output).toContain("connection_policy {");
+    // Listener wrapper on the existing :443 server, not a standalone listener.
+    expect(output).toContain("servers {");
+    expect(output).toContain("listener_wrappers {");
+    expect(output).toContain("layer4 {");
+    expect(output).not.toContain(":5432 {");
+    // SNI *and* ALPN so the ACME TLS-ALPN-01 challenge falls through to `tls`.
+    expect(output).toContain("@primary_acme_db_otterdeploy_dev tls {");
     expect(output).toContain("alpn postgresql");
+    expect(output).toContain("sni primary-acme.db.otterdeploy.dev");
+    expect(output).toContain("route @primary_acme_db_otterdeploy_dev {");
+    expect(output).toContain("connection_policy {");
     expect(output).toContain("proxy primary-acme.otterdeploy.internal:5432");
-    expect(output).toContain(":5432 {");
+    // Trailing `tls` wrapper terminates everything the layer4 wrapper skips.
+    expect(output).toMatch(/\n\t\t\ttls\n/);
   });
 
-  test("buildCaddyfile includes layer4 + http + cert automation site block", () => {
+  test("buildCaddyfile includes layer4 wrapper + http + cert automation site block", () => {
     const output = buildCaddyfile([httpRoute, layer4Route], "0.0.0.0:2019");
     expect(output).toContain("admin 0.0.0.0:2019");
-    expect(output).toContain("layer4 {");
-    expect(output).toContain(":5432 {");
-    expect(output).toContain("tls sni primary-acme.db.otterdeploy.dev");
+    expect(output).toContain("listener_wrappers {");
+    expect(output).not.toContain(":5432 {");
+    expect(output).toContain("sni primary-acme.db.otterdeploy.dev");
     expect(output).toContain("myapp-acme.otterdeploy.dev {");
     expect(output).toContain("reverse_proxy myapp.acme.otterdeploy.internal:3000");
     // Dummy site block for cert automation
@@ -177,8 +184,8 @@ describe("builder", () => {
   test("buildProjectFragment wraps routes for validation with admin off", () => {
     const output = buildProjectFragment([layer4Route]);
     expect(output).toContain("admin off");
-    expect(output).toContain("layer4 {");
-    expect(output).toContain("tls sni primary-acme.db.otterdeploy.dev");
+    expect(output).toContain("listener_wrappers {");
+    expect(output).toContain("sni primary-acme.db.otterdeploy.dev");
     expect(output).toContain("connection_policy {");
   });
 

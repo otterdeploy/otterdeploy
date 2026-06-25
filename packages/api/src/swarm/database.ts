@@ -180,24 +180,16 @@ function buildDatabaseSpec(
       Monitor: 10_000_000_000,
       MaxFailureRatio: 0,
     },
-    // Host-port publish is opt-in. Internal-only deployments still get a
-    // working DNS entry on the project overlay network (see Aliases above),
-    // so app containers in the same project reach the DB at
-    // `<serviceName>:<port>` without binding anything on the host. When
-    // public is off we still emit EndpointSpec with an empty Ports array
-    // so an `updateSwarmDatabase` call from "on → off" actually clears
-    // the previously-published port (omitting the field would leave the
-    // old binding in place).
+    // Databases are NEVER host-published — no raw engine port (5432, …) on the
+    // node. Same-project apps reach the DB over the project overlay network
+    // (Aliases above) at `<serviceName>:<port>`; public access goes through the
+    // Caddy edge on :443 (TLS-SNI layer4 listener wrapper → overlay), driven by
+    // the layer4 `proxy_route` row, not a host binding. `input.public` only
+    // gates that route now. Empty Ports also clears any binding left by a
+    // previously host-published deployment.
+    // See docs/designs/db-tls-multiplex-443.md.
     EndpointSpec: {
-      Ports: input.public
-        ? [
-            {
-              Protocol: "tcp" as const,
-              TargetPort: adapter.port,
-              PublishMode: "host" as const,
-            },
-          ]
-        : [],
+      Ports: [],
     },
   };
 }
