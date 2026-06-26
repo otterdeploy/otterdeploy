@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "portless web.otterdeploy --force vite dev",
     "build": "vite build",
+    "build:vercel": "NITRO_PRESET=vercel vite build",
     "serve": "vite preview",
     "start": "vite",
     "typecheck": "tsr generate && tsc --noEmit --checkers 4",
