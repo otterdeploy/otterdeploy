@@ -19,16 +19,30 @@ export default defineConfig({
     // reachable during a Vercel/CI build. Pages SSR on-demand at runtime.
     tanstackStart(),
     react(),
-    nitro(),
+    // Bundle tslib into the server output instead of leaving it external. When
+    // external, nitro's dependency trace copies only `tslib.es6.mjs`, but Node
+    // resolves bare `import "tslib"` via the package's `node` export condition
+    // to `modules/index.js` — which isn't copied — so every SSR route 500s with
+    // ERR_MODULE_NOT_FOUND (landing page included). Bundling resolves it at
+    // build time. Paired with the ESM alias below so the bundled copy exposes
+    // real named exports (`__extends`, …) rather than a CJS-interop wrapper.
+    nitro({ noExternals: ["tslib"] }),
   ],
   resolve: {
     tsconfigPaths: true,
-    // Force tslib's ESM build. Several fumadocs deps ship TS-helper imports
-    // (`__extends`, `__assign`, …); when the SSR bundle inlines tslib's CJS
-    // through rolldown's interop wrapper the named exports come back undefined
-    // and SSR throws "Cannot destructure property '__extends'". The ESM entry
-    // exposes them as real named exports, so the interop wrapper is skipped.
-    alias: [{ find: /^tslib$/, replacement: "tslib/tslib.es6.mjs" }],
+    // Force every tslib import (bare *and* deep subpaths) to its ESM build.
+    // Two failures this prevents, both of which 500 every SSR route — landing
+    // page included:
+    //   1. Bare `tslib`: rolldown's CJS-interop wrapper makes the named helpers
+    //      (`__extends`, `__assign`, …) come back undefined → "Cannot
+    //      destructure property '__extends'".
+    //   2. Deep `tslib/modules/index.js` (from @fumadocs/api-docs): left
+    //      external, nitro traces only a subset of tslib's files so it resolves
+    //      to a missing module at runtime.
+    // `tslib.es6.mjs` re-exports all helpers as real named exports, so pointing
+    // every specifier at it bundles them and skips the interop wrapper. The
+    // regex captures the subpath but the replacement intentionally drops it.
+    alias: [{ find: /^tslib(\/.*)?$/, replacement: "tslib/tslib.es6.mjs" }],
   },
   envDir: "../../",
 });
