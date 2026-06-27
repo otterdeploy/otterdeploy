@@ -138,9 +138,5 @@ function StackBody({
 }
 
 function ViewMessage({ text }: { text: string }) {
-  return (
-    <div className="px-3 py-2 font-mono text-[12px] text-muted-foreground">
-      {text}
-    </div>
-  );
+  return <div className="px-3 py-2 font-mono text-[12px] text-muted-foreground">{text}</div>;
 }

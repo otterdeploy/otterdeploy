@@ -1,7 +1,7 @@
+import type { Manifest } from "@otterdeploy/api/manifest";
+
 import { defineCommand } from "citty";
 import { consola } from "consola";
-
-import type { Manifest } from "@otterdeploy/api/manifest";
 
 import { loadConfig, writeConfig } from "../config-file";
 
@@ -36,9 +36,7 @@ const addService = defineCommand({
         source: "git",
         sourceSubdir: args["source-subdir"] ?? null,
         replicas,
-        ...(portNum
-          ? { ports: [{ container: portNum, appProtocol: "http", primary: true }] }
-          : {}),
+        ...(portNum ? { ports: [{ container: portNum, appProtocol: "http", primary: true }] } : {}),
       };
     } else {
       if (!args.image) {
@@ -49,14 +47,14 @@ const addService = defineCommand({
         source: "image",
         image: args.image,
         replicas,
-        ...(portNum
-          ? { ports: [{ container: portNum, appProtocol: "http", primary: true }] }
-          : {}),
+        ...(portNum ? { ports: [{ container: portNum, appProtocol: "http", primary: true }] } : {}),
       };
     }
 
     const path = writeConfig(next, args.config);
-    consola.success(`Added service ${args.name}. Edit ${path} to refine, then \`otterdeploy deploy\`.`);
+    consola.success(
+      `Added service ${args.name}. Edit ${path} to refine, then \`otterdeploy deploy\`.`,
+    );
   },
 });
 
@@ -99,7 +97,9 @@ const addDatabase = defineCommand({
     } as Manifest["databases"][string];
 
     const path = writeConfig(next, args.config);
-    consola.success(`Added database ${args.name} (${engine}). Edit ${path} and \`otterdeploy deploy\`.`);
+    consola.success(
+      `Added database ${args.name} (${engine}). Edit ${path} and \`otterdeploy deploy\`.`,
+    );
   },
 });
 

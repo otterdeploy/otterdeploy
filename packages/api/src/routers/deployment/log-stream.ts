@@ -69,10 +69,7 @@ async function authorizeDeployment(input: StreamInput) {
     .innerJoin(resource, eq(resource.id, deployment.resourceId))
     .innerJoin(project, eq(project.id, resource.projectId))
     .where(
-      and(
-        eq(deployment.id, input.deploymentId),
-        eq(project.organizationId, input.organizationId),
-      ),
+      and(eq(deployment.id, input.deploymentId), eq(project.organizationId, input.organizationId)),
     )
     .limit(1);
   return row ?? null;
@@ -115,9 +112,7 @@ export async function* streamDeploymentLogs(
 
   try {
     const afterSeq =
-      typeof input.afterSeq === "number" && Number.isFinite(input.afterSeq)
-        ? input.afterSeq
-        : null;
+      typeof input.afterSeq === "number" && Number.isFinite(input.afterSeq) ? input.afterSeq : null;
     const scrollback = await db
       .select({
         seq: deploymentLog.seq,

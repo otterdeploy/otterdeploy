@@ -1,11 +1,7 @@
 import { Fragment, useState } from "react";
 
-import { useFieldContext } from "../form-context";
 import { ReferencePicker } from "@/features/projects/components/variables";
-import {
-  hasOpenRefToken,
-  insertRefToken,
-} from "@/features/resources/components/_shared/ref-token";
+import { hasOpenRefToken, insertRefToken } from "@/features/resources/components/_shared/ref-token";
 import { Button } from "@/shared/components/ui/button";
 import { Card } from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
@@ -19,6 +15,8 @@ import {
 } from "@/shared/components/ui/table";
 import { Textarea } from "@/shared/components/ui/textarea";
 import { cn } from "@/shared/lib/utils";
+
+import { useFieldContext } from "../form-context";
 import { I } from "../icons";
 
 export interface Var {
@@ -83,9 +81,7 @@ export function VariablesField({ projectId }: { projectId?: string }) {
   if (vars.length === 0) {
     return (
       <EmptyDropzone
-        onAddVariable={() =>
-          field.handleChange([{ key: "", value: "", secret: false }])
-        }
+        onAddVariable={() => field.handleChange([{ key: "", value: "", secret: false }])}
         onOpenBulk={() => setBulk(true)}
         onImport={(text) => {
           const parsed = parseEnvText(text);
@@ -100,13 +96,13 @@ export function VariablesField({ projectId }: { projectId?: string }) {
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/50">
-            <TableHead className="text-[11px] font-semibold uppercase tracking-[0.06em]">
+            <TableHead className="text-[11px] font-semibold tracking-[0.06em] uppercase">
               Key
             </TableHead>
-            <TableHead className="text-[11px] font-semibold uppercase tracking-[0.06em]">
+            <TableHead className="text-[11px] font-semibold tracking-[0.06em] uppercase">
               Value
             </TableHead>
-            <TableHead className="w-[60px] text-center text-[11px] font-semibold uppercase tracking-[0.06em]">
+            <TableHead className="w-[60px] text-center text-[11px] font-semibold tracking-[0.06em] uppercase">
               Secret
             </TableHead>
             <TableHead className="w-9" />
@@ -151,19 +147,15 @@ export function VariablesField({ projectId }: { projectId?: string }) {
                         type="button"
                         aria-label="Insert reference"
                         title="Insert a ${{ resource.KEY }} reference"
-                        onClick={() =>
-                          setPickerRow((cur) => (cur === i ? null : i))
-                        }
+                        onClick={() => setPickerRow((cur) => (cur === i ? null : i))}
                         className={cn(
-                          "absolute right-1 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded transition-colors",
+                          "absolute top-1/2 right-1 grid size-6 -translate-y-1/2 place-items-center rounded transition-colors",
                           pickerRow === i
                             ? "bg-muted text-foreground"
                             : "text-muted-foreground/70 hover:bg-muted hover:text-foreground",
                         )}
                       >
-                        <span className="font-mono text-[10.5px] leading-none">
-                          {"{ }"}
-                        </span>
+                        <span className="font-mono text-[10.5px] leading-none">{"{ }"}</span>
                       </button>
                     )}
                   </div>
@@ -175,14 +167,10 @@ export function VariablesField({ projectId }: { projectId?: string }) {
                     size="icon-sm"
                     title={v.secret ? "Mark as plain" : "Mark as secret"}
                     onClick={() => {
-                      const next = vars.map((x, j) =>
-                        j === i ? { ...x, secret: !x.secret } : x,
-                      );
+                      const next = vars.map((x, j) => (j === i ? { ...x, secret: !x.secret } : x));
                       field.handleChange(next);
                     }}
-                    className={
-                      v.secret ? "text-foreground" : "text-muted-foreground"
-                    }
+                    className={v.secret ? "text-foreground" : "text-muted-foreground"}
                   >
                     <I.lock width={12} height={12} />
                   </Button>
@@ -233,12 +221,7 @@ export function VariablesField({ projectId }: { projectId?: string }) {
           <I.plus width={11} height={11} />
           Add variable
         </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => setBulk(true)}
-        >
+        <Button type="button" variant="outline" size="sm" onClick={() => setBulk(true)}>
           <I.copy width={11} height={11} />
           Bulk edit
         </Button>
@@ -285,8 +268,7 @@ function EmptyDropzone({
     >
       <I.upload width={18} height={18} className="text-muted-foreground" />
       <p className="text-[13px] text-muted-foreground">
-        Add a single variable, or paste/drag a{" "}
-        <span className="font-mono">.env</span> block.
+        Add a single variable, or paste/drag a <span className="font-mono">.env</span> block.
       </p>
       <div className="flex items-center gap-2">
         <Button type="button" variant="outline" size="sm" onClick={onAddVariable}>
@@ -323,14 +305,11 @@ function BulkEditor({
         autoFocus
         spellCheck={false}
         className="font-mono text-[12.5px]"
-        placeholder={
-          "KEY=value\nANOTHER_KEY=value\n# comments and blank lines are ignored"
-        }
+        placeholder={"KEY=value\nANOTHER_KEY=value\n# comments and blank lines are ignored"}
       />
       <div className="flex items-center justify-between gap-2">
         <span className="text-[11px] text-muted-foreground">
-          One <span className="font-mono">KEY=value</span> per line. Replaces the
-          current set.
+          One <span className="font-mono">KEY=value</span> per line. Replaces the current set.
         </span>
         <div className="flex gap-2">
           <Button type="button" variant="outline" size="sm" onClick={onCancel}>

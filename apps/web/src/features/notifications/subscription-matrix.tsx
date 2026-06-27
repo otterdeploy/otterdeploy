@@ -16,19 +16,13 @@ interface SubscriptionMatrixProps {
   onToggle: (channelId: string, eventId: string, enabled: boolean) => void;
 }
 
-export function SubscriptionMatrix({
-  channels,
-  subs,
-  onToggle,
-}: SubscriptionMatrixProps) {
+export function SubscriptionMatrix({ channels, subs, onToggle }: SubscriptionMatrixProps) {
   const gridCols = `minmax(0,1fr) 90px repeat(${channels.length}, minmax(110px, 1fr))`;
 
   return (
     <div className="flex flex-col gap-2.5">
       <div>
-        <h2 className="text-[14px] font-semibold tracking-tight">
-          Event subscription matrix
-        </h2>
+        <h2 className="text-[14px] font-semibold tracking-tight">Event subscription matrix</h2>
         <p className="text-[12.5px] text-muted-foreground">
           Toggle which events deliver to which channel.
         </p>
@@ -37,7 +31,7 @@ export function SubscriptionMatrix({
       <div className="overflow-hidden rounded-md border bg-card">
         {/* Header */}
         <div
-          className="grid items-center gap-2 border-b bg-muted/50 px-3.5 py-2.5 text-[11px] uppercase tracking-wider text-muted-foreground"
+          className="grid items-center gap-2 border-b bg-muted/50 px-3.5 py-2.5 text-[11px] tracking-wider text-muted-foreground uppercase"
           style={{ gridTemplateColumns: gridCols }}
         >
           <span>Event</span>
@@ -49,7 +43,7 @@ export function SubscriptionMatrix({
                 fallback={KIND_META[c.kind].label}
                 size={18}
               />
-              <span className="text-[11px] normal-case tracking-normal text-foreground">
+              <span className="text-[11px] tracking-normal text-foreground normal-case">
                 {KIND_META[c.kind].label}
               </span>
             </span>
@@ -69,9 +63,7 @@ export function SubscriptionMatrix({
             <span className="text-foreground">{ev.label}</span>
             <span className="flex items-center gap-2">
               <span className={`size-2 rounded-full ${SEVERITY_DOT[ev.severity]}`} />
-              <span className="font-mono text-[10px] text-muted-foreground">
-                {ev.severity}
-              </span>
+              <span className="font-mono text-[10px] text-muted-foreground">{ev.severity}</span>
             </span>
             {channels.map((c) => {
               const on = subs[c.id]?.has(ev.id) ?? false;

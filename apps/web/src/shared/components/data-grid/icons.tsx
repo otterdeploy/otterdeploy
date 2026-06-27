@@ -5,7 +5,8 @@
  * call sites unchanged while dropping the lucide dependency.
  */
 
-import { HugeiconsIcon } from "@hugeicons/react";
+import type { ComponentProps, ComponentType, SVGProps } from "react";
+
 import {
   ArrowDown01Icon,
   ArrowUp01Icon,
@@ -31,7 +32,7 @@ import {
   Upload04Icon,
   ViewOffIcon,
 } from "@hugeicons/core-free-icons";
-import type { ComponentProps, ComponentType, SVGProps } from "react";
+import { HugeiconsIcon } from "@hugeicons/react";
 
 type IconData = ComponentProps<typeof HugeiconsIcon>["icon"];
 
@@ -40,14 +41,7 @@ type IconData = ComponentProps<typeof HugeiconsIcon>["icon"];
 // actually needs (className/style); Hugeicons handles the rest.
 function make(icon: IconData): ComponentType<SVGProps<SVGSVGElement>> {
   return function Icon({ className, style }: SVGProps<SVGSVGElement>) {
-    return (
-      <HugeiconsIcon
-        icon={icon}
-        strokeWidth={2}
-        className={className}
-        style={style}
-      />
-    );
+    return <HugeiconsIcon icon={icon} strokeWidth={2} className={className} style={style} />;
   };
 }
 

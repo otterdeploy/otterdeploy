@@ -12,18 +12,15 @@
  */
 
 import { useState } from "react";
-import {
-  Copy01Icon,
-  Delete02Icon,
-  PlusSignIcon,
-} from "@hugeicons/core-free-icons";
+
+import { Copy01Icon, Delete02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useMutation } from "@tanstack/react-query";
+import { createId, ID_PREFIX, type ProxyRouteId } from "@otterdeploy/shared/id";
 import { eq, useLiveQuery } from "@tanstack/react-db";
+import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { createId, ID_PREFIX, type ProxyRouteId } from "@otterdeploy/shared/id";
-
+import { routeGuestsCollection } from "@/features/projects/data/proxy-routes";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
@@ -35,7 +32,6 @@ import {
   SelectValue,
 } from "@/shared/components/ui/select";
 import { cn } from "@/shared/lib/utils";
-import { routeGuestsCollection } from "@/features/projects/data/proxy-routes";
 import { orpc } from "@/shared/server/orpc";
 
 // Mirrors the server's zod .email() so a bad address is flagged before the
@@ -155,9 +151,7 @@ function GuestsSection({ routeId }: { routeId: string }) {
 
   const { data: rows } = useLiveQuery(
     (q) =>
-      q
-        .from({ g: routeGuestsCollection })
-        .where(({ g }) => eq(g.routeId, routeId as ProxyRouteId)),
+      q.from({ g: routeGuestsCollection }).where(({ g }) => eq(g.routeId, routeId as ProxyRouteId)),
     [routeId],
   );
 
@@ -210,9 +204,7 @@ function GuestsSection({ routeId }: { routeId: string }) {
           <div className="divide-y divide-border/40">
             {rows.map((g) => (
               <div key={g.id} className="flex items-center gap-2 px-3 py-2.5">
-                <span className="min-w-0 flex-1 truncate font-mono text-[12.5px]">
-                  {g.email}
-                </span>
+                <span className="min-w-0 flex-1 truncate font-mono text-[12.5px]">{g.email}</span>
                 <span className="shrink-0 text-[11.5px] text-muted-foreground">
                   {guestDurationLabel(g.sessionHours)}
                 </span>
@@ -268,12 +260,7 @@ function GuestsSection({ routeId }: { routeId: string }) {
                     ))}
                   </SelectContent>
                 </Select>
-                <Button
-                  size="sm"
-                  className="h-7"
-                  onClick={onAdd}
-                  disabled={!emailValid}
-                >
+                <Button size="sm" className="h-7" onClick={onAdd} disabled={!emailValid}>
                   Add
                 </Button>
                 <Button size="sm" variant="ghost" className="h-7" onClick={cancelAdd}>
@@ -281,9 +268,7 @@ function GuestsSection({ routeId }: { routeId: string }) {
                 </Button>
               </div>
               {showEmailError ? (
-                <p className="text-[11.5px] text-destructive">
-                  Enter a valid email address.
-                </p>
+                <p className="text-[11.5px] text-destructive">Enter a valid email address.</p>
               ) : null}
             </div>
           ) : (
@@ -381,13 +366,7 @@ function BypassTokenSection({ routeId }: { routeId: string }) {
   );
 }
 
-function CopyField({
-  value,
-  onReset,
-}: {
-  value: string;
-  onReset?: () => void;
-}) {
+function CopyField({ value, onReset }: { value: string; onReset?: () => void }) {
   return (
     <div className="flex items-center gap-2">
       <Input readOnly value={value} className="h-8 font-mono text-[12px]" />

@@ -11,22 +11,18 @@
  */
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+
 import { useHotkey } from "@tanstack/react-hotkeys";
 
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "@/shared/components/ui/empty";
-import { Skeleton } from "@/shared/components/ui/skeleton";
-import { cn } from "@/shared/lib/utils";
-import { CaddyfileToolbar } from "@/features/projects/components/networking/caddyfile-toolbar";
 import {
   buildModel,
   KIND_CLASS,
   type Segment,
 } from "@/features/projects/components/networking/caddyfile-highlight";
+import { CaddyfileToolbar } from "@/features/projects/components/networking/caddyfile-toolbar";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/shared/components/ui/empty";
+import { Skeleton } from "@/shared/components/ui/skeleton";
+import { cn } from "@/shared/lib/utils";
 
 export interface CaddyfileViewerProps {
   source: string;
@@ -35,12 +31,7 @@ export interface CaddyfileViewerProps {
   className?: string;
 }
 
-export function CaddyfileViewer({
-  source,
-  revision,
-  loading,
-  className,
-}: CaddyfileViewerProps) {
+export function CaddyfileViewer({ source, revision, loading, className }: CaddyfileViewerProps) {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
 
@@ -48,10 +39,7 @@ export function CaddyfileViewer({
   const inputRef = useRef<HTMLInputElement>(null);
   const matchRefs = useRef(new Map<number, HTMLElement | null>());
 
-  const { lines, total } = useMemo(
-    () => buildModel(source, query),
-    [source, query],
-  );
+  const { lines, total } = useMemo(() => buildModel(source, query), [source, query]);
 
   // Reset the cursor to the first hit whenever the query (and thus the match
   // set) changes, so prev/next start from a sane position.
@@ -135,7 +123,7 @@ function CodeBody({
       <code className="block min-w-max px-3 py-2">
         {lines.map((segs, idx) => (
           <Fragment key={idx}>
-            <span className="mr-4 inline-block select-none text-right text-muted-foreground/40 tabular-nums">
+            <span className="mr-4 inline-block text-right text-muted-foreground/40 tabular-nums select-none">
               {String(idx + 1).padStart(gutterWidth, " ")}
             </span>
             {segs.map((seg, i) =>
@@ -147,9 +135,7 @@ function CodeBody({
                   }}
                   className={cn(
                     "rounded-xs",
-                    seg.match === active
-                      ? "bg-amber-400/50 text-foreground"
-                      : "bg-amber-400/20",
+                    seg.match === active ? "bg-amber-400/50 text-foreground" : "bg-amber-400/20",
                     KIND_CLASS[seg.kind],
                   )}
                 >
@@ -173,11 +159,7 @@ function LoadingBody() {
   return (
     <div className="flex flex-col gap-2 p-4">
       {Array.from({ length: 8 }).map((_, i) => (
-        <Skeleton
-          key={i}
-          className="h-3.5"
-          style={{ width: `${40 + ((i * 13) % 50)}%` }}
-        />
+        <Skeleton key={i} className="h-3.5" style={{ width: `${40 + ((i * 13) % 50)}%` }} />
       ))}
     </div>
   );
@@ -189,8 +171,7 @@ function EmptyBody() {
       <EmptyHeader>
         <EmptyTitle>No routes contribute to the Caddyfile yet</EmptyTitle>
         <EmptyDescription>
-          Enable a route on the Routes tab to see its generated HTTP / Layer4
-          blocks here.
+          Enable a route on the Routes tab to see its generated HTTP / Layer4 blocks here.
         </EmptyDescription>
       </EmptyHeader>
     </Empty>

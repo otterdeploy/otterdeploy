@@ -24,10 +24,7 @@ export function StepKind({ dbView, onDbViewChange }: StepKindProps) {
         const k = SERVICE_KINDS.find((x) => x.id === id);
         if (k) {
           form.setFieldValue("name", k.id);
-          form.setFieldValue(
-            "version",
-            k.versions && k.versions.length > 0 ? k.versions[0] : null,
-          );
+          form.setFieldValue("version", k.versions && k.versions.length > 0 ? k.versions[0] : null);
         }
       }}
     />

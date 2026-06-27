@@ -43,8 +43,7 @@ describe("parseRefs", () => {
   });
 
   it("parses interpolated values with multiple refs", () => {
-    const value =
-      "postgres://acme:${database:primary.password}@${database:primary.host}:5432/acme";
+    const value = "postgres://acme:${database:primary.password}@${database:primary.host}:5432/acme";
     expect(parseRefs(value)).toEqual([
       { kind: "database", name: "primary", field: "password" },
       { kind: "database", name: "primary", field: "host" },

@@ -67,8 +67,7 @@ export const logsCommand = defineCommand({
           process.stdout.write(`${JSON.stringify(event)}\n`);
           continue;
         }
-        const tag =
-          event.stream === "stderr" ? "[err]" : event.stream === "system" ? "[sys]" : "";
+        const tag = event.stream === "stderr" ? "[err]" : event.stream === "system" ? "[sys]" : "";
         const ts = event.ts ? `${event.ts} ` : "";
         process.stdout.write(`${ts}${tag}${tag ? " " : ""}${event.line}\n`);
       }

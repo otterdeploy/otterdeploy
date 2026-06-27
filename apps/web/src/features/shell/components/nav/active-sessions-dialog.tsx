@@ -1,3 +1,4 @@
+import { formatRelative } from "@otterdeploy/shared/format";
 /**
  * Active sessions — list the signed-in user's sessions and revoke them. Backed
  * entirely by better-auth's session APIs (`listSessions` / `revokeSession` /
@@ -5,8 +6,6 @@
  */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-
-import { formatRelative } from "@otterdeploy/shared/format";
 
 import { authClient } from "@/lib/auth-client";
 import { Badge } from "@/shared/components/ui/badge";
@@ -87,8 +86,7 @@ export function ActiveSessionsDialog({
   });
 
   const currentToken = currentQ.data?.session?.token;
-  const invalidate = () =>
-    qc.invalidateQueries({ queryKey: ["auth", "sessions"] });
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["auth", "sessions"] });
 
   const revokeOne = useMutation({
     mutationFn: async (token: string) => {
@@ -99,8 +97,7 @@ export function ActiveSessionsDialog({
       await invalidate();
       toast.success("Session revoked");
     },
-    onError: (e) =>
-      toast.error(e instanceof Error ? e.message : "Failed to revoke"),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to revoke"),
   });
 
   const revokeOthers = useMutation({
@@ -124,8 +121,7 @@ export function ActiveSessionsDialog({
         <DialogHeader>
           <DialogTitle>Active sessions</DialogTitle>
           <DialogDescription>
-            Devices currently signed in to your account. Revoke any you don't
-            recognise.
+            Devices currently signed in to your account. Revoke any you don't recognise.
           </DialogDescription>
         </DialogHeader>
 
@@ -135,11 +131,7 @@ export function ActiveSessionsDialog({
           </div>
         ) : sessionsQ.isError ? (
           <ErrorState
-            message={
-              sessionsQ.error instanceof Error
-                ? sessionsQ.error.message
-                : undefined
-            }
+            message={sessionsQ.error instanceof Error ? sessionsQ.error.message : undefined}
             onRetry={() => void sessionsQ.refetch()}
           />
         ) : (
@@ -147,22 +139,16 @@ export function ActiveSessionsDialog({
             {sessions.map((s) => {
               const isCurrent = s.token === currentToken;
               return (
-                <li
-                  key={s.id}
-                  className="flex items-center justify-between gap-3 py-2.5"
-                >
+                <li key={s.id} className="flex items-center justify-between gap-3 py-2.5">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="truncate text-[13px] font-medium">
                         {describeAgent(s.userAgent)}
                       </span>
-                      {isCurrent && (
-                        <Badge variant="secondary">This device</Badge>
-                      )}
+                      {isCurrent && <Badge variant="secondary">This device</Badge>}
                     </div>
                     <div className="font-mono text-[11px] text-muted-foreground">
-                      {s.ipAddress || "unknown IP"} · active{" "}
-                      {formatRelative(s.updatedAt)}
+                      {s.ipAddress || "unknown IP"} · active {formatRelative(s.updatedAt)}
                     </div>
                   </div>
                   {!isCurrent && (

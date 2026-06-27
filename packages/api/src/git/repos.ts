@@ -7,12 +7,10 @@ import type { GitInstallationId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { gitRepo } from "@otterdeploy/db/schema";
+
 import type { GithubRepoPayload } from "./types";
 
-export async function syncRepos(
-  installationDbId: GitInstallationId,
-  repos: GithubRepoPayload[],
-) {
+export async function syncRepos(installationDbId: GitInstallationId, repos: GithubRepoPayload[]) {
   // Per-row upsert by providerRepoId. Payloads are small (GitHub caps these
   // webhooks at ~50 repos per delivery) so the loop is fine.
   for (const r of repos) {

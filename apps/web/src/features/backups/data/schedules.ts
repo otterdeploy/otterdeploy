@@ -1,7 +1,8 @@
 import type { scheduleSchema } from "@otterdeploy/api/routers/backups/contract";
+import type { z } from "zod";
+
 import { createCollection } from "@tanstack/db";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
-import type { z } from "zod";
 
 import { orpc, queryClient } from "@/shared/server/orpc";
 
@@ -76,9 +77,7 @@ export const schedulesCollection = createCollection(
     },
     onDelete: async ({ transaction }) => {
       await Promise.all(
-        transaction.mutations.map((m) =>
-          orpc.backups.schedules.delete.call({ id: m.original.id }),
-        ),
+        transaction.mutations.map((m) => orpc.backups.schedules.delete.call({ id: m.original.id })),
       );
     },
     queryClient,

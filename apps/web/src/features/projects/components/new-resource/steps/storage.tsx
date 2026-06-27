@@ -1,8 +1,8 @@
 import { useStore } from "@tanstack/react-form";
 
 import type { ServiceKind } from "@/features/projects/data/service-kinds";
+
 import { Card } from "@/shared/components/ui/card";
-import { Switch } from "@/shared/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -11,10 +11,11 @@ import {
   SelectValue,
 } from "@/shared/components/ui/select";
 import { Slider } from "@/shared/components/ui/slider";
+import { Switch } from "@/shared/components/ui/switch";
 
 import { traitsFor } from "../engine-traits";
-import { Field, SectionHeader, SettingRow } from "../form-primitives";
 import { useFormContext } from "../form-context";
+import { Field, SectionHeader, SettingRow } from "../form-primitives";
 
 interface StepStorageProps {
   kind: ServiceKind;

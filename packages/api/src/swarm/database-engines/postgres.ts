@@ -12,18 +12,13 @@ export const postgresAdapter: DatabaseEngineAdapter = {
   // We pin v17 — postgres 18+ refuses our /var/lib/postgresql/data mount
   // (image manages its own version subdir). See constants.ts comment.
   mountTarget: "/var/lib/postgresql/data",
-  reservedEnvKeys: new Set([
-    "POSTGRES_DB",
-    "POSTGRES_USER",
-    "POSTGRES_PASSWORD",
-  ]),
+  reservedEnvKeys: new Set(["POSTGRES_DB", "POSTGRES_USER", "POSTGRES_PASSWORD"]),
   buildEnv: ({ username, password, databaseName }) => [
     `POSTGRES_DB=${databaseName}`,
     `POSTGRES_USER=${username}`,
     `POSTGRES_PASSWORD=${password}`,
   ],
-  buildHealthcheck: ({ username, databaseName }) =>
-    `pg_isready -U ${username} -d ${databaseName}`,
+  buildHealthcheck: ({ username, databaseName }) => `pg_isready -U ${username} -d ${databaseName}`,
   buildConnectionString: ({
     username,
     password,

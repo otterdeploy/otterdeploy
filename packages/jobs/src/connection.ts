@@ -1,5 +1,6 @@
-import { env } from "@otterdeploy/env/server";
 import type { ConnectionOptions } from "bullmq";
+
+import { env } from "@otterdeploy/env/server";
 
 /**
  * BullMQ connection options derived from REDIS_URL. BullMQ instantiates its

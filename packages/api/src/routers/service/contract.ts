@@ -1,6 +1,6 @@
-
 import { oc } from "@orpc/contract";
 import * as z from "zod";
+
 import { projectIdField, resourceIdField } from "../project/contract/shared";
 
 const tag = "service";
@@ -119,9 +119,12 @@ const envKeyRegex = /^[A-Z_][A-Z0-9_]*$/;
 
 export const createServiceInput = z.object({
   projectId: projectIdField,
-  name: z.string().min(1).regex(/^[a-z][a-z0-9-]*$/, {
-    message: "name must be lowercase letters, digits, and dashes",
-  }),
+  name: z
+    .string()
+    .min(1)
+    .regex(/^[a-z][a-z0-9-]*$/, {
+      message: "name must be lowercase letters, digits, and dashes",
+    }),
   // "image" = pre-built docker image, image string is final. "git" =
   // built by apps/builder from the project's git binding; image is
   // accepted as a placeholder ("pending:initial") and overwritten on

@@ -10,6 +10,7 @@
  */
 
 import type { OrganizationId } from "@otterdeploy/shared/id";
+import type { Handler } from "hono";
 
 import {
   completeGithubConnect,
@@ -21,7 +22,6 @@ import {
 import { env } from "@otterdeploy/env/server";
 import { Result } from "better-result";
 import { log, parseError } from "evlog";
-import type { Handler } from "hono";
 
 const baseUrl = () => env.BETTER_AUTH_URL.replace(/\/$/, "");
 const errorRedirectUrl = (reason: string) =>

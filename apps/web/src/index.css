@@ -8,17 +8,17 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme {
-    --animate-error-rise: error-rise 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-error-rise: error-rise 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 @keyframes error-rise {
-    from {
-        opacity: 0;
-        transform: translateY(16px);
-    }
-    to {
-        opacity: 1;
-        transform: none;
-    }
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /* Comet border — a single bright red segment with a fading tail travels
@@ -27,121 +27,108 @@
    transform) keeps the rounded-rect ring fixed and rotates only the
    gradient, so the light follows the border instead of spinning a square. */
 @property --comet-angle {
-    syntax: "<angle>";
-    initial-value: 0deg;
-    inherits: false;
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
 }
 @keyframes comet-spin {
-    to {
-        --comet-angle: 360deg;
-    }
+  to {
+    --comet-angle: 360deg;
+  }
 }
 @utility comet-border {
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    padding: 1.6px;
-    /* Override --comet-color inline to recolor the travelling light
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.6px;
+  /* Override --comet-color inline to recolor the travelling light
        (e.g. blue for pending create, yellow for pending delete). */
-    --comet-color: var(--destructive);
-    background: conic-gradient(
-        from var(--comet-angle),
-        transparent 0deg,
-        transparent 230deg,
-        color-mix(in oklab, var(--comet-color) 35%, transparent) 300deg,
-        var(--comet-color) 344deg,
-        color-mix(in oklab, var(--comet-color) 60%, white) 353deg,
-        transparent 360deg
-    );
-    /* Cut the interior so only the border-width ring paints. */
-    -webkit-mask:
-        linear-gradient(#000 0 0) content-box,
-        linear-gradient(#000 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    animation: comet-spin 2.2s linear infinite;
-    pointer-events: none;
+  --comet-color: var(--destructive);
+  background: conic-gradient(
+    from var(--comet-angle),
+    transparent 0deg,
+    transparent 230deg,
+    color-mix(in oklab, var(--comet-color) 35%, transparent) 300deg,
+    var(--comet-color) 344deg,
+    color-mix(in oklab, var(--comet-color) 60%, white) 353deg,
+    transparent 360deg
+  );
+  /* Cut the interior so only the border-width ring paints. */
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: comet-spin 2.2s linear infinite;
+  pointer-events: none;
 }
 @utility error-grid {
-    background-image:
-        linear-gradient(var(--line) 1px, transparent 1px),
-        linear-gradient(90deg, var(--line) 1px, transparent 1px);
-    background-size: 72px 72px;
-    -webkit-mask-image: radial-gradient(
-        ellipse 72% 72% at 50% 50%,
-        #000 32%,
-        transparent 90%
-    );
-    mask-image: radial-gradient(
-        ellipse 72% 72% at 50% 50%,
-        #000 32%,
-        transparent 90%
-    );
+  background-image:
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 72px 72px;
+  -webkit-mask-image: radial-gradient(ellipse 72% 72% at 50% 50%, #000 32%, transparent 90%);
+  mask-image: radial-gradient(ellipse 72% 72% at 50% 50%, #000 32%, transparent 90%);
 }
 @utility error-glow {
-    background: radial-gradient(
-        36rem 26rem at 50% 48%,
-        var(--glow),
-        transparent 72%
-    );
+  background: radial-gradient(36rem 26rem at 50% 48%, var(--glow), transparent 72%);
 }
 @utility error-grain {
-    background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='160'%20height='160'%3E%3Cfilter%20id='n'%3E%3CfeTurbulence%20type='fractalNoise'%20baseFrequency='0.82'%20numOctaves='2'%20stitchTiles='stitch'/%3E%3C/filter%3E%3Crect%20width='100%25'%20height='100%25'%20filter='url(%23n)'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='160'%20height='160'%3E%3Cfilter%20id='n'%3E%3CfeTurbulence%20type='fractalNoise'%20baseFrequency='0.82'%20numOctaves='2'%20stitchTiles='stitch'/%3E%3C/filter%3E%3Crect%20width='100%25'%20height='100%25'%20filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 @theme {
-    --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
-    --font-mono:
-        "Geist Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
-    --font-heading: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-heading: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
 }
 
 @theme inline {
-    --color-sidebar-ring: var(--sidebar-ring);
-    --color-sidebar-border: var(--sidebar-border);
-    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-    --color-sidebar-accent: var(--sidebar-accent);
-    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-    --color-sidebar-primary: var(--sidebar-primary);
-    --color-sidebar-foreground: var(--sidebar-foreground);
-    --color-sidebar: var(--sidebar);
-    --color-chart-5: var(--chart-5);
-    --color-chart-4: var(--chart-4);
-    --color-chart-3: var(--chart-3);
-    --color-chart-2: var(--chart-2);
-    --color-chart-1: var(--chart-1);
-    --color-ring: var(--ring);
-    --color-input: var(--input);
-    --color-border: var(--border);
-    --color-destructive: var(--destructive);
-    --color-destructive-foreground: var(--destructive-foreground);
-    --color-accent-foreground: var(--accent-foreground);
-    --color-accent: var(--accent);
-    --color-muted-foreground: var(--muted-foreground);
-    --color-muted: var(--muted);
-    --color-secondary-foreground: var(--secondary-foreground);
-    --color-secondary: var(--secondary);
-    --color-primary-foreground: var(--primary-foreground);
-    --color-primary: var(--primary);
-    --color-popover-foreground: var(--popover-foreground);
-    --color-popover: var(--popover);
-    --color-card-foreground: var(--card-foreground);
-    --color-card: var(--card);
-    --color-foreground: var(--foreground);
-    --color-background: var(--background);
-    --color-success: var(--success);
-    --color-success-foreground: var(--success-foreground);
-    --color-warning: var(--warning);
-    --color-warning-foreground: var(--warning-foreground);
-    --color-info: var(--info);
-    --color-info-foreground: var(--info-foreground);
-    --radius-sm: calc(var(--radius) * 0.6);
-    --radius-md: calc(var(--radius) * 0.8);
-    --radius-lg: var(--radius);
-    --radius-xl: calc(var(--radius) * 1.4);
-    --radius-2xl: calc(var(--radius) * 1.8);
-    --radius-3xl: calc(var(--radius) * 2.2);
-    --radius-4xl: calc(var(--radius) * 2.6);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
 /* Warm-neutral mono palette — values from apps/web-demo/styles/
@@ -151,152 +138,149 @@
    the dark bg sitting around #0c0c0b — deeper than the previous
    neutral-950+5%-white mix that read as flat charcoal. */
 :root {
-    --background: #fbfbfa;
-    --foreground: #141412;
-    --card: #ffffff;
-    --card-foreground: #141412;
-    --popover: #ffffff;
-    --popover-foreground: #141412;
-    --primary: oklch(0.488 0.243 264.376);
-    --primary-foreground: oklch(0.97 0.014 254.604);
-    --secondary: rgba(20, 20, 18, 0.04);
-    --secondary-foreground: #141412;
-    --muted: rgba(20, 20, 18, 0.04);
-    --muted-foreground: #7a7a74;
-    --accent: rgba(20, 20, 18, 0.04);
-    --accent-foreground: #141412;
-    --destructive: #b42318;
-    --destructive-foreground: #b42318;
-    --border: rgba(20, 20, 18, 0.09);
-    --input: rgba(20, 20, 18, 0.12);
-    --ring: #a8a8a0;
-    --chart-1: #a8a8a0;
-    --chart-2: #7a7a74;
-    --chart-3: #4a4a46;
-    --chart-4: #2a2a26;
-    --chart-5: #141412;
-    /* Sidebar matches `--background` — the demo's `os-sidebar` reads
+  --background: #fbfbfa;
+  --foreground: #141412;
+  --card: #ffffff;
+  --card-foreground: #141412;
+  --popover: #ffffff;
+  --popover-foreground: #141412;
+  --primary: oklch(0.488 0.243 264.376);
+  --primary-foreground: oklch(0.97 0.014 254.604);
+  --secondary: rgba(20, 20, 18, 0.04);
+  --secondary-foreground: #141412;
+  --muted: rgba(20, 20, 18, 0.04);
+  --muted-foreground: #7a7a74;
+  --accent: rgba(20, 20, 18, 0.04);
+  --accent-foreground: #141412;
+  --destructive: #b42318;
+  --destructive-foreground: #b42318;
+  --border: rgba(20, 20, 18, 0.09);
+  --input: rgba(20, 20, 18, 0.12);
+  --ring: #a8a8a0;
+  --chart-1: #a8a8a0;
+  --chart-2: #7a7a74;
+  --chart-3: #4a4a46;
+  --chart-4: #2a2a26;
+  --chart-5: #141412;
+  /* Sidebar matches `--background` — the demo's `os-sidebar` reads
        `var(--bg)`, so they're the same surface, not two tones. */
-    --sidebar: #fbfbfa;
-    --sidebar-foreground: #4a4a46;
-    --sidebar-primary: oklch(0.546 0.245 262.881);
-    --sidebar-primary-foreground: oklch(0.97 0.014 254.604);
-    --sidebar-accent: rgba(20, 20, 18, 0.04);
-    --sidebar-accent-foreground: #141412;
-    --sidebar-border: rgba(20, 20, 18, 0.09);
-    --sidebar-ring: #a8a8a0;
-    --radius: 0.625rem;
-    --info: #1f5fa8;
-    --info-foreground: #1f5fa8;
-    --success: #1f7a3f;
-    --success-foreground: #1f7a3f;
-    --warning: #8a6a00;
-    --warning-foreground: #8a6a00;
+  --sidebar: #fbfbfa;
+  --sidebar-foreground: #4a4a46;
+  --sidebar-primary: oklch(0.546 0.245 262.881);
+  --sidebar-primary-foreground: oklch(0.97 0.014 254.604);
+  --sidebar-accent: rgba(20, 20, 18, 0.04);
+  --sidebar-accent-foreground: #141412;
+  --sidebar-border: rgba(20, 20, 18, 0.09);
+  --sidebar-ring: #a8a8a0;
+  --radius: 0.625rem;
+  --info: #1f5fa8;
+  --info-foreground: #1f5fa8;
+  --success: #1f7a3f;
+  --success-foreground: #1f7a3f;
+  --warning: #8a6a00;
+  --warning-foreground: #8a6a00;
 }
 
 .dark {
-    --background: #0c0c0b;
-    --foreground: #f5f5f0;
-    --card: #161614;
-    --card-foreground: #f5f5f0;
-    --popover: #161614;
-    --popover-foreground: #f5f5f0;
-    --primary: oklch(0.424 0.199 265.638);
-    --primary-foreground: oklch(0.97 0.014 254.604);
-    --secondary: rgba(255, 255, 250, 0.04);
-    --secondary-foreground: #f5f5f0;
-    --muted: rgba(255, 255, 250, 0.04);
-    --muted-foreground: #7a7a72;
-    --accent: rgba(255, 255, 250, 0.04);
-    --accent-foreground: #f5f5f0;
-    --destructive: #f87171;
-    --destructive-foreground: #f87171;
-    --border: rgba(255, 255, 250, 0.08);
-    --input: rgba(255, 255, 250, 0.1);
-    --ring: #525248;
-    --chart-1: #525248;
-    --chart-2: #7a7a72;
-    --chart-3: #b8b8b0;
-    --chart-4: #d5d5cf;
-    --chart-5: #f5f5f0;
-    --sidebar: #0c0c0b;
-    --sidebar-foreground: #b8b8b0;
-    --sidebar-primary: oklch(0.623 0.214 259.815);
-    --sidebar-primary-foreground: oklch(0.97 0.014 254.604);
-    --sidebar-accent: rgba(255, 255, 250, 0.04);
-    --sidebar-accent-foreground: #f5f5f0;
-    --sidebar-border: rgba(255, 255, 250, 0.08);
-    --sidebar-ring: #525248;
-    --info: #60a5fa;
-    --info-foreground: #60a5fa;
-    --success: #4ade80;
-    --success-foreground: #4ade80;
-    --warning: #fbbf24;
-    --warning-foreground: #fbbf24;
+  --background: #0c0c0b;
+  --foreground: #f5f5f0;
+  --card: #161614;
+  --card-foreground: #f5f5f0;
+  --popover: #161614;
+  --popover-foreground: #f5f5f0;
+  --primary: oklch(0.424 0.199 265.638);
+  --primary-foreground: oklch(0.97 0.014 254.604);
+  --secondary: rgba(255, 255, 250, 0.04);
+  --secondary-foreground: #f5f5f0;
+  --muted: rgba(255, 255, 250, 0.04);
+  --muted-foreground: #7a7a72;
+  --accent: rgba(255, 255, 250, 0.04);
+  --accent-foreground: #f5f5f0;
+  --destructive: #f87171;
+  --destructive-foreground: #f87171;
+  --border: rgba(255, 255, 250, 0.08);
+  --input: rgba(255, 255, 250, 0.1);
+  --ring: #525248;
+  --chart-1: #525248;
+  --chart-2: #7a7a72;
+  --chart-3: #b8b8b0;
+  --chart-4: #d5d5cf;
+  --chart-5: #f5f5f0;
+  --sidebar: #0c0c0b;
+  --sidebar-foreground: #b8b8b0;
+  --sidebar-primary: oklch(0.623 0.214 259.815);
+  --sidebar-primary-foreground: oklch(0.97 0.014 254.604);
+  --sidebar-accent: rgba(255, 255, 250, 0.04);
+  --sidebar-accent-foreground: #f5f5f0;
+  --sidebar-border: rgba(255, 255, 250, 0.08);
+  --sidebar-ring: #525248;
+  --info: #60a5fa;
+  --info-foreground: #60a5fa;
+  --success: #4ade80;
+  --success-foreground: #4ade80;
+  --warning: #fbbf24;
+  --warning-foreground: #fbbf24;
 }
 
 @layer base {
-    * {
-        @apply border-border outline-ring/50;
-    }
-    body {
-        @apply bg-background text-foreground;
-        font-feature-settings: "cv11", "ss01";
-        letter-spacing: -0.005em;
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
-    }
-    html,
-    body {
-        /* Kill the macOS/iOS rubber-band bounce when scrolling past edges */
-        overscroll-behavior: none;
-    }
-    html {
-        @apply font-sans;
-        font-size: 15px;
-    }
-    /* Geist Mono with slashed zero + ss03 — distinctive ID / hash glyphs */
-    .font-mono {
-        font-feature-settings: "zero", "ss03";
-    }
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "cv11", "ss01";
+    letter-spacing: -0.005em;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  html,
+  body {
+    /* Kill the macOS/iOS rubber-band bounce when scrolling past edges */
+    overscroll-behavior: none;
+  }
+  html {
+    @apply font-sans;
+    font-size: 15px;
+  }
+  /* Geist Mono with slashed zero + ss03 — distinctive ID / hash glyphs */
+  .font-mono {
+    font-feature-settings: "zero", "ss03";
+  }
 }
 
 /* xyflow — map @xyflow/react CSS variables to shadcn tokens so the graph
    inherits light/dark theming. Double-class selector beats the library's
    default `.react-flow { ... }` on specificity. */
 .react-flow.react-flow {
-    --xy-background-color-default: var(--background);
-    --xy-background-pattern-color-default: var(--muted-foreground);
+  --xy-background-color-default: var(--background);
+  --xy-background-pattern-color-default: var(--muted-foreground);
 
-    --xy-node-background-color-default: var(--card);
-    --xy-node-color-default: var(--card-foreground);
-    --xy-node-border-default: 1px solid var(--border);
-    --xy-node-boxshadow-default:
-        0 1px 2px 0 oklch(0 0 0 / 6%),
-        0 0 0 1px oklch(from var(--foreground) l c h / 4%);
-    --xy-node-border-radius-default: calc(var(--radius) + 2px);
+  --xy-node-background-color-default: var(--card);
+  --xy-node-color-default: var(--card-foreground);
+  --xy-node-border-default: 1px solid var(--border);
+  --xy-node-boxshadow-default:
+    0 1px 2px 0 oklch(0 0 0 / 6%), 0 0 0 1px oklch(from var(--foreground) l c h / 4%);
+  --xy-node-border-radius-default: calc(var(--radius) + 2px);
 
-    --xy-edge-stroke-default: var(--muted-foreground);
-    --xy-edge-stroke-selected-default: var(--foreground);
-    --xy-edge-stroke-width-default: 1.25px;
+  --xy-edge-stroke-default: var(--muted-foreground);
+  --xy-edge-stroke-selected-default: var(--foreground);
+  --xy-edge-stroke-width-default: 1.25px;
 
-    --xy-handle-background-color-default: var(--card);
-    --xy-handle-border-color-default: var(--border);
+  --xy-handle-background-color-default: var(--card);
+  --xy-handle-border-color-default: var(--border);
 
-    --xy-controls-button-background-color-default: var(--card);
-    --xy-controls-button-background-color-hover-default: var(--accent);
-    --xy-controls-button-color-default: var(--card-foreground);
-    --xy-controls-button-color-hover-default: var(--accent-foreground);
-    --xy-controls-button-border-color-default: var(--border);
+  --xy-controls-button-background-color-default: var(--card);
+  --xy-controls-button-background-color-hover-default: var(--accent);
+  --xy-controls-button-color-default: var(--card-foreground);
+  --xy-controls-button-color-hover-default: var(--accent-foreground);
+  --xy-controls-button-border-color-default: var(--border);
 
-    --xy-minimap-background-color-default: var(--card);
-    --xy-minimap-mask-background-color-default: oklch(
-        from var(--background) l c h / 60%
-    );
-    --xy-minimap-mask-stroke-color-default: var(--border);
-    --xy-minimap-node-background-color-default: var(--muted-foreground);
+  --xy-minimap-background-color-default: var(--card);
+  --xy-minimap-mask-background-color-default: oklch(from var(--background) l c h / 60%);
+  --xy-minimap-mask-stroke-color-default: var(--border);
+  --xy-minimap-node-background-color-default: var(--muted-foreground);
 
-    --xy-attribution-background-color-default: transparent;
+  --xy-attribution-background-color-default: transparent;
 }
 
 /* Soften node labels + give the controls/minimap a card-like surround. */
@@ -304,45 +288,45 @@
 .react-flow .react-flow__node-input,
 .react-flow .react-flow__node-output,
 .react-flow .react-flow__node-group {
-    padding: 10px 14px;
-    font-size: 12px;
-    font-weight: 500;
-    letter-spacing: -0.01em;
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
 }
 
 .react-flow .react-flow__controls,
 .react-flow .react-flow__minimap {
-    border: 1px solid var(--border);
-    border-radius: calc(var(--radius) + 2px);
-    overflow: hidden;
-    box-shadow:
-        0 1px 2px 0 oklch(0 0 0 / 6%),
-        0 8px 24px -12px oklch(0 0 0 / 24%);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 2px);
+  overflow: hidden;
+  box-shadow:
+    0 1px 2px 0 oklch(0 0 0 / 6%),
+    0 8px 24px -12px oklch(0 0 0 / 24%);
 }
 
 .react-flow .react-flow__controls-button {
-    border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
 }
 .react-flow .react-flow__controls-button:last-child {
-    border-bottom: none;
+  border-bottom: none;
 }
 
 .react-flow .react-flow__attribution {
-    color: var(--muted-foreground);
-    opacity: 0.5;
-    font-size: 10px;
+  color: var(--muted-foreground);
+  opacity: 0.5;
+  font-size: 10px;
 }
 
 .react-flow .react-flow__handle {
-    width: 8px;
-    height: 8px;
-    border-width: 1.5px;
+  width: 8px;
+  height: 8px;
+  border-width: 1.5px;
 }
 
 /* Mono font gets slashed-zero + stylistic alternate globally so the Tailwind
    `font-mono` utility carries the same typographic feel that `os-mono` did. */
 .font-mono {
-    font-feature-settings: "zero", "ss03";
+  font-feature-settings: "zero", "ss03";
 }
 
 /* Terminal (wterm) scrollback. The buffer scrolls natively on the `.wterm`
@@ -350,24 +334,24 @@
    near-black terminal surface, so give it a quiet, always-present rail that
    reads as scrollable. Wheel capture lives in terminal-session.tsx. */
 .wterm {
-    scrollbar-width: thin;
-    scrollbar-color: oklch(1 0 0 / 18%) transparent;
+  scrollbar-width: thin;
+  scrollbar-color: oklch(1 0 0 / 18%) transparent;
 }
 .wterm::-webkit-scrollbar {
-    width: 10px;
+  width: 10px;
 }
 .wterm::-webkit-scrollbar-track {
-    background: transparent;
+  background: transparent;
 }
 .wterm::-webkit-scrollbar-thumb {
-    background: oklch(1 0 0 / 16%);
-    border: 3px solid transparent;
-    border-radius: 999px;
-    background-clip: padding-box;
+  background: oklch(1 0 0 / 16%);
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
 }
 .wterm::-webkit-scrollbar-thumb:hover {
-    background: oklch(1 0 0 / 28%);
-    background-clip: padding-box;
+  background: oklch(1 0 0 / 28%);
+  background-clip: padding-box;
 }
 
 /* Text selection — the one blue accent, not an off-brand color. Solid fill
@@ -376,27 +360,27 @@
 
 /* Light theme (canvas #fbfbfa) — the system accent blue. */
 ::selection {
-    background: var(--primary);
-    color: var(--primary-foreground);
-    text-shadow: none;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  text-shadow: none;
 }
 
 ::-moz-selection {
-    background: var(--primary);
-    color: var(--primary-foreground);
-    text-shadow: none;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  text-shadow: none;
 }
 
 /* Dark theme (canvas #0c0c0b) — a brighter blue so the selection pops on black;
    the darker button-blue (--primary) would otherwise sink into the canvas. */
 .dark ::selection {
-    background: oklch(0.55 0.2 264.4);
-    color: var(--primary-foreground);
-    text-shadow: none;
+  background: oklch(0.55 0.2 264.4);
+  color: var(--primary-foreground);
+  text-shadow: none;
 }
 
 .dark ::-moz-selection {
-    background: oklch(0.55 0.2 264.4);
-    color: var(--primary-foreground);
-    text-shadow: none;
+  background: oklch(0.55 0.2 264.4);
+  color: var(--primary-foreground);
+  text-shadow: none;
 }

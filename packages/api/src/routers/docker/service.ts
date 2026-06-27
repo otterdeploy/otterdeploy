@@ -61,9 +61,7 @@ export interface ListedTask {
   createdAt: string | null;
 }
 
-export async function listContainers(opts: {
-  all?: boolean;
-}): Promise<Listed<ListedContainer[]>> {
+export async function listContainers(opts: { all?: boolean }): Promise<Listed<ListedContainer[]>> {
   const result = await docker.containers.list({ all: opts.all ?? false });
   if (result.isErr()) return { ok: false, reason: result.error.message };
   return {
@@ -79,9 +77,7 @@ export async function listContainers(opts: {
   };
 }
 
-export async function listImages(opts: {
-  all?: boolean;
-}): Promise<Listed<ListedImage[]>> {
+export async function listImages(opts: { all?: boolean }): Promise<Listed<ListedImage[]>> {
   const result = await docker.images.list({ all: opts.all ?? false });
   if (result.isErr()) return { ok: false, reason: result.error.message };
   return {

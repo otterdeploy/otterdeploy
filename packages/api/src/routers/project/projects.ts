@@ -4,10 +4,13 @@
  * tagged `Result` values.
  */
 
-import type { ContainerRegistryId, EnvironmentId, GitRepoId, OrganizationId, ProjectId } from "@otterdeploy/shared/id";
-
-import { Result } from "better-result";
-import { and, eq } from "drizzle-orm";
+import type {
+  ContainerRegistryId,
+  EnvironmentId,
+  GitRepoId,
+  OrganizationId,
+  ProjectId,
+} from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
@@ -18,11 +21,14 @@ import {
   gitRepo,
   type NixpacksConfig,
 } from "@otterdeploy/db/schema";
+import { Result } from "better-result";
+import { and, eq } from "drizzle-orm";
+
+import type { OrgRef } from "../scopes";
 
 import { reconcile } from "../../caddy";
 import { removeProjectDir } from "../../lib/data-dir";
 import { destroySwarmPostgres } from "../../runtime/db";
-
 import { ProjectConflictError, ProjectInvalidBindingError, ProjectNotFoundError } from "./errors";
 import {
   createProjectRecord,
@@ -34,8 +40,6 @@ import {
   setProjectGraphLayout,
   updateProjectRecord,
 } from "./queries";
-
-import type { OrgRef } from "../scopes";
 import {
   buildContainerName,
   isUniqueViolation,
@@ -132,10 +136,7 @@ export async function updateProject(
     nixpacksConfig?: NixpacksConfig | null;
   } & OrgRef,
 ): Promise<
-  Result<
-    Project,
-    ProjectNotFoundError | ProjectConflictError | ProjectInvalidBindingError
-  >
+  Result<Project, ProjectNotFoundError | ProjectConflictError | ProjectInvalidBindingError>
 > {
   const name = input.name !== undefined ? input.name.trim() : undefined;
 
@@ -149,14 +150,9 @@ export async function updateProject(
     }
   }
   if (input.containerRegistryId) {
-    const ok = await registryBelongsToOrg(
-      input.containerRegistryId,
-      input.organizationId,
-    );
+    const ok = await registryBelongsToOrg(input.containerRegistryId, input.organizationId);
     if (!ok) {
-      return Result.err(
-        new ProjectInvalidBindingError({ field: "containerRegistryId" }),
-      );
+      return Result.err(new ProjectInvalidBindingError({ field: "containerRegistryId" }));
     }
   }
 
@@ -174,7 +170,7 @@ export async function updateProject(
       productionBranch: input.productionBranch,
       containerRegistryId: input.containerRegistryId,
       imageRepository:
-        input.imageRepository !== undefined ? input.imageRepository?.trim() ?? null : undefined,
+        input.imageRepository !== undefined ? (input.imageRepository?.trim() ?? null) : undefined,
       nixpacksConfig: input.nixpacksConfig,
     });
     if (!updated) {
@@ -216,10 +212,7 @@ export async function saveProjectGraphLayout(
   return Result.ok({ ok: true });
 }
 
-async function repoBelongsToOrg(
-  gitRepoId: string,
-  organizationId: string,
-): Promise<boolean> {
+async function repoBelongsToOrg(gitRepoId: string, organizationId: string): Promise<boolean> {
   // Two valid shapes:
   //
   //   1. Installation-backed row → org ownership lives on git_provider;
@@ -252,10 +245,7 @@ async function repoBelongsToOrg(
   return owned !== undefined;
 }
 
-async function registryBelongsToOrg(
-  registryId: string,
-  organizationId: string,
-): Promise<boolean> {
+async function registryBelongsToOrg(registryId: string, organizationId: string): Promise<boolean> {
   const [row] = await db
     .select({ id: containerRegistry.id })
     .from(containerRegistry)

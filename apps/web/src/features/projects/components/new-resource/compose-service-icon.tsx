@@ -47,8 +47,7 @@ export function ComposeServiceIcon({
   className?: string;
 }) {
   // `postgres`, `ghcr.io/acme/redis:7`, `library/node:20` → `postgres`/`redis`/`node`.
-  const base =
-    image?.split("@")[0]?.split(":")[0]?.split("/").pop()?.toLowerCase() ?? "";
+  const base = image?.split("@")[0]?.split(":")[0]?.split("/").pop()?.toLowerCase() ?? "";
   const Icon = IMAGE_ICONS[base] ?? Docker;
   return <Icon className={className} />;
 }

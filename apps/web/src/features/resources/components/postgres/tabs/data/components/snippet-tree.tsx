@@ -6,7 +6,7 @@
  * its SQL into the editor.
  */
 import { useState } from "react";
-import { HugeiconsIcon } from "@hugeicons/react";
+
 import {
   Add01Icon,
   ArrowDown01Icon,
@@ -21,21 +21,18 @@ import {
   Search01Icon,
   Table01Icon,
 } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 
-import { Input } from "@/shared/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
+import { Input } from "@/shared/components/ui/input";
 import { cn } from "@/shared/lib/utils";
 
-import {
-  PLAYGROUND_ID,
-  type SqlFolder,
-  type SqlSnippet,
-} from "../data/use-sql-snippets";
+import { PLAYGROUND_ID, type SqlFolder, type SqlSnippet } from "../data/use-sql-snippets";
 
 interface SnippetTreeProps {
   folders: SqlFolder[];
@@ -47,11 +44,7 @@ interface SnippetTreeProps {
   addFolder: (name: string) => SqlFolder;
   renameFolder: (id: string, name: string) => void;
   deleteFolder: (id: string) => void;
-  addSnippet: (init?: {
-    name?: string;
-    sql?: string;
-    folderId?: string | null;
-  }) => SqlSnippet;
+  addSnippet: (init?: { name?: string; sql?: string; folderId?: string | null }) => SqlSnippet;
   renameSnippet: (id: string, name: string) => void;
   deleteSnippet: (id: string) => void;
 }
@@ -98,7 +91,7 @@ export function SnippetTree({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center justify-between px-3 pt-2 pb-1">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+        <span className="text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
           Snippets
         </span>
         <DropdownMenu>
@@ -126,7 +119,7 @@ export function SnippetTree({
           <HugeiconsIcon
             icon={Search01Icon}
             strokeWidth={2}
-            className="pointer-events-none absolute left-2 top-1/2 size-3 -translate-y-1/2 text-muted-foreground"
+            className="pointer-events-none absolute top-1/2 left-2 size-3 -translate-y-1/2 text-muted-foreground"
           />
           <Input
             value={search}
@@ -152,9 +145,7 @@ export function SnippetTree({
         {/* Folders */}
         {folders.map((folder) => {
           const isOpen = !collapsed.has(folder.id);
-          const children = snippets.filter(
-            (s) => s.folderId === folder.id && match(s),
-          );
+          const children = snippets.filter((s) => s.folderId === folder.id && match(s));
           if (q && children.length === 0) return null;
           return (
             <div key={folder.id}>
@@ -217,10 +208,7 @@ export function SnippetTree({
             }}
             onClick={() => onSelect(s.id)}
             menu={
-              <ItemMenu
-                onRename={() => setRenamingId(s.id)}
-                onDelete={() => deleteSnippet(s.id)}
-              />
+              <ItemMenu onRename={() => setRenamingId(s.id)} onDelete={() => deleteSnippet(s.id)} />
             }
           />
         ))}
@@ -286,9 +274,7 @@ function Row({
         </button>
       )}
       {menu ? (
-        <span className="opacity-0 transition-opacity group-hover:opacity-100">
-          {menu}
-        </span>
+        <span className="opacity-0 transition-opacity group-hover:opacity-100">{menu}</span>
       ) : null}
     </div>
   );

@@ -1,7 +1,9 @@
-import { describe, expect, it } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { useActiveSection } from "./use-active-section";
+import { describe, expect, it } from "vitest";
+
 import type { SettingsSection } from "../types";
+
+import { useActiveSection } from "./use-active-section";
 
 const sections: ReadonlyArray<SettingsSection> = [
   { id: "general", label: "General" },

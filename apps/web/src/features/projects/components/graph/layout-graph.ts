@@ -5,8 +5,9 @@
  * old hand-positioned mock.
  */
 
-import dagre from "dagre";
 import type { Edge, Node } from "@xyflow/react";
+
+import dagre from "dagre";
 
 // Match the rendered ResourceNode card so dagre's overlap detection is
 // accurate. Width matches `w-92` (368px) plus the implicit padding; height is
@@ -55,9 +56,7 @@ export function incrementalLayout(
 ): Map<string, XY> {
   if (nodes.length === 0) return new Map();
 
-  const fresh = new Map(
-    layoutGraph(nodes, edges).map((n) => [n.id, n.position] as const),
-  );
+  const fresh = new Map(layoutGraph(nodes, edges).map((n) => [n.id, n.position] as const));
 
   // First layout (nothing cached yet) — adopt dagre's result wholesale.
   if (cached.size === 0) return fresh;
@@ -68,9 +67,7 @@ export function incrementalLayout(
   // Pure removal / no change: survivors keep their cached spot; fall back to
   // the fresh pass only for anything somehow missing a cached position.
   if (!hasNew) {
-    return new Map(
-      nodes.map((n) => [n.id, cached.get(n.id) ?? fresh.get(n.id) ?? { x: 0, y: 0 }]),
-    );
+    return new Map(nodes.map((n) => [n.id, cached.get(n.id) ?? fresh.get(n.id) ?? { x: 0, y: 0 }]));
   }
 
   // Additions present: anchor the fresh pass to the cached layout using the
@@ -114,10 +111,7 @@ export function topologySignature(nodes: Node[], edges: Edge[]): string {
   return `${nodeKeys}|${edgeKeys}`;
 }
 
-function layoutGraph<TNode extends Node>(
-  nodes: TNode[],
-  edges: Edge[],
-): TNode[] {
+function layoutGraph<TNode extends Node>(nodes: TNode[], edges: Edge[]): TNode[] {
   if (nodes.length === 0) return nodes;
 
   const g = new dagre.graphlib.Graph();

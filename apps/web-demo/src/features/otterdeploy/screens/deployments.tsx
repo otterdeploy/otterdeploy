@@ -1,8 +1,9 @@
 import { useState } from "react";
 
-import { I } from "../icons";
 import type { Deployment } from "../data";
+
 import { StatusBadge } from "../components/status-badge";
+import { I } from "../icons";
 
 export function Deployments({
   deployments,
@@ -94,7 +95,9 @@ function DeployRow({
         <span className="mono" style={{ color: "var(--fg-2)" }}>
           {d.commit}
         </span>
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.msg}</span>
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {d.msg}
+        </span>
       </span>
       <span className="muted" style={{ width: 80, fontSize: 12 }}>
         {d.author}

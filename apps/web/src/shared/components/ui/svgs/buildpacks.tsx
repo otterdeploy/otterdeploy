@@ -9,11 +9,7 @@ import type { SVGProps } from "react";
  * instances render on the same page (default id="a/b/c" would clash).
  */
 const Buildpacks = (props: SVGProps<SVGSVGElement>) => (
-  <svg
-    {...props}
-    viewBox="0 0 300 300"
-    xmlns="http://www.w3.org/2000/svg"
-  >
+  <svg {...props} viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <linearGradient id="bp_a" x1="50%" x2="50%" y1="0%" y2="100%">
         <stop offset="0%" stopColor="#FC72C7" />

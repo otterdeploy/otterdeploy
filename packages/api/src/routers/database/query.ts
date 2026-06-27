@@ -1,3 +1,4 @@
+import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
 /**
  * Data-viewer query engine. Resolves a database resource to its running
  * container and runs SQL there via psql in a read-only session (PGOPTIONS sets
@@ -6,12 +7,11 @@
  * plane. Postgres only for v1.
  */
 import type { OrganizationId, ResourceId } from "@otterdeploy/shared/id";
-import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
-import { Docker } from "@otterdeploy/docker";
-import { and, eq } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
 import { databaseResource, project, resource } from "@otterdeploy/db/schema";
+import { Docker } from "@otterdeploy/docker";
+import { and, eq } from "drizzle-orm";
 
 import { execCapture, findServiceContainerId } from "../../backups/exec";
 import { buildContainerName } from "../project/views";
@@ -124,9 +124,7 @@ async function runQuery(
           `PGPASSWORD=${conn.password}`,
           // Read path: the read-only guard makes any write error at the server,
           // no matter what SQL arrives. Write path drops it (default read-write).
-          ...(opts.readOnly
-            ? ["PGOPTIONS=-c default_transaction_read_only=on"]
-            : []),
+          ...(opts.readOnly ? ["PGOPTIONS=-c default_transaction_read_only=on"] : []),
         ],
         allowNonZero: true,
       },
@@ -197,25 +195,15 @@ export function buildUpdateSql(
   set: ColumnValue[],
   pk: ColumnValue[],
 ): string {
-  const assignments = set
-    .map((s) => `${quoteIdent(s.column)} = ${literal(s.value)}`)
-    .join(", ");
+  const assignments = set.map((s) => `${quoteIdent(s.column)} = ${literal(s.value)}`).join(", ");
   return `WITH __r AS (UPDATE ${qualifiedTable(schema, table)} SET ${assignments} WHERE ${pkPredicate(pk)} RETURNING *) SELECT * FROM __r`;
 }
 
-export function buildDeleteSql(
-  schema: string,
-  table: string,
-  pk: ColumnValue[],
-): string {
+export function buildDeleteSql(schema: string, table: string, pk: ColumnValue[]): string {
   return `WITH __r AS (DELETE FROM ${qualifiedTable(schema, table)} WHERE ${pkPredicate(pk)} RETURNING *) SELECT * FROM __r`;
 }
 
-export function buildInsertSql(
-  schema: string,
-  table: string,
-  set: ColumnValue[],
-): string {
+export function buildInsertSql(schema: string, table: string, set: ColumnValue[]): string {
   const cols = set.map((s) => quoteIdent(s.column)).join(", ");
   const vals = set.map((s) => literal(s.value)).join(", ");
   return `WITH __r AS (INSERT INTO ${qualifiedTable(schema, table)} (${cols}) VALUES (${vals}) RETURNING *) SELECT * FROM __r`;

@@ -4,12 +4,13 @@
   "main": "src/index.ts",
   "scripts": {
     "build": "tsdown",
-    "typecheck": "tsc -b --checkers 4",
     "compile": "bun build --compile --minify --sourcemap --bytecode ./src/index.ts --outfile server",
     "dev": "portless api.otterdeploy --force bun run --env-file ../../.env --hot src/index.ts",
-    "start": "bun run dist/index.js"
+    "start": "bun run dist/index.js",
+    "typecheck": "tsc -b --checkers 4"
   },
   "dependencies": {
+    "@getworkbench/hono": "^0.9.1",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/auto-instrumentations-node": "^0.74.0",
     "@opentelemetry/exporter-metrics-otlp-http": "^0.216.0",
@@ -21,11 +22,10 @@
     "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",
     "@orpc/zod": "catalog:",
-    "@getworkbench/hono": "^0.9.1",
-    "@otterdeploy/docker": "^0.4.0",
     "@otterdeploy/api": "workspace:*",
     "@otterdeploy/auth": "workspace:*",
     "@otterdeploy/db": "workspace:*",
+    "@otterdeploy/docker": "^0.4.0",
     "@otterdeploy/email": "workspace:*",
     "@otterdeploy/env": "workspace:*",
     "@otterdeploy/jobs": "workspace:*",

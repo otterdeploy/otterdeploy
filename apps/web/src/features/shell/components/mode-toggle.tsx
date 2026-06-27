@@ -1,5 +1,5 @@
-import { HugeiconsIcon } from "@hugeicons/react";
 import { Moon02Icon, Sun02Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 
 import { useTheme } from "@/shared/components/theme-provider";
 import { Button } from "@/shared/components/ui/button";

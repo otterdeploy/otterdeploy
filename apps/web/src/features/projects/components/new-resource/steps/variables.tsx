@@ -1,15 +1,18 @@
 import { useEffect, useRef } from "react";
-import { skipToken, useQuery } from "@tanstack/react-query";
-import { useStore } from "@tanstack/react-form";
-import { HugeiconsIcon } from "@hugeicons/react";
+
 import { Alert01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { useStore } from "@tanstack/react-form";
+import { skipToken, useQuery } from "@tanstack/react-query";
 
 import type { ServiceKind } from "@/features/projects/data/service-kinds";
+
 import { orpc } from "@/shared/server/orpc";
+
+import type { Var } from "../form-fields/variables-field";
 
 import { useFormContext } from "../form-context";
 import { SectionHeader } from "../form-primitives";
-import type { Var } from "../form-fields/variables-field";
 
 interface StepVariablesProps {
   kind: ServiceKind | null;
@@ -55,17 +58,14 @@ export function StepVariables({ projectId }: StepVariablesProps) {
         sub="Add key/value pairs — toggle the lock to mark a value as secret. Type ${{ to reference another resource's variables (e.g. a database URL)."
       />
 
-      {env.data?.committedEnv && (
-        <CommittedEnvBanner file={env.data.committedEnv} />
-      )}
+      {env.data?.committedEnv && <CommittedEnvBanner file={env.data.committedEnv} />}
 
       {env.data?.templateFile && (keys?.length ?? 0) > 0 && (
         <div className="mb-2 rounded-md border border-info/30 bg-info/5 px-3 py-2 text-[12px] text-muted-foreground">
-          Pre-filled{" "}
-          <span className="font-medium text-foreground">{keys?.length}</span>{" "}
-          key{keys?.length === 1 ? "" : "s"} from{" "}
-          <span className="font-mono">{env.data.templateFile}</span> — add the
-          values. Secret-looking keys are locked by default.
+          Pre-filled <span className="font-medium text-foreground">{keys?.length}</span> key
+          {keys?.length === 1 ? "" : "s"} from{" "}
+          <span className="font-mono">{env.data.templateFile}</span> — add the values.
+          Secret-looking keys are locked by default.
         </div>
       )}
 
@@ -90,14 +90,12 @@ function CommittedEnvBanner({ file }: { file: string }) {
       />
       <div className="min-w-0">
         <div className="font-semibold text-destructive">
-          Security risk: <span className="font-mono">{file}</span> is committed
-          to the repo
+          Security risk: <span className="font-mono">{file}</span> is committed to the repo
         </div>
         <p className="mt-0.5 text-muted-foreground">
-          A real env file is checked into git — anyone with repo access (and the
-          full history) can read its secrets. Remove it with{" "}
-          <span className="font-mono">git rm --cached {file}</span>, add it to{" "}
-          <span className="font-mono">.gitignore</span>, and rotate any exposed
+          A real env file is checked into git — anyone with repo access (and the full history) can
+          read its secrets. Remove it with <span className="font-mono">git rm --cached {file}</span>
+          , add it to <span className="font-mono">.gitignore</span>, and rotate any exposed
           credentials. Don't paste those values here as-is.
         </p>
       </div>

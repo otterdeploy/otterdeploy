@@ -1,6 +1,10 @@
-
 import type { ProjectSlug } from "@otterdeploy/shared/id";
+
 import { useState } from "react";
+
+import { Add01Icon, ArrowDown01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { eq, useLiveQuery } from "@tanstack/react-db";
 import {
   Link,
   useLoaderData,
@@ -9,13 +13,6 @@ import {
   useRouteContext,
   useSearch,
 } from "@tanstack/react-router";
-import { eq, useLiveQuery } from "@tanstack/react-db";
-import { HugeiconsIcon } from "@hugeicons/react";
-import {
-  Add01Icon,
-  ArrowDown01Icon,
-  Tick02Icon,
-} from "@hugeicons/core-free-icons";
 
 import { envCollection } from "@/features/projects/data/env";
 import { projectCollection } from "@/features/projects/data/project";
@@ -28,24 +25,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
-import { orpc, queryClient } from "@/shared/server/orpc";
 import { cn } from "@/shared/lib/utils";
+import { orpc, queryClient } from "@/shared/server/orpc";
 
 function Separator() {
   return (
-    <span aria-hidden className="select-none px-1 text-base text-muted-foreground/40">
+    <span aria-hidden className="px-1 text-base text-muted-foreground/40 select-none">
       /
     </span>
   );
 }
 
-function CrumbTrigger({
-  label,
-  className,
-}: {
-  label: string;
-  className?: string;
-}) {
+function CrumbTrigger({ label, className }: { label: string; className?: string }) {
   return (
     <DropdownMenuTrigger
       className={cn(
@@ -85,10 +76,7 @@ export function HeaderNav() {
   const navigate = useNavigate();
 
   return (
-    <nav
-      aria-label="Workspace"
-      className="hidden items-center gap-0.5 md:flex"
-    >
+    <nav aria-label="Workspace" className="hidden items-center gap-0.5 md:flex">
       <OrgPicker
         orgs={organizations}
         activeOrgId={organization.id}
@@ -150,11 +138,7 @@ function OrgPicker({
       <CrumbTrigger label={activeOrgName} />
       <DropdownMenuContent align="start" className="min-w-56">
         {orgs.map((org) => (
-          <DropdownMenuItem
-            key={org.id}
-            onClick={() => onSelect(org)}
-            className="gap-2"
-          >
+          <DropdownMenuItem key={org.id} onClick={() => onSelect(org)} className="gap-2">
             <span className="truncate">{org.name}</span>
             <ActiveCheck active={org.id === activeOrgId} />
           </DropdownMenuItem>
@@ -173,19 +157,14 @@ function ProjectPicker({
   activeProjectId: string;
   activeProjectName: string;
 }) {
-  const { data: projects } = useLiveQuery(
-    (q) => q.from({ p: projectCollection }),
-    [],
-  );
+  const { data: projects } = useLiveQuery((q) => q.from({ p: projectCollection }), []);
 
   return (
     <DropdownMenu>
       <CrumbTrigger label={activeProjectName} />
       <DropdownMenuContent align="start" className="min-w-56">
         {projects.length === 0 ? (
-          <div className="px-2 py-1 text-xs text-muted-foreground">
-            No projects
-          </div>
+          <div className="px-2 py-1 text-xs text-muted-foreground">No projects</div>
         ) : (
           projects.map((p) => (
             <DropdownMenuItem
@@ -221,8 +200,7 @@ function EnvPicker({ projectId }: { projectId: string }) {
     [projectId],
   );
 
-  const defaultEnv =
-    environments.find((e) => e.slug === "production") ?? environments[0];
+  const defaultEnv = environments.find((e) => e.slug === "production") ?? environments[0];
   const currentSlug = env ?? defaultEnv?.slug;
   const current = environments.find((e) => e.slug === currentSlug) ?? defaultEnv;
 

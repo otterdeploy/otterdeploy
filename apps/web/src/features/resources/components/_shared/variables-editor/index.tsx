@@ -3,6 +3,7 @@
 // line .env paste = one deployment, not twelve.
 
 import { useEffect, useRef, useState } from "react";
+
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -33,17 +34,10 @@ interface VariablesEditorProps {
   // A pending-create resource has no resourceId yet, so it passes a handler
   // that stages the env onto its manifest entry instead. Secret keys are
   // forwarded but the manifest path ignores them (manifest env is plaintext).
-  onSave?: (
-    env: Array<{ key: string; value: string }>,
-    secretKeys: string[],
-  ) => Promise<void>;
+  onSave?: (env: Array<{ key: string; value: string }>, secretKeys: string[]) => Promise<void>;
 }
 
-export function VariablesEditor({
-  resource,
-  addRowSignal = 0,
-  onSave,
-}: VariablesEditorProps) {
+export function VariablesEditor({ resource, addRowSignal = 0, onSave }: VariablesEditorProps) {
   const [bulkOpen, setBulkOpen] = useState(false);
 
   // Tolerate undefined here — the resource list cache predates the

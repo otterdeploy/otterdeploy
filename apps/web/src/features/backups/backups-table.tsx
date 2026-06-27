@@ -5,6 +5,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { cn } from "@/shared/lib/utils";
 
 import type { Backup } from "./data/backups";
+
 import { BACKUP_COLS, BackupRow } from "./backup-row";
 import { fmtBytes } from "./shared";
 
@@ -17,16 +18,13 @@ export function BackupsTable({
   total: number;
   onRestore: (b: Backup) => void;
 }) {
-  const inViewBytes = backups.reduce(
-    (acc, b) => acc + (b.compressedSizeBytes ?? 0),
-    0,
-  );
+  const inViewBytes = backups.reduce((acc, b) => acc + (b.compressedSizeBytes ?? 0), 0);
 
   return (
     <div className="mb-8 overflow-hidden rounded-md border bg-card">
       <div
         className={cn(
-          "grid items-center gap-2 border-b bg-muted/30 px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground",
+          "grid items-center gap-2 border-b bg-muted/30 px-3 py-2 font-mono text-[10px] tracking-wider text-muted-foreground uppercase",
           BACKUP_COLS,
         )}
       >
@@ -48,9 +46,7 @@ export function BackupsTable({
             : "No backups match these filters."}
         </div>
       ) : (
-        backups.map((b) => (
-          <BackupRow key={b.id} backup={b} onRestore={onRestore} />
-        ))
+        backups.map((b) => <BackupRow key={b.id} backup={b} onRestore={onRestore} />)
       )}
 
       <div className="flex items-center gap-1.5 border-t bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">

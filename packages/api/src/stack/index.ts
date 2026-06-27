@@ -24,9 +24,4 @@ export {
   type StackVolumeMount,
 } from "./schema";
 
-export {
-  applyEngineDefaults,
-  renderProjectFromRows,
-  toComposeYaml,
-  unifiedDiff,
-} from "./render";
+export { applyEngineDefaults, renderProjectFromRows, toComposeYaml, unifiedDiff } from "./render";

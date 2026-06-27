@@ -11,9 +11,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useHotkey } from "@tanstack/react-hotkeys";
-import { format as formatSql } from "sql-formatter";
-import { HugeiconsIcon } from "@hugeicons/react";
+
 import {
   Database01Icon,
   Table01Icon,
@@ -27,14 +25,15 @@ import {
   ArrowDown01Icon,
   SourceCodeIcon,
 } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { useHotkey } from "@tanstack/react-hotkeys";
+import { toast } from "sonner";
+import { format as formatSql } from "sql-formatter";
+
+import type { FkTarget } from "@/shared/components/data-grid/types";
 
 import { Button } from "@/shared/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/shared/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,6 +41,7 @@ import {
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
 import { Input } from "@/shared/components/ui/input";
+import { Kbd } from "@/shared/components/ui/kbd";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -55,23 +55,18 @@ import {
   SelectValue,
 } from "@/shared/components/ui/select";
 import { Separator } from "@/shared/components/ui/separator";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/shared/components/ui/tooltip";
-import { Kbd } from "@/shared/components/ui/kbd";
+import { Switch } from "@/shared/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/components/ui/tooltip";
 import { cn } from "@/shared/lib/utils";
 
 import type { PostgresBodyProps } from "../../types";
-import type { FkTarget } from "@/shared/components/data-grid/types";
-
 import type { ColumnValue } from "./components/dice-grid";
+
+import { DataSpotlight } from "./components/data-spotlight";
 import { FilterPopover } from "./components/filter-popover";
 import { ResultsPanel, type ResultView } from "./components/results-panel";
 import { SchemaExplorer } from "./components/schema-explorer";
 import { SnippetTree } from "./components/snippet-tree";
-import { DataSpotlight } from "./components/data-spotlight";
 import { SqlEditor, type SqlEditorHandle } from "./components/sql-editor";
 import { buildWhere, type Filter, isFilterActive, newFilter } from "./data/filters";
 import { browseRowsSql, SQL_RESULT_CAP, type TableRef } from "./data/queries";
@@ -84,8 +79,6 @@ import {
   useTableColumnMeta,
   useTablePrimaryKey,
 } from "./data/use-database";
-import { toast } from "sonner";
-import { Switch } from "@/shared/components/ui/switch";
 import { PLAYGROUND_ID, useSqlSnippets } from "./data/use-sql-snippets";
 
 interface DataTabBodyProps {
@@ -96,24 +89,14 @@ const PAGE_SIZES = [50, 100, 200, 500];
 
 export function DataTabBody({ resource }: DataTabBodyProps) {
   const [expanded, setExpanded] = useState(false);
-  const canWrite =
-    useDataCapabilities(String(resource.resourceId)).data?.canWrite ?? false;
+  const canWrite = useDataCapabilities(String(resource.resourceId)).data?.canWrite ?? false;
 
   return (
     <div className="flex min-h-0 flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
         <DbIdentity resource={resource} canWrite={canWrite} />
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1.5"
-          onClick={() => setExpanded(true)}
-        >
-          <HugeiconsIcon
-            icon={SquareArrowExpand01Icon}
-            strokeWidth={2}
-            className="size-3.5"
-          />
+        <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setExpanded(true)}>
+          <HugeiconsIcon icon={SquareArrowExpand01Icon} strokeWidth={2} className="size-3.5" />
           Open editor
         </Button>
       </div>
@@ -126,18 +109,14 @@ export function DataTabBody({ resource }: DataTabBodyProps) {
       />
 
       <Dialog open={expanded} onOpenChange={setExpanded}>
-        <DialogContent className="left-0 top-0 flex h-screen w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 sm:max-w-none">
+        <DialogContent className="top-0 left-0 flex h-screen w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 sm:max-w-none">
           <DialogHeader className="border-b px-4 py-3">
             <DialogTitle className="flex items-center gap-2 text-sm">
               <DbIdentity resource={resource} canWrite={canWrite} />
             </DialogTitle>
           </DialogHeader>
           <div className="min-h-0 flex-1 p-4">
-            <DataStudio
-              resource={resource}
-              boxClassName="min-h-0 h-full"
-              shortcuts={expanded}
-            />
+            <DataStudio resource={resource} boxClassName="min-h-0 h-full" shortcuts={expanded} />
           </div>
         </DialogContent>
       </Dialog>
@@ -214,16 +193,13 @@ function DataStudio({
   // Resolve the editor buffer from the active snippet; fall back to Playground
   // if the snippet was deleted out from under us.
   const activeSnippet =
-    activeSnippetId === PLAYGROUND_ID
-      ? null
-      : snippets.find((s) => s.id === activeSnippetId);
+    activeSnippetId === PLAYGROUND_ID ? null : snippets.find((s) => s.id === activeSnippetId);
   useEffect(() => {
     if (activeSnippetId !== PLAYGROUND_ID && !activeSnippet) {
       setActiveSnippetId(PLAYGROUND_ID);
     }
   }, [activeSnippetId, activeSnippet]);
-  const editorValue =
-    activeSnippetId === PLAYGROUND_ID ? playground : (activeSnippet?.sql ?? "");
+  const editorValue = activeSnippetId === PLAYGROUND_ID ? playground : (activeSnippet?.sql ?? "");
 
   const onEditorChange = (v: string) => {
     if (activeSnippetId === PLAYGROUND_ID) setPlayground(v);
@@ -236,15 +212,11 @@ function DataStudio({
   const filteredTables = useMemo(() => {
     const q = tableSearch.trim().toLowerCase();
     if (!q) return tables;
-    return tables.filter((t) =>
-      `${t.schema}.${t.name}`.toLowerCase().includes(q),
-    );
+    return tables.filter((t) => `${t.schema}.${t.name}`.toLowerCase().includes(q));
   }, [tableSearch]);
 
   const where = buildWhere(filters);
-  const tableSql = selected
-    ? browseRowsSql(selected, where, pageSize + 1, page * pageSize)
-    : "";
+  const tableSql = selected ? browseRowsSql(selected, where, pageSize + 1, page * pageSize) : "";
   const activeSql = mode === "table" ? tableSql : (ranSql ?? "");
 
   const rowsQuery = useQueryRows({
@@ -317,9 +289,7 @@ function DataStudio({
 
   // Jump to a referenced table, pre-filtered to the row (from a FK popover).
   function openRefTable(fk: FkTarget, value: string) {
-    const target = tables.find(
-      (t) => t.schema === fk.schema && t.name === fk.table,
-    );
+    const target = tables.find((t) => t.schema === fk.schema && t.name === fk.table);
     if (!target) return;
     setSelected(target);
     setMode("table");
@@ -365,8 +335,7 @@ function DataStudio({
             void tablesQuery.refetch();
             void rowsQuery.refetch();
           },
-          onError: (err) =>
-            toast.error(err instanceof Error ? err.message : "Statement failed"),
+          onError: (err) => toast.error(err instanceof Error ? err.message : "Statement failed"),
         },
       );
       return;
@@ -491,21 +460,12 @@ function DataStudio({
                   size="sm"
                   className="h-6 gap-1.5"
                 >
-                  <HugeiconsIcon
-                    icon={FilterIcon}
-                    strokeWidth={2}
-                    className="size-3.5"
-                  />
+                  <HugeiconsIcon icon={FilterIcon} strokeWidth={2} className="size-3.5" />
                   Filters{activeFilterCount ? ` · ${activeFilterCount}` : ""}
                 </Button>
               }
             />
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6"
-              onClick={openInSql}
-            >
+            <Button variant="ghost" size="sm" className="h-6" onClick={openInSql}>
               Open in SQL
             </Button>
           </>
@@ -577,9 +537,7 @@ function DataStudio({
   const tableList = tablesQuery.isLoading ? (
     <SidebarSkeleton />
   ) : tablesQuery.isError ? (
-    <p className="px-1.5 py-1 text-[12px] text-muted-foreground">
-      {errMessage(tablesQuery.error)}
-    </p>
+    <p className="px-1.5 py-1 text-[12px] text-muted-foreground">{errMessage(tablesQuery.error)}</p>
   ) : filteredTables.length === 0 ? (
     <p className="px-1.5 py-1 text-[12px] text-muted-foreground">
       {tables.length ? "No matches." : "No tables yet."}
@@ -587,8 +545,7 @@ function DataStudio({
   ) : (
     <div className="flex flex-col gap-0.5">
       {filteredTables.map((tbl) => {
-        const active =
-          selected?.schema === tbl.schema && selected?.name === tbl.name;
+        const active = selected?.schema === tbl.schema && selected?.name === tbl.name;
         return (
           <button
             key={`${tbl.schema}.${tbl.name}`}
@@ -601,11 +558,7 @@ function DataStudio({
                 : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
             )}
           >
-            <HugeiconsIcon
-              icon={Table01Icon}
-              strokeWidth={2}
-              className="size-3.5 shrink-0"
-            />
+            <HugeiconsIcon icon={Table01Icon} strokeWidth={2} className="size-3.5 shrink-0" />
             <span className="truncate" title={`${tbl.schema}.${tbl.name}`}>
               {tbl.schema === "public" ? tbl.name : `${tbl.schema}.${tbl.name}`}
             </span>
@@ -616,12 +569,7 @@ function DataStudio({
   );
 
   return (
-    <div
-      className={cn(
-        "flex overflow-hidden rounded-lg border bg-card",
-        boxClassName,
-      )}
-    >
+    <div className={cn("flex overflow-hidden rounded-lg border bg-card", boxClassName)}>
       {mode === "table" ? (
         /* ── Table browser — the primary view ─────────────────────────── */
         <div className="flex h-full min-h-0 w-full">
@@ -632,7 +580,7 @@ function DataStudio({
                 <HugeiconsIcon
                   icon={Search01Icon}
                   strokeWidth={2}
-                  className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+                  className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground"
                 />
                 <Input
                   value={tableSearch}
@@ -655,7 +603,7 @@ function DataStudio({
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
-              <div className="px-1.5 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+              <div className="px-1.5 pb-1.5 text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
                 Tables {tables.length ? `· ${tables.length}` : ""}
               </div>
               {tableList}
@@ -705,15 +653,9 @@ function DataStudio({
                       disabled={rowsQuery.isFetching || editorEmpty}
                       onClick={() => editorRef.current?.runCurrent()}
                     >
-                      <HugeiconsIcon
-                        icon={PlayIcon}
-                        strokeWidth={2}
-                        className="size-3.5"
-                      />
+                      <HugeiconsIcon icon={PlayIcon} strokeWidth={2} className="size-3.5" />
                       Run
-                      <span className="ml-1 hidden text-[10px] opacity-70 sm:inline">
-                        ⌘↵
-                      </span>
+                      <span className="ml-1 hidden text-[10px] opacity-70 sm:inline">⌘↵</span>
                     </Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger
@@ -733,19 +675,13 @@ function DataStudio({
                         />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="start">
-                        <DropdownMenuItem
-                          onSelect={() => editorRef.current?.runCurrent()}
-                        >
+                        <DropdownMenuItem onSelect={() => editorRef.current?.runCurrent()}>
                           Run current statement
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onSelect={() => editorRef.current?.runSelection()}
-                        >
+                        <DropdownMenuItem onSelect={() => editorRef.current?.runSelection()}>
                           Run selection
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onSelect={() => editorRef.current?.runAll()}
-                        >
+                        <DropdownMenuItem onSelect={() => editorRef.current?.runAll()}>
                           Run all statements
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -759,11 +695,7 @@ function DataStudio({
                     disabled={editorEmpty}
                     onClick={prettify}
                   >
-                    <HugeiconsIcon
-                      icon={MagicWand01Icon}
-                      strokeWidth={2}
-                      className="size-3.5"
-                    />
+                    <HugeiconsIcon icon={MagicWand01Icon} strokeWidth={2} className="size-3.5" />
                     Prettify
                   </Button>
                   {canWrite ? (
@@ -783,17 +715,14 @@ function DataStudio({
                           />
                           <span
                             className={
-                              writeMode
-                                ? "font-medium text-amber-500"
-                                : "text-muted-foreground"
+                              writeMode ? "font-medium text-amber-500" : "text-muted-foreground"
                             }
                           >
                             {executeSql.isPending ? "Running…" : "Write"}
                           </span>
                         </TooltipTrigger>
                         <TooltipContent>
-                          Run arbitrary DML/DDL (audited) instead of a read-only
-                          query.
+                          Run arbitrary DML/DDL (audited) instead of a read-only query.
                         </TooltipContent>
                       </Tooltip>
                     </>
@@ -831,21 +760,14 @@ function DataStudio({
                     className="gap-1.5"
                     onClick={() => setShowRight((v) => !v)}
                   >
-                    <HugeiconsIcon
-                      icon={SidebarRight01Icon}
-                      strokeWidth={2}
-                      className="size-3.5"
-                    />
+                    <HugeiconsIcon icon={SidebarRight01Icon} strokeWidth={2} className="size-3.5" />
                     Columns
                   </Button>
                 </div>
               </div>
 
               {/* Editor over results — this whole layout is the SQL playground. */}
-              <ResizablePanelGroup
-                orientation="vertical"
-                className="min-h-0 flex-1"
-              >
+              <ResizablePanelGroup orientation="vertical" className="min-h-0 flex-1">
                 <ResizablePanel id="editor" defaultSize={42} minSize={15}>
                   <div className="h-full min-h-0 overflow-hidden">
                     <SqlEditor
@@ -876,7 +798,7 @@ function DataStudio({
                       <HugeiconsIcon
                         icon={Search01Icon}
                         strokeWidth={2}
-                        className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+                        className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground"
                       />
                       <Input
                         value={tableSearch}
@@ -887,7 +809,7 @@ function DataStudio({
                     </div>
                   </div>
                   <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
-                    <div className="px-1.5 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+                    <div className="px-1.5 pb-1.5 text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
                       Tables {tables.length ? `· ${tables.length}` : ""}
                     </div>
                     <SchemaExplorer

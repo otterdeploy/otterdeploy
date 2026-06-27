@@ -44,31 +44,34 @@
   },
   "type": "module",
   "scripts": {
-    "infra": "docker compose up -d  --remove-orphans",
-    "proxy": "sudo portless proxy start --https --lan -p 443",
-    "dev": "turbo dev --filter=!builder",
     "build": "turbo build",
-    "typecheck": "turbo typecheck --concurrency=4 --filter=!web-demo",
-    "test": "turbo test --filter=!web-demo",
-    "dev:native": "turbo -F native dev",
-    "dev:web": "turbo -F web dev",
-    "dev:www": "turbo -F www dev",
-    "dev:server": "turbo -F server dev",
-    "db:push": "turbo -F @otterdeploy/db db:push",
-    "db:studio": "turbo -F @otterdeploy/db db:studio",
+    "db:down": "turbo -F @otterdeploy/db db:down",
     "db:generate": "turbo -F @otterdeploy/db db:generate",
     "db:migrate": "turbo -F @otterdeploy/db db:migrate",
+    "db:push": "turbo -F @otterdeploy/db db:push",
     "db:start": "turbo -F @otterdeploy/db db:start",
-    "db:watch": "turbo -F @otterdeploy/db db:watch",
     "db:stop": "turbo -F @otterdeploy/db db:stop",
-    "db:down": "turbo -F @otterdeploy/db db:down",
+    "db:studio": "turbo -F @otterdeploy/db db:studio",
+    "db:watch": "turbo -F @otterdeploy/db db:watch",
+    "dev": "turbo dev --filter=!builder",
+    "dev:native": "turbo -F native dev",
+    "dev:server": "turbo -F server dev",
+    "dev:web": "turbo -F web dev",
+    "dev:www": "turbo -F www dev",
     "format": "oxfmt --write",
-    "lint": "oxlint --type-aware --threads=4 --fix"
+    "infra": "docker compose up -d  --remove-orphans",
+    "lint": "oxlint --type-aware --threads=4 --fix",
+    "proxy": "sudo portless proxy start --https --lan -p 443",
+    "test": "turbo test --filter=!web-demo",
+    "typecheck": "turbo typecheck --concurrency=4 --filter=!web-demo"
   },
   "dependencies": {
     "@otterdeploy/env": "workspace:*",
-    "zod": "catalog:",
-    "portless": "^0.14.0"
+    "@tanstack/eslint-plugin-query": "^5.101.1",
+    "@tanstack/eslint-plugin-router": "^1.162.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "portless": "^0.14.0",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@otterdeploy/config": "workspace:*",
@@ -77,7 +80,8 @@
     "oxlint": "^1.62.0",
     "oxlint-tsgolint": "^0.23.0",
     "turbo": "^2.9.14",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vite-plus": "0.2.1"
   },
   "overrides": {
     "hono": "^4.12.16"

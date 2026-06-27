@@ -6,13 +6,12 @@
  */
 
 import { useState } from "react";
-import {
-  CheckmarkCircle02Icon,
-  RefreshIcon,
-} from "@hugeicons/core-free-icons";
+
+import { CheckmarkCircle02Icon, RefreshIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useQuery } from "@tanstack/react-query";
 
+import { Button } from "@/shared/components/ui/button";
 import {
   Empty,
   EmptyDescription,
@@ -20,7 +19,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/shared/components/ui/empty";
-import { Button } from "@/shared/components/ui/button";
 import { ErrorState } from "@/shared/components/ui/error-state";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import {
@@ -78,8 +76,8 @@ export function CertificatesTab({ projectId }: { projectId: string }) {
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-3">
         <p className="text-[13px] text-muted-foreground">
-          The certificate Caddy is currently serving for each public domain,
-          probed live at the edge.
+          The certificate Caddy is currently serving for each public domain, probed live at the
+          edge.
         </p>
         <div className="flex-1" />
         {data ? (
@@ -123,8 +121,8 @@ export function CertificatesTab({ projectId }: { projectId: string }) {
             </EmptyMedia>
             <EmptyTitle>No certificates yet</EmptyTitle>
             <EmptyDescription>
-              Publish a domain to a service and Caddy will issue a certificate —
-              it'll show up here once it's serving.
+              Publish a domain to a service and Caddy will issue a certificate — it'll show up here
+              once it's serving.
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -137,7 +135,7 @@ export function CertificatesTab({ projectId }: { projectId: string }) {
                 {["Domain", "Status", "Issuer", "Expires"].map((h) => (
                   <TableHead
                     key={h}
-                    className="h-9 text-[10px] font-semibold uppercase tracking-[0.06em]"
+                    className="h-9 text-[10px] font-semibold tracking-[0.06em] uppercase"
                   >
                     {h}
                   </TableHead>
@@ -150,9 +148,7 @@ export function CertificatesTab({ projectId }: { projectId: string }) {
                   key={c.domain}
                   cert={c}
                   open={expanded === c.domain}
-                  onToggle={() =>
-                    setExpanded(expanded === c.domain ? null : c.domain)
-                  }
+                  onToggle={() => setExpanded(expanded === c.domain ? null : c.domain)}
                 />
               ))}
             </TableBody>
@@ -187,7 +183,7 @@ function CertRow({
           </span>
         </TableCell>
         <TableCell className="text-muted-foreground">{cert.issuer ?? "—"}</TableCell>
-        <TableCell className="whitespace-nowrap font-mono text-[12px] text-muted-foreground">
+        <TableCell className="font-mono text-[12px] whitespace-nowrap text-muted-foreground">
           {expiryLabel(cert)}
         </TableCell>
       </TableRow>
@@ -200,7 +196,10 @@ function CertRow({
               ) : (
                 <>
                   <Detail k="subject" v={cert.subject ?? "—"} />
-                  <Detail k="valid from" v={cert.notBefore ? new Date(cert.notBefore).toLocaleString() : "—"} />
+                  <Detail
+                    k="valid from"
+                    v={cert.notBefore ? new Date(cert.notBefore).toLocaleString() : "—"}
+                  />
                   <Detail k="self-signed" v={cert.selfSigned ? "yes" : "no"} />
                   <Detail k="serial" v={cert.serial ?? "—"} />
                   <Detail k="fingerprint" v={cert.fingerprint ?? "—"} wide />

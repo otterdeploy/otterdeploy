@@ -27,10 +27,7 @@ export async function markBuilding(deploymentId: DeploymentId): Promise<void> {
     .where(eq(deployment.id, deploymentId));
 }
 
-export async function markFailed(
-  deploymentId: DeploymentId,
-  errorMessage: string,
-): Promise<void> {
+export async function markFailed(deploymentId: DeploymentId, errorMessage: string): Promise<void> {
   await db
     .update(deployment)
     .set({
@@ -46,10 +43,7 @@ export async function markFailed(
  * yet. We update the row's `image` column so the next deploy step
  * knows which tag to launch.
  */
-export async function markImageReady(
-  deploymentId: DeploymentId,
-  image: string,
-): Promise<void> {
+export async function markImageReady(deploymentId: DeploymentId, image: string): Promise<void> {
   await db
     .update(deployment)
     .set({ image, errorMessage: null })

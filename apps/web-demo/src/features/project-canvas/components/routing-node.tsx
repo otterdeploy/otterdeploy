@@ -1,6 +1,8 @@
 import { type NodeProps } from "@xyflow/react";
 import { Share2Icon } from "lucide-react";
+
 import { cn } from "@/lib/utils";
+
 import type { RoutingNode as RoutingNodeType } from "../types";
 
 export function RoutingNode({ data, selected }: NodeProps<RoutingNodeType>) {
@@ -29,13 +31,15 @@ export function RoutingNode({ data, selected }: NodeProps<RoutingNodeType>) {
               className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground/80"
             >
               <span className="truncate">{d.domain}</span>
-              <span className="rounded bg-muted px-1 py-px text-[9px] uppercase tracking-wide text-muted-foreground/70">
+              <span className="rounded bg-muted px-1 py-px text-[9px] tracking-wide text-muted-foreground/70 uppercase">
                 {d.type}
               </span>
             </li>
           ))}
           {data.domains.length > 4 ? (
-            <li className="text-[10px] text-muted-foreground/60">+{data.domains.length - 4} more</li>
+            <li className="text-[10px] text-muted-foreground/60">
+              +{data.domains.length - 4} more
+            </li>
           ) : null}
         </ul>
       )}

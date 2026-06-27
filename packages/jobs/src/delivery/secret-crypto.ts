@@ -53,11 +53,9 @@ export async function encryptSecret(plaintext: string): Promise<string> {
     key,
     new TextEncoder().encode(plaintext),
   );
-  return [
-    FORMAT_VERSION,
-    base64UrlEncode(nonce),
-    base64UrlEncode(new Uint8Array(ciphertext)),
-  ].join(".");
+  return [FORMAT_VERSION, base64UrlEncode(nonce), base64UrlEncode(new Uint8Array(ciphertext))].join(
+    ".",
+  );
 }
 
 export async function decryptSecret(blob: string): Promise<string> {

@@ -6,6 +6,7 @@
  */
 
 import { useState } from "react";
+
 import {
   Alert02Icon,
   Copy01Icon,
@@ -23,8 +24,6 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import type { SshKey } from "./data/ssh-keys";
-import { timeAgo } from "./data/ssh-keys";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,6 +40,10 @@ import { Button } from "@/shared/components/ui/button";
 import { cn } from "@/shared/lib/utils";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
+import type { SshKey } from "./data/ssh-keys";
+
+import { timeAgo } from "./data/ssh-keys";
+
 const USAGE_ICON = {
   git: GitBranchIcon,
   node: ServerStack01Icon,
@@ -52,13 +55,7 @@ function truncateFingerprint(fp: string): string {
   return `${fp.slice(0, 14)}…${fp.slice(-10)}`;
 }
 
-export function KeyCard({
-  sshKey,
-  canManage,
-}: {
-  sshKey: SshKey;
-  canManage: boolean;
-}) {
+export function KeyCard({ sshKey, canManage }: { sshKey: SshKey; canManage: boolean }) {
   const [copied, setCopied] = useState(false);
   const [revealed, setRevealed] = useState(false);
 
@@ -71,8 +68,7 @@ export function KeyCard({
         void invalidate();
         toast.success("SSH key rotated");
       },
-      onError: (err) =>
-        toast.error(err instanceof Error ? err.message : "Failed to rotate key"),
+      onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to rotate key"),
     }),
   );
 
@@ -82,8 +78,7 @@ export function KeyCard({
         void invalidate();
         toast.success("SSH key deleted");
       },
-      onError: (err) =>
-        toast.error(err instanceof Error ? err.message : "Failed to delete key"),
+      onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to delete key"),
     }),
   );
 
@@ -107,7 +102,7 @@ export function KeyCard({
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-medium text-sm">{sshKey.name}</span>
+            <span className="text-sm font-medium">{sshKey.name}</span>
             <Badge variant="outline" className="font-mono text-[11px]">
               {sshKey.type}
               {sshKey.bits ? `-${sshKey.bits}` : ""}
@@ -122,11 +117,7 @@ export function KeyCard({
                 variant="outline"
                 className="gap-1 text-[11px] text-amber-600 dark:text-amber-500"
               >
-                <HugeiconsIcon
-                  icon={Alert02Icon}
-                  strokeWidth={2}
-                  className="size-3"
-                />
+                <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} className="size-3" />
                 consider ed25519
               </Badge>
             )}
@@ -153,7 +144,7 @@ export function KeyCard({
       </div>
 
       <div>
-        <div className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+        <div className="mb-1.5 text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
           Used by
         </div>
         {sshKey.usedBy.length === 0 ? (
@@ -180,7 +171,7 @@ export function KeyCard({
       {revealed && (
         <div className="rounded-md border bg-muted/30 p-2.5">
           <div className="flex items-start justify-between gap-2">
-            <code className="break-all font-mono text-[11px] leading-relaxed text-muted-foreground">
+            <code className="font-mono text-[11px] leading-relaxed break-all text-muted-foreground">
               {sshKey.publicKey}
             </code>
             <Button
@@ -262,8 +253,8 @@ function RotateButton({
         <AlertDialogHeader>
           <AlertDialogTitle>Rotate “{name}”?</AlertDialogTitle>
           <AlertDialogDescription>
-            A new keypair replaces this one. The old public key stops working
-            immediately — re-add the new public key wherever this key is used.
+            A new keypair replaces this one. The old public key stops working immediately — re-add
+            the new public key wherever this key is used.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -315,8 +306,7 @@ function DeleteButton({
         <AlertDialogHeader>
           <AlertDialogTitle>Delete “{name}”?</AlertDialogTitle>
           <AlertDialogDescription>
-            Anything authenticating with this key will lose access. This can't be
-            undone.
+            Anything authenticating with this key will lose access. This can't be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

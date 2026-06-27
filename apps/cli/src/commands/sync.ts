@@ -61,10 +61,10 @@ export const syncCommand = defineCommand({
       const counts = countByKind(diff.changes);
       if ((counts.delete ?? 0) > 0) {
         printDiff(diff.changes);
-        const ok = await consola.prompt(
-          `${counts.delete} resource(s) will be deleted. Continue?`,
-          { type: "confirm", initial: false },
-        );
+        const ok = await consola.prompt(`${counts.delete} resource(s) will be deleted. Continue?`, {
+          type: "confirm",
+          initial: false,
+        });
         if (!ok) {
           consola.info("Aborted.");
           process.exit(1);

@@ -5,14 +5,12 @@
 
 import { db } from "@otterdeploy/db";
 import { gitInstallation, gitRepo } from "@otterdeploy/db/schema";
-import { log } from "evlog";
 import { and, eq, inArray } from "drizzle-orm";
+import { log } from "evlog";
+
+import type { GithubWebhookResult, InstallationReposEvent } from "./types";
 
 import { syncRepos } from "./repos";
-import type {
-  GithubWebhookResult,
-  InstallationReposEvent,
-} from "./types";
 
 export async function handleInstallationRepos(
   ev: InstallationReposEvent,
@@ -46,9 +44,7 @@ export async function handleInstallationRepos(
   }
 
   if (ev.repositories_removed?.length) {
-    const providerRepoIds = ev.repositories_removed.map((r) =>
-      String(r.node_id ?? r.id),
-    );
+    const providerRepoIds = ev.repositories_removed.map((r) => String(r.node_id ?? r.id));
     const updated = await db
       .update(gitRepo)
       .set({ installationId: null })

@@ -29,8 +29,8 @@ export function DomainSection(props: DomainSectionProps) {
       <header className="mb-3">
         <h2 className="text-[14px] font-semibold">Domain</h2>
         <p className="text-[12.5px] text-muted-foreground">
-          Where this project's services land. Leave blank to fall back to
-          the organization's default domain.
+          Where this project's services land. Leave blank to fall back to the organization's default
+          domain.
         </p>
       </header>
 

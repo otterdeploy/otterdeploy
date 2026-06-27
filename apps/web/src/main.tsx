@@ -1,12 +1,14 @@
+import ReactDOM from "react-dom/client";
+
 import { i18n } from "@otterdeploy/i18n/web";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
-import ReactDOM from "react-dom/client";
 import { I18nextProvider } from "react-i18next";
+
 import { routeTree } from "./route-tree.gen";
-import { orpc, queryClient } from "./shared/server/orpc";
 import { NotFound } from "./shared/features/errors/not-found";
 import { ServerError } from "./shared/features/errors/server-error";
+import { orpc, queryClient } from "./shared/server/orpc";
 
 const router = createRouter({
   routeTree,

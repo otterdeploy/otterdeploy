@@ -16,14 +16,12 @@
  * the response body but the status stays 200.
  */
 
-import {
-  handleGithubWebhook,
-  loadGithubAppByExternalAppIdForWebhook,
-} from "@otterdeploy/api/git";
+import type { Handler } from "hono";
+
+import { handleGithubWebhook, loadGithubAppByExternalAppIdForWebhook } from "@otterdeploy/api/git";
 import { bytesToHex, timingSafeEqual } from "@otterdeploy/shared/crypto";
 import { Result } from "better-result";
 import { log, parseError } from "evlog";
-import type { Handler } from "hono";
 
 const SIGNATURE_HEADER = "x-hub-signature-256";
 const EVENT_HEADER = "x-github-event";
@@ -80,18 +78,15 @@ export const githubWebhookHandler: Handler = async (c) => {
 
   const parsed = Result.try({
     try: () => JSON.parse(new TextDecoder().decode(rawBody)) as unknown,
-    catch: (cause) =>
-      cause instanceof Error ? cause : new Error(String(cause)),
+    catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
   });
   if (parsed.isErr()) {
     return c.json({ ok: false, error: "invalid JSON" }, 400);
   }
 
   const dispatched = await Result.tryPromise({
-    try: () =>
-      handleGithubWebhook({ event, payload: parsed.value, deliveryId }),
-    catch: (cause) =>
-      cause instanceof Error ? cause : new Error(String(cause)),
+    try: () => handleGithubWebhook({ event, payload: parsed.value, deliveryId }),
+    catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
   });
   if (dispatched.isErr()) {
     const parsedErr = parseError(dispatched.error);

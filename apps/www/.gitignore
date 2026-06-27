@@ -4,6 +4,9 @@ dist
 .nitro
 .tanstack
 
+# vercel
+.vercel
+
 # fumadocs generated source
 .source
 

@@ -15,6 +15,11 @@
     "i18next": "^26.2.0",
     "i18next-browser-languagedetector": "^8.2.1"
   },
+  "devDependencies": {
+    "@otterdeploy/config": "workspace:*",
+    "@types/bun": "catalog:",
+    "typescript": "catalog:"
+  },
   "peerDependencies": {
     "react": "^19.0.0",
     "react-i18next": "^17.0.0"
@@ -26,10 +31,5 @@
     "react-i18next": {
       "optional": true
     }
-  },
-  "devDependencies": {
-    "@otterdeploy/config": "workspace:*",
-    "@types/bun": "catalog:",
-    "typescript": "catalog:"
   }
 }

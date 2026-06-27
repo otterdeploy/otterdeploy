@@ -10,11 +10,7 @@
  * network — exactly as compose promises. Named volumes are namespaced by stack
  * so two stacks with a `data` volume don't collide.
  */
-import type {
-  SpecMount,
-  SwarmServiceRestart,
-  SwarmServiceSpec,
-} from "../../swarm";
+import type { SpecMount, SwarmServiceRestart, SwarmServiceSpec } from "../../swarm";
 import type { ParsedComposeService } from "./types";
 
 export interface ComposeSpecContext {
@@ -35,10 +31,7 @@ export interface ComposeSpecContext {
  * the `${stack}-${service}` naming — used both at deploy (here) and by the
  * live-task query that maps swarm tasks back to their compose sub-service.
  */
-export function composeSwarmServiceName(
-  stackName: string,
-  serviceName: string,
-): string {
+export function composeSwarmServiceName(stackName: string, serviceName: string): string {
   return sanitize(`${stackName}-${serviceName}`).slice(0, 63);
 }
 
@@ -85,9 +78,7 @@ export function composeServiceToSpec(
  * prepends `"CMD"` itself, so we must strip compose's `CMD`/`CMD-SHELL`
  * directive and, for shell form, re-express it as `/bin/sh -c <cmd>`.
  */
-function toHealthcheck(
-  svc: ParsedComposeService,
-): SwarmServiceSpec["healthcheck"] {
+function toHealthcheck(svc: ParsedComposeService): SwarmServiceSpec["healthcheck"] {
   const hc = svc.healthcheck;
   if (!hc || hc.disable || hc.test.length === 0) return null;
   const head = hc.test[0];
@@ -107,18 +98,13 @@ function toHealthcheck(
 }
 
 function toRestart(r: ParsedComposeService["restart"]): SwarmServiceRestart {
-  const condition =
-    r === "no" ? "none" : r === "on-failure" ? "on-failure" : "any";
+  const condition = r === "no" ? "none" : r === "on-failure" ? "on-failure" : "any";
   return { condition, maxAttempts: null, delayMs: 5_000 };
 }
 
 /** Volume mounts only — binds were dropped at parse, tmpfs is dropped here.
  *  Named volumes get the stack prefix; anonymous ones a stable derived name. */
-function toMounts(
-  svc: ParsedComposeService,
-  serviceName: string,
-  stackName: string,
-): SpecMount[] {
+function toMounts(svc: ParsedComposeService, serviceName: string, stackName: string): SpecMount[] {
   const out: SpecMount[] = [];
   for (const v of svc.volumes) {
     if (v.type !== "volume") continue;

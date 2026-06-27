@@ -1,6 +1,5 @@
-import { SQL } from "bun";
-
 import { env } from "@otterdeploy/env/server";
+import { SQL } from "bun";
 
 function getProvisionerUrl() {
   return env.DATABASE_PROVISIONER_URL ?? env.DATABASE_URL;
@@ -27,15 +26,13 @@ export async function ensurePostgresDatabase(input: {
   try {
     const roleRows = await sql`select 1 from pg_roles where rolname = ${input.username}`;
     if (roleRows.length === 0) {
-      await sql.unsafe(
-        `create role ${quoteIdentifier(input.username)} with login password $1`,
-        [input.password],
-      );
+      await sql.unsafe(`create role ${quoteIdentifier(input.username)} with login password $1`, [
+        input.password,
+      ]);
     } else {
-      await sql.unsafe(
-        `alter role ${quoteIdentifier(input.username)} with login password $1`,
-        [input.password],
-      );
+      await sql.unsafe(`alter role ${quoteIdentifier(input.username)} with login password $1`, [
+        input.password,
+      ]);
     }
 
     const dbRows = await sql`select 1 from pg_database where datname = ${input.databaseName}`;

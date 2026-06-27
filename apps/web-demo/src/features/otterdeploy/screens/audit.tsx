@@ -5,8 +5,8 @@
 import * as React from "react";
 import { useEffect, useMemo, useState } from "react";
 
-import { I } from "../icons";
 import { TEAM, PROJECTS, type TeamMember } from "../data";
+import { I } from "../icons";
 
 type ActorKind = "human" | "api-token" | "system" | "automation";
 type EventStatus = "success" | "denied" | "failed";
@@ -127,54 +127,137 @@ const fakeEvents = (): AuditEvent[] => {
     };
   };
   return [
-    mk("ev_a01", "14:32:11", mira, "deploy", { kind: "service", name: "web", project: "helio" }, {
-      request: { commit: "8a2c1f9", env: "production", replicas: 3, builder: "railpack" },
-      correlated: ["ev_a02", "ev_a03"],
-    }),
-    mk("ev_a02", "14:31:55", mira, "variable.update", { kind: "service", name: "web", project: "helio" }, {
-      request: { keys: ["NEXT_PUBLIC_API_URL"], env: "production" },
-      parent: "ev_a01",
-    }),
-    mk("ev_a03", "14:30:09", { id: "sys", name: "system", initials: "SY", kind: "system" }, "database.snapshot", {
-      kind: "database",
-      name: "postgres",
-      project: "helio",
-    }),
-    mk("ev_a04", "13:51:02", arjun, "deploy", { kind: "service", name: "api", project: "helio" }, {
-      request: { commit: "3f9b042", env: "production", replicas: 4 },
-    }),
-    mk("ev_a05", "13:18:44", arjun, "rollback", { kind: "service", name: "api", project: "helio" }, {
-      status: "success",
-      request: { from: "fe19a02", to: "3f9b042" },
-      correlated: ["ev_a04"],
-    }),
-    mk("ev_a06", "12:42:11", { id: "ci-bot", name: "paperhouse-ci", initials: "CI", kind: "api-token" }, "deploy", {
-      kind: "service",
-      name: "worker",
-      project: "helio",
-    }, { request: { commit: "c1ad5e2", env: "production" } }),
-    mk("ev_a07", "12:21:09", lin, "domain.add", { kind: "domain", name: "blog.helio.so" }, {
-      request: { tls: "letsencrypt", target: "web" },
-    }),
-    mk("ev_a08", "11:58:43", mira, "token.create", { kind: "token", name: "grafana-readonly" }, {
-      request: { scopes: ["read:projects", "read:metrics", "read:logs"], expiry: "365d" },
-    }),
-    mk("ev_a09", "11:55:01", { id: "sys", name: "system", initials: "SY", kind: "system" }, "ssh-key.rotate", {
-      kind: "node",
-      name: "helio-prod-02",
-    }, { request: { algorithm: "ed25519" } }),
-    mk("ev_a10", "11:14:22", arjun, "node.add", { kind: "node", name: "helio-prod-04" }, {
-      request: { region: "sfo", role: "worker" },
-    }),
-    mk("ev_a11", "10:42:00", kai, "deploy", { kind: "service", name: "web", project: "helio" }, {
-      status: "denied",
-      responseCode: 403,
-      request: { reason: "missing scope: write:services" },
-    }),
+    mk(
+      "ev_a01",
+      "14:32:11",
+      mira,
+      "deploy",
+      { kind: "service", name: "web", project: "helio" },
+      {
+        request: { commit: "8a2c1f9", env: "production", replicas: 3, builder: "railpack" },
+        correlated: ["ev_a02", "ev_a03"],
+      },
+    ),
+    mk(
+      "ev_a02",
+      "14:31:55",
+      mira,
+      "variable.update",
+      { kind: "service", name: "web", project: "helio" },
+      {
+        request: { keys: ["NEXT_PUBLIC_API_URL"], env: "production" },
+        parent: "ev_a01",
+      },
+    ),
+    mk(
+      "ev_a03",
+      "14:30:09",
+      { id: "sys", name: "system", initials: "SY", kind: "system" },
+      "database.snapshot",
+      {
+        kind: "database",
+        name: "postgres",
+        project: "helio",
+      },
+    ),
+    mk(
+      "ev_a04",
+      "13:51:02",
+      arjun,
+      "deploy",
+      { kind: "service", name: "api", project: "helio" },
+      {
+        request: { commit: "3f9b042", env: "production", replicas: 4 },
+      },
+    ),
+    mk(
+      "ev_a05",
+      "13:18:44",
+      arjun,
+      "rollback",
+      { kind: "service", name: "api", project: "helio" },
+      {
+        status: "success",
+        request: { from: "fe19a02", to: "3f9b042" },
+        correlated: ["ev_a04"],
+      },
+    ),
+    mk(
+      "ev_a06",
+      "12:42:11",
+      { id: "ci-bot", name: "paperhouse-ci", initials: "CI", kind: "api-token" },
+      "deploy",
+      {
+        kind: "service",
+        name: "worker",
+        project: "helio",
+      },
+      { request: { commit: "c1ad5e2", env: "production" } },
+    ),
+    mk(
+      "ev_a07",
+      "12:21:09",
+      lin,
+      "domain.add",
+      { kind: "domain", name: "blog.helio.so" },
+      {
+        request: { tls: "letsencrypt", target: "web" },
+      },
+    ),
+    mk(
+      "ev_a08",
+      "11:58:43",
+      mira,
+      "token.create",
+      { kind: "token", name: "grafana-readonly" },
+      {
+        request: { scopes: ["read:projects", "read:metrics", "read:logs"], expiry: "365d" },
+      },
+    ),
+    mk(
+      "ev_a09",
+      "11:55:01",
+      { id: "sys", name: "system", initials: "SY", kind: "system" },
+      "ssh-key.rotate",
+      {
+        kind: "node",
+        name: "helio-prod-02",
+      },
+      { request: { algorithm: "ed25519" } },
+    ),
+    mk(
+      "ev_a10",
+      "11:14:22",
+      arjun,
+      "node.add",
+      { kind: "node", name: "helio-prod-04" },
+      {
+        request: { region: "sfo", role: "worker" },
+      },
+    ),
+    mk(
+      "ev_a11",
+      "10:42:00",
+      kai,
+      "deploy",
+      { kind: "service", name: "web", project: "helio" },
+      {
+        status: "denied",
+        responseCode: 403,
+        request: { reason: "missing scope: write:services" },
+      },
+    ),
     mk("ev_a12", "10:32:55", kai, "login", { kind: "user", name: "kai@paperhouse.dev" }),
-    mk("ev_a13", "10:32:45", kai, "mfa-challenge", { kind: "user", name: "kai@paperhouse.dev" }, {
-      status: "success",
-    }),
+    mk(
+      "ev_a13",
+      "10:32:45",
+      kai,
+      "mfa-challenge",
+      { kind: "user", name: "kai@paperhouse.dev" },
+      {
+        status: "success",
+      },
+    ),
     mk(
       "ev_a14",
       "09:55:11",
@@ -183,24 +266,55 @@ const fakeEvents = (): AuditEvent[] => {
       { kind: "service", name: "api", project: "helio" },
       { request: { reason: "autoscale", replicas: 4 } },
     ),
-    mk("ev_a15", "09:31:00", arjun, "variable.update", { kind: "service", name: "api", project: "billing" }, {
-      request: { keys: ["STRIPE_SECRET_KEY"] },
-    }),
+    mk(
+      "ev_a15",
+      "09:31:00",
+      arjun,
+      "variable.update",
+      { kind: "service", name: "api", project: "billing" },
+      {
+        request: { keys: ["STRIPE_SECRET_KEY"] },
+      },
+    ),
     mk("ev_a16", "09:15:45", mira, "project.create", { kind: "project", name: "internal-tools" }),
-    mk("ev_a17", "08:42:09", { id: "sys", name: "system", initials: "SY", kind: "system" }, "database.snapshot", {
-      kind: "database",
-      name: "redis",
-      project: "helio",
-    }),
-    mk("ev_a18", "08:01:33", arjun, "restore", { kind: "database", name: "postgres", project: "helio" }, {
-      request: { snapshot: "snap_2026-05-02-22:00", target: "staging" },
-    }),
-    mk("ev_a19", "07:49:18", lin, "deploy", { kind: "service", name: "imgproxy", project: "marketing" }),
-    mk("ev_a20", "07:14:00", { id: "ci-bot", name: "paperhouse-ci", initials: "CI", kind: "api-token" }, "deploy", {
+    mk(
+      "ev_a17",
+      "08:42:09",
+      { id: "sys", name: "system", initials: "SY", kind: "system" },
+      "database.snapshot",
+      {
+        kind: "database",
+        name: "redis",
+        project: "helio",
+      },
+    ),
+    mk(
+      "ev_a18",
+      "08:01:33",
+      arjun,
+      "restore",
+      { kind: "database", name: "postgres", project: "helio" },
+      {
+        request: { snapshot: "snap_2026-05-02-22:00", target: "staging" },
+      },
+    ),
+    mk("ev_a19", "07:49:18", lin, "deploy", {
       kind: "service",
-      name: "web",
-      project: "helio",
-    }, { status: "failed", responseCode: 500, request: { reason: "build timed out at 14m" } }),
+      name: "imgproxy",
+      project: "marketing",
+    }),
+    mk(
+      "ev_a20",
+      "07:14:00",
+      { id: "ci-bot", name: "paperhouse-ci", initials: "CI", kind: "api-token" },
+      "deploy",
+      {
+        kind: "service",
+        name: "web",
+        project: "helio",
+      },
+      { status: "failed", responseCode: 500, request: { reason: "build timed out at 14m" } },
+    ),
     mk(
       "ev_a21",
       "06:42:11",
@@ -226,27 +340,64 @@ const fakeEvents = (): AuditEvent[] => {
         status: "success",
       },
     ),
-    mk("ev_a23", "05:58:11", { id: "sys", name: "system", initials: "SY", kind: "system" }, "node.remove", {
-      kind: "node",
-      name: "helio-prod-old",
-    }, { request: { reason: "drained" } }),
+    mk(
+      "ev_a23",
+      "05:58:11",
+      { id: "sys", name: "system", initials: "SY", kind: "system" },
+      "node.remove",
+      {
+        kind: "node",
+        name: "helio-prod-old",
+      },
+      { request: { reason: "drained" } },
+    ),
     mk("ev_a24", "05:24:00", mira, "token.revoke", { kind: "token", name: "old-deploy-bot" }),
-    mk("ev_a25", "04:51:40", arjun, "deploy", { kind: "service", name: "worker", project: "helio" }),
-    mk("ev_a26", "04:12:09", lin, "variable.update", { kind: "service", name: "web", project: "helio" }, {
-      request: { keys: ["REVALIDATE_SECRET"] },
-    }),
-    mk("ev_a27", "03:31:18", { id: "sys", name: "system", initials: "SY", kind: "system" }, "ssh-key.rotate", {
-      kind: "node",
-      name: "helio-prod-03",
-    }),
-    mk("ev_a28", "02:42:00", { id: "ci-bot", name: "paperhouse-ci", initials: "CI", kind: "api-token" }, "deploy", {
+    mk("ev_a25", "04:51:40", arjun, "deploy", {
       kind: "service",
-      name: "api",
-      project: "billing",
+      name: "worker",
+      project: "helio",
     }),
-    mk("ev_a29", "01:12:11", arjun, "rollback", { kind: "service", name: "web", project: "helio" }, {
-      request: { from: "5b2e8d1", to: "e042bb1" },
-    }),
+    mk(
+      "ev_a26",
+      "04:12:09",
+      lin,
+      "variable.update",
+      { kind: "service", name: "web", project: "helio" },
+      {
+        request: { keys: ["REVALIDATE_SECRET"] },
+      },
+    ),
+    mk(
+      "ev_a27",
+      "03:31:18",
+      { id: "sys", name: "system", initials: "SY", kind: "system" },
+      "ssh-key.rotate",
+      {
+        kind: "node",
+        name: "helio-prod-03",
+      },
+    ),
+    mk(
+      "ev_a28",
+      "02:42:00",
+      { id: "ci-bot", name: "paperhouse-ci", initials: "CI", kind: "api-token" },
+      "deploy",
+      {
+        kind: "service",
+        name: "api",
+        project: "billing",
+      },
+    ),
+    mk(
+      "ev_a29",
+      "01:12:11",
+      arjun,
+      "rollback",
+      { kind: "service", name: "web", project: "helio" },
+      {
+        request: { from: "5b2e8d1", to: "e042bb1" },
+      },
+    ),
     mk("ev_a30", "00:18:05", mira, "login", { kind: "user", name: "mira@paperhouse.dev" }),
   ];
 };
@@ -302,7 +453,10 @@ export function Audit() {
   }, [events]);
 
   return (
-    <div className="os-scroll" style={{ flex: 1, overflow: "auto", padding: 24, position: "relative" }}>
+    <div
+      className="os-scroll"
+      style={{ flex: 1, overflow: "auto", padding: 24, position: "relative" }}
+    >
       <div style={{ maxWidth: 1300, margin: "0 auto" }}>
         <div className="row" style={{ marginBottom: 14 }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
@@ -376,7 +530,13 @@ export function Audit() {
             <I.search
               width={11}
               height={11}
-              style={{ position: "absolute", top: "50%", left: 8, transform: "translateY(-50%)", color: "var(--fg-3)" }}
+              style={{
+                position: "absolute",
+                top: "50%",
+                left: 8,
+                transform: "translateY(-50%)",
+                color: "var(--fg-3)",
+              }}
             />
             <input
               className="input"
@@ -388,7 +548,14 @@ export function Audit() {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 16 }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: 12,
+            marginBottom: 16,
+          }}
+        >
           <Stat label="Events · 24h" value={stats.total.toString()} sub="across all projects" />
           <Stat
             label="Failed actions"
@@ -455,7 +622,10 @@ function Stat({
   const color = tone === "err" ? "var(--err)" : tone === "warn" ? "var(--warn)" : "var(--fg)";
   return (
     <div className="card" style={{ padding: 14 }}>
-      <div className="muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+      <div
+        className="muted"
+        style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em" }}
+      >
         {label}
       </div>
       <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: "-0.02em", marginTop: 4, color }}>
@@ -468,9 +638,23 @@ function Stat({
   );
 }
 
-function EventRow({ e, borderTop, onOpen }: { e: AuditEvent; borderTop: boolean; onOpen: () => void }) {
-  const ResIcon = I[RESOURCE_ICON[e.resource.kind]] as (p: { width?: number; height?: number; style?: React.CSSProperties }) => React.JSX.Element;
-  const project = e.resource.project ? PROJECTS.find((p) => p.id === e.resource.project) : undefined;
+function EventRow({
+  e,
+  borderTop,
+  onOpen,
+}: {
+  e: AuditEvent;
+  borderTop: boolean;
+  onOpen: () => void;
+}) {
+  const ResIcon = I[RESOURCE_ICON[e.resource.kind]] as (p: {
+    width?: number;
+    height?: number;
+    style?: React.CSSProperties;
+  }) => React.JSX.Element;
+  const project = e.resource.project
+    ? PROJECTS.find((p) => p.id === e.resource.project)
+    : undefined;
   return (
     <div
       className="row"
@@ -592,7 +776,10 @@ function ActorChip({ actor }: { actor: AuditEvent["actor"] }) {
       >
         {actor.initials}
       </span>
-      <span className="col" style={{ gap: 0, alignItems: "flex-start", lineHeight: 1.2, minWidth: 0 }}>
+      <span
+        className="col"
+        style={{ gap: 0, alignItems: "flex-start", lineHeight: 1.2, minWidth: 0 }}
+      >
         <span style={{ fontSize: 12, fontWeight: 500 }}>{actor.name}</span>
         <span
           className="mono"
@@ -611,7 +798,15 @@ function ActorChip({ actor }: { actor: AuditEvent["actor"] }) {
   );
 }
 
-function EventDrawer({ e, all, onClose }: { e: AuditEvent; all: AuditEvent[]; onClose: () => void }) {
+function EventDrawer({
+  e,
+  all,
+  onClose,
+}: {
+  e: AuditEvent;
+  all: AuditEvent[];
+  onClose: () => void;
+}) {
   const [showRaw, setShowRaw] = useState(false);
 
   useEffect(() => {
@@ -623,7 +818,9 @@ function EventDrawer({ e, all, onClose }: { e: AuditEvent; all: AuditEvent[]; on
   }, [onClose]);
 
   const parent = e.parent ? all.find((x) => x.id === e.parent) : undefined;
-  const correlated = (e.correlated ?? []).map((id) => all.find((x) => x.id === id)).filter(Boolean) as AuditEvent[];
+  const correlated = (e.correlated ?? [])
+    .map((id) => all.find((x) => x.id === id))
+    .filter(Boolean) as AuditEvent[];
 
   const fullJson = useMemo(
     () =>
@@ -676,7 +873,10 @@ function EventDrawer({ e, all, onClose }: { e: AuditEvent; all: AuditEvent[]; on
           boxShadow: "var(--shadow-lg)",
         }}
       >
-        <div className="row gap-2" style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)" }}>
+        <div
+          className="row gap-2"
+          style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)" }}
+        >
           <span
             style={{
               width: 8,
@@ -731,10 +931,7 @@ function EventDrawer({ e, all, onClose }: { e: AuditEvent; all: AuditEvent[]; on
 
           <div>
             <SectionLabel>Response</SectionLabel>
-            <KV
-              k="Status"
-              v={`${e.status} (HTTP ${e.responseCode})`}
-            />
+            <KV k="Status" v={`${e.status} (HTTP ${e.responseCode})`} />
           </div>
 
           {parent && (
@@ -742,7 +939,9 @@ function EventDrawer({ e, all, onClose }: { e: AuditEvent; all: AuditEvent[]; on
               <SectionLabel>Parent event</SectionLabel>
               <div className="card" style={{ padding: 8, fontSize: 12 }}>
                 <span className="mono">{parent.id}</span>{" "}
-                <span className="muted">· {parent.action} · {parent.ts}</span>
+                <span className="muted">
+                  · {parent.action} · {parent.ts}
+                </span>
               </div>
             </div>
           )}
@@ -837,7 +1036,10 @@ function KV({ k, v, mono }: { k: string; v: string; mono?: boolean }) {
       <span className="muted" style={{ width: 100, fontSize: 11 }}>
         {k}
       </span>
-      <span className={mono ? "mono" : ""} style={{ flex: 1, color: "var(--fg-2)", wordBreak: "break-all" }}>
+      <span
+        className={mono ? "mono" : ""}
+        style={{ flex: 1, color: "var(--fg-2)", wordBreak: "break-all" }}
+      >
         {v}
       </span>
     </div>

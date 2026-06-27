@@ -6,8 +6,9 @@
  */
 
 import { useState } from "react";
-import { HugeiconsIcon } from "@hugeicons/react";
+
 import { ArrowRight01Icon, Table01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 
 import { cn } from "@/shared/lib/utils";
 
@@ -42,11 +43,7 @@ export function SchemaExplorer({
     );
   }
   if (isError) {
-    return (
-      <p className="px-1.5 py-1 text-[12px] text-muted-foreground">
-        {errorMessage}
-      </p>
-    );
+    return <p className="px-1.5 py-1 text-[12px] text-muted-foreground">{errorMessage}</p>;
   }
   if (tables.length === 0) {
     return (
@@ -58,23 +55,13 @@ export function SchemaExplorer({
   return (
     <div className="flex flex-col gap-0.5">
       {tables.map((tbl) => (
-        <SchemaTableRow
-          key={`${tbl.schema}.${tbl.name}`}
-          resourceId={resourceId}
-          table={tbl}
-        />
+        <SchemaTableRow key={`${tbl.schema}.${tbl.name}`} resourceId={resourceId} table={tbl} />
       ))}
     </div>
   );
 }
 
-function SchemaTableRow({
-  resourceId,
-  table,
-}: {
-  resourceId: string;
-  table: TableRef;
-}) {
+function SchemaTableRow({ resourceId, table }: { resourceId: string; table: TableRef }) {
   const [open, setOpen] = useState(false);
 
   // Only introspect once the table is expanded; cached thereafter.
@@ -111,9 +98,7 @@ function SchemaTableRow({
           {q.isLoading ? (
             <p className="px-1.5 py-1 text-[11px] text-muted-foreground">Loading…</p>
           ) : q.isError ? (
-            <p className="px-1.5 py-1 text-[11px] text-muted-foreground">
-              Couldn’t load columns.
-            </p>
+            <p className="px-1.5 py-1 text-[11px] text-muted-foreground">Couldn’t load columns.</p>
           ) : rows.length === 0 ? (
             <p className="px-1.5 py-1 text-[11px] text-muted-foreground">No columns.</p>
           ) : (
@@ -129,14 +114,12 @@ function SchemaTableRow({
                   <span className="flex min-w-0 items-center gap-1.5">
                     <span className="truncate text-foreground">{name}</span>
                     {isPk ? (
-                      <span className="shrink-0 rounded border px-1 py-px text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
+                      <span className="shrink-0 rounded border px-1 py-px text-[9px] font-medium tracking-wide text-muted-foreground uppercase">
                         PK
                       </span>
                     ) : null}
                   </span>
-                  <span className="shrink-0 text-muted-foreground/70">
-                    {shortType(type)}
-                  </span>
+                  <span className="shrink-0 text-muted-foreground/70">{shortType(type)}</span>
                 </div>
               );
             })

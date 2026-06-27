@@ -11,20 +11,17 @@
  */
 import type { ResourceId } from "@otterdeploy/shared/id";
 
+import { db } from "@otterdeploy/db";
+import { composeResource, resource, serviceResource } from "@otterdeploy/db/schema/project";
 import { Docker } from "@otterdeploy/docker";
 import { Result } from "better-result";
 import { eq } from "drizzle-orm";
 
-import { db } from "@otterdeploy/db";
-import {
-  composeResource,
-  resource,
-  serviceResource,
-} from "@otterdeploy/db/schema/project";
+import type { ProjectRef } from "../scopes";
+
+import { composeSwarmServiceName } from "../../stack/compose";
 import { ProjectNotFoundError } from "./errors";
 import { getProjectInOrg } from "./queries";
-import { composeSwarmServiceName } from "../../stack/compose";
-import type { ProjectRef } from "../scopes";
 
 export interface ServiceTaskInfo {
   id: string;
@@ -118,10 +115,7 @@ export async function listProjectServiceTasks(
 
   // swarmName -> { resourceId, service }. `service` is the compose sub-service
   // key (null for plain single-service resources).
-  const swarmNameToOwner = new Map<
-    string,
-    { resourceId: ResourceId; service: string | null }
-  >();
+  const swarmNameToOwner = new Map<string, { resourceId: ResourceId; service: string | null }>();
   for (const s of services) {
     swarmNameToOwner.set(s.serviceName, {
       resourceId: s.resourceId,
@@ -172,9 +166,7 @@ export async function listProjectServiceTasks(
     // `com.docker.swarm.service.name`.
     const serviceName =
       (task as { Spec?: { Name?: string } }).Spec?.Name ??
-      (task as { Labels?: Record<string, string> }).Labels?.[
-        "com.docker.swarm.service.name"
-      ] ??
+      (task as { Labels?: Record<string, string> }).Labels?.["com.docker.swarm.service.name"] ??
       null;
     if (!serviceName) continue;
     const owner = swarmNameToOwner.get(serviceName);
@@ -194,8 +186,7 @@ export async function listProjectServiceTasks(
     ).Status;
     const slot = (task as { Slot?: number }).Slot ?? null;
     const nodeId = (task as { NodeID?: string }).NodeID ?? null;
-    const desiredState =
-      (task as { DesiredState?: string }).DesiredState ?? null;
+    const desiredState = (task as { DesiredState?: string }).DesiredState ?? null;
 
     const bucket = grouped.get(resourceId);
     if (!bucket) continue;

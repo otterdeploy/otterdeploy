@@ -6,9 +6,7 @@ export const resources = {
   es: { translation: es },
 } as const;
 
-export const supportedLngs = Object.keys(resources) as Array<
-  keyof typeof resources
->;
+export const supportedLngs = Object.keys(resources) as Array<keyof typeof resources>;
 
 export const languageNames: Record<(typeof supportedLngs)[number], string> = {
   en: "English",

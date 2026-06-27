@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, test } from "bun:test";
-
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -244,9 +243,7 @@ describe("dockerfileBuildArgs", () => {
       latestTag: "repo:latest",
     };
     expect(dockerfileBuildArgs(base)).not.toContain("--build-arg");
-    expect(dockerfileBuildArgs({ ...base, buildArgs: {} })).not.toContain(
-      "--build-arg",
-    );
+    expect(dockerfileBuildArgs({ ...base, buildArgs: {} })).not.toContain("--build-arg");
   });
 
   const cacheBase = {
@@ -263,18 +260,11 @@ describe("dockerfileBuildArgs", () => {
       cachePath: "/data/otterdeploy/buildx-cache/repo",
     });
     // --builder comes right after `buildx build`
-    expect(args.slice(0, 4)).toEqual([
-      "buildx",
-      "build",
-      "--builder",
-      "otterdeploy-cache",
-    ]);
+    expect(args.slice(0, 4)).toEqual(["buildx", "build", "--builder", "otterdeploy-cache"]);
     expect(args).toContain("--cache-from");
     expect(args).toContain("type=local,src=/data/otterdeploy/buildx-cache/repo");
     expect(args).toContain("--cache-to");
-    expect(args).toContain(
-      "type=local,dest=/data/otterdeploy/buildx-cache/repo,mode=max",
-    );
+    expect(args).toContain("type=local,dest=/data/otterdeploy/buildx-cache/repo,mode=max");
     // context dir stays last
     expect(args[args.length - 1]).toBe("/work");
   });

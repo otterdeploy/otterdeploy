@@ -1,6 +1,7 @@
 import { SvglLogo } from "@/components/brand/svgl-logo";
-import { I } from "../icons";
+
 import { PROJECT } from "../data";
+import { I } from "../icons";
 
 const labels: Record<string, string> = {
   overview: "Overview",
@@ -24,9 +25,7 @@ interface Props {
 }
 
 export function Topbar({ tab, openCmd, openDeploy }: Props) {
-  const here = tab.startsWith("service:")
-    ? tab.split(":")[1]
-    : (labels[tab] ?? tab);
+  const here = tab.startsWith("service:") ? tab.split(":")[1] : (labels[tab] ?? tab);
   return (
     <header className="os-topbar">
       <div className="os-brand">
@@ -53,9 +52,7 @@ export function Topbar({ tab, openCmd, openDeploy }: Props) {
 
       <button className="os-search" onClick={openCmd}>
         <I.search width={13} height={13} />
-        <span style={{ flex: 1, textAlign: "left" }}>
-          Search or run a command…
-        </span>
+        <span style={{ flex: 1, textAlign: "left" }}>Search or run a command…</span>
         <span className="os-kbd">⌘</span>
         <span className="os-kbd">K</span>
       </button>

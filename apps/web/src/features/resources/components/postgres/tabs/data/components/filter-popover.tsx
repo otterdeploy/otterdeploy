@@ -10,18 +10,15 @@
  */
 
 import { useEffect, useState } from "react";
-import { HugeiconsIcon } from "@hugeicons/react";
+
 import { FilterIcon, PlusSignIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 
 import { Button } from "@/shared/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/shared/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
 
-import { FilterBar } from "./filter-bar";
 import { type Filter, isFilterActive, newFilter } from "../data/filters";
+import { FilterBar } from "./filter-bar";
 
 export function FilterPopover({
   columns,
@@ -36,7 +33,7 @@ export function FilterPopover({
 }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<Filter[]>(filters);
-  const [,setNl] = useState("");
+  const [, setNl] = useState("");
 
   useEffect(() => {
     if (open) {
@@ -81,11 +78,7 @@ export function FilterPopover({
             className="gap-1.5"
             onClick={() => setDraft((d) => [...d, newFilter()])}
           >
-            <HugeiconsIcon
-              icon={PlusSignIcon}
-              strokeWidth={2}
-              className="size-3.5"
-            />
+            <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-3.5" />
             Add Filter
           </Button>
           <div className="flex items-center gap-2">

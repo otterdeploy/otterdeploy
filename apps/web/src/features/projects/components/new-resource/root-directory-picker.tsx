@@ -11,6 +11,8 @@
  * `onChange` callback when the operator clicks Select.
  */
 
+import { useState } from "react";
+
 import {
   ArrowLeft01Icon,
   ArrowRight01Icon,
@@ -19,7 +21,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { skipToken, usePrefetchQuery, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { Result } from "better-result";
 
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
@@ -36,8 +38,6 @@ import { RadioGroup, RadioGroupItem } from "@/shared/components/ui/radio-group";
 import { Spinner } from "@/shared/components/ui/spinner";
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
-
-import { Result } from "better-result";
 
 type FrameworkKind =
   | "next"
@@ -157,9 +157,7 @@ export function RootDirectoryPicker({
   if (!gitRepoId) {
     return (
       <div className="flex items-center justify-between rounded-md border bg-muted/20 px-3 py-2">
-        <span className="font-mono text-[12.5px] text-muted-foreground">
-          (no repo bound)
-        </span>
+        <span className="font-mono text-[12.5px] text-muted-foreground">(no repo bound)</span>
         <Button type="button" variant="outline" size="sm" disabled>
           Edit
         </Button>
@@ -176,9 +174,7 @@ export function RootDirectoryPicker({
             strokeWidth={2}
             className="size-4 shrink-0 text-muted-foreground"
           />
-          <span className="truncate font-mono text-[12.5px]">
-            {value || "(root)"}
-          </span>
+          <span className="truncate font-mono text-[12.5px]">{value || "(root)"}</span>
         </div>
         <DialogTrigger
           render={
@@ -193,8 +189,8 @@ export function RootDirectoryPicker({
         <DialogHeader>
           <DialogTitle>Root Directory</DialogTitle>
           <DialogDescription>
-            Select the directory inside the repo that contains this service's
-            source code. For monorepos, deploy one service per app folder.
+            Select the directory inside the repo that contains this service's source code. For
+            monorepos, deploy one service per app folder.
           </DialogDescription>
         </DialogHeader>
 
@@ -209,12 +205,7 @@ export function RootDirectoryPicker({
         />
 
         <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setOpen(false)}
-          >
+          <Button type="button" variant="outline" size="sm" onClick={() => setOpen(false)}>
             Cancel
           </Button>
           <Button
@@ -237,9 +228,7 @@ function RepoHeader({ fullName }: { fullName: string | null }) {
   return (
     <div className="flex items-center gap-2 rounded-md border bg-muted/20 px-3 py-2">
       <HugeiconsIcon icon={GithubIcon} strokeWidth={2} className="size-4" />
-      <span className="font-mono text-[12.5px]">
-        {fullName ?? "linked repository"}
-      </span>
+      <span className="font-mono text-[12.5px]">{fullName ?? "linked repository"}</span>
     </div>
   );
 }
@@ -498,21 +487,14 @@ function RateLimitedNotice() {
     <div className="rounded-md border border-warning/40 bg-warning/5 px-3 py-3 text-[12.5px] text-warning">
       <div className="font-semibold">Rate-limited by GitHub</div>
       <p className="mt-1 text-warning/80">
-        Anonymous reads are capped at 60/hour per IP. Connect the GitHub App
-        from the Source card above for a 5000/hour limit, or wait a few minutes
-        and retry.
+        Anonymous reads are capped at 60/hour per IP. Connect the GitHub App from the Source card
+        above for a 5000/hour limit, or wait a few minutes and retry.
       </p>
     </div>
   );
 }
 
-function UpstreamErrorNotice({
-  path,
-  rawMessage,
-}: {
-  path: string;
-  rawMessage: string;
-}) {
+function UpstreamErrorNotice({ path, rawMessage }: { path: string; rawMessage: string }) {
   return (
     <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-[12.5px] text-destructive">
       Couldn't read repo at <span className="font-mono">/{path}</span> —{" "}
@@ -521,11 +503,7 @@ function UpstreamErrorNotice({
   );
 }
 
-function DetectedStack({
-  framework,
-}: {
-  framework: NonNullable<InspectResult["framework"]>;
-}) {
+function DetectedStack({ framework }: { framework: NonNullable<InspectResult["framework"]> }) {
   return (
     <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
       <span>Detected stack:</span>
@@ -560,7 +538,7 @@ function FolderRow({
   return (
     <label
       className={cn(
-        "flex w-full items-center gap-3 border-b border-border/40 px-3 py-2 last:border-b-0 cursor-pointer",
+        "flex w-full cursor-pointer items-center gap-3 border-b border-border/40 px-3 py-2 last:border-b-0",
         isSelected ? "bg-muted/50" : "hover:bg-muted/30",
       )}
     >
@@ -591,11 +569,7 @@ function FolderRow({
           aria-label={`Browse into ${label}`}
           className="grid size-7 place-items-center rounded text-muted-foreground/70 hover:bg-muted hover:text-foreground"
         >
-          <HugeiconsIcon
-            icon={ArrowRight01Icon}
-            strokeWidth={2}
-            className="size-3.5"
-          />
+          <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-3.5" />
         </button>
       ) : (
         <span className="size-7" />
@@ -630,24 +604,14 @@ function humanizeUpstreamMessage(raw: string): string {
 
   return Result.try(() => JSON.parse(trimmed))
     .map((parsed) => {
-      if (
-        "message" in parsed &&
-        typeof parsed.message === "string" &&
-        parsed.message.length > 0
-      ) {
+      if ("message" in parsed && typeof parsed.message === "string" && parsed.message.length > 0) {
         return parsed.message;
       }
     })
     .unwrapOr("upstream error");
 }
 
-function Breadcrumbs({
-  path,
-  onNavigate,
-}: {
-  path: string;
-  onNavigate: (next: string) => void;
-}) {
+function Breadcrumbs({ path, onNavigate }: { path: string; onNavigate: (next: string) => void }) {
   const segments = path ? path.split("/") : [];
   return (
     <div className="flex flex-wrap items-center gap-1 font-mono text-[12px]">
@@ -674,10 +638,7 @@ function Breadcrumbs({
             <button
               type="button"
               onClick={() => onNavigate(upto)}
-              className={cn(
-                "rounded px-1.5 py-0.5 hover:bg-muted/40",
-                isLast && "text-foreground",
-              )}
+              className={cn("rounded px-1.5 py-0.5 hover:bg-muted/40", isLast && "text-foreground")}
             >
               {seg}
             </button>

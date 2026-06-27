@@ -34,11 +34,7 @@ services:
 volumes:
   pgdata:
 `);
-    expect(c.services.map((s) => s.name).sort()).toEqual([
-      "app",
-      "postgres",
-      "redis",
-    ]);
+    expect(c.services.map((s) => s.name).sort()).toEqual(["app", "postgres", "redis"]);
     const app = c.services.find((s) => s.name === "app")!;
     expect(app.image).toBe("ghcr.io/acme/app:latest");
     expect(app.ports).toEqual([{ target: 3000, published: 3000, protocol: "tcp" }]);
@@ -144,9 +140,7 @@ services:
   });
 
   it("captures the top-level project name", () => {
-    expect(ok("name: paperhouse\nservices:\n  a:\n    image: x").name).toBe(
-      "paperhouse",
-    );
+    expect(ok("name: paperhouse\nservices:\n  a:\n    image: x").name).toBe("paperhouse");
     expect(ok("services:\n  a:\n    image: x").name).toBeNull();
   });
 

@@ -1,4 +1,5 @@
 import type { OpenAPIV3_2 } from "fumadocs-openapi";
+
 import { createOpenAPI } from "fumadocs-openapi/server";
 
 // fumadocs-openapi's input `Document` is the OpenAPI 3.2 shape; the oRPC server
@@ -18,15 +19,12 @@ type Document = OpenAPIV3_2.Document;
 // the local dev server.
 // oxlint-disable-next-line node/no-process-env
 const specUrl =
-  process.env.OTTERSTACK_OPENAPI_SPEC_URL ??
-  "http://localhost:3000/api/reference/spec.json";
+  process.env.OTTERSTACK_OPENAPI_SPEC_URL ?? "http://localhost:3000/api/reference/spec.json";
 
 async function loadSpec(): Promise<Document> {
   const res = await fetch(specUrl);
   if (!res.ok) {
-    throw new Error(
-      `Failed to load OpenAPI spec from ${specUrl}: ${res.status} ${res.statusText}`,
-    );
+    throw new Error(`Failed to load OpenAPI spec from ${specUrl}: ${res.status} ${res.statusText}`);
   }
   // `res.json()` is `any`; assert to the loader's `Document` shape. The oRPC
   // server emits a valid OpenAPI document, validated at generation time.

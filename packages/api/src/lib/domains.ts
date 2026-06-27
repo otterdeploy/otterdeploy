@@ -65,25 +65,16 @@ export interface ResolvedDomain {
   /** Which level of the chain provided the value. Drives the UI badge
    *  ("Custom domain", "Org domain", "Platform default", "sslip fallback")
    *  and the cert-issuance decision. */
-  source:
-    | "resource-override"
-    | "project-custom"
-    | "org-base"
-    | "local-base"
-    | "sslip-fallback";
+  source: "resource-override" | "project-custom" | "org-base" | "local-base" | "sslip-fallback";
   /** True only when this domain was verified (TXT record check). Drives
    *  ACME issuance — unverified domains fall back to self-signed certs
    *  even when they pass through to a real-looking FQDN. */
   verified: boolean;
 }
 
-const kindBase = (kind: ResourceKind): string =>
-  kind === "service" ? "apps" : "db";
+const kindBase = (kind: ResourceKind): string => (kind === "service" ? "apps" : "db");
 
-export function resolvePublicDomain(
-  ctx: DomainContext,
-  sources: DomainSources,
-): ResolvedDomain {
+export function resolvePublicDomain(ctx: DomainContext, sources: DomainSources): ResolvedDomain {
   // 1. Per-resource literal FQDN — verified-by-presence (the operator
   //    typed it themselves; we still expect their DNS to point here).
   if (sources.resourceOverride && sources.resourceOverride.trim().length > 0) {
@@ -97,10 +88,7 @@ export function resolvePublicDomain(
   // 2. Project apex — `<resource>.<projectCustomDomain>`. The project's
   //    custom domain IS the apex; we drop the project slug from the
   //    subdomain (no `web-myproj.myproj.acme.com`, just `web.myproj.acme.com`).
-  if (
-    sources.projectCustomDomain &&
-    sources.projectCustomDomain.trim().length > 0
-  ) {
+  if (sources.projectCustomDomain && sources.projectCustomDomain.trim().length > 0) {
     return {
       fqdn: `${ctx.resourceSlug}.${sources.projectCustomDomain.trim().toLowerCase()}`,
       source: "project-custom",

@@ -5,11 +5,11 @@
  */
 
 import { useMemo } from "react";
+
 import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import type { SshKeyType } from "./data/ssh-keys";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -24,6 +24,8 @@ import { Field, FieldError, FieldLabel } from "@/shared/components/ui/field";
 import { Input } from "@/shared/components/ui/input";
 import { Textarea } from "@/shared/components/ui/textarea";
 import { orpc, queryClient } from "@/shared/server/orpc";
+
+import type { SshKeyType } from "./data/ssh-keys";
 
 function detectType(pubkey: string): SshKeyType | null {
   const t = pubkey.trim();
@@ -62,9 +64,7 @@ export function ImportKeyDialog({
         toast.success("SSH key imported");
         setOpen(false);
       } catch (err) {
-        toast.error(
-          err instanceof Error ? err.message : "Failed to import SSH key",
-        );
+        toast.error(err instanceof Error ? err.message : "Failed to import SSH key");
       }
     },
   });
@@ -80,8 +80,8 @@ export function ImportKeyDialog({
         <DialogHeader>
           <DialogTitle>Import SSH key</DialogTitle>
           <DialogDescription>
-            Paste a public key. Only the public half is stored — keep the private
-            key on your own machine.
+            Paste a public key. Only the public half is stored — keep the private key on your own
+            machine.
           </DialogDescription>
         </DialogHeader>
 
@@ -96,8 +96,7 @@ export function ImportKeyDialog({
           <form.Field
             name="name"
             validators={{
-              onChange: ({ value }) =>
-                value.trim().length === 0 ? "Name is required" : undefined,
+              onChange: ({ value }) => (value.trim().length === 0 ? "Name is required" : undefined),
             }}
           >
             {(field) => (
@@ -137,21 +136,12 @@ export function ImportKeyDialog({
           </form.Field>
 
           <DialogFooter className="mt-1">
-            <Button
-              size="sm"
-              variant="outline"
-              type="button"
-              onClick={() => setOpen(false)}
-            >
+            <Button size="sm" variant="outline" type="button" onClick={() => setOpen(false)}>
               Cancel
             </Button>
             <form.Subscribe selector={(s) => s.canSubmit}>
               {(canSubmit) => (
-                <Button
-                  size="sm"
-                  type="submit"
-                  disabled={!canSubmit || importKey.isPending}
-                >
+                <Button size="sm" type="submit" disabled={!canSubmit || importKey.isPending}>
                   {importKey.isPending ? "Importing…" : "Import"}
                 </Button>
               )}
@@ -194,9 +184,7 @@ function DetectField({
             {detected}
           </Badge>
         ) : value.trim() ? (
-          <span className="text-destructive">
-            unrecognised — paste the full public-key line
-          </span>
+          <span className="text-destructive">unrecognised — paste the full public-key line</span>
         ) : (
           <span>paste a public key above</span>
         )}

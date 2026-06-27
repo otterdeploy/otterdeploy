@@ -66,9 +66,7 @@ describe("resolveEnvironment", () => {
       },
     };
     const merged = resolveEnvironment(m, "production");
-    expect((merged.services.web as { ports: unknown[] }).ports).toEqual([
-      { container: 8080 },
-    ]);
+    expect((merged.services.web as { ports: unknown[] }).ports).toEqual([{ container: 8080 }]);
   });
 
   it("deletes keys when override value is null", () => {

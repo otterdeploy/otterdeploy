@@ -1,5 +1,5 @@
-import { render } from "@react-email/components";
 import { env } from "@otterdeploy/env/server";
+import { render } from "@react-email/components";
 import { createError, log } from "evlog";
 import nodemailer from "nodemailer";
 import { Resend } from "resend";
@@ -54,10 +54,7 @@ export async function sendEmail(options: SendEmailOptions) {
   return sendViaResend(transport.apiKey, { ...options, from: fromAddress });
 }
 
-async function sendViaResend(
-  apiKey: string,
-  options: SendEmailOptions & { from: string },
-) {
+async function sendViaResend(apiKey: string, options: SendEmailOptions & { from: string }) {
   const { to, subject, html, text, react, from, replyTo } = options;
   const client = new Resend(apiKey);
   const { data, error } = await client.emails.send({

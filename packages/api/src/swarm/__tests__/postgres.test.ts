@@ -34,10 +34,17 @@ describe("SwarmPostgresRuntime", () => {
 
   test("runtime status values cover all states", () => {
     const validStatuses: SwarmPostgresRuntime["status"][] = [
-      "running", "starting", "stopped", "missing", "error",
+      "running",
+      "starting",
+      "stopped",
+      "missing",
+      "error",
     ];
     const validHealth: SwarmPostgresRuntime["health"][] = [
-      "healthy", "unhealthy", "starting", null,
+      "healthy",
+      "unhealthy",
+      "starting",
+      null,
     ];
 
     for (const status of validStatuses) {

@@ -1,7 +1,4 @@
-import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
 import type { EnvironmentId, OrganizationId, ProjectId } from "@otterdeploy/shared/id";
-import { and, asc, eq, isNull, sql } from "drizzle-orm";
-import { createError } from "evlog";
 
 import { db } from "@otterdeploy/db";
 import {
@@ -11,6 +8,9 @@ import {
   resource,
   type NixpacksConfig,
 } from "@otterdeploy/db/schema/project";
+import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
+import { and, asc, eq, isNull, sql } from "drizzle-orm";
+import { createError } from "evlog";
 export async function listProjectRecordsByOrg(organizationId: OrganizationId) {
   return db
     .select({
@@ -106,28 +106,20 @@ export async function updateProjectRecord(input: {
   if (input.gitRepoId !== undefined) {
     patch.gitRepoId = input.gitRepoId as typeof project.$inferInsert.gitRepoId;
   }
-  if (input.productionBranch !== undefined)
-    patch.productionBranch = input.productionBranch;
+  if (input.productionBranch !== undefined) patch.productionBranch = input.productionBranch;
   if (input.containerRegistryId !== undefined) {
     patch.containerRegistryId =
       input.containerRegistryId as typeof project.$inferInsert.containerRegistryId;
   }
-  if (input.imageRepository !== undefined)
-    patch.imageRepository = input.imageRepository;
-  if (input.nixpacksConfig !== undefined)
-    patch.nixpacksConfig = input.nixpacksConfig;
+  if (input.imageRepository !== undefined) patch.imageRepository = input.imageRepository;
+  if (input.nixpacksConfig !== undefined) patch.nixpacksConfig = input.nixpacksConfig;
 
   if (Object.keys(patch).length === 0) {
     // No-op: return the current row so the caller still gets the view shape.
     const [row] = await db
       .select()
       .from(project)
-      .where(
-        and(
-          eq(project.id, input.projectId),
-          eq(project.organizationId, input.organizationId),
-        ),
-      )
+      .where(and(eq(project.id, input.projectId), eq(project.organizationId, input.organizationId)))
       .limit(1);
     return row;
   }
@@ -149,12 +141,7 @@ export async function setProjectGraphLayout(input: {
   const [record] = await db
     .update(project)
     .set({ graphLayout: input.graphLayout })
-    .where(
-      and(
-        eq(project.id, input.projectId),
-        eq(project.organizationId, input.organizationId),
-      ),
-    )
+    .where(and(eq(project.id, input.projectId), eq(project.organizationId, input.organizationId)))
     .returning({ id: project.id });
   return record;
 }

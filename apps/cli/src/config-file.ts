@@ -11,24 +11,18 @@
  * shipped on the wire as JSON via the existing manifest.* contract.
  */
 
+import { manifestSchema, type Manifest } from "@otterdeploy/api/manifest";
+import { Result, TaggedError } from "better-result";
+// import { assert } from "node:test";
+import assert from "node:assert/strict";
 import { existsSync, writeFileSync } from "node:fs";
 import { extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { manifestSchema, type Manifest } from "@otterdeploy/api/manifest";
-
-import { Result, TaggedError } from "better-result";
-
-// import { assert } from "node:test";
-import assert from "node:assert/strict";
-
 // .json is the default format. .ts is supported for users who want
 // type-checked authoring + env-var interpolation; .json is preferred
 // when both are present (rare; usually only one exists).
-const DEFAULT_CONFIG_BASENAMES = [
-  "otterdeploy.config.json",
-  "otterdeploy.config.ts",
-] as const;
+const DEFAULT_CONFIG_BASENAMES = ["otterdeploy.config.json", "otterdeploy.config.ts"] as const;
 const DEFAULT_CONFIG_FILENAME = DEFAULT_CONFIG_BASENAMES[0];
 
 // Resolve to a concrete on-disk path:
@@ -46,9 +40,7 @@ export function configPath(override?: string, cwd = process.cwd()): string {
 
 export function configExists(override?: string, cwd?: string): boolean {
   if (override) return existsSync(configPath(override, cwd));
-  return DEFAULT_CONFIG_BASENAMES.some((name) =>
-    existsSync(resolve(cwd ?? process.cwd(), name)),
-  );
+  return DEFAULT_CONFIG_BASENAMES.some((name) => existsSync(resolve(cwd ?? process.cwd(), name)));
 }
 
 class LoadConfigError extends TaggedError("ConfigError")<{
@@ -82,8 +74,7 @@ export async function loadConfig(override?: string): Promise<Manifest> {
       );
       return mod.default;
     },
-    catch: (cause): Error =>
-      cause instanceof Error ? cause : new Error(String(cause)),
+    catch: (cause): Error => (cause instanceof Error ? cause : new Error(String(cause))),
   });
 
   if (rawResult.isErr()) {

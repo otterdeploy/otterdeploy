@@ -17,9 +17,7 @@ export function summarizeCompose(parsed: ParsedCompose): ComposeServiceSummary[]
     // name as written in the compose file — the chip the graph card renders.
     volumes: [
       ...new Set(
-        s.volumes
-          .filter((v) => v.type === "volume" && v.source)
-          .map((v) => v.source as string),
+        s.volumes.filter((v) => v.type === "volume" && v.source).map((v) => v.source as string),
       ),
     ],
   }));

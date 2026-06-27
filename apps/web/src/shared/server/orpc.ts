@@ -1,12 +1,9 @@
+import type { RouterClient } from "@orpc/server";
 import type { AppRouter } from "@otterdeploy/api/routers/index";
 
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
-import {
-  ClientRetryPlugin,
-  type ClientRetryPluginContext,
-} from "@orpc/client/plugins";
-import type { RouterClient } from "@orpc/server";
+import { ClientRetryPlugin, type ClientRetryPluginContext } from "@orpc/client/plugins";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { env } from "@otterdeploy/env/web";
 import { QueryCache, QueryClient } from "@tanstack/react-query";
@@ -47,7 +44,6 @@ const link = new RPCLink<ClientContext>({
   plugins: [new ClientRetryPlugin()],
 });
 
-export const client: RouterClient<AppRouter, ClientContext> =
-  createORPCClient(link);
+export const client: RouterClient<AppRouter, ClientContext> = createORPCClient(link);
 
 export const orpc = createTanstackQueryUtils(client);

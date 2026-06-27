@@ -1,3 +1,5 @@
+import { Activity, useEffect, useState } from "react";
+
 import {
   Cancel01Icon,
   PlusSignIcon,
@@ -6,15 +8,10 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { Activity, useEffect, useState } from "react";
 
 import { OpenTerminalDialog } from "@/features/terminal/components/open-terminal-dialog";
 import { TerminalSession } from "@/features/terminal/components/terminal-session";
-import {
-  type Session,
-  type SessionSource,
-  describeSource,
-} from "@/features/terminal/types";
+import { type Session, type SessionSource, describeSource } from "@/features/terminal/types";
 import {
   encodeSessionToken,
   sessionSourcesFromSearch,
@@ -59,9 +56,7 @@ function RouteComponent() {
   const [sessions, setSessions] = useState<Session[]>(() =>
     sessionSourcesFromSearch(search).map(makeSession),
   );
-  const [activeId, setActiveId] = useState<string | null>(
-    () => sessions[0]?.id ?? null,
-  );
+  const [activeId, setActiveId] = useState<string | null>(() => sessions[0]?.id ?? null);
   const [pickerOpen, setPickerOpen] = useState(false);
 
   // Mirror the current session list back into the URL so reload / share
@@ -190,17 +185,11 @@ function RouteComponent() {
             />
             <EmptyTitle>No active sessions</EmptyTitle>
             <EmptyDescription>
-              Open a shell into any container, an SSH into a swarm node, or a
-              database console.
+              Open a shell into any container, an SSH into a swarm node, or a database console.
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
-            <Button
-              type="button"
-              size="sm"
-              className="gap-1.5"
-              onClick={() => setPickerOpen(true)}
-            >
+            <Button type="button" size="sm" className="gap-1.5" onClick={() => setPickerOpen(true)}>
               <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-3.5" />
               Open a terminal
             </Button>
@@ -215,11 +204,7 @@ function RouteComponent() {
             // re-attach cleanly on visibility flip, and we never tear down
             // the wterm <Terminal> instance.
             return (
-              <Activity
-                key={s.id}
-                mode={isActive ? "visible" : "hidden"}
-                name={s.label}
-              >
+              <Activity key={s.id} mode={isActive ? "visible" : "hidden"} name={s.label}>
                 <div className="absolute inset-2" aria-hidden={!isActive}>
                   <TerminalSession source={s.source} active={isActive} />
                 </div>
@@ -229,11 +214,7 @@ function RouteComponent() {
         </div>
       )}
 
-      <OpenTerminalDialog
-        open={pickerOpen}
-        onOpenChange={setPickerOpen}
-        onPick={openSession}
-      />
+      <OpenTerminalDialog open={pickerOpen} onOpenChange={setPickerOpen} onPick={openSession} />
     </div>
   );
 }

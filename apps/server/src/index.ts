@@ -1,30 +1,26 @@
+import type { ContentfulStatusCode } from "hono/utils/http-status";
+
+import { workbench } from "@getworkbench/hono";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
 import { onError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
-import { createContext } from "@otterdeploy/api/context";
-import { reconcile } from "@otterdeploy/api/caddy";
+import { createAuditPgDrain } from "@otterdeploy/api/audit/pg-drain";
 import { startBackupScheduler } from "@otterdeploy/api/backups";
+import { reconcile } from "@otterdeploy/api/caddy";
+import { createContext } from "@otterdeploy/api/context";
+import { startEdgeLogPersistence, startEdgeLogSink } from "@otterdeploy/api/edge-logs";
 import { startDataFolderSweep } from "@otterdeploy/api/lib/data-folder-sweep";
-import { startAuditAnomalyScan } from "@otterdeploy/api/notifications/audit-anomaly";
-import { startMetricsSampler } from "@otterdeploy/api/metrics";
-import { startBlocklistScheduler } from "@otterdeploy/api/routers/firewall/scheduler";
-import {
-  startEdgeLogPersistence,
-  startEdgeLogSink,
-} from "@otterdeploy/api/edge-logs";
-import { appRouter } from "@otterdeploy/api/routers/index";
 import { ensureServerIp } from "@otterdeploy/api/lib/server-ip";
+import { startMetricsSampler } from "@otterdeploy/api/metrics";
+import { startAuditAnomalyScan } from "@otterdeploy/api/notifications/audit-anomaly";
+import { startBlocklistScheduler } from "@otterdeploy/api/routers/firewall/scheduler";
+import { appRouter } from "@otterdeploy/api/routers/index";
 import { initializeSwarm } from "@otterdeploy/api/swarm";
 import { auth } from "@otterdeploy/auth";
 import { env } from "@otterdeploy/env/server";
-import {
-  createWorkers,
-  jobs as allJobs,
-  workbenchQueues,
-} from "@otterdeploy/jobs";
-import { workbench } from "@getworkbench/hono";
+import { createWorkers, jobs as allJobs, workbenchQueues } from "@otterdeploy/jobs";
 import { Result } from "better-result";
 import {
   auditEnricher,
@@ -35,19 +31,11 @@ import {
   log,
   parseError,
 } from "evlog";
-import { createAuditPgDrain } from "@otterdeploy/api/audit/pg-drain";
+import { createAuthMiddleware } from "evlog/better-auth";
 import { evlog, type EvlogVariables } from "evlog/hono";
-import { BootstrapError } from "./lib/errors";
 import { Hono } from "hono";
 import { upgradeWebSocket, websocket } from "hono/bun";
 import { cors } from "hono/cors";
-import type { ContentfulStatusCode } from "hono/utils/http-status";
-import { invalidate } from "./lib/invalidate";
-import {
-  isTracingConfigured,
-  shutdownTracing,
-  startTracing,
-} from "./lib/tracing";
 
 import {
   deployAccessHandler,
@@ -62,8 +50,9 @@ import {
   githubWebhookHandler,
   terminalWebSocketHandler,
 } from "./handlers";
-
-import { createAuthMiddleware } from "evlog/better-auth";
+import { BootstrapError } from "./lib/errors";
+import { invalidate } from "./lib/invalidate";
+import { isTracingConfigured, shutdownTracing, startTracing } from "./lib/tracing";
 
 initLogger({
   env: { service: "otterdeploy-server" },
@@ -207,10 +196,7 @@ app.get(
   "/ws",
   upgradeWebSocket(() => ({
     onMessage(event, ws) {
-      invalidate.onMessage(
-        ws,
-        typeof event.data === "string" ? event.data : "",
-      );
+      invalidate.onMessage(ws, typeof event.data === "string" ? event.data : "");
     },
     onClose(_event, ws) {
       invalidate.removeClient(ws);
@@ -242,14 +228,8 @@ app.route(
 app.get("/pty", terminalWebSocketHandler);
 
 app.post("/api/webhooks/github", githubWebhookHandler);
-app.get(
-  "/api/integrations/github/install/callback",
-  githubInstallCallbackHandler,
-);
-app.get(
-  "/api/integrations/github/manifest/callback",
-  githubManifestCallbackHandler,
-);
+app.get("/api/integrations/github/install/callback", githubInstallCallbackHandler);
+app.get("/api/integrations/github/manifest/callback", githubManifestCallbackHandler);
 
 // ─── Deployment protection (auth wall) ─────────────────────────────
 // forward_auth target (internal subrequest from Caddy) + the cross-domain

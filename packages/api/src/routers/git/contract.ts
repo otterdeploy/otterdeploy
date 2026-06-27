@@ -11,6 +11,7 @@
 
 import { oc } from "@orpc/contract";
 import * as z from "zod";
+
 import {
   gitInstallationIdField,
   gitProviderIdField,
@@ -172,14 +173,7 @@ const frameworkKindSchema = z
   .nullable();
 
 const monorepoKindSchema = z
-  .enum([
-    "turbo",
-    "nx",
-    "pnpm-workspace",
-    "yarn-workspace",
-    "npm-workspace",
-    "lerna",
-  ])
+  .enum(["turbo", "nx", "pnpm-workspace", "yarn-workspace", "npm-workspace", "lerna"])
   .nullable();
 
 const inspectRepoOutput = z.object({

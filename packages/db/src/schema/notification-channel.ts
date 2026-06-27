@@ -1,3 +1,10 @@
+import type {
+  NotificationChannelId,
+  NotificationDeliveryId,
+  NotificationSubscriptionId,
+  OrganizationId,
+} from "@otterdeploy/shared/id";
+
 /**
  * Notification channels — the routing config that fans platform events
  * (deploy / build / health / cert / backup / ssh / audit) out to Slack,
@@ -21,21 +28,7 @@
  *     stored on the channel.
  */
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
-import type {
-  NotificationChannelId,
-  NotificationDeliveryId,
-  NotificationSubscriptionId,
-  OrganizationId,
-} from "@otterdeploy/shared/id";
-import {
-  index,
-  jsonb,
-  pgEnum,
-  pgTable,
-  text,
-  timestamp,
-  uniqueIndex,
-} from "drizzle-orm/pg-core";
+import { index, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 import { organization } from "./auth";
 
@@ -59,15 +52,16 @@ export const notificationChannelKindEnum = pgEnum("notification_channel_kind", [
  * the channel was created but never confirmed (e.g. a Telegram bot that hasn't
  * been linked).
  */
-export const notificationChannelStatusEnum = pgEnum(
-  "notification_channel_status",
-  ["active", "paused", "disconnected"],
-);
+export const notificationChannelStatusEnum = pgEnum("notification_channel_status", [
+  "active",
+  "paused",
+  "disconnected",
+]);
 
-export const notificationDeliveryStatusEnum = pgEnum(
-  "notification_delivery_status",
-  ["delivered", "failed"],
-);
+export const notificationDeliveryStatusEnum = pgEnum("notification_delivery_status", [
+  "delivered",
+  "failed",
+]);
 
 // ---------------------------------------------------------------------------
 // notification_channel — one configured destination
@@ -97,24 +91,17 @@ export const notificationChannel = pgTable(
     // (e.g. "incoming-webhook", "POST · HMAC-SHA256", "SMTP via Resend").
     transport: text("transport").notNull(),
     // Non-secret extra params (smtp host/from, pagerduty severity, …).
-    config: jsonb("config")
-      .$type<Record<string, unknown>>()
-      .notNull()
-      .default({}),
+    config: jsonb("config").$type<Record<string, unknown>>().notNull().default({}),
     // AES-GCM ciphertext for the sensitive half (bot token, HMAC secret).
     encryptedSecret: text("encrypted_secret"),
-    status: notificationChannelStatusEnum("status")
-      .notNull()
-      .default("active"),
+    status: notificationChannelStatusEnum("status").notNull().default("active"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
   },
-  (table) => [
-    index("notification_channel_org_idx").on(table.organizationId),
-  ],
+  (table) => [index("notification_channel_org_idx").on(table.organizationId)],
 );
 
 // ---------------------------------------------------------------------------
@@ -142,15 +129,9 @@ export const notificationSubscription = pgTable(
   },
   (table) => [
     // A channel subscribes to a given event at most once.
-    uniqueIndex("notification_subscription_channel_event_idx").on(
-      table.channelId,
-      table.eventId,
-    ),
+    uniqueIndex("notification_subscription_channel_event_idx").on(table.channelId, table.eventId),
     // Fan-out query: every channel subscribed to (org, event).
-    index("notification_subscription_org_event_idx").on(
-      table.organizationId,
-      table.eventId,
-    ),
+    index("notification_subscription_org_event_idx").on(table.organizationId, table.eventId),
   ],
 );
 
@@ -180,15 +161,11 @@ export const notificationDelivery = pgTable(
   },
   (table) => [
     // Per-channel stats window (events in 7d, last delivery, recent failures).
-    index("notification_delivery_channel_created_idx").on(
-      table.channelId,
-      table.createdAt,
-    ),
+    index("notification_delivery_channel_created_idx").on(table.channelId, table.createdAt),
   ],
 );
 
 export type NotificationChannelRow = typeof notificationChannel.$inferSelect;
 export type NewNotificationChannelRow = typeof notificationChannel.$inferInsert;
-export type NotificationSubscriptionRow =
-  typeof notificationSubscription.$inferSelect;
+export type NotificationSubscriptionRow = typeof notificationSubscription.$inferSelect;
 export type NotificationDeliveryRow = typeof notificationDelivery.$inferSelect;

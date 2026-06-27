@@ -1,7 +1,9 @@
 "use client";
 
-import { Meter as MeterPrimitive } from "@base-ui/react/meter";
 import type React from "react";
+
+import { Meter as MeterPrimitive } from "@base-ui/react/meter";
+
 import { cn } from "@/lib/utils";
 
 export function Meter({
@@ -10,10 +12,7 @@ export function Meter({
   ...props
 }: MeterPrimitive.Root.Props): React.ReactElement {
   return (
-    <MeterPrimitive.Root
-      className={cn("flex w-full flex-col gap-2", className)}
-      {...props}
-    >
+    <MeterPrimitive.Root className={cn("flex w-full flex-col gap-2", className)} {...props}>
       {children ? (
         children
       ) : (
@@ -31,7 +30,7 @@ export function MeterLabel({
 }: MeterPrimitive.Label.Props): React.ReactElement {
   return (
     <MeterPrimitive.Label
-      className={cn("font-medium text-foreground text-sm", className)}
+      className={cn("text-sm font-medium text-foreground", className)}
       data-slot="meter-label"
       {...props}
     />
@@ -70,7 +69,7 @@ export function MeterValue({
 }: MeterPrimitive.Value.Props): React.ReactElement {
   return (
     <MeterPrimitive.Value
-      className={cn("text-foreground text-sm tabular-nums", className)}
+      className={cn("text-sm text-foreground tabular-nums", className)}
       data-slot="meter-value"
       {...props}
     />

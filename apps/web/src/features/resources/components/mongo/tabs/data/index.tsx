@@ -6,8 +6,9 @@
  * limit), so nothing here can write.
  */
 import { useState } from "react";
-import { HugeiconsIcon } from "@hugeicons/react";
+
 import { FolderLibraryIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 
 import {
   Empty,
@@ -21,16 +22,13 @@ import { Skeleton } from "@/shared/components/ui/skeleton";
 import { cn } from "@/shared/lib/utils";
 
 import type { PostgresBodyProps } from "../../../postgres/types";
+
 import { Pager } from "../../../mariadb/tabs/data";
 import { useMongoCollections, useMongoDocuments } from "./data/use-mongo";
 
 const PAGE = 50;
 
-export function MongoDataTabBody({
-  resource,
-}: {
-  resource: PostgresBodyProps["resource"];
-}) {
+export function MongoDataTabBody({ resource }: { resource: PostgresBodyProps["resource"] }) {
   const resourceId = resource.resourceId;
   const collectionsQuery = useMongoCollections(resourceId);
   const [selected, setSelected] = useState<string | null>(null);
@@ -77,12 +75,12 @@ export function MongoDataTabBody({
                   type="button"
                   onClick={() => pick(c.name)}
                   className={cn(
-                    "flex w-full items-center justify-between gap-1.5 rounded px-2 py-1.5 text-left text-[12px] font-mono",
+                    "flex w-full items-center justify-between gap-1.5 rounded px-2 py-1.5 text-left font-mono text-[12px]",
                     active === c.name ? "bg-accent text-accent-foreground" : "hover:bg-muted",
                   )}
                 >
                   <span className="truncate">{c.name}</span>
-                  <span className="shrink-0 tabular-nums text-[10px] text-muted-foreground">
+                  <span className="shrink-0 text-[10px] text-muted-foreground tabular-nums">
                     {c.count}
                   </span>
                 </button>

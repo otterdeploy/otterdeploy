@@ -18,11 +18,12 @@
 import type { ProjectId } from "@otterdeploy/shared/id";
 
 import { useState } from "react";
+
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { Button } from "@/shared/components/ui/button";
 import { markAppliedCreates } from "@/features/projects/components/graph/applied-creates-store";
+import { Button } from "@/shared/components/ui/button";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 interface PendingChangesBarProps {
@@ -95,9 +96,7 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
       // the difference between "Deploy did nothing and the pill is stuck
       // forever" and an actionable error.
       if (result.skipped.length > 0) {
-        const detail = result.skipped
-          .map((s) => `${s.resource} ${s.name}: ${s.reason}`)
-          .join("; ");
+        const detail = result.skipped.map((s) => `${s.resource} ${s.name}: ${s.reason}`).join("; ");
         if (result.appliedCount === 0) {
           // Nothing landed — keep the bar open so the operator can fix the
           // cause (e.g. bind the project's repo/registry) and retry.
@@ -129,9 +128,7 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
     }
   };
 
-  const meaningful = (diff.data?.changes ?? []).filter(
-    (c): c is DiffChange => c.kind !== "no-op",
-  );
+  const meaningful = (diff.data?.changes ?? []).filter((c): c is DiffChange => c.kind !== "no-op");
   if (meaningful.length === 0) return null;
 
   // Group by (resource kind + name). One named resource may produce
@@ -269,7 +266,7 @@ function ChangeGroupCard({ group }: { group: GroupedChange }) {
     <div className="rounded-lg border bg-card">
       <div className="flex items-center justify-between gap-3 px-3 py-2">
         <div className="flex items-center gap-2 text-sm">
-          <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+          <span className="font-mono text-xs tracking-wider text-muted-foreground uppercase">
             {group.resource}
           </span>
           <span className="font-mono font-medium text-foreground">{group.name}</span>
@@ -298,7 +295,7 @@ function ChangeGroupCard({ group }: { group: GroupedChange }) {
 
 function FieldTable({ fields }: { fields: GroupedChange["fields"] }) {
   return (
-    <table className="w-full text-xs font-mono">
+    <table className="w-full font-mono text-xs">
       <thead>
         <tr className="text-muted-foreground">
           <th className="py-1 text-left font-medium">Field</th>

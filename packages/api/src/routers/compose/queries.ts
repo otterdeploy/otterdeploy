@@ -1,17 +1,14 @@
+import type { ComposeExposed, ComposeServiceSummary } from "@otterdeploy/shared/compose";
+import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
+
+import { db } from "@otterdeploy/db";
+import { composeResource, resource } from "@otterdeploy/db/schema/project";
 /**
  * DB ops for `type: compose` resources. A compose resource is a `resource`
  * row (type=compose) + a `compose_resource` row holding the file and derived
  * summary. See docs/designs/compose.md.
  */
 import { and, asc, eq } from "drizzle-orm";
-
-import { db } from "@otterdeploy/db";
-import { composeResource, resource } from "@otterdeploy/db/schema/project";
-import type {
-  ComposeExposed,
-  ComposeServiceSummary,
-} from "@otterdeploy/shared/compose";
-import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 export interface ComposeRecord {
   resource: typeof resource.$inferSelect;
@@ -83,9 +80,7 @@ export async function getComposeRecord(
   return row ?? null;
 }
 
-export async function listComposeRecords(
-  projectId: ProjectId,
-): Promise<ComposeRecord[]> {
+export async function listComposeRecords(projectId: ProjectId): Promise<ComposeRecord[]> {
   return db
     .select({ resource, compose: composeResource })
     .from(resource)

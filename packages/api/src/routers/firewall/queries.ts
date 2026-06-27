@@ -1,12 +1,12 @@
+import type { BlocklistId } from "@otterdeploy/shared/id";
+
+import { db } from "@otterdeploy/db";
+import { blocklist } from "@otterdeploy/db/schema/blocklist";
 /**
  * Blocklist row CRUD + the "which lists are due for a re-sync" query the
  * recurring job uses.
  */
 import { and, asc, eq, isNull, lt, or, sql } from "drizzle-orm";
-
-import { db } from "@otterdeploy/db";
-import { blocklist } from "@otterdeploy/db/schema/blocklist";
-import type { BlocklistId } from "@otterdeploy/shared/id";
 
 export type BlocklistRow = typeof blocklist.$inferSelect;
 
@@ -25,11 +25,7 @@ export async function findBlocklistByUrl(url: string): Promise<BlocklistRow | un
 }
 
 export async function findBlocklistByCatalog(slug: string): Promise<BlocklistRow | undefined> {
-  const [row] = await db
-    .select()
-    .from(blocklist)
-    .where(eq(blocklist.catalogSlug, slug))
-    .limit(1);
+  const [row] = await db.select().from(blocklist).where(eq(blocklist.catalogSlug, slug)).limit(1);
   return row;
 }
 
@@ -59,11 +55,7 @@ export async function setBlocklistEnabled(
   id: BlocklistId,
   enabled: boolean,
 ): Promise<BlocklistRow | undefined> {
-  const [row] = await db
-    .update(blocklist)
-    .set({ enabled })
-    .where(eq(blocklist.id, id))
-    .returning();
+  const [row] = await db.update(blocklist).set({ enabled }).where(eq(blocklist.id, id)).returning();
   return row;
 }
 

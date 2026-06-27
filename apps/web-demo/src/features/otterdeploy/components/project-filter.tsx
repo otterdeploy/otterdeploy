@@ -3,8 +3,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { I } from "../icons";
 import { PROJECTS, type ProjectRef } from "../data";
+import { I } from "../icons";
 
 export const ALL_PROJECTS = "__all__";
 
@@ -182,7 +182,11 @@ export function ProjectTagChips({
         </span>
       )}
       {value.map((id) => (
-        <ProjectTagBadge key={id} id={id} onRemove={() => onChange(value.filter((v) => v !== id))} />
+        <ProjectTagBadge
+          key={id}
+          id={id}
+          onRemove={() => onChange(value.filter((v) => v !== id))}
+        />
       ))}
       {remaining.length > 0 && (
         <button

@@ -1,3 +1,9 @@
+import type { DeploymentId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { RequestLogger } from "evlog";
+
+import { db } from "@otterdeploy/db";
+import { deployment } from "@otterdeploy/db/schema/project";
+import { Result } from "better-result";
 /**
  * Deploy a `type: compose` resource: parse the stored file → resolve each
  * service's env against the project bag → build a `SwarmServiceSpec` per
@@ -9,30 +15,17 @@
  * docs/designs/compose.md.
  */
 import { eq } from "drizzle-orm";
-import { Result } from "better-result";
-import type { RequestLogger } from "evlog";
-
-import { db } from "@otterdeploy/db";
-import { deployment } from "@otterdeploy/db/schema/project";
-import type {
-  DeploymentId,
-  ProjectId,
-  ResourceId,
-} from "@otterdeploy/shared/id";
 
 import { reconcile } from "../../caddy";
-import {
-  deleteProxyRoutesByResource,
-  insertProxyRoute,
-} from "../../caddy/queries";
+import { deleteProxyRoutesByResource, insertProxyRoute } from "../../caddy/queries";
 import { loadDomainSourcesForProject } from "../../lib/domain-sources";
 import { resolvePublicDomain } from "../../lib/domains";
 import { parseCompose } from "../../stack/compose";
 import { insertDeployment, markDeploymentFailed } from "../project/deployments";
 import { getProjectById, loadProjectEnvBag } from "../project/queries";
-import { reconcileStackServices } from "./reconcile";
 import { interpolate } from "./env";
 import { type ComposeRecord, getComposeRecord } from "./queries";
+import { reconcileStackServices } from "./reconcile";
 
 const sanitize = (s: string) =>
   s
@@ -175,18 +168,14 @@ export async function deployCompose(
 
   if (ownsDeployment) {
     if (status === "failed") {
-      await markDeploymentFailed(
-        depId,
-        `No services deployed (${failed.join(", ")} failed)`,
-      );
+      await markDeploymentFailed(depId, `No services deployed (${failed.join(", ")} failed)`);
     } else {
       await db
         .update(deployment)
         .set({
           status: "running",
           completedAt: new Date(),
-          errorMessage:
-            failed.length > 0 ? `Some services failed: ${failed.join(", ")}` : null,
+          errorMessage: failed.length > 0 ? `Some services failed: ${failed.join(", ")}` : null,
         })
         .where(eq(deployment.id, depId));
     }
@@ -231,9 +220,7 @@ export async function reconcileComposeDomains(
 
     let first = true;
     for (const ex of exposed) {
-      const serviceName = sanitize(
-        `${record.compose.stackName}-${ex.service}`,
-      ).slice(0, 63);
+      const serviceName = sanitize(`${record.compose.stackName}-${ex.service}`).slice(0, 63);
       const resolved = resolvePublicDomain(
         { resourceSlug: serviceName, projectSlug: project.slug, kind: "service" },
         { ...sources, resourceOverride: ex.domain || null },
@@ -261,9 +248,7 @@ export async function reconcileComposeDomains(
 }
 
 /** Drop a stack's routes + re-render Caddy (used on stack delete). */
-export async function removeComposeDomains(
-  resourceId: ResourceId,
-): Promise<void> {
+export async function removeComposeDomains(resourceId: ResourceId): Promise<void> {
   await deleteProxyRoutesByResource(resourceId);
   await reconcile();
 }

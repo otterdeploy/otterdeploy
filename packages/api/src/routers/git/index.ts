@@ -1,10 +1,9 @@
-import { matchError } from "better-result";
 import { ORPCError } from "@orpc/server";
 import { db } from "@otterdeploy/db";
 import { gitProvider, gitRepo } from "@otterdeploy/db/schema";
-import { and, eq } from "drizzle-orm";
-
 import { env } from "@otterdeploy/env/server";
+import { matchError } from "better-result";
+import { and, eq } from "drizzle-orm";
 
 import { orgScopedProcedure } from "../..";
 import {
@@ -17,14 +16,9 @@ import {
   signInstallState,
 } from "../../git";
 import { syncRepos } from "../../git/repos";
-
-import {
-  getInstallationForOrg,
-  listProvidersForOrg,
-  listReposForInstallation,
-} from "./queries";
-import { connectPublicRepo } from "./public-repos";
 import { inspectEnvFiles, inspectRepoTree, listRepoBranches } from "./inspect";
+import { connectPublicRepo } from "./public-repos";
+import { getInstallationForOrg, listProvidersForOrg, listReposForInstallation } from "./queries";
 
 export const gitRouter = {
   list: orgScopedProcedure.git.list.handler(async ({ context }) => {
@@ -62,10 +56,7 @@ export const gitRouter = {
       // setup_action + our state param. Built off the host on the provider
       // row so future GHE installs Just Work.
       const host = provider.host;
-      const base =
-        host === "github.com"
-          ? "https://github.com"
-          : `https://${host}`;
+      const base = host === "github.com" ? "https://github.com" : `https://${host}`;
       const url = new URL(`${base}/apps/${provider.appSlug}/installations/new`);
       url.searchParams.set("state", state);
       return { redirectUrl: url.toString() };
@@ -83,96 +74,84 @@ export const gitRouter = {
    * It runs even when no provider row exists yet (the common case for
    * a fresh install).
    */
-  startManifest: orgScopedProcedure.git.startManifest.handler(
-    async ({ input, context }) => {
-      // Manifest flow binds the GitHub callback to the initiating user —
-      // session-only; API-key actors have no user identity.
-      if (!context.session?.user) {
-        throw new ORPCError("UNAUTHORIZED");
+  startManifest: orgScopedProcedure.git.startManifest.handler(async ({ input, context }) => {
+    // Manifest flow binds the GitHub callback to the initiating user —
+    // session-only; API-key actors have no user identity.
+    if (!context.session?.user) {
+      throw new ORPCError("UNAUTHORIZED");
+    }
+    const state = await signInstallState({
+      orgId: context.activeOrganizationId,
+      userId: context.session.user.id,
+    });
+    const baseUrl = env.BETTER_AUTH_URL;
+    return buildManifestRequest({
+      state,
+      baseUrl,
+      accountLogin: input.accountLogin ?? null,
+      appName: input.appName,
+    });
+  }),
+
+  disconnect: orgScopedProcedure.git.disconnect.handler(async ({ input, context, errors }) => {
+    const inst = await getInstallationForOrg({
+      installationDbId: input.installationId,
+      organizationId: context.activeOrganizationId,
+    });
+    if (!inst) throw errors.NOT_FOUND();
+    context.log.set({
+      target: { type: "git_installation", id: input.installationId },
+    });
+    await disconnectGithubInstallation({
+      organizationId: context.activeOrganizationId,
+      installationDbId: input.installationId,
+    });
+    return { ok: true };
+  }),
+
+  refreshRepos: orgScopedProcedure.git.refreshRepos.handler(async ({ input, context, errors }) => {
+    const inst = await getInstallationForOrg({
+      installationDbId: input.installationId,
+      organizationId: context.activeOrganizationId,
+    });
+    if (!inst) throw errors.NOT_FOUND();
+    context.log.set({
+      target: { type: "git_installation", id: input.installationId },
+    });
+
+    try {
+      const tokenResp = await getInstallationToken(inst.installation.installationId);
+      const appConfig = await loadGithubAppForInstallation(inst.installation.installationId);
+      const repos = await listInstallationRepos(tokenResp.token, appConfig);
+      await syncRepos(
+        inst.installation.id,
+        repos.map((r) => ({
+          id: r.id,
+          node_id: r.node_id,
+          full_name: r.full_name,
+          name: r.name,
+          private: r.private,
+          default_branch: r.default_branch,
+          clone_url: r.clone_url,
+        })),
+      );
+      return { repoCount: repos.length };
+    } catch (cause) {
+      if (cause instanceof GithubAppNotConfiguredError) {
+        throw errors.NOT_CONFIGURED();
       }
-      const state = await signInstallState({
-        orgId: context.activeOrganizationId,
-        userId: context.session.user.id,
-      });
-      const baseUrl = env.BETTER_AUTH_URL;
-      return buildManifestRequest({
-        state,
-        baseUrl,
-        accountLogin: input.accountLogin ?? null,
-        appName: input.appName,
-      });
-    },
-  ),
+      throw cause;
+    }
+  }),
 
-  disconnect: orgScopedProcedure.git.disconnect.handler(
-    async ({ input, context, errors }) => {
-      const inst = await getInstallationForOrg({
-        installationDbId: input.installationId,
-        organizationId: context.activeOrganizationId,
-      });
-      if (!inst) throw errors.NOT_FOUND();
-      context.log.set({
-        target: { type: "git_installation", id: input.installationId },
-      });
-      await disconnectGithubInstallation({
-        organizationId: context.activeOrganizationId,
-        installationDbId: input.installationId,
-      });
-      return { ok: true };
-    },
-  ),
-
-  refreshRepos: orgScopedProcedure.git.refreshRepos.handler(
-    async ({ input, context, errors }) => {
-      const inst = await getInstallationForOrg({
-        installationDbId: input.installationId,
-        organizationId: context.activeOrganizationId,
-      });
-      if (!inst) throw errors.NOT_FOUND();
-      context.log.set({
-        target: { type: "git_installation", id: input.installationId },
-      });
-
-      try {
-        const tokenResp = await getInstallationToken(
-          inst.installation.installationId,
-        );
-        const appConfig = await loadGithubAppForInstallation(
-          inst.installation.installationId,
-        );
-        const repos = await listInstallationRepos(tokenResp.token, appConfig);
-        await syncRepos(
-          inst.installation.id,
-          repos.map((r) => ({
-            id: r.id,
-            node_id: r.node_id,
-            full_name: r.full_name,
-            name: r.name,
-            private: r.private,
-            default_branch: r.default_branch,
-            clone_url: r.clone_url,
-          })),
-        );
-        return { repoCount: repos.length };
-      } catch (cause) {
-        if (cause instanceof GithubAppNotConfiguredError) {
-          throw errors.NOT_CONFIGURED();
-        }
-        throw cause;
-      }
-    },
-  ),
-
-  listRepos: orgScopedProcedure.git.listRepos.handler(
-    async ({ input, context, errors }) => {
-      const inst = await getInstallationForOrg({
-        installationDbId: input.installationId,
-        organizationId: context.activeOrganizationId,
-      });
-      if (!inst) throw errors.NOT_FOUND();
-      return listReposForInstallation(input.installationId);
-    },
-  ),
+  listRepos: orgScopedProcedure.git.listRepos.handler(async ({ input, context, errors }) => {
+    const inst = await getInstallationForOrg({
+      installationDbId: input.installationId,
+      organizationId: context.activeOrganizationId,
+    });
+    if (!inst) throw errors.NOT_FOUND();
+    return listReposForInstallation(input.installationId);
+  }),
 
   connectPublicRepo: orgScopedProcedure.git.connectPublicRepo.handler(
     async ({ input, context, errors }) => {
@@ -187,82 +166,68 @@ export const gitRouter = {
     },
   ),
 
-  inspectRepo: orgScopedProcedure.git.inspectRepo.handler(
-    async ({ input, context, errors }) => {
-      context.log.set({
-        target: { type: "git_repo", id: input.gitRepoId, path: input.path },
+  inspectRepo: orgScopedProcedure.git.inspectRepo.handler(async ({ input, context, errors }) => {
+    context.log.set({
+      target: { type: "git_repo", id: input.gitRepoId, path: input.path },
+    });
+    const result = await inspectRepoTree({
+      gitRepoId: input.gitRepoId,
+      path: input.path,
+    });
+    if (result.isErr()) {
+      throw matchError(result.error, {
+        InspectRepoNotFoundError: () => errors.NOT_FOUND(),
+        InspectRepoRateLimitedError: (err) => errors.RATE_LIMITED({ message: err.message }),
+        InspectRepoUpstreamError: (err) => errors.UPSTREAM({ message: err.message }),
       });
-      const result = await inspectRepoTree({
-        gitRepoId: input.gitRepoId,
-        path: input.path,
-      });
-      if (result.isErr()) {
-        throw matchError(result.error, {
-          InspectRepoNotFoundError: () => errors.NOT_FOUND(),
-          InspectRepoRateLimitedError: (err) =>
-            errors.RATE_LIMITED({ message: err.message }),
-          InspectRepoUpstreamError: (err) =>
-            errors.UPSTREAM({ message: err.message }),
-        });
-      }
-      return result.value;
-    },
-  ),
+    }
+    return result.value;
+  }),
 
-  listBranches: orgScopedProcedure.git.listBranches.handler(
-    async ({ input, context, errors }) => {
-      context.log.set({
-        target: { type: "git_repo", id: input.gitRepoId },
+  listBranches: orgScopedProcedure.git.listBranches.handler(async ({ input, context, errors }) => {
+    context.log.set({
+      target: { type: "git_repo", id: input.gitRepoId },
+    });
+    const result = await listRepoBranches(input.gitRepoId);
+    if (result.isErr()) {
+      throw matchError(result.error, {
+        InspectRepoNotFoundError: () => errors.NOT_FOUND(),
+        InspectRepoRateLimitedError: (err) => errors.RATE_LIMITED({ message: err.message }),
+        InspectRepoUpstreamError: (err) => errors.UPSTREAM({ message: err.message }),
       });
-      const result = await listRepoBranches(input.gitRepoId);
-      if (result.isErr()) {
-        throw matchError(result.error, {
-          InspectRepoNotFoundError: () => errors.NOT_FOUND(),
-          InspectRepoRateLimitedError: (err) =>
-            errors.RATE_LIMITED({ message: err.message }),
-          InspectRepoUpstreamError: (err) =>
-            errors.UPSTREAM({ message: err.message }),
-        });
-      }
-      return result.value;
-    },
-  ),
+    }
+    return result.value;
+  }),
 
-  getRepo: orgScopedProcedure.git.getRepo.handler(
-    async ({ input, errors }) => {
-      const [row] = await db
-        .select({
-          fullName: gitRepo.fullName,
-          defaultBranch: gitRepo.defaultBranch,
-        })
-        .from(gitRepo)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .where(eq(gitRepo.id, input.gitRepoId as any))
-        .limit(1);
-      if (!row) throw errors.NOT_FOUND();
-      return {
-        fullName: row.fullName,
-        defaultBranch: row.defaultBranch ?? "main",
-      };
-    },
-  ),
+  getRepo: orgScopedProcedure.git.getRepo.handler(async ({ input, errors }) => {
+    const [row] = await db
+      .select({
+        fullName: gitRepo.fullName,
+        defaultBranch: gitRepo.defaultBranch,
+      })
+      .from(gitRepo)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .where(eq(gitRepo.id, input.gitRepoId as any))
+      .limit(1);
+    if (!row) throw errors.NOT_FOUND();
+    return {
+      fullName: row.fullName,
+      defaultBranch: row.defaultBranch ?? "main",
+    };
+  }),
 
-  inspectEnv: orgScopedProcedure.git.inspectEnv.handler(
-    async ({ input, context, errors }) => {
-      context.log.set({
-        target: { type: "git_repo", id: input.gitRepoId, path: input.path },
+  inspectEnv: orgScopedProcedure.git.inspectEnv.handler(async ({ input, context, errors }) => {
+    context.log.set({
+      target: { type: "git_repo", id: input.gitRepoId, path: input.path },
+    });
+    const result = await inspectEnvFiles(input.gitRepoId, input.path);
+    if (result.isErr()) {
+      throw matchError(result.error, {
+        InspectRepoNotFoundError: () => errors.NOT_FOUND(),
+        InspectRepoRateLimitedError: (err) => errors.RATE_LIMITED({ message: err.message }),
+        InspectRepoUpstreamError: (err) => errors.UPSTREAM({ message: err.message }),
       });
-      const result = await inspectEnvFiles(input.gitRepoId, input.path);
-      if (result.isErr()) {
-        throw matchError(result.error, {
-          InspectRepoNotFoundError: () => errors.NOT_FOUND(),
-          InspectRepoRateLimitedError: (err) =>
-            errors.RATE_LIMITED({ message: err.message }),
-          InspectRepoUpstreamError: (err) =>
-            errors.UPSTREAM({ message: err.message }),
-        });
-      }
-      return result.value;
-    },
-  ),
+    }
+    return result.value;
+  }),
 };

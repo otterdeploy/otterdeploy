@@ -1,11 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { DatabaseLogo } from "@/components/brand/database-logo";
-import { I } from "../icons";
-import { PROJECTS, SERVICES, type Service } from "../data";
-import { StatusBadge } from "../components/status-badge";
-import { TerminalWorkspace, dbTarget } from "../components/terminal-workspace";
+
 import type { TerminalKind } from "../components/terminal";
+
 import {
   ALL_PROJECTS,
   ProjectFilterStrip,
@@ -13,38 +11,32 @@ import {
   ProjectPicker,
   matchesProjectFilter,
 } from "../components/project-filter";
+import { StatusBadge } from "../components/status-badge";
+import { TerminalWorkspace, dbTarget } from "../components/terminal-workspace";
+import { PROJECTS, SERVICES, type Service } from "../data";
+import { I } from "../icons";
 
 export function Databases({ onBrowse }: { onBrowse?: (db: Service) => void } = {}) {
-  const allDbs = useMemo(
-    () => SERVICES.filter((s) => s.kind === "database"),
-    [],
-  );
+  const allDbs = useMemo(() => SERVICES.filter((s) => s.kind === "database"), []);
   const [dbs, setDbs] = useState<Service[]>(allDbs);
   const [consoleDb, setConsoleDb] = useState<Service | null>(null);
   const [filter, setFilter] = useState<string>(ALL_PROJECTS);
 
   const counts = useMemo(() => {
     const out: Record<string, number> = {};
-    for (const p of PROJECTS)
-      out[p.id] = dbs.filter((d) => d.project === p.id).length;
+    for (const p of PROJECTS) out[p.id] = dbs.filter((d) => d.project === p.id).length;
     return out;
   }, [dbs]);
 
   const filtered = useMemo(
-    () =>
-      dbs.filter((d) =>
-        matchesProjectFilter(filter, d.project ? [d.project] : []),
-      ),
+    () => dbs.filter((d) => matchesProjectFilter(filter, d.project ? [d.project] : [])),
     [dbs, filter],
   );
 
   const setProject = (id: string, project: string | undefined) =>
     setDbs((ds) => ds.map((d) => (d.id === id ? { ...d, project } : d)));
   return (
-    <div
-      className="os-scroll"
-      style={{ flex: 1, overflow: "auto", padding: 24 }}
-    >
+    <div className="os-scroll" style={{ flex: 1, overflow: "auto", padding: 24 }}>
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
         <div className="row" style={{ marginBottom: 12 }}>
           <SectionH title="Databases" />
@@ -54,11 +46,7 @@ export function Databases({ onBrowse }: { onBrowse?: (db: Service) => void } = {
           </button>
         </div>
         <div className="row" style={{ marginBottom: 14 }}>
-          <ProjectFilterStrip
-            active={filter}
-            onChange={setFilter}
-            counts={counts}
-          />
+          <ProjectFilterStrip active={filter} onChange={setFilter} counts={counts} />
         </div>
 
         <div className="col gap-3">
@@ -79,9 +67,7 @@ export function Databases({ onBrowse }: { onBrowse?: (db: Service) => void } = {
         </div>
       </div>
 
-      {consoleDb && (
-        <DBConsoleModal db={consoleDb} onClose={() => setConsoleDb(null)} />
-      )}
+      {consoleDb && <DBConsoleModal db={consoleDb} onClose={() => setConsoleDb(null)} />}
     </div>
   );
 }
@@ -274,16 +260,8 @@ function DBCard({
           sub={`of ${storage.total}${storage.unit}`}
           pct={used}
         />
-        <DBStat
-          label="Connections"
-          value={db.name === "postgres" ? "14" : "32"}
-          sub="of 100"
-        />
-        <DBStat
-          label="QPS"
-          value={db.name === "postgres" ? "312" : "980"}
-          sub="last 1m"
-        />
+        <DBStat label="Connections" value={db.name === "postgres" ? "14" : "32"} sub="of 100" />
+        <DBStat label="QPS" value={db.name === "postgres" ? "312" : "980"} sub="last 1m" />
         <DBStat label="Backups" value="ok" sub="last: 2h ago" />
       </div>
 

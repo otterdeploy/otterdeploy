@@ -1,3 +1,15 @@
+import type {
+  BackupId,
+  BackupScheduleId,
+  EnvironmentId,
+  OrganizationId,
+  ResourceId,
+} from "@otterdeploy/shared/id";
+
+import { ORPCError } from "@orpc/server";
+import { db } from "@otterdeploy/db";
+import { backup, backupSchedule } from "@otterdeploy/db/schema/backup";
+import { environment, project, resource } from "@otterdeploy/db/schema/project";
 /**
  * DB-backed API-key project-scope enforcers.
  *
@@ -18,21 +30,8 @@
  */
 import { and, eq } from "drizzle-orm";
 
-import { db } from "@otterdeploy/db";
-import { backup, backupSchedule } from "@otterdeploy/db/schema/backup";
-import { environment, project, resource } from "@otterdeploy/db/schema/project";
-
-import { ORPCError } from "@orpc/server";
-
-import type {
-  BackupId,
-  BackupScheduleId,
-  EnvironmentId,
-  OrganizationId,
-  ResourceId,
-} from "@otterdeploy/shared/id";
-
 import type { Context } from "../context";
+
 import { requireProjectScope } from "./api-key-scope";
 
 /** The handful of `db` methods these guards touch — narrowed so tests can pass
@@ -64,10 +63,7 @@ function orgId(context: Context): OrganizationId {
  * gate we can apply when the project can't be determined — e.g. an org-level
  * environment with a null projectId).
  */
-export function enforceProjectScope(
-  context: Context,
-  projectId: string | null | undefined,
-): void {
+export function enforceProjectScope(context: Context, projectId: string | null | undefined): void {
   if (scopeIrrelevant(context)) return;
   if (!projectId) return;
   if (!requireProjectScope(context.apiKey, projectId)) throw FORBIDDEN();
@@ -89,12 +85,7 @@ export async function enforceResourceScope(
     .select({ projectId: resource.projectId })
     .from(resource)
     .innerJoin(project, eq(project.id, resource.projectId))
-    .where(
-      and(
-        eq(resource.id, resourceId),
-        eq(project.organizationId, orgId(context)),
-      ),
-    )
+    .where(and(eq(resource.id, resourceId), eq(project.organizationId, orgId(context))))
     .limit(1);
   if (!row) return;
   enforceProjectScope(context, row.projectId);
@@ -115,12 +106,7 @@ export async function enforceBackupScope(
     .select({ projectId: resource.projectId })
     .from(backup)
     .innerJoin(resource, eq(resource.id, backup.resourceId))
-    .where(
-      and(
-        eq(backup.id, backupId),
-        eq(backup.organizationId, orgId(context)),
-      ),
-    )
+    .where(and(eq(backup.id, backupId), eq(backup.organizationId, orgId(context))))
     .limit(1);
   if (!row) return;
   enforceProjectScope(context, row.projectId);
@@ -141,10 +127,7 @@ export async function enforceScheduleScope(
     .select({ projectId: backupSchedule.projectId })
     .from(backupSchedule)
     .where(
-      and(
-        eq(backupSchedule.id, scheduleId),
-        eq(backupSchedule.organizationId, orgId(context)),
-      ),
+      and(eq(backupSchedule.id, scheduleId), eq(backupSchedule.organizationId, orgId(context))),
     )
     .limit(1);
   if (!row) return;
@@ -169,12 +152,7 @@ export async function enforceEnvScope(
     .select({ projectId: environment.projectId })
     .from(environment)
     .innerJoin(project, eq(project.id, environment.projectId))
-    .where(
-      and(
-        eq(environment.id, envId),
-        eq(project.organizationId, orgId(context)),
-      ),
-    )
+    .where(and(eq(environment.id, envId), eq(project.organizationId, orgId(context))))
     .limit(1);
   if (!row) return;
   enforceProjectScope(context, row.projectId);

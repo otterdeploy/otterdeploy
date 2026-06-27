@@ -90,7 +90,7 @@ export function LogsToolbar({
               className={cn(
                 "rounded px-2 py-0.5 font-mono text-[11px] transition-colors",
                 on
-                  ? cn("bg-background shadow-sm font-medium", LEVEL_TEXT[lv])
+                  ? cn("bg-background font-medium shadow-sm", LEVEL_TEXT[lv])
                   : "text-muted-foreground/60 hover:text-foreground/80",
               )}
             >
@@ -104,7 +104,7 @@ export function LogsToolbar({
         <HugeiconsIcon
           icon={Search01Icon}
           strokeWidth={2}
-          className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/60"
+          className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground/60"
         />
         <Input
           value={query}
@@ -116,7 +116,7 @@ export function LogsToolbar({
 
       <span
         className={cn(
-          "flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-widest",
+          "flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium tracking-widest uppercase",
           badge.tone,
         )}
       >
@@ -163,11 +163,7 @@ export function LogsToolbar({
         className="h-7 gap-1.5 text-[12px]"
         onClick={onTogglePause}
       >
-        <HugeiconsIcon
-          icon={paused ? PlayIcon : PauseIcon}
-          strokeWidth={2}
-          className="size-3.5"
-        />
+        <HugeiconsIcon icon={paused ? PlayIcon : PauseIcon} strokeWidth={2} className="size-3.5" />
         {paused ? "Resume" : "Pause"}
       </Button>
       <Button

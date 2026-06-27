@@ -31,10 +31,7 @@ function rid(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
-function rowsFromServer(
-  env: Record<string, string>,
-  secretKeys: string[],
-): DraftRow[] {
+function rowsFromServer(env: Record<string, string>, secretKeys: string[]): DraftRow[] {
   const secretSet = new Set(secretKeys);
   return Object.entries(env)
     .sort(([a], [b]) => a.localeCompare(b))
@@ -64,13 +61,8 @@ function statusOf(row: DraftRow): RowStatus {
   return "unchanged";
 }
 
-export function useEditorState({
-  serverEnv,
-  serverSecretKeys,
-}: UseEditorStateArgs) {
-  const [rows, setRows] = useState<DraftRow[]>(() =>
-    rowsFromServer(serverEnv, serverSecretKeys),
-  );
+export function useEditorState({ serverEnv, serverSecretKeys }: UseEditorStateArgs) {
+  const [rows, setRows] = useState<DraftRow[]>(() => rowsFromServer(serverEnv, serverSecretKeys));
 
   // Re-baseline when the server snapshot changes AND we have no pending
   // edits — otherwise an unrelated invalidate would clobber the operator's
@@ -91,9 +83,7 @@ export function useEditorState({
   }, [snapshotKey, serverEnv, serverSecretKeys]);
 
   const update = (id: string, patch: Partial<Pick<DraftRow, "key" | "value" | "isSecret">>) =>
-    setRows((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, ...patch } : r)),
-    );
+    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
 
   const addRow = (seed?: Partial<DraftRow>): string => {
     const id = rid();
@@ -134,11 +124,7 @@ export function useEditorState({
       for (const r of prev) {
         if (r.baseline) baselineByKey.set(r.baseline.key, r.baseline);
       }
-      const idByKey = new Map(
-        prev
-          .filter((r) => !r.deleted)
-          .map((r) => [r.key, r.id] as const),
-      );
+      const idByKey = new Map(prev.filter((r) => !r.deleted).map((r) => [r.key, r.id] as const));
       return next.map((e) => ({
         id: idByKey.get(e.key) ?? rid(),
         key: e.key,
@@ -153,9 +139,7 @@ export function useEditorState({
   const deleted = rows.filter((r) => r.deleted && r.baseline !== null);
   const diff = useMemo(() => {
     const added = rows.filter((r) => !r.deleted && !r.baseline).length;
-    const edited = rows.filter(
-      (r) => !r.deleted && r.baseline && statusOf(r) === "edited",
-    ).length;
+    const edited = rows.filter((r) => !r.deleted && r.baseline && statusOf(r) === "edited").length;
     return { added, edited, deleted: deleted.length };
   }, [rows, deleted.length]);
   const hasPending = diff.added + diff.edited + diff.deleted > 0;

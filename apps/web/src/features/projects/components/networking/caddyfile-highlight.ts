@@ -49,10 +49,7 @@ const TOKEN_RE = /("[^"]*")|(\{[^{}\s][^{}]*\})|([{}])|(\s+)|([^\s{}]+)/g;
 function tokenize(line: string): Token[] {
   const hash = line.indexOf("#");
   if (hash >= 0) {
-    return [
-      ...tokenizeCode(line.slice(0, hash)),
-      { text: line.slice(hash), kind: "comment" },
-    ];
+    return [...tokenizeCode(line.slice(0, hash)), { text: line.slice(hash), kind: "comment" }];
   }
   return tokenizeCode(line);
 }
@@ -84,11 +81,7 @@ function tokenizeCode(code: string): Token[] {
   return tokens;
 }
 
-function classifyWord(
-  word: string,
-  isFirstWord: boolean,
-  opensBlock: boolean,
-): TokenKind {
+function classifyWord(word: string, isFirstWord: boolean, opensBlock: boolean): TokenKind {
   if (isFirstWord) {
     // Leading host on a block-opening line ⇒ site address; otherwise it's
     // the directive name (reverse_proxy, tls, handle, forward_auth, …).

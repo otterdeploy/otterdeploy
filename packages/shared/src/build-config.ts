@@ -15,12 +15,7 @@
  * one path matches. Unset = redeploy on every push.
  */
 
-export const BUILDERS = [
-  "auto",
-  "dockerfile",
-  "railpack",
-  "compose",
-] as const;
+export const BUILDERS = ["auto", "dockerfile", "railpack", "compose"] as const;
 
 export type Builder = (typeof BUILDERS)[number];
 

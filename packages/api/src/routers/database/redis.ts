@@ -17,11 +17,7 @@ import { Docker } from "@otterdeploy/docker";
 
 import { execCapture, findServiceContainerId } from "../../backups/exec";
 import { buildContainerName } from "../project/views";
-import {
-  type DbConnInfo,
-  QueryError,
-  UnsupportedEngineError,
-} from "./query";
+import { type DbConnInfo, QueryError, UnsupportedEngineError } from "./query";
 
 /** Sentinel a script returns when a value/key can't be cjson-encoded (binary
  *  bytes that aren't valid UTF-8). Surfaced to the caller as a clear error
@@ -103,9 +99,7 @@ async function withRedisContainer<T>(
 function parseEval<T>(raw: string): T {
   const trimmed = raw.trim();
   if (trimmed === ENC_ERR) {
-    throw new QueryError(
-      "value contains non-UTF-8 data that can't be previewed",
-    );
+    throw new QueryError("value contains non-UTF-8 data that can't be previewed");
   }
   try {
     return JSON.parse(trimmed) as T;
@@ -170,9 +164,7 @@ if ok then return enc else return '${ENC_ERR}' end
 // ── public API ──────────────────────────────────────────────────────────────
 
 /** Per-database key counts from `INFO keyspace` (only non-empty dbs appear). */
-export async function redisKeyspace(
-  conn: DbConnInfo,
-): Promise<RedisKeyspaceEntry[]> {
+export async function redisKeyspace(conn: DbConnInfo): Promise<RedisKeyspaceEntry[]> {
   return withRedisContainer(conn, async (run) => {
     const out = await run(["INFO", "keyspace"]);
     const entries: RedisKeyspaceEntry[] = [];

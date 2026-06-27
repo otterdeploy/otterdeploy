@@ -1,43 +1,37 @@
 import { matchError } from "better-result";
 
 import { orgScopedProcedure, requirePermission } from "../..";
-import {
-  enforceEnvScope,
-  enforceProjectScope,
-} from "../../authz/project-scope-guards";
-
+import { enforceEnvScope, enforceProjectScope } from "../../authz/project-scope-guards";
 import { createEnv, deleteEnv, getEnv, listEnvs } from "./handlers";
 
 export const envRouter = {
   list: orgScopedProcedure.env.list.handler(async ({ input, context }) => {
-     enforceProjectScope(context, input?.projectId);
+    enforceProjectScope(context, input?.projectId);
     return listEnvs({
       organizationId: context.activeOrganizationId,
       projectId: input?.projectId,
     });
   }),
 
-  get: orgScopedProcedure.env.get.handler(
-    async ({ input, context, errors }) => {
-      context.log.set({ target: { type: "environment", id: input.id } });
-      await enforceEnvScope(context, input.id);
-      const result = await getEnv({
-        id: input.id,
-        organizationId: context.activeOrganizationId,
+  get: orgScopedProcedure.env.get.handler(async ({ input, context, errors }) => {
+    context.log.set({ target: { type: "environment", id: input.id } });
+    await enforceEnvScope(context, input.id);
+    const result = await getEnv({
+      id: input.id,
+      organizationId: context.activeOrganizationId,
+    });
+    if (result.isErr()) {
+      throw matchError(result.error, {
+        EnvironmentNotFoundError: () => errors.NOT_FOUND(),
       });
-      if (result.isErr()) {
-        throw matchError(result.error, {
-          EnvironmentNotFoundError: () => errors.NOT_FOUND(),
-        });
-      }
-      return result.value;
-    },
-  ),
+    }
+    return result.value;
+  }),
 
   create: requirePermission({ env: ["create"] }).env.create.handler(
     async ({ input, context, errors }) => {
       context.log.set({ target: { type: "environment" } });
-       enforceProjectScope(context, input.projectId);
+      enforceProjectScope(context, input.projectId);
       const result = await createEnv(input);
       if (result.isErr()) {
         throw matchError(result.error, {

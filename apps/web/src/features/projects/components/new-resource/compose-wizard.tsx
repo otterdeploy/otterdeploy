@@ -8,31 +8,31 @@
  * docs/designs/compose.md.
  */
 import type { ProjectId, ProjectSlug } from "@otterdeploy/shared/id";
+
 import { useRef, useState } from "react";
+
+import { yaml } from "@codemirror/lang-yaml";
+import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
+import { type Diagnostic, lintGutter, setDiagnostics } from "@codemirror/lint";
+import { EditorView } from "@codemirror/view";
 import { Alert02Icon, Upload01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { tags as t } from "@lezer/highlight";
 import { useStore } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
-import { yaml } from "@codemirror/lang-yaml";
-import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
-import {
-  type Diagnostic,
-  lintGutter,
-  setDiagnostics,
-} from "@codemirror/lint";
-import { EditorView } from "@codemirror/view";
-import { tags as t } from "@lezer/highlight";
 
-import { useAppForm } from "./form-context";
-import { ComposeServiceIcon } from "./compose-service-icon";
-import type { Var } from "./form-fields/variables-field";
-import { useStageManifestChange } from "../../hooks/use-manifest-stage";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Spinner } from "@/shared/components/ui/spinner";
 import { orpc } from "@/shared/server/orpc";
+
+import type { Var } from "./form-fields/variables-field";
+
+import { useStageManifestChange } from "../../hooks/use-manifest-stage";
+import { ComposeServiceIcon } from "./compose-service-icon";
+import { useAppForm } from "./form-context";
 
 // Make CodeMirror transparent so it inherits the dark wrapper (no white box),
 // with a muted line-number gutter — matches the Caddyfile editor's look.
@@ -41,8 +41,7 @@ const editorTheme = EditorView.theme(
     "&": { backgroundColor: "transparent" },
     "&.cm-focused": { outline: "none" },
     ".cm-scroller": {
-      fontFamily:
-        "var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)",
+      fontFamily: "var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)",
       lineHeight: "1.6",
     },
     ".cm-gutters": {
@@ -118,12 +117,7 @@ const highlightStyle = HighlightStyle.define([
   },
 ]);
 
-const editorExtensions = [
-  editorTheme,
-  yaml(),
-  syntaxHighlighting(highlightStyle),
-  lintGutter(),
-];
+const editorExtensions = [editorTheme, yaml(), syntaxHighlighting(highlightStyle), lintGutter()];
 
 export function ComposeWizard({
   orgSlug,
@@ -165,9 +159,7 @@ export function ComposeWizard({
       // The graph then shows the stack as a pending ghost; the pending-changes
       // bar's Deploy provisions it (manifest.apply → reconciler).
       const rawName =
-        value.name.trim() ||
-        (value.source === "git" ? repoName : preview?.name) ||
-        "compose-stack";
+        value.name.trim() || (value.source === "git" ? repoName : preview?.name) || "compose-stack";
       const name = toResourceName(rawName);
 
       // `${VAR}` values → manifest env. Secret-ness is re-derived at apply time
@@ -194,9 +186,7 @@ export function ComposeWizard({
               gitRepoUrl: value.gitRepoUrl.trim(),
               ...(value.gitRef.trim() ? { gitRef: value.gitRef.trim() } : {}),
               // Blank → the builder auto-detects common compose file names.
-              ...(value.composePath.trim()
-                ? { composePath: value.composePath.trim() }
-                : {}),
+              ...(value.composePath.trim() ? { composePath: value.composePath.trim() } : {}),
               ...(hasEnv ? { env } : {}),
             };
 
@@ -217,9 +207,7 @@ export function ComposeWizard({
   const gitRepoUrl = useStore(form.store, (s) => s.values.gitRepoUrl);
   const exposed = new Set(useStore(form.store, (s) => s.values.exposed));
   // The form already tracks the async `content` validation — no manual flag.
-  const parsing = useStore(form.store, (s) =>
-    Boolean(s.fieldMeta.content?.isValidating),
-  );
+  const parsing = useStore(form.store, (s) => Boolean(s.fieldMeta.content?.isValidating));
 
   // Push the parse result onto the editor as a CodeMirror diagnostic — red
   // gutter marker + underline + hover message on the offending line. Called
@@ -252,9 +240,7 @@ export function ComposeWizard({
       applyDiagnostics(null);
       return undefined;
     }
-    const res = await orpc.compose.parse
-      .call({ projectId, content: trimmed })
-      .catch(() => null);
+    const res = await orpc.compose.parse.call({ projectId, content: trimmed }).catch(() => null);
     if (!res) {
       const message = "Couldn't reach the parser";
       const fail: Preview = {
@@ -288,21 +274,14 @@ export function ComposeWizard({
       );
     });
     // Keep any extra rows the user added that aren't refs in the file.
-    const extra = current.filter(
-      (c) => !res.vars.some((ref) => ref.name === c.key),
-    );
+    const extra = current.filter((c) => !res.vars.some((ref) => ref.name === c.key));
     form.setFieldValue("variables", [...seeded, ...extra]);
-    return res.valid
-      ? undefined
-      : `line ${res.errorLine ?? "?"}: ${res.error ?? "Invalid YAML"}`;
+    return res.valid ? undefined : `line ${res.errorLine ?? "?"}: ${res.error ?? "Invalid YAML"}`;
   };
 
   const buildServices = preview?.services.filter((s) => s.hasBuild) ?? [];
   // A valid, deployable inline file (no build services).
-  const inlineReady =
-    source === "inline" &&
-    preview?.valid === true &&
-    buildServices.length === 0;
+  const inlineReady = source === "inline" && preview?.valid === true && buildServices.length === 0;
   const hasVars = source === "inline" && (preview?.vars.length ?? 0) > 0;
   // Always route an inline file through the variables step before creating, so
   // the operator can review / set / add env values BEFORE the stack deploys —
@@ -310,8 +289,7 @@ export function ComposeWizard({
   // inline step; its file + vars are resolved at build time.)
   const showNext = step === "file" && inlineReady;
   const canCreate =
-    !stage.isPending &&
-    (source === "git" ? gitRepoUrl.trim().length > 0 : inlineReady);
+    !stage.isPending && (source === "git" ? gitRepoUrl.trim().length > 0 : inlineReady);
 
   // What the name will be if left blank — shown as the field's placeholder.
   const repoName = gitRepoUrl
@@ -320,15 +298,11 @@ export function ComposeWizard({
     .replace(/\/$/, "")
     .split("/")
     .pop();
-  const derivedName =
-    (source === "git" ? repoName : preview?.name) || "compose-stack";
+  const derivedName = (source === "git" ? repoName : preview?.name) || "compose-stack";
 
   const toggleExpose = (key: string) => {
     const cur = form.state.values.exposed;
-    form.setFieldValue(
-      "exposed",
-      cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key],
-    );
+    form.setFieldValue("exposed", cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key]);
   };
 
   const NameField = (
@@ -336,8 +310,7 @@ export function ComposeWizard({
       {(field) => (
         <label className="flex flex-col gap-1.5">
           <span className="text-xs text-muted-foreground">
-            Stack name{" "}
-            <span className="text-muted-foreground/60">(optional)</span>
+            Stack name <span className="text-muted-foreground/60">(optional)</span>
           </span>
           <Input
             value={field.state.value}
@@ -375,8 +348,8 @@ export function ComposeWizard({
                 {hasVars
                   ? "The compose file references these — defaults are pre-filled. "
                   : "Set any variables this stack needs before it deploys. "}
-                Edit, add more, or toggle the lock to mark a value secret. Saved
-                as project variables.
+                Edit, add more, or toggle the lock to mark a value secret. Saved as project
+                variables.
               </span>
             </div>
             <form.AppField name="variables">
@@ -386,156 +359,145 @@ export function ComposeWizard({
         ) : (
           <>
             <div className="inline-flex w-fit items-center gap-1 rounded-md border bg-muted/40 p-0.5">
-          {(["inline", "git"] as const).map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => {
-                setStep("file");
-                form.setFieldValue("source", s);
-              }}
-              className={
-                source === s
-                  ? "rounded bg-background px-2.5 py-1 text-xs text-foreground shadow-sm"
-                  : "rounded px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground"
-              }
-            >
-              {s === "inline" ? "Paste file" : "From repo"}
-            </button>
-          ))}
-        </div>
-
-        {source === "git" ? (
-          <>
-            <form.Field name="gitRepoUrl">
-              {(field) => (
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-xs text-muted-foreground">
-                    Repository URL
-                  </span>
-                  <Input
-                    value={field.state.value}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    placeholder="https://github.com/owner/repo"
-                    className="font-mono"
-                    autoFocus
-                  />
-                </label>
-              )}
-            </form.Field>
-            <div className="grid grid-cols-2 gap-3">
-              <form.Field name="gitRef">
-                {(field) => (
-                  <label className="flex flex-col gap-1.5">
-                    <span className="text-xs text-muted-foreground">
-                      Branch
-                    </span>
-                    <Input
-                      value={field.state.value}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      placeholder="main"
-                      className="font-mono"
-                    />
-                  </label>
-                )}
-              </form.Field>
-              <form.Field name="composePath">
-                {(field) => (
-                  <label className="flex flex-col gap-1.5">
-                    <span className="text-xs text-muted-foreground">
-                      Compose file{" "}
-                      <span className="text-muted-foreground/60">
-                        (optional)
-                      </span>
-                    </span>
-                    <Input
-                      value={field.state.value}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      placeholder="auto-detect"
-                      className="font-mono"
-                    />
-                  </label>
-                )}
-              </form.Field>
+              {(["inline", "git"] as const).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => {
+                    setStep("file");
+                    form.setFieldValue("source", s);
+                  }}
+                  className={
+                    source === s
+                      ? "rounded bg-background px-2.5 py-1 text-xs text-foreground shadow-sm"
+                      : "rounded px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground"
+                  }
+                >
+                  {s === "inline" ? "Paste file" : "From repo"}
+                </button>
+              ))}
             </div>
-            {NameField}
-            <p className="text-[11px] text-muted-foreground">
-              Clones the repo, builds each service with a <code>build:</code>{" "}
-              context, then deploys the whole stack. Track progress on the
-              graph.
-            </p>
-          </>
-        ) : (
-          <>
-            {NameField}
-            <form.Field
-              name="content"
-              validators={{
-                onChangeAsyncDebounceMs: 400,
-                onChangeAsync: ({ value }) => parseContent(value),
-              }}
-            >
-              {(field) => (
-                <div className="flex flex-col gap-1.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">
-                      Compose file
-                    </span>
-                    <div className="flex-1" />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      type="button"
-                      className="h-7 gap-1.5"
-                      onClick={() => fileInput.current?.click()}
-                    >
-                      <HugeiconsIcon icon={Upload01Icon} className="size-3.5" />
-                      Upload
-                    </Button>
-                    <input
-                      ref={fileInput}
-                      type="file"
-                      accept=".yml,.yaml,text/yaml"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file)
-                          void file.text().then((text) => field.handleChange(text));
-                      }}
-                    />
-                  </div>
-                  <div className="overflow-hidden rounded-lg border border-input bg-input/30 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
-                    <CodeMirror
-                      ref={editorRef}
-                      value={field.state.value}
-                      onChange={(v) => field.handleChange(v)}
-                      theme="none"
-                      extensions={editorExtensions}
-                      basicSetup={{
-                        lineNumbers: true,
-                        foldGutter: false,
-                        highlightActiveLine: true,
-                        highlightActiveLineGutter: false,
-                        autocompletion: false,
-                        bracketMatching: true,
-                      }}
-                      spellCheck={false}
-                      className="max-h-[44vh] min-h-64 overflow-auto text-[12.5px]"
-                    />
-                  </div>
-                </div>
-              )}
-            </form.Field>
 
-            <ComposePreview
-              parsing={parsing}
-              preview={preview}
-              buildServices={buildServices}
-              exposed={exposed}
-              onToggleExpose={toggleExpose}
-            />
-          </>
-        )}
+            {source === "git" ? (
+              <>
+                <form.Field name="gitRepoUrl">
+                  {(field) => (
+                    <label className="flex flex-col gap-1.5">
+                      <span className="text-xs text-muted-foreground">Repository URL</span>
+                      <Input
+                        value={field.state.value}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                        placeholder="https://github.com/owner/repo"
+                        className="font-mono"
+                        autoFocus
+                      />
+                    </label>
+                  )}
+                </form.Field>
+                <div className="grid grid-cols-2 gap-3">
+                  <form.Field name="gitRef">
+                    {(field) => (
+                      <label className="flex flex-col gap-1.5">
+                        <span className="text-xs text-muted-foreground">Branch</span>
+                        <Input
+                          value={field.state.value}
+                          onChange={(e) => field.handleChange(e.target.value)}
+                          placeholder="main"
+                          className="font-mono"
+                        />
+                      </label>
+                    )}
+                  </form.Field>
+                  <form.Field name="composePath">
+                    {(field) => (
+                      <label className="flex flex-col gap-1.5">
+                        <span className="text-xs text-muted-foreground">
+                          Compose file <span className="text-muted-foreground/60">(optional)</span>
+                        </span>
+                        <Input
+                          value={field.state.value}
+                          onChange={(e) => field.handleChange(e.target.value)}
+                          placeholder="auto-detect"
+                          className="font-mono"
+                        />
+                      </label>
+                    )}
+                  </form.Field>
+                </div>
+                {NameField}
+                <p className="text-[11px] text-muted-foreground">
+                  Clones the repo, builds each service with a <code>build:</code> context, then
+                  deploys the whole stack. Track progress on the graph.
+                </p>
+              </>
+            ) : (
+              <>
+                {NameField}
+                <form.Field
+                  name="content"
+                  validators={{
+                    onChangeAsyncDebounceMs: 400,
+                    onChangeAsync: ({ value }) => parseContent(value),
+                  }}
+                >
+                  {(field) => (
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Compose file</span>
+                        <div className="flex-1" />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          type="button"
+                          className="h-7 gap-1.5"
+                          onClick={() => fileInput.current?.click()}
+                        >
+                          <HugeiconsIcon icon={Upload01Icon} className="size-3.5" />
+                          Upload
+                        </Button>
+                        <input
+                          ref={fileInput}
+                          type="file"
+                          accept=".yml,.yaml,text/yaml"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) void file.text().then((text) => field.handleChange(text));
+                          }}
+                        />
+                      </div>
+                      <div className="overflow-hidden rounded-lg border border-input bg-input/30 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
+                        <CodeMirror
+                          ref={editorRef}
+                          value={field.state.value}
+                          onChange={(v) => field.handleChange(v)}
+                          theme="none"
+                          extensions={editorExtensions}
+                          basicSetup={{
+                            lineNumbers: true,
+                            foldGutter: false,
+                            highlightActiveLine: true,
+                            highlightActiveLineGutter: false,
+                            autocompletion: false,
+                            bracketMatching: true,
+                          }}
+                          spellCheck={false}
+                          className="max-h-[44vh] min-h-64 overflow-auto text-[12.5px]"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </form.Field>
+
+                <ComposePreview
+                  parsing={parsing}
+                  preview={preview}
+                  buildServices={buildServices}
+                  exposed={exposed}
+                  onToggleExpose={toggleExpose}
+                />
+              </>
+            )}
           </>
         )}
       </div>
@@ -543,12 +505,7 @@ export function ComposeWizard({
       <div className="flex items-center justify-end gap-2 border-t px-5 py-3">
         {step === "vars" ? (
           <>
-            <Button
-              variant="outline"
-              size="sm"
-              type="button"
-              onClick={() => setStep("file")}
-            >
+            <Button variant="outline" size="sm" type="button" onClick={() => setStep("file")}>
               Back
             </Button>
             <Button size="sm" type="submit" disabled={!canCreate}>
@@ -600,10 +557,7 @@ function ComposePreview({
   if (!preview.valid) {
     return (
       <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-        <HugeiconsIcon
-          icon={Alert02Icon}
-          className="mt-0.5 size-3.5 shrink-0"
-        />
+        <HugeiconsIcon icon={Alert02Icon} className="mt-0.5 size-3.5 shrink-0" />
         <span className="min-w-0">
           {preview.errorLine ? (
             <span className="mr-1.5 rounded bg-destructive/15 px-1 py-0.5 font-mono text-[11px]">
@@ -624,10 +578,7 @@ function ComposePreview({
       </span>
       <div className="flex flex-col gap-1.5">
         {preview.services.map((s) => (
-          <div
-            key={s.name}
-            className="flex items-center gap-2 rounded-md border bg-card px-3 py-2"
-          >
+          <div key={s.name} className="flex items-center gap-2 rounded-md border bg-card px-3 py-2">
             <ComposeServiceIcon image={s.image} className="size-4 shrink-0" />
             <span className="font-mono text-[13px]">{s.name}</span>
             <span className="truncate font-mono text-[11px] text-muted-foreground">
@@ -641,11 +592,7 @@ function ComposePreview({
                 <button
                   key={p}
                   type="button"
-                  title={
-                    on
-                      ? "Exposed — click to make internal"
-                      : "Expose with a public domain"
-                  }
+                  title={on ? "Exposed — click to make internal" : "Expose with a public domain"}
                   onClick={() => onToggleExpose(key)}
                   className={
                     on
@@ -670,14 +617,10 @@ function ComposePreview({
       </div>
       {buildServices.length > 0 ? (
         <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-600">
-          <HugeiconsIcon
-            icon={Alert02Icon}
-            className="mt-0.5 size-3.5 shrink-0"
-          />
+          <HugeiconsIcon icon={Alert02Icon} className="mt-0.5 size-3.5 shrink-0" />
           <span>
-            {buildServices.map((s) => s.name).join(", ")} build from source,
-            which isn't supported yet — use a prebuilt <code>image:</code> for
-            now.
+            {buildServices.map((s) => s.name).join(", ")} build from source, which isn't supported
+            yet — use a prebuilt <code>image:</code> for now.
           </span>
         </div>
       ) : null}

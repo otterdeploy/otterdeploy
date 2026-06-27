@@ -14,26 +14,16 @@ import { Label } from "@/shared/components/ui/label";
 
 import { SocialSignIn } from "./social-sign-in";
 
-export function SignUpForm({
-  onSwitchToSignIn,
-}: {
-  onSwitchToSignIn: () => void;
-}) {
+export function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
   const navigate = useNavigate();
   const { redirect } = useSearch({ from: "/sign-in" });
   const { t } = useTranslation();
 
   const signUp = useMutation({
-    mutationFn: async (input: {
-      name: string;
-      email: string;
-      password: string;
-    }) => {
+    mutationFn: async (input: { name: string; email: string; password: string }) => {
       const result = await authClient.signUp.email(input);
       if (result.error)
-        throw new Error(
-          result.error.message ?? result.error.statusText ?? "Sign up failed",
-        );
+        throw new Error(result.error.message ?? result.error.statusText ?? "Sign up failed");
       return result.data;
     },
     onSuccess: () => {
@@ -69,9 +59,7 @@ export function SignUpForm({
         <h2 className="text-xl font-semibold tracking-[-0.03em] text-foreground">
           {t("auth.signUp.title")}
         </h2>
-        <p className="mt-1.5 text-[13px] text-muted-foreground">
-          {t("auth.signUp.subtitle")}
-        </p>
+        <p className="mt-1.5 text-[13px] text-muted-foreground">{t("auth.signUp.subtitle")}</p>
       </div>
 
       <form
@@ -87,7 +75,7 @@ export function SignUpForm({
             <div className="space-y-2">
               <Label
                 htmlFor={field.name}
-                className="font-mono text-[11px] uppercase tracking-[0.04em] text-muted-foreground"
+                className="font-mono text-[11px] tracking-[0.04em] text-muted-foreground uppercase"
               >
                 {t("auth.signUp.nameLabel")}
               </Label>
@@ -115,7 +103,7 @@ export function SignUpForm({
             <div className="space-y-2">
               <Label
                 htmlFor={field.name}
-                className="font-mono text-[11px] uppercase tracking-[0.04em] text-muted-foreground"
+                className="font-mono text-[11px] tracking-[0.04em] text-muted-foreground uppercase"
               >
                 {t("auth.signUp.emailLabel")}
               </Label>
@@ -144,7 +132,7 @@ export function SignUpForm({
             <div className="space-y-2">
               <Label
                 htmlFor={field.name}
-                className="font-mono text-[11px] uppercase tracking-[0.04em] text-muted-foreground"
+                className="font-mono text-[11px] tracking-[0.04em] text-muted-foreground uppercase"
               >
                 {t("auth.signUp.passwordLabel")}
               </Label>

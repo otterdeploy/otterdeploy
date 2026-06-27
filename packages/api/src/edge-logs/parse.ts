@@ -1,4 +1,5 @@
 import * as z from "zod";
+
 import type { EdgeLogLine } from "./types";
 
 // TLS numeric codes → human strings (crypto/tls constants).
@@ -17,17 +18,9 @@ const TLS_CIPHERS: Record<number, string> = {
 
 let counter = 0;
 
-const SENSITIVE_HEADERS = new Set([
-  "authorization",
-  "cookie",
-  "set-cookie",
-  "proxy-authorization",
-]);
+const SENSITIVE_HEADERS = new Set(["authorization", "cookie", "set-cookie", "proxy-authorization"]);
 
-const HeaderMapSchema = z.record(
-  z.string(),
-  z.union([z.string(), z.array(z.string())]),
-);
+const HeaderMapSchema = z.record(z.string(), z.union([z.string(), z.array(z.string())]));
 
 const TlsSchema = z.object({
   version: z.number().optional(),
@@ -70,9 +63,7 @@ function firstHeader(headers: HeaderMap | undefined, name: string): string {
 
 /** Flatten Caddy's header map ({Name: [values]}) to {name: "v1, v2"},
  *  dropping sensitive headers. */
-function flattenHeaders(
-  headers: HeaderMap | undefined,
-): Record<string, string> {
+function flattenHeaders(headers: HeaderMap | undefined): Record<string, string> {
   const out: Record<string, string> = {};
   if (!headers) return out;
   for (const [k, v] of Object.entries(headers)) {
@@ -124,16 +115,13 @@ export function parseCaddyAccessLog(raw: unknown): EdgeLogLine | null {
 
   const tlsCipher =
     req.tls?.cipher_suite != null
-      ? (TLS_CIPHERS[req.tls.cipher_suite] ??
-        `0x${req.tls.cipher_suite.toString(16)}`)
+      ? (TLS_CIPHERS[req.tls.cipher_suite] ?? `0x${req.tls.cipher_suite.toString(16)}`)
       : null;
 
   const referer = firstHeader(req.headers, "Referer") || "-";
 
   const cacheRaw =
-    firstHeader(resp_headers, "Cache-Status") ||
-    firstHeader(resp_headers, "X-Cache") ||
-    null;
+    firstHeader(resp_headers, "Cache-Status") || firstHeader(resp_headers, "X-Cache") || null;
 
   const requestId =
     (request_id ?? null) ||

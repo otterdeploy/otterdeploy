@@ -1,12 +1,10 @@
-import {
-  Album02Icon,
-  Rocket01Icon,
-  TerminalIcon,
-} from "@hugeicons/core-free-icons";
+import { createElement } from "react";
+
+import { Album02Icon, Rocket01Icon, TerminalIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { docs } from "collections/server";
 import { loader } from "fumadocs-core/source";
-import { createElement } from "react";
+
 import { openapi } from "./openapi";
 import { docsRoute } from "./shared";
 

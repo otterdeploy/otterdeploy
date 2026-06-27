@@ -3,8 +3,8 @@
 //   - ServiceDetail → Build & deploy
 import { useState } from "react";
 
-import { I, type IconKey } from "../../icons";
 import { BUILDERS, type Service } from "../../data";
+import { I, type IconKey } from "../../icons";
 import { BuilderConfig, Field, SectionH, SettingRow } from "../form";
 
 export function BuildForm({ service }: { service: Service }) {
@@ -78,10 +78,7 @@ export function BuildForm({ service }: { service: Service }) {
       <SectionH title="Deploy" />
       <div className="card" style={{ padding: 16 }}>
         <Field label="Deploy command">
-          <input
-            className="input mono"
-            defaultValue={defaultStartCommand(service.name)}
-          />
+          <input className="input mono" defaultValue={defaultStartCommand(service.name)} />
         </Field>
         <div style={{ height: 10 }} />
         <Field label="Watch paths">

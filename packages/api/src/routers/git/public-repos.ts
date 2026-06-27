@@ -14,10 +14,9 @@
  * IS public; org isolation happens at the project binding level.
  */
 
-import { Result, TaggedError } from "better-result";
-
 import { db } from "@otterdeploy/db";
 import { gitRepo } from "@otterdeploy/db/schema";
+import { Result, TaggedError } from "better-result";
 
 class InvalidCloneUrlError extends TaggedError("InvalidCloneUrlError")<{
   message: string;
@@ -56,9 +55,7 @@ function normalizeCloneUrl(raw: string): Result<NormalizedRepo, InvalidCloneUrlE
   try {
     parsed = new URL(trimmed);
   } catch {
-    return Result.err(
-      new InvalidCloneUrlError("Clone URL is not a valid URL"),
-    );
+    return Result.err(new InvalidCloneUrlError("Clone URL is not a valid URL"));
   }
   if (parsed.protocol !== "https:") {
     return Result.err(
@@ -142,9 +139,7 @@ export async function connectPublicRepo(args: {
     });
 
   if (!row) {
-    return Result.err(
-      new InvalidCloneUrlError("Failed to persist public repo row"),
-    );
+    return Result.err(new InvalidCloneUrlError("Failed to persist public repo row"));
   }
   return Result.ok(row);
 }

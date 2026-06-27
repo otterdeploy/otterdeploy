@@ -1,10 +1,3 @@
-/**
- * Run a backup now. The execution engine backs up database resources, so the
- * source picker lists the org's databases (real `terminal.targets` data) rather
- * than free-text names. Submits via `runBackup` → `backups.run`.
- */
-import { useForm } from "@tanstack/react-form";
-import { useLiveQuery } from "@tanstack/react-db";
 import {
   CloudServerIcon,
   FlashIcon,
@@ -12,20 +5,22 @@ import {
   SquareLock01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useLiveQuery } from "@tanstack/react-db";
+/**
+ * Run a backup now. The execution engine backs up database resources, so the
+ * source picker lists the org's databases (real `terminal.targets` data) rather
+ * than free-text names. Submits via `runBackup` → `backups.run`.
+ */
+import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
 
+import { terminalDatabasesCollection } from "@/features/terminal/data/targets";
 import { Button } from "@/shared/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/shared/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
 import { Switch } from "@/shared/components/ui/switch";
 
-import { terminalDatabasesCollection } from "@/features/terminal/data/targets";
-
 import type { Destination } from "./data/destinations";
+
 import { runBackup } from "./data/backups";
 import { DatabaseCombobox } from "./database-combobox";
 import { MultiSelectCombobox } from "./multi-combobox";
@@ -64,9 +59,7 @@ function BackupNowBody({
   destinations: Destination[];
   onAddDestination?: () => void;
 }) {
-  const { data: databases } = useLiveQuery((q) =>
-    q.from({ d: terminalDatabasesCollection }),
-  );
+  const { data: databases } = useLiveQuery((q) => q.from({ d: terminalDatabasesCollection }));
 
   const form = useForm({
     defaultValues: {
@@ -88,9 +81,7 @@ function BackupNowBody({
         );
         onClose();
       } catch (err) {
-        toast.error(
-          err instanceof Error ? err.message : "Couldn't start backup",
-        );
+        toast.error(err instanceof Error ? err.message : "Couldn't start backup");
       }
     },
   });
@@ -103,14 +94,11 @@ function BackupNowBody({
   }));
 
   return (
-    <DialogContent className="sm:max-w-3xl gap-0 p-0 ">
+    <DialogContent className="gap-0 p-0 sm:max-w-3xl">
       <DialogHeader className="border-b px-5 py-3">
-        <DialogTitle className="text-sm font-semibold">
-          Run a backup now
-        </DialogTitle>
+        <DialogTitle className="text-sm font-semibold">Run a backup now</DialogTitle>
         <p className="text-xs text-muted-foreground">
-          Dump a database to one or more destinations. Runs out-of-band from
-          any schedule.
+          Dump a database to one or more destinations. Runs out-of-band from any schedule.
         </p>
       </DialogHeader>
 
@@ -158,12 +146,9 @@ function BackupNowBody({
                   className="size-3.5 shrink-0 text-muted-foreground"
                 />
                 <div className="flex flex-1 flex-col">
-                  <span className="text-xs font-medium">
-                    No destinations yet
-                  </span>
+                  <span className="text-xs font-medium">No destinations yet</span>
                   <span className="text-[11px] text-muted-foreground">
-                    Backups need somewhere to land — local disk, an S3 bucket,
-                    or SFTP.
+                    Backups need somewhere to land — local disk, an S3 bucket, or SFTP.
                   </span>
                 </div>
                 {onAddDestination ? (
@@ -188,20 +173,14 @@ function BackupNowBody({
           <form.Field name="encrypted">
             {(field) => (
               <div className="flex items-center gap-3 rounded-md border bg-muted/30 px-3 py-2.5">
-                <HugeiconsIcon
-                  icon={SquareLock01Icon}
-                  className="size-3.5 text-muted-foreground"
-                />
+                <HugeiconsIcon icon={SquareLock01Icon} className="size-3.5 text-muted-foreground" />
                 <div className="flex flex-1 flex-col">
                   <span className="text-xs font-medium">Encrypt at rest</span>
                   <span className="text-[11px] text-muted-foreground">
                     AES-256 GCM · key derived from the deployment secret
                   </span>
                 </div>
-                <Switch
-                  checked={field.state.value}
-                  onCheckedChange={field.handleChange}
-                />
+                <Switch checked={field.state.value} onCheckedChange={field.handleChange} />
               </div>
             )}
           </form.Field>
@@ -213,11 +192,7 @@ function BackupNowBody({
           </Button>
           <form.Subscribe
             selector={(s) =>
-              [
-                s.isSubmitting,
-                s.values.resourceId,
-                s.values.destinationIds.length,
-              ] as const
+              [s.isSubmitting, s.values.resourceId, s.values.destinationIds.length] as const
             }
           >
             {([isSubmitting, resourceId, destCount]) => (

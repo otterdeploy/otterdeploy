@@ -1,24 +1,17 @@
 import type { OrganizationId, ProjectId } from "@otterdeploy/shared/id";
-import { and, eq } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
 import { project } from "@otterdeploy/db/schema/project";
 import { proxyRoute } from "@otterdeploy/db/schema/proxy-route";
+import { and, eq } from "drizzle-orm";
 
 /** The HTTP domains owned by an org — the access-log visibility scope. */
-export async function listOrgDomains(
-  organizationId: OrganizationId,
-): Promise<string[]> {
+export async function listOrgDomains(organizationId: OrganizationId): Promise<string[]> {
   const rows = await db
     .select({ domain: proxyRoute.domain })
     .from(proxyRoute)
     .innerJoin(project, eq(project.id, proxyRoute.projectId))
-    .where(
-      and(
-        eq(project.organizationId, organizationId),
-        eq(proxyRoute.type, "http"),
-      ),
-    );
+    .where(and(eq(project.organizationId, organizationId), eq(proxyRoute.type, "http")));
   return rows.map((r) => r.domain);
 }
 

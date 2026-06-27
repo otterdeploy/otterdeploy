@@ -1,8 +1,9 @@
 import { Worker, type Job } from "bullmq";
 import { createError, log as globalLog } from "evlog";
 
-import { getConnection } from "./connection";
 import type { JobDef, JobContext } from "./define";
+
+import { getConnection } from "./connection";
 import { getQueue } from "./queues";
 import { jobs as defaultJobs } from "./registry";
 

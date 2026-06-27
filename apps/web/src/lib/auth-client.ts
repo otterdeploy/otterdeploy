@@ -25,7 +25,5 @@ export const authClient = createAuthClient({
 });
 
 export type AuthClient = typeof authClient;
-export type Session = NonNullable<
-  Awaited<ReturnType<typeof authClient.getSession>>["data"]
->;
+export type Session = NonNullable<Awaited<ReturnType<typeof authClient.getSession>>["data"]>;
 export type SessionUser = Session["user"];

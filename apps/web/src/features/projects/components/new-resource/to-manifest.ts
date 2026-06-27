@@ -94,9 +94,7 @@ function staticSiteBuildConfig(input: ServiceSpecInput): BuildConfig {
   return {
     builder: "railpack",
     ...(input.spa ? { spa: true } : {}),
-    ...(input.root
-      ? { staticRoot: `${input.root.replace(/\/+$/, "")}/dist` }
-      : {}),
+    ...(input.root ? { staticRoot: `${input.root.replace(/\/+$/, "")}/dist` } : {}),
   };
 }
 
@@ -137,15 +135,8 @@ export interface ServiceSpecInput {
 /** Assemble the full manifest service spec from wizard state. */
 export function buildServiceSpec(input: ServiceSpecInput): ServiceSpec {
   const env = envFromVars(input.variables);
-  const resources = resourcesFromForm(
-    input.presetId,
-    input.customCpu,
-    input.customMem,
-  );
-  const ports =
-    input.kindId === "static"
-      ? [STATIC_SITE_PORT]
-      : portsToManifest(input.ports);
+  const resources = resourcesFromForm(input.presetId, input.customCpu, input.customMem);
+  const ports = input.kindId === "static" ? [STATIC_SITE_PORT] : portsToManifest(input.ports);
   const common = {
     ports,
     ...(env ? { env } : {}),
@@ -159,9 +150,7 @@ export function buildServiceSpec(input: ServiceSpecInput): ServiceSpec {
   // serve the assets); the SPA toggle becomes an index.html fallback.
   // Every other compute kind honors the picked builder.
   const build =
-    input.kindId === "static"
-      ? staticSiteBuildConfig(input)
-      : buildFromBuilderId(input.builderId);
+    input.kindId === "static" ? staticSiteBuildConfig(input) : buildFromBuilderId(input.builderId);
   return {
     source: "git",
     ...(input.root ? { sourceSubdir: input.root } : {}),
@@ -182,11 +171,7 @@ export interface DatabaseSpecInput {
 
 /** Assemble the full manifest database spec from wizard state. */
 export function buildDatabaseSpec(input: DatabaseSpecInput): DatabaseSpec {
-  const resources = resourcesFromForm(
-    input.presetId,
-    input.customCpu,
-    input.customMem,
-  );
+  const resources = resourcesFromForm(input.presetId, input.customCpu, input.customMem);
   const base = {
     ...(input.publicEnabled ? { publicEnabled: true } : {}),
     ...(resources ? { resources } : {}),

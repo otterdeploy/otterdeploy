@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
+
 import { renderWithRouter } from "@/test/utils";
-import { ProjectCard } from "./project-card";
+
 import type { ProjectSummary } from "../types";
+
+import { ProjectCard } from "./project-card";
 
 const summary: ProjectSummary = {
   project: {

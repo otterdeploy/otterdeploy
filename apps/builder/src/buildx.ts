@@ -16,11 +16,11 @@
  * A build NEVER fails because the cache is unavailable.
  */
 
+import { DATA_ROOT } from "@otterdeploy/shared/paths";
 import { join } from "node:path";
 
-import { DATA_ROOT } from "@otterdeploy/shared/paths";
-
 import type { LogSink } from "./log-stream";
+
 import { runProcess } from "./run-process";
 
 /** Stable name for the shared cache builder. Its instance metadata is persisted
@@ -37,9 +37,7 @@ const CACHE_ROOT = join(DATA_ROOT, "buildx-cache");
  * in which case the caller falls back to the default-driver `--load` build with
  * no cache. Never throws.
  */
-export async function ensureBuildxBuilder(
-  sink: LogSink,
-): Promise<string | null> {
+export async function ensureBuildxBuilder(sink: LogSink): Promise<string | null> {
   // Already registered (BUILDX_CONFIG persisted it across helpers) — `--bootstrap`
   // restarts the buildkitd container if it was stopped.
   const inspect = await runProcess({
@@ -70,9 +68,7 @@ export async function ensureBuildxBuilder(
   }).catch(() => null);
   if (create && create.exitCode === 0) return BUILDER_NAME;
 
-  sink.system(
-    "buildx cache builder unavailable — building without a persistent layer cache",
-  );
+  sink.system("buildx cache builder unavailable — building without a persistent layer cache");
   return null;
 }
 

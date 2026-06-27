@@ -1,5 +1,4 @@
 import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
-import { and, eq } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
 import {
@@ -8,6 +7,7 @@ import {
   resource,
   serviceResource,
 } from "@otterdeploy/db/schema/project";
+import { and, eq } from "drizzle-orm";
 
 import { removeResourceDir } from "../../../lib/data-dir";
 

@@ -13,10 +13,11 @@ import { useMatch, useNavigate, useParams } from "@tanstack/react-router";
 import { Command as CommandPrimitive } from "cmdk";
 import { useTheme } from "next-themes";
 
+import type { RoutePath } from "@/features/shell/components/sidebar";
+
 import { useResourceOverlay } from "@/features/projects/components/new-resource/overlay-provider";
 import { envCollection } from "@/features/projects/data/env";
 import { projectCollection } from "@/features/projects/data/project";
-import type { RoutePath } from "@/features/shell/components/sidebar";
 import {
   Command,
   CommandDialog,
@@ -30,12 +31,7 @@ import { Kbd, KbdGroup } from "@/shared/components/ui/kbd";
 
 import { useCommandPalette } from "../hooks/use-command-palette";
 import { useProjectNavHotkeys } from "../hooks/use-project-nav-hotkeys";
-import {
-  NavGroup,
-  ORG_NAV_GROUPS,
-  PaletteFooter,
-  PROJECT_NAV,
-} from "./nav-items";
+import { NavGroup, ORG_NAV_GROUPS, PaletteFooter, PROJECT_NAV } from "./nav-items";
 
 export function CommandPalette() {
   const { open, setOpen } = useCommandPalette();
@@ -85,10 +81,11 @@ export function CommandPalette() {
     });
 
   const switchEnv = (slug: string) =>
-    run(() =>
-      void navigate({
-        search: (prev: Record<string, unknown>) => ({ ...prev, env: slug }),
-      } as never),
+    run(
+      () =>
+        void navigate({
+          search: (prev: Record<string, unknown>) => ({ ...prev, env: slug }),
+        } as never),
     );
 
   // Global keyboard shortcuts. `ignoreInputs` defaults to true for single keys

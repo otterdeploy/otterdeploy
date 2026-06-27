@@ -5,15 +5,16 @@
  * No CrowdSec account required for any of the public/custom lists.
  */
 import { useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { toast } from "sonner";
-import { HugeiconsIcon } from "@hugeicons/react";
+
 import {
   CheckmarkCircle02Icon,
   Delete02Icon,
   PlusSignIcon,
   RefreshIcon,
 } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
@@ -142,9 +143,7 @@ function ListRow({ list, onChanged }: { list: BlockList; onChanged: () => void }
           <span className="truncate text-[13px] font-medium">{list.name}</span>
           {syncBadge(list)}
         </div>
-        <div className="truncate font-mono text-[11px] text-muted-foreground">
-          {list.url}
-        </div>
+        <div className="truncate font-mono text-[11px] text-muted-foreground">{list.url}</div>
       </div>
       <Button
         variant="ghost"
@@ -207,9 +206,7 @@ function CatalogCard({ entry, onAdded }: { entry: CatalogEntry; onAdded: () => v
           </Button>
         )}
       </div>
-      <p className="text-[12px] leading-relaxed text-muted-foreground">
-        {entry.description}
-      </p>
+      <p className="text-[12px] leading-relaxed text-muted-foreground">{entry.description}</p>
     </Card>
   );
 }
@@ -282,8 +279,8 @@ function ConsoleEnrollCard() {
             >
               app.crowdsec.net
             </a>{" "}
-            — unlocks the larger community blocklist + curated lists. The public
-            lists above need no account.
+            — unlocks the larger community blocklist + curated lists. The public lists above need no
+            account.
           </p>
         </div>
         {!open ? (

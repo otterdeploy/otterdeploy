@@ -4,22 +4,22 @@
  * DatabaseProvisioner factory so each engine plugs its own destroy semantics.
  */
 
-import { Result } from "better-result";
 import type { RequestLogger } from "evlog";
+
+import { Result } from "better-result";
+
+import type { ProjectRef, ResourceRef } from "../scopes";
 
 import { reconcile } from "../../caddy";
 import { deleteProxyRoutesByResource } from "../../caddy/queries";
-
 import { PostgresResourceNotFoundError, ProjectNotFoundError } from "./errors";
-
+import { getDatabaseProvisioner } from "./provisioners";
 import {
   deleteResourceById,
   getProjectInOrg,
   getResourceById,
   listProjectResources as listProjectResourcesQuery,
 } from "./queries";
-import { getDatabaseProvisioner } from "./provisioners";
-import type { ProjectRef, ResourceRef } from "../scopes";
 import {
   buildContainerName,
   mapComposeResource,
@@ -83,8 +83,7 @@ export async function listProjectResources(
     return Result.err(new ProjectNotFoundError({ projectId: input.projectId }));
   }
 
-  const { databases, services, composes } =
-    await listProjectResourcesQuery(input.projectId);
+  const { databases, services, composes } = await listProjectResourcesQuery(input.projectId);
   const [databaseViews, serviceViews, composeViews] = await Promise.all([
     Promise.all(databases.map((record) => mapDatabaseResource(record, project.slug))),
     Promise.all(services.map((record) => mapServiceResource(record))),
@@ -102,16 +101,12 @@ export async function getProjectResource(
     organizationId: input.organizationId,
   });
   if (!project) {
-    return Result.err(
-      new PostgresResourceNotFoundError({ resourceId: input.resourceId }),
-    );
+    return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
   }
 
   const found = await getResourceById(input.projectId, input.resourceId);
   if (!found) {
-    return Result.err(
-      new PostgresResourceNotFoundError({ resourceId: input.resourceId }),
-    );
+    return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
   }
 
   switch (found.kind) {
@@ -132,17 +127,13 @@ export async function deleteProjectResource(
   });
   if (!project) {
     log.set({ resource: { outcome: "project_not_found" } });
-    return Result.err(
-      new PostgresResourceNotFoundError({ resourceId: input.resourceId }),
-    );
+    return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
   }
 
   const found = await getResourceById(input.projectId, input.resourceId);
   if (!found) {
     log.set({ resource: { outcome: "resource_not_found" } });
-    return Result.err(
-      new PostgresResourceNotFoundError({ resourceId: input.resourceId }),
-    );
+    return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
   }
 
   switch (found.kind) {

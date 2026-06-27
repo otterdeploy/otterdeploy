@@ -28,12 +28,7 @@ export interface VerifyOutcome {
    *  saying "no match". */
   found: string[];
   /** Reason for failure when !ok. */
-  reason:
-    | "ok"
-    | "no-record"
-    | "value-mismatch"
-    | "lookup-failed"
-    | "missing-token";
+  reason: "ok" | "no-record" | "value-mismatch" | "lookup-failed" | "missing-token";
   /** Underlying error message when reason === "lookup-failed". */
   errorMessage?: string;
 }

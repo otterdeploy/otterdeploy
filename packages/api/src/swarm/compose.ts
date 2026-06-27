@@ -1,3 +1,5 @@
+import type { RequestLogger } from "evlog";
+
 /**
  * Compose-stack deploy orchestration. A `type: compose` resource fans out to N
  * swarm services on the project overlay network — this applies/reconciles/
@@ -10,7 +12,6 @@
  * single-service deploy primitive is reused verbatim. See docs/designs/compose.md.
  */
 import { Docker } from "@otterdeploy/docker";
-import type { RequestLogger } from "evlog";
 
 import { asStepLogger } from "../lib/logger";
 import {
@@ -25,8 +26,7 @@ export interface ComposeStackRuntime {
   status: "running" | "starting" | "partial" | "error";
 }
 
-const stackLabel = (resourceId: string) =>
-  `otterdeploy.resource.id=${resourceId}`;
+const stackLabel = (resourceId: string) => `otterdeploy.resource.id=${resourceId}`;
 
 /**
  * Apply the desired set of service specs, then prune any swarm services owned

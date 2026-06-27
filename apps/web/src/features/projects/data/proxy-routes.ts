@@ -1,13 +1,8 @@
-import { createCollection } from "@tanstack/db";
-import {
-  parseLoadSubsetOptions,
-  queryCollectionOptions,
-} from "@tanstack/query-db-collection";
-
 import { zId, type ProxyRouteId } from "@otterdeploy/shared/id";
+import { createCollection } from "@tanstack/db";
+import { parseLoadSubsetOptions, queryCollectionOptions } from "@tanstack/query-db-collection";
 
 import { parseCol, projectIdSchema } from "@/shared/lib/utils";
-
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 const routeIdSchema = zId("proxy_route");
@@ -80,8 +75,7 @@ export const proxyRoutesCollection = createCollection(
             const directives = m.changes.customDirectives;
             const result = await orpc.project.proxyRoute.setRouteDirectives.call({
               routeId,
-              directives:
-                directives && directives.trim().length > 0 ? directives : null,
+              directives: directives && directives.trim().length > 0 ? directives : null,
             });
             if (!result.applied) {
               throw new RouteDirectivesRejectedError(

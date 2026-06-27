@@ -1,3 +1,5 @@
+import type { DrainContext } from "evlog";
+
 /**
  * Postgres audit drain — persists evlog audit events into the `audit_log`
  * table. Wrap with `auditOnly(...)` so only events carrying `event.audit`
@@ -10,7 +12,6 @@
  */
 import { db } from "@otterdeploy/db";
 import { auditLog } from "@otterdeploy/db/schema";
-import type { DrainContext } from "evlog";
 
 type AuditActorType = "user" | "system" | "api" | "agent";
 type AuditOutcome = "success" | "failure" | "denied";
@@ -68,10 +69,7 @@ function toAuditRow(event: AuditEvent, a: AuditEnvelope) {
     target: target ?? null,
     outcome: a.outcome as AuditOutcome,
     reason: a.reason ?? null,
-    durationMs:
-      typeof event.durationMs === "number"
-        ? Math.round(event.durationMs)
-        : null,
+    durationMs: typeof event.durationMs === "number" ? Math.round(event.durationMs) : null,
     changes: a.changes ?? null,
     correlationId: a.correlationId ?? null,
     causationId: a.causationId ?? null,
@@ -86,9 +84,6 @@ export function createAuditPgDrain() {
     const a = event.audit;
     if (!a) return; // `auditOnly` already guards, but stay defensive.
 
-    await db
-      .insert(auditLog)
-      .values(toAuditRow(event, a))
-      .onConflictDoNothing();
+    await db.insert(auditLog).values(toAuditRow(event, a)).onConflictDoNothing();
   };
 }

@@ -1,4 +1,3 @@
-import { HugeiconsIcon } from "@hugeicons/react";
 import {
   CircleUnlock01Icon,
   Copy01Icon,
@@ -8,13 +7,15 @@ import {
   ViewIcon,
   ViewOffIcon,
 } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 
 import { ReferencePicker } from "@/features/projects/components/variables";
 import { Input } from "@/shared/components/ui/input";
 import { cn } from "@/shared/lib/utils";
 
-import { hasOpenRefToken, insertRefToken } from "../ref-token";
 import type { DraftRow, RowStatus } from "./use-editor-state";
+
+import { hasOpenRefToken, insertRefToken } from "../ref-token";
 
 const STATUS_TONE: Record<RowStatus, string> = {
   unchanged: "bg-transparent text-transparent",
@@ -91,9 +92,7 @@ export function EditorRow({
           <ReferencePicker
             projectId={projectId}
             excludeToken={row.value}
-            onPick={(token) =>
-              onChange({ value: insertRefToken(row.value, token) })
-            }
+            onPick={(token) => onChange({ value: insertRefToken(row.value, token) })}
             onClose={onTogglePicker}
           />
         </div>
@@ -115,7 +114,7 @@ function StatusPill({ status }: { status: RowStatus }) {
   return (
     <span
       className={cn(
-        "mt-1.5 inline-flex rounded px-1 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em]",
+        "mt-1.5 inline-flex rounded px-1 py-0.5 font-mono text-[10px] tracking-[0.1em] uppercase",
         STATUS_TONE[status],
       )}
       title={status}
@@ -161,7 +160,7 @@ function ValueCell({
         title="Insert reference"
         onClick={onTogglePicker}
         className={cn(
-          "absolute right-1 top-1/2 grid size-5 -translate-y-1/2 place-items-center rounded transition-colors",
+          "absolute top-1/2 right-1 grid size-5 -translate-y-1/2 place-items-center rounded transition-colors",
           pickerOpen
             ? "bg-muted text-foreground"
             : "text-muted-foreground/70 hover:bg-muted hover:text-foreground",
@@ -173,13 +172,7 @@ function ValueCell({
   );
 }
 
-function SecretToggle({
-  row,
-  onChange,
-}: {
-  row: DraftRow;
-  onChange: EditorRowProps["onChange"];
-}) {
+function SecretToggle({ row, onChange }: { row: DraftRow; onChange: EditorRowProps["onChange"] }) {
   return (
     <RowAction
       icon={row.isSecret ? LockKeyIcon : CircleUnlock01Icon}

@@ -1,12 +1,7 @@
-import { createCollection, type SimpleComparison } from "@tanstack/db";
-import {
-  parseLoadSubsetOptions,
-  queryCollectionOptions,
-} from "@tanstack/query-db-collection";
-
-import { z } from "zod";
-
 import { zId } from "@otterdeploy/shared/id";
+import { createCollection, type SimpleComparison } from "@tanstack/db";
+import { parseLoadSubsetOptions, queryCollectionOptions } from "@tanstack/query-db-collection";
+import { z } from "zod";
 
 import { orpc, queryClient } from "@/shared/server/orpc";
 

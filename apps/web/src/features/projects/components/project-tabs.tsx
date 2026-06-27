@@ -1,9 +1,11 @@
-import { Link, useParams } from "@tanstack/react-router";
 import { useLayoutEffect, useRef, useState } from "react";
+
+import { Link, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 
-import { cn } from "@/shared/lib/utils";
 import type { RoutePath } from "@/features/shell/components/sidebar";
+
+import { cn } from "@/shared/lib/utils";
 
 /**
  * Only the project-scoped routes — those carrying both `$orgSlug` and
@@ -11,10 +13,7 @@ import type { RoutePath } from "@/features/shell/components/sidebar";
  * statically resolve the `params` object below; the broad `RoutePath`
  * union can't tell which params a given `to` requires.
  */
-type ProjectRoutePath = Extract<
-  RoutePath,
-  `/$orgSlug/$projectSlug${string}`
->;
+type ProjectRoutePath = Extract<RoutePath, `/$orgSlug/$projectSlug${string}`>;
 
 interface Tab {
   titleKey: string;
@@ -90,13 +89,10 @@ export function ProjectTabs() {
   }, []);
 
   return (
-    <nav
-      aria-label="Project"
-      className="sticky top-(--header-height) z-30 border-b bg-background"
-    >
+    <nav aria-label="Project" className="sticky top-(--header-height) z-30 border-b bg-background">
       <div
         ref={listRef}
-        className="relative flex h-10 items-center gap-0.5 overflow-x-auto px-3 overflow-y-hidden"
+        className="relative flex h-10 items-center gap-0.5 overflow-x-auto overflow-y-hidden px-3"
       >
         {tabs.map((tab) => (
           <Link
@@ -114,10 +110,7 @@ export function ProjectTabs() {
               className: "text-foreground font-medium",
             }}
           >
-            {t(
-              tab.titleKey,
-              tab.fallback ? { defaultValue: tab.fallback } : undefined,
-            )}
+            {t(tab.titleKey, tab.fallback ? { defaultValue: tab.fallback } : undefined)}
           </Link>
         ))}
         <span

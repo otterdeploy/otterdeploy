@@ -1,6 +1,5 @@
-import type { RequestLogger } from "evlog";
-
 import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
+import type { RequestLogger } from "evlog";
 
 import {
   destroySwarmDatabase,
@@ -58,10 +57,8 @@ export interface DatabaseProvisioner {
 // in the adapters under packages/api/src/swarm/database-engines/.
 const makeProvisioner = (engine: DatabaseEngine): DatabaseProvisioner => ({
   engine,
-  provision: (input, log) =>
-    provisionSwarmDatabase({ ...input, engine }, log),
-  destroy: ({ serviceName }, log) =>
-    destroySwarmDatabase({ serviceName }, log),
+  provision: (input, log) => provisionSwarmDatabase({ ...input, engine }, log),
+  destroy: ({ serviceName }, log) => destroySwarmDatabase({ serviceName }, log),
   inspectRuntime: (input) => inspectSwarmDatabaseRuntime(input),
 });
 

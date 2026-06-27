@@ -3,9 +3,8 @@
  * service node, fed from the `resource_metric` time series.
  */
 import { oc } from "@orpc/contract";
-import * as z from "zod";
-
 import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
+import * as z from "zod";
 
 const tag = "metrics";
 const basePath = "/metrics";

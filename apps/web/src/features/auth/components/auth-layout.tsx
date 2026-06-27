@@ -1,7 +1,9 @@
-import { Tick02Icon } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
-import { HugeiconsIcon } from "@hugeicons/react";
+
 import type { ReactNode } from "react";
+
+import { Tick02Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 
 /** Faint grid washed by a primary glow, both driven off theme tokens via
  *  color-mix so the panel tracks light/dark instead of hard-coding the dark
@@ -12,8 +14,7 @@ const gridStyle = {
     "linear-gradient(color-mix(in oklab, var(--foreground) 6%, transparent) 1px, transparent 1px)," +
     "linear-gradient(90deg, color-mix(in oklab, var(--foreground) 6%, transparent) 1px, transparent 1px)",
   backgroundSize: "56px 56px",
-  WebkitMaskImage:
-    "radial-gradient(130% 100% at 12% 64%, #000 28%, transparent 82%)",
+  WebkitMaskImage: "radial-gradient(130% 100% at 12% 64%, #000 28%, transparent 82%)",
   maskImage: "radial-gradient(130% 100% at 12% 64%, #000 28%, transparent 82%)",
 } as const;
 
@@ -60,32 +61,24 @@ export function AuthLayout({
       <div className="flex flex-1">
         {/* ─── Brand panel ─── */}
         <aside className="relative hidden flex-1 flex-col justify-center overflow-hidden border-r border-border p-12 lg:flex lg:p-16">
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0"
-            style={gridStyle}
-          />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0"
-            style={glowStyle}
-          />
+          <div aria-hidden className="pointer-events-none absolute inset-0" style={gridStyle} />
+          <div aria-hidden className="pointer-events-none absolute inset-0" style={glowStyle} />
 
-          <div className="absolute left-12 top-12 lg:left-16 lg:top-14">
+          <div className="absolute top-12 left-12 lg:top-14 lg:left-16">
             <Wordmark />
           </div>
 
           <div className="relative max-w-xl">
-            <p className="mb-5 font-mono text-[11px] uppercase tracking-[0.18em] text-sidebar-primary/80">
+            <p className="mb-5 font-mono text-[11px] tracking-[0.18em] text-sidebar-primary/80 uppercase">
               {eyebrow}
             </p>
-            <h1 className="text-[clamp(2.25rem,2.8vw,3rem)] font-semibold leading-[1.05] tracking-[-0.045em] text-foreground">
+            <h1 className="text-[clamp(2.25rem,2.8vw,3rem)] leading-[1.05] font-semibold tracking-[-0.045em] text-foreground">
               {headline}
             </h1>
 
             {pill ? (
               <div className="mt-9">
-                <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                <div className="mb-2 font-mono text-[10px] tracking-[0.14em] text-muted-foreground uppercase">
                   {pill.label}
                 </div>
                 <div className="inline-flex items-center gap-2 rounded-lg border border-border bg-muted/60 px-3 py-2 font-mono text-[13px] text-foreground backdrop-blur-sm">
@@ -102,16 +95,9 @@ export function AuthLayout({
             {features.length > 0 ? (
               <ul className="mt-10 space-y-3">
                 {features.map((feature) => (
-                  <li
-                    key={feature}
-                    className="flex items-center gap-3 text-sm text-foreground/75"
-                  >
-                    <span className="grid size-5 shrink-0 place-items-center rounded-full bg-sidebar-primary/12 text-sidebar-primary ring-1 ring-inset ring-sidebar-primary/25">
-                      <HugeiconsIcon
-                        icon={Tick02Icon}
-                        strokeWidth={2.5}
-                        className="size-3"
-                      />
+                  <li key={feature} className="flex items-center gap-3 text-sm text-foreground/75">
+                    <span className="grid size-5 shrink-0 place-items-center rounded-full bg-sidebar-primary/12 text-sidebar-primary ring-1 ring-sidebar-primary/25 ring-inset">
+                      <HugeiconsIcon icon={Tick02Icon} strokeWidth={2.5} className="size-3" />
                     </span>
                     {feature}
                   </li>
@@ -145,12 +131,10 @@ export function AuthLayout({
 function Wordmark() {
   return (
     <div className="flex items-center gap-2.5">
-      <span className="grid size-7 place-items-center rounded-md bg-foreground text-[11px] font-semibold lowercase text-background">
+      <span className="grid size-7 place-items-center rounded-md bg-foreground text-[11px] font-semibold text-background lowercase">
         os
       </span>
-      <span className="text-sm font-semibold tracking-[-0.02em] text-foreground">
-        otterdeploy
-      </span>
+      <span className="text-sm font-semibold tracking-[-0.02em] text-foreground">otterdeploy</span>
     </div>
   );
 }

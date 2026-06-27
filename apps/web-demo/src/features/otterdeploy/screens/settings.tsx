@@ -3,9 +3,9 @@
 
 import { useEffect, useState } from "react";
 
-import { I } from "../icons";
-import { BUILDERS, SERVICES, TEAM, USER, rid, type TeamMember } from "../data";
 import { BuilderCard, BuilderConfig, Field, SectionH, SettingRow } from "../components/form";
+import { BUILDERS, SERVICES, TEAM, USER, rid, type TeamMember } from "../data";
+import { I } from "../icons";
 
 type Tab = "build" | "scaling" | "team" | "integrations" | "account" | "danger";
 
@@ -22,7 +22,12 @@ export function Settings() {
   return (
     <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
       <aside
-        style={{ width: 200, borderRight: "1px solid var(--border)", padding: "14px 0", flexShrink: 0 }}
+        style={{
+          width: 200,
+          borderRight: "1px solid var(--border)",
+          padding: "14px 0",
+          flexShrink: 0,
+        }}
       >
         <div
           className="muted"
@@ -112,12 +117,24 @@ function BuildSettings() {
       </div>
 
       {/* builder picker */}
-      <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>Build provider</div>
+      <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>
+        Build provider
+      </div>
       <div
-        style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 22 }}
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, 1fr)",
+          gap: 10,
+          marginBottom: 22,
+        }}
       >
         {BUILDERS.map((b) => (
-          <BuilderCard key={b.id} builder={b} active={builderId === b.id} onClick={() => setBuilderId(b.id)} />
+          <BuilderCard
+            key={b.id}
+            builder={b}
+            active={builderId === b.id}
+            onClick={() => setBuilderId(b.id)}
+          />
         ))}
       </div>
 
@@ -236,7 +253,10 @@ function ScalingSettings() {
         <div className="card" style={{ padding: 18 }}>
           <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10 }}>Replicas</div>
           <div className="row gap-2">
-            <button className="btn ghost icon" onClick={() => setReplicas((r) => Math.max(1, r - 1))}>
+            <button
+              className="btn ghost icon"
+              onClick={() => setReplicas((r) => Math.max(1, r - 1))}
+            >
               <I.x width={11} height={11} />
             </button>
             <input
@@ -279,7 +299,9 @@ function ScalingSettings() {
                     border: "1px solid var(--border)",
                   }}
                 >
-                  <div className="mono" style={{ fontSize: 10, color: "var(--fg-3)" }}>node-{n + 1}</div>
+                  <div className="mono" style={{ fontSize: 10, color: "var(--fg-3)" }}>
+                    node-{n + 1}
+                  </div>
                   <div className="row gap-1" style={{ marginTop: 6, flexWrap: "wrap" }}>
                     {Array.from({ length: Math.max(0, onThisNode) }).map((_, i) => (
                       <span
@@ -312,7 +334,9 @@ function ScalingSettings() {
         </div>
 
         <div className="card" style={{ padding: 18 }}>
-          <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10 }}>Resources (per replica)</div>
+          <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10 }}>
+            Resources (per replica)
+          </div>
           <Field label={`CPU limit · ${cpu} vCPU`}>
             <input
               type="range"
@@ -325,7 +349,9 @@ function ScalingSettings() {
             />
           </Field>
           <div style={{ height: 8 }} />
-          <Field label={`Memory limit · ${mem >= 1024 ? (mem / 1024).toFixed(1) + " GB" : mem + " MB"}`}>
+          <Field
+            label={`Memory limit · ${mem >= 1024 ? (mem / 1024).toFixed(1) + " GB" : mem + " MB"}`}
+          >
             <input
               type="range"
               min="128"
@@ -358,7 +384,10 @@ function ScalingSettings() {
               </div>
             </div>
             <div style={{ flex: 1 }} />
-            <span className="badge ok"><span className="dot" />fits available capacity</span>
+            <span className="badge ok">
+              <span className="dot" />
+              fits available capacity
+            </span>
           </div>
         </div>
       </div>
@@ -382,7 +411,9 @@ function ScalingSettings() {
               <option>Request latency (p95)</option>
             </select>
           </Field>
-          <Field label="Target value"><input className="input mono" defaultValue="60%" /></Field>
+          <Field label="Target value">
+            <input className="input mono" defaultValue="60%" />
+          </Field>
           <Field label="Min – Max replicas">
             <div className="row gap-2">
               <input className="input mono" defaultValue="2" style={{ width: 70 }} />
@@ -404,7 +435,9 @@ function ScalingSettings() {
             background: "var(--bg-sunken)",
           }}
         >
-          <span className="badge mono" style={{ background: "var(--bg-elev)" }}>stack.yml · {service}</span>
+          <span className="badge mono" style={{ background: "var(--bg-elev)" }}>
+            stack.yml · {service}
+          </span>
           <div style={{ flex: 1 }} />
           <span className="mono muted" style={{ fontSize: 11 }}>
             read-only — applied via `docker stack deploy`
@@ -449,7 +482,9 @@ function TeamSettings() {
           sub={`${team.length} members in ${USER.org} · self-hosted SSO via Better Auth`}
         />
         <div style={{ flex: 1 }} />
-        <button className="btn"><I.users width={12} height={12} /> Roles</button>
+        <button className="btn">
+          <I.users width={12} height={12} /> Roles
+        </button>
         <div style={{ width: 8 }} />
         <button className="btn primary" onClick={() => setInviteOpen(true)}>
           <I.plus width={12} height={12} /> Invite
@@ -479,9 +514,15 @@ function TeamSettings() {
               <div>
                 <div style={{ fontWeight: 500 }}>
                   {m.name}{" "}
-                  {m.you && <span className="badge" style={{ marginLeft: 6 }}>you</span>}
+                  {m.you && (
+                    <span className="badge" style={{ marginLeft: 6 }}>
+                      you
+                    </span>
+                  )}
                 </div>
-                <div className="mono muted" style={{ fontSize: 11 }}>{m.email}</div>
+                <div className="mono muted" style={{ fontSize: 11 }}>
+                  {m.email}
+                </div>
               </div>
             </span>
             <span style={{ width: 130 }}>
@@ -491,9 +532,7 @@ function TeamSettings() {
                 onChange={(e) =>
                   setTeam((t) =>
                     t.map((x) =>
-                      x.id === m.id
-                        ? { ...x, role: e.target.value as TeamMember["role"] }
-                        : x,
+                      x.id === m.id ? { ...x, role: e.target.value as TeamMember["role"] } : x,
                     ),
                   )
                 }
@@ -506,14 +545,24 @@ function TeamSettings() {
             </span>
             <span style={{ width: 100 }}>
               {m.mfa ? (
-                <span className="badge ok"><span className="dot" />enabled</span>
+                <span className="badge ok">
+                  <span className="dot" />
+                  enabled
+                </span>
               ) : (
-                <span className="badge warn"><span className="dot" />off</span>
+                <span className="badge warn">
+                  <span className="dot" />
+                  off
+                </span>
               )}
             </span>
-            <span style={{ width: 130 }} className="mono muted">{m.last}</span>
+            <span style={{ width: 130 }} className="mono muted">
+              {m.last}
+            </span>
             <span style={{ width: 60, textAlign: "right" }}>
-              <button className="btn ghost icon sm"><I.more width={12} height={12} /></button>
+              <button className="btn ghost icon sm">
+                <I.more width={12} height={12} />
+              </button>
             </span>
           </div>
         ))}
@@ -632,11 +681,13 @@ function InviteModal({
       }}
     >
       <div onClick={(e) => e.stopPropagation()} className="os-modal" style={{ width: 440 }}>
-        <div className="row gap-2 os-modal-h">
+        <div className="row os-modal-h gap-2">
           <I.users width={14} height={14} />
           <span style={{ fontWeight: 600 }}>Invite to {USER.org}</span>
           <div style={{ flex: 1 }} />
-          <button className="btn ghost icon sm" onClick={onClose}><I.close width={13} height={13} /></button>
+          <button className="btn ghost icon sm" onClick={onClose}>
+            <I.close width={13} height={13} />
+          </button>
         </div>
         <div className="col gap-3" style={{ padding: 18 }}>
           <Field label="Email address">
@@ -658,11 +709,15 @@ function InviteModal({
               <option value="viewer">viewer · read-only</option>
             </select>
           </Field>
-          <div className="muted" style={{ fontSize: 11 }}>An invite link valid for 72h will be emailed.</div>
+          <div className="muted" style={{ fontSize: 11 }}>
+            An invite link valid for 72h will be emailed.
+          </div>
         </div>
         <div className="row gap-2" style={{ padding: 14, borderTop: "1px solid var(--border)" }}>
           <div style={{ flex: 1 }} />
-          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn" onClick={onClose}>
+            Cancel
+          </button>
           <button
             className="btn primary"
             onClick={() => email && onInvite(email.split("@")[0]!, email, role)}
@@ -694,14 +749,22 @@ function IntegrationsSettings() {
             <div className="row gap-2">
               <span style={{ fontWeight: 600, fontSize: 13 }}>{p.name}</span>
               {p.on ? (
-                <span className="badge ok"><span className="dot" />connected</span>
+                <span className="badge ok">
+                  <span className="dot" />
+                  connected
+                </span>
               ) : (
-                <span className="badge"><span className="dot" style={{ background: "var(--fg-4)" }} />not connected</span>
+                <span className="badge">
+                  <span className="dot" style={{ background: "var(--fg-4)" }} />
+                  not connected
+                </span>
               )}
               <div style={{ flex: 1 }} />
               <button className="btn sm">{p.on ? "Configure" : "Connect"}</button>
             </div>
-            <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>{p.sub}</div>
+            <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+              {p.sub}
+            </div>
           </div>
         ))}
       </div>
@@ -729,7 +792,9 @@ function AccountSettings() {
         <Avatar initials={USER.initials} size={64} />
         <div>
           <div style={{ fontWeight: 600, fontSize: 16 }}>{USER.name}</div>
-          <div className="mono muted" style={{ fontSize: 12 }}>{USER.email}</div>
+          <div className="mono muted" style={{ fontSize: 12 }}>
+            {USER.email}
+          </div>
           <div className="row gap-2" style={{ marginTop: 8 }}>
             <button className="btn sm">Change avatar</button>
             <button className="btn sm ghost">Update profile</button>
@@ -740,11 +805,17 @@ function AccountSettings() {
       <div style={{ height: 18 }} />
       <SectionH title="Profile" />
       <div className="card" style={{ padding: 18, marginTop: 12 }}>
-        <Field label="Display name"><input className="input" defaultValue={USER.name} /></Field>
+        <Field label="Display name">
+          <input className="input" defaultValue={USER.name} />
+        </Field>
         <div style={{ height: 12 }} />
-        <Field label="Email"><input className="input mono" defaultValue={USER.email} /></Field>
+        <Field label="Email">
+          <input className="input mono" defaultValue={USER.email} />
+        </Field>
         <div style={{ height: 12 }} />
-        <Field label="Username"><input className="input mono" defaultValue="mira" /></Field>
+        <Field label="Username">
+          <input className="input mono" defaultValue="mira" />
+        </Field>
         <div style={{ height: 12 }} />
         <Field label="Default organization">
           <select className="input">
@@ -768,7 +839,11 @@ function AccountSettings() {
           sub="Send a notification when a new device authenticates"
           defaultOn
         />
-        <SettingRow label="Passkey support" sub="Allow WebAuthn for passwordless sign-in" defaultOn />
+        <SettingRow
+          label="Passkey support"
+          sub="Allow WebAuthn for passwordless sign-in"
+          defaultOn
+        />
       </div>
 
       <div style={{ height: 18 }} />
@@ -781,15 +856,24 @@ function AccountSettings() {
               defaultValue="otts_••••••••••••••••••••••••"
               style={{ flex: 1 }}
             />
-            <button className="btn"><I.copy width={11} height={11} /> Copy</button>
+            <button className="btn">
+              <I.copy width={11} height={11} /> Copy
+            </button>
             <button className="btn">Rotate</button>
           </div>
         </Field>
         <div style={{ height: 12 }} />
         <div className="muted" style={{ fontSize: 11, lineHeight: 1.6 }}>
-          Use this token with the <span className="mono" style={{ color: "var(--fg-2)" }}>otterdeploy</span> CLI:
+          Use this token with the{" "}
+          <span className="mono" style={{ color: "var(--fg-2)" }}>
+            otterdeploy
+          </span>{" "}
+          CLI:
           <br />
-          <span className="mono" style={{ color: "var(--fg-2)", display: "inline-block", marginTop: 4 }}>
+          <span
+            className="mono"
+            style={{ color: "var(--fg-2)", display: "inline-block", marginTop: 4 }}
+          >
             $ otterdeploy login --token $OTTS_TOKEN
           </span>
         </div>
@@ -799,9 +883,27 @@ function AccountSettings() {
       <SectionH title="Sessions" />
       <div className="card" style={{ padding: 14, marginTop: 12 }}>
         {[
-          { dev: "MacBook Pro · Chrome", loc: "San Francisco, CA", ip: "74.12.4.18", last: "now", current: true },
-          { dev: "iPhone 17 · Safari", loc: "San Francisco, CA", ip: "74.12.4.18", last: "4h ago", current: false },
-          { dev: "Linux · Firefox", loc: "Brooklyn, NY", ip: "108.59.32.4", last: "3d ago", current: false },
+          {
+            dev: "MacBook Pro · Chrome",
+            loc: "San Francisco, CA",
+            ip: "74.12.4.18",
+            last: "now",
+            current: true,
+          },
+          {
+            dev: "iPhone 17 · Safari",
+            loc: "San Francisco, CA",
+            ip: "74.12.4.18",
+            last: "4h ago",
+            current: false,
+          },
+          {
+            dev: "Linux · Firefox",
+            loc: "Brooklyn, NY",
+            ip: "108.59.32.4",
+            last: "3d ago",
+            current: false,
+          },
         ].map((s, i) => (
           <div
             key={i}
@@ -814,13 +916,22 @@ function AccountSettings() {
           >
             <span style={{ flex: 2, fontWeight: 500 }}>{s.dev}</span>
             <span style={{ flex: 1, color: "var(--fg-2)" }}>{s.loc}</span>
-            <span style={{ flex: 1 }} className="mono muted">{s.ip}</span>
-            <span style={{ width: 80, textAlign: "right" }} className="mono muted">{s.last}</span>
+            <span style={{ flex: 1 }} className="mono muted">
+              {s.ip}
+            </span>
+            <span style={{ width: 80, textAlign: "right" }} className="mono muted">
+              {s.last}
+            </span>
             <span style={{ width: 100, textAlign: "right" }}>
               {s.current ? (
-                <span className="badge ok"><span className="dot" />current</span>
+                <span className="badge ok">
+                  <span className="dot" />
+                  current
+                </span>
               ) : (
-                <button className="btn sm ghost" style={{ color: "var(--err)" }}>Revoke</button>
+                <button className="btn sm ghost" style={{ color: "var(--err)" }}>
+                  Revoke
+                </button>
               )}
             </span>
           </div>
@@ -833,18 +944,28 @@ function AccountSettings() {
 function DangerZone() {
   return (
     <div style={{ padding: 24, maxWidth: 760, margin: "0 auto" }}>
-      <SectionH title="Danger zone" sub="Irreversible actions — please type the project name to confirm" />
+      <SectionH
+        title="Danger zone"
+        sub="Irreversible actions — please type the project name to confirm"
+      />
       <div className="card" style={{ padding: 18, marginTop: 14, borderColor: "var(--err)" }}>
         <div className="row gap-2">
           <I.warning width={14} height={14} style={{ color: "var(--err)" }} />
           <span style={{ fontWeight: 600, fontSize: 13 }}>Transfer project</span>
         </div>
         <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-          Move <span className="mono" style={{ color: "var(--fg-2)" }}>helio</span> to another organization. Services,
-          secrets, and history move with it.
+          Move{" "}
+          <span className="mono" style={{ color: "var(--fg-2)" }}>
+            helio
+          </span>{" "}
+          to another organization. Services, secrets, and history move with it.
         </div>
         <div className="row gap-2" style={{ marginTop: 12 }}>
-          <input className="input mono" placeholder="target organization slug" style={{ flex: 1 }} />
+          <input
+            className="input mono"
+            placeholder="target organization slug"
+            style={{ flex: 1 }}
+          />
           <button className="btn">Transfer</button>
         </div>
       </div>
@@ -855,8 +976,8 @@ function DangerZone() {
           <span style={{ fontWeight: 600, fontSize: 13 }}>Delete project</span>
         </div>
         <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-          This will tear down all services, drop databases, revoke certificates, and remove all secrets. This cannot be
-          undone.
+          This will tear down all services, drop databases, revoke certificates, and remove all
+          secrets. This cannot be undone.
         </div>
         <div className="row gap-2" style={{ marginTop: 12 }}>
           <input className="input mono" placeholder='type "helio" to confirm' style={{ flex: 1 }} />

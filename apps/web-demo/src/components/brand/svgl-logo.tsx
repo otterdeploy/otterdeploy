@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode, SVGProps } from "react";
+
 import { useTheme } from "@/components/theme-provider";
 import { AwsDark } from "@/components/ui/svgs/awsDark";
 import { AwsLight } from "@/components/ui/svgs/awsLight";
@@ -44,10 +45,7 @@ const themedBrands: Record<
   AWS: { dark: AwsDark, light: AwsLight },
 };
 
-const staticBrands: Record<
-  Exclude<BrandKey, "GitHub" | "AWS">,
-  SvgComponent
-> = {
+const staticBrands: Record<Exclude<BrandKey, "GitHub" | "AWS">, SvgComponent> = {
   GitLab: Gitlab,
   Docker,
   Slack,

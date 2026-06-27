@@ -51,9 +51,7 @@ export function PanelFooter(props: PanelFooterProps) {
       >
         diff vs prod
       </button>
-      <span className="ml-auto text-[11.5px] text-muted-foreground">
-        {props.lineCount} lines
-      </span>
+      <span className="ml-auto text-[11.5px] text-muted-foreground">{props.lineCount} lines</span>
       <Button
         size="sm"
         variant="ghost"

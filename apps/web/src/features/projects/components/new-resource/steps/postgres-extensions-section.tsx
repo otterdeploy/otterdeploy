@@ -1,3 +1,4 @@
+import { POSTGRES_EXTENSIONS, resolvePostgresImage } from "@otterdeploy/shared/postgres-extensions";
 /**
  * Postgres extension picker for the create wizard. Shared by the version step
  * (default flow) so extensions are selectable without "Advanced setup". Toggles
@@ -6,11 +7,6 @@
  */
 import { useStore } from "@tanstack/react-form";
 import { toast } from "sonner";
-
-import {
-  POSTGRES_EXTENSIONS,
-  resolvePostgresImage,
-} from "@otterdeploy/shared/postgres-extensions";
 
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { Switch } from "@/shared/components/ui/switch";
@@ -26,9 +22,7 @@ export function PostgresExtensionsSection() {
   );
 
   const toggleExtension = (name: string, on: boolean) => {
-    const next = on
-      ? [...extensions, name]
-      : extensions.filter((e) => e !== name);
+    const next = on ? [...extensions, name] : extensions.filter((e) => e !== name);
     // Block image-incompatible combinations before they reach the manifest —
     // pgvector / PostGIS / TimescaleDB each pin a different image.
     const resolved = resolvePostgresImage(next, "postgres");
@@ -58,14 +52,12 @@ export function PostgresExtensionsSection() {
                 <div className="flex items-center gap-2 text-[13px] font-medium">
                   {ext.label}
                   {!ext.contrib && (
-                    <span className="rounded bg-muted px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-[9.5px] font-semibold tracking-wide text-muted-foreground uppercase">
                       image swap
                     </span>
                   )}
                 </div>
-                <div className="text-[11px] text-muted-foreground">
-                  {ext.description}
-                </div>
+                <div className="text-[11px] text-muted-foreground">{ext.description}</div>
               </div>
               <Switch
                 size="sm"

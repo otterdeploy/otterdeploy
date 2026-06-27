@@ -7,10 +7,7 @@
  */
 
 import { db } from "@otterdeploy/db";
-import {
-  PLATFORM_SETTINGS_ID,
-  platformSettings,
-} from "@otterdeploy/db/schema/platform";
+import { PLATFORM_SETTINGS_ID, platformSettings } from "@otterdeploy/db/schema/platform";
 import { env } from "@otterdeploy/env/server";
 import { eq } from "drizzle-orm";
 import { log } from "evlog";

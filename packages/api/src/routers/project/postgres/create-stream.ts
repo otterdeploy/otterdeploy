@@ -5,39 +5,30 @@
  * resources.ts.
  */
 
+import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
+import type { RequestLogger } from "evlog";
+
+import { Docker } from "@otterdeploy/docker";
+import { Result } from "better-result";
 import { randomBytes } from "node:crypto";
 
-import { Result } from "better-result";
-import type { RequestLogger } from "evlog";
+import type { ProjectRef } from "../../scopes";
 
 import { reconcile } from "../../../caddy";
 import { insertProxyRoute } from "../../../caddy/queries";
 import { PLATFORM } from "../../../constants";
-import { Docker } from "@otterdeploy/docker";
-
-import {
-  getEngineAdapter,
-  resolveRegistryAuth,
-  streamImagePull,
-} from "../../../swarm";
-import { provisionSwarmDatabase } from "../../../runtime/db";
-import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
 import { loadDomainSourcesForProject } from "../../../lib/domain-sources";
 import { resolvePublicDomain } from "../../../lib/domains";
+import { provisionSwarmDatabase } from "../../../runtime/db";
+import { getEngineAdapter, resolveRegistryAuth, streamImagePull } from "../../../swarm";
 import { insertDeployment, markDeploymentFailed } from "../deployments";
-
 import { PostgresResourceConflictError, ProjectNotFoundError } from "../errors";
-
 import {
   createDatabaseResourceRecord,
   getDatabaseResourceByProjectAndName,
   getProjectInOrg,
   updateDatabaseResourceStatus,
 } from "../queries";
-import { tailContainerBootLogs } from "./boot-logs";
-import { deriveInternalDbCredentials } from "./credentials";
-import { snapshotForPostgresCreate } from "./snapshot";
-import type { ProjectRef } from "../../scopes";
 import {
   isUniqueViolation,
   mapDatabaseResource,
@@ -46,6 +37,9 @@ import {
   sanitizeProjectSlug,
   type PostgresResource,
 } from "../views";
+import { tailContainerBootLogs } from "./boot-logs";
+import { deriveInternalDbCredentials } from "./credentials";
+import { snapshotForPostgresCreate } from "./snapshot";
 
 /**
  * One progress event yielded by the postgres create stream. Mirrors the
@@ -94,10 +88,7 @@ export async function validatePostgresCreate(
     return Result.err(new ProjectNotFoundError({ projectId: input.projectId }));
   }
 
-  const existing = await getDatabaseResourceByProjectAndName(
-    input.projectId,
-    input.name,
-  );
+  const existing = await getDatabaseResourceByProjectAndName(input.projectId, input.name);
   if (existing) {
     return Result.err(new PostgresResourceConflictError({ name: input.name }));
   }
@@ -137,8 +128,7 @@ export async function* createPostgresResourceStream(
   // Caddy layer4 ALPN routing is engine-specific; only postgres has a
   // wired ALPN today. Other engines stay internal-only until we plumb
   // their TCP proxy path (redis raw TCP, mariadb mysql ALPN, etc.).
-  const publicEnabled =
-    engine === "postgres" ? (input.publicEnabled ?? false) : false;
+  const publicEnabled = engine === "postgres" ? (input.publicEnabled ?? false) : false;
   // Note: log.set() calls inside this generator's body are no-ops —
   // hono/evlog flushes the wide event when the response starts streaming,
   // which is BEFORE the first .next() on this generator. The handler sets
@@ -152,24 +142,18 @@ export async function* createPostgresResourceStream(
   // Internal identity (db name, username, hostname, connection string) is the
   // shared deriver's output — the SAME function the draft-credentials endpoint
   // uses, so pending-panel display and deployed reality can't drift.
-  const {
-    databaseName,
-    username,
-    internalHostname,
-    internalConnectionString,
-  } = deriveInternalDbCredentials({
-    engine,
-    projectSlug: project.slug,
-    resourceName: input.name,
-    password,
-  });
+  const { databaseName, username, internalHostname, internalConnectionString } =
+    deriveInternalDbCredentials({
+      engine,
+      projectSlug: project.slug,
+      resourceName: input.name,
+      password,
+    });
   // Walk the org/project/sslip chain to pick the public hostname. The
   // org and project rows may not exist yet for the first project (the
   // create flow above only validated the project exists), so a null
   // sources record falls back to sslip via the resolver's defaults.
-  const domainSources = (await loadDomainSourcesForProject(
-    input.projectId,
-  )) ?? {
+  const domainSources = (await loadDomainSourcesForProject(input.projectId)) ?? {
     resourceOverride: null,
     projectCustomDomain: null,
     projectCustomDomainVerifiedAt: null,
@@ -475,10 +459,7 @@ export async function* createPostgresResourceStream(
     message: isApplied ? null : "Caddy reconcile reported the project as skipped",
   };
 
-  await updateDatabaseResourceStatus(
-    created.resource.id,
-    isApplied ? "valid" : "invalid",
-  );
+  await updateDatabaseResourceStatus(created.resource.id, isApplied ? "valid" : "invalid");
 
   // ── Done: ship the mapped resource so the wizard can route ───────────
   const mapped = await mapDatabaseResource(

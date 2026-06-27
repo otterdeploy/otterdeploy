@@ -59,9 +59,7 @@ interface SignedPayload {
   [key: string]: unknown;
 }
 
-export async function signHandoffToken(
-  claims: HandoffClaims,
-): Promise<string> {
+export async function signHandoffToken(claims: HandoffClaims): Promise<string> {
   return sign("handoff", { ...claims }, HANDOFF_TTL_SECONDS);
 }
 
@@ -90,9 +88,7 @@ export async function verifyHandoffToken(
   };
 }
 
-export async function signSessionCookie(
-  claims: SessionClaims,
-): Promise<string> {
+export async function signSessionCookie(claims: SessionClaims): Promise<string> {
   return sign("session", { ...claims }, SESSION_TTL_SECONDS);
 }
 
@@ -173,9 +169,7 @@ async function sign(
 ): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const payload: SignedPayload = { ...claims, p: purpose, exp: now + ttlSeconds };
-  const body = base64UrlEncode(
-    new TextEncoder().encode(JSON.stringify(payload)),
-  );
+  const body = base64UrlEncode(new TextEncoder().encode(JSON.stringify(payload)));
   const sig = await hmac(body);
   return `${body}.${sig}`;
 }
@@ -194,18 +188,14 @@ async function verify(
 
   let payload: SignedPayload & Record<string, unknown>;
   try {
-    payload = JSON.parse(
-      new TextDecoder().decode(base64UrlDecode(body)),
-    ) as SignedPayload & Record<string, unknown>;
+    payload = JSON.parse(new TextDecoder().decode(base64UrlDecode(body))) as SignedPayload &
+      Record<string, unknown>;
   } catch {
     return null;
   }
 
   if (payload.p !== purpose) return null;
-  if (
-    typeof payload.exp !== "number" ||
-    payload.exp < Math.floor(Date.now() / 1000)
-  ) {
+  if (typeof payload.exp !== "number" || payload.exp < Math.floor(Date.now() / 1000)) {
     return null;
   }
   // Domain binding — a token only validates against the domain it was
@@ -223,11 +213,7 @@ async function hmac(input: string): Promise<string> {
     false,
     ["sign"],
   );
-  const sig = await crypto.subtle.sign(
-    "HMAC",
-    key,
-    new TextEncoder().encode(input),
-  );
+  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(input));
   return base64UrlEncode(new Uint8Array(sig));
 }
 

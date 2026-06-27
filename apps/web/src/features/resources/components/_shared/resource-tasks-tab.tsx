@@ -6,20 +6,19 @@
  * task progression + container logs.
  */
 
-import { and, eq, useLiveQuery } from "@tanstack/react-db";
-import { useMutation } from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
-import { HugeiconsIcon } from "@hugeicons/react";
 import {
   ContainerIcon,
   MoreHorizontalCircle01Icon,
   PlayIcon,
   RotateLeft01Icon,
 } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { and, eq, useLiveQuery } from "@tanstack/react-db";
+import { useMutation } from "@tanstack/react-query";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 
 import { deploymentsCollection } from "@/features/resources/data/deployments";
-import { orpc } from "@/shared/server/orpc";
 import { Button } from "@/shared/components/ui/button";
 import {
   DropdownMenu,
@@ -27,13 +26,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "@/shared/components/ui/empty";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/shared/components/ui/empty";
 import { cn } from "@/shared/lib/utils";
+import { orpc } from "@/shared/server/orpc";
 
 import { SectionLabel } from "./atoms";
 
@@ -49,13 +44,7 @@ interface DeploymentInfo {
     | "restart"
     | "git-push"
     | "rollback";
-  status:
-    | "pending"
-    | "building"
-    | "running"
-    | "failed"
-    | "superseded"
-    | "removed";
+  status: "pending" | "building" | "running" | "failed" | "superseded" | "removed";
   errorMessage: string | null;
   taskCount: number;
   failedTaskCount: number;
@@ -86,9 +75,7 @@ export function ResourceTasksTab({
     (q) =>
       q
         .from({ d: deploymentsCollection })
-        .where(({ d }) =>
-          and(eq(d.projectId, projectId), eq(d.resourceId, resourceId)),
-        )
+        .where(({ d }) => and(eq(d.projectId, projectId), eq(d.resourceId, resourceId)))
         // Newest first. The collection isn't intrinsically ordered (it's a
         // keyed map), so without this the hero/history split below is
         // arbitrary and HISTORY rows render out of time order. createdAt is
@@ -110,8 +97,8 @@ export function ResourceTasksTab({
       <div>
         <SectionLabel>Active deployment</SectionLabel>
         <p className="mt-1.5 text-[12px] text-muted-foreground">
-          The deployment currently serving this resource. Click to see its tasks
-          (containers) and tail their swarm progression + logs.
+          The deployment currently serving this resource. Click to see its tasks (containers) and
+          tail their swarm progression + logs.
         </p>
         <div className="mt-3">
           {isLoading ? (
@@ -135,8 +122,7 @@ export function ResourceTasksTab({
                 />
                 <EmptyTitle>No deployments yet</EmptyTitle>
                 <EmptyDescription>
-                  Once this resource is pushed to swarm, the active one will
-                  appear here.
+                  Once this resource is pushed to swarm, the active one will appear here.
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
@@ -206,17 +192,13 @@ function ActiveDeploymentCard({
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <DeploymentStatusBadge status={deployment.status} />
-          <span className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-muted-foreground">
+          <span className="font-mono text-[10.5px] tracking-[0.16em] text-muted-foreground uppercase">
             {deployment.reason}
           </span>
         </div>
         <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
           <span className="inline-flex items-center gap-1.5">
-            <HugeiconsIcon
-              icon={ContainerIcon}
-              strokeWidth={2}
-              className="size-3.5"
-            />
+            <HugeiconsIcon icon={ContainerIcon} strokeWidth={2} className="size-3.5" />
             {runningCount}/{replicas} {replicas === 1 ? "replica" : "replicas"}
           </span>
         </div>
@@ -327,8 +309,7 @@ function HistoryRowMenu({
       toast.success("Rolling back", {
         description: `Re-deploying ${deployment.image}. Track it above.`,
       }),
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : "Failed to roll back"),
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to roll back"),
   });
 
   const showRollback = canRollback && isRollbackable(deployment);
@@ -347,11 +328,7 @@ function HistoryRowMenu({
           />
         }
       >
-        <HugeiconsIcon
-          icon={MoreHorizontalCircle01Icon}
-          strokeWidth={2}
-          className="size-3.5"
-        />
+        <HugeiconsIcon icon={MoreHorizontalCircle01Icon} strokeWidth={2} className="size-3.5" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-44">
         <DropdownMenuItem
@@ -384,11 +361,7 @@ function HistoryRowMenu({
               rollbackMut.mutate({ projectId, resourceId, deploymentId });
             }}
           >
-            <HugeiconsIcon
-              icon={RotateLeft01Icon}
-              strokeWidth={2}
-              className="size-3.5"
-            />
+            <HugeiconsIcon icon={RotateLeft01Icon} strokeWidth={2} className="size-3.5" />
             {rollbackMut.isPending ? "Rolling back…" : "Roll back to this"}
           </DropdownMenuItem>
         )}
@@ -407,19 +380,18 @@ function DeploymentStatusBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-sm border font-mono px-2.5 py-1 text-[11px] font-medium uppercase bg-muted text-muted-foreground border-border/60",
+        "inline-flex items-center gap-1.5 rounded-sm border border-border/60 bg-muted px-2.5 py-1 font-mono text-[11px] font-medium text-muted-foreground uppercase",
         {
           "px-2 py-0.5 text-[10px]": compact,
-          "bg-success/15 text-success border-success/30": status === "running",
-          "bg-destructive/15 text-destructive border-destructive/30":
-            status === "failed",
-          "bg-warning/15 text-warning border-warning/30":
+          "border-success/30 bg-success/15 text-success": status === "running",
+          "border-destructive/30 bg-destructive/15 text-destructive": status === "failed",
+          "border-warning/30 bg-warning/15 text-warning":
             status === "building" || status === "pending",
         },
       )}
     >
       <span
-        className={cn("rounded-full size-2 bg-muted-foreground/60", {
+        className={cn("size-2 rounded-full bg-muted-foreground/60", {
           "size-1.5": compact,
           "bg-success": status === "running",
           "bg-destructive": status === "failed",

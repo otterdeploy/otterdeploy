@@ -12,7 +12,6 @@ import type {
   ProjectId,
   ResourceId,
 } from "@otterdeploy/shared/id";
-import { and, asc, eq, sql } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
 import {
@@ -24,6 +23,7 @@ import {
   project,
   resource,
 } from "@otterdeploy/db/schema";
+import { and, asc, eq, sql } from "drizzle-orm";
 
 export type DatabaseEngine = "postgres" | "redis" | "mariadb" | "mongodb";
 
@@ -50,9 +50,7 @@ export interface ExecutionContext {
 }
 
 /** Everything the engine needs to run + store a backup, in one read. */
-export async function getExecutionContext(
-  backupId: BackupId,
-): Promise<ExecutionContext | null> {
+export async function getExecutionContext(backupId: BackupId): Promise<ExecutionContext | null> {
   const [row] = await db
     .select({
       backupId: backup.id,
@@ -76,10 +74,7 @@ export async function getExecutionContext(
     .from(backup)
     .innerJoin(resource, eq(resource.id, backup.resourceId))
     .innerJoin(project, eq(project.id, resource.projectId))
-    .innerJoin(
-      databaseResource,
-      eq(databaseResource.resourceId, backup.resourceId),
-    )
+    .innerJoin(databaseResource, eq(databaseResource.resourceId, backup.resourceId))
     .innerJoin(backupDestination, eq(backupDestination.id, backup.destinationId))
     .leftJoin(backupSchedule, eq(backupSchedule.id, backup.scheduleId))
     .where(eq(backup.id, backupId))
@@ -153,12 +148,7 @@ export async function listBackupLogs(
       ts: backupLog.ts,
     })
     .from(backupLog)
-    .where(
-      and(
-        eq(backupLog.backupId, backupId),
-        sql`${backupLog.seq} > ${afterSeq}`,
-      ),
-    )
+    .where(and(eq(backupLog.backupId, backupId), sql`${backupLog.seq} > ${afterSeq}`))
     .orderBy(asc(backupLog.seq))
     .limit(1000);
 }
@@ -196,10 +186,7 @@ export async function markBackupSucceeded(
     .where(eq(backup.id, backupId));
 }
 
-export async function markBackupFailed(
-  backupId: BackupId,
-  errorMessage: string,
-): Promise<void> {
+export async function markBackupFailed(backupId: BackupId, errorMessage: string): Promise<void> {
   await db
     .update(backup)
     .set({
@@ -209,7 +196,6 @@ export async function markBackupFailed(
     })
     .where(eq(backup.id, backupId));
 }
-
 
 /** Validate a resource is a database in the given org (for manual run). */
 export async function getDatabaseResourceInOrg(input: {

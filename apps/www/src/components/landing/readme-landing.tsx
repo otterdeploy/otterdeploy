@@ -1,3 +1,6 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
+
 import {
   Copy01Icon,
   GithubIcon,
@@ -7,8 +10,8 @@ import {
   Tick02Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
+
+import type { TerminalLine } from "./content";
 
 import {
   BUILT_ON,
@@ -21,7 +24,6 @@ import {
   README_TABS,
   SATELLITE_NODES,
 } from "./content";
-import type { TerminalLine } from "./content";
 
 // ───────────────────────────────────────────────────────────────────────────
 // Better-Auth-style "README" landing: a fixed left brand panel and a right
@@ -31,48 +33,26 @@ import type { TerminalLine } from "./content";
 // kept for the primary CTA, links, and small marks (≤10% of any screen).
 // ───────────────────────────────────────────────────────────────────────────
 
-const cx = (...parts: Array<string | false | undefined>) =>
-  parts.filter(Boolean).join(" ");
+const cx = (...parts: Array<string | false | undefined>) => parts.filter(Boolean).join(" ");
 
 // ── Buttons ────────────────────────────────────────────────────────────────
 
 const BTN =
   "inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg px-3.5 text-sm font-medium whitespace-nowrap transition-colors outline-none select-none focus-visible:ring-2 focus-visible:ring-ring/60 [&_svg]:size-4 [&_svg]:shrink-0";
 
-function PrimaryButton({
-  href,
-  children,
-}: {
-  href: string;
-  children: ReactNode;
-}) {
+function PrimaryButton({ href, children }: { href: string; children: ReactNode }) {
   return (
-    <a
-      href={href}
-      className={cx(
-        BTN,
-        "bg-primary text-primary-foreground hover:bg-primary/90",
-      )}
-    >
+    <a href={href} className={cx(BTN, "bg-primary text-primary-foreground hover:bg-primary/90")}>
       {children}
     </a>
   );
 }
 
-function GhostButton({
-  href,
-  children,
-}: {
-  href: string;
-  children: ReactNode;
-}) {
+function GhostButton({ href, children }: { href: string; children: ReactNode }) {
   return (
     <a
       href={href}
-      className={cx(
-        BTN,
-        "border border-border bg-card text-foreground hover:bg-muted",
-      )}
+      className={cx(BTN, "border border-border bg-card text-foreground hover:bg-muted")}
     >
       {children}
     </a>
@@ -100,15 +80,9 @@ function InstallCommand() {
         <span className="truncate text-foreground">{INSTALL_CMD}</span>
       </span>
       {copied ? (
-        <HugeiconsIcon
-          icon={Tick02Icon}
-          className="size-4 shrink-0 text-success"
-        />
+        <HugeiconsIcon icon={Tick02Icon} className="size-4 shrink-0 text-success" />
       ) : (
-        <HugeiconsIcon
-          icon={Copy01Icon}
-          className="size-4 shrink-0 text-muted-foreground"
-        />
+        <HugeiconsIcon icon={Copy01Icon} className="size-4 shrink-0 text-muted-foreground" />
       )}
     </button>
   );
@@ -156,9 +130,7 @@ function ThemeToggle() {
 function Wordmark() {
   return (
     <a href="/" className="inline-flex items-baseline gap-1">
-      <span className="text-base font-semibold tracking-tight text-foreground">
-        otterdeploy
-      </span>
+      <span className="text-base font-semibold tracking-tight text-foreground">otterdeploy</span>
       <span className="size-1.5 -translate-y-px rounded-full bg-primary" />
     </a>
   );
@@ -221,11 +193,9 @@ function CodeCard({ title, lines }: { title: string; lines: TerminalLine[] }) {
           <span className="size-2.5 rounded-full bg-border" />
           <span className="size-2.5 rounded-full bg-border" />
         </span>
-        <span className="ml-1.5 font-mono text-[11px] text-muted-foreground">
-          {title}
-        </span>
+        <span className="ml-1.5 font-mono text-[11px] text-muted-foreground">{title}</span>
       </div>
-      <div className="overflow-x-auto whitespace-pre p-4 font-mono text-[0.78rem] leading-relaxed">
+      <div className="overflow-x-auto p-4 font-mono text-[0.78rem] leading-relaxed whitespace-pre">
         {lines.map((line, i) => (
           <div key={i}>
             <CodeLine line={line} />
@@ -246,9 +216,7 @@ function TabBar() {
   // Slide the underline to the active tab. Measured from the rendered button so
   // it stays correct across font loads, resizes, and label changes.
   const measure = useCallback(() => {
-    const el = listRef.current?.querySelector<HTMLElement>(
-      `[data-tab="${active}"]`,
-    );
+    const el = listRef.current?.querySelector<HTMLElement>(`[data-tab="${active}"]`);
     if (el) setIndicator({ left: el.offsetLeft, width: el.offsetWidth });
   }, [active]);
 
@@ -261,17 +229,15 @@ function TabBar() {
   // Scroll-spy: the active tab tracks whichever section sits just below the
   // sticky bar. The narrow band keeps exactly one section active at a time.
   useEffect(() => {
-    const sections = README_TABS.map((t) =>
-      document.getElementById(t.id),
-    ).filter((el): el is HTMLElement => el !== null);
+    const sections = README_TABS.map((t) => document.getElementById(t.id)).filter(
+      (el): el is HTMLElement => el !== null,
+    );
     if (sections.length === 0) return;
     const io = new IntersectionObserver(
       (entries) => {
         const hit = entries
           .filter((e) => e.isIntersecting)
-          .sort(
-            (a, b) => a.boundingClientRect.top - b.boundingClientRect.top,
-          )[0];
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
         if (hit) setActive(hit.target.id);
       },
       { rootMargin: "-12% 0px -78% 0px", threshold: 0 },
@@ -283,18 +249,13 @@ function TabBar() {
   const go = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     setActive(id);
-    document
-      .getElementById(id)
-      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   return (
     <nav className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur-md">
       <div className="flex items-center justify-between gap-4 px-6 lg:px-10">
-        <div
-          ref={listRef}
-          className="relative flex items-center gap-1 overflow-x-auto"
-        >
+        <div ref={listRef} className="relative flex items-center gap-1 overflow-x-auto">
           {README_TABS.map((tab) => {
             const on = active === tab.id;
             return (
@@ -305,9 +266,7 @@ function TabBar() {
                 onClick={(e) => go(e, tab.id)}
                 className={cx(
                   "px-3 py-3.5 font-mono text-[11px] tracking-wide whitespace-nowrap uppercase transition-colors",
-                  on
-                    ? "text-foreground"
-                    : "text-muted-foreground hover:text-foreground",
+                  on ? "text-foreground" : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 {tab.label}
@@ -346,13 +305,7 @@ function TabBar() {
 
 // ── Section heading (mono kicker, like a README h2) ────────────────────────
 
-function SectionHeading({
-  id,
-  children,
-}: {
-  id?: string;
-  children: ReactNode;
-}) {
+function SectionHeading({ id, children }: { id?: string; children: ReactNode }) {
   return (
     <h2
       id={id}
@@ -372,12 +325,8 @@ const S = 0.7;
 
 function PanelGraph({ className }: { className?: string }) {
   return (
-    <div
-      aria-hidden
-      className={cx("relative", className)}
-      style={{ height: 240 }}
-    >
-      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+    <div aria-hidden className={cx("relative", className)} style={{ height: 240 }}>
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
         <div className="relative" style={{ width: 380, height: 240 }}>
           {/* connector lines from cluster centre to each satellite */}
           <svg className="absolute inset-0 size-full" style={{ zIndex: 0 }}>
@@ -397,7 +346,7 @@ function PanelGraph({ className }: { className?: string }) {
 
           {/* isometric grid of service boxes */}
           <div
-            className="absolute left-1/2 top-1/2"
+            className="absolute top-1/2 left-1/2"
             style={{
               transform: "translate(-50%, -50%) rotateX(55deg) rotateZ(-45deg)",
               transformStyle: "preserve-3d",
@@ -413,9 +362,7 @@ function PanelGraph({ className }: { className?: string }) {
                   className="flex items-center justify-center rounded-md border border-border bg-card font-mono"
                   style={{ width: 78 * S, height: 78 * S }}
                 >
-                  <span className="text-[9px] font-medium text-muted-foreground">
-                    {label}
-                  </span>
+                  <span className="text-[9px] font-medium text-muted-foreground">{label}</span>
                 </div>
               ))}
             </div>
@@ -429,13 +376,10 @@ function PanelGraph({ className }: { className?: string }) {
               style={{
                 left: `calc(50% + ${node.x * S}px)`,
                 top: `calc(50% + ${node.y * S}px)`,
-                borderColor:
-                  "color-mix(in oklab, var(--primary) 40%, transparent)",
+                borderColor: "color-mix(in oklab, var(--primary) 40%, transparent)",
               }}
             >
-              <span className="text-[9px] font-medium text-primary">
-                {node.label}
-              </span>
+              <span className="text-[9px] font-medium text-primary">{node.label}</span>
             </div>
           ))}
         </div>
@@ -454,13 +398,10 @@ function BrandPanel() {
         aria-hidden
         className="pointer-events-none absolute inset-0 opacity-[0.6]"
         style={{
-          backgroundImage:
-            "radial-gradient(circle, var(--border) 1px, transparent 1px)",
+          backgroundImage: "radial-gradient(circle, var(--border) 1px, transparent 1px)",
           backgroundSize: "22px 22px",
-          maskImage:
-            "radial-gradient(ellipse 80% 60% at 30% 40%, #000 20%, transparent 75%)",
-          WebkitMaskImage:
-            "radial-gradient(ellipse 80% 60% at 30% 40%, #000 20%, transparent 75%)",
+          maskImage: "radial-gradient(ellipse 80% 60% at 30% 40%, #000 20%, transparent 75%)",
+          WebkitMaskImage: "radial-gradient(ellipse 80% 60% at 30% 40%, #000 20%, transparent 75%)",
         }}
       />
 
@@ -482,13 +423,12 @@ function BrandPanel() {
             letterSpacing: "-0.03em",
           }}
         >
-          Deploy anything,{" "}
-          <span className="text-primary">on your own infra.</span>
+          Deploy anything, <span className="text-primary">on your own infra.</span>
         </h1>
         <p className="mt-5 max-w-sm text-[0.95rem] leading-relaxed text-muted-foreground">
-          A self-hostable deployment platform. Ship apps, databases, and
-          services behind a Caddy edge — with live logs, metrics, and access
-          control. The control of self-hosting, the ergonomics of a PaaS.
+          A self-hostable deployment platform. Ship apps, databases, and services behind a Caddy
+          edge — with live logs, metrics, and access control. The control of self-hosting, the
+          ergonomics of a PaaS.
         </p>
         <div className="mt-7 flex flex-wrap items-center gap-2.5">
           <PrimaryButton href="/docs">Get started</PrimaryButton>
@@ -534,15 +474,11 @@ function FeatureGrid() {
       <div className="grid grid-cols-1 gap-px bg-border sm:grid-cols-2 lg:grid-cols-3">
         {FEATURE_CELLS.map((cell) => (
           <div key={cell.n} className="flex flex-col bg-background p-5">
-            <span className="font-mono text-[11px] text-muted-foreground/70">
-              {cell.n}
-            </span>
+            <span className="font-mono text-[11px] text-muted-foreground/70">{cell.n}</span>
             <h3 className="mt-3 text-sm font-semibold tracking-tight text-foreground">
               {cell.title}
             </h3>
-            <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
-              {cell.desc}
-            </p>
+            <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">{cell.desc}</p>
             <span className="mt-4 truncate font-mono text-[11px] text-muted-foreground/60">
               {cell.detail}
             </span>
@@ -563,18 +499,15 @@ export function ReadmeLanding() {
       <div className="lg:ml-[40%] xl:ml-[38%]">
         <TabBar />
 
-        <div className="mx-auto px-10 py-12 ">
+        <div className="mx-auto px-10 py-12">
           {/* README intro */}
           <section id="readme" className="scroll-mt-16">
             <SectionHeading>Readme</SectionHeading>
             <p className="mt-4 text-[1.05rem] leading-relaxed text-foreground/90">
               Otterdeploy is a deployment platform that{" "}
-              <span className="font-medium text-foreground">
-                runs on your own servers
-              </span>
-              . Composable, typed end to end, and built to scale — from a single
-              VPS to a multi-node swarm, without the usage-based bills or vendor
-              lock-in.
+              <span className="font-medium text-foreground">runs on your own servers</span>.
+              Composable, typed end to end, and built to scale — from a single VPS to a multi-node
+              swarm, without the usage-based bills or vendor lock-in.
             </p>
             <div className="mt-6">
               <InstallCommand />
@@ -602,9 +535,8 @@ export function ReadmeLanding() {
           <section id="features" className="mt-16 scroll-mt-16">
             <SectionHeading>Features</SectionHeading>
             <p className="mt-3 mb-6 max-w-xl text-sm leading-relaxed text-muted-foreground">
-              A complete self-hosted platform — git builds, a Caddy edge,
-              managed data, live observability, and access control — driven from
-              one CLI.
+              A complete self-hosted platform — git builds, a Caddy edge, managed data, live
+              observability, and access control — driven from one CLI.
             </p>
             <FeatureGrid />
           </section>
@@ -613,8 +545,8 @@ export function ReadmeLanding() {
           <section id="deploy" className="mt-16 scroll-mt-16">
             <SectionHeading>One command, clone to production</SectionHeading>
             <p className="mt-3 mb-6 max-w-xl text-sm leading-relaxed text-muted-foreground">
-              Push your repo. Railpack detects the framework, builds it, and the
-              Caddy edge serves it over HTTPS — zero-downtime, automatic TLS.
+              Push your repo. Railpack detects the framework, builds it, and the Caddy edge serves
+              it over HTTPS — zero-downtime, automatic TLS.
             </p>
             <CodeCard title="otterdeploy deploy" lines={DEPLOY_LINES} />
           </section>
@@ -625,8 +557,7 @@ export function ReadmeLanding() {
           <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-3">
             <Wordmark />
             <span className="font-mono text-[11px] text-muted-foreground">
-              © {new Date().getFullYear()} otterdeploy · built for people who run
-              their own infra
+              © {new Date().getFullYear()} otterdeploy · built for people who run their own infra
             </span>
           </div>
         </footer>

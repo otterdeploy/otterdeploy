@@ -5,7 +5,6 @@
 
 import type { ComponentProps, SVGProps } from "react";
 
-import { HugeiconsIcon } from "@hugeicons/react";
 import {
   ContainerIcon,
   Database02Icon,
@@ -13,12 +12,14 @@ import {
   HardDriveIcon,
   ServerStack01Icon,
 } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 
 import type {
   ResourceEngine,
   ResourceKind,
   ResourceNodeData,
 } from "@/features/projects/components/graph/resource-node";
+
 import { FrameworkLogo } from "@/features/projects/components/framework-logo";
 import { Docker } from "@/shared/components/ui/svgs/docker";
 import { Mariadb } from "@/shared/components/ui/svgs/mariadb";
@@ -30,7 +31,7 @@ import { cn } from "@/shared/lib/utils";
 
 export function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="text-[10.5px] font-medium uppercase tracking-[0.16em] text-muted-foreground/70">
+    <div className="text-[10.5px] font-medium tracking-[0.16em] text-muted-foreground/70 uppercase">
       {children}
     </div>
   );
@@ -103,12 +104,7 @@ export function PanelIcon({ node }: { node: ResourceNodeData }) {
   }
   const { icon, tint } = KIND_ICON[node.kind];
   return (
-    <div
-      className={cn(
-        "grid size-10 shrink-0 place-items-center rounded-lg",
-        tint,
-      )}
-    >
+    <div className={cn("grid size-10 shrink-0 place-items-center rounded-lg", tint)}>
       <HugeiconsIcon icon={icon} strokeWidth={1.8} className="size-5" />
     </div>
   );

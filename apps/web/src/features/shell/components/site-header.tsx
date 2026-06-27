@@ -26,7 +26,7 @@ export function SiteHeader() {
   const overlay = useResourceOverlay();
 
   return (
-    <header className="sticky top-0 z-50 flex w-full items-center bg-background border-b">
+    <header className="sticky top-0 z-50 flex w-full items-center border-b bg-background">
       <div className="flex h-(--header-height) w-full items-center gap-2 px-3">
         <Link
           to="/$orgSlug"
@@ -50,10 +50,7 @@ export function SiteHeader() {
             />
             <Input
               type="search"
-              placeholder={t(
-                "common.searchOrRun",
-                "Search or run a command...",
-              )}
+              placeholder={t("common.searchOrRun", "Search or run a command...")}
               className="h-8 bg-background pr-9 pl-8"
               aria-label={t("common.search")}
             />

@@ -7,6 +7,7 @@ import { Alert02Icon, RefreshIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { cn } from "@/shared/lib/utils";
+
 import { Button } from "./button";
 
 export function ErrorState({
@@ -32,19 +33,10 @@ export function ErrorState({
       </div>
       <div className="flex max-w-sm flex-col gap-1">
         <p className="text-sm font-semibold">{title}</p>
-        {message ? (
-          <p className="text-xs break-words text-muted-foreground">
-            {message}
-          </p>
-        ) : null}
+        {message ? <p className="text-xs break-words text-muted-foreground">{message}</p> : null}
       </div>
       {onRetry ? (
-        <Button
-          variant="outline"
-          size="sm"
-          className="mt-1 gap-1.5"
-          onClick={onRetry}
-        >
+        <Button variant="outline" size="sm" className="mt-1 gap-1.5" onClick={onRetry}>
           <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} className="size-3.5" />
           Try again
         </Button>

@@ -71,19 +71,14 @@ export function authorizeKeyScope(
  * When that lands, swap `roles.member` here for the resolved creator role.
  */
 export function authorizeRoleScope(required: PermissionCheck): boolean {
-  return roles.member.authorize(
-    required as Parameters<typeof roles.member.authorize>[0],
-  ).success;
+  return roles.member.authorize(required as Parameters<typeof roles.member.authorize>[0]).success;
 }
 
 /**
  * Optional read-only preset. `accessLevel === 'read'` blocks any non-read
  * action; `'write'` / `undefined` (the default) impose no extra restriction.
  */
-export function isReadAllowed(
-  accessLevel: "read" | "write" | undefined,
-  path: string,
-): boolean {
+export function isReadAllowed(accessLevel: "read" | "write" | undefined, path: string): boolean {
   if (accessLevel !== "read") return true;
   return isReadAction(path);
 }

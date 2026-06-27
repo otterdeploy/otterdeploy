@@ -6,8 +6,9 @@
  * statement (no free-text SQL), so nothing here can write.
  */
 import { useMemo, useState } from "react";
-import { HugeiconsIcon } from "@hugeicons/react";
+
 import { ArrowLeft01Icon, ArrowRight01Icon, Table01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -30,20 +31,15 @@ import {
 import { cn } from "@/shared/lib/utils";
 
 import type { PostgresBodyProps } from "../../../postgres/types";
+
 import { useMariadbRows, useMariadbTables } from "./data/use-mariadb";
 
 const PAGE = 100;
 
-export function MariadbDataTabBody({
-  resource,
-}: {
-  resource: PostgresBodyProps["resource"];
-}) {
+export function MariadbDataTabBody({ resource }: { resource: PostgresBodyProps["resource"] }) {
   const resourceId = resource.resourceId;
   const tablesQuery = useMariadbTables(resourceId);
-  const [selected, setSelected] = useState<{ schema: string; name: string } | null>(
-    null,
-  );
+  const [selected, setSelected] = useState<{ schema: string; name: string } | null>(null);
   const [offset, setOffset] = useState(0);
 
   const tables = tablesQuery.data?.tables ?? [];
@@ -74,10 +70,7 @@ export function MariadbDataTabBody({
             ))}
           </div>
         ) : tablesQuery.isError ? (
-          <ErrorState
-            message="Couldn’t list tables"
-            onRetry={() => void tablesQuery.refetch()}
-          />
+          <ErrorState message="Couldn’t list tables" onRetry={() => void tablesQuery.refetch()} />
         ) : tables.length === 0 ? (
           <div className="p-3 text-[12px] text-muted-foreground">No tables.</div>
         ) : (
@@ -90,11 +83,15 @@ export function MariadbDataTabBody({
                     type="button"
                     onClick={() => pick({ schema: t.schema, name: t.name })}
                     className={cn(
-                      "flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-left text-[12px] font-mono",
+                      "flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-left font-mono text-[12px]",
                       isActive ? "bg-accent text-accent-foreground" : "hover:bg-muted",
                     )}
                   >
-                    <HugeiconsIcon icon={Table01Icon} strokeWidth={2} className="size-3.5 shrink-0 opacity-60" />
+                    <HugeiconsIcon
+                      icon={Table01Icon}
+                      strokeWidth={2}
+                      className="size-3.5 shrink-0 opacity-60"
+                    />
                     <span className="truncate">{t.name}</span>
                   </button>
                 </li>
@@ -139,10 +136,7 @@ export function MariadbDataTabBody({
                   ))}
                 </div>
               ) : rowsQuery.isError ? (
-                <ErrorState
-                  message="Couldn’t read rows"
-                  onRetry={() => void rowsQuery.refetch()}
-                />
+                <ErrorState message="Couldn’t read rows" onRetry={() => void rowsQuery.refetch()} />
               ) : (
                 <Grid columns={rowsQuery.data?.columns ?? []} rows={rowsQuery.data?.rows ?? []} />
               )}
@@ -154,13 +148,7 @@ export function MariadbDataTabBody({
   );
 }
 
-function Grid({
-  columns,
-  rows,
-}: {
-  columns: string[];
-  rows: Array<Array<string | null>>;
-}) {
+function Grid({ columns, rows }: { columns: string[]; rows: Array<Array<string | null>> }) {
   if (rows.length === 0) {
     return <div className="p-4 text-[12px] text-muted-foreground">No rows.</div>;
   }
@@ -180,11 +168,7 @@ function Grid({
           <TableRow key={i}>
             {r.map((cell, j) => (
               <TableCell key={j} className="max-w-xs truncate font-mono">
-                {cell === null ? (
-                  <span className="italic text-muted-foreground">NULL</span>
-                ) : (
-                  cell
-                )}
+                {cell === null ? <span className="text-muted-foreground italic">NULL</span> : cell}
               </TableCell>
             ))}
           </TableRow>
@@ -211,7 +195,7 @@ export function Pager({
 }) {
   return (
     <div className="flex items-center gap-1.5">
-      <span className="text-[11px] tabular-nums text-muted-foreground">
+      <span className="text-[11px] text-muted-foreground tabular-nums">
         {offset + 1}–{offset + page}
       </span>
       <Button

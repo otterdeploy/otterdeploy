@@ -3,19 +3,12 @@
 import { useEffect, useState } from "react";
 
 import { SvglLogo } from "@/components/brand/svgl-logo";
-import { I } from "../icons";
+
 import { Field, SectionH } from "../components/form";
 import { StatusBadge } from "../components/status-badge";
+import { I } from "../icons";
 
-type RegistryKind =
-  | "dockerhub"
-  | "ghcr"
-  | "ecr"
-  | "gcr"
-  | "gar"
-  | "acr"
-  | "harbor"
-  | "generic";
+type RegistryKind = "dockerhub" | "ghcr" | "ecr" | "gcr" | "gar" | "acr" | "harbor" | "generic";
 
 type AuthKind = "anonymous" | "basic" | "token" | "iam" | "cloud";
 
@@ -108,10 +101,7 @@ export function Registries() {
   const totalImages = registries.reduce((n, r) => n + r.images, 0);
 
   return (
-    <div
-      className="os-scroll"
-      style={{ flex: 1, overflow: "auto", padding: 24 }}
-    >
+    <div className="os-scroll" style={{ flex: 1, overflow: "auto", padding: 24 }}>
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
         <div className="row" style={{ marginBottom: 16 }}>
           <SectionH
@@ -143,8 +133,7 @@ export function Registries() {
             </button>
           </div>
           <div className="muted" style={{ fontSize: 11, marginTop: 10 }}>
-            Layers are cached on each swarm node. Pruned automatically when disk
-            usage exceeds 80%.
+            Layers are cached on each swarm node. Pruned automatically when disk usage exceeds 80%.
           </div>
         </div>
       </div>
@@ -154,13 +143,7 @@ export function Registries() {
   );
 }
 
-function RegistryLogo({
-  kind,
-  size = 32,
-}: {
-  kind: RegistryKind;
-  size?: number;
-}) {
+function RegistryLogo({ kind, size = 32 }: { kind: RegistryKind; size?: number }) {
   return (
     <SvglLogo
       search={REGISTRY_SEARCH[kind] ?? REGISTRY_LABEL[kind]}
@@ -251,15 +234,7 @@ function RegistryCard({ r }: { r: Registry }) {
   );
 }
 
-function Stat({
-  label,
-  value,
-  mono,
-}: {
-  label: string;
-  value: string;
-  mono?: boolean;
-}) {
+function Stat({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div>
       <div
@@ -384,12 +359,8 @@ function AddRegistryModal({ onClose }: { onClose: () => void }) {
         backdropFilter: "blur(2px)",
       }}
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="os-modal"
-        style={{ width: 600 }}
-      >
-        <div className="row gap-2 os-modal-h">
+      <div onClick={(e) => e.stopPropagation()} className="os-modal" style={{ width: 600 }}>
+        <div className="row os-modal-h gap-2">
           <I.server width={14} height={14} />
           <span style={{ fontWeight: 600 }}>Add container registry</span>
           <div style={{ flex: 1 }} />
@@ -398,10 +369,7 @@ function AddRegistryModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        <div
-          className="col gap-3"
-          style={{ padding: 18, overflow: "auto", maxHeight: "65vh" }}
-        >
+        <div className="col gap-3" style={{ padding: 18, overflow: "auto", maxHeight: "65vh" }}>
           <div>
             <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>
               Type
@@ -426,9 +394,7 @@ function AddRegistryModal({ onClose }: { onClose: () => void }) {
                 >
                   <div className="col gap-1" style={{ alignItems: "center" }}>
                     <RegistryLogo kind={k} size={26} />
-                    <span style={{ fontSize: 11, fontWeight: 500 }}>
-                      {REGISTRY_LABEL[k]}
-                    </span>
+                    <span style={{ fontSize: 11, fontWeight: 500 }}>{REGISTRY_LABEL[k]}</span>
                   </div>
                 </button>
               ))}
@@ -436,11 +402,7 @@ function AddRegistryModal({ onClose }: { onClose: () => void }) {
           </div>
 
           <Field label="Registry URL">
-            <input
-              className="input mono"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-            />
+            <input className="input mono" value={url} onChange={(e) => setUrl(e.target.value)} />
           </Field>
 
           <Field label="Authentication">
@@ -517,8 +479,8 @@ function AddRegistryModal({ onClose }: { onClose: () => void }) {
                 lineHeight: 1.6,
               }}
             >
-              Otterdeploy will use the swarm node&apos;s instance metadata
-              credentials to authenticate pulls. No keys stored.
+              Otterdeploy will use the swarm node&apos;s instance metadata credentials to
+              authenticate pulls. No keys stored.
             </div>
           )}
 
@@ -537,10 +499,7 @@ function AddRegistryModal({ onClose }: { onClose: () => void }) {
           )}
         </div>
 
-        <div
-          className="row gap-2"
-          style={{ padding: 14, borderTop: "1px solid var(--border)" }}
-        >
+        <div className="row gap-2" style={{ padding: 14, borderTop: "1px solid var(--border)" }}>
           <button className="btn sm ghost">
             <I.bolt width={11} height={11} /> Test connection
           </button>

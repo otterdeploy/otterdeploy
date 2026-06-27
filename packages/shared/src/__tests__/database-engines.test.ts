@@ -1,10 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import {
-  DATABASE_ENGINES,
-  getDatabaseEngine,
-  type DatabaseEngine,
-} from "../database-engines";
+import { DATABASE_ENGINES, getDatabaseEngine, type DatabaseEngine } from "../database-engines";
 
 describe("DATABASE_ENGINES", () => {
   test("includes postgres", () => {

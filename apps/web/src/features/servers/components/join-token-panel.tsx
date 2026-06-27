@@ -39,8 +39,7 @@ export function JoinTokenPanel({ role, onRoleChange }: JoinTokenPanelProps) {
   const token = role === "worker" ? data?.worker : data?.manager;
   const managerAddr = data?.managerAddr ?? null;
 
-  const command =
-    token && managerAddr ? `docker swarm join --token ${token} ${managerAddr}` : null;
+  const command = token && managerAddr ? `docker swarm join --token ${token} ${managerAddr}` : null;
 
   return (
     <div className="flex flex-col gap-3">
@@ -73,9 +72,7 @@ export function JoinTokenPanel({ role, onRoleChange }: JoinTokenPanelProps) {
               className="size-10 text-muted-foreground/50"
             />
             <EmptyTitle>Swarm hasn't been initialized</EmptyTitle>
-            <EmptyDescription>
-              Run the command below on the manager, then refresh.
-            </EmptyDescription>
+            <EmptyDescription>Run the command below on the manager, then refresh.</EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
             <code className="rounded-sm bg-muted px-1 py-px font-mono text-[12px] text-foreground">

@@ -4,25 +4,18 @@
  * new" isn't a real engine mode, so it isn't offered.
  */
 import { useState } from "react";
-import {
-  Alert02Icon,
-  Download01Icon,
-  Refresh01Icon,
-} from "@hugeicons/core-free-icons";
+
+import { Alert02Icon, Download01Icon, Refresh01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
 
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/shared/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
 import { Input } from "@/shared/components/ui/input";
 
 import type { Backup } from "./data/backups";
+
 import { restoreBackup } from "./data/backups";
 import { Field, absTime, downloadBase64, encLabel, fmtBytes } from "./shared";
 
@@ -45,13 +38,7 @@ export function RestoreWizard({
   );
 }
 
-function RestoreWizardBody({
-  backup,
-  onClose,
-}: {
-  backup: Backup;
-  onClose: () => void;
-}) {
+function RestoreWizardBody({ backup, onClose }: { backup: Backup; onClose: () => void }) {
   const [mode, setMode] = useState<RestoreMode>("download");
   const [confirm, setConfirm] = useState("");
   const [running, setRunning] = useState(false);
@@ -71,18 +58,14 @@ function RestoreWizardBody({
         }
         onClose();
       })
-      .catch((err: unknown) =>
-        toast.error(err instanceof Error ? err.message : "Restore failed"),
-      )
+      .catch((err: unknown) => toast.error(err instanceof Error ? err.message : "Restore failed"))
       .finally(() => setRunning(false));
   };
 
   return (
-    <DialogContent className="sm:max-w-3xl gap-0 p-0">
+    <DialogContent className="gap-0 p-0 sm:max-w-3xl">
       <DialogHeader className="border-b px-5 py-3">
-        <DialogTitle className="text-sm font-semibold">
-          Restore · {source}
-        </DialogTitle>
+        <DialogTitle className="text-sm font-semibold">Restore · {source}</DialogTitle>
         <p className="text-xs text-muted-foreground">
           Backup {backup.id} · {absTime(backup.completedAt ?? backup.createdAt)}
         </p>
@@ -120,10 +103,9 @@ function RestoreWizardBody({
               />
               <p className="text-xs text-foreground/80">
                 This overwrites all current data on{" "}
-                <span className="font-mono text-rose-500">{source}</span> with
-                snapshot <span className="font-mono">{backup.id}</span>. The
-                current state can't be recovered unless a separate snapshot
-                exists.
+                <span className="font-mono text-rose-500">{source}</span> with snapshot{" "}
+                <span className="font-mono">{backup.id}</span>. The current state can't be recovered
+                unless a separate snapshot exists.
               </p>
             </div>
             <Field label={`Type "${source}" to confirm`}>
@@ -136,9 +118,7 @@ function RestoreWizardBody({
               />
             </Field>
             {!typedOk && confirm.length > 0 && (
-              <div className="font-mono text-[11px] text-rose-500">
-                Typed name does not match.
-              </div>
+              <div className="font-mono text-[11px] text-rose-500">Typed name does not match.</div>
             )}
           </>
         )}
@@ -160,11 +140,7 @@ function RestoreWizardBody({
             icon={mode === "download" ? Download01Icon : Refresh01Icon}
             className="size-3"
           />
-          {running
-            ? "Working…"
-            : mode === "download"
-              ? "Download"
-              : "Restore in place"}
+          {running ? "Working…" : mode === "download" ? "Download" : "Restore in place"}
         </Button>
       </div>
     </DialogContent>
@@ -201,11 +177,7 @@ function RestoreModeCard({
       }
     >
       <div className="flex items-center gap-2">
-        <span
-          className={
-            "text-sm font-semibold " + (danger ? "text-rose-500" : "text-foreground")
-          }
-        >
+        <span className={"text-sm font-semibold " + (danger ? "text-rose-500" : "text-foreground")}>
           {title}
         </span>
         {danger && (

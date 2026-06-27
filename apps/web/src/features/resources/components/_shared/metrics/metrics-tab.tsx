@@ -6,7 +6,7 @@
  */
 
 import { useState } from "react";
-import { HugeiconsIcon } from "@hugeicons/react";
+
 import {
   Activity03Icon,
   Alert02Icon,
@@ -16,32 +16,16 @@ import {
   PulseIcon,
   RamMemoryIcon,
 } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 
-import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from "@/shared/components/ui/toggle-group";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/shared/components/ui/empty";
 import { Skeleton } from "@/shared/components/ui/skeleton";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "@/shared/components/ui/empty";
+import { ToggleGroup, ToggleGroupItem } from "@/shared/components/ui/toggle-group";
 
-import {
-  formatBytes,
-  formatClockSeconds,
-  formatPercent,
-  formatRate,
-} from "./format";
+import { formatBytes, formatClockSeconds, formatPercent, formatRate } from "./format";
 import { MetricAreaChart } from "./metric-area-chart";
 import { MetricCard } from "./metric-card";
-import {
-  METRIC_WINDOWS,
-  useResourceMetrics,
-  type MetricWindowLabel,
-} from "./use-resource-metrics";
+import { METRIC_WINDOWS, useResourceMetrics, type MetricWindowLabel } from "./use-resource-metrics";
 
 interface MetricsTabProps {
   resourceId: string;
@@ -49,24 +33,15 @@ interface MetricsTabProps {
 
 export function MetricsTab({ resourceId }: MetricsTabProps) {
   const [window, setWindow] = useState<MetricWindowLabel>("30m");
-  const minutes =
-    METRIC_WINDOWS.find((w) => w.label === window)?.minutes ?? 30;
+  const minutes = METRIC_WINDOWS.find((w) => w.label === window)?.minutes ?? 30;
 
-  const { rows, summary, isLoading, isError, updatedAt } = useResourceMetrics(
-    resourceId,
-    minutes,
-  );
+  const { rows, summary, isLoading, isError, updatedAt } = useResourceMetrics(resourceId, minutes);
 
   const hasData = rows.length > 0;
 
   return (
     <div className="flex flex-col gap-4">
-      <Toolbar
-        window={window}
-        onWindowChange={setWindow}
-        live={hasData}
-        updatedAt={updatedAt}
-      />
+      <Toolbar window={window} onWindowChange={setWindow} live={hasData} updatedAt={updatedAt} />
 
       {isLoading && !hasData ? (
         <LoadingState />
@@ -90,9 +65,7 @@ export function MetricsTab({ resourceId }: MetricsTabProps) {
             <MetricAreaChart
               data={rows}
               format={(v) => formatPercent(v)}
-              series={[
-                { dataKey: "cpuPct", label: "CPU", color: "var(--chart-3)" },
-              ]}
+              series={[{ dataKey: "cpuPct", label: "CPU", color: "var(--chart-3)" }]}
             />
           </MetricCard>
 
@@ -198,15 +171,8 @@ function Toolbar({
 
       {live ? (
         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <HugeiconsIcon
-            icon={PulseIcon}
-            strokeWidth={2}
-            className="size-3.5 text-success"
-          />
-          <span>
-            Live · updated{" "}
-            {updatedAt ? formatClockSeconds(updatedAt) : "—"}
-          </span>
+          <HugeiconsIcon icon={PulseIcon} strokeWidth={2} className="size-3.5 text-success" />
+          <span>Live · updated {updatedAt ? formatClockSeconds(updatedAt) : "—"}</span>
         </div>
       ) : null}
     </div>
@@ -234,9 +200,8 @@ function EmptyMetricsState() {
         />
         <EmptyTitle>No samples yet</EmptyTitle>
         <EmptyDescription>
-          Metrics are sampled from the running containers every 30 seconds.
-          Once this resource has been live for a tick or two, CPU, memory, and
-          network will chart here.
+          Metrics are sampled from the running containers every 30 seconds. Once this resource has
+          been live for a tick or two, CPU, memory, and network will chart here.
         </EmptyDescription>
       </EmptyHeader>
     </Empty>
@@ -254,8 +219,7 @@ function ErrorState() {
         />
         <EmptyTitle>Couldn’t load metrics</EmptyTitle>
         <EmptyDescription>
-          The metrics query failed. It will retry automatically on the next
-          refresh.
+          The metrics query failed. It will retry automatically on the next refresh.
         </EmptyDescription>
       </EmptyHeader>
     </Empty>

@@ -1,3 +1,5 @@
+import { db } from "@otterdeploy/db";
+import { edgeEvent } from "@otterdeploy/db/schema/edge-event";
 /**
  * DB-backed operational-event query (edge-logs Phase 3). Events are sparse, so
  * we fetch the time window from `edge_event` (newest-first, capped) and reuse
@@ -8,11 +10,6 @@
  */
 import { desc, gte } from "drizzle-orm";
 
-import { db } from "@otterdeploy/db";
-import { edgeEvent } from "@otterdeploy/db/schema/edge-event";
-
-import { filterEdgeEvents } from "./event-ring";
-import { RANGE_MS } from "./ring";
 import type {
   EdgeEventCategory,
   EdgeEventFilter,
@@ -20,6 +17,9 @@ import type {
   EdgeEventLine,
   EdgeEventQueryResult,
 } from "./types";
+
+import { filterEdgeEvents } from "./event-ring";
+import { RANGE_MS } from "./ring";
 
 const MAX_FETCH = 10_000;
 

@@ -24,9 +24,7 @@ export interface PostgresExportInput {
   };
 }
 
-export function postgresExports(
-  input: PostgresExportInput,
-): Record<string, string> {
+export function postgresExports(input: PostgresExportInput): Record<string, string> {
   const db = input.database;
   return {
     DATABASE_URL: db.internalConnectionString,
@@ -52,9 +50,7 @@ export interface ServiceExportInput {
  *   - PORT = primary HTTP port (or first port)
  *   - URL  = http://<host>:<port>  (only if primary port is http)
  */
-export function serviceExports(
-  input: ServiceExportInput,
-): Record<string, string> {
+export function serviceExports(input: ServiceExportInput): Record<string, string> {
   const primary =
     input.ports.find((p) => p.isPrimary && p.appProtocol === "http") ??
     input.ports.find((p) => p.appProtocol === "http") ??

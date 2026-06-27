@@ -156,9 +156,7 @@ export const stackOtterdeployExtensionSchema = z.object({
   redeployToken: z.string().optional(),
   /** UI-only graph coordinates so the canvas position survives
    *  round-trips through the file. */
-  graph: z
-    .object({ x: z.number(), y: z.number() })
-    .optional(),
+  graph: z.object({ x: z.number(), y: z.number() }).optional(),
 
   // Lifecycle hooks — no compose-deploy equivalent; ride under
   // x-otterdeploy so the values survive YAML round-trip. preDeploy runs
@@ -176,9 +174,7 @@ export const stackOtterdeployExtensionSchema = z.object({
   diskLimitMb: z.number().int().positive().optional(),
   swapLimitMb: z.number().int().positive().optional(),
 });
-export type StackOtterdeployExtension = z.infer<
-  typeof stackOtterdeployExtensionSchema
->;
+export type StackOtterdeployExtension = z.infer<typeof stackOtterdeployExtensionSchema>;
 
 // ── Service ────────────────────────────────────────────────────────────
 

@@ -1,6 +1,6 @@
 import type { OrganizationId } from "@otterdeploy/shared/id";
-import type { Context as HonoContext } from "hono";
 import type { RequestLogger } from "evlog";
+import type { Context as HonoContext } from "hono";
 
 import { auth } from "@otterdeploy/auth";
 import { Result } from "better-result";
@@ -70,10 +70,7 @@ async function verifyApiKeyActor(key: string): Promise<ApiKeyActor | null> {
 
   return {
     id: apiKey.id,
-    permissions: (apiKey.permissions ?? null) as Record<
-      string,
-      string[]
-    > | null,
+    permissions: (apiKey.permissions ?? null) as Record<string, string[]> | null,
     referenceId: apiKey.referenceId ?? null,
     accessLevel: metadata.accessLevel,
     projectScope: metadata.projectScope,
@@ -86,10 +83,7 @@ export interface CreateContextOptions {
   broadcast: (resource: string) => void;
 }
 
-export async function createContext({
-  context,
-  broadcast,
-}: CreateContextOptions) {
+export async function createContext({ context, broadcast }: CreateContextOptions) {
   const headers = context.req.raw.headers;
 
   const session = await auth.api.getSession({
@@ -102,9 +96,7 @@ export async function createContext({
   // when there's no cookie session — session/cookie + CLI device-grant bearer
   // keep the exact existing code path.
   const apiKeyCredential = session ? null : readApiKeyCredential(headers);
-  const apiKey = apiKeyCredential
-    ? await verifyApiKeyActor(apiKeyCredential)
-    : null;
+  const apiKey = apiKeyCredential ? await verifyApiKeyActor(apiKeyCredential) : null;
 
   // The evlog Hono middleware (app.use(evlog())) attaches a per-request
   // wide-event logger. Handlers accumulate context via context.log.set(...).

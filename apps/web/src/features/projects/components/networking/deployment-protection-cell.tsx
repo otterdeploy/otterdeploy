@@ -1,7 +1,10 @@
 import { useState } from "react";
+
 import { ShieldKeyIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
+import { ProtectionSwitch } from "@/features/projects/components/networking/protection-switch";
+import { RouteAccessControls } from "@/features/projects/components/networking/route-access-controls";
 import { Button } from "@/shared/components/ui/button";
 import {
   Dialog,
@@ -11,8 +14,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/shared/components/ui/dialog";
-import { ProtectionSwitch } from "@/features/projects/components/networking/protection-switch";
-import { RouteAccessControls } from "@/features/projects/components/networking/route-access-controls";
 
 interface ProtectionRoute {
   id: string;
@@ -45,9 +46,7 @@ export function DeploymentProtectionCell({
         {route.protected ? "login required" : "public"}
       </span>
       <ProtectionSwitch route={route} projectId={projectId} />
-      {route.protected ? (
-        <AccessDialog routeId={route.id} domain={route.domain} />
-      ) : null}
+      {route.protected ? <AccessDialog routeId={route.id} domain={route.domain} /> : null}
     </div>
   );
 }
@@ -67,9 +66,8 @@ function AccessDialog({ routeId, domain }: { routeId: string; domain: string }) 
         <DialogHeader>
           <DialogTitle>Access to {domain}</DialogTitle>
           <DialogDescription>
-            Org members sign in automatically. Invite external guests by email
-            (they get a one-time code, no account), or grant access with a
-            shareable link or a CI header token.
+            Org members sign in automatically. Invite external guests by email (they get a one-time
+            code, no account), or grant access with a shareable link or a CI header token.
           </DialogDescription>
         </DialogHeader>
 

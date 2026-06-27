@@ -13,9 +13,8 @@ import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/
 import { Docker } from "@otterdeploy/docker";
 
 import { getProjectInOrg, getProjectRecord, listProjectResources } from "./queries";
-
-import { buildContainerName } from "./views";
 import { demuxDockerLogs } from "./resource-logs";
+import { buildContainerName } from "./views";
 
 type OrgId = OrganizationId;
 
@@ -78,10 +77,7 @@ async function resolveTargets(
   return [...svcTargets, ...dbTargets];
 }
 
-function systemEvent(
-  target: TargetService,
-  line: string,
-): ProjectLogEvent {
+function systemEvent(target: TargetService, line: string): ProjectLogEvent {
   return {
     stream: "system",
     line: `[${target.serviceName}] ${line}`,
@@ -146,10 +142,7 @@ function pumpServiceLogs(
     } catch (err) {
       if (cancelled || signal.aborted) return;
       push(
-        systemEvent(
-          target,
-          `stream error: ${err instanceof Error ? err.message : String(err)}`,
-        ),
+        systemEvent(target, `stream error: ${err instanceof Error ? err.message : String(err)}`),
       );
     } finally {
       onClose();

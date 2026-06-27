@@ -4,11 +4,8 @@
  * collection optimistically; test is a one-shot validation.
  */
 import { useState } from "react";
-import {
-  Delete02Icon,
-  Settings01Icon,
-  Tick02Icon,
-} from "@hugeicons/core-free-icons";
+
+import { Delete02Icon, Settings01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
 
@@ -16,6 +13,7 @@ import { Button } from "@/shared/components/ui/button";
 import { cn } from "@/shared/lib/utils";
 
 import type { Destination } from "./data/destinations";
+
 import { destinationsCollection, testDestination } from "./data/destinations";
 import { StatusBadge, destIcon, destSub, destUri } from "./shared";
 
@@ -41,9 +39,7 @@ export function DestinationRow({
     setBusy(true);
     testDestination(dest.id)
       .then((res) => toast.success(res.message))
-      .catch((err: unknown) =>
-        toast.error(err instanceof Error ? err.message : "Test failed"),
-      )
+      .catch((err: unknown) => toast.error(err instanceof Error ? err.message : "Test failed"))
       .finally(() => setBusy(false));
   };
 
@@ -52,9 +48,7 @@ export function DestinationRow({
     tx.isPersisted.promise
       .then(() => toast.success("Destination removed"))
       .catch((err: unknown) =>
-        toast.error(
-          err instanceof Error ? err.message : "Couldn't remove destination",
-        ),
+        toast.error(err instanceof Error ? err.message : "Couldn't remove destination"),
       );
   };
 
@@ -75,17 +69,12 @@ export function DestinationRow({
       <div className="flex min-w-40 flex-col items-end gap-0.5">
         <span className="font-mono text-xs">
           {usedGB.toFixed(usedGB >= 10 ? 0 : 1)} GB
-          {totalGB ? (
-            <span className="text-muted-foreground"> / {totalGB} GB</span>
-          ) : null}
+          {totalGB ? <span className="text-muted-foreground"> / {totalGB} GB</span> : null}
         </span>
         {pct != null && (
           <div className="mt-1 h-1 w-36 rounded-full bg-muted">
             <div
-              className={cn(
-                "h-full rounded-full",
-                pct > 80 ? "bg-amber-500" : "bg-foreground/60",
-              )}
+              className={cn("h-full rounded-full", pct > 80 ? "bg-amber-500" : "bg-foreground/60")}
               style={{ width: `${Math.min(100, pct)}%` }}
             />
           </div>
@@ -103,22 +92,10 @@ export function DestinationRow({
         <HugeiconsIcon icon={Tick02Icon} className="size-3.5" />
         Test
       </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="size-7"
-        title="Edit"
-        onClick={onEdit}
-      >
+      <Button variant="ghost" size="icon" className="size-7" title="Edit" onClick={onEdit}>
         <HugeiconsIcon icon={Settings01Icon} className="size-3.5" />
       </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="size-7"
-        title="Delete"
-        onClick={remove}
-      >
+      <Button variant="ghost" size="icon" className="size-7" title="Delete" onClick={remove}>
         <HugeiconsIcon icon={Delete02Icon} className="size-3.5" />
       </Button>
     </div>

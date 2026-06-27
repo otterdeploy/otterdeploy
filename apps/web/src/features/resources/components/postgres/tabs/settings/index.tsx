@@ -4,16 +4,17 @@
  * Each card lives in its own file so this orchestrator stays scannable.
  */
 
+import { ArrowReloadHorizontalIcon, Key01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import {
-  ArrowReloadHorizontalIcon,
-  Key01Icon,
-} from "@hugeicons/core-free-icons";
 
+import {
+  SettingsCard,
+  SettingsRowReadOnly,
+} from "@/features/resources/components/_shared/settings-card";
 import { Button } from "@/shared/components/ui/button";
 
 import type { PostgresBodyProps } from "../../types";
-import { SettingsCard, SettingsRowReadOnly } from "@/features/resources/components/_shared/settings-card";
+
 import { DangerZone } from "./danger-zone";
 import { ExtensionsCard } from "./extensions-card";
 import { PublicAccessCard } from "./public-access-card";
@@ -43,8 +44,7 @@ export function PostgresSettingsBody({
           <ExtensionsCard resource={resource} pending dbName={dbName} />
         )}
         <p className="text-[11px] text-muted-foreground/70">
-          Identity, storage, and maintenance settings unlock once the database
-          is deployed.
+          Identity, storage, and maintenance settings unlock once the database is deployed.
         </p>
       </div>
     );
@@ -99,11 +99,7 @@ export function PostgresSettingsBody({
             </span>
           </div>
           <Button variant="outline" size="sm" disabled className="gap-1.5">
-            <HugeiconsIcon
-              icon={ArrowReloadHorizontalIcon}
-              strokeWidth={2}
-              className="size-3.5"
-            />
+            <HugeiconsIcon icon={ArrowReloadHorizontalIcon} strokeWidth={2} className="size-3.5" />
             Snapshot now
           </Button>
         </div>

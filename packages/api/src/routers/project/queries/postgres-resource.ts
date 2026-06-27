@@ -1,9 +1,5 @@
-import { randomBytes } from "node:crypto";
-
-import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
-import { and, eq, notInArray } from "drizzle-orm";
-import { createError } from "evlog";
+import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import {
@@ -11,16 +7,16 @@ import {
   databaseResource,
   resource,
 } from "@otterdeploy/db/schema/project";
+import { and, eq, notInArray } from "drizzle-orm";
+import { createError } from "evlog";
+import { randomBytes } from "node:crypto";
 
 export interface DatabaseResourceRecord {
   resource: typeof resource.$inferSelect;
   database: typeof databaseResource.$inferSelect;
 }
 
-export async function getDatabaseResourceByProjectAndName(
-  projectId: ProjectId,
-  name: string,
-) {
+export async function getDatabaseResourceByProjectAndName(projectId: ProjectId, name: string) {
   const [record] = await db
     .select({
       resource,
@@ -34,10 +30,7 @@ export async function getDatabaseResourceByProjectAndName(
   return record;
 }
 
-export async function getDatabaseResourceRecord(
-  projectId: ProjectId,
-  resourceId: ResourceId,
-) {
+export async function getDatabaseResourceRecord(projectId: ProjectId, resourceId: ResourceId) {
   const [record] = await db
     .select({
       resource,
@@ -174,27 +167,18 @@ export async function getDraftCredentialPassword(
     .select({ password: databaseDraftCredential.password })
     .from(databaseDraftCredential)
     .where(
-      and(
-        eq(databaseDraftCredential.projectId, projectId),
-        eq(databaseDraftCredential.name, name),
-      ),
+      and(eq(databaseDraftCredential.projectId, projectId), eq(databaseDraftCredential.name, name)),
     )
     .limit(1);
   return row?.password ?? null;
 }
 
 /** Drop the draft credential once the real database row exists (post-deploy). */
-export async function deleteDraftCredential(
-  projectId: ProjectId,
-  name: string,
-): Promise<void> {
+export async function deleteDraftCredential(projectId: ProjectId, name: string): Promise<void> {
   await db
     .delete(databaseDraftCredential)
     .where(
-      and(
-        eq(databaseDraftCredential.projectId, projectId),
-        eq(databaseDraftCredential.name, name),
-      ),
+      and(eq(databaseDraftCredential.projectId, projectId), eq(databaseDraftCredential.name, name)),
     );
 }
 
@@ -256,10 +240,7 @@ export async function updateDatabaseResourceRuntime(input: {
 /** Toggle the public-exposure flag on a database resource. Caller is
  *  responsible for registering / unregistering the matching proxy route
  *  and reconciling Caddy after this update. */
-export async function setDatabaseResourcePublic(
-  resourceId: ResourceId,
-  publicEnabled: boolean,
-) {
+export async function setDatabaseResourcePublic(resourceId: ResourceId, publicEnabled: boolean) {
   const [updated] = await db
     .update(databaseResource)
     .set({ publicEnabled, updatedAt: new Date() })
@@ -288,10 +269,7 @@ export async function setDatabaseResourceExtraEnv(
 /** Persist the enabled-extensions list for a database resource. Caller is
  *  responsible for rolling the swarm service (the image may change) and
  *  applying CREATE/DROP EXTENSION against the live database afterward. */
-export async function setDatabaseResourceExtensions(
-  resourceId: ResourceId,
-  extensions: string[],
-) {
+export async function setDatabaseResourceExtensions(resourceId: ResourceId, extensions: string[]) {
   const [updated] = await db
     .update(databaseResource)
     .set({ extensions, updatedAt: new Date() })

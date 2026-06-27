@@ -1,10 +1,9 @@
-
 import type { EnvironmentId, OrganizationId, ProjectId } from "@otterdeploy/shared/id";
-import { and, asc, eq } from "drizzle-orm";
 import type { InferSelectModel } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
 import { environment, project } from "@otterdeploy/db/schema/project";
+import { and, asc, eq } from "drizzle-orm";
 type OrgId = OrganizationId;
 
 export type EnvironmentRecord = InferSelectModel<typeof environment>;

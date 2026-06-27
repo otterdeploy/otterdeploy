@@ -21,12 +21,7 @@ let counter = 0;
  *  are enormous; we drop those by category anyway, but guard regardless. */
 const MAX_RAW = 8_000;
 
-const SENSITIVE_HEADERS = new Set([
-  "authorization",
-  "cookie",
-  "set-cookie",
-  "proxy-authorization",
-]);
+const SENSITIVE_HEADERS = new Set(["authorization", "cookie", "set-cookie", "proxy-authorization"]);
 
 const CaddyEventSchema = z.object({
   level: z.string().optional(),
@@ -41,10 +36,7 @@ const CaddyEventSchema = z.object({
   identifiers: z.array(z.string()).optional(),
   // reverse_proxy errors carry the upstream dial + the proxied request.
   upstream: z.string().optional(),
-  request: z
-    .object({ host: z.string().optional() })
-    .passthrough()
-    .optional(),
+  request: z.object({ host: z.string().optional() }).passthrough().optional(),
 });
 
 function levelOf(raw: string | undefined): EdgeEventLevel {

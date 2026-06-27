@@ -20,17 +20,19 @@
  */
 
 import type { ResourceId } from "@otterdeploy/shared/id";
+import type { RequestLogger } from "evlog";
+
 import {
   knownPostgresExtensions,
   resolvePostgresImage,
 } from "@otterdeploy/shared/postgres-extensions";
-
-import { SQL } from "bun";
 import { Result } from "better-result";
-import type { RequestLogger } from "evlog";
+import { SQL } from "bun";
 
-import { defaultImageFor } from "../../../swarm";
+import type { ProjectRef } from "../../scopes";
+
 import { updateSwarmDatabase } from "../../../runtime/db";
+import { defaultImageFor } from "../../../swarm";
 import { insertDeployment, markDeploymentFailed } from "../deployments";
 import {
   IncompatibleExtensionsError,
@@ -42,8 +44,6 @@ import {
   getProjectInOrg,
   setDatabaseResourceExtensions,
 } from "../queries";
-import type { ProjectRef } from "../../scopes";
-import { snapshotForPostgresCreate } from "./snapshot";
 import {
   buildContainerName,
   buildVolumeName,
@@ -51,6 +51,7 @@ import {
   sanitizeProjectSlug,
   type PostgresResource,
 } from "../views";
+import { snapshotForPostgresCreate } from "./snapshot";
 
 export async function setPostgresExtensions(
   input: ProjectRef & { resourceId: ResourceId; extensions: string[] },
@@ -58,9 +59,7 @@ export async function setPostgresExtensions(
 ): Promise<
   Result<
     PostgresResource,
-    | ProjectNotFoundError
-    | PostgresResourceNotFoundError
-    | IncompatibleExtensionsError
+    ProjectNotFoundError | PostgresResourceNotFoundError | IncompatibleExtensionsError
   >
 > {
   // Drop anything the catalog doesn't know — a stale/forged name must never
@@ -82,18 +81,14 @@ export async function setPostgresExtensions(
 
   const record = await getDatabaseResourceRecord(input.projectId, input.resourceId);
   if (!record) {
-    return Result.err(
-      new PostgresResourceNotFoundError({ resourceId: input.resourceId }),
-    );
+    return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
   }
 
   const engine = record.database.engine;
   const defaultImage = defaultImageFor(engine);
   const resolved = resolvePostgresImage(desired, defaultImage);
   if (!resolved.ok) {
-    return Result.err(
-      new IncompatibleExtensionsError({ conflict: resolved.conflict }),
-    );
+    return Result.err(new IncompatibleExtensionsError({ conflict: resolved.conflict }));
   }
   const image = resolved.image;
 
@@ -149,10 +144,7 @@ export async function setPostgresExtensions(
       log,
     );
   } catch (err) {
-    await markDeploymentFailed(
-      deployment.id,
-      err instanceof Error ? err.message : String(err),
-    );
+    await markDeploymentFailed(deployment.id, err instanceof Error ? err.message : String(err));
     throw err;
   }
 
@@ -164,10 +156,7 @@ export async function setPostgresExtensions(
   const toDisable = previous.filter((e) => !desired.includes(e));
   if (toEnable.length > 0 || toDisable.length > 0) {
     await applyExtensionsLive(
-      dedupe([
-        record.database.internalConnectionString,
-        record.database.publicConnectionString,
-      ]),
+      dedupe([record.database.internalConnectionString, record.database.publicConnectionString]),
       toEnable,
       toDisable,
       log,

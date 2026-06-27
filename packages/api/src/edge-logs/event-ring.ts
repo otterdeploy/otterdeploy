@@ -6,21 +6,20 @@
  * globalThis for the same `--hot`-reload reason as the access ring.
  */
 
+import type { EdgeEventFilter, EdgeEventLine, EdgeEventQueryResult } from "./types";
+
 import { RANGE_MS } from "./ring";
-import type {
-  EdgeEventFilter,
-  EdgeEventLine,
-  EdgeEventQueryResult,
-} from "./types";
 
 /** Operational events are sparse vs. access logs — a small ring is plenty. */
 const MAX_EVENTS = 5_000;
 
 type Subscriber = (line: EdgeEventLine) => void;
 
-const state = ((globalThis as typeof globalThis & {
-  __edgeEventRing?: { buffer: EdgeEventLine[]; subscribers: Set<Subscriber> };
-}).__edgeEventRing ??= { buffer: [], subscribers: new Set<Subscriber>() });
+const state = ((
+  globalThis as typeof globalThis & {
+    __edgeEventRing?: { buffer: EdgeEventLine[]; subscribers: Set<Subscriber> };
+  }
+).__edgeEventRing ??= { buffer: [], subscribers: new Set<Subscriber>() });
 
 export function pushEdgeEvent(line: EdgeEventLine): void {
   state.buffer.push(line);
@@ -89,14 +88,14 @@ export function filterEdgeEvents(
   const sinceMs = now - RANGE_MS[filter.range];
   const matched = source.filter((l) => matches(l, filter, sinceMs));
   const limit = filter.limit ?? 200;
-  const rows = matched.slice(-limit).reverse().map((l) => redact(l, filter.hosts));
+  const rows = matched
+    .slice(-limit)
+    .reverse()
+    .map((l) => redact(l, filter.hosts));
   return { rows, total: matched.length };
 }
 
-export function queryEdgeEvents(
-  filter: EdgeEventFilter,
-  now: number,
-): EdgeEventQueryResult {
+export function queryEdgeEvents(filter: EdgeEventFilter, now: number): EdgeEventQueryResult {
   return filterEdgeEvents(state.buffer, filter, now);
 }
 

@@ -1,12 +1,15 @@
 "use client";
 
-import { ChevronDown, ChevronUp, X } from "./icons";
 import * as React from "react";
-import { Button } from "@/shared/components/ui/button";
-import { Input } from "@/shared/components/ui/input";
+
+import type { SearchState } from "@/shared/components/data-grid/types";
+
 import { useAsRef } from "@/shared/components/data-grid/hooks/use-as-ref";
 import { useDebouncedCallback } from "@/shared/components/data-grid/hooks/use-debounced-callback";
-import type { SearchState } from "@/shared/components/data-grid/types";
+import { Button } from "@/shared/components/ui/button";
+import { Input } from "@/shared/components/ui/input";
+
+import { ChevronDown, ChevronUp, X } from "./icons";
 
 function onTriggerPointerDown(event: React.PointerEvent<HTMLButtonElement>) {
   const target = event.target;
@@ -44,10 +47,7 @@ export const DataGridSearch = React.memo(DataGridSearchImpl, (prev, next) => {
 
     if (!prevMatch || !nextMatch) return false;
 
-    if (
-      prevMatch.rowIndex !== nextMatch.rowIndex ||
-      prevMatch.columnId !== nextMatch.columnId
-    ) {
+    if (prevMatch.rowIndex !== nextMatch.rowIndex || prevMatch.columnId !== nextMatch.columnId) {
       return false;
     }
   }
@@ -160,7 +160,7 @@ function DataGridSearchImpl({
     <div
       role="search"
       data-slot="grid-search"
-      className="fade-in-0 slide-in-from-top-2 absolute end-4 top-4 z-50 flex animate-in flex-col gap-2 rounded-lg border bg-background p-2 shadow-lg"
+      className="absolute end-4 top-4 z-50 flex animate-in flex-col gap-2 rounded-lg border bg-background p-2 shadow-lg fade-in-0 slide-in-from-top-2"
     >
       <div className="flex items-center gap-2">
         <Input
@@ -211,7 +211,7 @@ function DataGridSearchImpl({
           </Button>
         </div>
       </div>
-      <div className="flex items-center gap-1 whitespace-nowrap text-muted-foreground text-xs">
+      <div className="flex items-center gap-1 text-xs whitespace-nowrap text-muted-foreground">
         {searchMatches.length > 0 ? (
           <span>
             {matchIndex + 1} of {searchMatches.length}

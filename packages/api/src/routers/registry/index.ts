@@ -4,9 +4,8 @@
  * before INSERT — see queries.ts for the boundary.
  */
 
-import { isUniqueViolation } from "../project/views";
 import { orgScopedProcedure, requirePermission } from "../..";
-
+import { isUniqueViolation } from "../project/views";
 import {
   canonicalizeHost,
   createRegistryRecord,
@@ -56,10 +55,7 @@ export const registryRouter = {
 
   update: requirePermission({ registry: ["update"] }).registry.update.handler(
     async ({ input, context, errors }) => {
-      const existing = await getRegistryForOrg(
-        context.activeOrganizationId,
-        input.id,
-      );
+      const existing = await getRegistryForOrg(context.activeOrganizationId, input.id);
       if (!existing) throw errors.NOT_FOUND();
       context.log.set({
         target: { type: "container_registry", id: input.id },
@@ -71,8 +67,7 @@ export const registryRouter = {
         username: input.username,
         // Treat empty string the same as omitted — the UI sends "" when
         // the password field is left blank so we don't force a re-prompt.
-        plaintextPassword:
-          input.password && input.password.length > 0 ? input.password : undefined,
+        plaintextPassword: input.password && input.password.length > 0 ? input.password : undefined,
         authType: input.authType,
       });
       if (!updated) throw errors.NOT_FOUND();
@@ -82,10 +77,7 @@ export const registryRouter = {
 
   delete: requirePermission({ registry: ["delete"] }).registry.delete.handler(
     async ({ input, context, errors }) => {
-      const existing = await getRegistryForOrg(
-        context.activeOrganizationId,
-        input.id,
-      );
+      const existing = await getRegistryForOrg(context.activeOrganizationId, input.id);
       if (!existing) throw errors.NOT_FOUND();
       context.log.set({
         target: { type: "container_registry", id: input.id },

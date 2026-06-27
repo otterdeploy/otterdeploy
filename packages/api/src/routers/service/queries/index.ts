@@ -45,11 +45,7 @@ export {
   type UpdateServiceInput,
 } from "./service";
 
-export {
-  getPrimaryHttpPort,
-  listServicePorts,
-  replaceServicePorts,
-} from "./ports";
+export { getPrimaryHttpPort, listServicePorts, replaceServicePorts } from "./ports";
 
 export {
   bulkReplaceServiceEnvVars,

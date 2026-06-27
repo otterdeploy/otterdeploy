@@ -16,7 +16,10 @@ export interface TerminalTarget {
   banner?: string[];
 }
 
-interface Replica { id: string; name: string }
+interface Replica {
+  id: string;
+  name: string;
+}
 
 interface Props {
   kind: TerminalKind;
@@ -31,7 +34,10 @@ interface Props {
   fill?: boolean;
 }
 
-interface Line { kind: "cmd" | "out" | "sys"; text: string }
+interface Line {
+  kind: "cmd" | "out" | "sys";
+  text: string;
+}
 
 export function Terminal({
   kind,
@@ -158,7 +164,9 @@ export function Terminal({
               height: 7,
               borderRadius: "50%",
               background: connected ? "var(--ok)" : "var(--warn)",
-              boxShadow: connected ? "0 0 0 3px color-mix(in srgb, var(--ok) 25%, transparent)" : "none",
+              boxShadow: connected
+                ? "0 0 0 3px color-mix(in srgb, var(--ok) 25%, transparent)"
+                : "none",
               transition: "background 200ms",
             }}
           />
@@ -252,9 +260,7 @@ function LineRow({ line }: { line: Line }) {
     // Render the prompt prefix in green, the rest in foreground
     const idx = line.text.indexOf(" ");
     if (idx === -1)
-      return (
-        <div style={{ whiteSpace: "pre-wrap", color: "var(--ok)" }}>{line.text}</div>
-      );
+      return <div style={{ whiteSpace: "pre-wrap", color: "var(--ok)" }}>{line.text}</div>;
     return (
       <div style={{ whiteSpace: "pre-wrap" }}>
         <span style={{ color: "var(--ok)" }}>{line.text.slice(0, idx)}</span>
@@ -264,7 +270,9 @@ function LineRow({ line }: { line: Line }) {
   }
   if (line.kind === "sys") {
     return (
-      <div style={{ whiteSpace: "pre-wrap", color: "var(--warn)", fontStyle: "italic" }}>{line.text}</div>
+      <div style={{ whiteSpace: "pre-wrap", color: "var(--warn)", fontStyle: "italic" }}>
+        {line.text}
+      </div>
     );
   }
   return <div style={{ whiteSpace: "pre-wrap" }}>{line.text}</div>;
@@ -326,8 +334,7 @@ function respondShell(cmd: string, isSsh: boolean): string[] {
   if (head === "id") return ["uid=1000(app) gid=1000(app) groups=1000(app)"];
   if (head === "hostname") return [isSsh ? "helio-prod-04" : "web-replica-2.helio.internal"];
   if (head === "uname") return ["Linux web-replica-2 6.6.16-linuxkit #1 SMP x86_64 GNU/Linux"];
-  if (head === "uptime")
-    return ["09:42:11 up 12 days,  4:23,  load average: 0.18, 0.21, 0.19"];
+  if (head === "uptime") return ["09:42:11 up 12 days,  4:23,  load average: 0.18, 0.21, 0.19"];
   if (head === "date") return [new Date().toUTCString()];
   if (head === "df")
     return [
@@ -421,7 +428,12 @@ function respondPsql(cmd: string): string[] {
       "(1 row)",
     ];
   if (/^select\s+now/i.test(c))
-    return ["              now", "-------------------------------", ` ${new Date().toISOString()}`, "(1 row)"];
+    return [
+      "              now",
+      "-------------------------------",
+      ` ${new Date().toISOString()}`,
+      "(1 row)",
+    ];
   if (/^select.*from\s+users/i.test(c))
     return [
       " id |       email           |  name  |       created_at      ",
@@ -431,11 +443,10 @@ function respondPsql(cmd: string): string[] {
       "  3 | lin@paperhouse.dev    | lin    | 2025-09-12 09:32:11+00",
       "(3 rows)",
     ];
-  if (/^select\s+count\(\*\)/i.test(c))
-    return [" count", "-------", " 12384", "(1 row)"];
+  if (/^select\s+count\(\*\)/i.test(c)) return [" count", "-------", " 12384", "(1 row)"];
   if (/^begin|commit|rollback;?$/i.test(c)) return [c.toUpperCase().replace(/;$/, "")];
-  if (c.endsWith(";")) return ["ERROR:  syntax error at or near \"\"", "LINE 1: " + c];
-  return ['helio=#  ', '"' + c + '" requires a trailing semicolon (try again).'];
+  if (c.endsWith(";")) return ['ERROR:  syntax error at or near ""', "LINE 1: " + c];
+  return ["helio=#  ", '"' + c + '" requires a trailing semicolon (try again).'];
 }
 
 function respondRedis(cmd: string): string[] {

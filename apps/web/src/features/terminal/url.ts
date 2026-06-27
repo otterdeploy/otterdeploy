@@ -66,9 +66,7 @@ function decodeSessionToken(token: string): SessionSource | null {
 }
 
 /** Decode all valid session tokens out of the URL, dropping malformed ones. */
-export function sessionSourcesFromSearch(
-  search: TerminalSearch,
-): SessionSource[] {
+export function sessionSourcesFromSearch(search: TerminalSearch): SessionSource[] {
   const out: SessionSource[] = [];
   for (const token of search.session) {
     const source = decodeSessionToken(token);
@@ -78,9 +76,7 @@ export function sessionSourcesFromSearch(
 }
 
 /** Build a URLSearchParams that opens the popout with these sessions. */
-export function sessionSourcesToSearchParams(
-  sources: SessionSource[],
-): URLSearchParams {
+export function sessionSourcesToSearchParams(sources: SessionSource[]): URLSearchParams {
   const params = new URLSearchParams();
   for (const s of sources) params.append("session", encodeSessionToken(s));
   return params;

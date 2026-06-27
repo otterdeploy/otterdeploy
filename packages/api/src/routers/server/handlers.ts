@@ -8,12 +8,13 @@
  */
 
 import type { ServerId } from "@otterdeploy/shared/id";
+
 import { panic, Result } from "better-result";
 
-import { isUniqueViolation } from "../project/views";
-
-import { ServerConflictError, ServerNotFoundError } from "./errors";
 import type { OrgRef } from "../scopes";
+
+import { isUniqueViolation } from "../project/views";
+import { ServerConflictError, ServerNotFoundError } from "./errors";
 import {
   bootstrapLocalhostIfMissing,
   createServerRecord,

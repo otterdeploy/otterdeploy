@@ -1,17 +1,17 @@
 #!/usr/bin/env bun
+import { manifestSchema } from "@otterdeploy/api/manifest";
 // Regenerates apps/web/public/otterdeploy.schema.json from the zod
 // manifestSchema. The file is served as a static asset so editors
 // (VS Code, JetBrains, …) can resolve it via the `$schema` field
 // embedded in user-authored otterdeploy.config.json files.
 import { resolve } from "node:path";
-import { manifestSchema } from "@otterdeploy/api/manifest";
 import * as z from "zod";
 const json = z.toJSONSchema(manifestSchema, {
-    target: "draft-7",
-    // manifestSchema uses z.transform() in a couple of places (e.g. trim
-    // helpers); JSON Schema can't express those, so we degrade them to
-    // `{}` rather than throwing.
-    unrepresentable: "any",
+  target: "draft-7",
+  // manifestSchema uses z.transform() in a couple of places (e.g. trim
+  // helpers); JSON Schema can't express those, so we degrade them to
+  // `{}` rather than throwing.
+  unrepresentable: "any",
 });
 // zod marks `.default({})` fields as required (they're never undefined
 // at runtime — the default fills them in). JSON Schema validators in
@@ -20,29 +20,26 @@ const json = z.toJSONSchema(manifestSchema, {
 // from its parent's `required` array so the editor experience matches
 // the authoring contract: anything with a default is optional to write.
 function relaxDefaultedRequired(node) {
-    if (!node || typeof node !== "object")
-        return;
-    if (Array.isArray(node)) {
-        for (const item of node)
-            relaxDefaultedRequired(item);
-        return;
-    }
-    const obj = node;
-    const props = obj.properties;
-    const required = obj.required;
-    if (props && Array.isArray(required)) {
-        obj.required = required.filter((key) => typeof key !== "string" || !(key in props) || !("default" in props[key]));
-        if (obj.required.length === 0)
-            delete obj.required;
-    }
-    for (const value of Object.values(obj))
-        relaxDefaultedRequired(value);
+  if (!node || typeof node !== "object") return;
+  if (Array.isArray(node)) {
+    for (const item of node) relaxDefaultedRequired(item);
+    return;
+  }
+  const obj = node;
+  const props = obj.properties;
+  const required = obj.required;
+  if (props && Array.isArray(required)) {
+    obj.required = required.filter(
+      (key) => typeof key !== "string" || !(key in props) || !("default" in props[key]),
+    );
+    if (obj.required.length === 0) delete obj.required;
+  }
+  for (const value of Object.values(obj)) relaxDefaultedRequired(value);
 }
 relaxDefaultedRequired(json);
 json.$id = "https://otterdeploy.com/otterdeploy.schema.json";
 json.title = "Otterdeploy Manifest";
 json.description =
-    "Schema for otterdeploy.config.json — the declarative manifest of services + databases for an otterdeploy project.";
+  "Schema for otterdeploy.config.json — the declarative manifest of services + databases for an otterdeploy project.";
 const out = resolve(import.meta.dirname, "../public/otterdeploy.schema.json");
 await Bun.write(out, `${JSON.stringify(json, null, 2)}\n`);
-

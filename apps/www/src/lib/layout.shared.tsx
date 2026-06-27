@@ -1,4 +1,5 @@
 import type { BaseLayoutProps } from "fumadocs-ui/layouts/shared";
+
 import { gitConfig } from "./shared";
 
 // The wordmark and primary links live in the marketing <SiteBar /> above the

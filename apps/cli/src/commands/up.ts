@@ -11,13 +11,12 @@
  * the two steps apart; `up` is the guided fast path.
  */
 
-import { existsSync } from "node:fs";
-import { basename } from "node:path";
+import type { Manifest } from "@otterdeploy/api/manifest";
 
 import { defineCommand } from "citty";
 import { consola } from "consola";
-
-import type { Manifest } from "@otterdeploy/api/manifest";
+import { existsSync } from "node:fs";
+import { basename } from "node:path";
 
 import { ensureAuthenticated } from "../auth-flow";
 import { createCliClient } from "../client";
@@ -214,7 +213,9 @@ async function maybeAddFirstService(configOverride?: string): Promise<void> {
       type: "text",
     })) as string;
     if (!image) {
-      consola.warn("No image given — skipping service. Edit the config and run `otterdeploy deploy`.");
+      consola.warn(
+        "No image given — skipping service. Edit the config and run `otterdeploy deploy`.",
+      );
       return;
     }
     next.services[name] = {

@@ -1,9 +1,5 @@
 import { IR } from "@tanstack/db";
-import {
-  extractFieldPath,
-  extractValue,
-  walkExpression,
-} from "@tanstack/query-db-collection";
+import { extractFieldPath, extractValue, walkExpression } from "@tanstack/query-db-collection";
 
 /**
  * A flat TanStack DB filter expression, as handed to a collection's `queryKey`

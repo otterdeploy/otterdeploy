@@ -10,15 +10,10 @@ import {
   ServerIcon,
   WorkflowIcon,
 } from "lucide-react";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -77,9 +72,7 @@ export function MonitoringOverview() {
         <Card>
           <CardHeader>
             <CardTitle>Service health</CardTitle>
-            <CardDescription>
-              Top workloads by pressure and deployment confidence.
-            </CardDescription>
+            <CardDescription>Top workloads by pressure and deployment confidence.</CardDescription>
           </CardHeader>
           <CardContent className="pt-0">
             <Table>
@@ -101,15 +94,9 @@ export function MonitoringOverview() {
                 ].map(([service, project, cpu, memory, status]) => (
                   <TableRow key={service}>
                     <TableCell className="font-medium">{service}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {project}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {cpu}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {memory}
-                    </TableCell>
+                    <TableCell className="text-muted-foreground">{project}</TableCell>
+                    <TableCell className="text-muted-foreground">{cpu}</TableCell>
+                    <TableCell className="text-muted-foreground">{memory}</TableCell>
                     <TableCell>
                       <StatusBadge status={status} />
                     </TableCell>
@@ -169,8 +156,8 @@ export function RequestsOverview() {
         <CardHeader>
           <CardTitle>Recent edge traffic</CardTitle>
           <CardDescription>
-            Caddy access log stream for public routes. Retention and export
-            policies will plug into this view.
+            Caddy access log stream for public routes. Retention and export policies will plug into
+            this view.
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-0">
@@ -187,56 +174,20 @@ export function RequestsOverview() {
             </TableHeader>
             <TableBody>
               {[
-                [
-                  "GET",
-                  "app.paperhouse.dev",
-                  "/api/health",
-                  "200",
-                  "38 ms",
-                  "DE",
-                ],
-                [
-                  "POST",
-                  "app.paperhouse.dev",
-                  "/api/deploy/hooks/github",
-                  "202",
-                  "118 ms",
-                  "US",
-                ],
-                [
-                  "GET",
-                  "console.paperhouse.dev",
-                  "/settings",
-                  "304",
-                  "24 ms",
-                  "FR",
-                ],
-                [
-                  "GET",
-                  "preview.otterdeploy.dev",
-                  "/assets/index.js",
-                  "503",
-                  "861 ms",
-                  "GB",
-                ],
+                ["GET", "app.paperhouse.dev", "/api/health", "200", "38 ms", "DE"],
+                ["POST", "app.paperhouse.dev", "/api/deploy/hooks/github", "202", "118 ms", "US"],
+                ["GET", "console.paperhouse.dev", "/settings", "304", "24 ms", "FR"],
+                ["GET", "preview.otterdeploy.dev", "/assets/index.js", "503", "861 ms", "GB"],
               ].map(([method, host, path, status, latency, source]) => (
                 <TableRow key={`${method}-${host}-${path}`}>
                   <TableCell className="font-medium">{method}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {host}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">
-                    {path}
-                  </TableCell>
+                  <TableCell className="text-muted-foreground">{host}</TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground">{path}</TableCell>
                   <TableCell>
                     <StatusCodeBadge code={status} />
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {latency}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {source}
-                  </TableCell>
+                  <TableCell className="text-muted-foreground">{latency}</TableCell>
+                  <TableCell className="text-muted-foreground">{source}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -302,12 +253,7 @@ export function DockerResourcesOverview() {
                 {[
                   ["caddy", "caddy:2.9", "ingress", "healthy"],
                   ["registry-cache", "registry:2", "cluster", "healthy"],
-                  [
-                    "preview-builder-7",
-                    "ghcr.io/paperhouse/builder:canary",
-                    "unmanaged",
-                    "watch",
-                  ],
+                  ["preview-builder-7", "ghcr.io/paperhouse/builder:canary", "unmanaged", "watch"],
                   ["volume-restorer", "alpine:3.22", "maintenance", "idle"],
                 ].map(([name, image, scope, status]) => (
                   <TableRow key={name}>
@@ -315,9 +261,7 @@ export function DockerResourcesOverview() {
                     <TableCell className="font-mono text-xs text-muted-foreground">
                       {image}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {scope}
-                    </TableCell>
+                    <TableCell className="text-muted-foreground">{scope}</TableCell>
                     <TableCell>
                       <StatusBadge status={status} />
                     </TableCell>
@@ -349,21 +293,12 @@ export function DockerResourcesOverview() {
                   ["postgres_data", "postgres-primary", "14 GB", "healthy"],
                   ["builder_cache", "preview-builder-7", "9 GB", "watch"],
                   ["staging_uploads", "api", "4.2 GB", "healthy"],
-                  [
-                    "orphaned_restore_2026_05_01",
-                    "detached",
-                    "1.8 GB",
-                    "prune",
-                  ],
+                  ["orphaned_restore_2026_05_01", "detached", "1.8 GB", "prune"],
                 ].map(([name, attachedTo, size, status]) => (
                   <TableRow key={name}>
                     <TableCell className="font-medium">{name}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {attachedTo}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {size}
-                    </TableCell>
+                    <TableCell className="text-muted-foreground">{attachedTo}</TableCell>
+                    <TableCell className="text-muted-foreground">{size}</TableCell>
                     <TableCell>
                       <StatusBadge status={status} />
                     </TableCell>
@@ -438,12 +373,8 @@ export function SwarmOverview() {
                 ].map(([name, role, availability, status]) => (
                   <TableRow key={name}>
                     <TableCell className="font-medium">{name}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {role}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {availability}
-                    </TableCell>
+                    <TableCell className="text-muted-foreground">{role}</TableCell>
+                    <TableCell className="text-muted-foreground">{availability}</TableCell>
                     <TableCell>
                       <StatusBadge status={status} />
                     </TableCell>
@@ -456,9 +387,7 @@ export function SwarmOverview() {
         <Card>
           <CardHeader>
             <CardTitle>Service rollouts</CardTitle>
-            <CardDescription>
-              Current placement and deployment state.
-            </CardDescription>
+            <CardDescription>Current placement and deployment state.</CardDescription>
           </CardHeader>
           <CardContent className="pt-0">
             <Table>
@@ -479,12 +408,8 @@ export function SwarmOverview() {
                 ].map(([name, replicas, placement, status]) => (
                   <TableRow key={name}>
                     <TableCell className="font-medium">{name}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {replicas}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {placement}
-                    </TableCell>
+                    <TableCell className="text-muted-foreground">{replicas}</TableCell>
+                    <TableCell className="text-muted-foreground">{placement}</TableCell>
                     <TableCell>
                       <StatusBadge status={status} />
                     </TableCell>
@@ -499,13 +424,7 @@ export function SwarmOverview() {
   );
 }
 
-function PageHeader({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
+function PageHeader({ title, description }: { title: string; description: string }) {
   return (
     <div className="grid gap-1">
       <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
@@ -530,28 +449,16 @@ function MetricCard({
       <CardHeader className="gap-3">
         <div className="flex items-center justify-between gap-3">
           <CardDescription>{title}</CardDescription>
-          <div className="rounded-md border bg-background p-2 text-muted-foreground">
-            {icon}
-          </div>
+          <div className="rounded-md border bg-background p-2 text-muted-foreground">{icon}</div>
         </div>
         <CardTitle>{value}</CardTitle>
       </CardHeader>
-      <CardContent className="pt-0 text-sm text-muted-foreground">
-        {detail}
-      </CardContent>
+      <CardContent className="pt-0 text-sm text-muted-foreground">{detail}</CardContent>
     </Card>
   );
 }
 
-function AlertRow({
-  title,
-  detail,
-  status,
-}: {
-  title: string;
-  detail: string;
-  status: string;
-}) {
+function AlertRow({ title, detail, status }: { title: string; detail: string; status: string }) {
   return (
     <div className="rounded-xl border bg-background p-3">
       <div className="flex items-start justify-between gap-3">

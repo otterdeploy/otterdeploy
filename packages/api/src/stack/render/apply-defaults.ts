@@ -19,21 +19,9 @@ interface Identity {
   databaseName: string;
 }
 
-const USERNAME_KEYS = [
-  "POSTGRES_USER",
-  "MARIADB_USER",
-  "MONGO_INITDB_ROOT_USERNAME",
-];
-const PASSWORD_KEYS = [
-  "POSTGRES_PASSWORD",
-  "MARIADB_PASSWORD",
-  "MONGO_INITDB_ROOT_PASSWORD",
-];
-const DATABASE_KEYS = [
-  "POSTGRES_DB",
-  "MARIADB_DATABASE",
-  "MONGO_INITDB_DATABASE",
-];
+const USERNAME_KEYS = ["POSTGRES_USER", "MARIADB_USER", "MONGO_INITDB_ROOT_USERNAME"];
+const PASSWORD_KEYS = ["POSTGRES_PASSWORD", "MARIADB_PASSWORD", "MONGO_INITDB_ROOT_PASSWORD"];
+const DATABASE_KEYS = ["POSTGRES_DB", "MARIADB_DATABASE", "MONGO_INITDB_DATABASE"];
 
 function pickFromEnv(
   env: Record<string, string> | undefined,
@@ -73,10 +61,7 @@ function ensureVolumes(
   mountTarget: string,
 ): StackVolumeMount[] {
   if (current?.some((v) => v.target === mountTarget)) return current;
-  return [
-    ...(current ?? []),
-    { type: "volume" as const, target: mountTarget },
-  ];
+  return [...(current ?? []), { type: "volume" as const, target: mountTarget }];
 }
 
 function applyOne(name: string, service: StackService): StackService {
@@ -86,8 +71,7 @@ function applyOne(name: string, service: StackService): StackService {
   const identity = deriveIdentity(name, service);
 
   const identityEnv = adapter.buildEnv(identity);
-  const command =
-    service.command ?? adapter.buildCommand?.({ password: identity.password });
+  const command = service.command ?? adapter.buildCommand?.({ password: identity.password });
   const healthcheckTest = `CMD-SHELL ${adapter.buildHealthcheck(identity)}`;
 
   return {

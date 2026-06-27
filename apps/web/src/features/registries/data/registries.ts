@@ -50,8 +50,7 @@ export const registryCollection = createCollection(
           // Empty string password means "leave existing in place" — the
           // server treats "" the same as omitted, so forward it as-is when
           // present.
-          const password = (m.metadata as { password?: string } | undefined)
-            ?.password;
+          const password = (m.metadata as { password?: string } | undefined)?.password;
           const result = await orpc.registry.update.call({
             id: m.original.id,
             ...(c.displayName !== undefined && { displayName: c.displayName }),
@@ -68,9 +67,7 @@ export const registryCollection = createCollection(
     },
     onDelete: async ({ transaction }) => {
       await Promise.all(
-        transaction.mutations.map((m) =>
-          orpc.registry.delete.call({ id: m.original.id }),
-        ),
+        transaction.mutations.map((m) => orpc.registry.delete.call({ id: m.original.id })),
       );
     },
     queryClient,

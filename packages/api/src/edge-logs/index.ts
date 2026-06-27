@@ -30,10 +30,7 @@ export {
   eventHosts,
   __resetEdgeEvents,
 } from "./event-ring";
-export {
-  enqueueEdgeEvent,
-  eventPersistenceEnabled,
-} from "./event-persist";
+export { enqueueEdgeEvent, eventPersistenceEnabled } from "./event-persist";
 export { queryEdgeEventsDb } from "./event-query-db";
 export { queryEdgeLogsDb } from "./query-db";
 export { lookupCountry, initGeo } from "./geo";
@@ -44,8 +41,4 @@ export {
   persistenceEnabled,
 } from "./persist";
 export { startEdgeLogSink, stopEdgeLogSink } from "./ingest";
-export {
-  ensureEdgeLogTable,
-  ensurePartitions,
-  dropOldPartitions,
-} from "./partition";
+export { ensureEdgeLogTable, ensurePartitions, dropOldPartitions } from "./partition";

@@ -1,8 +1,13 @@
-import { useFieldContext } from "../form-context";
 import { Field, FieldError, FieldLabel } from "@/shared/components/ui/field";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/shared/components/ui/select";
+
+import { useFieldContext } from "../form-context";
 
 export interface SelectOption {
   label: string;
@@ -32,7 +37,9 @@ export function SelectField({ label, items, placeholder, className }: SelectFiel
         </SelectTrigger>
         <SelectContent>
           {items.map((it) => (
-            <SelectItem key={it.value} value={it.value}>{it.label}</SelectItem>
+            <SelectItem key={it.value} value={it.value}>
+              {it.label}
+            </SelectItem>
           ))}
         </SelectContent>
       </Select>

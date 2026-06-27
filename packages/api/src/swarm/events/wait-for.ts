@@ -8,8 +8,9 @@
  * their own timeout / cancellation plumbing.
  */
 
-import { subscribeDockerEvents } from "./subscriber";
 import type { DockerEvent } from "./types";
+
+import { subscribeDockerEvents } from "./subscriber";
 
 interface WaitOptions {
   /** Hard cap. If no matching event fires by then, the promise rejects
@@ -73,15 +74,9 @@ export function waitForServiceCreate(serviceName: string, options: WaitOptions) 
 }
 
 /** Wait for the first container of a swarm service to enter `start`. */
-export function waitForServiceContainerStart(
-  swarmServiceId: string,
-  options: WaitOptions,
-) {
+export function waitForServiceContainerStart(swarmServiceId: string, options: WaitOptions) {
   return waitForEvent(
-    (e) =>
-      e.kind === "container" &&
-      e.action === "start" &&
-      e.swarmServiceId === swarmServiceId,
+    (e) => e.kind === "container" && e.action === "start" && e.swarmServiceId === swarmServiceId,
     options,
   );
 }

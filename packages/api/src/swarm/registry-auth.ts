@@ -17,9 +17,9 @@ import { db } from "@otterdeploy/db";
 import { containerRegistry } from "@otterdeploy/db/schema";
 import { and, eq } from "drizzle-orm";
 
-import { decryptSecret } from "../lib/crypto";
-
 import type { RegistryAuth } from "./image-pull";
+
+import { decryptSecret } from "../lib/crypto";
 
 /** Extract the registry hostname from an image ref. */
 function imageRegistry(image: string): string {
@@ -31,11 +31,7 @@ function imageRegistry(image: string): string {
   // A first segment with a dot, colon, or "localhost" is a host (e.g.
   // "ghcr.io", "registry:5000", "localhost:5000"). Otherwise it's a
   // Docker Hub user/org prefix.
-  if (
-    firstSegment.includes(".") ||
-    firstSegment.includes(":") ||
-    firstSegment === "localhost"
-  ) {
+  if (firstSegment.includes(".") || firstSegment.includes(":") || firstSegment === "localhost") {
     return firstSegment;
   }
   return "docker.io";
@@ -68,9 +64,7 @@ export async function resolveRegistryAuth(input: {
   if (rows.length === 0) return null;
 
   // Pick the most-recently-updated credential as the active one.
-  const cred = rows.reduce((a, b) =>
-    a.updatedAt.getTime() >= b.updatedAt.getTime() ? a : b,
-  );
+  const cred = rows.reduce((a, b) => (a.updatedAt.getTime() >= b.updatedAt.getTime() ? a : b));
 
   const password = await decryptSecret(cred.encryptedPassword);
   return {

@@ -2,13 +2,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { I } from "../icons";
-import { rid } from "../data";
 import { Field, SectionH } from "../components/form";
+import { rid } from "../data";
+import { I } from "../icons";
 
 type KeyType = "ed25519" | "rsa" | "ecdsa";
 
-interface UsedBy { kind: "git" | "node" | "service"; label: string }
+interface UsedBy {
+  kind: "git" | "node" | "service";
+  label: string;
+}
 
 interface SshKey {
   id: string;
@@ -114,8 +117,8 @@ export function SshKeys() {
         </div>
 
         <div className="muted" style={{ fontSize: 11, marginTop: 14, lineHeight: 1.6 }}>
-          Private keys are stored in the cluster KMS · only the public half is
-          ever displayed in the UI.
+          Private keys are stored in the cluster KMS · only the public half is ever displayed in the
+          UI.
         </div>
       </div>
 
@@ -167,10 +170,7 @@ function KeyCard({ k }: { k: SshKey }) {
               {k.bits ? `-${k.bits}` : ""}
             </span>
             {k.imported && (
-              <span
-                className="badge"
-                style={{ color: "var(--fg-3)" }}
-              >
+              <span className="badge" style={{ color: "var(--fg-3)" }}>
                 imported
               </span>
             )}
@@ -296,14 +296,9 @@ function GenerateModal({ onClose }: { onClose: () => void }) {
 
   const pubkey = useMemo(() => {
     const algo =
-      type === "ed25519"
-        ? "ssh-ed25519"
-        : type === "rsa"
-          ? "ssh-rsa"
-          : "ecdsa-sha2-nistp256";
+      type === "ed25519" ? "ssh-ed25519" : type === "rsa" ? "ssh-rsa" : "ecdsa-sha2-nistp256";
     const body =
-      "AAAAC3NzaC1lZDI1NTE5AAAAIBz8KqW9p7n0xRjVfL3tGc6eUpBnY2HsZkXoVrxYqM" +
-      rid().toUpperCase();
+      "AAAAC3NzaC1lZDI1NTE5AAAAIBz8KqW9p7n0xRjVfL3tGc6eUpBnY2HsZkXoVrxYqM" + rid().toUpperCase();
     const tag = comment || `${name || "otterdeploy"}@otterdeploy`;
     return `${algo} ${body} ${tag}`;
   }, [type, name, comment]);
@@ -327,12 +322,8 @@ function GenerateModal({ onClose }: { onClose: () => void }) {
         backdropFilter: "blur(2px)",
       }}
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="os-modal"
-        style={{ width: 580 }}
-      >
-        <div className="row gap-2 os-modal-h">
+      <div onClick={(e) => e.stopPropagation()} className="os-modal" style={{ width: 580 }}>
+        <div className="row os-modal-h gap-2">
           <I.key width={14} height={14} />
           <span style={{ fontWeight: 600 }}>Generate SSH key</span>
           <div style={{ flex: 1 }} />
@@ -341,10 +332,7 @@ function GenerateModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        <div
-          className="col gap-3"
-          style={{ padding: 18, overflow: "auto", maxHeight: "65vh" }}
-        >
+        <div className="col gap-3" style={{ padding: 18, overflow: "auto", maxHeight: "65vh" }}>
           <Field label="Name">
             <input
               className="input mono"
@@ -430,10 +418,7 @@ function GenerateModal({ onClose }: { onClose: () => void }) {
               >
                 Public key
               </div>
-              <div
-                className="card"
-                style={{ padding: 10, background: "var(--bg-sunken)" }}
-              >
+              <div className="card" style={{ padding: 10, background: "var(--bg-sunken)" }}>
                 <div
                   className="mono"
                   style={{
@@ -461,27 +446,19 @@ function GenerateModal({ onClose }: { onClose: () => void }) {
                 </span>
               </div>
               <div className="muted" style={{ fontSize: 11, marginTop: 8 }}>
-                The private key has been encrypted and stored. It will never be
-                displayed.
+                The private key has been encrypted and stored. It will never be displayed.
               </div>
             </div>
           )}
         </div>
 
-        <div
-          className="row gap-2"
-          style={{ padding: 14, borderTop: "1px solid var(--border)" }}
-        >
+        <div className="row gap-2" style={{ padding: 14, borderTop: "1px solid var(--border)" }}>
           <div style={{ flex: 1 }} />
           <button className="btn" onClick={onClose}>
             {generated ? "Close" : "Cancel"}
           </button>
           {!generated && (
-            <button
-              className="btn primary"
-              onClick={() => setGenerated(true)}
-              disabled={!name}
-            >
+            <button className="btn primary" onClick={() => setGenerated(true)} disabled={!name}>
               Generate
             </button>
           )}
@@ -525,12 +502,8 @@ function ImportModal({ onClose }: { onClose: () => void }) {
         backdropFilter: "blur(2px)",
       }}
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="os-modal"
-        style={{ width: 580 }}
-      >
-        <div className="row gap-2 os-modal-h">
+      <div onClick={(e) => e.stopPropagation()} className="os-modal" style={{ width: 580 }}>
+        <div className="row os-modal-h gap-2">
           <I.upload width={14} height={14} />
           <span style={{ fontWeight: 600 }}>Import SSH key</span>
           <div style={{ flex: 1 }} />
@@ -539,10 +512,7 @@ function ImportModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        <div
-          className="col gap-3"
-          style={{ padding: 18, overflow: "auto", maxHeight: "65vh" }}
-        >
+        <div className="col gap-3" style={{ padding: 18, overflow: "auto", maxHeight: "65vh" }}>
           <Field label="Name">
             <input
               className="input mono"
@@ -585,19 +555,12 @@ function ImportModal({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
-        <div
-          className="row gap-2"
-          style={{ padding: 14, borderTop: "1px solid var(--border)" }}
-        >
+        <div className="row gap-2" style={{ padding: 14, borderTop: "1px solid var(--border)" }}>
           <div style={{ flex: 1 }} />
           <button className="btn" onClick={onClose}>
             Cancel
           </button>
-          <button
-            className="btn primary"
-            onClick={onClose}
-            disabled={!name || !detected}
-          >
+          <button className="btn primary" onClick={onClose} disabled={!name || !detected}>
             Import
           </button>
         </div>

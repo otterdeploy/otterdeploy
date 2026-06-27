@@ -22,8 +22,7 @@ export const terminalContainersCollection = createCollection(
     getKey: (c) => c.containerId,
     // Wrap so the collection sees `containers[]` as its rows; cluster /
     // databases come from the sibling collection below.
-    select: (full: Awaited<ReturnType<typeof orpc.terminal.targets.call>>) =>
-      full.containers,
+    select: (full: Awaited<ReturnType<typeof orpc.terminal.targets.call>>) => full.containers,
   }),
 );
 
@@ -34,7 +33,6 @@ export const terminalDatabasesCollection = createCollection(
     queryFn: async () => orpc.terminal.targets.call(),
     queryClient,
     getKey: (db) => db.resourceId,
-    select: (full: Awaited<ReturnType<typeof orpc.terminal.targets.call>>) =>
-      full.databases,
+    select: (full: Awaited<ReturnType<typeof orpc.terminal.targets.call>>) => full.databases,
   }),
 );

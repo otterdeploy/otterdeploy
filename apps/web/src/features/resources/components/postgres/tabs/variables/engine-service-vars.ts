@@ -14,9 +14,7 @@ export interface DerivedVar {
   description?: string;
 }
 
-export function buildEngineServiceVars(
-  resource: PostgresBodyProps["resource"],
-): DerivedVar[] {
+export function buildEngineServiceVars(resource: PostgresBodyProps["resource"]): DerivedVar[] {
   switch (resource.engine) {
     case "postgres":
       return [
@@ -91,9 +89,7 @@ export function buildEngineServiceVars(
  * Platform-injected OTTERDEPLOY_* envs every container receives. Read-only;
  * derived from the resource record.
  */
-export function buildSystemVars(
-  resource: PostgresBodyProps["resource"],
-): DerivedVar[] {
+export function buildSystemVars(resource: PostgresBodyProps["resource"]): DerivedVar[] {
   return [
     {
       name: "OTTERDEPLOY_PRIVATE_DOMAIN",

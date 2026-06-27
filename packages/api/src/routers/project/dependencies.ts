@@ -9,19 +9,16 @@
  */
 import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
+import { db } from "@otterdeploy/db";
+import { resource, serviceEnvVar } from "@otterdeploy/db/schema/project";
 import { Result } from "better-result";
 import { eq } from "drizzle-orm";
 
-import { db } from "@otterdeploy/db";
-import {
-  resource,
-  serviceEnvVar,
-} from "@otterdeploy/db/schema/project";
-import { parseValue } from "../../lib/variables/parser";
+import type { ProjectRef } from "../scopes";
 
+import { parseValue } from "../../lib/variables/parser";
 import { ProjectNotFoundError } from "./errors";
 import { getProjectInOrg } from "./queries";
-import type { ProjectRef } from "../scopes";
 
 export interface DependencyEdge {
   projectId: ProjectId;

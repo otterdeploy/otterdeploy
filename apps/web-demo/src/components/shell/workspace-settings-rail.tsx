@@ -19,16 +19,10 @@ export function WorkspaceSettingsRail() {
   );
 }
 
-function RailGroup({
-  label,
-  items,
-}: {
-  label: string;
-  items: typeof workspaceSettingsSections;
-}) {
+function RailGroup({ label, items }: { label: string; items: typeof workspaceSettingsSections }) {
   return (
     <div className="grid gap-1">
-      <div className="px-2 pb-1 text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+      <div className="px-2 pb-1 text-xs font-medium tracking-[0.12em] text-muted-foreground uppercase">
         {label}
       </div>
       {items.map((section) => (

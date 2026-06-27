@@ -6,22 +6,15 @@
  * under load; a periodic sweep enforces retention.
  */
 
+import { db } from "@otterdeploy/db";
+import { edgeLog } from "@otterdeploy/db/schema/edge-log";
 import { Result } from "better-result";
 import { log } from "evlog";
 
-import { db } from "@otterdeploy/db";
-import { edgeLog } from "@otterdeploy/db/schema/edge-log";
-
-import {
-  dropOldPartitions,
-  ensureEdgeLogTable,
-  ensurePartitions,
-} from "./partition";
-import {
-  startEventPersistence,
-  stopEventPersistence,
-} from "./event-persist";
 import type { EdgeLogLine } from "./types";
+
+import { startEventPersistence, stopEventPersistence } from "./event-persist";
+import { dropOldPartitions, ensureEdgeLogTable, ensurePartitions } from "./partition";
 
 const FLUSH_INTERVAL_MS = 2_000;
 const MAX_BATCH = 500;
@@ -39,9 +32,11 @@ interface PersistState {
   flushTimer: ReturnType<typeof setInterval> | null;
   sweepTimer: ReturnType<typeof setInterval> | null;
 }
-const state: PersistState = ((globalThis as typeof globalThis & {
-  __edgeLogPersist?: PersistState;
-}).__edgeLogPersist ??= {
+const state: PersistState = ((
+  globalThis as typeof globalThis & {
+    __edgeLogPersist?: PersistState;
+  }
+).__edgeLogPersist ??= {
   buffer: [],
   enabled: false,
   ready: false,

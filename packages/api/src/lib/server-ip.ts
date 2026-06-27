@@ -20,14 +20,10 @@
  * operator-provided value for when detection is wrong (NAT, multi-homed).
  */
 
-import { eq } from "drizzle-orm";
-import { Result } from "better-result";
-
 import { db } from "@otterdeploy/db";
-import {
-  PLATFORM_SETTINGS_ID,
-  platformSettings,
-} from "@otterdeploy/db/schema/platform";
+import { PLATFORM_SETTINGS_ID, platformSettings } from "@otterdeploy/db/schema/platform";
+import { Result } from "better-result";
+import { eq } from "drizzle-orm";
 
 export type ServerIpSource = "override" | "existing" | "detected" | "none";
 

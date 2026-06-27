@@ -25,12 +25,6 @@ function redis(): RedisClient {
  *  test-and-set — no read-then-write race. */
 export async function claimHandoffNonce(nonce: string): Promise<boolean> {
   const r = redis();
-  const res = await r.set(
-    `handoff:nonce:${nonce}`,
-    "1",
-    "NX",
-    "EX",
-    String(NONCE_TTL_SECONDS),
-  );
+  const res = await r.set(`handoff:nonce:${nonce}`, "1", "NX", "EX", String(NONCE_TTL_SECONDS));
   return res === "OK";
 }

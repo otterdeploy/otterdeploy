@@ -21,13 +21,6 @@ export type {
   UnknownEvent,
 } from "./types";
 
-export {
-  subscribeDockerEvents,
-  subscribeDockerEventsWhere,
-} from "./subscriber";
+export { subscribeDockerEvents, subscribeDockerEventsWhere } from "./subscriber";
 
-export {
-  waitForEvent,
-  waitForServiceContainerStart,
-  waitForServiceCreate,
-} from "./wait-for";
+export { waitForEvent, waitForServiceContainerStart, waitForServiceCreate } from "./wait-for";

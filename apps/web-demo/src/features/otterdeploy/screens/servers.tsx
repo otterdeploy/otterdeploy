@@ -3,7 +3,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { I } from "../icons";
+import {
+  ALL_PROJECTS,
+  ProjectFilterStrip,
+  ProjectPicker,
+  matchesProjectFilter,
+} from "../components/project-filter";
+import { TerminalWorkspace, sshTarget } from "../components/terminal-workspace";
 import {
   NODES,
   REGIONS,
@@ -13,14 +19,8 @@ import {
   type Node,
   type NodeRole,
 } from "../data";
-import { TerminalWorkspace, sshTarget } from "../components/terminal-workspace";
-import {
-  ALL_PROJECTS,
-  ProjectFilterStrip,
-  ProjectPicker,
-  matchesProjectFilter,
-} from "../components/project-filter";
 import { PROJECTS } from "../data";
+import { I } from "../icons";
 
 export function Servers() {
   const [nodes, setNodes] = useState<Node[]>(NODES);
@@ -89,13 +89,20 @@ export function Servers() {
               Showing nodes tagged for{" "}
               <span className="mono" style={{ color: "var(--fg-2)" }}>
                 {filter}
-              </span>
-              {" "}+ general pool
+              </span>{" "}
+              + general pool
             </span>
           )}
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(4, 1fr)",
+            gap: 12,
+            marginBottom: 24,
+          }}
+        >
           <Stat
             label="Cluster CPU"
             value={`${totals.cpuUsed.toFixed(1)} / ${totals.cpuTotal} vCPU`}
@@ -184,10 +191,15 @@ function SectionH({ title, sub }: { title: string; sub?: string }) {
 function Stat({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
     <div className="card" style={{ padding: 14 }}>
-      <div className="muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+      <div
+        className="muted"
+        style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em" }}
+      >
         {label}
       </div>
-      <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: "-0.02em", marginTop: 4 }}>{value}</div>
+      <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: "-0.02em", marginTop: 4 }}>
+        {value}
+      </div>
       <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
         {sub}
       </div>
@@ -219,7 +231,10 @@ function ServerRow({
     >
       <span style={{ width: 230, display: "flex", alignItems: "center", gap: 8 }}>
         <I.server width={13} height={13} style={{ color: "var(--fg-3)" }} />
-        <span className="col" style={{ gap: 2, alignItems: "flex-start", lineHeight: 1.2, minWidth: 0 }}>
+        <span
+          className="col"
+          style={{ gap: 2, alignItems: "flex-start", lineHeight: 1.2, minWidth: 0 }}
+        >
           <span className="mono" style={{ fontWeight: 500 }}>
             {n.name}
           </span>
@@ -261,7 +276,9 @@ function ServerRow({
         {n.services}
       </span>
       <span style={{ width: 90, textAlign: "right" }}>
-        <span className={`badge ${n.status === "ready" ? "ok" : n.status === "draining" ? "warn" : "err"}`}>
+        <span
+          className={`badge ${n.status === "ready" ? "ok" : n.status === "draining" ? "warn" : "err"}`}
+        >
           <span className="dot" />
           {n.status}
         </span>
@@ -374,7 +391,10 @@ function ServerDetail({
           boxShadow: "var(--shadow-lg)",
         }}
       >
-        <div className="row gap-2" style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)" }}>
+        <div
+          className="row gap-2"
+          style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)" }}
+        >
           <I.server width={14} height={14} />
           <span className="mono" style={{ fontWeight: 600 }}>
             {n.name}
@@ -390,7 +410,10 @@ function ServerDetail({
           </button>
         </div>
 
-        <div className="row" style={{ borderBottom: "1px solid var(--border)", padding: "0 12px", height: 36 }}>
+        <div
+          className="row"
+          style={{ borderBottom: "1px solid var(--border)", padding: "0 12px", height: 36 }}
+        >
           <button
             className="os-envtab"
             data-active={tab === "overview"}
@@ -429,104 +452,137 @@ function ServerDetail({
             />
           </div>
         ) : (
-        <div className="os-scroll col gap-4" style={{ flex: 1, overflow: "auto", padding: 18 }}>
-          <div className="row gap-2">
-            <button className="btn sm">
-              <I.refresh width={11} height={11} /> Reboot
-            </button>
-            <button
-              className="btn sm"
-              onClick={() => onAvailability(n.availability === "drain" ? "active" : "drain")}
-            >
-              <I.download width={11} height={11} /> {n.availability === "drain" ? "Resume" : "Drain"}
-            </button>
-            <button className="btn sm">
-              <I.bolt width={11} height={11} /> Promote
-            </button>
-            <div style={{ flex: 1 }} />
-            <button
-              className="btn sm"
-              style={{ color: "var(--err)" }}
-              onClick={() => {
-                if (confirm(`Remove ${n.name} from the swarm?`)) onRemove();
-              }}
-            >
-              <I.trash width={11} height={11} /> Remove
-            </button>
-          </div>
-
-          <div>
-            <div
-              className="muted"
-              style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}
-            >
-              Connection
+          <div className="os-scroll col gap-4" style={{ flex: 1, overflow: "auto", padding: 18 }}>
+            <div className="row gap-2">
+              <button className="btn sm">
+                <I.refresh width={11} height={11} /> Reboot
+              </button>
+              <button
+                className="btn sm"
+                onClick={() => onAvailability(n.availability === "drain" ? "active" : "drain")}
+              >
+                <I.download width={11} height={11} />{" "}
+                {n.availability === "drain" ? "Resume" : "Drain"}
+              </button>
+              <button className="btn sm">
+                <I.bolt width={11} height={11} /> Promote
+              </button>
+              <div style={{ flex: 1 }} />
+              <button
+                className="btn sm"
+                style={{ color: "var(--err)" }}
+                onClick={() => {
+                  if (confirm(`Remove ${n.name} from the swarm?`)) onRemove();
+                }}
+              >
+                <I.trash width={11} height={11} /> Remove
+              </button>
             </div>
-            <KV k="Host" v={n.host} mono />
-            <KV k="Region" v={`${n.region}`} />
-            <KV k="Joined" v={n.joined} />
-            <KV k="Daemon" v={n.daemonVersion} mono />
-          </div>
 
-          <div>
-            <div
-              className="muted"
-              style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}
-            >
-              Capacity
-            </div>
-            <Bar label="cpu" used={n.cpu.used} total={n.cpu.total} unit="vCPU" pct={(n.cpu.used / n.cpu.total) * 100} />
-            <Bar label="mem" used={n.mem.used} total={n.mem.total} unit="GB" pct={(n.mem.used / n.mem.total) * 100} />
-            {n.disk && (
-              <Bar
-                label="disk"
-                used={n.disk.used}
-                total={n.disk.total}
-                unit={n.disk.unit}
-                pct={(n.disk.used / n.disk.total) * 100}
-              />
-            )}
-            <KV k="Tasks" v={`${n.services} replicas placed`} />
-          </div>
-
-          <div>
-            <div
-              className="muted"
-              style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}
-            >
-              Pinned to project
-            </div>
-            <ProjectPicker
-              value={n.project}
-              onChange={onProject}
-              allowNone
-              noneLabel="General pool (any project)"
-            />
-            <div className="muted" style={{ fontSize: 11, marginTop: 6 }}>
-              Pinning this node to a project restricts placement: only services from that project
-              can schedule replicas here. Leave on general pool to share across all projects.
-            </div>
-          </div>
-
-          {n.labels && n.labels.length > 0 && (
             <div>
               <div
                 className="muted"
-                style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}
+                style={{
+                  fontSize: 10,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                  marginBottom: 6,
+                }}
               >
-                Labels
+                Connection
               </div>
-              <div className="row gap-2" style={{ flexWrap: "wrap" }}>
-                {n.labels.map((l) => (
-                  <span key={l} className="badge mono" style={{ background: "var(--bg-sunken)" }}>
-                    {l}
-                  </span>
-                ))}
-                <button className="btn ghost sm">+ add</button>
+              <KV k="Host" v={n.host} mono />
+              <KV k="Region" v={`${n.region}`} />
+              <KV k="Joined" v={n.joined} />
+              <KV k="Daemon" v={n.daemonVersion} mono />
+            </div>
+
+            <div>
+              <div
+                className="muted"
+                style={{
+                  fontSize: 10,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                  marginBottom: 6,
+                }}
+              >
+                Capacity
+              </div>
+              <Bar
+                label="cpu"
+                used={n.cpu.used}
+                total={n.cpu.total}
+                unit="vCPU"
+                pct={(n.cpu.used / n.cpu.total) * 100}
+              />
+              <Bar
+                label="mem"
+                used={n.mem.used}
+                total={n.mem.total}
+                unit="GB"
+                pct={(n.mem.used / n.mem.total) * 100}
+              />
+              {n.disk && (
+                <Bar
+                  label="disk"
+                  used={n.disk.used}
+                  total={n.disk.total}
+                  unit={n.disk.unit}
+                  pct={(n.disk.used / n.disk.total) * 100}
+                />
+              )}
+              <KV k="Tasks" v={`${n.services} replicas placed`} />
+            </div>
+
+            <div>
+              <div
+                className="muted"
+                style={{
+                  fontSize: 10,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                  marginBottom: 6,
+                }}
+              >
+                Pinned to project
+              </div>
+              <ProjectPicker
+                value={n.project}
+                onChange={onProject}
+                allowNone
+                noneLabel="General pool (any project)"
+              />
+              <div className="muted" style={{ fontSize: 11, marginTop: 6 }}>
+                Pinning this node to a project restricts placement: only services from that project
+                can schedule replicas here. Leave on general pool to share across all projects.
               </div>
             </div>
-          )}
-        </div>
+
+            {n.labels && n.labels.length > 0 && (
+              <div>
+                <div
+                  className="muted"
+                  style={{
+                    fontSize: 10,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                    marginBottom: 6,
+                  }}
+                >
+                  Labels
+                </div>
+                <div className="row gap-2" style={{ flexWrap: "wrap" }}>
+                  {n.labels.map((l) => (
+                    <span key={l} className="badge mono" style={{ background: "var(--bg-sunken)" }}>
+                      {l}
+                    </span>
+                  ))}
+                  <button className="btn ghost sm">+ add</button>
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>
@@ -633,7 +689,7 @@ function AddServerModal({ onClose, onAdd }: { onClose: () => void; onAdd: (n: No
       }}
     >
       <div onClick={(e) => e.stopPropagation()} className="os-modal" style={{ width: 640 }}>
-        <div className="row gap-2 os-modal-h">
+        <div className="row os-modal-h gap-2">
           <I.server width={14} height={14} />
           <span style={{ fontWeight: 600 }}>Add server to swarm</span>
           <div style={{ flex: 1 }} />
@@ -644,12 +700,24 @@ function AddServerModal({ onClose, onAdd }: { onClose: () => void; onAdd: (n: No
 
         <div className="col gap-4" style={{ padding: 18, overflow: "auto", maxHeight: "70vh" }}>
           <div className="muted" style={{ fontSize: 12 }}>
-            <b style={{ color: "var(--fg)" }}>1.</b> SSH into the new host, install Docker, then run the join
-            command below. The node will register with the swarm manager at{" "}
-            <span className="mono" style={{ color: "var(--fg-2)" }}>{SWARM_MANAGER_ADDR}</span>.
+            <b style={{ color: "var(--fg)" }}>1.</b> SSH into the new host, install Docker, then run
+            the join command below. The node will register with the swarm manager at{" "}
+            <span className="mono" style={{ color: "var(--fg-2)" }}>
+              {SWARM_MANAGER_ADDR}
+            </span>
+            .
           </div>
 
-          <div className="row gap-1" style={{ background: "var(--bg-sunken)", padding: 2, borderRadius: 6, border: "1px solid var(--border)", display: "inline-flex" }}>
+          <div
+            className="row gap-1"
+            style={{
+              background: "var(--bg-sunken)",
+              padding: 2,
+              borderRadius: 6,
+              border: "1px solid var(--border)",
+              display: "inline-flex",
+            }}
+          >
             <Seg active={role === "worker"} onClick={() => setRole("worker")}>
               Worker
             </Seg>
@@ -682,23 +750,27 @@ function AddServerModal({ onClose, onAdd }: { onClose: () => void; onAdd: (n: No
           <div style={{ height: 1, background: "var(--border)" }} />
 
           <div className="muted" style={{ fontSize: 12 }}>
-            <b style={{ color: "var(--fg)" }}>2.</b> After the daemon reports back, fill in the metadata so
-            it shows up in the right region and rotation.
+            <b style={{ color: "var(--fg)" }}>2.</b> After the daemon reports back, fill in the
+            metadata so it shows up in the right region and rotation.
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <Field label="Hostname">
-              <input className="input mono" value={name} onChange={(e) => setName(e.target.value)} />
+              <input
+                className="input mono"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
             </Field>
             <Field label="Private IP">
-              <input className="input mono" value={host} onChange={(e) => setHost(e.target.value)} />
+              <input
+                className="input mono"
+                value={host}
+                onChange={(e) => setHost(e.target.value)}
+              />
             </Field>
             <Field label="Region">
-              <select
-                className="input"
-                value={region}
-                onChange={(e) => setRegion(e.target.value)}
-              >
+              <select className="input" value={region} onChange={(e) => setRegion(e.target.value)}>
                 {REGIONS.map((r) => (
                   <option key={r.id} value={r.id}>
                     {r.flag} {r.name} ({r.id})
@@ -745,7 +817,15 @@ function AddServerModal({ onClose, onAdd }: { onClose: () => void; onAdd: (n: No
   );
 }
 
-function Seg({ children, active, onClick }: { children: React.ReactNode; active: boolean; onClick: () => void }) {
+function Seg({
+  children,
+  active,
+  onClick,
+}: {
+  children: React.ReactNode;
+  active: boolean;
+  onClick: () => void;
+}) {
   return (
     <button
       type="button"
@@ -771,7 +851,12 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return (
     <div className="col gap-1">
       <label
-        style={{ fontSize: 11, color: "var(--fg-3)", textTransform: "uppercase", letterSpacing: "0.06em" }}
+        style={{
+          fontSize: 11,
+          color: "var(--fg-3)",
+          textTransform: "uppercase",
+          letterSpacing: "0.06em",
+        }}
       >
         {label}
       </label>

@@ -1,5 +1,4 @@
 import { orgScopedProcedure } from "../..";
-
 import { listTerminalTargets } from "./handlers";
 
 export const terminalRouter = {

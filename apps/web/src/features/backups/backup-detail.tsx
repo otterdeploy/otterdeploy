@@ -10,6 +10,7 @@ import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
 import type { Backup } from "./data/backups";
+
 import { fmtBytes } from "./shared";
 
 export function BackupDetail({ backup }: { backup: Backup }) {
@@ -43,28 +44,23 @@ export function BackupDetail({ backup }: { backup: Backup }) {
       </div>
 
       <div className="mb-3 flex flex-col gap-1">
-        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+        <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
           Checksum
         </span>
-        <code className="break-all rounded border bg-background px-2 py-1.5 font-mono text-[11px] text-foreground/80">
+        <code className="rounded border bg-background px-2 py-1.5 font-mono text-[11px] break-all text-foreground/80">
           {backup.checksum ?? "—"}
         </code>
       </div>
 
       {backup.errorMessage && (
         <div className="mb-3 flex gap-2 rounded-md border border-rose-500/30 bg-rose-500/10 px-3 py-2">
-          <HugeiconsIcon
-            icon={Alert02Icon}
-            className="mt-0.5 size-3.5 shrink-0 text-rose-500"
-          />
-          <div className="font-mono text-[11px] text-rose-500">
-            {backup.errorMessage}
-          </div>
+          <HugeiconsIcon icon={Alert02Icon} className="mt-0.5 size-3.5 shrink-0 text-rose-500" />
+          <div className="font-mono text-[11px] text-rose-500">{backup.errorMessage}</div>
         </div>
       )}
 
       <div className="flex flex-col gap-1">
-        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+        <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
           Log {logs.length > 0 ? `· ${logs.length} lines` : ""}
         </span>
         <div className="max-h-40 overflow-auto rounded-md border bg-background p-2.5 font-mono text-[11px] leading-relaxed">
@@ -76,10 +72,7 @@ export function BackupDetail({ backup }: { backup: Backup }) {
             logs.map((l) => (
               <div
                 key={l.seq}
-                className={cn(
-                  "text-foreground/80",
-                  l.stream === "stderr" && "text-rose-500",
-                )}
+                className={cn("text-foreground/80", l.stream === "stderr" && "text-rose-500")}
               >
                 {l.line}
               </div>
@@ -91,26 +84,13 @@ export function BackupDetail({ backup }: { backup: Backup }) {
   );
 }
 
-function DetailField({
-  label,
-  value,
-  mono,
-}: {
-  label: string;
-  value: string;
-  mono?: boolean;
-}) {
+function DetailField({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+      <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
         {label}
       </span>
-      <span
-        className={cn(
-          "break-words text-xs text-foreground/80",
-          mono && "font-mono",
-        )}
-      >
+      <span className={cn("text-xs break-words text-foreground/80", mono && "font-mono")}>
         {value}
       </span>
     </div>

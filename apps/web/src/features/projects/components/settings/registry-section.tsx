@@ -9,10 +9,7 @@ import { useLiveQuery } from "@tanstack/react-db";
 import { registryCollection } from "@/features/registries/data/registries";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
-import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@/shared/components/ui/native-select";
+import { NativeSelect, NativeSelectOption } from "@/shared/components/ui/native-select";
 
 interface RegistrySectionProps {
   containerRegistryId: string | null;
@@ -22,9 +19,7 @@ interface RegistrySectionProps {
 }
 
 export function RegistrySection(props: RegistrySectionProps) {
-  const { data: registries } = useLiveQuery((q) =>
-    q.from({ r: registryCollection }),
-  );
+  const { data: registries } = useLiveQuery((q) => q.from({ r: registryCollection }));
 
   return (
     <section className="rounded-md border bg-card p-5">
@@ -42,15 +37,11 @@ export function RegistrySection(props: RegistrySectionProps) {
           <NativeSelect
             id="bind-registry"
             value={props.containerRegistryId ?? ""}
-            onChange={(e) =>
-              props.onContainerRegistryIdChange(e.target.value || null)
-            }
+            onChange={(e) => props.onContainerRegistryIdChange(e.target.value || null)}
             disabled={registries.length === 0}
           >
             <NativeSelectOption value="">
-              {registries.length === 0
-                ? "No registries configured"
-                : "Choose a registry"}
+              {registries.length === 0 ? "No registries configured" : "Choose a registry"}
             </NativeSelectOption>
             {registries.map((r) => (
               <NativeSelectOption key={r.id} value={r.id}>

@@ -5,6 +5,7 @@
  */
 
 import { useState } from "react";
+
 import { Copy01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
@@ -52,8 +53,8 @@ export function RevealKeyDialog({
         <DialogHeader>
           <DialogTitle>API key created</DialogTitle>
           <DialogDescription>
-            Copy it now — this is the only time the full key is shown. Store it
-            somewhere safe; you won't be able to see it again.
+            Copy it now — this is the only time the full key is shown. Store it somewhere safe; you
+            won't be able to see it again.
           </DialogDescription>
         </DialogHeader>
 
@@ -63,12 +64,7 @@ export function RevealKeyDialog({
               {apiKey}
             </code>
           </div>
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-1.5 self-end"
-            onClick={copy}
-          >
+          <Button size="sm" variant="outline" className="gap-1.5 self-end" onClick={copy}>
             <HugeiconsIcon
               icon={copied ? Tick02Icon : Copy01Icon}
               strokeWidth={2}

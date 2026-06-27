@@ -7,19 +7,14 @@
  * on `result.error._tag` to translate to the right wire-level error code.
  */
 import type { DeploymentId, ResourceId } from "@otterdeploy/shared/id";
+import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
 import { deployment, serviceResource } from "@otterdeploy/db/schema/project";
 import { Result } from "better-result";
 import { eq } from "drizzle-orm";
-import type { RequestLogger } from "evlog";
 
 import type { ProjectNotFoundError } from "../project/errors";
-import {
-  getResourceDeploymentById,
-  insertDeployment,
-  markDeploymentFailed,
-} from "../project/deployments";
 
 import { reconcile } from "../../caddy";
 import {
@@ -34,9 +29,21 @@ import { PLATFORM } from "../../constants";
 import { loadDomainSourcesForProject } from "../../lib/domain-sources";
 import { resolvePublicDomain } from "../../lib/domains";
 import { runtime } from "../../runtime";
-
+import {
+  getResourceDeploymentById,
+  insertDeployment,
+  markDeploymentFailed,
+} from "../project/deployments";
 import { loadProject, loadResource } from "./context";
-import { MissingProjectBuildBindingError, NoHttpPortError, NotRollbackableError, ServiceConflictError, ServiceInUseError, ServiceNotFoundError, type ResolveError } from "./errors";
+import {
+  MissingProjectBuildBindingError,
+  NoHttpPortError,
+  NotRollbackableError,
+  ServiceConflictError,
+  ServiceInUseError,
+  ServiceNotFoundError,
+  type ResolveError,
+} from "./errors";
 import {
   type CreateServiceInput,
   type ProjectRef,
@@ -46,16 +53,30 @@ import {
   toUpdateRecordPatch,
 } from "./inputs";
 import {
-  bulkReplaceServiceEnvVars, createServiceRecord,
-  deleteServiceEnvVar, deleteServiceRecord, findServiceDependentsByName,
-  getPrimaryHttpPort, getServiceRecord, getServiceRecordByName,
-  listServiceRecordsByProject, replaceServicePorts, setPublicExposure,
-  updateServiceRecord, upsertServiceEnvVar, type ServiceRecord,
+  bulkReplaceServiceEnvVars,
+  createServiceRecord,
+  deleteServiceEnvVar,
+  deleteServiceRecord,
+  findServiceDependentsByName,
+  getPrimaryHttpPort,
+  getServiceRecord,
+  getServiceRecordByName,
+  listServiceRecordsByProject,
+  replaceServicePorts,
+  setPublicExposure,
+  updateServiceRecord,
+  upsertServiceEnvVar,
+  type ServiceRecord,
 } from "./queries";
 import { provisionFresh, redeployAndFanOut } from "./redeploy";
 import {
-  isUniqueViolation, mapEnvVar, mapServiceView, normalizePorts, sanitizeSlug,
-  type EnvVarView, type ServiceView,
+  isUniqueViolation,
+  mapEnvVar,
+  mapServiceView,
+  normalizePorts,
+  sanitizeSlug,
+  type EnvVarView,
+  type ServiceView,
 } from "./views";
 
 export type { EnvVarView, ServiceView } from "./views";
@@ -72,23 +93,17 @@ export async function listServices(
   if (project.isErr()) return Result.err(project.error);
 
   const records = await listServiceRecordsByProject(input.projectId);
-  const views = await Promise.all(
-    records.map((r) => mapServiceView(r, project.value.slug)),
-  );
+  const views = await Promise.all(records.map((r) => mapServiceView(r, project.value.slug)));
   return Result.ok(views);
 }
 
-export async function getService(
-  input: ResourceRef,
-): Promise<Result<ServiceView, NotFound>> {
+export async function getService(input: ResourceRef): Promise<Result<ServiceView, NotFound>> {
   const ctx = await loadResource(input);
   if (ctx.isErr()) return Result.err(ctx.error);
   return Result.ok(await mapServiceView(ctx.value.record, ctx.value.project.slug));
 }
 
-export async function listEnv(
-  input: ResourceRef,
-): Promise<Result<EnvVarView[], NotFound>> {
+export async function listEnv(input: ResourceRef): Promise<Result<EnvVarView[], NotFound>> {
   const ctx = await loadResource(input);
   if (ctx.isErr()) return Result.err(ctx.error);
   return Result.ok(ctx.value.record.env.map(mapEnvVar));
@@ -100,10 +115,7 @@ export async function createService(
 ): Promise<
   Result<
     ServiceView,
-    | ProjectNotFoundError
-    | ServiceConflictError
-    | MissingProjectBuildBindingError
-    | ResolveError
+    ProjectNotFoundError | ServiceConflictError | MissingProjectBuildBindingError | ResolveError
   >
 > {
   log.set({
@@ -137,7 +149,10 @@ export async function createService(
 
   const projectSlug = sanitizeSlug(project.slug);
   const resourceSlug = sanitizeSlug(input.name);
-  const serviceName = `${PLATFORM.service.serviceNamePrefix}${projectSlug}-${resourceSlug}`.slice(0, 63);
+  const serviceName = `${PLATFORM.service.serviceNamePrefix}${projectSlug}-${resourceSlug}`.slice(
+    0,
+    63,
+  );
   const networkName = `${PLATFORM.swarm.networkPrefix}${projectSlug}`;
   const internalHostname = resourceSlug;
 
@@ -261,10 +276,7 @@ export async function rollbackService(
   const ctx = await loadResource(input);
   if (ctx.isErr()) return Result.err(ctx.error);
 
-  const target = await getResourceDeploymentById(
-    input.resourceId,
-    input.deploymentId,
-  );
+  const target = await getResourceDeploymentById(input.resourceId, input.deploymentId);
   if (!target) {
     return Result.err(new ServiceNotFoundError({ resourceId: input.resourceId }));
   }

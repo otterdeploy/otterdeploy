@@ -1,6 +1,18 @@
+import type { Column, Table } from "@tanstack/react-table";
+
+import type * as React from "react";
+
 import { Temporal } from "@js-temporal/polyfill";
 import { Result } from "better-result";
-import type { Column, Table } from "@tanstack/react-table";
+
+import type {
+  CellOpts,
+  CellPosition,
+  Direction,
+  FileCellData,
+  RowHeightValue,
+} from "@/shared/components/data-grid/types";
+
 import {
   BaselineIcon,
   CalendarIcon,
@@ -20,14 +32,6 @@ import {
   Presentation,
   TextInitialIcon,
 } from "../icons";
-import type * as React from "react";
-import type {
-  CellOpts,
-  CellPosition,
-  Direction,
-  FileCellData,
-  RowHeightValue,
-} from "@/shared/components/data-grid/types";
 
 export function flexRender<TProps extends object>(
   Comp: ((props: TProps) => React.ReactNode) | string | undefined,
@@ -112,17 +116,13 @@ export function getColumnBorderVisibility<TData>(params: {
   const { column, nextColumn, isLastColumn } = params;
 
   const isPinned = column.getIsPinned();
-  const isFirstRightPinnedColumn =
-    isPinned === "right" && column.getIsFirstColumn("right");
-  const isLastRightPinnedColumn =
-    isPinned === "right" && column.getIsLastColumn("right");
+  const isFirstRightPinnedColumn = isPinned === "right" && column.getIsFirstColumn("right");
+  const isLastRightPinnedColumn = isPinned === "right" && column.getIsLastColumn("right");
 
   const nextIsPinned = nextColumn?.getIsPinned();
-  const isBeforeRightPinned =
-    nextIsPinned === "right" && nextColumn?.getIsFirstColumn("right");
+  const isBeforeRightPinned = nextIsPinned === "right" && nextColumn?.getIsFirstColumn("right");
 
-  const showEndBorder =
-    !isBeforeRightPinned && (isLastColumn || !isLastRightPinnedColumn);
+  const showEndBorder = !isBeforeRightPinned && (isLastColumn || !isLastRightPinnedColumn);
 
   const showStartBorder = isFirstRightPinnedColumn;
 
@@ -140,17 +140,13 @@ export function getColumnPinningStyle<TData>(params: {
   const { column, dir = "ltr", withBorder = false } = params;
 
   const isPinned = column.getIsPinned();
-  const isLastLeftPinnedColumn =
-    isPinned === "left" && column.getIsLastColumn("left");
-  const isFirstRightPinnedColumn =
-    isPinned === "right" && column.getIsFirstColumn("right");
+  const isLastLeftPinnedColumn = isPinned === "left" && column.getIsLastColumn("left");
+  const isFirstRightPinnedColumn = isPinned === "right" && column.getIsFirstColumn("right");
 
   const isRtl = dir === "rtl";
 
-  const leftPosition =
-    isPinned === "left" ? `${column.getStart("left")}px` : undefined;
-  const rightPosition =
-    isPinned === "right" ? `${column.getAfter("right")}px` : undefined;
+  const leftPosition = isPinned === "left" ? `${column.getStart("left")}px` : undefined;
+  const rightPosition = isPinned === "right" ? `${column.getAfter("right")}px` : undefined;
 
   return {
     boxShadow: withBorder
@@ -198,8 +194,7 @@ export function scrollCellIntoView<TData>(params: {
   direction?: "left" | "right" | "home" | "end";
   isRtl: boolean;
 }): void {
-  const { container, targetCell, tableRef, direction, viewportOffset, isRtl } =
-    params;
+  const { container, targetCell, tableRef, direction, viewportOffset, isRtl } = params;
 
   const containerRect = container.getBoundingClientRect();
   const cellRect = targetCell.getBoundingClientRect();
@@ -211,14 +206,8 @@ export function scrollCellIntoView<TData>(params: {
   const leftPinnedColumns = currentTable?.getLeftVisibleLeafColumns() ?? [];
   const rightPinnedColumns = currentTable?.getRightVisibleLeafColumns() ?? [];
 
-  const leftPinnedWidth = leftPinnedColumns.reduce(
-    (sum, c) => sum + c.getSize(),
-    0,
-  );
-  const rightPinnedWidth = rightPinnedColumns.reduce(
-    (sum, c) => sum + c.getSize(),
-    0,
-  );
+  const leftPinnedWidth = leftPinnedColumns.reduce((sum, c) => sum + c.getSize(), 0);
+  const rightPinnedWidth = rightPinnedColumns.reduce((sum, c) => sum + c.getSize(), 0);
 
   const viewportLeft = isActuallyRtl
     ? containerRect.left + rightPinnedWidth + viewportOffset
@@ -227,8 +216,7 @@ export function scrollCellIntoView<TData>(params: {
     ? containerRect.right - leftPinnedWidth - viewportOffset
     : containerRect.right - rightPinnedWidth - viewportOffset;
 
-  const isFullyVisible =
-    cellRect.left >= viewportLeft && cellRect.right <= viewportRight;
+  const isFullyVisible = cellRect.left >= viewportLeft && cellRect.right <= viewportRight;
 
   if (isFullyVisible) return;
 
@@ -264,10 +252,7 @@ function countTabs(s: string): number {
   return n;
 }
 
-export function parseTsv(
-  text: string,
-  fallbackColumnCount: number,
-): string[][] {
+export function parseTsv(text: string, fallbackColumnCount: number): string[][] {
   if (text.startsWith('"') || text.includes('\t"')) {
     const rows: string[][] = [];
     let currentRow: string[] = [];
@@ -364,9 +349,7 @@ export function parseTsv(
 
   if (buf && bufTabCount === expectedTabCount) rows.push(buf.split("\t"));
 
-  return rows.length > 0
-    ? rows
-    : lines.filter((l) => l.length > 0).map((l) => l.split("\t"));
+  return rows.length > 0 ? rows : lines.filter((l) => l.length > 0).map((l) => l.split("\t"));
 }
 
 export function getIsInPopover(element: unknown): boolean {
@@ -408,9 +391,7 @@ export function getColumnVariant(variant?: CellOpts["variant"]): {
   }
 }
 
-export function getEmptyCellValue(
-  variant: CellOpts["variant"] | undefined,
-): unknown {
+export function getEmptyCellValue(variant: CellOpts["variant"] | undefined): unknown {
   if (variant === "multi-select" || variant === "file") return [];
   if (variant === "number" || variant === "date") return null;
   if (variant === "checkbox") return false;
@@ -497,9 +478,7 @@ export function formatDateForDisplay(dateStr: unknown): string {
   if (t.kind === "date") return t.value.toString();
   const dt =
     t.kind === "instant"
-      ? t.value
-          .toZonedDateTimeISO(Temporal.Now.timeZoneId())
-          .toPlainDateTime()
+      ? t.value.toZonedDateTimeISO(Temporal.Now.timeZoneId()).toPlainDateTime()
       : t.value;
   return dt.toString({ smallestUnit: "second" }).replace("T", " ");
 }
@@ -508,34 +487,20 @@ export function formatFileSize(bytes: number): string {
   if (bytes <= 0 || !Number.isFinite(bytes)) return "0 B";
   const k = 1024;
   const sizes = ["B", "KB", "MB", "GB"];
-  const i = Math.min(
-    sizes.length - 1,
-    Math.floor(Math.log(bytes) / Math.log(k)),
-  );
+  const i = Math.min(sizes.length - 1, Math.floor(Math.log(bytes) / Math.log(k)));
   return `${Number.parseFloat((bytes / k ** i).toFixed(1))} ${sizes[i]}`;
 }
 
-export function getFileIcon(
-  type: string,
-): React.ComponentType<React.SVGProps<SVGSVGElement>> {
+export function getFileIcon(type: string): React.ComponentType<React.SVGProps<SVGSVGElement>> {
   if (type.startsWith("image/")) return FileImage;
   if (type.startsWith("video/")) return FileVideo;
   if (type.startsWith("audio/")) return FileAudio;
   if (type.includes("pdf")) return FileText;
   if (type.includes("zip") || type.includes("rar")) return FileArchive;
-  if (
-    type.includes("word") ||
-    type.includes("document") ||
-    type.includes("doc")
-  )
-    return FileText;
+  if (type.includes("word") || type.includes("document") || type.includes("doc")) return FileText;
   if (type.includes("sheet") || type.includes("excel") || type.includes("xls"))
     return FileSpreadsheet;
-  if (
-    type.includes("presentation") ||
-    type.includes("powerpoint") ||
-    type.includes("ppt")
-  )
+  if (type.includes("presentation") || type.includes("powerpoint") || type.includes("ppt"))
     return Presentation;
   return File;
 }

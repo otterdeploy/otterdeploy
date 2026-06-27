@@ -46,9 +46,7 @@ function codeStart(sql: string, i: number, end: number): number {
 
 /** True when, after stripping comments, nothing but whitespace remains. */
 function isOnlyComments(text: string): boolean {
-  const stripped = text
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/--[^\n]*/g, "");
+  const stripped = text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/--[^\n]*/g, "");
   return stripped.trim().length === 0;
 }
 

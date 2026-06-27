@@ -8,8 +8,7 @@ export interface DotenvEntry {
   value: string;
 }
 
-const LINE_RE =
-  /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/;
+const LINE_RE = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/;
 
 export function parseDotenv(input: string): DotenvEntry[] {
   const entries: DotenvEntry[] = [];

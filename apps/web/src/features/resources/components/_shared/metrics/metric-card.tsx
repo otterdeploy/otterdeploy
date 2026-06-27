@@ -6,6 +6,7 @@
  */
 
 import type { ReactNode } from "react";
+
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 
 import { Card } from "@/shared/components/ui/card";
@@ -26,13 +27,7 @@ interface MetricCardProps {
   children: ReactNode;
 }
 
-export function MetricCard({
-  icon,
-  title,
-  value,
-  stats,
-  children,
-}: MetricCardProps) {
+export function MetricCard({ icon, title, value, stats, children }: MetricCardProps) {
   return (
     <Card className="gap-0 overflow-hidden p-0">
       <div className="flex items-start justify-between gap-4 px-4 pt-4">
@@ -43,21 +38,15 @@ export function MetricCard({
           <span className="text-sm font-medium">{title}</span>
         </div>
         <div className="flex flex-col items-end gap-0.5">
-          <div className="font-mono text-2xl font-semibold leading-none tabular-nums">
-            {value}
-          </div>
+          <div className="font-mono text-2xl leading-none font-semibold tabular-nums">{value}</div>
           {stats && stats.length > 0 ? (
             <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
               {stats.map((s, i) => (
                 <span key={s.label} className="flex items-center gap-1.5">
-                  {i > 0 ? (
-                    <span className="text-muted-foreground/40">·</span>
-                  ) : null}
+                  {i > 0 ? <span className="text-muted-foreground/40">·</span> : null}
                   <span>
                     {s.label}{" "}
-                    <span className="font-mono tabular-nums text-foreground/80">
-                      {s.value}
-                    </span>
+                    <span className="font-mono text-foreground/80 tabular-nums">{s.value}</span>
                   </span>
                 </span>
               ))}

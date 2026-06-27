@@ -13,22 +13,10 @@
  */
 import type { ProjectId } from "@otterdeploy/shared/id";
 
-import {
-  buildContainerName,
-  buildVolumeName,
-} from "../../routers/project/views";
-import {
-  getProjectRecord,
-  listDatabaseResourceRecords,
-} from "../../routers/project/queries";
+import { getProjectRecord, listDatabaseResourceRecords } from "../../routers/project/queries";
+import { buildContainerName, buildVolumeName } from "../../routers/project/views";
 import { listServiceRecordsByProject } from "../../routers/service/queries";
-
-import {
-  STACK_FILE_SCHEMA_VERSION,
-  type StackFile,
-  type StackService,
-} from "../schema";
-
+import { STACK_FILE_SCHEMA_VERSION, type StackFile, type StackService } from "../schema";
 import { buildDatabaseService } from "./from-rows-database";
 import { buildServiceEntry } from "./from-rows-service";
 import { projectNetworkName } from "./network-name";
@@ -75,9 +63,7 @@ function renderServices(
   }
 }
 
-export async function renderProjectFromRows(
-  projectId: ProjectId,
-): Promise<StackFile> {
+export async function renderProjectFromRows(projectId: ProjectId): Promise<StackFile> {
   const project = await getProjectRecord(projectId);
   const projectSlug = project?.slug ?? projectId;
 

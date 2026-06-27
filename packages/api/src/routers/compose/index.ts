@@ -6,23 +6,16 @@ import { Result } from "better-result";
 
 import { projectScopedProcedure, requirePermission } from "../..";
 import { fetchBranchHeadSha } from "../../git/github-app";
+import { removeResourceDir } from "../../lib/data-dir";
 import { parseCompose, summarizeCompose } from "../../stack/compose";
-import { upsertProjectEnvVar } from "../project/queries";
-import { collectVarRefs, interpolate } from "./env";
-import { parseGitHubUrl, SECRETISH, stackNameFor } from "./util";
 import { removeComposeStack } from "../../swarm";
+import { upsertProjectEnvVar } from "../project/queries";
 import { getProjectInOrg } from "../project/queries";
 import { isUniqueViolation } from "../project/views";
-
-import { removeResourceDir } from "../../lib/data-dir";
 import { enqueueComposeBuild } from "./build-trigger";
 import { cleanupOrphanedComposeVars } from "./cleanup-vars";
-import {
-  deployCompose,
-  reconcileComposeDomains,
-  removeComposeDomains,
-} from "./deploy";
-import { removeStackServices } from "./reconcile";
+import { deployCompose, reconcileComposeDomains, removeComposeDomains } from "./deploy";
+import { collectVarRefs, interpolate } from "./env";
 import {
   type ComposeRecord,
   createComposeRecord,
@@ -31,6 +24,8 @@ import {
   listComposeRecords,
   updateComposeExposed,
 } from "./queries";
+import { removeStackServices } from "./reconcile";
+import { parseGitHubUrl, SECRETISH, stackNameFor } from "./util";
 
 function toView(rec: ComposeRecord) {
   return {
@@ -84,13 +79,11 @@ export const composeRouter = {
     return rows.map(toView);
   }),
 
-  get: projectScopedProcedure.compose.get.handler(
-    async ({ input, errors }) => {
-      const rec = await getComposeRecord(input.projectId, input.resourceId);
-      if (!rec) throw errors.NOT_FOUND();
-      return toView(rec);
-    },
-  ),
+  get: projectScopedProcedure.compose.get.handler(async ({ input, errors }) => {
+    const rec = await getComposeRecord(input.projectId, input.resourceId);
+    if (!rec) throw errors.NOT_FOUND();
+    return toView(rec);
+  }),
 
   // A compose stack is a group of services, so it rides the `service`
   // permissions (members create/redeploy, only admins/owners delete).
@@ -315,8 +308,7 @@ export const composeRouter = {
         .map((e) => ({ service: e.service, port: e.port, domain: e.domain }));
 
       await updateComposeExposed({ resourceId: input.resourceId, exposed });
-      const updated =
-        (await getComposeRecord(input.projectId, input.resourceId)) ?? rec;
+      const updated = (await getComposeRecord(input.projectId, input.resourceId)) ?? rec;
       await reconcileComposeDomains(updated, {
         id: input.projectId,
         slug: project.slug,

@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { I } from "../icons";
+
 import { PROJECT, type Env } from "../data";
+import { I } from "../icons";
 
 export function EnvSwitcher({ env, setEnv }: { env: Env; setEnv: (e: Env) => void }) {
   const [open, setOpen] = useState(false);
@@ -60,7 +61,9 @@ export function EnvSwitcher({ env, setEnv }: { env: Env; setEnv: (e: Env) => voi
                 cursor: "pointer",
               }}
             >
-              <span className={`os-env-dot ${e === "production" ? "" : e === "staging" ? "staging" : "preview"}`} />
+              <span
+                className={`os-env-dot ${e === "production" ? "" : e === "staging" ? "staging" : "preview"}`}
+              />
               <span>{e}</span>
             </button>
           ))}

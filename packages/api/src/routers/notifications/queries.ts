@@ -1,10 +1,4 @@
-/**
- * Org-scoped DB queries + presenter for the notification-channels router.
- * Channel rows are enriched with delivery stats (7d count, last delivery,
- * 24h failures) computed from `notification_delivery`, and the secret is never
- * selected into a view. `target` is masked for display.
- */
-import { and, eq, sql } from "drizzle-orm";
+import type { NotificationChannelId, OrganizationId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import {
@@ -13,10 +7,13 @@ import {
   notificationDelivery,
   notificationSubscription,
 } from "@otterdeploy/db/schema";
-import type {
-  NotificationChannelId,
-  OrganizationId,
-} from "@otterdeploy/shared/id";
+/**
+ * Org-scoped DB queries + presenter for the notification-channels router.
+ * Channel rows are enriched with delivery stats (7d count, last delivery,
+ * 24h failures) computed from `notification_delivery`, and the secret is never
+ * selected into a view. `target` is masked for display.
+ */
+import { and, eq, sql } from "drizzle-orm";
 
 type ChannelKind = NotificationChannelRow["kind"];
 
@@ -77,13 +74,15 @@ export async function statsByChannel(
   const rows = await db
     .select({
       channelId: notificationDelivery.channelId,
-      events7d: sql<number>`count(*) filter (where ${notificationDelivery.createdAt} >= now() - interval '7 days')`.mapWith(
-        Number,
-      ),
+      events7d:
+        sql<number>`count(*) filter (where ${notificationDelivery.createdAt} >= now() - interval '7 days')`.mapWith(
+          Number,
+        ),
       lastDelivery: sql<Date | null>`max(${notificationDelivery.createdAt})`,
-      failed24h: sql<number>`count(*) filter (where ${notificationDelivery.status} = 'failed' and ${notificationDelivery.createdAt} >= now() - interval '24 hours')`.mapWith(
-        Number,
-      ),
+      failed24h:
+        sql<number>`count(*) filter (where ${notificationDelivery.status} = 'failed' and ${notificationDelivery.createdAt} >= now() - interval '24 hours')`.mapWith(
+          Number,
+        ),
     })
     .from(notificationDelivery)
     .where(eq(notificationDelivery.organizationId, organizationId))
@@ -174,10 +173,7 @@ export async function addSubscription(input: {
     .insert(notificationSubscription)
     .values(input)
     .onConflictDoNothing({
-      target: [
-        notificationSubscription.channelId,
-        notificationSubscription.eventId,
-      ],
+      target: [notificationSubscription.channelId, notificationSubscription.eventId],
     });
 }
 

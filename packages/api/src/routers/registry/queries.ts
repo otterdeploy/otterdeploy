@@ -73,19 +73,11 @@ export async function findRegistryByOrgHostUser(
   return row ?? null;
 }
 
-export async function getRegistryForOrg(
-  organizationId: OrgId,
-  id: RegistryId,
-) {
+export async function getRegistryForOrg(organizationId: OrgId, id: RegistryId) {
   const [row] = await db
     .select(VIEW_COLUMNS)
     .from(containerRegistry)
-    .where(
-      and(
-        eq(containerRegistry.id, id),
-        eq(containerRegistry.organizationId, organizationId),
-      ),
-    )
+    .where(and(eq(containerRegistry.id, id), eq(containerRegistry.organizationId, organizationId)))
     .limit(1);
   return row ?? null;
 }
@@ -158,10 +150,7 @@ export async function updateRegistryRecord(input: {
  * fails fast with a clear "no registry configured" error rather than
  * crashing inside the docker push step.
  */
-export async function deleteRegistryRecord(input: {
-  organizationId: OrgId;
-  id: RegistryId;
-}) {
+export async function deleteRegistryRecord(input: { organizationId: OrgId; id: RegistryId }) {
   return db.transaction(async (tx) => {
     await tx
       .update(project)

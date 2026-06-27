@@ -5,17 +5,11 @@
  * project.serviceTasks once those come back.
  */
 
+import type { InferRouterOutputs } from "@orpc/server";
+import type { AppRouter } from "@otterdeploy/api/routers/index";
 import type { Node } from "@xyflow/react";
 
-import type { InferRouterOutputs } from "@orpc/server";
-
-import type { AppRouter } from "@otterdeploy/api/routers/index";
-
-import type {
-  ResourceNodeData,
-  ResourceStatus,
-  StackServiceStatus,
-} from "./resource-node";
+import type { ResourceNodeData, ResourceStatus, StackServiceStatus } from "./resource-node";
 
 export type ProjectResource = InferRouterOutputs<AppRouter>["project"]["resource"]["list"][number];
 
@@ -146,10 +140,7 @@ export function resourceToNode(r: ProjectResource): ResourceFlowNode {
           kind: "compose",
           name: r.name,
           // Stack source + service count is the most useful single line.
-          description:
-            r.services.length === 1
-              ? "1 service"
-              : `${r.services.length} services`,
+          description: r.services.length === 1 ? "1 service" : `${r.services.length} services`,
           projectId: r.projectId,
           resourceId: r.resourceId,
           // The group has NO single status pill — each service answers for

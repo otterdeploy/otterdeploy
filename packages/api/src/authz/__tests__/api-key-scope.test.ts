@@ -15,21 +15,15 @@ describe("authorizeKeyScope (per-key permission map)", () => {
   });
 
   test("key covering the required action ⇒ allowed", () => {
-    expect(
-      authorizeKeyScope({ service: ["read", "deploy"] }, { service: ["deploy"] }),
-    ).toBe(true);
+    expect(authorizeKeyScope({ service: ["read", "deploy"] }, { service: ["deploy"] })).toBe(true);
   });
 
   test("resource absent in key ⇒ denied", () => {
-    expect(
-      authorizeKeyScope({ project: ["read"] }, { service: ["deploy"] }),
-    ).toBe(false);
+    expect(authorizeKeyScope({ project: ["read"] }, { service: ["deploy"] })).toBe(false);
   });
 
   test("action missing from the covered resource ⇒ denied", () => {
-    expect(
-      authorizeKeyScope({ service: ["read"] }, { service: ["deploy"] }),
-    ).toBe(false);
+    expect(authorizeKeyScope({ service: ["read"] }, { service: ["deploy"] })).toBe(false);
   });
 
   test("empty required actions are a no-op (allowed)", () => {
@@ -47,9 +41,12 @@ describe("authorizeRoleScope (DECISION A — member-role cap)", () => {
   });
 
   test("combined gate: key covers database:write but role cap still denies", () => {
-    const keyAllows = authorizeKeyScope({ database: ["write"] }, {
-      database: ["write"],
-    });
+    const keyAllows = authorizeKeyScope(
+      { database: ["write"] },
+      {
+        database: ["write"],
+      },
+    );
     expect(keyAllows).toBe(true);
     expect(keyAllows && authorizeRoleScope({ database: ["write"] })).toBe(false);
   });
@@ -83,9 +80,7 @@ describe("requireProjectScope (project scoping)", () => {
   });
 
   test("scope 'all' ⇒ allowed for any project", () => {
-    expect(
-      requireProjectScope({ projectScope: "all" }, "project_anything"),
-    ).toBe(true);
+    expect(requireProjectScope({ projectScope: "all" }, "project_anything")).toBe(true);
   });
 
   test("absent projectScope ⇒ unrestricted", () => {
@@ -99,8 +94,6 @@ describe("requireProjectScope (project scoping)", () => {
   });
 
   test("scope 'selected' with no projectIds ⇒ denied", () => {
-    expect(
-      requireProjectScope({ projectScope: "selected" }, "project_A"),
-    ).toBe(false);
+    expect(requireProjectScope({ projectScope: "selected" }, "project_A")).toBe(false);
   });
 });

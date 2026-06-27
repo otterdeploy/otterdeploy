@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { PushEvent } from "./types";
+
 import { changedPathsFromPush, matchesWatchPatterns } from "./watch-match";
 
 function push(commits: Partial<PushEvent>): PushEvent {
@@ -21,12 +22,7 @@ describe("changedPathsFromPush", () => {
       ],
       head_commit: { id: "c2", message: "m", added: ["c.ts"] },
     });
-    expect(changedPathsFromPush(ev).sort()).toEqual([
-      "a.ts",
-      "b.ts",
-      "c.ts",
-      "shared.ts",
-    ]);
+    expect(changedPathsFromPush(ev).sort()).toEqual(["a.ts", "b.ts", "c.ts", "shared.ts"]);
   });
 
   it("returns empty when GitHub omits the file lists", () => {

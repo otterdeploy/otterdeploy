@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+
 import { renderWithRouter } from "@/test/utils";
+
 import { OuterRail } from "./outer-rail";
 
 describe("OuterRail", () => {

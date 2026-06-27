@@ -37,8 +37,7 @@ export const mariadbAdapter: DatabaseEngineAdapter = {
   ],
   // `healthcheck.sh --connect --innodb_initialized` is the official probe
   // shipped with the mariadb image (mariadbd-launch ensures it's on PATH).
-  buildHealthcheck: () =>
-    `healthcheck.sh --su-mysql --connect --innodb_initialized`,
+  buildHealthcheck: () => `healthcheck.sh --su-mysql --connect --innodb_initialized`,
   buildConnectionString: ({ username, password, host, port, databaseName }) => {
     const hostPort = port == null ? host : `${host}:${port}`;
     return `${meta.scheme}://${username}:${password}@${hostPort}/${databaseName}`;

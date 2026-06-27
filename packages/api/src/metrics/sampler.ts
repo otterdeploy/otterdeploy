@@ -1,3 +1,4 @@
+import type { ResourceId } from "@otterdeploy/shared/id";
 /**
  * Metrics sampler. On a fixed tick, lists otterdeploy-managed running
  * containers and records one CPU/memory/network sample each into
@@ -9,16 +10,13 @@
  */
 import type { Readable } from "node:stream";
 
-import { Docker } from "@otterdeploy/docker";
-import type { ResourceId } from "@otterdeploy/shared/id";
-import { log } from "evlog";
-
 import { db } from "@otterdeploy/db";
 import { resourceMetric } from "@otterdeploy/db/schema";
-
-import { samplePlatformMetrics } from "./platform";
+import { Docker } from "@otterdeploy/docker";
+import { log } from "evlog";
 
 import { healthFromStatus, recordHealthObservations } from "./health-detector";
+import { samplePlatformMetrics } from "./platform";
 
 const RESOURCE_ID_LABEL = "otterdeploy.resource.id";
 
@@ -59,10 +57,7 @@ function sumNetwork(f: DockerStatsFrame): { rx: number; tx: number } {
 
 /** Read the Docker stats stream and resolve the second JSON frame (with a
  *  populated precpu delta). Resolves null on timeout / parse failure. */
-function readSecondFrame(
-  stream: Readable,
-  timeoutMs = 3000,
-): Promise<DockerStatsFrame | null> {
+function readSecondFrame(stream: Readable, timeoutMs = 3000): Promise<DockerStatsFrame | null> {
   return new Promise((resolve) => {
     let buf = "";
     let frames = 0;

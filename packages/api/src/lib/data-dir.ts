@@ -1,3 +1,6 @@
+import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
+
+import { backupDir, DATA_ROOT, projectDir, resourceDir } from "@otterdeploy/shared/paths";
 /**
  * `fs` operations against the host data folder (`/data/otterdeploy`). The path
  * derivation is pure and lives in `@otterdeploy/shared/paths`; the side effects
@@ -9,14 +12,6 @@
  */
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
-
-import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
-import {
-  backupDir,
-  DATA_ROOT,
-  projectDir,
-  resourceDir,
-} from "@otterdeploy/shared/paths";
 
 let availability: Promise<boolean> | null = null;
 
@@ -39,10 +34,7 @@ export function dataRootAvailable(): Promise<boolean> {
  * against a path bug nuking the wrong tree (borrowed from Coolify's
  * `endsWith(uuid)` guard). Best-effort: never throws, so it can't fail a delete.
  */
-export async function removeResourceDir(
-  projectId: ProjectId,
-  id: ResourceId,
-): Promise<void> {
+export async function removeResourceDir(projectId: ProjectId, id: ResourceId): Promise<void> {
   if (!(await dataRootAvailable())) return;
   const dir = resolve(resourceDir(projectId, id));
   const root = resolve(DATA_ROOT);

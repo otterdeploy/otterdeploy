@@ -1,5 +1,5 @@
-
 import type { ServerId } from "@otterdeploy/shared/id";
+
 import { TaggedError } from "better-result";
 
 export class ServerNotFoundError extends TaggedError("ServerNotFoundError")<{

@@ -1,13 +1,13 @@
 import type { ReactNode } from "react";
+
 import { BellIcon } from "lucide-react";
+
 import { Kbd } from "@/components/ui/kbd";
 import { Separator } from "@/components/ui/separator";
+import { WorkspaceSwitcherDropdown, type WorkspaceSummary } from "@/features/workspace-switcher";
+
 import { ModeToggle } from "../mode-toggle";
 import UserMenu from "../user-menu";
-import {
-  WorkspaceSwitcherDropdown,
-  type WorkspaceSummary,
-} from "@/features/workspace-switcher";
 
 interface Props {
   workspace: WorkspaceSummary;

@@ -15,11 +15,11 @@
  *   }));
  */
 
-import { useMutation } from "@tanstack/react-query";
-import { toast } from "sonner";
-
 import type { Manifest } from "@otterdeploy/api/manifest";
 import type { Id, ID_PREFIX } from "@otterdeploy/shared/id";
+
+import { useMutation } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 import { orpc, queryClient } from "@/shared/server/orpc";
 
@@ -135,17 +135,19 @@ function useApplyManifestChange(projectId: ProjectId) {
     },
     onSuccess: async (result) => {
       await invalidateManifestConsumers(projectId);
-      const detail = result.skipped
-        .map((s) => `${s.resource} ${s.name}: ${s.reason}`)
-        .join("; ");
+      const detail = result.skipped.map((s) => `${s.resource} ${s.name}: ${s.reason}`).join("; ");
       if (result.skipped.length === 0) {
-        toast.success(`Deployed ${result.appliedCount} change${result.appliedCount === 1 ? "" : "s"}`);
+        toast.success(
+          `Deployed ${result.appliedCount} change${result.appliedCount === 1 ? "" : "s"}`,
+        );
       } else if (result.appliedCount === 0) {
         // Nothing landed — the change is saved (pending) but couldn't be
         // provisioned. Point the operator at the actionable reason.
         toast.error(`Nothing deployed — ${detail}`);
       } else {
-        toast.warning(`Deployed ${result.appliedCount}, skipped ${result.skipped.length} — ${detail}`);
+        toast.warning(
+          `Deployed ${result.appliedCount}, skipped ${result.skipped.length} — ${detail}`,
+        );
       }
     },
     onError: (err) => toast.error(err.message ?? "Failed to deploy change"),

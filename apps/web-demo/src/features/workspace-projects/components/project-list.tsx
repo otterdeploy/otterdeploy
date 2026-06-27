@@ -1,7 +1,9 @@
 import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
-import { ProjectCard } from "./project-card";
-import { CreateProjectDialog } from "./create-project-dialog";
+
 import type { ProjectSummary } from "../types";
+
+import { CreateProjectDialog } from "./create-project-dialog";
+import { ProjectCard } from "./project-card";
 
 interface Props {
   summaries: ReadonlyArray<ProjectSummary>;
@@ -23,9 +25,7 @@ export function ProjectList({ summaries }: Props) {
       {summaries.length === 0 ? (
         <Empty>
           <EmptyTitle>No projects yet</EmptyTitle>
-          <EmptyDescription>
-            Create your first project to get started.
-          </EmptyDescription>
+          <EmptyDescription>Create your first project to get started.</EmptyDescription>
         </Empty>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

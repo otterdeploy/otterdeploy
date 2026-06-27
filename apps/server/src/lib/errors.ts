@@ -7,15 +7,12 @@ export class PtySpawnError extends TaggedError("PtySpawnError")<{
   cause: unknown;
 }>() {
   constructor(args: { cause: unknown }) {
-    const msg =
-      args.cause instanceof Error ? args.cause.message : String(args.cause);
+    const msg = args.cause instanceof Error ? args.cause.message : String(args.cause);
     super({ cause: args.cause, message: `host shell spawn failed: ${msg}` });
   }
 }
 
-export class PtyTerminalUnavailableError extends TaggedError(
-  "PtyTerminalUnavailableError",
-)<{
+export class PtyTerminalUnavailableError extends TaggedError("PtyTerminalUnavailableError")<{
   message: string;
 }>() {
   constructor() {
@@ -29,8 +26,7 @@ export class PtyExecError extends TaggedError("PtyExecError")<{
   cause: unknown;
 }>() {
   constructor(args: { step: "create" | "start"; cause: unknown }) {
-    const msg =
-      args.cause instanceof Error ? args.cause.message : String(args.cause);
+    const msg = args.cause instanceof Error ? args.cause.message : String(args.cause);
     super({
       step: args.step,
       cause: args.cause,
@@ -63,8 +59,7 @@ export class BootstrapError extends TaggedError("BootstrapError")<{
   cause: unknown;
 }>() {
   constructor(args: { step: string; cause: unknown }) {
-    const msg =
-      args.cause instanceof Error ? args.cause.message : String(args.cause);
+    const msg = args.cause instanceof Error ? args.cause.message : String(args.cause);
     super({
       step: args.step,
       cause: args.cause,

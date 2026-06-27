@@ -5,9 +5,9 @@
 import * as React from "react";
 import { useEffect, useMemo, useState } from "react";
 
-import { I } from "../icons";
-import { TEMPLATES, PROJECT, type Template } from "../data";
 import { SectionH } from "../components/form";
+import { TEMPLATES, PROJECT, type Template } from "../data";
+import { I } from "../icons";
 
 type Cat =
   | "all"
@@ -25,7 +25,12 @@ type Sort = "popular" | "newest" | "az";
 
 type View = "grid" | "list";
 
-interface IncludedSvc { name: string; image: string; cpu: number; mem: number }
+interface IncludedSvc {
+  name: string;
+  image: string;
+  cpu: number;
+  mem: number;
+}
 
 type ExtendedTemplate = Template & {
   cat: Cat;
@@ -63,7 +68,9 @@ const EXTRA: ExtendedTemplate[] = [
     updated: "3d ago",
     description:
       "PocketBase is a single Go binary that ships SQLite, an auth provider, file storage, and a realtime API. Great fit for prototypes and side projects that need persistence without a separate database container.",
-    includes: [{ name: "PocketBase", image: "ghcr.io/pocketbase/pocketbase:0.22", cpu: 0.25, mem: 256 }],
+    includes: [
+      { name: "PocketBase", image: "ghcr.io/pocketbase/pocketbase:0.22", cpu: 0.25, mem: 256 },
+    ],
     envVars: [
       { k: "PB_ADMIN_EMAIL", required: true, sample: "admin@helio.so" },
       { k: "PB_ADMIN_PASSWORD", required: true, sample: "•••••••" },
@@ -138,7 +145,8 @@ const EXTRA: ExtendedTemplate[] = [
     cat: "workflow",
     installs: 1108,
     updated: "2w ago",
-    description: "Nextcloud is a content collaboration platform. Comes wired with Postgres for metadata and Redis for cache.",
+    description:
+      "Nextcloud is a content collaboration platform. Comes wired with Postgres for metadata and Redis for cache.",
     includes: [
       { name: "Nextcloud", image: "nextcloud:29-apache", cpu: 1, mem: 1024 },
       { name: "Postgres 16", image: "postgres:16", cpu: 0.5, mem: 512 },
@@ -245,7 +253,8 @@ const BASE_EXT: Record<string, Omit<ExtendedTemplate, keyof Template>> = {
     cat: "cms",
     installs: 1820,
     updated: "9d ago",
-    description: "Strapi is a Node-based headless CMS with a customizable admin UI. Backed by Postgres in this template.",
+    description:
+      "Strapi is a Node-based headless CMS with a customizable admin UI. Backed by Postgres in this template.",
     includes: [
       { name: "Strapi", image: "strapi/strapi:4", cpu: 1, mem: 1024 },
       { name: "Postgres 16", image: "postgres:16", cpu: 0.5, mem: 512 },
@@ -264,7 +273,8 @@ const BASE_EXT: Record<string, Omit<ExtendedTemplate, keyof Template>> = {
     cat: "cms",
     installs: 980,
     updated: "11d ago",
-    description: "Ghost is a Node-based publishing platform — newsletters, members, and a clean editor.",
+    description:
+      "Ghost is a Node-based publishing platform — newsletters, members, and a clean editor.",
     includes: [
       { name: "Ghost", image: "ghost:5", cpu: 0.5, mem: 512 },
       { name: "MySQL 8", image: "mysql:8", cpu: 0.5, mem: 512 },
@@ -283,7 +293,8 @@ const BASE_EXT: Record<string, Omit<ExtendedTemplate, keyof Template>> = {
     cat: "db",
     installs: 1240,
     updated: "5d ago",
-    description: "NocoDB turns any database into a smart spreadsheet — Airtable-style UI on top of Postgres.",
+    description:
+      "NocoDB turns any database into a smart spreadsheet — Airtable-style UI on top of Postgres.",
     includes: [
       { name: "NocoDB", image: "nocodb/nocodb:latest", cpu: 0.5, mem: 512 },
       { name: "Postgres 16", image: "postgres:16", cpu: 0.5, mem: 512 },
@@ -299,7 +310,8 @@ const BASE_EXT: Record<string, Omit<ExtendedTemplate, keyof Template>> = {
     cat: "analytics",
     installs: 2890,
     updated: "2d ago",
-    description: "Plausible is a privacy-friendly Google Analytics alternative. ClickHouse for events, Postgres for app state.",
+    description:
+      "Plausible is a privacy-friendly Google Analytics alternative. ClickHouse for events, Postgres for app state.",
     includes: [
       { name: "Plausible", image: "plausible/analytics:v2", cpu: 0.5, mem: 512 },
       { name: "ClickHouse", image: "clickhouse/clickhouse-server:24", cpu: 1, mem: 1024 },
@@ -339,7 +351,8 @@ const BASE_EXT: Record<string, Omit<ExtendedTemplate, keyof Template>> = {
     cat: "workflow",
     installs: 3210,
     updated: "1d ago",
-    description: "n8n is a fair-code workflow automation tool — connect anything to anything with 400+ nodes.",
+    description:
+      "n8n is a fair-code workflow automation tool — connect anything to anything with 400+ nodes.",
     includes: [{ name: "n8n", image: "n8nio/n8n:latest", cpu: 0.5, mem: 512 }],
     envVars: [
       { k: "N8N_BASIC_AUTH_USER", required: true, sample: "admin" },
@@ -352,7 +365,8 @@ const BASE_EXT: Record<string, Omit<ExtendedTemplate, keyof Template>> = {
     cat: "observability",
     installs: 5120,
     updated: "8h ago",
-    description: "Grafana + Prometheus + Loki — the canonical observability stack for metrics and logs.",
+    description:
+      "Grafana + Prometheus + Loki — the canonical observability stack for metrics and logs.",
     includes: [
       { name: "Grafana", image: "grafana/grafana:11", cpu: 0.25, mem: 256 },
       { name: "Prometheus", image: "prom/prometheus:v2.54", cpu: 0.5, mem: 512 },
@@ -377,7 +391,11 @@ const BASE_EXT: Record<string, Omit<ExtendedTemplate, keyof Template>> = {
       { name: "ClickHouse", image: "clickhouse/clickhouse-server:24", cpu: 1, mem: 1024 },
     ],
     envVars: [
-      { k: "DATABASE_URL", required: true, sample: "postgres://langfuse:•••@postgres:5432/langfuse" },
+      {
+        k: "DATABASE_URL",
+        required: true,
+        sample: "postgres://langfuse:•••@postgres:5432/langfuse",
+      },
       { k: "NEXTAUTH_SECRET", required: true, sample: "•••••••" },
       { k: "SALT", required: true, sample: "•••••••" },
     ],
@@ -409,7 +427,10 @@ const ICON_FOR_CAT: Record<Cat, keyof typeof I> = {
 };
 
 function TplIcon({ icon }: { icon: string }) {
-  const dict = I as unknown as Record<string, ((p: { width?: number; height?: number }) => React.JSX.Element) | undefined>;
+  const dict = I as unknown as Record<
+    string,
+    ((p: { width?: number; height?: number }) => React.JSX.Element) | undefined
+  >;
   const Comp = dict[icon];
   if (Comp) return <Comp width={16} height={16} />;
   return <I.doc width={16} height={16} />;
@@ -433,11 +454,19 @@ export function Templates() {
     return [...base].sort((a, b) => b.installs - a.installs);
   }, [cat, q, sort]);
 
-  const opening = open ? ALL_TEMPLATES.find((t) => t.id === open) ?? null : null;
+  const opening = open ? (ALL_TEMPLATES.find((t) => t.id === open) ?? null) : null;
 
   return (
     <div className="os-scroll" style={{ flex: 1, overflow: "auto", padding: 24 }}>
-      <div style={{ maxWidth: 1280, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 280px", gap: 24 }}>
+      <div
+        style={{
+          maxWidth: 1280,
+          margin: "0 auto",
+          display: "grid",
+          gridTemplateColumns: "1fr 280px",
+          gap: 24,
+        }}
+      >
         <div>
           <div className="row" style={{ marginBottom: 14 }}>
             <SectionH
@@ -492,7 +521,13 @@ export function Templates() {
                 <I.search
                   width={11}
                   height={11}
-                  style={{ position: "absolute", top: "50%", left: 8, transform: "translateY(-50%)", color: "var(--fg-3)" }}
+                  style={{
+                    position: "absolute",
+                    top: "50%",
+                    left: 8,
+                    transform: "translateY(-50%)",
+                    color: "var(--fg-3)",
+                  }}
                 />
                 <input
                   className="input"
@@ -540,7 +575,10 @@ export function Templates() {
           </div>
 
           {filtered.length === 0 && (
-            <div className="card" style={{ padding: 32, textAlign: "center", color: "var(--fg-3)", fontSize: 12 }}>
+            <div
+              className="card"
+              style={{ padding: 32, textAlign: "center", color: "var(--fg-3)", fontSize: 12 }}
+            >
               No templates match this filter.
             </div>
           )}
@@ -572,7 +610,13 @@ function TemplateCard({ t, onOpen }: { t: ExtendedTemplate; onOpen: () => void }
   return (
     <div
       className="card"
-      style={{ padding: 0, overflow: "hidden", display: "flex", flexDirection: "column", position: "relative" }}
+      style={{
+        padding: 0,
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+        position: "relative",
+      }}
     >
       <div
         className="row"
@@ -624,7 +668,12 @@ function TemplateCard({ t, onOpen }: { t: ExtendedTemplate; onOpen: () => void }
         <div>
           <div
             className="muted"
-            style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 5 }}
+            style={{
+              fontSize: 10,
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+              marginBottom: 5,
+            }}
           >
             Includes
           </div>
@@ -646,7 +695,10 @@ function TemplateCard({ t, onOpen }: { t: ExtendedTemplate; onOpen: () => void }
             ))}
           </div>
         </div>
-        <div className="row gap-3" style={{ fontSize: 11, color: "var(--fg-3)", marginTop: "auto" }}>
+        <div
+          className="row gap-3"
+          style={{ fontSize: 11, color: "var(--fg-3)", marginTop: "auto" }}
+        >
           <span className="row gap-1">
             <I.service width={10} height={10} /> {t.services} services
           </span>
@@ -659,7 +711,11 @@ function TemplateCard({ t, onOpen }: { t: ExtendedTemplate; onOpen: () => void }
         </div>
       </div>
       <div style={{ padding: "10px 14px", borderTop: "1px solid var(--border)" }}>
-        <button className="btn primary" style={{ width: "100%", justifyContent: "center" }} onClick={onOpen}>
+        <button
+          className="btn primary"
+          style={{ width: "100%", justifyContent: "center" }}
+          onClick={onOpen}
+        >
           Use template <I.chev width={11} height={11} />
         </button>
       </div>
@@ -679,7 +735,11 @@ function TemplateRow({
   return (
     <div
       className="row gap-3"
-      style={{ padding: "12px 14px", borderTop: borderTop ? "1px solid var(--border)" : "none", fontSize: 12 }}
+      style={{
+        padding: "12px 14px",
+        borderTop: borderTop ? "1px solid var(--border)" : "none",
+        fontSize: 12,
+      }}
     >
       <div
         style={{
@@ -697,9 +757,7 @@ function TemplateRow({
       <div style={{ flex: 1, minWidth: 0 }}>
         <div className="row gap-2">
           <span style={{ fontWeight: 600 }}>{t.name}</span>
-          {t.popular && (
-            <span style={{ fontSize: 9, color: "var(--info)" }}>★ popular</span>
-          )}
+          {t.popular && <span style={{ fontSize: 9, color: "var(--info)" }}>★ popular</span>}
         </div>
         <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>
           {t.sub}
@@ -727,13 +785,21 @@ function RightRail({ onPick }: { onPick: (c: Cat) => void }) {
       <div className="card" style={{ padding: 14, marginBottom: 12 }}>
         <div
           className="muted"
-          style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}
+          style={{
+            fontSize: 10,
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+            marginBottom: 10,
+          }}
         >
           Popular categories
         </div>
         <div className="col gap-1">
           {(["ecommerce", "cms", "observability", "ai", "auth"] as Cat[]).map((c) => {
-            const Icon = I[ICON_FOR_CAT[c]] as (p: { width?: number; height?: number }) => React.JSX.Element;
+            const Icon = I[ICON_FOR_CAT[c]] as (p: {
+              width?: number;
+              height?: number;
+            }) => React.JSX.Element;
             return (
               <button
                 key={c}
@@ -763,7 +829,12 @@ function RightRail({ onPick }: { onPick: (c: Cat) => void }) {
       <div className="card" style={{ padding: 14, marginBottom: 12 }}>
         <div
           className="muted"
-          style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}
+          style={{
+            fontSize: 10,
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+            marginBottom: 10,
+          }}
         >
           Recently added
         </div>
@@ -785,7 +856,12 @@ function RightRail({ onPick }: { onPick: (c: Cat) => void }) {
       <div className="card" style={{ padding: 14 }}>
         <div
           className="muted"
-          style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}
+          style={{
+            fontSize: 10,
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+            marginBottom: 10,
+          }}
         >
           Trending this week
         </div>
@@ -832,8 +908,12 @@ function TemplateDetail({ t, onClose }: { t: ExtendedTemplate; onClose: () => vo
         backdropFilter: "blur(2px)",
       }}
     >
-      <div onClick={(e) => e.stopPropagation()} className="os-modal" style={{ width: 880, maxHeight: "86vh" }}>
-        <div className="row gap-2 os-modal-h">
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="os-modal"
+        style={{ width: 880, maxHeight: "86vh" }}
+      >
+        <div className="row os-modal-h gap-2">
           <TplIcon icon={t.icon} />
           <span style={{ fontWeight: 600 }}>{t.name}</span>
           {t.popular && (
@@ -859,7 +939,9 @@ function TemplateDetail({ t, onClose }: { t: ExtendedTemplate; onClose: () => vo
         </div>
 
         <div className="os-scroll col gap-4" style={{ padding: 18, overflow: "auto", flex: 1 }}>
-          <div style={{ fontSize: 12.5, color: "var(--fg-2)", lineHeight: 1.6 }}>{t.description}</div>
+          <div style={{ fontSize: 12.5, color: "var(--fg-2)", lineHeight: 1.6 }}>
+            {t.description}
+          </div>
 
           <Section title="Architecture">
             <ArchDiagram services={t.includes.map((s) => s.name)} edges={t.arch} />
@@ -996,7 +1078,12 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     <div>
       <div
         className="muted"
-        style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}
+        style={{
+          fontSize: 10,
+          textTransform: "uppercase",
+          letterSpacing: "0.06em",
+          marginBottom: 8,
+        }}
       >
         {title}
       </div>
@@ -1005,7 +1092,13 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function ArchDiagram({ services, edges }: { services: string[]; edges: { from: string; to: string }[] }) {
+function ArchDiagram({
+  services,
+  edges,
+}: {
+  services: string[];
+  edges: { from: string; to: string }[];
+}) {
   // Lay out services in a grid; draw arrows between them.
   const nodes = useMemo(() => {
     const list = ["internet", ...services];
@@ -1024,13 +1117,18 @@ function ArchDiagram({ services, edges }: { services: string[]; edges: { from: s
     nodes.find((n) => n.name === name || n.name.toLowerCase().includes(name.toLowerCase()));
 
   return (
-    <div
-      className="card"
-      style={{ padding: 12, background: "var(--bg-sunken)", overflow: "auto" }}
-    >
+    <div className="card" style={{ padding: 12, background: "var(--bg-sunken)", overflow: "auto" }}>
       <svg width={w} height={h} style={{ display: "block" }}>
         <defs>
-          <marker id="arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+          <marker
+            id="arr"
+            viewBox="0 0 8 8"
+            refX="7"
+            refY="4"
+            markerWidth="6"
+            markerHeight="6"
+            orient="auto"
+          >
             <path d="M0,0 L8,4 L0,8 z" fill="var(--fg-3)" />
           </marker>
         </defs>

@@ -42,9 +42,7 @@ function yearKey(d: Date): string {
 
 /** ISO-8601 week key (YYYY-Www) — weeks start Monday, week 1 holds Jan 4th. */
 function weekKey(d: Date): string {
-  const date = new Date(
-    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()),
-  );
+  const date = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
   const day = date.getUTCDay() || 7; // Sun=0 → 7
   date.setUTCDate(date.getUTCDate() + 4 - day); // nearest Thursday
   const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
@@ -103,9 +101,7 @@ export function selectBackupsToPrune<T extends RetainableBackup>(
     policy.keepMonthly > 0 ||
     policy.keepYearly > 0;
 
-  const kept = hasTiers
-    ? gfsKeptIds(backups, policy)
-    : new Set(backups.map((b) => b.id));
+  const kept = hasTiers ? gfsKeptIds(backups, policy) : new Set(backups.map((b) => b.id));
 
   // Hard max age — drop kept archives older than the cutoff.
   if (policy.retentionDays != null) {
@@ -120,10 +116,7 @@ export function selectBackupsToPrune<T extends RetainableBackup>(
     const cap = policy.maxStorageGb * 1e9;
     const survivors = backups
       .filter((b) => kept.has(b.id))
-      .sort(
-        (a, c) =>
-          (a.completedAt?.getTime() ?? 0) - (c.completedAt?.getTime() ?? 0),
-      );
+      .sort((a, c) => (a.completedAt?.getTime() ?? 0) - (c.completedAt?.getTime() ?? 0));
     let total = survivors.reduce((s, b) => s + (b.compressedSizeBytes ?? 0), 0);
     for (const b of survivors) {
       if (total <= cap) break;

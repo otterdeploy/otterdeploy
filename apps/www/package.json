@@ -5,12 +5,13 @@
   "type": "module",
   "sideEffects": false,
   "scripts": {
-    "dev": "portless www.otterdeploy --force vite dev",
     "build": "vite build",
+    "build:vercel": "NITRO_PRESET=vercel vite build",
+    "dev": "portless www.otterdeploy --force vite dev",
+    "postinstall": "fumadocs-mdx",
     "serve": "vite preview",
     "start": "vite preview",
-    "typecheck": "fumadocs-mdx && tsc --noEmit --checkers 4",
-    "postinstall": "fumadocs-mdx"
+    "typecheck": "fumadocs-mdx && tsc --noEmit --checkers 4"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.2.9",

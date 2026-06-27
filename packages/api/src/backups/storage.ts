@@ -1,3 +1,4 @@
+import { omitUndefined } from "@otterdeploy/shared/object";
 /**
  * Backup archive storage. Abstracts the destination types behind
  * put/get/remove so the engine doesn't branch on type. Three backends are
@@ -13,8 +14,6 @@
 import { createHash, createHmac } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, posix, resolve } from "node:path";
-
-import { omitUndefined } from "@otterdeploy/shared/object";
 
 export type DestinationType = "s3" | "local" | "sftp";
 
@@ -81,10 +80,7 @@ export async function putArchive(
   }
 }
 
-export async function getArchive(
-  dest: ResolvedDestination,
-  key: string,
-): Promise<Buffer> {
+export async function getArchive(dest: ResolvedDestination, key: string): Promise<Buffer> {
   switch (dest.type) {
     case "local": {
       const root = str(dest.config.path);
@@ -108,10 +104,7 @@ export async function getArchive(
   }
 }
 
-export async function removeArchive(
-  dest: ResolvedDestination,
-  key: string,
-): Promise<void> {
+export async function removeArchive(dest: ResolvedDestination, key: string): Promise<void> {
   switch (dest.type) {
     case "local":
       await rm(key, { force: true });
@@ -167,15 +160,11 @@ function sftpParams(dest: ResolvedDestination): SftpParams {
   const password = str(dest.secret.password);
   const privateKey = str(dest.secret.privateKey);
   if (!password && !privateKey) {
-    throw new Error(
-      "sftp destination missing credentials (password or privateKey)",
-    );
+    throw new Error("sftp destination missing credentials (password or privateKey)");
   }
   const rawPort = dest.config.port;
   const port =
-    typeof rawPort === "number"
-      ? rawPort
-      : Number.parseInt(str(rawPort) ?? "", 10) || 22;
+    typeof rawPort === "number" ? rawPort : Number.parseInt(str(rawPort) ?? "", 10) || 22;
   const basePath = str(dest.config.basePath) ?? str(dest.config.path) ?? ".";
   return {
     host,
@@ -251,7 +240,10 @@ async function withSftp<T>(
 
 // ─── S3 SigV4 ────────────────────────────────────────────────────────────
 
-function s3Endpoint(dest: ResolvedDestination, key: string): {
+function s3Endpoint(
+  dest: ResolvedDestination,
+  key: string,
+): {
   url: URL;
   host: string;
 } {
@@ -260,12 +252,8 @@ function s3Endpoint(dest: ResolvedDestination, key: string): {
   const region = str(dest.config.region) ?? "us-east-1";
   const endpoint = str(dest.config.endpoint);
   // Path-style addressing works for both AWS and S3-compatible stores.
-  const base = endpoint
-    ? new URL(endpoint)
-    : new URL(`https://s3.${region}.amazonaws.com`);
-  const url = new URL(
-    `${base.protocol}//${base.host}/${bucket}/${key.replace(/^\/+/, "")}`,
-  );
+  const base = endpoint ? new URL(endpoint) : new URL(`https://s3.${region}.amazonaws.com`);
+  const url = new URL(`${base.protocol}//${base.host}/${bucket}/${key.replace(/^\/+/, "")}`);
   return { url, host: base.host };
 }
 
@@ -298,9 +286,7 @@ async function s3Request(
   const payloadHash = sha256Hex(body ?? Buffer.alloc(0));
 
   const canonicalHeaders =
-    `host:${host}\n` +
-    `x-amz-content-sha256:${payloadHash}\n` +
-    `x-amz-date:${amzDate}\n`;
+    `host:${host}\n` + `x-amz-content-sha256:${payloadHash}\n` + `x-amz-date:${amzDate}\n`;
   const signedHeaders = "host;x-amz-content-sha256;x-amz-date";
 
   const canonicalRequest = [
@@ -313,20 +299,13 @@ async function s3Request(
   ].join("\n");
 
   const scope = `${dateStamp}/${region}/${service}/aws4_request`;
-  const stringToSign = [
-    "AWS4-HMAC-SHA256",
-    amzDate,
-    scope,
-    sha256Hex(canonicalRequest),
-  ].join("\n");
+  const stringToSign = ["AWS4-HMAC-SHA256", amzDate, scope, sha256Hex(canonicalRequest)].join("\n");
 
   const signingKey = hmac(
     hmac(hmac(hmac(`AWS4${secretAccessKey}`, dateStamp), region), service),
     "aws4_request",
   );
-  const signature = createHmac("sha256", signingKey)
-    .update(stringToSign, "utf8")
-    .digest("hex");
+  const signature = createHmac("sha256", signingKey).update(stringToSign, "utf8").digest("hex");
 
   const authorization =
     `AWS4-HMAC-SHA256 Credential=${accessKeyId}/${scope}, ` +

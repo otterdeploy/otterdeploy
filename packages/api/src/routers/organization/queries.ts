@@ -7,19 +7,14 @@
 
 import type { OrganizationId } from "@otterdeploy/shared/id";
 
-import { randomBytes } from "node:crypto";
-import { eq } from "drizzle-orm";
-
 import { db } from "@otterdeploy/db";
 import { organization } from "@otterdeploy/db/schema/auth";
+import { eq } from "drizzle-orm";
+import { randomBytes } from "node:crypto";
 type OrgId = OrganizationId;
 
 export async function getOrganizationById(orgId: OrgId) {
-  const [row] = await db
-    .select()
-    .from(organization)
-    .where(eq(organization.id, orgId))
-    .limit(1);
+  const [row] = await db.select().from(organization).where(eq(organization.id, orgId)).limit(1);
   return row;
 }
 
@@ -29,19 +24,14 @@ export async function getOrganizationById(orgId: OrgId) {
  * shouldn't be honored for a different domain. Clearing (empty string)
  * wipes verification and the token.
  */
-export async function setOrganizationBaseDomain(
-  orgId: OrgId,
-  baseDomain: string,
-) {
+export async function setOrganizationBaseDomain(orgId: OrgId, baseDomain: string) {
   const trimmed = baseDomain.trim().toLowerCase();
   const isClear = trimmed.length === 0;
   const existing = await getOrganizationById(orgId);
   // Skip the rotation when the value is unchanged — keeps a verified
   // domain verified across no-op saves from the UI.
   const unchanged =
-    !isClear &&
-    existing?.baseDomain != null &&
-    existing.baseDomain.toLowerCase() === trimmed;
+    !isClear && existing?.baseDomain != null && existing.baseDomain.toLowerCase() === trimmed;
   if (unchanged) return existing;
 
   const [row] = await db

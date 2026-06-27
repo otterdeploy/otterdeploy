@@ -24,7 +24,7 @@ export function LogLineRow({ line }: { line: LogLine }) {
     <div
       className={cn("flex gap-3", {
         "text-destructive/90": line.stream === "stderr",
-        "italic text-muted-foreground": line.stream === "system",
+        "text-muted-foreground italic": line.stream === "system",
         "text-foreground/85": line.stream === "stdout",
       })}
     >
@@ -33,7 +33,7 @@ export function LogLineRow({ line }: { line: LogLine }) {
           {line.ts.replace("T", " ").replace(/\.\d+Z$/, "")}
         </span>
       )}
-      <span className="whitespace-pre-wrap break-all">{line.line}</span>
+      <span className="break-all whitespace-pre-wrap">{line.line}</span>
     </div>
   );
 }

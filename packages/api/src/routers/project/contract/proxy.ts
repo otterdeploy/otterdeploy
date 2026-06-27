@@ -5,14 +5,12 @@
  */
 
 import { oc } from "@orpc/contract";
+import { proxyRoute } from "@otterdeploy/db/schema";
 import { createSelectSchema } from "drizzle-zod";
 import * as z from "zod";
 
-import { proxyRoute } from "@otterdeploy/db/schema";
 import { basePath, projectNotFoundErrors, resourceNotFoundErrors, tag } from "./shared";
 import { projectIdField, proxyRouteIdField, resourceIdField } from "./shared";
-
-
 
 export const proxyRouteSchema = createSelectSchema(proxyRoute).extend({
   id: proxyRouteIdField,
@@ -117,7 +115,12 @@ const setProtectionInput = z.object({
 const createShareLinkInput = z.object({
   routeId: proxyRouteIdField,
   /** Link lifetime. Capped at 30 days. */
-  expiresInHours: z.number().int().positive().max(24 * 30).default(72),
+  expiresInHours: z
+    .number()
+    .int()
+    .positive()
+    .max(24 * 30)
+    .default(72),
 });
 
 const shareLinkSchema = z.object({
@@ -152,7 +155,12 @@ const inviteGuestInput = z.object({
   routeId: proxyRouteIdField,
   email: z.email(),
   /** Session length after a successful code, in hours. Default 24. */
-  sessionHours: z.number().int().positive().max(24 * 365).default(24),
+  sessionHours: z
+    .number()
+    .int()
+    .positive()
+    .max(24 * 365)
+    .default(24),
 });
 
 const removeGuestInput = z.object({

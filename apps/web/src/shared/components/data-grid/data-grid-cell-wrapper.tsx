@@ -1,15 +1,16 @@
 "use client";
 
 import * as React from "react";
+
+import type { DataGridCellProps } from "@/shared/components/data-grid/types";
+
 import { useDataGridPresence } from "@/shared/components/data-grid/data-grid-presence";
 import { useComposedRefs } from "@/shared/components/data-grid/lib/compose-refs";
 import { getCellKey } from "@/shared/components/data-grid/lib/data-grid";
 import { cn } from "@/shared/lib/utils";
-import type { DataGridCellProps } from "@/shared/components/data-grid/types";
 
 interface DataGridCellWrapperProps<TData>
-  extends DataGridCellProps<TData>,
-    React.ComponentProps<"div"> {}
+  extends DataGridCellProps<TData>, React.ComponentProps<"div"> {}
 
 export function DataGridCellWrapper<TData>({
   tableMeta,
@@ -60,15 +61,7 @@ export function DataGridCellWrapper<TData>({
         }
       }
     },
-    [
-      tableMeta,
-      rowIndex,
-      columnId,
-      isEditing,
-      isFocused,
-      readOnly,
-      onClickProp,
-    ],
+    [tableMeta, rowIndex, columnId, isEditing, isFocused, readOnly, onClickProp],
   );
 
   const onContextMenu = React.useCallback(
@@ -132,15 +125,7 @@ export function DataGridCellWrapper<TData>({
         }
       }
     },
-    [
-      onKeyDownProp,
-      isFocused,
-      isEditing,
-      readOnly,
-      tableMeta,
-      rowIndex,
-      columnId,
-    ],
+    [onKeyDownProp, isFocused, isEditing, readOnly, tableMeta, rowIndex, columnId],
   );
 
   const onMouseDown = React.useCallback(
@@ -179,19 +164,14 @@ export function DataGridCellWrapper<TData>({
         {
           "ring-1 ring-inset": isFocused || !!cellPresence,
           "ring-ring": isFocused && !cellPresence,
-          "bg-yellow-100 dark:bg-yellow-900/30":
-            isSearchMatch && !isActiveSearchMatch,
+          "bg-yellow-100 dark:bg-yellow-900/30": isSearchMatch && !isActiveSearchMatch,
           "bg-orange-200 dark:bg-orange-900/50": isActiveSearchMatch,
           "bg-primary/10": isSelected && !isEditing,
           "cursor-default": !isEditing,
-          "**:data-[slot=grid-cell-content]:truncate":
-            !isEditing && rowHeight === "short",
-          "**:data-[slot=grid-cell-content]:line-clamp-2":
-            !isEditing && rowHeight === "medium",
-          "**:data-[slot=grid-cell-content]:line-clamp-3":
-            !isEditing && rowHeight === "tall",
-          "**:data-[slot=grid-cell-content]:line-clamp-4":
-            !isEditing && rowHeight === "extra-tall",
+          "**:data-[slot=grid-cell-content]:truncate": !isEditing && rowHeight === "short",
+          "**:data-[slot=grid-cell-content]:line-clamp-2": !isEditing && rowHeight === "medium",
+          "**:data-[slot=grid-cell-content]:line-clamp-3": !isEditing && rowHeight === "tall",
+          "**:data-[slot=grid-cell-content]:line-clamp-4": !isEditing && rowHeight === "extra-tall",
         },
         className,
       )}

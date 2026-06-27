@@ -15,10 +15,7 @@ import type { PushEvent } from "./types";
 /** Union of every added/removed/modified path across all commits in the push,
  *  deduped. Empty = GitHub gave us no file lists (large/truncated push). */
 export function changedPathsFromPush(ev: PushEvent): string[] {
-  const commits = [
-    ...(ev.commits ?? []),
-    ...(ev.head_commit ? [ev.head_commit] : []),
-  ];
+  const commits = [...(ev.commits ?? []), ...(ev.head_commit ? [ev.head_commit] : [])];
   const paths = new Set<string>();
   for (const c of commits) {
     for (const p of c.added ?? []) paths.add(p);
@@ -39,9 +36,7 @@ export function matchesWatchPatterns(
   // Patterns configured but we don't know what changed → fail open.
   if (changedPaths.length === 0) return true;
 
-  const globs = patterns
-    .filter((p) => p.trim().length > 0)
-    .map((p) => new Bun.Glob(p));
+  const globs = patterns.filter((p) => p.trim().length > 0).map((p) => new Bun.Glob(p));
   if (globs.length === 0) return true;
 
   return changedPaths.some((path) => globs.some((g) => g.match(path)));

@@ -6,8 +6,8 @@
  * unauthenticated visitors are sent to sign-in and returned afterwards.
  */
 
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";
@@ -93,9 +93,7 @@ function AcceptInvitePage() {
           <div className="flex flex-col items-center gap-4 text-center">
             <div>
               <h1 className="text-lg font-semibold">Invitation unavailable</h1>
-              <p className="mt-1 text-[13px] text-muted-foreground">
-                {invitation.error.message}
-              </p>
+              <p className="mt-1 text-[13px] text-muted-foreground">{invitation.error.message}</p>
             </div>
             <Button variant="outline" onClick={() => void navigate({ to: "/" })}>
               Go to dashboard

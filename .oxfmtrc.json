@@ -4,6 +4,8 @@
     "routeTree.gen.ts",
     "**/$*",
     "**/$*/**",
+    "**/*.md",
+    "**/*.mdx",
     ".agents/",
     ".claude/"
   ],
@@ -16,6 +18,12 @@
     "sortScripts": true
   },
   "sortImports": {
+    "customGroups": [
+      {
+        "groupName": "react-libs",
+        "elementNamePattern": ["react", "react-dom", "react/**", "react-dom/**"]
+      }
+    ],
     "groups": [
       "type-import",
       "react-libs",

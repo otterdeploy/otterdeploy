@@ -21,19 +21,27 @@ describe("buildLiveNodes ghost synthesis", () => {
     const web = nodes.find((n) => n.id === "service:web");
     expect(web).toMatchObject({
       type: "resource",
-      data: { kind: "service", name: "web", pending: "create", description: "New service (pending)" },
+      data: {
+        kind: "service",
+        name: "web",
+        pending: "create",
+        description: "New service (pending)",
+      },
     });
 
     const db = nodes.find((n) => n.id === "database:db");
     expect(db).toMatchObject({
-      data: { kind: "database", name: "db", pending: "create", description: "New database (pending)" },
+      data: {
+        kind: "database",
+        name: "db",
+        pending: "create",
+        description: "New database (pending)",
+      },
     });
   });
 
   it("returns no nodes when there are no resources and no pending creates", () => {
     expect(buildLiveNodes([], noTasks)).toEqual([]);
-    expect(
-      buildLiveNodes([], noTasks, { creates: [], marker: new Map() }),
-    ).toEqual([]);
+    expect(buildLiveNodes([], noTasks, { creates: [], marker: new Map() })).toEqual([]);
   });
 });

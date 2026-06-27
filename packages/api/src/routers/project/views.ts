@@ -4,26 +4,15 @@
  * single source of truth.
  */
 
+import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
 import type * as z from "zod";
 
-import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
-
 import { reconcile } from "../../caddy";
-import {
-  getProxyRouteByResourceId,
-  updateProxyRoute,
-} from "../../caddy/queries";
+import { getProxyRouteByResourceId, updateProxyRoute } from "../../caddy/queries";
 import { PLATFORM } from "../../constants";
-import {
-  defaultImageFor,
-  getEngineAdapter,
-  type SwarmDatabaseRuntime,
-} from "../../swarm";
-import {
-  inspectSwarmDatabaseRuntime,
-  provisionSwarmDatabase,
-} from "../../runtime/db";
-
+import { inspectSwarmDatabaseRuntime, provisionSwarmDatabase } from "../../runtime/db";
+import { defaultImageFor, getEngineAdapter, type SwarmDatabaseRuntime } from "../../swarm";
+import { listServiceEnvVars } from "../service/queries";
 import {
   composeResourceSchema,
   postgresResourceSchema,
@@ -45,17 +34,13 @@ import {
   updateDatabaseResourceRuntime,
   updateDatabaseResourceStatus,
 } from "./queries";
-import { listServiceEnvVars } from "../service/queries";
 
 export type Project = z.infer<typeof projectSchema>;
 export type ProjectListItem = z.infer<typeof projectListItemSchema>;
 export type PostgresResource = z.infer<typeof postgresResourceSchema>;
 export type ServiceResourceView = z.infer<typeof serviceResourceSchema>;
 export type ComposeResourceView = z.infer<typeof composeResourceSchema>;
-export type ProjectResource =
-  | PostgresResource
-  | ServiceResourceView
-  | ComposeResourceView;
+export type ProjectResource = PostgresResource | ServiceResourceView | ComposeResourceView;
 export type ProxyRoute = z.infer<typeof proxyRouteSchema>;
 
 // ---------------------------------------------------------------------------
@@ -142,10 +127,7 @@ export async function mapDatabaseResource(
     projectSlug ??
     (await getProjectRecord(record.resource.projectId))?.slug ??
     record.resource.projectId;
-  const hydrated = await ensureSwarmRuntimeForRecord(
-    record,
-    resolvedProjectSlug,
-  );
+  const hydrated = await ensureSwarmRuntimeForRecord(record, resolvedProjectSlug);
   const runtime = hydrated.runtime;
   const databaseRecord = hydrated.record.database;
 
@@ -172,9 +154,7 @@ export async function mapDatabaseResource(
     // carry a stale ":5432"; recomputing means old rows auto-heal without
     // a migration, and any future tweak to the URL format (e.g. query
     // params) takes effect immediately.
-    publicConnectionString: getEngineAdapter(
-      databaseRecord.engine,
-    ).buildConnectionString({
+    publicConnectionString: getEngineAdapter(databaseRecord.engine).buildConnectionString({
       username: databaseRecord.username,
       password: databaseRecord.password,
       host: databaseRecord.publicHostname,
@@ -308,10 +288,7 @@ async function ensureSwarmRuntimeForRecord(
   const reconcileResult = await reconcile();
   const isApplied = reconcileResult.applied.includes(record.resource.projectId);
 
-  await updateDatabaseResourceStatus(
-    record.resource.id,
-    isApplied ? "valid" : "invalid",
-  );
+  await updateDatabaseResourceStatus(record.resource.id, isApplied ? "valid" : "invalid");
 
   return {
     record: {
@@ -424,9 +401,7 @@ function buildConnectionString(input: {
   sslmode?: "require";
   sslnegotiation?: "direct";
 }) {
-  const hostPort = input.port
-    ? `${input.hostname}:${input.port}`
-    : input.hostname;
+  const hostPort = input.port ? `${input.hostname}:${input.port}` : input.hostname;
   const url = new URL(
     `postgresql://${encodeURIComponent(input.username)}:${encodeURIComponent(input.password)}@${hostPort}/${encodeURIComponent(input.databaseName)}`,
   );

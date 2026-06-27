@@ -3,10 +3,10 @@
  * join through resource → project so one tenant can't read another's series.
  */
 import type { OrganizationId, ResourceId } from "@otterdeploy/shared/id";
-import { and, asc, eq, gte } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
 import { project, resource, resourceMetric } from "@otterdeploy/db/schema";
+import { and, asc, eq, gte } from "drizzle-orm";
 
 export interface MetricPoint {
   ts: Date;

@@ -10,7 +10,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { HugeiconsIcon } from "@hugeicons/react";
+
 import {
   Database01Icon,
   Search01Icon,
@@ -18,14 +18,10 @@ import {
   Tag01Icon,
   RefreshIcon,
 } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 
 import { Button } from "@/shared/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/shared/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
 import {
   Empty,
   EmptyDescription,
@@ -52,6 +48,7 @@ import {
 import { cn } from "@/shared/lib/utils";
 
 import type { PostgresBodyProps } from "../../../postgres/types";
+
 import { useRedisKeys, useRedisKeyspace, useRedisValue } from "./data/use-redis";
 
 interface RedisDataTabBodyProps {
@@ -75,28 +72,16 @@ export function RedisDataTabBody({ resource }: RedisDataTabBodyProps) {
     <div className="flex min-h-0 flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
         <RedisIdentity />
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1.5"
-          onClick={() => setExpanded(true)}
-        >
-          <HugeiconsIcon
-            icon={SquareArrowExpand01Icon}
-            strokeWidth={2}
-            className="size-3.5"
-          />
+        <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setExpanded(true)}>
+          <HugeiconsIcon icon={SquareArrowExpand01Icon} strokeWidth={2} className="size-3.5" />
           Open editor
         </Button>
       </div>
 
-      <RedisStudio
-        resource={resource}
-        boxClassName="h-[calc(100dvh-20rem)] min-h-[460px]"
-      />
+      <RedisStudio resource={resource} boxClassName="h-[calc(100dvh-20rem)] min-h-[460px]" />
 
       <Dialog open={expanded} onOpenChange={setExpanded}>
-        <DialogContent className="left-0 top-0 flex h-screen w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 sm:max-w-none">
+        <DialogContent className="top-0 left-0 flex h-screen w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 sm:max-w-none">
           <DialogHeader className="border-b px-4 py-3">
             <DialogTitle className="flex items-center gap-2 text-sm">
               <RedisIdentity />
@@ -199,19 +184,11 @@ function RedisStudio({
   const scanComplete = nextCursor === "0";
 
   return (
-    <div
-      className={cn(
-        "flex overflow-hidden rounded-lg border bg-card",
-        boxClassName,
-      )}
-    >
+    <div className={cn("flex overflow-hidden rounded-lg border bg-card", boxClassName)}>
       {/* ── Left rail — db picker + key browser ──────────────────────────── */}
       <div className="flex w-64 shrink-0 flex-col border-r bg-muted/20">
         <div className="space-y-2 border-b p-2">
-          <Select
-            value={String(db)}
-            onValueChange={(v) => v && resetSweep({ db: Number(v) })}
-          >
+          <Select value={String(db)} onValueChange={(v) => v && resetSweep({ db: Number(v) })}>
             <SelectTrigger className="h-7 text-[12px]">
               <SelectValue />
             </SelectTrigger>
@@ -220,9 +197,7 @@ function RedisStudio({
                 <SelectItem key={i} value={String(i)}>
                   db{i}
                   {dbCounts.has(i) ? (
-                    <span className="ml-1.5 text-muted-foreground">
-                      · {dbCounts.get(i)} keys
-                    </span>
+                    <span className="ml-1.5 text-muted-foreground">· {dbCounts.get(i)} keys</span>
                   ) : null}
                 </SelectItem>
               ))}
@@ -232,7 +207,7 @@ function RedisStudio({
             <HugeiconsIcon
               icon={Search01Icon}
               strokeWidth={2}
-              className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+              className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground"
             />
             <Input
               value={searchDraft}
@@ -241,26 +216,22 @@ function RedisStudio({
                 if (e.key === "Enter") applySearch();
               }}
               placeholder="Match keys…  e.g. user:*"
-              className="h-7 pl-7 pr-7 font-mono text-[12px]"
+              className="h-7 pr-7 pl-7 font-mono text-[12px]"
             />
             <Button
               variant="ghost"
               size="icon-sm"
-              className="absolute right-0.5 top-1/2 size-6 -translate-y-1/2"
+              className="absolute top-1/2 right-0.5 size-6 -translate-y-1/2"
               aria-label="Apply filter"
               onClick={applySearch}
             >
-              <HugeiconsIcon
-                icon={RefreshIcon}
-                strokeWidth={2}
-                className="size-3.5"
-              />
+              <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} className="size-3.5" />
             </Button>
           </div>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-2">
-          <div className="px-1.5 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+          <div className="px-1.5 pb-1.5 text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
             Keys {acc.length ? `· ${acc.length}${scanComplete ? "" : "+"}` : ""}
           </div>
           {keysQuery.isLoading && acc.length === 0 ? (
@@ -317,10 +288,7 @@ function RedisStudio({
       {/* ── Main — value inspector ───────────────────────────────────────── */}
       <div className="flex min-w-0 flex-1 flex-col">
         {!selectedKey ? (
-          <EmptyState
-            title="Select a key"
-            body="Pick a key from the left to inspect its value."
-          />
+          <EmptyState title="Select a key" body="Pick a key from the left to inspect its value." />
         ) : valueQuery.isLoading ? (
           <EmptyState title="Loading…" body="" />
         ) : valueQuery.isError ? (
@@ -333,11 +301,7 @@ function RedisStudio({
   );
 }
 
-function ValueView({
-  value,
-}: {
-  value: NonNullable<ReturnType<typeof useRedisValue>["data"]>;
-}) {
+function ValueView({ value }: { value: NonNullable<ReturnType<typeof useRedisValue>["data"]> }) {
   if (value.type === "none") {
     return (
       <EmptyState
@@ -365,7 +329,7 @@ function ValueView({
       {/* Body — string text or normalized grid */}
       <div className="min-h-0 flex-1 overflow-auto">
         {value.string !== null ? (
-          <pre className="whitespace-pre-wrap break-words p-3 font-mono text-[12px] leading-relaxed">
+          <pre className="p-3 font-mono text-[12px] leading-relaxed break-words whitespace-pre-wrap">
             {prettyMaybeJson(value.string)}
           </pre>
         ) : value.rows ? (
@@ -400,8 +364,8 @@ function ValueView({
 
       {value.truncated ? (
         <div className="border-t px-3 py-1.5 text-[11px] text-amber-500">
-          Showing the first {value.string !== null ? VALUE_LIMIT : value.rows?.cells.length}{" "}
-          of {value.length} — value is capped in the viewer.
+          Showing the first {value.string !== null ? VALUE_LIMIT : value.rows?.cells.length} of{" "}
+          {value.length} — value is capped in the viewer.
         </div>
       ) : null}
     </>
@@ -410,7 +374,7 @@ function ValueView({
 
 function TypeBadge({ type }: { type: string }) {
   return (
-    <span className="flex shrink-0 items-center gap-1 rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+    <span className="flex shrink-0 items-center gap-1 rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
       <HugeiconsIcon icon={Tag01Icon} strokeWidth={2} className="size-2.5" />
       {type}
     </span>

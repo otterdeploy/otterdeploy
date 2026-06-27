@@ -4,16 +4,11 @@
 import { useMemo, useState } from "react";
 
 import { SvglLogo } from "@/components/brand/svgl-logo";
-import { I } from "../icons";
-import { Field, SectionH } from "../components/form";
 
-type ChannelKind =
-  | "slack"
-  | "discord"
-  | "email"
-  | "webhook"
-  | "telegram"
-  | "pagerduty";
+import { Field, SectionH } from "../components/form";
+import { I } from "../icons";
+
+type ChannelKind = "slack" | "discord" | "email" | "webhook" | "telegram" | "pagerduty";
 type ChannelStatus = "active" | "warn" | "paused" | "disconnected";
 
 interface Channel {
@@ -84,7 +79,11 @@ const CHANNELS_SEED: Channel[] = [
 
 type Severity = "info" | "ok" | "warn" | "err";
 
-interface EventRow { id: string; label: string; severity: Severity }
+interface EventRow {
+  id: string;
+  label: string;
+  severity: Severity;
+}
 
 const EVENTS: EventRow[] = [
   { id: "deploy.started", label: "Deploy started", severity: "info" },
@@ -111,31 +110,13 @@ const DEFAULT_SUBS: Record<string, Set<string>> = {
     "health.degraded",
     "health.recovered",
   ]),
-  ch_discord: new Set([
-    "deploy.failed",
-    "build.failed",
-    "health.degraded",
-    "audit.anomaly",
-  ]),
-  ch_email: new Set([
-    "cert.expiring",
-    "cert.renewed",
-    "backup.failed",
-    "audit.anomaly",
-  ]),
-  ch_webhook: new Set([
-    "deploy.failed",
-    "health.degraded",
-    "audit.anomaly",
-    "backup.failed",
-  ]),
+  ch_discord: new Set(["deploy.failed", "build.failed", "health.degraded", "audit.anomaly"]),
+  ch_email: new Set(["cert.expiring", "cert.renewed", "backup.failed", "audit.anomaly"]),
+  ch_webhook: new Set(["deploy.failed", "health.degraded", "audit.anomaly", "backup.failed"]),
   ch_telegram: new Set(),
 };
 
-const KIND_META: Record<
-  ChannelKind,
-  { label: string; search?: string; sub: string }
-> = {
+const KIND_META: Record<ChannelKind, { label: string; search?: string; sub: string }> = {
   slack: {
     label: "Slack",
     search: "Slack",
@@ -163,8 +144,7 @@ export function Notifications() {
   const [channels, setChannels] = useState<Channel[]>(CHANNELS_SEED);
   const [subs, setSubs] = useState<Record<string, Set<string>>>(() => {
     const out: Record<string, Set<string>> = {};
-    for (const c of CHANNELS_SEED)
-      out[c.id] = new Set(DEFAULT_SUBS[c.id] ?? []);
+    for (const c of CHANNELS_SEED) out[c.id] = new Set(DEFAULT_SUBS[c.id] ?? []);
     return out;
   });
   const [addOpen, setAddOpen] = useState(false);
@@ -197,10 +177,7 @@ export function Notifications() {
   };
 
   return (
-    <div
-      className="os-scroll"
-      style={{ flex: 1, overflow: "auto", padding: 24 }}
-    >
+    <div className="os-scroll" style={{ flex: 1, overflow: "auto", padding: 24 }}>
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
         <div className="row" style={{ marginBottom: 16 }}>
           <SectionH
@@ -221,22 +198,13 @@ export function Notifications() {
               onTest={() => {
                 /* no-op */
               }}
-              onPause={() =>
-                setChannelStatus(
-                  c.id,
-                  c.status === "paused" ? "active" : "paused",
-                )
-              }
+              onPause={() => setChannelStatus(c.id, c.status === "paused" ? "active" : "paused")}
               onDelete={() => removeChannel(c.id)}
             />
           ))}
         </div>
 
-        <SubscriptionMatrix
-          channels={channels}
-          subs={subs}
-          onToggle={toggleSub}
-        />
+        <SubscriptionMatrix channels={channels} subs={subs} onToggle={toggleSub} />
       </div>
 
       {addOpen && (
@@ -252,13 +220,7 @@ export function Notifications() {
   );
 }
 
-function KindMonogram({
-  kind,
-  size = 28,
-}: {
-  kind: ChannelKind;
-  size?: number;
-}) {
+function KindMonogram({ kind, size = 28 }: { kind: ChannelKind; size?: number }) {
   const meta = KIND_META[kind];
   if (meta.search) {
     return (
@@ -343,13 +305,8 @@ function ChannelCard({
       <div className="row gap-3" style={{ alignItems: "flex-start" }}>
         <KindMonogram kind={channel.kind} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div
-            className="row gap-2"
-            style={{ alignItems: "center", marginBottom: 4 }}
-          >
-            <span style={{ fontWeight: 600, fontSize: 13 }}>
-              {channel.name}
-            </span>
+          <div className="row gap-2" style={{ alignItems: "center", marginBottom: 4 }}>
+            <span style={{ fontWeight: 600, fontSize: 13 }}>{channel.name}</span>
             <span
               className="badge mono"
               style={{
@@ -378,10 +335,7 @@ function ChannelCard({
           >
             {channel.target}
           </div>
-          <div
-            className="row gap-3"
-            style={{ marginTop: 8, fontSize: 11, color: "var(--fg-3)" }}
-          >
+          <div className="row gap-3" style={{ marginTop: 8, fontSize: 11, color: "var(--fg-3)" }}>
             <span>
               <span className="mono" style={{ color: "var(--fg-2)" }}>
                 {channel.events7d}
@@ -411,11 +365,7 @@ function ChannelCard({
           <button className="btn sm" onClick={onPause}>
             {channel.status === "paused" ? "Resume" : "Pause"}
           </button>
-          <button
-            className="btn ghost icon sm"
-            onClick={onDelete}
-            title="Delete channel"
-          >
+          <button className="btn ghost icon sm" onClick={onDelete} title="Delete channel">
             <I.trash width={12} height={12} />
           </button>
         </div>
@@ -459,11 +409,7 @@ function SubscriptionMatrix({
           <span>Event</span>
           <span>Severity</span>
           {channels.map((c) => (
-            <span
-              key={c.id}
-              className="row gap-2"
-              style={{ alignItems: "center" }}
-            >
+            <span key={c.id} className="row gap-2" style={{ alignItems: "center" }}>
               <KindMonogram kind={c.kind} size={18} />
               <span
                 style={{
@@ -567,21 +513,12 @@ function MatrixToggle({
   );
 }
 
-function AddChannelModal({
-  onClose,
-  onAdd,
-}: {
-  onClose: () => void;
-  onAdd: (c: Channel) => void;
-}) {
+function AddChannelModal({ onClose, onAdd }: { onClose: () => void; onAdd: (c: Channel) => void }) {
   const [kind, setKind] = useState<ChannelKind>("slack");
   const [name, setName] = useState("");
   const [target, setTarget] = useState("");
 
-  const placeholders: Record<
-    ChannelKind,
-    { name: string; target: string; transport: string }
-  > = {
+  const placeholders: Record<ChannelKind, { name: string; target: string; transport: string }> = {
     slack: {
       name: "#otterdeploy-deploys",
       target: "https://hooks.slack.com/services/...",
@@ -641,12 +578,8 @@ function AddChannelModal({
         backdropFilter: "blur(2px)",
       }}
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="os-modal"
-        style={{ width: 560 }}
-      >
-        <div className="row gap-2 os-modal-h">
+      <div onClick={(e) => e.stopPropagation()} className="os-modal" style={{ width: 560 }}>
+        <div className="row os-modal-h gap-2">
           <I.plus width={14} height={14} />
           <span style={{ fontWeight: 600 }}>Add notification channel</span>
           <div style={{ flex: 1 }} />
@@ -654,10 +587,7 @@ function AddChannelModal({
             <I.close width={13} height={13} />
           </button>
         </div>
-        <div
-          className="col gap-3"
-          style={{ padding: 18, overflow: "auto", maxHeight: "70vh" }}
-        >
+        <div className="col gap-3" style={{ padding: 18, overflow: "auto", maxHeight: "70vh" }}>
           <div>
             <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>
               Channel type
@@ -728,16 +658,10 @@ function AddChannelModal({
                 }}
               >
                 <Field label="SMTP host">
-                  <input
-                    className="input mono"
-                    defaultValue="smtp.postmarkapp.com"
-                  />
+                  <input className="input mono" defaultValue="smtp.postmarkapp.com" />
                 </Field>
                 <Field label="From address">
-                  <input
-                    className="input mono"
-                    defaultValue="alerts@otterdeploy.dev"
-                  />
+                  <input className="input mono" defaultValue="alerts@otterdeploy.dev" />
                 </Field>
               </div>
             </>
@@ -781,15 +705,11 @@ function AddChannelModal({
             <span className="mono" style={{ color: "var(--fg-2)" }}>
               test.ping
             </span>{" "}
-            event so you can confirm the channel wiring before subscribing it to
-            real events.
+            event so you can confirm the channel wiring before subscribing it to real events.
           </div>
         </div>
 
-        <div
-          className="row gap-2"
-          style={{ padding: 14, borderTop: "1px solid var(--border)" }}
-        >
+        <div className="row gap-2" style={{ padding: 14, borderTop: "1px solid var(--border)" }}>
           <button className="btn">
             <I.bolt width={11} height={11} /> Send test
           </button>

@@ -22,7 +22,12 @@ export function MiniCanvasPreview({ databases, routes, className }: Props) {
           <circle cx="1" cy="1" r="0.6" fill="currentColor" opacity="0.18" />
         </pattern>
       </defs>
-      <rect width="120" height="80" fill={`url(#${dotPatternId})`} className="text-muted-foreground" />
+      <rect
+        width="120"
+        height="80"
+        fill={`url(#${dotPatternId})`}
+        className="text-muted-foreground"
+      />
       {!hasContent ? (
         <text
           data-mini="empty"
@@ -63,7 +68,14 @@ export function MiniCanvasPreview({ databases, routes, className }: Props) {
             </text>
           ) : null}
           {routes > 0 ? (
-            <circle data-mini="routing" cx={104} cy={16} r={5} fill="currentColor" className="text-amber-500" />
+            <circle
+              data-mini="routing"
+              cx={104}
+              cy={16}
+              r={5}
+              fill="currentColor"
+              className="text-amber-500"
+            />
           ) : null}
         </>
       )}

@@ -5,7 +5,7 @@
  * (filters in browse mode) and `footerSlot` (counts + pagination).
  */
 import { useMemo, useRef } from "react";
-import { HugeiconsIcon } from "@hugeicons/react";
+
 import {
   Alert02Icon,
   Database01Icon,
@@ -13,6 +13,9 @@ import {
   SourceCodeIcon,
   Table01Icon,
 } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+
+import type { FkTarget } from "@/shared/components/data-grid/types";
 
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -25,14 +28,8 @@ import {
 import { JsonView } from "@/shared/components/ui/json-view";
 import { ScrollArea } from "@/shared/components/ui/scroll-area";
 import { ToggleGroup, ToggleGroupItem } from "@/shared/components/ui/toggle-group";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/shared/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/components/ui/tooltip";
 import { cn } from "@/shared/lib/utils";
-
-import type { FkTarget } from "@/shared/components/data-grid/types";
 
 import { type ColumnValue, type ColumnVariant, DiceResultGrid } from "./dice-grid";
 
@@ -66,19 +63,12 @@ interface ResultsPanelProps {
   onDeleteRow?: (pk: ColumnValue[]) => Promise<void>;
 }
 
-function downloadCsv(
-  columns: string[],
-  rows: (string | null)[][],
-  name: string,
-) {
+function downloadCsv(columns: string[], rows: (string | null)[][], name: string) {
   const esc = (v: string | null) => {
     if (v == null) return "";
     return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
   };
-  const csv = [
-    columns.map(esc).join(","),
-    ...rows.map((r) => r.map(esc).join(",")),
-  ].join("\n");
+  const csv = [columns.map(esc).join(","), ...rows.map((r) => r.map(esc).join(","))].join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -240,10 +230,7 @@ function CenterNote({
           <HugeiconsIcon
             icon={icon}
             strokeWidth={1.5}
-            className={cn(
-              "size-6 text-muted-foreground",
-              tone === "error" && "text-destructive",
-            )}
+            className={cn("size-6 text-muted-foreground", tone === "error" && "text-destructive")}
           />
         </EmptyMedia>
         <EmptyTitle>{title}</EmptyTitle>

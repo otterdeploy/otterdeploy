@@ -10,26 +10,17 @@
 import type { ProjectId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
-import {
-  deployment,
-  gitRepo,
-  project,
-  resource,
-  serviceResource,
-} from "@otterdeploy/db/schema";
+import { deployment, gitRepo, project, resource, serviceResource } from "@otterdeploy/db/schema";
 import { triggerDeploy } from "@otterdeploy/jobs";
-import { log } from "evlog";
 import { and, eq } from "drizzle-orm";
-
-import { emitDeployStarted } from "../routers/project/deployments";
+import { log } from "evlog";
 
 import type { GithubWebhookResult, PushEvent } from "./types";
+
+import { emitDeployStarted } from "../routers/project/deployments";
 import { changedPathsFromPush, matchesWatchPatterns } from "./watch-match";
 
-export async function handlePush(
-  ev: PushEvent,
-  deliveryId: string,
-): Promise<GithubWebhookResult> {
+export async function handlePush(ev: PushEvent, deliveryId: string): Promise<GithubWebhookResult> {
   if (ev.deleted) {
     return {
       kind: "push",
@@ -66,19 +57,12 @@ export async function handlePush(
   }
 
   // `refs/heads/main` → `main`.
-  const branch = ev.ref.startsWith("refs/heads/")
-    ? ev.ref.slice("refs/heads/".length)
-    : ev.ref;
+  const branch = ev.ref.startsWith("refs/heads/") ? ev.ref.slice("refs/heads/".length) : ev.ref;
 
   const projects = await db
     .select()
     .from(project)
-    .where(
-      and(
-        eq(project.gitRepoId, repo.id),
-        eq(project.productionBranch, branch),
-      ),
-    );
+    .where(and(eq(project.gitRepoId, repo.id), eq(project.productionBranch, branch)));
 
   if (projects.length === 0) {
     return {

@@ -12,14 +12,13 @@
  */
 
 import { useState } from "react";
+
+import { POSTGRES_EXTENSIONS, resolvePostgresImage } from "@otterdeploy/shared/postgres-extensions";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import {
-  POSTGRES_EXTENSIONS,
-  resolvePostgresImage,
-} from "@otterdeploy/shared/postgres-extensions";
-
+import { useStageManifestChange } from "@/features/projects/hooks/use-manifest-stage";
+import { SettingsCard } from "@/features/resources/components/_shared/settings-card";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,10 +32,8 @@ import {
 import { Button } from "@/shared/components/ui/button";
 import { Switch } from "@/shared/components/ui/switch";
 import { orpc, queryClient } from "@/shared/server/orpc";
-import { useStageManifestChange } from "@/features/projects/hooks/use-manifest-stage";
 
 import type { PostgresBodyProps } from "../../types";
-import { SettingsCard } from "@/features/resources/components/_shared/settings-card";
 
 export function ExtensionsCard({
   resource,
@@ -89,9 +86,7 @@ export function ExtensionsCard({
   };
 
   const apply = (name: string, on: boolean) => {
-    const next = on
-      ? [...enabled, name]
-      : enabled.filter((e) => e !== name);
+    const next = on ? [...enabled, name] : enabled.filter((e) => e !== name);
 
     // Block incompatible image combinations before the round-trip — the
     // server would reject them too, but this is instant and specific.
@@ -141,14 +136,12 @@ export function ExtensionsCard({
               <span className="flex items-center gap-2 text-[13px] font-medium">
                 {ext.label}
                 {!ext.contrib && (
-                  <span className="rounded bg-muted px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  <span className="rounded bg-muted px-1.5 py-0.5 text-[9.5px] font-semibold tracking-wide text-muted-foreground uppercase">
                     image swap
                   </span>
                 )}
               </span>
-              <span className="truncate text-[11px] text-muted-foreground">
-                {ext.description}
-              </span>
+              <span className="truncate text-[11px] text-muted-foreground">{ext.description}</span>
             </div>
             <Switch
               checked={isOn}
@@ -171,20 +164,15 @@ export function ExtensionsCard({
               {pendingSwap?.on ? "Enable" : "Disable"} {pendingSwap?.label}?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {pendingSwap?.label} {pendingSwap?.on ? "requires" : "ran on"} a
-              different database image. {pendingSwap?.on ? "Enabling" : "Disabling"}{" "}
-              it swaps the image and redeploys the database (~5–10s of downtime).
-              Existing data is preserved.
+              {pendingSwap?.label} {pendingSwap?.on ? "requires" : "ran on"} a different database
+              image. {pendingSwap?.on ? "Enabling" : "Disabling"} it swaps the image and redeploys
+              the database (~5–10s of downtime). Existing data is preserved.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel
               render={
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={busy}
-                >
+                <Button variant="outline" size="sm" disabled={busy}>
                   Cancel
                 </Button>
               }

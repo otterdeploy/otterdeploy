@@ -15,11 +15,7 @@ import { Docker } from "@otterdeploy/docker";
 
 import { execCapture, findServiceContainerId } from "../../backups/exec";
 import { buildContainerName } from "../project/views";
-import {
-  type DbConnInfo,
-  QueryError,
-  UnsupportedEngineError,
-} from "./query";
+import { type DbConnInfo, QueryError, UnsupportedEngineError } from "./query";
 
 export interface MariadbTable {
   schema: string;
@@ -34,12 +30,7 @@ export interface MariadbGrid {
 }
 
 /** System schemas hidden from the browser. */
-const SYSTEM_SCHEMAS = [
-  "information_schema",
-  "mysql",
-  "performance_schema",
-  "sys",
-];
+const SYSTEM_SCHEMAS = ["information_schema", "mysql", "performance_schema", "sys"];
 
 async function withMysql<T>(
   conn: DbConnInfo,
@@ -129,9 +120,7 @@ export async function mariadbBrowse(
   return withMysql(conn, async (run) => {
     const target = `${quoteIdent(opts.schema)}.${quoteIdent(opts.table)}`;
     // Fetch one extra to detect a next page without a COUNT(*).
-    const out = await run(
-      `SELECT * FROM ${target} LIMIT ${opts.limit + 1} OFFSET ${opts.offset}`,
-    );
+    const out = await run(`SELECT * FROM ${target} LIMIT ${opts.limit + 1} OFFSET ${opts.offset}`);
     const { columns, rows } = parseBatch(out);
     const hasMore = rows.length > opts.limit;
     return {

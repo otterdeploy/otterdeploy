@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip";
 import { authClient } from "@/lib/auth";
+
 import type { MemberRow } from "../types";
 
 export function MembersTable() {
@@ -69,9 +70,7 @@ export function MembersTable() {
                   <span className="text-sm font-medium">{row.name}</span>
                 </div>
               </TableCell>
-              <TableCell className="text-sm text-muted-foreground">
-                {row.email}
-              </TableCell>
+              <TableCell className="text-sm text-muted-foreground">{row.email}</TableCell>
               <TableCell>
                 <Badge variant="outline" className="text-[10px] uppercase">
                   {row.role}

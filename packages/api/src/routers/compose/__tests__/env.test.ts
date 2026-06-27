@@ -26,12 +26,8 @@ describe("interpolate", () => {
   it("resolves ${VAR:-default} in an image ref", () => {
     // the reported bug: image used compose interpolation, deployed raw to swarm.
     const img = "${SERVER_IMAGE:-ghcr.io/kaitosec/kaitosec-server}:${IMAGE_TAG:-latest}";
-    expect(interpolate(img, {})).toBe(
-      "ghcr.io/kaitosec/kaitosec-server:latest",
-    );
-    expect(interpolate(img, { SERVER_IMAGE: "my/app", IMAGE_TAG: "v2" })).toBe(
-      "my/app:v2",
-    );
+    expect(interpolate(img, {})).toBe("ghcr.io/kaitosec/kaitosec-server:latest");
+    expect(interpolate(img, { SERVER_IMAGE: "my/app", IMAGE_TAG: "v2" })).toBe("my/app:v2");
   });
 });
 

@@ -8,10 +8,9 @@
 
 import { useQuery } from "@tanstack/react-query";
 
-import { orpc } from "@/shared/server/orpc";
-
 import { DeploymentProtectionCell } from "@/features/projects/components/networking/deployment-protection-cell";
 import { SettingsCard } from "@/features/resources/components/_shared/settings-card";
+import { orpc } from "@/shared/server/orpc";
 
 export function ServiceProtectionCard({
   resource,
@@ -35,8 +34,7 @@ export function ServiceProtectionCard({
     >
       {!resource.publicEnabled || !route ? (
         <div className="px-3 py-2.5 text-[12px] text-muted-foreground">
-          Expose the service publicly first — protection gates the public HTTP
-          route.
+          Expose the service publicly first — protection gates the public HTTP route.
         </div>
       ) : (
         <div className="flex items-center justify-between gap-3 px-3 py-2.5">

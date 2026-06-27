@@ -3,11 +3,13 @@
 // other pending change, so deletes don't carve out a second code route.
 
 import { useState } from "react";
+
+import { Delete02Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { Delete02Icon } from "@hugeicons/core-free-icons";
 
+import { SettingsCard } from "@/features/resources/components/_shared/settings-card";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,8 +25,6 @@ import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
-import { SettingsCard } from "@/features/resources/components/_shared/settings-card";
-
 interface DangerZoneProps {
   resource: { projectId: string; name: string };
   onDeleted: () => void;
@@ -34,11 +34,7 @@ interface DangerZoneProps {
   pending?: boolean;
 }
 
-export function ServiceDangerZone({
-  resource,
-  onDeleted,
-  pending = false,
-}: DangerZoneProps) {
+export function ServiceDangerZone({ resource, onDeleted, pending = false }: DangerZoneProps) {
   const [confirmText, setConfirmText] = useState("");
   const canConfirm = confirmText.trim() === resource.name;
 
@@ -110,11 +106,7 @@ export function ServiceDangerZone({
                 size="sm"
                 className="gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
               >
-                <HugeiconsIcon
-                  icon={Delete02Icon}
-                  strokeWidth={2}
-                  className="size-3.5"
-                />
+                <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} className="size-3.5" />
                 {pending ? "Discard" : "Delete"}
               </Button>
             }
@@ -128,10 +120,7 @@ export function ServiceDangerZone({
                 {pending
                   ? "This drops the staged service and its configuration. Type "
                   : "This stages the deletion of the service, its proxy routes, and its stored env vars. Type "}
-                <span className="font-mono text-foreground">
-                  {resource.name}
-                </span>{" "}
-                to confirm.
+                <span className="font-mono text-foreground">{resource.name}</span> to confirm.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <Input
@@ -144,11 +133,7 @@ export function ServiceDangerZone({
             <AlertDialogFooter>
               <AlertDialogCancel
                 render={
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={deleteMutation.isPending}
-                  >
+                  <Button variant="outline" size="sm" disabled={deleteMutation.isPending}>
                     Cancel
                   </Button>
                 }

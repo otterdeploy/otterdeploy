@@ -21,8 +21,7 @@ export class BuildStepError extends TaggedError("BuildStepError")<{
   cause: unknown;
 }>() {
   constructor(args: { step: string; cause: unknown }) {
-    const detail =
-      args.cause instanceof Error ? args.cause.message : String(args.cause);
+    const detail = args.cause instanceof Error ? args.cause.message : String(args.cause);
     super({
       step: args.step,
       cause: args.cause,
@@ -33,9 +32,7 @@ export class BuildStepError extends TaggedError("BuildStepError")<{
 
 /** The deployment row carries no gitSha / gitRef — it isn't a git-triggered
  *  build, so there's nothing to check out. */
-export class InvalidDeploymentError extends TaggedError(
-  "InvalidDeploymentError",
-)<{
+export class InvalidDeploymentError extends TaggedError("InvalidDeploymentError")<{
   deploymentId: DeploymentId;
   message: string;
 }>() {
@@ -74,9 +71,7 @@ export class DeployHookError extends TaggedError("DeployHookError")<{
 }
 
 /** Swarm accepted the spec but the service never converged to healthy. */
-export class SwarmConvergenceError extends TaggedError(
-  "SwarmConvergenceError",
-)<{
+export class SwarmConvergenceError extends TaggedError("SwarmConvergenceError")<{
   serviceName: string;
   health: string | null;
   message: string;

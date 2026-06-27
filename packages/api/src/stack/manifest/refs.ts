@@ -29,14 +29,7 @@ export type Ref =
 
 const REF_PATTERN = /\$\{([^}]+)\}/g;
 
-const DATABASE_FIELDS = new Set([
-  "url",
-  "host",
-  "port",
-  "username",
-  "password",
-  "database",
-]);
+const DATABASE_FIELDS = new Set(["url", "host", "port", "username", "password", "database"]);
 
 export function isSecretSentinel(value: string): boolean {
   return value.trim() === "${secret}";
@@ -80,7 +73,11 @@ function parseToken(body: string): Ref {
         `Unknown database field "${tail}" in \${${body}}. Expected one of ${[...DATABASE_FIELDS].join(", ")}.`,
       );
     }
-    return { kind: "database", name, field: tail as Ref extends { kind: "database" } ? Ref["field"] : never };
+    return {
+      kind: "database",
+      name,
+      field: tail as Ref extends { kind: "database" } ? Ref["field"] : never,
+    };
   }
 
   if (namespace === "service") {

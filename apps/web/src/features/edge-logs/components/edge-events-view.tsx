@@ -1,6 +1,9 @@
 import { useMemo, useState } from "react";
+
 import { useQuery } from "@tanstack/react-query";
 
+import { Button } from "@/shared/components/ui/button";
+import { Input } from "@/shared/components/ui/input";
 import {
   Table,
   TableBody,
@@ -9,16 +12,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/shared/components/ui/table";
-import { Button } from "@/shared/components/ui/button";
-import { Input } from "@/shared/components/ui/input";
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
 import { HostFilter } from "./host-filter";
 
-type EdgeEvent = Awaited<
-  ReturnType<typeof orpc.edgeLogs.events.query.call>
->["rows"][number];
+type EdgeEvent = Awaited<ReturnType<typeof orpc.edgeLogs.events.query.call>>["rows"][number];
 
 const RANGES = ["5m", "1h", "6h", "24h", "7d"] as const;
 const CATEGORIES = ["cert", "upstream", "config", "other"] as const;
@@ -61,9 +60,7 @@ export function EdgeEventsView({ projectId }: { projectId?: string }) {
       input: {
         projectId,
         range,
-        categories: categories.size
-          ? ([...categories] as Category[])
-          : undefined,
+        categories: categories.size ? ([...categories] as Category[]) : undefined,
         levels: levels.size ? ([...levels] as Level[]) : undefined,
         hosts: hostFilter.length ? hostFilter : undefined,
         search: search.trim() || undefined,
@@ -107,8 +104,8 @@ export function EdgeEventsView({ projectId }: { projectId?: string }) {
           </span>
         </div>
         <p className="mt-0.5 text-[13px] text-muted-foreground">
-          Caddy's operational log — TLS/ACME certificate lifecycle and upstream
-          errors. Live-tailed from the proxy's default logger.
+          Caddy's operational log — TLS/ACME certificate lifecycle and upstream errors. Live-tailed
+          from the proxy's default logger.
         </p>
       </div>
 
@@ -151,14 +148,14 @@ export function EdgeEventsView({ projectId }: { projectId?: string }) {
 
       {/* Event table — full bleed, separators only */}
       <div className="min-h-0 flex-1 overflow-auto">
-        <Table className="[&_td:first-child]:pl-4 [&_th:first-child]:pl-4 [&_td:last-child]:pr-4 [&_th:last-child]:pr-4">
+        <Table className="[&_td:first-child]:pl-4 [&_td:last-child]:pr-4 [&_th:first-child]:pl-4 [&_th:last-child]:pr-4">
           <TableHeader>
             <TableRow className="border-b bg-muted/30 hover:bg-transparent">
               <TableHead className="w-8" />
               {["Time", "Level", "Category", "Host", "Message"].map((h) => (
                 <TableHead
                   key={h}
-                  className="h-8 text-[10px] font-semibold uppercase tracking-[0.06em]"
+                  className="h-8 text-[10px] font-semibold tracking-[0.06em] uppercase"
                 >
                   {h}
                 </TableHead>
@@ -259,7 +256,9 @@ function Segmented({
             onClick={() => onChange(o)}
             className={cn(
               "rounded px-2 py-1 text-[11px] font-medium transition-colors",
-              active ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+              active
+                ? "bg-muted text-foreground"
+                : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
             )}
           >
             {o}
@@ -328,13 +327,13 @@ function EventRow({
                 ) : null}
               </div>
               <div className="mt-3">
-                <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+                <div className="mb-1.5 text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
                   Raw
                 </div>
                 <pre
                   className={cn(
                     "max-h-64 overflow-auto rounded-md border bg-background/60 p-3 font-mono text-[11.5px] leading-relaxed",
-                    wrap ? "whitespace-pre-wrap break-all" : "whitespace-pre",
+                    wrap ? "break-all whitespace-pre-wrap" : "whitespace-pre",
                   )}
                 >
                   {row.raw}
@@ -348,23 +347,11 @@ function EventRow({
   );
 }
 
-function Detail({
-  k,
-  v,
-  wide,
-  wrap,
-}: {
-  k: string;
-  v: string;
-  wide?: boolean;
-  wrap?: boolean;
-}) {
+function Detail({ k, v, wide, wrap }: { k: string; v: string; wide?: boolean; wrap?: boolean }) {
   return (
     <div className={cn("flex min-w-0 gap-2", wide && "col-span-2")}>
       <span className="shrink-0 text-muted-foreground">{k}</span>
-      <span className={cn("min-w-0 text-foreground/90", wrap ? "break-all" : "truncate")}>
-        {v}
-      </span>
+      <span className={cn("min-w-0 text-foreground/90", wrap ? "break-all" : "truncate")}>{v}</span>
     </div>
   );
 }

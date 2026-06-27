@@ -1,11 +1,7 @@
 import { createCollection } from "@tanstack/db";
-import {
-  parseLoadSubsetOptions,
-  queryCollectionOptions,
-} from "@tanstack/query-db-collection";
+import { parseLoadSubsetOptions, queryCollectionOptions } from "@tanstack/query-db-collection";
 
 import { parseCol, projectIdSchema } from "@/shared/lib/utils";
-
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 /**

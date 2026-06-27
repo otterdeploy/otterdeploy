@@ -9,10 +9,10 @@ import type {
   OrganizationId,
   ProjectId,
 } from "@otterdeploy/shared/id";
-import { and, eq } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
 import { backupSchedule } from "@otterdeploy/db/schema";
+import { and, eq } from "drizzle-orm";
 
 export async function createScheduleRecord(input: {
   organizationId: OrganizationId;
@@ -82,8 +82,7 @@ export async function updateScheduleRecord(input: {
   if (input.keepWeekly !== undefined) patch.keepWeekly = input.keepWeekly;
   if (input.keepMonthly !== undefined) patch.keepMonthly = input.keepMonthly;
   if (input.keepYearly !== undefined) patch.keepYearly = input.keepYearly;
-  if (input.retentionDays !== undefined)
-    patch.retentionDays = input.retentionDays;
+  if (input.retentionDays !== undefined) patch.retentionDays = input.retentionDays;
   if (input.maxStorageGb !== undefined) patch.maxStorageGb = input.maxStorageGb;
   if (input.preHook !== undefined) patch.preHook = input.preHook;
   if (input.enabled !== undefined) patch.enabled = input.enabled;
@@ -92,10 +91,7 @@ export async function updateScheduleRecord(input: {
     .update(backupSchedule)
     .set(patch)
     .where(
-      and(
-        eq(backupSchedule.id, input.id),
-        eq(backupSchedule.organizationId, input.organizationId),
-      ),
+      and(eq(backupSchedule.id, input.id), eq(backupSchedule.organizationId, input.organizationId)),
     )
     .returning();
   return row ?? null;
@@ -108,10 +104,7 @@ export async function deleteScheduleRecord(input: {
   const [row] = await db
     .delete(backupSchedule)
     .where(
-      and(
-        eq(backupSchedule.id, input.id),
-        eq(backupSchedule.organizationId, input.organizationId),
-      ),
+      and(eq(backupSchedule.id, input.id), eq(backupSchedule.organizationId, input.organizationId)),
     )
     .returning({ id: backupSchedule.id });
   return Boolean(row);

@@ -38,8 +38,7 @@ function tick(): void {
       ok: (count) => {
         if (count > 0) log.info({ blocklist: { step: "sync", count } });
       },
-      err: (error) =>
-        log.error({ blocklist: { step: "sync", status: "error" }, error }),
+      err: (error) => log.error({ blocklist: { step: "sync", status: "error" }, error }),
     }),
   );
 }

@@ -1,5 +1,5 @@
-
 import type { ProjectId, ProxyRouteId, ResourceId } from "@otterdeploy/shared/id";
+
 import { TaggedError } from "better-result";
 
 // ---------------------------------------------------------------------------
@@ -21,9 +21,7 @@ export class ProjectNotFoundError extends TaggedError("ProjectNotFoundError")<{
 /** Raised when a proxy-route mutation targets a route that doesn't exist
  *  or doesn't belong to the caller's org (the two are indistinguishable to
  *  the caller by design — never leak cross-org existence). */
-export class ProxyRouteNotFoundError extends TaggedError(
-  "ProxyRouteNotFoundError",
-)<{
+export class ProxyRouteNotFoundError extends TaggedError("ProxyRouteNotFoundError")<{
   message: string;
   routeId: ProxyRouteId;
 }>() {
@@ -53,9 +51,7 @@ export class ProjectConflictError extends TaggedError("ProjectConflictError")<{
  * Always an org-scope violation — the FK column is application-managed
  * so we have to verify cross-org access before writing.
  */
-export class ProjectInvalidBindingError extends TaggedError(
-  "ProjectInvalidBindingError",
-)<{
+export class ProjectInvalidBindingError extends TaggedError("ProjectInvalidBindingError")<{
   message: string;
   field: "gitRepoId" | "containerRegistryId";
 }>() {
@@ -71,9 +67,7 @@ export class ProjectInvalidBindingError extends TaggedError(
 // Postgres resource lifecycle errors
 // ---------------------------------------------------------------------------
 
-export class PostgresResourceNotFoundError extends TaggedError(
-  "PostgresResourceNotFoundError",
-)<{
+export class PostgresResourceNotFoundError extends TaggedError("PostgresResourceNotFoundError")<{
   message: string;
   resourceId: ResourceId;
 }>() {
@@ -85,9 +79,7 @@ export class PostgresResourceNotFoundError extends TaggedError(
   }
 }
 
-export class PostgresResourceConflictError extends TaggedError(
-  "PostgresResourceConflictError",
-)<{
+export class PostgresResourceConflictError extends TaggedError("PostgresResourceConflictError")<{
   message: string;
   name: string;
 }>() {
@@ -104,9 +96,7 @@ export class PostgresResourceConflictError extends TaggedError(
  * images (e.g. postgis + timescaledb) — a single service runs a single
  * image, so the combination is rejected rather than silently dropping one.
  */
-export class IncompatibleExtensionsError extends TaggedError(
-  "IncompatibleExtensionsError",
-)<{
+export class IncompatibleExtensionsError extends TaggedError("IncompatibleExtensionsError")<{
   message: string;
   conflict: string[];
 }>() {
@@ -122,9 +112,7 @@ export class IncompatibleExtensionsError extends TaggedError(
 // Manifest lifecycle errors
 // ---------------------------------------------------------------------------
 
-export class ManifestVersionConflictError extends TaggedError(
-  "ManifestVersionConflictError",
-)<{
+export class ManifestVersionConflictError extends TaggedError("ManifestVersionConflictError")<{
   message: string;
   currentVersion: number;
 }>() {

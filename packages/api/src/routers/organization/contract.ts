@@ -13,6 +13,7 @@
 
 import { oc } from "@orpc/contract";
 import * as z from "zod";
+
 import { organizationIdField } from "../project/contract/shared";
 
 const tag = "organization";
@@ -92,13 +93,7 @@ const autoConfigureDomainOutput = z.object({
    *  a separate roundtrip. */
   verify: z.object({
     ok: z.boolean(),
-    reason: z.enum([
-      "ok",
-      "no-record",
-      "value-mismatch",
-      "lookup-failed",
-      "missing-token",
-    ]),
+    reason: z.enum(["ok", "no-record", "value-mismatch", "lookup-failed", "missing-token"]),
   }),
   settings: organizationSettingsSchema,
 });
@@ -114,13 +109,7 @@ const verifyBaseDomainOutput = z.object({
   /** TXT values the resolver actually returned — empty when no record
    *  exists. Drives "we saw X, expected Y" diagnostics. */
   found: z.array(z.string()),
-  reason: z.enum([
-    "ok",
-    "no-record",
-    "value-mismatch",
-    "lookup-failed",
-    "missing-token",
-  ]),
+  reason: z.enum(["ok", "no-record", "value-mismatch", "lookup-failed", "missing-token"]),
   errorMessage: z.string().optional(),
   /** Echo back the updated settings on success so the UI doesn't need a
    *  separate refetch. Null on failure (no state change happened). */

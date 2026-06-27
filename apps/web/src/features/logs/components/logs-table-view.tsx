@@ -5,11 +5,13 @@
  * virtualizer, follow state) is owned by the route and threaded in as props.
  */
 
-import { flexRender, type Row, type Table } from "@tanstack/react-table";
 import type { Virtualizer } from "@tanstack/react-virtual";
+
+import type { RefObject } from "react";
+
 import { ArrowDown01Icon, ArrowUp01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import type { RefObject } from "react";
+import { flexRender, type Row, type Table } from "@tanstack/react-table";
 
 import {
   TableBody,
@@ -20,8 +22,9 @@ import {
 } from "@/shared/components/ui/table";
 import { cn } from "@/shared/lib/utils";
 
-import { LEVEL_STRIPE, type LogLine } from "../data/use-project-log-stream";
 import type { LogStreamStatus } from "./logs-status";
+
+import { LEVEL_STRIPE, type LogLine } from "../data/use-project-log-stream";
 
 interface LogsTableViewProps {
   table: Table<LogLine>;
@@ -81,9 +84,7 @@ export function LogsTableView({
 
         {matchCount === 0 && (
           <div className="py-16 text-center text-[13px] text-muted-foreground">
-            {status === "connecting"
-              ? "Connecting to log stream…"
-              : "No logs match these filters."}
+            {status === "connecting" ? "Connecting to log stream…" : "No logs match these filters."}
           </div>
         )}
       </div>
@@ -94,11 +95,7 @@ export function LogsTableView({
           onClick={() => onFollowChange(true)}
           className="absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full border bg-card px-3 py-1.5 text-[11px] font-medium shadow-md hover:bg-muted"
         >
-          <HugeiconsIcon
-            icon={ArrowDown01Icon}
-            strokeWidth={2}
-            className="size-3.5"
-          />
+          <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={2} className="size-3.5" />
           Jump to latest
         </button>
       )}
@@ -119,8 +116,8 @@ function LogsTableHeader({ table }: { table: Table<LogLine> }) {
                 key={h.id}
                 style={isMsg ? undefined : { width: h.getSize() }}
                 className={cn(
-                  "flex h-8 items-center text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground",
-                  isMsg ? "flex-1 min-w-0" : "shrink-0",
+                  "flex h-8 items-center text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase",
+                  isMsg ? "min-w-0 flex-1" : "shrink-0",
                 )}
               >
                 {h.isPlaceholder ? null : h.column.getCanSort() ? (
@@ -157,17 +154,9 @@ interface LogsTableBodyProps {
   onSelect: (id: string | null) => void;
 }
 
-function LogsTableBody({
-  rows,
-  virtualizer,
-  selectedId,
-  onSelect,
-}: LogsTableBodyProps) {
+function LogsTableBody({ rows, virtualizer, selectedId, onSelect }: LogsTableBodyProps) {
   return (
-    <TableBody
-      className="relative grid"
-      style={{ height: virtualizer.getTotalSize() }}
-    >
+    <TableBody className="relative grid" style={{ height: virtualizer.getTotalSize() }}>
       {virtualizer.getVirtualItems().map((vi) => {
         const row = rows[vi.index];
         if (!row) return null;
@@ -189,22 +178,21 @@ function LogsTableBody({
               // Control cells (expand chevron, select checkbox) act on the row
               // itself — a click here must not also open the detail panel,
               // including clicks on the cell padding around the small control.
-              const isControl =
-                cell.column.id === "expander" || cell.column.id === "select";
+              const isControl = cell.column.id === "expander" || cell.column.id === "select";
               return (
                 <TableCell
                   key={cell.id}
                   onClick={isControl ? (e) => e.stopPropagation() : undefined}
                   style={isMsg ? undefined : { width: cell.column.getSize() }}
                   className={cn(
-                    "relative flex items-start whitespace-normal px-2 py-1",
-                    isMsg ? "flex-1 min-w-0" : "shrink-0",
+                    "relative flex items-start px-2 py-1 whitespace-normal",
+                    isMsg ? "min-w-0 flex-1" : "shrink-0",
                   )}
                 >
                   {i === 0 && (
                     <span
                       className={cn(
-                        "absolute left-0 top-0 h-full w-0.5",
+                        "absolute top-0 left-0 h-full w-0.5",
                         LEVEL_STRIPE[row.original.level],
                       )}
                       aria-hidden

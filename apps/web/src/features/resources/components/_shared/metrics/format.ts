@@ -9,10 +9,7 @@ const BYTE_UNITS = ["B", "KB", "MB", "GB", "TB", "PB"] as const;
 /** Human-readable byte size, e.g. `512 MB`, `1.4 GB`. */
 export function formatBytes(bytes: number, fractionDigits = 1): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
-  const i = Math.min(
-    Math.floor(Math.log(bytes) / Math.log(1024)),
-    BYTE_UNITS.length - 1,
-  );
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), BYTE_UNITS.length - 1);
   const value = bytes / 1024 ** i;
   // Whole bytes have no useful fraction; everything else keeps one decimal.
   return `${value.toFixed(i === 0 ? 0 : fractionDigits)} ${BYTE_UNITS[i]}`;

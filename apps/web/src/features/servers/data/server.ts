@@ -1,7 +1,8 @@
 import type { serverSchema } from "@otterdeploy/api/routers/server/contract";
+import type { z } from "zod";
+
 import { createCollection } from "@tanstack/db";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
-import type { z } from "zod";
 
 import { orpc, queryClient } from "@/shared/server/orpc";
 
@@ -34,9 +35,7 @@ export const serverCollection = createCollection(
     },
     onDelete: async ({ transaction }) => {
       await Promise.all(
-        transaction.mutations.map((m) =>
-          orpc.server.delete.call({ id: m.original.id }),
-        ),
+        transaction.mutations.map((m) => orpc.server.delete.call({ id: m.original.id })),
       );
     },
     queryClient,

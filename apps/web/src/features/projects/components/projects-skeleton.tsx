@@ -20,10 +20,7 @@ export function ProjectsSkeleton() {
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {Array.from({ length: 6 }).map((_, i) => (
-          <div
-            key={i}
-            className="flex flex-col gap-3 rounded-xl border bg-card p-4"
-          >
+          <div key={i} className="flex flex-col gap-3 rounded-xl border bg-card p-4">
             <div className="flex items-start justify-between gap-3">
               <div className="flex flex-col gap-1.5">
                 <Skeleton className="h-4 w-28" />

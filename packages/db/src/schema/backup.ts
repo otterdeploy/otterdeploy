@@ -1,3 +1,12 @@
+import type {
+  BackupDestinationId,
+  BackupId,
+  BackupScheduleId,
+  OrganizationId,
+  ProjectId,
+  ResourceId,
+} from "@otterdeploy/shared/id";
+
 /**
  * Backups schema — destinations, schedules, runs, and run logs.
  *
@@ -24,15 +33,6 @@
  *     pub/sub without scanning a JSONB blob.
  */
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
-import type {
-  BackupDestinationId,
-  BackupId,
-  BackupScheduleId,
-  OrganizationId,
-  ProjectId,
-  ResourceId,
-} from "@otterdeploy/shared/id";
-
 import {
   bigint,
   bigserial,
@@ -53,22 +53,14 @@ import { project, resource } from "./project";
 // Enums (shared across backup tables)
 // ---------------------------------------------------------------------------
 
-export const backupDestinationTypeEnum = pgEnum("backup_destination_type", [
-  "s3",
-  "local",
-  "sftp",
+export const backupDestinationTypeEnum = pgEnum("backup_destination_type", ["s3", "local", "sftp"]);
+
+export const backupDestinationStatusEnum = pgEnum("backup_destination_status", [
+  "active",
+  "degraded",
 ]);
 
-export const backupDestinationStatusEnum = pgEnum(
-  "backup_destination_status",
-  ["active", "degraded"],
-);
-
-export const backupKindEnum = pgEnum("backup_kind", [
-  "database",
-  "volume",
-  "stack",
-]);
+export const backupKindEnum = pgEnum("backup_kind", ["database", "volume", "stack"]);
 
 export const backupStatusEnum = pgEnum("backup_status", [
   "queued",
@@ -96,11 +88,7 @@ export const backupRetentionClassEnum = pgEnum("backup_retention_class", [
   "archive",
 ]);
 
-export const backupLogStreamEnum = pgEnum("backup_log_stream", [
-  "stdout",
-  "stderr",
-  "system",
-]);
+export const backupLogStreamEnum = pgEnum("backup_log_stream", ["stdout", "stderr", "system"]);
 
 // ---------------------------------------------------------------------------
 // backup_destination — where backups are stored
@@ -125,10 +113,7 @@ export const backupDestination = pgTable(
       .references(() => organization.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     type: backupDestinationTypeEnum("type").notNull(),
-    config: jsonb("config")
-      .$type<Record<string, unknown>>()
-      .notNull()
-      .default({}),
+    config: jsonb("config").$type<Record<string, unknown>>().notNull().default({}),
     encryptedSecret: text("encrypted_secret"),
     status: backupDestinationStatusEnum("status").notNull().default("active"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -174,13 +159,8 @@ export const backupSchedule = pgTable(
     // Storage destinations this schedule fans each run out to (a single dump is
     // copied to every id). No FK — like `sources`, it's a jsonb id array;
     // referential integrity is enforced at write time in the router.
-    destinationIds: jsonb("destination_ids")
-      .$type<BackupDestinationId[]>()
-      .notNull()
-      .default([]),
-    encryption: backupEncryptionEnum("encryption")
-      .notNull()
-      .default("aes-256-gcm"),
+    destinationIds: jsonb("destination_ids").$type<BackupDestinationId[]>().notNull().default([]),
+    encryption: backupEncryptionEnum("encryption").notNull().default("aes-256-gcm"),
     pitr: boolean("pitr").notNull().default(false),
     enabled: boolean("enabled").notNull().default(true),
     preHook: text("pre_hook"),
@@ -232,17 +212,13 @@ export const backup = pgTable(
       .notNull()
       .$type<BackupDestinationId>()
       .references(() => backupDestination.id, { onDelete: "restrict" }),
-    encryption: backupEncryptionEnum("encryption")
-      .notNull()
-      .default("aes-256-gcm"),
+    encryption: backupEncryptionEnum("encryption").notNull().default("aes-256-gcm"),
     sourceSizeBytes: bigint("source_size_bytes", { mode: "number" }),
     compressedSizeBytes: bigint("compressed_size_bytes", { mode: "number" }),
     checksum: text("checksum"),
     // S3 key or local path of the produced archive.
     storagePath: text("storage_path"),
-    retention: backupRetentionClassEnum("retention")
-      .notNull()
-      .default("standard"),
+    retention: backupRetentionClassEnum("retention").notNull().default("standard"),
     durationMs: integer("duration_ms"),
     errorMessage: text("error_message"),
     startedAt: timestamp("started_at"),

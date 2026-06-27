@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Port } from "./form-fields/ports-field";
 import type { Var } from "./form-fields/variables-field";
+
 import {
   buildDatabaseSpec,
   buildServiceSpec,
@@ -62,7 +63,10 @@ describe("resourcesFromForm", () => {
 describe("portsToManifest", () => {
   it("marks the first port primary and classifies app protocol", () => {
     expect(
-      portsToManifest([port({ port: 8080, protocol: "http" }), port({ port: 5432, protocol: "tcp" })]),
+      portsToManifest([
+        port({ port: 8080, protocol: "http" }),
+        port({ port: 5432, protocol: "tcp" }),
+      ]),
     ).toEqual([
       { container: 8080, protocol: "tcp", appProtocol: "http", primary: true },
       { container: 5432, protocol: "tcp", appProtocol: "tcp", primary: false },

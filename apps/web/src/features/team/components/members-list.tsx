@@ -9,18 +9,15 @@
  */
 
 import { useState } from "react";
+
 import { Delete02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
 
+import { membersCollection, useMembers, type TeamMember } from "@/features/team/data/use-team";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Skeleton } from "@/shared/components/ui/skeleton";
-import {
-  membersCollection,
-  useMembers,
-  type TeamMember,
-} from "@/features/team/data/use-team";
 
 export function MembersList({
   organizationId,
@@ -35,9 +32,7 @@ export function MembersList({
 
   return (
     <section className="flex flex-col gap-2">
-      <h3 className="text-sm font-semibold">
-        Members{rows.length > 0 ? ` (${rows.length})` : ""}
-      </h3>
+      <h3 className="text-sm font-semibold">Members{rows.length > 0 ? ` (${rows.length})` : ""}</h3>
       <div className="flex flex-col divide-y rounded-xl border">
         {isLoading && rows.length === 0 ? (
           <div className="flex flex-col gap-2 p-4">
@@ -76,9 +71,7 @@ function MemberRow({
     tx.isPersisted.promise
       .then(() => toast.success(`Removed ${member.email}`))
       .catch((err: unknown) =>
-        toast.error(
-          err instanceof Error ? err.message : "Failed to remove member",
-        ),
+        toast.error(err instanceof Error ? err.message : "Failed to remove member"),
       )
       .finally(() => setBusy(false));
   };

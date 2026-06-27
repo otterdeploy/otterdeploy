@@ -1,8 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { I } from "../icons";
-import { PROJECTS } from "../data";
-import { StatusBadge } from "../components/status-badge";
 import { Field, SectionH, Switch3 } from "../components/form";
 import {
   ALL_PROJECTS,
@@ -10,6 +7,9 @@ import {
   ProjectTagBadge,
   matchesProjectFilter,
 } from "../components/project-filter";
+import { StatusBadge } from "../components/status-badge";
+import { PROJECTS } from "../data";
+import { I } from "../icons";
 
 // ────────── Types ──────────
 type BackupKind = "database" | "volume" | "stack";
@@ -136,9 +136,9 @@ const SEED_BACKUPS: Backup[] = [
     sourceService: "postgres",
     sourceHost: "helio-prod-01:5432",
     log: [
-      "11:37:14 [info] pg_dump: starting dump of database \"helio\"",
-      "11:37:14 [info] pg_dump: dumping contents of table \"public.events\"",
-      "11:37:31 [info] pg_dump: dumping contents of table \"public.users\"",
+      '11:37:14 [info] pg_dump: starting dump of database "helio"',
+      '11:37:14 [info] pg_dump: dumping contents of table "public.events"',
+      '11:37:31 [info] pg_dump: dumping contents of table "public.users"',
       "11:37:44 [info] gzip -9 helio.dump → helio.dump.gz",
       "11:37:51 [info] sha256sum helio.dump.gz",
       "11:37:55 [ok]   uploaded → s3://helio-backups.local/postgres/2026-05-03/helio.dump.gz",
@@ -164,9 +164,9 @@ const SEED_BACKUPS: Backup[] = [
     sourceService: "billing-pg",
     sourceHost: "helio-prod-02:5432",
     log: [
-      "11:00:02 [info] pg_dump: starting dump of database \"billing\"",
-      "11:00:09 [info] pg_dump: dumping table \"public.invoices\"",
-      "11:00:18 [info] pg_dump: dumping table \"public.charges\"",
+      '11:00:02 [info] pg_dump: starting dump of database "billing"',
+      '11:00:09 [info] pg_dump: dumping table "public.invoices"',
+      '11:00:18 [info] pg_dump: dumping table "public.charges"',
       "11:00:24 [info] gzip -9 billing.dump → billing.dump.gz",
       "11:00:27 [info] sha256sum billing.dump.gz",
       "11:00:29 [ok]   uploaded → s3://helio-backups.local/billing-pg/2026-05-03/billing.dump.gz",
@@ -246,8 +246,8 @@ const SEED_BACKUPS: Backup[] = [
     sourceService: "postgres",
     sourceHost: "helio-prod-01:5432",
     log: [
-      "09:00:00 [info] pg_dump: starting dump of database \"helio\"",
-      "09:00:14 [info] pg_dump: dumping contents of table \"public.events\"",
+      '09:00:00 [info] pg_dump: starting dump of database "helio"',
+      '09:00:14 [info] pg_dump: dumping contents of table "public.events"',
       "09:00:30 [info] gzip -9 helio.dump → helio.dump.gz",
       "09:00:36 [info] sha256sum helio.dump.gz",
       "09:00:38 [ok]   uploaded → s3://helio-backups.local/postgres/",
@@ -328,9 +328,9 @@ const SEED_BACKUPS: Backup[] = [
     sourceService: "billing-pg",
     sourceHost: "helio-prod-02:5432",
     log: [
-      "11:00:02 [info] pg_dump: starting dump of database \"billing\"",
-      "11:00:09 [info] pg_dump: dumping table \"public.invoices\"",
-      "11:00:18 [info] pg_dump: dumping table \"public.charges\"",
+      '11:00:02 [info] pg_dump: starting dump of database "billing"',
+      '11:00:09 [info] pg_dump: dumping table "public.invoices"',
+      '11:00:18 [info] pg_dump: dumping table "public.charges"',
       "11:00:23 [info] gzip -9 billing.dump → billing.dump.gz",
       "11:00:25 [info] sha256sum billing.dump.gz",
       "11:00:27 [ok]   uploaded → s3://helio-backups.local/billing-pg/",
@@ -384,8 +384,8 @@ const SEED_BACKUPS: Backup[] = [
     sourceService: "postgres",
     sourceHost: "helio-prod-01:5432",
     log: [
-      "03:00:00 [info] pg_dump: starting dump of database \"helio\"",
-      "03:00:14 [info] pg_dump: dumping contents of table \"public.events\"",
+      '03:00:00 [info] pg_dump: starting dump of database "helio"',
+      '03:00:14 [info] pg_dump: dumping contents of table "public.events"',
       "03:00:28 [info] gzip -9 helio.dump → helio.dump.gz",
       "03:00:33 [info] sha256sum helio.dump.gz",
       "03:00:35 [ok]   uploaded → s3://helio-backups.local/postgres/",
@@ -410,13 +410,14 @@ const SEED_BACKUPS: Backup[] = [
     compressedSizeMB: 0,
     sourceService: "billing-pg",
     sourceHost: "helio-prod-02:5432",
-    error: "pg_dump: connection to server at \"billing-pg\" (10.0.4.12), port 5432 failed: Operation timed out",
+    error:
+      'pg_dump: connection to server at "billing-pg" (10.0.4.12), port 5432 failed: Operation timed out',
     log: [
       "11:00:02 [info] pg_dump: connecting to billing-pg:5432",
       "11:00:14 [warn] tcp connect retry 1/3",
       "11:00:26 [warn] tcp connect retry 2/3",
       "11:00:38 [warn] tcp connect retry 3/3",
-      "11:00:50 [err]  pg_dump: error: connection to server at \"billing-pg\" (10.0.4.12) failed: Operation timed out",
+      '11:00:50 [err]  pg_dump: error: connection to server at "billing-pg" (10.0.4.12) failed: Operation timed out',
       "11:00:50 [err]  job exited with code 1",
     ],
   },
@@ -731,8 +732,7 @@ export function Backups() {
   const lastSuccess = backups.find((b) => b.status === "succeeded");
   const lastFail = backups.find((b) => b.status === "failed");
 
-  const onDeleteBackup = (id: string) =>
-    setBackups((bs) => bs.filter((b) => b.id !== id));
+  const onDeleteBackup = (id: string) => setBackups((bs) => bs.filter((b) => b.id !== id));
   const onToggleSchedule = (id: string) =>
     setSchedules((ss) => ss.map((s) => (s.id === id ? { ...s, enabled: !s.enabled } : s)));
 
@@ -767,17 +767,29 @@ export function Backups() {
             marginBottom: 22,
           }}
         >
-          <Stat label="Total backups" value={String(totalCount)} sub={`${filtered.length} match filters`} />
+          <Stat
+            label="Total backups"
+            value={String(totalCount)}
+            sub={`${filtered.length} match filters`}
+          />
           <Stat label="Stored size" value={fmtSize(totalSizeMB)} sub="across all destinations" />
           <Stat
             label="Last successful"
             value={lastSuccess?.when ?? "—"}
-            sub={lastSuccess ? `${lastSuccess.source} · ${fmtSize(lastSuccess.sizeMB)}` : "no successful backup"}
+            sub={
+              lastSuccess
+                ? `${lastSuccess.source} · ${fmtSize(lastSuccess.sizeMB)}`
+                : "no successful backup"
+            }
           />
           <Stat
             label="Last failed"
             value={lastFail?.when ?? "none"}
-            sub={lastFail ? `${lastFail.source} · ${lastFail.error?.slice(0, 38) ?? ""}…` : "no recent failures"}
+            sub={
+              lastFail
+                ? `${lastFail.source} · ${lastFail.error?.slice(0, 38) ?? ""}…`
+                : "no recent failures"
+            }
             tone={lastFail ? "warn" : undefined}
           />
         </div>
@@ -877,7 +889,15 @@ export function Backups() {
                   style={{ gap: 8, cursor: "pointer", borderBottom: 0 }}
                   onClick={() => setExpanded(isExpanded ? null : b.id)}
                 >
-                  <span style={{ flex: 2.4, display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                  <span
+                    style={{
+                      flex: 2.4,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      minWidth: 0,
+                    }}
+                  >
                     <span style={{ color: "var(--fg-3)", display: "inline-flex" }}>
                       <KIcon width={13} height={13} />
                     </span>
@@ -922,7 +942,15 @@ export function Backups() {
                   <span className="mono" style={{ width: 80, fontSize: 11, color: "var(--fg-2)" }}>
                     {fmtSize(b.sizeMB)}
                   </span>
-                  <span style={{ flex: 1.1, display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                  <span
+                    style={{
+                      flex: 1.1,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      minWidth: 0,
+                    }}
+                  >
                     <span style={{ color: "var(--fg-3)", display: "inline-flex" }}>
                       <DIcon width={11} height={11} />
                     </span>
@@ -958,7 +986,9 @@ export function Backups() {
                         {b.encryption}
                       </span>
                     ) : (
-                      <span className="muted mono" style={{ fontSize: 11 }}>—</span>
+                      <span className="muted mono" style={{ fontSize: 11 }}>
+                        —
+                      </span>
                     )}
                   </span>
                   <span style={{ width: 100 }}>
@@ -999,7 +1029,10 @@ export function Backups() {
                       <I.chev
                         width={10}
                         height={10}
-                        style={{ transform: isExpanded ? "rotate(90deg)" : "none", transition: "transform 120ms" }}
+                        style={{
+                          transform: isExpanded ? "rotate(90deg)" : "none",
+                          transition: "transform 120ms",
+                        }}
                       />
                     </span>
                   </span>
@@ -1101,7 +1134,10 @@ function Stat({
 }) {
   return (
     <div className="card" style={{ padding: 14 }}>
-      <div className="muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+      <div
+        className="muted"
+        style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em" }}
+      >
         {label}
       </div>
       <div
@@ -1192,7 +1228,11 @@ function BackupDetail({ backup }: { backup: Backup }) {
         <DetailField label="Backup ID" value={backup.id} mono />
         <DetailField label="Method" value={backup.method} mono />
         <DetailField label="Retention class" value={backup.retention} />
-        <DetailField label="Source service" value={`${backup.sourceService} @ ${backup.sourceHost}`} mono />
+        <DetailField
+          label="Source service"
+          value={`${backup.sourceService} @ ${backup.sourceHost}`}
+          mono
+        />
       </div>
       <div
         style={{
@@ -1215,7 +1255,10 @@ function BackupDetail({ backup }: { backup: Backup }) {
         />
       </div>
       <div className="col gap-1" style={{ marginBottom: 12 }}>
-        <span className="muted" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+        <span
+          className="muted"
+          style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}
+        >
           Checksum
         </span>
         <code
@@ -1252,7 +1295,10 @@ function BackupDetail({ backup }: { backup: Backup }) {
         </div>
       )}
       <div className="col gap-1">
-        <span className="muted" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+        <span
+          className="muted"
+          style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}
+        >
           Log preview · last {backup.log.length} lines
         </span>
         <div
@@ -1362,13 +1408,19 @@ function ScheduleCard({
         }}
       >
         <div className="col" style={{ gap: 2 }}>
-          <span className="muted" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+          <span
+            className="muted"
+            style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}
+          >
             Retention
           </span>
           <span style={{ fontSize: 12, color: "var(--fg-2)" }}>{schedule.retentionLabel}</span>
         </div>
         <div className="col" style={{ gap: 2 }}>
-          <span className="muted" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+          <span
+            className="muted"
+            style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}
+          >
             Destination
           </span>
           <span className="row gap-1" style={{ fontSize: 12, color: "var(--fg-2)" }}>
@@ -1388,7 +1440,10 @@ function ScheduleCard({
         }}
       >
         <div className="col" style={{ gap: 2 }}>
-          <span className="muted" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+          <span
+            className="muted"
+            style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}
+          >
             Last run
           </span>
           <span className="row gap-1">
@@ -1401,7 +1456,10 @@ function ScheduleCard({
           </span>
         </div>
         <div className="col" style={{ gap: 2 }}>
-          <span className="muted" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+          <span
+            className="muted"
+            style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}
+          >
             Next run
           </span>
           <span className="mono" style={{ fontSize: 12, color: "var(--fg-2)" }}>
@@ -1576,11 +1634,7 @@ function BackupNowModal({ onClose }: { onClose: () => void }) {
           />
         </Field>
         <Field label="Source">
-          <select
-            className="input mono"
-            value={source}
-            onChange={(e) => setSource(e.target.value)}
-          >
+          <select className="input mono" value={source} onChange={(e) => setSource(e.target.value)}>
             {sourcesByKind[kind].map((s) => (
               <option key={s} value={s}>
                 {s}
@@ -1653,7 +1707,9 @@ function ScheduleEditorModal({
   const [destination, setDestination] = useState<DestinationId>(
     initial?.destination ?? "s3-helio-primary",
   );
-  const [encryption, setEncryption] = useState<EncryptionMode>(initial?.encryption ?? "AES-256 GCM");
+  const [encryption, setEncryption] = useState<EncryptionMode>(
+    initial?.encryption ?? "AES-256 GCM",
+  );
   const [hook, setHook] = useState("");
   const [notify, setNotify] = useState("ops-alerts");
 
@@ -1830,11 +1886,7 @@ function ScheduleEditorModal({
         </Field>
 
         <Field label="Notification channel">
-          <select
-            className="input"
-            value={notify}
-            onChange={(e) => setNotify(e.target.value)}
-          >
+          <select className="input" value={notify} onChange={(e) => setNotify(e.target.value)}>
             <option value="ops-alerts">#ops-alerts (Slack)</option>
             <option value="email-admins">email · admins@paperhouse.dev</option>
             <option value="webhook">Webhook · ops-router</option>
@@ -1925,7 +1977,9 @@ function RestoreWizard({ backup, onClose }: { backup: Backup; onClose: () => voi
             >
               {i + 1}
             </span>
-            <span style={{ fontSize: 12, color: i === step ? "var(--fg)" : "var(--fg-3)" }}>{s}</span>
+            <span style={{ fontSize: 12, color: i === step ? "var(--fg)" : "var(--fg-3)" }}>
+              {s}
+            </span>
             {i < 2 && (
               <div style={{ flex: 1, height: 1, background: "var(--border)", marginRight: 4 }} />
             )}
@@ -2138,14 +2192,11 @@ function RestoreWizard({ backup, onClose }: { backup: Backup; onClose: () => voi
                   <span className="mono" style={{ color: "var(--err)" }}>
                     {backup.source}
                   </span>{" "}
-                  with snapshot{" "}
-                  <span className="mono">{backup.id}</span>. The current state cannot be recovered
-                  unless a separate snapshot exists.
+                  with snapshot <span className="mono">{backup.id}</span>. The current state cannot
+                  be recovered unless a separate snapshot exists.
                 </div>
               </div>
-              <Field
-                label={`Type the name "${backup.source}" to confirm`}
-              >
+              <Field label={`Type the name "${backup.source}" to confirm`}>
                 <input
                   className="input mono"
                   value={confirm}

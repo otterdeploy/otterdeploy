@@ -1,6 +1,8 @@
 import { type NodeProps } from "@xyflow/react";
 import { HardDriveIcon } from "lucide-react";
+
 import { cn } from "@/lib/utils";
+
 import type { VolumeNode as VolumeNodeType } from "../types";
 
 export function VolumeNode({ data, selected }: NodeProps<VolumeNodeType>) {

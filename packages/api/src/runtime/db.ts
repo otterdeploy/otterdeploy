@@ -7,8 +7,9 @@
  */
 import type { RequestLogger } from "evlog";
 
-import { runtime } from "./index";
 import type { DatabaseSpec, DatabaseStatus } from "./types";
+
+import { runtime } from "./index";
 
 interface DbInspectInput {
   serviceName: string;
@@ -31,9 +32,8 @@ export const destroySwarmDatabase = (
   log?: RequestLogger,
 ): Promise<void> => runtime().destroyDatabase(input, log);
 
-export const inspectSwarmDatabaseRuntime = (
-  input: DbInspectInput,
-): Promise<DatabaseStatus> => runtime().inspectDatabase(input);
+export const inspectSwarmDatabaseRuntime = (input: DbInspectInput): Promise<DatabaseStatus> =>
+  runtime().inspectDatabase(input);
 
 // ── Legacy postgres-pinned wrapper ──
 // provision/update/inspect-postgres live in swarm/postgres.ts (exported via

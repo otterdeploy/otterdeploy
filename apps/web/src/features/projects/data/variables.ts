@@ -1,13 +1,8 @@
-import { createCollection } from "@tanstack/db";
-import {
-  parseLoadSubsetOptions,
-  queryCollectionOptions,
-} from "@tanstack/query-db-collection";
-
 import { zId } from "@otterdeploy/shared/id";
+import { createCollection } from "@tanstack/db";
+import { parseLoadSubsetOptions, queryCollectionOptions } from "@tanstack/query-db-collection";
 
 import { parseCol, projectIdSchema } from "@/shared/lib/utils";
-
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 /**
@@ -35,11 +30,7 @@ export const variablesCollection = createCollection(
       // compute the prefix every subset key must extend. No filters yet.
       if (!filters.at(0)) return baseQuery;
       const projectId = parseCol(projectIdSchema, filters, "projectId");
-      const environmentId = parseCol(
-        environmentIdSchema,
-        filters,
-        "environmentId",
-      );
+      const environmentId = parseCol(environmentIdSchema, filters, "environmentId");
       const subsetKey = orpc.project.envVar.list.queryKey({
         input: { projectId, environmentId },
       });
@@ -49,11 +40,7 @@ export const variablesCollection = createCollection(
       const { filters } = parseLoadSubsetOptions(ctx.meta?.loadSubsetOptions);
       if (!filters.at(0)) return [];
       const projectId = parseCol(projectIdSchema, filters, "projectId");
-      const environmentId = parseCol(
-        environmentIdSchema,
-        filters,
-        "environmentId",
-      );
+      const environmentId = parseCol(environmentIdSchema, filters, "environmentId");
       return orpc.project.envVar.list.call({ projectId, environmentId });
     },
     onInsert: async ({ transaction }) => {
@@ -102,10 +89,9 @@ export const variablesCollection = createCollection(
 
 /** Row shape inferred from the collection — views import this instead of
  *  re-declaring an EnvVarRow interface. */
-export type VariableRow = ReturnType<
-  typeof variablesCollection.get
-> extends infer T
-  ? T extends undefined
-    ? never
-    : NonNullable<T>
-  : never;
+export type VariableRow =
+  ReturnType<typeof variablesCollection.get> extends infer T
+    ? T extends undefined
+      ? never
+      : NonNullable<T>
+    : never;

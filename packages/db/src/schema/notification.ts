@@ -1,3 +1,5 @@
+import type { NotificationId } from "@otterdeploy/shared/id";
+
 /**
  * In-app notifications — one row per delivered notification to a user. The
  * `notification.send` job writes these; the web client reads the unread feed
@@ -6,23 +8,11 @@
  * in-app row for the activity feed.
  */
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
-import type { NotificationId } from "@otterdeploy/shared/id";
-import {
-  index,
-  jsonb,
-  pgEnum,
-  pgTable,
-  text,
-  timestamp,
-} from "drizzle-orm/pg-core";
+import { index, jsonb, pgEnum, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 import { organization, user } from "./auth";
 
-export const notificationChannelEnum = pgEnum("notification_channel", [
-  "in-app",
-  "push",
-  "sms",
-]);
+export const notificationChannelEnum = pgEnum("notification_channel", ["in-app", "push", "sms"]);
 
 export const notification = pgTable(
   "notification",

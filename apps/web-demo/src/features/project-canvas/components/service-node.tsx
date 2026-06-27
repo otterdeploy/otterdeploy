@@ -1,6 +1,8 @@
 import { type NodeProps } from "@xyflow/react";
 import { ContainerIcon, GitBranchIcon, GlobeIcon } from "lucide-react";
+
 import { cn } from "@/lib/utils";
+
 import type { ServiceNode as ServiceNodeType } from "../types";
 
 const dotByStatus: Record<ServiceNodeType["data"]["status"], string> = {

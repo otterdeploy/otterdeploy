@@ -19,10 +19,9 @@
  * payloads through this channel so the stream bandwidth stays trivial.
  */
 
-import { type ProjectId, type ResourceId } from "@otterdeploy/shared/id";
-
 import { useEffect } from "react";
 
+import { type ProjectId, type ResourceId } from "@otterdeploy/shared/id";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { orpc } from "@/shared/server/orpc";

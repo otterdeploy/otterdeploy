@@ -21,8 +21,7 @@ export const minioAdapter: DatabaseEngineAdapter = {
   // ⚠️ MinIO images may not ship `curl`/`wget`; this healthcheck is best-effort
   // and only affects the reported health (the create flow waits on task=running,
   // not health). Verify against a live container; swap for `mc ready` if needed.
-  buildHealthcheck: () =>
-    "curl -f http://localhost:9000/minio/health/live || exit 1",
+  buildHealthcheck: () => "curl -f http://localhost:9000/minio/health/live || exit 1",
   // S3 endpoint. The access key / secret key are the generated user/password,
   // shown separately — they aren't carried in the URL the way DB creds are.
   buildConnectionString: ({ host, port }) => {

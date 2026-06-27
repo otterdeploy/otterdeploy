@@ -6,21 +6,22 @@
  * independently in step with the sampler.
  */
 
-import { Link } from "@tanstack/react-router";
-import type { ReactNode } from "react";
 import type { ID_PREFIX, Slug } from "@otterdeploy/shared/id";
-import { HugeiconsIcon } from "@hugeicons/react";
+
+import type { ReactNode } from "react";
+
 import { ArrowDown01Icon, ArrowUp01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Link } from "@tanstack/react-router";
 
-import { Card } from "@/shared/components/ui/card";
-import { Skeleton } from "@/shared/components/ui/skeleton";
-import { cn } from "@/shared/lib/utils";
-
-import { PanelIcon } from "@/features/resources/components/_shared/atoms";
 import {
   resourceToNode,
   type ProjectResource,
 } from "@/features/projects/components/graph/resource-to-node";
+import { PanelIcon } from "@/features/resources/components/_shared/atoms";
+import { Card } from "@/shared/components/ui/card";
+import { Skeleton } from "@/shared/components/ui/skeleton";
+import { cn } from "@/shared/lib/utils";
 
 import { formatBytes, formatPercent, formatRate } from "./format";
 import { MetricAreaChart } from "./metric-area-chart";
@@ -46,10 +47,7 @@ export function ResourceMetricsCard({
   windowMinutes,
 }: ResourceMetricsCardProps) {
   const node = resourceToNode(resource).data;
-  const { rows, summary, isLoading } = useResourceMetrics(
-    resource.resourceId,
-    windowMinutes,
-  );
+  const { rows, summary, isLoading } = useResourceMetrics(resource.resourceId, windowMinutes);
   const hasData = rows.length > 0;
   const latest = summary.latest;
 
@@ -63,9 +61,7 @@ export function ResourceMetricsCard({
         <div className="flex items-center gap-3 px-4 py-3.5">
           <PanelIcon node={node} />
           <div className="flex min-w-0 flex-col gap-0.5">
-            <span className="truncate text-sm font-medium">
-              {resource.name}
-            </span>
+            <span className="truncate text-sm font-medium">{resource.name}</span>
             <span className="truncate font-mono text-xs text-muted-foreground">
               {node.description}
             </span>
@@ -81,7 +77,7 @@ export function ResourceMetricsCard({
           ) : null}
         </div>
 
-        <div className="grid grid-cols-3 border-t border-border/60 divide-x divide-border/60">
+        <div className="grid grid-cols-3 divide-x divide-border/60 border-t border-border/60">
           <MiniMetric
             label="CPU"
             value={hasData ? formatPercent(latest?.cpuPct ?? 0) : "—"}
@@ -91,9 +87,7 @@ export function ResourceMetricsCard({
                 compact
                 data={rows}
                 format={(v) => formatPercent(v)}
-                series={[
-                  { dataKey: "cpuPct", label: "CPU", color: "var(--chart-3)" },
-                ]}
+                series={[{ dataKey: "cpuPct", label: "CPU", color: "var(--chart-3)" }]}
               />
             }
           />
@@ -174,19 +168,15 @@ function MiniMetric({
 }) {
   return (
     <div className="flex flex-col gap-1.5 px-3 py-2.5">
-      <span className="text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
+      <span className="text-[10px] font-medium tracking-[0.1em] text-muted-foreground uppercase">
         {label}
       </span>
       {loading ? (
         <Skeleton className="h-4 w-16 rounded" />
       ) : (
-        <span className="font-mono text-sm font-medium tabular-nums">
-          {value}
-        </span>
+        <span className="font-mono text-sm font-medium tabular-nums">{value}</span>
       )}
-      <div className="mt-0.5">
-        {loading ? <Skeleton className="h-10 w-full rounded" /> : chart}
-      </div>
+      <div className="mt-0.5">{loading ? <Skeleton className="h-10 w-full rounded" /> : chart}</div>
     </div>
   );
 }

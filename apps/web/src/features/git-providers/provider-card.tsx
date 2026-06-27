@@ -1,8 +1,5 @@
+import { MoreVerticalIcon, RefreshIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import {
-  MoreVerticalIcon,
-  RefreshIcon,
-} from "@hugeicons/core-free-icons";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -21,11 +18,7 @@ import {
   type ProviderView,
 } from "./shared";
 
-export function ConnectedProviderCard({
-  provider,
-}: {
-  provider: ProviderView;
-}) {
+export function ConnectedProviderCard({ provider }: { provider: ProviderView }) {
   const primary = provider.installations[0];
   if (!primary) return null;
 
@@ -41,13 +34,12 @@ export function ConnectedProviderCard({
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[13.5px] font-semibold">{provider.displayName}</span>
             <StatusBadge installation={primary} />
-            <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10.5px] font-medium uppercase tracking-wider text-muted-foreground">
+            <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10.5px] font-medium tracking-wider text-muted-foreground uppercase">
               GitHub App
             </span>
           </div>
           <div className="mt-0.5 font-mono text-[11.5px] text-muted-foreground">
-            {primary.accountType === "organization" ? "org" : "user"}/
-            {primary.accountLogin}
+            {primary.accountType === "organization" ? "org" : "user"}/{primary.accountLogin}
             {provider.installations.length > 1 && (
               <span className="ml-2 text-muted-foreground">
                 +{provider.installations.length - 1} more
@@ -82,14 +74,10 @@ export function DisconnectedProviderCard({
   return (
     <div className="rounded-md border bg-card p-3.5">
       <div className="flex items-center gap-3">
-        <SvglLogo
-          search={PROVIDER_SEARCH[kind]}
-          fallback={PROVIDER_LABEL[kind]}
-          size={24}
-        />
+        <SvglLogo search={PROVIDER_SEARCH[kind]} fallback={PROVIDER_LABEL[kind]} size={24} />
         <div className="flex flex-1 items-center gap-2">
           <span className="text-[13px] font-semibold">{PROVIDER_LABEL[kind]}</span>
-          <span className="inline-flex items-center gap-1 rounded-sm border bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          <span className="inline-flex items-center gap-1 rounded-sm border bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
             <span className="size-1.5 rounded-full bg-muted-foreground/60" />
             {supported ? "not connected" : "coming soon"}
           </span>
@@ -107,11 +95,7 @@ export function DisconnectedProviderCard({
   );
 }
 
-function InstallationActions({
-  installation,
-}: {
-  installation: InstallationView;
-}) {
+function InstallationActions({ installation }: { installation: InstallationView }) {
   const disconnect = useMutation({
     ...orpc.git.disconnect.mutationOptions(),
     onSuccess: async () => {
@@ -128,9 +112,7 @@ function InstallationActions({
         size="sm"
         variant="ghost"
         className="text-destructive hover:text-destructive"
-        onClick={() =>
-          disconnect.mutate({ installationId: installation.id as never })
-        }
+        onClick={() => disconnect.mutate({ installationId: installation.id as never })}
         disabled={disconnect.isPending}
       >
         Disconnect
@@ -157,9 +139,7 @@ function RefreshButton({ installationId }: { installationId: string }) {
     <Button
       size="sm"
       variant="ghost"
-      onClick={() =>
-        refresh.mutate({ installationId: installationId as never })
-      }
+      onClick={() => refresh.mutate({ installationId: installationId as never })}
       disabled={refresh.isPending}
     >
       <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} />
@@ -182,7 +162,7 @@ function StatusBadge({ installation }: { installation: InstallationView }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider",
+        "inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 font-mono text-[10px] tracking-wider uppercase",
         tone,
       )}
     >
@@ -192,18 +172,10 @@ function StatusBadge({ installation }: { installation: InstallationView }) {
   );
 }
 
-function Stat({
-  label,
-  value,
-  mono,
-}: {
-  label: string;
-  value: string;
-  mono?: boolean;
-}) {
+function Stat({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div>
-      <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+      <div className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
         {label}
       </div>
       <div className={cn("mt-0.5 text-[12px]", mono && "font-mono")}>{value}</div>

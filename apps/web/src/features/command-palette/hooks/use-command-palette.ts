@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+
 import { useHotkey } from "@tanstack/react-hotkeys";
 
 // Shared open-state so the palette can be toggled from anywhere (the Mod+K

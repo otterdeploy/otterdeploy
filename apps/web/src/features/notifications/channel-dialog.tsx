@@ -46,8 +46,7 @@ function editingDefaults(editing: Channel | null): ChannelFormValues {
   const config: Record<string, string> = {};
   for (const [k, v] of Object.entries(editing?.config ?? {})) {
     if (typeof v === "string") config[k] = v;
-    else if (typeof v === "number" || typeof v === "boolean")
-      config[k] = String(v);
+    else if (typeof v === "number" || typeof v === "boolean") config[k] = String(v);
   }
   // target + secret stay blank in edit mode — the list only exposes a masked
   // target and never the secret.
@@ -100,15 +99,12 @@ export function ChannelDialog({
           </DialogTitle>
           <DialogDescription>
             {isEdit ? (
-              <>
-                Leave the destination or secret blank to keep the stored value.
-              </>
+              <>Leave the destination or secret blank to keep the stored value.</>
             ) : (
               <>
                 Otterdeploy delivers a synthetic{" "}
-                <span className="font-mono text-foreground">test.ping</span> event
-                from the channel card so you can confirm the wiring before
-                subscribing it to real events.
+                <span className="font-mono text-foreground">test.ping</span> event from the channel
+                card so you can confirm the wiring before subscribing it to real events.
               </>
             )}
           </DialogDescription>
@@ -129,9 +125,10 @@ export function ChannelDialog({
             })}
           >
             {({ values, error }) => {
-              const errors = (
-                error && typeof error === "object" ? error : {}
-              ) as Record<string, string>;
+              const errors = (error && typeof error === "object" ? error : {}) as Record<
+                string,
+                string
+              >;
               return (
                 <>
                   <KindPicker
@@ -146,15 +143,9 @@ export function ChannelDialog({
                       aria-invalid={Boolean(errors.name)}
                       placeholder={PLACEHOLDERS[values.kind].name}
                       value={values.name}
-                      onChange={(e) =>
-                        form.setFieldValue("name", e.target.value)
-                      }
+                      onChange={(e) => form.setFieldValue("name", e.target.value)}
                     />
-                    {errors.name && (
-                      <p className="text-[11px] text-destructive">
-                        {errors.name}
-                      </p>
-                    )}
+                    {errors.name && <p className="text-[11px] text-destructive">{errors.name}</p>}
                   </div>
                   <ChannelFields
                     kind={values.kind}
@@ -177,11 +168,7 @@ export function ChannelDialog({
           </form.Subscribe>
 
           <DialogFooter>
-            <Button
-              variant="outline"
-              type="button"
-              onClick={() => handleOpenChange(false)}
-            >
+            <Button variant="outline" type="button" onClick={() => handleOpenChange(false)}>
               Cancel
             </Button>
             <Button type="submit" disabled={submitting}>
@@ -218,17 +205,11 @@ function KindPicker({
               onClick={() => onChange(k)}
               className={cn(
                 "flex items-center gap-2 rounded-md border px-2.5 py-2 text-[12px] transition-colors",
-                active
-                  ? "border-foreground bg-muted"
-                  : "border-border hover:bg-muted/50",
+                active ? "border-foreground bg-muted" : "border-border hover:bg-muted/50",
                 isEdit && "cursor-not-allowed opacity-60",
               )}
             >
-              <SvglLogo
-                search={KIND_META[k].search}
-                fallback={KIND_META[k].label}
-                size={20}
-              />
+              <SvglLogo search={KIND_META[k].search} fallback={KIND_META[k].label} size={20} />
               <span>{KIND_META[k].label}</span>
             </button>
           );
@@ -250,28 +231,20 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 function targetFormatError(kind: ChannelKind, target: string): string | null {
   if (kind === "slack" || kind === "discord" || kind === "webhook")
     return URL_RE.test(target) ? null : "Enter a valid URL (https://…)";
-  if (kind === "email")
-    return EMAIL_RE.test(target) ? null : "Enter a valid email address";
+  if (kind === "email") return EMAIL_RE.test(target) ? null : "Enter a valid email address";
   return null;
 }
 
 /** SMTP host/port checks — only relevant for the email + SMTP combo. */
-function smtpErrors(
-  config: Record<string, string>,
-  isEdit: boolean,
-): Record<string, string> {
+function smtpErrors(config: Record<string, string>, isEdit: boolean): Record<string, string> {
   const errs: Record<string, string> = {};
-  if (!isEdit && !(config.host ?? "").trim())
-    errs.host = "SMTP host is required";
+  if (!isEdit && !(config.host ?? "").trim()) errs.host = "SMTP host is required";
   const port = (config.port ?? "").trim();
   if (port && !/^\d+$/.test(port)) errs.port = "Port must be a number";
   return errs;
 }
 
-function validateChannel(
-  v: ChannelFormValues,
-  isEdit: boolean,
-): Record<string, string> {
+function validateChannel(v: ChannelFormValues, isEdit: boolean): Record<string, string> {
   const errs: Record<string, string> = {};
   const target = v.target.trim();
 
@@ -288,8 +261,7 @@ function validateChannel(
     Object.assign(errs, smtpErrors(v.config, isEdit));
 
   // Telegram needs its bot token to deliver; required on create.
-  if (v.kind === "telegram" && !isEdit && !v.secret.trim())
-    errs.secret = "Bot token is required";
+  if (v.kind === "telegram" && !isEdit && !v.secret.trim()) errs.secret = "Bot token is required";
 
   return errs;
 }

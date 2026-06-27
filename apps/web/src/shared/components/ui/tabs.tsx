@@ -1,28 +1,18 @@
-import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
-import { cva, type VariantProps } from "class-variance-authority";
-import {
-  motion,
-  type HTMLMotionProps,
-  type Transition,
-} from "motion/react";
 import * as React from "react";
 import { useLayoutEffect, useRef, useState } from "react";
 
+import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
+import { cva, type VariantProps } from "class-variance-authority";
+import { motion, type HTMLMotionProps, type Transition } from "motion/react";
+
 import { cn } from "@/shared/lib/utils";
 
-function Tabs({
-  className,
-  orientation = "horizontal",
-  ...props
-}: TabsPrimitive.Root.Props) {
+function Tabs({ className, orientation = "horizontal", ...props }: TabsPrimitive.Root.Props) {
   return (
     <TabsPrimitive.Root
       data-slot="tabs"
       data-orientation={orientation}
-      className={cn(
-        "group/tabs flex gap-2 data-horizontal:flex-col",
-        className,
-      )}
+      className={cn("group/tabs flex gap-2 data-horizontal:flex-col", className)}
       {...props}
     />
   );
@@ -241,11 +231,4 @@ function TabsContents({
   );
 }
 
-export {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-  TabsContents,
-  tabsListVariants,
-};
+export { Tabs, TabsList, TabsTrigger, TabsContent, TabsContents, tabsListVariants };

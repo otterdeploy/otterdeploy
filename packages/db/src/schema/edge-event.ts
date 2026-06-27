@@ -1,11 +1,4 @@
-import {
-  bigserial,
-  index,
-  jsonb,
-  pgTable,
-  text,
-  timestamp,
-} from "drizzle-orm/pg-core";
+import { bigserial, index, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 /**
  * Persisted Caddy operational-log events (edge-logs Phase 3) — cert/ACME

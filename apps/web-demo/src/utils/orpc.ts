@@ -116,17 +116,31 @@ const mockDatabasesByProject: Record<string, Database[]> = {
       },
     }),
   ],
-  proj_otters: [makeDatabase({ resourceId: "res_db_otters", projectId: "proj_otters", name: "main" })],
+  proj_otters: [
+    makeDatabase({ resourceId: "res_db_otters", projectId: "proj_otters", name: "main" }),
+  ],
   proj_marketing: [],
 };
 
 const mockRoutesByProject: Record<string, ProxyRoute[]> = {
   proj_acme: [
     makeRoute({ id: "rt_acme_api", projectId: "proj_acme", domain: "api.acme.com" }),
-    makeRoute({ id: "rt_acme_app", projectId: "proj_acme", domain: "app.acme.com", upstreamHost: "web", upstreamPort: 3000 }),
+    makeRoute({
+      id: "rt_acme_app",
+      projectId: "proj_acme",
+      domain: "app.acme.com",
+      upstreamHost: "web",
+      upstreamPort: 3000,
+    }),
   ],
   proj_otters: [
-    makeRoute({ id: "rt_otters_app", projectId: "proj_otters", domain: "otters.example.com", upstreamHost: "web", upstreamPort: 3000 }),
+    makeRoute({
+      id: "rt_otters_app",
+      projectId: "proj_otters",
+      domain: "otters.example.com",
+      upstreamHost: "web",
+      upstreamPort: 3000,
+    }),
   ],
   proj_marketing: [],
 };
@@ -169,18 +183,22 @@ const mockClient = {
     },
     database: {
       postgres: {
-        list: ({ projectId }: { projectId: string }) => delay([...(mockDatabasesByProject[projectId] ?? [])]),
+        list: ({ projectId }: { projectId: string }) =>
+          delay([...(mockDatabasesByProject[projectId] ?? [])]),
         get: ({ projectId, resourceId }: { projectId: string; resourceId: string }) =>
           delay(findDatabase(projectId, resourceId)),
         delete: ({ projectId, resourceId }: { projectId: string; resourceId: string }) => {
           const list = mockDatabasesByProject[projectId] ?? [];
           mockDatabasesByProject[projectId] = list.filter((d) => d.resourceId !== resourceId);
-          return delay({ ok: true } as Awaited<ReturnType<AppRouterClient["project"]["database"]["postgres"]["delete"]>>);
+          return delay({ ok: true } as Awaited<
+            ReturnType<AppRouterClient["project"]["database"]["postgres"]["delete"]>
+          >);
         },
       },
     },
     proxyRoute: {
-      list: ({ projectId }: { projectId: string }) => delay([...(mockRoutesByProject[projectId] ?? [])]),
+      list: ({ projectId }: { projectId: string }) =>
+        delay([...(mockRoutesByProject[projectId] ?? [])]),
     },
   },
 };

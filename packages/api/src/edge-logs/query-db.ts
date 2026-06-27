@@ -8,14 +8,15 @@
  * if volume demands it.
  */
 
-import { and, desc, gte, inArray, lt, or, ilike } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
 import { edgeLog } from "@otterdeploy/db/schema/edge-log";
+import { and, desc, gte, inArray, lt, or, ilike } from "drizzle-orm";
+
+import type { EdgeLogFilter, EdgeLogLine, EdgeLogQueryResult } from "./types";
 
 import { RANGE_MS, summarizeEdgeLogs } from "./ring";
-import type { EdgeLogFilter, EdgeLogLine, EdgeLogQueryResult } from "./types";
 
 const MAX_FETCH = 10_000;
 
@@ -35,12 +36,8 @@ export async function queryEdgeLogsDb(
   }
 
   const since = new Date(now - RANGE_MS[filter.range]);
-  const conds: SQL[] = [
-    inArray(edgeLog.host, filter.hosts),
-    gte(edgeLog.ts, since),
-  ];
-  if (filter.selectedHosts?.length)
-    conds.push(inArray(edgeLog.host, filter.selectedHosts));
+  const conds: SQL[] = [inArray(edgeLog.host, filter.hosts), gte(edgeLog.ts, since)];
+  if (filter.selectedHosts?.length) conds.push(inArray(edgeLog.host, filter.selectedHosts));
   if (filter.methods?.length) conds.push(inArray(edgeLog.method, filter.methods));
   if (filter.statuses?.length) {
     const ranges = filter.statuses.map((s) => {

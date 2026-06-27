@@ -1,5 +1,13 @@
+import type {
+  AccountId,
+  InvitationId,
+  MemberId,
+  OrganizationId,
+  SessionId,
+  VerificationId,
+} from "@otterdeploy/shared/id";
+
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
-import type { AccountId, InvitationId, MemberId, OrganizationId, SessionId, VerificationId } from "@otterdeploy/shared/id";
 import { pgTable, text, timestamp, boolean, integer, index } from "drizzle-orm/pg-core";
 export const user = pgTable("user", {
   id: text("id")

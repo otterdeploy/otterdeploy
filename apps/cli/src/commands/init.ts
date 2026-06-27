@@ -1,12 +1,11 @@
+import { defineCommand } from "citty";
+import { consola } from "consola";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { defineCommand } from "citty";
-import { consola } from "consola";
-
 import { createCliClient } from "../client";
-import { configExists, writeConfigTemplate } from "../config-file";
 import { loadConfig, resolveToken, resolveUrl } from "../config";
+import { configExists, writeConfigTemplate } from "../config-file";
 
 const TS_FILENAME = "otterdeploy.config.ts";
 const JSON_FILENAME = "otterdeploy.config.json";

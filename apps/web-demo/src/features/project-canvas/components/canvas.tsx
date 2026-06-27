@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+
 import {
   Background,
   BackgroundVariant,
@@ -10,13 +11,14 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
+import type { CanvasNode } from "../types";
+
 import { CanvasControls } from "./canvas-controls";
 import { DatabaseNode } from "./database-node";
 import { GroupNode } from "./group-node";
 import { RoutingNode } from "./routing-node";
 import { ServiceNode } from "./service-node";
 import { VolumeNode } from "./volume-node";
-import type { CanvasNode } from "../types";
 
 const nodeTypes: NodeTypes = {
   group: GroupNode,

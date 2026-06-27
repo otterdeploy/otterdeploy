@@ -6,8 +6,8 @@
  * popover footer (./filter-popover).
  */
 
-import { HugeiconsIcon } from "@hugeicons/react";
 import { Cancel01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 
 import { Button } from "@/shared/components/ui/button";
 import { Checkbox } from "@/shared/components/ui/checkbox";
@@ -20,12 +20,7 @@ import {
   SelectValue,
 } from "@/shared/components/ui/select";
 
-import {
-  type Filter,
-  FILTER_OPS,
-  type FilterOp,
-  opNeedsValue,
-} from "../data/filters";
+import { type Filter, FILTER_OPS, type FilterOp, opNeedsValue } from "../data/filters";
 
 export function FilterBar({
   columns,
@@ -43,21 +38,13 @@ export function FilterBar({
   return (
     <div className="flex flex-col">
       {filters.map((f) => (
-        <div
-          key={f.id}
-          className="flex items-center gap-2 border-b px-3 py-2.5"
-        >
+        <div key={f.id} className="flex items-center gap-2 border-b px-3 py-2.5">
           <Checkbox
             checked={f.enabled}
-            onCheckedChange={(checked) =>
-              patch(f.id, { enabled: Boolean(checked) })
-            }
+            onCheckedChange={(checked) => patch(f.id, { enabled: Boolean(checked) })}
             aria-label="Enable filter"
           />
-          <Select
-            value={f.column}
-            onValueChange={(v) => patch(f.id, { column: v ?? "" })}
-          >
+          <Select value={f.column} onValueChange={(v) => patch(f.id, { column: v ?? "" })}>
             <SelectTrigger size="sm" className="w-32 font-mono text-[12px]">
               <SelectValue placeholder="Column..." />
             </SelectTrigger>
@@ -72,9 +59,7 @@ export function FilterBar({
           <Select
             value={f.op}
             disabled={!f.column}
-            onValueChange={(v) =>
-              patch(f.id, { op: (v ?? "") as FilterOp | "" })
-            }
+            onValueChange={(v) => patch(f.id, { op: (v ?? "") as FilterOp | "" })}
           >
             <SelectTrigger size="sm" className="w-40 text-[12px]">
               <SelectValue placeholder="Operator..." />
@@ -83,11 +68,7 @@ export function FilterBar({
                 trigger width, so "is not null (IS NOT NULL)" isn't clipped. */}
             <SelectContent alignItemWithTrigger={false} className="w-auto px-1">
               {FILTER_OPS.map((o) => (
-                <SelectItem
-                  key={o.value}
-                  value={o.value}
-                  className="whitespace-nowrap text-[12px]"
-                >
+                <SelectItem key={o.value} value={o.value} className="text-[12px] whitespace-nowrap">
                   {o.label}
                 </SelectItem>
               ))}

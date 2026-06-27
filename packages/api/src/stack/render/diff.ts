@@ -11,15 +11,12 @@
 function lcsTable(a: string[], b: string[]): number[][] {
   const m = a.length;
   const n = b.length;
-  const dp: number[][] = Array.from({ length: m + 1 }, () =>
-    Array<number>(n + 1).fill(0),
-  );
+  const dp: number[][] = Array.from({ length: m + 1 }, () => Array<number>(n + 1).fill(0));
   for (let i = m - 1; i >= 0; i--) {
     for (let j = n - 1; j >= 0; j--) {
       const row = dp[i + 1] ?? [];
       const cur = dp[i] ?? [];
-      cur[j] =
-        a[i] === b[j] ? (row[j + 1] ?? 0) + 1 : Math.max(row[j] ?? 0, cur[j + 1] ?? 0);
+      cur[j] = a[i] === b[j] ? (row[j + 1] ?? 0) + 1 : Math.max(row[j] ?? 0, cur[j + 1] ?? 0);
     }
   }
   return dp;
@@ -35,12 +32,7 @@ interface Cursor {
   j: number;
 }
 
-function pickOp(
-  a: string[],
-  b: string[],
-  dp: number[][],
-  cur: Cursor,
-): Op {
+function pickOp(a: string[], b: string[], dp: number[][], cur: Cursor): Op {
   const { i, j } = cur;
   if (a[i] === b[j]) {
     cur.i++;

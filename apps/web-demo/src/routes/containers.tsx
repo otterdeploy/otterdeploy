@@ -18,31 +18,31 @@ function RouteComponent() {
     <div className="row-span-2 h-full w-full overflow-y-auto p-6">
       <header className="mb-4 flex items-baseline justify-between">
         <h1 className="text-xl font-semibold">Containers</h1>
-        <span className="text-muted-foreground text-xs">
+        <span className="text-xs text-muted-foreground">
           {query.isFetching ? "refreshing…" : `${query.data?.length ?? 0} running`}
         </span>
       </header>
 
       {query.error ? (
-        <p className="text-destructive text-sm">
+        <p className="text-sm text-destructive">
           {query.error.message ?? "Failed to load containers"}
         </p>
       ) : query.isLoading ? (
-        <p className="text-muted-foreground text-sm">Loading…</p>
+        <p className="text-sm text-muted-foreground">Loading…</p>
       ) : query.data && query.data.length > 0 ? (
-        <ul className="divide-border divide-y rounded-md border">
+        <ul className="divide-y divide-border rounded-md border">
           {query.data.map((c) => (
             <li key={c.id} className="flex items-center justify-between gap-4 p-3">
               <div className="min-w-0">
                 <div className="truncate font-medium">{c.name}</div>
-                <div className="text-muted-foreground truncate text-xs">
+                <div className="truncate text-xs text-muted-foreground">
                   {c.image} · {c.status}
                 </div>
               </div>
               <Link
                 to="/terminal"
                 search={{ container: c.id }}
-                className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-medium"
+                className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
               >
                 Open terminal
               </Link>
@@ -50,7 +50,7 @@ function RouteComponent() {
           ))}
         </ul>
       ) : (
-        <p className="text-muted-foreground text-sm">No running containers.</p>
+        <p className="text-sm text-muted-foreground">No running containers.</p>
       )}
     </div>
   );

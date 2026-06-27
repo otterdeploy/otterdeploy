@@ -24,11 +24,7 @@ export interface SyncResult {
 }
 
 export async function syncBlocklist(row: BlocklistRow): Promise<SyncResult> {
-  const out = await cscliRun(IMPORT_SCRIPT, [
-    row.url,
-    reasonFor(row.id),
-    `${row.durationHours}h`,
-  ]);
+  const out = await cscliRun(IMPORT_SCRIPT, [row.url, reasonFor(row.id), `${row.durationHours}h`]);
 
   if (out === null) {
     const error = "CrowdSec agent isn't running — start the firewall profile.";
@@ -40,15 +36,11 @@ export async function syncBlocklist(row: BlocklistRow): Promise<SyncResult> {
   const match = out.match(/Imported\s+(\d+)/i) ?? out.match(/(\d+)\s+decision/i);
   const lower = out.toLowerCase();
   const looksFailed =
-    !match &&
-    /error|could not|couldn't|no such|unable|failed|not found|timed out/.test(
-      lower,
-    );
+    !match && /error|could not|couldn't|no such|unable|failed|not found|timed out/.test(lower);
 
   if (looksFailed) {
     const error =
-      out.trim().split("\n").filter(Boolean).slice(-2).join(" ").slice(0, 300) ||
-      "Import failed";
+      out.trim().split("\n").filter(Boolean).slice(-2).join(" ").slice(0, 300) || "Import failed";
     await setBlocklistSyncResult(row.id, { status: "error", error });
     return { ok: false, count: 0, error };
   }

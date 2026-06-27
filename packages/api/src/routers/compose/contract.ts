@@ -47,9 +47,7 @@ const parsePreviewSchema = z.object({
   /** Compose's top-level `name:`, if the file declares one. */
   name: z.string().nullable(),
   /** `${VAR}` refs the file uses — the wizard asks the user to fill these in. */
-  vars: z.array(
-    z.object({ name: z.string(), default: z.string().nullable() }),
-  ),
+  vars: z.array(z.object({ name: z.string(), default: z.string().nullable() })),
   services: z.array(composeServiceSummarySchema),
   warnings: z.array(z.string()),
 });
@@ -117,9 +115,7 @@ export const composeContract = {
           )
           .default([]),
         /** `service:port` pairs to publish a domain for. */
-        exposed: z
-          .array(z.object({ service: z.string(), port: z.number().int() }))
-          .default([]),
+        exposed: z.array(z.object({ service: z.string(), port: z.number().int() })).default([]),
         /** Deploy immediately after create (default true). */
         deploy: z.boolean().default(true),
       }),

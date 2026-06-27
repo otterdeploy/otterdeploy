@@ -1,3 +1,7 @@
+import type { ProjectId } from "@otterdeploy/shared/id";
+
+import { projectDir } from "@otterdeploy/shared/paths";
+import { log as globalLog } from "evlog";
 /**
  * Disaster-recovery escape hatch — Phase 4 of docs/designs/data-folder.md.
  *
@@ -20,10 +24,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import type { ProjectId } from "@otterdeploy/shared/id";
-import { projectDir } from "@otterdeploy/shared/paths";
-import { log as globalLog } from "evlog";
-
 import { renderProjectFromRows, toComposeYaml } from "../stack/render";
 import { dataRootAvailable } from "./data-dir";
 
@@ -32,9 +32,7 @@ import { dataRootAvailable } from "./data-dir";
  * (same path as the `manifest.export` procedure) and writes both files. Never
  * throws — failures are logged and swallowed so they can't break an apply.
  */
-export async function writeProjectEscapeHatch(
-  projectId: ProjectId,
-): Promise<void> {
+export async function writeProjectEscapeHatch(projectId: ProjectId): Promise<void> {
   if (!(await dataRootAvailable())) return;
   try {
     const file = await renderProjectFromRows(projectId);
@@ -42,11 +40,9 @@ export async function writeProjectEscapeHatch(
     await mkdir(dir, { recursive: true, mode: 0o700 });
     await Promise.all([
       writeFile(join(dir, "compose.yml"), toComposeYaml(file), { mode: 0o600 }),
-      writeFile(
-        join(dir, "otterdeploy.json"),
-        `${JSON.stringify(file, null, 2)}\n`,
-        { mode: 0o600 },
-      ),
+      writeFile(join(dir, "otterdeploy.json"), `${JSON.stringify(file, null, 2)}\n`, {
+        mode: 0o600,
+      }),
     ]);
   } catch (cause) {
     globalLog.warn({

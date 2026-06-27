@@ -4,16 +4,13 @@
  * maps to an HTTP code; pure list handlers return arrays directly (mirrors the
  * env router split).
  */
-import type {
-  BackupDestinationId,
-  BackupId,
-  ProjectId,
-} from "@otterdeploy/shared/id";
+import type { BackupDestinationId, BackupId, ProjectId } from "@otterdeploy/shared/id";
+
 import { Result } from "better-result";
 
-import { decryptSecret, encryptSecret } from "../../lib/crypto";
 import type { OrgRef } from "../scopes";
 
+import { decryptSecret, encryptSecret } from "../../lib/crypto";
 import {
   BackupNotFoundError,
   DestinationInUseError,
@@ -79,9 +76,7 @@ export async function scheduleDestinationNames(
   });
 }
 
-export async function listDestinations(
-  input: OrgRef,
-): Promise<DestinationRow[]> {
+export async function listDestinations(input: OrgRef): Promise<DestinationRow[]> {
   return listDestinationsByOrg(input.organizationId);
 }
 
@@ -138,17 +133,13 @@ export async function updateDestination(
 
 export async function deleteDestination(
   input: OrgRef & { id: BackupDestinationId },
-): Promise<
-  Result<{ ok: true }, DestinationNotFoundError | DestinationInUseError>
-> {
+): Promise<Result<{ ok: true }, DestinationNotFoundError | DestinationInUseError>> {
   const refs = await countDestinationReferences({
     organizationId: input.organizationId,
     id: input.id,
   });
   if (refs > 0) {
-    return Result.err(
-      new DestinationInUseError({ destinationId: input.id, references: refs }),
-    );
+    return Result.err(new DestinationInUseError({ destinationId: input.id, references: refs }));
   }
   const deleted = await deleteDestinationRecord({
     organizationId: input.organizationId,
@@ -176,12 +167,7 @@ const REQUIRED_CONFIG: Record<DestinationType, string[]> = {
  */
 export async function testDestination(
   input: OrgRef & { id: BackupDestinationId },
-): Promise<
-  Result<
-    { message: string },
-    DestinationNotFoundError | DestinationTestFailedError
-  >
-> {
+): Promise<Result<{ message: string }, DestinationNotFoundError | DestinationTestFailedError>> {
   const row = await getDestinationWithSecret({
     organizationId: input.organizationId,
     id: input.id,

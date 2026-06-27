@@ -3,8 +3,9 @@
 //   - ServiceDetail → Scaling
 import { useState } from "react";
 
-import { I } from "../../icons";
 import type { Service } from "../../data";
+
+import { I } from "../../icons";
 import { Field, SectionH, SettingRow } from "../form";
 
 export function ScalingForm({ service }: { service: Service }) {
@@ -14,13 +15,13 @@ export function ScalingForm({ service }: { service: Service }) {
 
   return (
     <div className="col gap-4">
-      <SectionH title="Replicas" sub="Number of running copies · changes apply via rolling update" />
+      <SectionH
+        title="Replicas"
+        sub="Number of running copies · changes apply via rolling update"
+      />
       <div className="card" style={{ padding: 16 }}>
         <div className="row gap-2">
-          <button
-            className="btn ghost icon"
-            onClick={() => setReplicas((r) => Math.max(1, r - 1))}
-          >
+          <button className="btn ghost icon" onClick={() => setReplicas((r) => Math.max(1, r - 1))}>
             <I.x width={11} height={11} />
           </button>
           <input

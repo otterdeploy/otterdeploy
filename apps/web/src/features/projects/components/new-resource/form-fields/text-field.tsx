@@ -1,6 +1,7 @@
-import { useFieldContext } from "../form-context";
 import { Field, FieldError, FieldLabel } from "@/shared/components/ui/field";
 import { Input } from "@/shared/components/ui/input";
+
+import { useFieldContext } from "../form-context";
 
 interface TextFieldProps {
   label: string;
@@ -10,7 +11,13 @@ interface TextFieldProps {
   className?: string;
 }
 
-export function TextField({ label, type = "text", placeholder, description, className }: TextFieldProps) {
+export function TextField({
+  label,
+  type = "text",
+  placeholder,
+  description,
+  className,
+}: TextFieldProps) {
   const field = useFieldContext<string>();
   const errors = field.state.meta.errors;
   return (

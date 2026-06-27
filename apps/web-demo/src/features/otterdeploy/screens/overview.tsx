@@ -1,16 +1,14 @@
 import { DatabaseLogo } from "@/components/brand/database-logo";
-import { I } from "../icons";
-import { DEPLOYMENTS, SERVICES, type Env, type Service } from "../data";
+
 import { StatusBadge } from "../components/status-badge";
+import { DEPLOYMENTS, SERVICES, type Env, type Service } from "../data";
+import { I } from "../icons";
 
 export function Overview(_props: { env: Env }) {
   const services = SERVICES.filter((s) => s.kind === "service");
   const dbs = SERVICES.filter((s) => s.kind === "database");
   return (
-    <div
-      className="os-scroll"
-      style={{ flex: 1, overflow: "auto", padding: 24 }}
-    >
+    <div className="os-scroll" style={{ flex: 1, overflow: "auto", padding: 24 }}>
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
         <div className="row" style={{ marginBottom: 20 }}>
           <div>
@@ -45,11 +43,7 @@ export function Overview(_props: { env: Env }) {
           }}
         >
           <Stat label="Services" value="6" sub="5 healthy · 1 degraded" />
-          <Stat
-            label="Deploys / 24h"
-            value="14"
-            sub="2 failed · 1 rolled back"
-          />
+          <Stat label="Deploys / 24h" value="14" sub="2 failed · 1 rolled back" />
           <Stat label="Total RPS" value="1.2k" sub="+18% vs yesterday" />
           <Stat label="Compute" value="6.4 vCPU" sub="of 16 allocated" />
         </div>
@@ -113,10 +107,7 @@ export function Overview(_props: { env: Env }) {
               <span className="mono muted" style={{ fontSize: 12 }}>
                 {d.commit}
               </span>
-              <span
-                className="muted"
-                style={{ fontSize: 12, width: 80, textAlign: "right" }}
-              >
+              <span className="muted" style={{ fontSize: 12, width: 80, textAlign: "right" }}>
                 {d.when}
               </span>
             </div>
@@ -156,15 +147,7 @@ function SectionH({ title, sub }: { title: string; sub?: string }) {
   );
 }
 
-function Stat({
-  label,
-  value,
-  sub,
-}: {
-  label: string;
-  value: string;
-  sub: string;
-}) {
+function Stat({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
     <div className="card" style={{ padding: 14 }}>
       <div
@@ -223,8 +206,7 @@ function ServiceTile({ s }: { s: Service }) {
             borderTop: "1px solid var(--border)",
           }}
         >
-          <span style={{ color: "var(--fg-2)" }}>{s.commit}</span> {s.commitMsg}{" "}
-          · {s.lastDeploy}
+          <span style={{ color: "var(--fg-2)" }}>{s.commit}</span> {s.commitMsg} · {s.lastDeploy}
         </div>
       )}
     </div>
@@ -236,11 +218,7 @@ function DBTile({ s }: { s: Service }) {
   return (
     <div className="card" style={{ padding: 14 }}>
       <div className="row gap-2">
-        <DatabaseLogo
-          value={`${s.name} ${s.image}`}
-          size={14}
-          color="var(--fg-3)"
-        />
+        <DatabaseLogo value={`${s.name} ${s.image}`} size={14} color="var(--fg-3)" />
         <span className="mono" style={{ fontWeight: 500 }}>
           {s.name}
         </span>
@@ -255,10 +233,7 @@ function DBTile({ s }: { s: Service }) {
       </div>
       {s.storage && (
         <div style={{ marginTop: 12 }}>
-          <div
-            className="row"
-            style={{ fontSize: 11, color: "var(--fg-3)", marginBottom: 4 }}
-          >
+          <div className="row" style={{ fontSize: 11, color: "var(--fg-3)", marginBottom: 4 }}>
             <span>storage</span>
             <div style={{ flex: 1 }} />
             <span className="mono">
@@ -291,17 +266,12 @@ function Bar({ label, v }: { label: string; v: number }) {
   const pct = Math.round(v * 100);
   return (
     <div style={{ flex: 1 }}>
-      <div
-        className="row"
-        style={{ fontSize: 11, color: "var(--fg-3)", marginBottom: 3 }}
-      >
+      <div className="row" style={{ fontSize: 11, color: "var(--fg-3)", marginBottom: 3 }}>
         <span>{label}</span>
         <div style={{ flex: 1 }} />
         <span className="mono">{pct}%</span>
       </div>
-      <div
-        style={{ height: 3, background: "var(--bg-overlay)", borderRadius: 2 }}
-      >
+      <div style={{ height: 3, background: "var(--bg-overlay)", borderRadius: 2 }}>
         <div
           style={{
             width: `${pct}%`,

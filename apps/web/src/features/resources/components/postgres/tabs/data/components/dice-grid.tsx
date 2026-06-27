@@ -10,16 +10,20 @@
  * Changes apply optimistically and revert on a server error.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { toast } from "sonner";
 import type { ColumnDef } from "@tanstack/react-table";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+
+import { toast } from "sonner";
+
+import type { FkTarget } from "@/shared/components/data-grid/types";
 
 import { DataGrid } from "@/shared/components/data-grid/data-grid";
 import { useDataGrid } from "@/shared/components/data-grid/hooks/use-data-grid";
 import { useElementHeight } from "@/shared/components/data-grid/hooks/use-element-height";
-import type { FkTarget } from "@/shared/components/data-grid/types";
 
 import type { ColumnVariant } from "../data/queries";
+
 import { FkRefPopover } from "./fk-ref-popover";
 
 export type { ColumnVariant };
@@ -97,9 +101,7 @@ export function DiceResultGrid({
     value: string;
     anchor: HTMLElement;
   } | null>(null);
-  const [data, setData] = useState<Row[]>(() =>
-    toRows(columns, rows, columnVariants),
-  );
+  const [data, setData] = useState<Row[]>(() => toRows(columns, rows, columnVariants));
   useEffect(() => {
     setData(toRows(columns, rows, columnVariants));
   }, [columns, rows, columnVariants]);

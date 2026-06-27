@@ -12,10 +12,14 @@ import type { EnvironmentId, ProjectId } from "@otterdeploy/shared/id";
 
 import { Result } from "better-result";
 
-import { isUniqueViolation } from "../project/views";
-
-import { EnvironmentConflictError, EnvironmentDatabaseError, EnvironmentNotFoundError } from "./errors";
 import type { OrgRef } from "../scopes";
+
+import { isUniqueViolation } from "../project/views";
+import {
+  EnvironmentConflictError,
+  EnvironmentDatabaseError,
+  EnvironmentNotFoundError,
+} from "./errors";
 import {
   createEnvRecord,
   deleteEnvRecord,
@@ -43,11 +47,12 @@ export async function getEnv(
   return Result.ok(record);
 }
 
-export async function createEnv(
-  input: { id?: EnvironmentId; name: string; slug: string; projectId?: ProjectId },
-): Promise<
-  Result<EnvironmentRecord, EnvironmentConflictError | EnvironmentDatabaseError>
-> {
+export async function createEnv(input: {
+  id?: EnvironmentId;
+  name: string;
+  slug: string;
+  projectId?: ProjectId;
+}): Promise<Result<EnvironmentRecord, EnvironmentConflictError | EnvironmentDatabaseError>> {
   // The catch handler MUST return an error, never throw. Better-result wraps
   // a throwing catch as a Panic, which surfaces to the operator as the
   // unhelpful "Result.tryPromise catch handler threw" with no clue what the

@@ -1,3 +1,5 @@
+import type { Readable } from "node:stream";
+
 /**
  * Container exec for the backup engine. Resolves a swarm service to one of its
  * running task containers and runs a command there, demuxing stdout/stderr.
@@ -10,7 +12,6 @@
  * to the socket and streams its archive back over the exec channel.
  */
 import { Docker, demuxStream } from "@otterdeploy/docker";
-import type { Readable } from "node:stream";
 
 export interface ExecResult {
   exitCode: number;
@@ -56,20 +57,13 @@ export async function execCapture(
   const stream = startResult.value as Readable;
 
   const { stdout, stderr } = demuxStream(stream);
-  const [out, err] = await Promise.all([
-    collect(stdout),
-    collect(stderr),
-  ]);
+  const [out, err] = await Promise.all([collect(stdout), collect(stderr)]);
 
   const inspectResult = await exec.inspect();
-  const exitCode = inspectResult.isOk()
-    ? (inspectResult.value.ExitCode ?? 0)
-    : 0;
+  const exitCode = inspectResult.isOk() ? (inspectResult.value.ExitCode ?? 0) : 0;
 
   if (exitCode !== 0 && !opts.allowNonZero) {
-    throw new Error(
-      `Command exited ${exitCode}: ${err.toString("utf8").slice(0, 2000)}`,
-    );
+    throw new Error(`Command exited ${exitCode}: ${err.toString("utf8").slice(0, 2000)}`);
   }
   return {
     exitCode,
@@ -109,9 +103,7 @@ export async function execDump(
   const [archive, err] = await Promise.all([collect(stdout), collect(stderr)]);
 
   const inspectResult = await exec.inspect();
-  const exitCode = inspectResult.isOk()
-    ? (inspectResult.value.ExitCode ?? 0)
-    : 0;
+  const exitCode = inspectResult.isOk() ? (inspectResult.value.ExitCode ?? 0) : 0;
 
   return { exitCode, archive, stderr: err.toString("utf8") };
 }

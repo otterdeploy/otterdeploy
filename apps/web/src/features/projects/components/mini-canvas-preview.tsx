@@ -18,19 +18,9 @@ export function MiniCanvasPreview({ databases, routes, className }: Props) {
   const hasContent = databases > 0 || routes > 0;
 
   return (
-    <svg
-      viewBox="0 0 120 80"
-      className={className}
-      role="img"
-      aria-label="Project canvas preview"
-    >
+    <svg viewBox="0 0 120 80" className={className} role="img" aria-label="Project canvas preview">
       <defs>
-        <pattern
-          id={dotPatternId}
-          width="6"
-          height="6"
-          patternUnits="userSpaceOnUse"
-        >
+        <pattern id={dotPatternId} width="6" height="6" patternUnits="userSpaceOnUse">
           <circle cx="1" cy="1" r="0.6" fill="currentColor" opacity="0.18" />
         </pattern>
       </defs>
@@ -77,13 +67,7 @@ export function MiniCanvasPreview({ databases, routes, className }: Props) {
             </text>
           ) : null}
           {routes > 0 ? (
-            <circle
-              cx={104}
-              cy={16}
-              r={5}
-              fill="currentColor"
-              className="text-amber-500"
-            />
+            <circle cx={104} cy={16} r={5} fill="currentColor" className="text-amber-500" />
           ) : null}
         </>
       )}

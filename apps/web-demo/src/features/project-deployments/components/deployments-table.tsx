@@ -1,13 +1,8 @@
 import { RotateCcwIcon } from "lucide-react";
+
 import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
-import {
-  Table,
-  TableBody,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Toolbar, ToolbarButton, ToolbarSeparator } from "@/components/ui/toolbar";
 
 interface Props {
@@ -36,9 +31,7 @@ export function DeploymentsTable({ scope }: Props) {
             <TableHead>Started</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody>
-          {/* Rows render here when project.deployment.list ships in Plan 6 */}
-        </TableBody>
+        <TableBody>{/* Rows render here when project.deployment.list ships in Plan 6 */}</TableBody>
       </Table>
 
       <Empty>

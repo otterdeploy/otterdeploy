@@ -31,9 +31,7 @@ export async function signInstallState(state: InstallState): Promise<string> {
   return `${body}.${sig}`;
 }
 
-export async function verifyInstallState(
-  token: string,
-): Promise<InstallState | null> {
+export async function verifyInstallState(token: string): Promise<InstallState | null> {
   const idx = token.lastIndexOf(".");
   if (idx <= 0) return null;
   const body = token.slice(0, idx);
@@ -48,10 +46,7 @@ export async function verifyInstallState(
   } catch {
     return null;
   }
-  if (
-    typeof payload.exp !== "number" ||
-    payload.exp < Math.floor(Date.now() / 1000)
-  ) {
+  if (typeof payload.exp !== "number" || payload.exp < Math.floor(Date.now() / 1000)) {
     return null;
   }
   return { orgId: payload.orgId, userId: payload.userId };
@@ -65,11 +60,7 @@ async function hmac(input: string): Promise<string> {
     false,
     ["sign"],
   );
-  const sig = await crypto.subtle.sign(
-    "HMAC",
-    key,
-    new TextEncoder().encode(input),
-  );
+  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(input));
   return base64UrlEncode(new Uint8Array(sig));
 }
 
@@ -87,4 +78,3 @@ function base64UrlDecode(s: string): Uint8Array {
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
 }
-

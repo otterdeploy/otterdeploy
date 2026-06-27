@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+
 import { Download01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useQuery } from "@tanstack/react-query";
@@ -18,9 +19,7 @@ import { orpc } from "@/shared/server/orpc";
 
 import { HostFilter } from "./host-filter";
 
-type EdgeLog = Awaited<
-  ReturnType<typeof orpc.edgeLogs.query.call>
->["rows"][number];
+type EdgeLog = Awaited<ReturnType<typeof orpc.edgeLogs.query.call>>["rows"][number];
 
 const RANGES = ["5m", "1h", "6h", "24h", "7d"] as const;
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
@@ -77,9 +76,7 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
         projectId,
         range,
         methods: methods.size ? [...methods] : undefined,
-        statuses: statuses.size
-          ? ([...statuses] as ("2xx" | "3xx" | "4xx" | "5xx")[])
-          : undefined,
+        statuses: statuses.size ? ([...statuses] as ("2xx" | "3xx" | "4xx" | "5xx")[]) : undefined,
         hosts: hostFilter.length ? hostFilter : undefined,
         search: search.trim() || undefined,
       },
@@ -94,11 +91,7 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
     [data?.hostStats],
   );
   const maxBucket = useMemo(
-    () =>
-      Math.max(
-        1,
-        ...(data?.histogram ?? []).map((b) => b.c2xx + b.c3xx + b.c4xx + b.c5xx),
-      ),
+    () => Math.max(1, ...(data?.histogram ?? []).map((b) => b.c2xx + b.c3xx + b.c4xx + b.c5xx)),
     [data?.histogram],
   );
 
@@ -124,8 +117,8 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
           </span>
         </div>
         <p className="mt-0.5 text-[13px] text-muted-foreground">
-          Every HTTP request that hit the Caddy edge proxy. Live-tailed from
-          Caddy's structured access log.
+          Every HTTP request that hit the Caddy edge proxy. Live-tailed from Caddy's structured
+          access log.
         </p>
       </div>
 
@@ -144,11 +137,7 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
           colors={BUCKET_TEXT}
           onToggle={(v) => setStatuses((s) => toggleSet(s, v))}
         />
-        <HostFilter
-          options={hostOptions}
-          value={hostFilter}
-          onChange={setHostFilter}
-        />
+        <HostFilter options={hostOptions} value={hostFilter} onChange={setHostFilter} />
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -175,9 +164,9 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
       </div>
 
       {/* Volume histogram */}
-      <div className="border-b px-4 pb-2 pt-3">
+      <div className="border-b px-4 pt-3 pb-2">
         <div className="mb-1.5 flex items-center">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+          <span className="text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
             Volume
           </span>
           <div className="flex-1" />
@@ -215,20 +204,18 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
       <div className="min-h-0 flex-1 overflow-auto">
         {/* Inset the first/last cells to 16px so content aligns with the
             other sections (px-4), while row borders/header bg stay full-bleed. */}
-        <Table className="[&_td:first-child]:pl-4 [&_th:first-child]:pl-4 [&_td:last-child]:pr-4 [&_th:last-child]:pr-4">
+        <Table className="[&_td:first-child]:pl-4 [&_td:last-child]:pr-4 [&_th:first-child]:pl-4 [&_th:last-child]:pr-4">
           <TableHeader>
             <TableRow className="border-b bg-muted/30 hover:bg-transparent">
               <TableHead className="w-8" />
-              {["Time", "Method", "Status", "Host", "Path", "Latency", "Client IP"].map(
-                (h) => (
-                  <TableHead
-                    key={h}
-                    className="h-8 text-[10px] font-semibold uppercase tracking-[0.06em]"
-                  >
-                    {h}
-                  </TableHead>
-                ),
-              )}
+              {["Time", "Method", "Status", "Host", "Path", "Latency", "Client IP"].map((h) => (
+                <TableHead
+                  key={h}
+                  className="h-8 text-[10px] font-semibold tracking-[0.06em] uppercase"
+                >
+                  {h}
+                </TableHead>
+              ))}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -402,11 +389,7 @@ function EdgeRow({
             "font-semibold",
             row.status === 0 ? "text-muted-foreground/70" : BUCKET_TEXT[b],
           )}
-          title={
-            row.status === 0
-              ? "No response — the client aborted the request"
-              : undefined
-          }
+          title={row.status === 0 ? "No response — the client aborted the request" : undefined}
         >
           {row.status === 0 ? "—" : row.status}
         </TableCell>
@@ -419,9 +402,7 @@ function EdgeRow({
         >
           {row.path}
         </TableCell>
-        <TableCell className="whitespace-nowrap text-muted-foreground">
-          {row.latencyMs}ms
-        </TableCell>
+        <TableCell className="whitespace-nowrap text-muted-foreground">{row.latencyMs}ms</TableCell>
         <TableCell className="whitespace-nowrap text-muted-foreground">{row.clientIp}</TableCell>
       </TableRow>
       {open ? (
@@ -435,53 +416,51 @@ function EdgeRow({
                 then re-expands the wrapper to the cell, giving the truncate
                 children below a bounded width to shrink into. */}
             <div className="w-0 min-w-full overflow-hidden">
-            <div className="grid grid-cols-2 gap-x-10 gap-y-1 font-mono text-[12px]">
-              <Detail k="request_id" v={row.requestId ?? "—"} wrap={wrap} />
-              <Detail k="cache" v={row.cache ?? "—"} wrap={wrap} />
-              <Detail k="upstream" v={row.upstream ?? "—"} wrap={wrap} />
-              <Detail
-                k="tls"
-                v={[row.tlsVersion, row.tlsCipher].filter(Boolean).join(" · ") || "—"}
-                wrap={wrap}
-              />
-              <Detail k="req bytes" v={String(row.reqBytes)} wrap={wrap} />
-              <Detail k="res bytes" v={String(row.resBytes)} wrap={wrap} />
-              <Detail k="referer" v={row.referer} wrap={wrap} wide />
-              {row.country ? <Detail k="country" v={row.country} wrap={wrap} /> : null}
-              <Detail k="user-agent" v={row.userAgent} wrap={wrap} wide />
-            </div>
+              <div className="grid grid-cols-2 gap-x-10 gap-y-1 font-mono text-[12px]">
+                <Detail k="request_id" v={row.requestId ?? "—"} wrap={wrap} />
+                <Detail k="cache" v={row.cache ?? "—"} wrap={wrap} />
+                <Detail k="upstream" v={row.upstream ?? "—"} wrap={wrap} />
+                <Detail
+                  k="tls"
+                  v={[row.tlsVersion, row.tlsCipher].filter(Boolean).join(" · ") || "—"}
+                  wrap={wrap}
+                />
+                <Detail k="req bytes" v={String(row.reqBytes)} wrap={wrap} />
+                <Detail k="res bytes" v={String(row.resBytes)} wrap={wrap} />
+                <Detail k="referer" v={row.referer} wrap={wrap} wide />
+                {row.country ? <Detail k="country" v={row.country} wrap={wrap} /> : null}
+                <Detail k="user-agent" v={row.userAgent} wrap={wrap} wide />
+              </div>
 
-            {Object.keys(row.headers).length > 0 ? (
-              <div className="mt-3">
-                <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
-                  Headers preview
-                </div>
-                {/* Per-header rows (not one <pre>): a single long value like
+              {Object.keys(row.headers).length > 0 ? (
+                <div className="mt-3">
+                  <div className="mb-1.5 text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+                    Headers preview
+                  </div>
+                  {/* Per-header rows (not one <pre>): a single long value like
                     next-router-state-tree gives a <pre> a huge min-content
                     width that expands the whole table past the viewport.
                     min-w-0 + truncate lets each value shrink instead; the
                     Wrap toggle expands to the full value, and the title
                     surfaces it on hover. Capped height with vertical scroll. */}
-                <div className="max-h-64 space-y-0.5 overflow-y-auto rounded-md border bg-background/60 p-3 font-mono text-[11.5px] leading-relaxed">
-                  {Object.entries(row.headers).map(([k, v]) => (
-                    <div key={k} className="flex min-w-0 gap-2">
-                      <span className="shrink-0 text-muted-foreground">
-                        {k.toLowerCase()}:
-                      </span>
-                      <span
-                        className={cn(
-                          "min-w-0 text-foreground/80",
-                          wrap ? "break-all" : "truncate",
-                        )}
-                        title={v}
-                      >
-                        {v}
-                      </span>
-                    </div>
-                  ))}
+                  <div className="max-h-64 space-y-0.5 overflow-y-auto rounded-md border bg-background/60 p-3 font-mono text-[11.5px] leading-relaxed">
+                    {Object.entries(row.headers).map(([k, v]) => (
+                      <div key={k} className="flex min-w-0 gap-2">
+                        <span className="shrink-0 text-muted-foreground">{k.toLowerCase()}:</span>
+                        <span
+                          className={cn(
+                            "min-w-0 text-foreground/80",
+                            wrap ? "break-all" : "truncate",
+                          )}
+                          title={v}
+                        >
+                          {v}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ) : null}
+              ) : null}
             </div>
           </TableCell>
         </TableRow>
@@ -490,26 +469,14 @@ function EdgeRow({
   );
 }
 
-function Detail({
-  k,
-  v,
-  wide,
-  wrap,
-}: {
-  k: string;
-  v: string;
-  wide?: boolean;
-  wrap?: boolean;
-}) {
+function Detail({ k, v, wide, wrap }: { k: string; v: string; wide?: boolean; wrap?: boolean }) {
   return (
     // min-w-0: without it this flex item (and grid cell) keeps its intrinsic
     // content width, so a long value (user-agent, referer) overflows instead of
     // truncating. With it, the value span can shrink and truncate/wrap kicks in.
     <div className={cn("flex min-w-0 gap-2", wide && "col-span-2")}>
       <span className="shrink-0 text-muted-foreground">{k}</span>
-      <span className={cn("min-w-0 text-foreground/90", wrap ? "break-all" : "truncate")}>
-        {v}
-      </span>
+      <span className={cn("min-w-0 text-foreground/90", wrap ? "break-all" : "truncate")}>{v}</span>
     </div>
   );
 }

@@ -1,12 +1,9 @@
 import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
-import { and, eq, like } from "drizzle-orm";
-import { createError } from "evlog";
 
 import { db } from "@otterdeploy/db";
-import {
-  resource,
-  serviceEnvVar,
-} from "@otterdeploy/db/schema/project";
+import { resource, serviceEnvVar } from "@otterdeploy/db/schema/project";
+import { and, eq, like } from "drizzle-orm";
+import { createError } from "evlog";
 
 import type { ResourceRow, ServiceEnvVarRow } from ".";
 // ---------------------------------------------------------------------------
@@ -67,9 +64,7 @@ export async function bulkReplaceServiceEnvVars(
   vars: Array<{ key: string; value: string; isSecret?: boolean }>,
 ): Promise<ServiceEnvVarRow[]> {
   return db.transaction(async (tx) => {
-    await tx
-      .delete(serviceEnvVar)
-      .where(eq(serviceEnvVar.serviceResourceId, serviceResourceId));
+    await tx.delete(serviceEnvVar).where(eq(serviceEnvVar.serviceResourceId, serviceResourceId));
 
     if (vars.length === 0) return [];
 
@@ -119,12 +114,7 @@ export async function findServiceDependentsByName(input: {
     .select({ serviceResourceId: serviceEnvVar.serviceResourceId })
     .from(serviceEnvVar)
     .innerJoin(resource, eq(resource.id, serviceEnvVar.serviceResourceId))
-    .where(
-      and(
-        eq(resource.projectId, input.projectId),
-        like(serviceEnvVar.value, pattern),
-      ),
-    );
+    .where(and(eq(resource.projectId, input.projectId), like(serviceEnvVar.value, pattern)));
 
   // Dedupe — a service can reference the target via multiple env vars.
   return Array.from(new Set(rows.map((r) => r.serviceResourceId))) as ResourceId[];

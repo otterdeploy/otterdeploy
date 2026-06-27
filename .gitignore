@@ -57,3 +57,4 @@ research/
 .claude/worktrees/
 .fallow/
 .playwright-mcp/
+.vercel

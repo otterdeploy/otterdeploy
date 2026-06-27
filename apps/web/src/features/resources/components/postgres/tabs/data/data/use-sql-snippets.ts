@@ -13,6 +13,7 @@
  * personal scratchpads.
  */
 import { useCallback } from "react";
+
 import { createCollection, localStorageCollectionOptions } from "@tanstack/db";
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import { z } from "zod";
@@ -95,10 +96,7 @@ function uid(): string {
  */
 export function useSqlSnippets(resourceId: string) {
   const { data: folders } = useLiveQuery(
-    (q) =>
-      q
-        .from({ f: sqlFolderCollection })
-        .where(({ f }) => eq(f.resourceId, resourceId)),
+    (q) => q.from({ f: sqlFolderCollection }).where(({ f }) => eq(f.resourceId, resourceId)),
     [resourceId],
   );
 
@@ -112,10 +110,7 @@ export function useSqlSnippets(resourceId: string) {
   );
 
   const { data: playgroundRows } = useLiveQuery(
-    (q) =>
-      q
-        .from({ p: sqlPlaygroundCollection })
-        .where(({ p }) => eq(p.id, PLAYGROUND_ROW_ID)),
+    (q) => q.from({ p: sqlPlaygroundCollection }).where(({ p }) => eq(p.id, PLAYGROUND_ROW_ID)),
     [],
   );
   const playground = playgroundRows[0]?.sql ?? DEFAULT_PLAYGROUND;
@@ -167,11 +162,7 @@ export function useSqlSnippets(resourceId: string) {
   );
 
   const addSnippet = useCallback(
-    (init?: {
-      name?: string;
-      sql?: string;
-      folderId?: string | null;
-    }): SqlSnippet => {
+    (init?: { name?: string; sql?: string; folderId?: string | null }): SqlSnippet => {
       const snippet: SqlSnippet = {
         id: uid(),
         resourceId,
@@ -187,10 +178,7 @@ export function useSqlSnippets(resourceId: string) {
   );
 
   const updateSnippet = useCallback(
-    (
-      id: string,
-      patch: Partial<Pick<SqlSnippet, "name" | "sql" | "folderId">>,
-    ) => {
+    (id: string, patch: Partial<Pick<SqlSnippet, "name" | "sql" | "folderId">>) => {
       sqlSnippetCollection.update(id, (draft) => {
         if (patch.name !== undefined) draft.name = patch.name;
         if (patch.sql !== undefined) draft.sql = patch.sql;

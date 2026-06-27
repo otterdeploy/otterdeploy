@@ -1,13 +1,8 @@
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/shared/components/ui/tabs";
-
 import { FirewallView } from "@/features/firewall/components/firewall-view";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 
 import type { EdgeTab } from "../data/edge-search";
+
 import { EdgeEventsView } from "./edge-events-view";
 import { EdgeLogsView } from "./edge-logs-view";
 

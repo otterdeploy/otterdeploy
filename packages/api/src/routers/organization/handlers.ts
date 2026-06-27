@@ -6,7 +6,11 @@
 
 import type { OrganizationId } from "@otterdeploy/shared/id";
 
+import { db } from "@otterdeploy/db";
+import { PLATFORM_SETTINGS_ID, platformSettings } from "@otterdeploy/db/schema/platform";
+import { hasEnvTransport, invalidateTransport, sendEmail } from "@otterdeploy/email";
 import { Result, TaggedError } from "better-result";
+import { eq } from "drizzle-orm";
 
 import {
   CloudflareError,
@@ -15,24 +19,8 @@ import {
   verifyCloudflareToken,
   type CloudflareZone,
 } from "../../lib/cloudflare";
-import {
-  VERIFY_TXT_PREFIX,
-  verifyDomainTxt,
-  type VerifyOutcome,
-} from "../../lib/dns-verify";
-
-import {
-  eq,
-} from "drizzle-orm";
-import { db } from "@otterdeploy/db";
-import {
-  PLATFORM_SETTINGS_ID,
-  platformSettings,
-} from "@otterdeploy/db/schema/platform";
-import { hasEnvTransport, invalidateTransport, sendEmail } from "@otterdeploy/email";
-
 import { encryptSecret } from "../../lib/crypto";
-
+import { VERIFY_TXT_PREFIX, verifyDomainTxt, type VerifyOutcome } from "../../lib/dns-verify";
 import {
   getOrganizationById,
   markOrganizationBaseDomainVerified,
@@ -53,7 +41,9 @@ interface OrgSettingsView {
   cloudflareTokenConfigured: boolean;
 }
 
-function toView(row: NonNullable<Awaited<ReturnType<typeof getOrganizationById>>>): OrgSettingsView {
+function toView(
+  row: NonNullable<Awaited<ReturnType<typeof getOrganizationById>>>,
+): OrgSettingsView {
   return {
     id: row.id,
     name: row.name,
@@ -64,8 +54,7 @@ function toView(row: NonNullable<Awaited<ReturnType<typeof getOrganizationById>>
     cloudflareZoneId: row.cloudflareZoneId,
     // Never leak the token itself. Just signal presence so the UI can
     // render "Connected" vs "Add token" without exposing the secret.
-    cloudflareTokenConfigured:
-      row.cloudflareApiToken != null && row.cloudflareApiToken.length > 0,
+    cloudflareTokenConfigured: row.cloudflareApiToken != null && row.cloudflareApiToken.length > 0,
   };
 }
 
@@ -90,10 +79,7 @@ export async function updateOrganizationBaseDomain(input: {
   organizationId: OrgId;
   baseDomain: string;
 }): Promise<Result<OrgSettingsView, OrganizationNotFoundError>> {
-  const row = await setOrganizationBaseDomain(
-    input.organizationId,
-    input.baseDomain,
-  );
+  const row = await setOrganizationBaseDomain(input.organizationId, input.baseDomain);
   if (!row) return Result.err(new OrganizationNotFoundError(input.organizationId));
   return Result.ok(toView(row));
 }
@@ -128,10 +114,7 @@ export async function listZonesForToken(
     return Result.ok(zones);
   } catch (err) {
     return Result.err(
-      new CloudflareConfigError(
-        "api",
-        err instanceof Error ? err.message : String(err),
-      ),
+      new CloudflareConfigError("api", err instanceof Error ? err.message : String(err)),
     );
   }
 }
@@ -140,9 +123,7 @@ export async function saveOrganizationCloudflareConfig(input: {
   organizationId: OrgId;
   token: string;
   zoneId: string | null;
-}): Promise<
-  Result<OrgSettingsView, OrganizationNotFoundError | CloudflareConfigError>
-> {
+}): Promise<Result<OrgSettingsView, OrganizationNotFoundError | CloudflareConfigError>> {
   const isClear = input.token.trim().length === 0;
   if (!isClear) {
     // Re-validate the token at save time — UI flows may have selected a
@@ -151,14 +132,10 @@ export async function saveOrganizationCloudflareConfig(input: {
     // already-dead credentials.
     const verify = await verifyCloudflareToken(input.token);
     if (!verify.ok) {
-      return Result.err(
-        new CloudflareConfigError("token", `Token rejected: ${verify.status}`),
-      );
+      return Result.err(new CloudflareConfigError("token", `Token rejected: ${verify.status}`));
     }
     if (!input.zoneId) {
-      return Result.err(
-        new CloudflareConfigError("zone", "Pick a Cloudflare zone before saving."),
-      );
+      return Result.err(new CloudflareConfigError("zone", "Pick a Cloudflare zone before saving."));
     }
   }
   const row = await setOrganizationCloudflareConfig({
@@ -172,9 +149,7 @@ export async function saveOrganizationCloudflareConfig(input: {
   return Result.ok(toView(row));
 }
 
-export async function autoConfigureBaseDomainViaCloudflare(
-  orgId: OrgId,
-): Promise<
+export async function autoConfigureBaseDomainViaCloudflare(orgId: OrgId): Promise<
   Result<
     {
       ok: boolean;
@@ -271,10 +246,7 @@ export async function autoConfigureBaseDomainViaCloudflare(
       return Result.err(new CloudflareConfigError("api", err.message));
     }
     return Result.err(
-      new CloudflareConfigError(
-        "api",
-        err instanceof Error ? err.message : String(err),
-      ),
+      new CloudflareConfigError("api", err instanceof Error ? err.message : String(err)),
     );
   }
 }
@@ -370,9 +342,7 @@ export interface SaveEmailSettingsInput {
   smtpPassword?: string | null;
 }
 
-export async function saveEmailSettings(
-  input: SaveEmailSettingsInput,
-): Promise<EmailSettingsView> {
+export async function saveEmailSettings(input: SaveEmailSettingsInput): Promise<EmailSettingsView> {
   const set: Partial<typeof platformSettings.$inferInsert> = {
     emailProvider: input.provider,
     emailFrom: input.from,
@@ -402,9 +372,7 @@ export async function saveEmailSettings(
   return getEmailSettings();
 }
 
-export async function sendTestEmail(
-  to: string,
-): Promise<{ ok: boolean; error: string | null }> {
+export async function sendTestEmail(to: string): Promise<{ ok: boolean; error: string | null }> {
   const res = await Result.tryPromise({
     // Return void — we only care that it didn't throw, and returning
     // sendEmail's cross-package union return trips no-unsafe-return.

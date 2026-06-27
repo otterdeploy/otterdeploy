@@ -1,9 +1,12 @@
 import type { ReactNode } from "react";
+
 import { useRouterState } from "@tanstack/react-router";
-import { OuterRail } from "./outer-rail";
-import { BreadcrumbBar } from "./breadcrumb-bar";
-import { WorkspaceSettingsRail } from "./workspace-settings-rail";
+
 import type { WorkspaceSummary } from "@/features/workspace-switcher";
+
+import { BreadcrumbBar } from "./breadcrumb-bar";
+import { OuterRail } from "./outer-rail";
+import { WorkspaceSettingsRail } from "./workspace-settings-rail";
 
 const placeholderWorkspace: WorkspaceSummary = {
   id: "ws_default",

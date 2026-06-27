@@ -1,5 +1,5 @@
-import { defineConfig } from "drizzle-kit";
 import { env } from "@otterdeploy/env/server";
+import { defineConfig } from "drizzle-kit";
 
 export default defineConfig({
   // Point at the barrel, not the directory: drizzle-kit 1.0-rc loads a

@@ -1,4 +1,5 @@
 import type { ServiceKind } from "@/features/projects/data/service-kinds";
+
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
 import {
@@ -20,11 +21,7 @@ const REDIS_EVICTION_POLICIES = [
 ];
 
 const MAINTENANCE_DAYS = ["Sunday", "Saturday", "Monday"];
-const MAINTENANCE_WINDOWS = [
-  "03:00 - 05:00 UTC",
-  "09:00 - 11:00 UTC",
-  "15:00 - 17:00 UTC",
-];
+const MAINTENANCE_WINDOWS = ["03:00 - 05:00 UTC", "09:00 - 11:00 UTC", "15:00 - 17:00 UTC"];
 
 export function StepAdvancedDb({ kind }: { kind: ServiceKind }) {
   const traits = traitsFor(kind.id);
@@ -70,10 +67,7 @@ export function StepAdvancedDb({ kind }: { kind: ServiceKind }) {
           <Card className="mt-2.5 rounded-md">
             <CardContent className="flex flex-col gap-2.5">
               <Field label="Eviction policy">
-                <Select
-                  defaultValue="allkeys-lru"
-                  items={REDIS_EVICTION_POLICIES}
-                >
+                <Select defaultValue="allkeys-lru" items={REDIS_EVICTION_POLICIES}>
                   <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>

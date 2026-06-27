@@ -1,10 +1,12 @@
-import { matchError } from "better-result";
 import { ORPCError, withEventMeta } from "@orpc/server";
+import { matchError } from "better-result";
 
 import { orgScopedProcedure, requirePermission } from "../../index";
-
+import { parseCompose, summarizeCompose } from "../../stack/compose";
+import { diffManifest, type Change, type Manifest } from "../../stack/manifest";
+import { renderProjectFromRows, toComposeYaml } from "../../stack/render";
 import { streamDeploymentLogs } from "../deployment/log-stream";
-
+import { streamProjectEvents, validateProjectEventsStream } from "./events-stream";
 import {
   bulkReplaceProjectEnvVarsForOrg,
   bulkSetResourceEnv,
@@ -56,21 +58,14 @@ import {
 import { discardManifest, loadManifest, resolvedManifest, saveManifest } from "./manifest";
 import { applyManifest } from "./manifest-apply";
 import { loadCurrentState } from "./manifest-state";
+import { deriveInternalDbCredentials } from "./postgres/credentials";
+import { tailProjectLogs } from "./project-logs";
 import {
   deleteDraftCredentialsNotIn,
   ensureDraftCredentialPassword,
   getProjectInOrg,
 } from "./queries";
-import { deriveInternalDbCredentials } from "./postgres/credentials";
-import { diffManifest, type Change, type Manifest } from "../../stack/manifest";
-import { parseCompose, summarizeCompose } from "../../stack/compose";
-import { renderProjectFromRows, toComposeYaml } from "../../stack/render";
-import { tailProjectLogs } from "./project-logs";
 import { listAvailableRefs } from "./refs";
-import {
-  streamProjectEvents,
-  validateProjectEventsStream,
-} from "./events-stream";
 import { applyProjectStack } from "./stack-apply";
 import { diffProjectStack } from "./stack-diff";
 import { saveProjectStack } from "./stack-save";
@@ -94,40 +89,36 @@ function enrichComposeCreates(changes: Change[], manifest: Manifest): Change[] {
 }
 
 export const projectRouter = {
-  get: orgScopedProcedure.project.get.handler(
-    async ({ input, context, errors }) => {
-      context.log.set({ target: { type: "project", id: input.id } });
-      const result = await getProject({
-        id: input.id,
-        organizationId: context.activeOrganizationId,
+  get: orgScopedProcedure.project.get.handler(async ({ input, context, errors }) => {
+    context.log.set({ target: { type: "project", id: input.id } });
+    const result = await getProject({
+      id: input.id,
+      organizationId: context.activeOrganizationId,
+    });
+    if (result.isErr()) {
+      throw matchError(result.error, {
+        ProjectNotFoundError: () => errors.NOT_FOUND(),
       });
-      if (result.isErr()) {
-        throw matchError(result.error, {
-          ProjectNotFoundError: () => errors.NOT_FOUND(),
-        });
-      }
-      return result.value;
-    },
-  ),
+    }
+    return result.value;
+  }),
 
-  getBySlug: orgScopedProcedure.project.getBySlug.handler(
-    async ({ input, context, errors }) => {
-      context.log.set({ target: { type: "project", slug: input.slug } });
-      const result = await getProjectBySlugForOrg({
-        slug: input.slug,
-        organizationId: context.activeOrganizationId,
+  getBySlug: orgScopedProcedure.project.getBySlug.handler(async ({ input, context, errors }) => {
+    context.log.set({ target: { type: "project", slug: input.slug } });
+    const result = await getProjectBySlugForOrg({
+      slug: input.slug,
+      organizationId: context.activeOrganizationId,
+    });
+    if (result.isErr()) {
+      throw matchError(result.error, {
+        ProjectNotFoundError: () => errors.NOT_FOUND(),
       });
-      if (result.isErr()) {
-        throw matchError(result.error, {
-          ProjectNotFoundError: () => errors.NOT_FOUND(),
-        });
-      }
-      context.log.set({
-        target: { type: "project", id: result.value.id, slug: input.slug },
-      });
-      return result.value;
-    },
-  ),
+    }
+    context.log.set({
+      target: { type: "project", id: result.value.id, slug: input.slug },
+    });
+    return result.value;
+  }),
 
   list: orgScopedProcedure.project.list.handler(async ({ context }) => {
     return listProjects({ organizationId: context.activeOrganizationId });
@@ -237,20 +228,18 @@ export const projectRouter = {
   ),
 
   proxyRoute: {
-    list: orgScopedProcedure.project.proxyRoute.list.handler(
-      async ({ input, context, errors }) => {
-        const result = await listProjectProxyRoutes({
-          projectId: input.projectId,
-          organizationId: context.activeOrganizationId,
+    list: orgScopedProcedure.project.proxyRoute.list.handler(async ({ input, context, errors }) => {
+      const result = await listProjectProxyRoutes({
+        projectId: input.projectId,
+        organizationId: context.activeOrganizationId,
+      });
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          ProjectNotFoundError: () => errors.NOT_FOUND(),
         });
-        if (result.isErr()) {
-          throw matchError(result.error, {
-            ProjectNotFoundError: () => errors.NOT_FOUND(),
-          });
-        }
-        return result.value;
-      },
-    ),
+      }
+      return result.value;
+    }),
 
     caddyfile: orgScopedProcedure.project.proxyRoute.caddyfile.handler(
       async ({ input, context, errors }) => {
@@ -297,121 +286,116 @@ export const projectRouter = {
       },
     ),
 
-    setCustomConfig:
-      requirePermission({ route: ["update"] }).project.proxyRoute.setCustomConfig.handler(
-        async ({ input, context, errors }) => {
-          context.log.set({ target: { type: "project", id: input.projectId } });
-          const result = await saveProjectCustomCaddyConfig(
-            {
-              projectId: input.projectId,
-              config: input.config,
-              organizationId: context.activeOrganizationId,
-            },
-            context.log,
-          );
-          if (result.isErr()) {
-            throw matchError(result.error, {
-              ProjectNotFoundError: () => errors.NOT_FOUND(),
-            });
-          }
-          return result.value;
+    setCustomConfig: requirePermission({
+      route: ["update"],
+    }).project.proxyRoute.setCustomConfig.handler(async ({ input, context, errors }) => {
+      context.log.set({ target: { type: "project", id: input.projectId } });
+      const result = await saveProjectCustomCaddyConfig(
+        {
+          projectId: input.projectId,
+          config: input.config,
+          organizationId: context.activeOrganizationId,
         },
-      ),
+        context.log,
+      );
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          ProjectNotFoundError: () => errors.NOT_FOUND(),
+        });
+      }
+      return result.value;
+    }),
 
-    globalOptions: orgScopedProcedure.project.proxyRoute.globalOptions.handler(
-      async () => getGlobalCaddyOptions(),
+    globalOptions: orgScopedProcedure.project.proxyRoute.globalOptions.handler(async () =>
+      getGlobalCaddyOptions(),
     ),
 
     // Instance-wide edge options — gated on firewall:update (admin/owner), since
     // a single project's member shouldn't change the whole install's HTTPS behavior.
-    setGlobalOptions:
-      requirePermission({ firewall: ["update"] }).project.proxyRoute.setGlobalOptions.handler(
-        async ({ input, context }) => {
-          context.log.set({ target: { type: "project", id: input.projectId } });
-          return saveGlobalCaddyOptions(
-            {
-              acmeEmail: input.acmeEmail,
-              httpsAutoRedirect: input.httpsAutoRedirect,
-            },
-            context.log,
-          );
+    setGlobalOptions: requirePermission({
+      firewall: ["update"],
+    }).project.proxyRoute.setGlobalOptions.handler(async ({ input, context }) => {
+      context.log.set({ target: { type: "project", id: input.projectId } });
+      return saveGlobalCaddyOptions(
+        {
+          acmeEmail: input.acmeEmail,
+          httpsAutoRedirect: input.httpsAutoRedirect,
         },
-      ),
+        context.log,
+      );
+    }),
 
-    setRouteDirectives:
-      requirePermission({ route: ["update"] }).project.proxyRoute.setRouteDirectives.handler(
-        async ({ input, context, errors }) => {
-          context.log.set({ target: { type: "proxy-route", id: input.routeId } });
-          const result = await setProxyRouteDirectives(
-            {
-              routeId: input.routeId,
-              directives: input.directives,
-              organizationId: context.activeOrganizationId,
-            },
-            context.log,
-          );
-          if (result.isErr()) {
-            throw matchError(result.error, {
-              ProxyRouteNotFoundError: () => errors.NOT_FOUND(),
-            });
-          }
-          return result.value;
+    setRouteDirectives: requirePermission({
+      route: ["update"],
+    }).project.proxyRoute.setRouteDirectives.handler(async ({ input, context, errors }) => {
+      context.log.set({ target: { type: "proxy-route", id: input.routeId } });
+      const result = await setProxyRouteDirectives(
+        {
+          routeId: input.routeId,
+          directives: input.directives,
+          organizationId: context.activeOrganizationId,
         },
-      ),
+        context.log,
+      );
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          ProxyRouteNotFoundError: () => errors.NOT_FOUND(),
+        });
+      }
+      return result.value;
+    }),
 
-    setProtection: requirePermission({ route: ["update"] }).project.proxyRoute.setProtection.handler(
-      async ({ input, context, errors }) => {
-        context.log.set({ target: { type: "proxy-route", id: input.routeId } });
-        const result = await setProxyRouteProtection(
-          {
-            routeId: input.routeId,
-            protected: input.protected,
-            organizationId: context.activeOrganizationId,
-          },
-          context.log,
-        );
-        if (result.isErr()) {
-          throw matchError(result.error, {
-            ProxyRouteNotFoundError: () => errors.NOT_FOUND(),
-          });
-        }
-        return result.value;
-      },
-    ),
-
-    createShareLink:
-      requirePermission({ route: ["update"] }).project.proxyRoute.createShareLink.handler(
-        async ({ input, context, errors }) => {
-          const result = await createDeploymentShareLink({
-            routeId: input.routeId,
-            expiresInHours: input.expiresInHours,
-            organizationId: context.activeOrganizationId,
-          });
-          if (result.isErr()) {
-            throw matchError(result.error, {
-              ProxyRouteNotFoundError: () => errors.NOT_FOUND(),
-            });
-          }
-          return result.value;
+    setProtection: requirePermission({
+      route: ["update"],
+    }).project.proxyRoute.setProtection.handler(async ({ input, context, errors }) => {
+      context.log.set({ target: { type: "proxy-route", id: input.routeId } });
+      const result = await setProxyRouteProtection(
+        {
+          routeId: input.routeId,
+          protected: input.protected,
+          organizationId: context.activeOrganizationId,
         },
-      ),
+        context.log,
+      );
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          ProxyRouteNotFoundError: () => errors.NOT_FOUND(),
+        });
+      }
+      return result.value;
+    }),
 
-    createBypassToken:
-      requirePermission({ route: ["update"] }).project.proxyRoute.createBypassToken.handler(
-        async ({ input, context, errors }) => {
-          const result = await createDeploymentBypassToken({
-            routeId: input.routeId,
-            expiresInDays: input.expiresInDays,
-            organizationId: context.activeOrganizationId,
-          });
-          if (result.isErr()) {
-            throw matchError(result.error, {
-              ProxyRouteNotFoundError: () => errors.NOT_FOUND(),
-            });
-          }
-          return result.value;
-        },
-      ),
+    createShareLink: requirePermission({
+      route: ["update"],
+    }).project.proxyRoute.createShareLink.handler(async ({ input, context, errors }) => {
+      const result = await createDeploymentShareLink({
+        routeId: input.routeId,
+        expiresInHours: input.expiresInHours,
+        organizationId: context.activeOrganizationId,
+      });
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          ProxyRouteNotFoundError: () => errors.NOT_FOUND(),
+        });
+      }
+      return result.value;
+    }),
+
+    createBypassToken: requirePermission({
+      route: ["update"],
+    }).project.proxyRoute.createBypassToken.handler(async ({ input, context, errors }) => {
+      const result = await createDeploymentBypassToken({
+        routeId: input.routeId,
+        expiresInDays: input.expiresInDays,
+        organizationId: context.activeOrganizationId,
+      });
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          ProxyRouteNotFoundError: () => errors.NOT_FOUND(),
+        });
+      }
+      return result.value;
+    }),
 
     listGuests: orgScopedProcedure.project.proxyRoute.listGuests.handler(
       async ({ input, context, errors }) => {
@@ -469,20 +453,18 @@ export const projectRouter = {
   },
 
   resource: {
-    list: orgScopedProcedure.project.resource.list.handler(
-      async ({ input, context, errors }) => {
-        const result = await listProjectResources({
-          projectId: input.projectId,
-          organizationId: context.activeOrganizationId,
+    list: orgScopedProcedure.project.resource.list.handler(async ({ input, context, errors }) => {
+      const result = await listProjectResources({
+        projectId: input.projectId,
+        organizationId: context.activeOrganizationId,
+      });
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          ProjectNotFoundError: () => errors.NOT_FOUND(),
         });
-        if (result.isErr()) {
-          throw matchError(result.error, {
-            ProjectNotFoundError: () => errors.NOT_FOUND(),
-          });
-        }
-        return result.value;
-      },
-    ),
+      }
+      return result.value;
+    }),
 
     checkName: orgScopedProcedure.project.resource.checkName.handler(
       async ({ input, context, errors }) => {
@@ -500,25 +482,23 @@ export const projectRouter = {
       },
     ),
 
-    tasks: orgScopedProcedure.project.resource.tasks.handler(
-      async ({ input, context, errors }) => {
-        context.log.set({
-          target: { type: "resource", id: input.resourceId, projectId: input.projectId },
+    tasks: orgScopedProcedure.project.resource.tasks.handler(async ({ input, context, errors }) => {
+      context.log.set({
+        target: { type: "resource", id: input.resourceId, projectId: input.projectId },
+      });
+      const result = await listResourceTasks({
+        projectId: input.projectId,
+        resourceId: input.resourceId,
+        organizationId: context.activeOrganizationId,
+      });
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          ProjectNotFoundError: () => errors.NOT_FOUND(),
+          PostgresResourceNotFoundError: () => errors.NOT_FOUND(),
         });
-        const result = await listResourceTasks({
-          projectId: input.projectId,
-          resourceId: input.resourceId,
-          organizationId: context.activeOrganizationId,
-        });
-        if (result.isErr()) {
-          throw matchError(result.error, {
-            ProjectNotFoundError: () => errors.NOT_FOUND(),
-            PostgresResourceNotFoundError: () => errors.NOT_FOUND(),
-          });
-        }
-        return result.value;
-      },
-    ),
+      }
+      return result.value;
+    }),
 
     env: {
       list: orgScopedProcedure.project.resource.env.list.handler(
@@ -597,25 +577,23 @@ export const projectRouter = {
       // Per-task variant — drives the deployment-detail expander. Same
       // eager-handler pattern as logs.tail above: log.set runs before the
       // generator body so evlog sees the target fields.
-      tail: orgScopedProcedure.project.resource.taskLogs.tail.handler(
-        ({ input, context }) => {
-          context.log.set({
-            target: {
-              type: "resource",
-              id: input.resourceId,
-              projectId: input.projectId,
-            },
-            taskId: input.taskId,
-          });
-          return tailTaskLogs({
+      tail: orgScopedProcedure.project.resource.taskLogs.tail.handler(({ input, context }) => {
+        context.log.set({
+          target: {
+            type: "resource",
+            id: input.resourceId,
             projectId: input.projectId,
-            resourceId: input.resourceId,
-            organizationId: context.activeOrganizationId,
-            taskId: input.taskId,
-            tail: input.tail,
-          });
-        },
-      ),
+          },
+          taskId: input.taskId,
+        });
+        return tailTaskLogs({
+          projectId: input.projectId,
+          resourceId: input.resourceId,
+          organizationId: context.activeOrganizationId,
+          taskId: input.taskId,
+          tail: input.tail,
+        });
+      }),
     },
 
     deployments: {
@@ -693,43 +671,38 @@ export const projectRouter = {
       // client retry plugin can resume via `lastEventId` instead of replaying
       // the whole log on reconnect. Live lines (seq null) ship without an id.
       buildLogs: {
-        stream:
-          orgScopedProcedure.project.resource.deployments.buildLogs.stream.handler(
-            async function* ({ input, context, lastEventId }) {
-              context.log.set({ deploymentId: input.deploymentId });
-              const generator = streamDeploymentLogs({
-                deploymentId: input.deploymentId,
-                organizationId: context.activeOrganizationId,
-                afterSeq: lastEventId != null ? Number(lastEventId) : null,
-              });
-              for await (const line of generator) {
-                yield line.seq != null
-                  ? withEventMeta(line, { id: String(line.seq) })
-                  : line;
-              }
-            },
-          ),
+        stream: orgScopedProcedure.project.resource.deployments.buildLogs.stream.handler(
+          async function* ({ input, context, lastEventId }) {
+            context.log.set({ deploymentId: input.deploymentId });
+            const generator = streamDeploymentLogs({
+              deploymentId: input.deploymentId,
+              organizationId: context.activeOrganizationId,
+              afterSeq: lastEventId != null ? Number(lastEventId) : null,
+            });
+            for await (const line of generator) {
+              yield line.seq != null ? withEventMeta(line, { id: String(line.seq) }) : line;
+            }
+          },
+        ),
       },
     },
 
-    get: orgScopedProcedure.project.resource.get.handler(
-      async ({ input, context, errors }) => {
-        context.log.set({
-          target: { type: "resource", id: input.resourceId, projectId: input.projectId },
+    get: orgScopedProcedure.project.resource.get.handler(async ({ input, context, errors }) => {
+      context.log.set({
+        target: { type: "resource", id: input.resourceId, projectId: input.projectId },
+      });
+      const result = await getProjectResource({
+        projectId: input.projectId,
+        resourceId: input.resourceId,
+        organizationId: context.activeOrganizationId,
+      });
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          PostgresResourceNotFoundError: () => errors.NOT_FOUND(),
         });
-        const result = await getProjectResource({
-          projectId: input.projectId,
-          resourceId: input.resourceId,
-          organizationId: context.activeOrganizationId,
-        });
-        if (result.isErr()) {
-          throw matchError(result.error, {
-            PostgresResourceNotFoundError: () => errors.NOT_FOUND(),
-          });
-        }
-        return result.value;
-      },
-    ),
+      }
+      return result.value;
+    }),
 
     delete: requirePermission({ service: ["delete"] }).project.resource.delete.handler(
       async ({ input, context, errors }) => {
@@ -760,7 +733,9 @@ export const projectRouter = {
         // matched oRPC errors. Once the generator runs, runtime failures
         // surface as `error` events the wizard renders alongside the
         // already-completed steps.
-        create: requirePermission({ database: ["create"] }).project.resource.database.postgres.create.handler(
+        create: requirePermission({
+          database: ["create"],
+        }).project.resource.database.postgres.create.handler(
           // Eager prelude. Everything that should land in the audit wide
           // event has to run BEFORE we return the generator — once that
           // happens oRPC sets up the streaming response, hono's `next()`
@@ -812,10 +787,7 @@ export const projectRouter = {
               });
               if (!project) throw errors.NOT_FOUND();
               // Mint (or read) the stable password, then derive the rest.
-              const password = await ensureDraftCredentialPassword(
-                input.projectId,
-                input.name,
-              );
+              const password = await ensureDraftCredentialPassword(input.projectId, input.name);
               const creds = deriveInternalDbCredentials({
                 engine: input.engine,
                 projectSlug: project.slug,
@@ -833,7 +805,9 @@ export const projectRouter = {
             },
           ),
 
-        setPublic: requirePermission({ database: ["update"] }).project.resource.database.postgres.setPublic.handler(
+        setPublic: requirePermission({
+          database: ["update"],
+        }).project.resource.database.postgres.setPublic.handler(
           async ({ input, context, errors }) => {
             context.log.set({
               target: {
@@ -862,7 +836,9 @@ export const projectRouter = {
           },
         ),
 
-        restart: requirePermission({ database: ["update"] }).project.resource.database.postgres.restart.handler(
+        restart: requirePermission({
+          database: ["update"],
+        }).project.resource.database.postgres.restart.handler(
           async ({ input, context, errors }) => {
             context.log.set({
               target: {
@@ -890,120 +866,120 @@ export const projectRouter = {
           },
         ),
 
-        setExtensions:
-          requirePermission({ database: ["update"] }).project.resource.database.postgres.setExtensions.handler(
-            async ({ input, context, errors }) => {
-              context.log.set({
-                target: {
-                  type: "resource",
-                  kind: "postgres",
-                  id: input.resourceId,
-                  projectId: input.projectId,
-                },
+        setExtensions: requirePermission({
+          database: ["update"],
+        }).project.resource.database.postgres.setExtensions.handler(
+          async ({ input, context, errors }) => {
+            context.log.set({
+              target: {
+                type: "resource",
+                kind: "postgres",
+                id: input.resourceId,
+                projectId: input.projectId,
+              },
+            });
+            const result = await setPostgresExtensions(
+              {
+                projectId: input.projectId,
+                resourceId: input.resourceId,
+                extensions: input.extensions,
+                organizationId: context.activeOrganizationId,
+              },
+              context.log,
+            );
+            if (result.isErr()) {
+              throw matchError(result.error, {
+                ProjectNotFoundError: () => errors.NOT_FOUND(),
+                PostgresResourceNotFoundError: () => errors.NOT_FOUND(),
+                IncompatibleExtensionsError: (e) => errors.INVALID_INPUT({ message: e.message }),
               });
-              const result = await setPostgresExtensions(
-                {
-                  projectId: input.projectId,
-                  resourceId: input.resourceId,
-                  extensions: input.extensions,
-                  organizationId: context.activeOrganizationId,
-                },
-                context.log,
-              );
-              if (result.isErr()) {
-                throw matchError(result.error, {
-                  ProjectNotFoundError: () => errors.NOT_FOUND(),
-                  PostgresResourceNotFoundError: () => errors.NOT_FOUND(),
-                  IncompatibleExtensionsError: (e) =>
-                    errors.INVALID_INPUT({ message: e.message }),
-                });
-              }
-              return result.value;
-            },
-          ),
+            }
+            return result.value;
+          },
+        ),
 
-        setExtraEnv:
-          requirePermission({ database: ["update"] }).project.resource.database.postgres.setExtraEnv.handler(
-            async ({ input, context, errors }) => {
-              context.log.set({
-                target: {
-                  type: "resource",
-                  kind: "postgres",
-                  id: input.resourceId,
-                  projectId: input.projectId,
-                },
-                envKey: input.key,
+        setExtraEnv: requirePermission({
+          database: ["update"],
+        }).project.resource.database.postgres.setExtraEnv.handler(
+          async ({ input, context, errors }) => {
+            context.log.set({
+              target: {
+                type: "resource",
+                kind: "postgres",
+                id: input.resourceId,
+                projectId: input.projectId,
+              },
+              envKey: input.key,
+            });
+            const result = await setPostgresExtraEnvKey(
+              {
+                projectId: input.projectId,
+                resourceId: input.resourceId,
+                key: input.key,
+                value: input.value,
+                organizationId: context.activeOrganizationId,
+              },
+              context.log,
+            );
+            if (result.isErr()) {
+              throw matchError(result.error, {
+                ProjectNotFoundError: () => errors.NOT_FOUND(),
+                PostgresResourceNotFoundError: () => errors.NOT_FOUND(),
               });
-              const result = await setPostgresExtraEnvKey(
-                {
-                  projectId: input.projectId,
-                  resourceId: input.resourceId,
-                  key: input.key,
-                  value: input.value,
-                  organizationId: context.activeOrganizationId,
-                },
-                context.log,
-              );
-              if (result.isErr()) {
-                throw matchError(result.error, {
-                  ProjectNotFoundError: () => errors.NOT_FOUND(),
-                  PostgresResourceNotFoundError: () => errors.NOT_FOUND(),
-                });
-              }
-              return result.value;
-            },
-          ),
+            }
+            return result.value;
+          },
+        ),
 
-        unsetExtraEnv:
-          requirePermission({ database: ["update"] }).project.resource.database.postgres.unsetExtraEnv.handler(
-            async ({ input, context, errors }) => {
-              context.log.set({
-                target: {
-                  type: "resource",
-                  kind: "postgres",
-                  id: input.resourceId,
-                  projectId: input.projectId,
-                },
-                envKey: input.key,
+        unsetExtraEnv: requirePermission({
+          database: ["update"],
+        }).project.resource.database.postgres.unsetExtraEnv.handler(
+          async ({ input, context, errors }) => {
+            context.log.set({
+              target: {
+                type: "resource",
+                kind: "postgres",
+                id: input.resourceId,
+                projectId: input.projectId,
+              },
+              envKey: input.key,
+            });
+            const result = await unsetPostgresExtraEnvKey(
+              {
+                projectId: input.projectId,
+                resourceId: input.resourceId,
+                key: input.key,
+                organizationId: context.activeOrganizationId,
+              },
+              context.log,
+            );
+            if (result.isErr()) {
+              throw matchError(result.error, {
+                ProjectNotFoundError: () => errors.NOT_FOUND(),
+                PostgresResourceNotFoundError: () => errors.NOT_FOUND(),
               });
-              const result = await unsetPostgresExtraEnvKey(
-                {
-                  projectId: input.projectId,
-                  resourceId: input.resourceId,
-                  key: input.key,
-                  organizationId: context.activeOrganizationId,
-                },
-                context.log,
-              );
-              if (result.isErr()) {
-                throw matchError(result.error, {
-                  ProjectNotFoundError: () => errors.NOT_FOUND(),
-                  PostgresResourceNotFoundError: () => errors.NOT_FOUND(),
-                });
-              }
-              return result.value;
-            },
-          ),
+            }
+            return result.value;
+          },
+        ),
       },
     },
   },
 
   manifest: {
-    get: orgScopedProcedure.project.manifest.get.handler(
-      async ({ input, context, errors }) => {
-        context.log.set({ target: { type: "project", id: input.id } });
-        const row = await loadManifest({
-          projectId: input.id,
-          organizationId: context.activeOrganizationId,
+    get: orgScopedProcedure.project.manifest.get.handler(async ({ input, context, errors }) => {
+      context.log.set({ target: { type: "project", id: input.id } });
+      const row = await loadManifest({
+        projectId: input.id,
+        organizationId: context.activeOrganizationId,
+      });
+      if (row.isErr()) {
+        throw matchError(row.error, {
+          ProjectNotFoundError: () => errors.NOT_FOUND(),
         });
-        if (row.isErr()) {
-          throw matchError(row.error, {
-            ProjectNotFoundError: () => errors.NOT_FOUND(),
-          });
-        }
-        return row.value;
-      },
-    ),
+      }
+      return row.value;
+    }),
 
     save: requirePermission({ project: ["update"] }).project.manifest.save.handler(
       async ({ input, context, errors }) => {
@@ -1025,30 +1001,25 @@ export const projectRouter = {
       },
     ),
 
-    diff: orgScopedProcedure.project.manifest.diff.handler(
-      async ({ input, context, errors }) => {
-        context.log.set({ target: { type: "project", id: input.projectId } });
-        const resolved = await resolvedManifest(
-          {
-            projectId: input.projectId,
-            organizationId: context.activeOrganizationId,
-          },
-          input.environment,
-        );
-        if (resolved.isErr()) {
-          throw matchError(resolved.error, {
-            ProjectNotFoundError: () => errors.NOT_FOUND(),
-          });
-        }
-        if (!resolved.value) return { resolved: null, changes: [] };
-        const current = await loadCurrentState(input.projectId);
-        const changes = enrichComposeCreates(
-          diffManifest(resolved.value, current),
-          resolved.value,
-        );
-        return { resolved: resolved.value, changes };
-      },
-    ),
+    diff: orgScopedProcedure.project.manifest.diff.handler(async ({ input, context, errors }) => {
+      context.log.set({ target: { type: "project", id: input.projectId } });
+      const resolved = await resolvedManifest(
+        {
+          projectId: input.projectId,
+          organizationId: context.activeOrganizationId,
+        },
+        input.environment,
+      );
+      if (resolved.isErr()) {
+        throw matchError(resolved.error, {
+          ProjectNotFoundError: () => errors.NOT_FOUND(),
+        });
+      }
+      if (!resolved.value) return { resolved: null, changes: [] };
+      const current = await loadCurrentState(input.projectId);
+      const changes = enrichComposeCreates(diffManifest(resolved.value, current), resolved.value);
+      return { resolved: resolved.value, changes };
+    }),
 
     export: orgScopedProcedure.project.manifest.export.handler(
       async ({ input, context, errors }) => {
@@ -1201,40 +1172,36 @@ export const projectRouter = {
   },
 
   refs: {
-    list: orgScopedProcedure.project.refs.list.handler(
-      async ({ input, context, errors }) => {
-        context.log.set({ target: { type: "project", id: input.projectId } });
-        const result = await listAvailableRefs({
-          projectId: input.projectId,
-          organizationId: context.activeOrganizationId,
+    list: orgScopedProcedure.project.refs.list.handler(async ({ input, context, errors }) => {
+      context.log.set({ target: { type: "project", id: input.projectId } });
+      const result = await listAvailableRefs({
+        projectId: input.projectId,
+        organizationId: context.activeOrganizationId,
+      });
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          ProjectNotFoundError: () => errors.NOT_FOUND(),
         });
-        if (result.isErr()) {
-          throw matchError(result.error, {
-            ProjectNotFoundError: () => errors.NOT_FOUND(),
-          });
-        }
-        return result.value;
-      },
-    ),
+      }
+      return result.value;
+    }),
   },
 
   envVar: {
-    list: orgScopedProcedure.project.envVar.list.handler(
-      async ({ input, context, errors }) => {
-        context.log.set({ target: { type: "project", id: input.projectId } });
-        const result = await listProjectEnvVarsForOrg({
-          projectId: input.projectId,
-          environmentId: input.environmentId,
-          organizationId: context.activeOrganizationId,
+    list: orgScopedProcedure.project.envVar.list.handler(async ({ input, context, errors }) => {
+      context.log.set({ target: { type: "project", id: input.projectId } });
+      const result = await listProjectEnvVarsForOrg({
+        projectId: input.projectId,
+        environmentId: input.environmentId,
+        organizationId: context.activeOrganizationId,
+      });
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          ProjectNotFoundError: () => errors.NOT_FOUND(),
         });
-        if (result.isErr()) {
-          throw matchError(result.error, {
-            ProjectNotFoundError: () => errors.NOT_FOUND(),
-          });
-        }
-        return result.value;
-      },
-    ),
+      }
+      return result.value;
+    }),
 
     upsert: requirePermission({ env: ["update"] }).project.envVar.upsert.handler(
       async ({ input, context, errors }) => {
@@ -1303,46 +1270,42 @@ export const projectRouter = {
   },
 
   events: {
-    stream: orgScopedProcedure.project.events.stream.handler(
-      async ({ input, context, errors }) => {
-        context.log.set({ target: { type: "project", id: input.projectId } });
-        const pre = await validateProjectEventsStream({
-          projectId: input.projectId,
-          organizationId: context.activeOrganizationId,
+    stream: orgScopedProcedure.project.events.stream.handler(async ({ input, context, errors }) => {
+      context.log.set({ target: { type: "project", id: input.projectId } });
+      const pre = await validateProjectEventsStream({
+        projectId: input.projectId,
+        organizationId: context.activeOrganizationId,
+      });
+      if (pre.isErr()) {
+        throw matchError(pre.error, {
+          ProjectNotFoundError: () => errors.NOT_FOUND(),
+          PostgresResourceNotFoundError: () => errors.NOT_FOUND(),
         });
-        if (pre.isErr()) {
-          throw matchError(pre.error, {
-            ProjectNotFoundError: () => errors.NOT_FOUND(),
-            PostgresResourceNotFoundError: () => errors.NOT_FOUND(),
-          });
-        }
-        return streamProjectEvents({
-          projectId: input.projectId,
-          organizationId: context.activeOrganizationId,
-        });
-      },
-    ),
+      }
+      return streamProjectEvents({
+        projectId: input.projectId,
+        organizationId: context.activeOrganizationId,
+      });
+    }),
   },
 
   // YAML stack-code editor surface — separate from the JSON manifest
   // pipeline. The editor pane in the graph view reads/writes this; the
   // pipeline still lands per-database extraEnv via apply for now.
   stack: {
-    diff: orgScopedProcedure.project.stack.diff.handler(
-      async ({ input, context, errors }) => {
-        context.log.set({ target: { type: "project", id: input.projectId } });
-        const result = await diffProjectStack({
-          projectId: input.projectId,
-          organizationId: context.activeOrganizationId,
+    diff: orgScopedProcedure.project.stack.diff.handler(async ({ input, context, errors }) => {
+      context.log.set({ target: { type: "project", id: input.projectId } });
+      const result = await diffProjectStack({
+        projectId: input.projectId,
+        organizationId: context.activeOrganizationId,
+      });
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          ProjectNotFoundError: () => errors.NOT_FOUND(),
         });
-        if (result.isErr()) {
-          throw matchError(result.error, {
-            ProjectNotFoundError: () => errors.NOT_FOUND(),
-          });
-        }
-        return result.value;
-      },
-    ),
+      }
+      return result.value;
+    }),
     save: requirePermission({ project: ["update"] }).project.stack.save.handler(
       async ({ input, context, errors }) => {
         context.log.set({ target: { type: "project", id: input.projectId } });

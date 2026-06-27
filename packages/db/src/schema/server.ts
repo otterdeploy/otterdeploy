@@ -1,9 +1,10 @@
+import type { ServerId } from "@otterdeploy/shared/id";
+
 // Swarm node (server) registry — one row per host the org has joined to the
 // Docker Swarm cluster. Live CPU/mem/disk metrics are NOT stored here; this
 // table holds capacity + identity. Runtime stats come from a separate
 // metrics path (TBD).
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
-import type { ServerId } from "@otterdeploy/shared/id";
 import {
   index,
   integer,
@@ -19,11 +20,7 @@ import { organization } from "./auth";
 
 export const serverRoleEnum = pgEnum("server_role", ["manager", "worker"]);
 export const serverStatusEnum = pgEnum("server_status", ["ready", "draining", "down"]);
-export const serverAvailabilityEnum = pgEnum("server_availability", [
-  "active",
-  "drain",
-  "pause",
-]);
+export const serverAvailabilityEnum = pgEnum("server_availability", ["active", "drain", "pause"]);
 
 export const server = pgTable(
   "server",

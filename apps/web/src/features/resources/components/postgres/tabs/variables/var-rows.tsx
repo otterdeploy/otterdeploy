@@ -7,7 +7,6 @@
  * where each var carries a description.
  */
 
-import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Copy01Icon,
   InformationCircleIcon,
@@ -16,6 +15,7 @@ import {
   ViewIcon,
   ViewOffIcon,
 } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 
 import { cn } from "@/shared/lib/utils";
 
@@ -27,25 +27,13 @@ interface RowProps {
   onCopy: () => void;
 }
 
-export function PostgresVarRow({
-  v,
-  revealed,
-  copied,
-  onToggleReveal,
-  onCopy,
-}: RowProps) {
+export function PostgresVarRow({ v, revealed, copied, onToggleReveal, onCopy }: RowProps) {
   const display = v.secret && !revealed ? "•••••••" : v.value;
   return (
     <div className="group flex items-center gap-3 px-4 py-2.5">
-      <span className="font-mono text-[11px] text-muted-foreground/50">
-        {`{}`}
-      </span>
-      <span className="w-56 truncate font-mono text-[12.5px] text-foreground/90">
-        {v.name}
-      </span>
-      <span className="flex-1 truncate font-mono text-[12px] text-muted-foreground">
-        {display}
-      </span>
+      <span className="font-mono text-[11px] text-muted-foreground/50">{`{}`}</span>
+      <span className="w-56 truncate font-mono text-[12.5px] text-foreground/90">{v.name}</span>
+      <span className="flex-1 truncate font-mono text-[12px] text-muted-foreground">{display}</span>
       <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
         {v.secret && (
           <button
@@ -83,11 +71,7 @@ export function PostgresVarRow({
           aria-label="Variable info"
           className="grid size-7 place-items-center rounded text-muted-foreground/70 hover:bg-muted hover:text-foreground"
         >
-          <HugeiconsIcon
-            icon={InformationCircleIcon}
-            strokeWidth={2}
-            className="size-3.5"
-          />
+          <HugeiconsIcon icon={InformationCircleIcon} strokeWidth={2} className="size-3.5" />
         </button>
       </div>
       <button
@@ -95,23 +79,13 @@ export function PostgresVarRow({
         aria-label="More actions"
         className="grid size-7 shrink-0 place-items-center rounded text-muted-foreground/60 hover:bg-muted hover:text-foreground"
       >
-        <HugeiconsIcon
-          icon={MoreVerticalIcon}
-          strokeWidth={2}
-          className="size-3.5"
-        />
+        <HugeiconsIcon icon={MoreVerticalIcon} strokeWidth={2} className="size-3.5" />
       </button>
     </div>
   );
 }
 
-export function PostgresSystemVarRow({
-  v,
-  revealed,
-  copied,
-  onToggleReveal,
-  onCopy,
-}: RowProps) {
+export function PostgresSystemVarRow({ v, revealed, copied, onToggleReveal, onCopy }: RowProps) {
   const display = v.secret && !revealed ? "•••••••" : v.value;
   return (
     <div className="group flex items-start gap-3 border-b border-border/30 py-3 last:border-b-0">

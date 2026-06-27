@@ -1,4 +1,10 @@
-export type DeploymentStatus = "queued" | "building" | "deploying" | "success" | "failed" | "rolled-back";
+export type DeploymentStatus =
+  | "queued"
+  | "building"
+  | "deploying"
+  | "success"
+  | "failed"
+  | "rolled-back";
 
 export interface DeploymentRow {
   id: string;

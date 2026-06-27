@@ -9,31 +9,26 @@
  */
 
 import type { ResourceId } from "@otterdeploy/shared/id";
-
-import { Result } from "better-result";
 import type { RequestLogger } from "evlog";
 
+import { Result } from "better-result";
+
+import type { ProjectRef } from "../../scopes";
+
 import { reconcile } from "../../../caddy";
-import {
-  deleteProxyRoutesByResource,
-  insertProxyRoute,
-} from "../../../caddy/queries";
+import { deleteProxyRoutesByResource, insertProxyRoute } from "../../../caddy/queries";
 import { loadDomainSourcesForProject } from "../../../lib/domain-sources";
 import { resolvePublicDomain } from "../../../lib/domains";
-import { defaultImageFor } from "../../../swarm";
 import { updateSwarmDatabase } from "../../../runtime/db";
-
+import { defaultImageFor } from "../../../swarm";
 import { insertDeployment, markDeploymentFailed } from "../deployments";
 import { PostgresResourceNotFoundError, ProjectNotFoundError } from "../errors";
-
 import {
   getDatabaseResourceRecord,
   getProjectInOrg,
   setDatabaseResourceExtraEnv,
   setDatabaseResourcePublic,
 } from "../queries";
-import { snapshotForPostgresCreate, type PostgresSnapshotV1 } from "./snapshot";
-import type { ProjectRef } from "../../scopes";
 import {
   buildContainerName,
   buildVolumeName,
@@ -41,13 +36,12 @@ import {
   sanitizeProjectSlug,
   type PostgresResource,
 } from "../views";
+import { snapshotForPostgresCreate, type PostgresSnapshotV1 } from "./snapshot";
 
 export async function setPostgresPublic(
   input: ProjectRef & { resourceId: ResourceId; publicEnabled: boolean },
   log: RequestLogger,
-): Promise<
-  Result<PostgresResource, ProjectNotFoundError | PostgresResourceNotFoundError>
-> {
+): Promise<Result<PostgresResource, ProjectNotFoundError | PostgresResourceNotFoundError>> {
   log.set({
     resource: { kind: "postgres", projectId: input.projectId, id: input.resourceId },
     setPublic: { requested: input.publicEnabled },
@@ -63,9 +57,7 @@ export async function setPostgresPublic(
 
   const record = await getDatabaseResourceRecord(input.projectId, input.resourceId);
   if (!record) {
-    return Result.err(
-      new PostgresResourceNotFoundError({ resourceId: input.resourceId }),
-    );
+    return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
   }
 
   // Drop existing routes either way — on disable we want them gone; on
@@ -77,9 +69,7 @@ export async function setPostgresPublic(
     // Caddy can only issue a public ACME cert for a domain the operator
     // proved they own — recompute the resolver outcome here so the route
     // carries the right tls flag regardless of when the DB was created.
-    const domainSources = (await loadDomainSourcesForProject(
-      input.projectId,
-    )) ?? {
+    const domainSources = (await loadDomainSourcesForProject(input.projectId)) ?? {
       resourceOverride: null,
       projectCustomDomain: null,
       projectCustomDomainVerifiedAt: null,
@@ -191,9 +181,7 @@ export async function setPostgresPublic(
 export async function applyPostgresExtraEnv(
   ref: ProjectRef & { resourceId: ResourceId; nextExtraEnv: Record<string, string> },
   log: RequestLogger,
-): Promise<
-  Result<PostgresResource, ProjectNotFoundError | PostgresResourceNotFoundError>
-> {
+): Promise<Result<PostgresResource, ProjectNotFoundError | PostgresResourceNotFoundError>> {
   log.set({
     resource: { kind: "postgres", projectId: ref.projectId, id: ref.resourceId },
     extraEnv: { keys: Object.keys(ref.nextExtraEnv) },
@@ -209,9 +197,7 @@ export async function applyPostgresExtraEnv(
 
   const record = await getDatabaseResourceRecord(ref.projectId, ref.resourceId);
   if (!record) {
-    return Result.err(
-      new PostgresResourceNotFoundError({ resourceId: ref.resourceId }),
-    );
+    return Result.err(new PostgresResourceNotFoundError({ resourceId: ref.resourceId }));
   }
 
   await setDatabaseResourceExtraEnv(ref.resourceId, ref.nextExtraEnv);
@@ -288,9 +274,7 @@ export async function setPostgresExtraEnvKey(
 ) {
   const record = await getDatabaseResourceRecord(input.projectId, input.resourceId);
   if (!record) {
-    return Result.err(
-      new PostgresResourceNotFoundError({ resourceId: input.resourceId }),
-    );
+    return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
   }
   const next = { ...record.database.extraEnv, [input.key]: input.value };
   return applyPostgresExtraEnv(
@@ -310,9 +294,7 @@ export async function unsetPostgresExtraEnvKey(
 ) {
   const record = await getDatabaseResourceRecord(input.projectId, input.resourceId);
   if (!record) {
-    return Result.err(
-      new PostgresResourceNotFoundError({ resourceId: input.resourceId }),
-    );
+    return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
   }
   const current = { ...record.database.extraEnv };
   delete current[input.key];

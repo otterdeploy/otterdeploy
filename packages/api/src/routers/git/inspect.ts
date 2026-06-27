@@ -27,42 +27,35 @@
  *     60 req/hr per source IP.
  */
 
-import { gitInstallation } from "@otterdeploy/db/schema";
-
-import {
-  detectFrameworkFromPkg,
-  type FrameworkKind,
-} from "@otterdeploy/shared/framework";
-
-import { Result, TaggedError } from "better-result";
-
 import { db } from "@otterdeploy/db";
+import { gitInstallation } from "@otterdeploy/db/schema";
 import { gitRepo } from "@otterdeploy/db/schema";
+import { detectFrameworkFromPkg, type FrameworkKind } from "@otterdeploy/shared/framework";
+import { Result, TaggedError } from "better-result";
 import { eq } from "drizzle-orm";
 
 import { getInstallationToken } from "../../git/github-app";
 
 // Tagged so the oRPC handler can dispatch via `matchError` — same shape
 // as ProjectNotFoundError etc. in routers/project/errors.ts.
-class InspectRepoNotFoundError extends TaggedError(
-  "InspectRepoNotFoundError",
-)<{ message: string }>() {
+class InspectRepoNotFoundError extends TaggedError("InspectRepoNotFoundError")<{
+  message: string;
+}>() {
   constructor() {
     super({ message: "Repo not found" });
   }
 }
 
-class InspectRepoUpstreamError extends TaggedError(
-  "InspectRepoUpstreamError",
-)<{ message: string; status: number }>() {
+class InspectRepoUpstreamError extends TaggedError("InspectRepoUpstreamError")<{
+  message: string;
+  status: number;
+}>() {
   constructor(status: number, message: string) {
     super({ status, message });
   }
 }
 
-class InspectRepoRateLimitedError extends TaggedError(
-  "InspectRepoRateLimitedError",
-)<{
+class InspectRepoRateLimitedError extends TaggedError("InspectRepoRateLimitedError")<{
   message: string;
   resetsAt: number | null;
   authenticated: boolean;
@@ -129,18 +122,13 @@ interface TreeSnapshot {
 }
 
 const treeCache = new Map<string, TreeSnapshot>();
-const pkgCache = new Map<
-  string,
-  { value: PkgJson | null; expiresAt: number }
->();
+const pkgCache = new Map<string, { value: PkgJson | null; expiresAt: number }>();
 
 function cacheKeyForRepo(gitRepoId: string): string {
   return gitRepoId;
 }
 
-async function resolveRepoBinding(
-  gitRepoId: string,
-): Promise<RepoBinding | null> {
+async function resolveRepoBinding(gitRepoId: string): Promise<RepoBinding | null> {
   const [row] = await db
     .select({
       installationId: gitRepo.installationId,
@@ -178,9 +166,7 @@ async function resolveRepoBinding(
   };
 }
 
-async function ghHeaders(
-  installationGithubId: string | null,
-): Promise<Record<string, string>> {
+async function ghHeaders(installationGithubId: string | null): Promise<Record<string, string>> {
   const headers: Record<string, string> = {
     Accept: "application/vnd.github+json",
     "X-GitHub-Api-Version": "2022-11-28",
@@ -198,10 +184,7 @@ async function ghHeaders(
  * `X-RateLimit-Remaining: 0` header on a 403; we fall back to a body
  * substring match for older edge cases.
  */
-function isRateLimited(
-  res: Response,
-  body: string,
-): boolean {
+function isRateLimited(res: Response, body: string): boolean {
   if (res.status === 403 || res.status === 429) {
     const remaining = res.headers.get("X-RateLimit-Remaining");
     if (remaining === "0") return true;
@@ -231,13 +214,7 @@ interface GhTreeEntry {
  */
 async function fetchFullTree(
   binding: RepoBinding,
-): Promise<
-  Result<
-    TreeSnapshot,
-    | InspectRepoUpstreamError
-    | InspectRepoRateLimitedError
-  >
-> {
+): Promise<Result<TreeSnapshot, InspectRepoUpstreamError | InspectRepoRateLimitedError>> {
   const url = new URL(
     `https://api.github.com/repos/${binding.owner}/${binding.repo}/git/trees/${binding.defaultBranch}`,
   );
@@ -248,26 +225,18 @@ async function fetchFullTree(
   if (!res.ok) {
     if (isRateLimited(res, body)) {
       return Result.err(
-        new InspectRepoRateLimitedError(
-          rateLimitReset(res),
-          binding.installationGithubId != null,
-        ),
+        new InspectRepoRateLimitedError(rateLimitReset(res), binding.installationGithubId != null),
       );
     }
     return Result.err(
-      new InspectRepoUpstreamError(
-        res.status,
-        humanizeUpstreamBody(body, res.status),
-      ),
+      new InspectRepoUpstreamError(res.status, humanizeUpstreamBody(body, res.status)),
     );
   }
   let parsed: { tree?: GhTreeEntry[]; truncated?: boolean };
   try {
     parsed = JSON.parse(body) as typeof parsed;
   } catch {
-    return Result.err(
-      new InspectRepoUpstreamError(502, "Could not parse GitHub response"),
-    );
+    return Result.err(new InspectRepoUpstreamError(502, "Could not parse GitHub response"));
   }
   const entries = parsed.tree ?? [];
   const pathTypes = new Map<string, "dir" | "file">();
@@ -285,13 +254,7 @@ async function fetchFullTree(
 async function getTreeSnapshot(
   binding: RepoBinding,
   gitRepoId: string,
-): Promise<
-  Result<
-    TreeSnapshot,
-    | InspectRepoUpstreamError
-    | InspectRepoRateLimitedError
-  >
-> {
+): Promise<Result<TreeSnapshot, InspectRepoUpstreamError | InspectRepoRateLimitedError>> {
   const key = cacheKeyForRepo(gitRepoId);
   const cached = treeCache.get(key);
   if (cached && cached.expiresAt > Date.now()) return Result.ok(cached);
@@ -347,17 +310,11 @@ async function fetchPackageJson(
 const detectFromPkg = detectFrameworkFromPkg;
 
 /** Detect monorepo signal from the cached path list — no extra HTTP. */
-function detectMonorepoFromPaths(
-  paths: string[],
-  rootPkg: PkgJson | null,
-): MonorepoKind {
+function detectMonorepoFromPaths(paths: string[], rootPkg: PkgJson | null): MonorepoKind {
   const rootFiles = new Set(paths.filter((p) => !p.includes("/")));
   if (rootFiles.has("turbo.json")) return "turbo";
   if (rootFiles.has("nx.json")) return "nx";
-  if (
-    rootFiles.has("pnpm-workspace.yaml") ||
-    rootFiles.has("pnpm-workspace.yml")
-  ) {
+  if (rootFiles.has("pnpm-workspace.yaml") || rootFiles.has("pnpm-workspace.yml")) {
     return "pnpm-workspace";
   }
   if (rootFiles.has("lerna.json")) return "lerna";
@@ -370,10 +327,7 @@ function detectMonorepoFromPaths(
  * the flat path list. No HTTP — the tree snapshot is the source of
  * truth for layout.
  */
-function listChildren(
-  snapshot: TreeSnapshot,
-  path: string,
-): InspectEntry[] {
+function listChildren(snapshot: TreeSnapshot, path: string): InspectEntry[] {
   const prefix = path === "" ? "" : `${path}/`;
   const seen = new Map<string, "dir" | "file">();
   for (const [p, type] of snapshot.pathTypes) {
@@ -398,10 +352,7 @@ function listChildren(
     });
 }
 
-function expandWorkspacePackages(
-  snapshot: TreeSnapshot,
-  globs: string[],
-): string[] {
+function expandWorkspacePackages(snapshot: TreeSnapshot, globs: string[]): string[] {
   const out = new Set<string>();
   const directories = new Set<string>();
   for (const [p, type] of snapshot.pathTypes) {
@@ -464,9 +415,7 @@ export async function inspectRepoTree(args: {
 }): Promise<
   Result<
     InspectResult,
-    | InspectRepoNotFoundError
-    | InspectRepoUpstreamError
-    | InspectRepoRateLimitedError
+    InspectRepoNotFoundError | InspectRepoUpstreamError | InspectRepoRateLimitedError
   >
 > {
   const binding = await resolveRepoBinding(args.gitRepoId);
@@ -484,25 +433,18 @@ export async function inspectRepoTree(args: {
   }
 
   const entries = listChildren(snap.value, path);
-  const framework = await detectFrameworkForPath(
-    binding,
-    snap.value,
-    path,
-    args.gitRepoId,
-  );
+  const framework = await detectFrameworkForPath(binding, snap.value, path, args.gitRepoId);
 
   let monorepo: MonorepoKind = null;
   let monorepoPackages: string[] = [];
   if (path === "") {
-    const rootPkg = snap.value.pathTypes.get("package.json") === "file"
-      ? await fetchPackageJson(binding, "package.json", args.gitRepoId)
-      : null;
+    const rootPkg =
+      snap.value.pathTypes.get("package.json") === "file"
+        ? await fetchPackageJson(binding, "package.json", args.gitRepoId)
+        : null;
     monorepo = detectMonorepoFromPaths(snap.value.paths, rootPkg);
     if (monorepo) {
-      monorepoPackages = expandWorkspacePackages(
-        snap.value,
-        collectWorkspaceGlobs(rootPkg),
-      );
+      monorepoPackages = expandWorkspacePackages(snap.value, collectWorkspaceGlobs(rootPkg));
     }
   }
 
@@ -519,12 +461,7 @@ export async function inspectRepoTree(args: {
 // Files that, if committed, leak real secrets — flagged to the operator.
 const COMMITTED_ENV_FILES = [".env", ".env.local", ".env.production"];
 // Template files we harvest keys from, in precedence order.
-const ENV_TEMPLATE_FILES = [
-  ".env.example",
-  ".env.sample",
-  ".env.template",
-  ".env.dist",
-];
+const ENV_TEMPLATE_FILES = [".env.example", ".env.sample", ".env.template", ".env.dist"];
 const ENV_KEY_RE = /^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=/;
 
 /** Pull the variable names out of a dotenv-format file (values ignored). */
@@ -540,10 +477,7 @@ function parseEnvKeys(content: string): string[] {
 }
 
 /** Raw text read of a single file (no JSON parse), mirroring fetchPackageJson. */
-async function fetchTextFile(
-  binding: RepoBinding,
-  path: string,
-): Promise<string | null> {
+async function fetchTextFile(binding: RepoBinding, path: string): Promise<string | null> {
   const url = new URL(
     `https://api.github.com/repos/${binding.owner}/${binding.repo}/contents/${path}`,
   );
@@ -575,9 +509,7 @@ export async function inspectEnvFiles(
 ): Promise<
   Result<
     EnvInspection,
-    | InspectRepoNotFoundError
-    | InspectRepoUpstreamError
-    | InspectRepoRateLimitedError
+    InspectRepoNotFoundError | InspectRepoUpstreamError | InspectRepoRateLimitedError
   >
 > {
   const binding = await resolveRepoBinding(gitRepoId);
@@ -587,8 +519,7 @@ export async function inspectEnvFiles(
   if (snapshot.isErr()) return Result.err(snapshot.error);
 
   const base = path ? `${path.replace(/\/+$/, "")}/` : "";
-  const isFile = (name: string) =>
-    snapshot.value.pathTypes.get(`${base}${name}`) === "file";
+  const isFile = (name: string) => snapshot.value.pathTypes.get(`${base}${name}`) === "file";
 
   const committedEnv = COMMITTED_ENV_FILES.find(isFile) ?? null;
   const templateFile = ENV_TEMPLATE_FILES.find(isFile) ?? null;
@@ -615,9 +546,7 @@ export async function listRepoBranches(
 ): Promise<
   Result<
     { branches: string[]; defaultBranch: string },
-    | InspectRepoNotFoundError
-    | InspectRepoUpstreamError
-    | InspectRepoRateLimitedError
+    InspectRepoNotFoundError | InspectRepoUpstreamError | InspectRepoRateLimitedError
   >
 > {
   const binding = await resolveRepoBinding(gitRepoId);
@@ -633,24 +562,17 @@ export async function listRepoBranches(
     const body = await res.text();
 
     if (isRateLimited(res, body)) {
-      return Result.err(
-        new InspectRepoRateLimitedError(rateLimitReset(res), authenticated),
-      );
+      return Result.err(new InspectRepoRateLimitedError(rateLimitReset(res), authenticated));
     }
     if (!res.ok) {
       return Result.err(
-        new InspectRepoUpstreamError(
-          res.status,
-          humanizeUpstreamBody(body, res.status),
-        ),
+        new InspectRepoUpstreamError(res.status, humanizeUpstreamBody(body, res.status)),
       );
     }
 
     const parsed = Result.try(() => JSON.parse(body) as unknown);
     if (parsed.isErr()) {
-      return Result.err(
-        new InspectRepoUpstreamError(502, "Could not parse GitHub response"),
-      );
+      return Result.err(new InspectRepoUpstreamError(502, "Could not parse GitHub response"));
     }
     const pageItems = parsed.value;
     if (!Array.isArray(pageItems)) break;

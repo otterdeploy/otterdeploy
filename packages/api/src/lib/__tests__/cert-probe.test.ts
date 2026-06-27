@@ -3,8 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { type RawCert, shapeCertProbe } from "../cert-probe";
 
 const NOW = Date.parse("2026-06-16T00:00:00Z");
-const days = (n: number) =>
-  new Date(NOW + n * 86_400_000).toUTCString();
+const days = (n: number) => new Date(NOW + n * 86_400_000).toUTCString();
 
 function cert(overrides: Partial<RawCert> = {}): RawCert {
   return {

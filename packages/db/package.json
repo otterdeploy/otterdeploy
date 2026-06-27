@@ -13,14 +13,14 @@
     }
   },
   "scripts": {
-    "db:push": "bun --env-file ../../.env -- drizzle-kit push",
     "db:generate": "bun --env-file ../../.env drizzle-kit generate",
-    "db:studio": "bun --env-file ../../ drizzle-kit studio",
-    "dev": "",
     "db:migrate": "bun --env-file ../../.env drizzle-kit migrate",
+    "db:push": "bun --env-file ../../.env -- drizzle-kit push",
     "db:start": "docker compose up -d",
+    "db:stop": "docker compose stop",
+    "db:studio": "bun --env-file ../../ drizzle-kit studio",
     "db:watch": "docker compose up",
-    "db:stop": "docker compose stop"
+    "dev": ""
   },
   "dependencies": {
     "@otterdeploy/env": "workspace:*",
@@ -31,16 +31,16 @@
     "files-sdk": "^2.0.0",
     "zod": "catalog:"
   },
-  "optionalDependenciesNotes": {
-    "ssh2-sftp-client": "used by files-sdk/sftp for the sftp backup backend (storage.ts); optional so ssh2's native build can't break install for local/s3-only operators — sftp runs fail with an actionable 'run bun install' message until present."
-  },
-  "optionalDependencies": {
-    "ssh2-sftp-client": "^11.0.0"
-  },
   "devDependencies": {
     "@otterdeploy/config": "workspace:*",
     "@types/ssh2-sftp-client": "^9.0.6",
     "drizzle-kit": "^1.0.0-rc.3",
     "typescript": "catalog:"
+  },
+  "optionalDependencies": {
+    "ssh2-sftp-client": "^11.0.0"
+  },
+  "optionalDependenciesNotes": {
+    "ssh2-sftp-client": "used by files-sdk/sftp for the sftp backup backend (storage.ts); optional so ssh2's native build can't break install for local/s3-only operators — sftp runs fail with an actionable 'run bun install' message until present."
   }
 }

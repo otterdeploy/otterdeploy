@@ -1,7 +1,6 @@
 import type { Rocket01Icon } from "@hugeicons/core-free-icons";
 import type { LinkProps } from "@tanstack/react-router";
 
-
 export type RoutePath = LinkProps["to"];
 export type Status = "ok" | "warn" | "err";
 
@@ -20,13 +19,7 @@ const STATUS_DOT: Record<Status, string> = {
   err: "bg-rose-500",
 };
 
-export function StatusDot({
-  status,
-  className = "",
-}: {
-  status: Status;
-  className?: string;
-}) {
+export function StatusDot({ status, className = "" }: { status: Status; className?: string }) {
   return (
     <span
       aria-hidden

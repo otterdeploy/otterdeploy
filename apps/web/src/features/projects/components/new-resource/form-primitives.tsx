@@ -23,9 +23,7 @@ export function SectionHeader({ title, sub }: { title: string; sub?: string }) {
     <div className="mb-2.5">
       <h3 className="text-[13px] font-semibold tracking-[0.01em]">{title}</h3>
       {sub && (
-        <p className="mt-1 max-w-prose text-xs leading-relaxed text-muted-foreground">
-          {sub}
-        </p>
+        <p className="mt-1 max-w-prose text-xs leading-relaxed text-muted-foreground">{sub}</p>
       )}
     </div>
   );

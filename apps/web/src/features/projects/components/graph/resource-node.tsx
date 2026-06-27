@@ -1,3 +1,5 @@
+import { useRef, useState, type ComponentProps, type CSSProperties, type SVGProps } from "react";
+
 import {
   CheckmarkCircle02Icon,
   ContainerIcon,
@@ -10,6 +12,8 @@ import {
   ServerStack01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useMutation } from "@tanstack/react-query";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import {
   Handle,
   NodeToolbar,
@@ -18,18 +22,9 @@ import {
   type Node,
   type NodeProps,
 } from "@xyflow/react";
-import { useMutation } from "@tanstack/react-query";
-import { useNavigate, useParams } from "@tanstack/react-router";
-import {
-  useRef,
-  useState,
-  type ComponentProps,
-  type CSSProperties,
-  type SVGProps,
-} from "react";
 import { toast } from "sonner";
 
-import { orpc } from "@/shared/server/orpc";
+import { FrameworkLogo, type FrameworkKind } from "@/features/projects/components/framework-logo";
 import { Docker } from "@/shared/components/ui/svgs/docker";
 import { Mariadb } from "@/shared/components/ui/svgs/mariadb";
 import { Mongodb } from "@/shared/components/ui/svgs/mongodb";
@@ -37,16 +32,13 @@ import { Mysql } from "@/shared/components/ui/svgs/mysql";
 import { Postgresql } from "@/shared/components/ui/svgs/postgresql";
 import { Redis } from "@/shared/components/ui/svgs/redis";
 import {
-  FrameworkLogo,
-  type FrameworkKind,
-} from "@/features/projects/components/framework-logo";
-import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/shared/components/ui/tooltip";
 import { cn } from "@/shared/lib/utils";
+import { orpc } from "@/shared/server/orpc";
 
 type IconType = ComponentProps<typeof HugeiconsIcon>["icon"];
 type BrandSvg = (props: SVGProps<SVGSVGElement>) => React.ReactNode;
@@ -87,12 +79,7 @@ export interface ReplicaInfo {
  * "which one is down?") and `pending` (staged, never deployed). This is the
  * whole point of rendering a stack as a group: each service answers for itself.
  */
-export type StackServiceStatus =
-  | "running"
-  | "building"
-  | "error"
-  | "offline"
-  | "pending";
+export type StackServiceStatus = "running" | "building" | "error" | "offline" | "pending";
 
 /** One service inside a compose stack's group card. */
 export interface ComposeServiceInfo {
@@ -198,10 +185,7 @@ function ReplicaRow({ replica }: { replica: ReplicaInfo }) {
       className="flex items-center gap-2.5 px-2 py-1.5"
       title={`${replica.label} · ${meta.label}`}
     >
-      <span
-        className={cn("size-1.5 shrink-0 rounded-full", meta.dotClass)}
-        aria-hidden
-      />
+      <span className={cn("size-1.5 shrink-0 rounded-full", meta.dotClass)} aria-hidden />
       <span className="min-w-0 flex-1 truncate font-mono text-[12.5px] leading-tight text-card-foreground">
         {replica.label}
       </span>
@@ -284,8 +268,7 @@ function StackServiceCard({
   // `error` reads as "Build failed" only for from-source services; a pulled
   // image that won't run is a runtime error, not a build one.
   const status = stackStatusMeta[service.status ?? "offline"];
-  const label =
-    service.status === "error" && service.hasBuild ? "Build failed" : status.label;
+  const label = service.status === "error" && service.hasBuild ? "Build failed" : status.label;
   const clickable = Boolean(service.resourceId && onOpen);
   return (
     <div
@@ -333,9 +316,7 @@ function StackServiceCard({
       </div>
       <div className="mt-2 flex items-center gap-2">
         <span className={cn("size-1.5 shrink-0 rounded-full", status.dotClass)} aria-hidden />
-        <span className={cn("truncate text-[12.5px] leading-none", status.textClass)}>
-          {label}
-        </span>
+        <span className={cn("truncate text-[12.5px] leading-none", status.textClass)}>{label}</span>
       </div>
       {service.volumes.length > 0 && (
         <div className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t pt-2.5">
@@ -430,14 +411,10 @@ function stackRollup(services: ComposeServiceInfo[]): {
   const total = services.length;
   const running = services.filter((s) => s.status === "running").length;
   const anyError = services.some((s) => s.status === "error");
-  const anyBuilding = services.some(
-    (s) => s.status === "building" || s.status === "pending",
-  );
-  if (anyError)
-    return { summary: `${running}/${total} running`, tone: "error" };
+  const anyBuilding = services.some((s) => s.status === "building" || s.status === "pending");
+  if (anyError) return { summary: `${running}/${total} running`, tone: "error" };
   if (anyBuilding) return { summary: "Deploying…", tone: "building" };
-  if (total > 0 && running === total)
-    return { summary: "All running", tone: "running" };
+  if (total > 0 && running === total) return { summary: "All running", tone: "running" };
   return { summary: `${running}/${total} running`, tone: "offline" };
 }
 
@@ -460,10 +437,7 @@ const stackToneClass: Record<
  * for a multi-service stack is a lie" — the operator sees, at a glance, which
  * service is up, which failed to build, which is offline.
  */
-function ComposeGroupNode({
-  data,
-  selected,
-}: NodeProps<ResourceFlowNode>) {
+function ComposeGroupNode({ data, selected }: NodeProps<ResourceFlowNode>) {
   const meta = kindMeta.compose;
   const services = data.services ?? [];
   const roll = stackRollup(services);
@@ -509,8 +483,7 @@ function ComposeGroupNode({
       toast.success(`Redeploying ${data.name}…`, {
         description: "Track progress in the stack's Deployments tab.",
       }),
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : "Failed to redeploy"),
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to redeploy"),
   });
 
   const subline =
@@ -601,9 +574,7 @@ function ComposeGroupNode({
               No services parsed yet
             </div>
           ) : (
-            services.map((s) => (
-              <StackServiceCard key={s.name} service={s} onOpen={openService} />
-            ))
+            services.map((s) => <StackServiceCard key={s.name} service={s} onOpen={openService} />)
           )}
         </div>
       </div>
@@ -652,9 +623,7 @@ function ComposeGroupNode({
               <TooltipContent side="right" sideOffset={10}>
                 <div className="flex flex-col gap-0.5 text-left">
                   <div className="text-xs font-medium">Redeploy stack</div>
-                  <div className="text-[10px] opacity-80">
-                    Re-run every service in this stack.
-                  </div>
+                  <div className="text-[10px] opacity-80">Re-run every service in this stack.</div>
                 </div>
               </TooltipContent>
             </Tooltip>
@@ -671,12 +640,7 @@ export function ResourceNode(props: NodeProps<ResourceFlowNode>) {
   return <ResourceCardNode {...props} />;
 }
 
-function ResourceCardNode({
-  id,
-  data,
-  selected,
-  dragging,
-}: NodeProps<ResourceFlowNode>) {
+function ResourceCardNode({ id, data, selected, dragging }: NodeProps<ResourceFlowNode>) {
   const { updateNodeData } = useReactFlow<ResourceFlowNode>();
   const meta = kindMeta[data.kind];
   const status = data.status ? statusMeta[data.status] : null;
@@ -709,8 +673,7 @@ function ResourceCardNode({
       toast.success(`Restarting ${data.name}…`, {
         description: "Track progress in the resource's Deployments tab.",
       }),
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : "Failed to restart"),
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to restart"),
   });
   const serviceRestart = useMutation({
     ...orpc.service.restart.mutationOptions(),
@@ -718,8 +681,7 @@ function ResourceCardNode({
       toast.success(`Restarting ${data.name}…`, {
         description: "Track progress in the resource's Deployments tab.",
       }),
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : "Failed to restart"),
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to restart"),
   });
 
   function restartResource() {
@@ -736,9 +698,7 @@ function ResourceCardNode({
   }
 
   const canRestart =
-    (data.kind === "service" || data.kind === "database") &&
-    !!data.projectId &&
-    !!data.resourceId;
+    (data.kind === "service" || data.kind === "database") && !!data.projectId && !!data.resourceId;
   const restartPending = dbRestart.isPending || serviceRestart.isPending;
 
   const actions: {
@@ -910,7 +870,9 @@ function ResourceCardNode({
             {data.git && (
               <div
                 className="flex min-w-0 items-center gap-2 font-mono text-[12px] text-muted-foreground"
-                title={data.git.branch ? `${data.git.branch} · ${data.git.commit}` : data.git.commit}
+                title={
+                  data.git.branch ? `${data.git.branch} · ${data.git.commit}` : data.git.commit
+                }
               >
                 <span className="shrink-0 rounded bg-background/70 px-1.5 py-0.5 text-[11px] text-foreground/80">
                   {data.git.commit.slice(0, 7)}
@@ -928,8 +890,8 @@ function ResourceCardNode({
             <div className="mx-5 h-px bg-border" />
             <div className="relative mx-2.5 mt-3.5 mb-2.5 rounded-[14px] border bg-background px-1.5 pt-1 pb-1">
               <span className="absolute -top-[7px] left-3.5 bg-card px-1.5 font-mono text-[9.5px] leading-none font-semibold tracking-[0.22em] text-muted-foreground/60 uppercase">
-                Replicas · {data.replicas.filter((r) => r.status === "running").length}
-                /{data.replicas.length}
+                Replicas · {data.replicas.filter((r) => r.status === "running").length}/
+                {data.replicas.length}
               </span>
               <ul className="divide-y divide-border/40">
                 {data.replicas.map((r) => (
@@ -976,9 +938,7 @@ function ResourceCardNode({
         // Also hidden mid-drag: NodeToolbar positions off the node's measured
         // rect, which lags the dragged node and makes the pill flicker (often
         // snapping to the wrong side) until the drag settles.
-        isVisible={
-          (selected || isHovered) && !dragging && data.pending !== "delete"
-        }
+        isVisible={(selected || isHovered) && !dragging && data.pending !== "delete"}
       >
         <TooltipProvider delay={200}>
           <div

@@ -9,11 +9,12 @@
 
 import { db } from "@otterdeploy/db";
 import { gitInstallation, gitRepo } from "@otterdeploy/db/schema";
-import { log } from "evlog";
 import { eq } from "drizzle-orm";
+import { log } from "evlog";
+
+import type { GithubWebhookResult, InstallationEvent } from "./types";
 
 import { syncRepos } from "./repos";
-import type { GithubWebhookResult, InstallationEvent } from "./types";
 
 export async function handleInstallation(
   ev: InstallationEvent,
@@ -80,8 +81,7 @@ export async function handleInstallation(
     .update(gitInstallation)
     .set({
       accountLogin: ev.installation.account.login,
-      accountType:
-        ev.installation.account.type === "Organization" ? "organization" : "user",
+      accountType: ev.installation.account.type === "Organization" ? "organization" : "user",
       accountAvatarUrl: ev.installation.account.avatar_url ?? null,
       repoSelection: ev.installation.repository_selection,
       permissions: ev.installation.permissions ?? {},

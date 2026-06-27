@@ -51,10 +51,7 @@ export interface DeliveryResult {
 
 /** Per-severity presentation for rich Slack/Discord messages. `discord` is a
  * decimal color int (embed sidebar); `slack` is a hex string (attachment bar). */
-const STYLE: Record<
-  ChannelEvent["severity"],
-  { discord: number; slack: string; emoji: string }
-> = {
+const STYLE: Record<ChannelEvent["severity"], { discord: number; slack: string; emoji: string }> = {
   err: { discord: 0xef4444, slack: "#ef4444", emoji: "🔴" },
   warn: { discord: 0xf59e0b, slack: "#f59e0b", emoji: "🟠" },
   ok: { discord: 0x10b981, slack: "#10b981", emoji: "🟢" },
@@ -84,10 +81,7 @@ export async function deliverToChannel(
 }
 
 /** Wrap a fetch so a thrown/network error becomes a DeliveryResult, not a throw. */
-async function post(
-  url: string,
-  init: RequestInit,
-): Promise<DeliveryResult> {
+async function post(url: string, init: RequestInit): Promise<DeliveryResult> {
   let res: Response;
   try {
     res = await fetch(url, init);
@@ -104,10 +98,8 @@ async function post(
 function deliverSlack(c: ResolvedChannel, e: ChannelEvent): Promise<DeliveryResult> {
   const s = STYLE[e.severity];
   const fieldParts: string[] = [];
-  if (typeof e.data?.project === "string")
-    fieldParts.push(`*Project*\n${e.data.project}`);
-  if (typeof e.data?.resource === "string")
-    fieldParts.push(`*Resource*\n${e.data.resource}`);
+  if (typeof e.data?.project === "string") fieldParts.push(`*Project*\n${e.data.project}`);
+  if (typeof e.data?.resource === "string") fieldParts.push(`*Resource*\n${e.data.resource}`);
 
   const blocks: unknown[] = [
     {
@@ -162,10 +154,7 @@ function deliverDiscord(c: ResolvedChannel, e: ChannelEvent): Promise<DeliveryRe
   });
 }
 
-async function deliverWebhook(
-  c: ResolvedChannel,
-  e: ChannelEvent,
-): Promise<DeliveryResult> {
+async function deliverWebhook(c: ResolvedChannel, e: ChannelEvent): Promise<DeliveryResult> {
   const body = JSON.stringify({
     event: e.eventId,
     severity: e.severity,
@@ -182,10 +171,7 @@ async function deliverWebhook(
   return post(c.target, { method: "POST", headers, body });
 }
 
-async function deliverEmail(
-  c: ResolvedChannel,
-  e: ChannelEvent,
-): Promise<DeliveryResult> {
+async function deliverEmail(c: ResolvedChannel, e: ChannelEvent): Promise<DeliveryResult> {
   const from = typeof c.config.from === "string" ? c.config.from : undefined;
   const subject = `[otterdeploy] ${e.title}`;
   // `client` picks the transport: "smtp" uses the channel's own SMTP server
@@ -243,10 +229,7 @@ function deliverPush(c: ResolvedChannel, e: ChannelEvent): Promise<DeliveryResul
   });
 }
 
-function deliverTelegram(
-  c: ResolvedChannel,
-  e: ChannelEvent,
-): Promise<DeliveryResult> {
+function deliverTelegram(c: ResolvedChannel, e: ChannelEvent): Promise<DeliveryResult> {
   if (!c.secret) return Promise.resolve({ ok: false, error: "no bot token" });
   return post(`https://api.telegram.org/bot${c.secret}/sendMessage`, {
     method: "POST",
@@ -258,14 +241,10 @@ function deliverTelegram(
   });
 }
 
-function deliverPagerduty(
-  c: ResolvedChannel,
-  e: ChannelEvent,
-): Promise<DeliveryResult> {
+function deliverPagerduty(c: ResolvedChannel, e: ChannelEvent): Promise<DeliveryResult> {
   const routingKey = c.secret ?? c.target;
   // PagerDuty only accepts critical/warning/error/info as severities.
-  const pdSeverity =
-    e.severity === "err" ? "error" : e.severity === "ok" ? "info" : e.severity;
+  const pdSeverity = e.severity === "err" ? "error" : e.severity === "ok" ? "info" : e.severity;
   return post("https://events.pagerduty.com/v2/enqueue", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -290,12 +269,6 @@ async function hmacSha256Hex(secret: string, body: string): Promise<string> {
     false,
     ["sign"],
   );
-  const sig = await crypto.subtle.sign(
-    "HMAC",
-    key,
-    new TextEncoder().encode(body),
-  );
-  return [...new Uint8Array(sig)]
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(body));
+  return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }

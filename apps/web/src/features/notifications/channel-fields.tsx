@@ -90,8 +90,7 @@ export function ChannelFields({
 }: ChannelFieldsProps) {
   const emailClient = config.client === "smtp" ? "smtp" : "resend";
   // email always carries a secret: SMTP password, or the Resend API key.
-  const needsSecret =
-    kind === "telegram" || kind === "webhook" || kind === "email";
+  const needsSecret = kind === "telegram" || kind === "webhook" || kind === "email";
 
   return (
     <>
@@ -219,18 +218,12 @@ export function ChannelFields({
 function secretLabel(kind: ChannelKind, emailClient: "resend" | "smtp"): string {
   if (kind === "telegram") return "Bot token";
   if (kind === "email")
-    return emailClient === "smtp"
-      ? "SMTP password"
-      : "Resend API key (optional)";
+    return emailClient === "smtp" ? "SMTP password" : "Resend API key (optional)";
   return "HMAC secret (optional)";
 }
 
-function secretPlaceholder(
-  kind: ChannelKind,
-  emailClient: "resend" | "smtp",
-): string {
+function secretPlaceholder(kind: ChannelKind, emailClient: "resend" | "smtp"): string {
   if (kind === "telegram") return "123456:ABC-DEF…";
-  if (kind === "email" && emailClient === "resend")
-    return "re_… (blank = server default)";
+  if (kind === "email" && emailClient === "resend") return "re_… (blank = server default)";
   return "••••••••••••";
 }

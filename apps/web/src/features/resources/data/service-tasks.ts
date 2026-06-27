@@ -1,9 +1,9 @@
 import { createCollection } from "@tanstack/db";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
-
-import { orpc, queryClient } from "@/shared/server/orpc";
-import { parseCol, projectIdSchema } from "@/shared/lib/utils";
 import { parseLoadSubsetOptions } from "@tanstack/query-db-collection";
+
+import { parseCol, projectIdSchema } from "@/shared/lib/utils";
+import { orpc, queryClient } from "@/shared/server/orpc";
 
 export const serviceTasksCollection = createCollection(
   queryCollectionOptions({

@@ -29,8 +29,7 @@ export const projectCollection = createCollection(
         transaction.mutations.map(async (m) => {
           const projectId = m.modified.id;
           const projectSlug = m.modified.slug;
-          const environmentId =
-            m.modified.environmentId ?? createId(ID_PREFIX.environment);
+          const environmentId = m.modified.environmentId ?? createId(ID_PREFIX.environment);
 
           // Env MUST be inserted standalone (projectId=null) — the project
           // row doesn't exist yet, so passing projectId here would violate

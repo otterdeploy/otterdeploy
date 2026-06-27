@@ -1,6 +1,5 @@
-import { matchError, Result } from "better-result";
-
 import { auth } from "@otterdeploy/auth";
+import { matchError, Result } from "better-result";
 
 import { orgScopedProcedure, requirePermission } from "../..";
 
@@ -31,8 +30,7 @@ function toMemberView(m: {
     email: m.user?.email ?? "",
     name: m.user?.name ?? "",
     role: m.role,
-    createdAt:
-      m.createdAt instanceof Date ? m.createdAt.toISOString() : String(m.createdAt),
+    createdAt: m.createdAt instanceof Date ? m.createdAt.toISOString() : String(m.createdAt),
   };
 }
 
@@ -70,16 +68,14 @@ import {
 } from "./handlers";
 
 export const organizationRouter = {
-  settings: orgScopedProcedure.organization.settings.handler(
-    async ({ input, context }) => {
-      context.log.set({
-        target: { type: "organization", id: input.organizationId },
-      });
-      const result = await getOrganizationSettings(input.organizationId);
-      if (result.isErr()) throw result.error;
-      return result.value;
-    },
-  ),
+  settings: orgScopedProcedure.organization.settings.handler(async ({ input, context }) => {
+    context.log.set({
+      target: { type: "organization", id: input.organizationId },
+    });
+    const result = await getOrganizationSettings(input.organizationId);
+    if (result.isErr()) throw result.error;
+    return result.value;
+  }),
 
   setBaseDomain: orgUpdateProcedure.organization.setBaseDomain.handler(
     async ({ input, context }) => {
@@ -107,66 +103,59 @@ export const organizationRouter = {
     },
   ),
 
-  cloudflareListZones:
-    orgScopedProcedure.organization.cloudflareListZones.handler(
-      async ({ input, context, errors }) => {
-        context.log.set({ target: { type: "organization" } });
-        const result = await listZonesForToken(input.token);
-        if (result.isErr()) {
-          throw matchError(result.error, {
-            CloudflareConfigError: (err) =>
-              errors.INVALID_INPUT({ message: err.message }),
-          });
-        }
-        return result.value;
-      },
-    ),
+  cloudflareListZones: orgScopedProcedure.organization.cloudflareListZones.handler(
+    async ({ input, context, errors }) => {
+      context.log.set({ target: { type: "organization" } });
+      const result = await listZonesForToken(input.token);
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          CloudflareConfigError: (err) => errors.INVALID_INPUT({ message: err.message }),
+        });
+      }
+      return result.value;
+    },
+  ),
 
-  setCloudflareConfig:
-    orgUpdateProcedure.organization.setCloudflareConfig.handler(
-      async ({ input, context }) => {
-        context.log.set({
-          target: { type: "organization", id: input.organizationId },
-          cloudflare: {
-            zoneId: input.zoneId,
-            tokenConfigured: input.token.length > 0,
-          },
-        });
-        const result = await saveOrganizationCloudflareConfig(input);
-        if (result.isErr()) throw result.error;
-        return result.value;
-      },
-    ),
+  setCloudflareConfig: orgUpdateProcedure.organization.setCloudflareConfig.handler(
+    async ({ input, context }) => {
+      context.log.set({
+        target: { type: "organization", id: input.organizationId },
+        cloudflare: {
+          zoneId: input.zoneId,
+          tokenConfigured: input.token.length > 0,
+        },
+      });
+      const result = await saveOrganizationCloudflareConfig(input);
+      if (result.isErr()) throw result.error;
+      return result.value;
+    },
+  ),
 
-  autoConfigureBaseDomain:
-    orgUpdateProcedure.organization.autoConfigureBaseDomain.handler(
-      async ({ input, context, errors }) => {
-        context.log.set({
-          target: { type: "organization", id: input.organizationId },
+  autoConfigureBaseDomain: orgUpdateProcedure.organization.autoConfigureBaseDomain.handler(
+    async ({ input, context, errors }) => {
+      context.log.set({
+        target: { type: "organization", id: input.organizationId },
+      });
+      const result = await autoConfigureBaseDomainViaCloudflare(input.organizationId);
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          CloudflareConfigError: (err) => errors.INVALID_INPUT({ message: err.message }),
+          OrganizationNotFoundError: (err) => err,
         });
-        const result = await autoConfigureBaseDomainViaCloudflare(
-          input.organizationId,
-        );
-        if (result.isErr()) {
-          throw matchError(result.error, {
-            CloudflareConfigError: (err) =>
-              errors.INVALID_INPUT({ message: err.message }),
-            OrganizationNotFoundError: (err) => err,
-          });
-        }
-        context.log.set({
-          autoConfigure: {
-            ok: result.value.ok,
-            verifyReason: result.value.verify.reason,
-          },
-        });
-        return result.value;
-      },
-    ),
+      }
+      context.log.set({
+        autoConfigure: {
+          ok: result.value.ok,
+          verifyReason: result.value.verify.reason,
+        },
+      });
+      return result.value;
+    },
+  ),
 
   // ─── Outbound email transport (platform-wide) ─────────────────────
-  getEmailSettings: orgScopedProcedure.organization.getEmailSettings.handler(
-    async () => getEmailSettings(),
+  getEmailSettings: orgScopedProcedure.organization.getEmailSettings.handler(async () =>
+    getEmailSettings(),
   ),
 
   setEmailSettings: orgUpdateProcedure.organization.setEmailSettings.handler(
@@ -187,28 +176,26 @@ export const organizationRouter = {
     },
   ),
 
-  testEmail: orgUpdateProcedure.organization.testEmail.handler(
-    async ({ input }) => sendTestEmail(input.to),
+  testEmail: orgUpdateProcedure.organization.testEmail.handler(async ({ input }) =>
+    sendTestEmail(input.to),
   ),
 
   // ─── Members + invitations (better-auth org plugin) ───────────────
-  listMembers: orgScopedProcedure.organization.listMembers.handler(
-    async ({ input, context }) => {
-      context.log.set({
-        target: { type: "organization", id: input.organizationId },
-      });
-      const res = await Result.tryPromise({
-        try: () =>
-          auth.api.listMembers({
-            query: { organizationId: input.organizationId },
-            headers: context.headers,
-          }),
-        catch: (e) => (e instanceof Error ? e : new Error(String(e))),
-      });
-      if (res.isErr()) throw res.error;
-      return (res.value.members ?? []).map(toMemberView);
-    },
-  ),
+  listMembers: orgScopedProcedure.organization.listMembers.handler(async ({ input, context }) => {
+    context.log.set({
+      target: { type: "organization", id: input.organizationId },
+    });
+    const res = await Result.tryPromise({
+      try: () =>
+        auth.api.listMembers({
+          query: { organizationId: input.organizationId },
+          headers: context.headers,
+        }),
+      catch: (e) => (e instanceof Error ? e : new Error(String(e))),
+    });
+    if (res.isErr()) throw res.error;
+    return (res.value.members ?? []).map(toMemberView);
+  }),
 
   removeMember: orgMemberDelete.organization.removeMember.handler(
     async ({ input, context, errors }) => {
@@ -269,9 +256,7 @@ export const organizationRouter = {
       if (res.isErr()) throw res.error;
       // Surface only still-actionable invites (pending), not accepted/expired.
       const list = (res.value ?? []) as Parameters<typeof toInvitationView>[0][];
-      return list
-        .filter((i) => i.status === "pending")
-        .map(toInvitationView);
+      return list.filter((i) => i.status === "pending").map(toInvitationView);
     },
   ),
 

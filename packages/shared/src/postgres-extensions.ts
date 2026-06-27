@@ -97,9 +97,7 @@ const BY_NAME = new Map<string, PostgresExtensionMeta>(
   POSTGRES_EXTENSIONS.map((ext) => [ext.name, ext]),
 );
 
-export function getPostgresExtension(
-  name: string,
-): PostgresExtensionMeta | undefined {
+export function getPostgresExtension(name: string): PostgresExtensionMeta | undefined {
   return BY_NAME.get(name);
 }
 

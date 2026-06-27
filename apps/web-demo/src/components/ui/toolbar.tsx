@@ -1,17 +1,16 @@
 "use client";
 
-import { Toolbar as ToolbarPrimitive } from "@base-ui/react/toolbar";
 import type React from "react";
+
+import { Toolbar as ToolbarPrimitive } from "@base-ui/react/toolbar";
+
 import { cn } from "@/lib/utils";
 
-export function Toolbar({
-  className,
-  ...props
-}: ToolbarPrimitive.Root.Props): React.ReactElement {
+export function Toolbar({ className, ...props }: ToolbarPrimitive.Root.Props): React.ReactElement {
   return (
     <ToolbarPrimitive.Root
       className={cn(
-        "relative flex gap-2 rounded-xl border bg-card not-dark:bg-clip-padding p-1 text-card-foreground",
+        "relative flex gap-2 rounded-xl border bg-card p-1 text-card-foreground not-dark:bg-clip-padding",
         className,
       )}
       data-slot="toolbar"
@@ -25,11 +24,7 @@ export function ToolbarButton({
   ...props
 }: ToolbarPrimitive.Button.Props): React.ReactElement {
   return (
-    <ToolbarPrimitive.Button
-      className={cn(className)}
-      data-slot="toolbar-button"
-      {...props}
-    />
+    <ToolbarPrimitive.Button className={cn(className)} data-slot="toolbar-button" {...props} />
   );
 }
 
@@ -37,26 +32,14 @@ export function ToolbarLink({
   className,
   ...props
 }: ToolbarPrimitive.Link.Props): React.ReactElement {
-  return (
-    <ToolbarPrimitive.Link
-      className={cn(className)}
-      data-slot="toolbar-link"
-      {...props}
-    />
-  );
+  return <ToolbarPrimitive.Link className={cn(className)} data-slot="toolbar-link" {...props} />;
 }
 
 export function ToolbarInput({
   className,
   ...props
 }: ToolbarPrimitive.Input.Props): React.ReactElement {
-  return (
-    <ToolbarPrimitive.Input
-      className={cn(className)}
-      data-slot="toolbar-input"
-      {...props}
-    />
-  );
+  return <ToolbarPrimitive.Input className={cn(className)} data-slot="toolbar-input" {...props} />;
 }
 
 export function ToolbarGroup({
@@ -79,7 +62,7 @@ export function ToolbarSeparator({
   return (
     <ToolbarPrimitive.Separator
       className={cn(
-        "shrink-0 bg-border data-[orientation=horizontal]:my-0.5 data-[orientation=vertical]:my-1.5 data-[orientation=horizontal]:h-px data-[orientation=horizontal]:w-full data-[orientation=vertical]:w-px data-[orientation=vertical]:not-[[class^='h-']]:not-[[class*='_h-']]:self-stretch",
+        "shrink-0 bg-border data-[orientation=horizontal]:my-0.5 data-[orientation=horizontal]:h-px data-[orientation=horizontal]:w-full data-[orientation=vertical]:my-1.5 data-[orientation=vertical]:w-px data-[orientation=vertical]:not-[[class^='h-']]:not-[[class*='_h-']]:self-stretch",
         className,
       )}
       data-slot="toolbar-separator"

@@ -92,17 +92,13 @@ const blocklistErrors = {
 };
 
 export const firewallContract = {
-  status: oc
-    .meta({ path: "/firewall/status", tag, method: "GET" })
-    .output(firewallStatusSchema),
+  status: oc.meta({ path: "/firewall/status", tag, method: "GET" }).output(firewallStatusSchema),
   decisions: oc
     .meta({ path: "/firewall/decisions", tag, method: "GET" })
     .output(z.array(firewallDecisionSchema)),
 
   blocklists: {
-    list: oc
-      .meta({ path: "/firewall/blocklists", tag, method: "GET" })
-      .output(blocklistListSchema),
+    list: oc.meta({ path: "/firewall/blocklists", tag, method: "GET" }).output(blocklistListSchema),
     addCustom: oc
       .errors({ CONFLICT: blocklistErrors.CONFLICT, INVALID_INPUT: blocklistErrors.INVALID_INPUT })
       .meta({ path: "/firewall/blocklists", tag, method: "POST" })
@@ -138,9 +134,7 @@ export const firewallContract = {
   },
 
   console: {
-    status: oc
-      .meta({ path: "/firewall/console", tag, method: "GET" })
-      .output(consoleStatusSchema),
+    status: oc.meta({ path: "/firewall/console", tag, method: "GET" }).output(consoleStatusSchema),
     enroll: oc
       .errors({ INVALID_INPUT: { status: 422, message: "Enrollment failed" as const } })
       .meta({ path: "/firewall/console/enroll", tag, method: "POST" })

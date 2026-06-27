@@ -5,12 +5,5 @@
  */
 export { executeBackup, restoreBackup } from "./engine";
 export type { RestoreMode } from "./engine";
-export {
-  runDueBackupSchedules,
-  startBackupScheduler,
-} from "./scheduler";
-export {
-  createBackupRun,
-  getDatabaseResourceInOrg,
-  listBackupLogs,
-} from "./db";
+export { runDueBackupSchedules, startBackupScheduler } from "./scheduler";
+export { createBackupRun, getDatabaseResourceInOrg, listBackupLogs } from "./db";

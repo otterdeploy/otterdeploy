@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 
-import { I } from "../icons";
-import { NODES } from "../data";
 import { Field, SectionH, SettingRow, Switch3 } from "../components/form";
+import { NODES } from "../data";
+import { I } from "../icons";
 
 type Tab =
   | "general"
@@ -89,7 +89,10 @@ export function ClusterSettings() {
 function GeneralPane() {
   return (
     <div style={{ padding: 24, maxWidth: 880, margin: "0 auto" }}>
-      <SectionH title="General" sub="Identity and primary endpoint of this otterdeploy control plane" />
+      <SectionH
+        title="General"
+        sub="Identity and primary endpoint of this otterdeploy control plane"
+      />
       <div className="card" style={{ padding: 18, marginTop: 14 }}>
         <Field label="Cluster name">
           <input className="input mono" defaultValue="otterdeploy-helio-prod" />
@@ -123,20 +126,20 @@ function GeneralPane() {
 
       <div style={{ height: 22 }} />
       <SectionH title="Control plane version" />
-      <div
-        className="card row gap-3"
-        style={{ padding: 18, marginTop: 12, alignItems: "center" }}
-      >
+      <div className="card row gap-3" style={{ padding: 18, marginTop: 12, alignItems: "center" }}>
         <div>
           <div className="row gap-2" style={{ alignItems: "baseline" }}>
-            <span className="mono" style={{ fontSize: 18, fontWeight: 600 }}>v1.4.2-rc.1</span>
+            <span className="mono" style={{ fontSize: 18, fontWeight: 600 }}>
+              v1.4.2-rc.1
+            </span>
             <span className="badge warn">
               <span className="dot" />
               Update available v1.4.3
             </span>
           </div>
           <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-            Released 14 Apr 2026 · 18 commits since this build · includes Caddy 2.8.5 + Swarm scheduler fix.
+            Released 14 Apr 2026 · 18 commits since this build · includes Caddy 2.8.5 + Swarm
+            scheduler fix.
           </div>
         </div>
         <div style={{ flex: 1 }} />
@@ -171,7 +174,10 @@ function GeneralPane() {
             >
               {s.label}
             </div>
-            <div className="mono" style={{ fontSize: 14, fontWeight: 500, color: s.tone, marginTop: 2 }}>
+            <div
+              className="mono"
+              style={{ fontSize: 14, fontWeight: 500, color: s.tone, marginTop: 2 }}
+            >
               {s.value}
             </div>
           </div>
@@ -187,7 +193,10 @@ function RaftPane() {
   const allHealthy = managers.every((m) => m.status === "ready");
   return (
     <div style={{ padding: 24, maxWidth: 880, margin: "0 auto" }}>
-      <SectionH title="Raft & quorum" sub="Manager peers gossip via Raft to keep the cluster state consistent" />
+      <SectionH
+        title="Raft & quorum"
+        sub="Manager peers gossip via Raft to keep the cluster state consistent"
+      />
 
       <div className="card" style={{ marginTop: 14, overflow: "hidden" }}>
         <div
@@ -236,22 +245,36 @@ function RaftPane() {
             >
               <span style={{ flex: 1.2, fontWeight: 500 }} className="mono">
                 {n.name}{" "}
-                {isLeader && <span className="badge ok" style={{ marginLeft: 4 }}>leader</span>}
+                {isLeader && (
+                  <span className="badge ok" style={{ marginLeft: 4 }}>
+                    leader
+                  </span>
+                )}
               </span>
-              <span style={{ width: 120 }} className="mono muted">{n.role}</span>
-              <span style={{ width: 130 }} className="mono">{n.host}:2377</span>
-              <span style={{ width: 130 }} className="mono muted">{n.daemonVersion}</span>
+              <span style={{ width: 120 }} className="mono muted">
+                {n.role}
+              </span>
+              <span style={{ width: 130 }} className="mono">
+                {n.host}:2377
+              </span>
+              <span style={{ width: 130 }} className="mono muted">
+                {n.daemonVersion}
+              </span>
               <span style={{ width: 100 }}>
                 {n.status === "ready" ? (
-                  <span className="badge ok"><span className="dot" />reachable</span>
+                  <span className="badge ok">
+                    <span className="dot" />
+                    reachable
+                  </span>
                 ) : (
-                  <span className="badge err"><span className="dot" />unreachable</span>
+                  <span className="badge err">
+                    <span className="dot" />
+                    unreachable
+                  </span>
                 )}
               </span>
               <span style={{ width: 90, textAlign: "right" }}>
-                {isManager && !isLeader && (
-                  <button className="btn sm ghost">Demote</button>
-                )}
+                {isManager && !isLeader && <button className="btn sm ghost">Demote</button>}
                 {!isManager && <button className="btn sm ghost">Promote</button>}
               </span>
             </div>
@@ -380,10 +403,30 @@ function LogRetentionPane() {
           <span style={{ flex: 1.4 }}>Notes</span>
         </div>
         {[
-          { stream: "App logs", def: "7 days", opts: ["1d", "3d", "7d", "14d", "30d"], note: "stdout/stderr from each replica" },
-          { stream: "Edge logs (Caddy)", def: "14 days", opts: ["7d", "14d", "30d", "90d"], note: "structured access log per request" },
-          { stream: "Audit logs", def: "365 days", opts: ["90d", "180d", "365d", "forever"], note: "who did what — sealed, append-only" },
-          { stream: "Build logs", def: "30 days", opts: ["7d", "14d", "30d", "90d"], note: "kept per deploy, deleted on rollback" },
+          {
+            stream: "App logs",
+            def: "7 days",
+            opts: ["1d", "3d", "7d", "14d", "30d"],
+            note: "stdout/stderr from each replica",
+          },
+          {
+            stream: "Edge logs (Caddy)",
+            def: "14 days",
+            opts: ["7d", "14d", "30d", "90d"],
+            note: "structured access log per request",
+          },
+          {
+            stream: "Audit logs",
+            def: "365 days",
+            opts: ["90d", "180d", "365d", "forever"],
+            note: "who did what — sealed, append-only",
+          },
+          {
+            stream: "Build logs",
+            def: "30 days",
+            opts: ["7d", "14d", "30d", "90d"],
+            note: "kept per deploy, deleted on rollback",
+          },
         ].map((s, i) => (
           <div
             key={s.stream}
@@ -396,15 +439,25 @@ function LogRetentionPane() {
             }}
           >
             <span style={{ flex: 1, fontWeight: 500 }}>{s.stream}</span>
-            <span style={{ width: 130 }} className="mono muted">{s.def}</span>
+            <span style={{ width: 130 }} className="mono muted">
+              {s.def}
+            </span>
             <span style={{ width: 130 }}>
-              <select className="input" defaultValue={s.opts[Math.floor(s.opts.length / 2)]} style={{ height: 26 }}>
+              <select
+                className="input"
+                defaultValue={s.opts[Math.floor(s.opts.length / 2)]}
+                style={{ height: 26 }}
+              >
                 {s.opts.map((o) => (
-                  <option key={o} value={o}>{o}</option>
+                  <option key={o} value={o}>
+                    {o}
+                  </option>
                 ))}
               </select>
             </span>
-            <span style={{ flex: 1.4 }} className="muted">{s.note}</span>
+            <span style={{ flex: 1.4 }} className="muted">
+              {s.note}
+            </span>
           </div>
         ))}
       </div>
@@ -448,8 +501,11 @@ function LogRetentionPane() {
           />
         </Field>
         <div className="muted" style={{ fontSize: 11, marginTop: 6 }}>
-          Applies to services tagged <span className="mono" style={{ color: "var(--fg-2)" }}>log-volume:high</span> ·
-          errors and warnings are always kept (1.0).
+          Applies to services tagged{" "}
+          <span className="mono" style={{ color: "var(--fg-2)" }}>
+            log-volume:high
+          </span>{" "}
+          · errors and warnings are always kept (1.0).
         </div>
       </div>
     </div>
@@ -475,7 +531,10 @@ function BackupsPane() {
         </Field>
         <div style={{ height: 12 }} />
         <Field label="Bucket / endpoint">
-          <input className="input mono" defaultValue="https://s3.us-west-002.backblazeb2.com/helio-backups" />
+          <input
+            className="input mono"
+            defaultValue="https://s3.us-west-002.backblazeb2.com/helio-backups"
+          />
         </Field>
         <div style={{ height: 12 }} />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -653,7 +712,10 @@ function TelemetryPane() {
           defaultOn
         />
 
-        <div className="row gap-3" style={{ padding: "10px 0", borderTop: "1px solid var(--border)" }}>
+        <div
+          className="row gap-3"
+          style={{ padding: "10px 0", borderTop: "1px solid var(--border)" }}
+        >
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 13, fontWeight: 500 }}>Opt-in beta features</div>
             <div className="muted" style={{ fontSize: 11 }}>
@@ -668,13 +730,11 @@ function TelemetryPane() {
       <SectionH title="Error reporting" />
       <div className="card" style={{ padding: 18, marginTop: 12 }}>
         <Field label="Sentry DSN (control plane)">
-          <input
-            className="input mono"
-            defaultValue="https://••••••@sentry.paperhouse.dev/4501"
-          />
+          <input className="input mono" defaultValue="https://••••••@sentry.paperhouse.dev/4501" />
         </Field>
         <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>
-          Routes otterdeploy&apos;s own exceptions to your Sentry project · separate from per-service Sentry config.
+          Routes otterdeploy&apos;s own exceptions to your Sentry project · separate from
+          per-service Sentry config.
         </div>
         <div style={{ height: 12 }} />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -801,7 +861,9 @@ function ActionRow({
     <div className="row gap-3" style={{ padding: "10px 0", borderTop: "1px solid var(--border)" }}>
       <div style={{ flex: 1 }}>
         <div style={{ fontSize: 13, fontWeight: 500 }}>{label}</div>
-        <div className="muted" style={{ fontSize: 11 }}>{sub}</div>
+        <div className="muted" style={{ fontSize: 11 }}>
+          {sub}
+        </div>
       </div>
       <button className="btn sm">{buttonLabel}</button>
     </div>
@@ -826,7 +888,9 @@ function DangerRow({
           <I.warning width={12} height={12} style={{ color: "var(--err)" }} />
           <span style={{ fontSize: 13, fontWeight: 500 }}>{label}</span>
         </div>
-        <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>{sub}</div>
+        <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>
+          {sub}
+        </div>
       </div>
       <button
         className="btn sm"
@@ -865,7 +929,7 @@ function ConfirmModal({
       }}
     >
       <div onClick={(e) => e.stopPropagation()} className="os-modal" style={{ width: 460 }}>
-        <div className="row gap-2 os-modal-h">
+        <div className="row os-modal-h gap-2">
           <I.warning width={14} height={14} style={{ color: "var(--err)" }} />
           <span style={{ fontWeight: 600 }}>
             {kind === "recreate" ? "Recreate cluster from backup" : "Force re-elect leader"}

@@ -5,19 +5,11 @@
  */
 
 import type { listServiceRecordsByProject } from "../../routers/service/queries";
-
-import type {
-  StackHealthcheck,
-  StackResources,
-  StackService,
-  StackVolumeMount,
-} from "../schema";
+import type { StackHealthcheck, StackResources, StackService, StackVolumeMount } from "../schema";
 
 import { projectNetworkName } from "./network-name";
 
-type ServiceRecord = Awaited<
-  ReturnType<typeof listServiceRecordsByProject>
->[number];
+type ServiceRecord = Awaited<ReturnType<typeof listServiceRecordsByProject>>[number];
 
 function nanosToCompose(ns: number | null | undefined): string | undefined {
   if (ns == null || ns <= 0) return undefined;
@@ -29,9 +21,7 @@ function msToCompose(ms: number | null | undefined): string | undefined {
   return `${ms}ms`;
 }
 
-function buildHealthcheck(
-  s: ServiceRecord["service"],
-): StackHealthcheck | undefined {
+function buildHealthcheck(s: ServiceRecord["service"]): StackHealthcheck | undefined {
   if (!s.healthcheckCmd?.length) return undefined;
   return {
     test: ["CMD", ...s.healthcheckCmd],
@@ -75,10 +65,7 @@ function mapServiceMount(mount: ServiceRecord["mounts"][number]): StackVolumeMou
   };
 }
 
-export function buildServiceEntry(
-  record: ServiceRecord,
-  projectSlug: string,
-): StackService {
+export function buildServiceEntry(record: ServiceRecord, projectSlug: string): StackService {
   const s = record.service;
   const env: Record<string, string> = {};
   for (const e of record.env) env[e.key] = e.value;
@@ -114,9 +101,7 @@ export function buildServiceEntry(
       publicEnabled: s.publicEnabled,
       // Only emit hostname when public is actually on; a stale
       // hostname on a private service is noise + misleading.
-      ...(s.publicEnabled && s.publicDomain
-        ? { publicHostname: s.publicDomain }
-        : {}),
+      ...(s.publicEnabled && s.publicDomain ? { publicHostname: s.publicDomain } : {}),
       preDeploy: s.preDeploy ?? undefined,
       postDeploy: s.postDeploy ?? undefined,
       buildConfig: s.buildConfig ?? undefined,

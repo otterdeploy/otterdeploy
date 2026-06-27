@@ -22,9 +22,7 @@ export const envCollection = createCollection(
     },
     onDelete: async ({ transaction }) => {
       await Promise.all(
-        transaction.mutations.map((m) =>
-          orpc.env.delete.call({ id: m.original.id }),
-        ),
+        transaction.mutations.map((m) => orpc.env.delete.call({ id: m.original.id })),
       );
     },
     queryClient,

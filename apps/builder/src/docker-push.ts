@@ -16,6 +16,7 @@
  */
 
 import type { LogSink } from "./log-stream";
+
 import { runProcess } from "./run-process";
 
 export interface PushCredentials {
@@ -40,13 +41,7 @@ export async function dockerPush(opts: {
   opts.sink.system(`logging in to ${host} as ${username}`);
   const login = await runProcess({
     cmd: "docker",
-    args: [
-      "login",
-      ...(loginHost ? [loginHost] : []),
-      "-u",
-      username,
-      "--password-stdin",
-    ],
+    args: ["login", ...(loginHost ? [loginHost] : []), "-u", username, "--password-stdin"],
     sink: opts.sink,
     secrets: [password],
     stdin: password,
@@ -86,14 +81,11 @@ export async function dockerPush(opts: {
  * returns null rather than failing the build — the digest is metadata, the
  * push already succeeded.
  */
-async function readDigest(
-  tag: string | undefined,
-  sink: LogSink,
-): Promise<string | null> {
+async function readDigest(tag: string | undefined, sink: LogSink): Promise<string | null> {
   if (!tag) return null;
   const inspect = await runProcess({
     cmd: "docker",
-    args: ["inspect", "--format", "{{join .RepoDigests \"\\n\"}}", tag],
+    args: ["inspect", "--format", '{{join .RepoDigests "\\n"}}', tag],
     sink,
     echo: false,
   }).catch(() => null);

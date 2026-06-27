@@ -7,16 +7,19 @@
  */
 
 import { Activity, useState } from "react";
+
+import { ArrowLeft01Icon, Cancel01Icon, RefreshIcon, RocketIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { HugeiconsIcon } from "@hugeicons/react";
-import {
-  ArrowLeft01Icon,
-  Cancel01Icon,
-  RefreshIcon,
-  RocketIcon,
-} from "@hugeicons/core-free-icons";
 
+import type { FrameworkKind } from "@/features/projects/components/framework-logo";
+
+import { PanelIcon } from "@/features/resources/components/_shared/atoms";
+import { MetricsTab } from "@/features/resources/components/_shared/metrics/metrics-tab";
+import { ResourceTasksTab } from "@/features/resources/components/_shared/resource-tasks-tab";
+import { ResourceTerminal } from "@/features/resources/components/_shared/resource-terminal";
+import { Button } from "@/shared/components/ui/button";
 import {
   Tabs,
   TabsContent,
@@ -24,24 +27,12 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/shared/components/ui/tabs";
-import { Button } from "@/shared/components/ui/button";
-import type { FrameworkKind } from "@/features/projects/components/framework-logo";
 import { orpc } from "@/shared/server/orpc";
-
-import { PanelIcon } from "@/features/resources/components/_shared/atoms";
-import { MetricsTab } from "@/features/resources/components/_shared/metrics/metrics-tab";
-import { ResourceTasksTab } from "@/features/resources/components/_shared/resource-tasks-tab";
-import { ResourceTerminal } from "@/features/resources/components/_shared/resource-terminal";
 
 import { ServiceSettingsBody } from "./tabs/settings";
 import { ServiceVariablesTabBody } from "./tabs/variables";
 
-type ServiceTab =
-  | "deployments"
-  | "metrics"
-  | "variables"
-  | "terminal"
-  | "settings";
+type ServiceTab = "deployments" | "metrics" | "variables" | "terminal" | "settings";
 
 interface ServiceResourcePanelProps {
   resource: {
@@ -94,8 +85,7 @@ export function ServiceResourcePanel({
       });
       setTab("deployments");
     },
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : "Failed to start build"),
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to start build"),
   });
 
   // Re-roll the current deployment without a rebuild. Works for both image
@@ -110,8 +100,7 @@ export function ServiceResourcePanel({
       });
       setTab("deployments");
     },
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : "Failed to restart"),
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to restart"),
   });
 
   return (
@@ -126,11 +115,7 @@ export function ServiceResourcePanel({
             onClick={onClose}
             className="mt-1"
           >
-            <HugeiconsIcon
-              icon={ArrowLeft01Icon}
-              strokeWidth={2}
-              className="size-4"
-            />
+            <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="size-4" />
           </Button>
           <PanelIcon
             node={{
@@ -141,12 +126,8 @@ export function ServiceResourcePanel({
             }}
           />
           <div className="flex flex-col gap-0.5">
-            <span className="text-xl font-bold leading-none tracking-tight">
-              {resource.name}
-            </span>
-            <span className="font-mono text-xs text-muted-foreground">
-              {resource.image}
-            </span>
+            <span className="text-xl leading-none font-bold tracking-tight">{resource.name}</span>
+            <span className="font-mono text-xs text-muted-foreground">{resource.image}</span>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -166,11 +147,7 @@ export function ServiceResourcePanel({
                 }
                 disabled={restartMut.isPending}
               >
-                <HugeiconsIcon
-                  icon={RefreshIcon}
-                  strokeWidth={2}
-                  className="size-3.5"
-                />
+                <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} className="size-3.5" />
                 {restartMut.isPending ? "Restarting…" : "Restart"}
               </Button>
               {resource.source === "git" ? (
@@ -185,11 +162,7 @@ export function ServiceResourcePanel({
                   }
                   disabled={buildMut.isPending}
                 >
-                  <HugeiconsIcon
-                    icon={RocketIcon}
-                    strokeWidth={2}
-                    className="size-3.5"
-                  />
+                  <HugeiconsIcon icon={RocketIcon} strokeWidth={2} className="size-3.5" />
                   {buildMut.isPending ? "Starting…" : "Build & deploy"}
                 </Button>
               ) : null}
@@ -202,11 +175,7 @@ export function ServiceResourcePanel({
             aria-label="Close panel"
             onClick={onClose}
           >
-            <HugeiconsIcon
-              icon={Cancel01Icon}
-              strokeWidth={2}
-              className="size-4"
-            />
+            <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-4" />
           </Button>
         </div>
       </div>
@@ -283,11 +252,7 @@ export function ServiceResourcePanel({
               </TabsContent>
 
               <TabsContent value="settings" className="px-6 pt-5 pb-8">
-                <ServiceSettingsBody
-                  resource={resource}
-                  onDeleted={onClose}
-                  pending={pending}
-                />
+                <ServiceSettingsBody resource={resource} onDeleted={onClose} pending={pending} />
               </TabsContent>
             </TabsContents>
           </div>

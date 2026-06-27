@@ -27,13 +27,11 @@ export function WelcomeEmail({
       <Preview>Welcome to otterdeploy!</Preview>
       <Tailwind>
         <Body className="bg-gray-100 font-sans">
-          <Container className="mx-auto mb-16 max-w-[600px] rounded-md bg-white px-0 pb-12 pt-5">
+          <Container className="mx-auto mb-16 max-w-[600px] rounded-md bg-white px-0 pt-5 pb-12">
             <Heading className="my-10 text-center text-2xl font-bold text-gray-800">
               Welcome to otterdeploy!
             </Heading>
-            <Text className="px-12 text-base leading-7 text-gray-800">
-              Hi {username},
-            </Text>
+            <Text className="px-12 text-base leading-7 text-gray-800">Hi {username},</Text>
             <Text className="px-12 text-base leading-7 text-gray-800">
               Thanks for signing up! We're excited to have you on board.
             </Text>

@@ -1,12 +1,8 @@
 import { ChevronsUpDownIcon } from "lucide-react";
+
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import {
-  Menu,
-  MenuItem,
-  MenuPopup,
-  MenuSeparator,
-  MenuTrigger,
-} from "@/components/ui/menu";
+import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
+
 import type { WorkspaceSummary } from "../types";
 
 interface Props {
@@ -15,11 +11,7 @@ interface Props {
   onSelect: (workspaceId: string) => void;
 }
 
-export function WorkspaceSwitcherDropdown({
-  current,
-  workspaces,
-  onSelect,
-}: Props) {
+export function WorkspaceSwitcherDropdown({ current, workspaces, onSelect }: Props) {
   return (
     <Menu>
       <MenuTrigger
@@ -47,15 +39,11 @@ export function WorkspaceSwitcherDropdown({
               </AvatarFallback>
             </Avatar>
             <span>{ws.name}</span>
-            <span className="ml-auto text-[10px] text-muted-foreground">
-              {ws.role}
-            </span>
+            <span className="ml-auto text-[10px] text-muted-foreground">{ws.role}</span>
           </MenuItem>
         ))}
         <MenuSeparator />
-        <MenuItem onClick={() => onSelect("__create__")}>
-          + New workspace
-        </MenuItem>
+        <MenuItem onClick={() => onSelect("__create__")}>+ New workspace</MenuItem>
       </MenuPopup>
     </Menu>
   );

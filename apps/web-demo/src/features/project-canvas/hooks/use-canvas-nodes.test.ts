@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { useCanvasNodes } from "./use-canvas-nodes";
+
 import type { DatabaseFromApi, ProxyRouteFromApi } from "../api/schema";
+
+import { useCanvasNodes } from "./use-canvas-nodes";
 
 function makeDatabase(over: Partial<DatabaseFromApi> = {}): DatabaseFromApi {
   return {
@@ -67,7 +69,10 @@ describe("useCanvasNodes", () => {
 
   it("parents database and volume nodes to the data group", () => {
     const { nodes } = useCanvasNodes({
-      databases: [makeDatabase({ resourceId: "res_a" }), makeDatabase({ resourceId: "res_b", name: "secondary" })],
+      databases: [
+        makeDatabase({ resourceId: "res_a" }),
+        makeDatabase({ resourceId: "res_b", name: "secondary" }),
+      ],
       proxyRoutes: [],
     });
     const group = nodes.find((n) => n.type === "group");
@@ -88,11 +93,16 @@ describe("useCanvasNodes", () => {
   it("the routing node summarizes enabled http+layer4 domains", () => {
     const { nodes } = useCanvasNodes({
       databases: [],
-      proxyRoutes: [makeRoute({ domain: "a.example.com", type: "http" }), makeRoute({ id: "rt_2", domain: "b.example.com", type: "layer4" })],
+      proxyRoutes: [
+        makeRoute({ domain: "a.example.com", type: "http" }),
+        makeRoute({ id: "rt_2", domain: "b.example.com", type: "layer4" }),
+      ],
     });
     const routing = nodes.find((n) => n.type === "routing");
     expect(routing).toBeDefined();
-    const data = routing!.data as { domains: ReadonlyArray<{ domain: string; type: "http" | "layer4" }> };
+    const data = routing!.data as {
+      domains: ReadonlyArray<{ domain: string; type: "http" | "layer4" }>;
+    };
     expect(data.domains).toHaveLength(2);
     expect(data.domains.map((d) => d.domain).sort()).toEqual(["a.example.com", "b.example.com"]);
   });

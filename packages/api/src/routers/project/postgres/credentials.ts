@@ -13,11 +13,7 @@ import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
 
 import { PLATFORM } from "../../../constants";
 import { getEngineAdapter } from "../../../swarm";
-import {
-  clampPostgresIdentifier,
-  sanitizeDatabaseName,
-  sanitizeProjectSlug,
-} from "../views";
+import { clampPostgresIdentifier, sanitizeDatabaseName, sanitizeProjectSlug } from "../views";
 
 export interface InternalDbCredentials {
   databaseName: string;

@@ -6,23 +6,18 @@
  * docs/designs/deployment-protection.md.
  */
 
-import type {
-  DeploymentGuestId,
-  OrganizationId,
-  ProxyRouteId,
-} from "@otterdeploy/shared/id";
-import { Result } from "better-result";
-import { eq } from "drizzle-orm";
+import type { DeploymentGuestId, OrganizationId, ProxyRouteId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
-import {
-  PLATFORM_SETTINGS_ID,
-  platformSettings,
-} from "@otterdeploy/db/schema/platform";
+import { PLATFORM_SETTINGS_ID, platformSettings } from "@otterdeploy/db/schema/platform";
+import { Result } from "better-result";
+import { eq } from "drizzle-orm";
 
-import { type CertProbe, probeCertificate } from "../../lib/cert-probe";
+import type { OrgRef, ProjectRef } from "../scopes";
 
+import { type GuestRecord, listGuests, removeGuest, upsertGuest } from "../../authz/guests";
+import { signGrantToken } from "../../authz/tokens";
 import {
   reconcile,
   renderProjectCaddyfile,
@@ -39,18 +34,10 @@ import {
   listProxyRoutesByProject,
   updateProxyRoute,
 } from "../../caddy/queries";
-import {
-  type GuestRecord,
-  listGuests,
-  removeGuest,
-  upsertGuest,
-} from "../../authz/guests";
-import { signGrantToken } from "../../authz/tokens";
-
+import { type CertProbe, probeCertificate } from "../../lib/cert-probe";
 import { ProjectNotFoundError, ProxyRouteNotFoundError } from "./errors";
 import { getProjectInOrg } from "./queries";
 import { type ProxyRoute } from "./views";
-import type { OrgRef, ProjectRef } from "../scopes";
 
 export async function listProjectProxyRoutes(
   input: ProjectRef,
@@ -121,11 +108,7 @@ export async function listProjectCertificates(
 
   const records = await listProxyRoutesByProject(input.projectId);
   const domains = [
-    ...new Set(
-      records
-        .filter((r) => r.type === "http" && r.enabled)
-        .map((r) => r.domain),
-    ),
+    ...new Set(records.filter((r) => r.type === "http" && r.enabled).map((r) => r.domain)),
   ];
 
   const edgeHost = (await readServerIp()) ?? "127.0.0.1";
@@ -230,10 +213,7 @@ export async function setProxyRouteDirectives(
 /** Load a route and verify it belongs to a project in the caller's org.
  *  Centralizes the auth check for every protection mutation; returns null
  *  for both "missing" and "other org" so existence never leaks. */
-async function getRouteInOrg(
-  routeId: ProxyRouteId,
-  organizationId: OrganizationId,
-) {
+async function getRouteInOrg(routeId: ProxyRouteId, organizationId: OrganizationId) {
   const route = await getProxyRouteById(routeId);
   if (!route) return null;
   const project = await getProjectInOrg({
@@ -267,9 +247,7 @@ export async function setProxyRouteProtection(
 
 export async function createDeploymentShareLink(
   input: OrgRef & { routeId: ProxyRouteId; expiresInHours: number },
-): Promise<
-  Result<{ url: string; expiresAt: string }, ProxyRouteNotFoundError>
-> {
+): Promise<Result<{ url: string; expiresAt: string }, ProxyRouteNotFoundError>> {
   const route = await getRouteInOrg(input.routeId, input.organizationId);
   if (!route) {
     return Result.err(new ProxyRouteNotFoundError({ routeId: input.routeId }));
@@ -284,12 +262,7 @@ export async function createDeploymentShareLink(
 
 export async function createDeploymentBypassToken(
   input: OrgRef & { routeId: ProxyRouteId; expiresInDays: number },
-): Promise<
-  Result<
-    { header: string; token: string; expiresAt: string },
-    ProxyRouteNotFoundError
-  >
-> {
+): Promise<Result<{ header: string; token: string; expiresAt: string }, ProxyRouteNotFoundError>> {
   const route = await getRouteInOrg(input.routeId, input.organizationId);
   if (!route) {
     return Result.err(new ProxyRouteNotFoundError({ routeId: input.routeId }));
@@ -303,7 +276,12 @@ export async function createDeploymentBypassToken(
 
 // ─── Guests (email one-time PIN) ────────────────────────────────────
 
-interface GuestView { id: string; email: string; sessionHours: number; createdAt: string }
+interface GuestView {
+  id: string;
+  email: string;
+  sessionHours: number;
+  createdAt: string;
+}
 const toGuestView = (g: GuestRecord): GuestView => ({
   id: g.id,
   email: g.email,

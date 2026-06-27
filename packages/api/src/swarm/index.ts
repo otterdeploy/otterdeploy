@@ -45,17 +45,9 @@ export {
   inspectComposeStack,
   type ComposeStackRuntime,
 } from "./compose";
-export {
-  streamImagePull,
-  type ImagePullEvent,
-  type RegistryAuth,
-} from "./image-pull";
+export { streamImagePull, type ImagePullEvent, type RegistryAuth } from "./image-pull";
 export { resolveRegistryAuth } from "./registry-auth";
-export {
-  materializeServiceMounts,
-  type ServiceMountInput,
-  type SpecMount,
-} from "./file-mounts";
+export { materializeServiceMounts, type ServiceMountInput, type SpecMount } from "./file-mounts";
 export {
   subscribeDockerEvents,
   subscribeDockerEventsWhere,

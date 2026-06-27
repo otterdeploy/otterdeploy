@@ -8,6 +8,7 @@
  */
 
 import { useState } from "react";
+
 import {
   Database02Icon,
   LinkSquare02Icon,
@@ -16,6 +17,8 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
+import { ProtectionSwitch } from "@/features/projects/components/networking/protection-switch";
+import { RouteAccessControls } from "@/features/projects/components/networking/route-access-controls";
 import { Card } from "@/shared/components/ui/card";
 import {
   Empty,
@@ -26,8 +29,6 @@ import {
 } from "@/shared/components/ui/empty";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { cn } from "@/shared/lib/utils";
-import { ProtectionSwitch } from "@/features/projects/components/networking/protection-switch";
-import { RouteAccessControls } from "@/features/projects/components/networking/route-access-controls";
 
 export interface AccessRoute {
   id: string;
@@ -49,8 +50,7 @@ export function DeploymentAccessTab({
 }) {
   const httpRoutes = routes.filter((r) => r.isHttp);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const selected =
-    httpRoutes.find((r) => r.id === selectedId) ?? httpRoutes[0] ?? null;
+  const selected = httpRoutes.find((r) => r.id === selectedId) ?? httpRoutes[0] ?? null;
 
   if (isLoading && routes.length === 0) {
     return (
@@ -78,8 +78,8 @@ export function DeploymentAccessTab({
           </EmptyMedia>
           <EmptyTitle>No deployments to protect</EmptyTitle>
           <EmptyDescription>
-            Expose a service over HTTP to require login, invite guests, or share
-            a link. Database (layer-4) routes can&apos;t carry an auth wall.
+            Expose a service over HTTP to require login, invite guests, or share a link. Database
+            (layer-4) routes can&apos;t carry an auth wall.
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
@@ -89,8 +89,8 @@ export function DeploymentAccessTab({
   return (
     <div className="flex flex-col gap-3">
       <p className="text-[12.5px] text-muted-foreground">
-        Require sign-in to view a deployment, then invite external guests by
-        email, share a no-login link, or issue a CI bypass token.
+        Require sign-in to view a deployment, then invite external guests by email, share a no-login
+        link, or issue a CI bypass token.
       </p>
 
       <div className="grid grid-cols-[260px_1fr] items-start gap-4">
@@ -106,11 +106,7 @@ export function DeploymentAccessTab({
         </div>
 
         {selected ? (
-          <DeploymentAccessPanel
-            key={selected.id}
-            route={selected}
-            projectId={projectId}
-          />
+          <DeploymentAccessPanel key={selected.id} route={selected} projectId={projectId} />
         ) : null}
       </div>
     </div>
@@ -132,9 +128,7 @@ function DeploymentListItem({
       onClick={onSelect}
       className={cn(
         "flex w-full items-center gap-2.5 rounded-lg border px-3 py-2.5 text-left transition-colors",
-        active
-          ? "border-border bg-muted/50"
-          : "border-transparent hover:bg-muted/30",
+        active ? "border-border bg-muted/50" : "border-transparent hover:bg-muted/30",
       )}
     >
       <HugeiconsIcon
@@ -144,9 +138,7 @@ function DeploymentListItem({
       />
       <div className="min-w-0 flex-1">
         <div className="truncate font-mono text-[13px]">{route.name}</div>
-        <div className="truncate font-mono text-[11px] text-muted-foreground">
-          {route.domain}
-        </div>
+        <div className="truncate font-mono text-[11px] text-muted-foreground">{route.domain}</div>
       </div>
       <span
         className={cn(
@@ -159,13 +151,7 @@ function DeploymentListItem({
   );
 }
 
-function DeploymentAccessPanel({
-  route,
-  projectId,
-}: {
-  route: AccessRoute;
-  projectId: string;
-}) {
+function DeploymentAccessPanel({ route, projectId }: { route: AccessRoute; projectId: string }) {
   return (
     <Card className="min-w-0 gap-0 overflow-hidden p-0">
       <div className="flex items-center gap-3 border-b bg-muted/30 px-4 py-3">
@@ -200,8 +186,8 @@ function DeploymentAccessPanel({
           <div className="flex flex-col items-start gap-1 py-2">
             <p className="text-[13px] font-medium">This deployment is public</p>
             <p className="text-[12.5px] text-muted-foreground">
-              Anyone with the URL can view it. Turn on protection above to
-              require sign-in and manage who can access it.
+              Anyone with the URL can view it. Turn on protection above to require sign-in and
+              manage who can access it.
             </p>
           </div>
         )}

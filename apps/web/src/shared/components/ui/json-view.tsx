@@ -16,13 +16,7 @@ export interface JsonViewProps {
   className?: string;
 }
 
-type JsonTokenKind =
-  | "key"
-  | "string"
-  | "number"
-  | "boolean"
-  | "null"
-  | "punct";
+type JsonTokenKind = "key" | "string" | "number" | "boolean" | "null" | "punct";
 
 const KIND_CLASS: Record<JsonTokenKind, string> = {
   key: "text-sky-300/90",
@@ -88,12 +82,7 @@ export function JsonView({ data, className }: JsonViewProps) {
   }, [data]);
 
   return (
-    <pre
-      className={cn(
-        "overflow-auto font-mono leading-relaxed",
-        className,
-      )}
-    >
+    <pre className={cn("overflow-auto font-mono leading-relaxed", className)}>
       <code className="block min-w-max">
         {tokens.map((tok, i) => (
           <span key={i} className={KIND_CLASS[tok.kind]}>

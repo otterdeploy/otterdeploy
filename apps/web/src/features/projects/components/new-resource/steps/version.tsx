@@ -1,16 +1,16 @@
-
 import type { ProjectId } from "@otterdeploy/shared/id";
-import { useStore } from "@tanstack/react-form";
 
 import { CheckmarkCircle02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useStore } from "@tanstack/react-form";
+import { useMutation } from "@tanstack/react-query";
 
 import { type ServiceKind } from "@/features/projects/data/service-kinds";
 import { DatabaseLogo } from "@/shared/components/brand/database-logo";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
-import { useMutation } from "@tanstack/react-query";
+
 import { traitsFor } from "../engine-traits";
 import { useFormContext } from "../form-context";
 import {
@@ -56,10 +56,7 @@ export function StepVersion({ kind, projectId }: StepVersionProps) {
             key={v}
             type="button"
             onClick={() => form.setFieldValue("version", v)}
-            className={cn(
-              builderCardClass,
-              version === v && builderCardActiveClass,
-            )}
+            className={cn(builderCardClass, version === v && builderCardActiveClass)}
           >
             {i === 0 && <span className={builderPopClass}>latest</span>}
             <div className="flex items-center gap-2">

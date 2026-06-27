@@ -2,10 +2,11 @@
 // `service:port` pairs are published (and on what domain) without re-staging the
 // manifest. Saves through `compose.setExposed`, which re-mints the Caddy routes.
 import { useState } from "react";
+
+import { Delete02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { Delete02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
@@ -46,18 +47,14 @@ export function ComposeExposedEditor({
   projectId: string;
   resourceId: string;
 }) {
-  const view = useQuery(
-    orpc.compose.get.queryOptions({ input: { projectId, resourceId } }),
-  );
+  const view = useQuery(orpc.compose.get.queryOptions({ input: { projectId, resourceId } }));
 
   if (view.isLoading) {
     return <p className="text-[12px] text-muted-foreground">Loading…</p>;
   }
   if (view.isError || !view.data) {
     return (
-      <p className="text-[12px] text-destructive">
-        Couldn't load the stack's exposed services.
-      </p>
+      <p className="text-[12px] text-destructive">Couldn't load the stack's exposed services.</p>
     );
   }
 
@@ -100,18 +97,14 @@ function ExposedForm({
       });
     },
     onError: (err) =>
-      toast.error(
-        err instanceof Error ? err.message : "Failed to update exposures",
-      ),
+      toast.error(err instanceof Error ? err.message : "Failed to update exposures"),
   });
 
-  const dirty =
-    JSON.stringify(toExposed(rows)) !== JSON.stringify(initial);
+  const dirty = JSON.stringify(toExposed(rows)) !== JSON.stringify(initial);
 
   const setRow = (id: string, patch: Partial<Row>) =>
     setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r)));
-  const removeRow = (id: string) =>
-    setRows((rs) => rs.filter((r) => r.id !== id));
+  const removeRow = (id: string) => setRows((rs) => rs.filter((r) => r.id !== id));
   const addRow = () => {
     const first = services[0];
     setRows((rs) => [...rs, newRow(first?.name ?? "", first?.ports[0] ?? 0)]);
@@ -123,8 +116,8 @@ function ExposedForm({
         <div>
           <div className="text-[13px] font-semibold">Exposed services</div>
           <p className="mt-0.5 text-[12px] text-muted-foreground">
-            Publish a <code className="font-mono">service:port</code> on a
-            public domain. Leave the domain blank to auto-generate one.
+            Publish a <code className="font-mono">service:port</code> on a public domain. Leave the
+            domain blank to auto-generate one.
           </p>
         </div>
         <Button
@@ -175,9 +168,7 @@ function ExposedForm({
                 <Input
                   type="number"
                   value={row.port || ""}
-                  onChange={(e) =>
-                    setRow(row.id, { port: Number(e.target.value) || 0 })
-                  }
+                  onChange={(e) => setRow(row.id, { port: Number(e.target.value) || 0 })}
                   placeholder={svc?.ports[0] ? String(svc.ports[0]) : "port"}
                   className="h-8 w-20 font-mono text-[12.5px]"
                   disabled={save.isPending}
@@ -211,9 +202,7 @@ function ExposedForm({
           type="button"
           size="sm"
           disabled={!dirty || save.isPending}
-          onClick={() =>
-            save.mutate({ projectId, resourceId, exposed: toExposed(rows) })
-          }
+          onClick={() => save.mutate({ projectId, resourceId, exposed: toExposed(rows) })}
         >
           {save.isPending ? "Saving…" : "Save exposures"}
         </Button>

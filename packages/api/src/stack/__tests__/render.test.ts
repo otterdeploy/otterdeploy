@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  STACK_FILE_SCHEMA_VERSION,
-  stackFileSchema,
-  type StackFile,
-} from "../schema";
+import { STACK_FILE_SCHEMA_VERSION, stackFileSchema, type StackFile } from "../schema";
 
 const parse = (s: string) => Bun.YAML.parse(s);
 import { applyEngineDefaults } from "../render/apply-defaults";
@@ -65,9 +61,7 @@ describe("stack/render/applyEngineDefaults", () => {
     const testStr = Array.isArray(test) ? test.join(" ") : (test ?? "");
     expect(testStr).toContain("pg_isready");
 
-    const mount = service.volumes?.find(
-      (v) => v.target === "/var/lib/postgresql/data",
-    );
+    const mount = service.volumes?.find((v) => v.target === "/var/lib/postgresql/data");
     expect(mount).toBeDefined();
     expect(mount?.type).toBe("volume");
   });
@@ -79,9 +73,7 @@ describe("stack/render/applyEngineDefaults", () => {
         primary: {
           image: "postgres:16-alpine",
           env: { POSTGRES_USER: "u", POSTGRES_PASSWORD: "p", POSTGRES_DB: "d" },
-          volumes: [
-            { type: "volume", source: "v", target: "/var/lib/postgresql/data" },
-          ],
+          volumes: [{ type: "volume", source: "v", target: "/var/lib/postgresql/data" }],
           healthcheck: { test: "CMD-SHELL pg_isready -U u -d d" },
           "x-otterdeploy": {
             kind: "database",
@@ -123,9 +115,7 @@ describe("stack/render/toComposeYaml", () => {
     const parsed = parse(yaml) as Record<string, unknown>;
     const services = parsed["services"] as Record<string, unknown> | undefined;
     expect(services).toBeDefined();
-    const primary = services?.["primary"] as
-      | Record<string, unknown>
-      | undefined;
+    const primary = services?.["primary"] as Record<string, unknown> | undefined;
     expect(primary?.["image"]).toMatch(/^postgres:/);
     expect(primary?.["environment"]).toBeDefined();
     const env = primary?.["environment"] as Record<string, unknown>;

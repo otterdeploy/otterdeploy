@@ -2,6 +2,8 @@
 
 import * as React from "react";
 
+import type { DataGridCellProps } from "@/shared/components/data-grid/types";
+
 import {
   CheckboxCell,
   DateCell,
@@ -13,7 +15,6 @@ import {
   ShortTextCell,
   UrlCell,
 } from "@/shared/components/data-grid/data-grid-cell-variants";
-import type { DataGridCellProps } from "@/shared/components/data-grid/types";
 
 export const DataGridCell = React.memo(DataGridCellImpl, (prev, next) => {
   // Fast path: check stable primitive props first
@@ -29,12 +30,8 @@ export const DataGridCell = React.memo(DataGridCellImpl, (prev, next) => {
 
   // Check cell value using row.original instead of getValue() for stability
   // getValue() is unstable and recreates on every render, breaking memoization
-  const prevValue = (prev.cell.row.original as Record<string, unknown>)[
-    prev.columnId
-  ];
-  const nextValue = (next.cell.row.original as Record<string, unknown>)[
-    next.columnId
-  ];
+  const prevValue = (prev.cell.row.original as Record<string, unknown>)[prev.columnId];
+  const nextValue = (next.cell.row.original as Record<string, unknown>)[next.columnId];
   if (prevValue !== nextValue) {
     return false;
   }

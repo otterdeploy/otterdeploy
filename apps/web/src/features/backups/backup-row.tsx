@@ -3,6 +3,7 @@
  * restore (opens the wizard) and a direct download of the produced archive.
  */
 import { useState } from "react";
+
 import {
   ArrowRight01Icon,
   Download01Icon,
@@ -16,8 +17,9 @@ import { Button } from "@/shared/components/ui/button";
 import { cn } from "@/shared/lib/utils";
 
 import type { Backup } from "./data/backups";
-import { restoreBackup } from "./data/backups";
+
 import { BackupDetail } from "./backup-detail";
+import { restoreBackup } from "./data/backups";
 import {
   StatusBadge,
   ProjectTagBadge,
@@ -56,9 +58,7 @@ export function BackupRow({
         if (res.data && res.filename) downloadBase64(res.data, res.filename);
         else toast.error("Backup archive is unavailable");
       })
-      .catch((err: unknown) =>
-        toast.error(err instanceof Error ? err.message : "Download failed"),
-      )
+      .catch((err: unknown) => toast.error(err instanceof Error ? err.message : "Download failed"))
       .finally(() => setDownloading(false));
   };
 
@@ -66,20 +66,12 @@ export function BackupRow({
     <div className="border-b last:border-b-0">
       <button
         type="button"
-        className={cn(
-          "grid w-full items-center gap-2 px-3 py-2 text-left hover:bg-muted/30",
-          COLS,
-        )}
+        className={cn("grid w-full items-center gap-2 px-3 py-2 text-left hover:bg-muted/30", COLS)}
         onClick={() => setExpanded((v) => !v)}
       >
         <span className="flex min-w-0 items-center gap-2">
-          <HugeiconsIcon
-            icon={KIcon}
-            className="size-3.5 shrink-0 text-muted-foreground"
-          />
-          <span className="truncate font-mono text-xs font-medium">
-            {b.source ?? b.resourceId}
-          </span>
+          <HugeiconsIcon icon={KIcon} className="size-3.5 shrink-0 text-muted-foreground" />
+          <span className="truncate font-mono text-xs font-medium">{b.source ?? b.resourceId}</span>
           <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
             {kindLabel(b.kind)}
           </span>
@@ -100,10 +92,7 @@ export function BackupRow({
           {fmtBytes(b.compressedSizeBytes)}
         </span>
         <span className="flex min-w-0 items-center gap-1.5">
-          <HugeiconsIcon
-            icon={DIcon}
-            className="size-3 shrink-0 text-muted-foreground"
-          />
+          <HugeiconsIcon icon={DIcon} className="size-3 shrink-0 text-muted-foreground" />
           <span className="truncate font-mono text-[11px] text-foreground/80">
             {b.destinationName ?? "—"}
           </span>

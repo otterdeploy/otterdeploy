@@ -21,15 +21,15 @@
 
 import type { DeploymentId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
+import { resolveDeployHookContext } from "@otterdeploy/api/routers/service/deploy-hook";
+import { Result } from "better-result";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resolveDeployHookContext } from "@otterdeploy/api/routers/service/deploy-hook";
-import { Result } from "better-result";
+import type { LogSink } from "./log-stream";
 
 import { DeployHookError } from "./errors";
-import type { LogSink } from "./log-stream";
 import { runProcess } from "./run-process";
 
 export type HookPhase = "pre-deploy" | "post-deploy";
@@ -46,21 +46,14 @@ interface RunHooksOpts {
   sink: LogSink;
 }
 
-const msg = (cause: unknown): string =>
-  cause instanceof Error ? cause.message : String(cause);
+const msg = (cause: unknown): string => (cause instanceof Error ? cause.message : String(cause));
 
-export async function runDeployHooks(
-  opts: RunHooksOpts,
-): Promise<Result<void, DeployHookError>> {
+export async function runDeployHooks(opts: RunHooksOpts): Promise<Result<void, DeployHookError>> {
   const { phase, commands, sink } = opts;
   if (commands.length === 0) return Result.ok(undefined);
 
   // Same env + network the service itself gets, so refs (e.g. a DB url) resolve.
-  const ctx = await resolveDeployHookContext(
-    opts.projectId,
-    opts.resourceId,
-    opts.projectSlug,
-  );
+  const ctx = await resolveDeployHookContext(opts.projectId, opts.resourceId, opts.projectSlug);
   if (ctx.isErr()) {
     return Result.err(
       new DeployHookError({ phase, reason: `env resolution failed: ${ctx.error.message}` }),

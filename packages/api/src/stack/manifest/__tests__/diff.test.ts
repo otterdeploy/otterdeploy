@@ -101,9 +101,7 @@ describe("diffManifest", () => {
       databases: {},
       composes: {},
     };
-    expect(diffManifest(m, current)).toEqual([
-      { kind: "no-op", resource: "service", name: "web" },
-    ]);
+    expect(diffManifest(m, current)).toEqual([{ kind: "no-op", resource: "service", name: "web" }]);
   });
 
   it("plans update for image change and env diff", () => {

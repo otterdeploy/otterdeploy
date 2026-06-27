@@ -21,11 +21,7 @@ import { Docker } from "@otterdeploy/docker";
 
 import { execCapture, findServiceContainerId } from "../../backups/exec";
 import { buildContainerName } from "../project/views";
-import {
-  type DbConnInfo,
-  QueryError,
-  UnsupportedEngineError,
-} from "./query";
+import { type DbConnInfo, QueryError, UnsupportedEngineError } from "./query";
 
 /** Wraps the eval payload so we can extract it from mongosh's stdout. */
 const S = "__OTTER_MONGO__";
@@ -78,7 +74,9 @@ async function withMongosh<T>(
         { allowNonZero: true },
       );
       if (result.exitCode !== 0) {
-        throw new QueryError(result.stderr.trim() || result.stdout.trim() || "mongosh command failed");
+        throw new QueryError(
+          result.stderr.trim() || result.stdout.trim() || "mongosh command failed",
+        );
       }
       const out = result.stdout;
       const start = out.indexOf(S);
@@ -95,9 +93,7 @@ async function withMongosh<T>(
 }
 
 /** List the resource database's collections with an estimated doc count. */
-export async function mongoCollections(
-  conn: DbConnInfo,
-): Promise<MongoCollection[]> {
+export async function mongoCollections(conn: DbConnInfo): Promise<MongoCollection[]> {
   return withMongosh(conn, async (run) => {
     const raw = await run(
       `print("${S}" + EJSON.stringify(db.getCollectionNames().map(n => ` +

@@ -11,18 +11,18 @@
  */
 
 import { useState } from "react";
+
+import { PlusSignIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { PlusSignIcon } from "@hugeicons/core-free-icons";
 
+import { SettingsCard } from "@/features/resources/components/_shared/settings-card";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Spinner } from "@/shared/components/ui/spinner";
 import { orpc, queryClient } from "@/shared/server/orpc";
-
-import { SettingsCard } from "@/features/resources/components/_shared/settings-card";
 
 type DnsState = "pointed" | "proxied" | "unpointed" | "unknown";
 
@@ -76,8 +76,7 @@ export function ServiceDomainsCard({
       setAdding(false);
       toast.success("Domain added — point its DNS here to issue a certificate");
     },
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : "Failed to add domain"),
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to add domain"),
     onSettled,
   });
 
@@ -99,8 +98,7 @@ export function ServiceDomainsCard({
     >
       {!resource.publicEnabled ? (
         <div className="px-4 py-8 text-center text-[12.5px] text-muted-foreground">
-          Expose the service publicly first — domains route the public HTTP
-          traffic.
+          Expose the service publicly first — domains route the public HTTP traffic.
         </div>
       ) : (
         <>
@@ -149,12 +147,7 @@ export function ServiceDomainsCard({
                 >
                   {add.isPending ? <Spinner className="size-3.5" /> : "Add"}
                 </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-7"
-                  onClick={cancelAdd}
-                >
+                <Button size="sm" variant="ghost" className="h-7" onClick={cancelAdd}>
                   Cancel
                 </Button>
               </div>
@@ -165,11 +158,7 @@ export function ServiceDomainsCard({
                 className="h-7 gap-1.5 text-[12px]"
                 onClick={() => setAdding(true)}
               >
-                <HugeiconsIcon
-                  icon={PlusSignIcon}
-                  strokeWidth={2}
-                  className="size-3.5"
-                />
+                <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-3.5" />
                 Add domain
               </Button>
             )}
@@ -222,28 +211,24 @@ function DomainRow({
     onSuccess: (res) => {
       if (res.dnsState === "pointed")
         toast.success(`${res.domain} points here — certificate will issue`);
-      else if (res.dnsState === "proxied")
-        toast.success(`${res.domain} is proxied via Cloudflare`);
+      else if (res.dnsState === "proxied") toast.success(`${res.domain} is proxied via Cloudflare`);
       else toast.warning(`${res.domain} isn't pointed here yet`);
     },
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : "DNS check failed"),
+    onError: (err) => toast.error(err instanceof Error ? err.message : "DNS check failed"),
     onSettled,
   });
 
   const setPrimary = useMutation({
     ...orpc.service.domains.setPrimary.mutationOptions(),
     onSuccess: () => toast.success(`${domain.domain} is now the primary domain`),
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : "Failed to set primary"),
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to set primary"),
     onSettled,
   });
 
   const remove = useMutation({
     ...orpc.service.domains.remove.mutationOptions(),
     onSuccess: () => toast.success(`Removed ${domain.domain}`),
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : "Failed to remove domain"),
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to remove domain"),
     onSettled,
   });
 
@@ -253,18 +238,14 @@ function DomainRow({
       setEditing(false);
       toast.success("Domain updated");
     },
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : "Failed to update domain"),
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to update domain"),
     onSettled,
   });
 
-  const busy =
-    recheck.isPending || setPrimary.isPending || remove.isPending || update.isPending;
+  const busy = recheck.isPending || setPrimary.isPending || remove.isPending || update.isPending;
   // Custom hosts that aren't confirmed pointed here still need a DNS record.
   const needsDns =
-    domain.source === "custom" &&
-    domain.dnsState !== "pointed" &&
-    domain.dnsState !== "proxied";
+    domain.source === "custom" && domain.dnsState !== "pointed" && domain.dnsState !== "proxied";
 
   if (editing) {
     return (
@@ -341,12 +322,7 @@ function DomainRow({
               Set primary
             </Button>
           )}
-          <Button
-            size="xs"
-            variant="ghost"
-            onClick={() => setEditing(true)}
-            disabled={busy}
-          >
+          <Button size="xs" variant="ghost" onClick={() => setEditing(true)} disabled={busy}>
             Edit
           </Button>
           <Button
@@ -388,24 +364,16 @@ function DnsHint({ domain }: { domain: DomainView }) {
 /** A single DNS record line. Type + name share a row that wraps, and the
  *  value sits below so long record names and tokens both flow full-width
  *  instead of collapsing into a thin, character-wrapped column. */
-function DnsRecord({
-  type,
-  name,
-  value,
-}: {
-  type: string;
-  name: string;
-  value: string;
-}) {
+function DnsRecord({ type, name, value }: { type: string; name: string; value: string }) {
   return (
     <div className="flex flex-col gap-0.5">
       <div className="flex min-w-0 items-baseline gap-2 text-muted-foreground">
-        <span className="shrink-0 rounded bg-muted px-1 py-px text-[10px] font-medium uppercase tracking-wide">
+        <span className="shrink-0 rounded bg-muted px-1 py-px text-[10px] font-medium tracking-wide uppercase">
           {type}
         </span>
         <span className="min-w-0 break-all">{name}</span>
       </div>
-      <span className="break-all pl-1 text-foreground">{value}</span>
+      <span className="pl-1 break-all text-foreground">{value}</span>
     </div>
   );
 }

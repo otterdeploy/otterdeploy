@@ -1,13 +1,7 @@
-import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
 import type { DeploymentGuestId, ProxyRouteId } from "@otterdeploy/shared/id";
-import {
-  index,
-  integer,
-  pgTable,
-  text,
-  timestamp,
-  uniqueIndex,
-} from "drizzle-orm/pg-core";
+
+import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
+import { index, integer, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 import { proxyRoute } from "./proxy-route";
 
@@ -36,10 +30,7 @@ export const deploymentGuest = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => [
-    uniqueIndex("deployment_guest_route_email_unique").on(
-      t.proxyRouteId,
-      t.email,
-    ),
+    uniqueIndex("deployment_guest_route_email_unique").on(t.proxyRouteId, t.email),
     index("deployment_guest_route_idx").on(t.proxyRouteId),
   ],
 );

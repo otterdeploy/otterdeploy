@@ -9,12 +9,7 @@
 import type { databaseResource, resource } from "@otterdeploy/db/schema/project";
 
 import { getEngineAdapter } from "../../swarm/database-engines";
-import {
-  STACK_DEFAULT_HEALTHCHECK,
-  type StackService,
-  type StackVolumeMount,
-} from "../schema";
-
+import { STACK_DEFAULT_HEALTHCHECK, type StackService, type StackVolumeMount } from "../schema";
 import { projectNetworkName } from "./network-name";
 
 type DatabaseRow = typeof databaseResource.$inferSelect;

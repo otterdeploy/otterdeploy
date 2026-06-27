@@ -10,12 +10,7 @@
 import type { BuildConfig } from "@otterdeploy/shared/build-config";
 import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
 
-import type {
-  Manifest,
-  ServiceManifest,
-  DatabaseManifest,
-  ComposeManifest,
-} from "./schema";
+import type { Manifest, ServiceManifest, DatabaseManifest, ComposeManifest } from "./schema";
 
 export type ChangeKind = "create" | "update" | "delete" | "no-op";
 export type ChangeResource = "service" | "database" | "env" | "compose";
@@ -298,11 +293,7 @@ function diffService(name: string, desired: ServiceManifest, current: CurrentSer
 
 // ── Database diff ──────────────────────────────────────────────────────
 
-function diffDatabase(
-  name: string,
-  desired: DatabaseManifest,
-  current: CurrentDatabase,
-): Change[] {
+function diffDatabase(name: string, desired: DatabaseManifest, current: CurrentDatabase): Change[] {
   if (desired.engine !== current.engine) {
     return [
       { kind: "delete", resource: "database", name, details: { reason: "engine-changed" } },
@@ -360,10 +351,7 @@ interface EnvChange {
   details?: Record<string, unknown>;
 }
 
-function diffEnv(
-  desired: Record<string, string>,
-  current: Record<string, string>,
-): EnvChange[] {
+function diffEnv(desired: Record<string, string>, current: Record<string, string>): EnvChange[] {
   const out: EnvChange[] = [];
 
   for (const [key, declared] of Object.entries(desired)) {

@@ -203,7 +203,9 @@ export const I = {
       <rect x="9" y="9" width="5" height="5" rx="1" />
     </>,
   ),
-  link: make(<path d="M7 9.5l2-3M6 5l1.5-1.5a2.8 2.8 0 0 1 4 4L10 9M10 6.5L8.5 8a2.8 2.8 0 0 1-4-4L6 2.5" />),
+  link: make(
+    <path d="M7 9.5l2-3M6 5l1.5-1.5a2.8 2.8 0 0 1 4 4L10 9M10 6.5L8.5 8a2.8 2.8 0 0 1-4-4L6 2.5" />,
+  ),
   filter: make(<path d="M2.5 3.5h11L9.5 9v3.5L6.5 14V9z" />),
   logout: make(
     <>

@@ -1,7 +1,8 @@
 import { describe, expect, mock, test } from "bun:test";
 
-import { reconcileRoutes } from "../reconciler";
 import type { ProxyRouteInput } from "../builder";
+
+import { reconcileRoutes } from "../reconciler";
 
 describe("reconciler", () => {
   const httpRoute: ProxyRouteInput = {
@@ -60,17 +61,13 @@ describe("reconciler", () => {
     });
 
     expect(result.applied).toEqual(["project_xyz"]);
-    expect(result.skipped).toEqual([
-      { projectId: "project_abc", error: "bad config" },
-    ]);
+    expect(result.skipped).toEqual([{ projectId: "project_abc", error: "bad config" }]);
     expect(loadFn).toHaveBeenCalledTimes(1);
   });
 
   test("returns empty applied when load fails", async () => {
     const adaptFn = mock(() => Promise.resolve({ ok: true as const, json: {} }));
-    const loadFn = mock(() =>
-      Promise.resolve({ ok: false as const, error: "caddy down" }),
-    );
+    const loadFn = mock(() => Promise.resolve({ ok: false as const, error: "caddy down" }));
 
     const result = await reconcileRoutes({
       routes: [httpRoute],

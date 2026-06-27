@@ -19,6 +19,7 @@
  */
 
 import { useMemo, useState } from "react";
+
 import { useQuery } from "@tanstack/react-query";
 
 import { Mariadb } from "@/shared/components/ui/svgs/mariadb";
@@ -77,11 +78,7 @@ function SourceIcon({
   }
   // Generic monospace `{ }` glyph for service / project / environment
   // sources — they share the same neutral treatment.
-  return (
-    <span className="font-mono text-[11px] text-muted-foreground shrink-0">
-      {"{ }"}
-    </span>
-  );
+  return <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{"{ }"}</span>;
 }
 
 export function ReferencePicker({
@@ -101,9 +98,7 @@ export function ReferencePicker({
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const base = excludeToken
-      ? refs.filter((r) => r.token !== excludeToken)
-      : refs;
+    const base = excludeToken ? refs.filter((r) => r.token !== excludeToken) : refs;
     if (q.length === 0) return base;
     return base.filter(
       (r) =>
@@ -181,10 +176,8 @@ export function ReferencePicker({
                   project/environment scope — so each token's origin is clear. */}
               <div className="flex items-center gap-2 px-3 py-1.5">
                 <SourceIcon kind={g.kind} engine={g.engine} />
-                <span className="text-[11.5px] font-semibold text-foreground">
-                  {g.label}
-                </span>
-                <span className="rounded bg-muted px-1.5 py-0.5 text-[9.5px] uppercase tracking-wide text-muted-foreground">
+                <span className="text-[11.5px] font-semibold text-foreground">{g.label}</span>
+                <span className="rounded bg-muted px-1.5 py-0.5 text-[9.5px] tracking-wide text-muted-foreground uppercase">
                   {g.sub}
                 </span>
               </div>
@@ -196,13 +189,11 @@ export function ReferencePicker({
                     onPick(r.token);
                     onClose?.();
                   }}
-                  className="flex w-full items-center gap-2 py-1.5 pl-9 pr-3 text-left hover:bg-accent/40"
+                  className="flex w-full items-center gap-2 py-1.5 pr-3 pl-9 text-left hover:bg-accent/40"
                 >
                   <span className="font-mono text-[11.5px]">{r.key}</span>
                   {r.isSecret && (
-                    <span className="ml-auto text-[10px] text-muted-foreground/70">
-                      secret
-                    </span>
+                    <span className="ml-auto text-[10px] text-muted-foreground/70">secret</span>
                   )}
                 </button>
               ))}

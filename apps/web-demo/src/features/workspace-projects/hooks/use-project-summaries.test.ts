@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { useProjectSummaries } from "./use-project-summaries";
+
 import type { ProjectFromApi } from "@/features/project-canvas/api/schema";
+
+import { useProjectSummaries } from "./use-project-summaries";
 
 function makeProject(over: Partial<ProjectFromApi> = {}): ProjectFromApi {
   return {

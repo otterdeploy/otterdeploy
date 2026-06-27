@@ -6,13 +6,18 @@
  * with the parse error shown inline. HTTP routes only.
  */
 
+import type { ProxyRouteId } from "@otterdeploy/shared/id";
+
 import { useState } from "react";
+
 import { Alert02Icon, CodeIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
 
-import type { ProxyRouteId } from "@otterdeploy/shared/id";
-
+import {
+  proxyRoutesCollection,
+  RouteDirectivesRejectedError,
+} from "@/features/projects/data/proxy-routes";
 import { Button } from "@/shared/components/ui/button";
 import {
   Dialog,
@@ -24,10 +29,6 @@ import {
 } from "@/shared/components/ui/dialog";
 import { Textarea } from "@/shared/components/ui/textarea";
 import { cn } from "@/shared/lib/utils";
-import {
-  proxyRoutesCollection,
-  RouteDirectivesRejectedError,
-} from "@/features/projects/data/proxy-routes";
 
 const PLACEHOLDER = `# Directives for this route's site block, e.g.
 header {
@@ -53,12 +54,9 @@ export function RouteDirectivesButton({
   const onSave = () => {
     setSaving(true);
     setError(null);
-    const tx = proxyRoutesCollection.update(
-      routeId as ProxyRouteId,
-      (draft) => {
-        draft.customDirectives = value.trim().length === 0 ? null : value;
-      },
-    );
+    const tx = proxyRoutesCollection.update(routeId as ProxyRouteId, (draft) => {
+      draft.customDirectives = value.trim().length === 0 ? null : value;
+    });
     tx.isPersisted.promise
       .then(() => {
         toast.success("Directives applied");
@@ -71,9 +69,7 @@ export function RouteDirectivesButton({
           setError(e.message);
           toast.error("Rejected — not saved");
         } else {
-          toast.error(
-            e instanceof Error ? e.message : "Failed to save directives",
-          );
+          toast.error(e instanceof Error ? e.message : "Failed to save directives");
         }
       })
       .finally(() => setSaving(false));
@@ -96,10 +92,7 @@ export function RouteDirectivesButton({
         size="icon-sm"
         aria-label="Edit custom directives"
         title="Custom directives"
-        className={cn(
-          "text-muted-foreground",
-          hasDirectives && "text-foreground",
-        )}
+        className={cn("text-muted-foreground", hasDirectives && "text-foreground")}
         onClick={() => setOpen(true)}
       >
         <HugeiconsIcon icon={CodeIcon} strokeWidth={2} className="size-3.5" />
@@ -110,8 +103,8 @@ export function RouteDirectivesButton({
           <DialogTitle>Custom directives</DialogTitle>
           <DialogDescription>
             Spliced inside the site block for{" "}
-            <span className="font-mono text-foreground/80">{domain}</span>.
-            Validated on save — invalid directives are rejected and not applied.
+            <span className="font-mono text-foreground/80">{domain}</span>. Validated on save —
+            invalid directives are rejected and not applied.
           </DialogDescription>
         </DialogHeader>
 
@@ -134,19 +127,14 @@ export function RouteDirectivesButton({
               strokeWidth={2}
               className="mt-0.5 size-4 shrink-0 text-destructive"
             />
-            <pre className="min-w-0 overflow-x-auto whitespace-pre-wrap font-mono text-[11.5px] text-destructive/90">
+            <pre className="min-w-0 overflow-x-auto font-mono text-[11.5px] whitespace-pre-wrap text-destructive/90">
               {error}
             </pre>
           </div>
         ) : null}
 
         <DialogFooter>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setOpen(false)}
-            disabled={saving}
-          >
+          <Button size="sm" variant="outline" onClick={() => setOpen(false)} disabled={saving}>
             Cancel
           </Button>
           <Button

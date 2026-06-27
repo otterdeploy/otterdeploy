@@ -34,9 +34,7 @@ export function SocialSignIn({ dividerLabel }: { dividerLabel: string }) {
     void authClient.signIn
       .social({ provider, callbackURL: `${window.location.origin}/` })
       .catch((error: unknown) =>
-        toast.error(
-          error instanceof Error ? error.message : "Couldn't start sign-in",
-        ),
+        toast.error(error instanceof Error ? error.message : "Couldn't start sign-in"),
       );
   };
 
@@ -44,7 +42,7 @@ export function SocialSignIn({ dividerLabel }: { dividerLabel: string }) {
     <div className="mt-6 space-y-3">
       <div className="flex items-center gap-3">
         <span className="h-px flex-1 bg-border" />
-        <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+        <span className="font-mono text-[10px] tracking-[0.08em] text-muted-foreground uppercase">
           {dividerLabel}
         </span>
         <span className="h-px flex-1 bg-border" />

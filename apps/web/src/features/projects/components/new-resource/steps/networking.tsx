@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import type { ServiceKind } from "@/features/projects/data/service-kinds";
+
 import { Card, CardContent } from "@/shared/components/ui/card";
 import {
   Collapsible,
@@ -16,8 +17,8 @@ import {
   SelectValue,
 } from "@/shared/components/ui/select";
 
-import { Field, SectionHeader, SettingRow } from "../form-primitives";
 import { useFormContext } from "../form-context";
+import { Field, SectionHeader, SettingRow } from "../form-primitives";
 
 interface StepNetworkingProps {
   kind: ServiceKind | null;
@@ -59,18 +60,13 @@ export function StepNetworking({ kind }: StepNetworkingProps) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="UTC">UTC</SelectItem>
-                  <SelectItem value="America/Los_Angeles">
-                    America/Los_Angeles
-                  </SelectItem>
+                  <SelectItem value="America/Los_Angeles">America/Los_Angeles</SelectItem>
                   <SelectItem value="Europe/London">Europe/London</SelectItem>
                 </SelectContent>
               </Select>
             </Field>
             <Field label="Command">
-              <Input
-                className="font-mono"
-                defaultValue="node scripts/cleanup.js"
-              />
+              <Input className="font-mono" defaultValue="node scripts/cleanup.js" />
             </Field>
             <Field label="Max runtime">
               <Input className="font-mono" defaultValue="30m" />
@@ -84,11 +80,7 @@ export function StepNetworking({ kind }: StepNetworkingProps) {
               sub="Don't pile up overlapping invocations"
               defaultOn
             />
-            <SettingRow
-              label="Alert on failure"
-              defaultOn
-              sub="Send to #ops Slack channel"
-            />
+            <SettingRow label="Alert on failure" defaultOn sub="Send to #ops Slack channel" />
           </CardContent>
         </Card>
       </>
@@ -105,10 +97,7 @@ export function StepNetworking({ kind }: StepNetworkingProps) {
         <Card className="mt-3 rounded-md">
           <CardContent className="flex flex-col gap-2.5">
             <Field label="Process command">
-              <Input
-                className="font-mono"
-                defaultValue="celery -A app worker --loglevel=info"
-              />
+              <Input className="font-mono" defaultValue="celery -A app worker --loglevel=info" />
             </Field>
             <Field label="Graceful shutdown timeout">
               <Input className="font-mono" defaultValue="30s" />
@@ -150,10 +139,7 @@ export function StepNetworking({ kind }: StepNetworkingProps) {
 
   return (
     <>
-      <SectionHeader
-        title="Ports"
-        sub="Which container ports should be exposed?"
-      />
+      <SectionHeader title="Ports" sub="Which container ports should be exposed?" />
       <form.AppField name="ports">{(f) => <f.PortsField />}</form.AppField>
 
       <div className="mt-4.5">
@@ -169,13 +155,7 @@ export function StepNetworking({ kind }: StepNetworkingProps) {
               {(f) => <f.TextField label="Path" className="font-mono" />}
             </form.AppField>
             <form.AppField name="healthInterval">
-              {(f) => (
-                <f.NumberField
-                  label="Interval (s)"
-                  min={1}
-                  className="font-mono"
-                />
-              )}
+              {(f) => <f.NumberField label="Interval (s)" min={1} className="font-mono" />}
             </form.AppField>
             <Field label="Timeout">
               <Input className="font-mono" defaultValue="3s" />
@@ -192,17 +172,12 @@ export function StepNetworking({ kind }: StepNetworkingProps) {
         </CardContent>
       </Card>
 
-      <Collapsible
-        open={edgeOpen}
-        onOpenChange={setEdgeOpen}
-        className="mt-4.5"
-      >
+      <Collapsible open={edgeOpen} onOpenChange={setEdgeOpen} className="mt-4.5">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-md py-1 text-left">
           <span>
             <span className="block text-sm font-medium">Edge proxy</span>
             <span className="block text-[11px] text-muted-foreground">
-              Platform defaults — TLS, HTTP/3, compression, real-IP. Open only
-              to override.
+              Platform defaults — TLS, HTTP/3, compression, real-IP. Open only to override.
             </span>
           </span>
           <svg
@@ -228,16 +203,8 @@ export function StepNetworking({ kind }: StepNetworkingProps) {
                 sub="Let's Encrypt · auto-renewed before expiry"
                 defaultOn
               />
-              <SettingRow
-                label="HTTP → HTTPS redirect"
-                defaultOn
-                sub="Force secure connections"
-              />
-              <SettingRow
-                label="HTTP/3 (QUIC)"
-                defaultOn
-                sub="Serve over QUIC where available"
-              />
+              <SettingRow label="HTTP → HTTPS redirect" defaultOn sub="Force secure connections" />
+              <SettingRow label="HTTP/3 (QUIC)" defaultOn sub="Serve over QUIC where available" />
               <SettingRow
                 label="Compression (zstd, gzip)"
                 defaultOn

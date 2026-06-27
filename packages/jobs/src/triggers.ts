@@ -1,27 +1,12 @@
 import type { JobsOptions } from "bullmq";
 
-import {
-  type DataProcessingPayload,
-  processDataJob,
-} from "./jobs/process-data";
-import {
-  type DeployTriggeredPayload,
-  deployTriggeredJob,
-} from "./jobs/deploy";
+import { type DeployTriggeredPayload, deployTriggeredJob } from "./jobs/deploy";
 import { type EmailPayload, sendEmailJob } from "./jobs/email";
 import { hourlyCleanupJob } from "./jobs/hourly-cleanup";
-import {
-  type NotificationPayload,
-  sendNotificationJob,
-} from "./jobs/notification";
-import {
-  type PlatformEventPayload,
-  notificationEventJob,
-} from "./jobs/notification-event";
-import {
-  type UserSignupPayload,
-  welcomeSequenceJob,
-} from "./jobs/welcome-sequence";
+import { type NotificationPayload, sendNotificationJob } from "./jobs/notification";
+import { type PlatformEventPayload, notificationEventJob } from "./jobs/notification-event";
+import { type DataProcessingPayload, processDataJob } from "./jobs/process-data";
+import { type UserSignupPayload, welcomeSequenceJob } from "./jobs/welcome-sequence";
 import { getQueue } from "./queues";
 
 export type {
@@ -37,11 +22,7 @@ export type {
  * Each trigger validates with the job's schema, then adds to its queue with
  * the job's default opts (callers can override via the second arg).
  */
-function enqueue<P>(
-  jobName: string,
-  payload: P,
-  opts?: JobsOptions,
-): Promise<unknown> {
+function enqueue<P>(jobName: string, payload: P, opts?: JobsOptions): Promise<unknown> {
   const queue = getQueue(jobName);
   return queue.add(jobName, payload as unknown as object, opts);
 }
@@ -51,10 +32,7 @@ export async function triggerEmail(payload: EmailPayload, opts?: JobsOptions) {
   return enqueue(sendEmailJob.name, parsed, { ...sendEmailJob.opts, ...opts });
 }
 
-export async function triggerNotification(
-  payload: NotificationPayload,
-  opts?: JobsOptions,
-) {
+export async function triggerNotification(payload: NotificationPayload, opts?: JobsOptions) {
   const parsed = sendNotificationJob.schema.parse(payload);
   return enqueue(sendNotificationJob.name, parsed, {
     ...sendNotificationJob.opts,
@@ -67,10 +45,7 @@ export async function triggerNotification(
  * every channel subscribed to it. Pass `channelId` for a single-channel test
  * delivery that bypasses the subscription matrix.
  */
-export async function triggerPlatformEvent(
-  payload: PlatformEventPayload,
-  opts?: JobsOptions,
-) {
+export async function triggerPlatformEvent(payload: PlatformEventPayload, opts?: JobsOptions) {
   const parsed = notificationEventJob.schema.parse(payload);
   return enqueue(notificationEventJob.name, parsed, {
     ...notificationEventJob.opts,
@@ -78,10 +53,7 @@ export async function triggerPlatformEvent(
   });
 }
 
-export async function triggerDataProcessing(
-  payload: DataProcessingPayload,
-  opts?: JobsOptions,
-) {
+export async function triggerDataProcessing(payload: DataProcessingPayload, opts?: JobsOptions) {
   const parsed = processDataJob.schema.parse(payload);
   return enqueue(processDataJob.name, parsed, { ...processDataJob.opts, ...opts });
 }
@@ -99,10 +71,7 @@ export async function cancelDataProcessing(dataId: string) {
   return { cancelled: toRemove.length };
 }
 
-export async function triggerDeploy(
-  payload: DeployTriggeredPayload,
-  opts?: JobsOptions,
-) {
+export async function triggerDeploy(payload: DeployTriggeredPayload, opts?: JobsOptions) {
   const parsed = deployTriggeredJob.schema.parse(payload);
   return enqueue(deployTriggeredJob.name, parsed, {
     ...deployTriggeredJob.opts,
@@ -110,10 +79,7 @@ export async function triggerDeploy(
   });
 }
 
-export async function triggerWelcomeSequence(
-  payload: UserSignupPayload,
-  opts?: JobsOptions,
-) {
+export async function triggerWelcomeSequence(payload: UserSignupPayload, opts?: JobsOptions) {
   const parsed = welcomeSequenceJob.schema.parse(payload);
   return enqueue(welcomeSequenceJob.name, parsed, {
     ...welcomeSequenceJob.opts,

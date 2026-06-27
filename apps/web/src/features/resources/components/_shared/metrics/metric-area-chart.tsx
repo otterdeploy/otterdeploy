@@ -18,8 +18,9 @@ import {
 } from "@/shared/components/ui/chart";
 import { cn } from "@/shared/lib/utils";
 
-import { formatClock } from "./format";
 import type { MetricRow } from "./use-resource-metrics";
+
+import { formatClock } from "./format";
 
 export interface MetricSeries {
   /** Key into `MetricRow` to plot. */
@@ -57,24 +58,9 @@ export function MetricAreaChart({
   const gradients = (
     <defs>
       {series.map((s) => (
-        <linearGradient
-          key={s.dataKey}
-          id={`fill-${s.dataKey}`}
-          x1="0"
-          y1="0"
-          x2="0"
-          y2="1"
-        >
-          <stop
-            offset="0%"
-            stopColor={`var(--color-${s.dataKey})`}
-            stopOpacity={0.28}
-          />
-          <stop
-            offset="100%"
-            stopColor={`var(--color-${s.dataKey})`}
-            stopOpacity={0.02}
-          />
+        <linearGradient key={s.dataKey} id={`fill-${s.dataKey}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={`var(--color-${s.dataKey})`} stopOpacity={0.28} />
+          <stop offset="100%" stopColor={`var(--color-${s.dataKey})`} stopOpacity={0.02} />
         </linearGradient>
       ))}
     </defs>
@@ -97,10 +83,7 @@ export function MetricAreaChart({
 
   if (compact) {
     return (
-      <ChartContainer
-        config={config}
-        className={cn("aspect-auto h-10 w-full", className)}
-      >
+      <ChartContainer config={config} className={cn("aspect-auto h-10 w-full", className)}>
         <AreaChart data={data} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
           {gradients}
           {areas}
@@ -111,10 +94,7 @@ export function MetricAreaChart({
 
   return (
     <ChartContainer config={config} className={cn("aspect-auto h-40", className)}>
-      <AreaChart
-        data={data}
-        margin={{ top: 4, right: 4, bottom: 0, left: 0 }}
-      >
+      <AreaChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
         {gradients}
 
         <CartesianGrid vertical={false} strokeDasharray="3 3" />
@@ -144,9 +124,7 @@ export function MetricAreaChart({
           cursor={{ strokeDasharray: "3 3" }}
           content={
             <ChartTooltipContent
-              labelFormatter={(_, payload) =>
-                formatClock(Number(payload?.[0]?.payload?.ts))
-              }
+              labelFormatter={(_, payload) => formatClock(Number(payload?.[0]?.payload?.ts))}
               formatter={(value, name, item) => (
                 <div className="flex w-full items-center justify-between gap-4">
                   <div className="flex items-center gap-1.5">
@@ -158,7 +136,7 @@ export function MetricAreaChart({
                       {(name != null ? config[name]?.label : undefined) ?? name}
                     </span>
                   </div>
-                  <span className="font-mono font-medium tabular-nums text-foreground">
+                  <span className="font-mono font-medium text-foreground tabular-nums">
                     {value == null ? "—" : format(Number(value))}
                   </span>
                 </div>

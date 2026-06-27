@@ -1,5 +1,7 @@
 import { createFormHook, createFormHookContexts } from "@tanstack/react-form";
 
+import type { ResourceFormState } from "./schemas";
+
 import { LinkedSecretsField } from "./form-fields/linked-secrets-field";
 import { NumberField } from "./form-fields/number-field";
 import { PortsField } from "./form-fields/ports-field";
@@ -8,10 +10,13 @@ import { SubmitButton } from "./form-fields/submit-button";
 import { SwitchField } from "./form-fields/switch-field";
 import { TextField } from "./form-fields/text-field";
 import { VariablesField } from "./form-fields/variables-field";
-import type { ResourceFormState } from "./schemas";
 
-const { fieldContext, formContext, useFieldContext, useFormContext: _useFormContext } =
-  createFormHookContexts();
+const {
+  fieldContext,
+  formContext,
+  useFieldContext,
+  useFormContext: _useFormContext,
+} = createFormHookContexts();
 
 export { useFieldContext };
 

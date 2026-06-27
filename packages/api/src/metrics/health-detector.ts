@@ -1,3 +1,7 @@
+import type { OrganizationId, ResourceId } from "@otterdeploy/shared/id";
+
+import { db } from "@otterdeploy/db";
+import { project, resource } from "@otterdeploy/db/schema";
 /**
  * Service health-transition detector — emits `health.degraded` /
  * `health.recovered` when a managed service's container health flips. Fed from
@@ -17,10 +21,6 @@
  * reconciliation, which is out of scope.
  */
 import { eq } from "drizzle-orm";
-
-import { db } from "@otterdeploy/db";
-import { project, resource } from "@otterdeploy/db/schema";
-import type { OrganizationId, ResourceId } from "@otterdeploy/shared/id";
 import { log } from "evlog";
 
 import { emitPlatformEvent } from "../notifications/emit";
@@ -63,10 +63,7 @@ export async function recordHealthObservations(
   }
 }
 
-async function emitHealthEvent(
-  resourceId: ResourceId,
-  health: Health,
-): Promise<void> {
+async function emitHealthEvent(resourceId: ResourceId, health: Health): Promise<void> {
   const [info] = await db
     .select({
       organizationId: project.organizationId,

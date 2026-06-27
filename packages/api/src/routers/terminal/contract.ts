@@ -1,12 +1,12 @@
+import { oc } from "@orpc/contract";
 /**
  * Discovery contract for the in-app terminal picker. Returns the set of
  * targets the operator can attach a shell to right now — exec containers
  * + database consoles. SSH targets live on `server.list` (org-wide nodes).
  */
 import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
-
-import { oc } from "@orpc/contract";
 import * as z from "zod";
+
 import { resourceIdField } from "../project/contract/shared";
 
 const tag = "terminal";

@@ -9,10 +9,14 @@
  *   4. applies the retention policy (prune old archives + rows)
  */
 import type { BackupDestinationId } from "@otterdeploy/shared/id";
+
 import { parseExpression } from "cron-parser";
 import { log } from "evlog";
 
+import { decryptSecret } from "../lib/crypto";
 import { createBackupRun } from "./db";
+import { executeBackup } from "./engine";
+import { selectBackupsToPrune } from "./retention";
 import {
   type DueSchedule,
   deleteBackupRow,
@@ -22,10 +26,7 @@ import {
   resolveScheduleSources,
   updateScheduleAfterRun,
 } from "./schedule-db";
-import { executeBackup } from "./engine";
-import { selectBackupsToPrune } from "./retention";
 import { type ResolvedDestination, removeArchive } from "./storage";
-import { decryptSecret } from "../lib/crypto";
 
 function nextFireTime(cron: string, from: Date): Date | null {
   try {
@@ -69,10 +70,7 @@ async function runSchedule(schedule: DueSchedule, now: Date): Promise<void> {
     return;
   }
 
-  const resourceIds = await resolveScheduleSources(
-    schedule.organizationId,
-    schedule.sources,
-  );
+  const resourceIds = await resolveScheduleSources(schedule.organizationId, schedule.sources);
 
   let lastStatus: "succeeded" | "failed" | "queued" = "queued";
   if (resourceIds.length > 0 && schedule.destinationIds.length > 0) {
@@ -85,8 +83,7 @@ async function runSchedule(schedule: DueSchedule, now: Date): Promise<void> {
           resourceId,
           destinationId,
           scheduleId: schedule.id,
-          encryption:
-            schedule.encryption === "aes-256-gcm" ? "aes-256-gcm" : "none",
+          encryption: schedule.encryption === "aes-256-gcm" ? "aes-256-gcm" : "none",
           method: "scheduled",
         });
         await executeBackup(backupId);
@@ -153,10 +150,7 @@ async function resolveDestinationSecret(
   const row = await getDestinationByIdWithSecret(destinationId);
   if (!row) return null;
   const secret = row.encryptedSecret
-    ? (JSON.parse(await decryptSecret(row.encryptedSecret)) as Record<
-        string,
-        string
-      >)
+    ? (JSON.parse(await decryptSecret(row.encryptedSecret)) as Record<string, string>)
     : {};
   return { type: row.type, config: row.config, secret };
 }

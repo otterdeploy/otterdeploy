@@ -1,3 +1,5 @@
+import type { ContainerRegistryId, DeploymentId } from "@otterdeploy/shared/id";
+
 /**
  * Build pipeline schema — container registries and deployment logs.
  *
@@ -20,8 +22,6 @@
  *     blob. Rows are written by the builder; the platform never edits.
  */
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
-import type { ContainerRegistryId, DeploymentId } from "@otterdeploy/shared/id";
-
 import {
   bigserial,
   index,
@@ -35,10 +35,7 @@ import {
 import { organization } from "./auth";
 import { deployment } from "./project";
 
-export const containerRegistryAuthEnum = pgEnum(
-  "container_registry_auth",
-  ["password", "token"],
-);
+export const containerRegistryAuthEnum = pgEnum("container_registry_auth", ["password", "token"]);
 
 /**
  * One row per (org, host, username). Multiple users on the same host are
@@ -67,9 +64,7 @@ export const containerRegistry = pgTable(
     username: text("username").notNull(),
     /** Encrypted password or PAT. See packages/api/src/lib/crypto.ts. */
     encryptedPassword: text("encrypted_password").notNull(),
-    authType: containerRegistryAuthEnum("auth_type")
-      .notNull()
-      .default("password"),
+    authType: containerRegistryAuthEnum("auth_type").notNull().default("password"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -118,9 +113,6 @@ export const deploymentLog = pgTable(
     // The hot read path is "give me lines for deployment X after seq Y" —
     // a composite (deploymentId, seq) index serves both ordering and
     // pagination cursors in a single scan.
-    index("deployment_log_deployment_seq_idx").on(
-      table.deploymentId,
-      table.seq,
-    ),
+    index("deployment_log_deployment_seq_idx").on(table.deploymentId, table.seq),
   ],
 );

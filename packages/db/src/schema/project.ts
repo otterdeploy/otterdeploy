@@ -1,4 +1,6 @@
-import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
+import type { BuildConfig } from "@otterdeploy/shared/build-config";
+import type { ComposeExposed, ComposeServiceSummary } from "@otterdeploy/shared/compose";
+import type { FrameworkKind } from "@otterdeploy/shared/framework";
 import type {
   ContainerRegistryId,
   DeploymentId,
@@ -12,12 +14,8 @@ import type {
   ServiceMountId,
   ServicePortId,
 } from "@otterdeploy/shared/id";
-import type { BuildConfig } from "@otterdeploy/shared/build-config";
-import type {
-  ComposeExposed,
-  ComposeServiceSummary,
-} from "@otterdeploy/shared/compose";
-import type { FrameworkKind } from "@otterdeploy/shared/framework";
+
+import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
 import {
   boolean,
   index,
@@ -31,13 +29,10 @@ import {
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+
 import { organization, user } from "./auth";
 
-export const projectStatusEnum = pgEnum("project_status", [
-  "draft",
-  "valid",
-  "invalid",
-]);
+export const projectStatusEnum = pgEnum("project_status", ["draft", "valid", "invalid"]);
 
 type EnvId = EnvironmentId;
 
@@ -94,10 +89,7 @@ export const project = pgTable(
     // edit don't accidentally race).
     manifest: jsonb("manifest").$type<Record<string, unknown> | null>(),
     manifestVersion: integer("manifest_version").notNull().default(0),
-    lastAppliedManifest: jsonb("last_applied_manifest").$type<Record<
-      string,
-      unknown
-    > | null>(),
+    lastAppliedManifest: jsonb("last_applied_manifest").$type<Record<string, unknown> | null>(),
     lastManifestAppliedAt: timestamp("last_manifest_applied_at"),
     // Per-project domain override. When set + verified, this project's
     // resources land under it instead of the org's baseDomain — e.g. a
@@ -127,13 +119,9 @@ export const project = pgTable(
     // databases). FK is enforced application-side to avoid a cross-schema
     // import cycle; the constraint lives in container_registry's own
     // delete-cascade story instead (see build.ts).
-    containerRegistryId: text(
-      "container_registry_id",
-    ).$type<ContainerRegistryId>(),
+    containerRegistryId: text("container_registry_id").$type<ContainerRegistryId>(),
     imageRepository: text("image_repository"),
-    nixpacksConfig: jsonb("nixpacks_config")
-      .$type<NixpacksConfig | null>()
-      .default(null),
+    nixpacksConfig: jsonb("nixpacks_config").$type<NixpacksConfig | null>().default(null),
     // Operator-arranged graph layout: node id (`${kind}:${name}`) → {x,y}.
     // Keyed by node id (not resourceId) so a position set on a pending node
     // carries over when the resource lands — the id is stable across that
@@ -195,10 +183,7 @@ export const environment = pgTable(
   },
   (table) => [
     index("environment_project_id_idx").on(table.projectId),
-    uniqueIndex("environment_project_slug_unique").on(
-      table.projectId,
-      table.slug,
-    ),
+    uniqueIndex("environment_project_slug_unique").on(table.projectId, table.slug),
   ],
 );
 
@@ -211,11 +196,7 @@ export const resourceTypeEnum = pgEnum("resource_type", [
   // Config lives in `compose_resource`. See docs/designs/compose.md.
   "compose",
 ]);
-export const resourceStatusEnum = pgEnum("resource_status", [
-  "draft",
-  "valid",
-  "invalid",
-]);
+export const resourceStatusEnum = pgEnum("resource_status", ["draft", "valid", "invalid"]);
 export const resource = pgTable(
   "resource",
   {
@@ -278,18 +259,12 @@ export const databaseResource = pgTable(
     upstreamHost: text("upstream_host").notNull(),
     upstreamPort: integer("upstream_port").notNull().default(5432),
     caddyLayer4Snippet: text("caddy_layer4_snippet").notNull(),
-    engineConfig: jsonb("engine_config")
-      .$type<Record<string, unknown>>()
-      .notNull()
-      .default({}),
+    engineConfig: jsonb("engine_config").$type<Record<string, unknown>>().notNull().default({}),
     // User-editable env vars injected into the Postgres container alongside
     // the derived POSTGRES_USER / PASSWORD / DB. Used for tuning knobs like
     // POSTGRES_INITDB_ARGS, TZ, LANG, POSTGRES_HOST_AUTH_METHOD, etc.
     // Setting or unsetting triggers a swarm task update (~5s downtime).
-    extraEnv: jsonb("extra_env")
-      .$type<Record<string, string>>()
-      .notNull()
-      .default({}),
+    extraEnv: jsonb("extra_env").$type<Record<string, string>>().notNull().default({}),
     // Keys in `extraEnv` that the operator marked sensitive. Display-only
     // hint — the value still travels the same wire path. Reveal in the UI
     // is gated by this list; copy/paste audit can also key off it.
@@ -307,16 +282,10 @@ export const databaseResource = pgTable(
       .notNull(),
   },
   (table) => [
-    uniqueIndex("database_resource_database_name_unique").on(
-      table.databaseName,
-    ),
+    uniqueIndex("database_resource_database_name_unique").on(table.databaseName),
     uniqueIndex("database_resource_username_unique").on(table.username),
-    uniqueIndex("database_resource_public_hostname_unique").on(
-      table.publicHostname,
-    ),
-    uniqueIndex("database_resource_internal_hostname_unique").on(
-      table.internalHostname,
-    ),
+    uniqueIndex("database_resource_public_hostname_unique").on(table.publicHostname),
+    uniqueIndex("database_resource_internal_hostname_unique").on(table.internalHostname),
   ],
 );
 
@@ -345,9 +314,7 @@ export const databaseDraftCredential = pgTable(
     password: text("password").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
-  (table) => [
-    primaryKey({ columns: [table.projectId, table.name] }),
-  ],
+  (table) => [primaryKey({ columns: [table.projectId, table.name] })],
 );
 
 export const serviceRestartConditionEnum = pgEnum("service_restart_condition", [
@@ -496,41 +463,40 @@ export const serviceResource = pgTable(
 // docs/designs/compose.md.
 export const composeSourceEnum = pgEnum("compose_source", ["inline", "git"]);
 
-export const composeResource = pgTable("compose_resource", {
-  resourceId: text("resource_id")
-    .primaryKey()
-    .$type<ResourceId>()
-    .references(() => resource.id, { onDelete: "cascade" }),
-  source: composeSourceEnum("source").notNull().default("inline"),
-  // inline source: the raw compose YAML pasted by the user.
-  composeContent: text("compose_content"),
-  // git source: repo + path to the compose file (default ./compose.yml).
-  gitRepoUrl: text("git_repo_url"),
-  gitRef: text("git_ref"),
-  sourceSubdir: text("source_subdir"),
-  composePath: text("compose_path"),
-  // Swarm stack namespace — unique, derived `<projectSlug>-<resourceSlug>`.
-  stackName: text("stack_name").notNull(),
-  // Derived parse summary (service name, image, hasBuild, ports) for the UI.
-  // NOT authoritative — recomputed from the file on every save/deploy.
-  services: jsonb("services").$type<ComposeServiceSummary[]>().notNull().default([]),
-  // Built image tags for `build:` services (service name → image ref), written
-  // by the build worker. Image-only services aren't listed. See compose.md.
-  builtImages: jsonb("built_images")
-    .$type<Record<string, string>>()
-    .notNull()
-    .default({}),
-  // Which `service:port` are fronted by a public domain.
-  exposed: jsonb("exposed").$type<ComposeExposed[]>().notNull().default([]),
-  forceUpdateCounter: integer("force_update_counter").notNull().default(0),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at")
-    .defaultNow()
-    .$onUpdate(() => /* @__PURE__ */ new Date())
-    .notNull(),
-}, (table) => [
-  uniqueIndex("compose_resource_stack_name_unique").on(table.stackName),
-]);
+export const composeResource = pgTable(
+  "compose_resource",
+  {
+    resourceId: text("resource_id")
+      .primaryKey()
+      .$type<ResourceId>()
+      .references(() => resource.id, { onDelete: "cascade" }),
+    source: composeSourceEnum("source").notNull().default("inline"),
+    // inline source: the raw compose YAML pasted by the user.
+    composeContent: text("compose_content"),
+    // git source: repo + path to the compose file (default ./compose.yml).
+    gitRepoUrl: text("git_repo_url"),
+    gitRef: text("git_ref"),
+    sourceSubdir: text("source_subdir"),
+    composePath: text("compose_path"),
+    // Swarm stack namespace — unique, derived `<projectSlug>-<resourceSlug>`.
+    stackName: text("stack_name").notNull(),
+    // Derived parse summary (service name, image, hasBuild, ports) for the UI.
+    // NOT authoritative — recomputed from the file on every save/deploy.
+    services: jsonb("services").$type<ComposeServiceSummary[]>().notNull().default([]),
+    // Built image tags for `build:` services (service name → image ref), written
+    // by the build worker. Image-only services aren't listed. See compose.md.
+    builtImages: jsonb("built_images").$type<Record<string, string>>().notNull().default({}),
+    // Which `service:port` are fronted by a public domain.
+    exposed: jsonb("exposed").$type<ComposeExposed[]>().notNull().default([]),
+    forceUpdateCounter: integer("force_update_counter").notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [uniqueIndex("compose_resource_stack_name_unique").on(table.stackName)],
+);
 
 // Deployment — one logical "push" of a resource to swarm. Each create /
 // redeploy / env-change inserts a new deployment row and tags the swarm
@@ -580,10 +546,7 @@ export const deployment = pgTable(
     // normal redeploy. The schema is intentionally untyped at the DB
     // layer (resources differ between database/service kinds) and
     // validated at the application boundary instead.
-    snapshot: jsonb("snapshot")
-      .$type<Record<string, unknown>>()
-      .notNull()
-      .default({}),
+    snapshot: jsonb("snapshot").$type<Record<string, unknown>>().notNull().default({}),
     // Git provenance — populated when the deployment was triggered by a
     // push (reason="git-push") or built from a repo. Nullable for
     // image-only / database deployments.
@@ -602,21 +565,12 @@ export const deployment = pgTable(
   },
   (table) => [
     index("deployment_resource_id_idx").on(table.resourceId),
-    index("deployment_resource_created_idx").on(
-      table.resourceId,
-      table.createdAt,
-    ),
+    index("deployment_resource_created_idx").on(table.resourceId, table.createdAt),
   ],
 );
 
-export const servicePortProtocolEnum = pgEnum("service_port_protocol", [
-  "tcp",
-  "udp",
-]);
-export const serviceAppProtocolEnum = pgEnum("service_app_protocol", [
-  "http",
-  "tcp",
-]);
+export const servicePortProtocolEnum = pgEnum("service_port_protocol", ["tcp", "udp"]);
+export const serviceAppProtocolEnum = pgEnum("service_app_protocol", ["http", "tcp"]);
 
 // Mount type discriminator.
 //   - volume: named docker volume managed by swarm. Source = volume name.
@@ -625,11 +579,7 @@ export const serviceAppProtocolEnum = pgEnum("service_app_protocol", [
 //             materialized to disk under PLATFORM.files.root/<service>/<target>
 //             at deploy time. Lets users author small config files (nginx.conf,
 //             init.sql, etc.) from the UI without ssh'ing to a node.
-export const serviceMountTypeEnum = pgEnum("service_mount_type", [
-  "volume",
-  "bind",
-  "file",
-]);
+export const serviceMountTypeEnum = pgEnum("service_mount_type", ["volume", "bind", "file"]);
 
 export const serviceMount = pgTable(
   "service_mount",
@@ -667,10 +617,7 @@ export const serviceMount = pgTable(
       .notNull(),
   },
   (table) => [
-    uniqueIndex("service_mount_target_unique").on(
-      table.serviceResourceId,
-      table.target,
-    ),
+    uniqueIndex("service_mount_target_unique").on(table.serviceResourceId, table.target),
     index("service_mount_service_resource_id_idx").on(table.serviceResourceId),
   ],
 );
@@ -688,9 +635,7 @@ export const servicePort = pgTable(
       .references(() => serviceResource.resourceId, { onDelete: "cascade" }),
     containerPort: integer("container_port").notNull(),
     protocol: servicePortProtocolEnum("protocol").notNull().default("tcp"),
-    appProtocol: serviceAppProtocolEnum("app_protocol")
-      .notNull()
-      .default("http"),
+    appProtocol: serviceAppProtocolEnum("app_protocol").notNull().default("http"),
     isPrimary: boolean("is_primary").notNull().default(false),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
@@ -748,13 +693,8 @@ export const serviceEnvVar = pgTable(
   (table) => [
     // Old unique kept while environmentId is nullable. Tightens to
     // (serviceResourceId, environmentId, key) in step 7.
-    uniqueIndex("service_env_var_unique").on(
-      table.serviceResourceId,
-      table.key,
-    ),
-    index("service_env_var_service_resource_id_idx").on(
-      table.serviceResourceId,
-    ),
+    uniqueIndex("service_env_var_unique").on(table.serviceResourceId, table.key),
+    index("service_env_var_service_resource_id_idx").on(table.serviceResourceId),
     index("service_env_var_environment_id_idx").on(table.environmentId),
   ],
 );
@@ -787,11 +727,7 @@ export const projectEnvVar = pgTable(
       .notNull(),
   },
   (table) => [
-    uniqueIndex("project_env_var_unique").on(
-      table.projectId,
-      table.environmentId,
-      table.key,
-    ),
+    uniqueIndex("project_env_var_unique").on(table.projectId, table.environmentId, table.key),
     index("project_env_var_project_id_idx").on(table.projectId),
     index("project_env_var_environment_id_idx").on(table.environmentId),
     index("project_env_var_key_idx").on(table.projectId, table.key),
@@ -817,13 +753,8 @@ export const projectEnvSubscription = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
-    uniqueIndex("project_env_subscription_unique").on(
-      table.serviceResourceId,
-      table.projectEnvKey,
-    ),
-    index("project_env_subscription_service_resource_id_idx").on(
-      table.serviceResourceId,
-    ),
+    uniqueIndex("project_env_subscription_unique").on(table.serviceResourceId, table.projectEnvKey),
+    index("project_env_subscription_service_resource_id_idx").on(table.serviceResourceId),
     index("project_env_subscription_key_idx").on(table.projectEnvKey),
   ],
 );

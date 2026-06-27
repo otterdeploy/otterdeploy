@@ -27,13 +27,14 @@
  * `:latest` tag.
  */
 
+import type { BuildRailpackConfig } from "@otterdeploy/shared/build-config";
+
 import { access, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import type { BuildRailpackConfig } from "@otterdeploy/shared/build-config";
+import type { LogSink } from "./log-stream";
 
 import { builderFlags, cacheFlags } from "./buildx";
-import type { LogSink } from "./log-stream";
 import { applyPackageManager } from "./railpack-packagemanager";
 import { runProcess } from "./run-process";
 
@@ -170,8 +171,7 @@ async function resolveBuildLayout(opts: {
 }): Promise<BuildLayout> {
   const subdir = opts.sourceSubdir?.trim() || null;
   const isWorkspace = subdir ? await rootIsWorkspace(opts.workDir) : false;
-  const buildDir =
-    subdir && !isWorkspace ? join(opts.workDir, subdir) : opts.workDir;
+  const buildDir = subdir && !isWorkspace ? join(opts.workDir, subdir) : opts.workDir;
 
   // SPA output dir is relative to the build context. For a workspace build the
   // context is the repo root, so the app's output sits under its subdir.
@@ -226,8 +226,7 @@ async function resolveBuildCommands(opts: {
   const buildCmd = rawBuild ? `cd ${subdir} && ${rawBuild}` : null;
   // SPA images are served by Caddy and need no start command. Otherwise wrap the
   // app's own start script so the container boots the right workspace app.
-  const startCmd =
-    !spaOutputDir && scripts.start ? `cd ${subdir} && ${pmRun} run start` : null;
+  const startCmd = !spaOutputDir && scripts.start ? `cd ${subdir} && ${pmRun} run start` : null;
 
   opts.sink.system(
     `monorepo workspace build: context=repo root, app="${subdir}"` +
@@ -267,9 +266,7 @@ function buildPrepareArgs(opts: {
   if (opts.startCmd) args.push("--start-cmd", opts.startCmd);
   if (spaOutputDir) {
     args.push("--env", `RAILPACK_SPA_OUTPUT_DIR=${spaOutputDir}`);
-    opts.sink.system(
-      `SPA mode: serving "${spaOutputDir}" via Caddy with history fallback`,
-    );
+    opts.sink.system(`SPA mode: serving "${spaOutputDir}" via Caddy with history fallback`);
   }
   return args;
 }
@@ -333,17 +330,10 @@ async function fileExists(path: string): Promise<boolean> {
  *  pnpm-workspace.yaml. This is the signal that a subdir service must build from
  *  the root so its lockfile, catalog, and sibling packages resolve. */
 async function rootIsWorkspace(workDir: string): Promise<boolean> {
-  const pkg = await readJson<{ workspaces?: unknown }>(
-    join(workDir, "package.json"),
-  );
+  const pkg = await readJson<{ workspaces?: unknown }>(join(workDir, "package.json"));
   const ws = pkg?.workspaces;
   if (Array.isArray(ws) && ws.length > 0) return true;
-  if (
-    ws &&
-    typeof ws === "object" &&
-    "packages" in ws &&
-    Array.isArray(ws.packages)
-  ) {
+  if (ws && typeof ws === "object" && "packages" in ws && Array.isArray(ws.packages)) {
     return true;
   }
   return fileExists(join(workDir, "pnpm-workspace.yaml"));
@@ -353,16 +343,9 @@ async function rootIsWorkspace(workDir: string): Promise<boolean> {
  *  the root `packageManager` field then lockfile presence. npm/bun/pnpm/yarn all
  *  accept `<pm> run <script>`. */
 async function detectPackageManagerRun(workDir: string): Promise<string> {
-  const pkg = await readJson<{ packageManager?: string }>(
-    join(workDir, "package.json"),
-  );
+  const pkg = await readJson<{ packageManager?: string }>(join(workDir, "package.json"));
   const declared = pkg?.packageManager?.split("@")[0]?.trim();
-  if (
-    declared === "bun" ||
-    declared === "pnpm" ||
-    declared === "yarn" ||
-    declared === "npm"
-  ) {
+  if (declared === "bun" || declared === "pnpm" || declared === "yarn" || declared === "npm") {
     return `${declared} run`;
   }
   if (

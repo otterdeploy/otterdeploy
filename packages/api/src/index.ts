@@ -1,17 +1,18 @@
-import { auth } from "@otterdeploy/auth";
 import type { PermissionCheck } from "@otterdeploy/auth/permissions";
-import { ID_PREFIX } from "@otterdeploy/shared/id";
 import type { Id } from "@otterdeploy/shared/id";
+
+import { implement, ORPCError, os as orpc } from "@orpc/server";
+import { auth } from "@otterdeploy/auth";
+import { ID_PREFIX } from "@otterdeploy/shared/id";
+
 import type { Context } from "./context";
+
 import {
   authorizeKeyScope,
   authorizeRoleScope,
   isReadAction as isReadActionPath,
   requireProjectScope,
 } from "./authz/api-key-scope";
-
-import { implement, ORPCError, os as orpc } from "@orpc/server";
-
 import { apiKeysContract } from "./routers/apiKeys/contract";
 import { auditContract } from "./routers/audit/contract";
 import { backupsContract } from "./routers/backups/contract";
@@ -37,11 +38,7 @@ import { terminalContract } from "./routers/terminal/contract";
 // call lands in the drain as a single, fully-attributed audit record.
 // Handlers add `target` (and any domain-specific fields) via
 // context.log.set(...).
-const DENIED_ORPC_CODES = new Set([
-  "UNAUTHORIZED",
-  "FORBIDDEN",
-  "NO_ACTIVE_ORGANIZATION",
-]);
+const DENIED_ORPC_CODES = new Set(["UNAUTHORIZED", "FORBIDDEN", "NO_ACTIVE_ORGANIZATION"]);
 
 // Read-ish verbs that aren't worth a persisted audit row on success. We still
 // audit every *denial* (even of a read) — a blocked read is exactly what
@@ -52,59 +49,57 @@ function isReadAction(action: string): boolean {
   return READ_VERB.test(action.split(".").pop() ?? action);
 }
 
-const traceProcedure = orpc
-  .$context<Context>()
-  .middleware(async ({ context, path, next }) => {
-    const action = path.join(".");
-    const user = context.session?.user;
+const traceProcedure = orpc.$context<Context>().middleware(async ({ context, path, next }) => {
+  const action = path.join(".");
+  const user = context.session?.user;
 
-    const actor = user
-      ? { type: "user" as const, id: user.id, email: user.email }
-      : { type: "api" as const, id: context.apiKey?.id ?? "anonymous" };
-    // Top-level fields keep the console/observability wide event informative.
-    context.log.set({
-      action,
-      actor,
-      context: { tenantId: context.activeOrganizationId },
-    });
-    const start = performance.now();
-    try {
-      const result = await next();
-      context.log.set({
-        outcome: "success",
-        durationMs: performance.now() - start,
-      });
-      // Persist mutations; skip read successes. Tenant id rides on the
-      // top-level `context.tenantId` set above (the pg drain reads it); request
-      // meta (ip/ua/requestId) is filled into `audit.context` by auditEnricher.
-      if (!isReadAction(action)) {
-        context.log.audit?.({ action, actor, outcome: "success" });
-      }
-      return result;
-    } catch (error) {
-      const isOrpc = error instanceof ORPCError;
-      const code = isOrpc ? error.code : undefined;
-      const reason = error instanceof Error ? error.message : String(error);
-      const denied = Boolean(code && DENIED_ORPC_CODES.has(code));
-      context.log.set({
-        outcome: denied ? "denied" : "failure",
-        reason,
-        error: isOrpc
-          ? { name: error.name, message: error.message, code: error.code }
-          : error instanceof Error
-            ? { name: error.name, message: error.message }
-            : error,
-        durationMs: performance.now() - start,
-      });
-      // Always audit denials; audit failures only for mutating actions.
-      if (denied) {
-        context.log.audit?.deny(reason, { action, actor });
-      } else if (!isReadAction(action)) {
-        context.log.audit?.({ action, actor, outcome: "failure", reason });
-      }
-      throw error;
-    }
+  const actor = user
+    ? { type: "user" as const, id: user.id, email: user.email }
+    : { type: "api" as const, id: context.apiKey?.id ?? "anonymous" };
+  // Top-level fields keep the console/observability wide event informative.
+  context.log.set({
+    action,
+    actor,
+    context: { tenantId: context.activeOrganizationId },
   });
+  const start = performance.now();
+  try {
+    const result = await next();
+    context.log.set({
+      outcome: "success",
+      durationMs: performance.now() - start,
+    });
+    // Persist mutations; skip read successes. Tenant id rides on the
+    // top-level `context.tenantId` set above (the pg drain reads it); request
+    // meta (ip/ua/requestId) is filled into `audit.context` by auditEnricher.
+    if (!isReadAction(action)) {
+      context.log.audit?.({ action, actor, outcome: "success" });
+    }
+    return result;
+  } catch (error) {
+    const isOrpc = error instanceof ORPCError;
+    const code = isOrpc ? error.code : undefined;
+    const reason = error instanceof Error ? error.message : String(error);
+    const denied = Boolean(code && DENIED_ORPC_CODES.has(code));
+    context.log.set({
+      outcome: denied ? "denied" : "failure",
+      reason,
+      error: isOrpc
+        ? { name: error.name, message: error.message, code: error.code }
+        : error instanceof Error
+          ? { name: error.name, message: error.message }
+          : error,
+      durationMs: performance.now() - start,
+    });
+    // Always audit denials; audit failures only for mutating actions.
+    if (denied) {
+      context.log.audit?.deny(reason, { action, actor });
+    } else if (!isReadAction(action)) {
+      context.log.audit?.({ action, actor, outcome: "failure", reason });
+    }
+    throw error;
+  }
+});
 
 export const publicProcedure = implement({
   apiKeys: apiKeysContract,
@@ -181,9 +176,7 @@ const orgScopedMiddleware = orpc
       context: {
         session: context.session,
         apiKey: context.apiKey,
-        activeOrganizationId: context.activeOrganizationId as Id<
-          typeof ID_PREFIX.organization
-        >,
+        activeOrganizationId: context.activeOrganizationId as Id<typeof ID_PREFIX.organization>,
       },
     });
   });
@@ -212,10 +205,7 @@ const projectScopeMiddleware = orpc
         input && typeof input === "object" && "projectId" in input
           ? (input as { projectId?: unknown }).projectId
           : undefined;
-      if (
-        typeof projectId === "string" &&
-        !requireProjectScope(context.apiKey, projectId)
-      ) {
+      if (typeof projectId === "string" && !requireProjectScope(context.apiKey, projectId)) {
         throw errors.FORBIDDEN();
       }
     }
@@ -250,10 +240,7 @@ export function requirePermission(permission: PermissionCheck) {
       // role) — DECISION A in authz/api-key-scope.ts. A read-only key
       // additionally blocks any non-read action.
       if (context.apiKey) {
-        if (
-          context.apiKey.accessLevel === "read" &&
-          !isReadActionPath(path.join("."))
-        ) {
+        if (context.apiKey.accessLevel === "read" && !isReadActionPath(path.join("."))) {
           throw errors.FORBIDDEN({ message: "This API key is read-only." });
         }
         const ok =
@@ -279,9 +266,7 @@ export function requirePermission(permission: PermissionCheck) {
       return next();
     });
 
-  return orgScopedProcedure
-    .use(permissionMiddleware)
-    .use(projectScopeMiddleware);
+  return orgScopedProcedure.use(permissionMiddleware).use(projectScopeMiddleware);
 }
 
 /**
@@ -290,6 +275,4 @@ export function requirePermission(permission: PermissionCheck) {
  * other way). Mutating project procedures should prefer `requirePermission`,
  * which layers the RBAC check on top of this same project-scope guard.
  */
-export const projectScopedProcedure = orgScopedProcedure.use(
-  projectScopeMiddleware,
-);
+export const projectScopedProcedure = orgScopedProcedure.use(projectScopeMiddleware);

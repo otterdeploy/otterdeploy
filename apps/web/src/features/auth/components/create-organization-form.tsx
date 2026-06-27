@@ -31,9 +31,7 @@ export function CreateOrganizationForm() {
       const created = await authClient.organization.create({ name, slug });
 
       if (created.error || !created.data) {
-        throw new Error(
-          created.error?.message ?? "Could not create organization",
-        );
+        throw new Error(created.error?.message ?? "Could not create organization");
       }
 
       const activated = await authClient.organization.setActive({
@@ -76,9 +74,7 @@ export function CreateOrganizationForm() {
       >
         {createOrgMutation.error ? (
           <Alert variant="destructive">
-            <AlertDescription>
-              {createOrgMutation.error.message}
-            </AlertDescription>
+            <AlertDescription>{createOrgMutation.error.message}</AlertDescription>
           </Alert>
         ) : null}
 
@@ -87,7 +83,7 @@ export function CreateOrganizationForm() {
             <Field>
               <FieldLabel
                 htmlFor={field.name}
-                className="font-mono text-[11px] uppercase tracking-[0.04em] text-muted-foreground"
+                className="font-mono text-[11px] tracking-[0.04em] text-muted-foreground uppercase"
               >
                 Name
               </FieldLabel>
@@ -115,7 +111,7 @@ export function CreateOrganizationForm() {
             <Field>
               <FieldLabel
                 htmlFor={field.name}
-                className="font-mono text-[11px] uppercase tracking-[0.04em] text-muted-foreground"
+                className="font-mono text-[11px] tracking-[0.04em] text-muted-foreground uppercase"
               >
                 URL slug
               </FieldLabel>

@@ -23,8 +23,9 @@
  */
 
 import type { ProxyRouteId } from "@otterdeploy/shared/id";
-import { Result } from "better-result";
 import type { RequestLogger } from "evlog";
+
+import { Result } from "better-result";
 
 import type { ProjectNotFoundError } from "../project/errors";
 
@@ -41,7 +42,6 @@ import {
 } from "../../caddy/queries";
 import { checkDomainReachability, type DnsState } from "../../lib/domain-reachability";
 import { loadDomainSourcesForProject } from "../../lib/domain-sources";
-
 import { loadResource } from "./context";
 import {
   DomainConflictError,

@@ -1,3 +1,6 @@
+import type { db as DbClient } from "@otterdeploy/db";
+
+import { deployment, deploymentLog, project, resource } from "@otterdeploy/db/schema";
 /**
  * Boot-time deploy reconciliation.
  *
@@ -27,16 +30,9 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { log as globalLog } from "evlog";
 
-import {
-  deployment,
-  deploymentLog,
-  project,
-  resource,
-} from "@otterdeploy/db/schema";
-
-import type { db as DbClient } from "@otterdeploy/db";
 import type { PlatformEventPayload } from "./jobs/notification-event";
 import type { getQueue as GetQueueFn } from "./queues";
+
 import { deployTriggeredJob } from "./jobs/deploy";
 
 const LOCK_KEY = "otterdeploy:reconcile:deploy:lock";
@@ -84,13 +80,7 @@ async function defaultAcquireLock(): Promise<(() => Promise<void>) | null> {
   const { env } = await import("@otterdeploy/env/server");
   const client = new RedisClient(env.REDIS_URL);
   const token = `${process.pid}:${Date.now()}`;
-  const res = await client.send("SET", [
-    LOCK_KEY,
-    token,
-    "PX",
-    String(LOCK_TTL_MS),
-    "NX",
-  ]);
+  const res = await client.send("SET", [LOCK_KEY, token, "PX", String(LOCK_TTL_MS), "NX"]);
   if (res !== "OK") {
     client.close();
     return null;
@@ -168,8 +158,7 @@ async function reconcileOrphans(
   const queue = getQueue(deployTriggeredJob.name);
   const jobs = await queue.getJobs(["waiting", "active", "delayed", "paused"]);
   for (const job of jobs) {
-    const ids = (job?.data as { deploymentIds?: string[] } | undefined)
-      ?.deploymentIds;
+    const ids = (job?.data as { deploymentIds?: string[] } | undefined)?.deploymentIds;
     if (Array.isArray(ids)) for (const id of ids) owned.add(id);
   }
 
@@ -186,12 +175,7 @@ async function reconcileOrphans(
         errorMessage: INTERRUPTED_MESSAGE,
         completedAt: new Date(),
       })
-      .where(
-        and(
-          eq(deployment.id, row.id),
-          inArray(deployment.status, ["pending", "building"]),
-        ),
-      )
+      .where(and(eq(deployment.id, row.id), inArray(deployment.status, ["pending", "building"])))
       .returning({ id: deployment.id });
 
     if (updated.length === 0) continue;
@@ -261,9 +245,7 @@ async function recordReset(
 
   // Resolve org/resource/project names the same way markDeploymentFailed does,
   // so the channel message reads identically. Best-effort throughout.
-  await notifyDeployFailed(db, deploymentId, message, emitEvent).catch(
-    () => undefined,
-  );
+  await notifyDeployFailed(db, deploymentId, message, emitEvent).catch(() => undefined);
 }
 
 async function notifyDeployFailed(

@@ -1,5 +1,6 @@
-import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
 import type { BlocklistId } from "@otterdeploy/shared/id";
+
+import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
 import {
   boolean,
   index,

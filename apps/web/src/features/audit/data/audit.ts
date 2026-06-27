@@ -17,10 +17,7 @@
  * `eq` matches. One stamped scalar, same trick as `api-keys.ts`.
  */
 import { createCollection } from "@tanstack/db";
-import {
-  parseLoadSubsetOptions,
-  queryCollectionOptions,
-} from "@tanstack/query-db-collection";
+import { parseLoadSubsetOptions, queryCollectionOptions } from "@tanstack/query-db-collection";
 import { z } from "zod";
 
 import { parseCol } from "@/shared/lib/utils";
@@ -61,8 +58,7 @@ export const DEFAULT_AUDIT_FILTER: AuditFilter = {
 /** Resolve a filter selection into the `audit.list` input. */
 export function toAuditInput(filter: AuditFilter) {
   const r = RANGES.find((x) => x.id === filter.range);
-  const from =
-    !r || r.ms === 0 ? undefined : new Date(Date.now() - r.ms).toISOString();
+  const from = !r || r.ms === 0 ? undefined : new Date(Date.now() - r.ms).toISOString();
   return {
     q: filter.q.trim() || undefined,
     outcome: filter.outcome === "any" ? undefined : (filter.outcome as Outcome),

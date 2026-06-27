@@ -1,17 +1,12 @@
 import type { ResourceId } from "@otterdeploy/shared/id";
-import { eq } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
 import { servicePort } from "@otterdeploy/db/schema/project";
+import { eq } from "drizzle-orm";
 
 import type { ServicePortRow } from ".";
-export async function listServicePorts(
-  serviceResourceId: ResourceId,
-): Promise<ServicePortRow[]> {
-  return db
-    .select()
-    .from(servicePort)
-    .where(eq(servicePort.serviceResourceId, serviceResourceId));
+export async function listServicePorts(serviceResourceId: ResourceId): Promise<ServicePortRow[]> {
+  return db.select().from(servicePort).where(eq(servicePort.serviceResourceId, serviceResourceId));
 }
 
 export async function replaceServicePorts(
@@ -24,9 +19,7 @@ export async function replaceServicePorts(
   }>,
 ): Promise<ServicePortRow[]> {
   return db.transaction(async (tx) => {
-    await tx
-      .delete(servicePort)
-      .where(eq(servicePort.serviceResourceId, serviceResourceId));
+    await tx.delete(servicePort).where(eq(servicePort.serviceResourceId, serviceResourceId));
 
     if (ports.length === 0) return [];
 
@@ -45,9 +38,7 @@ export async function replaceServicePorts(
   });
 }
 
-export function getPrimaryHttpPort(
-  ports: ServicePortRow[],
-): ServicePortRow | undefined {
+export function getPrimaryHttpPort(ports: ServicePortRow[]): ServicePortRow | undefined {
   return (
     ports.find((p) => p.isPrimary && p.appProtocol === "http") ??
     ports.find((p) => p.appProtocol === "http")

@@ -2,9 +2,18 @@ import { useEffect, useRef, useState } from "react";
 
 import { I } from "../icons";
 
-interface Cmd { id: string; label: string; kbd?: string; section: string }
+interface Cmd {
+  id: string;
+  label: string;
+  kbd?: string;
+  section: string;
+}
 
-interface Props { open: boolean; onClose: () => void; onAction: (id: string) => void }
+interface Props {
+  open: boolean;
+  onClose: () => void;
+  onAction: (id: string) => void;
+}
 
 export function CommandPalette({ open, onClose, onAction }: Props) {
   const [q, setQ] = useState("");
@@ -134,7 +143,9 @@ export function CommandPalette({ open, onClose, onAction }: Props) {
             </div>
           ))}
           {filtered.length === 0 && (
-            <div style={{ padding: 24, textAlign: "center", color: "var(--fg-3)", fontSize: 13 }}>No matches</div>
+            <div style={{ padding: 24, textAlign: "center", color: "var(--fg-3)", fontSize: 13 }}>
+              No matches
+            </div>
           )}
         </div>
       </div>

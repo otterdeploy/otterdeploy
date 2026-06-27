@@ -4,9 +4,15 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 
-import { I } from "../icons";
-import { ENV_OVERVIEW_KEYS, SYNC_PROVIDERS, type Env, type EnvVar, type SyncProvider } from "../data";
 import { Field, SectionH, Switch3 } from "../components/form";
+import {
+  ENV_OVERVIEW_KEYS,
+  SYNC_PROVIDERS,
+  type Env,
+  type EnvVar,
+  type SyncProvider,
+} from "../data";
+import { I } from "../icons";
 
 type EnvName = "production" | "staging" | "preview";
 type Status = "set" | "missing" | "empty";
@@ -27,8 +33,16 @@ export function EnvVars() {
       }}
     >
       {/* tab bar */}
-      <div className="row" style={{ borderBottom: "1px solid var(--border)", padding: "0 18px", height: 38, gap: 0 }}>
-        <EnvTab label="Overview" active={view === "overview"} onClick={() => setView("overview")} icon={I.scale} />
+      <div
+        className="row"
+        style={{ borderBottom: "1px solid var(--border)", padding: "0 18px", height: 38, gap: 0 }}
+      >
+        <EnvTab
+          label="Overview"
+          active={view === "overview"}
+          onClick={() => setView("overview")}
+          icon={I.scale}
+        />
         {ENVS.map((e) => (
           <EnvTab
             key={e}
@@ -38,7 +52,12 @@ export function EnvVars() {
             badge={e === "production" || e === "staging" ? "17" : null}
           />
         ))}
-        <EnvTab label="Sync" active={view === "sync"} onClick={() => setView("sync")} icon={I.sync} />
+        <EnvTab
+          label="Sync"
+          active={view === "sync"}
+          onClick={() => setView("sync")}
+          icon={I.sync}
+        />
         <button className="os-envtab" style={{ color: "var(--fg-3)" }}>
           <I.plus width={11} height={11} />
         </button>
@@ -79,7 +98,9 @@ function EnvTab({
 function OverviewMatrix({ onJump }: { onJump: (env: EnvName) => void }) {
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const filtered = ENV_OVERVIEW_KEYS.filter((r) => !q || r.k.toLowerCase().includes(q.toLowerCase()));
+  const filtered = ENV_OVERVIEW_KEYS.filter(
+    (r) => !q || r.k.toLowerCase().includes(q.toLowerCase()),
+  );
 
   const counts = useMemo(() => {
     const out: Record<EnvName, number> = { production: 0, staging: 0, preview: 0 };
@@ -107,12 +128,20 @@ function OverviewMatrix({ onJump }: { onJump: (env: EnvName) => void }) {
             <span style={{ fontSize: 18, fontWeight: 600 }}>Project Overview</span>
           </div>
           <div style={{ flex: 1 }} />
-          <button className="btn"><I.filter width={12} height={12} /> Filters</button>
+          <button className="btn">
+            <I.filter width={12} height={12} /> Filters
+          </button>
           <div className="row gap-2" style={{ position: "relative" }}>
             <I.search
               width={12}
               height={12}
-              style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", color: "var(--fg-3)" }}
+              style={{
+                position: "absolute",
+                left: 8,
+                top: "50%",
+                transform: "translateY(-50%)",
+                color: "var(--fg-3)",
+              }}
             />
             <input
               className="input"
@@ -128,9 +157,13 @@ function OverviewMatrix({ onJump }: { onJump: (env: EnvName) => void }) {
         </div>
 
         <div className="muted" style={{ fontSize: 12, marginBottom: 12 }}>
-          Inject secrets via the <span className="mono" style={{ color: "var(--fg-2)" }}>otterdeploy</span> CLI, runtime API,
-          or build-time env-injection. Click <span style={{ color: "var(--fg-2)" }}>Explore</span> on any environment to see
-          and edit values.
+          Inject secrets via the{" "}
+          <span className="mono" style={{ color: "var(--fg-2)" }}>
+            otterdeploy
+          </span>{" "}
+          CLI, runtime API, or build-time env-injection. Click{" "}
+          <span style={{ color: "var(--fg-2)" }}>Explore</span> on any environment to see and edit
+          values.
         </div>
 
         {/* matrix table */}
@@ -147,7 +180,9 @@ function OverviewMatrix({ onJump }: { onJump: (env: EnvName) => void }) {
             <span style={{ flex: 1, display: "flex", alignItems: "center", gap: 4 }}>
               NAME <I.chevDown width={10} height={10} style={{ opacity: 0.5 }} />
             </span>
-            <span style={{ width: 28, color: "var(--fg-4)" }}><I.chev width={10} height={10} /></span>
+            <span style={{ width: 28, color: "var(--fg-4)" }}>
+              <I.chev width={10} height={10} />
+            </span>
             {ENVS.map((e) => (
               <span key={e} className="os-matrix-env" onClick={() => onJump(e)}>
                 <span>{e[0]!.toUpperCase() + e.slice(1)}</span>
@@ -175,7 +210,9 @@ function OverviewMatrix({ onJump }: { onJump: (env: EnvName) => void }) {
               </span>
               <span style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
                 <I.key width={11} height={11} style={{ color: "var(--fg-3)", opacity: 0.7 }} />
-                <span className="mono" style={{ fontSize: 12, fontWeight: 500 }}>{r.k}</span>
+                <span className="mono" style={{ fontSize: 12, fontWeight: 500 }}>
+                  {r.k}
+                </span>
               </span>
               <span style={{ width: 28 }} />
               {ENVS.map((e) => (
@@ -187,13 +224,20 @@ function OverviewMatrix({ onJump }: { onJump: (env: EnvName) => void }) {
           ))}
 
           {/* explore footer row */}
-          <div className="os-matrix-row" style={{ borderTop: "1px solid var(--border)", background: "var(--bg-sunken)" }}>
+          <div
+            className="os-matrix-row"
+            style={{ borderTop: "1px solid var(--border)", background: "var(--bg-sunken)" }}
+          >
             <span style={{ width: 28 }} />
             <span style={{ flex: 1 }} />
             <span style={{ width: 28 }} />
             {ENVS.map((e) => (
               <span key={e} className="os-matrix-cell">
-                <button className="btn sm" onClick={() => onJump(e)} style={{ height: 22, fontSize: 11 }}>
+                <button
+                  className="btn sm"
+                  onClick={() => onJump(e)}
+                  style={{ height: 22, fontSize: 11 }}
+                >
                   <I.link width={10} height={10} /> Explore
                 </button>
               </span>
@@ -205,8 +249,10 @@ function OverviewMatrix({ onJump }: { onJump: (env: EnvName) => void }) {
           <I.key width={11} height={11} />
           <span style={{ marginLeft: 4 }}>{filtered.length}</span>
           <div style={{ flex: 1 }} />
-          <span>1 – {filtered.length} of {filtered.length}</span>
-          <span style={{ marginLeft: 16, opacity: 0.5 }}>‹‹  ‹  ›  ››</span>
+          <span>
+            1 – {filtered.length} of {filtered.length}
+          </span>
+          <span style={{ marginLeft: 16, opacity: 0.5 }}>‹‹ ‹ › ››</span>
         </div>
 
         {/* status legend */}
@@ -223,9 +269,15 @@ function OverviewMatrix({ onJump }: { onJump: (env: EnvName) => void }) {
           }}
         >
           <span style={{ fontWeight: 500, color: "var(--fg-2)" }}>Legend</span>
-          <span className="row gap-1"><StatusGlyph status="set" /> set with value</span>
-          <span className="row gap-1"><StatusGlyph status="empty" /> defined, empty</span>
-          <span className="row gap-1"><StatusGlyph status="missing" /> not defined in this env</span>
+          <span className="row gap-1">
+            <StatusGlyph status="set" /> set with value
+          </span>
+          <span className="row gap-1">
+            <StatusGlyph status="empty" /> defined, empty
+          </span>
+          <span className="row gap-1">
+            <StatusGlyph status="missing" /> not defined in this env
+          </span>
         </div>
       </div>
     </div>
@@ -289,16 +341,22 @@ function PerEnvTable({ env }: { env: EnvName }) {
               style={{ paddingLeft: 28, width: "100%" }}
             />
           </div>
-          <button className="btn"><I.filter width={12} height={12} /> Filters</button>
+          <button className="btn">
+            <I.filter width={12} height={12} /> Filters
+          </button>
           <div style={{ flex: 1 }} />
-          <button className="btn ghost icon"><I.download width={13} height={13} /></button>
+          <button className="btn ghost icon">
+            <I.download width={13} height={13} />
+          </button>
           <button className="btn ghost icon" onClick={() => setRevealAll((r) => !r)}>
             <I.eye width={13} height={13} />
           </button>
           <button className="btn" onClick={() => setBulkOpen(true)}>
             <I.copy width={12} height={12} /> Bulk edit
           </button>
-          <button className="btn"><I.branch width={12} height={12} /> 3 Commits</button>
+          <button className="btn">
+            <I.branch width={12} height={12} /> 3 Commits
+          </button>
           <button className="btn primary">
             <I.plus width={12} height={12} /> Add Secret <I.chevDown width={10} height={10} />
           </button>
@@ -319,7 +377,9 @@ function PerEnvTable({ env }: { env: EnvName }) {
             <span style={{ flex: 1, display: "flex", alignItems: "center", gap: 4 }}>
               Key <I.chevDown width={9} height={9} style={{ opacity: 0.5 }} />
             </span>
-            <span style={{ flex: 2, borderLeft: "1px solid var(--border)", paddingLeft: 12 }}>Value</span>
+            <span style={{ flex: 2, borderLeft: "1px solid var(--border)", paddingLeft: 12 }}>
+              Value
+            </span>
             <span style={{ width: 200 }} />
           </div>
           {filtered.map((r) => (
@@ -348,9 +408,18 @@ function PerEnvTable({ env }: { env: EnvName }) {
                 <I.key width={11} height={11} />
               </span>
               <span style={{ flex: 1 }}>
-                <span className="mono" style={{ fontSize: 12, fontWeight: 500 }}>{r.k}</span>
+                <span className="mono" style={{ fontSize: 12, fontWeight: 500 }}>
+                  {r.k}
+                </span>
               </span>
-              <span style={{ flex: 2, borderLeft: "1px solid var(--border)", paddingLeft: 12, minWidth: 0 }}>
+              <span
+                style={{
+                  flex: 2,
+                  borderLeft: "1px solid var(--border)",
+                  paddingLeft: 12,
+                  minWidth: 0,
+                }}
+              >
                 {r.v === "" ? (
                   <span
                     className="mono"
@@ -385,14 +454,30 @@ function PerEnvTable({ env }: { env: EnvName }) {
                   transition: "opacity 100ms",
                 }}
               >
-                <button className="btn ghost icon sm" title="Copy"><I.copy width={11} height={11} /></button>
-                <button className="btn ghost icon sm" title="Tag"><I.bolt width={11} height={11} /></button>
-                <button className="btn ghost icon sm" title="Pin"><I.link width={11} height={11} /></button>
-                <button className="btn ghost icon sm" title="History"><I.branch width={11} height={11} /></button>
-                <button className="btn ghost icon sm" title="Reference"><I.refresh width={11} height={11} /></button>
-                <button className="btn ghost icon sm" title="Move"><I.upload width={11} height={11} /></button>
-                <button className="btn ghost icon sm" title="More"><I.more width={11} height={11} /></button>
-                <button className="btn ghost icon sm" title="Delete"><I.trash width={11} height={11} /></button>
+                <button className="btn ghost icon sm" title="Copy">
+                  <I.copy width={11} height={11} />
+                </button>
+                <button className="btn ghost icon sm" title="Tag">
+                  <I.bolt width={11} height={11} />
+                </button>
+                <button className="btn ghost icon sm" title="Pin">
+                  <I.link width={11} height={11} />
+                </button>
+                <button className="btn ghost icon sm" title="History">
+                  <I.branch width={11} height={11} />
+                </button>
+                <button className="btn ghost icon sm" title="Reference">
+                  <I.refresh width={11} height={11} />
+                </button>
+                <button className="btn ghost icon sm" title="Move">
+                  <I.upload width={11} height={11} />
+                </button>
+                <button className="btn ghost icon sm" title="More">
+                  <I.more width={11} height={11} />
+                </button>
+                <button className="btn ghost icon sm" title="Delete">
+                  <I.trash width={11} height={11} />
+                </button>
               </span>
             </div>
           ))}
@@ -411,8 +496,12 @@ function PerEnvTable({ env }: { env: EnvName }) {
             <I.key width={11} height={11} />
             <span style={{ marginLeft: 4 }}>{filtered.length}</span>
             <div style={{ flex: 1 }} />
-            <span className="mono">1 – {filtered.length} of {filtered.length}</span>
-            <span className="mono" style={{ marginLeft: 14, opacity: 0.5 }}>‹‹ ‹ › ››</span>
+            <span className="mono">
+              1 – {filtered.length} of {filtered.length}
+            </span>
+            <span className="mono" style={{ marginLeft: 14, opacity: 0.5 }}>
+              ‹‹ ‹ › ››
+            </span>
           </div>
         </div>
 
@@ -421,7 +510,8 @@ function PerEnvTable({ env }: { env: EnvName }) {
           <I.upload width={20} height={20} style={{ color: "var(--fg-3)" }} />
           <div style={{ marginTop: 6, fontSize: 13, color: "var(--fg-2)" }}>
             Drag and drop a <span className="mono">.env</span>, <span className="mono">.json</span>,{" "}
-            <span className="mono">.csv</span>, or <span className="mono">.yml</span> file here to add more secrets.
+            <span className="mono">.csv</span>, or <span className="mono">.yml</span> file here to
+            add more secrets.
           </div>
           <div style={{ fontSize: 11, color: "var(--fg-4)", margin: "8px 0" }}>OR</div>
           <button className="btn" onClick={() => setBulkOpen(true)}>
@@ -449,7 +539,11 @@ function sampleValue(key: string, env: EnvName) {
 }
 
 // ────── Bulk edit modal (helper from screens2/EnvVars2) ──────
-interface BulkRow { k: string; v: string | null; secret: boolean }
+interface BulkRow {
+  k: string;
+  v: string | null;
+  secret: boolean;
+}
 
 function BulkEditModal({
   env,
@@ -473,7 +567,8 @@ function BulkEditModal({
       if (eq < 1) continue;
       let k = line.slice(0, eq).trim();
       let v = line.slice(eq + 1).trim();
-      if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1);
+      if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'")))
+        v = v.slice(1, -1);
       if (k.startsWith("export ")) k = k.slice(7).trim();
       out.push({ k, v, secret: /SECRET|KEY|TOKEN|PASS|DSN/i.test(k) });
     }
@@ -507,17 +602,28 @@ function BulkEditModal({
           overflow: "hidden",
         }}
       >
-        <div className="row gap-2" style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)" }}>
+        <div
+          className="row gap-2"
+          style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)" }}
+        >
           <span style={{ fontWeight: 600, fontSize: 15 }}>
             Bulk edit ·{" "}
-            <span className="mono" style={{ fontWeight: 400, color: "var(--fg-2)" }}>{env}</span>
+            <span className="mono" style={{ fontWeight: 400, color: "var(--fg-2)" }}>
+              {env}
+            </span>
           </span>
-          <span className="muted" style={{ fontSize: 12 }}>Paste a .env, or edit inline</span>
+          <span className="muted" style={{ fontSize: 12 }}>
+            Paste a .env, or edit inline
+          </span>
           <div style={{ flex: 1 }} />
-          <button className="btn ghost icon sm" onClick={onClose}><I.close width={13} height={13} /></button>
+          <button className="btn ghost icon sm" onClick={onClose}>
+            <I.close width={13} height={13} />
+          </button>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", flex: 1, overflow: "hidden" }}>
+        <div
+          style={{ display: "grid", gridTemplateColumns: "1fr 280px", flex: 1, overflow: "hidden" }}
+        >
           {/* editor */}
           <div
             style={{
@@ -536,7 +642,10 @@ function BulkEditModal({
               <button
                 className="btn sm ghost"
                 onClick={() => {
-                  navigator.clipboard?.readText().then((t) => setText(t)).catch(() => {});
+                  navigator.clipboard
+                    ?.readText()
+                    .then((t) => setText(t))
+                    .catch(() => {});
                 }}
               >
                 Paste from clipboard
@@ -578,7 +687,11 @@ function BulkEditModal({
               </div>
               <div className="col gap-1">
                 {ENVS.map((e) => (
-                  <label key={e} className="row gap-2" style={{ padding: "4px 0", fontSize: 12, cursor: "pointer" }}>
+                  <label
+                    key={e}
+                    className="row gap-2"
+                    style={{ padding: "4px 0", fontSize: 12, cursor: "pointer" }}
+                  >
                     <input
                       type="checkbox"
                       checked={target.has(e)}
@@ -633,17 +746,26 @@ function BulkEditModal({
               >
                 Detected
               </div>
-              <div className="mono" style={{ fontSize: 11, color: "var(--fg-2)", maxHeight: 160, overflow: "auto" }}>
+              <div
+                className="mono"
+                style={{ fontSize: 11, color: "var(--fg-2)", maxHeight: 160, overflow: "auto" }}
+              >
                 {parsed.slice(0, 10).map((p) => (
                   <div key={p.k} style={{ display: "flex", gap: 6, padding: "2px 0" }}>
                     <span style={{ color: p.secret ? "var(--warn)" : "var(--fg-3)" }}>
                       {p.secret ? "••" : "  "}
                     </span>
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.k}</span>
+                    <span
+                      style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                    >
+                      {p.k}
+                    </span>
                   </div>
                 ))}
                 {parsed.length > 10 && (
-                  <div className="muted" style={{ fontSize: 10 }}>+{parsed.length - 10} more</div>
+                  <div className="muted" style={{ fontSize: 10 }}>
+                    +{parsed.length - 10} more
+                  </div>
                 )}
               </div>
             </div>
@@ -655,8 +777,12 @@ function BulkEditModal({
             Hot-reload to all replicas in {[...target].join(", ") || "(none selected)"}
           </span>
           <div style={{ flex: 1 }} />
-          <button className="btn" onClick={onClose}>Cancel</button>
-          <button className="btn primary" onClick={onClose}>Apply {parsed.length} vars →</button>
+          <button className="btn" onClick={onClose}>
+            Cancel
+          </button>
+          <button className="btn primary" onClick={onClose}>
+            Apply {parsed.length} vars →
+          </button>
         </div>
       </div>
     </div>
@@ -679,13 +805,20 @@ function SyncIntegrations() {
             sub="Pull secrets from an external manager into any environment · changes flow one-way"
           />
           <div style={{ flex: 1 }} />
-          <button className="btn"><I.doc width={12} height={12} /> Read docs</button>
+          <button className="btn">
+            <I.doc width={12} height={12} /> Read docs
+          </button>
         </div>
 
         {/* connected summary */}
         <div className="row gap-3" style={{ marginTop: 14, marginBottom: 18 }}>
           {[
-            { label: "connected", n: providers.filter((p) => p.connected).length, total: providers.length, sub: "" },
+            {
+              label: "connected",
+              n: providers.filter((p) => p.connected).length,
+              total: providers.length,
+              sub: "",
+            },
             { label: "syncing", n: providers.filter((p) => p.connected).length, sub: "every 60s" },
             { label: "last sync", val: "2m ago", sub: "all sources up-to-date" },
           ].map((s, i) => (
@@ -701,7 +834,9 @@ function SyncIntegrations() {
                   ? s.val
                   : `${(s as { n: number }).n}${"total" in s && s.total ? ` / ${s.total}` : ""}`}
               </div>
-              <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>{s.sub || " "}</div>
+              <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>
+                {s.sub || " "}
+              </div>
             </div>
           ))}
         </div>
@@ -716,7 +851,13 @@ function SyncIntegrations() {
                 setProviders((ps) =>
                   ps.map((x) =>
                     x.id === p.id
-                      ? { ...x, connected: true, last: "just now", count: 0, env: "production" as Env }
+                      ? {
+                          ...x,
+                          connected: true,
+                          last: "just now",
+                          count: 0,
+                          env: "production" as Env,
+                        }
                       : x,
                   ),
                 )
@@ -777,19 +918,32 @@ function ProviderCard({
           <div className="row gap-2">
             <span style={{ fontWeight: 600, fontSize: 14 }}>{p.name}</span>
             {p.connected ? (
-              <span className="badge ok"><span className="dot" />connected</span>
+              <span className="badge ok">
+                <span className="dot" />
+                connected
+              </span>
             ) : (
-              <span className="badge"><span className="dot" style={{ background: "var(--fg-4)" }} />not connected</span>
+              <span className="badge">
+                <span className="dot" style={{ background: "var(--fg-4)" }} />
+                not connected
+              </span>
             )}
           </div>
-          <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>{p.sub}</div>
+          <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+            {p.sub}
+          </div>
         </div>
       </div>
 
       {p.connected && (
         <div
           className="row gap-3"
-          style={{ padding: "12px 0", marginTop: 12, borderTop: "1px solid var(--border)", fontSize: 11 }}
+          style={{
+            padding: "12px 0",
+            marginTop: 12,
+            borderTop: "1px solid var(--border)",
+            fontSize: 11,
+          }}
         >
           <Stat label="last sync" value={p.last ?? ""} />
           <Stat label="syncing" value={`${p.count ?? 0} secrets`} />
@@ -810,8 +964,12 @@ function ProviderCard({
       <div className="row gap-2" style={{ marginTop: p.connected ? 6 : 14 }}>
         {p.connected ? (
           <>
-            <button className="btn sm" onClick={onConfigure}><I.settings width={11} height={11} /> Configure</button>
-            <button className="btn sm"><I.sync width={11} height={11} /> Sync now</button>
+            <button className="btn sm" onClick={onConfigure}>
+              <I.settings width={11} height={11} /> Configure
+            </button>
+            <button className="btn sm">
+              <I.sync width={11} height={11} /> Sync now
+            </button>
             <div style={{ flex: 1 }} />
             <button className="btn sm ghost" onClick={onDisconnect} style={{ color: "var(--err)" }}>
               Disconnect
@@ -819,8 +977,12 @@ function ProviderCard({
           </>
         ) : (
           <>
-            <button className="btn sm primary" onClick={onConnect}><I.link width={11} height={11} /> Connect</button>
-            <button className="btn sm ghost"><I.doc width={11} height={11} /> Setup guide</button>
+            <button className="btn sm primary" onClick={onConnect}>
+              <I.link width={11} height={11} /> Connect
+            </button>
+            <button className="btn sm ghost">
+              <I.doc width={11} height={11} /> Setup guide
+            </button>
           </>
         )}
       </div>
@@ -831,7 +993,10 @@ function ProviderCard({
 function Stat({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div>
-      <div className="muted" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+      <div
+        className="muted"
+        style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}
+      >
         {label}
       </div>
       <div
@@ -857,7 +1022,16 @@ function providerLogo(id: string): ReactNode {
     return (
       <div
         className="mono"
-        style={{ ...style, background: "#facc15", color: "#000", display: "grid", placeItems: "center", borderRadius: 4, fontWeight: 700, fontSize: 11 }}
+        style={{
+          ...style,
+          background: "#facc15",
+          color: "#000",
+          display: "grid",
+          placeItems: "center",
+          borderRadius: 4,
+          fontWeight: 700,
+          fontSize: 11,
+        }}
       >
         i
       </div>
@@ -866,7 +1040,16 @@ function providerLogo(id: string): ReactNode {
     return (
       <div
         className="mono"
-        style={{ ...style, background: "#000", color: "#fadc4f", display: "grid", placeItems: "center", borderRadius: 4, fontWeight: 700, fontSize: 11 }}
+        style={{
+          ...style,
+          background: "#000",
+          color: "#fadc4f",
+          display: "grid",
+          placeItems: "center",
+          borderRadius: 4,
+          fontWeight: 700,
+          fontSize: 11,
+        }}
       >
         V
       </div>
@@ -875,7 +1058,16 @@ function providerLogo(id: string): ReactNode {
     return (
       <div
         className="mono"
-        style={{ ...style, background: "#232f3e", color: "#ff9900", display: "grid", placeItems: "center", borderRadius: 4, fontWeight: 700, fontSize: 9 }}
+        style={{
+          ...style,
+          background: "#232f3e",
+          color: "#ff9900",
+          display: "grid",
+          placeItems: "center",
+          borderRadius: 4,
+          fontWeight: 700,
+          fontSize: 9,
+        }}
       >
         aws
       </div>
@@ -884,7 +1076,16 @@ function providerLogo(id: string): ReactNode {
     return (
       <div
         className="mono"
-        style={{ ...style, background: "#3461ff", color: "#fff", display: "grid", placeItems: "center", borderRadius: 4, fontWeight: 700, fontSize: 12 }}
+        style={{
+          ...style,
+          background: "#3461ff",
+          color: "#fff",
+          display: "grid",
+          placeItems: "center",
+          borderRadius: 4,
+          fontWeight: 700,
+          fontSize: 12,
+        }}
       >
         D
       </div>
@@ -893,7 +1094,16 @@ function providerLogo(id: string): ReactNode {
     return (
       <div
         className="mono"
-        style={{ ...style, background: "#0572ec", color: "#fff", display: "grid", placeItems: "center", borderRadius: "50%", fontWeight: 700, fontSize: 10 }}
+        style={{
+          ...style,
+          background: "#0572ec",
+          color: "#fff",
+          display: "grid",
+          placeItems: "center",
+          borderRadius: "50%",
+          fontWeight: 700,
+          fontSize: 10,
+        }}
       >
         1
       </div>
@@ -902,7 +1112,17 @@ function providerLogo(id: string): ReactNode {
     return (
       <div
         className="mono"
-        style={{ ...style, background: "#fff", color: "#1a73e8", border: "1px solid #1a73e8", display: "grid", placeItems: "center", borderRadius: 4, fontWeight: 700, fontSize: 9 }}
+        style={{
+          ...style,
+          background: "#fff",
+          color: "#1a73e8",
+          border: "1px solid #1a73e8",
+          display: "grid",
+          placeItems: "center",
+          borderRadius: 4,
+          fontWeight: 700,
+          fontSize: 9,
+        }}
       >
         GCP
       </div>
@@ -939,7 +1159,10 @@ function ProviderModal({ p, onClose }: { p: SyncProvider; onClose: () => void })
           overflow: "hidden",
         }}
       >
-        <div className="row gap-2" style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)" }}>
+        <div
+          className="row gap-2"
+          style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)" }}
+        >
           <div
             style={{
               width: 26,
@@ -954,9 +1177,13 @@ function ProviderModal({ p, onClose }: { p: SyncProvider; onClose: () => void })
             {providerLogo(p.id)}
           </div>
           <span style={{ fontWeight: 600, fontSize: 14 }}>Configure {p.name}</span>
-          <span className="muted" style={{ fontSize: 11 }}>· {step === "auth" ? "authenticate" : "mappings"}</span>
+          <span className="muted" style={{ fontSize: 11 }}>
+            · {step === "auth" ? "authenticate" : "mappings"}
+          </span>
           <div style={{ flex: 1 }} />
-          <button className="btn ghost icon sm" onClick={onClose}><I.close width={13} height={13} /></button>
+          <button className="btn ghost icon sm" onClick={onClose}>
+            <I.close width={13} height={13} />
+          </button>
         </div>
 
         <div style={{ padding: 20, overflow: "auto", flex: 1 }}>
@@ -967,7 +1194,11 @@ function ProviderModal({ p, onClose }: { p: SyncProvider; onClose: () => void })
               </div>
               <Field
                 label={
-                  p.id === "infisical" ? "Site URL" : p.id === "vault" ? "Vault address" : "Endpoint"
+                  p.id === "infisical"
+                    ? "Site URL"
+                    : p.id === "vault"
+                      ? "Vault address"
+                      : "Endpoint"
                 }
               >
                 <input
@@ -984,12 +1215,24 @@ function ProviderModal({ p, onClose }: { p: SyncProvider; onClose: () => void })
               </Field>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 <Field
-                  label={p.id === "infisical" ? "Client ID" : p.id === "aws-sm" ? "Access key" : "Token / role ID"}
+                  label={
+                    p.id === "infisical"
+                      ? "Client ID"
+                      : p.id === "aws-sm"
+                        ? "Access key"
+                        : "Token / role ID"
+                  }
                 >
                   <input className="input mono" placeholder="…" />
                 </Field>
                 <Field
-                  label={p.id === "infisical" ? "Client secret" : p.id === "aws-sm" ? "Secret key" : "Secret ID"}
+                  label={
+                    p.id === "infisical"
+                      ? "Client secret"
+                      : p.id === "aws-sm"
+                        ? "Secret key"
+                        : "Secret ID"
+                  }
                 >
                   <input className="input mono" type="password" placeholder="…" />
                 </Field>
@@ -1019,8 +1262,9 @@ function ProviderModal({ p, onClose }: { p: SyncProvider; onClose: () => void })
           {step === "config" && (
             <div className="col gap-3">
               <div className="muted" style={{ fontSize: 12 }}>
-                Map remote secret paths to Otterdeploy environments. Sync runs every 60 seconds; conflicts surface as
-                warnings — Otterdeploy never overwrites a value you set manually.
+                Map remote secret paths to Otterdeploy environments. Sync runs every 60 seconds;
+                conflicts surface as warnings — Otterdeploy never overwrites a value you set
+                manually.
               </div>
               {(["production", "staging", "preview"] as const).map((env) => (
                 <div key={env} className="card" style={{ padding: 12 }}>
@@ -1033,14 +1277,20 @@ function ProviderModal({ p, onClose }: { p: SyncProvider; onClose: () => void })
                     <Switch3 on={env !== "preview"} />
                   </div>
                   <div className="row gap-2">
-                    <input className="input mono" defaultValue={`/helio/${env}/*`} style={{ flex: 1 }} />
+                    <input
+                      className="input mono"
+                      defaultValue={`/helio/${env}/*`}
+                      style={{ flex: 1 }}
+                    />
                     <span className="muted">→</span>
                     <input className="input mono" defaultValue={`*`} style={{ flex: 1 }} />
                   </div>
                 </div>
               ))}
               <div className="row gap-2">
-                <span className="muted" style={{ fontSize: 11 }}>On conflict</span>
+                <span className="muted" style={{ fontSize: 11 }}>
+                  On conflict
+                </span>
                 <select className="input" style={{ width: 200 }}>
                   <option>Skip — keep local value</option>
                   <option>Overwrite local with remote</option>
@@ -1052,17 +1302,29 @@ function ProviderModal({ p, onClose }: { p: SyncProvider; onClose: () => void })
         </div>
 
         <div className="row gap-2" style={{ padding: 14, borderTop: "1px solid var(--border)" }}>
-          <button className="btn ghost"><I.doc width={11} height={11} /> Setup guide</button>
+          <button className="btn ghost">
+            <I.doc width={11} height={11} /> Setup guide
+          </button>
           <div style={{ flex: 1 }} />
-          {step === "auth" && <button className="btn" onClick={onClose}>Cancel</button>}
           {step === "auth" && (
-            <button className="btn primary" onClick={() => setStep("config")}>Continue →</button>
+            <button className="btn" onClick={onClose}>
+              Cancel
+            </button>
+          )}
+          {step === "auth" && (
+            <button className="btn primary" onClick={() => setStep("config")}>
+              Continue →
+            </button>
           )}
           {step === "config" && (
-            <button className="btn" onClick={() => setStep("auth")}>← Back</button>
+            <button className="btn" onClick={() => setStep("auth")}>
+              ← Back
+            </button>
           )}
           {step === "config" && (
-            <button className="btn primary" onClick={onClose}>Save sync config</button>
+            <button className="btn primary" onClick={onClose}>
+              Save sync config
+            </button>
           )}
         </div>
       </div>

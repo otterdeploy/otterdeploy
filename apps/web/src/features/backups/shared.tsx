@@ -52,8 +52,7 @@ export function relTime(d: Date | string | null): string {
   if (!Number.isFinite(diff)) return "—";
   const future = diff < 0;
   const s = Math.max(0, Math.round(Math.abs(diff) / 1000));
-  const fmt = (n: number, unit: string) =>
-    future ? `in ${n}${unit}` : `${n}${unit} ago`;
+  const fmt = (n: number, unit: string) => (future ? `in ${n}${unit}` : `${n}${unit} ago`);
   if (s < 60) return fmt(s, "s");
   const m = Math.round(s / 60);
   if (m < 60) return fmt(m, "m");
@@ -144,10 +143,8 @@ function cfgStr(v: unknown): string {
 /** Short connection summary for a destination row. */
 export function destUri(d: Destination): string {
   const cfg = d.config ?? {};
-  if (d.type === "s3")
-    return `s3://${cfgStr(cfg.bucket) || cfgStr(cfg.endpoint)}`;
-  if (d.type === "local")
-    return cfgStr(cfg.path) || "/var/backups/otterdeploy";
+  if (d.type === "s3") return `s3://${cfgStr(cfg.bucket) || cfgStr(cfg.endpoint)}`;
+  if (d.type === "local") return cfgStr(cfg.path) || "/var/backups/otterdeploy";
   return cfgStr(cfg.endpoint) || cfgStr(cfg.host);
 }
 
@@ -207,10 +204,7 @@ export function StatusBadge({
   return (
     <Badge
       variant="outline"
-      className={cn(
-        "gap-1.5 font-mono text-[10px] capitalize",
-        statusTone(status),
-      )}
+      className={cn("gap-1.5 font-mono text-[10px] capitalize", statusTone(status))}
     >
       <span className="size-1.5 rounded-full bg-current" />
       {children ?? status}

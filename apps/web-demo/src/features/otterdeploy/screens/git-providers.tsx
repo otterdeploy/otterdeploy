@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 
 import { SvglLogo } from "@/components/brand/svgl-logo";
-import { I } from "../icons";
-import { rid } from "../data";
+
 import { Field, SectionH } from "../components/form";
 import { StatusBadge } from "../components/status-badge";
+import { rid } from "../data";
+import { I } from "../icons";
 
 type ProviderKind = "github" | "gitlab" | "gitea" | "bitbucket";
 type AuthMethod = "oauth" | "pat";
@@ -80,10 +81,7 @@ export function GitProviders() {
   const [open, setOpen] = useState(false);
 
   return (
-    <div
-      className="os-scroll"
-      style={{ flex: 1, overflow: "auto", padding: 24 }}
-    >
+    <div className="os-scroll" style={{ flex: 1, overflow: "auto", padding: 24 }}>
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
         <div className="row" style={{ marginBottom: 16 }}>
           <SectionH
@@ -101,21 +99,14 @@ export function GitProviders() {
             p.connected ? (
               <ConnectedCard key={p.id} p={p} />
             ) : (
-              <DisconnectedCard
-                key={p.id}
-                p={p}
-                onConnect={() => setOpen(true)}
-              />
+              <DisconnectedCard key={p.id} p={p} onConnect={() => setOpen(true)} />
             ),
           )}
         </div>
 
-        <div
-          className="muted"
-          style={{ fontSize: 11, marginTop: 14, lineHeight: 1.6 }}
-        >
-          Each connection installs a webhook on the upstream so pushes trigger
-          builds. Tokens are stored encrypted with the cluster KMS.
+        <div className="muted" style={{ fontSize: 11, marginTop: 14, lineHeight: 1.6 }}>
+          Each connection installs a webhook on the upstream so pushes trigger builds. Tokens are
+          stored encrypted with the cluster KMS.
         </div>
       </div>
 
@@ -124,13 +115,7 @@ export function GitProviders() {
   );
 }
 
-function ProviderLogo({
-  kind,
-  size = 28,
-}: {
-  kind: ProviderKind;
-  size?: number;
-}) {
+function ProviderLogo({ kind, size = 28 }: { kind: ProviderKind; size?: number }) {
   return (
     <SvglLogo
       search={PROVIDER_SEARCH[kind]}
@@ -165,10 +150,7 @@ function ConnectedCard({ p }: { p: Provider }) {
             </div>
           )}
           {p.scopes && (
-            <div
-              className="row gap-1"
-              style={{ flexWrap: "wrap", marginTop: 8 }}
-            >
+            <div className="row gap-1" style={{ flexWrap: "wrap", marginTop: 8 }}>
               {p.scopes.map((s) => (
                 <span
                   key={s}
@@ -220,13 +202,7 @@ function ConnectedCard({ p }: { p: Provider }) {
   );
 }
 
-function DisconnectedCard({
-  p,
-  onConnect,
-}: {
-  p: Provider;
-  onConnect: () => void;
-}) {
+function DisconnectedCard({ p, onConnect }: { p: Provider; onConnect: () => void }) {
   return (
     <div className="card" style={{ padding: 14 }}>
       <div className="row gap-3" style={{ alignItems: "center" }}>
@@ -248,15 +224,7 @@ function DisconnectedCard({
   );
 }
 
-function Stat({
-  label,
-  value,
-  mono,
-}: {
-  label: string;
-  value: string;
-  mono?: boolean;
-}) {
+function Stat({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div>
       <div
@@ -300,9 +268,7 @@ function ConnectModal({ onClose }: { onClose: () => void }) {
   const allScopes = scopesFor(kind);
 
   const toggleScope = (s: string) =>
-    setScopes((cur) =>
-      cur.includes(s) ? cur.filter((x) => x !== s) : [...cur, s],
-    );
+    setScopes((cur) => (cur.includes(s) ? cur.filter((x) => x !== s) : [...cur, s]));
 
   const copySecret = () => {
     navigator.clipboard?.writeText(secret).catch(() => {});
@@ -323,12 +289,8 @@ function ConnectModal({ onClose }: { onClose: () => void }) {
         backdropFilter: "blur(2px)",
       }}
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="os-modal"
-        style={{ width: 580 }}
-      >
-        <div className="row gap-2 os-modal-h">
+      <div onClick={(e) => e.stopPropagation()} className="os-modal" style={{ width: 580 }}>
+        <div className="row os-modal-h gap-2">
           <I.branch width={14} height={14} />
           <span style={{ fontWeight: 600 }}>Connect Git provider</span>
           <div style={{ flex: 1 }} />
@@ -337,10 +299,7 @@ function ConnectModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        <div
-          className="col gap-3"
-          style={{ padding: 18, overflow: "auto", maxHeight: "65vh" }}
-        >
+        <div className="col gap-3" style={{ padding: 18, overflow: "auto", maxHeight: "65vh" }}>
           <div>
             <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>
               Provider
@@ -352,9 +311,7 @@ function ConnectModal({ onClose }: { onClose: () => void }) {
                 gap: 8,
               }}
             >
-              {(
-                ["github", "gitlab", "gitea", "bitbucket"] as ProviderKind[]
-              ).map((k) => (
+              {(["github", "gitlab", "gitea", "bitbucket"] as ProviderKind[]).map((k) => (
                 <button
                   key={k}
                   onClick={() => setKind(k)}
@@ -367,9 +324,7 @@ function ConnectModal({ onClose }: { onClose: () => void }) {
                 >
                   <div className="col gap-1" style={{ alignItems: "center" }}>
                     <ProviderLogo kind={k} size={26} />
-                    <span style={{ fontSize: 12, fontWeight: 500 }}>
-                      {PROVIDER_LABEL[k]}
-                    </span>
+                    <span style={{ fontSize: 12, fontWeight: 500 }}>{PROVIDER_LABEL[k]}</span>
                   </div>
                 </button>
               ))}
@@ -380,9 +335,7 @@ function ConnectModal({ onClose }: { onClose: () => void }) {
             <Field label="Instance URL">
               <input
                 className="input mono"
-                placeholder={
-                  kind === "gitlab" ? "git.example.com" : "gitea.example.com"
-                }
+                placeholder={kind === "gitlab" ? "git.example.com" : "gitea.example.com"}
                 value={instance}
                 onChange={(e) => setInstance(e.target.value)}
               />
@@ -472,12 +425,7 @@ function ConnectModal({ onClose }: { onClose: () => void }) {
 
           <Field label="Webhook secret (auto-generated)">
             <div className="row gap-2">
-              <input
-                className="input mono"
-                value={secret}
-                readOnly
-                style={{ flex: 1 }}
-              />
+              <input className="input mono" value={secret} readOnly style={{ flex: 1 }} />
               <button className="btn" onClick={copySecret}>
                 <I.copy width={11} height={11} /> {copied ? "Copied" : "Copy"}
               </button>
@@ -485,10 +433,7 @@ function ConnectModal({ onClose }: { onClose: () => void }) {
           </Field>
         </div>
 
-        <div
-          className="row gap-2"
-          style={{ padding: 14, borderTop: "1px solid var(--border)" }}
-        >
+        <div className="row gap-2" style={{ padding: 14, borderTop: "1px solid var(--border)" }}>
           <span className="muted" style={{ fontSize: 11 }}>
             Token is encrypted with the cluster KMS before storage.
           </span>

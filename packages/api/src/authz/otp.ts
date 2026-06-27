@@ -36,11 +36,7 @@ export function generateOtp(): string {
   return n.toString().padStart(OTP_DIGITS, "0");
 }
 
-export async function storeOtp(
-  domain: string,
-  email: string,
-  code: string,
-): Promise<void> {
+export async function storeOtp(domain: string, email: string, code: string): Promise<void> {
   const r = redis();
   const key = otpKey(domain, email);
   await r.set(key, code);
@@ -49,10 +45,7 @@ export async function storeOtp(
 
 /** Increment the per-(domain,email) request counter; true = still under the
  *  limit. First request in a window sets the expiry. */
-export async function underRateLimit(
-  domain: string,
-  email: string,
-): Promise<boolean> {
+export async function underRateLimit(domain: string, email: string): Promise<boolean> {
   const r = redis();
   const key = rateKey(domain, email);
   const count = await r.incr(key);
@@ -62,11 +55,7 @@ export async function underRateLimit(
 
 /** Verify and consume (single-use). Returns false on mismatch/expiry. Caps
  *  wrong guesses per code (anti-brute-force) and compares in constant time. */
-export async function consumeOtp(
-  domain: string,
-  email: string,
-  code: string,
-): Promise<boolean> {
+export async function consumeOtp(domain: string, email: string, code: string): Promise<boolean> {
   const r = redis();
   const key = otpKey(domain, email);
   const stored = await r.get(key);

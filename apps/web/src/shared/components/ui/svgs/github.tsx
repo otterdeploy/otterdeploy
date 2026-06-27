@@ -1,4 +1,5 @@
 import type { SVGProps } from "react";
+
 import { useTheme } from "next-themes";
 
 export const Github = (props: SVGProps<SVGSVGElement>) => {

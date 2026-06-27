@@ -4,13 +4,7 @@ import { decryptSecret, encryptSecret } from "../crypto";
 
 describe("encryptSecret/decryptSecret", () => {
   it("round-trips arbitrary strings", async () => {
-    const inputs = [
-      "",
-      "hello",
-      "ghp_abcdef0123456789",
-      "🦦 unicode + emoji",
-      "x".repeat(4096),
-    ];
+    const inputs = ["", "hello", "ghp_abcdef0123456789", "🦦 unicode + emoji", "x".repeat(4096)];
     for (const input of inputs) {
       const ct = await encryptSecret(input);
       expect(ct).toMatch(/^v1\./);

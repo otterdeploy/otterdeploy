@@ -1,13 +1,6 @@
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-  chmodSync,
-} from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-
 import * as z from "zod";
 
 // One control plane per user. URL is set by `otterdeploy login <url>`,
@@ -26,10 +19,7 @@ export type Config = z.infer<typeof ConfigSchema>;
 
 const CONFIG_DIR =
   process.env.OTTERDEPLOY_CONFIG_DIR ??
-  join(
-    process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config"),
-    "otterdeploy",
-  );
+  join(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config"), "otterdeploy");
 const CONFIG_PATH = join(CONFIG_DIR, "config.json");
 
 export function loadConfig(): Config {
@@ -65,5 +55,3 @@ export function resolveUrl(flag?: string): string | undefined {
 export function resolveToken(): string | undefined {
   return process.env.OTTERDEPLOY_TOKEN ?? loadConfig().token;
 }
-
-

@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+
 import type { DrawerSelection } from "../types";
 
 export function useResourceDrawer(): {

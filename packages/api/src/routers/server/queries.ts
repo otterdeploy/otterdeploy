@@ -1,12 +1,10 @@
-
 import type { OrganizationId, ServerId } from "@otterdeploy/shared/id";
-import os from "node:os";
-
-import { and, asc, eq } from "drizzle-orm";
 import type { InferSelectModel } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
 import { server } from "@otterdeploy/db/schema/server";
+import { and, asc, eq } from "drizzle-orm";
+import os from "node:os";
 type OrgId = OrganizationId;
 
 export type ServerRecord = InferSelectModel<typeof server>;
@@ -26,12 +24,7 @@ export async function getServerInOrg(input: {
   const [row] = await db
     .select()
     .from(server)
-    .where(
-      and(
-        eq(server.id, input.serverId),
-        eq(server.organizationId, input.organizationId),
-      ),
-    )
+    .where(and(eq(server.id, input.serverId), eq(server.organizationId, input.organizationId)))
     .limit(1);
   return row;
 }
@@ -68,12 +61,7 @@ export async function deleteServerRecord(input: {
 }): Promise<{ id: ServerId } | undefined> {
   const [deleted] = await db
     .delete(server)
-    .where(
-      and(
-        eq(server.id, input.serverId),
-        eq(server.organizationId, input.organizationId),
-      ),
-    )
+    .where(and(eq(server.id, input.serverId), eq(server.organizationId, input.organizationId)))
     .returning({ id: server.id });
   return deleted;
 }

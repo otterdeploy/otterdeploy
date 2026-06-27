@@ -1,12 +1,5 @@
 import { publicProcedure } from "../..";
-
-import {
-  listContainers,
-  listImages,
-  listNetworks,
-  listTasks,
-  listVolumes,
-} from "./service";
+import { listContainers, listImages, listNetworks, listTasks, listVolumes } from "./service";
 
 export const dockerRouter = {
   containers: {

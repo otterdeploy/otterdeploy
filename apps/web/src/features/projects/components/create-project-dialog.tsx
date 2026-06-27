@@ -1,6 +1,8 @@
-import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
-import { useForm, useStore } from "@tanstack/react-form";
 import { useState, type ReactElement } from "react";
+
+import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
+import { eq, useLiveQuery } from "@tanstack/react-db";
+import { useForm, useStore } from "@tanstack/react-form";
 import { toast } from "sonner";
 import * as z from "zod";
 
@@ -16,9 +18,8 @@ import {
 } from "@/shared/components/ui/dialog";
 import { Field, FieldError, FieldLabel } from "@/shared/components/ui/field";
 import { Input } from "@/shared/components/ui/input";
-import { projectCollection } from "../data/project";
 
-import { eq, useLiveQuery } from "@tanstack/react-db";
+import { projectCollection } from "../data/project";
 
 // `.slugify()` alone — used to derive the slug live as the user types the name.
 // Doesn't throw on short/empty input, just normalizes whatever's there.
@@ -68,9 +69,7 @@ export function CreateProjectDialog({ trigger }: { trigger: ReactElement }) {
       // the optimistic row on rejection.
       setOpen(false);
       tx.isPersisted.promise.catch((error) => {
-        toast.error(
-          error instanceof Error ? error.message : "Failed to create project",
-        );
+        toast.error(error instanceof Error ? error.message : "Failed to create project");
       });
     },
   });
@@ -170,11 +169,7 @@ export function CreateProjectDialog({ trigger }: { trigger: ReactElement }) {
           </form.Field>
 
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-            >
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
             <form.Subscribe
@@ -186,10 +181,7 @@ export function CreateProjectDialog({ trigger }: { trigger: ReactElement }) {
               {({ isSubmitting, canSubmit }) => {
                 const hasSlugConflict = !!conflict && conflict.slug === slug;
                 return (
-                  <Button
-                    type="submit"
-                    disabled={isSubmitting || !canSubmit || hasSlugConflict}
-                  >
+                  <Button type="submit" disabled={isSubmitting || !canSubmit || hasSlugConflict}>
                     {isSubmitting ? "Creating…" : "Create project"}
                   </Button>
                 );

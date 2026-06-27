@@ -7,12 +7,15 @@
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { useStageManifestChange } from "@/features/projects/hooks/use-manifest-stage";
+import {
+  SettingsCard,
+  SettingsRowReadOnly,
+} from "@/features/resources/components/_shared/settings-card";
 import { Switch } from "@/shared/components/ui/switch";
 import { orpc, queryClient } from "@/shared/server/orpc";
-import { useStageManifestChange } from "@/features/projects/hooks/use-manifest-stage";
 
 import type { PostgresBodyProps } from "../../types";
-import { SettingsCard, SettingsRowReadOnly } from "@/features/resources/components/_shared/settings-card";
 
 export function PublicAccessCard({
   resource,
@@ -33,12 +36,9 @@ export function PublicAccessCard({
           input: { projectId: resource.projectId as never },
         }),
       });
-      toast.success(
-        resource.publicEnabled ? "Public access disabled" : "Public access enabled",
-      );
+      toast.success(resource.publicEnabled ? "Public access disabled" : "Public access enabled");
     },
-    onError: (err) =>
-      toast.error(err.message ?? "Failed to update public access"),
+    onError: (err) => toast.error(err.message ?? "Failed to update public access"),
   });
 
   const stage = useStageManifestChange(resource.projectId as never, {
@@ -90,10 +90,7 @@ export function PublicAccessCard({
       </div>
       {!pending && resource.publicEnabled && (
         <>
-          <SettingsRowReadOnly
-            label="Public endpoint"
-            value={resource.publicHostname}
-          />
+          <SettingsRowReadOnly label="Public endpoint" value={resource.publicHostname} />
           <SettingsRowReadOnly
             label="Public connection URL"
             value={resource.publicConnectionString}

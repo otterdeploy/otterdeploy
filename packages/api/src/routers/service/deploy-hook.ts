@@ -16,10 +16,10 @@ import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { Result } from "better-result";
 
+import type { RefMissingResourceError, ResolveError } from "./errors";
+
 import { PLATFORM } from "../../constants";
 import { resolveServiceEnv } from "../../lib/variables";
-
-import type { RefMissingResourceError, ResolveError } from "./errors";
 import { sanitizeSlug } from "./views";
 
 export interface DeployHookContext {

@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode, SVGProps } from "react";
+
 import { useTheme } from "@/components/theme-provider";
 import { Mariadb } from "@/components/ui/svgs/mariadb";
 import { MongodbIconDark } from "@/components/ui/svgs/mongodbIconDark";
@@ -8,13 +9,7 @@ import { MysqlIconLight } from "@/components/ui/svgs/mysqlIconLight";
 import { Postgresql } from "@/components/ui/svgs/postgresql";
 import { Redis } from "@/components/ui/svgs/redis";
 
-type DatabaseBrand =
-  | "postgresql"
-  | "mysql"
-  | "mariadb"
-  | "mongodb"
-  | "redis"
-  | "clickhouse";
+type DatabaseBrand = "postgresql" | "mysql" | "mariadb" | "mongodb" | "redis" | "clickhouse";
 type SvgComponent = (props: SVGProps<SVGSVGElement>) => ReactNode;
 
 interface Props {
@@ -83,11 +78,7 @@ export function DatabaseLogo({
   );
 }
 
-function renderBrand(
-  brand: Exclude<DatabaseBrand, "clickhouse">,
-  isDark: boolean,
-  size: number,
-) {
+function renderBrand(brand: Exclude<DatabaseBrand, "clickhouse">, isDark: boolean, size: number) {
   if (brand === "mysql" || brand === "mongodb") {
     const Icon = isDark ? themedBrands[brand].dark : themedBrands[brand].light;
     return <Icon width={size} height={size} />;
@@ -102,22 +93,13 @@ function resolveDatabaseBrand(value: string): DatabaseBrand | null {
   if (normalized.includes("postgres")) return "postgresql";
   if (normalized.includes("mariadb")) return "mariadb";
   if (normalized.includes("mysql")) return "mysql";
-  if (normalized.includes("mongodb") || normalized.includes("mongo"))
-    return "mongodb";
+  if (normalized.includes("mongodb") || normalized.includes("mongo")) return "mongodb";
   if (normalized.includes("redis")) return "redis";
   if (normalized.includes("clickhouse")) return "clickhouse";
   return null;
 }
 
-function FallbackMark({
-  value,
-  size,
-  color,
-}: {
-  value: string;
-  size: number;
-  color: string;
-}) {
+function FallbackMark({ value, size, color }: { value: string; size: number; color: string }) {
   return (
     <span
       className="mono"

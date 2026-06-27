@@ -85,24 +85,12 @@ declare module "@tanstack/react-table" {
     onDataUpdate?: (params: CellUpdate | Array<CellUpdate>) => void;
     onRowsDelete?: (rowIndices: number[]) => void | Promise<void>;
     onColumnClick?: (columnId: string) => void;
-    onCellClick?: (
-      rowIndex: number,
-      columnId: string,
-      event?: React.MouseEvent,
-    ) => void;
+    onCellClick?: (rowIndex: number, columnId: string, event?: React.MouseEvent) => void;
     onCellDoubleClick?: (rowIndex: number, columnId: string) => void;
-    onCellMouseDown?: (
-      rowIndex: number,
-      columnId: string,
-      event: React.MouseEvent,
-    ) => void;
+    onCellMouseDown?: (rowIndex: number, columnId: string, event: React.MouseEvent) => void;
     onCellMouseEnter?: (rowIndex: number, columnId: string) => void;
     onCellMouseUp?: () => void;
-    onCellContextMenu?: (
-      rowIndex: number,
-      columnId: string,
-      event: React.MouseEvent,
-    ) => void;
+    onCellContextMenu?: (rowIndex: number, columnId: string, event: React.MouseEvent) => void;
     onCellEditingStart?: (rowIndex: number, columnId: string) => void;
     onCellEditingStop?: (opts?: {
       direction?: NavigationDirection;

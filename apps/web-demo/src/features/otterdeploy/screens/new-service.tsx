@@ -13,7 +13,10 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 
 import { DatabaseLogo } from "@/components/brand/database-logo";
 import { SvglLogo } from "@/components/brand/svgl-logo";
-import { I, type IconKey } from "../icons";
+
+import type { Tab } from "../app";
+
+import { Field, Switch3, SettingRow, SectionH, BuilderConfig } from "../components/form";
 import {
   BUILDERS,
   NODES,
@@ -24,14 +27,7 @@ import {
   type ServiceKindDef,
   type Template,
 } from "../data";
-import {
-  Field,
-  Switch3,
-  SettingRow,
-  SectionH,
-  BuilderConfig,
-} from "../components/form";
-import type { Tab } from "../app";
+import { I, type IconKey } from "../icons";
 
 type Step =
   | "kind"
@@ -55,20 +51,18 @@ interface LaunchPreset {
   step?: Step;
 }
 
-interface Port { port: number; protocol: string; public: boolean; host: string }
+interface Port {
+  port: number;
+  protocol: string;
+  public: boolean;
+  host: string;
+}
 
 type LinkedSecrets = Record<string, boolean>;
 
-const iconKey = (raw: string): IconKey =>
-  (raw as IconKey) in I ? (raw as IconKey) : "doc";
+const iconKey = (raw: string): IconKey => ((raw as IconKey) in I ? (raw as IconKey) : "doc");
 const sourceBrandSearch = (id: string) =>
-  id === "github"
-    ? "GitHub"
-    : id === "gitlab"
-      ? "GitLab"
-      : id === "gitea"
-        ? "Gitea"
-        : null;
+  id === "github" ? "GitHub" : id === "gitlab" ? "GitLab" : id === "gitea" ? "Gitea" : null;
 const registryBrandSearch = (id: string) =>
   id === "docker"
     ? "Docker"
@@ -88,14 +82,11 @@ export function NewService({
   initialSelection?: LaunchPreset;
 }) {
   // Top-level state
-  const [kindId, setKindId] = useState<string | null>(
-    initialSelection?.kindId ?? null,
-  );
+  const [kindId, setKindId] = useState<string | null>(initialSelection?.kindId ?? null);
   const [step, setStep] = useState<Step>(initialSelection?.step ?? "kind");
 
   const kind = SERVICE_KINDS.find((k) => k.id === kindId) ?? null;
-  const isApp =
-    !!kind && ["app", "worker", "cron", "static", "function"].includes(kind.id);
+  const isApp = !!kind && ["app", "worker", "cron", "static", "function"].includes(kind.id);
   const isDb = !!kind && kind.group === "data";
 
   // Build the step list dynamically based on kind
@@ -229,15 +220,9 @@ export function NewService({
         }}
       >
         <button className="btn ghost icon sm" onClick={() => onTab("graph")}>
-          <I.chev
-            width={11}
-            height={11}
-            style={{ transform: "rotate(180deg)" }}
-          />
+          <I.chev width={11} height={11} style={{ transform: "rotate(180deg)" }} />
         </button>
-        <span style={{ fontWeight: 600, fontSize: 15, marginLeft: 8 }}>
-          Create new service
-        </span>
+        <span style={{ fontWeight: 600, fontSize: 15, marginLeft: 8 }}>Create new service</span>
         {kind && (
           <span className="muted mono" style={{ marginLeft: 10, fontSize: 11 }}>
             · {kind.name}
@@ -251,13 +236,8 @@ export function NewService({
 
       <Stepper steps={steps} idx={idx} setStep={setStep} />
 
-      <div
-        style={{ flex: 1, overflow: "auto", padding: 22 }}
-        className="os-scroll"
-      >
-        <div
-          style={{ maxWidth: step === "kind" ? 1100 : 820, margin: "0 auto" }}
-        >
+      <div style={{ flex: 1, overflow: "auto", padding: 22 }} className="os-scroll">
+        <div style={{ maxWidth: step === "kind" ? 1100 : 820, margin: "0 auto" }}>
           {step === "kind" && (
             <Step_Kind
               kindId={kindId}
@@ -284,11 +264,7 @@ export function NewService({
           )}
 
           {step === "builder" && (
-            <Step_Builder
-              builderId={builderId}
-              setBuilderId={setBuilderId}
-              name={name}
-            />
+            <Step_Builder builderId={builderId} setBuilderId={setBuilderId} name={name} />
           )}
 
           {step === "image" && (
@@ -471,12 +447,7 @@ function Stepper({
                 padding: "4px 10px",
                 borderRadius: 5,
                 flexShrink: 0,
-                color:
-                  i === idx
-                    ? "var(--fg)"
-                    : i < idx
-                      ? "var(--fg-2)"
-                      : "var(--fg-4)",
+                color: i === idx ? "var(--fg)" : i < idx ? "var(--fg-2)" : "var(--fg-4)",
                 fontWeight: i === idx ? 500 : 400,
                 fontSize: 12,
               }}
@@ -552,9 +523,7 @@ function Step_Kind({
   ];
 
   const items: Array<ServiceKindDef | Template> =
-    tab === "template"
-      ? TEMPLATES
-      : SERVICE_KINDS.filter((k) => k.group === tab);
+    tab === "template" ? TEMPLATES : SERVICE_KINDS.filter((k) => k.group === tab);
 
   return (
     <>
@@ -581,8 +550,7 @@ function Step_Kind({
               onClick={() => setTab(id)}
               style={{ height: 36, borderRight: 0 }}
             >
-              <Ic width={12} height={12} style={{ opacity: 0.7 }} />{" "}
-              <span>{groups[id].label}</span>
+              <Ic width={12} height={12} style={{ opacity: 0.7 }} /> <span>{groups[id].label}</span>
               <span className="os-envtab-underline" />
             </button>
           );
@@ -617,47 +585,27 @@ function Step_Kind({
             >
               {popular && <span className="os-builder-pop">popular</span>}
               <div className="row gap-2">
-                <div className="os-builder-icon">
-                  {renderLauncherKindIcon(it, tab, Ic)}
-                </div>
+                <div className="os-builder-icon">{renderLauncherKindIcon(it, tab, Ic)}</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600, fontSize: 13 }}>{it.name}</div>
                 </div>
-                {active && (
-                  <I.check
-                    width={12}
-                    height={12}
-                    style={{ color: "var(--fg)" }}
-                  />
-                )}
+                {active && <I.check width={12} height={12} style={{ color: "var(--fg)" }} />}
               </div>
-              <div
-                className="muted"
-                style={{ fontSize: 11, marginTop: 6, lineHeight: 1.45 }}
-              >
+              <div className="muted" style={{ fontSize: 11, marginTop: 6, lineHeight: 1.45 }}>
                 {it.sub}
               </div>
               {examples && (
-                <div
-                  className="mono"
-                  style={{ fontSize: 10, color: "var(--fg-4)", marginTop: 6 }}
-                >
+                <div className="mono" style={{ fontSize: 10, color: "var(--fg-4)", marginTop: 6 }}>
                   {examples}
                 </div>
               )}
               {versions && (
-                <div
-                  className="mono"
-                  style={{ fontSize: 10, color: "var(--fg-4)", marginTop: 6 }}
-                >
+                <div className="mono" style={{ fontSize: 10, color: "var(--fg-4)", marginTop: 6 }}>
                   versions: {versions.slice(0, 3).join(", ")}
                 </div>
               )}
               {services !== undefined && (
-                <div
-                  className="mono"
-                  style={{ fontSize: 10, color: "var(--fg-4)", marginTop: 6 }}
-                >
+                <div className="mono" style={{ fontSize: 10, color: "var(--fg-4)", marginTop: 6 }}>
                   {services} services included
                 </div>
               )}
@@ -672,11 +620,7 @@ function Step_Kind({
 function renderLauncherKindIcon(
   item: ServiceKindDef | Template,
   tab: KindTab,
-  Icon: (props: {
-    width?: number;
-    height?: number;
-    style?: CSSProperties;
-  }) => ReactNode,
+  Icon: (props: { width?: number; height?: number; style?: CSSProperties }) => ReactNode,
 ) {
   if (tab !== "data") return <Icon width={14} height={14} />;
 
@@ -690,13 +634,7 @@ function renderLauncherKindIcon(
     id === "clickhouse";
 
   if (supportsBrandLogo) {
-    return (
-      <DatabaseLogo
-        value={`${item.id} ${item.name}`}
-        size={14}
-        color="var(--fg-2)"
-      />
-    );
+    return <DatabaseLogo value={`${item.id} ${item.name}`} size={14} color="var(--fg-2)" />;
   }
 
   return <Icon width={14} height={14} />;
@@ -823,10 +761,7 @@ function Step_Source({
                 </div>
                 <span style={{ fontWeight: 600, fontSize: 13 }}>{s.name}</span>
               </div>
-              <div
-                className="muted"
-                style={{ fontSize: 11, marginTop: 4, lineHeight: 1.4 }}
-              >
+              <div className="muted" style={{ fontSize: 11, marginTop: 4, lineHeight: 1.4 }}>
                 {s.sub}
               </div>
             </button>
@@ -838,10 +773,7 @@ function Step_Source({
         <>
           <div style={{ height: 22 }} />
           <SectionH title="Repository" />
-          <div
-            className="card"
-            style={{ padding: 0, marginTop: 10, overflow: "hidden" }}
-          >
+          <div className="card" style={{ padding: 0, marginTop: 10, overflow: "hidden" }}>
             <div
               className="row gap-2"
               style={{
@@ -850,11 +782,7 @@ function Step_Source({
                 background: "var(--bg-sunken)",
               }}
             >
-              <I.search
-                width={12}
-                height={12}
-                style={{ color: "var(--fg-3)" }}
-              />
+              <I.search width={12} height={12} style={{ color: "var(--fg-3)" }} />
               <input
                 className="input mono"
                 placeholder="search repositories…"
@@ -882,8 +810,7 @@ function Step_Source({
                   style={{
                     width: "100%",
                     padding: "10px 14px",
-                    background:
-                      repo === r.repo ? "var(--bg-overlay)" : "transparent",
+                    background: repo === r.repo ? "var(--bg-overlay)" : "transparent",
                     border: 0,
                     borderBottom: "1px solid var(--border)",
                     textAlign: "left",
@@ -891,11 +818,7 @@ function Step_Source({
                     color: "var(--fg)",
                   }}
                 >
-                  <I.branch
-                    width={12}
-                    height={12}
-                    style={{ color: "var(--fg-3)" }}
-                  />
+                  <I.branch width={12} height={12} style={{ color: "var(--fg-3)" }} />
                   <span className="mono" style={{ fontSize: 13, flex: 1 }}>
                     {r.repo}
                   </span>
@@ -975,15 +898,10 @@ function Step_Source({
       {src === "pubgit" && (
         <div className="card" style={{ padding: 16, marginTop: 16 }}>
           <Field label="Public Git URL">
-            <input
-              className="input mono"
-              placeholder="https://github.com/owner/repo.git"
-            />
+            <input className="input mono" placeholder="https://github.com/owner/repo.git" />
           </Field>
           <div style={{ height: 10 }} />
-          <div
-            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}
-          >
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <Field label="Branch / tag / commit">
               <input className="input mono" defaultValue="main" />
             </Field>
@@ -1026,11 +944,7 @@ $ otterdeploy push --service ${name} --env production`}
           </pre>
           <div style={{ height: 12 }} />
           <Field label="Service name">
-            <input
-              className="input mono"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
+            <input className="input mono" value={name} onChange={(e) => setName(e.target.value)} />
           </Field>
         </div>
       )}
@@ -1078,8 +992,7 @@ function Step_Builder({
               Detected: {detected.framework}
             </div>
             <div className="muted mono" style={{ fontSize: 11, marginTop: 2 }}>
-              {detected.lang} · {detected.file} · resolved by{" "}
-              {detected.detector}
+              {detected.lang} · {detected.file} · resolved by {detected.detector}
             </div>
           </div>
           <span className="badge">
@@ -1120,10 +1033,7 @@ function Step_Builder({
                   />
                 )}
               </div>
-              <div
-                className="muted"
-                style={{ fontSize: 11, marginTop: 4, lineHeight: 1.4 }}
-              >
+              <div className="muted" style={{ fontSize: 11, marginTop: 4, lineHeight: 1.4 }}>
                 {b.sub}
               </div>
             </button>
@@ -1244,9 +1154,7 @@ function Step_Image({
       <div style={{ height: 22 }} />
       <SectionH title="Image" />
       <div className="card" style={{ padding: 16, marginTop: 10 }}>
-        <div
-          style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10 }}
-        >
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10 }}>
           <Field label="Image">
             <input
               className="input mono"
@@ -1255,11 +1163,7 @@ function Step_Image({
             />
           </Field>
           <Field label="Tag">
-            <input
-              className="input mono"
-              value={tag}
-              onChange={(e) => setTag(e.target.value)}
-            />
+            <input className="input mono" value={tag} onChange={(e) => setTag(e.target.value)} />
           </Field>
         </div>
         <div style={{ height: 8 }} />
@@ -1272,10 +1176,7 @@ function Step_Image({
       </div>
 
       <div style={{ height: 18 }} />
-      <SectionH
-        title="Available tags"
-        sub="Recently pushed to this repository"
-      />
+      <SectionH title="Available tags" sub="Recently pushed to this repository" />
       <div className="card" style={{ marginTop: 10, overflow: "hidden" }}>
         {tags.map((t, i) => (
           <button
@@ -1285,8 +1186,7 @@ function Step_Image({
             style={{
               width: "100%",
               padding: "10px 14px",
-              borderBottom:
-                i === tags.length - 1 ? "none" : "1px solid var(--border)",
+              borderBottom: i === tags.length - 1 ? "none" : "1px solid var(--border)",
               background: tag === t.tag ? "var(--bg-overlay)" : "transparent",
               border: 0,
               textAlign: "left",
@@ -1295,10 +1195,7 @@ function Step_Image({
             }}
           >
             <I.doc width={12} height={12} style={{ color: "var(--fg-3)" }} />
-            <span
-              className="mono"
-              style={{ fontSize: 13, fontWeight: 500, flex: 1 }}
-            >
+            <span className="mono" style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>
               {t.tag}
             </span>
             <span className="muted mono" style={{ fontSize: 11 }}>
@@ -1307,10 +1204,7 @@ function Step_Image({
             <span className="muted" style={{ fontSize: 11 }}>
               {t.size}
             </span>
-            <span
-              className="muted"
-              style={{ fontSize: 11, width: 80, textAlign: "right" }}
-            >
+            <span className="muted" style={{ fontSize: 11, width: 80, textAlign: "right" }}>
               {t.pushed}
             </span>
             {tag === t.tag && <I.check width={11} height={11} />}
@@ -1322,11 +1216,7 @@ function Step_Image({
       <SectionH title="Service name" />
       <div className="card" style={{ padding: 16, marginTop: 10 }}>
         <Field label="Name">
-          <input
-            className="input mono"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
+          <input className="input mono" value={name} onChange={(e) => setName(e.target.value)} />
         </Field>
       </div>
 
@@ -1375,14 +1265,8 @@ volumes:
 
   return (
     <>
-      <SectionH
-        title="Compose file"
-        sub="We'll parse this into individual Otterdeploy services"
-      />
-      <div
-        className="card"
-        style={{ padding: 0, marginTop: 12, overflow: "hidden" }}
-      >
+      <SectionH title="Compose file" sub="We'll parse this into individual Otterdeploy services" />
+      <div className="card" style={{ padding: 0, marginTop: 12, overflow: "hidden" }}>
         <div
           className="row gap-2"
           style={{
@@ -1451,21 +1335,14 @@ volumes:
               {s.kind === "app" ? (
                 <I.service width={13} height={13} />
               ) : (
-                <DatabaseLogo
-                  value={`${s.name} ${s.image}`}
-                  size={13}
-                  color="var(--fg-3)"
-                />
+                <DatabaseLogo value={`${s.name} ${s.image}`} size={13} color="var(--fg-3)" />
               )}
             </span>
             <div style={{ flex: 1 }}>
               <span className="mono" style={{ fontWeight: 500, fontSize: 13 }}>
                 {s.name}
               </span>
-              <span
-                className="muted mono"
-                style={{ fontSize: 11, marginLeft: 8 }}
-              >
+              <span className="muted mono" style={{ fontSize: 11, marginLeft: 8 }}>
                 {s.image}
               </span>
             </div>
@@ -1494,9 +1371,8 @@ volumes:
             style={{ color: "var(--info)", flexShrink: 0, marginTop: 2 }}
           />
           <div style={{ fontSize: 12, color: "var(--info)" }}>
-            All <span className="mono">${"{VAR}"}</span> references will be
-            promoted to project-level variables. You'll set values in the next
-            step.
+            All <span className="mono">${"{VAR}"}</span> references will be promoted to
+            project-level variables. You'll set values in the next step.
           </div>
         </div>
       </div>
@@ -1566,10 +1442,7 @@ function Step_Version({
                 />
               )}
             </div>
-            <div
-              className="muted"
-              style={{ fontSize: 11, marginTop: 6, lineHeight: 1.4 }}
-            >
+            <div className="muted" style={{ fontSize: 11, marginTop: 6, lineHeight: 1.4 }}>
               {i === 0
                 ? "Newest stable release · all features available"
                 : i === 1
@@ -1584,11 +1457,7 @@ function Step_Version({
       <SectionH title="Database name" />
       <div className="card" style={{ padding: 16, marginTop: 10 }}>
         <Field label="Service name">
-          <input
-            className="input mono"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
+          <input className="input mono" value={name} onChange={(e) => setName(e.target.value)} />
           <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>
             Reachable at{" "}
             <span className="mono" style={{ color: "var(--fg-2)" }}>
@@ -1644,10 +1513,7 @@ function Step_Networking({
           </Field>
           <div style={{ height: 10 }} />
           <Field label="Command">
-            <input
-              className="input mono"
-              defaultValue="node scripts/cleanup.js"
-            />
+            <input className="input mono" defaultValue="node scripts/cleanup.js" />
           </Field>
           <div style={{ height: 10 }} />
           <Field label="Max runtime">
@@ -1661,11 +1527,7 @@ function Step_Networking({
             sub="Don't pile up overlapping invocations"
             defaultOn
           />
-          <SettingRow
-            label="Alert on failure"
-            defaultOn
-            sub="Send to #ops Slack channel"
-          />
+          <SettingRow label="Alert on failure" defaultOn sub="Send to #ops Slack channel" />
         </div>
       </>
     );
@@ -1680,10 +1542,7 @@ function Step_Networking({
         />
         <div className="card" style={{ padding: 16, marginTop: 12 }}>
           <Field label="Process command">
-            <input
-              className="input mono"
-              defaultValue="celery -A app worker --loglevel=info"
-            />
+            <input className="input mono" defaultValue="celery -A app worker --loglevel=info" />
           </Field>
           <div style={{ height: 10 }} />
           <Field label="Graceful shutdown timeout">
@@ -1730,8 +1589,7 @@ function Step_Networking({
             className="row"
             style={{
               padding: "10px 14px",
-              borderBottom:
-                i === ports.length - 1 ? "none" : "1px solid var(--border)",
+              borderBottom: i === ports.length - 1 ? "none" : "1px solid var(--border)",
             }}
           >
             <span style={{ width: 80 }}>
@@ -1741,9 +1599,7 @@ function Step_Networking({
                 value={p.port}
                 onChange={(e) =>
                   setPorts((ps) =>
-                    ps.map((x, j) =>
-                      j === i ? { ...x, port: +e.target.value } : x,
-                    ),
+                    ps.map((x, j) => (j === i ? { ...x, port: +e.target.value } : x)),
                   )
                 }
                 style={{ width: 70 }}
@@ -1755,9 +1611,7 @@ function Step_Networking({
                 value={p.protocol}
                 onChange={(e) =>
                   setPorts((ps) =>
-                    ps.map((x, j) =>
-                      j === i ? { ...x, protocol: e.target.value } : x,
-                    ),
+                    ps.map((x, j) => (j === i ? { ...x, protocol: e.target.value } : x)),
                   )
                 }
                 style={{ width: 90 }}
@@ -1774,11 +1628,7 @@ function Step_Networking({
                 className="input mono"
                 value={p.host}
                 onChange={(e) =>
-                  setPorts((ps) =>
-                    ps.map((x, j) =>
-                      j === i ? { ...x, host: e.target.value } : x,
-                    ),
-                  )
+                  setPorts((ps) => ps.map((x, j) => (j === i ? { ...x, host: e.target.value } : x)))
                 }
                 disabled={!p.public}
                 style={{ width: "100%", opacity: p.public ? 1 : 0.5 }}
@@ -1788,9 +1638,7 @@ function Step_Networking({
               <Switch3
                 on={p.public}
                 onChange={(v) =>
-                  setPorts((ps) =>
-                    ps.map((x, j) => (j === i ? { ...x, public: v } : x)),
-                  )
+                  setPorts((ps) => ps.map((x, j) => (j === i ? { ...x, public: v } : x)))
                 }
               />
             </span>
@@ -1808,10 +1656,7 @@ function Step_Networking({
           <button
             className="btn sm"
             onClick={() =>
-              setPorts((ps) => [
-                ...ps,
-                { port: 8080, protocol: "http", public: false, host: "" },
-              ])
+              setPorts((ps) => [...ps, { port: 8080, protocol: "http", public: false, host: "" }])
             }
           >
             <I.plus width={11} height={11} /> Add port
@@ -1879,26 +1724,10 @@ function Step_Networking({
           sub="Let's Encrypt · auto-renewed before expiry"
           defaultOn
         />
-        <SettingRow
-          label="HTTP → HTTPS redirect"
-          defaultOn
-          sub="Force secure connections"
-        />
-        <SettingRow
-          label="HTTP/3 (QUIC)"
-          defaultOn
-          sub="Serve over QUIC where available"
-        />
-        <SettingRow
-          label="Compression (zstd, gzip)"
-          defaultOn
-          sub="Encode responses on the wire"
-        />
-        <SettingRow
-          label="WebSocket upgrade"
-          defaultOn
-          sub="Allow ws:// connection upgrades"
-        />
+        <SettingRow label="HTTP → HTTPS redirect" defaultOn sub="Force secure connections" />
+        <SettingRow label="HTTP/3 (QUIC)" defaultOn sub="Serve over QUIC where available" />
+        <SettingRow label="Compression (zstd, gzip)" defaultOn sub="Encode responses on the wire" />
+        <SettingRow label="WebSocket upgrade" defaultOn sub="Allow ws:// connection upgrades" />
         <SettingRow
           label="Forward X-Forwarded-For"
           defaultOn
@@ -1948,10 +1777,7 @@ function Step_Resources({
 
   return (
     <>
-      <SectionH
-        title="Size"
-        sub="How much CPU and memory does each replica get?"
-      />
+      <SectionH title="Size" sub="How much CPU and memory does each replica get?" />
       <div
         style={{
           display: "grid",
@@ -1978,10 +1804,7 @@ function Step_Resources({
                 />
               )}
             </div>
-            <div
-              className="mono"
-              style={{ fontSize: 12, marginTop: 6, color: "var(--fg-2)" }}
-            >
+            <div className="mono" style={{ fontSize: 12, marginTop: 6, color: "var(--fg-2)" }}>
               {p.cpu != null && p.mem != null
                 ? `${p.cpu} vCPU · ${p.mem >= 1024 ? p.mem / 1024 + " GB" : p.mem + " MB"}`
                 : "configure manually"}
@@ -1990,10 +1813,7 @@ function Step_Resources({
               {p.sub}
             </div>
             {p.cost !== null && (
-              <div
-                className="mono"
-                style={{ fontSize: 11, marginTop: 8, color: "var(--fg-3)" }}
-              >
+              <div className="mono" style={{ fontSize: 11, marginTop: 8, color: "var(--fg-3)" }}>
                 ~${p.cost}/mo per replica
               </div>
             )}
@@ -2034,10 +1854,7 @@ function Step_Resources({
       {!isDb && (
         <>
           <div style={{ height: 18 }} />
-          <SectionH
-            title="Replicas"
-            sub="How many copies of this service to run?"
-          />
+          <SectionH title="Replicas" sub="How many copies of this service to run?" />
           <div className="card" style={{ padding: 16, marginTop: 10 }}>
             <div className="row gap-2">
               <button
@@ -2058,10 +1875,7 @@ function Step_Resources({
                   height: 36,
                 }}
               />
-              <button
-                className="btn ghost icon"
-                onClick={() => setReplicas((r: number) => r + 1)}
-              >
+              <button className="btn ghost icon" onClick={() => setReplicas((r: number) => r + 1)}>
                 <I.plus width={11} height={11} />
               </button>
               <div style={{ flex: 1 }} />
@@ -2090,15 +1904,10 @@ function Step_Resources({
       />
       <div className="card" style={{ padding: 16, marginTop: 10 }}>
         <Field label="Region">
-          <select
-            className="input"
-            value={region}
-            onChange={(e) => setRegion(e.target.value)}
-          >
+          <select className="input" value={region} onChange={(e) => setRegion(e.target.value)}>
             {REGIONS.map((r) => (
               <option key={r.id} value={r.id}>
-                {r.flag} {r.name} · {r.nodes} node{r.nodes > 1 ? "s" : ""} ·{" "}
-                {r.latency}
+                {r.flag} {r.name} · {r.nodes} node{r.nodes > 1 ? "s" : ""} · {r.latency}
               </option>
             ))}
           </select>
@@ -2111,12 +1920,8 @@ function Step_Resources({
             onChange={(e) => setPlacement(e.target.value)}
           >
             <option value="any">Any node — let scheduler decide</option>
-            <option value="spread">
-              Spread across nodes — one replica per node
-            </option>
-            <option value="pack">
-              Pack onto fewest nodes — minimize spread
-            </option>
+            <option value="spread">Spread across nodes — one replica per node</option>
+            <option value="pack">Pack onto fewest nodes — minimize spread</option>
             <option value="pin">Pin to specific node</option>
           </select>
         </Field>
@@ -2170,14 +1975,9 @@ function Step_Resources({
                       {n.name}
                     </span>
                     <span style={{ flex: 1 }} />
-                    <span className="muted">
-                      {Math.round((n.cpu.used / n.cpu.total) * 100)}%
-                    </span>
+                    <span className="muted">{Math.round((n.cpu.used / n.cpu.total) * 100)}%</span>
                   </div>
-                  <div
-                    className="row gap-1"
-                    style={{ marginTop: 6, flexWrap: "wrap" }}
-                  >
+                  <div className="row gap-1" style={{ marginTop: 6, flexWrap: "wrap" }}>
                     {Array.from({ length: Math.max(0, onThis) }).map((_, i) => (
                       <span
                         key={i}
@@ -2204,10 +2004,7 @@ function Step_Resources({
       </div>
 
       <div style={{ height: 14 }} />
-      <div
-        className="card"
-        style={{ padding: 14, background: "var(--bg-sunken)" }}
-      >
+      <div className="card" style={{ padding: 14, background: "var(--bg-sunken)" }}>
         <div className="row gap-3">
           <div>
             <div
@@ -2220,10 +2017,7 @@ function Step_Resources({
             >
               service total
             </div>
-            <div
-              className="mono"
-              style={{ fontSize: 14, fontWeight: 500, marginTop: 2 }}
-            >
+            <div className="mono" style={{ fontSize: 14, fontWeight: 500, marginTop: 2 }}>
               {totalCpu} vCPU · {totalMem} GB
             </div>
           </div>
@@ -2240,10 +2034,7 @@ function Step_Resources({
               >
                 est. monthly cost
               </div>
-              <div
-                className="mono"
-                style={{ fontSize: 14, fontWeight: 500, marginTop: 2 }}
-              >
+              <div className="mono" style={{ fontSize: 14, fontWeight: 500, marginTop: 2 }}>
                 ${totalCost}/mo
               </div>
             </div>
@@ -2302,9 +2093,7 @@ function Step_Storage({
           <div className="row gap-3" style={{ fontSize: 11, marginTop: 6 }}>
             <span className="muted">5 GB</span>
             <div style={{ flex: 1 }} />
-            <span className="muted mono">
-              ~${(storageGb * 0.1).toFixed(2)}/mo
-            </span>
+            <span className="muted mono">~${(storageGb * 0.1).toFixed(2)}/mo</span>
             <span className="muted">2 TB</span>
           </div>
         </Field>
@@ -2314,11 +2103,7 @@ function Step_Storage({
           defaultOn
           sub="Add 10 GB when free space drops below 15%"
         />
-        <SettingRow
-          label="Encrypt at rest"
-          defaultOn
-          sub="LUKS · per-project KMS key"
-        />
+        <SettingRow label="Encrypt at rest" defaultOn sub="LUKS · per-project KMS key" />
       </div>
 
       <div style={{ height: 18 }} />
@@ -2328,8 +2113,7 @@ function Step_Storage({
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 13, fontWeight: 500 }}>Daily snapshots</div>
             <div className="muted" style={{ fontSize: 12 }}>
-              Snapshot taken at 03:00 UTC · stored in S3-compatible object
-              storage
+              Snapshot taken at 03:00 UTC · stored in S3-compatible object storage
             </div>
           </div>
           <Switch3 on={backupsEnabled} onChange={setBackupsEnabled} />
@@ -2429,10 +2213,7 @@ function Step_Variables({
 
   return (
     <>
-      <SectionH
-        title="Environment variables"
-        sub="Define values to inject at runtime"
-      />
+      <SectionH title="Environment variables" sub="Define values to inject at runtime" />
 
       {suggested.length > 0 && (
         <div className="card" style={{ marginTop: 12, overflow: "hidden" }}>
@@ -2461,16 +2242,10 @@ function Step_Variables({
               className="row"
               style={{
                 padding: "10px 14px",
-                borderBottom:
-                  i === suggested.length - 1
-                    ? "none"
-                    : "1px solid var(--border)",
+                borderBottom: i === suggested.length - 1 ? "none" : "1px solid var(--border)",
               }}
             >
-              <span
-                className="mono"
-                style={{ flex: 1, fontSize: 12, fontWeight: 500 }}
-              >
+              <span className="mono" style={{ flex: 1, fontSize: 12, fontWeight: 500 }}>
                 {s.k}
               </span>
               <span className="mono muted" style={{ flex: 2, fontSize: 12 }}>
@@ -2496,10 +2271,7 @@ function Step_Variables({
         title="Custom variables"
         sub="One per line · KEY=value · supports comments with #"
       />
-      <div
-        className="card"
-        style={{ padding: 0, marginTop: 10, overflow: "hidden" }}
-      >
+      <div className="card" style={{ padding: 0, marginTop: 10, overflow: "hidden" }}>
         <div
           className="row gap-2"
           style={{
@@ -2577,10 +2349,7 @@ function Step_Variables({
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 13, fontWeight: 500 }}>{p.name}</div>
-              <div
-                className="muted mono"
-                style={{ fontSize: 11, marginTop: 2 }}
-              >
+              <div className="muted mono" style={{ fontSize: 11, marginTop: 2 }}>
                 {p.sub}
               </div>
             </div>
@@ -2629,10 +2398,7 @@ function Step_AdvancedDb({ kind }: { kind: ServiceKindDef | null }) {
       {isPg && (
         <>
           <div style={{ height: 18 }} />
-          <SectionH
-            title="Extensions"
-            sub="Enable extensions on the postgres instance"
-          />
+          <SectionH title="Extensions" sub="Enable extensions on the postgres instance" />
           <div className="card" style={{ padding: 16, marginTop: 10 }}>
             {[
               "pgvector — vector similarity search",
@@ -2662,9 +2428,7 @@ function Step_AdvancedDb({ kind }: { kind: ServiceKindDef | null }) {
             <Field label="Eviction policy">
               <select className="input">
                 <option>allkeys-lru — evict least recently used</option>
-                <option>
-                  volatile-lru — evict TTL'd keys least recently used
-                </option>
+                <option>volatile-lru — evict TTL'd keys least recently used</option>
                 <option>noeviction — return errors when full</option>
               </select>
             </Field>
@@ -2674,24 +2438,15 @@ function Step_AdvancedDb({ kind }: { kind: ServiceKindDef | null }) {
               defaultOn
               sub="Append-only file fsync every second"
             />
-            <SettingRow
-              label="RDB snapshots"
-              defaultOn
-              sub="Periodic point-in-time dumps"
-            />
+            <SettingRow label="RDB snapshots" defaultOn sub="Periodic point-in-time dumps" />
           </div>
         </>
       )}
 
       <div style={{ height: 18 }} />
-      <SectionH
-        title="Maintenance window"
-        sub="When can Otterdeploy apply patches?"
-      />
+      <SectionH title="Maintenance window" sub="When can Otterdeploy apply patches?" />
       <div className="card" style={{ padding: 16, marginTop: 10 }}>
-        <div
-          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}
-        >
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           <Field label="Day">
             <select className="input">
               <option>Sunday</option>
@@ -2801,10 +2556,7 @@ volumes:
 
   return (
     <>
-      <SectionH
-        title="Review"
-        sub="Confirm and deploy — you can change all of this later"
-      />
+      <SectionH title="Review" sub="Confirm and deploy — you can change all of this later" />
 
       <div
         style={{
@@ -2843,43 +2595,25 @@ volumes:
             )}
             {!isDb && root && <ReviewRow label="Root" value={root} />}
             {!isDb && builderId && (
-              <ReviewRow
-                label="Builder"
-                value={BUILDERS.find((b) => b.id === builderId)?.name}
-              />
+              <ReviewRow label="Builder" value={BUILDERS.find((b) => b.id === builderId)?.name} />
             )}
-            {kind?.id === "docker" && (
-              <ReviewRow label="Image" value={`${image}:${tag}`} />
-            )}
-            {isDb && version && (
-              <ReviewRow label="Version" value={`${kind?.id} ${version}`} />
-            )}
+            {kind?.id === "docker" && <ReviewRow label="Image" value={`${image}:${tag}`} />}
+            {isDb && version && <ReviewRow label="Version" value={`${kind?.id} ${version}`} />}
             {ports[0] && (
               <ReviewRow
                 label="Ports"
                 value={ports
-                  .map(
-                    (p) =>
-                      `${p.port}/${p.protocol}${p.public ? " (public)" : ""}`,
-                  )
+                  .map((p) => `${p.port}/${p.protocol}${p.public ? " (public)" : ""}`)
                   .join(", ")}
               />
             )}
-            {publicPort && (
-              <ReviewRow
-                label="Public route"
-                value={`https://${publicPort.host}`}
-              />
-            )}
+            {publicPort && <ReviewRow label="Public route" value={`https://${publicPort.host}`} />}
             <ReviewRow
               label="Resources"
               value={`${cpu} vCPU · ${mem >= 1024 ? mem / 1024 + " GB" : mem + " MB"} per replica`}
             />
             {!isDb && (
-              <ReviewRow
-                label="Replicas"
-                value={`${replicas} · ${reg?.flag} ${reg?.name}`}
-              />
+              <ReviewRow label="Replicas" value={`${replicas} · ${reg?.flag} ${reg?.name}`} />
             )}
             {isDb && (
               <ReviewRow
@@ -2905,9 +2639,7 @@ volumes:
                 height={14}
                 style={{ color: "var(--info)", flexShrink: 0, marginTop: 2 }}
               />
-              <div
-                style={{ fontSize: 12, color: "var(--info)", lineHeight: 1.5 }}
-              >
+              <div style={{ fontSize: 12, color: "var(--info)", lineHeight: 1.5 }}>
                 Otterdeploy will{" "}
                 {isDb
                   ? "pull the image, provision a volume, and start the database"
@@ -2964,10 +2696,7 @@ volumes:
               <I.doc width={11} height={11} /> Save as preset
             </button>
             <div style={{ flex: 1 }} />
-            <span
-              className="muted mono"
-              style={{ fontSize: 11, alignSelf: "center" }}
-            >
+            <span className="muted mono" style={{ fontSize: 11, alignSelf: "center" }}>
               otterdeploy apply
             </span>
           </div>
@@ -2977,15 +2706,7 @@ volumes:
   );
 }
 
-function ReviewRow({
-  label,
-  value,
-  last,
-}: {
-  label: string;
-  value?: string;
-  last?: boolean;
-}) {
+function ReviewRow({ label, value, last }: { label: string; value?: string; last?: boolean }) {
   if (!value) return null;
   return (
     <div
@@ -2997,16 +2718,10 @@ function ReviewRow({
         alignItems: "flex-start",
       }}
     >
-      <span
-        className="muted"
-        style={{ width: 100, fontSize: 11, paddingTop: 1, flexShrink: 0 }}
-      >
+      <span className="muted" style={{ width: 100, fontSize: 11, paddingTop: 1, flexShrink: 0 }}>
         {label}
       </span>
-      <span
-        className="mono"
-        style={{ flex: 1, color: "var(--fg)", wordBreak: "break-word" }}
-      >
+      <span className="mono" style={{ flex: 1, color: "var(--fg)", wordBreak: "break-word" }}>
         {value}
       </span>
     </div>

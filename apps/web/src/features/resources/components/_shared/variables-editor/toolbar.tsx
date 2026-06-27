@@ -1,5 +1,5 @@
-import { HugeiconsIcon } from "@hugeicons/react";
 import { Database02Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 
 import { Button } from "@/shared/components/ui/button";
 
@@ -35,12 +35,7 @@ export function Toolbar({
 
       <div className="flex-1" />
 
-      <Button
-        size="sm"
-        variant="outline"
-        className="h-7 gap-1.5 text-[12px]"
-        onClick={onBulkEdit}
-      >
+      <Button size="sm" variant="outline" className="h-7 gap-1.5 text-[12px]" onClick={onBulkEdit}>
         <HugeiconsIcon icon={Database02Icon} strokeWidth={2} className="size-3.5" />
         Bulk edit
       </Button>

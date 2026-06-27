@@ -1,10 +1,9 @@
 import type { OrganizationId, SshKeyId } from "@otterdeploy/shared/id";
-
-import { and, desc, eq } from "drizzle-orm";
 import type { InferSelectModel } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
 import { sshKey } from "@otterdeploy/db/schema/ssh-key";
+import { and, desc, eq } from "drizzle-orm";
 
 import type { SshKeyType } from "./keygen";
 
@@ -27,9 +26,7 @@ export async function getSshKeyInOrg(input: {
   const [row] = await db
     .select()
     .from(sshKey)
-    .where(
-      and(eq(sshKey.id, input.id), eq(sshKey.organizationId, input.organizationId)),
-    )
+    .where(and(eq(sshKey.id, input.id), eq(sshKey.organizationId, input.organizationId)))
     .limit(1);
   return row;
 }
@@ -71,9 +68,7 @@ export async function updateSshKeyMaterial(input: {
       comment: input.comment,
       lastUsedAt: null,
     })
-    .where(
-      and(eq(sshKey.id, input.id), eq(sshKey.organizationId, input.organizationId)),
-    )
+    .where(and(eq(sshKey.id, input.id), eq(sshKey.organizationId, input.organizationId)))
     .returning();
   return row;
 }
@@ -84,9 +79,7 @@ export async function deleteSshKeyRecord(input: {
 }): Promise<{ id: SshKeyId } | undefined> {
   const [deleted] = await db
     .delete(sshKey)
-    .where(
-      and(eq(sshKey.id, input.id), eq(sshKey.organizationId, input.organizationId)),
-    )
+    .where(and(eq(sshKey.id, input.id), eq(sshKey.organizationId, input.organizationId)))
     .returning({ id: sshKey.id });
   return deleted;
 }

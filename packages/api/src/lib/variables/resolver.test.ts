@@ -1,4 +1,5 @@
 import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../routers/service/queries", () => ({
@@ -11,12 +12,7 @@ vi.mock("../../routers/project/queries", () => ({
 }));
 
 import { getDatabaseResourceRecord } from "../../routers/project/queries";
-
-import {
-  getResourceByProjectAndName,
-  getServiceRecord,
-} from "../../routers/service/queries";
-
+import { getResourceByProjectAndName, getServiceRecord } from "../../routers/service/queries";
 import { resolveServiceEnv } from "./resolver";
 const PROJECT_ID = "project_1" as ProjectId;
 const RESOURCE_ID = "resource_api" as ResourceId;
@@ -93,9 +89,7 @@ describe("resolveServiceEnv", () => {
 
     expect(result.isOk()).toBe(true);
     if (result.isErr()) return;
-    expect(result.value.DATABASE_URL).toBe(
-      "postgres://appuser:secret@appdb.internal:5432/appdb",
-    );
+    expect(result.value.DATABASE_URL).toBe("postgres://appuser:secret@appdb.internal:5432/appdb");
   });
 
   it("substitutes multiple refs inside a single value", async () => {
@@ -108,8 +102,7 @@ describe("resolveServiceEnv", () => {
           id: "v1",
           serviceResourceId: "resource_api",
           key: "URL",
-          value:
-            "postgres://${{db.PGUSER}}:${{db.PGPASSWORD}}@${{db.PGHOST}}/${{db.PGDATABASE}}",
+          value: "postgres://${{db.PGUSER}}:${{db.PGPASSWORD}}@${{db.PGHOST}}/${{db.PGDATABASE}}",
         },
       ],
     });
@@ -221,13 +214,11 @@ describe("resolveServiceEnv", () => {
       ],
     };
 
-    (getServiceRecord as unknown as Mock).mockImplementation(
-      async (_pid: string, rid: string) => {
-        if (rid === "resource_api") return apiRecord;
-        if (rid === "resource_web") return webRecord;
-        return undefined;
-      },
-    );
+    (getServiceRecord as unknown as Mock).mockImplementation(async (_pid: string, rid: string) => {
+      if (rid === "resource_api") return apiRecord;
+      if (rid === "resource_web") return webRecord;
+      return undefined;
+    });
 
     (getResourceByProjectAndName as unknown as Mock).mockImplementation(
       async (_pid: string, name: string) => {

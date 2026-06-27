@@ -1,8 +1,7 @@
-import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
-
 import { defineCommand } from "citty";
 import { consola } from "consola";
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 import { ensureAuthenticated } from "../auth-flow";
 import { createCliClient } from "../client";

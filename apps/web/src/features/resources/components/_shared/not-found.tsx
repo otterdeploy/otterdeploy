@@ -3,8 +3,8 @@
  * live resource collection.
  */
 
-import { HugeiconsIcon } from "@hugeicons/react";
 import { Database02Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -15,13 +15,7 @@ import {
   EmptyTitle,
 } from "@/shared/components/ui/empty";
 
-export function NotFound({
-  id,
-  onClose,
-}: {
-  id: string;
-  onClose: () => void;
-}) {
+export function NotFound({ id, onClose }: { id: string; onClose: () => void }) {
   return (
     <Empty className="h-full">
       <EmptyHeader>
@@ -32,8 +26,7 @@ export function NotFound({
         />
         <EmptyTitle>Resource not found</EmptyTitle>
         <EmptyDescription>
-          No resource with id <span className="font-mono">{id}</span> exists in
-          this project.
+          No resource with id <span className="font-mono">{id}</span> exists in this project.
         </EmptyDescription>
       </EmptyHeader>
       <EmptyContent>

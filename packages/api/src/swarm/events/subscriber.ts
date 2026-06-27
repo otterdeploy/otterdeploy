@@ -22,15 +22,14 @@
  * authoritative answers (snapshot-then-watch pattern).
  */
 
-import { EventEmitter } from "node:events";
-
 import { Docker } from "@otterdeploy/docker";
 import { log } from "evlog";
+import { EventEmitter } from "node:events";
+
+import type { DockerEvent } from "./types";
 
 import { readLines } from "../stream-parse";
-
 import { normalizeDockerEvent } from "./normalize";
-import type { DockerEvent } from "./types";
 
 type Listener = (event: DockerEvent) => void;
 

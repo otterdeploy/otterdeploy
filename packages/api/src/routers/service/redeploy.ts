@@ -4,14 +4,14 @@
  * `${{<name>.<VAR>}}` env tokens).
  */
 import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { RequestLogger } from "evlog";
 
 import { Result } from "better-result";
 
-import { findTransitiveDependents, resolveServiceEnv } from "../../lib/variables";
 import type { SwarmServiceRuntime } from "../../swarm";
-import { runtime } from "../../runtime";
-import type { RequestLogger } from "evlog";
 
+import { findTransitiveDependents, resolveServiceEnv } from "../../lib/variables";
+import { runtime } from "../../runtime";
 import { ServiceNotFoundError, type ResolveError } from "./errors";
 import {
   bumpForceUpdateCounter,
@@ -47,20 +47,13 @@ export async function provisionFresh(
     });
   }
 
-  const resolved = await resolveServiceEnv(
-    projectId,
-    record.service.resourceId as ResourceId,
-  );
+  const resolved = await resolveServiceEnv(projectId, record.service.resourceId as ResourceId);
   if (resolved.isErr()) {
     await updateServiceResourceStatus(record.service.resourceId, "invalid");
     return Result.err(resolved.error);
   }
 
-  const swarmSpec = await buildSwarmSpec(
-    record,
-    resolved.value,
-    sanitizeSlug(projectSlug),
-  );
+  const swarmSpec = await buildSwarmSpec(record, resolved.value, sanitizeSlug(projectSlug));
   // provisionSwarmService THROWS on any Docker/Swarm infra error (no
   // reachable manager, network create failure, …). Letting that escape
   // would crash the whole `manifest.apply` (a single unreachable swarm →
@@ -128,16 +121,9 @@ export async function redeployOne(
     return Result.err(resolved.error);
   }
 
-  const swarmSpec = await buildSwarmSpec(
-    record,
-    resolved.value,
-    sanitizeSlug(projectSlug),
-  );
+  const swarmSpec = await buildSwarmSpec(record, resolved.value, sanitizeSlug(projectSlug));
   const result = await runtime().update(swarmSpec, log);
-  await updateServiceResourceStatus(
-    resourceId,
-    result.status === "error" ? "invalid" : "valid",
-  );
+  await updateServiceResourceStatus(resourceId, result.status === "error" ? "invalid" : "valid");
 
   return Result.ok(result);
 }
@@ -163,12 +149,7 @@ export async function redeployAndFanOut(
   log.set({ fanout: { count: dependents.length } });
 
   for (const depId of dependents) {
-    const depResult = await redeployOne(
-      projectId,
-      depId as ResourceId,
-      projectSlug,
-      log,
-    );
+    const depResult = await redeployOne(projectId, depId as ResourceId, projectSlug, log);
     if (depResult.isErr()) {
       // One failed dependent shouldn't undo the rest, but we surface the first error.
       return Result.err(depResult.error);

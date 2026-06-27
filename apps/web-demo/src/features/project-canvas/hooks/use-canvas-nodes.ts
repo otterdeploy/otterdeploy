@@ -1,5 +1,5 @@
-import type { CanvasNode } from "../types";
 import type { DatabaseFromApi, ProxyRouteFromApi } from "../api/schema";
+import type { CanvasNode } from "../types";
 
 const GROUP_ID = "group:data";
 const ROUTING_ID = "node:routing";

@@ -1,15 +1,15 @@
 "use client";
 
-import { OTPInput, OTPInputContext } from "input-otp";
 import type * as React from "react";
 import { useContext } from "react";
-import { cn } from "@/lib/utils";
+
+import { OTPInput, OTPInputContext } from "input-otp";
+
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 
 type InputOTPSize = "default" | "lg";
-type DistributiveOmit<T, K extends PropertyKey> = T extends unknown
-  ? Omit<T, K>
-  : never;
+type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 
 export type InputOTPProps = DistributiveOmit<
   React.ComponentProps<typeof OTPInput>,
@@ -68,7 +68,7 @@ export function InputOTPSlot({
   return (
     <div
       className={cn(
-        "relative inline-flex in-[[data-slot=input-otp-group][data-size=lg]]:size-10 size-9 items-center justify-center rounded-lg border border-input bg-background not-dark:bg-clip-padding in-[[data-slot=input-otp-group][data-size=lg]]:text-lg text-base text-foreground shadow-xs/5 outline-none ring-ring/24 transition-shadow before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-lg)-1px)] not-data-[active=true]:not-aria-invalid:before:shadow-[0_1px_--theme(--color-black/4%)] aria-invalid:border-destructive/36 data-[active=true]:z-10 data-[active=true]:border-ring data-[active=true]:ring-[3px] data-[active=true]:ring-ring/24 data-[active=true]:aria-invalid:border-destructive/64 data-[active=true]:aria-invalid:ring-destructive/16 sm:in-[[data-slot=input-otp-group][data-size=lg]]:size-9 sm:size-8 sm:in-[[data-slot=input-otp-group][data-size=lg]]:text-base sm:text-sm dark:bg-input/32 dark:data-[active=true]:aria-invalid:ring-destructive/24 dark:not-data-[active=true]:not-aria-invalid:before:shadow-[0_-1px_--theme(--color-white/6%)] [[data-active=true],[aria-invalid]]:shadow-none",
+        "relative inline-flex size-9 items-center justify-center rounded-lg border border-input bg-background text-base text-foreground shadow-xs/5 ring-ring/24 transition-shadow outline-none not-dark:bg-clip-padding before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-lg)-1px)] not-data-[active=true]:not-aria-invalid:before:shadow-[0_1px_--theme(--color-black/4%)] in-[[data-slot=input-otp-group][data-size=lg]]:size-10 in-[[data-slot=input-otp-group][data-size=lg]]:text-lg aria-invalid:border-destructive/36 data-[active=true]:z-10 data-[active=true]:border-ring data-[active=true]:ring-[3px] data-[active=true]:ring-ring/24 data-[active=true]:aria-invalid:border-destructive/64 data-[active=true]:aria-invalid:ring-destructive/16 sm:size-8 sm:text-sm sm:in-[[data-slot=input-otp-group][data-size=lg]]:size-9 sm:in-[[data-slot=input-otp-group][data-size=lg]]:text-base dark:bg-input/32 dark:not-data-[active=true]:not-aria-invalid:before:shadow-[0_-1px_--theme(--color-white/6%)] dark:data-[active=true]:aria-invalid:ring-destructive/24 [[data-active=true],[aria-invalid]]:shadow-none",
         className,
       )}
       data-active={isActive ? true : undefined}

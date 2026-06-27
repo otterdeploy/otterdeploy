@@ -21,11 +21,7 @@ import {
   SelectValue,
 } from "@/shared/components/ui/select";
 
-import {
-  JoinTokenPanel,
-  ManagerAddressChip,
-  type JoinRole,
-} from "./join-token-panel";
+import { JoinTokenPanel, ManagerAddressChip, type JoinRole } from "./join-token-panel";
 
 interface Props {
   open: boolean;
@@ -80,9 +76,7 @@ function JoinForm({ onDone }: { onDone: () => void }) {
 
       onDone();
       tx.isPersisted.promise.catch((err: unknown) =>
-        toast.error(
-          err instanceof Error ? err.message : "Failed to register server",
-        ),
+        toast.error(err instanceof Error ? err.message : "Failed to register server"),
       );
     },
   });
@@ -103,9 +97,9 @@ function JoinForm({ onDone }: { onDone: () => void }) {
       <div className="flex flex-col gap-5">
         <section className="flex flex-col gap-3">
           <p className="text-sm text-muted-foreground">
-            <span className="font-semibold text-foreground">1.</span> SSH into the new host,
-            install Docker, then run the join command below. The node will register with the
-            swarm manager at <ManagerAddressChip />.
+            <span className="font-semibold text-foreground">1.</span> SSH into the new host, install
+            Docker, then run the join command below. The node will register with the swarm manager
+            at <ManagerAddressChip />.
           </p>
           <JoinTokenPanel role={role} onRoleChange={setRole} />
         </section>
@@ -114,8 +108,8 @@ function JoinForm({ onDone }: { onDone: () => void }) {
 
         <section className="flex flex-col gap-3">
           <p className="text-sm text-muted-foreground">
-            <span className="font-semibold text-foreground">2.</span> After the daemon reports
-            back, fill in the metadata so it shows up in the right rotation.
+            <span className="font-semibold text-foreground">2.</span> After the daemon reports back,
+            fill in the metadata so it shows up in the right rotation.
           </p>
 
           <div className="grid grid-cols-2 gap-3">
@@ -181,13 +175,7 @@ function JoinForm({ onDone }: { onDone: () => void }) {
           Otterdeploy will retry SSH every 10s until the daemon answers.
         </span>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8"
-            type="button"
-            onClick={onDone}
-          >
+          <Button variant="outline" size="sm" className="h-8" type="button" onClick={onDone}>
             Cancel
           </Button>
           <form.Subscribe selector={(s) => s.canSubmit}>

@@ -17,11 +17,7 @@ import { projectIdField, resourceIdField } from "./shared";
 // Env-key shape — Postgres-image friendly (libc convention). The derived
 // POSTGRES_USER / PASSWORD / DB keys are reserved: setting them via the editor
 // is rejected so the database identity stays a single source of truth.
-const POSTGRES_RESERVED_ENV_KEYS = new Set([
-  "POSTGRES_DB",
-  "POSTGRES_USER",
-  "POSTGRES_PASSWORD",
-]);
+const POSTGRES_RESERVED_ENV_KEYS = new Set(["POSTGRES_DB", "POSTGRES_USER", "POSTGRES_PASSWORD"]);
 const envKeyShape = z
   .string()
   .min(1)
@@ -56,7 +52,16 @@ export const createPostgresDatabaseInput = z.object({
    *  with the original postgres-only contract; the wizard sends the
    *  user's selection explicitly. */
   engine: z
-    .enum(["postgres", "redis", "mariadb", "mongodb", "clickhouse", "rabbitmq", "minio", "meilisearch"])
+    .enum([
+      "postgres",
+      "redis",
+      "mariadb",
+      "mongodb",
+      "clickhouse",
+      "rabbitmq",
+      "minio",
+      "meilisearch",
+    ])
     .optional()
     .default("postgres"),
   /** Whether the DB should be reachable from the public internet via the
@@ -136,8 +141,6 @@ export const createPostgresProgressSchema = z.discriminatedUnion("type", [
   }),
 ]);
 
-
-
 /** Flip the public-exposure flag on an existing postgres resource. The
  *  Caddy reconciler runs after the toggle so the route state catches up. */
 export const setPostgresPublicInput = z.object({
@@ -167,7 +170,16 @@ const draftCredentialsInput = z.object({
   /** Manifest resource name (the `databases[name]` key). */
   name: z.string().min(1),
   engine: z
-    .enum(["postgres", "redis", "mariadb", "mongodb", "clickhouse", "rabbitmq", "minio", "meilisearch"])
+    .enum([
+      "postgres",
+      "redis",
+      "mariadb",
+      "mongodb",
+      "clickhouse",
+      "rabbitmq",
+      "minio",
+      "meilisearch",
+    ])
     .optional()
     .default("postgres"),
 });
@@ -180,10 +192,6 @@ const draftCredentialsOutput = z.object({
   internalPort: z.number().int(),
   internalConnectionString: z.string(),
 });
-
-
-
-
 
 export const postgresContractSlice = {
   // Streaming create — yields per-step progress events as the

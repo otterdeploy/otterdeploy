@@ -57,11 +57,7 @@ export {
 
 export { listProjectDependencies, type DependencyEdge } from "./dependencies";
 
-export {
-  listProjectServiceTasks,
-  type ServiceTasks,
-  type ServiceTaskInfo,
-} from "./service-tasks";
+export { listProjectServiceTasks, type ServiceTasks, type ServiceTaskInfo } from "./service-tasks";
 
 export {
   createDeploymentBypassToken,
@@ -87,8 +83,4 @@ export {
   upsertProjectEnvVarForOrg,
 } from "./env-var";
 
-export type {
-  PostgresResource,
-  Project,
-  ProxyRoute,
-} from "./views";
+export type { PostgresResource, Project, ProxyRoute } from "./views";

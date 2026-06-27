@@ -13,6 +13,7 @@ import {
 import { cn } from "@/shared/lib/utils";
 
 import type { Destination } from "./data/destinations";
+
 import { ALL_PROJECTS, type BackupKind, Segmented } from "./shared";
 
 export function BackupsFilters({
@@ -77,11 +78,7 @@ export function BackupsFilters({
         ]}
       />
 
-      <Select
-        items={destItems}
-        value={destFilter}
-        onValueChange={(v) => onDestFilter(v ?? "all")}
-      >
+      <Select items={destItems} value={destFilter} onValueChange={(v) => onDestFilter(v ?? "all")}>
         <SelectTrigger size="sm" className="w-44 text-xs">
           <SelectValue />
         </SelectTrigger>

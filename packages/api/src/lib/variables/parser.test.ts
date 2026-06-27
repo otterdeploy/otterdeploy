@@ -7,9 +7,7 @@ describe("parseValue", () => {
     const result = parseValue("postgres://localhost:5432/db");
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.tokens).toEqual([
-      { kind: "literal", value: "postgres://localhost:5432/db" },
-    ]);
+    expect(result.tokens).toEqual([{ kind: "literal", value: "postgres://localhost:5432/db" }]);
   });
 
   it("parses a bare reference", () => {
@@ -42,9 +40,7 @@ describe("parseValue", () => {
     if (!result.ok) return;
     const literals = result.tokens.filter((t) => t.kind === "literal");
     const refs = result.tokens.filter((t) => t.kind === "ref");
-    expect(literals.map((t) => t.value).join("")).toBe(
-      "${{not.A_REF}} and ",
-    );
+    expect(literals.map((t) => t.value).join("")).toBe("${{not.A_REF}} and ");
     expect(refs).toHaveLength(1);
     if (refs[0]?.kind !== "ref") return;
     expect(refs[0].resource).toBe("actual");
@@ -81,9 +77,7 @@ describe("parseValue", () => {
 
 describe("extractRefs", () => {
   it("returns deduped refs", () => {
-    const refs = extractRefs(
-      "${{db.PGUSER}}-${{db.PGUSER}}-${{db.PGHOST}}-${{other.URL}}",
-    );
+    const refs = extractRefs("${{db.PGUSER}}-${{db.PGUSER}}-${{db.PGHOST}}-${{other.URL}}");
     expect(refs).toHaveLength(3);
     expect(refs.map((r) => `${r.resource}.${r.var}`).sort()).toEqual([
       "db.PGHOST",

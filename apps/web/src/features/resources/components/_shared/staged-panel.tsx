@@ -10,14 +10,15 @@
  * resolves to the real panel automatically.
  */
 
-import { HugeiconsIcon } from "@hugeicons/react";
 import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 
-import { Button } from "@/shared/components/ui/button";
 import type {
   ResourceEngine,
   ResourceNodeData,
 } from "@/features/projects/components/graph/resource-node";
+
+import { Button } from "@/shared/components/ui/button";
 
 import { PanelIcon, SectionLabel } from "./atoms";
 
@@ -57,7 +58,10 @@ function rows(c: StagedCreate): Array<{ label: string; value: string }> {
 
   if (c.resource === "service") {
     const source = typeof d.source === "string" ? d.source : undefined;
-    push("Source", source === "git" ? "Git repository" : source === "image" ? "Container image" : source);
+    push(
+      "Source",
+      source === "git" ? "Git repository" : source === "image" ? "Container image" : source,
+    );
     push("Image", typeof d.image === "string" ? d.image : undefined);
     push("Subdirectory", typeof d.sourceSubdir === "string" ? d.sourceSubdir : undefined);
     push("Replicas", typeof d.replicas === "number" ? String(d.replicas) : undefined);
@@ -123,9 +127,7 @@ export function StagedResourcePanel({
           </Button>
           <PanelIcon node={node} />
           <div className="flex flex-col gap-0.5">
-            <span className="text-xl font-bold leading-none tracking-tight">
-              {change.name}
-            </span>
+            <span className="text-xl leading-none font-bold tracking-tight">{change.name}</span>
             <span className="font-mono text-xs text-muted-foreground capitalize">
               {change.resource}
             </span>
@@ -139,8 +141,8 @@ export function StagedResourcePanel({
 
       <div className="flex flex-col gap-5 overflow-auto px-6 pt-6 pb-8">
         <p className="text-sm text-foreground/70">
-          This {change.resource} is staged and hasn&apos;t been applied yet. Deploy
-          the pending changes to create it.
+          This {change.resource} is staged and hasn&apos;t been applied yet. Deploy the pending
+          changes to create it.
         </p>
 
         {fields.length > 0 && (
@@ -155,9 +157,7 @@ export function StagedResourcePanel({
                   }`}
                 >
                   <dt className="text-muted-foreground">{f.label}</dt>
-                  <dd className="truncate text-right font-mono text-foreground">
-                    {f.value}
-                  </dd>
+                  <dd className="truncate text-right font-mono text-foreground">{f.value}</dd>
                 </div>
               ))}
             </dl>

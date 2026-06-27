@@ -8,6 +8,7 @@ import { toast } from "sonner";
 
 import type { Destination } from "./data/destinations";
 import type { Schedule } from "./data/schedules";
+
 import { schedulesCollection } from "./data/schedules";
 
 export type CronPreset = "hourly" | "daily" | "weekly" | "monthly" | "custom";
@@ -20,10 +21,7 @@ export const PRESET_CRON: Record<Exclude<CronPreset, "custom">, string> = {
 };
 
 function presetFromCron(cron: string): CronPreset {
-  const entries = Object.entries(PRESET_CRON) as [
-    Exclude<CronPreset, "custom">,
-    string,
-  ][];
+  const entries = Object.entries(PRESET_CRON) as [Exclude<CronPreset, "custom">, string][];
   return entries.find(([, c]) => c === cron)?.[0] ?? "custom";
 }
 
@@ -79,10 +77,8 @@ function scheduleDefaults(
     keepWeekly: initial.keepWeekly,
     keepMonthly: initial.keepMonthly,
     keepYearly: initial.keepYearly,
-    retentionDays:
-      initial.retentionDays != null ? String(initial.retentionDays) : "",
-    maxStorageGb:
-      initial.maxStorageGb != null ? String(initial.maxStorageGb) : "",
+    retentionDays: initial.retentionDays != null ? String(initial.retentionDays) : "",
+    maxStorageGb: initial.maxStorageGb != null ? String(initial.maxStorageGb) : "",
     preHook: initial.preHook ?? "",
     destinationIds: initial.destinationIds,
     encryptionNone: initial.encryption === "none",
@@ -101,9 +97,7 @@ function saveSchedule(
   const retentionDays = value.retentionDays.trim()
     ? Math.max(1, Number(value.retentionDays))
     : null;
-  const maxStorageGb = value.maxStorageGb.trim()
-    ? Math.max(1, Number(value.maxStorageGb))
-    : null;
+  const maxStorageGb = value.maxStorageGb.trim() ? Math.max(1, Number(value.maxStorageGb)) : null;
   const preHook = value.preHook.trim() || null;
 
   if (initial) {
@@ -169,9 +163,7 @@ export function useScheduleForm({
       const tx = saveSchedule(initial, organizationId, value, destinations);
       onClose();
       tx.isPersisted.promise
-        .then(() =>
-          toast.success(editing ? "Schedule updated" : "Schedule created"),
-        )
+        .then(() => toast.success(editing ? "Schedule updated" : "Schedule created"))
         .catch((err: unknown) =>
           toast.error(err instanceof Error ? err.message : "Couldn't save schedule"),
         );

@@ -96,7 +96,5 @@ function inCidr(ip: string, cidr: string): boolean {
 /** True when the address sits in any published Cloudflare edge range. */
 export function isCloudflareIp(ip: string): boolean {
   const isV6 = ip.includes(":");
-  return CLOUDFLARE_CIDRS.some(
-    (cidr) => cidr.includes(":") === isV6 && inCidr(ip, cidr),
-  );
+  return CLOUDFLARE_CIDRS.some((cidr) => cidr.includes(":") === isV6 && inCidr(ip, cidr));
 }

@@ -12,15 +12,19 @@
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { SettingsCard } from "@/features/resources/components/_shared/settings-card";
 import { Switch } from "@/shared/components/ui/switch";
 import { orpc, queryClient } from "@/shared/server/orpc";
-
-import { SettingsCard } from "@/features/resources/components/_shared/settings-card";
 
 export function ServicePublicAccessCard({
   resource,
 }: {
-  resource: { projectId: string; resourceId: string; publicEnabled: boolean; publicDomain: string | null };
+  resource: {
+    projectId: string;
+    resourceId: string;
+    publicEnabled: boolean;
+    publicDomain: string | null;
+  };
 }) {
   const onSettled = async () => {
     await Promise.all([

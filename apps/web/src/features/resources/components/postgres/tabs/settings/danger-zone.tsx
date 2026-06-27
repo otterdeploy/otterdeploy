@@ -6,9 +6,12 @@
  */
 
 import { useState } from "react";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { Delete02Icon } from "@hugeicons/core-free-icons";
 
+import { Delete02Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+
+import { useStageManifestChange } from "@/features/projects/hooks/use-manifest-stage";
+import { SettingsCard } from "@/features/resources/components/_shared/settings-card";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,9 +26,7 @@ import {
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 
-import { useStageManifestChange } from "@/features/projects/hooks/use-manifest-stage";
 import type { PostgresBodyProps } from "../../types";
-import { SettingsCard } from "@/features/resources/components/_shared/settings-card";
 
 interface DangerZoneProps {
   resource: PostgresBodyProps["resource"];
@@ -57,12 +58,10 @@ export function DangerZone({ resource, onDeleted }: DangerZoneProps) {
     >
       <div className="flex items-center justify-between gap-3 px-3 py-2.5">
         <div className="flex flex-col">
-          <span className="text-[13px] font-medium text-destructive">
-            Delete this database
-          </span>
+          <span className="text-[13px] font-medium text-destructive">Delete this database</span>
           <span className="text-[11px] text-muted-foreground">
-            All data in <span className="font-mono">{resource.databaseName}</span>{" "}
-            will be unrecoverable.
+            All data in <span className="font-mono">{resource.databaseName}</span> will be
+            unrecoverable.
           </span>
         </div>
         <AlertDialog
@@ -77,11 +76,7 @@ export function DangerZone({ resource, onDeleted }: DangerZoneProps) {
                 size="sm"
                 className="gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
               >
-                <HugeiconsIcon
-                  icon={Delete02Icon}
-                  strokeWidth={2}
-                  className="size-3.5"
-                />
+                <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} className="size-3.5" />
                 Delete
               </Button>
             }
@@ -90,10 +85,8 @@ export function DangerZone({ resource, onDeleted }: DangerZoneProps) {
             <AlertDialogHeader>
               <AlertDialogTitle>Delete {resource.name}?</AlertDialogTitle>
               <AlertDialogDescription>
-                This permanently destroys the database, its volume, and the
-                associated proxy route. Type{" "}
-                <span className="font-mono text-foreground">{resource.name}</span>{" "}
-                to confirm.
+                This permanently destroys the database, its volume, and the associated proxy route.
+                Type <span className="font-mono text-foreground">{resource.name}</span> to confirm.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <Input
@@ -106,11 +99,7 @@ export function DangerZone({ resource, onDeleted }: DangerZoneProps) {
             <AlertDialogFooter>
               <AlertDialogCancel
                 render={
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={deleteMutation.isPending}
-                  >
+                  <Button variant="outline" size="sm" disabled={deleteMutation.isPending}>
                     Cancel
                   </Button>
                 }

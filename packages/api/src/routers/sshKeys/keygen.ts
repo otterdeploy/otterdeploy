@@ -56,9 +56,7 @@ export class InvalidPublicKeyError extends Error {
   }
 }
 
-async function run(
-  args: string[],
-): Promise<{ code: number; stdout: string; stderr: string }> {
+async function run(args: string[]): Promise<{ code: number; stdout: string; stderr: string }> {
   const proc = Bun.spawn(["ssh-keygen", ...args], {
     stdout: "pipe",
     stderr: "pipe",
@@ -93,15 +91,10 @@ function parseFingerprintLine(line: string): ParsedPublicKey {
         : rawType.startsWith("ecdsa")
           ? "ecdsa"
           : (() => {
-              throw new InvalidPublicKeyError(
-                `Unsupported key type "${rawType}".`,
-              );
+              throw new InvalidPublicKeyError(`Unsupported key type "${rawType}".`);
             })();
   // The comment is everything between the fingerprint and the trailing "(TYPE)".
-  const after = trimmed.slice(
-    (fpMatch.index ?? 0) + fpMatch[0].length,
-    typeMatch.index,
-  );
+  const after = trimmed.slice((fpMatch.index ?? 0) + fpMatch[0].length, typeMatch.index);
   const comment = after.trim() || null;
   const bits = type === "ed25519" ? null : bitsMatch ? Number(bitsMatch[1]) : null;
   return { type, bits, fingerprint: fpMatch[0], comment };
@@ -133,9 +126,7 @@ export async function generateKeyPair(opts: {
     }
     const { code, stderr } = await run(args);
     if (code !== 0) {
-      throw new SshKeygenError(
-        stderr.trim() || `ssh-keygen exited with code ${code}`,
-      );
+      throw new SshKeygenError(stderr.trim() || `ssh-keygen exited with code ${code}`);
     }
     const [privateKey, publicKey] = await Promise.all([
       readFile(keyPath, "utf8"),
@@ -163,9 +154,9 @@ export async function generateKeyPair(opts: {
  * Validate a pasted public-key line and extract its type / bits / fingerprint /
  * comment. Throws `InvalidPublicKeyError` if `ssh-keygen` won't parse it.
  */
-export async function parsePublicKey(publicKey: string): Promise<
-  ParsedPublicKey & { publicKey: string }
-> {
+export async function parsePublicKey(
+  publicKey: string,
+): Promise<ParsedPublicKey & { publicKey: string }> {
   const line = publicKey.trim();
   if (!line) throw new InvalidPublicKeyError("Empty public key.");
   const dir = await mkdtemp(join(tmpdir(), "otter-sshpub-"));

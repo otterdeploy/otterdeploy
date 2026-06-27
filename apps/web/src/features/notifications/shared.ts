@@ -5,10 +5,7 @@
  * PLATFORM_EVENTS (packages/api/src/routers/notifications/events.ts) — the ids
  * MUST stay in lockstep.
  */
-import type {
-  channelsCollection,
-  subscriptionsCollection,
-} from "./data/notifications";
+import type { channelsCollection, subscriptionsCollection } from "./data/notifications";
 
 export type Channel = (typeof channelsCollection.toArray)[number];
 export type Subscription = (typeof subscriptionsCollection.toArray)[number];

@@ -24,16 +24,16 @@
  * must never fail a build.
  */
 
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
-
 import {
   detectFrameworkFromPkg,
   type FrameworkKind,
   type PackageJsonLike,
 } from "@otterdeploy/shared/framework";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 
 import type { LogSink } from "./log-stream";
+
 import { RAILPACK_INFO_FILE } from "./railpack";
 
 /** Shape of the bits of `railpack-info.json` we read. railpack emits more

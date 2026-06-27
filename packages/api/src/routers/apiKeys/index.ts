@@ -1,3 +1,4 @@
+import { ORPCError } from "@orpc/server";
 /**
  * API keys router. A single server-side `create` that delegates to the
  * better-auth apiKey plugin's server instance so it can set the (server-only)
@@ -9,7 +10,6 @@
  * shows it and discards it; it's never persisted in readable form.
  */
 import { auth } from "@otterdeploy/auth";
-import { ORPCError } from "@orpc/server";
 
 import { requirePermission } from "../..";
 

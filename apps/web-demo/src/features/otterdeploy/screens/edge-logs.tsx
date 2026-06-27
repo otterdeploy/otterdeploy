@@ -3,8 +3,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { I } from "../icons";
 import { rid, rint, ts } from "../data";
+import { I } from "../icons";
 
 type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 type StatusBucket = "2xx" | "3xx" | "4xx" | "5xx";
@@ -55,18 +55,49 @@ interface LogLine {
 }
 
 const PATHS_BY_HOST: Record<string, string[]> = {
-  "helio.so": ["/", "/pricing", "/blog/why-helio", "/login", "/signup", "/_next/static/chunks/main.js", "/og.png"],
-  "api.helio.so": ["/v1/charges", "/v1/users/me", "/healthz", "/v1/teams", "/v1/webhooks/stripe", "/v1/projects"],
-  "img.helio.so": ["/resize:fit:800/blog/cover.jpg", "/resize:fit:200/avatars/u-mira.png", "/optimize/og.png"],
+  "helio.so": [
+    "/",
+    "/pricing",
+    "/blog/why-helio",
+    "/login",
+    "/signup",
+    "/_next/static/chunks/main.js",
+    "/og.png",
+  ],
+  "api.helio.so": [
+    "/v1/charges",
+    "/v1/users/me",
+    "/healthz",
+    "/v1/teams",
+    "/v1/webhooks/stripe",
+    "/v1/projects",
+  ],
+  "img.helio.so": [
+    "/resize:fit:800/blog/cover.jpg",
+    "/resize:fit:200/avatars/u-mira.png",
+    "/optimize/og.png",
+  ],
   "staging.helio.so": ["/", "/admin", "/healthz", "/api/preview"],
 };
 
 const UA_POOL: Array<{ short: string; full: string }> = [
-  { short: "Chrome 130 / macOS", full: "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36" },
-  { short: "Safari 18 / iOS", full: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1" },
-  { short: "Firefox 131 / Linux", full: "Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0" },
+  {
+    short: "Chrome 130 / macOS",
+    full: "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+  },
+  {
+    short: "Safari 18 / iOS",
+    full: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",
+  },
+  {
+    short: "Firefox 131 / Linux",
+    full: "Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0",
+  },
   { short: "curl/8.7", full: "curl/8.7.1" },
-  { short: "GoogleBot", full: "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)" },
+  {
+    short: "GoogleBot",
+    full: "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+  },
   { short: "stripe-webhook", full: "Stripe/1.0 (+https://stripe.com/docs/webhooks)" },
   { short: "node-fetch/3", full: "node-fetch/3.3.2 (+https://github.com/node-fetch/node-fetch)" },
 ];
@@ -84,7 +115,16 @@ const COUNTRIES: Array<{ flag: string; code: string }> = [
   { flag: "🇦🇺", code: "AU" },
 ];
 
-const UPSTREAMS = ["web.r1", "web.r2", "web.r3", "api.r1", "api.r2", "api.r3", "api.r4", "imgproxy.r1"];
+const UPSTREAMS = [
+  "web.r1",
+  "web.r2",
+  "web.r3",
+  "api.r1",
+  "api.r2",
+  "api.r3",
+  "api.r4",
+  "imgproxy.r1",
+];
 
 function pickStatus(): number {
   const r = Math.random();
@@ -137,13 +177,16 @@ function genLine(): LogLine {
     flag: country.flag,
     referer: Math.random() < 0.4 ? "-" : `https://${HOSTS[rint(0, HOSTS.length)]}${path}`,
     reqId: `req_${rid()}${rid()}`,
-    tlsCipher: ["TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384", "TLS_CHACHA20_POLY1305_SHA256"][rint(0, 3)]!,
+    tlsCipher: ["TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384", "TLS_CHACHA20_POLY1305_SHA256"][
+      rint(0, 3)
+    ]!,
     tlsVersion: Math.random() < 0.92 ? "TLSv1.3" : "TLSv1.2",
     upstream,
     upstreamLatency: Math.max(2, latency - rint(2, 18)),
     reqBytes: rint(180, 2400),
     resBytes: status >= 400 ? rint(120, 800) : rint(800, 184000),
-    cache: method === "GET" && Math.random() < 0.35 ? "HIT" : Math.random() < 0.05 ? "BYPASS" : "MISS",
+    cache:
+      method === "GET" && Math.random() < 0.35 ? "HIT" : Math.random() < 0.05 ? "BYPASS" : "MISS",
   };
 }
 
@@ -186,7 +229,10 @@ export function EdgeLogs() {
   );
 
   const histo = useMemo(() => {
-    const buckets = Array.from({ length: 60 }, () => ({ "2xx": 0, "3xx": 0, "4xx": 0, "5xx": 0 } as Record<StatusBucket, number>));
+    const buckets = Array.from(
+      { length: 60 },
+      () => ({ "2xx": 0, "3xx": 0, "4xx": 0, "5xx": 0 }) as Record<StatusBucket, number>,
+    );
     let s = 7;
     const rng = () => {
       s = (s * 9301 + 49297) % 233280;
@@ -217,7 +263,8 @@ export function EdgeLogs() {
     return HOSTS.map((h) => {
       const a = acc[h]!;
       const sorted = [...a.lat].sort((x, y) => x - y);
-      const pick = (p: number) => sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * p))] ?? 0;
+      const pick = (p: number) =>
+        sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * p))] ?? 0;
       return {
         host: h,
         rps: +(a.n / 60).toFixed(2),
@@ -243,10 +290,14 @@ export function EdgeLogs() {
       <div style={{ padding: "16px 20px 10px", borderBottom: "1px solid var(--border)" }}>
         <div className="row gap-2" style={{ alignItems: "baseline" }}>
           <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Edge access logs</h2>
-          <span className="badge live ok"><span className="dot" />{paused ? "paused" : "live tail"}</span>
+          <span className="badge live ok">
+            <span className="dot" />
+            {paused ? "paused" : "live tail"}
+          </span>
         </div>
         <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-          Every HTTP request that hit the Caddy edge proxy. Live tailing from Caddy&apos;s structured access log.
+          Every HTTP request that hit the Caddy edge proxy. Live tailing from Caddy&apos;s
+          structured access log.
         </div>
       </div>
 
@@ -380,7 +431,9 @@ export function EdgeLogs() {
         >
           <option value="all">All hosts</option>
           {HOSTS.map((h) => (
-            <option key={h} value={h}>{h}</option>
+            <option key={h} value={h}>
+              {h}
+            </option>
           ))}
         </select>
 
@@ -404,9 +457,13 @@ export function EdgeLogs() {
       {/* Volume histogram */}
       <div style={{ padding: "12px 18px 8px", borderBottom: "1px solid var(--border)" }}>
         <div className="row" style={{ marginBottom: 6, fontSize: 11 }}>
-          <span className="muted" style={{ textTransform: "uppercase", letterSpacing: "0.06em" }}>Volume</span>
+          <span className="muted" style={{ textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            Volume
+          </span>
           <div style={{ flex: 1 }} />
-          <span className="mono muted">{lines.length} loaded · {filtered.length} match</span>
+          <span className="mono muted">
+            {lines.length} loaded · {filtered.length} match
+          </span>
         </div>
         <div style={{ display: "flex", alignItems: "flex-end", gap: 1, height: 52 }}>
           {histo.map((b, i) => {
@@ -415,12 +472,22 @@ export function EdgeLogs() {
             return (
               <div
                 key={i}
-                style={{ flex: 1, height: h, display: "flex", flexDirection: "column-reverse", minHeight: 1 }}
+                style={{
+                  flex: 1,
+                  height: h,
+                  display: "flex",
+                  flexDirection: "column-reverse",
+                  minHeight: 1,
+                }}
                 title={`${total} requests`}
               >
                 <div style={{ height: `${(b["2xx"] / total) * 100}%`, background: "var(--ok)" }} />
-                <div style={{ height: `${(b["3xx"] / total) * 100}%`, background: "var(--info)" }} />
-                <div style={{ height: `${(b["4xx"] / total) * 100}%`, background: "var(--warn)" }} />
+                <div
+                  style={{ height: `${(b["3xx"] / total) * 100}%`, background: "var(--info)" }}
+                />
+                <div
+                  style={{ height: `${(b["4xx"] / total) * 100}%`, background: "var(--warn)" }}
+                />
                 <div style={{ height: `${(b["5xx"] / total) * 100}%`, background: "var(--err)" }} />
               </div>
             );
@@ -459,7 +526,11 @@ export function EdgeLogs() {
       </div>
 
       {/* Rows */}
-      <div ref={scrollRef} className="os-scroll" style={{ flex: 1, overflow: "auto", background: "var(--bg)" }}>
+      <div
+        ref={scrollRef}
+        className="os-scroll"
+        style={{ flex: 1, overflow: "auto", background: "var(--bg)" }}
+      >
         {filtered.map((l) => (
           <EdgeRow
             key={l.id}
@@ -489,12 +560,21 @@ export function EdgeLogs() {
         {perHost.map((p) => (
           <div key={p.host} className="row gap-3" style={{ flex: "0 0 auto" }}>
             <div>
-              <div className="mono" style={{ fontSize: 11, color: "var(--fg-2)" }}>{p.host}</div>
+              <div className="mono" style={{ fontSize: 11, color: "var(--fg-2)" }}>
+                {p.host}
+              </div>
               <div className="row gap-3" style={{ fontSize: 10, marginTop: 2 }}>
                 <span className="mono muted">{p.rps} rps</span>
                 <span
                   className="mono"
-                  style={{ color: p.errRate >= 2 ? "var(--err)" : p.errRate >= 0.5 ? "var(--warn)" : "var(--fg-3)" }}
+                  style={{
+                    color:
+                      p.errRate >= 2
+                        ? "var(--err)"
+                        : p.errRate >= 0.5
+                          ? "var(--warn)"
+                          : "var(--fg-3)",
+                  }}
                 >
                   {p.errRate}% err
                 </span>
@@ -568,7 +648,15 @@ function EdgeRow({
         >
           {l.status}
         </span>
-        <span style={{ width: 130, color: "var(--fg-2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <span
+          style={{
+            width: 130,
+            color: "var(--fg-2)",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
           {l.host}
         </span>
         <span
@@ -601,14 +689,21 @@ function EdgeRow({
                   display: "block",
                   height: "100%",
                   width: `${latPct}%`,
-                  background: l.latencyMs > 800 ? "var(--err)" : l.latencyMs > 300 ? "var(--warn)" : "var(--fg-4)",
+                  background:
+                    l.latencyMs > 800
+                      ? "var(--err)"
+                      : l.latencyMs > 300
+                        ? "var(--warn)"
+                        : "var(--fg-4)",
                 }}
               />
             </span>
           </div>
         </span>
         <span style={{ width: 110, color: "var(--fg-3)" }}>{l.ip}</span>
-        <span style={{ width: 30, textAlign: "center", fontSize: 13 }} title={l.country}>{l.flag}</span>
+        <span style={{ width: 30, textAlign: "center", fontSize: 13 }} title={l.country}>
+          {l.flag}
+        </span>
         <span
           style={{
             width: 160,
@@ -637,49 +732,67 @@ function EdgeRow({
         >
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 24px" }}>
             <div>
-              <span style={{ color: "var(--fg-3)" }}>request_id    </span>
+              <span style={{ color: "var(--fg-3)" }}>request_id </span>
               <span className="mono">{l.reqId}</span>
             </div>
             <div>
-              <span style={{ color: "var(--fg-3)" }}>cache         </span>
+              <span style={{ color: "var(--fg-3)" }}>cache </span>
               <span
                 className="mono"
                 style={{
                   color:
-                    l.cache === "HIT" ? "var(--ok)" : l.cache === "BYPASS" ? "var(--warn)" : "var(--fg-2)",
+                    l.cache === "HIT"
+                      ? "var(--ok)"
+                      : l.cache === "BYPASS"
+                        ? "var(--warn)"
+                        : "var(--fg-2)",
                 }}
               >
                 {l.cache}
               </span>
             </div>
             <div>
-              <span style={{ color: "var(--fg-3)" }}>upstream      </span>
+              <span style={{ color: "var(--fg-3)" }}>upstream </span>
               <span className="mono">{l.upstream}</span>{" "}
               <span className="muted">({l.upstreamLatency}ms)</span>
             </div>
             <div>
-              <span style={{ color: "var(--fg-3)" }}>tls           </span>
-              <span className="mono">{l.tlsVersion} · {l.tlsCipher}</span>
+              <span style={{ color: "var(--fg-3)" }}>tls </span>
+              <span className="mono">
+                {l.tlsVersion} · {l.tlsCipher}
+              </span>
             </div>
             <div>
-              <span style={{ color: "var(--fg-3)" }}>req bytes     </span>
+              <span style={{ color: "var(--fg-3)" }}>req bytes </span>
               <span className="mono">{l.reqBytes}</span>
             </div>
             <div>
-              <span style={{ color: "var(--fg-3)" }}>res bytes     </span>
+              <span style={{ color: "var(--fg-3)" }}>res bytes </span>
               <span className="mono">{l.resBytes.toLocaleString()}</span>
             </div>
             <div style={{ gridColumn: "1 / -1" }}>
-              <span style={{ color: "var(--fg-3)" }}>referer       </span>
-              <span className="mono" style={{ wordBreak: "break-all" }}>{l.referer}</span>
+              <span style={{ color: "var(--fg-3)" }}>referer </span>
+              <span className="mono" style={{ wordBreak: "break-all" }}>
+                {l.referer}
+              </span>
             </div>
             <div style={{ gridColumn: "1 / -1" }}>
-              <span style={{ color: "var(--fg-3)" }}>user-agent    </span>
-              <span className="mono" style={{ wordBreak: "break-all" }}>{l.ua}</span>
+              <span style={{ color: "var(--fg-3)" }}>user-agent </span>
+              <span className="mono" style={{ wordBreak: "break-all" }}>
+                {l.ua}
+              </span>
             </div>
           </div>
           <div style={{ marginTop: 10 }}>
-            <div className="muted" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
+            <div
+              className="muted"
+              style={{
+                fontSize: 10,
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                marginBottom: 4,
+              }}
+            >
               Headers preview
             </div>
             <pre

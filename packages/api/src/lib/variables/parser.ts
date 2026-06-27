@@ -29,9 +29,7 @@ export interface ParseError {
   position: number;
 }
 
-export type ParseResult =
-  | { ok: true; tokens: Token[] }
-  | { ok: false; error: ParseError };
+export type ParseResult = { ok: true; tokens: Token[] } | { ok: false; error: ParseError };
 
 const RESOURCE_NAME = /^[A-Za-z][A-Za-z0-9_-]*/;
 const VAR_NAME = /^[A-Z_][A-Z0-9_]*/;

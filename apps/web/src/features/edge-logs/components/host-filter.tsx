@@ -1,4 +1,5 @@
 import { useState } from "react";
+
 import { ArrowDown01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
@@ -11,11 +12,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/shared/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/shared/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
 
 /**
  * Searchable, multi-select host filter for the edge access log. Empty
@@ -35,18 +32,10 @@ export function HostFilter({
   const [open, setOpen] = useState(false);
 
   const label =
-    value.length === 0
-      ? "All hosts"
-      : value.length === 1
-        ? value[0]
-        : `${value.length} hosts`;
+    value.length === 0 ? "All hosts" : value.length === 1 ? value[0] : `${value.length} hosts`;
 
   const toggle = (host: string) =>
-    onChange(
-      value.includes(host)
-        ? value.filter((h) => h !== host)
-        : [...value, host],
-    );
+    onChange(value.includes(host) ? value.filter((h) => h !== host) : [...value, host]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -71,15 +60,8 @@ export function HostFilter({
           <CommandInput placeholder="Search hosts…" />
           <CommandList>
             <CommandEmpty>No hosts found.</CommandEmpty>
-            <CommandItem
-              value="__all_hosts__"
-              onSelect={() => onChange([])}
-              className="gap-2"
-            >
-              <Checkbox
-                checked={value.length === 0}
-                className="pointer-events-none"
-              />
+            <CommandItem value="__all_hosts__" onSelect={() => onChange([])} className="gap-2">
+              <Checkbox checked={value.length === 0} className="pointer-events-none" />
               <span>All hosts</span>
             </CommandItem>
             {options.map((host) => (
@@ -89,10 +71,7 @@ export function HostFilter({
                 onSelect={() => toggle(host)}
                 className="gap-2 font-mono text-[12px]"
               >
-                <Checkbox
-                  checked={value.includes(host)}
-                  className="pointer-events-none"
-                />
+                <Checkbox checked={value.includes(host)} className="pointer-events-none" />
                 <span className="truncate">{host}</span>
               </CommandItem>
             ))}

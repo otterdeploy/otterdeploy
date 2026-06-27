@@ -19,10 +19,10 @@
  * caller decides whether to abort.
  */
 
-import { Readable } from "node:stream";
-
 import type { Docker } from "@otterdeploy/docker";
+
 import { DockerNotFoundError } from "@otterdeploy/docker";
+import { Readable } from "node:stream";
 
 import { readNdjson } from "./stream-parse";
 
@@ -62,8 +62,7 @@ function toEvent(image: string, line: DockerPullLine): ImagePullEvent {
   return {
     image,
     id: line.id ?? null,
-    status:
-      line.error ?? line.errorDetail?.message ?? line.status ?? "unknown",
+    status: line.error ?? line.errorDetail?.message ?? line.status ?? "unknown",
     progress: line.progress ?? null,
     current: line.progressDetail?.current ?? null,
     total: line.progressDetail?.total ?? null,

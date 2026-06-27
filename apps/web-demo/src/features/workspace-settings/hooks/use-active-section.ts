@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+
 import type { SettingsSection } from "../types";
 
 export function useActiveSection(sections: ReadonlyArray<SettingsSection>) {

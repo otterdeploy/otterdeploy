@@ -7,10 +7,7 @@
  * Adding a new engine = one new adapter file + one line of registration.
  */
 
-import {
-  DATABASE_ENGINES,
-  type DatabaseEngine,
-} from "@otterdeploy/shared/database-engines";
+import { DATABASE_ENGINES, type DatabaseEngine } from "@otterdeploy/shared/database-engines";
 
 export interface ConnectionStringInput {
   username: string;
@@ -49,22 +46,14 @@ export interface DatabaseEngineAdapter {
   /** Build the docker Env array entries for the engine's identity vars
    *  (user / pass / db). Returned as `KEY=value` strings, ready to splice
    *  into ContainerSpec.Env after the user's extraEnv. */
-  buildEnv(input: {
-    username: string;
-    password: string;
-    databaseName: string;
-  }): string[];
+  buildEnv(input: { username: string; password: string; databaseName: string }): string[];
   /** Optional ContainerSpec.Command override. Used by engines that pass
    *  auth via command-line flags rather than env (e.g. redis-server
    *  --requirepass). Undefined means "use the image's CMD". */
   buildCommand?(input: { password: string }): string[] | undefined;
   /** Docker healthcheck command — exec'd as a single shell string via
    *  CMD-SHELL. Must exit 0 when the engine is ready to serve queries. */
-  buildHealthcheck(input: {
-    username: string;
-    password: string;
-    databaseName: string;
-  }): string;
+  buildHealthcheck(input: { username: string; password: string; databaseName: string }): string;
   /** Build a client connection string for display + DATABASE_URL. */
   buildConnectionString(input: ConnectionStringInput): string;
   /** Regex matched against container stdout/stderr during the boot-log
@@ -73,14 +62,14 @@ export interface DatabaseEngineAdapter {
   readonly readyPattern: RegExp;
 }
 
-import { postgresAdapter } from "./postgres";
-import { redisAdapter } from "./redis";
-import { mariadbAdapter } from "./mariadb";
-import { mongodbAdapter } from "./mongodb";
 import { clickhouseAdapter } from "./clickhouse";
-import { rabbitmqAdapter } from "./rabbitmq";
-import { minioAdapter } from "./minio";
+import { mariadbAdapter } from "./mariadb";
 import { meilisearchAdapter } from "./meilisearch";
+import { minioAdapter } from "./minio";
+import { mongodbAdapter } from "./mongodb";
+import { postgresAdapter } from "./postgres";
+import { rabbitmqAdapter } from "./rabbitmq";
+import { redisAdapter } from "./redis";
 
 const ADAPTERS: Record<DatabaseEngine, DatabaseEngineAdapter> = {
   postgres: postgresAdapter,

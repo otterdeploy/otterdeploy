@@ -18,16 +18,15 @@
  * (or bumping BUILDER_CONCURRENCY).
  */
 
-import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
-import { join } from "node:path";
-
 import type { DeploymentId } from "@otterdeploy/shared/id";
 
 import { env } from "@otterdeploy/env/server";
-import { DATA_ROOT } from "@otterdeploy/shared/paths";
 import { defineJob } from "@otterdeploy/jobs";
 import { DeployTriggeredPayload, deployTriggeredJob } from "@otterdeploy/jobs/jobs/deploy";
+import { DATA_ROOT } from "@otterdeploy/shared/paths";
+import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 
 import { markFailed } from "./state";
 
@@ -158,10 +157,9 @@ export function makeBuildJob() {
           }
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
-          await markFailed(
-            deploymentId,
-            `failed to spawn build container: ${message}`,
-          ).catch(() => undefined);
+          await markFailed(deploymentId, `failed to spawn build container: ${message}`).catch(
+            () => undefined,
+          );
           outcome = { ok: false, error: message };
         }
         results.push({ deploymentId: id, ...outcome });

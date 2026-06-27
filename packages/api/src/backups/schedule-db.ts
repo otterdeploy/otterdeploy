@@ -11,7 +11,6 @@ import type {
   ProjectId,
   ResourceId,
 } from "@otterdeploy/shared/id";
-import { and, desc, eq, isNull, lte, or } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
 import {
@@ -22,6 +21,7 @@ import {
   project,
   resource,
 } from "@otterdeploy/db/schema";
+import { and, desc, eq, isNull, lte, or } from "drizzle-orm";
 
 export interface DueSchedule {
   id: BackupScheduleId;
@@ -96,26 +96,18 @@ export async function getScheduleRunTarget(input: {
     })
     .from(backupSchedule)
     .where(
-      and(
-        eq(backupSchedule.id, input.id),
-        eq(backupSchedule.organizationId, input.organizationId),
-      ),
+      and(eq(backupSchedule.id, input.id), eq(backupSchedule.organizationId, input.organizationId)),
     )
     .limit(1);
   return (row as ScheduleRunTarget | undefined) ?? null;
 }
 
 /** Org-agnostic destination read for system-side retention (no org filter). */
-export async function getDestinationByIdWithSecret(
-  id: BackupDestinationId,
-): Promise<
-  | {
-      type: "s3" | "local" | "sftp";
-      config: Record<string, unknown>;
-      encryptedSecret: string | null;
-    }
-  | null
-> {
+export async function getDestinationByIdWithSecret(id: BackupDestinationId): Promise<{
+  type: "s3" | "local" | "sftp";
+  config: Record<string, unknown>;
+  encryptedSecret: string | null;
+} | null> {
   const [row] = await db
     .select({
       type: backupDestination.type,
@@ -136,10 +128,7 @@ export async function updateScheduleAfterRun(
     nextRunAt: Date | null;
   },
 ): Promise<void> {
-  await db
-    .update(backupSchedule)
-    .set(fields)
-    .where(eq(backupSchedule.id, scheduleId));
+  await db.update(backupSchedule).set(fields).where(eq(backupSchedule.id, scheduleId));
 }
 
 /** Resolve a schedule's source refs (resource ids or names) to database
@@ -156,15 +145,11 @@ export async function resolveScheduleSources(
     .innerJoin(databaseResource, eq(databaseResource.resourceId, resource.id))
     .where(eq(project.organizationId, organizationId));
   const wanted = new Set(sources);
-  return rows
-    .filter((r) => wanted.has(r.id) || wanted.has(r.name))
-    .map((r) => r.id);
+  return rows.filter((r) => wanted.has(r.id) || wanted.has(r.name)).map((r) => r.id);
 }
 
 /** Succeeded backups for a schedule, newest first — drives retention. */
-export async function listScheduleBackups(
-  scheduleId: BackupScheduleId,
-): Promise<
+export async function listScheduleBackups(scheduleId: BackupScheduleId): Promise<
   Array<{
     id: BackupId;
     destinationId: BackupDestinationId;

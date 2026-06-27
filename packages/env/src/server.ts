@@ -144,9 +144,7 @@ export const env = createEnv({
     // Self-hosted GitLab instance URL (default gitlab.com).
     GITLAB_OAUTH_ISSUER: z.url().optional(),
 
-    NODE_ENV: z
-      .enum(["development", "production", "test"])
-      .default("development"),
+    NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
 
     // Container runtime backend. `docker` (default) runs each service/database
     // as a plain container on a per-project bridge network — single node, no

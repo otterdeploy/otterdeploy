@@ -1,5 +1,5 @@
-
 import type { ProjectSlug } from "@otterdeploy/shared/id";
+
 import { Link } from "@tanstack/react-router";
 
 import { Badge } from "@/shared/components/ui/badge";
@@ -35,20 +35,14 @@ export function ProjectCard({ orgSlug, project }: Props) {
       <div className="flex items-start justify-between gap-3">
         <div className="grid min-w-0 gap-0.5">
           <div className="truncate text-sm font-semibold">{project.name}</div>
-          <div className="truncate text-xs text-muted-foreground">
-            {project.slug}
-          </div>
+          <div className="truncate text-xs text-muted-foreground">{project.slug}</div>
         </div>
         <Badge variant="outline" className="text-[10px]">
           project
         </Badge>
       </div>
       <div className="overflow-hidden rounded-md border bg-muted/30">
-        <MiniCanvasPreview
-          databases={databases}
-          routes={routes}
-          className="h-20 w-full"
-        />
+        <MiniCanvasPreview databases={databases} routes={routes} className="h-20 w-full" />
       </div>
       <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
         <span>
@@ -56,8 +50,7 @@ export function ProjectCard({ orgSlug, project }: Props) {
           {databases === 1 ? "database" : "databases"}
         </span>
         <span>
-          <b className="text-foreground">{routes}</b>{" "}
-          {routes === 1 ? "route" : "routes"}
+          <b className="text-foreground">{routes}</b> {routes === 1 ? "route" : "routes"}
         </span>
       </div>
     </Link>

@@ -1,8 +1,9 @@
-import { Docker, DockerNotFoundError } from "@otterdeploy/docker";
 import type { RequestLogger } from "evlog";
 
-import { asStepLogger } from "../lib/logger";
+import { Docker, DockerNotFoundError } from "@otterdeploy/docker";
+
 import { PLATFORM } from "../constants";
+import { asStepLogger } from "../lib/logger";
 
 export async function ensureSwarm(): Promise<void> {
   const docker = Docker.fromEnv();
@@ -192,7 +193,9 @@ export async function removeProjectNetwork(
   const containers = network.Containers ?? {};
 
   for (const containerId of Object.keys(containers)) {
-    await docker.networks.getNetwork(networkName).disconnect({ Container: containerId, Force: true });
+    await docker.networks
+      .getNetwork(networkName)
+      .disconnect({ Container: containerId, Force: true });
   }
 
   const removeResult = await docker.networks.getNetwork(networkName).remove();

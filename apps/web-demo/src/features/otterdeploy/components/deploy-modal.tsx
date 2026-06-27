@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 
 import { SvglLogo } from "@/components/brand/svgl-logo";
+
 import { I } from "../icons";
 
 interface LaunchTarget {
@@ -28,20 +29,9 @@ interface Props {
   onOpenNewService: (target?: LaunchTarget) => void;
 }
 
-type SourceId =
-  | "github"
-  | "image"
-  | "database"
-  | "compose"
-  | "template"
-  | "empty";
+type SourceId = "github" | "image" | "database" | "compose" | "template" | "empty";
 
-export function DeployModal({
-  open,
-  onClose,
-  onDeploy,
-  onOpenNewService,
-}: Props) {
+export function DeployModal({ open, onClose, onDeploy, onOpenNewService }: Props) {
   const [step, setStep] = useState(0);
   const [source, setSource] = useState<SourceId>("github");
   const [name, setName] = useState("notifier");
@@ -175,9 +165,7 @@ export function DeployModal({
             gap: 10,
           }}
         >
-          <span style={{ fontWeight: 600, fontSize: 15 }}>
-            Deploy a new service
-          </span>
+          <span style={{ fontWeight: 600, fontSize: 15 }}>Deploy a new service</span>
           <span className="muted" style={{ fontSize: 12 }}>
             {["Source", "Configure", "Build"][step]}
           </span>
@@ -191,8 +179,8 @@ export function DeployModal({
           {step === 0 && (
             <div className="col gap-4">
               <div className="muted" style={{ fontSize: 13 }}>
-                Pick what you want to launch. Otterdeploy can build app code,
-                pull images, import compose stacks, or provision a database in{" "}
+                Pick what you want to launch. Otterdeploy can build app code, pull images, import
+                compose stacks, or provision a database in{" "}
                 <b style={{ color: "var(--fg)" }}>production</b>.
               </div>
               <div
@@ -230,16 +218,10 @@ export function DeployModal({
                         style={{ borderRadius: 0 }}
                       />
                     ) : opt.icon ? (
-                      <opt.icon
-                        width={16}
-                        height={16}
-                        style={{ color: "var(--fg-2)" }}
-                      />
+                      <opt.icon width={16} height={16} style={{ color: "var(--fg-2)" }} />
                     ) : null}
                     <div>
-                      <div style={{ fontWeight: 500, fontSize: 13 }}>
-                        {opt.label}
-                      </div>
+                      <div style={{ fontWeight: 500, fontSize: 13 }}>{opt.label}</div>
                       <div className="muted" style={{ fontSize: 12 }}>
                         {opt.sub}
                       </div>
@@ -267,10 +249,7 @@ export function DeployModal({
 
           {step === 1 && (
             <div className="col gap-4">
-              <Field
-                label="Service name"
-                hint="Lowercase, used as DNS hostname"
-              >
+              <Field label="Service name" hint="Lowercase, used as DNS hostname">
                 <input
                   className="input mono"
                   value={name}
@@ -320,12 +299,8 @@ export function DeployModal({
                     height: 10,
                     borderRadius: 2,
                     background: progress >= 100 ? "var(--ok)" : "var(--info)",
-                    boxShadow:
-                      progress < 100 ? "0 0 0 4px var(--info-bg)" : "none",
-                    animation:
-                      progress < 100
-                        ? "pulse 1.4s ease-in-out infinite"
-                        : "none",
+                    boxShadow: progress < 100 ? "0 0 0 4px var(--info-bg)" : "none",
+                    animation: progress < 100 ? "pulse 1.4s ease-in-out infinite" : "none",
                   }}
                 />
                 <span style={{ fontWeight: 500 }}>
@@ -366,15 +341,7 @@ export function DeployModal({
   );
 }
 
-function Field({
-  label,
-  hint,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  children: ReactNode;
-}) {
+function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
     <div className="col" style={{ gap: 4 }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
@@ -390,13 +357,7 @@ function Field({
   );
 }
 
-function BuildLogStream({
-  progress,
-  name,
-}: {
-  progress: number;
-  name: string;
-}) {
+function BuildLogStream({ progress, name }: { progress: number; name: string }) {
   const [lines, setLines] = useState<string[]>([]);
   useEffect(() => {
     const all = [
@@ -416,10 +377,7 @@ function BuildLogStream({
       `→ healthcheck OK`,
       `✓ live at https://${name}.helio.so`,
     ];
-    const want = Math.min(
-      all.length,
-      Math.floor((progress / 100) * all.length),
-    );
+    const want = Math.min(all.length, Math.floor((progress / 100) * all.length));
     setLines(all.slice(0, want));
   }, [progress, name]);
 

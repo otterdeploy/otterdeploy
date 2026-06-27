@@ -9,6 +9,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Input } from "@/shared/components/ui/input";
 
 import type { Destination } from "./data/destinations";
+
 import { Field, type DestinationKind } from "./shared";
 
 export const DEST_TYPE_FIELDS: Record<
@@ -36,9 +37,7 @@ export const DEST_TYPE_FIELDS: Record<
     ],
   },
   local: {
-    config: [
-      { key: "path", label: "Path", placeholder: "/var/backups/otterdeploy" },
-    ],
+    config: [{ key: "path", label: "Path", placeholder: "/var/backups/otterdeploy" }],
     secret: [],
   },
   sftp: {
@@ -53,9 +52,7 @@ export const DEST_TYPE_FIELDS: Record<
 };
 
 /** Seed the editable config record from an existing destination (or blanks). */
-export function configFromInitial(
-  initial: Destination | null,
-): Record<string, string> {
+export function configFromInitial(initial: Destination | null): Record<string, string> {
   const out: Record<string, string> = {};
   const cfg = (initial?.config ?? {}) as Record<string, unknown>;
   for (const f of DEST_TYPE_FIELDS[initial?.type ?? "s3"].config) {
@@ -85,11 +82,7 @@ export function DestinationTypeFields({
     <>
       <div className="grid grid-cols-2 gap-4">
         {fields.config.map((f) => (
-          <Field
-            key={f.key}
-            label={f.label}
-            className={f.half ? undefined : "col-span-2"}
-          >
+          <Field key={f.key} label={f.label} className={f.half ? undefined : "col-span-2"}>
             <Input
               value={config[f.key] ?? ""}
               placeholder={f.placeholder}

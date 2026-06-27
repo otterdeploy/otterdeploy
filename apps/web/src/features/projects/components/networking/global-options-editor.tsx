@@ -10,6 +10,7 @@
  */
 
 import { useEffect, useState } from "react";
+
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -70,8 +71,8 @@ export function GlobalOptionsEditor({ projectId }: { projectId: string }) {
       <div>
         <h2 className="text-base font-semibold">Global options</h2>
         <p className="mt-0.5 max-w-2xl text-[13px] text-muted-foreground">
-          Install-wide edge-proxy settings. Changes apply to every project and
-          reconcile the edge immediately.
+          Install-wide edge-proxy settings. Changes apply to every project and reconcile the edge
+          immediately.
         </p>
       </div>
 
@@ -79,8 +80,8 @@ export function GlobalOptionsEditor({ projectId }: { projectId: string }) {
         <div className="flex w-48 shrink-0 flex-col">
           <span className="text-[13px] font-medium">ACME email</span>
           <span className="text-[11px] text-muted-foreground">
-            Registered with Let's Encrypt for cert notices + recovery. Required
-            before any public (non-sslip) domain gets a real certificate.
+            Registered with Let's Encrypt for cert notices + recovery. Required before any public
+            (non-sslip) domain gets a real certificate.
           </span>
         </div>
         <Input
@@ -95,12 +96,10 @@ export function GlobalOptionsEditor({ projectId }: { projectId: string }) {
 
       <div className="flex items-center justify-between gap-3 border-b border-border/40 pb-4">
         <div className="flex flex-col">
-          <span className="text-[13px] font-medium">
-            Automatic HTTPS redirect
-          </span>
+          <span className="text-[13px] font-medium">Automatic HTTPS redirect</span>
           <span className="max-w-xl text-[11px] text-muted-foreground">
-            Redirect HTTP→HTTPS at the edge (Caddy default). Turn off if a
-            downstream load balancer already terminates and redirects TLS.
+            Redirect HTTP→HTTPS at the edge (Caddy default). Turn off if a downstream load balancer
+            already terminates and redirects TLS.
           </span>
         </div>
         <Switch

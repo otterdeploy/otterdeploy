@@ -17,7 +17,6 @@
 
 import type { DeploymentId } from "@otterdeploy/shared/id";
 
-import { TaggedError } from "better-result";
 import { db } from "@otterdeploy/db";
 import {
   containerRegistry,
@@ -27,6 +26,7 @@ import {
   resource,
   serviceResource,
 } from "@otterdeploy/db/schema";
+import { TaggedError } from "better-result";
 import { eq } from "drizzle-orm";
 
 export interface PipelineContext {
@@ -55,24 +55,12 @@ export class PipelineLoadError extends TaggedError("PipelineLoadError")<{
   }
 }
 
-export async function loadPipelineContext(
-  deploymentId: DeploymentId,
-): Promise<PipelineContext> {
-  const [dep] = await db
-    .select()
-    .from(deployment)
-    .where(eq(deployment.id, deploymentId))
-    .limit(1);
-  if (!dep)
-    throw new PipelineLoadError("deployment", `${deploymentId} not found`);
+export async function loadPipelineContext(deploymentId: DeploymentId): Promise<PipelineContext> {
+  const [dep] = await db.select().from(deployment).where(eq(deployment.id, deploymentId)).limit(1);
+  if (!dep) throw new PipelineLoadError("deployment", `${deploymentId} not found`);
 
-  const [res] = await db
-    .select()
-    .from(resource)
-    .where(eq(resource.id, dep.resourceId))
-    .limit(1);
-  if (!res)
-    throw new PipelineLoadError("resource", `${dep.resourceId} not found`);
+  const [res] = await db.select().from(resource).where(eq(resource.id, dep.resourceId)).limit(1);
+  if (!res) throw new PipelineLoadError("resource", `${dep.resourceId} not found`);
   if (res.type !== "service") {
     throw new PipelineLoadError(
       "resource.type",
@@ -86,25 +74,14 @@ export async function loadPipelineContext(
     .where(eq(serviceResource.resourceId, res.id))
     .limit(1);
   if (!svc) {
-    throw new PipelineLoadError(
-      "service",
-      `service_resource for ${res.id} not found`,
-    );
+    throw new PipelineLoadError("service", `service_resource for ${res.id} not found`);
   }
 
-  const [proj] = await db
-    .select()
-    .from(project)
-    .where(eq(project.id, res.projectId))
-    .limit(1);
-  if (!proj)
-    throw new PipelineLoadError("project", `${res.projectId} not found`);
+  const [proj] = await db.select().from(project).where(eq(project.id, res.projectId)).limit(1);
+  if (!proj) throw new PipelineLoadError("project", `${res.projectId} not found`);
 
   if (!proj.gitRepoId) {
-    throw new PipelineLoadError(
-      "project.gitRepoId",
-      `project ${proj.id} has no git repo binding`,
-    );
+    throw new PipelineLoadError("project.gitRepoId", `project ${proj.id} has no git repo binding`);
   }
 
   // Registry is optional. A project that binds one (containerRegistryId +
@@ -132,11 +109,7 @@ export async function loadPipelineContext(
     imageRepository = localImageRepository(svc.serviceName);
   }
 
-  const [repo] = await db
-    .select()
-    .from(gitRepo)
-    .where(eq(gitRepo.id, proj.gitRepoId))
-    .limit(1);
+  const [repo] = await db.select().from(gitRepo).where(eq(gitRepo.id, proj.gitRepoId)).limit(1);
   if (!repo) {
     throw new PipelineLoadError("repo", `git_repo ${proj.gitRepoId} not found`);
   }

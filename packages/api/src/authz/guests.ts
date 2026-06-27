@@ -4,10 +4,11 @@
  * session length. Emails are stored normalized (lowercased/trimmed).
  */
 
+import type { DeploymentGuestId, ProxyRouteId } from "@otterdeploy/shared/id";
+
 import { db } from "@otterdeploy/db";
 import { deploymentGuest } from "@otterdeploy/db/schema/deployment-guest";
 import { proxyRoute } from "@otterdeploy/db/schema/proxy-route";
-import type { DeploymentGuestId, ProxyRouteId } from "@otterdeploy/shared/id";
 import { and, asc, eq } from "drizzle-orm";
 
 export interface GuestRecord {
@@ -19,9 +20,7 @@ export interface GuestRecord {
 
 const norm = (email: string) => email.trim().toLowerCase();
 
-export async function listGuests(
-  proxyRouteId: ProxyRouteId,
-): Promise<GuestRecord[]> {
+export async function listGuests(proxyRouteId: ProxyRouteId): Promise<GuestRecord[]> {
   return db
     .select({
       id: deploymentGuest.id,
@@ -70,12 +69,7 @@ export async function removeGuest(
 ): Promise<void> {
   await db
     .delete(deploymentGuest)
-    .where(
-      and(
-        eq(deploymentGuest.id, id),
-        eq(deploymentGuest.proxyRouteId, proxyRouteId),
-      ),
-    );
+    .where(and(eq(deploymentGuest.id, id), eq(deploymentGuest.proxyRouteId, proxyRouteId)));
 }
 
 /**
@@ -83,17 +77,12 @@ export async function removeGuest(
  * and if so for how long (hours)? Returns null when not invited — callers must
  * treat null and "invited" identically to the user (anti-enumeration).
  */
-export async function guestSessionHoursFor(
-  domain: string,
-  email: string,
-): Promise<number | null> {
+export async function guestSessionHoursFor(domain: string, email: string): Promise<number | null> {
   const [row] = await db
     .select({ hours: deploymentGuest.sessionHours })
     .from(deploymentGuest)
     .innerJoin(proxyRoute, eq(proxyRoute.id, deploymentGuest.proxyRouteId))
-    .where(
-      and(eq(proxyRoute.domain, domain), eq(deploymentGuest.email, norm(email))),
-    )
+    .where(and(eq(proxyRoute.domain, domain), eq(deploymentGuest.email, norm(email))))
     .limit(1);
   return row?.hours ?? null;
 }

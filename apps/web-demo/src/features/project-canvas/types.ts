@@ -10,9 +10,7 @@ export interface GroupNodeData {
 export interface ServiceNodeData {
   kind: "service";
   name: string;
-  source:
-    | { type: "image"; image: string }
-    | { type: "github"; repo: string; branch: string };
+  source: { type: "image"; image: string } | { type: "github"; repo: string; branch: string };
   status: "running" | "starting" | "stopped" | "missing" | "error";
   publicHostname: string | null;
 }

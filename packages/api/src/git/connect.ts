@@ -48,9 +48,7 @@ export async function completeGithubConnect(
   // manifest callback failed and we still got redirected to install).
   const appConfig = await loadGithubAppForOrgIfPresent(args.organizationId);
   if (!appConfig) {
-    throw new GithubAppNotConfiguredError(
-      `no github provider row for org ${args.organizationId}`,
-    );
+    throw new GithubAppNotConfiguredError(`no github provider row for org ${args.organizationId}`);
   }
 
   const installation = await lookupInstallation(args.installationId, appConfig);
@@ -60,12 +58,7 @@ export async function completeGithubConnect(
   const provider = await db
     .update(gitProvider)
     .set({ displayName: `GitHub (${installation.account.login})` })
-    .where(
-      and(
-        eq(gitProvider.organizationId, args.organizationId),
-        eq(gitProvider.kind, "github"),
-      ),
-    )
+    .where(and(eq(gitProvider.organizationId, args.organizationId), eq(gitProvider.kind, "github")))
     .returning();
   const providerRow = provider[0];
   if (!providerRow) {
@@ -79,8 +72,7 @@ export async function completeGithubConnect(
       providerId: providerRow.id,
       installationId: args.installationId,
       accountLogin: installation.account.login,
-      accountType:
-        installation.account.type === "Organization" ? "organization" : "user",
+      accountType: installation.account.type === "Organization" ? "organization" : "user",
       accountAvatarUrl: installation.account.avatar_url ?? null,
       repoSelection: installation.repository_selection,
       permissions: installation.permissions ?? {},
@@ -92,8 +84,7 @@ export async function completeGithubConnect(
       set: {
         providerId: providerRow.id,
         accountLogin: installation.account.login,
-        accountType:
-          installation.account.type === "Organization" ? "organization" : "user",
+        accountType: installation.account.type === "Organization" ? "organization" : "user",
         accountAvatarUrl: installation.account.avatar_url ?? null,
         repoSelection: installation.repository_selection,
         permissions: installation.permissions ?? {},

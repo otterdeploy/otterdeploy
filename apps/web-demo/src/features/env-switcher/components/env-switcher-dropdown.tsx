@@ -1,6 +1,8 @@
 import { ChevronsUpDownIcon } from "lucide-react";
+
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu";
 import { cn } from "@/lib/utils";
+
 import { envOptions, type EnvName } from "../types";
 
 const dotByColor: Record<"emerald" | "amber" | "rose", string> = {
@@ -26,9 +28,7 @@ export function EnvSwitcherDropdown({ current, onChange }: Props) {
           />
         }
       >
-        <span
-          className={cn("size-1.5 rounded-full", dotByColor[active.color])}
-        />
+        <span className={cn("size-1.5 rounded-full", dotByColor[active.color])} />
         <span className="font-medium">{active.label}</span>
         <ChevronsUpDownIcon className="size-3 opacity-60" />
       </MenuTrigger>
@@ -39,9 +39,7 @@ export function EnvSwitcherDropdown({ current, onChange }: Props) {
             onClick={() => onChange(option.name)}
             data-active={option.name === current}
           >
-            <span
-              className={cn("size-1.5 rounded-full", dotByColor[option.color])}
-            />
+            <span className={cn("size-1.5 rounded-full", dotByColor[option.color])} />
             {option.label}
           </MenuItem>
         ))}

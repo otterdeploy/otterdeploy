@@ -70,10 +70,7 @@ export async function findTransitiveDependents(input: {
  * True if the service has any env-var ref to a resource other than the one
  * we just came from. Used to decide whether to walk further into the graph.
  */
-function refsAnyResourceOtherThan(
-  record: ServiceRecord,
-  excludeName: string,
-): boolean {
+function refsAnyResourceOtherThan(record: ServiceRecord, excludeName: string): boolean {
   for (const envVar of record.env) {
     for (const ref of extractRefs(envVar.value)) {
       if (ref.resource !== excludeName) return true;

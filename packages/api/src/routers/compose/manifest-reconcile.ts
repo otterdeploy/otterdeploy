@@ -1,3 +1,9 @@
+import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { RequestLogger } from "evlog";
+
+import { db } from "@otterdeploy/db";
+import { deployment } from "@otterdeploy/db/schema/project";
+import { triggerDeploy } from "@otterdeploy/jobs";
 /**
  * Reconcile a compose stack declared in the project manifest. Called by the
  * manifest reconciler (routers/project/manifest-apply.ts) when a `compose`
@@ -11,22 +17,13 @@
  * so a bad stack doesn't abort the whole apply. See docs/designs/compose.md.
  */
 import { Result } from "better-result";
-import type { RequestLogger } from "evlog";
-
-import { db } from "@otterdeploy/db";
-import { deployment } from "@otterdeploy/db/schema/project";
-import type {
-  OrganizationId,
-  ProjectId,
-  ResourceId,
-} from "@otterdeploy/shared/id";
-import { triggerDeploy } from "@otterdeploy/jobs";
 
 import type { ComposeManifest } from "../../stack/manifest";
-import { parseCompose, summarizeCompose } from "../../stack/compose";
+
 import { fetchBranchHeadSha } from "../../git/github-app";
-import { getProjectInOrg, upsertProjectEnvVar } from "../project/queries";
+import { parseCompose, summarizeCompose } from "../../stack/compose";
 import { ManifestApplySkipError } from "../project/errors";
+import { getProjectInOrg, upsertProjectEnvVar } from "../project/queries";
 import { isUniqueViolation } from "../project/views";
 import { deployCompose } from "./deploy";
 import { createComposeRecord } from "./queries";
@@ -107,7 +104,9 @@ export async function createComposeFromManifest(
     if (created.isErr()) {
       return skip(
         name,
-        isUniqueViolation(created.error) ? "a resource with that name already exists" : created.error.message,
+        isUniqueViolation(created.error)
+          ? "a resource with that name already exists"
+          : created.error.message,
       );
     }
 
@@ -155,7 +154,9 @@ export async function createComposeFromManifest(
   if (created.isErr()) {
     return skip(
       name,
-      isUniqueViolation(created.error) ? "a resource with that name already exists" : created.error.message,
+      isUniqueViolation(created.error)
+        ? "a resource with that name already exists"
+        : created.error.message,
     );
   }
 

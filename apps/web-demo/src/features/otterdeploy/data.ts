@@ -39,7 +39,11 @@ export const PROJECT = {
   envs: ["production", "staging", "preview"] as const satisfies readonly Env[],
 };
 
-export interface ProjectRef { id: string; name: string; color: string }
+export interface ProjectRef {
+  id: string;
+  name: string;
+  color: string;
+}
 
 // Multi-tenant project catalog — many projects can share the same swarm.
 // Tags below cross-reference these ids.
@@ -167,7 +171,12 @@ export const SERVICES: Service[] = [
   },
 ];
 
-export interface Edge { from: string; to: string; kind: "http" | "tcp" | "queue"; rps: number }
+export interface Edge {
+  from: string;
+  to: string;
+  kind: "http" | "tcp" | "queue";
+  rps: number;
+}
 
 export const EDGES: Edge[] = [
   { from: "web", to: "api", kind: "http", rps: 184 },
@@ -179,11 +188,21 @@ export const EDGES: Edge[] = [
   { from: "worker", to: "redis", kind: "tcp", rps: 64 },
 ];
 
-export interface EnvVar { k: string; v: string; secret: boolean; ref?: string }
+export interface EnvVar {
+  k: string;
+  v: string;
+  secret: boolean;
+  ref?: string;
+}
 
 export const ENV_VARS: Record<string, EnvVar[]> = {
   api: [
-    { k: "DATABASE_URL", v: "postgres://helio:••••••@postgres:5432/helio", secret: true, ref: "postgres" },
+    {
+      k: "DATABASE_URL",
+      v: "postgres://helio:••••••@postgres:5432/helio",
+      secret: true,
+      ref: "postgres",
+    },
     { k: "REDIS_URL", v: "redis://redis:6379", secret: false, ref: "redis" },
     { k: "JWT_SECRET", v: "••••••••••••••••••••••", secret: true },
     { k: "STRIPE_SECRET_KEY", v: "sk_live_••••••••", secret: true },
@@ -198,7 +217,12 @@ export const ENV_VARS: Record<string, EnvVar[]> = {
     { k: "REVALIDATE_SECRET", v: "••••••", secret: true },
   ],
   worker: [
-    { k: "DATABASE_URL", v: "postgres://helio:••••••@postgres:5432/helio", secret: true, ref: "postgres" },
+    {
+      k: "DATABASE_URL",
+      v: "postgres://helio:••••••@postgres:5432/helio",
+      secret: true,
+      ref: "postgres",
+    },
     { k: "REDIS_URL", v: "redis://redis:6379", secret: false, ref: "redis" },
     { k: "CONCURRENCY", v: "8", secret: false },
   ],
@@ -217,16 +241,92 @@ export interface Deployment {
 }
 
 export const DEPLOYMENTS: Deployment[] = [
-  { id: "d_8a2c1f9", service: "web", status: "live", commit: "8a2c1f9", msg: "fix: skeleton flash on /pricing", author: "mira", when: "4m ago", dur: "1m 12s", env: "production" },
-  { id: "d_3f9b042", service: "api", status: "live", commit: "3f9b042", msg: "feat: idempotency keys on /v1/charges", author: "arjun", when: "11m ago", dur: "2m 41s", env: "production" },
-  { id: "d_c1ad5e2", service: "worker", status: "live", commit: "c1ad5e2", msg: "chore: bump celery to 5.4", author: "mira", when: "38m ago", dur: "3m 02s", env: "production" },
-  { id: "d_71fa0c3", service: "api", status: "rolled-back", commit: "71fa0c3", msg: "wip: pg pool tweaks", author: "arjun", when: "2h ago", dur: "1m 58s", env: "production" },
-  { id: "d_5b2e8d1", service: "web", status: "live", commit: "5b2e8d1", msg: "feat: announcement bar", author: "eli", when: "5h ago", dur: "1m 06s", env: "production" },
-  { id: "d_e042bb1", service: "web", status: "live", commit: "e042bb1", msg: "feat: pricing tier copy", author: "mira", when: "1d ago", dur: "1m 14s", env: "staging" },
-  { id: "d_fe19a02", service: "api", status: "failed", commit: "fe19a02", msg: "try: bun runtime", author: "arjun", when: "2d ago", dur: "0m 47s", env: "preview" },
+  {
+    id: "d_8a2c1f9",
+    service: "web",
+    status: "live",
+    commit: "8a2c1f9",
+    msg: "fix: skeleton flash on /pricing",
+    author: "mira",
+    when: "4m ago",
+    dur: "1m 12s",
+    env: "production",
+  },
+  {
+    id: "d_3f9b042",
+    service: "api",
+    status: "live",
+    commit: "3f9b042",
+    msg: "feat: idempotency keys on /v1/charges",
+    author: "arjun",
+    when: "11m ago",
+    dur: "2m 41s",
+    env: "production",
+  },
+  {
+    id: "d_c1ad5e2",
+    service: "worker",
+    status: "live",
+    commit: "c1ad5e2",
+    msg: "chore: bump celery to 5.4",
+    author: "mira",
+    when: "38m ago",
+    dur: "3m 02s",
+    env: "production",
+  },
+  {
+    id: "d_71fa0c3",
+    service: "api",
+    status: "rolled-back",
+    commit: "71fa0c3",
+    msg: "wip: pg pool tweaks",
+    author: "arjun",
+    when: "2h ago",
+    dur: "1m 58s",
+    env: "production",
+  },
+  {
+    id: "d_5b2e8d1",
+    service: "web",
+    status: "live",
+    commit: "5b2e8d1",
+    msg: "feat: announcement bar",
+    author: "eli",
+    when: "5h ago",
+    dur: "1m 06s",
+    env: "production",
+  },
+  {
+    id: "d_e042bb1",
+    service: "web",
+    status: "live",
+    commit: "e042bb1",
+    msg: "feat: pricing tier copy",
+    author: "mira",
+    when: "1d ago",
+    dur: "1m 14s",
+    env: "staging",
+  },
+  {
+    id: "d_fe19a02",
+    service: "api",
+    status: "failed",
+    commit: "fe19a02",
+    msg: "try: bun runtime",
+    author: "arjun",
+    when: "2d ago",
+    dur: "0m 47s",
+    env: "preview",
+  },
 ];
 
-export interface Domain { host: string; service: string; port: number; tls: string; status: string }
+export interface Domain {
+  host: string;
+  service: string;
+  port: number;
+  tls: string;
+  status: string;
+}
 
 export const DOMAINS: Domain[] = [
   { host: "helio.so", service: "web", port: 3000, tls: "letsencrypt", status: "active" },
@@ -289,11 +389,52 @@ export interface TeamMember {
 }
 
 export const TEAM: TeamMember[] = [
-  { id: "t_mira", name: "Mira Sato", email: "mira@paperhouse.dev", initials: "MS", role: "admin", last: "now", mfa: true, you: true },
-  { id: "t_arjun", name: "Arjun Patel", email: "arjun@paperhouse.dev", initials: "AP", role: "admin", last: "2h ago", mfa: true },
-  { id: "t_lin", name: "Lin Wang", email: "lin@paperhouse.dev", initials: "LW", role: "developer", last: "1d ago", mfa: true },
-  { id: "t_kai", name: "Kai Robinson", email: "kai@paperhouse.dev", initials: "KR", role: "developer", last: "3d ago", mfa: false },
-  { id: "t_dev", name: "Devika Rao", email: "devika@paperhouse.dev", initials: "DR", role: "viewer", last: "12d ago", mfa: true },
+  {
+    id: "t_mira",
+    name: "Mira Sato",
+    email: "mira@paperhouse.dev",
+    initials: "MS",
+    role: "admin",
+    last: "now",
+    mfa: true,
+    you: true,
+  },
+  {
+    id: "t_arjun",
+    name: "Arjun Patel",
+    email: "arjun@paperhouse.dev",
+    initials: "AP",
+    role: "admin",
+    last: "2h ago",
+    mfa: true,
+  },
+  {
+    id: "t_lin",
+    name: "Lin Wang",
+    email: "lin@paperhouse.dev",
+    initials: "LW",
+    role: "developer",
+    last: "1d ago",
+    mfa: true,
+  },
+  {
+    id: "t_kai",
+    name: "Kai Robinson",
+    email: "kai@paperhouse.dev",
+    initials: "KR",
+    role: "developer",
+    last: "3d ago",
+    mfa: false,
+  },
+  {
+    id: "t_dev",
+    name: "Devika Rao",
+    email: "devika@paperhouse.dev",
+    initials: "DR",
+    role: "viewer",
+    last: "12d ago",
+    mfa: true,
+  },
 ];
 
 export interface SyncProvider {
@@ -307,48 +448,170 @@ export interface SyncProvider {
 }
 
 export const SYNC_PROVIDERS: SyncProvider[] = [
-  { id: "infisical", name: "Infisical", sub: "Open-source secret manager", connected: true, last: "2m ago", count: 17, env: "production" },
+  {
+    id: "infisical",
+    name: "Infisical",
+    sub: "Open-source secret manager",
+    connected: true,
+    last: "2m ago",
+    count: 17,
+    env: "production",
+  },
   { id: "vault", name: "HashiCorp Vault", sub: "Self-hosted, dynamic secrets", connected: false },
   { id: "aws-sm", name: "AWS Secrets Manager", sub: "KMS-backed cloud secrets", connected: false },
-  { id: "doppler", name: "Doppler", sub: "SaaS secret platform", connected: true, last: "1h ago", count: 12, env: "staging" },
-  { id: "1password", name: "1Password Connect", sub: "Vault-based, audit-friendly", connected: false },
+  {
+    id: "doppler",
+    name: "Doppler",
+    sub: "SaaS secret platform",
+    connected: true,
+    last: "1h ago",
+    count: 12,
+    env: "staging",
+  },
+  {
+    id: "1password",
+    name: "1Password Connect",
+    sub: "Vault-based, audit-friendly",
+    connected: false,
+  },
   { id: "gcp-sm", name: "Google Secret Manager", sub: "GCP-native", connected: false },
 ];
 
-export interface Builder { id: string; name: string; sub: string; icon: string; popular?: boolean; langs?: string[] }
+export interface Builder {
+  id: string;
+  name: string;
+  sub: string;
+  icon: string;
+  popular?: boolean;
+  langs?: string[];
+}
 
 export const BUILDERS: Builder[] = [
-  { id: "railpack", name: "Railpack", sub: "Auto-detect — Node, Python, Go, Rust, Ruby…", icon: "bolt", popular: true, langs: ["node", "python", "go", "rust", "ruby", "php", "elixir"] },
+  {
+    id: "railpack",
+    name: "Railpack",
+    sub: "Auto-detect — Node, Python, Go, Rust, Ruby…",
+    icon: "bolt",
+    popular: true,
+    langs: ["node", "python", "go", "rust", "ruby", "php", "elixir"],
+  },
   { id: "dockerfile", name: "Dockerfile", sub: "Use the Dockerfile in your repo", icon: "doc" },
-  { id: "compose", name: "Docker Compose", sub: "Multi-container from compose.yml", icon: "service" },
-  { id: "buildpack", name: "Buildpacks", sub: "CNB / Heroku-style cloud-native buildpacks", icon: "folder" },
-  { id: "static", name: "Static site", sub: "Plain HTML / Vite / Astro / Next export", icon: "globe" },
+  {
+    id: "compose",
+    name: "Docker Compose",
+    sub: "Multi-container from compose.yml",
+    icon: "service",
+  },
+  {
+    id: "buildpack",
+    name: "Buildpacks",
+    sub: "CNB / Heroku-style cloud-native buildpacks",
+    icon: "folder",
+  },
+  {
+    id: "static",
+    name: "Static site",
+    sub: "Plain HTML / Vite / Astro / Next export",
+    icon: "globe",
+  },
 ];
 
 export interface EnvOverviewKey {
   k: string;
   secret: boolean;
-  status: { production: "set" | "missing" | "empty"; staging: "set" | "missing" | "empty"; preview: "set" | "missing" | "empty" };
+  status: {
+    production: "set" | "missing" | "empty";
+    staging: "set" | "missing" | "empty";
+    preview: "set" | "missing" | "empty";
+  };
 }
 
 export const ENV_OVERVIEW_KEYS: EnvOverviewKey[] = [
-  { k: "ADMIN_ALLOWED_EMAILS", secret: false, status: { production: "empty", staging: "empty", preview: "empty" } },
-  { k: "APPLE_APP_BUNDLE_ID", secret: true, status: { production: "set", staging: "missing", preview: "missing" } },
-  { k: "APPLE_CLIENT_ID", secret: false, status: { production: "empty", staging: "missing", preview: "missing" } },
-  { k: "APPLE_KEY_ID", secret: false, status: { production: "empty", staging: "missing", preview: "missing" } },
-  { k: "APPLE_PRIVATE_KEY", secret: true, status: { production: "empty", staging: "missing", preview: "missing" } },
-  { k: "APPLE_TEAM_ID", secret: false, status: { production: "empty", staging: "missing", preview: "missing" } },
-  { k: "BETTER_AUTH_SECRET", secret: true, status: { production: "set", staging: "missing", preview: "missing" } },
-  { k: "BETTER_AUTH_URL", secret: true, status: { production: "set", staging: "missing", preview: "missing" } },
-  { k: "CORS_ORIGIN", secret: true, status: { production: "set", staging: "missing", preview: "missing" } },
-  { k: "DATABASE_URL", secret: true, status: { production: "set", staging: "set", preview: "set" } },
-  { k: "GEMINI_API_KEY", secret: true, status: { production: "empty", staging: "missing", preview: "missing" } },
-  { k: "GOOGLE_CLIENT_ID", secret: false, status: { production: "empty", staging: "missing", preview: "missing" } },
-  { k: "GOOGLE_CLIENT_SECRET", secret: true, status: { production: "empty", staging: "missing", preview: "missing" } },
-  { k: "MICROSOFT_CLIENT_ID", secret: false, status: { production: "empty", staging: "missing", preview: "missing" } },
-  { k: "MICROSOFT_CLIENT_SECRET", secret: true, status: { production: "empty", staging: "missing", preview: "missing" } },
-  { k: "OPENROUTER_API_KEY", secret: true, status: { production: "empty", staging: "missing", preview: "missing" } },
-  { k: "VITE_SERVER_URL", secret: false, status: { production: "set", staging: "missing", preview: "missing" } },
+  {
+    k: "ADMIN_ALLOWED_EMAILS",
+    secret: false,
+    status: { production: "empty", staging: "empty", preview: "empty" },
+  },
+  {
+    k: "APPLE_APP_BUNDLE_ID",
+    secret: true,
+    status: { production: "set", staging: "missing", preview: "missing" },
+  },
+  {
+    k: "APPLE_CLIENT_ID",
+    secret: false,
+    status: { production: "empty", staging: "missing", preview: "missing" },
+  },
+  {
+    k: "APPLE_KEY_ID",
+    secret: false,
+    status: { production: "empty", staging: "missing", preview: "missing" },
+  },
+  {
+    k: "APPLE_PRIVATE_KEY",
+    secret: true,
+    status: { production: "empty", staging: "missing", preview: "missing" },
+  },
+  {
+    k: "APPLE_TEAM_ID",
+    secret: false,
+    status: { production: "empty", staging: "missing", preview: "missing" },
+  },
+  {
+    k: "BETTER_AUTH_SECRET",
+    secret: true,
+    status: { production: "set", staging: "missing", preview: "missing" },
+  },
+  {
+    k: "BETTER_AUTH_URL",
+    secret: true,
+    status: { production: "set", staging: "missing", preview: "missing" },
+  },
+  {
+    k: "CORS_ORIGIN",
+    secret: true,
+    status: { production: "set", staging: "missing", preview: "missing" },
+  },
+  {
+    k: "DATABASE_URL",
+    secret: true,
+    status: { production: "set", staging: "set", preview: "set" },
+  },
+  {
+    k: "GEMINI_API_KEY",
+    secret: true,
+    status: { production: "empty", staging: "missing", preview: "missing" },
+  },
+  {
+    k: "GOOGLE_CLIENT_ID",
+    secret: false,
+    status: { production: "empty", staging: "missing", preview: "missing" },
+  },
+  {
+    k: "GOOGLE_CLIENT_SECRET",
+    secret: true,
+    status: { production: "empty", staging: "missing", preview: "missing" },
+  },
+  {
+    k: "MICROSOFT_CLIENT_ID",
+    secret: false,
+    status: { production: "empty", staging: "missing", preview: "missing" },
+  },
+  {
+    k: "MICROSOFT_CLIENT_SECRET",
+    secret: true,
+    status: { production: "empty", staging: "missing", preview: "missing" },
+  },
+  {
+    k: "OPENROUTER_API_KEY",
+    secret: true,
+    status: { production: "empty", staging: "missing", preview: "missing" },
+  },
+  {
+    k: "VITE_SERVER_URL",
+    secret: false,
+    status: { production: "set", staging: "missing", preview: "missing" },
+  },
 ];
 
 export interface ServiceKindDef {
@@ -362,50 +625,246 @@ export interface ServiceKindDef {
 }
 
 export const SERVICE_KINDS: ServiceKindDef[] = [
-  { id: "app", name: "Web app", sub: "HTTP service · auto-scaled · public route", icon: "globe", group: "compute", examples: "Next.js · Rails · Django · Express · Laravel" },
-  { id: "worker", name: "Background worker", sub: "Long-running process · no port · processes a queue", icon: "service", group: "compute", examples: "Sidekiq · Celery · BullMQ · Resque" },
-  { id: "cron", name: "Scheduled job", sub: "Run a command on a cron schedule", icon: "clock", group: "compute", examples: "nightly migrations · weekly reports · TTL cleanup" },
-  { id: "static", name: "Static site", sub: "Pre-built HTML/CSS/JS served from edge", icon: "doc", group: "compute", examples: "Vite · Astro · Next export · plain HTML" },
-  { id: "function", name: "One-off function", sub: "Triggered manually or via webhook · auto-shuts down", icon: "bolt", group: "compute", examples: "data import · webhook handler · seed script" },
-  { id: "postgres", name: "PostgreSQL", sub: "Managed Postgres · daily backups · PITR optional", icon: "db", group: "data", versions: ["16.4", "16.3", "15.8", "14.13"] },
-  { id: "mysql", name: "MySQL", sub: "Managed MySQL with replication", icon: "db", group: "data", versions: ["8.4", "8.0", "5.7"] },
-  { id: "redis", name: "Redis", sub: "In-memory cache · pub/sub · streams", icon: "db", group: "data", versions: ["7.4", "7.2", "6.2"] },
-  { id: "mongodb", name: "MongoDB", sub: "Document store · replica set", icon: "db", group: "data", versions: ["7.0", "6.0", "5.0"] },
-  { id: "clickhouse", name: "ClickHouse", sub: "Columnar analytics database", icon: "db", group: "data", versions: ["24.8", "24.3", "23.8"] },
-  { id: "rabbitmq", name: "RabbitMQ", sub: "AMQP message broker", icon: "service", group: "data", versions: ["3.13", "3.12"] },
-  { id: "minio", name: "MinIO", sub: "S3-compatible object storage", icon: "folder", group: "data", versions: ["latest", "2024-08"] },
-  { id: "meilisearch", name: "Meilisearch", sub: "Typo-tolerant full-text search", icon: "service", group: "data", versions: ["1.10", "1.9"] },
-  { id: "docker", name: "Custom Docker image", sub: "Pull any OCI image · point at registry", icon: "service", group: "custom" },
-  { id: "compose", name: "Docker Compose", sub: "Import a compose.yml · multi-service project", icon: "doc", group: "custom" },
+  {
+    id: "app",
+    name: "Web app",
+    sub: "HTTP service · auto-scaled · public route",
+    icon: "globe",
+    group: "compute",
+    examples: "Next.js · Rails · Django · Express · Laravel",
+  },
+  {
+    id: "worker",
+    name: "Background worker",
+    sub: "Long-running process · no port · processes a queue",
+    icon: "service",
+    group: "compute",
+    examples: "Sidekiq · Celery · BullMQ · Resque",
+  },
+  {
+    id: "cron",
+    name: "Scheduled job",
+    sub: "Run a command on a cron schedule",
+    icon: "clock",
+    group: "compute",
+    examples: "nightly migrations · weekly reports · TTL cleanup",
+  },
+  {
+    id: "static",
+    name: "Static site",
+    sub: "Pre-built HTML/CSS/JS served from edge",
+    icon: "doc",
+    group: "compute",
+    examples: "Vite · Astro · Next export · plain HTML",
+  },
+  {
+    id: "function",
+    name: "One-off function",
+    sub: "Triggered manually or via webhook · auto-shuts down",
+    icon: "bolt",
+    group: "compute",
+    examples: "data import · webhook handler · seed script",
+  },
+  {
+    id: "postgres",
+    name: "PostgreSQL",
+    sub: "Managed Postgres · daily backups · PITR optional",
+    icon: "db",
+    group: "data",
+    versions: ["16.4", "16.3", "15.8", "14.13"],
+  },
+  {
+    id: "mysql",
+    name: "MySQL",
+    sub: "Managed MySQL with replication",
+    icon: "db",
+    group: "data",
+    versions: ["8.4", "8.0", "5.7"],
+  },
+  {
+    id: "redis",
+    name: "Redis",
+    sub: "In-memory cache · pub/sub · streams",
+    icon: "db",
+    group: "data",
+    versions: ["7.4", "7.2", "6.2"],
+  },
+  {
+    id: "mongodb",
+    name: "MongoDB",
+    sub: "Document store · replica set",
+    icon: "db",
+    group: "data",
+    versions: ["7.0", "6.0", "5.0"],
+  },
+  {
+    id: "clickhouse",
+    name: "ClickHouse",
+    sub: "Columnar analytics database",
+    icon: "db",
+    group: "data",
+    versions: ["24.8", "24.3", "23.8"],
+  },
+  {
+    id: "rabbitmq",
+    name: "RabbitMQ",
+    sub: "AMQP message broker",
+    icon: "service",
+    group: "data",
+    versions: ["3.13", "3.12"],
+  },
+  {
+    id: "minio",
+    name: "MinIO",
+    sub: "S3-compatible object storage",
+    icon: "folder",
+    group: "data",
+    versions: ["latest", "2024-08"],
+  },
+  {
+    id: "meilisearch",
+    name: "Meilisearch",
+    sub: "Typo-tolerant full-text search",
+    icon: "service",
+    group: "data",
+    versions: ["1.10", "1.9"],
+  },
+  {
+    id: "docker",
+    name: "Custom Docker image",
+    sub: "Pull any OCI image · point at registry",
+    icon: "service",
+    group: "custom",
+  },
+  {
+    id: "compose",
+    name: "Docker Compose",
+    sub: "Import a compose.yml · multi-service project",
+    icon: "doc",
+    group: "custom",
+  },
 ];
 
-export interface Template { id: string; name: string; sub: string; services: number; popular?: boolean; icon: string }
+export interface Template {
+  id: string;
+  name: string;
+  sub: string;
+  services: number;
+  popular?: boolean;
+  icon: string;
+}
 
 export const TEMPLATES: Template[] = [
-  { id: "t-medusa", name: "Medusa Commerce", sub: "Headless commerce · Medusa + Postgres + Redis + admin", services: 4, popular: true, icon: "service" },
-  { id: "t-supabase", name: "Supabase", sub: "Auth · Postgres · Realtime · Storage · Studio", services: 6, popular: true, icon: "db" },
+  {
+    id: "t-medusa",
+    name: "Medusa Commerce",
+    sub: "Headless commerce · Medusa + Postgres + Redis + admin",
+    services: 4,
+    popular: true,
+    icon: "service",
+  },
+  {
+    id: "t-supabase",
+    name: "Supabase",
+    sub: "Auth · Postgres · Realtime · Storage · Studio",
+    services: 6,
+    popular: true,
+    icon: "db",
+  },
   { id: "t-strapi", name: "Strapi CMS", sub: "Headless CMS + Postgres", services: 2, icon: "doc" },
-  { id: "t-ghost", name: "Ghost", sub: "Publishing platform · Ghost + MySQL", services: 2, icon: "doc" },
-  { id: "t-nocodb", name: "NocoDB", sub: "Airtable alternative · NocoDB + Postgres", services: 2, icon: "db" },
-  { id: "t-plausible", name: "Plausible Analytics", sub: "Plausible + ClickHouse + Postgres", services: 3, icon: "metrics" },
-  { id: "t-umami", name: "Umami", sub: "Privacy-focused analytics + Postgres", services: 2, icon: "metrics" },
+  {
+    id: "t-ghost",
+    name: "Ghost",
+    sub: "Publishing platform · Ghost + MySQL",
+    services: 2,
+    icon: "doc",
+  },
+  {
+    id: "t-nocodb",
+    name: "NocoDB",
+    sub: "Airtable alternative · NocoDB + Postgres",
+    services: 2,
+    icon: "db",
+  },
+  {
+    id: "t-plausible",
+    name: "Plausible Analytics",
+    sub: "Plausible + ClickHouse + Postgres",
+    services: 3,
+    icon: "metrics",
+  },
+  {
+    id: "t-umami",
+    name: "Umami",
+    sub: "Privacy-focused analytics + Postgres",
+    services: 2,
+    icon: "metrics",
+  },
   { id: "t-n8n", name: "n8n", sub: "Workflow automation", services: 1, icon: "bolt" },
-  { id: "t-grafana", name: "Grafana + Prometheus", sub: "Observability stack", services: 3, icon: "metrics" },
-  { id: "t-langfuse", name: "Langfuse", sub: "LLM observability + Postgres + ClickHouse", services: 3, icon: "metrics" },
+  {
+    id: "t-grafana",
+    name: "Grafana + Prometheus",
+    sub: "Observability stack",
+    services: 3,
+    icon: "metrics",
+  },
+  {
+    id: "t-langfuse",
+    name: "Langfuse",
+    sub: "LLM observability + Postgres + ClickHouse",
+    services: 3,
+    icon: "metrics",
+  },
 ];
 
-export interface ResourcePreset { id: string; name: string; cpu: number | null; mem: number | null; sub: string; cost: number | null; popular?: boolean }
+export interface ResourcePreset {
+  id: string;
+  name: string;
+  cpu: number | null;
+  mem: number | null;
+  sub: string;
+  cost: number | null;
+  popular?: boolean;
+}
 
 export const RESOURCE_PRESETS: ResourcePreset[] = [
   { id: "micro", name: "Micro", cpu: 0.25, mem: 256, sub: "dev / preview / cron", cost: 4 },
-  { id: "small", name: "Small", cpu: 0.5, mem: 512, sub: "small workers · static · staging api", cost: 9, popular: true },
+  {
+    id: "small",
+    name: "Small",
+    cpu: 0.5,
+    mem: 512,
+    sub: "small workers · static · staging api",
+    cost: 9,
+    popular: true,
+  },
   { id: "medium", name: "Medium", cpu: 1, mem: 1024, sub: "most production web apps", cost: 18 },
-  { id: "large", name: "Large", cpu: 2, mem: 2048, sub: "high-traffic api · workers under load", cost: 36 },
+  {
+    id: "large",
+    name: "Large",
+    cpu: 2,
+    mem: 2048,
+    sub: "high-traffic api · workers under load",
+    cost: 36,
+  },
   { id: "xl", name: "XL", cpu: 4, mem: 4096, sub: "database primary · heavy compute", cost: 72 },
-  { id: "custom", name: "Custom", cpu: null, mem: null, sub: "tune CPU and RAM independently", cost: null },
+  {
+    id: "custom",
+    name: "Custom",
+    cpu: null,
+    mem: null,
+    sub: "tune CPU and RAM independently",
+    cost: null,
+  },
 ];
 
-export interface Region { id: string; name: string; flag: string; latency: string; nodes: number }
+export interface Region {
+  id: string;
+  name: string;
+  flag: string;
+  latency: string;
+  nodes: number;
+}
 
 export const REGIONS: Region[] = [
   { id: "sfo", name: "San Francisco", flag: "🇺🇸", latency: "4ms", nodes: 3 },

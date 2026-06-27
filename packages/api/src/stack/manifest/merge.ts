@@ -79,7 +79,12 @@ function deepMerge(
       delete result[key];
       continue;
     }
-    if (isObject(value) && isObject(result[key]) && !Array.isArray(value) && !Array.isArray(result[key])) {
+    if (
+      isObject(value) &&
+      isObject(result[key]) &&
+      !Array.isArray(value) &&
+      !Array.isArray(result[key])
+    ) {
       result[key] = deepMerge(result[key], value);
       continue;
     }

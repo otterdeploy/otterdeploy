@@ -13,20 +13,17 @@
  */
 
 import { useMemo, useState } from "react";
-import { useLiveQuery } from "@tanstack/react-db";
-import { HugeiconsIcon } from "@hugeicons/react";
+
 import { Maximize01Icon, Minimize01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { useLiveQuery } from "@tanstack/react-db";
+
+import type { SessionSource } from "@/features/terminal/types";
 
 import { TerminalSession } from "@/features/terminal/components/terminal-session";
 import { terminalContainersCollection } from "@/features/terminal/data/targets";
-import type { SessionSource } from "@/features/terminal/types";
 import { Button } from "@/shared/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/shared/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
 import { cn } from "@/shared/lib/utils";
 
 export type ResourceTerminalMatch =
@@ -47,26 +44,17 @@ interface ResourceTerminalProps {
   projectSlug: string;
 }
 
-export function ResourceTerminal({
-  match,
-  fallbackLabel,
-  projectSlug,
-}: ResourceTerminalProps) {
-  const { data: containers = [] } = useLiveQuery(
-    () => terminalContainersCollection,
-  );
+export function ResourceTerminal({ match, fallbackLabel, projectSlug }: ResourceTerminalProps) {
+  const { data: containers = [] } = useLiveQuery(() => terminalContainersCollection);
 
   const target = useMemo(() => {
     if (match.kind === "service") {
       return containers.find(
-        (c) =>
-          c.resourceType === "service" &&
-          c.serviceResourceId === match.resourceId,
+        (c) => c.resourceType === "service" && c.serviceResourceId === match.resourceId,
       );
     }
     return containers.find(
-      (c) =>
-        c.resourceType === match.engine && c.serviceName === match.serviceName,
+      (c) => c.resourceType === match.engine && c.serviceName === match.serviceName,
     );
   }, [containers, match]);
 
@@ -111,7 +99,7 @@ export function ResourceTerminal({
 
       {/* Fullscreen — a portal overlay, same mechanism the Data tab uses. */}
       <Dialog open={expanded} onOpenChange={setExpanded}>
-        <DialogContent className="left-0 top-0 flex h-screen w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 sm:max-w-none">
+        <DialogContent className="top-0 left-0 flex h-screen w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 sm:max-w-none">
           <DialogHeader className="sr-only">
             <DialogTitle>{headerLabel}</DialogTitle>
           </DialogHeader>
@@ -166,9 +154,7 @@ function TerminalShell({
       )}
     >
       <div className="flex items-center justify-between gap-3 border-b border-border/40 bg-muted/10 px-3 py-2">
-        <span className="font-mono text-[11px] text-muted-foreground">
-          {headerLabel}
-        </span>
+        <span className="font-mono text-[11px] text-muted-foreground">{headerLabel}</span>
         <div className="flex items-center gap-1.5">
           <Button
             variant="outline"
@@ -204,19 +190,14 @@ function TerminalShell({
       </div>
       <div className="relative min-h-0 flex-1">
         {session ? (
-          <TerminalSession
-            key={`${session.containerId}:${generation}`}
-            source={session}
-            active
-          />
+          <TerminalSession key={`${session.containerId}:${generation}`} source={session} active />
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-1 px-6 text-center">
             <span className="font-mono text-[12px] text-muted-foreground/80">
               No running container.
             </span>
             <span className="text-[11.5px] text-muted-foreground/60">
-              Once a task is scheduled for this resource, the shell will open
-              automatically.
+              Once a task is scheduled for this resource, the shell will open automatically.
             </span>
           </div>
         )}

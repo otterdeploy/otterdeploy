@@ -1,5 +1,4 @@
-import { createServer } from "node:net";
-import { setTimeout as sleep } from "node:timers/promises";
+import type { RequestLogger } from "evlog";
 
 import {
   Docker,
@@ -8,10 +7,11 @@ import {
   followProgress,
   type ContainerInspect,
 } from "@otterdeploy/docker";
-import type { RequestLogger } from "evlog";
+import { createServer } from "node:net";
+import { setTimeout as sleep } from "node:timers/promises";
 
-import { asStepLogger } from "../lib/logger";
 import { PLATFORM } from "../constants";
+import { asStepLogger } from "../lib/logger";
 
 export interface DockerPostgresRuntime {
   containerName: string;
@@ -44,7 +44,7 @@ export async function provisionDockerPostgres(
     const existing = await inspectContainer(docker, input.containerName);
     if (existing) {
       if (!existing.State.Running) {
-         (await docker.containers.getContainer(existing.Id).start()).unwrap();
+        (await docker.containers.getContainer(existing.Id).start()).unwrap();
       }
 
       const ready = await waitForContainerReady(docker, input.containerName);
@@ -224,7 +224,7 @@ async function ensureImage(docker: Docker, image: string) {
     throw inspectResult.error;
   }
 
-  const stream =  (await docker.pull(image)).unwrap();
+  const stream = (await docker.pull(image)).unwrap();
 
   await new Promise<void>((resolve, reject) => {
     followProgress(stream, (error) => {
@@ -248,7 +248,7 @@ async function ensureNetwork(docker: Docker, networkName: string) {
     throw inspectResult.error;
   }
 
-   (
+  (
     await docker.networks.create({
       Name: networkName,
       Driver: "bridge",
@@ -270,7 +270,7 @@ async function ensureVolume(docker: Docker, volumeName: string) {
     throw inspectResult.error;
   }
 
-   (
+  (
     await docker.volumes.create({
       Name: volumeName,
       Labels: {

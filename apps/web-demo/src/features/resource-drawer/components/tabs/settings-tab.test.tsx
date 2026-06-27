@@ -1,7 +1,8 @@
-import { describe, expect, it, vi } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { describe, expect, it, vi } from "vitest";
+
 import { SettingsTab } from "./settings-tab";
 
 vi.mock("@/utils/orpc", () => ({
@@ -20,9 +21,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  return (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-  );
+  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 }
 
 describe("SettingsTab", () => {
@@ -30,12 +29,7 @@ describe("SettingsTab", () => {
     const onDeleted = vi.fn();
     const user = userEvent.setup();
     render(
-      <SettingsTab
-        projectId="proj_1"
-        resourceId="res_1"
-        name="primary"
-        onDeleted={onDeleted}
-      />,
+      <SettingsTab projectId="proj_1" resourceId="res_1" name="primary" onDeleted={onDeleted} />,
       { wrapper },
     );
     await user.click(screen.getByRole("button", { name: /^delete$/i }));
@@ -48,12 +42,7 @@ describe("SettingsTab", () => {
     const user = userEvent.setup();
     const { client } = await import("@/utils/orpc");
     render(
-      <SettingsTab
-        projectId="proj_1"
-        resourceId="res_1"
-        name="primary"
-        onDeleted={onDeleted}
-      />,
+      <SettingsTab projectId="proj_1" resourceId="res_1" name="primary" onDeleted={onDeleted} />,
       { wrapper },
     );
     await user.click(screen.getByRole("button", { name: /^delete$/i }));

@@ -1,3 +1,9 @@
+import { db } from "@otterdeploy/db";
+import {
+  notificationChannel,
+  notificationDelivery,
+  notificationSubscription,
+} from "@otterdeploy/db/schema";
 /**
  * Platform-event fan-out. A single deploy/build/backup/etc. outcome enqueues
  * one of these; the handler resolves every channel subscribed to that event in
@@ -13,19 +19,8 @@
 import { and, eq } from "drizzle-orm";
 import * as z from "zod";
 
-import { db } from "@otterdeploy/db";
-import {
-  notificationChannel,
-  notificationDelivery,
-  notificationSubscription,
-} from "@otterdeploy/db/schema";
-
 import { defineJob } from "../define";
-import {
-  type ChannelKind,
-  type ResolvedChannel,
-  deliverToChannel,
-} from "../delivery/channels";
+import { type ChannelKind, type ResolvedChannel, deliverToChannel } from "../delivery/channels";
 import { decryptSecret } from "../delivery/secret-crypto";
 
 export const PlatformEventPayload = z.object({
@@ -46,9 +41,7 @@ type ChannelRow = typeof notificationChannel.$inferSelect;
 type OrgId = ChannelRow["organizationId"];
 type ChannelId = ChannelRow["id"];
 
-async function resolveChannels(
-  payload: PlatformEventPayload,
-): Promise<ChannelRow[]> {
+async function resolveChannels(payload: PlatformEventPayload): Promise<ChannelRow[]> {
   const orgId = payload.organizationId as OrgId;
   if (payload.channelId) {
     return db
@@ -64,10 +57,7 @@ async function resolveChannels(
   const rows = await db
     .select({ channel: notificationChannel })
     .from(notificationSubscription)
-    .innerJoin(
-      notificationChannel,
-      eq(notificationChannel.id, notificationSubscription.channelId),
-    )
+    .innerJoin(notificationChannel, eq(notificationChannel.id, notificationSubscription.channelId))
     .where(
       and(
         eq(notificationSubscription.organizationId, orgId),

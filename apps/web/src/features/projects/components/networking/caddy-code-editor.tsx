@@ -10,11 +10,11 @@
 
 import { Fragment, useEffect, useRef } from "react";
 
-import { cn } from "@/shared/lib/utils";
 import {
   buildModel,
   KIND_CLASS,
 } from "@/features/projects/components/networking/caddyfile-highlight";
+import { cn } from "@/shared/lib/utils";
 
 export interface CaddyCodeEditorProps {
   value: string;
@@ -67,8 +67,7 @@ export function CaddyCodeEditor({
     e.preventDefault();
     const ta = e.currentTarget;
     const { selectionStart, selectionEnd } = ta;
-    const next =
-      value.slice(0, selectionStart) + indent + value.slice(selectionEnd);
+    const next = value.slice(0, selectionStart) + indent + value.slice(selectionEnd);
     onValueChange(next);
     // Restore the caret just past the inserted indent on the next frame.
     requestAnimationFrame(() => {
@@ -89,7 +88,7 @@ export function CaddyCodeEditor({
         ref={gutterRef}
         aria-hidden
         className={cn(
-          "flex-none select-none overflow-hidden border-r border-border/60 bg-muted/30 text-right text-muted-foreground/40 tabular-nums",
+          "flex-none overflow-hidden border-r border-border/60 bg-muted/30 text-right text-muted-foreground/40 tabular-nums select-none",
           TEXT_METRICS,
           PAD_Y,
         )}
@@ -144,7 +143,7 @@ export function CaddyCodeEditor({
           autoComplete="off"
           wrap="off"
           className={cn(
-            "absolute inset-0 m-0 size-full resize-none overflow-auto whitespace-pre border-0 bg-transparent text-transparent caret-foreground outline-none",
+            "absolute inset-0 m-0 size-full resize-none overflow-auto border-0 bg-transparent whitespace-pre text-transparent caret-foreground outline-none",
             "selection:bg-primary/25",
             TEXT_METRICS,
             PAD_Y,

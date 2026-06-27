@@ -17,8 +17,7 @@ const gridStyle = {
     "linear-gradient(color-mix(in oklab, var(--foreground) 6%, transparent) 1px, transparent 1px)," +
     "linear-gradient(90deg, color-mix(in oklab, var(--foreground) 6%, transparent) 1px, transparent 1px)",
   backgroundSize: "56px 56px",
-  WebkitMaskImage:
-    "radial-gradient(130% 100% at 50% 50%, #000 30%, transparent 78%)",
+  WebkitMaskImage: "radial-gradient(130% 100% at 50% 50%, #000 30%, transparent 78%)",
   maskImage: "radial-gradient(130% 100% at 50% 50%, #000 30%, transparent 78%)",
 } as const;
 
@@ -46,18 +45,10 @@ export function AuthShell({
   return (
     <div className="flex min-h-svh w-full flex-col bg-background">
       <main className="relative flex flex-1 items-center justify-center overflow-hidden px-7 py-14">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0"
-          style={gridStyle}
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0"
-          style={glowStyle}
-        />
+        <div aria-hidden className="pointer-events-none absolute inset-0" style={gridStyle} />
+        <div aria-hidden className="pointer-events-none absolute inset-0" style={glowStyle} />
 
-        <div className="absolute left-7 top-7 lg:left-16 lg:top-14">
+        <div className="absolute top-7 left-7 lg:top-14 lg:left-16">
           <Wordmark />
         </div>
 
@@ -65,18 +56,12 @@ export function AuthShell({
           <Card>
             <CardHeader>
               <CardTitle>{title}</CardTitle>
-              {description ? (
-                <CardDescription>{description}</CardDescription>
-              ) : null}
+              {description ? <CardDescription>{description}</CardDescription> : null}
             </CardHeader>
-            <CardContent className="flex flex-col gap-4">
-              {children}
-            </CardContent>
+            <CardContent className="flex flex-col gap-4">{children}</CardContent>
           </Card>
           {footer ? (
-            <div className="text-center text-xs text-muted-foreground">
-              {footer}
-            </div>
+            <div className="text-center text-xs text-muted-foreground">{footer}</div>
           ) : null}
         </div>
       </main>
@@ -99,12 +84,10 @@ export function AuthShell({
 function Wordmark() {
   return (
     <div className="flex items-center gap-2.5">
-      <span className="grid size-7 place-items-center rounded-md bg-foreground text-[11px] font-semibold lowercase text-background">
+      <span className="grid size-7 place-items-center rounded-md bg-foreground text-[11px] font-semibold text-background lowercase">
         os
       </span>
-      <span className="text-sm font-semibold tracking-[-0.02em] text-foreground">
-        otterdeploy
-      </span>
+      <span className="text-sm font-semibold tracking-[-0.02em] text-foreground">otterdeploy</span>
     </div>
   );
 }

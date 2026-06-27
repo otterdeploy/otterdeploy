@@ -10,19 +10,16 @@ import type { OrganizationId, ProjectId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { project } from "@otterdeploy/db/schema/project";
-import { and, eq } from "drizzle-orm";
 import { Result, TaggedError } from "better-result";
+import { and, eq } from "drizzle-orm";
 
 import { stackFileSchema } from "../../stack";
-
 import { ProjectNotFoundError } from "./errors";
 import { getProjectInOrg } from "./queries";
 
 type OrgId = OrganizationId;
 
-class StackVersionMismatchError extends TaggedError(
-  "StackVersionMismatchError",
-)<{
+class StackVersionMismatchError extends TaggedError("StackVersionMismatchError")<{
   message: string;
   expected: number;
   actual: number;
@@ -44,10 +41,7 @@ class StackParseError extends TaggedError("StackParseError")<{
   }
 }
 
-export type SaveStackError =
-  | ProjectNotFoundError
-  | StackVersionMismatchError
-  | StackParseError;
+export type SaveStackError = ProjectNotFoundError | StackVersionMismatchError | StackParseError;
 
 export interface SaveStackResult {
   version: number;
@@ -96,10 +90,7 @@ export async function saveProjectStack(input: {
       stackFileVersion: input.expectedVersion + 1,
     })
     .where(
-      and(
-        eq(project.id, input.projectId),
-        eq(project.stackFileVersion, input.expectedVersion),
-      ),
+      and(eq(project.id, input.projectId), eq(project.stackFileVersion, input.expectedVersion)),
     )
     .returning({ stackFileVersion: project.stackFileVersion });
 

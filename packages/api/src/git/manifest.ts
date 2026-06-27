@@ -35,7 +35,6 @@ import { gitProvider } from "@otterdeploy/db/schema";
 import { and, eq } from "drizzle-orm";
 
 import { encryptSecret } from "../lib/crypto";
-
 import { apiBaseUrlForHost } from "./github-app";
 
 type OrgId = OrganizationId;
@@ -108,12 +107,7 @@ export function buildManifestRequest(opts: {
       pull_requests: "write",
       checks: "write",
     },
-    default_events: [
-      "push",
-      "pull_request",
-      "installation",
-      "installation_repositories",
-    ],
+    default_events: ["push", "pull_request", "installation", "installation_repositories"],
   };
 
   // POST to the org-scoped URL when we know the operator wants this App
@@ -172,9 +166,7 @@ export async function completeManifestExchange(opts: {
   });
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(
-      `GitHub manifest exchange failed (${res.status}): ${body.slice(0, 500)}`,
-    );
+    throw new Error(`GitHub manifest exchange failed (${res.status}): ${body.slice(0, 500)}`);
   }
   const json = (await res.json()) as ManifestConversionResponse;
 
@@ -239,12 +231,7 @@ export async function orgHasGithubApp(orgId: OrgId): Promise<boolean> {
   const [row] = await db
     .select({ externalAppId: gitProvider.externalAppId })
     .from(gitProvider)
-    .where(
-      and(
-        eq(gitProvider.organizationId, orgId),
-        eq(gitProvider.kind, "github"),
-      ),
-    )
+    .where(and(eq(gitProvider.organizationId, orgId), eq(gitProvider.kind, "github")))
     .limit(1);
   return Boolean(row?.externalAppId);
 }

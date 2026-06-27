@@ -113,9 +113,7 @@ export async function* readLines(
  * Unparseable lines are skipped — docker occasionally batches multiple JSON
  * objects on a line or emits status noise we don't care about.
  */
-export async function* readNdjson<T>(
-  stream: NodeJS.ReadableStream,
-): AsyncGenerator<T, void, void> {
+export async function* readNdjson<T>(stream: NodeJS.ReadableStream): AsyncGenerator<T, void, void> {
   for await (const line of readLines(stream)) {
     try {
       yield JSON.parse(line) as T;

@@ -46,20 +46,12 @@ export class StorageError extends TaggedError("StorageError")<{
   destType: DestinationType;
   cause: unknown;
 }>() {
-  constructor(args: {
-    op: StorageOp;
-    destType: DestinationType;
-    reason: string;
-    cause?: unknown;
-  }) {
+  constructor(args: { op: StorageOp; destType: DestinationType; reason: string; cause?: unknown }) {
     super({
       op: args.op,
       destType: args.destType,
       cause: args.cause,
-      message:
-        args.cause == null
-          ? args.reason
-          : `${args.reason}: ${causeMessage(args.cause)}`,
+      message: args.cause == null ? args.reason : `${args.reason}: ${causeMessage(args.cause)}`,
     });
   }
 }
@@ -99,10 +91,7 @@ function configErr(destType: DestinationType, reason: string) {
  *  input, so wrapping in `Result.try` keeps a construction failure a
  *  `StorageError` value rather than an exception (and, inside a `.map`/`.andThen`
  *  chain, an unrecoverable Panic). */
-function safeFiles(
-  destType: DestinationType,
-  make: () => Files,
-): Result<Files, StorageError> {
+function safeFiles(destType: DestinationType, make: () => Files): Result<Files, StorageError> {
   return Result.try({
     try: make,
     catch: (cause) =>
@@ -120,9 +109,7 @@ function safeFiles(
  *  per-verb `switch (dest.type)` the hand-rolled version repeated three times.
  *  Adapter-specific `Files` instances widen to `Files` since the generic is
  *  covariant (the adapter only ever appears in output position). */
-async function filesFor(
-  dest: ResolvedDestination,
-): Promise<Result<Files, StorageError>> {
+async function filesFor(dest: ResolvedDestination): Promise<Result<Files, StorageError>> {
   switch (dest.type) {
     case "local": {
       const root = str(dest.config.path);
@@ -166,8 +153,7 @@ async function filesFor(
             new StorageError({
               op: "config",
               destType: "sftp",
-              reason:
-                "SFTP support requires the `ssh2-sftp-client` package — run `bun install`",
+              reason: "SFTP support requires the `ssh2-sftp-client` package — run `bun install`",
               cause,
             }),
         });
@@ -181,9 +167,7 @@ async function filesFor(
                   port: p.port,
                   username: p.username,
                   ...(p.password ? { password: p.password } : {}),
-                  ...(p.privateKey
-                    ? { privateKey: p.privateKey, passphrase: p.passphrase }
-                    : {}),
+                  ...(p.privateKey ? { privateKey: p.privateKey, passphrase: p.passphrase } : {}),
                   root: p.basePath,
                   readyTimeout: 20_000,
                 }),
@@ -271,27 +255,19 @@ interface SftpParams {
   basePath: string;
 }
 
-function sftpParams(
-  dest: ResolvedDestination,
-): Result<SftpParams, StorageError> {
+function sftpParams(dest: ResolvedDestination): Result<SftpParams, StorageError> {
   const host = str(dest.config.host);
   if (!host) return configErr("sftp", "sftp destination missing `host`");
   const username = str(dest.secret.username) ?? str(dest.config.username);
-  if (!username)
-    return configErr("sftp", "sftp destination missing `username`");
+  if (!username) return configErr("sftp", "sftp destination missing `username`");
   const password = str(dest.secret.password);
   const privateKey = str(dest.secret.privateKey);
   if (!password && !privateKey) {
-    return configErr(
-      "sftp",
-      "sftp destination missing credentials (password or privateKey)",
-    );
+    return configErr("sftp", "sftp destination missing credentials (password or privateKey)");
   }
   const rawPort = dest.config.port;
   const port =
-    typeof rawPort === "number"
-      ? rawPort
-      : Number.parseInt(str(rawPort) ?? "", 10) || 22;
+    typeof rawPort === "number" ? rawPort : Number.parseInt(str(rawPort) ?? "", 10) || 22;
   const basePath = str(dest.config.basePath) ?? str(dest.config.path) ?? ".";
   return Result.ok({
     host,

@@ -30,13 +30,14 @@
  * aeroplane's env-override channel is dropped (we have no such channel).
  */
 
+import type { Builder } from "@otterdeploy/shared/build-config";
+
 import { existsSync, statSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
 
-import type { Builder } from "@otterdeploy/shared/build-config";
+import type { LogSink } from "./log-stream";
 
 import { builderFlags, cacheFlags } from "./buildx";
-import type { LogSink } from "./log-stream";
 import { runProcess } from "./run-process";
 
 /** Default Dockerfile name, relative to `appDir`, when no custom path is set. */
@@ -110,24 +111,16 @@ export function resolveDockerfileBuild(opts: {
   // bad path a HARD error; "auto" warns + falls back to railpack.
   if (isAbsolute(relativePath)) {
     if (builder === "dockerfile") {
-      throw new Error(
-        `Dockerfile path must be relative to the repository, got: ${relativePath}`,
-      );
+      throw new Error(`Dockerfile path must be relative to the repository, got: ${relativePath}`);
     }
-    return railpack([
-      `Ignoring absolute Dockerfile path ${relativePath}; using Railpack instead.`,
-    ]);
+    return railpack([`Ignoring absolute Dockerfile path ${relativePath}; using Railpack instead.`]);
   }
 
   const resolvedPath = resolve(appDir, relativePath);
-  const escapesAppDir = relative(resolve(appDir), resolvedPath).startsWith(
-    "..",
-  );
+  const escapesAppDir = relative(resolve(appDir), resolvedPath).startsWith("..");
   if (escapesAppDir) {
     if (builder === "dockerfile") {
-      throw new Error(
-        `Dockerfile path ${relativePath} points outside the repository.`,
-      );
+      throw new Error(`Dockerfile path ${relativePath} points outside the repository.`);
     }
     return railpack([
       `Ignoring Dockerfile path ${relativePath} because it points outside the repository; using Railpack instead.`,

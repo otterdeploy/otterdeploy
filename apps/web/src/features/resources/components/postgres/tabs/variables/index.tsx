@@ -2,16 +2,19 @@
 // sections so the eye/copy toggles work the same across both. The user
 // vars editor owns its own reveal/copy state internally.
 
-import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-
 import type { ProjectId } from "@otterdeploy/shared/id";
 
-import type { PostgresBodyProps } from "../../types";
-import { VariableRefHint } from "@/features/resources/components/_shared/hint-banner";
+import { useMemo, useState } from "react";
+
+import { useQuery } from "@tanstack/react-query";
+
 import { useStageManifestChange } from "@/features/projects/hooks/use-manifest-stage";
+import { VariableRefHint } from "@/features/resources/components/_shared/hint-banner";
 import { VariablesEditor } from "@/features/resources/components/_shared/variables-editor";
 import { orpc } from "@/shared/server/orpc";
+
+import type { PostgresBodyProps } from "../../types";
+
 import { buildEngineServiceVars, buildSystemVars } from "./engine-service-vars";
 import { HeaderBar } from "./header-bar";
 import { ServiceVarsList } from "./service-vars-list";
@@ -37,11 +40,7 @@ export function PostgresVariablesTabBody({
   return <ProvisionedVariables resource={resource} />;
 }
 
-function ProvisionedVariables({
-  resource,
-}: {
-  resource: PostgresBodyProps["resource"];
-}) {
+function ProvisionedVariables({ resource }: { resource: PostgresBodyProps["resource"] }) {
   const serviceVars = useMemo(() => buildEngineServiceVars(resource), [resource]);
   const systemVars = useMemo(() => buildSystemVars(resource), [resource]);
 
@@ -52,8 +51,7 @@ function ProvisionedVariables({
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [addingSignal, setAddingSignal] = useState(0);
 
-  const matches = (name: string) =>
-    !query || name.toLowerCase().includes(query.toLowerCase());
+  const matches = (name: string) => !query || name.toLowerCase().includes(query.toLowerCase());
 
   const filteredService = serviceVars.filter((v) => matches(v.name));
   const filteredSystem = systemVars.filter((v) => matches(v.name));
@@ -86,9 +84,7 @@ function ProvisionedVariables({
         onAdd={() => setAddingSignal((n) => n + 1)}
       />
 
-      {!hintDismissed && (
-        <VariableRefHint onDismiss={() => setHintDismissed(true)} />
-      )}
+      {!hintDismissed && <VariableRefHint onDismiss={() => setHintDismissed(true)} />}
 
       <ServiceVarsList
         filteredService={filteredService}
@@ -174,10 +170,7 @@ function PendingVariables({
   const copyValue = (value: string, name: string) => {
     void navigator.clipboard?.writeText(value);
     setCopiedKey(name);
-    window.setTimeout(
-      () => setCopiedKey((cur) => (cur === name ? null : cur)),
-      1400,
-    );
+    window.setTimeout(() => setCopiedKey((cur) => (cur === name ? null : cur)), 1400);
   };
 
   const onSave = dbName
@@ -202,13 +195,10 @@ function PendingVariables({
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-2.5">
-        <span className="text-[14px] font-semibold">
-          {resource.engine} variables
-        </span>
+        <span className="text-[14px] font-semibold">{resource.engine} variables</span>
         <p className="text-[12px] text-muted-foreground">
-          {resource.engine} exports these into the container. They&apos;re live
-          now and stay the same after deploy — reference them from other
-          services with{" "}
+          {resource.engine} exports these into the container. They&apos;re live now and stay the
+          same after deploy — reference them from other services with{" "}
           <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">
             ${"{"}
             {dbName ?? resource.name}.DATABASE_URL{"}"}
@@ -240,14 +230,8 @@ function PendingVariables({
           onQueryChange={() => {}}
           onAdd={() => setAddingSignal((n) => n + 1)}
         />
-        {!hintDismissed && (
-          <VariableRefHint onDismiss={() => setHintDismissed(true)} />
-        )}
-        <VariablesEditor
-          resource={resource}
-          addRowSignal={addingSignal}
-          onSave={onSave}
-        />
+        {!hintDismissed && <VariableRefHint onDismiss={() => setHintDismissed(true)} />}
+        <VariablesEditor resource={resource} addRowSignal={addingSignal} onSave={onSave} />
       </div>
     </div>
   );

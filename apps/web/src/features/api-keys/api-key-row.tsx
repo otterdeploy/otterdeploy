@@ -6,12 +6,11 @@
  */
 
 import { useState } from "react";
+
 import { Delete02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
 
-import { apiKeysCollection } from "./data/api-keys";
-import { formatDate, isExpired } from "./shared";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,6 +26,9 @@ import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Switch } from "@/shared/components/ui/switch";
 import { TableCell, TableRow } from "@/shared/components/ui/table";
+
+import { apiKeysCollection } from "./data/api-keys";
+import { formatDate, isExpired } from "./shared";
 
 export function ApiKeyRow({
   apiKey,
@@ -100,9 +102,7 @@ export function ApiKeyRow({
             Expired
           </Badge>
         ) : (
-          <span className="text-muted-foreground">
-            {formatDate(apiKey.expiresAt, "Never")}
-          </span>
+          <span className="text-muted-foreground">{formatDate(apiKey.expiresAt, "Never")}</span>
         )}
       </TableCell>
       <TableCell className="text-right">
@@ -123,22 +123,16 @@ export function ApiKeyRow({
                   className="text-muted-foreground hover:text-destructive"
                   aria-label="Delete API key"
                 >
-                  <HugeiconsIcon
-                    icon={Delete02Icon}
-                    strokeWidth={2}
-                    className="size-3.5"
-                  />
+                  <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} className="size-3.5" />
                 </Button>
               }
             />
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>
-                  Delete “{apiKey.name ?? "this key"}”?
-                </AlertDialogTitle>
+                <AlertDialogTitle>Delete “{apiKey.name ?? "this key"}”?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Any client still using this key will immediately lose access.
-                  This can't be undone.
+                  Any client still using this key will immediately lose access. This can't be
+                  undone.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -151,12 +145,7 @@ export function ApiKeyRow({
                 />
                 <AlertDialogAction
                   render={
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      disabled={busy}
-                      onClick={remove}
-                    >
+                    <Button variant="destructive" size="sm" disabled={busy} onClick={remove}>
                       Delete
                     </Button>
                   }

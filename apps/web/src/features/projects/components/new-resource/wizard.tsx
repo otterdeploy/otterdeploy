@@ -1,26 +1,25 @@
+import type { ProjectId, ProjectSlug } from "@otterdeploy/shared/id";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+
 import { ArrowLeft01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import type { ProjectId, ProjectSlug } from "@otterdeploy/shared/id";
 import { useStore } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import {
-  SERVICE_KINDS,
-  type ServiceKind,
-} from "@/features/projects/data/service-kinds";
+import { SERVICE_KINDS, type ServiceKind } from "@/features/projects/data/service-kinds";
 import { Button } from "@/shared/components/ui/button";
 import { Switch } from "@/shared/components/ui/switch";
 import { cn } from "@/shared/lib/utils";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
+import type { Port } from "./form-fields/ports-field";
+import type { Var } from "./form-fields/variables-field";
+
 import { useStageManifestChange } from "../../hooks/use-manifest-stage";
 import { ComposeWizard } from "./compose-wizard";
 import { flowFor } from "./flows";
-import { buildDatabaseSpec, buildServiceSpec } from "./to-manifest";
-import type { Port } from "./form-fields/ports-field";
-import type { Var } from "./form-fields/variables-field";
 import { useAppForm } from "./form-context";
 import { resourceDefaults, resourceFormSchema, type Step } from "./schemas";
 import {
@@ -37,6 +36,7 @@ import {
   StepVersion,
   Stepper,
 } from "./steps";
+import { buildDatabaseSpec, buildServiceSpec } from "./to-manifest";
 
 export interface ResourceWizardProps {
   orgSlug: string;
@@ -83,8 +83,12 @@ function ResourceWizardBody({
 
   // Provisioner state + create mutators (database + service) hoisted
   // into a hook so this component stays under the file-length cap.
-  const { isCreating, runDatabaseCreate, runServiceCreate } =
-    useResourceProvisioner({ projectId, orgSlug, projectSlug, onComplete });
+  const { isCreating, runDatabaseCreate, runServiceCreate } = useResourceProvisioner({
+    projectId,
+    orgSlug,
+    projectSlug,
+    onComplete,
+  });
 
   const {
     form,
@@ -142,12 +146,7 @@ function ResourceWizardBody({
   return (
     <form.AppForm>
       <div className="flex h-full flex-col bg-transparent text-foreground">
-        <Stepper
-          steps={steps}
-          idx={idx}
-          setStep={goTo}
-          failingSteps={failingSteps}
-        />
+        <Stepper steps={steps} idx={idx} setStep={goTo} failingSteps={failingSteps} />
 
         <WizardStepBody
           step={step}
@@ -160,9 +159,7 @@ function ResourceWizardBody({
           onDbViewChange={setDbEngineView}
         />
 
-        {currentStepIssues.length > 0 && (
-          <RequiredHint issues={currentStepIssues} />
-        )}
+        {currentStepIssues.length > 0 && <RequiredHint issues={currentStepIssues} />}
 
         <WizardFooter
           onCancel={onCancel}
@@ -218,10 +215,8 @@ const STEP_RENDERERS: Record<Step, (ctx: StepCtx) => React.ReactNode | null> = {
   kind: ({ dbView, onDbViewChange }) => (
     <StepKind dbView={dbView} onDbViewChange={onDbViewChange} />
   ),
-  source: ({ kind, isSourceBased }) =>
-    kind && isSourceBased ? <StepSource /> : null,
-  builder: ({ kind, isSourceBased }) =>
-    kind && isSourceBased ? <StepBuilder /> : null,
+  source: ({ kind, isSourceBased }) => (kind && isSourceBased ? <StepSource /> : null),
+  builder: ({ kind, isSourceBased }) => (kind && isSourceBased ? <StepBuilder /> : null),
   image: ({ kind, isDocker }) => (kind && isDocker ? <StepImage /> : null),
   networking: ({ kind, isSourceBased, isDocker }) =>
     kind && (isSourceBased || isDocker) ? <StepNetworking kind={kind} /> : null,
@@ -232,10 +227,8 @@ const STEP_RENDERERS: Record<Step, (ctx: StepCtx) => React.ReactNode | null> = {
     ) : null,
   version: ({ kind, isDb, projectId }) =>
     kind && isDb ? <StepVersion kind={kind} projectId={projectId} /> : null,
-  storage: ({ kind, isDb }) =>
-    kind && isDb ? <StepStorage kind={kind} /> : null,
-  advanced: ({ kind, isDb }) =>
-    kind && isDb ? <StepAdvancedDb kind={kind} /> : null,
+  storage: ({ kind, isDb }) => (kind && isDb ? <StepStorage kind={kind} /> : null),
+  advanced: ({ kind, isDb }) => (kind && isDb ? <StepAdvancedDb kind={kind} /> : null),
   review: ({ kind }) => (kind ? <StepReview kind={kind} /> : null),
 };
 
@@ -260,9 +253,7 @@ function WizardStepBody({
 }) {
   return (
     <div className="flex-1 overflow-y-auto p-4">
-      <div
-        className={cn("mx-auto max-w-205", { "max-w-275": step === "kind" })}
-      >
+      <div className={cn("mx-auto max-w-205", { "max-w-275": step === "kind" })}>
         {STEP_RENDERERS[step]({
           kind,
           isDb,
@@ -277,20 +268,14 @@ function WizardStepBody({
   );
 }
 
-function RequiredHint({
-  issues,
-}: {
-  issues: ReadonlyArray<{ path: ReadonlyArray<PropertyKey> }>;
-}) {
+function RequiredHint({ issues }: { issues: ReadonlyArray<{ path: ReadonlyArray<PropertyKey> }> }) {
   return (
     <div className="flex shrink-0 items-center gap-2 border-t border-destructive/30 bg-destructive/5 px-4 py-2 text-[11px] text-destructive">
       <span className="font-medium">Required to continue:</span>
       <span className="font-mono text-foreground/80">
         {Array.from(
           new Set(
-            issues
-              .map((i) => i.path[0])
-              .filter((p) => typeof p === "string" && p !== "__step"),
+            issues.map((i) => i.path[0]).filter((p) => typeof p === "string" && p !== "__step"),
           ),
         ).join(", ")}
       </span>
@@ -333,12 +318,7 @@ function WizardFooter({
 }) {
   return (
     <div className="flex shrink-0 items-center gap-2 border-t bg-transparent px-4 py-3">
-      <Button
-        variant="outline"
-        size="sm"
-        className="h-8"
-        onClick={() => onCancel?.()}
-      >
+      <Button variant="outline" size="sm" className="h-8" onClick={() => onCancel?.()}>
         Cancel
       </Button>
       {showAdvancedToggle && (
@@ -361,40 +341,27 @@ function WizardFooter({
           onClick={showDbBack ? onDbBack : goPrev}
           disabled={isCreating}
         >
-          <HugeiconsIcon
-            icon={ArrowLeft01Icon}
-            strokeWidth={2}
-            className="size-3.5"
-          />
+          <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="size-3.5" />
           Back
         </Button>
       )}
       <Button
         size="sm"
         className="h-8 gap-1.5"
-        onClick={() =>  handleContinue()}
+        onClick={() => handleContinue()}
         disabled={createDisabled}
       >
         {/* In the engine sub-view, kindId is empty until an engine is picked,
             which collapses the flow to one step — so guard the "Add resource"
             label behind !showDbBack and read "Continue" instead. */}
-        {isLast && !showDbBack
-          ? isCreating
-            ? "Adding…"
-            : "Add resource"
-          : "Continue"}
+        {isLast && !showDbBack ? (isCreating ? "Adding…" : "Add resource") : "Continue"}
         {(!isLast || showDbBack) && (
-          <HugeiconsIcon
-            icon={ArrowRight01Icon}
-            strokeWidth={2}
-            className="size-3.5"
-          />
+          <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-3.5" />
         )}
       </Button>
     </div>
   );
 }
-
 
 /**
  * Warm the caches the source step depends on so the dropdown +
@@ -604,9 +571,7 @@ function useWizardForm({
           name: payload.name,
           source: "image",
           kindId: payload.kindId,
-          image: payload.tag
-            ? `${payload.image}:${payload.tag}`
-            : payload.image,
+          image: payload.tag ? `${payload.image}:${payload.tag}` : payload.image,
           ports: payload.ports,
           variables: payload.variables,
           replicas: payload.replicas,
@@ -621,8 +586,7 @@ function useWizardForm({
       // the project's git binding. Placeholder image — the first build
       // overwrites it. A port-less kind (worker) skips the Networking step, so
       // force no ports rather than inheriting the default web port.
-      const portless =
-        SERVICE_KINDS.find((k) => k.id === payload.kindId)?.portless === true;
+      const portless = SERVICE_KINDS.find((k) => k.id === payload.kindId)?.portless === true;
       await runServiceCreate({
         name: payload.name,
         source: "git",
@@ -651,8 +615,7 @@ function useWizardForm({
   const isDocker = !!kind && kind.id === "docker";
 
   const advancedSetup = useStore(form.store, (s) => s.values.advancedSetup);
-  const setAdvanced = (next: boolean) =>
-    form.setFieldValue("advancedSetup", next);
+  const setAdvanced = (next: boolean) => form.setFieldValue("advancedSetup", next);
   const steps = useMemo(() => flowFor(kind, advancedSetup), [kind, advancedSetup]);
   const idx = steps.findIndex((s) => s[0] === step);
   const isLast = idx === steps.length - 1;
@@ -687,9 +650,7 @@ function useWizardForm({
     await form.validate("change");
     const allErrors = form.getAllErrors();
     const hasFormErrors = allErrors.form.errors.length > 0;
-    const hasFieldErrors = Object.values(allErrors.fields).some(
-      (f) => f.errors.length > 0,
-    );
+    const hasFieldErrors = Object.values(allErrors.fields).some((f) => f.errors.length > 0);
     if (hasFormErrors || hasFieldErrors) return;
     if (isLast) {
       await form.handleSubmit();
@@ -726,8 +687,7 @@ function usePrefetchSourceData(initialGitRepoId: string | null) {
     const run = async () => {
       const providersOptions = orpc.git.list.queryOptions();
       await queryClient.prefetchQuery(providersOptions);
-      const providers =
-        queryClient.getQueryData(providersOptions.queryKey) ?? [];
+      const providers = queryClient.getQueryData(providersOptions.queryKey) ?? [];
       const installations = providers.flatMap((p) => p.installations);
       const active = installations[0];
       if (!active) return;

@@ -1,14 +1,9 @@
 import { createCollection } from "@tanstack/db";
-import {
-  parseLoadSubsetOptions,
-  queryCollectionOptions,
-} from "@tanstack/query-db-collection";
-
+import { parseLoadSubsetOptions, queryCollectionOptions } from "@tanstack/query-db-collection";
 import { z } from "zod";
 
-import { parseCol } from "@/shared/lib/utils";
-
 import { authClient } from "@/lib/auth-client";
+import { parseCol } from "@/shared/lib/utils";
 import { client, queryClient } from "@/shared/server/orpc";
 
 /**
@@ -44,21 +39,13 @@ export const apiKeysCollection = createCollection(
       // Startup base-key call: query-db-collection calls queryKey({}) once to
       // compute the prefix every subset key must extend. No filters yet.
       if (!filters.at(0)) return baseQuery;
-      const organizationId = parseCol(
-        organizationIdSchema,
-        filters,
-        "organizationId",
-      );
+      const organizationId = parseCol(organizationIdSchema, filters, "organizationId");
       return [...apiKeysSubsetKey(organizationId)];
     },
     queryFn: async (ctx) => {
       const { filters } = parseLoadSubsetOptions(ctx.meta?.loadSubsetOptions);
       if (!filters.at(0)) return [];
-      const organizationId = parseCol(
-        organizationIdSchema,
-        filters,
-        "organizationId",
-      );
+      const organizationId = parseCol(organizationIdSchema, filters, "organizationId");
       const res = await authClient.apiKey.list({ query: { organizationId } });
       if (res.error) {
         throw new Error(res.error.message ?? "Failed to load API keys");
@@ -86,9 +73,7 @@ export const apiKeysCollection = createCollection(
           // `create` wants seconds-until-expiry; the optimistic row holds the
           // resolved `expiresAt` — recover the delta.
           const expiresIn = row.expiresAt
-            ? Math.round(
-                (new Date(row.expiresAt).getTime() - Date.now()) / 1000,
-              )
+            ? Math.round((new Date(row.expiresAt).getTime() - Date.now()) / 1000)
             : null;
           const created = await client.apiKeys.create({
             name: row.name ?? "",

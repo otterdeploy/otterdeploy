@@ -29,10 +29,8 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import type { RoutePath } from "@/features/shell/components/sidebar";
-import {
-  CommandGroup,
-  CommandItem,
-} from "@/shared/components/ui/command";
+
+import { CommandGroup, CommandItem } from "@/shared/components/ui/command";
 import { Kbd, KbdGroup } from "@/shared/components/ui/kbd";
 
 type IconType = typeof Folder01Icon;
@@ -51,12 +49,36 @@ export interface NavEntry {
 // shortcut; keep it in sync with `useProjectNavHotkeys`.
 export const PROJECT_NAV: readonly NavEntry[] = [
   { to: "/$orgSlug/$projectSlug", label: "Overview", icon: DashboardSquare01Icon, chord: "O" },
-  { to: "/$orgSlug/$projectSlug/graph", label: "Graph", icon: WorkflowSquare01Icon, chord: "G", keywords: ["topology", "resources"] },
+  {
+    to: "/$orgSlug/$projectSlug/graph",
+    label: "Graph",
+    icon: WorkflowSquare01Icon,
+    chord: "G",
+    keywords: ["topology", "resources"],
+  },
   { to: "/$orgSlug/$projectSlug/logs", label: "Logs", icon: File01Icon, chord: "L" },
   { to: "/$orgSlug/$projectSlug/metrics", label: "Metrics", icon: ChartLineData01Icon, chord: "M" },
-  { to: "/$orgSlug/$projectSlug/variables", label: "Variables", icon: SourceCodeIcon, chord: "V", keywords: ["env", "secrets"] },
-  { to: "/$orgSlug/$projectSlug/networking", label: "Networking", icon: EarthIcon, chord: "N", keywords: ["domains", "routes", "caddy"] },
-  { to: "/$orgSlug/$projectSlug/edge-logs", label: "Edge logs", icon: EarthIcon, chord: "E", keywords: ["access", "traffic"] },
+  {
+    to: "/$orgSlug/$projectSlug/variables",
+    label: "Variables",
+    icon: SourceCodeIcon,
+    chord: "V",
+    keywords: ["env", "secrets"],
+  },
+  {
+    to: "/$orgSlug/$projectSlug/networking",
+    label: "Networking",
+    icon: EarthIcon,
+    chord: "N",
+    keywords: ["domains", "routes", "caddy"],
+  },
+  {
+    to: "/$orgSlug/$projectSlug/edge-logs",
+    label: "Edge logs",
+    icon: EarthIcon,
+    chord: "E",
+    keywords: ["access", "traffic"],
+  },
   { to: "/$orgSlug/$projectSlug/settings", label: "Settings", icon: Settings01Icon, chord: "S" },
 ];
 
@@ -69,45 +91,110 @@ export const ORG_NAV_GROUPS: readonly { heading: string; items: readonly NavEntr
     heading: "Workspace",
     items: [
       { to: "/$orgSlug", label: "Projects", icon: Home01Icon },
-      { to: "/$orgSlug/servers", label: "Servers", icon: ServerStack01Icon, keywords: ["nodes", "swarm"] },
+      {
+        to: "/$orgSlug/servers",
+        label: "Servers",
+        icon: ServerStack01Icon,
+        keywords: ["nodes", "swarm"],
+      },
       { to: "/$orgSlug/terminal", label: "Terminal", icon: FlashIcon, keywords: ["shell", "ssh"] },
     ],
   },
   {
     heading: "Networking & Edge",
     items: [
-      { to: "/$orgSlug/networking", label: "Networking", icon: EarthIcon, keywords: ["domains", "routes", "caddy"] },
-      { to: "/$orgSlug/edge-logs", label: "Edge logs", icon: EarthIcon, keywords: ["access", "traffic"] },
-      { to: "/$orgSlug/firewall", label: "Firewall", icon: ShieldKeyIcon, keywords: ["crowdsec", "blocklist", "ip"] },
+      {
+        to: "/$orgSlug/networking",
+        label: "Networking",
+        icon: EarthIcon,
+        keywords: ["domains", "routes", "caddy"],
+      },
+      {
+        to: "/$orgSlug/edge-logs",
+        label: "Edge logs",
+        icon: EarthIcon,
+        keywords: ["access", "traffic"],
+      },
+      {
+        to: "/$orgSlug/firewall",
+        label: "Firewall",
+        icon: ShieldKeyIcon,
+        keywords: ["crowdsec", "blocklist", "ip"],
+      },
     ],
   },
   {
     heading: "Data & Runtime",
     items: [
-      { to: "/$orgSlug/backups", label: "Backups", icon: DatabaseIcon, keywords: ["restore", "snapshot"] },
-      { to: "/$orgSlug/docker", label: "Docker", icon: ServerStack01Icon, keywords: ["containers", "images"] },
-      { to: "/$orgSlug/registries", label: "Registries", icon: Database02Icon, keywords: ["docker", "image"] },
+      {
+        to: "/$orgSlug/backups",
+        label: "Backups",
+        icon: DatabaseIcon,
+        keywords: ["restore", "snapshot"],
+      },
+      {
+        to: "/$orgSlug/docker",
+        label: "Docker",
+        icon: ServerStack01Icon,
+        keywords: ["containers", "images"],
+      },
+      {
+        to: "/$orgSlug/registries",
+        label: "Registries",
+        icon: Database02Icon,
+        keywords: ["docker", "image"],
+      },
     ],
   },
   {
     heading: "Observability",
     items: [
-      { to: "/$orgSlug/audit", label: "Audit", icon: File01Icon, keywords: ["activity", "history"] },
+      {
+        to: "/$orgSlug/audit",
+        label: "Audit",
+        icon: File01Icon,
+        keywords: ["activity", "history"],
+      },
     ],
   },
   {
     heading: "Integrations",
     items: [
-      { to: "/$orgSlug/git-providers", label: "Git providers", icon: GitBranchIcon, keywords: ["github", "source"] },
-      { to: "/$orgSlug/notifications", label: "Notifications", icon: Alert01Icon, keywords: ["slack", "discord", "alerts"] },
+      {
+        to: "/$orgSlug/git-providers",
+        label: "Git providers",
+        icon: GitBranchIcon,
+        keywords: ["github", "source"],
+      },
+      {
+        to: "/$orgSlug/notifications",
+        label: "Notifications",
+        icon: Alert01Icon,
+        keywords: ["slack", "discord", "alerts"],
+      },
     ],
   },
   {
     heading: "Organization",
     items: [
-      { to: "/$orgSlug/team", label: "Team", icon: UserMultipleIcon, keywords: ["members", "invite"] },
-      { to: "/$orgSlug/api-keys", label: "API tokens", icon: Key02Icon, keywords: ["keys", "access"] },
-      { to: "/$orgSlug/ssh-keys", label: "SSH keys", icon: Key01Icon, keywords: ["ssh", "deploy key", "git", "node"] },
+      {
+        to: "/$orgSlug/team",
+        label: "Team",
+        icon: UserMultipleIcon,
+        keywords: ["members", "invite"],
+      },
+      {
+        to: "/$orgSlug/api-keys",
+        label: "API tokens",
+        icon: Key02Icon,
+        keywords: ["keys", "access"],
+      },
+      {
+        to: "/$orgSlug/ssh-keys",
+        label: "SSH keys",
+        icon: Key01Icon,
+        keywords: ["ssh", "deploy key", "git", "node"],
+      },
       { to: "/$orgSlug/settings", label: "Settings", icon: Settings01Icon },
     ],
   },

@@ -1,3 +1,5 @@
+import type { OrganizationId } from "@otterdeploy/shared/id";
+
 /**
  * Platform-event emission — the single integration point features call when
  * something notification-worthy happens. Resolves severity from the catalog
@@ -20,7 +22,6 @@
  * audit.anomaly.
  */
 import { triggerPlatformEvent } from "@otterdeploy/jobs";
-import type { OrganizationId } from "@otterdeploy/shared/id";
 import { Result } from "better-result";
 
 import { eventSeverity } from "../routers/notifications/events";

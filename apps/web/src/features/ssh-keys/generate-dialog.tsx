@@ -9,7 +9,6 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import type { SshKeyType } from "./data/ssh-keys";
 import { Button } from "@/shared/components/ui/button";
 import {
   Dialog,
@@ -25,6 +24,8 @@ import { Label } from "@/shared/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/shared/components/ui/radio-group";
 import { cn } from "@/shared/lib/utils";
 import { orpc, queryClient } from "@/shared/server/orpc";
+
+import type { SshKeyType } from "./data/ssh-keys";
 
 const KEY_TYPES: { value: SshKeyType; label: string; sub: string }[] = [
   { value: "ed25519", label: "ed25519", sub: "Recommended · small, fast, modern" },
@@ -67,9 +68,7 @@ export function GenerateKeyDialog({
         toast.success("SSH key generated");
         setOpen(false);
       } catch (err) {
-        toast.error(
-          err instanceof Error ? err.message : "Failed to generate SSH key",
-        );
+        toast.error(err instanceof Error ? err.message : "Failed to generate SSH key");
       }
     },
   });
@@ -85,9 +84,9 @@ export function GenerateKeyDialog({
         <DialogHeader>
           <DialogTitle>Generate SSH key</DialogTitle>
           <DialogDescription>
-            We run <code className="font-mono text-xs">ssh-keygen</code> on the
-            cluster. The private key is encrypted at rest and never shown — copy
-            the public key to your Git host or server.
+            We run <code className="font-mono text-xs">ssh-keygen</code> on the cluster. The private
+            key is encrypted at rest and never shown — copy the public key to your Git host or
+            server.
           </DialogDescription>
         </DialogHeader>
 
@@ -102,8 +101,7 @@ export function GenerateKeyDialog({
           <form.Field
             name="name"
             validators={{
-              onChange: ({ value }) =>
-                value.trim().length === 0 ? "Name is required" : undefined,
+              onChange: ({ value }) => (value.trim().length === 0 ? "Name is required" : undefined),
             }}
           >
             {(field) => (
@@ -132,8 +130,7 @@ export function GenerateKeyDialog({
                 <RadioGroup
                   value={field.state.value}
                   onValueChange={(v) =>
-                    typeof v === "string" &&
-                    field.handleChange(v as SshKeyType)
+                    typeof v === "string" && field.handleChange(v as SshKeyType)
                   }
                   className="gap-2"
                 >
@@ -148,9 +145,7 @@ export function GenerateKeyDialog({
                       <RadioGroupItem value={t.value} className="mt-0.5" />
                       <span className="flex flex-col gap-0.5">
                         <span className="font-mono text-sm">{t.label}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {t.sub}
-                        </span>
+                        <span className="text-xs text-muted-foreground">{t.sub}</span>
                       </span>
                     </Label>
                   ))}
@@ -178,9 +173,7 @@ export function GenerateKeyDialog({
           <form.Field name="passphrase">
             {(field) => (
               <Field>
-                <FieldLabel htmlFor={field.name}>
-                  Passphrase (optional)
-                </FieldLabel>
+                <FieldLabel htmlFor={field.name}>Passphrase (optional)</FieldLabel>
                 <Input
                   id={field.name}
                   name={field.name}
@@ -195,21 +188,12 @@ export function GenerateKeyDialog({
           </form.Field>
 
           <DialogFooter className="mt-1">
-            <Button
-              size="sm"
-              variant="outline"
-              type="button"
-              onClick={() => setOpen(false)}
-            >
+            <Button size="sm" variant="outline" type="button" onClick={() => setOpen(false)}>
               Cancel
             </Button>
             <form.Subscribe selector={(s) => s.canSubmit}>
               {(canSubmit) => (
-                <Button
-                  size="sm"
-                  type="submit"
-                  disabled={!canSubmit || generate.isPending}
-                >
+                <Button size="sm" type="submit" disabled={!canSubmit || generate.isPending}>
                   {generate.isPending ? "Generating…" : "Generate"}
                 </Button>
               )}

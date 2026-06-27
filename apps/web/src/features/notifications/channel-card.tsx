@@ -11,13 +11,9 @@
  */
 
 import { useState } from "react";
+
+import { Alert02Icon, Delete01Icon, FlashIcon, PencilEdit01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import {
-  Alert02Icon,
-  Delete01Icon,
-  FlashIcon,
-  PencilEdit01Icon,
-} from "@hugeicons/core-free-icons";
 import { toast } from "sonner";
 
 import { SvglLogo } from "@/shared/components/brand/svgl-logo";
@@ -26,12 +22,7 @@ import { Button } from "@/shared/components/ui/button";
 import { client, orpc, queryClient } from "@/shared/server/orpc";
 
 import { channelsCollection } from "./data/notifications";
-import {
-  type Channel,
-  type ChannelStatus,
-  KIND_META,
-  relativeTime,
-} from "./shared";
+import { type Channel, type ChannelStatus, KIND_META, relativeTime } from "./shared";
 
 function StatusPill({ status }: { status: ChannelStatus }) {
   const meta: Record<ChannelStatus, { label: string; dot: string }> = {
@@ -80,9 +71,7 @@ export function ChannelCard({
         }),
       )
       .catch((err: unknown) =>
-        toast.error(
-          err instanceof Error ? err.message : "Couldn't update channel",
-        ),
+        toast.error(err instanceof Error ? err.message : "Couldn't update channel"),
       )
       .finally(() => setBusy(false));
   };
@@ -93,9 +82,7 @@ export function ChannelCard({
       .delete(channel.id)
       .isPersisted.promise.then(() => toast.success("Channel removed"))
       .catch((err: unknown) =>
-        toast.error(
-          err instanceof Error ? err.message : "Couldn't remove channel",
-        ),
+        toast.error(err instanceof Error ? err.message : "Couldn't remove channel"),
       )
       .finally(() => setBusy(false));
   };
@@ -108,12 +95,10 @@ export function ChannelCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[13px] font-semibold">{channel.name}</span>
-            <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] font-medium tracking-wider text-muted-foreground uppercase">
               {meta.label}
             </span>
-            <span className="text-[11px] text-muted-foreground">
-              {channel.transport}
-            </span>
+            <span className="text-[11px] text-muted-foreground">{channel.transport}</span>
             <StatusPill status={channel.status} />
           </div>
 
@@ -123,8 +108,7 @@ export function ChannelCard({
 
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
             <span>
-              <span className="font-mono text-foreground">{channel.events7d}</span>{" "}
-              events · 7d
+              <span className="font-mono text-foreground">{channel.events7d}</span> events · 7d
             </span>
             <span>
               last delivery{" "}
@@ -134,11 +118,7 @@ export function ChannelCard({
             </span>
             {channel.note && (
               <span className="flex items-center gap-1 text-amber-600 dark:text-amber-500">
-                <HugeiconsIcon
-                  icon={Alert02Icon}
-                  strokeWidth={2}
-                  className="size-3"
-                />
+                <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} className="size-3" />
                 {channel.note}
               </span>
             )}
@@ -151,19 +131,10 @@ export function ChannelCard({
             Test
           </Button>
           <Button size="sm" variant="outline" onClick={() => onEdit(channel)}>
-            <HugeiconsIcon
-              icon={PencilEdit01Icon}
-              strokeWidth={2}
-              className="size-3.5"
-            />
+            <HugeiconsIcon icon={PencilEdit01Icon} strokeWidth={2} className="size-3.5" />
             Edit
           </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={busy}
-            onClick={pause}
-          >
+          <Button size="sm" variant="outline" disabled={busy} onClick={pause}>
             {channel.status === "paused" ? "Resume" : "Pause"}
           </Button>
           <Button
@@ -174,11 +145,7 @@ export function ChannelCard({
             aria-label="Delete channel"
             className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
           >
-            <HugeiconsIcon
-              icon={Delete01Icon}
-              strokeWidth={2}
-              className="size-3.5"
-            />
+            <HugeiconsIcon icon={Delete01Icon} strokeWidth={2} className="size-3.5" />
           </Button>
         </div>
       </div>

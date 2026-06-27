@@ -17,26 +17,17 @@
  * client on disconnect so the underlying socket releases promptly when the
  * frontend closes the stream.
  */
-import type {
-  OrganizationId,
-  ProjectId,
-  ResourceId,
-} from "@otterdeploy/shared/id";
-import { sleep } from "@otterdeploy/shared/promise";
+import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { Docker } from "@otterdeploy/docker";
+import { sleep } from "@otterdeploy/shared/promise";
 
 import { waitForServiceCreate } from "../../swarm";
-import {
-  demuxDockerStream,
-  splitDockerTimestamp,
-} from "../../swarm/stream-parse";
-
+import { demuxDockerStream, splitDockerTimestamp } from "../../swarm/stream-parse";
 import { getProjectInOrg } from "./queries";
-import { getResourceById } from "./queries/resource";
-
-import { buildContainerName } from "./views";
 import { getProjectRecord } from "./queries";
+import { getResourceById } from "./queries/resource";
+import { buildContainerName } from "./views";
 
 type OrgId = OrganizationId;
 
@@ -147,11 +138,7 @@ export async function* tailResourceLogs(
 
     // eslint-disable-next-line no-constant-condition
     while (true) {
-      const resolved = await resolveServiceId(
-        input.projectId,
-        input.resourceId,
-        docker,
-      );
+      const resolved = await resolveServiceId(input.projectId, input.resourceId, docker);
       if (!resolved) {
         yield { stream: "system", line: "Resource not found", ts: nowIso() };
         return;
@@ -199,15 +186,13 @@ export async function* tailResourceLogs(
         };
       }
 
-      const logsResult = await docker.services
-        .getService(resolved.serviceId)
-        .logs({
-          follow: true,
-          stdout: true,
-          stderr: true,
-          tail: String(input.tail ?? 100),
-          timestamps: true,
-        });
+      const logsResult = await docker.services.getService(resolved.serviceId).logs({
+        follow: true,
+        stdout: true,
+        stderr: true,
+        tail: String(input.tail ?? 100),
+        timestamps: true,
+      });
 
       if (logsResult.isErr()) {
         yield {
@@ -277,10 +262,7 @@ export async function* tailTaskLogs(
     return;
   }
 
-  const serviceName = await resolveServiceName(
-    input.projectId,
-    input.resourceId,
-  );
+  const serviceName = await resolveServiceName(input.projectId, input.resourceId);
   if (!serviceName) {
     yield { stream: "system", line: "Resource not found", ts: nowIso() };
     return;
@@ -302,9 +284,7 @@ export async function* tailTaskLogs(
       return;
     }
 
-    const task = tasksResult.value.find(
-      (t) => (t as { ID?: string }).ID === input.taskId,
-    );
+    const task = tasksResult.value.find((t) => (t as { ID?: string }).ID === input.taskId);
     if (!task) {
       yield {
         stream: "system",
@@ -435,10 +415,7 @@ export async function* tailDeploymentLogs(
     return;
   }
 
-  const serviceName = await resolveServiceName(
-    input.projectId,
-    input.resourceId,
-  );
+  const serviceName = await resolveServiceName(input.projectId, input.resourceId);
   if (!serviceName) {
     yield { stream: "system", line: "Resource not found", ts: nowIso() };
     return;
@@ -472,9 +449,7 @@ export async function* tailDeploymentLogs(
       };
     }
     const tasks = (tasksResult.value as TaskShape[]).filter(
-      (t) =>
-        t.Spec?.ContainerSpec?.Labels?.["otterdeploy.deployment.id"] ===
-        input.deploymentId,
+      (t) => t.Spec?.ContainerSpec?.Labels?.["otterdeploy.deployment.id"] === input.deploymentId,
     );
 
     if (tasks.length === 0) {
@@ -524,15 +499,13 @@ export async function* tailDeploymentLogs(
 
       // Only follow=true for the last (most recent) task. Earlier tasks
       // are terminal — replay what docker still has and move on.
-      const logsResult = await docker.containers
-        .getContainer(containerId)
-        .logs({
-          follow: isLast,
-          stdout: true,
-          stderr: true,
-          tail: String(input.tail ?? 500),
-          timestamps: true,
-        });
+      const logsResult = await docker.containers.getContainer(containerId).logs({
+        follow: isLast,
+        stdout: true,
+        stderr: true,
+        tail: String(input.tail ?? 500),
+        timestamps: true,
+      });
       if (logsResult.isErr()) {
         yield {
           stream: "system",

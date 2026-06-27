@@ -3,8 +3,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { I } from "../icons";
-import { PROJECTS, SERVICES, type ServiceKind } from "../data";
 import { Field, SectionH, SettingRow, Switch3 } from "../components/form";
 import {
   ALL_PROJECTS,
@@ -13,6 +11,8 @@ import {
   ProjectPicker,
   matchesProjectFilter,
 } from "../components/project-filter";
+import { PROJECTS, SERVICES, type ServiceKind } from "../data";
+import { I } from "../icons";
 
 type Tab = "routes" | "caddyfile" | "global" | "tls";
 
@@ -96,17 +96,32 @@ export function Networking() {
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
       {/* sub-nav */}
-      <div className="row" style={{ borderBottom: "1px solid var(--border)", padding: "0 18px", height: 38 }}>
+      <div
+        className="row"
+        style={{ borderBottom: "1px solid var(--border)", padding: "0 18px", height: 38 }}
+      >
         {tabs.map(([id, lab, Ic]) => (
-          <button key={id} className="os-envtab" data-active={tab === id} onClick={() => setTab(id)}>
+          <button
+            key={id}
+            className="os-envtab"
+            data-active={tab === id}
+            onClick={() => setTab(id)}
+          >
             <Ic width={12} height={12} style={{ opacity: 0.7 }} /> <span>{lab}</span>
             <span className="os-envtab-underline" />
           </button>
         ))}
         <div style={{ flex: 1 }} />
         <div className="row gap-2" style={{ alignItems: "center", height: "100%" }}>
-          {reloadFlash && <span className="badge ok"><span className="dot" />reloaded · 73ms</span>}
-          <button className="btn sm" onClick={reload}><I.refresh width={11} height={11} /> Reload Caddy</button>
+          {reloadFlash && (
+            <span className="badge ok">
+              <span className="dot" />
+              reloaded · 73ms
+            </span>
+          )}
+          <button className="btn sm" onClick={reload}>
+            <I.refresh width={11} height={11} /> Reload Caddy
+          </button>
         </div>
       </div>
 
@@ -161,9 +176,14 @@ function RoutesPane({
     <div className="os-scroll" style={{ flex: 1, overflow: "auto", padding: 24 }}>
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
         <div className="row" style={{ marginBottom: 16 }}>
-          <SectionH title="Routes" sub="Caddy edge proxy on :443 · routes auto-published via internal DNS" />
+          <SectionH
+            title="Routes"
+            sub="Caddy edge proxy on :443 · routes auto-published via internal DNS"
+          />
           <div style={{ flex: 1 }} />
-          <button className="btn"><I.plus width={12} height={12} /> Custom route</button>
+          <button className="btn">
+            <I.plus width={12} height={12} /> Custom route
+          </button>
         </div>
 
         <div className="row" style={{ marginBottom: 14 }}>
@@ -224,7 +244,10 @@ function RoutesPane({
 
         <div className="muted" style={{ fontSize: 11, marginTop: 10 }}>
           Caddyfile is auto-generated from these rows. Switch to the{" "}
-          <span className="mono" style={{ color: "var(--fg-2)" }}>Caddyfile</span> tab to edit it directly.
+          <span className="mono" style={{ color: "var(--fg-2)" }}>
+            Caddyfile
+          </span>{" "}
+          tab to edit it directly.
         </div>
       </div>
     </div>
@@ -251,14 +274,24 @@ function RouteRow({
         fontSize: 12,
       }}
     >
-      <span style={{ width: 150, display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-start" }}>
+      <span
+        style={{
+          width: 150,
+          display: "flex",
+          flexDirection: "column",
+          gap: 4,
+          alignItems: "flex-start",
+        }}
+      >
         <span className="row gap-2">
           {r.kind === "database" ? (
             <I.db width={13} height={13} style={{ color: "var(--fg-3)" }} />
           ) : (
             <I.service width={13} height={13} style={{ color: "var(--fg-3)" }} />
           )}
-          <span className="mono" style={{ fontWeight: 500 }}>{r.name}</span>
+          <span className="mono" style={{ fontWeight: 500 }}>
+            {r.name}
+          </span>
         </span>
         {r.project && (
           <span className="row gap-1">
@@ -288,12 +321,17 @@ function RouteRow({
             </span>
           ))
         ) : (
-          <span className="muted" style={{ fontSize: 11 }}>— internal only —</span>
+          <span className="muted" style={{ fontSize: 11 }}>
+            — internal only —
+          </span>
         )}
       </span>
       <span style={{ width: 90 }}>
         {r.publicHosts.length > 0 ? (
-          <span className="badge"><span className="dot" style={{ background: "var(--ok)" }} />letsencrypt</span>
+          <span className="badge">
+            <span className="dot" style={{ background: "var(--ok)" }} />
+            letsencrypt
+          </span>
         ) : (
           <span className="muted">—</span>
         )}
@@ -302,7 +340,9 @@ function RouteRow({
         <Switch3 on={r.publicHosts.length > 0} onChange={onTogglePublic} />
       </span>
       <span style={{ width: 100, textAlign: "right" }}>
-        <button className="btn sm" onClick={onEdit}><I.edit width={10} height={10} /> Edit</button>
+        <button className="btn sm" onClick={onEdit}>
+          <I.edit width={10} height={10} /> Edit
+        </button>
       </span>
     </div>
   );
@@ -340,7 +380,9 @@ function ProxyHop({
       >
         <Icon width={11} height={11} /> {label}
       </div>
-      <div className="mono" style={{ fontSize: 12, color: "var(--fg)" }}>{detail}</div>
+      <div className="mono" style={{ fontSize: 12, color: "var(--fg)" }}>
+        {detail}
+      </div>
     </div>
   );
 }
@@ -362,21 +404,33 @@ function CaddyfilePane({ caddyfile, onReload }: { caddyfile: string; onReload: (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <div
         className="row gap-2"
-        style={{ padding: "10px 18px", borderBottom: "1px solid var(--border)", background: "var(--bg-sunken)" }}
+        style={{
+          padding: "10px 18px",
+          borderBottom: "1px solid var(--border)",
+          background: "var(--bg-sunken)",
+        }}
       >
-        <span className="badge mono" style={{ background: "var(--bg-elev)" }}>/etc/caddy/Caddyfile</span>
+        <span className="badge mono" style={{ background: "var(--bg-elev)" }}>
+          /etc/caddy/Caddyfile
+        </span>
         <span className="muted" style={{ fontSize: 11 }}>
           {text.split("\n").length} lines · {dirty ? "unsaved changes" : "in sync"}
         </span>
         <div style={{ flex: 1 }} />
-        <button className="btn sm"><I.copy width={11} height={11} /> Copy</button>
-        <button className="btn sm" onClick={() => setText(caddyfile)} disabled={!dirty}>Reset</button>
+        <button className="btn sm">
+          <I.copy width={11} height={11} /> Copy
+        </button>
+        <button className="btn sm" onClick={() => setText(caddyfile)} disabled={!dirty}>
+          Reset
+        </button>
         <button className="btn sm primary" onClick={onReload} disabled={!dirty}>
           <I.refresh width={11} height={11} /> Save & reload
         </button>
       </div>
 
-      <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 280px", overflow: "hidden" }}>
+      <div
+        style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 280px", overflow: "hidden" }}
+      >
         <div style={{ position: "relative", overflow: "hidden", background: "var(--bg)" }}>
           <div style={{ position: "absolute", inset: 0, display: "flex" }}>
             <div
@@ -416,11 +470,19 @@ function CaddyfilePane({ caddyfile, onReload }: { caddyfile: string; onReload: (
             />
           </div>
         </div>
-        <div className="col gap-3" style={{ padding: 16, overflow: "auto", borderLeft: "1px solid var(--border)" }}>
+        <div
+          className="col gap-3"
+          style={{ padding: 16, overflow: "auto", borderLeft: "1px solid var(--border)" }}
+        >
           <div>
             <div
               className="muted"
-              style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}
+              style={{
+                fontSize: 10,
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                marginBottom: 6,
+              }}
             >
               Validation
             </div>
@@ -437,30 +499,44 @@ function CaddyfilePane({ caddyfile, onReload }: { caddyfile: string; onReload: (
           <div>
             <div
               className="muted"
-              style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}
+              style={{
+                fontSize: 10,
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                marginBottom: 6,
+              }}
             >
               Snippets
             </div>
             <div className="col gap-1">
-              {["rate_limit", "basicauth", "reverse_proxy", "@cors header", "log access"].map((s) => (
-                <button key={s} className="btn ghost sm" style={{ justifyContent: "flex-start" }}>
-                  <I.plus width={10} height={10} /> {s}
-                </button>
-              ))}
+              {["rate_limit", "basicauth", "reverse_proxy", "@cors header", "log access"].map(
+                (s) => (
+                  <button key={s} className="btn ghost sm" style={{ justifyContent: "flex-start" }}>
+                    <I.plus width={10} height={10} /> {s}
+                  </button>
+                ),
+              )}
             </div>
           </div>
           <div style={{ height: 1, background: "var(--border)" }} />
           <div>
             <div
               className="muted"
-              style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}
+              style={{
+                fontSize: 10,
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                marginBottom: 6,
+              }}
             >
               Reload safety
             </div>
             <div className="muted" style={{ fontSize: 11, lineHeight: 1.5 }}>
               Otterdeploy validates with{" "}
-              <span className="mono" style={{ color: "var(--fg-2)" }}>caddy validate</span> before applying. Failed
-              reloads keep the previous config running with zero downtime.
+              <span className="mono" style={{ color: "var(--fg-2)" }}>
+                caddy validate
+              </span>{" "}
+              before applying. Failed reloads keep the previous config running with zero downtime.
             </div>
           </div>
         </div>
@@ -485,7 +561,11 @@ function GlobalOptionsPane() {
           <div style={{ height: 12 }} />
           <SettingRow label="HTTP/3" sub="Serve QUIC on the public listener" defaultOn />
           <SettingRow label="Strict SNI" sub="Reject requests without matching SNI" defaultOn />
-          <SettingRow label="Compression (zstd, gzip)" sub="Encode responses on the wire" defaultOn />
+          <SettingRow
+            label="Compression (zstd, gzip)"
+            sub="Encode responses on the wire"
+            defaultOn
+          />
           <SettingRow label="Auto-HTTPS redirect" sub="80 → 443 for all sites" defaultOn />
         </div>
 
@@ -540,10 +620,17 @@ function TLSPane() {
                 <span className="mono">{h}</span>
               </span>
               <span style={{ width: 110, color: "var(--fg-2)" }}>Let's Encrypt</span>
-              <span style={{ width: 130, color: "var(--fg-2)" }} className="mono">2026-04-{20 - i}</span>
-              <span style={{ width: 130, color: "var(--fg-2)" }} className="mono">2026-06-{20 - i}</span>
+              <span style={{ width: 130, color: "var(--fg-2)" }} className="mono">
+                2026-04-{20 - i}
+              </span>
+              <span style={{ width: 130, color: "var(--fg-2)" }} className="mono">
+                2026-06-{20 - i}
+              </span>
               <span style={{ width: 100, textAlign: "right" }}>
-                <span className="badge ok"><span className="dot" />active</span>
+                <span className="badge ok">
+                  <span className="dot" />
+                  active
+                </span>
               </span>
             </div>
           ))}
@@ -577,13 +664,15 @@ function RouteEditor({
       }}
     >
       <div onClick={(e) => e.stopPropagation()} className="os-modal" style={{ width: 640 }}>
-        <div className="row gap-2 os-modal-h">
+        <div className="row os-modal-h gap-2">
           <I.edit width={14} height={14} />
           <span style={{ fontWeight: 600 }}>
             Edit route · <span className="mono">{r.name}</span>
           </span>
           <div style={{ flex: 1 }} />
-          <button className="btn ghost icon sm" onClick={onClose}><I.close width={13} height={13} /></button>
+          <button className="btn ghost icon sm" onClick={onClose}>
+            <I.close width={13} height={13} />
+          </button>
         </div>
         <div className="col gap-3" style={{ padding: 18, overflow: "auto", maxHeight: "60vh" }}>
           <Field label="Public hostnames">
@@ -673,9 +762,17 @@ function RouteEditor({
               noneLabel="Cluster-wide route (no owner project)"
             />
           </Field>
-          <SettingRow label="Compression (zstd, gzip)" sub="Encode responses to clients" defaultOn={r.encode} />
+          <SettingRow
+            label="Compression (zstd, gzip)"
+            sub="Encode responses to clients"
+            defaultOn={r.encode}
+          />
           <SettingRow label="Basic auth" sub="Require username/password" defaultOn={r.basicAuth} />
-          <SettingRow label="Forward client IP (X-Forwarded-For)" sub="Pass real IP to upstream" defaultOn />
+          <SettingRow
+            label="Forward client IP (X-Forwarded-For)"
+            sub="Pass real IP to upstream"
+            defaultOn
+          />
           <SettingRow
             label="WebSocket upgrade"
             sub="Allow connection upgrade for ws:// traffic"
@@ -687,8 +784,12 @@ function RouteEditor({
             Saving will trigger a Caddy reload (zero-downtime)
           </span>
           <div style={{ flex: 1 }} />
-          <button className="btn" onClick={onClose}>Cancel</button>
-          <button className="btn primary" onClick={() => onSave(r)}>Save & reload</button>
+          <button className="btn" onClick={onClose}>
+            Cancel
+          </button>
+          <button className="btn primary" onClick={() => onSave(r)}>
+            Save & reload
+          </button>
         </div>
       </div>
     </div>

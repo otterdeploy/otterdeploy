@@ -3,8 +3,8 @@
 
 import { useMemo, useState } from "react";
 
-import { I } from "../icons";
 import { Field, SectionH } from "../components/form";
+import { I } from "../icons";
 
 type CertStatus = "active" | "renewing" | "failed";
 type KeyAlg = "ECDSA P-256" | "ECDSA P-384" | "RSA 2048" | "RSA 4096";
@@ -206,15 +206,27 @@ export function Certificates() {
               marginBottom: 20,
             }}
           >
-            <Stat label="Total certs" value={`${stats.total}`} sub={`${MANAGED.length} managed · ${CUSTOM.length} custom`} />
-            <Stat label="Auto-renewed" value={`${stats.autoRenew}`} sub="via ACME (Let's Encrypt)" />
+            <Stat
+              label="Total certs"
+              value={`${stats.total}`}
+              sub={`${MANAGED.length} managed · ${CUSTOM.length} custom`}
+            />
+            <Stat
+              label="Auto-renewed"
+              value={`${stats.autoRenew}`}
+              sub="via ACME (Let's Encrypt)"
+            />
             <Stat
               label="Expiring < 30d"
               value={`${stats.expiring}`}
               sub="renewal scheduled"
               tone={stats.expiring > 0 ? "warn" : undefined}
             />
-            <Stat label="Upload-managed" value={`${stats.uploaded}`} sub="manual rotation required" />
+            <Stat
+              label="Upload-managed"
+              value={`${stats.uploaded}`}
+              sub="manual rotation required"
+            />
           </div>
 
           <div
@@ -259,10 +271,7 @@ export function Certificates() {
           {tab === "managed" && <ManagedTable />}
           {tab === "custom" && <CustomTable onUpload={() => setUploadOpen(true)} />}
           {tab === "cas" && (
-            <CAsTable
-              onUpload={() => setCaUploadOpen(true)}
-              onView={(ca) => setPemViewOpen(ca)}
-            />
+            <CAsTable onUpload={() => setCaUploadOpen(true)} onView={(ca) => setPemViewOpen(ca)} />
           )}
         </div>
       </div>
@@ -286,13 +295,24 @@ function Stat({
   tone?: "warn" | "err" | "ok";
 }) {
   const color =
-    tone === "warn" ? "var(--warn)" : tone === "err" ? "var(--err)" : tone === "ok" ? "var(--ok)" : "var(--fg)";
+    tone === "warn"
+      ? "var(--warn)"
+      : tone === "err"
+        ? "var(--err)"
+        : tone === "ok"
+          ? "var(--ok)"
+          : "var(--fg)";
   return (
     <div className="card" style={{ padding: 14 }}>
-      <div className="muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+      <div
+        className="muted"
+        style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em" }}
+      >
         {label}
       </div>
-      <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: "-0.02em", marginTop: 4, color }}>{value}</div>
+      <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: "-0.02em", marginTop: 4, color }}>
+        {value}
+      </div>
       <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
         {sub}
       </div>
@@ -317,9 +337,26 @@ function ExpiresCell({ days }: { days: number }) {
 }
 
 function CertStatusBadge({ status }: { status: CertStatus }) {
-  if (status === "active") return <span className="badge ok"><span className="dot" />active</span>;
-  if (status === "renewing") return <span className="badge info"><span className="dot" />renewing</span>;
-  return <span className="badge err"><span className="dot" />failed</span>;
+  if (status === "active")
+    return (
+      <span className="badge ok">
+        <span className="dot" />
+        active
+      </span>
+    );
+  if (status === "renewing")
+    return (
+      <span className="badge info">
+        <span className="dot" />
+        renewing
+      </span>
+    );
+  return (
+    <span className="badge err">
+      <span className="dot" />
+      failed
+    </span>
+  );
 }
 
 function SANChips({ list }: { list: string[] }) {
@@ -374,7 +411,9 @@ function ManagedTable() {
         >
           <span style={{ flex: 1.2, display: "flex", alignItems: "center", gap: 8 }}>
             <I.lock width={12} height={12} style={{ color: "var(--fg-3)" }} />
-            <span className="mono" style={{ fontWeight: 500 }}>{c.hostname}</span>
+            <span className="mono" style={{ fontWeight: 500 }}>
+              {c.hostname}
+            </span>
           </span>
           <span style={{ width: 130, color: "var(--fg-2)", fontSize: 11 }}>{c.issuer}</span>
           <span className="mono muted" style={{ width: 170, fontSize: 10 }}>
@@ -457,7 +496,9 @@ function CustomTable({ onUpload }: { onUpload: () => void }) {
         >
           <span style={{ flex: 1.2, display: "flex", alignItems: "center", gap: 8 }}>
             <I.lock width={12} height={12} style={{ color: "var(--fg-3)" }} />
-            <span className="mono" style={{ fontWeight: 500 }}>{c.hostname}</span>
+            <span className="mono" style={{ fontWeight: 500 }}>
+              {c.hostname}
+            </span>
           </span>
           <span style={{ width: 200, color: "var(--fg-2)", fontSize: 11 }}>{c.issuer}</span>
           <span className="mono muted" style={{ width: 170, fontSize: 10 }}>
@@ -478,7 +519,10 @@ function CustomTable({ onUpload }: { onUpload: () => void }) {
             </span>
           </span>
           <span className="muted" style={{ width: 130, fontSize: 11 }}>
-            {c.uploadedAt} · <span className="mono" style={{ color: "var(--fg-3)" }}>{c.uploadedBy}</span>
+            {c.uploadedAt} ·{" "}
+            <span className="mono" style={{ color: "var(--fg-3)" }}>
+              {c.uploadedBy}
+            </span>
           </span>
           <span style={{ width: 130, textAlign: "right" }}>
             <span className="row gap-1" style={{ justifyContent: "flex-end" }}>
@@ -594,7 +638,7 @@ function ModalShell({
       }}
     >
       <div onClick={(e) => e.stopPropagation()} className="os-modal" style={{ width }}>
-        <div className="row gap-2 os-modal-h">
+        <div className="row os-modal-h gap-2">
           <Ic width={14} height={14} />
           <span style={{ fontWeight: 600 }}>{title}</span>
           <div style={{ flex: 1 }} />
@@ -626,8 +670,12 @@ function UploadCertModal({ onClose }: { onClose: () => void }) {
             Otterdeploy validates chain + key pair before applying
           </span>
           <div style={{ flex: 1 }} />
-          <button className="btn" onClick={onClose}>Cancel</button>
-          <button className="btn primary" onClick={onClose}>Upload</button>
+          <button className="btn" onClick={onClose}>
+            Cancel
+          </button>
+          <button className="btn primary" onClick={onClose}>
+            Upload
+          </button>
         </>
       }
     >
@@ -649,7 +697,8 @@ function UploadCertModal({ onClose }: { onClose: () => void }) {
         />
       </Field>
       <div className="muted" style={{ fontSize: 11 }}>
-        Custom certificates are not auto-renewed. You will receive a warning notification 30 days before expiry.
+        Custom certificates are not auto-renewed. You will receive a warning notification 30 days
+        before expiry.
       </div>
     </ModalShell>
   );
@@ -665,8 +714,12 @@ function UploadCAModal({ onClose }: { onClose: () => void }) {
       footer={
         <>
           <div style={{ flex: 1 }} />
-          <button className="btn" onClick={onClose}>Cancel</button>
-          <button className="btn primary" onClick={onClose}>Add CA</button>
+          <button className="btn" onClick={onClose}>
+            Cancel
+          </button>
+          <button className="btn primary" onClick={onClose}>
+            Add CA
+          </button>
         </>
       }
     >
@@ -714,19 +767,24 @@ function ViewPEMModal({ ca, onClose }: { ca: CA; onClose: () => void }) {
             <I.download width={11} height={11} /> Download
           </button>
           <div style={{ flex: 1 }} />
-          <button className="btn primary" onClick={onClose}>Close</button>
+          <button className="btn primary" onClick={onClose}>
+            Close
+          </button>
         </>
       }
     >
-      <div
-        className="row gap-3"
-        style={{ fontSize: 11, color: "var(--fg-3)", flexWrap: "wrap" }}
-      >
+      <div className="row gap-3" style={{ fontSize: 11, color: "var(--fg-3)", flexWrap: "wrap" }}>
         <span>
-          subject <span className="mono" style={{ color: "var(--fg-2)" }}>{ca.subject}</span>
+          subject{" "}
+          <span className="mono" style={{ color: "var(--fg-2)" }}>
+            {ca.subject}
+          </span>
         </span>
         <span>
-          fingerprint <span className="mono" style={{ color: "var(--fg-2)" }}>{ca.fingerprint}</span>
+          fingerprint{" "}
+          <span className="mono" style={{ color: "var(--fg-2)" }}>
+            {ca.fingerprint}
+          </span>
         </span>
       </div>
       <div

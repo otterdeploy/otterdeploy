@@ -10,19 +10,15 @@
  * images (Docker Hub, GHCR public, etc.).
  */
 
-import { useStore } from "@tanstack/react-form";
 import { useLiveQuery } from "@tanstack/react-db";
+import { useStore } from "@tanstack/react-form";
 
 import { registryCollection } from "@/features/registries/data/registries";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { cn } from "@/shared/lib/utils";
 
-import {
-  SectionHeader,
-  builderCardClass,
-  builderCardActiveClass,
-} from "../form-primitives";
 import { useFormContext } from "../form-context";
+import { SectionHeader, builderCardClass, builderCardActiveClass } from "../form-primitives";
 import { I } from "../icons";
 
 const ANONYMOUS = {
@@ -38,9 +34,7 @@ export function StepImage() {
   const image = useStore(form.store, (s) => s.values.image as string);
   const tag = useStore(form.store, (s) => s.values.tag as string);
 
-  const { data: registries } = useLiveQuery((q) =>
-    q.from({ r: registryCollection }),
-  );
+  const { data: registries } = useLiveQuery((q) => q.from({ r: registryCollection }));
 
   const options: Array<{
     id: string;
@@ -66,28 +60,21 @@ export function StepImage() {
             key={r.id || "anon"}
             type="button"
             onClick={() => form.setFieldValue("registry", r.id)}
-            className={cn(
-              builderCardClass,
-              registryId === r.id && builderCardActiveClass,
-            )}
+            className={cn(builderCardClass, registryId === r.id && builderCardActiveClass)}
           >
             <div className="flex items-center gap-2">
               <I.service width={13} height={13} />
               <div className="text-[13px] font-semibold">{r.displayName}</div>
             </div>
-            <div className="mt-1 font-mono text-[11px] text-muted-foreground">
-              {r.host}
-            </div>
+            <div className="mt-1 font-mono text-[11px] text-muted-foreground">{r.host}</div>
             <div className="mt-1 text-[11px] text-muted-foreground">{r.sub}</div>
           </button>
         ))}
       </div>
       {registries.length === 0 && (
         <p className="mt-2 text-[11px] text-muted-foreground">
-          No private registries configured. Public images work without one —
-          add a credential under{" "}
-          <span className="font-mono">Settings → Registries</span> to pull from
-          a private host.
+          No private registries configured. Public images work without one — add a credential under{" "}
+          <span className="font-mono">Settings → Registries</span> to pull from a private host.
         </p>
       )}
 
@@ -99,21 +86,18 @@ export function StepImage() {
           <div className="grid grid-cols-[2fr_1fr] gap-2.5">
             <form.AppField name="image">
               {(f) => (
-                <f.TextField
-                  label="Image"
-                  className="font-mono"
-                  placeholder="ghcr.io/owner/repo"
-                />
+                <f.TextField label="Image" className="font-mono" placeholder="ghcr.io/owner/repo" />
               )}
             </form.AppField>
             <form.AppField name="tag">
-              {(f) => (
-                <f.TextField label="Tag" className="font-mono" placeholder="latest" />
-              )}
+              {(f) => <f.TextField label="Tag" className="font-mono" placeholder="latest" />}
             </form.AppField>
           </div>
           <div className="font-mono text-[11px] text-muted-foreground">
-            resolved → <span className="text-foreground">{image || "…"}:{tag || "latest"}</span>
+            resolved →{" "}
+            <span className="text-foreground">
+              {image || "…"}:{tag || "latest"}
+            </span>
           </div>
         </CardContent>
       </Card>

@@ -9,15 +9,16 @@
  * Each event has its own handler file — see ./handle-* siblings.
  */
 
-import { handleInstallation } from "./handle-installation";
-import { handleInstallationRepos } from "./handle-installation-repos";
-import { handlePush } from "./handle-push";
 import type {
   GithubWebhookResult,
   InstallationEvent,
   InstallationReposEvent,
   PushEvent,
 } from "./types";
+
+import { handleInstallation } from "./handle-installation";
+import { handleInstallationRepos } from "./handle-installation-repos";
+import { handlePush } from "./handle-push";
 
 export type { GithubWebhookResult };
 
@@ -38,10 +39,7 @@ export async function handleGithubWebhook({
     case "installation":
       return handleInstallation(payload as InstallationEvent, deliveryId);
     case "installation_repositories":
-      return handleInstallationRepos(
-        payload as InstallationReposEvent,
-        deliveryId,
-      );
+      return handleInstallationRepos(payload as InstallationReposEvent, deliveryId);
     case "push":
       return handlePush(payload as PushEvent, deliveryId);
     default:

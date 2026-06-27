@@ -28,18 +28,14 @@
  * See docs/designs/deployment-protection.md §4, §7, §8, §9.
  */
 
-import {
-  isOrgMember,
-  resolveProtectedDomainOrg,
-} from "@otterdeploy/api/authz/membership";
+import type { Context, Handler } from "hono";
+import type { FC, PropsWithChildren } from "hono/jsx";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
+
 import { guestSessionHoursFor } from "@otterdeploy/api/authz/guests";
+import { isOrgMember, resolveProtectedDomainOrg } from "@otterdeploy/api/authz/membership";
 import { claimHandoffNonce } from "@otterdeploy/api/authz/nonce";
-import {
-  consumeOtp,
-  generateOtp,
-  storeOtp,
-  underRateLimit,
-} from "@otterdeploy/api/authz/otp";
+import { consumeOtp, generateOtp, storeOtp, underRateLimit } from "@otterdeploy/api/authz/otp";
 import {
   signGuestCookie,
   signHandoffToken,
@@ -54,11 +50,8 @@ import { sendEmail } from "@otterdeploy/email";
 import { env } from "@otterdeploy/env/server";
 import { Result } from "better-result";
 import { log } from "evlog";
-import type { Context, Handler } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
 import { raw } from "hono/html";
-import type { FC, PropsWithChildren } from "hono/jsx";
-import type { ContentfulStatusCode } from "hono/utils/http-status";
 
 const SESSION_COOKIE = "__otter_auth";
 const GUEST_COOKIE = "__otter_guest";
@@ -71,8 +64,7 @@ const SHARE_COOKIE_MAX_AGE = 7 * 24 * 60 * 60; // bounded; real expiry is the to
 
 /** Web app base, for the login redirect. The auth *authority* (getSession)
  *  is BETTER_AUTH_URL; the login UI is the web app. */
-const WEB_BASE =
-  env.PUBLIC_WEB_URL ?? env.CORS_ORIGIN[0] ?? env.BETTER_AUTH_URL;
+const WEB_BASE = env.PUBLIC_WEB_URL ?? env.CORS_ORIGIN[0] ?? env.BETTER_AUTH_URL;
 
 /** Render a branded error page for a known, browser-facing failure (bad/expired
  *  link, unknown deployment). Never leaks internals — title/detail are fixed
@@ -90,10 +82,7 @@ const errorPage = (
  *  caller-controlled fallback, so a raw stack/SQL never reaches a visitor via
  *  the global JSON onError. Result-based, per the codebase's no-try/catch rule. */
 const guard =
-  (
-    handler: Handler,
-    fallback: (c: Context) => Response | Promise<Response>,
-  ): Handler =>
+  (handler: Handler, fallback: (c: Context) => Response | Promise<Response>): Handler =>
   async (c, next) =>
     (
       await Result.tryPromise({
@@ -124,20 +113,14 @@ const serverError = (c: Context): Response | Promise<Response> =>
  *  an ordinary call — which is exactly the context where a failed session lookup
  *  should send the visitor to sign in rather than surface an error. Returns null
  *  when absent (not a valid auth request). */
-const authTargetDomain = (c: Context): string | null =>
-  c.req.query("domain") ?? null;
+const authTargetDomain = (c: Context): string | null => c.req.query("domain") ?? null;
 
 /** forward_auth target. Allow → 200; deny/unauthenticated → non-2xx that
  *  Caddy relays to the browser. */
 export const deployAuthzHandler = guard(async (c) => {
   const domain = authTargetDomain(c);
   if (!domain)
-    return errorPage(
-      c,
-      400,
-      "Bad request",
-      "This request is missing required information.",
-    );
+    return errorPage(c, 400, "Bad request", "This request is missing required information.");
 
   const org = await resolveProtectedDomainOrg(domain);
   if (!org) return c.body(null, 200); // unknown / not protection-enabled → allow
@@ -189,17 +172,13 @@ export const deployAuthorizeHandler: Handler = guard(async (c) => {
     const preview = c.req.query("preview");
     // Use the real incoming Host so the preview shows the actual domain, not a
     // mock — falls back only if there's somehow no Host header.
-    const demoDomain =
-      domain ?? hostOf(c.req.header("host")) ?? "my-app.example.com";
+    const demoDomain = domain ?? hostOf(c.req.header("host")) ?? "my-app.example.com";
     if (preview === "loading") return c.html(<Interstitial />);
     if (preview === "denied") return c.html(<Denied domain={demoDomain} />);
     if (preview === "wall") {
       // Wire a real authorize URL so the org button actually navigates (same
       // construction as deployAccessHandler), instead of a dead "#".
-      const previewAuthorize = new URL(
-        "/.well-known/otterdeploy/authorize",
-        env.BETTER_AUTH_URL,
-      );
+      const previewAuthorize = new URL("/.well-known/otterdeploy/authorize", env.BETTER_AUTH_URL);
       previewAuthorize.searchParams.set("domain", demoDomain);
       previewAuthorize.searchParams.set("return", returnPath);
       return c.html(
@@ -255,10 +234,7 @@ export const deployAuthorizeHandler: Handler = guard(async (c) => {
     // Rebuild the *public* authorize URL from BETTER_AUTH_URL: behind a proxy
     // (portless/Swarm) c.req.url is the internal address, which the browser
     // can't reach after login — so the return-trip would break.
-    const self = new URL(
-      "/.well-known/otterdeploy/authorize",
-      env.BETTER_AUTH_URL,
-    );
+    const self = new URL("/.well-known/otterdeploy/authorize", env.BETTER_AUTH_URL);
     self.searchParams.set("domain", domain);
     self.searchParams.set("return", returnPath);
     const login = new URL("/sign-in", WEB_BASE);
@@ -283,9 +259,7 @@ export const deployAuthorizeHandler: Handler = guard(async (c) => {
     nonce: crypto.randomUUID(),
   });
 
-  const callback = new URL(
-    `https://${domain}/.well-known/otterdeploy/callback`,
-  );
+  const callback = new URL(`https://${domain}/.well-known/otterdeploy/callback`);
   callback.searchParams.set("token", token);
   return c.html(<Interstitial next={callback.toString()} />);
 }, serverError);
@@ -295,12 +269,7 @@ export const deployCallbackHandler: Handler = guard(async (c) => {
   const host = hostOf(c.req.header("host"));
   const token = c.req.query("token");
   if (!host || !token)
-    return errorPage(
-      c,
-      400,
-      "Bad request",
-      "This request is missing required information.",
-    );
+    return errorPage(c, 400, "Bad request", "This request is missing required information.");
 
   const claims = await verifyHandoffToken(token, host);
   if (!claims)
@@ -342,12 +311,7 @@ export const deployShareHandler: Handler = guard(async (c) => {
   const token = c.req.query("token");
   const returnPath = sanitizePath(c.req.query("return"));
   if (!host || !token)
-    return errorPage(
-      c,
-      400,
-      "Bad request",
-      "This request is missing required information.",
-    );
+    return errorPage(c, 400, "Bad request", "This request is missing required information.");
 
   if (!(await verifyGrantToken(token, "share", host))) {
     return errorPage(
@@ -370,12 +334,7 @@ export const deployAccessHandler: Handler = guard(async (c) => {
   const host = hostOf(c.req.header("host"));
   const returnPath = sanitizePath(c.req.query("return"));
   if (!host)
-    return errorPage(
-      c,
-      400,
-      "Bad request",
-      "This request is missing required information.",
-    );
+    return errorPage(c, 400, "Bad request", "This request is missing required information.");
 
   const org = await resolveProtectedDomainOrg(host);
   if (!org)
@@ -387,19 +346,12 @@ export const deployAccessHandler: Handler = guard(async (c) => {
     );
 
   // "Continue with organization" → the existing master-session handoff.
-  const authorize = new URL(
-    "/.well-known/otterdeploy/authorize",
-    env.BETTER_AUTH_URL,
-  );
+  const authorize = new URL("/.well-known/otterdeploy/authorize", env.BETTER_AUTH_URL);
   authorize.searchParams.set("domain", host);
   authorize.searchParams.set("return", returnPath);
 
   return c.html(
-    <AccessWall
-      domain={host}
-      returnPath={returnPath}
-      orgAuthorizeUrl={authorize.toString()}
-    />,
+    <AccessWall domain={host} returnPath={returnPath} orgAuthorizeUrl={authorize.toString()} />,
   );
 }, serverError);
 
@@ -408,9 +360,7 @@ export const deployAccessHandler: Handler = guard(async (c) => {
 export const deployOtpRequestHandler: Handler = guard(
   async (c) => {
     const host = hostOf(c.req.header("host"));
-    const body = await c.req
-      .json()
-      .catch(() => ({}) as Record<string, unknown>);
+    const body = await c.req.json().catch(() => ({}) as Record<string, unknown>);
     const email = typeof body.email === "string" ? body.email.trim() : "";
     if (!host || !email) return c.json({ ok: false }, 400);
 
@@ -433,8 +383,7 @@ export const deployOtpRequestHandler: Handler = guard(
         catch: (cause) => cause,
       }).then((sent) =>
         sent.match({
-          ok: () =>
-            log.info({ deployProtection: { event: "otp-sent", domain: host } }),
+          ok: () => log.info({ deployProtection: { event: "otp-sent", domain: host } }),
           err: (err) =>
             log.error({
               deployProtection: { event: "otp-send-failed", domain: host },
@@ -455,14 +404,10 @@ export const deployOtpRequestHandler: Handler = guard(
 export const deployOtpVerifyHandler: Handler = guard(
   async (c) => {
     const host = hostOf(c.req.header("host"));
-    const body = await c.req
-      .json()
-      .catch(() => ({}) as Record<string, unknown>);
+    const body = await c.req.json().catch(() => ({}) as Record<string, unknown>);
     const email = typeof body.email === "string" ? body.email.trim() : "";
     const code = typeof body.code === "string" ? body.code.trim() : "";
-    const returnPath = sanitizePath(
-      typeof body.return === "string" ? body.return : "/",
-    );
+    const returnPath = sanitizePath(typeof body.return === "string" ? body.return : "/");
     if (!host || !email || !code) return c.json({ ok: false }, 400);
 
     // Re-check the allow-list at verify time (it may have changed since request).
@@ -484,11 +429,7 @@ export const deployOtpVerifyHandler: Handler = guard(
   (c) => c.json({ ok: false, error: "Something went wrong" }, 500),
 );
 
-async function sendOtpEmail(
-  email: string,
-  code: string,
-  domain: string,
-): Promise<void> {
+async function sendOtpEmail(email: string, code: string, domain: string): Promise<void> {
   await sendEmail({
     to: email,
     subject: `Your code for ${domain}: ${code}`,
@@ -577,9 +518,7 @@ const Page: FC<
       </head>
       <body>
         {children}
-        {hideFoot ? undefined : (
-          <div class="foot">Otterdeploy Authentication</div>
-        )}
+        {hideFoot ? undefined : <div class="foot">Otterdeploy Authentication</div>}
       </body>
     </html>
   </>
@@ -767,9 +706,11 @@ const consoleFrameCss = (accent: string, glow: string): string => `
  *  status bars. `barRight` fills the top-right slot (e.g. "ERR / 500",
  *  "AUTH / SSO"); `statusTag` is the accent word in the footer STATUS line.
  *  Children render inside the centered <main> panel. */
-const ConsoleFrame: FC<
-  PropsWithChildren<{ barRight: unknown; statusTag: string }>
-> = ({ barRight, statusTag, children }) => (
+const ConsoleFrame: FC<PropsWithChildren<{ barRight: unknown; statusTag: string }>> = ({
+  barRight,
+  statusTag,
+  children,
+}) => (
   <>
     <div class="layer grid" aria-hidden="true" />
     <div class="layer glow" aria-hidden="true" />
@@ -807,9 +748,7 @@ const Interstitial: FC<{ next?: string }> = ({ next }) => (
   <Page
     title="Otterdeploy — Authenticating"
     hideFoot
-    headExtra={
-      next ? <meta http-equiv="refresh" content={`0;url=${next}`} /> : undefined
-    }
+    headExtra={next ? <meta http-equiv="refresh" content={`0;url=${next}`} /> : undefined}
     css={
       consoleFrameCss("oklch(0.7 0.18 300)", "oklch(0.7 0.18 300 / 0.26)") +
       `
@@ -974,8 +913,8 @@ const Denied: FC<{ domain: string }> = ({ domain }) => (
     <div class="wrap">
       <h1>You don't have access</h1>
       <p>
-        This deployment ({domain}) is protected. Ask an organization owner to
-        add you, or switch to an account that's a member.
+        This deployment ({domain}) is protected. Ask an organization owner to add you, or switch to
+        an account that's a member.
       </p>
     </div>
   </Page>
@@ -994,9 +933,7 @@ const ErrorPage: FC<{ status: number; title: string; detail: string }> = ({
   // 5xx = red (our fault), 4xx = indigo (request/link) — mirrors the web pages.
   const isServer = status >= 500;
   const accent = isServer ? "oklch(0.685 0.205 25)" : "oklch(0.7 0.17 264)";
-  const glow = isServer
-    ? "oklch(0.685 0.205 25 / 0.26)"
-    : "oklch(0.7 0.17 264 / 0.26)";
+  const glow = isServer ? "oklch(0.685 0.205 25 / 0.26)" : "oklch(0.7 0.17 264 / 0.26)";
   const eyebrow = isServer ? "Internal error" : "Request blocked";
   const statusTag = isServer ? "FAULT" : "BLOCKED";
 
@@ -1440,30 +1377,11 @@ const AccessWall: FC<{
                 stroke="currentColor"
                 stroke-width="1.25"
               />
-              <circle
-                cx="7.5"
-                cy="9.5"
-                r="2.8"
-                stroke="currentColor"
-                stroke-width="1.25"
-              />
-              <circle
-                cx="14.5"
-                cy="9.5"
-                r="2.8"
-                stroke="currentColor"
-                stroke-width="1.25"
-              />
+              <circle cx="7.5" cy="9.5" r="2.8" stroke="currentColor" stroke-width="1.25" />
+              <circle cx="14.5" cy="9.5" r="2.8" stroke="currentColor" stroke-width="1.25" />
               <circle cx="7.5" cy="9.5" r="1" fill="currentColor" />
               <circle cx="14.5" cy="9.5" r="1" fill="currentColor" />
-              <ellipse
-                cx="11"
-                cy="8"
-                rx="3"
-                ry="2.2"
-                stroke="currentColor"
-                stroke-width="1.25"
-              />
+              <ellipse cx="11" cy="8" rx="3" ry="2.2" stroke="currentColor" stroke-width="1.25" />
               <path
                 d="M3.5 14.5 Q2 16.5 3.5 18"
                 stroke="currentColor"
@@ -1596,8 +1514,7 @@ const AccessWall: FC<{
         <div id="msg" class="msg" />
 
         <div class="form-footer">
-          Don't have access? Contact the site's administrator or developer to
-          request an invite.
+          Don't have access? Contact the site's administrator or developer to request an invite.
         </div>
       </div>
     </div>

@@ -2,12 +2,8 @@
  * Header strip for the StackCodePanel — tab switcher + collapse chevron.
  */
 
+import { ArrowDown01Icon, ArrowUp01Icon, CodeIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import {
-  ArrowDown01Icon,
-  ArrowUp01Icon,
-  CodeIcon,
-} from "@hugeicons/core-free-icons";
 
 import { cn } from "@/shared/lib/utils";
 
@@ -21,15 +17,9 @@ export interface PanelHeaderProps {
   dirty: boolean;
 }
 
-export function PanelHeader({
-  tab,
-  onTabChange,
-  open,
-  onToggle,
-  dirty,
-}: PanelHeaderProps) {
+export function PanelHeader({ tab, onTabChange, open, onToggle, dirty }: PanelHeaderProps) {
   return (
-    <div className="flex h-10 items-center justify-between border-b border-border/40 pl-2 pr-3">
+    <div className="flex h-10 items-center justify-between border-b border-border/40 pr-3 pl-2">
       <div className="flex items-center gap-1">
         <TabButton
           active={tab === "stack"}

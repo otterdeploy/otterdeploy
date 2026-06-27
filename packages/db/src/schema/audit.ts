@@ -1,3 +1,5 @@
+import type { AuditLogId } from "@otterdeploy/shared/id";
+
 /**
  * Audit log — append-only, queryable compliance trail. One row per
  * audit-worthy RPC (mutations + every denial), populated from the evlog
@@ -9,7 +11,6 @@
  * is unique so retries across drains dedupe instead of duplicating.
  */
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
-import type { AuditLogId } from "@otterdeploy/shared/id";
 import {
   index,
   integer,
@@ -23,18 +24,9 @@ import {
 
 import { organization } from "./auth";
 
-export const auditActorTypeEnum = pgEnum("audit_actor_type", [
-  "user",
-  "system",
-  "api",
-  "agent",
-]);
+export const auditActorTypeEnum = pgEnum("audit_actor_type", ["user", "system", "api", "agent"]);
 
-export const auditOutcomeEnum = pgEnum("audit_outcome", [
-  "success",
-  "failure",
-  "denied",
-]);
+export const auditOutcomeEnum = pgEnum("audit_outcome", ["success", "failure", "denied"]);
 
 export const auditLog = pgTable(
   "audit_log",

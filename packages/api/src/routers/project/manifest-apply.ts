@@ -18,19 +18,11 @@
  * back into the response, Phase 6 wires CLI consumption.
  */
 
-import type {
-  OrganizationId,
-  ProjectId,
-  ProxyRouteId,
-  ResourceId,
-} from "@otterdeploy/shared/id";
-
-import { and, eq } from "drizzle-orm";
-import { Result } from "better-result";
+import type { OrganizationId, ProjectId, ProxyRouteId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
-import { writeProjectEscapeHatch } from "../../lib/escape-hatch";
 import { db } from "@otterdeploy/db";
+import { gitInstallation, gitRepo } from "@otterdeploy/db/schema/git";
 import {
   databaseResource,
   deployment,
@@ -38,10 +30,12 @@ import {
   resource,
   serviceResource,
 } from "@otterdeploy/db/schema/project";
-import { gitInstallation, gitRepo } from "@otterdeploy/db/schema/git";
 import { triggerDeploy } from "@otterdeploy/jobs";
+import { Result } from "better-result";
+import { and, eq } from "drizzle-orm";
 
 import { fetchBranchHeadSha } from "../../git/github-app";
+import { writeProjectEscapeHatch } from "../../lib/escape-hatch";
 import {
   type Change,
   type CurrentState,
@@ -52,19 +46,8 @@ import {
   type ServiceManifest,
   type DatabaseManifest,
 } from "../../stack/manifest";
-import { emitDeployStarted } from "./deployments";
-import { ManifestApplySkipError } from "./errors";
-import {
-  deleteDraftCredential,
-  deleteResourceById,
-  getDraftCredentialPassword,
-} from "./queries";
-import { createPostgresResourceStream, validatePostgresCreate } from "./postgres/create-stream";
-import { setPostgresExtensions } from "./postgres/extensions";
-import {
-  applyPostgresExtraEnv,
-  setPostgresPublic,
-} from "./postgres/env";
+import { createComposeFromManifest } from "../compose/manifest-reconcile";
+import { addServiceDomain, setPrimaryServiceDomain } from "../service/domains";
 import {
   bulkSetEnv,
   createService,
@@ -72,8 +55,12 @@ import {
   exposeService,
   updateService,
 } from "../service/handlers";
-import { addServiceDomain, setPrimaryServiceDomain } from "../service/domains";
-import { createComposeFromManifest } from "../compose/manifest-reconcile";
+import { emitDeployStarted } from "./deployments";
+import { ManifestApplySkipError } from "./errors";
+import { createPostgresResourceStream, validatePostgresCreate } from "./postgres/create-stream";
+import { applyPostgresExtraEnv, setPostgresPublic } from "./postgres/env";
+import { setPostgresExtensions } from "./postgres/extensions";
+import { deleteDraftCredential, deleteResourceById, getDraftCredentialPassword } from "./queries";
 
 type OrgId = OrganizationId;
 
@@ -475,9 +462,7 @@ export async function enqueueGitBuild(args: {
       containerRegistryId: project.containerRegistryId,
     })
     .from(project)
-    .where(
-      and(eq(project.id, args.projectId), eq(project.organizationId, args.organizationId)),
-    )
+    .where(and(eq(project.id, args.projectId), eq(project.organizationId, args.organizationId)))
     .limit(1);
   if (!proj?.gitRepoId) return Result.err("project has no git repo binding");
   // Registry binding is optional — the builder defaults to a registry-less
@@ -773,9 +758,7 @@ async function seedServiceDomains(args: {
     resourceId: args.resourceId,
   };
   const skip = (reason: string) =>
-    skips.push(
-      new ManifestApplySkipError({ resource: "service", name: args.name, reason }),
-    );
+    skips.push(new ManifestApplySkipError({ resource: "service", name: args.name, reason }));
 
   let primaryRouteId: ProxyRouteId | null = null;
   for (const d of args.domains) {
@@ -798,10 +781,7 @@ async function seedServiceDomains(args: {
   }
 
   if (primaryRouteId) {
-    const primed = await setPrimaryServiceDomain(
-      { ...ref, routeId: primaryRouteId },
-      args.log,
-    );
+    const primed = await setPrimaryServiceDomain({ ...ref, routeId: primaryRouteId }, args.log);
     if (primed.isErr()) skip(`set primary domain skipped: ${primed.error.message}`);
   }
   return skips;
@@ -823,7 +803,9 @@ async function updateServiceFromManifest(
   const patch =
     args.spec.source === "image"
       ? { image: args.spec.image }
-      : { /* git: image is builder-managed */ };
+      : {
+          /* git: image is builder-managed */
+        };
 
   const updated = await updateService(
     {
@@ -834,13 +816,12 @@ async function updateServiceFromManifest(
       command: args.spec.startCommand ?? undefined,
       entrypoint: args.spec.entrypoint ?? undefined,
       replicas: args.spec.replicas,
-      ports:
-        args.spec.ports?.map((p) => ({
-          containerPort: p.container,
-          protocol: p.protocol,
-          appProtocol: p.appProtocol,
-          isPrimary: p.primary,
-        })),
+      ports: args.spec.ports?.map((p) => ({
+        containerPort: p.container,
+        protocol: p.protocol,
+        appProtocol: p.appProtocol,
+        isPrimary: p.primary,
+      })),
       restart: args.spec.restart,
       healthcheck: args.spec.healthcheck
         ? {
@@ -931,8 +912,7 @@ async function createDatabase(
   // Reuse the password minted when the database was staged (shown in the
   // pending panel), so the connection details the operator copied pre-deploy
   // keep working. Null → the create stream generates a fresh one.
-  const draftPassword =
-    (await getDraftCredentialPassword(args.projectId, args.name)) ?? undefined;
+  const draftPassword = (await getDraftCredentialPassword(args.projectId, args.name)) ?? undefined;
 
   // Drain the create stream to completion — the manifest apply path
   // doesn't surface per-step progress (Phase 6 will).
@@ -981,8 +961,7 @@ async function createDatabase(
   // extraEnv + extensions come after creation — the create stream doesn't
   // accept them as input today, so we apply them as second steps. Both
   // need the resource id, so resolve it once.
-  const needsExtraEnv =
-    args.spec.extraEnv && Object.keys(args.spec.extraEnv).length > 0;
+  const needsExtraEnv = args.spec.extraEnv && Object.keys(args.spec.extraEnv).length > 0;
   const specExtensions = manifestExtensions(args.spec);
   if (needsExtraEnv || specExtensions.length > 0) {
     const dbId = await lookupDatabaseId(args.projectId, args.name);

@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { I } from "../icons";
-import { USER } from "../data";
 
-interface Props { onSettings?: () => void; onSignOut?: () => void }
+import { USER } from "../data";
+import { I } from "../icons";
+
+interface Props {
+  onSettings?: () => void;
+  onSignOut?: () => void;
+}
 
 export function UserMenu({ onSettings, onSignOut }: Props) {
   const [open, setOpen] = useState(false);
@@ -43,7 +47,14 @@ export function UserMenu({ onSettings, onSignOut }: Props) {
         >
           {USER.initials}
         </span>
-        <span style={{ display: "flex", flexDirection: "column", minWidth: 0, alignItems: "flex-start" }}>
+        <span
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            minWidth: 0,
+            alignItems: "flex-start",
+          }}
+        >
           <span style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.2 }}>{USER.name}</span>
           <span className="muted" style={{ fontSize: 10 }}>
             {USER.org}
@@ -81,7 +92,9 @@ export function UserMenu({ onSettings, onSignOut }: Props) {
                 {o.slice(0, 1)}
               </span>
               <span style={{ flex: 1, textAlign: "left" }}>{o}</span>
-              {o === USER.org ? <I.check width={12} height={12} style={{ color: "var(--fg)" }} /> : null}
+              {o === USER.org ? (
+                <I.check width={12} height={12} style={{ color: "var(--fg)" }} />
+              ) : null}
             </button>
           ))}
           <div style={{ height: 1, background: "var(--border)", margin: "4px 0" }} />

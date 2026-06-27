@@ -1,3 +1,9 @@
+import type { OrganizationId } from "@otterdeploy/shared/id";
+
+import { db } from "@otterdeploy/db";
+import { project } from "@otterdeploy/db/schema/project";
+import { proxyRoute } from "@otterdeploy/db/schema/proxy-route";
+import { Result } from "better-result";
 /**
  * Promote Caddy cert/ACME events (the operational log plane) onto the matching
  * `proxy_route` rows, so the domains-card can show a live TLS status, and emit
@@ -12,16 +18,11 @@
  * After dates (deferred).
  */
 import { inArray } from "drizzle-orm";
-import { Result } from "better-result";
 import { log } from "evlog";
 
-import { db } from "@otterdeploy/db";
-import { project } from "@otterdeploy/db/schema/project";
-import { proxyRoute } from "@otterdeploy/db/schema/proxy-route";
-import type { OrganizationId } from "@otterdeploy/shared/id";
+import type { EdgeEventLine } from "./types";
 
 import { emitPlatformEvent } from "../notifications/emit";
-import type { EdgeEventLine } from "./types";
 
 type CertState = "obtaining" | "valid" | "failed";
 
@@ -41,9 +42,7 @@ export async function promoteCertEvent(event: EdgeEventLine): Promise<void> {
   if (!state) return;
   // Single-host ACME challenge errors carry `host`; cert-management batches
   // carry `domains`. Match either against the route table.
-  const domains = [
-    ...new Set([event.host, ...event.domains].filter((d): d is string => !!d)),
-  ];
+  const domains = [...new Set([event.host, ...event.domains].filter((d): d is string => !!d))];
   if (domains.length === 0) return;
 
   const ts = new Date(event.ts);
@@ -53,10 +52,7 @@ export async function promoteCertEvent(event: EdgeEventLine): Promise<void> {
         .update(proxyRoute)
         .set({
           certState: state,
-          certError:
-            state === "failed"
-              ? (event.error ?? event.msg).slice(0, 500)
-              : null,
+          certError: state === "failed" ? (event.error ?? event.msg).slice(0, 500) : null,
           certCheckedAt: ts,
         })
         .where(inArray(proxyRoute.domain, domains))
@@ -95,10 +91,7 @@ export async function promoteCertEvent(event: EdgeEventLine): Promise<void> {
   if (outcome.isErr()) {
     log.warn({
       edgeLog: { certPromote: "failed", domains },
-      error:
-        outcome.error instanceof Error
-          ? outcome.error.message
-          : String(outcome.error),
+      error: outcome.error instanceof Error ? outcome.error.message : String(outcome.error),
     });
   }
 }

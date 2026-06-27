@@ -1,3 +1,9 @@
+import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { RequestLogger } from "evlog";
+
+import { db } from "@otterdeploy/db";
+import { deployment, resource, serviceResource } from "@otterdeploy/db/schema/project";
+import { Result } from "better-result";
 /**
  * Materialize a compose stack's services as REAL `service_resource` rows owned
  * by the stack, then drive each through the normal per-service deploy path.
@@ -13,26 +19,17 @@
  * Variables tab survive re-deploys). See docs/designs/compose.md.
  */
 import { and, eq } from "drizzle-orm";
-import { Result } from "better-result";
-import type { RequestLogger } from "evlog";
 
-import { db } from "@otterdeploy/db";
-import { deployment, resource, serviceResource } from "@otterdeploy/db/schema/project";
-import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
-
-import { PLATFORM } from "../../constants";
 import { deleteProxyRoutesByResource } from "../../caddy/queries";
+import { PLATFORM } from "../../constants";
+import { runtime } from "../../runtime";
 import {
   composeSwarmServiceName,
   durationMs,
   type ParsedCompose,
   type ParsedComposeService,
 } from "../../stack/compose";
-import { runtime } from "../../runtime";
-import {
-  insertDeployment,
-  markDeploymentFailed,
-} from "../project/deployments";
+import { insertDeployment, markDeploymentFailed } from "../project/deployments";
 import { deleteResourceById } from "../project/queries";
 import {
   createServiceRecord,
@@ -68,9 +65,7 @@ const sanitize = (s: string) =>
     .replace(/^-+|-+$/g, "");
 
 /** Compose `restart:` → the service resource's restart condition enum. */
-function toRestartCondition(
-  r: ParsedComposeService["restart"],
-): "none" | "on-failure" | "any" {
+function toRestartCondition(r: ParsedComposeService["restart"]): "none" | "on-failure" | "any" {
   if (r === "no") return "none";
   if (r === "on-failure") return "on-failure";
   return "any";
@@ -99,8 +94,7 @@ function toHealthcheck(svc: ParsedComposeService): {
   if (head === "NONE") return none;
   let cmd: string[];
   if (head === "CMD") cmd = hc.test.slice(1);
-  else if (head === "CMD-SHELL")
-    cmd = ["/bin/sh", "-c", hc.test.slice(1).join(" ")];
+  else if (head === "CMD-SHELL") cmd = ["/bin/sh", "-c", hc.test.slice(1).join(" ")];
   else cmd = hc.test;
   if (cmd.length === 0) return none;
   return {
@@ -171,8 +165,7 @@ function toServiceFields(
     fields: {
       image,
       command: svc.command?.map((c) => interpolate(c, ctx.projectVars)) ?? null,
-      entrypoint:
-        svc.entrypoint?.map((c) => interpolate(c, ctx.projectVars)) ?? null,
+      entrypoint: svc.entrypoint?.map((c) => interpolate(c, ctx.projectVars)) ?? null,
       replicas: svc.replicas,
       restartCondition: toRestartCondition(svc.restart),
       ...toHealthcheck(svc),
@@ -188,10 +181,7 @@ function toServiceFields(
  *  bare compose key (e.g. "web"); if another resource already owns that name,
  *  suffix until free. Matching on re-reconcile keys off serviceName, so a
  *  suffixed display name stays stable. */
-async function pickResourceName(
-  projectId: ProjectId,
-  composeName: string,
-): Promise<string> {
+async function pickResourceName(projectId: ProjectId, composeName: string): Promise<string> {
   const base = composeName.slice(0, 60);
   for (let i = 0; i < 50; i++) {
     const candidate = i === 0 ? base : `${base}-${i + 1}`;
@@ -223,9 +213,7 @@ export async function reconcileStackServices(
     .from(resource)
     .innerJoin(serviceResource, eq(serviceResource.resourceId, resource.id))
     .where(eq(serviceResource.stackId, ctx.stackResourceId));
-  const existingByName = new Map(
-    existingRows.map((r) => [r.service.serviceName, r] as const),
-  );
+  const existingByName = new Map(existingRows.map((r) => [r.service.serviceName, r] as const));
 
   const resolveImage = (svc: ParsedComposeService): string | null => {
     const raw = svc.image ?? ctx.builtImages[svc.name] ?? null;
@@ -288,8 +276,7 @@ export async function reconcileStackServices(
     const rolled = isCreate
       ? await (async () => {
           const record = await getServiceRecord(ctx.projectId, resourceId);
-          if (!record)
-            return Result.err(new Error("Service row vanished after create"));
+          if (!record) return Result.err(new Error("Service row vanished after create"));
           return provisionFresh(ctx.projectId, record, ctx.projectSlug, log);
         })()
       : await redeployOne(ctx.projectId, resourceId, ctx.projectSlug, log);

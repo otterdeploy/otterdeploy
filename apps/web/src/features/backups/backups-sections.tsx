@@ -1,20 +1,13 @@
 /** The Schedules and Destinations list sections below the runs table. */
-import {
-  Clock01Icon,
-  PlusSignIcon,
-} from "@hugeicons/core-free-icons";
+import { Clock01Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { Button } from "@/shared/components/ui/button";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "@/shared/components/ui/empty";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/shared/components/ui/empty";
 
 import type { Destination } from "./data/destinations";
 import type { Schedule } from "./data/schedules";
+
 import { DestinationRow } from "./destination-row";
 import { ScheduleCard } from "./schedule-card";
 import { SectionH } from "./shared";
@@ -47,9 +40,7 @@ export function SchedulesSection({
               className="size-10 text-muted-foreground/50"
             />
             <EmptyTitle>No schedules yet</EmptyTitle>
-            <EmptyDescription>
-              Create one to back up on a recurring cadence.
-            </EmptyDescription>
+            <EmptyDescription>Create one to back up on a recurring cadence.</EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : (
@@ -89,12 +80,7 @@ export function DestinationsSection({
           </div>
         ) : (
           destinations.map((d, i) => (
-            <DestinationRow
-              key={d.id}
-              dest={d}
-              first={i === 0}
-              onEdit={() => onEdit(d)}
-            />
+            <DestinationRow key={d.id} dest={d} first={i === 0} onEdit={() => onEdit(d)} />
           ))
         )}
       </div>

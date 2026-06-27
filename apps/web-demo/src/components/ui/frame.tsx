@@ -1,10 +1,8 @@
 import type * as React from "react";
+
 import { cn } from "@/lib/utils";
 
-export function Frame({
-  className,
-  ...props
-}: React.ComponentProps<"div">): React.ReactElement {
+export function Frame({ className, ...props }: React.ComponentProps<"div">): React.ReactElement {
   return (
     <div
       className={cn(
@@ -53,7 +51,7 @@ export function FrameTitle({
 }: React.ComponentProps<"div">): React.ReactElement {
   return (
     <div
-      className={cn("font-semibold text-sm", className)}
+      className={cn("text-sm font-semibold", className)}
       data-slot="frame-panel-title"
       {...props}
     />
@@ -66,7 +64,7 @@ export function FrameDescription({
 }: React.ComponentProps<"div">): React.ReactElement {
   return (
     <div
-      className={cn("text-muted-foreground text-sm", className)}
+      className={cn("text-sm text-muted-foreground", className)}
       data-slot="frame-panel-description"
       {...props}
     />
@@ -78,10 +76,6 @@ export function FrameFooter({
   ...props
 }: React.ComponentProps<"footer">): React.ReactElement {
   return (
-    <footer
-      className={cn("px-5 py-4", className)}
-      data-slot="frame-panel-footer"
-      {...props}
-    />
+    <footer className={cn("px-5 py-4", className)} data-slot="frame-panel-footer" {...props} />
   );
 }

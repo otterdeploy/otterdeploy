@@ -1,12 +1,17 @@
-import { useFieldContext } from "../form-context";
 import { Button } from "@/shared/components/ui/button";
 import { Card } from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/shared/components/ui/select";
 import { Switch } from "@/shared/components/ui/switch";
 import { cn } from "@/shared/lib/utils";
+
+import { useFieldContext } from "../form-context";
 import { I } from "../icons";
 
 export interface Port {
@@ -34,7 +39,7 @@ export function PortsField() {
       <div
         className={cn(
           PORTS_GRID,
-          "border-b bg-muted/50 px-3.5 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground",
+          "border-b bg-muted/50 px-3.5 py-2 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase",
         )}
       >
         <span>Port</span>
@@ -57,9 +62,7 @@ export function PortsField() {
             type="number"
             value={p.port}
             onChange={(e) => {
-              const next = ports.map((x, j) =>
-                j === i ? { ...x, port: +e.target.value } : x,
-              );
+              const next = ports.map((x, j) => (j === i ? { ...x, port: +e.target.value } : x));
               field.handleChange(next);
             }}
           />

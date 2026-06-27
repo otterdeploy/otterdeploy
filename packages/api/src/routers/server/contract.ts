@@ -1,9 +1,8 @@
-
 import { oc } from "@orpc/contract";
+import { server } from "@otterdeploy/db/schema";
 import { createSelectSchema } from "drizzle-zod";
 import * as z from "zod";
 
-import { server } from "@otterdeploy/db/schema";
 import { serverIdField } from "../project/contract/shared";
 const tag = "server";
 const basePath = "/servers";

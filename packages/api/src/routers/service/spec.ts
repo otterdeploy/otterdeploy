@@ -3,13 +3,9 @@
  * provisioner-shaped `SwarmServiceSpec` consumed by `swarm/*`.
  */
 
-import { type ServiceRecord } from "./queries";
-import {
-  materializeServiceMounts,
-  type SpecMount,
-  type SwarmServiceSpec,
-} from "../../swarm";
+import { materializeServiceMounts, type SpecMount, type SwarmServiceSpec } from "../../swarm";
 import { getLatestDeploymentForResource } from "../project/deployments";
+import { type ServiceRecord } from "./queries";
 import { sanitizeSlug } from "./views";
 
 export async function buildSwarmSpec(
@@ -22,9 +18,7 @@ export async function buildSwarmSpec(
   // build worker inserts the row before driving convergence; restart/expose/
   // update reapply against the current active deployment). This rides onto the
   // task labels so the deployments tab can count tasks per deployment.
-  const latestDeployment = await getLatestDeploymentForResource(
-    record.service.resourceId,
-  );
+  const latestDeployment = await getLatestDeploymentForResource(record.service.resourceId);
   // Materialize file-type mounts to disk before we ship the spec to swarm —
   // a bind-mount with no source on disk causes the container to fail to
   // start with no useful error. Volume + bind types pass through verbatim.

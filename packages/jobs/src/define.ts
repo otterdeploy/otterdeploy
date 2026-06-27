@@ -33,10 +33,7 @@ export interface JobDef<TSchema extends z.ZodTypeAny = z.ZodTypeAny> {
   /** Per-job default options (attempts, backoff, retention). */
   opts?: JobsOptions;
   /** What runs when the worker picks the job up. */
-  handler: (
-    payload: z.infer<TSchema>,
-    ctx: JobContext<z.infer<TSchema>>,
-  ) => Promise<unknown>;
+  handler: (payload: z.infer<TSchema>, ctx: JobContext<z.infer<TSchema>>) => Promise<unknown>;
   /**
    * Optional cron schedule (BullMQ repeatable job). When set, `createWorkers()`
    * also schedules a repeatable instance using `Queue.upsertJobScheduler()`.
@@ -48,8 +45,6 @@ export interface JobDef<TSchema extends z.ZodTypeAny = z.ZodTypeAny> {
   };
 }
 
-export function defineJob<TSchema extends z.ZodTypeAny>(
-  def: JobDef<TSchema>,
-): JobDef<TSchema> {
+export function defineJob<TSchema extends z.ZodTypeAny>(def: JobDef<TSchema>): JobDef<TSchema> {
   return def;
 }

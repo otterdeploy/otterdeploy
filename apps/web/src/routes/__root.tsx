@@ -1,16 +1,12 @@
 import type { QueryClient } from "@tanstack/react-query";
 
-import {
-  HeadContent,
-  Outlet,
-  createRootRouteWithContext,
-} from "@tanstack/react-router";
-import { Toaster } from "@/shared/components/ui/sonner";
-
-import { ThemeProvider } from "@/shared/components/theme-provider";
-import { TooltipProvider } from "@/shared/components/ui/tooltip";
+import { HeadContent, Outlet, createRootRouteWithContext } from "@tanstack/react-router";
 
 import type { orpc } from "@/shared/server/orpc";
+
+import { ThemeProvider } from "@/shared/components/theme-provider";
+import { Toaster } from "@/shared/components/ui/sonner";
+import { TooltipProvider } from "@/shared/components/ui/tooltip";
 
 import "../index.css";
 
@@ -51,7 +47,7 @@ function RootComponent() {
         storageKey="vite-ui-theme"
       >
         <TooltipProvider>
-          <div className="grid grid-rows-[auto_1fr] h-svh">
+          <div className="grid h-svh grid-rows-[auto_1fr]">
             <Outlet />
           </div>
           <Toaster richColors />

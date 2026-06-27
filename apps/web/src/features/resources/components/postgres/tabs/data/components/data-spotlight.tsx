@@ -1,9 +1,3 @@
-/**
- * ⌘K spotlight for the data console — a scoped command menu (not the global
- * palette). Jump to a table, run the current/all statements, prettify, create
- * a query, open a saved snippet, or toggle the side rails.
- */
-import { HugeiconsIcon } from "@hugeicons/react";
 import {
   File01Icon,
   MagicWand01Icon,
@@ -12,6 +6,12 @@ import {
   SidebarRight01Icon,
   Table01Icon,
 } from "@hugeicons/core-free-icons";
+/**
+ * ⌘K spotlight for the data console — a scoped command menu (not the global
+ * palette). Jump to a table, run the current/all statements, prettify, create
+ * a query, open a saved snippet, or toggle the side rails.
+ */
+import { HugeiconsIcon } from "@hugeicons/react";
 
 import {
   CommandDialog,

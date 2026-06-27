@@ -67,8 +67,7 @@ export function HostField({
       )}
       {isEdit && (
         <p className="text-[11px] text-muted-foreground">
-          Host is locked. To use a different one, delete this credential and add
-          a new one.
+          Host is locked. To use a different one, delete this credential and add a new one.
         </p>
       )}
     </div>

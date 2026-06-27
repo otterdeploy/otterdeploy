@@ -28,11 +28,7 @@ interface CFEnvelope<T> {
   result_info?: { page: number; per_page: number; total_pages: number };
 }
 
-async function cfFetch<T>(
-  path: string,
-  token: string,
-  init: RequestInit = {},
-): Promise<T> {
+async function cfFetch<T>(path: string, token: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(`${CLOUDFLARE_API}${path}`, {
     ...init,
     headers: {
@@ -43,9 +39,7 @@ async function cfFetch<T>(
   });
   const body = (await res.json()) as CFEnvelope<T>;
   if (!body.success) {
-    const msg =
-      body.errors?.[0]?.message ??
-      `Cloudflare API ${res.status} ${res.statusText}`;
+    const msg = body.errors?.[0]?.message ?? `Cloudflare API ${res.status} ${res.statusText}`;
     throw new CloudflareError(msg, body.errors?.[0]?.code ?? res.status);
   }
   return body.result;
@@ -71,10 +65,7 @@ export async function verifyCloudflareToken(token: string): Promise<{
   status: string;
 }> {
   try {
-    const result = await cfFetch<{ id: string; status: string }>(
-      "/user/tokens/verify",
-      token,
-    );
+    const result = await cfFetch<{ id: string; status: string }>("/user/tokens/verify", token);
     return { ok: result.status === "active", status: result.status };
   } catch (err) {
     if (err instanceof CloudflareError) {
@@ -84,9 +75,7 @@ export async function verifyCloudflareToken(token: string): Promise<{
   }
 }
 
-export async function listCloudflareZones(
-  token: string,
-): Promise<CloudflareZone[]> {
+export async function listCloudflareZones(token: string): Promise<CloudflareZone[]> {
   // The token may be scoped to a single zone — in which case `/zones`
   // still works and just returns that one zone. Iterate pages so a
   // multi-zone token returns the full list; per_page=50 is the upper
@@ -94,10 +83,9 @@ export async function listCloudflareZones(
   const all: CloudflareZone[] = [];
   let page = 1;
   while (true) {
-    const res = await fetch(
-      `${CLOUDFLARE_API}/zones?per_page=50&page=${page}`,
-      { headers: { Authorization: `Bearer ${token}` } },
-    );
+    const res = await fetch(`${CLOUDFLARE_API}/zones?per_page=50&page=${page}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
     const body = (await res.json()) as CFEnvelope<CloudflareZone[]>;
     if (!body.success) {
       throw new CloudflareError(

@@ -8,65 +8,162 @@
         "role": "primary",
         "displayName": "Signal Blue",
         "canonical": "oklch(0.488 0.243 264.376)",
-        "tonalRamp": ["oklch(0.22 0.10 264)", "oklch(0.30 0.15 264)", "oklch(0.38 0.20 264)", "oklch(0.488 0.243 264)", "oklch(0.58 0.21 264)", "oklch(0.70 0.16 264)", "oklch(0.82 0.10 264)", "oklch(0.93 0.04 264)"]
+        "tonalRamp": [
+          "oklch(0.22 0.10 264)",
+          "oklch(0.30 0.15 264)",
+          "oklch(0.38 0.20 264)",
+          "oklch(0.488 0.243 264)",
+          "oklch(0.58 0.21 264)",
+          "oklch(0.70 0.16 264)",
+          "oklch(0.82 0.10 264)",
+          "oklch(0.93 0.04 264)"
+        ]
       },
       "ink": {
         "role": "neutral",
         "displayName": "Warm Ink",
         "canonical": "#141412",
-        "tonalRamp": ["#141412", "#2a2a26", "#4a4a46", "#7a7a74", "#a8a8a0", "#c9c9c2", "#e6e6e0", "#fbfbfa"]
+        "tonalRamp": [
+          "#141412",
+          "#2a2a26",
+          "#4a4a46",
+          "#7a7a74",
+          "#a8a8a0",
+          "#c9c9c2",
+          "#e6e6e0",
+          "#fbfbfa"
+        ]
       },
       "background": {
         "role": "neutral",
         "displayName": "Soft Canvas",
         "canonical": "#fbfbfa",
-        "tonalRamp": ["#0c0c0b", "#161614", "#2a2a26", "#4a4a46", "#7a7a74", "#a8a8a0", "#e6e6e0", "#fbfbfa"]
+        "tonalRamp": [
+          "#0c0c0b",
+          "#161614",
+          "#2a2a26",
+          "#4a4a46",
+          "#7a7a74",
+          "#a8a8a0",
+          "#e6e6e0",
+          "#fbfbfa"
+        ]
       },
       "destructive": {
         "role": "tertiary",
         "displayName": "Destructive Red",
         "canonical": "#b42318",
-        "tonalRamp": ["#3a0c08", "#5c130d", "#7e1a12", "#b42318", "#d14237", "#e57c74", "#f3b8b3", "#fbe5e3"]
+        "tonalRamp": [
+          "#3a0c08",
+          "#5c130d",
+          "#7e1a12",
+          "#b42318",
+          "#d14237",
+          "#e57c74",
+          "#f3b8b3",
+          "#fbe5e3"
+        ]
       },
       "success": {
         "role": "tertiary",
         "displayName": "Healthy Green",
         "canonical": "#1f7a3f",
-        "tonalRamp": ["#0a2916", "#103f22", "#16562e", "#1f7a3f", "#2fa257", "#5fc080", "#9bdcb1", "#d6f2e0"]
+        "tonalRamp": [
+          "#0a2916",
+          "#103f22",
+          "#16562e",
+          "#1f7a3f",
+          "#2fa257",
+          "#5fc080",
+          "#9bdcb1",
+          "#d6f2e0"
+        ]
       },
       "warning": {
         "role": "tertiary",
         "displayName": "Attention Amber",
         "canonical": "#8a6a00",
-        "tonalRamp": ["#2e2300", "#473700", "#604a00", "#8a6a00", "#b58c00", "#d9b52e", "#ecd47e", "#f8edc4"]
+        "tonalRamp": [
+          "#2e2300",
+          "#473700",
+          "#604a00",
+          "#8a6a00",
+          "#b58c00",
+          "#d9b52e",
+          "#ecd47e",
+          "#f8edc4"
+        ]
       },
       "info": {
         "role": "tertiary",
         "displayName": "Notice Blue",
         "canonical": "#1f5fa8",
-        "tonalRamp": ["#0a1f38", "#102f54", "#163f70", "#1f5fa8", "#3a7fc4", "#6ba3da", "#a5c8ec", "#dceaf8"]
+        "tonalRamp": [
+          "#0a1f38",
+          "#102f54",
+          "#163f70",
+          "#1f5fa8",
+          "#3a7fc4",
+          "#6ba3da",
+          "#a5c8ec",
+          "#dceaf8"
+        ]
       }
     },
     "typographyMeta": {
-      "display": { "displayName": "Display", "purpose": "Page titles — the largest heading in any view. The ceiling; never shouts." },
+      "display": {
+        "displayName": "Display",
+        "purpose": "Page titles — the largest heading in any view. The ceiling; never shouts."
+      },
       "title": { "displayName": "Title", "purpose": "Section/card headings and dialog titles." },
-      "body": { "displayName": "Body", "purpose": "Default running text and UI copy. Prose caps 65–75ch." },
-      "label": { "displayName": "Label", "purpose": "Buttons, form labels, nav items, table headers. Medium weight UI default." },
-      "mono": { "displayName": "Mono", "purpose": "IDs, hashes, env keys, log lines, command output. Slashed zero + ss03." }
+      "body": {
+        "displayName": "Body",
+        "purpose": "Default running text and UI copy. Prose caps 65–75ch."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Buttons, form labels, nav items, table headers. Medium weight UI default."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "IDs, hashes, env keys, log lines, command output. Slashed zero + ss03."
+      }
     },
     "shadows": [
-      { "name": "lifted-surface", "value": "0 1px 2px 0 oklch(0 0 0 / 6%), 0 0 0 1px oklch(0 0 0 / 4%)", "purpose": "Graph nodes and lightly raised elements — a near-invisible seat, mostly a tonal ring." },
-      { "name": "floating-panel", "value": "0 1px 2px 0 oklch(0 0 0 / 6%), 0 8px 24px -12px oklch(0 0 0 / 24%)", "purpose": "Menus, popovers, dialogs, graph controls/minimap — clearly detached from canvas." }
+      {
+        "name": "lifted-surface",
+        "value": "0 1px 2px 0 oklch(0 0 0 / 6%), 0 0 0 1px oklch(0 0 0 / 4%)",
+        "purpose": "Graph nodes and lightly raised elements — a near-invisible seat, mostly a tonal ring."
+      },
+      {
+        "name": "floating-panel",
+        "value": "0 1px 2px 0 oklch(0 0 0 / 6%), 0 8px 24px -12px oklch(0 0 0 / 24%)",
+        "purpose": "Menus, popovers, dialogs, graph controls/minimap — clearly detached from canvas."
+      }
     ],
     "motion": [
-      { "name": "transition-default", "value": "150ms-250ms ease", "purpose": "State transitions on most interactive components (transition-all)." },
-      { "name": "press", "value": "translateY(1px)", "purpose": "Tactile active-state nudge on buttons (suppressed on menu triggers)." },
-      { "name": "error-rise", "value": "0.6s cubic-bezier(0.2, 0.7, 0.2, 1)", "purpose": "Error / empty-state entrance: fade up 16px." },
-      { "name": "comet-spin", "value": "2.2s linear infinite", "purpose": "Travelling light around a pending node's border (animated @property angle)." }
+      {
+        "name": "transition-default",
+        "value": "150ms-250ms ease",
+        "purpose": "State transitions on most interactive components (transition-all)."
+      },
+      {
+        "name": "press",
+        "value": "translateY(1px)",
+        "purpose": "Tactile active-state nudge on buttons (suppressed on menu triggers)."
+      },
+      {
+        "name": "error-rise",
+        "value": "0.6s cubic-bezier(0.2, 0.7, 0.2, 1)",
+        "purpose": "Error / empty-state entrance: fade up 16px."
+      },
+      {
+        "name": "comet-spin",
+        "value": "2.2s linear infinite",
+        "purpose": "Travelling light around a pending node's border (animated @property angle)."
+      }
     ],
-    "breakpoints": [
-      { "name": "md", "value": "768px" }
-    ]
+    "breakpoints": [{ "name": "md", "value": "768px" }]
   },
   "components": [
     {
@@ -146,13 +243,41 @@
       "First-class dark mode, held to the same contrast bar as light."
     ],
     "rules": [
-      { "name": "The One Voice Rule", "body": "Signal Blue appears on ≤10% of any given screen. It marks the primary action and the current selection — nothing else. Its rarity is what makes it read as 'do this.'", "section": "colors" },
-      { "name": "The Warm-Black Rule", "body": "No pure #000 and no pure #fff anywhere. Ink is #141412, canvas is #fbfbfa. The faint warmth is the whole point; pure values read as cheap.", "section": "colors" },
-      { "name": "The State-Tint Rule", "body": "Semantic color signals state through a low-opacity tint of its own hue plus same-hue text (bg-destructive/10 text-destructive), not a saturated fill. Reserve solid fills for the single most consequential action on a screen.", "section": "colors" },
-      { "name": "The Two-Cuts Rule", "body": "Sans for the human, mono for the machine. Anything a user could copy and paste into a terminal — an ID, a hash, a domain, a log line — is mono. Everything else is sans. No third font, ever.", "section": "typography" },
-      { "name": "The Fixed-Scale Rule", "body": "No clamp() headings in product UI. Users view at consistent DPI; a heading that shrinks inside a sidebar looks broken, not responsive.", "section": "typography" },
-      { "name": "The Flat-By-Default Rule", "body": "Resting surfaces have no drop shadow. If a card needs a shadow to be distinguishable, the ring (ring-foreground/10) or background tone is wrong — fix that first. Shadows mean 'floating above the page,' not 'is a card.'", "section": "elevation" },
-      { "name": "The Ring-Not-Border Rule", "body": "Card separation uses ring-1 ring-foreground/10 (a transparency of the ink), so it reads as a hairline regardless of theme. Audit test: if a divider looks grey rather than like a faint edge of the ink, it's a hardcoded grey — replace it.", "section": "elevation" }
+      {
+        "name": "The One Voice Rule",
+        "body": "Signal Blue appears on ≤10% of any given screen. It marks the primary action and the current selection — nothing else. Its rarity is what makes it read as 'do this.'",
+        "section": "colors"
+      },
+      {
+        "name": "The Warm-Black Rule",
+        "body": "No pure #000 and no pure #fff anywhere. Ink is #141412, canvas is #fbfbfa. The faint warmth is the whole point; pure values read as cheap.",
+        "section": "colors"
+      },
+      {
+        "name": "The State-Tint Rule",
+        "body": "Semantic color signals state through a low-opacity tint of its own hue plus same-hue text (bg-destructive/10 text-destructive), not a saturated fill. Reserve solid fills for the single most consequential action on a screen.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two-Cuts Rule",
+        "body": "Sans for the human, mono for the machine. Anything a user could copy and paste into a terminal — an ID, a hash, a domain, a log line — is mono. Everything else is sans. No third font, ever.",
+        "section": "typography"
+      },
+      {
+        "name": "The Fixed-Scale Rule",
+        "body": "No clamp() headings in product UI. Users view at consistent DPI; a heading that shrinks inside a sidebar looks broken, not responsive.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat-By-Default Rule",
+        "body": "Resting surfaces have no drop shadow. If a card needs a shadow to be distinguishable, the ring (ring-foreground/10) or background tone is wrong — fix that first. Shadows mean 'floating above the page,' not 'is a card.'",
+        "section": "elevation"
+      },
+      {
+        "name": "The Ring-Not-Border Rule",
+        "body": "Card separation uses ring-1 ring-foreground/10 (a transparency of the ink), so it reads as a hairline regardless of theme. Audit test: if a divider looks grey rather than like a faint edge of the ink, it's a hardcoded grey — replace it.",
+        "section": "elevation"
+      }
     ],
     "dos": [
       "Do keep Signal Blue to ≤10% of any screen — primary action and current selection only (The One Voice Rule).",

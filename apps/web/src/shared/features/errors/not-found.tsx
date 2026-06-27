@@ -1,11 +1,6 @@
 import { useTranslation } from "react-i18next";
 
-import {
-  ErrorScreen,
-  errorBackClass,
-  errorBtnClass,
-  errorPathClass,
-} from "./error-screen";
+import { ErrorScreen, errorBackClass, errorBtnClass, errorPathClass } from "./error-screen";
 
 /**
  * 404 screen — wired into the router as `defaultNotFoundComponent` (see main.tsx).
@@ -14,8 +9,7 @@ import {
 export function NotFound() {
   const { t } = useTranslation();
   const path = typeof window !== "undefined" ? window.location.pathname : "";
-  const shown =
-    path && path !== "/" ? path : t("errors.notFound.messageFallbackPath");
+  const shown = path && path !== "/" ? path : t("errors.notFound.messageFallbackPath");
 
   return (
     <ErrorScreen
@@ -36,11 +30,7 @@ export function NotFound() {
           <a className={errorBtnClass} href="/">
             {t("errors.notFound.returnHome")}
           </a>
-          <button
-            type="button"
-            className={errorBackClass}
-            onClick={() => window.history.back()}
-          >
+          <button type="button" className={errorBackClass} onClick={() => window.history.back()}>
             {t("errors.notFound.goBack")}
           </button>
         </>

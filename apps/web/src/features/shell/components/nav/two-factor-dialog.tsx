@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 /**
  * Two-factor authentication (TOTP) — enable/disable from the account menu.
  * Backed entirely by better-auth's `twoFactor` plugin client
@@ -7,7 +9,6 @@
  * key; many also accept pasting the URI).
  */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
 import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";
@@ -49,8 +50,7 @@ export function TwoFactorDialog({
     enabled: open,
   });
   const enabled = Boolean(
-    (sessionQ.data?.user as { twoFactorEnabled?: boolean } | undefined)
-      ?.twoFactorEnabled,
+    (sessionQ.data?.user as { twoFactorEnabled?: boolean } | undefined)?.twoFactorEnabled,
   );
 
   // Multi-step enable flow.
@@ -69,8 +69,7 @@ export function TwoFactorDialog({
     if (!v) reset();
     onOpenChange(v);
   };
-  const refreshSession = () =>
-    qc.invalidateQueries({ queryKey: ["auth", "current-session"] });
+  const refreshSession = () => qc.invalidateQueries({ queryKey: ["auth", "current-session"] });
 
   const enable = useMutation({
     mutationFn: async () => {
@@ -125,9 +124,7 @@ export function TwoFactorDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             Two-factor authentication
-            {enabled && !showSetup && !showBackup && (
-              <Badge variant="secondary">On</Badge>
-            )}
+            {enabled && !showSetup && !showBackup && <Badge variant="secondary">On</Badge>}
           </DialogTitle>
           <DialogDescription>
             {showSetup
@@ -155,10 +152,10 @@ export function TwoFactorDialog({
         ) : showSetup ? (
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <Label className="font-mono text-[11px] uppercase tracking-[0.04em] text-muted-foreground">
+              <Label className="font-mono text-[11px] tracking-[0.04em] text-muted-foreground uppercase">
                 Setup key
               </Label>
-              <code className="block break-all rounded-md bg-muted px-3 py-2 font-mono text-[12.5px] tracking-[0.15em]">
+              <code className="block rounded-md bg-muted px-3 py-2 font-mono text-[12.5px] tracking-[0.15em] break-all">
                 {secretFromUri(totpURI ?? "")}
               </code>
             </div>
@@ -171,7 +168,7 @@ export function TwoFactorDialog({
             >
               <Label
                 htmlFor="tf-verify"
-                className="font-mono text-[11px] uppercase tracking-[0.04em] text-muted-foreground"
+                className="font-mono text-[11px] tracking-[0.04em] text-muted-foreground uppercase"
               >
                 Confirmation code
               </Label>
@@ -196,7 +193,7 @@ export function TwoFactorDialog({
           >
             <Label
               htmlFor="tf-pw-disable"
-              className="font-mono text-[11px] uppercase tracking-[0.04em] text-muted-foreground"
+              className="font-mono text-[11px] tracking-[0.04em] text-muted-foreground uppercase"
             >
               Confirm your password to disable
             </Label>
@@ -219,7 +216,7 @@ export function TwoFactorDialog({
           >
             <Label
               htmlFor="tf-pw-enable"
-              className="font-mono text-[11px] uppercase tracking-[0.04em] text-muted-foreground"
+              className="font-mono text-[11px] tracking-[0.04em] text-muted-foreground uppercase"
             >
               Confirm your password to begin
             </Label>

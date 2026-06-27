@@ -1,15 +1,19 @@
+import { oc } from "@orpc/contract";
+import { project } from "@otterdeploy/db/schema";
 /**
  * Project CRUD — schemas + contract slice.
  */
 import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
-
-import { oc } from "@orpc/contract";
 import { createSelectSchema } from "drizzle-zod";
 import * as z from "zod";
 
-import { project } from "@otterdeploy/db/schema";
 import { basePath, projectNotFoundErrors, tag } from "./shared";
-import { containerRegistryIdField, environmentIdField, gitRepoIdField, projectIdField } from "./shared";
+import {
+  containerRegistryIdField,
+  environmentIdField,
+  gitRepoIdField,
+  projectIdField,
+} from "./shared";
 
 // Every branded id column on the `project` row is re-emitted here as a
 // typed `<X>IdField` rather than the `z.string()` drizzle-zod would
@@ -19,10 +23,7 @@ import { containerRegistryIdField, environmentIdField, gitRepoIdField, projectId
 // and the React hover ends up showing a plain `string` for ids that
 // should carry their nominal type end-to-end.
 /** Operator-arranged graph layout: node id (`${kind}:${name}`) → {x,y}. */
-const graphLayoutSchema = z.record(
-  z.string(),
-  z.object({ x: z.number(), y: z.number() }),
-);
+const graphLayoutSchema = z.record(z.string(), z.object({ x: z.number(), y: z.number() }));
 
 export const projectSchema = createSelectSchema(project)
   // Manifest payloads are read through `project.manifest.get`, not embedded
@@ -131,9 +132,7 @@ export const projectContractSlice = {
     .meta({ path: `${basePath}/by-slug/{slug}`, tag, method: "GET" })
     .input(getProjectBySlugInput)
     .output(projectSchema),
-  list: oc
-    .meta({ path: basePath, tag, method: "GET" })
-    .output(z.array(projectListItemSchema)),
+  list: oc.meta({ path: basePath, tag, method: "GET" }).output(z.array(projectListItemSchema)),
   create: oc
     .errors({
       CONFLICT: { status: 409, message: "Project already exists" as const },
@@ -147,8 +146,7 @@ export const projectContractSlice = {
       CONFLICT: { status: 409, message: "Project slug already in use" as const },
       INVALID_BINDING: {
         status: 400,
-        message:
-          "Referenced git repo or registry doesn't belong to this organization" as const,
+        message: "Referenced git repo or registry doesn't belong to this organization" as const,
       },
     })
     .meta({ path: `${basePath}/{id}`, tag, method: "PATCH" })

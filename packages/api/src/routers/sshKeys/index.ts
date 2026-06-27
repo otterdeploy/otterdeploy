@@ -1,17 +1,12 @@
+import type * as z from "zod";
+
 import { matchError } from "better-result";
 
-import { requirePermission } from "../..";
-
-import {
-  deleteSshKey,
-  generateSshKey,
-  importSshKey,
-  listSshKeys,
-  rotateSshKey,
-} from "./handlers";
-import type { SshKeyRecord } from "./queries";
 import type { sshKeySchema } from "./contract";
-import type * as z from "zod";
+import type { SshKeyRecord } from "./queries";
+
+import { requirePermission } from "../..";
+import { deleteSshKey, generateSshKey, importSshKey, listSshKeys, rotateSshKey } from "./handlers";
 
 type SshKeyPublic = z.infer<typeof sshKeySchema>;
 
@@ -40,14 +35,12 @@ function toPublic(row: SshKeyRecord): SshKeyPublic {
 }
 
 export const sshKeysRouter = {
-  list: requirePermission({ sshKey: ["read"] }).sshKeys.list.handler(
-    async ({ context }) => {
-      const rows = await listSshKeys({
-        organizationId: context.activeOrganizationId,
-      });
-      return rows.map(toPublic);
-    },
-  ),
+  list: requirePermission({ sshKey: ["read"] }).sshKeys.list.handler(async ({ context }) => {
+    const rows = await listSshKeys({
+      organizationId: context.activeOrganizationId,
+    });
+    return rows.map(toPublic);
+  }),
 
   generate: requirePermission({ sshKey: ["create"] }).sshKeys.generate.handler(
     async ({ input, context, errors }) => {

@@ -29,7 +29,10 @@ export interface ProxyRouteInput {
  *  non-blank line with `depth` tabs. */
 function indentDirectives(raw: string, depth = 1): string {
   const tab = "\t".repeat(depth);
-  const lines = raw.replace(/\r\n/g, "\n").split("\n").map((l) => l.replace(/\s+$/, ""));
+  const lines = raw
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((l) => l.replace(/\s+$/, ""));
   const indents = lines
     .filter((l) => l.trim().length > 0)
     .map((l) => l.match(/^[\t ]*/)?.[0].length ?? 0);
@@ -109,7 +112,10 @@ export interface CaddyfileOptions {
 }
 
 export function sanitizeMatcherName(domain: string): string {
-  return domain.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  return domain
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
 }
 
 export function buildHttpBlock(route: ProxyRouteInput, options: HttpBlockOptions = {}): string {
@@ -293,9 +299,7 @@ export function buildCaddyfile(
   // there even though traffic is proxied raw by the layer4 module). Split
   // by usesAcme so the verified domains get real certs and the unverified
   // ones stay self-signed without polluting the global block.
-  const tlsInternalDomains = layer4Routes
-    .filter((r) => !r.usesAcme)
-    .map((r) => r.domain);
+  const tlsInternalDomains = layer4Routes.filter((r) => !r.usesAcme).map((r) => r.domain);
   if (tlsInternalDomains.length > 0) {
     lines.push("");
     lines.push(`${tlsInternalDomains.join(", ")} {`);
@@ -303,9 +307,7 @@ export function buildCaddyfile(
     lines.push('\trespond "ok" 200');
     lines.push("}");
   }
-  const acmeDomains = layer4Routes
-    .filter((r) => r.usesAcme)
-    .map((r) => r.domain);
+  const acmeDomains = layer4Routes.filter((r) => r.usesAcme).map((r) => r.domain);
   if (acmeDomains.length > 0) {
     // No explicit `tls` block — Caddy defaults to ACME using the global
     // email + the default Let's Encrypt issuer.
@@ -377,9 +379,7 @@ export function buildProjectFragment(
     );
   }
 
-  const tlsInternalDomains = layer4Routes
-    .filter((r) => !r.usesAcme)
-    .map((r) => r.domain);
+  const tlsInternalDomains = layer4Routes.filter((r) => !r.usesAcme).map((r) => r.domain);
   if (tlsInternalDomains.length > 0) {
     lines.push("");
     lines.push(`${tlsInternalDomains.join(", ")} {`);
@@ -387,9 +387,7 @@ export function buildProjectFragment(
     lines.push('\trespond "ok" 200');
     lines.push("}");
   }
-  const acmeDomains = layer4Routes
-    .filter((r) => r.usesAcme)
-    .map((r) => r.domain);
+  const acmeDomains = layer4Routes.filter((r) => r.usesAcme).map((r) => r.domain);
   if (acmeDomains.length > 0) {
     lines.push("");
     lines.push(`${acmeDomains.join(", ")} {`);

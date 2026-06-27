@@ -7,15 +7,13 @@
 
 import type { ResourceId } from "@otterdeploy/shared/id";
 
-import { and, eq } from "drizzle-orm";
-
 import { db } from "@otterdeploy/db";
 import { serviceMount } from "@otterdeploy/db/schema/project";
+import { and, eq } from "drizzle-orm";
+
 import type { ServiceMountRow } from "./index";
 
-export async function listServiceMounts(
-  serviceResourceId: ResourceId,
-): Promise<ServiceMountRow[]> {
+export async function listServiceMounts(serviceResourceId: ResourceId): Promise<ServiceMountRow[]> {
   return db
     .select()
     .from(serviceMount)
@@ -90,9 +88,7 @@ export async function bulkReplaceServiceMounts(
   }>,
 ): Promise<ServiceMountRow[]> {
   return db.transaction(async (tx) => {
-    await tx
-      .delete(serviceMount)
-      .where(eq(serviceMount.serviceResourceId, serviceResourceId));
+    await tx.delete(serviceMount).where(eq(serviceMount.serviceResourceId, serviceResourceId));
     if (next.length === 0) return [];
     return tx
       .insert(serviceMount)

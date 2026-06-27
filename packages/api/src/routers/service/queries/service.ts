@@ -1,10 +1,7 @@
+import type { BuildConfig } from "@otterdeploy/shared/build-config";
 import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
-import { and, eq, inArray, sql } from "drizzle-orm";
-import { createError } from "evlog";
 
 import { db } from "@otterdeploy/db";
-import type { BuildConfig } from "@otterdeploy/shared/build-config";
-import { omitUndefined } from "@otterdeploy/shared/object";
 import {
   resource,
   serviceEnvVar,
@@ -12,6 +9,9 @@ import {
   servicePort,
   serviceResource,
 } from "@otterdeploy/db/schema/project";
+import { omitUndefined } from "@otterdeploy/shared/object";
+import { and, eq, inArray, sql } from "drizzle-orm";
+import { createError } from "evlog";
 
 import {
   type ServiceMountRow,
@@ -20,9 +20,9 @@ import {
   type ServiceRecord,
   type ServiceResourceRow,
 } from ".";
-import { listServicePorts } from "./ports";
 import { listServiceEnvVars } from "./env";
 import { listServiceMounts } from "./mounts";
+import { listServicePorts } from "./ports";
 // ---------------------------------------------------------------------------
 // Reads
 // ---------------------------------------------------------------------------
@@ -69,9 +69,7 @@ export async function getServiceRecordByName(
   return { resource: row.resource, service: row.service, ports, env, mounts };
 }
 
-export async function listServiceRecordsByProject(
-  projectId: ProjectId,
-): Promise<ServiceRecord[]> {
+export async function listServiceRecordsByProject(projectId: ProjectId): Promise<ServiceRecord[]> {
   const rows = await db
     .select({ resource, service: serviceResource })
     .from(resource)
@@ -81,35 +79,19 @@ export async function listServiceRecordsByProject(
   if (rows.length === 0) return [];
 
   const ids = rows.map((r) => r.service.resourceId);
-  const [allPorts, allEnv, allMounts]: [
-    ServicePortRow[],
-    ServiceEnvVarRow[],
-    ServiceMountRow[],
-  ] = await Promise.all([
-    db
-      .select()
-      .from(servicePort)
-      .where(inArray(servicePort.serviceResourceId, ids)),
-    db
-      .select()
-      .from(serviceEnvVar)
-      .where(inArray(serviceEnvVar.serviceResourceId, ids)),
-    db
-      .select()
-      .from(serviceMount)
-      .where(inArray(serviceMount.serviceResourceId, ids)),
-  ]);
+  const [allPorts, allEnv, allMounts]: [ServicePortRow[], ServiceEnvVarRow[], ServiceMountRow[]] =
+    await Promise.all([
+      db.select().from(servicePort).where(inArray(servicePort.serviceResourceId, ids)),
+      db.select().from(serviceEnvVar).where(inArray(serviceEnvVar.serviceResourceId, ids)),
+      db.select().from(serviceMount).where(inArray(serviceMount.serviceResourceId, ids)),
+    ]);
 
   return rows.map((row) => ({
     resource: row.resource,
     service: row.service,
-    ports: allPorts.filter(
-      (p) => p.serviceResourceId === row.service.resourceId,
-    ),
+    ports: allPorts.filter((p) => p.serviceResourceId === row.service.resourceId),
     env: allEnv.filter((e) => e.serviceResourceId === row.service.resourceId),
-    mounts: allMounts.filter(
-      (m) => m.serviceResourceId === row.service.resourceId,
-    ),
+    mounts: allMounts.filter((m) => m.serviceResourceId === row.service.resourceId),
   }));
 }
 
@@ -172,9 +154,7 @@ export interface CreateServiceInput {
   env?: Array<{ key: string; value: string }>;
 }
 
-export async function createServiceRecord(
-  input: CreateServiceInput,
-): Promise<ServiceRecord> {
+export async function createServiceRecord(input: CreateServiceInput): Promise<ServiceRecord> {
   return db.transaction(async (tx) => {
     const [createdResource] = await tx
       .insert(resource)
@@ -322,9 +302,7 @@ export async function updateServiceResourceStatus(
   return updated;
 }
 
-export async function bumpForceUpdateCounter(
-  resourceId: ResourceId,
-): Promise<number | undefined> {
+export async function bumpForceUpdateCounter(resourceId: ResourceId): Promise<number | undefined> {
   const [updated] = await db
     .update(serviceResource)
     .set({ forceUpdateCounter: sql`${serviceResource.forceUpdateCounter} + 1` })
@@ -350,10 +328,7 @@ export async function setPublicExposure(input: {
  *  publicEnabled toggle untouched. Used when the operator picks a new
  *  primary among several hosts — the set of routes (and thus reachability)
  *  doesn't change, just which host the panel/graph/views surface. */
-export async function setServicePublicDomain(
-  resourceId: ResourceId,
-  publicDomain: string | null,
-) {
+export async function setServicePublicDomain(resourceId: ResourceId, publicDomain: string | null) {
   const [updated] = await db
     .update(serviceResource)
     .set({ publicDomain })
@@ -362,8 +337,6 @@ export async function setServicePublicDomain(
   return updated;
 }
 
-export async function deleteServiceRecord(
-  resourceId: ResourceId,
-): Promise<void> {
+export async function deleteServiceRecord(resourceId: ResourceId): Promise<void> {
   await db.delete(resource).where(eq(resource.id, resourceId));
 }

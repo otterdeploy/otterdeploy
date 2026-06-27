@@ -4,12 +4,12 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { I } from "../icons";
-import { EDGES, SERVICES } from "../data";
 import type { Env } from "../data";
 
-import { ServiceGraph } from "./service-graph";
 import { STACK_TOML, CodeLine, ActivityFeed, EdgeRow } from "../components/workspace-helpers";
+import { EDGES, SERVICES } from "../data";
+import { I } from "../icons";
+import { ServiceGraph } from "./service-graph";
 
 interface Props {
   env: Env;
@@ -69,7 +69,15 @@ export function ProjectWorkspace(props: Props) {
   }, []);
 
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
+    <div
+      style={{
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+        minHeight: 0,
+      }}
+    >
       <div style={{ flex: 1, minHeight: 0, display: "flex", overflow: "hidden" }}>
         <ServiceGraph {...props} />
       </div>
@@ -216,7 +224,15 @@ function BottomDrawer({
 
       {/* body */}
       {state.open && (
-        <div style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+        <div
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
           {state.tab === "stack" && <StackPane />}
           {state.tab === "activity" && <ActivityPane tick={tick} />}
           {state.tab === "traffic" && <TrafficPane tick={tick} />}
@@ -234,7 +250,10 @@ function StackPane() {
 
   return (
     <>
-      <div className="os-scroll" style={{ flex: 1, minHeight: 0, overflow: "auto", background: "var(--bg)" }}>
+      <div
+        className="os-scroll"
+        style={{ flex: 1, minHeight: 0, overflow: "auto", background: "var(--bg)" }}
+      >
         {!diff ? (
           <div className="mono" style={{ fontSize: 12.5, lineHeight: 1.7, padding: "10px 0" }}>
             {tomlLines.map((line, i) => (
@@ -327,7 +346,10 @@ function StackPane() {
 
 function ActivityPane({ tick }: { tick: number }) {
   return (
-    <div className="os-scroll" style={{ flex: 1, minHeight: 0, overflow: "auto", padding: "8px 12px" }}>
+    <div
+      className="os-scroll"
+      style={{ flex: 1, minHeight: 0, overflow: "auto", padding: "8px 12px" }}
+    >
       <ActivityFeed tick={tick} />
     </div>
   );

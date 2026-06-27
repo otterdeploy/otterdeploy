@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { HugeiconsIcon } from "@hugeicons/react";
+
 import { ArrowDown01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+
+import type { DerivedVar } from "./engine-service-vars";
 
 import { PostgresSystemVarRow } from "./var-rows";
-import type { DerivedVar } from "./engine-service-vars";
 
 interface SystemVarsListProps {
   systemVars: DerivedVar[];
@@ -44,8 +46,8 @@ export function SystemVarsList({
       {open && (
         <>
           <p className="text-[12.5px] text-muted-foreground">
-            otterdeploy injects these system variables into every container —
-            read-only and derived from the resource record.
+            otterdeploy injects these system variables into every container — read-only and derived
+            from the resource record.
           </p>
           {filteredSystem.length === 0 ? (
             <div className="rounded-lg border border-border/40 px-4 py-6 text-center text-[12.5px] text-muted-foreground">

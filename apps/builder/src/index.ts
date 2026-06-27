@@ -12,10 +12,7 @@
  */
 
 import { env } from "@otterdeploy/env/server";
-import {
-  createWorkers,
-  reconcileInterruptedDeployments,
-} from "@otterdeploy/jobs";
+import { createWorkers, reconcileInterruptedDeployments } from "@otterdeploy/jobs";
 import { Result } from "better-result";
 import { log } from "evlog";
 
@@ -38,10 +35,7 @@ async function bootstrap() {
     })
   ).match({
     ok: (summary) =>
-      log.info({ builder: { event: "reconciled", ...summary } } as Record<
-        string,
-        unknown
-      >),
+      log.info({ builder: { event: "reconciled", ...summary } } as Record<string, unknown>),
     err: (cause) =>
       log.warn({ builder: { event: "reconcile-failed", cause: String(cause) } } as Record<
         string,

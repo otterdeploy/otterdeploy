@@ -1,21 +1,18 @@
-
 import type { ProjectId, ProxyRouteId, ResourceId } from "@otterdeploy/shared/id";
-import { and, asc, desc, eq } from "drizzle-orm";
 import type { InferSelectModel } from "drizzle-orm";
-import { createError } from "evlog";
 
 import { db } from "@otterdeploy/db";
 import { project } from "@otterdeploy/db/schema/project";
 import { proxyRoute } from "@otterdeploy/db/schema/proxy-route";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { isNotNull } from "drizzle-orm";
+import { createError } from "evlog";
 export type ProxyRouteRecord = InferSelectModel<typeof proxyRoute>;
 
 /** Every project that has operator-authored custom Caddy config, as a
  *  projectId → config map. Drives the reconciler's per-project standalone
  *  blocks (a project can have custom config even with no routes). */
-export async function getProjectsWithCustomConfig(): Promise<
-  Map<string, string>
-> {
+export async function getProjectsWithCustomConfig(): Promise<Map<string, string>> {
   const rows = await db
     .select({ id: project.id, config: project.customCaddyConfig })
     .from(project)
@@ -28,9 +25,7 @@ export async function getProjectsWithCustomConfig(): Promise<
 }
 
 /** A single project's custom Caddy config (for the read-only viewer render). */
-export async function getProjectCustomConfig(
-  projectId: ProjectId,
-): Promise<string | null> {
+export async function getProjectCustomConfig(projectId: ProjectId): Promise<string | null> {
   const [row] = await db
     .select({ config: project.customCaddyConfig })
     .from(project)
@@ -67,15 +62,13 @@ export async function listProxyRoutesByProject(projectId: ProjectId): Promise<Pr
 }
 
 export async function getProxyRouteByDomain(domain: string): Promise<ProxyRouteRecord | undefined> {
-  const [record] = await db
-    .select()
-    .from(proxyRoute)
-    .where(eq(proxyRoute.domain, domain))
-    .limit(1);
+  const [record] = await db.select().from(proxyRoute).where(eq(proxyRoute.domain, domain)).limit(1);
   return record;
 }
 
-export async function getProxyRouteByResourceId(resourceId: ResourceId): Promise<ProxyRouteRecord | undefined> {
+export async function getProxyRouteByResourceId(
+  resourceId: ResourceId,
+): Promise<ProxyRouteRecord | undefined> {
   const [record] = await db
     .select()
     .from(proxyRoute)
@@ -98,11 +91,7 @@ export async function listProxyRoutesByResourceId(
 }
 
 export async function getProxyRouteById(id: ProxyRouteId): Promise<ProxyRouteRecord | undefined> {
-  const [record] = await db
-    .select()
-    .from(proxyRoute)
-    .where(eq(proxyRoute.id, id))
-    .limit(1);
+  const [record] = await db.select().from(proxyRoute).where(eq(proxyRoute.id, id)).limit(1);
   return record;
 }
 

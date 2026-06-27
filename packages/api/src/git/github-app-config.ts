@@ -23,7 +23,6 @@ import { gitInstallation, gitProvider } from "@otterdeploy/db/schema";
 import { and, eq } from "drizzle-orm";
 
 import { decryptSecret } from "../lib/crypto";
-
 import {
   apiBaseUrlForHost,
   type GithubAppConfig,
@@ -37,11 +36,7 @@ type OrgId = OrganizationId;
 export async function loadGithubAppForProvider(
   providerId: GitProviderId,
 ): Promise<GithubAppConfig> {
-  const [row] = await db
-    .select()
-    .from(gitProvider)
-    .where(eq(gitProvider.id, providerId))
-    .limit(1);
+  const [row] = await db.select().from(gitProvider).where(eq(gitProvider.id, providerId)).limit(1);
   if (!row) throw new GithubAppNotConfiguredError(`provider ${providerId} not found`);
   return rowToConfig(row);
 }
@@ -56,9 +51,7 @@ export async function loadGithubAppForInstallation(
     .where(eq(gitInstallation.installationId, installationId))
     .limit(1);
   if (!inst) {
-    throw new GithubAppNotConfiguredError(
-      `no installation row for ${installationId}`,
-    );
+    throw new GithubAppNotConfiguredError(`no installation row for ${installationId}`);
   }
   return loadGithubAppForProvider(inst.providerId);
 }
@@ -66,18 +59,11 @@ export async function loadGithubAppForInstallation(
 /** Look up by org's GitHub provider row, if any. Returns null when absent
  *  — the connect callback uses this to fail with a typed error rather than
  *  blowing up on a missing row. */
-export async function loadGithubAppForOrgIfPresent(
-  orgId: OrgId,
-): Promise<GithubAppConfig | null> {
+export async function loadGithubAppForOrgIfPresent(orgId: OrgId): Promise<GithubAppConfig | null> {
   const [row] = await db
     .select()
     .from(gitProvider)
-    .where(
-      and(
-        eq(gitProvider.organizationId, orgId),
-        eq(gitProvider.kind, "github"),
-      ),
-    )
+    .where(and(eq(gitProvider.organizationId, orgId), eq(gitProvider.kind, "github")))
     .limit(1);
   if (!row || !row.externalAppId || !row.privateKeyPemCiphertext) return null;
   return rowToConfig(row);
@@ -97,12 +83,7 @@ export async function loadGithubAppByExternalAppIdForWebhook(
     .from(gitProvider)
     .where(eq(gitProvider.externalAppId, externalAppId))
     .limit(1);
-  if (
-    !row ||
-    !row.externalAppId ||
-    !row.privateKeyPemCiphertext ||
-    !row.webhookSecretCiphertext
-  ) {
+  if (!row || !row.externalAppId || !row.privateKeyPemCiphertext || !row.webhookSecretCiphertext) {
     return null;
   }
   const config = await rowToConfig(row);

@@ -4,10 +4,14 @@
 
 import type { VariablesEditorResource } from "@/features/resources/components/_shared/variables-editor";
 
-import { SettingsCard, SettingsRowReadOnly } from "@/features/resources/components/_shared/settings-card";
+import {
+  SettingsCard,
+  SettingsRowReadOnly,
+} from "@/features/resources/components/_shared/settings-card";
+
 import { ServiceBuildCard } from "./build-card";
-import { ServiceDeployHooksCard } from "./deploy-hooks-card";
 import { ServiceDangerZone } from "./danger-zone";
+import { ServiceDeployHooksCard } from "./deploy-hooks-card";
 import { ServiceDomainsCard } from "./domains-card";
 import { ManifestDomainsCard } from "./manifest-domains-card";
 import { ServiceProtectionCard } from "./protection-card";
@@ -47,19 +51,13 @@ export function ServiceSettingsBody({
       >
         <SettingsRowReadOnly label="Name" value={resource.name} />
         <SettingsRowReadOnly label="Image" value={resource.image} />
-        <SettingsRowReadOnly
-          label="Replicas (desired)"
-          value={String(resource.replicas)}
-        />
+        <SettingsRowReadOnly label="Replicas (desired)" value={String(resource.replicas)} />
       </SettingsCard>
 
       {resource.source === "git" ? (
         <>
           <ServiceBuildCard resource={resource} />
-          <ServiceDeployHooksCard
-            projectId={resource.projectId}
-            serviceName={resource.name}
-          />
+          <ServiceDeployHooksCard projectId={resource.projectId} serviceName={resource.name} />
         </>
       ) : null}
 

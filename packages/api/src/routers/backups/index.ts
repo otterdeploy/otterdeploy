@@ -15,15 +15,17 @@ import {
   restoreBackup,
 } from "../../backups";
 import {
-  getScheduleRunTarget,
-  resolveScheduleSources,
-} from "../../backups/schedule-db";
-import {
   createScheduleRecord,
   deleteScheduleRecord,
   updateScheduleRecord,
 } from "../../backups/schedule-crud";
-
+import { getScheduleRunTarget, resolveScheduleSources } from "../../backups/schedule-db";
+import {
+  presentBackup,
+  presentDestination,
+  presentDestinationResult,
+  presentSchedule,
+} from "./presenters";
 import {
   createDestination,
   deleteDestination,
@@ -35,12 +37,6 @@ import {
   testDestination,
   updateDestination,
 } from "./service";
-import {
-  presentBackup,
-  presentDestination,
-  presentDestinationResult,
-  presentSchedule,
-} from "./presenters";
 
 export const backupsRouter = {
   list: orgScopedProcedure.backups.list.handler(async ({ input, context }) => {
@@ -54,21 +50,19 @@ export const backupsRouter = {
     return rows.map(presentBackup);
   }),
 
-  get: orgScopedProcedure.backups.get.handler(
-    async ({ input, context, errors }) => {
-      context.log.set({ target: { type: "backup", id: input.id } });
-      const result = await getBackup({
-        id: input.id,
-        organizationId: context.activeOrganizationId,
+  get: orgScopedProcedure.backups.get.handler(async ({ input, context, errors }) => {
+    context.log.set({ target: { type: "backup", id: input.id } });
+    const result = await getBackup({
+      id: input.id,
+      organizationId: context.activeOrganizationId,
+    });
+    if (result.isErr()) {
+      throw matchError(result.error, {
+        BackupNotFoundError: () => errors.NOT_FOUND(),
       });
-      if (result.isErr()) {
-        throw matchError(result.error, {
-          BackupNotFoundError: () => errors.NOT_FOUND(),
-        });
-      }
-      return presentBackup(result.value);
-    },
-  ),
+    }
+    return presentBackup(result.value);
+  }),
 
   // Manual "backup now" — RBAC: backup:run.
   run: requirePermission({ backup: ["run"] }).backups.run.handler(
@@ -128,32 +122,28 @@ export const backupsRouter = {
     },
   ),
 
-  logs: orgScopedProcedure.backups.logs.handler(
-    async ({ input, context }) => {
-      await enforceBackupScope(context, input.id);
-      // Scope check: a backup in another org (or none) yields an empty stream.
-      const found = await getBackup({
-        id: input.id,
-        organizationId: context.activeOrganizationId,
-      });
-      if (found.isErr()) return [];
-      return listBackupLogs(input.id, input.afterSeq);
-    },
-  ),
+  logs: orgScopedProcedure.backups.logs.handler(async ({ input, context }) => {
+    await enforceBackupScope(context, input.id);
+    // Scope check: a backup in another org (or none) yields an empty stream.
+    const found = await getBackup({
+      id: input.id,
+      organizationId: context.activeOrganizationId,
+    });
+    if (found.isErr()) return [];
+    return listBackupLogs(input.id, input.afterSeq);
+  }),
 
   schedules: {
-    list: orgScopedProcedure.backups.schedules.list.handler(
-      async ({ context }) => {
-        const rows = await listSchedules({
-          organizationId: context.activeOrganizationId,
-        });
-        return rows.map(presentSchedule);
-      },
-    ),
+    list: orgScopedProcedure.backups.schedules.list.handler(async ({ context }) => {
+      const rows = await listSchedules({
+        organizationId: context.activeOrganizationId,
+      });
+      return rows.map(presentSchedule);
+    }),
 
     create: requirePermission({ backup: ["create"] }).backups.schedules.create.handler(
       async ({ input, context }) => {
-         enforceProjectScope(context, input.projectId);
+        enforceProjectScope(context, input.projectId);
         const row = await createScheduleRecord({
           organizationId: context.activeOrganizationId,
           name: input.name,
@@ -236,8 +226,7 @@ export const backupsRouter = {
               resourceId,
               destinationId,
               scheduleId: schedule.id,
-              encryption:
-                schedule.encryption === "aes-256-gcm" ? "aes-256-gcm" : "none",
+              encryption: schedule.encryption === "aes-256-gcm" ? "aes-256-gcm" : "none",
               method: "manual-schedule",
             });
             queued += 1;
@@ -264,14 +253,12 @@ export const backupsRouter = {
   },
 
   destinations: {
-    list: orgScopedProcedure.backups.destinations.list.handler(
-      async ({ context }) => {
-        const rows = await listDestinations({
-          organizationId: context.activeOrganizationId,
-        });
-        return rows.map(presentDestination);
-      },
-    ),
+    list: orgScopedProcedure.backups.destinations.list.handler(async ({ context }) => {
+      const rows = await listDestinations({
+        organizationId: context.activeOrganizationId,
+      });
+      return rows.map(presentDestination);
+    }),
 
     create: requirePermission({ backup: ["create"] }).backups.destinations.create.handler(
       async ({ input, context }) => {

@@ -23,15 +23,11 @@ import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/
 import { Docker } from "@otterdeploy/docker";
 import { Result } from "better-result";
 
+import { subscribeDockerEvents, type DockerEvent } from "../../swarm";
 import { PostgresResourceNotFoundError, ProjectNotFoundError } from "./errors";
 import { getProjectInOrg } from "./queries";
-
-import { subscribeDockerEvents, type DockerEvent } from "../../swarm";
-import {
-  buildContainerName,
-  sanitizeProjectSlug,
-} from "./views";
 import { listProjectResources } from "./queries/resource";
+import { buildContainerName, sanitizeProjectSlug } from "./views";
 
 type OrgId = OrganizationId;
 
@@ -104,11 +100,7 @@ function eventServiceName(event: DockerEvent): string | null {
 
 export async function* streamProjectEvents(
   input: StreamInput,
-): AsyncGenerator<
-  ProjectStreamEvent,
-  void,
-  void
-> {
+): AsyncGenerator<ProjectStreamEvent, void, void> {
   const project = await getProjectInOrg({
     projectId: input.projectId,
     organizationId: input.organizationId,
@@ -230,9 +222,7 @@ export async function* streamProjectEvents(
  */
 export async function validateProjectEventsStream(
   input: StreamInput,
-): Promise<
-  Result<{ ok: true }, ProjectNotFoundError | PostgresResourceNotFoundError>
-> {
+): Promise<Result<{ ok: true }, ProjectNotFoundError | PostgresResourceNotFoundError>> {
   const project = await getProjectInOrg({
     projectId: input.projectId,
     organizationId: input.organizationId,

@@ -1,6 +1,8 @@
-import defaultMdxComponents from "fumadocs-ui/mdx";
 import type { MDXComponents } from "mdx/types";
+
 import type { ComponentProps } from "react";
+
+import defaultMdxComponents from "fumadocs-ui/mdx";
 
 // Make the docs body read with the same vocabulary as the landing
 // (readme-landing.tsx): tracking-tight sans headings, muted body text, hairline
@@ -8,8 +10,7 @@ import type { ComponentProps } from "react";
 // accent on links. Only the prose elements are overridden — Fumadocs keeps its
 // own code-block (Shiki highlighting + copy button) and component set.
 
-const cx = (...parts: Array<string | false | undefined>) =>
-  parts.filter(Boolean).join(" ");
+const cx = (...parts: Array<string | false | undefined>) => parts.filter(Boolean).join(" ");
 
 // Heading scale matches Better Auth's docs: large, tracking-tight, white.
 function H2({ className, ...props }: ComponentProps<"h2">) {
@@ -39,10 +40,7 @@ function H3({ className, ...props }: ComponentProps<"h3">) {
 function P({ className, ...props }: ComponentProps<"p">) {
   return (
     <p
-      className={cx(
-        "my-4 text-[0.95rem] leading-relaxed text-foreground/80",
-        className,
-      )}
+      className={cx("my-4 text-[0.95rem] leading-relaxed text-foreground/80", className)}
       {...props}
     />
   );
@@ -51,10 +49,7 @@ function P({ className, ...props }: ComponentProps<"p">) {
 function A({ className, ...props }: ComponentProps<"a">) {
   return (
     <a
-      className={cx(
-        "font-medium text-primary underline-offset-2 hover:underline",
-        className,
-      )}
+      className={cx("font-medium text-primary underline-offset-2 hover:underline", className)}
       {...props}
     />
   );
@@ -74,12 +69,7 @@ function LI({ className, ...props }: ComponentProps<"li">) {
 }
 
 function Strong({ className, ...props }: ComponentProps<"strong">) {
-  return (
-    <strong
-      className={cx("font-semibold text-foreground", className)}
-      {...props}
-    />
-  );
+  return <strong className={cx("font-semibold text-foreground", className)} {...props} />;
 }
 
 function HR({ className, ...props }: ComponentProps<"hr">) {

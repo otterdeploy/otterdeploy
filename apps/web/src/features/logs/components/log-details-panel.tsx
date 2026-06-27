@@ -4,11 +4,11 @@
 // raw/prettify toggle.
 
 import { useMemo, useState } from "react";
+
 import { Cancel01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-
-import * as m from "motion/react-client";
 import { AnimatePresence } from "motion/react";
+import * as m from "motion/react-client";
 
 import { Button } from "@/shared/components/ui/button";
 import { JsonView } from "@/shared/components/ui/json-view";
@@ -27,13 +27,7 @@ function parseJson(msg: string): unknown {
   }
 }
 
-export function LogDetailsPanel({
-  line,
-  onClose,
-}: {
-  line: LogLine | null;
-  onClose: () => void;
-}) {
+export function LogDetailsPanel({ line, onClose }: { line: LogLine | null; onClose: () => void }) {
   // Overlay the table's right edge (absolute) rather than pushing it — opening
   // mustn't reflow / re-measure the virtualized table. A STABLE key keeps the
   // panel mounted while switching rows, so the content just updates in place
@@ -62,12 +56,7 @@ function Panel({ line, onClose }: { line: LogLine; onClose: () => void }) {
           <div className="text-[13px] font-semibold">Log details</div>
           <div className="mt-0.5 flex items-center gap-3 font-mono text-[11px] text-muted-foreground">
             <span className="truncate">{line.tsIso ?? line.ts}</span>
-            <span
-              className={cn(
-                "uppercase tracking-[0.08em]",
-                LEVEL_TEXT[line.level],
-              )}
-            >
+            <span className={cn("tracking-[0.08em] uppercase", LEVEL_TEXT[line.level])}>
               {line.level}
             </span>
           </div>
@@ -91,7 +80,7 @@ function Panel({ line, onClose }: { line: LogLine; onClose: () => void }) {
         </dl>
 
         <div className="mt-4 flex items-center justify-between">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+          <span className="text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
             Message
           </span>
           {json !== undefined && (
@@ -111,7 +100,7 @@ function Panel({ line, onClose }: { line: LogLine; onClose: () => void }) {
             className="mt-1.5 rounded-md border bg-background/60 p-3 text-[11.5px]"
           />
         ) : (
-          <pre className="mt-1.5 overflow-auto whitespace-pre-wrap break-words rounded-md border bg-background/60 p-3 font-mono text-[11.5px] leading-relaxed text-foreground/90">
+          <pre className="mt-1.5 overflow-auto rounded-md border bg-background/60 p-3 font-mono text-[11.5px] leading-relaxed break-words whitespace-pre-wrap text-foreground/90">
             {line.msg}
           </pre>
         )}

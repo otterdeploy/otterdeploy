@@ -6,12 +6,14 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { Tabs, TabsList, TabsTab, TabsPanel } from "@/components/ui/tabs";
-import { OverviewTab } from "./tabs/overview-tab";
-import { DeploymentsTab } from "./tabs/deployments-tab";
-import { VariablesTab } from "./tabs/variables-tab";
-import { LogsTab } from "./tabs/logs-tab";
-import { SettingsTab } from "./tabs/settings-tab";
+
 import type { DrawerSelection } from "../types";
+
+import { DeploymentsTab } from "./tabs/deployments-tab";
+import { LogsTab } from "./tabs/logs-tab";
+import { OverviewTab } from "./tabs/overview-tab";
+import { SettingsTab } from "./tabs/settings-tab";
+import { VariablesTab } from "./tabs/variables-tab";
 
 interface Props {
   open: boolean;
@@ -22,13 +24,7 @@ interface Props {
   resourceName: string;
 }
 
-export function ResourceDrawer({
-  open,
-  selection,
-  onClose,
-  onDeleted,
-  resourceName,
-}: Props) {
+export function ResourceDrawer({ open, selection, onClose, onDeleted, resourceName }: Props) {
   return (
     <Sheet
       open={open}
@@ -42,15 +38,10 @@ export function ResourceDrawer({
             <SheetHeader className="border-b">
               <SheetTitle>{resourceName}</SheetTitle>
               <SheetDescription>
-                {selection.kind === "database"
-                  ? "Postgres database"
-                  : "Resource"}
+                {selection.kind === "database" ? "Postgres database" : "Resource"}
               </SheetDescription>
             </SheetHeader>
-            <Tabs
-              defaultValue="overview"
-              className="flex flex-1 flex-col overflow-hidden"
-            >
+            <Tabs defaultValue="overview" className="flex flex-1 flex-col overflow-hidden">
               <TabsList className="border-b px-3">
                 <TabsTab value="overview">Overview</TabsTab>
                 <TabsTab value="deployments">Deployments</TabsTab>
@@ -60,10 +51,7 @@ export function ResourceDrawer({
               </TabsList>
               <TabsPanel value="overview" className="flex-1 overflow-y-auto">
                 {selection.kind === "database" ? (
-                  <OverviewTab
-                    projectId={selection.projectId}
-                    resourceId={selection.resourceId}
-                  />
+                  <OverviewTab projectId={selection.projectId} resourceId={selection.resourceId} />
                 ) : null}
               </TabsPanel>
               <TabsPanel value="deployments" className="flex-1 overflow-y-auto">

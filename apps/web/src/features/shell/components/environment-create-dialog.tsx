@@ -1,10 +1,12 @@
-import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
 import type { ProjectId } from "@otterdeploy/shared/id";
+
+import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
 import { useForm } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 
 import { envCollection } from "@/features/projects/data/env";
+import { Button } from "@/shared/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -13,9 +15,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/components/ui/dialog";
-import { Button } from "@/shared/components/ui/button";
-import { Input } from "@/shared/components/ui/input";
 import { Field, FieldError, FieldLabel } from "@/shared/components/ui/field";
+import { Input } from "@/shared/components/ui/input";
 
 function slugify(value: string): string {
   return value
@@ -57,9 +58,7 @@ export function EnvironmentCreateDialog({ projectId, open, onOpenChange }: Props
       } as never);
       setOpen(false);
       tx.isPersisted.promise.catch((err: unknown) =>
-        toast.error(
-          err instanceof Error ? err.message : "Failed to create environment",
-        ),
+        toast.error(err instanceof Error ? err.message : "Failed to create environment"),
       );
     },
   });
@@ -91,8 +90,7 @@ export function EnvironmentCreateDialog({ projectId, open, onOpenChange }: Props
           <form.Field
             name="name"
             validators={{
-              onChange: ({ value }) =>
-                value.trim().length === 0 ? "Name is required" : undefined,
+              onChange: ({ value }) => (value.trim().length === 0 ? "Name is required" : undefined),
             }}
           >
             {(field) => (

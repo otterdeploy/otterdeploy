@@ -1,5 +1,6 @@
-import { PostgresVarRow } from "./var-rows";
 import type { DerivedVar } from "./engine-service-vars";
+
+import { PostgresVarRow } from "./var-rows";
 
 interface ServiceVarsListProps {
   filteredService: DerivedVar[];

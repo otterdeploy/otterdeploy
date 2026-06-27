@@ -1,4 +1,5 @@
 import type { SshKeyId } from "@otterdeploy/shared/id";
+
 import { TaggedError } from "better-result";
 
 export class SshKeyNotFoundError extends TaggedError("SshKeyNotFoundError")<{
@@ -31,9 +32,10 @@ export class SshKeyImportError extends TaggedError("SshKeyImportError")<{
 }
 
 /** A generated key has no private half to rotate-as-imported, etc. */
-export class SshKeyNotRotatableError extends TaggedError(
-  "SshKeyNotRotatableError",
-)<{ message: string; id: SshKeyId }>() {
+export class SshKeyNotRotatableError extends TaggedError("SshKeyNotRotatableError")<{
+  message: string;
+  id: SshKeyId;
+}>() {
   constructor(args: { id: SshKeyId }) {
     super({
       id: args.id,

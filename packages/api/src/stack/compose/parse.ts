@@ -35,12 +35,9 @@ class ComposeParseError extends Error {
 
 type Obj = Record<string, unknown>;
 
-const isObj = (v: unknown): v is Obj =>
-  !!v && typeof v === "object" && !Array.isArray(v);
+const isObj = (v: unknown): v is Obj => !!v && typeof v === "object" && !Array.isArray(v);
 
-export function parseCompose(
-  yaml: string,
-): Result<ParsedCompose, ComposeParseError> {
+export function parseCompose(yaml: string): Result<ParsedCompose, ComposeParseError> {
   // The `yaml` package resolves anchors + `<<` merge keys (which compose uses
   // and Bun.YAML mishandles) and gives ACCURATE line/column on errors (Bun's
   // are bogus — constant regardless of input).
@@ -66,9 +63,7 @@ export function parseCompose(
   }
   const doc = raw.value;
   if (!isObj(doc.services)) {
-    return Result.err(
-      new ComposeParseError("Compose file has no `services` map"),
-    );
+    return Result.err(new ComposeParseError("Compose file has no `services` map"));
   }
 
   const warnings: string[] = [];
@@ -87,9 +82,7 @@ export function parseCompose(
   for (const s of services) {
     if (!s.image && !s.build) {
       return Result.err(
-        new ComposeParseError(
-          `Service "${s.name}" must declare an \`image\` or a \`build\``,
-        ),
+        new ComposeParseError(`Service "${s.name}" must declare an \`image\` or a \`build\``),
       );
     }
   }
@@ -105,16 +98,10 @@ export function parseCompose(
   });
 }
 
-function normalizeService(
-  name: string,
-  svc: Obj,
-  warnings: string[],
-): ParsedComposeService {
+function normalizeService(name: string, svc: Obj, warnings: string[]): ParsedComposeService {
   const deploy = isObj(svc.deploy) ? svc.deploy : {};
   const limits =
-    isObj(deploy.resources) && isObj(deploy.resources.limits)
-      ? deploy.resources.limits
-      : {};
+    isObj(deploy.resources) && isObj(deploy.resources.limits) ? deploy.resources.limits : {};
 
   if (svc.profiles) warnings.push(`service "${name}": \`profiles\` ignored`);
 
@@ -176,11 +163,7 @@ function normalizeKeyVals(v: unknown): Record<string, string> {
   return out;
 }
 
-function normalizePorts(
-  v: unknown,
-  service: string,
-  warnings: string[],
-): ParsedPort[] {
+function normalizePorts(v: unknown, service: string, warnings: string[]): ParsedPort[] {
   if (!Array.isArray(v)) return [];
   const out: ParsedPort[] = [];
   for (const entry of v) {
@@ -191,13 +174,10 @@ function normalizePorts(
     if (isObj(entry)) {
       const target = Number(entry.target);
       if (!Number.isFinite(target)) continue;
-      const published =
-        entry.published != null ? Number(entry.published) : undefined;
+      const published = entry.published != null ? Number(entry.published) : undefined;
       out.push({
         target,
-        ...(published != null && Number.isFinite(published)
-          ? { published }
-          : {}),
+        ...(published != null && Number.isFinite(published) ? { published } : {}),
         protocol: entry.protocol === "udp" ? "udp" : "tcp",
       });
       continue;
@@ -210,18 +190,12 @@ function normalizePorts(
 }
 
 /** "host:container[/proto]" | "ip:host:container" | "container". */
-function parsePortString(
-  raw: string,
-  service: string,
-  warnings: string[],
-): ParsedPort | null {
+function parsePortString(raw: string, service: string, warnings: string[]): ParsedPort | null {
   const slash = raw.split("/");
   const protocol = slash[1] === "udp" ? "udp" : "tcp";
   const parts = (slash[0] ?? raw).split(":");
   if (parts.length === 3) {
-    warnings.push(
-      `service "${service}": host IP in port "${raw}" ignored (ingress only)`,
-    );
+    warnings.push(`service "${service}": host IP in port "${raw}" ignored (ingress only)`);
   }
   const targetStr = parts[parts.length - 1];
   const publishedStr = parts.length >= 2 ? parts[parts.length - 2] : undefined;
@@ -235,19 +209,14 @@ function parsePortString(
   };
 }
 
-function normalizeVolumes(
-  v: unknown,
-  service: string,
-  warnings: string[],
-): ParsedMount[] {
+function normalizeVolumes(v: unknown, service: string, warnings: string[]): ParsedMount[] {
   if (!Array.isArray(v)) return [];
   const out: ParsedMount[] = [];
   for (const entry of v) {
     if (isObj(entry)) {
       const target = typeof entry.target === "string" ? entry.target : null;
       if (!target) continue;
-      const type =
-        entry.type === "bind" || entry.type === "tmpfs" ? entry.type : "volume";
+      const type = entry.type === "bind" || entry.type === "tmpfs" ? entry.type : "volume";
       if (type === "bind") {
         warnings.push(
           `service "${service}": bind mount to "${entry.source}" dropped (host binds unsupported)`,
@@ -270,11 +239,7 @@ function normalizeVolumes(
 }
 
 /** "source:target[:ro]" | "/target" (anonymous). Host binds are dropped. */
-function parseVolumeString(
-  raw: string,
-  service: string,
-  warnings: string[],
-): ParsedMount | null {
+function parseVolumeString(raw: string, service: string, warnings: string[]): ParsedMount | null {
   const parts = raw.split(":");
   if (parts.length === 1) {
     return { type: "volume", target: parts[0] ?? raw, readOnly: false };
@@ -284,9 +249,7 @@ function parseVolumeString(
   const mode = parts[2];
   // A source starting with "/" or "." is a host path — unsupported.
   if (source.startsWith("/") || source.startsWith(".")) {
-    warnings.push(
-      `service "${service}": bind mount "${raw}" dropped (host binds unsupported)`,
-    );
+    warnings.push(`service "${service}": bind mount "${raw}" dropped (host binds unsupported)`);
     return null;
   }
   return {
@@ -336,13 +299,7 @@ function parseMemoryMb(v: unknown): number | undefined {
   const n = parseFloat(m[1]);
   const unit = (m[2] ?? "").toLowerCase();
   const bytes =
-    unit === "g"
-      ? n * 1024 ** 3
-      : unit === "m"
-        ? n * 1024 ** 2
-        : unit === "k"
-          ? n * 1024
-          : n;
+    unit === "g" ? n * 1024 ** 3 : unit === "m" ? n * 1024 ** 2 : unit === "k" ? n * 1024 : n;
   return Math.max(1, Math.round(bytes / 1_048_576));
 }
 
@@ -362,8 +319,7 @@ function normalizeRestart(top: unknown, policy: unknown): ParsedRestart {
 
 /** A `["a","b"]` array or `{a: ..., b: ...}` map → list of names. */
 function toNameList(v: unknown): string[] {
-  if (Array.isArray(v))
-    return v.filter((x): x is string => typeof x === "string");
+  if (Array.isArray(v)) return v.filter((x): x is string => typeof x === "string");
   if (isObj(v)) return Object.keys(v);
   return [];
 }

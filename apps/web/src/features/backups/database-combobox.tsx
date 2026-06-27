@@ -5,10 +5,10 @@
  * the owning project shown as a tag on every row.
  */
 import { useState } from "react";
+
 import { UnfoldMoreIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
-import { cn } from "@/shared/lib/utils";
 import { Badge } from "@/shared/components/ui/badge";
 import {
   Command,
@@ -17,11 +17,8 @@ import {
   CommandItem,
   CommandList,
 } from "@/shared/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/shared/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
+import { cn } from "@/shared/lib/utils";
 
 export interface DatabaseOption {
   resourceId: string;
@@ -93,13 +90,8 @@ export function DatabaseCombobox({
                 }}
                 className="gap-2"
               >
-                <span className="truncate font-mono text-[13px]">
-                  {db.name}
-                </span>
-                <Badge
-                  variant="secondary"
-                  className="ml-auto shrink-0 font-normal"
-                >
+                <span className="truncate font-mono text-[13px]">{db.name}</span>
+                <Badge variant="secondary" className="ml-auto shrink-0 font-normal">
                   {db.projectName}
                 </Badge>
               </CommandItem>

@@ -29,7 +29,4 @@ export { setPostgresExtensions } from "./extensions";
 
 export { restartDatabaseResource } from "./restart";
 
-export {
-  snapshotForPostgresCreate,
-  type PostgresSnapshotV1,
-} from "./snapshot";
+export { snapshotForPostgresCreate, type PostgresSnapshotV1 } from "./snapshot";

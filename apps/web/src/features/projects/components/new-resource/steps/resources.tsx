@@ -1,8 +1,9 @@
+import { useEffect, useMemo } from "react";
+
 import { useLiveQuery } from "@tanstack/react-db";
 import { useStore } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
-import { useEffect, useMemo } from "react";
 
 import { RESOURCE_PRESETS } from "@/features/projects/data/service-kinds";
 import { serverCollection } from "@/features/servers/data/server";
@@ -13,6 +14,7 @@ import { Input } from "@/shared/components/ui/input";
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
+import { useFormContext } from "../form-context";
 import {
   builderCardActiveClass,
   builderCardClass,
@@ -20,7 +22,6 @@ import {
   SectionHeader,
   SettingRow,
 } from "../form-primitives";
-import { useFormContext } from "../form-context";
 import { I } from "../icons";
 
 interface SwarmNode {
@@ -33,9 +34,7 @@ interface SwarmNode {
 }
 
 function useSwarmNodes() {
-  const { data: servers = [], isLoading: serversLoading } = useLiveQuery(
-    () => serverCollection,
-  );
+  const { data: servers = [], isLoading: serversLoading } = useLiveQuery(() => serverCollection);
   const { data: stats, isLoading: statsLoading } = useQuery({
     ...orpc.server.stats.queryOptions(),
     // Lightweight refresh so the placement preview stays current while the
@@ -127,31 +126,19 @@ export function StepResources({ isDb }: StepResourcesProps) {
               key={p.id}
               type="button"
               onClick={() => form.setFieldValue("presetId", p.id)}
-              className={cn(
-                builderCardClass,
-                "min-h-24",
-                isActive && builderCardActiveClass,
-              )}
+              className={cn(builderCardClass, "min-h-24", isActive && builderCardActiveClass)}
             >
               {p.popular && <span className={builderPopClass}>popular</span>}
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold">{p.name}</span>
-                {isActive && (
-                  <I.check
-                    width={12}
-                    height={12}
-                    className="ml-auto text-foreground"
-                  />
-                )}
+                {isActive && <I.check width={12} height={12} className="ml-auto text-foreground" />}
               </div>
               <div className="mt-1.5 font-mono text-xs text-muted-foreground">
                 {p.cpu != null && p.mem != null
                   ? `${p.cpu} vCPU · ${p.mem >= 1024 ? p.mem / 1024 + " GB" : p.mem + " MB"}`
                   : "configure manually"}
               </div>
-              <div className="mt-1 text-[11px] text-muted-foreground">
-                {p.sub}
-              </div>
+              <div className="mt-1 text-[11px] text-muted-foreground">{p.sub}</div>
             </button>
           );
         })}
@@ -161,23 +148,11 @@ export function StepResources({ isDb }: StepResourcesProps) {
         <Card className="mt-3 p-4">
           <CardContent className="grid grid-cols-2 gap-3 p-0">
             <form.AppField name="customCpu">
-              {(f) => (
-                <f.NumberField
-                  label="vCPU"
-                  min={0.1}
-                  step={0.1}
-                  className="font-mono"
-                />
-              )}
+              {(f) => <f.NumberField label="vCPU" min={0.1} step={0.1} className="font-mono" />}
             </form.AppField>
             <form.AppField name="customMem">
               {(f) => (
-                <f.NumberField
-                  label="Memory (MB)"
-                  min={128}
-                  step={64}
-                  className="font-mono"
-                />
+                <f.NumberField label="Memory (MB)" min={128} step={64} className="font-mono" />
               )}
             </form.AppField>
           </CardContent>
@@ -187,10 +162,7 @@ export function StepResources({ isDb }: StepResourcesProps) {
       {!isDb && (
         <>
           <div className="mt-4.5">
-            <SectionHeader
-              title="Replicas"
-              sub="How many copies of this service to run?"
-            />
+            <SectionHeader title="Replicas" sub="How many copies of this service to run?" />
           </div>
           <Card className="mt-2.5 p-4">
             <div className="flex items-center gap-2">
@@ -198,9 +170,7 @@ export function StepResources({ isDb }: StepResourcesProps) {
                 type="button"
                 variant="ghost"
                 size="icon"
-                onClick={() =>
-                  form.setFieldValue("replicas", Math.max(1, replicas - 1))
-                }
+                onClick={() => form.setFieldValue("replicas", Math.max(1, replicas - 1))}
                 aria-label="Decrease replicas"
               >
                 <I.x width={11} height={11} />
@@ -208,9 +178,7 @@ export function StepResources({ isDb }: StepResourcesProps) {
               <Input
                 type="number"
                 value={replicas}
-                onChange={(e) =>
-                  form.setFieldValue("replicas", +e.target.value || 1)
-                }
+                onChange={(e) => form.setFieldValue("replicas", +e.target.value || 1)}
                 className="h-9 w-17.5 text-center font-mono text-base"
               />
               <Button
@@ -277,13 +245,11 @@ export function StepResources({ isDb }: StepResourcesProps) {
           </form.AppField>
 
           <div className="mt-3.5 rounded-sm border border-border bg-muted p-3">
-            <div className="mb-2 text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
+            <div className="mb-2 text-[10px] tracking-[0.06em] text-muted-foreground uppercase">
               {placement === "pin" ? "pick a node" : "predicted placement"}
             </div>
             {nodesLoading ? (
-              <div className="text-[11px] text-muted-foreground">
-                Loading nodes…
-              </div>
+              <div className="text-[11px] text-muted-foreground">Loading nodes…</div>
             ) : nodes.length === 0 ? (
               <div className="flex items-center justify-between gap-3 text-[11px]">
                 <span className="text-muted-foreground">
@@ -320,10 +286,7 @@ export function StepResources({ isDb }: StepResourcesProps) {
                             : 0
                           : Math.ceil((replicas - ni) / nodes.length);
                   const isPinned = placement === "pin" && n.id === pinnedNodeId;
-                  const pct =
-                    n.cpuTotal > 0
-                      ? Math.round((n.cpuUsed / n.cpuTotal) * 100)
-                      : 0;
+                  const pct = n.cpuTotal > 0 ? Math.round((n.cpuUsed / n.cpuTotal) * 100) : 0;
                   return (
                     <div
                       key={n.id}
@@ -334,33 +297,23 @@ export function StepResources({ isDb }: StepResourcesProps) {
                           <Checkbox
                             checked={isPinned}
                             onCheckedChange={(checked) => {
-                              if (checked)
-                                form.setFieldValue("pinnedNodeId", n.id);
+                              if (checked) form.setFieldValue("pinnedNodeId", n.id);
                             }}
                             aria-label={`Pin to ${n.name}`}
                           />
                         )}
-                        <span className="font-mono text-muted-foreground">
-                          {n.name}
-                        </span>
+                        <span className="font-mono text-muted-foreground">{n.name}</span>
                         <span className="flex-1" />
                         <span className="text-muted-foreground">
                           {n.cpuTotal > 0 ? `${pct}%` : "—"}
                         </span>
                       </div>
                       <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                        {Array.from({ length: Math.max(0, onThis) }).map(
-                          (_, i) => (
-                            <span
-                              key={i}
-                              className="inline-block size-2.5 rounded-xs bg-chart-2"
-                            />
-                          ),
-                        )}
+                        {Array.from({ length: Math.max(0, onThis) }).map((_, i) => (
+                          <span key={i} className="inline-block size-2.5 rounded-xs bg-chart-2" />
+                        ))}
                         {onThis === 0 && (
-                          <span className="text-[10px] text-muted-foreground">
-                            —
-                          </span>
+                          <span className="text-[10px] text-muted-foreground">—</span>
                         )}
                       </div>
                     </div>
@@ -376,7 +329,7 @@ export function StepResources({ isDb }: StepResourcesProps) {
         <CardContent className="px-3.5">
           <div className="flex items-center gap-3">
             <div>
-              <div className="text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
+              <div className="text-[10px] tracking-[0.06em] text-muted-foreground uppercase">
                 service total
               </div>
               <div className="mt-0.5 font-mono text-sm font-medium">

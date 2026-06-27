@@ -18,14 +18,7 @@ interface Token {
   text: string;
   kind: TokenKind;
 }
-type TokenKind =
-  | "comment"
-  | "key"
-  | "string"
-  | "number"
-  | "boolean"
-  | "punct"
-  | "plain";
+type TokenKind = "comment" | "key" | "string" | "number" | "boolean" | "punct" | "plain";
 
 const KIND_CLASS: Record<TokenKind, string> = {
   comment: "text-muted-foreground/55 italic",
@@ -90,16 +83,11 @@ export function YamlView({ source, className }: YamlViewProps) {
   const lines = useMemo(() => source.split("\n"), [source]);
   const gutterWidth = String(lines.length).length;
   return (
-    <pre
-      className={cn(
-        "h-full overflow-auto font-mono text-[12px] leading-[1.55]",
-        className,
-      )}
-    >
+    <pre className={cn("h-full overflow-auto font-mono text-[12px] leading-[1.55]", className)}>
       <code className="block min-w-max px-3 py-2">
         {lines.map((line, idx) => (
           <Fragment key={idx}>
-            <span className="select-none pr-4 text-right text-muted-foreground/40 tabular-nums">
+            <span className="pr-4 text-right text-muted-foreground/40 tabular-nums select-none">
               {String(idx + 1).padStart(gutterWidth, " ")}
             </span>
             {tokenize(line).map((tok, i) => (

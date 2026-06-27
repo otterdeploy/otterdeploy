@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { AlertCircle, FolderPlus, Loader2, PlusIcon } from "lucide-react";
@@ -33,8 +34,7 @@ export function CreateProjectDialog() {
   const [slug, setSlug] = useState("");
 
   const createMutation = useMutation({
-    mutationFn: async () =>
-      client.project.create({ name: name.trim(), slug: slug.trim() }),
+    mutationFn: async () => client.project.create({ name: name.trim(), slug: slug.trim() }),
     onSuccess: async (project) => {
       setName("");
       setSlug("");
@@ -47,8 +47,7 @@ export function CreateProjectDialog() {
     },
   });
 
-  const errorMessage =
-    createMutation.error instanceof Error ? createMutation.error.message : null;
+  const errorMessage = createMutation.error instanceof Error ? createMutation.error.message : null;
   const suggestedSlug = useMemo(() => toSlug(name), [name]);
 
   return (
@@ -61,8 +60,8 @@ export function CreateProjectDialog() {
         <DialogHeader>
           <DialogTitle>Create project</DialogTitle>
           <DialogDescription>
-            A default development environment is created automatically so the
-            project is usable right away.
+            A default development environment is created automatically so the project is usable
+            right away.
           </DialogDescription>
         </DialogHeader>
 
@@ -70,8 +69,7 @@ export function CreateProjectDialog() {
           className="space-y-4 p-6 pt-0"
           onSubmit={(event) => {
             event.preventDefault();
-            if (!name.trim() || !slug.trim() || createMutation.isPending)
-              return;
+            if (!name.trim() || !slug.trim() || createMutation.isPending) return;
             createMutation.mutate();
           }}
         >
@@ -84,8 +82,7 @@ export function CreateProjectDialog() {
               onChange={(event) => {
                 const next = event.target.value;
                 setName(next);
-                if (!slug.trim() || slug === suggestedSlug)
-                  setSlug(toSlug(next));
+                if (!slug.trim() || slug === suggestedSlug) setSlug(toSlug(next));
               }}
             />
           </Field>
@@ -98,9 +95,7 @@ export function CreateProjectDialog() {
               value={slug}
               onChange={(event) => setSlug(toSlug(event.target.value))}
             />
-            <FieldDescription>
-              Used in hostnames and internal identifiers.
-            </FieldDescription>
+            <FieldDescription>Used in hostnames and internal identifiers.</FieldDescription>
           </Field>
 
           {errorMessage ? (
@@ -113,9 +108,7 @@ export function CreateProjectDialog() {
 
           <DialogFooter variant="bare">
             <Button
-              disabled={
-                !name.trim() || !slug.trim() || createMutation.isPending
-              }
+              disabled={!name.trim() || !slug.trim() || createMutation.isPending}
               type="submit"
             >
               {createMutation.isPending ? (

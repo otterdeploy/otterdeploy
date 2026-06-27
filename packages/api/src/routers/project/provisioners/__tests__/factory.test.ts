@@ -1,9 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import {
-  getDatabaseProvisioner,
-  type DatabaseProvisioner,
-} from "../index";
+import { getDatabaseProvisioner, type DatabaseProvisioner } from "../index";
 
 describe("getDatabaseProvisioner", () => {
   test("returns the postgres provisioner for engine=postgres", () => {

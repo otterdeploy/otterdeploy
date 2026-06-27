@@ -212,8 +212,6 @@ export interface Template {
   icon: string;
 }
 
-
-
 export interface ResourcePreset {
   id: string;
   name: string;
@@ -299,5 +297,3 @@ export interface Builder {
   popular?: boolean;
   langs?: string[];
 }
-
-

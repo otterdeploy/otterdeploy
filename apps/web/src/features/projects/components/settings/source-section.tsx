@@ -11,16 +11,14 @@
  */
 
 import { useEffect, useState } from "react";
+
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
-import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@/shared/components/ui/native-select";
+import { NativeSelect, NativeSelectOption } from "@/shared/components/ui/native-select";
 import { orpc } from "@/shared/server/orpc";
 
 interface SourceSectionProps {
@@ -31,9 +29,7 @@ interface SourceSectionProps {
 }
 
 export function SourceSection(props: SourceSectionProps) {
-  const providersQuery = useQuery(
-    orpc.git.list.queryOptions({ input: undefined }),
-  );
+  const providersQuery = useQuery(orpc.git.list.queryOptions({ input: undefined }));
   const providers = providersQuery.data ?? [];
 
   // Flatten provider → installations.
@@ -44,9 +40,7 @@ export function SourceSection(props: SourceSectionProps) {
     })),
   );
 
-  const [activeInstallationId, setActiveInstallationId] = useState<string | null>(
-    null,
-  );
+  const [activeInstallationId, setActiveInstallationId] = useState<string | null>(null);
   useEffect(() => {
     if (activeInstallationId) return;
     const first = installations[0];
@@ -171,8 +165,7 @@ function PublicRepoSubform({
             Or paste a public Git URL
           </Label>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            HTTPS only. Push deploys don't auto-fire for public URLs — use
-            manual deploy.
+            HTTPS only. Push deploys don't auto-fire for public URLs — use manual deploy.
           </p>
         </div>
       </div>

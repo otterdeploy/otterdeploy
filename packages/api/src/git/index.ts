@@ -1,10 +1,7 @@
 export { handleGithubWebhook } from "./webhook-handler";
 export type { GithubWebhookResult } from "./webhook-handler";
 
-export {
-  completeGithubConnect,
-  disconnectGithubInstallation,
-} from "./connect";
+export { completeGithubConnect, disconnectGithubInstallation } from "./connect";
 export type { CompleteConnectResult } from "./connect";
 
 export { signInstallState, verifyInstallState } from "./state";
@@ -18,10 +15,7 @@ export {
   lookupInstallation,
   mintAppJwt,
 } from "./github-app";
-export type {
-  GithubAppConfig,
-  GithubAppConfigWithWebhookSecret,
-} from "./github-app";
+export type { GithubAppConfig, GithubAppConfigWithWebhookSecret } from "./github-app";
 
 export {
   loadGithubAppByExternalAppIdForWebhook,
@@ -30,9 +24,5 @@ export {
   loadGithubAppForProvider,
 } from "./github-app-config";
 
-export {
-  buildManifestRequest,
-  completeManifestExchange,
-  orgHasGithubApp,
-} from "./manifest";
+export { buildManifestRequest, completeManifestExchange, orgHasGithubApp } from "./manifest";
 export type { GithubAppManifest, StartManifestResult } from "./manifest";

@@ -1,3 +1,5 @@
+import type { SshKeyId } from "@otterdeploy/shared/id";
+
 // SSH keys — org-scoped keypairs used to authenticate Git pulls (deploy keys)
 // and to manage swarm nodes. Two flavours live in this one table:
 //
@@ -13,7 +15,6 @@
 // read time from the subsystems that reference a key, not denormalized here —
 // so this table never drifts out of sync with actual usage.
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
-import type { SshKeyId } from "@otterdeploy/shared/id";
 import {
   boolean,
   index,
@@ -67,9 +68,6 @@ export const sshKey = pgTable(
   (t) => [
     index("ssh_key_organization_id_idx").on(t.organizationId),
     // Same key can't be added twice within an org (by fingerprint).
-    uniqueIndex("ssh_key_org_fingerprint_unique").on(
-      t.organizationId,
-      t.fingerprint,
-    ),
+    uniqueIndex("ssh_key_org_fingerprint_unique").on(t.organizationId, t.fingerprint),
   ],
 );

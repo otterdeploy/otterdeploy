@@ -1,15 +1,16 @@
 import type { Edge, Node } from "@xyflow/react";
 
-import {
-  resourceToNode,
-  type ProjectResource,
-} from "@/features/projects/components/graph/resource-to-node";
 import type {
   ComposeServiceInfo,
   ResourceNodeData,
   ResourceStatus,
   StackServiceStatus,
 } from "@/features/projects/components/graph/resource-node";
+
+import {
+  resourceToNode,
+  type ProjectResource,
+} from "@/features/projects/components/graph/resource-to-node";
 
 type Resource = ProjectResource;
 type ServiceResource = Extract<Resource, { type: "service" }>;
@@ -49,10 +50,7 @@ const withReplicas = (node: LiveNode, tasks: Task[]): LiveNode =>
 /** Status of a single stack-member service resource — its live-task rollup if
  *  it has tasks, else its build-time deployment state. "offline" is a deployed
  *  service with no running task (the exact failure a single stack pill hides). */
-const childServiceStatus = (
-  child: ServiceResource,
-  tasks: Task[],
-): StackServiceStatus => {
+const childServiceStatus = (child: ServiceResource, tasks: Task[]): StackServiceStatus => {
   if (tasks.length > 0) return rollupStatus(tasks) as StackServiceStatus;
   switch (child.latestDeploymentStatus) {
     case "building":
@@ -148,9 +146,7 @@ export const buildLiveNodes = (
       else stackChildren.set(r.stackId, [r]);
     }
   }
-  const topLevel = resources.filter(
-    (r) => !(r.type === "service" && r.stackId),
-  );
+  const topLevel = resources.filter((r) => !(r.type === "service" && r.stackId));
 
   const realNodes = topLevel.flatMap((r) => {
     // The framework (brand logo) already rides on base.data — resourceToNode
@@ -177,9 +173,7 @@ export const buildLiveNodes = (
       // the file summary (cards without a resourceId to click into).
       if (children.length === 0) return [withStackStatus(baseWithExtras, tasks)];
       // Volumes only live on the file summary; match by compose service name.
-      const volumesByName = new Map(
-        r.services.map((s) => [s.name, s.volumes] as const),
-      );
+      const volumesByName = new Map(r.services.map((s) => [s.name, s.volumes] as const));
       const services: ComposeServiceInfo[] = children.map((c) => ({
         name: c.name,
         image: c.image,
@@ -189,9 +183,7 @@ export const buildLiveNodes = (
         resourceId: c.resourceId,
         status: childServiceStatus(c, tasksByResourceId.get(c.resourceId) ?? []),
       }));
-      return [
-        { ...baseWithExtras, data: { ...baseWithExtras.data, services } },
-      ];
+      return [{ ...baseWithExtras, data: { ...baseWithExtras.data, services } }];
     }
     return [baseWithExtras];
   });

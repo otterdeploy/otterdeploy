@@ -7,18 +7,12 @@
  * file only owns its compact layout (fixed-height pane + a status dot).
  */
 
+import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
+
+import { LogLineRow, type LogLine } from "@/features/logs/components/log-viewer";
+import { useLogStream, type LogStreamStatus } from "@/features/logs/data/use-log-stream";
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
-import {
-  LogLineRow,
-  type LogLine,
-} from "@/features/logs/components/log-viewer";
-import {
-  useLogStream,
-  type LogStreamStatus,
-} from "@/features/logs/data/use-log-stream";
-
-import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 interface TaskLogsTailProps {
   projectId: ProjectId;
@@ -26,11 +20,7 @@ interface TaskLogsTailProps {
   taskId: string;
 }
 
-function TaskLogsTail({
-  projectId,
-  resourceId,
-  taskId,
-}: TaskLogsTailProps) {
+function TaskLogsTail({ projectId, resourceId, taskId }: TaskLogsTailProps) {
   const { lines, status } = useLogStream({
     open: (signal) =>
       orpc.project.resource.taskLogs.tail.call(
@@ -60,7 +50,7 @@ function TaskLogsTail({
   return (
     <div className="flex flex-col">
       <div className="flex items-center gap-2 pb-1.5">
-        <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground/70">
+        <span className="font-mono text-[10px] tracking-[0.12em] text-muted-foreground/70 uppercase">
           Task logs
         </span>
         <LogStreamStatusDot status={status} />
@@ -93,7 +83,7 @@ function LogStreamStatusDot({ status }: { status: LogStreamStatus }) {
         className={cn("size-1.5 rounded-full", {
           "bg-destructive": status === "error",
           "bg-success": status === "live",
-          "bg-warning animate-pulse": status === "connecting",
+          "animate-pulse bg-warning": status === "connecting",
           "bg-muted-foreground/40": status === "ended",
         })}
       />

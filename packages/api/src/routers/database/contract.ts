@@ -5,9 +5,8 @@
  * the write path is gated behind a separate permission for a later phase.
  */
 import { oc } from "@orpc/contract";
-import * as z from "zod";
-
 import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
+import * as z from "zod";
 
 const tag = "database";
 const basePath = "/database";
@@ -57,9 +56,7 @@ const queryResultSchema = z.object({
 const tablesInput = z.object({ resourceId: resourceIdField });
 
 const tablesResultSchema = z.object({
-  tables: z.array(
-    z.object({ schema: z.string(), name: z.string() }),
-  ),
+  tables: z.array(z.object({ schema: z.string(), name: z.string() })),
 });
 
 // ── Write path (Phase 2) ────────────────────────────────────────────────────
@@ -192,9 +189,7 @@ const mariadbGridSchema = z.object({
 const mongoCollectionsInput = z.object({ resourceId: resourceIdField });
 
 const mongoCollectionsResultSchema = z.object({
-  collections: z.array(
-    z.object({ name: z.string(), count: z.number() }),
-  ),
+  collections: z.array(z.object({ name: z.string(), count: z.number() })),
 });
 
 const mongoDocumentsInput = z.object({

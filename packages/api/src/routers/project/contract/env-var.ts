@@ -11,13 +11,7 @@
 import { oc } from "@orpc/contract";
 import * as z from "zod";
 
-import {
-  basePath,
-  environmentIdField,
-  projectIdField,
-  projectNotFoundErrors,
-  tag,
-} from "./shared";
+import { basePath, environmentIdField, projectIdField, projectNotFoundErrors, tag } from "./shared";
 
 export const projectEnvVarSchema = z.object({
   id: z.string(),

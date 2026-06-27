@@ -17,10 +17,7 @@ export const ClientMessage = z.discriminatedUnion("type", [
   }),
 ]);
 export type ClientMessage = z.infer<typeof ClientMessage>;
-export type ClientMessageOf<T extends ClientMessage["type"]> = Extract<
-  ClientMessage,
-  { type: T }
->;
+export type ClientMessageOf<T extends ClientMessage["type"]> = Extract<ClientMessage, { type: T }>;
 
 // Server -> Client control messages.
 const ServerMessage = z.discriminatedUnion("type", [

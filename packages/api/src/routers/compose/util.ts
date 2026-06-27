@@ -23,9 +23,7 @@ export const stackNameFor = (projectSlug: string, name: string): string =>
 export function parseGitHubUrl(
   raw: string,
 ): { owner: string; repo: string; cloneUrl: string } | null {
-  const m = raw
-    .trim()
-    .match(/github\.com[/:]([^/\s]+)\/([^/\s]+?)(?:\.git)?\/?$/i);
+  const m = raw.trim().match(/github\.com[/:]([^/\s]+)\/([^/\s]+?)(?:\.git)?\/?$/i);
   if (!m?.[1] || !m[2]) return null;
   const owner = m[1];
   const repo = m[2];

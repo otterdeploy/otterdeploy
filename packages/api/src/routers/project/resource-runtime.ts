@@ -10,22 +10,20 @@
  * One frontend call site per tab covers every container-backed resource.
  */
 import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { RequestLogger } from "evlog";
 
 import { Docker } from "@otterdeploy/docker";
 import { Result } from "better-result";
-import type { RequestLogger } from "evlog";
 
-import { defaultImageFor } from "../../swarm";
+import type { ResourceRef } from "../scopes";
+import type { ServiceTaskInfo } from "./service-tasks";
+
 import { updateSwarmDatabase } from "../../runtime/db";
-import { insertDeployment } from "./deployments";
-import {
-  bulkReplaceServiceEnvVars,
-  listServiceEnvVars,
-} from "../service/queries";
+import { defaultImageFor } from "../../swarm";
+import { bulkReplaceServiceEnvVars, listServiceEnvVars } from "../service/queries";
 import { redeployAndFanOut } from "../service/redeploy";
-
+import { insertDeployment } from "./deployments";
 import { PostgresResourceNotFoundError, ProjectNotFoundError } from "./errors";
-
 import {
   getDatabaseResourceRecord,
   getProjectInOrg,
@@ -33,13 +31,7 @@ import {
   setDatabaseResourceExtraEnv,
 } from "./queries";
 import { getResourceById } from "./queries/resource";
-import type { ServiceTaskInfo } from "./service-tasks";
-import type { ResourceRef } from "../scopes";
-import {
-  buildContainerName,
-  buildVolumeName,
-  sanitizeProjectSlug,
-} from "./views";
+import { buildContainerName, buildVolumeName, sanitizeProjectSlug } from "./views";
 
 export interface EnvEntry {
   key: string;
@@ -103,9 +95,7 @@ async function resolveSwarmService(
 
 export async function listResourceTasks(
   input: ResourceRef,
-): Promise<
-  Result<ServiceTaskInfo[], ProjectNotFoundError | PostgresResourceNotFoundError>
-> {
+): Promise<Result<ServiceTaskInfo[], ProjectNotFoundError | PostgresResourceNotFoundError>> {
   const project = await getProjectInOrg({
     projectId: input.projectId,
     organizationId: input.organizationId,
@@ -116,9 +106,7 @@ export async function listResourceTasks(
 
   const target = await resolveSwarmService(input.projectId, input.resourceId);
   if (!target) {
-    return Result.err(
-      new PostgresResourceNotFoundError({ resourceId: input.resourceId }),
-    );
+    return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
   }
 
   const docker = Docker.fromEnv();
@@ -138,23 +126,24 @@ export async function listResourceTasks(
   return Result.ok(
     tasks.map((t) => {
       const status =
-        (t as {
-          Status?: {
-            State?: string;
-            Message?: string;
-            Err?: string;
-            Timestamp?: string;
-            ContainerStatus?: { ContainerID?: string; ExitCode?: number };
-          };
-        }).Status ?? {};
+        (
+          t as {
+            Status?: {
+              State?: string;
+              Message?: string;
+              Err?: string;
+              Timestamp?: string;
+              ContainerStatus?: { ContainerID?: string; ExitCode?: number };
+            };
+          }
+        ).Status ?? {};
       const slot = (t as { Slot?: number }).Slot ?? null;
       const nodeId = (t as { NodeID?: string }).NodeID ?? null;
       const desiredState = (t as { DesiredState?: string }).DesiredState ?? null;
       return {
         id: (t as { ID?: string }).ID ?? "",
         slot,
-        label:
-          slot != null ? `${target.serviceName}.${slot}` : target.serviceName,
+        label: slot != null ? `${target.serviceName}.${slot}` : target.serviceName,
         // Single-service runtime view — no compose sub-service breakdown here.
         service: null,
         state: collapseTaskState(status.State),
@@ -176,9 +165,7 @@ export async function listResourceTasks(
 
 export async function listResourceEnv(
   input: ResourceRef,
-): Promise<
-  Result<EnvEntry[], ProjectNotFoundError | PostgresResourceNotFoundError>
-> {
+): Promise<Result<EnvEntry[], ProjectNotFoundError | PostgresResourceNotFoundError>> {
   const project = await getProjectInOrg({
     projectId: input.projectId,
     organizationId: input.organizationId,
@@ -189,20 +176,13 @@ export async function listResourceEnv(
 
   const found = await getResourceById(input.projectId, input.resourceId);
   if (!found) {
-    return Result.err(
-      new PostgresResourceNotFoundError({ resourceId: input.resourceId }),
-    );
+    return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
   }
 
   if (found.kind === "database") {
-    const record = await getDatabaseResourceRecord(
-      input.projectId,
-      input.resourceId,
-    );
+    const record = await getDatabaseResourceRecord(input.projectId, input.resourceId);
     const env = (record?.database.extraEnv ?? {}) as Record<string, string>;
-    return Result.ok(
-      Object.entries(env).map(([key, value]) => ({ key, value })),
-    );
+    return Result.ok(Object.entries(env).map(([key, value]) => ({ key, value })));
   }
 
   const rows = await listServiceEnvVars(input.resourceId);
@@ -212,9 +192,7 @@ export async function listResourceEnv(
 export async function bulkSetResourceEnv(
   input: ResourceRef & { env: EnvEntry[]; secretKeys?: string[] },
   log: RequestLogger,
-): Promise<
-  Result<EnvEntry[], ProjectNotFoundError | PostgresResourceNotFoundError>
-> {
+): Promise<Result<EnvEntry[], ProjectNotFoundError | PostgresResourceNotFoundError>> {
   const project = await getProjectInOrg({
     projectId: input.projectId,
     organizationId: input.organizationId,
@@ -225,9 +203,7 @@ export async function bulkSetResourceEnv(
 
   const found = await getResourceById(input.projectId, input.resourceId);
   if (!found) {
-    return Result.err(
-      new PostgresResourceNotFoundError({ resourceId: input.resourceId }),
-    );
+    return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
   }
 
   if (found.kind === "database") {
@@ -240,10 +216,7 @@ export async function bulkSetResourceEnv(
     const filteredSecrets = input.secretKeys?.filter((k) => k in next);
     await setDatabaseResourceExtraEnv(input.resourceId, next, filteredSecrets);
 
-    const dbRecord = await getDatabaseResourceRecord(
-      input.projectId,
-      input.resourceId,
-    );
+    const dbRecord = await getDatabaseResourceRecord(input.projectId, input.resourceId);
     if (dbRecord) {
       const projectSlug = sanitizeProjectSlug(project.slug);
       const resourceName = dbRecord.resource.name;
@@ -288,7 +261,12 @@ export async function bulkSetResourceEnv(
         log,
       );
     }
-    log.set({ resource: { kind: dbRecord?.database.engine ?? "postgres", envKeys: Object.keys(next).length } });
+    log.set({
+      resource: {
+        kind: dbRecord?.database.engine ?? "postgres",
+        envKeys: Object.keys(next).length,
+      },
+    });
     return Result.ok(input.env);
   }
 
@@ -300,12 +278,7 @@ export async function bulkSetResourceEnv(
     input.resourceId,
     input.env.map((e) => ({ ...e, isSecret: secretSet.has(e.key) })),
   );
-  const redeployed = await redeployAndFanOut(
-    input.projectId,
-    input.resourceId,
-    project.slug,
-    log,
-  );
+  const redeployed = await redeployAndFanOut(input.projectId, input.resourceId, project.slug, log);
   if (redeployed.isErr()) {
     log.set({
       env: {
@@ -316,4 +289,3 @@ export async function bulkSetResourceEnv(
   }
   return Result.ok(input.env);
 }
-

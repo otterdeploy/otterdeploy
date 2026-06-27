@@ -4,8 +4,6 @@
 
 import { useMemo, useState } from "react";
 
-import { I } from "../icons";
-import { PROJECTS } from "../data";
 import { Field, SectionH, Switch3 } from "../components/form";
 import {
   ALL_PROJECTS,
@@ -13,6 +11,8 @@ import {
   ProjectTagBadge,
   matchesProjectFilter,
 } from "../components/project-filter";
+import { PROJECTS } from "../data";
+import { I } from "../icons";
 
 type VolumeDriver = "local-ssd" | "local-hdd" | "nvme" | "network-nfs";
 type VolumeStatus = "attached" | "detached" | "snapshotting" | "resizing";
@@ -133,9 +133,7 @@ export function Volumes() {
 
   const filtered = useMemo(
     () =>
-      volumes.filter((v) =>
-        matchesProjectFilter(filter, [v.project].filter(Boolean) as string[]),
-      ),
+      volumes.filter((v) => matchesProjectFilter(filter, [v.project].filter(Boolean) as string[])),
     [volumes, filter],
   );
 
@@ -213,17 +211,13 @@ export function Volumes() {
             </div>
           )}
           {filtered.map((v, i) => (
-            <VolumeRow
-              key={v.id}
-              v={v}
-              borderTop={i > 0}
-              onDelete={() => removeVolume(v.id)}
-            />
+            <VolumeRow key={v.id} v={v} borderTop={i > 0} onDelete={() => removeVolume(v.id)} />
           ))}
         </div>
 
         <div className="muted" style={{ fontSize: 11, marginTop: 10 }}>
-          Volumes are bound to a single project and follow that project&apos;s backup retention policy.
+          Volumes are bound to a single project and follow that project&apos;s backup retention
+          policy.
         </div>
       </div>
 
@@ -243,10 +237,15 @@ export function Volumes() {
 function Stat({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
     <div className="card" style={{ padding: 14 }}>
-      <div className="muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+      <div
+        className="muted"
+        style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em" }}
+      >
         {label}
       </div>
-      <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: "-0.02em", marginTop: 4 }}>{value}</div>
+      <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: "-0.02em", marginTop: 4 }}>
+        {value}
+      </div>
       <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
         {sub}
       </div>
@@ -255,10 +254,33 @@ function Stat({ label, value, sub }: { label: string; value: string; sub: string
 }
 
 function VolumeStatusBadge({ status }: { status: VolumeStatus }) {
-  if (status === "attached") return <span className="badge ok"><span className="dot" />attached</span>;
-  if (status === "detached") return <span className="badge"><span className="dot" />detached</span>;
-  if (status === "snapshotting") return <span className="badge info"><span className="dot" />snapshot</span>;
-  return <span className="badge warn"><span className="dot" />resizing</span>;
+  if (status === "attached")
+    return (
+      <span className="badge ok">
+        <span className="dot" />
+        attached
+      </span>
+    );
+  if (status === "detached")
+    return (
+      <span className="badge">
+        <span className="dot" />
+        detached
+      </span>
+    );
+  if (status === "snapshotting")
+    return (
+      <span className="badge info">
+        <span className="dot" />
+        snapshot
+      </span>
+    );
+  return (
+    <span className="badge warn">
+      <span className="dot" />
+      resizing
+    </span>
+  );
 }
 
 function UsageBar({ used, total }: { used: number; total: number }) {
@@ -271,7 +293,9 @@ function UsageBar({ used, total }: { used: number; total: number }) {
           {used.toFixed(used < 10 ? 2 : 1)} / {total} GB
         </span>
         <div style={{ flex: 1 }} />
-        <span className="muted mono" style={{ fontSize: 10 }}>{pct.toFixed(0)}%</span>
+        <span className="muted mono" style={{ fontSize: 10 }}>
+          {pct.toFixed(0)}%
+        </span>
       </div>
       <div
         style={{
@@ -326,9 +350,16 @@ function VolumeRow({
     >
       <span style={{ flex: 1.4, display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
         <I.folder width={13} height={13} style={{ color: "var(--fg-3)" }} />
-        <span className="col" style={{ gap: 2, alignItems: "flex-start", lineHeight: 1.2, minWidth: 0 }}>
-          <span className="mono" style={{ fontWeight: 500 }}>{v.name}</span>
-          <span className="muted" style={{ fontSize: 10 }}>{DRIVER_META[v.driver].sub}</span>
+        <span
+          className="col"
+          style={{ gap: 2, alignItems: "flex-start", lineHeight: 1.2, minWidth: 0 }}
+        >
+          <span className="mono" style={{ fontWeight: 500 }}>
+            {v.name}
+          </span>
+          <span className="muted" style={{ fontSize: 10 }}>
+            {DRIVER_META[v.driver].sub}
+          </span>
         </span>
       </span>
       <span style={{ width: 130 }}>
@@ -344,8 +375,12 @@ function VolumeRow({
         {v.attachedTo ? (
           <span className="row gap-2" style={{ alignItems: "center" }}>
             <I.service width={11} height={11} style={{ color: "var(--fg-3)" }} />
-            <span className="mono" style={{ color: "var(--fg-2)" }}>{v.attachedTo.service}</span>
-            <span className="muted mono" style={{ fontSize: 10 }}>×{v.attachedTo.replicas}</span>
+            <span className="mono" style={{ color: "var(--fg-2)" }}>
+              {v.attachedTo.service}
+            </span>
+            <span className="muted mono" style={{ fontSize: 10 }}>
+              ×{v.attachedTo.replicas}
+            </span>
           </span>
         ) : (
           <span className="muted">—</span>
@@ -355,14 +390,20 @@ function VolumeRow({
         {v.encryption === "AES-256" ? (
           <span className="row gap-2" style={{ alignItems: "center" }}>
             <I.lock width={11} height={11} style={{ color: "var(--ok)" }} />
-            <span className="mono" style={{ fontSize: 11, color: "var(--fg-2)" }}>AES-256</span>
+            <span className="mono" style={{ fontSize: 11, color: "var(--fg-2)" }}>
+              AES-256
+            </span>
           </span>
         ) : (
-          <span className="muted mono" style={{ fontSize: 11 }}>none</span>
+          <span className="muted mono" style={{ fontSize: 11 }}>
+            none
+          </span>
         )}
       </span>
       <span style={{ width: 110 }}>
-        <span className="muted mono" style={{ fontSize: 11 }}>{v.lastSnapshot}</span>
+        <span className="muted mono" style={{ fontSize: 11 }}>
+          {v.lastSnapshot}
+        </span>
       </span>
       <span style={{ width: 110 }}>
         <ProjectTagBadge id={v.project} />
@@ -392,10 +433,7 @@ function RowMenu({ onDelete }: { onDelete: () => void }) {
       </button>
       {open && (
         <>
-          <div
-            onClick={() => setOpen(false)}
-            style={{ position: "fixed", inset: 0, zIndex: 90 }}
-          />
+          <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 90 }} />
           <div
             style={{
               position: "absolute",
@@ -411,9 +449,15 @@ function RowMenu({ onDelete }: { onDelete: () => void }) {
               minWidth: 160,
             }}
           >
-            <MenuItem onClick={() => setOpen(false)} icon={I.refresh}>Snapshot now</MenuItem>
-            <MenuItem onClick={() => setOpen(false)} icon={I.scale}>Resize…</MenuItem>
-            <MenuItem onClick={() => setOpen(false)} icon={I.link}>Detach</MenuItem>
+            <MenuItem onClick={() => setOpen(false)} icon={I.refresh}>
+              Snapshot now
+            </MenuItem>
+            <MenuItem onClick={() => setOpen(false)} icon={I.scale}>
+              Resize…
+            </MenuItem>
+            <MenuItem onClick={() => setOpen(false)} icon={I.link}>
+              Detach
+            </MenuItem>
             <div style={{ height: 1, background: "var(--border)", margin: "4px 0" }} />
             <MenuItem
               onClick={() => {
@@ -522,7 +566,7 @@ function CreateVolumeModal({
       }}
     >
       <div onClick={(e) => e.stopPropagation()} className="os-modal" style={{ width: 600 }}>
-        <div className="row gap-2 os-modal-h">
+        <div className="row os-modal-h gap-2">
           <I.plus width={14} height={14} />
           <span style={{ fontWeight: 600 }}>Create volume</span>
           <div style={{ flex: 1 }} />
@@ -675,7 +719,9 @@ function CreateVolumeModal({
                       <div style={{ fontSize: 12, fontWeight: 500, color: "var(--fg)" }}>
                         {p.label}
                       </div>
-                      <div className="muted" style={{ fontSize: 11 }}>{p.sub}</div>
+                      <div className="muted" style={{ fontSize: 11 }}>
+                        {p.sub}
+                      </div>
                     </div>
                   </button>
                 );
@@ -687,11 +733,18 @@ function CreateVolumeModal({
         <div className="row gap-2" style={{ padding: 14, borderTop: "1px solid var(--border)" }}>
           <span className="muted" style={{ fontSize: 11 }}>
             Volume will be created in the{" "}
-            <span className="mono" style={{ color: "var(--fg-2)" }}>detached</span> state — attach it to a service to mount.
+            <span className="mono" style={{ color: "var(--fg-2)" }}>
+              detached
+            </span>{" "}
+            state — attach it to a service to mount.
           </span>
           <div style={{ flex: 1 }} />
-          <button className="btn" onClick={onClose}>Cancel</button>
-          <button className="btn primary" onClick={submit}>Create volume</button>
+          <button className="btn" onClick={onClose}>
+            Cancel
+          </button>
+          <button className="btn primary" onClick={submit}>
+            Create volume
+          </button>
         </div>
       </div>
     </div>

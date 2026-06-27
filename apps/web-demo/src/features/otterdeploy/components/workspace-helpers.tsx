@@ -103,7 +103,8 @@ function highlightToml(line: string): ReactNode {
     let val: ReactNode;
     if (v!.startsWith('"')) val = <span style={{ color: "var(--info)" }}>{v}</span>;
     else if (/^-?\d/.test(v!)) val = <span style={{ color: "var(--ok)" }}>{v}</span>;
-    else if (v!.startsWith("{") || v!.startsWith("[")) val = <span style={{ color: "var(--fg-2)" }}>{v}</span>;
+    else if (v!.startsWith("{") || v!.startsWith("["))
+      val = <span style={{ color: "var(--fg-2)" }}>{v}</span>;
     else val = <span>{v}</span>;
     return (
       <>
@@ -156,13 +157,28 @@ export function EdgeRow({ e, idx, tick }: { e: Edge; idx: number; tick: number }
   const rps = Math.round(e.rps + Math.sin(tick + idx) * Math.min(20, e.rps * 0.1));
   const errPct = (Math.abs(Math.sin(tick * 0.7 + idx * 1.3)) * 0.4).toFixed(2);
   return (
-    <div className="row" style={{ padding: "7px 14px", borderBottom: "1px solid var(--border)", fontSize: 12 }}>
-      <span className="mono" style={{ width: 130, color: "var(--fg-2)" }}>{e.from}</span>
-      <span className="mono" style={{ width: 16, color: "var(--fg-4)" }}>→</span>
-      <span className="mono" style={{ width: 130, color: "var(--fg-2)" }}>{e.to}</span>
-      <span className="mono" style={{ width: 80, color: "var(--fg-3)", fontSize: 11 }}>{e.kind}</span>
-      <span style={{ flex: 1, paddingRight: 12 }}><Spark idx={idx} /></span>
-      <span className="mono" style={{ width: 80, textAlign: "right" }}>{rps}</span>
+    <div
+      className="row"
+      style={{ padding: "7px 14px", borderBottom: "1px solid var(--border)", fontSize: 12 }}
+    >
+      <span className="mono" style={{ width: 130, color: "var(--fg-2)" }}>
+        {e.from}
+      </span>
+      <span className="mono" style={{ width: 16, color: "var(--fg-4)" }}>
+        →
+      </span>
+      <span className="mono" style={{ width: 130, color: "var(--fg-2)" }}>
+        {e.to}
+      </span>
+      <span className="mono" style={{ width: 80, color: "var(--fg-3)", fontSize: 11 }}>
+        {e.kind}
+      </span>
+      <span style={{ flex: 1, paddingRight: 12 }}>
+        <Spark idx={idx} />
+      </span>
+      <span className="mono" style={{ width: 80, textAlign: "right" }}>
+        {rps}
+      </span>
       <span className="mono" style={{ width: 80, textAlign: "right", color: "var(--fg-3)" }}>
         {Math.round(40 + (idx + 1) * 12)}ms
       </span>
@@ -250,8 +266,17 @@ export function ActivityFeed({ tick }: { tick: number }) {
           />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="row gap-2">
-              <span className="mono" style={{ fontWeight: 500 }}>{a.svc}</span>
-              <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <span className="mono" style={{ fontWeight: 500 }}>
+                {a.svc}
+              </span>
+              <span
+                style={{
+                  flex: 1,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
                 {a.msg}
               </span>
             </div>

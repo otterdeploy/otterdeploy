@@ -44,15 +44,10 @@ export function ScopePicker({
       </div>
       <div className="flex flex-col divide-y rounded-md border">
         {API_SCOPES.map((scope) => (
-          <div
-            key={scope.resource}
-            className="flex items-center gap-3 px-3 py-2.5"
-          >
+          <div key={scope.resource} className="flex items-center gap-3 px-3 py-2.5">
             <div className="min-w-0 flex-1">
               <div className="text-[13px] font-medium">{scope.label}</div>
-              <div className="truncate text-[11px] text-muted-foreground">
-                {scope.description}
-              </div>
+              <div className="truncate text-[11px] text-muted-foreground">{scope.description}</div>
             </div>
             {/* Fixed two-column grid so every row's first action lines up
                 under the next, regardless of how many actions it has. */}

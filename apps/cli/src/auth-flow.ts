@@ -8,10 +8,9 @@
  *   - URL missing? Hard-fail with instructions.
  */
 
+import { sleep } from "@otterdeploy/shared/promise";
 import { consola } from "consola";
 import * as z from "zod";
-
-import { sleep } from "@otterdeploy/shared/promise";
 
 import { CLI_CLIENT_ID, createCliAuthClient } from "./auth-client";
 import { loadConfig, resolveToken, resolveUrl, saveConfig } from "./config";
@@ -28,10 +27,9 @@ import { loadConfig, resolveToken, resolveUrl, saveConfig } from "./config";
  */
 export async function promptForUrl(): Promise<string | null> {
   if (!process.stdin.isTTY) return null;
-  const raw = await consola.prompt(
-    "Control plane URL (e.g. https://otter.acme.com):",
-    { type: "text" },
-  );
+  const raw = await consola.prompt("Control plane URL (e.g. https://otter.acme.com):", {
+    type: "text",
+  });
   if (typeof raw !== "string") return null; // cancelled (Ctrl-C)
   let url = raw.trim();
   if (!url) return null;

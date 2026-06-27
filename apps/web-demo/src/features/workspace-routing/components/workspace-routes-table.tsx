@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+
 import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
 import {
@@ -9,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+
 import type { WorkspaceRouteRow } from "../types";
 
 interface Props {
@@ -21,8 +23,8 @@ export function WorkspaceRoutesTable({ rows }: Props) {
       <Empty>
         <EmptyTitle>No routes yet</EmptyTitle>
         <EmptyDescription>
-          Routes appear here as soon as a project exposes a public domain. Open
-          a project's Networking screen to add one.
+          Routes appear here as soon as a project exposes a public domain. Open a project's
+          Networking screen to add one.
         </EmptyDescription>
       </Empty>
     );

@@ -10,14 +10,19 @@ import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { Result } from "better-result";
 
-import { RefCycleError, RefMissingResourceError, RefParseError, RefUnknownVarError, type ResolveError } from "../../routers/service/errors";
 import {
   getDatabaseResourceRecord,
   getProjectRecord,
   loadProjectEnvBag,
   type DatabaseResourceRecord,
 } from "../../routers/project/queries";
-
+import {
+  RefCycleError,
+  RefMissingResourceError,
+  RefParseError,
+  RefUnknownVarError,
+  type ResolveError,
+} from "../../routers/service/errors";
 import {
   getResourceByProjectAndName,
   getServiceRecord,

@@ -25,9 +25,7 @@ type ResolverLike = Pick<dns.Resolver, "resolveTxt" | "resolve4" | "resolve6">;
 
 /** Run `query` against a public-resolver-backed resolver, falling back to
  *  the system resolver only on transport-level failure. */
-async function withPublicResolver<T>(
-  query: (resolver: ResolverLike) => Promise<T>,
-): Promise<T> {
+async function withPublicResolver<T>(query: (resolver: ResolverLike) => Promise<T>): Promise<T> {
   try {
     // dns.Resolver here is the promise-based resolver (node:dns `promises`
     // namespace) — its methods return Promises, unlike the top-level

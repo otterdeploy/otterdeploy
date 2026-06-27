@@ -10,11 +10,10 @@ import {
   type LaunchCategory,
   type ServiceKind,
 } from "@/features/projects/data/service-kinds";
-import { cn } from "@/shared/lib/utils";
-
 import { DatabaseLogo } from "@/shared/components/brand/database-logo";
 import { Docker } from "@/shared/components/ui/svgs/docker";
 import { Github } from "@/shared/components/ui/svgs/github";
+import { cn } from "@/shared/lib/utils";
 
 import {
   builderCardActiveClass,
@@ -59,12 +58,7 @@ interface KindPickerProps {
   onDbViewChange: (open: boolean) => void;
 }
 
-export function KindPicker({
-  value,
-  onChange,
-  dbView,
-  onDbViewChange,
-}: KindPickerProps) {
+export function KindPicker({ value, onChange, dbView, onDbViewChange }: KindPickerProps) {
   if (dbView) {
     return (
       <>
@@ -130,9 +124,7 @@ export function KindPicker({
               </div>
               <div className="flex-1 text-[13px] font-semibold">{cat.name}</div>
             </div>
-            <div className="mt-1.5 text-[11px] leading-snug text-muted-foreground">
-              {cat.sub}
-            </div>
+            <div className="mt-1.5 text-[11px] leading-snug text-muted-foreground">{cat.sub}</div>
           </button>
         );
       })}
@@ -167,11 +159,7 @@ function EngineCard({
         <span className={SOON_CHIP}>soon</span>
       ) : (
         active && (
-          <I.check
-            width={12}
-            height={12}
-            className="absolute top-2.5 right-2.5 text-foreground"
-          />
+          <I.check width={12} height={12} className="absolute top-2.5 right-2.5 text-foreground" />
         )
       )}
       <div className="flex items-center gap-2">
@@ -184,9 +172,7 @@ function EngineCard({
         </div>
         <div className="flex-1 text-[13px] font-semibold">{engine.name}</div>
       </div>
-      <div className="mt-1.5 text-[11px] leading-snug text-muted-foreground">
-        {engine.sub}
-      </div>
+      <div className="mt-1.5 text-[11px] leading-snug text-muted-foreground">{engine.sub}</div>
       {engine.versions && (
         <div className="mt-1.5 font-mono text-[10px] text-muted-foreground">
           versions: {engine.versions.slice(0, 3).join(", ")}

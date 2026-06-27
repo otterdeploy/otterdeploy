@@ -1,7 +1,14 @@
 export type ToastKind = "ok" | "warn" | "err" | "info";
-export interface Toast { id: number; msg: string; kind: ToastKind }
+export interface Toast {
+  id: number;
+  msg: string;
+  kind: ToastKind;
+}
 
-interface Props { toasts: Toast[]; dismiss: (id: number) => void }
+interface Props {
+  toasts: Toast[];
+  dismiss: (id: number) => void;
+}
 
 const kindColor: Record<ToastKind, string> = {
   ok: "var(--ok)",
@@ -44,7 +51,9 @@ export function Toaster({ toasts, dismiss }: Props) {
             animation: "tIn 180ms ease-out",
           }}
         >
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: kindColor[t.kind] }} />
+          <span
+            style={{ width: 6, height: 6, borderRadius: "50%", background: kindColor[t.kind] }}
+          />
           <span>{t.msg}</span>
         </button>
       ))}

@@ -1,7 +1,6 @@
+import { sleep } from "@otterdeploy/shared/promise";
 import { defineCommand } from "citty";
 import { consola } from "consola";
-
-import { sleep } from "@otterdeploy/shared/promise";
 
 import { CLI_CLIENT_ID, createCliAuthClient } from "../auth-client";
 import { promptForUrl } from "../auth-flow";
@@ -23,8 +22,7 @@ export const loginCommand = defineCommand({
   async run({ args }) {
     // Resolution order: --url flag → bare positional → stored config → prompt.
     const positional = args._?.[0];
-    const url =
-      args.url ?? positional ?? loadConfig().url ?? (await promptForUrl());
+    const url = args.url ?? positional ?? loadConfig().url ?? (await promptForUrl());
     if (!url) {
       consola.error(
         "No URL provided. Run `otterdeploy login <url>` (e.g. https://otter.acme.com).",

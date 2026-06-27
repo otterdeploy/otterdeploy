@@ -11,7 +11,10 @@ export type TerminalLineType =
   | "metric"
   | "comment";
 
-export interface TerminalLine { text: string; type: TerminalLineType }
+export interface TerminalLine {
+  text: string;
+  type: TerminalLineType;
+}
 
 // Hero deploy walkthrough (typed out on view).
 export const DEPLOY_LINES: TerminalLine[] = [
@@ -29,7 +32,6 @@ export const DEPLOY_LINES: TerminalLine[] = [
   { text: "", type: "blank" },
   { text: "✓ Live in 19s · https://app.otterdeploy.com", type: "final" },
 ];
-
 
 // Top tab bar on the right "README" column. Each tab is an in-page section —
 // the bar is a scroll-spy: clicking smooth-scrolls to the section and the

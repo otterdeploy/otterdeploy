@@ -73,19 +73,13 @@ export function ErrorScreen({
   return (
     <div
       style={rootStyle}
-      className="fixed inset-0 z-60 overflow-auto bg-(--bg) font-mono text-(--ink) antialiased text-[clamp(13px,1.4vmin,17px)]"
+      className="fixed inset-0 z-60 overflow-auto bg-(--bg) font-mono text-[clamp(13px,1.4vmin,17px)] text-(--ink) antialiased"
     >
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 error-grid" />
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 error-glow" />
       <div
         aria-hidden="true"
-        className="error-grid pointer-events-none absolute inset-0 z-0"
-      />
-      <div
-        aria-hidden="true"
-        className="error-glow pointer-events-none absolute inset-0 z-0"
-      />
-      <div
-        aria-hidden="true"
-        className="error-grain pointer-events-none absolute inset-0 z-[1] opacity-[0.04]"
+        className="pointer-events-none absolute inset-0 z-[1] error-grain opacity-[0.04]"
       />
 
       <span
@@ -105,7 +99,7 @@ export function ErrorScreen({
         className="pointer-events-none absolute right-3.5 bottom-3.5 z-3 size-3.5 border-r border-b border-(--line2)"
       />
 
-      <header className="pointer-events-none absolute inset-x-0 top-0 z-3 flex justify-between px-8 py-6 text-[0.72rem] uppercase tracking-[0.16em] text-(--dim)">
+      <header className="pointer-events-none absolute inset-x-0 top-0 z-3 flex justify-between px-8 py-6 text-[0.72rem] tracking-[0.16em] text-(--dim) uppercase">
         <span>
           <span className="text-(--accent)">◆</span> OTTERDEPLOY
         </span>
@@ -117,25 +111,25 @@ export function ErrorScreen({
       <main className="relative z-2 flex min-h-full items-center justify-center px-[8vw] py-[11vh]">
         <div className="w-full max-w-150 text-center">
           <div
-            className={`${reveal} mb-[1.7rem] text-[0.74rem] uppercase tracking-[0.26em] text-(--accent)`}
+            className={`${reveal} mb-[1.7rem] text-[0.74rem] tracking-[0.26em] text-(--accent) uppercase`}
             style={{ animationDelay: "0.1s" }}
           >
             {eyebrow}
           </div>
           <div
-            className={`${reveal} font-bold leading-none tracking-[-0.04em] text-(--accent) text-[clamp(3.2rem,9vw,6rem)] [text-shadow:0_0_52px_var(--glow)]`}
+            className={`${reveal} text-[clamp(3.2rem,9vw,6rem)] leading-none font-bold tracking-[-0.04em] text-(--accent) [text-shadow:0_0_52px_var(--glow)]`}
             style={{ animationDelay: "0.19s" }}
           >
             {code}
           </div>
           <h1
-            className={`${reveal} mt-[1.4rem] font-bold uppercase leading-[1.1] tracking-[-0.01em] text-[clamp(1.3rem,2.7vw,2.05rem)]`}
+            className={`${reveal} mt-[1.4rem] text-[clamp(1.3rem,2.7vw,2.05rem)] leading-[1.1] font-bold tracking-[-0.01em] uppercase`}
             style={{ animationDelay: "0.28s" }}
           >
             {title}
           </h1>
           <p
-            className={`${reveal} mx-auto mt-4 max-w-[46ch] leading-[1.65] text-(--dim) text-[clamp(0.88rem,1.15vw,1.02rem)]`}
+            className={`${reveal} mx-auto mt-4 max-w-[46ch] text-[clamp(0.88rem,1.15vw,1.02rem)] leading-[1.65] text-(--dim)`}
             style={{ animationDelay: "0.37s" }}
           >
             {message}
@@ -149,7 +143,7 @@ export function ErrorScreen({
         </div>
       </main>
 
-      <footer className="pointer-events-none absolute inset-x-0 bottom-0 z-3 flex justify-between px-8 py-6 text-[0.72rem] uppercase tracking-[0.16em] text-(--dim)">
+      <footer className="pointer-events-none absolute inset-x-0 bottom-0 z-3 flex justify-between px-8 py-6 text-[0.72rem] tracking-[0.16em] text-(--dim) uppercase">
         <span>
           STATUS: <span className="text-(--accent)">{statusTag}</span>
         </span>

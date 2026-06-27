@@ -61,11 +61,7 @@ function useRegistryForm(args: {
   });
 }
 
-export function RegistryDialog({
-  open,
-  onOpenChange,
-  existing,
-}: RegistryDialogProps) {
+export function RegistryDialog({ open, onOpenChange, existing }: RegistryDialogProps) {
   const isEdit = existing !== null;
 
   const form = useRegistryForm({
@@ -98,14 +94,10 @@ export function RegistryDialog({
       setOpen(false);
       tx.isPersisted.promise
         .then(() =>
-          toast.success(
-            isEdit ? "Registry credential updated" : "Registry credential added",
-          ),
+          toast.success(isEdit ? "Registry credential updated" : "Registry credential added"),
         )
         .catch((err: unknown) =>
-          toast.error(
-            err instanceof Error ? err.message : "Failed to save registry",
-          ),
+          toast.error(err instanceof Error ? err.message : "Failed to save registry"),
         );
     },
   });
@@ -168,11 +160,7 @@ function RegistryFormBody({
 
       <form.Field name="host">
         {(field) => (
-          <HostField
-            value={field.state.value}
-            onChange={field.handleChange}
-            isEdit={isEdit}
-          />
+          <HostField value={field.state.value} onChange={field.handleChange} isEdit={isEdit} />
         )}
       </form.Field>
 

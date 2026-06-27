@@ -1,6 +1,8 @@
 import { Link } from "@tanstack/react-router";
+
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+
 import { outerRailItems, type RailItem } from "./rail-items";
 
 interface Props {
@@ -35,8 +37,7 @@ export function OuterRail({ currentHref }: Props) {
                   className={cn(
                     "flex size-9 items-center justify-center rounded-md text-sidebar-foreground transition-colors",
                     "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                    active &&
-                      "bg-sidebar-accent text-sidebar-accent-foreground",
+                    active && "bg-sidebar-accent text-sidebar-accent-foreground",
                   )}
                 >
                   <Icon className="size-4" />

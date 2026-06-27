@@ -1,10 +1,11 @@
-import { setTimeout as sleep } from "node:timers/promises";
 import { Docker } from "@otterdeploy/docker";
 import { createError, type RequestLogger } from "evlog";
+import { setTimeout as sleep } from "node:timers/promises";
+
+import type { SpecMount } from "./file-mounts";
 
 import { asStepLogger } from "../lib/logger";
 import { ensureProjectNetwork } from "./client";
-import type { SpecMount } from "./file-mounts";
 
 export interface SwarmServiceRuntime {
   serviceId: string | null;
@@ -49,8 +50,8 @@ export interface SwarmServiceSpec {
   internalHostname: string;
 
   image: string;
-  command?: string[] | null;       // CMD
-  entrypoint?: string[] | null;    // ENTRYPOINT
+  command?: string[] | null; // CMD
+  entrypoint?: string[] | null; // ENTRYPOINT
   env: Record<string, string>;
 
   replicas: number;
@@ -145,18 +146,16 @@ export async function updateSwarmService(
   }
 
   const newSpec = buildServiceSpec(spec, networkName);
-  const updateResult = await docker.services
-    .getService(existing.serviceId ?? "")
-    .update({
-      version: currentVersion,
-      Name: newSpec.Name,
-      Labels: newSpec.Labels,
-      TaskTemplate: newSpec.TaskTemplate,
-      Mode: newSpec.Mode,
-      UpdateConfig: newSpec.UpdateConfig,
-      RollbackConfig: newSpec.RollbackConfig,
-      EndpointSpec: newSpec.EndpointSpec,
-    });
+  const updateResult = await docker.services.getService(existing.serviceId ?? "").update({
+    version: currentVersion,
+    Name: newSpec.Name,
+    Labels: newSpec.Labels,
+    TaskTemplate: newSpec.TaskTemplate,
+    Mode: newSpec.Mode,
+    UpdateConfig: newSpec.UpdateConfig,
+    RollbackConfig: newSpec.RollbackConfig,
+    EndpointSpec: newSpec.EndpointSpec,
+  });
 
   if (updateResult.isErr()) {
     docker.destroy();
@@ -260,9 +259,7 @@ function buildServiceSpec(spec: SwarmServiceSpec, networkName: string) {
     "otterdeploy.resource.type": "service",
     "otterdeploy.project": spec.projectSlug,
     "otterdeploy.resource.id": spec.resourceId,
-    ...(spec.deploymentId
-      ? { "otterdeploy.deployment.id": spec.deploymentId }
-      : {}),
+    ...(spec.deploymentId ? { "otterdeploy.deployment.id": spec.deploymentId } : {}),
   };
 
   const containerSpec: Record<string, unknown> = {
@@ -317,8 +314,10 @@ function buildServiceSpec(spec: SwarmServiceSpec, networkName: string) {
     const limits: Record<string, number> = {};
     const reservations: Record<string, number> = {};
     if (spec.resources.cpuLimit != null) limits.NanoCPUs = cpuToNanoCpus(spec.resources.cpuLimit);
-    if (spec.resources.memoryLimitMb != null) limits.MemoryBytes = mbToBytes(spec.resources.memoryLimitMb);
-    if (spec.resources.cpuReservation != null) reservations.NanoCPUs = cpuToNanoCpus(spec.resources.cpuReservation);
+    if (spec.resources.memoryLimitMb != null)
+      limits.MemoryBytes = mbToBytes(spec.resources.memoryLimitMb);
+    if (spec.resources.cpuReservation != null)
+      reservations.NanoCPUs = cpuToNanoCpus(spec.resources.cpuReservation);
     if (spec.resources.memoryReservationMb != null)
       reservations.MemoryBytes = mbToBytes(spec.resources.memoryReservationMb);
 
@@ -409,9 +408,7 @@ async function inspectSwarmService(
   };
 }
 
-function mapTaskStateToStatus(
-  state: string | undefined,
-): SwarmServiceRuntime["status"] {
+function mapTaskStateToStatus(state: string | undefined): SwarmServiceRuntime["status"] {
   switch (state) {
     case "running":
       return "running";

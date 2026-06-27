@@ -1,6 +1,8 @@
+import type { RequestLogger } from "evlog";
+
 import { createHash } from "node:crypto";
 
-import type { RequestLogger } from "evlog";
+import type { AdaptResult, LoadResult } from "./client";
 
 import { asStepLogger } from "../lib/logger";
 import {
@@ -9,7 +11,6 @@ import {
   type CrowdsecConfig,
   type ProxyRouteInput,
 } from "./builder";
-import type { AdaptResult, LoadResult } from "./client";
 
 export interface ReconcileResult {
   applied: string[];
@@ -46,7 +47,19 @@ interface ReconcileOptions {
 }
 
 export async function reconcileRoutes(options: ReconcileOptions): Promise<ReconcileResult> {
-  const { routes, adminBind, acmeEmail, authzUpstream, edgeLogSink, crowdsec, httpsAutoRedirect, projectCustomConfig, adapt, load, rlog } = options;
+  const {
+    routes,
+    adminBind,
+    acmeEmail,
+    authzUpstream,
+    edgeLogSink,
+    crowdsec,
+    httpsAutoRedirect,
+    projectCustomConfig,
+    adapt,
+    load,
+    rlog,
+  } = options;
   const log = asStepLogger(rlog);
 
   log.info({ caddy: { step: "reconcile", status: "starting", routeCount: routes.length } });
@@ -60,17 +73,27 @@ export async function reconcileRoutes(options: ReconcileOptions): Promise<Reconc
 
   // A project may have custom config but no routes, so reconcile the union of
   // both id sets.
-  const projectIds = new Set<string>([
-    ...byProject.keys(),
-    ...(projectCustomConfig?.keys() ?? []),
-  ]);
+  const projectIds = new Set<string>([...byProject.keys(), ...(projectCustomConfig?.keys() ?? [])]);
 
   for (const projectId of projectIds) {
     const projectRoutes = byProject.get(projectId) ?? [];
     const customConfig = projectCustomConfig?.get(projectId);
-    log.info({ caddy: { step: "reconcile", status: "validating", projectId, routeCount: projectRoutes.length } });
+    log.info({
+      caddy: {
+        step: "reconcile",
+        status: "validating",
+        projectId,
+        routeCount: projectRoutes.length,
+      },
+    });
 
-    const fragment = buildProjectFragment(projectRoutes, { acmeEmail, authzUpstream, edgeLogSink, crowdsec, customConfig });
+    const fragment = buildProjectFragment(projectRoutes, {
+      acmeEmail,
+      authzUpstream,
+      edgeLogSink,
+      crowdsec,
+      customConfig,
+    });
     if (!fragment.trim()) {
       log.info({ caddy: { step: "reconcile", status: "empty", projectId } });
       applied.push(projectId);
@@ -88,14 +111,25 @@ export async function reconcileRoutes(options: ReconcileOptions): Promise<Reconc
       log.info({ caddy: { step: "reconcile", status: "validated", projectId } });
     } else {
       skipped.push({ projectId, error: result.error });
-      log.warn({ caddy: { step: "reconcile", status: "validation-failed", projectId, detail: result.error } });
+      log.warn({
+        caddy: { step: "reconcile", status: "validation-failed", projectId, detail: result.error },
+      });
     }
   }
 
-  const caddyfile = buildCaddyfile(validRoutes, adminBind, { acmeEmail, authzUpstream, edgeLogSink, crowdsec, httpsAutoRedirect, customBlocks: validCustomBlocks });
+  const caddyfile = buildCaddyfile(validRoutes, adminBind, {
+    acmeEmail,
+    authzUpstream,
+    edgeLogSink,
+    crowdsec,
+    httpsAutoRedirect,
+    customBlocks: validCustomBlocks,
+  });
   const revision = createHash("sha256").update(caddyfile).digest("hex").slice(0, 12);
 
-  log.info({ caddy: { step: "reconcile", status: "loading", revision, validRouteCount: validRoutes.length } });
+  log.info({
+    caddy: { step: "reconcile", status: "loading", revision, validRouteCount: validRoutes.length },
+  });
 
   const loadResult = await load(caddyfile);
 
@@ -109,7 +143,14 @@ export async function reconcileRoutes(options: ReconcileOptions): Promise<Reconc
     };
   }
 
-  log.info({ caddy: { step: "reconcile", status: "loaded", appliedCount: applied.length, skippedCount: skipped.length } });
+  log.info({
+    caddy: {
+      step: "reconcile",
+      status: "loaded",
+      appliedCount: applied.length,
+      skippedCount: skipped.length,
+    },
+  });
 
   return { applied, skipped, revision };
 }

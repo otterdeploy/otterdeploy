@@ -47,9 +47,7 @@ export async function applyPackageManager(
   } catch {
     const explicit = override?.trim();
     if (explicit) {
-      sink.system(
-        `packageManager override "${explicit}" skipped — no root package.json`,
-      );
+      sink.system(`packageManager override "${explicit}" skipped — no root package.json`);
     }
     return;
   }
@@ -95,9 +93,7 @@ function resolvePackageManager(
  *  Ignores any `+build` / `-prerelease` suffix — enough for the bun floor. */
 function compareVersions(a: string, b: string): number {
   const parts = (v: string) =>
-    (v.split(/[+-]/)[0] ?? v)
-      .split(".")
-      .map((n) => Number.parseInt(n, 10) || 0);
+    (v.split(/[+-]/)[0] ?? v).split(".").map((n) => Number.parseInt(n, 10) || 0);
   const av = parts(a);
   const bv = parts(b);
   for (let i = 0; i < Math.max(av.length, bv.length); i++) {

@@ -2,13 +2,9 @@ import type { RequestLogger } from "evlog";
 
 import { asStepLogger } from "../lib/logger";
 
-export type AdaptResult =
-  | { ok: true; json: unknown }
-  | { ok: false; error: string };
+export type AdaptResult = { ok: true; json: unknown } | { ok: false; error: string };
 
-export type LoadResult =
-  | { ok: true }
-  | { ok: false; error: string };
+export type LoadResult = { ok: true } | { ok: false; error: string };
 
 const CADDY_ADMIN_TIMEOUT_MS = 5_000;
 

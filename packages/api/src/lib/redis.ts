@@ -9,9 +9,8 @@
  * than the event-emitter pattern node-redis / ioredis use.
  */
 
-import { RedisClient } from "bun";
-
 import { env } from "@otterdeploy/env/server";
+import { RedisClient } from "bun";
 
 /**
  * Open a fresh Bun Redis client. Callers own the lifecycle — call

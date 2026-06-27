@@ -10,12 +10,11 @@
  * separate bootstrap wiring.
  */
 
-import { lt } from "drizzle-orm";
-import { Result } from "better-result";
-import { log } from "evlog";
-
 import { db } from "@otterdeploy/db";
 import { edgeEvent } from "@otterdeploy/db/schema/edge-event";
+import { Result } from "better-result";
+import { lt } from "drizzle-orm";
+import { log } from "evlog";
 
 import type { EdgeEventLine } from "./types";
 
@@ -30,9 +29,11 @@ interface EventPersistState {
   flushTimer: ReturnType<typeof setInterval> | null;
   sweepTimer: ReturnType<typeof setInterval> | null;
 }
-const state: EventPersistState = ((globalThis as typeof globalThis & {
-  __edgeEventPersist?: EventPersistState;
-}).__edgeEventPersist ??= {
+const state: EventPersistState = ((
+  globalThis as typeof globalThis & {
+    __edgeEventPersist?: EventPersistState;
+  }
+).__edgeEventPersist ??= {
   buffer: [],
   enabled: false,
   flushTimer: null,

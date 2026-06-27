@@ -12,8 +12,7 @@
    ───────────────────────────────────────────────────────────────────────── */
 @theme {
   --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
-  --font-mono:
-    "Geist Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-mono: "Geist Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
   --font-heading: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
 }
 
@@ -235,10 +234,7 @@ html > body[data-scroll-locked] {
 #nd-sidebar a[data-active="true"] svg {
   color: var(--color-fd-foreground);
 }
-#nd-sidebar
-  [data-radix-scroll-area-viewport]
-  > div
-  > a[data-active="false"]:hover,
+#nd-sidebar [data-radix-scroll-area-viewport] > div > a[data-active="false"]:hover,
 #nd-sidebar [data-radix-scroll-area-viewport] > div > button:hover {
   background-color: color-mix(in oklab, var(--color-fd-foreground) 4%, transparent);
 }
@@ -285,21 +281,9 @@ html > body[data-scroll-locked] {
   position: absolute;
   inset: 0;
   z-index: -1;
-  background-image: radial-gradient(
-    circle,
-    var(--color-fd-border) 1px,
-    transparent 1px
-  );
+  background-image: radial-gradient(circle, var(--color-fd-border) 1px, transparent 1px);
   background-size: 16px 16px;
   opacity: 0.7;
-  -webkit-mask-image: radial-gradient(
-    ellipse 60% 65% at 100% 0%,
-    #000,
-    transparent 72%
-  );
-  mask-image: radial-gradient(
-    ellipse 60% 65% at 100% 0%,
-    #000,
-    transparent 72%
-  );
+  -webkit-mask-image: radial-gradient(ellipse 60% 65% at 100% 0%, #000, transparent 72%);
+  mask-image: radial-gradient(ellipse 60% 65% at 100% 0%, #000, transparent 72%);
 }

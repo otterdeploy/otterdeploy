@@ -55,23 +55,17 @@ export function ConnectCliDialog({
               className="mt-1 flex w-full items-center justify-between gap-2 rounded-md bg-muted/40 px-3 py-2 text-left font-mono text-[12.5px] ring-1 ring-foreground/10 hover:bg-muted"
             >
               <span className="truncate">{cmd}</span>
-              <span className="shrink-0 text-[11px] text-muted-foreground">
-                copy
-              </span>
+              <span className="shrink-0 text-[11px] text-muted-foreground">copy</span>
             </button>
           </li>
           <li className="text-muted-foreground">
-            It opens a verification page and shows a code — approve it there to
-            finish. You can open that page now:
+            It opens a verification page and shows a code — approve it there to finish. You can open
+            that page now:
           </li>
         </ol>
 
         <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-          >
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Close
           </Button>
           <Button

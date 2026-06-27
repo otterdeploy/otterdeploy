@@ -1,22 +1,14 @@
-import { createHash } from "node:crypto";
-
-import { eq } from "drizzle-orm";
-
-import { db } from "@otterdeploy/db";
-import {
-  PLATFORM_SETTINGS_ID,
-  platformSettings,
-} from "@otterdeploy/db/schema/platform";
-import { env } from "@otterdeploy/env/server";
 import type { ProjectId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
+import { db } from "@otterdeploy/db";
+import { PLATFORM_SETTINGS_ID, platformSettings } from "@otterdeploy/db/schema/platform";
+import { env } from "@otterdeploy/env/server";
+import { eq } from "drizzle-orm";
+import { createHash } from "node:crypto";
+
 import { asStepLogger } from "../lib/logger";
-import {
-  buildProjectFragment,
-  type CrowdsecConfig,
-  type ProxyRouteInput,
-} from "./builder";
+import { buildProjectFragment, type CrowdsecConfig, type ProxyRouteInput } from "./builder";
 import { adaptCaddyfile, loadCaddyfile } from "./client";
 import {
   getProjectCustomConfig,
@@ -118,9 +110,7 @@ export interface ProjectCaddyfile {
  *  display in the dashboard. Only enabled routes are rendered, mirroring
  *  the reconciler (disabled routes never reach Caddy). `revision` is the
  *  same short SHA the reconciler stamps, so the UI can detect drift. */
-export async function renderProjectCaddyfile(
-  projectId: ProjectId,
-): Promise<ProjectCaddyfile> {
+export async function renderProjectCaddyfile(projectId: ProjectId): Promise<ProjectCaddyfile> {
   const records = await listProxyRoutesByProject(projectId);
   const routes = records.filter((r) => r.enabled).map(toRouteInput);
   const [options, customConfig] = await Promise.all([
@@ -169,7 +159,12 @@ export async function saveProjectCustomConfig(
   if (fragment.trim().length > 0) {
     const adapted = await adaptCaddyfile(fragment, env.CADDY_ADMIN_URL, rlog);
     if (!adapted.ok) {
-      return { caddyfile: fragment, revision: shortRevision(fragment), applied: false, error: adapted.error };
+      return {
+        caddyfile: fragment,
+        revision: shortRevision(fragment),
+        applied: false,
+        error: adapted.error,
+      };
     }
   }
 

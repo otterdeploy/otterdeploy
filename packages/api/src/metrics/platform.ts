@@ -1,3 +1,8 @@
+import type { OrganizationId } from "@otterdeploy/shared/id";
+
+import { db } from "@otterdeploy/db";
+import { deployment, platformMetric, project, resource } from "@otterdeploy/db/schema";
+import { getAllQueues } from "@otterdeploy/jobs";
 /**
  * Install-wide platform metrics: BullMQ queue depth (sampled onto the
  * `platform_metric` time series) + deploy throughput derived from the
@@ -8,16 +13,6 @@
  * need an evlog rollup drain — a separate effort, flagged not faked.
  */
 import { and, asc, eq, gte, sql } from "drizzle-orm";
-
-import { db } from "@otterdeploy/db";
-import {
-  deployment,
-  platformMetric,
-  project,
-  resource,
-} from "@otterdeploy/db/schema";
-import { getAllQueues } from "@otterdeploy/jobs";
-import type { OrganizationId } from "@otterdeploy/shared/id";
 
 export interface QueueSnapshot {
   queue: string;
@@ -32,13 +27,7 @@ export interface QueueSnapshot {
 export async function currentQueueSnapshot(): Promise<QueueSnapshot[]> {
   const snaps = await Promise.all(
     getAllQueues().map(async (q) => {
-      const c = await q.getJobCounts(
-        "waiting",
-        "active",
-        "failed",
-        "delayed",
-        "completed",
-      );
+      const c = await q.getJobCounts("waiting", "active", "failed", "delayed", "completed");
       return {
         queue: q.name,
         waiting: c.waiting ?? 0,
@@ -60,8 +49,7 @@ export async function currentQueueSnapshot(): Promise<QueueSnapshot[]> {
 export async function samplePlatformMetrics(): Promise<void> {
   try {
     const snaps = await currentQueueSnapshot();
-    const sum = (k: keyof QueueSnapshot) =>
-      snaps.reduce((s, q) => s + (q[k] as number), 0);
+    const sum = (k: keyof QueueSnapshot) => snaps.reduce((s, q) => s + (q[k] as number), 0);
     await db.insert(platformMetric).values([
       { metric: "queue.waiting", value: sum("waiting") },
       { metric: "queue.active", value: sum("active") },
@@ -110,12 +98,7 @@ export async function queryDeployThroughput(
     .from(deployment)
     .innerJoin(resource, eq(resource.id, deployment.resourceId))
     .innerJoin(project, eq(project.id, resource.projectId))
-    .where(
-      and(
-        eq(project.organizationId, organizationId),
-        gte(deployment.createdAt, since),
-      ),
-    )
+    .where(and(eq(project.organizationId, organizationId), gte(deployment.createdAt, since)))
     .groupBy(deployment.status);
 
   let succeeded = 0;
@@ -124,8 +107,7 @@ export async function queryDeployThroughput(
   for (const r of rows) {
     if (r.status === "running") succeeded += r.count;
     else if (r.status === "failed") failed += r.count;
-    else if (r.status === "building" || r.status === "pending")
-      inProgress += r.count;
+    else if (r.status === "building" || r.status === "pending") inProgress += r.count;
   }
   const settled = succeeded + failed;
   return {

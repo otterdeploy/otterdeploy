@@ -3,17 +3,13 @@ import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import * as z from "zod";
 
-import { authClient } from "@/lib/auth";
 import Loader from "@/components/loader";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { authClient } from "@/lib/auth";
 
-export default function SignInForm({
-  onSwitchToSignUp,
-}: {
-  onSwitchToSignUp: () => void;
-}) {
+export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () => void }) {
   const navigate = useNavigate({
     from: "/",
   });
@@ -80,9 +76,7 @@ export default function SignInForm({
                 onChange={(e) => field.handleChange(e.target.value)}
               />
               {field.state.meta.errors[0]?.message ? (
-                <FieldError match>
-                  {field.state.meta.errors[0].message}
-                </FieldError>
+                <FieldError match>{field.state.meta.errors[0].message}</FieldError>
               ) : null}
             </Field>
           )}
@@ -101,9 +95,7 @@ export default function SignInForm({
                 onChange={(e) => field.handleChange(e.target.value)}
               />
               {field.state.meta.errors[0]?.message ? (
-                <FieldError match>
-                  {field.state.meta.errors[0].message}
-                </FieldError>
+                <FieldError match>{field.state.meta.errors[0].message}</FieldError>
               ) : null}
             </Field>
           )}

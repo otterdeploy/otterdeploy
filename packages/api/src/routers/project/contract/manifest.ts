@@ -16,8 +16,8 @@ import { oc } from "@orpc/contract";
 import * as z from "zod";
 
 import { manifestSchema } from "../../../stack/manifest";
-import { basePath, projectNotFoundErrors, tag } from "./shared";
 import { getProjectInput } from "./project";
+import { basePath, projectNotFoundErrors, tag } from "./shared";
 
 export const manifestGetOutput = z.object({
   manifest: manifestSchema.nullable(),

@@ -1,5 +1,5 @@
-import { HugeiconsIcon } from "@hugeicons/react";
 import { PlusSignIcon, Search01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
@@ -25,9 +25,7 @@ export function HeaderBar({
     <>
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <span className="text-[14px] font-semibold">
-            {serviceCount} Service Variables
-          </span>
+          <span className="text-[14px] font-semibold">{serviceCount} Service Variables</span>
           <button
             type="button"
             onClick={onToggleSearch}

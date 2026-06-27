@@ -50,7 +50,15 @@ const ALL_SCOPES: { id: Scope; group: string; label: string }[] = [
   { id: "read:metrics", group: "Cluster", label: "read:metrics" },
 ];
 
-const SCOPE_GROUPS = ["Projects", "Services", "Databases", "Networking", "Servers", "Backups", "Cluster"];
+const SCOPE_GROUPS = [
+  "Projects",
+  "Services",
+  "Databases",
+  "Networking",
+  "Servers",
+  "Backups",
+  "Cluster",
+];
 
 const seed = (n: number, max = 100) =>
   Array.from({ length: 24 }, (_, i) => Math.round(((Math.sin(n + i * 0.7) + 1) / 2) * max));
@@ -167,7 +175,9 @@ export function ApiTokens() {
     const fresh = `osk_live_${Math.random().toString(36).slice(2, 10)}_${Math.random().toString(36).slice(2, 18)}`;
     setTokens((ts) =>
       ts.map((x) =>
-        x.id === id ? { ...x, prefix: fresh.slice(0, 18), createdRel: "just now", createdAbs: "now" } : x,
+        x.id === id
+          ? { ...x, prefix: fresh.slice(0, 18), createdRel: "just now", createdAbs: "now" }
+          : x,
       ),
     );
     setCreated({ token: { ...t, prefix: fresh.slice(0, 18) }, secret: fresh });
@@ -282,7 +292,10 @@ export function ApiTokens() {
                   {t.name}
                 </span>
                 <Sparkline series={t.series} dimmed={t.status !== "active"} />
-                <span className="mono muted" style={{ width: 60, textAlign: "right", fontSize: 11 }}>
+                <span
+                  className="mono muted"
+                  style={{ width: 60, textAlign: "right", fontSize: 11 }}
+                >
                   {t.series.reduce((a, b) => a + b, 0)}
                 </span>
               </div>
@@ -292,7 +305,13 @@ export function ApiTokens() {
       </div>
 
       {createOpen && <CreateTokenModal onClose={() => setCreateOpen(false)} onCreate={onCreate} />}
-      {created && <CreatedModal token={created.token} secret={created.secret} onClose={() => setCreated(null)} />}
+      {created && (
+        <CreatedModal
+          token={created.token}
+          secret={created.secret}
+          onClose={() => setCreated(null)}
+        />
+      )}
     </div>
   );
 }
@@ -500,11 +519,7 @@ function Sparkline({ series, dimmed }: { series: number[]; dimmed?: boolean }) {
   return (
     <svg width={w} height={h} style={{ flex: 1, opacity: dimmed ? 0.3 : 1 }}>
       <path d={path} fill="none" stroke="var(--fg-2)" strokeWidth={1} />
-      <path
-        d={`${path} L ${w} ${h} L 0 ${h} Z`}
-        fill="var(--fg)"
-        opacity={0.06}
-      />
+      <path d={`${path} L ${w} ${h} L 0 ${h} Z`} fill="var(--fg)" opacity={0.06} />
     </svg>
   );
 }
@@ -552,7 +567,7 @@ function CreateTokenModal({
       }}
     >
       <div onClick={(e) => e.stopPropagation()} className="os-modal" style={{ width: 560 }}>
-        <div className="row gap-2 os-modal-h">
+        <div className="row os-modal-h gap-2">
           <I.key width={14} height={14} />
           <span style={{ fontWeight: 600 }}>Create API token</span>
           <div style={{ flex: 1 }} />
@@ -663,7 +678,15 @@ function CreateTokenModal({
   );
 }
 
-function CreatedModal({ token, secret, onClose }: { token: Token; secret: string; onClose: () => void }) {
+function CreatedModal({
+  token,
+  secret,
+  onClose,
+}: {
+  token: Token;
+  secret: string;
+  onClose: () => void;
+}) {
   const [copied, setCopied] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
 
@@ -676,7 +699,8 @@ function CreatedModal({ token, secret, onClose }: { token: Token; secret: string
   }, [onClose, confirmed]);
 
   const copy = () => {
-    if (typeof navigator !== "undefined" && navigator.clipboard) navigator.clipboard.writeText(secret);
+    if (typeof navigator !== "undefined" && navigator.clipboard)
+      navigator.clipboard.writeText(secret);
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
   };
@@ -694,7 +718,7 @@ function CreatedModal({ token, secret, onClose }: { token: Token; secret: string
       }}
     >
       <div className="os-modal" style={{ width: 620 }}>
-        <div className="row gap-2 os-modal-h">
+        <div className="row os-modal-h gap-2">
           <I.check width={14} height={14} style={{ color: "var(--ok, #4ade80)" }} />
           <span style={{ fontWeight: 600 }}>Token created — {token.name}</span>
         </div>

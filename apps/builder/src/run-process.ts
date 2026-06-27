@@ -86,10 +86,7 @@ export async function runProcess(opts: {
   });
 }
 
-function pipeLines(
-  stream: NodeJS.ReadableStream,
-  onLine: (line: string) => void,
-) {
+function pipeLines(stream: NodeJS.ReadableStream, onLine: (line: string) => void) {
   let carry = "";
   stream.setEncoding("utf8");
   stream.on("data", (chunk: string) => {
@@ -107,9 +104,7 @@ function pipeLines(
 }
 
 function maskCommand(cmd: string, args: string[], secrets?: string[]): string {
-  const joined = [cmd, ...args]
-    .map((a) => (a.includes(" ") ? `"${a}"` : a))
-    .join(" ");
+  const joined = [cmd, ...args].map((a) => (a.includes(" ") ? `"${a}"` : a)).join(" ");
   return maskSecrets(joined, secrets);
 }
 

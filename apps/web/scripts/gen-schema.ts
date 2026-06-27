@@ -4,9 +4,8 @@
 // (VS Code, JetBrains, …) can resolve it via the `$schema` field
 // embedded in user-authored otterdeploy.config.json files.
 
-import { resolve } from "node:path";
-
 import { manifestSchema } from "@otterdeploy/api/manifest";
+import { resolve } from "node:path";
 import * as z from "zod";
 
 const json = z.toJSONSchema(manifestSchema, {
@@ -49,5 +48,3 @@ json.description =
 
 const out = resolve(import.meta.dirname, "../public/otterdeploy.schema.json");
 await Bun.write(out, `${JSON.stringify(json, null, 2)}\n`);
-
-

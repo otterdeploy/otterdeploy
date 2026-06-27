@@ -11,8 +11,8 @@ import type { OrganizationId, ProjectId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { project } from "@otterdeploy/db/schema/project";
-import { and, eq } from "drizzle-orm";
 import { Result } from "better-result";
+import { and, eq } from "drizzle-orm";
 
 import {
   applyEngineDefaults,
@@ -20,7 +20,6 @@ import {
   toComposeYaml,
   unifiedDiff,
 } from "../../stack";
-
 import { ProjectNotFoundError } from "./errors";
 import { getProjectInOrg } from "./queries";
 
@@ -53,9 +52,7 @@ export async function diffProjectStack(input: {
     return Result.err(new ProjectNotFoundError({ projectId: input.projectId }));
   }
 
-  const rendered = applyEngineDefaults(
-    await renderProjectFromRows(input.projectId),
-  );
+  const rendered = applyEngineDefaults(await renderProjectFromRows(input.projectId));
   const renderedYaml = toComposeYaml(rendered);
   const savedYaml = await loadSavedFile(input.projectId);
   const diff = unifiedDiff(savedYaml ?? "", renderedYaml);

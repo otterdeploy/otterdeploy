@@ -5,6 +5,7 @@
  */
 
 import { useState } from "react";
+
 import {
   ArrowDown01Icon,
   ArrowUp01Icon,
@@ -83,11 +84,21 @@ export function CaddyfileToolbar({
           />
           {query ? (
             <>
-              <span className="shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground">
+              <span className="shrink-0 font-mono text-[10px] text-muted-foreground tabular-nums">
                 {total === 0 ? "0/0" : `${active + 1}/${total}`}
               </span>
-              <NavButton label="Previous match" icon={ArrowUp01Icon} disabled={total === 0} onClick={() => onStep(-1)} />
-              <NavButton label="Next match" icon={ArrowDown01Icon} disabled={total === 0} onClick={() => onStep(1)} />
+              <NavButton
+                label="Previous match"
+                icon={ArrowUp01Icon}
+                disabled={total === 0}
+                onClick={() => onStep(-1)}
+              />
+              <NavButton
+                label="Next match"
+                icon={ArrowDown01Icon}
+                disabled={total === 0}
+                onClick={() => onStep(1)}
+              />
               <NavButton
                 label="Clear search"
                 icon={Cancel01Icon}
@@ -100,7 +111,13 @@ export function CaddyfileToolbar({
           ) : null}
         </div>
 
-        <Button variant="outline" size="sm" className="h-7 gap-1.5" onClick={copy} disabled={disabled}>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 gap-1.5"
+          onClick={copy}
+          disabled={disabled}
+        >
           <HugeiconsIcon
             icon={copied ? Tick02Icon : Copy01Icon}
             strokeWidth={2}

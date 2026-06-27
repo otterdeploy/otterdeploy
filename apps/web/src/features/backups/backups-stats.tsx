@@ -2,6 +2,7 @@
 import { cn } from "@/shared/lib/utils";
 
 import type { Backup } from "./data/backups";
+
 import { fmtBytes } from "./shared";
 
 export function BackupsStats({
@@ -19,16 +20,8 @@ export function BackupsStats({
 }) {
   return (
     <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <Stat
-        label="Total backups"
-        value={String(total)}
-        sub={`${matchCount} match filters`}
-      />
-      <Stat
-        label="Stored size"
-        value={fmtBytes(storedBytes)}
-        sub="across all destinations"
-      />
+      <Stat label="Total backups" value={String(total)} sub={`${matchCount} match filters`} />
+      <Stat label="Stored size" value={fmtBytes(storedBytes)} sub="across all destinations" />
       <Stat
         label="Last successful"
         value={lastSuccess ? "✓" : "—"}
@@ -57,7 +50,7 @@ function Stat({
 }) {
   return (
     <div className="flex flex-col gap-1 rounded-md border bg-card p-3.5">
-      <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+      <div className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
         {label}
       </div>
       <div

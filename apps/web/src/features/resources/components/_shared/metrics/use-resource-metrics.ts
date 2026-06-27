@@ -12,6 +12,7 @@
  */
 
 import { useMemo } from "react";
+
 import { useQuery } from "@tanstack/react-query";
 
 import { orpc } from "@/shared/server/orpc";
@@ -76,10 +77,7 @@ const EMPTY_SUMMARY: MetricSummary = {
   sampleCount: 0,
 };
 
-export function useResourceMetrics(
-  resourceId: string,
-  windowMinutes: number,
-): ResourceMetrics {
+export function useResourceMetrics(resourceId: string, windowMinutes: number): ResourceMetrics {
   const query = useQuery({
     ...orpc.metrics.query.queryOptions({
       input: { resourceId: resourceId as never, windowMinutes },
@@ -100,8 +98,7 @@ export function useResourceMetrics(
 
     const rows: MetricRow[] = points.map((p, i) => {
       const ts = new Date(p.ts).getTime();
-      const memPct =
-        p.memLimitBytes > 0 ? (p.memBytes / p.memLimitBytes) * 100 : 0;
+      const memPct = p.memLimitBytes > 0 ? (p.memBytes / p.memLimitBytes) * 100 : 0;
 
       let netRxRate: number | null = null;
       let netTxRate: number | null = null;

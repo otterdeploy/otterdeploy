@@ -4,13 +4,9 @@ import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
 import { NodeSDK } from "@opentelemetry/sdk-node";
-import {
-  ATTR_SERVICE_NAME,
-  ATTR_SERVICE_VERSION,
-} from "@opentelemetry/semantic-conventions";
+import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from "@opentelemetry/semantic-conventions";
 import { Result } from "better-result";
 import { log } from "evlog";
-
 import { env as nodeEnv } from "process";
 
 // Service configuration from environment variables
@@ -20,8 +16,7 @@ const environment = nodeEnv.NODE_ENV || "development";
 
 // OTLP endpoint configuration
 // Default to localhost:4318 for local development with Jaeger or OTEL Collector
-const otlpEndpoint =
-  nodeEnv.OTEL_EXPORTER_OTLP_ENDPOINT || "http://localhost:4318";
+const otlpEndpoint = nodeEnv.OTEL_EXPORTER_OTLP_ENDPOINT || "http://localhost:4318";
 
 // Create resource with service information
 const resource = resourceFromAttributes({

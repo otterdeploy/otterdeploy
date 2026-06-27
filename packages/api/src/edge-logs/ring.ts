@@ -36,9 +36,11 @@ type Subscriber = (line: EdgeLogLine) => void;
 // re-imported query/persist modules all share ONE buffer + subscriber set
 // across `--hot` reloads. Module-local state would diverge — the sink would
 // push into a stale buffer the query never reads, silently breaking ingest.
-const state = ((globalThis as typeof globalThis & {
-  __edgeLogRing?: { buffer: EdgeLogLine[]; subscribers: Set<Subscriber> };
-}).__edgeLogRing ??= { buffer: [], subscribers: new Set<Subscriber>() });
+const state = ((
+  globalThis as typeof globalThis & {
+    __edgeLogRing?: { buffer: EdgeLogLine[]; subscribers: Set<Subscriber> };
+  }
+).__edgeLogRing ??= { buffer: [], subscribers: new Set<Subscriber>() });
 
 export function pushEdgeLog(line: EdgeLogLine): void {
   state.buffer.push(line);
@@ -67,8 +69,7 @@ function matches(line: EdgeLogLine, f: EdgeLogFilter, sinceMs: number): boolean 
   if (f.statuses?.length && !f.statuses.includes(bucketOf(line.status))) return false;
   if (f.search) {
     const q = f.search.toLowerCase();
-    const hay =
-      `${line.path} ${line.clientIp} ${line.status} ${line.method}`.toLowerCase();
+    const hay = `${line.path} ${line.clientIp} ${line.status} ${line.method}`.toLowerCase();
     if (!hay.includes(q)) return false;
   }
   return true;

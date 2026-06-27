@@ -1,7 +1,6 @@
-import { writeFileSync } from "node:fs";
-
 import { defineCommand } from "citty";
 import { consola } from "consola";
+import { writeFileSync } from "node:fs";
 
 import { ensureAuthenticated } from "../auth-flow";
 import { createCliClient } from "../client";
@@ -22,7 +21,8 @@ export const exportCommand = defineCommand({
     const { url, token } = await ensureAuthenticated(args.url);
     const client = createCliClient({ url, token });
 
-    const slug = args.slug ?? (configExists(args.config) ? (await loadConfig(args.config)).project : null);
+    const slug =
+      args.slug ?? (configExists(args.config) ? (await loadConfig(args.config)).project : null);
     if (!slug) {
       consola.error("No --slug provided and no local config to read it from.");
       process.exit(1);

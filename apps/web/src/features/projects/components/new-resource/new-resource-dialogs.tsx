@@ -32,8 +32,8 @@ export function ResourceOverlayDialog({
         <DialogHeader className="border-b px-5 pt-4 pb-3">
           <DialogTitle>Deploy a new service</DialogTitle>
           <DialogDescription>
-            Pick what you want to launch. Otterdeploy can build app code, pull
-            images, import compose stacks, or provision a database
+            Pick what you want to launch. Otterdeploy can build app code, pull images, import
+            compose stacks, or provision a database
             {projectName ? (
               <>
                 {" "}

@@ -21,34 +21,28 @@
  */
 
 import type { DeploymentId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
-
-import { rm } from "node:fs/promises";
+import type { OrganizationId } from "@otterdeploy/shared/id";
+import type { RedisClient } from "bun";
 
 import { getInstallationToken } from "@otterdeploy/api/git/github-app";
 import { decryptSecret } from "@otterdeploy/api/lib/crypto";
 import { emitPlatformEvent } from "@otterdeploy/api/notifications/emit";
-
 import { redeployOne } from "@otterdeploy/api/routers/service/redeploy";
 import { db } from "@otterdeploy/db";
-import {
-  deployment,
-  project,
-  resource,
-  serviceResource,
-} from "@otterdeploy/db/schema";
-import type { OrganizationId } from "@otterdeploy/shared/id";
+import { deployment, project, resource, serviceResource } from "@otterdeploy/db/schema";
 import { Result } from "better-result";
-import type { RedisClient } from "bun";
 import { eq } from "drizzle-orm";
 import { log as globalLog } from "evlog";
+import { rm } from "node:fs/promises";
 
-import { cloneRepoAtSha } from "./clone";
 import { pruneStaleBuildCache, pruneStaleBuilds } from "./build-workdir";
 import { ensureBuildxBuilder, cachePathFor } from "./buildx";
+import { cloneRepoAtSha } from "./clone";
 import { isComposeDeployment, runComposeBuild } from "./compose-build";
 import { runDeployHooks } from "./deploy-hook";
 import { detectServiceFramework } from "./detect-framework";
 import { dockerPush } from "./docker-push";
+import { dockerfileBuild, resolveDockerfileBuild } from "./dockerfile";
 import {
   BuildStepError,
   DeployHookError,
@@ -56,7 +50,6 @@ import {
   SwarmConvergenceError,
   SwarmUpdateError,
 } from "./errors";
-import { dockerfileBuild, resolveDockerfileBuild } from "./dockerfile";
 import { loadPipelineContext, PipelineLoadError } from "./load";
 import { createLogSink, type LogSink } from "./log-stream";
 import { railpackBuild } from "./railpack";
@@ -82,10 +75,7 @@ interface WorkDirRef {
 
 /** Run a throwing infra step (clone, railpack, docker, DB) as a Result,
  *  tagging any throw with the step label instead of letting it propagate. */
-function step<T>(
-  label: string,
-  fn: () => Promise<T>,
-): Promise<Result<T, BuildStepError>> {
+function step<T>(label: string, fn: () => Promise<T>): Promise<Result<T, BuildStepError>> {
   return Result.tryPromise({
     try: fn,
     catch: (cause) => new BuildStepError({ step: label, cause }),
@@ -144,30 +134,23 @@ function runBuildSteps(
     // Compose stacks build N services from one repo — a separate path that
     // reuses the same builders per build-context. Image-only stacks never
     // enqueue a build, so reaching here means there's at least one `build:`.
-    const isCompose = yield* (
-      await Result.tryPromise({
-        try: () => isComposeDeployment(opts.deploymentId),
-        catch: (cause): BuildPipelineError =>
-          new BuildStepError({ step: "dispatch", cause }),
-      })
-    );
+    const isCompose = yield* await Result.tryPromise({
+      try: () => isComposeDeployment(opts.deploymentId),
+      catch: (cause): BuildPipelineError => new BuildStepError({ step: "dispatch", cause }),
+    });
     if (isCompose) {
       return await runComposeBuild(opts, sink, work);
     }
 
     // loadPipelineContext throws PipelineLoadError (already tagged) on a bad
     // row; keep that tag and wrap anything else as a generic load failure.
-    const ctx = yield* (
-      await Result.tryPromise({
-        try: () => loadPipelineContext(opts.deploymentId),
-        catch: (cause): BuildPipelineError =>
-          cause instanceof PipelineLoadError
-            ? cause
-            : new BuildStepError({ step: "load", cause }),
-      })
-    );
+    const ctx = yield* await Result.tryPromise({
+      try: () => loadPipelineContext(opts.deploymentId),
+      catch: (cause): BuildPipelineError =>
+        cause instanceof PipelineLoadError ? cause : new BuildStepError({ step: "load", cause }),
+    });
 
-    yield* (await step("mark-building", () => markBuilding(opts.deploymentId)));
+    yield* await step("mark-building", () => markBuilding(opts.deploymentId));
     sink.system(
       `build start: project=${ctx.project.slug} resource=${ctx.resource.name} sha=${ctx.deployment.gitSha ?? "unknown"}`,
     );
@@ -184,8 +167,7 @@ function runBuildSteps(
     // would otherwise read as a public bind. A still-private repo with no
     // installation is exactly that case → treat it as github_app so the clone
     // failure surfaces "reconnect GitHub" rather than a generic git error.
-    const bindingKind =
-      installationId || ctx.repo.isPrivate ? "github_app" : "public_url";
+    const bindingKind = installationId || ctx.repo.isPrivate ? "github_app" : "public_url";
     const imageRepository = ctx.imageRepository;
     let installationToken = "";
     if (installationId) {
@@ -211,19 +193,17 @@ function runBuildSteps(
       installationToken = minted.token;
     }
 
-    const cloned = yield* (
-      await step("clone", () =>
-        cloneRepoAtSha({
-          cloneUrl: ctx.repo.cloneUrl,
-          ref: gitRef,
-          sha: gitSha,
-          projectId: ctx.project.id as ProjectId,
-          deploymentId: opts.deploymentId,
-          installationToken,
-          bindingKind,
-          sink,
-        }),
-      )
+    const cloned = yield* await step("clone", () =>
+      cloneRepoAtSha({
+        cloneUrl: ctx.repo.cloneUrl,
+        ref: gitRef,
+        sha: gitSha,
+        projectId: ctx.project.id as ProjectId,
+        deploymentId: opts.deploymentId,
+        installationToken,
+        bindingKind,
+        sink,
+      }),
     );
     work.path = cloned.workDir;
     work.persistent = cloned.persistent;
@@ -243,9 +223,7 @@ function runBuildSteps(
     const buildConfig = ctx.service.buildConfig;
     const builder = buildConfig?.builder ?? "auto";
     if (builder === "compose") {
-      sink.system(
-        "compose builds are not yet supported; falling back to railpack",
-      );
+      sink.system("compose builds are not yet supported; falling back to railpack");
     }
 
     // Best-effort persistent layer cache: when a docker-container buildx builder
@@ -257,54 +235,49 @@ function runBuildSteps(
 
     // Resolve inside the build step so any HARD throw (bad/missing Dockerfile
     // path when pinned to dockerfile) becomes a tagged BuildStepError.
-    const image = yield* (
-      await step("build", () => {
-        // `compose` has no dockerfile config; resolve it as railpack so the
-        // fallback above takes effect.
-        const resolveBuilder = builder === "compose" ? "railpack" : builder;
-        const resolution = resolveDockerfileBuild({
-          builder: resolveBuilder,
-          dockerfilePath:
-            buildConfig?.builder === "dockerfile"
-              ? buildConfig.dockerfilePath
-              : null,
-          workDir: cloned.workDir,
-          sourceSubdir: ctx.service.sourceSubdir,
-        });
-        for (const warning of resolution.warnings) sink.system(warning);
+    const image = yield* await step("build", () => {
+      // `compose` has no dockerfile config; resolve it as railpack so the
+      // fallback above takes effect.
+      const resolveBuilder = builder === "compose" ? "railpack" : builder;
+      const resolution = resolveDockerfileBuild({
+        builder: resolveBuilder,
+        dockerfilePath: buildConfig?.builder === "dockerfile" ? buildConfig.dockerfilePath : null,
+        workDir: cloned.workDir,
+        sourceSubdir: ctx.service.sourceSubdir,
+      });
+      for (const warning of resolution.warnings) sink.system(warning);
 
-        if (resolution.kind === "dockerfile") {
-          return dockerfileBuild({
-            workDir: cloned.workDir,
-            sourceSubdir: ctx.service.sourceSubdir,
-            dockerfilePath: resolution.dockerfilePath,
-            contextDir: resolution.contextDir,
-            relativePath: resolution.relativePath,
-            imageRepository,
-            sha: gitSha,
-            // Build-args only apply to the Dockerfile builder; an `auto` build
-            // that resolves to a Dockerfile carries none (none configurable).
-            buildArgs:
-              buildConfig?.builder === "dockerfile"
-                ? (buildConfig.buildArgs ?? undefined)
-                : undefined,
-            builderName: cacheBuilder,
-            cachePath,
-            sink,
-          });
-        }
-        return railpackBuild({
+      if (resolution.kind === "dockerfile") {
+        return dockerfileBuild({
           workDir: cloned.workDir,
           sourceSubdir: ctx.service.sourceSubdir,
+          dockerfilePath: resolution.dockerfilePath,
+          contextDir: resolution.contextDir,
+          relativePath: resolution.relativePath,
           imageRepository,
           sha: gitSha,
-          config: buildConfig?.builder === "railpack" ? buildConfig : null,
+          // Build-args only apply to the Dockerfile builder; an `auto` build
+          // that resolves to a Dockerfile carries none (none configurable).
+          buildArgs:
+            buildConfig?.builder === "dockerfile"
+              ? (buildConfig.buildArgs ?? undefined)
+              : undefined,
           builderName: cacheBuilder,
           cachePath,
           sink,
         });
-      })
-    );
+      }
+      return railpackBuild({
+        workDir: cloned.workDir,
+        sourceSubdir: ctx.service.sourceSubdir,
+        imageRepository,
+        sha: gitSha,
+        config: buildConfig?.builder === "railpack" ? buildConfig : null,
+        builderName: cacheBuilder,
+        cachePath,
+        sink,
+      });
+    });
 
     // Push only when the project binds an external registry (remote or
     // multi-node swarm needs to pull it). The default path keeps the image
@@ -316,30 +289,26 @@ function runBuildSteps(
     const registry = ctx.registry;
     let imageDigest: string | null = null;
     if (registry) {
-      const password = yield* (
-        await step("decrypt-registry", () => decryptSecret(registry.encryptedPassword))
+      const password = yield* await step("decrypt-registry", () =>
+        decryptSecret(registry.encryptedPassword),
       );
-      const pushed = yield* (
-        await step("push", () =>
-          dockerPush({
-            tags: [image.shaTag, image.latestTag],
-            credentials: {
-              host: registry.host,
-              username: registry.username,
-              password,
-            },
-            sink,
-          }),
-        )
+      const pushed = yield* await step("push", () =>
+        dockerPush({
+          tags: [image.shaTag, image.latestTag],
+          credentials: {
+            host: registry.host,
+            username: registry.username,
+            password,
+          },
+          sink,
+        }),
       );
       imageDigest = pushed.digest;
     } else {
       sink.system(`local build — skipping registry push for ${image.shaTag}`);
     }
 
-    yield* (
-      await step("image-ready", () => markImageReady(opts.deploymentId, image.shaTag))
-    );
+    yield* await step("image-ready", () => markImageReady(opts.deploymentId, image.shaTag));
     sink.system(`image-ready: ${image.shaTag} — updating swarm service`);
 
     // Capture the detected framework from the just-analysed work tree (local
@@ -360,13 +329,11 @@ function runBuildSteps(
     // the local path (no registry, no digest) — it always describes THIS build,
     // never a stale prior one. `framework` rides along on the same write — also
     // a property of this build, captured above.
-    yield* (
-      await step("set-image", () =>
-        db
-          .update(serviceResource)
-          .set({ image: image.shaTag, imageDigest, framework })
-          .where(eq(serviceResource.resourceId, ctx.resource.id as ResourceId)),
-      )
+    yield* await step("set-image", () =>
+      db
+        .update(serviceResource)
+        .set({ image: image.shaTag, imageDigest, framework })
+        .where(eq(serviceResource.resourceId, ctx.resource.id as ResourceId)),
     );
 
     // Pre-deploy hooks run off the new image BEFORE the rollout — the slot for
@@ -374,18 +341,16 @@ function runBuildSteps(
     // failed) so the old replicas keep serving and the bad version never rolls.
     const preDeploy = ctx.service.preDeploy ?? [];
     if (preDeploy.length > 0) {
-      yield* (
-        await runDeployHooks({
-          phase: "pre-deploy",
-          commands: preDeploy,
-          image: image.shaTag,
-          projectId: ctx.project.id as ProjectId,
-          resourceId: ctx.resource.id as ResourceId,
-          projectSlug: ctx.project.slug,
-          deploymentId: opts.deploymentId,
-          sink,
-        })
-      );
+      yield* await runDeployHooks({
+        phase: "pre-deploy",
+        commands: preDeploy,
+        image: image.shaTag,
+        projectId: ctx.project.id as ProjectId,
+        resourceId: ctx.resource.id as ResourceId,
+        projectSlug: ctx.project.slug,
+        deploymentId: opts.deploymentId,
+        sink,
+      });
     }
 
     const runtime = yield* (
@@ -395,9 +360,7 @@ function runBuildSteps(
         ctx.project.slug,
       )
     ).mapError((cause) => new SwarmUpdateError(cause));
-    sink.system(
-      `swarm runtime: status=${runtime.status} health=${runtime.health ?? "n/a"}`,
-    );
+    sink.system(`swarm runtime: status=${runtime.status} health=${runtime.health ?? "n/a"}`);
     if (runtime.status !== "running") {
       return Result.err(
         new SwarmConvergenceError({
@@ -407,7 +370,7 @@ function runBuildSteps(
       );
     }
 
-    yield* (await step("mark-running", () => markRunning(opts.deploymentId)));
+    yield* await step("mark-running", () => markRunning(opts.deploymentId));
     sink.system(`deployment running: ${image.shaTag}`);
 
     // Post-deploy hooks run AFTER the new replicas are live + healthy (cache
@@ -427,9 +390,7 @@ function runBuildSteps(
         sink,
       });
       if (hooked.isErr()) {
-        sink.system(
-          `post-deploy hook failed (deployment stays live): ${hooked.error.message}`,
-        );
+        sink.system(`post-deploy hook failed (deployment stays live): ${hooked.error.message}`);
       }
     }
     return Result.ok(image.shaTag);
@@ -474,10 +435,7 @@ async function handleFailure(
  * missing row (e.g. the resource was deleted mid-build) or a notification
  * problem is swallowed by the caller's `.catch`.
  */
-async function emitBuildFailed(
-  deploymentId: DeploymentId,
-  message: string,
-): Promise<void> {
+async function emitBuildFailed(deploymentId: DeploymentId, message: string): Promise<void> {
   const [ctx] = await db
     .select({
       organizationId: project.organizationId,

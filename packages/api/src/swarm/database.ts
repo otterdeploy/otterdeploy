@@ -8,14 +8,11 @@
  */
 
 import { Docker } from "@otterdeploy/docker";
+import { type DatabaseEngine } from "@otterdeploy/shared/database-engines";
 import { log, type RequestLogger } from "evlog";
 
-import {
-  type DatabaseEngine,
-} from "@otterdeploy/shared/database-engines";
-
-import { asStepLogger } from "../lib/logger";
 import { PLATFORM } from "../constants";
+import { asStepLogger } from "../lib/logger";
 import { ensureProjectNetwork } from "./client";
 import { getEngineAdapter } from "./database-engines";
 import { subscribeDockerEvents } from "./events";
@@ -75,10 +72,7 @@ export interface ProvisionSwarmDatabaseInput {
   public?: boolean;
 }
 
-function buildDatabaseSpec(
-  input: ProvisionSwarmDatabaseInput,
-  networkName: string,
-) {
+function buildDatabaseSpec(input: ProvisionSwarmDatabaseInput, networkName: string) {
   const adapter = getEngineAdapter(input.engine);
   const image = input.image ?? adapter.defaultImage;
 
@@ -226,9 +220,7 @@ export async function provisionSwarmDatabase(
   swarmStep({ step: "inspect-existing", status: "missing" });
 
   swarmStep({ step: "service-create", status: "start" });
-  const createResult = await docker.services.create(
-    buildDatabaseSpec(input, networkName),
-  );
+  const createResult = await docker.services.create(buildDatabaseSpec(input, networkName));
   if (createResult.isErr()) {
     swarmStep({
       step: "service-create",
@@ -282,9 +274,7 @@ export async function updateSwarmDatabase(
     serviceId: existing.serviceId,
   });
 
-  const inspectResult = await docker.services
-    .getService(existing.serviceId)
-    .inspect();
+  const inspectResult = await docker.services.getService(existing.serviceId).inspect();
   if (inspectResult.isErr()) {
     swarmStep({
       step: "service-inspect",
@@ -299,17 +289,12 @@ export async function updateSwarmDatabase(
   if (currentVersion === undefined) {
     swarmStep({ step: "service-inspect", status: "error", message: "no Version index" });
     docker.destroy();
-    throw new Error(
-      `Swarm service ${input.serviceName} has no Version index; cannot update`,
-    );
+    throw new Error(`Swarm service ${input.serviceName} has no Version index; cannot update`);
   }
 
   const existingForceUpdate = (() => {
-    const value = (
-      inspectResult.value.Spec?.TaskTemplate as
-        | { ForceUpdate?: number }
-        | undefined
-    )?.ForceUpdate;
+    const value = (inspectResult.value.Spec?.TaskTemplate as { ForceUpdate?: number } | undefined)
+      ?.ForceUpdate;
     return typeof value === "number" ? value : 0;
   })();
   const bumpedInput: ProvisionSwarmDatabaseInput = {
@@ -324,18 +309,16 @@ export async function updateSwarmDatabase(
     forceUpdate: bumpedInput.forceUpdateCounter,
   });
   const newSpec = buildDatabaseSpec(bumpedInput, networkName);
-  const updateResult = await docker.services
-    .getService(existing.serviceId)
-    .update({
-      version: currentVersion,
-      Name: newSpec.Name,
-      Labels: newSpec.Labels,
-      TaskTemplate: newSpec.TaskTemplate,
-      Mode: newSpec.Mode,
-      UpdateConfig: newSpec.UpdateConfig,
-      RollbackConfig: newSpec.RollbackConfig,
-      EndpointSpec: newSpec.EndpointSpec,
-    });
+  const updateResult = await docker.services.getService(existing.serviceId).update({
+    version: currentVersion,
+    Name: newSpec.Name,
+    Labels: newSpec.Labels,
+    TaskTemplate: newSpec.TaskTemplate,
+    Mode: newSpec.Mode,
+    UpdateConfig: newSpec.UpdateConfig,
+    RollbackConfig: newSpec.RollbackConfig,
+    EndpointSpec: newSpec.EndpointSpec,
+  });
 
   if (updateResult.isErr()) {
     swarmStep({
@@ -398,9 +381,7 @@ export async function destroySwarmDatabase(
     throw listResult.error;
   }
 
-  const service = listResult.value.find(
-    (s) => s.Spec?.Name === input.serviceName,
-  );
+  const service = listResult.value.find((s) => s.Spec?.Name === input.serviceName);
   if (!service) {
     docker.destroy();
     return;
@@ -465,9 +446,7 @@ async function inspectSwarmService(
   };
 }
 
-function mapTaskStateToStatus(
-  state: string | undefined,
-): SwarmDatabaseRuntime["status"] {
+function mapTaskStateToStatus(state: string | undefined): SwarmDatabaseRuntime["status"] {
   switch (state) {
     case "running":
       return "running";

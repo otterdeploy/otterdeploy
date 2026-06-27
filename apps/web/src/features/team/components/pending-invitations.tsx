@@ -8,12 +8,11 @@
  */
 
 import { useState } from "react";
+
 import { Cancel01Icon, MailAtSign01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
 
-import { Badge } from "@/shared/components/ui/badge";
-import { Button } from "@/shared/components/ui/button";
 import { CopyLinkButton } from "@/features/team/components/copy-link-button";
 import {
   acceptInviteUrl,
@@ -21,6 +20,8 @@ import {
   useInvitations,
   type PendingInvite,
 } from "@/features/team/data/use-team";
+import { Badge } from "@/shared/components/ui/badge";
+import { Button } from "@/shared/components/ui/button";
 
 export function PendingInvitations({
   organizationId,
@@ -45,13 +46,7 @@ export function PendingInvitations({
   );
 }
 
-function InviteRow({
-  invite,
-  canManage,
-}: {
-  invite: PendingInvite;
-  canManage: boolean;
-}) {
+function InviteRow({ invite, canManage }: { invite: PendingInvite; canManage: boolean }) {
   const [busy, setBusy] = useState(false);
 
   const cancel = () => {
@@ -60,9 +55,7 @@ function InviteRow({
     tx.isPersisted.promise
       .then(() => toast.success(`Invitation to ${invite.email} cancelled`))
       .catch((err: unknown) =>
-        toast.error(
-          err instanceof Error ? err.message : "Failed to cancel invitation",
-        ),
+        toast.error(err instanceof Error ? err.message : "Failed to cancel invitation"),
       )
       .finally(() => setBusy(false));
   };

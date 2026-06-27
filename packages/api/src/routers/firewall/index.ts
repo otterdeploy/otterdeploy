@@ -11,11 +11,10 @@
  * only what Caddy uses to enforce; reads here don't need it.
  */
 
-import { Result } from "better-result";
+import type { BlocklistId } from "@otterdeploy/shared/id";
 
 import { env } from "@otterdeploy/env/server";
-
-import type { BlocklistId } from "@otterdeploy/shared/id";
+import { Result } from "better-result";
 
 import { orgScopedProcedure } from "../..";
 import { BLOCKLIST_CATALOG, catalogBySlug } from "./catalog";
@@ -97,8 +96,7 @@ async function fetchDecisions(): Promise<Decision[] | null> {
         country: str(source.cn),
         asNumber: str(source.as_number),
         asName: str(source.as_name),
-        eventsCount:
-          typeof alert.events_count === "number" ? alert.events_count : null,
+        eventsCount: typeof alert.events_count === "number" ? alert.events_count : null,
         createdAt: str(alert.created_at),
       });
     }
@@ -172,39 +170,33 @@ export const firewallRouter = {
       },
     ),
 
-    toggle: orgScopedProcedure.firewall.blocklists.toggle.handler(
-      async ({ input, errors }) => {
-        const id = input.id as BlocklistId;
-        const existing = await getBlocklist(id);
-        if (!existing) throw errors.NOT_FOUND();
-        const row = await setBlocklistEnabled(id, input.enabled);
-        if (!row) throw errors.NOT_FOUND();
-        if (input.enabled) void syncBlocklist(row);
-        else void clearBlocklist(row);
-        return toBlocklistView(row);
-      },
-    ),
+    toggle: orgScopedProcedure.firewall.blocklists.toggle.handler(async ({ input, errors }) => {
+      const id = input.id as BlocklistId;
+      const existing = await getBlocklist(id);
+      if (!existing) throw errors.NOT_FOUND();
+      const row = await setBlocklistEnabled(id, input.enabled);
+      if (!row) throw errors.NOT_FOUND();
+      if (input.enabled) void syncBlocklist(row);
+      else void clearBlocklist(row);
+      return toBlocklistView(row);
+    }),
 
-    remove: orgScopedProcedure.firewall.blocklists.remove.handler(
-      async ({ input, errors }) => {
-        const id = input.id as BlocklistId;
-        const row = await getBlocklist(id);
-        if (!row) throw errors.NOT_FOUND();
-        await clearBlocklist(row);
-        await deleteBlocklist(id);
-        return { ok: true };
-      },
-    ),
+    remove: orgScopedProcedure.firewall.blocklists.remove.handler(async ({ input, errors }) => {
+      const id = input.id as BlocklistId;
+      const row = await getBlocklist(id);
+      if (!row) throw errors.NOT_FOUND();
+      await clearBlocklist(row);
+      await deleteBlocklist(id);
+      return { ok: true };
+    }),
 
-    syncNow: orgScopedProcedure.firewall.blocklists.syncNow.handler(
-      async ({ input, errors }) => {
-        const id = input.id as BlocklistId;
-        const row = await getBlocklist(id);
-        if (!row) throw errors.NOT_FOUND();
-        const result = await syncBlocklist(row);
-        return { ok: result.ok, count: result.count, error: result.error ?? null };
-      },
-    ),
+    syncNow: orgScopedProcedure.firewall.blocklists.syncNow.handler(async ({ input, errors }) => {
+      const id = input.id as BlocklistId;
+      const row = await getBlocklist(id);
+      if (!row) throw errors.NOT_FOUND();
+      const result = await syncBlocklist(row);
+      return { ok: result.ok, count: result.count, error: result.error ?? null };
+    }),
   },
 
   console: {
@@ -212,22 +204,20 @@ export const firewallRouter = {
       return { available: (await cscliRead("cscli lapi status")) !== null };
     }),
 
-    enroll: orgScopedProcedure.firewall.console.enroll.handler(
-      async ({ input, errors }) => {
-        // Key passed as a positional arg ($1) — never interpolated into the shell.
-        const out = await cscliRun('cscli console enroll "$1"', [input.key.trim()]);
-        if (out === null) {
-          throw errors.INVALID_INPUT({
-            message: "CrowdSec agent isn't running.",
-          });
-        }
-        const ok = !/error|invalid|failed|denied/i.test(out);
-        const message =
-          out.trim().split("\n").filter(Boolean).slice(-2).join(" ").slice(0, 300) ||
-          (ok ? "Enrollment requested — accept the instance in the console." : "Enrollment failed.");
-        return { ok, message };
-      },
-    ),
+    enroll: orgScopedProcedure.firewall.console.enroll.handler(async ({ input, errors }) => {
+      // Key passed as a positional arg ($1) — never interpolated into the shell.
+      const out = await cscliRun('cscli console enroll "$1"', [input.key.trim()]);
+      if (out === null) {
+        throw errors.INVALID_INPUT({
+          message: "CrowdSec agent isn't running.",
+        });
+      }
+      const ok = !/error|invalid|failed|denied/i.test(out);
+      const message =
+        out.trim().split("\n").filter(Boolean).slice(-2).join(" ").slice(0, 300) ||
+        (ok ? "Enrollment requested — accept the instance in the console." : "Enrollment failed.");
+      return { ok, message };
+    }),
   },
 };
 

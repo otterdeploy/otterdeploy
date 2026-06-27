@@ -7,25 +7,21 @@
  * keys hold only the pasted public half (`privateKeyCiphertext = null`).
  */
 import type { OrganizationId, SshKeyId } from "@otterdeploy/shared/id";
+
 import { panic, Result } from "better-result";
+
+import type { OrgRef } from "../scopes";
 
 import { encryptSecret } from "../../lib/crypto";
 import { emitPlatformEvent } from "../../notifications/emit";
 import { isUniqueViolation } from "../project/views";
-import type { OrgRef } from "../scopes";
-
 import {
   SshKeyConflictError,
   SshKeyImportError,
   SshKeyNotFoundError,
   SshKeyNotRotatableError,
 } from "./errors";
-import {
-  generateKeyPair,
-  InvalidPublicKeyError,
-  parsePublicKey,
-  type SshKeyType,
-} from "./keygen";
+import { generateKeyPair, InvalidPublicKeyError, parsePublicKey, type SshKeyType } from "./keygen";
 import {
   deleteSshKeyRecord,
   getSshKeyInOrg,

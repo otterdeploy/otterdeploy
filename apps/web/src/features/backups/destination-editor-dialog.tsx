@@ -8,22 +8,14 @@ import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/shared/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
 import { Input } from "@/shared/components/ui/input";
 
 import type { Destination } from "./data/destinations";
-import { destinationsCollection } from "./data/destinations";
-import {
-  DEST_TYPE_FIELDS,
-  DestinationTypeFields,
-  configFromInitial,
-} from "./destination-fields";
 import type { DestinationKind } from "./shared";
+
+import { destinationsCollection } from "./data/destinations";
+import { DEST_TYPE_FIELDS, DestinationTypeFields, configFromInitial } from "./destination-fields";
 import { Field, Segmented } from "./shared";
 
 export function DestinationEditorDialog({
@@ -75,14 +67,10 @@ function saveDestination(
   const metadata = { secret: cleanSecret };
 
   if (initial) {
-    return destinationsCollection.update(
-      initial.id,
-      { metadata },
-      (draft) => {
-        draft.name = value.name.trim();
-        draft.config = cleanConfig;
-      },
-    );
+    return destinationsCollection.update(initial.id, { metadata }, (draft) => {
+      draft.name = value.name.trim();
+      draft.config = cleanConfig;
+    });
   }
   return destinationsCollection.insert(
     {
@@ -122,19 +110,15 @@ function DestinationEditorBody({
       const tx = saveDestination(initial, organizationId, value);
       onClose();
       tx.isPersisted.promise
-        .then(() =>
-          toast.success(editing ? "Destination updated" : "Destination created"),
-        )
+        .then(() => toast.success(editing ? "Destination updated" : "Destination created"))
         .catch((err: unknown) =>
-          toast.error(
-            err instanceof Error ? err.message : "Couldn't save destination",
-          ),
+          toast.error(err instanceof Error ? err.message : "Couldn't save destination"),
         );
     },
   });
 
   return (
-    <DialogContent className="sm:max-w-3xl gap-0 p-0">
+    <DialogContent className="gap-0 p-0 sm:max-w-3xl">
       <DialogHeader className="border-b px-5 py-3">
         <DialogTitle className="text-sm font-semibold">
           {editing ? "Edit destination" : "Add destination"}

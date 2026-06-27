@@ -1,9 +1,9 @@
+import type { BackupRow, DestinationRow, ScheduleRow } from "./queries";
 /**
  * Row → contract-shape presenters for the backups router. Flatten the joined
  * query rows into the flat schemas the contract outputs.
  */
 import type { DestinationResult } from "./service";
-import type { BackupRow, DestinationRow, ScheduleRow } from "./queries";
 
 /** Flatten an enriched backup row into the contract's `backupSchema`. */
 export function presentBackup(row: BackupRow) {

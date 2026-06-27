@@ -24,14 +24,11 @@ function collectStream(stream: NodeJS.ReadableStream): Promise<string> {
 async function execInCrowdsec(cmd: string[]): Promise<string | null> {
   const docker = Docker.fromEnv();
   const list = await docker.containers.list({ filters: { name: ["crowdsec"] } });
-  const container =
-    list.isOk()
-      ? list.value.find(
-          (c) =>
-            c.State === "running" &&
-            (c.Names ?? []).some((n) => n.includes("crowdsec")),
-        )
-      : undefined;
+  const container = list.isOk()
+    ? list.value.find(
+        (c) => c.State === "running" && (c.Names ?? []).some((n) => n.includes("crowdsec")),
+      )
+    : undefined;
   if (!container) {
     docker.destroy();
     return null;
@@ -67,10 +64,7 @@ export function cscliRead(command: string): Promise<string | null> {
  *  the values are passed as separate argv entries, so they're never parsed by
  *  the shell. Output is the merged stdout+stderr (so callers can read result
  *  messages like "Imported N decisions"). */
-export function cscliRun(
-  script: string,
-  args: string[],
-): Promise<string | null> {
+export function cscliRun(script: string, args: string[]): Promise<string | null> {
   // arg0 is a label; user values start at $1.
   return execInCrowdsec(["sh", "-lc", script, "crowdsec-exec", ...args]);
 }

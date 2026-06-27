@@ -1,4 +1,5 @@
 import type { JobDef } from "./define";
+
 import { dailyReportJob } from "./jobs/daily-report";
 import { deployTriggeredJob } from "./jobs/deploy";
 import { sendEmailJob } from "./jobs/email";

@@ -1,3 +1,5 @@
+import type { RuntimeDriver } from "./types";
+
 /**
  * Runtime selector. The whole platform deploys through `runtime()` so a single
  * `DEPLOY_RUNTIME` switch (default `docker`) decides the backend — plain Docker
@@ -6,7 +8,6 @@
  */
 import { dockerDriver } from "./docker-driver";
 import { swarmDriver } from "./swarm-driver";
-import type { RuntimeDriver } from "./types";
 
 // Read the mode straight off process.env (not the validated `@otterdeploy/env`
 // object) so importing the runtime — which the whole deploy path does — never

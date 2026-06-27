@@ -1,6 +1,8 @@
 import { useState } from "react";
+
 import { useMutation } from "@tanstack/react-query";
 import { TrashIcon } from "lucide-react";
+
 import {
   AlertDialog,
   AlertDialogDescription,
@@ -25,8 +27,7 @@ export function SettingsTab({ projectId, resourceId, name, onDeleted }: Props) {
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const deleteMutation = useMutation({
-    mutationFn: () =>
-      client.project.database.postgres.delete({ projectId, resourceId }),
+    mutationFn: () => client.project.database.postgres.delete({ projectId, resourceId }),
     onSuccess: () => {
       setConfirmOpen(false);
       onDeleted();
@@ -44,33 +45,24 @@ export function SettingsTab({ projectId, resourceId, name, onDeleted }: Props) {
       </Field>
 
       <div className="grid gap-2 rounded-lg border border-destructive/30 p-4">
-        <div className="text-sm font-medium text-destructive-foreground">
-          Danger zone
-        </div>
+        <div className="text-sm font-medium text-destructive-foreground">Danger zone</div>
         <p className="text-xs text-muted-foreground">
-          Deleting this database removes the Swarm service, the underlying
-          volume, and any proxy routes pointing at it.
+          Deleting this database removes the Swarm service, the underlying volume, and any proxy
+          routes pointing at it.
         </p>
-        <Button
-          variant="destructive"
-          onClick={() => setConfirmOpen(true)}
-          className="w-fit"
-        >
+        <Button variant="destructive" onClick={() => setConfirmOpen(true)} className="w-fit">
           <TrashIcon className="size-4" />
           Delete
         </Button>
       </div>
 
-      <AlertDialog
-        open={confirmOpen}
-        onOpenChange={(next) => setConfirmOpen(next)}
-      >
+      <AlertDialog open={confirmOpen} onOpenChange={(next) => setConfirmOpen(next)}>
         <AlertDialogPopup>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete database "{name}"?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will remove the Swarm service, its volume, and any associated
-              proxy routes. This action cannot be undone.
+              This will remove the Swarm service, its volume, and any associated proxy routes. This
+              action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

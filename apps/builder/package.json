@@ -3,10 +3,10 @@
   "type": "module",
   "main": "src/index.ts",
   "scripts": {
-    "typecheck": "tsc -b --checkers 4",
-    "test": "bun test",
     "dev": "bun run --env-file ../../.env --hot src/index.ts",
-    "start": "bun run src/index.ts"
+    "start": "bun run src/index.ts",
+    "test": "bun test",
+    "typecheck": "tsc -b --checkers 4"
   },
   "dependencies": {
     "@otterdeploy/api": "workspace:*",

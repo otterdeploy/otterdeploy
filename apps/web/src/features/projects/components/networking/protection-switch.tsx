@@ -6,10 +6,11 @@
  */
 
 import type { ProxyRouteId } from "@otterdeploy/shared/id";
+
 import { toast } from "sonner";
 
-import { Switch } from "@/shared/components/ui/switch";
 import { proxyRoutesCollection } from "@/features/projects/data/proxy-routes";
+import { Switch } from "@/shared/components/ui/switch";
 
 export function ProtectionSwitch({
   route,
@@ -18,24 +19,15 @@ export function ProtectionSwitch({
   projectId: string;
 }) {
   const onToggle = (checked: boolean) => {
-    const tx = proxyRoutesCollection.update(
-      route.id as ProxyRouteId,
-      (draft) => {
-        draft.protected = checked;
-      },
-    );
+    const tx = proxyRoutesCollection.update(route.id as ProxyRouteId, (draft) => {
+      draft.protected = checked;
+    });
     tx.isPersisted.promise
       .then(() =>
-        toast.success(
-          checked
-            ? "Deployment protection enabled"
-            : "Deployment protection disabled",
-        ),
+        toast.success(checked ? "Deployment protection enabled" : "Deployment protection disabled"),
       )
       .catch((err) =>
-        toast.error(
-          err instanceof Error ? err.message : "Failed to update protection",
-        ),
+        toast.error(err instanceof Error ? err.message : "Failed to update protection"),
       );
   };
 

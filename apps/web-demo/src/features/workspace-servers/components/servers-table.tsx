@@ -1,13 +1,8 @@
 import { ServerIcon } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
-import {
-  Table,
-  TableBody,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function ServersTable() {
@@ -39,17 +34,15 @@ export function ServersTable() {
             <TableHead>Status</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody>
-          {/* rows render here when the Swarm-nodes API ships */}
-        </TableBody>
+        <TableBody>{/* rows render here when the Swarm-nodes API ships */}</TableBody>
       </Table>
 
       <Empty>
         <ServerIcon className="size-6" />
         <EmptyTitle>No servers connected</EmptyTitle>
         <EmptyDescription>
-          Add a server by pasting its Swarm join token to spread workloads
-          across machines. Backend ships in Plan 6.
+          Add a server by pasting its Swarm join token to spread workloads across machines. Backend
+          ships in Plan 6.
         </EmptyDescription>
       </Empty>
     </div>

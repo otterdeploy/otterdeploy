@@ -1,10 +1,8 @@
-
 import type { EnvironmentId } from "@otterdeploy/shared/id";
+
 import { TaggedError } from "better-result";
 
-export class EnvironmentNotFoundError extends TaggedError(
-  "EnvironmentNotFoundError",
-)<{
+export class EnvironmentNotFoundError extends TaggedError("EnvironmentNotFoundError")<{
   message: string;
   environmentId: EnvironmentId;
 }>() {
@@ -16,9 +14,7 @@ export class EnvironmentNotFoundError extends TaggedError(
   }
 }
 
-export class EnvironmentConflictError extends TaggedError(
-  "EnvironmentConflictError",
-)<{
+export class EnvironmentConflictError extends TaggedError("EnvironmentConflictError")<{
   message: string;
   slug: string;
 }>() {
@@ -36,9 +32,7 @@ export class EnvironmentConflictError extends TaggedError(
  * stringified underlying cause so handlers can log it and the operator
  * sees what actually broke instead of a generic "DB error" line.
  */
-export class EnvironmentDatabaseError extends TaggedError(
-  "EnvironmentDatabaseError",
-)<{
+export class EnvironmentDatabaseError extends TaggedError("EnvironmentDatabaseError")<{
   message: string;
   cause: string;
   pgCode: string | null;
@@ -77,15 +71,9 @@ function describePgError(err: unknown): {
   pgTable: string | null;
 } {
   const outerMessage =
-    err instanceof Error
-      ? err.message
-      : typeof err === "string"
-        ? err
-        : JSON.stringify(err);
+    err instanceof Error ? err.message : typeof err === "string" ? err : JSON.stringify(err);
   const pg =
-    err && typeof err === "object" && "cause" in err
-      ? (err as { cause?: unknown }).cause
-      : null;
+    err && typeof err === "object" && "cause" in err ? (err as { cause?: unknown }).cause : null;
   if (!pg || typeof pg !== "object") {
     return {
       cause: outerMessage,
@@ -96,8 +84,7 @@ function describePgError(err: unknown): {
     };
   }
   const p = pg as Record<string, unknown>;
-  const pick = (k: string): string | null =>
-    typeof p[k] === "string" ? (p[k] as string) : null;
+  const pick = (k: string): string | null => (typeof p[k] === "string" ? (p[k] as string) : null);
   const code = pick("code");
   const detail = pick("detail");
   const constraint = pick("constraint_name") ?? pick("constraint");

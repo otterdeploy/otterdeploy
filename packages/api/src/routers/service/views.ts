@@ -6,8 +6,8 @@
  * by the oRPC contract; `mapEnvVar` does the same for env-var rows.
  */
 
-import { type SwarmServiceRuntime } from "../../swarm";
 import { runtime as activeRuntime } from "../../runtime";
+import { type SwarmServiceRuntime } from "../../swarm";
 import { type ServiceRecord } from "./queries";
 
 // ---------------------------------------------------------------------------
@@ -148,13 +148,10 @@ export async function mapServiceView(
         }
       : null,
     resources: {
-      cpuLimit:
-        record.service.cpuLimit != null ? Number(record.service.cpuLimit) : null,
+      cpuLimit: record.service.cpuLimit != null ? Number(record.service.cpuLimit) : null,
       memoryLimitMb: record.service.memoryLimitMb,
       cpuReservation:
-        record.service.cpuReservation != null
-          ? Number(record.service.cpuReservation)
-          : null,
+        record.service.cpuReservation != null ? Number(record.service.cpuReservation) : null,
       memoryReservationMb: record.service.memoryReservationMb,
     },
     ports: record.ports.map((p) => ({

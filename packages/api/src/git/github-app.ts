@@ -28,9 +28,7 @@ import type { GitProviderId } from "@otterdeploy/shared/id";
 import { TaggedError } from "better-result";
 import { createError } from "evlog";
 
-import {
-  loadGithubAppForInstallation,
-} from "./github-app-config";
+import { loadGithubAppForInstallation } from "./github-app-config";
 
 const JWT_TTL_SECONDS = 9 * 60; // 9 minutes — GitHub allows up to 10.
 
@@ -163,16 +161,13 @@ export async function lookupInstallation(
   config: GithubAppConfig,
 ): Promise<InstallationLookup> {
   const jwt = await mintAppJwt(config);
-  const res = await fetch(
-    `${config.apiBaseUrl}/app/installations/${installationId}`,
-    {
-      headers: {
-        Authorization: `Bearer ${jwt}`,
-        Accept: "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-      },
+  const res = await fetch(`${config.apiBaseUrl}/app/installations/${installationId}`, {
+    headers: {
+      Authorization: `Bearer ${jwt}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
     },
-  );
+  });
   if (!res.ok) {
     const body = await res.text();
     throw createError({
@@ -255,9 +250,7 @@ export async function fetchBranchHeadSha(
   // linked). GitHub's commits endpoint is readable without auth for public
   // repos — rate-limited to 60/hr per IP, fine for the UI deploy path.
   // Private repos pass a real installation token.
-  const token = installationId
-    ? (await getInstallationToken(installationId)).token
-    : null;
+  const token = installationId ? (await getInstallationToken(installationId)).token : null;
   const res = await fetch(
     `${apiBaseUrlForHost("github.com")}/repos/${owner}/${repo}/commits/${encodeURIComponent(branch)}`,
     {

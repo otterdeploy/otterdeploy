@@ -4,15 +4,16 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { DatabaseLogo } from "@/components/brand/database-logo";
-import { I } from "../icons";
+
 import { NODES, PROJECTS, SERVICES } from "../data";
-import { Terminal, type TerminalKind, type TerminalTarget } from "./terminal";
+import { I } from "../icons";
 import {
   ALL_PROJECTS,
   ProjectFilterStrip,
   ProjectTagBadge,
   matchesProjectFilter,
 } from "./project-filter";
+import { Terminal, type TerminalKind, type TerminalTarget } from "./terminal";
 
 export interface TerminalSession {
   id: string;
@@ -35,9 +36,7 @@ interface Props {
 
 export function TerminalWorkspace({ initial = [], embedded = false }: Props) {
   const [sessions, setSessions] = useState<TerminalSession[]>(initial);
-  const [activeId, setActiveId] = useState<string | null>(
-    initial[0]?.id ?? null,
-  );
+  const [activeId, setActiveId] = useState<string | null>(initial[0]?.id ?? null);
   const [pickerOpen, setPickerOpen] = useState(false);
 
   useEffect(() => {
@@ -111,10 +110,7 @@ export function TerminalWorkspace({ initial = [], embedded = false }: Props) {
           overflow: "hidden",
         }}
       >
-        <div
-          className="row"
-          style={{ flex: 1, minWidth: 0, overflow: "auto", height: "100%" }}
-        >
+        <div className="row" style={{ flex: 1, minWidth: 0, overflow: "auto", height: "100%" }}>
           {sessions.map((s) => (
             <SessionTab
               key={s.id}
@@ -177,9 +173,7 @@ function SessionTab({
   onClose: () => void;
 }) {
   const firstTag = s.projectTags?.[0];
-  const project = firstTag
-    ? PROJECTS.find((p) => p.id === firstTag)
-    : undefined;
+  const project = firstTag ? PROJECTS.find((p) => p.id === firstTag) : undefined;
   return (
     <div
       onClick={onActivate}
@@ -297,17 +291,14 @@ function EmptyState({ onPick }: { onPick: () => void }) {
         background: "var(--bg)",
       }}
     >
-      <div
-        className="col gap-3"
-        style={{ alignItems: "center", textAlign: "center", padding: 32 }}
-      >
+      <div className="col gap-3" style={{ alignItems: "center", textAlign: "center", padding: 32 }}>
         <span className="mono" style={{ fontSize: 48, color: "var(--fg-4)" }}>
           $_
         </span>
         <div style={{ fontSize: 14, fontWeight: 500 }}>No active sessions</div>
         <div className="muted" style={{ fontSize: 12, maxWidth: 380 }}>
-          Open a shell into any container, an SSH into a swarm node, or a
-          database console. Multiple sessions can stay live as separate tabs.
+          Open a shell into any container, an SSH into a swarm node, or a database console. Multiple
+          sessions can stay live as separate tabs.
         </div>
         <button className="btn primary" onClick={onPick}>
           <I.plus width={12} height={12} /> Open a terminal
@@ -343,15 +334,9 @@ function SessionPicker({
   const counts = useMemo(() => {
     const out: Record<string, number> = {};
     for (const p of PROJECTS) {
-      const services = SERVICES.filter(
-        (s) => s.kind === "service" && s.project === p.id,
-      ).length;
-      const dbs = SERVICES.filter(
-        (s) => s.kind === "database" && s.project === p.id,
-      ).length;
-      const nodes = NODES.filter(
-        (n) => !n.project || n.project === p.id,
-      ).length;
+      const services = SERVICES.filter((s) => s.kind === "service" && s.project === p.id).length;
+      const dbs = SERVICES.filter((s) => s.kind === "database" && s.project === p.id).length;
+      const nodes = NODES.filter((n) => !n.project || n.project === p.id).length;
       out[p.id] = services + dbs + nodes;
     }
     return out;
@@ -370,12 +355,8 @@ function SessionPicker({
         backdropFilter: "blur(2px)",
       }}
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="os-modal"
-        style={{ width: 580 }}
-      >
-        <div className="row gap-2 os-modal-h">
+      <div onClick={(e) => e.stopPropagation()} className="os-modal" style={{ width: 580 }}>
+        <div className="row os-modal-h gap-2">
           <I.bolt width={14} height={14} />
           <span style={{ fontWeight: 600 }}>Open a terminal</span>
           <div style={{ flex: 1 }} />
@@ -396,10 +377,7 @@ function SessionPicker({
                 display: "inline-flex",
               }}
             >
-              <Seg
-                active={kind === "container"}
-                onClick={() => setKind("container")}
-              >
+              <Seg active={kind === "container"} onClick={() => setKind("container")}>
                 Container
               </Seg>
               <Seg active={kind === "ssh"} onClick={() => setKind("ssh")}>
@@ -410,11 +388,7 @@ function SessionPicker({
               </Seg>
             </div>
             <div style={{ flex: 1 }} />
-            <ProjectFilterStrip
-              active={filter}
-              onChange={setFilter}
-              counts={counts}
-            />
+            <ProjectFilterStrip active={filter} onChange={setFilter} counts={counts} />
           </div>
           <div className="muted" style={{ fontSize: 11, marginTop: 8 }}>
             {kind === "container"
@@ -425,13 +399,8 @@ function SessionPicker({
           </div>
         </div>
 
-        <div
-          style={{ padding: 6, maxHeight: 380, overflow: "auto" }}
-          className="os-scroll"
-        >
-          {kind === "container" && (
-            <ContainerList filter={filter} onPick={onPick} />
-          )}
+        <div style={{ padding: 6, maxHeight: 380, overflow: "auto" }} className="os-scroll">
+          {kind === "container" && <ContainerList filter={filter} onPick={onPick} />}
           {kind === "ssh" && <SshList filter={filter} onPick={onPick} />}
           {kind === "db" && <DbList filter={filter} onPick={onPick} />}
         </div>
@@ -480,14 +449,11 @@ function ContainerList({
   const services = useMemo(
     () =>
       SERVICES.filter(
-        (s) =>
-          s.kind === "service" &&
-          matchesProjectFilter(filter, s.project ? [s.project] : []),
+        (s) => s.kind === "service" && matchesProjectFilter(filter, s.project ? [s.project] : []),
       ),
     [filter],
   );
-  if (services.length === 0)
-    return <EmptyPickerRow text="No services match this filter." />;
+  if (services.length === 0) return <EmptyPickerRow text="No services match this filter." />;
   return (
     <div className="col gap-1" style={{ padding: 4 }}>
       {services.map((s) => (
@@ -557,22 +523,12 @@ function ContainerGroup({
   );
 }
 
-function SshList({
-  filter,
-  onPick,
-}: {
-  filter: string;
-  onPick: (s: TerminalSession) => void;
-}) {
+function SshList({ filter, onPick }: { filter: string; onPick: (s: TerminalSession) => void }) {
   const nodes = useMemo(
-    () =>
-      NODES.filter((n) =>
-        matchesProjectFilter(filter, n.project ? [n.project] : []),
-      ),
+    () => NODES.filter((n) => matchesProjectFilter(filter, n.project ? [n.project] : [])),
     [filter],
   );
-  if (nodes.length === 0)
-    return <EmptyPickerRow text="No nodes match this filter." />;
+  if (nodes.length === 0) return <EmptyPickerRow text="No nodes match this filter." />;
   return (
     <div className="col gap-1" style={{ padding: 4 }}>
       {nodes.map((n) => (
@@ -598,12 +554,8 @@ function SshList({
             border: 0,
             background: "transparent",
           }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.background = "var(--bg-overlay)")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.background = "transparent")
-          }
+          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-overlay)")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
         >
           <I.server width={13} height={13} style={{ color: "var(--fg-3)" }} />
           <span className="mono" style={{ fontSize: 12, fontWeight: 500 }}>
@@ -638,30 +590,19 @@ function SshList({
   );
 }
 
-function DbList({
-  filter,
-  onPick,
-}: {
-  filter: string;
-  onPick: (s: TerminalSession) => void;
-}) {
+function DbList({ filter, onPick }: { filter: string; onPick: (s: TerminalSession) => void }) {
   const dbs = useMemo(
     () =>
       SERVICES.filter(
-        (s) =>
-          s.kind === "database" &&
-          matchesProjectFilter(filter, s.project ? [s.project] : []),
+        (s) => s.kind === "database" && matchesProjectFilter(filter, s.project ? [s.project] : []),
       ),
     [filter],
   );
-  if (dbs.length === 0)
-    return <EmptyPickerRow text="No databases match this filter." />;
+  if (dbs.length === 0) return <EmptyPickerRow text="No databases match this filter." />;
   return (
     <div className="col gap-1" style={{ padding: 4 }}>
       {dbs.map((db) => {
-        const kind: TerminalKind = db.image.startsWith("postgres")
-          ? "psql"
-          : "redis";
+        const kind: TerminalKind = db.image.startsWith("postgres") ? "psql" : "redis";
         return (
           <button
             key={db.id}
@@ -685,18 +626,10 @@ function DbList({
               border: 0,
               background: "transparent",
             }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.background = "var(--bg-overlay)")
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.background = "transparent")
-            }
+            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-overlay)")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
           >
-            <DatabaseLogo
-              value={`${db.name} ${db.image}`}
-              size={13}
-              color="var(--fg-3)"
-            />
+            <DatabaseLogo value={`${db.name} ${db.image}`} size={13} color="var(--fg-3)" />
             <span className="mono" style={{ fontSize: 12, fontWeight: 500 }}>
               {db.name}
             </span>
@@ -714,10 +647,7 @@ function DbList({
             >
               {db.project && <ProjectTagBadge id={db.project} />}
             </div>
-            <span
-              className="muted mono"
-              style={{ fontSize: 10, marginLeft: 8 }}
-            >
+            <span className="muted mono" style={{ fontSize: 10, marginLeft: 8 }}>
               {kind}
             </span>
           </button>
@@ -774,19 +704,12 @@ export function sshTarget(nodeName: string, host: string): TerminalTarget {
   };
 }
 
-export function dbTarget(
-  dbName: string,
-  kind: "psql" | "redis",
-): TerminalTarget {
+export function dbTarget(dbName: string, kind: "psql" | "redis"): TerminalTarget {
   if (kind === "psql") {
     return {
       label: `${dbName} · psql`,
       prompt: "helio=#",
-      banner: [
-        "psql (16.2 (Debian 16.2-1.pgdg120+1))",
-        `Type "help" for help.`,
-        "",
-      ],
+      banner: ["psql (16.2 (Debian 16.2-1.pgdg120+1))", `Type "help" for help.`, ""],
     };
   }
   return {

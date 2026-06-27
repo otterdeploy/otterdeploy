@@ -4,6 +4,7 @@
  * edit opens the editor dialog.
  */
 import { useState } from "react";
+
 import {
   Clock01Icon,
   CloudServerIcon,
@@ -20,22 +21,11 @@ import { Button } from "@/shared/components/ui/button";
 import { Switch } from "@/shared/components/ui/switch";
 
 import type { Schedule } from "./data/schedules";
-import { runSchedule, schedulesCollection } from "./data/schedules";
-import {
-  StatusBadge,
-  cronHuman,
-  encLabel,
-  relTime,
-  retentionLabel,
-} from "./shared";
 
-export function ScheduleCard({
-  schedule: s,
-  onEdit,
-}: {
-  schedule: Schedule;
-  onEdit: () => void;
-}) {
+import { runSchedule, schedulesCollection } from "./data/schedules";
+import { StatusBadge, cronHuman, encLabel, relTime, retentionLabel } from "./shared";
+
+export function ScheduleCard({ schedule: s, onEdit }: { schedule: Schedule; onEdit: () => void }) {
   const toggle = (checked: boolean) => {
     const tx = schedulesCollection.update(s.id, (draft) => {
       draft.enabled = checked;
@@ -87,22 +77,18 @@ export function ScheduleCard({
 
       <div className="rounded-md border bg-muted/30 px-2.5 py-2">
         <div className="font-mono text-xs">{s.cron}</div>
-        <div className="mt-0.5 text-[11px] text-muted-foreground">
-          {cronHuman(s.cron)}
-        </div>
+        <div className="mt-0.5 text-[11px] text-muted-foreground">{cronHuman(s.cron)}</div>
       </div>
 
       <div className="grid grid-cols-2 gap-2.5">
         <div className="flex flex-col gap-0.5">
-          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
             Retention
           </span>
-          <span className="text-xs text-foreground/80">
-            {retentionLabel(s)}
-          </span>
+          <span className="text-xs text-foreground/80">{retentionLabel(s)}</span>
         </div>
         <div className="flex flex-col gap-0.5">
-          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
             Destination
           </span>
           <span className="flex items-center gap-1 text-xs text-foreground/80">
@@ -116,16 +102,14 @@ export function ScheduleCard({
 
       <div className="flex items-end gap-4 border-t pt-3">
         <div className="flex flex-col gap-0.5">
-          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
             Last run
           </span>
           <span className="flex items-center gap-1.5">
             {s.lastRunStatus ? (
               <StatusBadge status={s.lastRunStatus} />
             ) : (
-              <span className="font-mono text-[11px] text-muted-foreground">
-                never
-              </span>
+              <span className="font-mono text-[11px] text-muted-foreground">never</span>
             )}
             <span className="font-mono text-[11px] text-muted-foreground">
               {relTime(s.lastRunAt)}
@@ -133,7 +117,7 @@ export function ScheduleCard({
           </span>
         </div>
         <div className="flex flex-col gap-0.5">
-          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
             Next run
           </span>
           <span className="font-mono text-xs text-foreground/80">

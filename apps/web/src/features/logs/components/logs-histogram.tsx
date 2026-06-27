@@ -1,6 +1,7 @@
+import { useEffect, useMemo, useState } from "react";
+
 import { Cancel01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useEffect, useMemo, useState } from "react";
 
 import {
   bucketize,
@@ -52,16 +53,11 @@ export function LogsHistogram({
     };
   }, [lines]);
 
-  const histoMax = useMemo(
-    () => Math.max(1, ...buckets.map(totalCount)),
-    [buckets],
-  );
+  const histoMax = useMemo(() => Math.max(1, ...buckets.map(totalCount)), [buckets]);
 
   // Drag selection: anchor = where the press started, hover = bucket under the
   // pointer now. Committed on pointerup (even if released outside the chart).
-  const [drag, setDrag] = useState<{ anchor: number; hover: number } | null>(
-    null,
-  );
+  const [drag, setDrag] = useState<{ anchor: number; hover: number } | null>(null);
 
   useEffect(() => {
     if (!drag) return;
@@ -72,10 +68,7 @@ export function LogsHistogram({
       const to = starts[hi]! + HISTOGRAM_BUCKET_MS;
       if (lo === hi) {
         // Plain click on a single bucket toggles it.
-        const active =
-          selectedRange &&
-          from < selectedRange.to &&
-          to > selectedRange.from;
+        const active = selectedRange && from < selectedRange.to && to > selectedRange.from;
         onSelectRange(active ? null : { from, to });
       } else {
         onSelectRange({ from, to });
@@ -112,9 +105,7 @@ export function LogsHistogram({
   return (
     <div className="border-b px-5 pt-4 pb-2.5">
       <div className="mb-2 flex items-center gap-2 text-[11px]">
-        <span className="uppercase tracking-[0.06em] text-muted-foreground">
-          Volume · last 30m
-        </span>
+        <span className="tracking-[0.06em] text-muted-foreground uppercase">Volume · last 30m</span>
         {selectedRange && (
           <button
             type="button"
@@ -147,9 +138,7 @@ export function LogsHistogram({
               end={end}
               dimmed={span ? i < span.lo || i > span.hi : false}
               onPointerDown={() => setDrag({ anchor: i, hover: i })}
-              onPointerEnter={() =>
-                setDrag((d) => (d ? { ...d, hover: i } : d))
-              }
+              onPointerEnter={() => setDrag((d) => (d ? { ...d, hover: i } : d))}
             />
           );
         })}

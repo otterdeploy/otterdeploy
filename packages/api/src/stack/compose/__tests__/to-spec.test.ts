@@ -66,9 +66,7 @@ services:
       cpuReservation: null,
       memoryReservationMb: null,
     });
-    expect(spec.ports).toEqual([
-      { containerPort: 5432, protocol: "tcp", appProtocol: "http" },
-    ]);
+    expect(spec.ports).toEqual([{ containerPort: 5432, protocol: "tcp", appProtocol: "http" }]);
     expect(spec.mounts).toEqual([
       {
         Type: "volume",
@@ -114,11 +112,7 @@ services:
       "web",
     );
     const spec = composeServiceToSpec(svc, { ...ctx, image: "nginx" });
-    expect(spec.healthcheck?.cmd).toEqual([
-      "/bin/sh",
-      "-c",
-      "curl -f http://localhost/health",
-    ]);
+    expect(spec.healthcheck?.cmd).toEqual(["/bin/sh", "-c", "curl -f http://localhost/health"]);
   });
 
   it("parses compose durations", () => {

@@ -50,17 +50,14 @@ async function deliverSms(input: DeliverInput): Promise<boolean> {
     From: from,
     Body: `${input.title}\n${input.message}`,
   });
-  const res = await fetch(
-    `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${btoa(`${sid}:${token}`)}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body,
+  const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${btoa(`${sid}:${token}`)}`,
+      "Content-Type": "application/x-www-form-urlencoded",
     },
-  );
+    body,
+  });
   if (!res.ok) {
     input.log.error({
       notification: { channel: "sms", status: res.status, error: await res.text() },
@@ -73,8 +70,7 @@ async function deliverSms(input: DeliverInput): Promise<boolean> {
 
 async function deliverPush(input: DeliverInput): Promise<boolean> {
   const key = env.FCM_SERVER_KEY;
-  const deviceToken =
-    typeof input.data?.deviceToken === "string" ? input.data.deviceToken : null;
+  const deviceToken = typeof input.data?.deviceToken === "string" ? input.data.deviceToken : null;
 
   if (!key) {
     input.log.warn({ notification: { channel: "push", skipped: "no_provider" } });

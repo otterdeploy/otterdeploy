@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
 import type { Edge, Node } from "@xyflow/react";
+
+import { describe, expect, it } from "vitest";
 
 import { incrementalLayout, topologySignature, type XY } from "./layout-graph";
 
@@ -23,11 +24,7 @@ describe("incrementalLayout", () => {
       ["a", { x: 10, y: 20 }],
       ["b", { x: 500, y: 20 }],
     ]);
-    const result = incrementalLayout(
-      [node("a"), node("b"), node("c")],
-      noEdges,
-      cached,
-    );
+    const result = incrementalLayout([node("a"), node("b"), node("c")], noEdges, cached);
     // Existing nodes keep their exact cached spot.
     expect(result.get("a")).toEqual({ x: 10, y: 20 });
     expect(result.get("b")).toEqual({ x: 500, y: 20 });
@@ -50,12 +47,8 @@ describe("incrementalLayout", () => {
 
 describe("topologySignature", () => {
   it("is identical regardless of node/edge order", () => {
-    const a = topologySignature([node("x"), node("y")], [
-      { id: "e", source: "x", target: "y" },
-    ]);
-    const b = topologySignature([node("y"), node("x")], [
-      { id: "e", source: "x", target: "y" },
-    ]);
+    const a = topologySignature([node("x"), node("y")], [{ id: "e", source: "x", target: "y" }]);
+    const b = topologySignature([node("y"), node("x")], [{ id: "e", source: "x", target: "y" }]);
     expect(a).toBe(b);
   });
 

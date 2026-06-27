@@ -1,4 +1,5 @@
 import type { ErrorComponentProps } from "@tanstack/react-router";
+
 import { useTranslation } from "react-i18next";
 
 import { ErrorScreen, errorBackClass, errorBtnClass } from "./error-screen";
@@ -19,11 +20,7 @@ export function ServerError({ reset, error }: ErrorComponentProps) {
       message={error?.message ?? t("errors.serverError.messageDefault")}
       actions={
         <>
-          <button
-            type="button"
-            className={errorBtnClass}
-            onClick={() => reset()}
-          >
+          <button type="button" className={errorBtnClass} onClick={() => reset()}>
             {t("errors.serverError.retry")}
           </button>
           <a className={errorBackClass} href="/">

@@ -138,9 +138,7 @@ export class RedisCache extends Cache {
     const fullKey = (isTag ? TAG_PREFIX : KEY_PREFIX) + key;
     const value = JSON.stringify(response, tagRichValues);
 
-    const setResult = await Result.tryPromise(() =>
-      this.client.set(fullKey, value, "EX", ttl),
-    );
+    const setResult = await Result.tryPromise(() => this.client.set(fullKey, value, "EX", ttl));
     if (setResult.isErr()) {
       globalLog.warn({
         message: "[cache] Redis SET failed; skipping put",
@@ -168,29 +166,21 @@ export class RedisCache extends Cache {
   }
 
   async onMutate(params: MutationOption): Promise<void> {
-    const tags = Array.isArray(params.tags)
-      ? params.tags
-      : params.tags
-        ? [params.tags]
-        : [];
+    const tags = Array.isArray(params.tags) ? params.tags : params.tags ? [params.tags] : [];
     const tableInputs = Array.isArray(params.tables)
       ? params.tables
       : params.tables
         ? [params.tables]
         : [];
 
-    const tableNames = tableInputs.map((t) =>
-      is(t, Table) ? getTableName(t) : String(t),
-    );
+    const tableNames = tableInputs.map((t) => (is(t, Table) ? getTableName(t) : String(t)));
 
     const setKeys = tableNames.map((t) => TABLE_SET_PREFIX + t);
     const keysToDelete: string[] = [];
 
     if (setKeys.length > 0) {
       const [first, ...rest] = setKeys;
-      const sunionResult = await Result.tryPromise(() =>
-        this.client.sunion(first ?? "", ...rest),
-      );
+      const sunionResult = await Result.tryPromise(() => this.client.sunion(first ?? "", ...rest));
       if (sunionResult.isErr()) {
         globalLog.warn({
           message: "[cache] Redis SUNION failed; skipping invalidation",

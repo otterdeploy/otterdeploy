@@ -1,9 +1,8 @@
-
 import { oc } from "@orpc/contract";
+import { environment } from "@otterdeploy/db/schema";
 import { createSelectSchema } from "drizzle-zod";
 import * as z from "zod";
 
-import { environment } from "@otterdeploy/db/schema";
 import { environmentIdField, projectIdField } from "../project/contract/shared";
 const tag = "env";
 const basePath = "/envs";

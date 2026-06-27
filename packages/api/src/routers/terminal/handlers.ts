@@ -15,15 +15,10 @@
  */
 import type { OrganizationId, ProjectSlug, ResourceId } from "@otterdeploy/shared/id";
 
+import { db } from "@otterdeploy/db";
+import { databaseResource, project, resource } from "@otterdeploy/db/schema/project";
 import { Docker } from "@otterdeploy/docker";
 import { eq } from "drizzle-orm";
-
-import { db } from "@otterdeploy/db";
-import {
-  databaseResource,
-  project,
-  resource,
-} from "@otterdeploy/db/schema/project";
 type OrgId = OrganizationId;
 
 export interface TerminalContainer {
@@ -64,8 +59,7 @@ function splitTaskName(name: string): {
   const clean = name.replace(/^\//, "");
   // Swarm task naming: `<service>.<slot>.<taskId>` — slot is numeric.
   const match = /^(.*)\.(\d+)\.[a-z0-9]+$/.exec(clean);
-  if (match && match[1])
-    return { serviceName: match[1], slot: match[2] ?? null };
+  if (match && match[1]) return { serviceName: match[1], slot: match[2] ?? null };
   return { serviceName: clean, slot: null };
 }
 
@@ -79,8 +73,7 @@ export async function listTerminalTargets(input: {
     .where(eq(project.organizationId, input.organizationId));
 
   const slugToProject = new Map<string, { id: string; name: string }>();
-  for (const p of projects)
-    slugToProject.set(p.slug, { id: p.id, name: p.name });
+  for (const p of projects) slugToProject.set(p.slug, { id: p.id, name: p.name });
 
   // ── Containers ────────────────────────────────────────────────────────
   // Docker label filter: `otterdeploy.managed=true`. We narrow further

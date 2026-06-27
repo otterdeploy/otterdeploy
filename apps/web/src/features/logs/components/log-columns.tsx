@@ -4,6 +4,7 @@
 // doesn't churn the column identities.
 
 import type { ColumnDef, RowData } from "@tanstack/react-table";
+
 import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
@@ -36,9 +37,7 @@ export const logColumns: ColumnDef<LogLine>[] = [
       <Checkbox
         aria-label="Select all"
         checked={table.getIsAllRowsSelected()}
-        indeterminate={
-          table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected()
-        }
+        indeterminate={table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected()}
         onCheckedChange={(v) => table.toggleAllRowsSelected(!!v)}
       />
     ),
@@ -74,10 +73,7 @@ export const logColumns: ColumnDef<LogLine>[] = [
         <HugeiconsIcon
           icon={ArrowRight01Icon}
           strokeWidth={2}
-          className={cn(
-            "size-3 transition-transform",
-            row.getIsExpanded() && "rotate-90",
-          )}
+          className={cn("size-3 transition-transform", row.getIsExpanded() && "rotate-90")}
         />
       </button>
     ),
@@ -88,9 +84,7 @@ export const logColumns: ColumnDef<LogLine>[] = [
     size: 150,
     header: "Timestamp",
     cell: ({ row }) => (
-      <span className="text-[11.5px] text-muted-foreground">
-        {row.original.ts}
-      </span>
+      <span className="text-[11.5px] text-muted-foreground">{row.original.ts}</span>
     ),
   },
   {
@@ -98,12 +92,11 @@ export const logColumns: ColumnDef<LogLine>[] = [
     accessorKey: "level",
     size: 70,
     header: "Level",
-    sortingFn: (a, b) =>
-      levelRank(a.original.level) - levelRank(b.original.level),
+    sortingFn: (a, b) => levelRank(a.original.level) - levelRank(b.original.level),
     cell: ({ row }) => (
       <span
         className={cn(
-          "text-[10px] font-medium uppercase tracking-[0.08em]",
+          "text-[10px] font-medium tracking-[0.08em] uppercase",
           LEVEL_TEXT[row.original.level],
         )}
       >
@@ -117,9 +110,7 @@ export const logColumns: ColumnDef<LogLine>[] = [
     size: 120,
     header: "Service",
     cell: ({ row }) => (
-      <span className="truncate text-xs text-foreground/80">
-        {row.original.svc}
-      </span>
+      <span className="truncate text-xs text-foreground/80">{row.original.svc}</span>
     ),
   },
   {
@@ -136,7 +127,7 @@ export const logColumns: ColumnDef<LogLine>[] = [
       // line wraps or truncates.
       if (row.getIsExpanded()) {
         return (
-          <span className="min-w-0 flex-1 whitespace-pre-wrap wrap-break-word text-xs text-foreground">
+          <span className="min-w-0 flex-1 text-xs wrap-break-word whitespace-pre-wrap text-foreground">
             {msg}
           </span>
         );

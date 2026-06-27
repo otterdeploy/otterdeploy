@@ -1,3 +1,9 @@
+import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
+
+import { db } from "@otterdeploy/db";
+import { project, resource } from "@otterdeploy/db/schema";
+import { backupDir, DATA_ROOT } from "@otterdeploy/shared/paths";
+import { log as globalLog } from "evlog";
 /**
  * Periodic reconcile of the host data folder against the DB — Phase 5 of
  * docs/designs/data-folder.md. Removes artifact dirs whose owning row is gone:
@@ -19,17 +25,7 @@
 import { readdir, rm, stat } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 
-import { db } from "@otterdeploy/db";
-import { project, resource } from "@otterdeploy/db/schema";
-import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
-import { backupDir, DATA_ROOT } from "@otterdeploy/shared/paths";
-import { log as globalLog } from "evlog";
-
-import {
-  dataRootAvailable,
-  removeProjectDir,
-  removeResourceDir,
-} from "./data-dir";
+import { dataRootAvailable, removeProjectDir, removeResourceDir } from "./data-dir";
 
 /** A staged backup archive for a still-existing resource (e.g. a failed upload
  *  kept for retry) is reclaimed once it's older than this. */
@@ -49,10 +45,7 @@ async function listDirNames(path: string): Promise<string[]> {
 /** Guarded removal of a whole `<category>/<projectId>` bucket (the project
  *  itself is gone). The resolved path must sit inside `<DATA_ROOT>/<category>`
  *  and end with the projectId. */
-async function removeProjectBucket(
-  category: string,
-  projectId: string,
-): Promise<void> {
+async function removeProjectBucket(category: string, projectId: string): Promise<void> {
   const base = resolve(join(DATA_ROOT, category));
   const dir = resolve(join(base, projectId));
   if (!dir.startsWith(base + sep) || !dir.endsWith(projectId)) return;
@@ -61,10 +54,7 @@ async function removeProjectBucket(
 
 /** Guarded removal of one resource's backups dir
  *  (`backups/<projectId>/<resourceId>`). */
-async function removeBackupsDir(
-  projectId: ProjectId,
-  id: ResourceId,
-): Promise<void> {
+async function removeBackupsDir(projectId: ProjectId, id: ResourceId): Promise<void> {
   const dir = resolve(backupDir(projectId, id));
   if (!dir.startsWith(resolve(DATA_ROOT) + sep) || !dir.endsWith(id)) return;
   await rm(dir, { recursive: true, force: true }).catch(() => undefined);
@@ -134,14 +124,9 @@ export async function sweepDataFolder(now = Date.now()): Promise<number> {
         removed += 1;
         continue;
       }
-      for (const resourceId of await listDirNames(
-        join(root, "resources", projectId),
-      )) {
+      for (const resourceId of await listDirNames(join(root, "resources", projectId))) {
         if (!resourceIds.has(resourceId as ResourceId)) {
-          await removeResourceDir(
-            projectId as ProjectId,
-            resourceId as ResourceId,
-          );
+          await removeResourceDir(projectId as ProjectId, resourceId as ResourceId);
           removed += 1;
         }
       }
@@ -155,14 +140,9 @@ export async function sweepDataFolder(now = Date.now()): Promise<number> {
         removed += 1;
         continue;
       }
-      for (const resourceId of await listDirNames(
-        join(root, "backups", projectId),
-      )) {
+      for (const resourceId of await listDirNames(join(root, "backups", projectId))) {
         if (!resourceIds.has(resourceId as ResourceId)) {
-          await removeBackupsDir(
-            projectId as ProjectId,
-            resourceId as ResourceId,
-          );
+          await removeBackupsDir(projectId as ProjectId, resourceId as ResourceId);
           removed += 1;
         } else {
           removed += await reclaimStaleStaged(
@@ -194,9 +174,7 @@ export async function sweepDataFolder(now = Date.now()): Promise<number> {
  * `startBackupScheduler` — a control-plane tick, `unref`'d so it never keeps the
  * loop alive on its own.
  */
-export function startDataFolderSweep(
-  intervalMs = 6 * 60 * 60 * 1000,
-): () => void {
+export function startDataFolderSweep(intervalMs = 6 * 60 * 60 * 1000): () => void {
   void sweepDataFolder();
   const timer = setInterval(() => {
     void sweepDataFolder();

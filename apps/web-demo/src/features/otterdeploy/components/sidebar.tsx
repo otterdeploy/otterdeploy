@@ -1,9 +1,11 @@
 import { DatabaseLogo } from "@/components/brand/database-logo";
-import { I } from "../icons";
+
+import type { Tab } from "../app";
+
 import { PROJECT, SERVICES, DEPLOYMENTS, type Env } from "../data";
+import { I } from "../icons";
 import { EnvSwitcher } from "./env-switcher";
 import { UserMenu } from "./user-menu";
-import type { Tab } from "../app";
 
 const projectItems: Array<{
   id: Tab;
@@ -59,10 +61,7 @@ interface Props {
 export function Sidebar({ tab, setTab, env, setEnv }: Props) {
   return (
     <aside className="os-sidebar" style={{ overflow: "hidden" }}>
-      <div
-        className="os-side-section"
-        style={{ paddingTop: 12, flexShrink: 0 }}
-      >
+      <div className="os-side-section" style={{ paddingTop: 12, flexShrink: 0 }}>
         <div
           style={{
             display: "flex",
@@ -86,9 +85,7 @@ export function Sidebar({ tab, setTab, env, setEnv }: Props) {
           >
             h
           </div>
-          <div
-            style={{ display: "flex", flexDirection: "column", minWidth: 0 }}
-          >
+          <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
             <div style={{ fontWeight: 500, fontSize: 13 }}>{PROJECT.name}</div>
             <div className="muted" style={{ fontSize: 11 }}>
               {PROJECT.team}
@@ -126,18 +123,10 @@ export function Sidebar({ tab, setTab, env, setEnv }: Props) {
           minHeight: 0,
         }}
       >
-        <NavGroup
-          label="Project"
-          items={projectItems}
-          tab={tab}
-          setTab={setTab}
-        />
+        <NavGroup label="Project" items={projectItems} tab={tab} setTab={setTab} />
 
         <div className="os-side-section">
-          <div
-            className="os-side-label"
-            style={{ display: "flex", alignItems: "center" }}
-          >
+          <div className="os-side-label" style={{ display: "flex", alignItems: "center" }}>
             <span>Services</span>
             <button
               className="btn ghost icon sm"
@@ -185,24 +174,11 @@ export function Sidebar({ tab, setTab, env, setEnv }: Props) {
           </div>
         </div>
 
-        <NavGroup
-          label="Infrastructure"
-          items={infraItems}
-          tab={tab}
-          setTab={setTab}
-        />
-        <NavGroup
-          label="Cluster admin"
-          items={adminItems}
-          tab={tab}
-          setTab={setTab}
-        />
+        <NavGroup label="Infrastructure" items={infraItems} tab={tab} setTab={setTab} />
+        <NavGroup label="Cluster admin" items={adminItems} tab={tab} setTab={setTab} />
       </div>
 
-      <div
-        className="os-side-section"
-        style={{ paddingBottom: 8, paddingTop: 6, flexShrink: 0 }}
-      >
+      <div className="os-side-section" style={{ paddingBottom: 8, paddingTop: 6, flexShrink: 0 }}>
         <div
           style={{
             padding: "0 4px 6px",
@@ -262,9 +238,7 @@ function NavGroup({
             >
               <Icon className="icon" width={14} height={14} />
               <span>{it.label}</span>
-              {it.count != null ? (
-                <span className="count">{it.count}</span>
-              ) : null}
+              {it.count != null ? <span className="count">{it.count}</span> : null}
             </button>
           );
         })}

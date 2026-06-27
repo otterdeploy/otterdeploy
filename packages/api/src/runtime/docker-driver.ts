@@ -1,3 +1,4 @@
+import { Docker } from "@otterdeploy/docker";
 /**
  * Plain-Docker runtime driver — the DEFAULT, single-node backend. Runs each
  * service/database as an ordinary container on a per-project user-defined
@@ -15,12 +16,7 @@
  * See docs/designs/runtime.md.
  */
 import { setTimeout as sleep } from "node:timers/promises";
-import { Docker } from "@otterdeploy/docker";
 
-import { PLATFORM } from "../constants";
-import { asStepLogger } from "../lib/logger";
-import { connectCaddyToNetwork } from "../swarm/client";
-import { getEngineAdapter } from "../swarm/database-engines";
 import type {
   ContainerSpec,
   DatabaseSpec,
@@ -29,9 +25,13 @@ import type {
   RuntimeStatus,
 } from "./types";
 
+import { PLATFORM } from "../constants";
+import { asStepLogger } from "../lib/logger";
+import { connectCaddyToNetwork } from "../swarm/client";
+import { getEngineAdapter } from "../swarm/database-engines";
+
 const msToNs = (ms: number) => ms * 1_000_000;
-const networkNameFor = (projectSlug: string) =>
-  `${PLATFORM.swarm.networkPrefix}${projectSlug}`;
+const networkNameFor = (projectSlug: string) => `${PLATFORM.swarm.networkPrefix}${projectSlug}`;
 
 const otterLabels = (
   spec: { resourceId: string; projectSlug: string; deploymentId?: string | null },
@@ -59,10 +59,7 @@ function toRestartPolicy(restart: ContainerSpec["restart"]): {
 /** Ensure the project's user-defined bridge network exists (idempotent). On a
  *  single-node host this replaces the swarm overlay — containers on it resolve
  *  each other by name/alias. */
-async function ensureBridgeNetwork(
-  docker: Docker,
-  projectSlug: string,
-): Promise<string> {
+async function ensureBridgeNetwork(docker: Docker, projectSlug: string): Promise<string> {
   const name = networkNameFor(projectSlug);
   const list = await docker.networks.list({ filters: { name: [name] } });
   if (!(list.isOk() && list.value.some((n) => n.Name === name))) {
@@ -108,26 +105,18 @@ interface Summary {
   Health?: { Status?: string };
 }
 
-async function findContainer(
-  docker: Docker,
-  name: string,
-): Promise<Summary | null> {
+async function findContainer(docker: Docker, name: string): Promise<Summary | null> {
   const list = await docker.containers.list({
     all: true,
     filters: { name: [name] },
   });
   if (list.isErr()) throw list.error;
   // Name filter is a substring match — pin to the exact `/name`.
-  const found = list.value.find((c) =>
-    c.Names?.some((n) => n === `/${name}` || n === name),
-  );
+  const found = list.value.find((c) => c.Names?.some((n) => n === `/${name}` || n === name));
   return (found as Summary | undefined) ?? null;
 }
 
-async function removeContainerByName(
-  docker: Docker,
-  name: string,
-): Promise<void> {
+async function removeContainerByName(docker: Docker, name: string): Promise<void> {
   const existing = await findContainer(docker, name);
   if (!existing) return;
   const container = docker.containers.getContainer(existing.Id);
@@ -172,9 +161,7 @@ async function waitForContainer(
     const status = mapStatus(summary);
     const health = mapHealth(summary);
     const settled =
-      status === "error" ||
-      status === "stopped" ||
-      (status === "running" && health !== "starting");
+      status === "error" || status === "stopped" || (status === "running" && health !== "starting");
     if (settled) {
       return {
         serviceId: summary?.Id ?? null,
@@ -197,10 +184,7 @@ async function waitForContainer(
 }
 
 /** Build the `docker create` payload for a service container. */
-function buildContainerOptions(
-  spec: ContainerSpec,
-  networkName: string,
-): Record<string, unknown> {
+function buildContainerOptions(spec: ContainerSpec, networkName: string): Record<string, unknown> {
   const env = Object.entries(spec.env).map(([k, v]) => `${k}=${v}`);
   const labels = otterLabels(spec, "service");
 
@@ -230,9 +214,7 @@ function buildContainerOptions(
     name: spec.serviceName,
     Image: spec.image,
     Env: env,
-    ...(spec.entrypoint && spec.entrypoint.length > 0
-      ? { Entrypoint: spec.entrypoint }
-      : {}),
+    ...(spec.entrypoint && spec.entrypoint.length > 0 ? { Entrypoint: spec.entrypoint } : {}),
     ...(spec.command && spec.command.length > 0 ? { Cmd: spec.command } : {}),
     Labels: labels,
     Hostname: spec.internalHostname,
@@ -285,7 +267,13 @@ export const dockerDriver: RuntimeDriver = {
     if (spec.replicas === 0) {
       await removeContainerByName(docker, spec.serviceName);
       docker.destroy();
-      return { serviceId: null, serviceName: spec.serviceName, networkName, status: "stopped", health: null };
+      return {
+        serviceId: null,
+        serviceName: spec.serviceName,
+        networkName,
+        status: "stopped",
+        health: null,
+      };
     }
     // Idempotent: if it's already there, report it (mirrors provisionSwarmService).
     const existing = await findContainer(docker, spec.serviceName);
@@ -312,7 +300,13 @@ export const dockerDriver: RuntimeDriver = {
     if (spec.replicas === 0) {
       await removeContainerByName(docker, spec.serviceName);
       docker.destroy();
-      return { serviceId: null, serviceName: spec.serviceName, networkName, status: "stopped", health: null };
+      return {
+        serviceId: null,
+        serviceName: spec.serviceName,
+        networkName,
+        status: "stopped",
+        health: null,
+      };
     }
     // Recreate — plain Docker has no in-place rolling update. Stop the old
     // container, start the new one (brief blip).
@@ -400,15 +394,17 @@ async function runDatabase(input: DatabaseSpec): Promise<DatabaseStatus> {
   // plain-docker-correct slot, unlike swarm's ContainerSpec.Command.
   const cmd = adapter.buildCommand?.({ password: input.password });
   const labels = otterLabels(
-    { resourceId: input.resourceId, projectSlug: input.projectSlug, deploymentId: input.deploymentId },
+    {
+      resourceId: input.resourceId,
+      projectSlug: input.projectSlug,
+      deploymentId: input.deploymentId,
+    },
     input.engine,
   );
 
   const hostConfig: Record<string, unknown> = {
     RestartPolicy: { Name: "on-failure", MaximumRetryCount: 5 },
-    Mounts: [
-      { Type: "volume", Source: input.volumeName, Target: adapter.mountTarget },
-    ],
+    Mounts: [{ Type: "volume", Source: input.volumeName, Target: adapter.mountTarget }],
   };
   if (input.public) {
     hostConfig.PortBindings = {
@@ -446,12 +442,7 @@ async function runDatabase(input: DatabaseSpec): Promise<DatabaseStatus> {
 
   await removeContainerByName(docker, input.serviceName);
   await pullImage(docker, options.Image as string);
-  const status = await createAndStart(
-    docker,
-    options,
-    input.serviceName,
-    networkName,
-  );
+  const status = await createAndStart(docker, options, input.serviceName, networkName);
   docker.destroy();
   return {
     serviceId: status.serviceId,

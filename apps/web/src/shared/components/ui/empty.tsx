@@ -1,4 +1,5 @@
 import type { ComponentProps } from "react";
+
 import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/shared/lib/utils";
@@ -60,10 +61,7 @@ function EmptyTitle({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
       data-slot="empty-title"
-      className={cn(
-        "font-heading text-sm font-medium tracking-tight",
-        className,
-      )}
+      className={cn("font-heading text-sm font-medium tracking-tight", className)}
       {...props}
     />
   );
@@ -95,11 +93,4 @@ function EmptyContent({ className, ...props }: ComponentProps<"div">) {
   );
 }
 
-export {
-  Empty,
-  EmptyHeader,
-  EmptyTitle,
-  EmptyDescription,
-  EmptyContent,
-  EmptyMedia,
-};
+export { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyContent, EmptyMedia };

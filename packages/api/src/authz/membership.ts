@@ -9,11 +9,10 @@
  * See docs/designs/deployment-protection.md §7.
  */
 
-import { and, eq } from "drizzle-orm";
-
 import { db } from "@otterdeploy/db";
 import { member } from "@otterdeploy/db/schema/auth";
 import { project } from "@otterdeploy/db/schema/project";
+import { and, eq } from "drizzle-orm";
 
 import { getProxyRouteByDomain } from "../caddy/queries";
 
@@ -25,9 +24,7 @@ export interface DomainOrg {
 /** Resolve the org that authorizes a protected deployment domain. Returns
  *  null when the domain is unknown OR not protection-enabled — callers
  *  treat null as "no gate, allow through". */
-export async function resolveProtectedDomainOrg(
-  domain: string,
-): Promise<DomainOrg | null> {
+export async function resolveProtectedDomainOrg(domain: string): Promise<DomainOrg | null> {
   const route = await getProxyRouteByDomain(domain);
   if (!route?.protected) return null;
 
@@ -42,10 +39,7 @@ export async function resolveProtectedDomainOrg(
 }
 
 /** True when the user is a current member of the org. */
-export async function isOrgMember(
-  userId: string,
-  orgId: string,
-): Promise<boolean> {
+export async function isOrgMember(userId: string, orgId: string): Promise<boolean> {
   const [row] = await db
     .select({ userId: member.userId })
     .from(member)

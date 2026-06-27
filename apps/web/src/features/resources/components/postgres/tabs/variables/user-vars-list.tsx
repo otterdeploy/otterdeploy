@@ -3,6 +3,7 @@
 // "New Variable" button so the editor can react to that external action.
 
 import type { VariablesEditorResource } from "@/features/resources/components/_shared/variables-editor";
+
 import { VariablesEditor } from "@/features/resources/components/_shared/variables-editor";
 
 interface UserVarsListProps {

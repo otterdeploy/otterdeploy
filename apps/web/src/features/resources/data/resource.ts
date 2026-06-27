@@ -1,13 +1,9 @@
 import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
-import { createCollection, type SimpleComparison } from "@tanstack/db";
-import {
-  parseLoadSubsetOptions,
-  queryCollectionOptions,
-} from "@tanstack/query-db-collection";
-
-import { z } from "zod";
 
 import { zId } from "@otterdeploy/shared/id";
+import { createCollection, type SimpleComparison } from "@tanstack/db";
+import { parseLoadSubsetOptions, queryCollectionOptions } from "@tanstack/query-db-collection";
+import { z } from "zod";
 
 import { orpc, queryClient } from "@/shared/server/orpc";
 
@@ -91,10 +87,7 @@ export const resourceCollection = createCollection(
  *
  * @note Memoize with useMemo([projectId, resourceId]) at the call site.
  */
-function createResourceTasksCollection(
-  projectId: ProjectId,
-  resourceId: ResourceId,
-) {
+function createResourceTasksCollection(projectId: ProjectId, resourceId: ResourceId) {
   return createCollection(
     queryCollectionOptions({
       ...orpc.project.resource.tasks.queryOptions({
@@ -103,8 +96,7 @@ function createResourceTasksCollection(
       queryKey: orpc.project.resource.tasks.queryKey({
         input: { projectId, resourceId },
       }),
-      queryFn: async () =>
-        orpc.project.resource.tasks.call({ projectId, resourceId }),
+      queryFn: async () => orpc.project.resource.tasks.call({ projectId, resourceId }),
       refetchInterval: 5000,
       queryClient,
       getKey: (t) => t.id,

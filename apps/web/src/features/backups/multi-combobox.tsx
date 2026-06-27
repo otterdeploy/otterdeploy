@@ -6,10 +6,10 @@
  * chip so hand-entered / legacy refs aren't silently dropped.
  */
 import { useState } from "react";
+
 import { Cancel01Icon, UnfoldMoreIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
-import { cn } from "@/shared/lib/utils";
 import { Badge } from "@/shared/components/ui/badge";
 import { Checkbox } from "@/shared/components/ui/checkbox";
 import {
@@ -19,11 +19,8 @@ import {
   CommandItem,
   CommandList,
 } from "@/shared/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/shared/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
+import { cn } from "@/shared/lib/utils";
 
 export interface MultiOption {
   value: string;
@@ -75,17 +72,9 @@ export function MultiSelectCombobox({
               value.map((v) => {
                 const o = byValue.get(v);
                 return (
-                  <Badge
-                    key={v}
-                    variant="secondary"
-                    className="gap-1 py-0.5 font-normal"
-                  >
-                    <span className={o?.mono ? "font-mono" : undefined}>
-                      {o?.label ?? v}
-                    </span>
-                    {o?.tag ? (
-                      <span className="text-muted-foreground">· {o.tag}</span>
-                    ) : null}
+                  <Badge key={v} variant="secondary" className="gap-1 py-0.5 font-normal">
+                    <span className={o?.mono ? "font-mono" : undefined}>{o?.label ?? v}</span>
+                    {o?.tag ? <span className="text-muted-foreground">· {o.tag}</span> : null}
                     <span
                       role="button"
                       tabIndex={-1}
@@ -122,20 +111,10 @@ export function MultiSelectCombobox({
                 onSelect={() => toggle(o.value)}
                 className="gap-2"
               >
-                <Checkbox
-                  checked={value.includes(o.value)}
-                  className="pointer-events-none"
-                />
-                <span
-                  className={cn("truncate text-[13px]", o.mono && "font-mono")}
-                >
-                  {o.label}
-                </span>
+                <Checkbox checked={value.includes(o.value)} className="pointer-events-none" />
+                <span className={cn("truncate text-[13px]", o.mono && "font-mono")}>{o.label}</span>
                 {o.tag ? (
-                  <Badge
-                    variant="secondary"
-                    className="ml-auto shrink-0 font-normal"
-                  >
+                  <Badge variant="secondary" className="ml-auto shrink-0 font-normal">
                     {o.tag}
                   </Badge>
                 ) : null}

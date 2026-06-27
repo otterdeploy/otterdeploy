@@ -18,12 +18,11 @@
  */
 import type { DeploymentId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
+import { db } from "@otterdeploy/db";
+import { deployment, project, resource } from "@otterdeploy/db/schema/project";
 import { Docker } from "@otterdeploy/docker";
 import { Result } from "better-result";
 import { and, desc, eq, inArray } from "drizzle-orm";
-
-import { db } from "@otterdeploy/db";
-import { deployment, project, resource } from "@otterdeploy/db/schema/project";
 
 import { emitPlatformEvent } from "../../notifications/emit";
 import { PostgresResourceNotFoundError, ProjectNotFoundError } from "./errors";
@@ -45,13 +44,7 @@ export interface DeploymentRow {
     | "restart"
     | "git-push"
     | "rollback";
-  status:
-    | "pending"
-    | "building"
-    | "running"
-    | "failed"
-    | "superseded"
-    | "removed";
+  status: "pending" | "building" | "running" | "failed" | "superseded" | "removed";
   /** Full resource config at the moment of this deploy. Used by rollback to
    *  reproduce the prior state — service env, ports, command, healthcheck,
    *  database extraEnv + publicEnabled, etc. Shape is kind-specific and
@@ -177,12 +170,7 @@ async function reconcileDeploySuccess(
     const flipped = await db
       .update(deployment)
       .set({ status: "running", completedAt: new Date() })
-      .where(
-        and(
-          eq(deployment.id, id),
-          inArray(deployment.status, ["building", "pending"]),
-        ),
-      )
+      .where(and(eq(deployment.id, id), inArray(deployment.status, ["building", "pending"])))
       .returning({ id: deployment.id });
     if (flipped.length > 0) {
       await emitDeploySucceeded({ deploymentId: id, resourceId });
@@ -239,18 +227,14 @@ export async function markDeploymentFailed(
  *  time provisioning ran). Leaving the row would leave the UI's
  *  Deployments tab stuck on a 0-task `building` entry forever, because
  *  no task ever inherits its deployment.id label. */
-export async function deleteDeploymentById(
-  deploymentId: DeploymentId,
-): Promise<void> {
+export async function deleteDeploymentById(deploymentId: DeploymentId): Promise<void> {
   await db.delete(deployment).where(eq(deployment.id, deploymentId));
 }
 
 /** All deployments for a resource, newest first. Status is the value
  *  stored in the row — the API layer can post-process / merge with live
  *  task state if needed. */
-async function listDeploymentsByResource(
-  resourceId: ResourceId,
-): Promise<DeploymentRow[]> {
+async function listDeploymentsByResource(resourceId: ResourceId): Promise<DeploymentRow[]> {
   const rows = await db
     .select()
     .from(deployment)
@@ -285,12 +269,7 @@ export async function getResourceDeploymentById(
   const [row] = await db
     .select()
     .from(deployment)
-    .where(
-      and(
-        eq(deployment.id, deploymentId),
-        eq(deployment.resourceId, resourceId),
-      ),
-    )
+    .where(and(eq(deployment.id, deploymentId), eq(deployment.resourceId, resourceId)))
     .limit(1);
   return (row as DeploymentRow | undefined) ?? null;
 }
@@ -366,10 +345,7 @@ function deriveDeploymentStatus(
     // the wait-ready window is a dead deployment — surface it as failed
     // instead of letting the UI pin on BUILDING.
     const ageMs = Date.now() - createdAt.getTime();
-    if (
-      (stored === "building" || stored === "pending") &&
-      ageMs > ZERO_TASK_STALE_MS
-    ) {
+    if ((stored === "building" || stored === "pending") && ageMs > ZERO_TASK_STALE_MS) {
       return "failed";
     }
     return stored;
@@ -395,12 +371,7 @@ interface ListInput {
 
 export async function listResourceDeployments(
   input: ListInput,
-): Promise<
-  Result<
-    DeploymentWithStats[],
-    ProjectNotFoundError | PostgresResourceNotFoundError
-  >
-> {
+): Promise<Result<DeploymentWithStats[], ProjectNotFoundError | PostgresResourceNotFoundError>> {
   const project = await getProjectInOrg({
     projectId: input.projectId,
     organizationId: input.organizationId,
@@ -411,9 +382,7 @@ export async function listResourceDeployments(
 
   const found = await getResourceById(input.projectId, input.resourceId);
   if (!found) {
-    return Result.err(
-      new PostgresResourceNotFoundError({ resourceId: input.resourceId }),
-    );
+    return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
   }
 
   const rows = await listDeploymentsByResource(input.resourceId);
@@ -450,8 +419,7 @@ export async function listResourceDeployments(
           ).Spec?.ContainerSpec?.Labels ?? {};
         const deploymentId = labels["otterdeploy.deployment.id"];
         if (!deploymentId) continue;
-        const state =
-          (task as { Status?: { State?: string } }).Status?.State ?? "unknown";
+        const state = (task as { Status?: { State?: string } }).Status?.State ?? "unknown";
         const bucket = tasksByDeployment.get(deploymentId) ?? [];
         bucket.push(state);
         tasksByDeployment.set(deploymentId, bucket);
@@ -464,41 +432,32 @@ export async function listResourceDeployments(
   const latestId = rows[0]?.id;
   const justSucceeded: DeploymentId[] = [];
   const result = rows.map((row) => {
-      const states = tasksByDeployment.get(row.id) ?? [];
-      const status = deriveDeploymentStatus(
-        row.status,
-        row.id === latestId,
-        states,
-        row.createdAt,
-      );
-      // A row stored building/pending whose tasks are now running has just
-      // succeeded — flag it for the reconcile + emit below.
-      if (
-        status === "running" &&
-        (row.status === "building" || row.status === "pending")
-      ) {
-        justSucceeded.push(row.id);
-      }
-      const failed = states.filter(
-        (s) =>
-          s === "failed" || s === "rejected" || s === "orphaned" || s === "remove",
-      ).length;
-      const running = states.filter((s) => s === "running").length;
-      return {
-        id: row.id,
-        projectId: input.projectId,
-        resourceId: row.resourceId,
-        image: row.image,
-        reason: row.reason,
-        status,
-        errorMessage: row.errorMessage,
-        taskCount: states.length,
-        failedTaskCount: failed,
-        runningTaskCount: running,
-        completedAt: row.completedAt,
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
-      };
+    const states = tasksByDeployment.get(row.id) ?? [];
+    const status = deriveDeploymentStatus(row.status, row.id === latestId, states, row.createdAt);
+    // A row stored building/pending whose tasks are now running has just
+    // succeeded — flag it for the reconcile + emit below.
+    if (status === "running" && (row.status === "building" || row.status === "pending")) {
+      justSucceeded.push(row.id);
+    }
+    const failed = states.filter(
+      (s) => s === "failed" || s === "rejected" || s === "orphaned" || s === "remove",
+    ).length;
+    const running = states.filter((s) => s === "running").length;
+    return {
+      id: row.id,
+      projectId: input.projectId,
+      resourceId: row.resourceId,
+      image: row.image,
+      reason: row.reason,
+      status,
+      errorMessage: row.errorMessage,
+      taskCount: states.length,
+      failedTaskCount: failed,
+      runningTaskCount: running,
+      completedAt: row.completedAt,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    };
   });
 
   if (justSucceeded.length > 0) {
@@ -556,12 +515,7 @@ function collapseTaskState(state: string | undefined): DeploymentTaskInfo["state
 
 export async function listTasksForDeployment(
   input: TasksByDeploymentInput,
-): Promise<
-  Result<
-    DeploymentTaskInfo[],
-    ProjectNotFoundError | PostgresResourceNotFoundError
-  >
-> {
+): Promise<Result<DeploymentTaskInfo[], ProjectNotFoundError | PostgresResourceNotFoundError>> {
   const project = await getProjectInOrg({
     projectId: input.projectId,
     organizationId: input.organizationId,
@@ -572,9 +526,7 @@ export async function listTasksForDeployment(
 
   const found = await getResourceById(input.projectId, input.resourceId);
   if (!found) {
-    return Result.err(
-      new PostgresResourceNotFoundError({ resourceId: input.resourceId }),
-    );
+    return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
   }
 
   let serviceName: string;
@@ -623,19 +575,20 @@ export async function listTasksForDeployment(
   return Result.ok(
     sorted.map((t) => {
       const status =
-        (t as {
-          Status?: {
-            State?: string;
-            Message?: string;
-            Err?: string;
-            Timestamp?: string;
-            ContainerStatus?: { ContainerID?: string; ExitCode?: number };
-          };
-        }).Status ?? {};
+        (
+          t as {
+            Status?: {
+              State?: string;
+              Message?: string;
+              Err?: string;
+              Timestamp?: string;
+              ContainerStatus?: { ContainerID?: string; ExitCode?: number };
+            };
+          }
+        ).Status ?? {};
       const slot = (t as { Slot?: number }).Slot ?? null;
       const nodeId = (t as { NodeID?: string }).NodeID ?? null;
-      const desiredState =
-        (t as { DesiredState?: string }).DesiredState ?? null;
+      const desiredState = (t as { DesiredState?: string }).DesiredState ?? null;
       return {
         id: (t as { ID?: string }).ID ?? "",
         projectId: input.projectId,

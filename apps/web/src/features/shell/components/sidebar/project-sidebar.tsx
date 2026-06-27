@@ -1,23 +1,5 @@
 import * as React from "react";
 
-import { useLiveQuery } from "@tanstack/react-db";
-import { Link, useParams } from "@tanstack/react-router";
-
-import { projectCollection } from "@/features/projects/data/project";
-import { serverCollection } from "@/features/servers/data/server";
-import type { Project } from "@/routes/_app/layout";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuBadge,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarSeparator,
-} from "@/shared/components/ui/sidebar";
 import {
   Alert01Icon,
   Database02Icon,
@@ -36,6 +18,26 @@ import {
   UserMultipleIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useLiveQuery } from "@tanstack/react-db";
+import { Link, useParams } from "@tanstack/react-router";
+
+import type { Project } from "@/routes/_app/layout";
+
+import { projectCollection } from "@/features/projects/data/project";
+import { serverCollection } from "@/features/servers/data/server";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuBadge,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarSeparator,
+} from "@/shared/components/ui/sidebar";
+
 import { NavUser, type User } from "../nav/nav-user";
 import { StatusDot, type Status } from "./index";
 
@@ -137,27 +139,18 @@ export function ProjectSidebar({
   // Live counts shown as menu badges next to Projects / Servers. Both
   // collections are already loaded by the outer `_app` layout's loader,
   // so this hook is a cheap subscription — no extra fetch.
-  const { data: projects } = useLiveQuery(
-    (q) => q.from({ p: projectCollection }),
-    [],
-  );
-  const { data: servers } = useLiveQuery(
-    (q) => q.from({ s: serverCollection }),
-    [],
-  );
+  const { data: projects } = useLiveQuery((q) => q.from({ p: projectCollection }), []);
+  const { data: servers } = useLiveQuery((q) => q.from({ s: serverCollection }), []);
   const workspaceCounts: Record<string, number> = {
     Projects: projects.length,
     Servers: servers.length,
   };
   return (
-    <Sidebar
-      className="top-(--header-height) h-[calc(100svh-var(--header-height))]!"
-      {...props}
-    >
+    <Sidebar className="top-(--header-height) h-[calc(100svh-var(--header-height))]!" {...props}>
       <SidebarContent>
         {navGroups.map((group) => (
           <SidebarGroup key={group.label}>
-            <SidebarGroupLabel className="text-[11px] uppercase tracking-wider text-sidebar-foreground/50">
+            <SidebarGroupLabel className="text-[11px] tracking-wider text-sidebar-foreground/50 uppercase">
               {group.label}
             </SidebarGroupLabel>
             <SidebarMenu>

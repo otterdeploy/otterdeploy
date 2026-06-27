@@ -8,24 +8,20 @@
  * "verified after deploy" note rather than a recheck button.
  */
 
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { HugeiconsIcon } from "@hugeicons/react";
-import {
-  Delete02Icon,
-  PlusSignIcon,
-  StarIcon,
-} from "@hugeicons/core-free-icons";
-
 import type { ProjectId } from "@otterdeploy/shared/id";
 
+import { useState } from "react";
+
+import { Delete02Icon, PlusSignIcon, StarIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { useQuery } from "@tanstack/react-query";
+
+import { useStageManifestChange } from "@/features/projects/hooks/use-manifest-stage";
+import { SettingsCard } from "@/features/resources/components/_shared/settings-card";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
-import { orpc } from "@/shared/server/orpc";
-import { useStageManifestChange } from "@/features/projects/hooks/use-manifest-stage";
 import { cn } from "@/shared/lib/utils";
-
-import { SettingsCard } from "@/features/resources/components/_shared/settings-card";
+import { orpc } from "@/shared/server/orpc";
 
 interface ManifestDomain {
   domain: string;

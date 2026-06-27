@@ -5,10 +5,11 @@
  * fields, with an action to open that table pre-filtered to the row.
  */
 
-import { HugeiconsIcon } from "@hugeicons/react";
 import { Link01Icon, ArrowUpRight01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 
 import type { FkTarget } from "@/shared/components/data-grid/types";
+
 import { Button } from "@/shared/components/ui/button";
 import { Popover, PopoverContent } from "@/shared/components/ui/popover";
 
@@ -68,15 +69,11 @@ export function FkRefPopover({
           {q.isLoading ? (
             <p className="px-3 py-3 text-[12px] text-muted-foreground">Loading…</p>
           ) : !row ? (
-            <p className="px-3 py-3 text-[12px] text-muted-foreground">
-              No matching row.
-            </p>
+            <p className="px-3 py-3 text-[12px] text-muted-foreground">No matching row.</p>
           ) : (
             cols.map((c, i) => (
               <div key={c} className="flex gap-3 px-3 py-1.5 text-[12px]">
-                <span className="w-32 shrink-0 truncate text-muted-foreground">
-                  {c}
-                </span>
+                <span className="w-32 shrink-0 truncate text-muted-foreground">{c}</span>
                 <span className="min-w-0 flex-1 truncate font-mono">
                   {row[i] == null ? (
                     <span className="text-muted-foreground/40 italic">NULL</span>

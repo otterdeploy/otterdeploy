@@ -83,16 +83,9 @@ export {
   serviceResourceSchema,
 } from "./resource";
 
-export {
-  resourceLogEventSchema,
-  resourceLogsTailInput,
-  resourceTaskLogsTailInput,
-} from "./logs";
+export { resourceLogEventSchema, resourceLogsTailInput, resourceTaskLogsTailInput } from "./logs";
 
-export {
-  projectLogEventSchema,
-  projectLogsTailInput,
-} from "./project-logs";
+export { projectLogEventSchema, projectLogsTailInput } from "./project-logs";
 
 export {
   deploymentListInput,
@@ -109,21 +102,11 @@ export {
   unsetPostgresExtraEnvInput,
 } from "./postgres";
 
-export {
-  listProxyRoutesInput,
-  proxyRouteSchema,
-} from "./proxy";
+export { listProxyRoutesInput, proxyRouteSchema } from "./proxy";
 
-export {
-  dependencyEdgeSchema,
-  listDependenciesInput,
-} from "./dependencies";
+export { dependencyEdgeSchema, listDependenciesInput } from "./dependencies";
 
-export {
-  listServiceTasksInput,
-  serviceTaskSchema,
-  serviceTasksSchema,
-} from "./service-tasks";
+export { listServiceTasksInput, serviceTaskSchema, serviceTasksSchema } from "./service-tasks";
 
 export {
   manifestApplyInput,

@@ -1,3 +1,8 @@
+import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
+
+import { db } from "@otterdeploy/db";
+import { deployment } from "@otterdeploy/db/schema/project";
+import { triggerDeploy } from "@otterdeploy/jobs";
 /**
  * Hand a git-sourced compose stack to the build worker. Kept out of the oRPC
  * handlers (`index.ts`) because it's a distinct concern: resolve the branch
@@ -5,11 +10,6 @@
  * `build:` services, fetches + persists the compose file, and deploys.
  */
 import { Result } from "better-result";
-
-import { db } from "@otterdeploy/db";
-import { deployment } from "@otterdeploy/db/schema/project";
-import { triggerDeploy } from "@otterdeploy/jobs";
-import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { fetchBranchHeadSha } from "../../git/github-app";
 import { parseGitHubUrl } from "./util";
@@ -46,9 +46,7 @@ export async function enqueueComposeBuild(input: {
       catch: (e) => (e instanceof Error ? e.message : String(e)),
     });
     if (shaRes.isErr()) {
-      return Result.err(
-        `Couldn't resolve ${branch} on ${gh.owner}/${gh.repo}: ${shaRes.error}`,
-      );
+      return Result.err(`Couldn't resolve ${branch} on ${gh.owner}/${gh.repo}: ${shaRes.error}`);
     }
     sha = shaRes.value;
   }

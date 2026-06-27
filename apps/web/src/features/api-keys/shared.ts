@@ -73,10 +73,7 @@ export const EXPIRY_OPTIONS: ExpiryOption[] = [
 export const DEFAULT_EXPIRY_INDEX = 1;
 
 /** Format a date-ish value as a short, human date, or a fallback. */
-export function formatDate(
-  value: string | Date | null | undefined,
-  fallback = "—",
-): string {
+export function formatDate(value: string | Date | null | undefined, fallback = "—"): string {
   if (!value) return fallback;
   const d = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(d.getTime())) return fallback;

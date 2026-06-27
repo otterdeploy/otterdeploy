@@ -1,10 +1,12 @@
+import { useEffect, useRef } from "react";
+
 import { env } from "@otterdeploy/env/web";
 import { createFileRoute } from "@tanstack/react-router";
 import { GhosttyCore } from "@wterm/ghostty";
-import { Terminal, useTerminal } from "@wterm/react";
 import "@wterm/react/css";
-import { useEffect, useRef } from "react";
+import { Terminal, useTerminal } from "@wterm/react";
 import * as z from "zod";
+
 import { ClientMessage, ServerMessage } from "../messages";
 
 const terminalSearchSchema = z.object({
@@ -24,9 +26,7 @@ export function RouteComponent() {
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    const query = container
-      ? `?container=${encodeURIComponent(container)}`
-      : "";
+    const query = container ? `?container=${encodeURIComponent(container)}` : "";
     const url = `${env.VITE_SERVER_URL.replace(/^http/, "ws")}/pty${query}`;
     const ws = new WebSocket(url);
     wsRef.current = ws;

@@ -12,22 +12,29 @@
  */
 
 import { useState } from "react";
-import { eq, useLiveQuery } from "@tanstack/react-db";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { toast } from "sonner";
-import { HugeiconsIcon } from "@hugeicons/react";
+
+import { yaml } from "@codemirror/lang-yaml";
+import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
+import { EditorView } from "@codemirror/view";
 import {
   ArrowLeft01Icon,
   Cancel01Icon,
   Delete02Icon,
   RefreshIcon,
 } from "@hugeicons/core-free-icons";
-import CodeMirror from "@uiw/react-codemirror";
-import { yaml } from "@codemirror/lang-yaml";
-import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { tags as t } from "@lezer/highlight";
-import { EditorView } from "@codemirror/view";
+import { eq, useLiveQuery } from "@tanstack/react-db";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import CodeMirror from "@uiw/react-codemirror";
+import { toast } from "sonner";
 
+import { PanelIcon } from "@/features/resources/components/_shared/atoms";
+import { ResourceTasksTab } from "@/features/resources/components/_shared/resource-tasks-tab";
+import { ComposeExposedEditor } from "@/features/resources/components/compose/exposed-editor";
+import { serviceTasksCollection } from "@/features/resources/data/service-tasks";
+import { Button } from "@/shared/components/ui/button";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/shared/components/ui/empty";
 import {
   Tabs,
   TabsContent,
@@ -35,29 +42,12 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/shared/components/ui/tabs";
-import { Button } from "@/shared/components/ui/button";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "@/shared/components/ui/empty";
-import { serviceTasksCollection } from "@/features/resources/data/service-tasks";
-import { orpc } from "@/shared/server/orpc";
 import { cn } from "@/shared/lib/utils";
-
-import { PanelIcon } from "@/features/resources/components/_shared/atoms";
-import { ResourceTasksTab } from "@/features/resources/components/_shared/resource-tasks-tab";
-import { ComposeExposedEditor } from "@/features/resources/components/compose/exposed-editor";
+import { orpc } from "@/shared/server/orpc";
 
 type ComposeTab = "deployments" | "services" | "file" | "settings";
 
-type StackServiceStatus =
-  | "running"
-  | "building"
-  | "error"
-  | "offline"
-  | "pending";
+type StackServiceStatus = "running" | "building" | "error" | "offline" | "pending";
 
 interface ComposeService {
   name: string;
@@ -96,8 +86,7 @@ const editorTheme = EditorView.theme(
     "&": { backgroundColor: "transparent" },
     "&.cm-focused": { outline: "none" },
     ".cm-scroller": {
-      fontFamily:
-        "var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)",
+      fontFamily: "var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)",
       lineHeight: "1.6",
     },
     ".cm-gutters": {
@@ -123,16 +112,9 @@ const highlightStyle = HighlightStyle.define([
   },
 ]);
 
-const viewerExtensions = [
-  editorTheme,
-  yaml(),
-  syntaxHighlighting(highlightStyle),
-];
+const viewerExtensions = [editorTheme, yaml(), syntaxHighlighting(highlightStyle)];
 
-const stackStatusMeta: Record<
-  StackServiceStatus,
-  { label: string; dot: string; text: string }
-> = {
+const stackStatusMeta: Record<StackServiceStatus, { label: string; dot: string; text: string }> = {
   running: { label: "Running", dot: "bg-success", text: "text-success" },
   building: { label: "Building", dot: "bg-warning", text: "text-warning" },
   error: { label: "Failed", dot: "bg-destructive", text: "text-destructive" },
@@ -174,9 +156,7 @@ export function ComposeResourcePanel({
   // service — "which one is down?" is answerable here too.
   const { data: taskRows } = useLiveQuery(
     (q) =>
-      q
-        .from({ d: serviceTasksCollection })
-        .where(({ d }) => eq(d.projectId, resource.projectId)),
+      q.from({ d: serviceTasksCollection }).where(({ d }) => eq(d.projectId, resource.projectId)),
     [resource.projectId],
   );
   const byService = new Map<string, "running" | "building" | "error">();
@@ -199,9 +179,7 @@ export function ComposeResourcePanel({
   const serviceStatus = (name: string): StackServiceStatus =>
     byService.get(name) ?? base ?? "offline";
 
-  const runningCount = resource.services.filter(
-    (s) => serviceStatus(s.name) === "running",
-  ).length;
+  const runningCount = resource.services.filter((s) => serviceStatus(s.name) === "running").length;
 
   // The raw compose file (inline source) for the read-only viewer.
   const fileQuery = useQuery(
@@ -221,8 +199,7 @@ export function ComposeResourcePanel({
       });
       setTab("deployments");
     },
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : "Failed to redeploy"),
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to redeploy"),
   });
 
   const remove = useMutation({
@@ -231,8 +208,7 @@ export function ComposeResourcePanel({
       toast.success(`Deleted ${resource.name}`);
       onClose();
     },
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : "Failed to delete"),
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to delete"),
   });
 
   return (
@@ -247,19 +223,11 @@ export function ComposeResourcePanel({
             onClick={onClose}
             className="mt-1"
           >
-            <HugeiconsIcon
-              icon={ArrowLeft01Icon}
-              strokeWidth={2}
-              className="size-4"
-            />
+            <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="size-4" />
           </Button>
-          <PanelIcon
-            node={{ kind: "compose", name: resource.name, description: "" }}
-          />
+          <PanelIcon node={{ kind: "compose", name: resource.name, description: "" }} />
           <div className="flex flex-col gap-0.5">
-            <span className="text-xl font-bold leading-none tracking-tight">
-              {resource.name}
-            </span>
+            <span className="text-xl leading-none font-bold tracking-tight">{resource.name}</span>
             <span className="font-mono text-xs text-muted-foreground">
               Stack · {resource.services.length}{" "}
               {resource.services.length === 1 ? "service" : "services"} ·{" "}
@@ -280,11 +248,7 @@ export function ComposeResourcePanel({
             }
             disabled={redeploy.isPending}
           >
-            <HugeiconsIcon
-              icon={RefreshIcon}
-              strokeWidth={2}
-              className="size-3.5"
-            />
+            <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} className="size-3.5" />
             {redeploy.isPending ? "Redeploying…" : "Redeploy"}
           </Button>
           <Button
@@ -294,11 +258,7 @@ export function ComposeResourcePanel({
             aria-label="Close panel"
             onClick={onClose}
           >
-            <HugeiconsIcon
-              icon={Cancel01Icon}
-              strokeWidth={2}
-              className="size-4"
-            />
+            <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-4" />
           </Button>
         </div>
       </div>
@@ -307,8 +267,7 @@ export function ComposeResourcePanel({
         <span
           className={cn(
             "rounded-md px-2 py-1 font-mono text-[10.5px] font-semibold tracking-[0.18em]",
-            runningCount === resource.services.length &&
-              resource.services.length > 0
+            runningCount === resource.services.length && resource.services.length > 0
               ? "bg-success/12 text-success"
               : resource.services.some((s) => serviceStatus(s.name) === "error")
                 ? "bg-destructive/12 text-destructive"
@@ -317,9 +276,7 @@ export function ComposeResourcePanel({
         >
           {runningCount}/{resource.services.length} RUNNING
         </span>
-        <span className="font-mono text-[12px] text-muted-foreground">
-          {resource.stackName}
-        </span>
+        <span className="font-mono text-[12px] text-muted-foreground">{resource.stackName}</span>
       </div>
 
       <Tabs
@@ -373,11 +330,7 @@ export function ComposeResourcePanel({
                 ) : (
                   <div className="flex flex-col gap-2.5">
                     {resource.services.map((s) => (
-                      <ServiceRow
-                        key={s.name}
-                        service={s}
-                        status={serviceStatus(s.name)}
-                      />
+                      <ServiceRow key={s.name} service={s} status={serviceStatus(s.name)} />
                     ))}
                   </div>
                 )}
@@ -386,8 +339,8 @@ export function ComposeResourcePanel({
               <TabsContent value="file" className="px-6 pt-5 pb-6">
                 {resource.source === "git" ? (
                   <p className="mb-3 rounded-md border border-info/30 bg-info/5 px-3 py-2 text-[12px] text-muted-foreground">
-                    This stack builds from a repository — the compose file lives
-                    in the repo and is resolved at build time.
+                    This stack builds from a repository — the compose file lives in the repo and is
+                    resolved at build time.
                   </p>
                 ) : null}
                 {fileQuery.isLoading ? (
@@ -411,9 +364,7 @@ export function ComposeResourcePanel({
                     />
                   </div>
                 ) : (
-                  <p className="text-[12.5px] text-muted-foreground">
-                    No compose file stored yet.
-                  </p>
+                  <p className="text-[12.5px] text-muted-foreground">No compose file stored yet.</p>
                 )}
               </TabsContent>
 
@@ -425,12 +376,10 @@ export function ComposeResourcePanel({
                   />
                 </div>
                 <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
-                  <div className="text-[13px] font-semibold text-destructive">
-                    Delete stack
-                  </div>
+                  <div className="text-[13px] font-semibold text-destructive">Delete stack</div>
                   <p className="mt-1 text-[12px] text-muted-foreground">
-                    Removes every service in this stack from swarm, its routes,
-                    and the resource record. This can't be undone.
+                    Removes every service in this stack from swarm, its routes, and the resource
+                    record. This can't be undone.
                   </p>
                   <Button
                     type="button"
@@ -451,11 +400,7 @@ export function ComposeResourcePanel({
                     }}
                     disabled={remove.isPending}
                   >
-                    <HugeiconsIcon
-                      icon={Delete02Icon}
-                      strokeWidth={2}
-                      className="size-3.5"
-                    />
+                    <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} className="size-3.5" />
                     {remove.isPending ? "Deleting…" : "Delete stack"}
                   </Button>
                 </div>
@@ -468,16 +413,9 @@ export function ComposeResourcePanel({
   );
 }
 
-function ServiceRow({
-  service,
-  status,
-}: {
-  service: ComposeService;
-  status: StackServiceStatus;
-}) {
+function ServiceRow({ service, status }: { service: ComposeService; status: StackServiceStatus }) {
   const meta = stackStatusMeta[status];
-  const label =
-    status === "error" && service.hasBuild ? "Build failed" : meta.label;
+  const label = status === "error" && service.hasBuild ? "Build failed" : meta.label;
   return (
     <div className="rounded-lg border bg-card px-4 py-3">
       <div className="flex items-center justify-between gap-3">
@@ -486,18 +424,14 @@ function ServiceRow({
         </span>
         <span className="inline-flex shrink-0 items-center gap-1.5">
           <span className={cn("size-1.5 rounded-full", meta.dot)} aria-hidden />
-          <span className={cn("text-[12px] leading-none", meta.text)}>
-            {label}
-          </span>
+          <span className={cn("text-[12px] leading-none", meta.text)}>{label}</span>
         </span>
       </div>
       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11.5px] text-muted-foreground">
         <span className="truncate">
           {service.image ?? (service.hasBuild ? "built from source" : "—")}
         </span>
-        {service.ports.length > 0 && (
-          <span>· ports {service.ports.join(", ")}</span>
-        )}
+        {service.ports.length > 0 && <span>· ports {service.ports.join(", ")}</span>}
       </div>
       {service.volumes.length > 0 && (
         <div className="mt-2 flex flex-wrap items-center gap-1.5">

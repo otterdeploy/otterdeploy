@@ -15,12 +15,7 @@
 
 import { connect } from "node:tls";
 
-export type CertStatus =
-  | "valid"
-  | "expiring"
-  | "expired"
-  | "internal"
-  | "error";
+export type CertStatus = "valid" | "expiring" | "expired" | "internal" | "error";
 
 export interface CertProbe {
   domain: string;
@@ -188,12 +183,9 @@ export function shapeCertProbe(
   const notBefore = toIso(cert.valid_from);
   const notAfter = toIso(cert.valid_to);
   const daysRemaining =
-    notAfter !== null
-      ? Math.floor((Date.parse(notAfter) - now) / 86_400_000)
-      : null;
+    notAfter !== null ? Math.floor((Date.parse(notAfter) - now) / 86_400_000) : null;
   const selfSigned =
-    isInternalIssuer(issuer) ||
-    (issuer !== null && subject !== null && issuer === subject);
+    isInternalIssuer(issuer) || (issuer !== null && subject !== null && issuer === subject);
 
   return {
     ...base,

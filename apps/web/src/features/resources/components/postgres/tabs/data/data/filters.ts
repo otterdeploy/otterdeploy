@@ -27,17 +27,16 @@ export interface Filter {
   enabled: boolean;
 }
 
-export const FILTER_OPS: { value: FilterOp; label: string; needsValue: boolean }[] =
-  [
-    { value: "eq", label: "equals (=)", needsValue: true },
-    { value: "ne", label: "not equals (!=)", needsValue: true },
-    { value: "contains", label: "contains (LIKE)", needsValue: true },
-    { value: "notcontains", label: "not contains (NOT LIKE)", needsValue: true },
-    { value: "startswith", label: "starts with", needsValue: true },
-    { value: "endswith", label: "ends with", needsValue: true },
-    { value: "isnull", label: "is null (IS NULL)", needsValue: false },
-    { value: "notnull", label: "is not null (IS NOT NULL)", needsValue: false },
-  ];
+export const FILTER_OPS: { value: FilterOp; label: string; needsValue: boolean }[] = [
+  { value: "eq", label: "equals (=)", needsValue: true },
+  { value: "ne", label: "not equals (!=)", needsValue: true },
+  { value: "contains", label: "contains (LIKE)", needsValue: true },
+  { value: "notcontains", label: "not contains (NOT LIKE)", needsValue: true },
+  { value: "startswith", label: "starts with", needsValue: true },
+  { value: "endswith", label: "ends with", needsValue: true },
+  { value: "isnull", label: "is null (IS NULL)", needsValue: false },
+  { value: "notnull", label: "is not null (IS NOT NULL)", needsValue: false },
+];
 
 export function opNeedsValue(op: FilterOp | ""): boolean {
   if (op === "") return false;

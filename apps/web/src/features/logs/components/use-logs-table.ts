@@ -5,6 +5,8 @@
  * itself is untouched and still owned by that hook.
  */
 
+import { useEffect, useMemo, useRef, useState } from "react";
+
 import {
   getCoreRowModel,
   getExpandedRowModel,
@@ -15,14 +17,11 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useEffect, useMemo, useRef, useState } from "react";
 
-import {
-  useProjectLogStream,
-  type LogLevel,
-} from "../data/use-project-log-stream";
-import { logColumns } from "./log-columns";
 import type { TimeRange } from "./logs-histogram";
+
+import { useProjectLogStream, type LogLevel } from "../data/use-project-log-stream";
+import { logColumns } from "./log-columns";
 
 interface UseLogsTableArgs {
   projectId: string;
@@ -49,10 +48,7 @@ export function useLogsTable({
   // Live tail sticks to the bottom until the operator scrolls up (or sorts).
   const [follow, setFollow] = useState(true);
 
-  const subscribedIds = useMemo(
-    () => (svcFilter === "all" ? undefined : [svcFilter]),
-    [svcFilter],
-  );
+  const subscribedIds = useMemo(() => (svcFilter === "all" ? undefined : [svcFilter]), [svcFilter]);
   const { lines, status } = useProjectLogStream({
     projectId,
     resourceIds: subscribedIds,
@@ -64,9 +60,7 @@ export function useLogsTable({
   const filteredByMeta = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return lines.filter(
-      (l) =>
-        lvlFilter.has(l.level) &&
-        (!needle || l.msg.toLowerCase().includes(needle)),
+      (l) => lvlFilter.has(l.level) && (!needle || l.msg.toLowerCase().includes(needle)),
     );
   }, [lines, lvlFilter, query]);
 
@@ -114,8 +108,7 @@ export function useLogsTable({
   // Stick to bottom on new rows while following the live tail. A time-window
   // filter means we're inspecting history, so don't yank to the bottom.
   useEffect(() => {
-    if (!follow || !isDefaultSort || paused || timeRange || rows.length === 0)
-      return;
+    if (!follow || !isDefaultSort || paused || timeRange || rows.length === 0) return;
     virtualizer.scrollToIndex(rows.length - 1, { align: "end" });
   }, [rows.length, follow, isDefaultSort, paused, timeRange, virtualizer]);
 

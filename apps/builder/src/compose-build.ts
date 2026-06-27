@@ -1,3 +1,20 @@
+import type { DeploymentId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+
+import { getInstallationToken } from "@otterdeploy/api/git/github-app";
+import { decryptSecret } from "@otterdeploy/api/lib/crypto";
+import { deployCompose } from "@otterdeploy/api/routers/compose/deploy";
+import { parseCompose } from "@otterdeploy/api/stack/compose/parse";
+import { summarizeCompose } from "@otterdeploy/api/stack/compose/summary";
+import { db } from "@otterdeploy/db";
+import {
+  composeResource,
+  containerRegistry,
+  deployment,
+  project,
+  resource,
+} from "@otterdeploy/db/schema";
+import { Result } from "better-result";
+import { eq } from "drizzle-orm";
 /**
  * Build path for `type: compose` resources with `build:` services.
  *
@@ -13,26 +30,7 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { decryptSecret } from "@otterdeploy/api/lib/crypto";
-import { deployCompose } from "@otterdeploy/api/routers/compose/deploy";
-import { parseCompose } from "@otterdeploy/api/stack/compose/parse";
-import { summarizeCompose } from "@otterdeploy/api/stack/compose/summary";
-import { getInstallationToken } from "@otterdeploy/api/git/github-app";
-import { db } from "@otterdeploy/db";
-import {
-  composeResource,
-  containerRegistry,
-  deployment,
-  project,
-  resource,
-} from "@otterdeploy/db/schema";
-import type {
-  DeploymentId,
-  ProjectId,
-  ResourceId,
-} from "@otterdeploy/shared/id";
-import { Result } from "better-result";
-import { eq } from "drizzle-orm";
+import type { LogSink } from "./log-stream";
 
 import { ensureBuildxBuilder, cachePathFor } from "./buildx";
 import { cloneRepoAtSha } from "./clone";
@@ -40,7 +38,6 @@ import { dockerPush } from "./docker-push";
 import { dockerfileBuild, resolveDockerfileBuild } from "./dockerfile";
 import { BuildStepError, InvalidDeploymentError } from "./errors";
 import { PipelineLoadError } from "./load";
-import type { LogSink } from "./log-stream";
 import { railpackBuild } from "./railpack";
 import { markBuilding, markImageReady, markRunning } from "./state";
 
@@ -58,9 +55,7 @@ interface ComposeBuildContext {
 }
 
 /** True when the deployment's resource is a compose stack (drives dispatch). */
-export async function isComposeDeployment(
-  deploymentId: DeploymentId,
-): Promise<boolean> {
+export async function isComposeDeployment(deploymentId: DeploymentId): Promise<boolean> {
   const [row] = await db
     .select({ type: resource.type })
     .from(deployment)
@@ -70,24 +65,12 @@ export async function isComposeDeployment(
   return row?.type === "compose";
 }
 
-async function loadComposeBuildContext(
-  deploymentId: DeploymentId,
-): Promise<ComposeBuildContext> {
-  const [dep] = await db
-    .select()
-    .from(deployment)
-    .where(eq(deployment.id, deploymentId))
-    .limit(1);
-  if (!dep)
-    throw new PipelineLoadError("deployment", `${deploymentId} missing`);
+async function loadComposeBuildContext(deploymentId: DeploymentId): Promise<ComposeBuildContext> {
+  const [dep] = await db.select().from(deployment).where(eq(deployment.id, deploymentId)).limit(1);
+  if (!dep) throw new PipelineLoadError("deployment", `${deploymentId} missing`);
 
-  const [res] = await db
-    .select()
-    .from(resource)
-    .where(eq(resource.id, dep.resourceId))
-    .limit(1);
-  if (!res)
-    throw new PipelineLoadError("resource", `${dep.resourceId} missing`);
+  const [res] = await db.select().from(resource).where(eq(resource.id, dep.resourceId)).limit(1);
+  if (!res) throw new PipelineLoadError("resource", `${dep.resourceId} missing`);
 
   const [comp] = await db
     .select()
@@ -95,25 +78,15 @@ async function loadComposeBuildContext(
     .where(eq(composeResource.resourceId, res.id))
     .limit(1);
   if (!comp) {
-    throw new PipelineLoadError(
-      "compose",
-      `compose_resource ${res.id} missing`,
-    );
+    throw new PipelineLoadError("compose", `compose_resource ${res.id} missing`);
   }
 
-  const [proj] = await db
-    .select()
-    .from(project)
-    .where(eq(project.id, res.projectId))
-    .limit(1);
+  const [proj] = await db.select().from(project).where(eq(project.id, res.projectId)).limit(1);
   if (!proj) throw new PipelineLoadError("project", `${res.projectId} missing`);
 
   // Compose brings its OWN repo url (public clone, anonymous).
   if (!comp.gitRepoUrl) {
-    throw new PipelineLoadError(
-      "compose.gitRepoUrl",
-      `${comp.resourceId} has no repo url`,
-    );
+    throw new PipelineLoadError("compose.gitRepoUrl", `${comp.resourceId} has no repo url`);
   }
 
   let registry: typeof containerRegistry.$inferSelect | null = null;
@@ -147,16 +120,12 @@ export async function runComposeBuild(
   opts: { deploymentId: DeploymentId },
   sink: LogSink,
   work: { path: string | null },
-): Promise<
-  Result<string, PipelineLoadError | BuildStepError | InvalidDeploymentError>
-> {
+): Promise<Result<string, PipelineLoadError | BuildStepError | InvalidDeploymentError>> {
   return Result.gen(async function* () {
     const ctx = yield* await Result.tryPromise({
       try: () => loadComposeBuildContext(opts.deploymentId),
       catch: (cause) =>
-        cause instanceof PipelineLoadError
-          ? cause
-          : new BuildStepError({ step: "load", cause }),
+        cause instanceof PipelineLoadError ? cause : new BuildStepError({ step: "load", cause }),
     });
 
     yield* await Result.tryPromise({
@@ -206,16 +175,12 @@ export async function runComposeBuild(
       "docker-compose.yml",
       "docker-compose.yaml",
     ].filter((p): p is string => !!p);
-    const found = candidates.find((p) =>
-      existsSync(join(cloned.workDir, subdir, p)),
-    );
+    const found = candidates.find((p) => existsSync(join(cloned.workDir, subdir, p)));
     if (!found) {
       return Result.err(
         new BuildStepError({
           step: "find-compose",
-          cause: new Error(
-            `No compose file found (tried ${candidates.join(", ")})`,
-          ),
+          cause: new Error(`No compose file found (tried ${candidates.join(", ")})`),
         }),
       );
     }
@@ -282,15 +247,13 @@ export async function runComposeBuild(
             sink,
           });
         },
-        catch: (cause) =>
-          new BuildStepError({ step: `build:${svc.name}`, cause }),
+        catch: (cause) => new BuildStepError({ step: `build:${svc.name}`, cause }),
       });
 
       if (ctx.registry) {
         const password = yield* await Result.tryPromise({
           try: () => decryptSecret(ctx.registry!.encryptedPassword),
-          catch: (cause) =>
-            new BuildStepError({ step: "decrypt-registry", cause }),
+          catch: (cause) => new BuildStepError({ step: "decrypt-registry", cause }),
         });
         yield* await Result.tryPromise({
           try: () =>
@@ -303,8 +266,7 @@ export async function runComposeBuild(
               },
               sink,
             }),
-          catch: (cause) =>
-            new BuildStepError({ step: `push:${svc.name}`, cause }),
+          catch: (cause) => new BuildStepError({ step: `push:${svc.name}`, cause }),
         });
       } else {
         sink.system(`local build — skipping push for ${image.shaTag}`);

@@ -1,7 +1,5 @@
-import type {
-  BackupDestinationId,
-  BackupId,
-} from "@otterdeploy/shared/id";
+import type { BackupDestinationId, BackupId } from "@otterdeploy/shared/id";
+
 import { TaggedError } from "better-result";
 
 export class BackupNotFoundError extends TaggedError("BackupNotFoundError")<{
@@ -16,9 +14,7 @@ export class BackupNotFoundError extends TaggedError("BackupNotFoundError")<{
   }
 }
 
-export class DestinationNotFoundError extends TaggedError(
-  "DestinationNotFoundError",
-)<{
+export class DestinationNotFoundError extends TaggedError("DestinationNotFoundError")<{
   message: string;
   destinationId: BackupDestinationId;
 }>() {
@@ -31,9 +27,7 @@ export class DestinationNotFoundError extends TaggedError(
 }
 
 /** Raised when deleting a destination still referenced by a schedule/backup. */
-export class DestinationInUseError extends TaggedError(
-  "DestinationInUseError",
-)<{
+export class DestinationInUseError extends TaggedError("DestinationInUseError")<{
   message: string;
   destinationId: BackupDestinationId;
   references: number;
@@ -52,9 +46,7 @@ export class DestinationInUseError extends TaggedError(
  * config, no credentials, or an undecryptable secret. Carries the reason so
  * the operator/UI sees exactly what was wrong.
  */
-export class DestinationTestFailedError extends TaggedError(
-  "DestinationTestFailedError",
-)<{
+export class DestinationTestFailedError extends TaggedError("DestinationTestFailedError")<{
   message: string;
   destinationId: BackupDestinationId;
   reason: string;

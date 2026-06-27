@@ -1,3 +1,4 @@
+import { DATA_ROOT } from "@otterdeploy/shared/paths";
 /**
  * Build work-dir retention. A failed build's clone is KEPT (under the host data
  * folder) so an operator can inspect what went wrong; successful builds are
@@ -11,8 +12,6 @@
  */
 import { readdir, rm, rmdir, stat } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
-
-import { DATA_ROOT } from "@otterdeploy/shared/paths";
 
 const BUILDS_DIR = join(DATA_ROOT, "builds");
 /** Persistent BuildKit layer cache (see buildx.ts), one subdir per image repo. */
@@ -76,10 +75,7 @@ export async function pruneStaleBuilds(now = Date.now()): Promise<void> {
  * each removal stays inside `CACHE_DIR`, and a vanished/locked entry is skipped,
  * never thrown. No-op when the cache dir doesn't exist (dev / no data folder).
  */
-export async function pruneStaleBuildCache(
-  now = Date.now(),
-  cacheDir = CACHE_DIR,
-): Promise<void> {
+export async function pruneStaleBuildCache(now = Date.now(), cacheDir = CACHE_DIR): Promise<void> {
   let entries: string[];
   try {
     entries = await readdir(cacheDir);

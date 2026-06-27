@@ -10,11 +10,7 @@ export const meilisearchAdapter: DatabaseEngineAdapter = {
   defaultImage: `${meta.dockerImage}:${meta.defaultTag}`,
   port: meta.defaultPort,
   mountTarget: "/meili_data",
-  reservedEnvKeys: new Set([
-    "MEILI_MASTER_KEY",
-    "MEILI_ENV",
-    "MEILI_NO_ANALYTICS",
-  ]),
+  reservedEnvKeys: new Set(["MEILI_MASTER_KEY", "MEILI_ENV", "MEILI_NO_ANALYTICS"]),
   // Meilisearch auths with a single MASTER KEY (no username/database). The
   // generated `password` is that key; `username`/`databaseName` are unused.
   buildEnv: ({ password }) => [

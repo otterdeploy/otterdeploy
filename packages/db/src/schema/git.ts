@@ -1,3 +1,5 @@
+import type { GitInstallationId, GitProviderId, GitRepoId } from "@otterdeploy/shared/id";
+
 // Git source connections — providers (GitHub App, GitLab, …), per-org
 // installations of those providers, and the repos those installations expose
 // for deploys. Webhook deliveries land against `gitInstallation.installationId`
@@ -11,8 +13,6 @@
 // nullable so the provider row can also exist for the legacy env-var path
 // during the transition, but new providers always populate them.
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
-import type { GitInstallationId, GitProviderId, GitRepoId } from "@otterdeploy/shared/id";
-
 import {
   boolean,
   index,
@@ -90,14 +90,14 @@ export const gitProvider = pgTable(
   ],
 );
 
-export const gitInstallationAccountTypeEnum = pgEnum(
-  "git_installation_account_type",
-  ["user", "organization"],
-);
-export const gitInstallationRepoSelectionEnum = pgEnum(
-  "git_installation_repo_selection",
-  ["all", "selected"],
-);
+export const gitInstallationAccountTypeEnum = pgEnum("git_installation_account_type", [
+  "user",
+  "organization",
+]);
+export const gitInstallationRepoSelectionEnum = pgEnum("git_installation_repo_selection", [
+  "all",
+  "selected",
+]);
 
 /**
  * A specific install of the GitHub App into a user/org account. `installationId`

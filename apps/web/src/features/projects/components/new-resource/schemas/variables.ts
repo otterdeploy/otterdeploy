@@ -1,4 +1,5 @@
 import * as z from "zod";
+
 import { kindFragment, nameFragment } from "./_base";
 
 const varSchema = z.object({

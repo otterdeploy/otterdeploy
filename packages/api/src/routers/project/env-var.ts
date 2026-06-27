@@ -6,11 +6,7 @@
  * don't enforce tenancy.
  */
 
-import type {
-  EnvironmentId,
-  OrganizationId,
-  ProjectId,
-} from "@otterdeploy/shared/id";
+import type { EnvironmentId, OrganizationId, ProjectId } from "@otterdeploy/shared/id";
 
 import { Result } from "better-result";
 

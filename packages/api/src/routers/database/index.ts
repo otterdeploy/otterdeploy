@@ -2,7 +2,8 @@ import { auth } from "@otterdeploy/auth";
 
 import { requirePermission } from "../..";
 import { enforceResourceScope } from "../../authz/project-scope-guards";
-
+import { mariadbBrowse, mariadbTables } from "./mariadb";
+import { mongoCollections, mongoDocuments } from "./mongo";
 import {
   QueryError,
   UnsupportedEngineError,
@@ -14,8 +15,6 @@ import {
   runWriteQuery,
 } from "./query";
 import { redisKeyspace, redisReadValue, redisScanKeys } from "./redis";
-import { mariadbBrowse, mariadbTables } from "./mariadb";
-import { mongoCollections, mongoDocuments } from "./mongo";
 
 const TABLES_SQL = `
   SELECT table_schema, table_name

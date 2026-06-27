@@ -7,23 +7,21 @@ import { GITHUB_URL } from "@/components/landing/content";
 // Marketing top bar shared above the docs — our own mono/uppercase header.
 // Icons are Hugeicons (no lucide).
 
-const cx = (...parts: Array<string | false | undefined>) =>
-  parts.filter(Boolean).join(" ");
+const cx = (...parts: Array<string | false | undefined>) => parts.filter(Boolean).join(" ");
 
-const LINKS: { label: string; href: string; match: (p: string) => boolean }[] =
-  [
-    { label: "Readme", href: "/", match: (p) => p === "/" },
-    {
-      label: "Docs",
-      href: "/docs",
-      match: (p) => p.startsWith("/docs") && !p.startsWith("/docs/reference"),
-    },
-    {
-      label: "API",
-      href: "/docs/reference/api",
-      match: (p) => p.startsWith("/docs/reference"),
-    },
-  ];
+const LINKS: { label: string; href: string; match: (p: string) => boolean }[] = [
+  { label: "Readme", href: "/", match: (p) => p === "/" },
+  {
+    label: "Docs",
+    href: "/docs",
+    match: (p) => p.startsWith("/docs") && !p.startsWith("/docs/reference"),
+  },
+  {
+    label: "API",
+    href: "/docs/reference/api",
+    match: (p) => p.startsWith("/docs/reference"),
+  },
+];
 
 export function SiteBar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -47,9 +45,7 @@ export function SiteBar() {
                 href={l.href}
                 className={cx(
                   "rounded-md px-2.5 py-1.5 font-mono text-[11px] tracking-wide uppercase transition-colors",
-                  on
-                    ? "text-foreground"
-                    : "text-muted-foreground hover:text-foreground",
+                  on ? "text-foreground" : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 {l.label}

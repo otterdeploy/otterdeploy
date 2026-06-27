@@ -1,14 +1,10 @@
 import { KeyRoundIcon } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
-import {
-  Table,
-  TableBody,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip";
+
 import type { VariableScope } from "../types";
 
 interface Props {
@@ -27,9 +23,7 @@ export function VariablesTable({ scope }: Props) {
               </Button>
             }
           />
-          <TooltipPopup>
-            Paste a .env file when the variables API ships (Plan 6)
-          </TooltipPopup>
+          <TooltipPopup>Paste a .env file when the variables API ships (Plan 6)</TooltipPopup>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger
@@ -52,9 +46,7 @@ export function VariablesTable({ scope }: Props) {
             <TableHead></TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody>
-          {/* Rows render here when project.variable.list ships in Plan 6 */}
-        </TableBody>
+        <TableBody>{/* Rows render here when project.variable.list ships in Plan 6 */}</TableBody>
       </Table>
 
       <Empty>

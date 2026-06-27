@@ -92,7 +92,7 @@ export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];
  * Same level of safety: a plain string can't satisfy `Id<P>` without a cast.
  */
 export declare const __brand: unique symbol;
-export type Id<P extends string = string> =string & {
+export type Id<P extends string = string> = string & {
   readonly [__brand]: P;
 };
 
@@ -123,10 +123,7 @@ export function idPrefix(id: string): string | null {
  * @example
  *   hasPrefix("project_clx1abc", "project") // true
  */
-export function hasPrefix<P extends string>(
-  id: string,
-  prefix: P,
-): id is Id<P> {
+export function hasPrefix<P extends string>(id: string, prefix: P): id is Id<P> {
   return id.startsWith(`${prefix}_`);
 }
 
@@ -202,9 +199,7 @@ export type ServicePortId = Id<typeof ID_PREFIX.servicePort>;
 export type ServiceMountId = Id<typeof ID_PREFIX.serviceMount>;
 export type ServiceEnvVarId = Id<typeof ID_PREFIX.serviceEnvVar>;
 export type ProjectEnvVarId = Id<typeof ID_PREFIX.projectEnvVar>;
-export type ProjectEnvSubscriptionId = Id<
-  typeof ID_PREFIX.projectEnvSubscription
->;
+export type ProjectEnvSubscriptionId = Id<typeof ID_PREFIX.projectEnvSubscription>;
 export type EnvironmentId = Id<typeof ID_PREFIX.environment>;
 export type ProxyRouteId = Id<typeof ID_PREFIX.proxyRoute>;
 export type DeploymentGuestId = Id<typeof ID_PREFIX.deploymentGuest>;
@@ -235,9 +230,7 @@ export type NotificationId = Id<typeof ID_PREFIX.notification>;
 
 // Notification channels
 export type NotificationChannelId = Id<typeof ID_PREFIX.notificationChannel>;
-export type NotificationSubscriptionId = Id<
-  typeof ID_PREFIX.notificationSubscription
->;
+export type NotificationSubscriptionId = Id<typeof ID_PREFIX.notificationSubscription>;
 export type NotificationDeliveryId = Id<typeof ID_PREFIX.notificationDelivery>;
 
 // Slugs (URL-safe identifiers, distinct from cuid IDs)

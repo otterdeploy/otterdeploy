@@ -11,14 +11,8 @@
  */
 import type { RequestLogger } from "evlog";
 
-import type {
-  SwarmServiceRuntime,
-  SwarmServiceSpec,
-} from "../swarm/service";
-import type {
-  ProvisionSwarmDatabaseInput,
-  SwarmDatabaseRuntime,
-} from "../swarm/database";
+import type { ProvisionSwarmDatabaseInput, SwarmDatabaseRuntime } from "../swarm/database";
+import type { SwarmServiceRuntime, SwarmServiceSpec } from "../swarm/service";
 
 /** A container to run — same shape the swarm path already produces. */
 export type ContainerSpec = SwarmServiceSpec;
@@ -49,18 +43,9 @@ export interface RuntimeDriver {
   ): Promise<RuntimeStatus>;
 
   // ── Databases (single-replica stateful containers) ──
-  provisionDatabase(
-    input: DatabaseSpec,
-    log?: RequestLogger,
-  ): Promise<DatabaseStatus>;
-  updateDatabase(
-    input: DatabaseSpec,
-    log?: RequestLogger,
-  ): Promise<DatabaseStatus>;
-  destroyDatabase(
-    input: { serviceName: string },
-    log?: RequestLogger,
-  ): Promise<void>;
+  provisionDatabase(input: DatabaseSpec, log?: RequestLogger): Promise<DatabaseStatus>;
+  updateDatabase(input: DatabaseSpec, log?: RequestLogger): Promise<DatabaseStatus>;
+  destroyDatabase(input: { serviceName: string }, log?: RequestLogger): Promise<void>;
   inspectDatabase(
     input: { serviceName: string; volumeName: string; projectSlug: string },
     log?: RequestLogger,

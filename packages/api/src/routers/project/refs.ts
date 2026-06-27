@@ -16,15 +16,11 @@ import type { OrganizationId, ProjectId } from "@otterdeploy/shared/id";
 
 import { Result } from "better-result";
 
-import { ProjectNotFoundError } from "./errors";
-import {
-  getProjectInOrg,
-  getProjectRecord,
-  loadProjectEnvBag,
-} from "./queries";
-import { listProjectResources } from "./queries/resource";
-import { listServiceEnvVars, listServicePorts } from "../service/queries";
 import { postgresExports, serviceExports } from "../../lib/variables/exporters";
+import { listServiceEnvVars, listServicePorts } from "../service/queries";
+import { ProjectNotFoundError } from "./errors";
+import { getProjectInOrg, getProjectRecord, loadProjectEnvBag } from "./queries";
+import { listProjectResources } from "./queries/resource";
 
 type OrgId = OrganizationId;
 type DatabaseEngine = "postgres" | "redis" | "mariadb" | "mongodb";

@@ -64,9 +64,7 @@ export interface PackageJsonLike {
  * remix before vite, etc.).
  */
 // oxlint-disable-next-line complexity
-export function detectFrameworkFromPkg(
-  pkg: PackageJsonLike | null,
-): FrameworkKind {
+export function detectFrameworkFromPkg(pkg: PackageJsonLike | null): FrameworkKind {
   if (!pkg) return null;
   const all = {
     ...pkg.dependencies,

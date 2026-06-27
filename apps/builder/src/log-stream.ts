@@ -19,7 +19,6 @@
  */
 
 import type { DeploymentId } from "@otterdeploy/shared/id";
-
 import type { RedisClient } from "bun";
 
 import { db } from "@otterdeploy/db";
@@ -98,10 +97,7 @@ export function createLogSink(opts: {
     // absent (no live tail viewer), and a publish failure here is
     // never worth failing the build over.
     opts.publisher
-      .publish(
-        channel,
-        JSON.stringify({ stream, line: clean, ts: ts.toISOString() }),
-      )
+      .publish(channel, JSON.stringify({ stream, line: clean, ts: ts.toISOString() }))
       .catch((err) =>
         globalLog.warn({
           build: {

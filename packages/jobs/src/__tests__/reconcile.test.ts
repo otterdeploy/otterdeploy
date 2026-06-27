@@ -112,10 +112,8 @@ function makeDb(rows: Row[], joins: Record<string, JoinInfo> = {}) {
           returning: () => {
             if (!ok || !target) return Promise.resolve([]);
             target.status = nextStatus;
-            if (setFields.errorMessage !== undefined)
-              target.errorMessage = setFields.errorMessage;
-            if (setFields.completedAt !== undefined)
-              target.completedAt = setFields.completedAt;
+            if (setFields.errorMessage !== undefined) target.errorMessage = setFields.errorMessage;
+            if (setFields.completedAt !== undefined) target.completedAt = setFields.completedAt;
             return Promise.resolve([{ id: target.id }]);
           },
         };
@@ -146,8 +144,7 @@ void mock.module("drizzle-orm", () => ({
   eq: (col: { __col?: string }, val: unknown) =>
     col?.__col === "id" ? { __id: val } : { __eq: val },
   inArray: (_col: unknown, vals: Status[]) => ({ __allowed: vals }),
-  and: (...parts: Array<Record<string, unknown>>) =>
-    Object.assign({}, ...parts),
+  and: (...parts: Array<Record<string, unknown>>) => Object.assign({}, ...parts),
   desc: (col: unknown) => col,
 }));
 
@@ -221,9 +218,7 @@ describe("reconcileInterruptedDeployments", () => {
   });
 
   test("(b) building WITH active job referencing its id → untouched, no notification", async () => {
-    const { db, rows } = makeDb([
-      { id: "d1", resourceId: "r1", status: "building", createdAt: 1 },
-    ]);
+    const { db, rows } = makeDb([{ id: "d1", resourceId: "r1", status: "building", createdAt: 1 }]);
     const { getQueue } = makeGetQueue([["d1"]]); // a live job owns d1
 
     const summary = await reconcileInterruptedDeployments({
@@ -239,9 +234,7 @@ describe("reconcileInterruptedDeployments", () => {
   });
 
   test("(c) pending with no job → failed", async () => {
-    const { db, rows } = makeDb([
-      { id: "d1", resourceId: "r1", status: "pending", createdAt: 1 },
-    ]);
+    const { db, rows } = makeDb([{ id: "d1", resourceId: "r1", status: "pending", createdAt: 1 }]);
     const { getQueue } = makeGetQueue([]);
 
     const summary = await reconcileInterruptedDeployments({
@@ -298,9 +291,7 @@ describe("reconcileInterruptedDeployments", () => {
   });
 
   test("(f) idempotency — second run does nothing", async () => {
-    const { db, rows } = makeDb([
-      { id: "d1", resourceId: "r1", status: "building", createdAt: 1 },
-    ]);
+    const { db, rows } = makeDb([{ id: "d1", resourceId: "r1", status: "building", createdAt: 1 }]);
     const { getQueue } = makeGetQueue([]);
 
     const first = await reconcileInterruptedDeployments({
@@ -322,9 +313,7 @@ describe("reconcileInterruptedDeployments", () => {
   });
 
   test("(g) lock not acquired → no-op", async () => {
-    const { db, rows } = makeDb([
-      { id: "d1", resourceId: "r1", status: "building", createdAt: 1 },
-    ]);
+    const { db, rows } = makeDb([{ id: "d1", resourceId: "r1", status: "building", createdAt: 1 }]);
     const { getQueue, getJobs } = makeGetQueue([]);
 
     const summary = await reconcileInterruptedDeployments({

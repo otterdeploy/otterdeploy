@@ -7,12 +7,9 @@
  */
 
 import { useState } from "react";
+
+import { Database02Icon, Delete01Icon, PencilEdit01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import {
-  Database02Icon,
-  Delete01Icon,
-  PencilEdit01Icon,
-} from "@hugeicons/core-free-icons";
 import { toast } from "sonner";
 
 import {
@@ -50,9 +47,7 @@ export function RegistryCard({ registry, onEdit }: RegistryCardProps) {
         setConfirmOpen(false);
       })
       .catch((err: unknown) =>
-        toast.error(
-          err instanceof Error ? err.message : "Failed to remove registry",
-        ),
+        toast.error(err instanceof Error ? err.message : "Failed to remove registry"),
       )
       .finally(() => setBusy(false));
   };
@@ -69,10 +64,8 @@ export function RegistryCard({ registry, onEdit }: RegistryCardProps) {
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[13.5px] font-semibold">
-              {registry.displayName}
-            </span>
-            <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10.5px] font-medium uppercase tracking-wider text-muted-foreground">
+            <span className="text-[13.5px] font-semibold">{registry.displayName}</span>
+            <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10.5px] font-medium tracking-wider text-muted-foreground uppercase">
               {registry.authType}
             </span>
           </div>
@@ -112,10 +105,9 @@ export function RegistryCard({ registry, onEdit }: RegistryCardProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Remove this registry?</AlertDialogTitle>
             <AlertDialogDescription>
-              Any projects pointing at <span className="font-mono">{registry.host}</span>{" "}
-              via this credential will have their registry binding cleared.
-              Builds for those projects will fail until a new credential is wired
-              up.
+              Any projects pointing at <span className="font-mono">{registry.host}</span> via this
+              credential will have their registry binding cleared. Builds for those projects will
+              fail until a new credential is wired up.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

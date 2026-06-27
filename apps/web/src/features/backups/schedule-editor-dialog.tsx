@@ -10,15 +10,11 @@ import { Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { Button } from "@/shared/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/shared/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
 
 import type { Destination } from "./data/destinations";
 import type { Schedule } from "./data/schedules";
+
 import { ScheduleFields } from "./schedule-fields";
 import { useScheduleForm } from "./schedule-form";
 
@@ -64,7 +60,7 @@ function ScheduleEditorBody({
   const form = useScheduleForm({ initial, organizationId, destinations, onClose });
 
   return (
-    <DialogContent className="sm:max-w-3xl gap-0 p-0">
+    <DialogContent className="gap-0 p-0 sm:max-w-3xl">
       <DialogHeader className="border-b px-5 py-3">
         <DialogTitle className="text-sm font-semibold">
           {editing ? `Edit schedule · ${initial.name}` : "New backup schedule"}
@@ -88,9 +84,7 @@ function ScheduleEditorBody({
             Cancel
           </Button>
           <form.Subscribe
-            selector={(s) =>
-              [s.values.name, s.values.destinationIds.length] as const
-            }
+            selector={(s) => [s.values.name, s.values.destinationIds.length] as const}
           >
             {([name, destCount]) => (
               <Button

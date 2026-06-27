@@ -1,7 +1,8 @@
 import type { backupSchema } from "@otterdeploy/api/routers/backups/contract";
+import type { z } from "zod";
+
 import { createCollection } from "@tanstack/db";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
-import type { z } from "zod";
 
 import { orpc, queryClient } from "@/shared/server/orpc";
 
@@ -31,17 +32,13 @@ export const backupsCollection = createCollection(
 );
 
 /** Enqueue + execute a manual "backup now" run, then refresh the list. */
-export async function runBackup(
-  input: Parameters<typeof orpc.backups.run.call>[0],
-) {
+export async function runBackup(input: Parameters<typeof orpc.backups.run.call>[0]) {
   const res = await orpc.backups.run.call(input);
   await queryClient.invalidateQueries({ queryKey: backupsListKey });
   return res;
 }
 
 /** Restore a succeeded backup (download bytes as base64, or in-place). */
-export function restoreBackup(
-  input: Parameters<typeof orpc.backups.restore.call>[0],
-) {
+export function restoreBackup(input: Parameters<typeof orpc.backups.restore.call>[0]) {
   return orpc.backups.restore.call(input);
 }

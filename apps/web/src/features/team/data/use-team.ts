@@ -21,17 +21,12 @@
  */
 
 import { createCollection } from "@tanstack/db";
-import {
-  parseLoadSubsetOptions,
-  queryCollectionOptions,
-} from "@tanstack/query-db-collection";
+import { parseLoadSubsetOptions, queryCollectionOptions } from "@tanstack/query-db-collection";
 import { eq, useLiveQuery } from "@tanstack/react-db";
-
 import { z } from "zod";
 
-import { parseCol } from "@/shared/lib/utils";
-
 import { authClient } from "@/lib/auth-client";
+import { parseCol } from "@/shared/lib/utils";
 import { queryClient } from "@/shared/server/orpc";
 
 const organizationIdSchema = z.string().min(1);
@@ -61,21 +56,13 @@ export const membersCollection = createCollection(
       const baseQuery = ["org", "members"];
       const { filters } = parseLoadSubsetOptions(opts);
       if (!filters.at(0)) return baseQuery;
-      const organizationId = parseCol(
-        organizationIdSchema,
-        filters,
-        "organizationId",
-      );
+      const organizationId = parseCol(organizationIdSchema, filters, "organizationId");
       return [...membersSubsetKey(organizationId)];
     },
     queryFn: async (ctx) => {
       const { filters } = parseLoadSubsetOptions(ctx.meta?.loadSubsetOptions);
       if (!filters.at(0)) return [];
-      const organizationId = parseCol(
-        organizationIdSchema,
-        filters,
-        "organizationId",
-      );
+      const organizationId = parseCol(organizationIdSchema, filters, "organizationId");
       const res = await authClient.organization.listMembers({
         query: { organizationId },
       });
@@ -119,21 +106,13 @@ export const invitationsCollection = createCollection(
       const baseQuery = ["org", "invitations"];
       const { filters } = parseLoadSubsetOptions(opts);
       if (!filters.at(0)) return baseQuery;
-      const organizationId = parseCol(
-        organizationIdSchema,
-        filters,
-        "organizationId",
-      );
+      const organizationId = parseCol(organizationIdSchema, filters, "organizationId");
       return [...invitationsSubsetKey(organizationId)];
     },
     queryFn: async (ctx) => {
       const { filters } = parseLoadSubsetOptions(ctx.meta?.loadSubsetOptions);
       if (!filters.at(0)) return [];
-      const organizationId = parseCol(
-        organizationIdSchema,
-        filters,
-        "organizationId",
-      );
+      const organizationId = parseCol(organizationIdSchema, filters, "organizationId");
       const res = await authClient.organization.listInvitations({
         query: { organizationId },
       });
@@ -194,10 +173,7 @@ export type PendingInvite = (typeof invitationsCollection.toArray)[number];
 /** Thin live-query wrapper so existing consumers keep `{ data, isLoading }`. */
 export function useMembers(organizationId: string) {
   return useLiveQuery(
-    (q) =>
-      q
-        .from({ m: membersCollection })
-        .where(({ m }) => eq(m.organizationId, organizationId)),
+    (q) => q.from({ m: membersCollection }).where(({ m }) => eq(m.organizationId, organizationId)),
     [organizationId],
   );
 }
@@ -206,9 +182,7 @@ export function useMembers(organizationId: string) {
 export function useInvitations(organizationId: string) {
   return useLiveQuery(
     (q) =>
-      q
-        .from({ i: invitationsCollection })
-        .where(({ i }) => eq(i.organizationId, organizationId)),
+      q.from({ i: invitationsCollection }).where(({ i }) => eq(i.organizationId, organizationId)),
     [organizationId],
   );
 }

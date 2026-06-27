@@ -15,14 +15,15 @@
  * appears in the persisted build output.
  */
 
+import type { DeploymentId, ProjectId } from "@otterdeploy/shared/id";
+
+import { buildDir } from "@otterdeploy/shared/paths";
 import { mkdir, mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import type { DeploymentId, ProjectId } from "@otterdeploy/shared/id";
-import { buildDir } from "@otterdeploy/shared/paths";
-
 import type { LogSink } from "./log-stream";
+
 import { runProcess } from "./run-process";
 
 export interface CloneResult {
@@ -73,10 +74,7 @@ export async function cloneRepoAtSha(opts: {
   bindingKind?: "github_app" | "public_url";
   sink: LogSink;
 }): Promise<CloneResult> {
-  const { path: workDir, persistent } = await resolveWorkDir(
-    opts.projectId,
-    opts.deploymentId,
-  );
+  const { path: workDir, persistent } = await resolveWorkDir(opts.projectId, opts.deploymentId);
   const url = opts.installationToken
     ? injectToken(opts.cloneUrl, opts.installationToken)
     : opts.cloneUrl;
@@ -84,21 +82,11 @@ export async function cloneRepoAtSha(opts: {
   // every empty stretch of output.
   const secrets = opts.installationToken ? [opts.installationToken] : [];
 
-  opts.sink.system(
-    `cloning ${opts.cloneUrl} @ ${opts.ref} (${opts.sha.slice(0, 7)}) → ${workDir}`,
-  );
+  opts.sink.system(`cloning ${opts.cloneUrl} @ ${opts.ref} (${opts.sha.slice(0, 7)}) → ${workDir}`);
 
   const clone = await runProcess({
     cmd: "git",
-    args: [
-      "clone",
-      "--depth",
-      "1",
-      "--branch",
-      stripRefsHeadsPrefix(opts.ref),
-      url,
-      workDir,
-    ],
+    args: ["clone", "--depth", "1", "--branch", stripRefsHeadsPrefix(opts.ref), url, workDir],
     sink: opts.sink,
     secrets,
   });

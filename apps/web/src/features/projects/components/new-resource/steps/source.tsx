@@ -18,23 +18,19 @@
  */
 
 import { useEffect, useState } from "react";
-import { skipToken, useMutation, useQuery } from "@tanstack/react-query";
-import { useStore } from "@tanstack/react-form";
-import { HugeiconsIcon } from "@hugeicons/react";
+
 import { GitBranchIcon, Tick02Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { useStore } from "@tanstack/react-form";
+import { skipToken, useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
 import { toast } from "sonner";
 
-import {
-  FrameworkLogo,
-  type FrameworkKind,
-} from "@/features/projects/components/framework-logo";
+import { FrameworkLogo, type FrameworkKind } from "@/features/projects/components/framework-logo";
 import { SvglLogo } from "@/shared/components/brand/svgl-logo";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent } from "@/shared/components/ui/card";
-import { Input } from "@/shared/components/ui/input";
-import { Label } from "@/shared/components/ui/label";
 import {
   Combobox,
   ComboboxContent,
@@ -43,12 +39,14 @@ import {
   ComboboxItem,
   ComboboxList,
 } from "@/shared/components/ui/combobox";
+import { Input } from "@/shared/components/ui/input";
+import { Label } from "@/shared/components/ui/label";
 import { Spinner } from "@/shared/components/ui/spinner";
-import { orpc } from "@/shared/server/orpc";
 import { cn } from "@/shared/lib/utils";
+import { orpc } from "@/shared/server/orpc";
 
-import { SectionHeader } from "../form-primitives";
 import { useFormContext } from "../form-context";
+import { SectionHeader } from "../form-primitives";
 import { frameworkLabel, monorepoLabel } from "../frameworks";
 import { RootDirectoryPicker } from "../root-directory-picker";
 
@@ -141,9 +139,7 @@ export function StepSource() {
                 )}
               </form.AppField>
               <div className="flex flex-col gap-1.5">
-                <label className="text-[12.5px] font-medium">
-                  Root directory (monorepo)
-                </label>
+                <label className="text-[12.5px] font-medium">Root directory (monorepo)</label>
                 <RootDirectoryPicker
                   gitRepoId={repo || null}
                   value={root}
@@ -151,8 +147,7 @@ export function StepSource() {
                   onChange={(next) => form.setFieldValue("root", next)}
                 />
                 <p className="text-[11px] text-muted-foreground">
-                  Browse the repo to pick the folder for this service. Empty =
-                  repo root.
+                  Browse the repo to pick the folder for this service. Empty = repo root.
                 </p>
               </div>
               <div className="flex flex-col gap-1.5">
@@ -163,8 +158,8 @@ export function StepSource() {
                   onChange={(b) => form.setFieldValue("branch", b)}
                 />
                 <p className="text-[11px] text-muted-foreground">
-                  Deploys track this branch. Manual-deploy bindings redeploy on
-                  demand; push deploys fire on commits to it.
+                  Deploys track this branch. Manual-deploy bindings redeploy on demand; push deploys
+                  fire on commits to it.
                 </p>
               </div>
             </CardContent>
@@ -252,9 +247,7 @@ function BranchPicker({
   value: string;
   onChange: (branch: string) => void;
 }) {
-  const query = useQuery(
-    orpc.git.listBranches.queryOptions({ input: { gitRepoId } }),
-  );
+  const query = useQuery(orpc.git.listBranches.queryOptions({ input: { gitRepoId } }));
 
   const defaultBranch = query.data?.defaultBranch;
   // Seed the form's branch from the repo default once it loads, if unset.
@@ -288,15 +281,8 @@ function BranchPicker({
   // Searchable — repos like cal.com have hundreds of branches, so a plain
   // Select is unusable. Combobox filters as you type.
   return (
-    <Combobox
-      items={branches}
-      value={selected}
-      onValueChange={(v) => v && onChange(v)}
-    >
-      <ComboboxInput
-        placeholder="Search branches…"
-        className="h-8 font-mono text-[12.5px]"
-      />
+    <Combobox items={branches} value={selected} onValueChange={(v) => v && onChange(v)}>
+      <ComboboxInput placeholder="Search branches…" className="h-8 font-mono text-[12.5px]" />
       <ComboboxContent>
         <ComboboxEmpty>No matching branches.</ComboboxEmpty>
         <ComboboxList>
@@ -357,10 +343,7 @@ function RepoCheck({ gitRepoId, root }: { gitRepoId: string; root: string }) {
   return (
     <div className="mt-2.5 flex items-center gap-2 rounded-md border border-success/30 bg-success/5 px-3 py-2 text-[12px]">
       {frameworkKind ? (
-        <FrameworkLogo
-          framework={frameworkKind}
-          className="size-4 shrink-0"
-        />
+        <FrameworkLogo framework={frameworkKind} className="size-4 shrink-0" />
       ) : (
         <HugeiconsIcon
           icon={Tick02Icon}
@@ -413,9 +396,7 @@ function useBindingSummary(projectSlug: string): {
   });
   const projectBinding = projectQuery.data;
 
-  const providersQuery = useQuery(
-    orpc.git.list.queryOptions({ input: undefined }),
-  );
+  const providersQuery = useQuery(orpc.git.list.queryOptions({ input: undefined }));
   const providers = providersQuery.data ?? [];
   const installations = providers.flatMap((p) => p.installations);
   const activeInstallationId = installations[0]?.id ?? null;
@@ -444,8 +425,7 @@ function useBindingSummary(projectSlug: string): {
     projectId: projectBinding?.id ? String(projectBinding.id) : null,
     boundRepoFullNameByGitRepoId,
     justBoundFullName: justBound?.fullName ?? null,
-    rememberJustBound: (repoId, fullName) =>
-      setJustBound({ repoId, fullName }),
+    rememberJustBound: (repoId, fullName) => setJustBound({ repoId, fullName }),
   };
 }
 
@@ -475,9 +455,7 @@ function BindingSummary(props: BindingSummaryProps) {
             className="size-4 shrink-0 text-success"
           />
           <div className="min-w-0 flex-1">
-            <div className="font-mono text-[13px]">
-              {props.boundFullName ?? props.repo}
-            </div>
+            <div className="font-mono text-[13px]">{props.boundFullName ?? props.repo}</div>
             <div className="text-[11px] text-muted-foreground">
               branch <span className="font-mono">{props.branch || "main"}</span>
               {" · "}registry binding lives on the project
@@ -498,12 +476,10 @@ function BindingSummary(props: BindingSummaryProps) {
           <div className="flex items-start gap-3">
             <SvglLogo search="GitHub" fallback="GitHub" size={24} />
             <div className="min-w-0 flex-1">
-              <div className="text-[13px] font-semibold">
-                No git provider connected
-              </div>
+              <div className="text-[13px] font-semibold">No git provider connected</div>
               <p className="mt-1 text-[12px] text-muted-foreground">
-                Connect the GitHub App for private repos + push deploys. For
-                a public repo, paste its URL below — no app install needed.
+                Connect the GitHub App for private repos + push deploys. For a public repo, paste
+                its URL below — no app install needed.
               </p>
               <Link
                 to="/$orgSlug/git-providers"
@@ -515,10 +491,7 @@ function BindingSummary(props: BindingSummaryProps) {
               </Link>
             </div>
           </div>
-          <PublicRepoCTA
-            projectId={props.projectId}
-            onBound={props.onBound}
-          />
+          <PublicRepoCTA projectId={props.projectId} onBound={props.onBound} />
         </CardContent>
       </Card>
     );
@@ -534,14 +507,11 @@ function BindingSummary(props: BindingSummaryProps) {
             className="size-5 shrink-0 text-muted-foreground"
           />
           <div className="min-w-0 flex-1">
-            <div className="text-[13px] font-semibold">
-              Project has no source binding yet
-            </div>
+            <div className="text-[13px] font-semibold">Project has no source binding yet</div>
             <p className="mt-1 text-[12px] text-muted-foreground">
-              Pick a repo under{" "}
-              <span className="font-mono">Settings → Build</span> for full
-              push-deploy support, or paste a public URL below for a
-              manual-deploy binding right now.
+              Pick a repo under <span className="font-mono">Settings → Build</span> for full
+              push-deploy support, or paste a public URL below for a manual-deploy binding right
+              now.
             </p>
             <Link
               to="/$orgSlug/$projectSlug/settings"
@@ -582,8 +552,7 @@ function PublicRepoCTA({
 
   const updateMut = useMutation({
     ...orpc.project.update.mutationOptions(),
-    onError: (err) =>
-      toast.error(err.message ?? "Failed to persist public-repo binding"),
+    onError: (err) => toast.error(err.message ?? "Failed to persist public-repo binding"),
   });
 
   const connectMut = useMutation({

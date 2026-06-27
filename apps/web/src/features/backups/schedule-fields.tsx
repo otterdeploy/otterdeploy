@@ -4,6 +4,7 @@ import { useLiveQuery } from "@tanstack/react-db";
 import { terminalDatabasesCollection } from "@/features/terminal/data/targets";
 
 import type { Destination } from "./data/destinations";
+
 import { NumberField, SelectField, TextField } from "./form-fields";
 import { MultiSelectCombobox } from "./multi-combobox";
 import { PRESET_CRON, type ScheduleFormApi } from "./schedule-form";
@@ -18,9 +19,7 @@ export function ScheduleFields({
   editing: boolean;
   destinations: Destination[];
 }) {
-  const { data: databases } = useLiveQuery((q) =>
-    q.from({ d: terminalDatabasesCollection }),
-  );
+  const { data: databases } = useLiveQuery((q) => q.from({ d: terminalDatabasesCollection }));
   const dbOptions = databases.map((d) => ({
     value: d.resourceId,
     label: d.name,
@@ -42,9 +41,7 @@ export function ScheduleFields({
   return (
     <div className="flex max-h-[70vh] flex-col gap-4 overflow-auto p-5">
       <form.Field name="name">
-        {(f) => (
-          <TextField label="Name" value={f.state.value} onChange={f.handleChange} />
-        )}
+        {(f) => <TextField label="Name" value={f.state.value} onChange={f.handleChange} />}
       </form.Field>
 
       <form.Field name="sources">
@@ -148,9 +145,7 @@ export function ScheduleFields({
 function RetentionFields({ form }: { form: ScheduleFormApi }) {
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-xs text-muted-foreground">
-        Retention (keep newest per period)
-      </span>
+      <span className="text-xs text-muted-foreground">Retention (keep newest per period)</span>
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
         <form.Field name="keepDaily">
           {(f) => (

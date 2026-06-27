@@ -5,11 +5,7 @@
  */
 export { parseCompose } from "./parse";
 export { summarizeCompose } from "./summary";
-export {
-  composeServiceToSpec,
-  composeSwarmServiceName,
-  durationMs,
-} from "./to-spec";
+export { composeServiceToSpec, composeSwarmServiceName, durationMs } from "./to-spec";
 export type { ComposeSpecContext } from "./to-spec";
 export type {
   ParsedBuild,

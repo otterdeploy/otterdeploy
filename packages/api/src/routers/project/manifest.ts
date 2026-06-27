@@ -8,16 +8,12 @@
 
 import type { OrganizationId, ProjectId } from "@otterdeploy/shared/id";
 
-import { and, eq, sql } from "drizzle-orm";
-import { Result } from "better-result";
-
 import { db } from "@otterdeploy/db";
 import { project } from "@otterdeploy/db/schema";
-import {
-  type Manifest,
-  manifestSchema,
-  resolveEnvironment,
-} from "../../stack/manifest";
+import { Result } from "better-result";
+import { and, eq, sql } from "drizzle-orm";
+
+import { type Manifest, manifestSchema, resolveEnvironment } from "../../stack/manifest";
 import { ManifestVersionConflictError, ProjectNotFoundError } from "./errors";
 
 type OrgId = OrganizationId;
@@ -107,12 +103,7 @@ export async function discardManifest(
       manifest: row.lastApplied ?? null,
       manifestVersion: sql`${project.manifestVersion} + 1`,
     })
-    .where(
-      and(
-        eq(project.id, scope.projectId),
-        eq(project.organizationId, scope.organizationId),
-      ),
-    )
+    .where(and(eq(project.id, scope.projectId), eq(project.organizationId, scope.organizationId)))
     .returning({ version: project.manifestVersion });
 
   if (updated.length === 0) {

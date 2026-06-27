@@ -14,11 +14,10 @@
  * and across `--hot` reloads.
  */
 
-import { sql } from "drizzle-orm";
-import { Result } from "better-result";
-import { log } from "evlog";
-
 import { db } from "@otterdeploy/db";
+import { Result } from "better-result";
+import { sql } from "drizzle-orm";
+import { log } from "evlog";
 
 /**
  * UNLOGGED partitions skip the WAL for a large write-throughput win — a fit for
@@ -180,10 +179,7 @@ export async function dropOldPartitions(retentionDays: number): Promise<void> {
   ) as Array<{ name: string }>;
 
   // Zero-padded YYYY_MM_DD compares correctly lexicographically.
-  const cutoffKey = isoDay(addDaysUtc(new Date(), -retentionDays)).replace(
-    /-/g,
-    "_",
-  );
+  const cutoffKey = isoDay(addDaysUtc(new Date(), -retentionDays)).replace(/-/g, "_");
   for (const { name } of rows) {
     const dayKey = name.slice("edge_log_".length);
     if (dayKey < cutoffKey) {

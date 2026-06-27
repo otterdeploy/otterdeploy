@@ -28,11 +28,8 @@ async function resolveServiceContainerId(
     (t) => (t as { Status?: { State?: string } }).Status?.State === "running",
   );
   return (
-    (
-      running as
-        | { Status?: { ContainerStatus?: { ContainerID?: string } } }
-        | undefined
-    )?.Status?.ContainerStatus?.ContainerID ?? null
+    (running as { Status?: { ContainerStatus?: { ContainerID?: string } } } | undefined)?.Status
+      ?.ContainerStatus?.ContainerID ?? null
   );
 }
 

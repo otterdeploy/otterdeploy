@@ -8,14 +8,7 @@
  * Short-window dashboard feed, not long-term observability (that stays in OTel);
  * pruned by the same hourly cleanup as resource_metric.
  */
-import {
-  bigserial,
-  doublePrecision,
-  index,
-  pgTable,
-  text,
-  timestamp,
-} from "drizzle-orm/pg-core";
+import { bigserial, doublePrecision, index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 export const platformMetric = pgTable(
   "platform_metric",

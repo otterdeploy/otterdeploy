@@ -1,3 +1,7 @@
+import type { OrganizationId } from "@otterdeploy/shared/id";
+
+import { db } from "@otterdeploy/db";
+import { auditLog } from "@otterdeploy/db/schema";
 /**
  * Audit-anomaly detector — a periodic, conservative scan over recent `audit_log`
  * rows that emits `audit.anomaly` on a small, high-signal rule set. Runs on a
@@ -17,10 +21,6 @@
  * schema); a restart at worst re-alerts an active burst once.
  */
 import { and, eq, gte, inArray, isNotNull, like, sql } from "drizzle-orm";
-
-import { db } from "@otterdeploy/db";
-import { auditLog } from "@otterdeploy/db/schema";
-import type { OrganizationId } from "@otterdeploy/shared/id";
 import { log } from "evlog";
 
 import { emitPlatformEvent } from "./emit";

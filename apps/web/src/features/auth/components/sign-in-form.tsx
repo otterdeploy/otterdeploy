@@ -1,14 +1,14 @@
+import { useState } from "react";
+
 import { Loading03Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { env } from "@otterdeploy/env/web";
 import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import * as z from "zod";
-
-import { env } from "@otterdeploy/env/web";
 
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/shared/components/ui/button";
@@ -23,19 +23,14 @@ import { SocialSignIn } from "./social-sign-in";
 function safeServerRedirect(target: string): string | null {
   try {
     const url = new URL(target);
-    if (url.origin === new URL(env.VITE_SERVER_URL).origin)
-      return url.toString();
+    if (url.origin === new URL(env.VITE_SERVER_URL).origin) return url.toString();
   } catch {
     // not a parseable absolute URL
   }
   return null;
 }
 
-export function SignInForm({
-  onSwitchToSignUp,
-}: {
-  onSwitchToSignUp: () => void;
-}) {
+export function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () => void }) {
   const navigate = useNavigate();
   const { redirect } = useSearch({ from: "/sign-in" });
   const { t } = useTranslation();
@@ -50,9 +45,7 @@ export function SignInForm({
     toast.success(t("auth.signIn.welcomeBack"));
     if (redirect && /^https?:\/\//i.test(redirect)) {
       const safe = safeServerRedirect(redirect);
-      void (safe
-        ? (window.location.href = safe)
-        : navigate({ to: "/", replace: true }));
+      void (safe ? (window.location.href = safe) : navigate({ to: "/", replace: true }));
       return;
     }
     void navigate({ to: (redirect ?? "/") as "/", replace: true });
@@ -62,9 +55,7 @@ export function SignInForm({
     mutationFn: async (input: { email: string; password: string }) => {
       const result = await authClient.signIn.email(input);
       if (result.error)
-        throw new Error(
-          result.error.message ?? result.error.statusText ?? "Sign in failed",
-        );
+        throw new Error(result.error.message ?? result.error.statusText ?? "Sign in failed");
       return result.data;
     },
     onSuccess: (data) => {
@@ -109,9 +100,7 @@ export function SignInForm({
         <h2 className="text-xl font-semibold tracking-[-0.03em] text-foreground">
           {t("auth.signIn.title")}
         </h2>
-        <p className="mt-1.5 text-[13px] text-muted-foreground">
-          {t("auth.signIn.subtitle")}
-        </p>
+        <p className="mt-1.5 text-[13px] text-muted-foreground">{t("auth.signIn.subtitle")}</p>
       </div>
 
       <form
@@ -127,7 +116,7 @@ export function SignInForm({
             <div className="space-y-2">
               <Label
                 htmlFor={field.name}
-                className="font-mono text-[11px] uppercase tracking-[0.04em] text-muted-foreground"
+                className="font-mono text-[11px] tracking-[0.04em] text-muted-foreground uppercase"
               >
                 {t("auth.signIn.emailLabel")}
               </Label>
@@ -156,7 +145,7 @@ export function SignInForm({
             <div className="space-y-2">
               <Label
                 htmlFor={field.name}
-                className="font-mono text-[11px] uppercase tracking-[0.04em] text-muted-foreground"
+                className="font-mono text-[11px] tracking-[0.04em] text-muted-foreground uppercase"
               >
                 {t("auth.signIn.passwordLabel")}
               </Label>
@@ -237,9 +226,7 @@ function TwoFactorChallenge({ onVerified }: { onVerified: () => void }) {
         ? await authClient.twoFactor.verifyBackupCode({ code: value })
         : await authClient.twoFactor.verifyTotp({ code: value, trustDevice });
       if (result.error)
-        throw new Error(
-          result.error.message ?? result.error.statusText ?? "Invalid code",
-        );
+        throw new Error(result.error.message ?? result.error.statusText ?? "Invalid code");
       return result.data;
     },
     onSuccess: onVerified,
@@ -269,7 +256,7 @@ function TwoFactorChallenge({ onVerified }: { onVerified: () => void }) {
         <div className="space-y-2">
           <Label
             htmlFor="two-factor-code"
-            className="font-mono text-[11px] uppercase tracking-[0.04em] text-muted-foreground"
+            className="font-mono text-[11px] tracking-[0.04em] text-muted-foreground uppercase"
           >
             {useBackup ? "Backup code" : "Authenticator code"}
           </Label>
@@ -305,11 +292,7 @@ function TwoFactorChallenge({ onVerified }: { onVerified: () => void }) {
         >
           {verify.isPending ? (
             <>
-              <HugeiconsIcon
-                icon={Loading03Icon}
-                strokeWidth={2}
-                className="size-4 animate-spin"
-              />
+              <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} className="size-4 animate-spin" />
               Verifying…
             </>
           ) : (
@@ -326,9 +309,7 @@ function TwoFactorChallenge({ onVerified }: { onVerified: () => void }) {
         }}
         className="mt-6 text-[13px] font-medium text-foreground underline-offset-4 hover:underline"
       >
-        {useBackup
-          ? "Use your authenticator app instead"
-          : "Use a backup code instead"}
+        {useBackup ? "Use your authenticator app instead" : "Use a backup code instead"}
       </button>
     </div>
   );

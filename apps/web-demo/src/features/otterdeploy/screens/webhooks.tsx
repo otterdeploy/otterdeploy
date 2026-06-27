@@ -5,8 +5,8 @@
 import * as React from "react";
 import { useEffect, useMemo, useState } from "react";
 
-import { I } from "../icons";
 import { SERVICES } from "../data";
+import { I } from "../icons";
 
 type Tab = "outbound" | "inbound";
 
@@ -114,14 +114,78 @@ const INITIAL_OUTBOUND: Webhook[] = [
 ];
 
 const INITIAL_DELIVERIES: Delivery[] = [
-  { id: "dl_1", ts: "14:32:11", target: "hooks.slack.com", event: "deploy.succeeded", code: 200, attempt: 1, latencyMs: 142 },
-  { id: "dl_2", ts: "14:18:42", target: "audit.helio.so", event: "deploy.succeeded", code: 502, attempt: 1, latencyMs: 4011 },
-  { id: "dl_3", ts: "14:18:54", target: "audit.helio.so", event: "deploy.succeeded", code: 502, attempt: 2, latencyMs: 4022 },
-  { id: "dl_4", ts: "14:19:18", target: "audit.helio.so", event: "deploy.succeeded", code: 200, attempt: 3, latencyMs: 188 },
-  { id: "dl_5", ts: "13:51:02", target: "events.pagerduty.com", event: "health.degraded", code: 202, attempt: 1, latencyMs: 96 },
-  { id: "dl_6", ts: "13:18:44", target: "hooks.slack.com", event: "deploy.failed", code: 200, attempt: 1, latencyMs: 121 },
-  { id: "dl_7", ts: "12:42:11", target: "hooks.slack.com", event: "deploy.succeeded", code: 200, attempt: 1, latencyMs: 134 },
-  { id: "dl_8", ts: "12:21:09", target: "audit.helio.so", event: "domain.tls.renewed", code: 504, attempt: 1, latencyMs: 5012 },
+  {
+    id: "dl_1",
+    ts: "14:32:11",
+    target: "hooks.slack.com",
+    event: "deploy.succeeded",
+    code: 200,
+    attempt: 1,
+    latencyMs: 142,
+  },
+  {
+    id: "dl_2",
+    ts: "14:18:42",
+    target: "audit.helio.so",
+    event: "deploy.succeeded",
+    code: 502,
+    attempt: 1,
+    latencyMs: 4011,
+  },
+  {
+    id: "dl_3",
+    ts: "14:18:54",
+    target: "audit.helio.so",
+    event: "deploy.succeeded",
+    code: 502,
+    attempt: 2,
+    latencyMs: 4022,
+  },
+  {
+    id: "dl_4",
+    ts: "14:19:18",
+    target: "audit.helio.so",
+    event: "deploy.succeeded",
+    code: 200,
+    attempt: 3,
+    latencyMs: 188,
+  },
+  {
+    id: "dl_5",
+    ts: "13:51:02",
+    target: "events.pagerduty.com",
+    event: "health.degraded",
+    code: 202,
+    attempt: 1,
+    latencyMs: 96,
+  },
+  {
+    id: "dl_6",
+    ts: "13:18:44",
+    target: "hooks.slack.com",
+    event: "deploy.failed",
+    code: 200,
+    attempt: 1,
+    latencyMs: 121,
+  },
+  {
+    id: "dl_7",
+    ts: "12:42:11",
+    target: "hooks.slack.com",
+    event: "deploy.succeeded",
+    code: 200,
+    attempt: 1,
+    latencyMs: 134,
+  },
+  {
+    id: "dl_8",
+    ts: "12:21:09",
+    target: "audit.helio.so",
+    event: "domain.tls.renewed",
+    code: 504,
+    attempt: 1,
+    latencyMs: 5012,
+  },
 ];
 
 const INITIAL_INBOUND: Inbound[] = [
@@ -183,13 +247,16 @@ export function Webhooks() {
           <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
             <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>Webhooks</h3>
             <span className="muted" style={{ fontSize: 12 }}>
-              Outbound webhooks fire on platform events. Inbound endpoints receive triggers from your
-              CI / GitHub / external services.
+              Outbound webhooks fire on platform events. Inbound endpoints receive triggers from
+              your CI / GitHub / external services.
             </span>
           </div>
         </div>
 
-        <div className="row" style={{ borderBottom: "1px solid var(--border)", marginBottom: 16, gap: 0 }}>
+        <div
+          className="row"
+          style={{ borderBottom: "1px solid var(--border)", marginBottom: 16, gap: 0 }}
+        >
           <TabBtn active={tab === "outbound"} onClick={() => setTab("outbound")}>
             <I.upload width={11} height={11} /> Outbound · {outbound.length}
           </TabBtn>
@@ -202,7 +269,8 @@ export function Webhooks() {
           <div>
             <div className="row" style={{ marginBottom: 12 }}>
               <span className="muted" style={{ fontSize: 11 }}>
-                Webhooks are delivered with HMAC-SHA256 signed payloads. Failed deliveries are retried.
+                Webhooks are delivered with HMAC-SHA256 signed payloads. Failed deliveries are
+                retried.
               </span>
               <div style={{ flex: 1 }} />
               <button className="btn primary sm" onClick={() => setAddOutbound(true)}>
@@ -224,7 +292,12 @@ export function Webhooks() {
             <div style={{ marginTop: 24 }}>
               <div
                 className="muted"
-                style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}
+                style={{
+                  fontSize: 10,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                  marginBottom: 8,
+                }}
               >
                 Recent deliveries
               </div>
@@ -299,8 +372,8 @@ export function Webhooks() {
           <div>
             <div className="row" style={{ marginBottom: 12 }}>
               <span className="muted" style={{ fontSize: 11 }}>
-                Each endpoint exposes a unique URL. Requests are verified against the HMAC secret and
-                source-IP allowlist before triggering the configured action.
+                Each endpoint exposes a unique URL. Requests are verified against the HMAC secret
+                and source-IP allowlist before triggering the configured action.
               </span>
               <div style={{ flex: 1 }} />
               <button className="btn primary sm" onClick={() => setAddInbound(true)}>
@@ -382,7 +455,8 @@ function OutboundCard({
   const [copied, setCopied] = useState(false);
 
   const copy = () => {
-    if (typeof navigator !== "undefined" && navigator.clipboard) navigator.clipboard.writeText(w.secret);
+    if (typeof navigator !== "undefined" && navigator.clipboard)
+      navigator.clipboard.writeText(w.secret);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
@@ -435,7 +509,12 @@ function OutboundCard({
         <div>
           <div
             className="muted"
-            style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 5 }}
+            style={{
+              fontSize: 10,
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+              marginBottom: 5,
+            }}
           >
             Events
           </div>
@@ -466,7 +545,12 @@ function OutboundCard({
         <div>
           <div
             className="muted"
-            style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 5 }}
+            style={{
+              fontSize: 10,
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+              marginBottom: 5,
+            }}
           >
             HMAC secret
           </div>
@@ -480,7 +564,15 @@ function OutboundCard({
               fontSize: 11,
             }}
           >
-            <span className="mono" style={{ flex: 1, color: "var(--fg-2)", overflow: "hidden", textOverflow: "ellipsis" }}>
+            <span
+              className="mono"
+              style={{
+                flex: 1,
+                color: "var(--fg-2)",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
               {showSecret ? w.secret : "••••••••••••••••••••••••••••••••"}
             </span>
             <button className="btn ghost icon sm" onClick={() => setShowSecret((s) => !s)}>
@@ -511,7 +603,8 @@ function InboundCard({ e, onDelete }: { e: Inbound; onDelete: () => void }) {
   const [showSecret, setShowSecret] = useState(false);
 
   const copy = (which: "url" | "secret", text: string) => {
-    if (typeof navigator !== "undefined" && navigator.clipboard) navigator.clipboard.writeText(text);
+    if (typeof navigator !== "undefined" && navigator.clipboard)
+      navigator.clipboard.writeText(text);
     setCopied(which);
     setTimeout(() => setCopied(null), 1500);
   };
@@ -522,10 +615,7 @@ function InboundCard({ e, onDelete }: { e: Inbound; onDelete: () => void }) {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="row gap-2" style={{ alignItems: "center" }}>
             <span style={{ fontSize: 13, fontWeight: 600 }}>{e.name}</span>
-            <span
-              className={`badge ${e.status === "active" ? "ok" : ""}`}
-              style={{ fontSize: 10 }}
-            >
+            <span className={`badge ${e.status === "active" ? "ok" : ""}`} style={{ fontSize: 10 }}>
               <span className="dot" />
               {e.status}
             </span>
@@ -549,7 +639,12 @@ function InboundCard({ e, onDelete }: { e: Inbound; onDelete: () => void }) {
         <div>
           <div
             className="muted"
-            style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}
+            style={{
+              fontSize: 10,
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+              marginBottom: 4,
+            }}
           >
             Endpoint URL
           </div>
@@ -576,7 +671,12 @@ function InboundCard({ e, onDelete }: { e: Inbound; onDelete: () => void }) {
           <div>
             <div
               className="muted"
-              style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}
+              style={{
+                fontSize: 10,
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                marginBottom: 4,
+              }}
             >
               HMAC secret
             </div>
@@ -592,7 +692,12 @@ function InboundCard({ e, onDelete }: { e: Inbound; onDelete: () => void }) {
             >
               <span
                 className="mono"
-                style={{ flex: 1, color: "var(--fg-2)", overflow: "hidden", textOverflow: "ellipsis" }}
+                style={{
+                  flex: 1,
+                  color: "var(--fg-2)",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
               >
                 {showSecret ? e.secret : "••••••••••••••••••••"}
               </span>
@@ -607,7 +712,12 @@ function InboundCard({ e, onDelete }: { e: Inbound; onDelete: () => void }) {
           <div>
             <div
               className="muted"
-              style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}
+              style={{
+                fontSize: 10,
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                marginBottom: 4,
+              }}
             >
               Allowed methods
             </div>
@@ -622,7 +732,12 @@ function InboundCard({ e, onDelete }: { e: Inbound; onDelete: () => void }) {
           <div>
             <div
               className="muted"
-              style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}
+              style={{
+                fontSize: 10,
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                marginBottom: 4,
+              }}
             >
               Allowed source IPs
             </div>
@@ -689,7 +804,7 @@ function AddOutboundModal({
       }}
     >
       <div onClick={(e) => e.stopPropagation()} className="os-modal" style={{ width: 540 }}>
-        <div className="row gap-2 os-modal-h">
+        <div className="row os-modal-h gap-2">
           <I.upload width={14} height={14} />
           <span style={{ fontWeight: 600 }}>Add outbound webhook</span>
           <div style={{ flex: 1 }} />
@@ -745,7 +860,10 @@ function AddOutboundModal({
           </div>
           <div className="muted" style={{ fontSize: 11 }}>
             We will generate an HMAC secret and sign every payload with the{" "}
-            <span className="mono" style={{ color: "var(--fg-2)" }}>X-Otterdeploy-Signature</span> header.
+            <span className="mono" style={{ color: "var(--fg-2)" }}>
+              X-Otterdeploy-Signature
+            </span>{" "}
+            header.
           </div>
         </div>
         <div className="row gap-2" style={{ padding: 14, borderTop: "1px solid var(--border)" }}>
@@ -762,13 +880,7 @@ function AddOutboundModal({
   );
 }
 
-function AddInboundModal({
-  onClose,
-  onAdd,
-}: {
-  onClose: () => void;
-  onAdd: (e: Inbound) => void;
-}) {
+function AddInboundModal({ onClose, onAdd }: { onClose: () => void; onAdd: (e: Inbound) => void }) {
   const [name, setName] = useState("");
   const [action, setAction] = useState<"redeploy" | "script" | "notify">("redeploy");
   const [target, setTarget] = useState(SERVICES[0]?.id ?? "");
@@ -811,7 +923,8 @@ function AddInboundModal({
 
   const curlCmd = useMemo(() => {
     if (!created) return "";
-    const sigLine = created.secret !== "—" ? ` \\\n  -H "X-Otterdeploy-Signature: <sha256-hmac>"` : "";
+    const sigLine =
+      created.secret !== "—" ? ` \\\n  -H "X-Otterdeploy-Signature: <sha256-hmac>"` : "";
     return `curl -X POST ${created.url} \\\n  -H "Content-Type: application/json"${sigLine} \\\n  -d '{"event":"trigger"}'`;
   }, [created]);
 
@@ -829,7 +942,7 @@ function AddInboundModal({
       }}
     >
       <div onClick={(e) => e.stopPropagation()} className="os-modal" style={{ width: 600 }}>
-        <div className="row gap-2 os-modal-h">
+        <div className="row os-modal-h gap-2">
           <I.download width={14} height={14} />
           <span style={{ fontWeight: 600 }}>
             {created ? "Endpoint created" : "Create inbound endpoint"}
@@ -913,7 +1026,10 @@ function AddInboundModal({
                 />
               </label>
             </div>
-            <div className="row gap-2" style={{ padding: 14, borderTop: "1px solid var(--border)" }}>
+            <div
+              className="row gap-2"
+              style={{ padding: 14, borderTop: "1px solid var(--border)" }}
+            >
               <div style={{ flex: 1 }} />
               <button className="btn" onClick={onClose}>
                 Cancel
@@ -929,7 +1045,12 @@ function AddInboundModal({
               <div>
                 <div
                   className="muted"
-                  style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}
+                  style={{
+                    fontSize: 10,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                    marginBottom: 6,
+                  }}
                 >
                   Endpoint URL
                 </div>
@@ -989,7 +1110,12 @@ function AddInboundModal({
               <div>
                 <div
                   className="muted"
-                  style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}
+                  style={{
+                    fontSize: 10,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                    marginBottom: 6,
+                  }}
                 >
                   Test with curl
                 </div>
@@ -1011,7 +1137,10 @@ function AddInboundModal({
                 </pre>
               </div>
             </div>
-            <div className="row gap-2" style={{ padding: 14, borderTop: "1px solid var(--border)" }}>
+            <div
+              className="row gap-2"
+              style={{ padding: 14, borderTop: "1px solid var(--border)" }}
+            >
               <div style={{ flex: 1 }} />
               <button className="btn primary" onClick={onClose}>
                 Done

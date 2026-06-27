@@ -5,8 +5,6 @@
 
 import type { ProjectId } from "@otterdeploy/shared/id";
 
-import { and, eq, inArray, isNull } from "drizzle-orm";
-
 import { db } from "@otterdeploy/db";
 import {
   composeResource,
@@ -16,6 +14,8 @@ import {
   servicePort,
   serviceResource,
 } from "@otterdeploy/db/schema/project";
+import { and, eq, inArray, isNull } from "drizzle-orm";
+
 import type {
   CurrentCompose,
   CurrentDatabase,
@@ -34,9 +34,7 @@ export async function loadCurrentState(projectId: ProjectId): Promise<CurrentSta
       // stack (stackId set). They reconcile through the stack, not the
       // top-level manifest, so exclude them here — otherwise every deployed
       // stack's children would read back as unmanaged "delete me" services.
-      .where(
-        and(eq(resource.projectId, projectId), isNull(serviceResource.stackId)),
-      ),
+      .where(and(eq(resource.projectId, projectId), isNull(serviceResource.stackId))),
     db
       .select({ resource, database: databaseResource })
       .from(resource)

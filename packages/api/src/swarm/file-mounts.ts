@@ -56,16 +56,12 @@ export interface SpecMount {
  */
 function resolveFileMountPath(serviceName: string, source: string): string {
   const serviceRoot = join(PLATFORM.files.root, serviceName);
-  const resolvedAbs = isAbsolute(source)
-    ? normalize(source)
-    : normalize(join(serviceRoot, source));
+  const resolvedAbs = isAbsolute(source) ? normalize(source) : normalize(join(serviceRoot, source));
   // After normalization, the resolved path must remain under serviceRoot.
   const rel = resolve(resolvedAbs);
   const root = resolve(serviceRoot);
   if (rel !== root && !rel.startsWith(root + sep)) {
-    throw new Error(
-      `file-mount source "${source}" escapes service directory ${serviceRoot}`,
-    );
+    throw new Error(`file-mount source "${source}" escapes service directory ${serviceRoot}`);
   }
   return rel;
 }
@@ -89,9 +85,7 @@ export async function materializeServiceMounts(
     switch (mount.type) {
       case "volume": {
         if (!mount.source) {
-          throw new Error(
-            `volume mount at ${mount.target} is missing a source (volume name)`,
-          );
+          throw new Error(`volume mount at ${mount.target} is missing a source (volume name)`);
         }
         specMounts.push({
           Type: "volume",
@@ -103,14 +97,10 @@ export async function materializeServiceMounts(
       }
       case "bind": {
         if (!mount.source) {
-          throw new Error(
-            `bind mount at ${mount.target} is missing a source (host path)`,
-          );
+          throw new Error(`bind mount at ${mount.target} is missing a source (host path)`);
         }
         if (!isAbsolute(mount.source)) {
-          throw new Error(
-            `bind mount source must be an absolute host path: ${mount.source}`,
-          );
+          throw new Error(`bind mount source must be an absolute host path: ${mount.source}`);
         }
         specMounts.push({
           Type: "bind",
@@ -122,9 +112,7 @@ export async function materializeServiceMounts(
       }
       case "file": {
         if (mount.content == null) {
-          throw new Error(
-            `file mount at ${mount.target} has no content`,
-          );
+          throw new Error(`file mount at ${mount.target} has no content`);
         }
         // Default the source to the target's basename when not provided —
         // the most common case is "I want config.json mounted at

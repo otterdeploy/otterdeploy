@@ -14,13 +14,14 @@
  */
 
 import type { ResourceId } from "@otterdeploy/shared/id";
-
-import { Result } from "better-result";
 import type { RequestLogger } from "evlog";
 
-import { defaultImageFor } from "../../../swarm";
-import { updateSwarmDatabase } from "../../../runtime/db";
+import { Result } from "better-result";
 
+import type { ProjectRef } from "../../scopes";
+
+import { updateSwarmDatabase } from "../../../runtime/db";
+import { defaultImageFor } from "../../../swarm";
 import {
   getLatestDeploymentForResource,
   insertDeployment,
@@ -28,8 +29,6 @@ import {
 } from "../deployments";
 import { PostgresResourceNotFoundError, ProjectNotFoundError } from "../errors";
 import { getDatabaseResourceRecord, getProjectInOrg } from "../queries";
-import type { ProjectRef } from "../../scopes";
-import { snapshotForPostgresCreate } from "./snapshot";
 import {
   buildContainerName,
   buildVolumeName,
@@ -37,13 +36,12 @@ import {
   sanitizeProjectSlug,
   type PostgresResource,
 } from "../views";
+import { snapshotForPostgresCreate } from "./snapshot";
 
 export async function restartDatabaseResource(
   input: ProjectRef & { resourceId: ResourceId },
   log: RequestLogger,
-): Promise<
-  Result<PostgresResource, ProjectNotFoundError | PostgresResourceNotFoundError>
-> {
+): Promise<Result<PostgresResource, ProjectNotFoundError | PostgresResourceNotFoundError>> {
   log.set({
     resource: {
       kind: "database",
@@ -61,14 +59,9 @@ export async function restartDatabaseResource(
     return Result.err(new ProjectNotFoundError({ projectId: input.projectId }));
   }
 
-  const record = await getDatabaseResourceRecord(
-    input.projectId,
-    input.resourceId,
-  );
+  const record = await getDatabaseResourceRecord(input.projectId, input.resourceId);
   if (!record) {
-    return Result.err(
-      new PostgresResourceNotFoundError({ resourceId: input.resourceId }),
-    );
+    return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
   }
 
   const engine = record.database.engine;

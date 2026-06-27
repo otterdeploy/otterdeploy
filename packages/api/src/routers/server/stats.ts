@@ -14,12 +14,11 @@
  */
 import type { OrganizationId, ServerId } from "@otterdeploy/shared/id";
 
-import { Docker } from "@otterdeploy/docker";
-import { and, eq, inArray } from "drizzle-orm";
-
 import { db } from "@otterdeploy/db";
 import { project } from "@otterdeploy/db/schema/project";
 import { server } from "@otterdeploy/db/schema/server";
+import { Docker } from "@otterdeploy/docker";
+import { and, eq, inArray } from "drizzle-orm";
 type OrgId = OrganizationId;
 
 export interface ServerNodeStats {
@@ -43,24 +42,20 @@ export interface ServerStats {
 // Type-safe nibbles into the loosely-typed Task.Spec blob from the docker SDK.
 function readNanoCpus(spec: unknown): number {
   if (typeof spec !== "object" || spec === null) return 0;
-  const resources = (spec as { Resources?: { Reservations?: { NanoCPUs?: number } } })
-    .Resources;
+  const resources = (spec as { Resources?: { Reservations?: { NanoCPUs?: number } } }).Resources;
   return resources?.Reservations?.NanoCPUs ?? 0;
 }
 
 function readMemoryBytes(spec: unknown): number {
   if (typeof spec !== "object" || spec === null) return 0;
-  const resources = (spec as { Resources?: { Reservations?: { MemoryBytes?: number } } })
-    .Resources;
+  const resources = (spec as { Resources?: { Reservations?: { MemoryBytes?: number } } }).Resources;
   return resources?.Reservations?.MemoryBytes ?? 0;
 }
 
 const BYTES_PER_GB = 1024 ** 3;
 const NANO = 1e9;
 
-export async function getServerStats(input: {
-  organizationId: OrgId;
-}): Promise<ServerStats> {
+export async function getServerStats(input: { organizationId: OrgId }): Promise<ServerStats> {
   // ── Otterdeploy servers in this org ────────────────────────────────────
   const servers = await db
     .select({

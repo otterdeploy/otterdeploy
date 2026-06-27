@@ -3,8 +3,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { I } from "../icons";
 import { SERVICES, rid, rint, ts } from "../data";
+import { I } from "../icons";
 
 const LOG_LEVELS = ["debug", "info", "warn", "error"] as const;
 type LogLevel = (typeof LOG_LEVELS)[number];
@@ -17,7 +17,13 @@ const LOG_LEVEL_TONE: Record<LogLevel, string> = {
 };
 
 type LogSvc = "api" | "web" | "worker";
-interface LogLine { ts: string; level: LogLevel; svc: string; msg: string; id: string }
+interface LogLine {
+  ts: string;
+  level: LogLevel;
+  svc: string;
+  msg: string;
+  id: string;
+}
 
 function genLogLine(svc: string, force?: LogLevel): LogLine {
   const lv: LogLevel =
@@ -129,9 +135,13 @@ export function Logs({ target }: { target?: string | null }) {
       {/* Volume histogram */}
       <div style={{ padding: "14px 18px 10px", borderBottom: "1px solid var(--border)" }}>
         <div className="row" style={{ marginBottom: 8, fontSize: 11 }}>
-          <span className="muted" style={{ textTransform: "uppercase", letterSpacing: "0.06em" }}>Volume</span>
+          <span className="muted" style={{ textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            Volume
+          </span>
           <div style={{ flex: 1 }} />
-          <span className="mono muted">{lines.length} loaded · {filtered.length} match</span>
+          <span className="mono muted">
+            {lines.length} loaded · {filtered.length} match
+          </span>
         </div>
         <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 56 }}>
           {histo.map((b, i) => {
@@ -140,7 +150,13 @@ export function Logs({ target }: { target?: string | null }) {
             return (
               <div
                 key={i}
-                style={{ flex: 1, height: h, display: "flex", flexDirection: "column-reverse", minHeight: 1 }}
+                style={{
+                  flex: 1,
+                  height: h,
+                  display: "flex",
+                  flexDirection: "column-reverse",
+                  minHeight: 1,
+                }}
                 title={`${total} events`}
               >
                 <div style={{ height: `${(b.info / total) * 100}%`, background: "var(--info)" }} />
@@ -223,15 +239,24 @@ export function Logs({ target }: { target?: string | null }) {
           onChange={(e) => setQ(e.target.value)}
           style={{ flex: 1, maxWidth: 380 }}
         />
-        <span className="badge live ok"><span className="dot" />{paused ? "paused" : "live tail"}</span>
+        <span className="badge live ok">
+          <span className="dot" />
+          {paused ? "paused" : "live tail"}
+        </span>
         <div style={{ flex: 1 }} />
-        <button className="btn sm" onClick={() => setWrap((w) => !w)} style={{ opacity: wrap ? 1 : 0.6 }}>
+        <button
+          className="btn sm"
+          onClick={() => setWrap((w) => !w)}
+          style={{ opacity: wrap ? 1 : 0.6 }}
+        >
           Wrap
         </button>
         <button className="btn sm" onClick={() => setPaused((p) => !p)}>
           {paused ? "Resume" : "Pause"}
         </button>
-        <button className="btn ghost icon sm"><I.copy width={12} height={12} /></button>
+        <button className="btn ghost icon sm">
+          <I.copy width={12} height={12} />
+        </button>
       </div>
 
       {/* Column header */}
@@ -313,7 +338,9 @@ function LogRow({
       <span style={{ width: 22, padding: "6px 4px", color: "var(--fg-4)", flex: "none" }}>
         <I.chev width={10} height={10} style={{ transform: expanded ? "rotate(90deg)" : "none" }} />
       </span>
-      <span style={{ width: 110, padding: "6px 4px", color: "var(--fg-3)", flex: "none" }}>{l.ts}</span>
+      <span style={{ width: 110, padding: "6px 4px", color: "var(--fg-3)", flex: "none" }}>
+        {l.ts}
+      </span>
       <span
         style={{
           width: 60,
@@ -328,7 +355,9 @@ function LogRow({
       >
         {l.level}
       </span>
-      <span style={{ width: 70, padding: "6px 4px", color: "var(--fg-2)", flex: "none" }}>{l.svc}</span>
+      <span style={{ width: 70, padding: "6px 4px", color: "var(--fg-2)", flex: "none" }}>
+        {l.svc}
+      </span>
       <span
         style={{
           flex: 1,
@@ -355,15 +384,15 @@ function LogRow({
             }}
           >
             <div>
-              <span style={{ color: "var(--fg-3)" }}>trace_id   </span>
+              <span style={{ color: "var(--fg-3)" }}>trace_id </span>
               {l.id}-{rid()}
             </div>
             <div>
-              <span style={{ color: "var(--fg-3)" }}>replica    </span>
+              <span style={{ color: "var(--fg-3)" }}>replica </span>
               {l.svc}-{rint(1, 4)}
             </div>
             <div>
-              <span style={{ color: "var(--fg-3)" }}>region     </span>
+              <span style={{ color: "var(--fg-3)" }}>region </span>
               sf-bay/rack-2
             </div>
             <div>

@@ -18,8 +18,8 @@
  * No env vars at any step — matches Coolify/Dokploy.
  */
 
-import { HugeiconsIcon } from "@hugeicons/react";
 import { GitBranchIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -79,20 +79,16 @@ export function ConnectDialog({ open, onOpenChange }: ConnectDialogProps) {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <HugeiconsIcon
-              icon={GitBranchIcon}
-              strokeWidth={2}
-              className="size-3.5"
-            />
+            <HugeiconsIcon icon={GitBranchIcon} strokeWidth={2} className="size-3.5" />
             Connect a Git provider
           </DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-col gap-3">
           <p className="text-[12.5px] text-muted-foreground">
-            Otterdeploy creates a GitHub App for your org through GitHub's
-            manifest flow — no config, no env vars. You'll review and
-            approve it on GitHub, then pick which repos it can see.
+            Otterdeploy creates a GitHub App for your org through GitHub's manifest flow — no
+            config, no env vars. You'll review and approve it on GitHub, then pick which repos it
+            can see.
           </p>
 
           <Button
@@ -105,7 +101,7 @@ export function ConnectDialog({ open, onOpenChange }: ConnectDialogProps) {
           </Button>
 
           <div className="flex flex-col gap-1.5">
-            <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            <span className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
               Coming soon
             </span>
             <div className="grid grid-cols-3 gap-2">
@@ -114,11 +110,7 @@ export function ConnectDialog({ open, onOpenChange }: ConnectDialogProps) {
                   key={k}
                   className="flex flex-col items-center gap-1.5 rounded-md border bg-muted/30 p-2.5 text-[12px] font-medium text-muted-foreground"
                 >
-                  <SvglLogo
-                    search={PROVIDER_SEARCH[k]}
-                    fallback={PROVIDER_LABEL[k]}
-                    size={22}
-                  />
+                  <SvglLogo search={PROVIDER_SEARCH[k]} fallback={PROVIDER_LABEL[k]} size={22} />
                   <span>{PROVIDER_LABEL[k]}</span>
                 </div>
               ))}

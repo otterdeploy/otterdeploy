@@ -10,11 +10,7 @@ export const clickhouseAdapter: DatabaseEngineAdapter = {
   defaultImage: `${meta.dockerImage}:${meta.defaultTag}`,
   port: meta.defaultPort,
   mountTarget: "/var/lib/clickhouse",
-  reservedEnvKeys: new Set([
-    "CLICKHOUSE_USER",
-    "CLICKHOUSE_PASSWORD",
-    "CLICKHOUSE_DB",
-  ]),
+  reservedEnvKeys: new Set(["CLICKHOUSE_USER", "CLICKHOUSE_PASSWORD", "CLICKHOUSE_DB"]),
   buildEnv: ({ username, password, databaseName }) => [
     `CLICKHOUSE_USER=${username}`,
     `CLICKHOUSE_PASSWORD=${password}`,

@@ -1,3 +1,5 @@
+import type { BuildConfig } from "@otterdeploy/shared/build-config";
+
 /**
  * Declarative manifest — JSON-native source of truth for a project's
  * resources. Lives in `project.manifest` (jsonb) and on disk as
@@ -16,10 +18,7 @@
  * for docker-stack escape hatch + local-dev use cases.
  */
 import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
-
 import * as z from "zod";
-
-import type { BuildConfig } from "@otterdeploy/shared/build-config";
 
 import { parseRefs, ManifestRefError } from "./refs";
 
@@ -44,7 +43,10 @@ const envValue = z.string().superRefine((value, ctx) => {
   }
 });
 
-const envMap = z.record(z.string().regex(/^[A-Z_][A-Z0-9_]*$/, "env key must be UPPER_SNAKE"), envValue);
+const envMap = z.record(
+  z.string().regex(/^[A-Z_][A-Z0-9_]*$/, "env key must be UPPER_SNAKE"),
+  envValue,
+);
 
 const portSchema = z.object({
   container: z.number().int().positive(),
@@ -52,7 +54,10 @@ const portSchema = z.object({
   appProtocol: z.enum(["http", "tcp"]).optional(),
   primary: z.boolean().optional(),
   // Optional name; needed for `${service:foo.port.<name>}` references.
-  name: z.string().regex(/^[a-z][a-z0-9-]*$/).optional(),
+  name: z
+    .string()
+    .regex(/^[a-z][a-z0-9-]*$/)
+    .optional(),
 });
 
 const healthcheckSchema = z.object({
@@ -202,10 +207,7 @@ const gitServiceSchema = serviceCommonSchema.extend({
   build: buildSchema.optional(),
 });
 
-export const serviceSchema = z.discriminatedUnion("source", [
-  imageServiceSchema,
-  gitServiceSchema,
-]);
+export const serviceSchema = z.discriminatedUnion("source", [imageServiceSchema, gitServiceSchema]);
 export type ServiceManifest = z.infer<typeof serviceSchema>;
 
 // ── Databases ───────────────────────────────────────────────────────────

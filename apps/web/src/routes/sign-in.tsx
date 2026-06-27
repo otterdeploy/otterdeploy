@@ -1,6 +1,7 @@
+import { useState } from "react";
+
 import { RocketIcon } from "@hugeicons/core-free-icons";
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
 import * as z from "zod";
 
 import { AuthLayout } from "@/features/auth/components/auth-layout";
@@ -25,17 +26,13 @@ function SignInPage() {
           <>
             Ship your stack.
             <br />
-            <span className="font-normal text-muted-foreground">
-              Sign in to deploy.
-            </span>
+            <span className="font-normal text-muted-foreground">Sign in to deploy.</span>
           </>
         ) : (
           <>
             One account.
             <br />
-            <span className="font-normal text-muted-foreground">
-              Every deploy.
-            </span>
+            <span className="font-normal text-muted-foreground">Every deploy.</span>
           </>
         )
       }

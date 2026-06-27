@@ -22,8 +22,7 @@ export const serverNodeStatsCollection = createCollection(
     refetchInterval: 5000,
     queryClient,
     getKey: (s) => s.serverId,
-    select: (full: Awaited<ReturnType<typeof orpc.server.stats.call>>) =>
-      full.perServer,
+    select: (full: Awaited<ReturnType<typeof orpc.server.stats.call>>) => full.perServer,
   }),
 );
 
@@ -40,8 +39,6 @@ export const serverClusterStatsCollection = createCollection(
     refetchInterval: 5000,
     queryClient,
     getKey: () => "cluster",
-    select: (full: Awaited<ReturnType<typeof orpc.server.stats.call>>) => [
-      full.cluster,
-    ],
+    select: (full: Awaited<ReturnType<typeof orpc.server.stats.call>>) => [full.cluster],
   }),
 );

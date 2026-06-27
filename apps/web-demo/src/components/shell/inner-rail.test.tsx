@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+
 import { renderWithRouter } from "@/test/utils";
+
 import { InnerRail } from "./inner-rail";
 
 describe("InnerRail", () => {

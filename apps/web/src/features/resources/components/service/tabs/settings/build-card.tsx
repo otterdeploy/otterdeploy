@@ -13,21 +13,18 @@
 //
 // Image / compose / auto services have no build knobs and render nothing.
 
+import type { BuildDockerfileConfig, BuildRailpackConfig } from "@otterdeploy/shared/build-config";
+
 import { useState } from "react";
+
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import type {
-  BuildDockerfileConfig,
-  BuildRailpackConfig,
-} from "@otterdeploy/shared/build-config";
-
+import { SettingsCard } from "@/features/resources/components/_shared/settings-card";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Switch } from "@/shared/components/ui/switch";
 import { orpc, queryClient } from "@/shared/server/orpc";
-
-import { SettingsCard } from "@/features/resources/components/_shared/settings-card";
 
 interface ServiceBuildResource {
   projectId: string;
@@ -48,22 +45,12 @@ function asBuilder<T>(buildConfig: unknown, builder: string): T | null {
 /** Dispatch on the builder: railpack and dockerfile each get their own card;
  *  everything else (image / compose / auto) renders nothing. Pure narrowing
  *  only — no hooks — so the sub-components own their own state. */
-export function ServiceBuildCard({
-  resource,
-}: {
-  resource: ServiceBuildResource;
-}) {
-  const railpack = asBuilder<BuildRailpackConfig>(
-    resource.buildConfig,
-    "railpack",
-  );
+export function ServiceBuildCard({ resource }: { resource: ServiceBuildResource }) {
+  const railpack = asBuilder<BuildRailpackConfig>(resource.buildConfig, "railpack");
   if (railpack) {
     return <RailpackBuildCard resource={resource} config={railpack} />;
   }
-  const dockerfile = asBuilder<BuildDockerfileConfig>(
-    resource.buildConfig,
-    "dockerfile",
-  );
+  const dockerfile = asBuilder<BuildDockerfileConfig>(resource.buildConfig, "dockerfile");
   if (dockerfile) {
     return <DockerfileBuildCard resource={resource} config={dockerfile} />;
   }
@@ -131,9 +118,7 @@ function RailpackBuildCard({
   resource: ServiceBuildResource;
   config: BuildRailpackConfig;
 }) {
-  const [packageManager, setPackageManager] = useState(
-    config.packageManager ?? "",
-  );
+  const [packageManager, setPackageManager] = useState(config.packageManager ?? "");
   const [buildCommand, setBuildCommand] = useState(config.buildCommand ?? "");
   const [staticRoot, setStaticRoot] = useState(config.staticRoot ?? "");
   const [spa, setSpa] = useState(config.spa ?? false);
@@ -143,9 +128,7 @@ function RailpackBuildCard({
       // Preserve watchPatterns (not edited here); overwrite the rest.
       const nextBuild: BuildRailpackConfig = {
         builder: "railpack",
-        ...(config.watchPatterns
-          ? { watchPatterns: config.watchPatterns }
-          : {}),
+        ...(config.watchPatterns ? { watchPatterns: config.watchPatterns } : {}),
         packageManager: trimToNull(packageManager),
         buildCommand: trimToNull(buildCommand),
         staticRoot: trimToNull(staticRoot),
@@ -160,9 +143,7 @@ function RailpackBuildCard({
       });
     },
     onError: (err) =>
-      toast.error(
-        err instanceof Error ? err.message : "Failed to save build settings",
-      ),
+      toast.error(err instanceof Error ? err.message : "Failed to save build settings"),
   });
 
   const dirty =
@@ -199,10 +180,7 @@ function RailpackBuildCard({
         />
       </BuildFieldRow>
 
-      <BuildFieldRow
-        label="Static root"
-        hint="Built-assets dir for static sites (default: dist)."
-      >
+      <BuildFieldRow label="Static root" hint="Built-assets dir for static sites (default: dist).">
         <Input
           value={staticRoot}
           onChange={(e) => setStaticRoot(e.target.value)}
@@ -219,11 +197,7 @@ function RailpackBuildCard({
             Serve via Caddy with history fallback to index.html.
           </span>
         </div>
-        <Switch
-          checked={spa}
-          disabled={save.isPending}
-          onCheckedChange={(next) => setSpa(next)}
-        />
+        <Switch checked={spa} disabled={save.isPending} onCheckedChange={(next) => setSpa(next)} />
       </div>
 
       <SaveRow dirty={dirty} pending={save.isPending} onSave={() => save.mutate()} />
@@ -268,22 +242,16 @@ function DockerfileBuildCard({
   resource: ServiceBuildResource;
   config: BuildDockerfileConfig;
 }) {
-  const [dockerfilePath, setDockerfilePath] = useState(
-    config.dockerfilePath ?? "",
-  );
+  const [dockerfilePath, setDockerfilePath] = useState(config.dockerfilePath ?? "");
   const [rows, setRows] = useState<ArgRow[]>(
-    Object.entries(config.buildArgs ?? {}).map(([key, value]) =>
-      newArgRow(key, value),
-    ),
+    Object.entries(config.buildArgs ?? {}).map(([key, value]) => newArgRow(key, value)),
   );
 
   const save = useMutation({
     mutationFn: async () => {
       const nextBuild: BuildDockerfileConfig = {
         builder: "dockerfile",
-        ...(config.watchPatterns
-          ? { watchPatterns: config.watchPatterns }
-          : {}),
+        ...(config.watchPatterns ? { watchPatterns: config.watchPatterns } : {}),
         dockerfilePath: trimToNull(dockerfilePath),
         buildArgs: rowsToRecord(rows),
       };
@@ -296,23 +264,18 @@ function DockerfileBuildCard({
       });
     },
     onError: (err) =>
-      toast.error(
-        err instanceof Error ? err.message : "Failed to save build settings",
-      ),
+      toast.error(err instanceof Error ? err.message : "Failed to save build settings"),
   });
 
   const initialArgs =
-    config.buildArgs && Object.keys(config.buildArgs).length > 0
-      ? config.buildArgs
-      : null;
+    config.buildArgs && Object.keys(config.buildArgs).length > 0 ? config.buildArgs : null;
   const dirty =
     (config.dockerfilePath ?? "") !== dockerfilePath ||
     JSON.stringify(rowsToRecord(rows)) !== JSON.stringify(initialArgs);
 
   const setRow = (i: number, patch: Partial<ArgRow>) =>
     setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
-  const removeRow = (i: number) =>
-    setRows((rs) => rs.filter((_, j) => j !== i));
+  const removeRow = (i: number) => setRows((rs) => rs.filter((_, j) => j !== i));
   const addRow = () => setRows((rs) => [...rs, newArgRow()]);
 
   return (
@@ -337,8 +300,8 @@ function DockerfileBuildCard({
         <div className="flex flex-col">
           <span className="text-[12px] text-foreground">Build args</span>
           <span className="text-[11px] text-muted-foreground">
-            Passed as <code className="font-mono">--build-arg</code>. Not secret —
-            they land in the image history; use runtime env for secrets.
+            Passed as <code className="font-mono">--build-arg</code>. Not secret — they land in the
+            image history; use runtime env for secrets.
           </span>
         </div>
 
@@ -408,12 +371,7 @@ function SaveRow({
 }) {
   return (
     <div className="flex justify-end px-3 py-2.5">
-      <Button
-        type="button"
-        size="sm"
-        disabled={!dirty || pending}
-        onClick={onSave}
-      >
+      <Button type="button" size="sm" disabled={!dirty || pending} onClick={onSave}>
         {pending ? "Saving…" : "Save"}
       </Button>
     </div>

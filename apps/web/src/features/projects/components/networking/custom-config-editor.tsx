@@ -7,20 +7,17 @@
  */
 
 import { useEffect, useState } from "react";
-import {
-  Alert02Icon,
-  CheckmarkCircle02Icon,
-  ServerStack01Icon,
-} from "@hugeicons/core-free-icons";
+
+import { Alert02Icon, CheckmarkCircle02Icon, ServerStack01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { CaddyCodeEditor } from "@/features/projects/components/networking/caddy-code-editor";
 import { Button } from "@/shared/components/ui/button";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { cn } from "@/shared/lib/utils";
 import { orpc, queryClient } from "@/shared/server/orpc";
-import { CaddyCodeEditor } from "@/features/projects/components/networking/caddy-code-editor";
 
 const PLACEHOLDER = `# Standalone Caddy site blocks for this project, e.g.
 redirect.example.com {
@@ -92,10 +89,9 @@ export function CustomConfigEditor({ projectId }: { projectId: string }) {
         <div>
           <h2 className="text-base font-semibold">Custom config</h2>
           <p className="mt-0.5 max-w-2xl text-[13px] text-muted-foreground">
-            Caddy blocks appended to this project's generated config — define
-            your own sites, redirects, or reusable snippets. Validated on save;
-            if it doesn't parse, nothing is applied and your routes keep
-            serving.
+            Caddy blocks appended to this project's generated config — define your own sites,
+            redirects, or reusable snippets. Validated on save; if it doesn't parse, nothing is
+            applied and your routes keep serving.
           </p>
         </div>
       </div>
@@ -121,7 +117,7 @@ export function CustomConfigEditor({ projectId }: { projectId: string }) {
             <div className="text-[12.5px] font-medium text-destructive">
               Caddy rejected this config — nothing was saved
             </div>
-            <pre className="mt-1 overflow-x-auto whitespace-pre-wrap font-mono text-[11.5px] text-destructive/90">
+            <pre className="mt-1 overflow-x-auto font-mono text-[11.5px] whitespace-pre-wrap text-destructive/90">
               {error}
             </pre>
           </div>
@@ -130,19 +126,13 @@ export function CustomConfigEditor({ projectId }: { projectId: string }) {
 
       <div className="flex items-center justify-between gap-3">
         <p className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
-          <HugeiconsIcon
-            icon={ServerStack01Icon}
-            strokeWidth={1.8}
-            className="size-3.5"
-          />
+          <HugeiconsIcon icon={ServerStack01Icon} strokeWidth={1.8} className="size-3.5" />
           See the merged result on the{" "}
           <span className="font-mono text-foreground/80">Caddyfile</span> tab.
         </p>
         <div className="flex items-center gap-2">
           {dirty ? (
-            <span className="text-[12px] text-muted-foreground">
-              Unsaved changes
-            </span>
+            <span className="text-[12px] text-muted-foreground">Unsaved changes</span>
           ) : (
             <span className="flex items-center gap-1 text-[12px] text-muted-foreground">
               <HugeiconsIcon
@@ -153,11 +143,7 @@ export function CustomConfigEditor({ projectId }: { projectId: string }) {
               {error ? "" : "Saved"}
             </span>
           )}
-          <Button
-            size="sm"
-            onClick={onSave}
-            disabled={!dirty || save.isPending}
-          >
+          <Button size="sm" onClick={onSave} disabled={!dirty || save.isPending}>
             {save.isPending ? "Validating…" : "Save & apply"}
           </Button>
         </div>

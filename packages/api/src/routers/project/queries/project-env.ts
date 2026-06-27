@@ -10,10 +10,9 @@
 
 import type { EnvironmentId, ProjectEnvVarId, ProjectId } from "@otterdeploy/shared/id";
 
-import { and, asc, eq } from "drizzle-orm";
-
 import { db } from "@otterdeploy/db";
 import { projectEnvVar } from "@otterdeploy/db/schema/project";
+import { and, asc, eq } from "drizzle-orm";
 export interface ProjectEnvVarRow {
   id: ProjectEnvVarId;
   projectId: ProjectId;
@@ -83,10 +82,7 @@ export async function upsertProjectEnvVar(input: {
 
 /** Drop one key from the (project, environment) bag. No-op when the key
  *  doesn't exist — keeps idempotent client behaviour. */
-export async function deleteProjectEnvVar(input: {
-  scope: Scope;
-  key: string;
-}): Promise<void> {
+export async function deleteProjectEnvVar(input: { scope: Scope; key: string }): Promise<void> {
   await db
     .delete(projectEnvVar)
     .where(

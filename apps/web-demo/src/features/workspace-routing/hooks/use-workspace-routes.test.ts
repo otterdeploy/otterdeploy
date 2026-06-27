@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { useWorkspaceRoutes } from "./use-workspace-routes";
+
 import type { ProjectFromApi, ProxyRouteFromApi } from "@/features/project-canvas/api/schema";
+
+import { useWorkspaceRoutes } from "./use-workspace-routes";
 
 function makeProject(over: Partial<ProjectFromApi> = {}): ProjectFromApi {
   return {

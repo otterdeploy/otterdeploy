@@ -14,9 +14,8 @@
  *      `restart`/`resources` knobs, `preDeploy`, `buildConfig`.
  */
 
-import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
-
 import type { BuildConfig } from "@otterdeploy/shared/build-config";
+import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type * as z from "zod";
 
 import type { createServiceInput, updateServiceInput } from "./contract";
@@ -61,8 +60,10 @@ export interface ProjectRef {
   organizationId: OrgId;
 }
 
-export interface CreateServiceInput
-  extends Omit<z.infer<typeof createServiceInput>, "restart" | "resources"> {
+export interface CreateServiceInput extends Omit<
+  z.infer<typeof createServiceInput>,
+  "restart" | "resources"
+> {
   organizationId: OrgId;
   /**
    * Skip the up-front git build-binding gate (gitRepoId / containerRegistryId
@@ -81,8 +82,10 @@ export interface CreateServiceInput
   buildConfig?: BuildConfigInput | null;
 }
 
-export interface UpdateServiceInput
-  extends Omit<z.infer<typeof updateServiceInput>, "restart" | "resources"> {
+export interface UpdateServiceInput extends Omit<
+  z.infer<typeof updateServiceInput>,
+  "restart" | "resources"
+> {
   organizationId: OrgId;
   restart?: RestartInput;
   resources?: ResourcesInput;
@@ -131,13 +134,10 @@ export function toCreateRecordPayload(
     healthcheckTimeoutMs: input.healthcheck?.timeoutMs ?? null,
     healthcheckRetries: input.healthcheck?.retries ?? null,
     healthcheckStartMs: input.healthcheck?.startMs ?? null,
-    cpuLimit:
-      input.resources?.cpuLimit != null ? input.resources.cpuLimit.toString() : null,
+    cpuLimit: input.resources?.cpuLimit != null ? input.resources.cpuLimit.toString() : null,
     memoryLimitMb: input.resources?.memoryLimitMb ?? null,
     cpuReservation:
-      input.resources?.cpuReservation != null
-        ? input.resources.cpuReservation.toString()
-        : null,
+      input.resources?.cpuReservation != null ? input.resources.cpuReservation.toString() : null,
     memoryReservationMb: input.resources?.memoryReservationMb ?? null,
     diskLimitMb: input.resources?.diskLimitMb ?? null,
     swapLimitMb: input.resources?.swapLimitMb ?? null,
@@ -169,8 +169,7 @@ export function toUpdateRecordPatch(input: UpdateServiceInput) {
     healthcheckTimeoutMs: input.healthcheck?.timeoutMs,
     healthcheckRetries: input.healthcheck?.retries,
     healthcheckStartMs: input.healthcheck?.startMs,
-    cpuLimit:
-      input.resources?.cpuLimit != null ? input.resources.cpuLimit.toString() : undefined,
+    cpuLimit: input.resources?.cpuLimit != null ? input.resources.cpuLimit.toString() : undefined,
     memoryLimitMb: input.resources?.memoryLimitMb,
     cpuReservation:
       input.resources?.cpuReservation != null

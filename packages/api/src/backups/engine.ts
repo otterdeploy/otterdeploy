@@ -1,3 +1,4 @@
+import { Docker } from "@otterdeploy/docker";
 /**
  * Backup execution engine. Runs a logical database dump inside the engine's
  * own container (no creds on the wire — see exec.ts), compresses it, optionally
@@ -12,12 +13,10 @@
 import { createHash } from "node:crypto";
 import { gunzipSync, gzipSync } from "node:zlib";
 
-import { Docker } from "@otterdeploy/docker";
-
 import { decryptBytes, decryptSecret, encryptBytes } from "../lib/crypto";
+import { removeStagedBackup, stageBackupArchive } from "../lib/data-dir";
 import { emitPlatformEvent } from "../notifications/emit";
 import { buildContainerName } from "../routers/project/views";
-
 import {
   type ExecutionContext,
   appendBackupLog,
@@ -26,18 +25,10 @@ import {
   markBackupRunning,
   markBackupSucceeded,
 } from "./db";
-import { removeStagedBackup, stageBackupArchive } from "../lib/data-dir";
 import { execCapture, execDump, findServiceContainerId } from "./exec";
-import {
-  type ResolvedDestination,
-  archiveKey,
-  getArchive,
-  putArchive,
-} from "./storage";
+import { type ResolvedDestination, archiveKey, getArchive, putArchive } from "./storage";
 
-async function resolveSecret(
-  ctx: ExecutionContext,
-): Promise<Record<string, string>> {
+async function resolveSecret(ctx: ExecutionContext): Promise<Record<string, string>> {
   if (!ctx.destination.encryptedSecret) return {};
   const json = await decryptSecret(ctx.destination.encryptedSecret);
   return JSON.parse(json) as Record<string, string>;
@@ -71,9 +62,7 @@ function dumpCommand(ctx: ExecutionContext): {
         cmd: [
           "sh",
           "-c",
-          `exec mysqldump -u ${shellQuote(ctx.username)} ${shellQuote(
-            ctx.databaseName,
-          )}`,
+          `exec mysqldump -u ${shellQuote(ctx.username)} ${shellQuote(ctx.databaseName)}`,
         ],
         env: [`MYSQL_PWD=${ctx.password}`],
         ext: "sql.gz",
@@ -94,9 +83,7 @@ function dumpCommand(ctx: ExecutionContext): {
         method: "mongodump --archive | gzip",
       };
     case "redis":
-      throw new Error(
-        "redis backups are not supported (no logical dump); use a volume backup",
-      );
+      throw new Error("redis backups are not supported (no logical dump); use a volume backup");
   }
 }
 
@@ -157,9 +144,7 @@ export async function executeBackup(backupId: string): Promise<void> {
     });
     const containerId = await findServiceContainerId(docker, serviceName);
     if (!containerId) {
-      throw new Error(
-        `No running container for service ${serviceName} — is the database up?`,
-      );
+      throw new Error(`No running container for service ${serviceName} — is the database up?`);
     }
     await log("system", `Exec into ${serviceName} (${containerId.slice(0, 12)})`);
 
@@ -168,9 +153,7 @@ export async function executeBackup(backupId: string): Promise<void> {
     const { cmd, env, ext, method } = dumpCommand(ctx);
     const dump = await execDump(docker, containerId, cmd, env);
     if (dump.exitCode !== 0) {
-      throw new Error(
-        `dump exited ${dump.exitCode}: ${dump.stderr.slice(0, 1000)}`,
-      );
+      throw new Error(`dump exited ${dump.exitCode}: ${dump.stderr.slice(0, 1000)}`);
     }
     if (dump.stderr.trim()) await log("stderr", dump.stderr.trim().slice(0, 4000));
     const sourceSize = dump.archive.length;
@@ -181,10 +164,7 @@ export async function executeBackup(backupId: string): Promise<void> {
     if (ctx.encryption === "aes-256-gcm") {
       body = await encryptBytes(body);
       await log("system", "Encrypted archive (aes-256-gcm)");
-    } else if (
-      ctx.encryption === "kms-managed" ||
-      ctx.encryption === "customer-key"
-    ) {
+    } else if (ctx.encryption === "kms-managed" || ctx.encryption === "customer-key") {
       throw new Error(`encryption mode ${ctx.encryption} is not implemented`);
     }
 
@@ -196,9 +176,10 @@ export async function executeBackup(backupId: string): Promise<void> {
       secret,
     };
     const key = archiveKey({
-      prefix: typeof ctx.destination.config.prefix === "string"
-        ? ctx.destination.config.prefix
-        : undefined,
+      prefix:
+        typeof ctx.destination.config.prefix === "string"
+          ? ctx.destination.config.prefix
+          : undefined,
       resourceId: ctx.resourceId,
       backupId: ctx.backupId,
       ext,
@@ -278,9 +259,7 @@ export async function restoreBackup(input: {
    *  here so a direct API call can't skip the gate. */
   confirm?: string;
 }): Promise<{ ok: true; bytes?: Buffer }> {
-  const ctx = await getExecutionContext(
-    input.backupId as ExecutionContext["backupId"],
-  );
+  const ctx = await getExecutionContext(input.backupId as ExecutionContext["backupId"]);
   if (!ctx) throw new Error("backup execution context not found");
 
   // In-place overwrites live data — require the typed-name confirmation
@@ -303,15 +282,10 @@ export async function restoreBackup(input: {
   // For local destinations the stored key IS the absolute path; recompute the
   // S3 key the same way the engine wrote it.
   const ext =
-    ctx.engine === "postgres"
-      ? "dump.gz"
-      : ctx.engine === "mariadb"
-        ? "sql.gz"
-        : "archive.gz";
+    ctx.engine === "postgres" ? "dump.gz" : ctx.engine === "mariadb" ? "sql.gz" : "archive.gz";
   const key = archiveKey({
-    prefix: typeof ctx.destination.config.prefix === "string"
-      ? ctx.destination.config.prefix
-      : undefined,
+    prefix:
+      typeof ctx.destination.config.prefix === "string" ? ctx.destination.config.prefix : undefined,
     resourceId: ctx.resourceId,
     backupId: ctx.backupId,
     ext,
@@ -343,11 +317,11 @@ export async function restoreBackup(input: {
     // temp file in the container then restore, to avoid stdin-attach plumbing.
     const b64 = plain.toString("base64");
     const tmp = `/tmp/restore-${ctx.backupId}.dump`;
-    await execCapture(
-      docker,
-      containerId,
-      ["sh", "-c", `echo ${shellQuote(b64)} | base64 -d > ${tmp}`],
-    );
+    await execCapture(docker, containerId, [
+      "sh",
+      "-c",
+      `echo ${shellQuote(b64)} | base64 -d > ${tmp}`,
+    ]);
     // pg_restore exits non-zero on a genuinely failed restore. We allow
     // non-zero at the exec layer ONLY so we can capture stderr and surface it
     // — a silent `{ ok: true }` on a failed restore would mislead the caller

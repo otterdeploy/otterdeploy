@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 
+import type { EdgeEventLine, EdgeLogLine } from "../types";
+
 import { parseCaddyEvent } from "../event-parse";
 import {
   __resetEdgeEvents,
@@ -8,14 +10,7 @@ import {
   subscribeEdgeEvents,
 } from "../event-ring";
 import { parseCaddyAccessLog } from "../parse";
-import {
-  __resetEdgeLogs,
-  bucketOf,
-  pushEdgeLog,
-  queryEdgeLogs,
-  subscribeEdgeLogs,
-} from "../ring";
-import type { EdgeEventLine, EdgeLogLine } from "../types";
+import { __resetEdgeLogs, bucketOf, pushEdgeLog, queryEdgeLogs, subscribeEdgeLogs } from "../ring";
 
 const caddyEntry = {
   ts: 1_700_000_000.5,

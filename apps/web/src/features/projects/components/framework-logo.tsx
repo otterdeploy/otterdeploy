@@ -9,9 +9,9 @@
  * "static" routes to HTML5.
  */
 
-import type { SVGProps } from "react";
-
 import type { Framework } from "@otterdeploy/shared/framework";
+
+import type { SVGProps } from "react";
 
 import { Astro } from "@/shared/components/ui/svgs/astro";
 import { BunLogo } from "@/shared/components/ui/svgs/bun";

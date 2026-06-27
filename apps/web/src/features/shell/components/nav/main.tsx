@@ -1,5 +1,8 @@
 "use client";
 
+import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+
 import {
   Collapsible,
   CollapsibleContent,
@@ -16,8 +19,6 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from "@/shared/components/ui/sidebar";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
 
 export function NavMain({
   items,
@@ -38,15 +39,8 @@ export function NavMain({
       <SidebarGroupLabel>Platform</SidebarGroupLabel>
       <SidebarMenu>
         {items.map((item) => (
-          <Collapsible
-            key={item.title}
-            defaultOpen={item.isActive}
-            render={<SidebarMenuItem />}
-          >
-            <SidebarMenuButton
-              tooltip={item.title}
-              render={<a href={item.url} />}
-            >
+          <Collapsible key={item.title} defaultOpen={item.isActive} render={<SidebarMenuItem />}>
+            <SidebarMenuButton tooltip={item.title} render={<a href={item.url} />}>
               {item.icon}
               <span>{item.title}</span>
             </SidebarMenuButton>

@@ -1,12 +1,9 @@
 import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+
 import { describe, expect, mock, test } from "bun:test";
 
 // Subject-under-test imports
-import {
-  deleteProjectResource,
-  getProjectResource,
-  listProjectResources,
-} from "../resources";
+import { deleteProjectResource, getProjectResource, listProjectResources } from "../resources";
 
 type OrgId = OrganizationId;
 
@@ -48,10 +45,7 @@ describe("deleteProjectResource", () => {
       deleteResourceById: async () => undefined,
     }));
     const log = { set: () => {} } as never;
-    const result = await deleteProjectResource(
-      { projectId, resourceId, organizationId },
-      log,
-    );
+    const result = await deleteProjectResource({ projectId, resourceId, organizationId }, log);
     expect(result.isErr()).toBe(true);
   });
 });

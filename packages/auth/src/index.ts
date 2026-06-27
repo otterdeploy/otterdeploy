@@ -1,22 +1,17 @@
-import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
 import type { IdPrefix } from "@otterdeploy/shared/id";
-import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
 
+import { apiKey } from "@better-auth/api-key";
 import { db } from "@otterdeploy/db";
 import * as schema from "@otterdeploy/db/schema";
 import { member, session as sessionTbl } from "@otterdeploy/db/schema/auth";
 import { OrganizationInvitationEmail, sendEmail } from "@otterdeploy/email";
 import { env } from "@otterdeploy/env/server";
+import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
 import { betterAuth } from "better-auth";
-import { apiKey } from "@better-auth/api-key";
-import { log } from "evlog";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import {
-  bearer,
-  deviceAuthorization,
-  organization,
-  twoFactor,
-} from "better-auth/plugins";
+import { bearer, deviceAuthorization, organization, twoFactor } from "better-auth/plugins";
+import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
+import { log } from "evlog";
 
 import { ac, roles } from "./permissions";
 
@@ -26,9 +21,7 @@ import { ac, roles } from "./permissions";
  * falls back to their oldest membership; returns null if they have none
  * (the /_app layout will route them to onboarding).
  */
-async function resolveActiveOrganizationId(
-  userId: string,
-): Promise<string | null> {
+async function resolveActiveOrganizationId(userId: string): Promise<string | null> {
   const [lastActive] = await db
     .select({ orgId: sessionTbl.activeOrganizationId })
     .from(sessionTbl)
@@ -39,12 +32,7 @@ async function resolveActiveOrganizationId(
         eq(member.organizationId, sessionTbl.activeOrganizationId),
       ),
     )
-    .where(
-      and(
-        eq(sessionTbl.userId, userId),
-        isNotNull(sessionTbl.activeOrganizationId),
-      ),
-    )
+    .where(and(eq(sessionTbl.userId, userId), isNotNull(sessionTbl.activeOrganizationId)))
     .orderBy(desc(sessionTbl.updatedAt))
     .limit(1);
 
@@ -87,9 +75,7 @@ const configuredSocialProviders = {
         gitlab: {
           clientId: env.GITLAB_OAUTH_CLIENT_ID,
           clientSecret: env.GITLAB_OAUTH_CLIENT_SECRET,
-          ...(env.GITLAB_OAUTH_ISSUER
-            ? { issuer: env.GITLAB_OAUTH_ISSUER }
-            : {}),
+          ...(env.GITLAB_OAUTH_ISSUER ? { issuer: env.GITLAB_OAUTH_ISSUER } : {}),
         },
       }
     : {}),
@@ -139,11 +125,7 @@ export const auth = betterAuth({
       // BA's "team" model is backed by the `project` table — emit project_ ids.
       generateId: ({ model }) => {
         const prefix =
-          model === "team"
-            ? ID_PREFIX.project
-            : model === "organization"
-              ? "org"
-              : model;
+          model === "team" ? ID_PREFIX.project : model === "organization" ? "org" : model;
         return createId(prefix as IdPrefix);
       },
     },
@@ -158,9 +140,7 @@ export const auth = betterAuth({
         before: async (session) => ({
           data: {
             ...session,
-            activeOrganizationId: await resolveActiveOrganizationId(
-              session.userId,
-            ),
+            activeOrganizationId: await resolveActiveOrganizationId(session.userId),
           },
         }),
       },
@@ -225,10 +205,7 @@ export const auth = betterAuth({
       sendInvitationEmail: async (data) => {
         // Build the accept link against the WEB origin (where /accept-invite
         // renders), not the API origin — same resolution as the device flow.
-        const webOrigin = (env.CORS_ORIGIN[0] ?? env.BETTER_AUTH_URL).replace(
-          /\/$/,
-          "",
-        );
+        const webOrigin = (env.CORS_ORIGIN[0] ?? env.BETTER_AUTH_URL).replace(/\/$/, "");
         const inviteUrl = `${webOrigin}/accept-invite/${data.invitation.id}`;
         // Non-fatal by design: the invitation row is already persisted before
         // this runs, so a failed email send (e.g. missing/placeholder

@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { HugeiconsIcon } from "@hugeicons/react";
+
 import { ArrowReloadHorizontalIcon, PlusSignIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 
 import { Button } from "@/shared/components/ui/button";
 
-import { EditorRow } from "./editor-row";
 import type { DraftRow, RowStatus } from "./use-editor-state";
+
+import { EditorRow } from "./editor-row";
 
 interface TableViewProps {
   rows: DraftRow[];
@@ -66,9 +68,7 @@ export function TableView({
               copied={copiedId === row.id}
               pickerOpen={pickerOpen === row.id}
               onChange={(patch) => onUpdate(row.id, patch)}
-              onTogglePicker={() =>
-                setPickerOpen((cur) => (cur === row.id ? null : row.id))
-              }
+              onTogglePicker={() => setPickerOpen((cur) => (cur === row.id ? null : row.id))}
               onToggleReveal={() => toggleReveal(row.id)}
               onCopy={() => copyValue(row.id, row.value)}
               onDelete={() => onDelete(row.id)}
@@ -105,12 +105,7 @@ export function TableView({
       )}
 
       <div className="border-t border-border/40 bg-muted/20 px-3 py-2">
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-7 gap-1.5 text-[12px]"
-          onClick={onAddRow}
-        >
+        <Button size="sm" variant="ghost" className="h-7 gap-1.5 text-[12px]" onClick={onAddRow}>
           <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-3.5" />
           Add row
         </Button>

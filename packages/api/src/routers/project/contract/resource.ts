@@ -11,16 +11,10 @@
  */
 
 import { oc } from "@orpc/contract";
+import { FRAMEWORK_KINDS } from "@otterdeploy/shared/framework";
 import * as z from "zod";
 
-import { FRAMEWORK_KINDS } from "@otterdeploy/shared/framework";
-
-import {
-  basePath,
-  projectNotFoundErrors,
-  resourceNotFoundErrors,
-  tag,
-} from "./shared";
+import { basePath, projectNotFoundErrors, resourceNotFoundErrors, tag } from "./shared";
 
 // Renamed conceptually from postgresResourceSchema to "database resource
 // schema" — the shape is the same across engines (a record with credentials
@@ -33,7 +27,16 @@ export const databaseResourceSchema = z.object({
   name: z.string(),
   type: z.literal("database"),
   status: z.enum(["draft", "valid", "invalid"]),
-  engine: z.enum(["postgres", "redis", "mariadb", "mongodb", "clickhouse", "rabbitmq", "minio", "meilisearch"]),
+  engine: z.enum([
+    "postgres",
+    "redis",
+    "mariadb",
+    "mongodb",
+    "clickhouse",
+    "rabbitmq",
+    "minio",
+    "meilisearch",
+  ]),
   databaseName: z.string(),
   username: z.string(),
   password: z.string(),

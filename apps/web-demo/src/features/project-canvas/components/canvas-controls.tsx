@@ -1,5 +1,6 @@
 import { useReactFlow } from "@xyflow/react";
 import { MaximizeIcon, MinusIcon, PlusIcon, RotateCcwIcon } from "lucide-react";
+
 import { Toolbar, ToolbarButton, ToolbarSeparator } from "@/components/ui/toolbar";
 
 interface Props {
@@ -17,10 +18,7 @@ export function CanvasControls({ onUndo }: Props) {
         <MinusIcon className="size-4" />
       </ToolbarButton>
       <ToolbarSeparator />
-      <ToolbarButton
-        aria-label="Fit view"
-        onClick={() => flow.fitView({ padding: 0.2 })}
-      >
+      <ToolbarButton aria-label="Fit view" onClick={() => flow.fitView({ padding: 0.2 })}>
         <MaximizeIcon className="size-4" />
       </ToolbarButton>
       {onUndo ? (

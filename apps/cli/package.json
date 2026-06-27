@@ -2,14 +2,14 @@
   "name": "@otterdeploy/cli",
   "version": "0.0.0",
   "private": true,
-  "type": "module",
-  "main": "src/index.ts",
   "bin": {
     "otterdeploy": "./src/index.ts"
   },
+  "type": "module",
+  "main": "src/index.ts",
   "scripts": {
-    "typecheck": "tsc -b --checkers 4",
-    "start": "bun run src/index.ts"
+    "start": "bun run src/index.ts",
+    "typecheck": "tsc -b --checkers 4"
   },
   "dependencies": {
     "@orpc/client": "catalog:",

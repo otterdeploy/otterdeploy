@@ -58,9 +58,13 @@ export const statusCommand = defineCommand({
     if (localBlob === serverBlob) {
       consola.success("Local config matches server manifest exactly.");
     } else if (current.manifest === null) {
-      consola.warn("Server has no saved manifest yet — first `sync` will publish the local config.");
+      consola.warn(
+        "Server has no saved manifest yet — first `sync` will publish the local config.",
+      );
     } else {
-      consola.warn("Local config and server manifest differ. Run `preview` to see what `sync` would change.");
+      consola.warn(
+        "Local config and server manifest differ. Run `preview` to see what `sync` would change.",
+      );
     }
 
     // Independently, surface drift in the running RESOURCES vs the

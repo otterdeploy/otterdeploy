@@ -4,9 +4,8 @@
  * the builder writes log lines through.
  */
 
-import { RedisClient } from "bun";
-
 import { env } from "@otterdeploy/env/server";
+import { RedisClient } from "bun";
 
 export function createPublisher(): RedisClient {
   return new RedisClient(env.REDIS_URL);

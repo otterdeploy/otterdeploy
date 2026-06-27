@@ -10,11 +10,7 @@
  * `XxxRef & { ... }` for whatever extra params the call needs.
  */
 
-import type {
-  OrganizationId,
-  ProjectId,
-  ResourceId,
-} from "@otterdeploy/shared/id";
+import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 export interface OrgRef {
   organizationId: OrganizationId;

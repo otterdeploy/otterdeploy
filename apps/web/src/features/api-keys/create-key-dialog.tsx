@@ -64,8 +64,7 @@ export function CreateKeyDialog({
           start: null,
           prefix: null,
           enabled: true,
-          expiresAt:
-            expiresIn == null ? null : new Date(Date.now() + expiresIn * 1000),
+          expiresAt: expiresIn == null ? null : new Date(Date.now() + expiresIn * 1000),
           lastRequest: null,
           createdAt: new Date(),
           permissions: hasScopes ? value.scopes : null,
@@ -77,9 +76,7 @@ export function CreateKeyDialog({
       tx.isPersisted.promise
         .then(() => toast.success("API key created"))
         .catch((err: unknown) =>
-          toast.error(
-            err instanceof Error ? err.message : "Failed to create API key",
-          ),
+          toast.error(err instanceof Error ? err.message : "Failed to create API key"),
         );
     },
   });
@@ -96,8 +93,7 @@ export function CreateKeyDialog({
         <DialogHeader>
           <DialogTitle>Create API key</DialogTitle>
           <DialogDescription>
-            Keys belong to this workspace and authenticate automated access
-            (CLI, CI, scripts).
+            Keys belong to this workspace and authenticate automated access (CLI, CI, scripts).
           </DialogDescription>
         </DialogHeader>
 
@@ -112,8 +108,7 @@ export function CreateKeyDialog({
           <form.Field
             name="name"
             validators={{
-              onChange: ({ value }) =>
-                value.trim().length === 0 ? "Name is required" : undefined,
+              onChange: ({ value }) => (value.trim().length === 0 ? "Name is required" : undefined),
             }}
           >
             {(field) => (
@@ -136,30 +131,15 @@ export function CreateKeyDialog({
           </form.Field>
 
           <form.Field name="expiryIndex">
-            {(field) => (
-              <ExpiryField
-                value={field.state.value}
-                onChange={field.handleChange}
-              />
-            )}
+            {(field) => <ExpiryField value={field.state.value} onChange={field.handleChange} />}
           </form.Field>
 
           <form.Field name="scopes">
-            {(field) => (
-              <ScopePicker
-                value={field.state.value}
-                onChange={field.handleChange}
-              />
-            )}
+            {(field) => <ScopePicker value={field.state.value} onChange={field.handleChange} />}
           </form.Field>
 
           <DialogFooter className="mt-1">
-            <Button
-              size="sm"
-              variant="outline"
-              type="button"
-              onClick={() => setOpen(false)}
-            >
+            <Button size="sm" variant="outline" type="button" onClick={() => setOpen(false)}>
               Cancel
             </Button>
             <form.Subscribe selector={(s) => s.canSubmit}>
@@ -177,13 +157,7 @@ export function CreateKeyDialog({
 }
 
 /** Expiry preset dropdown, keyed by index into EXPIRY_OPTIONS. */
-function ExpiryField({
-  value,
-  onChange,
-}: {
-  value: number;
-  onChange: (v: number) => void;
-}) {
+function ExpiryField({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   // Base UI's <SelectValue> renders the label only when the root is given the
   // full items list; we key options by their index in EXPIRY_OPTIONS.
   const items = EXPIRY_OPTIONS.map((opt, i) => ({

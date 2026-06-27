@@ -9,17 +9,17 @@
 // AFTER the new replicas are live + healthy (best-effort — a failure is logged
 // but doesn't roll back).
 
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-
 import type { ProjectId } from "@otterdeploy/shared/id";
 
+import { useState } from "react";
+
+import { useQuery } from "@tanstack/react-query";
+
+import { useStageManifestChange } from "@/features/projects/hooks/use-manifest-stage";
+import { SettingsCard } from "@/features/resources/components/_shared/settings-card";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { orpc } from "@/shared/server/orpc";
-import { useStageManifestChange } from "@/features/projects/hooks/use-manifest-stage";
-
-import { SettingsCard } from "@/features/resources/components/_shared/settings-card";
 
 interface CmdRow {
   /** Stable identity for React keys — rows are added/removed by position. */
@@ -31,8 +31,7 @@ let cmdSeq = 0;
 const newCmdRow = (value = ""): CmdRow => ({ id: `cmd-${cmdSeq++}`, value });
 
 /** Editor rows → the `string[]` the manifest stores. Blank rows are dropped. */
-const toCommands = (rows: CmdRow[]): string[] =>
-  rows.map((r) => r.value.trim()).filter(Boolean);
+const toCommands = (rows: CmdRow[]): string[] => rows.map((r) => r.value.trim()).filter(Boolean);
 
 /**
  * Reads the service's current hooks from the manifest and renders the editor.
@@ -54,13 +53,8 @@ export function ServiceDeployHooksCard({
 
   if (manifest.isLoading) {
     return (
-      <SettingsCard
-        title="Deploy hooks"
-        description="Shell commands run around each deploy."
-      >
-        <div className="px-3 py-3 text-[12.5px] text-muted-foreground">
-          Loading…
-        </div>
+      <SettingsCard title="Deploy hooks" description="Shell commands run around each deploy.">
+        <div className="px-3 py-3 text-[12.5px] text-muted-foreground">Loading…</div>
       </SettingsCard>
     );
   }
@@ -70,10 +64,8 @@ export function ServiceDeployHooksCard({
   // (The parent already gates on this; the guard keeps the card self-contained.)
   if (!svc || svc.source !== "git") return null;
 
-  const pre =
-    "preDeploy" in svc && Array.isArray(svc.preDeploy) ? svc.preDeploy : [];
-  const post =
-    "postDeploy" in svc && Array.isArray(svc.postDeploy) ? svc.postDeploy : [];
+  const pre = "preDeploy" in svc && Array.isArray(svc.preDeploy) ? svc.preDeploy : [];
+  const post = "postDeploy" in svc && Array.isArray(svc.postDeploy) ? svc.postDeploy : [];
 
   return (
     <DeployHooksEditor
@@ -151,12 +143,7 @@ function DeployHooksEditor({
         addLabel="Add post-deploy command"
       />
       <div className="flex justify-end px-3 py-2.5">
-        <Button
-          type="button"
-          size="sm"
-          disabled={!dirty || busy}
-          onClick={save}
-        >
+        <Button type="button" size="sm" disabled={!dirty || busy} onClick={save}>
           {busy ? "Saving…" : "Save"}
         </Button>
       </div>
@@ -181,8 +168,7 @@ function HookList({
 }) {
   const setRow = (i: number, value: string) =>
     setRows((rs) => rs.map((r, j) => (j === i ? { ...r, value } : r)));
-  const removeRow = (i: number) =>
-    setRows((rs) => rs.filter((_, j) => j !== i));
+  const removeRow = (i: number) => setRows((rs) => rs.filter((_, j) => j !== i));
   const addRow = () => setRows((rs) => [...rs, newCmdRow()]);
 
   return (

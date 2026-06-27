@@ -9,15 +9,11 @@ import type {
   OrganizationId,
   ProjectId,
 } from "@otterdeploy/shared/id";
-import { and, asc, desc, eq, ilike, or, sql } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
-import {
-  backup,
-  backupDestination,
-  backupSchedule,
-} from "@otterdeploy/db/schema";
+import { backup, backupDestination, backupSchedule } from "@otterdeploy/db/schema";
 import { databaseResource, project, resource } from "@otterdeploy/db/schema";
+import { and, asc, desc, eq, ilike, or, sql } from "drizzle-orm";
 
 type BackupKind = "database" | "volume" | "stack";
 
@@ -71,8 +67,7 @@ export async function listBackupsByOrg(input: {
   const conditions = [eq(backup.organizationId, input.organizationId)];
   if (input.projectId) conditions.push(eq(resource.projectId, input.projectId));
   if (input.kind) conditions.push(eq(backup.kind, input.kind));
-  if (input.destinationId)
-    conditions.push(eq(backup.destinationId, input.destinationId));
+  if (input.destinationId) conditions.push(eq(backup.destinationId, input.destinationId));
   if (input.search) {
     const q = `%${input.search}%`;
     const match = or(
@@ -88,10 +83,7 @@ export async function listBackupsByOrg(input: {
     .from(backup)
     .innerJoin(resource, eq(resource.id, backup.resourceId))
     .innerJoin(project, eq(project.id, resource.projectId))
-    .leftJoin(
-      databaseResource,
-      eq(databaseResource.resourceId, backup.resourceId),
-    )
+    .leftJoin(databaseResource, eq(databaseResource.resourceId, backup.resourceId))
     .leftJoin(backupDestination, eq(backupDestination.id, backup.destinationId))
     .where(and(...conditions))
     .orderBy(desc(backup.createdAt));
@@ -108,17 +100,9 @@ export async function getBackupInOrg(input: {
     .from(backup)
     .innerJoin(resource, eq(resource.id, backup.resourceId))
     .innerJoin(project, eq(project.id, resource.projectId))
-    .leftJoin(
-      databaseResource,
-      eq(databaseResource.resourceId, backup.resourceId),
-    )
+    .leftJoin(databaseResource, eq(databaseResource.resourceId, backup.resourceId))
     .leftJoin(backupDestination, eq(backupDestination.id, backup.destinationId))
-    .where(
-      and(
-        eq(backup.id, input.backupId),
-        eq(backup.organizationId, input.organizationId),
-      ),
-    )
+    .where(and(eq(backup.id, input.backupId), eq(backup.organizationId, input.organizationId)))
     .limit(1);
   return row ? toBackupRow(row) : undefined;
 }
@@ -129,9 +113,7 @@ export interface ScheduleRow {
   destinationNames: string[];
 }
 
-export async function listSchedulesByOrg(
-  organizationId: OrganizationId,
-): Promise<ScheduleRow[]> {
+export async function listSchedulesByOrg(organizationId: OrganizationId): Promise<ScheduleRow[]> {
   // `destinationIds` is a jsonb array, not an FK, so resolve names via a small
   // org-wide destination lookup rather than a join.
   const [schedules, dests] = await Promise.all([
@@ -172,10 +154,7 @@ const DESTINATION_VIEW = {
   updatedAt: backupDestination.updatedAt,
 } as const;
 
-export type DestinationView = Omit<
-  typeof backupDestination.$inferSelect,
-  "encryptedSecret"
->;
+export type DestinationView = Omit<typeof backupDestination.$inferSelect, "encryptedSecret">;
 
 async function getDestinationForOrg(input: {
   organizationId: OrganizationId;
@@ -198,14 +177,11 @@ async function getDestinationForOrg(input: {
 export async function getDestinationWithSecret(input: {
   organizationId: OrganizationId;
   id: BackupDestinationId;
-}): Promise<
-  | {
-      type: "s3" | "local" | "sftp";
-      config: Record<string, unknown>;
-      encryptedSecret: string | null;
-    }
-  | null
-> {
+}): Promise<{
+  type: "s3" | "local" | "sftp";
+  config: Record<string, unknown>;
+  encryptedSecret: string | null;
+} | null> {
   const [row] = await db
     .select({
       type: backupDestination.type,
@@ -254,8 +230,7 @@ export async function updateDestinationRecord(input: {
   const patch: Partial<typeof backupDestination.$inferInsert> = {};
   if (input.name !== undefined) patch.name = input.name;
   if (input.config !== undefined) patch.config = input.config;
-  if (input.encryptedSecret !== undefined)
-    patch.encryptedSecret = input.encryptedSecret;
+  if (input.encryptedSecret !== undefined) patch.encryptedSecret = input.encryptedSecret;
 
   if (Object.keys(patch).length === 0) {
     return getDestinationForOrg({
@@ -288,9 +263,7 @@ export async function resolveDestinationNames(input: {
     .from(backupDestination)
     .where(eq(backupDestination.organizationId, input.organizationId));
   const nameById = new Map(dests.map((d) => [d.id, d.name]));
-  return input.ids
-    .map((id) => nameById.get(id))
-    .filter((n): n is string => Boolean(n));
+  return input.ids.map((id) => nameById.get(id)).filter((n): n is string => Boolean(n));
 }
 
 /** Count schedules + backups still pointing at a destination (delete guard). */

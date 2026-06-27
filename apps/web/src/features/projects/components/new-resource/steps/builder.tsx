@@ -17,8 +17,8 @@ import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
 import { BuilderLogo } from "../builder-logo";
-import { Field, SectionHeader } from "../form-primitives";
 import { useFormContext } from "../form-context";
+import { Field, SectionHeader } from "../form-primitives";
 import { frameworkLabel, monorepoLabel } from "../frameworks";
 import { I } from "../icons";
 
@@ -94,8 +94,8 @@ function BuilderConfig({ builderId }: { builderId: string }) {
           title="Railpack auto-detect"
         />
         <p className="mb-3.5 text-xs text-muted-foreground">
-          Railpack inspects your repo and assembles an OCI image automatically.
-          Override individual layers below if needed.
+          Railpack inspects your repo and assembles an OCI image automatically. Override individual
+          layers below if needed.
         </p>
         <div className="grid grid-cols-2 gap-2.5">
           <Field label="Install command (override)">
@@ -174,10 +174,7 @@ function BuilderConfig({ builderId }: { builderId: string }) {
   if (builderId === "buildpack") {
     return (
       <Card className="p-4.5">
-        <ConfigHeader
-          icon={<I.folder width={14} height={14} />}
-          title="Cloud-Native Buildpacks"
-        />
+        <ConfigHeader icon={<I.folder width={14} height={14} />} title="Cloud-Native Buildpacks" />
         <Field label="Builder image">
           <Select
             defaultValue="paketo"
@@ -194,9 +191,7 @@ function BuilderConfig({ builderId }: { builderId: string }) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="paketo">
-                paketobuildpacks/builder-jammy-base:latest
-              </SelectItem>
+              <SelectItem value="paketo">paketobuildpacks/builder-jammy-base:latest</SelectItem>
               <SelectItem value="heroku">heroku/builder:24</SelectItem>
               <SelectItem value="gcp">gcr.io/buildpacks/builder:v1</SelectItem>
             </SelectContent>
@@ -268,8 +263,7 @@ function DetectionBanner() {
   if (!framework) {
     return (
       <Card className="mt-3 p-3.5 text-[13px] text-muted-foreground">
-        No framework auto-detected{root ? ` in /${root}` : ""}. Pick a builder
-        below.
+        No framework auto-detected{root ? ` in /${root}` : ""}. Pick a builder below.
       </Card>
     );
   }
@@ -279,9 +273,7 @@ function DetectionBanner() {
       <div className="flex items-center gap-2">
         <I.check width={14} height={14} className="text-info" />
         <div className="flex-1 text-[13px]">
-          <div className="font-medium text-info">
-            Detected: {frameworkLabel(framework)}
-          </div>
+          <div className="font-medium text-info">Detected: {frameworkLabel(framework)}</div>
           <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">
             from {root ? `/${root}` : "repo root"} · git.inspectRepo
           </div>
@@ -324,20 +316,19 @@ export function StepBuilder() {
               onClick={() => form.setFieldValue("builderId", b.id)}
               className={cn(
                 "relative rounded-md border bg-card p-3.5 text-left text-foreground transition-colors hover:border-ring",
-                isActive && "border-foreground bg-accent shadow-[0_0_0_1px_var(--foreground)_inset]",
+                isActive &&
+                  "border-foreground bg-accent shadow-[0_0_0_1px_var(--foreground)_inset]",
               )}
             >
               {b.popular && (
-                <span className="absolute top-2 right-2 rounded-sm bg-info/12 px-1.5 py-px text-[9px] font-medium uppercase tracking-[0.08em] text-info">
+                <span className="absolute top-2 right-2 rounded-sm bg-info/12 px-1.5 py-px text-[9px] font-medium tracking-[0.08em] text-info uppercase">
                   popular
                 </span>
               )}
               <div className="flex items-center gap-2">
                 <BuilderLogo id={b.id} />
                 <span className="text-[13px] font-semibold">{b.name}</span>
-                {isActive && (
-                  <I.check width={12} height={12} className="ml-auto text-foreground" />
-                )}
+                {isActive && <I.check width={12} height={12} className="ml-auto text-foreground" />}
               </div>
               <div className="mt-1 text-[11px] leading-snug text-muted-foreground">{b.sub}</div>
             </button>

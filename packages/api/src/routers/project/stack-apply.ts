@@ -9,16 +9,15 @@
  * `lastAppliedFile` and `lastAppliedAt` is stamped.
  */
 import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
 import { project } from "@otterdeploy/db/schema/project";
-import { eq } from "drizzle-orm";
 import { Result, TaggedError } from "better-result";
-import type { RequestLogger } from "evlog";
+import { eq } from "drizzle-orm";
 
 import { stackFileSchema, type StackService } from "../../stack";
 import { getEngineAdapter } from "../../swarm";
-
 import { ProjectNotFoundError } from "./errors";
 import { applyPostgresExtraEnv } from "./postgres";
 import { getProjectInOrg } from "./queries";

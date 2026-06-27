@@ -37,9 +37,7 @@ function sortDeep(value: SortableValue): SortableValue {
   return out;
 }
 
-function identityLabels(
-  x: StackOtterdeployExtension,
-): Record<string, string> {
+function identityLabels(x: StackOtterdeployExtension): Record<string, string> {
   const labels: Record<string, string> = {
     "otterdeploy.kind": x.kind,
     "otterdeploy.resource.id": x.resourceId,

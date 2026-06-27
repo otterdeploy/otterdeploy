@@ -4,10 +4,7 @@ import { builderFlags, cacheFlags, cachePathFor } from "../buildx";
 
 describe("builderFlags", () => {
   test("emits --builder when a name is set", () => {
-    expect(builderFlags("otterdeploy-cache")).toEqual([
-      "--builder",
-      "otterdeploy-cache",
-    ]);
+    expect(builderFlags("otterdeploy-cache")).toEqual(["--builder", "otterdeploy-cache"]);
   });
 
   test("emits nothing for null/undefined", () => {

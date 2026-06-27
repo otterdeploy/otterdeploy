@@ -8,22 +8,17 @@
  * The imperative ref exposes run-all / run-selection / run-current for the
  * toolbar's Run dropdown.
  */
-import {
-  forwardRef,
-  useImperativeHandle,
-  useMemo,
-  useRef,
-} from "react";
-import CodeMirror, {
-  type ReactCodeMirrorRef,
-} from "@uiw/react-codemirror";
+import { forwardRef, useImperativeHandle, useMemo, useRef } from "react";
+
 import { PostgreSQL, sql } from "@codemirror/lang-sql";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { StateField } from "@codemirror/state";
 import { EditorView, GutterMarker, gutter, keymap } from "@codemirror/view";
 import { tags as t } from "@lezer/highlight";
+import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 
 import { cn } from "@/shared/lib/utils";
+
 import { splitStatements, type SqlStatement } from "../data/sql-statements";
 
 export interface SqlEditorHandle {
@@ -48,14 +43,10 @@ interface SqlEditorProps {
 // Statements recomputed on every doc change; the gutter + keymap read this.
 const statementsField = StateField.define<SqlStatement[]>({
   create: (state) => splitStatements(state.doc.toString()),
-  update: (value, tr) =>
-    tr.docChanged ? splitStatements(tr.newDoc.toString()) : value,
+  update: (value, tr) => (tr.docChanged ? splitStatements(tr.newDoc.toString()) : value),
 });
 
-function statementOnLine(
-  view: EditorView,
-  lineFrom: number,
-): SqlStatement | null {
+function statementOnLine(view: EditorView, lineFrom: number): SqlStatement | null {
   const stmts = view.state.field(statementsField);
   for (const s of stmts) {
     if (view.state.doc.lineAt(s.from).from === lineFrom) return s;
@@ -91,8 +82,7 @@ const editorTheme = EditorView.theme(
     "&": { backgroundColor: "transparent", height: "100%" },
     "&.cm-focused": { outline: "none" },
     ".cm-scroller": {
-      fontFamily:
-        "var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)",
+      fontFamily: "var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)",
       fontSize: "12.5px",
       lineHeight: "1.7",
     },
@@ -135,105 +125,105 @@ const highlightStyle = HighlightStyle.define([
   },
 ]);
 
-export const SqlEditor = forwardRef<SqlEditorHandle, SqlEditorProps>(
-  function SqlEditor({ value, onChange, schema, onRun, className }, ref) {
-    const cmRef = useRef<ReactCodeMirrorRef>(null);
-    // Keep the latest onRun without reconfiguring the editor on every render.
-    const onRunRef = useRef(onRun);
-    onRunRef.current = onRun;
+export const SqlEditor = forwardRef<SqlEditorHandle, SqlEditorProps>(function SqlEditor(
+  { value, onChange, schema, onRun, className },
+  ref,
+) {
+  const cmRef = useRef<ReactCodeMirrorRef>(null);
+  // Keep the latest onRun without reconfiguring the editor on every render.
+  const onRunRef = useRef(onRun);
+  onRunRef.current = onRun;
 
-    const extensions = useMemo(() => {
-      const runGutter = gutter({
-        class: "cm-run-gutter",
-        lineMarker: (view, line) =>
-          statementOnLine(view, line.from) ? runMarker : null,
-        lineMarkerChange: (update) => update.docChanged,
-        domEventHandlers: {
-          mousedown: (view, line) => {
-            const stmt = statementOnLine(view, line.from);
-            if (stmt) {
-              onRunRef.current(stmt.text);
-              return true;
-            }
-            return false;
-          },
-        },
-      });
-
-      const runKeymap = keymap.of([
-        {
-          key: "Mod-Enter",
-          preventDefault: true,
-          run: (view) => {
-            const stmt = statementAtCursor(view);
-            if (stmt) onRunRef.current(stmt.text);
+  const extensions = useMemo(() => {
+    const runGutter = gutter({
+      class: "cm-run-gutter",
+      lineMarker: (view, line) => (statementOnLine(view, line.from) ? runMarker : null),
+      lineMarkerChange: (update) => update.docChanged,
+      domEventHandlers: {
+        mousedown: (view, line) => {
+          const stmt = statementOnLine(view, line.from);
+          if (stmt) {
+            onRunRef.current(stmt.text);
             return true;
-          },
-        },
-      ]);
-
-      return [
-        sql({ dialect: PostgreSQL, schema, upperCaseKeywords: false }),
-        syntaxHighlighting(highlightStyle),
-        statementsField,
-        runGutter,
-        runKeymap,
-        editorTheme,
-        EditorView.lineWrapping,
-      ];
-    }, [schema]);
-
-    useImperativeHandle(
-      ref,
-      () => ({
-        runAll: () => {
-          const v = cmRef.current?.view;
-          if (!v) return;
-          const all = v.state.doc.toString().trim();
-          if (all) onRunRef.current(all);
-        },
-        runSelection: () => {
-          const v = cmRef.current?.view;
-          if (!v) return;
-          const sel = v.state.selection.main;
-          const text = v.state.sliceDoc(sel.from, sel.to).trim();
-          if (text) {
-            onRunRef.current(text);
-            return;
           }
-          const stmt = statementAtCursor(v);
-          if (stmt) onRunRef.current(stmt.text);
+          return false;
         },
-        runCurrent: () => {
-          const v = cmRef.current?.view;
-          if (!v) return;
-          const stmt = statementAtCursor(v);
-          if (stmt) onRunRef.current(stmt.text);
-        },
-      }),
-      [],
-    );
+      },
+    });
 
-    return (
-      <CodeMirror
-        ref={cmRef}
-        value={value}
-        onChange={onChange}
-        extensions={extensions}
-        theme="none"
-        basicSetup={{
-          lineNumbers: true,
-          foldGutter: false,
-          highlightActiveLine: true,
-          autocompletion: true,
-          bracketMatching: true,
-          closeBrackets: true,
-          highlightActiveLineGutter: false,
-        }}
-        spellCheck={false}
-        className={cn("h-full min-h-0 text-[12.5px]", className)}
-        height="100%"
-      />
-    );
-  },
-);
+    const runKeymap = keymap.of([
+      {
+        key: "Mod-Enter",
+        preventDefault: true,
+        run: (view) => {
+          const stmt = statementAtCursor(view);
+          if (stmt) onRunRef.current(stmt.text);
+          return true;
+        },
+      },
+    ]);
+
+    return [
+      sql({ dialect: PostgreSQL, schema, upperCaseKeywords: false }),
+      syntaxHighlighting(highlightStyle),
+      statementsField,
+      runGutter,
+      runKeymap,
+      editorTheme,
+      EditorView.lineWrapping,
+    ];
+  }, [schema]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      runAll: () => {
+        const v = cmRef.current?.view;
+        if (!v) return;
+        const all = v.state.doc.toString().trim();
+        if (all) onRunRef.current(all);
+      },
+      runSelection: () => {
+        const v = cmRef.current?.view;
+        if (!v) return;
+        const sel = v.state.selection.main;
+        const text = v.state.sliceDoc(sel.from, sel.to).trim();
+        if (text) {
+          onRunRef.current(text);
+          return;
+        }
+        const stmt = statementAtCursor(v);
+        if (stmt) onRunRef.current(stmt.text);
+      },
+      runCurrent: () => {
+        const v = cmRef.current?.view;
+        if (!v) return;
+        const stmt = statementAtCursor(v);
+        if (stmt) onRunRef.current(stmt.text);
+      },
+    }),
+    [],
+  );
+
+  return (
+    <CodeMirror
+      ref={cmRef}
+      value={value}
+      onChange={onChange}
+      extensions={extensions}
+      theme="none"
+      basicSetup={{
+        lineNumbers: true,
+        foldGutter: false,
+        highlightActiveLine: true,
+        autocompletion: true,
+        bracketMatching: true,
+        closeBrackets: true,
+        highlightActiveLineGutter: false,
+      }}
+      spellCheck={false}
+      className={cn("h-full min-h-0 text-[12.5px]", className)}
+      height="100%"
+    />
+  );
+});
