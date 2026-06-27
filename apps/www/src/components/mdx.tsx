@@ -76,7 +76,7 @@ function HR({ className, ...props }: ComponentProps<"hr">) {
   return <hr className={cx("my-10 border-border", className)} {...props} />;
 }
 
-function getMDXComponents(components?: MDXComponents) {
+export function getMDXComponents(components?: MDXComponents) {
   return {
     ...defaultMdxComponents,
     h2: H2,

@@ -14,7 +14,7 @@ import type React from "react";
 import { Suspense } from "react";
 import { OpenAPIPage } from "@/components/api-page";
 import { DocsVersion } from "@/components/docs-version";
-import { useMDXComponents } from "@/components/mdx";
+import { getMDXComponents } from "@/components/mdx";
 import { SiteBar } from "@/components/site-bar";
 import { baseOptions } from "@/lib/layout.shared";
 import { source } from "@/lib/source";
@@ -61,6 +61,13 @@ const serverLoader = createServerFn({ method: "GET" })
     };
   });
 
+// Our MDX overrides are a static map (`getMDXComponents` is a plain function,
+// not a real hook), so resolve them once at module scope. This also keeps the
+// renderer callback below free of any `use*`-shaped call — fumadocs invokes it
+// inside its own internal `Renderer`, which a hooks linter can't see as a
+// component boundary.
+const mdxComponents = getMDXComponents();
+
 const clientLoader = browserCollections.docs.createClientLoader({
   component({ toc, frontmatter, default: MDX }) {
     return (
@@ -68,12 +75,20 @@ const clientLoader = browserCollections.docs.createClientLoader({
         <DocsTitle>{frontmatter.title}</DocsTitle>
         <DocsDescription>{frontmatter.description}</DocsDescription>
         <DocsBody>
-          <MDX components={useMDXComponents()} />
+          <MDX components={mdxComponents} />
         </DocsBody>
       </DocsPage>
     );
   },
 });
+
+// Calling `clientLoader.useContent` (a hook) directly inside the render ternary
+// below would break the rules of hooks (conditional call). Wrap it in its own
+// component so the hook runs unconditionally at that component's top level; the
+// component itself is then what we render conditionally, which is allowed.
+function DocsContent({ path }: { path: string }) {
+  return clientLoader.useContent(path);
+}
 
 function Page() {
   const page = useFumadocsLoader(Route.useLoaderData());
@@ -98,7 +113,9 @@ function Page() {
             </DocsBody>
           </DocsPage>
         ) : (
-          <Suspense>{clientLoader.useContent(page.path)}</Suspense>
+          <Suspense>
+            <DocsContent path={page.path} />
+          </Suspense>
         )}
       </DocsLayout>
     </div>

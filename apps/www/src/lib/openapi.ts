@@ -17,9 +17,15 @@ type Document = OpenAPIV3_2.Document;
 // eval time and hand it over as an already-parsed `Document`. Override the URL
 // with `OTTERSTACK_OPENAPI_SPEC_URL` in prod (the deployed API); it defaults to
 // the local dev server.
+//
+// This is a server-only build/SSR value (the spec is fetched server-side at
+// module-eval time, never shipped to the browser), so `import.meta.env` is the
+// wrong channel — it would inline the URL into the client bundle and require a
+// `VITE_` rename. Reading `process.env` directly is correct here, the same way
+// `vite.config.ts` reads `PORT`.
 // oxlint-disable-next-line node/no-process-env
-const specUrl =
-  process.env.OTTERSTACK_OPENAPI_SPEC_URL ?? "http://localhost:3000/api/reference/spec.json";
+const envSpecUrl = process.env.OTTERSTACK_OPENAPI_SPEC_URL;
+const specUrl = envSpecUrl ?? "http://localhost:3000/api/reference/spec.json";
 
 async function loadSpec(): Promise<Document> {
   const res = await fetch(specUrl);

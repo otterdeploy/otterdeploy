@@ -298,6 +298,7 @@
         "@otterdeploy/config": "workspace:*",
         "@tailwindcss/vite": "^4.3.0",
         "@tanstack/react-router-devtools": "1.167.0",
+        "@tanstack/router-cli": "catalog:",
         "@types/mdx": "^2.0.14",
         "@types/node": "^25.9.2",
         "@types/react": "^19.2.17",
