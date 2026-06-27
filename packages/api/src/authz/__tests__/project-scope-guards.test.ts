@@ -1,5 +1,5 @@
 import { ORPCError } from "@orpc/server";
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 
 // The guards module imports `@otterdeploy/db`, whose client validates the full
 // server env at import time. Satisfy the required vars before the dynamic

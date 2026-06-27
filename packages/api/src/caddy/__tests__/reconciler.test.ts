@@ -1,4 +1,4 @@
-import { describe, expect, mock, test } from "bun:test";
+import { describe, expect, test, vi } from "vitest";
 
 import type { ProxyRouteInput } from "../builder";
 
@@ -28,8 +28,8 @@ describe("reconciler", () => {
   };
 
   test("applies all routes when all projects validate", async () => {
-    const adaptFn = mock(() => Promise.resolve({ ok: true as const, json: {} }));
-    const loadFn = mock(() => Promise.resolve({ ok: true as const }));
+    const adaptFn = vi.fn(() => Promise.resolve({ ok: true as const, json: {} }));
+    const loadFn = vi.fn(() => Promise.resolve({ ok: true as const }));
 
     const result = await reconcileRoutes({
       routes: [httpRoute, layer4Route],
@@ -45,13 +45,13 @@ describe("reconciler", () => {
   });
 
   test("skips a project whose fragment fails validation", async () => {
-    const adaptFn = mock((caddyfile: string) => {
+    const adaptFn = vi.fn((caddyfile: string) => {
       if (caddyfile.includes("myapp.otterdeploy.dev")) {
         return Promise.resolve({ ok: false as const, error: "bad config" });
       }
       return Promise.resolve({ ok: true as const, json: {} });
     });
-    const loadFn = mock(() => Promise.resolve({ ok: true as const }));
+    const loadFn = vi.fn(() => Promise.resolve({ ok: true as const }));
 
     const result = await reconcileRoutes({
       routes: [httpRoute, layer4Route],
@@ -66,8 +66,8 @@ describe("reconciler", () => {
   });
 
   test("returns empty applied when load fails", async () => {
-    const adaptFn = mock(() => Promise.resolve({ ok: true as const, json: {} }));
-    const loadFn = mock(() => Promise.resolve({ ok: false as const, error: "caddy down" }));
+    const adaptFn = vi.fn(() => Promise.resolve({ ok: true as const, json: {} }));
+    const loadFn = vi.fn(() => Promise.resolve({ ok: false as const, error: "caddy down" }));
 
     const result = await reconcileRoutes({
       routes: [httpRoute],
@@ -81,8 +81,8 @@ describe("reconciler", () => {
   });
 
   test("handles empty routes", async () => {
-    const adaptFn = mock(() => Promise.resolve({ ok: true as const, json: {} }));
-    const loadFn = mock(() => Promise.resolve({ ok: true as const }));
+    const adaptFn = vi.fn(() => Promise.resolve({ ok: true as const, json: {} }));
+    const loadFn = vi.fn(() => Promise.resolve({ ok: true as const }));
 
     const result = await reconcileRoutes({
       routes: [],
