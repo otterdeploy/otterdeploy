@@ -10,8 +10,7 @@ export default defineConfig({
     alias: { "@": path.resolve(__dirname, "./src") },
   },
   test: {
-    environment: "jsdom",
-    setupFiles: ["./vitest.setup.ts"],
+    environment: "node",
     globals: false,
     css: false,
   },

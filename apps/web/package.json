@@ -80,10 +80,6 @@
   "devDependencies": {
     "@otterdeploy/config": "workspace:*",
     "@rolldown/plugin-babel": "^0.2.3",
-    "@testing-library/dom": "^10.4.1",
-    "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.2",
-    "@testing-library/user-event": "^14.6.1",
     "@tanstack/react-query-devtools": "catalog:",
     "@tanstack/react-router-devtools": "catalog:",
     "@tanstack/router-cli": "catalog:",
