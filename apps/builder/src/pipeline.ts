@@ -17,52 +17,46 @@
  * bare `Error`, so `runBuildSteps` returns a typed `Result` instead of
  * rejecting. The pipeline never throws to the caller — a failure marks the row
  * failed + logs, and surfaces the message. The handler iterates a batch of
- * deployments and must keep going if one fails.
+ * deployments and must keep going if one fails. The individual steps live in
+ * `./pipeline-steps`.
  */
 
 import type { DeploymentId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
-import type { OrganizationId } from "@otterdeploy/shared/id";
 import type { RedisClient } from "bun";
 
-import { getInstallationToken } from "@otterdeploy/api/git/github-app";
-import { decryptSecret } from "@otterdeploy/api/lib/crypto";
-import { emitPlatformEvent } from "@otterdeploy/api/notifications/emit";
 import { redeployOne } from "@otterdeploy/api/routers/service/redeploy";
 import { db } from "@otterdeploy/db";
-import { deployment, project, resource, serviceResource } from "@otterdeploy/db/schema";
+import { serviceResource } from "@otterdeploy/db/schema";
 import { Result } from "better-result";
 import { eq } from "drizzle-orm";
-import { log as globalLog } from "evlog";
 import { rm } from "node:fs/promises";
 
 import { pruneStaleBuildCache, pruneStaleBuilds } from "./build-workdir";
 import { ensureBuildxBuilder, cachePathFor } from "./buildx";
 import { cloneRepoAtSha } from "./clone";
 import { isComposeDeployment, runComposeBuild } from "./compose-build";
-import { runDeployHooks } from "./deploy-hook";
 import { detectServiceFramework } from "./detect-framework";
-import { dockerPush } from "./docker-push";
-import { dockerfileBuild, resolveDockerfileBuild } from "./dockerfile";
 import {
   BuildStepError,
-  DeployHookError,
   InvalidDeploymentError,
   SwarmConvergenceError,
   SwarmUpdateError,
 } from "./errors";
 import { loadPipelineContext, PipelineLoadError } from "./load";
 import { createLogSink, type LogSink } from "./log-stream";
-import { railpackBuild } from "./railpack";
-import { markBuilding, markFailed, markImageReady, markRunning } from "./state";
-
-/** Every way the build sequence can fail, as a tagged union. */
-type BuildPipelineError =
-  | PipelineLoadError
-  | BuildStepError
-  | DeployHookError
-  | InvalidDeploymentError
-  | SwarmUpdateError
-  | SwarmConvergenceError;
+import {
+  type BuildPipelineError,
+  handleFailure,
+  mintInstallationToken,
+  pushImageIfRegistry,
+  resolveBindingKind,
+  resolveBuilder,
+  runImageBuild,
+  runPostDeploy,
+  runPreDeploy,
+  step,
+} from "./pipeline-steps";
+import { markBuilding, markImageReady, markRunning } from "./state";
 
 /** Mutable holder for the clone's work dir, so cleanup can remove it even
  *  when a later step fails (the dir is created mid-pipeline). */
@@ -71,15 +65,6 @@ interface WorkDirRef {
   /** True when `path` is under the data folder → a failed build's clone is kept
    *  for inspection rather than cleaned. */
   persistent: boolean;
-}
-
-/** Run a throwing infra step (clone, railpack, docker, DB) as a Result,
- *  tagging any throw with the step label instead of letting it propagate. */
-function step<T>(label: string, fn: () => Promise<T>): Promise<Result<T, BuildStepError>> {
-  return Result.tryPromise({
-    try: fn,
-    catch: (cause) => new BuildStepError({ step: label, cause }),
-  });
 }
 
 /** On success the value is the immutable `:<sha>` image tag the deployment
@@ -160,38 +145,11 @@ function runBuildSteps(
       return Result.err(new InvalidDeploymentError(opts.deploymentId));
     }
 
-    // Public-URL bindings carry no installationId — clone over anonymous
-    // HTTPS. Installation-backed bindings mint a short-lived token + inject it.
+    // Public-URL bindings carry no installationId — clone over anonymous HTTPS.
+    // Installation-backed bindings mint a short-lived token + inject it.
     const installationId = ctx.repo.installationId;
-    // A revoked GitHub App install soft-deletes by nulling installationId, which
-    // would otherwise read as a public bind. A still-private repo with no
-    // installation is exactly that case → treat it as github_app so the clone
-    // failure surfaces "reconnect GitHub" rather than a generic git error.
-    const bindingKind = installationId || ctx.repo.isPrivate ? "github_app" : "public_url";
-    const imageRepository = ctx.imageRepository;
-    let installationToken = "";
-    if (installationId) {
-      // A fully revoked/suspended install fails the token mint (GitHub won't
-      // issue one) — reframe that to the same "reconnect GitHub" remedy the
-      // clone step gives for a narrowed install, so both paths read the same.
-      const minted = yield* (
-        await step("token", () => getInstallationToken(installationId))
-      ).mapError(
-        (err) =>
-          new BuildStepError({
-            step: "token",
-            // Use the underlying cause, not err.message — the latter already
-            // carries the `build step "token" failed:` prefix step() added, so
-            // reusing it would double the prefix.
-            cause: new Error(
-              `couldn't mint a GitHub token for this installation — it may have been removed or suspended; reconnect GitHub in Settings → Git (${
-                err.cause instanceof Error ? err.cause.message : String(err.cause)
-              })`,
-            ),
-          }),
-      );
-      installationToken = minted.token;
-    }
+    const bindingKind = resolveBindingKind(installationId, ctx.repo.isPrivate);
+    const installationToken = yield* await mintInstallationToken(installationId);
 
     const cloned = yield* await step("clone", () =>
       cloneRepoAtSha({
@@ -208,105 +166,43 @@ function runBuildSteps(
     work.path = cloned.workDir;
     work.persistent = cloned.persistent;
 
-    // Pick the builder. Two paths produce the same `{ shaTag, latestTag,
-    // buildDir }` shape so everything below is builder-agnostic:
-    //   - dockerfile: build the repo's Dockerfile via `docker buildx build
-    //     --load` (resolved/path-checked by resolveDockerfileBuild).
-    //   - railpack: analyse the repo, build through its BuildKit frontend, and
-    //     `--load` the result into the host daemon (which, on a single-node
-    //     swarm, is the same daemon the container runs in). Static sites get a
-    //     Caddy image with optional SPA fallback.
-    // `auto`/null resolves to dockerfile when a Dockerfile is present, else
-    // railpack's zero-config detection. The railpack-shaped config only applies
-    // when railpack is explicitly chosen. `compose` isn't supported yet — we
-    // say so out loud and build with railpack rather than silently doing so.
-    const buildConfig = ctx.service.buildConfig;
-    const builder = buildConfig?.builder ?? "auto";
-    if (builder === "compose") {
-      sink.system("compose builds are not yet supported; falling back to railpack");
-    }
+    // Pick the builder, then build. Both the dockerfile and railpack paths
+    // produce the same `{ shaTag, latestTag, buildDir }` shape so everything
+    // below stays builder-agnostic.
+    const builder = resolveBuilder(ctx.service.buildConfig, sink);
 
     // Best-effort persistent layer cache: when a docker-container buildx builder
     // can be set up, route the build through it with a local cache keyed by the
     // image repo. Returns null (→ no cache, default-driver `--load`) on any
     // failure, so a build never depends on the cache being available.
     const cacheBuilder = await ensureBuildxBuilder(sink);
-    const cachePath = cacheBuilder ? cachePathFor(imageRepository) : null;
+    const cachePath = cacheBuilder ? cachePathFor(ctx.imageRepository) : null;
 
     // Resolve inside the build step so any HARD throw (bad/missing Dockerfile
     // path when pinned to dockerfile) becomes a tagged BuildStepError.
-    const image = yield* await step("build", () => {
-      // `compose` has no dockerfile config; resolve it as railpack so the
-      // fallback above takes effect.
-      const resolveBuilder = builder === "compose" ? "railpack" : builder;
-      const resolution = resolveDockerfileBuild({
-        builder: resolveBuilder,
-        dockerfilePath: buildConfig?.builder === "dockerfile" ? buildConfig.dockerfilePath : null,
+    const image = yield* await step("build", () =>
+      runImageBuild({
+        buildConfig: ctx.service.buildConfig,
+        builder,
         workDir: cloned.workDir,
         sourceSubdir: ctx.service.sourceSubdir,
-      });
-      for (const warning of resolution.warnings) sink.system(warning);
-
-      if (resolution.kind === "dockerfile") {
-        return dockerfileBuild({
-          workDir: cloned.workDir,
-          sourceSubdir: ctx.service.sourceSubdir,
-          dockerfilePath: resolution.dockerfilePath,
-          contextDir: resolution.contextDir,
-          relativePath: resolution.relativePath,
-          imageRepository,
-          sha: gitSha,
-          // Build-args only apply to the Dockerfile builder; an `auto` build
-          // that resolves to a Dockerfile carries none (none configurable).
-          buildArgs:
-            buildConfig?.builder === "dockerfile"
-              ? (buildConfig.buildArgs ?? undefined)
-              : undefined,
-          builderName: cacheBuilder,
-          cachePath,
-          sink,
-        });
-      }
-      return railpackBuild({
-        workDir: cloned.workDir,
-        sourceSubdir: ctx.service.sourceSubdir,
-        imageRepository,
-        sha: gitSha,
-        config: buildConfig?.builder === "railpack" ? buildConfig : null,
-        builderName: cacheBuilder,
+        imageRepository: ctx.imageRepository,
+        gitSha,
+        cacheBuilder,
         cachePath,
         sink,
-      });
-    });
+      }),
+    );
 
-    // Push only when the project binds an external registry (remote or
-    // multi-node swarm needs to pull it). The default path keeps the image
-    // local — it's already `--load`ed into the swarm node's daemon.
-    //
-    // The registry push is also where we learn the image's content digest
-    // (`repo@sha256:…`), captured for `serviceResource.imageDigest`. The
-    // local path has no registry digest, so it stays null.
-    const registry = ctx.registry;
-    let imageDigest: string | null = null;
-    if (registry) {
-      const password = yield* await step("decrypt-registry", () =>
-        decryptSecret(registry.encryptedPassword),
-      );
-      const pushed = yield* await step("push", () =>
-        dockerPush({
-          tags: [image.shaTag, image.latestTag],
-          credentials: {
-            host: registry.host,
-            username: registry.username,
-            password,
-          },
-          sink,
-        }),
-      );
-      imageDigest = pushed.digest;
-    } else {
-      sink.system(`local build — skipping registry push for ${image.shaTag}`);
-    }
+    // Push only when the project binds an external registry (remote/multi-node
+    // swarm needs to pull it); the local path keeps the image `--load`ed into
+    // the swarm node's daemon. `imageDigest` is the content digest captured from
+    // the push (`repo@sha256:…`), or null for the local path (no registry).
+    const imageDigest = yield* await pushImageIfRegistry({
+      registry: ctx.registry,
+      image,
+      sink,
+    });
 
     yield* await step("image-ready", () => markImageReady(opts.deploymentId, image.shaTag));
     sink.system(`image-ready: ${image.shaTag} — updating swarm service`);
@@ -324,11 +220,8 @@ function runBuildSteps(
     });
 
     // Point the service resource at the new image so the spec assembled by
-    // redeployOne carries the new tag. `imageDigest` is the content digest
-    // captured from this build's registry push (`repo@sha256:…`), or null for
-    // the local path (no registry, no digest) — it always describes THIS build,
-    // never a stale prior one. `framework` rides along on the same write — also
-    // a property of this build, captured above.
+    // redeployOne carries the new tag. `imageDigest` + `framework` both describe
+    // THIS build (captured above), never a stale prior one.
     yield* await step("set-image", () =>
       db
         .update(serviceResource)
@@ -336,22 +229,12 @@ function runBuildSteps(
         .where(eq(serviceResource.resourceId, ctx.resource.id as ResourceId)),
     );
 
-    // Pre-deploy hooks run off the new image BEFORE the rollout — the slot for
-    // db migrations. A non-zero exit short-circuits the flow (marks the row
-    // failed) so the old replicas keep serving and the bad version never rolls.
-    const preDeploy = ctx.service.preDeploy ?? [];
-    if (preDeploy.length > 0) {
-      yield* await runDeployHooks({
-        phase: "pre-deploy",
-        commands: preDeploy,
-        image: image.shaTag,
-        projectId: ctx.project.id as ProjectId,
-        resourceId: ctx.resource.id as ResourceId,
-        projectSlug: ctx.project.slug,
-        deploymentId: opts.deploymentId,
-        sink,
-      });
-    }
+    yield* await runPreDeploy({
+      ctx,
+      image: image.shaTag,
+      deploymentId: opts.deploymentId,
+      sink,
+    });
 
     const runtime = yield* (
       await redeployOne(
@@ -373,90 +256,12 @@ function runBuildSteps(
     yield* await step("mark-running", () => markRunning(opts.deploymentId));
     sink.system(`deployment running: ${image.shaTag}`);
 
-    // Post-deploy hooks run AFTER the new replicas are live + healthy (cache
-    // warmup, smoke checks, deploy pings). The rollout already succeeded, so a
-    // hook failure is surfaced loudly but does NOT flip a live, healthy
-    // deployment to "failed" — that status would contradict reality.
-    const postDeploy = ctx.service.postDeploy ?? [];
-    if (postDeploy.length > 0) {
-      const hooked = await runDeployHooks({
-        phase: "post-deploy",
-        commands: postDeploy,
-        image: image.shaTag,
-        projectId: ctx.project.id as ProjectId,
-        resourceId: ctx.resource.id as ResourceId,
-        projectSlug: ctx.project.slug,
-        deploymentId: opts.deploymentId,
-        sink,
-      });
-      if (hooked.isErr()) {
-        sink.system(`post-deploy hook failed (deployment stays live): ${hooked.error.message}`);
-      }
-    }
+    await runPostDeploy({
+      ctx,
+      image: image.shaTag,
+      deploymentId: opts.deploymentId,
+      sink,
+    });
     return Result.ok(image.shaTag);
-  });
-}
-
-/** Mark the deployment row failed + emit logs for a build failure. Never
- *  throws — a failed `markFailed` is logged, not surfaced. The caller derives
- *  the surfaced message from the Result's error channel. */
-async function handleFailure(
-  deploymentId: DeploymentId,
-  sink: LogSink,
-  err: BuildPipelineError,
-): Promise<void> {
-  const message = err.message;
-  sink.system(`build failed: ${message}`);
-  await markFailed(deploymentId, message).catch((stateErr) => {
-    globalLog.error({
-      build: { event: "mark-failed-failed", deploymentId },
-      error: stateErr instanceof Error ? stateErr.message : String(stateErr),
-    } as Record<string, unknown>);
-  });
-  // Best-effort: fan a `build.failed` event out to subscribed channels — the
-  // only failure notification the builder produces (the row is marked failed
-  // here, not via the API's deploy.failed path). Never blocks the failure flow.
-  await emitBuildFailed(deploymentId, message).catch(() => undefined);
-  if (err instanceof PipelineLoadError) {
-    globalLog.warn({
-      build: {
-        event: "load-failed",
-        deploymentId,
-        step: err.step,
-      },
-      error: message,
-    } as Record<string, unknown>);
-  }
-}
-
-/**
- * Emit a `build.failed` platform event for a failed deployment. Resolves the
- * org + display names from the deployment's resource/project; best-effort, so a
- * missing row (e.g. the resource was deleted mid-build) or a notification
- * problem is swallowed by the caller's `.catch`.
- */
-async function emitBuildFailed(deploymentId: DeploymentId, message: string): Promise<void> {
-  const [ctx] = await db
-    .select({
-      organizationId: project.organizationId,
-      resourceName: resource.name,
-      projectName: project.name,
-    })
-    .from(deployment)
-    .innerJoin(resource, eq(resource.id, deployment.resourceId))
-    .innerJoin(project, eq(project.id, resource.projectId))
-    .where(eq(deployment.id, deploymentId))
-    .limit(1);
-  if (!ctx) return;
-  await emitPlatformEvent({
-    organizationId: ctx.organizationId as OrganizationId,
-    eventId: "build.failed",
-    title: "Build failed",
-    message: `${ctx.resourceName}: ${message}`.slice(0, 500),
-    data: {
-      deploymentId,
-      resource: ctx.resourceName,
-      project: ctx.projectName,
-    },
   });
 }

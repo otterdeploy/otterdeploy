@@ -219,6 +219,12 @@
       "rules": {
         "max-lines": ["error", { "max": 350, "skipBlankLines": true, "skipComments": true }]
       }
+    },
+    {
+      "files": ["**/src/routes/**"],
+      "rules": {
+        "unicorn/filename-case": "off"
+      }
     }
   ],
   "settings": {

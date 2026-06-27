@@ -48,9 +48,13 @@ export function useLogStream<TRaw, TLine>(
   const seqRef = useRef(0);
 
   // Keep the latest callbacks / paused flag in refs so toggling them doesn't
-  // tear down and re-open the stream — only `deps` does that.
+  // tear down and re-open the stream — only `deps` does that. Refresh the ref
+  // in a commit-time effect (never during render) — this runs before the
+  // streaming effect below, so that effect always reads the latest `opts`.
   const optsRef = useRef(opts);
-  optsRef.current = opts;
+  useEffect(() => {
+    optsRef.current = opts;
+  });
 
   useEffect(() => {
     const ctrl = new AbortController();

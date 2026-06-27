@@ -196,25 +196,31 @@ function RouteComponent() {
           </EmptyContent>
         </Empty>
       ) : (
-        <div className="relative min-h-0 flex-1 overflow-hidden bg-[oklch(0.12_0_0)] p-2">
-          {sessions.map((s) => {
-            const isActive = s.id === activeId;
-            // <Activity> keeps every session's React tree mounted across
-            // tab switches — state (useState/useRef) is preserved, effects
-            // re-attach cleanly on visibility flip, and we never tear down
-            // the wterm <Terminal> instance.
-            return (
-              <Activity key={s.id} mode={isActive ? "visible" : "hidden"} name={s.label}>
-                <div className="absolute inset-2" aria-hidden={!isActive}>
-                  <TerminalSession source={s.source} active={isActive} />
-                </div>
-              </Activity>
-            );
-          })}
-        </div>
+        <SessionPanels sessions={sessions} activeId={activeId} />
       )}
 
       <OpenTerminalDialog open={pickerOpen} onOpenChange={setPickerOpen} onPick={openSession} />
+    </div>
+  );
+}
+
+function SessionPanels({ sessions, activeId }: { sessions: Session[]; activeId: string | null }) {
+  return (
+    <div className="relative min-h-0 flex-1 overflow-hidden bg-[oklch(0.12_0_0)] p-2">
+      {sessions.map((s) => {
+        const isActive = s.id === activeId;
+        // <Activity> keeps every session's React tree mounted across
+        // tab switches — state (useState/useRef) is preserved, effects
+        // re-attach cleanly on visibility flip, and we never tear down
+        // the wterm <Terminal> instance.
+        return (
+          <Activity key={s.id} mode={isActive ? "visible" : "hidden"} name={s.label}>
+            <div className="absolute inset-2" aria-hidden={!isActive}>
+              <TerminalSession source={s.source} active={isActive} />
+            </div>
+          </Activity>
+        );
+      })}
     </div>
   );
 }

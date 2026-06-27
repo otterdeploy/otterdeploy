@@ -152,6 +152,7 @@ export const env = createEnv({
     // overlay networking). See docs/designs/runtime.md.
     DEPLOY_RUNTIME: z.enum(["docker", "swarm"]).default("docker"),
   },
+  // oxlint-disable-next-line node/no-process-env -- this IS the env boundary; the single sanctioned read of process.env
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,
 });

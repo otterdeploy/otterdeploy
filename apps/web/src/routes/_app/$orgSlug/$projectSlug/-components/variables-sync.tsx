@@ -1,0 +1,215 @@
+import { useState } from "react";
+
+import {
+  Link01Icon,
+  Refresh01Icon,
+  Settings01Icon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+
+import { Badge } from "@/shared/components/ui/badge";
+import { Button } from "@/shared/components/ui/button";
+import { Switch } from "@/shared/components/ui/switch";
+import { cn } from "@/shared/lib/utils";
+
+import { EnvDot } from "./variables-bulk-edit";
+
+interface SyncProvider {
+  id: string;
+  name: string;
+  sub: string;
+  connected: boolean;
+  last?: string;
+  count?: number;
+  envSlug?: string;
+}
+
+const SYNC_PROVIDERS: SyncProvider[] = [
+  { id: "infisical", name: "Infisical", sub: "Open-source secret manager", connected: true, last: "2m ago", count: 17, envSlug: "production" },
+  { id: "vault", name: "HashiCorp Vault", sub: "Self-hosted, dynamic secrets", connected: false },
+  { id: "aws-sm", name: "AWS Secrets Manager", sub: "KMS-backed cloud secrets", connected: false },
+  { id: "doppler", name: "Doppler", sub: "SaaS secret platform", connected: true, last: "1h ago", count: 12, envSlug: "staging" },
+  { id: "1password", name: "1Password Connect", sub: "Vault-based, audit-friendly", connected: false },
+  { id: "gcp-sm", name: "Google Secret Manager", sub: "GCP-native", connected: false },
+];
+
+export function SyncIntegrations() {
+  const [providers, setProviders] = useState<SyncProvider[]>(SYNC_PROVIDERS);
+  const connected = providers.filter((p) => p.connected).length;
+
+  return (
+    <div className="mx-auto w-full max-w-6xl p-6">
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <div>
+          <h2 className="text-lg font-semibold">Sync sources</h2>
+          <p className="text-xs text-muted-foreground">
+            Pull secrets from an external manager into any environment. Changes flow one-way.
+          </p>
+        </div>
+        <Button variant="outline" size="sm">
+          Read docs
+        </Button>
+      </div>
+
+      <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <StatCard label="Connected" value={`${connected} / ${providers.length}`} />
+        <StatCard label="Syncing" value={String(connected)} sub="every 60s" />
+        <StatCard label="Last sync" value="2m ago" sub="all sources up-to-date" />
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        {providers.map((p) => (
+          <ProviderCard
+            key={p.id}
+            p={p}
+            onConnect={() =>
+              setProviders((ps) =>
+                ps.map((x) =>
+                  x.id === p.id
+                    ? { ...x, connected: true, last: "just now", count: 0, envSlug: "production" }
+                    : x,
+                ),
+              )
+            }
+            onDisconnect={() =>
+              setProviders((ps) =>
+                ps.map((x) =>
+                  x.id === p.id
+                    ? { ...x, connected: false, last: undefined, count: undefined }
+                    : x,
+                ),
+              )
+            }
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div className="flex flex-col gap-1 rounded-md border bg-card p-3">
+      <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+        {label}
+      </div>
+      <div className="font-mono text-xl font-medium">{value}</div>
+      <div className="text-[11px] text-muted-foreground">{sub ?? " "}</div>
+    </div>
+  );
+}
+
+function ProviderCard({
+  p,
+  onConnect,
+  onDisconnect,
+}: {
+  p: SyncProvider;
+  onConnect: () => void;
+  onDisconnect: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-3 rounded-md border bg-card p-4">
+      <div className="flex items-center gap-3">
+        <div className="grid size-10 place-items-center rounded-md border bg-muted/30">
+          <ProviderLogo id={p.id} />
+        </div>
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold">{p.name}</span>
+            {p.connected ? (
+              <Badge
+                variant="outline"
+                className="gap-1.5 border-emerald-500/30 bg-emerald-500/10 font-mono text-[10px] text-emerald-500"
+              >
+                <span className="size-1.5 rounded-full bg-emerald-500" />
+                connected
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="gap-1.5 font-mono text-[10px] text-muted-foreground">
+                <span className="size-1.5 rounded-full bg-muted-foreground/50" />
+                not connected
+              </Badge>
+            )}
+          </div>
+          <div className="text-xs text-muted-foreground">{p.sub}</div>
+        </div>
+      </div>
+
+      {p.connected && (
+        <div className="flex items-center gap-4 border-t pt-3 text-[11px]">
+          <Stat label="last sync" value={p.last ?? ""} />
+          <Stat label="syncing" value={`${p.count ?? 0} secrets`} />
+          {p.envSlug && (
+            <Stat
+              label="target env"
+              value={
+                <span className="flex items-center gap-1 capitalize">
+                  <EnvDot slug={p.envSlug} /> {p.envSlug}
+                </span>
+              }
+            />
+          )}
+        </div>
+      )}
+
+      <div className="flex items-center gap-2">
+        {p.connected ? (
+          <>
+            <Button variant="outline" size="sm" className="gap-1.5">
+              <HugeiconsIcon icon={Settings01Icon} className="size-3" />
+              Configure
+            </Button>
+            <Button variant="outline" size="sm" className="gap-1.5">
+              <HugeiconsIcon icon={Refresh01Icon} className="size-3" />
+              Sync now
+            </Button>
+            <div className="flex-1" />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-rose-500 hover:text-rose-500"
+              onClick={onDisconnect}
+            >
+              Disconnect
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button size="sm" className="gap-1.5" onClick={onConnect}>
+              <HugeiconsIcon icon={Link01Icon} className="size-3" />
+              Connect
+            </Button>
+            <Button variant="ghost" size="sm">
+              Setup guide
+            </Button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div>
+      <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+        {label}
+      </div>
+      <div className="mt-0.5 flex items-center gap-1 font-mono text-xs text-foreground/80">
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function ProviderLogo({ id }: { id: string }) {
+  const base = "grid size-5 place-items-center rounded font-mono text-[10px] font-bold";
+  if (id === "infisical") return <div className={cn(base, "bg-yellow-400 text-black")}>i</div>;
+  if (id === "vault") return <div className={cn(base, "bg-black text-yellow-400")}>V</div>;
+  if (id === "aws-sm") return <div className={cn(base, "bg-slate-900 text-orange-400 text-[8px]")}>aws</div>;
+  if (id === "doppler") return <div className={cn(base, "bg-blue-600 text-white")}>D</div>;
+  if (id === "1password") return <div className={cn(base, "rounded-full bg-blue-500 text-white")}>1</div>;
+  if (id === "gcp-sm") return <div className={cn(base, "border border-blue-500 bg-white text-blue-500 text-[8px]")}>GCP</div>;
+  return <Switch />;
+}

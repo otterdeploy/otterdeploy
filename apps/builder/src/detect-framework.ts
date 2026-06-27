@@ -55,6 +55,26 @@ async function readJsonFile<T>(path: string): Promise<T | null> {
   }
 }
 
+/** `metadata.nodeRuntime` → framework, for Node-level frameworks. */
+const NODE_RUNTIME_FRAMEWORKS: Record<string, FrameworkKind> = {
+  next: "next",
+  nuxt: "nuxt",
+  vite: "vite",
+  remix: "remix",
+  bun: "bun",
+  node: "node",
+};
+
+/** Language provider (railpack spells Go "golang") → framework. Unknown
+ *  providers (e.g. php — no logo today) map to nothing. */
+const PROVIDER_FRAMEWORKS: Record<string, FrameworkKind> = {
+  node: "node",
+  golang: "go",
+  python: "python",
+  rust: "rust",
+  ruby: "ruby",
+};
+
 /**
  * Map railpack's analysis to a `FrameworkKind`. `metadata.nodeRuntime` carries
  * the node-level framework (next/nuxt/vite/remix/bun/node); `detectedProviders`
@@ -65,36 +85,13 @@ function frameworkFromRailpackInfo(info: RailpackInfo | null): FrameworkKind {
   if (!info || info.success === false) return null;
   const meta = info.metadata ?? {};
 
-  switch (meta["nodeRuntime"]) {
-    case "next":
-      return "next";
-    case "nuxt":
-      return "nuxt";
-    case "vite":
-      return "vite";
-    case "remix":
-      return "remix";
-    case "bun":
-      return "bun";
-    case "node":
-      return "node";
-  }
+  const runtime = meta["nodeRuntime"];
+  const fromRuntime = runtime ? NODE_RUNTIME_FRAMEWORKS[runtime] : undefined;
+  if (fromRuntime) return fromRuntime;
 
   const provider = info.detectedProviders?.[0] ?? meta["providers"];
-  switch (provider) {
-    case "node":
-      return "node";
-    case "golang":
-      return "go";
-    case "python":
-      return "python";
-    case "rust":
-      return "rust";
-    case "ruby":
-      return "ruby";
-    default:
-      return null;
-  }
+  const fromProvider = provider ? PROVIDER_FRAMEWORKS[provider] : undefined;
+  return fromProvider ?? null;
 }
 
 /**

@@ -8,79 +8,28 @@ import {
   useNavigate,
 } from "@tanstack/react-router";
 import { AnimatePresence } from "motion/react";
-import { useLiveQuery } from "@tanstack/react-db";
 import {
-  Background,
-  Controls,
-  ReactFlow,
   ReactFlowProvider,
   useReactFlow,
-  type Edge,
   type Node,
   type NodeChange,
 } from "@xyflow/react";
 
-import { eq } from "@tanstack/db";
-
-import { useQuery } from "@tanstack/react-query";
-
-import {
-  buildLiveNodes,
-  buildRouteEdges,
-  type PendingByName,
-} from "@/features/projects/components/graph/build-live-nodes";
-import {
-  clearAppliedCreate,
-  useAppliedCreates,
-} from "@/features/projects/components/graph/applied-creates-store";
 import {
   incrementalLayout,
   topologySignature,
   type XY,
 } from "@/features/projects/components/graph/layout-graph";
-import {
-  ResourceNode,
-  type ComposeServiceInfo,
-} from "@/features/projects/components/graph/resource-node";
 import { StackCodePanel } from "@/features/projects/components/stack";
-import { dependenciesCollection } from "@/features/projects/data/dependencies";
-import { resourceCollection } from "@/features/resources/data/resource";
-import { serviceTasksCollection } from "@/features/resources/data/service-tasks";
 import { orpc } from "@/shared/server/orpc";
+
+import { GraphFlow } from "./-components/graph-flow";
+import { useGraphModel } from "./-components/graph-model";
 
 export const Route = createFileRoute("/_app/$orgSlug/$projectSlug/graph")({
   component: RouteComponent,
   staticData: { crumb: "Graph" },
 });
-
-const nodeTypes = { resource: ResourceNode };
-
-/** Map a compose `create` change's parsed `details.services` (set server-side
- *  by enrichComposeCreates) into the ghost group's member cards. Every service
- *  reads `pending` — the stack hasn't deployed yet, so nothing is running. */
-function composeGhostServices(
-  details: Record<string, unknown> | undefined,
-): ComposeServiceInfo[] {
-  const raw = details?.services;
-  if (!Array.isArray(raw)) return [];
-  return raw.map((s) => {
-    const svc = s as {
-      name?: unknown;
-      image?: unknown;
-      hasBuild?: unknown;
-      volumes?: unknown;
-    };
-    return {
-      name: typeof svc.name === "string" ? svc.name : "",
-      image: typeof svc.image === "string" ? svc.image : null,
-      hasBuild: svc.hasBuild === true,
-      volumes: Array.isArray(svc.volumes)
-        ? svc.volumes.filter((v): v is string => typeof v === "string")
-        : [],
-      status: "pending" as const,
-    };
-  });
-}
 
 function RouteComponent() {
   // AnimatePresence only sees its DIRECT children — passing <Outlet /> with
@@ -119,141 +68,36 @@ const CARD_H = 200;
 const PANEL_WIDTH_RATIO = 3 / 7;
 const FOCUS_ZOOM = 1.15;
 
+type SetCenter = ReturnType<typeof useReactFlow>["setCenter"];
+
+// Slide the camera so a clicked node lands centered in the visible left strip
+// (the (1 - PANEL_WIDTH_RATIO) area not covered by the detail panel). Measures
+// the real `.react-flow` wrapper rather than the window so the sidebar + chrome
+// don't skew the offset; with no measurable canvas it centers honestly.
+function focusNodeInView(node: Node, setCenter: SetCenter) {
+  const wrapper = document.querySelector(".react-flow");
+  const canvasWidth = wrapper?.clientWidth ?? 0;
+  const targetX = node.position.x + CARD_W / 2;
+  const targetY = node.position.y + CARD_H / 2;
+  if (!canvasWidth) {
+    void setCenter(targetX, targetY, { zoom: FOCUS_ZOOM, duration: 400 });
+    return;
+  }
+  const shiftRatio = PANEL_WIDTH_RATIO / 2;
+  const xOffset = (canvasWidth * shiftRatio) / FOCUS_ZOOM;
+  void setCenter(targetX + xOffset, targetY, {
+    zoom: FOCUS_ZOOM,
+    duration: 400,
+  });
+}
+
 function GraphCanvas() {
   const navigate = useNavigate();
   const { orgSlug, projectSlug } = Route.useParams();
   const { project } = useLoaderData({ from: "/_app/$orgSlug/$projectSlug" });
   const { setCenter, fitView } = useReactFlow();
 
-  const { data: resources } = useLiveQuery(
-    (q) =>
-      q
-        .from({ r: resourceCollection })
-        .where(({ r }) => eq(r.projectId, project.id)),
-    [project.id],
-  );
-
-  // Edges come from parsing ${{Resource.VAR}} references in service env vars
-  // server-side (project.dependencies). TanStack DB collection so the data
-  // stays cached + reactive across panel open/close without a loading flash.
-  const { data: dependencyEdges } = useLiveQuery(
-    (q) =>
-      q
-        .from({ d: dependenciesCollection })
-        .where(({ d }) => eq(d.projectId, project.id)),
-    [project.id],
-  );
-
-  const { data: serviceTasks } = useLiveQuery(
-    (q) =>
-      q
-        .from({ d: serviceTasksCollection })
-        .where(({ d }) => eq(d.projectId, project.id)),
-    [project.id],
-  );
-
-  const edgesFromDeps = useMemo<Edge[]>(
-    () =>
-      dependencyEdges.map((d) => ({
-        id: `${d.source}->${d.target}`,
-        source: d.source,
-        target: d.target,
-      })),
-    [dependencyEdges],
-  );
-
-  const tasksByResourceId = useMemo(() => {
-    const m = new Map<string, (typeof serviceTasks)[number]["tasks"]>();
-    for (const entry of serviceTasks) m.set(entry.resourceId, entry.tasks);
-    return m;
-  }, [serviceTasks]);
-
-  // Pending manifest changes — overlay as ghost nodes for creates and
-  // markers on existing nodes for updates/deletes. Polled on the same
-  // 5s cadence as the pending-changes bar.
-  const diff = useQuery(
-    orpc.project.manifest.diff.queryOptions({
-      input: { projectId: project.id },
-      refetchInterval: 5_000,
-    }),
-  );
-
-  // Create-ghosts the operator just Deployed. Kept mounted until the matching
-  // resource lands in the collection so the node doesn't blink out and back
-  // across the diff/collection refetch gap. See applied-creates-store.ts.
-  const appliedCreates = useAppliedCreates(project.id);
-
-  const pendingByName = useMemo<PendingByName>(() => {
-    const creates: PendingByName["creates"] = [];
-    const marker = new Map<string, "update" | "delete">();
-    const resourceIdByName = new Map<string, string>();
-    for (const r of resources) {
-      if (r.type === "service" || r.type === "database" || r.type === "compose") {
-        resourceIdByName.set(`${r.type}:${r.name}`, r.resourceId);
-      }
-    }
-    const createKeys = new Set<string>();
-    for (const c of diff.data?.changes ?? []) {
-      if (c.kind === "no-op" || c.resource === "env") continue;
-      const key = `${c.resource}:${c.name}`;
-      const id = resourceIdByName.get(key);
-      if (c.kind === "create" && !id) {
-        creates.push({
-          resource: c.resource,
-          name: c.name,
-          // Compose creates carry a parsed service summary (enrichComposeCreates
-          // on the server) so the ghost group renders its member cards.
-          ...(c.resource === "compose"
-            ? { services: composeGhostServices(c.details) }
-            : {}),
-        });
-        createKeys.add(key);
-      } else if (id && (c.kind === "update" || c.kind === "delete")) {
-        // Key by the node id (`${resource}:${name}`), which is what the node
-        // carries — not the resourceId.
-        marker.set(key, c.kind);
-      }
-    }
-    // Bridge the apply gap: a create that was just Deployed but whose resource
-    // hasn't streamed in yet keeps its ghost so the node stays put. Skip ones
-    // diff still reports (already added) or that have already landed (the real
-    // node renders for those — keys are cleared in the effect below).
-    for (const key of appliedCreates) {
-      if (createKeys.has(key) || resourceIdByName.has(key)) continue;
-      const sep = key.indexOf(":");
-      const resource = key.slice(0, sep) as "service" | "database" | "compose";
-      const name = key.slice(sep + 1);
-      creates.push({ resource, name });
-    }
-    return { creates, marker };
-  }, [resources, diff.data, appliedCreates]);
-
-  // Once a just-Deployed create's resource has landed, stop bridging it so the
-  // store doesn't pin a ghost over the now-real node.
-  useEffect(() => {
-    if (appliedCreates.size === 0) return;
-    for (const r of resources) {
-      if (r.type !== "service" && r.type !== "database" && r.type !== "compose")
-        continue;
-      const key = `${r.type}:${r.name}`;
-      if (appliedCreates.has(key)) clearAppliedCreate(project.id, key);
-    }
-  }, [appliedCreates, resources, project.id]);
-
-  // Convert resources to nodes + synthesize public route nodes via the
-  // shared helper. See features/projects/components/graph/build-live-nodes.ts
-  // for the rollup rules (error > building > running) and route handling.
-  // The framework brand logo rides on each resource record (detected at build
-  // time, stored on the row) — no per-service git-API lookup on render.
-  const liveNodes = useMemo(
-    () => buildLiveNodes(resources, tasksByResourceId, pendingByName),
-    [resources, tasksByResourceId, pendingByName],
-  );
-
-  const liveEdges = useMemo(
-    () => [...edgesFromDeps, ...buildRouteEdges(resources)],
-    [resources, edgesFromDeps],
-  );
+  const { liveNodes, liveEdges } = useGraphModel(project);
 
   // Lay out with both nodes and edges so dagre ranks consumers above their
   // dependencies (routes → services → databases) — but only when the topology
@@ -312,8 +156,6 @@ function GraphCanvas() {
       }
     }
   }, []);
-  // Edges stay derived — dagre/data own them, so their change handler is inert.
-  const noopChange = useCallback(() => {}, []);
 
   // Last node set we handed React Flow. Reused while dragging so a mid-drag
   // poll can't churn the array (render-cache ref pattern, like layoutCache).
@@ -325,6 +167,14 @@ function GraphCanvas() {
   // so it still sees the flag; the next genuine click does not).
   const didDragRef = useRef(false);
 
+  // The render-cache refs below (renderedNodesRef / layoutCache) are read and
+  // written during render on purpose: mid-drag we must return the exact node
+  // set we last rendered (freezing add/remove so nothing flickers out), and we
+  // accumulate dagre positions across renders keyed by topology signature.
+  // Promoting these to state would add render cycles and reintroduce the
+  // drag-flicker/jitter this cache exists to prevent, so the refs rule is
+  // scoped-off for just this memo.
+  /* oxlint-disable react-hooks-js/refs -- deliberate render cache (anti-flicker); see note above */
   const laidOutNodes = useMemo(() => {
     if (dragging && renderedNodesRef.current.length > 0) {
       // Mid-drag: keep the exact node set we last rendered — only move the
@@ -356,6 +206,7 @@ function GraphCanvas() {
     renderedNodesRef.current = out;
     return out;
   }, [liveNodes, liveEdges, dragged, dragging]);
+  /* oxlint-enable react-hooks-js/refs */
 
   // Detect when the resource detail panel closes — fit the whole graph back
   // into view so the user gets the wide overview instead of staying parked
@@ -373,41 +224,11 @@ function GraphCanvas() {
     wasOpen.current = panelOpen;
   }, [panelOpen, fitView]);
 
-  const focusNode = (node: Node) => {
-    // ReactFlow always renders a wrapper with class="react-flow". Measure it
-    // directly — falling back to window.innerWidth wildly overshoots since the
-    // sidebar + chrome eat most of the window.
-    const wrapper = document.querySelector(".react-flow");
-    const canvasWidth = wrapper?.clientWidth ?? 0;
-    const targetX = node.position.x + CARD_W / 2;
-    const targetY = node.position.y + CARD_H / 2;
-    if (!canvasWidth) {
-      // No measurable canvas: center honestly, accept the panel covers the
-      // right portion of the node.
-      void setCenter(targetX, targetY, { zoom: FOCUS_ZOOM, duration: 400 });
-      return;
-    }
-    // Goal: land the node at the center of the visible left strip (the
-    // (1 - PANEL_WIDTH_RATIO) area not covered by the panel). The visible
-    // strip's center sits PANEL_WIDTH_RATIO/2 to the left of viewport center,
-    // so shift the camera right by that fraction in flow coordinates.
-    const shiftRatio = PANEL_WIDTH_RATIO / 2;
-    const xOffset = (canvasWidth * shiftRatio) / FOCUS_ZOOM;
-    void setCenter(targetX + xOffset, targetY, { zoom: FOCUS_ZOOM, duration: 400 });
-  };
-
   return (
-    <ReactFlow
+    <GraphFlow
       nodes={laidOutNodes}
       edges={liveEdges}
       onNodesChange={onNodesChange}
-      onEdgesChange={noopChange}
-      nodeTypes={nodeTypes}
-      nodesDraggable
-      fitView
-      fitViewOptions={{ padding: 0.2 }}
-      proOptions={{ hideAttribution: true }}
-      defaultEdgeOptions={{ type: "smoothstep" }}
       onNodeDragStart={() => {
         didDragRef.current = true;
         // Drag begins → get the right-hand detail panel out of the way.
@@ -440,7 +261,7 @@ function GraphCanvas() {
         if (didDragRef.current) return;
         // Pending-deletion nodes are disabled — no focus, no navigation.
         if (node.data.pending === "delete") return;
-        focusNode(node);
+        focusNodeInView(node, setCenter);
         // Synthetic route nodes don't have a detail page — skip navigation.
         if (node.id.startsWith("route:")) return;
         // Applied resources carry the real resourceId on data; pending-create
@@ -459,23 +280,6 @@ function GraphCanvas() {
           },
         });
       }}
-    >
-      <Background gap={20} size={1} />
-      <Controls
-        showInteractive={false}
-        position="bottom-right"
-        className="rounded-md! border! border-border/40! bg-background/80! shadow-sm! backdrop-blur! [&_button]:border-border/40! [&_button]:bg-transparent! [&_button]:text-muted-foreground! hover:[&_button]:text-foreground!"
-      />
-      {laidOutNodes.length === 0 ? (
-        <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-1 text-center">
-          <div className="text-sm font-medium text-muted-foreground">
-            No resources yet
-          </div>
-          <div className="text-xs text-muted-foreground/70">
-            Add a service or database to see it on the graph.
-          </div>
-        </div>
-      ) : null}
-    </ReactFlow>
+    />
   );
 }

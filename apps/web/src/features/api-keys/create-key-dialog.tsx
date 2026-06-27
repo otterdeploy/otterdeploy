@@ -56,6 +56,7 @@ export function CreateKeyDialog({
       // Optimistic insert: `onInsert` mints the key server-side and hands the
       // one-time plaintext token back via `onKey`. Close instantly; surface the
       // result async — TanStack DB rolls the row back on reject.
+      const createdAt = new Date();
       const tx = apiKeysCollection.insert(
         {
           id: crypto.randomUUID(),
@@ -64,9 +65,9 @@ export function CreateKeyDialog({
           start: null,
           prefix: null,
           enabled: true,
-          expiresAt: expiresIn == null ? null : new Date(Date.now() + expiresIn * 1000),
+          expiresAt: expiresIn == null ? null : new Date(createdAt.getTime() + expiresIn * 1000),
           lastRequest: null,
-          createdAt: new Date(),
+          createdAt,
           permissions: hasScopes ? value.scopes : null,
         },
         { metadata: { onKey: onCreated } },

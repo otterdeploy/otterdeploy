@@ -27,6 +27,16 @@ export const Route = createFileRoute("/device")({
   component: DevicePairingPage,
 });
 
+/** First present error message across the device-flow requests. Mirrors the
+ *  `error?.message ?? …` chain — Error.message is always a string, so the first
+ *  present error wins. */
+function firstErrorMessage(
+  ...errors: ({ message: string } | null | undefined)[]
+): string | undefined {
+  for (const e of errors) if (e) return e.message;
+  return undefined;
+}
+
 function DevicePairingPage() {
   const { user_code: prefilled } = Route.useSearch();
   const [code, setCode] = useState(prefilled ?? "");
@@ -89,8 +99,9 @@ function DevicePairingPage() {
   }
 
   const busy = approve.isPending || deny.isPending || claim.isFetching;
-  const error = claim.error?.message ?? approve.error?.message ?? deny.error?.message;
+  const error = firstErrorMessage(claim.error, approve.error, deny.error);
   const claimed = claim.isSuccess;
+  const canAct = claimed && !busy && code.length > 0;
 
   return (
     <Shell title="Authorize a device">
@@ -120,7 +131,7 @@ function DevicePairingPage() {
       <div className="flex gap-2">
         <Button
           type="button"
-          disabled={busy || code.length === 0 || !claimed}
+          disabled={!canAct}
           onClick={() => approve.mutate(code)}
           className="flex-1"
         >
@@ -129,7 +140,7 @@ function DevicePairingPage() {
         <Button
           type="button"
           variant="outline"
-          disabled={busy || code.length === 0 || !claimed}
+          disabled={!canAct}
           onClick={() => deny.mutate(code)}
           className="flex-1"
         >

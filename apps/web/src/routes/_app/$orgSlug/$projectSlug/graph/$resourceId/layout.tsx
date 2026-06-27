@@ -39,6 +39,63 @@ export const Route = createFileRoute(
   component: RouteComponent,
 });
 
+type ManifestData = Awaited<ReturnType<typeof orpc.project.manifest.get.call>>;
+
+// Synthetic "draft" service from the manifest entry — enough to render the
+// panel; resourceId is empty because no resource row exists yet (pending mode
+// never calls resource-scoped APIs). Returns null unless `resourceId` is a
+// staged `service:<name>` ghost whose spec is present in the manifest.
+function draftServiceFromManifest(
+  manifestData: ManifestData | undefined,
+  resourceId: string,
+  pendingName: string,
+  projectId: string,
+) {
+  if (!resourceId.startsWith("service:")) return null;
+  const spec = manifestData?.manifest?.services?.[pendingName];
+  if (!spec) return null;
+  return {
+    resourceId: "",
+    projectId,
+    name: pendingName,
+    image: spec.source === "image" ? spec.image : "Pending build",
+    source: spec.source,
+    replicas: spec.replicas ?? 1,
+    status: "draft",
+    publicEnabled: false,
+    publicDomain: null,
+    extraEnv: spec.env ?? {},
+    secretKeys: [],
+    buildConfig: spec.source === "git" ? spec.build : undefined,
+  };
+}
+
+// Staged database create → the REAL database panel in pending mode. Only the
+// fields the pending tab bodies read are real; runtime/credential fields are
+// unused while pending, so the draft is cast to the full resource view.
+function draftDatabaseFromManifest(
+  manifestData: ManifestData | undefined,
+  resourceId: string,
+  pendingName: string,
+  projectId: string,
+): PostgresBodyProps["resource"] | null {
+  if (!resourceId.startsWith("database:")) return null;
+  const spec = manifestData?.manifest?.databases?.[pendingName];
+  if (!spec) return null;
+  return {
+    resourceId: "",
+    projectId,
+    name: pendingName,
+    type: "database",
+    status: "draft",
+    engine: spec.engine,
+    publicEnabled: spec.publicEnabled ?? false,
+    extraEnv: spec.extraEnv ?? {},
+    secretKeys: [],
+    extensions: spec.engine === "postgres" ? (spec.extensions ?? []) : [],
+  } as unknown as PostgresBodyProps["resource"];
+}
+
 function RouteComponent() {
   const { orgSlug, projectSlug, resourceId } = Route.useParams();
   const { project } = useLoaderData({ from: "/_app/$orgSlug/$projectSlug" });
@@ -79,55 +136,27 @@ function RouteComponent() {
   const pendingName = resourceId.includes(":")
     ? resourceId.slice(resourceId.indexOf(":") + 1)
     : resourceId;
-  const svcSpec =
-    !resource && resourceId.startsWith("service:")
-      ? manifest.data?.manifest?.services?.[pendingName]
-      : undefined;
 
-  // Synthetic "draft" resource from the manifest entry — enough to render the
-  // panel; resourceId is empty because no resource row exists yet (pending
-  // mode never calls resource-scoped APIs).
-  const draftService = svcSpec
-    ? {
-        resourceId: "",
-        projectId: project.id,
-        name: pendingName,
-        image: svcSpec.source === "image" ? svcSpec.image : "Pending build",
-        source: svcSpec.source,
-        replicas: svcSpec.replicas ?? 1,
-        status: "draft",
-        publicEnabled: false,
-        publicDomain: null,
-        extraEnv: svcSpec.env ?? {},
-        secretKeys: [],
-        buildConfig: svcSpec.source === "git" ? svcSpec.build : undefined,
-      }
-    : null;
-
-  // Staged database create → the REAL database panel in pending mode (editable
-  // extensions / variables / public access via the manifest, runtime tabs
-  // disabled). Mirrors the staged-service path above. Only the fields the
-  // pending tab bodies read are real; runtime/credential fields are unused
-  // while pending, so the draft is cast to the full resource view.
-  const dbSpec =
-    !resource && resourceId.startsWith("database:")
-      ? manifest.data?.manifest?.databases?.[pendingName]
-      : undefined;
-  const draftDatabase = dbSpec
-    ? ({
-        resourceId: "",
-        projectId: project.id,
-        name: pendingName,
-        type: "database",
-        status: "draft",
-        engine: dbSpec.engine,
-        publicEnabled: dbSpec.publicEnabled ?? false,
-        extraEnv: dbSpec.extraEnv ?? {},
-        secretKeys: [],
-        extensions:
-          dbSpec.engine === "postgres" ? (dbSpec.extensions ?? []) : [],
-      } as unknown as PostgresBodyProps["resource"])
-    : null;
+  // Both staged services and staged databases render their *real* panels in
+  // pending mode (editable env / extensions / settings via the manifest,
+  // runtime tabs disabled). An applied resource short-circuits to null — the
+  // draft only exists for a staged-create ghost.
+  const draftService = resource
+    ? null
+    : draftServiceFromManifest(
+        manifest.data,
+        resourceId,
+        pendingName,
+        project.id,
+      );
+  const draftDatabase = resource
+    ? null
+    : draftDatabaseFromManifest(
+        manifest.data,
+        resourceId,
+        pendingName,
+        project.id,
+      );
 
   // Framework brand mark for the drawer header tile — same value the graph
   // node uses, read straight off the stored resource record (detected at build

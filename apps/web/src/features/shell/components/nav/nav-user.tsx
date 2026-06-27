@@ -63,9 +63,8 @@ const THEMES = [
 
 export function NavUser({ user }: { user: User }) {
   const { isMobile } = useSidebar();
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const navigate = useNavigate();
-  const { theme, setTheme } = useTheme();
   const { orgSlug } = useParams({ strict: false }) as { orgSlug?: string };
   const [cliOpen, setCliOpen] = useState(false);
   const [sessionsOpen, setSessionsOpen] = useState(false);
@@ -75,10 +74,6 @@ export function NavUser({ user }: { user: User }) {
     await authClient.signOut();
     void navigate({ to: "/sign-in", replace: true });
   }
-
-  const currentLng = (i18n.resolvedLanguage ?? i18n.language ?? "en").split(
-    "-",
-  )[0] as (typeof supportedLngs)[number];
 
   return (
     <>
@@ -139,47 +134,7 @@ export function NavUser({ user }: { user: User }) {
               <DropdownMenuSeparator />
 
               {/* Environment: appearance + language */}
-              <DropdownMenuGroup>
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>
-                    <HugeiconsIcon icon={PaintBoardIcon} strokeWidth={2} />
-                    Appearance
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent className="min-w-40">
-                    <DropdownMenuRadioGroup
-                      value={theme ?? "system"}
-                      onValueChange={(v) => setTheme(v)}
-                    >
-                      {THEMES.map((o) => (
-                        <DropdownMenuRadioItem key={o.value} value={o.value}>
-                          <HugeiconsIcon icon={o.icon} strokeWidth={2} />
-                          {o.label}
-                        </DropdownMenuRadioItem>
-                      ))}
-                    </DropdownMenuRadioGroup>
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>
-                    <HugeiconsIcon icon={LanguageCircleIcon} strokeWidth={2} />
-                    {t("common.language")}
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent className="min-w-40">
-                    <DropdownMenuRadioGroup
-                      value={currentLng}
-                      onValueChange={(lng) => {
-                        void i18n.changeLanguage(lng);
-                      }}
-                    >
-                      {supportedLngs.map((lng) => (
-                        <DropdownMenuRadioItem key={lng} value={lng}>
-                          {languageNames[lng]}
-                        </DropdownMenuRadioItem>
-                      ))}
-                    </DropdownMenuRadioGroup>
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
-              </DropdownMenuGroup>
+              <EnvironmentMenu />
 
               <DropdownMenuSeparator />
 
@@ -227,5 +182,55 @@ export function NavUser({ user }: { user: User }) {
       <ActiveSessionsDialog open={sessionsOpen} onOpenChange={setSessionsOpen} />
       <TwoFactorDialog open={twoFactorOpen} onOpenChange={setTwoFactorOpen} />
     </>
+  );
+}
+
+/** Appearance (theme) + language submenus for the account dropdown. */
+function EnvironmentMenu() {
+  const { t, i18n } = useTranslation();
+  const { theme, setTheme } = useTheme();
+  const currentLng = (i18n.resolvedLanguage ?? i18n.language ?? "en").split(
+    "-",
+  )[0] as (typeof supportedLngs)[number];
+
+  return (
+    <DropdownMenuGroup>
+      <DropdownMenuSub>
+        <DropdownMenuSubTrigger>
+          <HugeiconsIcon icon={PaintBoardIcon} strokeWidth={2} />
+          Appearance
+        </DropdownMenuSubTrigger>
+        <DropdownMenuSubContent className="min-w-40">
+          <DropdownMenuRadioGroup value={theme ?? "system"} onValueChange={(v) => setTheme(v)}>
+            {THEMES.map((o) => (
+              <DropdownMenuRadioItem key={o.value} value={o.value}>
+                <HugeiconsIcon icon={o.icon} strokeWidth={2} />
+                {o.label}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuSubContent>
+      </DropdownMenuSub>
+      <DropdownMenuSub>
+        <DropdownMenuSubTrigger>
+          <HugeiconsIcon icon={LanguageCircleIcon} strokeWidth={2} />
+          {t("common.language")}
+        </DropdownMenuSubTrigger>
+        <DropdownMenuSubContent className="min-w-40">
+          <DropdownMenuRadioGroup
+            value={currentLng}
+            onValueChange={(lng) => {
+              void i18n.changeLanguage(lng);
+            }}
+          >
+            {supportedLngs.map((lng) => (
+              <DropdownMenuRadioItem key={lng} value={lng}>
+                {languageNames[lng]}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuSubContent>
+      </DropdownMenuSub>
+    </DropdownMenuGroup>
   );
 }

@@ -1,5 +1,3 @@
-import { useState } from "react";
-
 /**
  * Two-factor authentication (TOTP) — enable/disable from the account menu.
  * Backed entirely by better-auth's `twoFactor` plugin client
@@ -8,12 +6,13 @@ import { useState } from "react";
  * so setup shows the manual key + otpauth URI (every authenticator accepts the
  * key; many also accept pasting the URI).
  */
+import { useState } from "react";
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";
 import { Badge } from "@/shared/components/ui/badge";
-import { Button } from "@/shared/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -22,18 +21,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/components/ui/dialog";
-import { Input } from "@/shared/components/ui/input";
-import { Label } from "@/shared/components/ui/label";
-import { Spinner } from "@/shared/components/ui/spinner";
 
-/** Pull the base32 secret out of an `otpauth://totp/...?secret=...` URI. */
-function secretFromUri(uri: string): string {
-  try {
-    return new URL(uri).searchParams.get("secret") ?? "";
-  } catch {
-    return "";
-  }
-}
+import {
+  resolveStep,
+  TwoFactorFooter,
+  TwoFactorPanel,
+  type TwoFactorStep,
+} from "./two-factor-panels";
+
+const STEP_DESCRIPTION: Record<TwoFactorStep, string> = {
+  loading: "Protect your account with a time-based code from an authenticator app.",
+  idle: "Protect your account with a time-based code from an authenticator app.",
+  setup: "Add the key to your authenticator app, then enter the 6-digit code to confirm.",
+  backup: "Save these backup codes somewhere safe — each works once if you lose your device.",
+  enabled: "Your account is protected by an authenticator app.",
+};
 
 export function TwoFactorDialog({
   open,
@@ -117,6 +119,7 @@ export function TwoFactorDialog({
   // URI to confirm) → enabled (disable) → idle (password to enable).
   const showBackup = backupCodes !== null && totpURI === null;
   const showSetup = totpURI !== null;
+  const step = resolveStep({ loading: sessionQ.isPending, showBackup, showSetup, enabled });
 
   return (
     <Dialog open={open} onOpenChange={close}>
@@ -124,144 +127,37 @@ export function TwoFactorDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             Two-factor authentication
-            {enabled && !showSetup && !showBackup && <Badge variant="secondary">On</Badge>}
+            {step === "enabled" && <Badge variant="secondary">On</Badge>}
           </DialogTitle>
-          <DialogDescription>
-            {showSetup
-              ? "Add the key to your authenticator app, then enter the 6-digit code to confirm."
-              : showBackup
-                ? "Save these backup codes somewhere safe — each works once if you lose your device."
-                : enabled
-                  ? "Your account is protected by an authenticator app."
-                  : "Protect your account with a time-based code from an authenticator app."}
-          </DialogDescription>
+          <DialogDescription>{STEP_DESCRIPTION[step]}</DialogDescription>
         </DialogHeader>
 
-        {sessionQ.isPending ? (
-          <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
-            <Spinner /> Loading…
-          </div>
-        ) : showBackup ? (
-          <ul className="grid grid-cols-2 gap-1.5 rounded-lg bg-muted p-3 font-mono text-[12.5px]">
-            {backupCodes?.map((c) => (
-              <li key={c} className="tracking-[0.1em]">
-                {c}
-              </li>
-            ))}
-          </ul>
-        ) : showSetup ? (
-          <div className="space-y-4">
-            <div className="space-y-1.5">
-              <Label className="font-mono text-[11px] tracking-[0.04em] text-muted-foreground uppercase">
-                Setup key
-              </Label>
-              <code className="block rounded-md bg-muted px-3 py-2 font-mono text-[12.5px] tracking-[0.15em] break-all">
-                {secretFromUri(totpURI ?? "")}
-              </code>
-            </div>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (code.trim()) verify.mutate();
-              }}
-              className="space-y-2"
-            >
-              <Label
-                htmlFor="tf-verify"
-                className="font-mono text-[11px] tracking-[0.04em] text-muted-foreground uppercase"
-              >
-                Confirmation code
-              </Label>
-              <Input
-                id="tf-verify"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                placeholder="123456"
-                className="h-10 font-mono tracking-[0.2em]"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-              />
-            </form>
-          </div>
-        ) : enabled ? (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (password) disable.mutate();
-            }}
-            className="space-y-2"
-          >
-            <Label
-              htmlFor="tf-pw-disable"
-              className="font-mono text-[11px] tracking-[0.04em] text-muted-foreground uppercase"
-            >
-              Confirm your password to disable
-            </Label>
-            <Input
-              id="tf-pw-disable"
-              type="password"
-              autoComplete="current-password"
-              className="h-10"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </form>
-        ) : (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (password) enable.mutate();
-            }}
-            className="space-y-2"
-          >
-            <Label
-              htmlFor="tf-pw-enable"
-              className="font-mono text-[11px] tracking-[0.04em] text-muted-foreground uppercase"
-            >
-              Confirm your password to begin
-            </Label>
-            <Input
-              id="tf-pw-enable"
-              type="password"
-              autoComplete="current-password"
-              className="h-10"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </form>
-        )}
+        <TwoFactorPanel
+          step={step}
+          backupCodes={backupCodes}
+          totpURI={totpURI}
+          code={code}
+          onCodeChange={setCode}
+          password={password}
+          onPasswordChange={setPassword}
+          onVerify={() => verify.mutate()}
+          onDisable={() => disable.mutate()}
+          onEnable={() => enable.mutate()}
+        />
 
         <DialogFooter>
-          {showBackup ? (
-            <Button type="button" onClick={() => close(false)}>
-              I've saved my codes
-            </Button>
-          ) : showSetup ? (
-            <Button
-              type="button"
-              disabled={!code.trim() || verify.isPending}
-              onClick={() => verify.mutate()}
-            >
-              {verify.isPending ? "Verifying…" : "Confirm"}
-            </Button>
-          ) : enabled ? (
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={!password || disable.isPending}
-              onClick={() => disable.mutate()}
-            >
-              {disable.isPending ? "Disabling…" : "Disable 2FA"}
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              disabled={!password || enable.isPending}
-              onClick={() => enable.mutate()}
-            >
-              {enable.isPending ? "Starting…" : "Enable 2FA"}
-            </Button>
-          )}
+          <TwoFactorFooter
+            step={step}
+            code={code}
+            password={password}
+            verifyPending={verify.isPending}
+            disablePending={disable.isPending}
+            enablePending={enable.isPending}
+            onClose={() => close(false)}
+            onVerify={() => verify.mutate()}
+            onDisable={() => disable.mutate()}
+            onEnable={() => enable.mutate()}
+          />
         </DialogFooter>
       </DialogContent>
     </Dialog>

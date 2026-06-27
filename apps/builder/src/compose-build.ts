@@ -1,7 +1,6 @@
 import type { DeploymentId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { getInstallationToken } from "@otterdeploy/api/git/github-app";
-import { decryptSecret } from "@otterdeploy/api/lib/crypto";
 import { deployCompose } from "@otterdeploy/api/routers/compose/deploy";
 import { parseCompose } from "@otterdeploy/api/stack/compose/parse";
 import { summarizeCompose } from "@otterdeploy/api/stack/compose/summary";
@@ -32,13 +31,11 @@ import { join } from "node:path";
 
 import type { LogSink } from "./log-stream";
 
-import { ensureBuildxBuilder, cachePathFor } from "./buildx";
+import { ensureBuildxBuilder } from "./buildx";
 import { cloneRepoAtSha } from "./clone";
-import { dockerPush } from "./docker-push";
-import { dockerfileBuild, resolveDockerfileBuild } from "./dockerfile";
+import { buildComposeService } from "./compose-build-service";
 import { BuildStepError, InvalidDeploymentError } from "./errors";
 import { PipelineLoadError } from "./load";
-import { railpackBuild } from "./railpack";
 import { markBuilding, markImageReady, markRunning } from "./state";
 
 interface ComposeBuildContext {
@@ -209,70 +206,16 @@ export async function runComposeBuild(
     const builtImages: Record<string, string> = {};
     for (const svc of parsed.value.services) {
       if (!svc.build) continue;
-      const subdir = svc.build.context.replace(/^\.\//, "").replace(/\/$/, "");
-      const repoBase = `${ctx.imageRepository}-${svc.name}`.toLowerCase();
-      const cachePath = cacheBuilder ? cachePathFor(repoBase) : null;
-
-      const image = yield* await Result.tryPromise({
-        try: () => {
-          const resolution = resolveDockerfileBuild({
-            builder: "auto",
-            dockerfilePath: svc.build?.dockerfile ?? null,
-            workDir: cloned.workDir,
-            sourceSubdir: subdir || null,
-          });
-          for (const w of resolution.warnings) sink.system(w);
-          if (resolution.kind === "dockerfile") {
-            return dockerfileBuild({
-              workDir: cloned.workDir,
-              sourceSubdir: subdir || null,
-              dockerfilePath: resolution.dockerfilePath,
-              contextDir: resolution.contextDir,
-              relativePath: resolution.relativePath,
-              imageRepository: repoBase,
-              sha: gitSha,
-              builderName: cacheBuilder,
-              cachePath,
-              sink,
-            });
-          }
-          return railpackBuild({
-            workDir: cloned.workDir,
-            sourceSubdir: subdir || null,
-            imageRepository: repoBase,
-            sha: gitSha,
-            config: null,
-            builderName: cacheBuilder,
-            cachePath,
-            sink,
-          });
-        },
-        catch: (cause) => new BuildStepError({ step: `build:${svc.name}`, cause }),
+      builtImages[svc.name] = yield* await buildComposeService({
+        serviceName: svc.name,
+        build: svc.build,
+        imageRepository: ctx.imageRepository,
+        registry: ctx.registry,
+        workDir: cloned.workDir,
+        gitSha,
+        cacheBuilder,
+        sink,
       });
-
-      if (ctx.registry) {
-        const password = yield* await Result.tryPromise({
-          try: () => decryptSecret(ctx.registry!.encryptedPassword),
-          catch: (cause) => new BuildStepError({ step: "decrypt-registry", cause }),
-        });
-        yield* await Result.tryPromise({
-          try: () =>
-            dockerPush({
-              tags: [image.shaTag, image.latestTag],
-              credentials: {
-                host: ctx.registry!.host,
-                username: ctx.registry!.username,
-                password,
-              },
-              sink,
-            }),
-          catch: (cause) => new BuildStepError({ step: `push:${svc.name}`, cause }),
-        });
-      } else {
-        sink.system(`local build — skipping push for ${image.shaTag}`);
-      }
-
-      builtImages[svc.name] = image.shaTag;
     }
 
     // Persist the fetched file, summary, and built tags so the api deploy reads

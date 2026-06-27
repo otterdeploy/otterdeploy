@@ -1,5 +1,3 @@
-import { Loading03Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
@@ -8,10 +6,8 @@ import { toast } from "sonner";
 import * as z from "zod";
 
 import { authClient } from "@/lib/auth-client";
-import { Button } from "@/shared/components/ui/button";
-import { Input } from "@/shared/components/ui/input";
-import { Label } from "@/shared/components/ui/label";
 
+import { AuthInput, AuthSubmitButton } from "./auth-fields";
 import { SocialSignIn } from "./social-sign-in";
 
 export function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
@@ -73,21 +69,15 @@ export function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void 
         <form.Field name="name">
           {(field) => (
             <div className="space-y-2">
-              <Label
-                htmlFor={field.name}
-                className="font-mono text-[11px] tracking-[0.04em] text-muted-foreground uppercase"
-              >
-                {t("auth.signUp.nameLabel")}
-              </Label>
-              <Input
+              <AuthInput
                 id={field.name}
                 name={field.name}
+                label={t("auth.signUp.nameLabel")}
                 autoComplete="name"
                 placeholder={t("auth.signUp.namePlaceholder")}
-                className="h-11 rounded-lg bg-muted px-3.5"
                 value={field.state.value}
                 onBlur={field.handleBlur}
-                onChange={(e) => field.handleChange(e.target.value)}
+                onChange={field.handleChange}
               />
               {field.state.meta.errors.map((error) => (
                 <p key={error?.message} className="text-sm text-destructive">
@@ -101,22 +91,16 @@ export function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void 
         <form.Field name="email">
           {(field) => (
             <div className="space-y-2">
-              <Label
-                htmlFor={field.name}
-                className="font-mono text-[11px] tracking-[0.04em] text-muted-foreground uppercase"
-              >
-                {t("auth.signUp.emailLabel")}
-              </Label>
-              <Input
+              <AuthInput
                 id={field.name}
                 name={field.name}
+                label={t("auth.signUp.emailLabel")}
                 type="email"
                 autoComplete="email"
                 placeholder={t("auth.signUp.emailPlaceholder")}
-                className="h-11 rounded-lg bg-muted px-3.5"
                 value={field.state.value}
                 onBlur={field.handleBlur}
-                onChange={(e) => field.handleChange(e.target.value)}
+                onChange={field.handleChange}
               />
               {field.state.meta.errors.map((error) => (
                 <p key={error?.message} className="text-sm text-destructive">
@@ -130,22 +114,16 @@ export function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void 
         <form.Field name="password">
           {(field) => (
             <div className="space-y-2">
-              <Label
-                htmlFor={field.name}
-                className="font-mono text-[11px] tracking-[0.04em] text-muted-foreground uppercase"
-              >
-                {t("auth.signUp.passwordLabel")}
-              </Label>
-              <Input
+              <AuthInput
                 id={field.name}
                 name={field.name}
+                label={t("auth.signUp.passwordLabel")}
                 type="password"
                 autoComplete="new-password"
                 placeholder={t("auth.signUp.passwordPlaceholder")}
-                className="h-11 rounded-lg bg-muted px-3.5"
                 value={field.state.value}
                 onBlur={field.handleBlur}
-                onChange={(e) => field.handleChange(e.target.value)}
+                onChange={field.handleChange}
               />
               {field.state.meta.errors.map((error) => (
                 <p key={error?.message} className="text-sm text-destructive">
@@ -158,24 +136,12 @@ export function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void 
 
         <form.Subscribe selector={(state) => state}>
           {(state) => (
-            <Button
-              type="submit"
-              className="h-11 w-full rounded-lg bg-foreground font-semibold text-background hover:bg-foreground/90"
+            <AuthSubmitButton
               disabled={!state.canSubmit || state.isSubmitting}
-            >
-              {state.isSubmitting ? (
-                <>
-                  <HugeiconsIcon
-                    icon={Loading03Icon}
-                    strokeWidth={2}
-                    className="size-4 animate-spin"
-                  />
-                  {t("auth.signUp.creatingAccount")}
-                </>
-              ) : (
-                <>{t("auth.signUp.submit")}</>
-              )}
-            </Button>
+              pending={state.isSubmitting}
+              idleLabel={t("auth.signUp.submit")}
+              pendingLabel={t("auth.signUp.creatingAccount")}
+            />
           )}
         </form.Subscribe>
       </form>

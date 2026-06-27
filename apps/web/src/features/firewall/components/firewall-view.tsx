@@ -7,12 +7,9 @@
  */
 import { useState } from "react";
 
-import { FirewallIcon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { useQuery } from "@tanstack/react-query";
 
 import { Button } from "@/shared/components/ui/button";
-import { Card } from "@/shared/components/ui/card";
 import {
   Table,
   TableBody,
@@ -25,6 +22,9 @@ import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
 import { BlocklistsPanel } from "./blocklists-panel";
+import { FirewallDisabledCard } from "./firewall-view-parts";
+
+type View = "decisions" | "sources";
 
 export function FirewallView() {
   const status = useQuery({
@@ -39,124 +39,28 @@ export function FirewallView() {
   const s = status.data;
   const rows = decisions.data ?? [];
   const reachable = Boolean(s?.reachable);
-  const [view, setView] = useState<"decisions" | "sources">("decisions");
+  const configured = Boolean(s?.configured);
+  const [view, setView] = useState<View>("decisions");
 
   return (
     <div className="flex h-full min-w-0 flex-col overflow-hidden">
-      {/* Header */}
-      <div className="px-4 pt-4">
-        <div className="flex items-center gap-2">
-          <h1 className="text-base font-semibold">Firewall</h1>
-          {s?.configured ? (
-            <span
-              className={cn(
-                "inline-flex items-center gap-1.5 text-[11px]",
-                reachable ? "text-success" : "text-destructive",
-              )}
-            >
-              <span
-                className={cn(
-                  "size-1.5 rounded-full",
-                  reachable ? "animate-pulse bg-success" : "bg-destructive",
-                )}
-              />
-              LAPI {reachable ? "reachable" : "unreachable"}
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              <span className="size-1.5 rounded-full bg-muted-foreground" />
-              disabled
-            </span>
-          )}
-        </div>
-        <p className="mt-0.5 text-[13px] text-muted-foreground">
-          CrowdSec IP-reputation decisions enforced at the Caddy edge — banned IPs, ranges, and the
-          community blocklist. Identity-blind; runs before the auth wall.
-        </p>
-      </div>
+      <FirewallHeader configured={configured} reachable={reachable} />
+      <FirewallToolbar
+        view={view}
+        onViewChange={setView}
+        configured={configured}
+        decisionCount={rows.length}
+        refreshing={decisions.isFetching}
+        onRefresh={() => {
+          void status.refetch();
+          void decisions.refetch();
+        }}
+      />
 
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2 border-b px-4 py-3">
-        <div className="flex items-center gap-0.5 rounded-md border p-0.5">
-          {(["decisions", "sources"] as const).map((v) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() => setView(v)}
-              className={cn(
-                "rounded px-2.5 py-1 text-[11px] font-medium capitalize transition-colors",
-                view === v
-                  ? "bg-muted text-foreground"
-                  : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-              )}
-            >
-              {v === "decisions" ? "Decisions" : "Sources"}
-            </button>
-          ))}
-        </div>
-        {view === "decisions" ? (
-          <span className="text-[12px] text-muted-foreground">
-            {s?.configured
-              ? `${rows.length} active decision${rows.length === 1 ? "" : "s"}`
-              : "Not enabled"}
-          </span>
-        ) : null}
-        <div className="flex-1" />
-        {view === "decisions" ? (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              void status.refetch();
-              void decisions.refetch();
-            }}
-            disabled={decisions.isFetching}
-          >
-            {decisions.isFetching ? "Refreshing…" : "Refresh"}
-          </Button>
-        ) : null}
-      </div>
-
-      {/* Body */}
       {view === "sources" ? (
         <BlocklistsPanel />
-      ) : !s?.configured ? (
-        <div className="min-h-0 flex-1 overflow-auto p-4">
-          <Card className="border-dashed p-5">
-            <div className="flex items-start gap-4">
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                <HugeiconsIcon icon={FirewallIcon} strokeWidth={1.8} className="size-4.5" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <h2 className="text-[13px] font-semibold">Firewall isn't enabled</h2>
-                <p className="mt-0.5 text-[13px] text-muted-foreground">
-                  The CrowdSec agent ships with otterdeploy — it just stays off until you switch it
-                  on. Two steps:
-                </p>
-                <ol className="mt-3 space-y-2.5 text-[13px]">
-                  <li className="flex gap-2.5">
-                    <SetupStep n={1} />
-                    <span className="text-muted-foreground">
-                      Set <CodeChip>CROWDSEC_BOUNCER_KEY</CodeChip> to a strong secret and{" "}
-                      <CodeChip>CROWDSEC_LAPI_URL=http://crowdsec:8080</CodeChip>
-                    </span>
-                  </li>
-                  <li className="flex gap-2.5">
-                    <SetupStep n={2} />
-                    <span className="text-muted-foreground">
-                      Start the bundled agent:{" "}
-                      <CodeChip>docker compose --profile firewall up -d</CodeChip>
-                    </span>
-                  </li>
-                </ol>
-                <p className="mt-3 text-[12px] text-muted-foreground/80">
-                  The edge gate wires in automatically — no Caddy rebuild. Phase 1 enforces the
-                  community IP blocklist.
-                </p>
-              </div>
-            </div>
-          </Card>
-        </div>
+      ) : !configured ? (
+        <FirewallDisabledCard />
       ) : (
         <div className="min-h-0 flex-1 overflow-auto">
           <Table className="[&_td:first-child]:pl-4 [&_td:last-child]:pr-4 [&_th:first-child]:pl-4 [&_th:last-child]:pr-4">
@@ -259,25 +163,95 @@ export function FirewallView() {
   );
 }
 
+function FirewallHeader({ configured, reachable }: { configured: boolean; reachable: boolean }) {
+  return (
+    <div className="px-4 pt-4">
+      <div className="flex items-center gap-2">
+        <h1 className="text-base font-semibold">Firewall</h1>
+        {configured ? (
+          <span
+            className={cn(
+              "inline-flex items-center gap-1.5 text-[11px]",
+              reachable ? "text-success" : "text-destructive",
+            )}
+          >
+            <span
+              className={cn(
+                "size-1.5 rounded-full",
+                reachable ? "animate-pulse bg-success" : "bg-destructive",
+              )}
+            />
+            LAPI {reachable ? "reachable" : "unreachable"}
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <span className="size-1.5 rounded-full bg-muted-foreground" />
+            disabled
+          </span>
+        )}
+      </div>
+      <p className="mt-0.5 text-[13px] text-muted-foreground">
+        CrowdSec IP-reputation decisions enforced at the Caddy edge — banned IPs, ranges, and the
+        community blocklist. Identity-blind; runs before the auth wall.
+      </p>
+    </div>
+  );
+}
+
+function FirewallToolbar({
+  view,
+  onViewChange,
+  configured,
+  decisionCount,
+  refreshing,
+  onRefresh,
+}: {
+  view: View;
+  onViewChange: (v: View) => void;
+  configured: boolean;
+  decisionCount: number;
+  refreshing: boolean;
+  onRefresh: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 border-b px-4 py-3">
+      <div className="flex items-center gap-0.5 rounded-md border p-0.5">
+        {(["decisions", "sources"] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => onViewChange(v)}
+            className={cn(
+              "rounded px-2.5 py-1 text-[11px] font-medium capitalize transition-colors",
+              view === v
+                ? "bg-muted text-foreground"
+                : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+            )}
+          >
+            {v === "decisions" ? "Decisions" : "Sources"}
+          </button>
+        ))}
+      </div>
+      {view === "decisions" ? (
+        <span className="text-[12px] text-muted-foreground">
+          {configured
+            ? `${decisionCount} active decision${decisionCount === 1 ? "" : "s"}`
+            : "Not enabled"}
+        </span>
+      ) : null}
+      <div className="flex-1" />
+      {view === "decisions" ? (
+        <Button variant="outline" size="sm" onClick={onRefresh} disabled={refreshing}>
+          {refreshing ? "Refreshing…" : "Refresh"}
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
 /** ISO-3166 alpha-2 → flag emoji (regional indicator pair). "" for non-2-letter. */
 function flagEmoji(cc: string): string {
   const code = cc.trim().toUpperCase();
   if (!/^[A-Z]{2}$/.test(code)) return "";
   return String.fromCodePoint(...[...code].map((c) => 0x1f1e6 + (c.charCodeAt(0) - 65)));
-}
-
-function CodeChip({ children }: { children: React.ReactNode }) {
-  return (
-    <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[12px] text-foreground/90">
-      {children}
-    </code>
-  );
-}
-
-function SetupStep({ n }: { n: number }) {
-  return (
-    <span className="mt-px flex size-4.5 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-muted-foreground">
-      {n}
-    </span>
-  );
 }

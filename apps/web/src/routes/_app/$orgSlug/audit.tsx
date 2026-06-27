@@ -8,22 +8,15 @@
  * collection can't represent come from a tiny companion query. See
  * `features/audit/data/audit.ts` for why the reads are split this way.
  */
-import {
-  Alert01Icon,
-  ArrowRight01Icon,
-  Download01Icon,
-  Search01Icon,
-} from "@hugeicons/core-free-icons";
+import { Download01Icon, Search01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import { useForm, useStore } from "@tanstack/react-form";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import {
-  type AuditEvent,
-  type Outcome,
   auditCollection,
   auditSubsetKey,
   DEFAULT_AUDIT_FILTER,
@@ -31,18 +24,8 @@ import {
   toAuditInput,
 } from "@/features/audit/data/audit";
 import { Page, PageHeader } from "@/shared/components/page";
-import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
-import { Card, CardContent } from "@/shared/components/ui/card";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "@/shared/components/ui/empty";
-import { ErrorState } from "@/shared/components/ui/error-state";
 import { Input } from "@/shared/components/ui/input";
-import { JsonView } from "@/shared/components/ui/json-view";
 import {
   NativeSelect,
   NativeSelectOption,
@@ -54,24 +37,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/shared/components/ui/select";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/shared/components/ui/sheet";
-import { Skeleton } from "@/shared/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/shared/components/ui/table";
-import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
-import { formatNumber } from "@otterdeploy/shared/format";
+
+import { exportCsv, useDebouncedValue } from "./-components/audit-helpers";
+import { EventDrawer, StatTile } from "./-components/audit-parts";
+import { AuditTableSection } from "./-components/audit-table";
 
 export const Route = createFileRoute("/_app/$orgSlug/audit")({
   staticData: { crumb: "Audit" },
@@ -239,364 +209,19 @@ function AuditRoute() {
       </div>
 
       {/* Table */}
-      {stats.isLoading ? (
-        <AuditPending />
-      ) : stats.isError ? (
-        <ErrorState
-          title="Couldn't load audit events"
-          message={stats.error?.message}
-          onRetry={() => void stats.refetch()}
-        />
-      ) : !stats.isFetching && items.length === 0 ? (
-        <Empty className="rounded-md border border-dashed bg-muted/20 py-12">
-          <EmptyHeader>
-            <HugeiconsIcon
-              icon={Alert01Icon}
-              strokeWidth={1.5}
-              className="size-10 text-muted-foreground/50"
-            />
-            <EmptyTitle>No audit events</EmptyTitle>
-            <EmptyDescription>
-              Nothing matches these filters yet. Mutations and denials will
-              appear here as they happen.
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      ) : (
-        <Card className="overflow-hidden rounded-md p-0 gap-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="pl-4">Time</TableHead>
-                <TableHead>Actor</TableHead>
-                <TableHead>Action</TableHead>
-                <TableHead>Target</TableHead>
-                <TableHead>Outcome</TableHead>
-                <TableHead>IP</TableHead>
-                <TableHead className="pr-4" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.map((e) => (
-                <TableRow
-                  key={e.id}
-                  className={cn(
-                    "cursor-pointer",
-                    e.outcome !== "success" && "bg-amber-500/5",
-                  )}
-                  onClick={() => setOpenId(e.id)}
-                >
-                  <TableCell className="pl-4 font-mono text-[11px] text-muted-foreground">
-                    {timeAgo(e.timestamp)}
-                  </TableCell>
-                  <TableCell>
-                    <ActorChip event={e} />
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {e.action}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">
-                    {e.targetId ?? e.targetType ?? "—"}
-                  </TableCell>
-                  <TableCell>
-                    <OutcomeBadge outcome={e.outcome} />
-                  </TableCell>
-                  <TableCell className="font-mono text-[11px] text-muted-foreground">
-                    {e.ip ?? "—"}
-                  </TableCell>
-                  <TableCell className="pr-4 text-right">
-                    <HugeiconsIcon
-                      icon={ArrowRight01Icon}
-                      strokeWidth={2}
-                      className="ml-auto size-3.5 text-muted-foreground/60"
-                    />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          {items.length < total && (
-            <div className="flex items-center justify-center gap-3 border-t bg-muted/30 px-4 py-2.5 text-[12px] text-muted-foreground">
-              <span>
-                {formatNumber(items.length)} of {formatNumber(total)}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7"
-                disabled={stats.isFetching}
-                onClick={() => form.setFieldValue("limit", filter.limit + 50)}
-              >
-                {stats.isFetching ? "Loading…" : "Load more"}
-              </Button>
-            </div>
-          )}
-        </Card>
-      )}
+      <AuditTableSection
+        items={items}
+        total={total}
+        isLoading={stats.isLoading}
+        isError={stats.isError}
+        isFetching={stats.isFetching}
+        errorMessage={stats.error?.message}
+        onRetry={() => void stats.refetch()}
+        onOpen={setOpenId}
+        onLoadMore={() => form.setFieldValue("limit", filter.limit + 50)}
+      />
 
       <EventDrawer event={opening} onClose={() => setOpenId(null)} />
     </Page>
   );
-}
-
-function StatTile({
-  label,
-  value,
-  sub,
-  tone,
-}: {
-  label: string;
-  value: number;
-  sub: string;
-  tone?: "warn" | "danger";
-}) {
-  return (
-    <Card className="rounded-md">
-      <CardContent>
-        <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70">
-          {label}
-        </div>
-        <div
-          className={cn(
-            "mt-0.5 text-2xl font-semibold leading-tight",
-            tone === "warn" && "text-amber-500",
-            tone === "danger" && "text-destructive",
-          )}
-        >
-          {formatNumber(value)}
-        </div>
-        <div className="mt-0.5 text-[11px] text-muted-foreground">{sub}</div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function ActorChip({ event }: { event: AuditEvent }) {
-  const name = event.actorLabel ?? event.actorEmail ?? event.actorId;
-  const initials = (name || "?").slice(0, 2).toUpperCase();
-  return (
-    <div className="flex items-center gap-2">
-      <span className="grid size-6 shrink-0 place-items-center rounded-full bg-muted text-[10px] font-semibold text-muted-foreground">
-        {initials}
-      </span>
-      <div className="flex min-w-0 flex-col leading-tight">
-        <span className="truncate text-[12.5px]">{name}</span>
-        <span className="font-mono text-[9px] uppercase tracking-wide text-muted-foreground/70">
-          {event.actorType}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function OutcomeBadge({ outcome }: { outcome: Outcome }) {
-  const variant =
-    outcome === "success"
-      ? "default"
-      : outcome === "denied"
-        ? "secondary"
-        : "destructive";
-  return <Badge variant={variant}>{outcome}</Badge>;
-}
-
-function EventDrawer({
-  event,
-  onClose,
-}: {
-  event: AuditEvent | null;
-  onClose: () => void;
-}) {
-  return (
-    <Sheet open={!!event} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent side="right" className="w-full sm:max-w-3xl">
-        {event && (
-          <>
-            <SheetHeader className="border-b">
-              <SheetTitle className="flex items-center gap-2 font-mono text-sm">
-                {event.action}
-                <OutcomeBadge outcome={event.outcome} />
-              </SheetTitle>
-            </SheetHeader>
-            <div className="flex flex-col gap-5 overflow-auto px-4 pb-4">
-              {event.reason && event.outcome !== "success" && (
-                <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-2.5 text-[12px] text-amber-600 dark:text-amber-400">
-                  <HugeiconsIcon
-                    icon={Alert01Icon}
-                    strokeWidth={2}
-                    className="mt-0.5 size-3.5 shrink-0"
-                  />
-                  <span>{event.reason}</span>
-                </div>
-              )}
-
-              <Section label="Actor">
-                <ActorChip event={event} />
-                <KV k="ID" v={event.actorId} mono />
-                {event.actorEmail && <KV k="Email" v={event.actorEmail} />}
-              </Section>
-
-              <Section label="Target">
-                <KV k="Type" v={event.targetType ?? "—"} />
-                <KV k="ID" v={event.targetId ?? "—"} mono />
-              </Section>
-
-              <Section label="When · where">
-                <KV
-                  k="Timestamp"
-                  v={new Date(event.timestamp).toLocaleString()}
-                  mono
-                />
-                <KV k="IP" v={event.ip ?? "—"} mono />
-                <KV
-                  k="Duration"
-                  v={event.durationMs != null ? `${event.durationMs} ms` : "—"}
-                  mono
-                />
-                <KV k="User-Agent" v={event.userAgent ?? "—"} mono />
-              </Section>
-
-              {(event.correlationId || event.causationId) && (
-                <Section label="Correlation">
-                  {event.correlationId && (
-                    <KV k="Correlation" v={event.correlationId} mono />
-                  )}
-                  {event.causationId && (
-                    <KV k="Caused by" v={event.causationId} mono />
-                  )}
-                </Section>
-              )}
-
-              {event.changes && (
-                <Section label="Changes">
-                  <JsonView
-                    data={event.changes}
-                    className="max-h-72 rounded-lg border bg-muted/30 p-3.5 text-[13px]"
-                  />
-                </Section>
-              )}
-
-              <Section label="Full event">
-                <JsonView
-                  data={event}
-                  className="max-h-96 rounded-lg border bg-muted/30 p-3.5 text-[13px]"
-                />
-              </Section>
-            </div>
-          </>
-        )}
-      </SheetContent>
-    </Sheet>
-  );
-}
-
-function Section({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <div className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
-        {label}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function KV({ k, v, mono }: { k: string; v: string; mono?: boolean }) {
-  return (
-    <div className="flex gap-3 py-1 text-[12px]">
-      <span className="w-24 shrink-0 text-muted-foreground">{k}</span>
-      <span className={cn("min-w-0 flex-1 break-all", mono && "font-mono")}>
-        {v}
-      </span>
-    </div>
-  );
-}
-
-function AuditPending() {
-  return (
-    <Card className="overflow-hidden rounded-md p-0 gap-0">
-      <div className="flex items-center gap-4 border-b bg-muted/50 px-4 py-3">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-3 w-16" />
-        ))}
-      </div>
-      {Array.from({ length: 8 }).map((_, r) => (
-        <div
-          key={r}
-          className="flex items-center gap-4 border-b border-border/60 px-4 py-3 last:border-b-0"
-        >
-          <Skeleton className="h-3 w-16" />
-          <Skeleton className="h-6 w-32" />
-          <Skeleton className="h-4 w-28 flex-1" />
-          <Skeleton className="h-5 w-16 rounded-sm" />
-        </div>
-      ))}
-    </Card>
-  );
-}
-
-// --- helpers ----------------------------------------------------------------
-
-/** Trailing-edge debounce — the input stays instant, the query waits a beat. */
-function useDebouncedValue<T>(value: T, delayMs: number): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const id = setTimeout(() => setDebounced(value), delayMs);
-    return () => clearTimeout(id);
-  }, [value, delayMs]);
-  return debounced;
-}
-
-const RELATIVE_UNITS: Array<[Intl.RelativeTimeFormatUnit, number]> = [
-  ["day", 86400],
-  ["hour", 3600],
-  ["minute", 60],
-  ["second", 1],
-];
-const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
-
-function timeAgo(iso: string): string {
-  const t = Date.parse(iso);
-  if (Number.isNaN(t)) return "—";
-  const diff = (t - Date.now()) / 1000;
-  const abs = Math.abs(diff);
-  for (const [unit, secs] of RELATIVE_UNITS) {
-    if (abs >= secs || unit === "second") {
-      return rtf.format(Math.round(diff / secs), unit);
-    }
-  }
-  return "just now";
-}
-
-function exportCsv(items: AuditEvent[]) {
-  const cols: Array<keyof AuditEvent> = [
-    "timestamp",
-    "action",
-    "actorType",
-    "actorId",
-    "actorEmail",
-    "outcome",
-    "targetType",
-    "targetId",
-    "ip",
-    "durationMs",
-    "reason",
-  ];
-  const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const rows = [
-    cols.join(","),
-    ...items.map((e) => cols.map((c) => esc(e[c])).join(",")),
-  ];
-  const blob = new Blob([rows.join("\n")], { type: "text/csv" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `audit-${new Date().toISOString().slice(0, 10)}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
 }

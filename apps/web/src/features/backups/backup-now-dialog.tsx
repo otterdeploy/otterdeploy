@@ -138,36 +138,7 @@ function BackupNowBody({
               )}
             </form.Field>
           ) : (
-            <div className="flex flex-col gap-1.5">
-              <span className="text-xs text-muted-foreground">Destinations</span>
-              <div className="flex items-center gap-3 rounded-md border border-dashed bg-muted/20 px-3 py-2.5">
-                <HugeiconsIcon
-                  icon={CloudServerIcon}
-                  className="size-3.5 shrink-0 text-muted-foreground"
-                />
-                <div className="flex flex-1 flex-col">
-                  <span className="text-xs font-medium">No destinations yet</span>
-                  <span className="text-[11px] text-muted-foreground">
-                    Backups need somewhere to land — local disk, an S3 bucket, or SFTP.
-                  </span>
-                </div>
-                {onAddDestination ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    type="button"
-                    className="shrink-0 gap-1.5"
-                    onClick={() => {
-                      onClose();
-                      onAddDestination();
-                    }}
-                  >
-                    <HugeiconsIcon icon={PlusSignIcon} className="size-3" />
-                    Add
-                  </Button>
-                ) : null}
-              </div>
-            </div>
+            <NoDestinations onClose={onClose} onAddDestination={onAddDestination} />
           )}
 
           <form.Field name="encrypted">
@@ -210,5 +181,44 @@ function BackupNowBody({
         </div>
       </form>
     </DialogContent>
+  );
+}
+
+/** Empty state shown when no backup destinations exist yet. */
+function NoDestinations({
+  onClose,
+  onAddDestination,
+}: {
+  onClose: () => void;
+  onAddDestination?: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-xs text-muted-foreground">Destinations</span>
+      <div className="flex items-center gap-3 rounded-md border border-dashed bg-muted/20 px-3 py-2.5">
+        <HugeiconsIcon icon={CloudServerIcon} className="size-3.5 shrink-0 text-muted-foreground" />
+        <div className="flex flex-1 flex-col">
+          <span className="text-xs font-medium">No destinations yet</span>
+          <span className="text-[11px] text-muted-foreground">
+            Backups need somewhere to land — local disk, an S3 bucket, or SFTP.
+          </span>
+        </div>
+        {onAddDestination ? (
+          <Button
+            variant="outline"
+            size="sm"
+            type="button"
+            className="shrink-0 gap-1.5"
+            onClick={() => {
+              onClose();
+              onAddDestination();
+            }}
+          >
+            <HugeiconsIcon icon={PlusSignIcon} className="size-3" />
+            Add
+          </Button>
+        ) : null}
+      </div>
+    </div>
   );
 }

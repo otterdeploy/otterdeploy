@@ -83,6 +83,18 @@ const railpack = (extraWarnings: string[] = []): DockerfileResolution => ({
   kind: "railpack",
   warnings: extraWarnings,
 });
+
+/** Builder pinned to railpack: always railpack, but warn when a Dockerfile (or
+ *  a custom path) is present so the pin isn't a silent surprise. */
+function resolveRailpackPin(appDir: string, customPath: string): DockerfileResolution {
+  if (customPath || existsSync(join(appDir, DEFAULT_DOCKERFILE))) {
+    return railpack([
+      "A Dockerfile is present, but this service is pinned to Railpack. Set the build method to Auto or Dockerfile to use it.",
+    ]);
+  }
+  return railpack();
+}
+
 export function resolveDockerfileBuild(opts: {
   builder: Builder;
   dockerfilePath: string | null | undefined;
@@ -99,12 +111,7 @@ export function resolveDockerfileBuild(opts: {
   // Pinned to railpack: never build the Dockerfile, but don't let a present
   // Dockerfile (or a set custom path) be a silent surprise.
   if (builder === "railpack") {
-    if (customPath || existsSync(join(appDir, DEFAULT_DOCKERFILE))) {
-      return railpack([
-        "A Dockerfile is present, but this service is pinned to Railpack. Set the build method to Auto or Dockerfile to use it.",
-      ]);
-    }
-    return railpack();
+    return resolveRailpackPin(appDir, customPath);
   }
 
   // From here: builder is "dockerfile" or "auto". A "dockerfile" pin makes a

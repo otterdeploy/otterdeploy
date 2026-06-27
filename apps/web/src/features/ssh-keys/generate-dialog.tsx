@@ -124,34 +124,7 @@ export function GenerateKeyDialog({
           </form.Field>
 
           <form.Field name="type">
-            {(field) => (
-              <div className="flex flex-col gap-1.5">
-                <Label>Key type</Label>
-                <RadioGroup
-                  value={field.state.value}
-                  onValueChange={(v) =>
-                    typeof v === "string" && field.handleChange(v as SshKeyType)
-                  }
-                  className="gap-2"
-                >
-                  {KEY_TYPES.map((t) => (
-                    <Label
-                      key={t.value}
-                      className={cn(
-                        "flex cursor-pointer items-start gap-3 rounded-md border p-3",
-                        field.state.value === t.value && "bg-muted/50",
-                      )}
-                    >
-                      <RadioGroupItem value={t.value} className="mt-0.5" />
-                      <span className="flex flex-col gap-0.5">
-                        <span className="font-mono text-sm">{t.label}</span>
-                        <span className="text-xs text-muted-foreground">{t.sub}</span>
-                      </span>
-                    </Label>
-                  ))}
-                </RadioGroup>
-              </div>
-            )}
+            {(field) => <KeyTypeOptions value={field.state.value} onChange={field.handleChange} />}
           </form.Field>
 
           <form.Field name="comment">
@@ -202,5 +175,41 @@ export function GenerateKeyDialog({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** Key-type radio cards (ed25519 / ecdsa / rsa). */
+function KeyTypeOptions({
+  value,
+  onChange,
+}: {
+  value: SshKeyType;
+  onChange: (v: SshKeyType) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label>Key type</Label>
+      <RadioGroup
+        value={value}
+        onValueChange={(v) => typeof v === "string" && onChange(v as SshKeyType)}
+        className="gap-2"
+      >
+        {KEY_TYPES.map((t) => (
+          <Label
+            key={t.value}
+            className={cn(
+              "flex cursor-pointer items-start gap-3 rounded-md border p-3",
+              value === t.value && "bg-muted/50",
+            )}
+          >
+            <RadioGroupItem value={t.value} className="mt-0.5" />
+            <span className="flex flex-col gap-0.5">
+              <span className="font-mono text-sm">{t.label}</span>
+              <span className="text-xs text-muted-foreground">{t.sub}</span>
+            </span>
+          </Label>
+        ))}
+      </RadioGroup>
+    </div>
   );
 }

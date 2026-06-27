@@ -10,11 +10,9 @@ import { useState } from "react";
 import {
   Alert02Icon,
   Copy01Icon,
-  Delete02Icon,
   GitBranchIcon,
   Key01Icon,
   PackageIcon,
-  RefreshIcon,
   ServerStack01Icon,
   Tick02Icon,
   ViewIcon,
@@ -24,25 +22,14 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/shared/components/ui/alert-dialog";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
-import { cn } from "@/shared/lib/utils";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 import type { SshKey } from "./data/ssh-keys";
 
 import { timeAgo } from "./data/ssh-keys";
+import { DeleteButton, RotateButton } from "./key-card-actions";
 
 const USAGE_ICON = {
   git: GitBranchIcon,
@@ -143,30 +130,7 @@ export function KeyCard({ sshKey, canManage }: { sshKey: SshKey; canManage: bool
         </div>
       </div>
 
-      <div>
-        <div className="mb-1.5 text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
-          Used by
-        </div>
-        {sshKey.usedBy.length === 0 ? (
-          <span className="text-xs text-muted-foreground">Not in use</span>
-        ) : (
-          <div className="flex flex-wrap gap-1">
-            {sshKey.usedBy.map((u, i) => (
-              <span
-                key={i}
-                className="flex items-center gap-1 rounded-full border bg-muted/40 px-2 py-0.5 text-[11px]"
-              >
-                <HugeiconsIcon
-                  icon={USAGE_ICON[u.kind]}
-                  strokeWidth={2}
-                  className="size-2.5 text-muted-foreground"
-                />
-                <span className="font-mono">{u.label}</span>
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
+      <KeyUsedBy usedBy={sshKey.usedBy} />
 
       {revealed && (
         <div className="rounded-md border bg-muted/30 p-2.5">
@@ -225,107 +189,32 @@ export function KeyCard({ sshKey, canManage }: { sshKey: SshKey; canManage: bool
   );
 }
 
-function RotateButton({
-  name,
-  disabled,
-  onConfirm,
-}: {
-  name: string;
-  disabled: boolean;
-  onConfirm: () => void;
-}) {
+/** "Used by" chips — the git hosts / nodes / services this key authenticates. */
+function KeyUsedBy({ usedBy }: { usedBy: SshKey["usedBy"] }) {
   return (
-    <AlertDialog>
-      <AlertDialogTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 gap-1.5 text-muted-foreground"
-            disabled={disabled}
-          >
-            <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} className="size-3.5" />
-            Rotate
-          </Button>
-        }
-      />
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Rotate “{name}”?</AlertDialogTitle>
-          <AlertDialogDescription>
-            A new keypair replaces this one. The old public key stops working immediately — re-add
-            the new public key wherever this key is used.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel
-            render={
-              <Button variant="outline" size="sm">
-                Cancel
-              </Button>
-            }
-          />
-          <AlertDialogAction
-            render={
-              <Button size="sm" onClick={onConfirm}>
-                Rotate
-              </Button>
-            }
-          />
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  );
-}
-
-function DeleteButton({
-  name,
-  disabled,
-  onConfirm,
-}: {
-  name: string;
-  disabled: boolean;
-  onConfirm: () => void;
-}) {
-  return (
-    <AlertDialog>
-      <AlertDialogTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className={cn("text-muted-foreground hover:text-destructive")}
-            aria-label="Delete SSH key"
-            disabled={disabled}
-          >
-            <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} className="size-3.5" />
-          </Button>
-        }
-      />
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Delete “{name}”?</AlertDialogTitle>
-          <AlertDialogDescription>
-            Anything authenticating with this key will lose access. This can't be undone.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel
-            render={
-              <Button variant="outline" size="sm">
-                Cancel
-              </Button>
-            }
-          />
-          <AlertDialogAction
-            render={
-              <Button variant="destructive" size="sm" onClick={onConfirm}>
-                Delete
-              </Button>
-            }
-          />
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <div>
+      <div className="mb-1.5 text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
+        Used by
+      </div>
+      {usedBy.length === 0 ? (
+        <span className="text-xs text-muted-foreground">Not in use</span>
+      ) : (
+        <div className="flex flex-wrap gap-1">
+          {usedBy.map((u, i) => (
+            <span
+              key={i}
+              className="flex items-center gap-1 rounded-full border bg-muted/40 px-2 py-0.5 text-[11px]"
+            >
+              <HugeiconsIcon
+                icon={USAGE_ICON[u.kind]}
+                strokeWidth={2}
+                className="size-2.5 text-muted-foreground"
+              />
+              <span className="font-mono">{u.label}</span>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

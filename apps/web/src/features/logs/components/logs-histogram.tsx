@@ -39,20 +39,18 @@ export function LogsHistogram({
   selectedRange,
   onSelectRange,
 }: LogsHistogramProps) {
-  // Capture `now` once alongside the counts so the bars and their click windows
-  // share the same bucket boundaries.
-  const { buckets, starts } = useMemo(() => {
-    const now = Date.now();
-    const earliest = now - HISTOGRAM_BUCKETS * HISTOGRAM_BUCKET_MS;
-    return {
-      buckets: bucketize(lines, now),
-      starts: Array.from(
-        { length: HISTOGRAM_BUCKETS },
-        (_, i) => earliest + i * HISTOGRAM_BUCKET_MS,
-      ),
-    };
+  // `now` anchors the 30-bucket window. It's wall-clock, so reading it during
+  // render is impure — refresh it from an effect whenever `lines` change, the
+  // same cadence the live tail re-buckets at. `earliest` (and every bucket's
+  // start timestamp, `earliest + i * HISTOGRAM_BUCKET_MS`) derive from it, so
+  // the bars and their click windows always share one set of boundaries.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    setNow(Date.now());
   }, [lines]);
+  const earliest = now - HISTOGRAM_BUCKETS * HISTOGRAM_BUCKET_MS;
 
+  const buckets = useMemo(() => bucketize(lines, now), [lines, now]);
   const histoMax = useMemo(() => Math.max(1, ...buckets.map(totalCount)), [buckets]);
 
   // Drag selection: anchor = where the press started, hover = bucket under the
@@ -64,8 +62,8 @@ export function LogsHistogram({
     const commit = () => {
       const lo = Math.min(drag.anchor, drag.hover);
       const hi = Math.max(drag.anchor, drag.hover);
-      const from = starts[lo]!;
-      const to = starts[hi]! + HISTOGRAM_BUCKET_MS;
+      const from = earliest + lo * HISTOGRAM_BUCKET_MS;
+      const to = earliest + (hi + 1) * HISTOGRAM_BUCKET_MS;
       if (lo === hi) {
         // Plain click on a single bucket toggles it.
         const active = selectedRange && from < selectedRange.to && to > selectedRange.from;
@@ -77,7 +75,7 @@ export function LogsHistogram({
     };
     window.addEventListener("pointerup", commit);
     return () => window.removeEventListener("pointerup", commit);
-  }, [drag, starts, selectedRange, onSelectRange]);
+  }, [drag, earliest, selectedRange, onSelectRange]);
 
   // The contiguous bucket span to frame: the live drag preview takes precedence
   // over the committed range. One [lo, hi] drives a single continuous box rather
@@ -92,15 +90,15 @@ export function LogsHistogram({
     if (!selectedRange) return null;
     let lo = -1;
     let hi = -1;
-    for (let i = 0; i < starts.length; i++) {
-      const s = starts[i]!;
+    for (let i = 0; i < HISTOGRAM_BUCKETS; i++) {
+      const s = earliest + i * HISTOGRAM_BUCKET_MS;
       if (s < selectedRange.to && s + HISTOGRAM_BUCKET_MS > selectedRange.from) {
         if (lo === -1) lo = i;
         hi = i;
       }
     }
     return lo === -1 ? null : { lo, hi };
-  }, [drag, selectedRange, starts]);
+  }, [drag, selectedRange, earliest]);
 
   return (
     <div className="border-b px-5 pt-4 pb-2.5">
@@ -124,7 +122,7 @@ export function LogsHistogram({
       </div>
       <div className="relative flex h-14 items-stretch gap-0.5 select-none">
         {buckets.map((b, i) => {
-          const start = starts[i]!;
+          const start = earliest + i * HISTOGRAM_BUCKET_MS;
           const end = start + HISTOGRAM_BUCKET_MS;
           // Key by positional index, not `start`: `start` is an absolute
           // timestamp that slides every time the live tail recomputes `now`,
