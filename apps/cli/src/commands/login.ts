@@ -2,9 +2,11 @@ import { sleep } from "@otterdeploy/shared/promise";
 import { defineCommand } from "citty";
 import { consola } from "consola";
 
-import { CLI_CLIENT_ID, createCliAuthClient } from "../auth-client";
+import { CLI_CLIENT_ID, createCliAuthClient, type CliAuthClient } from "../auth-client";
 import { promptForUrl } from "../auth-flow";
 import { loadConfig, saveConfig } from "../config";
+
+type DeviceCodeData = NonNullable<Awaited<ReturnType<CliAuthClient["device"]["code"]>>["data"]>;
 
 export const loginCommand = defineCommand({
   meta: {
@@ -31,29 +33,10 @@ export const loginCommand = defineCommand({
     }
 
     const auth = createCliAuthClient(url);
-
-    const codeRes = await auth.device.code({
-      client_id: CLI_CLIENT_ID,
-      scope: "openid profile",
-    });
-    if (codeRes.error || !codeRes.data) {
-      consola.error(
-        `Failed to request device code: ${codeRes.error?.error_description ?? "unknown error"}`,
-      );
-      process.exit(1);
-    }
-
-    const {
-      device_code,
-      user_code,
-      verification_uri,
-      verification_uri_complete,
-      interval,
-      expires_in,
-    } = codeRes.data;
+    const code = await requestDeviceCode(auth);
     const fullUrl =
-      verification_uri_complete ??
-      `${url.replace(/\/$/, "")}${verification_uri}?user_code=${user_code}`;
+      code.verification_uri_complete ??
+      `${url.replace(/\/$/, "")}${code.verification_uri}?user_code=${code.user_code}`;
 
     consola.box(
       [
@@ -63,65 +46,80 @@ export const loginCommand = defineCommand({
         "",
         "If it doesn't open, paste it manually. Confirm the code matches:",
         "",
-        `  ${user_code}`,
+        `  ${code.user_code}`,
       ].join("\n"),
     );
     openInBrowser(fullUrl);
-    consola.info(`Waiting for approval… (code expires in ${expires_in ?? 1800}s)`);
+    consola.info(`Waiting for approval… (code expires in ${code.expires_in ?? 1800}s)`);
 
-    let pollSeconds = interval ?? 5;
-    const deadline = Date.now() + (expires_in ?? 1800) * 1000;
-
-    while (Date.now() < deadline) {
-      await sleep(pollSeconds * 1000);
-
-      const tokenRes = await auth.device.token({
-        grant_type: "urn:ietf:params:oauth:grant-type:device_code",
-        device_code,
-        client_id: CLI_CLIENT_ID,
-      });
-
-      if (tokenRes.data?.access_token) {
-        saveConfig({
-          ...loadConfig(),
-          url,
-          // The verification_uri is the web origin's /device URL —
-          // grab its origin so init can write a working $schema URL.
-          webUrl: safeOrigin(fullUrl),
-          token: tokenRes.data.access_token,
-        });
-        consola.success("Logged in.");
-        return;
-      }
-
-      const errCode = tokenRes.error?.error;
-      switch (errCode) {
-        case "authorization_pending":
-          continue;
-        case "slow_down":
-          pollSeconds += 5;
-          continue;
-        case "access_denied":
-          consola.error("Access denied.");
-          process.exit(1);
-          return;
-        case "expired_token":
-          consola.error("Device code expired. Run `otterdeploy login <url>` again.");
-          process.exit(1);
-          return;
-        default:
-          consola.error(
-            `Login failed: ${errCode ?? tokenRes.error?.error_description ?? "unknown error"}`,
-          );
-          process.exit(1);
-          return;
-      }
-    }
-
-    consola.error("Timed out waiting for approval.");
-    process.exit(1);
+    const token = await pollForDeviceToken(auth, code);
+    saveConfig({
+      ...loadConfig(),
+      url,
+      // The verification_uri is the web origin's /device URL —
+      // grab its origin so init can write a working $schema URL.
+      webUrl: safeOrigin(fullUrl),
+      token,
+    });
+    consola.success("Logged in.");
   },
 });
+
+// Request a device code, or print the failure and exit.
+async function requestDeviceCode(auth: CliAuthClient): Promise<DeviceCodeData> {
+  const codeRes = await auth.device.code({
+    client_id: CLI_CLIENT_ID,
+    scope: "openid profile",
+  });
+  if (codeRes.error || !codeRes.data) {
+    consola.error(
+      `Failed to request device code: ${codeRes.error?.error_description ?? "unknown error"}`,
+    );
+    process.exit(1);
+  }
+  return codeRes.data;
+}
+
+// Poll the token endpoint until approval, backing off on `slow_down`.
+// Returns the access token, or prints the terminal failure and exits.
+async function pollForDeviceToken(auth: CliAuthClient, code: DeviceCodeData): Promise<string> {
+  let pollSeconds = code.interval ?? 5;
+  const deadline = Date.now() + (code.expires_in ?? 1800) * 1000;
+
+  while (Date.now() < deadline) {
+    await sleep(pollSeconds * 1000);
+
+    const tokenRes = await auth.device.token({
+      grant_type: "urn:ietf:params:oauth:grant-type:device_code",
+      device_code: code.device_code,
+      client_id: CLI_CLIENT_ID,
+    });
+
+    if (tokenRes.data?.access_token) return tokenRes.data.access_token;
+
+    const errCode = tokenRes.error?.error;
+    if (errCode === "authorization_pending") continue;
+    if (errCode === "slow_down") {
+      pollSeconds += 5;
+      continue;
+    }
+    if (errCode === "access_denied") {
+      consola.error("Access denied.");
+      process.exit(1);
+    }
+    if (errCode === "expired_token") {
+      consola.error("Device code expired. Run `otterdeploy login <url>` again.");
+      process.exit(1);
+    }
+    consola.error(
+      `Login failed: ${errCode ?? tokenRes.error?.error_description ?? "unknown error"}`,
+    );
+    process.exit(1);
+  }
+
+  consola.error("Timed out waiting for approval.");
+  process.exit(1);
+}
 
 function safeOrigin(maybeUrl: string): string | undefined {
   try {

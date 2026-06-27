@@ -36,21 +36,43 @@ type Resource = (typeof resources)[number];
  * Queries declare what they `provide`.
  * Mutations declare what they `invalidate`.
  */
-interface ProcedureMeta {
+export interface ProcedureMeta {
   /** The resource this query provides data for */
   resource?: Resource;
   /** Resources this mutation will invalidate */
   invalidates?: Resource[];
 }
 
-// ─── Example Router ─────────────────────────────────────────────────
+// ─── Example: declaring meta on procedures ──────────────────────────
 
-import { z } from "zod";
-
-// Pretend these are real oRPC procedures
-declare const publicProcedure: any;
+/**
+ * Queries declare what they `provide`; mutations declare what they
+ * `invalidate`. Example metadata for a project router:
+ */
+export const exampleProcedureMeta = {
+  listEnv: { resource: "env" },
+  getProject: { resource: "project" },
+  deleteProject: { invalidates: ["project", "env", "deployment"] },
+} satisfies Record<string, ProcedureMeta>;
 
 // ─── Server-side Middleware (automatic broadcast) ───────────────────
+
+/** Mutation context exposes a broadcaster for invalidated resources. */
+interface BroadcastContext {
+  broadcast(resources: Resource[]): void;
+}
+
+/** Procedure shape carrying oRPC metadata. */
+interface MetaProcedure {
+  "~orpc"?: { meta?: ProcedureMeta };
+}
+
+/** Options handed to an oRPC-style middleware. */
+interface MiddlewareOptions<TContext extends BroadcastContext> {
+  context: TContext;
+  next: (options: { context: TContext }) => Promise<unknown>;
+  procedure: MetaProcedure;
+}
 
 /**
  * Instead of manually calling context.broadcast() in every handler,
@@ -59,7 +81,9 @@ declare const publicProcedure: any;
  *
  * This means handlers stay clean — no broadcast calls needed.
  */
-const autoBroadcastMiddleware = /* o.middleware */ (async ({ context, next, procedure }: any) => {
+export const autoBroadcastMiddleware = /* o.middleware */ async <
+  TContext extends BroadcastContext,
+>({ context, next, procedure }: MiddlewareOptions<TContext>): Promise<unknown> => {
   const result = await next({ context });
 
   const meta: ProcedureMeta | undefined = procedure["~orpc"]?.meta;
@@ -68,7 +92,7 @@ const autoBroadcastMiddleware = /* o.middleware */ (async ({ context, next, proc
   }
 
   return result;
-}) as any;
+};
 
 // ─── Invalidation Broadcaster (server) ──────────────────────────────
 
@@ -79,10 +103,10 @@ const autoBroadcastMiddleware = /* o.middleware */ (async ({ context, next, proc
  * When a mutation invalidates ["env", "project"], all clients
  * subscribed to either "env" or "project" get notified.
  */
-interface InvalidationBroadcaster {
+export interface InvalidationBroadcaster {
   /** Client sends: { type: "subscribe", resources: ["env", "project"] } */
-  onMessage(ws: any, data: string): void;
-  removeClient(ws: any): void;
+  onMessage(ws: unknown, data: string): void;
+  removeClient(ws: unknown): void;
   /** Called by middleware with the list of affected resources */
   broadcast(resources: Resource[]): void;
 }
@@ -105,7 +129,7 @@ interface InvalidationBroadcaster {
  * This mapping can be convention-based (resource name = first query key segment)
  * or explicit via a registry.
  */
-type UseResourceInvalidation = (resources: Resource[]) => void;
+export type UseResourceInvalidation = (resources: Resource[]) => void;
 
 // ─── Summary ────────────────────────────────────────────────────────
 

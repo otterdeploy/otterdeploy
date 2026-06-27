@@ -12,8 +12,10 @@ import { sleep } from "@otterdeploy/shared/promise";
 import { consola } from "consola";
 import * as z from "zod";
 
-import { CLI_CLIENT_ID, createCliAuthClient } from "./auth-client";
+import { CLI_CLIENT_ID, createCliAuthClient, type CliAuthClient } from "./auth-client";
 import { loadConfig, resolveToken, resolveUrl, saveConfig } from "./config";
+
+type DeviceCodeData = NonNullable<Awaited<ReturnType<CliAuthClient["device"]["code"]>>["data"]>;
 
 /**
  * Ask the operator for the control plane URL on stdin when none was supplied
@@ -67,27 +69,10 @@ export async function ensureAuthenticated(urlOverride?: string): Promise<AuthedS
 
 async function deviceCodeLogin(url: string): Promise<{ token: string; webUrl?: string }> {
   const auth = createCliAuthClient(url);
-
-  const codeRes = await auth.device.code({
-    client_id: CLI_CLIENT_ID,
-    scope: "openid profile",
-  });
-  if (codeRes.error || !codeRes.data) {
-    throw new Error(
-      `Failed to request device code: ${codeRes.error?.error_description ?? "unknown error"}`,
-    );
-  }
-  const {
-    device_code,
-    user_code,
-    verification_uri,
-    verification_uri_complete,
-    interval,
-    expires_in,
-  } = codeRes.data;
+  const code = await requestDeviceCode(auth);
   const fullUrl =
-    verification_uri_complete ??
-    `${url.replace(/\/$/, "")}${verification_uri}?user_code=${user_code}`;
+    code.verification_uri_complete ??
+    `${url.replace(/\/$/, "")}${code.verification_uri}?user_code=${code.user_code}`;
 
   consola.box(
     [
@@ -97,45 +82,67 @@ async function deviceCodeLogin(url: string): Promise<{ token: string; webUrl?: s
       "",
       "If it doesn't open, paste it manually. Confirm the code matches:",
       "",
-      `  ${user_code}`,
+      `  ${code.user_code}`,
     ].join("\n"),
   );
   openInBrowser(fullUrl);
 
-  let pollSeconds = interval ?? 5;
-  const deadline = Date.now() + (expires_in ?? 1800) * 1000;
+  const token = await pollForDeviceToken(auth, code);
+  // verification_uri carries the web origin (in dev that's a different host
+  // than the API). Capture it so init can build a proper $schema URL without
+  // a separate config endpoint.
+  return { token, webUrl: safeOrigin(fullUrl) };
+}
+
+// Request a device code, throwing on failure.
+async function requestDeviceCode(auth: CliAuthClient): Promise<DeviceCodeData> {
+  const codeRes = await auth.device.code({
+    client_id: CLI_CLIENT_ID,
+    scope: "openid profile",
+  });
+  if (codeRes.error || !codeRes.data) {
+    throw new Error(
+      `Failed to request device code: ${codeRes.error?.error_description ?? "unknown error"}`,
+    );
+  }
+  return codeRes.data;
+}
+
+// Poll the token endpoint until approval, backing off on `slow_down`.
+// Returns the access token or throws a terminal error.
+async function pollForDeviceToken(auth: CliAuthClient, code: DeviceCodeData): Promise<string> {
+  let pollSeconds = code.interval ?? 5;
+  const deadline = Date.now() + (code.expires_in ?? 1800) * 1000;
 
   while (Date.now() < deadline) {
     await sleep(pollSeconds * 1000);
     const tokenRes = await auth.device.token({
       grant_type: "urn:ietf:params:oauth:grant-type:device_code",
-      device_code,
+      device_code: code.device_code,
       client_id: CLI_CLIENT_ID,
     });
-    if (tokenRes.data?.access_token) {
-      // verification_uri carries the web origin (in dev that's a
-      // different host than the API). Capture it so init can build a
-      // proper $schema URL without a separate config endpoint.
-      let webUrl: string | undefined;
-      try {
-        webUrl = new URL(fullUrl).origin;
-      } catch {
-        webUrl = undefined;
-      }
-      return { token: tokenRes.data.access_token, webUrl };
-    }
+    if (tokenRes.data?.access_token) return tokenRes.data.access_token;
 
-    const code = tokenRes.error?.error;
-    if (code === "authorization_pending") continue;
-    if (code === "slow_down") {
+    const errCode = tokenRes.error?.error;
+    if (errCode === "authorization_pending") continue;
+    if (errCode === "slow_down") {
       pollSeconds += 5;
       continue;
     }
-    if (code === "access_denied") throw new Error("Access denied.");
-    if (code === "expired_token") throw new Error("Device code expired.");
-    throw new Error(`Login failed: ${code ?? tokenRes.error?.error_description ?? "unknown"}`);
+    if (errCode === "access_denied") throw new Error("Access denied.");
+    if (errCode === "expired_token") throw new Error("Device code expired.");
+    throw new Error(`Login failed: ${errCode ?? tokenRes.error?.error_description ?? "unknown"}`);
   }
   throw new Error("Timed out waiting for approval.");
+}
+
+// Best-effort origin extraction; undefined when the string isn't a valid URL.
+function safeOrigin(maybeUrl: string): string | undefined {
+  try {
+    return new URL(maybeUrl).origin;
+  } catch {
+    return undefined;
+  }
 }
 
 function openInBrowser(url: string): void {

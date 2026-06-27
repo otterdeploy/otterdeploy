@@ -18,6 +18,7 @@ import type { DeploymentId, ProjectId, ResourceId } from "./id";
  * `OTTERDEPLOY_DATA_DIR` when `/data` isn't writable (e.g. local dev, or an
  * unprivileged host). No trailing slash.
  */
+// oxlint-disable-next-line node/no-process-env -- env boundary: this is a pure, side-effect-free path module imported by every layer (builder, api); reading the raw var keeps full `@otterdeploy/env` validation out of its import graph (see file header + packages/api/src/runtime/index.ts for the same pattern).
 export const DATA_ROOT = (process.env.OTTERDEPLOY_DATA_DIR ?? "/data/otterdeploy").replace(
   /\/+$/,
   "",

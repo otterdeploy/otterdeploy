@@ -17,9 +17,16 @@ const ConfigSchema = z.object({
 });
 export type Config = z.infer<typeof ConfigSchema>;
 
+// The `otterdeploy` binary is a standalone end-user CLI: its env vars
+// (OTTERDEPLOY_*, XDG_CONFIG_HOME) aren't part of the server/web runtime
+// schema, so it reads them here rather than depending on @otterdeploy/env.
+// This module is the CLI's env boundary.
+// oxlint-disable-next-line node/no-process-env -- standalone CLI env boundary (see comment above)
+const env = process.env;
+
 const CONFIG_DIR =
-  process.env.OTTERDEPLOY_CONFIG_DIR ??
-  join(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config"), "otterdeploy");
+  env.OTTERDEPLOY_CONFIG_DIR ??
+  join(env.XDG_CONFIG_HOME ?? join(homedir(), ".config"), "otterdeploy");
 const CONFIG_PATH = join(CONFIG_DIR, "config.json");
 
 export function loadConfig(): Config {
@@ -48,10 +55,10 @@ export function clearConfig(): void {
 
 // Resolution order: --url flag > OTTERDEPLOY_URL env > stored config.
 export function resolveUrl(flag?: string): string | undefined {
-  return flag ?? process.env.OTTERDEPLOY_URL ?? loadConfig().url;
+  return flag ?? env.OTTERDEPLOY_URL ?? loadConfig().url;
 }
 
 // CI auth: OTTERDEPLOY_TOKEN bypasses the device-code flow entirely.
 export function resolveToken(): string | undefined {
-  return process.env.OTTERDEPLOY_TOKEN ?? loadConfig().token;
+  return env.OTTERDEPLOY_TOKEN ?? loadConfig().token;
 }

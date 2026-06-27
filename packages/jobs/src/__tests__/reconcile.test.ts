@@ -35,6 +35,21 @@ interface JoinInfo {
   projectName: string;
 }
 
+// Index into the in-memory rows with a hard guard, so a missing row fails the
+// test loudly instead of leaning on a non-null assertion (which the linter
+// forbids and which would mask a genuine reconcile regression).
+function firstRow(rows: Row[]): Row {
+  const [row] = rows;
+  if (!row) throw new Error("expected at least one deployment row");
+  return row;
+}
+
+function rowById(rows: Row[], id: string): Row {
+  const row = rows.find((r) => r.id === id);
+  if (!row) throw new Error(`expected a deployment row with id ${id}`);
+  return row;
+}
+
 // ─── db mock ─────────────────────────────────────────────────────────────
 
 function makeDb(rows: Row[], joins: Record<string, JoinInfo> = {}) {
@@ -82,9 +97,10 @@ function makeDb(rows: Row[], joins: Record<string, JoinInfo> = {}) {
         }
         if (pred?.__allowed) {
           // orphan candidates: pending|building
+          const allowed = pred.__allowed;
           return chain(
             rows
-              .filter((r) => pred.__allowed!.includes(r.status))
+              .filter((r) => allowed.includes(r.status))
               .map((r) => ({ id: r.id, resourceId: r.resourceId })),
           );
         }
@@ -144,7 +160,11 @@ void mock.module("drizzle-orm", () => ({
   eq: (col: { __col?: string }, val: unknown) =>
     col?.__col === "id" ? { __id: val } : { __eq: val },
   inArray: (_col: unknown, vals: Status[]) => ({ __allowed: vals }),
-  and: (...parts: Array<Record<string, unknown>>) => Object.assign({}, ...parts),
+  and: (...parts: Array<Record<string, unknown>>): Record<string, unknown> => {
+    const merged: Record<string, unknown> = {};
+    for (const part of parts) Object.assign(merged, part);
+    return merged;
+  },
   desc: (col: unknown) => col,
 }));
 
@@ -176,7 +196,7 @@ function makeGetQueue(ownedDeploymentIds: string[][]) {
 // emitEvent is injected per call rather than module-mocked, so reconcile's
 // import graph never pulls in the notification/email delivery stack.
 
-const triggerSpy = mock(async () => undefined as unknown);
+const triggerSpy = mock(async (_event: unknown) => undefined as unknown);
 
 // always-acquire lock for the happy paths
 const acquire = () => Promise.resolve(async () => undefined);
@@ -207,10 +227,12 @@ describe("reconcileInterruptedDeployments", () => {
     });
 
     expect(summary).toEqual({ acquired: true, failed: 1, superseded: 0 });
-    expect(rows[0].status).toBe("failed");
-    expect(rows[0].errorMessage).toContain("Interrupted by restart");
+    expect(firstRow(rows).status).toBe("failed");
+    expect(firstRow(rows).errorMessage).toContain("Interrupted by restart");
     expect(triggerSpy).toHaveBeenCalledTimes(1);
-    expect(triggerSpy.mock.calls[0][0]).toMatchObject({
+    const [firstCall] = triggerSpy.mock.calls;
+    expect(firstCall).toBeDefined();
+    expect(firstCall?.[0]).toMatchObject({
       eventId: "deploy.failed",
       severity: "err",
       organizationId: "o1",
@@ -229,7 +251,7 @@ describe("reconcileInterruptedDeployments", () => {
     });
 
     expect(summary).toEqual({ acquired: true, failed: 0, superseded: 0 });
-    expect(rows[0].status).toBe("building");
+    expect(firstRow(rows).status).toBe("building");
     expect(triggerSpy).not.toHaveBeenCalled();
   });
 
@@ -245,7 +267,7 @@ describe("reconcileInterruptedDeployments", () => {
     });
 
     expect(summary.failed).toBe(1);
-    expect(rows[0].status).toBe("failed");
+    expect(firstRow(rows).status).toBe("failed");
   });
 
   test("(d) mixed batch — only unreferenced rows reset", async () => {
@@ -264,9 +286,9 @@ describe("reconcileInterruptedDeployments", () => {
     });
 
     expect(summary.failed).toBe(2);
-    expect(rows.find((r) => r.id === "d1")!.status).toBe("failed");
-    expect(rows.find((r) => r.id === "d2")!.status).toBe("pending");
-    expect(rows.find((r) => r.id === "d3")!.status).toBe("failed");
+    expect(rowById(rows, "d1").status).toBe("failed");
+    expect(rowById(rows, "d2").status).toBe("pending");
+    expect(rowById(rows, "d3").status).toBe("failed");
   });
 
   test("(e) duplicate running same resourceId → older superseded, newest kept; different resource untouched", async () => {
@@ -285,9 +307,9 @@ describe("reconcileInterruptedDeployments", () => {
     });
 
     expect(summary.superseded).toBe(1);
-    expect(rows.find((r) => r.id === "new")!.status).toBe("running");
-    expect(rows.find((r) => r.id === "old")!.status).toBe("superseded");
-    expect(rows.find((r) => r.id === "solo")!.status).toBe("running");
+    expect(rowById(rows, "new").status).toBe("running");
+    expect(rowById(rows, "old").status).toBe("superseded");
+    expect(rowById(rows, "solo").status).toBe("running");
   });
 
   test("(f) idempotency — second run does nothing", async () => {
@@ -309,7 +331,7 @@ describe("reconcileInterruptedDeployments", () => {
       emit: false,
     });
     expect(second).toEqual({ acquired: true, failed: 0, superseded: 0 });
-    expect(rows[0].status).toBe("failed");
+    expect(firstRow(rows).status).toBe("failed");
   });
 
   test("(g) lock not acquired → no-op", async () => {
@@ -324,7 +346,7 @@ describe("reconcileInterruptedDeployments", () => {
     });
 
     expect(summary).toEqual({ acquired: false, failed: 0, superseded: 0 });
-    expect(rows[0].status).toBe("building");
+    expect(firstRow(rows).status).toBe("building");
     expect(getJobs).not.toHaveBeenCalled();
     expect(triggerSpy).not.toHaveBeenCalled();
   });
@@ -347,7 +369,7 @@ describe("reconcileInterruptedDeployments", () => {
     });
 
     expect(summary.failed).toBe(1);
-    expect(rows[0].status).toBe("failed");
+    expect(firstRow(rows).status).toBe("failed");
     expect(triggerSpy).toHaveBeenCalledTimes(1);
   });
 });

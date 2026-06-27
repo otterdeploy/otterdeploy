@@ -130,8 +130,8 @@ export async function upsertCloudflareDnsRecord(input: {
     `/zones/${encodeURIComponent(input.zoneId)}/dns_records?type=${input.type}&name=${encodeURIComponent(input.name)}`,
     input.token,
   );
-  if (existing.length > 0) {
-    const target = existing[0]!;
+  const target = existing[0];
+  if (target) {
     await cfFetch<DnsRecord>(
       `/zones/${encodeURIComponent(input.zoneId)}/dns_records/${target.id}`,
       input.token,

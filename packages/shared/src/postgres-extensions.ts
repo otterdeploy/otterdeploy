@@ -135,13 +135,16 @@ export function resolvePostgresImage(
     imageToExt.set(meta.image, list);
   }
 
-  if (imageToExt.size === 0) {
+  const distinctImages = [...imageToExt.keys()];
+  if (distinctImages.length > 1) {
+    // More than one distinct non-contrib image required — incompatible.
+    return { ok: false, conflict: [...imageToExt.values()].flat() };
+  }
+  // `[0]` is `string | undefined` under noUncheckedIndexedAccess. Undefined ⇒
+  // no non-contrib extension enabled ⇒ stay on the default image.
+  const image = distinctImages[0];
+  if (image === undefined) {
     return { ok: true, image: defaultImage, changed: false };
   }
-  if (imageToExt.size === 1) {
-    const image = [...imageToExt.keys()][0]!;
-    return { ok: true, image, changed: image !== defaultImage };
-  }
-  // More than one distinct non-contrib image required — incompatible.
-  return { ok: false, conflict: [...imageToExt.values()].flat() };
+  return { ok: true, image, changed: image !== defaultImage };
 }

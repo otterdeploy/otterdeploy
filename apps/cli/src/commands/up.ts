@@ -63,42 +63,7 @@ export const upCommand = defineCommand({
 
     // ─── Scaffold (only when there's no config yet) ───────────────────
     if (!haveConfig) {
-      const defaultSlug = slugify(basename(process.cwd()));
-      const slug =
-        args.slug ??
-        (args.yes || args.json
-          ? defaultSlug
-          : await consola.prompt("Project slug:", {
-              type: "text",
-              initial: defaultSlug,
-              default: defaultSlug,
-            }));
-      const name = args.name ?? slug;
-
-      // create, or link if the slug is already taken (same as `init`).
-      let project: { id: string; slug: string };
-      try {
-        project = await client.project.create({ name, slug });
-        consola.success(`Created project ${slug}`);
-      } catch (error) {
-        if ((error as { code?: string }).code !== "CONFLICT") throw error;
-        project = await client.project.getBySlug({ slug });
-        consola.info(`Linked to existing project ${slug}`);
-      }
-
-      // $schema lives on the web origin (captured at login), not the API.
-      const schemaHost = loadCliConfig().webUrl ?? url;
-      writeConfigTemplate({
-        path: targetPath,
-        schemaUrl: `${schemaHost.replace(/\/$/, "")}/otterdeploy.schema.json`,
-        projectSlug: project.slug,
-      });
-      consola.success(`Wrote ${targetPath}`);
-
-      // A bare template deploys nothing useful — offer a first service.
-      if (!args.yes && !args.json) {
-        await maybeAddFirstService(args.config);
-      }
+      await scaffoldProject(client, args, url, targetPath);
     }
 
     // ─── Deploy (same path as `sync`) ─────────────────────────────────
@@ -166,6 +131,61 @@ export const upCommand = defineCommand({
     }
   },
 });
+
+type CliClient = ReturnType<typeof createCliClient>;
+interface ScaffoldArgs {
+  config?: string;
+  slug?: string;
+  name?: string;
+  yes?: boolean;
+  json?: boolean;
+}
+
+// Create (or link) the project and write a starter config when none exists.
+// Mirrors `init` — then offers an interactive first service unless headless.
+async function scaffoldProject(
+  client: CliClient,
+  args: ScaffoldArgs,
+  url: string,
+  targetPath: string,
+): Promise<void> {
+  const defaultSlug = slugify(basename(process.cwd()));
+  const slug =
+    args.slug ??
+    (args.yes || args.json
+      ? defaultSlug
+      : await consola.prompt("Project slug:", {
+          type: "text",
+          initial: defaultSlug,
+          default: defaultSlug,
+        }));
+  const name = args.name ?? slug;
+
+  // create, or link if the slug is already taken (same as `init`).
+  let project: { id: string; slug: string };
+  try {
+    project = await client.project.create({ name, slug });
+    consola.success(`Created project ${slug}`);
+  } catch (error) {
+    if ((error as { code?: string }).code !== "CONFLICT") throw error;
+    project = await client.project.getBySlug({ slug });
+    consola.info(`Linked to existing project ${slug}`);
+  }
+
+  // $schema lives on the web origin (captured at login), not the API.
+  const schemaHost = loadCliConfig().webUrl ?? url;
+  writeConfigTemplate({
+    path: targetPath,
+    schemaUrl: `${schemaHost.replace(/\/$/, "")}/otterdeploy.schema.json`,
+    projectSlug: project.slug,
+  });
+  consola.success(`Wrote ${targetPath}`);
+
+  // A bare template deploys nothing useful — offer a first service.
+  if (!args.yes && !args.json) {
+    await maybeAddFirstService(args.config);
+  }
+}
 
 // Interactive first-service builder. Mirrors `add service`'s manifest
 // shape; skipped entirely in non-interactive mode.

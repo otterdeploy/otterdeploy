@@ -5,6 +5,22 @@ import { ensureAuthenticated } from "../auth-flow";
 import { createCliClient } from "../client";
 import { configExists, loadConfig } from "../config-file";
 
+// Mirrors the API's `resourceLogEventSchema` (docker task tails).
+interface ResourceLogEvent {
+  stream: "stdout" | "stderr" | "system";
+  line: string;
+  ts: string | null;
+}
+
+// Render one log event for stdout. `--json` emits the raw event verbatim;
+// otherwise prefix with a timestamp and a stream tag ([err]/[sys]).
+function formatEvent(event: ResourceLogEvent, json: boolean): string {
+  if (json) return `${JSON.stringify(event)}\n`;
+  const tag = event.stream === "stderr" ? "[err]" : event.stream === "system" ? "[sys]" : "";
+  const ts = event.ts ? `${event.ts} ` : "";
+  return `${ts}${tag}${tag ? " " : ""}${event.line}\n`;
+}
+
 export const logsCommand = defineCommand({
   meta: {
     name: "logs",
@@ -63,13 +79,7 @@ export const logsCommand = defineCommand({
     try {
       for await (const event of stream) {
         if (stopping) break;
-        if (args.json) {
-          process.stdout.write(`${JSON.stringify(event)}\n`);
-          continue;
-        }
-        const tag = event.stream === "stderr" ? "[err]" : event.stream === "system" ? "[sys]" : "";
-        const ts = event.ts ? `${event.ts} ` : "";
-        process.stdout.write(`${ts}${tag}${tag ? " " : ""}${event.line}\n`);
+        process.stdout.write(formatEvent(event, Boolean(args.json)));
       }
     } catch (error) {
       if (!stopping) throw error;

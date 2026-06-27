@@ -58,12 +58,14 @@ function ipToBigInt(ip: string): bigint | null {
 /** Expand a (possibly `::`-compressed) IPv6 literal to a 128-bit BigInt. */
 function ipv6ToBigInt(ip: string): bigint | null {
   // Drop a zone id if present (fe80::1%en0) — irrelevant for range checks.
-  const bare = ip.split("%")[0]!;
+  const [bare = ""] = ip.split("%");
   const halves = bare.split("::");
   if (halves.length > 2) return null;
 
-  const head = halves[0] ? halves[0]!.split(":") : [];
-  const tail = halves.length === 2 && halves[1] ? halves[1]!.split(":") : [];
+  const first = halves[0];
+  const second = halves[1];
+  const head = first ? first.split(":") : [];
+  const tail = halves.length === 2 && second ? second.split(":") : [];
   const missing = 8 - (head.length + tail.length);
   if (missing < 0 || (halves.length === 1 && head.length !== 8)) return null;
 
@@ -80,9 +82,10 @@ function ipv6ToBigInt(ip: string): bigint | null {
 
 function inCidr(ip: string, cidr: string): boolean {
   const [network, bitsStr] = cidr.split("/");
+  if (network == null) return false;
   const bits = Number(bitsStr);
   const ipVal = ipToBigInt(ip);
-  const netVal = ipToBigInt(network!);
+  const netVal = ipToBigInt(network);
   if (ipVal == null || netVal == null) return false;
 
   const isV6 = cidr.includes(":");

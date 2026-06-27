@@ -1,3 +1,10 @@
+// oxlint-disable eslint/max-lines -- Vendored verbatim from npm `temporal-spec@0.3.1`
+// (ISC; see ./README.md). It is one self-contained `Temporal` namespace whose
+// members cross-reference by unqualified name, so it cannot be split across
+// modules (an `export namespace` can't merge across files). It is recopied as-is
+// on update — generated/vendored, not hand-maintained source — so the project
+// line limit does not apply.
+
 /*
 NOTE: keep synced with all other definition files
 */
