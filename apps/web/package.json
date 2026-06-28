@@ -94,6 +94,7 @@
     "@vitest/ui": "^4.1.7",
     "babel-plugin-react-compiler": "^1.0.0",
     "postcss": "^8.5.15",
+    "shadcn": "^4.6.0",
     "tailwindcss": "^4.3.0",
     "typescript": "catalog:",
     "vite": "^8.0.14",
