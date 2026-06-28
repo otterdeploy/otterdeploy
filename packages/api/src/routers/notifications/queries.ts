@@ -121,7 +121,10 @@ export async function insertChannel(values: {
   encryptedSecret: string | null;
 }): Promise<NotificationChannelRow> {
   const [row] = await db.insert(notificationChannel).values(values).returning();
-  return row!;
+  if (!row) {
+    throw new Error("insertChannel: insert returned no row");
+  }
+  return row;
 }
 
 export async function updateChannel(

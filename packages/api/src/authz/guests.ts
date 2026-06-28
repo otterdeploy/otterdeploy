@@ -60,7 +60,8 @@ export async function upsertGuest(input: {
       sessionHours: deploymentGuest.sessionHours,
       createdAt: deploymentGuest.createdAt,
     });
-  return row!;
+  if (!row) throw new Error("upsertGuest: insert returned no row");
+  return row;
 }
 
 export async function removeGuest(

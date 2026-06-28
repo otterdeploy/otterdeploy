@@ -9,8 +9,8 @@ import type { FC, PropsWithChildren } from "hono/jsx";
 
 import { raw } from "hono/html";
 
-import { consoleFrameCss } from "./deploy-protection-frame-css";
-import { deniedCss, errorPageExtraCss, interstitialExtraCss } from "./deploy-protection-page-css";
+import { consoleFrameCss } from "./css/frame";
+import { deniedCss, errorPageExtraCss, interstitialExtraCss } from "./css/page";
 
 /** Shared document shell: a black, centered, full-height page with the
  *  branded footer. `css`/`headExtra` are page-specific; Hono JSX won't add a

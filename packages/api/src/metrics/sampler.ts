@@ -92,6 +92,31 @@ function readSecondFrame(stream: Readable, timeoutMs = 3000): Promise<DockerStat
   });
 }
 
+/** Read one container's stats frame into a metric row. Resolves null when the
+ *  stats read fails or the second frame never arrives. */
+async function readContainerMetric(
+  docker: Docker,
+  containerId: string,
+  resourceId: ResourceId,
+): Promise<typeof resourceMetric.$inferInsert | null> {
+  const statsResult = await docker.containers.getContainer(containerId).stats({ stream: true });
+  if (statsResult.isErr()) return null;
+
+  const frame = await readSecondFrame(statsResult.value as Readable);
+  if (!frame) return null;
+
+  const net = sumNetwork(frame);
+  return {
+    resourceId,
+    containerId,
+    cpuPct: computeCpuPct(frame),
+    memBytes: frame.memory_stats?.usage ?? 0,
+    memLimitBytes: frame.memory_stats?.limit ?? 0,
+    netRxBytes: net.rx,
+    netTxBytes: net.tx,
+  };
+}
+
 /** One sampling pass. Safe to call repeatedly; self-guards against overlap. */
 let running = false;
 export async function sampleAllContainers(): Promise<void> {
@@ -116,24 +141,8 @@ export async function sampleAllContainers(): Promise<void> {
       const health = healthFromStatus(container.Status);
       if (health) healthObserved.push({ resourceId: resourceId as ResourceId, health });
 
-      const statsResult = await docker.containers
-        .getContainer(container.Id)
-        .stats({ stream: true });
-      if (statsResult.isErr()) continue;
-
-      const frame = await readSecondFrame(statsResult.value as Readable);
-      if (!frame) continue;
-
-      const net = sumNetwork(frame);
-      rows.push({
-        resourceId: resourceId as ResourceId,
-        containerId: container.Id,
-        cpuPct: computeCpuPct(frame),
-        memBytes: frame.memory_stats?.usage ?? 0,
-        memLimitBytes: frame.memory_stats?.limit ?? 0,
-        netRxBytes: net.rx,
-        netTxBytes: net.tx,
-      });
+      const row = await readContainerMetric(docker, container.Id, resourceId as ResourceId);
+      if (row) rows.push(row);
     }
 
     if (rows.length > 0) {

@@ -20,9 +20,8 @@
  *  - GET /.well-known/otterdeploy/share        (on the deployment domain)
  *      Exchanges a shareable-link token for a __otter_share cookie.
  *
- * The guest (email-OTP) routes live in ./deploy-protection-guest and are
- * re-exported below; the wall pages live in ./deploy-protection-frame and
- * ./deploy-protection-wall; shared helpers in ./deploy-protection-shared.
+ * The guest (email-OTP) routes live in ./guest and are re-exported below;
+ * the wall pages live in ./ui/frame and ./ui/wall; shared helpers in ./shared.
  *
  * See docs/designs/deployment-protection.md §4, §7, §8, §9.
  */
@@ -45,7 +44,7 @@ import { Result } from "better-result";
 import { log } from "evlog";
 import { getCookie, setCookie } from "hono/cookie";
 
-import { Denied, Interstitial } from "./deploy-protection-frame";
+import { Denied, Interstitial } from "./ui/frame";
 import {
   allow,
   authTargetDomain,
@@ -62,14 +61,14 @@ import {
   SHARE_COOKIE,
   SHARE_COOKIE_MAX_AGE,
   WEB_BASE,
-} from "./deploy-protection-shared";
-import { AccessWall } from "./deploy-protection-wall";
+} from "./shared";
+import { AccessWall } from "./ui/wall";
 
 export {
   deployAccessHandler,
   deployOtpRequestHandler,
   deployOtpVerifyHandler,
-} from "./deploy-protection-guest";
+} from "./guest";
 
 /** forward_auth target. Allow → 200; deny/unauthenticated → non-2xx that
  *  Caddy relays to the browser. */

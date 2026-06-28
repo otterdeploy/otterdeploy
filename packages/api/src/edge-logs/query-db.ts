@@ -27,6 +27,38 @@ const STATUS_RANGE: Record<string, [number, number]> = {
   "5xx": [500, 600],
 };
 
+function statusCondition(statuses: NonNullable<EdgeLogFilter["statuses"]>): SQL | undefined {
+  const ranges: SQL[] = [];
+  for (const s of statuses) {
+    const range = STATUS_RANGE[s];
+    if (!range) continue;
+    const cond = and(gte(edgeLog.status, range[0]), lt(edgeLog.status, range[1]));
+    if (cond) ranges.push(cond);
+  }
+  return ranges.length === 1 ? ranges[0] : or(...ranges);
+}
+
+function searchCondition(search: string): SQL | undefined {
+  const like = `%${search}%`;
+  return or(ilike(edgeLog.path, like), ilike(edgeLog.clientIp, like), ilike(edgeLog.method, like));
+}
+
+function buildConditions(filter: EdgeLogFilter, now: number): SQL[] {
+  const since = new Date(now - RANGE_MS[filter.range]);
+  const conds: SQL[] = [inArray(edgeLog.host, filter.hosts), gte(edgeLog.ts, since)];
+  if (filter.selectedHosts?.length) conds.push(inArray(edgeLog.host, filter.selectedHosts));
+  if (filter.methods?.length) conds.push(inArray(edgeLog.method, filter.methods));
+  if (filter.statuses?.length) {
+    const cond = statusCondition(filter.statuses);
+    if (cond) conds.push(cond);
+  }
+  if (filter.search) {
+    const cond = searchCondition(filter.search);
+    if (cond) conds.push(cond);
+  }
+  return conds;
+}
+
 export async function queryEdgeLogsDb(
   filter: EdgeLogFilter,
   now: number,
@@ -35,27 +67,7 @@ export async function queryEdgeLogsDb(
     return { rows: [], histogram: [], hostStats: [], total: 0 };
   }
 
-  const since = new Date(now - RANGE_MS[filter.range]);
-  const conds: SQL[] = [inArray(edgeLog.host, filter.hosts), gte(edgeLog.ts, since)];
-  if (filter.selectedHosts?.length) conds.push(inArray(edgeLog.host, filter.selectedHosts));
-  if (filter.methods?.length) conds.push(inArray(edgeLog.method, filter.methods));
-  if (filter.statuses?.length) {
-    const ranges = filter.statuses.map((s) => {
-      const [lo, hi] = STATUS_RANGE[s]!;
-      return and(gte(edgeLog.status, lo), lt(edgeLog.status, hi))!;
-    });
-    const combined = ranges.length === 1 ? ranges[0]! : or(...ranges);
-    if (combined) conds.push(combined);
-  }
-  if (filter.search) {
-    const like = `%${filter.search}%`;
-    const m = or(
-      ilike(edgeLog.path, like),
-      ilike(edgeLog.clientIp, like),
-      ilike(edgeLog.method, like),
-    );
-    if (m) conds.push(m);
-  }
+  const conds = buildConditions(filter, now);
 
   const records = await db
     .select()

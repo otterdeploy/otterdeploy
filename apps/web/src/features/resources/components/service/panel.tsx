@@ -8,18 +8,14 @@
 
 import { Activity, useState } from "react";
 
-import { ArrowLeft01Icon, Cancel01Icon, RefreshIcon, RocketIcon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import type { FrameworkKind } from "@/features/projects/components/framework-logo";
 
-import { PanelIcon } from "@/features/resources/components/_shared/atoms";
 import { MetricsTab } from "@/features/resources/components/_shared/metrics/metrics-tab";
 import { ResourceTasksTab } from "@/features/resources/components/_shared/resource-tasks-tab";
 import { ResourceTerminal } from "@/features/resources/components/_shared/resource-terminal";
-import { Button } from "@/shared/components/ui/button";
 import {
   Tabs,
   TabsContent,
@@ -29,6 +25,7 @@ import {
 } from "@/shared/components/ui/tabs";
 import { orpc } from "@/shared/server/orpc";
 
+import { ServicePanelHeader, ServiceStatusBar } from "./panel-parts";
 import { ServiceSettingsBody } from "./tabs/settings";
 import { ServiceVariablesTabBody } from "./tabs/variables";
 
@@ -105,90 +102,33 @@ export function ServiceResourcePanel({
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="flex items-start justify-between gap-4 px-6 pt-6">
-        <div className="flex items-start gap-3">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Back to graph"
-            onClick={onClose}
-            className="mt-1"
-          >
-            <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="size-4" />
-          </Button>
-          <PanelIcon
-            node={{
-              kind: "service",
-              name: resource.name,
-              description: resource.image,
-              framework,
-            }}
-          />
-          <div className="flex flex-col gap-0.5">
-            <span className="text-xl leading-none font-bold tracking-tight">{resource.name}</span>
-            <span className="font-mono text-xs text-muted-foreground">{resource.image}</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* Runtime actions need a deployed service — omit them while the
-              service is still a staged create (Deploy from the pending bar). */}
-          {pending ? null : (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  restartMut.mutate({
-                    projectId: resource.projectId as never,
-                    resourceId: resource.resourceId as never,
-                  })
-                }
-                disabled={restartMut.isPending}
-              >
-                <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} className="size-3.5" />
-                {restartMut.isPending ? "Restarting…" : "Restart"}
-              </Button>
-              {resource.source === "git" ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() =>
-                    buildMut.mutate({
-                      projectId: resource.projectId as never,
-                      resourceId: resource.resourceId as never,
-                    })
-                  }
-                  disabled={buildMut.isPending}
-                >
-                  <HugeiconsIcon icon={RocketIcon} strokeWidth={2} className="size-3.5" />
-                  {buildMut.isPending ? "Starting…" : "Build & deploy"}
-                </Button>
-              ) : null}
-            </>
-          )}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Close panel"
-            onClick={onClose}
-          >
-            <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-4" />
-          </Button>
-        </div>
-      </div>
+      <ServicePanelHeader
+        resource={resource}
+        framework={framework}
+        pending={pending}
+        onClose={onClose}
+        onRestart={() =>
+          restartMut.mutate({
+            projectId: resource.projectId as never,
+            resourceId: resource.resourceId as never,
+          })
+        }
+        restarting={restartMut.isPending}
+        onBuild={() =>
+          buildMut.mutate({
+            projectId: resource.projectId as never,
+            resourceId: resource.resourceId as never,
+          })
+        }
+        building={buildMut.isPending}
+      />
 
-      <div className="mt-5 flex items-center gap-3 border-t border-border/40 px-6 py-3">
-        <StatusBadge status={resource.status} />
-        <span className="text-[13px] text-muted-foreground">
-          {resource.replicas} desired replica{resource.replicas === 1 ? "" : "s"}
-          {resource.publicEnabled && resource.publicDomain
-            ? ` · public on ${resource.publicDomain}`
-            : ""}
-        </span>
-      </div>
+      <ServiceStatusBar
+        status={resource.status}
+        replicas={resource.replicas}
+        publicEnabled={resource.publicEnabled}
+        publicDomain={resource.publicDomain}
+      />
 
       <Tabs
         value={tab}
@@ -279,23 +219,5 @@ export function ServiceResourcePanel({
         </div>
       </Tabs>
     </div>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const tone =
-    status === "valid"
-      ? "bg-success/12 text-success"
-      : status === "draft"
-        ? "bg-warning/12 text-warning"
-        : status === "invalid"
-          ? "bg-destructive/12 text-destructive"
-          : "bg-muted text-muted-foreground";
-  return (
-    <span
-      className={`rounded-md px-2 py-1 font-mono text-[10.5px] font-semibold tracking-[0.18em] ${tone}`}
-    >
-      {status.toUpperCase()}
-    </span>
   );
 }

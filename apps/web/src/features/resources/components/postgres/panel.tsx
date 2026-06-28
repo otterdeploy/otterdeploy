@@ -8,22 +8,12 @@
 
 import { Activity, useState } from "react";
 
-import { ArrowLeft01Icon, Cancel01Icon, RefreshIcon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import type { ResourceEngine } from "@/features/projects/components/graph/resource-node";
-
-import { PanelIcon } from "@/features/resources/components/_shared/atoms";
-import { UnsupportedDataViewer } from "@/features/resources/components/_shared/data/unsupported-data-viewer";
 import { MetricsTab } from "@/features/resources/components/_shared/metrics/metrics-tab";
 import { ResourceTasksTab } from "@/features/resources/components/_shared/resource-tasks-tab";
 import { ResourceTerminal } from "@/features/resources/components/_shared/resource-terminal";
-import { MariadbDataTabBody } from "@/features/resources/components/mariadb/tabs/data";
-import { MongoDataTabBody } from "@/features/resources/components/mongo/tabs/data";
-import { RedisDataTabBody } from "@/features/resources/components/redis/tabs/data";
-import { Button } from "@/shared/components/ui/button";
 import {
   Tabs,
   TabsContent,
@@ -35,7 +25,7 @@ import { orpc } from "@/shared/server/orpc";
 
 import type { PostgresBodyProps } from "./types";
 
-import { DataTabBody } from "./tabs/data";
+import { DatabaseDataTab, DatabasePanelHeader, DatabaseStatusBar } from "./panel-parts";
 import { PostgresSettingsBody } from "./tabs/settings";
 import { PostgresVariablesTabBody } from "./tabs/variables";
 
@@ -83,90 +73,20 @@ export function RealResourcePanel({
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="flex items-start justify-between gap-4 px-6 pt-6">
-        <div className="flex items-start gap-3">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Back to graph"
-            onClick={onClose}
-            className="mt-1"
-          >
-            <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="size-4" />
-          </Button>
-          <PanelIcon
-            node={{
-              kind: "database",
-              name: resource.name,
-              description: "",
-              engine: resource.engine as ResourceEngine,
-            }}
-          />
-          <div className="flex flex-col gap-0.5">
-            <span className="text-xl leading-none font-bold tracking-tight">{resource.name}</span>
-            <span className="font-mono text-xs text-muted-foreground">
-              {resource.engine}
-              {!pending && (
-                <>
-                  {" "}
-                  <span className="text-muted-foreground/50">·</span> {resource.databaseName}
-                </>
-              )}
-            </span>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* Restart needs a running container — omit it while the database is
-              still a staged create (Deploy from the pending bar). */}
-          {!pending && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                restartMut.mutate({
-                  projectId: resource.projectId as never,
-                  resourceId: resource.resourceId as never,
-                })
-              }
-              disabled={restartMut.isPending}
-            >
-              <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} className="size-3.5" />
-              {restartMut.isPending ? "Restarting…" : "Restart"}
-            </Button>
-          )}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Close panel"
-            onClick={onClose}
-          >
-            <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-4" />
-          </Button>
-        </div>
-      </div>
+      <DatabasePanelHeader
+        resource={resource}
+        pending={pending}
+        onClose={onClose}
+        onRestart={() =>
+          restartMut.mutate({
+            projectId: resource.projectId as never,
+            resourceId: resource.resourceId as never,
+          })
+        }
+        restarting={restartMut.isPending}
+      />
 
-      <div className="mt-5 flex items-center gap-3 border-t border-border/40 px-6 py-3">
-        {pending ? (
-          <>
-            <span className="rounded-md bg-info/12 px-2 py-1 font-mono text-[10.5px] font-semibold tracking-[0.18em] text-info">
-              PENDING
-            </span>
-            <span className="text-[13px] text-muted-foreground">
-              Staged — Deploy the pending changes to create it
-            </span>
-          </>
-        ) : (
-          <>
-            <RuntimeStatusBadge status={resource.runtime.status} />
-            <span className="text-[13px] text-muted-foreground">
-              {resource.runtime.health ?? "Provisioned"}
-            </span>
-          </>
-        )}
-      </div>
+      <DatabaseStatusBar pending={pending} runtime={resource.runtime} />
 
       <Tabs
         value={tab}
@@ -216,21 +136,9 @@ export function RealResourcePanel({
                 </TabsContent>
               )}
 
-              {/* Each engine gets its native browser; unsupported engines say so
-                  plainly rather than falling back to the SQL console. */}
               {!pending && (
                 <TabsContent value="data" className="min-h-0 px-6 pt-5 pb-6">
-                  {resource.engine === "postgres" ? (
-                    <DataTabBody resource={resource} />
-                  ) : resource.engine === "redis" ? (
-                    <RedisDataTabBody resource={resource} />
-                  ) : resource.engine === "mariadb" ? (
-                    <MariadbDataTabBody resource={resource} />
-                  ) : resource.engine === "mongodb" ? (
-                    <MongoDataTabBody resource={resource} />
-                  ) : (
-                    <UnsupportedDataViewer engine={resource.engine} />
-                  )}
+                  <DatabaseDataTab resource={resource} />
                 </TabsContent>
               )}
 
@@ -277,23 +185,5 @@ export function RealResourcePanel({
         </div>
       </Tabs>
     </div>
-  );
-}
-
-function RuntimeStatusBadge({ status }: { status: string }) {
-  const tone =
-    status === "running"
-      ? "bg-success/12 text-success"
-      : status === "starting"
-        ? "bg-warning/12 text-warning"
-        : status === "error"
-          ? "bg-destructive/12 text-destructive"
-          : "bg-muted text-muted-foreground";
-  return (
-    <span
-      className={`rounded-md px-2 py-1 font-mono text-[10.5px] font-semibold tracking-[0.18em] ${tone}`}
-    >
-      {status.toUpperCase()}
-    </span>
   );
 }

@@ -9,6 +9,7 @@
  *   3. Group by serviceName, map back to resourceId, collapse docker task
  *      states into the running/building/error bucket the graph cares about.
  */
+import type { ComposeServiceSummary } from "@otterdeploy/shared/compose";
 import type { ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
@@ -49,33 +50,125 @@ export interface ServiceTasks {
 
 // Docker task `Status.State` values, collapsed to the three buckets the graph
 // node tray renders. See https://docs.docker.com/reference/cli/docker/service/ps/
+// A finished task (complete/shutdown) on a long-running service signals a
+// problem — the orchestrator will replace it, but at this snapshot the slot is
+// down — so it buckets to "error".
+const TASK_STATE_BUCKETS: Record<string, ServiceTaskInfo["state"]> = {
+  running: "running",
+  new: "building",
+  allocated: "building",
+  pending: "building",
+  assigned: "building",
+  accepted: "building",
+  preparing: "building",
+  ready: "building",
+  starting: "building",
+  failed: "error",
+  rejected: "error",
+  remove: "error",
+  orphaned: "error",
+  complete: "error",
+  shutdown: "error",
+};
+
+// Unknown/missing states collapse to "building" so we don't false-positive errors.
 function collapseTaskState(state: string | undefined): ServiceTaskInfo["state"] {
-  switch (state) {
-    case "running":
-      return "running";
-    case "new":
-    case "allocated":
-    case "pending":
-    case "assigned":
-    case "accepted":
-    case "preparing":
-    case "ready":
-    case "starting":
-      return "building";
-    case "failed":
-    case "rejected":
-    case "remove":
-    case "orphaned":
-      return "error";
-    case "complete":
-    case "shutdown":
-      // A finished task on a long-running service signals a problem (the
-      // orchestrator will replace it, but at this snapshot the slot is down).
-      return "error";
-    default:
-      // Unknown state — treat as building so we don't false-positive errors.
-      return "building";
+  return TASK_STATE_BUCKETS[state ?? ""] ?? "building";
+}
+
+interface TaskOwner {
+  resourceId: ResourceId;
+  service: string | null;
+}
+
+// Build the swarm-service-name → owner index. Plain services map their swarm
+// name straight to the resource; compose stacks fan out to `${stack}-${svc}`
+// names that map back to the stack resource AND the compose sub-service key.
+function buildSwarmNameToOwner(
+  services: { resourceId: ResourceId; serviceName: string }[],
+  composes: { resourceId: ResourceId; stackName: string; services: ComposeServiceSummary[] }[],
+): Map<string, TaskOwner> {
+  const swarmNameToOwner = new Map<string, TaskOwner>();
+  for (const s of services) {
+    swarmNameToOwner.set(s.serviceName, { resourceId: s.resourceId, service: null });
   }
+  for (const c of composes) {
+    for (const sub of c.services) {
+      const swarmName = composeSwarmServiceName(c.stackName, sub.name);
+      swarmNameToOwner.set(swarmName, { resourceId: c.resourceId, service: sub.name });
+    }
+  }
+  return swarmNameToOwner;
+}
+
+// Tasks identify their service by name via Spec.Name, falling back to the swarm
+// label docker echoes for the service name we filtered by.
+function resolveTaskServiceName(task: unknown): string | null {
+  return (
+    (task as { Spec?: { Name?: string } }).Spec?.Name ??
+    (task as { Labels?: Record<string, string> }).Labels?.["com.docker.swarm.service.name"] ??
+    null
+  );
+}
+
+interface TaskStatusFields {
+  state: string | undefined;
+  rawState: string | null;
+  message: string | null;
+  error: string | null;
+  containerId: string | null;
+  exitCode: number | null;
+  timestamp: string | null;
+}
+
+interface DockerTaskStatus {
+  State?: string;
+  Message?: string;
+  Err?: string;
+  Timestamp?: string;
+  ContainerStatus?: { ContainerID?: string; ExitCode?: number };
+}
+
+// Normalize a docker task's `Status` block, mapping every missing field to null.
+function readTaskStatus(task: unknown): TaskStatusFields {
+  const status: DockerTaskStatus = (task as { Status?: DockerTaskStatus }).Status ?? {};
+  const container = status.ContainerStatus ?? {};
+  const exitCode = container.ExitCode;
+  return {
+    state: status.State,
+    rawState: status.State ?? null,
+    message: status.Message ?? null,
+    error: status.Err ?? null,
+    containerId: container.ContainerID ?? null,
+    exitCode: typeof exitCode === "number" ? exitCode : null,
+    timestamp: status.Timestamp ?? null,
+  };
+}
+
+// Map one docker task onto the graph's ServiceTaskInfo shape.
+function buildTaskInfo(task: unknown, owner: TaskOwner, serviceName: string): ServiceTaskInfo {
+  const status = readTaskStatus(task);
+  const slot = (task as { Slot?: number }).Slot ?? null;
+  const nodeId = (task as { NodeID?: string }).NodeID ?? null;
+  const desiredState = (task as { DesiredState?: string }).DesiredState ?? null;
+  // For a compose sub-service, label by the compose key (not the namespaced
+  // swarm name) so the group's per-service rows read cleanly.
+  const labelBase = owner.service ?? serviceName;
+  return {
+    id: (task as { ID?: string }).ID ?? "",
+    slot,
+    label: slot != null ? `${labelBase}.${slot}` : labelBase,
+    service: owner.service,
+    state: collapseTaskState(status.state),
+    rawState: status.rawState,
+    desiredState,
+    nodeId,
+    message: status.message,
+    error: status.error,
+    containerId: status.containerId,
+    exitCode: status.exitCode,
+    timestamp: status.timestamp,
+  };
 }
 
 export async function listProjectServiceTasks(
@@ -115,22 +208,7 @@ export async function listProjectServiceTasks(
 
   // swarmName -> { resourceId, service }. `service` is the compose sub-service
   // key (null for plain single-service resources).
-  const swarmNameToOwner = new Map<string, { resourceId: ResourceId; service: string | null }>();
-  for (const s of services) {
-    swarmNameToOwner.set(s.serviceName, {
-      resourceId: s.resourceId,
-      service: null,
-    });
-  }
-  for (const c of composes) {
-    for (const sub of c.services) {
-      const swarmName = composeSwarmServiceName(c.stackName, sub.name);
-      swarmNameToOwner.set(swarmName, {
-        resourceId: c.resourceId,
-        service: sub.name,
-      });
-    }
-  }
+  const swarmNameToOwner = buildSwarmNameToOwner(services, composes);
 
   // Every resource that should appear in the result, even with zero tasks, so
   // the graph can render a node/group as "offline" rather than omit it.
@@ -160,57 +238,13 @@ export async function listProjectServiceTasks(
   for (const resourceId of resourceIds) grouped.set(resourceId, []);
 
   for (const task of tasksResult.value) {
-    // Tasks identify their service by name via Spec.ContainerSpec, but the
-    // simpler path is to walk our swarmNameToOwner map: docker echoes the
-    // service name we filtered by in the task's labels under
-    // `com.docker.swarm.service.name`.
-    const serviceName =
-      (task as { Spec?: { Name?: string } }).Spec?.Name ??
-      (task as { Labels?: Record<string, string> }).Labels?.["com.docker.swarm.service.name"] ??
-      null;
+    const serviceName = resolveTaskServiceName(task);
     if (!serviceName) continue;
     const owner = swarmNameToOwner.get(serviceName);
     if (!owner) continue;
-    const resourceId = owner.resourceId;
-
-    const status = (
-      task as {
-        Status?: {
-          State?: string;
-          Message?: string;
-          Err?: string;
-          Timestamp?: string;
-          ContainerStatus?: { ContainerID?: string; ExitCode?: number };
-        };
-      }
-    ).Status;
-    const slot = (task as { Slot?: number }).Slot ?? null;
-    const nodeId = (task as { NodeID?: string }).NodeID ?? null;
-    const desiredState = (task as { DesiredState?: string }).DesiredState ?? null;
-
-    const bucket = grouped.get(resourceId);
+    const bucket = grouped.get(owner.resourceId);
     if (!bucket) continue;
-    // For a compose sub-service, label by the compose key (not the namespaced
-    // swarm name) so the group's per-service rows read cleanly.
-    const labelBase = owner.service ?? serviceName;
-    bucket.push({
-      id: (task as { ID?: string }).ID ?? "",
-      slot,
-      label: slot != null ? `${labelBase}.${slot}` : labelBase,
-      service: owner.service,
-      state: collapseTaskState(status?.State),
-      rawState: status?.State ?? null,
-      desiredState,
-      nodeId,
-      message: status?.Message ?? null,
-      error: status?.Err ?? null,
-      containerId: status?.ContainerStatus?.ContainerID ?? null,
-      exitCode:
-        typeof status?.ContainerStatus?.ExitCode === "number"
-          ? status.ContainerStatus.ExitCode
-          : null,
-      timestamp: status?.Timestamp ?? null,
-    });
+    bucket.push(buildTaskInfo(task, owner, serviceName));
   }
 
   return Result.ok(

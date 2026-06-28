@@ -52,99 +52,183 @@ export function MongoDataTabBody({ resource }: { resource: PostgresBodyProps["re
 
   return (
     <div className="flex min-h-0 gap-3" style={{ height: "60vh" }}>
-      {/* Collection list */}
-      <div className="flex w-56 shrink-0 flex-col overflow-y-auto rounded-md ring-1 ring-foreground/10">
-        {collectionsQuery.isLoading ? (
-          <div className="flex flex-col gap-1 p-2">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <Skeleton key={i} className="h-7 w-full" />
-            ))}
-          </div>
-        ) : collectionsQuery.isError ? (
-          <ErrorState
-            message="Couldn’t list collections"
-            onRetry={() => void collectionsQuery.refetch()}
-          />
-        ) : collections.length === 0 ? (
-          <div className="p-3 text-[12px] text-muted-foreground">No collections.</div>
-        ) : (
-          <ul className="p-1">
-            {collections.map((c) => (
-              <li key={c.name}>
-                <button
-                  type="button"
-                  onClick={() => pick(c.name)}
-                  className={cn(
-                    "flex w-full items-center justify-between gap-1.5 rounded px-2 py-1.5 text-left font-mono text-[12px]",
-                    active === c.name ? "bg-accent text-accent-foreground" : "hover:bg-muted",
-                  )}
-                >
-                  <span className="truncate">{c.name}</span>
-                  <span className="shrink-0 text-[10px] text-muted-foreground tabular-nums">
-                    {c.count}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      <CollectionPicker
+        isLoading={collectionsQuery.isLoading}
+        isError={collectionsQuery.isError}
+        onRetry={() => void collectionsQuery.refetch()}
+        collections={collections}
+        active={active}
+        onPick={pick}
+      />
+      <DocumentPanel
+        active={active}
+        skip={skip}
+        isLoading={docsQuery.isLoading}
+        isError={docsQuery.isError}
+        isFetching={docsQuery.isFetching}
+        hasMore={docsQuery.data?.hasMore ?? false}
+        docs={docsQuery.data?.docs ?? []}
+        onRetry={() => void docsQuery.refetch()}
+        onPrev={() => setSkip((s) => Math.max(0, s - PAGE))}
+        onNext={() => setSkip((s) => s + PAGE)}
+      />
+    </div>
+  );
+}
 
-      {/* Documents */}
-      <div className="flex min-w-0 flex-1 flex-col rounded-md ring-1 ring-foreground/10">
-        {!active ? (
-          <Empty className="h-full">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <HugeiconsIcon icon={FolderLibraryIcon} strokeWidth={2} className="size-5" />
-              </EmptyMedia>
-              <EmptyTitle>Pick a collection</EmptyTitle>
-              <EmptyDescription>Select a collection to browse its documents.</EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        ) : (
-          <>
-            <div className="flex items-center justify-between gap-2 border-b border-border/40 px-3 py-2">
-              <span className="truncate font-mono text-[12px]">{active}</span>
-              <Pager
-                offset={skip}
-                page={PAGE}
-                hasMore={docsQuery.data?.hasMore ?? false}
-                loading={docsQuery.isFetching}
-                onPrev={() => setSkip((s) => Math.max(0, s - PAGE))}
-                onNext={() => setSkip((s) => s + PAGE)}
-              />
-            </div>
-            <div className="min-h-0 flex-1 overflow-auto p-2">
-              {docsQuery.isLoading ? (
-                <div className="flex flex-col gap-2">
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <Skeleton key={i} className="h-20 w-full" />
-                  ))}
-                </div>
-              ) : docsQuery.isError ? (
-                <ErrorState
-                  message="Couldn’t read documents"
-                  onRetry={() => void docsQuery.refetch()}
-                />
-              ) : (docsQuery.data?.docs ?? []).length === 0 ? (
-                <div className="p-2 text-[12px] text-muted-foreground">No documents.</div>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  {(docsQuery.data?.docs ?? []).map((doc, i) => (
-                    <pre
-                      key={i}
-                      className="overflow-x-auto rounded bg-muted/50 p-2.5 font-mono text-[11.5px] leading-relaxed ring-1 ring-foreground/5"
-                    >
-                      {doc}
-                    </pre>
-                  ))}
-                </div>
-              )}
-            </div>
-          </>
-        )}
+interface CollectionRef {
+  name: string;
+  count: number;
+}
+
+/** Left rail: collection list with loading / error / empty states. */
+function CollectionPicker({
+  isLoading,
+  isError,
+  onRetry,
+  collections,
+  active,
+  onPick,
+}: {
+  isLoading: boolean;
+  isError: boolean;
+  onRetry: () => void;
+  collections: CollectionRef[];
+  active: string | null;
+  onPick: (name: string) => void;
+}) {
+  return (
+    <div className="flex w-56 shrink-0 flex-col overflow-y-auto rounded-md ring-1 ring-foreground/10">
+      {isLoading ? (
+        <div className="flex flex-col gap-1 p-2">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Skeleton key={i} className="h-7 w-full" />
+          ))}
+        </div>
+      ) : isError ? (
+        <ErrorState message="Couldn’t list collections" onRetry={onRetry} />
+      ) : collections.length === 0 ? (
+        <div className="p-3 text-[12px] text-muted-foreground">No collections.</div>
+      ) : (
+        <ul className="p-1">
+          {collections.map((c) => (
+            <li key={c.name}>
+              <button
+                type="button"
+                onClick={() => onPick(c.name)}
+                className={cn(
+                  "flex w-full items-center justify-between gap-1.5 rounded px-2 py-1.5 text-left font-mono text-[12px]",
+                  active === c.name ? "bg-accent text-accent-foreground" : "hover:bg-muted",
+                )}
+              >
+                <span className="truncate">{c.name}</span>
+                <span className="shrink-0 text-[10px] text-muted-foreground tabular-nums">
+                  {c.count}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** Right pane: paginated Extended-JSON document list, or an empty prompt. */
+function DocumentPanel({
+  active,
+  skip,
+  isLoading,
+  isError,
+  isFetching,
+  hasMore,
+  docs,
+  onRetry,
+  onPrev,
+  onNext,
+}: {
+  active: string | null;
+  skip: number;
+  isLoading: boolean;
+  isError: boolean;
+  isFetching: boolean;
+  hasMore: boolean;
+  docs: string[];
+  onRetry: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+}) {
+  return (
+    <div className="flex min-w-0 flex-1 flex-col rounded-md ring-1 ring-foreground/10">
+      {!active ? (
+        <Empty className="h-full">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <HugeiconsIcon icon={FolderLibraryIcon} strokeWidth={2} className="size-5" />
+            </EmptyMedia>
+            <EmptyTitle>Pick a collection</EmptyTitle>
+            <EmptyDescription>Select a collection to browse its documents.</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : (
+        <>
+          <div className="flex items-center justify-between gap-2 border-b border-border/40 px-3 py-2">
+            <span className="truncate font-mono text-[12px]">{active}</span>
+            <Pager
+              offset={skip}
+              page={PAGE}
+              hasMore={hasMore}
+              loading={isFetching}
+              onPrev={onPrev}
+              onNext={onNext}
+            />
+          </div>
+          <div className="min-h-0 flex-1 overflow-auto p-2">
+            <DocumentList isLoading={isLoading} isError={isError} docs={docs} onRetry={onRetry} />
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** The document body: loading skeletons, error, empty, or the JSON list. */
+function DocumentList({
+  isLoading,
+  isError,
+  docs,
+  onRetry,
+}: {
+  isLoading: boolean;
+  isError: boolean;
+  docs: string[];
+  onRetry: () => void;
+}) {
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-2">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Skeleton key={i} className="h-20 w-full" />
+        ))}
       </div>
+    );
+  }
+  if (isError) {
+    return <ErrorState message="Couldn’t read documents" onRetry={onRetry} />;
+  }
+  if (docs.length === 0) {
+    return <div className="p-2 text-[12px] text-muted-foreground">No documents.</div>;
+  }
+  return (
+    <div className="flex flex-col gap-2">
+      {docs.map((doc, i) => (
+        <pre
+          key={i}
+          className="overflow-x-auto rounded bg-muted/50 p-2.5 font-mono text-[11.5px] leading-relaxed ring-1 ring-foreground/5"
+        >
+          {doc}
+        </pre>
+      ))}
     </div>
   );
 }

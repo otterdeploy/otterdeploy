@@ -17,7 +17,7 @@ import type { OrganizationId, ProjectSlug, ResourceId } from "@otterdeploy/share
 
 import { db } from "@otterdeploy/db";
 import { databaseResource, project, resource } from "@otterdeploy/db/schema/project";
-import { Docker } from "@otterdeploy/docker";
+import { type ContainerSummary, Docker } from "@otterdeploy/docker";
 import { eq } from "drizzle-orm";
 type OrgId = OrganizationId;
 
@@ -63,6 +63,52 @@ function splitTaskName(name: string): {
   return { serviceName: clean, slot: null };
 }
 
+/**
+ * Map a docker container summary to a terminal target, or `null` when it should
+ * be dropped (project label not org-owned, or an unsupported resource type).
+ */
+function toTerminalContainer(
+  c: ContainerSummary,
+  slugToProject: Map<string, { id: string; name: string }>,
+): TerminalContainer | null {
+  const labels = c.Labels ?? {};
+  const labelProjectSlug = labels["otterdeploy.project"] ?? null;
+  // Org guard: drop containers whose project label isn't one of ours.
+  if (!labelProjectSlug || !slugToProject.has(labelProjectSlug)) return null;
+
+  const resourceType = labels["otterdeploy.resource.type"];
+  // Accept services + every database engine we support. Anything else
+  // (e.g. otterdeploy-caddy / otterdeploy-server itself) gets dropped.
+  if (
+    resourceType !== "service" &&
+    resourceType !== "postgres" &&
+    resourceType !== "redis" &&
+    resourceType !== "mariadb" &&
+    resourceType !== "mongodb"
+  )
+    return null;
+
+  const rawName = c.Names?.[0] ?? c.Id;
+  const { serviceName, slot } = splitTaskName(rawName);
+  const labelResourceId = labels["otterdeploy.resource.id"];
+
+  return {
+    containerId: c.Id,
+    name: serviceName,
+    image: c.Image,
+    state: c.State,
+    resourceType,
+    // Cast: the slug came off a docker label as a raw string. We've
+    // already verified above (slugToProject.has) that it matches an
+    // org-owned project, so it's safe to brand here.
+    projectSlug: labelProjectSlug as ProjectSlug,
+    projectName: slugToProject.get(labelProjectSlug)?.name ?? null,
+    serviceResourceId: (labelResourceId as ResourceId | undefined) ?? null,
+    serviceName,
+    replicaSlot: slot,
+  };
+}
+
 export async function listTerminalTargets(input: {
   organizationId: OrgId;
 }): Promise<TerminalTargets> {
@@ -88,42 +134,8 @@ export async function listTerminalTargets(input: {
   const containers: TerminalContainer[] = [];
   if (listed.isOk()) {
     for (const c of listed.value) {
-      const labels = c.Labels ?? {};
-      const labelProjectSlug = labels["otterdeploy.project"] ?? null;
-      // Org guard: drop containers whose project label isn't one of ours.
-      if (!labelProjectSlug || !slugToProject.has(labelProjectSlug)) continue;
-
-      const resourceType = labels["otterdeploy.resource.type"];
-      // Accept services + every database engine we support. Anything else
-      // (e.g. otterdeploy-caddy / otterdeploy-server itself) gets dropped.
-      if (
-        resourceType !== "service" &&
-        resourceType !== "postgres" &&
-        resourceType !== "redis" &&
-        resourceType !== "mariadb" &&
-        resourceType !== "mongodb"
-      )
-        continue;
-
-      const rawName = c.Names?.[0] ?? c.Id;
-      const { serviceName, slot } = splitTaskName(rawName);
-      const labelResourceId = labels["otterdeploy.resource.id"];
-
-      containers.push({
-        containerId: c.Id,
-        name: serviceName,
-        image: c.Image,
-        state: c.State,
-        resourceType,
-        // Cast: the slug came off a docker label as a raw string. We've
-        // already verified above (slugToProject.has) that it matches an
-        // org-owned project, so it's safe to brand here.
-        projectSlug: labelProjectSlug as ProjectSlug,
-        projectName: slugToProject.get(labelProjectSlug)?.name ?? null,
-        serviceResourceId: (labelResourceId as ResourceId | undefined) ?? null,
-        serviceName,
-        replicaSlot: slot,
-      });
+      const mapped = toTerminalContainer(c, slugToProject);
+      if (mapped) containers.push(mapped);
     }
   }
   // Sort: project then service then replica slot for stable rendering.

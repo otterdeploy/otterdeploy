@@ -21,15 +21,18 @@ export function interpolate(
   vars: Record<string, string>,
   missing?: Set<string>,
 ): string {
-  return value.replace(REF, (_m, escape, name, def) => {
-    // `$${VAR}` → literal `${VAR}` (compose escape), no substitution.
-    if (escape) return `\${${name}${def != null ? `:-${def}` : ""}}`;
-    const resolved = vars[name];
-    if (resolved != null) return resolved;
-    if (def != null) return def;
-    missing?.add(name);
-    return "";
-  });
+  return value.replace(
+    REF,
+    (_m: string, escape: string | undefined, name: string, def: string | undefined) => {
+      // `$${VAR}` → literal `${VAR}` (compose escape), no substitution.
+      if (escape) return `\${${name}${def != null ? `:-${def}` : ""}}`;
+      const resolved = vars[name];
+      if (resolved != null) return resolved;
+      if (def != null) return def;
+      missing?.add(name);
+      return "";
+    },
+  );
 }
 
 export function substituteComposeEnv(

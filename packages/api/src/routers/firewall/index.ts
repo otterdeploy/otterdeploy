@@ -69,6 +69,28 @@ function parseJsonArray(text: string | null): Record<string, unknown>[] {
 const str = (v: unknown): string | null =>
   v === undefined || v === null || v === "" ? null : String(v);
 
+/** Flatten one CrowdSec decision (within its alert wrapper) into a row. */
+function toDecision(
+  d: Record<string, unknown>,
+  alert: Record<string, unknown>,
+  source: Record<string, unknown>,
+): Decision {
+  return {
+    id: typeof d.id === "number" ? d.id : null,
+    origin: String(d.origin ?? alert.kind ?? "crowdsec"),
+    type: String(d.type ?? "ban"),
+    scope: String(d.scope ?? source.scope ?? "Ip"),
+    value: String(d.value ?? source.value ?? ""),
+    duration: String(d.duration ?? ""),
+    scenario: String(d.scenario ?? alert.scenario ?? ""),
+    country: str(source.cn),
+    asNumber: str(source.as_number),
+    asName: str(source.as_name),
+    eventsCount: typeof alert.events_count === "number" ? alert.events_count : null,
+    createdAt: str(alert.created_at),
+  };
+}
+
 /**
  * Fetch active decisions, flattening CrowdSec's alert wrapper so every active
  * decision becomes one row enriched with its source (country / ASN) + the
@@ -85,20 +107,7 @@ async function fetchDecisions(): Promise<Decision[] | null> {
       ? (alert.decisions as Record<string, unknown>[])
       : [];
     for (const d of decisions) {
-      rows.push({
-        id: typeof d.id === "number" ? d.id : null,
-        origin: String(d.origin ?? alert.kind ?? "crowdsec"),
-        type: String(d.type ?? "ban"),
-        scope: String(d.scope ?? source.scope ?? "Ip"),
-        value: String(d.value ?? source.value ?? ""),
-        duration: String(d.duration ?? ""),
-        scenario: String(d.scenario ?? alert.scenario ?? ""),
-        country: str(source.cn),
-        asNumber: str(source.as_number),
-        asName: str(source.as_name),
-        eventsCount: typeof alert.events_count === "number" ? alert.events_count : null,
-        createdAt: str(alert.created_at),
-      });
+      rows.push(toDecision(d, alert, source));
     }
   }
   return rows;

@@ -4,25 +4,11 @@
  * tagged `Result` values.
  */
 
-import type {
-  ContainerRegistryId,
-  EnvironmentId,
-  GitRepoId,
-  OrganizationId,
-  ProjectId,
-} from "@otterdeploy/shared/id";
+import type { EnvironmentId, ProjectId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
-import { db } from "@otterdeploy/db";
-import {
-  containerRegistry,
-  gitInstallation,
-  gitProvider,
-  gitRepo,
-  type NixpacksConfig,
-} from "@otterdeploy/db/schema";
+import { type NixpacksConfig } from "@otterdeploy/db/schema";
 import { Result } from "better-result";
-import { and, eq } from "drizzle-orm";
 
 import type { OrgRef } from "../scopes";
 
@@ -30,6 +16,11 @@ import { reconcile } from "../../caddy";
 import { removeProjectDir } from "../../lib/data-dir";
 import { destroySwarmPostgres } from "../../runtime/db";
 import { ProjectConflictError, ProjectInvalidBindingError, ProjectNotFoundError } from "./errors";
+import {
+  normalizeCustomDomain,
+  normalizeImageRepository,
+  validateProjectBindings,
+} from "./projects-bindings";
 import {
   createProjectRecord,
   deleteProjectRecord,
@@ -47,8 +38,6 @@ import {
   type Project,
   type ProjectListItem,
 } from "./views";
-type OrgId = OrganizationId;
-type RegistryId = ContainerRegistryId;
 
 export async function listProjects(input: OrgRef): Promise<ProjectListItem[]> {
   return listProjectRecordsByOrg(input.organizationId);
@@ -140,21 +129,15 @@ export async function updateProject(
 > {
   const name = input.name !== undefined ? input.name.trim() : undefined;
 
-  // Validate FK rows belong to this org BEFORE writing — the columns
-  // are application-managed (no DB FK) so a stray id would otherwise
-  // silently bind to a stranger's row.
-  if (input.gitRepoId) {
-    const ok = await repoBelongsToOrg(input.gitRepoId, input.organizationId);
-    if (!ok) {
-      return Result.err(new ProjectInvalidBindingError({ field: "gitRepoId" }));
-    }
-  }
-  if (input.containerRegistryId) {
-    const ok = await registryBelongsToOrg(input.containerRegistryId, input.organizationId);
-    if (!ok) {
-      return Result.err(new ProjectInvalidBindingError({ field: "containerRegistryId" }));
-    }
-  }
+  // Validate FK rows belong to this org BEFORE writing — the columns are
+  // application-managed (no DB FK) so a stray id would otherwise silently bind
+  // to a stranger's row.
+  const bindingError = await validateProjectBindings({
+    organizationId: input.organizationId,
+    gitRepoId: input.gitRepoId,
+    containerRegistryId: input.containerRegistryId,
+  });
+  if (bindingError) return Result.err(bindingError);
 
   try {
     const updated = await updateProjectRecord({
@@ -162,15 +145,11 @@ export async function updateProject(
       organizationId: input.organizationId,
       name,
       slug: input.slug,
-      customDomain:
-        input.customDomain !== undefined
-          ? input.customDomain?.trim().toLowerCase() || null
-          : undefined,
+      customDomain: normalizeCustomDomain(input.customDomain),
       gitRepoId: input.gitRepoId,
       productionBranch: input.productionBranch,
       containerRegistryId: input.containerRegistryId,
-      imageRepository:
-        input.imageRepository !== undefined ? (input.imageRepository?.trim() ?? null) : undefined,
+      imageRepository: normalizeImageRepository(input.imageRepository),
       nixpacksConfig: input.nixpacksConfig,
     });
     if (!updated) {
@@ -210,53 +189,6 @@ export async function saveProjectGraphLayout(
     graphLayout: merged,
   });
   return Result.ok({ ok: true });
-}
-
-async function repoBelongsToOrg(gitRepoId: string, organizationId: string): Promise<boolean> {
-  // Two valid shapes:
-  //
-  //   1. Installation-backed row → org ownership lives on git_provider;
-  //      join through git_installation + git_provider and require a
-  //      match on organizationId.
-  //
-  //   2. Public-URL row → installationId is null (no provider, no
-  //      org); the row is intentionally tenant-shared because the data
-  //      is public. Isolation is enforced at the project binding
-  //      level, not at the gitRepo row. Just verify the row exists.
-  const [row] = await db
-    .select({ id: gitRepo.id, installationId: gitRepo.installationId })
-    .from(gitRepo)
-    .where(eq(gitRepo.id, gitRepoId as GitRepoId))
-    .limit(1);
-  if (!row) return false;
-  if (row.installationId == null) return true;
-
-  const [owned] = await db
-    .select({ id: gitProvider.id })
-    .from(gitInstallation)
-    .innerJoin(gitProvider, eq(gitProvider.id, gitInstallation.providerId))
-    .where(
-      and(
-        eq(gitInstallation.id, row.installationId),
-        eq(gitProvider.organizationId, organizationId as OrgId),
-      ),
-    )
-    .limit(1);
-  return owned !== undefined;
-}
-
-async function registryBelongsToOrg(registryId: string, organizationId: string): Promise<boolean> {
-  const [row] = await db
-    .select({ id: containerRegistry.id })
-    .from(containerRegistry)
-    .where(
-      and(
-        eq(containerRegistry.id, registryId as RegistryId),
-        eq(containerRegistry.organizationId, organizationId as OrgId),
-      ),
-    )
-    .limit(1);
-  return row !== undefined;
 }
 
 export async function deleteProject(

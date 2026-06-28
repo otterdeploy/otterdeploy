@@ -17,7 +17,7 @@ import type { OrganizationId, ServerId } from "@otterdeploy/shared/id";
 import { db } from "@otterdeploy/db";
 import { project } from "@otterdeploy/db/schema/project";
 import { server } from "@otterdeploy/db/schema/server";
-import { Docker } from "@otterdeploy/docker";
+import { Docker, type Node, type Task } from "@otterdeploy/docker";
 import { and, eq, inArray } from "drizzle-orm";
 type OrgId = OrganizationId;
 
@@ -55,65 +55,44 @@ function readMemoryBytes(spec: unknown): number {
 const BYTES_PER_GB = 1024 ** 3;
 const NANO = 1e9;
 
-export async function getServerStats(input: { organizationId: OrgId }): Promise<ServerStats> {
-  // ── Otterdeploy servers in this org ────────────────────────────────────
-  const servers = await db
-    .select({
-      id: server.id,
-      name: server.name,
-      hostname: server.hostname,
-    })
-    .from(server)
-    .where(eq(server.organizationId, input.organizationId));
+// Per-hostname accumulator. Hostname is the join key back to server rows.
+interface Bucket {
+  tasksRunning: number;
+  cpuAllocatedVcpu: number;
+  memoryAllocatedGb: number;
+  projects: Set<string>;
+}
 
-  const docker = Docker.fromEnv();
+const newBucket = (): Bucket => ({
+  tasksRunning: 0,
+  cpuAllocatedVcpu: 0,
+  memoryAllocatedGb: 0,
+  projects: new Set<string>(),
+});
 
-  // ── Swarm node directory ──────────────────────────────────────────────
-  // Lets us map task.NodeID → swarm hostname → otterdeploy server row.
-  const nodesResult = await docker.nodes.list({});
-  const swarmIdToHostname = new Map<string, string>();
-  if (nodesResult.isOk()) {
-    for (const n of nodesResult.value) {
-      if (n.ID && n.Description?.Hostname) {
-        swarmIdToHostname.set(n.ID, n.Description.Hostname);
-      }
+interface TaskAggregation {
+  perHostname: Map<string, Bucket>;
+  projectTaskCount: Map<string, number>;
+  clusterRunning: number;
+}
+
+/** Map swarm node id → swarm hostname so tasks can resolve to server rows. */
+function buildSwarmHostnameMap(nodes: Node[]): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const n of nodes) {
+    if (n.ID && n.Description?.Hostname) {
+      map.set(n.ID, n.Description.Hostname);
     }
   }
+  return map;
+}
 
-  // ── All otterdeploy-managed tasks ──────────────────────────────────────
-  // Single call, label-filtered so other docker workloads don't leak into
-  // the stats. Tasks without a NodeID (still being scheduled) are skipped.
-  const tasksResult = await docker.tasks.list({
-    filters: { label: ["otterdeploy.managed=true"] },
-  });
-
-  const empty: ServerStats = {
-    perServer: servers.map((s) => ({
-      serverId: s.id,
-      tasksRunning: 0,
-      cpuAllocatedVcpu: 0,
-      memoryAllocatedGb: 0,
-      projects: [],
-    })),
-    cluster: { tasksRunning: 0, projects: [] },
-  };
-  if (tasksResult.isErr()) return empty;
-  const tasks = tasksResult.value;
-
-  // Group by hostname (the lookup we can join back to otterdeploy server rows).
-  interface Bucket {
-    tasksRunning: number;
-    cpuAllocatedVcpu: number;
-    memoryAllocatedGb: number;
-    projects: Set<string>;
-  }
-  const newBucket = (): Bucket => ({
-    tasksRunning: 0,
-    cpuAllocatedVcpu: 0,
-    memoryAllocatedGb: 0,
-    projects: new Set<string>(),
-  });
-
+/**
+ * Fold otterdeploy-managed tasks into per-hostname reservation buckets, a
+ * per-project running-task tally, and the cluster running total. Tasks without
+ * a resolvable node hostname still count toward cluster/project totals.
+ */
+function aggregateTasks(tasks: Task[], swarmIdToHostname: Map<string, string>): TaskAggregation {
   const perHostname = new Map<string, Bucket>();
   const projectTaskCount = new Map<string, number>();
   let clusterRunning = 0;
@@ -145,6 +124,54 @@ export async function getServerStats(input: { organizationId: OrgId }): Promise<
     }
     if (slug) bucket.projects.add(slug);
   }
+
+  return { perHostname, projectTaskCount, clusterRunning };
+}
+
+export async function getServerStats(input: { organizationId: OrgId }): Promise<ServerStats> {
+  // ── Otterdeploy servers in this org ────────────────────────────────────
+  const servers = await db
+    .select({
+      id: server.id,
+      name: server.name,
+      hostname: server.hostname,
+    })
+    .from(server)
+    .where(eq(server.organizationId, input.organizationId));
+
+  const docker = Docker.fromEnv();
+
+  // ── Swarm node directory ──────────────────────────────────────────────
+  // Lets us map task.NodeID → swarm hostname → otterdeploy server row.
+  const nodesResult = await docker.nodes.list({});
+  const swarmIdToHostname = nodesResult.isOk()
+    ? buildSwarmHostnameMap(nodesResult.value)
+    : new Map<string, string>();
+
+  // ── All otterdeploy-managed tasks ──────────────────────────────────────
+  // Single call, label-filtered so other docker workloads don't leak into
+  // the stats. Tasks without a NodeID (still being scheduled) are skipped.
+  const tasksResult = await docker.tasks.list({
+    filters: { label: ["otterdeploy.managed=true"] },
+  });
+
+  const empty: ServerStats = {
+    perServer: servers.map((s) => ({
+      serverId: s.id,
+      tasksRunning: 0,
+      cpuAllocatedVcpu: 0,
+      memoryAllocatedGb: 0,
+      projects: [],
+    })),
+    cluster: { tasksRunning: 0, projects: [] },
+  };
+  if (tasksResult.isErr()) return empty;
+
+  // Group by hostname (the lookup we can join back to otterdeploy server rows).
+  const { perHostname, projectTaskCount, clusterRunning } = aggregateTasks(
+    tasksResult.value,
+    swarmIdToHostname,
+  );
 
   // ── Project name lookup for the cluster pills ─────────────────────────
   const projectSlugs = [...projectTaskCount.keys()];

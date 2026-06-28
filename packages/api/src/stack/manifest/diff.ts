@@ -12,6 +12,14 @@ import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
 
 import type { Manifest, ServiceManifest, DatabaseManifest, ComposeManifest } from "./schema";
 
+import {
+  diffEnv,
+  diffServiceFields,
+  summarizeCompose,
+  summarizeDatabase,
+  summarizeService,
+} from "./diff-helpers";
+
 export type ChangeKind = "create" | "update" | "delete" | "no-op";
 export type ChangeResource = "service" | "database" | "env" | "compose";
 
@@ -203,71 +211,7 @@ function diffService(name: string, desired: ServiceManifest, current: CurrentSer
     ];
   }
 
-  const fieldChanges: Record<string, { from: unknown; to: unknown }> = {};
-
-  if (desired.source === "image" && current.source === "image") {
-    if (desired.image !== current.image) {
-      fieldChanges.image = { from: current.image, to: desired.image };
-    }
-  }
-  if (desired.source === "git" && current.source === "git") {
-    const desiredSubdir = desired.sourceSubdir ?? null;
-    if (desiredSubdir !== current.sourceSubdir) {
-      fieldChanges.sourceSubdir = { from: current.sourceSubdir, to: desiredSubdir };
-    }
-  }
-
-  const desiredReplicas = desired.replicas ?? 1;
-  if (desiredReplicas !== current.replicas) {
-    fieldChanges.replicas = { from: current.replicas, to: desiredReplicas };
-  }
-
-  const desiredCmd = desired.startCommand ?? null;
-  if (!sameStringArray(desiredCmd, current.command)) {
-    fieldChanges.command = { from: current.command, to: desiredCmd };
-  }
-  const desiredEntry = desired.entrypoint ?? null;
-  if (!sameStringArray(desiredEntry, current.entrypoint)) {
-    fieldChanges.entrypoint = { from: current.entrypoint, to: desiredEntry };
-  }
-
-  const portsDiff = diffPorts(desired.ports ?? [], current.ports);
-  if (portsDiff) fieldChanges.ports = portsDiff;
-
-  const desiredPreDeploy = desired.preDeploy ?? null;
-  if (!sameStringArray(desiredPreDeploy, current.preDeploy)) {
-    fieldChanges.preDeploy = { from: current.preDeploy, to: desiredPreDeploy };
-  }
-
-  const desiredPostDeploy = desired.postDeploy ?? null;
-  if (!sameStringArray(desiredPostDeploy, current.postDeploy)) {
-    fieldChanges.postDeploy = { from: current.postDeploy, to: desiredPostDeploy };
-  }
-
-  const desiredRestartWindow = desired.restart?.windowMs ?? null;
-  if (desiredRestartWindow !== current.restartWindowMs) {
-    fieldChanges.restartWindowMs = { from: current.restartWindowMs, to: desiredRestartWindow };
-  }
-
-  const desiredDisk = desired.resources?.diskMb ?? null;
-  if (desiredDisk !== current.diskLimitMb) {
-    fieldChanges.diskLimitMb = { from: current.diskLimitMb, to: desiredDisk };
-  }
-  const desiredSwap = desired.resources?.swapMb ?? null;
-  if (desiredSwap !== current.swapLimitMb) {
-    fieldChanges.swapLimitMb = { from: current.swapLimitMb, to: desiredSwap };
-  }
-  const desiredPids = desired.resources?.pidsLimit ?? null;
-  if (desiredPids !== current.pidsLimit) {
-    fieldChanges.pidsLimit = { from: current.pidsLimit, to: desiredPids };
-  }
-
-  if (desired.source === "git") {
-    const desiredBuild = desired.build ?? null;
-    if (!sameBuildConfig(desiredBuild, current.buildConfig)) {
-      fieldChanges.buildConfig = { from: current.buildConfig, to: desiredBuild };
-    }
-  }
+  const fieldChanges = diffServiceFields(desired, current);
 
   const envChanges = diffEnv(desired.env ?? {}, current.env);
   const out: Change[] = [];
@@ -337,172 +281,4 @@ function diffDatabase(name: string, desired: DatabaseManifest, current: CurrentD
     out.push({ kind: "no-op", resource: "database", name });
   }
   return out;
-}
-
-// ── Env diff ───────────────────────────────────────────────────────────
-//
-//   manifest "${secret}"      = key must exist server-side (server holds value)
-//   manifest plain value      = manifest is the source of truth
-//   manifest missing key      = delete from server (manifest declares shape)
-
-interface EnvChange {
-  key: string;
-  action: "create" | "update" | "delete" | "no-op";
-  details?: Record<string, unknown>;
-}
-
-function diffEnv(desired: Record<string, string>, current: Record<string, string>): EnvChange[] {
-  const out: EnvChange[] = [];
-
-  for (const [key, declared] of Object.entries(desired)) {
-    const existing = current[key];
-    if (isSecretSentinel(declared)) {
-      // Declared as managed-server-side; existence is required, value is opaque.
-      if (existing === undefined) {
-        out.push({
-          key,
-          action: "create",
-          details: {
-            secret: true,
-            note: "declared as ${secret} — set via `otterdeploy env set` before apply succeeds",
-          },
-        });
-      }
-      // If it exists, do nothing — value is the server's, manifest stays out.
-      continue;
-    }
-    if (existing === undefined) {
-      out.push({ key, action: "create", details: { value: declared } });
-      continue;
-    }
-    if (existing !== declared) {
-      out.push({
-        key,
-        action: "update",
-        details: { from: existing, to: declared },
-      });
-    }
-  }
-
-  for (const key of Object.keys(current)) {
-    if (!(key in desired)) {
-      out.push({ key, action: "delete" });
-    }
-  }
-
-  return out;
-}
-
-// ── Port diff (replace-wholesale comparison) ───────────────────────────
-
-interface ManifestPortLike {
-  container: number;
-  protocol?: "tcp" | "udp";
-  appProtocol?: "http" | "tcp";
-  primary?: boolean;
-  name?: string;
-}
-
-function diffPorts(
-  desired: ManifestPortLike[],
-  current: CurrentServicePort[],
-): { from: CurrentServicePort[]; to: CurrentServicePort[] } | null {
-  const normalized: CurrentServicePort[] = desired.map((p) => ({
-    containerPort: p.container,
-    protocol: p.protocol ?? "tcp",
-    appProtocol: p.appProtocol ?? "http",
-    isPrimary: p.primary ?? false,
-    name: p.name,
-  }));
-
-  if (samePorts(normalized, current)) return null;
-  return { from: current, to: normalized };
-}
-
-function samePorts(a: CurrentServicePort[], b: CurrentServicePort[]): boolean {
-  if (a.length !== b.length) return false;
-  const sortedA = [...a].sort(comparePort);
-  const sortedB = [...b].sort(comparePort);
-  return sortedA.every((p, i) => {
-    const q = sortedB[i]!;
-    return (
-      p.containerPort === q.containerPort &&
-      p.protocol === q.protocol &&
-      p.appProtocol === q.appProtocol &&
-      p.isPrimary === q.isPrimary &&
-      (p.name ?? null) === (q.name ?? null)
-    );
-  });
-}
-
-function comparePort(a: CurrentServicePort, b: CurrentServicePort): number {
-  if (a.containerPort !== b.containerPort) return a.containerPort - b.containerPort;
-  return a.protocol.localeCompare(b.protocol);
-}
-
-// ── Helpers ────────────────────────────────────────────────────────────
-
-function isSecretSentinel(value: string): boolean {
-  return value.trim() === "${secret}";
-}
-
-function sameStringArray(a: string[] | null, b: string[] | null): boolean {
-  if (a === null && b === null) return true;
-  if (a === null || b === null) return false;
-  if (a.length !== b.length) return false;
-  return a.every((v, i) => v === b[i]);
-}
-
-// Compare buildConfigs semantically, independent of key order. The desired
-// side comes from the manifest (keys in insertion order, discriminator
-// first); the current side is read back from a postgres `jsonb` column,
-// which returns keys in its own normalized order (e.g. `spa` before
-// `builder`). A plain `JSON.stringify` comparison would treat
-// `{builder,spa}` and `{spa,builder}` as different and surface a permanent
-// phantom "update" that can never be applied away or discarded.
-function sameBuildConfig(a: BuildConfig | null, b: BuildConfig | null): boolean {
-  if (a === null && b === null) return true;
-  if (a === null || b === null) return false;
-  return canonicalJson(a) === canonicalJson(b);
-}
-
-// Stable JSON: object keys sorted recursively, array order preserved.
-function canonicalJson(value: unknown): string {
-  if (value === null || typeof value !== "object") return JSON.stringify(value) ?? "null";
-  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
-  const obj = value as Record<string, unknown>;
-  const keys = Object.keys(obj)
-    .filter((k) => obj[k] !== undefined)
-    .sort();
-  return `{${keys.map((k) => `${JSON.stringify(k)}:${canonicalJson(obj[k])}`).join(",")}}`;
-}
-
-function summarizeService(s: ServiceManifest): Record<string, unknown> {
-  const summary: Record<string, unknown> = { replicas: s.replicas ?? 1 };
-  if (s.source === "image") summary.image = s.image;
-  if (s.source === "git" && s.sourceSubdir) summary.sourceSubdir = s.sourceSubdir;
-  if (s.ports?.length) summary.ports = s.ports;
-  if (s.env && Object.keys(s.env).length > 0) summary.envKeys = Object.keys(s.env);
-  if (s.domains?.length) summary.domains = s.domains.map((d) => d.domain);
-  return summary;
-}
-
-function summarizeCompose(c: ComposeManifest): Record<string, unknown> {
-  const summary: Record<string, unknown> = {};
-  if (c.source === "git") summary.gitRepoUrl = c.gitRepoUrl;
-  if (c.env && Object.keys(c.env).length > 0) summary.envKeys = Object.keys(c.env);
-  if (c.exposed?.length) {
-    summary.exposed = c.exposed.map((e) => `${e.service}:${e.port}`);
-  }
-  return summary;
-}
-
-function summarizeDatabase(d: DatabaseManifest): Record<string, unknown> {
-  const summary: Record<string, unknown> = {};
-  if ("version" in d && d.version) summary.version = d.version;
-  if (d.publicEnabled) summary.publicEnabled = true;
-  if (d.extraEnv && Object.keys(d.extraEnv).length > 0) {
-    summary.extraEnvKeys = Object.keys(d.extraEnv);
-  }
-  return summary;
 }

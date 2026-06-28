@@ -12,8 +12,8 @@ import {
   PtySpawnError,
   PtyTerminalUnavailableError,
   PtyMessageError,
-} from "../lib/errors";
-import { ClientMessage, type ServerMessage } from "../messages";
+} from "../../lib/errors";
+import { ClientMessage, type ServerMessage } from "../../messages";
 
 const SHELL = nodeEnv.SHELL || "bash";
 const USR_HOME = nodeEnv.HOME || "/root";

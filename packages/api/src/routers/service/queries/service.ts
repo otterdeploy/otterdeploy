@@ -1,4 +1,3 @@
-import type { BuildConfig } from "@otterdeploy/shared/build-config";
 import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
@@ -23,6 +22,16 @@ import {
 import { listServiceEnvVars } from "./env";
 import { listServiceMounts } from "./mounts";
 import { listServicePorts } from "./ports";
+import {
+  type CreateServiceInput,
+  serviceCoreColumns,
+  serviceDeployColumns,
+  serviceHealthcheckColumns,
+  serviceResourceColumns,
+  serviceRestartColumns,
+} from "./service-columns";
+
+export type { CreateServiceInput } from "./service-columns";
 // ---------------------------------------------------------------------------
 // Reads
 // ---------------------------------------------------------------------------
@@ -99,61 +108,6 @@ export async function listServiceRecordsByProject(projectId: ProjectId): Promise
 // Writes
 // ---------------------------------------------------------------------------
 
-export interface CreateServiceInput {
-  projectId: ProjectId;
-  name: string;
-  status?: "draft" | "valid" | "invalid";
-
-  image: string;
-  /** "image" = pull a pre-built tag; "git" = built by apps/builder. */
-  source?: "image" | "git";
-  /** When source = "git", path within the repo handed to nixpacks. */
-  sourceSubdir?: string | null;
-  command?: string[] | null;
-  entrypoint?: string[] | null;
-  replicas?: number;
-
-  restartCondition?: "none" | "on-failure" | "any";
-  restartMaxAttempts?: number | null;
-  restartDelayMs?: number;
-  restartWindowMs?: number | null;
-
-  healthcheckCmd?: string[] | null;
-  healthcheckIntervalMs?: number | null;
-  healthcheckTimeoutMs?: number | null;
-  healthcheckRetries?: number | null;
-  healthcheckStartMs?: number | null;
-
-  cpuLimit?: string | null;
-  memoryLimitMb?: number | null;
-  cpuReservation?: string | null;
-  memoryReservationMb?: number | null;
-  diskLimitMb?: number | null;
-  swapLimitMb?: number | null;
-  pidsLimit?: number | null;
-
-  preDeploy?: string[] | null;
-  postDeploy?: string[] | null;
-  buildConfig?: BuildConfig | null;
-
-  internalHostname: string;
-  serviceName: string;
-  networkName: string;
-
-  /** Owning compose stack (the compose resource id). Null/omitted for a
-   *  standalone service. Set when this service is materialized from a stack. */
-  stackId?: ResourceId | null;
-
-  ports: Array<{
-    containerPort: number;
-    protocol?: "tcp" | "udp";
-    appProtocol?: "http" | "tcp";
-    isPrimary?: boolean;
-  }>;
-
-  env?: Array<{ key: string; value: string }>;
-}
-
 export async function createServiceRecord(input: CreateServiceInput): Promise<ServiceRecord> {
   return db.transaction(async (tx) => {
     const [createdResource] = await tx
@@ -178,39 +132,14 @@ export async function createServiceRecord(input: CreateServiceInput): Promise<Se
       .values({
         resourceId: createdResource.id,
         image: input.image,
-        source: input.source ?? "image",
-        sourceSubdir: input.sourceSubdir ?? null,
-        command: input.command ?? null,
-        entrypoint: input.entrypoint ?? null,
-        replicas: input.replicas ?? 1,
-
-        restartCondition: input.restartCondition ?? "on-failure",
-        restartMaxAttempts: input.restartMaxAttempts ?? null,
-        restartDelayMs: input.restartDelayMs ?? 5000,
-        restartWindowMs: input.restartWindowMs ?? null,
-
-        healthcheckCmd: input.healthcheckCmd ?? null,
-        healthcheckIntervalMs: input.healthcheckIntervalMs ?? null,
-        healthcheckTimeoutMs: input.healthcheckTimeoutMs ?? null,
-        healthcheckRetries: input.healthcheckRetries ?? null,
-        healthcheckStartMs: input.healthcheckStartMs ?? null,
-
-        cpuLimit: input.cpuLimit ?? null,
-        memoryLimitMb: input.memoryLimitMb ?? null,
-        cpuReservation: input.cpuReservation ?? null,
-        memoryReservationMb: input.memoryReservationMb ?? null,
-        diskLimitMb: input.diskLimitMb ?? null,
-        swapLimitMb: input.swapLimitMb ?? null,
-        pidsLimit: input.pidsLimit ?? null,
-
-        preDeploy: input.preDeploy ?? null,
-        postDeploy: input.postDeploy ?? null,
-        buildConfig: input.buildConfig ?? null,
-
+        ...serviceCoreColumns(input),
+        ...serviceRestartColumns(input),
+        ...serviceHealthcheckColumns(input),
+        ...serviceResourceColumns(input),
+        ...serviceDeployColumns(input),
         internalHostname: input.internalHostname,
         serviceName: input.serviceName,
         networkName: input.networkName,
-        stackId: input.stackId ?? null,
       })
       .returning();
     if (!createdService) {

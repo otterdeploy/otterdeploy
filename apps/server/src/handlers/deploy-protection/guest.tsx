@@ -27,8 +27,8 @@ import {
   hostOf,
   sanitizePath,
   serverError,
-} from "./deploy-protection-shared";
-import { AccessWall } from "./deploy-protection-wall";
+} from "./shared";
+import { AccessWall } from "./ui/wall";
 
 /** On the deployment domain: the wall page — org login OR email-code entry. */
 export const deployAccessHandler: Handler = guard(async (c) => {

@@ -6,7 +6,9 @@ import { composeServiceToSpec, durationMs } from "../to-spec";
 function service(yaml: string, name: string) {
   const r = parseCompose(yaml);
   if (r.isErr()) throw new Error(r.error.message);
-  return r.value.services.find((s) => s.name === name)!;
+  const svc = r.value.services.find((s) => s.name === name);
+  if (!svc) throw new Error(`service ${name} not found`);
+  return svc;
 }
 
 const ctx = {

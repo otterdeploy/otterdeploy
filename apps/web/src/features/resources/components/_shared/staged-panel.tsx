@@ -44,47 +44,58 @@ function asEngine(v: unknown): ResourceEngine | undefined {
     : undefined;
 }
 
+type PushRow = (label: string, value: string | undefined | null) => void;
+
+/** Manifest port shape: { container: number; protocol?: "tcp"|"udp"; … }. */
+function portLabels(ports: unknown[]): string[] {
+  return ports
+    .map((p) => {
+      const port = p as { container?: number; protocol?: string };
+      if (typeof port.container !== "number") return null;
+      return port.protocol && port.protocol !== "tcp"
+        ? `${port.container}/${port.protocol}`
+        : String(port.container);
+    })
+    .filter((s): s is string => s !== null);
+}
+
+function pushServiceRows(d: Record<string, unknown>, push: PushRow): void {
+  const source = typeof d.source === "string" ? d.source : undefined;
+  push(
+    "Source",
+    source === "git" ? "Git repository" : source === "image" ? "Container image" : source,
+  );
+  push("Image", typeof d.image === "string" ? d.image : undefined);
+  push("Subdirectory", typeof d.sourceSubdir === "string" ? d.sourceSubdir : undefined);
+  push("Replicas", typeof d.replicas === "number" ? String(d.replicas) : undefined);
+  if (Array.isArray(d.ports) && d.ports.length > 0) {
+    const labels = portLabels(d.ports);
+    if (labels.length > 0) {
+      push(labels.length === 1 ? "Port" : "Ports", labels.join(", "));
+    }
+  }
+}
+
+function pushDatabaseRows(d: Record<string, unknown>, push: PushRow): void {
+  push("Engine", asEngine(d.engine) ?? (typeof d.engine === "string" ? d.engine : undefined));
+  push("Version", typeof d.version === "string" ? d.version : undefined);
+  push("Public", d.publicEnabled === true ? "Exposed" : undefined);
+}
+
 /** Ordered, human-labelled rows derived from the diff's create `details`.
  *  Unknown keys are skipped — `details` is a loose record, so we only surface
  *  the fields the diff summarizer is known to emit. */
 function rows(c: StagedCreate): Array<{ label: string; value: string }> {
   const d = c.details ?? {};
   const out: Array<{ label: string; value: string }> = [];
-  const push = (label: string, value: string | undefined | null) => {
+  const push: PushRow = (label, value) => {
     if (value !== undefined && value !== null && value !== "") {
       out.push({ label, value });
     }
   };
 
-  if (c.resource === "service") {
-    const source = typeof d.source === "string" ? d.source : undefined;
-    push(
-      "Source",
-      source === "git" ? "Git repository" : source === "image" ? "Container image" : source,
-    );
-    push("Image", typeof d.image === "string" ? d.image : undefined);
-    push("Subdirectory", typeof d.sourceSubdir === "string" ? d.sourceSubdir : undefined);
-    push("Replicas", typeof d.replicas === "number" ? String(d.replicas) : undefined);
-    if (Array.isArray(d.ports) && d.ports.length > 0) {
-      // Manifest port shape: { container: number; protocol?: "tcp"|"udp"; … }.
-      const labels = d.ports
-        .map((p) => {
-          const port = p as { container?: number; protocol?: string };
-          if (typeof port.container !== "number") return null;
-          return port.protocol && port.protocol !== "tcp"
-            ? `${port.container}/${port.protocol}`
-            : String(port.container);
-        })
-        .filter((s): s is string => s !== null);
-      if (labels.length > 0) {
-        push(labels.length === 1 ? "Port" : "Ports", labels.join(", "));
-      }
-    }
-  } else {
-    push("Engine", asEngine(d.engine) ?? (typeof d.engine === "string" ? d.engine : undefined));
-    push("Version", typeof d.version === "string" ? d.version : undefined);
-    push("Public", d.publicEnabled === true ? "Exposed" : undefined);
-  }
+  if (c.resource === "service") pushServiceRows(d, push);
+  else pushDatabaseRows(d, push);
   return out;
 }
 

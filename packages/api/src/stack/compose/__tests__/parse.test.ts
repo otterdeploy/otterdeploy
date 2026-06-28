@@ -35,7 +35,8 @@ volumes:
   pgdata:
 `);
     expect(c.services.map((s) => s.name).sort()).toEqual(["app", "postgres", "redis"]);
-    const app = c.services.find((s) => s.name === "app")!;
+    const app = c.services.find((s) => s.name === "app");
+    if (!app) throw new Error("expected an app service");
     expect(app.image).toBe("ghcr.io/acme/app:latest");
     expect(app.ports).toEqual([{ target: 3000, published: 3000, protocol: "tcp" }]);
     expect(app.dependsOn).toEqual(["postgres", "redis"]);
@@ -43,7 +44,8 @@ volumes:
     expect(app.replicas).toBe(2);
     expect(app.resources).toEqual({ cpus: "0.5", memoryMb: 512 });
 
-    const pg = c.services.find((s) => s.name === "postgres")!;
+    const pg = c.services.find((s) => s.name === "postgres");
+    if (!pg) throw new Error("expected a postgres service");
     expect(pg.env).toEqual({ POSTGRES_PASSWORD: "secret" }); // array form
     expect(pg.volumes).toEqual([
       { type: "volume", source: "pgdata", target: "/var/lib/postgresql/data", readOnly: false },
@@ -62,7 +64,9 @@ services:
       - 3000
       - { target: 7000, published: 17000, protocol: tcp }
 `);
-    expect(c.services[0].ports).toEqual([
+    const a = c.services[0];
+    if (!a) throw new Error("expected a service");
+    expect(a.ports).toEqual([
       { target: 80, published: 8080, protocol: "udp" },
       { target: 90, published: 9090, protocol: "tcp" },
       { target: 3000, protocol: "tcp" },
@@ -84,11 +88,13 @@ services:
       args: { NODE_ENV: production }
     image: registry/api:cached
 `);
-    const web = c.services.find((s) => s.name === "web")!;
+    const web = c.services.find((s) => s.name === "web");
+    if (!web) throw new Error("expected a web service");
     expect(web.image).toBeNull();
     expect(web.build).toEqual({ context: "./web" });
     expect(web.command).toEqual(["/bin/sh", "-c", "node server.js"]);
-    const api = c.services.find((s) => s.name === "api")!;
+    const api = c.services.find((s) => s.name === "api");
+    if (!api) throw new Error("expected an api service");
     expect(api.build).toEqual({
       context: "./api",
       dockerfile: "Dockerfile.prod",
@@ -107,7 +113,9 @@ services:
       - "/etc/hosts:/etc/hosts:ro"
       - "named:/data"
 `);
-    expect(c.services[0].volumes).toEqual([
+    const a = c.services[0];
+    if (!a) throw new Error("expected a service");
+    expect(a.volumes).toEqual([
       { type: "volume", source: "named", target: "/data", readOnly: false },
     ]);
     expect(c.warnings.filter((w) => w.includes("bind mount")).length).toBe(2);
@@ -129,14 +137,17 @@ services:
       restart_policy:
         condition: on-failure
 `);
-    const a = c.services.find((s) => s.name === "a")!;
+    const a = c.services.find((s) => s.name === "a");
+    if (!a) throw new Error("expected an a service");
     expect(a.restart).toBe("unless-stopped");
     expect(a.healthcheck).toEqual({
       test: ["CMD-SHELL", "curl -f http://localhost/health"],
       interval: "10s",
       retries: 5,
     });
-    expect(c.services.find((s) => s.name === "b")!.restart).toBe("on-failure");
+    const b = c.services.find((s) => s.name === "b");
+    if (!b) throw new Error("expected a b service");
+    expect(b.restart).toBe("on-failure");
   });
 
   it("captures the top-level project name", () => {
@@ -166,6 +177,8 @@ services:
       resources:
         limits: { memory: 1g }
 `);
-    expect(c.services[0].resources.memoryMb).toBe(1024);
+    const a = c.services[0];
+    if (!a) throw new Error("expected a service");
+    expect(a.resources.memoryMb).toBe(1024);
   });
 });

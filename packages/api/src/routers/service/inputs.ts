@@ -98,7 +98,44 @@ export interface UpdateServiceInput extends Omit<
 // Adapters — translate handler inputs into the loose payload shapes that
 // the queries module expects. Keeps the `null`/`undefined` choreography
 // (used for "explicit clear" vs "leave alone") out of the orchestration.
+//
+// Each adapter is split into cohesive column groups (restart / healthcheck /
+// resources) so the wide field mapping stays under the complexity cap. Create
+// fills absent values with `null` (seed defaults); update leaves them
+// `undefined` (omitundefined-stripped → "leave the column alone").
 // ---------------------------------------------------------------------------
+
+function toRestartCreateColumns(restart: RestartInput | undefined) {
+  return {
+    restartCondition: restart?.condition,
+    restartMaxAttempts: restart?.maxAttempts ?? null,
+    restartDelayMs: restart?.delayMs,
+    restartWindowMs: restart?.windowMs ?? null,
+  };
+}
+
+function toHealthcheckCreateColumns(healthcheck: CreateServiceInput["healthcheck"]) {
+  return {
+    healthcheckCmd: healthcheck?.cmd ?? null,
+    healthcheckIntervalMs: healthcheck?.intervalMs ?? null,
+    healthcheckTimeoutMs: healthcheck?.timeoutMs ?? null,
+    healthcheckRetries: healthcheck?.retries ?? null,
+    healthcheckStartMs: healthcheck?.startMs ?? null,
+  };
+}
+
+function toResourceCreateColumns(resources: ResourcesInput | undefined) {
+  const r: ResourcesInput = resources ?? {};
+  return {
+    cpuLimit: r.cpuLimit != null ? r.cpuLimit.toString() : null,
+    memoryLimitMb: r.memoryLimitMb ?? null,
+    cpuReservation: r.cpuReservation != null ? r.cpuReservation.toString() : null,
+    memoryReservationMb: r.memoryReservationMb ?? null,
+    diskLimitMb: r.diskLimitMb ?? null,
+    swapLimitMb: r.swapLimitMb ?? null,
+    pidsLimit: r.pidsLimit ?? null,
+  };
+}
 
 /** Map create-time input into the wide payload `createServiceRecord` expects. */
 export function toCreateRecordPayload(
@@ -125,23 +162,9 @@ export function toCreateRecordPayload(
     command: input.command ?? null,
     entrypoint: input.entrypoint ?? null,
     replicas: input.replicas ?? 1,
-    restartCondition: input.restart?.condition,
-    restartMaxAttempts: input.restart?.maxAttempts ?? null,
-    restartDelayMs: input.restart?.delayMs,
-    restartWindowMs: input.restart?.windowMs ?? null,
-    healthcheckCmd: input.healthcheck?.cmd ?? null,
-    healthcheckIntervalMs: input.healthcheck?.intervalMs ?? null,
-    healthcheckTimeoutMs: input.healthcheck?.timeoutMs ?? null,
-    healthcheckRetries: input.healthcheck?.retries ?? null,
-    healthcheckStartMs: input.healthcheck?.startMs ?? null,
-    cpuLimit: input.resources?.cpuLimit != null ? input.resources.cpuLimit.toString() : null,
-    memoryLimitMb: input.resources?.memoryLimitMb ?? null,
-    cpuReservation:
-      input.resources?.cpuReservation != null ? input.resources.cpuReservation.toString() : null,
-    memoryReservationMb: input.resources?.memoryReservationMb ?? null,
-    diskLimitMb: input.resources?.diskLimitMb ?? null,
-    swapLimitMb: input.resources?.swapLimitMb ?? null,
-    pidsLimit: input.resources?.pidsLimit ?? null,
+    ...toRestartCreateColumns(input.restart),
+    ...toHealthcheckCreateColumns(input.healthcheck),
+    ...toResourceCreateColumns(input.resources),
     preDeploy: input.preDeploy ?? null,
     postDeploy: input.postDeploy ?? null,
     buildConfig: input.buildConfig ?? null,
@@ -153,6 +176,38 @@ export function toCreateRecordPayload(
   };
 }
 
+function toRestartUpdateColumns(restart: RestartInput | undefined) {
+  return {
+    restartCondition: restart?.condition,
+    restartMaxAttempts: restart?.maxAttempts,
+    restartDelayMs: restart?.delayMs,
+    restartWindowMs: restart?.windowMs,
+  };
+}
+
+function toHealthcheckUpdateColumns(healthcheck: UpdateServiceInput["healthcheck"]) {
+  return {
+    healthcheckCmd: healthcheck?.cmd,
+    healthcheckIntervalMs: healthcheck?.intervalMs,
+    healthcheckTimeoutMs: healthcheck?.timeoutMs,
+    healthcheckRetries: healthcheck?.retries,
+    healthcheckStartMs: healthcheck?.startMs,
+  };
+}
+
+function toResourceUpdateColumns(resources: ResourcesInput | undefined) {
+  const r: ResourcesInput = resources ?? {};
+  return {
+    cpuLimit: r.cpuLimit != null ? r.cpuLimit.toString() : undefined,
+    memoryLimitMb: r.memoryLimitMb,
+    cpuReservation: r.cpuReservation != null ? r.cpuReservation.toString() : undefined,
+    memoryReservationMb: r.memoryReservationMb,
+    diskLimitMb: r.diskLimitMb,
+    swapLimitMb: r.swapLimitMb,
+    pidsLimit: r.pidsLimit,
+  };
+}
+
 /** Map patch input into the partial payload `updateServiceRecord` expects. */
 export function toUpdateRecordPatch(input: UpdateServiceInput) {
   return {
@@ -160,25 +215,9 @@ export function toUpdateRecordPatch(input: UpdateServiceInput) {
     command: input.command,
     entrypoint: input.entrypoint,
     replicas: input.replicas,
-    restartCondition: input.restart?.condition,
-    restartMaxAttempts: input.restart?.maxAttempts,
-    restartDelayMs: input.restart?.delayMs,
-    restartWindowMs: input.restart?.windowMs,
-    healthcheckCmd: input.healthcheck?.cmd,
-    healthcheckIntervalMs: input.healthcheck?.intervalMs,
-    healthcheckTimeoutMs: input.healthcheck?.timeoutMs,
-    healthcheckRetries: input.healthcheck?.retries,
-    healthcheckStartMs: input.healthcheck?.startMs,
-    cpuLimit: input.resources?.cpuLimit != null ? input.resources.cpuLimit.toString() : undefined,
-    memoryLimitMb: input.resources?.memoryLimitMb,
-    cpuReservation:
-      input.resources?.cpuReservation != null
-        ? input.resources.cpuReservation.toString()
-        : undefined,
-    memoryReservationMb: input.resources?.memoryReservationMb,
-    diskLimitMb: input.resources?.diskLimitMb,
-    swapLimitMb: input.resources?.swapLimitMb,
-    pidsLimit: input.resources?.pidsLimit,
+    ...toRestartUpdateColumns(input.restart),
+    ...toHealthcheckUpdateColumns(input.healthcheck),
+    ...toResourceUpdateColumns(input.resources),
     preDeploy: input.preDeploy,
     postDeploy: input.postDeploy,
     buildConfig: input.buildConfig,

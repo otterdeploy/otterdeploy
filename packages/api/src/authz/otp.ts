@@ -11,8 +11,8 @@ import { timingSafeEqual } from "@otterdeploy/shared/crypto";
 
 import { createRedis } from "../lib/redis";
 
-const OTP_TTL_SECONDS = 10 * 60;
 const OTP_DIGITS = 6;
+const OTP_TTL_SECONDS = 10 * 60;
 const MAX_REQUESTS_PER_WINDOW = 5;
 const RATE_WINDOW_SECONDS = 15 * 60;
 /** Wrong-guess cap per issued code. Without it the 6-digit (10^6) space is
@@ -32,7 +32,9 @@ const tryKey = (domain: string, email: string) => `otp:try:${domain}:${norm(emai
 
 /** 6-digit numeric code, crypto-random. */
 export function generateOtp(): string {
-  const n = crypto.getRandomValues(new Uint32Array(1))[0]! % 1_000_000;
+  const buf = new Uint32Array(1);
+  crypto.getRandomValues(buf);
+  const n = (buf[0] ?? 0) % 1_000_000;
   return n.toString().padStart(OTP_DIGITS, "0");
 }
 

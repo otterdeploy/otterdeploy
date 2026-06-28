@@ -4,6 +4,8 @@ import { RESOURCE_PRESETS, type ServiceKind } from "@/features/projects/data/ser
 import { Button } from "@/shared/components/ui/button";
 import { Card } from "@/shared/components/ui/card";
 
+import type { ResourceFormState } from "../schemas";
+
 import { traitsFor } from "../engine-traits";
 import { useFormContext } from "../form-context";
 import { SectionHeader } from "../form-primitives";
@@ -11,6 +13,107 @@ import { I } from "../icons";
 
 interface StepReviewProps {
   kind: ServiceKind;
+}
+
+interface ComposeArgs {
+  isDb: boolean;
+  kindId: string;
+  name: string;
+  dbImage: string;
+  isPg: boolean;
+  extensions: string[];
+  cpu: number;
+  mem: number;
+  replicas: number;
+  storageGb: number;
+  publicEnabled: boolean;
+}
+
+function generateComposeYaml(args: ComposeArgs): string {
+  const { isDb, kindId, name, dbImage, isPg, extensions, cpu, mem, replicas, storageGb } = args;
+  const memStr = mem >= 1024 ? `${mem / 1024}G` : `${mem}M`;
+  if (isDb) {
+    const mountTarget = traitsFor(kindId).mountTarget;
+    const extLine =
+      isPg && extensions.length > 0 ? `\n    # extensions: ${extensions.join(", ")}` : "";
+    return `services:
+  ${name}:
+    image: ${dbImage}${extLine}
+    deploy:
+      replicas: 1
+      resources:
+        limits: { cpus: '${cpu}', memory: ${memStr} }
+    volumes:
+      - ${name}-data:${mountTarget}
+    networks: [internal${args.publicEnabled ? ", public" : ""}]
+
+volumes:
+  ${name}-data:
+    driver_opts: { size: '${storageGb}G' }`;
+  }
+  return `services:
+  ${name}:
+    deploy:
+      replicas: ${replicas}
+      resources:
+        limits: { cpus: '${cpu}', memory: ${memStr} }
+      update_config:
+        order: start-first
+        failure_action: rollback
+    networks: [internal]`;
+}
+
+/** Derive every value the Review JSX renders from the live form state.
+ *  Pulling this out of the render prop keeps that callback under the
+ *  cyclomatic-complexity cap. */
+function buildReviewModel(kind: ServiceKind, values: ResourceFormState) {
+  const { name, version, presetId, customCpu, customMem, replicas, storageGb } = values;
+  const { backupsEnabled, publicEnabled } = values;
+  const preset = RESOURCE_PRESETS.find((p) => p.id === presetId);
+  const cpu = preset?.cpu ?? customCpu;
+  const mem = preset?.mem ?? customMem;
+  const isDb = kind.group === "database";
+
+  // Selected postgres extensions (names), with their display labels.
+  const extensions = (values.extensions as string[] | undefined) ?? [];
+  const isPg = kind.id === "postgres";
+  const extensionLabels = extensions
+    .map((n) => POSTGRES_EXTENSIONS.find((e) => e.name === n)?.label ?? n)
+    .join(", ");
+  // Non-contrib extensions pin a specific image — reflect that in the
+  // preview so the image line matches what actually deploys.
+  const resolved = isPg ? resolvePostgresImage(extensions, `${kind.id}:${version}`) : null;
+  const dbImage = resolved && resolved.ok ? resolved.image : `${kind.id}:${version}`;
+
+  const compose = generateComposeYaml({
+    isDb,
+    kindId: kind.id,
+    name,
+    dbImage,
+    isPg,
+    extensions,
+    cpu,
+    mem,
+    replicas,
+    storageGb,
+    publicEnabled,
+  });
+
+  return {
+    name,
+    version,
+    cpu,
+    mem,
+    isDb,
+    isPg,
+    replicas,
+    storageGb,
+    backupsEnabled,
+    publicEnabled,
+    extensions,
+    extensionLabels,
+    compose,
+  };
 }
 
 export function StepReview({ kind }: StepReviewProps) {
@@ -21,64 +124,18 @@ export function StepReview({ kind }: StepReviewProps) {
         const {
           name,
           version,
-          presetId,
-          customCpu,
-          customMem,
+          cpu,
+          mem,
+          isDb,
+          isPg,
           replicas,
           storageGb,
           backupsEnabled,
           publicEnabled,
-        } = values;
-        const preset = RESOURCE_PRESETS.find((p) => p.id === presetId);
-        const cpu = preset?.cpu ?? customCpu;
-        const mem = preset?.mem ?? customMem;
-        const isDb = kind.group === "database";
-
-        // Selected postgres extensions (names), with their display labels.
-        const extensions = (values.extensions as string[] | undefined) ?? [];
-        const isPg = kind.id === "postgres";
-        const extensionLabels = extensions
-          .map((n) => POSTGRES_EXTENSIONS.find((e) => e.name === n)?.label ?? n)
-          .join(", ");
-        // Non-contrib extensions pin a specific image — reflect that in the
-        // preview so the image line matches what actually deploys.
-        const resolved = isPg ? resolvePostgresImage(extensions, `${kind.id}:${version}`) : null;
-        const dbImage = resolved && resolved.ok ? resolved.image : `${kind.id}:${version}`;
-
-        const generateCompose = () => {
-          const memStr = mem >= 1024 ? `${mem / 1024}G` : `${mem}M`;
-          if (isDb) {
-            const mountTarget = traitsFor(kind.id).mountTarget;
-            const extLine =
-              isPg && extensions.length > 0 ? `\n    # extensions: ${extensions.join(", ")}` : "";
-            return `services:
-  ${name}:
-    image: ${dbImage}${extLine}
-    deploy:
-      replicas: 1
-      resources:
-        limits: { cpus: '${cpu}', memory: ${memStr} }
-    volumes:
-      - ${name}-data:${mountTarget}
-    networks: [internal${publicEnabled ? ", public" : ""}]
-
-volumes:
-  ${name}-data:
-    driver_opts: { size: '${storageGb}G' }`;
-          }
-          return `services:
-  ${name}:
-    deploy:
-      replicas: ${replicas}
-      resources:
-        limits: { cpus: '${cpu}', memory: ${memStr} }
-      update_config:
-        order: start-first
-        failure_action: rollback
-    networks: [internal]`;
-        };
-
-        const compose = generateCompose();
+          extensions,
+          extensionLabels,
+          compose,
+        } = buildReviewModel(kind, values);
 
         return (
           <>

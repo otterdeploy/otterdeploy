@@ -1,3 +1,9 @@
+import { buildLayer4Block, buildLayer4SiteBlocks, sanitizeMatcherName } from "./layer4";
+
+// Re-exported so existing `./builder` import sites keep working after the
+// layer4 fragments moved to ./layer4.
+export { buildLayer4Block, sanitizeMatcherName };
+
 export interface ProxyRouteInput {
   projectId: string;
   type: "http" | "layer4";
@@ -111,13 +117,6 @@ export interface CaddyfileOptions {
   acmeEmail?: string | null;
 }
 
-export function sanitizeMatcherName(domain: string): string {
-  return domain
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
-}
-
 export function buildHttpBlock(route: ProxyRouteInput, options: HttpBlockOptions = {}): string {
   const lines = [`${route.domain} {`];
   // Pre-Phase-2 the global `local_certs` covered everything; now we
@@ -194,44 +193,63 @@ export function buildHttpBlock(route: ProxyRouteInput, options: HttpBlockOptions
   return lines.join("\n");
 }
 
-// The layer4 routing for public databases lives in a `layer4` *listener
-// wrapper*, not a standalone listener — it wraps the HTTP server's existing
-// :443 listener (the trailing `tls` wrapper terminates everything the layer4
-// wrapper doesn't consume). So public Postgres rides on :443 by TLS-SNI next
-// to HTTP, with no second port. Emitted inside the global `{ }` block.
-export function buildLayer4Block(routes: ProxyRouteInput[]): string {
-  const lines = ["\tservers {", "\t\tlistener_wrappers {", "\t\t\tlayer4 {"];
+interface GlobalBlockOptions {
+  /** The `admin` line body: `admin <bind>` or `admin off`. */
+  adminLine: string;
+  acmeEmail?: string | null;
+  anyUsesAcme: boolean;
+  /** false ⇒ emit `auto_https disable_redirects` (operator runs HTTP→HTTPS
+   *  elsewhere). Undefined/true keeps Caddy's default auto-redirect. */
+  httpsAutoRedirect?: boolean | null;
+  crowdsec?: CrowdsecConfig;
+  edgeLogSink?: string;
+  layer4Routes: ProxyRouteInput[];
+}
 
-  for (const route of routes) {
-    const name = sanitizeMatcherName(route.domain);
-    const alpn = route.layer4Alpn;
-    // Match by SNI *and* ALPN. A bare-SNI match would also catch this domain's
-    // ACME TLS-ALPN-01 challenge (ALPN `acme-tls/1`) and route it to the proxy,
-    // so the cert could never issue. Scoping to the engine's ALPN lets the
-    // challenge fall through to the `tls` wrapper, which answers it.
-    lines.push(`\t\t\t\t@${name} tls {`);
-    if (alpn) lines.push(`\t\t\t\t\talpn ${alpn}`);
-    lines.push(`\t\t\t\t\tsni ${route.domain}`);
-    lines.push("\t\t\t\t}");
-    lines.push(`\t\t\t\troute @${name} {`);
-    // Terminate TLS here (Caddy presents the domain's managed cert) and proxy
-    // plaintext to the engine over the overlay network.
-    if (alpn) {
-      lines.push("\t\t\t\t\ttls {");
-      lines.push("\t\t\t\t\t\tconnection_policy {");
-      lines.push(`\t\t\t\t\t\t\talpn ${alpn}`);
-      lines.push("\t\t\t\t\t\t}");
-      lines.push("\t\t\t\t\t}");
-    }
-    lines.push(`\t\t\t\t\tproxy ${route.upstreamHost}:${route.upstreamPort}`);
-    lines.push("\t\t\t\t}");
+/** The global `{ … }` block (incl. its closing brace). Only registers `email`
+ *  when a route wants ACME — Caddy errors on `email` + `local_certs` together,
+ *  so pure-internal installs keep the `local_certs` shortcut instead. */
+function buildGlobalBlock(o: GlobalBlockOptions): string[] {
+  const lines = ["{", `\t${o.adminLine}`];
+  if (o.anyUsesAcme && o.acmeEmail) {
+    lines.push(`\temail ${o.acmeEmail}`);
   }
+  if (!o.anyUsesAcme) {
+    lines.push("\tlocal_certs");
+  }
+  if (o.httpsAutoRedirect === false) {
+    lines.push("\tauto_https disable_redirects");
+  }
+  if (o.crowdsec) {
+    lines.push(...crowdsecGlobalLines(o.crowdsec));
+  }
+  if (o.edgeLogSink) {
+    lines.push(...edgeLogGlobalLines(o.edgeLogSink));
+  }
+  if (o.layer4Routes.length > 0) {
+    lines.push(buildLayer4Block(o.layer4Routes));
+  }
+  lines.push("}");
+  return lines;
+}
 
-  lines.push("\t\t\t}");
-  lines.push("\t\t\ttls");
-  lines.push("\t\t}");
-  lines.push("\t}");
-  return lines.join("\n");
+/** One HTTP site block per http route, each preceded by a blank separator. */
+function buildHttpSiteBlocks(
+  httpRoutes: ProxyRouteInput[],
+  options: { authzUpstream?: string; edgeLogSink?: string; crowdsec?: CrowdsecConfig },
+): string[] {
+  const lines: string[] = [];
+  for (const route of httpRoutes) {
+    lines.push("");
+    lines.push(
+      buildHttpBlock(route, {
+        authzUpstream: options.authzUpstream,
+        edgeLogSink: options.edgeLogSink,
+        crowdsec: Boolean(options.crowdsec),
+      }),
+    );
+  }
+  return lines;
 }
 
 export function buildCaddyfile(
@@ -255,67 +273,17 @@ export function buildCaddyfile(
   const layer4Routes = routes.filter((r) => r.type === "layer4");
   const anyUsesAcme = routes.some((r) => r.usesAcme);
 
-  // Global block: only register `email` when at least one route wants
-  // ACME — Caddy errors on `email` with `local_certs` together, and the
-  // SaaS install with all-real-domains doesn't want local_certs for
-  // anything. Pure-internal installs keep the old `local_certs` shortcut.
-  const lines = ["{", `\tadmin ${adminBind}`];
-  if (anyUsesAcme && options.acmeEmail) {
-    lines.push(`\temail ${options.acmeEmail}`);
-  }
-  if (!anyUsesAcme) {
-    lines.push("\tlocal_certs");
-  }
-  // Operator opted out of Caddy's automatic HTTP→HTTPS redirect (e.g. a
-  // downstream LB already does it). Certs still issue; only the redirect drops.
-  if (options.httpsAutoRedirect === false) {
-    lines.push("\tauto_https disable_redirects");
-  }
-  if (options.crowdsec) {
-    lines.push(...crowdsecGlobalLines(options.crowdsec));
-  }
-  if (options.edgeLogSink) {
-    lines.push(...edgeLogGlobalLines(options.edgeLogSink));
-  }
-
-  if (layer4Routes.length > 0) {
-    lines.push(buildLayer4Block(layer4Routes));
-  }
-
-  lines.push("}");
-
-  for (const route of httpRoutes) {
-    lines.push("");
-    lines.push(
-      buildHttpBlock(route, {
-        authzUpstream: options.authzUpstream,
-        edgeLogSink: options.edgeLogSink,
-        crowdsec: Boolean(options.crowdsec),
-      }),
-    );
-  }
-
-  // Layer4 needs an HTTPS site block per domain (Caddy issues the cert
-  // there even though traffic is proxied raw by the layer4 module). Split
-  // by usesAcme so the verified domains get real certs and the unverified
-  // ones stay self-signed without polluting the global block.
-  const tlsInternalDomains = layer4Routes.filter((r) => !r.usesAcme).map((r) => r.domain);
-  if (tlsInternalDomains.length > 0) {
-    lines.push("");
-    lines.push(`${tlsInternalDomains.join(", ")} {`);
-    lines.push("\ttls internal");
-    lines.push('\trespond "ok" 200');
-    lines.push("}");
-  }
-  const acmeDomains = layer4Routes.filter((r) => r.usesAcme).map((r) => r.domain);
-  if (acmeDomains.length > 0) {
-    // No explicit `tls` block — Caddy defaults to ACME using the global
-    // email + the default Let's Encrypt issuer.
-    lines.push("");
-    lines.push(`${acmeDomains.join(", ")} {`);
-    lines.push('\trespond "ok" 200');
-    lines.push("}");
-  }
+  const lines = buildGlobalBlock({
+    adminLine: `admin ${adminBind}`,
+    acmeEmail: options.acmeEmail,
+    anyUsesAcme,
+    httpsAutoRedirect: options.httpsAutoRedirect,
+    crowdsec: options.crowdsec,
+    edgeLogSink: options.edgeLogSink,
+    layer4Routes,
+  });
+  lines.push(...buildHttpSiteBlocks(httpRoutes, options));
+  lines.push(...buildLayer4SiteBlocks(layer4Routes));
 
   for (const block of options.customBlocks ?? []) {
     const trimmed = block.trim();
@@ -348,52 +316,16 @@ export function buildProjectFragment(
   }
 
   const anyUsesAcme = routes.some((r) => r.usesAcme);
-  const lines = ["{", "\tadmin off"];
-  if (anyUsesAcme && options.acmeEmail) {
-    lines.push(`\temail ${options.acmeEmail}`);
-  }
-  if (!anyUsesAcme) {
-    lines.push("\tlocal_certs");
-  }
-  if (options.crowdsec) {
-    lines.push(...crowdsecGlobalLines(options.crowdsec));
-  }
-  if (options.edgeLogSink) {
-    lines.push(...edgeLogGlobalLines(options.edgeLogSink));
-  }
-
-  if (layer4Routes.length > 0) {
-    lines.push(buildLayer4Block(layer4Routes));
-  }
-
-  lines.push("}");
-
-  for (const route of httpRoutes) {
-    lines.push("");
-    lines.push(
-      buildHttpBlock(route, {
-        authzUpstream: options.authzUpstream,
-        edgeLogSink: options.edgeLogSink,
-        crowdsec: Boolean(options.crowdsec),
-      }),
-    );
-  }
-
-  const tlsInternalDomains = layer4Routes.filter((r) => !r.usesAcme).map((r) => r.domain);
-  if (tlsInternalDomains.length > 0) {
-    lines.push("");
-    lines.push(`${tlsInternalDomains.join(", ")} {`);
-    lines.push("\ttls internal");
-    lines.push('\trespond "ok" 200');
-    lines.push("}");
-  }
-  const acmeDomains = layer4Routes.filter((r) => r.usesAcme).map((r) => r.domain);
-  if (acmeDomains.length > 0) {
-    lines.push("");
-    lines.push(`${acmeDomains.join(", ")} {`);
-    lines.push('\trespond "ok" 200');
-    lines.push("}");
-  }
+  const lines = buildGlobalBlock({
+    adminLine: "admin off",
+    acmeEmail: options.acmeEmail,
+    anyUsesAcme,
+    crowdsec: options.crowdsec,
+    edgeLogSink: options.edgeLogSink,
+    layer4Routes,
+  });
+  lines.push(...buildHttpSiteBlocks(httpRoutes, options));
+  lines.push(...buildLayer4SiteBlocks(layer4Routes));
 
   if (customConfig.length > 0) {
     lines.push("");

@@ -27,6 +27,7 @@ export const PLATFORM = {
     // and be writable on every swarm node that could schedule a task —
     // either via a shared filesystem or by bind-mounting the same host
     // path on every node. Override via OTTERDEPLOY_FILES_ROOT for tests.
+    // oxlint-disable-next-line node/no-process-env -- leaf config constant evaluated at import; this is a test-only override not part of the validated env schema, and importing @otterdeploy/env into this near-universally-imported module would pull full env validation into the import graph.
     root: process.env.OTTERDEPLOY_FILES_ROOT ?? "/var/lib/otterdeploy/files",
   },
   service: {

@@ -41,29 +41,28 @@ export interface EnvEntry {
 // Docker task `Status.State` → graph bucket. Same collapse rule as the
 // existing project.serviceTasks endpoint so the UI doesn't have to learn
 // two state sets.
+const TASK_STATE_BUCKETS: Record<string, ServiceTaskInfo["state"]> = {
+  running: "running",
+  new: "building",
+  allocated: "building",
+  pending: "building",
+  assigned: "building",
+  accepted: "building",
+  preparing: "building",
+  ready: "building",
+  starting: "building",
+  failed: "error",
+  rejected: "error",
+  remove: "error",
+  orphaned: "error",
+  complete: "error",
+  shutdown: "error",
+};
+
+// Unknown/missing states collapse to "building" so we never false-positive an
+// error. https://docs.docker.com/reference/cli/docker/service/ps/
 function collapseTaskState(state: string | undefined): ServiceTaskInfo["state"] {
-  switch (state) {
-    case "running":
-      return "running";
-    case "new":
-    case "allocated":
-    case "pending":
-    case "assigned":
-    case "accepted":
-    case "preparing":
-    case "ready":
-    case "starting":
-      return "building";
-    case "failed":
-    case "rejected":
-    case "remove":
-    case "orphaned":
-    case "complete":
-    case "shutdown":
-      return "error";
-    default:
-      return "building";
-  }
+  return TASK_STATE_BUCKETS[state ?? ""] ?? "building";
 }
 
 // Resolve a resource id to its swarm service name. Postgres uses the

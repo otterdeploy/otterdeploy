@@ -12,7 +12,7 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { toast } from "sonner";
 
@@ -109,18 +109,16 @@ export function DiceResultGrid({
   // A row can only be mutated if we can target it by primary key.
   const canEdit = editable && (primaryKey?.length ?? 0) > 0;
 
-  // Mirror `data` in a ref so the change/delete handlers can read the pre-edit
-  // row (for the PK predicate and for reverting a failed write).
-  const dataRef = useRef(data);
-  dataRef.current = data;
-
+  // The change/delete handlers read the pre-edit rows (for the PK predicate and
+  // for reverting a failed write) straight from the closed-over `data`: the grid
+  // always invokes the latest handler, so this closure mirrors current state.
   const pkFor = (row: Row): ColumnValue[] =>
     (primaryKey ?? []).map((c) => ({ column: c, value: row[c] ?? null }));
 
   // The grid emits the full next array after an inline edit. Diff it against the
   // pre-edit rows to find the changed row + columns, then persist that row.
   const handleDataChange = (next: Row[]) => {
-    const prev = dataRef.current;
+    const prev = data;
     setData(next);
     if (!canEdit || !onUpdateRow) return;
     for (let i = 0; i < next.length; i++) {
@@ -141,7 +139,7 @@ export function DiceResultGrid({
 
   const handleRowsDelete = async (rowsToDelete: Row[]) => {
     if (!canEdit || !onDeleteRow) return;
-    const snapshot = dataRef.current;
+    const snapshot = data;
     setData((cur) => cur.filter((r) => !rowsToDelete.includes(r)));
     for (const row of rowsToDelete) {
       try {

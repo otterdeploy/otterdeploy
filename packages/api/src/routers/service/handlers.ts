@@ -6,39 +6,20 @@
  * Returns `Result<View, TaggedError>` so the oRPC handler layer can switch
  * on `result.error._tag` to translate to the right wire-level error code.
  */
-import type { DeploymentId, ResourceId } from "@otterdeploy/shared/id";
+import type { ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
-import { db } from "@otterdeploy/db";
-import { deployment, serviceResource } from "@otterdeploy/db/schema/project";
 import { Result } from "better-result";
-import { eq } from "drizzle-orm";
 
 import type { ProjectNotFoundError } from "../project/errors";
 
 import { reconcile } from "../../caddy";
-import {
-  clearPrimaryForResource,
-  deleteProxyRoutesByResource,
-  insertProxyRoute,
-  listProxyRoutesByResourceId,
-  setRoutesEnabledForResource,
-  updateProxyRoute,
-} from "../../caddy/queries";
+import { deleteProxyRoutesByResource } from "../../caddy/queries";
 import { PLATFORM } from "../../constants";
-import { loadDomainSourcesForProject } from "../../lib/domain-sources";
-import { resolvePublicDomain } from "../../lib/domains";
 import { runtime } from "../../runtime";
-import {
-  getResourceDeploymentById,
-  insertDeployment,
-  markDeploymentFailed,
-} from "../project/deployments";
 import { loadProject, loadResource } from "./context";
 import {
   MissingProjectBuildBindingError,
-  NoHttpPortError,
-  NotRollbackableError,
   ServiceConflictError,
   ServiceInUseError,
   ServiceNotFoundError,
@@ -53,19 +34,14 @@ import {
   toUpdateRecordPatch,
 } from "./inputs";
 import {
-  bulkReplaceServiceEnvVars,
   createServiceRecord,
-  deleteServiceEnvVar,
   deleteServiceRecord,
   findServiceDependentsByName,
-  getPrimaryHttpPort,
   getServiceRecord,
   getServiceRecordByName,
   listServiceRecordsByProject,
   replaceServicePorts,
-  setPublicExposure,
   updateServiceRecord,
-  upsertServiceEnvVar,
   type ServiceRecord,
 } from "./queries";
 import { provisionFresh, redeployAndFanOut } from "./redeploy";
@@ -81,6 +57,10 @@ import {
 
 export type { EnvVarView, ServiceView } from "./views";
 export type { CreateServiceInput, UpdateServiceInput } from "./inputs";
+
+export { exposeService, unexposeService } from "./expose";
+export { bulkSetEnv, setEnv, unsetEnv } from "./env-handlers";
+export { rollbackService } from "./rollback";
 
 // Common error shapes — keep handler signatures legible.
 type NotFound = ProjectNotFoundError | ServiceNotFoundError;
@@ -258,274 +238,4 @@ export async function restartService(
   if (redeployed.isErr()) return Result.err(redeployed.error);
 
   return getService(input);
-}
-
-/**
- * Roll a service back to a prior deployment's image. Image-only: it re-points
- * `serviceResource.image` at the target deployment's tag and re-rolls — the
- * service's current env/config/secrets are kept (you want the old code with
- * today's config, not an old env that may reference deleted resources). The
- * roll is recorded as a new `reason:"rollback"` deployment so it shows in
- * history and can itself be rolled back. The target must be a settled deploy
- * with a real (non-`pending:`) image.
- */
-export async function rollbackService(
-  input: ResourceRef & { deploymentId: DeploymentId },
-  log: RequestLogger,
-): Promise<Result<ServiceView, RedeployFailure | NotRollbackableError>> {
-  const ctx = await loadResource(input);
-  if (ctx.isErr()) return Result.err(ctx.error);
-
-  const target = await getResourceDeploymentById(input.resourceId, input.deploymentId);
-  if (!target) {
-    return Result.err(new ServiceNotFoundError({ resourceId: input.resourceId }));
-  }
-  if (target.status !== "running" && target.status !== "superseded") {
-    return Result.err(
-      new NotRollbackableError({
-        resourceId: input.resourceId,
-        reason: `deployment is ${target.status}, not a settled successful deploy`,
-      }),
-    );
-  }
-  if (!target.image || target.image.startsWith("pending:")) {
-    return Result.err(
-      new NotRollbackableError({
-        resourceId: input.resourceId,
-        reason: "deployment has no built image",
-      }),
-    );
-  }
-
-  const previousImage = ctx.value.record.service.image;
-  // Pin by the target's tag; clear the digest (the deployment row stores no
-  // digest, and the tag still resolves the rolled-back image).
-  await db
-    .update(serviceResource)
-    .set({ image: target.image, imageDigest: null })
-    .where(eq(serviceResource.resourceId, input.resourceId));
-
-  const row = await insertDeployment({
-    resourceId: input.resourceId,
-    image: target.image,
-    reason: "rollback",
-    snapshot: {
-      rolledBackToDeploymentId: target.id,
-      previousImage,
-    },
-  });
-
-  const redeployed = await redeployAndFanOut(
-    input.projectId,
-    input.resourceId,
-    ctx.value.project.slug,
-    log,
-  );
-  if (redeployed.isErr()) {
-    await markDeploymentFailed(row.id, redeployed.error.message);
-    return Result.err(redeployed.error);
-  }
-
-  await db
-    .update(deployment)
-    .set({ status: "running", completedAt: new Date() })
-    .where(eq(deployment.id, row.id));
-
-  return getService(input);
-}
-
-export async function exposeService(
-  input: ResourceRef,
-  log: RequestLogger,
-): Promise<Result<ServiceView, NotFound | NoHttpPortError>> {
-  const ctx = await loadResource(input);
-  if (ctx.isErr()) return Result.err(ctx.error);
-  const { project, record } = ctx.value;
-
-  const primary = getPrimaryHttpPort(record.ports);
-  if (!primary) {
-    return Result.err(new NoHttpPortError({ resourceId: input.resourceId }));
-  }
-
-  // A service can carry several hosts (one proxy_route each). Expose no
-  // longer wipes-and-reinserts a single route — that would drop the
-  // operator's custom domains and their guests. It brings already-verified
-  // hosts back live, and guarantees at least one live host by minting the
-  // generated one whenever nothing else is serving.
-  await setRoutesEnabledForResource(input.resourceId, true);
-  for (const r of await listProxyRoutesByResourceId(input.resourceId)) {
-    // Refresh the upstream in case the primary HTTP port moved while the
-    // service was unexposed.
-    if (
-      r.upstreamPort !== primary.containerPort ||
-      r.upstreamHost !== record.service.internalHostname
-    ) {
-      await updateProxyRoute(r.id, {
-        upstreamPort: primary.containerPort,
-        upstreamHost: record.service.internalHostname,
-      });
-    }
-  }
-
-  let routes = await listProxyRoutesByResourceId(input.resourceId);
-  if (!routes.some((r) => r.enabled)) {
-    // Nothing live — either a first expose or every host is still a pending
-    // custom. Mint the generated host so expose actually exposes something.
-    const projectSlug = sanitizeSlug(project.slug);
-    const resourceSlug = sanitizeSlug(record.resource.name);
-    // Walk the chain (resource override → project → org → sslip). The
-    // per-resource `publicDomain` column on serviceResource is what feeds
-    // resourceOverride — operators who already typed a literal FQDN in
-    // the service settings get it back untouched.
-    const sources = (await loadDomainSourcesForProject(input.projectId)) ?? {
-      resourceOverride: null,
-      projectCustomDomain: null,
-      projectCustomDomainVerifiedAt: null,
-      orgBaseDomain: null,
-      orgBaseDomainVerifiedAt: null,
-      localBaseDomain: null,
-      serverIp: null,
-    };
-    const resolved = resolvePublicDomain(
-      { resourceSlug, projectSlug, kind: "service" },
-      { ...sources, resourceOverride: record.service.publicDomain },
-    );
-    await insertProxyRoute({
-      projectId: input.projectId,
-      resourceId: input.resourceId,
-      type: "http",
-      domain: resolved.fqdn,
-      upstreamHost: record.service.internalHostname,
-      upstreamPort: primary.containerPort,
-      protocol: "http",
-      // ACME only when the resolver decided the domain is verified and not
-      // a sslip fallback — same gate as the DB path.
-      usesAcme: resolved.verified && resolved.source !== "sslip-fallback",
-      enabled: true,
-      source: "generated",
-      // Becomes primary only if no other route already claims it.
-      isPrimary: !routes.some((r) => r.isPrimary),
-      // Generated hosts resolve to us by construction (sslip/local/org apex).
-      dnsState: "pointed",
-    });
-    routes = await listProxyRoutesByResourceId(input.resourceId);
-  }
-
-  // Settle the primary on a live host: keep the flagged one if it's live,
-  // else promote any live route (falling back to any route at all).
-  const flagged = routes.find((r) => r.isPrimary && r.enabled);
-  const primaryRoute =
-    flagged ?? routes.find((r) => r.enabled) ?? routes.find((r) => r.isPrimary) ?? routes[0];
-  if (primaryRoute && !primaryRoute.isPrimary) {
-    await clearPrimaryForResource(input.resourceId);
-    await updateProxyRoute(primaryRoute.id, { isPrimary: true });
-  }
-  const publicDomain = primaryRoute?.domain ?? null;
-
-  await setPublicExposure({
-    resourceId: input.resourceId,
-    enabled: true,
-    publicDomain,
-  });
-
-  const reconcileResult = await reconcile(log);
-  log.set({
-    expose: {
-      domain: publicDomain,
-      applied: reconcileResult.applied.includes(input.projectId),
-    },
-  });
-
-  return getService(input);
-}
-
-export async function unexposeService(
-  input: ResourceRef,
-  log: RequestLogger,
-): Promise<Result<ServiceView, NotFound>> {
-  const ctx = await loadResource(input);
-  if (ctx.isErr()) return Result.err(ctx.error);
-
-  // Disable every host without deleting the rows — the operator's custom
-  // domains, their verification, and their guests survive so a later
-  // re-expose brings them straight back.
-  await setRoutesEnabledForResource(input.resourceId, false);
-  await setPublicExposure({
-    resourceId: input.resourceId,
-    enabled: false,
-    publicDomain: null,
-  });
-  await reconcile(log);
-  log.set({ unexpose: { service: ctx.value.record.service.serviceName } });
-
-  return getService(input);
-}
-
-export async function setEnv(
-  input: ResourceRef & { key: string; value: string },
-  log: RequestLogger,
-): Promise<Result<EnvVarView, RedeployFailure>> {
-  const ctx = await loadResource(input);
-  if (ctx.isErr()) return Result.err(ctx.error);
-
-  const row = await upsertServiceEnvVar({
-    serviceResourceId: input.resourceId,
-    key: input.key,
-    value: input.value,
-  });
-
-  const redeployed = await redeployAndFanOut(
-    input.projectId,
-    input.resourceId,
-    ctx.value.project.slug,
-    log,
-  );
-  if (redeployed.isErr()) return Result.err(redeployed.error);
-
-  return Result.ok(mapEnvVar(row));
-}
-
-export async function unsetEnv(
-  input: ResourceRef & { key: string },
-  log: RequestLogger,
-): Promise<Result<{ ok: true }, RedeployFailure>> {
-  const ctx = await loadResource(input);
-  if (ctx.isErr()) return Result.err(ctx.error);
-
-  const removed = await deleteServiceEnvVar({
-    serviceResourceId: input.resourceId,
-    key: input.key,
-  });
-  if (!removed) {
-    return Result.err(new ServiceNotFoundError({ resourceId: input.resourceId }));
-  }
-
-  const redeployed = await redeployAndFanOut(
-    input.projectId,
-    input.resourceId,
-    ctx.value.project.slug,
-    log,
-  );
-  if (redeployed.isErr()) return Result.err(redeployed.error);
-
-  return Result.ok({ ok: true });
-}
-
-export async function bulkSetEnv(
-  input: ResourceRef & { vars: Array<{ key: string; value: string }> },
-  log: RequestLogger,
-): Promise<Result<EnvVarView[], RedeployFailure>> {
-  const ctx = await loadResource(input);
-  if (ctx.isErr()) return Result.err(ctx.error);
-
-  const rows = await bulkReplaceServiceEnvVars(input.resourceId, input.vars);
-  const redeployed = await redeployAndFanOut(
-    input.projectId,
-    input.resourceId,
-    ctx.value.project.slug,
-    log,
-  );
-  if (redeployed.isErr()) return Result.err(redeployed.error);
-
-  return Result.ok(rows.map(mapEnvVar));
 }

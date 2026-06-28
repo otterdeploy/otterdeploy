@@ -15,6 +15,7 @@ import { swarmDriver } from "./swarm-driver";
 // else (incl. unset) is the plain-Docker default. The env package still
 // documents/validates DEPLOY_RUNTIME for the server's own startup.
 function mode(): "docker" | "swarm" {
+  // oxlint-disable-next-line node/no-process-env -- intentional raw read (see note above): importing @otterdeploy/env here would pull full env validation into the deploy import graph.
   return process.env.DEPLOY_RUNTIME === "swarm" ? "swarm" : "docker";
 }
 

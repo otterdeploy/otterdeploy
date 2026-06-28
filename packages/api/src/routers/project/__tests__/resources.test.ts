@@ -23,7 +23,7 @@ const organizationId = "org_test" as OrgId;
 
 describe("listProjectResources", () => {
   test("returns NOT_FOUND error when project does not exist", async () => {
-    vi.mocked(queries.getProjectInOrg).mockResolvedValue(null);
+    vi.mocked(queries.getProjectInOrg).mockResolvedValue(undefined);
     vi.mocked(queries.listProjectResources).mockResolvedValue({ databases: [] } as never);
     const result = await listProjectResources({ projectId, organizationId });
     expect(result.isErr()).toBe(true);
@@ -32,7 +32,7 @@ describe("listProjectResources", () => {
 
 describe("getProjectResource", () => {
   test("returns NOT_FOUND when project missing", async () => {
-    vi.mocked(queries.getProjectInOrg).mockResolvedValue(null);
+    vi.mocked(queries.getProjectInOrg).mockResolvedValue(undefined);
     vi.mocked(queries.getResourceById).mockResolvedValue(null);
     const result = await getProjectResource({
       projectId,

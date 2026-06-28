@@ -2,30 +2,24 @@
  * oRPC handlers for `type: compose` resources. Thin wrappers over the compose
  * service layer (parse / queries / deploy). See docs/designs/compose.md.
  */
-import { Result } from "better-result";
-
 import { projectScopedProcedure, requirePermission } from "../..";
-import { fetchBranchHeadSha } from "../../git/github-app";
 import { removeResourceDir } from "../../lib/data-dir";
 import { parseCompose, summarizeCompose } from "../../stack/compose";
 import { removeComposeStack } from "../../swarm";
-import { upsertProjectEnvVar } from "../project/queries";
 import { getProjectInOrg } from "../project/queries";
-import { isUniqueViolation } from "../project/views";
 import { enqueueComposeBuild } from "./build-trigger";
 import { cleanupOrphanedComposeVars } from "./cleanup-vars";
+import { createComposeResource } from "./create";
 import { deployCompose, reconcileComposeDomains, removeComposeDomains } from "./deploy";
 import { collectVarRefs, interpolate } from "./env";
 import {
   type ComposeRecord,
-  createComposeRecord,
   deleteComposeRecord,
   getComposeRecord,
   listComposeRecords,
   updateComposeExposed,
 } from "./queries";
 import { removeStackServices } from "./reconcile";
-import { parseGitHubUrl, SECRETISH, stackNameFor } from "./util";
 
 function toView(rec: ComposeRecord) {
   return {
@@ -89,160 +83,18 @@ export const composeRouter = {
   // permissions (members create/redeploy, only admins/owners delete).
   create: requirePermission({ service: ["create"] }).compose.create.handler(
     async ({ input, context, errors }) => {
-      const project = await getProjectInOrg({
-        projectId: input.projectId,
+      const result = await createComposeResource({
+        input,
         organizationId: context.activeOrganizationId,
+        log: context.log,
       });
-      if (!project) throw errors.NOT_FOUND();
-
-      // Persist the filled-in `${VAR}` values as project variables so the
-      // interpolation (and any future redeploy) resolves them. Applies to both
-      // inline and git sources.
-      if (input.variables.length > 0 && project.environmentId) {
-        for (const v of input.variables) {
-          if (!v.value) continue;
-          await upsertProjectEnvVar({
-            scope: {
-              projectId: input.projectId,
-              environmentId: project.environmentId,
-            },
-            key: v.key,
-            value: v.value,
-            isSecret: v.secret ?? SECRETISH.test(v.key),
-          });
-        }
+      if (result.isErr()) {
+        const failure = result.error;
+        if (failure.reason === "not_found") throw errors.NOT_FOUND();
+        if (failure.reason === "conflict") throw errors.CONFLICT();
+        throw errors.INVALID_INPUT({ message: failure.message });
       }
-
-      const exposed = input.exposed.map((e) => ({
-        service: e.service,
-        port: e.port,
-        domain: "",
-      }));
-      // ── Git source: build the stack from a public repo URL. ──
-      if (input.source === "git") {
-        const gh = parseGitHubUrl(input.gitRepoUrl ?? "");
-        if (!gh) {
-          throw errors.INVALID_INPUT({
-            message: "Enter a public GitHub repo URL, e.g. https://github.com/owner/repo",
-          });
-        }
-        // Name from the user, else the repo name.
-        const name = input.name?.trim() || gh.repo;
-        const stackName = stackNameFor(project.slug, name);
-        const branch = input.gitRef?.trim() || "main";
-        const shaRes = await Result.tryPromise({
-          try: () => fetchBranchHeadSha(null, gh.owner, gh.repo, branch),
-          catch: (e) => (e instanceof Error ? e.message : String(e)),
-        });
-        if (shaRes.isErr()) {
-          throw errors.INVALID_INPUT({
-            message: `Couldn't resolve ${branch} on ${gh.owner}/${gh.repo}: ${shaRes.error}`,
-          });
-        }
-        const ref = `refs/heads/${branch}`;
-
-        const created = await Result.tryPromise({
-          try: () =>
-            createComposeRecord({
-              projectId: input.projectId,
-              name,
-              source: "git",
-              composeContent: null,
-              gitRepoUrl: gh.cloneUrl,
-              gitRef: ref,
-              // null → the build worker auto-detects common compose file names.
-              composePath: input.composePath?.trim() || null,
-              stackName,
-              services: [],
-              exposed,
-            }),
-          catch: (e) => (e instanceof Error ? e : new Error(String(e))),
-        });
-        if (created.isErr()) {
-          if (isUniqueViolation(created.error)) throw errors.CONFLICT();
-          throw created.error;
-        }
-
-        await enqueueComposeBuild({
-          projectId: input.projectId,
-          resourceId: created.value.resource.id,
-          gitRepoUrl: gh.cloneUrl,
-          gitRef: ref,
-          projectGitRepoId: project.gitRepoId ?? null,
-          reason: "create",
-          sha: shaRes.value,
-        });
-
-        return {
-          resourceId: created.value.resource.id,
-          services: [],
-          warnings: [],
-          deploy: { ok: true, error: null, status: "building" },
-        };
-      }
-
-      // ── Inline source: parse + deploy now (no build worker). ──
-      if (!input.composeContent) {
-        throw errors.INVALID_INPUT({ message: "Compose file is empty" });
-      }
-      const parsed = parseCompose(input.composeContent);
-      if (parsed.isErr()) {
-        throw errors.INVALID_INPUT({ message: parsed.error.message });
-      }
-      const services = summarizeCompose(parsed.value);
-      // Name from the user, else the file's `name:`, else its first service.
-      const name =
-        input.name?.trim() ||
-        parsed.value.name ||
-        parsed.value.services[0]?.name ||
-        "compose-stack";
-      const stackName = stackNameFor(project.slug, name);
-
-      const created = await Result.tryPromise({
-        try: () =>
-          createComposeRecord({
-            projectId: input.projectId,
-            name,
-            source: "inline",
-            composeContent: input.composeContent ?? null,
-            stackName,
-            services,
-            exposed,
-          }),
-        catch: (e) => (e instanceof Error ? e : new Error(String(e))),
-      });
-      if (created.isErr()) {
-        if (isUniqueViolation(created.error)) throw errors.CONFLICT();
-        throw created.error;
-      }
-
-      context.log.set({
-        target: {
-          type: "resource",
-          kind: "compose",
-          id: created.value.resource.id,
-          projectId: input.projectId,
-        },
-      });
-
-      let deploy = { ok: false, error: null as string | null, status: "created" };
-      if (input.deploy) {
-        const d = await deployCompose(
-          { projectId: input.projectId, resourceId: created.value.resource.id },
-          "create",
-          context.log,
-        );
-        deploy = d.isOk()
-          ? { ok: true, error: null, status: d.value.status }
-          : { ok: false, error: d.error.message, status: "failed" };
-      }
-
-      return {
-        resourceId: created.value.resource.id,
-        services,
-        warnings: parsed.value.warnings,
-        deploy,
-      };
+      return result.value;
     },
   ),
 

@@ -90,6 +90,33 @@ function parseTs(ts: number | string | undefined): string {
   return new Date(0).toISOString();
 }
 
+function tlsVersionOf(version: number | undefined): string | null {
+  if (version == null) return null;
+  return TLS_VERSIONS[version] ?? `0x${version.toString(16)}`;
+}
+
+function tlsCipherOf(cipher: number | undefined): string | null {
+  if (cipher == null) return null;
+  return TLS_CIPHERS[cipher] ?? `0x${cipher.toString(16)}`;
+}
+
+function cacheStatusOf(respHeaders: HeaderMap | undefined): string | null {
+  return firstHeader(respHeaders, "Cache-Status") || firstHeader(respHeaders, "X-Cache") || null;
+}
+
+function requestIdOf(
+  requestId: string | undefined,
+  respHeaders: HeaderMap | undefined,
+  reqHeaders: HeaderMap | undefined,
+): string | null {
+  return (
+    (requestId ?? null) ||
+    firstHeader(respHeaders, "X-Request-Id") ||
+    firstHeader(reqHeaders, "X-Request-Id") ||
+    null
+  );
+}
+
 export function parseCaddyAccessLog(raw: unknown): EdgeLogLine | null {
   const result = CaddyAccessLogSchema.safeParse(raw);
   if (!result.success) return null;
@@ -107,27 +134,11 @@ export function parseCaddyAccessLog(raw: unknown): EdgeLogLine | null {
   } = result.data;
 
   const parsedTs = parseTs(ts);
-
-  const tlsVersion =
-    req.tls?.version != null
-      ? (TLS_VERSIONS[req.tls.version] ?? `0x${req.tls.version.toString(16)}`)
-      : null;
-
-  const tlsCipher =
-    req.tls?.cipher_suite != null
-      ? (TLS_CIPHERS[req.tls.cipher_suite] ?? `0x${req.tls.cipher_suite.toString(16)}`)
-      : null;
-
+  const tlsVersion = tlsVersionOf(req.tls?.version);
+  const tlsCipher = tlsCipherOf(req.tls?.cipher_suite);
   const referer = firstHeader(req.headers, "Referer") || "-";
-
-  const cacheRaw =
-    firstHeader(resp_headers, "Cache-Status") || firstHeader(resp_headers, "X-Cache") || null;
-
-  const requestId =
-    (request_id ?? null) ||
-    firstHeader(resp_headers, "X-Request-Id") ||
-    firstHeader(req.headers, "X-Request-Id") ||
-    null;
+  const cacheRaw = cacheStatusOf(resp_headers);
+  const requestId = requestIdOf(request_id, resp_headers, req.headers);
 
   return {
     id: `${parsedTs}-${counter++}`,

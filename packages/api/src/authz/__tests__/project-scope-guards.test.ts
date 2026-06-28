@@ -5,11 +5,17 @@ import { describe, expect, test } from "vitest";
 // server env at import time. Satisfy the required vars before the dynamic
 // import below so the module graph loads (no real DB is ever touched — every
 // guard takes an injected `client`). Same pattern as tokens.test.ts.
+// oxlint-disable-next-line node/no-process-env -- test env setup boundary: satisfy required vars so the guards' module graph (which imports @otterdeploy/db) loads.
 process.env.DATABASE_URL ??= "postgres://test/test";
+// oxlint-disable-next-line node/no-process-env -- test env setup boundary (see above).
 process.env.REDIS_URL ??= "redis://localhost:6379";
+// oxlint-disable-next-line node/no-process-env -- test env setup boundary (see above).
 process.env.BETTER_AUTH_URL ??= "http://localhost:3000";
+// oxlint-disable-next-line node/no-process-env -- test env setup boundary (see above).
 process.env.BETTER_AUTH_SECRET ??= "test-secret-test-secret-test-secret-0123456789";
+// oxlint-disable-next-line node/no-process-env -- test env setup boundary (see above).
 process.env.CORS_ORIGIN ??= "http://localhost:3000";
+// oxlint-disable-next-line node/no-process-env -- test env setup boundary (see above).
 process.env.RESEND_API_KEY ??= "test-resend-key";
 
 const {

@@ -24,6 +24,40 @@ import type {
   CurrentState,
 } from "../../stack/manifest/diff";
 
+interface ServiceStateRow {
+  resource: typeof resource.$inferSelect;
+  service: typeof serviceResource.$inferSelect;
+}
+
+// Map one joined service row + its resolved ports/env onto the diff's
+// CurrentService view. Kept out of loadCurrentState so the field-by-field
+// null-coalescing doesn't inflate that function's branch count.
+function toCurrentService(
+  row: ServiceStateRow,
+  ports: CurrentServicePort[],
+  env: Record<string, string>,
+): CurrentService {
+  return {
+    name: row.resource.name,
+    source: row.service.source,
+    image: row.service.image || null,
+    sourceSubdir: row.service.sourceSubdir,
+    replicas: row.service.replicas,
+    command: row.service.command ?? null,
+    entrypoint: row.service.entrypoint ?? null,
+    ports,
+    env,
+    publicEnabled: row.service.publicEnabled,
+    preDeploy: row.service.preDeploy ?? null,
+    postDeploy: row.service.postDeploy ?? null,
+    buildConfig: row.service.buildConfig ?? null,
+    restartWindowMs: row.service.restartWindowMs ?? null,
+    diskLimitMb: row.service.diskLimitMb ?? null,
+    swapLimitMb: row.service.swapLimitMb ?? null,
+    pidsLimit: row.service.pidsLimit ?? null,
+  };
+}
+
 export async function loadCurrentState(projectId: ProjectId): Promise<CurrentState> {
   const [serviceRows, databaseRows, composeRows] = await Promise.all([
     db
@@ -75,25 +109,9 @@ export async function loadCurrentState(projectId: ProjectId): Promise<CurrentSta
     }
 
     for (const row of serviceRows) {
-      services[row.resource.name] = {
-        name: row.resource.name,
-        source: row.service.source,
-        image: row.service.image || null,
-        sourceSubdir: row.service.sourceSubdir,
-        replicas: row.service.replicas,
-        command: row.service.command ?? null,
-        entrypoint: row.service.entrypoint ?? null,
-        ports: portsBySvc.get(row.service.resourceId) ?? [],
-        env: envBySvc.get(row.service.resourceId) ?? {},
-        publicEnabled: row.service.publicEnabled,
-        preDeploy: row.service.preDeploy ?? null,
-        postDeploy: row.service.postDeploy ?? null,
-        buildConfig: row.service.buildConfig ?? null,
-        restartWindowMs: row.service.restartWindowMs ?? null,
-        diskLimitMb: row.service.diskLimitMb ?? null,
-        swapLimitMb: row.service.swapLimitMb ?? null,
-        pidsLimit: row.service.pidsLimit ?? null,
-      };
+      const svcPorts = portsBySvc.get(row.service.resourceId) ?? [];
+      const svcEnv = envBySvc.get(row.service.resourceId) ?? {};
+      services[row.resource.name] = toCurrentService(row, svcPorts, svcEnv);
     }
   }
 

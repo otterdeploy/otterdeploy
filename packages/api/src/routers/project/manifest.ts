@@ -63,8 +63,9 @@ export async function saveManifest(
     )
     .returning({ version: project.manifestVersion });
 
-  if (updated.length > 0) {
-    return Result.ok({ version: updated[0]!.version });
+  const [updatedRow] = updated;
+  if (updatedRow) {
+    return Result.ok({ version: updatedRow.version });
   }
 
   const [current] = await db
@@ -106,10 +107,11 @@ export async function discardManifest(
     .where(and(eq(project.id, scope.projectId), eq(project.organizationId, scope.organizationId)))
     .returning({ version: project.manifestVersion });
 
-  if (updated.length === 0) {
+  const [updatedRow] = updated;
+  if (!updatedRow) {
     return Result.err(new ProjectNotFoundError({ projectId: scope.projectId }));
   }
-  return Result.ok({ version: updated[0]!.version });
+  return Result.ok({ version: updatedRow.version });
 }
 
 /** Resolved manifest for a given environment (or base if none). */

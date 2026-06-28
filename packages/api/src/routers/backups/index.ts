@@ -1,12 +1,7 @@
 import { matchError } from "better-result";
 
 import { orgScopedProcedure, requirePermission } from "../..";
-import {
-  enforceBackupScope,
-  enforceProjectScope,
-  enforceResourceScope,
-  enforceScheduleScope,
-} from "../../authz/project-scope-guards";
+import { enforceBackupScope, enforceResourceScope } from "../../authz/project-scope-guards";
 import {
   createBackupRun,
   executeBackup,
@@ -14,29 +9,10 @@ import {
   listBackupLogs,
   restoreBackup,
 } from "../../backups";
-import {
-  createScheduleRecord,
-  deleteScheduleRecord,
-  updateScheduleRecord,
-} from "../../backups/schedule-crud";
-import { getScheduleRunTarget, resolveScheduleSources } from "../../backups/schedule-db";
-import {
-  presentBackup,
-  presentDestination,
-  presentDestinationResult,
-  presentSchedule,
-} from "./presenters";
-import {
-  createDestination,
-  deleteDestination,
-  getBackup,
-  listBackups,
-  listDestinations,
-  listSchedules,
-  scheduleDestinationNames,
-  testDestination,
-  updateDestination,
-} from "./service";
+import { backupDestinationsRouter } from "./destinations-router";
+import { presentBackup } from "./presenters";
+import { backupSchedulesRouter } from "./schedules-router";
+import { getBackup, listBackups } from "./service";
 
 export const backupsRouter = {
   list: orgScopedProcedure.backups.list.handler(async ({ input, context }) => {
@@ -133,208 +109,7 @@ export const backupsRouter = {
     return listBackupLogs(input.id, input.afterSeq);
   }),
 
-  schedules: {
-    list: orgScopedProcedure.backups.schedules.list.handler(async ({ context }) => {
-      const rows = await listSchedules({
-        organizationId: context.activeOrganizationId,
-      });
-      return rows.map(presentSchedule);
-    }),
+  schedules: backupSchedulesRouter,
 
-    create: requirePermission({ backup: ["create"] }).backups.schedules.create.handler(
-      async ({ input, context }) => {
-        enforceProjectScope(context, input.projectId);
-        const row = await createScheduleRecord({
-          organizationId: context.activeOrganizationId,
-          name: input.name,
-          sources: input.sources,
-          cron: input.cron,
-          destinationIds: input.destinationIds,
-          projectId: input.projectId ?? null,
-          keepDaily: input.keepDaily,
-          keepWeekly: input.keepWeekly,
-          keepMonthly: input.keepMonthly,
-          keepYearly: input.keepYearly,
-          retentionDays: input.retentionDays,
-          maxStorageGb: input.maxStorageGb,
-          preHook: input.preHook,
-          encryption: input.encryption,
-          enabled: input.enabled,
-        });
-        context.log.set({ target: { type: "backup_schedule", id: row.id } });
-        return presentSchedule({
-          schedule: row,
-          destinationNames: await scheduleDestinationNames({
-            organizationId: context.activeOrganizationId,
-            ids: row.destinationIds,
-          }),
-        });
-      },
-    ),
-
-    update: requirePermission({ backup: ["update"] }).backups.schedules.update.handler(
-      async ({ input, context, errors }) => {
-        context.log.set({ target: { type: "backup_schedule", id: input.id } });
-        await enforceScheduleScope(context, input.id);
-        const row = await updateScheduleRecord({
-          organizationId: context.activeOrganizationId,
-          id: input.id,
-          name: input.name,
-          sources: input.sources,
-          cron: input.cron,
-          keepDaily: input.keepDaily,
-          keepWeekly: input.keepWeekly,
-          keepMonthly: input.keepMonthly,
-          keepYearly: input.keepYearly,
-          retentionDays: input.retentionDays,
-          maxStorageGb: input.maxStorageGb,
-          preHook: input.preHook,
-          enabled: input.enabled,
-        });
-        if (!row) throw errors.NOT_FOUND();
-        return presentSchedule({
-          schedule: row,
-          destinationNames: await scheduleDestinationNames({
-            organizationId: context.activeOrganizationId,
-            ids: row.destinationIds,
-          }),
-        });
-      },
-    ),
-
-    // Manual trigger — enqueue + execute a run for each of the schedule's
-    // database sources now. RBAC: backup:run.
-    run: requirePermission({ backup: ["run"] }).backups.schedules.run.handler(
-      async ({ input, context, errors }) => {
-        context.log.set({ target: { type: "backup_schedule", id: input.id } });
-        await enforceScheduleScope(context, input.id);
-        const schedule = await getScheduleRunTarget({
-          organizationId: context.activeOrganizationId,
-          id: input.id,
-        });
-        if (!schedule) throw errors.NOT_FOUND();
-
-        const resourceIds = await resolveScheduleSources(
-          context.activeOrganizationId,
-          schedule.sources,
-        );
-        let queued = 0;
-        for (const resourceId of resourceIds) {
-          for (const destinationId of schedule.destinationIds) {
-            const id = await createBackupRun({
-              organizationId: context.activeOrganizationId,
-              resourceId,
-              destinationId,
-              scheduleId: schedule.id,
-              encryption: schedule.encryption === "aes-256-gcm" ? "aes-256-gcm" : "none",
-              method: "manual-schedule",
-            });
-            queued += 1;
-            // Run detached — status + logs observable via get/logs.
-            void executeBackup(id);
-          }
-        }
-        return { queued };
-      },
-    ),
-
-    delete: requirePermission({ backup: ["delete"] }).backups.schedules.delete.handler(
-      async ({ input, context, errors }) => {
-        context.log.set({ target: { type: "backup_schedule", id: input.id } });
-        await enforceScheduleScope(context, input.id);
-        const ok = await deleteScheduleRecord({
-          organizationId: context.activeOrganizationId,
-          id: input.id,
-        });
-        if (!ok) throw errors.NOT_FOUND();
-        return { ok: true };
-      },
-    ),
-  },
-
-  destinations: {
-    list: orgScopedProcedure.backups.destinations.list.handler(async ({ context }) => {
-      const rows = await listDestinations({
-        organizationId: context.activeOrganizationId,
-      });
-      return rows.map(presentDestination);
-    }),
-
-    create: requirePermission({ backup: ["create"] }).backups.destinations.create.handler(
-      async ({ input, context }) => {
-        const row = await createDestination({
-          organizationId: context.activeOrganizationId,
-          name: input.name,
-          type: input.type,
-          config: input.config,
-          secret: input.secret,
-        });
-        context.log.set({
-          target: { type: "backup_destination", id: row.id },
-        });
-        return presentDestinationResult(row);
-      },
-    ),
-
-    update: requirePermission({ backup: ["update"] }).backups.destinations.update.handler(
-      async ({ input, context, errors }) => {
-        context.log.set({
-          target: { type: "backup_destination", id: input.id },
-        });
-        const result = await updateDestination({
-          organizationId: context.activeOrganizationId,
-          id: input.id,
-          name: input.name,
-          config: input.config,
-          secret: input.secret,
-        });
-        if (result.isErr()) {
-          throw matchError(result.error, {
-            DestinationNotFoundError: () => errors.NOT_FOUND(),
-          });
-        }
-        return presentDestinationResult(result.value);
-      },
-    ),
-
-    delete: requirePermission({ backup: ["delete"] }).backups.destinations.delete.handler(
-      async ({ input, context, errors }) => {
-        context.log.set({
-          target: { type: "backup_destination", id: input.id },
-        });
-        const result = await deleteDestination({
-          organizationId: context.activeOrganizationId,
-          id: input.id,
-        });
-        if (result.isErr()) {
-          throw matchError(result.error, {
-            DestinationNotFoundError: () => errors.NOT_FOUND(),
-            DestinationInUseError: (err) =>
-              errors.CONFLICT({ data: { references: err.references } }),
-          });
-        }
-        return result.value;
-      },
-    ),
-
-    test: orgScopedProcedure.backups.destinations.test.handler(
-      async ({ input, context, errors }) => {
-        context.log.set({
-          target: { type: "backup_destination", id: input.id },
-        });
-        const result = await testDestination({
-          organizationId: context.activeOrganizationId,
-          id: input.id,
-        });
-        if (result.isErr()) {
-          throw matchError(result.error, {
-            DestinationNotFoundError: () => errors.NOT_FOUND(),
-            DestinationTestFailedError: (err) =>
-              errors.TEST_FAILED({ data: { reason: err.reason } }),
-          });
-        }
-        return result.value;
-      },
-    ),
-  },
+  destinations: backupDestinationsRouter,
 };

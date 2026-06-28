@@ -12,6 +12,14 @@ import {
 import { parseCaddyAccessLog } from "../parse";
 import { __resetEdgeLogs, bucketOf, pushEdgeLog, queryEdgeLogs, subscribeEdgeLogs } from "../ring";
 
+/** Narrow `arr[0]` to its element type with a throwing guard — keeps the tests
+ *  free of `!` non-null assertions while preserving `arr[0]!`'s runtime intent. */
+function first<T>(arr: readonly T[]): T {
+  const row = arr[0];
+  if (row === undefined) throw new Error("expected at least one element");
+  return row;
+}
+
 const caddyEntry = {
   ts: 1_700_000_000.5,
   request: {
@@ -34,7 +42,8 @@ const caddyEntry = {
 
 describe("parseCaddyAccessLog", () => {
   test("maps a Caddy access entry to an EdgeLogLine", () => {
-    const out = parseCaddyAccessLog(caddyEntry)!;
+    const out = parseCaddyAccessLog(caddyEntry);
+    if (!out) throw new Error("expected a parsed access line");
     expect(out.method).toBe("GET");
     expect(out.host).toBe("plane.com");
     expect(out.path).toBe("/app");
@@ -65,7 +74,8 @@ describe("parseCaddyAccessLog", () => {
           Authorization: ["Bearer tok"],
         },
       },
-    })!;
+    });
+    if (!out) throw new Error("expected a parsed access line");
     expect(out.headers["Cookie"]).toBeUndefined();
     expect(out.headers["Authorization"]).toBeUndefined();
     expect(out.headers["User-Agent"]).toBe("x");
@@ -75,7 +85,8 @@ describe("parseCaddyAccessLog", () => {
     const out = parseCaddyAccessLog({
       ...caddyEntry,
       request: { ...caddyEntry.request, remote_ip: undefined, remote_addr: "9.9.9.9:5555" },
-    })!;
+    });
+    if (!out) throw new Error("expected a parsed access line");
     expect(out.clientIp).toBe("9.9.9.9");
   });
 
@@ -126,14 +137,15 @@ describe("ring buffer", () => {
     pushEdgeLog(line({ host: "evil.com" }));
     const res = queryEdgeLogs({ hosts: ["plane.com"], range: "1h" }, Date.now());
     expect(res.total).toBe(1);
-    expect(res.rows[0]!.host).toBe("plane.com");
+    expect(first(res.rows).host).toBe("plane.com");
   });
 
   test("query computes per-host error rate + percentiles", () => {
     for (let i = 0; i < 9; i++) pushEdgeLog(line({ status: 200, latencyMs: 10 }));
     pushEdgeLog(line({ status: 500, latencyMs: 100 }));
     const res = queryEdgeLogs({ hosts: ["plane.com"], range: "1h" }, Date.now());
-    const stat = res.hostStats.find((s) => s.host === "plane.com")!;
+    const stat = res.hostStats.find((s) => s.host === "plane.com");
+    if (!stat) throw new Error("expected a host stat");
     expect(stat.errorRate).toBeCloseTo(0.1, 5);
     expect(stat.p50).toBe(10);
     expect(res.total).toBe(10);
@@ -158,7 +170,7 @@ describe("ring buffer", () => {
     unsub();
     pushEdgeLog(line({ path: "/b" }));
     expect(seen).toHaveLength(1);
-    expect(seen[0]!.path).toBe("/a");
+    expect(first(seen).path).toBe("/a");
   });
 });
 
@@ -171,7 +183,8 @@ describe("parseCaddyEvent", () => {
       msg: "looking up info for HTTP challenge",
       host: "www.somnara.de",
       error: "no information found to solve challenge for identifier: www.somnara.de",
-    })!;
+    });
+    if (!out) throw new Error("expected a parsed event");
     expect(out.category).toBe("cert");
     expect(out.level).toBe("error");
     expect(out.host).toBe("www.somnara.de");
@@ -184,7 +197,8 @@ describe("parseCaddyEvent", () => {
       logger: "http",
       msg: "enabling automatic TLS certificate management",
       domains: ["a.example.com", "b.example.com"],
-    })!;
+    });
+    if (!out) throw new Error("expected a parsed event");
     expect(out.category).toBe("cert");
     expect(out.host).toBeNull();
     expect(out.domains).toEqual(["a.example.com", "b.example.com"]);
@@ -201,7 +215,8 @@ describe("parseCaddyEvent", () => {
         host: "trigger.example.com",
         headers: { Authorization: ["secret"], Cookie: ["s=1"], "User-Agent": ["node"] },
       },
-    })!;
+    });
+    if (!out) throw new Error("expected a parsed event");
     expect(out.category).toBe("upstream");
     expect(out.host).toBe("trigger.example.com");
     expect(out.upstream).toBe("10.0.6.7:3000");
@@ -247,7 +262,7 @@ describe("event ring", () => {
     pushEdgeEvent(ev({ host: "evil.com" }));
     const res = queryEdgeEvents({ hosts: ["plane.com"], range: "1h" }, Date.now());
     expect(res.total).toBe(1);
-    expect(res.rows[0]!.host).toBe("plane.com");
+    expect(first(res.rows).host).toBe("plane.com");
   });
 
   test("batch event is visible via an owned domain and redacted to it", () => {
@@ -261,7 +276,7 @@ describe("event ring", () => {
     );
     const res = queryEdgeEvents({ hosts: ["plane.com"], range: "1h" }, Date.now());
     expect(res.total).toBe(1);
-    expect(res.rows[0]!.domains).toEqual(["plane.com"]);
+    expect(first(res.rows).domains).toEqual(["plane.com"]);
   });
 
   test("host-less, domain-less events are not surfaced per tenant", () => {
@@ -278,13 +293,13 @@ describe("event ring", () => {
       Date.now(),
     );
     expect(byCat.total).toBe(1);
-    expect(byCat.rows[0]!.category).toBe("cert");
+    expect(first(byCat.rows).category).toBe("cert");
     const byLevel = queryEdgeEvents(
       { hosts: ["plane.com"], range: "1h", levels: ["error"] },
       Date.now(),
     );
     expect(byLevel.total).toBe(1);
-    expect(byLevel.rows[0]!.level).toBe("error");
+    expect(first(byLevel.rows).level).toBe("error");
   });
 
   test("subscribe delivers live events and unsubscribes", () => {
@@ -294,6 +309,6 @@ describe("event ring", () => {
     unsub();
     pushEdgeEvent(ev({ msg: "second" }));
     expect(seen).toHaveLength(1);
-    expect(seen[0]!.msg).toBe("first");
+    expect(first(seen).msg).toBe("first");
   });
 });

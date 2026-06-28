@@ -12,7 +12,7 @@ import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { env } from "@otterdeploy/env/server";
 import { Result } from "better-result";
 
-import { ErrorPage } from "./deploy-protection-frame";
+import { ErrorPage } from "./ui/frame";
 
 export const SESSION_COOKIE = "__otter_auth";
 export const GUEST_COOKIE = "__otter_guest";

@@ -225,6 +225,16 @@
       "rules": {
         "unicorn/filename-case": "off"
       }
+    },
+    {
+      "files": ["apps/web/src/shared/components/data-grid/**"],
+      "rules": {
+        "max-lines": "off",
+        "max-lines-per-function": "off",
+        "complexity": "off",
+        "react-hooks-js/refs": "off",
+        "react-hooks-js/use-memo": "off"
+      }
     }
   ],
   "settings": {

@@ -4,7 +4,7 @@
  * JSON view, or loading / error / empty states. The owner passes a `leftSlot`
  * (filters in browse mode) and `footerSlot` (counts + pagination).
  */
-import { useMemo, useRef } from "react";
+import { useMemo, useState } from "react";
 
 import {
   Alert02Icon,
@@ -118,16 +118,19 @@ export function ResultsPanel({
   // rows array identity changes. The grid is heavily stateful (virtualizer
   // measurement cache keyed by row index, table row model, selection); without
   // a fresh mount, cycling 10-rows → 1-row → 10-rows left the virtualizer stuck
-  // rendering a single row even though the data was correct. Bumping a key only
-  // when `rows` actually changes is idempotent under StrictMode's double render.
-  const gridKeyRef = useRef<{ rows: unknown; key: number }>({
+  // rendering a single row even though the data was correct. Bumping the key only
+  // when `rows` actually changes is idempotent under StrictMode's double render:
+  // setting state during render re-renders this component in place (no commit),
+  // and the second pass is a no-op because the stored rows now match.
+  const [gridKeyState, setGridKeyState] = useState<{ rows: unknown; key: number }>({
     rows: null,
     key: 0,
   });
-  if (gridKeyRef.current.rows !== rows) {
-    gridKeyRef.current = { rows, key: gridKeyRef.current.key + 1 };
+  let gridKey = gridKeyState.key;
+  if (gridKeyState.rows !== rows) {
+    gridKey = gridKeyState.key + 1;
+    setGridKeyState({ rows, key: gridKey });
   }
-  const gridKey = gridKeyRef.current.key;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">

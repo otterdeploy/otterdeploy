@@ -78,7 +78,7 @@ function matches(line: EdgeLogLine, f: EdgeLogFilter, sinceMs: number): boolean 
 function percentile(sorted: number[], p: number): number {
   if (sorted.length === 0) return 0;
   const idx = Math.min(sorted.length - 1, Math.floor((p / 100) * sorted.length));
-  return sorted[idx]!;
+  return sorted[idx] ?? 0;
 }
 
 export function queryEdgeLogs(filter: EdgeLogFilter, now: number): EdgeLogQueryResult {

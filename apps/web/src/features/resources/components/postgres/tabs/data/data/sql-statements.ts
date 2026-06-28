@@ -50,6 +50,46 @@ function isOnlyComments(text: string): boolean {
   return stripped.trim().length === 0;
 }
 
+/** Advance past a `-- line comment` opened at `i`; returns the index past it. */
+function skipLineComment(sql: string, i: number, n: number): number {
+  i += 2;
+  while (i < n && sql[i] !== "\n") i++;
+  return i;
+}
+
+/** Advance past a `/* block comment *\/` opened at `i`. */
+function skipBlockComment(sql: string, i: number, n: number): number {
+  i += 2;
+  while (i < n && !(sql[i] === "*" && sql[i + 1] === "/")) i++;
+  return i + 2;
+}
+
+/** Advance past a single/double-quoted literal opened at `i` (doubled-quote escapes). */
+function skipQuoted(sql: string, i: number, n: number): number {
+  const q = sql[i];
+  i++;
+  while (i < n) {
+    if (sql[i] === q) {
+      if (sql[i + 1] === q) {
+        i += 2; // doubled quote escape
+        continue;
+      }
+      return i + 1;
+    }
+    i++;
+  }
+  return i;
+}
+
+/** If a dollar-quote tag opens at `i`, advance past the whole block; else `-1`. */
+function skipDollarQuote(sql: string, i: number, n: number): number {
+  const m = /^\$[A-Za-z0-9_]*\$/.exec(sql.slice(i));
+  if (!m) return -1;
+  const tag = m[0];
+  const close = sql.indexOf(tag, i + tag.length);
+  return close === -1 ? n : close + tag.length;
+}
+
 export function splitStatements(sql: string): SqlStatement[] {
   const out: SqlStatement[] = [];
   const n = sql.length;
@@ -72,38 +112,21 @@ export function splitStatements(sql: string): SqlStatement[] {
     const c2 = sql[i + 1];
 
     if (c === "-" && c2 === "-") {
-      i += 2;
-      while (i < n && sql[i] !== "\n") i++;
+      i = skipLineComment(sql, i, n);
       continue;
     }
     if (c === "/" && c2 === "*") {
-      i += 2;
-      while (i < n && !(sql[i] === "*" && sql[i + 1] === "/")) i++;
-      i += 2;
+      i = skipBlockComment(sql, i, n);
       continue;
     }
     if (c === "'" || c === '"') {
-      const q = c;
-      i++;
-      while (i < n) {
-        if (sql[i] === q) {
-          if (sql[i + 1] === q) {
-            i += 2; // doubled quote escape
-            continue;
-          }
-          i++;
-          break;
-        }
-        i++;
-      }
+      i = skipQuoted(sql, i, n);
       continue;
     }
     if (c === "$") {
-      const m = /^\$[A-Za-z0-9_]*\$/.exec(sql.slice(i));
-      if (m) {
-        const tag = m[0];
-        const close = sql.indexOf(tag, i + tag.length);
-        i = close === -1 ? n : close + tag.length;
+      const next = skipDollarQuote(sql, i, n);
+      if (next !== -1) {
+        i = next;
         continue;
       }
     }

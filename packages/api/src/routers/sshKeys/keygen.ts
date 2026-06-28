@@ -79,10 +79,10 @@ function parseFingerprintLine(line: string): ParsedPublicKey {
   const bitsMatch = trimmed.match(/^(\d+)\s+/);
   const fpMatch = trimmed.match(/\bSHA256:[A-Za-z0-9+/=]+/);
   const typeMatch = trimmed.match(/\(([A-Z0-9-]+)\)\s*$/);
-  if (!fpMatch || !typeMatch) {
+  if (!fpMatch || !typeMatch || typeMatch[1] === undefined) {
     throw new InvalidPublicKeyError();
   }
-  const rawType = typeMatch[1]!.toLowerCase();
+  const rawType = typeMatch[1].toLowerCase();
   const type: SshKeyType =
     rawType === "ed25519"
       ? "ed25519"

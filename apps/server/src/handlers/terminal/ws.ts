@@ -12,7 +12,7 @@ import {
   startShell,
   type Target,
   toShellInput,
-} from "./terminal-pty";
+} from "./pty";
 
 // ---------------------------------------------------------------------------
 // WebSocket handler — wired by index.ts:

@@ -49,13 +49,32 @@ function isReadAction(action: string): boolean {
   return READ_VERB.test(action.split(".").pop() ?? action);
 }
 
-const traceProcedure = orpc.$context<Context>().middleware(async ({ context, path, next }) => {
-  const action = path.join(".");
+/** Resolve the audit actor from the request context (user session or API key). */
+function traceActor(context: Context) {
   const user = context.session?.user;
-
-  const actor = user
+  return user
     ? { type: "user" as const, id: user.id, email: user.email }
     : { type: "api" as const, id: context.apiKey?.id ?? "anonymous" };
+}
+
+/** Shape a thrown error into audit fields: denial flag, reason, and the wide-event
+ *  `error` detail (ORPC code-bearing, plain Error, or raw value). */
+function classifyTraceError(error: unknown) {
+  const isOrpc = error instanceof ORPCError;
+  const code = isOrpc ? error.code : undefined;
+  const reason = error instanceof Error ? error.message : String(error);
+  const denied = Boolean(code && DENIED_ORPC_CODES.has(code));
+  const detail = isOrpc
+    ? { name: error.name, message: error.message, code: error.code }
+    : error instanceof Error
+      ? { name: error.name, message: error.message }
+      : error;
+  return { reason, denied, detail };
+}
+
+const traceProcedure = orpc.$context<Context>().middleware(async ({ context, path, next }) => {
+  const action = path.join(".");
+  const actor = traceActor(context);
   // Top-level fields keep the console/observability wide event informative.
   context.log.set({
     action,
@@ -77,18 +96,11 @@ const traceProcedure = orpc.$context<Context>().middleware(async ({ context, pat
     }
     return result;
   } catch (error) {
-    const isOrpc = error instanceof ORPCError;
-    const code = isOrpc ? error.code : undefined;
-    const reason = error instanceof Error ? error.message : String(error);
-    const denied = Boolean(code && DENIED_ORPC_CODES.has(code));
+    const { reason, denied, detail } = classifyTraceError(error);
     context.log.set({
       outcome: denied ? "denied" : "failure",
       reason,
-      error: isOrpc
-        ? { name: error.name, message: error.message, code: error.code }
-        : error instanceof Error
-          ? { name: error.name, message: error.message }
-          : error,
+      error: detail,
       durationMs: performance.now() - start,
     });
     // Always audit denials; audit failures only for mutating actions.
