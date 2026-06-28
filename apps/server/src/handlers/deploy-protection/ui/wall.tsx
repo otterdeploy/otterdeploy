@@ -10,9 +10,9 @@
 
 import type { FC } from "hono/jsx";
 
-import { Page } from "./frame";
 import { accessWallBaseCss } from "./css/wall-base";
 import { accessWallFormCss } from "./css/wall-form";
+import { Page } from "./frame";
 
 /** Left brand/context panel: wordmark, headline, and the protected-origin pill. */
 const AccessWallLeft: FC<{ domain: string }> = ({ domain }) => (

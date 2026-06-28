@@ -4,8 +4,7 @@ import type { ReactNode } from "react";
 // button styles, the wordmark, and the mono section kicker. Kept hairline/flat
 // per the design tokens — colour comes from styles/app.css.
 
-export const cx = (...parts: Array<string | false | undefined>) =>
-  parts.filter(Boolean).join(" ");
+export const cx = (...parts: Array<string | false | undefined>) => parts.filter(Boolean).join(" ");
 
 // ── Buttons ────────────────────────────────────────────────────────────────
 

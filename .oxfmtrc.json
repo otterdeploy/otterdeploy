@@ -2,6 +2,8 @@
   "$schema": "node_modules/oxfmt/configuration_schema.json",
   "ignorePatterns": [
     "routeTree.gen.ts",
+    "**/routeTree.gen.ts",
+    "**/route-tree.gen.ts",
     "**/$*",
     "**/$*/**",
     "**/*.md",

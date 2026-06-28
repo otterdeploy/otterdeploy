@@ -146,11 +146,7 @@ async function reconcileBackups(
         await removeBackupsDir(projectId as ProjectId, resourceId as ResourceId);
         removed += 1;
       } else {
-        removed += await reclaimStaleStaged(
-          projectId as ProjectId,
-          resourceId as ResourceId,
-          now,
-        );
+        removed += await reclaimStaleStaged(projectId as ProjectId, resourceId as ResourceId, now);
       }
     }
   }

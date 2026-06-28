@@ -83,7 +83,11 @@ interface MiddlewareOptions<TContext extends BroadcastContext> {
  */
 export const autoBroadcastMiddleware = /* o.middleware */ async <
   TContext extends BroadcastContext,
->({ context, next, procedure }: MiddlewareOptions<TContext>): Promise<unknown> => {
+>({
+  context,
+  next,
+  procedure,
+}: MiddlewareOptions<TContext>): Promise<unknown> => {
   const result = await next({ context });
 
   const meta: ProcedureMeta | undefined = procedure["~orpc"]?.meta;

@@ -44,7 +44,6 @@ import { Result } from "better-result";
 import { log } from "evlog";
 import { getCookie, setCookie } from "hono/cookie";
 
-import { Denied, Interstitial } from "./ui/frame";
 import {
   allow,
   authTargetDomain,
@@ -62,13 +61,10 @@ import {
   SHARE_COOKIE_MAX_AGE,
   WEB_BASE,
 } from "./shared";
+import { Denied, Interstitial } from "./ui/frame";
 import { AccessWall } from "./ui/wall";
 
-export {
-  deployAccessHandler,
-  deployOtpRequestHandler,
-  deployOtpVerifyHandler,
-} from "./guest";
+export { deployAccessHandler, deployOtpRequestHandler, deployOtpVerifyHandler } from "./guest";
 
 /** forward_auth target. Allow → 200; deny/unauthenticated → non-2xx that
  *  Caddy relays to the browser. */
