@@ -49,9 +49,15 @@ jobs:
 
       # oxlint (type-aware) + oxfmt --check — non-mutating CI form (the `check`
       # script formats in place with --write).
+      # The type-aware pass resolves the TanStack route files, which import the
+      # gitignored routeTree.gen.ts — generate the route trees first (via each
+      # app's typecheck, which runs `tsr generate`; type errors are the
+      # typecheck job's concern, so its exit code is ignored here).
       - name: Lint & format check
         if: matrix.task == 'lint'
-        run: bunx oxlint --type-aware --threads=4 && bunx oxfmt --check
+        run: |
+          bun run typecheck --cache-dir=.turbo || true
+          bunx oxlint --type-aware --threads=4 && bunx oxfmt --check
 
       - name: Test
         if: matrix.task == 'test'

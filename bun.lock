@@ -54,6 +54,7 @@
         "@otterdeploy/api": "workspace:*",
         "@otterdeploy/shared": "workspace:*",
         "better-auth": "catalog:",
+        "better-result": "catalog:",
         "citty": "^0.1.6",
         "consola": "^3.2.3",
         "zod": "catalog:",
