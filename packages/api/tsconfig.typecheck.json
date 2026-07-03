@@ -1,0 +1,11 @@
+{
+  "//": "Deep type-check for this library package. `turbo typecheck` on the apps resolves @otterdeploy/api through node_modules and skips its internals, so this config checks api's own src directly. composite off + noEmit so it never emits (no .js/.d.ts pollution).",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "incremental": false,
+    "noEmit": true
+  }
+}

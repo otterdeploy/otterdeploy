@@ -31,7 +31,8 @@
     }
   },
   "scripts": {
-    "test": "bun --bun vitest run"
+    "test": "bun --bun vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.typecheck.json"
   },
   "dependencies": {
     "@orpc/client": "catalog:",
