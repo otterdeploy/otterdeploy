@@ -1,8 +1,8 @@
-import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { EnvironmentId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { resource, serviceEnvVar } from "@otterdeploy/db/schema/project";
-import { and, eq, like } from "drizzle-orm";
+import { and, eq, isNull, like, or, sql } from "drizzle-orm";
 import { createError } from "evlog";
 
 import type { ResourceRow, ServiceEnvVarRow } from ".";
@@ -94,6 +94,34 @@ export async function getResourceByProjectAndName(
     .select()
     .from(resource)
     .where(and(eq(resource.projectId, projectId), eq(resource.name, name)))
+    .limit(1);
+  return row;
+}
+
+/**
+ * Environment-aware resource lookup for the variable resolver: an env-specific
+ * row (e.g. a preview DB branch, `environmentId = <env>`) wins over the base
+ * row (`environmentId IS NULL`), which every non-preview resource is. Ordering
+ * NULLs last puts the env-specific match first, so LIMIT 1 returns the branch
+ * when present and the base otherwise. Pre-previews this always resolves to the
+ * base row — identical to `getResourceByProjectAndName`.
+ */
+export async function resolveResourceForEnv(
+  projectId: ProjectId,
+  environmentId: EnvironmentId,
+  name: string,
+): Promise<ResourceRow | undefined> {
+  const [row] = await db
+    .select()
+    .from(resource)
+    .where(
+      and(
+        eq(resource.projectId, projectId),
+        eq(resource.name, name),
+        or(eq(resource.environmentId, environmentId), isNull(resource.environmentId)),
+      ),
+    )
+    .orderBy(sql`${resource.environmentId} nulls last`)
     .limit(1);
   return row;
 }

@@ -3,19 +3,29 @@ import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../routers/service/queries", () => ({
-  getResourceByProjectAndName: vi.fn(),
+  resolveResourceForEnv: vi.fn(),
   getServiceRecord: vi.fn(),
 }));
 
 vi.mock("../../routers/project/queries", () => ({
   getDatabaseResourceRecord: vi.fn(),
+  getProjectRecord: vi.fn(),
+  getEnvironmentById: vi.fn(),
+  loadProjectEnvBag: vi.fn(),
 }));
 
-import { getDatabaseResourceRecord } from "../../routers/project/queries";
-import { getResourceByProjectAndName, getServiceRecord } from "../../routers/service/queries";
+import {
+  getDatabaseResourceRecord,
+  getEnvironmentById,
+  getProjectRecord,
+  loadProjectEnvBag,
+} from "../../routers/project/queries";
+import { getServiceRecord, resolveResourceForEnv } from "../../routers/service/queries";
 import { resolveServiceEnv } from "./resolver";
 const PROJECT_ID = "project_1" as ProjectId;
 const RESOURCE_ID = "resource_api" as ResourceId;
+const PROD_ENV = "env_prod";
+const PREVIEW_ENV = "env_pr1";
 
 type Mock = ReturnType<typeof vi.fn>;
 
@@ -25,6 +35,7 @@ const mockResource = (
     projectId: string;
     name: string;
     type: "database" | "service";
+    environmentId: string | null;
   }> = {},
 ) => ({
   id: "resource_a",
@@ -32,12 +43,14 @@ const mockResource = (
   name: "db",
   type: "database" as const,
   status: "valid" as const,
+  environmentId: null,
+  branchedFromResourceId: null,
   createdAt: new Date(),
   updatedAt: new Date(),
   ...overrides,
 });
 
-const dbExports = () => ({
+const dbExports = (connString = "postgres://appuser:secret@appdb.internal:5432/appdb") => ({
   resource: mockResource({ id: "resource_db", name: "db", type: "database" }),
   database: {
     resourceId: "resource_db",
@@ -50,7 +63,7 @@ const dbExports = () => ({
     publicConnectionString: "postgres://public",
     internalHostname: "appdb.internal",
     internalPort: 5432,
-    internalConnectionString: "postgres://appuser:secret@appdb.internal:5432/appdb",
+    internalConnectionString: connString,
     upstreamHost: "appdb.internal",
     upstreamPort: 5432,
     caddyLayer4Snippet: "",
@@ -62,6 +75,11 @@ const dbExports = () => ({
 describe("resolveServiceEnv", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default (non-preview) call path: no explicit env → resolve the project's
+    // persistent env, which has no base to inherit from.
+    (getProjectRecord as unknown as Mock).mockResolvedValue({ environmentId: PROD_ENV });
+    (getEnvironmentById as unknown as Mock).mockResolvedValue({ baseEnvironmentId: null });
+    (loadProjectEnvBag as unknown as Mock).mockResolvedValue({});
   });
 
   it("resolves a Postgres reference end-to-end", async () => {
@@ -79,7 +97,7 @@ describe("resolveServiceEnv", () => {
       ],
     });
 
-    (getResourceByProjectAndName as unknown as Mock).mockResolvedValueOnce(
+    (resolveResourceForEnv as unknown as Mock).mockResolvedValueOnce(
       mockResource({ id: "resource_db", name: "db", type: "database" }),
     );
 
@@ -107,7 +125,7 @@ describe("resolveServiceEnv", () => {
       ],
     });
 
-    (getResourceByProjectAndName as unknown as Mock).mockResolvedValue(
+    (resolveResourceForEnv as unknown as Mock).mockResolvedValue(
       mockResource({ id: "resource_db", name: "db", type: "database" }),
     );
 
@@ -134,7 +152,7 @@ describe("resolveServiceEnv", () => {
       ],
     });
 
-    (getResourceByProjectAndName as unknown as Mock).mockResolvedValueOnce(undefined);
+    (resolveResourceForEnv as unknown as Mock).mockResolvedValueOnce(undefined);
 
     const result = await resolveServiceEnv(PROJECT_ID, RESOURCE_ID);
     expect(result.isErr()).toBe(true);
@@ -157,7 +175,7 @@ describe("resolveServiceEnv", () => {
       ],
     });
 
-    (getResourceByProjectAndName as unknown as Mock).mockResolvedValueOnce(
+    (resolveResourceForEnv as unknown as Mock).mockResolvedValueOnce(
       mockResource({ id: "resource_db", name: "db", type: "database" }),
     );
     (getDatabaseResourceRecord as unknown as Mock).mockResolvedValueOnce(dbExports());
@@ -220,8 +238,8 @@ describe("resolveServiceEnv", () => {
       return undefined;
     });
 
-    (getResourceByProjectAndName as unknown as Mock).mockImplementation(
-      async (_pid: string, name: string) => {
+    (resolveResourceForEnv as unknown as Mock).mockImplementation(
+      async (_pid: string, _envId: string, name: string) => {
         if (name === "web")
           return mockResource({ id: "resource_web", name: "web", type: "service" });
         if (name === "api")
@@ -234,5 +252,60 @@ describe("resolveServiceEnv", () => {
     expect(result.isErr()).toBe(true);
     if (result.isOk()) return;
     expect(result.error._tag).toBe("RefCycleError");
+  });
+
+  it("resolves in a preview env: env-specific DB branch + inherited base project var", async () => {
+    // Preview env inherits from production.
+    (getEnvironmentById as unknown as Mock).mockResolvedValue({ baseEnvironmentId: PROD_ENV });
+    // Base (prod) carries a shared var; the preview overrides nothing.
+    (loadProjectEnvBag as unknown as Mock).mockImplementation(
+      async (input: { environmentId: string }) =>
+        input.environmentId === PROD_ENV ? { APP_NAME: "acme" } : {},
+    );
+
+    (getServiceRecord as unknown as Mock).mockResolvedValueOnce({
+      resource: mockResource({ id: "resource_api", name: "api", type: "service" }),
+      service: { resourceId: "resource_api", internalHostname: "api" },
+      ports: [],
+      env: [
+        {
+          id: "v1",
+          serviceResourceId: "resource_api",
+          key: "DATABASE_URL",
+          value: "${{db.DATABASE_URL}}",
+        },
+        {
+          id: "v2",
+          serviceResourceId: "resource_api",
+          key: "APP_NAME",
+          value: "${{project.APP_NAME}}",
+        },
+      ],
+    });
+
+    // The env-aware lookup returns the branch DB (env-specific) for this preview.
+    (resolveResourceForEnv as unknown as Mock).mockImplementation(
+      async (_pid: string, envId: string, name: string) => {
+        expect(envId).toBe(PREVIEW_ENV);
+        if (name === "db")
+          return mockResource({
+            id: "resource_db_branch",
+            name: "db",
+            type: "database",
+            environmentId: PREVIEW_ENV,
+          });
+        return undefined;
+      },
+    );
+    (getDatabaseResourceRecord as unknown as Mock).mockResolvedValueOnce(
+      dbExports("postgres://appuser:secret@db-pr1.internal:5432/appdb"),
+    );
+
+    const result = await resolveServiceEnv(PROJECT_ID, RESOURCE_ID, PREVIEW_ENV as never);
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
+    expect(result.value.DATABASE_URL).toBe("postgres://appuser:secret@db-pr1.internal:5432/appdb");
+    expect(result.value.APP_NAME).toBe("acme"); // inherited from the base env
   });
 });

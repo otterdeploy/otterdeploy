@@ -6,12 +6,13 @@
  * a visited set on the active DFS path. Exporter results are cached for the
  * duration of a single `resolveServiceEnv` call.
  */
-import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { EnvironmentId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { Result } from "better-result";
 
 import {
   getDatabaseResourceRecord,
+  getEnvironmentById,
   getProjectRecord,
   loadProjectEnvBag,
   type DatabaseResourceRecord,
@@ -24,15 +25,21 @@ import {
   type ResolveError,
 } from "../../routers/service/errors";
 import {
-  getResourceByProjectAndName,
   getServiceRecord,
+  resolveResourceForEnv,
   type ResourceRow,
+  type ServiceEnvVarRow,
   type ServiceRecord,
 } from "../../routers/service/queries";
 import { postgresExports, serviceExports } from "./exporters";
 import { parseValue, type Token } from "./parser";
 interface ResolveContext {
   projectId: ProjectId;
+  // The environment we're resolving in, plus the env it inherits from (a
+  // preview's base = its project's persistent env; a persistent env's base is
+  // null). Drives both env-var overlay and env-scoped resource lookup.
+  environmentId: EnvironmentId;
+  baseEnvironmentId: EnvironmentId | null;
   visited: Set<string>;
   exportsCache: Map<string, Record<string, string>>;
 }
@@ -40,9 +47,21 @@ interface ResolveContext {
 export async function resolveServiceEnv(
   projectId: ProjectId,
   serviceResourceId: ResourceId,
+  environmentId?: EnvironmentId,
 ): Promise<Result<Record<string, string>, ResolveError | RefMissingResourceError>> {
+  // Default to the project's persistent environment when no env is given —
+  // keeps every existing (non-preview) call site byte-identical to the
+  // pre-env-scoping behavior.
+  const envId = environmentId ?? (await getProjectRecord(projectId))?.environmentId;
+  if (!envId) {
+    return Result.err(new RefMissingResourceError({ refResourceName: "environment" }));
+  }
+  const envRow = await getEnvironmentById(envId);
+
   const ctx: ResolveContext = {
     projectId,
+    environmentId: envId,
+    baseEnvironmentId: envRow?.baseEnvironmentId ?? null,
     visited: new Set([serviceResourceId]),
     exportsCache: new Map(),
   };
@@ -54,13 +73,34 @@ export async function resolveServiceEnv(
   return resolveEnvFor(record, ctx);
 }
 
+/**
+ * A service's env rows for the active environment, in precedence order:
+ *   legacy NULL-env rows  <  base-env rows  <  active-env rows
+ * (later overrides earlier, by key). NULL-env rows are pre-backfill leftovers
+ * treated as a universal fallback, so production resolves identically before
+ * the environment backfill runs.
+ */
+function overlayServiceEnv(
+  rows: ServiceEnvVarRow[],
+  environmentId: EnvironmentId,
+  baseEnvironmentId: EnvironmentId | null,
+): ServiceEnvVarRow[] {
+  const byKey = new Map<string, ServiceEnvVarRow>();
+  for (const r of rows) if (r.environmentId == null) byKey.set(r.key, r);
+  if (baseEnvironmentId) {
+    for (const r of rows) if (r.environmentId === baseEnvironmentId) byKey.set(r.key, r);
+  }
+  for (const r of rows) if (r.environmentId === environmentId) byKey.set(r.key, r);
+  return [...byKey.values()];
+}
+
 async function resolveEnvFor(
   record: ServiceRecord,
   ctx: ResolveContext,
 ): Promise<Result<Record<string, string>, ResolveError>> {
   const resolved: Record<string, string> = {};
 
-  for (const envVar of record.env) {
+  for (const envVar of overlayServiceEnv(record.env, ctx.environmentId, ctx.baseEnvironmentId)) {
     const parsed = parseValue(envVar.value);
     if (!parsed.ok) {
       return Result.err(
@@ -126,7 +166,11 @@ async function loadExports(
     return loadScopeExports(refResourceName, cacheKey, ctx);
   }
 
-  const resourceRow = await getResourceByProjectAndName(ctx.projectId, refResourceName);
+  const resourceRow = await resolveResourceForEnv(
+    ctx.projectId,
+    ctx.environmentId,
+    refResourceName,
+  );
   if (!resourceRow) {
     return Result.err(new RefMissingResourceError({ refResourceName }));
   }
@@ -150,21 +194,25 @@ async function loadExports(
 }
 
 async function loadScopeExports(
-  refResourceName: "project" | "environment",
+  _refResourceName: "project" | "environment",
   cacheKey: string,
   ctx: ResolveContext,
 ): Promise<Result<Record<string, string>, ResolveError>> {
-  // The bag is keyed by (projectId, environmentId). We always look up the
-  // project's current environment — even when the ref is `project.X`, since
-  // a project today owns exactly one environment row.
-  const projectRecord = await getProjectRecord(ctx.projectId);
-  if (!projectRecord?.environmentId) {
-    return Result.err(new RefMissingResourceError({ refResourceName }));
+  // The bag is keyed by (projectId, environmentId). Inherit-by-reference: start
+  // from the base env's bag (if any) and overlay the active env's own vars, so a
+  // preview sees production's shared vars unless it overrides them. For a
+  // persistent env (no base) this is just its own bag — identical to before.
+  const bag: Record<string, string> = {};
+  if (ctx.baseEnvironmentId) {
+    Object.assign(
+      bag,
+      await loadProjectEnvBag({ projectId: ctx.projectId, environmentId: ctx.baseEnvironmentId }),
+    );
   }
-  const bag = await loadProjectEnvBag({
-    projectId: ctx.projectId,
-    environmentId: projectRecord.environmentId,
-  });
+  Object.assign(
+    bag,
+    await loadProjectEnvBag({ projectId: ctx.projectId, environmentId: ctx.environmentId }),
+  );
   ctx.exportsCache.set(cacheKey, bag);
   return Result.ok(bag);
 }

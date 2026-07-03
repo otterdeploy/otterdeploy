@@ -9,6 +9,7 @@
 export {
   createProjectRecord,
   deleteProjectRecord,
+  getEnvironmentById,
   getProjectById,
   getProjectBySlugInOrg,
   getProjectInOrg,
