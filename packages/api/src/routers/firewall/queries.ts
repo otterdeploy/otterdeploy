@@ -94,7 +94,10 @@ export async function listBlocklistsDue(now: Date): Promise<BlocklistRow[]> {
           isNull(blocklist.lastSyncedAt),
           lt(
             blocklist.lastSyncedAt,
-            sql`${now} - (${blocklist.intervalMinutes} * interval '1 minute')`,
+            // Cast the bound Date to a timestamp — without it the param arrives
+            // untyped and Postgres coerces `$now - interval` into an interval,
+            // failing with "operator does not exist: timestamp < interval".
+            sql`${now}::timestamptz - (${blocklist.intervalMinutes} * interval '1 minute')`,
           ),
         ),
       ),
