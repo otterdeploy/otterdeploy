@@ -9,6 +9,7 @@
  * backend-neutral names so call sites read against the abstraction, not Swarm.
  * See docs/designs/runtime.md.
  */
+import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import type { ProvisionSwarmDatabaseInput, SwarmDatabaseRuntime } from "../swarm/database";
@@ -22,6 +23,33 @@ export type RuntimeStatus = SwarmServiceRuntime;
 export type DatabaseSpec = ProvisionSwarmDatabaseInput;
 /** Live status of a running database. */
 export type DatabaseStatus = SwarmDatabaseRuntime;
+
+/**
+ * Spec for provisioning a COW branch of an existing database. It IS a normal
+ * `DatabaseSpec` (the branch carries its own distinct serviceName / volumeName /
+ * hostnameAlias / resourceId, and — on the `copy` path — FRESH credentials),
+ * plus the source's identity so the driver can locate the data to clone/copy.
+ * See docs/designs/pr-previews.md §4.4/§4.5.
+ */
+export type BranchDatabaseSpec = DatabaseSpec & {
+  /** Running source DB container name to branch from. */
+  sourceServiceName: string;
+  /** Source resource id — resolves the source volume via volumeDir on the COW path. */
+  sourceResourceId: ResourceId;
+  /** How to materialize the branch: `zfs` (volume clone) or `copy` (dump+restore). */
+  strategy: "zfs" | "copy";
+  /** ZFS snapshot ref, when the SnapshotDriver produced one (null on `copy`). */
+  snapshotRef?: string | null;
+  /**
+   * Source DB credentials — required by the `copy` strategy's `pg_dump` (the
+   * branch itself carries its own FRESH creds on the base DatabaseSpec fields,
+   * per §4.4). Unused by `zfs`, whose clone boots on the source's PGDATA and so
+   * keeps the source creds. NOTE: this field is a P2 addition on top of the
+   * design's BranchDatabaseSpec sketch — the P4/P5 caller supplies it from the
+   * source `databaseResource` row.
+   */
+  sourceCredentials?: { databaseName: string; username: string; password: string };
+};
 
 export type RuntimeKind = "docker" | "swarm";
 
@@ -50,4 +78,20 @@ export interface RuntimeDriver {
     input: { serviceName: string; volumeName: string; projectSlug: string },
     log?: RequestLogger,
   ): Promise<DatabaseStatus>;
+
+  // ── Database branching (copy-on-write, per preview env) ──
+  /** Provision a branch of a running source database (§4.5). */
+  branchDatabase(input: BranchDatabaseSpec, log?: RequestLogger): Promise<DatabaseStatus>;
+  /** Tear a branch down — container AND volume AND snapshot (branches, unlike a
+   *  normal DB teardown, are NOT orphaned). Volume resolves via the branch's
+   *  own (projectId, resourceId). */
+  destroyDatabaseBranch(
+    input: {
+      serviceName: string;
+      projectId: ProjectId;
+      resourceId: ResourceId;
+      snapshotRef: string | null;
+    },
+    log?: RequestLogger,
+  ): Promise<void>;
 }

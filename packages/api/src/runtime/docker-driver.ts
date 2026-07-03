@@ -21,6 +21,7 @@ import { Docker } from "@otterdeploy/docker";
 import type { RuntimeDriver } from "./types";
 
 import { asStepLogger } from "../lib/logger";
+import { branchDatabaseOnDocker, destroyDatabaseBranchOnDocker } from "./docker-driver-branch";
 import { runDatabase } from "./docker-driver-db";
 import {
   buildContainerOptions,
@@ -136,6 +137,14 @@ export const dockerDriver: RuntimeDriver = {
     log.info({ runtime: { step: "remove-db-container", service: input.serviceName } });
     await removeContainerByName(docker, input.serviceName);
     docker.destroy();
+  },
+
+  // ── Database branching (copy-on-write) ───────────────────────────────────
+  async branchDatabase(input, rlog) {
+    return branchDatabaseOnDocker(input, rlog);
+  },
+  async destroyDatabaseBranch(input, rlog) {
+    return destroyDatabaseBranchOnDocker(input, rlog);
   },
 
   async inspectDatabase(input) {

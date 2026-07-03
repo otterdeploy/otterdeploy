@@ -41,3 +41,18 @@ export const backupDir = (projectId: ProjectId, id: ResourceId): string =>
 
 /** Per-project DR escape hatch — exported manifest + rendered compose. */
 export const projectDir = (id: ProjectId): string => `${DATA_ROOT}/projects/${id}`;
+
+/** Managed DB data volume — the canonical, rename-safe placement keyed by the
+ *  stable `resourceId` (NOT the Docker volume name). A branch is a new resource
+ *  → its own dir automatically. On a ZFS host this tree is a managed dataset so
+ *  branches are thin clones. See docs/designs/pr-previews.md §4.3. */
+export const volumeDir = (projectId: ProjectId, resourceId: ResourceId): string =>
+  `${DATA_ROOT}/volumes/${projectId}/${resourceId}`;
+
+/** Compose-stack member volume — one subdir per named member under the
+ *  resource's volume dir (a compose resource fans out to N member volumes). */
+export const composeVolumeDir = (
+  projectId: ProjectId,
+  resourceId: ResourceId,
+  member: string,
+): string => `${DATA_ROOT}/volumes/${projectId}/${resourceId}/${member}`;

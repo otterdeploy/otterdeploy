@@ -16,6 +16,7 @@ import type {
 } from "@otterdeploy/shared/id";
 
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
+import { sql } from "drizzle-orm";
 import {
   boolean,
   index,
@@ -252,7 +253,17 @@ export const resource = pgTable(
       .notNull(),
   },
   (table) => [
-    uniqueIndex("resource_project_name_unique").on(table.projectId, table.name),
+    // A base resource (environmentId IS NULL) is unique per (project, name).
+    // An env-scoped branch shares its source's name but carries a non-null
+    // environmentId, so it's uniqued per (project, environment, name) instead.
+    // Two partial uniques keep base uniqueness intact while letting a preview
+    // env own a branch that reuses the base name. See docs/designs/pr-previews.md §3.6.
+    uniqueIndex("resource_project_name_base_unique")
+      .on(table.projectId, table.name)
+      .where(sql`environment_id is null`),
+    uniqueIndex("resource_project_name_env_unique")
+      .on(table.projectId, table.environmentId, table.name)
+      .where(sql`environment_id is not null`),
     index("resource_project_id_idx").on(table.projectId),
     index("resource_environment_id_idx").on(table.environmentId),
   ],
@@ -268,6 +279,11 @@ export const databaseEngineEnum = pgEnum("database_engine", [
   "minio",
   "meilisearch",
 ]);
+
+// Strategy a COW database branch was materialized with (shared value set with
+// the SnapshotDriver zod schema in runtime/snapshot). `zfs` clones the volume;
+// `copy` is the logical dump+restore fallback. See docs/designs/pr-previews.md §3.3.
+export const branchStrategyEnum = pgEnum("branch_strategy", ["zfs", "copy"]);
 
 export const databaseResource = pgTable(
   "database_resource",
@@ -310,6 +326,16 @@ export const databaseResource = pgTable(
     // non-postgres engines. Changing this rolls the service (image may
     // change) and runs CREATE/DROP EXTENSION against the live database.
     extensions: jsonb("extensions").$type<string[]>().notNull().default([]),
+    // COW branch bookkeeping. NULL branchStrategy = a base (unbranched) database.
+    // When set, this row is a preview-env branch of another database; see
+    // resource.branchedFromResourceId for provenance. See docs/designs/pr-previews.md §3.3.
+    branchStrategy: branchStrategyEnum("branch_strategy"),
+    // ZFS snapshot name the branch was cloned from — needed to destroy the
+    // snapshot on teardown. NULL for the `copy` strategy (no snapshot exists).
+    branchSnapshotRef: text("branch_snapshot_ref"),
+    // Pre-migration Docker `local` volume name, for rows whose bytes still live
+    // in /var/lib/docker/volumes/<name>. NULL once on the managed volumeDir path.
+    legacyVolumeName: text("legacy_volume_name"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -317,8 +343,13 @@ export const databaseResource = pgTable(
       .notNull(),
   },
   (table) => [
-    uniqueIndex("database_resource_database_name_unique").on(table.databaseName),
-    uniqueIndex("database_resource_username_unique").on(table.username),
+    // databaseName / username are NOT globally unique: a COW branch reuses its
+    // source's db name + user (Postgres ignores POSTGRES_* on a non-empty
+    // PGDATA), and they only need to be unique *within a container* — which is
+    // guaranteed by construction. Plain indexes for lookup. See §3.6.
+    index("database_resource_database_name_idx").on(table.databaseName),
+    index("database_resource_username_idx").on(table.username),
+    // Hostnames stay globally unique — branches get distinct ones.
     uniqueIndex("database_resource_public_hostname_unique").on(table.publicHostname),
     uniqueIndex("database_resource_internal_hostname_unique").on(table.internalHostname),
   ],

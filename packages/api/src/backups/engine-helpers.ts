@@ -4,6 +4,7 @@
  * pre-backup hook. Extracted so engine.ts stays focused on orchestration.
  */
 import type { Docker } from "@otterdeploy/docker";
+import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
 
 import type { ExecutionContext } from "./db";
 
@@ -16,7 +17,17 @@ export async function resolveSecret(ctx: ExecutionContext): Promise<Record<strin
   return JSON.parse(json) as Record<string, string>;
 }
 
-export function dumpCommand(ctx: ExecutionContext): {
+/** The minimal engine + credential surface `dumpCommand` needs. `ExecutionContext`
+ *  is a structural superset, so existing callers pass it unchanged; the COW
+ *  branch copy path (runtime/snapshot) builds this narrow shape directly. */
+export interface DumpTarget {
+  engine: DatabaseEngine;
+  databaseName: string;
+  username: string;
+  password: string;
+}
+
+export function dumpCommand(ctx: DumpTarget): {
   cmd: string[];
   env: string[];
   ext: string;
@@ -66,6 +77,11 @@ export function dumpCommand(ctx: ExecutionContext): {
       };
     case "redis":
       throw new Error("redis backups are not supported (no logical dump); use a volume backup");
+    default:
+      // clickhouse / rabbitmq / minio / meilisearch have no logical-dump path
+      // here. Throw (rather than fall through to an undefined return) so the
+      // caller fails loudly instead of building an empty command.
+      throw new Error(`logical dump is not supported for engine "${ctx.engine}"`);
   }
 }
 
