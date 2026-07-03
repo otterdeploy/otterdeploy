@@ -30,6 +30,7 @@ import { emitDeployStarted } from "../routers/project/deployments";
 import { createCommitStatus, upsertPrComment } from "./github-app";
 import { ensurePreviewEnvironment, markPreviewEnvironmentsClosed } from "./preview-env";
 import { branchProjectDatabases } from "./preview-db";
+import { teardownPreviewEnvironment } from "./preview-teardown";
 
 const PREVIEW_ACTIONS = new Set(["opened", "reopened", "synchronize"]);
 
@@ -97,9 +98,16 @@ async function closePreviews(
   for (const p of projects) {
     const closed = await markPreviewEnvironmentsClosed(p.id as ProjectId, prNumber);
     environmentsTouched += closed.length;
-    // TODO(activation): destroy each closed env's preview containers + branched
-    // DBs (runtime().destroy / destroyDatabaseBranch). No-op today since nothing
-    // deploys env-scoped until the builder threads environmentId.
+    // Destroy each closed env's preview containers + branched databases.
+    for (const env of closed) {
+      await teardownPreviewEnvironment({
+        id: env.id,
+        projectId: p.id as ProjectId,
+        projectSlug: p.slug,
+        slug: env.slug,
+        pullRequestNumber: env.pullRequestNumber,
+      });
+    }
   }
   if (environmentsTouched > 0) {
     await report({ ...reportContext(ev, repo), phase: "closed" });
