@@ -63,6 +63,25 @@ export interface PushEvent {
   commits?: GithubCommitPayload[];
 }
 
+/** `pull_request` webhook — drives preview environments. We read the action
+ *  (opened/reopened/synchronize/closed), the PR number + node id, and the head
+ *  ref/sha to build from. See docs/designs/pr-previews.md §7. */
+export interface PullRequestEvent {
+  action: string;
+  number: number;
+  pull_request: {
+    number: number;
+    node_id?: string;
+    state: "open" | "closed";
+    merged?: boolean;
+    title?: string;
+    head: { ref: string; sha: string };
+    base: { ref: string };
+  };
+  repository: GithubRepoPayload;
+  installation?: { id: number | string };
+}
+
 export type GithubWebhookResult =
   | { kind: "ignored"; event: string }
   | { kind: "installation"; action: string; installationId: string }
@@ -73,4 +92,12 @@ export type GithubWebhookResult =
       sha: string;
       deploymentsCreated: number;
       projectsTouched: number;
+    }
+  | {
+      kind: "pull_request";
+      action: string;
+      prNumber: number;
+      outcome: "preview-deployed" | "preview-closed" | "ignored";
+      environmentsTouched: number;
+      deploymentsCreated: number;
     };
