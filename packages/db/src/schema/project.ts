@@ -163,6 +163,12 @@ export const teamMember = pgTable(
   ],
 );
 
+// Persistent = operator-managed, long-lived (production / staging). Preview =
+// ephemeral, one per open PR, machine-managed + auto-torn-down. See
+// docs/designs/pr-previews.md.
+export const environmentKindEnum = pgEnum("environment_kind", ["persistent", "preview"]);
+export const environmentStateEnum = pgEnum("environment_state", ["active", "closed"]);
+
 export const environment = pgTable(
   "environment",
   {
@@ -175,6 +181,23 @@ export const environment = pgTable(
       .references(() => project.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     slug: text("slug").notNull(),
+    kind: environmentKindEnum("kind").notNull().default("persistent"),
+    state: environmentStateEnum("state").notNull().default("active"),
+    // A preview env inherits its base env's vars by reference, so a change to a
+    // base (production) var propagates to open previews unless overridden. Points
+    // at the project's persistent env. Self-referential FK enforced app-side
+    // (mirrors the cross-schema idiom on project.gitRepoId) — avoids the
+    // const-before-use dance and keeps parity with the rest of the schema.
+    baseEnvironmentId: text("base_environment_id").$type<EnvId>(),
+    // Preview provenance — only populated when kind='preview'. gitRepoId FK
+    // enforced app-side to avoid a cross-schema import cycle (see git.ts).
+    gitRepoId: text("git_repo_id").$type<GitRepoId>(),
+    gitRef: text("git_ref"),
+    pullRequestNumber: integer("pull_request_number"),
+    pullRequestNodeId: text("pull_request_node_id"),
+    headSha: text("head_sha"),
+    // Idle GC: tear a preview down past this instant even if the PR stays open.
+    autoTeardownAt: timestamp("auto_teardown_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -184,6 +207,9 @@ export const environment = pgTable(
   (table) => [
     index("environment_project_id_idx").on(table.projectId),
     uniqueIndex("environment_project_slug_unique").on(table.projectId, table.slug),
+    // A PR maps to at most one preview env. Persistent envs have a NULL PR
+    // number and NULLs are distinct in a unique index, so they never collide.
+    uniqueIndex("environment_project_pr_unique").on(table.projectId, table.pullRequestNumber),
   ],
 );
 
@@ -211,6 +237,14 @@ export const resource = pgTable(
     name: text("name").notNull(),
     type: resourceTypeEnum("type").notNull(),
     status: resourceStatusEnum("status").notNull().default("draft"),
+    // Environment scoping. NULL = base resource (applies to every environment,
+    // the only kind that exists pre-previews); set = env-specific instance such
+    // as a preview DB branch. The variable resolver prefers the env-specific
+    // row and falls back to the base. See docs/designs/pr-previews.md.
+    environmentId: text("environment_id").$type<EnvId>(),
+    // Provenance for a branched resource (e.g. a COW db branch). Self-referential
+    // FK enforced app-side (same idiom as project.gitRepoId).
+    branchedFromResourceId: text("branched_from_resource_id").$type<ResourceId>(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -220,6 +254,7 @@ export const resource = pgTable(
   (table) => [
     uniqueIndex("resource_project_name_unique").on(table.projectId, table.name),
     index("resource_project_id_idx").on(table.projectId),
+    index("resource_environment_id_idx").on(table.environmentId),
   ],
 );
 
@@ -533,6 +568,10 @@ export const deployment = pgTable(
       .notNull()
       .$type<ResourceId>()
       .references(() => resource.id, { onDelete: "cascade" }),
+    // Which environment this deployment belongs to. NULL on rows that pre-date
+    // the env model (backfilled to the project's persistent env); preview
+    // deploys carry the preview env id. See docs/designs/pr-previews.md.
+    environmentId: text("environment_id").$type<EnvId>(),
     // Image the deployment was launched with. Captured at insert time so
     // history survives a platform image-pin change.
     image: text("image").notNull(),
@@ -566,6 +605,7 @@ export const deployment = pgTable(
   (table) => [
     index("deployment_resource_id_idx").on(table.resourceId),
     index("deployment_resource_created_idx").on(table.resourceId, table.createdAt),
+    index("deployment_environment_id_idx").on(table.environmentId),
   ],
 );
 
