@@ -1,3 +1,4 @@
+import { zId } from "@otterdeploy/shared/id";
 import * as z from "zod";
 
 import { defineJob } from "../define";
@@ -24,6 +25,11 @@ export const DeployTriggeredPayload = z.object({
   sha: z.string().min(1),
   commitMessage: z.string().optional(),
   commitAuthor: z.string().optional(),
+  /** Which environment this build targets. Omitted → the project's persistent
+   *  (production) env. A preview build carries its preview env id so the worker
+   *  resolves env vars + names the container per that environment. See
+   *  docs/designs/pr-previews.md. */
+  environmentId: zId("env").optional(),
   /** Deployment rows pre-inserted by the webhook receiver. The build worker
    *  transitions each through pending → building → running|failed. */
   deploymentIds: z.array(z.string().min(1)),

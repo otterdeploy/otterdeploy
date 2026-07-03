@@ -18,6 +18,7 @@
     "@otterdeploy/db": "workspace:*",
     "@otterdeploy/email": "workspace:*",
     "@otterdeploy/env": "workspace:*",
+    "@otterdeploy/shared": "workspace:*",
     "bullmq": "^5.65.0",
     "drizzle-orm": "catalog:",
     "evlog": "catalog:",

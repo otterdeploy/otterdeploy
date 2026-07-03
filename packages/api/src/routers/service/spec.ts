@@ -3,6 +3,7 @@
  * provisioner-shaped `SwarmServiceSpec` consumed by `swarm/*`.
  */
 
+import { type EnvScope, runtimeServiceName } from "../../lib/environment/scoping";
 import { materializeServiceMounts, type SpecMount, type SwarmServiceSpec } from "../../swarm";
 import { getLatestDeploymentForResource } from "../project/deployments";
 import { type ServiceRecord } from "./queries";
@@ -12,7 +13,12 @@ export async function buildSwarmSpec(
   record: ServiceRecord,
   resolvedEnv: Record<string, string>,
   projectSlug: string,
+  // Optional preview scoping. Omitted / persistent → the base service name, so
+  // every production deploy is byte-identical. A preview env runs the resource
+  // as a distinct container (`<base>-pr-<n>`). See docs/designs/pr-previews.md.
+  env?: EnvScope | null,
 ): Promise<SwarmServiceSpec> {
+  const serviceName = runtimeServiceName(record.service.serviceName, env);
   // Stamp the rollout with the resource's latest deployment row. By the time
   // we build the spec the latest deployment IS the one being applied (the
   // build worker inserts the row before driving convergence; restart/expose/
@@ -23,7 +29,7 @@ export async function buildSwarmSpec(
   // a bind-mount with no source on disk causes the container to fail to
   // start with no useful error. Volume + bind types pass through verbatim.
   const mounts: SpecMount[] = await materializeServiceMounts(
-    record.service.serviceName,
+    serviceName,
     record.mounts.map((m) => ({
       type: m.type,
       target: m.target,
@@ -37,7 +43,7 @@ export async function buildSwarmSpec(
     resourceId: record.resource.id,
     resourceName: record.resource.name,
     projectSlug: sanitizeSlug(projectSlug),
-    serviceName: record.service.serviceName,
+    serviceName,
     internalHostname: record.service.internalHostname,
     image: record.service.image,
     command: record.service.command,
