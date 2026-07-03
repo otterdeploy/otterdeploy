@@ -201,6 +201,12 @@
       }
     },
     {
+      "files": ["packages/db/src/scripts/**"],
+      "rules": {
+        "no-console": "off"
+      }
+    },
+    {
       "files": ["**/*.test.ts", "**/__tests__/**"],
       "rules": {
         "max-lines": "off",

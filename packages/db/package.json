@@ -16,6 +16,7 @@
     "db:generate": "bun --env-file ../../.env drizzle-kit generate",
     "db:migrate": "bun --env-file ../../.env drizzle-kit migrate",
     "db:push": "bun --env-file ../../.env -- drizzle-kit push",
+    "db:backfill-environments": "bun --env-file ../../.env src/scripts/backfill-environments.ts",
     "db:start": "docker compose up -d",
     "db:stop": "docker compose stop",
     "db:studio": "bun --env-file ../../ drizzle-kit studio",
