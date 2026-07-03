@@ -1,5 +1,5 @@
 import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
-import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { EnvironmentId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import {
@@ -63,6 +63,10 @@ export async function createDatabaseResourceRecord(input: {
    *  this explicitly. */
   engine?: DatabaseEngine;
   status?: "draft" | "valid" | "invalid";
+  /** Environment scoping for a branched DB (a preview's copy). Omitted → NULL
+   *  (base resource). See docs/designs/pr-previews.md. */
+  environmentId?: EnvironmentId;
+  branchedFromResourceId?: ResourceId;
   databaseName: string;
   username: string;
   password: string;
@@ -85,6 +89,8 @@ export async function createDatabaseResourceRecord(input: {
         name: input.name,
         type: "database",
         status: input.status ?? "valid",
+        environmentId: input.environmentId,
+        branchedFromResourceId: input.branchedFromResourceId,
       })
       .returning();
 

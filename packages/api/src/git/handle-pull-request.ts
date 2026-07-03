@@ -29,6 +29,7 @@ import type { GithubWebhookResult, PullRequestEvent } from "./types";
 import { emitDeployStarted } from "../routers/project/deployments";
 import { createCommitStatus, upsertPrComment } from "./github-app";
 import { ensurePreviewEnvironment, markPreviewEnvironmentsClosed } from "./preview-env";
+import { branchProjectDatabases } from "./preview-db";
 
 const PREVIEW_ACTIONS = new Set(["opened", "reopened", "synchronize"]);
 
@@ -133,9 +134,22 @@ async function deployPreviews(
     });
     if (!env) continue;
     environmentsTouched++;
-    // TODO(activation): branch each Postgres resource for `env`
-    // (runtime().branchDatabase, copy strategy) so ${{db.DATABASE_URL}} resolves
-    // to the branch. Needs per-branch fresh creds/hostname/volume (P2 ready).
+    // Branch the project's databases into this preview env BEFORE the services
+    // deploy, so their ${{<db>.DATABASE_URL}} resolves to the isolated branch.
+    // Best-effort: a branch failure must not strand the whole preview.
+    const branched = await Result.tryPromise({
+      try: () =>
+        branchProjectDatabases({
+          projectId: p.id as ProjectId,
+          projectSlug: p.slug,
+          environmentId: env.id as EnvironmentId,
+          previewSlug: `pr-${pr.number}`,
+        }),
+      catch: (cause) => cause,
+    });
+    if (branched.isErr()) {
+      log.warn({ github: { event: "pull_request", step: "branch-db", prNumber: pr.number }, err: branched.error });
+    }
     deploymentsCreated += await deployProjectPreview(p, repo, ev, env.id as EnvironmentId);
   }
 

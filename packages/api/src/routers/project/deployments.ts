@@ -16,7 +16,12 @@
  * underlying tasks when the UI reads the list — see `listResourceDeployments`
  * in ./deployments-list. The notification emitters live in ./deployments-emit.
  */
-import type { DeploymentId, OrganizationId, ResourceId } from "@otterdeploy/shared/id";
+import type {
+  DeploymentId,
+  EnvironmentId,
+  OrganizationId,
+  ResourceId,
+} from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { deployment, project, resource } from "@otterdeploy/db/schema/project";
@@ -53,6 +58,9 @@ interface InsertInput {
   resourceId: ResourceId;
   image: string;
   reason: DeploymentRow["reason"];
+  /** Which environment this deployment belongs to. Omitted → NULL (production /
+   *  persistent). Preview deploys pass their preview env id. */
+  environmentId?: EnvironmentId;
   /** Snapshot the deployment is built from. Pass the resource's full
    *  current config so rollback can reapply it verbatim later. */
   snapshot: Record<string, unknown>;
@@ -65,6 +73,7 @@ export async function insertDeployment(input: InsertInput): Promise<DeploymentRo
       resourceId: input.resourceId,
       image: input.image,
       reason: input.reason,
+      environmentId: input.environmentId,
       status: "building",
       snapshot: input.snapshot,
     })
