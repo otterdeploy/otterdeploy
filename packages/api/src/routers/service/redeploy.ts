@@ -3,13 +3,14 @@
  * fan out to its transitive dependents (services that reference it via
  * `${{<name>.<VAR>}}` env tokens).
  */
-import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { EnvironmentId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { Result } from "better-result";
 
 import type { SwarmServiceRuntime } from "../../swarm";
 
+import { loadEnvScope } from "../../lib/environment/load";
 import { findTransitiveDependents, resolveServiceEnv } from "../../lib/variables";
 import { runtime } from "../../runtime";
 import { ServiceNotFoundError, type ResolveError } from "./errors";
@@ -95,11 +96,21 @@ function isPendingImage(image: string): boolean {
   return image.startsWith("pending:");
 }
 
+export interface RedeployOptions {
+  /** Target a specific environment (preview). Omitted → the project's
+   *  persistent env, so production redeploys are unchanged. */
+  environmentId?: EnvironmentId;
+  /** Use this image in the spec instead of the stored serviceResource.image —
+   *  preview builds pass their built tag here so they don't clobber the base. */
+  imageOverride?: string;
+}
+
 export async function redeployOne(
   projectId: ProjectId,
   resourceId: ResourceId,
   projectSlug: string,
   log?: RequestLogger,
+  opts?: RedeployOptions,
 ): Promise<Result<SwarmServiceRuntime, ServiceNotFoundError | ResolveError>> {
   // Bump ForceUpdate BEFORE loading the record so buildSwarmSpec
   // serializes the new counter into TaskTemplate.ForceUpdate. Without
@@ -115,13 +126,20 @@ export async function redeployOne(
     return Result.err(new ServiceNotFoundError({ resourceId }));
   }
 
-  const resolved = await resolveServiceEnv(projectId, resourceId);
+  const resolved = await resolveServiceEnv(projectId, resourceId, opts?.environmentId);
   if (resolved.isErr()) {
     await updateServiceResourceStatus(resourceId, "invalid");
     return Result.err(resolved.error);
   }
 
-  const swarmSpec = await buildSwarmSpec(record, resolved.value, sanitizeSlug(projectSlug));
+  const envScope = await loadEnvScope(opts?.environmentId);
+  const swarmSpec = await buildSwarmSpec(
+    record,
+    resolved.value,
+    sanitizeSlug(projectSlug),
+    envScope,
+    opts?.imageOverride,
+  );
   const result = await runtime().update(swarmSpec, log);
   await updateServiceResourceStatus(resourceId, result.status === "error" ? "invalid" : "valid");
 

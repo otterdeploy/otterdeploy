@@ -17,6 +17,10 @@ export async function buildSwarmSpec(
   // every production deploy is byte-identical. A preview env runs the resource
   // as a distinct container (`<base>-pr-<n>`). See docs/designs/pr-previews.md.
   env?: EnvScope | null,
+  // Preview builds pass their freshly-built image here instead of writing it to
+  // the shared serviceResource.image column (which would clobber production's
+  // image pointer). Omitted → the resource's stored image.
+  imageOverride?: string | null,
 ): Promise<SwarmServiceSpec> {
   const serviceName = runtimeServiceName(record.service.serviceName, env);
   // Stamp the rollout with the resource's latest deployment row. By the time
@@ -45,7 +49,7 @@ export async function buildSwarmSpec(
     projectSlug: sanitizeSlug(projectSlug),
     serviceName,
     internalHostname: record.service.internalHostname,
-    image: record.service.image,
+    image: imageOverride ?? record.service.image,
     command: record.service.command,
     entrypoint: record.service.entrypoint,
     env: resolvedEnv,

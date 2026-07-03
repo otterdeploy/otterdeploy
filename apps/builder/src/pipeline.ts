@@ -24,6 +24,7 @@
 import type { DeploymentId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RedisClient } from "bun";
 
+import { loadEnvScope } from "@otterdeploy/api/lib/environment/load";
 import { redeployOne } from "@otterdeploy/api/routers/service/redeploy";
 import { db } from "@otterdeploy/db";
 import { serviceResource } from "@otterdeploy/db/schema";
@@ -219,15 +220,21 @@ function runBuildSteps(
       sink,
     });
 
-    // Point the service resource at the new image so the spec assembled by
-    // redeployOne carries the new tag. `imageDigest` + `framework` both describe
-    // THIS build (captured above), never a stale prior one.
-    yield* await step("set-image", () =>
-      db
-        .update(serviceResource)
-        .set({ image: image.shaTag, imageDigest, framework })
-        .where(eq(serviceResource.resourceId, ctx.resource.id as ResourceId)),
-    );
+    // Preview builds must NOT write the base serviceResource.image (it's shared
+    // across environments — writing it would repoint production at the preview's
+    // image). They carry the built tag as a spec override instead. Persistent-env
+    // builds update the row as before; `imageDigest` + `framework` describe THIS
+    // build and are only persisted on the base row.
+    const envScope = await loadEnvScope(ctx.deployment.environmentId);
+    const isPreview = envScope?.kind === "preview";
+    if (!isPreview) {
+      yield* await step("set-image", () =>
+        db
+          .update(serviceResource)
+          .set({ image: image.shaTag, imageDigest, framework })
+          .where(eq(serviceResource.resourceId, ctx.resource.id as ResourceId)),
+      );
+    }
 
     yield* await runPreDeploy({
       ctx,
@@ -241,6 +248,11 @@ function runBuildSteps(
         ctx.project.id as ProjectId,
         ctx.resource.id as ResourceId,
         ctx.project.slug,
+        undefined,
+        {
+          environmentId: ctx.deployment.environmentId ?? undefined,
+          imageOverride: isPreview ? image.shaTag : undefined,
+        },
       )
     ).mapError((cause) => new SwarmUpdateError(cause));
     sink.system(`swarm runtime: status=${runtime.status} health=${runtime.health ?? "n/a"}`);
