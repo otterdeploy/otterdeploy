@@ -214,22 +214,15 @@ function PublicRepoCTA({
 }) {
   const [url, setUrl] = useState("");
 
-  const updateMut = useMutation({
-    ...orpc.project.update.mutationOptions(),
-    onError: (err) => toast.error(err.message ?? "Failed to persist public-repo binding"),
-  });
-
   const connectMut = useMutation({
     ...orpc.git.connectPublicRepo.mutationOptions(),
     onSuccess: (repo) => {
       if (!projectId) return;
+      // Repo binds to the SERVICE now (via onBound → service create), not the
+      // project.
       onBound(repo.id, repo.fullName);
       setUrl("");
       toast.success(`Bound to ${repo.fullName}`);
-      updateMut.mutate({
-        id: projectId as never,
-        gitRepoId: repo.id as never,
-      });
     },
     onError: (err) => toast.error(err.message ?? "Couldn't use that URL"),
   });

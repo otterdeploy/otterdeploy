@@ -89,6 +89,7 @@ export function HistoryRowMenu({
                 resourceId,
                 deploymentId,
               },
+              search: { tab: "details" },
             })
           }
         >

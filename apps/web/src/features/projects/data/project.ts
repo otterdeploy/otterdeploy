@@ -6,7 +6,7 @@ import { queryCollectionOptions } from "@tanstack/query-db-collection";
 import { persistence } from "@/shared/db/sqlite-persistence";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
-import { envCollection } from "./env";
+import { envCollection, newPersistentEnvRow } from "./env";
 
 // SPIKE: `queryCollectionOptions` produces a `CollectionConfig` (with `sync` +
 // mutation handlers). When client-side SQLite persistence is available we spread
@@ -47,14 +47,14 @@ const projectQueryOptions = queryCollectionOptions({
         // matches what the server will actually persist; once
         // project.create returns we refetch the env list to pick up the
         // server-side link.
-        const envTx = envCollection.insert({
-          id: environmentId,
-          projectId: null,
-          name: "Development",
-          slug: "development",
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        });
+        const envTx = envCollection.insert(
+          newPersistentEnvRow({
+            id: environmentId,
+            projectId: null,
+            name: "Development",
+            slug: "development",
+          }),
+        );
         await envTx.isPersisted.promise;
 
         const result = await orpc.project.create.call({

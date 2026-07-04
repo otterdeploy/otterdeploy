@@ -94,7 +94,7 @@ export function OrganizationStep({ onComplete }: { onComplete: (org: CreatedOrg)
               id={field.name}
               label="Name"
               placeholder="Acme"
-              autoFocus
+              focusOnMount
               value={field.state.value}
               onBlur={field.handleBlur}
               onChange={(next) => {
@@ -212,7 +212,7 @@ export function DomainStep({
               label="Base domain"
               placeholder="apps.acme.com"
               mono
-              autoFocus
+              focusOnMount
               autoComplete="off"
               value={field.state.value}
               onBlur={field.handleBlur}
@@ -304,7 +304,7 @@ export function ProjectStep({
               id={field.name}
               label="Name"
               placeholder="Storefront"
-              autoFocus
+              focusOnMount
               value={field.state.value}
               onBlur={field.handleBlur}
               onChange={(next) => {

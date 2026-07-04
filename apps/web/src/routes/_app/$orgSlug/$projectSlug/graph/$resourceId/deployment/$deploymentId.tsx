@@ -11,12 +11,21 @@ import { deploymentsCollection } from "@/features/resources/data/deployments";
 import { resourceCollection } from "@/features/resources/data/resource";
 
 import { DeploymentStatusBadge } from "./-components/deployment-detail";
-import { DeploymentTabs, type DeploymentTab } from "./-components/deployment-tabs";
+import { DeploymentTabs, type DeploymentTab, DEPLOYMENT_TABS } from "./-components/deployment-tabs";
+
+import * as z from "zod";
+
+const searchSchema = z.object({
+  tab: z.enum(DEPLOYMENT_TABS).catch("details"),
+});
+
+
 
 export const Route = createFileRoute(
   "/_app/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId",
 )({
   staticData: { crumb: "Deployment" },
+  validateSearch: searchSchema,
   component: RouteComponent,
 });
 

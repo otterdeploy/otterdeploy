@@ -20,12 +20,17 @@ import {
   NotImplementedTab,
 } from "./deployment-logs";
 
-export type DeploymentTab =
-  | "details"
-  | "build-logs"
-  | "deploy-logs"
-  | "http-logs"
-  | "network-logs";
+
+export  const DEPLOYMENT_TABS = [
+    "details",
+    "build-logs",
+    "deploy-logs",
+    "http-logs",
+    "network-logs",
+  ] as const;
+
+  export type DeploymentTab =
+    typeof DEPLOYMENT_TABS[number];
 
 export function DeploymentTabs({
   tab,

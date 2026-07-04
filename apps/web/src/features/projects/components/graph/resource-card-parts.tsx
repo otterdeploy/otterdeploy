@@ -151,7 +151,9 @@ const trayLabelClass =
 /** Replicas tray — service fan-out + per-task health. Matches the MOUNTS
  *  visual so the two trays read as the same family. */
 export function ReplicasTray({ replicas }: { replicas?: ReplicaInfo[] }) {
-  if (!replicas || replicas.length === 0) return null;
+  // A single replica says nothing the status pill doesn't — only worth a tray
+  // when there's real fan-out to show (>1).
+  if (!replicas || replicas.length <= 1) return null;
   return (
     <>
       <div className="mx-5 h-px bg-border" />

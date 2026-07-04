@@ -57,23 +57,15 @@ export function RepoPicker({
   );
   const repos = reposQuery.data ?? [];
 
-  const updateMut = useMutation({
-    ...orpc.project.update.mutationOptions(),
-    onError: (err) => toast.error(err.message ?? "Failed to bind repository"),
-  });
-
   if (!projectId || installations.length === 0) return null;
 
   function bind(name: string) {
     const repo = repos.find((r) => repoName(r.fullName) === name);
     if (!repo || !projectId) return;
     setSelected(name);
+    // Repo binds to the SERVICE now (via onBound → service create), not the
+    // project — no project.update here.
     onBound(repo.id, repo.fullName);
-    updateMut.mutate({
-      id: projectId as never,
-      gitRepoId: repo.id as never,
-      productionBranch: repo.defaultBranch,
-    });
     toast.success(`Bound to ${repo.fullName}`);
   }
 

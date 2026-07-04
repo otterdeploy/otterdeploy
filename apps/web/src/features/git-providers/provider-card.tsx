@@ -64,7 +64,7 @@ export function ConnectedProviderCard({ provider }: { provider: ProviderView }) 
             )}
           </div>
         </div>
-        <InstallationActions installation={primary} providerId={provider.id} />
+        <InstallationActions installation={primary} />
       </div>
 
       <div className="mt-3.5 flex items-center gap-6 border-t pt-3">

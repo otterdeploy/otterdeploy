@@ -65,6 +65,7 @@ export function ActiveDeploymentCard({
         resourceId,
         deploymentId: deployment.id,
       }}
+      search={{ tab: "details" }}
       className={cn(
         "group flex flex-col gap-3 rounded-lg border bg-card p-4 text-left transition-colors hover:bg-muted/30",
         deployment.status === "running"
@@ -150,6 +151,7 @@ export function HistoryRow({
           resourceId,
           deploymentId: deployment.id,
         }}
+        search={{ tab: "details" }}
         className="contents"
       >
         <DeploymentStatusBadge status={deployment.status} compact />

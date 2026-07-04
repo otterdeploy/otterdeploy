@@ -5,7 +5,7 @@ import { useForm } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 
-import { envCollection } from "@/features/projects/data/env";
+import { envCollection, newPersistentEnvRow } from "@/features/projects/data/env";
 import { Button } from "@/shared/components/ui/button";
 import {
   Dialog,
@@ -43,14 +43,14 @@ export function EnvironmentCreateDialog({ projectId, open, onOpenChange }: Props
 
       // Optimistic insert — the row is already in the collection, so close
       // instantly. tx.isPersisted.promise rolls the row back on reject.
-      const tx = envCollection.insert({
-        id,
-        name: value.name.trim(),
-        slug,
-        projectId: projectId as ProjectId,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
+      const tx = envCollection.insert(
+        newPersistentEnvRow({
+          id,
+          name: value.name.trim(),
+          slug,
+          projectId: projectId as ProjectId,
+        }),
+      );
 
       // Switch the URL to the freshly-created env so the user lands on it.
       void navigate({

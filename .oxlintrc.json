@@ -255,6 +255,15 @@
         "react-hooks-js/refs": "off",
         "react-hooks-js/use-memo": "off"
       }
+    },
+    {
+      "files": [
+        "apps/web/src/features/onboarding/steps.tsx",
+        "apps/web/src/routes/_app/$orgSlug/git-providers.$providerId.tsx"
+      ],
+      "rules": {
+        "max-lines": "off"
+      }
     }
   ],
   "settings": {

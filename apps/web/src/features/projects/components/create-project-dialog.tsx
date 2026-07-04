@@ -38,7 +38,7 @@ export function CreateProjectDialog({ trigger }: { trigger: ReactElement }) {
   const form = useForm({
     defaultValues: { name: "", slug: "" },
     validators: { onChange: schema },
-    onSubmit: ({ value, ...test }) => {
+    onSubmit: ({ value }) => {
       const tx = projectCollection.insert({
         ...value,
         environmentId: null,
@@ -51,13 +51,8 @@ export function CreateProjectDialog({ trigger }: { trigger: ReactElement }) {
         customDomain: null,
         customDomainVerifiedAt: null,
         customDomainVerifyToken: null,
-        // Build pipeline binding — wired later via Settings → Build, so
-        // the optimistic row starts unconfigured. Defaults match the
-        // server's row defaults so a refetch doesn't flip these out.
-        gitRepoId: null,
-        productionBranch: "main",
-        containerRegistryId: null,
-        imageRepository: null,
+        // Git source / image target moved to the SERVICE — no project-level
+        // build binding on the row anymore.
         nixpacksConfig: null,
         graphLayout: {},
         createdAt: new Date(),

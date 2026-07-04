@@ -54,7 +54,7 @@ function GitProviderDetailRoute() {
       <Page>
         <ErrorState
           title="Couldn't load this GitHub App"
-          description={query.error?.message}
+          message={query.error?.message}
           onRetry={() => void query.refetch()}
         />
       </Page>
@@ -237,7 +237,7 @@ function ResourcesTab({ orgSlug, providerId }: { orgSlug: string; providerId: Gi
     return (
       <ErrorState
         title="Couldn't load resources"
-        description={query.error?.message}
+        message={query.error?.message}
         onRetry={() => void query.refetch()}
       />
     );
