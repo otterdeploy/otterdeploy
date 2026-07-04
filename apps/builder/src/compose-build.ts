@@ -86,20 +86,14 @@ async function loadComposeBuildContext(deploymentId: DeploymentId): Promise<Comp
     throw new PipelineLoadError("compose.gitRepoUrl", `${comp.resourceId} has no repo url`);
   }
 
-  let registry: typeof containerRegistry.$inferSelect | null = null;
-  let imageRepository: string;
-  if (proj.containerRegistryId && proj.imageRepository) {
-    const [reg] = await db
-      .select()
-      .from(containerRegistry)
-      .where(eq(containerRegistry.id, proj.containerRegistryId))
-      .limit(1);
-    if (!reg) throw new PipelineLoadError("registry", "registry row missing");
-    registry = reg;
-    imageRepository = proj.imageRepository;
-  } else {
-    imageRepository = `otterdeploy-local/${comp.stackName.toLowerCase()}`;
-  }
+  // Compose stacks build registry-less local images: the project no longer
+  // carries a registry FK (push credentials are resolved from the shared
+  // container_registry library by the image's host string at build time), and
+  // compose_resource binds no registry of its own — so every `build:` service
+  // lands in the host daemon under a stack-derived repo. Image-only services
+  // pass through untouched. See docs/designs/compose.md.
+  const registry: typeof containerRegistry.$inferSelect | null = null;
+  const imageRepository = `otterdeploy-local/${comp.stackName.toLowerCase()}`;
 
   return {
     deployment: dep,

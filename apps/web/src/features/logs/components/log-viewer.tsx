@@ -10,12 +10,18 @@
 
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
-import { Alert02Icon, CancelCircleIcon, Copy01Icon, Search01Icon } from "@hugeicons/core-free-icons";
+import {
+  Alert02Icon,
+  CancelCircleIcon,
+  Copy01Icon,
+  Search01Icon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
 
 import { cn } from "@/shared/lib/utils";
 
+import { classifyLogSeverity, SEVERITY_BAR, SEVERITY_TEXT } from "./log-severity";
 import { LogToolbar, type NavLevel, plural } from "./log-toolbar";
 
 export interface LogLine {
@@ -24,60 +30,6 @@ export interface LogLine {
   line: string;
   ts: string | null;
 }
-
-export type LogSeverity = "error" | "warn" | "success" | "info" | "normal";
-
-/**
- * Severity is derived from the line's *content*, not its stream — build tools
- * (git, docker/buildkit, vite, bun) write ordinary progress to stderr, so the
- * stream is a useless error signal. We look for the markers those tools
- * actually print: `error:`/`ERROR`/`✖` (+ stack frames so a whole trace reads
- * as one red block), `warning`/`(!)`/`[plugin …]`, `✓`/`built in` for success,
- * and a leading `info:`/`[info]`. Everything else is plain output.
- */
-export function classifyLogSeverity(line: string): LogSeverity {
-  const s = line.trim();
-  if (!s) return "normal";
-  if (
-    /(^|[^a-z])(error|fatal|panic|failed|failure|exception|traceback)([^a-z]|$)/i.test(s) ||
-    /\b[A-Z]\w*Error\b/.test(s) || // TypeError, ReferenceError, …
-    /[✖✗]/.test(s) ||
-    /^at\s+\S/.test(s) || // stack frame — keeps the trace one contiguous block
-    /^\.\.\.\s*\d+\s*lines? matching/i.test(s) ||
-    /^cause:/i.test(s) ||
-    /exit code:\s*[1-9]/i.test(s) ||
-    /\bdid not complete successfully\b/i.test(s)
-  ) {
-    return "error";
-  }
-  if (/[✓✔]/.test(s) || /\bbuilt in\b/i.test(s) || /\bready in\b/i.test(s) || /\bcompiled successfully\b/i.test(s)) {
-    return "success";
-  }
-  if (/(^|[^a-z])(warn|warning|deprecated)([^a-z]|$)/i.test(s) || /^\(!\)/.test(s) || /\[plugin\b/i.test(s)) {
-    return "warn";
-  }
-  if (/^\[?(info|notice)\]?[:\s-]/i.test(s)) return "info";
-  return "normal";
-}
-
-const SEVERITY_TEXT: Record<LogSeverity, string> = {
-  error: "text-destructive",
-  warn: "text-warning",
-  success: "text-success",
-  info: "text-info",
-  normal: "text-foreground/85",
-};
-
-// The rounded left rail is the severity indicator — a colored pill for
-// error/warn/info/success, a faint hairline for ordinary output so every
-// line still sits on a consistent rail (matches the table-row pattern).
-const SEVERITY_BAR: Record<LogSeverity, string> = {
-  error: "bg-destructive",
-  warn: "bg-warning",
-  success: "bg-success",
-  info: "bg-info",
-  normal: "bg-muted-foreground/20",
-};
 
 export function LogLineRow({
   line,
@@ -178,9 +130,7 @@ export function LogViewer({
   const errorCount = errorMatches.length;
   const warnCount = warnMatches.length;
 
-  const navMatches = nav?.level === "error" ? errorMatches : nav?.level === "warn" ? warnMatches : [];
-  const navIndex = navMatches.length ? Math.min(nav?.index ?? 0, navMatches.length - 1) : 0;
-  const currentMatchId = navMatches.length ? (navMatches[navIndex]?.line.id ?? null) : null;
+  const { index: navIndex, currentId: currentMatchId } = resolveNav(nav, errorMatches, warnMatches);
 
   // Auto-scroll to bottom as new lines arrive — unless the user scrolled up,
   // or is currently stepping through matches (that owns the scroll position).
@@ -264,5 +214,3 @@ export function LogViewer({
     </div>
   );
 }
-
-

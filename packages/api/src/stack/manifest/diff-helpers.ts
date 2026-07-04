@@ -13,46 +13,63 @@ import type { ComposeManifest, DatabaseManifest, ServiceManifest } from "./schem
 
 type FieldChanges = Record<string, { from: unknown; to: unknown }>;
 
+function diffImageSource(
+  desired: ServiceManifest,
+  current: CurrentService,
+  fc: FieldChanges,
+): void {
+  if (desired.source === "image" && current.source === "image" && desired.image !== current.image) {
+    fc.image = { from: current.image, to: desired.image };
+  }
+}
+
+function diffGitBinding(desired: ServiceManifest, current: CurrentService, fc: FieldChanges): void {
+  if (desired.source !== "git" || current.source !== "git") return;
+
+  const desiredSubdir = desired.sourceSubdir ?? null;
+  if (desiredSubdir !== current.sourceSubdir) {
+    fc.sourceSubdir = { from: current.sourceSubdir, to: desiredSubdir };
+  }
+  // Per-service repo/branch. Only diffed when the manifest actually declares
+  // `repo` — an omitted repo means "leave the existing binding alone" (repo
+  // moved into the manifest recently; pre-migration manifests omit it and
+  // must not read as "unset the repo"). See manifest-apply-services.ts, which
+  // gates the write the same way.
+  if (desired.repo !== undefined) {
+    if (desired.repo !== current.repo) {
+      fc.repo = { from: current.repo, to: desired.repo };
+    }
+    const desiredBranch = desired.branch ?? null;
+    if (desiredBranch !== current.branch) {
+      fc.branch = { from: current.branch, to: desiredBranch };
+    }
+  }
+  const desiredImage = desired.imageRepository ?? null;
+  if (desired.imageRepository !== undefined && desiredImage !== current.imageRepository) {
+    fc.imageRepository = { from: current.imageRepository, to: desiredImage };
+  }
+}
+
+function diffBuildConfigField(
+  desired: ServiceManifest,
+  current: CurrentService,
+  fc: FieldChanges,
+): void {
+  if (desired.source !== "git") return;
+  const desiredBuild = desired.build ?? null;
+  if (!sameBuildConfig(desiredBuild, current.buildConfig)) {
+    fc.buildConfig = { from: current.buildConfig, to: desiredBuild };
+  }
+}
+
 function diffSourceFields(
   desired: ServiceManifest,
   current: CurrentService,
   fc: FieldChanges,
 ): void {
-  if (desired.source === "image" && current.source === "image") {
-    if (desired.image !== current.image) {
-      fc.image = { from: current.image, to: desired.image };
-    }
-  }
-  if (desired.source === "git" && current.source === "git") {
-    const desiredSubdir = desired.sourceSubdir ?? null;
-    if (desiredSubdir !== current.sourceSubdir) {
-      fc.sourceSubdir = { from: current.sourceSubdir, to: desiredSubdir };
-    }
-    // Per-service repo/branch. Only diffed when the manifest actually declares
-    // `repo` — an omitted repo means "leave the existing binding alone" (repo
-    // moved into the manifest recently; pre-migration manifests omit it and
-    // must not read as "unset the repo"). See manifest-apply-services.ts, which
-    // gates the write the same way.
-    if (desired.repo !== undefined) {
-      if (desired.repo !== current.repo) {
-        fc.repo = { from: current.repo, to: desired.repo };
-      }
-      const desiredBranch = desired.branch ?? null;
-      if (desiredBranch !== current.branch) {
-        fc.branch = { from: current.branch, to: desiredBranch };
-      }
-    }
-    const desiredImage = desired.imageRepository ?? null;
-    if (desired.imageRepository !== undefined && desiredImage !== current.imageRepository) {
-      fc.imageRepository = { from: current.imageRepository, to: desiredImage };
-    }
-  }
-  if (desired.source === "git") {
-    const desiredBuild = desired.build ?? null;
-    if (!sameBuildConfig(desiredBuild, current.buildConfig)) {
-      fc.buildConfig = { from: current.buildConfig, to: desiredBuild };
-    }
-  }
+  diffImageSource(desired, current, fc);
+  diffGitBinding(desired, current, fc);
+  diffBuildConfigField(desired, current, fc);
 }
 
 function diffExecFields(desired: ServiceManifest, current: CurrentService, fc: FieldChanges): void {
