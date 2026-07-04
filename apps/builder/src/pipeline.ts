@@ -147,8 +147,10 @@ function runBuildSteps(
     }
 
     // Public-URL bindings carry no installationId — clone over anonymous HTTPS.
-    // Installation-backed bindings mint a short-lived token + inject it.
-    const installationId = ctx.repo.installationId;
+    // Installation-backed bindings mint a short-lived token + inject it. Use the
+    // GitHub-side numeric id (resolved in load.ts), NOT repo.installationId,
+    // which is the internal git_installation.id FK the token API can't resolve.
+    const installationId = ctx.githubInstallationId;
     const bindingKind = resolveBindingKind(installationId, ctx.repo.isPrivate);
     const installationToken = yield* await mintInstallationToken(installationId);
 

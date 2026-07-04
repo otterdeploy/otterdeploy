@@ -19,7 +19,7 @@ import { PLATFORM } from "../../constants";
 import { runtime } from "../../runtime";
 import { loadProject, loadResource } from "./context";
 import {
-  MissingProjectBuildBindingError,
+  MissingServiceBuildBindingError,
   ServiceConflictError,
   ServiceInUseError,
   ServiceNotFoundError,
@@ -95,7 +95,7 @@ export async function createService(
 ): Promise<
   Result<
     ServiceView,
-    ProjectNotFoundError | ServiceConflictError | MissingProjectBuildBindingError | ResolveError
+    ProjectNotFoundError | ServiceConflictError | MissingServiceBuildBindingError | ResolveError
   >
 > {
   log.set({
@@ -113,18 +113,14 @@ export async function createService(
 
   const source = input.source ?? "image";
 
-  // Git-sourced services can't exist without a project-level binding —
-  // the build worker reads gitRepoId / containerRegistryId / imageRepository
-  // off the project at build time. Fail fast with a typed error the UI
-  // can use to redirect the operator to Settings.
-  if (source === "git" && !input.skipBuildBindingCheck) {
-    const missing: Array<"gitRepoId" | "containerRegistryId" | "imageRepository"> = [];
-    if (!project.gitRepoId) missing.push("gitRepoId");
-    if (!project.containerRegistryId) missing.push("containerRegistryId");
-    if (!project.imageRepository) missing.push("imageRepository");
-    if (missing.length > 0) {
-      return Result.err(new MissingProjectBuildBindingError({ missing }));
-    }
+  // Git-sourced services now own their own repo — the build worker reads
+  // gitRepoId off the service row. Only the repo gates creation (registry +
+  // image are optional; the builder falls back to a registry-less local
+  // build). Fail fast with a typed error the UI uses to prompt "pick a repo".
+  // The manifest reconciler passes skipBuildBindingCheck so an unbound git
+  // service still lands as a pending:initial row (its build fails clearly).
+  if (source === "git" && !input.skipBuildBindingCheck && !input.gitRepoId) {
+    return Result.err(new MissingServiceBuildBindingError({ missing: ["gitRepoId"] }));
   }
 
   const projectSlug = sanitizeSlug(project.slug);

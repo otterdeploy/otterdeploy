@@ -208,6 +208,13 @@ app.get("/", (c) => {
   return c.text("OK");
 });
 
+// Liveness + version. `/health` is what the prod compose healthcheck probes;
+// `/api/health` (already auth-excluded) is what the browser polls to detect the
+// new container after a self-update cutover, then reloads. Reports the running
+// image tag so the updater UI can confirm the version actually changed.
+app.get("/health", (c) => c.json({ ok: true, version: env.OTTERDEPLOY_VERSION }));
+app.get("/api/health", (c) => c.json({ ok: true, version: env.OTTERDEPLOY_VERSION }));
+
 // ─── Workbench: BullMQ dashboard ───────────────────────────────────
 // Shows every registry queue, including the builder's deploy.triggered
 // (consumed in apps/builder — same Redis keys). Mounted only when

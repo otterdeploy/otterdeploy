@@ -20,9 +20,15 @@ import { eq } from "drizzle-orm";
 
 import type { ProjectRef } from "../scopes";
 
+import { isSwarmRuntime } from "../../runtime";
 import { composeSwarmServiceName } from "../../stack/compose";
 import { ProjectNotFoundError } from "./errors";
 import { getProjectInOrg } from "./queries";
+import {
+  collapseInstanceState,
+  listResourceInstances,
+  type ResourceInstance,
+} from "./resource-instances";
 
 export interface ServiceTaskInfo {
   id: string;
@@ -46,34 +52,6 @@ export interface ServiceTaskInfo {
 export interface ServiceTasks {
   resourceId: ResourceId;
   tasks: ServiceTaskInfo[];
-}
-
-// Docker task `Status.State` values, collapsed to the three buckets the graph
-// node tray renders. See https://docs.docker.com/reference/cli/docker/service/ps/
-// A finished task (complete/shutdown) on a long-running service signals a
-// problem — the orchestrator will replace it, but at this snapshot the slot is
-// down — so it buckets to "error".
-const TASK_STATE_BUCKETS: Record<string, ServiceTaskInfo["state"]> = {
-  running: "running",
-  new: "building",
-  allocated: "building",
-  pending: "building",
-  assigned: "building",
-  accepted: "building",
-  preparing: "building",
-  ready: "building",
-  starting: "building",
-  failed: "error",
-  rejected: "error",
-  remove: "error",
-  orphaned: "error",
-  complete: "error",
-  shutdown: "error",
-};
-
-// Unknown/missing states collapse to "building" so we don't false-positive errors.
-function collapseTaskState(state: string | undefined): ServiceTaskInfo["state"] {
-  return TASK_STATE_BUCKETS[state ?? ""] ?? "building";
 }
 
 interface TaskOwner {
@@ -159,7 +137,7 @@ function buildTaskInfo(task: unknown, owner: TaskOwner, serviceName: string): Se
     slot,
     label: slot != null ? `${labelBase}.${slot}` : labelBase,
     service: owner.service,
-    state: collapseTaskState(status.state),
+    state: collapseInstanceState(status.state),
     rawState: status.rawState,
     desiredState,
     nodeId,
@@ -169,6 +147,67 @@ function buildTaskInfo(task: unknown, owner: TaskOwner, serviceName: string): Se
     exitCode: status.exitCode,
     timestamp: status.timestamp,
   };
+}
+
+// Map a plain-docker container instance onto the graph's ServiceTaskInfo shape.
+function instanceToServiceTaskInfo(
+  instance: ResourceInstance,
+  owner: TaskOwner,
+  serviceName: string,
+): ServiceTaskInfo {
+  const labelBase = owner.service ?? serviceName;
+  return {
+    id: instance.id,
+    slot: instance.slot,
+    label: instance.slot != null ? `${labelBase}.${instance.slot}` : labelBase,
+    service: owner.service,
+    state: collapseInstanceState(instance.state),
+    rawState: instance.state,
+    desiredState: instance.desiredState,
+    nodeId: instance.nodeId,
+    message: instance.message,
+    error: instance.err,
+    containerId: instance.containerId,
+    exitCode: instance.exitCode,
+    timestamp: instance.updatedAt,
+  };
+}
+
+// Swarm: one filtered `docker.tasks.list` covers every service (OR filter),
+// then group tasks back to their owner by resolved service name.
+async function groupSwarmTasks(
+  docker: Docker,
+  swarmNameToOwner: Map<string, TaskOwner>,
+  grouped: Map<ResourceId, ServiceTaskInfo[]>,
+): Promise<void> {
+  const tasksResult = await docker.tasks.list({
+    filters: { service: [...swarmNameToOwner.keys()] },
+  });
+  if (tasksResult.isErr()) return;
+  for (const task of tasksResult.value) {
+    const serviceName = resolveTaskServiceName(task);
+    if (!serviceName) continue;
+    const owner = swarmNameToOwner.get(serviceName);
+    if (!owner) continue;
+    grouped.get(owner.resourceId)?.push(buildTaskInfo(task, owner, serviceName));
+  }
+}
+
+// Plain Docker (default runtime): no swarm tasks, so enumerate each service's
+// container(s) by name. Compose sub-services are swarm-only, so under this
+// runtime they simply resolve to zero containers (node renders "offline").
+async function groupDockerContainers(
+  docker: Docker,
+  swarmNameToOwner: Map<string, TaskOwner>,
+  grouped: Map<ResourceId, ServiceTaskInfo[]>,
+): Promise<void> {
+  for (const [serviceName, owner] of swarmNameToOwner) {
+    const res = await listResourceInstances(docker, serviceName);
+    if (res.isErr()) continue;
+    for (const instance of res.value) {
+      grouped.get(owner.resourceId)?.push(instanceToServiceTaskInfo(instance, owner, serviceName));
+    }
+  }
 }
 
 export async function listProjectServiceTasks(
@@ -220,31 +259,21 @@ export async function listProjectServiceTasks(
   ];
   if (resourceIds.length === 0) return Result.ok([]);
 
-  // One docker call covers every service in the project. The filter accepts
-  // multiple service names — `{ service: [a, b, c] }` means OR.
+  // Runtime-aware live state. A missing/unreachable backend surfaces as an
+  // empty result rather than failing the whole graph load — the UI keeps
+  // rendering nodes without live state.
   const docker = Docker.fromEnv();
-  const tasksResult = await docker.tasks.list({
-    filters: { service: [...swarmNameToOwner.keys()] },
-  });
-
-  // Swarm may be missing / unreachable. Surface as an empty result rather
-  // than failing the whole graph load — the UI can keep rendering nodes
-  // without live state.
-  if (tasksResult.isErr()) {
-    return Result.ok(resourceIds.map((resourceId) => ({ resourceId, tasks: [] })));
-  }
-
   const grouped = new Map<ResourceId, ServiceTaskInfo[]>();
   for (const resourceId of resourceIds) grouped.set(resourceId, []);
 
-  for (const task of tasksResult.value) {
-    const serviceName = resolveTaskServiceName(task);
-    if (!serviceName) continue;
-    const owner = swarmNameToOwner.get(serviceName);
-    if (!owner) continue;
-    const bucket = grouped.get(owner.resourceId);
-    if (!bucket) continue;
-    bucket.push(buildTaskInfo(task, owner, serviceName));
+  try {
+    if (isSwarmRuntime()) {
+      await groupSwarmTasks(docker, swarmNameToOwner, grouped);
+    } else {
+      await groupDockerContainers(docker, swarmNameToOwner, grouped);
+    }
+  } finally {
+    docker.destroy();
   }
 
   return Result.ok(

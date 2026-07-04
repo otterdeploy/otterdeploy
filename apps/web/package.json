@@ -6,6 +6,7 @@
   "scripts": {
     "build": "vite build",
     "dev": "portless web.otterdeploy --force vite dev",
+    "dev:funnel": " PORTLESS_FUNNEL=1 portless web.otterdeploy --force vite dev",
     "gen:schema": "bun scripts/gen-schema.ts",
     "serve": "vite preview",
     "start": "vite",
@@ -26,6 +27,7 @@
     "@fontsource-variable/geist-mono": "^5.2.8",
     "@hugeicons/core-free-icons": "^4.1.4",
     "@hugeicons/react": "^1.1.6",
+    "@journeyapps/wa-sqlite": "^1.4.1",
     "@js-temporal/polyfill": "^0.5.1",
     "@lezer/highlight": "^1.2.3",
     "@orpc/client": "^1.14.3",
@@ -37,6 +39,7 @@
     "@otterdeploy/i18n": "workspace:*",
     "@otterdeploy/shared": "workspace:*",
     "@tailwindcss/vite": "^4.3.0",
+    "@tanstack/browser-db-sqlite-persistence": "catalog:",
     "@tanstack/db": "catalog:",
     "@tanstack/query-core": "catalog:",
     "@tanstack/query-db-collection": "catalog:",

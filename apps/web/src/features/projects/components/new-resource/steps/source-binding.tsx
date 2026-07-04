@@ -14,12 +14,13 @@ import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 
 import { SvglLogo } from "@/shared/components/brand/svgl-logo";
-import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 import { orpc } from "@/shared/server/orpc";
+
+import { RepoPicker, type RepoOwner } from "./repo-picker";
 
 /**
  * Read-only loader for everything the step needs alongside the form:
@@ -37,6 +38,7 @@ export function useBindingSummary(projectSlug: string): {
   boundRepoFullNameByGitRepoId: Record<string, string>;
   justBoundFullName: string | null;
   rememberJustBound: (repoId: string, fullName: string) => void;
+  installations: RepoOwner[];
 } {
   const projectQuery = useQuery({
     ...orpc.project.getBySlug.queryOptions({
@@ -76,6 +78,11 @@ export function useBindingSummary(projectSlug: string): {
     boundRepoFullNameByGitRepoId,
     justBoundFullName: justBound?.fullName ?? null,
     rememberJustBound: (repoId, fullName) => setJustBound({ repoId, fullName }),
+    installations: installations.map((i) => ({
+      id: i.id,
+      accountLogin: i.accountLogin,
+      accountType: i.accountType,
+    })),
   };
 }
 
@@ -88,7 +95,11 @@ interface BindingSummaryProps {
   projectId: string | null;
   orgSlug: string;
   projectSlug: string;
+  installations: RepoOwner[];
   onBound: (repoId: string, fullName: string) => void;
+  /** Clear the current binding so the picker reappears — lets the operator
+   *  point this service at a different repo. */
+  onChangeRepo: () => void;
 }
 
 export function BindingSummary(props: BindingSummaryProps) {
@@ -105,15 +116,16 @@ export function BindingSummary(props: BindingSummaryProps) {
             className="size-4 shrink-0 text-success"
           />
           <div className="min-w-0 flex-1">
-            <div className="font-mono text-[13px]">{props.boundFullName ?? props.repo}</div>
+            <div className="truncate font-mono text-[13px]">
+              {props.boundFullName ?? props.repo}
+            </div>
             <div className="text-[11px] text-muted-foreground">
               branch <span className="font-mono">{props.branch || "main"}</span>
-              {" · "}registry binding lives on the project
             </div>
           </div>
-          <Badge variant="outline" className="font-normal">
-            Project binding
-          </Badge>
+          <Button type="button" variant="outline" size="sm" onClick={props.onChangeRepo}>
+            Change repo
+          </Button>
         </CardContent>
       </Card>
     );
@@ -157,24 +169,26 @@ export function BindingSummary(props: BindingSummaryProps) {
             className="size-5 shrink-0 text-muted-foreground"
           />
           <div className="min-w-0 flex-1">
-            <div className="text-[13px] font-semibold">Project has no source binding yet</div>
+            <div className="text-[13px] font-semibold">Deploy from a repository</div>
             <p className="mt-1 text-[12px] text-muted-foreground">
-              Pick a repo under <span className="font-mono">Settings → Build</span> for full
-              push-deploy support, or paste a public URL below for a manual-deploy binding right
-              now.
+              Pick a repo from your connected GitHub App, or paste a public URL — no detour to
+              Settings needed.
             </p>
-            <Link
-              to="/$orgSlug/$projectSlug/settings"
-              params={{
-                orgSlug: props.orgSlug,
-                projectSlug: props.projectSlug as never,
-              }}
-              className="mt-2 inline-block text-[12px] font-medium underline"
-            >
-              Open Build settings →
-            </Link>
           </div>
         </div>
+
+        <RepoPicker
+          installations={props.installations}
+          projectId={props.projectId}
+          onBound={props.onBound}
+        />
+
+        <div className="flex items-center gap-2">
+          <div className="h-px flex-1 bg-border" />
+          <span className="text-[10px] tracking-wider text-muted-foreground uppercase">or</span>
+          <div className="h-px flex-1 bg-border" />
+        </div>
+
         <PublicRepoCTA projectId={props.projectId} onBound={props.onBound} />
       </CardContent>
     </Card>

@@ -96,6 +96,10 @@ export const serviceResourceSchema = z.object({
   latestDeploymentStatus: z
     .enum(["pending", "building", "running", "failed", "superseded", "removed"])
     .nullable(),
+  // Latest deployment timestamps — drive the live build/deploy duration on the
+  // graph node. ISO strings; `finishedAt` is null while the deploy is in flight.
+  latestDeploymentStartedAt: z.string().nullable(),
+  latestDeploymentFinishedAt: z.string().nullable(),
   image: z.string(),
   imageDigest: z.string().nullable(),
   // Where the service's image came from. "image" = pre-built pull;
@@ -146,6 +150,10 @@ export const composeResourceSchema = z.object({
   latestDeploymentStatus: z
     .enum(["pending", "building", "running", "failed", "superseded", "removed"])
     .nullable(),
+  // Latest deployment timestamps — drive the live build/deploy duration on the
+  // graph node. ISO strings; `finishedAt` is null while the deploy is in flight.
+  latestDeploymentStartedAt: z.string().nullable(),
+  latestDeploymentFinishedAt: z.string().nullable(),
   source: z.enum(["inline", "git"]),
   stackName: z.string(),
   services: z.array(

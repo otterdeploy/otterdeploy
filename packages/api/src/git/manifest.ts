@@ -76,7 +76,14 @@ export interface StartManifestResult {
  */
 export function buildManifestRequest(opts: {
   state: string;
+  /** Browser-facing base for redirect/callback/setup URLs. GitHub only sends
+   *  the operator's *browser* here, so it can be the local control-plane
+   *  address (`.localhost` in dev) — no public tunnel required. */
   baseUrl: string;
+  /** Public base for `hook_attributes.url` only — GitHub's *servers* POST
+   *  webhooks here, so it must be internet-reachable (a tunnel in dev).
+   *  Falls back to `baseUrl` (prod is single-origin). */
+  webhookBaseUrl?: string;
   host?: string;
   /** Optional org login on GitHub — POSTing to the org namespace pre-fills
    *  the owner picker for the operator. */
@@ -85,11 +92,12 @@ export function buildManifestRequest(opts: {
 }): StartManifestResult {
   const host = opts.host ?? "github.com";
   const base = opts.baseUrl.replace(/\/$/, "");
+  const webhookBase = (opts.webhookBaseUrl ?? opts.baseUrl).replace(/\/$/, "");
   const manifest: GithubAppManifest = {
     name: opts.appName ?? "Otterdeploy",
     url: base,
     hook_attributes: {
-      url: `${base}/api/webhooks/github`,
+      url: `${webhookBase}/api/webhooks/github`,
       active: true,
     },
     redirect_url: `${base}/api/integrations/github/manifest/callback`,
@@ -107,7 +115,12 @@ export function buildManifestRequest(opts: {
       pull_requests: "write",
       checks: "write",
     },
-    default_events: ["push", "pull_request", "installation", "installation_repositories"],
+    // Only permission-backed events go here. `installation` and
+    // `installation_repositories` are App-lifecycle events GitHub delivers to
+    // every App automatically — listing them in a manifest is rejected
+    // ("Default events unsupported / not supported by permissions"). We still
+    // receive them; the install handler (handle-installation.ts) processes them.
+    default_events: ["push", "pull_request"],
   };
 
   // POST to the org-scoped URL when we know the operator wants this App

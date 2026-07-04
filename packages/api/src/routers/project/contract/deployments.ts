@@ -45,6 +45,14 @@ export const deploymentSchema = z.object({
   taskCount: z.number().int(),
   failedTaskCount: z.number().int(),
   runningTaskCount: z.number().int(),
+  // Git provenance — populated when the deploy was built from a repo
+  // (reason="git-push" or a git-sourced service). Null for image-only /
+  // database deployments. Surfaced in the "Deployed from" block of the
+  // deployment Details tab.
+  gitSha: z.string().nullable(),
+  gitRef: z.string().nullable(),
+  gitCommitMessage: z.string().nullable(),
+  gitCommitAuthor: z.string().nullable(),
   completedAt: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),

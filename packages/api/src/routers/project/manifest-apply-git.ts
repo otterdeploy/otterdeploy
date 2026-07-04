@@ -13,13 +13,15 @@ import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
 import { gitInstallation, gitRepo } from "@otterdeploy/db/schema/git";
-import { deployment, project } from "@otterdeploy/db/schema/project";
+import { deployment, serviceResource } from "@otterdeploy/db/schema/project";
 import { triggerDeploy } from "@otterdeploy/jobs";
 import { Result } from "better-result";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 import { fetchBranchHeadSha } from "../../git/github-app";
+import { inspectRepoTree } from "../git/inspect";
 import { emitDeployStarted } from "./deployments";
+import { publishResourceChanged } from "./project-event-bus";
 
 export async function enqueueGitBuild(args: {
   projectId: ProjectId;
@@ -27,21 +29,15 @@ export async function enqueueGitBuild(args: {
   resourceId: ResourceId;
   log: RequestLogger;
 }): Promise<Result<{ deploymentId: string }, string>> {
-  const [proj] = await db
-    .select({
-      gitRepoId: project.gitRepoId,
-      productionBranch: project.productionBranch,
-      imageRepository: project.imageRepository,
-      containerRegistryId: project.containerRegistryId,
-    })
-    .from(project)
-    .where(and(eq(project.id, args.projectId), eq(project.organizationId, args.organizationId)))
+  // Git binding lives on the SERVICE now — its own repo + branch, not the
+  // project's. Registry/image are optional (the builder resolves them itself,
+  // defaulting to a registry-less local image), so only the repo gates here.
+  const [svc] = await db
+    .select({ gitRepoId: serviceResource.gitRepoId, branch: serviceResource.branch })
+    .from(serviceResource)
+    .where(eq(serviceResource.resourceId, args.resourceId))
     .limit(1);
-  if (!proj?.gitRepoId) return Result.err("project has no git repo binding");
-  // Registry binding is optional — the builder defaults to a registry-less
-  // local image (built straight into the swarm node's daemon). Only an
-  // external registry needs imageRepository + containerRegistryId, and the
-  // builder resolves that itself; no gate here.
+  if (!svc?.gitRepoId) return Result.err("service has no git repo binding");
 
   const [repo] = await db
     .select({
@@ -50,7 +46,7 @@ export async function enqueueGitBuild(args: {
       installationRowId: gitRepo.installationId,
     })
     .from(gitRepo)
-    .where(eq(gitRepo.id, proj.gitRepoId))
+    .where(eq(gitRepo.id, svc.gitRepoId))
     .limit(1);
   if (!repo) return Result.err("git repo not found");
 
@@ -68,11 +64,15 @@ export async function enqueueGitBuild(args: {
       .from(gitInstallation)
       .where(eq(gitInstallation.id, repo.installationRowId))
       .limit(1);
-    if (!inst) return Result.err("git installation not found");
-    installationId = inst.installationId;
+    // A missing install row means the GitHub App was removed/reconnected and
+    // orphaned this FK. Don't hard-fail — fall back to anonymous access, which
+    // builds a public repo fine; a genuinely private repo just fails the SHA
+    // lookup below with a clear 404 (same as an unlinked private repo). Mirrors
+    // the builder's `load.ts`, which only requires the install for private repos.
+    if (inst) installationId = inst.installationId;
   }
 
-  const branch = proj.productionBranch || repo.defaultBranch || "main";
+  const branch = svc.branch || repo.defaultBranch || "main";
   const [owner, repoName] = repo.fullName.split("/");
   if (!owner || !repoName) {
     return Result.err(`unexpected repo full name: ${repo.fullName}`);
@@ -109,14 +109,57 @@ export async function enqueueGitBuild(args: {
     resourceId: args.resourceId,
     reason: "create",
   });
+  // Push the pending build to the stream so the node shows progress at once.
+  void publishResourceChanged(args.resourceId);
+  // Surface the framework brand mark right away — the builder only persists the
+  // framework after a *successful* build, so a service that never built (or
+  // failed) would otherwise sit on the generic kind icon forever. Best-effort +
+  // non-blocking; a repo we can't read just keeps whatever framework it had.
+  void detectAndPersistFramework(svc.gitRepoId, args.resourceId).catch(() => undefined);
 
   await triggerDeploy({
     projectId: args.projectId,
-    gitRepoId: proj.gitRepoId,
+    gitRepoId: svc.gitRepoId,
     ref,
     sha,
     deploymentIds: [row.id],
   });
   args.log.set({ manifestBuild: { resourceId: args.resourceId, sha, ref } });
   return Result.ok({ deploymentId: row.id });
+}
+
+/**
+ * Detect the service's framework from its repo tree and persist it to the
+ * resource row so the graph node + drawer render the right brand mark (Next.js,
+ * Vite, …) immediately — independent of whether a build ever succeeds. The
+ * builder re-captures this post-build; this just makes the icon correct up
+ * front. Reuses the same `inspectRepoTree` detector the create wizard uses.
+ *
+ * Best-effort by design: it reads over the GitHub API (which can fail for a
+ * private repo we can't authenticate, or a transient error), so any failure
+ * leaves the framework untouched. Never gates the deploy — the caller fires it
+ * and forgets it.
+ */
+export async function detectAndPersistFramework(
+  gitRepoId: string,
+  resourceId: ResourceId,
+): Promise<void> {
+  const [svc] = await db
+    .select({ sourceSubdir: serviceResource.sourceSubdir, current: serviceResource.framework })
+    .from(serviceResource)
+    .where(eq(serviceResource.resourceId, resourceId))
+    .limit(1);
+  if (!svc) return;
+
+  const inspected = await inspectRepoTree({ gitRepoId, path: svc.sourceSubdir ?? "" });
+  if (inspected.isErr()) return;
+
+  const framework = inspected.value.framework;
+  if (!framework || framework === svc.current) return;
+
+  await db
+    .update(serviceResource)
+    .set({ framework })
+    .where(eq(serviceResource.resourceId, resourceId));
+  void publishResourceChanged(resourceId);
 }

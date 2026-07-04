@@ -9,6 +9,7 @@ export type { InstallState } from "./state";
 
 export {
   GithubAppNotConfiguredError,
+  GithubInstallationInvalidError,
   apiBaseUrlForHost,
   getInstallationToken,
   listInstallationRepos,

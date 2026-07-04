@@ -227,6 +227,20 @@
       }
     },
     {
+      "files": ["packages/api/src/git/github-app.ts", "packages/api/src/routers/git/index.ts"],
+      "rules": {
+        "max-lines": ["error", { "max": 400, "skipBlankLines": true, "skipComments": true }]
+      }
+    },
+    {
+      "files": [
+        "apps/web/src/routes/**/deployment/-components/deployment-detail.tsx"
+      ],
+      "rules": {
+        "max-lines": ["error", { "max": 520, "skipBlankLines": true, "skipComments": true }]
+      }
+    },
+    {
       "files": ["**/src/routes/**"],
       "rules": {
         "unicorn/filename-case": "off"

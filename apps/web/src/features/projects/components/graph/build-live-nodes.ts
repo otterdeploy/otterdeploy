@@ -1,5 +1,6 @@
 import type { Edge, Node } from "@xyflow/react";
 
+import type { FrameworkKind } from "@/features/projects/components/framework-logo";
 import type {
   ComposeServiceInfo,
   ResourceNodeData,
@@ -113,6 +114,9 @@ export interface PendingByName {
     resource: "service" | "database" | "compose";
     name: string;
     services?: ComposeServiceInfo[];
+    /** Framework the create wizard detected (via inspectRepo) for a git
+     *  service — lets the ghost render the brand logo before it's built. */
+    framework?: FrameworkKind;
   }>;
   /** Lookup keyed by `${resource}:${name}` (the node id) → pending
    *  update/delete marker for an already-applied resource. */
@@ -210,6 +214,9 @@ export const buildLiveNodes = (
             ? "New stack (pending)"
             : "New service (pending)",
       pending: "create",
+      // Client-known framework (from the wizard) so the ghost shows the brand
+      // logo immediately, before any build persists it on the resource row.
+      ...(c.framework ? { framework: c.framework } : {}),
       // A compose ghost renders as a group: hand it the parsed member cards so
       // the operator sees the stack's services before deploying it.
       ...(c.resource === "compose" ? { services: c.services ?? [] } : {}),

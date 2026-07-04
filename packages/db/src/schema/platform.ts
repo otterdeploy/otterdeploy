@@ -53,6 +53,28 @@ export const platformSettings = pgTable("platform_settings", {
   /** SMTP password, encrypted (encryptSecret blob). */
   smtpPasswordCiphertext: text("smtp_password_ciphertext"),
 
+  // ─── Platform self-update (packages/api/src/routers/system). The CURRENT
+  //     version is not stored here — it's read live from env.OTTERDEPLOY_VERSION
+  //     (the image tag the compose stack booted with). These columns cache the
+  //     last "check for updates" result + hold the operator's update prefs, the
+  //     same split Coolify keeps on InstanceSettings. Transient apply run-state
+  //     (progress/logs) lives in-memory + a status file under DATA_DIR, not here.
+  /** Release channel to track. "stable" ⇒ GitHub `releases/latest`. */
+  updateChannel: text("update_channel").default("stable"),
+  /** When on, the scheduled updater applies a newer version automatically. */
+  autoUpdateEnabled: boolean("auto_update_enabled").default(false),
+  /** Last time `checkForUpdate` successfully reached the release source. */
+  lastUpdateCheckedAt: timestamp("last_update_checked_at"),
+  /** Cached newest version tag from the last check (e.g. "v0.5.0"), or null
+   *  when up to date / never checked. */
+  availableVersion: text("available_version"),
+  /** Cached release notes (markdown) + URL for the available version. */
+  availableReleaseNotes: text("available_release_notes"),
+  availableReleaseUrl: text("available_release_url"),
+  /** Version the operator dismissed the "update available" banner for, so a
+   *  known update stops nagging until a newer one appears. */
+  dismissedVersion: text("dismissed_version"),
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()

@@ -9,6 +9,9 @@ import type { InferRouterOutputs } from "@orpc/server";
 import type { AppRouter } from "@otterdeploy/api/routers/index";
 import type { Node } from "@xyflow/react";
 
+import { frameworkLabel } from "@/features/projects/components/framework-logo";
+import { shortImageRef } from "@/shared/lib/image-ref";
+
 import type { ResourceNodeData, ResourceStatus, StackServiceStatus } from "./resource-node";
 
 export type ProjectResource = InferRouterOutputs<AppRouter>["project"]["resource"]["list"][number];
@@ -82,6 +85,15 @@ function baseStackServiceStatus(
   }
 }
 
+/** One calm sentence for the service card body. A git-built service's image
+ *  ref is an internal artifact — say what the thing IS (framework + origin)
+ *  and leave the machine ref to the muted footer. A pulled image IS the
+ *  identity, so its (shortened) ref stays the description. */
+function serviceDescription(r: Extract<ProjectResource, { type: "service" }>): string {
+  if (r.source !== "git") return shortImageRef(r.image);
+  return r.framework ? `${frameworkLabel(r.framework)} · built from source` : "Built from source";
+}
+
 export function resourceToNode(r: ProjectResource): ResourceFlowNode {
   switch (r.type) {
     case "database":
@@ -114,12 +126,12 @@ export function resourceToNode(r: ProjectResource): ResourceFlowNode {
         data: {
           kind: "service",
           name: r.name,
-          // Until services carry a description field, the image string is the
-          // most informative single line we can show.
-          description: r.image,
+          description: serviceDescription(r),
           projectId: r.projectId,
           resourceId: r.resourceId,
-          tech: { label: r.image },
+          // Machine ref belongs in the muted footer, shortened. A pulled image
+          // already IS the description — no footer echo for those.
+          ...(r.source === "git" ? { tech: { label: shortImageRef(r.image) } } : {}),
           // Brand logo for the header tile. Detected at build time and stored
           // on the resource — read straight off the record, no git-API call.
           // Undefined (no logo) until the first build populates it.
@@ -129,6 +141,8 @@ export function resourceToNode(r: ProjectResource): ResourceFlowNode {
           // for build failures, which never schedule tasks) this is what
           // surfaces — so a failed build shows "error" instead of nothing.
           status: serviceDeploymentStatus(r.latestDeploymentStatus),
+          latestDeploymentStartedAt: r.latestDeploymentStartedAt,
+          latestDeploymentFinishedAt: r.latestDeploymentFinishedAt,
         },
       };
     case "compose":

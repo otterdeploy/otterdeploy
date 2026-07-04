@@ -1,12 +1,4 @@
-import { useState } from "react";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { Search01Icon } from "@hugeicons/core-free-icons";
-
-import { Input } from "@/shared/components/ui/input";
-import {
-  LogViewer,
-  type LogLine,
-} from "@/features/logs/components/log-viewer";
+import { LogViewer, type LogLine } from "@/features/logs/components/log-viewer";
 import { useLogStream } from "@/features/logs/data/use-log-stream";
 import { orpc } from "@/shared/server/orpc";
 
@@ -21,7 +13,6 @@ export function DeploymentLogsBody({
   resourceId: string;
   deploymentId: string;
 }) {
-  const [filter, setFilter] = useState("");
   const { lines, status } = useLogStream({
     open: (signal) =>
       orpc.project.resource.deployments.logs.tail.call(
@@ -48,35 +39,14 @@ export function DeploymentLogsBody({
     deps: [projectId, resourceId, deploymentId],
   });
 
-  const filtered = filter
-    ? lines.filter((l) => l.line.toLowerCase().includes(filter.toLowerCase()))
-    : lines;
-
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
-      <div className="relative">
-        <HugeiconsIcon
-          icon={Search01Icon}
-          strokeWidth={2}
-          className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
-        />
-        <Input
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          placeholder="Filter and search logs"
-          className="h-9 pl-8 font-mono text-[12px]"
-        />
-      </div>
       <LogViewer
-        lines={filtered}
+        lines={lines}
         empty={
           <LogEmpty
             title={
-              status === "connecting"
-                ? "Loading deployment logs…"
-                : filter
-                  ? "No logs match this filter"
-                  : "No logs in this time range"
+              status === "connecting" ? "Loading deployment logs…" : "No logs in this time range"
             }
             hint="Logs will show up here as they are found."
           />

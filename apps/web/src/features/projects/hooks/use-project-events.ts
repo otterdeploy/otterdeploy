@@ -34,25 +34,20 @@ export function useProjectEvents(projectId?: ProjectId | null): void {
 
     const ctrl = new AbortController();
 
-    // Per-resource invalidations — narrow to the affected resource's
-    // queries so other resources' caches stay warm. Each call is a
-    // no-op if no consumer is mounted.
+    // Per-resource invalidations. `resource.get` is a plain useQuery, so its
+    // exact key works. The deployment history + per-deployment task views are
+    // TanStack DB collections keyed by a PREFIX (["deployments"] /
+    // ["deployment-tasks"]) — a bare orpc key never matches the collection's
+    // key, so invalidate the prefix to actually refetch. Each call is a no-op
+    // if no consumer is mounted.
     const bumpResource = (resourceId: ResourceId) => {
       void qc.invalidateQueries({
         queryKey: orpc.project.resource.get.queryKey({
           input: { projectId, resourceId },
         }),
       });
-      void qc.invalidateQueries({
-        queryKey: orpc.project.resource.tasks.queryKey({
-          input: { projectId, resourceId },
-        }),
-      });
-      void qc.invalidateQueries({
-        queryKey: orpc.project.resource.deployments.list.queryKey({
-          input: { projectId, resourceId },
-        }),
-      });
+      void qc.invalidateQueries({ queryKey: ["deployments"] });
+      void qc.invalidateQueries({ queryKey: ["deployment-tasks"] });
     };
 
     void (async () => {
@@ -66,27 +61,21 @@ export function useProjectEvents(projectId?: ProjectId | null): void {
 
           bumpResource(event.resourceId);
 
-          // List membership changed — bounce the project-wide views so a
-          // new card appears or a removed one disappears.
+          // The graph node's status / framework / replica rollup ride on the
+          // project-wide collections (["resource"], ["service-tasks"]), which
+          // are prefix-keyed. Invalidate their prefixes on EVERY resource event
+          // — not just create/remove — so a live status or framework change
+          // refreshes the node immediately instead of waiting for the 30s poll.
+          // (Bare orpc keys never match a collection's ["resource", …] key.)
+          void qc.invalidateQueries({ queryKey: ["resource"] });
+          void qc.invalidateQueries({ queryKey: ["service-tasks"] });
+
+          // Membership change also reshapes the dependency edges.
           if (
             event.kind === "resource" &&
             (event.action === "created" || event.action === "removed")
           ) {
-            void qc.invalidateQueries({
-              queryKey: orpc.project.resource.list.queryKey({
-                input: { projectId },
-              }),
-            });
-            void qc.invalidateQueries({
-              queryKey: orpc.project.dependencies.queryKey({
-                input: { projectId },
-              }),
-            });
-            void qc.invalidateQueries({
-              queryKey: orpc.project.serviceTasks.queryKey({
-                input: { projectId },
-              }),
-            });
+            void qc.invalidateQueries({ queryKey: ["dependencies"] });
           }
         }
       } catch (err) {

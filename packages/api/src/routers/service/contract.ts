@@ -94,6 +94,11 @@ const envVarSchema = z.object({
 // the same id the deployment-protection / guest surfaces address.
 const serviceDomainSchema = z.object({
   id: z.string(),
+  // Scoping ids, carried on every row so the web client's on-demand
+  // `serviceDomainsCollection` can filter subsets by (project, resource) via
+  // `where` (loadSubset) — same reason `deploymentTaskSchema` extends its base.
+  projectId: projectIdField,
+  resourceId: resourceIdField,
   domain: z.string(),
   source: z.enum(["generated", "custom"]),
   isPrimary: z.boolean(),

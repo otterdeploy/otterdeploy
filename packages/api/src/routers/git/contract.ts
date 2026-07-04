@@ -71,8 +71,12 @@ const startManifestInput = z.object({
    *  the org's app-creation URL so the operator doesn't have to switch
    *  account context on GitHub. */
   accountLogin: z.string().min(1).nullable().optional(),
-  /** Optional override of the App's display name. Defaults to "Otterdeploy". */
+  /** Optional override of the App's display name. Defaults to "Otterdeploy".
+   *  GitHub App names are globally unique, so the UI pre-fills a random one. */
   appName: z.string().min(1).optional(),
+  /** GitHub host to create the App on — omit for github.com, or a GHE
+   *  hostname (e.g. "github.acme.com") for a self-hosted Enterprise instance. */
+  host: z.string().min(1).optional(),
 });
 
 const startManifestOutput = z.object({
@@ -185,6 +189,43 @@ const inspectRepoOutput = z.object({
   monorepoPackages: z.array(z.string()),
 });
 
+// ─── GitHub App detail page (get / permissions / resources / delete) ───
+
+const getProviderInput = z.object({ providerId: gitProviderIdField });
+
+const providerDetailSchema = z.object({
+  id: gitProviderIdField,
+  kind: gitProviderKindSchema,
+  displayName: z.string(),
+  host: z.string(),
+  appSlug: z.string().nullable(),
+  externalAppId: z.string().nullable(),
+  createdAt: z.date(),
+  /** Secrets are never returned — just whether each is present at rest. */
+  secretsConfigured: z.object({
+    clientSecret: z.boolean(),
+    webhookSecret: z.boolean(),
+    privateKey: z.boolean(),
+  }),
+  installation: gitInstallationViewSchema
+    .extend({ permissions: z.record(z.string(), z.string()) })
+    .nullable(),
+});
+
+const refetchPermissionsInput = z.object({ installationId: gitInstallationIdField });
+const refetchPermissionsOutput = z.object({ permissions: z.record(z.string(), z.string()) });
+
+const providerResourcesInput = z.object({ providerId: gitProviderIdField });
+const providerResourceSchema = z.object({
+  projectId: z.string(),
+  projectName: z.string(),
+  projectSlug: z.string(),
+  productionBranch: z.string().nullable(),
+  repoFullName: z.string(),
+});
+
+const deleteProviderInput = z.object({ providerId: gitProviderIdField });
+
 export const gitContract = {
   list: oc
     .meta({ path: `${basePath}/providers`, tag, method: "GET" })
@@ -222,6 +263,12 @@ export const gitContract = {
         status: 503,
         message: "GitHub App is not configured on this instance" as const,
       },
+      // GitHub no longer recognizes the installation — the client shows a
+      // "Reinstall" action rather than a dead-end error.
+      REINSTALL_REQUIRED: {
+        status: 409,
+        message: "This GitHub installation is no longer valid — reinstall the app" as const,
+      },
     })
     .meta({
       path: `${basePath}/installations/{installationId}/refresh`,
@@ -230,6 +277,39 @@ export const gitContract = {
     })
     .input(refreshReposInput)
     .output(refreshReposOutput),
+  getProvider: oc
+    .errors({ NOT_FOUND: { status: 404, message: "Provider not found" as const } })
+    .meta({ path: `${basePath}/providers/{providerId}`, tag, method: "GET" })
+    .input(getProviderInput)
+    .output(providerDetailSchema),
+  refetchPermissions: oc
+    .errors({
+      NOT_FOUND: { status: 404, message: "Installation not found" as const },
+      NOT_CONFIGURED: {
+        status: 503,
+        message: "GitHub App is not configured on this instance" as const,
+      },
+      REINSTALL_REQUIRED: {
+        status: 409,
+        message: "This GitHub installation is no longer valid — reinstall the app" as const,
+      },
+    })
+    .meta({
+      path: `${basePath}/installations/{installationId}/permissions/refetch`,
+      tag,
+      method: "POST",
+    })
+    .input(refetchPermissionsInput)
+    .output(refetchPermissionsOutput),
+  resources: oc
+    .meta({ path: `${basePath}/providers/{providerId}/resources`, tag, method: "GET" })
+    .input(providerResourcesInput)
+    .output(z.array(providerResourceSchema)),
+  deleteProvider: oc
+    .errors({ NOT_FOUND: { status: 404, message: "Provider not found" as const } })
+    .meta({ path: `${basePath}/providers/{providerId}`, tag, method: "DELETE" })
+    .input(deleteProviderInput)
+    .output(z.object({ ok: z.boolean() })),
   listRepos: oc
     .errors({
       NOT_FOUND: { status: 404, message: "Installation not found" as const },

@@ -29,6 +29,7 @@ import { and, desc, eq } from "drizzle-orm";
 
 import { emitPlatformEvent } from "../../notifications/emit";
 import { emitDeployStarted } from "./deployments-emit";
+import { publishResourceChanged } from "./project-event-bus";
 
 export interface DeploymentRow {
   id: DeploymentId;
@@ -48,6 +49,10 @@ export interface DeploymentRow {
    *  database extraEnv + publicEnabled, etc. Shape is kind-specific and
    *  validated at the rollback site, not here. */
   snapshot: Record<string, unknown>;
+  gitSha: string | null;
+  gitRef: string | null;
+  gitCommitMessage: string | null;
+  gitCommitAuthor: string | null;
   errorMessage: string | null;
   completedAt: Date | null;
   createdAt: Date;
@@ -88,6 +93,10 @@ export async function insertDeployment(input: InsertInput): Promise<DeploymentRo
     reason: input.reason,
   });
 
+  // Push the new "building" deployment to the project stream so the node +
+  // panel flip instantly (no 5s poll wait).
+  void publishResourceChanged(input.resourceId);
+
   return row as DeploymentRow;
 }
 
@@ -112,6 +121,7 @@ export async function markDeploymentFailed(
   const [info] = await db
     .select({
       organizationId: project.organizationId,
+      resourceId: deployment.resourceId,
       resourceName: resource.name,
       projectName: project.name,
     })
@@ -120,6 +130,8 @@ export async function markDeploymentFailed(
     .innerJoin(project, eq(project.id, resource.projectId))
     .where(eq(deployment.id, deploymentId));
   if (info) {
+    // Real-time: flip the node/panel to "failed" without waiting for a poll.
+    void publishResourceChanged(info.resourceId);
     await emitPlatformEvent({
       organizationId: info.organizationId as OrganizationId,
       eventId: "deploy.failed",

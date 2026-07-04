@@ -63,9 +63,15 @@ export function LogsToolbar({
   onCopySelected,
   onClearSelection,
 }: LogsToolbarProps) {
+  // Base UI's <SelectValue> renders the raw `value` (a resource id) unless the
+  // root is given the {label, value} items to map it back to a label.
+  const svcItems = [
+    { label: "All services", value: "all" },
+    ...services.map((s) => ({ label: s.name, value: s.id })),
+  ];
   return (
     <div className="flex flex-wrap items-center gap-2 border-b px-4 py-2.5">
-      <Select value={svcFilter} onValueChange={(v) => v && onSvcChange(v)}>
+      <Select value={svcFilter} onValueChange={(v) => v && onSvcChange(v)} items={svcItems}>
         <SelectTrigger className="h-8 w-44 text-[12px]" size="sm">
           <SelectValue placeholder="All services" />
         </SelectTrigger>

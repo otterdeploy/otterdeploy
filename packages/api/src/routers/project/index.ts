@@ -85,7 +85,6 @@ export const projectRouter = {
         throw matchError(result.error, {
           ProjectNotFoundError: () => errors.NOT_FOUND(),
           ProjectConflictError: () => errors.CONFLICT(),
-          ProjectInvalidBindingError: () => errors.INVALID_BINDING(),
         });
       }
       return result.value;

@@ -1,6 +1,8 @@
+import { Mail01Icon } from "@hugeicons/core-free-icons";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { SettingsSection } from "@/shared/components/settings-section";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { orpc, queryClient } from "@/shared/server/orpc";
@@ -30,30 +32,26 @@ export function EmailCard({ organizationId }: { organizationId: never }) {
   );
 
   return (
-    <section className="flex flex-col gap-3">
-      <div>
-        <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Email
-        </div>
-        <p className="mt-0.5 text-[12.5px] text-muted-foreground/80">
-          Transport for system emails (verification, invites, guest access).
-          Platform-wide for this install. Leave on{" "}
-          <span className="font-medium">Platform default</span> to use the
-          server's configured Resend key, or set your own Resend key / SMTP
-          server here. Keys are encrypted at rest.
-        </p>
-      </div>
-      <div className="flex flex-col gap-3 rounded-md border bg-card p-4">
+    <SettingsSection
+      icon={Mail01Icon}
+      title="Email"
+      description={
+        <>
+          Transport for system emails (verification, invites, guest access). Platform-wide for this
+          install. Leave on <span className="font-medium">Platform default</span> to use the
+          server's configured Resend key, or set your own Resend key / SMTP server here. Keys are
+          encrypted at rest.
+        </>
+      }
+    >
+      <div className="p-4">
         {settingsQuery.data ? (
-          <EmailForm
-            organizationId={organizationId}
-            settings={settingsQuery.data}
-          />
+          <EmailForm organizationId={organizationId} settings={settingsQuery.data} />
         ) : (
           <div className="text-[12.5px] text-muted-foreground">Loading…</div>
         )}
       </div>
-    </section>
+    </SettingsSection>
   );
 }
 

@@ -12,6 +12,11 @@ import { resolveDeploymentServiceName } from "./deployments-list";
 import { PostgresResourceNotFoundError, ProjectNotFoundError } from "./errors";
 import { getProjectInOrg } from "./queries";
 import { getResourceById } from "./queries/resource";
+import {
+  collapseInstanceState,
+  listResourceInstances,
+  type ResourceInstance,
+} from "./resource-instances";
 
 export interface DeploymentTaskInfo {
   id: string;
@@ -38,72 +43,31 @@ interface TasksByDeploymentInput {
   deploymentId: string;
 }
 
-// Docker task `Status.State` collapsed to the three buckets the per-deployment
-// task tray renders. Unknown/missing states map to "building" so we don't
-// false-positive errors.
-const TASK_STATE_BUCKETS: Record<string, DeploymentTaskInfo["state"]> = {
-  running: "running",
-  new: "building",
-  allocated: "building",
-  pending: "building",
-  assigned: "building",
-  accepted: "building",
-  preparing: "building",
-  ready: "building",
-  starting: "building",
-  failed: "error",
-  rejected: "error",
-  remove: "error",
-  orphaned: "error",
-  complete: "error",
-  shutdown: "error",
-};
-
-function collapseTaskState(state: string | undefined): DeploymentTaskInfo["state"] {
-  return TASK_STATE_BUCKETS[state ?? ""] ?? "building";
-}
-
-function taskCreatedTime(task: unknown): number {
-  const t = task as { UpdatedAt?: string; CreatedAt?: string };
-  return new Date(t.UpdatedAt ?? t.CreatedAt ?? 0).getTime();
+function instanceTime(i: ResourceInstance): number {
+  return new Date(i.updatedAt ?? i.createdAt ?? 0).getTime();
 }
 
 function toDeploymentTaskInfo(
-  task: unknown,
+  instance: ResourceInstance,
   input: TasksByDeploymentInput,
   serviceName: string,
 ): DeploymentTaskInfo {
-  const status =
-    (
-      task as {
-        Status?: {
-          State?: string;
-          Message?: string;
-          Err?: string;
-          Timestamp?: string;
-          ContainerStatus?: { ContainerID?: string; ExitCode?: number };
-        };
-      }
-    ).Status ?? {};
-  const container = status.ContainerStatus ?? {};
-  const exitCode = container.ExitCode;
-  const slot = (task as { Slot?: number }).Slot ?? null;
   return {
-    id: (task as { ID?: string }).ID ?? "",
+    id: instance.id,
     projectId: input.projectId,
     resourceId: input.resourceId,
     deploymentId: input.deploymentId as DeploymentId,
-    slot,
-    label: slot != null ? `${serviceName}.${slot}` : serviceName,
-    state: collapseTaskState(status.State),
-    rawState: status.State ?? null,
-    desiredState: (task as { DesiredState?: string }).DesiredState ?? null,
-    nodeId: (task as { NodeID?: string }).NodeID ?? null,
-    message: status.Message ?? null,
-    error: status.Err ?? null,
-    containerId: container.ContainerID ?? null,
-    exitCode: typeof exitCode === "number" ? exitCode : null,
-    timestamp: status.Timestamp ?? null,
+    slot: instance.slot,
+    label: instance.slot != null ? `${serviceName}.${instance.slot}` : serviceName,
+    state: collapseInstanceState(instance.state),
+    rawState: instance.state,
+    desiredState: instance.desiredState,
+    nodeId: instance.nodeId,
+    message: instance.message,
+    error: instance.err,
+    containerId: instance.containerId,
+    exitCode: instance.exitCode,
+    timestamp: instance.updatedAt,
   };
 }
 
@@ -126,19 +90,11 @@ export async function listTasksForDeployment(
   const serviceName = await resolveDeploymentServiceName(found, input.projectId);
 
   const docker = Docker.fromEnv();
-  const tasksResult = await docker.tasks.list({
-    filters: { service: [serviceName] },
-  });
-  if (tasksResult.isErr()) return Result.ok([]);
+  const instancesResult = await listResourceInstances(docker, serviceName);
+  if (instancesResult.isErr()) return Result.ok([]);
 
-  const filtered = tasksResult.value.filter((task) => {
-    const labels =
-      (task as { Spec?: { ContainerSpec?: { Labels?: Record<string, string> } } }).Spec
-        ?.ContainerSpec?.Labels ?? {};
-    return labels["otterdeploy.deployment.id"] === input.deploymentId;
-  });
+  const filtered = instancesResult.value.filter((i) => i.deploymentId === input.deploymentId);
+  const sorted = [...filtered].sort((a, b) => instanceTime(b) - instanceTime(a));
 
-  const sorted = [...filtered].sort((a, b) => taskCreatedTime(b) - taskCreatedTime(a));
-
-  return Result.ok(sorted.map((t) => toDeploymentTaskInfo(t, input, serviceName)));
+  return Result.ok(sorted.map((i) => toDeploymentTaskInfo(i, input, serviceName)));
 }

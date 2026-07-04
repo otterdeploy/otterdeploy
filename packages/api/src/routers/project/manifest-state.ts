@@ -6,6 +6,7 @@
 import type { ProjectId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
+import { gitRepo } from "@otterdeploy/db/schema/git";
 import {
   composeResource,
   databaseResource,
@@ -27,6 +28,10 @@ import type {
 interface ServiceStateRow {
   resource: typeof resource.$inferSelect;
   service: typeof serviceResource.$inferSelect;
+  // The bound repo's fullName (owner/repo), left-joined via serviceResource
+  // .gitRepoId — the portable form the manifest diff compares against. Null for
+  // image services or an unbound git service.
+  repoFullName: string | null;
 }
 
 // Map one joined service row + its resolved ports/env onto the diff's
@@ -42,6 +47,9 @@ function toCurrentService(
     source: row.service.source,
     image: row.service.image || null,
     sourceSubdir: row.service.sourceSubdir,
+    repo: row.repoFullName,
+    branch: row.service.branch ?? null,
+    imageRepository: row.service.imageRepository ?? null,
     replicas: row.service.replicas,
     command: row.service.command ?? null,
     entrypoint: row.service.entrypoint ?? null,
@@ -61,9 +69,12 @@ function toCurrentService(
 export async function loadCurrentState(projectId: ProjectId): Promise<CurrentState> {
   const [serviceRows, databaseRows, composeRows] = await Promise.all([
     db
-      .select({ resource, service: serviceResource })
+      .select({ resource, service: serviceResource, repoFullName: gitRepo.fullName })
       .from(resource)
       .innerJoin(serviceResource, eq(serviceResource.resourceId, resource.id))
+      // Resolve the bound repo's fullName for the diff's portable `repo` compare.
+      // Left join — an image service or unbound git service has no gitRepoId.
+      .leftJoin(gitRepo, eq(gitRepo.id, serviceResource.gitRepoId))
       // Compose member services are real service_resource rows owned by a
       // stack (stackId set). They reconcile through the stack, not the
       // top-level manifest, so exclude them here — otherwise every deployed

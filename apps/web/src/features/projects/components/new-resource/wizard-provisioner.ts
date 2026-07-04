@@ -1,3 +1,4 @@
+import type { Framework } from "@otterdeploy/shared/framework";
 import type { ProjectId, ProjectSlug } from "@otterdeploy/shared/id";
 
 import { useCallback, useEffect } from "react";
@@ -5,6 +6,7 @@ import { useCallback, useEffect } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 
+import { setPendingFramework } from "@/features/projects/components/graph/pending-framework-store";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 import type { Port } from "./form-fields/ports-field";
@@ -124,6 +126,12 @@ export function useResourceProvisioner({
             [payload.name]: buildServiceSpec(payload),
           },
         }));
+        // Seed the ghost node's brand logo from the framework the wizard already
+        // detected — the manifest is framework-free, so this client hint carries
+        // it until the real resource lands with its persisted value.
+        if (payload.framework) {
+          setPendingFramework(projectId, `service:${payload.name}`, payload.framework);
+        }
         finish();
       } catch {
         // See runDatabaseCreate — stage hook owns failure toasts.

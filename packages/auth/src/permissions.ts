@@ -55,6 +55,11 @@ export const statements = {
   // Org-scoped SSH keys (Git deploy keys + node management). Generated/imported
   // via the sshKeys oRPC router; gated on these actions there.
   sshKey: ["create", "read", "update", "delete"],
+  // Install-wide platform administration — self-update (check/apply the
+  // otterdeploy version) and update settings. Above the org resource surface;
+  // admins/owners only, never plain members. `read` = view version + check;
+  // `update` = apply an update / change auto-update prefs.
+  platform: ["read", "update"],
 } as const;
 
 export const ac = createAccessControl(statements);
@@ -97,6 +102,7 @@ export const admin = ac.newRole({
   notificationChannel: ["create", "read", "update", "delete", "test"],
   apiKey: ["create", "read", "update", "delete"],
   sshKey: ["create", "read", "update", "delete"],
+  platform: ["read", "update"],
 });
 
 /** Full control. */
@@ -114,6 +120,7 @@ export const owner = ac.newRole({
   notificationChannel: ["create", "read", "update", "delete", "test"],
   apiKey: ["create", "read", "update", "delete"],
   sshKey: ["create", "read", "update", "delete"],
+  platform: ["read", "update"],
 });
 
 export const roles = { member, admin, owner };

@@ -15,12 +15,8 @@ import type { OrgRef } from "../scopes";
 import { reconcile } from "../../caddy";
 import { removeProjectDir } from "../../lib/data-dir";
 import { destroySwarmPostgres } from "../../runtime/db";
-import { ProjectConflictError, ProjectInvalidBindingError, ProjectNotFoundError } from "./errors";
-import {
-  normalizeCustomDomain,
-  normalizeImageRepository,
-  validateProjectBindings,
-} from "./projects-bindings";
+import { ProjectConflictError, ProjectNotFoundError } from "./errors";
+import { normalizeCustomDomain } from "./projects-bindings";
 import {
   createProjectRecord,
   deleteProjectRecord,
@@ -118,26 +114,10 @@ export async function updateProject(
     name?: string;
     slug?: string;
     customDomain?: string | null;
-    gitRepoId?: string | null;
-    productionBranch?: string;
-    containerRegistryId?: string | null;
-    imageRepository?: string | null;
     nixpacksConfig?: NixpacksConfig | null;
   } & OrgRef,
-): Promise<
-  Result<Project, ProjectNotFoundError | ProjectConflictError | ProjectInvalidBindingError>
-> {
+): Promise<Result<Project, ProjectNotFoundError | ProjectConflictError>> {
   const name = input.name !== undefined ? input.name.trim() : undefined;
-
-  // Validate FK rows belong to this org BEFORE writing — the columns are
-  // application-managed (no DB FK) so a stray id would otherwise silently bind
-  // to a stranger's row.
-  const bindingError = await validateProjectBindings({
-    organizationId: input.organizationId,
-    gitRepoId: input.gitRepoId,
-    containerRegistryId: input.containerRegistryId,
-  });
-  if (bindingError) return Result.err(bindingError);
 
   try {
     const updated = await updateProjectRecord({
@@ -146,10 +126,6 @@ export async function updateProject(
       name,
       slug: input.slug,
       customDomain: normalizeCustomDomain(input.customDomain),
-      gitRepoId: input.gitRepoId,
-      productionBranch: input.productionBranch,
-      containerRegistryId: input.containerRegistryId,
-      imageRepository: normalizeImageRepository(input.imageRepository),
       nixpacksConfig: input.nixpacksConfig,
     });
     if (!updated) {

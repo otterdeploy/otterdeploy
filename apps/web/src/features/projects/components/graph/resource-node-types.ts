@@ -95,6 +95,10 @@ export interface ResourceNodeData extends Record<string, unknown> {
    *  the framework label. */
   framework?: FrameworkKind | null;
   status?: ResourceStatus;
+  /** Latest deployment timestamps — the header shows the live build/deploy
+   *  duration while the node is building (`finishedAt` null = still in flight). */
+  latestDeploymentStartedAt?: string | null;
+  latestDeploymentFinishedAt?: string | null;
   tech?: { label: string; icon?: IconType };
   /** Source-based deploys: latest deployed commit. Renders in the muted footer. */
   git?: GitInfo;

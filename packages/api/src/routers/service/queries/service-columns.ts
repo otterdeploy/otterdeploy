@@ -5,7 +5,7 @@
  * from the orchestration.
  */
 import type { BuildConfig } from "@otterdeploy/shared/build-config";
-import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { GitRepoId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 export interface CreateServiceInput {
   projectId: ProjectId;
@@ -17,6 +17,13 @@ export interface CreateServiceInput {
   source?: "image" | "git";
   /** When source = "git", path within the repo handed to nixpacks. */
   sourceSubdir?: string | null;
+  /** Per-service git binding (git source only). Repo + branch this service
+   *  builds from — its own, not the project's. Resolved from the manifest's
+   *  portable `owner/repo` upstream. Null when unbound. */
+  gitRepoId?: GitRepoId | null;
+  branch?: string | null;
+  /** Fully-qualified image target (no tag); null = registry-less local build. */
+  imageRepository?: string | null;
   command?: string[] | null;
   entrypoint?: string[] | null;
   replicas?: number;
@@ -66,6 +73,9 @@ export function serviceCoreColumns(input: CreateServiceInput) {
   return {
     source: input.source ?? "image",
     sourceSubdir: input.sourceSubdir ?? null,
+    gitRepoId: input.gitRepoId ?? null,
+    branch: input.branch ?? null,
+    imageRepository: input.imageRepository ?? null,
     command: input.command ?? null,
     entrypoint: input.entrypoint ?? null,
     replicas: input.replicas ?? 1,

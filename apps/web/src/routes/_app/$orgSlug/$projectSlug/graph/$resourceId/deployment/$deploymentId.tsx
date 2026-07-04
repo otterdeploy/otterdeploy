@@ -1,5 +1,4 @@
 // oxlint-disable-next-line unicorn/filename-case -- TanStack route-param file; the `$deploymentId.tsx` name is a framework requirement, not a style choice.
-import { useState } from "react";
 import { createFileRoute, Link, useLoaderData } from "@tanstack/react-router";
 import { and, eq, useLiveQuery } from "@tanstack/react-db";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -34,7 +33,10 @@ function getSubline(resource?: ProjectResource): string {
 function RouteComponent() {
   const { orgSlug, projectSlug, resourceId, deploymentId } = Route.useParams();
   const { project } = useLoaderData({ from: "/_app/$orgSlug/$projectSlug" });
-  const [tab, setTab] = useState<DeploymentTab>("deploy-logs");
+  const { tab } = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const setTab = (next: DeploymentTab) =>
+    void navigate({ search: (prev) => ({ ...prev, tab: next }), replace: true });
 
   const { data: deployment = null } = useLiveQuery(
     (q) =>
@@ -71,7 +73,7 @@ function RouteComponent() {
       animate={{ x: 0 }}
       exit={{ x: "100%" }}
       transition={{ type: "spring", stiffness: 320, damping: 32 }}
-      className="absolute size-full bg-muted -top-5 -right-4 border rounded-tl-3xl shadow-md overflow-hidden"
+      className="absolute size-full bg-muted -top-5 -right-4 border rounded-tl-lg shadow-md overflow-hidden"
     >
       <div className="pointer-events-auto absolute inset-0 flex flex-col overflow-hidden bg-background">
         {/* Header */}
@@ -121,6 +123,7 @@ function RouteComponent() {
           tab={tab}
           onTabChange={setTab}
           deployment={deployment}
+          resource={resource}
           projectId={project.id}
           resourceId={resourceId}
           deploymentId={deploymentId}

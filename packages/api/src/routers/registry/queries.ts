@@ -11,7 +11,7 @@
 import type { ContainerRegistryId, OrganizationId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
-import { containerRegistry, project } from "@otterdeploy/db/schema";
+import { containerRegistry } from "@otterdeploy/db/schema";
 import { and, asc, eq } from "drizzle-orm";
 
 import { encryptSecret } from "../../lib/crypto";
@@ -151,25 +151,18 @@ export async function updateRegistryRecord(input: {
  * crashing inside the docker push step.
  */
 export async function deleteRegistryRecord(input: { organizationId: OrgId; id: RegistryId }) {
-  return db.transaction(async (tx) => {
-    await tx
-      .update(project)
-      .set({ containerRegistryId: null })
-      .where(
-        and(
-          eq(project.organizationId, input.organizationId),
-          eq(project.containerRegistryId, input.id),
-        ),
-      );
-    const [deleted] = await tx
-      .delete(containerRegistry)
-      .where(
-        and(
-          eq(containerRegistry.id, input.id),
-          eq(containerRegistry.organizationId, input.organizationId),
-        ),
-      )
-      .returning({ id: containerRegistry.id });
-    return deleted ?? null;
-  });
+  // No project/service column to null anymore — services reference a registry by
+  // the image target's HOST (matched at build time), not by id. Deleting the
+  // credential just means a build pushing to that host fails with a clear "no
+  // registry credential for <host>" until the operator re-adds one.
+  const [deleted] = await db
+    .delete(containerRegistry)
+    .where(
+      and(
+        eq(containerRegistry.id, input.id),
+        eq(containerRegistry.organizationId, input.organizationId),
+      ),
+    )
+    .returning({ id: containerRegistry.id });
+  return deleted ?? null;
 }

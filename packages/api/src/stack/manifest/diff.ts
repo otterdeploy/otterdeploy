@@ -49,6 +49,13 @@ export interface CurrentService {
   source: "image" | "git";
   image: string | null;
   sourceSubdir: string | null;
+  // Current git binding as a portable `owner/repo` string (resolved from the
+  // service row's gitRepoId → git_repo.fullName in manifest-state.ts) + branch,
+  // so the pure diff can compare against the manifest's portable `repo`/`branch`
+  // without a DB lookup. Null when the service isn't git-bound.
+  repo: string | null;
+  branch: string | null;
+  imageRepository: string | null;
   replicas: number;
   command: string[] | null;
   entrypoint: string[] | null;

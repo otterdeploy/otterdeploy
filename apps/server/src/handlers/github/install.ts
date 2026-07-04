@@ -23,9 +23,13 @@ import { env } from "@otterdeploy/env/server";
 import { Result } from "better-result";
 import { log, parseError } from "evlog";
 
-const baseUrl = () => env.BETTER_AUTH_URL.replace(/\/$/, "");
+// These callbacks run on the public ingress (the tunnel in dev), then bounce
+// the browser back to the dashboard. That target is the WEB origin — in dev
+// BETTER_AUTH_URL is the API host, so prefer PUBLIC_WEB_URL when set (prod
+// single-origin installs leave it unset and fall back).
+const dashboardUrl = () => (env.PUBLIC_WEB_URL ?? env.BETTER_AUTH_URL).replace(/\/$/, "");
 const errorRedirectUrl = (reason: string) =>
-  `${baseUrl()}/?git_install=error&reason=${encodeURIComponent(reason)}`;
+  `${dashboardUrl()}/?git_install=error&reason=${encodeURIComponent(reason)}`;
 
 // ─── /api/integrations/github/install/callback ──────────────────────
 
@@ -75,7 +79,7 @@ export const githubInstallCallbackHandler: Handler = async (c) => {
       repoCount: connect.value.repoCount,
     },
   });
-  return c.redirect(`${baseUrl()}/?git_install=ok`);
+  return c.redirect(`${dashboardUrl()}/?git_install=ok`);
 };
 
 // ─── /api/integrations/github/manifest/callback ─────────────────────
@@ -102,6 +106,7 @@ export const githubManifestCallbackHandler: Handler = async (c) => {
       completeManifestExchange({
         code,
         organizationId: state.orgId as OrganizationId,
+        host: state.host,
       }),
     catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
   });

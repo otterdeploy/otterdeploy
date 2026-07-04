@@ -74,22 +74,22 @@ export class NotRollbackableError extends TaggedError("NotRollbackableError")<{
 }
 
 /**
- * Raised when creating a git-sourced service in a project that hasn't had
- * its git binding (gitRepoId + containerRegistryId + imageRepository) set
- * up yet. The wizard surface this as "configure source in Settings first".
+ * Raised when creating a git-sourced service without a git repo binding on
+ * the service itself (each service owns its own repo now). The wizard surfaces
+ * this as "pick a repo for this service first". Registry/image are optional
+ * (the builder falls back to a registry-less local build), so only the repo
+ * gates creation.
  */
-export class MissingProjectBuildBindingError extends TaggedError(
-  "MissingProjectBuildBindingError",
+export class MissingServiceBuildBindingError extends TaggedError(
+  "MissingServiceBuildBindingError",
 )<{
   message: string;
-  missing: ReadonlyArray<"gitRepoId" | "containerRegistryId" | "imageRepository">;
+  missing: ReadonlyArray<"gitRepoId">;
 }>() {
-  constructor(args: {
-    missing: ReadonlyArray<"gitRepoId" | "containerRegistryId" | "imageRepository">;
-  }) {
+  constructor(args: { missing: ReadonlyArray<"gitRepoId"> }) {
     super({
       missing: args.missing,
-      message: `project is missing build binding: ${args.missing.join(", ")}`,
+      message: `service is missing git repo binding: ${args.missing.join(", ")}`,
     });
   }
 }

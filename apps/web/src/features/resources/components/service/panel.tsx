@@ -9,6 +9,7 @@
 import { Activity, useState } from "react";
 
 import { useMutation } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 
 import type { FrameworkKind } from "@/features/projects/components/framework-logo";
@@ -61,6 +62,61 @@ interface ServiceResourcePanelProps {
   pending?: boolean;
 }
 
+/**
+ * The two runtime actions the header fires — Build (git) and Restart — plus
+ * their post-success navigation. Deploy jumps into the new deployment's Build
+ * Logs; Restart (which re-rolls the current deployment in place, no new row)
+ * jumps into the active deployment's Deploy Logs. Extracted so the panel
+ * component stays within the line budget.
+ */
+function useServiceRuntimeActions({
+  projectId,
+  resourceId,
+  orgSlug,
+  projectSlug,
+  onNoDeployment,
+}: {
+  projectId: string;
+  resourceId: string;
+  orgSlug: string;
+  projectSlug: string;
+  onNoDeployment: () => void;
+}) {
+  const navigate = useNavigate();
+  const toDeployment = (deploymentId: string, logTab: "build-logs" | "deploy-logs") =>
+    navigate({
+      to: "/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId",
+      params: { orgSlug, projectSlug: projectSlug as never, resourceId, deploymentId },
+      search: { tab: logTab },
+    });
+
+  const buildMut = useMutation({
+    ...orpc.service.build.mutationOptions(),
+    // Drop straight into the new deployment's Build Logs (Railway-style) — the
+    // whole point of hitting Deploy is to watch it build.
+    onSuccess: ({ deploymentId }) => void toDeployment(deploymentId, "build-logs"),
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to start build"),
+  });
+
+  const restartMut = useMutation({
+    ...orpc.service.restart.mutationOptions(),
+    onSuccess: async () => {
+      // Restart re-rolls the current deployment — jump into its Deploy Logs to
+      // watch the containers bounce (newest deployment is first in the list).
+      const deployments = await orpc.project.resource.deployments.list.call({
+        projectId: projectId as never,
+        resourceId: resourceId as never,
+      });
+      const latest = deployments[0];
+      if (latest) void toDeployment(latest.id, "deploy-logs");
+      else onNoDeployment();
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to restart"),
+  });
+
+  return { buildMut, restartMut };
+}
+
 export function ServiceResourcePanel({
   resource,
   framework,
@@ -70,34 +126,12 @@ export function ServiceResourcePanel({
   pending = false,
 }: ServiceResourcePanelProps) {
   const [tab, setTab] = useState<ServiceTab>(pending ? "variables" : "deployments");
-
-  // Manual build trigger for git services. The first build fires on create
-  // and on git push; this is the "build it now" path (e.g. a service whose
-  // initial build never ran, or to deploy the latest commit on demand).
-  const buildMut = useMutation({
-    ...orpc.service.build.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Build started", {
-        description: "Track progress in the Deployments tab.",
-      });
-      setTab("deployments");
-    },
-    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to start build"),
-  });
-
-  // Re-roll the current deployment without a rebuild. Works for both image
-  // and git services — this is "redeploy this one service" (the same image,
-  // bounced through the swarm). Distinct from Build & deploy, which produces
-  // a fresh image from the git HEAD.
-  const restartMut = useMutation({
-    ...orpc.service.restart.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Restarting service", {
-        description: "Track progress in the Deployments tab.",
-      });
-      setTab("deployments");
-    },
-    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to restart"),
+  const { buildMut, restartMut } = useServiceRuntimeActions({
+    projectId: resource.projectId,
+    resourceId: resource.resourceId,
+    orgSlug,
+    projectSlug,
+    onNoDeployment: () => setTab("deployments"),
   });
 
   return (

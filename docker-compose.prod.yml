@@ -48,7 +48,7 @@ services:
       redis-server
       --appendonly yes
       --maxmemory 256mb
-      --maxmemory-policy allkeys-lru
+      --maxmemory-policy noeviction
     volumes:
       - otterdeploy-redis-data:/data
     healthcheck:

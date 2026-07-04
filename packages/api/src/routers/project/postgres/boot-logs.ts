@@ -12,6 +12,7 @@ import { Docker } from "@otterdeploy/docker";
 
 import { subscribeDockerEvents } from "../../../swarm";
 import { demuxDockerStream } from "../../../swarm/stream-parse";
+import { listResourceInstances } from "../resource-instances";
 
 export interface BootLogEvent {
   stream: "stdout" | "stderr";
@@ -22,15 +23,11 @@ async function resolveServiceContainerId(
   docker: Docker,
   serviceName: string,
 ): Promise<string | null> {
-  const tasksResult = await docker.tasks.list({ filters: { service: [serviceName] } });
-  if (tasksResult.isErr()) return null;
-  const running = tasksResult.value.find(
-    (t) => (t as { Status?: { State?: string } }).Status?.State === "running",
-  );
-  return (
-    (running as { Status?: { ContainerStatus?: { ContainerID?: string } } } | undefined)?.Status
-      ?.ContainerStatus?.ContainerID ?? null
-  );
+  // Runtime-aware: swarm task's container, or the plain-docker container.
+  const res = await listResourceInstances(docker, serviceName);
+  if (res.isErr()) return null;
+  const running = res.value.find((i) => i.state === "running" && i.containerId);
+  return running?.containerId ?? res.value.find((i) => i.containerId)?.containerId ?? null;
 }
 
 /**
@@ -57,9 +54,11 @@ async function waitForRunningContainer(
     const sub = subscribeDockerEvents((event) => {
       if (event.kind !== "container") return;
       if (event.action !== "start") return;
-      // Swarm tags every container with the originating service's name.
-      // The label key is `com.docker.swarm.service.name`.
-      if (event.labels["com.docker.swarm.service.name"] !== serviceName) return;
+      // Swarm tags every container with the originating service's name
+      // (`com.docker.swarm.service.name`); the plain-docker driver names the
+      // container exactly `serviceName`. Match either so both runtimes fire.
+      const swarmName = event.labels["com.docker.swarm.service.name"];
+      if (swarmName !== serviceName && event.name !== serviceName) return;
       finish(event.containerId);
     });
 

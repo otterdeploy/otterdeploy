@@ -20,6 +20,10 @@ const TTL_SECONDS = 15 * 60;
 export interface InstallState {
   orgId: string;
   userId: string;
+  /** GitHub host the App is being created on — "github.com" (default) or a
+   *  GHE hostname. Carried through so the manifest callback exchanges the code
+   *  against the right API and stores the host on the provider row. */
+  host?: string;
 }
 
 export async function signInstallState(state: InstallState): Promise<string> {
@@ -49,7 +53,7 @@ export async function verifyInstallState(token: string): Promise<InstallState | 
   if (typeof payload.exp !== "number" || payload.exp < Math.floor(Date.now() / 1000)) {
     return null;
   }
-  return { orgId: payload.orgId, userId: payload.userId };
+  return { orgId: payload.orgId, userId: payload.userId, host: payload.host };
 }
 
 async function hmac(input: string): Promise<string> {

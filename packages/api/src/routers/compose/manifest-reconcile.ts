@@ -79,7 +79,7 @@ async function persistManifestEnv(
 async function createGitStackFromManifest(
   args: CreateComposeArgs,
   spec: GitManifest,
-  project: ManifestProject,
+  _project: ManifestProject,
   exposed: ExposedSeed[],
   stackName: string,
 ): Promise<CreateResult> {
@@ -135,7 +135,8 @@ async function createGitStackFromManifest(
 
   await triggerDeploy({
     projectId,
-    gitRepoId: project.gitRepoId ?? created.value.resource.id,
+    // Logging-only correlation; compose owns its own repo URL.
+    gitRepoId: created.value.resource.id,
     ref,
     sha: shaRes.value,
     deploymentIds: [dep?.id ?? ""],

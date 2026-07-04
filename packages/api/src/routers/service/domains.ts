@@ -61,6 +61,10 @@ type NotFound = ProjectNotFoundError | ServiceNotFoundError;
 
 export interface ServiceDomainView {
   id: string;
+  // Scoping ids so the web client's on-demand collection can filter subsets by
+  // (project, resource) — mirrors the deployment-task view.
+  projectId: string;
+  resourceId: string;
   domain: string;
   source: "generated" | "custom";
   isPrimary: boolean;
@@ -82,6 +86,10 @@ export interface ServiceDomainView {
 function toDomainView(route: ProxyRouteRecord, dnsTarget: string | null): ServiceDomainView {
   return {
     id: route.id,
+    projectId: route.projectId,
+    // Service-domain routes are always tied to a resource (proxyRoute.resourceId
+    // is nullable in general but never null for these), so it's safe to assert.
+    resourceId: route.resourceId as string,
     domain: route.domain,
     source: route.source,
     isPrimary: route.isPrimary,

@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { EarthIcon } from "@hugeicons/core-free-icons";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { SettingsSection } from "@/shared/components/settings-section";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { orpc, queryClient } from "@/shared/server/orpc";
@@ -44,29 +46,24 @@ export function DomainCard({ organizationId }: { organizationId: never }) {
   const status = domainStatus(current, verifiedAt);
 
   return (
-    <section className="flex flex-col gap-3">
-      <div>
-        <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Domain
-        </div>
-        <p className="mt-0.5 text-[12.5px] text-muted-foreground/80">
+    <SettingsSection
+      icon={EarthIcon}
+      title="Domain"
+      description={
+        <>
           The apex domain your resources are published under. A service{" "}
-          <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11.5px]">
-            web
-          </code>{" "}
-          in project{" "}
-          <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11.5px]">
-            myproj
-          </code>{" "}
-          lands at{" "}
+          <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11.5px]">web</code> in
+          project{" "}
+          <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11.5px]">myproj</code> lands
+          at{" "}
           <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11.5px]">
             web-myproj.apps.&lt;baseDomain&gt;
           </code>
-          . Leave blank to use the platform default (sslip.io fallback when no
-          domain is set).
-        </p>
-      </div>
-      <div className="flex flex-col gap-3 rounded-md border bg-card p-4">
+          . Leave blank to use the platform default (sslip.io fallback when no domain is set).
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3 p-4">
         <div className="flex items-center justify-between gap-3">
           <span className="text-[13px] font-medium">Base domain</span>
           <StatusBadge status={status} />
@@ -99,13 +96,11 @@ export function DomainCard({ organizationId }: { organizationId: never }) {
             organizationId={organizationId}
             current={current}
             verifyToken={verifyToken}
-            cloudflareConfigured={
-              settingsQuery.data?.cloudflareTokenConfigured ?? false
-            }
+            cloudflareConfigured={settingsQuery.data?.cloudflareTokenConfigured ?? false}
           />
         )}
       </div>
-    </section>
+    </SettingsSection>
   );
 }
 

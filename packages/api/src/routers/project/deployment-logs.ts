@@ -20,6 +20,7 @@ import {
   type ResourceLogEvent,
 } from "./log-stream-shared";
 import { getProjectInOrg } from "./queries";
+import { listResourceInstances, type ResourceInstance } from "./resource-instances";
 
 interface DeploymentLogsRef {
   projectId: ProjectId;
@@ -29,44 +30,29 @@ interface DeploymentLogsRef {
   tail?: number;
 }
 
-interface TaskShape {
-  ID?: string;
-  CreatedAt?: string;
-  UpdatedAt?: string;
-  Spec?: { ContainerSpec?: { Labels?: Record<string, string> } };
-  Status?: {
-    State?: string;
-    Message?: string;
-    Err?: string;
-    Timestamp?: string;
-    ContainerStatus?: { ContainerID?: string; ExitCode?: number };
-  };
-}
-
-// Stream a single deployment task: its header + any error/exit lines, then —
+// Stream a single deployment instance: its header + any error/exit lines, then —
 // when a container exists — the container's logs (followed live only for the
-// most recent task).
-async function* streamDeploymentTask(
+// most recent instance).
+async function* streamDeploymentInstance(
   docker: Docker,
-  task: TaskShape,
+  instance: ResourceInstance,
   isLast: boolean,
   tail: number,
 ): AsyncGenerator<ResourceLogEvent, void, void> {
-  const status = task.Status ?? {};
-  const containerId = status.ContainerStatus?.ContainerID ?? null;
+  const containerId = instance.containerId;
 
   yield {
     stream: "system",
-    line: `── Task ${(task.ID ?? "?").slice(0, 12)} · state: ${status.State ?? "?"}${status.Message ? ` — ${status.Message}` : ""} ──`,
+    line: `── ${(instance.id || "?").slice(0, 12)} · state: ${instance.state ?? "?"}${instance.message ? ` — ${instance.message}` : ""} ──`,
     ts: nowIso(),
   };
-  if (status.Err) {
-    yield { stream: "stderr", line: `Task error: ${status.Err}`, ts: nowIso() };
+  if (instance.err) {
+    yield { stream: "stderr", line: `Error: ${instance.err}`, ts: nowIso() };
   }
-  if (status.ContainerStatus?.ExitCode !== 0) {
+  if (typeof instance.exitCode === "number" && instance.exitCode !== 0) {
     yield {
       stream: "stderr",
-      line: `Container exited with code ${status.ContainerStatus?.ExitCode}`,
+      line: `Container exited with code ${instance.exitCode}`,
       ts: nowIso(),
     };
   }
@@ -116,26 +102,26 @@ export async function* tailDeploymentLogs(
 
   const docker = Docker.fromEnv();
   try {
-    const tasksResult = await docker.tasks.list({
-      filters: { service: [serviceName] },
-    });
-    if (tasksResult.isErr()) {
+    const instancesResult = await listResourceInstances(docker, serviceName);
+    if (instancesResult.isErr()) {
       yield {
         stream: "system",
-        line: `docker tasks list failed: ${tasksResult.error.message}`,
+        line: `Could not list instances for ${serviceName}: ${instancesResult.error.message}`,
         ts: nowIso(),
       };
       return;
     }
 
-    const tasks = (tasksResult.value as TaskShape[]).filter(
-      (t) => t.Spec?.ContainerSpec?.Labels?.["otterdeploy.deployment.id"] === input.deploymentId,
-    );
+    // Prefer instances tagged with this deployment id; fall back to all of the
+    // service's instances when none are tagged (plain Docker recreates in place
+    // and older containers carry a prior deployment's label).
+    const tagged = instancesResult.value.filter((t) => t.deploymentId === input.deploymentId);
+    const instances = tagged.length > 0 ? tagged : instancesResult.value;
 
-    if (tasks.length === 0) {
+    if (instances.length === 0) {
       yield {
         stream: "system",
-        line: "No tasks scheduled under this deployment yet.",
+        line: "No container has run for this deployment yet. If the build is still in progress or failed, check the Build Logs tab.",
         ts: nowIso(),
       };
       return;
@@ -143,14 +129,14 @@ export async function* tailDeploymentLogs(
 
     // Oldest first → newest. We stream the failed retries in order so the
     // user can read the cascade from top to bottom.
-    const sorted = [...tasks].sort((a, b) => {
-      const at = new Date(a.CreatedAt ?? 0).getTime();
-      const bt = new Date(b.CreatedAt ?? 0).getTime();
+    const sorted = [...instances].sort((a, b) => {
+      const at = new Date(a.createdAt ?? 0).getTime();
+      const bt = new Date(b.createdAt ?? 0).getTime();
       return at - bt;
     });
 
-    for (const [i, task] of sorted.entries()) {
-      yield* streamDeploymentTask(docker, task, i === sorted.length - 1, input.tail ?? 500);
+    for (const [i, instance] of sorted.entries()) {
+      yield* streamDeploymentInstance(docker, instance, i === sorted.length - 1, input.tail ?? 500);
     }
 
     yield {

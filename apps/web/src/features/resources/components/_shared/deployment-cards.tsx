@@ -9,6 +9,8 @@ import { ContainerIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Link } from "@tanstack/react-router";
 
+import { useLiveDuration } from "@/shared/lib/duration";
+import { shortImageRef } from "@/shared/lib/image-ref";
 import { cn } from "@/shared/lib/utils";
 
 import { HistoryRowMenu } from "./history-row-menu";
@@ -51,6 +53,8 @@ export function ActiveDeploymentCard({
   // it should read the actual replica count off the resource.
   const replicas = 1;
   const runningCount = deployment.runningTaskCount;
+  // Ticks while building/deploying (no completedAt), settles once terminal.
+  const duration = useLiveDuration(deployment.createdAt, deployment.completedAt);
 
   return (
     <Link
@@ -77,20 +81,37 @@ export function ActiveDeploymentCard({
             {deployment.reason}
           </span>
         </div>
-        <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-          <span className="inline-flex items-center gap-1.5">
-            <HugeiconsIcon icon={ContainerIcon} strokeWidth={2} className="size-3.5" />
-            {runningCount}/{replicas} {replicas === 1 ? "replica" : "replicas"}
-          </span>
-        </div>
+        {/* The count only earns its spot when it says something the status
+            badge doesn't: real fan-out (>1) or a shortfall (0/1 running). */}
+        {(replicas > 1 || runningCount !== replicas) && (
+          <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5">
+              <HugeiconsIcon icon={ContainerIcon} strokeWidth={2} className="size-3.5" />
+              {runningCount}/{replicas} {replicas === 1 ? "instance" : "instances"}
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col gap-1">
-        <span className="truncate font-mono text-[14px] font-semibold text-foreground">
-          {deployment.image}
+        {/* The full ref (namespace + 40-char sha tag) is a machine artifact —
+            lead with the short form and keep the whole thing on hover. */}
+        <span
+          className="truncate font-mono text-[14px] font-semibold text-foreground"
+          title={deployment.image}
+        >
+          {shortImageRef(deployment.image)}
         </span>
         <span className="text-[11.5px] text-muted-foreground">
           Deployed {new Date(deployment.createdAt).toLocaleString()}
+          {duration && (
+            <>
+              {" · "}
+              <span className="tabular-nums">
+                {deployment.completedAt ? `took ${duration}` : `${duration} elapsed`}
+              </span>
+            </>
+          )}
         </span>
       </div>
 
@@ -118,8 +139,9 @@ export function HistoryRow({
   resourceId: string;
   canRollback: boolean;
 }) {
+  const duration = useLiveDuration(deployment.createdAt, deployment.completedAt);
   return (
-    <div className="group grid grid-cols-[100px_1fr_120px_160px_32px] items-center gap-3 px-3 py-2 text-left hover:bg-muted/20">
+    <div className="group grid grid-cols-[100px_1fr_140px_160px_32px] items-center gap-3 px-3 py-2 text-left hover:bg-muted/20">
       <Link
         to="/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId"
         params={{
@@ -131,12 +153,16 @@ export function HistoryRow({
         className="contents"
       >
         <DeploymentStatusBadge status={deployment.status} compact />
-        <span className="truncate font-mono text-[12px] text-foreground/80">
-          {deployment.image}
+        <span
+          className="truncate font-mono text-[12px] text-foreground/80"
+          title={deployment.image}
+        >
+          {shortImageRef(deployment.image)}
         </span>
-        <span className="font-mono text-[11px] text-muted-foreground">
+        <span className="truncate font-mono text-[11px] text-muted-foreground tabular-nums">
           {deployment.reason} · {deployment.taskCount}{" "}
           {deployment.taskCount === 1 ? "task" : "tasks"}
+          {duration && ` · ${duration}`}
         </span>
         <span className="text-right font-mono text-[11px] text-muted-foreground">
           {new Date(deployment.createdAt).toLocaleString()}
@@ -153,6 +179,17 @@ export function HistoryRow({
     </div>
   );
 }
+
+// "superseded" is accurate but reads as jargon — a superseded deployment is
+// simply an older one a newer deploy replaced. Show plainer words.
+const STATUS_LABEL: Record<DeploymentInfo["status"], string> = {
+  pending: "pending",
+  building: "building",
+  running: "running",
+  failed: "failed",
+  superseded: "replaced",
+  removed: "removed",
+};
 
 export function DeploymentStatusBadge({
   status,
@@ -183,7 +220,7 @@ export function DeploymentStatusBadge({
           "animate-pulse": status === "running",
         })}
       />
-      {status}
+      {STATUS_LABEL[status]}
     </span>
   );
 }

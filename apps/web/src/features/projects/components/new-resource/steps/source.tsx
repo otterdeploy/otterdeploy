@@ -93,7 +93,19 @@ export function StepSource() {
         projectId={summary.projectId}
         orgSlug={orgSlug}
         projectSlug={projectSlug}
+        installations={summary.installations}
         onBound={onPublicRepoBound}
+        onChangeRepo={() => {
+          // Drop the binding → BindingSummary re-renders the picker so the
+          // operator can point this service at a different repo. Clearing the
+          // branch lets it re-seed from the new repo's default, and resetting
+          // the name back to the kind placeholder lets the derive-from-repo
+          // effect re-run so the service name follows the newly-picked repo
+          // (otherwise the old repo's auto-derived name sticks).
+          form.setFieldValue("repo", "");
+          form.setFieldValue("branch", "");
+          form.setFieldValue("name", kindId);
+        }}
       />
 
       {/* Service config only appears once a repo is bound — paste/connect a

@@ -16,6 +16,7 @@ import { ServiceDomainsCard } from "./domains-card";
 import { ManifestDomainsCard } from "./manifest-domains-card";
 import { ServiceProtectionCard } from "./protection-card";
 import { ServicePublicAccessCard } from "./public-access-card";
+import { ServiceSourceCard } from "./source-card";
 
 export interface ServiceSettingsResource extends VariablesEditorResource {
   name: string;
@@ -56,6 +57,7 @@ export function ServiceSettingsBody({
 
       {resource.source === "git" ? (
         <>
+          <ServiceSourceCard resource={resource} />
           <ServiceBuildCard resource={resource} />
           <ServiceDeployHooksCard projectId={resource.projectId} serviceName={resource.name} />
         </>

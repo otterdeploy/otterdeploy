@@ -47,6 +47,21 @@ export type ProxyRoute = z.infer<typeof proxyRouteSchema>;
 // View mappers
 // ---------------------------------------------------------------------------
 
+/** Latest-deployment pill status + start/finish ISO timestamps (drive the node
+ *  build duration). Fetches the single indexed row itself so each mapper spreads
+ *  it in one line. Build-time states (failed/building) schedule no swarm tasks,
+ *  so this is the only status signal the live-task rollup can't surface. */
+async function latestDeploymentFields(resourceId: string) {
+  const d = await getLatestDeploymentForResource(
+    resourceId as Parameters<typeof getLatestDeploymentForResource>[0],
+  );
+  return {
+    latestDeploymentStatus: d?.status ?? null,
+    latestDeploymentStartedAt: d ? d.createdAt.toISOString() : null,
+    latestDeploymentFinishedAt: d?.completedAt ? d.completedAt.toISOString() : null,
+  };
+}
+
 /**
  * Service-resource view mapper. Joins the user-authored env bag into the
  * response so the resource panel's Variables tab can render without a
@@ -65,20 +80,13 @@ export async function mapServiceResource(
     extraEnv[row.key] = row.value;
     if (row.isSecret) secretKeys.push(row.key);
   }
-  // Latest deployment's stored status — surfaced so the graph node reflects
-  // build-time states (failed/building/pending) that schedule no swarm tasks
-  // and thus never show up in the live-task rollup. Single indexed row, no
-  // docker round-trip.
-  const latestDeployment = await getLatestDeploymentForResource(
-    record.resource.id as Parameters<typeof getLatestDeploymentForResource>[0],
-  );
   return {
     resourceId: record.resource.id,
     projectId: record.resource.projectId,
     name: record.resource.name,
     type: "service" as const,
     status: record.resource.status,
-    latestDeploymentStatus: latestDeployment?.status ?? null,
+    ...(await latestDeploymentFields(record.resource.id)),
     image: record.service.image,
     imageDigest: record.service.imageDigest,
     source: record.service.source,
@@ -103,16 +111,13 @@ export async function mapServiceResource(
 export async function mapComposeResource(
   record: ComposeResourceJoined,
 ): Promise<ComposeResourceView> {
-  const latestDeployment = await getLatestDeploymentForResource(
-    record.resource.id as Parameters<typeof getLatestDeploymentForResource>[0],
-  );
   return {
     resourceId: record.resource.id,
     projectId: record.resource.projectId,
     name: record.resource.name,
     type: "compose" as const,
     status: record.resource.status,
-    latestDeploymentStatus: latestDeployment?.status ?? null,
+    ...(await latestDeploymentFields(record.resource.id)),
     source: record.compose.source,
     stackName: record.compose.stackName,
     services: record.compose.services,

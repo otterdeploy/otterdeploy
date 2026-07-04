@@ -2,7 +2,6 @@ import type { BuildConfig } from "@otterdeploy/shared/build-config";
 import type { ComposeExposed, ComposeServiceSummary } from "@otterdeploy/shared/compose";
 import type { FrameworkKind } from "@otterdeploy/shared/framework";
 import type {
-  ContainerRegistryId,
   DeploymentId,
   EnvironmentId,
   GitRepoId,
@@ -107,21 +106,10 @@ export const project = pgTable(
     // (the rest of the edge keeps serving). Null = none. See buildCaddyfile /
     // buildProjectFragment.
     customCaddyConfig: text("custom_caddy_config"),
-    // Git source binding. When set, pushes to `productionBranch` of the
-    // linked repo trigger a deploy of every service resource in the project
-    // whose source is `git`. Nullable: a project doesn't have to be
-    // git-backed (databases, image-only services, etc.).
-    gitRepoId: text("git_repo_id").$type<GitRepoId>(),
-    productionBranch: text("production_branch").notNull().default("main"),
-    // Build pipeline targeting — which registry the builder pushes to,
-    // what image name (without tag) to push under, and any user-supplied
-    // nixpacks knobs (build/start command, packages, env). All nullable
-    // for projects that don't use the build pipeline (image-only services,
-    // databases). FK is enforced application-side to avoid a cross-schema
-    // import cycle; the constraint lives in container_registry's own
-    // delete-cascade story instead (see build.ts).
-    containerRegistryId: text("container_registry_id").$type<ContainerRegistryId>(),
-    imageRepository: text("image_repository"),
+    // Git source + image target moved to the SERVICE (service_resource) — each
+    // git service owns its own repo/branch/image now, so two services in one
+    // project can build from two different repos. The project no longer carries
+    // a repo binding. See docs/designs (per-service source) + service_resource.
     nixpacksConfig: jsonb("nixpacks_config").$type<NixpacksConfig | null>().default(null),
     // Operator-arranged graph layout: node id (`${kind}:${name}`) → {x,y}.
     // Keyed by node id (not resourceId) so a position set on a pending node
@@ -141,8 +129,6 @@ export const project = pgTable(
   (table) => [
     uniqueIndex("project_org_slug_unique").on(table.organizationId, table.slug),
     index("project_organization_id_idx").on(table.organizationId),
-    index("project_git_repo_id_idx").on(table.gitRepoId),
-    index("project_container_registry_id_idx").on(table.containerRegistryId),
   ],
 );
 
@@ -208,9 +194,17 @@ export const environment = pgTable(
   (table) => [
     index("environment_project_id_idx").on(table.projectId),
     uniqueIndex("environment_project_slug_unique").on(table.projectId, table.slug),
-    // A PR maps to at most one preview env. Persistent envs have a NULL PR
-    // number and NULLs are distinct in a unique index, so they never collide.
-    uniqueIndex("environment_project_pr_unique").on(table.projectId, table.pullRequestNumber),
+    // A (repo, PR) maps to at most one preview env. Now that a project can host
+    // services from multiple repos, the key includes gitRepoId — otherwise
+    // repo-A PR#5 and repo-B PR#5 in the same project would collide onto one
+    // env row. Persistent envs have NULL PR number + NULL gitRepoId and NULLs
+    // are distinct in a unique index, so they never collide. Preview slugs are
+    // repo-qualified (`<repoSlug>-pr-<n>`) to match — see git/preview-env.ts.
+    uniqueIndex("environment_project_repo_pr_unique").on(
+      table.projectId,
+      table.gitRepoId,
+      table.pullRequestNumber,
+    ),
   ],
 );
 
@@ -479,6 +473,23 @@ export const serviceResource = pgTable(
     // type, and the service handler inputs all share one definition.
     buildConfig: jsonb("build_config").$type<BuildConfig>(),
 
+    // Per-service git source binding. A git-sourced service owns its own repo +
+    // branch (NOT the project's) so two services in one project can build from
+    // two different repos. A push to `branch` of `gitRepoId` deploys just the
+    // services bound to that (repo, branch) pair. Null for image-sourced
+    // services, or a git service not yet bound (lands pending:initial, build
+    // fails clearly until bound). branch is nullable — resolve the effective
+    // branch at read time via `branch ?? repo.defaultBranch ?? "main"`. FK to
+    // git_repo enforced app-side (cross-schema import cycle; see git.ts).
+    gitRepoId: text("git_repo_id").$type<GitRepoId>(),
+    branch: text("branch"),
+    // Per-service image target: fully-qualified image name (no tag) the builder
+    // pushes to; the builder appends <sha> + :latest. Null = registry-less local
+    // build (image stays in the host daemon — the default). The push credential
+    // is matched from the shared container_registry library by this string's
+    // host at build time, so the manifest carries no opaque registry id.
+    imageRepository: text("image_repository"),
+
     internalHostname: text("internal_hostname").notNull(),
     serviceName: text("service_name").notNull(),
     networkName: text("network_name").notNull(),
@@ -507,6 +518,10 @@ export const serviceResource = pgTable(
   (table) => [
     uniqueIndex("service_resource_service_name_unique").on(table.serviceName),
     index("service_resource_stack_id_idx").on(table.stackId),
+    // Push routing: a webhook for (repo, branch) fans out to the services bound
+    // to that pair. Replaces the old project-by-(gitRepoId, productionBranch)
+    // lookup. See git/handle-push.ts.
+    index("service_resource_git_repo_branch_idx").on(table.gitRepoId, table.branch),
     // internalHostname is the service's DNS alias on its project overlay
     // network — it only has to be unique *within that network*, not globally.
     // Two different projects (each on its own `otterdeploy-<project>` network)

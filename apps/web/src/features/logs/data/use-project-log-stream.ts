@@ -10,6 +10,7 @@
 
 import { useMemo } from "react";
 
+import { displayServiceName } from "@/shared/lib/service-name";
 import { orpc } from "@/shared/server/orpc";
 
 import { useLogStream, type LogStreamStatus } from "./use-log-stream";
@@ -123,7 +124,7 @@ export function useProjectLogStream({
       ts: shortTs(ev.ts),
       tsIso: ev.ts,
       level: inferLevel(ev.stream, ev.line),
-      svc: ev.serviceName || "system",
+      svc: ev.serviceName ? displayServiceName(ev.serviceName) : "system",
       resourceId: ev.resourceId,
       stream: ev.stream,
       msg: ev.line,

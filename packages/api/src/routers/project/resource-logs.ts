@@ -15,14 +15,17 @@ import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/
 import { Docker } from "@otterdeploy/docker";
 import { sleep } from "@otterdeploy/shared/promise";
 
+import { isSwarmRuntime } from "../../runtime";
 import { waitForServiceCreate } from "../../swarm";
 import {
   demuxDockerLogs,
   nowIso,
   resolveServiceId,
+  resolveServiceName,
   type ResourceLogEvent,
 } from "./log-stream-shared";
 import { getProjectInOrg } from "./queries";
+import { listResourceInstances } from "./resource-instances";
 
 type OrgId = OrganizationId;
 
@@ -47,6 +50,100 @@ export async function* tailResourceLogs(
 
   const docker = Docker.fromEnv();
   try {
+    // Runtime-aware: swarm multiplexes all replicas via services/{id}/logs;
+    // plain Docker follows the single container by name, reconnecting on
+    // recreate.
+    if (isSwarmRuntime()) {
+      yield* tailSwarmServiceLogs(docker, input);
+    } else {
+      yield* tailContainerLogs(docker, input);
+    }
+  } finally {
+    // Release the docker socket when the client disconnects (the generator's
+    // return method runs into this finally block).
+    docker.destroy();
+  }
+}
+
+// Plain-Docker live tail: find the resource's container by name, follow its
+// logs, and rediscover on recreate (the "find container → tail → wait for
+// replacement" loop the swarm path replaced with services/{id}/logs).
+async function* tailContainerLogs(
+  docker: Docker,
+  input: LogsRef,
+): AsyncGenerator<ResourceLogEvent, void, void> {
+  const serviceName = await resolveServiceName(input.projectId, input.resourceId);
+  if (!serviceName) {
+    yield { stream: "system", line: "Resource not found", ts: nowIso() };
+    return;
+  }
+  let attached: string | null = null;
+  let waitingShown = false;
+  const POLL_INTERVAL_MS = 2_000;
+
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const res = await listResourceInstances(docker, serviceName);
+    const running = res.isOk()
+      ? (res.value.find((i) => i.state === "running" && i.containerId) ??
+        res.value.find((i) => i.containerId))
+      : undefined;
+    const containerId = running?.containerId ?? null;
+
+    if (!containerId) {
+      if (!waitingShown) {
+        yield { stream: "system", line: `Waiting for container ${serviceName}…`, ts: nowIso() };
+        waitingShown = true;
+      }
+      await sleep(POLL_INTERVAL_MS);
+      continue;
+    }
+
+    if (containerId !== attached) {
+      attached = containerId;
+      waitingShown = false;
+      yield {
+        stream: "system",
+        line: `Attached to ${serviceName} (${containerId.slice(0, 12)})`,
+        ts: nowIso(),
+      };
+    }
+
+    const logsResult = await docker.containers.getContainer(containerId).logs({
+      follow: true,
+      stdout: true,
+      stderr: true,
+      tail: String(input.tail ?? 100),
+      timestamps: true,
+    });
+    if (logsResult.isErr()) {
+      yield {
+        stream: "system",
+        line: `container logs failed: ${logsResult.error.message}. Retrying…`,
+        ts: nowIso(),
+      };
+      await sleep(POLL_INTERVAL_MS);
+      continue;
+    }
+
+    for await (const event of demuxDockerLogs(logsResult.value)) {
+      yield event;
+    }
+
+    yield { stream: "system", line: "Log stream closed; reconnecting…", ts: nowIso() };
+    attached = null;
+    await sleep(POLL_INTERVAL_MS);
+  }
+}
+
+// Swarm live tail: attach to services/{id}/logs (multiplexed across replicas,
+// auto-follows new tasks). Polls first because the page loads before the
+// service-create step lands at the daemon.
+async function* tailSwarmServiceLogs(
+  docker: Docker,
+  input: LogsRef,
+): AsyncGenerator<ResourceLogEvent, void, void> {
+  {
     // Switched from per-container `containers/{id}/logs` to swarm-level
     // `services/{id}/logs`: docker multiplexes output from every replica
     // and automatically follows new tasks when swarm rolls them. The
@@ -145,10 +242,6 @@ export async function* tailResourceLogs(
       attachedServiceId = null;
       await sleep(POLL_INTERVAL_MS);
     }
-  } finally {
-    // Release the docker socket when the client disconnects (the generator's
-    // return method runs into this finally block).
-    docker.destroy();
   }
 }
 

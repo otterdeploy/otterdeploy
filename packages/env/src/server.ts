@@ -70,6 +70,16 @@ export const env = createEnv({
     // *authority* (master session + getSession) is BETTER_AUTH_URL.
     PUBLIC_WEB_URL: z.url().optional(),
 
+    // Public URL of the API/control plane as reachable from the *public
+    // internet* — used only where a third party must call back in (the
+    // GitHub App manifest's webhook + callback URLs). In production this is
+    // the same host as BETTER_AUTH_URL and can be left unset (the git flow
+    // falls back to BETTER_AUTH_URL). In dev, BETTER_AUTH_URL is a private
+    // `.localhost` address GitHub can't reach, so point this at your tunnel
+    // (e.g. a Tailscale Funnel URL) to register a working App. Does NOT touch
+    // auth, CORS, or cookies — those stay anchored to BETTER_AUTH_URL.
+    PUBLIC_API_URL: z.url().optional(),
+
     // Edge logs (packages/api/src/edge-logs). EDGE_LOG_SINK is the host:port
     // Caddy streams JSON to via `output net` (dev: host.docker.internal:9100;
     // Swarm: server service DNS) — BOTH the per-site access logs and, via the
@@ -151,6 +161,37 @@ export const env = createEnv({
     // Swarm required. `swarm` is opt-in for scaling across nodes (replicas,
     // overlay networking). See docs/designs/runtime.md.
     DEPLOY_RUNTIME: z.enum(["docker", "swarm"]).default("docker"),
+
+    // ─── Platform self-updater (packages/api/src/routers/system) ────────────
+    // The image tag the compose stack booted with — written into .env by the
+    // installer and passed through `env_file`. This is the CURRENT version the
+    // updater reports and compares against the latest release. "dev" in a
+    // source checkout (never a real release ⇒ nothing to update to).
+    OTTERDEPLOY_VERSION: z.string().min(1).default("dev"),
+    // Image registry the prod compose pulls from (same default as the compose
+    // file). Surfaced so the updater can show/compose the image refs.
+    OTTERDEPLOY_REGISTRY: z.string().min(1).default("ghcr.io/otterdeploy"),
+    // Where the installer put the compose file + .env on the HOST. The update
+    // helper container bind-mounts this (same path in+out) to bump the version
+    // and run `docker compose pull && up -d`. Matches scripts/install.sh.
+    OTTERDEPLOY_INSTALL_DIR: z.string().min(1).default("/opt/otterdeploy"),
+    // GitHub repo (owner/name) whose `releases/latest` is the version source.
+    OTTERDEPLOY_UPDATE_REPO: z.string().min(1).default("otterdeploy/otterdeploy"),
+    // Override the release manifest URL — point at a fixture/mirror for testing
+    // or an air-gapped install. Unset ⇒ derived from OTTERDEPLOY_UPDATE_REPO.
+    OTTERDEPLOY_UPDATE_MANIFEST_URL: z.url().optional(),
+    // Image the detached update helper container runs (needs docker CLI + the
+    // compose plugin). Override if `docker:28-cli` isn't available to you.
+    OTTERDEPLOY_UPDATE_HELPER_IMAGE: z.string().min(1).default("docker:28-cli"),
+    // Force dry-run apply (simulate the whole update, touch no containers).
+    // Unset ⇒ defaults to ON in dev / OFF in production (resolved in the API).
+    OTTERDEPLOY_UPDATE_DRY_RUN: z
+      .union([z.boolean(), z.string()])
+      .transform((v) => v === true || v === "true" || v === "1")
+      .optional(),
+    // Testing hook: make `checkForUpdate` report this as the latest version so
+    // the whole "update available" UI lights up with no real newer release.
+    OTTERDEPLOY_LATEST_VERSION_OVERRIDE: z.string().min(1).optional(),
   },
   // oxlint-disable-next-line node/no-process-env -- this IS the env boundary; the single sanctioned read of process.env
   runtimeEnv: process.env,

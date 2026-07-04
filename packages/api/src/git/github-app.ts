@@ -27,6 +27,7 @@ import type { GitProviderId } from "@otterdeploy/shared/id";
 
 import { TaggedError } from "better-result";
 import { createError } from "evlog";
+import { createPrivateKey, createSign } from "node:crypto";
 
 import { loadGithubAppForInstallation } from "./github-app-config";
 
@@ -63,6 +64,23 @@ export class GithubAppNotConfiguredError extends TaggedError("GithubAppNotConfig
   }
 }
 
+/**
+ * GitHub returned 404 for an installation we have on record — it was
+ * uninstalled, suspended past recovery, or belongs to a different App. The
+ * only fix is to reinstall the App, so callers surface this as an actionable
+ * "reinstall required" error rather than a generic 5xx.
+ */
+export class GithubInstallationInvalidError extends TaggedError("GithubInstallationInvalidError")<{
+  message: string;
+}>() {
+  constructor() {
+    super({
+      message:
+        "GitHub no longer recognizes this installation — reinstall the GitHub App to reconnect.",
+    });
+  }
+}
+
 /** github.com → api.github.com; GHE host → host/api/v3. Exported so the
  *  config loaders can build the URL without re-deriving the rule. */
 export function apiBaseUrlForHost(host: string): string {
@@ -88,13 +106,14 @@ export async function mintAppJwt(config: GithubAppConfig): Promise<string> {
   const payloadB64 = base64UrlEncode(encoder.encode(JSON.stringify(payload)));
   const signingInput = `${headerB64}.${payloadB64}`;
 
-  const key = await importPkcs8PrivateKey(config.privateKeyPem);
-  const sig = await crypto.subtle.sign(
-    { name: "RSASSA-PKCS1-v1_5" },
-    key,
-    encoder.encode(signingInput),
-  );
-  const sigB64 = base64UrlEncode(new Uint8Array(sig));
+  // GitHub issues App private keys in PKCS#1 (`-----BEGIN RSA PRIVATE KEY-----`).
+  // node:crypto's createPrivateKey accepts both PKCS#1 and PKCS#8; WebCrypto's
+  // importKey("pkcs8", …) rejects PKCS#1 with "Data provided to an operation does
+  // not meet requirements", so the RS256 signature is produced via node:crypto.
+  const key = createPrivateKey(config.privateKeyPem);
+  const signer = createSign("RSA-SHA256");
+  signer.update(signingInput);
+  const sigB64 = base64UrlEncode(new Uint8Array(signer.sign(key)));
   return `${signingInput}.${sigB64}`;
 }
 
@@ -128,6 +147,10 @@ export async function getInstallationToken(
   );
   if (!res.ok) {
     const body = await res.text();
+    // 404 = GitHub no longer has this installation (uninstalled / revoked /
+    // owned by a different App). Surface it as a typed, actionable error the
+    // router maps to a reinstall prompt instead of a generic 5xx.
+    if (res.status === 404) throw new GithubInstallationInvalidError();
     throw createError({
       message: `GitHub rejected installation token request (${res.status})`,
       status: 502,
@@ -432,30 +455,8 @@ export async function upsertPrComment(input: {
 // helpers
 // ---------------------------------------------------------------------------
 
-async function importPkcs8PrivateKey(pem: string): Promise<CryptoKey> {
-  const body = pem
-    .replace(/-----BEGIN [^-]+-----/g, "")
-    .replace(/-----END [^-]+-----/g, "")
-    .replace(/\s+/g, "");
-  const der = base64Decode(body);
-  return crypto.subtle.importKey(
-    "pkcs8",
-    der.buffer as ArrayBuffer,
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-}
-
 function base64UrlEncode(bytes: Uint8Array): string {
   let bin = "";
   for (const b of bytes) bin += String.fromCharCode(b);
   return btoa(bin).replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
-}
-
-function base64Decode(s: string): Uint8Array {
-  const bin = atob(s);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return bytes;
 }

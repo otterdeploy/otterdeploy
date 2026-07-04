@@ -41,7 +41,7 @@ services:
       redis-server
       --appendonly yes
       --maxmemory 256mb
-      --maxmemory-policy allkeys-lru
+      --maxmemory-policy noeviction
     ports:
       - "${REDIS_PORT:-6379}:6379"
     volumes:
@@ -71,8 +71,11 @@ services:
       # DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-postgres}
       # DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-postgres}
       DATABASE_URL: ${DATABASE_URL}
-      # REDIS_URL: redis://redis:6379
-      REDIS_URL: ${REDIS_URL}
+      # Reach the redis CONTAINER by service DNS on the compose network. Do NOT
+      # inject the host's ${REDIS_URL} (redis://localhost:6379) — inside this
+      # container "localhost" is the container itself, so the builder can't reach
+      # Redis, never consumes deploy.triggered jobs, and deploys hang "pending".
+      REDIS_URL: redis://redis:6379
       # Per-build helper containers: image to spawn + network to attach them to
       # (this compose project's default network, so they resolve postgres/redis).
       BUILDER_HELPER_IMAGE: otterdeploy-builder:latest

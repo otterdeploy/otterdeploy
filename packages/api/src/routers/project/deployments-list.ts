@@ -16,8 +16,10 @@ import type { DeploymentRow } from "./deployments";
 
 import { emitDeploySucceeded } from "./deployments-emit";
 import { PostgresResourceNotFoundError, ProjectNotFoundError } from "./errors";
+import { publishResourceChanged } from "./project-event-bus";
 import { getProjectInOrg, getProjectRecord } from "./queries";
 import { getResourceById } from "./queries/resource";
+import { listResourceInstances } from "./resource-instances";
 import { buildContainerName } from "./views";
 
 type OrgId = OrganizationId;
@@ -36,6 +38,10 @@ export interface DeploymentWithStats {
   taskCount: number;
   failedTaskCount: number;
   runningTaskCount: number;
+  gitSha: string | null;
+  gitRef: string | null;
+  gitCommitMessage: string | null;
+  gitCommitAuthor: string | null;
   completedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -44,6 +50,7 @@ export interface DeploymentWithStats {
 // Swarm task lifecycle states bucketed by what they mean for a deployment.
 // Reference: https://docs.docker.com/reference/cli/docker/service/ps/
 const BUILDING_STATES = new Set([
+  // Swarm task states.
   "new",
   "allocated",
   "pending",
@@ -52,6 +59,9 @@ const BUILDING_STATES = new Set([
   "preparing",
   "ready",
   "starting",
+  // Plain-docker container states (DEPLOY_RUNTIME=docker).
+  "created",
+  "restarting",
 ]);
 const FAILED_STATES = new Set([
   "failed",
@@ -66,11 +76,23 @@ const FAILED_STATES = new Set([
   // so the UI doesn't sit on "BUILDING" forever.
   "complete",
   "shutdown",
+  // Plain-docker: a service container that exited/died is down.
+  "exited",
+  "dead",
+  "paused",
+  "removing",
 ]);
 // Subset of FAILED_STATES used for the per-deployment failed-task count —
 // `complete`/`shutdown` are deliberately excluded here (they only flip the
 // overall status, they don't count as failed tasks).
-const FAILED_TASK_COUNT_STATES = new Set(["failed", "rejected", "orphaned", "remove"]);
+const FAILED_TASK_COUNT_STATES = new Set([
+  "failed",
+  "rejected",
+  "orphaned",
+  "remove",
+  "exited",
+  "dead",
+]);
 
 // A 0-task row this old definitely isn't still spinning up — wait-ready
 // gives swarm 60s before timing out, so 3 minutes is past every legitimate
@@ -144,6 +166,7 @@ async function reconcileDeploySuccess(
       .where(and(eq(deployment.id, id), inArray(deployment.status, ["building", "pending"])))
       .returning({ id: deployment.id });
     if (flipped.length > 0) {
+      void publishResourceChanged(resourceId);
       await emitDeploySucceeded({ deploymentId: id, resourceId });
     }
   }
@@ -167,23 +190,20 @@ export async function resolveDeploymentServiceName(
   return found.record.service.serviceName;
 }
 
-// One docker call covers every task for the service. Bucket the task states by
-// the `otterdeploy.deployment.id` label so we never need a per-deployment call.
+// One runtime-aware call covers every instance for the service (swarm tasks or
+// plain-docker containers). Bucket their states by the `otterdeploy.deployment.id`
+// label so we never need a per-deployment call.
 async function loadTaskStatesByDeployment(serviceName: string): Promise<Map<string, string[]>> {
   const docker = Docker.fromEnv();
   const tasksByDeployment = new Map<string, string[]>();
   try {
-    const tasksResult = await docker.tasks.list({ filters: { service: [serviceName] } });
-    if (tasksResult.isErr()) return tasksByDeployment;
-    for (const task of tasksResult.value) {
-      const labels =
-        (task as { Spec?: { ContainerSpec?: { Labels?: Record<string, string> } } }).Spec
-          ?.ContainerSpec?.Labels ?? {};
-      const deploymentId = labels["otterdeploy.deployment.id"];
+    const instancesResult = await listResourceInstances(docker, serviceName);
+    if (instancesResult.isErr()) return tasksByDeployment;
+    for (const instance of instancesResult.value) {
+      const deploymentId = instance.deploymentId;
       if (!deploymentId) continue;
-      const state = (task as { Status?: { State?: string } }).Status?.State ?? "unknown";
       const bucket = tasksByDeployment.get(deploymentId) ?? [];
-      bucket.push(state);
+      bucket.push(instance.state ?? "unknown");
       tasksByDeployment.set(deploymentId, bucket);
     }
   } finally {
@@ -212,6 +232,10 @@ function toDeploymentWithStats(
     taskCount: states.length,
     failedTaskCount: failed,
     runningTaskCount: running,
+    gitSha: row.gitSha,
+    gitRef: row.gitRef,
+    gitCommitMessage: row.gitCommitMessage,
+    gitCommitAuthor: row.gitCommitAuthor,
     completedAt: row.completedAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,

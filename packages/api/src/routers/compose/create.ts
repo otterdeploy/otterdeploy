@@ -130,7 +130,9 @@ async function createGitCompose(
     resourceId: created.value.resource.id,
     gitRepoUrl: gh.cloneUrl,
     gitRef: ref,
-    projectGitRepoId: project.gitRepoId ?? null,
+    // Compose stacks carry their own gitRepoUrl; the correlation id is
+    // logging-only and falls back to the resource id in build-trigger.
+    projectGitRepoId: null,
     reason: "create",
     sha: shaRes.value,
   });

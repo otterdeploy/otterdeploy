@@ -28,6 +28,24 @@ function diffSourceFields(
     if (desiredSubdir !== current.sourceSubdir) {
       fc.sourceSubdir = { from: current.sourceSubdir, to: desiredSubdir };
     }
+    // Per-service repo/branch. Only diffed when the manifest actually declares
+    // `repo` — an omitted repo means "leave the existing binding alone" (repo
+    // moved into the manifest recently; pre-migration manifests omit it and
+    // must not read as "unset the repo"). See manifest-apply-services.ts, which
+    // gates the write the same way.
+    if (desired.repo !== undefined) {
+      if (desired.repo !== current.repo) {
+        fc.repo = { from: current.repo, to: desired.repo };
+      }
+      const desiredBranch = desired.branch ?? null;
+      if (desiredBranch !== current.branch) {
+        fc.branch = { from: current.branch, to: desiredBranch };
+      }
+    }
+    const desiredImage = desired.imageRepository ?? null;
+    if (desired.imageRepository !== undefined && desiredImage !== current.imageRepository) {
+      fc.imageRepository = { from: current.imageRepository, to: desiredImage };
+    }
   }
   if (desired.source === "git") {
     const desiredBuild = desired.build ?? null;
@@ -255,6 +273,8 @@ function canonicalJson(value: unknown): string {
 export function summarizeService(s: ServiceManifest): Record<string, unknown> {
   const summary: Record<string, unknown> = { replicas: s.replicas ?? 1 };
   if (s.source === "image") summary.image = s.image;
+  if (s.source === "git" && s.repo) summary.repo = s.repo;
+  if (s.source === "git" && s.branch) summary.branch = s.branch;
   if (s.source === "git" && s.sourceSubdir) summary.sourceSubdir = s.sourceSubdir;
   if (s.ports?.length) summary.ports = s.ports;
   if (s.env && Object.keys(s.env).length > 0) summary.envKeys = Object.keys(s.env);

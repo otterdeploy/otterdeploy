@@ -5,6 +5,7 @@ import { useLiveQuery } from "@tanstack/react-db";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { PlusSignIcon } from "@hugeicons/core-free-icons";
 import { toast } from "sonner";
+import { z } from "zod";
 
 import { Page, PageHeader } from "@/shared/components/page";
 import { Button } from "@/shared/components/ui/button";
@@ -17,12 +18,16 @@ import {
 import { type ProviderKind } from "@/features/git-providers/shared";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
+// Zod so the fields infer as optional — otherwise `navigate({ to: this route })`
+// would require a `search` object at every call site.
+const searchSchema = z.object({
+  git_install: z.enum(["ok", "error"]).optional().catch(undefined),
+  reason: z.string().optional(),
+});
+
 export const Route = createFileRoute("/_app/$orgSlug/git-providers")({
   staticData: { crumb: "Git providers" },
-  validateSearch: (search: Record<string, unknown>) => ({
-    git_install: search.git_install as "ok" | "error" | undefined,
-    reason: search.reason as string | undefined,
-  }),
+  validateSearch: searchSchema,
   component: GitProvidersRoute,
 });
 

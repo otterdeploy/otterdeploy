@@ -31,6 +31,7 @@ import { registryContract } from "./routers/registry/contract";
 import { serverContract } from "./routers/server/contract";
 import { serviceContract } from "./routers/service/contract";
 import { sshKeysContract } from "./routers/sshKeys/contract";
+import { systemContract } from "./routers/system/contract";
 import { terminalContract } from "./routers/terminal/contract";
 // Per-procedure compliance trail, shaped to the evlog audit schema
 // (https://www.evlog.dev/use-cases/audit/schema). Stamps the request-scoped
@@ -132,6 +133,7 @@ export const publicProcedure = implement({
   server: serverContract,
   service: serviceContract,
   sshKeys: sshKeysContract,
+  system: systemContract,
   terminal: terminalContract,
 })
   .$context<Context>()

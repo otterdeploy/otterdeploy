@@ -4,6 +4,7 @@ import { useLiveQuery } from "@tanstack/react-db";
 import { useQuery } from "@tanstack/react-query";
 import type { Edge } from "@xyflow/react";
 
+import type { Framework } from "@otterdeploy/shared/framework";
 import type { ProjectId } from "@otterdeploy/shared/id";
 
 import {
@@ -15,6 +16,10 @@ import {
   clearAppliedCreate,
   useAppliedCreates,
 } from "@/features/projects/components/graph/applied-creates-store";
+import {
+  clearPendingFramework,
+  usePendingFrameworks,
+} from "@/features/projects/components/graph/pending-framework-store";
 import { type ComposeServiceInfo } from "@/features/projects/components/graph/resource-node";
 import { dependenciesCollection } from "@/features/projects/data/dependencies";
 import { resourceCollection } from "@/features/resources/data/resource";
@@ -78,6 +83,7 @@ function computePendingByName(
   resources: readonly ResourceLike[],
   changes: readonly ManifestChange[],
   appliedCreates: ReadonlySet<string>,
+  frameworks: ReadonlyMap<string, Framework>,
 ): PendingByName {
   const creates: PendingByName["creates"] = [];
   const marker = new Map<string, "update" | "delete">();
@@ -95,7 +101,11 @@ function computePendingByName(
         // on the server) so the ghost group renders its member cards.
         ...(c.resource === "compose"
           ? { services: composeGhostServices(c.details) }
-          : {}),
+          : // A staged service ghost shows the wizard-detected framework logo
+            // immediately (client hint — no build/persist round-trip).
+            c.resource === "service"
+            ? { framework: frameworks.get(key) }
+            : {}),
       });
       createKeys.add(key);
     } else if (id && (c.kind === "update" || c.kind === "delete")) {
@@ -110,7 +120,11 @@ function computePendingByName(
     if (createKeys.has(key) || idByName.has(key)) continue;
     const sep = key.indexOf(":");
     const resource = key.slice(0, sep) as "service" | "database" | "compose";
-    creates.push({ resource, name: key.slice(sep + 1) });
+    creates.push({
+      resource,
+      name: key.slice(sep + 1),
+      ...(resource === "service" ? { framework: frameworks.get(key) } : {}),
+    });
   }
   return { creates, marker };
 }
@@ -179,23 +193,27 @@ export function useGraphModel(project: { id: ProjectId }) {
   // resource lands in the collection so the node doesn't blink out and back
   // across the diff/collection refetch gap. See applied-creates-store.ts.
   const appliedCreates = useAppliedCreates(project.id);
+  // Wizard-detected frameworks for staged service ghosts (instant brand logo).
+  const pendingFrameworks = usePendingFrameworks(project.id);
 
   const pendingByName = useMemo<PendingByName>(
-    () => computePendingByName(resources, diff.data?.changes ?? [], appliedCreates),
-    [resources, diff.data, appliedCreates],
+    () => computePendingByName(resources, diff.data?.changes ?? [], appliedCreates, pendingFrameworks),
+    [resources, diff.data, appliedCreates, pendingFrameworks],
   );
 
   // Once a just-Deployed create's resource has landed, stop bridging it so the
-  // store doesn't pin a ghost over the now-real node.
+  // store doesn't pin a ghost over the now-real node — and drop its framework
+  // hint, since the real row now carries the persisted value.
   useEffect(() => {
-    if (appliedCreates.size === 0) return;
+    if (appliedCreates.size === 0 && pendingFrameworks.size === 0) return;
     for (const r of resources) {
       if (r.type !== "service" && r.type !== "database" && r.type !== "compose")
         continue;
       const key = `${r.type}:${r.name}`;
       if (appliedCreates.has(key)) clearAppliedCreate(project.id, key);
+      if (pendingFrameworks.has(key)) clearPendingFramework(project.id, key);
     }
-  }, [appliedCreates, resources, project.id]);
+  }, [appliedCreates, pendingFrameworks, resources, project.id]);
 
   // Convert resources to nodes + synthesize public route nodes via the shared
   // helper. The framework brand logo rides on each resource record (detected at

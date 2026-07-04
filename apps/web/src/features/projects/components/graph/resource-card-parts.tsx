@@ -10,6 +10,7 @@ import { CheckmarkCircle02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { FrameworkLogo } from "@/features/projects/components/framework-logo";
+import { useLiveDuration } from "@/shared/lib/duration";
 import { cn } from "@/shared/lib/utils";
 
 import type { ReplicaInfo, ResourceNodeData, VolumeAttachment } from "./resource-node-types";
@@ -22,9 +23,52 @@ const badgeBase =
 
 /** Header — brand/framework/kind tile, name + kind label, and the pending or
  *  status pill on the right. */
+/** Right-side column of the card header: the pending or runtime status pill,
+ *  and — while a build/deploy is in flight — the live elapsed duration under it. */
+function HeaderStatus({ data }: { data: ResourceNodeData }) {
+  const status = data.status ? statusMeta[data.status] : null;
+  // Live build/deploy duration — ticks while the node is building.
+  const buildDuration = useLiveDuration(
+    data.latestDeploymentStartedAt,
+    data.latestDeploymentFinishedAt,
+  );
+  const showDuration = data.status === "building" && buildDuration;
+
+  return (
+    <div className="flex flex-col items-end gap-1">
+      {data.pending ? (
+        <span
+          className={cn(
+            badgeBase,
+            // Match the node's comet border: create/update = blue, delete = yellow.
+            data.pending === "delete" ? "bg-warning/15 text-warning" : "bg-info/15 text-info",
+          )}
+        >
+          <span
+            className={cn(
+              "size-1.5 rounded-full",
+              data.pending === "delete" ? "bg-warning" : "bg-info",
+            )}
+          />
+          pending {data.pending}
+        </span>
+      ) : status ? (
+        <span className={cn(badgeBase, status.pillClass)}>
+          <span className={cn("size-1.5 rounded-full", status.dotClass)} />
+          {status.label}
+        </span>
+      ) : null}
+      {showDuration && (
+        <span className="font-mono text-[10.5px] text-muted-foreground tabular-nums">
+          {buildDuration}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export function ResourceCardHeader({ data }: { data: ResourceNodeData }) {
   const meta = kindMeta[data.kind];
-  const status = data.status ? statusMeta[data.status] : null;
   const BrandLogo = data.engine ? engineLogos[data.engine] : null;
   const framework = data.framework ?? null;
 
@@ -54,32 +98,7 @@ export function ResourceCardHeader({ data }: { data: ResourceNodeData }) {
         </div>
       </div>
 
-      {data.pending ? (
-        <span
-          className={cn(
-            badgeBase,
-            // Match the node's comet border: create = blue, delete = yellow.
-            data.pending === "create" && "bg-info/15 text-info",
-            data.pending === "delete" && "bg-warning/15 text-warning",
-            data.pending === "update" && "bg-info/15 text-info",
-          )}
-        >
-          <span
-            className={cn(
-              "size-1.5 rounded-full",
-              data.pending === "create" && "bg-info",
-              data.pending === "delete" && "bg-warning",
-              data.pending === "update" && "bg-info",
-            )}
-          />
-          pending {data.pending}
-        </span>
-      ) : status ? (
-        <span className={cn(badgeBase, status.pillClass)}>
-          <span className={cn("size-1.5 rounded-full", status.dotClass)} />
-          {status.label}
-        </span>
-      ) : null}
+      <HeaderStatus data={data} />
     </div>
   );
 }

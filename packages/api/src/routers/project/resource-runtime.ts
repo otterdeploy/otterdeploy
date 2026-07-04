@@ -31,38 +31,12 @@ import {
   setDatabaseResourceExtraEnv,
 } from "./queries";
 import { getResourceById } from "./queries/resource";
+import { collapseInstanceState, listResourceInstances } from "./resource-instances";
 import { buildContainerName, buildVolumeName, sanitizeProjectSlug } from "./views";
 
 export interface EnvEntry {
   key: string;
   value: string;
-}
-
-// Docker task `Status.State` → graph bucket. Same collapse rule as the
-// existing project.serviceTasks endpoint so the UI doesn't have to learn
-// two state sets.
-const TASK_STATE_BUCKETS: Record<string, ServiceTaskInfo["state"]> = {
-  running: "running",
-  new: "building",
-  allocated: "building",
-  pending: "building",
-  assigned: "building",
-  accepted: "building",
-  preparing: "building",
-  ready: "building",
-  starting: "building",
-  failed: "error",
-  rejected: "error",
-  remove: "error",
-  orphaned: "error",
-  complete: "error",
-  shutdown: "error",
-};
-
-// Unknown/missing states collapse to "building" so we never false-positive an
-// error. https://docs.docker.com/reference/cli/docker/service/ps/
-function collapseTaskState(state: string | undefined): ServiceTaskInfo["state"] {
-  return TASK_STATE_BUCKETS[state ?? ""] ?? "building";
 }
 
 // Resolve a resource id to its swarm service name. Postgres uses the
@@ -109,56 +83,35 @@ export async function listResourceTasks(
   }
 
   const docker = Docker.fromEnv();
-  const tasksResult = await docker.tasks.list({
-    filters: { service: [target.serviceName] },
-  });
-  if (tasksResult.isErr()) return Result.ok([]);
+  // Runtime-aware: swarm tasks, or plain-docker containers under the default
+  // runtime (where docker.tasks.list would fail with "service not found").
+  const instancesResult = await listResourceInstances(docker, target.serviceName);
+  if (instancesResult.isErr()) return Result.ok([]);
 
-  // Newest first so the panel reads chronologically without client-side
-  // sorting. Docker returns no particular order.
-  const tasks = [...tasksResult.value].sort((a, b) => {
-    const at = new Date(a.UpdatedAt ?? a.CreatedAt ?? 0).getTime();
-    const bt = new Date(b.UpdatedAt ?? b.CreatedAt ?? 0).getTime();
+  // Newest first so the panel reads chronologically without client-side sorting.
+  const instances = [...instancesResult.value].sort((a, b) => {
+    const at = new Date(a.updatedAt ?? a.createdAt ?? 0).getTime();
+    const bt = new Date(b.updatedAt ?? b.createdAt ?? 0).getTime();
     return bt - at;
   });
 
   return Result.ok(
-    tasks.map((t) => {
-      const status =
-        (
-          t as {
-            Status?: {
-              State?: string;
-              Message?: string;
-              Err?: string;
-              Timestamp?: string;
-              ContainerStatus?: { ContainerID?: string; ExitCode?: number };
-            };
-          }
-        ).Status ?? {};
-      const slot = (t as { Slot?: number }).Slot ?? null;
-      const nodeId = (t as { NodeID?: string }).NodeID ?? null;
-      const desiredState = (t as { DesiredState?: string }).DesiredState ?? null;
-      return {
-        id: (t as { ID?: string }).ID ?? "",
-        slot,
-        label: slot != null ? `${target.serviceName}.${slot}` : target.serviceName,
-        // Single-service runtime view — no compose sub-service breakdown here.
-        service: null,
-        state: collapseTaskState(status.State),
-        rawState: status.State ?? null,
-        desiredState,
-        nodeId,
-        message: status.Message ?? null,
-        error: status.Err ?? null,
-        containerId: status.ContainerStatus?.ContainerID ?? null,
-        exitCode:
-          typeof status.ContainerStatus?.ExitCode === "number"
-            ? status.ContainerStatus.ExitCode
-            : null,
-        timestamp: status.Timestamp ?? null,
-      };
-    }),
+    instances.map((t) => ({
+      id: t.id,
+      slot: t.slot,
+      label: t.slot != null ? `${target.serviceName}.${t.slot}` : target.serviceName,
+      // Single-service runtime view — no compose sub-service breakdown here.
+      service: null,
+      state: collapseInstanceState(t.state),
+      rawState: t.state,
+      desiredState: t.desiredState,
+      nodeId: t.nodeId,
+      message: t.message,
+      error: t.err,
+      containerId: t.containerId,
+      exitCode: t.exitCode,
+      timestamp: t.updatedAt,
+    })),
   );
 }
 

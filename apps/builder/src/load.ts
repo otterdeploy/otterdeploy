@@ -21,13 +21,14 @@ import { db } from "@otterdeploy/db";
 import {
   containerRegistry,
   deployment,
+  gitInstallation,
   gitRepo,
   project,
   resource,
   serviceResource,
 } from "@otterdeploy/db/schema";
 import { TaggedError } from "better-result";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 export interface PipelineContext {
   deployment: typeof deployment.$inferSelect;
@@ -44,6 +45,13 @@ export interface PipelineContext {
    *  into the host daemon and swarm runs directly. */
   imageRepository: string;
   repo: typeof gitRepo.$inferSelect;
+  /** GitHub-side numeric installation id used to mint clone tokens, resolved
+   *  from `repo.installationId` (an internal `git_installation.id` FK — NOT
+   *  the value GitHub's token API wants). Only resolved for *private* repos
+   *  (public repos clone anonymously and never mint a token); `null` for
+   *  public bindings or when no installation is needed. Mirrors the resolution
+   *  in `manifest-apply-git.ts`. */
+  githubInstallationId: string | null;
 }
 
 export class PipelineLoadError extends TaggedError("PipelineLoadError")<{
@@ -80,43 +88,78 @@ export async function loadPipelineContext(deploymentId: DeploymentId): Promise<P
   const [proj] = await db.select().from(project).where(eq(project.id, res.projectId)).limit(1);
   if (!proj) throw new PipelineLoadError("project", `${res.projectId} not found`);
 
-  if (!proj.gitRepoId) {
-    throw new PipelineLoadError("project.gitRepoId", `project ${proj.id} has no git repo binding`);
+  // Git binding now lives on the SERVICE, not the project — two services in one
+  // project can build from two different repos. Fail fast if this one isn't
+  // bound (the operator picks a repo in the service's Source settings).
+  if (!svc.gitRepoId) {
+    throw new PipelineLoadError(
+      "service.gitRepoId",
+      `service ${res.name} has no git repo binding — pick a repo in its Source settings`,
+    );
   }
 
-  // Registry is optional. A project that binds one (containerRegistryId +
-  // imageRepository) pushes there so a remote/multi-node swarm can pull the
-  // image. With no binding we build a registry-less local image: the builder
-  // shares the host docker socket with the single-node swarm, so the
-  // `--load`ed image is already present where the container runs — no push.
+  // Registry is optional. When the service sets an imageRepository, the builder
+  // pushes there (so a remote/multi-node swarm can pull) and the push credential
+  // is matched from the shared registry library by the image's host. With no
+  // imageRepository we build a registry-less local image: the builder shares the
+  // host docker socket with the single-node swarm, so the `--load`ed image is
+  // already present where the container runs — no push. This is the default.
   let registry: typeof containerRegistry.$inferSelect | null = null;
   let imageRepository: string;
-  if (proj.containerRegistryId && proj.imageRepository) {
+  if (svc.imageRepository) {
+    const host = svc.imageRepository.split("/")[0] ?? "";
     const [reg] = await db
       .select()
       .from(containerRegistry)
-      .where(eq(containerRegistry.id, proj.containerRegistryId))
+      .where(
+        and(
+          eq(containerRegistry.host, host),
+          eq(containerRegistry.organizationId, proj.organizationId),
+        ),
+      )
       .limit(1);
     if (!reg) {
       throw new PipelineLoadError(
         "registry",
-        `container_registry ${proj.containerRegistryId} not found`,
+        `no registry credential for host ${host} — add one in Registries or clear the image target`,
       );
     }
     registry = reg;
-    imageRepository = proj.imageRepository;
+    imageRepository = svc.imageRepository;
   } else {
     imageRepository = localImageRepository(svc.serviceName);
   }
 
-  const [repo] = await db.select().from(gitRepo).where(eq(gitRepo.id, proj.gitRepoId)).limit(1);
+  const [repo] = await db.select().from(gitRepo).where(eq(gitRepo.id, svc.gitRepoId)).limit(1);
   if (!repo) {
-    throw new PipelineLoadError("repo", `git_repo ${proj.gitRepoId} not found`);
+    throw new PipelineLoadError("repo", `git_repo ${svc.gitRepoId} not found`);
   }
-  // installationId is allowed to be null for public-URL bindings — the
-  // pipeline clones anonymously in that case. Only error here when the
-  // row was originally linked to an installation that's now revoked
-  // (no way to distinguish today; deferred until we add a `kind` col).
+  // Only a *private* repo actually needs a clone token — a public repo clones
+  // fine over anonymous HTTPS. repo.installationId is an internal
+  // `git_installation.id` FK; the token mint + GitHub API want the *numeric*
+  // installation id, so resolve the row here (handing the internal id to
+  // getInstallationToken fails with "no installation row for gitinst_…").
+  //
+  // Resolving is gated on isPrivate so a PUBLIC repo that was bound through the
+  // GitHub App and later lost its installation (app removed / reconnected,
+  // which orphans the FK) still builds — it doesn't need the token at all.
+  // Only a private repo hard-fails, with a reconnect hint. Same lookup as
+  // manifest-apply-git.ts.
+  let githubInstallationId: string | null = null;
+  if (repo.installationId && repo.isPrivate) {
+    const [inst] = await db
+      .select({ installationId: gitInstallation.installationId })
+      .from(gitInstallation)
+      .where(eq(gitInstallation.id, repo.installationId))
+      .limit(1);
+    if (!inst) {
+      throw new PipelineLoadError(
+        "installation",
+        `git_installation ${repo.installationId} not found — reconnect GitHub in Settings → Git Providers`,
+      );
+    }
+    githubInstallationId = inst.installationId;
+  }
 
   return {
     deployment: dep,
@@ -126,6 +169,7 @@ export async function loadPipelineContext(deploymentId: DeploymentId): Promise<P
     registry,
     imageRepository,
     repo,
+    githubInstallationId,
   };
 }
 

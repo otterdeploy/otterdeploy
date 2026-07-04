@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { CloudIcon } from "@hugeicons/core-free-icons";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { SettingsSection } from "@/shared/components/settings-section";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import {
@@ -35,30 +37,19 @@ export function CloudflareCard({ organizationId }: { organizationId: never }) {
   const currentZoneId = settingsQuery.data?.cloudflareZoneId ?? null;
 
   return (
-    <section className="flex flex-col gap-3">
-      <div>
-        <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Cloudflare
-        </div>
-        <p className="mt-0.5 text-[12.5px] text-muted-foreground/80">
-          Connect Cloudflare and we'll write the DNS records for you when you
-          save a domain. Cloudflare doesn't support OAuth for DNS, so the
-          one-click button opens Cloudflare with the right scopes
-          (Zone.DNS:Edit) pre-selected — you click Create on their side and
-          paste the token back here once.
-        </p>
-      </div>
-      <div className="flex flex-col gap-3 rounded-md border bg-card p-4">
+    <SettingsSection
+      icon={CloudIcon}
+      title="Cloudflare"
+      description="Connect Cloudflare and we'll write the DNS records for you when you save a domain. Cloudflare doesn't support OAuth for DNS, so the one-click button opens Cloudflare with the right scopes (Zone.DNS:Edit) pre-selected — you click Create on their side and paste the token back here once."
+    >
+      <div className="p-4">
         {isConfigured ? (
-          <CloudflareConnected
-            organizationId={organizationId}
-            zoneId={currentZoneId}
-          />
+          <CloudflareConnected organizationId={organizationId} zoneId={currentZoneId} />
         ) : (
           <CloudflareConnectForm organizationId={organizationId} />
         )}
       </div>
-    </section>
+    </SettingsSection>
   );
 }
 

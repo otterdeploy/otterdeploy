@@ -203,8 +203,30 @@ const imageServiceSchema = serviceCommonSchema.extend({
 
 const gitServiceSchema = serviceCommonSchema.extend({
   source: z.literal("git"),
+  // Portable repo reference — "owner/repo". Resolved to the internal git_repo
+  // row by fullName within the org's installations on apply, so no opaque id
+  // lands on disk (mirrors compose's portable `gitRepoUrl`). A public repo
+  // connected by URL also has a fullName and resolves the same way. Optional:
+  // a git service may stage unbound and only its build fails, clearly, until
+  // bound. Each git service owns its own repo — two services in one project can
+  // build from two different repos.
+  repo: z
+    .string()
+    .min(1)
+    .refine((v) => v.split("/").length === 2 && v.split("/").every(Boolean), {
+      message: 'repo must be "owner/name"',
+    })
+    .optional(),
+  // Branch whose pushes deploy this service. Optional — falls back to the
+  // repo's default branch at resolve time.
+  branch: z.string().min(1).nullable().optional(),
   sourceSubdir: z.string().nullable().optional(),
   build: buildSchema.optional(),
+  // Per-service image target: fully-qualified image repository, no tag (the
+  // builder appends <sha> + :latest). Optional → registry-less local build
+  // (image stays in the host daemon). The push credential is matched from the
+  // shared registry library by this string's host at build time.
+  imageRepository: z.string().min(1).nullable().optional(),
 });
 
 export const serviceSchema = z.discriminatedUnion("source", [imageServiceSchema, gitServiceSchema]);

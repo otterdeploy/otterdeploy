@@ -18,7 +18,7 @@ import { useState } from "react";
 
 import { FolderIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { skipToken, usePrefetchQuery, useQuery } from "@tanstack/react-query";
+import { skipToken, useQuery } from "@tanstack/react-query";
 
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -65,10 +65,12 @@ export function RootDirectoryPicker({
   const [browsePath, setBrowsePath] = useState<string>(value);
   const [selected, setSelected] = useState<string>(value);
 
-  // This hook runs above the `if (!gitRepoId) return` guard, and
-  // usePrefetchQuery ignores `enabled` — it always prefetches. So gate the
-  // request itself with skipToken: no repo bound = no queryFn = no call.
-  usePrefetchQuery(
+  // Cache-warm the current folder before the dialog opens. Runs above the
+  // `if (!gitRepoId) return` guard, so gate the request itself with skipToken:
+  // no repo bound = disabled query = no call. `useQuery` (not usePrefetchQuery)
+  // because prefetch ignores `enabled`/skipToken and throws "queryFn should not
+  // be called with skipToken"; useQuery disables cleanly on skipToken instead.
+  useQuery(
     orpc.git.inspectRepo.queryOptions({
       input: gitRepoId ? { gitRepoId, path: browsePath } : skipToken,
     }),

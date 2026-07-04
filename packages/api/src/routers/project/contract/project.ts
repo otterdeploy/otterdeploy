@@ -8,12 +8,7 @@ import { createSelectSchema } from "drizzle-zod";
 import * as z from "zod";
 
 import { basePath, projectNotFoundErrors, tag } from "./shared";
-import {
-  containerRegistryIdField,
-  environmentIdField,
-  gitRepoIdField,
-  projectIdField,
-} from "./shared";
+import { environmentIdField, projectIdField } from "./shared";
 
 // Every branded id column on the `project` row is re-emitted here as a
 // typed `<X>IdField` rather than the `z.string()` drizzle-zod would
@@ -42,8 +37,6 @@ export const projectSchema = createSelectSchema(project)
   .extend({
     id: projectIdField,
     environmentId: environmentIdField.nullable(),
-    gitRepoId: gitRepoIdField.nullable(),
-    containerRegistryId: containerRegistryIdField.nullable(),
     // drizzle-zod infers jsonb loosely; pin the wire shape explicitly so the
     // graph reads a typed `Record<nodeId, {x,y}>`.
     graphLayout: graphLayoutSchema,
@@ -100,13 +93,9 @@ export const updateProjectInput = z.object({
   // the handler so the operator can't bind an unverified domain and
   // skip the check. `null` clears (falls back to org default).
   customDomain: z.string().min(1).max(253).nullable().optional(),
-  // Build pipeline binding. Each field is independently optional;
-  // `null` clears the column, `undefined` leaves it unchanged. The
-  // handler validates FK rows belong to the same org.
-  gitRepoId: gitRepoIdField.nullable().optional(),
-  productionBranch: z.string().min(1).max(255).optional(),
-  containerRegistryId: containerRegistryIdField.nullable().optional(),
-  imageRepository: z.string().min(1).max(255).nullable().optional(),
+  // Git repo + image target moved to the service (edited via the service's
+  // Source card, staged into the manifest). The project update no longer
+  // carries a repo/registry binding.
   nixpacksConfig: nixpacksConfigSchema.nullable().optional(),
 });
 
@@ -144,10 +133,6 @@ export const projectContractSlice = {
     .errors({
       ...projectNotFoundErrors,
       CONFLICT: { status: 409, message: "Project slug already in use" as const },
-      INVALID_BINDING: {
-        status: 400,
-        message: "Referenced git repo or registry doesn't belong to this organization" as const,
-      },
     })
     .meta({ path: `${basePath}/{id}`, tag, method: "PATCH" })
     .input(updateProjectInput)

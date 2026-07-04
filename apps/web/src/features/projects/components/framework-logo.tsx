@@ -13,6 +13,8 @@ import type { Framework } from "@otterdeploy/shared/framework";
 
 import type { SVGProps } from "react";
 
+import { cn } from "@/shared/lib/utils";
+
 import { Astro } from "@/shared/components/ui/svgs/astro";
 import { BunLogo } from "@/shared/components/ui/svgs/bun";
 import { Express } from "@/shared/components/ui/svgs/express";
@@ -83,14 +85,33 @@ const FRAMEWORK_LABELS: Record<FrameworkKind, string> = {
   static: "Static",
 };
 
-function frameworkLabel(framework: FrameworkKind): string {
+export function frameworkLabel(framework: FrameworkKind): string {
   return FRAMEWORK_LABELS[framework];
 }
 
+// Brand marks whose SVG is solid black (#000000) — invisible on the dark
+// header tile. Invert them in dark mode so the mark reads as white; the
+// color-branded logos (Go, Ruby, Node, …) are left untouched.
+const DARK_INVERT: ReadonlySet<FrameworkKind> = new Set([
+  "next",
+  "remix",
+  "express",
+  "fastify",
+  "bun",
+  "rust",
+]);
+
 export function FrameworkLogo({
   framework,
+  className,
   ...props
 }: { framework: FrameworkKind } & SVGProps<SVGSVGElement>) {
   const Logo = FRAMEWORK_SVGS[framework];
-  return <Logo aria-label={FRAMEWORK_LABELS[framework]} {...props} />;
+  return (
+    <Logo
+      aria-label={FRAMEWORK_LABELS[framework]}
+      className={cn(DARK_INVERT.has(framework) && "dark:invert", className)}
+      {...props}
+    />
+  );
 }

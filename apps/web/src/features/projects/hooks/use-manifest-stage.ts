@@ -50,9 +50,12 @@ async function invalidateManifestConsumers(projectId: ProjectId) {
     queryClient.invalidateQueries({
       queryKey: orpc.project.manifest.get.queryKey({ input: { id: projectId } }),
     }),
-    queryClient.invalidateQueries({
-      queryKey: orpc.project.resource.list.queryKey({ input: { projectId } }),
-    }),
+    // The graph reads resources / edges / task rollup from TanStack DB
+    // collections keyed by a PREFIX — a bare `resource.list` orpc key never
+    // matches, so invalidate the prefixes to actually refetch the graph.
+    queryClient.invalidateQueries({ queryKey: ["resource"] }),
+    queryClient.invalidateQueries({ queryKey: ["dependencies"] }),
+    queryClient.invalidateQueries({ queryKey: ["service-tasks"] }),
   ]);
 }
 

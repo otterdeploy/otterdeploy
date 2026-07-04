@@ -31,7 +31,9 @@ export function gitRelations(r: RelationBuilder) {
         to: r.gitInstallation.id,
         optional: true,
       }),
-      projects: r.many.project(),
+      // No reverse to `project`: the repo binding moved onto the SERVICE
+      // (service_resource.git_repo_id / branch), so the project no longer FKs a
+      // repo. Add a `services` relation here if a repo→services query is needed.
     },
   };
 }

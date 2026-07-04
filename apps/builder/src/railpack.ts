@@ -222,11 +222,11 @@ async function resolveBuildCommands(opts: {
   const scripts = appPkg?.scripts ?? {};
   const pmRun = await detectPackageManagerRun(opts.workDir);
 
-  const rawBuild = configBuild ?? (scripts.build ? `${pmRun} run build` : null);
+  const rawBuild = configBuild ?? (scripts.build ? `${pmRun} build` : null);
   const buildCmd = rawBuild ? `cd ${subdir} && ${rawBuild}` : null;
   // SPA images are served by Caddy and need no start command. Otherwise wrap the
   // app's own start script so the container boots the right workspace app.
-  const startCmd = !spaOutputDir && scripts.start ? `cd ${subdir} && ${pmRun} run start` : null;
+  const startCmd = !spaOutputDir && scripts.start ? `cd ${subdir} && ${pmRun} start` : null;
 
   opts.sink.system(
     `monorepo workspace build: context=repo root, app="${subdir}"` +

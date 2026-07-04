@@ -21,7 +21,7 @@ import { db } from "@otterdeploy/db";
 import { deployment, gitRepo, project, resource, serviceResource } from "@otterdeploy/db/schema";
 import { triggerDeploy } from "@otterdeploy/jobs";
 import { Result } from "better-result";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { log } from "evlog";
 
 import type { GithubWebhookResult, PullRequestEvent } from "./types";
@@ -68,12 +68,35 @@ export async function handlePullRequest(
     return ignored;
   }
 
-  const projects = await db.select().from(project).where(eq(project.gitRepoId, repo.id));
+  // Repo binding lives on services now — find the projects that own at least
+  // one git service bound to this repo (a PR on repo A only concerns services
+  // built from repo A, even if the project also hosts repo-B services).
+  const projectIdRows = await db
+    .selectDistinct({ id: resource.projectId })
+    .from(serviceResource)
+    .innerJoin(resource, eq(resource.id, serviceResource.resourceId))
+    .where(and(eq(serviceResource.gitRepoId, repo.id), isNull(serviceResource.stackId)));
+  if (projectIdRows.length === 0) return ignored;
+  const projects = await db
+    .select()
+    .from(project)
+    .where(
+      inArray(
+        project.id,
+        projectIdRows.map((r) => r.id),
+      ),
+    );
   if (projects.length === 0) return ignored;
 
   return action === "closed"
     ? closePreviews(ev, repo, projects)
     : deployPreviews(ev, repo, projects);
+}
+
+/** Sanitized `owner-repo` slug — qualifies preview env slugs/DB branch names so
+ *  two repos in one project never collide on the same PR number. */
+function repoSlug(repo: RepoRow): string {
+  return repo.fullName.replace(/[^a-z0-9-]+/gi, "-").replace(/^-+|-+$/g, "").toLowerCase();
 }
 
 /** Owner/repo/installation context for reporting back to GitHub. */
@@ -96,7 +119,11 @@ async function closePreviews(
   const prNumber = ev.pull_request.number;
   let environmentsTouched = 0;
   for (const p of projects) {
-    const closed = await markPreviewEnvironmentsClosed(p.id as ProjectId, prNumber);
+    const closed = await markPreviewEnvironmentsClosed(
+      p.id as ProjectId,
+      repo.id as GitRepoId,
+      prNumber,
+    );
     environmentsTouched += closed.length;
     // Destroy each closed env's preview containers + branched databases.
     for (const env of closed) {
@@ -135,6 +162,7 @@ async function deployPreviews(
       projectId: p.id as ProjectId,
       baseEnvironmentId: p.environmentId ?? null,
       gitRepoId: repo.id as GitRepoId,
+      repoSlug: repoSlug(repo),
       prNumber: pr.number,
       prNodeId: pr.node_id ?? null,
       headRef: pr.head.ref,
@@ -151,7 +179,7 @@ async function deployPreviews(
           projectId: p.id as ProjectId,
           projectSlug: p.slug,
           environmentId: env.id as EnvironmentId,
-          previewSlug: `pr-${pr.number}`,
+          previewSlug: `${repoSlug(repo)}-pr-${pr.number}`,
         }),
       catch: (cause) => cause,
     });
@@ -183,9 +211,10 @@ async function deployProjectPreview(
   environmentId: EnvironmentId,
 ): Promise<number> {
   const pr = ev.pull_request;
-  // A preview rebuilds every git-sourced BASE service (env-scoped resources are
-  // branches, not deploy targets). No watch-pattern filter — any PR commit
-  // refreshes the whole preview.
+  // A preview rebuilds the git-sourced BASE services BOUND TO THIS REPO
+  // (env-scoped resources are branches, not deploy targets). Only this repo's
+  // services — a project may host services from other repos untouched by this
+  // PR. No watch-pattern filter — any PR commit refreshes the whole preview.
   const resources = await db
     .select({ id: resource.id })
     .from(resource)
@@ -195,6 +224,7 @@ async function deployProjectPreview(
         eq(resource.projectId, p.id as ProjectId),
         eq(resource.type, "service"),
         eq(serviceResource.source, "git"),
+        eq(serviceResource.gitRepoId, repo.id),
         isNull(resource.environmentId),
       ),
     );

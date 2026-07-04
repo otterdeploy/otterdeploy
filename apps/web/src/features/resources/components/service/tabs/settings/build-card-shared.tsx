@@ -45,6 +45,51 @@ export async function stageBuildConfig(
   });
 }
 
+/** Stage the git `source` block (repo / branch / subdir / image target) for a
+ *  service into the manifest — same pending-changes → Deploy path as the build
+ *  card. Throws (surfaced via the caller's toast) if there's no saved manifest
+ *  or the service isn't git-sourced. */
+export async function stageSource(
+  resource: ServiceBuildResource,
+  next: {
+    repo: string | null;
+    branch: string | null;
+    sourceSubdir: string | null;
+    imageRepository: string | null;
+  },
+): Promise<void> {
+  const current = await orpc.project.manifest.get.call({
+    id: resource.projectId as never,
+  });
+  const base = current.manifest;
+  if (!base) {
+    throw new Error("No manifest saved yet — can't update the source.");
+  }
+  const svc = base.services[resource.name];
+  if (!svc || svc.source !== "git") {
+    throw new Error("Source settings apply only to git-sourced services.");
+  }
+  const nextManifest = {
+    ...base,
+    services: {
+      ...base.services,
+      [resource.name]: {
+        ...svc,
+        // Schema types `repo` as string|undefined (never null) — omit when cleared.
+        repo: next.repo ?? undefined,
+        branch: next.branch,
+        sourceSubdir: next.sourceSubdir,
+        imageRepository: next.imageRepository,
+      },
+    },
+  };
+  await orpc.project.manifest.save.call({
+    projectId: resource.projectId as never,
+    manifest: nextManifest,
+    expectedVersion: current.version,
+  });
+}
+
 export async function invalidateAfterSave(projectId: string): Promise<void> {
   await Promise.all([
     queryClient.invalidateQueries({

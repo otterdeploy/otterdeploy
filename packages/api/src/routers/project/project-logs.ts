@@ -12,7 +12,9 @@ import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/
 
 import { Docker } from "@otterdeploy/docker";
 
+import { isSwarmRuntime } from "../../runtime";
 import { getProjectInOrg, getProjectRecord, listProjectResources } from "./queries";
+import { listResourceInstances } from "./resource-instances";
 import { demuxDockerLogs } from "./resource-logs";
 import { buildContainerName } from "./views";
 
@@ -87,8 +89,59 @@ function systemEvent(target: TargetService, line: string): ProjectLogEvent {
   };
 }
 
-// Open one services/{id}/logs stream and push each demuxed event into the
-// shared queue. Returns a cleanup that destroys the docker client.
+// Runtime-aware log stream for one target: swarm multiplexed services/{id}/logs,
+// or the plain-docker container's logs. Returns the logs Result, or null when
+// nothing's running yet / listing failed (a systemEvent is pushed in that case).
+async function openTargetLogStream(
+  docker: Docker,
+  target: TargetService,
+  tailCount: number,
+  push: (ev: ProjectLogEvent) => void,
+) {
+  const opts = {
+    follow: true,
+    stdout: true,
+    stderr: true,
+    tail: String(tailCount),
+    timestamps: true,
+  } as const;
+
+  if (isSwarmRuntime()) {
+    const listResult = await docker.services.list({ filters: { name: [target.serviceName] } });
+    if (listResult.isErr()) {
+      push(systemEvent(target, `services.list failed: ${listResult.error.message}`));
+      return null;
+    }
+    const found = listResult.value.find(
+      (s) => (s as { Spec?: { Name?: string } }).Spec?.Name === target.serviceName,
+    );
+    const serviceId = (found as { ID?: string } | undefined)?.ID;
+    if (!serviceId) {
+      push(systemEvent(target, "no swarm service yet"));
+      return null;
+    }
+    return docker.services.getService(serviceId).logs(opts);
+  }
+
+  const res = await listResourceInstances(docker, target.serviceName);
+  if (res.isErr()) {
+    push(systemEvent(target, `list failed: ${res.error.message}`));
+    return null;
+  }
+  const containerId =
+    (
+      res.value.find((i) => i.state === "running" && i.containerId) ??
+      res.value.find((i) => i.containerId)
+    )?.containerId ?? null;
+  if (!containerId) {
+    push(systemEvent(target, "no container yet"));
+    return null;
+  }
+  return docker.containers.getContainer(containerId).logs(opts);
+}
+
+// Open one log stream per target and push each demuxed event into the shared
+// queue. Returns a cleanup that destroys the docker client.
 function pumpServiceLogs(
   target: TargetService,
   tailCount: number,
@@ -101,31 +154,10 @@ function pumpServiceLogs(
 
   void (async () => {
     try {
-      const listResult = await docker.services.list({
-        filters: { name: [target.serviceName] },
-      });
-      if (listResult.isErr()) {
-        push(systemEvent(target, `services.list failed: ${listResult.error.message}`));
-        return;
-      }
-      const found = listResult.value.find(
-        (s) => (s as { Spec?: { Name?: string } }).Spec?.Name === target.serviceName,
-      );
-      const serviceId = (found as { ID?: string } | undefined)?.ID;
-      if (!serviceId) {
-        push(systemEvent(target, "no swarm service yet"));
-        return;
-      }
-
-      const logsResult = await docker.services.getService(serviceId).logs({
-        follow: true,
-        stdout: true,
-        stderr: true,
-        tail: String(tailCount),
-        timestamps: true,
-      });
+      const logsResult = await openTargetLogStream(docker, target, tailCount, push);
+      if (!logsResult) return; // a systemEvent was already pushed (missing / error)
       if (logsResult.isErr()) {
-        push(systemEvent(target, `services.logs failed: ${logsResult.error.message}`));
+        push(systemEvent(target, `logs failed: ${logsResult.error.message}`));
         return;
       }
 

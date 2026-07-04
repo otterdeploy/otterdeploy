@@ -24,6 +24,7 @@ import {
   type ResourceLogEvent,
 } from "./log-stream-shared";
 import { getProjectInOrg } from "./queries";
+import { listResourceInstances, type ResourceInstance } from "./resource-instances";
 
 interface TaskLogsRef {
   projectId: ProjectId;
@@ -33,33 +34,30 @@ interface TaskLogsRef {
   tail?: number;
 }
 
-interface TaskStatus {
-  State?: string;
-  Message?: string;
-  Err?: string;
-  ContainerStatus?: { ContainerID?: string; ExitCode?: number };
-}
-
-// Surface the task's own progress messages first — these are how swarm reports
-// "preparing", "pulling image", "starting", and the eventual Err message on
-// failure. Without these the operator only sees the container's own stdout,
-// which is empty until after the image is pulled.
-async function* emitTaskStatusPreamble(
-  status: TaskStatus,
+// Surface the instance's own progress messages first — swarm reports
+// "preparing", "pulling image", "starting", and the eventual Err on failure;
+// plain-docker carries the container's human status line. Without these the
+// operator only sees the container's own stdout, which is empty until the
+// image is pulled.
+async function* emitInstancePreamble(
+  instance: ResourceInstance,
 ): AsyncGenerator<ResourceLogEvent, void, void> {
-  if (status.State) {
+  if (instance.state) {
     yield {
       stream: "system",
-      line: `Task state: ${status.State}${status.Message ? ` — ${status.Message}` : ""}`,
+      line: `State: ${instance.state}${instance.message ? ` — ${instance.message}` : ""}`,
       ts: nowIso(),
     };
   }
-  if (status.Err) {
-    yield { stream: "stderr", line: `Task error: ${status.Err}`, ts: nowIso() };
+  if (instance.err) {
+    yield { stream: "stderr", line: `Error: ${instance.err}`, ts: nowIso() };
   }
-  const exitCode = status.ContainerStatus?.ExitCode;
-  if (typeof exitCode === "number" && exitCode !== 0) {
-    yield { stream: "stderr", line: `Container exited with code ${exitCode}`, ts: nowIso() };
+  if (typeof instance.exitCode === "number" && instance.exitCode !== 0) {
+    yield {
+      stream: "stderr",
+      line: `Container exited with code ${instance.exitCode}`,
+      ts: nowIso(),
+    };
   }
 }
 
@@ -83,34 +81,32 @@ export async function* tailTaskLogs(
 
   const docker = Docker.fromEnv();
   try {
-    // Find the requested task. Filtering on service alone is enough — if the
-    // taskId doesn't show up here the caller's snooping at another resource.
-    const tasksResult = await docker.tasks.list({
-      filters: { service: [serviceName] },
-    });
-    if (tasksResult.isErr()) {
+    // Enumerate the resource's instances (swarm tasks or docker containers).
+    // Filtering on the service alone is enough — if the id doesn't show up here
+    // the caller's snooping at another resource.
+    const instancesResult = await listResourceInstances(docker, serviceName);
+    if (instancesResult.isErr()) {
       yield {
         stream: "system",
-        line: `docker tasks list failed: ${tasksResult.error.message}`,
+        line: `Could not list instances for ${serviceName}: ${instancesResult.error.message}`,
         ts: nowIso(),
       };
       return;
     }
 
-    const task = tasksResult.value.find((t) => (t as { ID?: string }).ID === input.taskId);
-    if (!task) {
+    const instance = instancesResult.value.find((t) => t.id === input.taskId);
+    if (!instance) {
       yield {
         stream: "system",
-        line: `Task ${input.taskId.slice(0, 12)} not found on service ${serviceName}`,
+        line: `Instance ${input.taskId.slice(0, 12)} not found on ${serviceName} — it may have been replaced by a newer deploy.`,
         ts: nowIso(),
       };
       return;
     }
 
-    const status = (task as { Status?: TaskStatus }).Status ?? {};
-    const containerId = status.ContainerStatus?.ContainerID ?? null;
+    const containerId = instance.containerId;
 
-    yield* emitTaskStatusPreamble(status);
+    yield* emitInstancePreamble(instance);
 
     if (!containerId) {
       // No container has been created yet — task is still pending/preparing.

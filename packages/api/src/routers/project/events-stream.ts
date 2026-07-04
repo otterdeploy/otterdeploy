@@ -25,6 +25,7 @@ import { Result } from "better-result";
 
 import { subscribeDockerEvents, type DockerEvent } from "../../swarm";
 import { PostgresResourceNotFoundError, ProjectNotFoundError } from "./errors";
+import { subscribeProjectEvents } from "./project-event-bus";
 import { getProjectInOrg } from "./queries";
 import { listProjectResources } from "./queries/resource";
 import { buildContainerName, sanitizeProjectSlug } from "./views";
@@ -186,6 +187,14 @@ export async function* streamProjectEvents(
     }
   }
 
+  // App-level events the docker bus can't see: build-phase deployment status
+  // transitions (pending/building/failed), published cross-process over Redis
+  // by the builder + API status writes. This is what makes deploy status
+  // real-time instead of poll-driven.
+  const projectSub = subscribeProjectEvents(input.projectId, (event) => {
+    if (!aborted) push(event);
+  });
+
   // Periodically refresh the service map so newly-created resources show
   // up in the filter without forcing a full reconnect. Cheap (one
   // listProjectResources call per minute, all in-DB).
@@ -212,6 +221,7 @@ export async function* streamProjectEvents(
     aborted = true;
     clearInterval(refreshTimer);
     sub.close();
+    projectSub.close();
   }
 }
 

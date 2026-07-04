@@ -13,6 +13,7 @@ import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { SettingsCard } from "@/features/resources/components/_shared/settings-card";
+import { Spinner } from "@/shared/components/ui/spinner";
 import { Switch } from "@/shared/components/ui/switch";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
@@ -74,18 +75,21 @@ export function ServicePublicAccessCard({
               : "Internal-only on the project network"}
           </span>
         </div>
-        <Switch
-          checked={resource.publicEnabled}
-          disabled={pending}
-          onCheckedChange={(next) => {
-            const input = {
-              projectId: resource.projectId as never,
-              resourceId: resource.resourceId as never,
-            };
-            if (next) expose.mutate(input);
-            else unexpose.mutate(input);
-          }}
-        />
+        <div className="flex items-center gap-2.5">
+          {pending && <Spinner className="size-3.5 text-muted-foreground" />}
+          <Switch
+            checked={resource.publicEnabled}
+            disabled={pending}
+            onCheckedChange={(next) => {
+              const input = {
+                projectId: resource.projectId as never,
+                resourceId: resource.resourceId as never,
+              };
+              if (next) expose.mutate(input);
+              else unexpose.mutate(input);
+            }}
+          />
+        </div>
       </div>
     </SettingsCard>
   );

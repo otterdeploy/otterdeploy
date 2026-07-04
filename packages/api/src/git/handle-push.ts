@@ -7,17 +7,18 @@
  * Build pipeline that consumes those Deployment rows lands in Phase 3.
  */
 
-import type { ProjectId } from "@otterdeploy/shared/id";
+import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
-import { deployment, gitRepo, project, resource, serviceResource } from "@otterdeploy/db/schema";
+import { deployment, gitRepo, resource, serviceResource } from "@otterdeploy/db/schema";
 import { triggerDeploy } from "@otterdeploy/jobs";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull, or } from "drizzle-orm";
 import { log } from "evlog";
 
 import type { GithubWebhookResult, PushEvent } from "./types";
 
 import { emitDeployStarted } from "../routers/project/deployments";
+import { detectAndPersistFramework } from "../routers/project/manifest-apply-git";
 import { changedPathsFromPush, matchesWatchPatterns } from "./watch-match";
 
 export async function handlePush(ev: PushEvent, deliveryId: string): Promise<GithubWebhookResult> {
@@ -59,54 +60,78 @@ export async function handlePush(ev: PushEvent, deliveryId: string): Promise<Git
   // `refs/heads/main` → `main`.
   const branch = ev.ref.startsWith("refs/heads/") ? ev.ref.slice("refs/heads/".length) : ev.ref;
 
-  const projects = await db
-    .select()
-    .from(project)
-    .where(and(eq(project.gitRepoId, repo.id), eq(project.productionBranch, branch)));
+  // Repo binding lives on the SERVICE now: a push fans out to exactly the git
+  // services bound to THIS (repo, branch) — possibly across several projects,
+  // and NOT every service in a project. A service with a null branch tracks the
+  // repo's default branch. Compose member services (stackId set) reconcile via
+  // their stack, not here.
+  const matchesDefaultBranch = branch === repo.defaultBranch;
+  const candidates = await db
+    .select({
+      resourceId: resource.id,
+      projectId: resource.projectId,
+      buildConfig: serviceResource.buildConfig,
+    })
+    .from(serviceResource)
+    .innerJoin(resource, eq(resource.id, serviceResource.resourceId))
+    .where(
+      and(
+        eq(serviceResource.gitRepoId, repo.id),
+        eq(resource.type, "service"),
+        isNull(serviceResource.stackId),
+        matchesDefaultBranch
+          ? or(eq(serviceResource.branch, branch), isNull(serviceResource.branch))
+          : eq(serviceResource.branch, branch),
+      ),
+    );
 
-  if (projects.length === 0) {
-    return {
-      kind: "push",
-      ref: ev.ref,
-      sha: ev.after,
-      deploymentsCreated: 0,
-      projectsTouched: 0,
-    };
+  if (candidates.length === 0) {
+    return { kind: "push", ref: ev.ref, sha: ev.after, deploymentsCreated: 0, projectsTouched: 0 };
   }
 
   // Globs are matched against the paths this push touched. Computed once —
-  // it's the same set for every project bound to the repo.
+  // it's the same set for every candidate service.
   const changedPaths = changedPathsFromPush(ev);
 
-  let deploymentsCreated = 0;
-  for (const p of projects) {
-    // Only services whose source is "git" rebuild on push. Image-sourced
-    // services are pinned to whatever tag the operator chose at create
-    // time; they redeploy only on explicit user action.
-    const candidates = await db
-      .select({ id: resource.id, buildConfig: serviceResource.buildConfig })
-      .from(resource)
-      .innerJoin(serviceResource, eq(serviceResource.resourceId, resource.id))
-      .where(
-        and(
-          eq(resource.projectId, p.id as ProjectId),
-          eq(resource.type, "service"),
-          eq(serviceResource.source, "git"),
-        ),
-      );
+  // Watch-pattern filter (unset patterns / unknown change set → rebuild), then
+  // group survivors by project so each project gets one triggerDeploy carrying
+  // all of its affected services.
+  const byProject = new Map<ProjectId, ResourceId[]>();
+  for (const c of candidates) {
+    if (!matchesWatchPatterns(changedPaths, c.buildConfig?.watchPatterns)) continue;
+    const list = byProject.get(c.projectId) ?? [];
+    list.push(c.resourceId);
+    byProject.set(c.projectId, list);
+  }
 
-    // Drop services whose watchPatterns don't match anything in this push.
-    // Unset patterns (or an unknown change set) fall through as a rebuild.
-    const resources = candidates.filter((r) =>
-      matchesWatchPatterns(changedPaths, r.buildConfig?.watchPatterns),
-    );
-    if (resources.length === 0) continue;
+  const deploymentsCreated = await fanOutDeploys(byProject, repo.id, ev);
 
+  return {
+    kind: "push",
+    ref: ev.ref,
+    sha: ev.after,
+    deploymentsCreated,
+    projectsTouched: byProject.size,
+  };
+}
+
+/**
+ * Insert pending deployment rows for each matched service, emit deploy.started,
+ * kick off the framework brand-mark refresh, and enqueue one build job per
+ * project. Returns the total number of deployments created.
+ */
+async function fanOutDeploys(
+  byProject: Map<ProjectId, ResourceId[]>,
+  gitRepoId: string,
+  ev: PushEvent,
+): Promise<number> {
+  let created = 0;
+  for (const [projectId, resourceIds] of byProject) {
     const inserted = await db
       .insert(deployment)
       .values(
-        resources.map((r) => ({
-          resourceId: r.id,
+        resourceIds.map((resourceId) => ({
+          resourceId,
           // Image is rewritten by the build worker once it knows the
           // registry tag. Placeholder so the NOT NULL holds.
           image: `pending:${ev.after.slice(0, 12)}`,
@@ -120,24 +145,24 @@ export async function handlePush(ev: PushEvent, deliveryId: string): Promise<Git
       )
       .returning({ id: deployment.id });
 
-    deploymentsCreated += inserted.length;
+    created += inserted.length;
 
-    // deploy.started per service (inserted is index-aligned with resources).
+    // deploy.started per service (inserted is index-aligned with resourceIds).
     for (let i = 0; i < inserted.length; i++) {
       const dep = inserted[i];
-      const res = resources[i];
-      if (dep && res) {
-        await emitDeployStarted({
-          deploymentId: dep.id,
-          resourceId: res.id,
-          reason: "git-push",
-        });
+      const resourceId = resourceIds[i];
+      if (dep && resourceId) {
+        await emitDeployStarted({ deploymentId: dep.id, resourceId, reason: "git-push" });
+        // Refresh the framework brand mark on push too (best-effort, non-blocking)
+        // — matches the UI Deploy path so a push updates the icon without waiting
+        // for a successful build.
+        void detectAndPersistFramework(gitRepoId, resourceId).catch(() => undefined);
       }
     }
 
     await triggerDeploy({
-      projectId: p.id,
-      gitRepoId: repo.id,
+      projectId,
+      gitRepoId,
       ref: ev.ref,
       sha: ev.after,
       commitMessage: ev.head_commit?.message,
@@ -145,12 +170,5 @@ export async function handlePush(ev: PushEvent, deliveryId: string): Promise<Git
       deploymentIds: inserted.map((d) => d.id),
     });
   }
-
-  return {
-    kind: "push",
-    ref: ev.ref,
-    sha: ev.after,
-    deploymentsCreated,
-    projectsTouched: projects.length,
-  };
+  return created;
 }

@@ -25,10 +25,6 @@ export async function listProjectRecordsByOrg(organizationId: OrganizationId) {
       customDomain: project.customDomain,
       customDomainVerifiedAt: project.customDomainVerifiedAt,
       customDomainVerifyToken: project.customDomainVerifyToken,
-      gitRepoId: project.gitRepoId,
-      productionBranch: project.productionBranch,
-      containerRegistryId: project.containerRegistryId,
-      imageRepository: project.imageRepository,
       nixpacksConfig: project.nixpacksConfig,
       graphLayout: project.graphLayout,
       createdAt: project.createdAt,
@@ -114,15 +110,6 @@ export async function updateProjectRecord(input: {
     patch.customDomainVerifiedAt = null;
     patch.customDomainVerifyToken = null;
   }
-  if (input.gitRepoId !== undefined) {
-    patch.gitRepoId = input.gitRepoId as typeof project.$inferInsert.gitRepoId;
-  }
-  if (input.productionBranch !== undefined) patch.productionBranch = input.productionBranch;
-  if (input.containerRegistryId !== undefined) {
-    patch.containerRegistryId =
-      input.containerRegistryId as typeof project.$inferInsert.containerRegistryId;
-  }
-  if (input.imageRepository !== undefined) patch.imageRepository = input.imageRepository;
   if (input.nixpacksConfig !== undefined) patch.nixpacksConfig = input.nixpacksConfig;
 
   if (Object.keys(patch).length === 0) {

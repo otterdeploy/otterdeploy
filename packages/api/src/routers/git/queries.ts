@@ -1,7 +1,14 @@
-import type { GitInstallationId, OrganizationId } from "@otterdeploy/shared/id";
+import type { GitInstallationId, GitProviderId, OrganizationId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
-import { gitInstallation, gitProvider, gitRepo } from "@otterdeploy/db/schema";
+import {
+  gitInstallation,
+  gitProvider,
+  gitRepo,
+  project,
+  resource,
+  serviceResource,
+} from "@otterdeploy/db/schema";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 
 export async function listProvidersForOrg(organizationId: OrganizationId) {
@@ -60,6 +67,66 @@ export async function getInstallationForOrg(args: {
     )
     .limit(1);
   return inst[0];
+}
+
+/** Full provider row + its (single) installation with repo count — powers the
+ *  GitHub App detail page. Returns null when the provider isn't in this org. */
+export async function getProviderDetail(args: {
+  providerId: GitProviderId;
+  organizationId: OrganizationId;
+}) {
+  const [provider] = await db
+    .select()
+    .from(gitProvider)
+    .where(
+      and(eq(gitProvider.id, args.providerId), eq(gitProvider.organizationId, args.organizationId)),
+    )
+    .limit(1);
+  if (!provider) return null;
+
+  const [installation] = await db
+    .select({
+      installation: gitInstallation,
+      repoCount: sql<number>`coalesce((select count(*) from ${gitRepo} where ${gitRepo.installationId} = ${gitInstallation.id}), 0)::int`,
+    })
+    .from(gitInstallation)
+    .where(eq(gitInstallation.providerId, provider.id))
+    .orderBy(asc(gitInstallation.createdAt))
+    .limit(1);
+
+  return { provider, installation: installation ?? null };
+}
+
+/** Projects deploying from a repo owned by this provider's installation —
+ *  the "Resources" tab. */
+export async function listResourcesForProvider(args: {
+  providerId: GitProviderId;
+  organizationId: OrganizationId;
+}) {
+  // Repo binding lives on services now — list the (project, repo, branch) each
+  // git service bound to this provider's repos deploys from. Distinct so a
+  // project with several services on the same repo+branch collapses to one row,
+  // while a project deploying from multiple repos yields one row per repo.
+  return db
+    .selectDistinct({
+      projectId: project.id,
+      projectName: project.name,
+      projectSlug: project.slug,
+      productionBranch: serviceResource.branch,
+      repoFullName: gitRepo.fullName,
+    })
+    .from(serviceResource)
+    .innerJoin(resource, eq(resource.id, serviceResource.resourceId))
+    .innerJoin(project, eq(project.id, resource.projectId))
+    .innerJoin(gitRepo, eq(gitRepo.id, serviceResource.gitRepoId))
+    .innerJoin(gitInstallation, eq(gitInstallation.id, gitRepo.installationId))
+    .where(
+      and(
+        eq(gitInstallation.providerId, args.providerId),
+        eq(project.organizationId, args.organizationId),
+      ),
+    )
+    .orderBy(asc(project.name));
 }
 
 export async function listReposForInstallation(installationDbId: GitInstallationId) {

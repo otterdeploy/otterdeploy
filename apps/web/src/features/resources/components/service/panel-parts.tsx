@@ -4,7 +4,7 @@
  * restart / build / close), the status row, and the status badge live here.
  */
 
-import { ArrowLeft01Icon, Cancel01Icon, RefreshIcon, RocketIcon } from "@hugeicons/core-free-icons";
+import { Cancel01Icon, RefreshIcon, RocketIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import type { FrameworkKind } from "@/features/projects/components/framework-logo";
@@ -37,19 +37,14 @@ export function ServicePanelHeader({
   onBuild: () => void;
   building: boolean;
 }) {
+  // `pending:<ref>` is the placeholder image a service carries until its first
+  // successful build/deploy — so this service has never actually run yet.
+  const neverDeployed = resource.image.startsWith("pending:");
+  const isGit = resource.source === "git";
+
   return (
     <div className="flex items-start justify-between gap-4 px-6 pt-6">
       <div className="flex items-start gap-3">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Back to graph"
-          onClick={onClose}
-          className="mt-1"
-        >
-          <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="size-4" />
-        </Button>
         <PanelIcon
           node={{
             kind: "service",
@@ -68,20 +63,38 @@ export function ServicePanelHeader({
             service is still a staged create (Deploy from the pending bar). */}
         {pending ? null : (
           <>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={onRestart}
-              disabled={restarting}
-            >
-              <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} className="size-3.5" />
-              {restarting ? "Restarting…" : "Restart"}
-            </Button>
-            {resource.source === "git" ? (
+            {/* Restart only makes sense once something is actually running —
+                there's nothing to restart on a service that never deployed. */}
+            {!neverDeployed && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onRestart}
+                disabled={restarting}
+              >
+                <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} className="size-3.5" />
+                {restarting ? "Restarting…" : "Restart"}
+              </Button>
+            )}
+            {/* Primary deploy action. Git services build a fresh image from
+                HEAD (onBuild); image services re-roll their pinned image
+                (onRestart). Labelled Deploy the first time, Redeploy after. */}
+            {isGit ? (
               <Button type="button" size="sm" onClick={onBuild} disabled={building}>
                 <HugeiconsIcon icon={RocketIcon} strokeWidth={2} className="size-3.5" />
-                {building ? "Starting…" : "Build & deploy"}
+                {building
+                  ? neverDeployed
+                    ? "Deploying…"
+                    : "Redeploying…"
+                  : neverDeployed
+                    ? "Deploy"
+                    : "Redeploy"}
+              </Button>
+            ) : neverDeployed ? (
+              <Button type="button" size="sm" onClick={onRestart} disabled={restarting}>
+                <HugeiconsIcon icon={RocketIcon} strokeWidth={2} className="size-3.5" />
+                {restarting ? "Deploying…" : "Deploy"}
               </Button>
             ) : null}
           </>

@@ -18,6 +18,7 @@ import { registryRouter } from "./registry";
 import { serverRouter } from "./server";
 import { serviceRouter } from "./service";
 import { sshKeysRouter } from "./sshKeys";
+import { systemRouter } from "./system";
 import { terminalRouter } from "./terminal";
 
 export const appRouter = {
@@ -39,6 +40,7 @@ export const appRouter = {
   server: serverRouter,
   service: serviceRouter,
   sshKeys: sshKeysRouter,
+  system: systemRouter,
   terminal: terminalRouter,
 };
 export type AppRouter = typeof appRouter;

@@ -1,10 +1,19 @@
+import { isDefinedError } from "@orpc/client";
 import { MoreVerticalIcon, RefreshIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useMutation } from "@tanstack/react-query";
+import { Link, useParams } from "@tanstack/react-router";
 import { toast } from "sonner";
 
 import { SvglLogo } from "@/shared/components/brand/svgl-logo";
 import { Button } from "@/shared/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/shared/components/ui/dropdown-menu";
 import { cn } from "@/shared/lib/utils";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
@@ -19,7 +28,9 @@ import {
 } from "./shared";
 
 export function ConnectedProviderCard({ provider }: { provider: ProviderView }) {
+  const { orgSlug } = useParams({ from: "/_app/$orgSlug/git-providers" });
   const primary = provider.installations[0];
+  const reinstall = useGithubReinstall();
   if (!primary) return null;
 
   return (
@@ -32,7 +43,13 @@ export function ConnectedProviderCard({ provider }: { provider: ProviderView }) 
         />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[13.5px] font-semibold">{provider.displayName}</span>
+            <Link
+              to="/$orgSlug/github-app/$providerId"
+              params={{ orgSlug, providerId: provider.id }}
+              className="text-[13.5px] font-semibold hover:text-primary hover:underline"
+            >
+              {provider.displayName}
+            </Link>
             <StatusBadge installation={primary} />
             <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10.5px] font-medium tracking-wider text-muted-foreground uppercase">
               GitHub App
@@ -47,7 +64,7 @@ export function ConnectedProviderCard({ provider }: { provider: ProviderView }) 
             )}
           </div>
         </div>
-        <InstallationActions installation={primary} />
+        <InstallationActions installation={primary} providerId={provider.id} />
       </div>
 
       <div className="mt-3.5 flex items-center gap-6 border-t pt-3">
@@ -57,7 +74,16 @@ export function ConnectedProviderCard({ provider }: { provider: ProviderView }) 
         />
         <Stat label="Connected" value={formatRelative(primary.createdAt)} mono />
         <div className="flex-1" />
-        <RefreshButton installationId={primary.id} />
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={reinstall.run}
+          disabled={reinstall.isPending}
+          className="text-muted-foreground"
+        >
+          {reinstall.isPending ? "Redirecting…" : "Reinstall"}
+        </Button>
+        <RefreshButton installationId={primary.id} onReinstall={reinstall.run} />
       </div>
     </div>
   );
@@ -106,25 +132,65 @@ function InstallationActions({ installation }: { installation: InstallationView 
     },
     onError: (err) => toast.error(err.message ?? "Disconnect failed"),
   });
+
+  // GitHub's per-installation settings page (add/remove repos, uninstall).
+  const manageUrl =
+    installation.accountType === "organization"
+      ? `https://github.com/organizations/${installation.accountLogin}/settings/installations/${installation.installationId}`
+      : `https://github.com/settings/installations/${installation.installationId}`;
+
   return (
-    <div className="flex items-center gap-1">
-      <Button
-        size="sm"
-        variant="ghost"
-        className="text-destructive hover:text-destructive"
-        onClick={() => disconnect.mutate({ installationId: installation.id as never })}
-        disabled={disconnect.isPending}
-      >
-        Disconnect
-      </Button>
-      <Button size="icon-sm" variant="ghost" aria-label="More">
+    <DropdownMenu>
+      <DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label="More" />}>
         <HugeiconsIcon icon={MoreVerticalIcon} strokeWidth={2} />
-      </Button>
-    </div>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuItem
+          onClick={() => window.open(manageUrl, "_blank", "noopener,noreferrer")}
+        >
+          Manage on GitHub
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          className="text-destructive focus:text-destructive"
+          onClick={() => disconnect.mutate({ installationId: installation.id as never })}
+          disabled={disconnect.isPending}
+        >
+          Disconnect
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
-function RefreshButton({ installationId }: { installationId: string }) {
+/**
+ * Kicks off a GitHub App (re)install — `startConnect` returns a fresh install
+ * URL for the org's App and we hand the browser to GitHub. The install page is
+ * where the user picks the target account/org + repos; the callback then
+ * re-syncs a valid installation. This is the standard recovery when GitHub no
+ * longer recognizes an installation.
+ */
+function useGithubReinstall() {
+  const startConnect = useMutation({
+    ...orpc.git.startConnect.mutationOptions(),
+    onSuccess: (res) => {
+      window.location.href = res.redirectUrl;
+    },
+    onError: (err) => toast.error(err.message ?? "Couldn't start reinstall"),
+  });
+  return {
+    run: () => startConnect.mutate({ kind: "github" }),
+    isPending: startConnect.isPending,
+  };
+}
+
+function RefreshButton({
+  installationId,
+  onReinstall,
+}: {
+  installationId: string;
+  onReinstall: () => void;
+}) {
   const refresh = useMutation({
     ...orpc.git.refreshRepos.mutationOptions(),
     onSuccess: async (res) => {
@@ -133,7 +199,15 @@ function RefreshButton({ installationId }: { installationId: string }) {
       });
       toast.success(`Synced ${res.repoCount} repos`);
     },
-    onError: (err) => toast.error(err.message ?? "Sync failed"),
+    onError: (err) => {
+      // A no-longer-valid installation is recoverable — put "Reinstall" right
+      // in the toast so the failure isn't a dead end.
+      const needsReinstall = isDefinedError(err) && err.code === "REINSTALL_REQUIRED";
+      toast.error(
+        err.message ?? "Sync failed",
+        needsReinstall ? { action: { label: "Reinstall", onClick: onReinstall } } : undefined,
+      );
+    },
   });
   return (
     <Button

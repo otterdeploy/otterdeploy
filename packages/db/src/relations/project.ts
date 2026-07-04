@@ -22,16 +22,6 @@ export function projectRelations(r: RelationBuilder) {
         alias: "projectActiveEnvironment",
         optional: true,
       }),
-      gitRepo: r.one.gitRepo({
-        from: r.project.gitRepoId,
-        to: r.gitRepo.id,
-        optional: true,
-      }),
-      containerRegistry: r.one.containerRegistry({
-        from: r.project.containerRegistryId,
-        to: r.containerRegistry.id,
-        optional: true,
-      }),
       resources: r.many.resource(),
       teamMembers: r.many.teamMember(),
       projectEnvVars: r.many.projectEnvVar(),
@@ -168,7 +158,10 @@ export function registryRelations(r: RelationBuilder) {
         to: r.organization.id,
         optional: false,
       }),
-      projects: r.many.project(),
+      // No reverse to `project`: the registry binding moved onto the SERVICE
+      // (service_resource.container_registry_id / image_repository), so the
+      // project no longer FKs a registry. Add a `services` relation here if a
+      // registry→services query is ever needed.
     },
     deploymentLog: {
       deployment: r.one.deployment({

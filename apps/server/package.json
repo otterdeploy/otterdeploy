@@ -6,6 +6,7 @@
     "build": "tsdown",
     "compile": "bun build --compile --minify --sourcemap --bytecode ./src/index.ts --outfile server",
     "dev": "portless api.otterdeploy --force bun run --env-file ../../.env --hot src/index.ts",
+    "dev:funnel": " PORTLESS_FUNNEL=1 portless api.otterdeploy --force bun run --env-file ../../.env --hot src/index.ts",
     "start": "bun run dist/index.js",
     "typecheck": "tsc -b --checkers 4"
   },

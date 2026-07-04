@@ -21,6 +21,7 @@ import { useQuery } from "@tanstack/react-query";
 import * as m from "motion/react-client";
 import { AnimatePresence } from "motion/react";
 
+import { ResourcePanelSkeleton } from "@/features/resources/components/_shared/panel-skeleton";
 import { resourceCollection } from "@/features/resources/data/resource";
 import { orpc } from "@/shared/server/orpc";
 
@@ -226,9 +227,9 @@ function RouteComponent() {
         />
       );
     }
-    // Manifest still loading for a staged ghost — hold the panel blank rather
-    // than flashing "not found".
-    if (!resource && manifest.isLoading) return null;
+    // Manifest still loading for a staged ghost — show a skeleton so the drawer
+    // never slides in blank (rather than flashing "not found").
+    if (!resource && manifest.isLoading) return <ResourcePanelSkeleton />;
     return <NotFound id={resourceId} onClose={close} />;
   };
 
@@ -239,7 +240,7 @@ function RouteComponent() {
       animate={{ x: 0 }}
       exit={{ x: "100%" }}
       transition={{ type: "spring", stiffness: 320, damping: 32 }}
-      className="pointer-events-auto relative h-full w-full bg-card rounded-2xl rounded-tr-none border border-r-0 border-border lg:w-4/5 xl:w-3/5"
+      className="pointer-events-auto relative h-full w-full bg-card rounded-lg rounded-tr-none border border-r-0 border-border lg:w-4/5 xl:w-3/5"
     >
       {panel()}
 

@@ -1,20 +1,17 @@
 /**
- * Project settings — currently focused on the build-pipeline binding
- * (source → optional image target). Other project-level knobs (rename,
- * delete, custom domain) will join this page over time.
+ * Project settings. Git source + image target now live on each SERVICE (a
+ * project can hold services that build from different repos), so this page is
+ * project-level only: the custom domain its services land on. Per-service
+ * source/build/image config is edited in the service's Settings → Source card.
  */
+
+import { useState } from "react";
 
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 import { toast } from "sonner";
 
 import { DomainSection } from "@/features/projects/components/settings/domain-section";
-import { RegistrySection } from "@/features/projects/components/settings/registry-section";
-import { SourceSection } from "@/features/projects/components/settings/source-section";
-import {
-  useBindingFormState,
-  type ProjectBindingFields,
-} from "@/features/projects/components/settings/state";
 import { Button } from "@/shared/components/ui/button";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
@@ -23,21 +20,26 @@ export const Route = createFileRoute("/_app/$orgSlug/$projectSlug/settings")({
   component: SettingsRoute,
 });
 
-function SettingsRoute() {
-  const { project } = useLoaderData({ from: "/_app/$orgSlug/$projectSlug" });
-  return <BindingForm project={project as unknown as ProjectBindingFields} />;
+interface ProjectSettingsFields {
+  id: string;
+  customDomain: string | null;
+  customDomainVerifiedAt: Date | null;
 }
 
-function BindingForm({ project }: { project: ProjectBindingFields }) {
-  const { state, update, dirty } = useBindingFormState(project);
+function SettingsRoute() {
+  const { project } = useLoaderData({ from: "/_app/$orgSlug/$projectSlug" });
+  return <SettingsForm project={project as unknown as ProjectSettingsFields} />;
+}
+
+function SettingsForm({ project }: { project: ProjectSettingsFields }) {
+  const [customDomain, setCustomDomain] = useState(project.customDomain ?? "");
+  const dirty = customDomain.trim() !== (project.customDomain ?? "");
 
   const updateMut = useMutation({
     ...orpc.project.update.mutationOptions(),
     onSuccess: () => {
-      toast.success("Build settings saved");
-      void queryClient.invalidateQueries({
-        queryKey: orpc.project.list.queryKey(),
-      });
+      toast.success("Settings saved");
+      void queryClient.invalidateQueries({ queryKey: orpc.project.list.queryKey() });
       void queryClient.invalidateQueries({
         queryKey: orpc.project.get.queryKey({ input: { id: project.id as never } }),
       });
@@ -48,43 +50,24 @@ function BindingForm({ project }: { project: ProjectBindingFields }) {
   const onSave = () => {
     updateMut.mutate({
       id: project.id as never,
-      customDomain: state.customDomain.trim() || null,
-      gitRepoId: (state.gitRepoId ?? null) as never,
-      productionBranch: state.productionBranch.trim() || "main",
-      containerRegistryId: (state.containerRegistryId ?? null) as never,
-      imageRepository: state.imageRepository.trim() || null,
+      customDomain: customDomain.trim() || null,
     });
   };
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-6 py-6">
       <header>
-        <h1 className="text-[15px] font-semibold tracking-tight">
-          Build settings
-        </h1>
+        <h1 className="text-[15px] font-semibold tracking-tight">Settings</h1>
         <p className="text-[12.5px] text-muted-foreground">
-          How this project's services get from a git push to a running container.
+          Project-level settings. A service's git source, build, and image target are set on the
+          service itself, under Settings → Source.
         </p>
       </header>
 
       <DomainSection
-        customDomain={state.customDomain}
+        customDomain={customDomain}
         verifiedAt={project.customDomainVerifiedAt ?? null}
-        onCustomDomainChange={(v) => update("customDomain", v)}
-      />
-
-      <SourceSection
-        gitRepoId={state.gitRepoId}
-        productionBranch={state.productionBranch}
-        onGitRepoIdChange={(v) => update("gitRepoId", v)}
-        onProductionBranchChange={(v) => update("productionBranch", v)}
-      />
-
-      <RegistrySection
-        containerRegistryId={state.containerRegistryId}
-        imageRepository={state.imageRepository}
-        onContainerRegistryIdChange={(v) => update("containerRegistryId", v)}
-        onImageRepositoryChange={(v) => update("imageRepository", v)}
+        onCustomDomainChange={setCustomDomain}
       />
 
       <div className="flex justify-end gap-2 pt-1">

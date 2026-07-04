@@ -19,11 +19,12 @@ import type { ProjectId } from "@otterdeploy/shared/id";
 
 import { useState } from "react";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { markAppliedCreates } from "@/features/projects/components/graph/applied-creates-store";
 import { Button } from "@/shared/components/ui/button";
+import { Spinner } from "@/shared/components/ui/spinner";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 import { ChangeGroupCard, type DiffChange, groupChanges } from "./pending-changes-diff";
@@ -64,7 +65,8 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
     ]);
   };
 
-  const apply = async () => {
+  const applyMut = useMutation({
+    mutationFn: () => orpc.project.manifest.apply.call({ projectId, environment }),
     // Bridge the graph's ghost nodes BEFORE kicking off apply, not after.
     // apply() drains each resource's create stream, so the call runs for
     // seconds — and manifest.diff keeps polling on its 5s cadence the whole
@@ -73,23 +75,17 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
     // landed the row yet, the node belongs to neither source and blinks out,
     // then back when the row arrives. Recording the create keys up front keeps
     // those ghosts pinned across the entire apply + the post-apply refetch gap.
-    // Skipped creates stay ghosts via the diff's own create list anyway, and a
-    // 30s TTL evicts any key whose resource never lands. See applied-creates-store.
-    const appliedCreateKeys = (diff.data?.changes ?? [])
-      .filter((c) => c.kind === "create" && c.resource !== "env")
-      .map((c) => `${c.resource}:${c.name}`);
-    markAppliedCreates(projectId, appliedCreateKeys);
-
-    try {
-      const result = await orpc.project.manifest.apply.call({ projectId, environment });
-
+    onMutate: () => {
+      const appliedCreateKeys = (diff.data?.changes ?? [])
+        .filter((c) => c.kind === "create" && c.resource !== "env")
+        .map((c) => `${c.resource}:${c.name}`);
+      markAppliedCreates(projectId, appliedCreateKeys);
+    },
+    onSuccess: async (result) => {
       await refreshAll();
-
       // The reconciler reports per-resource failures in `skipped[]` rather
       // than throwing — a create that hits a missing build binding or an
-      // unresolved ${secret} lands here, not in the catch. Surfacing it is
-      // the difference between "Deploy did nothing and the pill is stuck
-      // forever" and an actionable error.
+      // unresolved ${secret} lands here, not in the catch.
       if (result.skipped.length > 0) {
         const detail = result.skipped.map((s) => `${s.resource} ${s.name}: ${s.reason}`).join("; ");
         if (result.appliedCount === 0) {
@@ -105,26 +101,26 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
         toast.success(`Applied ${result.appliedCount} change(s)`);
       }
       setExpanded(false);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      toast.error(message || "Apply failed");
-    }
-  };
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Apply failed"),
+  });
 
-  const discard = async () => {
-    try {
-      await orpc.project.manifest.discard.call({ projectId });
+  const discardMut = useMutation({
+    mutationFn: () => orpc.project.manifest.discard.call({ projectId }),
+    onSuccess: async () => {
       toast.success("Pending changes discarded");
       await refreshAll();
       setExpanded(false);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      toast.error(message || "Discard failed");
-    }
-  };
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Discard failed"),
+  });
 
+  const busy = applyMut.isPending || discardMut.isPending;
   const meaningful = (diff.data?.changes ?? []).filter((c): c is DiffChange => c.kind !== "no-op");
-  if (meaningful.length === 0) return null;
+  // Keep the bar mounted while deploying — otherwise the moment the diff poll
+  // sees a create's row land mid-apply it would report 0 changes and the bar
+  // (and its progress) would vanish before the deploy finishes.
+  if (meaningful.length === 0 && !applyMut.isPending) return null;
 
   // Group by (resource kind + name). One named resource may produce
   // multiple `env` rows; they all roll up under the parent service for
@@ -151,23 +147,28 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
             >
               ▸
             </span>
-            Apply {meaningful.length} change{meaningful.length === 1 ? "" : "s"}
+            {applyMut.isPending
+              ? "Deploying…"
+              : `Apply ${meaningful.length} change${meaningful.length === 1 ? "" : "s"}`}
           </button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => void discard()}
-            disabled={diff.isFetching}
-          >
+          <Button size="sm" variant="ghost" onClick={() => discardMut.mutate()} disabled={busy}>
             Discard
           </Button>
           <Button
             size="sm"
             variant="default"
-            onClick={() => void apply()}
-            disabled={diff.isFetching}
+            onClick={() => applyMut.mutate()}
+            disabled={busy}
+            className="gap-1.5"
           >
-            Deploy
+            {applyMut.isPending ? (
+              <>
+                <Spinner className="size-3.5" />
+                Deploying…
+              </>
+            ) : (
+              "Deploy"
+            )}
           </Button>
         </div>
         {expanded && (

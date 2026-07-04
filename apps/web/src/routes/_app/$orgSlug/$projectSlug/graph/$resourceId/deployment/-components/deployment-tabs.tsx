@@ -1,5 +1,7 @@
 import { Activity } from "react";
 
+import type { ProjectResource } from "@/features/projects/components/graph/resource-to-node";
+
 import {
   Tabs,
   TabsContent,
@@ -29,6 +31,7 @@ export function DeploymentTabs({
   tab,
   onTabChange,
   deployment,
+  resource,
   projectId,
   resourceId,
   deploymentId,
@@ -36,6 +39,7 @@ export function DeploymentTabs({
   tab: DeploymentTab;
   onTabChange: (tab: DeploymentTab) => void;
   deployment: DeploymentRow | null;
+  resource: ProjectResource | undefined;
   projectId: string;
   resourceId: string;
   deploymentId: string;
@@ -77,6 +81,7 @@ export function DeploymentTabs({
             <Activity mode={tab === "details" ? "visible" : "hidden"}>
               <DeploymentDetailsBody
                 deployment={deployment}
+                resource={resource}
                 projectId={projectId}
                 resourceId={resourceId}
                 deploymentId={deploymentId}

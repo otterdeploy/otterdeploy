@@ -15,7 +15,7 @@
  */
 
 import type { BuildConfig } from "@otterdeploy/shared/build-config";
-import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { GitRepoId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type * as z from "zod";
 
 import type { createServiceInput, updateServiceInput } from "./contract";
@@ -80,6 +80,11 @@ export interface CreateServiceInput extends Omit<
   preDeploy?: string[] | null;
   postDeploy?: string[] | null;
   buildConfig?: BuildConfigInput | null;
+  // Per-service git binding (git source only), set by the manifest reconciler
+  // after resolving the manifest's portable `owner/repo` to a git_repo row.
+  gitRepoId?: GitRepoId | null;
+  branch?: string | null;
+  imageRepository?: string | null;
 }
 
 export interface UpdateServiceInput extends Omit<
@@ -92,6 +97,9 @@ export interface UpdateServiceInput extends Omit<
   preDeploy?: string[] | null;
   postDeploy?: string[] | null;
   buildConfig?: BuildConfigInput | null;
+  gitRepoId?: GitRepoId | null;
+  branch?: string | null;
+  imageRepository?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -158,6 +166,9 @@ export function toCreateRecordPayload(
     status: "draft" as const,
     source: input.source ?? "image",
     sourceSubdir: input.sourceSubdir ?? null,
+    gitRepoId: input.gitRepoId ?? null,
+    branch: input.branch ?? null,
+    imageRepository: input.imageRepository ?? null,
     image: input.image,
     command: input.command ?? null,
     entrypoint: input.entrypoint ?? null,
@@ -221,5 +232,10 @@ export function toUpdateRecordPatch(input: UpdateServiceInput) {
     preDeploy: input.preDeploy,
     postDeploy: input.postDeploy,
     buildConfig: input.buildConfig,
+    // Per-service git rebinding. undefined → left alone (omitUndefined in
+    // updateServiceRecord); an explicit value/null sets or clears the binding.
+    gitRepoId: input.gitRepoId,
+    branch: input.branch,
+    imageRepository: input.imageRepository,
   };
 }
