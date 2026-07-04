@@ -56,7 +56,10 @@ export async function teardownPreviewEnvironment(
     );
   for (const svc of services) {
     const serviceName = runtimeServiceName(svc.serviceName, scope);
-    await best(() => runtime().destroy({ serviceName }, rlog), { step: "destroy-service", serviceName });
+    await best(() => runtime().destroy({ serviceName }, rlog), {
+      step: "destroy-service",
+      serviceName,
+    });
   }
 
   // 2. Destroy + delete the branched databases (container + volume + row).
@@ -82,7 +85,10 @@ export async function teardownPreviewEnvironment(
         ),
       { step: "destroy-branch", db: br.resource.name },
     );
-    await best(() => deleteResourceById(br.resource.id), { step: "delete-branch-row", db: br.resource.name });
+    await best(() => deleteResourceById(br.resource.id), {
+      step: "delete-branch-row",
+      db: br.resource.name,
+    });
   }
   // TODO(domains): remove the preview's env-scoped proxy_routes + reconcile Caddy
   // once the domain wiring lands.

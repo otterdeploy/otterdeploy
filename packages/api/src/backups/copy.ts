@@ -47,7 +47,11 @@ export async function pgRestoreFromBuffer(
 ): Promise<void> {
   const tmp = `/tmp/branch-restore-${tag}.dump`;
   const b64 = archive.toString("base64");
-  await execCapture(docker, containerId, ["sh", "-c", `echo ${shellQuote(b64)} | base64 -d > ${tmp}`]);
+  await execCapture(docker, containerId, [
+    "sh",
+    "-c",
+    `echo ${shellQuote(b64)} | base64 -d > ${tmp}`,
+  ]);
   // Allow non-zero at the exec layer only so we can capture stderr and surface
   // it — a silent success on a failed restore would hide a broken branch.
   const restore = await execCapture(
@@ -65,6 +69,8 @@ export async function pgRestoreFromBuffer(
   // Separate exec so its exit can't mask pg_restore's.
   await execCapture(docker, containerId, ["rm", "-f", tmp], { allowNonZero: true });
   if (restore.exitCode !== 0) {
-    throw new Error(`pg_restore failed (exit ${restore.exitCode}): ${restore.stderr.slice(0, 2000)}`);
+    throw new Error(
+      `pg_restore failed (exit ${restore.exitCode}): ${restore.stderr.slice(0, 2000)}`,
+    );
   }
 }

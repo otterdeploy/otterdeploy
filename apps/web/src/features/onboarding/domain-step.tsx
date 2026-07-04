@@ -18,7 +18,10 @@ const domainSchema = z.object({
   baseDomain: z
     .string()
     .trim()
-    .refine((v) => HOSTNAME_RE.test(v), "Enter a hostname like apps.acme.com — no http://, no path"),
+    .refine(
+      (v) => HOSTNAME_RE.test(v),
+      "Enter a hostname like apps.acme.com — no http://, no path",
+    ),
 });
 
 export function DomainStep({
@@ -79,9 +82,9 @@ export function DomainStep({
                 <>
                   A service <span className="font-mono text-foreground">web</span> in project{" "}
                   <span className="font-mono text-foreground">store</span> is published at{" "}
-                  <span className="font-mono text-foreground">web-store.apps.acme.com</span>. Point a
-                  wildcard <span className="font-mono text-foreground">*.apps.acme.com</span> record
-                  (and <span className="font-mono text-foreground">*.db.acme.com</span> for
+                  <span className="font-mono text-foreground">web-store.apps.acme.com</span>. Point
+                  a wildcard <span className="font-mono text-foreground">*.apps.acme.com</span>{" "}
+                  record (and <span className="font-mono text-foreground">*.db.acme.com</span> for
                   databases) at this server.
                 </>
               }
@@ -93,7 +96,9 @@ export function DomainStep({
           )}
         </form.Field>
 
-        <form.Subscribe selector={(s) => ({ isSubmitting: s.isSubmitting, canSubmit: s.canSubmit })}>
+        <form.Subscribe
+          selector={(s) => ({ isSubmitting: s.isSubmitting, canSubmit: s.canSubmit })}
+        >
           {({ isSubmitting, canSubmit }) => (
             <WizardActions
               onSkip={onSkip}

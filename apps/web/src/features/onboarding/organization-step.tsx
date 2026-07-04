@@ -91,7 +91,9 @@ export function OrganizationStep({ onComplete }: { onComplete: (org: CreatedOrg)
           )}
         </form.Field>
 
-        <form.Subscribe selector={(s) => ({ isSubmitting: s.isSubmitting, canSubmit: s.canSubmit })}>
+        <form.Subscribe
+          selector={(s) => ({ isSubmitting: s.isSubmitting, canSubmit: s.canSubmit })}
+        >
           {({ isSubmitting, canSubmit }) => (
             <WizardActions
               submitLabel="Continue"

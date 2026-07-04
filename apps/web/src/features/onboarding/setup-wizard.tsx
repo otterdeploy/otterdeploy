@@ -1,16 +1,18 @@
+import type { ProjectSlug } from "@otterdeploy/shared/id";
+
 import { useState } from "react";
 
 import { Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useNavigate } from "@tanstack/react-router";
-import type { ProjectSlug } from "@otterdeploy/shared/id";
 
 import { cn } from "@/shared/lib/utils";
+
+import type { CreatedOrg } from "./shared";
 
 import { DomainStep } from "./domain-step";
 import { OrganizationStep } from "./organization-step";
 import { ProjectStep } from "./project-step";
-import type { CreatedOrg } from "./shared";
 import { WizardShell } from "./wizard-shell";
 
 type StepId = "organization" | "domain" | "project";
@@ -72,7 +74,8 @@ export function SetupWizard({ initialOrg = null }: { initialOrg?: CreatedOrg | n
                       className={cn(
                         "flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] font-medium transition-colors",
                         state === "active" && "bg-primary text-primary-foreground",
-                        state === "done" && "bg-foreground/[0.04] text-foreground ring-1 ring-foreground/15",
+                        state === "done" &&
+                          "bg-foreground/[0.04] text-foreground ring-1 ring-foreground/15",
                         state === "upcoming" && "text-muted-foreground ring-1 ring-foreground/10",
                       )}
                       aria-current={state === "active" ? "step" : undefined}

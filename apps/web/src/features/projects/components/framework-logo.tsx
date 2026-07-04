@@ -13,8 +13,6 @@ import type { Framework } from "@otterdeploy/shared/framework";
 
 import type { SVGProps } from "react";
 
-import { cn } from "@/shared/lib/utils";
-
 import { Astro } from "@/shared/components/ui/svgs/astro";
 import { BunLogo } from "@/shared/components/ui/svgs/bun";
 import { Express } from "@/shared/components/ui/svgs/express";
@@ -33,6 +31,7 @@ import { Rust } from "@/shared/components/ui/svgs/rust";
 import { Svelte } from "@/shared/components/ui/svgs/svelte";
 import { Vite } from "@/shared/components/ui/svgs/vite";
 import { Vuejs } from "@/shared/components/ui/svgs/vuejs";
+import { cn } from "@/shared/lib/utils";
 
 // Canonical set lives in @otterdeploy/shared/framework (shared with the DB
 // column, the resource contract, and the builder's detector). The non-null

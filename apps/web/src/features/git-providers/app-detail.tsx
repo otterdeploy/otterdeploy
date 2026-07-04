@@ -1,6 +1,6 @@
-import { useState, type ReactNode } from "react";
-
 import type { GitProviderId } from "@otterdeploy/shared/id";
+
+import { useState, type ReactNode } from "react";
 
 import { RefreshIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -152,7 +152,13 @@ export function PermissionsTab({ provider }: { provider: ProviderData }) {
 
 // ─── Resources ───
 
-export function ResourcesTab({ orgSlug, providerId }: { orgSlug: string; providerId: GitProviderId }) {
+export function ResourcesTab({
+  orgSlug,
+  providerId,
+}: {
+  orgSlug: string;
+  providerId: GitProviderId;
+}) {
   const query = useQuery(orpc.git.resources.queryOptions({ input: { providerId } }));
 
   if (query.isLoading) {

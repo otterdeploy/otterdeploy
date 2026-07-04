@@ -1,7 +1,8 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { SetupWizard } from "@/features/onboarding/setup-wizard";
 import type { CreatedOrg } from "@/features/onboarding/shared";
+
+import { SetupWizard } from "@/features/onboarding/setup-wizard";
 import { authClient } from "@/lib/auth-client";
 
 export const Route = createFileRoute("/onboarding/create-organization")({

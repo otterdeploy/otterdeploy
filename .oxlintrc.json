@@ -233,9 +233,7 @@
       }
     },
     {
-      "files": [
-        "apps/web/src/routes/**/deployment/-components/deployment-detail.tsx"
-      ],
+      "files": ["apps/web/src/routes/**/deployment/-components/deployment-detail.tsx"],
       "rules": {
         "max-lines": ["error", { "max": 520, "skipBlankLines": true, "skipComments": true }]
       }

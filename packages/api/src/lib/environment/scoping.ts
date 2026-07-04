@@ -50,10 +50,7 @@ export function runtimeServiceName(
  * domain-resolution chain appends the project/base domain (so the full host
  * becomes `web-pr-123.<base>`). Persistent envs return the base label unchanged.
  */
-export function previewHostLabel(
-  baseLabel: string,
-  env: EnvScope | null | undefined,
-): string {
+export function previewHostLabel(baseLabel: string, env: EnvScope | null | undefined): string {
   if (!isPreviewEnv(env)) return baseLabel;
   return `${baseLabel}-${previewSlug(env)}`;
 }

@@ -1,6 +1,6 @@
-import { isDefinedError } from "@orpc/client";
 import { MoreVerticalIcon, RefreshIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { isDefinedError } from "@orpc/client";
 import { useMutation } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -145,9 +145,7 @@ function InstallationActions({ installation }: { installation: InstallationView 
         <HugeiconsIcon icon={MoreVerticalIcon} strokeWidth={2} />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
-        <DropdownMenuItem
-          onClick={() => window.open(manageUrl, "_blank", "noopener,noreferrer")}
-        >
+        <DropdownMenuItem onClick={() => window.open(manageUrl, "_blank", "noopener,noreferrer")}>
           Manage on GitHub
         </DropdownMenuItem>
         <DropdownMenuSeparator />

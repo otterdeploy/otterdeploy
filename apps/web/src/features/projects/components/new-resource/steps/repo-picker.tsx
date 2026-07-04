@@ -100,7 +100,11 @@ export function RepoPicker({
         </div>
       ) : null}
 
-      <div className={installations.length > 1 ? "flex flex-col gap-1.5" : "flex flex-col gap-1.5 sm:col-span-2"}>
+      <div
+        className={
+          installations.length > 1 ? "flex flex-col gap-1.5" : "flex flex-col gap-1.5 sm:col-span-2"
+        }
+      >
         <Label className="text-[12px]">Repository</Label>
         {reposQuery.isLoading ? (
           <div className="flex h-8 items-center gap-2 rounded-md border bg-muted/20 px-3 text-[12px] text-muted-foreground">

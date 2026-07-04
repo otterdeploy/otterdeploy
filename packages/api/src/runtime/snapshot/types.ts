@@ -1,3 +1,5 @@
+import type { RequestLogger } from "evlog";
+
 /**
  * SnapshotDriver abstraction — the copy-on-write DB-branching seam, consistent
  * with the `RuntimeDriver` pattern. A `SnapshotDriver` knows how to materialize
@@ -10,7 +12,6 @@
  * See docs/designs/pr-previews.md §4.1.
  */
 import { DATABASE_ENGINES, type DatabaseEngine } from "@otterdeploy/shared/database-engines";
-import type { RequestLogger } from "evlog";
 import * as z from "zod";
 
 // Engine value set, derived from the shared catalog so adding an engine there
@@ -43,7 +44,10 @@ export interface SnapshotDriver {
   /** Materialize targetVolume as a branch of sourceVolume. Returns a ref for teardown. */
   branch(input: BranchInput, log?: RequestLogger): Promise<BranchResult>;
   /** Remove the branch volume (+ snapshot) on teardown. */
-  destroy(input: { targetVolume: string; snapshotRef: string | null }, log?: RequestLogger): Promise<void>;
+  destroy(
+    input: { targetVolume: string; snapshotRef: string | null },
+    log?: RequestLogger,
+  ): Promise<void>;
   /** Boot-time probe: is this strategy usable on this host? */
   probe(): Promise<boolean>;
 }

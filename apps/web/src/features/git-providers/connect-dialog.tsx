@@ -25,13 +25,9 @@ import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import * as z from "zod";
 
+import { SvglLogo } from "@/shared/components/brand/svgl-logo";
 import { Button } from "@/shared/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/shared/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
 import { Field, FieldError, FieldLabel } from "@/shared/components/ui/field";
 import { Input } from "@/shared/components/ui/input";
 import { Spinner } from "@/shared/components/ui/spinner";
@@ -39,7 +35,6 @@ import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
 import { PROVIDER_SEARCH } from "./shared";
-import { SvglLogo } from "@/shared/components/brand/svgl-logo";
 
 interface ConnectDialogProps {
   open: boolean;
@@ -56,7 +51,10 @@ const schema = z.object({
 
 /** Strip scheme/trailing slash; treat empty or github.com as "no GHE host". */
 function normalizeHost(raw: string | undefined): string | undefined {
-  const h = (raw ?? "").trim().replace(/^https?:\/\//, "").replace(/\/+$/, "");
+  const h = (raw ?? "")
+    .trim()
+    .replace(/^https?:\/\//, "")
+    .replace(/\/+$/, "");
   return !h || h === "github.com" ? undefined : h;
 }
 
@@ -208,11 +206,7 @@ export function ConnectDialog({ open, onOpenChange }: ConnectDialogProps) {
 
           <form.Subscribe selector={(s) => ({ canSubmit: s.canSubmit })}>
             {({ canSubmit }) => (
-              <Button
-                type="submit"
-                size="lg"
-                disabled={!canSubmit || startManifest.isPending}
-              >
+              <Button type="submit" size="lg" disabled={!canSubmit || startManifest.isPending}>
                 <SvglLogo search={PROVIDER_SEARCH.github} fallback="GitHub" size={18} />
                 {startManifest.isPending ? "Redirecting…" : "Continue on GitHub"}
               </Button>

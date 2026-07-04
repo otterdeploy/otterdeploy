@@ -120,7 +120,9 @@ export function OrganizationStep({ onComplete }: { onComplete: (org: CreatedOrg)
           )}
         </form.Field>
 
-        <form.Subscribe selector={(s) => ({ isSubmitting: s.isSubmitting, canSubmit: s.canSubmit })}>
+        <form.Subscribe
+          selector={(s) => ({ isSubmitting: s.isSubmitting, canSubmit: s.canSubmit })}
+        >
           {({ isSubmitting, canSubmit }) => (
             <WizardActions
               submitLabel="Continue"
@@ -148,7 +150,10 @@ const domainSchema = z.object({
   baseDomain: z
     .string()
     .trim()
-    .refine((v) => HOSTNAME_RE.test(v), "Enter a hostname like apps.acme.com — no http://, no path"),
+    .refine(
+      (v) => HOSTNAME_RE.test(v),
+      "Enter a hostname like apps.acme.com — no http://, no path",
+    ),
 });
 
 export function DomainStep({
@@ -227,7 +232,9 @@ export function DomainStep({
           you add one.
         </p>
 
-        <form.Subscribe selector={(s) => ({ isSubmitting: s.isSubmitting, canSubmit: s.canSubmit })}>
+        <form.Subscribe
+          selector={(s) => ({ isSubmitting: s.isSubmitting, canSubmit: s.canSubmit })}
+        >
           {({ isSubmitting, canSubmit }) => (
             <WizardActions
               onSkip={onSkip}
@@ -330,7 +337,9 @@ export function ProjectStep({
           )}
         </form.Field>
 
-        <form.Subscribe selector={(s) => ({ isSubmitting: s.isSubmitting, canSubmit: s.canSubmit })}>
+        <form.Subscribe
+          selector={(s) => ({ isSubmitting: s.isSubmitting, canSubmit: s.canSubmit })}
+        >
           {({ isSubmitting, canSubmit }) => (
             <WizardActions
               onSkip={onSkip}

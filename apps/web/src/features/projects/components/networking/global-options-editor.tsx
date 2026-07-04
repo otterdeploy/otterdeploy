@@ -15,11 +15,7 @@ import { EarthIcon } from "@hugeicons/core-free-icons";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import {
-  SettingsFooter,
-  SettingsRow,
-  SettingsSection,
-} from "@/shared/components/settings-section";
+import { SettingsFooter, SettingsRow, SettingsSection } from "@/shared/components/settings-section";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Skeleton } from "@/shared/components/ui/skeleton";

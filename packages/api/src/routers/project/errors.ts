@@ -45,7 +45,6 @@ export class ProjectConflictError extends TaggedError("ProjectConflictError")<{
   }
 }
 
-
 // ---------------------------------------------------------------------------
 // Postgres resource lifecycle errors
 // ---------------------------------------------------------------------------
