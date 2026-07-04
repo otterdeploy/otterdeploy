@@ -34,7 +34,7 @@ import {
 import { createAuthMiddleware } from "evlog/better-auth";
 import { evlog, type EvlogVariables } from "evlog/hono";
 import { Hono } from "hono";
-import { upgradeWebSocket, websocket } from "hono/bun";
+import { serveStatic, upgradeWebSocket, websocket } from "hono/bun";
 import { cors } from "hono/cors";
 
 import {
@@ -204,10 +204,6 @@ app.get(
   })),
 );
 
-app.get("/", (c) => {
-  return c.text("OK");
-});
-
 // Liveness + version. `/health` is what the prod compose healthcheck probes;
 // `/api/health` (already auth-excluded) is what the browser polls to detect the
 // new container after a self-update cutover, then reloads. Reports the running
@@ -251,6 +247,16 @@ app.get("/.well-known/otterdeploy/share", deployShareHandler);
 app.get("/.well-known/otterdeploy/access", deployAccessHandler);
 app.post("/.well-known/otterdeploy/otp/request", deployOtpRequestHandler);
 app.post("/.well-known/otterdeploy/otp/verify", deployOtpVerifyHandler);
+
+// ─── Static web dashboard (production single-image) ────────────────────────
+// The published server image bundles the built SPA at ./public and serves it on
+// the SAME origin as the API. Registered after every API/rpc/auth route so those
+// win; `identify` only gates /api/**, so the shell + assets load unauthenticated
+// and the client then calls the authenticated rpc/api. Unknown paths fall back
+// to index.html so client-side (TanStack Router) deep links resolve. In dev the
+// web app is served by Vite and ./public simply doesn't exist (these no-op).
+app.use("/*", serveStatic({ root: "./public" }));
+app.get("/*", serveStatic({ path: "index.html", root: "./public" }));
 
 // Live streams (deployment build logs, project events, container/task log
 // tails) all run over oRPC event-iterators on /rpc — see packages/api. The

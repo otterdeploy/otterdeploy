@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
     paths:
+      - apps/server/**
+      - apps/web/**
       - apps/builder/**
       - infra/caddy/**
       - packages/**
@@ -27,7 +29,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: [builder, caddy]
+        image: [server, builder, caddy]
         arch: [amd64, arm64]
         include:
           - arch: amd64
@@ -36,8 +38,12 @@ jobs:
           - arch: arm64
             runner: ubuntu-24.04-arm
             platform: linux/arm64
-          # builder needs the full repo (COPY . . + bun install); caddy's
+          # server + builder need the full repo (COPY . . + bun install); the
+          # server image also builds the web SPA into its own image. caddy's
           # Dockerfile pulls nothing from the local context.
+          - image: server
+            context: .
+            dockerfile: apps/server/Dockerfile
           - image: builder
             context: .
             dockerfile: apps/builder/Dockerfile
@@ -64,7 +70,7 @@ jobs:
           file: ${{ matrix.dockerfile }}
           platforms: ${{ matrix.platform }}
           push: true
-          tags: ${{ env.REGISTRY }}/${{ github.repository_owner }}/otterdeploy-${{ matrix.image }}:latest-${{ matrix.arch }}
+          tags: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.image }}:latest-${{ matrix.arch }}
           # GitHub Actions layer cache (scoped per image+arch).
           cache-from: type=gha,scope=${{ matrix.image }}-${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}-${{ matrix.arch }}
@@ -75,7 +81,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        image: [builder, caddy]
+        image: [server, builder, caddy]
     steps:
       - uses: docker/setup-buildx-action@v3
 
@@ -88,7 +94,7 @@ jobs:
 
       - name: Create & push multi-arch manifest
         env:
-          IMAGE: ${{ env.REGISTRY }}/${{ github.repository_owner }}/otterdeploy-${{ matrix.image }}
+          IMAGE: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.image }}
         run: |
           docker buildx imagetools create -t "${IMAGE}:latest" \
             "${IMAGE}:latest-amd64" \
