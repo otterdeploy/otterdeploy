@@ -27,9 +27,9 @@ import { log } from "evlog";
 import type { GithubWebhookResult, PullRequestEvent } from "./types";
 
 import { emitDeployStarted } from "../routers/project/deployments";
-import { createCommitStatus, upsertPrComment } from "./github-app";
-import { ensurePreviewEnvironment, markPreviewEnvironmentsClosed } from "./preview-env";
 import { branchProjectDatabases } from "./preview-db";
+import { ensurePreviewEnvironment, markPreviewEnvironmentsClosed } from "./preview-env";
+import { report } from "./preview-report";
 import { teardownPreviewEnvironment } from "./preview-teardown";
 
 const PREVIEW_ACTIONS = new Set(["opened", "reopened", "synchronize"]);
@@ -96,7 +96,10 @@ export async function handlePullRequest(
 /** Sanitized `owner-repo` slug — qualifies preview env slugs/DB branch names so
  *  two repos in one project never collide on the same PR number. */
 function repoSlug(repo: RepoRow): string {
-  return repo.fullName.replace(/[^a-z0-9-]+/gi, "-").replace(/^-+|-+$/g, "").toLowerCase();
+  return repo.fullName
+    .replace(/[^a-z0-9-]+/gi, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase();
 }
 
 /** Owner/repo/installation context for reporting back to GitHub. */
@@ -184,7 +187,10 @@ async function deployPreviews(
       catch: (cause) => cause,
     });
     if (branched.isErr()) {
-      log.warn({ github: { event: "pull_request", step: "branch-db", prNumber: pr.number }, err: branched.error });
+      log.warn({
+        github: { event: "pull_request", step: "branch-db", prNumber: pr.number },
+        err: branched.error,
+      });
     }
     deploymentsCreated += await deployProjectPreview(p, repo, ev, env.id as EnvironmentId);
   }
@@ -263,54 +269,4 @@ async function deployProjectPreview(
     deploymentIds: inserted.map((d) => d.id),
   });
   return inserted.length;
-}
-
-/**
- * Report preview state back to GitHub — best-effort: a GitHub API failure must
- * never fail the webhook (it returns 200 so GitHub stops retrying), so each call
- * is wrapped and only logged on error.
- */
-async function report(input: {
-  installationId: string | null;
-  owner: string | undefined;
-  repo: string | undefined;
-  prNumber: number;
-  sha: string;
-  phase: "building" | "closed";
-}): Promise<void> {
-  const { installationId, owner, repo, prNumber, sha, phase } = input;
-  // Public repos have no installation and can't be written to via an App token.
-  if (!installationId || !owner || !repo) return;
-
-  const body =
-    phase === "building"
-      ? `**Preview environment** for PR #${prNumber} is building… otterdeploy will update this comment when it's live.`
-      : `**Preview environment** for PR #${prNumber} has been torn down.`;
-
-  const comment = await Result.tryPromise({
-    try: () => upsertPrComment({ installationId, owner, repo, prNumber, body }),
-    catch: (cause) => cause,
-  });
-  if (comment.isErr()) {
-    log.warn({ github: { event: "pull_request", step: "comment", prNumber }, err: comment.error });
-  }
-
-  if (phase === "building") {
-    const status = await Result.tryPromise({
-      try: () =>
-        createCommitStatus({
-          installationId,
-          owner,
-          repo,
-          sha,
-          state: "pending",
-          description: "Preview building…",
-          context: "otterdeploy/preview",
-        }),
-      catch: (cause) => cause,
-    });
-    if (status.isErr()) {
-      log.warn({ github: { event: "pull_request", step: "status", prNumber }, err: status.error });
-    }
-  }
 }
