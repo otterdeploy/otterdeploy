@@ -113,7 +113,11 @@ services:
 
   # ── build worker (git-sourced services) ───────────────────────────────────
   builder:
-    image: ${OTTERDEPLOY_REGISTRY:-ghcr.io/otterdeploy}/builder:${OTTERDEPLOY_VERSION:-latest}
+    # SAME image as `server` (unified) — the build worker is just a different
+    # command (bun runs the builder's TS source) on top of the docker CLI +
+    # buildx + railpack toolchain the image already carries.
+    image: ${OTTERDEPLOY_REGISTRY:-ghcr.io/otterdeploy}/server:${OTTERDEPLOY_VERSION:-latest}
+    command: ["bun", "run", "src/index.ts"]
     restart: unless-stopped
     env_file:
       - .env
@@ -122,8 +126,9 @@ services:
       REDIS_URL: redis://redis:6379
       # Per-build helper containers: which image to spawn + which network to
       # attach them to (the shared otterdeploy network, so they resolve
-      # postgres/redis by name).
-      BUILDER_HELPER_IMAGE: ${OTTERDEPLOY_REGISTRY:-ghcr.io/otterdeploy}/builder:${OTTERDEPLOY_VERSION:-latest}
+      # postgres/redis by name). Same unified image; the helper's command
+      # (bun run src/build-one.ts) is set by the worker (handler.ts).
+      BUILDER_HELPER_IMAGE: ${OTTERDEPLOY_REGISTRY:-ghcr.io/otterdeploy}/server:${OTTERDEPLOY_VERSION:-latest}
       BUILDER_HELPER_NETWORK: ${OTTERDEPLOY_NETWORK:-otterdeploy}
       OTTERDEPLOY_DATA_DIR: ${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}
     volumes:

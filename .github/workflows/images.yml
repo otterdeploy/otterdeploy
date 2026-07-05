@@ -38,7 +38,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: [server, builder, caddy]
+        # `server` is now ONE image for both the control-plane server AND the
+        # builder worker (roles picked by command in docker-compose.prod.yml) —
+        # apps/builder/Dockerfile was retired. caddy is separate.
+        image: [server, caddy]
         arch: [amd64, arm64]
         include:
           - arch: amd64
@@ -47,15 +50,12 @@ jobs:
           - arch: arm64
             runner: ubuntu-24.04-arm
             platform: linux/arm64
-          # server + builder need the full repo (COPY . . + bun install); the
-          # server image also builds the web SPA into its own image. caddy's
-          # Dockerfile pulls nothing from the local context.
+          # server needs the full repo (COPY . . + bun install) and builds the
+          # web SPA into itself. caddy's Dockerfile pulls nothing from the local
+          # context.
           - image: server
             context: .
             dockerfile: apps/server/Dockerfile
-          - image: builder
-            context: .
-            dockerfile: apps/builder/Dockerfile
           - image: caddy
             context: infra/caddy
             dockerfile: infra/caddy/Dockerfile
@@ -90,7 +90,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        image: [server, builder, caddy]
+        image: [server, caddy]
     steps:
       - uses: docker/setup-buildx-action@v3
 
