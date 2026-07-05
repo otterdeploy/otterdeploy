@@ -136,8 +136,13 @@ export function RealResourcePanel({
                 </TabsContent>
               )}
 
+              {/* keepMounted: panels stay in the DOM (hidden) across tab
+                  switches, so the Data studio's open table / SQL buffer and
+                  half-edited forms don't reset. Deployments/Metrics stay
+                  unmount-on-leave: they're pollers; unmounting stops their
+                  intervals while hidden. */}
               {!pending && (
-                <TabsContent value="data" className="min-h-0 px-6 pt-5 pb-6">
+                <TabsContent value="data" keepMounted className="min-h-0 px-6 pt-5 pb-6">
                   <DatabaseDataTab resource={resource} />
                 </TabsContent>
               )}
@@ -148,11 +153,11 @@ export function RealResourcePanel({
                 </TabsContent>
               )}
 
-              <TabsContent value="variables" className="px-6 pt-5 pb-6">
+              <TabsContent value="variables" keepMounted className="px-6 pt-5 pb-6">
                 <PostgresVariablesTabBody resource={resource} pending={pending} dbName={dbName} />
               </TabsContent>
 
-              <TabsContent value="settings" className="px-6 pt-5 pb-8">
+              <TabsContent value="settings" keepMounted className="px-6 pt-5 pb-8">
                 <PostgresSettingsBody
                   resource={resource}
                   onDeleted={onClose}

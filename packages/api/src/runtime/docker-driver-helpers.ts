@@ -105,8 +105,17 @@ export async function removeContainerByName(docker: Docker, name: string): Promi
   const existing = await findContainer(docker, name);
   if (!existing) return;
   const container = docker.containers.getContainer(existing.Id);
+  // Stop may legitimately fail (already exited / never started) — the forced
+  // remove below is what matters.
   await container.stop({ t: 10 });
-  await container.remove({ force: true, v: false });
+  const removed = await container.remove({ force: true, v: false });
+  if (removed.isErr()) {
+    // Swallowing this used to let the follow-up create run head-first into a
+    // docker 409 name Conflict. Only tolerate the failure when the container
+    // is genuinely gone (e.g. a concurrent removal won the race).
+    const still = await findContainer(docker, name);
+    if (still) throw removed.error;
+  }
 }
 
 export function mapStatus(summary: Summary | null): RuntimeStatus["status"] {
@@ -235,9 +244,18 @@ export async function createAndStart(
   name: string,
   networkName: string,
 ): Promise<RuntimeStatus> {
-  const created = await docker.containers.create(
+  let created = await docker.containers.create(
     options as Parameters<Docker["containers"]["create"]>[0],
   );
+  // Self-heal a name Conflict once: a leftover container from a failed prior
+  // deploy (or a racing one) owns the name — remove it and retry, instead of
+  // surfacing docker's "you have to remove that container" at the operator.
+  if (created.isErr() && /container name .* already in use/i.test(created.error.message)) {
+    await removeContainerByName(docker, name);
+    created = await docker.containers.create(
+      options as Parameters<Docker["containers"]["create"]>[0],
+    );
+  }
   if (created.isErr()) throw created.error;
   const start = await created.value.start();
   if (start.isErr()) throw start.error;

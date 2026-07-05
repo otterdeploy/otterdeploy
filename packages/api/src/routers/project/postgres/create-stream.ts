@@ -105,6 +105,11 @@ export async function* createPostgresResourceStream(
      *  reuses it so the credentials the operator saw pre-deploy stay valid.
      *  Absent (e.g. legacy direct-create) → a fresh random password. */
     password?: string;
+    /** Staged postgres extensions — baked into the create (image resolved
+     *  up-front) so no post-create image-swap redeploy runs. */
+    extensions?: string[];
+    /** Staged user env — baked into the container at create. */
+    extraEnv?: Record<string, string>;
     /** Output of validatePostgresCreate so we don't re-fetch the project. */
     project: { id: string; slug: string };
   },

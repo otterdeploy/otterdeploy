@@ -1,74 +1,22 @@
 /**
- * Diff grouping + per-resource diff cards for the pending-changes bar.
- * Split out of pending-changes-bar.tsx to keep that file under the
- * max-lines cap. The bar imports `groupChanges` + `ChangeGroupCard`.
+ * Per-resource diff cards for the pending-changes bar. Grouping/formatting
+ * lives in `pending-changes-groups.ts`; the bar imports `groupChanges` +
+ * `ChangeGroupCard`.
+ *
+ * Renders the FULL server diff, not just a verb:
+ *   - create  → spec list of what the resource will be created with
+ *               (engine/image/repo/ports/domains/env keys…)
+ *   - update  → field table (current → new) + per-key env changes
+ *   - delete  → the reason when the server gives one (e.g. source-changed)
+ *   - env     → each key as its own +/~/− line with values, attached to
+ *               the owning service/database card
  */
 
-export interface DiffChange {
-  kind: "create" | "update" | "delete" | "no-op";
-  resource: "service" | "database" | "env" | "compose";
-  name: string;
-  details?: Record<string, unknown>;
-}
+import type { EnvRow, GroupedChange } from "./pending-changes-groups";
 
-// ─── Grouping ─────────────────────────────────────────────────────────
+import { clip, renderValue } from "./pending-changes-groups";
 
-interface GroupedChange {
-  kind: "create" | "update" | "delete";
-  resource: "service" | "database" | "compose";
-  name: string;
-  // For updates: { fieldName: { from, to } }. May be empty when the
-  // server returned a coarse "update" without a field-level breakdown.
-  fields: Array<{ field: string; from: unknown; to: unknown }>;
-  // Number of env-level changes rolled into this group (set/unset).
-  envChanges: number;
-}
-
-export function groupChanges(changes: DiffChange[]): GroupedChange[] {
-  const byKey = new Map<string, GroupedChange>();
-  for (const c of changes) {
-    if (c.resource === "env") {
-      // env keys are emitted as `${serviceName}.${KEY}`.
-      const parent = c.name.split(".")[0] ?? c.name;
-      const key = `service:${parent}`;
-      const existing =
-        byKey.get(key) ??
-        ({
-          kind: "update",
-          resource: "service",
-          name: parent,
-          fields: [],
-          envChanges: 0,
-        } as GroupedChange);
-      existing.envChanges += 1;
-      byKey.set(key, existing);
-      continue;
-    }
-    const key = `${c.resource}:${c.name}`;
-    if (byKey.has(key)) continue;
-    const fieldEntries = extractFields(c.details);
-    byKey.set(key, {
-      kind: c.kind === "no-op" ? "update" : c.kind,
-      resource: c.resource,
-      name: c.name,
-      fields: fieldEntries,
-      envChanges: 0,
-    });
-  }
-  return [...byKey.values()];
-}
-
-function extractFields(details: unknown): GroupedChange["fields"] {
-  if (!details || typeof details !== "object") return [];
-  const fields = (details as { fields?: unknown }).fields;
-  if (!fields || typeof fields !== "object") return [];
-  return Object.entries(fields as Record<string, unknown>).map(([field, value]) => {
-    const v = value as { from?: unknown; to?: unknown };
-    return { field, from: v.from, to: v.to };
-  });
-}
-
-// ─── Per-group card ───────────────────────────────────────────────────
+export { groupChanges, type DiffChange } from "./pending-changes-groups";
 
 export function ChangeGroupCard({ group }: { group: GroupedChange }) {
   const verb = {
@@ -81,7 +29,8 @@ export function ChangeGroupCard({ group }: { group: GroupedChange }) {
     update: "text-info",
     delete: "text-destructive",
   }[group.kind];
-  const settingsCount = group.fields.length + group.envChanges;
+  const changeCount = group.fields.length + group.env.length;
+  const hasBody = group.spec.length > 0 || changeCount > 0 || group.reason !== undefined;
   return (
     <div className="rounded-lg border bg-card">
       <div className="flex items-center justify-between gap-3 px-3 py-2">
@@ -92,24 +41,41 @@ export function ChangeGroupCard({ group }: { group: GroupedChange }) {
           <span className="font-mono font-medium text-foreground">{group.name}</span>
           <span className={tint}>{verb}</span>
         </div>
-        {settingsCount > 0 && (
+        {group.kind === "update" && changeCount > 0 && (
           <span className="text-xs text-muted-foreground">
-            {settingsCount} {settingsCount === 1 ? "setting" : "settings"}
+            {changeCount} {changeCount === 1 ? "change" : "changes"}
           </span>
         )}
       </div>
-      {(group.fields.length > 0 || group.envChanges > 0) && (
-        <div className="border-t px-3 py-2">
+      {hasBody && (
+        <div className="flex flex-col gap-2 border-t px-3 py-2">
+          {group.spec.length > 0 && <SpecTable spec={group.spec} />}
           {group.fields.length > 0 && <FieldTable fields={group.fields} />}
-          {group.envChanges > 0 && (
-            <div className="mt-1 text-xs text-muted-foreground">
-              {group.envChanges} environment variable
-              {group.envChanges === 1 ? "" : "s"} changed
-            </div>
+          {group.env.length > 0 && <EnvChangeList rows={group.env} />}
+          {group.reason !== undefined && (
+            <div className="text-xs text-muted-foreground">{group.reason}</div>
           )}
         </div>
       )}
     </div>
+  );
+}
+
+// What a create will provision — one row per configured aspect.
+function SpecTable({ spec }: { spec: GroupedChange["spec"] }) {
+  return (
+    <table className="w-full font-mono text-xs">
+      <tbody>
+        {spec.map((s) => (
+          <tr key={s.field}>
+            <td className="w-32 py-0.5 pr-3 align-top whitespace-nowrap text-muted-foreground">
+              {s.field}
+            </td>
+            <td className="py-0.5 break-all text-foreground">{s.value}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
@@ -126,9 +92,11 @@ function FieldTable({ fields }: { fields: GroupedChange["fields"] }) {
       <tbody>
         {fields.map((f) => (
           <tr key={f.field} className="border-t border-border/40">
-            <td className="py-1 text-foreground">{f.field}</td>
-            <td className="py-1 text-muted-foreground">{renderValue(f.from)}</td>
-            <td className="py-1 text-foreground">{renderValue(f.to)}</td>
+            <td className="py-1 pr-3 align-top text-foreground">{f.field}</td>
+            <td className="py-1 pr-3 align-top break-all text-muted-foreground">
+              {renderValue(f.from)}
+            </td>
+            <td className="py-1 align-top break-all text-foreground">{renderValue(f.to)}</td>
           </tr>
         ))}
       </tbody>
@@ -136,9 +104,48 @@ function FieldTable({ fields }: { fields: GroupedChange["fields"] }) {
   );
 }
 
-function renderValue(v: unknown): string {
-  if (v === null || v === undefined) return "—";
-  if (typeof v === "string") return v;
-  if (typeof v === "number" || typeof v === "boolean") return String(v);
-  return JSON.stringify(v);
+// Each env key on its own +/~/− line with its value(s), like a VCS diff.
+function EnvChangeList({ rows }: { rows: EnvRow[] }) {
+  return (
+    <div className="flex flex-col gap-0.5 font-mono text-xs">
+      {rows.map((r) => (
+        <EnvChangeLine key={`${r.kind}-${r.key}`} row={r} />
+      ))}
+    </div>
+  );
+}
+
+function EnvChangeLine({ row }: { row: EnvRow }) {
+  if (row.kind === "delete") {
+    return (
+      <div className="flex gap-2">
+        <span className="text-destructive">−</span>
+        <span className="break-all text-muted-foreground line-through">{row.key}</span>
+      </div>
+    );
+  }
+  if (row.kind === "update") {
+    return (
+      <div className="flex gap-2">
+        <span className="text-info">~</span>
+        <span className="break-all">
+          <span className="text-foreground">{row.key}</span>
+          <span className="text-muted-foreground"> {clip(row.from)} → </span>
+          <span className="text-foreground">{clip(row.to)}</span>
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div className="flex gap-2">
+      <span className="text-success">+</span>
+      <span className="break-all">
+        <span className="text-foreground">{row.key}</span>
+        <span className="text-muted-foreground">
+          {" = "}
+          {row.secret ? "${secret} (set server-side)" : clip(row.value)}
+        </span>
+      </span>
+    </div>
+  );
 }

@@ -7,6 +7,10 @@
 import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
 import type { ProjectId } from "@otterdeploy/shared/id";
 
+import {
+  knownPostgresExtensions,
+  resolvePostgresImage,
+} from "@otterdeploy/shared/postgres-extensions";
 import { randomBytes } from "node:crypto";
 
 import { PLATFORM } from "../../../constants";
@@ -31,12 +35,22 @@ export interface CreateStreamInput {
   engine?: DatabaseEngine;
   publicEnabled?: boolean;
   password?: string;
+  /** Postgres extensions to bake into the create: the image is resolved from
+   *  these up-front (pgvector/postgis/timescaledb need a different image), so
+   *  a staged create + staged extensions deploy as ONE container — not
+   *  create-then-image-swap. Ignored for non-postgres engines. */
+  extensions?: string[];
+  /** User env vars to bake into the create — staged env + staged create
+   *  deploy as ONE container instead of create-then-env-roll. */
+  extraEnv?: Record<string, string>;
   project: { id: string; slug: string };
 }
 
 export interface CreateContext {
   engine: DatabaseEngine;
   adapter: DatabaseEngineAdapter;
+  extensions: string[];
+  extraEnv: Record<string, string>;
   publicEnabled: boolean;
   project: { id: string; slug: string };
   resourceSlug: string;
@@ -59,6 +73,14 @@ export interface CreateContext {
 export async function prepareCreateContext(input: CreateStreamInput): Promise<CreateContext> {
   const engine: DatabaseEngine = input.engine ?? "postgres";
   const adapter = getEngineAdapter(engine);
+  // Bake extensions into the create so the container starts on the right
+  // image immediately. Unknown names are dropped (catalog-validated); an
+  // image conflict (e.g. pgvector + timescaledb) falls back to the default —
+  // the post-create extensions pass surfaces the conflict as a typed error.
+  const extensions =
+    engine === "postgres" ? [...new Set(knownPostgresExtensions(input.extensions ?? []))] : [];
+  const resolvedImage = resolvePostgresImage(extensions, adapter.defaultImage);
+  const dbImage = resolvedImage.ok ? resolvedImage.image : adapter.defaultImage;
   // Caddy layer4 ALPN routing is engine-specific; only postgres has a wired
   // ALPN today. Other engines stay internal-only until we plumb their TCP
   // proxy path (redis raw TCP, mariadb mysql ALPN, etc.).
@@ -117,6 +139,8 @@ export async function prepareCreateContext(input: CreateStreamInput): Promise<Cr
   return {
     engine,
     adapter,
+    extensions,
+    extraEnv: input.extraEnv ?? {},
     publicEnabled,
     project: input.project,
     resourceSlug,
@@ -131,7 +155,7 @@ export async function prepareCreateContext(input: CreateStreamInput): Promise<Cr
     containerName,
     volumeName,
     publicConnectionString,
-    dbImage: adapter.defaultImage,
+    dbImage,
   };
 }
 

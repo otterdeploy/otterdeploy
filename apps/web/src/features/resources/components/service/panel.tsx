@@ -217,7 +217,11 @@ export function ServiceResourcePanel({
                 </TabsContent>
               )}
 
-              <TabsContent value="variables" className="px-6 pt-5 pb-6">
+              {/* keepMounted: panels stay in the DOM (hidden) across tab
+                  switches, so half-edited env values and settings forms don't
+                  reset. Deployments/Metrics stay unmount-on-leave — they're
+                  pollers; unmounting stops their intervals while hidden. */}
+              <TabsContent value="variables" keepMounted className="px-6 pt-5 pb-6">
                 <ServiceVariablesTabBody
                   resource={resource}
                   pending={pending}
@@ -225,7 +229,7 @@ export function ServiceResourcePanel({
                 />
               </TabsContent>
 
-              <TabsContent value="settings" className="px-6 pt-5 pb-8">
+              <TabsContent value="settings" keepMounted className="px-6 pt-5 pb-8">
                 <ServiceSettingsBody resource={resource} onDeleted={onClose} pending={pending} />
               </TabsContent>
             </TabsContents>
