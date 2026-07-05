@@ -447,10 +447,17 @@ for (const signal of ["SIGTERM", "SIGINT"] as const) {
 // production the server is a Swarm service with stable DNS, so
 // CONTROL_PLANE_PORT is left unset and this is skipped. Bound once across
 // --hot reloads via a global guard (avoids EADDRINUSE).
+//
+// Guard against binding it on the SAME port the main server (Bun's default
+// export) already serves: the docker-compose deployment passes CONTROL_PLANE_PORT
+// via env_file AND runs the main server on that same PORT (both 3000), so a
+// second listener there would EADDRINUSE against ourselves and crash-loop. Only
+// bind when the two ports differ (the dev case: portless gives the main server a
+// dynamic port, so the deterministic CONTROL_PLANE_PORT doesn't collide).
 const g = globalThis as typeof globalThis & {
   __controlPlaneListener?: { reload: (o: { fetch: typeof app.fetch }) => void };
 };
-if (env.CONTROL_PLANE_PORT) {
+if (env.CONTROL_PLANE_PORT && env.CONTROL_PLANE_PORT !== env.PORT) {
   if (g.__controlPlaneListener) {
     // --hot reloaded: swap the handler in place so the auth routes pick up
     // edits without a rebind (avoids both EADDRINUSE and stale code).

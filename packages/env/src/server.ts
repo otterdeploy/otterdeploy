@@ -65,6 +65,11 @@ export const env = createEnv({
     // Set this to the PORT in DEPLOY_AUTHZ_UPSTREAM (e.g. 3000). Unset in
     // production (the Swarm service has stable DNS).
     CONTROL_PLANE_PORT: z.coerce.number().int().positive().optional(),
+    // Port the main HTTP server (Bun's default export) binds. Bun reads PORT
+    // itself; mirrored here so the server can detect when CONTROL_PLANE_PORT
+    // equals it (docker-compose passes both as 3000) and skip binding a second,
+    // colliding listener on the same port.
+    PORT: z.coerce.number().int().positive().default(3000),
     // Public URL of the web app — used to redirect unauthenticated
     // visitors of a protected deployment to the login page. The auth
     // *authority* (master session + getSession) is BETTER_AUTH_URL.
