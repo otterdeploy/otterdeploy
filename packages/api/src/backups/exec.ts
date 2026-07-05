@@ -19,14 +19,20 @@ export interface ExecResult {
   stderr: string;
 }
 
-/** Find a running container backing a swarm service by its service name. */
-export async function findServiceContainerId(
+/** Find the running container backing a resource by its `otterdeploy.resource.id`
+ *  label. Runtime-agnostic: the plain-docker runtime (`DEPLOY_RUNTIME=docker`)
+ *  stamps this label on the container directly, and swarm mirrors it onto every
+ *  task's `ContainerSpec.Labels` — so this resolves the backing container under
+ *  BOTH runtimes. The old `com.docker.swarm.service.name` filter matched nothing
+ *  under plain docker, which is why the DB Tables/Query views and backups all
+ *  failed with "container is not running" on non-swarm hosts. */
+export async function findResourceContainerId(
   docker: Docker,
-  serviceName: string,
+  resourceId: string,
 ): Promise<string | null> {
   const result = await docker.containers.list({
     all: false, // running only
-    filters: { label: [`com.docker.swarm.service.name=${serviceName}`] },
+    filters: { label: [`otterdeploy.resource.id=${resourceId}`] },
   });
   if (result.isErr()) throw result.error;
   const running = result.value.find((c) => c.State === "running");

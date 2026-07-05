@@ -13,7 +13,7 @@
  */
 import { Docker } from "@otterdeploy/docker";
 
-import { execCapture, findServiceContainerId } from "../../backups/exec";
+import { execCapture, findResourceContainerId } from "../../backups/exec";
 import { buildContainerName } from "../project/views";
 import { type DbConnInfo, QueryError, UnsupportedEngineError } from "./query";
 
@@ -44,7 +44,7 @@ async function withMysql<T>(
       projectSlug: conn.projectSlug,
       resourceName: conn.resourceName,
     });
-    const containerId = await findServiceContainerId(docker, serviceName);
+    const containerId = await findResourceContainerId(docker, conn.resourceId);
     if (!containerId) {
       throw new QueryError(`mariadb container for ${serviceName} is not running`);
     }
