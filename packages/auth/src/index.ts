@@ -85,6 +85,14 @@ const configuredSocialProviders = {
  *  with the web's VITE_AUTH_SOCIAL_PROVIDERS. */
 export const enabledSocialProviders = Object.keys(configuredSocialProviders);
 
+// Cookie security must track the scheme the platform is actually served over.
+// Hardcoding Secure + SameSite=None breaks the common self-hosted case of a
+// plain http://<ip>:<port> dashboard (no TLS): browsers DROP a Secure /
+// SameSite=None cookie on a non-HTTPS origin, so sign-in returns 200 but every
+// get-session comes back null (the session cookie is never stored or sent) and
+// the app can never see a session — the user is stuck on the sign-in page.
+const servedOverHttps = env.BETTER_AUTH_URL.startsWith("https://");
+
 export const auth = betterAuth({
   appName: "otterdeploy",
   // Social sign-in (env-gated above) + account linking, so signing in with a
@@ -116,9 +124,14 @@ export const auth = betterAuth({
     enabled: true,
   },
   advanced: {
+    // Over HTTPS keep Secure + SameSite=None (also lets a split-origin/cross-site
+    // deploy send the cookie). Over HTTP fall back to an insecure Lax cookie,
+    // which the browser will actually store — correct for the same-origin
+    // topology the server serves the dashboard from by default. See
+    // `servedOverHttps` above.
     defaultCookieAttributes: {
-      sameSite: "none",
-      secure: true,
+      sameSite: servedOverHttps ? "none" : "lax",
+      secure: servedOverHttps,
       httpOnly: true,
     },
     database: {
