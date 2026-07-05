@@ -129,7 +129,6 @@ export function InviteMemberForm({ organizationId }: { organizationId: string })
                 onBlur={field.handleBlur}
                 onChange={(e) => field.handleChange(e.target.value)}
                 placeholder="teammate@company.com"
-                className="h-9"
               />
               <FieldError
                 errors={field.state.meta.errors.map((e) =>
@@ -148,7 +147,11 @@ export function InviteMemberForm({ organizationId }: { organizationId: string })
                 value={field.state.value}
                 onValueChange={(v) => field.handleChange((v ?? "member") as "member" | "admin")}
               >
-                <SelectTrigger className="h-9 w-[130px]">
+                {/* No height override: the trigger's data-[size=default]:h-8
+                    beats a plain h-* class anyway (data variants sort later),
+                    which is exactly how this row ended up uneven. All three
+                    controls sit on the system default h-8. */}
+                <SelectTrigger className="w-[130px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -164,7 +167,7 @@ export function InviteMemberForm({ organizationId }: { organizationId: string })
         </form.Field>
         <form.Subscribe selector={(s) => [s.canSubmit, s.isSubmitting] as const}>
           {([canSubmit, isSubmitting]) => (
-            <Button type="submit" disabled={!canSubmit || isSubmitting} className="mt-[22px] h-9">
+            <Button type="submit" disabled={!canSubmit || isSubmitting} className="mt-[22px]">
               Send invite
             </Button>
           )}

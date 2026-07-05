@@ -98,6 +98,13 @@ export function useLogsTable({
     getScrollElement: () => scrollRef.current,
     estimateSize: () => 28,
     overscan: 24,
+    // Key measured heights by row id, NOT index (the default). The live tail
+    // is a capped ring — once the buffer trims, every append shifts all
+    // indices, so index-keyed measurements assign each cached height to the
+    // wrong row and the absolutely-positioned rows overlap into garbage.
+    // Filter/sort changes remap indices the same way. Row ids are stable for
+    // a line's lifetime, so heights stay glued to their line.
+    getItemKey: (index) => rows[index]?.id ?? index,
   });
 
   // Sorting fights live tailing — pause follow while a sort is active.
