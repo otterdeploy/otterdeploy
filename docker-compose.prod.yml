@@ -60,6 +60,11 @@ services:
   # ── control plane (dashboard + API + runtime driver) ──────────────────────
   server:
     image: ${OTTERDEPLOY_REGISTRY:-ghcr.io/otterdeploy}/server:${OTTERDEPLOY_VERSION:-latest}
+    # The unified image's WORKDIR is apps/builder (so the build helper's relative
+    # `bun run src/build-one.ts` resolves); the server serves the SPA from
+    # `./public` relative to its cwd, so run it from apps/server.
+    working_dir: /app/apps/server
+    command: ["bun", "run", "dist/index.mjs"]
     restart: unless-stopped
     # The dashboard/API listens on 3000; publish it straight to the host. Caddy
     # (80/443) fronts USER-deployed apps, not this dashboard.
@@ -117,6 +122,7 @@ services:
     # command (bun runs the builder's TS source) on top of the docker CLI +
     # buildx + railpack toolchain the image already carries.
     image: ${OTTERDEPLOY_REGISTRY:-ghcr.io/otterdeploy}/server:${OTTERDEPLOY_VERSION:-latest}
+    working_dir: /app/apps/builder
     command: ["bun", "run", "src/index.ts"]
     restart: unless-stopped
     env_file:
