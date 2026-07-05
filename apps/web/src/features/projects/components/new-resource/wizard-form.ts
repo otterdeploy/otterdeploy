@@ -106,6 +106,11 @@ export function useWizardForm({
         builderId: payload.builderId,
         spa: payload.spa,
         root: payload.root,
+        // Bind the repo the operator picked. `repoFullName` mirrors the bound
+        // repo's "owner/repo" (the `repo` field holds the opaque gitRepoId,
+        // which the portable manifest can't use); branch "" → repo default.
+        repo: payload.repoFullName || undefined,
+        branch: payload.branch || undefined,
         ...sizing,
       });
     },

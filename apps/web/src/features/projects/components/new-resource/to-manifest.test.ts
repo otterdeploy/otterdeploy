@@ -120,6 +120,23 @@ describe("buildServiceSpec", () => {
     });
   });
 
+  it("emits the bound repo + branch so apply binds the git_repo (no unbound service)", () => {
+    const spec = buildServiceSpec({
+      ...base,
+      source: "git",
+      image: "pending:initial",
+      repo: "artzkaizen/dealort",
+      branch: "main",
+    });
+    expect(spec).toMatchObject({ source: "git", repo: "artzkaizen/dealort", branch: "main" });
+  });
+
+  it("omits repo/branch when the git service is left unbound", () => {
+    const spec = buildServiceSpec({ ...base, source: "git", image: "pending:initial" });
+    expect(spec).not.toHaveProperty("repo");
+    expect(spec).not.toHaveProperty("branch");
+  });
+
   it("forces railpack + spa for the static kind, ignoring the picked builder", () => {
     const spec = buildServiceSpec({
       ...base,
