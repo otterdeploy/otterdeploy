@@ -209,6 +209,10 @@ export const invitation = pgTable(
     inviterId: text("inviter_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
+    // Required by better-auth's organization plugin (its invitation model writes
+    // `createdAt` on create). Missing it made every invite 500 with "The field
+    // createdAt does not exist in the invitation Drizzle schema".
+    createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [index("invitation_organizationId_idx").on(table.organizationId)],
 );
