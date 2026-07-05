@@ -6,6 +6,12 @@ export const env = createEnv({
     DATABASE_URL: z.string().min(1),
     DATABASE_PROVISIONER_URL: z.string().min(1).optional(),
 
+    // Where the drizzle migrations live at runtime. The server bundles to
+    // apps/server/dist, so migrate.ts's `./migrations` sibling lookup doesn't
+    // resolve in the image; the Dockerfile sets this to the copied-in folder.
+    // Unset in dev, where the sibling path resolves from source.
+    DB_MIGRATIONS_DIR: z.string().min(1).optional(),
+
     REDIS_URL: z.string().min(1),
 
     BETTER_AUTH_URL: z.url(),
