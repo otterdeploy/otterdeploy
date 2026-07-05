@@ -4,7 +4,6 @@
  * back in as top-level keys of `serviceRouter`.
  */
 import { matchError } from "better-result";
-import { createError } from "evlog";
 
 import { requirePermission } from "../..";
 import { enqueueGitBuild } from "../project/manifest-apply";
@@ -39,13 +38,11 @@ export const serviceRuntimeRouter = {
       });
       if (enqueued.isErr()) {
         // enqueueGitBuild yields a human-readable reason (no git binding, a
-        // SHA-lookup 404 for an inaccessible repo, …). Surface it so the UI
-        // shows why the build couldn't start instead of a generic 500.
-        throw createError({
-          message: enqueued.error,
-          status: 422,
-          why: "git build could not be enqueued",
-        });
+        // SHA-lookup 404 for an inaccessible repo, …). Surface it as a typed
+        // oRPC error so the client gets a 422 with that reason — a plain
+        // thrown error (e.g. evlog's createError) is serialized as a generic
+        // 500 regardless of any status field on it.
+        throw errors.BUILD_NOT_READY({ message: enqueued.error });
       }
       return { deploymentId: enqueued.value.deploymentId };
     },

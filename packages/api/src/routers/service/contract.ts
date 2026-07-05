@@ -410,6 +410,13 @@ export const serviceContract = {
         status: 400,
         message: "Only git-sourced services can be built.",
       },
+      // The service is git-sourced but the build can't be enqueued yet — no
+      // git repo bound, an inaccessible repo, a failed SHA lookup, … The
+      // handler overrides `message` with the specific human-readable reason.
+      BUILD_NOT_READY: {
+        status: 422,
+        message: "This service isn't ready to build yet.",
+      },
     })
     .meta({ path: `${basePath}/{resourceId}/build`, tag, method: "POST" })
     .input(getServiceInput)
