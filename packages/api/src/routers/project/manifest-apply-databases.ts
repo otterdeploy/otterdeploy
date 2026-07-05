@@ -158,22 +158,28 @@ interface UpdateDatabaseArgs {
   resourceId: ResourceId;
   spec: DatabaseManifest;
   currentExtraEnv: Record<string, string>;
+  currentPublicEnabled: boolean;
   log: RequestLogger;
 }
 
 export async function updateDatabaseFromManifest(
   args: UpdateDatabaseArgs,
 ): Promise<Result<{ name: string }, ManifestApplySkipError>> {
-  const desiredPublic = args.spec.publicEnabled ?? false;
-  await setPostgresPublic(
-    {
-      projectId: args.projectId,
-      organizationId: args.organizationId,
-      resourceId: args.resourceId,
-      publicEnabled: desiredPublic,
-    },
-    args.log,
-  );
+  // Only touch public exposure when the manifest explicitly declares it AND
+  // it differs. The old unconditional `spec.publicEnabled ?? false` call
+  // meant every env-only apply re-rolled the container and silently turned
+  // public access OFF whenever the manifest omitted the key.
+  if (args.spec.publicEnabled !== undefined && args.spec.publicEnabled !== args.currentPublicEnabled) {
+    await setPostgresPublic(
+      {
+        projectId: args.projectId,
+        organizationId: args.organizationId,
+        resourceId: args.resourceId,
+        publicEnabled: args.spec.publicEnabled,
+      },
+      args.log,
+    );
+  }
 
   const desiredExtra = args.spec.extraEnv ?? {};
   if (!shallowEqual(desiredExtra, args.currentExtraEnv)) {

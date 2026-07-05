@@ -114,6 +114,42 @@ export async function discardManifest(
   return Result.ok({ version: updatedRow.version });
 }
 
+/**
+ * Keep the saved manifest truthful after a live public-toggle on a database.
+ *
+ * Only patches when the manifest EXPLICITLY declares `publicEnabled` for this
+ * database — an omitted key means "live-managed" (the diff skips it, same
+ * convention as services), and inventing the key here would promote the field
+ * to manifest control the user never asked for. Best-effort: a concurrent
+ * manifest save wins the version race and this no-ops; the diff guard on
+ * undefined still prevents phantom reverts.
+ */
+export async function syncManifestDatabasePublic(
+  scope: ProjectScope,
+  name: string,
+  publicEnabled: boolean,
+): Promise<void> {
+  const row = await loadManifest(scope);
+  if (row.isErr()) return;
+  const manifest = row.value.manifest;
+  const entry = manifest?.databases?.[name];
+  if (
+    !manifest ||
+    !entry ||
+    entry.publicEnabled === undefined ||
+    entry.publicEnabled === publicEnabled
+  ) {
+    return;
+  }
+  await saveManifest(scope, {
+    manifest: {
+      ...manifest,
+      databases: { ...manifest.databases, [name]: { ...entry, publicEnabled } },
+    },
+    expectedVersion: row.value.version,
+  });
+}
+
 /** Resolved manifest for a given environment (or base if none). */
 export async function resolvedManifest(
   scope: ProjectScope,

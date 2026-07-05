@@ -260,9 +260,13 @@ function diffDatabase(name: string, desired: DatabaseManifest, current: CurrentD
   }
 
   const fieldChanges: Record<string, { from: unknown; to: unknown }> = {};
-  const desiredPublic = desired.publicEnabled ?? false;
-  if (desiredPublic !== current.publicEnabled) {
-    fieldChanges.publicEnabled = { from: current.publicEnabled, to: desiredPublic };
+  // publicEnabled is manifest-managed only when the manifest declares it.
+  // Omitted → the toggle is live-managed (same convention as service
+  // publicEnabled, which diffServiceFields skips entirely); defaulting the
+  // absent key to `false` here used to stage a phantom update that REVERTED
+  // a live public-toggle on the next Apply.
+  if (desired.publicEnabled !== undefined && desired.publicEnabled !== current.publicEnabled) {
+    fieldChanges.publicEnabled = { from: current.publicEnabled, to: desired.publicEnabled };
   }
 
   const envChanges = diffEnv(desired.extraEnv ?? {}, current.extraEnv);

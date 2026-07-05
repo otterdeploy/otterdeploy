@@ -11,6 +11,7 @@
 import type { ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
+import { resolvePostgresImage } from "@otterdeploy/shared/postgres-extensions";
 import { Result } from "better-result";
 
 import type { ProjectRef } from "../../scopes";
@@ -21,7 +22,8 @@ import { loadDomainSourcesForProject } from "../../../lib/domain-sources";
 import { resolvePublicDomain } from "../../../lib/domains";
 import { updateSwarmDatabase } from "../../../runtime/db";
 import { defaultImageFor } from "../../../swarm";
-import { insertDeployment, markDeploymentFailed } from "../deployments";
+import { insertDeployment, markDeploymentFailed, reconcileDeploySuccess } from "../deployments";
+import { syncManifestDatabasePublic } from "../manifest";
 import { PostgresResourceNotFoundError, ProjectNotFoundError } from "../errors";
 import { getDatabaseResourceRecord, getProjectInOrg, setDatabaseResourcePublic } from "../queries";
 import {
@@ -110,7 +112,14 @@ export async function setPostgresPublic(
   // Caddy on :443. The redeploy just keeps the running spec in sync; app
   // containers in the same project always reach the DB via the overlay alias.
   const engine = record.database.engine;
-  const engineImage = defaultImageFor(engine);
+  // Preserve the extension-resolved image — a bare `defaultImageFor` here
+  // would silently downgrade a pgvector/postgis/timescale container on every
+  // public toggle.
+  const resolvedImage = resolvePostgresImage(
+    record.database.extensions ?? [],
+    defaultImageFor(engine),
+  );
+  const engineImage = resolvedImage.ok ? resolvedImage.image : defaultImageFor(engine);
   const publicDeployment = await insertDeployment({
     resourceId: input.resourceId,
     image: engineImage,
@@ -126,10 +135,12 @@ export async function setPostgresPublic(
       extraEnv: record.database.extraEnv ?? {},
     }),
   });
+  let rolled: Awaited<ReturnType<typeof updateSwarmDatabase>>;
   try {
-    await updateSwarmDatabase(
+    rolled = await updateSwarmDatabase(
       {
         engine,
+        image: engineImage,
         serviceName: buildContainerName({
           engine,
           projectSlug: project.slug,
@@ -159,6 +170,21 @@ export async function setPostgresPublic(
     );
     throw err;
   }
+  // The driver waited for the rolled container — flip the deployment row to
+  // running now so every status surface agrees without waiting for a poll.
+  if (rolled.status === "running") {
+    await reconcileDeploySuccess([publicDeployment.id], input.resourceId);
+  }
+
+  // Keep the saved manifest truthful: if it explicitly declares this
+  // database's publicEnabled, patch it to the applied value. Otherwise the
+  // next `manifest.diff` poll sees manifest≠row and stages a phantom update
+  // that REVERTS this toggle on Apply.
+  await syncManifestDatabasePublic(
+    { projectId: input.projectId, organizationId: input.organizationId },
+    record.resource.name,
+    input.publicEnabled,
+  );
 
   await reconcile(log);
 

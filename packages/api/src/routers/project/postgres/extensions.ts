@@ -33,7 +33,7 @@ import type { ProjectRef } from "../../scopes";
 
 import { updateSwarmDatabase } from "../../../runtime/db";
 import { defaultImageFor } from "../../../swarm";
-import { insertDeployment, markDeploymentFailed } from "../deployments";
+import { insertDeployment, markDeploymentFailed, reconcileDeploySuccess } from "../deployments";
 import {
   IncompatibleExtensionsError,
   PostgresResourceNotFoundError,
@@ -119,8 +119,9 @@ export async function setPostgresExtensions(
       }),
     });
 
+    let rolled: Awaited<ReturnType<typeof updateSwarmDatabase>>;
     try {
-      await updateSwarmDatabase(
+      rolled = await updateSwarmDatabase(
         {
           engine,
           resourceId: input.resourceId,
@@ -149,6 +150,11 @@ export async function setPostgresExtensions(
     } catch (err) {
       await markDeploymentFailed(deployment.id, err instanceof Error ? err.message : String(err));
       throw err;
+    }
+    // Driver waited for the swapped container — flip the row eagerly so the
+    // Deployments card and the live runtime badge agree without a poll.
+    if (rolled.status === "running") {
+      await reconcileDeploySuccess([deployment.id], input.resourceId);
     }
   }
 

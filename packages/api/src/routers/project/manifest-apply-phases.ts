@@ -118,6 +118,7 @@ export async function runDatabaseUpdates(
         resourceId: existingId,
         spec,
         currentExtraEnv: ctx.current.databases[change.name]?.extraEnv ?? {},
+        currentPublicEnabled: ctx.current.databases[change.name]?.publicEnabled ?? false,
         log: ctx.log,
       });
     }),

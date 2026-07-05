@@ -152,10 +152,12 @@ async function listDeploymentsByResource(resourceId: ResourceId): Promise<Deploy
  * come up, and emit `deploy.succeeded` exactly once per deployment. The
  * conditional UPDATE (status still building/pending) is the concurrency guard:
  * only the caller whose update actually changes a row emits, so concurrent
- * list requests can't double-fire. This is the "success detector" — there is
- * no background updater; status is reconciled lazily when the list is read.
+ * list requests can't double-fire. This is the "success detector" — the list
+ * read reconciles lazily, and provisioning paths that already waited for the
+ * container to come up call it eagerly so the Deployments card flips in the
+ * same moment as the live runtime badge instead of a poll later.
  */
-async function reconcileDeploySuccess(
+export async function reconcileDeploySuccess(
   deploymentIds: DeploymentId[],
   resourceId: ResourceId,
 ): Promise<void> {

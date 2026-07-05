@@ -26,6 +26,7 @@ import {
   getLatestDeploymentForResource,
   insertDeployment,
   markDeploymentFailed,
+  reconcileDeploySuccess,
 } from "../deployments";
 import { PostgresResourceNotFoundError, ProjectNotFoundError } from "../errors";
 import { getDatabaseResourceRecord, getProjectInOrg } from "../queries";
@@ -88,8 +89,9 @@ export async function restartDatabaseResource(
     }),
   });
 
+  let rolled: Awaited<ReturnType<typeof updateSwarmDatabase>>;
   try {
-    await updateSwarmDatabase(
+    rolled = await updateSwarmDatabase(
       {
         engine,
         resourceId: input.resourceId,
@@ -121,6 +123,11 @@ export async function restartDatabaseResource(
       err instanceof Error ? err.message : String(err),
     );
     throw err;
+  }
+  // Driver waited for the restarted container — flip the row eagerly so the
+  // Deployments card and the live runtime badge agree without a poll.
+  if (rolled.status === "running") {
+    await reconcileDeploySuccess([restartDeployment.id], input.resourceId);
   }
 
   return Result.ok(

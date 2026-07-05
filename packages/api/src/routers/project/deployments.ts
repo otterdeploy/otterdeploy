@@ -189,5 +189,9 @@ export async function getResourceDeploymentById(
 
 // ─── Re-exports — keep the deployments.* import surface stable ────────────
 export { emitDeployStarted } from "./deployments-emit";
-export { listResourceDeployments, type DeploymentWithStats } from "./deployments-list";
+export {
+  listResourceDeployments,
+  reconcileDeploySuccess,
+  type DeploymentWithStats,
+} from "./deployments-list";
 export { listTasksForDeployment, type DeploymentTaskInfo } from "./deployments-tasks";

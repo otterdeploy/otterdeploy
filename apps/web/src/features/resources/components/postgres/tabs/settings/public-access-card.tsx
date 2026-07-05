@@ -31,11 +31,20 @@ export function PublicAccessCard({
   const setPublic = useMutation({
     ...orpc.project.resource.database.postgres.setPublic.mutationOptions(),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: orpc.project.resource.list.queryKey({
-          input: { projectId: resource.projectId as never },
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: orpc.project.resource.list.queryKey({
+            input: { projectId: resource.projectId as never },
+          }),
         }),
-      });
+        // The backend syncs the manifest's declared publicEnabled with the
+        // toggle — refresh the diff so the pending bar drops/updates in step.
+        queryClient.invalidateQueries({
+          queryKey: orpc.project.manifest.diff.queryKey({
+            input: { projectId: resource.projectId as never },
+          }),
+        }),
+      ]);
       toast.success(resource.publicEnabled ? "Public access disabled" : "Public access enabled");
     },
     onError: (err) => toast.error(err.message ?? "Failed to update public access"),

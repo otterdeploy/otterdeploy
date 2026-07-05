@@ -12,9 +12,11 @@ import { Result } from "better-result";
 
 import type { ProjectRef } from "../../scopes";
 
+import { resolvePostgresImage } from "@otterdeploy/shared/postgres-extensions";
+
 import { updateSwarmDatabase } from "../../../runtime/db";
 import { defaultImageFor } from "../../../swarm";
-import { insertDeployment } from "../deployments";
+import { insertDeployment, reconcileDeploySuccess } from "../deployments";
 import { PostgresResourceNotFoundError, ProjectNotFoundError } from "../errors";
 import {
   getDatabaseResourceRecord,
@@ -68,7 +70,13 @@ export async function applyPostgresExtraEnv(
   // change. Always route through `updateSwarmDatabase` with the actual
   // engine from the record.
   const engine = record.database.engine;
-  const engineImage = defaultImageFor(engine);
+  // Extension-resolved image, not the bare engine default — an env change on
+  // a pgvector/postgis/timescale database must not downgrade its image.
+  const resolvedImage = resolvePostgresImage(
+    record.database.extensions ?? [],
+    defaultImageFor(engine),
+  );
+  const engineImage = resolvedImage.ok ? resolvedImage.image : defaultImageFor(engine);
 
   // New deployment for the env change — labels onto the rolled spec so the
   // resulting tasks group under this row in the Deployments tab.
@@ -90,9 +98,10 @@ export async function applyPostgresExtraEnv(
 
   // Roll the running task with the new env. Volume + network stay put; only
   // the container env array changes. ~5s of dropped connections.
-  await updateSwarmDatabase(
+  const rolled = await updateSwarmDatabase(
     {
       engine,
+      image: engineImage,
       serviceName: buildContainerName({
         engine,
         projectSlug: project.slug,
@@ -115,6 +124,11 @@ export async function applyPostgresExtraEnv(
     },
     log,
   );
+  // The driver waited for the rolled container — persist the running flip now
+  // so the Deployments card agrees with the live runtime badge immediately.
+  if (rolled.status === "running") {
+    await reconcileDeploySuccess([envDeployment.id], ref.resourceId);
+  }
 
   return Result.ok(
     await mapDatabaseResource(

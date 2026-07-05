@@ -17,7 +17,7 @@ import { insertProxyRoute } from "../../../caddy/queries";
 import { PLATFORM } from "../../../constants";
 import { provisionSwarmDatabase } from "../../../runtime/db";
 import { resolveRegistryAuth, streamImagePull } from "../../../swarm";
-import { insertDeployment, markDeploymentFailed } from "../deployments";
+import { insertDeployment, markDeploymentFailed, reconcileDeploySuccess } from "../deployments";
 import { createDatabaseResourceRecord } from "../queries";
 import { isUniqueViolation } from "../views";
 import { tailContainerBootLogs } from "./boot-logs";
@@ -182,6 +182,12 @@ export async function* provisionStage(
     await markDeploymentFailed(deploymentRow.id, message);
     yield { type: "error", code: "SWARM_PROVISION_FAILED", message };
     return { ok: false };
+  }
+  // The driver already waited for the container to come up — persist the
+  // building → running flip now so the Deployments card agrees with the live
+  // runtime badge immediately, instead of a `deployments.list` poll later.
+  if (runtime.status === "running") {
+    await reconcileDeploySuccess([deploymentRow.id as DeploymentId], resourceId);
   }
   yield {
     type: "step",
