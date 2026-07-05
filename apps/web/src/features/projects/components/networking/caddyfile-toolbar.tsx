@@ -45,10 +45,9 @@ export function CaddyfileToolbar({
   const [copied, setCopied] = useState(false);
   const copy = () => {
     void copyToClipboard(source).then((ok) => {
-      if (ok) {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
-      }
+      if (!ok) return;
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
     });
   };
 

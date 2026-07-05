@@ -237,8 +237,9 @@ function EnvVarRowItem({
           className="size-6"
           title="Copy"
           onClick={() => {
-            void copyToClipboard(row.value);
-            toast.success(`Copied ${row.key}`);
+            void copyToClipboard(row.value).then((ok) =>
+              ok ? toast.success(`Copied ${row.key}`) : toast.error("Couldn't copy"),
+            );
           }}
         >
           <HugeiconsIcon icon={Copy01Icon} className="size-3" />

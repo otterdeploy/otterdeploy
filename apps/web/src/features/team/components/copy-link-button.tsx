@@ -27,7 +27,7 @@ export function CopyLinkButton({
   const copy = () => {
     void copyToClipboard(link).then((ok) => {
       if (!ok) {
-        toast.error("Couldn't copy — select the link and copy manually");
+        toast.error("Couldn't copy invite link");
         return;
       }
       setCopied(true);

@@ -18,6 +18,8 @@ import {
 import { useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
 import { toast } from "sonner";
 
+import { copyToClipboard } from "@/shared/lib/clipboard";
+
 import type {
   CellPosition,
   CellUpdate,
@@ -47,7 +49,6 @@ import {
   parseTsv,
   scrollCellIntoView,
 } from "@/shared/components/data-grid/lib/data-grid";
-import { copyToClipboard } from "@/shared/lib/clipboard";
 
 const DEFAULT_ROW_HEIGHT = "short";
 const OVERSCAN = 6;
@@ -615,20 +616,19 @@ function useDataGrid<TData>({
 
     const { tsvData, selectedCellsArray } = result;
 
-    try {
-      await copyToClipboard(tsvData);
-
-      const currentState = store.getState();
-      if (currentState.cutCells.size > 0) {
-        store.setState("cutCells", new Set());
-      }
-
-      toast.success(
-        `${selectedCellsArray.length} cell${selectedCellsArray.length !== 1 ? "s" : ""} copied`,
-      );
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to copy to clipboard");
+    if (!(await copyToClipboard(tsvData))) {
+      toast.error("Failed to copy to clipboard");
+      return;
     }
+
+    const currentState = store.getState();
+    if (currentState.cutCells.size > 0) {
+      store.setState("cutCells", new Set());
+    }
+
+    toast.success(
+      `${selectedCellsArray.length} cell${selectedCellsArray.length !== 1 ? "s" : ""} copied`,
+    );
   }, [store, serializeCellsToTsv]);
 
   const onCellsCut = React.useCallback(async () => {
@@ -639,17 +639,16 @@ function useDataGrid<TData>({
 
     const { tsvData, selectedCellsArray } = result;
 
-    try {
-      await copyToClipboard(tsvData);
-
-      store.setState("cutCells", new Set(selectedCellsArray));
-
-      toast.success(
-        `${selectedCellsArray.length} cell${selectedCellsArray.length !== 1 ? "s" : ""} cut`,
-      );
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to cut to clipboard");
+    if (!(await copyToClipboard(tsvData))) {
+      toast.error("Failed to cut to clipboard");
+      return;
     }
+
+    store.setState("cutCells", new Set(selectedCellsArray));
+
+    toast.success(
+      `${selectedCellsArray.length} cell${selectedCellsArray.length !== 1 ? "s" : ""} cut`,
+    );
   }, [store, propsRef, serializeCellsToTsv]);
 
   const restoreFocus = React.useCallback((element: HTMLDivElement | null) => {

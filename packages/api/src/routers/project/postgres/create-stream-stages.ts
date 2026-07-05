@@ -59,6 +59,8 @@ export async function* persistDbRecordStage(
       upstreamHost: ctx.internalHostname,
       upstreamPort: ctx.adapter.port,
       caddyLayer4Snippet: "",
+      extensions: ctx.extensions,
+      extraEnv: ctx.extraEnv,
     });
   } catch (error) {
     if (isUniqueViolation(error)) {
@@ -149,7 +151,8 @@ export async function* provisionStage(
       publicEnabled: ctx.publicEnabled,
       publicHostname: ctx.publicHostname,
       internalHostname: ctx.internalHostname,
-      extraEnv: {},
+      extraEnv: ctx.extraEnv,
+      extensions: ctx.extensions,
     }),
   });
 
@@ -169,6 +172,7 @@ export async function* provisionStage(
         password: ctx.password,
         projectSlug: ctx.projectSlug,
         deploymentId: deploymentRow.id as DeploymentId,
+        extraEnv: ctx.extraEnv,
         public: ctx.publicEnabled,
       },
       log,

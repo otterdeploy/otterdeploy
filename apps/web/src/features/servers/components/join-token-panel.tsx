@@ -102,10 +102,9 @@ function CommandBlock({ command }: { command: string }) {
 
   const copy = () => {
     void copyToClipboard(command).then((ok) => {
-      if (ok) {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
-      }
+      if (!ok) return;
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
     });
   };
 

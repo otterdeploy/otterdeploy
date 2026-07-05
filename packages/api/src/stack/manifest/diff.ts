@@ -232,7 +232,9 @@ function diffService(name: string, desired: ServiceManifest, current: CurrentSer
       kind: change.action,
       resource: "env",
       name: `${name}.${change.key}`,
-      details: change.details,
+      // parent/key let the UI attach the env row to the owning resource
+      // without re-parsing the dotted name (keys may themselves contain dots).
+      details: { ...change.details, parent: "service", key: change.key },
     });
   }
 
@@ -280,7 +282,7 @@ function diffDatabase(name: string, desired: DatabaseManifest, current: CurrentD
       kind: change.action,
       resource: "env",
       name: `${name}.${change.key}`,
-      details: change.details,
+      details: { ...change.details, parent: "database", key: change.key },
     });
   }
 

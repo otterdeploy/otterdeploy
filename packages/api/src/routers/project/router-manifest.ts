@@ -122,12 +122,10 @@ export const manifestRouter = {
           lastAppliedAt: new Date().toISOString(),
         };
       }
-      const current = await loadCurrentState(input.projectId);
       return applyManifest({
         projectId: input.projectId,
         organizationId: context.activeOrganizationId,
         manifest: resolved.value,
-        current,
         log: context.log,
       });
     },
@@ -204,12 +202,10 @@ export const manifestRouter = {
           lastAppliedAt: new Date().toISOString(),
         };
       }
-      const current = await loadCurrentState(input.projectId);
       const applied = await applyManifest({
         projectId: input.projectId,
         organizationId: context.activeOrganizationId,
         manifest: resolved.value,
-        current,
         log: context.log,
       });
       return { version: saved.value.version, ...applied };

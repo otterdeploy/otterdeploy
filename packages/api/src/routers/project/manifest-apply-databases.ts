@@ -1,20 +1,24 @@
 /**
  * Database create/update for the manifest reconciler. Create drains the
  * postgres create stream to completion (the apply path doesn't surface
- * per-step progress yet) and applies extraEnv + extensions as follow-up steps.
+ * per-step progress yet). Staged extensions + extraEnv are BAKED into the
+ * create (image + env resolved up-front) so everything deploys as one
+ * container — the only follow-up is running CREATE EXTENSION against the
+ * live database.
  */
 import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { Result } from "better-result";
 
+import { destroySwarmDatabase } from "../../runtime/db";
 import { type DatabaseManifest } from "../../stack/manifest";
 import { ManifestApplySkipError } from "./errors";
-import { lookupDatabaseId } from "./manifest-apply-support";
 import { createPostgresResourceStream, validatePostgresCreate } from "./postgres/create-stream";
 import { applyPostgresExtraEnv, setPostgresPublic } from "./postgres/env";
-import { setPostgresExtensions } from "./postgres/extensions";
+import { ensurePersistedExtensionsLive, setPostgresExtensions } from "./postgres/extensions";
 import { deleteDraftCredential, deleteResourceById, getDraftCredentialPassword } from "./queries";
+import { buildContainerName } from "./views";
 
 type OrgId = OrganizationId;
 
@@ -50,41 +54,6 @@ async function drainCreateStream(
   return { success, errorMessage, createdResourceId };
 }
 
-// extraEnv + extensions come after creation — the create stream doesn't accept
-// them as input today, so apply them as second steps. Both need the resource
-// id, so resolve it once.
-async function applyDatabasePostCreate(args: CreateDatabaseArgs): Promise<void> {
-  const needsExtraEnv = Boolean(args.spec.extraEnv && Object.keys(args.spec.extraEnv).length > 0);
-  const specExtensions = manifestExtensions(args.spec);
-  if (!needsExtraEnv && specExtensions.length === 0) return;
-
-  const dbId = await lookupDatabaseId(args.projectId, args.name);
-  if (!dbId) return;
-
-  if (needsExtraEnv) {
-    await applyPostgresExtraEnv(
-      {
-        projectId: args.projectId,
-        organizationId: args.organizationId,
-        resourceId: dbId,
-        nextExtraEnv: args.spec.extraEnv ?? {},
-      },
-      args.log,
-    );
-  }
-  if (specExtensions.length > 0) {
-    await setPostgresExtensions(
-      {
-        projectId: args.projectId,
-        organizationId: args.organizationId,
-        resourceId: dbId,
-        extensions: specExtensions,
-      },
-      args.log,
-    );
-  }
-}
-
 export async function createDatabase(
   args: CreateDatabaseArgs,
 ): Promise<Result<{ name: string }, ManifestApplySkipError>> {
@@ -116,6 +85,11 @@ export async function createDatabase(
       engine: args.spec.engine,
       publicEnabled: args.spec.publicEnabled ?? false,
       password: draftPassword,
+      // Staged extensions + env deploy as part of THIS create: the stream
+      // resolves the image from the extension set and bakes the env into the
+      // container, so no follow-up image-swap or env-roll redeploy runs.
+      extensions: manifestExtensions(args.spec),
+      extraEnv: args.spec.extraEnv ?? {},
       project: validation.value.project,
     },
     args.log,
@@ -128,6 +102,23 @@ export async function createDatabase(
     // the manifest entry as already-existing and flips create → no-op: the
     // ghost vanishes and the operator can never cleanly retry.
     if (createdResourceId) await deleteResourceById(createdResourceId);
+    // And tear down whatever container the failed create may have started —
+    // a leftover holding the name would 409 every retry. Best-effort: the
+    // volume stays (data safety), only the container goes.
+    await Result.tryPromise({
+      try: () =>
+        destroySwarmDatabase(
+          {
+            serviceName: buildContainerName({
+              engine: args.spec.engine,
+              projectSlug: validation.value.project.slug,
+              resourceName: args.name,
+            }),
+          },
+          args.log,
+        ),
+      catch: (e) => e,
+    });
     return Result.err(
       new ManifestApplySkipError({
         resource: "database",
@@ -141,7 +132,14 @@ export async function createDatabase(
   // staged draft credential is redundant. Drop it.
   await deleteDraftCredential(args.projectId, args.name);
 
-  await applyDatabasePostCreate(args);
+  // Image + env were baked into the create above; the persisted extension
+  // list still needs its CREATE EXTENSION statements against the live DB.
+  if (createdResourceId) {
+    await ensurePersistedExtensionsLive(
+      { projectId: args.projectId, resourceId: createdResourceId },
+      args.log,
+    );
+  }
 
   return Result.ok({ name: args.name });
 }

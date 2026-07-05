@@ -164,13 +164,11 @@ export function LogViewer({
   const copyVisible = () => {
     const text = visible.map((c) => c.line.line).join("\n");
     if (!text) return;
-    void copyToClipboard(text).then((ok) => {
-      if (ok) {
-        toast.success(`Copied ${visible.length} ${plural(visible.length, "line")}`);
-      } else {
-        toast.error("Couldn't copy logs");
-      }
-    });
+    void copyToClipboard(text).then((ok) =>
+      ok
+        ? toast.success(`Copied ${visible.length} ${plural(visible.length, "line")}`)
+        : toast.error("Couldn't copy logs"),
+    );
   };
 
   const countLabel = q

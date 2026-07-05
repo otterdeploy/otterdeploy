@@ -72,12 +72,12 @@ export function KeyCard({ sshKey, canManage }: { sshKey: SshKey; canManage: bool
 
   const copy = (text: string, what: string) => {
     void copyToClipboard(text).then((ok) => {
-      if (ok) {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1400);
-      } else {
+      if (!ok) {
         toast.error(`Couldn't copy ${what}`);
+        return;
       }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1400);
     });
   };
 

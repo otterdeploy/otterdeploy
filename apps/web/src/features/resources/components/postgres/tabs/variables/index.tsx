@@ -67,11 +67,13 @@ function ProvisionedVariables({ resource }: { resource: PostgresBodyProps["resou
 
   // Per-key tick that auto-clears so multiple copies stay visually independent.
   const copyValue = (value: string, name: string) => {
-    void copyToClipboard(value);
-    setCopiedKey(name);
-    window.setTimeout(() => {
-      setCopiedKey((cur) => (cur === name ? null : cur));
-    }, 1400);
+    void copyToClipboard(value).then((ok) => {
+      if (!ok) return;
+      setCopiedKey(name);
+      window.setTimeout(() => {
+        setCopiedKey((cur) => (cur === name ? null : cur));
+      }, 1400);
+    });
   };
 
   return (
@@ -169,9 +171,11 @@ function PendingVariables({
       return next;
     });
   const copyValue = (value: string, name: string) => {
-    void copyToClipboard(value);
-    setCopiedKey(name);
-    window.setTimeout(() => setCopiedKey((cur) => (cur === name ? null : cur)), 1400);
+    void copyToClipboard(value).then((ok) => {
+      if (!ok) return;
+      setCopiedKey(name);
+      window.setTimeout(() => setCopiedKey((cur) => (cur === name ? null : cur)), 1400);
+    });
   };
 
   const onSave = dbName

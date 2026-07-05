@@ -34,11 +34,13 @@ export function RevealKeyDialog({
   const copy = () => {
     if (!apiKey) return;
     void copyToClipboard(apiKey).then((ok) => {
-      if (ok) {
-        setCopied(true);
-        toast.success("API key copied");
-        setTimeout(() => setCopied(false), 1500);
+      if (!ok) {
+        toast.error("Couldn't copy API key");
+        return;
       }
+      setCopied(true);
+      toast.success("API key copied");
+      setTimeout(() => setCopied(false), 1500);
     });
   };
 

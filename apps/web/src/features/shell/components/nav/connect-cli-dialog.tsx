@@ -30,13 +30,9 @@ export function ConnectCliDialog({
   const cmd = `otterdeploy login ${origin}`;
 
   const copy = () => {
-    void copyToClipboard(cmd).then((ok) => {
-      if (ok) {
-        toast.success("Copied");
-      } else {
-        toast.error("Couldn't copy");
-      }
-    });
+    void copyToClipboard(cmd).then((ok) =>
+      ok ? toast.success("Copied") : toast.error("Couldn't copy"),
+    );
   };
 
   return (

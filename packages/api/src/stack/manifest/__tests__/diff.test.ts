@@ -165,7 +165,7 @@ describe("diffManifest", () => {
       kind: "update",
       resource: "env",
       name: "web.LOG_LEVEL",
-      details: { from: "info", to: "warn" },
+      details: { from: "info", to: "warn", parent: "service", key: "LOG_LEVEL" },
     });
     // ${secret} declared but missing server-side → create with a note
     expect(changes).toContainEqual({
@@ -175,6 +175,8 @@ describe("diffManifest", () => {
       details: {
         secret: true,
         note: expect.stringContaining("declared as ${secret}"),
+        parent: "service",
+        key: "DATABASE_URL",
       },
     });
     // unmanaged DEPRECATED key should be planned for deletion
@@ -182,6 +184,7 @@ describe("diffManifest", () => {
       kind: "delete",
       resource: "env",
       name: "web.DEPRECATED",
+      details: { parent: "service", key: "DEPRECATED" },
     });
   });
 

@@ -8,10 +8,7 @@
 import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
-import { db } from "@otterdeploy/db";
-import { resource } from "@otterdeploy/db/schema/project";
 import { Result } from "better-result";
-import { eq } from "drizzle-orm";
 
 import { type Change, type CurrentState, type Manifest } from "../../stack/manifest";
 import { createComposeFromManifest } from "../compose/manifest-reconcile";
@@ -20,6 +17,7 @@ import { ManifestApplySkipError } from "./errors";
 import { createDatabase, updateDatabaseFromManifest } from "./manifest-apply-databases";
 import { enqueueGitBuild } from "./manifest-apply-git";
 import { lookupDatabaseId, lookupServiceId } from "./manifest-apply-support";
+import { deleteProjectResource } from "./resources";
 
 type OrgId = OrganizationId;
 
@@ -161,6 +159,9 @@ export async function runServiceDeletes(
 }
 
 // ── 7. Database deletes ────────────────────────────────────────────────
+// Full teardown via deleteProjectResource — proxy routes, the runtime
+// container, the row, and a caddy reconcile. A bare row delete here used to
+// leak the container, and the leftover name 409'd every later re-create.
 export async function runDatabaseDeletes(
   ctx: ApplyContext,
   changes: Change[],
@@ -168,14 +169,29 @@ export async function runDatabaseDeletes(
   const results = await Promise.all(
     changes.map(async (change) => {
       const existingId = await lookupDatabaseId(ctx.projectId, change.name);
-      if (!existingId) return false;
-      await db.delete(resource).where(eq(resource.id, existingId));
-      return true;
+      if (!existingId) return null;
+      const result = await deleteProjectResource(
+        { projectId: ctx.projectId, organizationId: ctx.organizationId, resourceId: existingId },
+        ctx.log,
+      );
+      return { name: change.name, result };
     }),
   );
   let applied = 0;
-  for (const ok of results) if (ok) applied += 1;
-  return { applied, skipped: [], gitBuilds: [] };
+  const skipped: ManifestApplySkipError[] = [];
+  for (const r of results) {
+    if (!r) continue;
+    if (r.result.isOk()) applied += 1;
+    else
+      skipped.push(
+        new ManifestApplySkipError({
+          resource: "database",
+          name: r.name,
+          reason: `delete failed: ${r.result.error.name}`,
+        }),
+      );
+  }
+  return { applied, skipped, gitBuilds: [] };
 }
 
 // ── Enqueue builds for git-sourced service creates/updates ─────────────

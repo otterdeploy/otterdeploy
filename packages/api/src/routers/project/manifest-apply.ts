@@ -25,7 +25,7 @@ import { db } from "@otterdeploy/db";
 import { project } from "@otterdeploy/db/schema/project";
 import { and, eq } from "drizzle-orm";
 
-import type { CurrentState, Manifest } from "../../stack/manifest";
+import type { Manifest } from "../../stack/manifest";
 import type { ApplyContext, GitBuild, PhaseContribution } from "./manifest-apply-phases";
 
 import { writeProjectEscapeHatch } from "../../lib/escape-hatch";
@@ -41,6 +41,7 @@ import {
 import { runServiceCreates, runServiceUpdates } from "./manifest-apply-phases-services";
 import { loadRefTable } from "./manifest-apply-refs";
 import { groupChanges } from "./manifest-apply-support";
+import { loadCurrentState } from "./manifest-state";
 
 export { enqueueGitBuild } from "./manifest-apply-git";
 
@@ -58,12 +59,35 @@ export interface ApplyInput {
   projectId: ProjectId;
   organizationId: OrganizationId;
   manifest: Manifest;
-  current: CurrentState;
   log: ApplyContext["log"];
 }
 
-export async function applyManifest(input: ApplyInput): Promise<ApplyResult> {
-  const { projectId, organizationId, manifest, current, log } = input;
+// One reconcile at a time per project. Two concurrent applies (Deploy click +
+// applyChange from a panel, a double-click, CLI + UI) would both diff the same
+// pre-state and both try to create the same containers — the loser dies on a
+// docker name Conflict. Queue them instead: the second run re-reads current
+// state AFTER the first finishes, so its diff sees the work as already done.
+const applyQueues = new Map<ProjectId, Promise<unknown>>();
+
+export function applyManifest(input: ApplyInput): Promise<ApplyResult> {
+  const prev = applyQueues.get(input.projectId) ?? Promise.resolve();
+  const run = prev.then(() => runApply(input));
+  const settled: Promise<void> = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  applyQueues.set(input.projectId, settled);
+  void settled.then(() => {
+    if (applyQueues.get(input.projectId) === settled) applyQueues.delete(input.projectId);
+  });
+  return run;
+}
+
+async function runApply(input: ApplyInput): Promise<ApplyResult> {
+  const { projectId, organizationId, manifest, log } = input;
+  // Load state inside the queue slot — a snapshot taken while a prior apply
+  // was still running would re-plan (and re-provision) its work.
+  const current = await loadCurrentState(projectId);
   const ctx: ApplyContext = { projectId, organizationId, manifest, current, log };
   const byKind = groupChanges(diffManifest(manifest, current));
 

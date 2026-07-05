@@ -19,7 +19,7 @@
  * remove that reachability caveat; the SQL itself is unchanged.
  */
 
-import type { ResourceId } from "@otterdeploy/shared/id";
+import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import {
@@ -95,57 +95,61 @@ export async function setPostgresExtensions(
   const previous = record.database.extensions ?? [];
   await setDatabaseResourceExtensions(input.resourceId, desired);
 
-  // Roll the service with the resolved image. For contrib-only changes the
-  // image equals the default and this is a plain ForceUpdate; for a
-  // non-contrib toggle the image changes and the new container ships the
-  // extension's shared objects so CREATE EXTENSION can succeed below.
-  const deployment = await insertDeployment({
-    resourceId: input.resourceId,
-    image,
-    reason: "redeploy",
-    snapshot: snapshotForPostgresCreate({
+  // Redeploy ONLY when the toggle changes the image the container must run
+  // (pgvector / postgis / timescaledb). Contrib extensions ship in every
+  // image — for those, CREATE EXTENSION below is the whole change, and the
+  // "~0 downtime" promise in the UI holds because nothing restarts.
+  const previousResolved = resolvePostgresImage(previous, defaultImage);
+  const previousImage = previousResolved.ok ? previousResolved.image : defaultImage;
+  if (image !== previousImage) {
+    const deployment = await insertDeployment({
+      resourceId: input.resourceId,
       image,
-      databaseName: record.database.databaseName,
-      username: record.database.username,
-      password: record.database.password,
-      publicEnabled: record.database.publicEnabled,
-      publicHostname: record.database.publicHostname,
-      internalHostname: record.database.internalHostname,
-      extraEnv: record.database.extraEnv ?? {},
-      extensions: desired,
-    }),
-  });
-
-  try {
-    await updateSwarmDatabase(
-      {
-        engine,
-        resourceId: input.resourceId,
+      reason: "redeploy",
+      snapshot: snapshotForPostgresCreate({
         image,
-        serviceName: buildContainerName({
-          engine,
-          projectSlug: project.slug,
-          resourceName: record.resource.name,
-        }),
-        volumeName: buildVolumeName({
-          engine,
-          projectSlug: project.slug,
-          resourceName: record.resource.name,
-        }),
-        hostnameAlias: record.database.internalHostname,
         databaseName: record.database.databaseName,
         username: record.database.username,
         password: record.database.password,
-        projectSlug: sanitizeProjectSlug(project.slug),
-        deploymentId: deployment.id,
+        publicEnabled: record.database.publicEnabled,
+        publicHostname: record.database.publicHostname,
+        internalHostname: record.database.internalHostname,
         extraEnv: record.database.extraEnv ?? {},
-        public: record.database.publicEnabled,
-      },
-      log,
-    );
-  } catch (err) {
-    await markDeploymentFailed(deployment.id, err instanceof Error ? err.message : String(err));
-    throw err;
+        extensions: desired,
+      }),
+    });
+
+    try {
+      await updateSwarmDatabase(
+        {
+          engine,
+          resourceId: input.resourceId,
+          image,
+          serviceName: buildContainerName({
+            engine,
+            projectSlug: project.slug,
+            resourceName: record.resource.name,
+          }),
+          volumeName: buildVolumeName({
+            engine,
+            projectSlug: project.slug,
+            resourceName: record.resource.name,
+          }),
+          hostnameAlias: record.database.internalHostname,
+          databaseName: record.database.databaseName,
+          username: record.database.username,
+          password: record.database.password,
+          projectSlug: sanitizeProjectSlug(project.slug),
+          deploymentId: deployment.id,
+          extraEnv: record.database.extraEnv ?? {},
+          public: record.database.publicEnabled,
+        },
+        log,
+      );
+    } catch (err) {
+      await markDeploymentFailed(deployment.id, err instanceof Error ? err.message : String(err));
+      throw err;
+    }
   }
 
   // Diff old → new and apply the delta to the running database. Best-effort:
@@ -176,6 +180,29 @@ export async function setPostgresExtensions(
 
 function dedupe(values: Array<string | null | undefined>): string[] {
   return [...new Set(values.filter((v): v is string => Boolean(v)))];
+}
+
+/**
+ * Run CREATE EXTENSION for every extension already persisted on the record.
+ * The manifest create path bakes extensions into the container image + row
+ * up-front (one deploy, no post-create image swap), which leaves no delta
+ * for `setPostgresExtensions` to apply — this covers the SQL half. Idempotent
+ * (IF NOT EXISTS) and best-effort, like the live path.
+ */
+export async function ensurePersistedExtensionsLive(
+  input: { projectId: ProjectId; resourceId: ResourceId },
+  log: RequestLogger,
+): Promise<void> {
+  const record = await getDatabaseResourceRecord(input.projectId, input.resourceId);
+  if (!record) return;
+  const extensions = record.database.extensions ?? [];
+  if (extensions.length === 0) return;
+  await applyExtensionsLive(
+    dedupe([record.database.internalConnectionString, record.database.publicConnectionString]),
+    extensions,
+    [],
+    log,
+  );
 }
 
 /**

@@ -44,11 +44,13 @@ export function TableView({
     });
 
   const copyValue = (id: string, value: string) => {
-    void copyToClipboard(value);
-    setCopiedId(id);
-    window.setTimeout(() => {
-      setCopiedId((cur) => (cur === id ? null : cur));
-    }, 1400);
+    void copyToClipboard(value).then((ok) => {
+      if (!ok) return;
+      setCopiedId(id);
+      window.setTimeout(() => {
+        setCopiedId((cur) => (cur === id ? null : cur));
+      }, 1400);
+    });
   };
 
   return (

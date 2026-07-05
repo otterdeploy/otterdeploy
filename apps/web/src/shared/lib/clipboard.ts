@@ -1,45 +1,52 @@
 /**
- * Copy text to the clipboard, working even in an *insecure* context.
+ * Clipboard writing that works outside secure contexts. `navigator.clipboard`
+ * only exists on HTTPS or localhost — a self-hosted dashboard reached over
+ * plain `http://<ip-or-host>:<port>` has no async Clipboard API at all, so
+ * every `navigator.clipboard?.writeText(...)` call site silently no-oped
+ * while still flashing its "Copied" state (same secure-context trap as
+ * `crypto.randomUUID`, see lib/random-uuid-polyfill.ts).
  *
- * The async Clipboard API (`navigator.clipboard`) is only exposed in a secure
- * context — HTTPS or `localhost`. A self-hosted otterdeploy reached over plain
- * HTTP by IP/LAN (e.g. `http://10.0.0.5:3000`) has `navigator.clipboard`
- * undefined, so every copy button silently failed (guarded `?.` calls no-op'd;
- * unguarded ones threw). This helper tries the modern API first, then falls
- * back to a hidden-textarea + `document.execCommand("copy")`, which works
- * without a secure context.
- *
- * Returns whether the copy succeeded so callers can toast accordingly.
+ * Strategy: prefer the async API, fall back to the hidden-textarea +
+ * `document.execCommand("copy")` trick (deprecated but universally
+ * supported, and the only write path in insecure contexts). Resolves to
+ * whether the text actually reached the clipboard — call sites must gate
+ * their "Copied" feedback on it instead of assuming success.
  */
 export async function copyToClipboard(text: string): Promise<boolean> {
-  // Secure context (HTTPS/localhost): prefer the async Clipboard API.
-  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch {
-      // Permission denied, document not focused, etc. — try the legacy path.
-    }
+  if (navigator.clipboard) {
+    const ok = await navigator.clipboard.writeText(text).then(
+      () => true,
+      // Rejects on secure origins too (e.g. "Document is not focused" while
+      // devtools has focus) — fall through to the legacy path.
+      () => false,
+    );
+    if (ok) return true;
   }
+  return legacyCopy(text);
+}
 
-  // Legacy fallback: a throwaway textarea + execCommand. Deprecated but the
-  // only clipboard write available over plain HTTP.
-  if (typeof document === "undefined") return false;
+function legacyCopy(text: string): boolean {
   const textarea = document.createElement("textarea");
   textarea.value = text;
-  // Keep it out of view and non-interactive, but selectable.
   textarea.setAttribute("readonly", "");
+  // Off-screen but still selectable; `display:none` would make select() a no-op.
   textarea.style.position = "fixed";
-  textarea.style.top = "-9999px";
+  textarea.style.top = "0";
+  textarea.style.left = "-9999px";
   textarea.style.opacity = "0";
+
+  const selection = document.getSelection();
+  const prior = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+
   document.body.appendChild(textarea);
-  try {
-    textarea.focus();
-    textarea.select();
-    return document.execCommand("copy");
-  } catch {
-    return false;
-  } finally {
-    document.body.removeChild(textarea);
+  textarea.select();
+  // oxlint-disable-next-line typescript-eslint/no-deprecated -- deprecated, but the only clipboard write available in insecure contexts
+  const ok = document.execCommand("copy");
+  textarea.remove();
+
+  if (prior) {
+    selection?.removeAllRanges();
+    selection?.addRange(prior);
   }
+  return ok;
 }

@@ -80,6 +80,12 @@ export async function createDatabaseResourceRecord(input: {
   upstreamHost: string;
   upstreamPort: number;
   caddyLayer4Snippet: string;
+  /** Extensions the create bakes in (manifest creates resolve the image from
+   *  these up-front, so no post-create image-swap redeploy is needed). */
+  extensions?: string[];
+  /** User env vars the create bakes into the container, so no post-create
+   *  env-roll redeploy is needed. */
+  extraEnv?: Record<string, string>;
 }): Promise<DatabaseResourceRecord> {
   return db.transaction(async (tx) => {
     const [createdResource] = await tx
@@ -122,6 +128,12 @@ export async function createDatabaseResourceRecord(input: {
         upstreamHost: input.upstreamHost,
         upstreamPort: input.upstreamPort,
         caddyLayer4Snippet: input.caddyLayer4Snippet,
+        ...(input.extensions && input.extensions.length > 0
+          ? { extensions: input.extensions }
+          : {}),
+        ...(input.extraEnv && Object.keys(input.extraEnv).length > 0
+          ? { extraEnv: input.extraEnv }
+          : {}),
       })
       .returning();
 
