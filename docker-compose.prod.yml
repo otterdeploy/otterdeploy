@@ -72,6 +72,10 @@ services:
       # value that may be present in .env).
       DATABASE_URL: postgres://${POSTGRES_USER:-otterdeploy}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-otterdeploy}
       REDIS_URL: redis://redis:6379
+      # Push reconciled Caddy config over the shared docker network. The default
+      # (http://127.0.0.1:2019) is the server container's OWN loopback when
+      # containerized, so it must be the caddy service DNS name.
+      CADDY_ADMIN_URL: http://caddy:2019
     volumes:
       # Drive the HOST Docker daemon — this is how the runtime() driver
       # provisions services/databases/compose stacks.
@@ -138,11 +142,14 @@ services:
     restart: unless-stopped
     # Seed a placeholder Caddyfile on first boot so Caddy starts before the
     # control plane has reconciled the real one; the server then pushes config
-    # via the admin API (127.0.0.1:2019).
+    # via the admin API over the docker network (http://caddy:2019). The global
+    # `admin 0.0.0.0:2019` block is REQUIRED — without it Caddy's admin API
+    # binds to localhost only, so neither the server nor the host port-forward
+    # can reach it and the control plane can never push the real config.
     command: >
       sh -c "mkdir -p /etc/caddy &&
              [ -s /etc/caddy/Caddyfile ] ||
-               printf ':80 {\n  respond \"otterdeploy is starting…\" 503\n}\n' > /etc/caddy/Caddyfile &&
+               printf '{\n  admin 0.0.0.0:2019\n}\n:80 {\n  respond \"otterdeploy is starting…\" 503\n}\n' > /etc/caddy/Caddyfile &&
              caddy run --config /etc/caddy/Caddyfile --adapter caddyfile"
     ports:
       - "80:80"
