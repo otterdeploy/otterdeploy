@@ -8,6 +8,8 @@ import { eq } from "drizzle-orm";
 import { createHash } from "node:crypto";
 
 import { asStepLogger } from "../lib/logger";
+import { isSwarmRuntime } from "../runtime";
+import { ensureEdgeOnProjectNetworks } from "../swarm/client";
 import { buildProjectFragment, type CrowdsecConfig, type ProxyRouteInput } from "./builder";
 import { adaptCaddyfile, loadCaddyfile } from "./client";
 import {
@@ -103,7 +105,7 @@ function controlPlaneRoute(cp: { domain: string; usesAcme: boolean }): ProxyRout
   const upstream = env.DEPLOY_AUTHZ_UPSTREAM;
   const sep = upstream.lastIndexOf(":");
   const host = sep === -1 ? upstream : upstream.slice(0, sep);
-  const port = sep === -1 ? 3000 : (Number(upstream.slice(sep + 1)) || 3000);
+  const port = sep === -1 ? 3000 : Number(upstream.slice(sep + 1)) || 3000;
   return {
     projectId: CONTROL_PLANE_PROJECT_ID,
     type: "http",
@@ -118,6 +120,11 @@ function controlPlaneRoute(cp: { domain: string; usesAcme: boolean }): ProxyRout
 
 export async function reconcile(rlog?: RequestLogger): Promise<ReconcileResult> {
   const log = asStepLogger(rlog);
+  // Plain docker: re-attach the edge to every project bridge network first — a
+  // recreated Caddy container drops those dynamic attachments, which 502s every
+  // deployed service until reconnected. No-op under swarm (shared overlay) and
+  // when already attached.
+  if (!isSwarmRuntime()) await ensureEdgeOnProjectNetworks(rlog);
   log.info({ caddy: { step: "fetch-routes" } });
   const records = await listEnabledProxyRoutes();
   log.info({ caddy: { step: "fetch-routes", count: records.length } });
