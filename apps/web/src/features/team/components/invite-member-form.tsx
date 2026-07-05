@@ -1,11 +1,14 @@
 /**
  * Invite a new member to the organization by email + role. Owners/admins
- * only (the Team page gates rendering). Inserts optimistically into
- * `invitationsCollection`; `onInsert` calls `authClient.organization
- * .inviteMember` (which sends the email) and refetches so the real row
- * (server id, resolved expiry) replaces the optimistic one. After the
- * transaction persists we look the real invite up by email to offer a
- * copyable accept link (for when email delivery isn't configured).
+ * only (the Team page gates rendering).
+ *
+ * Calls `authClient.organization.inviteMember` directly so we get the real
+ * invitation id back and can always offer a copyable accept link — email
+ * delivery is best-effort (a self-hosted install may have no transport
+ * configured), so the link is the reliable path. The email field validates
+ * against the loaded members + pending invites so an existing member or a
+ * duplicate invite is caught inline before we hit the server (which also
+ * rejects it as a fallback).
  */
 
 import { useState } from "react";
@@ -14,9 +17,15 @@ import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
 
 import { CopyLinkButton } from "@/features/team/components/copy-link-button";
-import { acceptInviteUrl, invitationsCollection } from "@/features/team/data/use-team";
+import {
+  acceptInviteUrl,
+  invitationsSubsetKey,
+  useInvitations,
+  useMembers,
+} from "@/features/team/data/use-team";
+import { authClient } from "@/lib/auth-client";
 import { Button } from "@/shared/components/ui/button";
-import { Field, FieldLabel } from "@/shared/components/ui/field";
+import { Field, FieldError, FieldLabel } from "@/shared/components/ui/field";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 import {
@@ -26,6 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/shared/components/ui/select";
+import { queryClient } from "@/shared/server/orpc";
 
 const INVITE_ROLES = [
   { value: "member", label: "Member" },
@@ -34,6 +44,10 @@ const INVITE_ROLES = [
 
 export function InviteMemberForm({ organizationId }: { organizationId: string }) {
   const [sent, setSent] = useState<{ email: string; url: string } | null>(null);
+  // Loaded so the email field can flag an existing member / pending invite
+  // inline (and so the collections are warm for the rest of the Team page).
+  const { data: members } = useMembers(organizationId);
+  const { data: pending } = useInvitations(organizationId);
 
   const form = useForm({
     defaultValues: {
@@ -44,29 +58,29 @@ export function InviteMemberForm({ organizationId }: { organizationId: string })
       const email = value.email.trim();
       if (!email) return;
 
-      // Optimistic insert: `onInsert` mints the invite server-side (and sends
-      // the email), then refetches so the real row replaces this temp one.
-      // Expiry is resolved server-side; the temp row uses a placeholder until
-      // the refetch lands.
-      const tx = invitationsCollection.insert({
-        id: crypto.randomUUID(),
-        organizationId,
+      const res = await authClient.organization.inviteMember({
         email,
         role: value.role,
-        expiresAt: new Date(),
+        organizationId,
       });
+      if (res.error) {
+        // Server is authoritative (e.g. already-a-member if the client list was
+        // stale). Surface its message rather than a generic failure.
+        toast.error(res.error.message ?? "Couldn't create the invitation");
+        return;
+      }
 
       form.reset();
-      tx.isPersisted.promise
-        .then(() => {
-          toast.success(`Invitation sent to ${email}`);
-          // Recover the real invitation (server id) for the share link.
-          const real = invitationsCollection.toArray.find((i) => i.email === email);
-          if (real) setSent({ email, url: acceptInviteUrl(real.id) });
-        })
-        .catch((err: unknown) =>
-          toast.error(err instanceof Error ? err.message : "Failed to send invitation"),
-        );
+      // Refresh the pending-invites list to show the new row.
+      void queryClient.invalidateQueries({ queryKey: [...invitationsSubsetKey(organizationId)] });
+
+      // Use the real invitation id from the response so the accept link always
+      // works — even when no email was delivered.
+      const inviteId = res.data?.id;
+      if (inviteId) {
+        setSent({ email, url: acceptInviteUrl(inviteId) });
+      }
+      toast.success(`Invitation created for ${email}`);
     },
   });
 
@@ -75,12 +89,12 @@ export function InviteMemberForm({ organizationId }: { organizationId: string })
       <div>
         <h3 className="text-sm font-semibold">Invite a teammate</h3>
         <p className="mt-0.5 text-[12.5px] text-muted-foreground">
-          They&apos;ll get an email link to join. Admins can manage members and settings; members
-          can build and deploy but not administer the workspace.
+          They&apos;ll get an email link to join (if email is configured). Admins can manage members
+          and settings; members can build and deploy but not administer the workspace.
         </p>
       </div>
       <form
-        className="flex flex-col gap-2 sm:flex-row sm:items-end"
+        className="flex flex-col gap-2 sm:flex-row sm:items-start"
         onSubmit={(e) => {
           e.preventDefault();
           void form.handleSubmit();
@@ -90,7 +104,17 @@ export function InviteMemberForm({ organizationId }: { organizationId: string })
         <form.Field
           name="email"
           validators={{
-            onChange: ({ value }) => (value.trim().length === 0 ? "Email is required" : undefined),
+            onChange: ({ value }) => {
+              const email = value.trim().toLowerCase();
+              if (!email) return "Email is required";
+              if ((members ?? []).some((m) => m.email.toLowerCase() === email)) {
+                return "This person is already a member of the organization";
+              }
+              if ((pending ?? []).some((i) => i.email.toLowerCase() === email)) {
+                return "An invite is already pending for this email";
+              }
+              return undefined;
+            },
           }}
         >
           {(field) => (
@@ -106,6 +130,11 @@ export function InviteMemberForm({ organizationId }: { organizationId: string })
                 onChange={(e) => field.handleChange(e.target.value)}
                 placeholder="teammate@company.com"
                 className="h-9"
+              />
+              <FieldError
+                errors={field.state.meta.errors.map((e) =>
+                  typeof e === "string" ? { message: e } : (e as { message?: string } | undefined),
+                )}
               />
             </Field>
           )}
@@ -135,7 +164,7 @@ export function InviteMemberForm({ organizationId }: { organizationId: string })
         </form.Field>
         <form.Subscribe selector={(s) => [s.canSubmit, s.isSubmitting] as const}>
           {([canSubmit, isSubmitting]) => (
-            <Button type="submit" disabled={!canSubmit || isSubmitting} className="h-9">
+            <Button type="submit" disabled={!canSubmit || isSubmitting} className="mt-[22px] h-9">
               Send invite
             </Button>
           )}
@@ -145,8 +174,8 @@ export function InviteMemberForm({ organizationId }: { organizationId: string })
       {sent ? (
         <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/30 px-3 py-2">
           <p className="min-w-0 text-[12px] text-muted-foreground">
-            Invited <span className="font-medium text-foreground/80">{sent.email}</span>. If the
-            email doesn&apos;t arrive, share this link directly.
+            Invited <span className="font-medium text-foreground/80">{sent.email}</span>. If email
+            delivery isn&apos;t set up, share this link so they can join.
           </p>
           <CopyLinkButton link={sent.url} label="Copy invite link" className="shrink-0" />
         </div>

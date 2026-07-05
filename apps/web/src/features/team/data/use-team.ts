@@ -37,7 +37,7 @@ function membersSubsetKey(organizationId: string) {
 }
 
 /** React-query key for one org's invitations subset. */
-function invitationsSubsetKey(organizationId: string) {
+export function invitationsSubsetKey(organizationId: string) {
   return ["org", organizationId, "invitations"] as const;
 }
 
