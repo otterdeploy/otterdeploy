@@ -94,11 +94,15 @@ function MemberRow({
     if (!next || next === member.role) return;
     // Optimistic: the Select's value is already `member.role`, so the collection
     // update reflects instantly and rolls back itself on failure.
-    membersCollection.update(member.id, (draft) => {
-      draft.role = next;
-    }).isPersisted.promise.catch((err: unknown) =>
-      toast.error(err instanceof Error ? err.message : "Failed to update role"),
-    );
+    membersCollection
+      .update(member.id, (draft) => {
+        // The Select only surfaces valid role values, so narrow the string back to
+        // the role union the collection field expects.
+        draft.role = next as typeof member.role;
+      })
+      .isPersisted.promise.catch((err: unknown) =>
+        toast.error(err instanceof Error ? err.message : "Failed to update role"),
+      );
   };
 
   // Owners aren't editable via this control; managers can reassign everyone else.
