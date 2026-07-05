@@ -55,13 +55,15 @@ RUN RAILPACK_VERSION="${RAILPACK_VERSION}" sh -c \
 
 WORKDIR /app
 COPY . .
-RUN bun install --frozen-lockfile
-
-# Drop dev dependencies: the worker runs the TS source directly via bun (no
-# build/bundle step), so it needs the workspace source + PRODUCTION deps but not
-# tsdown/vite/turbo/drizzle-kit/typescript/eslint. bun transpiles TS at runtime,
-# so `typescript` isn't needed either. Reinstall production-only in place.
-RUN find . -type d -name node_modules -prune -exec rm -rf {} + \
+# Install, then prune to production — in ONE layer. A separate later `rm` can't
+# reclaim the fat all-deps layer (Docker layers are additive: deleted files still
+# cost their original layer's size), so the whole install→prune must happen in a
+# single RUN so only the pruned node_modules is committed. --frozen-lockfile
+# validates the lockfile first; the worker runs the TS source via bun (no
+# build/bundle step), so it needs prod deps + the workspace source but not
+# tsdown/vite/turbo/drizzle-kit/typescript (bun transpiles TS at runtime).
+RUN bun install --frozen-lockfile \
+ && find . -type d -name node_modules -prune -exec rm -rf {} + \
  && bun install --production
 
 WORKDIR /app/apps/builder
