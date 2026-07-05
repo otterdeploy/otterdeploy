@@ -1,6 +1,7 @@
 import { ProjectSidebar } from "@/features/shell/components/sidebar/project-sidebar";
 
 import { SiteHeader } from "@/features/shell/components/site-header";
+import { UpdateBanner, UpdateProvider } from "@/features/updates";
 
 import { SidebarInset, SidebarProvider } from "@/shared/components/ui/sidebar";
 import {
@@ -42,24 +43,29 @@ function RouteComponent() {
 
   return (
     <div className="[--header-height:calc(--spacing(12))]">
-      <SidebarProvider defaultOpen={false} className="flex flex-col">
-        <SiteHeader />
-        <div className="flex flex-1">
-          {!match ? (
-            <>
-              {/* No project here — sidebar collapses to just the org
-                  switcher + footer. Project sections appear once the
-                  user navigates into a project. */}
-              <ProjectSidebar collapsible="icon" user={user} />
-              <SidebarInset>
-                <Outlet />
-              </SidebarInset>
-            </>
-          ) : (
-            <Outlet />
-          )}
-        </div>
-      </SidebarProvider>
+      {/* UpdateProvider owns the update dialog + the once-per-load background
+          check, so the banner/header pill light up anywhere in the org shell. */}
+      <UpdateProvider>
+        <SidebarProvider defaultOpen={false} className="flex flex-col">
+          <SiteHeader />
+          <UpdateBanner />
+          <div className="flex flex-1">
+            {!match ? (
+              <>
+                {/* No project here — sidebar collapses to just the org
+                    switcher + footer. Project sections appear once the
+                    user navigates into a project. */}
+                <ProjectSidebar collapsible="icon" user={user} />
+                <SidebarInset>
+                  <Outlet />
+                </SidebarInset>
+              </>
+            ) : (
+              <Outlet />
+            )}
+          </div>
+        </SidebarProvider>
+      </UpdateProvider>
     </div>
   );
 }

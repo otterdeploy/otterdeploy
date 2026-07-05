@@ -15,6 +15,7 @@ import { ControlPlaneCard } from "./-components/settings-control-plane";
 import { ServerIpCard } from "./-components/instance-server-ip";
 import { EdgeDefaultsCard } from "./-components/instance-edge";
 import { EmailCard } from "./-components/settings-email";
+import { UpdatesCard } from "./-components/instance-updates";
 
 export const Route = createFileRoute("/_app/$orgSlug/instance")({
   staticData: { crumb: "Instance" },
@@ -30,6 +31,7 @@ function InstanceRoute() {
         description="Install-wide configuration for this server — applies to every workspace."
       />
 
+      <UpdatesCard />
       <ControlPlaneCard organizationId={organization.id as never} />
       <ServerIpCard organizationId={organization.id as never} />
       <EdgeDefaultsCard organizationId={organization.id as never} />

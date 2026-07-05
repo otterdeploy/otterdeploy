@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 import { useResourceOverlay } from "@/features/projects/components/new-resource/overlay-provider";
 import { HeaderNav } from "@/features/shell/components/header-nav";
 import { ModeToggle } from "@/features/shell/components/mode-toggle";
+import { UpdateHeaderButton } from "@/features/updates";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Github } from "@/shared/components/ui/svgs/github";
@@ -60,6 +61,8 @@ export function SiteHeader() {
           </div>
 
           <ModeToggle />
+
+          <UpdateHeaderButton />
 
           <Button variant="outline" className="h-8 gap-2">
             <Github className="size-4" />
