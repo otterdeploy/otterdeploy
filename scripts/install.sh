@@ -569,6 +569,14 @@ start_stack() {
   # step 11. Plain progress goes to stderr → the log records the real error.
   $SUDO docker compose "${COMPOSE_F[@]}" --env-file "$ENV_FILE" $profile_args --progress plain pull
   $SUDO docker compose "${COMPOSE_F[@]}" --env-file "$ENV_FILE" $profile_args --progress plain up -d
+
+  # Reclaim disk from images this pull superseded: pulling a new :latest leaves
+  # the previous one dangling (untagged), and the server/builder images are
+  # multi-GB, so a few `update`s otherwise fill the disk (Postgres then crash-
+  # loops on ENOSPC). `image prune -f` only removes DANGLING images — never one a
+  # container still references — so it's safe here. Best-effort; never fail the
+  # run on cleanup.
+  $SUDO docker image prune -f >/dev/null 2>&1 || true
 }
 
 # Don't declare success until the control plane actually answers — never show a
