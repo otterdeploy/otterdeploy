@@ -361,6 +361,7 @@
         "@otterdeploy/env": "workspace:*",
         "@otterdeploy/shared": "workspace:*",
         "better-auth": "catalog:",
+        "better-result": "catalog:",
         "drizzle-orm": "catalog:",
         "evlog": "catalog:",
         "zod": "catalog:",

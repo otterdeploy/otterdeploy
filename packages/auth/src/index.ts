@@ -9,6 +9,7 @@ import { env } from "@otterdeploy/env/server";
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { Result } from "better-result";
 import { bearer, deviceAuthorization, organization, twoFactor } from "better-auth/plugins";
 import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
 import { log } from "evlog";
@@ -130,17 +131,15 @@ export const auth = betterAuth({
   // session cookie isn't sent cross-site either). CORS_ORIGIN stays trusted for
   // any explicitly configured / split-origin cases.
   trustedOrigins: (request) => {
+    const trusted = [...env.CORS_ORIGIN];
     const origin = request?.headers.get("origin");
     const host = request?.headers.get("host");
-    const self: string[] = [];
-    if (origin && host) {
-      try {
-        if (new URL(origin).host === host) self.push(origin);
-      } catch {
-        // Malformed Origin header — ignore and fall back to configured origins.
-      }
+    // Result.try keeps a malformed Origin from throwing; unwrapOr(null) then just
+    // reads as "not same-origin", so it falls back to the configured origins.
+    if (origin && host && Result.try(() => new URL(origin).host).unwrapOr(null) === host) {
+      trusted.push(origin);
     }
-    return [...env.CORS_ORIGIN, ...self];
+    return trusted;
   },
   emailAndPassword: {
     enabled: true,
