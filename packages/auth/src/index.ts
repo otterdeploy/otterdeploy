@@ -119,16 +119,27 @@ export const auth = betterAuth({
   // That requires `relations` passed to drizzle() in
   // packages/db/src/client.ts, which is intentionally not wired today.
   // The adapter falls back to plain selects without it.
-  // Trust the exact host each request actually arrived on (both schemes), on top
-  // of any explicitly configured CORS_ORIGIN. A self-hosted box is reachable at
-  // many names — public IP, LAN IP, hostname, tunnel — and the operator
-  // shouldn't have to enumerate them just to avoid "Invalid origin" on POSTs.
-  // This stays CSRF-safe: a cross-site attacker's request carries THEIR Origin
-  // but OUR Host, so Origin still won't match the returned self-origin (and the
-  // SameSite=Lax session cookie isn't sent cross-site either).
+  // Trust the request's OWN origin — the exact scheme AND host the client used —
+  // but only when the Origin header's host matches the Host header, i.e. a
+  // genuine same-origin request. A self-hosted box is reachable at many names
+  // (public IP, LAN IP, hostname, tunnel) and the operator shouldn't have to
+  // enumerate them to avoid "Invalid origin" on POSTs. Echoing the Origin
+  // verbatim preserves its protocol (HTTPS stays HTTPS, HTTP stays HTTP) instead
+  // of guessing or trusting both. Still CSRF-safe: a cross-site attacker's
+  // Origin host won't match our Host, so it isn't trusted (and the SameSite=Lax
+  // session cookie isn't sent cross-site either). CORS_ORIGIN stays trusted for
+  // any explicitly configured / split-origin cases.
   trustedOrigins: (request) => {
+    const origin = request?.headers.get("origin");
     const host = request?.headers.get("host");
-    const self = host ? [`http://${host}`, `https://${host}`] : [];
+    const self: string[] = [];
+    if (origin && host) {
+      try {
+        if (new URL(origin).host === host) self.push(origin);
+      } catch {
+        // Malformed Origin header — ignore and fall back to configured origins.
+      }
+    }
     return [...env.CORS_ORIGIN, ...self];
   },
   emailAndPassword: {
