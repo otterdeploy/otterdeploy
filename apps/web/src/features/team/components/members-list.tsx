@@ -17,7 +17,21 @@ import { toast } from "sonner";
 import { membersCollection, useMembers, type TeamMember } from "@/features/team/data/use-team";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/components/ui/select";
 import { Skeleton } from "@/shared/components/ui/skeleton";
+
+/** Roles an admin/owner can assign to a member from the list. Owners are not
+ *  offered here — transferring ownership is a separate, deliberate action. */
+const ROLE_OPTIONS = [
+  { value: "member", label: "Member" },
+  { value: "admin", label: "Admin" },
+] as const;
 
 export function MembersList({
   organizationId,
@@ -76,6 +90,20 @@ function MemberRow({
       .finally(() => setBusy(false));
   };
 
+  const changeRole = (next: string) => {
+    if (!next || next === member.role) return;
+    // Optimistic: the Select's value is already `member.role`, so the collection
+    // update reflects instantly and rolls back itself on failure.
+    membersCollection.update(member.id, (draft) => {
+      draft.role = next;
+    }).isPersisted.promise.catch((err: unknown) =>
+      toast.error(err instanceof Error ? err.message : "Failed to update role"),
+    );
+  };
+
+  // Owners aren't editable via this control; managers can reassign everyone else.
+  const canEditRole = canManage && !isSelf && member.role !== "owner";
+
   return (
     <div className="flex items-center gap-3 px-4 py-2.5">
       <div className="grid size-7 shrink-0 place-items-center rounded-full bg-muted text-[11px] font-medium uppercase">
@@ -88,9 +116,28 @@ function MemberRow({
         </div>
         <div className="truncate text-[12px] text-muted-foreground">{member.email}</div>
       </div>
-      <Badge variant="secondary" className="text-[10px] font-normal capitalize">
-        {member.role}
-      </Badge>
+      {canEditRole ? (
+        <Select
+          items={ROLE_OPTIONS.map((r) => ({ label: r.label, value: r.value }))}
+          value={member.role}
+          onValueChange={(v) => changeRole(v ?? "")}
+        >
+          <SelectTrigger className="h-7 w-[110px] text-[12px] capitalize">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {ROLE_OPTIONS.map((r) => (
+              <SelectItem key={r.value} value={r.value}>
+                {r.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : (
+        <Badge variant="secondary" className="text-[10px] font-normal capitalize">
+          {member.role}
+        </Badge>
+      )}
       {canManage && !isSelf ? (
         <Button
           variant="ghost"

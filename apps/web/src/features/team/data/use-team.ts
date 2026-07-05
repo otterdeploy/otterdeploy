@@ -81,6 +81,20 @@ export const membersCollection = createCollection(
         role: m.role,
       }));
     },
+    onUpdate: async ({ transaction }) => {
+      await Promise.all(
+        transaction.mutations.map(async (m) => {
+          const res = await authClient.organization.updateMemberRole({
+            memberId: m.original.id,
+            role: m.modified.role as "member" | "admin",
+            organizationId: m.original.organizationId,
+          });
+          if (res.error) {
+            throw new Error(res.error.message ?? "Failed to update role");
+          }
+        }),
+      );
+    },
     onDelete: async ({ transaction }) => {
       await Promise.all(
         transaction.mutations.map(async (m) => {
