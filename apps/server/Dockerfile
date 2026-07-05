@@ -46,4 +46,4 @@ ENV PORT=3000
 EXPOSE 3000
 
 WORKDIR /app/apps/server
-CMD ["bun", "run", "dist/index.js"]
+CMD ["bun", "run", "dist/index.mjs"]
