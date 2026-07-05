@@ -29,51 +29,29 @@ import {
 
 export function ConnectedProviderCard({ provider }: { provider: ProviderView }) {
   const { orgSlug } = useParams({ from: "/_app/$orgSlug/git-providers" });
-  const primary = provider.installations[0];
   const reinstall = useGithubReinstall();
-  if (!primary) return null;
+  if (provider.installations.length === 0) return null;
 
   return (
     <div className="rounded-md border bg-card p-4">
-      <div className="flex items-start gap-3">
+      <div className="flex items-center gap-3">
         <SvglLogo
           search={PROVIDER_SEARCH[provider.kind]}
           fallback={PROVIDER_LABEL[provider.kind]}
           size={28}
         />
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <Link
-              to="/$orgSlug/github-app/$providerId"
-              params={{ orgSlug, providerId: provider.id }}
-              className="text-[13.5px] font-semibold hover:text-primary hover:underline"
-            >
-              {provider.displayName}
-            </Link>
-            <StatusBadge installation={primary} />
-            <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10.5px] font-medium tracking-wider text-muted-foreground uppercase">
-              GitHub App
-            </span>
-          </div>
-          <div className="mt-0.5 font-mono text-[11.5px] text-muted-foreground">
-            {primary.accountType === "organization" ? "org" : "user"}/{primary.accountLogin}
-            {provider.installations.length > 1 && (
-              <span className="ml-2 text-muted-foreground">
-                +{provider.installations.length - 1} more
-              </span>
-            )}
-          </div>
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+          <Link
+            to="/$orgSlug/github-app/$providerId"
+            params={{ orgSlug, providerId: provider.id }}
+            className="text-[13.5px] font-semibold hover:text-primary hover:underline"
+          >
+            {provider.displayName}
+          </Link>
+          <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10.5px] font-medium tracking-wider text-muted-foreground uppercase">
+            GitHub App
+          </span>
         </div>
-        <InstallationActions installation={primary} />
-      </div>
-
-      <div className="mt-3.5 flex items-center gap-6 border-t pt-3">
-        <Stat
-          label="Repos"
-          value={`${primary.repoCount}${primary.repoSelection === "selected" ? " (selected)" : ""}`}
-        />
-        <Stat label="Connected" value={formatRelative(primary.createdAt)} mono />
-        <div className="flex-1" />
         <Button
           size="sm"
           variant="ghost"
@@ -83,9 +61,54 @@ export function ConnectedProviderCard({ provider }: { provider: ProviderView }) 
         >
           {reinstall.isPending ? "Redirecting…" : "Reinstall"}
         </Button>
-        <RefreshButton installationId={primary.id} onReinstall={reinstall.run} />
       </div>
+
+      {/* One row per installation — every account the App is installed on is
+          visible with its own status + actions, never a "+N more" mystery. */}
+      <ul className="mt-3 divide-y border-t">
+        {provider.installations.map((installation) => (
+          <InstallationRow
+            key={installation.id}
+            installation={installation}
+            onReinstall={reinstall.run}
+          />
+        ))}
+      </ul>
     </div>
+  );
+}
+
+function InstallationRow({
+  installation,
+  onReinstall,
+}: {
+  installation: InstallationView;
+  onReinstall: () => void;
+}) {
+  return (
+    <li className="flex items-center gap-3 py-2.5">
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="truncate font-mono text-[12px]">
+            {installation.accountType === "organization" ? "org" : "user"}/
+            {installation.accountLogin}
+          </span>
+          <StatusBadge installation={installation} />
+        </div>
+        <div className="mt-0.5 text-[11px] text-muted-foreground">
+          {installation.repoCount} repos
+          {installation.repoSelection === "selected" ? " (selected)" : ""}
+          {" · connected "}
+          {formatRelative(installation.createdAt)}
+        </div>
+      </div>
+      {/* Syncing a revoked installation can only fail — hide it and leave the
+          menu (Manage on GitHub / Disconnect) as the cleanup path. */}
+      {!installation.revokedAt && (
+        <RefreshButton installationId={installation.id} onReinstall={onReinstall} />
+      )}
+      <InstallationActions installation={installation} />
+    </li>
   );
 }
 
@@ -241,16 +264,5 @@ function StatusBadge({ installation }: { installation: InstallationView }) {
       <span className="size-1.5 rounded-full bg-current" />
       {label}
     </span>
-  );
-}
-
-function Stat({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div>
-      <div className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
-        {label}
-      </div>
-      <div className={cn("mt-0.5 text-[12px]", mono && "font-mono")}>{value}</div>
-    </div>
   );
 }
