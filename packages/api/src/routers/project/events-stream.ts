@@ -88,7 +88,13 @@ async function loadServiceNameMap(
  */
 function eventServiceName(event: DockerEvent): string | null {
   if (event.kind === "container") {
-    return event.labels["com.docker.swarm.service.name"] ?? null;
+    // Under swarm the container carries `com.docker.swarm.service.name`. Under
+    // the DEFAULT plain-docker runtime there's no such label, but the container
+    // is named exactly `serviceName` (the docker driver's container name), which
+    // the event carries as `event.name` — fall back to it so container
+    // lifecycle/health events actually reach the stream (matching the same
+    // `event.name` fallback in postgres/boot-logs.ts).
+    return event.labels["com.docker.swarm.service.name"] ?? event.name ?? null;
   }
   if (event.kind === "task") {
     return event.labels["com.docker.swarm.service.name"] ?? null;

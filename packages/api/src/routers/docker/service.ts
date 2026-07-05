@@ -1,5 +1,7 @@
 import { Docker } from "@otterdeploy/docker";
 
+import { isSwarmRuntime } from "../../runtime";
+
 const docker = Docker.fromEnv();
 
 type Listed<T> = { ok: true; items: T } | { ok: false; reason: string };
@@ -128,6 +130,10 @@ export async function listNetworks(): Promise<Listed<ListedNetwork[]>> {
 }
 
 export async function listTasks(): Promise<Listed<ListedTask[]>> {
+  // Swarm-only API. Under the DEFAULT plain-docker runtime there are no tasks —
+  // return an empty list instead of surfacing the daemon's "not a swarm manager"
+  // error as a SERVER_ERROR on the debug page's Tasks tab.
+  if (!isSwarmRuntime()) return { ok: true, items: [] };
   const result = await docker.tasks.list();
   if (result.isErr()) return { ok: false, reason: result.error.message };
   return {
