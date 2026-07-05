@@ -61,6 +61,7 @@ services:
     # Pinned tag so the worker can spawn this same image as the per-build
     # helper container (BUILDER_HELPER_IMAGE below must match).
     image: otterdeploy-builder:latest
+    working_dir: /app/apps/builder
     command: ["bun", "run", "src/index.ts"]
     container_name: otterdeploy-builder
     restart: unless-stopped
