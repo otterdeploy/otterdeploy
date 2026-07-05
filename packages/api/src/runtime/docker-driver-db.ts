@@ -44,15 +44,16 @@ export async function runDatabase(input: DatabaseSpec): Promise<DatabaseStatus> 
     input.engine,
   );
 
+  // Databases are NEVER host-published, matching the swarm driver: public
+  // access is the Caddy layer4 `proxy_route` (edge listens on the engine
+  // port and dials the container over the project bridge Caddy is attached
+  // to). A host binding here would also collide with Caddy's own published
+  // engine port. `input.public` only gates that route; the container spec is
+  // identical either way — which is what makes the public toggle roll-free.
   const hostConfig: Record<string, unknown> = {
     RestartPolicy: { Name: "on-failure", MaximumRetryCount: 5 },
     Mounts: [{ Type: "volume", Source: input.volumeName, Target: adapter.mountTarget }],
   };
-  if (input.public) {
-    hostConfig.PortBindings = {
-      [`${adapter.port}/tcp`]: [{ HostPort: String(adapter.port) }],
-    };
-  }
 
   const options: Record<string, unknown> = {
     name: input.serviceName,

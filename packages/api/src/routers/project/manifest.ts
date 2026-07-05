@@ -150,6 +150,35 @@ export async function syncManifestDatabasePublic(
   });
 }
 
+/** Same back-sync for a declared `extraEnv`: after a live env edit, patch the
+ *  saved manifest's declared map to the applied one so the next diff doesn't
+ *  stage a phantom revert. No-op when the manifest omits the key (live-managed)
+ *  or already matches. */
+export async function syncManifestDatabaseExtraEnv(
+  scope: ProjectScope,
+  name: string,
+  extraEnv: Record<string, string>,
+): Promise<void> {
+  const row = await loadManifest(scope);
+  if (row.isErr()) return;
+  const manifest = row.value.manifest;
+  const entry = manifest?.databases?.[name];
+  if (!manifest || !entry || entry.extraEnv === undefined) return;
+  const declared = entry.extraEnv;
+  const declaredKeys = Object.keys(declared);
+  const nextKeys = Object.keys(extraEnv);
+  const unchanged =
+    declaredKeys.length === nextKeys.length && nextKeys.every((k) => declared[k] === extraEnv[k]);
+  if (unchanged) return;
+  await saveManifest(scope, {
+    manifest: {
+      ...manifest,
+      databases: { ...manifest.databases, [name]: { ...entry, extraEnv } },
+    },
+    expectedVersion: row.value.version,
+  });
+}
+
 /** Resolved manifest for a given environment (or base if none). */
 export async function resolvedManifest(
   scope: ProjectScope,

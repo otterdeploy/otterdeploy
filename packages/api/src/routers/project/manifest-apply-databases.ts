@@ -181,14 +181,17 @@ export async function updateDatabaseFromManifest(
     );
   }
 
-  const desiredExtra = args.spec.extraEnv ?? {};
-  if (!shallowEqual(desiredExtra, args.currentExtraEnv)) {
+  // Same declared-only rule as publicEnabled above: only touch extraEnv when
+  // the manifest declares it AND it differs. Treating an absent map as `{}`
+  // used to wipe every live-added env key on any apply (and roll the
+  // container doing it).
+  if (args.spec.extraEnv !== undefined && !shallowEqual(args.spec.extraEnv, args.currentExtraEnv)) {
     await applyPostgresExtraEnv(
       {
         projectId: args.projectId,
         organizationId: args.organizationId,
         resourceId: args.resourceId,
-        nextExtraEnv: desiredExtra,
+        nextExtraEnv: args.spec.extraEnv,
       },
       args.log,
     );

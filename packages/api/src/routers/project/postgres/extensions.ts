@@ -31,9 +31,7 @@ import { SQL } from "bun";
 
 import type { ProjectRef } from "../../scopes";
 
-import { updateSwarmDatabase } from "../../../runtime/db";
 import { defaultImageFor } from "../../../swarm";
-import { insertDeployment, markDeploymentFailed, reconcileDeploySuccess } from "../deployments";
 import {
   IncompatibleExtensionsError,
   PostgresResourceNotFoundError,
@@ -44,14 +42,8 @@ import {
   getProjectInOrg,
   setDatabaseResourceExtensions,
 } from "../queries";
-import {
-  buildContainerName,
-  buildVolumeName,
-  mapDatabaseResource,
-  sanitizeProjectSlug,
-  type PostgresResource,
-} from "../views";
-import { snapshotForPostgresCreate } from "./snapshot";
+import { mapDatabaseResource, type PostgresResource } from "../views";
+import { rollDatabaseContainer } from "./roll";
 
 export async function setPostgresExtensions(
   input: ProjectRef & { resourceId: ResourceId; extensions: string[] },
@@ -102,60 +94,11 @@ export async function setPostgresExtensions(
   const previousResolved = resolvePostgresImage(previous, defaultImage);
   const previousImage = previousResolved.ok ? previousResolved.image : defaultImage;
   if (image !== previousImage) {
-    const deployment = await insertDeployment({
-      resourceId: input.resourceId,
-      image,
-      reason: "redeploy",
-      snapshot: snapshotForPostgresCreate({
-        image,
-        databaseName: record.database.databaseName,
-        username: record.database.username,
-        password: record.database.password,
-        publicEnabled: record.database.publicEnabled,
-        publicHostname: record.database.publicHostname,
-        internalHostname: record.database.internalHostname,
-        extraEnv: record.database.extraEnv ?? {},
-        extensions: desired,
-      }),
-    });
-
-    let rolled: Awaited<ReturnType<typeof updateSwarmDatabase>>;
-    try {
-      rolled = await updateSwarmDatabase(
-        {
-          engine,
-          resourceId: input.resourceId,
-          image,
-          serviceName: buildContainerName({
-            engine,
-            projectSlug: project.slug,
-            resourceName: record.resource.name,
-          }),
-          volumeName: buildVolumeName({
-            engine,
-            projectSlug: project.slug,
-            resourceName: record.resource.name,
-          }),
-          hostnameAlias: record.database.internalHostname,
-          databaseName: record.database.databaseName,
-          username: record.database.username,
-          password: record.database.password,
-          projectSlug: sanitizeProjectSlug(project.slug),
-          deploymentId: deployment.id,
-          extraEnv: record.database.extraEnv ?? {},
-          public: record.database.publicEnabled,
-        },
-        log,
-      );
-    } catch (err) {
-      await markDeploymentFailed(deployment.id, err instanceof Error ? err.message : String(err));
-      throw err;
-    }
-    // Driver waited for the swapped container — flip the row eagerly so the
-    // Deployments card and the live runtime badge agree without a poll.
-    if (rolled.status === "running") {
-      await reconcileDeploySuccess([deployment.id], input.resourceId);
-    }
+    // rollDatabaseContainer owns the deployment row + eager status bookkeeping.
+    await rollDatabaseContainer(
+      { record, projectSlug: project.slug, image, reason: "redeploy", extensions: desired },
+      log,
+    );
   }
 
   // Diff old → new and apply the delta to the running database. Best-effort:

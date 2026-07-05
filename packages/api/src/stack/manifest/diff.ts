@@ -269,7 +269,12 @@ function diffDatabase(name: string, desired: DatabaseManifest, current: CurrentD
     fieldChanges.publicEnabled = { from: current.publicEnabled, to: desired.publicEnabled };
   }
 
-  const envChanges = diffEnv(desired.extraEnv ?? {}, current.extraEnv);
+  // Same declared-only convention as publicEnabled: an absent extraEnv means
+  // the live env editor owns the keys. Diffing an absent map as `{}` used to
+  // stage a phantom delete for every live-added key — and Apply wiped them
+  // (rolling the container for good measure).
+  const envChanges =
+    desired.extraEnv === undefined ? [] : diffEnv(desired.extraEnv, current.extraEnv);
   const out: Change[] = [];
 
   if (Object.keys(fieldChanges).length > 0) {

@@ -221,6 +221,58 @@ describe("diffManifest", () => {
     expect(diffManifest(m, current)).toEqual([]);
   });
 
+  it("round-trip: a fully-applied manifest diffs to only no-ops", () => {
+    // THE invariant behind the draft panel: right after an Apply, the diff
+    // must be empty. Any field whose diff/apply semantics disagree (e.g. an
+    // absent key defaulted on one side but not the other) breaks this.
+    const m = manifest({
+      project: "acme-api",
+      services: {
+        web: { source: "image", image: "ghcr.io/acme/api:1.0.0", replicas: 2, env: { A: "1" } },
+      },
+      databases: {
+        primary: { engine: "postgres", publicEnabled: true, extraEnv: { B: "2" } },
+      },
+    });
+    const current: CurrentState = {
+      services: {
+        web: {
+          name: "web",
+          source: "image",
+          image: "ghcr.io/acme/api:1.0.0",
+          sourceSubdir: null,
+          repo: null,
+          branch: null,
+          imageRepository: null,
+          replicas: 2,
+          command: null,
+          entrypoint: null,
+          ports: [],
+          env: { A: "1" },
+          publicEnabled: false,
+          preDeploy: null,
+          postDeploy: null,
+          buildConfig: null,
+          restartWindowMs: null,
+          diskLimitMb: null,
+          swapLimitMb: null,
+          pidsLimit: null,
+        },
+      },
+      databases: {
+        primary: {
+          name: "primary",
+          engine: "postgres",
+          publicEnabled: true,
+          extraEnv: { B: "2" },
+        },
+      },
+      composes: {},
+    };
+    const changes = diffManifest(m, current);
+    expect(changes.filter((c) => c.kind !== "no-op")).toEqual([]);
+  });
+
   it("represents discriminator change as delete + create", () => {
     const m = manifest({
       project: "acme-api",
@@ -259,5 +311,81 @@ describe("diffManifest", () => {
     const changes = diffManifest(m, current);
     expect(changes[0]).toMatchObject({ kind: "delete", resource: "service", name: "web" });
     expect(changes[1]).toMatchObject({ kind: "create", resource: "service", name: "web" });
+  });
+});
+
+// Fields the manifest manages only when it DECLARES them. An omitted key
+// means "the live editor owns this" — the diff must never manufacture a
+// change from an absent key. Regression suite for the phantom-revert bug:
+// a live public-toggle (or live env edit) used to be staged as an update /
+// delete seconds later and REVERTED by the next Apply.
+describe("diffDatabase declared-only fields", () => {
+  function currentDb(over: Partial<CurrentState["databases"][string]> = {}) {
+    return {
+      databases: {
+        primary: {
+          name: "primary",
+          engine: "postgres" as const,
+          publicEnabled: false,
+          extraEnv: {},
+          ...over,
+        },
+      },
+      services: {},
+      composes: {},
+    } satisfies CurrentState;
+  }
+
+  it("absent publicEnabled never diffs a live toggle", () => {
+    const m = manifest({ project: "acme-api", databases: { primary: { engine: "postgres" } } });
+    expect(diffManifest(m, currentDb({ publicEnabled: true }))).toEqual([
+      { kind: "no-op", resource: "database", name: "primary" },
+    ]);
+  });
+
+  it("absent extraEnv never stages deletes of live-added keys", () => {
+    const m = manifest({ project: "acme-api", databases: { primary: { engine: "postgres" } } });
+    expect(diffManifest(m, currentDb({ extraEnv: { SHARED_BUFFERS: "256MB" } }))).toEqual([
+      { kind: "no-op", resource: "database", name: "primary" },
+    ]);
+  });
+
+  it("declared publicEnabled equal to live state is a no-op", () => {
+    const m = manifest({
+      project: "acme-api",
+      databases: { primary: { engine: "postgres", publicEnabled: true } },
+    });
+    expect(diffManifest(m, currentDb({ publicEnabled: true }))).toEqual([
+      { kind: "no-op", resource: "database", name: "primary" },
+    ]);
+  });
+
+  it("declared publicEnabled that differs stages an update", () => {
+    const m = manifest({
+      project: "acme-api",
+      databases: { primary: { engine: "postgres", publicEnabled: false } },
+    });
+    expect(diffManifest(m, currentDb({ publicEnabled: true }))).toEqual([
+      {
+        kind: "update",
+        resource: "database",
+        name: "primary",
+        details: { fields: { publicEnabled: { from: true, to: false } } },
+      },
+    ]);
+  });
+
+  it("declared extraEnv that differs stages env changes (including deletes)", () => {
+    const m = manifest({
+      project: "acme-api",
+      databases: { primary: { engine: "postgres", extraEnv: { KEEP: "1" } } },
+    });
+    const changes = diffManifest(m, currentDb({ extraEnv: { KEEP: "1", DROP: "x" } }));
+    expect(changes).toContainEqual({
+      kind: "delete",
+      resource: "env",
+      name: "primary.DROP",
+      details: { parent: "database", key: "DROP" },
+    });
   });
 });

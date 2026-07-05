@@ -14,23 +14,17 @@ import type { ProjectRef } from "../../scopes";
 
 import { resolvePostgresImage } from "@otterdeploy/shared/postgres-extensions";
 
-import { updateSwarmDatabase } from "../../../runtime/db";
 import { defaultImageFor } from "../../../swarm";
-import { insertDeployment, reconcileDeploySuccess } from "../deployments";
+import { syncManifestDatabaseExtraEnv } from "../manifest";
 import { PostgresResourceNotFoundError, ProjectNotFoundError } from "../errors";
 import {
   getDatabaseResourceRecord,
   getProjectInOrg,
   setDatabaseResourceExtraEnv,
 } from "../queries";
-import {
-  buildContainerName,
-  buildVolumeName,
-  mapDatabaseResource,
-  sanitizeProjectSlug,
-  type PostgresResource,
-} from "../views";
-import { snapshotForPostgresCreate, type PostgresSnapshotV1 } from "./snapshot";
+import { mapDatabaseResource, type PostgresResource } from "../views";
+import { rollDatabaseContainer } from "./roll";
+import { type PostgresSnapshotV1 } from "./snapshot";
 
 /**
  * Shared write path for editor mutations on `extraEnv`. Persists the new map,
@@ -78,57 +72,28 @@ export async function applyPostgresExtraEnv(
   );
   const engineImage = resolvedImage.ok ? resolvedImage.image : defaultImageFor(engine);
 
-  // New deployment for the env change — labels onto the rolled spec so the
-  // resulting tasks group under this row in the Deployments tab.
-  const envDeployment = await insertDeployment({
-    resourceId: ref.resourceId,
-    image: engineImage,
-    reason: "env-change",
-    snapshot: snapshotForPostgresCreate({
-      image: engineImage,
-      databaseName: record.database.databaseName,
-      username: record.database.username,
-      password: record.database.password,
-      publicEnabled: record.database.publicEnabled,
-      publicHostname: record.database.publicHostname,
-      internalHostname: record.database.internalHostname,
-      extraEnv: ref.nextExtraEnv,
-    }),
-  });
-
-  // Roll the running task with the new env. Volume + network stay put; only
-  // the container env array changes. ~5s of dropped connections.
-  const rolled = await updateSwarmDatabase(
+  // Roll the running container with the new env (volume + network stay put;
+  // ~5s of dropped connections). rollDatabaseContainer owns the deployment
+  // row + eager status bookkeeping.
+  await rollDatabaseContainer(
     {
-      engine,
+      record,
+      projectSlug: project.slug,
       image: engineImage,
-      serviceName: buildContainerName({
-        engine,
-        projectSlug: project.slug,
-        resourceName: record.resource.name,
-      }),
-      volumeName: buildVolumeName({
-        engine,
-        projectSlug: project.slug,
-        resourceName: record.resource.name,
-      }),
-      hostnameAlias: record.database.internalHostname,
-      databaseName: record.database.databaseName,
-      username: record.database.username,
-      password: record.database.password,
-      projectSlug: sanitizeProjectSlug(project.slug),
-      resourceId: ref.resourceId,
-      deploymentId: envDeployment.id,
+      reason: "env-change",
       extraEnv: ref.nextExtraEnv,
-      public: record.database.publicEnabled,
     },
     log,
   );
-  // The driver waited for the rolled container — persist the running flip now
-  // so the Deployments card agrees with the live runtime badge immediately.
-  if (rolled.status === "running") {
-    await reconcileDeploySuccess([envDeployment.id], ref.resourceId);
-  }
+
+  // Keep a DECLARED manifest extraEnv truthful — otherwise the next
+  // manifest.diff stages a phantom revert of this edit (same convention as
+  // syncManifestDatabasePublic; a manifest that omits the key is untouched).
+  await syncManifestDatabaseExtraEnv(
+    { projectId: ref.projectId, organizationId: ref.organizationId },
+    record.resource.name,
+    ref.nextExtraEnv,
+  );
 
   return Result.ok(
     await mapDatabaseResource(

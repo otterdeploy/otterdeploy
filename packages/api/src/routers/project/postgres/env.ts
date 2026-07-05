@@ -11,7 +11,6 @@
 import type { ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
-import { resolvePostgresImage } from "@otterdeploy/shared/postgres-extensions";
 import { Result } from "better-result";
 
 import type { ProjectRef } from "../../scopes";
@@ -20,20 +19,10 @@ import { reconcile } from "../../../caddy";
 import { deleteProxyRoutesByResource, insertProxyRoute } from "../../../caddy/queries";
 import { loadDomainSourcesForProject } from "../../../lib/domain-sources";
 import { resolvePublicDomain } from "../../../lib/domains";
-import { updateSwarmDatabase } from "../../../runtime/db";
-import { defaultImageFor } from "../../../swarm";
-import { insertDeployment, markDeploymentFailed, reconcileDeploySuccess } from "../deployments";
 import { syncManifestDatabasePublic } from "../manifest";
 import { PostgresResourceNotFoundError, ProjectNotFoundError } from "../errors";
 import { getDatabaseResourceRecord, getProjectInOrg, setDatabaseResourcePublic } from "../queries";
-import {
-  buildContainerName,
-  buildVolumeName,
-  mapDatabaseResource,
-  sanitizeProjectSlug,
-  type PostgresResource,
-} from "../views";
-import { snapshotForPostgresCreate } from "./snapshot";
+import { mapDatabaseResource, type PostgresResource } from "../views";
 
 export {
   applyPostgresExtraEnv,
@@ -107,74 +96,14 @@ export async function setPostgresPublic(
 
   await setDatabaseResourcePublic(input.resourceId, input.publicEnabled);
 
-  // Re-roll the swarm spec. The DB is never host-published (no raw 5432 on the
-  // node) — public access is the layer4 `proxy_route` inserted above, served by
-  // Caddy on :443. The redeploy just keeps the running spec in sync; app
-  // containers in the same project always reach the DB via the overlay alias.
-  const engine = record.database.engine;
-  // Preserve the extension-resolved image — a bare `defaultImageFor` here
-  // would silently downgrade a pgvector/postgis/timescale container on every
-  // public toggle.
-  const resolvedImage = resolvePostgresImage(
-    record.database.extensions ?? [],
-    defaultImageFor(engine),
-  );
-  const engineImage = resolvedImage.ok ? resolvedImage.image : defaultImageFor(engine);
-  const publicDeployment = await insertDeployment({
-    resourceId: input.resourceId,
-    image: engineImage,
-    reason: "redeploy",
-    snapshot: snapshotForPostgresCreate({
-      image: engineImage,
-      databaseName: record.database.databaseName,
-      username: record.database.username,
-      password: record.database.password,
-      publicEnabled: input.publicEnabled,
-      publicHostname: record.database.publicHostname,
-      internalHostname: record.database.internalHostname,
-      extraEnv: record.database.extraEnv ?? {},
-    }),
-  });
-  let rolled: Awaited<ReturnType<typeof updateSwarmDatabase>>;
-  try {
-    rolled = await updateSwarmDatabase(
-      {
-        engine,
-        image: engineImage,
-        serviceName: buildContainerName({
-          engine,
-          projectSlug: project.slug,
-          resourceName: record.resource.name,
-        }),
-        volumeName: buildVolumeName({
-          engine,
-          projectSlug: project.slug,
-          resourceName: record.resource.name,
-        }),
-        hostnameAlias: record.database.internalHostname,
-        databaseName: record.database.databaseName,
-        username: record.database.username,
-        password: record.database.password,
-        projectSlug: sanitizeProjectSlug(project.slug),
-        resourceId: input.resourceId,
-        deploymentId: publicDeployment.id,
-        extraEnv: record.database.extraEnv ?? {},
-        public: input.publicEnabled,
-      },
-      log,
-    );
-  } catch (err) {
-    await markDeploymentFailed(
-      publicDeployment.id,
-      err instanceof Error ? err.message : String(err),
-    );
-    throw err;
-  }
-  // The driver waited for the rolled container — flip the deployment row to
-  // running now so every status surface agrees without waiting for a poll.
-  if (rolled.status === "running") {
-    await reconcileDeploySuccess([publicDeployment.id], input.resourceId);
-  }
+  // NO container roll. Public access is purely the layer4 `proxy_route`
+  // inserted above (Caddy dials the container over the project network on
+  // both runtimes; neither driver host-publishes the engine port), so the
+  // container spec is identical either way. Rolling here used to recreate
+  // the database for an edge-only change — seconds of downtime plus a
+  // "missing" status flash for nothing. Legacy containers that still carry
+  // a host binding from the old docker-driver model shed it on their next
+  // natural roll (env change / restart / recovery).
 
   // Keep the saved manifest truthful: if it explicitly declares this
   // database's publicEnabled, patch it to the applied value. Otherwise the
