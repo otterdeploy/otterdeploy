@@ -178,8 +178,13 @@ async function resolveBuildLayout(opts: {
   const staticRoot = opts.config?.spa
     ? opts.config.staticRoot?.trim() || DEFAULT_STATIC_ROOT
     : null;
+  // For a workspace build the context is the repo root, so the app's output
+  // sits under its subdir — prepend it. Guard against a staticRoot that ALREADY
+  // carries the subdir (older configs stored the repo-root-relative
+  // `<subdir>/dist`): prepending again produced `apps/web/apps/web/dist` and the
+  // COPY step failed. Only prepend when it isn't already subdir-qualified.
   const spaOutputDir = staticRoot
-    ? isWorkspace && subdir
+    ? isWorkspace && subdir && staticRoot !== subdir && !staticRoot.startsWith(`${subdir}/`)
       ? `${subdir}/${staticRoot}`
       : staticRoot
     : null;

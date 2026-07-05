@@ -94,7 +94,11 @@ function staticSiteBuildConfig(input: ServiceSpecInput): BuildConfig {
   return {
     builder: "railpack",
     ...(input.spa ? { spa: true } : {}),
-    ...(input.root ? { staticRoot: `${input.root.replace(/\/+$/, "")}/dist` } : {}),
+    // staticRoot is resolved RELATIVE TO THE APP SUBDIR by the builder, which
+    // prepends the subdir itself for workspace monorepos (railpack.ts
+    // resolveBuildLayout). Emitting the repo-root-relative `${root}/dist` here
+    // double-prefixed it → `apps/web/apps/web/dist` and the build's COPY failed.
+    ...(input.root ? { staticRoot: "dist" } : {}),
   };
 }
 

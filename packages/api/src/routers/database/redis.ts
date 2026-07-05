@@ -17,7 +17,7 @@ import { Docker } from "@otterdeploy/docker";
 
 import type { RedisKey, RedisKeyspaceEntry, RedisValue } from "./redis-types";
 
-import { execCapture, findServiceContainerId } from "../../backups/exec";
+import { execCapture, findResourceContainerId } from "../../backups/exec";
 import { buildContainerName } from "../project/views";
 import { type DbConnInfo, QueryError, UnsupportedEngineError } from "./query";
 import { parseEval, SCAN_SCRIPT, VALUE_SCRIPT } from "./redis-scripts";
@@ -40,7 +40,7 @@ async function withRedisContainer<T>(
       projectSlug: conn.projectSlug,
       resourceName: conn.resourceName,
     });
-    const containerId = await findServiceContainerId(docker, serviceName);
+    const containerId = await findResourceContainerId(docker, conn.resourceId);
     if (!containerId) {
       throw new QueryError(`redis container for ${serviceName} is not running`);
     }

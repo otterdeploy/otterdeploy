@@ -24,6 +24,7 @@ import {
   deleteDeploymentById,
   getLatestDeploymentForResource,
   insertDeployment,
+  markDeploymentFailed,
 } from "./deployments";
 import {
   type ComposeResourceJoined,
@@ -195,6 +196,32 @@ export async function mapDatabaseResource(
  * if missing. Keeps the proxy route and DB status in sync with whatever the
  * Caddy reconciler reports.
  */
+// A freshly-created (or restarting) swarm service is INVISIBLE to `docker
+// service inspect` for the first few seconds while it converges. Treat a
+// deployment younger than this as "still converging", not "gone", so the
+// self-heal below doesn't fire against a service that's simply not up yet.
+const RECONCILE_GRACE_MS = 60_000;
+
+// Serialize reconcile-on-read per resource. The control plane is a single
+// process, so an in-process lock is enough to stop the fan-out where several
+// concurrent reads (the create wizard's final map + the ~5s resource-list poll
+// + the detail page) each saw the still-converging service as "missing" and
+// each inserted its own `restart` deployment. Queued callers re-check under the
+// lock and bail once the first has provisioned (or recorded) the recovery.
+const reconcileLocks = new Map<string, Promise<unknown>>();
+async function withReconcileLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  const prev = reconcileLocks.get(key) ?? Promise.resolve();
+  const current = prev.then(fn, fn);
+  reconcileLocks.set(key, current);
+  try {
+    return await current;
+  } finally {
+    // Drop the entry only when nobody chained behind us, so the map can't grow
+    // without bound across a long-lived process.
+    if (reconcileLocks.get(key) === current) reconcileLocks.delete(key);
+  }
+}
+
 async function ensureSwarmRuntimeForRecord(
   record: DatabaseResourceRecord,
   projectSlug: string,
@@ -227,86 +254,118 @@ async function ensureSwarmRuntimeForRecord(
     return { record, runtime: existingRuntime };
   }
 
-  // The swarm service disappeared (manual `docker service rm`, drained
-  // node that never came back, etc.). Re-create it under a fresh
-  // deployment so the recovery shows up in the Deployments tab.
-  const restartDeployment = await insertDeployment({
-    resourceId: record.resource.id,
-    image: engineImage,
-    reason: "restart",
-    snapshot: {
-      kind: "postgres",
-      version: 1,
+  // The swarm service looks gone. Recover it under a fresh `restart` deployment
+  // — but serialize per resource and re-check first, so the post-create
+  // convergence window (and the concurrent reads that hit it: the create
+  // wizard's final map, the ~5s resource-list poll, the detail page) can't fan
+  // out into several duplicate restarts.
+  return withReconcileLock(record.resource.id, async () => {
+    // Re-inspect under the lock: an earlier queued reconcile — or the create
+    // that's still converging — may have brought the service up by now.
+    const runtimeNow = await inspectSwarmDatabaseRuntime({ serviceName, volumeName, projectSlug });
+    if (runtimeNow.status !== "missing") {
+      return { record, runtime: runtimeNow };
+    }
+
+    // Dedup + grace: if any deployment for this resource is younger than the
+    // grace window, the service is still converging (a just-created DB, or the
+    // restart a prior lock-holder just inserted) — don't pile on another. This
+    // is what turns the "genuinely removed → one restart" self-heal into exactly
+    // one restart even under concurrent reads.
+    const latest = await getLatestDeploymentForResource(record.resource.id);
+    if (latest && Date.now() - new Date(latest.createdAt).getTime() < RECONCILE_GRACE_MS) {
+      return { record, runtime: runtimeNow };
+    }
+
+    // Genuinely gone (manual `docker service rm`, drained node, etc.). Re-create
+    // it under a fresh deployment so the recovery shows up in the Deployments tab.
+    const restartDeployment = await insertDeployment({
+      resourceId: record.resource.id,
       image: engineImage,
-      databaseName: record.database.databaseName,
-      username: record.database.username,
-      password: record.database.password,
-      publicEnabled: record.database.publicEnabled,
-      publicHostname: record.database.publicHostname,
-      internalHostname: record.database.internalHostname,
-      extraEnv: record.database.extraEnv ?? {},
-    },
-  });
-
-  const runtime = await provisionSwarmDatabase({
-    engine,
-    resourceId: record.resource.id,
-    serviceName,
-    volumeName,
-    hostnameAlias: record.database.internalHostname,
-    databaseName: record.database.databaseName,
-    username: record.database.username,
-    password: record.database.password,
-    projectSlug,
-    deploymentId: restartDeployment.id,
-    extraEnv: record.database.extraEnv ?? {},
-    public: record.database.publicEnabled,
-  });
-
-  // Race close-out: between our initial `inspectSwarmDatabaseRuntime`
-  // (which said "missing") and the inner inspect that provisionSwarm-
-  // Database does, another caller may have brought the service up. In
-  // that case provisionSwarmDatabase short-circuits and never schedules
-  // a task carrying our restart deployment.id label — the row would
-  // stay BUILDING with 0 tasks forever. Drop it. The other caller's
-  // deployment row is the truthful one.
-  if (runtime.wasCreated === false) {
-    await deleteDeploymentById(restartDeployment.id);
-    return { record, runtime };
-  }
-
-  const existingRoute = await getProxyRouteByResourceId(record.resource.id);
-  if (existingRoute) {
-    await updateProxyRoute(existingRoute.id, {
-      upstreamHost: record.database.internalHostname,
-      upstreamPort: PLATFORM.database.internalPort,
+      reason: "restart",
+      snapshot: {
+        kind: "postgres",
+        version: 1,
+        image: engineImage,
+        databaseName: record.database.databaseName,
+        username: record.database.username,
+        password: record.database.password,
+        publicEnabled: record.database.publicEnabled,
+        publicHostname: record.database.publicHostname,
+        internalHostname: record.database.internalHostname,
+        extraEnv: record.database.extraEnv ?? {},
+      },
     });
-  }
 
-  await updateDatabaseResourceRuntime({
-    resourceId: record.resource.id,
-    upstreamHost: record.database.internalHostname,
-    upstreamPort: PLATFORM.database.internalPort,
-    caddyLayer4Snippet: "",
-  });
+    // Provision can throw (e.g. a concurrent create won the service-name race).
+    // Mark the row failed rather than leave it stranded in "building" with no
+    // task ever carrying its deployment.id label.
+    let runtime: SwarmDatabaseRuntime;
+    try {
+      runtime = await provisionSwarmDatabase({
+        engine,
+        resourceId: record.resource.id,
+        serviceName,
+        volumeName,
+        hostnameAlias: record.database.internalHostname,
+        databaseName: record.database.databaseName,
+        username: record.database.username,
+        password: record.database.password,
+        projectSlug,
+        deploymentId: restartDeployment.id,
+        extraEnv: record.database.extraEnv ?? {},
+        public: record.database.publicEnabled,
+      });
+    } catch (err) {
+      await markDeploymentFailed(
+        restartDeployment.id,
+        err instanceof Error ? err.message : String(err),
+      ).catch(() => undefined);
+      throw err;
+    }
 
-  const reconcileResult = await reconcile();
-  const isApplied = reconcileResult.applied.includes(record.resource.projectId);
+    // Race close-out: provisionSwarmDatabase's own inner inspect may have found
+    // the service already up (wasCreated === false) and never scheduled a task
+    // carrying our restart deployment.id label — the row would stay BUILDING
+    // with 0 tasks forever. Drop it; the other caller's row is the truthful one.
+    if (runtime.wasCreated === false) {
+      await deleteDeploymentById(restartDeployment.id);
+      return { record, runtime };
+    }
 
-  await updateDatabaseResourceStatus(record.resource.id, isApplied ? "valid" : "invalid");
-
-  return {
-    record: {
-      resource: { ...record.resource, status: isApplied ? "valid" : "invalid" },
-      database: {
-        ...record.database,
+    const existingRoute = await getProxyRouteByResourceId(record.resource.id);
+    if (existingRoute) {
+      await updateProxyRoute(existingRoute.id, {
         upstreamHost: record.database.internalHostname,
         upstreamPort: PLATFORM.database.internalPort,
-        caddyLayer4Snippet: "",
+      });
+    }
+
+    await updateDatabaseResourceRuntime({
+      resourceId: record.resource.id,
+      upstreamHost: record.database.internalHostname,
+      upstreamPort: PLATFORM.database.internalPort,
+      caddyLayer4Snippet: "",
+    });
+
+    const reconcileResult = await reconcile();
+    const isApplied = reconcileResult.applied.includes(record.resource.projectId);
+
+    await updateDatabaseResourceStatus(record.resource.id, isApplied ? "valid" : "invalid");
+
+    return {
+      record: {
+        resource: { ...record.resource, status: isApplied ? "valid" : "invalid" },
+        database: {
+          ...record.database,
+          upstreamHost: record.database.internalHostname,
+          upstreamPort: PLATFORM.database.internalPort,
+          caddyLayer4Snippet: "",
+        },
       },
-    },
-    runtime,
-  };
+      runtime,
+    };
+  });
 }
 
 // ---------------------------------------------------------------------------

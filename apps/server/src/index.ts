@@ -19,6 +19,7 @@ import { startBlocklistScheduler } from "@otterdeploy/api/routers/firewall/sched
 import { appRouter } from "@otterdeploy/api/routers/index";
 import { initializeSwarm } from "@otterdeploy/api/swarm";
 import { auth } from "@otterdeploy/auth";
+import { runMigrations } from "@otterdeploy/db/migrate";
 import { env } from "@otterdeploy/env/server";
 import { createWorkers, jobs as allJobs, workbenchQueues } from "@otterdeploy/jobs";
 import { Result } from "better-result";
@@ -275,6 +276,25 @@ let stopAuditAnomalyScan: (() => void) | null = null;
 let stopTracing: (() => Promise<void>) | null = null;
 
 async function bootstrap() {
+  // Apply any pending DB migrations BEFORE anything reads the schema. Idempotent
+  // (tracked in drizzle.__drizzle_migrations, so a no-op once up to date) and
+  // fail-fast: the control plane must never serve against a missing/half-migrated
+  // schema (every query 500s with `relation "…" does not exist`). On failure we
+  // exit non-zero and let `restart: unless-stopped` crash-loop until Postgres is
+  // reachable and migrated, rather than come up broken.
+  await (
+    await Result.tryPromise({
+      try: () => runMigrations(),
+      catch: (cause) => new BootstrapError({ step: "migrate", cause }),
+    })
+  ).match({
+    ok: () => log.info({ startup: { step: "migrate", status: "ready" } }),
+    err: (err) => {
+      log.error({ startup: { step: "migrate", status: "failed" }, error: err.message });
+      process.exit(1);
+    },
+  });
+
   // OpenTelemetry — opt-in, started first so auto-instrumentation patches as
   // much as possible. Dormant unless an OTLP collector is configured (else the
   // exporters would spam connection-refused against a default localhost:4318).

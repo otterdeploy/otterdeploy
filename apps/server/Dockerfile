@@ -43,6 +43,10 @@ RUN bunx turbo build --filter=web --filter=server \
 
 ENV NODE_ENV=production
 ENV PORT=3000
+# The server bundles to apps/server/dist, so migrate.ts's `./migrations` sibling
+# lookup (import.meta.url) doesn't resolve at runtime — point it at the migrations
+# copied in with the repo. runMigrations() runs on boot (apps/server/src/index.ts).
+ENV DB_MIGRATIONS_DIR=/app/packages/db/src/migrations
 EXPOSE 3000
 
 WORKDIR /app/apps/server
