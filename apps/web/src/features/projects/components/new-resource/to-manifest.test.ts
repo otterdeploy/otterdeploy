@@ -148,7 +148,7 @@ describe("buildServiceSpec", () => {
     });
     expect(spec).toMatchObject({
       source: "git",
-      build: { builder: "railpack", spa: true, staticRoot: "apps/web/dist" },
+      build: { builder: "railpack", spa: true, staticRoot: "dist" },
       ports: [{ container: 80, protocol: "tcp", appProtocol: "http", primary: true }],
     });
   });
@@ -163,7 +163,7 @@ describe("buildServiceSpec", () => {
     });
     expect(spec).toMatchObject({ source: "git" });
     const build = (spec as { build?: Record<string, unknown> }).build;
-    expect(build).toEqual({ builder: "railpack", staticRoot: "apps/web/dist" });
+    expect(build).toEqual({ builder: "railpack", staticRoot: "dist" });
   });
 
   it("assembles an image spec and omits git-only fields", () => {
