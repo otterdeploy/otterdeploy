@@ -119,7 +119,18 @@ export const auth = betterAuth({
   // That requires `relations` passed to drizzle() in
   // packages/db/src/client.ts, which is intentionally not wired today.
   // The adapter falls back to plain selects without it.
-  trustedOrigins: env.CORS_ORIGIN,
+  // Trust the exact host each request actually arrived on (both schemes), on top
+  // of any explicitly configured CORS_ORIGIN. A self-hosted box is reachable at
+  // many names — public IP, LAN IP, hostname, tunnel — and the operator
+  // shouldn't have to enumerate them just to avoid "Invalid origin" on POSTs.
+  // This stays CSRF-safe: a cross-site attacker's request carries THEIR Origin
+  // but OUR Host, so Origin still won't match the returned self-origin (and the
+  // SameSite=Lax session cookie isn't sent cross-site either).
+  trustedOrigins: (request) => {
+    const host = request?.headers.get("host");
+    const self = host ? [`http://${host}`, `https://${host}`] : [];
+    return [...env.CORS_ORIGIN, ...self];
+  },
   emailAndPassword: {
     enabled: true,
   },
