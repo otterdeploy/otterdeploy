@@ -11,6 +11,7 @@ import {
   ComboboxItem,
   ComboboxList,
 } from "@/shared/components/ui/combobox";
+import { Button } from "@/shared/components/ui/button";
 import { Label } from "@/shared/components/ui/label";
 import {
   Select,
@@ -20,7 +21,7 @@ import {
   SelectValue,
 } from "@/shared/components/ui/select";
 import { Spinner } from "@/shared/components/ui/spinner";
-import { orpc } from "@/shared/server/orpc";
+import { orpc, queryClient } from "@/shared/server/orpc";
 
 export interface RepoOwner {
   id: string;
@@ -112,10 +113,7 @@ export function RepoPicker({
             Loading repositories…
           </div>
         ) : names.length === 0 ? (
-          <p className="text-[11.5px] text-muted-foreground">
-            No repositories synced for this owner yet — open the GitHub App, hit{" "}
-            <span className="font-medium">Sync now</span> (or Reinstall), then come back.
-          </p>
+          <SyncReposRow installationId={owner} />
         ) : (
           <Combobox items={names} value={selected} onValueChange={(v) => v && bind(v)}>
             <ComboboxInput
@@ -135,6 +133,59 @@ export function RepoPicker({
           </Combobox>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Empty repo list for the selected owner — sync straight from the wizard
+ * instead of sending the operator off to the GitHub App page. If GitHub
+ * genuinely grants zero repos, syncing says so; fixing that (repo access)
+ * is the one thing that truly lives on GitHub's side.
+ */
+function SyncReposRow({ installationId }: { installationId: string }) {
+  const refresh = useMutation({
+    ...orpc.git.refreshRepos.mutationOptions(),
+    onSuccess: async (res) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: orpc.git.listRepos.queryKey({
+            input: { installationId: installationId as never },
+          }),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: orpc.git.list.queryKey({ input: undefined }),
+        }),
+      ]);
+      toast.success(
+        res.repoCount === 0
+          ? "Synced — this installation has no accessible repositories"
+          : `Synced ${res.repoCount} repos`,
+      );
+    },
+    onError: (err) => toast.error(err.message ?? "Sync failed"),
+  });
+
+  return (
+    <div className="flex min-h-8 items-center justify-between gap-3 rounded-md border border-dashed border-border/60 bg-muted/20 py-1.5 pr-1.5 pl-3">
+      <p className="text-[12px] text-muted-foreground">No repositories synced yet.</p>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        className="h-7 shrink-0 text-[12px]"
+        onClick={() => refresh.mutate({ installationId: installationId as never })}
+        disabled={refresh.isPending}
+      >
+        {refresh.isPending ? (
+          <>
+            <Spinner className="size-3" />
+            Syncing…
+          </>
+        ) : (
+          "Sync repositories"
+        )}
+      </Button>
     </div>
   );
 }

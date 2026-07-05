@@ -2,7 +2,7 @@ import { MoreVerticalIcon, RefreshIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { isDefinedError } from "@orpc/client";
 import { useMutation } from "@tanstack/react-query";
-import { Link, useParams } from "@tanstack/react-router";
+import { Link, useParams, useSearch } from "@tanstack/react-router";
 import { toast } from "sonner";
 
 import { SvglLogo } from "@/shared/components/brand/svgl-logo";
@@ -192,6 +192,9 @@ function InstallationActions({ installation }: { installation: InstallationView 
  * longer recognizes an installation.
  */
 function useGithubReinstall() {
+  // Carry the page's returnTo through the GitHub round-trip so the operator
+  // lands back where they started the connect (e.g. the deploy wizard).
+  const { returnTo } = useSearch({ from: "/_app/$orgSlug/git-providers" });
   const startConnect = useMutation({
     ...orpc.git.startConnect.mutationOptions(),
     onSuccess: (res) => {
@@ -200,7 +203,7 @@ function useGithubReinstall() {
     onError: (err) => toast.error(err.message ?? "Couldn't start reinstall"),
   });
   return {
-    run: () => startConnect.mutate({ kind: "github" }),
+    run: () => startConnect.mutate({ kind: "github", returnTo }),
     isPending: startConnect.isPending,
   };
 }

@@ -16,6 +16,7 @@ import {
   loadGithubAppForInstallation,
   loadGithubAppForOrgIfPresent,
   lookupInstallation,
+  sanitizeReturnTo,
   signInstallState,
 } from "../../git";
 import { syncRepos } from "../../git/repos";
@@ -35,7 +36,7 @@ export const gitRouter = {
   }),
 
   startConnect: orgScopedProcedure.git.startConnect.handler(
-    async ({ input: _input, context, errors }) => {
+    async ({ input, context, errors }) => {
       // The App slug is per-org, set when the manifest flow created the
       // provider row. No App → no slug → can't build an install URL.
       const [provider] = await db
@@ -59,6 +60,7 @@ export const gitRouter = {
       const state = await signInstallState({
         orgId: context.activeOrganizationId,
         userId: context.session.user.id,
+        returnTo: sanitizeReturnTo(input.returnTo),
       });
       // GitHub App install URL — the user picks repos on GitHub, then GitHub
       // redirects to the App's configured callback URL with installation_id +
@@ -96,6 +98,7 @@ export const gitRouter = {
       orgId: context.activeOrganizationId,
       userId: context.session.user.id,
       host,
+      returnTo: sanitizeReturnTo(input.returnTo),
     });
     // Browser-facing URLs (redirect/callback/setup) go to the control plane the
     // operator's browser can reach — the local `.localhost` address in dev.

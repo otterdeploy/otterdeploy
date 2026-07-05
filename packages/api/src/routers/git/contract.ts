@@ -57,8 +57,14 @@ export const gitProviderViewSchema = z.object({
 // empty object keeps "no input" valid.
 const listGitProvidersInput = z.object({}).optional();
 
+/** Dashboard-relative path to send the operator back to after the GitHub
+ *  round-trip (e.g. the deploy wizard they started from). The handler
+ *  rejects anything that isn't a same-app path. */
+const returnToField = z.string().max(512).optional();
+
 const startConnectInput = z.object({
   kind: gitProviderKindSchema,
+  returnTo: returnToField,
 });
 
 const startConnectOutput = z.object({
@@ -77,6 +83,7 @@ const startManifestInput = z.object({
   /** GitHub host to create the App on — omit for github.com, or a GHE
    *  hostname (e.g. "github.acme.com") for a self-hosted Enterprise instance. */
   host: z.string().min(1).optional(),
+  returnTo: returnToField,
 });
 
 const startManifestOutput = z.object({

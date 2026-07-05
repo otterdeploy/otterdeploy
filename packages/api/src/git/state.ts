@@ -24,6 +24,22 @@ export interface InstallState {
    *  GHE hostname. Carried through so the manifest callback exchanges the code
    *  against the right API and stores the host on the provider row. */
   host?: string;
+  /** Dashboard-relative path (+ optional query) to send the operator back to
+   *  after the install completes — e.g. the deploy wizard they started from.
+   *  Absent → the default landing (Git providers page). */
+  returnTo?: string;
+}
+
+/**
+ * Only accept an app-relative path as a post-install return target. Anything
+ * else (absolute URL, protocol-relative `//`, oversized junk) would turn the
+ * callback into an open redirect — drop it and fall back to the default.
+ */
+export function sanitizeReturnTo(raw: string | undefined | null): string | undefined {
+  if (!raw) return undefined;
+  if (!raw.startsWith("/") || raw.startsWith("//") || raw.includes("\\")) return undefined;
+  if (raw.length > 512) return undefined;
+  return raw;
 }
 
 export async function signInstallState(state: InstallState): Promise<string> {
@@ -53,7 +69,14 @@ export async function verifyInstallState(token: string): Promise<InstallState | 
   if (typeof payload.exp !== "number" || payload.exp < Math.floor(Date.now() / 1000)) {
     return null;
   }
-  return { orgId: payload.orgId, userId: payload.userId, host: payload.host };
+  return {
+    orgId: payload.orgId,
+    userId: payload.userId,
+    host: payload.host,
+    // Re-sanitize on the way out — the token is signed, but defense-in-depth
+    // keeps a future signing bug from becoming an open redirect.
+    returnTo: sanitizeReturnTo(payload.returnTo),
+  };
 }
 
 async function hmac(input: string): Promise<string> {

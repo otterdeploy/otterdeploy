@@ -1,10 +1,9 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
-import { createFileRoute, useSearch } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useLiveQuery } from "@tanstack/react-db";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { PlusSignIcon } from "@hugeicons/core-free-icons";
-import { toast } from "sonner";
 import { z } from "zod";
 
 import { Page, PageHeader } from "@/shared/components/page";
@@ -16,13 +15,15 @@ import {
   DisconnectedProviderCard,
 } from "@/features/git-providers/provider-card";
 import { type ProviderKind } from "@/features/git-providers/shared";
-import { orpc, queryClient } from "@/shared/server/orpc";
 
 // Zod so the fields infer as optional — otherwise `navigate({ to: this route })`
 // would require a `search` object at every call site.
 const searchSchema = z.object({
   git_install: z.enum(["ok", "error"]).optional().catch(undefined),
   reason: z.string().optional(),
+  // App-relative path to land on after the GitHub round-trip — set by pages
+  // that send the operator here mid-task (e.g. the deploy wizard).
+  returnTo: z.string().startsWith("/").optional().catch(undefined),
 });
 
 export const Route = createFileRoute("/_app/$orgSlug/git-providers")({
@@ -32,8 +33,7 @@ export const Route = createFileRoute("/_app/$orgSlug/git-providers")({
 });
 
 function GitProvidersRoute() {
-  useInstallCallbackToast();
-
+  const { returnTo } = Route.useSearch();
   const { data: providers } = useLiveQuery((q) =>
     q.from({ p: gitProvidersCollection }),
   );
@@ -78,29 +78,7 @@ function GitProvidersRoute() {
         Pushes to a project's production branch trigger an automatic deploy.
       </p>
 
-      <ConnectDialog open={open} onOpenChange={setOpen} />
+      <ConnectDialog open={open} onOpenChange={setOpen} returnTo={returnTo} />
     </Page>
   );
-}
-
-/**
- * Reads ?git_install=ok|error from the install callback redirect, surfaces
- * a toast, then strips the params from the URL so a refresh doesn't re-fire.
- */
-function useInstallCallbackToast() {
-  const search = useSearch({ from: "/_app/$orgSlug/git-providers" });
-
-  useEffect(() => {
-    if (search.git_install === "ok") {
-      toast.success("GitHub connected");
-      void queryClient.invalidateQueries({
-        queryKey: orpc.git.list.queryKey({ input: undefined }),
-      });
-      window.history.replaceState({}, "", window.location.pathname);
-    } else if (search.git_install === "error") {
-      const reason = search.reason ?? "unknown";
-      toast.error(`GitHub install failed: ${reason}`);
-      window.history.replaceState({}, "", window.location.pathname);
-    }
-  }, [search.git_install, search.reason]);
 }

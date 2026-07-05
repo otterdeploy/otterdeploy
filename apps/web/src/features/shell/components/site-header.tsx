@@ -64,11 +64,6 @@ export function SiteHeader() {
 
           <UpdateHeaderButton />
 
-          <Button variant="outline" className="h-8 gap-2">
-            <Github className="size-4" />
-            Connect
-          </Button>
-
           {project && (
             <Button className="h-8" onClick={() => overlay.setOpen(true)}>
               + New service

@@ -10,7 +10,7 @@ import { useState } from "react";
 import { GitBranchIcon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
+import { Link, useLocation } from "@tanstack/react-router";
 import { toast } from "sonner";
 
 import { SvglLogo } from "@/shared/components/brand/svgl-logo";
@@ -132,31 +132,7 @@ export function BindingSummary(props: BindingSummaryProps) {
   }
 
   if (!props.hasInstallations) {
-    return (
-      <Card className="mt-2.5 rounded-md">
-        <CardContent className="flex flex-col gap-4 py-4">
-          <div className="flex items-start gap-3">
-            <SvglLogo search="GitHub" fallback="GitHub" size={24} />
-            <div className="min-w-0 flex-1">
-              <div className="text-[13px] font-semibold">No git provider connected</div>
-              <p className="mt-1 text-[12px] text-muted-foreground">
-                Connect the GitHub App for private repos + push deploys. For a public repo, paste
-                its URL below — no app install needed.
-              </p>
-              <Link
-                to="/$orgSlug/git-providers"
-                params={{ orgSlug: props.orgSlug }}
-                search={{ git_install: undefined, reason: undefined }}
-                className="mt-2 inline-block text-[12px] font-medium underline"
-              >
-                Connect GitHub →
-              </Link>
-            </div>
-          </div>
-          <PublicRepoCTA projectId={props.projectId} onBound={props.onBound} />
-        </CardContent>
-      </Card>
-    );
+    return <NoProviderCard {...props} />;
   }
 
   return (
@@ -189,6 +165,45 @@ export function BindingSummary(props: BindingSummaryProps) {
           <div className="h-px flex-1 bg-border" />
         </div>
 
+        <PublicRepoCTA projectId={props.projectId} onBound={props.onBound} />
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Empty state when the org has no GitHub App installation yet. The Connect
+ * link carries a `returnTo` pointing back at this page with `?new=service`,
+ * so after the GitHub round-trip the operator lands right back in this
+ * wizard instead of stranded on the Git providers page.
+ */
+function NoProviderCard(props: BindingSummaryProps) {
+  const pathname = useLocation({ select: (l) => l.pathname });
+  return (
+    <Card className="mt-2.5 rounded-md">
+      <CardContent className="flex flex-col gap-4 py-4">
+        <div className="flex items-start gap-3">
+          <SvglLogo search="GitHub" fallback="GitHub" size={24} />
+          <div className="min-w-0 flex-1">
+            <div className="text-[13px] font-semibold">No git provider connected</div>
+            <p className="mt-1 text-[12px] text-muted-foreground">
+              Connect the GitHub App for private repos + push deploys. For a public repo, paste
+              its URL below — no app install needed.
+            </p>
+            <Link
+              to="/$orgSlug/git-providers"
+              params={{ orgSlug: props.orgSlug }}
+              search={{
+                git_install: undefined,
+                reason: undefined,
+                returnTo: `${pathname}?new=service`,
+              }}
+              className="mt-2 inline-block text-[12px] font-medium underline"
+            >
+              Connect GitHub →
+            </Link>
+          </div>
+        </div>
         <PublicRepoCTA projectId={props.projectId} onBound={props.onBound} />
       </CardContent>
     </Card>

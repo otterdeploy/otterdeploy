@@ -28,8 +28,22 @@ import { log, parseError } from "evlog";
 // BETTER_AUTH_URL is the API host, so prefer PUBLIC_WEB_URL when set (prod
 // single-origin installs leave it unset and fall back).
 const dashboardUrl = () => (env.PUBLIC_WEB_URL ?? env.BETTER_AUTH_URL).replace(/\/$/, "");
-const errorRedirectUrl = (reason: string) =>
-  `${dashboardUrl()}/?git_install=error&reason=${encodeURIComponent(reason)}`;
+
+// `returnTo` is a signed, sanitized app-relative path — when present, the
+// operator gets dropped back where they started the connect (e.g. the deploy
+// wizard) instead of the Git providers page.
+const resultRedirectUrl = (params: {
+  status: "ok" | "error";
+  reason?: string;
+  returnTo?: string;
+}) => {
+  const url = new URL(`${dashboardUrl()}${params.returnTo ?? "/"}`);
+  url.searchParams.set("git_install", params.status);
+  if (params.reason) url.searchParams.set("reason", params.reason);
+  return url.toString();
+};
+const errorRedirectUrl = (reason: string, returnTo?: string) =>
+  resultRedirectUrl({ status: "error", reason, returnTo });
 
 // ─── /api/integrations/github/install/callback ──────────────────────
 
@@ -48,7 +62,7 @@ export const githubInstallCallbackHandler: Handler = async (c) => {
   }
 
   if (setupAction !== "install" && setupAction !== "update") {
-    return c.redirect(errorRedirectUrl(`unsupported-action:${setupAction}`));
+    return c.redirect(errorRedirectUrl(`unsupported-action:${setupAction}`, state.returnTo));
   }
 
   const connect = await Result.tryPromise({
@@ -61,13 +75,13 @@ export const githubInstallCallbackHandler: Handler = async (c) => {
   });
   if (connect.isErr()) {
     if (connect.error instanceof GithubAppNotConfiguredError) {
-      return c.redirect(errorRedirectUrl("app-not-configured"));
+      return c.redirect(errorRedirectUrl("app-not-configured", state.returnTo));
     }
     const parsed = parseError(connect.error);
     log.error({
       github: { event: "install.failed", installationId, error: parsed.message },
     });
-    return c.redirect(errorRedirectUrl(`failed:${parsed.code ?? "unknown"}`));
+    return c.redirect(errorRedirectUrl(`failed:${parsed.code ?? "unknown"}`, state.returnTo));
   }
 
   log.info({
@@ -79,7 +93,7 @@ export const githubInstallCallbackHandler: Handler = async (c) => {
       repoCount: connect.value.repoCount,
     },
   });
-  return c.redirect(`${dashboardUrl()}/?git_install=ok`);
+  return c.redirect(resultRedirectUrl({ status: "ok", returnTo: state.returnTo }));
 };
 
 // ─── /api/integrations/github/manifest/callback ─────────────────────
@@ -115,7 +129,9 @@ export const githubManifestCallbackHandler: Handler = async (c) => {
     log.error({
       github: { event: "manifest.failed", orgId: state.orgId, error: parsed.message },
     });
-    return c.redirect(errorRedirectUrl(`manifest-failed:${parsed.code ?? "unknown"}`));
+    return c.redirect(
+      errorRedirectUrl(`manifest-failed:${parsed.code ?? "unknown"}`, state.returnTo),
+    );
   }
 
   log.info({
@@ -127,13 +143,14 @@ export const githubManifestCallbackHandler: Handler = async (c) => {
     },
   });
 
-  // Carry the install state forward — same orgId + userId — so the
-  // install-callback can finish wiring this org's first installation.
+  // Carry the install state forward — same orgId + userId + returnTo — so
+  // the install-callback can finish wiring this org's first installation.
   // Mint fresh because the manifest-leg state has already burned most
   // of its 15-minute TTL.
   const installState = await signInstallState({
     orgId: state.orgId,
     userId: state.userId,
+    returnTo: state.returnTo,
   });
   const installUrl = new URL(exchange.value.installRedirectUrl);
   installUrl.searchParams.set("state", installState);

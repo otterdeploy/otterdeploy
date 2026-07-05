@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 
 import { CommandPalette } from "@/features/command-palette";
+import { useInstallCallbackToast } from "@/features/git-providers/install-callback-toast";
 import { ResourceOverlayProvider } from "@/features/projects/components/new-resource/overlay-provider";
 import { authClient } from "@/lib/auth-client";
 
@@ -79,6 +80,10 @@ export const Route = createFileRoute("/_app")({
 });
 
 function RouteComponent() {
+  // GitHub install-callback lands with ?git_install=… on whatever page the
+  // connect was started from — handle the toast at the layout so every
+  // landing page gets it.
+  useInstallCallbackToast();
   return (
     <ResourceOverlayProvider>
       <Outlet />

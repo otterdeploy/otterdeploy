@@ -39,6 +39,8 @@ import { PROVIDER_SEARCH } from "./shared";
 interface ConnectDialogProps {
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  /** App-relative path to land back on after the GitHub round-trip. */
+  returnTo?: string;
 }
 
 // Fields are always present (the form seeds ""), so no `.optional()` — that
@@ -64,7 +66,7 @@ function errMessages(errors: readonly unknown[]): string[] {
     .filter((m): m is string => Boolean(m));
 }
 
-export function ConnectDialog({ open, onOpenChange }: ConnectDialogProps) {
+export function ConnectDialog({ open, onOpenChange, returnTo }: ConnectDialogProps) {
   // GitHub App names must be unique across all of GitHub — seed a random one.
   const defaultName = useMemo(() => `otterdeploy-${crypto.randomUUID().slice(0, 8)}`, []);
   const [enterpriseOpen, setEnterpriseOpen] = useState(false);
@@ -85,6 +87,7 @@ export function ConnectDialog({ open, onOpenChange }: ConnectDialogProps) {
         appName: value.name.trim(),
         accountLogin: value.org.trim() || undefined,
         host: normalizeHost(value.host),
+        returnTo,
       });
     },
   });

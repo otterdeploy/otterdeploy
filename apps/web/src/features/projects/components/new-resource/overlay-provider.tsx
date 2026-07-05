@@ -1,6 +1,6 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
-import { useMatch, useParams } from "@tanstack/react-router";
+import { useLocation, useMatch, useParams } from "@tanstack/react-router";
 
 import { ResourceOverlayDialog } from "./new-resource-dialogs";
 
@@ -23,6 +23,19 @@ export function ResourceOverlayProvider({ children }: { children: ReactNode }) {
     shouldThrow: false,
   });
   const project = projectMatch?.loaderData?.project;
+
+  // `?new=service` reopens the wizard — the GitHub connect round-trip uses it
+  // as its returnTo target since dialog state can't survive leaving the app.
+  // Strip the param once consumed so a refresh doesn't re-open.
+  const wantsWizard =
+    useLocation({ select: (l) => (l.search as { new?: string }).new }) === "service";
+  useEffect(() => {
+    if (!wantsWizard || !project) return;
+    setOpen(true);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("new");
+    window.history.replaceState({}, "", url);
+  }, [wantsWizard, project]);
 
   const value: OverlayContextValue = {
     open,
