@@ -17,10 +17,16 @@ export const PLATFORM_SETTINGS_ID = "platform";
 
 export const platformSettings = pgTable("platform_settings", {
   id: text("id").primaryKey().default(PLATFORM_SETTINGS_ID),
-  /** Hostname the otterdeploy UI itself answers on. Seeded from
-   *  OTTERDEPLOY_CONTROL_PLANE_HOST. Caddy uses this to issue the cert for
-   *  the control plane; better-auth uses it for trusted-origins. */
+  /** Hostname the otterdeploy UI itself answers on. Set from the workspace
+   *  settings page ("Control plane" card). When present, reconcile emits a
+   *  Caddy site block proxying it to the control plane; better-auth already
+   *  trusts same-origin requests, so no auth config change is needed. */
   controlPlaneFqdn: text("control_plane_fqdn"),
+  /** TXT-verification state for controlPlaneFqdn — same model as the org
+   *  base domain: the site block goes live immediately (tls internal), but
+   *  ACME issuance is gated on proving ownership. */
+  controlPlaneFqdnVerifiedAt: timestamp("control_plane_fqdn_verified_at"),
+  controlPlaneFqdnVerifyToken: text("control_plane_fqdn_verify_token"),
   /** Public IP the swarm manager exposes — used to build sslip.io
    *  fallback domains (`<ip>.sslip.io`) so a fresh install resolves
    *  without the operator owning any domain. Detected on first boot

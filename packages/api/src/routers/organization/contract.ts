@@ -116,6 +116,45 @@ const verifyBaseDomainOutput = z.object({
   settings: organizationSettingsSchema.nullable(),
 });
 
+// ─── Control-plane domain (platform-wide) ────────────────────────────
+// The domain this dashboard itself answers on — stored on the
+// platform_settings singleton, surfaced under org settings alongside the
+// (per-org) base domain so operators find both in one place.
+const controlPlaneDomainSchema = z.object({
+  domain: z.string().nullable(),
+  verifiedAt: z.date().nullable(),
+  verifyToken: z.string().nullable(),
+  /** Where the A record should point (platform serverIp), for UI hints. */
+  serverIp: z.string().nullable(),
+});
+
+const setControlPlaneDomainInput = z.object({
+  organizationId: organizationIdField,
+  /** Empty string clears the domain (and removes the edge site block). */
+  domain: fqdnShape,
+});
+
+const verifyControlPlaneDomainOutput = z.object({
+  ok: z.boolean(),
+  recordName: z.string(),
+  expected: z.string(),
+  found: z.array(z.string()),
+  reason: z.enum(["ok", "no-record", "value-mismatch", "lookup-failed", "missing-token"]),
+  errorMessage: z.string().optional(),
+  settings: controlPlaneDomainSchema,
+});
+
+const autoConfigureControlPlaneOutput = z.object({
+  ok: z.boolean(),
+  txtRecordId: z.string().nullable(),
+  aRecordId: z.string().nullable(),
+  verify: z.object({
+    ok: z.boolean(),
+    reason: z.enum(["ok", "no-record", "value-mismatch", "lookup-failed", "missing-token"]),
+  }),
+  settings: controlPlaneDomainSchema,
+});
+
 // ─── Outbound email transport (platform-wide) ───────────────────────
 // Stored on the platform_settings singleton; surfaced here under the org
 // settings the operator already manages. Single-tenant beta: any org
@@ -262,6 +301,49 @@ export const organizationContract = {
     })
     .input(autoConfigureDomainInput)
     .output(autoConfigureDomainOutput),
+
+  // ── Control-plane domain ───────────────────────────────────────────
+  controlPlaneDomain: oc
+    .meta({
+      path: `${basePath}/{organizationId}/control-plane-domain`,
+      tag,
+      method: "GET",
+    })
+    .input(getOrganizationSettingsInput)
+    .output(controlPlaneDomainSchema),
+
+  setControlPlaneDomain: oc
+    .meta({
+      path: `${basePath}/{organizationId}/control-plane-domain`,
+      tag,
+      method: "PATCH",
+    })
+    .input(setControlPlaneDomainInput)
+    .output(controlPlaneDomainSchema),
+
+  verifyControlPlaneDomain: oc
+    .meta({
+      path: `${basePath}/{organizationId}/control-plane-domain/verify`,
+      tag,
+      method: "POST",
+    })
+    .input(verifyBaseDomainInput)
+    .output(verifyControlPlaneDomainOutput),
+
+  autoConfigureControlPlaneDomain: oc
+    .errors({
+      INVALID_INPUT: {
+        status: 400,
+        message: "Cloudflare / control-plane domain / server IP not configured" as const,
+      },
+    })
+    .meta({
+      path: `${basePath}/{organizationId}/control-plane-domain/auto-configure`,
+      tag,
+      method: "POST",
+    })
+    .input(autoConfigureDomainInput)
+    .output(autoConfigureControlPlaneOutput),
 
   getEmailSettings: oc
     .meta({ path: `${basePath}/{organizationId}/email`, tag, method: "GET" })

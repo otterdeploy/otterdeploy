@@ -48,6 +48,10 @@ interface CaddyBuildOptions {
   authzUpstream: string;
   edgeLogSink?: string;
   crowdsec?: CrowdsecConfig;
+  /** platform_settings.controlPlaneFqdn, when set — reconcile turns it into
+   *  a synthetic site block fronting the dashboard/API itself. Only
+   *  consumed by reconcile(); the per-project renders ignore it. */
+  controlPlane?: { domain: string; usesAcme: boolean };
 }
 
 /** Resolve the build options every render shares: the ACME registration
@@ -59,6 +63,8 @@ async function loadCaddyOptions(): Promise<CaddyBuildOptions> {
     .select({
       acmeEmail: platformSettings.acmeEmail,
       httpsAutoRedirect: platformSettings.httpsAutoRedirect,
+      controlPlaneFqdn: platformSettings.controlPlaneFqdn,
+      controlPlaneFqdnVerifiedAt: platformSettings.controlPlaneFqdnVerifiedAt,
     })
     .from(platformSettings)
     .where(eq(platformSettings.id, PLATFORM_SETTINGS_ID))
@@ -73,6 +79,40 @@ async function loadCaddyOptions(): Promise<CaddyBuildOptions> {
       env.CROWDSEC_LAPI_URL && env.CROWDSEC_BOUNCER_KEY
         ? { apiUrl: env.CROWDSEC_LAPI_URL, apiKey: env.CROWDSEC_BOUNCER_KEY }
         : undefined,
+    controlPlane: settings?.controlPlaneFqdn
+      ? {
+          domain: settings.controlPlaneFqdn,
+          // ACME only after TXT verification — an unproven name stays on
+          // tls internal, same gate every proxy route obeys.
+          usesAcme: settings.controlPlaneFqdnVerifiedAt != null,
+        }
+      : undefined,
+  };
+}
+
+/** Pseudo project id the control-plane site block is grouped under in the
+ *  reconciler (per-"project" adapt validation + skip reporting). Never
+ *  collides with real ids, which are `project_`-prefixed. */
+export const CONTROL_PLANE_PROJECT_ID = "control-plane";
+
+/** Synthetic route serving the dashboard/API on its operator-chosen domain.
+ *  Upstream reuses DEPLOY_AUTHZ_UPSTREAM — the address Caddy already uses to
+ *  reach the control plane for forward_auth (dev: host.docker.internal:3000,
+ *  prod: the server service DNS). */
+function controlPlaneRoute(cp: { domain: string; usesAcme: boolean }): ProxyRouteInput {
+  const upstream = env.DEPLOY_AUTHZ_UPSTREAM;
+  const sep = upstream.lastIndexOf(":");
+  const host = sep === -1 ? upstream : upstream.slice(0, sep);
+  const port = sep === -1 ? 3000 : (Number(upstream.slice(sep + 1)) || 3000);
+  return {
+    projectId: CONTROL_PLANE_PROJECT_ID,
+    type: "http",
+    domain: cp.domain,
+    upstreamHost: host,
+    upstreamPort: port,
+    protocol: "http",
+    layer4Alpn: null,
+    usesAcme: cp.usesAcme,
   };
 }
 
@@ -87,6 +127,9 @@ export async function reconcile(rlog?: RequestLogger): Promise<ReconcileResult> 
     loadCaddyOptions(),
     getProjectsWithCustomConfig(),
   ]);
+  if (options.controlPlane) {
+    routes.push(controlPlaneRoute(options.controlPlane));
+  }
 
   return reconcileRoutes({
     routes,
