@@ -13,6 +13,15 @@ on:
       - .github/workflows/images.yml
   workflow_dispatch:
 
+# Serialize builds per ref. Two pushes to main in quick succession would
+# otherwise race on the SHARED `:latest` / `:latest-<arch>` tags — whichever run
+# finishes its manifest-merge last wins, so an OLDER build finishing last
+# silently clobbers `:latest` with stale images. Cancel any in-flight build for
+# the same ref so only the newest commit publishes `:latest`.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   packages: write
