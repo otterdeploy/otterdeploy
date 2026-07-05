@@ -172,6 +172,28 @@ export async function connectCaddyToNetwork(
 }
 
 /**
+ * Re-attach the edge Caddy to EVERY managed project network.
+ *
+ * The per-project bridge networks are connected to Caddy dynamically at deploy
+ * time (`ensureBridgeNetwork` → `connectCaddyToNetwork`). But a RECREATED Caddy
+ * container — image update, `docker compose up -d`, the in-app updater — rejoins
+ * only its compose networks and drops every dynamically-added project bridge, so
+ * all deployed services 502 until something re-connects them. Running this on
+ * each reconcile (incl. the server-boot reconcile) makes a Caddy restart
+ * self-heal. Plain-docker only; the swarm overlay keeps the edge attached across
+ * restarts. Idempotent (each connect no-ops when already attached).
+ */
+export async function ensureEdgeOnProjectNetworks(rlog?: RequestLogger): Promise<void> {
+  const docker = Docker.fromEnv();
+  const list = await docker.networks.list({ filters: { label: ["otterdeploy.managed=true"] } });
+  if (list.isErr()) return;
+  for (const net of list.value) {
+    const name = (net as { Name?: string }).Name;
+    if (name) await connectCaddyToNetwork(docker, name, rlog);
+  }
+}
+
+/**
  * Remove a project's overlay network.
  * Disconnects all containers first.
  */

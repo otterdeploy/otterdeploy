@@ -76,6 +76,12 @@ services:
       # (http://127.0.0.1:2019) is the server container's OWN loopback when
       # containerized, so it must be the caddy service DNS name.
       CADDY_ADMIN_URL: http://caddy:2019
+      # Where the edge Caddy reaches the control plane for deploy-protection
+      # forward_auth (and the control-plane-domain route). The default
+      # (host.docker.internal:3000) assumes the server runs on the host — a dev
+      # setup; in this compose the server is a container, so point Caddy at its
+      # service DNS on the shared network or forward_auth times out → 502.
+      DEPLOY_AUTHZ_UPSTREAM: server:3000
     volumes:
       # Drive the HOST Docker daemon — this is how the runtime() driver
       # provisions services/databases/compose stacks.
