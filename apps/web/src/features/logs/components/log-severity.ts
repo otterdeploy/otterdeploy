@@ -37,6 +37,11 @@ const SEVERITY_PATTERNS: ReadonlyArray<readonly [Exclude<LogSeverity, "normal">,
 export function classifyLogSeverity(line: string): LogSeverity {
   const s = line.trim();
   if (!s) return "normal";
+  // A `$ …` line is the builder echoing the command it's about to run, not tool
+  // output — never treat it as an error. Otherwise a flag literal that merely
+  // *contains* an error word (e.g. `railpack prepare … --error-missing-start`)
+  // trips the error bucket and paints a perfectly healthy command line red.
+  if (s.startsWith("$ ")) return "info";
   for (const [severity, patterns] of SEVERITY_PATTERNS) {
     if (patterns.some((re) => re.test(s))) return severity;
   }
