@@ -196,6 +196,12 @@ export const ORG_NAV_GROUPS: readonly { heading: string; items: readonly NavEntr
         keywords: ["ssh", "deploy key", "git", "node"],
       },
       { to: "/$orgSlug/settings", label: "Settings", icon: Settings01Icon },
+      {
+        to: "/$orgSlug/instance",
+        label: "Instance",
+        icon: Settings01Icon,
+        keywords: ["instance", "platform", "server ip", "control plane", "acme", "email"],
+      },
     ],
   },
 ];

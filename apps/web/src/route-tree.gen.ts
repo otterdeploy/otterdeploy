@@ -27,6 +27,7 @@ import { Route as AppOrgSlugRegistriesRouteImport } from "./routes/_app/$orgSlug
 import { Route as AppOrgSlugPlatformRouteImport } from "./routes/_app/$orgSlug/platform"
 import { Route as AppOrgSlugNotificationsRouteImport } from "./routes/_app/$orgSlug/notifications"
 import { Route as AppOrgSlugNetworkingRouteImport } from "./routes/_app/$orgSlug/networking"
+import { Route as AppOrgSlugInstanceRouteImport } from "./routes/_app/$orgSlug/instance"
 import { Route as AppOrgSlugGitProvidersRouteImport } from "./routes/_app/$orgSlug/git-providers"
 import { Route as AppOrgSlugFirewallRouteImport } from "./routes/_app/$orgSlug/firewall"
 import { Route as AppOrgSlugEdgeLogsRouteImport } from "./routes/_app/$orgSlug/edge-logs"
@@ -137,6 +138,11 @@ const AppOrgSlugNotificationsRoute = AppOrgSlugNotificationsRouteImport.update({
 const AppOrgSlugNetworkingRoute = AppOrgSlugNetworkingRouteImport.update({
   id: "/networking",
   path: "/networking",
+  getParentRoute: () => AppOrgSlugLayoutRoute,
+} as any)
+const AppOrgSlugInstanceRoute = AppOrgSlugInstanceRouteImport.update({
+  id: "/instance",
+  path: "/instance",
   getParentRoute: () => AppOrgSlugLayoutRoute,
 } as any)
 const AppOrgSlugGitProvidersRoute = AppOrgSlugGitProvidersRouteImport.update({
@@ -269,6 +275,7 @@ export interface FileRoutesByFullPath {
   "/$orgSlug/edge-logs": typeof AppOrgSlugEdgeLogsRoute
   "/$orgSlug/firewall": typeof AppOrgSlugFirewallRoute
   "/$orgSlug/git-providers": typeof AppOrgSlugGitProvidersRouteWithChildren
+  "/$orgSlug/instance": typeof AppOrgSlugInstanceRoute
   "/$orgSlug/networking": typeof AppOrgSlugNetworkingRoute
   "/$orgSlug/notifications": typeof AppOrgSlugNotificationsRoute
   "/$orgSlug/platform": typeof AppOrgSlugPlatformRoute
@@ -306,6 +313,7 @@ export interface FileRoutesByTo {
   "/$orgSlug/edge-logs": typeof AppOrgSlugEdgeLogsRoute
   "/$orgSlug/firewall": typeof AppOrgSlugFirewallRoute
   "/$orgSlug/git-providers": typeof AppOrgSlugGitProvidersRouteWithChildren
+  "/$orgSlug/instance": typeof AppOrgSlugInstanceRoute
   "/$orgSlug/networking": typeof AppOrgSlugNetworkingRoute
   "/$orgSlug/notifications": typeof AppOrgSlugNotificationsRoute
   "/$orgSlug/platform": typeof AppOrgSlugPlatformRoute
@@ -347,6 +355,7 @@ export interface FileRoutesById {
   "/_app/$orgSlug/edge-logs": typeof AppOrgSlugEdgeLogsRoute
   "/_app/$orgSlug/firewall": typeof AppOrgSlugFirewallRoute
   "/_app/$orgSlug/git-providers": typeof AppOrgSlugGitProvidersRouteWithChildren
+  "/_app/$orgSlug/instance": typeof AppOrgSlugInstanceRoute
   "/_app/$orgSlug/networking": typeof AppOrgSlugNetworkingRoute
   "/_app/$orgSlug/notifications": typeof AppOrgSlugNotificationsRoute
   "/_app/$orgSlug/platform": typeof AppOrgSlugPlatformRoute
@@ -388,6 +397,7 @@ export interface FileRouteTypes {
     | "/$orgSlug/edge-logs"
     | "/$orgSlug/firewall"
     | "/$orgSlug/git-providers"
+    | "/$orgSlug/instance"
     | "/$orgSlug/networking"
     | "/$orgSlug/notifications"
     | "/$orgSlug/platform"
@@ -425,6 +435,7 @@ export interface FileRouteTypes {
     | "/$orgSlug/edge-logs"
     | "/$orgSlug/firewall"
     | "/$orgSlug/git-providers"
+    | "/$orgSlug/instance"
     | "/$orgSlug/networking"
     | "/$orgSlug/notifications"
     | "/$orgSlug/platform"
@@ -465,6 +476,7 @@ export interface FileRouteTypes {
     | "/_app/$orgSlug/edge-logs"
     | "/_app/$orgSlug/firewall"
     | "/_app/$orgSlug/git-providers"
+    | "/_app/$orgSlug/instance"
     | "/_app/$orgSlug/networking"
     | "/_app/$orgSlug/notifications"
     | "/_app/$orgSlug/platform"
@@ -624,6 +636,13 @@ declare module "@tanstack/react-router" {
       path: "/networking"
       fullPath: "/$orgSlug/networking"
       preLoaderRoute: typeof AppOrgSlugNetworkingRouteImport
+      parentRoute: typeof AppOrgSlugLayoutRoute
+    }
+    "/_app/$orgSlug/instance": {
+      id: "/_app/$orgSlug/instance"
+      path: "/instance"
+      fullPath: "/$orgSlug/instance"
+      preLoaderRoute: typeof AppOrgSlugInstanceRouteImport
       parentRoute: typeof AppOrgSlugLayoutRoute
     }
     "/_app/$orgSlug/git-providers": {
@@ -852,6 +871,7 @@ interface AppOrgSlugLayoutRouteChildren {
   AppOrgSlugEdgeLogsRoute: typeof AppOrgSlugEdgeLogsRoute
   AppOrgSlugFirewallRoute: typeof AppOrgSlugFirewallRoute
   AppOrgSlugGitProvidersRoute: typeof AppOrgSlugGitProvidersRouteWithChildren
+  AppOrgSlugInstanceRoute: typeof AppOrgSlugInstanceRoute
   AppOrgSlugNetworkingRoute: typeof AppOrgSlugNetworkingRoute
   AppOrgSlugNotificationsRoute: typeof AppOrgSlugNotificationsRoute
   AppOrgSlugPlatformRoute: typeof AppOrgSlugPlatformRoute
@@ -875,6 +895,7 @@ const AppOrgSlugLayoutRouteChildren: AppOrgSlugLayoutRouteChildren = {
   AppOrgSlugEdgeLogsRoute: AppOrgSlugEdgeLogsRoute,
   AppOrgSlugFirewallRoute: AppOrgSlugFirewallRoute,
   AppOrgSlugGitProvidersRoute: AppOrgSlugGitProvidersRouteWithChildren,
+  AppOrgSlugInstanceRoute: AppOrgSlugInstanceRoute,
   AppOrgSlugNetworkingRoute: AppOrgSlugNetworkingRoute,
   AppOrgSlugNotificationsRoute: AppOrgSlugNotificationsRoute,
   AppOrgSlugPlatformRoute: AppOrgSlugPlatformRoute,

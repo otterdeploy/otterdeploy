@@ -103,6 +103,7 @@ const navGroups: NavGroup[] = [
       { title: "API tokens", icon: Key02Icon, href: "/$orgSlug/api-keys" },
       { title: "SSH keys", icon: Key01Icon, href: "/$orgSlug/ssh-keys" },
       { title: "Settings", icon: Sun03Icon, href: "/$orgSlug/settings" },
+      { title: "Instance", icon: ServerStack01Icon, href: "/$orgSlug/instance" },
     ],
   },
 ];

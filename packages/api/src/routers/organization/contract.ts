@@ -155,6 +155,41 @@ const autoConfigureControlPlaneOutput = z.object({
   settings: controlPlaneDomainSchema,
 });
 
+// ─── Instance network + edge defaults (platform-wide) ────────────────
+// The public IP behind sslip.io fallback domains + Cloudflare A records,
+// and the install-wide edge-proxy options (ACME email, HTTPS redirect).
+// All live on the platform_settings singleton; surfaced on the Instance page.
+const serverIpSchema = z.object({
+  serverIp: z.string().nullable(),
+  /** True when env SERVER_IP is set — it re-applies on every boot, so a UI
+   *  edit would be overwritten. The UI disables the input and says so. */
+  envOverride: z.boolean(),
+});
+
+// Loose IP shape (v4 dotted-quad or v6 hex+colons) — mirrors the boot-time
+// detector's sanity check, not a full RFC validation. Empty string clears.
+const IP_RE = /^((\d{1,3}\.){3}\d{1,3}|[0-9a-fA-F:]*:[0-9a-fA-F:]*)$/;
+const setServerIpInput = z.object({
+  organizationId: organizationIdField,
+  serverIp: z
+    .string()
+    .trim()
+    .refine((v) => v === "" || IP_RE.test(v), {
+      message: "must be an IPv4 or IPv6 address",
+    }),
+});
+
+const edgeOptionsSchema = z.object({
+  acmeEmail: z.string().nullable(),
+  httpsAutoRedirect: z.boolean(),
+});
+
+const setEdgeOptionsInput = z.object({
+  organizationId: organizationIdField,
+  acmeEmail: z.email().nullable(),
+  httpsAutoRedirect: z.boolean(),
+});
+
 // ─── Outbound email transport (platform-wide) ───────────────────────
 // Stored on the platform_settings singleton; surfaced here under the org
 // settings the operator already manages. Single-tenant beta: any org
@@ -344,6 +379,27 @@ export const organizationContract = {
     })
     .input(autoConfigureDomainInput)
     .output(autoConfigureControlPlaneOutput),
+
+  // ── Instance network + edge defaults ───────────────────────────────
+  getServerIp: oc
+    .meta({ path: `${basePath}/{organizationId}/instance/server-ip`, tag, method: "GET" })
+    .input(getOrganizationSettingsInput)
+    .output(serverIpSchema),
+
+  setServerIp: oc
+    .meta({ path: `${basePath}/{organizationId}/instance/server-ip`, tag, method: "PATCH" })
+    .input(setServerIpInput)
+    .output(serverIpSchema),
+
+  getEdgeOptions: oc
+    .meta({ path: `${basePath}/{organizationId}/instance/edge-options`, tag, method: "GET" })
+    .input(getOrganizationSettingsInput)
+    .output(edgeOptionsSchema),
+
+  setEdgeOptions: oc
+    .meta({ path: `${basePath}/{organizationId}/instance/edge-options`, tag, method: "PATCH" })
+    .input(setEdgeOptionsInput)
+    .output(edgeOptionsSchema),
 
   getEmailSettings: oc
     .meta({ path: `${basePath}/{organizationId}/email`, tag, method: "GET" })
