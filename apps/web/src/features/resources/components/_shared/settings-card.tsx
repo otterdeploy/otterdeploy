@@ -9,6 +9,7 @@ import { useState } from "react";
 import { Copy01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
+import { copyToClipboard } from "@/shared/lib/clipboard";
 import { cn } from "@/shared/lib/utils";
 
 export function SettingsCard({
@@ -47,7 +48,7 @@ export function SettingsRowReadOnly({
 }) {
   const [copied, setCopied] = useState(false);
   const onCopy = () => {
-    void navigator.clipboard?.writeText(value);
+    void copyToClipboard(value);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1400);
   };

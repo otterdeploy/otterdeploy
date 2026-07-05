@@ -19,6 +19,7 @@ import { variablesCollection } from "@/features/projects/data/variables";
 import { Button } from "@/shared/components/ui/button";
 import { Checkbox } from "@/shared/components/ui/checkbox";
 import { Input } from "@/shared/components/ui/input";
+import { copyToClipboard } from "@/shared/lib/clipboard";
 import { cn } from "@/shared/lib/utils";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
@@ -236,7 +237,7 @@ function EnvVarRowItem({
           className="size-6"
           title="Copy"
           onClick={() => {
-            void navigator.clipboard?.writeText(row.value);
+            void copyToClipboard(row.value);
             toast.success(`Copied ${row.key}`);
           }}
         >

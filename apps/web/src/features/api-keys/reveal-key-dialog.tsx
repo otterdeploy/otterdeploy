@@ -19,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/components/ui/dialog";
+import { copyToClipboard } from "@/shared/lib/clipboard";
 
 export function RevealKeyDialog({
   apiKey,
@@ -32,10 +33,12 @@ export function RevealKeyDialog({
 
   const copy = () => {
     if (!apiKey) return;
-    void navigator.clipboard.writeText(apiKey).then(() => {
-      setCopied(true);
-      toast.success("API key copied");
-      setTimeout(() => setCopied(false), 1500);
+    void copyToClipboard(apiKey).then((ok) => {
+      if (ok) {
+        setCopied(true);
+        toast.success("API key copied");
+        setTimeout(() => setCopied(false), 1500);
+      }
     });
   };
 

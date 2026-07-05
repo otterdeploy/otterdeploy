@@ -629,28 +629,27 @@ migrate_legacy_install() {
 
   step "Migrating install $LEGACY_INSTALL_DIR → $INSTALL_DIR"
   if dry; then
-    say "   + would move every install file (compose, .env, any override) except"
-    say "     installer logs into $INSTALL_DIR"
+    say "   + would move every install file (compose, .env, any override, logs)"
+    say "     into $INSTALL_DIR and remove $LEGACY_INSTALL_DIR"
     return 0
   fi
   run $SUDO mkdir -p "$INSTALL_DIR"
-  # Move EVERYTHING the operator's install carries — the base compose, .env, and
-  # any docker-compose.override.yml or extra config — not a hardcoded pair, so a
-  # customized install migrates whole. dotglob catches .env; nullglob avoids a
-  # literal '*' on an empty dir. Installer logs stay behind as a breadcrumb.
+  # Move EVERYTHING the operator's install carries — the base compose, .env, any
+  # docker-compose.override.yml or extra config, AND the installer logs — so the
+  # whole install lives under the data folder and nothing lingers at the legacy
+  # path. dotglob catches .env; nullglob avoids a literal '*' on an empty dir.
   local restore_glob; restore_glob="$(shopt -p dotglob nullglob)"
   shopt -s dotglob nullglob
   local f base
   for f in "$LEGACY_INSTALL_DIR"/*; do
     base="$(basename "$f")"
-    case "$base" in
-      install-*.log) continue ;;
-    esac
     run $SUDO mv "$f" "$INSTALL_DIR/$base"
   done
   eval "$restore_glob"
   [ -n "$SUDO" ] && run $SUDO chown -R "$(id -u):$(id -g)" "$INSTALL_DIR" || true
-  say " - Moved install files (compose, .env, override); logs remain in $LEGACY_INSTALL_DIR"
+  # Drop the now-empty legacy dir so all platform state sits under the data tree.
+  run $SUDO rmdir "$LEGACY_INSTALL_DIR" 2>/dev/null || true
+  say " - Moved install files (compose, .env, override, logs) into $INSTALL_DIR; removed $LEGACY_INSTALL_DIR"
 }
 
 usage() {

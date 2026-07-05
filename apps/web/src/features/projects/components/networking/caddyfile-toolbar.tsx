@@ -17,6 +17,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { Button } from "@/shared/components/ui/button";
+import { copyToClipboard } from "@/shared/lib/clipboard";
 
 export interface CaddyfileToolbarProps {
   revision?: string;
@@ -43,9 +44,11 @@ export function CaddyfileToolbar({
 }: CaddyfileToolbarProps) {
   const [copied, setCopied] = useState(false);
   const copy = () => {
-    void navigator.clipboard.writeText(source).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+    void copyToClipboard(source).then((ok) => {
+      if (ok) {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }
     });
   };
 

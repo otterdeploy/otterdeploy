@@ -19,6 +19,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
 
+import { copyToClipboard } from "@/shared/lib/clipboard";
 import { cn } from "@/shared/lib/utils";
 
 import { classifyLogSeverity, SEVERITY_BAR, SEVERITY_TEXT } from "./log-severity";
@@ -163,10 +164,13 @@ export function LogViewer({
   const copyVisible = () => {
     const text = visible.map((c) => c.line.line).join("\n");
     if (!text) return;
-    void navigator.clipboard?.writeText(text).then(
-      () => toast.success(`Copied ${visible.length} ${plural(visible.length, "line")}`),
-      () => toast.error("Couldn't copy logs"),
-    );
+    void copyToClipboard(text).then((ok) => {
+      if (ok) {
+        toast.success(`Copied ${visible.length} ${plural(visible.length, "line")}`);
+      } else {
+        toast.error("Couldn't copy logs");
+      }
+    });
   };
 
   const countLabel = q

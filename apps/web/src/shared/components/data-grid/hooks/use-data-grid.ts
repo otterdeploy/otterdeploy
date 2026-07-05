@@ -47,6 +47,7 @@ import {
   parseTsv,
   scrollCellIntoView,
 } from "@/shared/components/data-grid/lib/data-grid";
+import { copyToClipboard } from "@/shared/lib/clipboard";
 
 const DEFAULT_ROW_HEIGHT = "short";
 const OVERSCAN = 6;
@@ -615,7 +616,7 @@ function useDataGrid<TData>({
     const { tsvData, selectedCellsArray } = result;
 
     try {
-      await navigator.clipboard.writeText(tsvData);
+      await copyToClipboard(tsvData);
 
       const currentState = store.getState();
       if (currentState.cutCells.size > 0) {
@@ -639,7 +640,7 @@ function useDataGrid<TData>({
     const { tsvData, selectedCellsArray } = result;
 
     try {
-      await navigator.clipboard.writeText(tsvData);
+      await copyToClipboard(tsvData);
 
       store.setState("cutCells", new Set(selectedCellsArray));
 

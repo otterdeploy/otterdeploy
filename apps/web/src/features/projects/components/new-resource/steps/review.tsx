@@ -3,6 +3,7 @@ import { POSTGRES_EXTENSIONS, resolvePostgresImage } from "@otterdeploy/shared/p
 import { RESOURCE_PRESETS, type ServiceKind } from "@/features/projects/data/service-kinds";
 import { Button } from "@/shared/components/ui/button";
 import { Card } from "@/shared/components/ui/card";
+import { copyToClipboard } from "@/shared/lib/clipboard";
 
 import type { ResourceFormState } from "../schemas";
 
@@ -201,7 +202,7 @@ export function StepReview({ kind }: StepReviewProps) {
                     variant="outline"
                     size="sm"
                     className="h-7 gap-1.5 text-xs"
-                    onClick={() => void navigator.clipboard.writeText(compose)}
+                    onClick={() => void copyToClipboard(compose)}
                   >
                     <I.copy width={11} height={11} />
                     Copy
