@@ -34,14 +34,19 @@ export default defineConfig({
   ],
   resolve: {
     tsconfigPaths: true,
-    alias: {
-      // `aria-hidden` / `react-remove-scroll` (transitive via Fumadocs UI
-      // dialogs + scroll-lock) import tslib's `__extends` helper. Nitro's
-      // rolldown CJS interop resolves `__toESM(tslib).default` to undefined, so
-      // the SSR bundle crashes at `const { __extends } = tslib`. Pin tslib to
-      // its ESM build so the named helpers resolve directly.
-      tslib: "tslib/tslib.es6.mjs",
-    },
+    // Force every tslib import (bare *and* deep subpaths) to its ESM build.
+    // Two failures this prevents, both of which 500 every SSR route — landing
+    // page included:
+    //   1. Bare `tslib`: rolldown's CJS-interop wrapper makes the named helpers
+    //      (`__extends`, `__assign`, …) come back undefined → "Cannot
+    //      destructure property '__extends'".
+    //   2. Deep `tslib/modules/index.js` (from @fumadocs/api-docs): left
+    //      external, nitro traces only a subset of tslib's files so it resolves
+    //      to a missing module at runtime.
+    // `tslib.es6.mjs` re-exports all helpers as real named exports, so pointing
+    // every specifier at it bundles them and skips the interop wrapper. The
+    // regex captures the subpath but the replacement intentionally drops it.
+    alias: [{ find: /^tslib(\/.*)?$/, replacement: "tslib/tslib.es6.mjs" }],
   },
   envDir: "../../",
 });

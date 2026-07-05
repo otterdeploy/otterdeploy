@@ -27,15 +27,35 @@ type Document = OpenAPIV3_2.Document;
 const envSpecUrl = process.env.OTTERSTACK_OPENAPI_SPEC_URL;
 const specUrl = envSpecUrl ?? "http://localhost:3000/api/reference/spec.json";
 
+// A structurally-valid but empty document. Used as a fallback when the live
+// spec can't be fetched (e.g. the API isn't deployed/reachable in prod) so the
+// reference degrades to "no operations" instead of 500-ing the whole site —
+// `staticSource` runs at module-eval via a top-level await in source.ts, so a
+// thrown error here takes down every route, landing page included.
+const EMPTY_SPEC: Document = {
+  openapi: "3.1.0",
+  info: { title: "otterdeploy API", version: "0.0.0" },
+  paths: {},
+};
+
 async function loadSpec(): Promise<Document> {
-  const res = await fetch(specUrl);
-  if (!res.ok) {
-    throw new Error(`Failed to load OpenAPI spec from ${specUrl}: ${res.status} ${res.statusText}`);
+  try {
+    const res = await fetch(specUrl);
+    if (!res.ok) {
+      throw new Error(`${res.status} ${res.statusText}`);
+    }
+    // `res.json()` is `any`; assert to the loader's `Document` shape. The oRPC
+    // server emits a valid OpenAPI document, validated at generation time.
+    const spec: Document = await res.json();
+    return spec;
+  } catch (error) {
+    // Don't let an unreachable/erroring spec endpoint take the site down — the
+    // docs + landing must render regardless. The API reference is empty until
+    // the spec is reachable (set OTTERSTACK_OPENAPI_SPEC_URL to the deployed
+    // API's /api/reference/spec.json).
+    console.error(`Failed to load OpenAPI spec from ${specUrl}:`, error);
+    return EMPTY_SPEC;
   }
-  // `res.json()` is `any`; assert to the loader's `Document` shape. The oRPC
-  // server emits a valid OpenAPI document, validated at generation time.
-  const spec: Document = await res.json();
-  return spec;
 }
 
 export const openapi = createOpenAPI({

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
+    "build:vercel": "NITRO_PRESET=vercel vite build",
     "dev": "portless web.otterdeploy --force vite dev",
     "dev:funnel": " PORTLESS_FUNNEL=1 portless web.otterdeploy --force vite dev",
     "gen:schema": "bun scripts/gen-schema.ts",
