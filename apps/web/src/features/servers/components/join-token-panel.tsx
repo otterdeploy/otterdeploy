@@ -14,6 +14,7 @@ import {
 } from "@/shared/components/ui/empty";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/shared/components/ui/toggle-group";
+import { copyToClipboard } from "@/shared/lib/clipboard";
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
@@ -100,7 +101,8 @@ function CommandBlock({ command }: { command: string }) {
   const [copied, setCopied] = useState(false);
 
   const copy = () => {
-    void navigator.clipboard.writeText(command).then(() => {
+    void copyToClipboard(command).then((ok) => {
+      if (!ok) return;
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     });

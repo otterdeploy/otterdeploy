@@ -25,6 +25,7 @@ import { LogsToolbar } from "@/features/logs/components/logs-toolbar";
 import { statusBadge } from "@/features/logs/components/logs-status";
 import { useLogsTable } from "@/features/logs/components/use-logs-table";
 import { resourceCollection } from "@/features/resources/data/resource";
+import { copyToClipboard } from "@/shared/lib/clipboard";
 
 export const Route = createFileRoute("/_app/$orgSlug/$projectSlug/logs")({
   staticData: { crumb: "Logs" },
@@ -131,7 +132,7 @@ function RouteComponent() {
     const text = ls
       .map((l) => `${l.tsIso ?? l.ts} ${l.level.toUpperCase()} ${l.svc}  ${l.msg}`)
       .join("\n");
-    void navigator.clipboard?.writeText(text);
+    void copyToClipboard(text);
   };
 
   const badge = statusBadge(t.status, paused);

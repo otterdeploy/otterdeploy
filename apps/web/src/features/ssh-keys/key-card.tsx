@@ -24,6 +24,7 @@ import { toast } from "sonner";
 
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
+import { copyToClipboard } from "@/shared/lib/clipboard";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 import type { SshKey } from "./data/ssh-keys";
@@ -70,13 +71,14 @@ export function KeyCard({ sshKey, canManage }: { sshKey: SshKey; canManage: bool
   );
 
   const copy = (text: string, what: string) => {
-    navigator.clipboard
-      ?.writeText(text)
-      .then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1400);
-      })
-      .catch(() => toast.error(`Couldn't copy ${what}`));
+    void copyToClipboard(text).then((ok) => {
+      if (!ok) {
+        toast.error(`Couldn't copy ${what}`);
+        return;
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1400);
+    });
   };
 
   const busy = rotate.isPending || remove.isPending;

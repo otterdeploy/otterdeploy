@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
+import { copyToClipboard } from "@/shared/lib/clipboard";
 import {
   Select,
   SelectContent,
@@ -120,8 +121,9 @@ export function CopyField({ value, onReset }: { value: string; onReset?: () => v
         size="icon"
         className="size-8 shrink-0"
         onClick={() => {
-          void navigator.clipboard.writeText(value);
-          toast.success("Copied to clipboard");
+          void copyToClipboard(value).then((ok) =>
+            ok ? toast.success("Copied to clipboard") : toast.error("Couldn't copy"),
+          );
         }}
         aria-label="Copy"
       >

@@ -11,6 +11,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";
+import { copyToClipboard } from "@/shared/lib/clipboard";
 import { cn } from "@/shared/lib/utils";
 
 export function CopyLinkButton({
@@ -24,7 +25,11 @@ export function CopyLinkButton({
 }) {
   const [copied, setCopied] = useState(false);
   const copy = () => {
-    void navigator.clipboard.writeText(link).then(() => {
+    void copyToClipboard(link).then((ok) => {
+      if (!ok) {
+        toast.error("Couldn't copy invite link");
+        return;
+      }
       setCopied(true);
       toast.success("Invite link copied");
       setTimeout(() => setCopied(false), 1500);

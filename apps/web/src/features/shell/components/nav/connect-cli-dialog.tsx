@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/components/ui/dialog";
+import { copyToClipboard } from "@/shared/lib/clipboard";
 
 export function ConnectCliDialog({
   open,
@@ -29,9 +30,8 @@ export function ConnectCliDialog({
   const cmd = `otterdeploy login ${origin}`;
 
   const copy = () => {
-    navigator.clipboard?.writeText(cmd).then(
-      () => toast.success("Copied"),
-      () => toast.error("Couldn't copy"),
+    void copyToClipboard(cmd).then((ok) =>
+      ok ? toast.success("Copied") : toast.error("Couldn't copy"),
     );
   };
 

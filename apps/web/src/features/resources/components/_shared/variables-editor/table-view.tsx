@@ -4,6 +4,7 @@ import { ArrowReloadHorizontalIcon, PlusSignIcon } from "@hugeicons/core-free-ic
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { Button } from "@/shared/components/ui/button";
+import { copyToClipboard } from "@/shared/lib/clipboard";
 
 import type { DraftRow, RowStatus } from "./use-editor-state";
 
@@ -43,11 +44,13 @@ export function TableView({
     });
 
   const copyValue = (id: string, value: string) => {
-    void navigator.clipboard?.writeText(value);
-    setCopiedId(id);
-    window.setTimeout(() => {
-      setCopiedId((cur) => (cur === id ? null : cur));
-    }, 1400);
+    void copyToClipboard(value).then((ok) => {
+      if (!ok) return;
+      setCopiedId(id);
+      window.setTimeout(() => {
+        setCopiedId((cur) => (cur === id ? null : cur));
+      }, 1400);
+    });
   };
 
   return (
