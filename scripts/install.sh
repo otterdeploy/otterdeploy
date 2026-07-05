@@ -14,7 +14,8 @@
 #   OTTERDEPLOY_DATA_DIR      host data folder        (default /data/otterdeploy)
 #   OTTERDEPLOY_INSTALL_DIR   install root            (default $OTTERDEPLOY_DATA_DIR/source)
 #   OTTERDEPLOY_VERSION       image tag to pull       (default latest)
-#   OTTERDEPLOY_COMPOSE_URL   prod compose to fetch   (default get.otterdeploy.com/docker-compose.yml)
+#   OTTERDEPLOY_COMPOSE_URL   compose source: http(s) URL, local path, or file://
+#                             (default get.otterdeploy.com/docker-compose.yml)
 #   OTTERDEPLOY_NETWORK       shared stack network    (default otterdeploy)
 #   OTTERDEPLOY_CONTROL_PLANE_PORT  dashboard port    (default 3000)
 #   OTTERDEPLOY_ADVERTISE_ADDR  swarm advertise-addr  (default: primary source IP)
@@ -54,6 +55,7 @@ ZFS_SIZE="${OTTERDEPLOY_ZFS_SIZE:-40G}"
 ZFS_IMG="$DATA_DIR/branch-pool.img"
 FIREWALL="${OTTERDEPLOY_FIREWALL:-false}"
 DRY_RUN="${OTTERDEPLOY_DRY_RUN:-false}"
+ASSUME_YES="${OTTERDEPLOY_YES:-false}"   # -y/--yes: skip the interactive prompts
 
 DOCKER_ADDRESS_POOL_BASE="${DOCKER_ADDRESS_POOL_BASE:-10.0.0.0/8}"
 DOCKER_ADDRESS_POOL_SIZE="${DOCKER_ADDRESS_POOL_SIZE:-24}"
@@ -369,7 +371,7 @@ prepare_tree() {
 
   say " - Fetching $COMPOSE_URL"
   if dry; then
-    say "   + curl -fsSL $COMPOSE_URL -o (temp) → validate → mv $COMPOSE_FILE"
+    say "   + fetch $COMPOSE_URL → validate → mv $COMPOSE_FILE"
     return
   fi
   # Download to a temp file, prove it's non-empty and a valid compose file, then
@@ -382,7 +384,22 @@ prepare_tree() {
   # (actual values are supplied via --env-file at pull/up time).
   local tmpd; tmpd="$(mktemp -d)"
   local tmp="$tmpd/docker-compose.yml"
-  curl -fsSL "$COMPOSE_URL" -o "$tmp" || { rm -rf "$tmpd"; fail "Could not download the compose file from $COMPOSE_URL"; }
+  # Source is OTTERDEPLOY_COMPOSE_URL — point it at your own host, a raw GitHub
+  # URL, or a local file/`file://` path. A local path is copied; anything else is
+  # fetched over http(s).
+  case "$COMPOSE_URL" in
+    file://*)
+      cp "${COMPOSE_URL#file://}" "$tmp" 2>/dev/null \
+        || { rm -rf "$tmpd"; fail "No compose file at ${COMPOSE_URL#file://} (OTTERDEPLOY_COMPOSE_URL)."; } ;;
+    /*|./*|../*|~*)
+      cp "$COMPOSE_URL" "$tmp" 2>/dev/null \
+        || { rm -rf "$tmpd"; fail "No compose file at $COMPOSE_URL (OTTERDEPLOY_COMPOSE_URL)."; } ;;
+    *)
+      curl -fsSL "$COMPOSE_URL" -o "$tmp" || { rm -rf "$tmpd"; fail "Could not fetch the compose file from $COMPOSE_URL.
+       Set OTTERDEPLOY_COMPOSE_URL to a reachable source and re-run — e.g. a raw
+       GitHub URL, your own host, or a local path/file:// URL:
+         sudo OTTERDEPLOY_COMPOSE_URL=/path/to/docker-compose.yml bash $0"; } ;;
+  esac
   [ -s "$tmp" ] || { rm -rf "$tmpd"; fail "Downloaded compose file is empty (bad URL or proxy?)."; }
   : > "$tmpd/.env"
   $SUDO docker compose -f "$tmp" --env-file /dev/null config -q >/dev/null 2>&1 \
@@ -530,6 +547,10 @@ compose_f_args() {
   for o in "$INSTALL_DIR/docker-compose.override.yml" "$INSTALL_DIR/docker-compose.override.yaml"; do
     [ -f "$o" ] && COMPOSE_F+=(-f "$o")
   done
+  # The loop's last `[ -f … ]` test returns non-zero when the (usually absent)
+  # override file isn't there, which would make this function exit 1 and trip
+  # the `set -e` ERR trap at every call site (start_stack, wait_for_health).
+  return 0
 }
 
 start_stack() {
@@ -543,8 +564,11 @@ start_stack() {
     say "   + $SUDO docker compose ${COMPOSE_F[*]} --env-file $ENV_FILE $profile_args up -d"
     return
   fi
-  $SUDO docker compose "${COMPOSE_F[@]}" --env-file "$ENV_FILE" $profile_args pull
-  $SUDO docker compose "${COMPOSE_F[@]}" --env-file "$ENV_FILE" $profile_args up -d
+  # --progress plain: docker compose's fancy TUI writes to the terminal and
+  # bypasses the log-file capture, so a `pull`/`up` failure left the log blank at
+  # step 11. Plain progress goes to stderr → the log records the real error.
+  $SUDO docker compose "${COMPOSE_F[@]}" --env-file "$ENV_FILE" $profile_args --progress plain pull
+  $SUDO docker compose "${COMPOSE_F[@]}" --env-file "$ENV_FILE" $profile_args --progress plain up -d
 }
 
 # Don't declare success until the control plane actually answers — never show a
@@ -610,6 +634,10 @@ report_access() {
     done
   fi
   [ -z "$v4$v6$private_ips" ] && say "  http://localhost:$CONTROL_PLANE_PORT"
+  # Don't let the trailing `[ … ] && …` (false in the common case, where we DID
+  # find an IP) make this function exit 1 and trip the `set -e` ERR trap after a
+  # fully successful install.
+  return 0
 }
 
 # ── legacy layout migration ───────────────────────────────────────────────────
@@ -629,28 +657,86 @@ migrate_legacy_install() {
 
   step "Migrating install $LEGACY_INSTALL_DIR → $INSTALL_DIR"
   if dry; then
-    say "   + would move every install file (compose, .env, any override) except"
-    say "     installer logs into $INSTALL_DIR"
+    say "   + would move every install file (compose, .env, any override, logs)"
+    say "     into $INSTALL_DIR and remove $LEGACY_INSTALL_DIR"
     return 0
   fi
   run $SUDO mkdir -p "$INSTALL_DIR"
-  # Move EVERYTHING the operator's install carries — the base compose, .env, and
-  # any docker-compose.override.yml or extra config — not a hardcoded pair, so a
-  # customized install migrates whole. dotglob catches .env; nullglob avoids a
-  # literal '*' on an empty dir. Installer logs stay behind as a breadcrumb.
+  # Move EVERYTHING the operator's install carries — the base compose, .env, any
+  # docker-compose.override.yml or extra config, AND the installer logs — so the
+  # whole install lives under the data folder and nothing lingers at the legacy
+  # path. dotglob catches .env; nullglob avoids a literal '*' on an empty dir.
   local restore_glob; restore_glob="$(shopt -p dotglob nullglob)"
   shopt -s dotglob nullglob
   local f base
   for f in "$LEGACY_INSTALL_DIR"/*; do
     base="$(basename "$f")"
-    case "$base" in
-      install-*.log) continue ;;
-    esac
     run $SUDO mv "$f" "$INSTALL_DIR/$base"
   done
   eval "$restore_glob"
   [ -n "$SUDO" ] && run $SUDO chown -R "$(id -u):$(id -g)" "$INSTALL_DIR" || true
-  say " - Moved install files (compose, .env, override); logs remain in $LEGACY_INSTALL_DIR"
+  # Drop the now-empty legacy dir so all platform state sits under the data tree.
+  run $SUDO rmdir "$LEGACY_INSTALL_DIR" 2>/dev/null || true
+  say " - Moved install files (compose, .env, override, logs) into $INSTALL_DIR; removed $LEGACY_INSTALL_DIR"
+}
+
+# ── interactive configuration ─────────────────────────────────────────────────
+# Prompt for the main options when run on a terminal (`bash install.sh`). Reads
+# from /dev/tty so it also works under `curl | bash` (where stdin is the piped
+# script). Skipped with --yes, in --dry-run, or when there is no terminal
+# (CI/cron) — those keep the old behaviour of env vars + defaults, so unattended
+# installs are unchanged. An option already set via its OTTERDEPLOY_* env var is
+# taken as-is with no prompt. Runs before the log capture so a changed DATA_DIR
+# repoints the derived paths.
+configure() {
+  local tty=""; [ -r /dev/tty ] && tty=/dev/tty
+  if [ "$ASSUME_YES" = "true" ] || dry || [ -z "$tty" ]; then
+    return
+  fi
+
+  step "Configure otterdeploy  (Enter = keep the [default])"
+
+  _ctx() { printf '   %s\n' "$*" > "$tty"; }        # explanatory context → terminal
+  _ask() {                                          # _ask VAR OTTERDEPLOY_ENV "prompt" "default"
+    local var="$1" envname="$2" q="$3" def="$4" ans
+    [ -n "${!envname:-}" ] && return 0              # explicit env var wins, no prompt
+    printf '   \033[1m%s\033[0m [%s]: ' "$q" "$def" > "$tty"
+    IFS= read -r ans < "$tty" || ans=""
+    printf -v "$var" '%s' "${ans:-$def}"
+  }
+
+  # 1) Database branching — first, because it decides a HOST-level capability
+  #    (whether we set up a ZFS pool) rather than a simple app setting.
+  _ctx ""
+  _ctx "Database branching — spin up instant, throwaway COPIES of a database"
+  _ctx "(for preview environments / tests) instead of a slow dump-and-restore."
+  _ctx "  auto : use copy-on-write ZFS if this host supports it, else fall back"
+  _ctx "         to the logical tier (works anywhere, but makes full pg_dump copies)."
+  _ctx "  on   : require ZFS for instant branches; abort if it isn't available."
+  _ctx "  off  : logical tier only — no ZFS pool is created on this host."
+  _ctx "Leave it on 'auto' unless you have a reason not to."
+  _ask BRANCHING OTTERDEPLOY_BRANCHING "Database branching (auto|on|off)" "$BRANCHING"
+
+  # 2) Compose source
+  _ctx ""
+  _ctx "Compose source — where to fetch the stack definition (docker-compose.yml)."
+  _ctx "Point it at your own URL, a local path, or a file:// path if the default"
+  _ctx "host isn't reachable. Only change this if you self-host the compose file."
+  _ask COMPOSE_URL OTTERDEPLOY_COMPOSE_URL "Compose source (URL / path / file://)" "$COMPOSE_URL"
+
+  # 3) Firewall
+  _ctx ""
+  _ctx "Firewall (CrowdSec) — community IP-reputation blocking at the edge proxy."
+  _ctx "Optional, and you can enable it later; it adds a container + a compose profile."
+  if [ -z "${OTTERDEPLOY_FIREWALL:-}" ]; then
+    local fw
+    printf '   \033[1mEnable the bundled CrowdSec firewall?\033[0m [y/N]: ' > "$tty"
+    IFS= read -r fw < "$tty" || fw=""
+    case "$fw" in [Yy]*) FIREWALL=true ;; *) FIREWALL=false ;; esac
+  fi
+
+  printf '\n   Config → branching=%s  version=%s  firewall=%s\n           compose=%s\n' \
+    "$BRANCHING" "$VERSION" "$FIREWALL" "$COMPOSE_URL" > "$tty"
 }
 
 usage() {
@@ -666,10 +752,15 @@ Subcommands:
 
 Flags:
   -n, --dry-run    Preview every action; change nothing on the host.
+  -y, --yes        Don't prompt; use env vars + defaults (unattended install).
       --firewall   Start the bundled CrowdSec (firewall) profile.
   -h, --help       Show this help.
 
-All flags also have env-var equivalents (see header). e.g. OTTERDEPLOY_DRY_RUN=true.
+Run \`bash install.sh\` on a terminal and it asks for the main options (compose
+source, port, data dir, version, branching, firewall) before installing. Piped
+\`curl | bash\`, --yes, --dry-run, or no TTY skip the prompts and use env vars +
+defaults. Any OTTERDEPLOY_* env var that's set is used as-is (that prompt is
+skipped). All flags have env-var equivalents (see header), e.g. OTTERDEPLOY_YES=true.
 EOF
 }
 
@@ -679,11 +770,17 @@ main() {
     case "$arg" in
       update)       mode="update" ;;
       -n|--dry-run) DRY_RUN=true ;;
+      -y|--yes)     ASSUME_YES=true ;;
       --firewall)   FIREWALL=true ;;
       -h|--help)    usage; exit 0 ;;
       *) fail "Unknown argument: $arg (try --help)" ;;
     esac
   done
+
+  # Ask for the main options on a fresh install when run interactively (no-op
+  # under --yes / --dry-run / no TTY). Must run BEFORE the log capture so a
+  # changed DATA_DIR repoints INSTALL_DIR / LOG_FILE.
+  [ "$mode" = "install" ] && configure
 
   # Capture the whole run to a timestamped log (curl|bash has no scrollback).
   if [ "$DRY_RUN" != "true" ]; then

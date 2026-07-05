@@ -75,9 +75,13 @@ export function StepSource() {
 
   // Bind the repo; leave `branch` empty so the BranchPicker below can seed it
   // from the repo's real default branch once `git.listBranches` resolves
-  // (forcing "main" here would mask a master/develop default).
+  // (forcing "main" here would mask a master/develop default). Both bind paths
+  // (picker + public-URL CTA) hand us the fullName, so stash it as the
+  // portable "owner/repo" the manifest needs (`repo` holds the opaque
+  // gitRepoId) right here — no derived-state effect.
   const onPublicRepoBound = (repoId: string, fullName: string) => {
     form.setFieldValue("repo", repoId);
+    form.setFieldValue("repoFullName", fullName);
     summary.rememberJustBound(repoId, fullName);
   };
 
@@ -103,6 +107,7 @@ export function StepSource() {
           // effect re-run so the service name follows the newly-picked repo
           // (otherwise the old repo's auto-derived name sticks).
           form.setFieldValue("repo", "");
+          form.setFieldValue("repoFullName", "");
           form.setFieldValue("branch", "");
           form.setFieldValue("name", kindId);
         }}

@@ -45,6 +45,9 @@ export interface ResourceFormState {
   version: string | null;
   src: "github" | "gitlab";
   repo: string;
+  /** Bound repo's portable "owner/repo", mirrored from the source step so the
+   *  generated manifest can bind it (`repo` itself holds the opaque gitRepoId). */
+  repoFullName: string;
   branch: string;
   root: string;
   autoDeploy: boolean;
@@ -86,6 +89,7 @@ export const resourceDefaults: ResourceFormState = {
   version: null,
   src: "github",
   repo: "",
+  repoFullName: "",
   branch: "main",
   root: "",
   autoDeploy: true,

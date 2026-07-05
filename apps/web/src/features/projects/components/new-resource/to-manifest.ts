@@ -94,7 +94,11 @@ function staticSiteBuildConfig(input: ServiceSpecInput): BuildConfig {
   return {
     builder: "railpack",
     ...(input.spa ? { spa: true } : {}),
-    ...(input.root ? { staticRoot: `${input.root.replace(/\/+$/, "")}/dist` } : {}),
+    // staticRoot is resolved RELATIVE TO THE APP SUBDIR by the builder, which
+    // prepends the subdir itself for workspace monorepos (railpack.ts
+    // resolveBuildLayout). Emitting the repo-root-relative `${root}/dist` here
+    // double-prefixed it → `apps/web/apps/web/dist` and the build's COPY failed.
+    ...(input.root ? { staticRoot: "dist" } : {}),
   };
 }
 
@@ -130,6 +134,12 @@ export interface ServiceSpecInput {
   spa: boolean;
   /** Repo-relative root directory for git sources ("" = repo root). */
   root: string;
+  /** Portable "owner/repo" of the bound repo (git sources). Emitted as the
+   *  manifest's `repo` so apply resolves the git_repo binding — without it the
+   *  service stages unbound and its build fails "no git repo binding". */
+  repo?: string;
+  /** Branch whose pushes deploy this git service. "" → repo default at apply. */
+  branch?: string;
 }
 
 /** Assemble the full manifest service spec from wizard state. */
@@ -153,6 +163,9 @@ export function buildServiceSpec(input: ServiceSpecInput): ServiceSpec {
     input.kindId === "static" ? staticSiteBuildConfig(input) : buildFromBuilderId(input.builderId);
   return {
     source: "git",
+    // Bind the repo so apply can resolve it — the whole point that was missing.
+    ...(input.repo ? { repo: input.repo } : {}),
+    ...(input.branch ? { branch: input.branch } : {}),
     ...(input.root ? { sourceSubdir: input.root } : {}),
     build,
     ...common,

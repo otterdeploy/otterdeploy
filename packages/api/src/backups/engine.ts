@@ -26,7 +26,7 @@ import {
   markBackupSucceeded,
 } from "./db";
 import { dumpCommand, resolveSecret, runPreHook, shellQuote } from "./engine-helpers";
-import { execCapture, execDump, findServiceContainerId } from "./exec";
+import { execCapture, execDump, findResourceContainerId } from "./exec";
 import { type ResolvedDestination, archiveKey, getArchive, putArchive } from "./storage";
 
 /**
@@ -58,7 +58,7 @@ export async function executeBackup(backupId: string): Promise<void> {
       projectSlug: ctx.projectSlug,
       resourceName: ctx.resourceName,
     });
-    const containerId = await findServiceContainerId(docker, serviceName);
+    const containerId = await findResourceContainerId(docker, ctx.resourceId);
     if (!containerId) {
       throw new Error(`No running container for service ${serviceName} — is the database up?`);
     }
@@ -223,7 +223,7 @@ export async function restoreBackup(input: {
       projectSlug: ctx.projectSlug,
       resourceName: ctx.resourceName,
     });
-    const containerId = await findServiceContainerId(docker, serviceName);
+    const containerId = await findResourceContainerId(docker, ctx.resourceId);
     if (!containerId) throw new Error(`No running container for ${serviceName}`);
 
     if (ctx.engine !== "postgres") {

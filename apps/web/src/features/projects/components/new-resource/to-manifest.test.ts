@@ -120,6 +120,23 @@ describe("buildServiceSpec", () => {
     });
   });
 
+  it("emits the bound repo + branch so apply binds the git_repo (no unbound service)", () => {
+    const spec = buildServiceSpec({
+      ...base,
+      source: "git",
+      image: "pending:initial",
+      repo: "artzkaizen/dealort",
+      branch: "main",
+    });
+    expect(spec).toMatchObject({ source: "git", repo: "artzkaizen/dealort", branch: "main" });
+  });
+
+  it("omits repo/branch when the git service is left unbound", () => {
+    const spec = buildServiceSpec({ ...base, source: "git", image: "pending:initial" });
+    expect(spec).not.toHaveProperty("repo");
+    expect(spec).not.toHaveProperty("branch");
+  });
+
   it("forces railpack + spa for the static kind, ignoring the picked builder", () => {
     const spec = buildServiceSpec({
       ...base,
@@ -131,7 +148,7 @@ describe("buildServiceSpec", () => {
     });
     expect(spec).toMatchObject({
       source: "git",
-      build: { builder: "railpack", spa: true, staticRoot: "apps/web/dist" },
+      build: { builder: "railpack", spa: true, staticRoot: "dist" },
       ports: [{ container: 80, protocol: "tcp", appProtocol: "http", primary: true }],
     });
   });
@@ -146,7 +163,7 @@ describe("buildServiceSpec", () => {
     });
     expect(spec).toMatchObject({ source: "git" });
     const build = (spec as { build?: Record<string, unknown> }).build;
-    expect(build).toEqual({ builder: "railpack", staticRoot: "apps/web/dist" });
+    expect(build).toEqual({ builder: "railpack", staticRoot: "dist" });
   });
 
   it("assembles an image spec and omits git-only fields", () => {

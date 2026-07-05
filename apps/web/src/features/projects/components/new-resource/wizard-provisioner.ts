@@ -40,6 +40,13 @@ export interface ServiceCreatePayload {
   builderId: string;
   spa: boolean;
   root: string;
+  // Bound repo as portable "owner/repo" + its branch, threaded into the
+  // manifest so the created service is actually bound. Undefined for image
+  // sources (and for a git service the operator left unbound — apply then
+  // surfaces the clear "no git repo binding" skip rather than silently
+  // creating an unbuildable service).
+  repo?: string;
+  branch?: string;
   // Framework detected on the Source step (git.inspectRepo). Carried so the
   // ghost node can show its brand logo before the built resource lands with the
   // persisted value. Optional — undefined when nothing was detected.

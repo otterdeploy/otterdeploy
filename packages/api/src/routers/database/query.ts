@@ -13,7 +13,7 @@ import { databaseResource, project, resource } from "@otterdeploy/db/schema";
 import { Docker } from "@otterdeploy/docker";
 import { and, eq } from "drizzle-orm";
 
-import { execCapture, findServiceContainerId } from "../../backups/exec";
+import { execCapture, findResourceContainerId } from "../../backups/exec";
 import { buildContainerName } from "../project/views";
 
 export interface DbConnInfo {
@@ -23,6 +23,9 @@ export interface DbConnInfo {
   databaseName: string;
   projectSlug: string;
   resourceName: string;
+  /** Used to find the running container by its `otterdeploy.resource.id` label
+   *  (runtime-agnostic — see findResourceContainerId). */
+  resourceId: ResourceId;
 }
 
 export async function getDatabaseConnInfo(input: {
@@ -37,6 +40,7 @@ export async function getDatabaseConnInfo(input: {
       databaseName: databaseResource.databaseName,
       projectSlug: project.slug,
       resourceName: resource.name,
+      resourceId: resource.id,
     })
     .from(databaseResource)
     .innerJoin(resource, eq(resource.id, databaseResource.resourceId))
@@ -98,7 +102,7 @@ async function runQuery(
       projectSlug: conn.projectSlug,
       resourceName: conn.resourceName,
     });
-    const containerId = await findServiceContainerId(docker, serviceName);
+    const containerId = await findResourceContainerId(docker, conn.resourceId);
     if (!containerId) {
       throw new QueryError(`database container for ${serviceName} is not running`);
     }

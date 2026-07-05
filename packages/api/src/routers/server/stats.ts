@@ -19,6 +19,8 @@ import { project } from "@otterdeploy/db/schema/project";
 import { server } from "@otterdeploy/db/schema/server";
 import { Docker, type Node, type Task } from "@otterdeploy/docker";
 import { and, eq, inArray } from "drizzle-orm";
+
+import { isSwarmRuntime } from "../../runtime";
 type OrgId = OrganizationId;
 
 export interface ServerNodeStats {
@@ -128,6 +130,91 @@ function aggregateTasks(tasks: Task[], swarmIdToHostname: Map<string, string>): 
   return { perHostname, projectTaskCount, clusterRunning };
 }
 
+/** Resolve slug → friendly name for the cluster pills. Shared by both runtimes. */
+async function clusterProjectPills(
+  organizationId: OrgId,
+  projectTaskCount: Map<string, number>,
+): Promise<ServerClusterStats["projects"]> {
+  const slugs = [...projectTaskCount.keys()];
+  const rows =
+    slugs.length === 0
+      ? []
+      : await db
+          .select({ slug: project.slug, name: project.name })
+          .from(project)
+          .where(and(eq(project.organizationId, organizationId), inArray(project.slug, slugs)));
+  const slugToName = new Map(rows.map((r) => [r.slug, r.name]));
+  return [...projectTaskCount.entries()]
+    .map(([slug, tasksRunning]) => ({ slug, name: slugToName.get(slug) ?? slug, tasksRunning }))
+    .sort((a, b) => b.tasksRunning - a.tasksRunning);
+}
+
+interface ServerRow {
+  id: ServerId;
+  name: string | null;
+  hostname: string | null;
+}
+
+/**
+ * Plain-docker (DEFAULT runtime) stats. There are no swarm tasks/nodes, so we
+ * count the managed CONTAINERS instead (label `otterdeploy.managed=true`, the
+ * same label the docker driver stamps). Plain docker is single-node, so the
+ * whole aggregate belongs to the local host — attributed to the (single) server
+ * row. cpu/mem "allocated" reflects swarm task RESERVATIONS, which the plain
+ * docker driver doesn't set (it uses limits), so it's reported as 0 here rather
+ * than conflating limits with reservations.
+ */
+async function getDockerServerStats(
+  docker: Docker,
+  servers: ServerRow[],
+  organizationId: OrgId,
+): Promise<ServerStats | null> {
+  const list = await docker.containers.list({
+    all: false, // running only
+    filters: { label: ["otterdeploy.managed=true"] },
+  });
+  if (list.isErr()) return null;
+
+  const projectTaskCount = new Map<string, number>();
+  const projects = new Set<string>();
+  let tasksRunning = 0;
+
+  for (const c of list.value) {
+    tasksRunning++;
+    const slug = (c as { Labels?: Record<string, string> }).Labels?.["otterdeploy.project"];
+    if (slug) {
+      projects.add(slug);
+      projectTaskCount.set(slug, (projectTaskCount.get(slug) ?? 0) + 1);
+    }
+  }
+
+  const perServer: ServerNodeStats[] = servers.map((s, i) =>
+    i === 0
+      ? {
+          serverId: s.id,
+          tasksRunning,
+          cpuAllocatedVcpu: 0,
+          memoryAllocatedGb: 0,
+          projects: [...projects],
+        }
+      : {
+          serverId: s.id,
+          tasksRunning: 0,
+          cpuAllocatedVcpu: 0,
+          memoryAllocatedGb: 0,
+          projects: [],
+        },
+  );
+
+  return {
+    perServer,
+    cluster: {
+      tasksRunning,
+      projects: await clusterProjectPills(organizationId, projectTaskCount),
+    },
+  };
+}
+
 export async function getServerStats(input: { organizationId: OrgId }): Promise<ServerStats> {
   // ── Otterdeploy servers in this org ────────────────────────────────────
   const servers = await db
@@ -140,6 +227,24 @@ export async function getServerStats(input: { organizationId: OrgId }): Promise<
     .where(eq(server.organizationId, input.organizationId));
 
   const docker = Docker.fromEnv();
+
+  const empty: ServerStats = {
+    perServer: servers.map((s) => ({
+      serverId: s.id,
+      tasksRunning: 0,
+      cpuAllocatedVcpu: 0,
+      memoryAllocatedGb: 0,
+      projects: [],
+    })),
+    cluster: { tasksRunning: 0, projects: [] },
+  };
+
+  // DEFAULT runtime is plain docker — there are no swarm tasks/nodes, so the
+  // task/node aggregation below returns nothing. Count managed containers
+  // instead. Only DEPLOY_RUNTIME=swarm reaches the swarm path.
+  if (!isSwarmRuntime()) {
+    return (await getDockerServerStats(docker, servers, input.organizationId)) ?? empty;
+  }
 
   // ── Swarm node directory ──────────────────────────────────────────────
   // Lets us map task.NodeID → swarm hostname → otterdeploy server row.
@@ -154,17 +259,6 @@ export async function getServerStats(input: { organizationId: OrgId }): Promise<
   const tasksResult = await docker.tasks.list({
     filters: { label: ["otterdeploy.managed=true"] },
   });
-
-  const empty: ServerStats = {
-    perServer: servers.map((s) => ({
-      serverId: s.id,
-      tasksRunning: 0,
-      cpuAllocatedVcpu: 0,
-      memoryAllocatedGb: 0,
-      projects: [],
-    })),
-    cluster: { tasksRunning: 0, projects: [] },
-  };
   if (tasksResult.isErr()) return empty;
 
   // Group by hostname (the lookup we can join back to otterdeploy server rows).
@@ -172,23 +266,6 @@ export async function getServerStats(input: { organizationId: OrgId }): Promise<
     tasksResult.value,
     swarmIdToHostname,
   );
-
-  // ── Project name lookup for the cluster pills ─────────────────────────
-  const projectSlugs = [...projectTaskCount.keys()];
-  const projectRows =
-    projectSlugs.length === 0
-      ? []
-      : await db
-          .select({ slug: project.slug, name: project.name })
-          .from(project)
-          .where(
-            and(
-              eq(project.organizationId, input.organizationId),
-              inArray(project.slug, projectSlugs),
-            ),
-          );
-  const slugToName = new Map<string, string>();
-  for (const row of projectRows) slugToName.set(row.slug, row.name);
 
   // ── Per-server emission ───────────────────────────────────────────────
   const perServer: ServerNodeStats[] = servers.map((s) => {
@@ -216,13 +293,7 @@ export async function getServerStats(input: { organizationId: OrgId }): Promise<
     perServer,
     cluster: {
       tasksRunning: clusterRunning,
-      projects: [...projectTaskCount.entries()]
-        .map(([slug, tasksRunning]) => ({
-          slug,
-          name: slugToName.get(slug) ?? slug,
-          tasksRunning,
-        }))
-        .sort((a, b) => b.tasksRunning - a.tasksRunning),
+      projects: await clusterProjectPills(input.organizationId, projectTaskCount),
     },
   };
 }
