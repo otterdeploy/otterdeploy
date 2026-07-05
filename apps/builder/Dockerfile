@@ -57,5 +57,12 @@ WORKDIR /app
 COPY . .
 RUN bun install --frozen-lockfile
 
+# Drop dev dependencies: the worker runs the TS source directly via bun (no
+# build/bundle step), so it needs the workspace source + PRODUCTION deps but not
+# tsdown/vite/turbo/drizzle-kit/typescript/eslint. bun transpiles TS at runtime,
+# so `typescript` isn't needed either. Reinstall production-only in place.
+RUN find . -type d -name node_modules -prune -exec rm -rf {} + \
+ && bun install --production
+
 WORKDIR /app/apps/builder
 CMD ["bun", "run", "src/index.ts"]

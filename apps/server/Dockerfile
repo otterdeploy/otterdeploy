@@ -12,11 +12,12 @@
 # the image, which also halves pull time and the disk a few `install.sh update`s
 # consume (stale multi-GB layers were filling small disks → Postgres ENOSPC).
 #
-# The runtime still needs the docker CLI + buildx/compose plugins (the runtime()
-# driver shells out for some paths), curl (the compose healthcheck GET /health),
-# git, and openssh-client (ssh-keygen + the in-app PTY). It drives the HOST
-# docker daemon over the mounted /var/run/docker.sock via the @otterdeploy/docker
-# socket client.
+# The runtime drives the HOST docker daemon purely over the mounted
+# /var/run/docker.sock via the @otterdeploy/docker SOCKET client — it never
+# shells out to the docker CLI/buildx/compose, so (unlike the builder) it does
+# NOT carry that ~317MB stack. Its apt is just curl (compose healthcheck
+# GET /health) + openssh-client (ssh-keygen); the base image ships the shell the
+# in-app terminal (PTY) execs.
 
 # Pinned (NOT the floating tag) so `bun install --frozen-lockfile` stays
 # reproducible — keep at/above the bun that writes bun.lock locally. Matches the
@@ -48,15 +49,15 @@ RUN find . -type d -name node_modules -prune -exec rm -rf {} + \
 
 # ── runtime stage: slim, only what boot needs ─────────────────────────────────
 FROM oven/bun:${BUN_VERSION}-debian AS runtime
+# The server drives the docker daemon purely over the mounted /var/run/docker.sock
+# via the @otterdeploy/docker SOCKET client — it NEVER shells out to the docker
+# CLI/buildx/compose (verified: the only host binaries the server spawns are
+# `ssh-keygen` and the PTY shell). So we skip the ~317MB docker-ce-cli/buildx/
+# compose stack (that's the builder image's job): the runtime apt is just curl
+# (compose healthcheck GET /health) + openssh-client (ssh-keygen); the base image
+# already ships the shell the in-app terminal (PTY) execs.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends \
-      ca-certificates curl git gnupg openssh-client \
- && install -m 0755 -d /etc/apt/keyrings \
- && curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
- && chmod a+r /etc/apt/keyrings/docker.gpg \
- && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian $(. /etc/os-release && echo $VERSION_CODENAME) stable" > /etc/apt/sources.list.d/docker.list \
- && apt-get update \
- && apt-get install -y --no-install-recommends docker-ce-cli docker-buildx-plugin docker-compose-plugin \
+ && apt-get install -y --no-install-recommends ca-certificates curl openssh-client \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
