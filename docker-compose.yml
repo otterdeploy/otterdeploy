@@ -53,12 +53,15 @@ services:
       retries: 20
 
   builder:
+    # Unified image (same Dockerfile as the server); the build worker is just a
+    # different command on top of the docker/buildx/railpack toolchain it carries.
     build:
       context: .
-      dockerfile: ./apps/builder/Dockerfile
+      dockerfile: ./apps/server/Dockerfile
     # Pinned tag so the worker can spawn this same image as the per-build
     # helper container (BUILDER_HELPER_IMAGE below must match).
     image: otterdeploy-builder:latest
+    command: ["bun", "run", "src/index.ts"]
     container_name: otterdeploy-builder
     restart: unless-stopped
     # Required env (DB/Redis/auth secret/…) comes from the project .env; the two
