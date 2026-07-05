@@ -173,8 +173,10 @@ export const env = createEnv({
     OTTERDEPLOY_REGISTRY: z.string().min(1).default("ghcr.io/otterdeploy"),
     // Where the installer put the compose file + .env on the HOST. The update
     // helper container bind-mounts this (same path in+out) to bump the version
-    // and run `docker compose pull && up -d`. Matches scripts/install.sh.
-    OTTERDEPLOY_INSTALL_DIR: z.string().min(1).default("/opt/otterdeploy"),
+    // and run `docker compose pull && up -d`. The installer writes the real value
+    // into .env (it derives from OTTERDEPLOY_DATA_DIR), so this default only
+    // applies to source checkouts — it mirrors install.sh's `$DATA_DIR/source`.
+    OTTERDEPLOY_INSTALL_DIR: z.string().min(1).default("/data/otterdeploy/source"),
     // GitHub repo (owner/name) whose `releases/latest` is the version source.
     OTTERDEPLOY_UPDATE_REPO: z.string().min(1).default("otterdeploy/otterdeploy"),
     // Override the release manifest URL — point at a fixture/mirror for testing

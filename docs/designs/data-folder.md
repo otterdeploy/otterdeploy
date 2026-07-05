@@ -36,6 +36,18 @@ So for us the folder is an **ops/convenience layer, not the deploy path.** It
 must stay optional: losing it never breaks a deploy, it just removes a
 convenience. That framing drives every decision below.
 
+> **Scope of "disposable".** The installer's own stack (`docker-compose.yml` +
+> `.env`) lives under this root at `source/` (= `OTTERDEPLOY_INSTALL_DIR`,
+> defaulting to `$OTTERDEPLOY_DATA_DIR/source` — one 0700 tree for all platform
+> state, mirroring Coolify's `/data/coolify/source`). That subdir **is**
+> load-bearing — it's the platform's config + master secrets. The "disposable,
+> regenerable" property below applies to the platform-**generated** subdirs
+> (`builds/`, `backups/`, `resources/`, `projects/`, `volumes/`, `caddy/`,
+> `buildx-cache/`), not to `source/`. `source/` is safe inside the bind-mounted
+> data folder: `server`/`builder` already hold the same secrets via `env_file`,
+> `caddy` mounts only `caddy/`, and build helper containers mount only
+> `buildx-cache/` — nothing untrusted gets `source/`.
+
 What genuinely benefits from a host folder:
 
 - **Debuggable builds.** A failed build's clone currently vanishes into a random
@@ -61,6 +73,9 @@ a project is deleted.
 
 ```
 /data/otterdeploy/                              # OTTERDEPLOY_DATA_DIR overrides the root
+├── source/                          # the platform stack: docker-compose.yml + .env
+│                                    #   (the installer's install root — LOAD-BEARING,
+│                                    #   OTTERDEPLOY_INSTALL_DIR; NOT platform-generated)
 ├── projects/<projectId>/
 │   ├── otterdeploy.json              # exported manifest snapshot (DR / audit)
 │   └── compose.yml                   # rendered escape hatch (manifest.export output)

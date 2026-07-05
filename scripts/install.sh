@@ -11,8 +11,8 @@
 # installer never blocks on it.
 #
 # Tunables (env vars):
-#   OTTERDEPLOY_INSTALL_DIR   install root            (default /opt/otterdeploy)
 #   OTTERDEPLOY_DATA_DIR      host data folder        (default /data/otterdeploy)
+#   OTTERDEPLOY_INSTALL_DIR   install root            (default $OTTERDEPLOY_DATA_DIR/source)
 #   OTTERDEPLOY_VERSION       image tag to pull       (default latest)
 #   OTTERDEPLOY_COMPOSE_URL   prod compose to fetch   (default get.otterdeploy.com/docker-compose.yml)
 #   OTTERDEPLOY_NETWORK       shared stack network    (default otterdeploy)
@@ -32,8 +32,14 @@
 set -Eeuo pipefail   # -E so the ERR trap is inherited into functions
 
 # ── config ──────────────────────────────────────────────────────────────────
-INSTALL_DIR="${OTTERDEPLOY_INSTALL_DIR:-/opt/otterdeploy}"
 DATA_DIR="${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}"
+# The install root (compose + .env) lives UNDER the data folder as `source/`, so
+# ALL platform state — config and generated artifacts — sits in one 0700 tree
+# (mirrors Coolify's /data/coolify/source). Override with OTTERDEPLOY_INSTALL_DIR
+# to split them back out. An earlier /opt/otterdeploy install is migrated in place
+# (see migrate_legacy_install).
+INSTALL_DIR="${OTTERDEPLOY_INSTALL_DIR:-$DATA_DIR/source}"
+LEGACY_INSTALL_DIR="/opt/otterdeploy"
 VERSION="${OTTERDEPLOY_VERSION:-latest}"
 COMPOSE_URL="${OTTERDEPLOY_COMPOSE_URL:-https://get.otterdeploy.com/docker-compose.yml}"
 COMPOSE_FILE="$INSTALL_DIR/docker-compose.yml"
@@ -134,10 +140,14 @@ OS_FAMILY=""
 OS_PRETTY=""
 detect_os() {
   [ -r /etc/os-release ] || fail "Cannot read /etc/os-release — unsupported host."
+  # Source in a SUBSHELL and pull back only the fields we need: /etc/os-release
+  # defines VERSION= (e.g. "26.04 LTS (…)"), which would otherwise clobber this
+  # installer's own VERSION (the image tag) and poison OTTERDEPLOY_VERSION.
   # shellcheck disable=SC1091
-  . /etc/os-release
-  OS_PRETTY="${PRETTY_NAME:-${ID:-unknown}}"
-  local id="${ID:-}" like="${ID_LIKE:-}"
+  local pretty id like
+  eval "$(. /etc/os-release; printf 'pretty=%q\nid=%q\nlike=%q\n' \
+    "${PRETTY_NAME:-${ID:-unknown}}" "${ID:-}" "${ID_LIKE:-}")"
+  OS_PRETTY="$pretty"
   case "$id" in
     ubuntu|debian|raspbian|linuxmint|pop|zorin|elementary|neon|devuan|kali) OS_FAMILY=debian ;;
     rhel|centos|fedora|rocky|almalinux|amzn|ol|tencentos|fedora-asahi-remix) OS_FAMILY=rhel ;;
@@ -292,11 +302,14 @@ JSON
 )"
 
   if [ -f "$daemon" ]; then
-    if jq -e '."default-address-pools"' "$daemon" >/dev/null 2>&1; then
+    # daemon.json is root-owned (mode 0600); read it through $SUDO so a re-run as
+    # a non-root user can still inspect/merge it (else the pool check silently
+    # fails and the merge below dies on an unreadable file).
+    if $SUDO jq -e '."default-address-pools"' "$daemon" >/dev/null 2>&1; then
       say " - Address pool already configured; leaving daemon.json untouched"; rm -f "$tmp"; return
     fi
     run $SUDO cp "$daemon" "$daemon.bak-$DATE"
-    jq -s '.[0] * .[1]' "$daemon" <(printf '%s' "$desired") > "$tmp"
+    $SUDO jq -s '.[0] * .[1]' "$daemon" <(printf '%s' "$desired") > "$tmp"
   else
     printf '%s' "$desired" > "$tmp"
   fi
@@ -362,24 +375,37 @@ prepare_tree() {
   # Download to a temp file, prove it's non-empty and a valid compose file, then
   # atomically move into place — so a truncated/HTML-error fetch is caught here,
   # before swarm/network/env mutations matter, not at `up`.
-  local tmp; tmp="$(mktemp)"
-  curl -fsSL "$COMPOSE_URL" -o "$tmp" || { rm -f "$tmp"; fail "Could not download the compose file from $COMPOSE_URL"; }
-  [ -s "$tmp" ] || { rm -f "$tmp"; fail "Downloaded compose file is empty (bad URL or proxy?)."; }
+  # Download into a temp DIR as docker-compose.yml (not a bare temp file): the
+  # compose declares `env_file: .env`, resolved relative to its own directory,
+  # so validation needs a .env beside it. The real one is written in the next
+  # step; seed an empty placeholder here purely so `config` can resolve the ref
+  # (actual values are supplied via --env-file at pull/up time).
+  local tmpd; tmpd="$(mktemp -d)"
+  local tmp="$tmpd/docker-compose.yml"
+  curl -fsSL "$COMPOSE_URL" -o "$tmp" || { rm -rf "$tmpd"; fail "Could not download the compose file from $COMPOSE_URL"; }
+  [ -s "$tmp" ] || { rm -rf "$tmpd"; fail "Downloaded compose file is empty (bad URL or proxy?)."; }
+  : > "$tmpd/.env"
   $SUDO docker compose -f "$tmp" --env-file /dev/null config -q >/dev/null 2>&1 \
-    || { rm -f "$tmp"; fail "Downloaded compose file is not valid — refusing to continue."; }
+    || { rm -rf "$tmpd"; fail "Downloaded compose file is not valid — refusing to continue."; }
   mv "$tmp" "$COMPOSE_FILE"
+  rm -rf "$tmpd"
   say " - Compose file validated"
 }
 
 # ── 6. environment file ─────────────────────────────────────────────────────
 write_env() {
   step "Writing $ENV_FILE"
-  local pg_pass auth_secret pg_user pg_db pool_line public_host
+  local pg_pass auth_secret pg_user pg_db pool_line public_host public_url cors_origin
   pg_user="$(keep_or POSTGRES_USER otterdeploy)"
   pg_db="$(keep_or POSTGRES_DB otterdeploy)"
   pg_pass="$(keep_or POSTGRES_PASSWORD "$(random_secret)")"
   auth_secret="$(keep_or BETTER_AUTH_SECRET "$(random_secret)")"
   public_host="$(keep_or PUBLIC_HOST "$(detect_public_host)")"
+  # Auth authority + CORS origin. The server serves the dashboard on the same
+  # origin (the control-plane port), so both default to that URL. keep_or
+  # preserves an operator override across re-runs.
+  public_url="$(keep_or BETTER_AUTH_URL "http://$public_host:$CONTROL_PLANE_PORT")"
+  cors_origin="$(keep_or CORS_ORIGIN "$public_url")"
   pool_line="$(env_value BRANCH_ZFS_POOL)"   # set later by provision_branching
 
   if dry; then
@@ -387,7 +413,9 @@ write_env() {
     say "       POSTGRES_USER=$pg_user  POSTGRES_DB=$pg_db  POSTGRES_PASSWORD=********"
     say "       DATABASE_URL=postgres://$pg_user:********@postgres:5432/$pg_db"
     say "       REDIS_URL=redis://redis:6379  BETTER_AUTH_SECRET=********"
-    say "       OTTERDEPLOY_DATA_DIR=$DATA_DIR  PUBLIC_HOST=$public_host  CONTROL_PLANE_PORT=$CONTROL_PLANE_PORT"
+    say "       OTTERDEPLOY_DATA_DIR=$DATA_DIR  OTTERDEPLOY_INSTALL_DIR=$INSTALL_DIR"
+    say "       PUBLIC_HOST=$public_host  CONTROL_PLANE_PORT=$CONTROL_PLANE_PORT"
+    say "       BETTER_AUTH_URL=$public_url  CORS_ORIGIN=$cors_origin  NODE_ENV=production"
     return
   fi
 
@@ -396,6 +424,9 @@ write_env() {
 # Generated by scripts/install.sh on $DATE. Secrets are preserved on re-run.
 OTTERDEPLOY_VERSION=$VERSION
 OTTERDEPLOY_DATA_DIR=$DATA_DIR
+# Where this stack (compose + .env) lives on the host. The in-app updater
+# bind-mounts this path to pull + recreate, so it must be the real location.
+OTTERDEPLOY_INSTALL_DIR=$INSTALL_DIR
 DEPLOY_RUNTIME=docker
 CONTROL_PLANE_PORT=$CONTROL_PLANE_PORT
 PUBLIC_HOST=$public_host
@@ -407,6 +438,15 @@ DATABASE_URL=postgres://$pg_user:$pg_pass@postgres:5432/$pg_db
 REDIS_URL=redis://redis:6379
 
 BETTER_AUTH_SECRET=$auth_secret
+# Auth authority + CORS origin — the server serves the dashboard on the same
+# origin, so both point at the control-plane URL. Override (and re-run) if you
+# reach the dashboard at a different host/domain, or better-auth cookies won't
+# stick.
+BETTER_AUTH_URL=$public_url
+CORS_ORIGIN=$cors_origin
+
+# Production install (server-ip auto-detect + real-domain behaviour).
+NODE_ENV=production
 
 # Database branching (docs/designs/db-branching.md). Empty = logical tier only.
 BRANCH_ZFS_POOL=$pool_line
@@ -557,6 +597,35 @@ report_access() {
   [ -z "$v4$v6$private_ips" ] && say "  http://localhost:$CONTROL_PLANE_PORT"
 }
 
+# ── legacy layout migration ───────────────────────────────────────────────────
+# Earlier installs put the stack at /opt/otterdeploy; the install root now lives
+# under the data folder ($DATA_DIR/source) so all platform state sits in one tree.
+# Move an existing /opt/otterdeploy stack in place — once — so a plain re-run (or
+# `update`) transparently adopts the new layout with secrets preserved. Runs
+# before the update/install branches so both see the stack at its new path.
+migrate_legacy_install() {
+  # Skip when the operator pinned a custom install dir, when the legacy dir is
+  # already the target, when there's nothing to migrate, or when the new location
+  # is already populated (migration done, or a genuinely fresh install).
+  [ -n "${OTTERDEPLOY_INSTALL_DIR:-}" ] && return 0
+  [ "$INSTALL_DIR" = "$LEGACY_INSTALL_DIR" ] && return 0
+  [ -f "$LEGACY_INSTALL_DIR/.env" ] || return 0
+  [ -f "$ENV_FILE" ] && return 0
+
+  step "Migrating install $LEGACY_INSTALL_DIR → $INSTALL_DIR"
+  if dry; then
+    say "   + would move docker-compose.yml + .env into $INSTALL_DIR (old logs left behind)"
+    return 0
+  fi
+  run $SUDO mkdir -p "$INSTALL_DIR"
+  local f
+  for f in docker-compose.yml .env; do
+    [ -f "$LEGACY_INSTALL_DIR/$f" ] && run $SUDO mv "$LEGACY_INSTALL_DIR/$f" "$INSTALL_DIR/$f"
+  done
+  [ -n "$SUDO" ] && run $SUDO chown -R "$(id -u):$(id -g)" "$INSTALL_DIR" || true
+  say " - Moved compose + .env; old install logs remain in $LEGACY_INSTALL_DIR"
+}
+
 usage() {
   cat <<EOF
 otterdeploy installer
@@ -602,6 +671,8 @@ main() {
   [ "$mode" = "update" ] && say "  MODE: update"
   [ "$DRY_RUN" = "true" ] && say "  DRY RUN — no changes will be made"
   say "=========================================="
+
+  migrate_legacy_install
 
   if [ "$mode" = "update" ]; then
     update_stack
