@@ -519,18 +519,32 @@ provision_branching() {
 }
 
 # ── 8. bring up the stack ───────────────────────────────────────────────────
+# Populate the COMPOSE_F array with the -f flags to pass to docker compose: the
+# base file, plus an operator-supplied override beside it if present. Compose
+# stops auto-loading docker-compose.override.yml the moment ANY -f is given, so
+# we add it explicitly — otherwise start/update would silently drop the override
+# (e.g. a temporary image bridge) and recreate containers without it.
+compose_f_args() {
+  COMPOSE_F=(-f "$COMPOSE_FILE")
+  local o
+  for o in "$INSTALL_DIR/docker-compose.override.yml" "$INSTALL_DIR/docker-compose.override.yaml"; do
+    [ -f "$o" ] && COMPOSE_F+=(-f "$o")
+  done
+}
+
 start_stack() {
   step "Starting otterdeploy"
   local profile_args=""
   [ "$FIREWALL" = "true" ] && profile_args="--profile firewall"
+  compose_f_args
   # shellcheck disable=SC2086
   if dry; then
-    say "   + $SUDO docker compose -f $COMPOSE_FILE --env-file $ENV_FILE $profile_args pull"
-    say "   + $SUDO docker compose -f $COMPOSE_FILE --env-file $ENV_FILE $profile_args up -d"
+    say "   + $SUDO docker compose ${COMPOSE_F[*]} --env-file $ENV_FILE $profile_args pull"
+    say "   + $SUDO docker compose ${COMPOSE_F[*]} --env-file $ENV_FILE $profile_args up -d"
     return
   fi
-  $SUDO docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" $profile_args pull
-  $SUDO docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" $profile_args up -d
+  $SUDO docker compose "${COMPOSE_F[@]}" --env-file "$ENV_FILE" $profile_args pull
+  $SUDO docker compose "${COMPOSE_F[@]}" --env-file "$ENV_FILE" $profile_args up -d
 }
 
 # Don't declare success until the control plane actually answers — never show a
@@ -546,7 +560,8 @@ wait_for_health() {
     i=$((i + 1)); sleep 2
   done
   warn "Control plane did not respond within ~90s. Recent logs:"
-  $SUDO docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" logs --tail 200 >&2 2>/dev/null || true
+  compose_f_args
+  $SUDO docker compose "${COMPOSE_F[@]}" --env-file "$ENV_FILE" logs --tail 200 >&2 2>/dev/null || true
   fail "otterdeploy did not become healthy — see logs above and $LOG_FILE."
 }
 
@@ -614,16 +629,28 @@ migrate_legacy_install() {
 
   step "Migrating install $LEGACY_INSTALL_DIR → $INSTALL_DIR"
   if dry; then
-    say "   + would move docker-compose.yml + .env into $INSTALL_DIR (old logs left behind)"
+    say "   + would move every install file (compose, .env, any override) except"
+    say "     installer logs into $INSTALL_DIR"
     return 0
   fi
   run $SUDO mkdir -p "$INSTALL_DIR"
-  local f
-  for f in docker-compose.yml .env; do
-    [ -f "$LEGACY_INSTALL_DIR/$f" ] && run $SUDO mv "$LEGACY_INSTALL_DIR/$f" "$INSTALL_DIR/$f"
+  # Move EVERYTHING the operator's install carries — the base compose, .env, and
+  # any docker-compose.override.yml or extra config — not a hardcoded pair, so a
+  # customized install migrates whole. dotglob catches .env; nullglob avoids a
+  # literal '*' on an empty dir. Installer logs stay behind as a breadcrumb.
+  local restore_glob; restore_glob="$(shopt -p dotglob nullglob)"
+  shopt -s dotglob nullglob
+  local f base
+  for f in "$LEGACY_INSTALL_DIR"/*; do
+    base="$(basename "$f")"
+    case "$base" in
+      install-*.log) continue ;;
+    esac
+    run $SUDO mv "$f" "$INSTALL_DIR/$base"
   done
+  eval "$restore_glob"
   [ -n "$SUDO" ] && run $SUDO chown -R "$(id -u):$(id -g)" "$INSTALL_DIR" || true
-  say " - Moved compose + .env; old install logs remain in $LEGACY_INSTALL_DIR"
+  say " - Moved install files (compose, .env, override); logs remain in $LEGACY_INSTALL_DIR"
 }
 
 usage() {
