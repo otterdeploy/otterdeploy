@@ -227,6 +227,12 @@ const gitServiceSchema = serviceCommonSchema.extend({
   // (image stays in the host daemon). The push credential is matched from the
   // shared registry library by this string's host at build time.
   imageRepository: z.string().min(1).nullable().optional(),
+  // Per-service PR-preview opt-in: a pull_request on this service's repo
+  // rebuilds it into the PR's preview environment. Declared-only (same
+  // convention as publicEnabled on databases): omitted → the toggle is
+  // live-managed and Apply leaves it alone, so pre-existing manifests can't
+  // phantom-revert a live toggle.
+  previews: z.boolean().optional(),
 });
 
 export const serviceSchema = z.discriminatedUnion("source", [imageServiceSchema, gitServiceSchema]);

@@ -65,6 +65,7 @@ async function loadEnvRows(envRow: EnvironmentRow, repoId: GitRepoId): Promise<P
         eq(resource.type, "service"),
         eq(serviceResource.source, "git"),
         eq(serviceResource.gitRepoId, repoId),
+        eq(serviceResource.previewsEnabled, true),
         isNull(resource.environmentId),
       ),
     );

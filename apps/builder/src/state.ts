@@ -59,3 +59,21 @@ export async function markRunning(deploymentId: DeploymentId): Promise<void> {
     .set({ status: "running", errorMessage: null, completedAt: new Date() })
     .where(eq(deployment.id, deploymentId));
 }
+
+/**
+ * Read a deployment's current status. The batch handler uses this to verify a
+ * helper that exited 0 actually converged the row: a build that no-ops (e.g. a
+ * redundant deploy of an already-built SHA) can exit 0 without ever running the
+ * pipeline, and must not be left as a phantom `pending`/`building` row with no
+ * logs. Returns null if the row is gone.
+ */
+export async function getDeploymentStatus(
+  deploymentId: DeploymentId,
+): Promise<(typeof deployment.$inferSelect)["status"] | null> {
+  const [row] = await db
+    .select({ status: deployment.status })
+    .from(deployment)
+    .where(eq(deployment.id, deploymentId))
+    .limit(1);
+  return row?.status ?? null;
+}

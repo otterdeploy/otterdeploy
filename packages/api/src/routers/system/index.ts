@@ -4,6 +4,7 @@
  * `platform:update` — admins/owners only. See docs + contract.ts.
  */
 import { requirePermission } from "../..";
+import { getHostHealth, growBranchPool, reclaimSpace } from "../../system-health";
 import { startApply } from "./apply";
 import { checkForUpdate, getUpdateSettings, getVersionInfo, saveUpdateSettings } from "./check";
 import { snapshot, streamProgress } from "./state";
@@ -45,4 +46,22 @@ export const systemRouter = {
   }) {
     yield* streamProgress(signal);
   }),
+
+  hostHealth: requirePermission({ platform: ["read"] }).system.hostHealth.handler(async () => {
+    return getHostHealth();
+  }),
+
+  reclaim: requirePermission({ platform: ["update"] }).system.reclaim.handler(
+    async ({ input, context }) => {
+      context.log.set({ target: { type: "platform" }, action: "platform.reclaim" });
+      return reclaimSpace(input.targets);
+    },
+  ),
+
+  growBranchPool: requirePermission({ platform: ["update"] }).system.growBranchPool.handler(
+    async ({ input, context }) => {
+      context.log.set({ target: { type: "platform" }, action: "platform.grow-branch-pool" });
+      return growBranchPool(input?.stepBytes);
+    },
+  ),
 };

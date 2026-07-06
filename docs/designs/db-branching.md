@@ -110,6 +110,42 @@ users point the pool at an attached data disk for production-grade speed.
 **Manual ZFS = dead feature. Auto-provisioned ZFS + logical fallback = the thing
 Coolify can't match.**
 
+### Pool sizing, reclamation, growth (start small, grow on demand)
+
+Three properties of a file-backed vdev shape the whole lifecycle — get any of
+them wrong and the pool either eats the host disk or suspends every branch DB:
+
+1. **Sparse files only grow.** `truncate -s` costs ~0 bytes up front, but every
+   block ZFS ever writes stays materialized on the backing fs after the branch
+   that wrote it is deleted — ZFS frees the blocks *inside* the pool, ext4
+   never gets them back. Preview churn ratchets the image file toward its full
+   apparent size. Fix: `zpool set autotrim=on` (the installer sets it; the trim
+   reclaim action re-asserts it) punches freed blocks back out as holes, and
+   `zpool trim` reclaims accumulated history on demand.
+2. **Never promise more than the disk.** A pool sized past the backing
+   filesystem's free space believes it has room the host doesn't; on ENOSPC
+   ZFS treats the write failure as device failure and **suspends the pool** —
+   every branch DB hangs at once. The installer therefore sizes the pool from
+   reality (¼ of the space available at `$DATA_DIR`, capped at 40G, skipped
+   below a 5G floor; explicit `OTTERDEPLOY_ZFS_SIZE` wins), and the control
+   plane refuses to grow past a 2G host reserve.
+3. **Growing is trivial, shrinking is impossible.** So start small:
+   `truncate -s +10G <img> && zpool online -e <pool> <img>` raises the ceiling
+   live. `system.growBranchPool` exposes this one-click (guarded by the same
+   reserve); shrinking means destroy-and-recreate, so never over-provision.
+
+Operational surface (`packages/api/src/system-health/branch-pool.ts`): the
+Server-health card shows pool fill (zpool alloc/size) *and* the image file's
+physical vs apparent size — the gap is what trim returns to the host. Trim is
+a reclaim target (`branch-pool`) beside the docker prunes; a grow suggestion
+appears when the pool passes 70% with host headroom; `host.pressure` alerts
+cover unhealthy/suspended pools. `zpool`/`zfs` run on the host via a
+short-lived privileged helper container (`nsenter -t 1`, self-updater idiom) —
+the host's own binaries, so no userland/kernel skew. A pre-branch headroom
+guard (`checkBranchHeadroom`) refuses new branches when host free disk is
+below the reserve — an honest 507 beats a half-restored branch or a suspended
+pool.
+
 ## Data model
 
 Activate the dormant `environment` table and add branch lineage to

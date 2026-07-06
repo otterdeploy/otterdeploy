@@ -56,6 +56,7 @@ function toCurrentService(
     ports,
     env,
     publicEnabled: row.service.publicEnabled,
+    previewsEnabled: row.service.previewsEnabled,
     preDeploy: row.service.preDeploy ?? null,
     postDeploy: row.service.postDeploy ?? null,
     buildConfig: row.service.buildConfig ?? null,

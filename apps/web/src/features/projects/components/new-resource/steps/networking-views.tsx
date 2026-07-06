@@ -23,6 +23,8 @@ import {
 
 import { useFormContext } from "../form-context";
 import { Field, SectionHeader, SettingRow } from "../form-primitives";
+import { frameworkLabel } from "../frameworks";
+import { useRepoDetection } from "../use-repo-detection";
 
 export function CronSchedule() {
   return (
@@ -109,6 +111,8 @@ export function WorkerNetworking() {
 
 export function StaticBuild() {
   const form = useFormContext();
+  const { framework } = useRepoDetection();
+  const label = frameworkLabel(framework);
   return (
     <>
       <SectionHeader
@@ -121,7 +125,11 @@ export function StaticBuild() {
             {(f) => (
               <f.SwitchField
                 label="Single-page app (SPA) routing"
-                description="Fall back to index.html for unmatched routes · Vite / React / Vue / Angular"
+                description={
+                  label
+                    ? `Detected ${label} — set automatically. Fall back to index.html for unmatched routes.`
+                    : "Fall back to index.html for unmatched routes · Vite / React / Vue / Angular"
+                }
               />
             )}
           </form.AppField>
@@ -134,10 +142,19 @@ export function StaticBuild() {
 export function PortsAndHealth() {
   const form = useFormContext();
   const [edgeOpen, setEdgeOpen] = useState(false);
+  const { framework, defaultPort } = useRepoDetection();
+  const label = frameworkLabel(framework);
 
   return (
     <>
-      <SectionHeader title="Ports" sub="Which container ports should be exposed?" />
+      <SectionHeader
+        title="Ports"
+        sub={
+          label && defaultPort != null
+            ? `Detected ${label} — port ${defaultPort} prefilled; most apps don't need to change it.`
+            : "Which container ports should be exposed?"
+        }
+      />
       <form.AppField name="ports">{(f) => <f.PortsField />}</form.AppField>
 
       <div className="mt-4.5">

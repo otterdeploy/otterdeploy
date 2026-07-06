@@ -2,6 +2,7 @@ import { auth } from "@otterdeploy/auth";
 
 import { requirePermission } from "../..";
 import { enforceResourceScope } from "../../authz/project-scope-guards";
+import { ephemeralDatabaseHandlers } from "./ephemeral";
 import { nosqlDatabaseHandlers } from "./nosql-handlers";
 import {
   QueryError,
@@ -184,4 +185,5 @@ export const databaseRouter = {
   // Redis / MariaDB / MongoDB viewer handlers live in a sibling module; spread
   // here so the router's flat procedure shape stays unchanged.
   ...nosqlDatabaseHandlers,
+  ...ephemeralDatabaseHandlers,
 };

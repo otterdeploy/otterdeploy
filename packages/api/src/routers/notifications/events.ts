@@ -20,6 +20,7 @@ const PLATFORM_EVENTS: readonly PlatformEventDef[] = [
   { id: "build.failed", label: "Build failed", severity: "err" },
   { id: "health.degraded", label: "Health degraded", severity: "warn" },
   { id: "health.recovered", label: "Health recovered", severity: "ok" },
+  { id: "host.pressure", label: "Server resource pressure", severity: "warn" },
   { id: "cert.expiring", label: "Cert expiring soon", severity: "warn" },
   { id: "cert.renewed", label: "Cert renewed", severity: "ok" },
   { id: "backup.failed", label: "Backup failed", severity: "err" },

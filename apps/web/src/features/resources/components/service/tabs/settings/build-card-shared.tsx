@@ -56,6 +56,8 @@ export async function stageSource(
     branch: string | null;
     sourceSubdir: string | null;
     imageRepository: string | null;
+    /** Per-service PR-preview opt-in (manifest `previews`). */
+    previews: boolean;
   },
 ): Promise<void> {
   const current = await orpc.project.manifest.get.call({
@@ -80,6 +82,7 @@ export async function stageSource(
         branch: next.branch,
         sourceSubdir: next.sourceSubdir,
         imageRepository: next.imageRepository,
+        previews: next.previews,
       },
     },
   };

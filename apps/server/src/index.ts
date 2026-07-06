@@ -6,15 +6,10 @@ import { onError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { createAuditPgDrain } from "@otterdeploy/api/audit/pg-drain";
-import { startBackupScheduler } from "@otterdeploy/api/backups";
 import { reconcile } from "@otterdeploy/api/caddy";
 import { createContext } from "@otterdeploy/api/context";
 import { startEdgeLogPersistence, startEdgeLogSink } from "@otterdeploy/api/edge-logs";
-import { startDataFolderSweep } from "@otterdeploy/api/lib/data-folder-sweep";
 import { ensureServerIp } from "@otterdeploy/api/lib/server-ip";
-import { startMetricsSampler } from "@otterdeploy/api/metrics";
-import { startAuditAnomalyScan } from "@otterdeploy/api/notifications/audit-anomaly";
-import { startBlocklistScheduler } from "@otterdeploy/api/routers/firewall/scheduler";
 import { appRouter } from "@otterdeploy/api/routers/index";
 import { initializeSwarm } from "@otterdeploy/api/swarm";
 import { auth } from "@otterdeploy/auth";
@@ -50,6 +45,7 @@ import {
   githubWebhookHandler,
   terminalWebSocketHandler,
 } from "./handlers";
+import { startBackgroundServices } from "./background-services";
 import { BootstrapError } from "./lib/errors";
 import { invalidate } from "./lib/invalidate";
 import { isTracingConfigured, shutdownTracing, startTracing } from "./lib/tracing";
@@ -266,11 +262,7 @@ app.get("/*", serveStatic({ path: "index.html", root: "./public" }));
 // then boot BullMQ workers (in-process). The worker stop handle is captured
 // so SIGTERM can drain in-flight jobs before the process exits.
 let stopWorkers: (() => Promise<void>) | null = null;
-let stopBackupScheduler: (() => void) | null = null;
-let stopMetricsSampler: (() => void) | null = null;
-let stopBlocklistScheduler: (() => void) | null = null;
-let stopDataFolderSweep: (() => void) | null = null;
-let stopAuditAnomalyScan: (() => void) | null = null;
+let stopBackgroundServices: (() => void) | null = null;
 let stopTracing: (() => Promise<void>) | null = null;
 
 async function bootstrap() {
@@ -412,32 +404,10 @@ async function bootstrap() {
       }),
   });
 
-  // Backup schedule scanner — scans backup_schedule rows every minute and
-  // runs due backups + retention (docs/designs/backups.md). DB is the source
-  // of truth so cron/retention edits take effect immediately.
-  stopBackupScheduler = startBackupScheduler();
-  log.info({ startup: { step: "backup-scheduler", status: "ready" } });
-
-  // Metrics sampler — records CPU/memory/network for managed containers into
-  // resource_metric every 30s (feeds the service-node metrics charts).
-  stopMetricsSampler = startMetricsSampler();
-  log.info({ startup: { step: "metrics-sampler", status: "ready" } });
-
-  // Managed blocklists — re-import enabled public/custom lists into CrowdSec on
-  // their interval so the imported decisions refresh before they expire.
-  stopBlocklistScheduler = startBlocklistScheduler();
-  log.info({ startup: { step: "blocklist-scheduler", status: "ready" } });
-
-  // Data-folder orphan sweep — reclaims artifact dirs (resources/projects/
-  // backups) whose owning DB row is gone, e.g. after a crashed teardown
-  // (docs/designs/data-folder.md, Phase 5). No-op when /data isn't in use.
-  stopDataFolderSweep = startDataFolderSweep();
-  log.info({ startup: { step: "data-folder-sweep", status: "ready" } });
-
-  // Audit-anomaly scan — periodic, conservative rules over recent audit rows
-  // (denial bursts, mass deletions) that emit `audit.anomaly` notifications.
-  stopAuditAnomalyScan = startAuditAnomalyScan();
-  log.info({ startup: { step: "audit-anomaly-scan", status: "ready" } });
+  // Interval schedulers/sweepers (backups, metrics, host health, ephemeral DB
+  // roles, blocklists, data-folder GC, audit anomalies) — see
+  // background-services.ts; each logs its own readiness line.
+  stopBackgroundServices = startBackgroundServices();
 }
 
 void bootstrap();
@@ -446,11 +416,7 @@ void bootstrap();
 for (const signal of ["SIGTERM", "SIGINT"] as const) {
   process.once(signal, async () => {
     log.info({ shutdown: { signal, step: "draining-workers" } });
-    if (stopBackupScheduler) stopBackupScheduler();
-    if (stopMetricsSampler) stopMetricsSampler();
-    if (stopBlocklistScheduler) stopBlocklistScheduler();
-    if (stopDataFolderSweep) stopDataFolderSweep();
-    if (stopAuditAnomalyScan) stopAuditAnomalyScan();
+    if (stopBackgroundServices) stopBackgroundServices();
     if (stopTracing) await stopTracing().catch(() => undefined);
     if (stopWorkers) await stopWorkers().catch(() => undefined);
     process.exit(0);
