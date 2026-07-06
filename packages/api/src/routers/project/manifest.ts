@@ -13,7 +13,13 @@ import { project } from "@otterdeploy/db/schema";
 import { Result } from "better-result";
 import { and, eq, sql } from "drizzle-orm";
 
-import { type Manifest, manifestSchema, resolveEnvironment } from "../../stack/manifest";
+import {
+  isSecretSentinel,
+  manifestSchema,
+  parseRefs,
+  resolveEnvironment,
+  type Manifest,
+} from "../../stack/manifest";
 import { ManifestVersionConflictError, ProjectNotFoundError } from "./errors";
 
 type OrgId = OrganizationId;
@@ -175,6 +181,50 @@ export async function syncManifestDatabaseExtraEnv(
       ...manifest,
       databases: { ...manifest.databases, [name]: { ...entry, extraEnv } },
     },
+    expectedVersion: row.value.version,
+  });
+}
+
+/**
+ * Service twin of {@link syncManifestDatabaseExtraEnv}: after a LIVE env edit
+ * (variables tab, CLI `env set`), patch the manifest's declared env to match
+ * the applied rows so the next diff doesn't stage phantom deletes for
+ * live-added keys — or worse, resurrect a live-deleted one on Apply.
+ *
+ * Declared `${secret}` and `${…ref}` values are PRESERVED when their key
+ * survives — the rows hold the resolved/live value, and overwriting the
+ * declaration would destroy it. No-op when the manifest omits env
+ * (live-managed) or already matches. Best-effort on the version race, same as
+ * the database sync.
+ */
+export async function syncManifestServiceEnv(
+  scope: ProjectScope,
+  name: string,
+  applied: Record<string, string>,
+): Promise<void> {
+  const row = await loadManifest(scope);
+  if (row.isErr()) return;
+  const manifest = row.value.manifest;
+  const entry = manifest?.services?.[name];
+  if (!manifest || !entry || entry.env === undefined || Object.keys(entry.env).length === 0) {
+    return;
+  }
+  const declared = entry.env;
+  const next: Record<string, string> = {};
+  for (const [key, value] of Object.entries(applied)) {
+    const declaredValue = declared[key];
+    const opaque =
+      declaredValue !== undefined &&
+      (isSecretSentinel(declaredValue) || parseRefs(declaredValue).length > 0);
+    next[key] = opaque ? declaredValue : value;
+  }
+  const declaredKeys = Object.keys(declared);
+  const nextKeys = Object.keys(next);
+  const unchanged =
+    declaredKeys.length === nextKeys.length && nextKeys.every((k) => declared[k] === next[k]);
+  if (unchanged) return;
+  await saveManifest(scope, {
+    manifest: { ...manifest, services: { ...manifest.services, [name]: { ...entry, env: next } } },
     expectedVersion: row.value.version,
   });
 }

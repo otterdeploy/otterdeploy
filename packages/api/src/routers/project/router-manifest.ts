@@ -7,6 +7,7 @@ import { renderProjectFromRows, toComposeYaml } from "../../stack/render";
 import { getProject } from "./handlers";
 import { discardManifest, loadManifest, resolvedManifest, saveManifest } from "./manifest";
 import { applyManifest } from "./manifest-apply";
+import { loadRefTable, makeEnvRefResolver } from "./manifest-apply-refs";
 import { loadCurrentState } from "./manifest-state";
 import { deleteDraftCredentialsNotIn } from "./queries";
 
@@ -78,8 +79,19 @@ export const manifestRouter = {
       });
     }
     if (!resolved.value) return { resolved: null, changes: [] };
-    const current = await loadCurrentState(input.projectId);
-    const changes = enrichComposeCreates(diffManifest(resolved.value, current), resolved.value);
+    const [current, refTable] = await Promise.all([
+      loadCurrentState(input.projectId),
+      loadRefTable(input.projectId),
+    ]);
+    // Resolve ${database:…}/${service:…} refs before comparing — apply stores
+    // the RESOLVED value in the env rows, so a raw-text compare surfaced a
+    // permanent phantom "update" for every ref-valued declaration.
+    const changes = enrichComposeCreates(
+      diffManifest(resolved.value, current, {
+        resolveEnvValue: makeEnvRefResolver(refTable),
+      }),
+      resolved.value,
+    );
     return { resolved: resolved.value, changes };
   }),
 

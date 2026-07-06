@@ -59,7 +59,7 @@ export type { EnvVarView, ServiceView } from "./views";
 export type { CreateServiceInput, UpdateServiceInput } from "./inputs";
 
 export { exposeService, unexposeService } from "./expose";
-export { bulkSetEnv, setEnv, unsetEnv } from "./env-handlers";
+export { bulkSetEnv, setEnv, syncManifestEnvAfterLiveEdit, unsetEnv } from "./env-handlers";
 export { rollbackService } from "./rollback";
 
 // Common error shapes — keep handler signatures legible.

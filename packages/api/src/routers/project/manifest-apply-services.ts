@@ -14,7 +14,7 @@ import type { RequestLogger } from "evlog";
 
 import { Result } from "better-result";
 
-import { type ServiceManifest } from "../../stack/manifest";
+import { declaredEnvOf, type ServiceManifest } from "../../stack/manifest";
 import { gitSourceColumns, resolveManifestRepo } from "./manifest-apply-git";
 import { addServiceDomain, setPrimaryServiceDomain } from "../service/domains";
 import { bulkSetEnv, createService, exposeService, updateService } from "../service/handlers";
@@ -181,6 +181,9 @@ interface UpdateServiceArgs {
   resourceId: ResourceId;
   spec: ServiceManifest;
   env: Array<{ key: string; value: string }>;
+  /** True when the diff for this service was env-only (synthesized update):
+   *  skip the field patch, run just the env reconcile. */
+  envOnly?: boolean;
   log: RequestLogger;
 }
 
@@ -222,28 +225,44 @@ function buildUpdateServiceInput(
     restart: args.spec.restart,
     healthcheck: buildHealthcheckPatch(args.spec),
     resources: buildResourcesPatch(args.spec),
-    preDeploy: args.spec.preDeploy ?? null,
-    postDeploy: args.spec.postDeploy ?? null,
-    buildConfig: args.spec.source === "git" ? (args.spec.build ?? null) : null,
+    // Declared-only, matching the diff gates in diff-helpers/diff-source: an
+    // omitted key leaves the live value alone. The old `?? null` CLEARED the
+    // stored preDeploy/postDeploy/buildConfig on every apply of a manifest
+    // that simply didn't mention them.
+    ...(args.spec.preDeploy !== undefined ? { preDeploy: args.spec.preDeploy } : {}),
+    ...(args.spec.postDeploy !== undefined ? { postDeploy: args.spec.postDeploy } : {}),
+    ...(args.spec.source === "git" && args.spec.build !== undefined
+      ? { buildConfig: args.spec.build }
+      : {}),
   };
 }
 
 export async function updateServiceFromManifest(
   args: UpdateServiceArgs,
 ): Promise<Result<{ resourceId: ResourceId }, ManifestApplySkipError>> {
-  const gitRepoId =
-    args.spec.source === "git"
-      ? await resolveManifestRepo(args.spec.repo, args.organizationId)
-      : null;
-  const updated = await updateService(buildUpdateServiceInput(args, gitRepoId), args.log);
-  if (updated.isErr()) {
-    return Result.err(
-      new ManifestApplySkipError({
-        resource: "service",
-        name: args.name,
-        reason: `update failed: ${updated.error.message}`,
-      }),
-    );
+  if (!args.envOnly) {
+    const gitRepoId =
+      args.spec.source === "git"
+        ? await resolveManifestRepo(args.spec.repo, args.organizationId)
+        : null;
+    const updated = await updateService(buildUpdateServiceInput(args, gitRepoId), args.log);
+    if (updated.isErr()) {
+      return Result.err(
+        new ManifestApplySkipError({
+          resource: "service",
+          name: args.name,
+          reason: `update failed: ${updated.error.message}`,
+        }),
+      );
+    }
+  }
+
+  // Declared-only: no (or empty) declared env means the live env editor owns
+  // the keys — skip the reconcile entirely. Passing `[]` here used to WIPE a
+  // service's whole live env (and roll the container) whenever any field
+  // update applied on a manifest that never declared env.
+  if (declaredEnvOf(args.spec.env) === undefined) {
+    return Result.ok({ resourceId: args.resourceId });
   }
 
   // Reconcile env wholesale — bulkSetEnv replaces the set with what we pass.

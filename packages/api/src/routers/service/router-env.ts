@@ -2,13 +2,14 @@
  * `service.env.*` oRPC procedures — split out of index.ts to keep the router
  * module under the line cap. Spread back in as `serviceRouter.env`.
  */
-import { matchError } from "better-result";
-import { createError } from "evlog";
+import { matchError, Result } from "better-result";
+import { createError, log } from "evlog";
 
 import type { ResolveError } from "./errors";
+import type { ResourceRef } from "./inputs";
 
 import { projectScopedProcedure, requirePermission } from "../..";
-import { bulkSetEnv, listEnv, setEnv, unsetEnv } from "./handlers";
+import { bulkSetEnv, listEnv, setEnv, syncManifestEnvAfterLiveEdit, unsetEnv } from "./handlers";
 
 // Variable resolution errors aren't enumerated by the service.env.unset
 // contract, so they leave the procedure as a generic 500 with a structured
@@ -20,6 +21,18 @@ const refToServerError = (e: ResolveError) =>
     why: `Variable resolution failed: ${e._tag}`,
     cause: e,
   });
+
+/** Best-effort manifest back-sync after a live env edit — must never fail the
+ *  mutation that already succeeded. See syncManifestEnvAfterLiveEdit. */
+async function backSync(ref: ResourceRef): Promise<void> {
+  const synced = await Result.tryPromise({
+    try: () => syncManifestEnvAfterLiveEdit(ref),
+    catch: (cause) => cause,
+  });
+  if (synced.isErr()) {
+    log.warn({ serviceEnv: { step: "manifest-back-sync", resourceId: ref.resourceId } });
+  }
+}
 
 export const serviceEnvRouter = {
   list: projectScopedProcedure.service.env.list.handler(async ({ input, context, errors }) => {
@@ -64,6 +77,11 @@ export const serviceEnvRouter = {
           RefUnknownVarError: () => errors.INVALID_INPUT(),
         });
       }
+      await backSync({
+        projectId: input.projectId,
+        resourceId: input.resourceId,
+        organizationId: context.activeOrganizationId,
+      });
       return result.value;
     },
   ),
@@ -92,6 +110,11 @@ export const serviceEnvRouter = {
           RefUnknownVarError: refToServerError,
         });
       }
+      await backSync({
+        projectId: input.projectId,
+        resourceId: input.resourceId,
+        organizationId: context.activeOrganizationId,
+      });
       return result.value;
     },
   ),
@@ -120,6 +143,11 @@ export const serviceEnvRouter = {
           RefUnknownVarError: () => errors.INVALID_INPUT(),
         });
       }
+      await backSync({
+        projectId: input.projectId,
+        resourceId: input.resourceId,
+        organizationId: context.activeOrganizationId,
+      });
       return result.value;
     },
   ),

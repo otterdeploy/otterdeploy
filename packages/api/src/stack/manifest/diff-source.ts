@@ -25,9 +25,11 @@ function diffImageSource(
 function diffGitBinding(desired: ServiceManifest, current: CurrentService, fc: FieldChanges): void {
   if (desired.source !== "git" || current.source !== "git") return;
 
-  const desiredSubdir = desired.sourceSubdir ?? null;
-  if (desiredSubdir !== current.sourceSubdir) {
-    fc.sourceSubdir = { from: current.sourceSubdir, to: desiredSubdir };
+  // Declared-only (like repo below): an omitted sourceSubdir is live-managed.
+  // Defaulting it to null staged a phantom update the reconciler's patch never
+  // carried — an un-appliable diff that sat in the pending bar forever.
+  if (desired.sourceSubdir !== undefined && desired.sourceSubdir !== current.sourceSubdir) {
+    fc.sourceSubdir = { from: current.sourceSubdir, to: desired.sourceSubdir };
   }
   // Per-service repo/branch. Only diffed when the manifest actually declares
   // `repo` — an omitted repo means "leave the existing binding alone" (repo
@@ -60,10 +62,12 @@ function diffBuildConfigField(
   current: CurrentService,
   fc: FieldChanges,
 ): void {
-  if (desired.source !== "git") return;
-  const desiredBuild = desired.build ?? null;
-  if (!sameBuildConfig(desiredBuild, current.buildConfig)) {
-    fc.buildConfig = { from: current.buildConfig, to: desiredBuild };
+  // Declared-only: an omitted `build` block leaves the live builder choice
+  // alone (auto-detect / whatever the wizard persisted). Comparing it as null
+  // both staged a phantom update AND made apply clear the stored config.
+  if (desired.source !== "git" || desired.build === undefined) return;
+  if (!sameBuildConfig(desired.build, current.buildConfig)) {
+    fc.buildConfig = { from: current.buildConfig, to: desired.build };
   }
 }
 

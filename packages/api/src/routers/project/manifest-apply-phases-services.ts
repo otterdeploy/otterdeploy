@@ -12,7 +12,7 @@ import { eq } from "drizzle-orm";
 
 import type { ApplyContext, GitBuild, PhaseContribution } from "./manifest-apply-phases";
 
-import { type Change } from "../../stack/manifest";
+import { declaredEnvOf, type Change } from "../../stack/manifest";
 import { ManifestApplySkipError } from "./errors";
 import { type RefTable, resolveEnv } from "./manifest-apply-refs";
 import {
@@ -109,7 +109,7 @@ async function updateOneService(
   if (!spec || !existingId) return null;
   const resolved = resolveEnv(
     change.name,
-    spec.env,
+    declaredEnvOf(spec.env),
     refTable,
     ctx.current.services[change.name]?.env ?? {},
   );
@@ -120,6 +120,9 @@ async function updateOneService(
     resourceId: existingId,
     spec,
     env: resolved.values,
+    // Synthesized by groupChanges when the diff for this service is env-only:
+    // skip the field patch, run just the env reconcile (one container roll).
+    envOnly: (change.details as { envOnly?: boolean } | undefined)?.envOnly === true,
     log: ctx.log,
   });
   // A git service created but never successfully built sits on a `pending:*`

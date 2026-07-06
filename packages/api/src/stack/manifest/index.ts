@@ -39,6 +39,7 @@ export { resolveEnvironment } from "./merge";
 export { parseRefs, isSecretSentinel, ManifestRefError, type Ref } from "./refs";
 
 export {
+  declaredEnvOf,
   diffManifest,
   type Change,
   type ChangeKind,
@@ -48,4 +49,5 @@ export {
   type CurrentService,
   type CurrentServicePort,
   type CurrentState,
+  type DiffOptions,
 } from "./diff";

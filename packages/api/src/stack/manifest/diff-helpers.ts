@@ -12,24 +12,31 @@ import { diffSourceFields, type FieldChanges } from "./diff-source";
 // ── Service field diff ─────────────────────────────────────────────────
 
 
+// Every field below follows the DECLARED-ONLY convention (established by
+// database publicEnabled/extraEnv and the git binding): a key the manifest
+// omits is live-managed — the diff skips it and apply leaves it alone. The
+// old `?? default` comparisons staged phantom updates for every live-managed
+// field, and because apply's patch builders already treated omitted fields as
+// "leave alone", those phantoms could never be applied away — a permanently
+// stuck pending bar.
+
 function diffExecFields(desired: ServiceManifest, current: CurrentService, fc: FieldChanges): void {
-  const desiredReplicas = desired.replicas ?? 1;
-  if (desiredReplicas !== current.replicas) {
-    fc.replicas = { from: current.replicas, to: desiredReplicas };
+  if (desired.replicas !== undefined && desired.replicas !== current.replicas) {
+    fc.replicas = { from: current.replicas, to: desired.replicas };
   }
 
-  const desiredCmd = desired.startCommand ?? null;
-  if (!sameStringArray(desiredCmd, current.command)) {
-    fc.command = { from: current.command, to: desiredCmd };
+  if (desired.startCommand !== undefined && !sameStringArray(desired.startCommand, current.command)) {
+    fc.command = { from: current.command, to: desired.startCommand };
   }
 
-  const desiredEntry = desired.entrypoint ?? null;
-  if (!sameStringArray(desiredEntry, current.entrypoint)) {
-    fc.entrypoint = { from: current.entrypoint, to: desiredEntry };
+  if (desired.entrypoint !== undefined && !sameStringArray(desired.entrypoint, current.entrypoint)) {
+    fc.entrypoint = { from: current.entrypoint, to: desired.entrypoint };
   }
 
-  const portsDiff = diffPorts(desired.ports ?? [], current.ports);
-  if (portsDiff) fc.ports = portsDiff;
+  if (desired.ports !== undefined) {
+    const portsDiff = diffPorts(desired.ports, current.ports);
+    if (portsDiff) fc.ports = portsDiff;
+  }
 }
 
 function diffLifecycleFields(
@@ -37,19 +44,19 @@ function diffLifecycleFields(
   current: CurrentService,
   fc: FieldChanges,
 ): void {
-  const desiredPreDeploy = desired.preDeploy ?? null;
-  if (!sameStringArray(desiredPreDeploy, current.preDeploy)) {
-    fc.preDeploy = { from: current.preDeploy, to: desiredPreDeploy };
+  if (desired.preDeploy !== undefined && !sameStringArray(desired.preDeploy, current.preDeploy)) {
+    fc.preDeploy = { from: current.preDeploy, to: desired.preDeploy };
   }
 
-  const desiredPostDeploy = desired.postDeploy ?? null;
-  if (!sameStringArray(desiredPostDeploy, current.postDeploy)) {
-    fc.postDeploy = { from: current.postDeploy, to: desiredPostDeploy };
+  if (desired.postDeploy !== undefined && !sameStringArray(desired.postDeploy, current.postDeploy)) {
+    fc.postDeploy = { from: current.postDeploy, to: desired.postDeploy };
   }
 
-  const desiredRestartWindow = desired.restart?.windowMs ?? null;
-  if (desiredRestartWindow !== current.restartWindowMs) {
-    fc.restartWindowMs = { from: current.restartWindowMs, to: desiredRestartWindow };
+  if (desired.restart !== undefined) {
+    const desiredRestartWindow = desired.restart.windowMs ?? null;
+    if (desiredRestartWindow !== current.restartWindowMs) {
+      fc.restartWindowMs = { from: current.restartWindowMs, to: desiredRestartWindow };
+    }
   }
 }
 
@@ -58,15 +65,16 @@ function diffResourceLimitFields(
   current: CurrentService,
   fc: FieldChanges,
 ): void {
-  const desiredDisk = desired.resources?.diskMb ?? null;
+  if (desired.resources === undefined) return;
+  const desiredDisk = desired.resources.diskMb ?? null;
   if (desiredDisk !== current.diskLimitMb) {
     fc.diskLimitMb = { from: current.diskLimitMb, to: desiredDisk };
   }
-  const desiredSwap = desired.resources?.swapMb ?? null;
+  const desiredSwap = desired.resources.swapMb ?? null;
   if (desiredSwap !== current.swapLimitMb) {
     fc.swapLimitMb = { from: current.swapLimitMb, to: desiredSwap };
   }
-  const desiredPids = desired.resources?.pidsLimit ?? null;
+  const desiredPids = desired.resources.pidsLimit ?? null;
   if (desiredPids !== current.pidsLimit) {
     fc.pidsLimit = { from: current.pidsLimit, to: desiredPids };
   }
@@ -95,9 +103,19 @@ export interface EnvChange {
   details?: Record<string, unknown>;
 }
 
+/**
+ * Compare declared env against the live rows.
+ *
+ * `resolveValue` (optional) resolves `${database:…}` / `${service:…}` refs the
+ * way apply will (returns null when unresolvable). Without it, a declared ref
+ * could NEVER match the stored row — apply writes the RESOLVED value into
+ * `service_env_var`, so a raw-text compare staged a phantom "update" on every
+ * diff and re-rolled the container on every apply, forever.
+ */
 export function diffEnv(
   desired: Record<string, string>,
   current: Record<string, string>,
+  resolveValue?: (raw: string) => string | null,
 ): EnvChange[] {
   const out: EnvChange[] = [];
 
@@ -118,11 +136,15 @@ export function diffEnv(
       // If it exists, do nothing — value is the server's, manifest stays out.
       continue;
     }
+    // Compare what apply would actually write; fall back to the raw text when
+    // no resolver is supplied or the ref doesn't resolve (the unresolved ref
+    // surfaces as an apply-time skip with a reason, not a silent no-op).
+    const target = resolveValue ? (resolveValue(declared) ?? declared) : declared;
     if (existing === undefined) {
       out.push({ key, action: "create", details: { value: declared } });
       continue;
     }
-    if (existing !== declared) {
+    if (existing !== target) {
       out.push({
         key,
         action: "update",
