@@ -154,7 +154,13 @@ function deriveDeploymentStatus(
   const hasRunning = taskStates.some((s) => s === "running");
   const hasBuilding = taskStates.some((s) => BUILDING_STATES.has(s));
   const failedCount = taskStates.reduce((n, s) => (FAILED_STATES.has(s) ? n + 1 : n), 0);
-  const crashLooping = failedCount >= CRASH_LOOP_FAILURE_THRESHOLD;
+  // Crash-loop signal, unified across runtimes. Swarm schedules a fresh (failed)
+  // task per restart attempt, so repeated failures pile up (failedCount). Plain
+  // docker (`DEPLOY_RUNTIME=docker`) restarts ONE container in place, which the
+  // daemon reports as `restarting` — a single such instance already means the
+  // RestartPolicy is actively bouncing a crashing container.
+  const restartingNow = taskStates.some((s) => s === "restarting");
+  const crashLooping = failedCount >= CRASH_LOOP_FAILURE_THRESHOLD || restartingNow;
   if (hasRunning) {
     // Up right now — but if it's also racked up repeated failures it keeps
     // coming up and dying (crash loop, e.g. a bad env var). Surface that
