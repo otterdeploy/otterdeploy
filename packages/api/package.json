@@ -31,6 +31,9 @@
     },
     "./system-health": {
       "default": "./src/system-health/index.ts"
+    },
+    "./ephemeral-db": {
+      "default": "./src/ephemeral-db/index.ts"
     }
   },
   "scripts": {

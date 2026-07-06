@@ -16,6 +16,7 @@ import { Button } from "@/shared/components/ui/button";
 import type { PostgresBodyProps } from "../../types";
 
 import { DangerZone } from "./danger-zone";
+import { EphemeralAccessCard } from "./ephemeral-access-card";
 import { ExtensionsCard } from "./extensions-card";
 import { PublicAccessCard } from "./public-access-card";
 
@@ -72,6 +73,8 @@ export function PostgresSettingsBody({
       </SettingsCard>
 
       <PublicAccessCard resource={resource} />
+
+      {resource.engine === "postgres" && <EphemeralAccessCard resource={resource} />}
 
       {resource.engine === "postgres" && <ExtensionsCard resource={resource} />}
 

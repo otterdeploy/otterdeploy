@@ -3,6 +3,7 @@ export * from "./auth";
 export * from "./backup";
 export * from "./blocklist";
 export * from "./build";
+export * from "./database-ephemeral";
 export * from "./deployment-guest";
 // edge_event (operational-log events) IS drizzle-managed — sparse, plain table.
 export * from "./edge-event";

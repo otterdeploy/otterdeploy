@@ -8,6 +8,16 @@ import { oc } from "@orpc/contract";
 import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 import * as z from "zod";
 
+import {
+  ephemeralCreateInput,
+  ephemeralCreateResultSchema,
+  ephemeralListInput,
+  ephemeralListResultSchema,
+  ephemeralRevokeInput,
+  ephemeralRevokeResultSchema,
+  makeNotEphemeral,
+} from "./contract-ephemeral";
+
 const tag = "database";
 const basePath = "/database";
 
@@ -243,6 +253,28 @@ export const databaseContract = {
     .meta({ path: `${basePath}/{resourceId}/mutate-row`, tag, method: "POST" })
     .input(mutateRowInput)
     .output(mutateRowResultSchema),
+
+  // ── Ephemeral credentials ────────────────────────────────────────────────
+  // Mint a short-lived connection URL (auto-disposed at the TTL).
+  ephemeralCreate: oc
+    .errors(makeNotEphemeral(notDatabase))
+    .meta({ path: `${basePath}/{resourceId}/ephemeral`, tag, method: "POST" })
+    .input(ephemeralCreateInput)
+    .output(ephemeralCreateResultSchema),
+
+  // Active + past credentials for the resource (no secrets — audit view).
+  ephemeralList: oc
+    .errors(notDatabase)
+    .meta({ path: `${basePath}/{resourceId}/ephemeral`, tag, method: "GET" })
+    .input(ephemeralListInput)
+    .output(ephemeralListResultSchema),
+
+  // Dispose a credential now: terminate its sessions and drop the role.
+  ephemeralRevoke: oc
+    .errors(notDatabase)
+    .meta({ path: `${basePath}/{resourceId}/ephemeral/revoke`, tag, method: "POST" })
+    .input(ephemeralRevokeInput)
+    .output(ephemeralRevokeResultSchema),
 
   // ── Redis ────────────────────────────────────────────────────────────────
   // Per-database key counts (the db picker).
