@@ -55,6 +55,8 @@ export function CreateProjectDialog({ trigger }: { trigger: ReactElement }) {
         customDomain: null,
         customDomainVerifiedAt: null,
         customDomainVerifyToken: null,
+        // PR preview deployments are opt-in — off for a new project.
+        previewsEnabled: false,
         // Git source / image target moved to the SERVICE — no project-level
         // build binding on the row anymore.
         nixpacksConfig: null,
