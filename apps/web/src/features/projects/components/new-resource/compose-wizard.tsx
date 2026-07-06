@@ -76,6 +76,19 @@ export function ComposeWizard({
         ? {
             source: "inline" as const,
             content: value.content,
+            // Multi-file: the compose file + supporting files. Only sent when the
+            // user added files; a single-file stack keeps just `content`.
+            ...(value.files.some((f) => f.path.trim())
+              ? {
+                  files: [
+                    { path: "compose.yml", content: value.content },
+                    ...value.files
+                      .filter((f) => f.path.trim())
+                      .map((f) => ({ path: f.path.trim(), content: f.content })),
+                  ],
+                  composePath: "compose.yml",
+                }
+              : {}),
             ...(hasEnv ? { env } : {}),
             exposed: value.exposed.map((k) => {
               const [service, port] = k.split(":");

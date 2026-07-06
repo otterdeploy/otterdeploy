@@ -1,4 +1,8 @@
-import type { ComposeExposed, ComposeServiceSummary } from "@otterdeploy/shared/compose";
+import type {
+  ComposeExposed,
+  ComposeFile,
+  ComposeServiceSummary,
+} from "@otterdeploy/shared/compose";
 import type { GitRepoId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
@@ -20,6 +24,8 @@ export async function createComposeRecord(input: {
   name: string;
   source: "inline" | "git";
   composeContent: string | null;
+  /** Multi-file inline stack: compose file + supporting files. */
+  files?: ComposeFile[];
   gitRepoId?: GitRepoId | null;
   gitRepoUrl?: string | null;
   gitRef?: string | null;
@@ -47,6 +53,7 @@ export async function createComposeRecord(input: {
         resourceId: res.id,
         source: input.source,
         composeContent: input.composeContent ?? null,
+        files: input.files ?? [],
         gitRepoId: input.gitRepoId ?? null,
         gitRepoUrl: input.gitRepoUrl ?? null,
         gitRef: input.gitRef ?? null,

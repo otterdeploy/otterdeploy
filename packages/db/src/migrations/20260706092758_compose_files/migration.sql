@@ -1,0 +1,1 @@
+ALTER TABLE "compose_resource" ADD COLUMN "files" jsonb DEFAULT '[]' NOT NULL;

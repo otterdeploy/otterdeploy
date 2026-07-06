@@ -1,5 +1,5 @@
 import type { BuildConfig } from "@otterdeploy/shared/build-config";
-import type { ComposeExposed, ComposeServiceSummary } from "@otterdeploy/shared/compose";
+import type { ComposeExposed, ComposeFile, ComposeServiceSummary } from "@otterdeploy/shared/compose";
 import type { FrameworkKind } from "@otterdeploy/shared/framework";
 import type {
   DeploymentId,
@@ -559,8 +559,16 @@ export const composeResource = pgTable(
       .$type<ResourceId>()
       .references(() => resource.id, { onDelete: "cascade" }),
     source: composeSourceEnum("source").notNull().default("inline"),
-    // inline source: the raw compose YAML pasted by the user.
+    // inline source: the raw compose YAML pasted by the user. For a single-file
+    // stack this is the whole thing; for a multi-file stack it mirrors the
+    // designated compose file in `files` (kept in sync so every existing reader
+    // — parse/deploy — keeps working unchanged).
     composeContent: text("compose_content"),
+    // inline multi-file stack: the compose file PLUS supporting files (Dockerfiles
+    // + build contexts, env_file targets, bind-mounted scripts). Materialized to
+    // disk at deploy/build so relative references resolve. Empty for single-file
+    // or git stacks; `composePath` names which entry is the compose file.
+    files: jsonb("files").$type<ComposeFile[]>().notNull().default([]),
     // git source: repo + path to the compose file (default ./compose.yml).
     // gitRepoId binds a connected repo (like service_resource) so private repos
     // clone with the GitHub App installation token; gitRepoUrl is the resolved

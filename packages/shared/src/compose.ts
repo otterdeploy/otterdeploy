@@ -34,3 +34,17 @@ export interface ComposeExposed {
   port: number;
   domain: string;
 }
+
+/**
+ * One file in a multi-file INLINE stack: the compose file itself plus any
+ * supporting files the stack references (`build:` Dockerfiles + contexts,
+ * `env_file` targets, bind-mounted scripts/configs). `path` is repo-relative
+ * with `/` separators (nested paths create folders); one entry is the compose
+ * file (its path also lands in `compose_resource.compose_path`). Materialized
+ * to disk at deploy/build so the compose compiler + build worker can resolve
+ * those relative references. See docs/designs/compose.md.
+ */
+export interface ComposeFile {
+  path: string;
+  content: string;
+}

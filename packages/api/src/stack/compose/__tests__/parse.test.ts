@@ -103,7 +103,7 @@ services:
     expect(api.image).toBe("registry/api:cached");
   });
 
-  it("drops host bind mounts with a warning", () => {
+  it("records host bind mounts (resolved to the materialized tree at deploy)", () => {
     const c = ok(`
 services:
   a:
@@ -116,9 +116,12 @@ services:
     const a = c.services[0];
     if (!a) throw new Error("expected a service");
     expect(a.volumes).toEqual([
+      { type: "bind", source: "./src", target: "/app", readOnly: false },
+      { type: "bind", source: "/etc/hosts", target: "/etc/hosts", readOnly: true },
       { type: "volume", source: "named", target: "/data", readOnly: false },
     ]);
-    expect(c.warnings.filter((w) => w.includes("bind mount")).length).toBe(2);
+    // Binds are no longer dropped, so no bind-mount warnings.
+    expect(c.warnings.filter((w) => w.includes("bind mount")).length).toBe(0);
   });
 
   it("maps restart and healthcheck", () => {

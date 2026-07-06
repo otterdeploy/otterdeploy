@@ -16,8 +16,11 @@ import { Result } from "better-result";
  */
 import { eq } from "drizzle-orm";
 
+import { resourceDir } from "@otterdeploy/shared/paths";
+
 import { reconcile } from "../../caddy";
 import { deleteProxyRoutesByResource, insertProxyRoute } from "../../caddy/queries";
+import { materializeComposeFiles, readEnvFiles } from "../../lib/compose-materialize";
 import { loadDomainSourcesForProject } from "../../lib/domain-sources";
 import { resolvePublicDomain } from "../../lib/domains";
 import { parseCompose } from "../../stack/compose";
@@ -57,6 +60,32 @@ export interface ComposeDeployResult {
   deployed: number;
   /** Compose service names that failed to roll out. */
   failed: string[];
+}
+
+/**
+ * Multi-file inline stack: write the file tree to disk so bind-mounted scripts
+ * resolve and env_file targets are readable, then merge each service's env_file
+ * contents into its env (env_file first, `environment:` wins) so the existing
+ * per-service env seed picks them up unchanged. Single-file / git stacks carry
+ * no `files` and return undefined. The returned absolute dir is where bind
+ * sources resolve (reconcile-map).
+ */
+async function materializeInlineTree(
+  record: ComposeRecord,
+  parsed: { services: Array<{ envFile: string[]; env: Record<string, string> }> },
+  ids: { projectId: ProjectId; resourceId: ResourceId },
+): Promise<string | undefined> {
+  if (record.compose.files.length === 0) return undefined;
+  const stackDir = await materializeComposeFiles(
+    record.compose.files,
+    resourceDir(ids.projectId, ids.resourceId),
+  );
+  for (const svc of parsed.services) {
+    if (svc.envFile.length === 0) continue;
+    const fromFiles = await readEnvFiles(svc.envFile, stackDir);
+    svc.env = { ...fromFiles, ...svc.env };
+  }
+  return stackDir;
 }
 
 export async function deployCompose(
@@ -101,6 +130,8 @@ export async function deployCompose(
         environmentId: project.environmentId,
       })
     : {};
+
+  const stackDir = await materializeInlineTree(record, parsed.value, input);
 
   // `build:` services need an image the build worker produced. Resolve each
   // service's image from `image:` or the builder's `builtImages` map, then
@@ -150,6 +181,7 @@ export async function deployCompose(
           stackName: record.compose.stackName,
           projectVars,
           builtImages,
+          stackDir,
         },
         reason,
         rlog,

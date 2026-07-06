@@ -2,6 +2,7 @@ import type { DeploymentId, ProjectId, ResourceId } from "@otterdeploy/shared/id
 
 import { getInstallationToken } from "@otterdeploy/api/git/github-app";
 import { resolveRepoCloneBinding } from "@otterdeploy/api/git/repo-binding";
+import { materializeComposeFiles } from "@otterdeploy/api/lib/compose-materialize";
 import { deployCompose } from "@otterdeploy/api/routers/compose/deploy";
 import { parseCompose } from "@otterdeploy/api/stack/compose/parse";
 import { summarizeCompose } from "@otterdeploy/api/stack/compose/summary";
@@ -26,6 +27,7 @@ import { eq } from "drizzle-orm";
  * build's deployment row. Image-only stacks never reach here (they deploy
  * straight from `compose.create`). See docs/designs/compose.md.
  */
+import { buildDir } from "@otterdeploy/shared/paths";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -87,11 +89,15 @@ async function loadComposeBuildContext(deploymentId: DeploymentId): Promise<Comp
 
   // Resolve the clone binding: a picked repo (gitRepoId) resolves owner/repo +
   // the numeric installation id so PRIVATE repos clone with a token; a legacy
-  // stack clones its stored public URL anonymously.
-  let cloneUrl: string;
+  // stack clones its stored public URL anonymously. INLINE stacks (multi-file,
+  // routed here for their `build:` services) have no repo — the builder
+  // materializes their stored file tree instead of cloning.
+  let cloneUrl = "";
   let installationId: string | null = null;
   let isPrivate = false;
-  if (comp.gitRepoId) {
+  if (comp.source === "inline") {
+    // no clone — files are materialized in runComposeBuild.
+  } else if (comp.gitRepoId) {
     const bound = await resolveRepoCloneBinding(comp.gitRepoId);
     cloneUrl = bound.cloneUrl;
     installationId = bound.githubInstallationId;
@@ -146,36 +152,56 @@ export async function runComposeBuild(
       return Result.err(new InvalidDeploymentError(opts.deploymentId));
     }
 
-    let installationToken = "";
-    if (ctx.installationId) {
-      const minted = yield* await Result.tryPromise({
-        try: () => getInstallationToken(ctx.installationId as string),
-        catch: (cause) => new BuildStepError({ step: "token", cause }),
+    // Source the build tree: INLINE stacks materialize their stored file tree
+    // (no repo); git stacks clone at the pinned SHA. Everything downstream
+    // (find/parse/build/persist/deploy) is shared.
+    const isInline = ctx.compose.source === "inline";
+    let workDir: string;
+    let subdir: string;
+    if (isInline) {
+      workDir = yield* await Result.tryPromise({
+        try: () =>
+          materializeComposeFiles(
+            ctx.compose.files,
+            buildDir(ctx.project.id as ProjectId, opts.deploymentId),
+          ),
+        catch: (cause) => new BuildStepError({ step: "materialize", cause }),
       });
-      installationToken = minted.token;
-    }
+      subdir = "";
+      sink.system(`materialized ${ctx.compose.files.length} inline file(s)`);
+    } else {
+      let installationToken = "";
+      if (ctx.installationId) {
+        const minted = yield* await Result.tryPromise({
+          try: () => getInstallationToken(ctx.installationId as string),
+          catch: (cause) => new BuildStepError({ step: "token", cause }),
+        });
+        installationToken = minted.token;
+      }
 
-    const cloned = yield* await Result.tryPromise({
-      try: () =>
-        cloneRepoAtSha({
-          cloneUrl: ctx.cloneUrl,
-          ref: gitRef,
-          sha: gitSha,
-          projectId: ctx.project.id as ProjectId,
-          deploymentId: opts.deploymentId,
-          installationToken,
-          // Private bound repos surface an installation-specific clone-failure
-          // hint; public/legacy stacks stay generic.
-          bindingKind: ctx.installationId && ctx.isPrivate ? "github_app" : "public_url",
-          sink,
-        }),
-      catch: (cause) => new BuildStepError({ step: "clone", cause }),
-    });
-    work.path = cloned.workDir;
+      const cloned = yield* await Result.tryPromise({
+        try: () =>
+          cloneRepoAtSha({
+            cloneUrl: ctx.cloneUrl,
+            ref: gitRef,
+            sha: gitSha,
+            projectId: ctx.project.id as ProjectId,
+            deploymentId: opts.deploymentId,
+            installationToken,
+            // Private bound repos surface an installation-specific clone-failure
+            // hint; public/legacy stacks stay generic.
+            bindingKind: ctx.installationId && ctx.isPrivate ? "github_app" : "public_url",
+            sink,
+          }),
+        catch: (cause) => new BuildStepError({ step: "clone", cause }),
+      });
+      workDir = cloned.workDir;
+      subdir = ctx.compose.sourceSubdir ?? "";
+    }
+    work.path = workDir;
 
     // Resolve the compose file: the explicit path if set, else the common
     // names (compose.yml / docker-compose.yml / .yaml), relative to subdir.
-    const subdir = ctx.compose.sourceSubdir ?? "";
     const candidates = [
       ctx.compose.composePath,
       "compose.yml",
@@ -183,7 +209,7 @@ export async function runComposeBuild(
       "docker-compose.yml",
       "docker-compose.yaml",
     ].filter((p): p is string => !!p);
-    const found = candidates.find((p) => existsSync(join(cloned.workDir, subdir, p)));
+    const found = candidates.find((p) => existsSync(join(workDir, subdir, p)));
     if (!found) {
       return Result.err(
         new BuildStepError({
@@ -194,7 +220,7 @@ export async function runComposeBuild(
     }
     sink.system(`using compose file: ${join(subdir, found)}`);
     const content = yield* await Result.tryPromise({
-      try: () => readFile(join(cloned.workDir, subdir, found), "utf8"),
+      try: () => readFile(join(workDir, subdir, found), "utf8"),
       catch: (cause) => new BuildStepError({ step: "read-compose", cause }),
     });
 
@@ -222,7 +248,7 @@ export async function runComposeBuild(
         build: svc.build,
         imageRepository: ctx.imageRepository,
         registry: ctx.registry,
-        workDir: cloned.workDir,
+        workDir,
         gitSha,
         cacheBuilder,
         sink,

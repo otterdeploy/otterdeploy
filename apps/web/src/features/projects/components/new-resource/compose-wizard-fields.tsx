@@ -16,6 +16,7 @@ import { Input } from "@/shared/components/ui/input";
 
 import type { ComposeForm, DetectedService, Preview } from "./compose-wizard-shared";
 
+import { ComposeExtraFiles } from "./compose-extra-files";
 import { ComposePreview } from "./compose-preview";
 import { editorExtensions } from "./compose-wizard-editor";
 import { RepoPicker } from "./steps/repo-picker";
@@ -244,6 +245,8 @@ export function ComposeInlineFields({
           </div>
         )}
       </form.Field>
+
+      <ComposeExtraFiles form={form} />
 
       <ComposePreview
         parsing={parsing}

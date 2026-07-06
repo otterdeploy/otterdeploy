@@ -25,7 +25,12 @@ import { runtime } from "../../runtime";
 import { type ParsedCompose, type ParsedComposeService } from "../../stack/compose";
 import { insertDeployment, markDeploymentFailed } from "../project/deployments";
 import { deleteResourceById } from "../project/queries";
-import { createServiceRecord, getServiceRecord, updateServiceRecord } from "../service/queries";
+import {
+  bulkReplaceServiceMounts,
+  createServiceRecord,
+  getServiceRecord,
+  updateServiceRecord,
+} from "../service/queries";
 import { provisionFresh, redeployOne } from "../service/redeploy";
 import { interpolate } from "./env";
 import { pickResourceName, toServiceFields } from "./reconcile-map";
@@ -40,6 +45,9 @@ export interface StackReconcileContext {
   projectVars: Record<string, string>;
   /** Built image tags for `build:` services (compose name → ref). */
   builtImages: Record<string, string>;
+  /** Materialized file-tree dir for a multi-file inline stack (absolute), where
+   *  bind-mount sources resolve. Undefined for single-file / git stacks. */
+  stackDir?: string;
 }
 
 export interface StackReconcileResult {
@@ -110,6 +118,12 @@ export async function reconcileStackServices(
         ...mapped.fields,
       });
       resourceId = created.resource.id;
+      // Seed bind mounts (multi-file inline stacks) ONCE, on create — mirroring
+      // the env "user owns it post-create" convention, so a later compose edit
+      // never clobbers user-managed mounts and existing stacks are untouched.
+      if (mapped.mounts.length > 0) {
+        await bulkReplaceServiceMounts(resourceId, mapped.mounts);
+      }
     }
 
     // One deployment row per service per reconcile → its own build/deploy

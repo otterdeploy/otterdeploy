@@ -4,6 +4,33 @@
  * name / repo URL / secret-key heuristics.
  */
 
+import type { ComposeFile } from "@otterdeploy/shared/compose";
+
+const COMPOSE_FILENAMES = ["compose.yml", "compose.yaml", "docker-compose.yml", "docker-compose.yaml"];
+
+/**
+ * Pick the designated compose file out of a multi-file inline tree. Preference:
+ * the explicit `composePath`, else a conventional filename at the tree root,
+ * else the first file. Returns its content + path so `composeContent` /
+ * `composePath` stay in sync with `files` (every existing reader parses
+ * `composeContent`). Returns null when the tree has no usable compose file.
+ */
+export function pickComposeFile(
+  files: ComposeFile[],
+  composePath?: string | null,
+): { content: string; path: string } | null {
+  if (files.length === 0) return null;
+  const want = composePath?.trim();
+  if (want) {
+    const hit = files.find((f) => f.path === want);
+    if (hit) return { content: hit.content, path: hit.path };
+  }
+  const byName = files.find((f) => COMPOSE_FILENAMES.includes(f.path));
+  if (byName) return { content: byName.content, path: byName.path };
+  const first = files[0];
+  return first ? { content: first.content, path: first.path } : null;
+}
+
 /** Credential-looking keys default to secret (mirrors the service wizard). */
 export const SECRETISH =
   /(SECRET|TOKEN|PASSWORD|PASSWD|PRIVATE|API_?KEY|ACCESS_?KEY|CREDENTIAL|DSN|AUTH|SALT|WEBHOOK|SIGNING)/i;

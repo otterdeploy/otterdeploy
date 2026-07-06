@@ -3,7 +3,7 @@
  * stays a thin Result→error translation. The one-shot twin of the staged
  * manifest path in manifest-reconcile.ts. See docs/designs/compose.md.
  */
-import type { ComposeServiceSummary } from "@otterdeploy/shared/compose";
+import type { ComposeFile, ComposeServiceSummary } from "@otterdeploy/shared/compose";
 import type { GitRepoId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
@@ -11,21 +11,21 @@ import { Result } from "better-result";
 
 import { fetchBranchHeadSha } from "../../git/github-app";
 import { resolveRepoCloneBinding } from "../../git/repo-binding";
-import { parseCompose, summarizeCompose } from "../../stack/compose";
 import { getProjectInOrg, upsertProjectEnvVar } from "../project/queries";
 import { isUniqueViolation } from "../project/views";
 import { enqueueComposeBuild } from "./build-trigger";
-import { deployCompose } from "./deploy";
+import { createInlineCompose } from "./create-inline";
 import { createComposeRecord } from "./queries";
 import { parseGitHubUrl, SECRETISH, stackNameFor } from "./util";
 
-type ComposeProject = NonNullable<Awaited<ReturnType<typeof getProjectInOrg>>>;
+export type ComposeProject = NonNullable<Awaited<ReturnType<typeof getProjectInOrg>>>;
 
-interface ComposeCreateInput {
+export interface ComposeCreateInput {
   projectId: ProjectId;
   name?: string;
   source: "inline" | "git";
   composeContent?: string;
+  files?: ComposeFile[];
   gitRepoId?: string;
   gitRepoUrl?: string;
   gitRef?: string;
@@ -36,13 +36,13 @@ interface ComposeCreateInput {
   deploy: boolean;
 }
 
-interface ExposedSeed {
+export interface ExposedSeed {
   service: string;
   port: number;
   domain: string;
 }
 
-interface ComposeCreateOutput {
+export interface ComposeCreateOutput {
   resourceId: ResourceId;
   services: ComposeServiceSummary[];
   warnings: string[];
@@ -177,72 +177,6 @@ async function createGitCompose(
   });
 }
 
-/** Inline source: parse + deploy now (no build worker). */
-async function createInlineCompose(
-  input: ComposeCreateInput,
-  project: ComposeProject,
-  exposed: ExposedSeed[],
-  log: RequestLogger,
-): Promise<Result<ComposeCreateOutput, ComposeCreateFailure>> {
-  if (!input.composeContent) {
-    return Result.err(invalid("Compose file is empty"));
-  }
-  const parsed = parseCompose(input.composeContent);
-  if (parsed.isErr()) {
-    return Result.err(invalid(parsed.error.message));
-  }
-  const services = summarizeCompose(parsed.value);
-  // Name from the user, else the file's `name:`, else its first service.
-  const name =
-    input.name?.trim() || parsed.value.name || parsed.value.services[0]?.name || "compose-stack";
-  const stackName = stackNameFor(project.slug, name);
-
-  const created = await Result.tryPromise({
-    try: () =>
-      createComposeRecord({
-        projectId: input.projectId,
-        name,
-        source: "inline",
-        composeContent: input.composeContent ?? null,
-        stackName,
-        services,
-        exposed,
-      }),
-    catch: (e) => (e instanceof Error ? e : new Error(String(e))),
-  });
-  if (created.isErr()) {
-    if (isUniqueViolation(created.error)) return Result.err({ reason: "conflict" });
-    throw created.error;
-  }
-
-  log.set({
-    target: {
-      type: "resource",
-      kind: "compose",
-      id: created.value.resource.id,
-      projectId: input.projectId,
-    },
-  });
-
-  let deploy = { ok: false, error: null as string | null, status: "created" };
-  if (input.deploy) {
-    const d = await deployCompose(
-      { projectId: input.projectId, resourceId: created.value.resource.id },
-      "create",
-      log,
-    );
-    deploy = d.isOk()
-      ? { ok: true, error: null, status: d.value.status }
-      : { ok: false, error: d.error.message, status: "failed" };
-  }
-
-  return Result.ok({
-    resourceId: created.value.resource.id,
-    services,
-    warnings: parsed.value.warnings,
-    deploy,
-  });
-}
 
 /**
  * Create a `type: compose` resource (inline or git) and, for inline stacks,
