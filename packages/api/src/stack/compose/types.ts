@@ -58,6 +58,9 @@ export interface ParsedComposeService {
   command: string[] | null;
   entrypoint: string[] | null;
   env: Record<string, string>;
+  /** `env_file` paths (relative to the stack tree); read + merged into `env`
+   *  at deploy time from the materialized files. */
+  envFile: string[];
   ports: ParsedPort[];
   volumes: ParsedMount[];
   networks: string[];
