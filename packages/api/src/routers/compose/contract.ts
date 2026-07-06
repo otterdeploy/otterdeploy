@@ -96,8 +96,12 @@ export const composeContract = {
         name: z.string().max(63).optional(),
         /** `inline` = paste the file; `git` = build it from the project repo. */
         source: z.enum(["inline", "git"]).default("inline"),
-        /** Required for `inline`. */
+        /** Required for `inline` (single-file). */
         composeContent: z.string().optional(),
+        /** Multi-file inline stack: the compose file + supporting files
+         *  (Dockerfiles/build contexts, env_file targets, bind-mounted scripts).
+         *  When set, `composePath` names which entry is the compose file. */
+        files: z.array(z.object({ path: z.string(), content: z.string() })).optional(),
         /** Bound repo id (git source) — the repo picker's selection. Clones via
          *  the GitHub App installation token, so private repos work. Preferred
          *  over `gitRepoUrl`. */

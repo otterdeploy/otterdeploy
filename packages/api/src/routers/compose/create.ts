@@ -3,7 +3,7 @@
  * stays a thin Result→error translation. The one-shot twin of the staged
  * manifest path in manifest-reconcile.ts. See docs/designs/compose.md.
  */
-import type { ComposeServiceSummary } from "@otterdeploy/shared/compose";
+import type { ComposeFile, ComposeServiceSummary } from "@otterdeploy/shared/compose";
 import type { GitRepoId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
@@ -17,7 +17,7 @@ import { isUniqueViolation } from "../project/views";
 import { enqueueComposeBuild } from "./build-trigger";
 import { deployCompose } from "./deploy";
 import { createComposeRecord } from "./queries";
-import { parseGitHubUrl, SECRETISH, stackNameFor } from "./util";
+import { parseGitHubUrl, pickComposeFile, SECRETISH, stackNameFor } from "./util";
 
 type ComposeProject = NonNullable<Awaited<ReturnType<typeof getProjectInOrg>>>;
 
@@ -26,6 +26,7 @@ interface ComposeCreateInput {
   name?: string;
   source: "inline" | "git";
   composeContent?: string;
+  files?: ComposeFile[];
   gitRepoId?: string;
   gitRepoUrl?: string;
   gitRef?: string;
@@ -184,10 +185,17 @@ async function createInlineCompose(
   exposed: ExposedSeed[],
   log: RequestLogger,
 ): Promise<Result<ComposeCreateOutput, ComposeCreateFailure>> {
-  if (!input.composeContent) {
+  // Multi-file: the compose file is one entry in `files`; single-file: the
+  // pasted `composeContent`. Keep composeContent/composePath in sync with the
+  // designated file so every downstream reader parses the same string.
+  const files = input.files ?? [];
+  const picked = files.length > 0 ? pickComposeFile(files, input.composePath) : null;
+  const composeContent = picked?.content ?? input.composeContent;
+  const composePath = picked?.path ?? input.composePath ?? null;
+  if (!composeContent) {
     return Result.err(invalid("Compose file is empty"));
   }
-  const parsed = parseCompose(input.composeContent);
+  const parsed = parseCompose(composeContent);
   if (parsed.isErr()) {
     return Result.err(invalid(parsed.error.message));
   }
@@ -203,7 +211,9 @@ async function createInlineCompose(
         projectId: input.projectId,
         name,
         source: "inline",
-        composeContent: input.composeContent ?? null,
+        composeContent,
+        files,
+        composePath,
         stackName,
         services,
         exposed,

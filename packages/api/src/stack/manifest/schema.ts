@@ -309,7 +309,13 @@ const composeExposedSchema = z.object({
 
 const composeInlineSchema = z.object({
   source: z.literal("inline"),
+  // The designated compose file's content (single-file stacks set only this).
   content: z.string().min(1),
+  // Multi-file stack: compose file + supporting files (Dockerfiles/build
+  // contexts, env_file targets, bind-mounted scripts). `composePath` names the
+  // compose entry; `content` mirrors it.
+  files: z.array(z.object({ path: z.string(), content: z.string() })).optional(),
+  composePath: z.string().nullable().optional(),
   env: composeEnvMap.optional(),
   exposed: z.array(composeExposedSchema).optional(),
 });

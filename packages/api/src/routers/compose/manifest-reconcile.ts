@@ -28,7 +28,7 @@ import { getProjectInOrg, upsertProjectEnvVar } from "../project/queries";
 import { isUniqueViolation } from "../project/views";
 import { deployCompose } from "./deploy";
 import { createComposeRecord } from "./queries";
-import { parseGitHubUrl, SECRETISH, stackNameFor } from "./util";
+import { parseGitHubUrl, pickComposeFile, SECRETISH, stackNameFor } from "./util";
 
 interface CreateComposeArgs {
   projectId: ProjectId;
@@ -181,7 +181,12 @@ async function createInlineStackFromManifest(
   stackName: string,
 ): Promise<CreateResult> {
   const { projectId, name, log } = args;
-  const parsed = parseCompose(spec.content);
+  // Multi-file: the compose file is one entry in `files`; single-file: `content`.
+  const files = spec.files ?? [];
+  const picked = files.length > 0 ? pickComposeFile(files, spec.composePath) : null;
+  const composeContent = picked?.content ?? spec.content;
+  const composePath = picked?.path ?? spec.composePath ?? null;
+  const parsed = parseCompose(composeContent);
   if (parsed.isErr()) return skip(name, parsed.error.message);
   const services = summarizeCompose(parsed.value);
 
@@ -191,7 +196,9 @@ async function createInlineStackFromManifest(
         projectId,
         name,
         source: "inline",
-        composeContent: spec.content,
+        composeContent,
+        files,
+        composePath,
         stackName,
         services,
         exposed,
