@@ -98,12 +98,21 @@ export const composeContract = {
         source: z.enum(["inline", "git"]).default("inline"),
         /** Required for `inline`. */
         composeContent: z.string().optional(),
-        /** Public GitHub repo URL (git source). */
+        /** Bound repo id (git source) — the repo picker's selection. Clones via
+         *  the GitHub App installation token, so private repos work. Preferred
+         *  over `gitRepoUrl`. */
+        gitRepoId: z.string().optional(),
+        /** Public GitHub repo URL (git source) — legacy paste path; used when no
+         *  `gitRepoId` is bound. */
         gitRepoUrl: z.string().optional(),
         /** Branch (git source; default the repo's main). */
         gitRef: z.string().optional(),
-        /** Path to the compose file in the repo (git source; default compose.yml). */
+        /** Path to the compose file within `sourceSubdir` (git source; default
+         *  auto-detect compose.yml / docker-compose.yml). */
         composePath: z.string().optional(),
+        /** Root directory within the repo the stack builds from (git source;
+         *  the compose file + `build:` contexts resolve relative to it). */
+        sourceSubdir: z.string().optional(),
         /** Values for the file's `${VAR}` refs — written as project variables. */
         variables: z
           .array(

@@ -1,5 +1,5 @@
 import type { ComposeExposed, ComposeServiceSummary } from "@otterdeploy/shared/compose";
-import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { GitRepoId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { composeResource, resource } from "@otterdeploy/db/schema/project";
@@ -20,6 +20,7 @@ export async function createComposeRecord(input: {
   name: string;
   source: "inline" | "git";
   composeContent: string | null;
+  gitRepoId?: GitRepoId | null;
   gitRepoUrl?: string | null;
   gitRef?: string | null;
   sourceSubdir?: string | null;
@@ -46,6 +47,7 @@ export async function createComposeRecord(input: {
         resourceId: res.id,
         source: input.source,
         composeContent: input.composeContent ?? null,
+        gitRepoId: input.gitRepoId ?? null,
         gitRepoUrl: input.gitRepoUrl ?? null,
         gitRef: input.gitRef ?? null,
         sourceSubdir: input.sourceSubdir ?? null,

@@ -1,4 +1,4 @@
-import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { GitRepoId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
@@ -21,6 +21,7 @@ import { Result } from "better-result";
 import type { ComposeManifest } from "../../stack/manifest";
 
 import { fetchBranchHeadSha } from "../../git/github-app";
+import { resolveRepoCloneBinding } from "../../git/repo-binding";
 import { parseCompose, summarizeCompose } from "../../stack/compose";
 import { ManifestApplySkipError } from "../project/errors";
 import { getProjectInOrg, upsertProjectEnvVar } from "../project/queries";
@@ -84,15 +85,39 @@ async function createGitStackFromManifest(
   stackName: string,
 ): Promise<CreateResult> {
   const { projectId, name, log } = args;
-  const gh = parseGitHubUrl(spec.gitRepoUrl);
-  if (!gh) return skip(name, `not a cloneable GitHub URL: ${spec.gitRepoUrl}`);
+
+  // Prefer the bound repo (private-capable); fall back to a legacy public URL.
+  let owner: string;
+  let repoName: string;
+  let cloneUrl: string;
+  let gitRepoId: string | null = null;
+  let installationId: string | null = null;
+  if (spec.gitRepoId?.trim()) {
+    const bound = await Result.tryPromise({
+      try: () => resolveRepoCloneBinding(spec.gitRepoId!.trim() as GitRepoId),
+      catch: (e) => (e instanceof Error ? e.message : String(e)),
+    });
+    if (bound.isErr()) return skip(name, bound.error);
+    owner = bound.value.owner;
+    repoName = bound.value.repo;
+    cloneUrl = bound.value.cloneUrl;
+    gitRepoId = bound.value.gitRepoId;
+    installationId = bound.value.githubInstallationId;
+  } else {
+    const gh = parseGitHubUrl(spec.gitRepoUrl ?? "");
+    if (!gh) return skip(name, `not a cloneable GitHub URL: ${spec.gitRepoUrl ?? ""}`);
+    owner = gh.owner;
+    repoName = gh.repo;
+    cloneUrl = gh.cloneUrl;
+  }
+
   const branch = spec.gitRef?.trim() || "main";
   const shaRes = await Result.tryPromise({
-    try: () => fetchBranchHeadSha(null, gh.owner, gh.repo, branch),
+    try: () => fetchBranchHeadSha(installationId, owner, repoName, branch),
     catch: (e) => (e instanceof Error ? e.message : String(e)),
   });
   if (shaRes.isErr()) {
-    return skip(name, `couldn't resolve ${branch} on ${gh.owner}/${gh.repo}: ${shaRes.error}`);
+    return skip(name, `couldn't resolve ${branch} on ${owner}/${repoName}: ${shaRes.error}`);
   }
   const ref = `refs/heads/${branch}`;
 
@@ -103,9 +128,11 @@ async function createGitStackFromManifest(
         name,
         source: "git",
         composeContent: null,
-        gitRepoUrl: gh.cloneUrl,
+        gitRepoId: gitRepoId as GitRepoId | null,
+        gitRepoUrl: cloneUrl,
         gitRef: ref,
         composePath: spec.composePath?.trim() || null,
+        sourceSubdir: spec.sourceSubdir?.trim() || null,
         stackName,
         services: [],
         exposed,
@@ -135,8 +162,8 @@ async function createGitStackFromManifest(
 
   await triggerDeploy({
     projectId,
-    // Logging-only correlation; compose owns its own repo URL.
-    gitRepoId: created.value.resource.id,
+    // Real binding when picked (correlation); else the resource id.
+    gitRepoId: gitRepoId ?? created.value.resource.id,
     ref,
     sha: shaRes.value,
     deploymentIds: [dep?.id ?? ""],

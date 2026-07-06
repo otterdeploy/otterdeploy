@@ -1,6 +1,7 @@
 import type { DeploymentId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { getInstallationToken } from "@otterdeploy/api/git/github-app";
+import { resolveRepoCloneBinding } from "@otterdeploy/api/git/repo-binding";
 import { deployCompose } from "@otterdeploy/api/routers/compose/deploy";
 import { parseCompose } from "@otterdeploy/api/stack/compose/parse";
 import { summarizeCompose } from "@otterdeploy/api/stack/compose/summary";
@@ -46,9 +47,12 @@ interface ComposeBuildContext {
   registry: typeof containerRegistry.$inferSelect | null;
   /** Base image repository (no tag, no per-service suffix). */
   imageRepository: string;
-  /** Clone URL — the compose row's own repo (public). */
+  /** Clone URL — the bound repo's clone URL, or the row's legacy public URL. */
   cloneUrl: string;
+  /** GitHub NUMERIC installation id (private repos), else null (anonymous). */
   installationId: string | null;
+  /** Whether the bound repo is private — drives the clone bindingKind. */
+  isPrivate: boolean;
 }
 
 /** True when the deployment's resource is a compose stack (drives dispatch). */
@@ -81,9 +85,21 @@ async function loadComposeBuildContext(deploymentId: DeploymentId): Promise<Comp
   const [proj] = await db.select().from(project).where(eq(project.id, res.projectId)).limit(1);
   if (!proj) throw new PipelineLoadError("project", `${res.projectId} missing`);
 
-  // Compose brings its OWN repo url (public clone, anonymous).
-  if (!comp.gitRepoUrl) {
-    throw new PipelineLoadError("compose.gitRepoUrl", `${comp.resourceId} has no repo url`);
+  // Resolve the clone binding: a picked repo (gitRepoId) resolves owner/repo +
+  // the numeric installation id so PRIVATE repos clone with a token; a legacy
+  // stack clones its stored public URL anonymously.
+  let cloneUrl: string;
+  let installationId: string | null = null;
+  let isPrivate = false;
+  if (comp.gitRepoId) {
+    const bound = await resolveRepoCloneBinding(comp.gitRepoId);
+    cloneUrl = bound.cloneUrl;
+    installationId = bound.githubInstallationId;
+    isPrivate = bound.isPrivate;
+  } else if (comp.gitRepoUrl) {
+    cloneUrl = comp.gitRepoUrl;
+  } else {
+    throw new PipelineLoadError("compose.gitRepoUrl", `${comp.resourceId} has no repo binding`);
   }
 
   // Compose stacks build registry-less local images: the project no longer
@@ -102,8 +118,9 @@ async function loadComposeBuildContext(deploymentId: DeploymentId): Promise<Comp
     project: proj,
     registry,
     imageRepository,
-    cloneUrl: comp.gitRepoUrl,
-    installationId: null,
+    cloneUrl,
+    installationId,
+    isPrivate,
   };
 }
 
@@ -147,9 +164,9 @@ export async function runComposeBuild(
           projectId: ctx.project.id as ProjectId,
           deploymentId: opts.deploymentId,
           installationToken,
-          // Compose stacks bind a public repo URL (installationId is always
-          // null), so clone failures stay generic.
-          bindingKind: "public_url",
+          // Private bound repos surface an installation-specific clone-failure
+          // hint; public/legacy stacks stay generic.
+          bindingKind: ctx.installationId && ctx.isPrivate ? "github_app" : "public_url",
           sink,
         }),
       catch: (cause) => new BuildStepError({ step: "clone", cause }),
