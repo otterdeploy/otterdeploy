@@ -39,7 +39,7 @@ import {
   runServiceDeletes,
 } from "./manifest-apply-phases";
 import { runServiceCreates, runServiceUpdates } from "./manifest-apply-phases-services";
-import { loadRefTable } from "./manifest-apply-refs";
+import { loadRefTable, makeEnvRefResolver } from "./manifest-apply-refs";
 import { groupChanges } from "./manifest-apply-support";
 import { loadCurrentState } from "./manifest-state";
 
@@ -89,7 +89,15 @@ async function runApply(input: ApplyInput): Promise<ApplyResult> {
   // was still running would re-plan (and re-provision) its work.
   const current = await loadCurrentState(projectId);
   const ctx: ApplyContext = { projectId, organizationId, manifest, current, log };
-  const byKind = groupChanges(diffManifest(manifest, current));
+  // Plan with the same ref resolver the router's diff endpoint uses, so what
+  // the user previewed is what executes. This table predates the DB-create
+  // phase on purpose: refs to a database created THIS apply stay unresolved in
+  // the plan (its env changes read as creates) and resolve in the write-path
+  // refTable loaded after phase 1.
+  const planRefTable = await loadRefTable(projectId);
+  const byKind = groupChanges(
+    diffManifest(manifest, current, { resolveEnvValue: makeEnvRefResolver(planRefTable) }),
+  );
 
   let appliedCount = 0;
   const skipped: ApplyResult["skipped"] = [];

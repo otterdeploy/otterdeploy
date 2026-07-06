@@ -2,6 +2,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { ArrowRight01Icon, ServerStack01Icon } from "@hugeicons/core-free-icons";
 
 import { type Server } from "@/features/servers/data/server";
+import { type ServerHealthEntry } from "@/features/servers/data/health";
 import { Badge } from "@/shared/components/ui/badge";
 import {
   Select,
@@ -16,6 +17,8 @@ import {
 } from "@/shared/components/ui/table";
 import { cn } from "@/shared/lib/utils";
 
+import { LiveHealthCell } from "./servers-live-cell";
+
 export interface ServerRowStats {
   tasksRunning: number;
   cpuAllocatedVcpu: number;
@@ -26,9 +29,13 @@ export interface ServerRowStats {
 export function ServerRow({
   server,
   stats,
+  health,
+  onOpen,
 }: {
   server: Server;
   stats: ServerRowStats | null;
+  health: ServerHealthEntry | null;
+  onOpen: () => void;
 }) {
   // When stats haven't arrived yet (first paint, swarm unreachable, …) we
   // render zeros against capacity rather than fake values — honest about
@@ -38,7 +45,7 @@ export function ServerRow({
   const taskCount = stats?.tasksRunning ?? null;
 
   return (
-    <TableRow className="group">
+    <TableRow className="group cursor-pointer" onClick={onOpen}>
       <TableCell className="pl-4">
         <div className="flex items-start gap-2.5">
           <HugeiconsIcon
@@ -78,7 +85,9 @@ export function ServerRow({
         <RoleBadge role={server.role} />
       </TableCell>
 
-      <TableCell>
+      {/* stopPropagation: the row opens the health sheet; interacting with
+          the availability select shouldn't. */}
+      <TableCell onClick={(e) => e.stopPropagation()}>
         <AvailabilitySelect server={server} />
       </TableCell>
 
@@ -90,6 +99,10 @@ export function ServerRow({
           memTotal={server.memTotalGb}
           draining={server.status === "draining" || server.availability === "drain"}
         />
+      </TableCell>
+
+      <TableCell>
+        <LiveHealthCell health={health} />
       </TableCell>
 
       <TableCell className="text-right font-mono text-[12px] tabular-nums">

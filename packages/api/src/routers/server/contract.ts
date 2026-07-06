@@ -4,6 +4,7 @@ import { createSelectSchema } from "drizzle-zod";
 import * as z from "zod";
 
 import { serverIdField } from "../project/contract/shared";
+import { hostHealthSchema } from "../system/contract";
 const tag = "server";
 const basePath = "/servers";
 
@@ -97,6 +98,25 @@ const swarmJoinTokensSchema = z.object({
 
 const joinTokensInput = z.object({}).optional();
 
+/**
+ * Latest health snapshot per server (server_health_sample) — local host via
+ * the 60s control-plane sampler, remote swarm nodes via the health agent.
+ * `health` is null when the stored payload doesn't parse as the current
+ * HostHealth shape (agent/control-plane version skew during updates) —
+ * honest "no data" beats a crashed list. See docs/designs/server-health-agent.md.
+ */
+const serverHealthEntrySchema = z.object({
+  serverId: serverIdField,
+  hostname: z.string().nullable(),
+  health: hostHealthSchema.nullable(),
+  sampledAt: z.string(),
+  receivedAt: z.string(),
+  /** receivedAt older than 3× the sample interval — the reporter went quiet. */
+  stale: z.boolean(),
+});
+
+const serverHealthInput = z.object({}).optional();
+
 export const serverContract = {
   list: oc
     .meta({ path: basePath, tag, method: "GET" })
@@ -130,6 +150,10 @@ export const serverContract = {
     .meta({ path: `${basePath}/stats`, tag, method: "GET" })
     .input(serverStatsInput)
     .output(serverStatsSchema),
+  health: oc
+    .meta({ path: `${basePath}/health`, tag, method: "GET" })
+    .input(serverHealthInput)
+    .output(z.array(serverHealthEntrySchema)),
   joinTokens: oc
     .meta({ path: `${basePath}/join-tokens`, tag, method: "GET" })
     .input(joinTokensInput)

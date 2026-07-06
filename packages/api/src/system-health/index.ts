@@ -13,6 +13,8 @@ export {
   type HostHealth,
   type ReclaimTarget,
 } from "./host-health";
+export { agentHealthIngestHandler, HEALTH_SAMPLE_INTERVAL_MS } from "./agent-ingest";
+export { startHealthAgentReconciler, startLocalHealthSampler } from "./agent-service";
 export { startHostHealthMonitor } from "./monitor";
 export { reclaimSpace, type ReclaimResult } from "./reclaim";
 export { deriveRecommendations } from "./recommendations";

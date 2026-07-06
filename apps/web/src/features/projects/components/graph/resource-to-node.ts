@@ -51,10 +51,11 @@ function serviceDeploymentStatus(
   switch (status) {
     case "running":
       return "running";
+    case "starting":
     case "building":
     case "pending":
       return "building";
-    case "crashing":
+    case "crashed":
     case "failed":
       return "error";
     default:
@@ -72,10 +73,11 @@ function baseStackServiceStatus(
   dep: Extract<ProjectResource, { type: "compose" }>["latestDeploymentStatus"],
 ): StackServiceStatus | undefined {
   switch (dep) {
+    case "starting":
     case "building":
     case "pending":
       return "building";
-    case "crashing":
+    case "crashed":
     case "failed":
       return "error";
     case "running":

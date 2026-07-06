@@ -29,6 +29,14 @@ export const otterLabels = (
   ...(spec.deploymentId ? { "otterdeploy.deployment.id": spec.deploymentId } : {}),
 });
 
+// A container that exits on boot (e.g. a missing env var) would otherwise
+// restart forever: docker's `on-failure` with MaximumRetryCount 0 means
+// UNLIMITED. Bound it so a crash-loop gives up instead of hammering the host
+// (mirrors the swarm driver + DB driver caps). A user-set maxAttempts still
+// wins. Docker resets the count once the container stays up, so occasional
+// failures still recover — only a tight loop trips the cap.
+const DEFAULT_MAX_RESTART_ATTEMPTS = 5;
+
 /** Compose-style restart policy: swarm condition → plain-docker restart name. */
 function toRestartPolicy(restart: ContainerSpec["restart"]): {
   Name: "" | "no" | "always" | "unless-stopped" | "on-failure";
@@ -36,7 +44,10 @@ function toRestartPolicy(restart: ContainerSpec["restart"]): {
 } {
   if (restart.condition === "none") return { Name: "no" };
   if (restart.condition === "on-failure")
-    return { Name: "on-failure", MaximumRetryCount: restart.maxAttempts ?? 0 };
+    return {
+      Name: "on-failure",
+      MaximumRetryCount: restart.maxAttempts ?? DEFAULT_MAX_RESTART_ATTEMPTS,
+    };
   // "any" → keep it up across crashes, but not after an explicit operator stop.
   return { Name: "unless-stopped" };
 }

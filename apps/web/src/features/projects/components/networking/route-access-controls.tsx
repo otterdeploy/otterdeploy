@@ -16,10 +16,11 @@
 
 import { useState } from "react";
 
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";
+import { Input } from "@/shared/components/ui/input";
 import { orpc } from "@/shared/server/orpc";
 
 import { GuestsSection } from "./route-access-guests";
@@ -40,12 +41,115 @@ export function RouteAccessControls({ routeId }: { routeId: string }) {
         <GuestsSection routeId={routeId} />
       </div>
       <div className="py-5">
+        <PinSection routeId={routeId} />
+      </div>
+      <div className="py-5">
         <ShareLinkSection routeId={routeId} />
       </div>
       <div className="pt-5">
         <BypassTokenSection routeId={routeId} />
       </div>
     </div>
+  );
+}
+
+const PIN_RE = /^\d{4,8}$/;
+
+/** Access PIN — one shared numeric code anyone on the wall can enter. Set /
+ *  rotate / remove; the PIN itself is write-only (never read back). */
+function PinSection({ routeId }: { routeId: string }) {
+  const queryClient = useQueryClient();
+  const [pin, setPin] = useState("");
+  const [editing, setEditing] = useState(false);
+
+  const statusOptions = orpc.project.proxyRoute.accessPin.queryOptions({
+    input: { routeId: routeId as never },
+  });
+  const status = useQuery(statusOptions);
+  const enabled = status.data?.enabled ?? false;
+
+  const setAccessPin = useMutation({
+    ...orpc.project.proxyRoute.setAccessPin.mutationOptions(),
+    onSuccess: (res) => {
+      queryClient.setQueryData(statusOptions.queryKey, res);
+      setPin("");
+      setEditing(false);
+      toast.success(res.enabled ? "Access PIN saved" : "Access PIN removed");
+    },
+    onError: (err) => toast.error(err.message ?? "Failed to update PIN"),
+  });
+
+  const pinValid = PIN_RE.test(pin);
+  const showPinError = pin.length > 0 && !pinValid;
+  const save = () => {
+    if (!pinValid) return;
+    setAccessPin.mutate({ routeId: routeId as never, pin });
+  };
+  const cancel = () => {
+    setPin("");
+    setEditing(false);
+  };
+
+  return (
+    <section className="flex flex-col gap-3">
+      <SectionHeader
+        title="Access PIN"
+        hint="One shared numeric code (4–8 digits) anyone can enter on the wall. Rotating or removing it signs every PIN session out."
+      />
+      {enabled && !editing ? (
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[12.5px] text-muted-foreground">••••••</span>
+          <span className="text-[11.5px] text-muted-foreground">PIN is set</span>
+          <Button size="sm" variant="outline" className="h-8" onClick={() => setEditing(true)}>
+            Rotate
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 text-muted-foreground hover:text-destructive"
+            disabled={setAccessPin.isPending}
+            onClick={() => setAccessPin.mutate({ routeId: routeId as never, pin: null })}
+          >
+            Remove
+          </Button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-2">
+            <Input
+              value={pin}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 8))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") save();
+                if (e.key === "Escape") cancel();
+              }}
+              inputMode="numeric"
+              placeholder="e.g. 482913"
+              aria-invalid={showPinError}
+              className="h-8 w-40 font-mono text-[12.5px] tracking-[0.2em]"
+              autoComplete="off"
+              spellCheck={false}
+            />
+            <Button
+              size="sm"
+              className="h-8"
+              disabled={!pinValid || setAccessPin.isPending}
+              onClick={save}
+            >
+              {enabled ? "Save new PIN" : "Set PIN"}
+            </Button>
+            {editing ? (
+              <Button size="sm" variant="ghost" className="h-8" onClick={cancel}>
+                Cancel
+              </Button>
+            ) : null}
+          </div>
+          {showPinError ? (
+            <p className="text-[11.5px] text-destructive">PIN must be 4–8 digits.</p>
+          ) : null}
+        </div>
+      )}
+    </section>
   );
 }
 

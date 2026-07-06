@@ -65,6 +65,21 @@ export async function loadRefTable(projectId: ProjectId): Promise<RefTable> {
   return { databases, services };
 }
 
+/**
+ * Diff-time companion to {@link resolveEnv}: resolve one declared env value
+ * the way the write path will, or null when it can't be (missing resource,
+ * unsupported ref, `${secret}`). The diff compares this against the stored
+ * row — apply writes RESOLVED values, so comparing raw ref text guaranteed a
+ * permanent phantom "update".
+ */
+export function makeEnvRefResolver(refs: RefTable): (raw: string) => string | null {
+  return (raw) => {
+    if (isSecretSentinel(raw)) return null;
+    const substituted = interpolate(raw, refs);
+    return substituted.unresolved.length > 0 ? null : substituted.value;
+  };
+}
+
 export function resolveEnv(
   serviceName: string,
   desired: Record<string, string> | undefined,

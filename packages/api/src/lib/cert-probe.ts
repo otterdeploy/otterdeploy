@@ -73,9 +73,12 @@ function connectAndRead(opts: {
         timeout: opts.timeoutMs,
       },
       () => {
-        // `false` = the leaf's own fields (we don't walk the chain). Cast to
-        // our structural subset so the rest of the module is socket-free.
-        const cert = socket.getPeerCertificate(false) as unknown as RawCert;
+        // `true` (detailed) is required: under Bun the abbreviated form
+        // (`getPeerCertificate(false)`) returns an EMPTY object, which made
+        // every probe report "no certificate presented" even when the edge
+        // served a valid cert. We still only read the leaf's own fields. Cast
+        // to our structural subset so the rest of the module is socket-free.
+        const cert = socket.getPeerCertificate(true) as unknown as RawCert;
         socket.end();
         const present = cert && Object.keys(cert).length > 0;
         done({

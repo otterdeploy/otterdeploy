@@ -44,8 +44,9 @@ interface ComposeResourcePanelProps {
     latestDeploymentStatus:
       | "pending"
       | "building"
+      | "starting"
       | "running"
-      | "crashing"
+      | "crashed"
       | "failed"
       | "superseded"
       | "removed"

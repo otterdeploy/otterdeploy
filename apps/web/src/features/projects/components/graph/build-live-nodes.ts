@@ -54,10 +54,11 @@ const withReplicas = (node: LiveNode, tasks: Task[]): LiveNode =>
 const childServiceStatus = (child: ServiceResource, tasks: Task[]): StackServiceStatus => {
   if (tasks.length > 0) return rollupStatus(tasks) as StackServiceStatus;
   switch (child.latestDeploymentStatus) {
+    case "starting":
     case "building":
     case "pending":
       return "building";
-    case "crashing":
+    case "crashed":
     case "failed":
       return "error";
     case "running":

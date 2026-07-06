@@ -65,6 +65,8 @@ export {
   getGlobalCaddyOptions,
   getProjectCaddyfile,
   getProjectCustomCaddyConfig,
+  getRouteAccessPin,
+  setRouteAccessPin,
   listProjectCertificates,
   saveProjectCustomCaddyConfig,
   setProxyRouteDirectives,

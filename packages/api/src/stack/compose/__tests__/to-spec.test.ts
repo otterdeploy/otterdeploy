@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { parseCompose } from "../parse";
 import { composeServiceToSpec, durationMs } from "../to-spec";

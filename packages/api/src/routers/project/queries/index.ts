@@ -14,6 +14,7 @@ export {
   getProjectBySlugInOrg,
   getProjectInOrg,
   getProjectRecord,
+  getRouteInOrg,
   listProjectRecordsByOrg,
   listServiceResourceRefsByOrg,
   loadProjectEnvBag,

@@ -2,6 +2,7 @@ import { matchError } from "better-result";
 
 import { orgScopedProcedure, requirePermission } from "../..";
 import { createServer, deleteServer, getServer, listServers } from "./handlers";
+import { getServerHealth } from "./health";
 import { getSwarmJoinTokens } from "./join-tokens";
 import { getServerStats } from "./stats";
 
@@ -59,6 +60,10 @@ export const serverRouter = {
 
   stats: orgScopedProcedure.server.stats.handler(async ({ context }) => {
     return getServerStats({ organizationId: context.activeOrganizationId });
+  }),
+
+  health: orgScopedProcedure.server.health.handler(async ({ context }) => {
+    return getServerHealth({ organizationId: context.activeOrganizationId });
   }),
 
   joinTokens: orgScopedProcedure.server.joinTokens.handler(async () => {

@@ -4,7 +4,7 @@
  * out of compose-wizard.tsx to keep that file under the line caps.
  */
 
-import type { ProjectSlug } from "@otterdeploy/shared/id";
+import type { ProjectId, ProjectSlug } from "@otterdeploy/shared/id";
 
 import { Upload01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";

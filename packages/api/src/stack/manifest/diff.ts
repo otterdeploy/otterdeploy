@@ -101,14 +101,41 @@ export interface CurrentState {
 
 // ── Diff entry point ───────────────────────────────────────────────────
 
-export function diffManifest(manifest: Manifest, current: CurrentState): Change[] {
+export interface DiffOptions {
+  /**
+   * Resolve `${database:…}` / `${service:…}` refs in declared env values the
+   * same way apply's write path will (null = unresolvable). Apply stores the
+   * RESOLVED value in the env rows, so without this a declared ref never
+   * text-matches its row — a phantom "update" that survived every apply.
+   */
+  resolveEnvValue?: (raw: string) => string | null;
+}
+
+/**
+ * A declared env map, normalized for the declared-only convention: `undefined`
+ * OR an empty `{}` both mean "live-managed" — the env editor owns the keys and
+ * the diff/apply must not touch them. Nobody writes `env: {}` to mean "wipe
+ * everything"; historically it just marked "no env declared at create time",
+ * and treating it as authoritative staged a delete for every live-added var.
+ */
+export function declaredEnvOf(
+  env: Record<string, string> | undefined,
+): Record<string, string> | undefined {
+  return env !== undefined && Object.keys(env).length > 0 ? env : undefined;
+}
+
+export function diffManifest(
+  manifest: Manifest,
+  current: CurrentState,
+  opts: DiffOptions = {},
+): Change[] {
   const changes: Change[] = [];
 
   diffNamedMap({
     desired: manifest.services,
     current: current.services,
     kind: "service",
-    cmp: diffService,
+    cmp: (name, desired, existing) => diffService(name, desired, existing, opts),
     create: (name, desired) => ({
       kind: "create",
       resource: "service",
@@ -121,7 +148,7 @@ export function diffManifest(manifest: Manifest, current: CurrentState): Change[
     desired: manifest.databases,
     current: current.databases,
     kind: "database",
-    cmp: diffDatabase,
+    cmp: (name, desired, existing) => diffDatabase(name, desired, existing, opts),
     create: (name, desired) => ({
       kind: "create",
       resource: "database",
@@ -206,7 +233,12 @@ function diffNamedMap<TDesired, TCurrent>({
 
 // ── Service diff ───────────────────────────────────────────────────────
 
-function diffService(name: string, desired: ServiceManifest, current: CurrentService): Change[] {
+function diffService(
+  name: string,
+  desired: ServiceManifest,
+  current: CurrentService,
+  opts: DiffOptions,
+): Change[] {
   // Discriminator change → represent as delete+create. The reconciler will
   // execute them in that order to avoid a hybrid intermediate state.
   if (desired.source !== current.source) {
@@ -223,7 +255,13 @@ function diffService(name: string, desired: ServiceManifest, current: CurrentSer
 
   const fieldChanges = diffServiceFields(desired, current);
 
-  const envChanges = diffEnv(desired.env ?? {}, current.env);
+  // Declared-only, same convention as database extraEnv: an absent (or empty)
+  // env map means the live env editor owns the keys. Diffing it as `{}` staged
+  // a phantom delete for EVERY live-added var — for a service whose vars were
+  // set post-create, that was the entire env, pending forever.
+  const declaredEnv = declaredEnvOf(desired.env);
+  const envChanges =
+    declaredEnv === undefined ? [] : diffEnv(declaredEnv, current.env, opts.resolveEnvValue);
   const out: Change[] = [];
 
   if (Object.keys(fieldChanges).length > 0) {
@@ -236,8 +274,9 @@ function diffService(name: string, desired: ServiceManifest, current: CurrentSer
       resource: "env",
       name: `${name}.${change.key}`,
       // parent/key let the UI attach the env row to the owning resource
-      // without re-parsing the dotted name (keys may themselves contain dots).
-      details: { ...change.details, parent: "service", key: change.key },
+      // without re-parsing the dotted name (keys may themselves contain dots);
+      // owner lets the reconciler group env changes under their resource.
+      details: { ...change.details, parent: "service", key: change.key, owner: name },
     });
   }
 
@@ -249,7 +288,12 @@ function diffService(name: string, desired: ServiceManifest, current: CurrentSer
 
 // ── Database diff ──────────────────────────────────────────────────────
 
-function diffDatabase(name: string, desired: DatabaseManifest, current: CurrentDatabase): Change[] {
+function diffDatabase(
+  name: string,
+  desired: DatabaseManifest,
+  current: CurrentDatabase,
+  opts: DiffOptions,
+): Change[] {
   if (desired.engine !== current.engine) {
     return [
       { kind: "delete", resource: "database", name, details: { reason: "engine-changed" } },
@@ -277,7 +321,9 @@ function diffDatabase(name: string, desired: DatabaseManifest, current: CurrentD
   // stage a phantom delete for every live-added key — and Apply wiped them
   // (rolling the container for good measure).
   const envChanges =
-    desired.extraEnv === undefined ? [] : diffEnv(desired.extraEnv, current.extraEnv);
+    desired.extraEnv === undefined
+      ? []
+      : diffEnv(desired.extraEnv, current.extraEnv, opts.resolveEnvValue);
   const out: Change[] = [];
 
   if (Object.keys(fieldChanges).length > 0) {
@@ -294,7 +340,7 @@ function diffDatabase(name: string, desired: DatabaseManifest, current: CurrentD
       kind: change.action,
       resource: "env",
       name: `${name}.${change.key}`,
-      details: { ...change.details, parent: "database", key: change.key },
+      details: { ...change.details, parent: "database", key: change.key, owner: name },
     });
   }
 

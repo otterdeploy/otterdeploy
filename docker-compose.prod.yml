@@ -87,6 +87,13 @@ services:
       # setup; in this compose the server is a container, so point Caddy at its
       # service DNS on the shared network or forward_auth times out → 502.
       DEPLOY_AUTHZ_UPSTREAM: server:3000
+      # Where Caddy streams structured access/operational logs (`log { output
+      # net … }` in the reconciled Caddyfile). Unset ⇒ NO log blocks are
+      # emitted and the Edge Logs page stays permanently empty. Same
+      # container-vs-host story as DEPLOY_AUTHZ_UPSTREAM: the sink listens
+      # inside the server container (EDGE_LOG_PORT, default 9100), Caddy
+      # reaches it by service DNS on the shared network.
+      EDGE_LOG_SINK: server:9100
     volumes:
       # Drive the HOST Docker daemon — this is how the runtime() driver
       # provisions services/databases/compose stacks.

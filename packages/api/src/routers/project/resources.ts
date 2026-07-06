@@ -6,7 +6,10 @@
 
 import type { RequestLogger } from "evlog";
 
+import { DATA_ROOT, volumeDir } from "@otterdeploy/shared/paths";
 import { Result } from "better-result";
+import { rm } from "node:fs/promises";
+import { join } from "node:path";
 
 import type { ProjectRef, ResourceRef } from "../scopes";
 
@@ -117,6 +120,67 @@ export async function getProjectResource(
   }
 }
 
+/**
+ * Tear down everything a deleted SERVICE leaves behind on the host. Delete used
+ * to remove only DB rows + Caddy routes, which orphaned the running container
+ * and leaked the built images (~2GB per commit sha), the buildx layer cache,
+ * and the resource's volumes on disk. Every step is BEST-EFFORT: the DB rows are
+ * the source of truth and are removed regardless, so a cleanup hiccup (a stopped
+ * daemon, a missing dir) must never block the delete.
+ */
+async function teardownServiceRuntime(
+  serviceName: string,
+  ref: ResourceRef,
+  log: RequestLogger,
+): Promise<void> {
+  // Lazy-imported: both transitively load @otterdeploy/env/server, which
+  // validates env at module load — keep that out of resources.ts's import graph
+  // so unit tests (and any env-less caller) can import this module freely.
+  const { runtime } = await import("../../runtime");
+  const { Docker } = await import("@otterdeploy/docker");
+
+  // 1. Stop + remove the running container / swarm service.
+  await runtime()
+    .destroy({ serviceName }, log)
+    .catch(() => undefined);
+
+  // 2. Remove the built images for this service — every tag (`:latest` + one
+  //    per built sha). Only the local build repo; externally-pulled images
+  //    (image-source services) are shared and left untouched.
+  const repo = `otterdeploy-local/${serviceName.toLowerCase()}`;
+  const docker = Docker.fromEnv();
+  try {
+    const listed = await docker.images.list({ all: false });
+    if (listed.isOk()) {
+      const ids = new Set(
+        listed.value
+          .filter((img) => (img.RepoTags ?? []).some((t) => t.startsWith(`${repo}:`)))
+          .map((img) => img.Id),
+      );
+      for (const id of ids) {
+        await docker.images
+          .getImage(id)
+          .remove({ force: true })
+          .catch(() => undefined);
+      }
+    }
+  } finally {
+    docker.destroy();
+  }
+
+  // 3. Remove this repo's persistent buildx layer-cache dir (path derived the
+  //    same way the builder's `cachePathFor` does: unsafe chars → `_`).
+  const cacheKey = repo.replace(/[^A-Za-z0-9_.-]+/g, "_");
+  await rm(join(DATA_ROOT, "buildx-cache", cacheKey), { recursive: true, force: true }).catch(
+    () => undefined,
+  );
+
+  // 4. Remove the resource's volume dir (bind-mounted service volumes live here).
+  await rm(volumeDir(ref.projectId, ref.resourceId), { recursive: true, force: true }).catch(
+    () => undefined,
+  );
+}
+
 export async function deleteProjectResource(
   input: ResourceRef,
   log: RequestLogger,
@@ -164,9 +228,9 @@ export async function deleteProjectResource(
       break;
     }
     case "service": {
-      // No Swarm teardown for services yet — deployment path not wired.
-      // The row delete cascades to service_resource + ports + env vars via
-      // the schema's onDelete: cascade.
+      // The row delete cascades to service_resource + ports + env vars via the
+      // schema's onDelete: cascade; teardownServiceRuntime reclaims the host
+      // side (container, built images, buildx cache, volumes).
       log.set({
         resource: {
           kind: "service",
@@ -175,8 +239,11 @@ export async function deleteProjectResource(
         },
       });
       await deleteProxyRoutesByResource(input.resourceId);
+      await teardownServiceRuntime(found.record.service.serviceName, input, log);
       await deleteResourceById(input.resourceId);
-      log.set({ teardown: { proxyRoutesRemoved: true, dbDeleted: true } });
+      log.set({
+        teardown: { proxyRoutesRemoved: true, runtimeDestroyed: true, dbDeleted: true },
+      });
       break;
     }
   }

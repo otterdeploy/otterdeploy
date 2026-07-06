@@ -79,7 +79,9 @@ const branchPoolSchema = z.object({
   suggestGrowBytes: z.number().nullable(),
 });
 
-const hostHealthSchema = z.object({
+// Exported for the server router: per-node health entries (server.health)
+// carry the same HostHealth shape, as reported by the health agents.
+export const hostHealthSchema = z.object({
   memory: z.object({
     totalBytes: z.number(),
     availableBytes: z.number(),

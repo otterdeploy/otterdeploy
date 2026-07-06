@@ -1,4 +1,9 @@
-import type { EnvironmentId, OrganizationId, ProjectId } from "@otterdeploy/shared/id";
+import type {
+  EnvironmentId,
+  OrganizationId,
+  ProjectId,
+  ProxyRouteId,
+} from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import {
@@ -13,6 +18,8 @@ import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { createError } from "evlog";
 
 import { proxyRoute } from "@otterdeploy/db/schema/proxy-route";
+
+import { getProxyRouteById } from "../../../caddy/queries";
 
 export async function listProjectRecordsByOrg(organizationId: OrganizationId) {
   return db
@@ -80,6 +87,17 @@ export async function getProjectInOrg(input: {
     .where(and(eq(project.id, input.projectId), eq(project.organizationId, input.organizationId)))
     .limit(1);
   return record;
+}
+
+/** Load a proxy route and verify it belongs to a project in the caller's
+ *  org. Centralizes the auth check for every protection mutation; returns
+ *  null for both "missing" and "other org" so existence never leaks. */
+export async function getRouteInOrg(routeId: ProxyRouteId, organizationId: OrganizationId) {
+  const route = await getProxyRouteById(routeId);
+  if (!route) return null;
+  const proj = await getProjectInOrg({ projectId: route.projectId, organizationId });
+  if (!proj) return null;
+  return route;
 }
 
 export async function getProjectById(projectId: ProjectId) {

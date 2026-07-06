@@ -64,3 +64,30 @@ export const server = pgTable(
     uniqueIndex("server_org_host_unique").on(table.organizationId, table.host),
   ],
 );
+
+// Latest host-health snapshot per server — the "separate metrics path" the
+// server-table note reserves. One row per server, UPSERTED in place (no
+// history; platform_metric keeps local-host series). Written by the health
+// agent's ingest route for remote swarm nodes and by the control plane's own
+// 60s sampler for the bootstrap localhost row(s). `payload` is the HostHealth
+// shape as reported; staleness is judged on receivedAt (our clock — agent
+// clocks may skew). Design: docs/designs/server-health-agent.md
+export const serverHealthSample = pgTable(
+  "server_health_sample",
+  {
+    serverId: text("server_id")
+      .primaryKey()
+      .$type<ServerId>()
+      .references(() => server.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    // Hostname as CLAIMED by the reporter — kept for attribution audit even
+    // though the row is already matched to a server.
+    hostname: text("hostname"),
+    payload: jsonb("payload").notNull(),
+    sampledAt: timestamp("sampled_at").notNull(),
+    receivedAt: timestamp("received_at").defaultNow().notNull(),
+  },
+  (table) => [index("server_health_sample_org_idx").on(table.organizationId)],
+);

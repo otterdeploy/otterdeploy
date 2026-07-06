@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { diffManifest, type CurrentState } from "../diff";
 import { manifestSchema, type Manifest } from "../schema";
@@ -168,7 +168,7 @@ describe("diffManifest", () => {
       kind: "update",
       resource: "env",
       name: "web.LOG_LEVEL",
-      details: { from: "info", to: "warn", parent: "service", key: "LOG_LEVEL" },
+      details: { from: "info", to: "warn", parent: "service", key: "LOG_LEVEL", owner: "web" },
     });
     // ${secret} declared but missing server-side → create with a note
     expect(changes).toContainEqual({
@@ -180,6 +180,7 @@ describe("diffManifest", () => {
         note: expect.stringContaining("declared as ${secret}"),
         parent: "service",
         key: "DATABASE_URL",
+        owner: "web",
       },
     });
     // unmanaged DEPRECATED key should be planned for deletion
@@ -187,7 +188,7 @@ describe("diffManifest", () => {
       kind: "delete",
       resource: "env",
       name: "web.DEPRECATED",
-      details: { parent: "service", key: "DEPRECATED" },
+      details: { parent: "service", key: "DEPRECATED", owner: "web" },
     });
   });
 
@@ -390,7 +391,150 @@ describe("diffDatabase declared-only fields", () => {
       kind: "delete",
       resource: "env",
       name: "primary.DROP",
-      details: { parent: "database", key: "DROP" },
+      details: { parent: "database", key: "DROP", owner: "primary" },
+    });
+  });
+});
+
+// ── Declared-only convention: live-managed service fields/env ──────────────
+//
+// A field or env map the manifest OMITS is live-managed — the panels/env
+// editor own it and the diff must not stage phantom changes for it. These
+// are regressions from the "un-appliable diff" class: the diff staged
+// changes apply's patch builders never carried, so the pending bar showed
+// (and re-showed) work that could never complete.
+describe("declared-only service fields and env", () => {
+  function liveService(
+    over: Partial<CurrentState["services"][string]> = {},
+  ): CurrentState {
+    return {
+      services: {
+        web: {
+          name: "web",
+          source: "image",
+          image: "ghcr.io/acme/api:1.0.0",
+          sourceSubdir: null,
+          repo: null,
+          branch: null,
+          imageRepository: null,
+          replicas: 1,
+          command: null,
+          entrypoint: null,
+          ports: [],
+          env: {},
+          publicEnabled: false,
+          previewsEnabled: false,
+          preDeploy: null,
+          postDeploy: null,
+          buildConfig: null,
+          restartWindowMs: null,
+          diskLimitMb: null,
+          swapLimitMb: null,
+          pidsLimit: null,
+          ...over,
+        },
+      },
+      databases: {},
+      composes: {},
+    };
+  }
+
+  const bare = manifest({
+    project: "acme-api",
+    services: { web: { source: "image", image: "ghcr.io/acme/api:1.0.0" } },
+  });
+
+  it("stages no env deletes when the manifest omits env (live-managed vars)", () => {
+    const changes = diffManifest(
+      bare,
+      liveService({ env: { DATABASE_URL: "x", RESEND_API_KEY: "y" } }),
+    );
+    expect(changes).toEqual([{ kind: "no-op", resource: "service", name: "web" }]);
+  });
+
+  it("treats an empty declared env map ({}) as live-managed too", () => {
+    const m = manifest({
+      project: "acme-api",
+      services: { web: { source: "image", image: "ghcr.io/acme/api:1.0.0", env: {} } },
+    });
+    const changes = diffManifest(m, liveService({ env: { LIVE_ADDED: "x" } }));
+    expect(changes).toEqual([{ kind: "no-op", resource: "service", name: "web" }]);
+  });
+
+  it("skips live-managed scalar fields the manifest omits", () => {
+    const changes = diffManifest(
+      bare,
+      liveService({
+        replicas: 3,
+        command: ["bun", "start"],
+        entrypoint: ["/entry.sh"],
+        ports: [{ containerPort: 3000, protocol: "tcp", appProtocol: "http", isPrimary: true }],
+        preDeploy: ["bun run migrate"],
+        postDeploy: ["bun run seed"],
+        restartWindowMs: 60_000,
+        diskLimitMb: 1024,
+        swapLimitMb: 512,
+        pidsLimit: 100,
+        sourceSubdir: "apps/web",
+      }),
+    );
+    expect(changes).toEqual([{ kind: "no-op", resource: "service", name: "web" }]);
+  });
+
+  it("still diffs fields the manifest declares", () => {
+    const m = manifest({
+      project: "acme-api",
+      services: { web: { source: "image", image: "ghcr.io/acme/api:1.0.0", replicas: 1 } },
+    });
+    const changes = diffManifest(m, liveService({ replicas: 3 }));
+    expect(changes).toEqual([
+      {
+        kind: "update",
+        resource: "service",
+        name: "web",
+        details: { fields: { replicas: { from: 3, to: 1 } } },
+      },
+    ]);
+  });
+
+  it("resolves declared env refs before comparing (no phantom update)", () => {
+    const m = manifest({
+      project: "acme-api",
+      services: {
+        web: {
+          source: "image",
+          image: "ghcr.io/acme/api:1.0.0",
+          env: { DATABASE_URL: "${database:primary.url}" },
+        },
+      },
+      databases: { primary: { engine: "postgres" } },
+    });
+    const current = liveService({ env: { DATABASE_URL: "postgres://real-url" } });
+    current.databases = {
+      primary: { name: "primary", engine: "postgres", publicEnabled: false, extraEnv: {} },
+    };
+    // Apply stores the RESOLVED value — the resolver makes the diff compare
+    // what apply would write, so a satisfied ref is a no-op…
+    const resolveEnvValue = (raw: string) =>
+      raw === "${database:primary.url}" ? "postgres://real-url" : null;
+    expect(diffManifest(m, current, { resolveEnvValue })).toEqual([
+      { kind: "no-op", resource: "service", name: "web" },
+      { kind: "no-op", resource: "database", name: "primary" },
+    ]);
+    // …and a ref whose target changed stages a real update.
+    const changed = (raw: string) =>
+      raw === "${database:primary.url}" ? "postgres://other-url" : null;
+    expect(diffManifest(m, current, { resolveEnvValue: changed })).toContainEqual({
+      kind: "update",
+      resource: "env",
+      name: "web.DATABASE_URL",
+      details: {
+        from: "postgres://real-url",
+        to: "${database:primary.url}",
+        parent: "service",
+        key: "DATABASE_URL",
+        owner: "web",
+      },
     });
   });
 });

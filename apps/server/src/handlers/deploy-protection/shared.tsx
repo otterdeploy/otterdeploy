@@ -17,11 +17,23 @@ import { ErrorPage } from "./ui/frame";
 export const SESSION_COOKIE = "__otter_auth";
 export const GUEST_COOKIE = "__otter_guest";
 export const SHARE_COOKIE = "__otter_share";
+export const PIN_COOKIE = "__otter_pin";
 export const BYPASS_HEADER = "x-otter-bypass";
 
 export const SESSION_COOKIE_MAX_AGE = 60 * 60; // 1h — matches the session token TTL
 export const GUEST_COOKIE_MAX_AGE = 30 * 24 * 60 * 60; // bounded; real expiry is the token's own exp
 export const SHARE_COOKIE_MAX_AGE = 7 * 24 * 60 * 60; // bounded; real expiry is the token's own exp
+// A day per correct PIN entry; rotating/removing the PIN revokes sooner (the
+// cookie is bound to a fingerprint of the hash it was minted against).
+export const PIN_COOKIE_MAX_AGE = 24 * 60 * 60;
+
+/** Best-effort client IP for rate limiting: first X-Forwarded-For hop (Caddy
+ *  always sets it on proxied requests); a fixed bucket when absent so direct
+ *  hits still share one limiter rather than bypassing it. */
+export function clientIpOf(c: Context): string {
+  const xff = c.req.header("x-forwarded-for");
+  return xff?.split(",")[0]?.trim() || "unknown";
+}
 
 /** Web app base, for the login redirect. The auth *authority* (getSession)
  *  is BETTER_AUTH_URL; the login UI is the web app. */

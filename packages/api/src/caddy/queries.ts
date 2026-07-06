@@ -185,6 +185,7 @@ export async function updateProxyRoute(
     dnsState: "pointed" | "proxied" | "unpointed" | "unknown";
     dnsCheckedAt: Date | null;
     customDirectives: string | null;
+    accessPinHash: string | null;
   }>,
 ): Promise<ProxyRouteRecord | undefined> {
   const [record] = await db

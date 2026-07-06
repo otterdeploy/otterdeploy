@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 // The dispatcher is pure routing; each event handler is its own module. Mock
 // them so we assert only the routing (event → handler, payload/delivery passed

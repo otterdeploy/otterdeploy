@@ -10,10 +10,16 @@ import { Result } from "better-result";
 
 import type { ProjectNotFoundError } from "../project/errors";
 
+import { syncManifestServiceEnv } from "../project/manifest";
 import { loadResource } from "./context";
 import { ServiceNotFoundError, type ResolveError } from "./errors";
 import { type ResourceRef } from "./inputs";
-import { bulkReplaceServiceEnvVars, deleteServiceEnvVar, upsertServiceEnvVar } from "./queries";
+import {
+  bulkReplaceServiceEnvVars,
+  deleteServiceEnvVar,
+  listServiceEnvVars,
+  upsertServiceEnvVar,
+} from "./queries";
 import { redeployAndFanOut } from "./redeploy";
 import { mapEnvVar, type EnvVarView } from "./views";
 
@@ -68,6 +74,27 @@ export async function unsetEnv(
   if (redeployed.isErr()) return Result.err(redeployed.error);
 
   return Result.ok({ ok: true });
+}
+
+/**
+ * Keep the saved manifest truthful after a LIVE env edit (variables tab, CLI
+ * `env set`) — patches a declared env map to the applied rows so the next
+ * diff doesn't stage phantom deletes, or resurrect a deleted var on Apply.
+ *
+ * Called from the ROUTER endpoints only, never from the manifest reconciler's
+ * own bulkSetEnv path: apply writes ref-RESOLVED values and skips unset
+ * `${secret}` keys, so syncing from inside apply would destroy those
+ * declarations. Best-effort — a failure must never fail the env mutation.
+ */
+export async function syncManifestEnvAfterLiveEdit(input: ResourceRef): Promise<void> {
+  const ctx = await loadResource(input);
+  if (ctx.isErr()) return;
+  const rows = await listServiceEnvVars(input.resourceId);
+  await syncManifestServiceEnv(
+    { projectId: input.projectId, organizationId: input.organizationId },
+    ctx.value.record.resource.name,
+    Object.fromEntries(rows.map((r) => [r.key, r.value])),
+  );
 }
 
 export async function bulkSetEnv(

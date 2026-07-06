@@ -4,7 +4,7 @@
  * cutoff, and the storage ceiling get a case — plus the no-policy guard that
  * must never prune.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { selectBackupsToPrune } from "../retention";
 

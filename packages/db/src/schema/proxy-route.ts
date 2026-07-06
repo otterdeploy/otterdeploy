@@ -113,6 +113,13 @@ export const proxyRoute = pgTable(
     // authorizing org is derived from projectId → project.organizationId.
     // See docs/designs/deployment-protection.md.
     protected: boolean("protected").notNull().default(false),
+    // Optional access PIN for the auth wall (NetBird-style): an argon2 hash
+    // of a short numeric code anyone can enter on the wall page — no org
+    // account or email invite needed. Null = the PIN method is off. Only
+    // meaningful while `protected` is true. The plaintext PIN is never
+    // stored and never leaves the set mutation; the route contract omits
+    // this column so the hash can't reach a client.
+    accessPinHash: text("access_pin_hash"),
     // Operator-authored Caddy directives spliced INSIDE this route's site
     // block (e.g. `header`, `encode`, `rate_limit`, `basic_auth`). Only used
     // for http routes. Validated as part of the project's fragment via Caddy

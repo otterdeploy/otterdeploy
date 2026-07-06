@@ -10,7 +10,11 @@ import { startDataFolderSweep } from "@otterdeploy/api/lib/data-folder-sweep";
 import { startMetricsSampler } from "@otterdeploy/api/metrics";
 import { startAuditAnomalyScan } from "@otterdeploy/api/notifications/audit-anomaly";
 import { startBlocklistScheduler } from "@otterdeploy/api/routers/firewall/scheduler";
-import { startHostHealthMonitor } from "@otterdeploy/api/system-health";
+import {
+  startHealthAgentReconciler,
+  startHostHealthMonitor,
+  startLocalHealthSampler,
+} from "@otterdeploy/api/system-health";
 import { log } from "evlog";
 
 export function startBackgroundServices(): () => void {
@@ -31,8 +35,15 @@ export function startBackgroundServices(): () => void {
 
   // Host-health monitor — samples server memory/disk/docker usage every 5m,
   // records the platform_metric series, and emits host.pressure notifications
-  // when thresholds are crossed (Instance page "Server health" card).
+  // when thresholds are crossed.
   start("host-health-monitor", startHostHealthMonitor);
+
+  // Per-server health (docs/designs/server-health-agent.md): the local 60s
+  // sampler upserts this machine's snapshot into server_health_sample (feeds
+  // the Servers page rows); the reconciler — swarm runtime only — keeps the
+  // global health-agent service deployed so every node reports the same way.
+  start("local-health-sampler", startLocalHealthSampler);
+  start("health-agent-reconciler", startHealthAgentReconciler);
 
   // Ephemeral DB credential sweeper — disposes expired short-lived database
   // roles (terminate sessions + DROP ROLE) every minute. Postgres's own

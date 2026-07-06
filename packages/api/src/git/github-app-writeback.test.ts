@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 // The write-back helpers mint a real App JWT (crypto.subtle) before hitting the
 // network, so the config loader must return a genuine PKCS8 key — generated

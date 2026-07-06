@@ -52,7 +52,12 @@ export const deployAccessHandler: Handler = guard(async (c) => {
   authorize.searchParams.set("return", returnPath);
 
   return c.html(
-    <AccessWall domain={host} returnPath={returnPath} orgAuthorizeUrl={authorize.toString()} />,
+    <AccessWall
+      domain={host}
+      returnPath={returnPath}
+      orgAuthorizeUrl={authorize.toString()}
+      hasPin={org.accessPinHash !== null}
+    />,
   );
 }, serverError);
 
