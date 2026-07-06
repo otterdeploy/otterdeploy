@@ -4,12 +4,13 @@
  * manifest path in manifest-reconcile.ts. See docs/designs/compose.md.
  */
 import type { ComposeServiceSummary } from "@otterdeploy/shared/compose";
-import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { GitRepoId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { Result } from "better-result";
 
 import { fetchBranchHeadSha } from "../../git/github-app";
+import { resolveRepoCloneBinding } from "../../git/repo-binding";
 import { parseCompose, summarizeCompose } from "../../stack/compose";
 import { getProjectInOrg, upsertProjectEnvVar } from "../project/queries";
 import { isUniqueViolation } from "../project/views";
@@ -25,9 +26,11 @@ interface ComposeCreateInput {
   name?: string;
   source: "inline" | "git";
   composeContent?: string;
+  gitRepoId?: string;
   gitRepoUrl?: string;
   gitRef?: string;
   composePath?: string;
+  sourceSubdir?: string;
   variables: Array<{ key: string; value: string; secret?: boolean }>;
   exposed: Array<{ service: string; port: number }>;
   deploy: boolean;
@@ -76,29 +79,56 @@ async function persistComposeVariables(
   }
 }
 
-/** Git source: build the stack from a public repo URL. */
+/** Git source: build the stack from a bound repo (private-capable via the
+ *  GitHub App installation) or, legacy, a pasted public URL. */
 async function createGitCompose(
   input: ComposeCreateInput,
   project: ComposeProject,
   exposed: ExposedSeed[],
 ): Promise<Result<ComposeCreateOutput, ComposeCreateFailure>> {
-  const gh = parseGitHubUrl(input.gitRepoUrl ?? "");
-  if (!gh) {
-    return Result.err(
-      invalid("Enter a public GitHub repo URL, e.g. https://github.com/owner/repo"),
-    );
+  // Prefer the bound repo (repo picker) — resolves owner/repo + installation so
+  // private repos clone with a token. Fall back to a pasted public URL.
+  let owner: string;
+  let repoName: string;
+  let cloneUrl: string;
+  let gitRepoId: string | null = null;
+  let installationId: string | null = null;
+
+  const boundRepoId = input.gitRepoId?.trim();
+  if (boundRepoId) {
+    const bound = await Result.tryPromise({
+      try: () => resolveRepoCloneBinding(boundRepoId as GitRepoId),
+      catch: (e) => (e instanceof Error ? e.message : String(e)),
+    });
+    if (bound.isErr()) return Result.err(invalid(bound.error));
+    owner = bound.value.owner;
+    repoName = bound.value.repo;
+    cloneUrl = bound.value.cloneUrl;
+    gitRepoId = bound.value.gitRepoId;
+    installationId = bound.value.githubInstallationId;
+  } else {
+    const gh = parseGitHubUrl(input.gitRepoUrl ?? "");
+    if (!gh) {
+      return Result.err(
+        invalid("Pick a repository, or enter a public GitHub URL like https://github.com/owner/repo"),
+      );
+    }
+    owner = gh.owner;
+    repoName = gh.repo;
+    cloneUrl = gh.cloneUrl;
   }
+
   // Name from the user, else the repo name.
-  const name = input.name?.trim() || gh.repo;
+  const name = input.name?.trim() || repoName;
   const stackName = stackNameFor(project.slug, name);
   const branch = input.gitRef?.trim() || "main";
   const shaRes = await Result.tryPromise({
-    try: () => fetchBranchHeadSha(null, gh.owner, gh.repo, branch),
+    try: () => fetchBranchHeadSha(installationId, owner, repoName, branch),
     catch: (e) => (e instanceof Error ? e.message : String(e)),
   });
   if (shaRes.isErr()) {
     return Result.err(
-      invalid(`Couldn't resolve ${branch} on ${gh.owner}/${gh.repo}: ${shaRes.error}`),
+      invalid(`Couldn't resolve ${branch} on ${owner}/${repoName}: ${shaRes.error}`),
     );
   }
   const ref = `refs/heads/${branch}`;
@@ -110,10 +140,12 @@ async function createGitCompose(
         name,
         source: "git",
         composeContent: null,
-        gitRepoUrl: gh.cloneUrl,
+        gitRepoId: gitRepoId as GitRepoId | null,
+        gitRepoUrl: cloneUrl,
         gitRef: ref,
         // null → the build worker auto-detects common compose file names.
         composePath: input.composePath?.trim() || null,
+        sourceSubdir: input.sourceSubdir?.trim() || null,
         stackName,
         services: [],
         exposed,
@@ -128,11 +160,11 @@ async function createGitCompose(
   await enqueueComposeBuild({
     projectId: input.projectId,
     resourceId: created.value.resource.id,
-    gitRepoUrl: gh.cloneUrl,
+    gitRepoUrl: cloneUrl,
     gitRef: ref,
-    // Compose stacks carry their own gitRepoUrl; the correlation id is
-    // logging-only and falls back to the resource id in build-trigger.
-    projectGitRepoId: null,
+    // Real binding id when picked (drives the private clone in the builder);
+    // null for a legacy public-URL stack.
+    gitRepoId: gitRepoId as GitRepoId | null,
     reason: "create",
     sha: shaRes.value,
   });

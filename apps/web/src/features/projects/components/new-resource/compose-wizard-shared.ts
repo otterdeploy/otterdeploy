@@ -35,9 +35,16 @@ export interface ComposeFormValues {
   name: string;
   source: "inline" | "git";
   content: string;
+  /** Bound repo id from the picker (private-capable). Preferred over gitRepoUrl. */
+  gitRepoId: string;
+  /** `owner/repo` for the bound repo — display only. */
+  repoFullName: string;
+  /** Legacy public-URL paste (used when no installation / no picked repo). */
   gitRepoUrl: string;
   gitRef: string;
   composePath: string;
+  /** Root directory within the repo the stack builds from. */
+  sourceSubdir: string;
   exposed: string[];
   variables: Var[];
 }
@@ -65,9 +72,12 @@ export function useComposeForm(onSubmit: (value: ComposeFormValues) => Promise<v
       name: "",
       source: "inline",
       content: "",
+      gitRepoId: "",
+      repoFullName: "",
       gitRepoUrl: "",
       gitRef: "",
       composePath: "",
+      sourceSubdir: "",
       exposed: [],
       variables: [],
     } as ComposeFormValues,

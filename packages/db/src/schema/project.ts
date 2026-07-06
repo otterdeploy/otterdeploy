@@ -562,6 +562,11 @@ export const composeResource = pgTable(
     // inline source: the raw compose YAML pasted by the user.
     composeContent: text("compose_content"),
     // git source: repo + path to the compose file (default ./compose.yml).
+    // gitRepoId binds a connected repo (like service_resource) so private repos
+    // clone with the GitHub App installation token; gitRepoUrl is the resolved
+    // clone URL (also the sole source for legacy public-URL stacks with no
+    // binding). A soft reference to git_repo.id (not an FK — mirrors services).
+    gitRepoId: text("git_repo_id").$type<GitRepoId>(),
     gitRepoUrl: text("git_repo_url"),
     gitRef: text("git_ref"),
     sourceSubdir: text("source_subdir"),

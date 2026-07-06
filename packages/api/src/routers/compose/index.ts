@@ -121,7 +121,8 @@ export const composeRouter = {
           resourceId: input.resourceId,
           gitRepoUrl: rec.compose.gitRepoUrl,
           gitRef: rec.compose.gitRef,
-          projectGitRepoId: null,
+          // The row's binding (if picked) → authenticated SHA + private clone.
+          gitRepoId: rec.compose.gitRepoId,
           reason: "redeploy",
         });
         return enq.isOk()

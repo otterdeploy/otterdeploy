@@ -322,9 +322,14 @@ const composeInlineSchema = z.object({
 
 const composeGitSchema = z.object({
   source: z.literal("git"),
-  gitRepoUrl: z.string().min(1),
+  // Bind by repo id (private-capable, from the repo picker) OR a raw public URL
+  // (legacy paste). At least one must be present; gitRepoId wins when both are.
+  gitRepoId: z.string().nullable().optional(),
+  gitRepoUrl: z.string().nullable().optional(),
   gitRef: z.string().nullable().optional(),
   composePath: z.string().nullable().optional(),
+  // Root directory within the repo the stack builds from.
+  sourceSubdir: z.string().nullable().optional(),
   env: composeEnvMap.optional(),
   exposed: z.array(composeExposedSchema).optional(),
 });
