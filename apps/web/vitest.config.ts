@@ -2,7 +2,7 @@ import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
 /// <reference types="vitest" />
 import path from "node:path";
-import { defineConfig } from "vitest/config";
+import { defineConfig } from "vite-plus";
 
 export default defineConfig({
   plugins: [tanstackRouter({ routeToken: "layout" }), react()],

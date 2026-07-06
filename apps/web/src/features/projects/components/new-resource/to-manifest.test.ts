@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import type { Port } from "./form-fields/ports-field";
 import type { Var } from "./form-fields/variables-field";

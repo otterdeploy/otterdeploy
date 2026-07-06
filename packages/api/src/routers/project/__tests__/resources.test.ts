@@ -1,6 +1,6 @@
 import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test, vi } from "vite-plus/test";
 
 // Stub the query layer the subject pulls from `./queries`. Each test sets the
 // per-call behaviour via `vi.mocked(...).mockResolvedValue(...)`.

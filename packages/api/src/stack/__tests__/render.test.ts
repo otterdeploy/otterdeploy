@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { STACK_FILE_SCHEMA_VERSION, stackFileSchema, type StackFile } from "../schema";
 

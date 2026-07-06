@@ -1,6 +1,6 @@
 import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 vi.mock("../../routers/service/queries", () => ({
   resolveResourceForEnv: vi.fn(),

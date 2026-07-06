@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, test } from "vitest";
+import { beforeAll, describe, expect, test } from "vite-plus/test";
 
 // HMAC key is derived from BETTER_AUTH_SECRET — set one before importing.
 beforeAll(() => {
