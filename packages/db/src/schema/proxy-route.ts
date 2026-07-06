@@ -1,4 +1,4 @@
-import type { ProjectId, ProxyRouteId, ResourceId } from "@otterdeploy/shared/id";
+import type { EnvironmentId, ProjectId, ProxyRouteId, ResourceId } from "@otterdeploy/shared/id";
 
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
 import {
@@ -12,7 +12,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
-import { project } from "./project";
+import { environment, project } from "./project";
 
 export const proxyRouteTypeEnum = pgEnum("proxy_route_type", ["http", "layer4"]);
 export const proxyRouteProtocolEnum = pgEnum("proxy_route_protocol", ["tcp", "http"]);
@@ -61,6 +61,13 @@ export const proxyRoute = pgTable(
       .$type<ProjectId>()
       .references(() => project.id, { onDelete: "cascade" }),
     resourceId: text("resource_id").$type<ResourceId>(),
+    // Set only on environment-scoped routes (PR preview hosts like
+    // `web-pr-13-<project>.<base>`). Null = the resource's base route, which
+    // every existing domain-management flow reads. Cascade wipes preview
+    // routes with their environment row even if teardown missed them.
+    environmentId: text("environment_id")
+      .$type<EnvironmentId>()
+      .references(() => environment.id, { onDelete: "cascade" }),
     type: proxyRouteTypeEnum("type").notNull(),
     domain: text("domain").notNull(),
     upstreamHost: text("upstream_host").notNull(),
@@ -123,5 +130,6 @@ export const proxyRoute = pgTable(
     uniqueIndex("proxy_route_domain_unique").on(table.domain),
     index("proxy_route_project_id_idx").on(table.projectId),
     index("proxy_route_resource_id_idx").on(table.resourceId),
+    index("proxy_route_environment_id_idx").on(table.environmentId),
   ],
 );

@@ -1,10 +1,10 @@
-import type { ProjectId, ProxyRouteId, ResourceId } from "@otterdeploy/shared/id";
+import type { EnvironmentId, ProjectId, ProxyRouteId, ResourceId } from "@otterdeploy/shared/id";
 import type { InferSelectModel } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
 import { project } from "@otterdeploy/db/schema/project";
 import { proxyRoute } from "@otterdeploy/db/schema/proxy-route";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, isNull } from "drizzle-orm";
 import { isNotNull } from "drizzle-orm";
 import { createError } from "evlog";
 export type ProxyRouteRecord = InferSelectModel<typeof proxyRoute>;
@@ -72,22 +72,41 @@ export async function getProxyRouteByResourceId(
   const [record] = await db
     .select()
     .from(proxyRoute)
-    .where(eq(proxyRoute.resourceId, resourceId))
+    .where(and(eq(proxyRoute.resourceId, resourceId), isNull(proxyRoute.environmentId)))
     .limit(1);
   return record;
 }
 
-/** All routes attached to a resource. A service can publish on several
- *  hosts now, so callers that manage the domain set (list/expose/unexpose)
- *  read every route, not just the first. Primary route sorts first. */
+/** All BASE routes attached to a resource (environment-scoped preview routes
+ *  are excluded — they're lifecycle-managed by the PR webhook, not the
+ *  domains card). A service can publish on several hosts now, so callers
+ *  that manage the domain set (list/expose/unexpose) read every route, not
+ *  just the first. Primary route sorts first. */
 export async function listProxyRoutesByResourceId(
   resourceId: ResourceId,
 ): Promise<ProxyRouteRecord[]> {
   return db
     .select()
     .from(proxyRoute)
-    .where(eq(proxyRoute.resourceId, resourceId))
+    .where(and(eq(proxyRoute.resourceId, resourceId), isNull(proxyRoute.environmentId)))
     .orderBy(desc(proxyRoute.isPrimary), asc(proxyRoute.domain));
+}
+
+/** The environment-scoped routes of a preview env (one per exposed service). */
+export async function listProxyRoutesByEnvironment(
+  environmentId: EnvironmentId,
+): Promise<ProxyRouteRecord[]> {
+  return db
+    .select()
+    .from(proxyRoute)
+    .where(eq(proxyRoute.environmentId, environmentId))
+    .orderBy(asc(proxyRoute.domain));
+}
+
+export async function deleteProxyRoutesByEnvironment(
+  environmentId: EnvironmentId,
+): Promise<void> {
+  await db.delete(proxyRoute).where(eq(proxyRoute.environmentId, environmentId));
 }
 
 export async function getProxyRouteById(id: ProxyRouteId): Promise<ProxyRouteRecord | undefined> {
@@ -98,6 +117,8 @@ export async function getProxyRouteById(id: ProxyRouteId): Promise<ProxyRouteRec
 export async function insertProxyRoute(input: {
   projectId: ProjectId;
   resourceId?: ResourceId;
+  /** Present only on preview-env routes; see the schema comment. */
+  environmentId?: EnvironmentId;
   type: "http" | "layer4";
   domain: string;
   upstreamHost: string;
@@ -123,6 +144,7 @@ export async function insertProxyRoute(input: {
     .values({
       projectId: input.projectId,
       resourceId: input.resourceId ?? null,
+      environmentId: input.environmentId ?? null,
       type: input.type,
       domain: input.domain,
       upstreamHost: input.upstreamHost,
@@ -181,7 +203,13 @@ export async function clearPrimaryForResource(resourceId: ResourceId): Promise<v
   await db
     .update(proxyRoute)
     .set({ isPrimary: false, updatedAt: new Date() })
-    .where(and(eq(proxyRoute.resourceId, resourceId), eq(proxyRoute.isPrimary, true)));
+    .where(
+      and(
+        eq(proxyRoute.resourceId, resourceId),
+        eq(proxyRoute.isPrimary, true),
+        isNull(proxyRoute.environmentId),
+      ),
+    );
 }
 
 /** Flip the live state of every route on a resource. expose enables them;
@@ -196,7 +224,7 @@ export async function setRoutesEnabledForResource(
   await db
     .update(proxyRoute)
     .set({ enabled, updatedAt: new Date() })
-    .where(eq(proxyRoute.resourceId, resourceId));
+    .where(and(eq(proxyRoute.resourceId, resourceId), isNull(proxyRoute.environmentId)));
 }
 
 export async function deleteProxyRoute(id: ProxyRouteId): Promise<void> {

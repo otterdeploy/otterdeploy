@@ -20,6 +20,7 @@
 
 import type { DeploymentId } from "@otterdeploy/shared/id";
 
+import { reportPreviewBuildOutcome } from "@otterdeploy/api/git/preview-report";
 import { env } from "@otterdeploy/env/server";
 import { defineJob } from "@otterdeploy/jobs";
 import { DeployTriggeredPayload, deployTriggeredJob } from "@otterdeploy/jobs/jobs/deploy";
@@ -163,6 +164,11 @@ export function makeBuildJob() {
           outcome = { ok: false, error: message };
         }
         results.push({ deploymentId: id, ...outcome });
+        // Preview deploys converge their PR comment + commit status here, the
+        // one place that sees every terminal outcome (pipeline success, build
+        // failure, container that never started). No-op for non-preview
+        // deployments; never throws.
+        await reportPreviewBuildOutcome(deploymentId);
       }
 
       log.info({

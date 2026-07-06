@@ -1,8 +1,8 @@
 /**
  * Tear down a preview environment when its PR closes (docs/designs/pr-previews.md §8):
- * destroy the env-scoped service containers, then destroy + delete the branched
- * databases (container AND volume — a branch's data is disposable). Preview
- * proxy-route removal lands with the domain wiring.
+ * destroy the env-scoped service containers, destroy + delete the branched
+ * databases (container AND volume — a branch's data is disposable), then drop
+ * the preview's proxy routes and reconcile Caddy.
  *
  * Best-effort throughout: a single failure logs and teardown continues, so a
  * stuck container can't strand the rest. Runs inline from the webhook; like
@@ -17,10 +17,12 @@ import { Result } from "better-result";
 import { and, eq, isNull } from "drizzle-orm";
 import { log } from "evlog";
 
+import { reconcile } from "../caddy";
 import { type EnvScope, runtimeServiceName } from "../lib/environment/scoping";
 import { deleteResourceById, listDatabaseResourceRecords } from "../routers/project/queries";
 import { buildContainerName } from "../routers/project/view-helpers";
 import { runtime } from "../runtime";
+import { removePreviewRoutes } from "./preview-routes";
 
 export interface ClosedPreviewEnv {
   id: EnvironmentId;
@@ -90,8 +92,11 @@ export async function teardownPreviewEnvironment(
       db: br.resource.name,
     });
   }
-  // TODO(domains): remove the preview's env-scoped proxy_routes + reconcile Caddy
-  // once the domain wiring lands.
+  // 3. Drop the preview's proxy routes and push the shrunken config to the
+  // edge (skip the reconcile when the env never had a host).
+  await best(async () => {
+    if (await removePreviewRoutes(env.id)) await reconcile(rlog);
+  }, { step: "remove-routes", environmentId: env.id });
 }
 
 async function best(fn: () => Promise<unknown>, ctx: Record<string, unknown>): Promise<void> {

@@ -23,6 +23,13 @@ export async function buildSwarmSpec(
   imageOverride?: string | null,
 ): Promise<SwarmServiceSpec> {
   const serviceName = runtimeServiceName(record.service.serviceName, env);
+  // Previews must not share the base container's DNS aliases on the project
+  // network — Docker round-robins same-alias containers, so production
+  // traffic could land on the preview. Every alias-feeding field
+  // (serviceName, internalHostname, resourceName) gets the env scope;
+  // persistent envs pass through byte-identical.
+  const internalHostname = runtimeServiceName(record.service.internalHostname, env);
+  const resourceName = runtimeServiceName(record.resource.name, env);
   // Stamp the rollout with the resource's latest deployment row. By the time
   // we build the spec the latest deployment IS the one being applied (the
   // build worker inserts the row before driving convergence; restart/expose/
@@ -45,10 +52,10 @@ export async function buildSwarmSpec(
 
   return {
     resourceId: record.resource.id,
-    resourceName: record.resource.name,
+    resourceName,
     projectSlug: sanitizeSlug(projectSlug),
     serviceName,
-    internalHostname: record.service.internalHostname,
+    internalHostname,
     image: imageOverride ?? record.service.image,
     command: record.service.command,
     entrypoint: record.service.entrypoint,

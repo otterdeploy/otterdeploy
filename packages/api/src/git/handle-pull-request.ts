@@ -26,10 +26,12 @@ import { log } from "evlog";
 
 import type { GithubWebhookResult, PullRequestEvent } from "./types";
 
+import { reconcile } from "../caddy";
 import { emitDeployStarted } from "../routers/project/deployments";
 import { branchProjectDatabases } from "./preview-db";
 import { ensurePreviewEnvironment, markPreviewEnvironmentsClosed } from "./preview-env";
 import { report } from "./preview-report";
+import { ensurePreviewRoutes } from "./preview-routes";
 import { teardownPreviewEnvironment } from "./preview-teardown";
 
 const PREVIEW_ACTIONS = new Set(["opened", "reopened", "synchronize"]);
@@ -115,18 +117,6 @@ function repoSlug(repo: RepoRow): string {
     .toLowerCase();
 }
 
-/** Owner/repo/installation context for reporting back to GitHub. */
-function reportContext(ev: PullRequestEvent, repo: RepoRow) {
-  const [owner, repoName] = repo.fullName.split("/");
-  return {
-    installationId: ev.installation ? String(ev.installation.id) : null,
-    owner,
-    repo: repoName,
-    prNumber: ev.pull_request.number,
-    sha: ev.pull_request.head.sha,
-  };
-}
-
 async function closePreviews(
   ev: PullRequestEvent,
   repo: RepoRow,
@@ -153,7 +143,7 @@ async function closePreviews(
     }
   }
   if (environmentsTouched > 0) {
-    await report({ ...reportContext(ev, repo), phase: "closed" });
+    await report({ gitRepoId: repo.id as GitRepoId, prNumber, phase: "closed" });
   }
   return {
     kind: "pull_request",
@@ -173,6 +163,7 @@ async function deployPreviews(
   const pr = ev.pull_request;
   let deploymentsCreated = 0;
   let environmentsTouched = 0;
+  let routesChanged = false;
   for (const p of projects) {
     const env = await ensurePreviewEnvironment({
       projectId: p.id as ProjectId,
@@ -205,11 +196,46 @@ async function deployPreviews(
         err: branched.error,
       });
     }
+    // Mint the preview hosts up front — the container 502s until the build
+    // converges, which the PR comment reflects as "Building". Best-effort:
+    // a routing failure must not strand the build itself.
+    const routes = await Result.tryPromise({
+      try: () =>
+        ensurePreviewRoutes({
+          projectId: p.id as ProjectId,
+          projectSlug: p.slug,
+          gitRepoId: repo.id as GitRepoId,
+          env: {
+            id: env.id as EnvironmentId,
+            kind: "preview",
+            slug: env.slug,
+            pullRequestNumber: env.pullRequestNumber,
+          },
+        }),
+      catch: (cause) => cause,
+    });
+    if (routes.isErr()) {
+      log.warn({
+        github: { event: "pull_request", step: "preview-routes", prNumber: pr.number },
+        err: routes.error,
+      });
+    } else if (routes.value) {
+      routesChanged = true;
+    }
     deploymentsCreated += await deployProjectPreview(p, repo, ev, env.id as EnvironmentId);
   }
 
+  if (routesChanged) {
+    const reconciled = await Result.tryPromise({ try: () => reconcile(), catch: (cause) => cause });
+    if (reconciled.isErr()) {
+      log.warn({
+        github: { event: "pull_request", step: "reconcile-routes", prNumber: pr.number },
+        err: reconciled.error,
+      });
+    }
+  }
   if (environmentsTouched > 0) {
-    await report({ ...reportContext(ev, repo), phase: "building" });
+    await report({ gitRepoId: repo.id as GitRepoId, prNumber: pr.number, phase: "building" });
   }
   return {
     kind: "pull_request",
