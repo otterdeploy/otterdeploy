@@ -9,7 +9,7 @@ import {
   resource,
   serviceResource,
 } from "@otterdeploy/db/schema";
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 
 export async function listProvidersForOrg(organizationId: OrganizationId) {
   const providers = await db
@@ -26,14 +26,28 @@ export async function listProvidersForOrg(organizationId: OrganizationId) {
       repoCount: sql<number>`coalesce((select count(*) from ${gitRepo} where ${gitRepo.installationId} = ${gitInstallation.id}), 0)::int`,
     })
     .from(gitInstallation)
-    .where(inArray(gitInstallation.providerId, providerIds));
+    .where(inArray(gitInstallation.providerId, providerIds))
+    .orderBy(asc(gitInstallation.createdAt));
+
+  // A reinstall mints a fresh GitHub installation id, so the disconnected
+  // account's soft-revoked row (kept for deploy history) would sit next to
+  // its active replacement forever. Show a revoked row only while the same
+  // account has no active installation — as a "this is dead, reinstall" cue.
+  const accountKey = (i: typeof gitInstallation.$inferSelect) =>
+    `${i.providerId}:${i.accountType}/${i.accountLogin}`;
+  const activeAccounts = new Set(
+    installations.filter((r) => !r.installation.revokedAt).map((r) => accountKey(r.installation)),
+  );
+  const visible = installations.filter(
+    (r) => !r.installation.revokedAt || !activeAccounts.has(accountKey(r.installation)),
+  );
 
   return providers.map((p) => ({
     id: p.id,
     kind: p.kind,
     displayName: p.displayName,
     createdAt: p.createdAt,
-    installations: installations
+    installations: visible
       .filter((row) => row.installation.providerId === p.id)
       .map((row) => ({
         id: row.installation.id,
@@ -84,6 +98,8 @@ export async function getProviderDetail(args: {
     .limit(1);
   if (!provider) return null;
 
+  // Prefer the newest ACTIVE installation — after a reinstall the oldest row
+  // is the soft-revoked leftover, which would wrongly front the detail page.
   const [installation] = await db
     .select({
       installation: gitInstallation,
@@ -91,7 +107,10 @@ export async function getProviderDetail(args: {
     })
     .from(gitInstallation)
     .where(eq(gitInstallation.providerId, provider.id))
-    .orderBy(asc(gitInstallation.createdAt))
+    .orderBy(
+      sql`(${gitInstallation.revokedAt} is not null) asc`,
+      desc(gitInstallation.createdAt),
+    )
     .limit(1);
 
   return { provider, installation: installation ?? null };
