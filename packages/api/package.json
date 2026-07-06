@@ -28,6 +28,9 @@
     },
     "./metrics": {
       "default": "./src/metrics/index.ts"
+    },
+    "./system-health": {
+      "default": "./src/system-health/index.ts"
     }
   },
   "scripts": {

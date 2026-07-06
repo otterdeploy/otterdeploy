@@ -56,6 +56,67 @@ const applyResultSchema = z.discriminatedUnion("started", [
   }),
 ]);
 
+const usageSectionSchema = z.object({
+  count: z.number(),
+  activeCount: z.number(),
+  totalBytes: z.number(),
+  reclaimableBytes: z.number(),
+});
+
+const reclaimTargetSchema = z.enum(["images", "build-cache", "containers"]);
+
+const hostHealthSchema = z.object({
+  memory: z.object({
+    totalBytes: z.number(),
+    availableBytes: z.number(),
+    usedPct: z.number(),
+    swapTotalBytes: z.number().nullable(),
+    swapFreeBytes: z.number().nullable(),
+  }),
+  disk: z
+    .object({
+      path: z.string(),
+      totalBytes: z.number(),
+      freeBytes: z.number(),
+      usedPct: z.number(),
+    })
+    .nullable(),
+  docker: z
+    .object({
+      images: usageSectionSchema,
+      containers: usageSectionSchema,
+      volumes: usageSectionSchema,
+      buildCache: usageSectionSchema,
+    })
+    .nullable(),
+  recommendations: z.array(
+    z.object({
+      id: z.string(),
+      severity: z.enum(["info", "warning", "critical"]),
+      title: z.string(),
+      detail: z.string(),
+      action: reclaimTargetSchema.nullable(),
+    }),
+  ),
+  sampledAt: z.string(),
+});
+
+const reclaimInput = z.object({
+  targets: z.array(reclaimTargetSchema).min(1),
+});
+
+const reclaimResultSchema = z.object({
+  reclaimedBytes: z.number(),
+  results: z.array(
+    z.object({
+      target: reclaimTargetSchema,
+      ok: z.boolean(),
+      reclaimedBytes: z.number(),
+      error: z.string().nullable(),
+    }),
+  ),
+});
+
 const progressEventSchema = z.object({
   seq: z.number(),
   ts: z.string(),
@@ -110,4 +171,14 @@ export const systemContract = {
     .meta({ path: `${base}/progress`, tag, method: "GET" })
     .input(emptyInput)
     .output(eventIterator(progressEventSchema)),
+
+  hostHealth: oc
+    .meta({ path: `${base}/host-health`, tag, method: "GET" })
+    .input(emptyInput)
+    .output(hostHealthSchema),
+
+  reclaim: oc
+    .meta({ path: `${base}/reclaim`, tag, method: "POST" })
+    .input(reclaimInput)
+    .output(reclaimResultSchema),
 };

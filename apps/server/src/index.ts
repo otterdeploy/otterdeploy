@@ -16,6 +16,7 @@ import { startMetricsSampler } from "@otterdeploy/api/metrics";
 import { startAuditAnomalyScan } from "@otterdeploy/api/notifications/audit-anomaly";
 import { startBlocklistScheduler } from "@otterdeploy/api/routers/firewall/scheduler";
 import { appRouter } from "@otterdeploy/api/routers/index";
+import { startHostHealthMonitor } from "@otterdeploy/api/system-health";
 import { initializeSwarm } from "@otterdeploy/api/swarm";
 import { auth } from "@otterdeploy/auth";
 import { runMigrations } from "@otterdeploy/db/migrate";
@@ -268,6 +269,7 @@ app.get("/*", serveStatic({ path: "index.html", root: "./public" }));
 let stopWorkers: (() => Promise<void>) | null = null;
 let stopBackupScheduler: (() => void) | null = null;
 let stopMetricsSampler: (() => void) | null = null;
+let stopHostHealthMonitor: (() => void) | null = null;
 let stopBlocklistScheduler: (() => void) | null = null;
 let stopDataFolderSweep: (() => void) | null = null;
 let stopAuditAnomalyScan: (() => void) | null = null;
@@ -423,6 +425,12 @@ async function bootstrap() {
   stopMetricsSampler = startMetricsSampler();
   log.info({ startup: { step: "metrics-sampler", status: "ready" } });
 
+  // Host-health monitor — samples server memory/disk/docker usage every 5m,
+  // records the platform_metric series, and emits host.pressure notifications
+  // when thresholds are crossed (Instance page "Server health" card).
+  stopHostHealthMonitor = startHostHealthMonitor();
+  log.info({ startup: { step: "host-health-monitor", status: "ready" } });
+
   // Managed blocklists — re-import enabled public/custom lists into CrowdSec on
   // their interval so the imported decisions refresh before they expire.
   stopBlocklistScheduler = startBlocklistScheduler();
@@ -448,6 +456,7 @@ for (const signal of ["SIGTERM", "SIGINT"] as const) {
     log.info({ shutdown: { signal, step: "draining-workers" } });
     if (stopBackupScheduler) stopBackupScheduler();
     if (stopMetricsSampler) stopMetricsSampler();
+    if (stopHostHealthMonitor) stopHostHealthMonitor();
     if (stopBlocklistScheduler) stopBlocklistScheduler();
     if (stopDataFolderSweep) stopDataFolderSweep();
     if (stopAuditAnomalyScan) stopAuditAnomalyScan();
