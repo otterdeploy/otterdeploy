@@ -92,9 +92,10 @@ async function createGitStackFromManifest(
   let cloneUrl: string;
   let gitRepoId: string | null = null;
   let installationId: string | null = null;
-  if (spec.gitRepoId?.trim()) {
+  const boundRepoId = spec.gitRepoId?.trim();
+  if (boundRepoId) {
     const bound = await Result.tryPromise({
-      try: () => resolveRepoCloneBinding(spec.gitRepoId!.trim() as GitRepoId),
+      try: () => resolveRepoCloneBinding(boundRepoId as GitRepoId),
       catch: (e) => (e instanceof Error ? e.message : String(e)),
     });
     if (bound.isErr()) return skip(name, bound.error);

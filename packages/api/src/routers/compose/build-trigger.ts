@@ -43,9 +43,10 @@ export async function enqueueComposeBuild(input: {
     const branch = input.gitRef.replace(/^refs\/heads\//, "") || "main";
     // Bound repo → resolve owner/repo + installation so PRIVATE repos resolve
     // their head SHA authenticated; legacy public URL → anonymous.
-    if (input.gitRepoId) {
+    const boundRepoId = input.gitRepoId;
+    if (boundRepoId) {
       const bound = await Result.tryPromise({
-        try: () => resolveRepoCloneBinding(input.gitRepoId!),
+        try: () => resolveRepoCloneBinding(boundRepoId),
         catch: (e) => (e instanceof Error ? e.message : String(e)),
       });
       if (bound.isErr()) return Result.err(bound.error);

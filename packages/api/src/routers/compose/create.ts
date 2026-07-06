@@ -94,9 +94,10 @@ async function createGitCompose(
   let gitRepoId: string | null = null;
   let installationId: string | null = null;
 
-  if (input.gitRepoId?.trim()) {
+  const boundRepoId = input.gitRepoId?.trim();
+  if (boundRepoId) {
     const bound = await Result.tryPromise({
-      try: () => resolveRepoCloneBinding(input.gitRepoId!.trim() as GitRepoId),
+      try: () => resolveRepoCloneBinding(boundRepoId as GitRepoId),
       catch: (e) => (e instanceof Error ? e.message : String(e)),
     });
     if (bound.isErr()) return Result.err(invalid(bound.error));
