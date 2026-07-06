@@ -97,7 +97,13 @@ async function readMemory(): Promise<HostMemory> {
 }
 
 async function readDisk(): Promise<HostDisk | null> {
-  const path = existsSync(DATA_ROOT) ? DATA_ROOT : "/";
+  // Raw process.env (like BRANCH_ZFS_POOL) so the health agent — which runs
+  // this module with no validated env — can point disk sampling at a
+  // bind-mounted host path. Unset ⇒ data root, or "/" where that's absent
+  // (agent containers: overlay-root statfs still reflects the host disk).
+  // oxlint-disable-next-line node/no-process-env -- intentional raw read (see comment above)
+  const override = process.env.HOST_HEALTH_DISK_PATH;
+  const path = override && existsSync(override) ? override : existsSync(DATA_ROOT) ? DATA_ROOT : "/";
   const stat = await Result.tryPromise({ try: () => statfs(path), catch: () => null });
   if (stat.isErr()) return null;
   const total = stat.value.blocks * stat.value.bsize;

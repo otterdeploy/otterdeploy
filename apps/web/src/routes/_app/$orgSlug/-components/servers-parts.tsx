@@ -1,4 +1,10 @@
 import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  CpuIcon,
+  RamMemoryIcon,
+  ServerStack01Icon,
+  Task01Icon,
+} from "@hugeicons/core-free-icons";
 
 import { Page } from "@/shared/components/page";
 import { Card, CardContent } from "@/shared/components/ui/card";
@@ -45,6 +51,49 @@ export function StatTile({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+/** The four cluster-capacity tiles above the node table. Extracted from
+ *  ServersRoute for the lint complexity budget — the placeholder ternaries
+ *  live here with the tiles they feed. */
+export function ClusterStatTiles({
+  servers,
+  tasksRunning,
+}: {
+  servers: Array<{ cpuTotal: number; memTotalGb: number; role: string }>;
+  tasksRunning: number | null;
+}) {
+  const totalCpu = servers.reduce((acc, s) => acc + s.cpuTotal, 0);
+  const totalMem = servers.reduce((acc, s) => acc + s.memTotalGb, 0);
+  const managerCount = servers.filter((s) => s.role === "manager").length;
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <StatTile
+        icon={CpuIcon}
+        label="Cluster CPU"
+        value={totalCpu > 0 ? `${totalCpu} vCPU` : "—"}
+        sub="cluster capacity"
+      />
+      <StatTile
+        icon={RamMemoryIcon}
+        label="Cluster memory"
+        value={totalMem > 0 ? `${totalMem} GB` : "—"}
+        sub="cluster capacity"
+      />
+      <StatTile
+        icon={Task01Icon}
+        label="Tasks running"
+        value={tasksRunning != null ? String(tasksRunning) : "—"}
+        sub="across all replicas"
+      />
+      <StatTile
+        icon={ServerStack01Icon}
+        label="Manager nodes"
+        value={`${managerCount} / ${servers.length}`}
+        sub={managerCount >= 1 ? "quorum healthy" : "no manager"}
+      />
+    </div>
   );
 }
 

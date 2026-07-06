@@ -1,11 +1,15 @@
 /**
- * Server health card — introspection of the machine this install runs on:
+ * Host health card — introspection of the machine this install runs on:
  * memory (with swap awareness), disk at the data root, Docker's disk
  * footprint, and the recommendations the host-health monitor derives from
  * them (same code path server-side, so card and notifications always agree).
  * The reclaim actions are the safe prunes only — unused images, idle build
  * cache, stopped otterdeploy containers. Volumes are shown but never pruned
  * from here.
+ *
+ * Scope: the LOCAL host only (system.hostHealth reads /proc + docker df where
+ * the control plane runs) — on a multi-node swarm the other nodes need the
+ * per-remote-node agent (follow-up) before this becomes a per-row concern.
  */
 
 import { Activity01Icon } from "@hugeicons/core-free-icons";
@@ -17,7 +21,7 @@ import { Button } from "@/shared/components/ui/button";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
-import { BranchPoolBlock, fmtBytes, UsageRow, type BranchPool } from "./instance-health-pool";
+import { BranchPoolBlock, fmtBytes, UsageRow, type BranchPool } from "./servers-health-pool";
 
 type ReclaimTarget = "images" | "build-cache" | "containers" | "branch-pool";
 
@@ -241,7 +245,7 @@ export function ServerHealthCard() {
   return (
     <SettingsSection
       icon={Activity01Icon}
-      title="Server health"
+      title="Host health"
       description="Memory, disk and Docker usage on the machine running this install — with one-click cleanup when old deploy images or build caches pile up."
     >
       <div className="flex flex-col gap-4 p-4">

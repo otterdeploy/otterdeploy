@@ -8,5 +8,6 @@ export {
   deployCallbackHandler,
   deployOtpRequestHandler,
   deployOtpVerifyHandler,
+  deployPinVerifyHandler,
   deployShareHandler,
 } from "./deploy-protection";

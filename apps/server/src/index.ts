@@ -12,6 +12,7 @@ import { startEdgeLogPersistence, startEdgeLogSink } from "@otterdeploy/api/edge
 import { ensureServerIp } from "@otterdeploy/api/lib/server-ip";
 import { appRouter } from "@otterdeploy/api/routers/index";
 import { initializeSwarm } from "@otterdeploy/api/swarm";
+import { agentHealthIngestHandler } from "@otterdeploy/api/system-health";
 import { auth } from "@otterdeploy/auth";
 import { runMigrations } from "@otterdeploy/db/migrate";
 import { env } from "@otterdeploy/env/server";
@@ -39,6 +40,7 @@ import {
   deployCallbackHandler,
   deployOtpRequestHandler,
   deployOtpVerifyHandler,
+  deployPinVerifyHandler,
   deployShareHandler,
   githubInstallCallbackHandler,
   githubManifestCallbackHandler,
@@ -72,6 +74,7 @@ const identify = createAuthMiddleware(auth, {
     "/api/health", // Health checks
     "/api/webhooks/**", // Inbound webhooks — auth is per-source signature
     "/api/integrations/github/**", // GitHub App install callback — uses signed state
+    "/api/agent/**", // Health-agent ingest — auth is a Bearer HMAC machine token
   ],
   include: ["/api/**"],
   maskEmail: true,
@@ -229,6 +232,11 @@ app.post("/api/webhooks/github", githubWebhookHandler);
 app.get("/api/integrations/github/install/callback", githubInstallCallbackHandler);
 app.get("/api/integrations/github/manifest/callback", githubManifestCallbackHandler);
 
+// ─── Health-agent ingest ────────────────────────────────────────────
+// Per-node health reports from the swarm global agent service (Bearer HMAC
+// token, verified in the handler). See docs/designs/server-health-agent.md.
+app.post("/api/agent/health", agentHealthIngestHandler);
+
 // ─── Deployment protection (auth wall) ─────────────────────────────
 // forward_auth target (internal subrequest from Caddy) + the cross-domain
 // handoff endpoints. /api/internal/deploy-authz gates each request; the
@@ -242,6 +250,8 @@ app.get("/.well-known/otterdeploy/share", deployShareHandler);
 app.get("/.well-known/otterdeploy/access", deployAccessHandler);
 app.post("/.well-known/otterdeploy/otp/request", deployOtpRequestHandler);
 app.post("/.well-known/otterdeploy/otp/verify", deployOtpVerifyHandler);
+// Access PIN (NetBird-style shared code) — served on the deployment domain.
+app.post("/.well-known/otterdeploy/pin/verify", deployPinVerifyHandler);
 
 // ─── Static web dashboard (production single-image) ────────────────────────
 // The published server image bundles the built SPA at ./public and serves it on

@@ -12,7 +12,6 @@ import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 import { Page, PageHeader } from "@/shared/components/page";
 
 import { ControlPlaneCard } from "./-components/settings-control-plane";
-import { ServerHealthCard } from "./-components/instance-health";
 import { ServerIpCard } from "./-components/instance-server-ip";
 import { EdgeDefaultsCard } from "./-components/instance-edge";
 import { EmailCard } from "./-components/settings-email";
@@ -32,7 +31,6 @@ function InstanceRoute() {
         description="Install-wide configuration for this server — applies to every workspace."
       />
 
-      <ServerHealthCard />
       <UpdatesCard />
       <ControlPlaneCard organizationId={organization.id as never} />
       <ServerIpCard organizationId={organization.id as never} />
