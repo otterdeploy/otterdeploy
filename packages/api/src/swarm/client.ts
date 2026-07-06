@@ -148,6 +148,29 @@ export async function connectCaddyToNetwork(
     }
   }
 
+  // Fallback: docker compose v2 appends a `-N` replica index, so the edge is
+  // `otterdeploy-caddy-1`, not `otterdeploy-caddy` — the exact-name inspects above
+  // all miss it and every deployed service 502s (edge never joins the project
+  // bridge). Find it by its compose service label instead, excluding any
+  // user-DEPLOYED caddy (those carry an otterdeploy.resource.id; the edge never
+  // does). Inspect by id so the already-connected check below still works.
+  if (!container) {
+    const listed = await docker.containers.list({
+      all: true,
+      filters: { label: ["com.docker.compose.service=caddy"] },
+    });
+    if (listed.isOk()) {
+      const edge = listed.value.find(
+        (c) => !(c as { Labels?: Record<string, string> }).Labels?.["otterdeploy.resource.id"],
+      );
+      const id = (edge as { Id?: string } | undefined)?.Id;
+      if (id) {
+        const inspected = await docker.containers.inspect(id);
+        if (inspected.isOk()) container = inspected.value;
+      }
+    }
+  }
+
   if (!container) {
     // Caddy not running — skip silently, it'll connect on next provision.
     return;
