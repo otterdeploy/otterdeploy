@@ -28,7 +28,6 @@ export async function listProjectRecordsByOrg(organizationId: OrganizationId) {
       customDomain: project.customDomain,
       customDomainVerifiedAt: project.customDomainVerifiedAt,
       customDomainVerifyToken: project.customDomainVerifyToken,
-      previewsEnabled: project.previewsEnabled,
       nixpacksConfig: project.nixpacksConfig,
       graphLayout: project.graphLayout,
       createdAt: project.createdAt,
@@ -125,14 +124,12 @@ export async function updateProjectRecord(input: {
   containerRegistryId?: string | null;
   imageRepository?: string | null;
   nixpacksConfig?: NixpacksConfig | null;
-  previewsEnabled?: boolean;
 }) {
   // Build the patch object incrementally so undefined fields stay
   // unset (drizzle/postgres treat undefined as "no column update").
   const patch: Partial<typeof project.$inferInsert> = {};
   if (input.name !== undefined) patch.name = input.name;
   if (input.slug !== undefined) patch.slug = input.slug;
-  if (input.previewsEnabled !== undefined) patch.previewsEnabled = input.previewsEnabled;
   if (input.customDomain !== undefined) {
     patch.customDomain = input.customDomain;
     // Changing the bound domain invalidates any previous verification —

@@ -62,6 +62,9 @@ export interface CurrentService {
   ports: CurrentServicePort[];
   env: Record<string, string>;
   publicEnabled: boolean;
+  // Per-service PR-preview opt-in (serviceResource.previewsEnabled). Diffed
+  // only when the manifest declares `previews` — see diffGitBinding.
+  previewsEnabled: boolean;
   // New manifest-tracked fields. Null/undefined means "not set on the
   // current resource"; diff treats them like any other field.
   preDeploy: string[] | null;

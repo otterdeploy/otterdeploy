@@ -8,15 +8,17 @@
  * job. Errors are returned as strings so the caller can fold them into
  * skipped[] without a typed-error taxonomy for every GitHub failure.
  */
-import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { GitRepoId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
-import { gitInstallation, gitRepo } from "@otterdeploy/db/schema/git";
+import { gitInstallation, gitProvider, gitRepo } from "@otterdeploy/db/schema/git";
 import { deployment, serviceResource } from "@otterdeploy/db/schema/project";
 import { triggerDeploy } from "@otterdeploy/jobs";
 import { Result } from "better-result";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
+
+import { type ServiceManifest } from "../../stack/manifest";
 
 import { fetchBranchHeadSha } from "../../git/github-app";
 import { inspectRepoTree } from "../git/inspect";
@@ -162,4 +164,48 @@ export async function detectAndPersistFramework(
     .set({ framework })
     .where(eq(serviceResource.resourceId, resourceId));
   void publishResourceChanged(resourceId);
+}
+
+/**
+ * Resolve a manifest's portable `owner/repo` to the internal git_repo row id,
+ * scoped to the org. Prefers an installation-backed row the org owns; falls
+ * back to a public (installationId-null, tenant-shared) row. Returns null when
+ * the repo isn't connected — the service still stages, and its build fails with
+ * a clear "no git repo binding" until the operator connects/picks the repo.
+ * Org-scoped: prefer an installation-backed row this org owns, else a public one.
+ */
+export async function resolveManifestRepo(
+  repo: string | undefined,
+  organizationId: OrganizationId,
+): Promise<GitRepoId | null> {
+  if (!repo) return null;
+  const [owned] = await db
+    .select({ id: gitRepo.id })
+    .from(gitRepo)
+    .innerJoin(gitInstallation, eq(gitInstallation.id, gitRepo.installationId))
+    .innerJoin(gitProvider, eq(gitProvider.id, gitInstallation.providerId))
+    .where(and(eq(gitRepo.fullName, repo), eq(gitProvider.organizationId, organizationId)))
+    .limit(1);
+  if (owned) return owned.id;
+  const [pub] = await db
+    .select({ id: gitRepo.id })
+    .from(gitRepo)
+    .where(and(eq(gitRepo.fullName, repo), isNull(gitRepo.installationId)))
+    .limit(1);
+  return pub?.id ?? null;
+}
+
+/** Pull the git-only source fields off a manifest service (repo resolved to an
+ *  id upstream). Empty for an image service — those columns stay null. */
+export function gitSourceColumns(spec: ServiceManifest, gitRepoId: GitRepoId | null) {
+  if (spec.source !== "git") {
+    return { gitRepoId: null, branch: null, imageRepository: null, previewsEnabled: false };
+  }
+  return {
+    gitRepoId,
+    branch: spec.branch ?? null,
+    imageRepository: spec.imageRepository ?? null,
+    // Fresh create: no live toggle to preserve, so an omitted key is plain off.
+    previewsEnabled: spec.previews ?? false,
+  };
 }

@@ -30,7 +30,7 @@ import {
   type ServiceBuildResource,
   stageSource,
 } from "./build-card-shared";
-import { InstallationField, RepositoryField, useSourceForm } from "./source-card-fields";
+import { InstallationField, PreviewsField, RepositoryField, useSourceForm } from "./source-card-fields";
 
 /** One arrow-linked chip in the repo → build → image strip. */
 function PipeChip({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
@@ -80,8 +80,7 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
   );
 
   // Local edit state (seeded from the manifest source block) + dirty flag.
-  const { repo, branch, root, image, setRepo, setBranch, setRoot, setImage, dirty } =
-    useSourceForm(gitSvc);
+  const { repo, branch, root, image, previews, dirty, ...set } = useSourceForm(gitSvc);
 
   const saveMut = useMutation({
     mutationFn: () =>
@@ -90,6 +89,7 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
         branch: branch.trim() || null,
         sourceSubdir: root.trim() || null,
         imageRepository: image.trim() || null,
+        previews,
       }),
     onSuccess: async () => {
       toast.success("Source staged — Deploy to apply");
@@ -160,14 +160,14 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
             isLoading={reposQuery.isLoading}
             options={repoOptions}
             value={repo}
-            onChange={setRepo}
+            onChange={set.setRepo}
           />
         </BuildFieldRow>
 
         <BuildFieldRow label="Branch" hint="Pushes here deploy. Empty = repo default.">
           <Input
             value={branch}
-            onChange={(e) => setBranch(e.target.value)}
+            onChange={(e) => set.setBranch(e.target.value)}
             placeholder="main"
             className="font-mono"
           />
@@ -177,7 +177,7 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
           <RootDirectoryPicker
             gitRepoId={selectedRepoId}
             value={root}
-            onChange={setRoot}
+            onChange={set.setRoot}
             repoFullName={repo || null}
           />
         </BuildFieldRow>
@@ -188,7 +188,7 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
         >
           <Input
             value={image}
-            onChange={(e) => setImage(e.target.value)}
+            onChange={(e) => set.setImage(e.target.value)}
             placeholder="ghcr.io/acme/api"
             className="font-mono"
           />
@@ -201,6 +201,13 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
                 : `No registry credential for ${imageHost} — add one in Registries or clear this.`}
             </p>
           )}
+        </BuildFieldRow>
+
+        <BuildFieldRow
+          label="PR previews"
+          hint="Rebuild this service into an isolated preview environment for every pull request."
+        >
+          <PreviewsField checked={previews} onChange={set.setPreviews} />
         </BuildFieldRow>
       </div>
 

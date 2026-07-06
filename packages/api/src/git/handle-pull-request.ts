@@ -18,8 +18,7 @@
 import type { EnvironmentId, GitRepoId, ProjectId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
-import { deployment, gitRepo, project, resource, serviceResource } from "@otterdeploy/db/schema";
-import { triggerDeploy } from "@otterdeploy/jobs";
+import { gitRepo, project, resource, serviceResource } from "@otterdeploy/db/schema";
 import { Result } from "better-result";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { log } from "evlog";
@@ -27,7 +26,7 @@ import { log } from "evlog";
 import type { GithubWebhookResult, PullRequestEvent } from "./types";
 
 import { reconcile } from "../caddy";
-import { emitDeployStarted } from "../routers/project/deployments";
+import { deployProjectPreview } from "./preview-deploy";
 import { branchProjectDatabases } from "./preview-db";
 import { ensurePreviewEnvironment, markPreviewEnvironmentsClosed } from "./preview-env";
 import { report } from "./preview-report";
@@ -90,18 +89,36 @@ export async function handlePullRequest(
     );
   if (projects.length === 0) return ignored;
 
-  // Close/teardown is NEVER gated: a project that turned previews OFF after a
+  // Close/teardown is NEVER gated: a service that turned previews OFF after a
   // preview was already running must still have it torn down on PR close, or
   // the containers + branched DBs leak.
   if (action === "closed") return closePreviews(ev, repo, projects);
 
-  // Deploy is OPT-IN: only projects that explicitly enabled preview deployments
-  // spin one up. Everything else is ignored — no env, no build, no container.
-  const optedIn = projects.filter((p) => p.previewsEnabled);
+  // Deploy is OPT-IN per SERVICE (the preview unit is the resource, not the
+  // project — a project may host several git services and only some follow
+  // PRs). A project spins up a preview env only when at least one of its
+  // services bound to this repo opted in; everything else is ignored — no
+  // env, no build, no container.
+  const optedInProjectIds = new Set(
+    (
+      await db
+        .selectDistinct({ id: resource.projectId })
+        .from(serviceResource)
+        .innerJoin(resource, eq(resource.id, serviceResource.resourceId))
+        .where(
+          and(
+            eq(serviceResource.gitRepoId, repo.id),
+            eq(serviceResource.previewsEnabled, true),
+            isNull(serviceResource.stackId),
+          ),
+        )
+    ).map((r) => r.id),
+  );
+  const optedIn = projects.filter((p) => optedInProjectIds.has(p.id));
   if (optedIn.length === 0) {
     log.info({
       github: { event: "pull_request", deliveryId, repo: ev.repository.full_name, action },
-      msg: "preview deployments not enabled for any bound project — ignoring",
+      msg: "no service bound to this repo has previews enabled — ignoring",
     });
     return ignored;
   }
@@ -245,67 +262,4 @@ async function deployPreviews(
     environmentsTouched,
     deploymentsCreated,
   };
-}
-
-/** Insert env-scoped pending deployments for a project's git services and
- *  trigger a build at the PR head. Returns how many deployments were created. */
-async function deployProjectPreview(
-  p: ProjectRow,
-  repo: RepoRow,
-  ev: PullRequestEvent,
-  environmentId: EnvironmentId,
-): Promise<number> {
-  const pr = ev.pull_request;
-  // A preview rebuilds the git-sourced BASE services BOUND TO THIS REPO
-  // (env-scoped resources are branches, not deploy targets). Only this repo's
-  // services — a project may host services from other repos untouched by this
-  // PR. No watch-pattern filter — any PR commit refreshes the whole preview.
-  const resources = await db
-    .select({ id: resource.id })
-    .from(resource)
-    .innerJoin(serviceResource, eq(serviceResource.resourceId, resource.id))
-    .where(
-      and(
-        eq(resource.projectId, p.id as ProjectId),
-        eq(resource.type, "service"),
-        eq(serviceResource.source, "git"),
-        eq(serviceResource.gitRepoId, repo.id),
-        isNull(resource.environmentId),
-      ),
-    );
-  if (resources.length === 0) return 0;
-
-  const ref = `refs/heads/${pr.head.ref}`;
-  const inserted = await db
-    .insert(deployment)
-    .values(
-      resources.map((r) => ({
-        resourceId: r.id,
-        environmentId,
-        image: `pending:${pr.head.sha.slice(0, 12)}`,
-        reason: "git-push" as const,
-        status: "pending" as const,
-        gitSha: pr.head.sha,
-        gitRef: ref,
-      })),
-    )
-    .returning({ id: deployment.id });
-
-  for (let i = 0; i < inserted.length; i++) {
-    const dep = inserted[i];
-    const res = resources[i];
-    if (dep && res) {
-      await emitDeployStarted({ deploymentId: dep.id, resourceId: res.id, reason: "git-push" });
-    }
-  }
-
-  await triggerDeploy({
-    projectId: p.id,
-    gitRepoId: repo.id,
-    ref,
-    sha: pr.head.sha,
-    environmentId,
-    deploymentIds: inserted.map((d) => d.id),
-  });
-  return inserted.length;
 }

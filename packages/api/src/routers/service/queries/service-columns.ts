@@ -24,6 +24,8 @@ export interface CreateServiceInput {
   branch?: string | null;
   /** Fully-qualified image target (no tag); null = registry-less local build. */
   imageRepository?: string | null;
+  /** Per-service PR-preview opt-in. Defaults off. */
+  previewsEnabled?: boolean;
   command?: string[] | null;
   entrypoint?: string[] | null;
   replicas?: number;
@@ -76,6 +78,7 @@ export function serviceCoreColumns(input: CreateServiceInput) {
     gitRepoId: input.gitRepoId ?? null,
     branch: input.branch ?? null,
     imageRepository: input.imageRepository ?? null,
+    previewsEnabled: input.previewsEnabled ?? false,
     command: input.command ?? null,
     entrypoint: input.entrypoint ?? null,
     replicas: input.replicas ?? 1,
