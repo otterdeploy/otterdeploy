@@ -164,7 +164,8 @@ for (const nm of findNodeModules(ROOT, [])) {
   for (const link of symlinksUnder(nm)) visit(storeKeyOf(link));
 }
 while (queue.length > 0) {
-  const key = queue.pop()!;
+  const key = queue.pop();
+  if (key === undefined) break;
   for (const link of symlinksUnder(join(STORE, key, "node_modules"))) {
     visit(storeKeyOf(link));
   }
