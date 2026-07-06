@@ -166,7 +166,6 @@ export async function updateProject(
     name?: string;
     slug?: string;
     customDomain?: string | null;
-    previewsEnabled?: boolean;
     nixpacksConfig?: NixpacksConfig | null;
   } & OrgRef,
 ): Promise<Result<Project, ProjectNotFoundError | ProjectConflictError>> {
@@ -179,7 +178,6 @@ export async function updateProject(
       name,
       slug: input.slug,
       customDomain: normalizeCustomDomain(input.customDomain),
-      previewsEnabled: input.previewsEnabled,
       nixpacksConfig: input.nixpacksConfig,
     });
     if (!updated) {

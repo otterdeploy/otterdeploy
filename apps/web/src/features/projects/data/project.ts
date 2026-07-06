@@ -114,7 +114,9 @@ export const projectCollection = persistence
         // v2: added serviceCount / routeCount / runningServiceCount (#13). Without
         // this bump, persisted v1 rows lack those fields and the card renders a
         // stale "2/0 services · 0 routes".
-        schemaVersion: 2,
+        // v3: dropped previewsEnabled — the PR-preview opt-in moved to the
+        // service (serviceResource.previewsEnabled, Source card).
+        schemaVersion: 3,
       }),
     )
   : createCollection(projectQueryOptions);

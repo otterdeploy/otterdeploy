@@ -12,57 +12,15 @@ import type {
 } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
-import { db } from "@otterdeploy/db";
-import { gitInstallation, gitProvider, gitRepo } from "@otterdeploy/db/schema";
 import { Result } from "better-result";
-import { and, eq, isNull } from "drizzle-orm";
 
 import { type ServiceManifest } from "../../stack/manifest";
+import { gitSourceColumns, resolveManifestRepo } from "./manifest-apply-git";
 import { addServiceDomain, setPrimaryServiceDomain } from "../service/domains";
 import { bulkSetEnv, createService, exposeService, updateService } from "../service/handlers";
 import { ManifestApplySkipError } from "./errors";
 
 type OrgId = OrganizationId;
-
-/**
- * Resolve a manifest's portable `owner/repo` to the internal git_repo row id,
- * scoped to the org. Prefers an installation-backed row the org owns; falls
- * back to a public (installationId-null, tenant-shared) row. Returns null when
- * the repo isn't connected — the service still stages, and its build fails with
- * a clear "no git repo binding" until the operator connects/picks the repo.
- * Org-scoped: prefer an installation-backed row this org owns, else a public one.
- */
-async function resolveManifestRepo(
-  repo: string | undefined,
-  organizationId: OrgId,
-): Promise<GitRepoId | null> {
-  if (!repo) return null;
-  const [owned] = await db
-    .select({ id: gitRepo.id })
-    .from(gitRepo)
-    .innerJoin(gitInstallation, eq(gitInstallation.id, gitRepo.installationId))
-    .innerJoin(gitProvider, eq(gitProvider.id, gitInstallation.providerId))
-    .where(and(eq(gitRepo.fullName, repo), eq(gitProvider.organizationId, organizationId)))
-    .limit(1);
-  if (owned) return owned.id;
-  const [pub] = await db
-    .select({ id: gitRepo.id })
-    .from(gitRepo)
-    .where(and(eq(gitRepo.fullName, repo), isNull(gitRepo.installationId)))
-    .limit(1);
-  return pub?.id ?? null;
-}
-
-/** Pull the git-only source fields off a manifest service (repo resolved to an
- *  id upstream). Empty for an image service — those columns stay null. */
-function gitSourceColumns(spec: ServiceManifest, gitRepoId: GitRepoId | null) {
-  if (spec.source !== "git") return { gitRepoId: null, branch: null, imageRepository: null };
-  return {
-    gitRepoId,
-    branch: spec.branch ?? null,
-    imageRepository: spec.imageRepository ?? null,
-  };
-}
 
 function buildPortsPatch(spec: ServiceManifest) {
   return spec.ports?.map((p) => ({
@@ -251,6 +209,11 @@ function buildUpdateServiceInput(
           branch: args.spec.branch ?? null,
           imageRepository: args.spec.imageRepository ?? null,
         }
+      : {}),
+    // Declared-only, matching the diff gate: an omitted `previews` leaves the
+    // live toggle alone.
+    ...(args.spec.source === "git" && args.spec.previews !== undefined
+      ? { previewsEnabled: args.spec.previews }
       : {}),
     command: args.spec.startCommand ?? undefined,
     entrypoint: args.spec.entrypoint ?? undefined,

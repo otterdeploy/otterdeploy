@@ -85,6 +85,7 @@ export interface CreateServiceInput extends Omit<
   gitRepoId?: GitRepoId | null;
   branch?: string | null;
   imageRepository?: string | null;
+  previewsEnabled?: boolean;
 }
 
 export interface UpdateServiceInput extends Omit<
@@ -100,6 +101,7 @@ export interface UpdateServiceInput extends Omit<
   gitRepoId?: GitRepoId | null;
   branch?: string | null;
   imageRepository?: string | null;
+  previewsEnabled?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -169,6 +171,7 @@ export function toCreateRecordPayload(
     gitRepoId: input.gitRepoId ?? null,
     branch: input.branch ?? null,
     imageRepository: input.imageRepository ?? null,
+    previewsEnabled: input.previewsEnabled ?? false,
     image: input.image,
     command: input.command ?? null,
     entrypoint: input.entrypoint ?? null,
@@ -237,5 +240,6 @@ export function toUpdateRecordPatch(input: UpdateServiceInput) {
     gitRepoId: input.gitRepoId,
     branch: input.branch,
     imageRepository: input.imageRepository,
+    previewsEnabled: input.previewsEnabled,
   };
 }

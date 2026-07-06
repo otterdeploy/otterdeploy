@@ -58,6 +58,7 @@ export async function ensurePreviewRoutes(input: EnsurePreviewRoutesInput): Prom
         eq(resource.type, "service"),
         eq(serviceResource.source, "git"),
         eq(serviceResource.gitRepoId, input.gitRepoId),
+        eq(serviceResource.previewsEnabled, true),
         isNull(resource.environmentId),
       ),
     );

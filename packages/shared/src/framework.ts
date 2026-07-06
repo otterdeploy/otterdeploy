@@ -45,6 +45,49 @@ export type Framework = (typeof FRAMEWORK_KINDS)[number];
 /** Detected framework, or `null` when nothing was detected / never built. */
 export type FrameworkKind = Framework | null;
 
+/**
+ * Frameworks whose default build artifact is a client-rendered bundle —
+ * `vite` here means "vite with no SSR meta-framework on top" (the pkg
+ * detector already prefers next/nuxt/remix/astro/sveltekit over vite).
+ * These want SPA index.html fallback when served statically.
+ */
+const SPA_FRAMEWORKS: ReadonlySet<string> = new Set(["vite", "react", "vue"]);
+
+/** String-tolerant: detection results cross API boundaries as plain strings. */
+export function isSpaFramework(framework: string | null | undefined): boolean {
+  return framework != null && SPA_FRAMEWORKS.has(framework);
+}
+
+/**
+ * Conventional listen port per server framework. The runtime injects no
+ * `PORT` env, so the container port a service exposes must match what the
+ * app binds by default — which makes this a lookup, not a question to ask
+ * the user. Absent entries (static-artifact frameworks) have no server port.
+ */
+const FRAMEWORK_DEFAULT_PORTS: Readonly<Partial<Record<Framework, number>>> = {
+  next: 3000,
+  nuxt: 3000,
+  remix: 3000,
+  astro: 4321,
+  sveltekit: 3000,
+  express: 3000,
+  fastify: 3000,
+  hono: 3000,
+  nest: 3000,
+  node: 3000,
+  bun: 3000,
+  go: 8080,
+  python: 8000,
+  rust: 8080,
+  ruby: 3000,
+};
+
+/** String-tolerant port lookup; null for unknown/static frameworks. */
+export function frameworkDefaultPort(framework: string | null | undefined): number | null {
+  if (!framework) return null;
+  return FRAMEWORK_DEFAULT_PORTS[framework as Framework] ?? null;
+}
+
 /** Minimal shape of a parsed `package.json` the detector needs. */
 export interface PackageJsonLike {
   dependencies?: Record<string, string>;

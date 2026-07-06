@@ -1,0 +1,27 @@
+# Shapes the auto-generated release notes (`gh release create --generate-notes`,
+# run by the release job in workflows/images.yml). Generated notes list merged
+# PRs since the previous tag; this file groups them into sections BY PR LABEL —
+# GitHub only matches labels here, not title prefixes — so label PRs feat/fix/
+# perf/docs as they land and the changelog sorts itself. Unlabeled PRs fall
+# through to "Other changes" rather than being dropped.
+#
+# NOTE: direct-to-main commits never appear in generated notes (PRs only) —
+# work meant for the changelog should land via a PR. See docs/guides/releasing.md.
+changelog:
+  exclude:
+    authors:
+      - dependabot
+      - github-actions
+  categories:
+    - title: Features
+      labels: [feat, feature, enhancement]
+    - title: Fixes
+      labels: [fix, bug]
+    - title: Performance
+      labels: [perf, performance]
+    - title: Documentation
+      labels: [docs, documentation]
+    - title: Maintenance
+      labels: [chore, ci, refactor, dependencies]
+    - title: Other changes
+      labels: ["*"]

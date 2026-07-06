@@ -13,7 +13,10 @@
 # Tunables (env vars):
 #   OTTERDEPLOY_DATA_DIR      host data folder        (default /data/otterdeploy)
 #   OTTERDEPLOY_INSTALL_DIR   install root            (default $OTTERDEPLOY_DATA_DIR/source)
-#   OTTERDEPLOY_VERSION       image tag to pull       (default latest)
+#   OTTERDEPLOY_VERSION       image tag to pull       (default: newest GitHub
+#                             Release tag, e.g. v0.4.2; falls back to `latest`
+#                             when no release is reachable)
+#   OTTERDEPLOY_UPDATE_REPO   GitHub repo for the release lookup (default otterdeploy/otterdeploy)
 #   OTTERDEPLOY_COMPOSE_URL   compose source: http(s) URL, local path, or file://
 #                             (default get.otterdeploy.com/docker-compose.yml)
 #   OTTERDEPLOY_NETWORK       shared stack network    (default otterdeploy)
@@ -24,7 +27,7 @@
 # Subcommand:  install.sh update   → just pull the new image tag and restart
 #              (skips host setup; preserves all secrets).
 #   OTTERDEPLOY_ZFS_POOL      pool name               (default otter)
-#   OTTERDEPLOY_ZFS_SIZE      file-backed pool size   (default 40G)
+#   OTTERDEPLOY_ZFS_SIZE      file-backed pool size   (default: ¼ of free disk, 5G–40G)
 #   OTTERDEPLOY_FIREWALL      true | false            (default false) — start CrowdSec profile
 #   OTTERDEPLOY_DRY_RUN       true | false            (default false) — preview, change nothing
 #   DOCKER_ADDRESS_POOL_BASE  overlay address pool    (default 10.0.0.0/8)
@@ -41,7 +44,13 @@ DATA_DIR="${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}"
 # (see migrate_legacy_install).
 INSTALL_DIR="${OTTERDEPLOY_INSTALL_DIR:-$DATA_DIR/source}"
 LEGACY_INSTALL_DIR="/opt/otterdeploy"
-VERSION="${OTTERDEPLOY_VERSION:-latest}"
+# Empty ⇒ resolve the newest published release tag later (resolve_version), so
+# installs boot from a PINNED vX.Y.Z. The in-app updater compares that pin to
+# GitHub releases/latest — a semver current is what makes "update available"
+# fire and `compose pull` target a tag that exists. Set OTTERDEPLOY_VERSION to
+# pin explicitly (including `latest` to ride main).
+VERSION="${OTTERDEPLOY_VERSION:-}"
+RELEASE_REPO="${OTTERDEPLOY_UPDATE_REPO:-otterdeploy/otterdeploy}"
 COMPOSE_URL="${OTTERDEPLOY_COMPOSE_URL:-https://get.otterdeploy.com/docker-compose.yml}"
 COMPOSE_FILE="$INSTALL_DIR/docker-compose.yml"
 ENV_FILE="$INSTALL_DIR/.env"
@@ -51,7 +60,7 @@ ADVERTISE_ADDR="${OTTERDEPLOY_ADVERTISE_ADDR:-}"               # swarm advertise
 
 BRANCHING="${OTTERDEPLOY_BRANCHING:-auto}"     # auto | on | off
 ZFS_POOL="${OTTERDEPLOY_ZFS_POOL:-otter}"
-ZFS_SIZE="${OTTERDEPLOY_ZFS_SIZE:-40G}"
+ZFS_SIZE="${OTTERDEPLOY_ZFS_SIZE:-}"   # empty = size from free disk (see pool_size)
 ZFS_IMG="$DATA_DIR/branch-pool.img"
 FIREWALL="${OTTERDEPLOY_FIREWALL:-false}"
 DRY_RUN="${OTTERDEPLOY_DRY_RUN:-false}"
@@ -476,6 +485,30 @@ EOF
 # no hardware requirement via a file-backed vdev, so instant branching is on by
 # default. If ZFS can't be set up we don't fail — the platform uses the logical
 # (pg_dump) branching tier instead.
+#
+# Sizing: the vdev is a SPARSE file, so its size is a growth ceiling, not an
+# upfront cost — but it must never promise more than the disk can deliver. An
+# overcommitted pool suspends (hangs every branch DB at once) the moment the
+# backing filesystem hits ENOSPC. Default: ¼ of the space available at
+# $DATA_DIR, capped at 40G; below a 5G floor we skip ZFS entirely. Growing
+# later is one command (shrinking is impossible without recreating the pool):
+#   truncate -s +10G <img> && zpool online -e <pool> <img>
+
+# Echo the pool size to use, or nothing when the disk is too small for a
+# useful pool. An explicit OTTERDEPLOY_ZFS_SIZE is honored verbatim.
+pool_size() {
+  if [ -n "$ZFS_SIZE" ]; then printf '%s' "$ZFS_SIZE"; return; fi
+  # df the deepest existing ancestor of DATA_DIR (it may not exist yet).
+  target="$DATA_DIR"
+  while [ ! -d "$target" ] && [ "$target" != "/" ]; do target="$(dirname "$target")"; done
+  avail_kb="$(df -Pk "$target" 2>/dev/null | awk 'NR==2 {print $4}')"
+  [ -n "$avail_kb" ] || return 0
+  size_gb=$(( avail_kb / 1024 / 1024 / 4 ))
+  [ "$size_gb" -lt 5 ] && return 0
+  [ "$size_gb" -gt 40 ] && size_gb=40
+  printf '%sG' "$size_gb"
+}
+
 provision_branching() {
   step "Setting up copy-on-write database branching (ZFS)"
 
@@ -491,7 +524,13 @@ provision_branching() {
     fi
   fi
   if dry; then
-    say "   + would create file-backed ZFS pool '$ZFS_POOL' ($ZFS_SIZE) at $ZFS_IMG (if absent)"
+    size="$(pool_size)"
+    if [ -n "$size" ]; then
+      say "   + would create file-backed ZFS pool '$ZFS_POOL' ($size) at $ZFS_IMG (if absent)"
+    else
+      say "   + would skip the pool (<5G free at $DATA_DIR) → logical branching tier"
+    fi
+    say "   + would enable autotrim so deleted branch data returns to the host disk"
     say "   + would create+tune dataset '$ZFS_POOL/pg' (recordsize=16k atime=off)"
     say "   + would set BRANCH_ZFS_POOL=$ZFS_POOL in $ENV_FILE"
     say "   (no ZFS on host → platform would use the logical pg_dump tier instead)"
@@ -510,17 +549,28 @@ provision_branching() {
   if $SUDO zpool list -H -o name 2>/dev/null | grep -qx "$ZFS_POOL"; then
     say " - Reusing existing ZFS pool '$ZFS_POOL'"
   else
-    say " - Creating file-backed ZFS pool '$ZFS_POOL' ($ZFS_SIZE) at $ZFS_IMG"
-    say "   (point OTTERDEPLOY_ZFS_POOL at a real disk for production-grade speed)"
+    size="$(pool_size)"
+    if [ -z "$size" ]; then
+      warn "Less than 5G free at $DATA_DIR → skipping the ZFS pool; logical branching tier still works."
+      return
+    fi
+    say " - Creating file-backed ZFS pool '$ZFS_POOL' ($size) at $ZFS_IMG"
+    say "   (grows on demand from the dashboard; point OTTERDEPLOY_ZFS_POOL at a real disk for production-grade speed)"
     $SUDO mkdir -p "$DATA_DIR"
     if [ ! -f "$ZFS_IMG" ]; then
-      $SUDO truncate -s "$ZFS_SIZE" "$ZFS_IMG"
+      $SUDO truncate -s "$size" "$ZFS_IMG"
     fi
     if ! $SUDO zpool create -f "$ZFS_POOL" "$ZFS_IMG"; then
       warn "zpool create failed → falling back to logical branching."
       return
     fi
   fi
+
+  # Autotrim punches freed blocks back out of the sparse image file, so
+  # deleting a branch returns real disk to the host (a sparse file otherwise
+  # only ever grows). Set on reuse too — existing installs pick it up on
+  # re-run. Harmless on a whole-disk pool.
+  $SUDO zpool set autotrim=on "$ZFS_POOL" 2>/dev/null || true
 
   # Parent dataset for branchable DBs, tuned for Postgres (see design doc).
   $SUDO zfs create -p "$ZFS_POOL/pg" 2>/dev/null || true
@@ -597,11 +647,58 @@ wait_for_health() {
   fail "otterdeploy did not become healthy — see logs above and $LOG_FILE."
 }
 
-# `install.sh update` — re-fetch the compose, pull the new image tag, restart.
-# Skips host setup entirely and never touches secrets.
+# ── version resolution ────────────────────────────────────────────────────────
+# Images are published under immutable semver tags (vX.Y.Z) alongside a GitHub
+# Release per tag (.github/workflows/images.yml). Resolve the newest release so
+# the stack boots pinned; the fallback order keeps every situation safe:
+#   pinned via env  →  releases/latest  →  existing .env pin  →  `latest`.
+resolve_version() {
+  step "Resolving version"
+  if [ -n "$VERSION" ]; then
+    say " - $VERSION (pinned via OTTERDEPLOY_VERSION)"
+    return 0
+  fi
+  local tag
+  tag="$(curl -fsSL --max-time 10 -H 'Accept: application/vnd.github+json' \
+    "https://api.github.com/repos/$RELEASE_REPO/releases/latest" 2>/dev/null \
+    | sed -n 's/.*"tag_name":[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
+  if [ -n "$tag" ]; then
+    VERSION="$tag"
+    say " - $VERSION (latest release of $RELEASE_REPO)"
+    return 0
+  fi
+  # Lookup failed (offline, rate-limited, or no release published yet). Never
+  # DOWNGRADE an existing pin to the moving tag over a transient failure.
+  VERSION="$(env_value OTTERDEPLOY_VERSION)"
+  if [ -n "$VERSION" ]; then
+    say " - $VERSION (kept from existing .env — release lookup failed)"
+  else
+    VERSION="latest"
+    warn "Could not resolve the latest release of $RELEASE_REPO — using the moving '$VERSION' tag. In-app updates pin to a release on first apply; or re-run the installer once a release is published."
+  fi
+}
+
+# Bump the pinned tag in an existing .env — the same edit the in-app update
+# helper makes — so what `compose pull` fetches and what the dashboard reports
+# as its version can't drift apart.
+pin_version_in_env() {
+  [ -f "$ENV_FILE" ] || return 0
+  [ "$(env_value OTTERDEPLOY_VERSION)" = "$VERSION" ] && return 0
+  if grep -q '^OTTERDEPLOY_VERSION=' "$ENV_FILE" 2>/dev/null; then
+    run $SUDO sed -i "s|^OTTERDEPLOY_VERSION=.*|OTTERDEPLOY_VERSION=$VERSION|" "$ENV_FILE"
+  else
+    run $SUDO sh -c "printf 'OTTERDEPLOY_VERSION=%s\n' '$VERSION' >> '$ENV_FILE'"
+  fi
+  say " - Pinned OTTERDEPLOY_VERSION=$VERSION in $ENV_FILE"
+}
+
+# `install.sh update` — re-fetch the compose, pin the newest release tag, pull,
+# restart. Skips host setup entirely and never touches secrets.
 update_stack() {
   [ -f "$COMPOSE_FILE" ] || fail "No existing install at $COMPOSE_FILE — run the installer first."
   say "Updating otterdeploy (pull + restart) — secrets preserved…"
+  resolve_version
+  pin_version_in_env
   prepare_tree
   start_stack
   wait_for_health
@@ -813,6 +910,7 @@ main() {
 
   preflight
   install_prereqs
+  resolve_version
   configure_docker_pool
   ensure_swarm
   ensure_network

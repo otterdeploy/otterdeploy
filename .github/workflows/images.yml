@@ -3,6 +3,11 @@ name: Build Images
 on:
   push:
     branches: [main]
+    # Release tags publish PINNED images (`server:v0.4.2`) + a GitHub Release —
+    # the pair the in-app updater consumes (releases/latest → compose pull of
+    # the matching tag). Path filters are not evaluated for tag pushes, so a
+    # release always builds even when the tagged commit touched nothing listed.
+    tags: ["v*.*.*"]
     paths:
       - apps/server/**
       - apps/web/**
@@ -36,6 +41,10 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
+  # The image tag this run publishes: the moving `latest` for main pushes, the
+  # immutable semver tag itself for release tags. `latest` is intentionally NOT
+  # updated by release builds — it tracks main; releases live on their own tags.
+  TAG: ${{ github.ref_type == 'tag' && github.ref_name || 'latest' }}
 
 jobs:
   # Native per-arch build (no QEMU emulation) → one tagged image per arch,
@@ -87,7 +96,7 @@ jobs:
           file: ${{ matrix.dockerfile }}
           platforms: ${{ matrix.platform }}
           push: true
-          tags: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.image }}:latest-${{ matrix.arch }}
+          tags: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.image }}:${{ env.TAG }}-${{ matrix.arch }}
           # GitHub Actions layer cache (scoped per image+arch).
           cache-from: type=gha,scope=${{ matrix.image }}-${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}-${{ matrix.arch }}
@@ -113,6 +122,37 @@ jobs:
         env:
           IMAGE: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.image }}
         run: |
-          docker buildx imagetools create -t "${IMAGE}:latest" \
-            "${IMAGE}:latest-amd64" \
-            "${IMAGE}:latest-arm64"
+          docker buildx imagetools create -t "${IMAGE}:${TAG}" \
+            "${IMAGE}:${TAG}-amd64" \
+            "${IMAGE}:${TAG}-arm64"
+
+  # On release tags only: publish the GitHub Release AFTER both image manifests
+  # exist, so the moment the updater sees a new `releases/latest` the pinned
+  # `:vX.Y.Z` tags it will `compose pull` are already in the registry. A tag
+  # containing a prerelease suffix (v0.5.0-rc.1) is marked prerelease, which
+  # keeps it out of `releases/latest` — the stable channel never sees it.
+  release:
+    name: Publish GitHub Release
+    if: github.ref_type == 'tag'
+    needs: merge-manifest
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Create release ${{ github.ref_name }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG already exists — skipping (re-run of a published tag)."
+            exit 0
+          fi
+          prerelease=""
+          case "$TAG" in *-*) prerelease="--prerelease" ;; esac
+          gh release create "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$TAG" \
+            --generate-notes \
+            --verify-tag \
+            $prerelease

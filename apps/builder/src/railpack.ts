@@ -122,10 +122,30 @@ export async function railpackBuild(opts: {
     sink: opts.sink,
   });
   if (built.exitCode !== 0) {
-    throw new Error(`railpack build failed (exit ${built.exitCode})`);
+    throw new Error(buildFailureMessage(built.exitCode, built.tail));
   }
 
   return { shaTag, latestTag, buildDir };
+}
+
+const OOM_SIGNATURE =
+  /cannot allocate memory|out of memory|ResourceExhausted|signal SIGKILL|(?:^|\s)Killed(?:\s|$)/im;
+
+/** Non-zero buildx exits are usually app build errors, but an OOM kill looks
+ *  identical to the user ("exit 1") unless we say so. The tail carries the
+ *  daemon's signatures (`Killed`, `cannot allocate memory`, BuildKit's
+ *  `ResourceExhausted`), so classify and attach the fix instead of leaving
+ *  the operator to grep raw logs. */
+function buildFailureMessage(exitCode: number, tail: string): string {
+  if (OOM_SIGNATURE.test(tail)) {
+    return (
+      `railpack build failed (exit ${exitCode}) — the server ran out of memory during the build. ` +
+      "Free up memory (Instance → Server health → Reclaim space), add 2–4 GB of swap, " +
+      "or build heavy apps on a bigger machine. The build itself was killed by the kernel, " +
+      "not by a code error."
+    );
+  }
+  return `railpack build failed (exit ${exitCode})`;
 }
 
 interface BuildLayout {
