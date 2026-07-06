@@ -35,6 +35,9 @@ export interface ComposeFormValues {
   name: string;
   source: "inline" | "git";
   content: string;
+  /** Inline supporting files (scripts, Dockerfiles, .env, configs) alongside the
+   *  compose file in `content`. Paths may be nested (`scripts/init.sh`). */
+  files: Array<{ path: string; content: string }>;
   /** Bound repo id from the picker (private-capable). Preferred over gitRepoUrl. */
   gitRepoId: string;
   /** `owner/repo` for the bound repo — display only. */
@@ -72,6 +75,7 @@ export function useComposeForm(onSubmit: (value: ComposeFormValues) => Promise<v
       name: "",
       source: "inline",
       content: "",
+      files: [],
       gitRepoId: "",
       repoFullName: "",
       gitRepoUrl: "",
