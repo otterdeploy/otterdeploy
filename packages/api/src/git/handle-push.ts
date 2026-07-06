@@ -17,7 +17,9 @@ import { log } from "evlog";
 
 import type { GithubWebhookResult, PushEvent } from "./types";
 
-import { emitDeployStarted } from "../routers/project/deployments";
+import { Result } from "better-result";
+
+import { emitDeployStarted, markDeploymentFailed } from "../routers/project/deployments";
 import { detectAndPersistFramework } from "../routers/project/manifest-apply-git";
 import { changedPathsFromPush, matchesWatchPatterns } from "./watch-match";
 
@@ -160,15 +162,28 @@ async function fanOutDeploys(
       }
     }
 
-    await triggerDeploy({
-      projectId,
-      gitRepoId,
-      ref: ev.ref,
-      sha: ev.after,
-      commitMessage: ev.head_commit?.message,
-      commitAuthor: ev.head_commit?.author?.name,
-      deploymentIds: inserted.map((d) => d.id),
+    // Same insert-then-enqueue hazard as enqueueGitBuild: if the queue is down
+    // the rows just inserted would strand as `pending` forever (no job ever
+    // owns them). Mark them failed so the UI + notifications say what happened.
+    const enqueued = await Result.tryPromise({
+      try: () =>
+        triggerDeploy({
+          projectId,
+          gitRepoId,
+          ref: ev.ref,
+          sha: ev.after,
+          commitMessage: ev.head_commit?.message,
+          commitAuthor: ev.head_commit?.author?.name,
+          deploymentIds: inserted.map((d) => d.id),
+        }),
+      catch: (cause) => (cause instanceof Error ? cause.message : String(cause)),
     });
+    if (enqueued.isErr()) {
+      const message = `could not queue the build (is Redis/the builder running?): ${enqueued.error}`;
+      for (const dep of inserted) {
+        await markDeploymentFailed(dep.id, message).catch(() => undefined);
+      }
+    }
   }
   return created;
 }

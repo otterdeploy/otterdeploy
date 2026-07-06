@@ -42,6 +42,12 @@ export interface ResourceInstance {
   slot: number | null;
   nodeId: string | null;
   desiredState: string | null;
+  /** Docker-only, filled by `withInspect`: how many times the restart policy
+   *  has bounced this container. Null for swarm tasks (each retry is a fresh
+   *  task there, so the failed-task count plays this role). */
+  restartCount: number | null;
+  /** Docker-only, filled by `withInspect`: the kernel OOM-killed the container. */
+  oomKilled: boolean | null;
 }
 
 export type InstanceStateBucket = "running" | "building" | "error";
@@ -69,7 +75,10 @@ const STATE_BUCKETS: Record<string, InstanceStateBucket> = {
   shutdown: "error",
   // Plain-docker container states ("running" shared above).
   created: "building",
-  restarting: "building",
+  // A restarting container has crashed at least once — the daemon only
+  // restarts after a death. Amber "building" here made a crash loop look
+  // like progress on the graph node + task trays; it's a problem, show red.
+  restarting: "error",
   exited: "error",
   dead: "error",
   paused: "error",
@@ -127,6 +136,8 @@ function taskToInstance(t: SwarmTask): ResourceInstance {
     slot: orNull(t.Slot),
     nodeId: orNull(t.NodeID),
     desiredState: orNull(t.DesiredState),
+    restartCount: null,
+    oomKilled: null,
   };
 }
 
@@ -147,6 +158,29 @@ function containerToInstance(c: ContainerSummary): ResourceInstance {
     slot: null,
     nodeId: null,
     desiredState: null,
+    restartCount: null,
+    oomKilled: null,
+  };
+}
+
+/** Fill the fields the container list summary can't provide (exit code,
+ *  restart count, OOM flag) from a full inspect. Best-effort per container —
+ *  an inspect failure (e.g. the container was removed between list and
+ *  inspect) leaves the summary-derived instance untouched. */
+async function enrichFromInspect(
+  docker: Docker,
+  instance: ResourceInstance,
+): Promise<ResourceInstance> {
+  const inspected = await docker.containers.getContainer(instance.id).inspect();
+  if (inspected.isErr()) return instance;
+  const { State, RestartCount } = inspected.value;
+  return {
+    ...instance,
+    state: instance.state ?? orNull(State?.Status),
+    exitCode: typeof State?.ExitCode === "number" ? State.ExitCode : instance.exitCode,
+    err: instance.err ?? (State?.Error ? State.Error : null),
+    restartCount: typeof RestartCount === "number" ? RestartCount : null,
+    oomKilled: State?.OOMKilled ?? null,
   };
 }
 
@@ -154,10 +188,16 @@ function containerToInstance(c: ContainerSummary): ResourceInstance {
  * List the container instances backing a resource's service. Runtime-aware:
  * swarm tasks or plain-docker containers. Returns Result so callers can tell a
  * genuine daemon error apart from an empty (not-yet-deployed) result.
+ *
+ * `withInspect` (plain Docker only) upgrades each summary with a full container
+ * inspect — exit code, restart count, OOM flag — which the status derivation
+ * needs to tell "crashed and gave up" from "operator stopped it". One extra
+ * daemon call per container; a service has at most a handful.
  */
 export async function listResourceInstances(
   docker: Docker,
   serviceName: string,
+  opts?: { withInspect?: boolean },
 ): Promise<Result<ResourceInstance[], Error>> {
   if (isSwarmRuntime()) {
     const res = await docker.tasks.list({ filters: { service: [serviceName] } });
@@ -172,5 +212,7 @@ export async function listResourceInstances(
   const exact = (res.value as ContainerSummary[]).filter((c) =>
     c.Names?.some((n) => n === `/${serviceName}` || n === serviceName),
   );
-  return Result.ok(exact.map(containerToInstance));
+  const instances = exact.map(containerToInstance);
+  if (!opts?.withInspect) return Result.ok(instances);
+  return Result.ok(await Promise.all(instances.map((i) => enrichFromInspect(docker, i))));
 }

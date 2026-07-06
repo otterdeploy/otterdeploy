@@ -22,7 +22,7 @@ import { updateSwarmDatabase } from "../../runtime/db";
 import { defaultImageFor } from "../../swarm";
 import { bulkReplaceServiceEnvVars, listServiceEnvVars } from "../service/queries";
 import { redeployAndFanOut } from "../service/redeploy";
-import { insertDeployment } from "./deployments";
+import { insertDeployment, markDeploymentFailed } from "./deployments";
 import { PostgresResourceNotFoundError, ProjectNotFoundError } from "./errors";
 import {
   getDatabaseResourceRecord,
@@ -195,23 +195,37 @@ export async function bulkSetResourceEnv(
           extraEnv: next,
         },
       });
-      await updateSwarmDatabase(
-        {
-          engine,
-          resourceId: input.resourceId,
-          serviceName: buildContainerName({ engine, projectSlug, resourceName }),
-          volumeName: buildVolumeName({ engine, projectSlug, resourceName }),
-          hostnameAlias: dbRecord.database.internalHostname,
-          databaseName: dbRecord.database.databaseName,
-          username: dbRecord.database.username,
-          password: dbRecord.database.password,
-          projectSlug,
-          deploymentId: envDeployment.id,
-          extraEnv: next,
-          public: dbRecord.database.publicEnabled,
-        },
-        log,
-      );
+      // Wrapped so a driver throw marks the just-inserted row failed instead of
+      // stranding it "building" forever (the stale-row rescue only covers
+      // zero-task rows; a live DB container keeps deriving from its tasks).
+      const rolled = await Result.tryPromise({
+        try: () =>
+          updateSwarmDatabase(
+            {
+              engine,
+              resourceId: input.resourceId,
+              serviceName: buildContainerName({ engine, projectSlug, resourceName }),
+              volumeName: buildVolumeName({ engine, projectSlug, resourceName }),
+              hostnameAlias: dbRecord.database.internalHostname,
+              databaseName: dbRecord.database.databaseName,
+              username: dbRecord.database.username,
+              password: dbRecord.database.password,
+              projectSlug,
+              deploymentId: envDeployment.id,
+              extraEnv: next,
+              public: dbRecord.database.publicEnabled,
+            },
+            log,
+          ),
+        catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
+      });
+      if (rolled.isErr()) {
+        await markDeploymentFailed(
+          envDeployment.id,
+          `database env roll failed: ${rolled.error.message}`,
+        ).catch(() => undefined);
+        throw rolled.error;
+      }
     }
     log.set({
       resource: {

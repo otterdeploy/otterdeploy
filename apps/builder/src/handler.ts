@@ -62,6 +62,36 @@ interface HelperResult {
   tail: string;
 }
 
+/** Human-readable cause for a helper exit code, used when the pipeline never
+ *  wrote a terminal status itself. 125/126/127 are docker-run's own "the
+ *  container never started" codes; 137/143 are kill signals (128+SIGKILL /
+ *  128+SIGTERM) — a 137 mid-build is almost always the kernel OOM killer. */
+function classifyHelperExit(exitCode: number): string {
+  if (exitCode === HELPER_TIMED_OUT) {
+    return `build exceeded the ${HELPER_TIMEOUT_MS / 60_000}-minute limit and was killed`;
+  }
+  if (exitCode === 125 || exitCode === 126 || exitCode === 127) {
+    return `build container failed to start (exit ${exitCode})`;
+  }
+  if (exitCode === 137) {
+    return "build was killed (exit 137, likely out of memory) before it could finish";
+  }
+  if (exitCode === 143) {
+    return "build was terminated (exit 143, SIGTERM — host shutdown or manual stop)";
+  }
+  return `build process died (exit ${exitCode}) without reporting a failure`;
+}
+
+/** Hard wall-clock cap on one helper build. Without it, a `docker run` that
+ *  wedges (daemon hiccup, a build step blocked on a dead network read) holds
+ *  the worker slot forever and the deployment sits "building" with no
+ *  terminal write. Generous: real builds finish way inside this; anything
+ *  past it is stuck, not slow. */
+const HELPER_TIMEOUT_MS = 45 * 60_000;
+
+/** Sentinel exitCode for a build we killed at the timeout wall. */
+const HELPER_TIMED_OUT = -2;
+
 /** Spawn the per-deployment helper container and resolve once it exits. */
 function runHelperContainer(deploymentId: DeploymentId): Promise<HelperResult> {
   const envFlags = FORWARDED_ENV.filter(
@@ -107,14 +137,31 @@ function runHelperContainer(deploymentId: DeploymentId): Promise<HelperResult> {
   return new Promise<HelperResult>((resolve, reject) => {
     const child = spawn("docker", args, { stdio: ["ignore", "pipe", "pipe"] });
     let tail = "";
+    let timedOut = false;
     const TAIL_CAP = 16 * 1024;
     const append = (chunk: Buffer) => {
       tail = (tail + chunk.toString()).slice(-TAIL_CAP);
     };
+    // At the wall: remove the named container on the daemon (which unblocks the
+    // `docker run` attach) and kill the local process as a belt-and-braces.
+    const timer = setTimeout(() => {
+      timedOut = true;
+      spawn("docker", ["rm", "-f", `otterbuild-${deploymentId}`], { stdio: "ignore" }).on(
+        "error",
+        () => undefined,
+      );
+      child.kill("SIGKILL");
+    }, HELPER_TIMEOUT_MS);
     child.stdout.on("data", append);
     child.stderr.on("data", append);
-    child.on("error", reject);
-    child.on("close", (code) => resolve({ exitCode: code ?? -1, tail }));
+    child.on("error", (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      resolve({ exitCode: timedOut ? HELPER_TIMED_OUT : (code ?? -1), tail });
+    });
   });
 }
 
@@ -160,13 +207,16 @@ export function makeBuildJob() {
             }
           } else {
             // build-one.ts exits 1 after the pipeline has already marked the
-            // row failed. Docker's own 125/126/127 mean the container never
-            // ran the build (bad image / command / network), so nothing marked
-            // the row — do it here as a fallback so it doesn't hang "building".
-            if (exitCode === 125 || exitCode === 126 || exitCode === 127) {
+            // row failed — but NEVER trust that blindly. A helper that was
+            // OOM-killed (137), SIGTERMed (143), or crashed outside the
+            // pipeline exits non-zero *without* having written a terminal
+            // status, and the row would hang "building" until the next builder
+            // restart. Verify, and repair with an exit-code-classified message.
+            const status = await getDeploymentStatus(deploymentId).catch(() => null);
+            if (status === "pending" || status === "building") {
               await markFailed(
                 deploymentId,
-                `build container failed to start (exit ${exitCode}): ${tail.trim().slice(-500)}`,
+                `${classifyHelperExit(exitCode)}: ${tail.trim().slice(-500)}`,
               ).catch(() => undefined);
             }
             outcome = { ok: false, error: `build exited ${exitCode}` };

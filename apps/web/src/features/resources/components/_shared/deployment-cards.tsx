@@ -32,9 +32,29 @@ export interface DeploymentInfo {
   taskCount: number;
   failedTaskCount: number;
   runningTaskCount: number;
+  /** Observed restart-policy attempts (docker RestartCount / swarm failed
+   *  tasks) and the configured cap. Null count = nothing restarted; null cap
+   *  = unlimited. */
+  restartCount: number | null;
+  restartMaxAttempts: number | null;
   completedAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/** One plain sentence about the restart loop for a crashed deployment —
+ *  answers "is it still trying?" and "how many times did it die?". */
+function restartSummary(deployment: DeploymentInfo): string | null {
+  if (deployment.status !== "crashed") return null;
+  const attempts = deployment.restartCount ?? 0;
+  const limit = deployment.restartMaxAttempts;
+  if (limit != null && attempts >= limit) {
+    return `Gave up after ${attempts} restart ${attempts === 1 ? "attempt" : "attempts"} (limit ${limit}) — see the logs for the crash reason. Redeploy to try again.`;
+  }
+  if (attempts > 0) {
+    return `Crash-looping — restart attempt ${attempts}${limit != null ? ` of ${limit}` : ""}.`;
+  }
+  return "Container keeps dying — check the logs for the crash reason.";
 }
 
 export function ActiveDeploymentCard({
@@ -84,12 +104,17 @@ export function ActiveDeploymentCard({
         </div>
         {/* The count only earns its spot when it says something the status
             badge doesn't: real fan-out (>1) or a shortfall (0/1 running). */}
-        {(replicas > 1 || runningCount !== replicas) && (
+        {(replicas > 1 || runningCount !== replicas || deployment.failedTaskCount > 0) && (
           <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
             <span className="inline-flex items-center gap-1.5">
               <HugeiconsIcon icon={ContainerIcon} strokeWidth={2} className="size-3.5" />
               {runningCount}/{replicas} {replicas === 1 ? "instance" : "instances"}
             </span>
+            {deployment.failedTaskCount > 0 && (
+              <span className="text-destructive">
+                {deployment.failedTaskCount} failed
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -116,6 +141,12 @@ export function ActiveDeploymentCard({
         </span>
       </div>
 
+      {restartSummary(deployment) && (
+        <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[11.5px] text-destructive">
+          {restartSummary(deployment)}
+        </p>
+      )}
+
       {deployment.errorMessage && (
         <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 font-mono text-[11px] text-destructive">
           {deployment.errorMessage}
@@ -141,8 +172,14 @@ export function HistoryRow({
   canRollback: boolean;
 }) {
   const duration = useLiveDuration(deployment.createdAt, deployment.completedAt);
+  // A failed/crashed history row must say WHY inline — the badge alone made
+  // past failures opaque without a click-through to the detail page.
+  const showError =
+    deployment.errorMessage &&
+    (deployment.status === "failed" || deployment.status === "crashed");
   return (
-    <div className="group grid grid-cols-[100px_1fr_140px_160px_32px] items-center gap-3 px-3 py-2 text-left hover:bg-muted/20">
+    <div className="group px-3 py-2 text-left hover:bg-muted/20">
+      <div className="grid grid-cols-[100px_1fr_140px_160px_32px] items-center gap-3">
       <Link
         to="/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId"
         params={{
@@ -178,6 +215,15 @@ export function HistoryRow({
         resourceId={resourceId}
         canRollback={canRollback}
       />
+      </div>
+      {showError && (
+        <p
+          className="mt-1 truncate pl-[112px] font-mono text-[10.5px] text-destructive/80"
+          title={deployment.errorMessage ?? undefined}
+        >
+          {deployment.errorMessage}
+        </p>
+      )}
     </div>
   );
 }

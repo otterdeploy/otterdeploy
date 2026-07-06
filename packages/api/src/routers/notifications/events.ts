@@ -17,6 +17,7 @@ const PLATFORM_EVENTS: readonly PlatformEventDef[] = [
   { id: "deploy.started", label: "Deploy started", severity: "info" },
   { id: "deploy.succeeded", label: "Deploy succeeded", severity: "ok" },
   { id: "deploy.failed", label: "Deploy failed", severity: "err" },
+  { id: "deploy.crashed", label: "Service crashed", severity: "err" },
   { id: "build.failed", label: "Build failed", severity: "err" },
   { id: "health.degraded", label: "Health degraded", severity: "warn" },
   { id: "health.recovered", label: "Health recovered", severity: "ok" },

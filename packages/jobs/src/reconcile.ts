@@ -27,7 +27,7 @@ import { deployment, deploymentLog, project, resource } from "@otterdeploy/db/sc
  * a `system` deployment-log line, and a warn evlog line. Notifications are
  * fire-and-forget: they must never throw out of reconcile.
  */
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, lt } from "drizzle-orm";
 import { log as globalLog } from "evlog";
 
 import type { PlatformEventPayload } from "./jobs/notification-event";
@@ -51,6 +51,10 @@ export interface ReconcileOptions {
   getQueue?: GetQueueLike;
   /** Emit deploy.failed notifications for each reset row. Default true. */
   emit?: boolean;
+  /** Only consider rows at least this old. The periodic (server-side) sweep
+   *  passes a few minutes so it can never race the insert-then-enqueue window
+   *  of a deploy that's being created right now; builder boot keeps 0. */
+  minAgeMs?: number;
   /** Override the run-once lock — defaults to a Redis SET NX PX on the shared
    *  connection. Tests inject this to exercise the not-acquired branch without
    *  Redis. Returns a release fn, or null when the lock is already held. */
@@ -127,7 +131,7 @@ export async function reconcileInterruptedDeployments(
   }
 
   try {
-    const failed = await reconcileOrphans(db, getQueue, emit, emitEvent);
+    const failed = await reconcileOrphans(db, getQueue, emit, emitEvent, opts.minAgeMs ?? 0);
     const superseded = await reconcileDuplicateRunning(db);
     globalLog.info({
       reconcile: { event: "done", failed, superseded },
@@ -145,11 +149,19 @@ async function reconcileOrphans(
   getQueue: GetQueueLike,
   emit: boolean,
   emitEvent: (payload: PlatformEventPayload) => Promise<unknown>,
+  minAgeMs: number,
 ): Promise<number> {
   const candidates = await db
     .select({ id: deployment.id, resourceId: deployment.resourceId })
     .from(deployment)
-    .where(inArray(deployment.status, ["pending", "building"]));
+    .where(
+      minAgeMs > 0
+        ? and(
+            inArray(deployment.status, ["pending", "building"]),
+            lt(deployment.createdAt, new Date(Date.now() - minAgeMs)),
+          )
+        : inArray(deployment.status, ["pending", "building"]),
+    );
 
   if (candidates.length === 0) return 0;
 

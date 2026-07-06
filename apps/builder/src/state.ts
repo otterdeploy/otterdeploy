@@ -16,26 +16,42 @@
 
 import type { DeploymentId } from "@otterdeploy/shared/id";
 
+import { publishResourceChanged } from "@otterdeploy/api/routers/project/project-event-bus";
 import { db } from "@otterdeploy/db";
 import { deployment } from "@otterdeploy/db/schema";
 import { eq } from "drizzle-orm";
 
+/** Every status write pushes a resource-changed event to the project stream —
+ *  build-phase transitions happen in THIS process and produce no docker event,
+ *  so without the publish the UI only notices on its 5s poll fallback.
+ *  Fire-and-forget: publishResourceChanged swallows its own errors. */
+function publishFor(rows: Array<{ resourceId: string }>): void {
+  const resourceId = rows[0]?.resourceId;
+  if (resourceId) {
+    void publishResourceChanged(resourceId as Parameters<typeof publishResourceChanged>[0]);
+  }
+}
+
 export async function markBuilding(deploymentId: DeploymentId): Promise<void> {
-  await db
+  const rows = await db
     .update(deployment)
     .set({ status: "building", errorMessage: null, completedAt: null })
-    .where(eq(deployment.id, deploymentId));
+    .where(eq(deployment.id, deploymentId))
+    .returning({ resourceId: deployment.resourceId });
+  publishFor(rows);
 }
 
 export async function markFailed(deploymentId: DeploymentId, errorMessage: string): Promise<void> {
-  await db
+  const rows = await db
     .update(deployment)
     .set({
       status: "failed",
       errorMessage: errorMessage.slice(0, 2000),
       completedAt: new Date(),
     })
-    .where(eq(deployment.id, deploymentId));
+    .where(eq(deployment.id, deploymentId))
+    .returning({ resourceId: deployment.resourceId });
+  publishFor(rows);
 }
 
 /**
@@ -54,10 +70,12 @@ export async function markImageReady(deploymentId: DeploymentId, image: string):
  * Swarm converged on the new image. Terminal happy-path state.
  */
 export async function markRunning(deploymentId: DeploymentId): Promise<void> {
-  await db
+  const rows = await db
     .update(deployment)
     .set({ status: "running", errorMessage: null, completedAt: new Date() })
-    .where(eq(deployment.id, deploymentId));
+    .where(eq(deployment.id, deploymentId))
+    .returning({ resourceId: deployment.resourceId });
+  publishFor(rows);
 }
 
 /**

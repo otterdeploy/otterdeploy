@@ -8,6 +8,7 @@ import { startBackupScheduler } from "@otterdeploy/api/backups";
 import { startEphemeralDbSweeper } from "@otterdeploy/api/ephemeral-db";
 import { startDataFolderSweep } from "@otterdeploy/api/lib/data-folder-sweep";
 import { startMetricsSampler } from "@otterdeploy/api/metrics";
+import { startDeployCrashWatcher } from "@otterdeploy/api/routers/project/deploy-crash-watcher";
 import { startAuditAnomalyScan } from "@otterdeploy/api/notifications/audit-anomaly";
 import { startBlocklistScheduler } from "@otterdeploy/api/routers/firewall/scheduler";
 import {
@@ -15,7 +16,28 @@ import {
   startHostHealthMonitor,
   startLocalHealthSampler,
 } from "@otterdeploy/api/system-health";
+import { reconcileInterruptedDeployments } from "@otterdeploy/jobs/reconcile";
 import { log } from "evlog";
+
+/** Periodic deploy reconcile — the builder runs the same pass at ITS boot, but
+ *  if the builder dies (or never comes up) nobody would ever fail its orphaned
+ *  pending/building rows. Every 5m, with a 3m min-age so it can't race the
+ *  insert-then-enqueue window of a deploy being created right now; the Redis
+ *  run-once lock inside makes concurrent passes (builder boot + this) safe. */
+function startDeployReconcile(): () => void {
+  const RECONCILE_INTERVAL_MS = 5 * 60_000;
+  const MIN_ROW_AGE_MS = 3 * 60_000;
+  const tick = () => {
+    void reconcileInterruptedDeployments({ minAgeMs: MIN_ROW_AGE_MS }).catch((cause) => {
+      log.warn({
+        reconcile: { event: "periodic-failed" },
+        error: cause instanceof Error ? cause.message : String(cause),
+      });
+    });
+  };
+  const interval = setInterval(tick, RECONCILE_INTERVAL_MS);
+  return () => clearInterval(interval);
+}
 
 export function startBackgroundServices(): () => void {
   const stops: Array<() => void> = [];
@@ -62,6 +84,16 @@ export function startBackgroundServices(): () => void {
   // Audit-anomaly scan — periodic, conservative rules over recent audit rows
   // (denial bursts, mass deletions) that emit `audit.anomaly` notifications.
   start("audit-anomaly-scan", startAuditAnomalyScan);
+
+  // Deploy reconcile — fails orphaned pending/building deployment rows whose
+  // queue job is gone (builder crash, queue outage) so nothing sits in limbo
+  // waiting for the next builder restart.
+  start("deploy-reconcile", startDeployReconcile);
+
+  // Deploy crash watcher — container die/oom events become deployment-log
+  // lines ("restarting, attempt 2 of 5" / "gave up after 5 attempts"),
+  // instant resource-changed pushes, and deploy.crashed notifications.
+  start("deploy-crash-watcher", startDeployCrashWatcher);
 
   return () => {
     for (const stop of stops) stop();

@@ -14,7 +14,14 @@ import { Result } from "better-result";
 import { and, desc, eq, inArray } from "drizzle-orm";
 
 import type { DeploymentRow } from "./deployments";
+import type { DerivedDeploymentStatus, InstanceGlimpse } from "./deployments-derive";
 
+import {
+  BUILD_LOG_QUIET_MS,
+  deriveDeploymentStatus,
+  FAILED_TASK_COUNT_STATES,
+  ZERO_TASK_STALE_MS,
+} from "./deployments-derive";
 import { emitDeploySucceeded } from "./deployments-emit";
 import { PostgresResourceNotFoundError, ProjectNotFoundError } from "./errors";
 import { publishResourceChanged } from "./project-event-bus";
@@ -26,15 +33,7 @@ import { buildContainerName } from "./views";
 type OrgId = OrganizationId;
 type ResolvedResource = NonNullable<Awaited<ReturnType<typeof getResourceById>>>;
 
-/**
- * Status as SHOWN to the client: the stored lifecycle status plus the
- * derived-only `crashing` runtime state — a container that already came up once
- * but keeps restarting/dying. `crashed` is computed live from task states and
- * is NEVER persisted (the DB row stays at its lifecycle status, usually
- * `running`), so it lives here at the derivation boundary rather than in the
- * `deployment_status` DB enum.
- */
-export type DerivedDeploymentStatus = DeploymentRow["status"] | "crashed" | "starting";
+export type { DerivedDeploymentStatus } from "./deployments-derive";
 
 export interface DeploymentWithStats {
   id: DeploymentId;
@@ -56,131 +55,13 @@ export interface DeploymentWithStats {
   completedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
-}
-
-// Swarm task lifecycle states bucketed by what they mean for a deployment.
-// Reference: https://docs.docker.com/reference/cli/docker/service/ps/
-const BUILDING_STATES = new Set([
-  // Swarm task states.
-  "new",
-  "allocated",
-  "pending",
-  "assigned",
-  "accepted",
-  "preparing",
-  "ready",
-  "starting",
-  // Plain-docker container states (DEPLOY_RUNTIME=docker).
-  "created",
-  "restarting",
-]);
-const FAILED_STATES = new Set([
-  "failed",
-  "rejected",
-  "orphaned",
-  "remove",
-  // For a long-running service like a database, `complete` and `shutdown`
-  // on the latest task aren't a normal terminal state — they mean swarm
-  // rolled back (FailureAction=rollback after the new task failed health
-  // or, in the start-first → stop-first transition, the old task got
-  // killed by the new one's volume conflict). Treat as a deploy failure
-  // so the UI doesn't sit on "BUILDING" forever.
-  "complete",
-  "shutdown",
-  // Plain-docker: a service container that exited/died is down.
-  "exited",
-  "dead",
-  "paused",
-  "removing",
-]);
-// Subset of FAILED_STATES used for the per-deployment failed-task count —
-// `complete`/`shutdown` are deliberately excluded here (they only flip the
-// overall status, they don't count as failed tasks).
-const FAILED_TASK_COUNT_STATES = new Set([
-  "failed",
-  "rejected",
-  "orphaned",
-  "remove",
-  "exited",
-  "dead",
-]);
-
-// A 0-task row this old definitely isn't still spinning up — wait-ready
-// gives swarm 60s before timing out, so 3 minutes is past every legitimate
-// startup window. After that, "building" forever is wrong; "failed"
-// at least surfaces it as broken in the UI instead of pretending it's
-// in flight. Catches phantom rows from caller-vs-provisioner races
-// (see deleteDeploymentById in ensureSwarmRuntimeForRecord) and any old
-// dead rows left over from before that race was closed.
-const ZERO_TASK_STALE_MS = 3 * 60_000;
-
-// A running deployment whose swarm task keeps dying and being recreated is
-// crash-looping (e.g. the app exits on a bad env var). Swarm accumulates one
-// failed task per restart attempt (bounded by the daemon's task-history limit
-// and our RestartPolicy MaxAttempts), so this many failed tasks for a
-// deployment that already reached "running" is the signal to surface it as
-// `crashing` rather than a calm `running`. Below the threshold we treat a lone
-// failure as a transient restart and leave it `running`.
-const CRASH_LOOP_FAILURE_THRESHOLD = 3;
-
-// A git-source deployment legitimately has ZERO tasks for its whole image
-// build — nothing is scheduled until build+push finishes — so age alone
-// can't distinguish "dead" from "slow build". The build streams log lines
-// the entire time it runs (BuildKit progress alone keeps this fresh), so a
-// recent log line means the builder is alive and the row stays "building".
-const BUILD_LOG_QUIET_MS = 3 * 60_000;
-
-function deriveDeploymentStatus(
-  stored: DeploymentRow["status"],
-  isLatest: boolean,
-  taskStates: string[],
-  createdAt: Date,
-  buildActive: boolean,
-): DerivedDeploymentStatus {
-  if (taskStates.length === 0) {
-    // No tasks yet OR docker GC'd them all (very old deployments). Only
-    // mark "superseded" when this isn't the most recent — otherwise we'd
-    // lose info on a fresh deploy that hasn't scheduled tasks yet.
-    if (!isLatest) return "superseded";
-    // Latest row sitting at building/pending with nothing scheduled past
-    // the wait-ready window AND no recent build output is a dead
-    // deployment — surface it as failed instead of pinning on BUILDING.
-    const ageMs = Date.now() - createdAt.getTime();
-    if ((stored === "building" || stored === "pending") && ageMs > ZERO_TASK_STALE_MS) {
-      return buildActive ? stored : "failed";
-    }
-    return stored;
-  }
-  const hasRunning = taskStates.some((s) => s === "running");
-  const hasBuilding = taskStates.some((s) => BUILDING_STATES.has(s));
-  const failedCount = taskStates.reduce((n, s) => (FAILED_STATES.has(s) ? n + 1 : n), 0);
-  // Crash-loop signal, unified across runtimes. Swarm schedules a fresh (failed)
-  // task per restart attempt, so repeated failures pile up (failedCount). Plain
-  // docker (`DEPLOY_RUNTIME=docker`) restarts ONE container in place, which the
-  // daemon reports as `restarting` — a single such instance already means the
-  // RestartPolicy is actively bouncing a crashing container.
-  const restartingNow = taskStates.some((s) => s === "restarting");
-  const crashLooping = failedCount >= CRASH_LOOP_FAILURE_THRESHOLD || restartingNow;
-  if (hasRunning) {
-    // Up right now — but if it's also racked up repeated failures it keeps
-    // coming up and dying (crash loop, e.g. a bad env var). Surface that
-    // instead of a calm "running".
-    return crashLooping ? "crashed" : "running";
-  }
-  // Nothing running this instant. A deployment that already reached "running"
-  // has finished building — a task now back in a pre-running phase
-  // (`starting`/`restarting`/…) is a container RESTART, not a build, so it must
-  // never rewind the lifecycle status to "building" (running → building is an
-  // impossible transition). Repeated failures mean it's crash-looping; a lone
-  // failure is a transient restart, so it stays "running".
-  if (stored === "running") return crashLooping ? "crashed" : "running";
-  // Still actively bringing a task up — only show "building" while at
-  // least one task is in a pre-running phase (build-phase rows only).
-  if (hasBuilding) return "starting";
-  if (!isLatest) return "superseded";
-  if (failedCount > 0) return "failed";
-  // Fallthrough: tasks exist but in unknown state. Honour the DB row.
-  return stored;
+  /** Restart-policy attempts observed on the live container. Plain docker →
+   *  the daemon's RestartCount; swarm → failed-task count (one task per
+   *  attempt). Null when nothing has restarted. */
+  restartCount: number | null;
+  /** The configured restart cap (RestartPolicy MaxAttempts, incl. the
+   *  platform default). Null = unlimited ("any"/"unless-stopped"). */
+  restartMaxAttempts: number | null;
 }
 
 /** All deployments for a resource, newest first. Status is the value
@@ -221,6 +102,31 @@ export async function reconcileDeploySuccess(
   }
 }
 
+const STALE_BUILD_MESSAGE =
+  "No container appeared and the build produced no output for over 3 minutes — " +
+  "the build process likely died or was never picked up (is the builder running?).";
+
+/**
+ * Persist the stale zero-task building/pending → failed flip the derivation
+ * decided on, and emit `deploy.failed` exactly once. Mirror of
+ * `reconcileDeploySuccess`: the conditional UPDATE (status still
+ * building/pending) is the concurrency guard, so concurrent list reads can't
+ * double-fire, and a builder that grabs the row at the same moment wins.
+ */
+export async function reconcileDeployFailure(deploymentIds: DeploymentId[]): Promise<void> {
+  const { markDeploymentFailed } = await import("./deployments");
+  for (const id of deploymentIds) {
+    const flipped = await db
+      .update(deployment)
+      .set({ status: "failed", errorMessage: STALE_BUILD_MESSAGE, completedAt: new Date() })
+      .where(and(eq(deployment.id, id), inArray(deployment.status, ["building", "pending"])))
+      .returning({ id: deployment.id });
+    // markDeploymentFailed re-writes the same terminal values (harmless) and
+    // owns the publish + deploy.failed notification plumbing.
+    if (flipped.length > 0) await markDeploymentFailed(id, STALE_BUILD_MESSAGE);
+  }
+}
+
 /**
  * Is the latest deployment's build still producing output? Only consulted
  * when the zero-task stale window would flip it to "failed" — one indexed
@@ -228,7 +134,7 @@ export async function reconcileDeploySuccess(
  */
 async function isBuildStillLogging(
   latest: DeploymentRow | undefined,
-  tasksByDeployment: Map<string, string[]>,
+  tasksByDeployment: Map<string, InstanceGlimpse[]>,
 ): Promise<boolean> {
   if (!latest) return false;
   if (latest.status !== "building" && latest.status !== "pending") return false;
@@ -262,19 +168,30 @@ export async function resolveDeploymentServiceName(
 }
 
 // One runtime-aware call covers every instance for the service (swarm tasks or
-// plain-docker containers). Bucket their states by the `otterdeploy.deployment.id`
-// label so we never need a per-deployment call.
-async function loadTaskStatesByDeployment(serviceName: string): Promise<Map<string, string[]>> {
+// plain-docker containers). Bucket them by the `otterdeploy.deployment.id`
+// label so we never need a per-deployment call. `withInspect` fills exit code /
+// restart count / OOM flag under plain docker — the derivation needs those to
+// tell a crash that gave up from an operator stop.
+async function loadTaskStatesByDeployment(
+  serviceName: string,
+): Promise<Map<string, InstanceGlimpse[]>> {
   const docker = Docker.fromEnv();
-  const tasksByDeployment = new Map<string, string[]>();
+  const tasksByDeployment = new Map<string, InstanceGlimpse[]>();
   try {
-    const instancesResult = await listResourceInstances(docker, serviceName);
+    const instancesResult = await listResourceInstances(docker, serviceName, {
+      withInspect: true,
+    });
     if (instancesResult.isErr()) return tasksByDeployment;
     for (const instance of instancesResult.value) {
       const deploymentId = instance.deploymentId;
       if (!deploymentId) continue;
       const bucket = tasksByDeployment.get(deploymentId) ?? [];
-      bucket.push(instance.state ?? "unknown");
+      bucket.push({
+        state: instance.state ?? "unknown",
+        exitCode: instance.exitCode,
+        restartCount: instance.restartCount,
+        oomKilled: instance.oomKilled,
+      });
       tasksByDeployment.set(deploymentId, bucket);
     }
   } finally {
@@ -283,16 +200,39 @@ async function loadTaskStatesByDeployment(serviceName: string): Promise<Map<stri
   return tasksByDeployment;
 }
 
+/** The restart cap in effect for this resource, mirroring what the drivers
+ *  actually apply (see toRestartPolicy / swarm internals / DB driver): services
+ *  default `on-failure` to maxAttempts ?? 5; "any" is unlimited (null);
+ *  databases are hard-capped at 5. */
+function resolveRestartMaxAttempts(found: ResolvedResource): number | null {
+  if (found.kind === "database") return 5;
+  const svc = found.record.service;
+  if (svc.restartCondition === "on-failure") return svc.restartMaxAttempts ?? 5;
+  if (svc.restartCondition === "none") return 0;
+  return null;
+}
+
 function toDeploymentWithStats(
   row: DeploymentRow,
   projectId: ProjectId,
   isLatest: boolean,
-  states: string[],
+  instances: InstanceGlimpse[],
   buildActive: boolean,
+  restartMaxAttempts: number | null,
 ): DeploymentWithStats {
-  const status = deriveDeploymentStatus(row.status, isLatest, states, row.createdAt, buildActive);
-  const failed = states.filter((s) => FAILED_TASK_COUNT_STATES.has(s)).length;
-  const running = states.filter((s) => s === "running").length;
+  const status = deriveDeploymentStatus(
+    row.status,
+    isLatest,
+    instances,
+    row.createdAt,
+    buildActive,
+  );
+  const failed = instances.filter((i) => FAILED_TASK_COUNT_STATES.has(i.state)).length;
+  const running = instances.filter((i) => i.state === "running").length;
+  // Plain docker reports the daemon's own counter; swarm schedules a fresh
+  // task per attempt so the failed-task count is the attempt count.
+  const dockerRestarts = Math.max(0, ...instances.map((i) => i.restartCount ?? 0));
+  const restartCount = dockerRestarts > 0 ? dockerRestarts : failed > 0 ? failed : null;
   return {
     id: row.id,
     projectId,
@@ -301,7 +241,7 @@ function toDeploymentWithStats(
     reason: row.reason,
     status,
     errorMessage: row.errorMessage,
-    taskCount: states.length,
+    taskCount: instances.length,
     failedTaskCount: failed,
     runningTaskCount: running,
     gitSha: row.gitSha,
@@ -311,6 +251,8 @@ function toDeploymentWithStats(
     completedAt: row.completedAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+    restartCount,
+    restartMaxAttempts,
   };
 }
 
@@ -344,7 +286,9 @@ export async function listResourceDeployments(
 
   const latestId = rows[0]?.id;
   const latestBuildActive = await isBuildStillLogging(rows[0], tasksByDeployment);
+  const restartMaxAttempts = resolveRestartMaxAttempts(found);
   const justSucceeded: DeploymentId[] = [];
+  const justDied: DeploymentId[] = [];
   const result = rows.map((row) => {
     const states = tasksByDeployment.get(row.id) ?? [];
     const stats = toDeploymentWithStats(
@@ -353,17 +297,32 @@ export async function listResourceDeployments(
       row.id === latestId,
       states,
       row.id === latestId && latestBuildActive,
+      restartMaxAttempts,
     );
     // A row stored building/pending whose tasks are now running has just
     // succeeded — flag it for the reconcile + emit below.
     if (stats.status === "running" && (row.status === "building" || row.status === "pending")) {
       justSucceeded.push(row.id);
     }
+    // A stale zero-task row the derivation gave up on: persist the failure so
+    // the stored status (which the graph node + notifications read) agrees
+    // with what the list shows, instead of a display-only "failed" over a
+    // forever-"pending" row.
+    if (
+      stats.status === "failed" &&
+      states.length === 0 &&
+      (row.status === "building" || row.status === "pending")
+    ) {
+      justDied.push(row.id);
+    }
     return stats;
   });
 
   if (justSucceeded.length > 0) {
     await reconcileDeploySuccess(justSucceeded, input.resourceId);
+  }
+  if (justDied.length > 0) {
+    await reconcileDeployFailure(justDied);
   }
   return Result.ok(result);
 }

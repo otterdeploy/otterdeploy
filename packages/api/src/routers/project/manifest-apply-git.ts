@@ -40,6 +40,7 @@ export async function enqueueGitBuild(args: {
     .where(eq(serviceResource.resourceId, args.resourceId))
     .limit(1);
   if (!svc?.gitRepoId) return Result.err("service has no git repo binding");
+  const gitRepoId = svc.gitRepoId;
 
   const [repo] = await db
     .select({
@@ -141,13 +142,27 @@ export async function enqueueGitBuild(args: {
   // non-blocking; a repo we can't read just keeps whatever framework it had.
   void detectAndPersistFramework(svc.gitRepoId, args.resourceId).catch(() => undefined);
 
-  await triggerDeploy({
-    projectId: args.projectId,
-    gitRepoId: svc.gitRepoId,
-    ref,
-    sha,
-    deploymentIds: [row.id],
+  // Enqueue AFTER the row insert — so a Redis/queue outage here must mark the
+  // row failed, or it strands as a `pending` deployment no job will ever own
+  // (a 500 to the user and a forever-pending badge). Same string-error channel
+  // as the SHA lookup so apply folds it into skipped[].
+  const enqueueResult = await Result.tryPromise({
+    try: () =>
+      triggerDeploy({
+        projectId: args.projectId,
+        gitRepoId,
+        ref,
+        sha,
+        deploymentIds: [row.id],
+      }),
+    catch: (cause) => (cause instanceof Error ? cause.message : String(cause)),
   });
+  if (enqueueResult.isErr()) {
+    const message = `could not queue the build (is Redis/the builder running?): ${enqueueResult.error}`;
+    const { markDeploymentFailed } = await import("./deployments");
+    await markDeploymentFailed(row.id, message).catch(() => undefined);
+    return Result.err(message);
+  }
   args.log.set({ manifestBuild: { resourceId: args.resourceId, sha, ref } });
   return Result.ok({ deploymentId: row.id });
 }

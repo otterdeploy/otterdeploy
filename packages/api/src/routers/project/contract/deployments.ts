@@ -40,13 +40,18 @@ export const deploymentSchema = z.object({
     "git-push",
     "rollback",
   ]),
-  // `crashing` is derived-only (a running deployment whose container keeps
-  // restarting) — never a stored DB value; see DerivedDeploymentStatus.
+  // `crashed`/`starting` are derived-only (computed live from task states) —
+  // never stored DB values; see DerivedDeploymentStatus.
   status: z.enum(["pending", "building", "starting", "running", "crashed", "failed", "superseded", "removed"]),
   errorMessage: z.string().nullable(),
   taskCount: z.number().int(),
   failedTaskCount: z.number().int(),
   runningTaskCount: z.number().int(),
+  // Restart-policy attempts observed on the live container (docker
+  // RestartCount, or swarm failed-task count) and the configured cap.
+  // restartMaxAttempts null = unlimited.
+  restartCount: z.number().int().nullable(),
+  restartMaxAttempts: z.number().int().nullable(),
   // Git provenance — populated when the deploy was built from a repo
   // (reason="git-push" or a git-sourced service). Null for image-only /
   // database deployments. Surfaced in the "Deployed from" block of the
