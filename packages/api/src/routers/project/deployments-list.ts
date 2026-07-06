@@ -7,6 +7,7 @@
 import type { DeploymentId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
+import { deploymentLog } from "@otterdeploy/db/schema/build";
 import { deployment } from "@otterdeploy/db/schema/project";
 import { Docker } from "@otterdeploy/docker";
 import { Result } from "better-result";
@@ -103,11 +104,19 @@ const FAILED_TASK_COUNT_STATES = new Set([
 // dead rows left over from before that race was closed.
 const ZERO_TASK_STALE_MS = 3 * 60_000;
 
+// A git-source deployment legitimately has ZERO tasks for its whole image
+// build — nothing is scheduled until build+push finishes — so age alone
+// can't distinguish "dead" from "slow build". The build streams log lines
+// the entire time it runs (BuildKit progress alone keeps this fresh), so a
+// recent log line means the builder is alive and the row stays "building".
+const BUILD_LOG_QUIET_MS = 3 * 60_000;
+
 function deriveDeploymentStatus(
   stored: DeploymentRow["status"],
   isLatest: boolean,
   taskStates: string[],
   createdAt: Date,
+  buildActive: boolean,
 ): DeploymentRow["status"] {
   if (taskStates.length === 0) {
     // No tasks yet OR docker GC'd them all (very old deployments). Only
@@ -115,11 +124,11 @@ function deriveDeploymentStatus(
     // lose info on a fresh deploy that hasn't scheduled tasks yet.
     if (!isLatest) return "superseded";
     // Latest row sitting at building/pending with nothing scheduled past
-    // the wait-ready window is a dead deployment — surface it as failed
-    // instead of letting the UI pin on BUILDING.
+    // the wait-ready window AND no recent build output is a dead
+    // deployment — surface it as failed instead of pinning on BUILDING.
     const ageMs = Date.now() - createdAt.getTime();
     if ((stored === "building" || stored === "pending") && ageMs > ZERO_TASK_STALE_MS) {
-      return "failed";
+      return buildActive ? stored : "failed";
     }
     return stored;
   }
@@ -174,6 +183,28 @@ export async function reconcileDeploySuccess(
   }
 }
 
+/**
+ * Is the latest deployment's build still producing output? Only consulted
+ * when the zero-task stale window would flip it to "failed" — one indexed
+ * lookup for the newest log line, skipped entirely on the happy paths.
+ */
+async function isBuildStillLogging(
+  latest: DeploymentRow | undefined,
+  tasksByDeployment: Map<string, string[]>,
+): Promise<boolean> {
+  if (!latest) return false;
+  if (latest.status !== "building" && latest.status !== "pending") return false;
+  if ((tasksByDeployment.get(latest.id) ?? []).length > 0) return false;
+  if (Date.now() - latest.createdAt.getTime() <= ZERO_TASK_STALE_MS) return false;
+  const [lastLine] = await db
+    .select({ ts: deploymentLog.ts })
+    .from(deploymentLog)
+    .where(eq(deploymentLog.deploymentId, latest.id))
+    .orderBy(desc(deploymentLog.seq))
+    .limit(1);
+  return lastLine != null && Date.now() - lastLine.ts.getTime() < BUILD_LOG_QUIET_MS;
+}
+
 // Resolve the swarm service name backing a resource — postgres uses the
 // deterministic container-name pattern; services store it on the row.
 export async function resolveDeploymentServiceName(
@@ -219,8 +250,9 @@ function toDeploymentWithStats(
   projectId: ProjectId,
   isLatest: boolean,
   states: string[],
+  buildActive: boolean,
 ): DeploymentWithStats {
-  const status = deriveDeploymentStatus(row.status, isLatest, states, row.createdAt);
+  const status = deriveDeploymentStatus(row.status, isLatest, states, row.createdAt, buildActive);
   const failed = states.filter((s) => FAILED_TASK_COUNT_STATES.has(s)).length;
   const running = states.filter((s) => s === "running").length;
   return {
@@ -273,10 +305,17 @@ export async function listResourceDeployments(
   const tasksByDeployment = await loadTaskStatesByDeployment(serviceName);
 
   const latestId = rows[0]?.id;
+  const latestBuildActive = await isBuildStillLogging(rows[0], tasksByDeployment);
   const justSucceeded: DeploymentId[] = [];
   const result = rows.map((row) => {
     const states = tasksByDeployment.get(row.id) ?? [];
-    const stats = toDeploymentWithStats(row, input.projectId, row.id === latestId, states);
+    const stats = toDeploymentWithStats(
+      row,
+      input.projectId,
+      row.id === latestId,
+      states,
+      row.id === latestId && latestBuildActive,
+    );
     // A row stored building/pending whose tasks are now running has just
     // succeeded — flag it for the reconcile + emit below.
     if (stats.status === "running" && (row.status === "building" || row.status === "pending")) {
