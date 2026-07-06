@@ -1,6 +1,5 @@
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 
-import { workbench } from "@getworkbench/hono";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
 import { onError } from "@orpc/server";
@@ -212,19 +211,18 @@ app.get(
 app.get("/health", (c) => c.json({ ok: true, version: env.OTTERDEPLOY_VERSION }));
 app.get("/api/health", (c) => c.json({ ok: true, version: env.OTTERDEPLOY_VERSION }));
 
-// ─── Workbench: BullMQ dashboard ───────────────────────────────────
-// Shows every registry queue, including the builder's deploy.triggered
-// (consumed in apps/builder — same Redis keys). Mounted only when
-// WORKBENCH_USER/PASS are set; basic-auth gated since it can mutate jobs.
-// if (env.WORKBENCH_USER && env.WORKBENCH_PASS) {
-app.route(
-  "/jobs",
-  workbench({
-    queues: workbenchQueues(),
-    title: "otterdeploy jobs",
-    // auth: { username: env.WORKBENCH_USER, password: env.WORKBENCH_PASS },
-  }),
-);
+// ─── Workbench: BullMQ dashboard (dev only) ────────────────────────
+// The queue-inspection UI (every registry queue, incl. the builder's
+// deploy.triggered) ships ONLY in dev: @getworkbench/hono is a devDependency,
+// so a production image never installs it — and its heavy transitive deps
+// (vite, @cloudflare/workerd, ~150MB) stay out of the image. The dynamic import
+// lives behind the NODE_ENV gate so a production bundle never resolves it. It
+// can also mutate jobs, so keeping it off in prod is safer. Registered here
+// (before the SPA catch-all) so `/jobs` still routes ahead of it in dev.
+if (env.NODE_ENV !== "production") {
+  const { workbench } = await import("@getworkbench/hono");
+  app.route("/jobs", workbench({ queues: workbenchQueues(), title: "otterdeploy jobs" }));
+}
 
 // Terminal websocket
 // Auth seam left here for when better-auth cookie verification is
