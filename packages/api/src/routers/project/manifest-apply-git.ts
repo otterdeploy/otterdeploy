@@ -16,7 +16,7 @@ import { gitInstallation, gitProvider, gitRepo } from "@otterdeploy/db/schema/gi
 import { deployment, serviceResource } from "@otterdeploy/db/schema/project";
 import { triggerDeploy } from "@otterdeploy/jobs";
 import { Result } from "better-result";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 
 import { type ServiceManifest } from "../../stack/manifest";
 
@@ -92,6 +92,28 @@ export async function enqueueGitBuild(args: {
   const sha = shaResult.value;
 
   const ref = `refs/heads/${branch}`;
+
+  // Dedup guard: don't stack a duplicate build behind an identical in-flight
+  // one. If a deployment for this resource at this exact SHA is already
+  // pending/building, reuse it — creating a second row only strands it (the
+  // builder no-ops the redundant SHA, leaving a phantom `pending` with no
+  // logs). Idempotent: repeated applies converge on the one live deployment.
+  const [inflight] = await db
+    .select({ id: deployment.id })
+    .from(deployment)
+    .where(
+      and(
+        eq(deployment.resourceId, args.resourceId),
+        eq(deployment.gitSha, sha),
+        inArray(deployment.status, ["pending", "building"]),
+      ),
+    )
+    .limit(1);
+  if (inflight) {
+    args.log.set({ manifestBuild: { resourceId: args.resourceId, sha, ref, reused: inflight.id } });
+    return Result.ok({ deploymentId: inflight.id });
+  }
+
   const [row] = await db
     .insert(deployment)
     .values({
