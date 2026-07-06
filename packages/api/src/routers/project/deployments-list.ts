@@ -29,12 +29,12 @@ type ResolvedResource = NonNullable<Awaited<ReturnType<typeof getResourceById>>>
 /**
  * Status as SHOWN to the client: the stored lifecycle status plus the
  * derived-only `crashing` runtime state — a container that already came up once
- * but keeps restarting/dying. `crashing` is computed live from task states and
+ * but keeps restarting/dying. `crashed` is computed live from task states and
  * is NEVER persisted (the DB row stays at its lifecycle status, usually
  * `running`), so it lives here at the derivation boundary rather than in the
  * `deployment_status` DB enum.
  */
-export type DerivedDeploymentStatus = DeploymentRow["status"] | "crashing";
+export type DerivedDeploymentStatus = DeploymentRow["status"] | "crashed" | "starting";
 
 export interface DeploymentWithStats {
   id: DeploymentId;
@@ -165,7 +165,7 @@ function deriveDeploymentStatus(
     // Up right now — but if it's also racked up repeated failures it keeps
     // coming up and dying (crash loop, e.g. a bad env var). Surface that
     // instead of a calm "running".
-    return crashLooping ? "crashing" : "running";
+    return crashLooping ? "crashed" : "running";
   }
   // Nothing running this instant. A deployment that already reached "running"
   // has finished building — a task now back in a pre-running phase
@@ -173,10 +173,10 @@ function deriveDeploymentStatus(
   // never rewind the lifecycle status to "building" (running → building is an
   // impossible transition). Repeated failures mean it's crash-looping; a lone
   // failure is a transient restart, so it stays "running".
-  if (stored === "running") return crashLooping ? "crashing" : "running";
+  if (stored === "running") return crashLooping ? "crashed" : "running";
   // Still actively bringing a task up — only show "building" while at
   // least one task is in a pre-running phase (build-phase rows only).
-  if (hasBuilding) return "building";
+  if (hasBuilding) return "starting";
   if (!isLatest) return "superseded";
   if (failedCount > 0) return "failed";
   // Fallthrough: tasks exist but in unknown state. Honour the DB row.

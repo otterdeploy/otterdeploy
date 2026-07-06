@@ -24,8 +24,9 @@ export interface ComposeService {
 type DeploymentStatus =
   | "pending"
   | "building"
+  | "starting"
   | "running"
-  | "crashing"
+  | "crashed"
   | "failed"
   | "superseded"
   | "removed"
@@ -39,10 +40,11 @@ interface StackTaskRow {
 /** Build-time base before live tasks arrive (mirrors the graph's mapping). */
 export function baseStatus(dep: DeploymentStatus): StackServiceStatus | undefined {
   switch (dep) {
+    case "starting":
     case "building":
     case "pending":
       return "building";
-    case "crashing":
+    case "crashed":
     case "failed":
       return "error";
     case "running":
