@@ -40,6 +40,9 @@ export interface StackReconcileContext {
   projectVars: Record<string, string>;
   /** Built image tags for `build:` services (compose name → ref). */
   builtImages: Record<string, string>;
+  /** Materialized file-tree dir for a multi-file inline stack (absolute), where
+   *  bind-mount sources resolve. Undefined for single-file / git stacks. */
+  stackDir?: string;
 }
 
 export interface StackReconcileResult {

@@ -16,8 +16,11 @@ import { Result } from "better-result";
  */
 import { eq } from "drizzle-orm";
 
+import { resourceDir } from "@otterdeploy/shared/paths";
+
 import { reconcile } from "../../caddy";
 import { deleteProxyRoutesByResource, insertProxyRoute } from "../../caddy/queries";
+import { materializeComposeFiles, readEnvFiles } from "../../lib/compose-materialize";
 import { loadDomainSourcesForProject } from "../../lib/domain-sources";
 import { resolvePublicDomain } from "../../lib/domains";
 import { parseCompose } from "../../stack/compose";
@@ -102,6 +105,24 @@ export async function deployCompose(
       })
     : {};
 
+  // Multi-file inline stack: write the file tree to disk so bind-mounted scripts
+  // resolve and env_file targets are readable. Single-file / git stacks carry no
+  // `files` and skip this. `stackDir` (absolute) is where bind sources resolve.
+  let stackDir: string | undefined;
+  if (record.compose.files.length > 0) {
+    stackDir = await materializeComposeFiles(
+      record.compose.files,
+      resourceDir(input.projectId, input.resourceId),
+    );
+    // env_file → merge into each service's env (env_file first, `environment:`
+    // wins) so the existing per-service env seed picks them up unchanged.
+    for (const svc of parsed.value.services) {
+      if (svc.envFile.length === 0) continue;
+      const fromFiles = await readEnvFiles(svc.envFile, stackDir);
+      svc.env = { ...fromFiles, ...svc.env };
+    }
+  }
+
   // `build:` services need an image the build worker produced. Resolve each
   // service's image from `image:` or the builder's `builtImages` map, then
   // apply compose `${VAR:-default}` interpolation (the `image:` field uses it
@@ -150,6 +171,7 @@ export async function deployCompose(
           stackName: record.compose.stackName,
           projectVars,
           builtImages,
+          stackDir,
         },
         reason,
         rlog,

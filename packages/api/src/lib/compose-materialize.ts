@@ -14,7 +14,7 @@
  */
 import type { ComposeFile } from "@otterdeploy/shared/compose";
 
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve, sep } from "node:path";
 
 /** Sanitize a stack-relative path to a safe segment under `root`, or null when
@@ -43,4 +43,53 @@ export async function materializeComposeFiles(
     await writeFile(dest, f.content, "utf8");
   }
   return root;
+}
+
+/**
+ * Resolve a bind mount's compose `source` (a `./relative` or `/abs` host path)
+ * to an absolute path inside the materialized stack `dir`. Absolute-looking
+ * sources are treated as stack-relative too (a stack can't reach the real host
+ * fs). Returns null if it would escape the tree.
+ */
+export function resolveBindSource(source: string, dir: string): string | null {
+  return safeJoin(resolve(dir), source.replace(/^\.\/+/, ""));
+}
+
+/**
+ * Read + parse `env_file` targets (relative to the materialized stack `dir`)
+ * into one `{K:V}` map. Later files win (compose order). Missing files are
+ * skipped; blank/`#` lines ignored; matching surrounding quotes stripped.
+ */
+export async function readEnvFiles(
+  paths: string[],
+  dir: string,
+): Promise<Record<string, string>> {
+  const root = resolve(dir);
+  const out: Record<string, string> = {};
+  for (const p of paths) {
+    const abs = safeJoin(root, p);
+    if (!abs) continue;
+    let text: string;
+    try {
+      text = await readFile(abs, "utf8");
+    } catch {
+      continue;
+    }
+    for (const line of text.split(/\r?\n/)) {
+      const t = line.trim();
+      if (!t || t.startsWith("#")) continue;
+      const eq = t.indexOf("=");
+      if (eq === -1) continue;
+      const key = t.slice(0, eq).trim();
+      let val = t.slice(eq + 1).trim();
+      if (
+        (val.startsWith('"') && val.endsWith('"')) ||
+        (val.startsWith("'") && val.endsWith("'"))
+      ) {
+        val = val.slice(1, -1);
+      }
+      if (key) out[key] = val;
+    }
+  }
+  return out;
 }
