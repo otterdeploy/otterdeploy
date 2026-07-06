@@ -14,7 +14,7 @@ import { resolveRepoCloneBinding } from "../../git/repo-binding";
 import { parseCompose, summarizeCompose } from "../../stack/compose";
 import { getProjectInOrg, upsertProjectEnvVar } from "../project/queries";
 import { isUniqueViolation } from "../project/views";
-import { enqueueComposeBuild } from "./build-trigger";
+import { enqueueComposeBuild, enqueueInlineComposeBuild } from "./build-trigger";
 import { deployCompose } from "./deploy";
 import { createComposeRecord } from "./queries";
 import { parseGitHubUrl, pickComposeFile, SECRETISH, stackNameFor } from "./util";
@@ -236,14 +236,29 @@ async function createInlineCompose(
 
   let deploy = { ok: false, error: null as string | null, status: "created" };
   if (input.deploy) {
-    const d = await deployCompose(
-      { projectId: input.projectId, resourceId: created.value.resource.id },
-      "create",
-      log,
-    );
-    deploy = d.isOk()
-      ? { ok: true, error: null, status: d.value.status }
-      : { ok: false, error: d.error.message, status: "failed" };
+    // `build:` services can't deploy directly (no image yet) — route through the
+    // build worker, which materializes the file tree, builds each context, then
+    // deploys. Image-only stacks keep the direct path.
+    if (services.some((s) => s.hasBuild)) {
+      const enq = await enqueueInlineComposeBuild({
+        projectId: input.projectId,
+        resourceId: created.value.resource.id,
+        composeContent,
+        reason: "create",
+      });
+      deploy = enq.isOk()
+        ? { ok: true, error: null, status: "building" }
+        : { ok: false, error: enq.error, status: "failed" };
+    } else {
+      const d = await deployCompose(
+        { projectId: input.projectId, resourceId: created.value.resource.id },
+        "create",
+        log,
+      );
+      deploy = d.isOk()
+        ? { ok: true, error: null, status: d.value.status }
+        : { ok: false, error: d.error.message, status: "failed" };
+    }
   }
 
   return Result.ok({

@@ -26,6 +26,7 @@ import { parseCompose, summarizeCompose } from "../../stack/compose";
 import { ManifestApplySkipError } from "../project/errors";
 import { getProjectInOrg, upsertProjectEnvVar } from "../project/queries";
 import { isUniqueViolation } from "../project/views";
+import { enqueueInlineComposeBuild } from "./build-trigger";
 import { deployCompose } from "./deploy";
 import { createComposeRecord } from "./queries";
 import { parseGitHubUrl, pickComposeFile, SECRETISH, stackNameFor } from "./util";
@@ -212,6 +213,19 @@ async function createInlineStackFromManifest(
         ? "a resource with that name already exists"
         : created.error.message,
     );
+  }
+
+  // `build:` services can't deploy directly (no image yet) — route through the
+  // build worker (materializes the file tree, builds, deploys on completion).
+  if (services.some((s) => s.hasBuild)) {
+    const enq = await enqueueInlineComposeBuild({
+      projectId,
+      resourceId: created.value.resource.id as ResourceId,
+      composeContent,
+      reason: "create",
+    });
+    if (enq.isErr()) return skip(name, `created but build enqueue failed: ${enq.error}`);
+    return Result.ok({ resourceId: created.value.resource.id as ResourceId });
   }
 
   const deployed = await deployCompose(

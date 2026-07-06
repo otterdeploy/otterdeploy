@@ -10,6 +10,7 @@ import { triggerDeploy } from "@otterdeploy/jobs";
  * `build:` services, fetches + persists the compose file, and deploys.
  */
 import { Result } from "better-result";
+import { createHash } from "node:crypto";
 
 import { fetchBranchHeadSha } from "../../git/github-app";
 import { resolveRepoCloneBinding } from "../../git/repo-binding";
@@ -89,6 +90,44 @@ export async function enqueueComposeBuild(input: {
     projectId: input.projectId,
     gitRepoId: input.gitRepoId ?? input.resourceId,
     ref: input.gitRef,
+    sha,
+    deploymentIds: [dep?.id ?? ""],
+  });
+  return Result.ok({ sha });
+}
+
+/**
+ * Enqueue a build for an INLINE stack whose compose file has `build:` services.
+ * There is no repo: the builder materializes the stack's stored file tree and
+ * builds each context from it. The deployment's "sha" is a content hash of the
+ * compose file (stable per content — tags the built images), ref is the literal
+ * `inline` sentinel.
+ */
+export async function enqueueInlineComposeBuild(input: {
+  projectId: ProjectId;
+  resourceId: ResourceId;
+  composeContent: string;
+  reason: "create" | "redeploy";
+}): Promise<Result<{ sha: string }, string>> {
+  const sha = createHash("sha256").update(input.composeContent).digest("hex").slice(0, 40);
+
+  const [dep] = await db
+    .insert(deployment)
+    .values({
+      resourceId: input.resourceId,
+      image: `pending:${sha.slice(0, 12)}`,
+      reason: input.reason,
+      status: "pending",
+      gitSha: sha,
+      gitRef: "inline",
+    })
+    .returning({ id: deployment.id });
+
+  await triggerDeploy({
+    projectId: input.projectId,
+    // Correlation-only (no repo) — the builder loads everything off the row.
+    gitRepoId: input.resourceId,
+    ref: "inline",
     sha,
     deploymentIds: [dep?.id ?? ""],
   });
