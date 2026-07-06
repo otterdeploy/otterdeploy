@@ -27,7 +27,7 @@ export interface DeploymentInfo {
     | "restart"
     | "git-push"
     | "rollback";
-  status: "pending" | "building" | "running" | "crashing" | "failed" | "superseded" | "removed";
+  status: "pending" | "building" | "starting" | "running" | "crashed" | "failed" | "superseded" | "removed";
   errorMessage: string | null;
   taskCount: number;
   failedTaskCount: number;
@@ -70,7 +70,7 @@ export function ActiveDeploymentCard({
         "group flex flex-col gap-3 rounded-lg border bg-card p-4 text-left transition-colors hover:bg-muted/30",
         deployment.status === "running"
           ? "border-success/30"
-          : deployment.status === "failed" || deployment.status === "crashing"
+          : deployment.status === "failed" || deployment.status === "crashed"
             ? "border-destructive/30"
             : "border-border",
       )}
@@ -187,8 +187,9 @@ export function HistoryRow({
 const STATUS_LABEL: Record<DeploymentInfo["status"], string> = {
   pending: "pending",
   building: "building",
+  starting: "starting",
   running: "running",
-  crashing: "crashing",
+  crashed: "crashed",
   failed: "failed",
   superseded: "replaced",
   removed: "removed",
@@ -208,12 +209,12 @@ export function DeploymentStatusBadge({
         {
           "px-2 py-0.5 text-[10px]": compact,
           "border-success/30 bg-success/15 text-success": status === "running",
-          // `crashing` shares the destructive palette with `failed` but pulses
+          // `crashed` shares the destructive palette with `failed` but pulses
           // (below) to read as an ACTIVE problem rather than a settled one.
           "border-destructive/30 bg-destructive/15 text-destructive":
-            status === "failed" || status === "crashing",
+            status === "failed" || status === "crashed",
           "border-warning/30 bg-warning/15 text-warning":
-            status === "building" || status === "pending",
+            status === "building" || status === "pending" || status === "starting",
         },
       )}
     >
@@ -221,9 +222,9 @@ export function DeploymentStatusBadge({
         className={cn("size-2 rounded-full bg-muted-foreground/60", {
           "size-1.5": compact,
           "bg-success": status === "running",
-          "bg-destructive": status === "failed" || status === "crashing",
-          "bg-warning": status === "building" || status === "pending",
-          "animate-pulse": status === "running" || status === "crashing",
+          "bg-destructive": status === "failed" || status === "crashed",
+          "bg-warning": status === "building" || status === "pending" || status === "starting",
+          "animate-pulse": status === "running" || status === "crashed" || status === "starting",
         })}
       />
       {STATUS_LABEL[status]}

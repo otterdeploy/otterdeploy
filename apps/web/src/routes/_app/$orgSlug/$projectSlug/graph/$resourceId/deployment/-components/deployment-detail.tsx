@@ -27,8 +27,9 @@ export interface DeploymentRow {
   status:
     | "pending"
     | "building"
+    | "starting"
     | "running"
-    | "crashing"
+    | "crashed"
     | "failed"
     | "superseded"
     | "removed";
@@ -126,6 +127,20 @@ function buildTimeline(d: DeploymentRow): {
   switch (d.status) {
     case "running":
       return { title: "Deployed successfully", tone: "success", totalMs, phases: allDone };
+    case "starting":
+      // Image built; containers are coming up (pre-running) — the deploy phase
+      // is active, the build one is done.
+      return {
+        title: "Starting…",
+        tone: "active",
+        totalMs: null,
+        phases: [
+          p("init", "Initialize", "done"),
+          p("build", "Build", "done"),
+          p("deploy", "Deploy", "active"),
+          p("run", "Running", "pending"),
+        ],
+      };
     case "building":
       return {
         title: "Building & deploying…",
@@ -176,7 +191,7 @@ function buildTimeline(d: DeploymentRow): {
               p("run", "Running", "pending"),
             ],
           };
-    case "crashing":
+    case "crashed":
       // Built + deployed fine, but the container keeps exiting and restarting
       // (e.g. a bad env var) — the run phase is the one that's failing.
       return {
@@ -556,9 +571,9 @@ export function DeploymentStatusBadge({ status }: { status: DeploymentRow["statu
         {
           "bg-success/15 text-success border-success/30": status === "running",
           "bg-destructive/15 text-destructive border-destructive/30":
-            status === "failed" || status === "crashing",
+            status === "failed" || status === "crashed",
           "bg-warning/15 text-warning border-warning/30":
-            status === "building" || status === "pending",
+            status === "building" || status === "pending" || status === "starting",
         },
       )}
     >
