@@ -18,6 +18,7 @@ import { deleteProxyRoutesByResource } from "../../caddy/queries";
 import { PLATFORM } from "../../constants";
 import { runtime } from "../../runtime";
 import { loadProject, loadResource } from "./context";
+import { reclaimServiceHostArtifacts } from "./teardown";
 import {
   MissingServiceBuildBindingError,
   ServiceConflictError,
@@ -208,6 +209,14 @@ export async function deleteService(
 
   await deleteProxyRoutesByResource(input.resourceId);
   await runtime().destroy({ serviceName: record.service.serviceName }, log);
+  // Reclaim host artifacts (built images, buildx cache, volumes) — the container
+  // teardown above only removes the running container.
+  await reclaimServiceHostArtifacts(
+    record.service.serviceName,
+    input.projectId,
+    input.resourceId,
+    log,
+  );
   await deleteServiceRecord(input.resourceId);
   await reconcile(log);
 

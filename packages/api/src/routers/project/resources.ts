@@ -6,15 +6,13 @@
 
 import type { RequestLogger } from "evlog";
 
-import { DATA_ROOT, volumeDir } from "@otterdeploy/shared/paths";
 import { Result } from "better-result";
-import { rm } from "node:fs/promises";
-import { join } from "node:path";
 
 import type { ProjectRef, ResourceRef } from "../scopes";
 
 import { reconcile } from "../../caddy";
 import { deleteProxyRoutesByResource } from "../../caddy/queries";
+import { reclaimServiceHostArtifacts } from "../service/teardown";
 import { PostgresResourceNotFoundError, ProjectNotFoundError } from "./errors";
 import { getDatabaseProvisioner } from "./provisioners";
 import {
@@ -133,52 +131,16 @@ async function teardownServiceRuntime(
   ref: ResourceRef,
   log: RequestLogger,
 ): Promise<void> {
-  // Lazy-imported: both transitively load @otterdeploy/env/server, which
-  // validates env at module load — keep that out of resources.ts's import graph
-  // so unit tests (and any env-less caller) can import this module freely.
+  // Lazy-imported: transitively loads @otterdeploy/env/server (validated at
+  // module load) — keep it out of resources.ts's import graph.
   const { runtime } = await import("../../runtime");
-  const { Docker } = await import("@otterdeploy/docker");
-
   // 1. Stop + remove the running container / swarm service.
   await runtime()
     .destroy({ serviceName }, log)
     .catch(() => undefined);
-
-  // 2. Remove the built images for this service — every tag (`:latest` + one
-  //    per built sha). Only the local build repo; externally-pulled images
-  //    (image-source services) are shared and left untouched.
-  const repo = `otterdeploy-local/${serviceName.toLowerCase()}`;
-  const docker = Docker.fromEnv();
-  try {
-    const listed = await docker.images.list({ all: false });
-    if (listed.isOk()) {
-      const ids = new Set(
-        listed.value
-          .filter((img) => (img.RepoTags ?? []).some((t) => t.startsWith(`${repo}:`)))
-          .map((img) => img.Id),
-      );
-      for (const id of ids) {
-        await docker.images
-          .getImage(id)
-          .remove({ force: true })
-          .catch(() => undefined);
-      }
-    }
-  } finally {
-    docker.destroy();
-  }
-
-  // 3. Remove this repo's persistent buildx layer-cache dir (path derived the
-  //    same way the builder's `cachePathFor` does: unsafe chars → `_`).
-  const cacheKey = repo.replace(/[^A-Za-z0-9_.-]+/g, "_");
-  await rm(join(DATA_ROOT, "buildx-cache", cacheKey), { recursive: true, force: true }).catch(
-    () => undefined,
-  );
-
-  // 4. Remove the resource's volume dir (bind-mounted service volumes live here).
-  await rm(volumeDir(ref.projectId, ref.resourceId), { recursive: true, force: true }).catch(
-    () => undefined,
-  );
+  // 2-4. Reclaim host artifacts (images, buildx cache, volumes) — shared with
+  //      the manifest-apply delete path (service/handlers.ts deleteService).
+  await reclaimServiceHostArtifacts(serviceName, ref.projectId, ref.resourceId, log);
 }
 
 export async function deleteProjectResource(
