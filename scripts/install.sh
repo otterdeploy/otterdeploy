@@ -13,7 +13,10 @@
 # Tunables (env vars):
 #   OTTERDEPLOY_DATA_DIR      host data folder        (default /data/otterdeploy)
 #   OTTERDEPLOY_INSTALL_DIR   install root            (default $OTTERDEPLOY_DATA_DIR/source)
-#   OTTERDEPLOY_VERSION       image tag to pull       (default latest)
+#   OTTERDEPLOY_VERSION       image tag to pull       (default: newest GitHub
+#                             Release tag, e.g. v0.4.2; falls back to `latest`
+#                             when no release is reachable)
+#   OTTERDEPLOY_UPDATE_REPO   GitHub repo for the release lookup (default otterdeploy/otterdeploy)
 #   OTTERDEPLOY_COMPOSE_URL   compose source: http(s) URL, local path, or file://
 #                             (default get.otterdeploy.com/docker-compose.yml)
 #   OTTERDEPLOY_NETWORK       shared stack network    (default otterdeploy)
@@ -41,7 +44,13 @@ DATA_DIR="${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}"
 # (see migrate_legacy_install).
 INSTALL_DIR="${OTTERDEPLOY_INSTALL_DIR:-$DATA_DIR/source}"
 LEGACY_INSTALL_DIR="/opt/otterdeploy"
-VERSION="${OTTERDEPLOY_VERSION:-latest}"
+# Empty ⇒ resolve the newest published release tag later (resolve_version), so
+# installs boot from a PINNED vX.Y.Z. The in-app updater compares that pin to
+# GitHub releases/latest — a semver current is what makes "update available"
+# fire and `compose pull` target a tag that exists. Set OTTERDEPLOY_VERSION to
+# pin explicitly (including `latest` to ride main).
+VERSION="${OTTERDEPLOY_VERSION:-}"
+RELEASE_REPO="${OTTERDEPLOY_UPDATE_REPO:-otterdeploy/otterdeploy}"
 COMPOSE_URL="${OTTERDEPLOY_COMPOSE_URL:-https://get.otterdeploy.com/docker-compose.yml}"
 COMPOSE_FILE="$INSTALL_DIR/docker-compose.yml"
 ENV_FILE="$INSTALL_DIR/.env"
@@ -638,11 +647,58 @@ wait_for_health() {
   fail "otterdeploy did not become healthy — see logs above and $LOG_FILE."
 }
 
-# `install.sh update` — re-fetch the compose, pull the new image tag, restart.
-# Skips host setup entirely and never touches secrets.
+# ── version resolution ────────────────────────────────────────────────────────
+# Images are published under immutable semver tags (vX.Y.Z) alongside a GitHub
+# Release per tag (.github/workflows/images.yml). Resolve the newest release so
+# the stack boots pinned; the fallback order keeps every situation safe:
+#   pinned via env  →  releases/latest  →  existing .env pin  →  `latest`.
+resolve_version() {
+  step "Resolving version"
+  if [ -n "$VERSION" ]; then
+    say " - $VERSION (pinned via OTTERDEPLOY_VERSION)"
+    return 0
+  fi
+  local tag
+  tag="$(curl -fsSL --max-time 10 -H 'Accept: application/vnd.github+json' \
+    "https://api.github.com/repos/$RELEASE_REPO/releases/latest" 2>/dev/null \
+    | sed -n 's/.*"tag_name":[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
+  if [ -n "$tag" ]; then
+    VERSION="$tag"
+    say " - $VERSION (latest release of $RELEASE_REPO)"
+    return 0
+  fi
+  # Lookup failed (offline, rate-limited, or no release published yet). Never
+  # DOWNGRADE an existing pin to the moving tag over a transient failure.
+  VERSION="$(env_value OTTERDEPLOY_VERSION)"
+  if [ -n "$VERSION" ]; then
+    say " - $VERSION (kept from existing .env — release lookup failed)"
+  else
+    VERSION="latest"
+    warn "Could not resolve the latest release of $RELEASE_REPO — using the moving '$VERSION' tag. In-app updates pin to a release on first apply; or re-run the installer once a release is published."
+  fi
+}
+
+# Bump the pinned tag in an existing .env — the same edit the in-app update
+# helper makes — so what `compose pull` fetches and what the dashboard reports
+# as its version can't drift apart.
+pin_version_in_env() {
+  [ -f "$ENV_FILE" ] || return 0
+  [ "$(env_value OTTERDEPLOY_VERSION)" = "$VERSION" ] && return 0
+  if grep -q '^OTTERDEPLOY_VERSION=' "$ENV_FILE" 2>/dev/null; then
+    run $SUDO sed -i "s|^OTTERDEPLOY_VERSION=.*|OTTERDEPLOY_VERSION=$VERSION|" "$ENV_FILE"
+  else
+    run $SUDO sh -c "printf 'OTTERDEPLOY_VERSION=%s\n' '$VERSION' >> '$ENV_FILE'"
+  fi
+  say " - Pinned OTTERDEPLOY_VERSION=$VERSION in $ENV_FILE"
+}
+
+# `install.sh update` — re-fetch the compose, pin the newest release tag, pull,
+# restart. Skips host setup entirely and never touches secrets.
 update_stack() {
   [ -f "$COMPOSE_FILE" ] || fail "No existing install at $COMPOSE_FILE — run the installer first."
   say "Updating otterdeploy (pull + restart) — secrets preserved…"
+  resolve_version
+  pin_version_in_env
   prepare_tree
   start_stack
   wait_for_health
@@ -854,6 +910,7 @@ main() {
 
   preflight
   install_prereqs
+  resolve_version
   configure_docker_pool
   ensure_swarm
   ensure_network
