@@ -25,6 +25,7 @@ type DeploymentStatus =
   | "pending"
   | "building"
   | "running"
+  | "crashing"
   | "failed"
   | "superseded"
   | "removed"
@@ -41,6 +42,7 @@ export function baseStatus(dep: DeploymentStatus): StackServiceStatus | undefine
     case "building":
     case "pending":
       return "building";
+    case "crashing":
     case "failed":
       return "error";
     case "running":

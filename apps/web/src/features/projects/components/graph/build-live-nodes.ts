@@ -57,6 +57,7 @@ const childServiceStatus = (child: ServiceResource, tasks: Task[]): StackService
     case "building":
     case "pending":
       return "building";
+    case "crashing":
     case "failed":
       return "error";
     case "running":

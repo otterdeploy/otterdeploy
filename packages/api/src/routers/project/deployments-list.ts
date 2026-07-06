@@ -26,6 +26,16 @@ import { buildContainerName } from "./views";
 type OrgId = OrganizationId;
 type ResolvedResource = NonNullable<Awaited<ReturnType<typeof getResourceById>>>;
 
+/**
+ * Status as SHOWN to the client: the stored lifecycle status plus the
+ * derived-only `crashing` runtime state — a container that already came up once
+ * but keeps restarting/dying. `crashing` is computed live from task states and
+ * is NEVER persisted (the DB row stays at its lifecycle status, usually
+ * `running`), so it lives here at the derivation boundary rather than in the
+ * `deployment_status` DB enum.
+ */
+export type DerivedDeploymentStatus = DeploymentRow["status"] | "crashing";
+
 export interface DeploymentWithStats {
   id: DeploymentId;
   projectId: ProjectId;
@@ -34,7 +44,7 @@ export interface DeploymentWithStats {
   reason: DeploymentRow["reason"];
   /** Final status derived from underlying tasks. Falls back to the row's
    *  stored status when no tasks exist (e.g. pending creation). */
-  status: DeploymentRow["status"];
+  status: DerivedDeploymentStatus;
   errorMessage: string | null;
   taskCount: number;
   failedTaskCount: number;
@@ -104,6 +114,15 @@ const FAILED_TASK_COUNT_STATES = new Set([
 // dead rows left over from before that race was closed.
 const ZERO_TASK_STALE_MS = 3 * 60_000;
 
+// A running deployment whose swarm task keeps dying and being recreated is
+// crash-looping (e.g. the app exits on a bad env var). Swarm accumulates one
+// failed task per restart attempt (bounded by the daemon's task-history limit
+// and our RestartPolicy MaxAttempts), so this many failed tasks for a
+// deployment that already reached "running" is the signal to surface it as
+// `crashing` rather than a calm `running`. Below the threshold we treat a lone
+// failure as a transient restart and leave it `running`.
+const CRASH_LOOP_FAILURE_THRESHOLD = 3;
+
 // A git-source deployment legitimately has ZERO tasks for its whole image
 // build — nothing is scheduled until build+push finishes — so age alone
 // can't distinguish "dead" from "slow build". The build streams log lines
@@ -117,7 +136,7 @@ function deriveDeploymentStatus(
   taskStates: string[],
   createdAt: Date,
   buildActive: boolean,
-): DeploymentRow["status"] {
+): DerivedDeploymentStatus {
   if (taskStates.length === 0) {
     // No tasks yet OR docker GC'd them all (very old deployments). Only
     // mark "superseded" when this isn't the most recent — otherwise we'd
@@ -134,22 +153,26 @@ function deriveDeploymentStatus(
   }
   const hasRunning = taskStates.some((s) => s === "running");
   const hasBuilding = taskStates.some((s) => BUILDING_STATES.has(s));
-  const hasFailing = taskStates.some((s) => FAILED_STATES.has(s));
-  if (hasRunning) return "running";
-  // A deployment that already reached "running" has finished building — the
-  // image is built and the container came up at least once. A task now back in
-  // a pre-running phase (`starting`/`restarting`/…) is a container RESTART, not
-  // a build, so it must never rewind the lifecycle status to "building" — an
-  // impossible transition (running → building). The crash/restart itself is a
-  // RUNTIME-HEALTH concern, surfaced by the live task-state buckets and the
-  // node/health badge, not by rolling the deploy status backwards. Once running,
-  // the lifecycle status stays "running".
-  if (stored === "running") return "running";
+  const failedCount = taskStates.reduce((n, s) => (FAILED_STATES.has(s) ? n + 1 : n), 0);
+  const crashLooping = failedCount >= CRASH_LOOP_FAILURE_THRESHOLD;
+  if (hasRunning) {
+    // Up right now — but if it's also racked up repeated failures it keeps
+    // coming up and dying (crash loop, e.g. a bad env var). Surface that
+    // instead of a calm "running".
+    return crashLooping ? "crashing" : "running";
+  }
+  // Nothing running this instant. A deployment that already reached "running"
+  // has finished building — a task now back in a pre-running phase
+  // (`starting`/`restarting`/…) is a container RESTART, not a build, so it must
+  // never rewind the lifecycle status to "building" (running → building is an
+  // impossible transition). Repeated failures mean it's crash-looping; a lone
+  // failure is a transient restart, so it stays "running".
+  if (stored === "running") return crashLooping ? "crashing" : "running";
   // Still actively bringing a task up — only show "building" while at
   // least one task is in a pre-running phase (build-phase rows only).
   if (hasBuilding) return "building";
   if (!isLatest) return "superseded";
-  if (hasFailing) return "failed";
+  if (failedCount > 0) return "failed";
   // Fallthrough: tasks exist but in unknown state. Honour the DB row.
   return stored;
 }

@@ -28,6 +28,7 @@ export interface DeploymentRow {
     | "pending"
     | "building"
     | "running"
+    | "crashing"
     | "failed"
     | "superseded"
     | "removed";
@@ -175,6 +176,20 @@ function buildTimeline(d: DeploymentRow): {
               p("run", "Running", "pending"),
             ],
           };
+    case "crashing":
+      // Built + deployed fine, but the container keeps exiting and restarting
+      // (e.g. a bad env var) — the run phase is the one that's failing.
+      return {
+        title: "Crash-looping",
+        tone: "failed",
+        totalMs,
+        phases: [
+          p("init", "Initialize", "done"),
+          p("build", "Build", "done"),
+          p("deploy", "Deploy", "done"),
+          p("run", "Running", "failed", err ?? "Container keeps restarting (crash loop)"),
+        ],
+      };
     case "superseded":
       return { title: "Superseded by a newer deployment", tone: "neutral", totalMs, phases: allDone };
     default:
@@ -540,7 +555,8 @@ export function DeploymentStatusBadge({ status }: { status: DeploymentRow["statu
         "inline-flex items-center gap-1.5 rounded-sm border border-border/60 bg-muted px-2 py-0.5 font-mono text-[10px] font-medium text-muted-foreground uppercase",
         {
           "bg-success/15 text-success border-success/30": status === "running",
-          "bg-destructive/15 text-destructive border-destructive/30": status === "failed",
+          "bg-destructive/15 text-destructive border-destructive/30":
+            status === "failed" || status === "crashing",
           "bg-warning/15 text-warning border-warning/30":
             status === "building" || status === "pending",
         },

@@ -54,6 +54,7 @@ function serviceDeploymentStatus(
     case "building":
     case "pending":
       return "building";
+    case "crashing":
     case "failed":
       return "error";
     default:
@@ -74,6 +75,7 @@ function baseStackServiceStatus(
     case "building":
     case "pending":
       return "building";
+    case "crashing":
     case "failed":
       return "error";
     case "running":
