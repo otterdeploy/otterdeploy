@@ -47,18 +47,66 @@ env:
   TAG: ${{ github.ref_type == 'tag' && github.ref_name || 'latest' }}
 
 jobs:
+  # Per-image change detection. The workflow-level `paths` filter only gates
+  # whether the workflow RUNS — without this, any matching push rebuilt BOTH
+  # images, so every server/web change also recompiled caddy and churned the
+  # `caddy:latest` digest (making later `compose pull`s recreate the edge proxy
+  # for nothing). Tags and manual dispatches always build everything (paths
+  # filters don't apply to tag pushes; a dispatch has no diff), as does any
+  # push without a usable before-SHA (force-push / new branch).
+  changes:
+    name: Detect changed images
+    runs-on: ubuntu-latest
+    outputs:
+      images: ${{ steps.detect.outputs.images }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: detect
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          all='["server","caddy"]'
+          if [ "${{ github.ref_type }}" = "tag" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "images=$all" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if [ -z "$BEFORE" ] || ! git cat-file -e "$BEFORE" 2>/dev/null; then
+            echo "images=$all" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          changed=$(git diff --name-only "$BEFORE" "$GITHUB_SHA")
+          images=""
+          # server: full-repo context (COPY . . + bun install, builds the web
+          # SPA into itself) — same scope as the workflow `paths` filter.
+          if grep -qE '^(apps/(server|web|builder)/|packages/|bun\.lock$|\.github/workflows/images\.yml$)' <<<"$changed"; then
+            images='"server"'
+          fi
+          # caddy: pulls nothing from the repo outside its own build context.
+          if grep -qE '^(infra/caddy/|\.github/workflows/images\.yml$)' <<<"$changed"; then
+            images="${images:+$images,}\"caddy\""
+          fi
+          # Nothing matched (shouldn't happen given the workflow paths filter)
+          # → build everything rather than silently skip.
+          [ -n "$images" ] || { echo "images=$all" >> "$GITHUB_OUTPUT"; exit 0; }
+          echo "images=[$images]" >> "$GITHUB_OUTPUT"
+
   # Native per-arch build (no QEMU emulation) → one tagged image per arch,
   # merged into a single multi-arch manifest below. The builder image bundles
   # the railpack CLI on PATH; caddy is an xcaddy build with l4 + crowdsec.
   build:
     name: ${{ matrix.image }} (${{ matrix.arch }})
+    needs: changes
     strategy:
       fail-fast: false
       matrix:
         # `server` is now ONE image for both the control-plane server AND the
         # builder worker (roles picked by command in docker-compose.prod.yml) —
-        # apps/builder/Dockerfile was retired. caddy is separate.
-        image: [server, caddy]
+        # apps/builder/Dockerfile was retired. caddy is separate. Only images
+        # whose inputs changed are built (see `changes` above); context and
+        # dockerfile are picked per-image in the build step, NOT via matrix
+        # `include` — an image-keyed include with no matching combination would
+        # spawn a stray arch-less job when that image is filtered out.
+        image: ${{ fromJSON(needs.changes.outputs.images) }}
         arch: [amd64, arm64]
         include:
           - arch: amd64
@@ -67,15 +115,6 @@ jobs:
           - arch: arm64
             runner: ubuntu-24.04-arm
             platform: linux/arm64
-          # server needs the full repo (COPY . . + bun install) and builds the
-          # web SPA into itself. caddy's Dockerfile pulls nothing from the local
-          # context.
-          - image: server
-            context: .
-            dockerfile: apps/server/Dockerfile
-          - image: caddy
-            context: infra/caddy
-            dockerfile: infra/caddy/Dockerfile
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
@@ -92,8 +131,8 @@ jobs:
       - name: Build and push (${{ matrix.arch }})
         uses: docker/build-push-action@v6
         with:
-          context: ${{ matrix.context }}
-          file: ${{ matrix.dockerfile }}
+          context: ${{ matrix.image == 'caddy' && 'infra/caddy' || '.' }}
+          file: ${{ matrix.image == 'caddy' && 'infra/caddy/Dockerfile' || 'apps/server/Dockerfile' }}
           platforms: ${{ matrix.platform }}
           push: true
           tags: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.image }}:${{ env.TAG }}-${{ matrix.arch }}
@@ -101,13 +140,15 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.image }}-${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}-${{ matrix.arch }}
 
+  # Only re-merges the images built this run — a skipped image's `:latest`
+  # manifest (and its per-arch tags) stays at the previous, still-valid digest.
   merge-manifest:
     name: Merge manifest (${{ matrix.image }})
-    needs: build
+    needs: [changes, build]
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        image: [server, caddy]
+        image: ${{ fromJSON(needs.changes.outputs.images) }}
     steps:
       - uses: docker/setup-buildx-action@v3
 
