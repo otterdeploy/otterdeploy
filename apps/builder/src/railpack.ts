@@ -29,6 +29,7 @@
 
 import type { BuildRailpackConfig } from "@otterdeploy/shared/build-config";
 
+import { readFileSync } from "node:fs";
 import { access, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -271,6 +272,22 @@ async function resolveBuildCommands(opts: {
  * set RAILPACK_SPA_OUTPUT_DIR for a static site). A static SPA rides on the
  * `--env RAILPACK_SPA_OUTPUT_DIR` flag, which railpack reads at prepare time.
  */
+/** Cap V8's old-space heap for the JS build step so a heavy build
+ *  (vite/webpack/next) GCs under pressure instead of ballooning and letting the
+ *  host OOM-killer take down buildkitd (observed: a `vite build` OOM-killed the
+ *  cache builder mid-run). Sized to ~60% of host RAM (from /proc/meminfo),
+ *  clamped to a sane band; a conservative default when host RAM is unknown. */
+function nodeBuildMaxOldSpaceMb(): number {
+  try {
+    const kb = Number(/^MemTotal:\s+(\d+) kB/m.exec(readFileSync("/proc/meminfo", "utf8"))?.[1]);
+    const totalMb = Math.floor(kb / 1024);
+    if (totalMb > 0) return Math.max(1024, Math.min(Math.floor(totalMb * 0.6), 6144));
+  } catch {
+    // /proc unavailable (non-Linux, restricted) — fall through to the default.
+  }
+  return 2048;
+}
+
 function buildPrepareArgs(opts: {
   layout: BuildLayout;
   buildCmd: string | null;
@@ -293,6 +310,9 @@ function buildPrepareArgs(opts: {
     args.push("--env", `RAILPACK_SPA_OUTPUT_DIR=${spaOutputDir}`);
     opts.sink.system(`SPA mode: serving "${spaOutputDir}" via Caddy with history fallback`);
   }
+  const maxOldSpaceMb = nodeBuildMaxOldSpaceMb();
+  args.push("--env", `NODE_OPTIONS=--max-old-space-size=${maxOldSpaceMb}`);
+  opts.sink.system(`build memory guard: NODE_OPTIONS max-old-space-size=${maxOldSpaceMb}MB`);
   return args;
 }
 
