@@ -8,12 +8,15 @@
 # (`bun run src/build-one.ts <id>`), which is why WORKDIR is apps/builder.
 #
 # MULTI-STAGE: a full-toolchain `build` stage installs every workspace dep and
-# produces the tsdown server bundle + the vite SPA; the slim `runtime` stage
-# reinstalls deps SCOPED to just the server + builder workspaces
-# (`bun install --filter server --filter builder --production`), so it never
-# carries apps/web's frontend libraries (lucide-react, @hugeicons, date-fns,
-# @cloudflare/workerd, vite, vitest, …) — those only exist to BUILD the SPA,
-# which ships pre-built as static files under ./public.
+# produces the tsdown server bundle + the vite SPA; then it reinstalls deps SCOPED
+# to just the server + builder workspaces
+# (`bun install --filter server --filter builder --production`) and GC's bun's
+# content store (scripts/prune-bun-store.ts). The scoped install fixes the SYMLINK
+# tree, but bun still extracts every dev-only + optional-peer package in the
+# lockfile graph into node_modules/.bun (~560MB: workerd/wrangler/miniflare via
+# evlog's optional `nitro` peer, plus vite/vitest/esbuild/rolldown build tooling)
+# — none of which either runtime role imports. The prune deletes that dead store
+# weight; the slim `runtime` stage then COPYs the trimmed /app across.
 
 # Pinned (NOT the floating tag) so `bun install --frozen-lockfile` stays
 # reproducible — keep at/above the bun that writes bun.lock locally.
@@ -41,6 +44,12 @@ RUN bunx turbo build --filter=web --filter=server \
 # into the server bundle; the builder runs its TS source directly via bun.
 RUN find . -type d -name node_modules -prune -exec rm -rf {} + \
  && bun install --filter server --filter builder --production
+# GC bun's content store down to what the two roles actually load: bun re-extracts
+# every dev-only + optional-peer package into node_modules/.bun even under
+# --production (evlog's optional nitro→wrangler→workerd peer chain, vite/vitest/
+# esbuild/rolldown build tooling). Reclaims ~500MB; validated to keep both roles
+# bootable (real optional peers like drizzle-orm survive — see the script header).
+RUN bun run scripts/prune-bun-store.ts /app
 
 # ── runtime stage: bun + docker CLI + buildx + railpack; serves BOTH roles ────
 FROM oven/bun:${BUN_VERSION}-debian AS runtime
