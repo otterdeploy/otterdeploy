@@ -29,7 +29,7 @@ import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
-import { markFailed } from "./state";
+import { getDeploymentStatus, markFailed } from "./state";
 
 /** Env keys forwarded by name into the helper container (`docker run -e KEY`
  *  passes the worker's current value). Only those actually set are forwarded —
@@ -142,7 +142,22 @@ export function makeBuildJob() {
         try {
           const { exitCode, tail } = await runHelperContainer(deploymentId);
           if (exitCode === 0) {
-            outcome = { ok: true };
+            // A clean exit is only a real success if the pipeline actually
+            // converged the row. A no-op build (e.g. a redundant deploy of an
+            // already-built SHA) can exit 0 without ever running the pipeline —
+            // no markBuilding, no logs — which would otherwise strand the row in
+            // `pending`/`building` forever and surface as a phantom "failed"
+            // with an empty log pane. Repair it to a visible failure instead.
+            const status = await getDeploymentStatus(deploymentId).catch(() => null);
+            if (status === "pending" || status === "building") {
+              await markFailed(
+                deploymentId,
+                "build helper exited 0 but the deployment never converged (no image produced)",
+              ).catch(() => undefined);
+              outcome = { ok: false, error: "did not converge" };
+            } else {
+              outcome = { ok: true };
+            }
           } else {
             // build-one.ts exits 1 after the pipeline has already marked the
             // row failed. Docker's own 125/126/127 mean the container never
