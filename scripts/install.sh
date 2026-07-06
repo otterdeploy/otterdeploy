@@ -29,6 +29,10 @@
 #   OTTERDEPLOY_ZFS_POOL      pool name               (default otter)
 #   OTTERDEPLOY_ZFS_SIZE      file-backed pool size   (default: ¼ of free disk, 5G–40G)
 #   OTTERDEPLOY_FIREWALL      true | false            (default false) — start CrowdSec profile
+#   OTTERDEPLOY_SWAP          auto | on | off         (default auto) — add a swapfile so heavy
+#                             builds don't OOM (auto: only when RAM is tight and no swap exists)
+#   OTTERDEPLOY_SWAP_SIZE     swapfile size           (default: sized from RAM, e.g. 4G)
+#   OTTERDEPLOY_SWAP_FILE     swapfile path           (default /swapfile)
 #   OTTERDEPLOY_DRY_RUN       true | false            (default false) — preview, change nothing
 #   DOCKER_ADDRESS_POOL_BASE  overlay address pool    (default 10.0.0.0/8)
 #   DOCKER_ADDRESS_POOL_SIZE  overlay subnet size     (default 24)
@@ -63,6 +67,11 @@ ZFS_POOL="${OTTERDEPLOY_ZFS_POOL:-otter}"
 ZFS_SIZE="${OTTERDEPLOY_ZFS_SIZE:-}"   # empty = size from free disk (see pool_size)
 ZFS_IMG="$DATA_DIR/branch-pool.img"
 FIREWALL="${OTTERDEPLOY_FIREWALL:-false}"
+
+SWAP="${OTTERDEPLOY_SWAP:-auto}"          # auto | on | off — swapfile for build OOM headroom
+SWAP_SIZE="${OTTERDEPLOY_SWAP_SIZE:-}"    # empty ⇒ sized from RAM (see swap_size_default)
+SWAP_FILE="${OTTERDEPLOY_SWAP_FILE:-/swapfile}"
+
 DRY_RUN="${OTTERDEPLOY_DRY_RUN:-false}"
 ASSUME_YES="${OTTERDEPLOY_YES:-false}"   # -y/--yes: skip the interactive prompts
 
@@ -198,6 +207,18 @@ preflight() {
     warn "Less than ~20G free on / — backups and branch clones may run out of room."
   fi
 
+  # Memory — a frontend build (vite/webpack) inside BuildKit can spike 1–2G; on
+  # a small host with no swap the kernel OOM-kills buildkitd mid-build. Flag it
+  # here; provision_swap adds a swapfile so those spikes spill to disk instead.
+  local mem_mb swap_kb
+  mem_mb="$(awk '/^MemTotal:/{printf "%d",$2/1024}' /proc/meminfo 2>/dev/null || echo 0)"
+  swap_kb="$(awk 'NR>1{s+=$3} END{print s+0}' /proc/swaps 2>/dev/null || echo 0)"
+  if [ "${mem_mb:-0}" -lt 6000 ] && [ "${swap_kb:-0}" -eq 0 ]; then
+    say " - Low RAM (${mem_mb} MiB) and no swap — a swapfile will be added so builds don't OOM"
+  else
+    say " - Memory: ${mem_mb} MiB RAM, $((swap_kb / 1024)) MiB swap"
+  fi
+
   for p in $REQUIRED_PORTS; do
     if command -v ss >/dev/null 2>&1 && ss -ltn "( sport = :$p )" 2>/dev/null | grep -q LISTEN; then
       fail "Port $p is already in use. Free it (or stop the conflicting service) and re-run."
@@ -281,6 +302,103 @@ install_prereqs() {
     esac
     dry || $SUDO docker compose version >/dev/null 2>&1 || fail "Docker Compose v2 unavailable — install the docker compose plugin and re-run."
   fi
+}
+
+# ── 2c. swap file (OOM headroom for builds) ─────────────────────────────────
+# A frontend build (vite/webpack/next) inside BuildKit can spike 1–2G of RAM.
+# On a small host with little or no swap the kernel's OOM killer takes down
+# buildkitd mid-build — the build fails with "rpc error … EOF" and no obvious
+# cause. A swapfile lets that spike spill to disk instead of killing the daemon.
+# Best-effort, mirroring provision_branching: any failure warns and continues,
+# never blocks the install.
+
+mem_total_mb() { awk '/^MemTotal:/{printf "%d", $2/1024}' /proc/meminfo 2>/dev/null || echo 0; }
+
+# Parse a size like "4G"/"512M" to MiB (no numfmt dependency).
+size_to_mib() {
+  local s="${1:-0}" n unit
+  n="${s%[GgMmKk]}"; unit="${s: -1}"
+  case "$unit" in G|g) echo $((n * 1024));; M|m) echo "$n";; K|k) echo $((n / 1024));; *) echo "$s";; esac
+}
+
+# Default swapfile size from RAM: enough for one heavy build. Empty ⇒ "ample
+# RAM, auto mode skips".
+swap_size_default() {
+  local ram; ram="$(mem_total_mb)"
+  if   [ "$ram" -lt 6000 ]; then echo "4G"
+  elif [ "$ram" -lt 8000 ]; then echo "2G"
+  else echo ""
+  fi
+}
+
+provision_swap() {
+  step "Configuring swap (build OOM headroom)"
+
+  if [ "$SWAP" = "off" ]; then
+    say " - Skipped (OTTERDEPLOY_SWAP=off)"
+    return
+  fi
+
+  # Never stack a second swap area on top of existing swap.
+  local active_kb; active_kb="$(awk 'NR>1{s+=$3} END{print s+0}' /proc/swaps 2>/dev/null || echo 0)"
+  if [ "${active_kb:-0}" -gt 0 ]; then
+    say " - Swap already active ($((active_kb / 1024)) MiB) — leaving it as-is"
+    return
+  fi
+
+  local ram size; ram="$(mem_total_mb)"
+  size="$SWAP_SIZE"; [ -z "$size" ] && size="$(swap_size_default)"
+
+  # auto: only add swap when RAM is tight — a big host with no swap is fine.
+  if [ "$SWAP" = "auto" ] && [ -z "$size" ]; then
+    say " - Skipped: ${ram} MiB RAM is ample (set OTTERDEPLOY_SWAP=on to force a swapfile)"
+    return
+  fi
+  [ -z "$size" ] && size="2G"   # 'on' on a big box → a modest default
+
+  if [ -e "$SWAP_FILE" ]; then
+    warn "$SWAP_FILE exists but isn't active — leaving it untouched (enable it manually or remove and re-run)."
+    return
+  fi
+
+  # Ensure the target filesystem has room for the file + ~1G headroom.
+  local size_mib free_kb; size_mib="$(size_to_mib "$size")"
+  free_kb="$(df -Pk "$(dirname "$SWAP_FILE")" | awk 'NR==2{print $4}')"
+  if [ "${free_kb:-0}" -lt "$(((size_mib + 1024) * 1024))" ]; then
+    warn "Not enough free disk for a ${size} swapfile at $SWAP_FILE — skipping swap."
+    return
+  fi
+
+  if dry; then
+    say "   + would create a ${size} swapfile at $SWAP_FILE (fallocate → mkswap → swapon)"
+    say "   + would persist it in /etc/fstab and set vm.swappiness=10"
+    return
+  fi
+
+  say " - Creating ${size} swapfile at $SWAP_FILE (RAM: ${ram} MiB)"
+  # fallocate is instant, but on some filesystems (btrfs) it yields a file
+  # mkswap rejects — fall back to dd, which always produces a plain allocation.
+  if ! $SUDO fallocate -l "$size" "$SWAP_FILE" 2>/dev/null; then
+    $SUDO dd if=/dev/zero of="$SWAP_FILE" bs=1M count="$size_mib" status=none 2>/dev/null || {
+      warn "Could not allocate the swapfile — skipping swap."; $SUDO rm -f "$SWAP_FILE"; return; }
+  fi
+  $SUDO chmod 600 "$SWAP_FILE"
+  if ! $SUDO mkswap "$SWAP_FILE" >/dev/null 2>&1 || ! $SUDO swapon "$SWAP_FILE" 2>/dev/null; then
+    warn "mkswap/swapon failed (some kernels or filesystems disallow swapfiles) — skipping swap."
+    $SUDO swapoff "$SWAP_FILE" 2>/dev/null || true
+    $SUDO rm -f "$SWAP_FILE"
+    return
+  fi
+
+  # Persist across reboots (idempotent) and prefer RAM — only swap under real
+  # pressure, which suits a build host (swappiness=10).
+  grep -qs "^${SWAP_FILE}[[:space:]]" /etc/fstab \
+    || printf '%s none swap sw 0 0\n' "$SWAP_FILE" | $SUDO tee -a /etc/fstab >/dev/null
+  $SUDO sysctl -w vm.swappiness=10 >/dev/null 2>&1 || true
+  if [ -d /etc/sysctl.d ] && ! grep -qs 'vm.swappiness' /etc/sysctl.d/99-otterdeploy.conf 2>/dev/null; then
+    printf 'vm.swappiness=10\n' | $SUDO tee /etc/sysctl.d/99-otterdeploy.conf >/dev/null
+  fi
+  say " - Swap active: ${size} at $SWAP_FILE (swappiness=10, persisted in /etc/fstab)"
 }
 
 # ── 3. docker daemon overlay address pool ───────────────────────────────────
@@ -910,6 +1028,7 @@ main() {
 
   preflight
   install_prereqs
+  provision_swap
   resolve_version
   configure_docker_pool
   ensure_swarm
