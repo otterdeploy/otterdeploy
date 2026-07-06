@@ -16,11 +16,19 @@ on:
 # Serialize builds per ref. Two pushes to main in quick succession would
 # otherwise race on the SHARED `:latest` / `:latest-<arch>` tags — whichever run
 # finishes its manifest-merge last wins, so an OLDER build finishing last
-# silently clobbers `:latest` with stale images. Cancel any in-flight build for
-# the same ref so only the newest commit publishes `:latest`.
+# silently clobbers `:latest` with stale images.
+#
+# cancel-in-progress is FALSE, not true: cancelling an in-flight build mid
+# `cache-to: type=gha,mode=max` export leaves a partial/corrupt buildkit cache
+# that the next run imports and mis-matches — which once shipped a STALE web SPA
+# (the `RUN turbo build` layer was reused across a source change). With `false`,
+# a running build is never interrupted, so its cache export always completes
+# cleanly; queued builds run sequentially in trigger order, so the newest commit
+# still publishes `:latest` last. GitHub keeps only the newest PENDING run per
+# group (older pending ones are auto-cancelled), so this doesn't pile up.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read
