@@ -88,9 +88,22 @@ export async function handlePullRequest(
     );
   if (projects.length === 0) return ignored;
 
-  return action === "closed"
-    ? closePreviews(ev, repo, projects)
-    : deployPreviews(ev, repo, projects);
+  // Close/teardown is NEVER gated: a project that turned previews OFF after a
+  // preview was already running must still have it torn down on PR close, or
+  // the containers + branched DBs leak.
+  if (action === "closed") return closePreviews(ev, repo, projects);
+
+  // Deploy is OPT-IN: only projects that explicitly enabled preview deployments
+  // spin one up. Everything else is ignored — no env, no build, no container.
+  const optedIn = projects.filter((p) => p.previewsEnabled);
+  if (optedIn.length === 0) {
+    log.info({
+      github: { event: "pull_request", deliveryId, repo: ev.repository.full_name, action },
+      msg: "preview deployments not enabled for any bound project — ignoring",
+    });
+    return ignored;
+  }
+  return deployPreviews(ev, repo, optedIn);
 }
 
 /** Sanitized `owner-repo` slug — qualifies preview env slugs/DB branch names so

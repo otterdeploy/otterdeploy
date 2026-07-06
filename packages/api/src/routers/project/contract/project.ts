@@ -101,6 +101,10 @@ export const updateProjectInput = z.object({
   // the handler so the operator can't bind an unverified domain and
   // skip the check. `null` clears (falls back to org default).
   customDomain: z.string().min(1).max(253).nullable().optional(),
+  // Opt-in for PR preview deployments (see project.previewsEnabled). Off by
+  // default; a PR on a repo bound to this project only spins up a preview env
+  // once this is enabled.
+  previewsEnabled: z.boolean().optional(),
   // Git repo + image target moved to the service (edited via the service's
   // Source card, staged into the manifest). The project update no longer
   // carries a repo/registry binding.

@@ -106,6 +106,13 @@ export const project = pgTable(
     // (the rest of the edge keeps serving). Null = none. See buildCaddyfile /
     // buildProjectFragment.
     customCaddyConfig: text("custom_caddy_config"),
+    // Opt-in gate for PR preview deployments. When false (default), a
+    // pull_request webhook for a repo bound to this project's services is
+    // ignored — no preview environment is created. Turning it on lets
+    // opened/reopened/synchronize PRs spin up an isolated preview env
+    // (see git/handle-pull-request.ts). Teardown on PR close is NOT gated by
+    // this flag, so disabling never strands already-running previews.
+    previewsEnabled: boolean("previews_enabled").notNull().default(false),
     // Git source + image target moved to the SERVICE (service_resource) — each
     // git service owns its own repo/branch/image now, so two services in one
     // project can build from two different repos. The project no longer carries
