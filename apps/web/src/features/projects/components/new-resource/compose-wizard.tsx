@@ -84,10 +84,14 @@ export function ComposeWizard({
           }
         : {
             source: "git" as const,
-            gitRepoUrl: value.gitRepoUrl.trim(),
+            // Bound repo id (private-capable) when picked; else the pasted URL.
+            ...(value.gitRepoId.trim()
+              ? { gitRepoId: value.gitRepoId.trim() }
+              : { gitRepoUrl: value.gitRepoUrl.trim() }),
             ...(value.gitRef.trim() ? { gitRef: value.gitRef.trim() } : {}),
             // Blank → the builder auto-detects common compose file names.
             ...(value.composePath.trim() ? { composePath: value.composePath.trim() } : {}),
+            ...(value.sourceSubdir.trim() ? { sourceSubdir: value.sourceSubdir.trim() } : {}),
             ...(hasEnv ? { env } : {}),
           };
 
@@ -149,6 +153,7 @@ export function ComposeWizard({
       <ComposeWizardBody
         form={form}
         projectId={projectId}
+        projectSlug={projectSlug}
         step={step}
         setStep={setStep}
         source={source}
