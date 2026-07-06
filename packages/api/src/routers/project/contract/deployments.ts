@@ -40,7 +40,9 @@ export const deploymentSchema = z.object({
     "git-push",
     "rollback",
   ]),
-  status: z.enum(["pending", "building", "running", "failed", "superseded", "removed"]),
+  // `crashing` is derived-only (a running deployment whose container keeps
+  // restarting) — never a stored DB value; see DerivedDeploymentStatus.
+  status: z.enum(["pending", "building", "running", "crashing", "failed", "superseded", "removed"]),
   errorMessage: z.string().nullable(),
   taskCount: z.number().int(),
   failedTaskCount: z.number().int(),

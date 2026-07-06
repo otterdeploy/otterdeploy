@@ -14,6 +14,18 @@ function msToNs(ms: number): number {
   return ms * 1_000_000;
 }
 
+// A container that exits immediately on boot (e.g. a missing required env var)
+// would otherwise restart forever: with `MaxAttempts` unset, swarm's default is
+// UNLIMITED. Bound it so a crash-loop gives up instead of hammering the host —
+// after this many failures WITHIN the window, swarm stops restarting and the
+// deployment settles (surfaced as `crashing` by the deployments read). A user
+// who explicitly sets maxAttempts still wins. Mirrors the database driver's cap.
+const DEFAULT_MAX_RESTART_ATTEMPTS = 5;
+// Evaluate the cap over a rolling window, not the task's whole lifetime, so a
+// service that fails only occasionally keeps recovering — only a tight loop
+// (5 failures inside 90s) trips it.
+const RESTART_WINDOW_MS = 90_000;
+
 function cpuToNanoCpus(cores: number): number {
   return Math.round(cores * 1e9);
 }
@@ -106,8 +118,9 @@ export function buildServiceSpec(spec: SwarmServiceSpec, networkName: string) {
     ],
     RestartPolicy: {
       Condition: spec.restart.condition,
-      MaxAttempts: spec.restart.maxAttempts ?? undefined,
+      MaxAttempts: spec.restart.maxAttempts ?? DEFAULT_MAX_RESTART_ATTEMPTS,
       Delay: msToNs(spec.restart.delayMs),
+      Window: msToNs(RESTART_WINDOW_MS),
     },
     ForceUpdate: spec.forceUpdateCounter,
   };
