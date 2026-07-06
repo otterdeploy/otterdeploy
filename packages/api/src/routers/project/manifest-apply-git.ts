@@ -18,9 +18,8 @@ import { triggerDeploy } from "@otterdeploy/jobs";
 import { Result } from "better-result";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 
-import { type ServiceManifest } from "../../stack/manifest";
-
 import { fetchBranchHeadSha } from "../../git/github-app";
+import { type ServiceManifest } from "../../stack/manifest";
 import { inspectRepoTree } from "../git/inspect";
 import { emitDeployStarted } from "./deployments";
 import { publishResourceChanged } from "./project-event-bus";

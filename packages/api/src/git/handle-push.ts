@@ -12,12 +12,11 @@ import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import { db } from "@otterdeploy/db";
 import { deployment, gitRepo, resource, serviceResource } from "@otterdeploy/db/schema";
 import { triggerDeploy } from "@otterdeploy/jobs";
+import { Result } from "better-result";
 import { and, eq, isNull, or } from "drizzle-orm";
 import { log } from "evlog";
 
 import type { GithubWebhookResult, PushEvent } from "./types";
-
-import { Result } from "better-result";
 
 import { emitDeployStarted, markDeploymentFailed } from "../routers/project/deployments";
 import { detectAndPersistFramework } from "../routers/project/manifest-apply-git";

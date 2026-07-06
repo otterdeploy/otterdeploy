@@ -42,7 +42,16 @@ export const deploymentSchema = z.object({
   ]),
   // `crashed`/`starting` are derived-only (computed live from task states) —
   // never stored DB values; see DerivedDeploymentStatus.
-  status: z.enum(["pending", "building", "starting", "running", "crashed", "failed", "superseded", "removed"]),
+  status: z.enum([
+    "pending",
+    "building",
+    "starting",
+    "running",
+    "crashed",
+    "failed",
+    "superseded",
+    "removed",
+  ]),
   errorMessage: z.string().nullable(),
   taskCount: z.number().int(),
   failedTaskCount: z.number().int(),

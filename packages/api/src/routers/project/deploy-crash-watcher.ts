@@ -74,10 +74,14 @@ function bumpDieCount(deploymentId: string): number {
   return next;
 }
 
-function markNotified(deploymentId: string): boolean {
-  if (notified.has(deploymentId)) return false;
+/** Dedupe key includes the phase so a deployment gets at most TWO alerts: one
+ *  when the crash loop is first detected, one when the policy gives up for
+ *  good — the actionable moment, which must not be swallowed by the first. */
+function markNotified(deploymentId: string, phase: "looping" | "gave-up"): boolean {
+  const key = `${deploymentId}:${phase}`;
+  if (notified.has(key)) return false;
   if (notified.size > BOOKKEEPING_CAP) notified.clear();
-  notified.add(deploymentId);
+  notified.add(key);
   return true;
 }
 
@@ -85,9 +89,7 @@ function markNotified(deploymentId: string): boolean {
 
 function exitPhrase(ctx: DieContext): string {
   if (ctx.oomKilled) return "container was killed — out of memory (OOM)";
-  return ctx.exitCode != null
-    ? `container exited (code ${ctx.exitCode})`
-    : "container exited";
+  return ctx.exitCode != null ? `container exited (code ${ctx.exitCode})` : "container exited";
 }
 
 /** The retry-status suffix for the log line, and whether this die is the
@@ -151,8 +153,12 @@ async function appendSystemLine(deploymentId: string, line: string): Promise<voi
     .catch(() => undefined);
 }
 
-async function notifyCrashed(ctx: DieContext, detail: string): Promise<void> {
-  if (!markNotified(ctx.deploymentId)) return;
+async function notifyCrashed(
+  ctx: DieContext,
+  detail: string,
+  phase: "looping" | "gave-up",
+): Promise<void> {
+  if (!markNotified(ctx.deploymentId, phase)) return;
   const [info] = await db
     .select({
       organizationId: project.organizationId,
@@ -225,7 +231,7 @@ async function handleDie(event: ContainerEvent): Promise<void> {
 
   const dies = bumpDieCount(deploymentId);
   if (retry.gaveUp || dies >= NOTIFY_DIE_THRESHOLD) {
-    await notifyCrashed(ctx, line).catch(() => undefined);
+    await notifyCrashed(ctx, line, retry.gaveUp ? "gave-up" : "looping").catch(() => undefined);
   }
 }
 

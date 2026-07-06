@@ -27,7 +27,15 @@ export interface DeploymentInfo {
     | "restart"
     | "git-push"
     | "rollback";
-  status: "pending" | "building" | "starting" | "running" | "crashed" | "failed" | "superseded" | "removed";
+  status:
+    | "pending"
+    | "building"
+    | "starting"
+    | "running"
+    | "crashed"
+    | "failed"
+    | "superseded"
+    | "removed";
   errorMessage: string | null;
   taskCount: number;
   failedTaskCount: number;
@@ -111,9 +119,7 @@ export function ActiveDeploymentCard({
               {runningCount}/{replicas} {replicas === 1 ? "instance" : "instances"}
             </span>
             {deployment.failedTaskCount > 0 && (
-              <span className="text-destructive">
-                {deployment.failedTaskCount} failed
-              </span>
+              <span className="text-destructive">{deployment.failedTaskCount} failed</span>
             )}
           </div>
         )}
@@ -175,46 +181,45 @@ export function HistoryRow({
   // A failed/crashed history row must say WHY inline — the badge alone made
   // past failures opaque without a click-through to the detail page.
   const showError =
-    deployment.errorMessage &&
-    (deployment.status === "failed" || deployment.status === "crashed");
+    deployment.errorMessage && (deployment.status === "failed" || deployment.status === "crashed");
   return (
     <div className="group px-3 py-2 text-left hover:bg-muted/20">
       <div className="grid grid-cols-[100px_1fr_140px_160px_32px] items-center gap-3">
-      <Link
-        to="/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId"
-        params={{
-          orgSlug,
-          projectSlug: projectSlug as never,
-          resourceId,
-          deploymentId: deployment.id,
-        }}
-        search={{ tab: "details" }}
-        className="contents"
-      >
-        <DeploymentStatusBadge status={deployment.status} compact />
-        <span
-          className="truncate font-mono text-[12px] text-foreground/80"
-          title={deployment.image}
+        <Link
+          to="/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId"
+          params={{
+            orgSlug,
+            projectSlug: projectSlug as never,
+            resourceId,
+            deploymentId: deployment.id,
+          }}
+          search={{ tab: "details" }}
+          className="contents"
         >
-          {shortImageRef(deployment.image)}
-        </span>
-        <span className="truncate font-mono text-[11px] text-muted-foreground tabular-nums">
-          {deployment.reason} · {deployment.taskCount}{" "}
-          {deployment.taskCount === 1 ? "task" : "tasks"}
-          {duration && ` · ${duration}`}
-        </span>
-        <span className="text-right font-mono text-[11px] text-muted-foreground">
-          {new Date(deployment.createdAt).toLocaleString()}
-        </span>
-      </Link>
-      <HistoryRowMenu
-        deployment={deployment}
-        orgSlug={orgSlug}
-        projectSlug={projectSlug}
-        projectId={projectId}
-        resourceId={resourceId}
-        canRollback={canRollback}
-      />
+          <DeploymentStatusBadge status={deployment.status} compact />
+          <span
+            className="truncate font-mono text-[12px] text-foreground/80"
+            title={deployment.image}
+          >
+            {shortImageRef(deployment.image)}
+          </span>
+          <span className="truncate font-mono text-[11px] text-muted-foreground tabular-nums">
+            {deployment.reason} · {deployment.taskCount}{" "}
+            {deployment.taskCount === 1 ? "task" : "tasks"}
+            {duration && ` · ${duration}`}
+          </span>
+          <span className="text-right font-mono text-[11px] text-muted-foreground">
+            {new Date(deployment.createdAt).toLocaleString()}
+          </span>
+        </Link>
+        <HistoryRowMenu
+          deployment={deployment}
+          orgSlug={orgSlug}
+          projectSlug={projectSlug}
+          projectId={projectId}
+          resourceId={resourceId}
+          canRollback={canRollback}
+        />
       </div>
       {showError && (
         <p

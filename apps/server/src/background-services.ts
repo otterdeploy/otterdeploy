@@ -8,9 +8,9 @@ import { startBackupScheduler } from "@otterdeploy/api/backups";
 import { startEphemeralDbSweeper } from "@otterdeploy/api/ephemeral-db";
 import { startDataFolderSweep } from "@otterdeploy/api/lib/data-folder-sweep";
 import { startMetricsSampler } from "@otterdeploy/api/metrics";
-import { startDeployCrashWatcher } from "@otterdeploy/api/routers/project/deploy-crash-watcher";
 import { startAuditAnomalyScan } from "@otterdeploy/api/notifications/audit-anomaly";
 import { startBlocklistScheduler } from "@otterdeploy/api/routers/firewall/scheduler";
+import { startDeployCrashWatcher } from "@otterdeploy/api/routers/project/deploy-crash-watcher";
 import {
   startHealthAgentReconciler,
   startHostHealthMonitor,

@@ -109,6 +109,26 @@ function diedAbnormally(i: InstanceGlimpse): boolean {
   return (i.restartCount ?? 0) > 0;
 }
 
+/** Status for a row with NO live instances: no tasks yet, or docker GC'd them
+ *  all. Only "superseded" when this isn't the most recent — otherwise we'd
+ *  lose info on a fresh deploy that hasn't scheduled tasks yet. */
+function deriveZeroInstanceStatus(
+  stored: DeploymentRow["status"],
+  isLatest: boolean,
+  createdAt: Date,
+  buildActive: boolean,
+): DerivedDeploymentStatus {
+  if (!isLatest) return "superseded";
+  // Latest row sitting at building/pending with nothing scheduled past
+  // the wait-ready window AND no recent build output is a dead
+  // deployment — surface it as failed instead of pinning on BUILDING.
+  const ageMs = Date.now() - createdAt.getTime();
+  if ((stored === "building" || stored === "pending") && ageMs > ZERO_TASK_STALE_MS) {
+    return buildActive ? stored : "failed";
+  }
+  return stored;
+}
+
 export function deriveDeploymentStatus(
   stored: DeploymentRow["status"],
   isLatest: boolean,
@@ -117,18 +137,7 @@ export function deriveDeploymentStatus(
   buildActive: boolean,
 ): DerivedDeploymentStatus {
   if (instances.length === 0) {
-    // No tasks yet OR docker GC'd them all (very old deployments). Only
-    // mark "superseded" when this isn't the most recent — otherwise we'd
-    // lose info on a fresh deploy that hasn't scheduled tasks yet.
-    if (!isLatest) return "superseded";
-    // Latest row sitting at building/pending with nothing scheduled past
-    // the wait-ready window AND no recent build output is a dead
-    // deployment — surface it as failed instead of pinning on BUILDING.
-    const ageMs = Date.now() - createdAt.getTime();
-    if ((stored === "building" || stored === "pending") && ageMs > ZERO_TASK_STALE_MS) {
-      return buildActive ? stored : "failed";
-    }
-    return stored;
+    return deriveZeroInstanceStatus(stored, isLatest, createdAt, buildActive);
   }
   const taskStates = instances.map((i) => i.state);
   const hasRunning = taskStates.some((s) => s === "running");
