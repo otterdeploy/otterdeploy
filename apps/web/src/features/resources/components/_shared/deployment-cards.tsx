@@ -27,7 +27,7 @@ export interface DeploymentInfo {
     | "restart"
     | "git-push"
     | "rollback";
-  status: "pending" | "building" | "running" | "failed" | "superseded" | "removed";
+  status: "pending" | "building" | "running" | "crashing" | "failed" | "superseded" | "removed";
   errorMessage: string | null;
   taskCount: number;
   failedTaskCount: number;
@@ -70,7 +70,7 @@ export function ActiveDeploymentCard({
         "group flex flex-col gap-3 rounded-lg border bg-card p-4 text-left transition-colors hover:bg-muted/30",
         deployment.status === "running"
           ? "border-success/30"
-          : deployment.status === "failed"
+          : deployment.status === "failed" || deployment.status === "crashing"
             ? "border-destructive/30"
             : "border-border",
       )}
@@ -188,6 +188,7 @@ const STATUS_LABEL: Record<DeploymentInfo["status"], string> = {
   pending: "pending",
   building: "building",
   running: "running",
+  crashing: "crashing",
   failed: "failed",
   superseded: "replaced",
   removed: "removed",
@@ -207,7 +208,10 @@ export function DeploymentStatusBadge({
         {
           "px-2 py-0.5 text-[10px]": compact,
           "border-success/30 bg-success/15 text-success": status === "running",
-          "border-destructive/30 bg-destructive/15 text-destructive": status === "failed",
+          // `crashing` shares the destructive palette with `failed` but pulses
+          // (below) to read as an ACTIVE problem rather than a settled one.
+          "border-destructive/30 bg-destructive/15 text-destructive":
+            status === "failed" || status === "crashing",
           "border-warning/30 bg-warning/15 text-warning":
             status === "building" || status === "pending",
         },
@@ -217,9 +221,9 @@ export function DeploymentStatusBadge({
         className={cn("size-2 rounded-full bg-muted-foreground/60", {
           "size-1.5": compact,
           "bg-success": status === "running",
-          "bg-destructive": status === "failed",
+          "bg-destructive": status === "failed" || status === "crashing",
           "bg-warning": status === "building" || status === "pending",
-          "animate-pulse": status === "running",
+          "animate-pulse": status === "running" || status === "crashing",
         })}
       />
       {STATUS_LABEL[status]}

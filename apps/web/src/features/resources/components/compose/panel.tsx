@@ -45,6 +45,7 @@ interface ComposeResourcePanelProps {
       | "pending"
       | "building"
       | "running"
+      | "crashing"
       | "failed"
       | "superseded"
       | "removed"
