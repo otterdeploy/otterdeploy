@@ -14,8 +14,6 @@ import {
   project,
   resource,
 } from "@otterdeploy/db/schema";
-import { Result } from "better-result";
-import { eq } from "drizzle-orm";
 /**
  * Build path for `type: compose` resources with `build:` services.
  *
@@ -28,6 +26,8 @@ import { eq } from "drizzle-orm";
  * straight from `compose.create`). See docs/designs/compose.md.
  */
 import { buildDir } from "@otterdeploy/shared/paths";
+import { Result } from "better-result";
+import { eq } from "drizzle-orm";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";

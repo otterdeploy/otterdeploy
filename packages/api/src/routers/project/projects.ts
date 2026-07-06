@@ -85,7 +85,8 @@ async function countRunningServicesByProject(
 
   const counts = new Map<ProjectId, number>();
   for (const rid of runningResourceIds) {
-    const pid = projectOfResource.get(rid)!;
+    const pid = projectOfResource.get(rid);
+    if (pid === undefined) continue;
     counts.set(pid, (counts.get(pid) ?? 0) + 1);
   }
   return counts;

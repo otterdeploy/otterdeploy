@@ -187,8 +187,8 @@ function NoProviderCard(props: BindingSummaryProps) {
           <div className="min-w-0 flex-1">
             <div className="text-[13px] font-semibold">No git provider connected</div>
             <p className="mt-1 text-[12px] text-muted-foreground">
-              Connect the GitHub App for private repos + push deploys. For a public repo, paste
-              its URL below — no app install needed.
+              Connect the GitHub App for private repos + push deploys. For a public repo, paste its
+              URL below — no app install needed.
             </p>
             <Link
               to="/$orgSlug/git-providers"

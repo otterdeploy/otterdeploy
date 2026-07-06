@@ -103,9 +103,7 @@ export async function listProxyRoutesByEnvironment(
     .orderBy(asc(proxyRoute.domain));
 }
 
-export async function deleteProxyRoutesByEnvironment(
-  environmentId: EnvironmentId,
-): Promise<void> {
+export async function deleteProxyRoutesByEnvironment(environmentId: EnvironmentId): Promise<void> {
   await db.delete(proxyRoute).where(eq(proxyRoute.environmentId, environmentId));
 }
 

@@ -30,7 +30,12 @@ import {
   type ServiceBuildResource,
   stageSource,
 } from "./build-card-shared";
-import { InstallationField, PreviewsField, RepositoryField, useSourceForm } from "./source-card-fields";
+import {
+  InstallationField,
+  PreviewsField,
+  RepositoryField,
+  useSourceForm,
+} from "./source-card-fields";
 
 /** One arrow-linked chip in the repo → build → image strip. */
 function PipeChip({ label, value, muted }: { label: string; value: string; muted?: boolean }) {

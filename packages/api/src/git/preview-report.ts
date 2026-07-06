@@ -154,11 +154,7 @@ export async function reportPreviewBuildOutcome(deploymentId: DeploymentId): Pro
         .from(environment)
         .where(eq(environment.id, dep.environmentId))
         .limit(1);
-      if (
-        envRow?.kind !== "preview" ||
-        !envRow.gitRepoId ||
-        envRow.pullRequestNumber == null
-      ) {
+      if (envRow?.kind !== "preview" || !envRow.gitRepoId || envRow.pullRequestNumber == null) {
         return;
       }
       // A push during the build superseded this deployment — the newer

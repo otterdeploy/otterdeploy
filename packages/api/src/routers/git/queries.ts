@@ -107,10 +107,7 @@ export async function getProviderDetail(args: {
     })
     .from(gitInstallation)
     .where(eq(gitInstallation.providerId, provider.id))
-    .orderBy(
-      sql`(${gitInstallation.revokedAt} is not null) asc`,
-      desc(gitInstallation.createdAt),
-    )
+    .orderBy(sql`(${gitInstallation.revokedAt} is not null) asc`, desc(gitInstallation.createdAt))
     .limit(1);
 
   return { provider, installation: installation ?? null };

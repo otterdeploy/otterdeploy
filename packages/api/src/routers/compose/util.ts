@@ -6,7 +6,12 @@
 
 import type { ComposeFile } from "@otterdeploy/shared/compose";
 
-const COMPOSE_FILENAMES = ["compose.yml", "compose.yaml", "docker-compose.yml", "docker-compose.yaml"];
+const COMPOSE_FILENAMES = [
+  "compose.yml",
+  "compose.yaml",
+  "docker-compose.yml",
+  "docker-compose.yaml",
+];
 
 /**
  * Pick the designated compose file out of a multi-file inline tree. Preference:

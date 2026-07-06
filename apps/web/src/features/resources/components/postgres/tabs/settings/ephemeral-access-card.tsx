@@ -22,11 +22,7 @@ import type { PostgresBodyProps } from "../../types";
 import { EphemeralMintDialog } from "./ephemeral-mint-dialog";
 import { expiresIn } from "./ephemeral-shared";
 
-export function EphemeralAccessCard({
-  resource,
-}: {
-  resource: PostgresBodyProps["resource"];
-}) {
+export function EphemeralAccessCard({ resource }: { resource: PostgresBodyProps["resource"] }) {
   const [open, setOpen] = useState(false);
 
   const resourceId = resource.resourceId as never;
@@ -72,9 +68,7 @@ export function EphemeralAccessCard({
           className="flex items-center justify-between gap-3 border-b border-border/40 px-3 py-2.5 last:border-b-0"
         >
           <div className="flex min-w-0 flex-col">
-            <span className="truncate font-mono text-[12.5px]">
-              {cred.label || cred.roleName}
-            </span>
+            <span className="truncate font-mono text-[12.5px]">{cred.label || cred.roleName}</span>
             <span className="text-[11px] text-muted-foreground">
               {cred.scope}
               {" · "}

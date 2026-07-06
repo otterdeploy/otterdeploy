@@ -1,3 +1,5 @@
+import type { Context } from "hono";
+
 /**
  * Health-report ingest — the control-plane side of the per-node health agent
  * (docs/designs/server-health-agent.md). Remote agents (and the local 60s
@@ -18,7 +20,6 @@ import { db } from "@otterdeploy/db";
 import { server, serverHealthSample } from "@otterdeploy/db/schema/server";
 import { eq, or } from "drizzle-orm";
 import { log } from "evlog";
-import type { Context } from "hono";
 import * as z from "zod";
 
 import { verifyAgentToken } from "./agent-token";

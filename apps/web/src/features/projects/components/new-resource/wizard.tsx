@@ -6,8 +6,8 @@ import type { Step } from "./schemas";
 
 import { ComposeWizard } from "./compose-wizard";
 import { Stepper } from "./steps";
-import { isKindWired, RequiredHint, WizardFooter, WizardStepBody } from "./wizard-chrome";
 import { useDetectionDefaults } from "./use-repo-detection";
+import { isKindWired, RequiredHint, WizardFooter, WizardStepBody } from "./wizard-chrome";
 import { useWizardForm } from "./wizard-form";
 import { useResourceProvisioner, usePrefetchSourceData } from "./wizard-provisioner";
 

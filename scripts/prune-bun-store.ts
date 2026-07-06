@@ -22,13 +22,7 @@
 //
 // Usage: bun run scripts/prune-bun-store.ts [/app]
 
-import {
-  existsSync,
-  lstatSync,
-  readdirSync,
-  readlinkSync,
-  rmSync,
-} from "node:fs";
+import { existsSync, lstatSync, readdirSync, readlinkSync, rmSync } from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
 
 const ROOT = resolve(process.argv[2] ?? "/app");
@@ -187,9 +181,7 @@ for (const entry of readdirSync(STORE)) {
   removedKeys.push(entry);
 }
 
-console.log(
-  `[prune-bun-store] kept ${reachable.size} store packages, removed ${removed}`,
-);
+console.log(`[prune-bun-store] kept ${reachable.size} store packages, removed ${removed}`);
 if (removedKeys.length > 0) {
   const notable = removedKeys
     .filter((k) =>

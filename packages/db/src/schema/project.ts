@@ -1,5 +1,9 @@
 import type { BuildConfig } from "@otterdeploy/shared/build-config";
-import type { ComposeExposed, ComposeFile, ComposeServiceSummary } from "@otterdeploy/shared/compose";
+import type {
+  ComposeExposed,
+  ComposeFile,
+  ComposeServiceSummary,
+} from "@otterdeploy/shared/compose";
 import type { FrameworkKind } from "@otterdeploy/shared/framework";
 import type {
   DeploymentId,

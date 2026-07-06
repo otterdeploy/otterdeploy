@@ -33,6 +33,7 @@ import { Hono } from "hono";
 import { serveStatic, upgradeWebSocket, websocket } from "hono/bun";
 import { cors } from "hono/cors";
 
+import { startBackgroundServices } from "./background-services";
 import {
   deployAccessHandler,
   deployAuthorizeHandler,
@@ -47,7 +48,6 @@ import {
   githubWebhookHandler,
   terminalWebSocketHandler,
 } from "./handlers";
-import { startBackgroundServices } from "./background-services";
 import { BootstrapError } from "./lib/errors";
 import { invalidate } from "./lib/invalidate";
 import { isTracingConfigured, shutdownTracing, startTracing } from "./lib/tracing";

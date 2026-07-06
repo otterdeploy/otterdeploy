@@ -30,10 +30,7 @@ export function safeJoin(root: string, rel: string): string | null {
  * root. Files whose path escapes the root are skipped (defensive; the wizard
  * validates paths client-side too).
  */
-export async function materializeComposeFiles(
-  files: ComposeFile[],
-  dir: string,
-): Promise<string> {
+export async function materializeComposeFiles(files: ComposeFile[], dir: string): Promise<string> {
   const root = resolve(dir);
   await mkdir(root, { recursive: true });
   for (const f of files) {
@@ -60,10 +57,7 @@ export function resolveBindSource(source: string, dir: string): string | null {
  * into one `{K:V}` map. Later files win (compose order). Missing files are
  * skipped; blank/`#` lines ignored; matching surrounding quotes stripped.
  */
-export async function readEnvFiles(
-  paths: string[],
-  dir: string,
-): Promise<Record<string, string>> {
+export async function readEnvFiles(paths: string[], dir: string): Promise<Record<string, string>> {
   const root = resolve(dir);
   const out: Record<string, string> = {};
   for (const p of paths) {

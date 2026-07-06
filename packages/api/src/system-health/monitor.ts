@@ -16,8 +16,8 @@
 import type { OrganizationId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
-import { organization } from "@otterdeploy/db/schema/auth";
 import { platformMetric } from "@otterdeploy/db/schema";
+import { organization } from "@otterdeploy/db/schema/auth";
 import { Result } from "better-result";
 import { log } from "evlog";
 
@@ -41,8 +41,7 @@ async function recordSeries(health: HostHealth): Promise<void> {
   if (health.docker) {
     values.push({
       metric: "host.docker.reclaimable_bytes",
-      value:
-        health.docker.images.reclaimableBytes + health.docker.buildCache.reclaimableBytes,
+      value: health.docker.images.reclaimableBytes + health.docker.buildCache.reclaimableBytes,
     });
   }
   if (health.branchPool?.imagePhysicalBytes != null) {
