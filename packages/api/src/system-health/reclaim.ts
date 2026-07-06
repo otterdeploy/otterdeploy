@@ -7,6 +7,8 @@
  *   build-cache → BuildKit cache prune (idle entries only; next build re-warms)
  *   containers  → stopped containers, LIMITED to otterdeploy-managed ones so a
  *                 shared host's other stopped containers are never touched
+ *   branch-pool → `zpool trim` on the branching pool, punching freed branch-DB
+ *                 blocks back out of its sparse image file (host disk returns)
  *
  * Volumes are intentionally NOT reclaimable from here: an unreferenced volume
  * can be a detached database's data. That stays a manual, informed decision.
@@ -16,6 +18,8 @@ import { Result } from "better-result";
 import { log } from "evlog";
 
 import type { ReclaimTarget } from "./host-health";
+
+import { trimBranchPool } from "./branch-pool";
 
 export interface ReclaimResult {
   target: ReclaimTarget;
@@ -43,6 +47,11 @@ async function pruneOne(docker: Docker, target: ReclaimTarget): Promise<ReclaimR
         });
         if (res.isErr()) throw res.error;
         return res.value.SpaceReclaimed;
+      }
+      case "branch-pool": {
+        const res = await trimBranchPool();
+        if (!res.ok) throw new Error(res.error ?? "branch-pool trim failed");
+        return res.reclaimedBytes;
       }
     }
   };

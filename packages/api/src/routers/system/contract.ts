@@ -63,7 +63,21 @@ const usageSectionSchema = z.object({
   reclaimableBytes: z.number(),
 });
 
-const reclaimTargetSchema = z.enum(["images", "build-cache", "containers"]);
+const reclaimTargetSchema = z.enum(["images", "build-cache", "containers", "branch-pool"]);
+
+const branchPoolSchema = z.object({
+  pool: z.string(),
+  health: z.string().nullable(),
+  sizeBytes: z.number().nullable(),
+  allocBytes: z.number().nullable(),
+  freeBytes: z.number().nullable(),
+  autotrim: z.boolean().nullable(),
+  imagePath: z.string().nullable(),
+  imageMaxBytes: z.number().nullable(),
+  imagePhysicalBytes: z.number().nullable(),
+  reclaimableBytes: z.number(),
+  suggestGrowBytes: z.number().nullable(),
+});
 
 const hostHealthSchema = z.object({
   memory: z.object({
@@ -89,6 +103,7 @@ const hostHealthSchema = z.object({
       buildCache: usageSectionSchema,
     })
     .nullable(),
+  branchPool: branchPoolSchema.nullable(),
   recommendations: z.array(
     z.object({
       id: z.string(),
@@ -181,4 +196,14 @@ export const systemContract = {
     .meta({ path: `${base}/reclaim`, tag, method: "POST" })
     .input(reclaimInput)
     .output(reclaimResultSchema),
+
+  growBranchPool: oc
+    .meta({ path: `${base}/grow-branch-pool`, tag, method: "POST" })
+    .input(z.object({ stepBytes: z.number().optional() }).optional())
+    .output(
+      z.discriminatedUnion("ok", [
+        z.object({ ok: z.literal(true), addedBytes: z.number(), imageMaxBytes: z.number() }),
+        z.object({ ok: z.literal(false), reason: z.string() }),
+      ]),
+    ),
 };

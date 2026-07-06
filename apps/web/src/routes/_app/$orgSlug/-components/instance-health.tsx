@@ -14,19 +14,12 @@ import { toast } from "sonner";
 
 import { SettingsSection } from "@/shared/components/settings-section";
 import { Button } from "@/shared/components/ui/button";
-import { Progress } from "@/shared/components/ui/progress";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
-type ReclaimTarget = "images" | "build-cache" | "containers";
+import { BranchPoolBlock, fmtBytes, UsageRow, type BranchPool } from "./instance-health-pool";
 
-const GB = 1024 * 1024 * 1024;
-
-function fmtBytes(bytes: number): string {
-  if (bytes >= GB) return `${(bytes / GB).toFixed(1)} GB`;
-  if (bytes >= 1024 * 1024) return `${Math.round(bytes / (1024 * 1024))} MB`;
-  return `${Math.round(bytes / 1024)} KB`;
-}
+type ReclaimTarget = "images" | "build-cache" | "containers" | "branch-pool";
 
 const SEVERITY_STYLES: Record<string, string> = {
   critical: "text-destructive ring-destructive/30",
@@ -80,20 +73,6 @@ function RecommendationList({
   );
 }
 
-function UsageRow({ label, value, detail }: { label: string; value: number; detail: string }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-baseline justify-between gap-3">
-        <span className="text-[13px] font-medium">{label}</span>
-        <span className="font-mono text-[11.5px] tabular-nums text-muted-foreground">
-          {detail}
-        </span>
-      </div>
-      <Progress value={Math.min(100, value)} />
-    </div>
-  );
-}
-
 interface UsageSection {
   count: number;
   activeCount: number;
@@ -117,6 +96,7 @@ interface HostHealthData {
     volumes: UsageSection;
     buildCache: UsageSection;
   } | null;
+  branchPool: BranchPool | null;
   recommendations: Recommendation[];
   sampledAt: string;
 }
@@ -125,10 +105,14 @@ function HealthBody({
   health,
   pending,
   onReclaim,
+  growPending,
+  onGrow,
 }: {
   health: HostHealthData;
   pending: boolean;
   onReclaim: (targets: ReclaimTarget[]) => void;
+  growPending: boolean;
+  onGrow: () => void;
 }) {
   const dockerRows = health.docker
     ? ([
@@ -138,9 +122,16 @@ function HealthBody({
         ["Build cache", health.docker.buildCache],
       ] as const)
     : null;
-  const reclaimable = health.docker
-    ? health.docker.images.reclaimableBytes + health.docker.buildCache.reclaimableBytes
-    : 0;
+  const reclaimable =
+    (health.docker
+      ? health.docker.images.reclaimableBytes + health.docker.buildCache.reclaimableBytes
+      : 0) + (health.branchPool?.reclaimableBytes ?? 0);
+  const reclaimAllTargets: ReclaimTarget[] = [
+    "images",
+    "build-cache",
+    "containers",
+    ...((health.branchPool?.reclaimableBytes ?? 0) > 0 ? (["branch-pool"] as const) : []),
+  ];
   const swapNote = health.memory.swapTotalBytes === 0 ? " · no swap" : "";
 
   return (
@@ -155,6 +146,16 @@ function HealthBody({
           label={`Disk (${health.disk.path})`}
           value={health.disk.usedPct}
           detail={`${fmtBytes(health.disk.freeBytes)} free / ${fmtBytes(health.disk.totalBytes)} · ${health.disk.usedPct}%`}
+        />
+      )}
+
+      {health.branchPool && (
+        <BranchPoolBlock
+          pool={health.branchPool}
+          reclaimPending={pending}
+          onTrim={() => onReclaim(["branch-pool"])}
+          growPending={growPending}
+          onGrow={onGrow}
         />
       )}
 
@@ -184,7 +185,7 @@ function HealthBody({
       <div className="flex items-center justify-between gap-3">
         <span className="text-[11.5px] text-muted-foreground">
           {reclaimable > 0
-            ? `${fmtBytes(reclaimable)} reclaimable across unused images and idle build cache.`
+            ? `${fmtBytes(reclaimable)} reclaimable across unused images, idle build cache and the branching pool.`
             : "Nothing significant to reclaim right now."}
         </span>
         <Button
@@ -192,7 +193,7 @@ function HealthBody({
           size="sm"
           variant="outline"
           disabled={pending || reclaimable === 0}
-          onClick={() => onReclaim(["images", "build-cache", "containers"])}
+          onClick={() => onReclaim(reclaimAllTargets)}
         >
           {pending ? "Reclaiming…" : "Reclaim space"}
         </Button>
@@ -219,6 +220,20 @@ export function ServerHealthCard() {
       }
     },
     onError: (err) => toast.error(err.message ?? "Reclaim failed"),
+  });
+  const grow = useMutation({
+    ...orpc.system.growBranchPool.mutationOptions(),
+    onSuccess: async (result) => {
+      await queryClient.invalidateQueries({ queryKey: orpc.system.hostHealth.queryKey() });
+      if (result.ok) {
+        toast.success(
+          `Pool ceiling raised by ${fmtBytes(result.addedBytes)} (now ${fmtBytes(result.imageMaxBytes)})`,
+        );
+      } else {
+        toast.error(result.reason);
+      }
+    },
+    onError: (err) => toast.error(err.message ?? "Grow failed"),
   });
 
   const health = query.data;
@@ -248,6 +263,8 @@ export function ServerHealthCard() {
             health={health}
             pending={reclaim.isPending}
             onReclaim={(targets) => reclaim.mutate({ targets })}
+            growPending={grow.isPending}
+            onGrow={() => grow.mutate({})}
           />
         )}
       </div>

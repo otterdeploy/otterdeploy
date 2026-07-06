@@ -22,7 +22,8 @@ import { Result } from "better-result";
 import { log } from "evlog";
 
 import { emitPlatformEvent } from "../notifications/emit";
-import { deriveRecommendations, getHostHealth, type HostHealth } from "./host-health";
+import { getHostHealth, type HostHealth } from "./host-health";
+import { deriveRecommendations } from "./recommendations";
 
 const DEFAULT_INTERVAL_MS = 5 * 60 * 1000;
 const NOTIFY_COOLDOWN_MS = 6 * 60 * 60 * 1000;
@@ -44,15 +45,24 @@ async function recordSeries(health: HostHealth): Promise<void> {
         health.docker.images.reclaimableBytes + health.docker.buildCache.reclaimableBytes,
     });
   }
+  if (health.branchPool?.imagePhysicalBytes != null) {
+    values.push({
+      metric: "host.branchpool.physical_bytes",
+      value: health.branchPool.imagePhysicalBytes,
+    });
+  }
   await db.insert(platformMetric).values(values);
 }
 
 async function notifyPressure(health: HostHealth): Promise<void> {
   const now = Date.now();
   // Only warning/critical interrupt people; info-level stays UI-only.
-  const urgent = deriveRecommendations(health.memory, health.disk, health.docker).filter(
-    (r) => r.severity !== "info" && !underCooldown(r.id, now),
-  );
+  const urgent = deriveRecommendations(
+    health.memory,
+    health.disk,
+    health.docker,
+    health.branchPool,
+  ).filter((r) => r.severity !== "info" && !underCooldown(r.id, now));
   if (urgent.length === 0) return;
 
   // Instance-wide condition → every org on this install gets it; their

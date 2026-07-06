@@ -16,6 +16,10 @@ import { existsSync } from "node:fs";
 import { readFile, statfs } from "node:fs/promises";
 import { freemem, totalmem } from "node:os";
 
+import { getBranchPoolHealth, type BranchPoolHealth } from "./branch-pool";
+// Type-only in the other direction, so this is not a runtime cycle.
+import { deriveRecommendations } from "./recommendations";
+
 export interface HostMemory {
   totalBytes: number;
   /** MemAvailable when /proc/meminfo exists (containers see the host's), else
@@ -48,7 +52,7 @@ export interface DockerUsage {
   buildCache: DockerUsageSection;
 }
 
-export type ReclaimTarget = "images" | "build-cache" | "containers";
+export type ReclaimTarget = "images" | "build-cache" | "containers" | "branch-pool";
 
 export interface HealthRecommendation {
   id: string;
@@ -63,6 +67,8 @@ export interface HostHealth {
   memory: HostMemory;
   disk: HostDisk | null;
   docker: DockerUsage | null;
+  /** ZFS database-branching pool, when this install provisioned one. */
+  branchPool: BranchPoolHealth | null;
   recommendations: HealthRecommendation[];
   sampledAt: string;
 }
@@ -166,79 +172,14 @@ async function readDockerUsage(): Promise<DockerUsage | null> {
   }
 }
 
-const GB = 1024 * 1024 * 1024;
-
-function gb(bytes: number): string {
-  return `${(bytes / GB).toFixed(1)} GB`;
-}
-
-/** Turn a snapshot into the actionable list — shared by the UI card and the
- *  monitor's notification thresholds so both always agree. */
-export function deriveRecommendations(
-  memory: HostMemory,
-  disk: HostDisk | null,
-  docker: DockerUsage | null,
-): HealthRecommendation[] {
-  const recs: HealthRecommendation[] = [];
-  const pruneHint = docker && docker.images.reclaimableBytes >= 1 * GB;
-
-  if (memory.usedPct >= 90) {
-    recs.push({
-      id: "memory-critical",
-      severity: "critical",
-      title: "Server memory is nearly exhausted",
-      detail: `${gb(memory.availableBytes)} of ${gb(memory.totalBytes)} available (${memory.usedPct}% used). Builds and deploys can be OOM-killed at this level.${pruneHint ? ` ${gb(docker.images.reclaimableBytes)} of unused images can be reclaimed.` : ""}`,
-      action: pruneHint ? "images" : null,
-    });
-  }
-  if (memory.swapTotalBytes === 0) {
-    recs.push({
-      id: "no-swap",
-      severity: memory.totalBytes < 4 * GB ? "warning" : "info",
-      title: "No swap configured",
-      detail:
-        "Without swap, a memory spike during a build kills the process instead of slowing down. Adding 2–4 GB of swap makes builds on small servers far more reliable.",
-      action: null,
-    });
-  }
-  if (disk && disk.usedPct >= 85) {
-    recs.push({
-      id: "disk-pressure",
-      severity: disk.usedPct >= 95 ? "critical" : "warning",
-      title: `Disk ${disk.usedPct}% full`,
-      detail: `${gb(disk.freeBytes)} free on ${disk.path}. Deploys fail once image pulls can't be written.`,
-      action: docker && docker.images.reclaimableBytes > 0 ? "images" : null,
-    });
-  }
-  if (docker) {
-    if (docker.images.reclaimableBytes >= 2 * GB) {
-      recs.push({
-        id: "images-reclaimable",
-        severity: "warning",
-        title: `${gb(docker.images.reclaimableBytes)} in unused images`,
-        detail: `${docker.images.count - docker.images.activeCount} images aren't used by any container (old deploy images accumulate here). Safe to remove — anything needed again is re-pulled.`,
-        action: "images",
-      });
-    }
-    if (docker.buildCache.reclaimableBytes >= 5 * GB) {
-      recs.push({
-        id: "build-cache-reclaimable",
-        severity: "info",
-        title: `${gb(docker.buildCache.reclaimableBytes)} of idle build cache`,
-        detail:
-          "BuildKit keeps layer caches to speed up rebuilds. Clearing it slows the next build of each service but frees the space immediately.",
-        action: "build-cache",
-      });
-    }
-  }
-  return recs;
-}
-
 export async function getHostHealth(): Promise<HostHealth> {
-  const [memory, disk, dockerUsage] = await Promise.all([
+  const [memory, disk, dockerUsage, branchPool] = await Promise.all([
     readMemory(),
     readDisk(),
     Result.tryPromise({ try: () => readDockerUsage(), catch: () => null }).then((r) =>
+      r.isOk() ? r.value : null,
+    ),
+    Result.tryPromise({ try: () => getBranchPoolHealth(), catch: () => null }).then((r) =>
       r.isOk() ? r.value : null,
     ),
   ]);
@@ -246,7 +187,8 @@ export async function getHostHealth(): Promise<HostHealth> {
     memory,
     disk,
     docker: dockerUsage,
-    recommendations: deriveRecommendations(memory, disk, dockerUsage),
+    branchPool,
+    recommendations: deriveRecommendations(memory, disk, dockerUsage, branchPool),
     sampledAt: new Date().toISOString(),
   };
 }

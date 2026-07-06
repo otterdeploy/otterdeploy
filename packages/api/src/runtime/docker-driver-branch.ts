@@ -17,6 +17,9 @@ import type { BranchDatabaseSpec, DatabaseStatus } from "./types";
 
 import { pgDumpToBuffer, pgRestoreFromBuffer } from "../backups/copy";
 import { asStepLogger } from "../lib/logger";
+// The file, not the system-health barrel — the barrel would drag the monitor's
+// db/notification dependencies into the deploy import graph.
+import { checkBranchHeadroom } from "../system-health/branch-pool";
 import { runDatabase } from "./docker-driver-db";
 import { findContainer, removeContainerByName } from "./docker-driver-helpers";
 import { resolveSnapshotDriver } from "./snapshot";
@@ -49,6 +52,18 @@ export async function branchDatabaseOnDocker(
       message: "copy branching requires the source database credentials",
       status: 400,
       why: "pg_dump runs against the source DB; the caller must supply sourceCredentials",
+    });
+  }
+
+  // Refuse up front when the host disk can't absorb another branch — an
+  // honest error now beats a half-restored branch (copy duplicates the source
+  // data) or, on the zfs tier, a suspended pool that hangs every branch DB.
+  const headroom = await checkBranchHeadroom();
+  if (!headroom.ok) {
+    throw createError({
+      message: `cannot create a branch database: ${headroom.reason}`,
+      status: 507,
+      why: "branch databases consume host disk; branching this low on space risks a corrupt branch or a suspended pool",
     });
   }
 

@@ -24,7 +24,7 @@
 # Subcommand:  install.sh update   → just pull the new image tag and restart
 #              (skips host setup; preserves all secrets).
 #   OTTERDEPLOY_ZFS_POOL      pool name               (default otter)
-#   OTTERDEPLOY_ZFS_SIZE      file-backed pool size   (default 40G)
+#   OTTERDEPLOY_ZFS_SIZE      file-backed pool size   (default: ¼ of free disk, 5G–40G)
 #   OTTERDEPLOY_FIREWALL      true | false            (default false) — start CrowdSec profile
 #   OTTERDEPLOY_DRY_RUN       true | false            (default false) — preview, change nothing
 #   DOCKER_ADDRESS_POOL_BASE  overlay address pool    (default 10.0.0.0/8)
@@ -51,7 +51,7 @@ ADVERTISE_ADDR="${OTTERDEPLOY_ADVERTISE_ADDR:-}"               # swarm advertise
 
 BRANCHING="${OTTERDEPLOY_BRANCHING:-auto}"     # auto | on | off
 ZFS_POOL="${OTTERDEPLOY_ZFS_POOL:-otter}"
-ZFS_SIZE="${OTTERDEPLOY_ZFS_SIZE:-40G}"
+ZFS_SIZE="${OTTERDEPLOY_ZFS_SIZE:-}"   # empty = size from free disk (see pool_size)
 ZFS_IMG="$DATA_DIR/branch-pool.img"
 FIREWALL="${OTTERDEPLOY_FIREWALL:-false}"
 DRY_RUN="${OTTERDEPLOY_DRY_RUN:-false}"
@@ -476,6 +476,30 @@ EOF
 # no hardware requirement via a file-backed vdev, so instant branching is on by
 # default. If ZFS can't be set up we don't fail — the platform uses the logical
 # (pg_dump) branching tier instead.
+#
+# Sizing: the vdev is a SPARSE file, so its size is a growth ceiling, not an
+# upfront cost — but it must never promise more than the disk can deliver. An
+# overcommitted pool suspends (hangs every branch DB at once) the moment the
+# backing filesystem hits ENOSPC. Default: ¼ of the space available at
+# $DATA_DIR, capped at 40G; below a 5G floor we skip ZFS entirely. Growing
+# later is one command (shrinking is impossible without recreating the pool):
+#   truncate -s +10G <img> && zpool online -e <pool> <img>
+
+# Echo the pool size to use, or nothing when the disk is too small for a
+# useful pool. An explicit OTTERDEPLOY_ZFS_SIZE is honored verbatim.
+pool_size() {
+  if [ -n "$ZFS_SIZE" ]; then printf '%s' "$ZFS_SIZE"; return; fi
+  # df the deepest existing ancestor of DATA_DIR (it may not exist yet).
+  target="$DATA_DIR"
+  while [ ! -d "$target" ] && [ "$target" != "/" ]; do target="$(dirname "$target")"; done
+  avail_kb="$(df -Pk "$target" 2>/dev/null | awk 'NR==2 {print $4}')"
+  [ -n "$avail_kb" ] || return 0
+  size_gb=$(( avail_kb / 1024 / 1024 / 4 ))
+  [ "$size_gb" -lt 5 ] && return 0
+  [ "$size_gb" -gt 40 ] && size_gb=40
+  printf '%sG' "$size_gb"
+}
+
 provision_branching() {
   step "Setting up copy-on-write database branching (ZFS)"
 
@@ -491,7 +515,13 @@ provision_branching() {
     fi
   fi
   if dry; then
-    say "   + would create file-backed ZFS pool '$ZFS_POOL' ($ZFS_SIZE) at $ZFS_IMG (if absent)"
+    size="$(pool_size)"
+    if [ -n "$size" ]; then
+      say "   + would create file-backed ZFS pool '$ZFS_POOL' ($size) at $ZFS_IMG (if absent)"
+    else
+      say "   + would skip the pool (<5G free at $DATA_DIR) → logical branching tier"
+    fi
+    say "   + would enable autotrim so deleted branch data returns to the host disk"
     say "   + would create+tune dataset '$ZFS_POOL/pg' (recordsize=16k atime=off)"
     say "   + would set BRANCH_ZFS_POOL=$ZFS_POOL in $ENV_FILE"
     say "   (no ZFS on host → platform would use the logical pg_dump tier instead)"
@@ -510,17 +540,28 @@ provision_branching() {
   if $SUDO zpool list -H -o name 2>/dev/null | grep -qx "$ZFS_POOL"; then
     say " - Reusing existing ZFS pool '$ZFS_POOL'"
   else
-    say " - Creating file-backed ZFS pool '$ZFS_POOL' ($ZFS_SIZE) at $ZFS_IMG"
-    say "   (point OTTERDEPLOY_ZFS_POOL at a real disk for production-grade speed)"
+    size="$(pool_size)"
+    if [ -z "$size" ]; then
+      warn "Less than 5G free at $DATA_DIR → skipping the ZFS pool; logical branching tier still works."
+      return
+    fi
+    say " - Creating file-backed ZFS pool '$ZFS_POOL' ($size) at $ZFS_IMG"
+    say "   (grows on demand from the dashboard; point OTTERDEPLOY_ZFS_POOL at a real disk for production-grade speed)"
     $SUDO mkdir -p "$DATA_DIR"
     if [ ! -f "$ZFS_IMG" ]; then
-      $SUDO truncate -s "$ZFS_SIZE" "$ZFS_IMG"
+      $SUDO truncate -s "$size" "$ZFS_IMG"
     fi
     if ! $SUDO zpool create -f "$ZFS_POOL" "$ZFS_IMG"; then
       warn "zpool create failed → falling back to logical branching."
       return
     fi
   fi
+
+  # Autotrim punches freed blocks back out of the sparse image file, so
+  # deleting a branch returns real disk to the host (a sparse file otherwise
+  # only ever grows). Set on reuse too — existing installs pick it up on
+  # re-run. Harmless on a whole-disk pool.
+  $SUDO zpool set autotrim=on "$ZFS_POOL" 2>/dev/null || true
 
   # Parent dataset for branchable DBs, tuned for Postgres (see design doc).
   $SUDO zfs create -p "$ZFS_POOL/pg" 2>/dev/null || true
