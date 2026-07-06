@@ -111,7 +111,10 @@ export const projectCollection = persistence
         persistence,
         // Bump when the project row shape changes so the local SQLite table is
         // rebuilt from the server instead of serving a stale schema.
-        schemaVersion: 1,
+        // v2: added serviceCount / routeCount / runningServiceCount (#13). Without
+        // this bump, persisted v1 rows lack those fields and the card renders a
+        // stale "2/0 services · 0 routes".
+        schemaVersion: 2,
       }),
     )
   : createCollection(projectQueryOptions);
