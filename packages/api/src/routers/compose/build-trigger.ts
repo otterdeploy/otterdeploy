@@ -53,7 +53,12 @@ export async function enqueueComposeBuild(input: {
       if (bound.isErr()) return Result.err(bound.error);
       const shaRes = await Result.tryPromise({
         try: () =>
-          fetchBranchHeadSha(bound.value.githubInstallationId, bound.value.owner, bound.value.repo, branch),
+          fetchBranchHeadSha(
+            bound.value.githubInstallationId,
+            bound.value.owner,
+            bound.value.repo,
+            branch,
+          ),
         catch: (e) => (e instanceof Error ? e.message : String(e)),
       });
       if (shaRes.isErr()) {

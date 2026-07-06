@@ -9,8 +9,8 @@ import { env } from "@otterdeploy/env/server";
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { Result } from "better-result";
 import { bearer, deviceAuthorization, organization, twoFactor } from "better-auth/plugins";
+import { Result } from "better-result";
 import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
 import { log } from "evlog";
 

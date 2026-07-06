@@ -14,37 +14,16 @@ import { and, eq, useLiveQuery } from "@tanstack/react-db";
 import type { ProjectResource } from "@/features/projects/components/graph/resource-to-node";
 import type { ServiceTaskInfo } from "@otterdeploy/api/routers/project/service-tasks";
 
+import type { DeploymentRow, Phase, PhaseState, Tone } from "./deployment-timeline-model";
+
 import { deploymentTasksCollection } from "@/features/resources/data/deployments";
 import { useLiveDuration } from "@/shared/lib/duration";
 import { Spinner } from "@/shared/components/ui/spinner";
 import { cn } from "@/shared/lib/utils";
+import { buildTimeline } from "./deployment-timeline-model";
 
-export interface DeploymentRow {
-  id: string;
-  resourceId: string;
-  image: string;
-  reason: string;
-  status:
-    | "pending"
-    | "building"
-    | "starting"
-    | "running"
-    | "crashed"
-    | "failed"
-    | "superseded"
-    | "removed";
-  errorMessage: string | null;
-  taskCount: number;
-  failedTaskCount: number;
-  runningTaskCount: number;
-  gitSha: string | null;
-  gitRef: string | null;
-  gitCommitMessage: string | null;
-  gitCommitAuthor: string | null;
-  completedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
+export type { DeploymentRow };
+
 
 export function DeploymentDetailsBody({
   deployment,
@@ -85,132 +64,6 @@ export function DeploymentDetailsBody({
 
 // ─── Timeline (the deployment "story") ───────────────────────────────────────
 
-type PhaseState = "done" | "active" | "failed" | "pending";
-interface Phase {
-  key: string;
-  label: string;
-  state: PhaseState;
-  detail?: string;
-}
-type Tone = "success" | "failed" | "active" | "neutral";
-
-/**
- * Map our coarse deployment lifecycle (pending → building → running/failed,
- * plus swarm task rollup) onto a Railway-style phase stepper. We only track
- * four honest checkpoints — Initialize → Build → Deploy → Running — and can't
- * fabricate per-phase timings, so each phase shows state only; the header
- * carries the one real duration we have (created → completed).
- */
-function buildTimeline(d: DeploymentRow): {
-  title: string;
-  tone: Tone;
-  phases: Phase[];
-  totalMs: number | null;
-} {
-  const totalMs = d.completedAt
-    ? new Date(d.completedAt).getTime() - new Date(d.createdAt).getTime()
-    : null;
-  const err = d.errorMessage?.trim() || null;
-  const p = (key: string, label: string, state: PhaseState, detail?: string): Phase => ({
-    key,
-    label,
-    state,
-    detail,
-  });
-  const allDone = [
-    p("init", "Initialize", "done"),
-    p("build", "Build", "done"),
-    p("deploy", "Deploy", "done"),
-    p("run", "Running", "done"),
-  ];
-
-  switch (d.status) {
-    case "running":
-      return { title: "Deployed successfully", tone: "success", totalMs, phases: allDone };
-    case "starting":
-      // Image built; containers are coming up (pre-running) — the deploy phase
-      // is active, the build one is done.
-      return {
-        title: "Starting…",
-        tone: "active",
-        totalMs: null,
-        phases: [
-          p("init", "Initialize", "done"),
-          p("build", "Build", "done"),
-          p("deploy", "Deploy", "active"),
-          p("run", "Running", "pending"),
-        ],
-      };
-    case "building":
-      return {
-        title: "Building & deploying…",
-        tone: "active",
-        totalMs: null,
-        phases: [
-          p("init", "Initialize", "done"),
-          p("build", "Build", "active"),
-          p("deploy", "Deploy", "pending"),
-          p("run", "Running", "pending"),
-        ],
-      };
-    case "pending":
-      return {
-        title: "Queued",
-        tone: "active",
-        totalMs: null,
-        phases: [
-          p("init", "Initialize", "active"),
-          p("build", "Build", "pending"),
-          p("deploy", "Deploy", "pending"),
-          p("run", "Running", "pending"),
-        ],
-      };
-    case "failed":
-      // Tasks scheduled ⇒ the image built and containers were placed, so the
-      // failure is on the deploy side. No tasks ⇒ it never got past the build.
-      return d.taskCount > 0
-        ? {
-            title: "Deployment failed",
-            tone: "failed",
-            totalMs,
-            phases: [
-              p("init", "Initialize", "done"),
-              p("build", "Build", "done"),
-              p("deploy", "Deploy", "failed", err ?? "Containers failed to start"),
-              p("run", "Running", "pending"),
-            ],
-          }
-        : {
-            title: "Build failed",
-            tone: "failed",
-            totalMs,
-            phases: [
-              p("init", "Initialize", "done"),
-              p("build", "Build", "failed", err ?? "Build did not complete"),
-              p("deploy", "Deploy", "pending"),
-              p("run", "Running", "pending"),
-            ],
-          };
-    case "crashed":
-      // Built + deployed fine, but the container keeps exiting and restarting
-      // (e.g. a bad env var) — the run phase is the one that's failing.
-      return {
-        title: "Crash-looping",
-        tone: "failed",
-        totalMs,
-        phases: [
-          p("init", "Initialize", "done"),
-          p("build", "Build", "done"),
-          p("deploy", "Deploy", "done"),
-          p("run", "Running", "failed", err ?? "Container keeps restarting (crash loop)"),
-        ],
-      };
-    case "superseded":
-      return { title: "Superseded by a newer deployment", tone: "neutral", totalMs, phases: allDone };
-    default:
-      return { title: "Removed", tone: "neutral", totalMs, phases: allDone };
-  }
-}
 
 const TONE_STYLE: Record<Tone, { border: string; head: string; text: string }> = {
   success: { border: "border-success/25", head: "bg-success/[0.06]", text: "text-success" },

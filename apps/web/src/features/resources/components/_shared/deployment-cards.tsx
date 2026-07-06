@@ -27,7 +27,15 @@ export interface DeploymentInfo {
     | "restart"
     | "git-push"
     | "rollback";
-  status: "pending" | "building" | "starting" | "running" | "crashed" | "failed" | "superseded" | "removed";
+  status:
+    | "pending"
+    | "building"
+    | "starting"
+    | "running"
+    | "crashed"
+    | "failed"
+    | "superseded"
+    | "removed";
   errorMessage: string | null;
   taskCount: number;
   failedTaskCount: number;

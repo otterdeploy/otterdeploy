@@ -120,9 +120,7 @@ function buildAgentServiceSpec(image: string, ingestUrl: string, token: string) 
           "OTTERDEPLOY_NODE_HOSTNAME={{.Node.Hostname}}",
           `HEALTH_AGENT_INTERVAL_MS=${HEALTH_SAMPLE_INTERVAL_MS}`,
         ],
-        Mounts: [
-          { Type: "bind", Source: "/var/run/docker.sock", Target: "/var/run/docker.sock" },
-        ],
+        Mounts: [{ Type: "bind", Source: "/var/run/docker.sock", Target: "/var/run/docker.sock" }],
         Labels: { "otterdeploy.managed": "true", "otterdeploy.role": "health-agent" },
       },
       RestartPolicy: { Condition: "any", Delay: 5_000_000_000 },

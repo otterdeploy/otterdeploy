@@ -46,7 +46,10 @@ function dashboardBase(): string {
 }
 
 /** One comment row per git service the PR rebuilds in this env's project. */
-async function loadEnvRows(envRow: EnvironmentRow, repoId: GitRepoId): Promise<PreviewCommentRow[]> {
+async function loadEnvRows(
+  envRow: EnvironmentRow,
+  repoId: GitRepoId,
+): Promise<PreviewCommentRow[]> {
   const [proj] = await db
     .select({ name: project.name, slug: project.slug, orgSlug: organization.slug })
     .from(project)

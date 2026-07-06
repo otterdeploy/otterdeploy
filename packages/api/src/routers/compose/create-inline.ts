@@ -10,6 +10,7 @@ import type { RequestLogger } from "evlog";
 
 import { Result } from "better-result";
 
+import type { ParsedCompose } from "../../stack/compose/types";
 import type {
   ComposeCreateFailure,
   ComposeCreateInput,
@@ -17,8 +18,6 @@ import type {
   ComposeProject,
   ExposedSeed,
 } from "./create";
-
-import type { ParsedCompose } from "../../stack/compose/types";
 
 import { parseCompose, summarizeCompose } from "../../stack/compose";
 import { isUniqueViolation } from "../project/views";
@@ -42,7 +41,9 @@ interface ResolvedInline {
  *  single-file: the pasted `composeContent`), parse it, and derive the stack
  *  name. Keeps composeContent/composePath in sync with the designated file so
  *  every downstream reader parses the same string. */
-function resolveInlineInput(input: ComposeCreateInput): Result<ResolvedInline, ComposeCreateFailure> {
+function resolveInlineInput(
+  input: ComposeCreateInput,
+): Result<ResolvedInline, ComposeCreateFailure> {
   const files = input.files ?? [];
   const picked = files.length > 0 ? pickComposeFile(files, input.composePath) : null;
   const composeContent = picked?.content ?? input.composeContent;

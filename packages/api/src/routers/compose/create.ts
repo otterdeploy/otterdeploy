@@ -110,7 +110,9 @@ async function createGitCompose(
     const gh = parseGitHubUrl(input.gitRepoUrl ?? "");
     if (!gh) {
       return Result.err(
-        invalid("Pick a repository, or enter a public GitHub URL like https://github.com/owner/repo"),
+        invalid(
+          "Pick a repository, or enter a public GitHub URL like https://github.com/owner/repo",
+        ),
       );
     }
     owner = gh.owner;
@@ -176,7 +178,6 @@ async function createGitCompose(
     deploy: { ok: true, error: null, status: "building" },
   });
 }
-
 
 /**
  * Create a `type: compose` resource (inline or git) and, for inline stacks,

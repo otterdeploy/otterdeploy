@@ -13,11 +13,10 @@ import {
   resource,
   type NixpacksConfig,
 } from "@otterdeploy/db/schema/project";
+import { proxyRoute } from "@otterdeploy/db/schema/proxy-route";
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { createError } from "evlog";
-
-import { proxyRoute } from "@otterdeploy/db/schema/proxy-route";
 
 import { getProxyRouteById } from "../../../caddy/queries";
 

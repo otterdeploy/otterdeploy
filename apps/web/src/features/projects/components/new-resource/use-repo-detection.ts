@@ -1,3 +1,6 @@
+import { useEffect, useRef } from "react";
+
+import { frameworkDefaultPort, isSpaFramework } from "@otterdeploy/shared/framework";
 /**
  * Detection-driven wizard defaults — the wizard should answer its own
  * questions when `git.inspectRepo` already knows the answer:
@@ -11,8 +14,6 @@
  */
 import { useStore } from "@tanstack/react-form";
 import { skipToken, useQuery } from "@tanstack/react-query";
-import { frameworkDefaultPort, isSpaFramework } from "@otterdeploy/shared/framework";
-import { useEffect, useRef } from "react";
 
 import { orpc } from "@/shared/server/orpc";
 

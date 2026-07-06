@@ -94,7 +94,16 @@ export const serviceResourceSchema = z.object({
   // Null when the service has never been deployed. Running services with live
   // tasks still derive their pill from the task rollup, which takes precedence.
   latestDeploymentStatus: z
-    .enum(["pending", "building", "starting", "running", "crashed", "failed", "superseded", "removed"])
+    .enum([
+      "pending",
+      "building",
+      "starting",
+      "running",
+      "crashed",
+      "failed",
+      "superseded",
+      "removed",
+    ])
     .nullable(),
   // Latest deployment timestamps — drive the live build/deploy duration on the
   // graph node. ISO strings; `finishedAt` is null while the deploy is in flight.
@@ -148,7 +157,16 @@ export const composeResourceSchema = z.object({
   type: z.literal("compose"),
   status: z.enum(["draft", "valid", "invalid"]),
   latestDeploymentStatus: z
-    .enum(["pending", "building", "starting", "running", "crashed", "failed", "superseded", "removed"])
+    .enum([
+      "pending",
+      "building",
+      "starting",
+      "running",
+      "crashed",
+      "failed",
+      "superseded",
+      "removed",
+    ])
     .nullable(),
   // Latest deployment timestamps — drive the live build/deploy duration on the
   // graph node. ISO strings; `finishedAt` is null while the deploy is in flight.

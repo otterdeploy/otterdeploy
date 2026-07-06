@@ -404,9 +404,7 @@ describe("diffDatabase declared-only fields", () => {
 // changes apply's patch builders never carried, so the pending bar showed
 // (and re-showed) work that could never complete.
 describe("declared-only service fields and env", () => {
-  function liveService(
-    over: Partial<CurrentState["services"][string]> = {},
-  ): CurrentState {
+  function liveService(over: Partial<CurrentState["services"][string]> = {}): CurrentState {
     return {
       services: {
         web: {

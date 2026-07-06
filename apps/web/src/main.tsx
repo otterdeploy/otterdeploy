@@ -1,7 +1,6 @@
 // Must run before any feature code — installs crypto.randomUUID over plain HTTP
 // (insecure context), where the browser doesn't provide it natively.
 import "./lib/random-uuid-polyfill";
-
 import ReactDOM from "react-dom/client";
 
 import { i18n } from "@otterdeploy/i18n/web";

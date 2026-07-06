@@ -3,6 +3,7 @@ import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
 import { deployment } from "@otterdeploy/db/schema/project";
+import { resourceDir } from "@otterdeploy/shared/paths";
 import { Result } from "better-result";
 /**
  * Deploy a `type: compose` resource: parse the stored file → resolve each
@@ -15,8 +16,6 @@ import { Result } from "better-result";
  * docs/designs/compose.md.
  */
 import { eq } from "drizzle-orm";
-
-import { resourceDir } from "@otterdeploy/shared/paths";
 
 import { reconcile } from "../../caddy";
 import { deleteProxyRoutesByResource, insertProxyRoute } from "../../caddy/queries";

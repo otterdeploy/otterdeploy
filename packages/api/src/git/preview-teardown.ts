@@ -94,9 +94,12 @@ export async function teardownPreviewEnvironment(
   }
   // 3. Drop the preview's proxy routes and push the shrunken config to the
   // edge (skip the reconcile when the env never had a host).
-  await best(async () => {
-    if (await removePreviewRoutes(env.id)) await reconcile(rlog);
-  }, { step: "remove-routes", environmentId: env.id });
+  await best(
+    async () => {
+      if (await removePreviewRoutes(env.id)) await reconcile(rlog);
+    },
+    { step: "remove-routes", environmentId: env.id },
+  );
 }
 
 async function best(fn: () => Promise<unknown>, ctx: Record<string, unknown>): Promise<void> {

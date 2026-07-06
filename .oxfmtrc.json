@@ -9,7 +9,9 @@
     "**/*.md",
     "**/*.mdx",
     ".agents/",
-    ".claude/"
+    ".claude/",
+    "**/migrations/**/snapshot.json",
+    "**/migrations/**/migration.sql"
   ],
   "sortTailwindcss": {
     "stylesheet": "./apps/web/src/index.css",

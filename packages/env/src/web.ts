@@ -10,15 +10,18 @@ export const env = createEnv({
     // ./public). So when it's unset we resolve to the page's own origin at
     // runtime, right here in the schema, and every reader gets a ready-to-use
     // string from `env.VITE_SERVER_URL` (never undefined). The transform runs
-    // when this module first loads: in the browser that's runtime, so `window`
-    // exists; the guard keeps a non-browser build/eval from throwing (the ""
-    // it yields is never used off-browser). Set the env only when the web and
+    // when this module first loads: in the browser that's runtime, so
+    // `globalThis.location` exists; the optional access keeps a non-browser
+    // build/eval from throwing (the "" it yields is never used off-browser).
+    // Set the env only when the web and
     // API are on different origins — dev (web :3001 / server :3000) or any
     // split-origin deploy.
     VITE_SERVER_URL: z
       .url()
       .optional()
-      .transform((v) => v ?? (typeof window === "undefined" ? "" : window.location.origin)),
+      .transform(
+        (v) => v ?? (globalThis as { location?: { origin?: string } }).location?.origin ?? "",
+      ),
     // Comma list of enabled social sign-in providers (e.g. "github,google"),
     // mirroring the server's configured socialProviders. Drives which SSO
     // buttons render on the sign-in/up forms. Unset ⇒ no social buttons.

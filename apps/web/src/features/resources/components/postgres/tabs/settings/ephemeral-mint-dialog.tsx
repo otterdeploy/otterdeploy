@@ -125,8 +125,8 @@ export function EphemeralMintDialog({
             <DialogHeader>
               <DialogTitle>Connection URL minted</DialogTitle>
               <DialogDescription>
-                Copy it now — the password isn't stored, so this URL can't be shown again. It
-                stops working {expiresIn(minted.expiresAt).replace("expires ", "")}.
+                Copy it now — the password isn't stored, so this URL can't be shown again. It stops
+                working {expiresIn(minted.expiresAt).replace("expires ", "")}.
               </DialogDescription>
             </DialogHeader>
             <div className="overflow-hidden rounded-md border bg-card">
@@ -137,8 +137,8 @@ export function EphemeralMintDialog({
             </div>
             {!minted.publicUrl && (
               <p className="text-[11px] text-muted-foreground">
-                Only reachable from services on this project's network. Enable public access on
-                this database to mint URLs that work from anywhere.
+                Only reachable from services on this project's network. Enable public access on this
+                database to mint URLs that work from anywhere.
               </p>
             )}
             <DialogFooter>
@@ -150,14 +150,24 @@ export function EphemeralMintDialog({
             <DialogHeader>
               <DialogTitle>Mint an ephemeral URL</DialogTitle>
               <DialogDescription>
-                Creates a temporary database role that expires on its own. Read-only grants
-                SELECT on everything; read-write acts as the app user.
+                Creates a temporary database role that expires on its own. Read-only grants SELECT
+                on everything; read-write acts as the app user.
               </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-4">
               <div className="grid grid-cols-2 gap-3">
-                <OptionSelect label="Expires after" value={ttl} onChange={setTtl} options={TTL_OPTIONS} />
-                <OptionSelect label="Scope" value={scope} onChange={setScope} options={SCOPE_OPTIONS} />
+                <OptionSelect
+                  label="Expires after"
+                  value={ttl}
+                  onChange={setTtl}
+                  options={TTL_OPTIONS}
+                />
+                <OptionSelect
+                  label="Scope"
+                  value={scope}
+                  onChange={setScope}
+                  options={SCOPE_OPTIONS}
+                />
               </div>
               <Field>
                 <FieldLabel>Label (optional)</FieldLabel>

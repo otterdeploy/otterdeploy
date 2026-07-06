@@ -169,7 +169,10 @@ export async function updateDatabaseFromManifest(
   // it differs. The old unconditional `spec.publicEnabled ?? false` call
   // meant every env-only apply re-rolled the container and silently turned
   // public access OFF whenever the manifest omitted the key.
-  if (args.spec.publicEnabled !== undefined && args.spec.publicEnabled !== args.currentPublicEnabled) {
+  if (
+    args.spec.publicEnabled !== undefined &&
+    args.spec.publicEnabled !== args.currentPublicEnabled
+  ) {
     await setPostgresPublic(
       {
         projectId: args.projectId,

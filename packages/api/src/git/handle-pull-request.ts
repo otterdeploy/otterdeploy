@@ -26,8 +26,8 @@ import { log } from "evlog";
 import type { GithubWebhookResult, PullRequestEvent } from "./types";
 
 import { reconcile } from "../caddy";
-import { deployProjectPreview } from "./preview-deploy";
 import { branchProjectDatabases } from "./preview-db";
+import { deployProjectPreview } from "./preview-deploy";
 import { ensurePreviewEnvironment, markPreviewEnvironmentsClosed } from "./preview-env";
 import { report } from "./preview-report";
 import { ensurePreviewRoutes } from "./preview-routes";

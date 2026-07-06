@@ -52,8 +52,20 @@ export function groupChanges(changes: Change[]): GroupedChanges {
   // it — without this, an env-only plan applied ZERO of its N changes and the
   // pending bar never cleared. `envOnly` lets the service phase skip the
   // field-patch call and go straight to the env reconcile.
-  synthesizeEnvOnlyUpdates(changes, "service", out.serviceCreates, out.serviceUpdates, out.serviceDeletes);
-  synthesizeEnvOnlyUpdates(changes, "database", out.databaseCreates, out.databaseUpdates, out.databaseDeletes);
+  synthesizeEnvOnlyUpdates(
+    changes,
+    "service",
+    out.serviceCreates,
+    out.serviceUpdates,
+    out.serviceDeletes,
+  );
+  synthesizeEnvOnlyUpdates(
+    changes,
+    "database",
+    out.databaseCreates,
+    out.databaseUpdates,
+    out.databaseDeletes,
+  );
   return out;
 }
 

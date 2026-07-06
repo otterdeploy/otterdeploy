@@ -44,6 +44,7 @@ import { Result } from "better-result";
 import { log } from "evlog";
 import { getCookie, setCookie } from "hono/cookie";
 
+import { pinCookieAllows } from "./pin";
 import {
   allow,
   authTargetDomain,
@@ -61,7 +62,6 @@ import {
   SHARE_COOKIE_MAX_AGE,
   WEB_BASE,
 } from "./shared";
-import { pinCookieAllows } from "./pin";
 import { Denied, Interstitial } from "./ui/frame";
 import { AccessWall } from "./ui/wall";
 

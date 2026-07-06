@@ -35,44 +35,42 @@ export const gitRouter = {
     return listProvidersForOrg(context.activeOrganizationId);
   }),
 
-  startConnect: orgScopedProcedure.git.startConnect.handler(
-    async ({ input, context, errors }) => {
-      // The App slug is per-org, set when the manifest flow created the
-      // provider row. No App → no slug → can't build an install URL.
-      const [provider] = await db
-        .select()
-        .from(gitProvider)
-        .where(
-          and(
-            eq(gitProvider.organizationId, context.activeOrganizationId),
-            eq(gitProvider.kind, "github"),
-          ),
-        )
-        .limit(1);
-      if (!provider?.appSlug) {
-        throw errors.NOT_CONFIGURED();
-      }
-      // App-install flow binds the GitHub callback to the initiating user —
-      // session-only; API-key actors have no user identity.
-      if (!context.session?.user) {
-        throw new ORPCError("UNAUTHORIZED");
-      }
-      const state = await signInstallState({
-        orgId: context.activeOrganizationId,
-        userId: context.session.user.id,
-        returnTo: sanitizeReturnTo(input.returnTo),
-      });
-      // GitHub App install URL — the user picks repos on GitHub, then GitHub
-      // redirects to the App's configured callback URL with installation_id +
-      // setup_action + our state param. Built off the host on the provider
-      // row so future GHE installs Just Work.
-      const host = provider.host;
-      const base = host === "github.com" ? "https://github.com" : `https://${host}`;
-      const url = new URL(`${base}/apps/${provider.appSlug}/installations/new`);
-      url.searchParams.set("state", state);
-      return { redirectUrl: url.toString() };
-    },
-  ),
+  startConnect: orgScopedProcedure.git.startConnect.handler(async ({ input, context, errors }) => {
+    // The App slug is per-org, set when the manifest flow created the
+    // provider row. No App → no slug → can't build an install URL.
+    const [provider] = await db
+      .select()
+      .from(gitProvider)
+      .where(
+        and(
+          eq(gitProvider.organizationId, context.activeOrganizationId),
+          eq(gitProvider.kind, "github"),
+        ),
+      )
+      .limit(1);
+    if (!provider?.appSlug) {
+      throw errors.NOT_CONFIGURED();
+    }
+    // App-install flow binds the GitHub callback to the initiating user —
+    // session-only; API-key actors have no user identity.
+    if (!context.session?.user) {
+      throw new ORPCError("UNAUTHORIZED");
+    }
+    const state = await signInstallState({
+      orgId: context.activeOrganizationId,
+      userId: context.session.user.id,
+      returnTo: sanitizeReturnTo(input.returnTo),
+    });
+    // GitHub App install URL — the user picks repos on GitHub, then GitHub
+    // redirects to the App's configured callback URL with installation_id +
+    // setup_action + our state param. Built off the host on the provider
+    // row so future GHE installs Just Work.
+    const host = provider.host;
+    const base = host === "github.com" ? "https://github.com" : `https://${host}`;
+    const url = new URL(`${base}/apps/${provider.appSlug}/installations/new`);
+    url.searchParams.set("state", state);
+    return { redirectUrl: url.toString() };
+  }),
 
   /**
    * Manifest flow — first half. Returns the form-action URL + manifest

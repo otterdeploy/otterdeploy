@@ -18,7 +18,6 @@ import { deleteProxyRoutesByResource } from "../../caddy/queries";
 import { PLATFORM } from "../../constants";
 import { runtime } from "../../runtime";
 import { loadProject, loadResource } from "./context";
-import { reclaimServiceHostArtifacts } from "./teardown";
 import {
   MissingServiceBuildBindingError,
   ServiceConflictError,
@@ -46,6 +45,7 @@ import {
   type ServiceRecord,
 } from "./queries";
 import { provisionFresh, redeployAndFanOut } from "./redeploy";
+import { reclaimServiceHostArtifacts } from "./teardown";
 import {
   isUniqueViolation,
   mapEnvVar,
