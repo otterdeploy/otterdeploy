@@ -62,6 +62,32 @@ export interface ComposeDeployResult {
   failed: string[];
 }
 
+/**
+ * Multi-file inline stack: write the file tree to disk so bind-mounted scripts
+ * resolve and env_file targets are readable, then merge each service's env_file
+ * contents into its env (env_file first, `environment:` wins) so the existing
+ * per-service env seed picks them up unchanged. Single-file / git stacks carry
+ * no `files` and return undefined. The returned absolute dir is where bind
+ * sources resolve (reconcile-map).
+ */
+async function materializeInlineTree(
+  record: ComposeRecord,
+  parsed: { services: Array<{ envFile: string[]; env: Record<string, string> }> },
+  ids: { projectId: ProjectId; resourceId: ResourceId },
+): Promise<string | undefined> {
+  if (record.compose.files.length === 0) return undefined;
+  const stackDir = await materializeComposeFiles(
+    record.compose.files,
+    resourceDir(ids.projectId, ids.resourceId),
+  );
+  for (const svc of parsed.services) {
+    if (svc.envFile.length === 0) continue;
+    const fromFiles = await readEnvFiles(svc.envFile, stackDir);
+    svc.env = { ...fromFiles, ...svc.env };
+  }
+  return stackDir;
+}
+
 export async function deployCompose(
   input: {
     projectId: ProjectId;
@@ -105,23 +131,7 @@ export async function deployCompose(
       })
     : {};
 
-  // Multi-file inline stack: write the file tree to disk so bind-mounted scripts
-  // resolve and env_file targets are readable. Single-file / git stacks carry no
-  // `files` and skip this. `stackDir` (absolute) is where bind sources resolve.
-  let stackDir: string | undefined;
-  if (record.compose.files.length > 0) {
-    stackDir = await materializeComposeFiles(
-      record.compose.files,
-      resourceDir(input.projectId, input.resourceId),
-    );
-    // env_file → merge into each service's env (env_file first, `environment:`
-    // wins) so the existing per-service env seed picks them up unchanged.
-    for (const svc of parsed.value.services) {
-      if (svc.envFile.length === 0) continue;
-      const fromFiles = await readEnvFiles(svc.envFile, stackDir);
-      svc.env = { ...fromFiles, ...svc.env };
-    }
-  }
+  const stackDir = await materializeInlineTree(record, parsed.value, input);
 
   // `build:` services need an image the build worker produced. Resolve each
   // service's image from `image:` or the builder's `builtImages` map, then
