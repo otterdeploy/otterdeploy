@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { copyToClipboard } from "@/shared/lib/clipboard";
 import { cn } from "@/shared/lib/utils";
 
+import { AnsiLine, stripAnsi } from "./ansi";
 import { classifyLogSeverity, SEVERITY_BAR, SEVERITY_TEXT } from "./log-severity";
 import { LogToolbar, type NavLevel, plural } from "./log-toolbar";
 
@@ -39,7 +40,10 @@ export function LogLineRow({
   line: LogLine;
   highlighted?: boolean;
 }) {
-  const severity = classifyLogSeverity(line.line);
+  // Classify + search on ANSI-stripped text; render with the tool's own
+  // colors via AnsiLine (a raw ESC byte is invisible in HTML, so untreated
+  // lines would show literal `[32m✓[39m` garbage).
+  const severity = classifyLogSeverity(stripAnsi(line.line));
   return (
     <div
       data-log-id={line.id}
@@ -55,7 +59,9 @@ export function LogLineRow({
             {line.ts.replace("T", " ").replace(/\.\d+Z$/, "")}
           </span>
         )}
-        <span className="break-all whitespace-pre-wrap">{line.line}</span>
+        <span className="break-all whitespace-pre-wrap">
+          <AnsiLine text={line.line} />
+        </span>
       </div>
     </div>
   );
@@ -63,6 +69,8 @@ export function LogLineRow({
 
 interface Classified {
   line: LogLine;
+  /** ANSI-stripped text — what search, severity and copy operate on. */
+  text: string;
   severity: ReturnType<typeof classifyLogSeverity>;
 }
 
@@ -115,7 +123,11 @@ export function LogViewer({
 
   // Classify once, then reuse for the counts, the match lists, and the rows.
   const classified = useMemo(
-    () => lines.map((line) => ({ line, severity: classifyLogSeverity(line.line) })),
+    () =>
+      lines.map((line) => {
+        const text = stripAnsi(line.line);
+        return { line, text, severity: classifyLogSeverity(text) };
+      }),
     [lines],
   );
 
@@ -123,7 +135,7 @@ export function LogViewer({
   // Text search narrows the visible set; the level chips navigate *within*
   // whatever is currently shown.
   const visible = useMemo(
-    () => classified.filter((c) => (q ? c.line.line.toLowerCase().includes(q) : true)),
+    () => classified.filter((c) => (q ? c.text.toLowerCase().includes(q) : true)),
     [classified, q],
   );
   const errorMatches = useMemo(() => visible.filter((c) => c.severity === "error"), [visible]);
@@ -162,7 +174,7 @@ export function LogViewer({
   };
 
   const copyVisible = () => {
-    const text = visible.map((c) => c.line.line).join("\n");
+    const text = visible.map((c) => c.text).join("\n");
     if (!text) return;
     void copyToClipboard(text).then((ok) =>
       ok
