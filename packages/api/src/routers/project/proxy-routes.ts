@@ -6,7 +6,7 @@
  * docs/designs/deployment-protection.md.
  */
 
-import type { DeploymentGuestId, OrganizationId, ProxyRouteId } from "@otterdeploy/shared/id";
+import type { DeploymentGuestId, ProxyRouteId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
@@ -30,15 +30,15 @@ import {
 import { RESERVED_AUTH_PREFIX } from "../../caddy/builder";
 import {
   getProjectCustomConfig,
-  getProxyRouteById,
   listProxyRoutesByProject,
   updateProxyRoute,
 } from "../../caddy/queries";
 import { ProjectNotFoundError, ProxyRouteNotFoundError } from "./errors";
-import { getProjectInOrg } from "./queries";
+import { getProjectInOrg, getRouteInOrg } from "./queries";
 import { type ProxyRoute } from "./views";
 
 export { listProjectCertificates, type ProjectCertificates } from "./proxy-route-certs";
+export { getRouteAccessPin, setRouteAccessPin } from "./proxy-route-pin";
 
 export async function listProjectProxyRoutes(
   input: ProjectRef,
@@ -159,20 +159,6 @@ export async function setProxyRouteDirectives(
   }
   const result = await saveRouteCustomDirectives(route, input.directives, rlog);
   return Result.ok(result);
-}
-
-/** Load a route and verify it belongs to a project in the caller's org.
- *  Centralizes the auth check for every protection mutation; returns null
- *  for both "missing" and "other org" so existence never leaks. */
-async function getRouteInOrg(routeId: ProxyRouteId, organizationId: OrganizationId) {
-  const route = await getProxyRouteById(routeId);
-  if (!route) return null;
-  const project = await getProjectInOrg({
-    projectId: route.projectId,
-    organizationId,
-  });
-  if (!project) return null;
-  return route;
 }
 
 export async function setProxyRouteProtection(

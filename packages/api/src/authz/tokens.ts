@@ -34,7 +34,7 @@ const HANDOFF_TTL_SECONDS = 60;
  *  lag (next request after expiry re-checks live org membership). */
 const SESSION_TTL_SECONDS = 60 * 60;
 
-type Purpose = "handoff" | "session" | "share" | "bypass" | "guest";
+type Purpose = "handoff" | "session" | "share" | "bypass" | "guest" | "pin";
 
 export interface SessionClaims {
   userId: string;
@@ -139,6 +139,34 @@ export async function verifyGuestCookie(
   const payload = await verify(token, "guest", expectedDomain);
   if (!payload || typeof payload.email !== "string") return null;
   return { email: payload.email, domain: expectedDomain };
+}
+
+/** Access-PIN cookie — minted after a correct PIN entry on the wall. Carries
+ *  no identity, only the domain plus `k`, a fingerprint of the pin hash that
+ *  was current when it was minted. The authz gate re-derives the fingerprint
+ *  from the route's live hash, so rotating/removing the PIN revokes every
+ *  outstanding cookie instantly (see authz/pin.ts). */
+export interface PinClaims {
+  domain: string;
+  /** Fingerprint of the pin hash this cookie was minted against. */
+  k: string;
+}
+
+export async function signPinCookie(
+  domain: string,
+  fingerprint: string,
+  ttlSeconds: number,
+): Promise<string> {
+  return sign("pin", { domain, k: fingerprint }, ttlSeconds);
+}
+
+export async function verifyPinCookie(
+  token: string,
+  expectedDomain: string,
+): Promise<PinClaims | null> {
+  const payload = await verify(token, "pin", expectedDomain);
+  if (!payload || typeof payload.k !== "string") return null;
+  return { domain: expectedDomain, k: payload.k };
 }
 
 export async function verifySessionCookie(

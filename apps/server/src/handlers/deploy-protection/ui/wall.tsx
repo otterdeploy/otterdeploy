@@ -75,8 +75,12 @@ const AccessWallLeft: FC<{ domain: string }> = ({ domain }) => (
   </div>
 );
 
-/** Right auth column: the org-handoff button and the two-step email/code form. */
-const AccessWallRight: FC<{ orgAuthorizeUrl: string }> = ({ orgAuthorizeUrl }) => (
+/** Right auth column: the org-handoff button, the two-step email/code form,
+ *  and (when the route has one configured) the access-PIN form. */
+const AccessWallRight: FC<{ orgAuthorizeUrl: string; hasPin: boolean }> = ({
+  orgAuthorizeUrl,
+  hasPin,
+}) => (
   <div class="right">
     <div class="form-head">
       <div class="form-title">Sign in to continue</div>
@@ -161,6 +165,46 @@ const AccessWallRight: FC<{ orgAuthorizeUrl: string }> = ({ orgAuthorizeUrl }) =
       </button>
     </form>
 
+    {hasPin && (
+      <>
+        <div class="or-row">
+          <div class="or-line" />
+          <span class="or-text">or</span>
+          <div class="or-line" />
+        </div>
+
+        <form id="pinForm">
+          <label class="field-label" for="pin">
+            Access PIN
+          </label>
+          <input
+            class="email-input"
+            id="pin"
+            inputmode="numeric"
+            pattern="[0-9]*"
+            maxlength={8}
+            placeholder="Enter PIN"
+            autocomplete="off"
+          />
+          <button class="btn-primary" type="submit">
+            Unlock
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 9.9-1" />
+            </svg>
+          </button>
+        </form>
+      </>
+    )}
+
     <div id="msg" class="msg" />
 
     <div class="form-footer">
@@ -173,11 +217,13 @@ export const AccessWall: FC<{
   domain: string;
   returnPath: string;
   orgAuthorizeUrl: string;
-}> = ({ domain, returnPath, orgAuthorizeUrl }) => (
+  /** Render the access-PIN form (the route has a PIN configured). */
+  hasPin?: boolean;
+}> = ({ domain, returnPath, orgAuthorizeUrl, hasPin = false }) => (
   <Page title="Otterdeploy — Sign in" hideFoot css={accessWallBaseCss + accessWallFormCss}>
     <div class="layout">
       <AccessWallLeft domain={domain} />
-      <AccessWallRight orgAuthorizeUrl={orgAuthorizeUrl} />
+      <AccessWallRight orgAuthorizeUrl={orgAuthorizeUrl} hasPin={hasPin} />
     </div>
 
     <div class="page-footer">
@@ -207,6 +253,14 @@ export const AccessWall: FC<{
       body:JSON.stringify({email:emailEl.value,code:codeEl.value,return:RETURN})});
     var d=await r.json().catch(function(){return {};});
     if(r.ok&&d.ok){location.replace(d.redirect||RETURN);}else{set(d.error||'Invalid or expired code','err');}
+  });
+  var pinForm=document.getElementById('pinForm'),pinEl=document.getElementById('pin');
+  if(pinForm)pinForm.addEventListener('submit',async function(e){
+    e.preventDefault();set('Checking…');
+    var r=await fetch('/.well-known/otterdeploy/pin/verify',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({pin:pinEl.value,return:RETURN})});
+    var d=await r.json().catch(function(){return {};});
+    if(r.ok&&d.ok){location.replace(d.redirect||RETURN);}else{set(d.error||'Invalid PIN','err');}
   });`,
       }}
     />

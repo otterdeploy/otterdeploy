@@ -9,14 +9,19 @@ import { proxyRoute } from "@otterdeploy/db/schema";
 import { createSelectSchema } from "drizzle-zod";
 import * as z from "zod";
 
+import { proxyAccessContractSlice } from "./proxy-access";
 import { basePath, projectNotFoundErrors, resourceNotFoundErrors, tag } from "./shared";
 import { projectIdField, proxyRouteIdField, resourceIdField } from "./shared";
 
-export const proxyRouteSchema = createSelectSchema(proxyRoute).extend({
-  id: proxyRouteIdField,
-  projectId: projectIdField,
-  resourceId: resourceIdField.nullable(),
-});
+// The access-PIN hash never leaves the server — omitted here so no endpoint
+// that outputs a route can leak it (PIN state is read via `accessPin` below).
+export const proxyRouteSchema = createSelectSchema(proxyRoute)
+  .omit({ accessPinHash: true })
+  .extend({
+    id: proxyRouteIdField,
+    projectId: projectIdField,
+    resourceId: resourceIdField.nullable(),
+  });
 
 export const listProxyRoutesInput = z.object({
   projectId: projectIdField,
@@ -107,68 +112,16 @@ const saveRouteDirectivesResultSchema = z.object({
 });
 
 // ─── Deployment protection (auth wall) ──────────────────────────────
+// The access surface (PIN, share links, bypass tokens, guests) lives in
+// ./proxy-access and is spread into this slice below.
 const setProtectionInput = z.object({
   routeId: proxyRouteIdField,
   protected: z.boolean(),
 });
 
-const createShareLinkInput = z.object({
-  routeId: proxyRouteIdField,
-  /** Link lifetime. Capped at 30 days. */
-  expiresInHours: z
-    .number()
-    .int()
-    .positive()
-    .max(24 * 30)
-    .default(72),
-});
-
-const shareLinkSchema = z.object({
-  url: z.string(),
-  expiresAt: z.string(),
-});
-
-const createBypassTokenInput = z.object({
-  routeId: proxyRouteIdField,
-  /** Bypass-token lifetime for CI/automation. Capped at 1 year. */
-  expiresInDays: z.number().int().positive().max(365).default(90),
-});
-
-const bypassTokenSchema = z.object({
-  /** The header automation must set, e.g. `x-otter-bypass`. */
-  header: z.string(),
-  token: z.string(),
-  expiresAt: z.string(),
-});
-
-// ─── Guests (email one-time PIN, Cloudflare-style) ──────────────────
-const guestSchema = z.object({
-  id: z.string(),
-  email: z.string(),
-  sessionHours: z.number(),
-  createdAt: z.string(),
-});
-
-const listGuestsInput = z.object({ routeId: proxyRouteIdField });
-
-const inviteGuestInput = z.object({
-  routeId: proxyRouteIdField,
-  email: z.email(),
-  /** Session length after a successful code, in hours. Default 24. */
-  sessionHours: z
-    .number()
-    .int()
-    .positive()
-    .max(24 * 365)
-    .default(24),
-});
-
-const removeGuestInput = z.object({
-  routeId: proxyRouteIdField,
-  guestId: z.string(),
-});
-
 export const proxyContractSlice = {
+  ...proxyAccessContractSlice,
+
   list: oc
     .errors(projectNotFoundErrors)
     .meta({
@@ -258,42 +211,4 @@ export const proxyContractSlice = {
     })
     .input(setProtectionInput)
     .output(proxyRouteSchema),
-
-  createShareLink: oc
-    .errors(resourceNotFoundErrors)
-    .meta({
-      path: `${basePath}/proxy-routes/{routeId}/share-link`,
-      tag,
-      method: "POST",
-    })
-    .input(createShareLinkInput)
-    .output(shareLinkSchema),
-
-  createBypassToken: oc
-    .errors(resourceNotFoundErrors)
-    .meta({
-      path: `${basePath}/proxy-routes/{routeId}/bypass-token`,
-      tag,
-      method: "POST",
-    })
-    .input(createBypassTokenInput)
-    .output(bypassTokenSchema),
-
-  listGuests: oc
-    .errors(resourceNotFoundErrors)
-    .meta({ path: `${basePath}/proxy-routes/{routeId}/guests`, tag, method: "GET" })
-    .input(listGuestsInput)
-    .output(z.array(guestSchema)),
-
-  inviteGuest: oc
-    .errors(resourceNotFoundErrors)
-    .meta({ path: `${basePath}/proxy-routes/{routeId}/guests`, tag, method: "POST" })
-    .input(inviteGuestInput)
-    .output(guestSchema),
-
-  removeGuest: oc
-    .errors(resourceNotFoundErrors)
-    .meta({ path: `${basePath}/proxy-routes/{routeId}/guests/{guestId}`, tag, method: "POST" })
-    .input(removeGuestInput)
-    .output(z.object({ ok: z.boolean() })),
 };

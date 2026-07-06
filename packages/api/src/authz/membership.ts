@@ -19,6 +19,10 @@ import { getProxyRouteByDomain } from "../caddy/queries";
 export interface DomainOrg {
   orgId: string;
   projectId: string;
+  /** The route's access-PIN hash (null = PIN method off). Carried here so
+   *  the forward_auth hot path and the wall page get it from the route row
+   *  they already load — no second query. */
+  accessPinHash: string | null;
 }
 
 /** Resolve the org that authorizes a protected deployment domain. Returns
@@ -35,7 +39,7 @@ export async function resolveProtectedDomainOrg(domain: string): Promise<DomainO
     .limit(1);
   if (!proj) return null;
 
-  return { orgId: proj.orgId, projectId: route.projectId };
+  return { orgId: proj.orgId, projectId: route.projectId, accessPinHash: route.accessPinHash };
 }
 
 /** True when the user is a current member of the org. */

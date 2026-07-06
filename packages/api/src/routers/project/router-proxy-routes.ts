@@ -1,25 +1,24 @@
-import { ORPCError } from "@orpc/server";
 import { matchError } from "better-result";
 
 import { orgScopedProcedure, requirePermission } from "../../index";
 import {
-  createDeploymentBypassToken,
-  createDeploymentShareLink,
   getGlobalCaddyOptions,
   getProjectCaddyfile,
   getProjectCustomCaddyConfig,
-  inviteDeploymentGuest,
-  listDeploymentGuests,
   listProjectCertificates,
   listProjectProxyRoutes,
-  removeDeploymentGuest,
   saveGlobalCaddyOptions,
   saveProjectCustomCaddyConfig,
   setProxyRouteDirectives,
   setProxyRouteProtection,
 } from "./handlers";
+import { proxyRouteAccessRouter } from "./router-proxy-route-access";
 
 export const proxyRouteRouter = {
+  // Access surface (PIN, share links, bypass tokens, guests) — see
+  // router-proxy-route-access.ts.
+  ...proxyRouteAccessRouter,
+
   list: orgScopedProcedure.project.proxyRoute.list.handler(async ({ input, context, errors }) => {
     const result = await listProjectProxyRoutes({
       projectId: input.projectId,
@@ -156,90 +155,4 @@ export const proxyRouteRouter = {
     }
     return result.value;
   }),
-
-  createShareLink: requirePermission({
-    route: ["update"],
-  }).project.proxyRoute.createShareLink.handler(async ({ input, context, errors }) => {
-    const result = await createDeploymentShareLink({
-      routeId: input.routeId,
-      expiresInHours: input.expiresInHours,
-      organizationId: context.activeOrganizationId,
-    });
-    if (result.isErr()) {
-      throw matchError(result.error, {
-        ProxyRouteNotFoundError: () => errors.NOT_FOUND(),
-      });
-    }
-    return result.value;
-  }),
-
-  createBypassToken: requirePermission({
-    route: ["update"],
-  }).project.proxyRoute.createBypassToken.handler(async ({ input, context, errors }) => {
-    const result = await createDeploymentBypassToken({
-      routeId: input.routeId,
-      expiresInDays: input.expiresInDays,
-      organizationId: context.activeOrganizationId,
-    });
-    if (result.isErr()) {
-      throw matchError(result.error, {
-        ProxyRouteNotFoundError: () => errors.NOT_FOUND(),
-      });
-    }
-    return result.value;
-  }),
-
-  listGuests: orgScopedProcedure.project.proxyRoute.listGuests.handler(
-    async ({ input, context, errors }) => {
-      const result = await listDeploymentGuests({
-        routeId: input.routeId,
-        organizationId: context.activeOrganizationId,
-      });
-      if (result.isErr()) {
-        throw matchError(result.error, {
-          ProxyRouteNotFoundError: () => errors.NOT_FOUND(),
-        });
-      }
-      return result.value;
-    },
-  ),
-
-  inviteGuest: requirePermission({ route: ["update"] }).project.proxyRoute.inviteGuest.handler(
-    async ({ input, context, errors }) => {
-      // Guest invites are attributed to the inviting user — a session-only
-      // operation; reject API-key actors (which have no user identity).
-      if (!context.session?.user) {
-        throw new ORPCError("UNAUTHORIZED");
-      }
-      const result = await inviteDeploymentGuest({
-        routeId: input.routeId,
-        email: input.email,
-        sessionHours: input.sessionHours,
-        organizationId: context.activeOrganizationId,
-        invitedByUserId: context.session.user.id,
-      });
-      if (result.isErr()) {
-        throw matchError(result.error, {
-          ProxyRouteNotFoundError: () => errors.NOT_FOUND(),
-        });
-      }
-      return result.value;
-    },
-  ),
-
-  removeGuest: requirePermission({ route: ["update"] }).project.proxyRoute.removeGuest.handler(
-    async ({ input, context, errors }) => {
-      const result = await removeDeploymentGuest({
-        routeId: input.routeId,
-        guestId: input.guestId,
-        organizationId: context.activeOrganizationId,
-      });
-      if (result.isErr()) {
-        throw matchError(result.error, {
-          ProxyRouteNotFoundError: () => errors.NOT_FOUND(),
-        });
-      }
-      return result.value;
-    },
-  ),
 };

@@ -61,10 +61,12 @@ import {
   SHARE_COOKIE_MAX_AGE,
   WEB_BASE,
 } from "./shared";
+import { pinCookieAllows } from "./pin";
 import { Denied, Interstitial } from "./ui/frame";
 import { AccessWall } from "./ui/wall";
 
 export { deployAccessHandler, deployOtpRequestHandler, deployOtpVerifyHandler } from "./guest";
+export { deployPinVerifyHandler } from "./pin";
 
 /** forward_auth target. Allow → 200; deny/unauthenticated → non-2xx that
  *  Caddy relays to the browser. */
@@ -102,7 +104,13 @@ export const deployAuthzHandler = guard(async (c) => {
     return allow(c, "", guestClaims.email);
   }
 
-  // 5. Unauthenticated → bounce to the access wall (org login OR email code).
+  // 5. Access-PIN cookie. Anonymous; bound to the route's CURRENT pin hash
+  //    so rotating/removing the PIN revokes every outstanding cookie.
+  if (await pinCookieAllows(c, domain, org.accessPinHash)) {
+    return allow(c, "", "");
+  }
+
+  // 6. Unauthenticated → bounce to the access wall (org login OR email code).
   const forwardedUri = c.req.header("x-forwarded-uri") ?? "/";
   const wall = new URL(`https://${domain}/.well-known/otterdeploy/access`);
   wall.searchParams.set("return", sanitizePath(forwardedUri));
@@ -137,6 +145,7 @@ export const deployAuthorizeHandler: Handler = guard(async (c) => {
           domain={demoDomain}
           returnPath={returnPath}
           orgAuthorizeUrl={previewAuthorize.toString()}
+          hasPin
         />,
       );
     }
