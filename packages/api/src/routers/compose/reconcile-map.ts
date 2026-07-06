@@ -12,6 +12,7 @@ import { and, eq } from "drizzle-orm";
 import type { StackReconcileContext } from "./reconcile";
 
 import { PLATFORM } from "../../constants";
+import { resolveBindSource } from "../../lib/compose-materialize";
 import {
   composeSwarmServiceName,
   durationMs,
@@ -97,6 +98,15 @@ export function toServiceFields(
   >;
   ports: CreateServiceInput["ports"];
   env: Array<{ key: string; value: string }>;
+  /** Bind mounts for a multi-file inline stack (source → materialized host
+   *  path). Empty for single-file / git stacks. Seeded on create only. */
+  mounts: Array<{
+    type: "volume" | "bind" | "file";
+    target: string;
+    source: string | null;
+    content: string | null;
+    readOnly: boolean;
+  }>;
 } {
   const projectSlug = sanitizeSlug(ctx.projectSlug);
   // Interpolate compose env against the project bag, then flatten to the
@@ -120,6 +130,27 @@ export function toServiceFields(
       isPrimary,
     });
   }
+  // Bind mounts only, and only when the stack materialized its file tree
+  // (multi-file inline). Each bind source resolves to an absolute path under
+  // `stackDir`; the runtime bind-mounts it (materializeServiceMounts already
+  // supports type:"bind"). Named volumes + tmpfs are left as-is (unchanged from
+  // today) to avoid touching how every existing compose stack deploys.
+  const mounts: Array<{
+    type: "volume" | "bind" | "file";
+    target: string;
+    source: string | null;
+    content: string | null;
+    readOnly: boolean;
+  }> = [];
+  if (ctx.stackDir) {
+    for (const v of svc.volumes) {
+      if (v.type !== "bind" || !v.source) continue;
+      const abs = resolveBindSource(v.source, ctx.stackDir);
+      if (!abs) continue;
+      mounts.push({ type: "bind", target: v.target, source: abs, content: null, readOnly: v.readOnly });
+    }
+  }
+
   return {
     serviceName: composeSwarmServiceName(ctx.stackName, svc.name),
     // Bare compose name = the overlay DNS alias intra-stack peers connect to.
@@ -137,6 +168,7 @@ export function toServiceFields(
     },
     ports,
     env,
+    mounts,
   };
 }
 
