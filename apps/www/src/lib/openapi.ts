@@ -33,7 +33,9 @@ const specUrl = envSpecUrl ?? "http://localhost:3000/api/reference/spec.json";
 // `staticSource` runs at module-eval via a top-level await in source.ts, so a
 // thrown error here takes down every route, landing page included.
 const EMPTY_SPEC: Document = {
-  openapi: "3.1.0",
+  // Must match the `Document` type's expected OpenAPI version literal (the lib
+  // bumped it to 3.2.0); this is only a structurally-valid empty fallback.
+  openapi: "3.2.0",
   info: { title: "otterdeploy API", version: "0.0.0" },
   paths: {},
 };
