@@ -4,6 +4,8 @@ interface ProjectListItem {
   id: string;
   name: string;
   slug: string;
+  serviceCount?: number;
+  runningServiceCount?: number | null;
   databaseCount?: number;
   routeCount?: number;
 }

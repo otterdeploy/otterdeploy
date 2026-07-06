@@ -10,6 +10,8 @@ interface ProjectCardItem {
   id: string;
   name: string;
   slug: string;
+  serviceCount?: number;
+  runningServiceCount?: number | null;
   databaseCount?: number;
   routeCount?: number;
 }
@@ -20,8 +22,12 @@ interface Props {
 }
 
 export function ProjectCard({ orgSlug, project }: Props) {
+  const services = project.serviceCount ?? 0;
+  const running = project.runningServiceCount;
   const databases = project.databaseCount ?? 0;
   const routes = project.routeCount ?? 0;
+  // Show "2/3" when we know the running count, else just the configured total.
+  const serviceLabel = running == null ? String(services) : `${running}/${services}`;
 
   return (
     <Link
@@ -45,6 +51,10 @@ export function ProjectCard({ orgSlug, project }: Props) {
         <MiniCanvasPreview databases={databases} routes={routes} className="h-20 w-full" />
       </div>
       <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+        <span>
+          <b className="text-foreground">{serviceLabel}</b>{" "}
+          {services === 1 ? "service" : "services"}
+        </span>
         <span>
           <b className="text-foreground">{databases}</b>{" "}
           {databases === 1 ? "database" : "databases"}

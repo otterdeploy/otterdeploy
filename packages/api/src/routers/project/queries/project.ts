@@ -9,8 +9,11 @@ import {
   type NixpacksConfig,
 } from "@otterdeploy/db/schema/project";
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
-import { and, asc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { createError } from "evlog";
+
+import { proxyRoute } from "@otterdeploy/db/schema/proxy-route";
+
 export async function listProjectRecordsByOrg(organizationId: OrganizationId) {
   return db
     .select({
@@ -29,13 +32,38 @@ export async function listProjectRecordsByOrg(organizationId: OrganizationId) {
       graphLayout: project.graphLayout,
       createdAt: project.createdAt,
       updatedAt: project.updatedAt,
-      databaseCount: sql<number>`coalesce(sum(case when ${resource.type} = 'database' then 1 else 0 end), 0)::int`,
+      // Correlated subqueries rather than one leftJoin + GROUP BY: joining both
+      // `resource` and `proxy_route` would fan them into each other's rows and
+      // multiply the tallies. Each count is an independent scalar subquery.
+      databaseCount: sql<number>`(select count(*) from ${resource} where ${resource.projectId} = ${project.id} and ${resource.type} = 'database')::int`,
+      // A "service" is a service OR a compose resource — a compose stack is one
+      // authored unit even though it fans out to several containers at runtime.
+      serviceCount: sql<number>`(select count(*) from ${resource} where ${resource.projectId} = ${project.id} and ${resource.type} in ('service', 'compose'))::int`,
+      // Enabled routes only: disabled/custom-pending routes never reach the edge.
+      routeCount: sql<number>`(select count(*) from ${proxyRoute} where ${proxyRoute.projectId} = ${project.id} and ${proxyRoute.enabled} = true)::int`,
     })
     .from(project)
-    .leftJoin(resource, eq(resource.projectId, project.id))
     .where(eq(project.organizationId, organizationId))
-    .groupBy(project.id)
     .orderBy(asc(project.createdAt), asc(project.name));
+}
+
+/**
+ * `(id, projectId)` for every service/compose resource in the org. The project
+ * list's "running" tally is computed against these ids: a resource counts as
+ * running when at least one managed container carries its
+ * `otterdeploy.resource.id` label (see `listProjects`).
+ */
+export async function listServiceResourceRefsByOrg(organizationId: OrganizationId) {
+  return db
+    .select({ id: resource.id, projectId: resource.projectId })
+    .from(resource)
+    .innerJoin(project, eq(resource.projectId, project.id))
+    .where(
+      and(
+        eq(project.organizationId, organizationId),
+        inArray(resource.type, ["service", "compose"]),
+      ),
+    );
 }
 
 /**

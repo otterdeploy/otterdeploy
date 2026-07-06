@@ -15,6 +15,7 @@ export {
   getProjectInOrg,
   getProjectRecord,
   listProjectRecordsByOrg,
+  listServiceResourceRefsByOrg,
   loadProjectEnvBag,
   setProjectGraphLayout,
   updateProjectRecord,
