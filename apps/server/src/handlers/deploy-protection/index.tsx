@@ -134,7 +134,9 @@ export const deployAuthorizeHandler: Handler = guard(async (c) => {
     const demoDomain = domain ?? hostOf(c.req.header("host")) ?? "my-app.example.com";
     if (preview === "loading") return c.html(<Interstitial />);
     if (preview === "denied") return c.html(<Denied domain={demoDomain} />);
-    if (preview === "wall") {
+    // `wall` = org/email variant; `wall-pin` = the PIN-only variant a route
+    // with a configured PIN renders.
+    if (preview === "wall" || preview === "wall-pin") {
       // Wire a real authorize URL so the org button actually navigates (same
       // construction as deployAccessHandler), instead of a dead "#".
       const previewAuthorize = new URL("/.well-known/otterdeploy/authorize", env.BETTER_AUTH_URL);
@@ -145,7 +147,7 @@ export const deployAuthorizeHandler: Handler = guard(async (c) => {
           domain={demoDomain}
           returnPath={returnPath}
           orgAuthorizeUrl={previewAuthorize.toString()}
-          hasPin
+          hasPin={preview === "wall-pin"}
         />,
       );
     }

@@ -1,8 +1,9 @@
 /**
- * AccessWall CSS — base half (root vars, body, layout, left brand panel).
- * Concatenated with `accessWallFormCss` to form the full stylesheet; split only
- * to keep each module under the line cap. Extracted verbatim. NOTE: no trailing
- * newline — the closing backtick hugs the last rule so the join is byte-exact.
+ * AccessWall CSS — base half (root vars, body, full-page grid/glow backdrop,
+ * topbar wordmark, domain pill). Concatenated with `accessWallFormCss` to form
+ * the full stylesheet; split only to keep each module under the line cap.
+ * NOTE: no trailing newline — the closing backtick hugs the last rule so the
+ * join is byte-exact.
  */
 
 export const accessWallBaseCss = `
@@ -37,26 +38,9 @@ export const accessWallBaseCss = `
         color: var(--fg);
         height: 100vh;
         overflow: hidden;
-        display: flex;
       }
-      .layout {
-        display: flex;
-        width: 100%;
-        height: 100vh;
-      }
-      .left {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        gap: 48px;
-        padding: 56px 64px 72px;
-        position: relative;
-        border-right: 1px solid var(--border);
-        overflow: hidden;
-      }
-      .left-grid {
-        position: absolute;
+      .bg-grid {
+        position: fixed;
         inset: 0;
         pointer-events: none;
         background-image:
@@ -64,19 +48,23 @@ export const accessWallBaseCss = `
           linear-gradient(90deg, var(--line) 1px, transparent 1px);
         background-size: 64px 64px;
       }
-      .left-glow {
-        position: absolute;
+      .bg-glow {
+        position: fixed;
         inset: 0;
         pointer-events: none;
         background: radial-gradient(
-          60rem 50rem at 20% 60%,
-          oklch(0.623 0.214 300 / 0.08),
+          60rem 50rem at 50% 45%,
+          oklch(0.623 0.214 300 / 0.07),
           transparent 65%
         );
       }
-      .left-top,
-      .left-middle {
-        position: relative;
+      .topbar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        padding: 28px 36px;
+        z-index: 1;
       }
       .wordmark {
         display: flex;
@@ -94,34 +82,13 @@ export const accessWallBaseCss = `
         letter-spacing: -0.02em;
         color: var(--fg);
       }
-      .left-eyebrow {
+      .card-eyebrow {
         font-family: "Geist Mono Variable", ui-monospace, monospace;
         font-size: 10px;
         letter-spacing: 0.1em;
         color: var(--fg-muted);
         text-transform: uppercase;
-        margin-bottom: 24px;
-      }
-      .left-headline {
-        font-size: 30px;
-        font-weight: 600;
-        letter-spacing: -0.04em;
-        line-height: 1.3;
-        color: var(--fg);
-        margin-bottom: 36px;
-      }
-      .left-headline em {
-        font-style: normal;
-        color: var(--fg-muted);
-        font-weight: 400;
-      }
-      .domain-label {
-        font-family: "Geist Mono Variable", ui-monospace, monospace;
-        font-size: 10px;
-        color: var(--fg-muted);
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        margin-bottom: 6px;
+        margin-bottom: 14px;
       }
       .domain-pill {
         display: inline-flex;
@@ -135,6 +102,7 @@ export const accessWallBaseCss = `
         font-size: 12px;
         color: var(--fg);
         font-feature-settings: "zero", "ss03";
+        margin-bottom: 28px;
       }
       .domain-pill svg {
         width: 15px;

@@ -1,17 +1,24 @@
 /**
- * AccessWall CSS — form half (right auth column, inputs, buttons, footer,
- * responsive). Concatenated after `accessWallBaseCss`. Extracted verbatim.
+ * AccessWall CSS — form half (centered card, inputs, buttons, footer,
+ * responsive). Concatenated after `accessWallBaseCss`.
  */
 
 export const accessWallFormCss = `
-      .right {
-        width: 420px;
-        flex-shrink: 0;
+      .center {
+        position: relative;
+        min-height: 100vh;
         display: flex;
-        flex-direction: column;
+        align-items: center;
         justify-content: center;
-        padding: 60px 48px 96px;
-        overflow-y: auto;
+        padding: 88px 24px 96px;
+      }
+      .card {
+        width: 100%;
+        max-width: 400px;
+        padding: 36px 36px 28px;
+        background: rgba(255, 255, 250, 0.02);
+        border: 1px solid var(--border);
+        border-radius: 14px;
         animation: rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
       }
       @keyframes rise {
@@ -24,9 +31,6 @@ export const accessWallFormCss = `
           transform: none;
         }
       }
-      .form-head {
-        margin-bottom: 32px;
-      }
       .form-title {
         font-size: 20px;
         font-weight: 600;
@@ -38,6 +42,8 @@ export const accessWallFormCss = `
         font-size: 13px;
         color: var(--fg-muted);
         letter-spacing: -0.01em;
+        line-height: 1.5;
+        margin-bottom: 20px;
       }
       .btn-org {
         width: 100%;
@@ -165,7 +171,9 @@ export const accessWallFormCss = `
         display: none;
       }
       .form-footer {
-        margin-top: 24px;
+        margin-top: 20px;
+        padding-top: 16px;
+        border-top: 1px solid var(--border);
         font-size: 11px;
         color: var(--fg-subtle);
         line-height: 1.6;
@@ -186,7 +194,7 @@ export const accessWallFormCss = `
         left: 0;
         right: 0;
         border-top: 1px solid var(--border);
-        padding: 16px 64px;
+        padding: 16px 36px;
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -201,18 +209,19 @@ export const accessWallFormCss = `
         color: var(--primary);
       }
       @media (prefers-reduced-motion: reduce) {
-        .right,
+        .card,
         .domain-cursor {
           animation: none;
         }
       }
-      @media (max-width: 700px) {
-        .left {
-          display: none;
+      @media (max-width: 480px) {
+        .card {
+          padding: 28px 22px 22px;
+          border: none;
+          background: none;
         }
-        .right {
-          width: 100%;
-          padding: 48px 28px;
+        .center {
+          padding: 76px 16px 88px;
         }
       }
     `;

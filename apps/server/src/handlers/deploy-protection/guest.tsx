@@ -30,7 +30,8 @@ import {
 } from "./shared";
 import { AccessWall } from "./ui/wall";
 
-/** On the deployment domain: the wall page — org login OR email-code entry. */
+/** On the deployment domain: the wall page — PIN-only when the route has a
+ *  PIN configured, otherwise org login OR email-code entry. */
 export const deployAccessHandler: Handler = guard(async (c) => {
   const host = hostOf(c.req.header("host"));
   const returnPath = sanitizePath(c.req.query("return"));
