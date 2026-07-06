@@ -44,6 +44,10 @@ export function CreateProjectDialog({ trigger }: { trigger: ReactElement }) {
         environmentId: null,
         id: createId(ID_PREFIX.project),
         databaseCount: 0,
+        // A brand-new project has nothing configured or running yet.
+        serviceCount: 0,
+        routeCount: 0,
+        runningServiceCount: 0,
         stackFile: null,
         stackFileVersion: 0,
         lastAppliedFile: null,

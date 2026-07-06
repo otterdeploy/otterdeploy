@@ -44,6 +44,14 @@ export const projectSchema = createSelectSchema(project)
 
 export const projectListItemSchema = projectSchema.extend({
   databaseCount: z.number().int().nonnegative(),
+  // service + compose resources (the authored "services" in the project).
+  serviceCount: z.number().int().nonnegative(),
+  // enabled proxy routes.
+  routeCount: z.number().int().nonnegative(),
+  // How many of `serviceCount` have a live container right now, or `null` when
+  // the runtime (docker) couldn't be reached for this list — the UI then shows
+  // the configured total without a running fraction.
+  runningServiceCount: z.number().int().nonnegative().nullable(),
 });
 
 /**
