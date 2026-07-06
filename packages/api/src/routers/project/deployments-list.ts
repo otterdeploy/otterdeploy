@@ -136,8 +136,17 @@ function deriveDeploymentStatus(
   const hasBuilding = taskStates.some((s) => BUILDING_STATES.has(s));
   const hasFailing = taskStates.some((s) => FAILED_STATES.has(s));
   if (hasRunning) return "running";
+  // A deployment that already reached "running" has finished building — the
+  // image is built and the container came up at least once. A task now back in
+  // a pre-running phase (`starting`/`restarting`/…) is a container RESTART, not
+  // a build, so it must never rewind the lifecycle status to "building" — an
+  // impossible transition (running → building). The crash/restart itself is a
+  // RUNTIME-HEALTH concern, surfaced by the live task-state buckets and the
+  // node/health badge, not by rolling the deploy status backwards. Once running,
+  // the lifecycle status stays "running".
+  if (stored === "running") return "running";
   // Still actively bringing a task up — only show "building" while at
-  // least one task is in a pre-running phase.
+  // least one task is in a pre-running phase (build-phase rows only).
   if (hasBuilding) return "building";
   if (!isLatest) return "superseded";
   if (hasFailing) return "failed";

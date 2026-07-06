@@ -18,6 +18,8 @@ import type {
   ExposedSeed,
 } from "./create";
 
+import type { ParsedCompose } from "../../stack/compose/types";
+
 import { parseCompose, summarizeCompose } from "../../stack/compose";
 import { isUniqueViolation } from "../project/views";
 import { enqueueInlineComposeBuild } from "./build-trigger";
@@ -27,16 +29,20 @@ import { pickComposeFile, stackNameFor } from "./util";
 
 const invalid = (message: string): ComposeCreateFailure => ({ reason: "invalid", message });
 
-/** Inline source: parse + persist, then deploy (or enqueue a build). */
-export async function createInlineCompose(
-  input: ComposeCreateInput,
-  project: ComposeProject,
-  exposed: ExposedSeed[],
-  log: RequestLogger,
-): Promise<Result<ComposeCreateOutput, ComposeCreateFailure>> {
-  // Multi-file: the compose file is one entry in `files`; single-file: the
-  // pasted `composeContent`. Keep composeContent/composePath in sync with the
-  // designated file so every downstream reader parses the same string.
+interface ResolvedInline {
+  files: NonNullable<ComposeCreateInput["files"]>;
+  composeContent: string;
+  composePath: string | null;
+  parsed: ParsedCompose;
+  services: ReturnType<typeof summarizeCompose>;
+  name: string;
+}
+
+/** Resolve the designated compose file (multi-file: one entry in `files`;
+ *  single-file: the pasted `composeContent`), parse it, and derive the stack
+ *  name. Keeps composeContent/composePath in sync with the designated file so
+ *  every downstream reader parses the same string. */
+function resolveInlineInput(input: ComposeCreateInput): Result<ResolvedInline, ComposeCreateFailure> {
   const files = input.files ?? [];
   const picked = files.length > 0 ? pickComposeFile(files, input.composePath) : null;
   const composeContent = picked?.content ?? input.composeContent;
@@ -52,6 +58,19 @@ export async function createInlineCompose(
   // Name from the user, else the file's `name:`, else its first service.
   const name =
     input.name?.trim() || parsed.value.name || parsed.value.services[0]?.name || "compose-stack";
+  return Result.ok({ files, composeContent, composePath, parsed: parsed.value, services, name });
+}
+
+/** Inline source: parse + persist, then deploy (or enqueue a build). */
+export async function createInlineCompose(
+  input: ComposeCreateInput,
+  project: ComposeProject,
+  exposed: ExposedSeed[],
+  log: RequestLogger,
+): Promise<Result<ComposeCreateOutput, ComposeCreateFailure>> {
+  const resolved = resolveInlineInput(input);
+  if (resolved.isErr()) return Result.err(resolved.error);
+  const { files, composeContent, composePath, parsed, services, name } = resolved.value;
   const stackName = stackNameFor(project.slug, name);
 
   const created = await Result.tryPromise({
@@ -96,7 +115,7 @@ export async function createInlineCompose(
   return Result.ok({
     resourceId: created.value.resource.id,
     services,
-    warnings: parsed.value.warnings,
+    warnings: parsed.warnings,
     deploy,
   });
 }
