@@ -1,6 +1,12 @@
-export { sendEmail } from "./client";
-export type { SendEmailOptions } from "./client";
+export { sendEmail, sendViaSmtpServer } from "./client";
+export type { SendEmailOptions, SmtpServerConfig } from "./client";
 export { resolveTransport, invalidateTransport, hasEnvTransport } from "./transport";
 export type { ResolvedTransport } from "./transport";
 export { WelcomeEmail } from "./templates/welcome";
 export { OrganizationInvitationEmail } from "./templates/organization-invitation";
+export { AccessCodeEmail } from "./templates/access-code";
+export { TestEmail } from "./templates/test-email";
+export { MessageEmail } from "./templates/message";
+export { NotificationEmail } from "./templates/notification";
+export type { NotificationSeverity } from "./templates/notification";
+export { EmailLayout, BrandButton, Footnote, brand } from "./templates/_layout";

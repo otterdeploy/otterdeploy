@@ -85,7 +85,7 @@ async function notifyPressure(health: HostHealth): Promise<void> {
         eventId: "host.pressure",
         title: rec.title,
         message: rec.detail,
-        data: { recommendation: rec.id, severity: rec.severity, action: rec.action },
+        data: { recommendation: rec.id, severity: rec.severity, action: rec.action ?? "" },
       });
     }
   }

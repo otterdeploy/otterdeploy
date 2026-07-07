@@ -12,9 +12,8 @@
  *   telegram      — Bot API sendMessage (bot token = secret, chat id = target)
  *   pagerduty     — Events API v2 enqueue (routing key = secret || target)
  */
-import { sendEmail } from "@otterdeploy/email";
+import { NotificationEmail, sendEmail, sendViaSmtpServer } from "@otterdeploy/email";
 import { env } from "@otterdeploy/env/server";
-import nodemailer from "nodemailer";
 
 export type ChannelKind =
   | "slack"
@@ -41,7 +40,8 @@ export interface ChannelEvent {
   severity: "info" | "ok" | "warn" | "err";
   title: string;
   message: string;
-  data?: Record<string, unknown>;
+  /** Display context (already-formatted strings) shown as key/value rows. */
+  data?: Record<string, string>;
 }
 
 export interface DeliveryResult {
@@ -174,6 +174,15 @@ async function deliverWebhook(c: ResolvedChannel, e: ChannelEvent): Promise<Deli
 async function deliverEmail(c: ResolvedChannel, e: ChannelEvent): Promise<DeliveryResult> {
   const from = typeof c.config.from === "string" ? c.config.from : undefined;
   const subject = `[otterdeploy] ${e.title}`;
+  // Every channel email is the same React Email component — never a raw HTML
+  // string. The SMTP branch renders it here (it uses the channel's own server,
+  // so it can't go through sendEmail); the Resend branch hands the element off.
+  const notification = NotificationEmail({
+    title: e.title,
+    message: e.message,
+    severity: e.severity,
+    data: e.data,
+  });
   // `client` picks the transport: "smtp" uses the channel's own SMTP server
   // (config host/port/user + secret password); anything else uses Resend.
   const client = c.config.client === "smtp" ? "smtp" : "resend";
@@ -184,25 +193,19 @@ async function deliverEmail(c: ResolvedChannel, e: ChannelEvent): Promise<Delive
       const port = Number(c.config.port ?? 587);
       const user = typeof c.config.username === "string" ? c.config.username : undefined;
       if (!host) return { ok: false, error: "SMTP host not configured" };
-      const transporter = nodemailer.createTransport({
-        host,
-        port,
-        // 465 = implicit TLS; 587/25 = STARTTLS.
-        secure: port === 465,
-        auth: user && c.secret ? { user, pass: c.secret } : undefined,
-      });
-      await transporter.sendMail({
-        from: from ?? user,
-        to: c.target,
-        subject,
-        text: e.message,
-      });
+      // Channel's own SMTP server, same SDK + React Email path as everything
+      // else. 465 = implicit TLS; 587/25 = STARTTLS.
+      await sendViaSmtpServer(
+        { host, port, secure: port === 465, user, pass: c.secret ?? undefined },
+        { to: c.target, subject, react: notification, text: e.message, from: from ?? user ?? "" },
+      );
       return { ok: true };
     }
     // Resend: per-channel API key (secret) overrides the env key; blank = env.
     await sendEmail({
       to: c.target,
       subject,
+      react: notification,
       text: e.message,
       from,
       apiKey: c.secret ?? undefined,

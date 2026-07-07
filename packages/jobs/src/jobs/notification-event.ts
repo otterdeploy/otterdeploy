@@ -29,7 +29,7 @@ export const PlatformEventPayload = z.object({
   severity: z.enum(["info", "ok", "warn", "err"]).default("info"),
   title: z.string().min(1),
   message: z.string().default(""),
-  data: z.record(z.string(), z.unknown()).optional(),
+  data: z.record(z.string(), z.string()).optional(),
   // Test mode: target exactly one channel, bypassing the subscription matrix.
   channelId: z.string().optional(),
 });

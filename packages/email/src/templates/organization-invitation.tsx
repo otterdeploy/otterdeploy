@@ -1,16 +1,7 @@
 /** @jsxImportSource react */
-import {
-  Body,
-  Button,
-  Container,
-  Head,
-  Heading,
-  Html,
-  Preview,
-  Section,
-  Text,
-} from "@react-email/components";
-import { Tailwind } from "@react-email/tailwind";
+import { Text } from "@react-email/components";
+
+import { BrandButton, EmailLayout, Footnote } from "./_layout";
 
 interface OrganizationInvitationEmailProps {
   organizationName?: string;
@@ -26,39 +17,24 @@ export function OrganizationInvitationEmail({
   role = "member",
 }: OrganizationInvitationEmailProps) {
   return (
-    <Html>
-      <Head />
-      <Preview>{`${inviterName} invited you to join ${organizationName} on otterdeploy`}</Preview>
-      <Tailwind>
-        <Body className="bg-gray-100 font-sans">
-          <Container className="mx-auto mb-16 max-w-[600px] rounded-md bg-white px-0 pt-5 pb-12">
-            <Heading className="my-10 text-center text-2xl font-bold text-gray-800">
-              Join {organizationName}
-            </Heading>
-            <Text className="px-12 text-base leading-7 text-gray-800">
-              {inviterName} invited you to collaborate on <strong>{organizationName}</strong> as a{" "}
-              <strong>{role}</strong> in otterdeploy.
-            </Text>
-            <Section className="py-7 text-center">
-              <Button
-                className="inline-block rounded-md bg-black px-8 py-3 text-base font-bold text-white no-underline"
-                href={inviteUrl}
-              >
-                Accept invitation
-              </Button>
-            </Section>
-            <Text className="px-12 text-sm leading-6 text-gray-500">
-              Or paste this link into your browser:
-              <br />
-              <span className="break-all text-gray-700">{inviteUrl}</span>
-            </Text>
-            <Text className="mt-5 px-12 text-xs leading-6 text-gray-400">
-              If you weren&apos;t expecting this invitation, you can safely ignore this email.
-            </Text>
-          </Container>
-        </Body>
-      </Tailwind>
-    </Html>
+    <EmailLayout preview={`${inviterName} invited you to join ${organizationName} on otterdeploy`}>
+      <Text className="text-ink m-0 mb-4 text-lg font-semibold tracking-tight">
+        Join {organizationName}
+      </Text>
+      <Text className="text-ink m-0 text-base leading-6">
+        {inviterName} invited you to collaborate on <strong>{organizationName}</strong> as a{" "}
+        <strong>{role}</strong> in otterdeploy.
+      </Text>
+      <BrandButton href={inviteUrl}>Accept invitation</BrandButton>
+      <Text className="m-0 text-sm leading-6 text-muted">
+        Or paste this link into your browser:
+        <br />
+        <span className="text-ink break-all">{inviteUrl}</span>
+      </Text>
+      <Footnote>
+        If you weren&apos;t expecting this invitation, you can safely ignore this email.
+      </Footnote>
+    </EmailLayout>
   );
 }
 
