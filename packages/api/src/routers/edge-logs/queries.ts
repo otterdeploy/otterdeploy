@@ -5,14 +5,20 @@ import { project } from "@otterdeploy/db/schema/project";
 import { proxyRoute } from "@otterdeploy/db/schema/proxy-route";
 import { and, eq } from "drizzle-orm";
 
-/** The HTTP domains owned by an org — the access-log visibility scope. */
+import { normalizeHost } from "../../edge-logs/host";
+
+/** All domains owned by an org — the access-log/event visibility scope. NOT
+ *  restricted to `type="http"`: the cross-tenant guard is the org join, and an
+ *  org's layer4 (public-DB) domains still get cert/ACME events on the operational
+ *  plane, so scoping them out only hid the tenant's own traffic. Canonicalized
+ *  (lowercase, no port) to match the ingested host — see edge-logs/host. */
 export async function listOrgDomains(organizationId: OrganizationId): Promise<string[]> {
   const rows = await db
     .select({ domain: proxyRoute.domain })
     .from(proxyRoute)
     .innerJoin(project, eq(project.id, proxyRoute.projectId))
-    .where(and(eq(project.organizationId, organizationId), eq(proxyRoute.type, "http")));
-  return rows.map((r) => r.domain);
+    .where(eq(project.organizationId, organizationId));
+  return [...new Set(rows.map((r) => normalizeHost(r.domain)))];
 }
 
 /** Map of domain → "upstreamHost:upstreamPort" for the org's HTTP routes, so
@@ -39,12 +45,15 @@ export async function listRouteUpstreams(
       ),
     );
   const map: Record<string, string> = {};
-  for (const r of rows) map[r.domain] = `${r.host}:${r.port}`;
+  // Key by the canonical host so `upstreams[row.host]` resolves against the
+  // normalized host stored on each log row.
+  for (const r of rows) map[normalizeHost(r.domain)] = `${r.host}:${r.port}`;
   return map;
 }
 
-/** A project's HTTP domains, but only if the project belongs to the org —
- *  the org filter is the cross-tenant guard. */
+/** A project's domains, but only if the project belongs to the org — the org
+ *  filter is the cross-tenant guard. Not `type="http"`-restricted, and
+ *  canonicalized, for the same reasons as listOrgDomains. */
 export async function listProjectDomains(
   organizationId: OrganizationId,
   projectId: ProjectId,
@@ -53,12 +62,6 @@ export async function listProjectDomains(
     .select({ domain: proxyRoute.domain })
     .from(proxyRoute)
     .innerJoin(project, eq(project.id, proxyRoute.projectId))
-    .where(
-      and(
-        eq(project.organizationId, organizationId),
-        eq(proxyRoute.projectId, projectId),
-        eq(proxyRoute.type, "http"),
-      ),
-    );
-  return rows.map((r) => r.domain);
+    .where(and(eq(project.organizationId, organizationId), eq(proxyRoute.projectId, projectId)));
+  return [...new Set(rows.map((r) => normalizeHost(r.domain)))];
 }

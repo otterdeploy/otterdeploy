@@ -15,6 +15,8 @@ import * as z from "zod";
 
 import type { EdgeEventCategory, EdgeEventLevel, EdgeEventLine } from "./types";
 
+import { normalizeHost } from "./host";
+
 let counter = 0;
 
 /** Cap the stored raw line — a few operational lines (e.g. "New Config JSON")
@@ -106,8 +108,12 @@ export function parseCaddyEvent(raw: unknown): EdgeEventLine | null {
   const category = categorize(logger, msg);
   if (!shouldKeep(category, level)) return null;
 
-  const domains = data.domains ?? data.identifiers ?? [];
-  const host = data.host ?? data.request?.host ?? null;
+  // Canonicalize host + batch domains identically to the access plane so the
+  // per-tenant scope check (event-ring `inScope`/`redact`) matches the owned
+  // domains — see ./host.
+  const domains = (data.domains ?? data.identifiers ?? []).map(normalizeHost);
+  const rawHost = data.host ?? data.request?.host ?? null;
+  const host = rawHost ? normalizeHost(rawHost) : null;
   const parsedTs = parseTs(data.ts);
 
   return {
