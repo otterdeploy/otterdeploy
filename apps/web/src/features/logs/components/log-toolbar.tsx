@@ -145,7 +145,7 @@ function LevelChip({
         onClick={onActivate}
         disabled={disabled}
         aria-pressed={active}
-        title={`${count} ${label} ${plural(count, "line")}${disabled ? "" : active ? " — click to clear" : " — click to step through"}`}
+        title={`${count} ${plural(count, label)}${disabled ? "" : active ? " — click to clear" : " — click to step through"}`}
         className={cn(
           "inline-flex items-center gap-1.5 rounded-full py-0.5 pl-2",
           stepping ? "pr-1.5" : "pr-2",
