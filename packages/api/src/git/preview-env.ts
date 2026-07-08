@@ -42,6 +42,8 @@ export interface EnsurePreviewInput {
  * updates the head + reactivates instead of inserting a duplicate.
  */
 export async function ensurePreview(input: EnsurePreviewInput): Promise<PreviewRow | undefined> {
+  // Compute once so the insert value and the conflict-branch bump agree.
+  const teardownAt = defaultTeardownAt();
   const [row] = await db
     .insert(preview)
     .values({
@@ -53,7 +55,7 @@ export async function ensurePreview(input: EnsurePreviewInput): Promise<PreviewR
       headSha: input.headSha,
       slug: `${input.repoSlug}-pr-${input.prNumber}`,
       state: "active",
-      autoTeardownAt: defaultTeardownAt(),
+      autoTeardownAt: teardownAt,
     })
     .onConflictDoUpdate({
       target: [preview.projectId, preview.gitRepoId, preview.prNumber],
@@ -61,17 +63,19 @@ export async function ensurePreview(input: EnsurePreviewInput): Promise<PreviewR
         branch: input.branch,
         headSha: input.headSha,
         state: "active",
-        // A push is activity — extend the idle clock, but PRESERVE a keep-alive
-        // pin: if the existing row was pinned (auto_teardown_at IS NULL), keep
-        // it NULL; otherwise bump to a fresh default. Skip entirely when idle
-        // teardown is globally disabled.
         // A push is an implicit resume — clear a stale pause so the rebuilt
         // containers aren't left flagged paused (and reaper-exempt) forever.
         paused: false,
-        // Extend the idle clock, but PRESERVE a keep-alive pin (NULL stays NULL).
-        ...(defaultTeardownAt()
+        // A push is activity — extend the idle clock, but PRESERVE a keep-alive
+        // pin: if the existing row was pinned (auto_teardown_at IS NULL) keep it
+        // NULL; otherwise bump to a fresh default. Skip when idle teardown is
+        // globally disabled. NOTE: pass the Date as an ISO string — inside a raw
+        // `sql` template drizzle does NOT apply the column's timestamp mapper, so
+        // a bare Date binds as `Date.toString()` ("Sat Jul 11 2026 … (Coordinated
+        // Universal Time)") which Postgres rejects as invalid timestamp syntax.
+        ...(teardownAt
           ? {
-              autoTeardownAt: sql`case when ${preview.autoTeardownAt} is null then null else ${defaultTeardownAt()} end`,
+              autoTeardownAt: sql`case when ${preview.autoTeardownAt} is null then null else ${teardownAt.toISOString()} end`,
             }
           : {}),
         updatedAt: new Date(),
