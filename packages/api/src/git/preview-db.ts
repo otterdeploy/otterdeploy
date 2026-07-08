@@ -1,18 +1,21 @@
 /**
- * Branch a project's databases into a preview environment (docs/designs/pr-previews.md
- * §4). For each branchable BASE database (Postgres only in v1), mint a fresh
- * env-scoped database resource that reuses the BASE's name — so the preview's
+ * Branch a project's OPT-IN databases into a preview. Branching is opt-in per
+ * database (`databaseResource.previewBranching`, default off): an unbranched
+ * database is shared with the base via the resolver's fallback, so a PR costs
+ * no extra data copy unless the operator asked for isolation. For each opted-in
+ * BASE database (Postgres only in v1), mint a fresh preview-scoped database
+ * resource that reuses the BASE's name — so the preview's
  * `${{<db>.DATABASE_URL}}` resolves to the branch instead of production — then
- * copy the data in via the P2 branching engine (`runtime().branchDatabase`).
+ * copy the data in via the branching engine (`runtime().branchDatabase`).
  *
- * Idempotent per (env, base): a second `synchronize` skips DBs already branched.
- * Best-effort per DB: one failure logs and the rest proceed.
+ * Idempotent per (preview, base): a second `synchronize` skips DBs already
+ * branched. Best-effort per DB: one failure logs and the rest proceed.
  *
  * NOTE: runs inline from the webhook today. For large DBs the copy dump/restore
  * can be slow enough to risk GitHub's ~10s webhook timeout — move to a background
  * "preview.provision" job before heavy production use.
  */
-import type { EnvironmentId, ProjectId } from "@otterdeploy/shared/id";
+import type { PreviewId, ProjectId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
@@ -38,19 +41,23 @@ import { getEngineAdapter } from "../swarm";
 export async function branchProjectDatabases(input: {
   projectId: ProjectId;
   projectSlug: string;
-  environmentId: EnvironmentId;
-  /** The env suffix (`pr-7`), used to derive the branch's distinct identity. */
+  previewId: PreviewId;
+  /** The preview's repo-qualified slug (`<repoSlug>-pr-<7>`), used to derive
+   *  the branch's distinct identity — and reused verbatim at teardown. */
   previewSlug: string;
   rlog?: RequestLogger;
 }): Promise<number> {
   const driver = await resolveSnapshotDriver();
   const records = await listDatabaseResourceRecords(input.projectId);
-  const bases = records.filter((r) => r.resource.environmentId == null);
+  const bases = records.filter(
+    // Opt-in only: previewBranching=false databases are shared with the base.
+    (r) => r.resource.previewId == null && r.database.previewBranching,
+  );
   let branched = 0;
 
   for (const base of bases) {
     if (base.database.engine !== "postgres") continue; // v1: Postgres only
-    if (await branchExists(input.projectId, input.environmentId, base.resource.name)) continue;
+    if (await branchExists(input.projectId, input.previewId, base.resource.name)) continue;
 
     const done = await Result.tryPromise({
       try: () => branchOne(input, base, driver.kind),
@@ -59,7 +66,7 @@ export async function branchProjectDatabases(input: {
     if (done.isOk()) branched++;
     else
       log.warn({
-        preview: { step: "branch-db", db: base.resource.name, env: input.environmentId },
+        preview: { step: "branch-db", db: base.resource.name, previewId: input.previewId },
         err: done.error,
       });
   }
@@ -68,7 +75,7 @@ export async function branchProjectDatabases(input: {
 
 async function branchExists(
   projectId: ProjectId,
-  environmentId: EnvironmentId,
+  previewId: PreviewId,
   name: string,
 ): Promise<boolean> {
   const rows = await db
@@ -78,7 +85,7 @@ async function branchExists(
       and(
         eq(resource.projectId, projectId),
         eq(resource.name, name),
-        eq(resource.environmentId, environmentId),
+        eq(resource.previewId, previewId),
       ),
     )
     .limit(1);
@@ -91,7 +98,7 @@ async function branchOne(
   input: {
     projectId: ProjectId;
     projectSlug: string;
-    environmentId: EnvironmentId;
+    previewId: PreviewId;
     previewSlug: string;
     rlog?: RequestLogger;
   },
@@ -116,7 +123,7 @@ async function branchOne(
     name: base.resource.name,
     engine,
     status: "valid",
-    environmentId: input.environmentId,
+    previewId: input.previewId,
     branchedFromResourceId: base.resource.id,
     databaseName: creds.databaseName,
     username: creds.username,
@@ -139,7 +146,7 @@ async function branchOne(
     resourceId: created.resource.id,
     image: getEngineAdapter(engine).defaultImage,
     reason: "create",
-    environmentId: input.environmentId,
+    previewId: input.previewId,
     snapshot: {},
   });
 

@@ -191,18 +191,25 @@ async function reconcileOrphans(
 
 async function reconcileDuplicateRunning(db: DbLike): Promise<number> {
   const rows = await db
-    .select({ id: deployment.id, resourceId: deployment.resourceId })
+    .select({
+      id: deployment.id,
+      resourceId: deployment.resourceId,
+      previewId: deployment.previewId,
+    })
     .from(deployment)
     .where(eq(deployment.status, "running"))
     .orderBy(deployment.resourceId, desc(deployment.createdAt));
 
-  // Keep the newest per resourceId (first seen given the ordering above);
-  // supersede the rest.
+  // Keep the newest per (resourceId, previewId) — a running PR preview and
+  // the base deployment of the same service are BOTH legitimately running,
+  // and two different PRs' previews are too. Keying on resourceId alone made
+  // a fresh preview supersede production's running row.
   const seen = new Set<string>();
   let count = 0;
   for (const row of rows) {
-    if (!seen.has(row.resourceId)) {
-      seen.add(row.resourceId);
+    const key = `${row.resourceId}:${row.previewId ?? "base"}`;
+    if (!seen.has(key)) {
+      seen.add(key);
       continue;
     }
     const updated = await db

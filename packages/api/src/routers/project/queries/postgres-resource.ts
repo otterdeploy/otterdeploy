@@ -1,5 +1,5 @@
 import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
-import type { EnvironmentId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { PreviewId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import {
@@ -63,9 +63,9 @@ export async function createDatabaseResourceRecord(input: {
    *  this explicitly. */
   engine?: DatabaseEngine;
   status?: "draft" | "valid" | "invalid";
-  /** Environment scoping for a branched DB (a preview's copy). Omitted → NULL
+  /** Preview scoping for a branched DB (a preview's copy). Omitted → NULL
    *  (base resource). See docs/designs/pr-previews.md. */
-  environmentId?: EnvironmentId;
+  previewId?: PreviewId;
   branchedFromResourceId?: ResourceId;
   databaseName: string;
   username: string;
@@ -95,7 +95,7 @@ export async function createDatabaseResourceRecord(input: {
         name: input.name,
         type: "database",
         status: input.status ?? "valid",
-        environmentId: input.environmentId,
+        previewId: input.previewId,
         branchedFromResourceId: input.branchedFromResourceId,
       })
       .returning();
@@ -262,6 +262,20 @@ export async function setDatabaseResourcePublic(resourceId: ResourceId, publicEn
   const [updated] = await db
     .update(databaseResource)
     .set({ publicEnabled, updatedAt: new Date() })
+    .where(eq(databaseResource.resourceId, resourceId))
+    .returning();
+  return updated;
+}
+
+/** Toggle PR-preview branching for a database. Pure flag write — takes effect
+ *  on the next PR open/synchronize; no container roll. */
+export async function setDatabaseResourcePreviewBranching(
+  resourceId: ResourceId,
+  previewBranching: boolean,
+) {
+  const [updated] = await db
+    .update(databaseResource)
+    .set({ previewBranching, updatedAt: new Date() })
     .where(eq(databaseResource.resourceId, resourceId))
     .returning();
   return updated;

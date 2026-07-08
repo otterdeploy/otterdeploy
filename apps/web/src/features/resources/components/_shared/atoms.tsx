@@ -9,6 +9,7 @@ import {
   ContainerIcon,
   Database02Icon,
   EarthIcon,
+  GitPullRequestIcon,
   HardDriveIcon,
   ServerStack01Icon,
 } from "@hugeicons/core-free-icons";
@@ -56,6 +57,10 @@ const KIND_ICON: Record<ResourceKind, { icon: HugeIcon; tint: string }> = {
   volume: {
     icon: HardDriveIcon,
     tint: "bg-violet-500/15 text-violet-700 dark:text-violet-300",
+  },
+  preview: {
+    icon: GitPullRequestIcon,
+    tint: "bg-muted text-muted-foreground",
   },
   compose: {
     icon: ContainerIcon,

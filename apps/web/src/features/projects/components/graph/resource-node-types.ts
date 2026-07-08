@@ -14,7 +14,7 @@ import type { FrameworkKind } from "@/features/projects/components/framework-log
 export type IconType = ComponentProps<typeof HugeiconsIcon>["icon"];
 export type BrandSvg = (props: SVGProps<SVGSVGElement>) => React.ReactNode;
 
-export type ResourceKind = "service" | "database" | "route" | "volume" | "compose";
+export type ResourceKind = "service" | "database" | "route" | "volume" | "compose" | "preview";
 
 export type ResourceEngine =
   | "postgres"
@@ -76,6 +76,21 @@ export interface GitInfo {
   branch?: string;
 }
 
+/** Data for a PR-preview satellite card (kind="preview") — a small node
+ *  attached to the service it previews by a dashed edge. */
+export interface PreviewInfo {
+  prNumber: number;
+  /** Plain head branch name (`feat/checkout-v2`). */
+  branch: string;
+  /** Latest preview deployment status for this service, raw from the API. */
+  status: "pending" | "building" | "running" | "failed" | "superseded" | "removed" | "none";
+  /** Preview host URL — the card's click-through. Null until exposed. */
+  url: string | null;
+  /** React-Flow id of the service node this satellite hangs off
+   *  (`service:<name>`) — drives manual right-of-parent placement. */
+  parentId: string;
+}
+
 export interface ResourceNodeData extends Record<string, unknown> {
   kind: ResourceKind;
   name: string;
@@ -115,6 +130,8 @@ export interface ResourceNodeData extends Record<string, unknown> {
    *  reduced opacity + a dashed border so it's visually distinct from
    *  an applied resource. */
   pending?: "create" | "update" | "delete";
+  /** Preview-only (kind="preview"): the satellite card's payload. */
+  preview?: PreviewInfo;
 }
 
 export type ResourceFlowNode = Node<ResourceNodeData, "resource">;

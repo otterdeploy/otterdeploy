@@ -20,6 +20,7 @@ import {
   clearPendingFramework,
   usePendingFrameworks,
 } from "@/features/projects/components/graph/pending-framework-store";
+import { buildPreviewSatellites } from "@/features/projects/components/graph/preview-satellites";
 import { type ComposeServiceInfo } from "@/features/projects/components/graph/resource-node";
 import { dependenciesCollection } from "@/features/projects/data/dependencies";
 import { resourceCollection } from "@/features/resources/data/resource";
@@ -215,18 +216,29 @@ export function useGraphModel(project: { id: ProjectId }) {
     }
   }, [appliedCreates, pendingFrameworks, resources, project.id]);
 
+  // Open PR previews — satellite cards hanging off the service they preview.
+  // Same 5s cadence as the manifest diff; previews change on webhook events,
+  // not user interaction, so polling is the honest refresh model.
+  const previews = useQuery(
+    orpc.project.previews.list.queryOptions({
+      input: { projectId: project.id },
+      refetchInterval: 5_000,
+    }),
+  );
+
   // Convert resources to nodes + synthesize public route nodes via the shared
-  // helper. The framework brand logo rides on each resource record (detected at
-  // build time, stored on the row) — no per-service git-API lookup on render.
-  const liveNodes = useMemo(
-    () => buildLiveNodes(resources, tasksByResourceId, pendingByName),
-    [resources, tasksByResourceId, pendingByName],
-  );
+  // helper, then append the preview satellites (nodes + dashed edges together,
+  // so an edge can never reference a node that wasn't emitted). The framework
+  // brand logo rides on each resource record — no per-service git-API lookup.
+  const graph = useMemo(() => {
+    const base = buildLiveNodes(resources, tasksByResourceId, pendingByName);
+    const serviceIds = new Set(base.map((n) => n.id));
+    const satellites = buildPreviewSatellites(previews.data ?? [], serviceIds);
+    return {
+      nodes: [...base, ...satellites.nodes],
+      edges: [...edgesFromDeps, ...buildRouteEdges(resources), ...satellites.edges],
+    };
+  }, [resources, tasksByResourceId, pendingByName, edgesFromDeps, previews.data]);
 
-  const liveEdges = useMemo(
-    () => [...edgesFromDeps, ...buildRouteEdges(resources)],
-    [resources, edgesFromDeps],
-  );
-
-  return { liveNodes, liveEdges };
+  return { liveNodes: graph.nodes, liveEdges: graph.edges };
 }

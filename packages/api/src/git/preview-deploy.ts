@@ -3,7 +3,7 @@
  * handle-pull-request.ts to keep the orchestrator under the file-length gate
  * (same reason preview-report.ts is separate).
  */
-import type { EnvironmentId, ProjectId } from "@otterdeploy/shared/id";
+import type { PreviewId, ProjectId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { deployment, gitRepo, project, resource, serviceResource } from "@otterdeploy/db/schema";
@@ -23,7 +23,7 @@ export async function deployProjectPreview(
   p: ProjectRow,
   repo: RepoRow,
   ev: PullRequestEvent,
-  environmentId: EnvironmentId,
+  previewId: PreviewId,
 ): Promise<number> {
   const pr = ev.pull_request;
   // A preview rebuilds the PREVIEWS-ENABLED git-sourced BASE services bound
@@ -42,7 +42,7 @@ export async function deployProjectPreview(
         eq(serviceResource.source, "git"),
         eq(serviceResource.gitRepoId, repo.id),
         eq(serviceResource.previewsEnabled, true),
-        isNull(resource.environmentId),
+        isNull(resource.previewId),
       ),
     );
   if (resources.length === 0) return 0;
@@ -53,7 +53,7 @@ export async function deployProjectPreview(
     .values(
       resources.map((r) => ({
         resourceId: r.id,
-        environmentId,
+        previewId,
         image: `pending:${pr.head.sha.slice(0, 12)}`,
         reason: "git-push" as const,
         status: "pending" as const,
@@ -76,7 +76,7 @@ export async function deployProjectPreview(
     gitRepoId: repo.id,
     ref,
     sha: pr.head.sha,
-    environmentId,
+    previewId,
     deploymentIds: inserted.map((d) => d.id),
   });
   return inserted.length;

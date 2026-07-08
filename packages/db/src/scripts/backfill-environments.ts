@@ -1,8 +1,9 @@
 /**
- * One-off data backfill for the environment model — P0 of PR previews
- * (docs/designs/pr-previews.md). Stamps each project's persistent environment
- * onto rows that pre-date env scoping, so `deployment.environment_id` and
- * `service_env_var.environment_id` stop being NULL.
+ * One-off data backfill for the environment model. Stamps each project's
+ * persistent environment onto `service_env_var` rows that pre-date env
+ * scoping, so `service_env_var.environment_id` stops being NULL. Deployments
+ * are no longer environment-scoped (previews own `deployment.preview_id`),
+ * so only the env-var backfill remains.
  *
  * Idempotent: only touches NULL rows, so it's safe to run repeatedly and safe
  * to run before or after `bun db:push`. Run it AFTER the schema push:
@@ -34,19 +35,7 @@ async function main(): Promise<void> {
     RETURNING sev.id
   `);
 
-  const deployments = await db.execute(sql`
-    UPDATE deployment AS d
-    SET environment_id = p.environment_id
-    FROM resource r
-    JOIN project p ON p.id = r.project_id
-    WHERE d.resource_id = r.id
-      AND d.environment_id IS NULL
-      AND p.environment_id IS NOT NULL
-    RETURNING d.id
-  `);
-
   console.log(`[backfill-environments] service_env_var rows updated: ${rowCount(envVars)}`);
-  console.log(`[backfill-environments] deployment rows updated:      ${rowCount(deployments)}`);
 }
 
 main()

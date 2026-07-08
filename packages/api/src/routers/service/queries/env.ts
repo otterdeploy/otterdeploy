@@ -1,4 +1,4 @@
-import type { EnvironmentId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { PreviewId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { resource, serviceEnvVar } from "@otterdeploy/db/schema/project";
@@ -99,18 +99,32 @@ export async function getResourceByProjectAndName(
 }
 
 /**
- * Environment-aware resource lookup for the variable resolver: an env-specific
- * row (e.g. a preview DB branch, `environmentId = <env>`) wins over the base
- * row (`environmentId IS NULL`), which every non-preview resource is. Ordering
- * NULLs last puts the env-specific match first, so LIMIT 1 returns the branch
- * when present and the base otherwise. Pre-previews this always resolves to the
- * base row — identical to `getResourceByProjectAndName`.
+ * Preview-aware resource lookup for the variable resolver: a preview-scoped
+ * row (an opt-in DB branch, `previewId = <preview>`) wins over the base row
+ * (`previewId IS NULL`), which every non-preview resource is. Ordering NULLs
+ * last puts the preview-scoped match first, so LIMIT 1 returns the branch when
+ * present and the base otherwise. With no preview scope this always resolves
+ * to the base row — identical to `getResourceByProjectAndName`.
  */
-export async function resolveResourceForEnv(
+export async function resolveResourceForPreview(
   projectId: ProjectId,
-  environmentId: EnvironmentId,
+  previewId: PreviewId | null,
   name: string,
 ): Promise<ResourceRow | undefined> {
+  if (!previewId) {
+    const [row] = await db
+      .select()
+      .from(resource)
+      .where(
+        and(
+          eq(resource.projectId, projectId),
+          eq(resource.name, name),
+          isNull(resource.previewId),
+        ),
+      )
+      .limit(1);
+    return row;
+  }
   const [row] = await db
     .select()
     .from(resource)
@@ -118,10 +132,10 @@ export async function resolveResourceForEnv(
       and(
         eq(resource.projectId, projectId),
         eq(resource.name, name),
-        or(eq(resource.environmentId, environmentId), isNull(resource.environmentId)),
+        or(eq(resource.previewId, previewId), isNull(resource.previewId)),
       ),
     )
-    .orderBy(sql`${resource.environmentId} nulls last`)
+    .orderBy(sql`${resource.previewId} nulls last`)
     .limit(1);
   return row;
 }

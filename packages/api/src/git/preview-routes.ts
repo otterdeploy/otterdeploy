@@ -5,8 +5,8 @@
  * Minted when the PR webhook ensures the env (so the host exists by the time
  * the build converges — Caddy 502s until the container is up, which the PR
  * comment reflects as "Building"), refreshed on synchronize, deleted on
- * teardown. Env-scoped rows (`proxy_route.environmentId`) are invisible to
- * the base domain flows (expose/domains-card read `environmentId IS NULL`),
+ * teardown. Preview-scoped rows (`proxy_route.previewId`) are invisible to
+ * the base domain flows (expose/domains-card read `previewId IS NULL`),
  * so a preview can never steal a service's primary host.
  */
 import type { GitRepoId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
@@ -15,12 +15,12 @@ import { db } from "@otterdeploy/db";
 import { resource, serviceResource } from "@otterdeploy/db/schema/project";
 import { and, eq, isNull } from "drizzle-orm";
 
-import type { EnvScope } from "../lib/environment/scoping";
+import type { PreviewScope } from "../lib/environment/scoping";
 
 import {
-  deleteProxyRoutesByEnvironment,
+  deleteProxyRoutesByPreview,
   insertProxyRoute,
-  listProxyRoutesByEnvironment,
+  listProxyRoutesByPreview,
   updateProxyRoute,
 } from "../caddy/queries";
 import { loadDomainSourcesForProject } from "../lib/domain-sources";
@@ -33,7 +33,7 @@ export interface EnsurePreviewRoutesInput {
   projectId: ProjectId;
   projectSlug: string;
   gitRepoId: GitRepoId;
-  env: EnvScope;
+  preview: PreviewScope;
 }
 
 /**
@@ -59,7 +59,7 @@ export async function ensurePreviewRoutes(input: EnsurePreviewRoutesInput): Prom
         eq(serviceResource.source, "git"),
         eq(serviceResource.gitRepoId, input.gitRepoId),
         eq(serviceResource.previewsEnabled, true),
-        isNull(resource.environmentId),
+        isNull(resource.previewId),
       ),
     );
   const exposed = services.filter((s) => s.publicEnabled);
@@ -68,14 +68,14 @@ export async function ensurePreviewRoutes(input: EnsurePreviewRoutesInput): Prom
   const sources = await loadDomainSourcesForProject(input.projectId);
   if (!sources) return false;
 
-  const existing = await listProxyRoutesByEnvironment(input.env.id);
+  const existing = await listProxyRoutesByPreview(input.preview.id);
   const projectSlug = sanitizeSlug(input.projectSlug);
   let changed = false;
 
   for (const svc of exposed) {
     const primary = getPrimaryHttpPort(await listServicePorts(svc.resourceId as ResourceId));
     if (!primary) continue;
-    const upstreamHost = runtimeServiceName(svc.serviceName, input.env);
+    const upstreamHost = runtimeServiceName(svc.serviceName, input.preview);
 
     const route = existing.find((r) => r.resourceId === svc.resourceId);
     if (route) {
@@ -94,7 +94,7 @@ export async function ensurePreviewRoutes(input: EnsurePreviewRoutesInput): Prom
     // (that literal FQDN belongs to production).
     const resolved = resolvePublicDomain(
       {
-        resourceSlug: previewHostLabel(sanitizeSlug(svc.name), input.env),
+        resourceSlug: previewHostLabel(sanitizeSlug(svc.name), input.preview),
         projectSlug,
         kind: "service",
       },
@@ -103,7 +103,7 @@ export async function ensurePreviewRoutes(input: EnsurePreviewRoutesInput): Prom
     await insertProxyRoute({
       projectId: input.projectId,
       resourceId: svc.resourceId as ResourceId,
-      environmentId: input.env.id,
+      previewId: input.preview.id,
       type: "http",
       domain: resolved.fqdn,
       upstreamHost,
@@ -120,11 +120,11 @@ export async function ensurePreviewRoutes(input: EnsurePreviewRoutesInput): Prom
   return changed;
 }
 
-/** Drop every route the preview env owns. Returns whether any existed so the
+/** Drop every route the preview owns. Returns whether any existed so the
  *  caller can skip the Caddy reconcile on a no-op. */
-export async function removePreviewRoutes(environmentId: EnvScope["id"]): Promise<boolean> {
-  const routes = await listProxyRoutesByEnvironment(environmentId);
+export async function removePreviewRoutes(previewId: PreviewScope["id"]): Promise<boolean> {
+  const routes = await listProxyRoutesByPreview(previewId);
   if (routes.length === 0) return false;
-  await deleteProxyRoutesByEnvironment(environmentId);
+  await deleteProxyRoutesByPreview(previewId);
   return true;
 }

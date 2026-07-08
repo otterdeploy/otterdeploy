@@ -7,7 +7,7 @@ import {
   resource,
   serviceResource,
 } from "@otterdeploy/db/schema/project";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 
 import { removeResourceDir } from "../../../lib/data-dir";
 
@@ -32,23 +32,25 @@ export interface ComposeResourceJoined {
  * be added here when their tables ship.
  */
 export async function listProjectResources(projectId: ProjectId) {
+  // Base resources only: preview-scoped rows (opt-in DB branches) belong to
+  // their PR preview, not the project graph / resource lists.
   const databases = await db
     .select({ resource, database: databaseResource })
     .from(resource)
     .innerJoin(databaseResource, eq(databaseResource.resourceId, resource.id))
-    .where(eq(resource.projectId, projectId));
+    .where(and(eq(resource.projectId, projectId), isNull(resource.previewId)));
 
   const services = await db
     .select({ resource, service: serviceResource })
     .from(resource)
     .innerJoin(serviceResource, eq(serviceResource.resourceId, resource.id))
-    .where(eq(resource.projectId, projectId));
+    .where(and(eq(resource.projectId, projectId), isNull(resource.previewId)));
 
   const composes = await db
     .select({ resource, compose: composeResource })
     .from(resource)
     .innerJoin(composeResource, eq(composeResource.resourceId, resource.id))
-    .where(eq(resource.projectId, projectId));
+    .where(and(eq(resource.projectId, projectId), isNull(resource.previewId)));
 
   return { databases, services, composes };
 }

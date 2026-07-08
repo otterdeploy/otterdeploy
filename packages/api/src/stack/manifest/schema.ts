@@ -246,6 +246,10 @@ export type ServiceManifest = z.infer<typeof serviceSchema>;
 const databaseCommonSchema = z.object({
   resources: resourcesSchema.optional(),
   publicEnabled: z.boolean().optional(),
+  // Opt this database into PR-preview branching (an isolated per-PR copy).
+  // Declared-only: omitted leaves the live toggle alone. Default off — an
+  // unbranched database is shared with the base by preview services.
+  previews: z.boolean().optional(),
   // Extra container env injected alongside the derived POSTGRES_* / etc.
   // Same ref grammar as service env.
   extraEnv: envMap.optional(),

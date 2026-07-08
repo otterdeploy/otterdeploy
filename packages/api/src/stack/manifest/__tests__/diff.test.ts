@@ -269,6 +269,7 @@ describe("diffManifest", () => {
           name: "primary",
           engine: "postgres",
           publicEnabled: true,
+          previewBranching: false,
           extraEnv: { B: "2" },
         },
       },
@@ -333,6 +334,7 @@ describe("diffDatabase declared-only fields", () => {
           name: "primary",
           engine: "postgres" as const,
           publicEnabled: false,
+          previewBranching: false,
           extraEnv: {},
           ...over,
         },
@@ -509,7 +511,13 @@ describe("declared-only service fields and env", () => {
     });
     const current = liveService({ env: { DATABASE_URL: "postgres://real-url" } });
     current.databases = {
-      primary: { name: "primary", engine: "postgres", publicEnabled: false, extraEnv: {} },
+      primary: {
+        name: "primary",
+        engine: "postgres",
+        publicEnabled: false,
+        previewBranching: false,
+        extraEnv: {},
+      },
     };
     // Apply stores the RESOLVED value — the resolver makes the diff compare
     // what apply would write, so a satisfied ref is a no-op…

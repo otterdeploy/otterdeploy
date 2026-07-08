@@ -18,14 +18,14 @@
  */
 import type {
   DeploymentId,
-  EnvironmentId,
   OrganizationId,
+  PreviewId,
   ResourceId,
 } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { deployment, project, resource } from "@otterdeploy/db/schema/project";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 
 import { emitPlatformEvent } from "../../notifications/emit";
 import { emitDeployStarted } from "./deployments-emit";
@@ -63,9 +63,9 @@ interface InsertInput {
   resourceId: ResourceId;
   image: string;
   reason: DeploymentRow["reason"];
-  /** Which environment this deployment belongs to. Omitted → NULL (production /
-   *  persistent). Preview deploys pass their preview env id. */
-  environmentId?: EnvironmentId;
+  /** Preview scoping. Omitted → NULL (a normal base deployment). Preview
+   *  deploys pass their preview id. */
+  previewId?: PreviewId;
   /** Snapshot the deployment is built from. Pass the resource's full
    *  current config so rollback can reapply it verbatim later. */
   snapshot: Record<string, unknown>;
@@ -78,7 +78,7 @@ export async function insertDeployment(input: InsertInput): Promise<DeploymentRo
       resourceId: input.resourceId,
       image: input.image,
       reason: input.reason,
-      environmentId: input.environmentId,
+      previewId: input.previewId,
       status: "building",
       snapshot: input.snapshot,
     })
@@ -162,11 +162,19 @@ export async function deleteDeploymentById(deploymentId: DeploymentId): Promise<
  *  zero swarm tasks and so never show up in the live-task rollup. */
 export async function getLatestDeploymentForResource(
   resourceId: ResourceId,
+  // Base rows by default — a PR preview's deployments must not surface as the
+  // production card's "latest". Pass the preview id to read that scope.
+  previewId: PreviewId | null = null,
 ): Promise<DeploymentRow | null> {
   const [row] = await db
     .select()
     .from(deployment)
-    .where(eq(deployment.resourceId, resourceId))
+    .where(
+      and(
+        eq(deployment.resourceId, resourceId),
+        previewId ? eq(deployment.previewId, previewId) : isNull(deployment.previewId),
+      ),
+    )
     .orderBy(desc(deployment.createdAt))
     .limit(1);
   return (row as DeploymentRow | undefined) ?? null;

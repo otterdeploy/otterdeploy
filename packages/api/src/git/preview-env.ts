@@ -1,61 +1,55 @@
 /**
- * Preview-environment lifecycle — the `kind: "preview"` rows that a PR spins up.
- * Find-or-create on open/synchronize (keyed by the (project, pr_number) unique
- * index), mark closed on PR close. Pure DB access; the runtime side-effects
- * (branching DBs, tearing down containers) are driven by the webhook handler.
- * See docs/designs/pr-previews.md §7.
+ * PR-preview lifecycle — the `preview` rows a PR spins up. A preview is a
+ * first-class entity bound to (project, repo, PR#), NOT an environment: it
+ * scopes its deployments/routes/branches via `previewId` columns and can never
+ * surface in environment UI. Find-or-create on open/synchronize (keyed by the
+ * (project_id, git_repo_id, pr_number) unique index), mark closed on PR close.
+ * Pure DB access; the runtime side-effects (branching DBs, tearing down
+ * containers) are driven by the webhook handler.
  */
-import type { EnvironmentId, GitRepoId, ProjectId } from "@otterdeploy/shared/id";
+import type { GitRepoId, ProjectId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
-import { environment } from "@otterdeploy/db/schema/project";
+import { preview } from "@otterdeploy/db/schema/project";
 import { and, eq } from "drizzle-orm";
 
-export type EnvironmentRow = typeof environment.$inferSelect;
+export type PreviewRow = typeof preview.$inferSelect;
 
 export interface EnsurePreviewInput {
   projectId: ProjectId;
-  /** The env a preview inherits vars from — the project's persistent env. */
-  baseEnvironmentId: EnvironmentId | null;
   gitRepoId: GitRepoId;
-  /** Sanitized repo slug (`owner-repo`) — qualifies the env slug so two repos
-   *  in one project don't collide on the same PR number. */
+  /** Sanitized repo slug (`owner-repo`) — qualifies the preview slug so two
+   *  repos in one project don't collide on the same PR number. */
   repoSlug: string;
   prNumber: number;
   prNodeId: string | null;
-  headRef: string;
+  /** Plain head branch name (GitHub's pr.head.ref). */
+  branch: string;
   headSha: string;
 }
 
 /**
- * Find-or-create the preview env for a PR. Idempotent via the
- * (project_id, git_repo_id, pull_request_number) unique index: a
- * reopen/synchronize updates the head + reactivates instead of inserting a
- * duplicate. Keyed by repo too, so a project hosting services from two repos
- * gets a distinct env for each repo's same-numbered PR.
+ * Find-or-create the preview for a PR. Idempotent via the
+ * (project_id, git_repo_id, pr_number) unique index: a reopen/synchronize
+ * updates the head + reactivates instead of inserting a duplicate.
  */
-export async function ensurePreviewEnvironment(
-  input: EnsurePreviewInput,
-): Promise<EnvironmentRow | undefined> {
+export async function ensurePreview(input: EnsurePreviewInput): Promise<PreviewRow | undefined> {
   const [row] = await db
-    .insert(environment)
+    .insert(preview)
     .values({
       projectId: input.projectId,
-      name: `PR #${input.prNumber} · ${input.repoSlug}`,
-      slug: `${input.repoSlug}-pr-${input.prNumber}`,
-      kind: "preview",
-      state: "active",
-      baseEnvironmentId: input.baseEnvironmentId,
       gitRepoId: input.gitRepoId,
-      gitRef: input.headRef,
-      pullRequestNumber: input.prNumber,
-      pullRequestNodeId: input.prNodeId,
+      prNumber: input.prNumber,
+      prNodeId: input.prNodeId,
+      branch: input.branch,
       headSha: input.headSha,
+      slug: `${input.repoSlug}-pr-${input.prNumber}`,
+      state: "active",
     })
     .onConflictDoUpdate({
-      target: [environment.projectId, environment.gitRepoId, environment.pullRequestNumber],
+      target: [preview.projectId, preview.gitRepoId, preview.prNumber],
       set: {
-        gitRef: input.headRef,
+        branch: input.branch,
         headSha: input.headSha,
         state: "active",
         updatedAt: new Date(),
@@ -66,25 +60,23 @@ export async function ensurePreviewEnvironment(
 }
 
 /**
- * Mark a PR's preview env(s) closed and return the affected rows so the caller
- * can tear down their compute + branched databases. Scoped by repo — closing a
- * PR on repo A must not close repo B's same-numbered preview. Only touches
- * preview envs.
+ * Mark a PR's preview(s) closed and return the affected rows so the caller can
+ * tear down their compute + branched databases. Scoped by repo — closing a PR
+ * on repo A must not close repo B's same-numbered preview.
  */
-export async function markPreviewEnvironmentsClosed(
+export async function markPreviewsClosed(
   projectId: ProjectId,
   gitRepoId: GitRepoId,
   prNumber: number,
-): Promise<EnvironmentRow[]> {
+): Promise<PreviewRow[]> {
   return db
-    .update(environment)
+    .update(preview)
     .set({ state: "closed", updatedAt: new Date() })
     .where(
       and(
-        eq(environment.projectId, projectId),
-        eq(environment.gitRepoId, gitRepoId),
-        eq(environment.pullRequestNumber, prNumber),
-        eq(environment.kind, "preview"),
+        eq(preview.projectId, projectId),
+        eq(preview.gitRepoId, gitRepoId),
+        eq(preview.prNumber, prNumber),
       ),
     )
     .returning();

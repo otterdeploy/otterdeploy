@@ -80,6 +80,9 @@ export interface CurrentDatabase {
   name: string;
   engine: DatabaseEngine;
   publicEnabled: boolean;
+  // PR-preview branching opt-in (databaseResource.previewBranching). Diffed
+  // only when the manifest declares `previews` — same convention as services.
+  previewBranching: boolean;
   extraEnv: Record<string, string>;
 }
 
@@ -314,6 +317,12 @@ function diffDatabase(
   // a live public-toggle on the next Apply.
   if (desired.publicEnabled !== undefined && desired.publicEnabled !== current.publicEnabled) {
     fieldChanges.publicEnabled = { from: current.publicEnabled, to: desired.publicEnabled };
+  }
+
+  // Same declared-only convention: `previews` opts the database into PR
+  // branching; omitted leaves the live toggle alone.
+  if (desired.previews !== undefined && desired.previews !== current.previewBranching) {
+    fieldChanges.previews = { from: current.previewBranching, to: desired.previews };
   }
 
   // Same declared-only convention as publicEnabled: an absent extraEnv means

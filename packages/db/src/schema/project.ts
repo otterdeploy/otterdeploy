@@ -9,6 +9,7 @@ import type {
   DeploymentId,
   EnvironmentId,
   GitRepoId,
+  PreviewId,
   ProjectEnvSubscriptionId,
   ProjectEnvVarId,
   ProjectId,
@@ -157,9 +158,11 @@ export const teamMember = pgTable(
 // Persistent = operator-managed, long-lived (production / staging). Preview =
 // ephemeral, one per open PR, machine-managed + auto-torn-down. See
 // docs/designs/pr-previews.md.
-export const environmentKindEnum = pgEnum("environment_kind", ["persistent", "preview"]);
-export const environmentStateEnum = pgEnum("environment_state", ["active", "closed"]);
-
+// Environments are USER-CREATED contexts only (Development / Staging /
+// Production): named variable scopes the operator manages. PR previews are
+// deliberately NOT environments — they live in the `preview` table below and
+// scope their rows via `previewId` columns, so they can never surface in
+// environment UI (switcher, variables tabs, pickers) by construction.
 export const environment = pgTable(
   "environment",
   {
@@ -172,23 +175,6 @@ export const environment = pgTable(
       .references(() => project.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     slug: text("slug").notNull(),
-    kind: environmentKindEnum("kind").notNull().default("persistent"),
-    state: environmentStateEnum("state").notNull().default("active"),
-    // A preview env inherits its base env's vars by reference, so a change to a
-    // base (production) var propagates to open previews unless overridden. Points
-    // at the project's persistent env. Self-referential FK enforced app-side
-    // (mirrors the cross-schema idiom on project.gitRepoId) — avoids the
-    // const-before-use dance and keeps parity with the rest of the schema.
-    baseEnvironmentId: text("base_environment_id").$type<EnvId>(),
-    // Preview provenance — only populated when kind='preview'. gitRepoId FK
-    // enforced app-side to avoid a cross-schema import cycle (see git.ts).
-    gitRepoId: text("git_repo_id").$type<GitRepoId>(),
-    gitRef: text("git_ref"),
-    pullRequestNumber: integer("pull_request_number"),
-    pullRequestNodeId: text("pull_request_node_id"),
-    headSha: text("head_sha"),
-    // Idle GC: tear a preview down past this instant even if the PR stays open.
-    autoTeardownAt: timestamp("auto_teardown_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -198,16 +184,58 @@ export const environment = pgTable(
   (table) => [
     index("environment_project_id_idx").on(table.projectId),
     uniqueIndex("environment_project_slug_unique").on(table.projectId, table.slug),
-    // A (repo, PR) maps to at most one preview env. Now that a project can host
-    // services from multiple repos, the key includes gitRepoId — otherwise
-    // repo-A PR#5 and repo-B PR#5 in the same project would collide onto one
-    // env row. Persistent envs have NULL PR number + NULL gitRepoId and NULLs
-    // are distinct in a unique index, so they never collide. Preview slugs are
-    // repo-qualified (`<repoSlug>-pr-<n>`) to match — see git/preview-env.ts.
-    uniqueIndex("environment_project_repo_pr_unique").on(
+  ],
+);
+
+export const previewStateEnum = pgEnum("preview_state", ["active", "closed"]);
+
+/**
+ * A PR preview — a first-class entity bound to (project, repo, PR#), NOT an
+ * environment. One row per open PR; `previewId` columns on deployment /
+ * proxy_route / resource scope a preview's containers, routes and opt-in DB
+ * branches to it. Services opt in via serviceResource.previewsEnabled;
+ * databases opt in via databaseResource.previewBranching (unbranched refs
+ * resolve to the base database).
+ */
+export const preview = pgTable(
+  "preview",
+  {
+    id: text("id")
+      .primaryKey()
+      .$type<PreviewId>()
+      .$defaultFn(() => createId(ID_PREFIX.preview)),
+    projectId: text("project_id")
+      .notNull()
+      .$type<ProjectId>()
+      .references(() => project.id, { onDelete: "cascade" }),
+    // gitRepoId FK enforced app-side to avoid a cross-schema import cycle
+    // (same idiom the old environment provenance columns used).
+    gitRepoId: text("git_repo_id").notNull().$type<GitRepoId>(),
+    prNumber: integer("pr_number").notNull(),
+    prNodeId: text("pr_node_id"),
+    /** Plain head branch name (`feat/checkout-v2`) — GitHub's pr.head.ref. */
+    branch: text("branch").notNull(),
+    headSha: text("head_sha").notNull(),
+    /** Repo-qualified suffix (`<repoSlug>-pr-<n>`) naming the preview's
+     *  containers, volumes and hosts — byte-identical at create and teardown. */
+    slug: text("slug").notNull(),
+    state: previewStateEnum("state").notNull().default("active"),
+    // Idle GC: tear the preview down past this instant even if the PR stays open.
+    autoTeardownAt: timestamp("auto_teardown_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("preview_project_id_idx").on(table.projectId),
+    // A (repo, PR) maps to at most one preview. Keyed by gitRepoId too so
+    // repo-A PR#5 and repo-B PR#5 in the same project don't collide.
+    uniqueIndex("preview_project_repo_pr_unique").on(
       table.projectId,
       table.gitRepoId,
-      table.pullRequestNumber,
+      table.prNumber,
     ),
   ],
 );
@@ -236,11 +264,10 @@ export const resource = pgTable(
     name: text("name").notNull(),
     type: resourceTypeEnum("type").notNull(),
     status: resourceStatusEnum("status").notNull().default("draft"),
-    // Environment scoping. NULL = base resource (applies to every environment,
-    // the only kind that exists pre-previews); set = env-specific instance such
-    // as a preview DB branch. The variable resolver prefers the env-specific
-    // row and falls back to the base. See docs/designs/pr-previews.md.
-    environmentId: text("environment_id").$type<EnvId>(),
+    // Preview scoping. NULL = base resource (the normal case); set = a
+    // preview-scoped instance such as an opt-in DB branch. The variable
+    // resolver prefers the preview-scoped row and falls back to the base.
+    previewId: text("preview_id").$type<PreviewId>(),
     // Provenance for a branched resource (e.g. a COW db branch). Self-referential
     // FK enforced app-side (same idiom as project.gitRepoId).
     branchedFromResourceId: text("branched_from_resource_id").$type<ResourceId>(),
@@ -251,19 +278,19 @@ export const resource = pgTable(
       .notNull(),
   },
   (table) => [
-    // A base resource (environmentId IS NULL) is unique per (project, name).
-    // An env-scoped branch shares its source's name but carries a non-null
-    // environmentId, so it's uniqued per (project, environment, name) instead.
-    // Two partial uniques keep base uniqueness intact while letting a preview
-    // env own a branch that reuses the base name. See docs/designs/pr-previews.md §3.6.
+    // A base resource (previewId IS NULL) is unique per (project, name).
+    // A preview-scoped branch shares its source's name but carries a non-null
+    // previewId, so it's uniqued per (project, preview, name) instead. Two
+    // partial uniques keep base uniqueness intact while letting a preview own
+    // a branch that reuses the base name (so name-based refs re-resolve).
     uniqueIndex("resource_project_name_base_unique")
       .on(table.projectId, table.name)
-      .where(sql`environment_id is null`),
-    uniqueIndex("resource_project_name_env_unique")
-      .on(table.projectId, table.environmentId, table.name)
-      .where(sql`environment_id is not null`),
+      .where(sql`preview_id is null`),
+    uniqueIndex("resource_project_name_preview_unique")
+      .on(table.projectId, table.previewId, table.name)
+      .where(sql`preview_id is not null`),
     index("resource_project_id_idx").on(table.projectId),
-    index("resource_environment_id_idx").on(table.environmentId),
+    index("resource_preview_id_idx").on(table.previewId),
   ],
 );
 
@@ -324,9 +351,13 @@ export const databaseResource = pgTable(
     // non-postgres engines. Changing this rolls the service (image may
     // change) and runs CREATE/DROP EXTENSION against the live database.
     extensions: jsonb("extensions").$type<string[]>().notNull().default([]),
+    // Opt-in: branch this database into PR previews (dump/restore or COW copy
+    // per DB). Default OFF — an unbranched database is shared by previews via
+    // the resolver's base fallback, so a PR costs no extra data copy.
+    previewBranching: boolean("preview_branching").notNull().default(false),
     // COW branch bookkeeping. NULL branchStrategy = a base (unbranched) database.
-    // When set, this row is a preview-env branch of another database; see
-    // resource.branchedFromResourceId for provenance. See docs/designs/pr-previews.md §3.3.
+    // When set, this row is a preview-scoped branch of another database; see
+    // resource.branchedFromResourceId for provenance.
     branchStrategy: branchStrategyEnum("branch_strategy"),
     // ZFS snapshot name the branch was cloned from — needed to destroy the
     // snapshot on teardown. NULL for the `copy` strategy (no snapshot exists).
@@ -638,10 +669,10 @@ export const deployment = pgTable(
       .notNull()
       .$type<ResourceId>()
       .references(() => resource.id, { onDelete: "cascade" }),
-    // Which environment this deployment belongs to. NULL on rows that pre-date
-    // the env model (backfilled to the project's persistent env); preview
-    // deploys carry the preview env id. See docs/designs/pr-previews.md.
-    environmentId: text("environment_id").$type<EnvId>(),
+    // Preview scoping. NULL = a normal (base) deployment; set = this row
+    // deploys the resource INTO that PR preview (distinct container name,
+    // never touches the base serviceResource.image).
+    previewId: text("preview_id").$type<PreviewId>(),
     // Image the deployment was launched with. Captured at insert time so
     // history survives a platform image-pin change.
     image: text("image").notNull(),
@@ -675,7 +706,7 @@ export const deployment = pgTable(
   (table) => [
     index("deployment_resource_id_idx").on(table.resourceId),
     index("deployment_resource_created_idx").on(table.resourceId, table.createdAt),
-    index("deployment_environment_id_idx").on(table.environmentId),
+    index("deployment_preview_id_idx").on(table.previewId),
   ],
 );
 
