@@ -7,24 +7,19 @@
  */
 import { useState } from "react";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/shared/components/ui/table";
+import { Input } from "@/shared/components/ui/input";
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
 import { BlocklistsPanel } from "./blocklists-panel";
-import { FirewallDisabledCard } from "./firewall-view-parts";
+import { DecisionsTable, FirewallDisabledCard } from "./firewall-view-parts";
+import { FlaggedPanel } from "./flagged-panel";
 
-type View = "decisions" | "sources";
+type View = "decisions" | "flagged" | "sources";
 
 export function FirewallView() {
   const status = useQuery({
@@ -42,6 +37,31 @@ export function FirewallView() {
   const configured = Boolean(s?.configured);
   const [view, setView] = useState<View>("decisions");
 
+  const block = useMutation({
+    ...orpc.firewall.block.mutationOptions(),
+    onSuccess: (r, vars) => {
+      if (r.ok) {
+        toast.success(`Blocked ${vars.ip}`);
+        void decisions.refetch();
+      } else {
+        toast.error(r.error ?? "Block failed");
+      }
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Block failed"),
+  });
+  const unblock = useMutation({
+    ...orpc.firewall.unblock.mutationOptions(),
+    onSuccess: (r, vars) => {
+      if (r.ok) {
+        toast.success(`Unblocked ${vars.ip}`);
+        void decisions.refetch();
+      } else {
+        toast.error(r.error ?? "Unblock failed");
+      }
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Unblock failed"),
+  });
+
   return (
     <div className="flex h-full min-w-0 flex-col overflow-hidden">
       <FirewallHeader configured={configured} reachable={reachable} />
@@ -55,109 +75,23 @@ export function FirewallView() {
           void status.refetch();
           void decisions.refetch();
         }}
+        onBlock={(ip) => block.mutate({ ip })}
+        blocking={block.isPending}
       />
 
       {view === "sources" ? (
         <BlocklistsPanel />
+      ) : view === "flagged" ? (
+        <FlaggedPanel />
       ) : !configured ? (
         <FirewallDisabledCard />
       ) : (
-        <div className="min-h-0 flex-1 overflow-auto">
-          <Table className="[&_td:first-child]:pl-4 [&_td:last-child]:pr-4 [&_th:first-child]:pl-4 [&_th:last-child]:pr-4">
-            <TableHeader>
-              <TableRow className="border-b bg-muted/30 hover:bg-transparent">
-                {[
-                  "Value",
-                  "Country",
-                  "AS / Network",
-                  "Scenario",
-                  "Events",
-                  "Action",
-                  "Expires",
-                  "Origin",
-                ].map((h) => (
-                  <TableHead
-                    key={h}
-                    className="h-8 text-[10px] font-semibold tracking-[0.06em] uppercase"
-                  >
-                    {h}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.length === 0 ? (
-                <TableRow className="hover:bg-transparent">
-                  <TableCell
-                    colSpan={8}
-                    className="py-10 text-center text-[13px] text-muted-foreground"
-                  >
-                    {reachable
-                      ? "No active decisions — nothing is currently blocked."
-                      : "Can't reach the CrowdSec agent — is the firewall profile running?"}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                rows.map((d, i) => (
-                  <TableRow key={`${d.value}-${d.id ?? i}`} className="font-mono text-[12px]">
-                    <TableCell className="text-foreground/90">
-                      {d.value}
-                      {d.scope !== "Ip" ? (
-                        <span className="ml-1.5 text-[10px] text-muted-foreground/70">
-                          {d.scope}
-                        </span>
-                      ) : null}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">
-                      {d.country ? (
-                        <span title={d.country}>
-                          {flagEmoji(d.country)} {d.country}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground/40">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell
-                      className="max-w-[220px] truncate text-muted-foreground"
-                      title={d.asName ?? undefined}
-                    >
-                      {d.asNumber || d.asName ? (
-                        <>
-                          {d.asNumber ? (
-                            <span className="text-foreground/70">AS{d.asNumber}</span>
-                          ) : null}
-                          {d.asName ? <span className="ml-1.5">{d.asName}</span> : null}
-                        </>
-                      ) : (
-                        <span className="text-muted-foreground/40">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell
-                      className="max-w-[200px] truncate text-muted-foreground"
-                      title={d.scenario}
-                    >
-                      {d.scenario || <span className="text-muted-foreground/40">—</span>}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {d.eventsCount ?? <span className="text-muted-foreground/40">—</span>}
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={cn(d.type === "ban" ? "text-destructive" : "text-amber-500")}
-                      >
-                        {d.type}
-                      </span>
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">
-                      {d.duration}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{d.origin}</TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+        <DecisionsTable
+          rows={rows}
+          reachable={reachable}
+          onUnblock={(ip) => unblock.mutate({ ip })}
+          unblocking={unblock.isPending}
+        />
       )}
     </div>
   );
@@ -205,6 +139,8 @@ function FirewallToolbar({
   decisionCount,
   refreshing,
   onRefresh,
+  onBlock,
+  blocking,
 }: {
   view: View;
   onViewChange: (v: View) => void;
@@ -212,11 +148,13 @@ function FirewallToolbar({
   decisionCount: number;
   refreshing: boolean;
   onRefresh: () => void;
+  onBlock: (ip: string) => void;
+  blocking: boolean;
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2 border-b px-4 py-3">
       <div className="flex items-center gap-0.5 rounded-md border p-0.5">
-        {(["decisions", "sources"] as const).map((v) => (
+        {(["decisions", "flagged", "sources"] as const).map((v) => (
           <button
             key={v}
             type="button"
@@ -228,7 +166,7 @@ function FirewallToolbar({
                 : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
             )}
           >
-            {v === "decisions" ? "Decisions" : "Sources"}
+            {v === "decisions" ? "Decisions" : v === "flagged" ? "Flagged IPs" : "Sources"}
           </button>
         ))}
       </div>
@@ -241,17 +179,50 @@ function FirewallToolbar({
       ) : null}
       <div className="flex-1" />
       {view === "decisions" ? (
-        <Button variant="outline" size="sm" onClick={onRefresh} disabled={refreshing}>
-          {refreshing ? "Refreshing…" : "Refresh"}
-        </Button>
+        <>
+          {configured ? <BlockIpForm onBlock={onBlock} blocking={blocking} /> : null}
+          <Button variant="outline" size="sm" onClick={onRefresh} disabled={refreshing}>
+            {refreshing ? "Refreshing…" : "Refresh"}
+          </Button>
+        </>
       ) : null}
     </div>
   );
 }
 
-/** ISO-3166 alpha-2 → flag emoji (regional indicator pair). "" for non-2-letter. */
-function flagEmoji(cc: string): string {
-  const code = cc.trim().toUpperCase();
-  if (!/^[A-Z]{2}$/.test(code)) return "";
-  return String.fromCodePoint(...[...code].map((c) => 0x1f1e6 + (c.charCodeAt(0) - 65)));
+/** Inline "block an IP by hand" form — bans the entered IP/CIDR via CrowdSec. */
+function BlockIpForm({
+  onBlock,
+  blocking,
+}: {
+  onBlock: (ip: string) => void;
+  blocking: boolean;
+}) {
+  const [ip, setIp] = useState("");
+  const submit = () => {
+    const value = ip.trim();
+    if (!value) return;
+    onBlock(value);
+    setIp("");
+  };
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        submit();
+      }}
+      className="flex items-center gap-1.5"
+    >
+      <Input
+        value={ip}
+        onChange={(e) => setIp(e.target.value)}
+        placeholder="Block IP or CIDR…"
+        aria-label="Block an IP or CIDR range"
+        className="h-8 w-44 font-mono text-[12px]"
+      />
+      <Button type="submit" variant="outline" size="sm" disabled={blocking || !ip.trim()}>
+        {blocking ? "Blocking…" : "Block"}
+      </Button>
+    </form>
+  );
 }

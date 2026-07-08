@@ -10,6 +10,7 @@ import { startDataFolderSweep } from "@otterdeploy/api/lib/data-folder-sweep";
 import { startPreviewReaper } from "@otterdeploy/api/git/preview-reaper";
 import { startMetricsSampler } from "@otterdeploy/api/metrics";
 import { startAuditAnomalyScan } from "@otterdeploy/api/notifications/audit-anomaly";
+import { startEdgeThreatScan } from "@otterdeploy/api/notifications/edge-anomaly";
 import { startBlocklistScheduler } from "@otterdeploy/api/routers/firewall/scheduler";
 import {
   startHealthAgentReconciler,
@@ -67,6 +68,11 @@ export function startBackgroundServices(): () => void {
   // Audit-anomaly scan — periodic, conservative rules over recent audit rows
   // (denial bursts, mass deletions) that emit `audit.anomaly` notifications.
   start("audit-anomaly-scan", startAuditAnomalyScan);
+
+  // Edge-threat scan — flags client IPs hammering an org's domains with
+  // scanner-style probes (/.env, /actuator, *.php, ?cmd=…) and emits
+  // `edge.probe` so subscribed channels can alert.
+  start("edge-threat-scan", startEdgeThreatScan);
 
   return () => {
     for (const stop of stops) stop();

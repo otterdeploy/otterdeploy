@@ -35,6 +35,7 @@ export const EVENTS: EventRow[] = [
   { id: "backup.succeeded", label: "Backup succeeded", severity: "ok" },
   { id: "ssh.rotated", label: "SSH key rotated", severity: "info" },
   { id: "audit.anomaly", label: "Audit anomaly", severity: "warn" },
+  { id: "edge.probe", label: "Suspicious edge traffic", severity: "warn" },
 ];
 
 interface KindMeta {

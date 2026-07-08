@@ -70,12 +70,16 @@ export function LogTable({
   expanded,
   setExpanded,
   isLoading,
+  onBlockIp,
+  blocking,
 }: {
   rows: EdgeLog[];
   wrap: boolean;
   expanded: string | null;
   setExpanded: (id: string | null) => void;
   isLoading: boolean;
+  onBlockIp: (ip: string) => void;
+  blocking: boolean;
 }) {
   return (
     <div className="min-h-0 flex-1 overflow-auto">
@@ -85,21 +89,23 @@ export function LogTable({
         <TableHeader>
           <TableRow className="border-b bg-muted/30 hover:bg-transparent">
             <TableHead className="w-8" />
-            {["Time", "Method", "Status", "Host", "Path", "Latency", "Client IP"].map((h) => (
-              <TableHead
-                key={h}
-                className="h-8 text-[10px] font-semibold tracking-[0.06em] uppercase"
-              >
-                {h}
-              </TableHead>
-            ))}
+            {["Time", "Method", "Status", "Host", "Path", "Latency", "Client IP", "Country"].map(
+              (h) => (
+                <TableHead
+                  key={h}
+                  className="h-8 text-[10px] font-semibold tracking-[0.06em] uppercase"
+                >
+                  {h}
+                </TableHead>
+              ),
+            )}
           </TableRow>
         </TableHeader>
         <TableBody>
           {rows.length === 0 ? (
             <TableRow className="hover:bg-transparent">
               <TableCell
-                colSpan={8}
+                colSpan={9}
                 className="py-10 text-center text-[13px] text-muted-foreground"
               >
                 {isLoading
@@ -115,6 +121,8 @@ export function LogTable({
                 wrap={wrap}
                 open={expanded === r.id}
                 onToggle={() => setExpanded(expanded === r.id ? null : r.id)}
+                onBlockIp={onBlockIp}
+                blocking={blocking}
               />
             ))
           )}
@@ -147,12 +155,20 @@ export function HostFooter({ data }: { data: EdgeLogsData | undefined }) {
 }
 
 export function exportCsv(rows: EdgeLog[]) {
-  const header = "time,method,status,host,path,latency_ms,client_ip,user_agent";
+  const header = "time,method,status,host,path,latency_ms,client_ip,country,user_agent";
   const body = rows
     .map((r) =>
-      [r.ts, r.method, r.status, r.host, r.path, r.latencyMs, r.clientIp, `"${r.userAgent}"`].join(
-        ",",
-      ),
+      [
+        r.ts,
+        r.method,
+        r.status,
+        r.host,
+        r.path,
+        r.latencyMs,
+        r.clientIp,
+        r.country ?? "",
+        `"${r.userAgent}"`,
+      ].join(","),
     )
     .join("\n");
   const blob = new Blob([`${header}\n${body}`], { type: "text/csv" });

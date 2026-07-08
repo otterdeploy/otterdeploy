@@ -72,7 +72,7 @@
     "vitest": "catalog:"
   },
   "optionalDependencies": {
-    "maxmind": "^4.3.24",
+    "maxmind": "^5.0.6",
     "ssh2-sftp-client": "^11.0.0"
   },
   "optionalDependenciesNotes": {

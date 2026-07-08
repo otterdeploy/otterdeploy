@@ -36,6 +36,33 @@ const firewallDecisionSchema = z.object({
   createdAt: z.string().nullable(),
 });
 
+/** An IP or CIDR range. Kept deliberately loose (cscli does the real
+ *  validation); the charset just rejects obvious junk / shell metacharacters. */
+const ipValue = z
+  .string()
+  .trim()
+  .min(3)
+  .max(64)
+  .regex(/^[0-9a-fA-F:.]+(\/\d{1,3})?$/, "Enter a valid IP address or CIDR range.");
+
+const blockResultSchema = z.object({
+  ok: z.boolean(),
+  /** Human-readable failure (agent down, cscli error) — null on success. */
+  error: z.string().nullable(),
+});
+
+/** A client IP flagged for scanner-style probing of the org's domains. */
+const flaggedIpSchema = z.object({
+  ip: z.string(),
+  country: z.string().nullable(),
+  /** Suspicious requests from this IP in the window. */
+  count: z.number(),
+  /** ISO-8601 timestamp of the most recent probe. */
+  lastSeen: z.string(),
+  /** Up to 5 distinct probe paths, for context. */
+  samplePaths: z.array(z.string()),
+});
+
 const firewallStatusSchema = z.object({
   /** Both LAPI url + bouncer key are configured (enforcement wired into Caddy). */
   configured: z.boolean(),
@@ -96,6 +123,30 @@ export const firewallContract = {
   decisions: oc
     .meta({ path: "/firewall/decisions", tag, method: "GET" })
     .output(z.array(firewallDecisionSchema)),
+  /** Ban a single IP / CIDR (manual CrowdSec decision). No Caddy reload needed. */
+  block: oc
+    .meta({ path: "/firewall/decisions/block", tag, method: "POST" })
+    .input(
+      z.object({
+        ip: ipValue,
+        /** Ban length in hours. Default 30 days. */
+        durationHours: z.number().int().min(1).max(8760).default(720),
+        /** Free-text note; defaults to `manual:<actorId>` in the handler. */
+        reason: z.string().max(120).optional(),
+      }),
+    )
+    .output(blockResultSchema),
+  /** Remove every decision targeting an IP (undo a manual block). */
+  unblock: oc
+    .meta({ path: "/firewall/decisions/unblock", tag, method: "POST" })
+    .input(z.object({ ip: ipValue }))
+    .output(blockResultSchema),
+  /** Client IPs probing the org's domains with scanner-style paths — the
+   *  "review these IPs" panel, one-click blockable. */
+  flagged: oc
+    .meta({ path: "/firewall/flagged", tag, method: "GET" })
+    .input(z.object({ windowMinutes: z.number().int().min(5).max(1440).default(60) }))
+    .output(z.array(flaggedIpSchema)),
 
   blocklists: {
     list: oc.meta({ path: "/firewall/blocklists", tag, method: "GET" }).output(blocklistListSchema),

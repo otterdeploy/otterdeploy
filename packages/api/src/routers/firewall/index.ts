@@ -16,9 +16,12 @@ import type { BlocklistId } from "@otterdeploy/shared/id";
 import { env } from "@otterdeploy/env/server";
 import { Result } from "better-result";
 
+import { flaggedIps } from "../../edge-logs/threat-scan";
 import { orgScopedProcedure } from "../..";
+import { listOrgDomains } from "../edge-logs/queries";
 import { BLOCKLIST_CATALOG, catalogBySlug } from "./catalog";
 import { cscliRead, cscliRun } from "./cscli";
+import { blockIp, unblockIp } from "./decision";
 import {
   deleteBlocklist,
   findBlocklistByCatalog,
@@ -125,6 +128,25 @@ export const firewallRouter = {
 
   decisions: orgScopedProcedure.firewall.decisions.handler(async () => {
     return (await fetchDecisions()) ?? [];
+  }),
+
+  block: orgScopedProcedure.firewall.block.handler(async ({ input, context }) => {
+    context.log.set({ target: { type: "ip", id: input.ip } });
+    const reason = input.reason?.trim() || `manual:${context.session?.user?.id ?? "operator"}`;
+    const res = await blockIp(input.ip, input.durationHours, reason);
+    return { ok: res.ok, error: res.error ?? null };
+  }),
+
+  unblock: orgScopedProcedure.firewall.unblock.handler(async ({ input, context }) => {
+    context.log.set({ target: { type: "ip", id: input.ip } });
+    const res = await unblockIp(input.ip);
+    return { ok: res.ok, error: res.error ?? null };
+  }),
+
+  flagged: orgScopedProcedure.firewall.flagged.handler(async ({ input, context }) => {
+    const hosts = await listOrgDomains(context.activeOrganizationId);
+    const sinceMs = Date.now() - input.windowMinutes * 60_000;
+    return flaggedIps(hosts, sinceMs, 100);
   }),
 
   blocklists: {
