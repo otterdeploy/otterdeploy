@@ -21,6 +21,18 @@ export function defaultTeardownAt(): Date | null {
   return hours > 0 ? new Date(Date.now() + hours * 60 * 60 * 1000) : null;
 }
 
+/**
+ * The on-conflict `auto_teardown_at` bump: keep a keep-alive pin (NULL) NULL,
+ * otherwise set the fresh teardown instant. Must be a raw `sql` fragment because
+ * it reads the existing column value — which means drizzle does NOT map the
+ * value for us, so we bind an ISO string and cast it to `timestamp` explicitly.
+ * A bare Date binds as `Date.toString()` (invalid syntax) and a bare string
+ * binds as `text` (type mismatch); both fail. See __tests__/preview-env.test.ts.
+ */
+export function teardownBumpFragment(teardownAt: Date) {
+  return sql`case when ${preview.autoTeardownAt} is null then null else ${teardownAt.toISOString()}::timestamp end`;
+}
+
 export type PreviewRow = typeof preview.$inferSelect;
 
 export interface EnsurePreviewInput {
@@ -69,15 +81,13 @@ export async function ensurePreview(input: EnsurePreviewInput): Promise<PreviewR
         // A push is activity — extend the idle clock, but PRESERVE a keep-alive
         // pin: if the existing row was pinned (auto_teardown_at IS NULL) keep it
         // NULL; otherwise bump to a fresh default. Skip when idle teardown is
-        // globally disabled. NOTE: pass the Date as an ISO string — inside a raw
-        // `sql` template drizzle does NOT apply the column's timestamp mapper, so
-        // a bare Date binds as `Date.toString()` ("Sat Jul 11 2026 … (Coordinated
-        // Universal Time)") which Postgres rejects as invalid timestamp syntax.
-        ...(teardownAt
-          ? {
-              autoTeardownAt: sql`case when ${preview.autoTeardownAt} is null then null else ${teardownAt.toISOString()} end`,
-            }
-          : {}),
+        // globally disabled. NOTE: inside a raw `sql` template drizzle does NOT
+        // apply the column's timestamp mapper — a bare Date binds as
+        // `Date.toString()` (rejected as invalid timestamp), and a bare ISO
+        // string binds as `text` (rejected: "column is timestamp but expression
+        // is text", since Postgres type-checks this CASE even on a fresh insert).
+        // So bind the ISO string and cast it to `timestamp` explicitly.
+        ...(teardownAt ? { autoTeardownAt: teardownBumpFragment(teardownAt) } : {}),
         updatedAt: new Date(),
       },
     })
