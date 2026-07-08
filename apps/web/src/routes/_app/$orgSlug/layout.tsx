@@ -47,8 +47,10 @@ function RouteComponent() {
           check, so the banner/header pill light up anywhere in the org shell. */}
       <UpdateProvider>
         <SidebarProvider defaultOpen={false} className="flex flex-col">
-          <SiteHeader />
+          {/* Banner lives above the header so it reads as a system-level
+              notice about the app, not a bar wedged into the app body. */}
           <UpdateBanner />
+          <SiteHeader />
           <div className="flex flex-1">
             {!match ? (
               <>
