@@ -47,7 +47,9 @@ ALTER TABLE "environment" DROP COLUMN "pull_request_number";--> statement-breakp
 ALTER TABLE "environment" DROP COLUMN "pull_request_node_id";--> statement-breakpoint
 ALTER TABLE "environment" DROP COLUMN "head_sha";--> statement-breakpoint
 ALTER TABLE "environment" DROP COLUMN "auto_teardown_at";--> statement-breakpoint
-DROP INDEX "resource_project_name_base_unique";--> statement-breakpoint
+-- IF EXISTS: this partial index's predicate references environment_id, so
+-- Postgres already auto-dropped it with the DROP COLUMN above.
+DROP INDEX IF EXISTS "resource_project_name_base_unique";--> statement-breakpoint
 CREATE UNIQUE INDEX "resource_project_name_base_unique" ON "resource" ("project_id","name") WHERE preview_id is null;--> statement-breakpoint
 CREATE INDEX "deployment_preview_id_idx" ON "deployment" ("preview_id");--> statement-breakpoint
 CREATE INDEX "preview_project_id_idx" ON "preview" ("project_id");--> statement-breakpoint
