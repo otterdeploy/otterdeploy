@@ -17,6 +17,8 @@ import { log as globalLog } from "evlog";
 
 import type { ProjectRef } from "../scopes";
 
+import { resolveServiceEnv } from "../../lib/variables";
+import { listServiceEnvVars } from "../service/queries";
 import { redeployOne } from "../service/redeploy";
 import {
   deletePreviewServiceEnvVar,
@@ -168,4 +170,69 @@ async function redeployPreviewService(
     return false;
   }
   return true;
+}
+
+/** Effective env for a service INSIDE a preview: every base var plus this
+ *  preview's overrides, each marked inherited|override with the base value for
+ *  overridden keys, and fully ref-resolved values so the panel shows what the
+ *  container will actually run with. */
+export interface EffectiveEnvRow {
+  key: string;
+  value: string;
+  source: "inherited" | "override";
+  baseValue: string | null;
+  isSecret: boolean;
+  /** True when ref resolution failed for this value — the UI shows the raw
+   *  declared value and an "unresolved" hint instead of a blank. */
+  unresolved: boolean;
+}
+
+export async function listPreviewEffectiveEnv(
+  input: PreviewEnvScope,
+): Promise<Result<EffectiveEnvRow[], ProjectNotFoundError>> {
+  const g = await guard(input);
+  if (g.isErr()) return Result.err(g.error);
+
+  // Base (previewId-null) rows for this service — the inherited layer.
+  const baseRows = await listServiceEnvVars(input.serviceResourceId);
+  const baseByKey = new Map(baseRows.map((r) => [r.key, r]));
+  // Declared overrides for this preview.
+  const overrides = await listPreviewServiceEnvVars(input.serviceResourceId, input.previewId);
+  const overrideByKey = new Map(overrides.map((r) => [r.key, r]));
+
+  // Fully-resolved effective values (refs expanded against the preview scope).
+  const resolved = await resolveServiceEnv(
+    input.projectId as ProjectId,
+    input.serviceResourceId,
+    input.previewId,
+  );
+  const resolvedByKey = resolved.isOk() ? resolved.value : {};
+  const resolveOk = resolved.isOk();
+
+  const keys = new Set<string>([...baseByKey.keys(), ...overrideByKey.keys()]);
+  return Result.ok(
+    [...keys]
+      .map((key): EffectiveEnvRow => {
+        const override = overrideByKey.get(key);
+        const base = baseByKey.get(key);
+        const declared = override ?? base;
+        const source: "inherited" | "override" = override ? "override" : "inherited";
+        // Prefer the resolved value; on resolver failure fall back to the raw
+        // declared value so the tab never blanks (RefMissingResource etc.).
+        const resolvedVal = resolvedByKey[key];
+        const unresolved = !resolveOk && resolvedVal === undefined;
+        const value = resolvedVal ?? declared?.value ?? "";
+        const isSecret = (base?.isSecret ?? false) || (override?.isSecret ?? false);
+        return {
+          key,
+          // Mask secrets — never return cleartext to the client.
+          value: isSecret && value.length > 0 ? "••••••••" : value,
+          source,
+          baseValue: override ? (isSecret ? "••••••••" : (base?.value ?? null)) : null,
+          isSecret,
+          unresolved,
+        };
+      })
+      .sort((a, b) => a.key.localeCompare(b.key)),
+  );
 }

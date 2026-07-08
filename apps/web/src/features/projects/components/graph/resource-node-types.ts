@@ -85,7 +85,15 @@ export interface PreviewInfo {
   /** Plain head branch name (`feat/checkout-v2`). */
   branch: string;
   /** Latest preview deployment status for this service, raw from the API. */
-  status: "pending" | "building" | "running" | "failed" | "superseded" | "removed" | "none";
+  status:
+    | "pending"
+    | "building"
+    | "running"
+    | "failed"
+    | "superseded"
+    | "removed"
+    | "none"
+    | "paused";
   /** Preview host URL — the card's click-through. Null until exposed. */
   url: string | null;
   /** React-Flow id of the service node this satellite hangs off

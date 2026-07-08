@@ -23,7 +23,7 @@ import type { GithubWebhookResult, PullRequestEvent } from "./types";
 
 import { reconcile } from "../caddy";
 import { branchProjectDatabases } from "./preview-db";
-import { deployProjectPreview } from "./preview-deploy";
+import { triggerPreviewBuild } from "./preview-deploy";
 import { ensurePreview, markPreviewsClosed } from "./preview-env";
 import { report } from "./preview-report";
 import { ensurePreviewRoutes } from "./preview-routes";
@@ -228,7 +228,13 @@ async function deployPreviews(
     } else if (routes.value) {
       routesChanged = true;
     }
-    deploymentsCreated += await deployProjectPreview(p, repo, ev, row.id);
+    deploymentsCreated += await triggerPreviewBuild({
+      projectId: p.id as ProjectId,
+      gitRepoId: repo.id as GitRepoId,
+      previewId: row.id,
+      sha: pr.head.sha,
+      branch: pr.head.ref,
+    });
   }
 
   if (routesChanged) {

@@ -113,6 +113,11 @@ export const env = createEnv({
     // operator supplies it — see edge-logs/geo.ts.
     EDGE_LOG_GEOIP_DB: z.string().min(1).optional(),
 
+    // PR previews: hours of inactivity before the hourly cleanup cron tears an
+    // open preview down (a keep-alive pin sets autoTeardownAt NULL to exempt
+    // it). 0 disables idle teardown entirely. Default 72h.
+    PREVIEW_IDLE_TEARDOWN_HOURS: z.coerce.number().int().min(0).default(72),
+
     // CrowdSec IP-reputation bouncer (deployment-protection.md §10). When
     // both are set, the Caddyfile gains the global `crowdsec` app + a
     // per-site `crowdsec` gate, and the Firewall page reads decisions from

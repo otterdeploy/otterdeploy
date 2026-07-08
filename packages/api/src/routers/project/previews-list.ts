@@ -21,7 +21,7 @@ import { getProjectInOrg, listActivePreviewsByProject } from "./queries";
 export interface PreviewServiceEntry {
   resourceId: string;
   serviceName: string;
-  status: "pending" | "building" | "running" | "failed" | "superseded" | "removed" | "none";
+  status: "pending" | "building" | "running" | "failed" | "superseded" | "removed" | "none" | "paused";
   url: string | null;
 }
 
@@ -32,6 +32,9 @@ export interface PreviewEntry {
   headSha: string;
   slug: string;
   state: "active" | "closed";
+  paused: boolean;
+  autoTeardownAt: string | null;
+  dbBranched: boolean;
   services: PreviewServiceEntry[];
 }
 
@@ -92,6 +95,11 @@ export async function listProjectPreviews(
     }
 
     const routes = await listProxyRoutesByPreview(row.id);
+    const [branchRow] = await db
+      .select({ id: resource.id })
+      .from(resource)
+      .where(and(eq(resource.projectId, input.projectId as ProjectId), eq(resource.previewId, row.id)))
+      .limit(1);
 
     out.push({
       id: row.id,
@@ -100,13 +108,19 @@ export async function listProjectPreviews(
       headSha: row.headSha,
       slug: row.slug,
       state: row.state,
+      paused: row.paused,
+      autoTeardownAt: row.autoTeardownAt ? row.autoTeardownAt.toISOString() : null,
+      dbBranched: !!branchRow,
       services: services.map((svc) => {
         const dep = latestByResource.get(svc.resourceId);
         const route = routes.find((r) => r.resourceId === svc.resourceId);
+        // A paused preview's containers are stopped — report "paused", not the
+        // last-known running/building status.
+        const status = row.paused ? "paused" : (dep?.status ?? "none");
         return {
           resourceId: svc.resourceId,
           serviceName: svc.name,
-          status: dep?.status ?? "none",
+          status,
           url: route ? `https://${route.domain}` : null,
         };
       }),

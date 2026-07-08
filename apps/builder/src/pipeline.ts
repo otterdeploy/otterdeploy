@@ -24,7 +24,7 @@
 import type { DeploymentId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RedisClient } from "bun";
 
-import { loadPreviewScope } from "@otterdeploy/api/lib/environment/load";
+import { isPreviewActive, loadPreviewScope } from "@otterdeploy/api/lib/environment/load";
 import { redeployOne } from "@otterdeploy/api/routers/service/redeploy";
 import { db } from "@otterdeploy/db";
 import { serviceResource } from "@otterdeploy/db/schema";
@@ -229,6 +229,20 @@ function runBuildSteps(
     // build and are only persisted on the base row.
     const previewScope = await loadPreviewScope(ctx.deployment.previewId);
     const isPreview = previewScope != null;
+    // The preview may have been torn down (idle reaper / manual / PR close)
+    // while this build ran. Rolling now would recreate containers for a closed
+    // preview with no routes — an orphan nothing reaps. Bail before the roll.
+    if (isPreview && ctx.deployment.previewId) {
+      const stillOpen = await isPreviewActive(ctx.deployment.previewId);
+      if (!stillOpen) {
+        return Result.err(
+          new BuildStepError({
+            step: "preview-closed",
+            cause: new Error("preview was torn down during the build; skipping rollout"),
+          }),
+        );
+      }
+    }
     if (!isPreview) {
       yield* await step("set-image", () =>
         db
