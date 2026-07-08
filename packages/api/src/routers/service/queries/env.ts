@@ -10,13 +10,77 @@ import type { ResourceRow, ServiceEnvVarRow } from ".";
 // Env vars
 // ---------------------------------------------------------------------------
 
+/** BASE rows only — preview overrides never surface in base env editors,
+ *  views, refs or manifest state. The resolver overlays preview rows itself
+ *  via listPreviewServiceEnvVars. */
 export async function listServiceEnvVars(
   serviceResourceId: ResourceId,
 ): Promise<ServiceEnvVarRow[]> {
   return db
     .select()
     .from(serviceEnvVar)
-    .where(eq(serviceEnvVar.serviceResourceId, serviceResourceId));
+    .where(
+      and(eq(serviceEnvVar.serviceResourceId, serviceResourceId), isNull(serviceEnvVar.previewId)),
+    );
+}
+
+/** A preview's override rows for one service. */
+export async function listPreviewServiceEnvVars(
+  serviceResourceId: ResourceId,
+  previewId: PreviewId,
+): Promise<ServiceEnvVarRow[]> {
+  return db
+    .select()
+    .from(serviceEnvVar)
+    .where(
+      and(
+        eq(serviceEnvVar.serviceResourceId, serviceResourceId),
+        eq(serviceEnvVar.previewId, previewId),
+      ),
+    );
+}
+
+export async function upsertPreviewServiceEnvVar(input: {
+  serviceResourceId: ResourceId;
+  previewId: PreviewId;
+  key: string;
+  value: string;
+}): Promise<ServiceEnvVarRow> {
+  const [row] = await db
+    .insert(serviceEnvVar)
+    .values(input)
+    .onConflictDoUpdate({
+      target: [serviceEnvVar.serviceResourceId, serviceEnvVar.previewId, serviceEnvVar.key],
+      targetWhere: sql`preview_id is not null`,
+      set: { value: input.value, updatedAt: new Date() },
+    })
+    .returning();
+  if (!row) {
+    throw createError({
+      message: "Failed to upsert preview env override",
+      status: 500,
+      why: "Database upsert returned no row",
+    });
+  }
+  return row;
+}
+
+export async function deletePreviewServiceEnvVar(input: {
+  serviceResourceId: ResourceId;
+  previewId: PreviewId;
+  key: string;
+}): Promise<boolean> {
+  const result = await db
+    .delete(serviceEnvVar)
+    .where(
+      and(
+        eq(serviceEnvVar.serviceResourceId, input.serviceResourceId),
+        eq(serviceEnvVar.previewId, input.previewId),
+        eq(serviceEnvVar.key, input.key),
+      ),
+    )
+    .returning({ id: serviceEnvVar.id });
+  return result.length > 0;
 }
 
 export async function upsertServiceEnvVar(input: {
@@ -29,6 +93,7 @@ export async function upsertServiceEnvVar(input: {
     .values(input)
     .onConflictDoUpdate({
       target: [serviceEnvVar.serviceResourceId, serviceEnvVar.key],
+      targetWhere: sql`preview_id is null`,
       set: { value: input.value, updatedAt: new Date() },
     })
     .returning();
@@ -53,6 +118,7 @@ export async function deleteServiceEnvVar(input: {
       and(
         eq(serviceEnvVar.serviceResourceId, input.serviceResourceId),
         eq(serviceEnvVar.key, input.key),
+        isNull(serviceEnvVar.previewId),
       ),
     )
     .returning({ id: serviceEnvVar.id });
@@ -64,7 +130,16 @@ export async function bulkReplaceServiceEnvVars(
   vars: Array<{ key: string; value: string; isSecret?: boolean }>,
 ): Promise<ServiceEnvVarRow[]> {
   return db.transaction(async (tx) => {
-    await tx.delete(serviceEnvVar).where(eq(serviceEnvVar.serviceResourceId, serviceResourceId));
+    // Base rows only — a bulk edit of the base env must never wipe a PR
+    // preview's overrides.
+    await tx
+      .delete(serviceEnvVar)
+      .where(
+        and(
+          eq(serviceEnvVar.serviceResourceId, serviceResourceId),
+          isNull(serviceEnvVar.previewId),
+        ),
+      );
 
     if (vars.length === 0) return [];
 
@@ -156,7 +231,13 @@ export async function findServiceDependentsByName(input: {
     .select({ serviceResourceId: serviceEnvVar.serviceResourceId })
     .from(serviceEnvVar)
     .innerJoin(resource, eq(resource.id, serviceEnvVar.serviceResourceId))
-    .where(and(eq(resource.projectId, input.projectId), like(serviceEnvVar.value, pattern)));
+    .where(
+      and(
+        eq(resource.projectId, input.projectId),
+        like(serviceEnvVar.value, pattern),
+        isNull(serviceEnvVar.previewId),
+      ),
+    );
 
   // Dedupe — a service can reference the target via multiple env vars.
   return Array.from(new Set(rows.map((r) => r.serviceResourceId))) as ResourceId[];

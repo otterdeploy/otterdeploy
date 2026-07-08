@@ -1,5 +1,6 @@
 // oxlint-disable-next-line unicorn/filename-case -- TanStack route-param file; the `$deploymentId.tsx` name is a framework requirement, not a style choice.
 import { createFileRoute, Link, useLoaderData } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { and, eq, useLiveQuery } from "@tanstack/react-db";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Cancel01Icon } from "@hugeicons/core-free-icons";
@@ -8,6 +9,7 @@ import * as m from "motion/react-client";
 import type { ProjectResource } from "@/features/projects/components/graph/resource-to-node";
 
 import { deploymentsCollection } from "@/features/resources/data/deployments";
+import { orpc } from "@/shared/server/orpc";
 import { resourceCollection } from "@/features/resources/data/resource";
 
 import { DeploymentStatusBadge } from "./-components/deployment-detail";
@@ -17,6 +19,10 @@ import * as z from "zod";
 
 const searchSchema = z.object({
   tab: z.enum(DEPLOYMENT_TABS).catch("details"),
+  // Present when opened from a PR-preview panel — the base deployments
+  // collection only loads previewId-null rows, so a preview row must be
+  // fetched with this scope or the Details panel loads forever.
+  previewId: z.string().optional(),
 });
 
 
@@ -42,12 +48,15 @@ function getSubline(resource?: ProjectResource): string {
 function RouteComponent() {
   const { orgSlug, projectSlug, resourceId, deploymentId } = Route.useParams();
   const { project } = useLoaderData({ from: "/_app/$orgSlug/$projectSlug" });
-  const { tab } = Route.useSearch();
+  const { tab, previewId } = Route.useSearch();
   const navigate = Route.useNavigate();
   const setTab = (next: DeploymentTab) =>
     void navigate({ search: (prev) => ({ ...prev, tab: next }), replace: true });
 
-  const { data: deployment = null } = useLiveQuery(
+  // Base rows come from the shared reactive collection. A preview row isn't in
+  // that collection (it's previewId-scoped), so fetch it directly when the
+  // panel was opened from a preview.
+  const { data: baseDeployment = null } = useLiveQuery(
     (q) =>
       q
         .from({ d: deploymentsCollection })
@@ -61,6 +70,16 @@ function RouteComponent() {
         .findOne(),
     [project.id, resourceId, deploymentId],
   );
+  const previewDeployments = useQuery(
+    orpc.project.resource.deployments.list.queryOptions({
+      input: { projectId: project.id, resourceId, previewId: previewId ?? "" },
+      enabled: !!previewId,
+      refetchInterval: 5_000,
+    }),
+  );
+  const deployment = previewId
+    ? (previewDeployments.data?.find((d) => d.id === deploymentId) ?? null)
+    : baseDeployment;
 
   const { data: resource } = useLiveQuery(
     (q) =>

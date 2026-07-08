@@ -23,7 +23,7 @@ import {
   RefUnknownVarError,
   type ResolveError,
 } from "../../routers/service/errors";
-import {
+import { listPreviewServiceEnvVars,
   getServiceRecord,
   resolveResourceForPreview,
   type ResourceRow,
@@ -96,7 +96,22 @@ async function resolveEnvFor(
 ): Promise<Result<Record<string, string>, ResolveError>> {
   const resolved: Record<string, string> = {};
 
-  for (const envVar of overlayServiceEnv(record.env, ctx.environmentId)) {
+  // Base overlay (legacy NULL-env < active persistent env), then — inside a
+  // preview — that preview's per-service overrides win by key. Overrides are
+  // fetched here (not via record.env) so they stay invisible to every base
+  // surface by construction.
+  let rows = overlayServiceEnv(record.env, ctx.environmentId);
+  if (ctx.previewId) {
+    const overrides = await listPreviewServiceEnvVars(
+      record.service.resourceId as ResourceId,
+      ctx.previewId,
+    );
+    const byKey = new Map(rows.map((r) => [r.key, r]));
+    for (const r of overrides) byKey.set(r.key, r);
+    rows = [...byKey.values()];
+  }
+
+  for (const envVar of rows) {
     const parsed = parseValue(envVar.value);
     if (!parsed.ok) {
       return Result.err(

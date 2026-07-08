@@ -77,8 +77,12 @@ type SetCenter = ReturnType<typeof useReactFlow>["setCenter"];
 function focusNodeInView(node: Node, setCenter: SetCenter) {
   const wrapper = document.querySelector(".react-flow");
   const canvasWidth = wrapper?.clientWidth ?? 0;
-  const targetX = node.position.x + CARD_W / 2;
-  const targetY = node.position.y + CARD_H / 2;
+  // Center on the node's real size (React Flow v12 measures after layout) so a
+  // 256px preview satellite isn't offset by the 420px resource-card constants.
+  const w = node.measured?.width ?? CARD_W;
+  const h = node.measured?.height ?? CARD_H;
+  const targetX = node.position.x + w / 2;
+  const targetY = node.position.y + h / 2;
   if (!canvasWidth) {
     void setCenter(targetX, targetY, { zoom: FOCUS_ZOOM, duration: 400 });
     return;
@@ -231,7 +235,11 @@ function GraphCanvas() {
     from: "/_app/$orgSlug/$projectSlug/graph/$resourceId",
     shouldThrow: false,
   });
-  const panelOpen = !!resourceMatch;
+  const previewMatch = useMatch({
+    from: "/_app/$orgSlug/$projectSlug/graph/preview/$previewId",
+    shouldThrow: false,
+  });
+  const panelOpen = !!resourceMatch || !!previewMatch;
   const wasOpen = useRef(panelOpen);
   useEffect(() => {
     if (wasOpen.current && !panelOpen) {
@@ -281,12 +289,16 @@ function GraphCanvas() {
         if (didDragRef.current) return;
         // Pending-deletion nodes are disabled — no focus, no navigation.
         if (node.data.pending === "delete") return;
-        // Preview satellites click through to the deployed preview URL —
-        // they have no detail panel of their own.
+        // Preview satellites open the preview detail panel (deployment
+        // history, logs, env overrides). The URL lives on a button in there.
         if (node.data.kind === "preview") {
-          const preview = node.data.preview as { url?: string | null } | undefined;
-          if (typeof preview?.url === "string" && preview.url.length > 0) {
-            window.open(preview.url, "_blank", "noopener");
+          const preview = node.data.preview as { id?: string } | undefined;
+          if (typeof preview?.id === "string" && preview.id.length > 0) {
+            focusNodeInView(node, setCenter);
+            void navigate({
+              to: "/$orgSlug/$projectSlug/graph/preview/$previewId",
+              params: { orgSlug, projectSlug, previewId: preview.id },
+            });
           }
           return;
         }

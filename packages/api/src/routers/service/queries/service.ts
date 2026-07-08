@@ -9,7 +9,7 @@ import {
   serviceResource,
 } from "@otterdeploy/db/schema/project";
 import { omitUndefined } from "@otterdeploy/shared/object";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { createError } from "evlog";
 
 import {
@@ -91,7 +91,10 @@ export async function listServiceRecordsByProject(projectId: ProjectId): Promise
   const [allPorts, allEnv, allMounts]: [ServicePortRow[], ServiceEnvVarRow[], ServiceMountRow[]] =
     await Promise.all([
       db.select().from(servicePort).where(inArray(servicePort.serviceResourceId, ids)),
-      db.select().from(serviceEnvVar).where(inArray(serviceEnvVar.serviceResourceId, ids)),
+      db
+      .select()
+      .from(serviceEnvVar)
+      .where(and(inArray(serviceEnvVar.serviceResourceId, ids), isNull(serviceEnvVar.previewId))),
       db.select().from(serviceMount).where(inArray(serviceMount.serviceResourceId, ids)),
     ]);
 

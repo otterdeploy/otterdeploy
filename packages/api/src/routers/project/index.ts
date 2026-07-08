@@ -14,6 +14,7 @@ import {
   updateProject,
 } from "./handlers";
 import { tailProjectLogs } from "./project-logs";
+import { listPreviewEnvOverrides, setPreviewEnvOverride, unsetPreviewEnvOverride } from "./previews-env";
 import { listProjectPreviews } from "./previews-list";
 import { listAvailableRefs } from "./refs";
 import { envVarRouter } from "./router-env-var";
@@ -176,6 +177,54 @@ export const projectRouter = {
       }
       return result.value;
     }),
+
+    envVars: {
+      list: orgScopedProcedure.project.previews.envVars.list.handler(
+        async ({ input, context, errors }) => {
+          context.log.set({ target: { type: "project", id: input.projectId } });
+          const result = await listPreviewEnvOverrides({
+            ...input,
+            organizationId: context.activeOrganizationId,
+          });
+          if (result.isErr()) {
+            throw matchError(result.error, {
+              ProjectNotFoundError: () => errors.NOT_FOUND(),
+            });
+          }
+          return result.value;
+        },
+      ),
+      set: orgScopedProcedure.project.previews.envVars.set.handler(
+        async ({ input, context, errors }) => {
+          context.log.set({ target: { type: "project", id: input.projectId } });
+          const result = await setPreviewEnvOverride(
+            { ...input, organizationId: context.activeOrganizationId },
+            context.log,
+          );
+          if (result.isErr()) {
+            throw matchError(result.error, {
+              ProjectNotFoundError: () => errors.NOT_FOUND(),
+            });
+          }
+          return result.value;
+        },
+      ),
+      unset: orgScopedProcedure.project.previews.envVars.unset.handler(
+        async ({ input, context, errors }) => {
+          context.log.set({ target: { type: "project", id: input.projectId } });
+          const result = await unsetPreviewEnvOverride(
+            { ...input, organizationId: context.activeOrganizationId },
+            context.log,
+          );
+          if (result.isErr()) {
+            throw matchError(result.error, {
+              ProjectNotFoundError: () => errors.NOT_FOUND(),
+            });
+          }
+          return result.value;
+        },
+      ),
+    },
   },
 
   resource: resourceRouter,

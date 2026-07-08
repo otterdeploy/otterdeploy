@@ -47,6 +47,7 @@ import { Route as AppOrgSlugProjectSlugLogsRouteImport } from "./routes/_app/$or
 import { Route as AppOrgSlugProjectSlugEdgeLogsRouteImport } from "./routes/_app/$orgSlug/$projectSlug/edge-logs"
 import { Route as AppOrgSlugProjectSlugGraphLayoutRouteImport } from "./routes/_app/$orgSlug/$projectSlug/graph/layout"
 import { Route as AppOrgSlugProjectSlugGraphResourceIdLayoutRouteImport } from "./routes/_app/$orgSlug/$projectSlug/graph/$resourceId/layout"
+import { Route as AppOrgSlugProjectSlugGraphPreviewPreviewIdRouteImport } from "./routes/_app/$orgSlug/$projectSlug/graph/preview.$previewId"
 import { Route as AppOrgSlugProjectSlugGraphResourceIdDeploymentDeploymentIdRouteImport } from "./routes/_app/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId"
 
 const TerminalRoute = TerminalRouteImport.update({
@@ -252,6 +253,12 @@ const AppOrgSlugProjectSlugGraphResourceIdLayoutRoute =
     path: "/$resourceId",
     getParentRoute: () => AppOrgSlugProjectSlugGraphLayoutRoute,
   } as any)
+const AppOrgSlugProjectSlugGraphPreviewPreviewIdRoute =
+  AppOrgSlugProjectSlugGraphPreviewPreviewIdRouteImport.update({
+    id: "/preview/$previewId",
+    path: "/preview/$previewId",
+    getParentRoute: () => AppOrgSlugProjectSlugGraphLayoutRoute,
+  } as any)
 const AppOrgSlugProjectSlugGraphResourceIdDeploymentDeploymentIdRoute =
   AppOrgSlugProjectSlugGraphResourceIdDeploymentDeploymentIdRouteImport.update({
     id: "/deployment/$deploymentId",
@@ -297,6 +304,7 @@ export interface FileRoutesByFullPath {
   "/$orgSlug/github-app/$providerId": typeof AppOrgSlugGithubAppProviderIdRoute
   "/$orgSlug/$projectSlug/": typeof AppOrgSlugProjectSlugIndexRoute
   "/$orgSlug/$projectSlug/graph/$resourceId": typeof AppOrgSlugProjectSlugGraphResourceIdLayoutRouteWithChildren
+  "/$orgSlug/$projectSlug/graph/preview/$previewId": typeof AppOrgSlugProjectSlugGraphPreviewPreviewIdRoute
   "/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId": typeof AppOrgSlugProjectSlugGraphResourceIdDeploymentDeploymentIdRoute
 }
 export interface FileRoutesByTo {
@@ -335,6 +343,7 @@ export interface FileRoutesByTo {
   "/$orgSlug/github-app/$providerId": typeof AppOrgSlugGithubAppProviderIdRoute
   "/$orgSlug/$projectSlug": typeof AppOrgSlugProjectSlugIndexRoute
   "/$orgSlug/$projectSlug/graph/$resourceId": typeof AppOrgSlugProjectSlugGraphResourceIdLayoutRouteWithChildren
+  "/$orgSlug/$projectSlug/graph/preview/$previewId": typeof AppOrgSlugProjectSlugGraphPreviewPreviewIdRoute
   "/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId": typeof AppOrgSlugProjectSlugGraphResourceIdDeploymentDeploymentIdRoute
 }
 export interface FileRoutesById {
@@ -377,6 +386,7 @@ export interface FileRoutesById {
   "/_app/$orgSlug/github-app/$providerId": typeof AppOrgSlugGithubAppProviderIdRoute
   "/_app/$orgSlug/$projectSlug/": typeof AppOrgSlugProjectSlugIndexRoute
   "/_app/$orgSlug/$projectSlug/graph/$resourceId": typeof AppOrgSlugProjectSlugGraphResourceIdLayoutRouteWithChildren
+  "/_app/$orgSlug/$projectSlug/graph/preview/$previewId": typeof AppOrgSlugProjectSlugGraphPreviewPreviewIdRoute
   "/_app/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId": typeof AppOrgSlugProjectSlugGraphResourceIdDeploymentDeploymentIdRoute
 }
 export interface FileRouteTypes {
@@ -419,6 +429,7 @@ export interface FileRouteTypes {
     | "/$orgSlug/github-app/$providerId"
     | "/$orgSlug/$projectSlug/"
     | "/$orgSlug/$projectSlug/graph/$resourceId"
+    | "/$orgSlug/$projectSlug/graph/preview/$previewId"
     | "/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId"
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -457,6 +468,7 @@ export interface FileRouteTypes {
     | "/$orgSlug/github-app/$providerId"
     | "/$orgSlug/$projectSlug"
     | "/$orgSlug/$projectSlug/graph/$resourceId"
+    | "/$orgSlug/$projectSlug/graph/preview/$previewId"
     | "/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId"
   id:
     | "__root__"
@@ -498,6 +510,7 @@ export interface FileRouteTypes {
     | "/_app/$orgSlug/github-app/$providerId"
     | "/_app/$orgSlug/$projectSlug/"
     | "/_app/$orgSlug/$projectSlug/graph/$resourceId"
+    | "/_app/$orgSlug/$projectSlug/graph/preview/$previewId"
     | "/_app/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId"
   fileRoutesById: FileRoutesById
 }
@@ -778,6 +791,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppOrgSlugProjectSlugGraphResourceIdLayoutRouteImport
       parentRoute: typeof AppOrgSlugProjectSlugGraphLayoutRoute
     }
+    "/_app/$orgSlug/$projectSlug/graph/preview/$previewId": {
+      id: "/_app/$orgSlug/$projectSlug/graph/preview/$previewId"
+      path: "/preview/$previewId"
+      fullPath: "/$orgSlug/$projectSlug/graph/preview/$previewId"
+      preLoaderRoute: typeof AppOrgSlugProjectSlugGraphPreviewPreviewIdRouteImport
+      parentRoute: typeof AppOrgSlugProjectSlugGraphLayoutRoute
+    }
     "/_app/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId": {
       id: "/_app/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId"
       path: "/deployment/$deploymentId"
@@ -805,12 +825,15 @@ const AppOrgSlugProjectSlugGraphResourceIdLayoutRouteWithChildren =
 
 interface AppOrgSlugProjectSlugGraphLayoutRouteChildren {
   AppOrgSlugProjectSlugGraphResourceIdLayoutRoute: typeof AppOrgSlugProjectSlugGraphResourceIdLayoutRouteWithChildren
+  AppOrgSlugProjectSlugGraphPreviewPreviewIdRoute: typeof AppOrgSlugProjectSlugGraphPreviewPreviewIdRoute
 }
 
 const AppOrgSlugProjectSlugGraphLayoutRouteChildren: AppOrgSlugProjectSlugGraphLayoutRouteChildren =
   {
     AppOrgSlugProjectSlugGraphResourceIdLayoutRoute:
       AppOrgSlugProjectSlugGraphResourceIdLayoutRouteWithChildren,
+    AppOrgSlugProjectSlugGraphPreviewPreviewIdRoute:
+      AppOrgSlugProjectSlugGraphPreviewPreviewIdRoute,
   }
 
 const AppOrgSlugProjectSlugGraphLayoutRouteWithChildren =
