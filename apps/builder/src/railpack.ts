@@ -119,7 +119,12 @@ export async function railpackBuild(opts: {
       builderName: opts.builderName,
       cachePath: opts.cachePath,
     }),
-    env: spaOutputDir ? { RAILPACK_SPA_OUTPUT_DIR: spaOutputDir } : undefined,
+    env: {
+      // Must match the value `prepare` baked into the plan (see
+      // buildPrepareArgs) — the secret mount reads it from this process env.
+      NODE_OPTIONS: `--max-old-space-size=${nodeBuildMaxOldSpaceMb()}`,
+      ...(spaOutputDir ? { RAILPACK_SPA_OUTPUT_DIR: spaOutputDir } : {}),
+    },
     sink: opts.sink,
   });
   if (built.exitCode !== 0) {
@@ -340,6 +345,12 @@ function buildBuildxArgs(opts: {
     ...(opts.spaOutputDir
       ? ["--secret", "id=RAILPACK_SPA_OUTPUT_DIR,env=RAILPACK_SPA_OUTPUT_DIR"]
       : []),
+    // prepare always injects NODE_OPTIONS (the build memory guard), which the
+    // generated plan consumes as a build secret — same mechanism as the SPA
+    // output dir. Without this flag every railpack build fails with
+    // "failed to solve: secret NODE_OPTIONS: not found".
+    "--secret",
+    "id=NODE_OPTIONS,env=NODE_OPTIONS",
     "-f",
     opts.planPath,
     "--load",
