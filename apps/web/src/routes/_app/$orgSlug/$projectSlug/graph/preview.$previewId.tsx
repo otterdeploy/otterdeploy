@@ -211,6 +211,14 @@ function OverviewTab({ preview }: { preview: Preview }) {
                   {svc.url.replace(/^https?:\/\//, "")}
                 </a>
               ) : null}
+              {svc.deployedSha ? (
+                <span
+                  className="shrink-0 font-mono text-[11px] text-muted-foreground"
+                  title={`Deployed commit ${svc.deployedSha}`}
+                >
+                  {svc.deployedSha.slice(0, 7)}
+                </span>
+              ) : null}
               <span className={cn(badgeBase, pillClass(svc.status))}>
                 <span className="size-1.5 rounded-full bg-current" />
                 {svc.status === "none" ? "queued" : svc.status}
@@ -611,14 +619,8 @@ function SettingsTab({ projectId, preview }: { projectId: string; preview: Previ
       </Section>
 
       <Section title="Database">
-        <Row
-          desc={
-            preview.dbBranched
-              ? "This preview runs on an isolated DB branch."
-              : "This preview shares the base database. Branch it for isolation."
-          }
-        >
-          {preview.dbBranched ? (
+        {preview.dbBranched ? (
+          <Row desc="This preview runs on an isolated DB branch.">
             <div className="flex gap-2">
               <Button
                 variant="outline"
@@ -637,7 +639,9 @@ function SettingsTab({ projectId, preview }: { projectId: string; preview: Previ
                 Use base DB
               </Button>
             </div>
-          ) : (
+          </Row>
+        ) : preview.branchableDbCount > 0 ? (
+          <Row desc="This preview shares the base database. Branch it for isolation.">
             <Button
               variant="outline"
               size="sm"
@@ -646,8 +650,10 @@ function SettingsTab({ projectId, preview }: { projectId: string; preview: Previ
             >
               Branch database
             </Button>
-          )}
-        </Row>
+          </Row>
+        ) : (
+          <Row desc="This preview's services don't connect to a platform database — nothing to branch." />
+        )}
       </Section>
     </div>
   );
@@ -664,7 +670,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function Row({ desc, children }: { desc: string; children: React.ReactNode }) {
+function Row({ desc, children }: { desc: string; children?: React.ReactNode }) {
   return (
     <div className="flex items-center gap-4 px-3 py-3">
       <p className="min-w-0 flex-1 text-[13px] text-muted-foreground">{desc}</p>

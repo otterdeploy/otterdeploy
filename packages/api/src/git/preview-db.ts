@@ -15,18 +15,19 @@
  * can be slow enough to risk GitHub's ~10s webhook timeout — move to a background
  * "preview.provision" job before heavy production use.
  */
-import type { PreviewId, ProjectId } from "@otterdeploy/shared/id";
+import type { GitRepoId, PreviewId, ProjectId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
-import { resource } from "@otterdeploy/db/schema/project";
+import { resource, serviceEnvVar, serviceResource } from "@otterdeploy/db/schema/project";
 import { Result } from "better-result";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { log } from "evlog";
 import { randomBytes } from "node:crypto";
 
 import type { BranchDatabaseSpec } from "../runtime/types";
 
+import { extractRefs } from "../lib/variables/parser";
 import { insertDeployment } from "../routers/project/deployments";
 import { deriveInternalDbCredentials } from "../routers/project/postgres/credentials";
 import {
@@ -39,29 +40,121 @@ import { runtime } from "../runtime";
 import { resolveSnapshotDriver } from "../runtime/snapshot";
 import { getEngineAdapter } from "../swarm";
 
+/**
+ * The BASE Postgres databases this preview's services actually CONNECT TO —
+ * i.e. a platform-run database resource REACHABLE from at least one of the
+ * preview's opted-in git services through `${{<res>.…}}` refs, directly OR
+ * transitively via another service (A → `${{B.…}}` and B → `${{pg.…}}` means A
+ * uses pg). Only these are meaningful to branch: a service that talks to an
+ * external DB (raw DATABASE_URL, no ref) or a DB nothing in the preview reaches
+ * gets nothing from a branch — and conversely a reachable DB MUST be branched or
+ * the preview silently runs on production. Mirrors the recursive resolver, so
+ * the branch set matches what the services will actually resolve to. Reused by
+ * the branch path (what to copy) and the list query (whether to offer control).
+ */
+export async function referencedBaseDatabases(input: {
+  projectId: ProjectId;
+  gitRepoId: GitRepoId;
+}): Promise<BaseRecord[]> {
+  // The opted-in git services this preview builds — the BFS seed (the only
+  // services that actually run in the preview).
+  const seeds = await db
+    .select({ id: resource.id })
+    .from(resource)
+    .innerJoin(serviceResource, eq(serviceResource.resourceId, resource.id))
+    .where(
+      and(
+        eq(resource.projectId, input.projectId),
+        eq(resource.type, "service"),
+        eq(serviceResource.source, "git"),
+        eq(serviceResource.gitRepoId, input.gitRepoId),
+        eq(serviceResource.previewsEnabled, true),
+        isNull(resource.previewId),
+      ),
+    );
+  if (seeds.length === 0) return [];
+
+  const records = await listDatabaseResourceRecords(input.projectId);
+  const bases = records.filter(
+    (r) => r.resource.previewId == null && r.database.engine === "postgres",
+  );
+  if (bases.length === 0) return [];
+  const baseByName = new Map(bases.map((b) => [b.resource.name, b] as const));
+
+  // Base resources by name (to resolve a ref to its target) and each base
+  // service's outgoing refs. extractRefs parses `${{…}}` exactly, so unlike a
+  // LIKE scan it never false-matches on names containing `_`/`%`.
+  const allRes = await db
+    .select({ id: resource.id, name: resource.name, type: resource.type })
+    .from(resource)
+    .where(and(eq(resource.projectId, input.projectId), isNull(resource.previewId)));
+  const resByName = new Map(allRes.map((r) => [r.name, r] as const));
+
+  const envRows = await db
+    .select({ serviceResourceId: serviceEnvVar.serviceResourceId, value: serviceEnvVar.value })
+    .from(serviceEnvVar)
+    .innerJoin(resource, eq(resource.id, serviceEnvVar.serviceResourceId))
+    .where(and(eq(resource.projectId, input.projectId), isNull(serviceEnvVar.previewId)));
+  const refsById = new Map<string, Set<string>>();
+  for (const row of envRows) {
+    let set = refsById.get(row.serviceResourceId);
+    if (!set) {
+      set = new Set<string>();
+      refsById.set(row.serviceResourceId, set);
+    }
+    for (const ref of extractRefs(row.value)) set.add(ref.resource);
+  }
+
+  // Forward BFS over the ref graph from the seed services; collect every base
+  // DB name reached, following service→service edges transitively.
+  const used = new Set<string>();
+  const visited = new Set<string>();
+  const queue: string[] = seeds.map((s) => s.id);
+  while (queue.length > 0) {
+    const id = queue.shift();
+    if (!id || visited.has(id)) continue;
+    visited.add(id);
+    for (const name of refsById.get(id) ?? []) {
+      if (baseByName.has(name)) used.add(name);
+      const target = resByName.get(name);
+      if (target && target.type === "service" && !visited.has(target.id)) {
+        queue.push(target.id);
+      }
+    }
+  }
+  return bases.filter((b) => used.has(b.resource.name));
+}
+
 export async function branchProjectDatabases(input: {
   projectId: ProjectId;
   projectSlug: string;
   previewId: PreviewId;
+  /** The preview's repo whose opted-in services define which DBs are used. */
+  gitRepoId: GitRepoId;
   /** The preview's repo-qualified slug (`<repoSlug>-pr-<7>`), used to derive
    *  the branch's distinct identity — and reused verbatim at teardown. */
   previewSlug: string;
-  /** Branch ALL base postgres DBs regardless of the per-database opt-in flag —
-   *  the explicit "enable DB branch for this preview" control. Default false
-   *  (the PR-open path respects the opt-in). */
+  /** Branch every REFERENCED base postgres DB regardless of the per-database
+   *  opt-in flag — the explicit "enable DB branch for this preview" control.
+   *  Default false (the PR-open path respects the opt-in). Either way we only
+   *  touch DBs the preview's services actually connect to. */
   force?: boolean;
   rlog?: RequestLogger;
 }): Promise<number> {
   const driver = await resolveSnapshotDriver();
-  const records = await listDatabaseResourceRecords(input.projectId);
-  const bases = records.filter(
+  // Only DBs the preview's services connect to — never mint an orphan branch
+  // for a database nothing in this preview references.
+  const referenced = await referencedBaseDatabases({
+    projectId: input.projectId,
+    gitRepoId: input.gitRepoId,
+  });
+  const bases = referenced.filter(
     // Opt-in (or forced by the per-preview control): shared-with-base otherwise.
-    (r) => r.resource.previewId == null && (input.force || r.database.previewBranching),
+    (r) => input.force || r.database.previewBranching,
   );
   let branched = 0;
 
   for (const base of bases) {
-    if (base.database.engine !== "postgres") continue; // v1: Postgres only
     if (await branchExists(input.projectId, input.previewId, base.resource.name)) continue;
 
     const done = await Result.tryPromise({
