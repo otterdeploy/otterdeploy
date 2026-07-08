@@ -5,6 +5,9 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 vi.mock("../../routers/service/queries", () => ({
   resolveResourceForPreview: vi.fn(),
   getServiceRecord: vi.fn(),
+  // The preview overlay reads this; default to "no overrides" so base env flows
+  // through (clearAllMocks keeps the impl, only wiping call history).
+  listPreviewServiceEnvVars: vi.fn(async () => []),
 }));
 
 vi.mock("../../routers/project/queries", () => ({
