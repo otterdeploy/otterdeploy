@@ -198,6 +198,7 @@ async function deployPreviews(
           projectSlug: p.slug,
           previewId: row.id,
           previewSlug: row.slug,
+          gitRepoId: repo.id as GitRepoId,
         }),
       catch: (cause) => cause,
     });

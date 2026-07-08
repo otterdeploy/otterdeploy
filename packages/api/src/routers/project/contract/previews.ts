@@ -33,6 +33,8 @@ export const previewServiceSchema = z.object({
   status: z.enum(["pending", "building", "running", "failed", "superseded", "removed", "none", "paused"]),
   /** Preview host (https URL), when the service is publicly exposed. */
   url: z.string().nullable(),
+  /** Full commit sha currently RUNNING for this service; null before live. */
+  deployedSha: z.string().nullable(),
 });
 
 export const previewSchema = z.object({
@@ -48,6 +50,8 @@ export const previewSchema = z.object({
   autoTeardownAt: z.string().nullable(),
   /** True when this preview owns isolated DB branches (vs sharing the base). */
   dbBranched: z.boolean(),
+  /** Platform DBs the preview's services connect to; branch control shown when >0. */
+  branchableDbCount: z.number(),
   services: z.array(previewServiceSchema),
 });
 

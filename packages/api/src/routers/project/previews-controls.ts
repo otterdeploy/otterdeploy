@@ -287,6 +287,7 @@ export async function enablePreviewDbBranch(
     projectSlug: project.slug,
     previewId: preview.id,
     previewSlug: preview.slug,
+    gitRepoId: preview.gitRepoId,
     force: true,
     rlog: log,
   });
@@ -342,6 +343,7 @@ export async function resetPreviewDbBranch(
     projectSlug: project.slug,
     previewId: preview.id,
     previewSlug: preview.slug,
+    gitRepoId: preview.gitRepoId,
     force: true,
     rlog: log,
   });
