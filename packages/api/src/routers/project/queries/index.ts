@@ -33,6 +33,7 @@ export {
   listDatabaseResourceRecords,
   setDatabaseResourceExtensions,
   setDatabaseResourceExtraEnv,
+  setDatabaseResourcePreviewBranching,
   setDatabaseResourcePublic,
   updateDatabaseResourceRuntime,
   updateDatabaseResourceStatus,
@@ -55,3 +56,5 @@ export {
   upsertProjectEnvVar,
   type ProjectEnvVarRow,
 } from "./project-env";
+
+export { getPreviewById, listActivePreviewsByProject, type PreviewRow } from "./preview";

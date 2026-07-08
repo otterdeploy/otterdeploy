@@ -47,4 +47,13 @@ async function main(): Promise<never> {
   process.exit(0);
 }
 
+// Pessimistic default: if the event loop drains before main() finishes, bun
+// exits with THIS code instead of ever reaching a process.exit() above. That
+// genuinely happens — Bun 1.3.14 intermittently loses a DB/Redis promise
+// during the cache client's initial connect (observed at ~8-24% of helper
+// runs), and neither the SQL pool nor the Redis socket holds the loop alive.
+// Without this default the process died silently with 0 and the worker
+// mistook a never-started build for success. Every explicit exit overrides it.
+process.exitCode = 1;
+
 void main();

@@ -10,6 +10,7 @@ import {
   ContainerIcon,
   Database02Icon,
   EarthIcon,
+  GitPullRequestIcon,
   HardDriveIcon,
   ServerStack01Icon,
 } from "@hugeicons/core-free-icons";
@@ -101,6 +102,13 @@ export const kindMeta: Record<ResourceKind, { label: string; icon: IconType; ico
       label: "Stack",
       icon: ContainerIcon,
       iconColor: "text-blue-700 dark:text-blue-300",
+    },
+    // Neutral tile on purpose (One Voice rule): a preview chip is chrome,
+    // not an action/selection — Signal Blue stays reserved.
+    preview: {
+      label: "Preview",
+      icon: GitPullRequestIcon,
+      iconColor: "text-muted-foreground",
     },
   };
 

@@ -17,7 +17,7 @@ import { ManifestApplySkipError } from "./errors";
 import { createPostgresResourceStream, validatePostgresCreate } from "./postgres/create-stream";
 import { applyPostgresExtraEnv, setPostgresPublic } from "./postgres/env";
 import { ensurePersistedExtensionsLive, setPostgresExtensions } from "./postgres/extensions";
-import { deleteDraftCredential, deleteResourceById, getDraftCredentialPassword } from "./queries";
+import { deleteDraftCredential, deleteResourceById, getDraftCredentialPassword, setDatabaseResourcePreviewBranching } from "./queries";
 import { buildContainerName } from "./views";
 
 type OrgId = OrganizationId;
@@ -96,6 +96,10 @@ export async function createDatabase(
   );
 
   const { success, errorMessage, createdResourceId } = await drainCreateStream(stream);
+  if (success && createdResourceId && args.spec.previews) {
+    // Manifest declared preview branching at create time — flag the fresh row.
+    await setDatabaseResourcePreviewBranching(createdResourceId as ResourceId, true);
+  }
   if (!success) {
     // Roll back the draft row a failed create left behind. Otherwise the
     // half-created database lands in loadCurrentState, the next diff sees
@@ -182,6 +186,12 @@ export async function updateDatabaseFromManifest(
       },
       args.log,
     );
+  }
+
+  // Declared-only: opt the database in/out of PR-preview branching. Pure DB
+  // flag (no container roll), idempotent, applies to the next PR event.
+  if (args.spec.previews !== undefined) {
+    await setDatabaseResourcePreviewBranching(args.resourceId, args.spec.previews);
   }
 
   // Same declared-only rule as publicEnabled above: only touch extraEnv when

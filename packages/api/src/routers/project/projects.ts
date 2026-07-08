@@ -7,7 +7,10 @@
 import type { EnvironmentId, ProjectId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
+import { db } from "@otterdeploy/db";
 import { type NixpacksConfig } from "@otterdeploy/db/schema";
+import { preview } from "@otterdeploy/db/schema/project";
+import { eq } from "drizzle-orm";
 import { Docker } from "@otterdeploy/docker";
 import { Result } from "better-result";
 
@@ -234,14 +237,26 @@ export async function deleteProject(
 
   const projectSlug = sanitizeProjectSlug(project.slug);
   const dbRecords = await listDatabaseResourceRecords(input.id);
+  // Preview branch containers are named `<name>-<preview slug>` — resolve the
+  // slugs so project deletion reaps them too, not just the base containers.
+  const previewRows = await db
+    .select({ id: preview.id, slug: preview.slug })
+    .from(preview)
+    .where(eq(preview.projectId, input.id));
+  const previewSlugById = new Map(previewRows.map((r) => [r.id, r.slug]));
 
   // 1. Tear down each child postgres Swarm service before dropping DB rows.
-  //    FK cascade handles environment / resource / database_resource / proxy_route.
+  //    FK cascade handles preview / resource / database_resource / proxy_route.
   for (const record of dbRecords) {
+    const previewSlug = record.resource.previewId
+      ? previewSlugById.get(record.resource.previewId)
+      : undefined;
     const serviceName = buildContainerName({
       engine: record.database.engine,
       projectSlug,
-      resourceName: record.resource.name,
+      resourceName: previewSlug
+        ? `${record.resource.name}-${previewSlug}`
+        : record.resource.name,
     });
     await destroySwarmPostgres({ serviceName }, log);
   }

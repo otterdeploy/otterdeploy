@@ -42,6 +42,7 @@ export const ID_PREFIX = {
   projectEnvVar: "penv",
   projectEnvSubscription: "psub",
   environment: "env",
+  preview: "prev",
   proxyRoute: "proxy_route",
   deploymentGuest: "guest",
   server: "server",
@@ -204,6 +205,7 @@ export type ServiceEnvVarId = Id<typeof ID_PREFIX.serviceEnvVar>;
 export type ProjectEnvVarId = Id<typeof ID_PREFIX.projectEnvVar>;
 export type ProjectEnvSubscriptionId = Id<typeof ID_PREFIX.projectEnvSubscription>;
 export type EnvironmentId = Id<typeof ID_PREFIX.environment>;
+export type PreviewId = Id<typeof ID_PREFIX.preview>;
 export type ProxyRouteId = Id<typeof ID_PREFIX.proxyRoute>;
 export type DeploymentGuestId = Id<typeof ID_PREFIX.deploymentGuest>;
 export type ServerId = Id<typeof ID_PREFIX.server>;

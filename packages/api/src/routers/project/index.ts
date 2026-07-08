@@ -14,6 +14,7 @@ import {
   updateProject,
 } from "./handlers";
 import { tailProjectLogs } from "./project-logs";
+import { listProjectPreviews } from "./previews-list";
 import { listAvailableRefs } from "./refs";
 import { envVarRouter } from "./router-env-var";
 import { manifestRouter } from "./router-manifest";
@@ -160,6 +161,22 @@ export const projectRouter = {
   ),
 
   proxyRoute: proxyRouteRouter,
+
+  previews: {
+    list: orgScopedProcedure.project.previews.list.handler(async ({ input, context, errors }) => {
+      context.log.set({ target: { type: "project", id: input.projectId } });
+      const result = await listProjectPreviews({
+        projectId: input.projectId,
+        organizationId: context.activeOrganizationId,
+      });
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          ProjectNotFoundError: () => errors.NOT_FOUND(),
+        });
+      }
+      return result.value;
+    }),
+  },
 
   resource: resourceRouter,
 

@@ -41,7 +41,10 @@ function buildContainerSpec(
   const containerSpec: Record<string, unknown> = {
     Image: spec.image,
     Env: Object.entries(spec.env).map(([k, v]) => `${k}=${v}`),
-    Hostname: spec.internalHostname,
+    // UTS hostname is `sethostname`-capped at 64 bytes; the internal FQDN can
+    // exceed that for long names and crash runc. Use the ≤63-char service name —
+    // discovery uses the network aliases (which keep the FQDN), not this.
+    Hostname: spec.serviceName,
     Labels: labels,
   };
 

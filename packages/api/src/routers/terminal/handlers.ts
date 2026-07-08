@@ -18,7 +18,7 @@ import type { OrganizationId, ProjectSlug, ResourceId } from "@otterdeploy/share
 import { db } from "@otterdeploy/db";
 import { databaseResource, project, resource } from "@otterdeploy/db/schema/project";
 import { type ContainerSummary, Docker } from "@otterdeploy/docker";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 type OrgId = OrganizationId;
 
 export interface TerminalContainer {
@@ -163,7 +163,8 @@ export async function listTerminalTargets(input: {
     .from(databaseResource)
     .innerJoin(resource, eq(resource.id, databaseResource.resourceId))
     .innerJoin(project, eq(project.id, resource.projectId))
-    .where(eq(project.organizationId, input.organizationId));
+    // Base databases only — a PR preview's branch DB is not a terminal target.
+    .where(and(eq(project.organizationId, input.organizationId), isNull(resource.previewId)));
 
   const databases: TerminalDatabase[] = dbRows.map((r) => ({
     resourceId: r.resourceId,

@@ -3,7 +3,7 @@ import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 vi.mock("../../routers/service/queries", () => ({
-  resolveResourceForEnv: vi.fn(),
+  resolveResourceForPreview: vi.fn(),
   getServiceRecord: vi.fn(),
 }));
 
@@ -20,7 +20,7 @@ import {
   getProjectRecord,
   loadProjectEnvBag,
 } from "../../routers/project/queries";
-import { getServiceRecord, resolveResourceForEnv } from "../../routers/service/queries";
+import { getServiceRecord, resolveResourceForPreview } from "../../routers/service/queries";
 import { resolveServiceEnv } from "./resolver";
 const PROJECT_ID = "project_1" as ProjectId;
 const RESOURCE_ID = "resource_api" as ResourceId;
@@ -97,7 +97,7 @@ describe("resolveServiceEnv", () => {
       ],
     });
 
-    (resolveResourceForEnv as unknown as Mock).mockResolvedValueOnce(
+    (resolveResourceForPreview as unknown as Mock).mockResolvedValueOnce(
       mockResource({ id: "resource_db", name: "db", type: "database" }),
     );
 
@@ -125,7 +125,7 @@ describe("resolveServiceEnv", () => {
       ],
     });
 
-    (resolveResourceForEnv as unknown as Mock).mockResolvedValue(
+    (resolveResourceForPreview as unknown as Mock).mockResolvedValue(
       mockResource({ id: "resource_db", name: "db", type: "database" }),
     );
 
@@ -152,7 +152,7 @@ describe("resolveServiceEnv", () => {
       ],
     });
 
-    (resolveResourceForEnv as unknown as Mock).mockResolvedValueOnce(undefined);
+    (resolveResourceForPreview as unknown as Mock).mockResolvedValueOnce(undefined);
 
     const result = await resolveServiceEnv(PROJECT_ID, RESOURCE_ID);
     expect(result.isErr()).toBe(true);
@@ -175,7 +175,7 @@ describe("resolveServiceEnv", () => {
       ],
     });
 
-    (resolveResourceForEnv as unknown as Mock).mockResolvedValueOnce(
+    (resolveResourceForPreview as unknown as Mock).mockResolvedValueOnce(
       mockResource({ id: "resource_db", name: "db", type: "database" }),
     );
     (getDatabaseResourceRecord as unknown as Mock).mockResolvedValueOnce(dbExports());
@@ -238,7 +238,7 @@ describe("resolveServiceEnv", () => {
       return undefined;
     });
 
-    (resolveResourceForEnv as unknown as Mock).mockImplementation(
+    (resolveResourceForPreview as unknown as Mock).mockImplementation(
       async (_pid: string, _envId: string, name: string) => {
         if (name === "web")
           return mockResource({ id: "resource_web", name: "web", type: "service" });
@@ -284,7 +284,7 @@ describe("resolveServiceEnv", () => {
     });
 
     // The env-aware lookup returns the branch DB (env-specific) for this preview.
-    (resolveResourceForEnv as unknown as Mock).mockImplementation(
+    (resolveResourceForPreview as unknown as Mock).mockImplementation(
       async (_pid: string, envId: string, name: string) => {
         expect(envId).toBe(PREVIEW_ENV);
         if (name === "db")

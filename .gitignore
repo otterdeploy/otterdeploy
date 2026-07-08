@@ -55,6 +55,10 @@ temp
 research/
 
 .claude/worktrees/
+.claude/projects/
 .fallow/
 .playwright-mcp/
 .vercel
+
+
+photos/

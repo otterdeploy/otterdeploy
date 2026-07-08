@@ -11,7 +11,7 @@ import { deploymentLog } from "@otterdeploy/db/schema/build";
 import { deployment } from "@otterdeploy/db/schema/project";
 import { Docker } from "@otterdeploy/docker";
 import { Result } from "better-result";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 
 import type { DeploymentRow } from "./deployments";
 
@@ -186,10 +186,12 @@ function deriveDeploymentStatus(
 /** All deployments for a resource, newest first. Status is the value
  *  stored in the row — derived live by `listResourceDeployments`. */
 async function listDeploymentsByResource(resourceId: ResourceId): Promise<DeploymentRow[]> {
+  // Base deployments only — preview builds live on the satellite cards / PR
+  // comment, not the production Deployments tab.
   const rows = await db
     .select()
     .from(deployment)
-    .where(eq(deployment.resourceId, resourceId))
+    .where(and(eq(deployment.resourceId, resourceId), isNull(deployment.previewId)))
     .orderBy(desc(deployment.createdAt));
   return rows as DeploymentRow[];
 }

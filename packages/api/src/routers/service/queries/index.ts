@@ -53,7 +53,7 @@ export {
   findServiceDependentsByName,
   getResourceByProjectAndName,
   listServiceEnvVars,
-  resolveResourceForEnv,
+  resolveResourceForPreview,
   upsertServiceEnvVar,
 } from "./env";
 

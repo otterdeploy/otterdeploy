@@ -6,14 +6,14 @@
  * host and dashboard inspect link. Read-only; rendering lives in
  * preview-comment.ts, GitHub calls in preview-report.ts.
  */
-import type { EnvironmentId, GitRepoId, ProjectId } from "@otterdeploy/shared/id";
+import type { GitRepoId, ProjectId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { organization } from "@otterdeploy/db/schema/auth";
 import { gitInstallation, gitRepo } from "@otterdeploy/db/schema/git";
 import {
   deployment,
-  environment,
+  preview,
   project,
   resource,
   serviceResource,
@@ -23,7 +23,7 @@ import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 
 import type { PreviewCommentRow } from "./preview-comment";
 
-import { listProxyRoutesByEnvironment } from "../caddy/queries";
+import { listProxyRoutesByPreview } from "../caddy/queries";
 import { rowStatusFromDeployment } from "./preview-comment";
 
 export interface PreviewReportSnapshot {
@@ -34,27 +34,27 @@ export interface PreviewReportSnapshot {
   repo: string | undefined;
   prNumber: number;
   headSha: string;
-  /** True when every preview env for this PR is closed. */
+  /** True when every preview for this PR is closed. */
   tornDown: boolean;
   rows: PreviewCommentRow[];
 }
 
-type EnvironmentRow = typeof environment.$inferSelect;
+type PreviewRow = typeof preview.$inferSelect;
 
 function dashboardBase(): string {
   return serverEnv.BETTER_AUTH_URL.replace(/\/+$/, "");
 }
 
-/** One comment row per git service the PR rebuilds in this env's project. */
-async function loadEnvRows(
-  envRow: EnvironmentRow,
+/** One comment row per git service the PR rebuilds in this preview's project. */
+async function loadPreviewRows(
+  row: PreviewRow,
   repoId: GitRepoId,
 ): Promise<PreviewCommentRow[]> {
   const [proj] = await db
     .select({ name: project.name, slug: project.slug, orgSlug: organization.slug })
     .from(project)
     .innerJoin(organization, eq(organization.id, project.organizationId))
-    .where(eq(project.id, envRow.projectId as ProjectId))
+    .where(eq(project.id, row.projectId as ProjectId))
     .limit(1);
   if (!proj) return [];
 
@@ -64,12 +64,12 @@ async function loadEnvRows(
     .innerJoin(serviceResource, eq(serviceResource.resourceId, resource.id))
     .where(
       and(
-        eq(resource.projectId, envRow.projectId as ProjectId),
+        eq(resource.projectId, row.projectId as ProjectId),
         eq(resource.type, "service"),
         eq(serviceResource.source, "git"),
         eq(serviceResource.gitRepoId, repoId),
         eq(serviceResource.previewsEnabled, true),
-        isNull(resource.environmentId),
+        isNull(resource.previewId),
       ),
     );
   if (services.length === 0) return [];
@@ -79,7 +79,7 @@ async function loadEnvRows(
     .from(deployment)
     .where(
       and(
-        eq(deployment.environmentId, envRow.id as EnvironmentId),
+        eq(deployment.previewId, row.id),
         inArray(
           deployment.resourceId,
           services.map((s) => s.resourceId),
@@ -92,7 +92,7 @@ async function loadEnvRows(
     if (!latestByResource.has(dep.resourceId)) latestByResource.set(dep.resourceId, dep);
   }
 
-  const routes = await listProxyRoutesByEnvironment(envRow.id as EnvironmentId);
+  const routes = await listProxyRoutesByPreview(row.id);
   const base = dashboardBase();
 
   return services.map((svc) => {
@@ -131,21 +131,15 @@ export async function loadPreviewReportSnapshot(
     installationId = inst?.installationId ?? null;
   }
 
-  const envs = await db
+  const previews = await db
     .select()
-    .from(environment)
-    .where(
-      and(
-        eq(environment.gitRepoId, repoId),
-        eq(environment.pullRequestNumber, prNumber),
-        eq(environment.kind, "preview"),
-      ),
-    );
-  if (envs.length === 0) return null;
+    .from(preview)
+    .where(and(eq(preview.gitRepoId, repoId), eq(preview.prNumber, prNumber)));
+  if (previews.length === 0) return null;
 
   const rows: PreviewCommentRow[] = [];
-  for (const envRow of envs) {
-    rows.push(...(await loadEnvRows(envRow, repoId)));
+  for (const row of previews) {
+    rows.push(...(await loadPreviewRows(row, repoId)));
   }
 
   return {
@@ -153,8 +147,8 @@ export async function loadPreviewReportSnapshot(
     owner,
     repo: repoName,
     prNumber,
-    headSha: envs.find((e) => e.headSha)?.headSha ?? "",
-    tornDown: envs.every((e) => e.state === "closed"),
+    headSha: previews.find((e) => e.headSha)?.headSha ?? "",
+    tornDown: previews.every((e) => e.state === "closed"),
     rows,
   };
 }

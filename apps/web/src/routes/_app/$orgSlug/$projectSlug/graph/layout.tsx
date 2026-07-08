@@ -186,19 +186,35 @@ function GraphCanvas() {
       renderedNodesRef.current = out;
       return out;
     }
-    const sig = topologySignature(liveNodes, liveEdges);
+    // Preview satellites are excluded from dagre + the topology signature —
+    // they hang right of their parent service card (mirroring the design
+    // mock), so a PR opening/closing never relayouts the core graph.
+    const core = liveNodes.filter((n) => n.data.kind !== "preview");
+    const coreEdges = liveEdges.filter((e) => !e.target.startsWith("preview:"));
+    const sig = topologySignature(core, coreEdges);
     if (sig !== layoutCache.current.sig) {
       layoutCache.current = {
         sig,
-        positions: incrementalLayout(
-          liveNodes,
-          liveEdges,
-          layoutCache.current.positions,
-        ),
+        positions: incrementalLayout(core, coreEdges, layoutCache.current.positions),
       };
     }
     const { positions } = layoutCache.current;
+    const satelliteIndex = new Map<string, number>();
     const out = liveNodes.map((n) => {
+      if (n.data.kind === "preview" && n.data.preview) {
+        // A dragged position wins; otherwise stack right of the parent card.
+        const dpos = dragged.get(n.id);
+        if (dpos) return { ...n, position: dpos };
+        const parentId = n.data.preview.parentId;
+        const i = satelliteIndex.get(parentId) ?? 0;
+        satelliteIndex.set(parentId, i + 1);
+        const parent = dragged.get(parentId) ?? positions.get(parentId);
+        if (!parent) return n;
+        return {
+          ...n,
+          position: { x: parent.x + CARD_W + 64, y: parent.y + i * 112 },
+        };
+      }
       // A dragged position wins over dagre's computed one.
       const pos = dragged.get(n.id) ?? positions.get(n.id);
       return pos ? { ...n, position: pos } : n;
@@ -245,6 +261,10 @@ function GraphCanvas() {
         requestAnimationFrame(() => {
           didDragRef.current = false;
         });
+        // Satellites are ephemeral (PR lifetime) — never persist their keys
+        // into the shared project layout; the in-memory override holds for
+        // the session.
+        if (node.data.kind === "preview") return;
         // Persist the dropped position (shared per-project layout). Merged
         // server-side, so sending just this node is enough. Best-effort —
         // the in-memory override already keeps the node placed locally.
@@ -261,6 +281,15 @@ function GraphCanvas() {
         if (didDragRef.current) return;
         // Pending-deletion nodes are disabled — no focus, no navigation.
         if (node.data.pending === "delete") return;
+        // Preview satellites click through to the deployed preview URL —
+        // they have no detail panel of their own.
+        if (node.data.kind === "preview") {
+          const preview = node.data.preview as { url?: string | null } | undefined;
+          if (typeof preview?.url === "string" && preview.url.length > 0) {
+            window.open(preview.url, "_blank", "noopener");
+          }
+          return;
+        }
         focusNodeInView(node, setCenter);
         // Synthetic route nodes don't have a detail page — skip navigation.
         if (node.id.startsWith("route:")) return;

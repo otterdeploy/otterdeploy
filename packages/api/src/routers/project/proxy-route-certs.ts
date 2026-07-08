@@ -47,7 +47,9 @@ export async function listProjectCertificates(
     return Result.err(new ProjectNotFoundError({ projectId: input.projectId }));
   }
 
-  const records = await listProxyRoutesByProject(input.projectId);
+  const records = (await listProxyRoutesByProject(input.projectId)).filter(
+    (r) => r.previewId == null,
+  );
   const domains = [
     ...new Set(records.filter((r) => r.type === "http" && r.enabled).map((r) => r.domain)),
   ];
