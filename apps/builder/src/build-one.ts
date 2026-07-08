@@ -15,10 +15,39 @@
 
 import type { DeploymentId } from "@otterdeploy/shared/id";
 
+import { db } from "@otterdeploy/db";
+import { deployment } from "@otterdeploy/db/schema/project";
 import { log } from "evlog";
 
 import { runBuildPipeline } from "./pipeline";
 import { createPublisher } from "./redis";
+
+/**
+ * Bun 1.3.14 intermittently DROPS (never settles) a DB/Redis promise while
+ * the drizzle Redis cache client is doing its initial connect; with no ref'd
+ * handles left, the event loop drains and the process dies before the
+ * pipeline even marks "building". Warm both clients behind a timeout+retry:
+ * the pending timer keeps the loop alive through the race window, a dropped
+ * attempt is simply raced out and retried, and one completed round-trip
+ * (cache GET + SQL) means the connect window has passed and subsequent
+ * queries are stable. Best-effort — a persistently down DB surfaces as a
+ * real pipeline failure with a real error, not a silent drain-exit.
+ */
+async function warmUpClients(): Promise<void> {
+  for (let attempt = 1; attempt <= 8; attempt++) {
+    const ok = await Promise.race([
+      db
+        .select({ id: deployment.id })
+        .from(deployment)
+        .limit(1)
+        .then(() => true)
+        .catch(() => false),
+      new Promise<false>((resolve) => setTimeout(() => resolve(false), 2_000)),
+    ]);
+    if (ok) return;
+    log.warn({ build: { event: "warmup-retry", attempt } } as Record<string, unknown>);
+  }
+}
 
 async function main(): Promise<never> {
   const deploymentId = process.argv[2] as DeploymentId | undefined;
@@ -29,6 +58,7 @@ async function main(): Promise<never> {
     process.exit(2);
   }
 
+  await warmUpClients();
   const publisher = createPublisher();
   const result = await runBuildPipeline({ deploymentId, publisher });
   publisher.close();
