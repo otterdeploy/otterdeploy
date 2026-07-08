@@ -52,9 +52,9 @@ export function PreviewCardNode({ data, selected }: NodeProps<ResourceFlowNode>)
       className={cn(
         "w-64 rounded-2xl border bg-card p-3 shadow-[0_1px_2px_0_rgb(0_0_0/0.06)] transition-shadow",
         selected && "ring-2 ring-ring/40",
-        preview.url && "cursor-pointer",
+        "cursor-pointer",
       )}
-      title={preview.url ?? undefined}
+      title="Open preview details"
     >
       <Handle type="target" position={Position.Left} className="!size-2 opacity-0" />
       <div className="flex items-center gap-2.5">

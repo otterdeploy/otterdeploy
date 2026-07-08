@@ -79,6 +79,8 @@ export interface GitInfo {
 /** Data for a PR-preview satellite card (kind="preview") — a small node
  *  attached to the service it previews by a dashed edge. */
 export interface PreviewInfo {
+  /** The preview row id — routes the satellite click to its detail panel. */
+  id: string;
   prNumber: number;
   /** Plain head branch name (`feat/checkout-v2`). */
   branch: string;

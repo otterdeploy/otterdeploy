@@ -813,7 +813,7 @@ export const serviceEnvVar = pgTable(
       .$type<ResourceId>()
       .references(() => serviceResource.resourceId, { onDelete: "cascade" }),
     // Per-environment scoping. Same (service, key) can carry different values
-    // across production / staging / preview / ad-hoc envs.
+    // across production / staging / ad-hoc envs.
     //
     // NULLABLE in v1: existing rows pre-date the env model, and the service
     // router's setEnv / bulkSet handlers don't yet thread an envId through.
@@ -821,6 +821,13 @@ export const serviceEnvVar = pgTable(
     environmentId: text("environment_id")
       .$type<EnvId>()
       .references(() => environment.id, { onDelete: "cascade" }),
+    // Per-PR-preview override. NULL = a base row (every existing surface);
+    // set = this key/value applies ONLY when resolving inside that preview.
+    // Cascade: overrides die with the preview row. Kept across close/reopen
+    // of the same PR (the preview row is upserted, not recreated).
+    previewId: text("preview_id")
+      .$type<PreviewId>()
+      .references(() => preview.id, { onDelete: "cascade" }),
     key: text("key").notNull(),
     value: text("value").notNull(),
     // Drives masking in the UI. Does not affect storage (plaintext for v1).
@@ -832,11 +839,18 @@ export const serviceEnvVar = pgTable(
       .notNull(),
   },
   (table) => [
-    // Old unique kept while environmentId is nullable. Tightens to
-    // (serviceResourceId, environmentId, key) in step 7.
-    uniqueIndex("service_env_var_unique").on(table.serviceResourceId, table.key),
+    // Base rows are unique per (service, key); preview overrides reuse the
+    // base key but are uniqued per (service, preview, key) instead — the
+    // same partial-unique split the resource table uses.
+    uniqueIndex("service_env_var_unique")
+      .on(table.serviceResourceId, table.key)
+      .where(sql`preview_id is null`),
+    uniqueIndex("service_env_var_preview_unique")
+      .on(table.serviceResourceId, table.previewId, table.key)
+      .where(sql`preview_id is not null`),
     index("service_env_var_service_resource_id_idx").on(table.serviceResourceId),
     index("service_env_var_environment_id_idx").on(table.environmentId),
+    index("service_env_var_preview_id_idx").on(table.previewId),
   ],
 );
 

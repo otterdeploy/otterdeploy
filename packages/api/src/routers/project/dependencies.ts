@@ -12,7 +12,7 @@ import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import { db } from "@otterdeploy/db";
 import { resource, serviceEnvVar } from "@otterdeploy/db/schema/project";
 import { Result } from "better-result";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 
 import type { ProjectRef } from "../scopes";
 
@@ -55,7 +55,8 @@ export async function listProjectDependencies(
     })
     .from(serviceEnvVar)
     .innerJoin(resource, eq(resource.id, serviceEnvVar.serviceResourceId))
-    .where(eq(resource.projectId, input.projectId));
+    // Base rows only — preview overrides must not fabricate base graph edges.
+    .where(and(eq(resource.projectId, input.projectId), isNull(serviceEnvVar.previewId)));
 
   // Dedupe edges via a "source|target" key. A service referencing the same
   // resource in 10 env vars produces one edge.

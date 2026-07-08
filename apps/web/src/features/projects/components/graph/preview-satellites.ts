@@ -47,6 +47,7 @@ export function buildPreviewSatellites(
           name: `#${p.prNumber}`,
           description: p.branch,
           preview: {
+            id: p.id,
             prNumber: p.prNumber,
             branch: p.branch,
             status: svc.status,

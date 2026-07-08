@@ -7,8 +7,12 @@
 import { oc } from "@orpc/contract";
 import * as z from "zod";
 
+import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
+
 import { basePath, projectNotFoundErrors, tag } from "./shared";
 import { projectIdField, resourceIdField } from "./shared";
+
+const previewIdField = zId(ID_PREFIX.preview);
 
 export const previewServiceSchema = z.object({
   resourceId: resourceIdField,
@@ -35,6 +39,18 @@ export const listPreviewsInput = z.object({
   projectId: projectIdField,
 });
 
+export const previewEnvVarSchema = z.object({
+  key: z.string(),
+  value: z.string(),
+  updatedAt: z.string(),
+});
+
+const previewEnvVarScope = z.object({
+  projectId: projectIdField,
+  previewId: previewIdField,
+  serviceResourceId: resourceIdField,
+});
+
 export const previewsContractSlice = {
   list: oc
     .errors(projectNotFoundErrors)
@@ -45,4 +61,34 @@ export const previewsContractSlice = {
     })
     .input(listPreviewsInput)
     .output(z.array(previewSchema)),
+
+  envVars: {
+    list: oc
+      .errors(projectNotFoundErrors)
+      .meta({
+        path: `${basePath}/{projectId}/previews/{previewId}/env/{serviceResourceId}`,
+        tag,
+        method: "GET",
+      })
+      .input(previewEnvVarScope)
+      .output(z.array(previewEnvVarSchema)),
+    set: oc
+      .errors(projectNotFoundErrors)
+      .meta({
+        path: `${basePath}/{projectId}/previews/{previewId}/env/{serviceResourceId}/set`,
+        tag,
+        method: "POST",
+      })
+      .input(previewEnvVarScope.extend({ key: z.string().min(1), value: z.string() }))
+      .output(z.object({ redeployed: z.boolean() })),
+    unset: oc
+      .errors(projectNotFoundErrors)
+      .meta({
+        path: `${basePath}/{projectId}/previews/{previewId}/env/{serviceResourceId}/unset`,
+        tag,
+        method: "POST",
+      })
+      .input(previewEnvVarScope.extend({ key: z.string().min(1) }))
+      .output(z.object({ redeployed: z.boolean() })),
+  },
 };

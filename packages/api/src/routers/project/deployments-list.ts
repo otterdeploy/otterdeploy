@@ -4,7 +4,7 @@
  * `listResourceDeployments`), then the building/pending → running flip is
  * persisted lazily and `deploy.succeeded` emitted exactly once.
  */
-import type { DeploymentId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { PreviewId, DeploymentId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { deploymentLog } from "@otterdeploy/db/schema/build";
@@ -12,6 +12,9 @@ import { deployment } from "@otterdeploy/db/schema/project";
 import { Docker } from "@otterdeploy/docker";
 import { Result } from "better-result";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+
+import { loadPreviewScope } from "../../lib/environment/load";
+import { runtimeServiceName } from "../../lib/environment/scoping";
 
 import type { DeploymentRow } from "./deployments";
 
@@ -185,13 +188,21 @@ function deriveDeploymentStatus(
 
 /** All deployments for a resource, newest first. Status is the value
  *  stored in the row — derived live by `listResourceDeployments`. */
-async function listDeploymentsByResource(resourceId: ResourceId): Promise<DeploymentRow[]> {
-  // Base deployments only — preview builds live on the satellite cards / PR
-  // comment, not the production Deployments tab.
+async function listDeploymentsByResource(
+  resourceId: ResourceId,
+  // Base rows by default; a preview id scopes to that PR's deployments (the
+  // preview panel's history view).
+  previewId: PreviewId | null = null,
+): Promise<DeploymentRow[]> {
   const rows = await db
     .select()
     .from(deployment)
-    .where(and(eq(deployment.resourceId, resourceId), isNull(deployment.previewId)))
+    .where(
+      and(
+        eq(deployment.resourceId, resourceId),
+        previewId ? eq(deployment.previewId, previewId) : isNull(deployment.previewId),
+      ),
+    )
     .orderBy(desc(deployment.createdAt));
   return rows as DeploymentRow[];
 }
@@ -320,6 +331,7 @@ interface ListInput {
   projectId: ProjectId;
   organizationId: OrgId;
   resourceId: ResourceId;
+  previewId?: PreviewId | null;
 }
 
 export async function listResourceDeployments(
@@ -338,10 +350,16 @@ export async function listResourceDeployments(
     return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
   }
 
-  const rows = await listDeploymentsByResource(input.resourceId);
+  const rows = await listDeploymentsByResource(input.resourceId, input.previewId ?? null);
   if (rows.length === 0) return Result.ok([]);
 
-  const serviceName = await resolveDeploymentServiceName(found, input.projectId);
+  let serviceName = await resolveDeploymentServiceName(found, input.projectId);
+  if (input.previewId) {
+    // Preview deployments run under the pr-suffixed container — derive task
+    // states from THAT name or every preview row reads as zero tasks.
+    const scope = await loadPreviewScope(input.previewId);
+    if (scope) serviceName = runtimeServiceName(serviceName, scope);
+  }
   const tasksByDeployment = await loadTaskStatesByDeployment(serviceName);
 
   const latestId = rows[0]?.id;
@@ -358,7 +376,14 @@ export async function listResourceDeployments(
     );
     // A row stored building/pending whose tasks are now running has just
     // succeeded — flag it for the reconcile + emit below.
-    if (stats.status === "running" && (row.status === "building" || row.status === "pending")) {
+    // Only reconcile+notify for BASE listings. A preview panel open would
+    // otherwise drive the base-styled deploy.succeeded notification over
+    // preview rows; the builder's markRunning settles preview rows itself.
+    if (
+      !input.previewId &&
+      stats.status === "running" &&
+      (row.status === "building" || row.status === "pending")
+    ) {
       justSucceeded.push(row.id);
     }
     return stats;

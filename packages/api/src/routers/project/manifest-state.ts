@@ -106,7 +106,15 @@ export async function loadCurrentState(projectId: ProjectId): Promise<CurrentSta
     const serviceIds = serviceRows.map((r) => r.service.resourceId);
     const [ports, envs] = await Promise.all([
       db.select().from(servicePort).where(inArray(servicePort.serviceResourceId, serviceIds)),
-      db.select().from(serviceEnvVar).where(inArray(serviceEnvVar.serviceResourceId, serviceIds)),
+      db
+        .select()
+        .from(serviceEnvVar)
+        .where(
+          and(
+            inArray(serviceEnvVar.serviceResourceId, serviceIds),
+            isNull(serviceEnvVar.previewId),
+          ),
+        ),
     ]);
 
     const portsBySvc = new Map<string, CurrentServicePort[]>();

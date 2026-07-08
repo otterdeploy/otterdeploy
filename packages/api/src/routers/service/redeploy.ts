@@ -128,7 +128,9 @@ export async function redeployOne(
 
   const resolved = await resolveServiceEnv(projectId, resourceId, opts?.previewId);
   if (resolved.isErr()) {
-    await updateServiceResourceStatus(resourceId, "invalid");
+    // A preview override resolve failure must not corrupt the BASE resource's
+    // status — the base row is shared across production and every preview.
+    if (!opts?.previewId) await updateServiceResourceStatus(resourceId, "invalid");
     return Result.err(resolved.error);
   }
 
@@ -141,7 +143,10 @@ export async function redeployOne(
     opts?.imageOverride,
   );
   const result = await runtime().update(swarmSpec, log);
-  await updateServiceResourceStatus(resourceId, result.status === "error" ? "invalid" : "valid");
+  // Same guard: a preview roll's outcome never rewrites the base status.
+  if (!opts?.previewId) {
+    await updateServiceResourceStatus(resourceId, result.status === "error" ? "invalid" : "valid");
+  }
 
   return Result.ok(result);
 }
