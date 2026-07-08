@@ -25,3 +25,24 @@ export async function listActivePreviewsByProject(projectId: ProjectId): Promise
     .where(and(eq(preview.projectId, projectId), eq(preview.state, "active")))
     .orderBy(asc(preview.prNumber));
 }
+
+export async function setPreviewPaused(id: PreviewId, paused: boolean): Promise<void> {
+  await db.update(preview).set({ paused, updatedAt: new Date() }).where(eq(preview.id, id));
+}
+
+/** Keep-alive control: null pins the preview (never idle-reaped). */
+export async function setPreviewAutoTeardown(
+  id: PreviewId,
+  autoTeardownAt: Date | null,
+): Promise<void> {
+  await db.update(preview).set({ autoTeardownAt, updatedAt: new Date() }).where(eq(preview.id, id));
+}
+
+export async function markPreviewClosedById(id: PreviewId): Promise<PreviewRow | undefined> {
+  const [row] = await db
+    .update(preview)
+    .set({ state: "closed", paused: false, updatedAt: new Date() })
+    .where(eq(preview.id, id))
+    .returning();
+  return row;
+}

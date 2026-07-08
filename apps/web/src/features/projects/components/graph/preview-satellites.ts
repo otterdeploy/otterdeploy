@@ -18,7 +18,15 @@ export interface PreviewApiEntry {
   services: {
     resourceId: string;
     serviceName: string;
-    status: "pending" | "building" | "running" | "failed" | "superseded" | "removed" | "none";
+    status:
+      | "pending"
+      | "building"
+      | "running"
+      | "failed"
+      | "superseded"
+      | "removed"
+      | "none"
+      | "paused";
     url: string | null;
   }[];
 }

@@ -57,4 +57,11 @@ export {
   type ProjectEnvVarRow,
 } from "./project-env";
 
-export { getPreviewById, listActivePreviewsByProject, type PreviewRow } from "./preview";
+export {
+  getPreviewById,
+  listActivePreviewsByProject,
+  markPreviewClosedById,
+  setPreviewAutoTeardown,
+  setPreviewPaused,
+  type PreviewRow,
+} from "./preview";

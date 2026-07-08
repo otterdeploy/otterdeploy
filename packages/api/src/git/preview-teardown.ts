@@ -72,8 +72,29 @@ export async function teardownPreview(input: ClosedPreview, rlog?: RequestLogger
   }
 
   // 2. Destroy + delete the branched databases (container + volume + row).
-  // Branch DBs are named with the preview's full slug (`<repoSlug>-pr-<N>`) —
-  // the same string create used — so destroy targets the real container.
+  await destroyPreviewBranchDbs(
+    { id: input.id, projectId: input.projectId, projectSlug: input.projectSlug, slug: input.slug },
+    rlog,
+  );
+
+  // 3. Drop the preview's proxy routes and push the shrunken config to the
+  // edge (skip the reconcile when the preview never had a host).
+  await best(
+    async () => {
+      if (await removePreviewRoutes(input.id)) await reconcile(rlog);
+    },
+    { step: "remove-routes", previewId: input.id },
+  );
+}
+
+/** Destroy + delete a preview's branched databases (container + volume + row).
+ *  Branch DBs are named with the preview's full slug (`<repoSlug>-pr-<N>`) —
+ *  the same string create used — so destroy targets the real container. Shared
+ *  by teardown and the DB-branch disable/reset controls. */
+export async function destroyPreviewBranchDbs(
+  input: { id: PreviewId; projectId: ProjectId; projectSlug: string; slug: string },
+  rlog?: RequestLogger,
+): Promise<number> {
   const branches = (await listDatabaseResourceRecords(input.projectId)).filter(
     (r) => r.resource.previewId === input.id,
   );
@@ -101,15 +122,7 @@ export async function teardownPreview(input: ClosedPreview, rlog?: RequestLogger
       db: br.resource.name,
     });
   }
-
-  // 3. Drop the preview's proxy routes and push the shrunken config to the
-  // edge (skip the reconcile when the preview never had a host).
-  await best(
-    async () => {
-      if (await removePreviewRoutes(input.id)) await reconcile(rlog);
-    },
-    { step: "remove-routes", previewId: input.id },
-  );
+  return branches.length;
 }
 
 async function best(fn: () => Promise<unknown>, ctx: Record<string, unknown>): Promise<void> {

@@ -14,12 +14,23 @@ import { projectIdField, resourceIdField } from "./shared";
 
 const previewIdField = zId(ID_PREFIX.preview);
 
+const previewScopeOnly = z.object({ projectId: projectIdField, previewId: previewIdField });
+
+/** A preview-level POST control (rebuild/pause/etc.) — scope in, loose ok out. */
+function previewAction(path: string) {
+  return oc
+    .errors(projectNotFoundErrors)
+    .meta({ path, tag, method: "POST" })
+    .input(previewScopeOnly)
+    .output(z.record(z.string(), z.union([z.number(), z.boolean()])));
+}
+
 export const previewServiceSchema = z.object({
   resourceId: resourceIdField,
   /** Base resource name — matches the graph node the card attaches to. */
   serviceName: z.string(),
   /** Latest preview-scoped deployment status; "none" before the first build. */
-  status: z.enum(["pending", "building", "running", "failed", "superseded", "removed", "none"]),
+  status: z.enum(["pending", "building", "running", "failed", "superseded", "removed", "none", "paused"]),
   /** Preview host (https URL), when the service is publicly exposed. */
   url: z.string().nullable(),
 });
@@ -32,6 +43,11 @@ export const previewSchema = z.object({
   headSha: z.string(),
   slug: z.string(),
   state: z.enum(["active", "closed"]),
+  paused: z.boolean(),
+  /** ISO instant the preview is idle-reaped, or null when pinned (keep-alive). */
+  autoTeardownAt: z.string().nullable(),
+  /** True when this preview owns isolated DB branches (vs sharing the base). */
+  dbBranched: z.boolean(),
   services: z.array(previewServiceSchema),
 });
 
@@ -62,7 +78,45 @@ export const previewsContractSlice = {
     .input(listPreviewsInput)
     .output(z.array(previewSchema)),
 
+  rebuild: previewAction(`${basePath}/{projectId}/previews/{previewId}/rebuild`),
+  redeploy: previewAction(`${basePath}/{projectId}/previews/{previewId}/redeploy`),
+  pause: previewAction(`${basePath}/{projectId}/previews/{previewId}/pause`),
+  resume: previewAction(`${basePath}/{projectId}/previews/{previewId}/resume`),
+  teardown: previewAction(`${basePath}/{projectId}/previews/{previewId}/teardown`),
+  keepAlive: oc
+    .errors(projectNotFoundErrors)
+    .meta({ path: `${basePath}/{projectId}/previews/{previewId}/keep-alive`, tag, method: "POST" })
+    // keepAlive=true pins (never idle-reaped); false re-arms the SERVER default
+    // TTL (or stays unpinned when idle teardown is globally disabled).
+    .input(previewScopeOnly.extend({ keepAlive: z.boolean() }))
+    .output(z.object({ pinned: z.boolean() })),
+  dbBranch: {
+    enable: previewAction(`${basePath}/{projectId}/previews/{previewId}/db-branch/enable`),
+    disable: previewAction(`${basePath}/{projectId}/previews/{previewId}/db-branch/disable`),
+    reset: previewAction(`${basePath}/{projectId}/previews/{previewId}/db-branch/reset`),
+  },
+
   envVars: {
+    effective: oc
+      .errors(projectNotFoundErrors)
+      .meta({
+        path: `${basePath}/{projectId}/previews/{previewId}/env/{serviceResourceId}/effective`,
+        tag,
+        method: "GET",
+      })
+      .input(previewEnvVarScope)
+      .output(
+        z.array(
+          z.object({
+            key: z.string(),
+            value: z.string(),
+            source: z.enum(["inherited", "override"]),
+            baseValue: z.string().nullable(),
+            isSecret: z.boolean(),
+            unresolved: z.boolean(),
+          }),
+        ),
+      ),
     list: oc
       .errors(projectNotFoundErrors)
       .meta({

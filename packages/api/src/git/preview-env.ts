@@ -11,7 +11,15 @@ import type { GitRepoId, ProjectId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { preview } from "@otterdeploy/db/schema/project";
-import { and, eq } from "drizzle-orm";
+import { env as serverEnv } from "@otterdeploy/env/server";
+import { and, eq, sql } from "drizzle-orm";
+
+/** Idle-teardown instant for a freshly opened preview, or null when idle
+ *  teardown is disabled (PREVIEW_IDLE_TEARDOWN_HOURS=0). */
+export function defaultTeardownAt(): Date | null {
+  const hours = serverEnv.PREVIEW_IDLE_TEARDOWN_HOURS;
+  return hours > 0 ? new Date(Date.now() + hours * 60 * 60 * 1000) : null;
+}
 
 export type PreviewRow = typeof preview.$inferSelect;
 
@@ -45,6 +53,7 @@ export async function ensurePreview(input: EnsurePreviewInput): Promise<PreviewR
       headSha: input.headSha,
       slug: `${input.repoSlug}-pr-${input.prNumber}`,
       state: "active",
+      autoTeardownAt: defaultTeardownAt(),
     })
     .onConflictDoUpdate({
       target: [preview.projectId, preview.gitRepoId, preview.prNumber],
@@ -52,6 +61,19 @@ export async function ensurePreview(input: EnsurePreviewInput): Promise<PreviewR
         branch: input.branch,
         headSha: input.headSha,
         state: "active",
+        // A push is activity — extend the idle clock, but PRESERVE a keep-alive
+        // pin: if the existing row was pinned (auto_teardown_at IS NULL), keep
+        // it NULL; otherwise bump to a fresh default. Skip entirely when idle
+        // teardown is globally disabled.
+        // A push is an implicit resume — clear a stale pause so the rebuilt
+        // containers aren't left flagged paused (and reaper-exempt) forever.
+        paused: false,
+        // Extend the idle clock, but PRESERVE a keep-alive pin (NULL stays NULL).
+        ...(defaultTeardownAt()
+          ? {
+              autoTeardownAt: sql`case when ${preview.autoTeardownAt} is null then null else ${defaultTeardownAt()} end`,
+            }
+          : {}),
         updatedAt: new Date(),
       },
     })
@@ -71,7 +93,7 @@ export async function markPreviewsClosed(
 ): Promise<PreviewRow[]> {
   return db
     .update(preview)
-    .set({ state: "closed", updatedAt: new Date() })
+    .set({ state: "closed", paused: false, updatedAt: new Date() })
     .where(
       and(
         eq(preview.projectId, projectId),

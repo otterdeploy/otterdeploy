@@ -34,6 +34,8 @@ function pillFor(status: NonNullable<ResourceFlowNode["data"]["preview"]>["statu
       return { kind: "status", resourceStatus: "building", label: "building" };
     case "failed":
       return { kind: "status", resourceStatus: "error", label: "error" };
+    case "paused":
+      return { kind: "muted", label: "paused" };
     case "none":
       return { kind: "muted", label: "queued" };
     default:

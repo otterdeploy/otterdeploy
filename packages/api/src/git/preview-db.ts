@@ -31,6 +31,7 @@ import { insertDeployment } from "../routers/project/deployments";
 import { deriveInternalDbCredentials } from "../routers/project/postgres/credentials";
 import {
   createDatabaseResourceRecord,
+  deleteResourceById,
   listDatabaseResourceRecords,
 } from "../routers/project/queries";
 import { buildContainerName, buildVolumeName } from "../routers/project/view-helpers";
@@ -45,13 +46,17 @@ export async function branchProjectDatabases(input: {
   /** The preview's repo-qualified slug (`<repoSlug>-pr-<7>`), used to derive
    *  the branch's distinct identity — and reused verbatim at teardown. */
   previewSlug: string;
+  /** Branch ALL base postgres DBs regardless of the per-database opt-in flag —
+   *  the explicit "enable DB branch for this preview" control. Default false
+   *  (the PR-open path respects the opt-in). */
+  force?: boolean;
   rlog?: RequestLogger;
 }): Promise<number> {
   const driver = await resolveSnapshotDriver();
   const records = await listDatabaseResourceRecords(input.projectId);
   const bases = records.filter(
-    // Opt-in only: previewBranching=false databases are shared with the base.
-    (r) => r.resource.previewId == null && r.database.previewBranching,
+    // Opt-in (or forced by the per-preview control): shared-with-base otherwise.
+    (r) => r.resource.previewId == null && (input.force || r.database.previewBranching),
   );
   let branched = 0;
 
@@ -176,5 +181,19 @@ async function branchOne(
     },
   };
 
-  await runtime().branchDatabase(spec, input.rlog);
+  // A failed copy must not leave a "valid" branch resource behind — the
+  // resolver would then point preview services at a dead DB and branchExists
+  // would permanently skip a retry. Compensate: delete the branch row (cascades
+  // its deployment) and rethrow so the caller logs it.
+  const copied = await Result.tryPromise({
+    try: () => runtime().branchDatabase(spec, input.rlog),
+    catch: (cause) => cause,
+  });
+  if (copied.isErr()) {
+    await Result.tryPromise({
+      try: () => deleteResourceById(created.resource.id),
+      catch: (cause) => cause,
+    });
+    throw copied.error;
+  }
 }

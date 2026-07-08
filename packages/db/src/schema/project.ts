@@ -220,7 +220,12 @@ export const preview = pgTable(
      *  containers, volumes and hosts — byte-identical at create and teardown. */
     slug: text("slug").notNull(),
     state: previewStateEnum("state").notNull().default("active"),
-    // Idle GC: tear the preview down past this instant even if the PR stays open.
+    // Paused = containers stopped to free resources but the preview + routes
+    // are kept; resume rolls it back from the last built image. Distinct from
+    // state='closed' (torn down, PR done).
+    paused: boolean("paused").notNull().default(false),
+    // Idle GC: the hourly cleanup cron tears the preview down past this instant
+    // even if the PR stays open. NULL = pinned (keep-alive), never auto-reaped.
     autoTeardownAt: timestamp("auto_teardown_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")

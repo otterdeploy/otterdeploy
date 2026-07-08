@@ -7,6 +7,7 @@
 import { startBackupScheduler } from "@otterdeploy/api/backups";
 import { startEphemeralDbSweeper } from "@otterdeploy/api/ephemeral-db";
 import { startDataFolderSweep } from "@otterdeploy/api/lib/data-folder-sweep";
+import { startPreviewReaper } from "@otterdeploy/api/git/preview-reaper";
 import { startMetricsSampler } from "@otterdeploy/api/metrics";
 import { startAuditAnomalyScan } from "@otterdeploy/api/notifications/audit-anomaly";
 import { startBlocklistScheduler } from "@otterdeploy/api/routers/firewall/scheduler";
@@ -58,6 +59,10 @@ export function startBackgroundServices(): () => void {
   // backups) whose owning DB row is gone, e.g. after a crashed teardown
   // (docs/designs/data-folder.md, Phase 5). No-op when /data isn't in use.
   start("data-folder-sweep", startDataFolderSweep);
+
+  // PR-preview idle GC — hourly, tears down active non-paused previews past
+  // their autoTeardownAt (keep-alive pins = NULL deadline, never reaped).
+  start("preview-reaper", startPreviewReaper);
 
   // Audit-anomaly scan — periodic, conservative rules over recent audit rows
   // (denial bursts, mass deletions) that emit `audit.anomaly` notifications.
