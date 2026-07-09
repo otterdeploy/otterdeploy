@@ -1,5 +1,9 @@
 # DB branching — build tracker (branch `feat/pg-cow-branching-previews`)
 
+> ⚠️ **Superseded by [`preview-cow-databases-plan.md`](./preview-cow-databases-plan.md)**,
+> which reflects the current previews-as-resources model, marks what's already
+> built, and makes the volume→ZFS migration prerequisite explicit.
+
 Turns the design in [`db-branching.md`](./db-branching.md) into checkable work.
 Research backing: [`neon-cow-branching-research.md`](./neon-cow-branching-research.md).
 Goal: **copy-on-write Postgres branching → instant per-PR preview databases.**
