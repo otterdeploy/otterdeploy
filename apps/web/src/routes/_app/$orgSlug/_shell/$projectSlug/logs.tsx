@@ -98,7 +98,6 @@ function RouteComponent() {
   }, [query, patchSearch]);
 
   const [paused, setPaused] = useState(false);
-  const [wrap, setWrap] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const setSvcFilter = (v: string) =>
@@ -120,7 +119,6 @@ function RouteComponent() {
     query,
     timeRange,
     paused,
-    wrap,
   });
 
   const selectedLine = useMemo(
@@ -161,8 +159,6 @@ function RouteComponent() {
         query={query}
         onQueryChange={setQuery}
         badge={badge}
-        wrap={wrap}
-        onToggleWrap={() => setWrap((w) => !w)}
         paused={paused}
         onTogglePause={() => setPaused((p) => !p)}
         onCopy={() => copyLines(t.filtered)}

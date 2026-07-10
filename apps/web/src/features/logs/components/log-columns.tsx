@@ -1,12 +1,10 @@
 // Headless TanStack column model for the project logs table. Rendering (the
-// virtualized flex rows) lives in logs-table-view; here we only describe columns,
-// sorting, and per-cell content. `wrap` is read off table meta so toggling it
-// doesn't churn the column identities.
+// virtualized flex rows) lives in logs-table-view; here we only describe
+// columns, sorting, and per-cell content. Every row is a single fixed-height
+// line — full entries open in the side detail panel (row click), never inline,
+// so the virtualizer's rows stay uniform and can't overlap.
 
-import type { ColumnDef, RowData } from "@tanstack/react-table";
-
-import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+import type { ColumnDef } from "@tanstack/react-table";
 
 import { Checkbox } from "@/shared/components/ui/checkbox";
 import { cn } from "@/shared/lib/utils";
@@ -17,14 +15,6 @@ import {
   type LogLevel,
   type LogLine,
 } from "../data/use-project-log-stream";
-
-declare module "@tanstack/react-table" {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  interface TableMeta<TData extends RowData> {
-    /** Wrap long messages (multi-line, grows the row) vs single-line truncate. */
-    wrap?: boolean;
-  }
-}
 
 const levelRank = (lv: LogLevel) => LOG_LEVELS.indexOf(lv);
 
@@ -50,32 +40,6 @@ export const logColumns: ColumnDef<LogLine>[] = [
           onCheckedChange={(v) => row.toggleSelected(!!v)}
         />
       </span>
-    ),
-  },
-  {
-    id: "expander",
-    size: 28,
-    enableSorting: false,
-    header: () => null,
-    cell: ({ row }) => (
-      // Inline fold — expand the row in place to read the whole entry, collapse
-      // to fold it back. Independent of the side detail panel (row click), so
-      // stop propagation here.
-      <button
-        type="button"
-        aria-label={row.getIsExpanded() ? "Collapse" : "Expand"}
-        onClick={(e) => {
-          e.stopPropagation();
-          row.toggleExpanded();
-        }}
-        className="flex items-center justify-center text-muted-foreground/60 hover:text-foreground"
-      >
-        <HugeiconsIcon
-          icon={ArrowRight01Icon}
-          strokeWidth={2}
-          className={cn("size-3 transition-transform", row.getIsExpanded() && "rotate-90")}
-        />
-      </button>
     ),
   },
   {
@@ -118,30 +82,22 @@ export const logColumns: ColumnDef<LogLine>[] = [
     accessorKey: "msg",
     enableSorting: false,
     header: "Message",
-    cell: ({ row, table }) => {
+    cell: ({ row }) => {
       const msg = row.original.msg;
-      const wrap = table.options.meta?.wrap ?? true;
-      // Only an expanded (chevron-opened) row shows the whole entry. Collapsed
-      // rows stay one logical line so multi-line stack traces / objects don't
-      // blow the table open by default — `wrap` just decides whether that one
-      // line wraps or truncates.
-      if (row.getIsExpanded()) {
-        return (
-          <span className="min-w-0 flex-1 text-xs wrap-break-word whitespace-pre-wrap text-foreground">
-            {msg}
-          </span>
-        );
-      }
+      // Every row is ALWAYS a single truncated line, so all rows share one
+      // fixed height. That is what keeps the virtualizer's size estimate exact
+      // and its absolutely-positioned rows from overlapping: a soft-wrapped row
+      // grows to the full many-line height of a long JSON log entry, and the
+      // virtualizer's post-paint measurement can't reliably repaint that under
+      // a bursty live tail, so tall rows smeared over each other into an
+      // unreadable overlap. Click a row to read the whole entry (pretty-printed
+      // JSON, metadata) in the side detail panel — that overlays the table
+      // instead of reflowing it.
       const firstBreak = msg.indexOf("\n");
       const summary = firstBreak === -1 ? msg : msg.slice(0, firstBreak);
       const extra = firstBreak === -1 ? 0 : msg.split("\n").length - 1;
       return (
-        <span
-          className={cn(
-            "min-w-0 flex-1 text-xs text-foreground",
-            wrap ? "wrap-break-word" : "truncate",
-          )}
-        >
+        <span className="min-w-0 flex-1 truncate text-xs text-foreground">
           {summary}
           {extra > 0 && (
             <span className="ml-2 rounded-sm bg-muted px-1.5 py-0.5 align-middle text-[10px] font-medium text-muted-foreground/80">

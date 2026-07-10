@@ -168,17 +168,14 @@ function LogsTableBody({ rows, virtualizer, selectedId, onSelect }: LogsTableBod
             data-state={selectedId === row.id ? "selected" : undefined}
             onClick={() => onSelect(row.id)}
             style={{ transform: `translateY(${vi.start}px)` }}
-            className={cn(
-              "absolute flex w-full cursor-pointer border-b font-mono",
-              row.getIsExpanded() && "bg-muted/20",
-            )}
+            className="absolute flex w-full cursor-pointer border-b font-mono"
           >
             {row.getVisibleCells().map((cell, i) => {
               const isMsg = cell.column.id === "message";
-              // Control cells (expand chevron, select checkbox) act on the row
-              // itself — a click here must not also open the detail panel,
-              // including clicks on the cell padding around the small control.
-              const isControl = cell.column.id === "expander" || cell.column.id === "select";
+              // The select checkbox acts on the row itself — a click there must
+              // not also open the detail panel, including clicks on the cell
+              // padding around the small control.
+              const isControl = cell.column.id === "select";
               return (
                 <TableCell
                   key={cell.id}
