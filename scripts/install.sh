@@ -552,6 +552,35 @@ write_env() {
   cors_origin="$(keep_or CORS_ORIGIN "$public_url")"
   pool_line="$(env_value BRANCH_ZFS_POOL)"   # set later by provision_branching
 
+  # Firewall (CrowdSec) — keys are generated once and preserved forever after:
+  # both bouncers authenticate to the LAPI with them, so regenerating would
+  # orphan the registrations. Existing keys survive even with the firewall
+  # toggled off, so flipping it back on never re-registers anything. The
+  # COMPOSE_PROFILES line (not just this script's --profile flag) is what keeps
+  # the crowdsec service in scope for the in-app updater's plain
+  # `docker compose up` from INSTALL_DIR.
+  local cs_caddy_key cs_fw_key fw_block=""
+  cs_caddy_key="$(env_value CROWDSEC_BOUNCER_KEY)"
+  cs_fw_key="$(env_value CROWDSEC_FIREWALL_BOUNCER_KEY)"
+  if [ "$FIREWALL" = "true" ]; then
+    [ -n "$cs_caddy_key" ] || cs_caddy_key="$(random_secret)"
+    [ -n "$cs_fw_key" ]    || cs_fw_key="$(random_secret)"
+  fi
+  if [ -n "$cs_caddy_key" ] || [ -n "$cs_fw_key" ]; then
+    local profiles_line=""
+    [ "$FIREWALL" = "true" ] && profiles_line="COMPOSE_PROFILES=firewall"
+    fw_block="
+# CrowdSec firewall (opt-in). CROWDSEC_BOUNCER_KEY authenticates the Caddy
+# (HTTP-layer) bouncer; CROWDSEC_FIREWALL_BOUNCER_KEY the host nftables bouncer
+# install.sh sets up as a native systemd service. COMPOSE_PROFILES=firewall is
+# what starts the crowdsec engine — removing that line disables the firewall
+# without losing the keys.
+$profiles_line
+CROWDSEC_LAPI_URL=http://crowdsec:8080
+CROWDSEC_BOUNCER_KEY=$cs_caddy_key
+CROWDSEC_FIREWALL_BOUNCER_KEY=$cs_fw_key"
+  fi
+
   if dry; then
     say "   + write $ENV_FILE (secrets redacted):"
     say "       POSTGRES_USER=$pg_user  POSTGRES_DB=$pg_db  POSTGRES_PASSWORD=********"
@@ -560,6 +589,7 @@ write_env() {
     say "       OTTERDEPLOY_DATA_DIR=$DATA_DIR  OTTERDEPLOY_INSTALL_DIR=$INSTALL_DIR"
     say "       PUBLIC_HOST=$public_host  CONTROL_PLANE_PORT=$CONTROL_PLANE_PORT"
     say "       BETTER_AUTH_URL=$public_url  CORS_ORIGIN=$cors_origin  NODE_ENV=production"
+    [ "$FIREWALL" = "true" ] && say "       COMPOSE_PROFILES=firewall  CROWDSEC_BOUNCER_KEY=********  CROWDSEC_FIREWALL_BOUNCER_KEY=********"
     return
   fi
 
@@ -574,6 +604,7 @@ OTTERDEPLOY_INSTALL_DIR=$INSTALL_DIR
 DEPLOY_RUNTIME=docker
 CONTROL_PLANE_PORT=$CONTROL_PLANE_PORT
 PUBLIC_HOST=$public_host
+$fw_block
 
 POSTGRES_USER=$pg_user
 POSTGRES_PASSWORD=$pg_pass
@@ -765,6 +796,95 @@ wait_for_health() {
   fail "otterdeploy did not become healthy — see logs above and $LOG_FILE."
 }
 
+# ── 10b. host firewall bouncer (with the firewall profile) ──────────────────
+# The CrowdSec ENGINE runs as a container and only DECIDES; enforcing at the
+# host firewall is a separate bouncer. Upstream ships that bouncer as deb/rpm
+# only — no container image, and a namespaced container couldn't own the
+# host's nftables anyway — so it's installed as a native systemd service and
+# pointed at the engine's LAPI, which the compose file publishes loopback-only
+# on 127.0.0.1:8080. The engine pre-registers its API key from
+# CROWDSEC_FIREWALL_BOUNCER_KEY (BOUNCER_KEY_firewall in the compose), so no
+# `cscli bouncers add` handshake is needed. Everything here is best-effort:
+# without the host bouncer the Caddy (HTTP-layer) bouncer still enforces.
+install_firewall_bouncer() {
+  [ "$FIREWALL" = "true" ] || return 0
+  step "Installing the host firewall bouncer (crowdsec-firewall-bouncer)"
+
+  local key cfg pkg svc=crowdsec-firewall-bouncer
+  cfg="/etc/crowdsec/bouncers/crowdsec-firewall-bouncer.yaml"
+  key="$(env_value CROWDSEC_FIREWALL_BOUNCER_KEY)"
+
+  if ! command -v systemctl >/dev/null 2>&1; then
+    warn "No systemd — skipping the host firewall bouncer (HTTP-layer blocking still works)."
+    return 0
+  fi
+  if [ -z "$key" ] && ! dry; then
+    warn "CROWDSEC_FIREWALL_BOUNCER_KEY missing from $ENV_FILE — skipping the host bouncer."
+    return 0
+  fi
+
+  # The package variant decides which backend the bouncer drives: nftables
+  # where the host has it, iptables as the legacy fallback.
+  if command -v nft >/dev/null 2>&1; then
+    pkg=crowdsec-firewall-bouncer-nftables
+  else
+    pkg=crowdsec-firewall-bouncer-iptables
+  fi
+
+  if dry; then
+    say "   + add the CrowdSec package repo and install $pkg"
+    say "   + point $cfg at http://127.0.0.1:8080 with the firewall bouncer key"
+    say "   + systemctl enable --now $svc"
+    return 0
+  fi
+
+  if ! command -v crowdsec-firewall-bouncer >/dev/null 2>&1; then
+    case "$OS_FAMILY" in
+      debian)
+        curl -fsSL https://packagecloud.io/install/repositories/crowdsec/crowdsec/script.deb.sh | $SUDO bash \
+          || { warn "Could not add the CrowdSec package repo — skipping the host bouncer."; return 0; }
+        if ! $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y "$pkg"; then
+          # packagecloud writes a repo for the RUNNING release codename, which
+          # 404s on releases newer than CrowdSec publishes for (e.g. Ubuntu
+          # 26.04 "resolute"). The bouncer is a static Go binary, so fall back
+          # to the newest LTS dist they do publish and retry once.
+          local cs_list=/etc/apt/sources.list.d/crowdsec_crowdsec.list fallback=noble
+          [ "$(. /etc/os-release && echo "$ID")" = "debian" ] && fallback=bookworm
+          warn "CrowdSec repo has no packages for this release — retrying with the '$fallback' dist."
+          $SUDO sed -i "s|^\(deb.*/crowdsec/[a-z]*/\) [a-z]* main|\1 $fallback main|" "$cs_list"
+          $SUDO apt-get update -o Dir::Etc::sourcelist="$cs_list" -o Dir::Etc::sourceparts=/dev/null >/dev/null 2>&1 || true
+          $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y "$pkg" \
+            || { warn "Could not install $pkg — skipping the host bouncer."; return 0; }
+        fi
+        ;;
+      rhel)
+        curl -fsSL https://packagecloud.io/install/repositories/crowdsec/crowdsec/script.rpm.sh | $SUDO bash \
+          || { warn "Could not add the CrowdSec package repo — skipping the host bouncer."; return 0; }
+        $SUDO dnf install -y "$pkg" \
+          || { warn "Could not install $pkg — skipping the host bouncer."; return 0; }
+        ;;
+      *)
+        warn "No CrowdSec bouncer packages for the $OS_FAMILY family — skipping the host bouncer (HTTP-layer blocking still works)."
+        return 0
+        ;;
+    esac
+  fi
+
+  # The package's postinst expects an engine on the same host and leaves a
+  # blank api_key when there is none (ours is a container) — point it at the
+  # loopback LAPI with the pre-registered key instead.
+  $SUDO sed -i \
+    -e "s|^api_url:.*|api_url: http://127.0.0.1:8080/|" \
+    -e "s|^api_key:.*|api_key: $key|" "$cfg" \
+    || { warn "Could not configure $cfg — check it by hand."; return 0; }
+  $SUDO systemctl enable "$svc" >/dev/null 2>&1 || true
+  if $SUDO systemctl restart "$svc"; then
+    say " - Host firewall bouncer active ($pkg → LAPI at 127.0.0.1:8080)"
+  else
+    warn "$svc failed to start — inspect it with: journalctl -u $svc"
+  fi
+}
+
 # ── version resolution ────────────────────────────────────────────────────────
 # Images are published under immutable semver tags (vX.Y.Z) alongside a GitHub
 # Release per tag (.github/workflows/images.yml). Resolve the newest release so
@@ -952,10 +1072,13 @@ configure() {
   _ctx "Firewall (CrowdSec) — community IP-reputation blocking at the edge proxy."
   _ctx "Optional, and you can enable it later; it adds a container + a compose profile."
   if [ -z "${OTTERDEPLOY_FIREWALL:-}" ]; then
-    local fw
-    printf '   \033[1mEnable the bundled CrowdSec firewall?\033[0m [y/N]: ' > "$tty"
+    # Default reflects the current value: N on a fresh install, Y when a
+    # previous run (or a hand-edited .env) already enabled the profile.
+    local fw fw_def="y/N"
+    [ "$FIREWALL" = "true" ] && fw_def="Y/n"
+    printf '   \033[1mEnable the bundled CrowdSec firewall?\033[0m [%s]: ' "$fw_def" > "$tty"
     IFS= read -r fw < "$tty" || fw=""
-    case "$fw" in [Yy]*) FIREWALL=true ;; *) FIREWALL=false ;; esac
+    case "$fw" in [Yy]*) FIREWALL=true ;; [Nn]*) FIREWALL=false ;; esac
   fi
 
   printf '\n   Config → branching=%s  version=%s  firewall=%s\n           compose=%s\n' \
@@ -1000,6 +1123,14 @@ main() {
     esac
   done
 
+  # Re-runs and `update` inherit the firewall choice from the existing .env —
+  # an explicit OTTERDEPLOY_FIREWALL / --firewall still wins. Without this a
+  # re-run would silently drop the crowdsec profile (and write_env would strip
+  # its keys from the .env it regenerates).
+  if [ -z "${OTTERDEPLOY_FIREWALL:-}" ] && [ "$FIREWALL" != "true" ]; then
+    case "$(env_value COMPOSE_PROFILES)" in *firewall*) FIREWALL=true ;; esac
+  fi
+
   # Ask for the main options on a fresh install when run interactively (no-op
   # under --yes / --dry-run / no TTY). Must run BEFORE the log capture so a
   # changed DATA_DIR repoints INSTALL_DIR / LOG_FILE.
@@ -1038,6 +1169,7 @@ main() {
   provision_branching
   start_stack
   wait_for_health
+  install_firewall_bouncer
 
   if [ "$DRY_RUN" = "true" ]; then
     say ""

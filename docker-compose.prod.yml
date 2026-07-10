@@ -202,13 +202,24 @@ services:
     environment:
       # Auto-register the Caddy bouncer with our shared key on first boot.
       BOUNCER_KEY_caddy: ${CROWDSEC_BOUNCER_KEY:-}
+      # Auto-register the host firewall bouncer too, with its OWN key so
+      # either bouncer can be revoked without breaking the other. The bouncer
+      # itself is NOT a compose service: upstream ships no container image
+      # (deb/rpm only), and it must own the host's nftables — install.sh
+      # installs it as a native systemd service when the firewall profile is
+      # chosen. Empty key ⇒ registration is skipped, nothing else changes.
+      BOUNCER_KEY_firewall: ${CROWDSEC_FIREWALL_BOUNCER_KEY:-}
     volumes:
       - otterdeploy-crowdsec-config:/etc/crowdsec
       - otterdeploy-crowdsec-data:/var/lib/crowdsec/data
-    expose:
-      # LAPI — internal only; reached as http://crowdsec:8080 by the Caddy
-      # bouncer, and by the control plane via `cscli` over the Docker socket.
-      - "8080"
+    ports:
+      # LAPI on the host LOOPBACK only — 127.0.0.1, never 0.0.0.0, so it is
+      # unreachable off-box. This is how the native firewall bouncer (a host
+      # process, outside the compose network) reaches the engine. In-network
+      # callers are unaffected: the Caddy bouncer still uses
+      # http://crowdsec:8080 via service DNS, and the control plane execs
+      # `cscli` over the Docker socket — neither depends on this binding.
+      - "127.0.0.1:8080:8080"
     healthcheck:
       test: ["CMD", "cscli", "lapi", "status"]
       interval: 15s
