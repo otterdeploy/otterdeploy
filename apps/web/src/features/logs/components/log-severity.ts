@@ -30,7 +30,21 @@ const SEVERITY_PATTERNS: ReadonlyArray<readonly [Exclude<LogSeverity, "normal">,
     ],
   ],
   ["success", [/[✓✔]/, /\bbuilt in\b/i, /\bready in\b/i, /\bcompiled successfully\b/i]],
-  ["warn", [/(^|[^a-z])(warn|warning|deprecated)([^a-z]|$)/i, /^\(!\)/, /\[plugin\b/i]],
+  [
+    "warn",
+    [
+      /(^|[^a-z])(warn|warning|deprecated)([^a-z]|$)/i,
+      /^\(!\)/,
+      /\[plugin\b/i,
+      // Config-complaint sentences — a runtime library reporting absent config
+      // without using an error/warn keyword (Upstash: "The 'url' property is
+      // missing or undefined in your Redis config.", ioredis: "REDIS_URL is
+      // not set", our own "Email isn't configured"). Under the old
+      // stream-based viewer these read as errors purely by being on stderr;
+      // content-wise they're warnings, and without this they're invisible.
+      /\b(missing or undefined|is missing|isn'?t (set|configured|defined)|is not (set|configured|defined)|not configured)\b/i,
+    ],
+  ],
   ["info", [/^\[?(info|notice)\]?[:\s-]/i]],
 ];
 
