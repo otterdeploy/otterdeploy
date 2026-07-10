@@ -4,6 +4,7 @@
  * DatabaseProvisioner factory so each engine plugs its own destroy semantics.
  */
 
+import type { ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { Result } from "better-result";
@@ -12,7 +13,9 @@ import type { ProjectRef, ResourceRef } from "../scopes";
 
 import { reconcile } from "../../caddy";
 import { deleteProxyRoutesByResource } from "../../caddy/queries";
+import { listServiceEnvVarsForResources } from "../service/queries";
 import { reclaimServiceHostArtifacts } from "../service/teardown";
+import { getLatestDeploymentsForResources } from "./deployments";
 import { PostgresResourceNotFoundError, ProjectNotFoundError } from "./errors";
 import { getDatabaseProvisioner } from "./provisioners";
 import {
@@ -85,10 +88,39 @@ export async function listProjectResources(
   }
 
   const { databases, services, composes } = await listProjectResourcesQuery(input.projectId);
+
+  // Batch the per-resource reads the mappers would otherwise fire one-by-one:
+  // the latest deployment for every service/compose, and env vars for every
+  // service — two queries total instead of ~2 per resource on every list load.
+  const deploymentResourceIds = [
+    ...services.map((r) => r.resource.id),
+    ...composes.map((r) => r.resource.id),
+  ] as ResourceId[];
+  const serviceResourceIds = services.map((r) => r.resource.id) as ResourceId[];
+  const [latestByResource, envByResource] = await Promise.all([
+    getLatestDeploymentsForResources(deploymentResourceIds),
+    listServiceEnvVarsForResources(serviceResourceIds),
+  ]);
+
   const [databaseViews, serviceViews, composeViews] = await Promise.all([
+    // Databases still resolve their live runtime individually via the
+    // self-healing recovery path (ensureSwarmRuntimeForRecord) — left as-is.
     Promise.all(databases.map((record) => mapDatabaseResource(record, project.slug))),
-    Promise.all(services.map((record) => mapServiceResource(record))),
-    Promise.all(composes.map((record) => mapComposeResource(record))),
+    Promise.all(
+      services.map((record) =>
+        mapServiceResource(record, {
+          latest: latestByResource.get(record.resource.id as ResourceId) ?? null,
+          envRows: envByResource.get(record.resource.id as ResourceId) ?? [],
+        }),
+      ),
+    ),
+    Promise.all(
+      composes.map((record) =>
+        mapComposeResource(record, {
+          latest: latestByResource.get(record.resource.id as ResourceId) ?? null,
+        }),
+      ),
+    ),
   ]);
 
   return Result.ok([...databaseViews, ...serviceViews, ...composeViews]);
