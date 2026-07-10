@@ -19,12 +19,12 @@ import type { ProjectRef } from "../scopes";
 
 import { resolveServiceEnv } from "../../lib/variables";
 import { listServiceEnvVars } from "../service/queries";
-import { redeployOne } from "../service/redeploy";
 import {
   deletePreviewServiceEnvVar,
   listPreviewServiceEnvVars,
   upsertPreviewServiceEnvVar,
 } from "../service/queries";
+import { redeployOne } from "../service/redeploy";
 import { ProjectNotFoundError } from "./errors";
 import { getPreviewById, getProjectInOrg, getResourceById } from "./queries";
 
@@ -143,7 +143,10 @@ async function redeployPreviewService(
         inArray(deployment.status, ["running", "failed"]),
       ),
     )
-    .orderBy(sql`case when ${deployment.status} = 'running' then 0 else 1 end`, desc(deployment.createdAt))
+    .orderBy(
+      sql`case when ${deployment.status} = 'running' then 0 else 1 end`,
+      desc(deployment.createdAt),
+    )
     .limit(1);
   if (!latestBuilt || latestBuilt.image.startsWith("pending:")) return false;
 

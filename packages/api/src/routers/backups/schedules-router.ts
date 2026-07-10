@@ -100,7 +100,7 @@ export const backupSchedulesRouter = {
         for (const destinationId of schedule.destinationIds) {
           const id = await createBackupRun({
             organizationId: context.activeOrganizationId,
-            resourceId,
+            source: { kind: "database", resourceId },
             destinationId,
             scheduleId: schedule.id,
             encryption: schedule.encryption === "aes-256-gcm" ? "aes-256-gcm" : "none",

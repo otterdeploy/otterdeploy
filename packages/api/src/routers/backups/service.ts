@@ -34,7 +34,7 @@ import {
   updateDestinationRecord,
 } from "./queries";
 
-type BackupKind = "database" | "volume" | "stack";
+type BackupKind = "database" | "volume";
 type DestinationType = "s3" | "local" | "sftp";
 
 /** The mutation response shape — destination view plus computed usage. */

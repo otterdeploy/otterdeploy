@@ -81,8 +81,18 @@ export const ID_PREFIX = {
   // SSH keys — org-scoped keypairs for Git auth + node management
   sshKey: "sshkey",
 
+  // TLS — operator-uploaded custom certificates + trusted CA inventory
+  customCertificate: "cert",
+  trustedCa: "ca",
+
   // ephemeral database credentials — short-lived, auto-disposed DB roles
   databaseEphemeralCredential: "dbeph",
+
+  // webhooks — outbound event subscriptions + delivery log + inbound trigger
+  // endpoints
+  webhook: "wh",
+  webhookDelivery: "whdlv",
+  inboundEndpoint: "inhk",
 } as const;
 
 export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];
@@ -230,9 +240,16 @@ export type BackupLogId = Id<typeof ID_PREFIX.backupLog>;
 export type AuditLogId = Id<typeof ID_PREFIX.auditLog>;
 export type BlocklistId = Id<typeof ID_PREFIX.blocklist>;
 export type SshKeyId = Id<typeof ID_PREFIX.sshKey>;
+export type CustomCertificateId = Id<typeof ID_PREFIX.customCertificate>;
+export type TrustedCaId = Id<typeof ID_PREFIX.trustedCa>;
 export type DatabaseEphemeralCredentialId = Id<typeof ID_PREFIX.databaseEphemeralCredential>;
 
 export type NotificationId = Id<typeof ID_PREFIX.notification>;
+
+// Webhooks
+export type WebhookId = Id<typeof ID_PREFIX.webhook>;
+export type WebhookDeliveryId = Id<typeof ID_PREFIX.webhookDelivery>;
+export type InboundEndpointId = Id<typeof ID_PREFIX.inboundEndpoint>;
 
 // Notification channels
 export type NotificationChannelId = Id<typeof ID_PREFIX.notificationChannel>;

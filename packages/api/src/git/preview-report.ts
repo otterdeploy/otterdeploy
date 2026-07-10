@@ -149,11 +149,7 @@ export async function reportPreviewBuildOutcome(deploymentId: DeploymentId): Pro
         .where(eq(deployment.id, deploymentId))
         .limit(1);
       if (!dep?.previewId) return;
-      const [row] = await db
-        .select()
-        .from(preview)
-        .where(eq(preview.id, dep.previewId))
-        .limit(1);
+      const [row] = await db.select().from(preview).where(eq(preview.id, dep.previewId)).limit(1);
       if (!row) return;
       // A push during the build superseded this deployment — the newer
       // build's own report owns the comment now.

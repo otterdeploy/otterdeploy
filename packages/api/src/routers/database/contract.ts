@@ -8,6 +8,7 @@ import { oc } from "@orpc/contract";
 import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 import * as z from "zod";
 
+import { orgCatalogInput, orgCatalogResultSchema } from "./contract-catalog";
 import {
   ephemeralCreateInput,
   ephemeralCreateResultSchema,
@@ -66,7 +67,15 @@ const queryResultSchema = z.object({
 const tablesInput = z.object({ resourceId: resourceIdField });
 
 const tablesResultSchema = z.object({
-  tables: z.array(z.object({ schema: z.string(), name: z.string() })),
+  tables: z.array(
+    z.object({
+      schema: z.string(),
+      name: z.string(),
+      // Fast planner estimate from pg_class.reltuples (never count(*)).
+      // null/omitted = unknown (never analyzed, or engines that don't report it).
+      estimatedRows: z.number().nullable().optional(),
+    }),
+  ),
 });
 
 // ── Write path (Phase 2) ────────────────────────────────────────────────────
@@ -216,6 +225,15 @@ const mongoDocumentsResultSchema = z.object({
 });
 
 export const databaseContract = {
+  // Org-wide catalog: every database resource across the org's projects with
+  // runtime status, endpoints, last-backup freshness, and best-effort live
+  // stats. Backs the /$org/databases page. `list`-prefixed so the audit
+  // middleware and read-only API keys classify it as a read.
+  listOrgCatalog: oc
+    .meta({ path: `${basePath}/catalog`, tag, method: "GET" })
+    .input(orgCatalogInput)
+    .output(orgCatalogResultSchema),
+
   // List user tables in the database (excludes catalog/system schemas).
   tables: oc
     .errors(notDatabase)

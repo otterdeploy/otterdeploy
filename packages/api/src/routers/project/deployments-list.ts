@@ -4,7 +4,13 @@
  * `listResourceDeployments`), then the building/pending → running flip is
  * persisted lazily and `deploy.succeeded` emitted exactly once.
  */
-import type { PreviewId, DeploymentId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type {
+  PreviewId,
+  DeploymentId,
+  OrganizationId,
+  ProjectId,
+  ResourceId,
+} from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { deploymentLog } from "@otterdeploy/db/schema/build";
@@ -13,11 +19,10 @@ import { Docker } from "@otterdeploy/docker";
 import { Result } from "better-result";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 
-import { loadPreviewScope } from "../../lib/environment/load";
-import { runtimeServiceName } from "../../lib/environment/scoping";
-
 import type { DeploymentRow } from "./deployments";
 
+import { loadPreviewScope } from "../../lib/environment/load";
+import { runtimeServiceName } from "../../lib/environment/scoping";
 import { emitDeploySucceeded } from "./deployments-emit";
 import { PostgresResourceNotFoundError, ProjectNotFoundError } from "./errors";
 import { publishResourceChanged } from "./project-event-bus";
@@ -133,7 +138,7 @@ const CRASH_LOOP_FAILURE_THRESHOLD = 3;
 // recent log line means the builder is alive and the row stays "building".
 const BUILD_LOG_QUIET_MS = 3 * 60_000;
 
-function deriveDeploymentStatus(
+export function deriveDeploymentStatus(
   stored: DeploymentRow["status"],
   isLatest: boolean,
   taskStates: string[],
@@ -239,8 +244,8 @@ export async function reconcileDeploySuccess(
  * when the zero-task stale window would flip it to "failed" — one indexed
  * lookup for the newest log line, skipped entirely on the happy paths.
  */
-async function isBuildStillLogging(
-  latest: DeploymentRow | undefined,
+export async function isBuildStillLogging(
+  latest: Pick<DeploymentRow, "id" | "status" | "createdAt"> | undefined,
   tasksByDeployment: Map<string, string[]>,
 ): Promise<boolean> {
   if (!latest) return false;
@@ -277,7 +282,9 @@ export async function resolveDeploymentServiceName(
 // One runtime-aware call covers every instance for the service (swarm tasks or
 // plain-docker containers). Bucket their states by the `otterdeploy.deployment.id`
 // label so we never need a per-deployment call.
-async function loadTaskStatesByDeployment(serviceName: string): Promise<Map<string, string[]>> {
+export async function loadTaskStatesByDeployment(
+  serviceName: string,
+): Promise<Map<string, string[]>> {
   const docker = Docker.fromEnv();
   const tasksByDeployment = new Map<string, string[]>();
   try {

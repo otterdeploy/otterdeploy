@@ -16,8 +16,8 @@ import type { BlocklistId } from "@otterdeploy/shared/id";
 import { env } from "@otterdeploy/env/server";
 import { Result } from "better-result";
 
-import { flaggedIps } from "../../edge-logs/threat-scan";
 import { orgScopedProcedure } from "../..";
+import { flaggedIps } from "../../edge-logs/threat-scan";
 import { listOrgDomains } from "../edge-logs/queries";
 import { BLOCKLIST_CATALOG, catalogBySlug } from "./catalog";
 import { cscliRead, cscliRun } from "./cscli";

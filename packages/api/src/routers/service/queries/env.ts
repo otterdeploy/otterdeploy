@@ -191,11 +191,7 @@ export async function resolveResourceForPreview(
       .select()
       .from(resource)
       .where(
-        and(
-          eq(resource.projectId, projectId),
-          eq(resource.name, name),
-          isNull(resource.previewId),
-        ),
+        and(eq(resource.projectId, projectId), eq(resource.name, name), isNull(resource.previewId)),
       )
       .limit(1);
     return row;

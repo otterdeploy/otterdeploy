@@ -14,6 +14,24 @@ function msToNs(ms: number): number {
   return ms * 1_000_000;
 }
 
+// Docker healthcheck Test markers — when a stored cmd already leads with one,
+// the array is a complete Test value and must pass through verbatim. Anything
+// else is treated as a bare exec-form command and gets the historical "CMD"
+// prefix, so pre-existing rows keep working unchanged.
+const HEALTHCHECK_TEST_MARKERS = new Set(["CMD", "CMD-SHELL", "NONE"]);
+
+/**
+ * Map a stored healthcheck cmd to Docker's `Healthcheck.Test` array. Shared by
+ * the swarm driver and the plain-Docker driver (both previously hardcoded the
+ * "CMD" prefix, which broke any `["CMD-SHELL", …]` shell one-liner — the form
+ * the HTTP health-check UI writes).
+ */
+export function toHealthcheckTest(cmd: string[]): string[] {
+  const marker = cmd[0];
+  if (marker !== undefined && HEALTHCHECK_TEST_MARKERS.has(marker)) return [...cmd];
+  return ["CMD", ...cmd];
+}
+
 // A container that exits immediately on boot (e.g. a missing required env var)
 // would otherwise restart forever: with `MaxAttempts` unset, swarm's default is
 // UNLIMITED. Bound it so a crash-loop gives up instead of hammering the host —
@@ -58,7 +76,7 @@ function buildContainerSpec(
 
   if (spec.healthcheck) {
     containerSpec.Healthcheck = {
-      Test: ["CMD", ...spec.healthcheck.cmd],
+      Test: toHealthcheckTest(spec.healthcheck.cmd),
       Interval: msToNs(spec.healthcheck.intervalMs),
       Timeout: msToNs(spec.healthcheck.timeoutMs),
       Retries: spec.healthcheck.retries,

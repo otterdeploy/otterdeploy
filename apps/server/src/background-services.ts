@@ -6,8 +6,8 @@
  */
 import { startBackupScheduler } from "@otterdeploy/api/backups";
 import { startEphemeralDbSweeper } from "@otterdeploy/api/ephemeral-db";
-import { startDataFolderSweep } from "@otterdeploy/api/lib/data-folder-sweep";
 import { startPreviewReaper } from "@otterdeploy/api/git/preview-reaper";
+import { startDataFolderSweep } from "@otterdeploy/api/lib/data-folder-sweep";
 import { startMetricsSampler } from "@otterdeploy/api/metrics";
 import { startAuditAnomalyScan } from "@otterdeploy/api/notifications/audit-anomaly";
 import { startEdgeThreatScan } from "@otterdeploy/api/notifications/edge-anomaly";

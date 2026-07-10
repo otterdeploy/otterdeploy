@@ -13,6 +13,7 @@ import type { ContainerSpec, RuntimeStatus } from "./types";
 
 import { PLATFORM } from "../constants";
 import { connectCaddyToNetwork } from "../swarm/client";
+import { toHealthcheckTest } from "../swarm/internals";
 
 export const msToNs = (ms: number) => ms * 1_000_000;
 export const networkNameFor = (projectSlug: string) =>
@@ -229,7 +230,7 @@ export function buildContainerOptions(
     ...(spec.healthcheck
       ? {
           Healthcheck: {
-            Test: ["CMD", ...spec.healthcheck.cmd],
+            Test: toHealthcheckTest(spec.healthcheck.cmd),
             Interval: msToNs(spec.healthcheck.intervalMs),
             Timeout: msToNs(spec.healthcheck.timeoutMs),
             Retries: spec.healthcheck.retries,

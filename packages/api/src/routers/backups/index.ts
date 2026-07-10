@@ -3,12 +3,15 @@ import { matchError } from "better-result";
 import { orgScopedProcedure, requirePermission } from "../..";
 import { enforceBackupScope, enforceResourceScope } from "../../authz/project-scope-guards";
 import {
+  type BackupRunSource,
   createBackupRun,
   executeBackup,
   getDatabaseResourceInOrg,
   listBackupLogs,
   restoreBackup,
+  verifyBackup,
 } from "../../backups";
+import { inspectVolume } from "../volumes/service";
 import { backupDestinationsRouter } from "./destinations-router";
 import { presentBackup } from "./presenters";
 import { backupSchedulesRouter } from "./schedules-router";
@@ -40,22 +43,35 @@ export const backupsRouter = {
     return presentBackup(result.value);
   }),
 
-  // Manual "backup now" — RBAC: backup:run.
+  // Manual "backup now" — RBAC: backup:run. Source is a database resource OR
+  // a named Docker volume (the contract enforces exactly-one).
   run: requirePermission({ backup: ["run"] }).backups.run.handler(
     async ({ input, context, errors }) => {
-      await enforceResourceScope(context, input.resourceId);
-      const dbResource = await getDatabaseResourceInOrg({
-        organizationId: context.activeOrganizationId,
-        resourceId: input.resourceId,
-      });
-      if (!dbResource) throw errors.INVALID();
+      let source: BackupRunSource;
+      if (input.resourceId) {
+        await enforceResourceScope(context, input.resourceId);
+        const dbResource = await getDatabaseResourceInOrg({
+          organizationId: context.activeOrganizationId,
+          resourceId: input.resourceId,
+        });
+        if (!dbResource) throw errors.INVALID();
+        source = { kind: "database", resourceId: input.resourceId };
+      } else if (input.volumeName) {
+        // Volumes are daemon objects with no org column; existence is the
+        // gate here, matching the (host-scoped) volumes surface.
+        const found = await inspectVolume(input.volumeName);
+        if (!found.ok) throw errors.INVALID();
+        source = { kind: "volume", volumeName: input.volumeName };
+      } else {
+        throw errors.INVALID();
+      }
 
       // One backup record per destination; the dump runs once per record.
       const ids: Awaited<ReturnType<typeof createBackupRun>>[] = [];
       for (const destinationId of input.destinationIds) {
         const id = await createBackupRun({
           organizationId: context.activeOrganizationId,
-          resourceId: input.resourceId,
+          source,
           destinationId,
           encryption: input.encryption,
           method: "manual",
@@ -68,6 +84,22 @@ export const backupsRouter = {
       return { ids, status: "queued" };
     },
   ),
+
+  // Integrity check for a stored archive — read-only, org-scoped.
+  verify: orgScopedProcedure.backups.verify.handler(async ({ input, context, errors }) => {
+    context.log.set({ target: { type: "backup", id: input.id } });
+    await enforceBackupScope(context, input.id);
+    const found = await getBackup({
+      id: input.id,
+      organizationId: context.activeOrganizationId,
+    });
+    if (found.isErr()) {
+      throw matchError(found.error, {
+        BackupNotFoundError: () => errors.NOT_FOUND(),
+      });
+    }
+    return verifyBackup(input.id);
+  }),
 
   // Restore a succeeded backup — RBAC: backup:restore.
   restore: requirePermission({ backup: ["restore"] }).backups.restore.handler(
@@ -93,7 +125,7 @@ export const backupsRouter = {
         ok: result.ok,
         mode: input.mode,
         data: result.bytes ? result.bytes.toString("base64") : null,
-        filename: result.bytes ? `${input.id}.dump` : null,
+        filename: result.bytes ? (result.filename ?? `${input.id}.dump`) : null,
       };
     },
   ),

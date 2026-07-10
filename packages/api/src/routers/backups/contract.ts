@@ -16,6 +16,7 @@ import { createSelectSchema } from "drizzle-zod";
 import * as z from "zod";
 
 import { projectIdField, resourceIdField } from "../project/contract/shared";
+import { volumeNameField } from "../volumes/contract";
 
 const tag = "backups";
 const basePath = "/backups";
@@ -24,7 +25,9 @@ const backupIdField = zId(ID_PREFIX.backup);
 const backupScheduleIdField = zId(ID_PREFIX.backupSchedule);
 const backupDestinationIdField = zId(ID_PREFIX.backupDestination);
 
-const backupKind = z.enum(["database", "volume", "stack"]);
+// "stack" exists only as a reserved DB-enum value with no engine — it is
+// deliberately NOT offered here (or in the UI filter).
+const backupKind = z.enum(["database", "volume"]);
 const destinationType = z.enum(["s3", "local", "sftp"]);
 
 // ─── Output schemas ────────────────────────────────────────────────────
@@ -32,7 +35,8 @@ const destinationType = z.enum(["s3", "local", "sftp"]);
 /** One backup run, enriched with joined display fields. */
 export const backupSchema = createSelectSchema(backup).extend({
   id: backupIdField,
-  resourceId: resourceIdField,
+  // Null for volume runs (whose source is `volumeName` instead).
+  resourceId: resourceIdField.nullable(),
   // Joined, display-only (nullable: a queued run may not have resolved yet).
   source: z.string().nullable(),
   project: z.string().nullable(),
@@ -114,12 +118,18 @@ const testResultSchema = z.object({
 
 // ─── Execution + schedule inputs ─────────────────────────────────────────
 
-const runBackupInput = z.object({
-  resourceId: resourceIdField,
-  // One dump fanned out to every destination — one backup record per id.
-  destinationIds: z.array(backupDestinationIdField).min(1),
-  encryption: z.enum(["none", "aes-256-gcm"]).default("aes-256-gcm"),
-});
+const runBackupInput = z
+  .object({
+    // Exactly one source: a database resource, or a named Docker volume.
+    resourceId: resourceIdField.optional(),
+    volumeName: volumeNameField.optional(),
+    // One dump fanned out to every destination — one backup record per id.
+    destinationIds: z.array(backupDestinationIdField).min(1),
+    encryption: z.enum(["none", "aes-256-gcm"]).default("aes-256-gcm"),
+  })
+  .refine((v) => (v.resourceId != null) !== (v.volumeName != null), {
+    message: "Provide exactly one of resourceId or volumeName",
+  });
 
 const restoreBackupInput = z.object({
   id: backupIdField,
@@ -184,9 +194,20 @@ const backupRunNotFound = {
   NOT_FOUND: { status: 404 as const, message: "Backup not found" as const },
   INVALID: {
     status: 422 as const,
-    message: "Resource is not a database" as const,
+    message: "Source is not a backupable database or volume" as const,
   },
 };
+
+/** Verify output — an outcome, not an error: an unreachable archive is a
+ *  legitimate result the UI must show, so it's encoded in the payload. */
+const verifyResultSchema = z.object({
+  ok: z.boolean(),
+  match: z.boolean().nullable(),
+  storedChecksum: z.string().nullable(),
+  computedChecksum: z.string().nullable(),
+  archiveSizeBytes: z.number().nullable(),
+  reason: z.string().nullable(),
+});
 
 // ─── Contract ──────────────────────────────────────────────────────────
 
@@ -223,6 +244,13 @@ export const backupsContract = {
         filename: z.string().nullable(),
       }),
     ),
+
+  // Integrity check: re-fetch the stored archive and recompute its checksum.
+  verify: oc
+    .errors(backupNotFound)
+    .meta({ path: `${basePath}/{id}/verify`, tag, method: "POST" })
+    .input(getBackupInput)
+    .output(verifyResultSchema),
 
   // Paginated per-run log lines (cursor = afterSeq).
   logs: oc

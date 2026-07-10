@@ -46,6 +46,7 @@ import {
   githubInstallCallbackHandler,
   githubManifestCallbackHandler,
   githubWebhookHandler,
+  inboundWebhookHandler,
   terminalWebSocketHandler,
 } from "./handlers";
 import { BootstrapError } from "./lib/errors";
@@ -229,6 +230,10 @@ if (env.NODE_ENV !== "production") {
 app.get("/pty", terminalWebSocketHandler);
 
 app.post("/api/webhooks/github", githubWebhookHandler);
+// Inbound trigger endpoints (Webhooks page). Public by design — auth is the
+// per-endpoint HMAC signature + optional IP allowlist, verified in the
+// handler; rides the same /api/webhooks/** identify exclusion as GitHub's.
+app.post("/api/webhooks/in/:token", inboundWebhookHandler);
 app.get("/api/integrations/github/install/callback", githubInstallCallbackHandler);
 app.get("/api/integrations/github/manifest/callback", githubManifestCallbackHandler);
 

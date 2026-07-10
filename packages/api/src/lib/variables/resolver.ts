@@ -23,7 +23,8 @@ import {
   RefUnknownVarError,
   type ResolveError,
 } from "../../routers/service/errors";
-import { listPreviewServiceEnvVars,
+import {
+  listPreviewServiceEnvVars,
   getServiceRecord,
   resolveResourceForPreview,
   type ResourceRow,

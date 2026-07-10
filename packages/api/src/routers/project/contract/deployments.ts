@@ -7,9 +7,8 @@
  */
 
 import { eventIterator, oc } from "@orpc/contract";
-import * as z from "zod";
-
 import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
+import * as z from "zod";
 
 import { resourceLogEventSchema } from "./logs";
 import { serviceTaskSchema } from "./service-tasks";

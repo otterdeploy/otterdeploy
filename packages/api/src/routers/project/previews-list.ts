@@ -22,7 +22,15 @@ import { getProjectInOrg, listActivePreviewsByProject } from "./queries";
 export interface PreviewServiceEntry {
   resourceId: string;
   serviceName: string;
-  status: "pending" | "building" | "running" | "failed" | "superseded" | "removed" | "none" | "paused";
+  status:
+    | "pending"
+    | "building"
+    | "running"
+    | "failed"
+    | "superseded"
+    | "removed"
+    | "none"
+    | "paused";
   url: string | null;
   /** Commit currently RUNNING for this service in the preview (short sha lives
    *  in the row); null before anything is live. */
@@ -62,7 +70,9 @@ export async function listProjectPreviews(
   // Branchable-DB count depends only on (project, repo), not the individual
   // preview — memoize so N previews on one repo don't recompute it N times.
   const branchableByRepo = new Map<string, number>();
-  const branchableCount = async (gitRepoId: (typeof previews)[number]["gitRepoId"]): Promise<number> => {
+  const branchableCount = async (
+    gitRepoId: (typeof previews)[number]["gitRepoId"],
+  ): Promise<number> => {
     const hit = branchableByRepo.get(gitRepoId);
     if (hit !== undefined) return hit;
     const count = (
@@ -124,7 +134,9 @@ export async function listProjectPreviews(
     const [branchRow] = await db
       .select({ id: resource.id })
       .from(resource)
-      .where(and(eq(resource.projectId, input.projectId as ProjectId), eq(resource.previewId, row.id)))
+      .where(
+        and(eq(resource.projectId, input.projectId as ProjectId), eq(resource.previewId, row.id)),
+      )
       .limit(1);
     const branchableDbCount = await branchableCount(row.gitRepoId);
 

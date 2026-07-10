@@ -51,6 +51,17 @@ const deleteServerInput = z.object({
 });
 
 /**
+ * `docker node update --availability` for a swarm node, resolved from the
+ * server row by hostname. Availability is a swarm scheduler concept, so the
+ * procedure is honest about the two ways it can't apply: the instance isn't
+ * running the swarm runtime (503) or no swarm node matches this server (409).
+ */
+const setAvailabilityInput = z.object({
+  id: serverIdField,
+  availability: z.enum(["active", "drain", "pause"]),
+});
+
+/**
  * Per-node live aggregates surfaced on the servers page rows. CPU is in
  * vCPU units (NanoCPUs / 1e9); memory is in GiB. Reservation values come
  * from each task's `Spec.Resources.Reservations` — falls back to 0 when
@@ -117,6 +128,57 @@ const serverHealthEntrySchema = z.object({
 
 const serverHealthInput = z.object({}).optional();
 
+/**
+ * Live swarm topology (`docker node ls`) enriched with each node's matching
+ * server-row id — feeds the "Managers & quorum" card and the leader marker
+ * on the servers table. `swarm: false` under the plain-docker runtime; the
+ * UI shows its "requires Docker Swarm" state instead of an empty cluster.
+ */
+const swarmNodeSchema = z.object({
+  /** Swarm node id. */
+  id: z.string(),
+  hostname: z.string(),
+  role: z.enum(["manager", "worker"]),
+  availability: z.string(),
+  /** Node status.state — "ready", "down", … */
+  state: z.string(),
+  addr: z.string().nullable(),
+  /** True on the current Raft leader. */
+  leader: z.boolean(),
+  /** ManagerStatus.Reachability — "reachable"/"unreachable"; null on workers. */
+  reachability: z.string().nullable(),
+  engineVersion: z.string().nullable(),
+  /** Registered server row backing this node (hostname match); null when the
+   *  node joined the swarm but was never registered — actions stay disabled. */
+  serverId: serverIdField.nullable(),
+});
+
+const swarmNodesSchema = z.object({
+  swarm: z.boolean(),
+  nodes: z.array(swarmNodeSchema),
+});
+
+const swarmNodesInput = z.object({}).optional();
+
+/**
+ * `docker node promote` / `docker node demote` resolved from the server row
+ * by hostname. Same honesty contract as setAvailability, plus two quorum
+ * guards evaluated BEFORE docker is asked: never demote the last manager
+ * (the swarm would be bricked) or the current Raft leader.
+ */
+const setRoleInput = z.object({
+  id: serverIdField,
+  role: z.enum(["manager", "worker"]),
+});
+
+/**
+ * `docker node rm` — down-only, no force flag exposed. The server ROW is
+ * deleted by the client through the normal server.delete flow afterwards.
+ */
+const removeNodeInput = z.object({
+  id: serverIdField,
+});
+
 export const serverContract = {
   list: oc
     .meta({ path: basePath, tag, method: "GET" })
@@ -146,6 +208,91 @@ export const serverContract = {
     .meta({ path: `${basePath}/{id}`, tag, method: "DELETE" })
     .input(deleteServerInput)
     .output(z.object({ ok: z.boolean() })),
+  setAvailability: oc
+    .errors({
+      NOT_FOUND: { status: 404, message: "Server not found" as const },
+      SWARM_UNAVAILABLE: {
+        status: 503,
+        message:
+          "Node availability is managed by Docker Swarm — this instance runs the plain Docker runtime" as const,
+      },
+      NODE_NOT_FOUND: {
+        status: 409,
+        message: "No swarm node matches this server's hostname" as const,
+      },
+      UPDATE_FAILED: {
+        status: 502,
+        message: "Docker rejected the node availability update" as const,
+      },
+    })
+    .meta({ path: `${basePath}/{id}/availability`, tag, method: "POST" })
+    .input(setAvailabilityInput)
+    .output(serverSchema),
+  setRole: oc
+    .errors({
+      NOT_FOUND: { status: 404, message: "Server not found" as const },
+      SWARM_UNAVAILABLE: {
+        status: 503,
+        message:
+          "Node roles are managed by Docker Swarm — this instance runs the plain Docker runtime" as const,
+      },
+      NODE_NOT_FOUND: {
+        status: 409,
+        message: "No swarm node matches this server's hostname" as const,
+      },
+      LAST_MANAGER: {
+        status: 409,
+        message:
+          "Refusing to demote the last manager — the swarm would be left with no node able to accept management commands" as const,
+      },
+      LEADER: {
+        status: 409,
+        message:
+          "Refusing to demote the swarm leader — promote another manager and let leadership move first" as const,
+      },
+      UPDATE_FAILED: {
+        status: 502,
+        message: "Docker rejected the node role update" as const,
+      },
+    })
+    .meta({ path: `${basePath}/{id}/role`, tag, method: "POST" })
+    .input(setRoleInput)
+    .output(serverSchema),
+  removeNode: oc
+    .errors({
+      NOT_FOUND: { status: 404, message: "Server not found" as const },
+      SWARM_UNAVAILABLE: {
+        status: 503,
+        message:
+          "Swarm membership is managed by Docker Swarm — this instance runs the plain Docker runtime" as const,
+      },
+      NODE_NOT_FOUND: {
+        status: 409,
+        message: "No swarm node matches this server's hostname" as const,
+      },
+      NODE_NOT_DOWN: {
+        status: 409,
+        message:
+          "Only nodes the swarm reports as down can be removed — drain the node and stop its daemon first" as const,
+      },
+      REMOVE_FAILED: {
+        status: 502,
+        message: "Docker rejected the node removal" as const,
+      },
+    })
+    .meta({ path: `${basePath}/{id}/swarm-node`, tag, method: "DELETE" })
+    .input(removeNodeInput)
+    .output(z.object({ ok: z.boolean() })),
+  swarmNodes: oc
+    .errors({
+      LIST_FAILED: {
+        status: 502,
+        message: "Couldn't list swarm nodes" as const,
+      },
+    })
+    .meta({ path: `${basePath}/swarm-nodes`, tag, method: "GET" })
+    .input(swarmNodesInput)
+    .output(swarmNodesSchema),
   stats: oc
     .meta({ path: `${basePath}/stats`, tag, method: "GET" })
     .input(serverStatsInput)

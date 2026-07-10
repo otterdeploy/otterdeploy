@@ -3,8 +3,10 @@ import { type RouterClient } from "@orpc/server";
 import { apiKeysRouter } from "./apiKeys";
 import { auditRouter } from "./audit";
 import { backupsRouter } from "./backups";
+import { certificatesRouter } from "./certificates";
 import { composeRouter } from "./compose";
 import { databaseRouter } from "./database";
+import { deploymentRouter } from "./deployment";
 import { dockerRouter } from "./docker";
 import { edgeLogsRouter } from "./edge-logs";
 import { envRouter } from "./env";
@@ -20,13 +22,17 @@ import { serviceRouter } from "./service";
 import { sshKeysRouter } from "./sshKeys";
 import { systemRouter } from "./system";
 import { terminalRouter } from "./terminal";
+import { volumesRouter } from "./volumes";
+import { webhooksRouter } from "./webhooks";
 
 export const appRouter = {
   apiKeys: apiKeysRouter,
   audit: auditRouter,
   backups: backupsRouter,
+  certificates: certificatesRouter,
   compose: composeRouter,
   database: databaseRouter,
+  deployment: deploymentRouter,
   docker: dockerRouter,
   edgeLogs: edgeLogsRouter,
   env: envRouter,
@@ -42,6 +48,8 @@ export const appRouter = {
   sshKeys: sshKeysRouter,
   system: systemRouter,
   terminal: terminalRouter,
+  volumes: volumesRouter,
+  webhooks: webhooksRouter,
 };
 export type AppRouter = typeof appRouter;
 export type AppRouterClient = RouterClient<typeof appRouter>;

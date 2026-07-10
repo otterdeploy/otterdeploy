@@ -16,8 +16,10 @@ import {
 import { apiKeysContract } from "./routers/apiKeys/contract";
 import { auditContract } from "./routers/audit/contract";
 import { backupsContract } from "./routers/backups/contract";
+import { certificatesContract } from "./routers/certificates/contract";
 import { composeContract } from "./routers/compose/contract";
 import { databaseContract } from "./routers/database/contract";
+import { deploymentContract } from "./routers/deployment/contract";
 import { dockerContract } from "./routers/docker/contract";
 import { edgeLogsContract } from "./routers/edge-logs/contract";
 import { envContract } from "./routers/env/contract";
@@ -33,6 +35,8 @@ import { serviceContract } from "./routers/service/contract";
 import { sshKeysContract } from "./routers/sshKeys/contract";
 import { systemContract } from "./routers/system/contract";
 import { terminalContract } from "./routers/terminal/contract";
+import { volumesContract } from "./routers/volumes/contract";
+import { webhooksContract } from "./routers/webhooks/contract";
 // Per-procedure compliance trail, shaped to the evlog audit schema
 // (https://www.evlog.dev/use-cases/audit/schema). Stamps the request-scoped
 // wide event with action, actor, outcome, duration, and reason so every RPC
@@ -118,8 +122,10 @@ export const publicProcedure = implement({
   apiKeys: apiKeysContract,
   audit: auditContract,
   backups: backupsContract,
+  certificates: certificatesContract,
   compose: composeContract,
   database: databaseContract,
+  deployment: deploymentContract,
   docker: dockerContract,
   edgeLogs: edgeLogsContract,
   env: envContract,
@@ -135,6 +141,8 @@ export const publicProcedure = implement({
   sshKeys: sshKeysContract,
   system: systemContract,
   terminal: terminalContract,
+  volumes: volumesContract,
+  webhooks: webhooksContract,
 })
   .$context<Context>()
   .use(traceProcedure);

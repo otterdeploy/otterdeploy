@@ -38,6 +38,7 @@ export {
   listServiceRecordsByProject,
   setPublicExposure,
   setServicePublicDomain,
+  setServiceReplicaState,
   bumpForceUpdateCounter,
   updateServiceRecord,
   updateServiceResourceStatus,

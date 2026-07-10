@@ -5,9 +5,8 @@
  */
 
 import { oc } from "@orpc/contract";
-import * as z from "zod";
-
 import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
+import * as z from "zod";
 
 import { basePath, projectNotFoundErrors, tag } from "./shared";
 import { projectIdField, resourceIdField } from "./shared";
@@ -30,7 +29,16 @@ export const previewServiceSchema = z.object({
   /** Base resource name — matches the graph node the card attaches to. */
   serviceName: z.string(),
   /** Latest preview-scoped deployment status; "none" before the first build. */
-  status: z.enum(["pending", "building", "running", "failed", "superseded", "removed", "none", "paused"]),
+  status: z.enum([
+    "pending",
+    "building",
+    "running",
+    "failed",
+    "superseded",
+    "removed",
+    "none",
+    "paused",
+  ]),
   /** Preview host (https URL), when the service is publicly exposed. */
   url: z.string().nullable(),
   /** Full commit sha currently RUNNING for this service; null before live. */

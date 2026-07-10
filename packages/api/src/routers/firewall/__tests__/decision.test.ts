@@ -10,9 +10,9 @@ describe("interpretCscli", () => {
   });
 
   test("success message ⇒ ok", () => {
-    expect(interpretCscli("Decision successfully added: IP 1.2.3.4 for 720h", "Block failed")).toEqual(
-      { ok: true },
-    );
+    expect(
+      interpretCscli("Decision successfully added: IP 1.2.3.4 for 720h", "Block failed"),
+    ).toEqual({ ok: true });
   });
 
   test("delete count message ⇒ ok (not an error)", () => {

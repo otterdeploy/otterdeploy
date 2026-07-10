@@ -27,18 +27,15 @@ import { and, asc, eq, sql } from "drizzle-orm";
 
 export type DatabaseEngine = "postgres" | "redis" | "mariadb" | "mongodb";
 
-export interface ExecutionContext {
+/** Fields common to every run, regardless of what it backs up. */
+interface ExecutionContextBase {
   backupId: BackupId;
   organizationId: OrganizationId;
-  resourceId: ResourceId;
-  resourceName: string;
-  projectId: ProjectId;
-  projectSlug: string;
-  engine: DatabaseEngine;
-  databaseName: string;
-  username: string;
-  password: string;
   encryption: "none" | "aes-256-gcm" | "kms-managed" | "customer-key";
+  /** Where the produced archive landed (null until the run succeeds). */
+  storagePath: string | null;
+  /** sha256 of the stored archive body (null until the run succeeds). */
+  checksum: string | null;
   /** Pre-backup command (scheduled runs only) — exec'd in the DB container. */
   preHook: string | null;
   destination: {
@@ -49,14 +46,37 @@ export interface ExecutionContext {
   };
 }
 
-/** Everything the engine needs to run + store a backup, in one read. */
+/** Discriminated by source: a database resource dump, or a named-volume tar. */
+export type ExecutionContext =
+  | (ExecutionContextBase & {
+      kind: "database";
+      resourceId: ResourceId;
+      resourceName: string;
+      projectId: ProjectId;
+      projectSlug: string;
+      engine: DatabaseEngine;
+      databaseName: string;
+      username: string;
+      password: string;
+    })
+  | (ExecutionContextBase & {
+      kind: "volume";
+      volumeName: string;
+    });
+
+/** Everything the engine needs to run + store a backup, in one read. Left-joins
+ *  the resource/database rows because volume runs have no resource at all. */
 export async function getExecutionContext(backupId: BackupId): Promise<ExecutionContext | null> {
   const [row] = await db
     .select({
       backupId: backup.id,
       organizationId: backup.organizationId,
+      kind: backup.kind,
       resourceId: backup.resourceId,
+      volumeName: backup.volumeName,
       encryption: backup.encryption,
+      storagePath: backup.storagePath,
+      checksum: backup.checksum,
       resourceName: resource.name,
       projectId: resource.projectId,
       projectSlug: project.slug,
@@ -72,27 +92,21 @@ export async function getExecutionContext(backupId: BackupId): Promise<Execution
       preHook: backupSchedule.preHook,
     })
     .from(backup)
-    .innerJoin(resource, eq(resource.id, backup.resourceId))
-    .innerJoin(project, eq(project.id, resource.projectId))
-    .innerJoin(databaseResource, eq(databaseResource.resourceId, backup.resourceId))
+    .leftJoin(resource, eq(resource.id, backup.resourceId))
+    .leftJoin(project, eq(project.id, resource.projectId))
+    .leftJoin(databaseResource, eq(databaseResource.resourceId, backup.resourceId))
     .innerJoin(backupDestination, eq(backupDestination.id, backup.destinationId))
     .leftJoin(backupSchedule, eq(backupSchedule.id, backup.scheduleId))
     .where(eq(backup.id, backupId))
     .limit(1);
 
   if (!row) return null;
-  return {
+  const base: ExecutionContextBase = {
     backupId: row.backupId,
     organizationId: row.organizationId,
-    resourceId: row.resourceId,
-    resourceName: row.resourceName,
-    projectId: row.projectId,
-    projectSlug: row.projectSlug,
-    engine: row.engine as DatabaseEngine,
-    databaseName: row.databaseName,
-    username: row.username,
-    password: row.password,
     encryption: row.encryption,
+    storagePath: row.storagePath,
+    checksum: row.checksum,
     preHook: row.preHook ?? null,
     destination: {
       id: row.destId,
@@ -101,11 +115,49 @@ export async function getExecutionContext(backupId: BackupId): Promise<Execution
       encryptedSecret: row.destSecret,
     },
   };
+
+  if (row.kind === "volume") {
+    if (!row.volumeName) return null;
+    return { ...base, kind: "volume", volumeName: row.volumeName };
+  }
+
+  // database (and the reserved, never-written "stack") — require the full
+  // resource + database join to have resolved, same as the old inner joins.
+  if (
+    row.kind !== "database" ||
+    !row.resourceId ||
+    !row.resourceName ||
+    !row.projectId ||
+    !row.projectSlug ||
+    !row.engine ||
+    row.databaseName == null ||
+    row.username == null ||
+    row.password == null
+  ) {
+    return null;
+  }
+  return {
+    ...base,
+    kind: "database",
+    resourceId: row.resourceId,
+    resourceName: row.resourceName,
+    projectId: row.projectId,
+    projectSlug: row.projectSlug,
+    engine: row.engine as DatabaseEngine,
+    databaseName: row.databaseName,
+    username: row.username,
+    password: row.password,
+  };
 }
+
+/** Source of a new run — exactly one of the two shapes. */
+export type BackupRunSource =
+  | { kind: "database"; resourceId: ResourceId }
+  | { kind: "volume"; volumeName: string };
 
 export async function createBackupRun(input: {
   organizationId: OrganizationId;
-  resourceId: ResourceId;
+  source: BackupRunSource;
   destinationId: BackupDestinationId;
   scheduleId?: BackupScheduleId | null;
   encryption?: "none" | "aes-256-gcm";
@@ -115,10 +167,11 @@ export async function createBackupRun(input: {
     .insert(backup)
     .values({
       organizationId: input.organizationId,
-      resourceId: input.resourceId,
+      resourceId: input.source.kind === "database" ? input.source.resourceId : null,
+      volumeName: input.source.kind === "volume" ? input.source.volumeName : null,
       destinationId: input.destinationId,
       scheduleId: input.scheduleId ?? null,
-      kind: "database",
+      kind: input.source.kind,
       status: "queued",
       encryption: input.encryption ?? "aes-256-gcm",
       method: input.method,

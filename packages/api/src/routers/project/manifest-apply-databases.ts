@@ -17,7 +17,12 @@ import { ManifestApplySkipError } from "./errors";
 import { createPostgresResourceStream, validatePostgresCreate } from "./postgres/create-stream";
 import { applyPostgresExtraEnv, setPostgresPublic } from "./postgres/env";
 import { ensurePersistedExtensionsLive, setPostgresExtensions } from "./postgres/extensions";
-import { deleteDraftCredential, deleteResourceById, getDraftCredentialPassword, setDatabaseResourcePreviewBranching } from "./queries";
+import {
+  deleteDraftCredential,
+  deleteResourceById,
+  getDraftCredentialPassword,
+  setDatabaseResourcePreviewBranching,
+} from "./queries";
 import { buildContainerName } from "./views";
 
 type OrgId = OrganizationId;

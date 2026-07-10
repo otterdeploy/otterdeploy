@@ -92,9 +92,9 @@ export async function listServiceRecordsByProject(projectId: ProjectId): Promise
     await Promise.all([
       db.select().from(servicePort).where(inArray(servicePort.serviceResourceId, ids)),
       db
-      .select()
-      .from(serviceEnvVar)
-      .where(and(inArray(serviceEnvVar.serviceResourceId, ids), isNull(serviceEnvVar.previewId))),
+        .select()
+        .from(serviceEnvVar)
+        .where(and(inArray(serviceEnvVar.serviceResourceId, ids), isNull(serviceEnvVar.previewId))),
       db.select().from(serviceMount).where(inArray(serviceMount.serviceResourceId, ids)),
     ]);
 
@@ -216,7 +216,13 @@ export async function updateServiceRecord(
   } = input;
   const [updated] = await db
     .update(serviceResource)
-    .set(omitUndefined(spec))
+    .set({
+      ...omitUndefined(spec),
+      // An explicit replica count supersedes a pause: whoever sets replicas
+      // (manifest apply, a scaling edit) is stating the desired state, so the
+      // pause marker must not linger and misreport "paused" afterwards.
+      ...(spec.replicas !== undefined ? { pausedReplicas: null } : {}),
+    })
     .where(eq(serviceResource.resourceId, resourceId))
     .returning();
   return updated;
@@ -241,6 +247,24 @@ export async function bumpForceUpdateCounter(resourceId: ResourceId): Promise<nu
     .where(eq(serviceResource.resourceId, resourceId))
     .returning({ forceUpdateCounter: serviceResource.forceUpdateCounter });
   return updated?.forceUpdateCounter;
+}
+
+/**
+ * Atomically flip the pause state: pause writes (replicas: 0, pausedReplicas:
+ * previous count); resume writes (replicas: restored count, pausedReplicas:
+ * null). Kept separate from `updateServiceRecord` — pausedReplicas is runtime
+ * lifecycle state, not part of the patchable spec surface.
+ */
+export async function setServiceReplicaState(
+  resourceId: ResourceId,
+  input: { replicas: number; pausedReplicas: number | null },
+): Promise<ServiceResourceRow | undefined> {
+  const [updated] = await db
+    .update(serviceResource)
+    .set({ replicas: input.replicas, pausedReplicas: input.pausedReplicas })
+    .where(eq(serviceResource.resourceId, resourceId))
+    .returning();
+  return updated;
 }
 
 export async function setPublicExposure(input: {

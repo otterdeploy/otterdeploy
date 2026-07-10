@@ -16,12 +16,7 @@
  * underlying tasks when the UI reads the list — see `listResourceDeployments`
  * in ./deployments-list. The notification emitters live in ./deployments-emit.
  */
-import type {
-  DeploymentId,
-  OrganizationId,
-  PreviewId,
-  ResourceId,
-} from "@otterdeploy/shared/id";
+import type { DeploymentId, OrganizationId, PreviewId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { deployment, project, resource } from "@otterdeploy/db/schema/project";

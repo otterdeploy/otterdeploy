@@ -15,7 +15,7 @@ import { backup, backupDestination, backupSchedule } from "@otterdeploy/db/schem
 import { databaseResource, project, resource } from "@otterdeploy/db/schema";
 import { and, asc, desc, eq, ilike, or } from "drizzle-orm";
 
-type BackupKind = "database" | "volume" | "stack";
+type BackupKind = "database" | "volume";
 
 export interface BackupRow {
   backup: typeof backup.$inferSelect;
@@ -46,11 +46,13 @@ function toBackupRow(r: {
   destName: string | null;
   destType: "s3" | "local" | "sftp" | null;
 }): BackupRow {
+  // Volume runs have no resource — their display source is the volume name.
+  const source = r.resourceName ?? r.backup.volumeName;
   return {
     backup: r.backup,
-    source: r.resourceName,
+    source,
     project: r.projectSlug,
-    sourceService: r.resourceName,
+    sourceService: source,
     sourceHost: r.dbHost ? `${r.dbHost}:${r.dbPort ?? ""}` : null,
     destinationName: r.destName,
     destinationType: r.destType,
@@ -73,6 +75,7 @@ export async function listBackupsByOrg(input: {
     const match = or(
       ilike(resource.name, q),
       ilike(backup.id, q),
+      ilike(backup.volumeName, q),
       ilike(databaseResource.internalHostname, q),
     );
     if (match) conditions.push(match);
@@ -81,8 +84,9 @@ export async function listBackupsByOrg(input: {
   const rows = await db
     .select(backupSelection)
     .from(backup)
-    .innerJoin(resource, eq(resource.id, backup.resourceId))
-    .innerJoin(project, eq(project.id, resource.projectId))
+    // Left joins: volume runs carry no resource/project at all.
+    .leftJoin(resource, eq(resource.id, backup.resourceId))
+    .leftJoin(project, eq(project.id, resource.projectId))
     .leftJoin(databaseResource, eq(databaseResource.resourceId, backup.resourceId))
     .leftJoin(backupDestination, eq(backupDestination.id, backup.destinationId))
     .where(and(...conditions))
@@ -98,8 +102,8 @@ export async function getBackupInOrg(input: {
   const [row] = await db
     .select(backupSelection)
     .from(backup)
-    .innerJoin(resource, eq(resource.id, backup.resourceId))
-    .innerJoin(project, eq(project.id, resource.projectId))
+    .leftJoin(resource, eq(resource.id, backup.resourceId))
+    .leftJoin(project, eq(project.id, resource.projectId))
     .leftJoin(databaseResource, eq(databaseResource.resourceId, backup.resourceId))
     .leftJoin(backupDestination, eq(backupDestination.id, backup.destinationId))
     .where(and(eq(backup.id, input.backupId), eq(backup.organizationId, input.organizationId)))

@@ -46,10 +46,7 @@ function dashboardBase(): string {
 }
 
 /** One comment row per git service the PR rebuilds in this preview's project. */
-async function loadPreviewRows(
-  row: PreviewRow,
-  repoId: GitRepoId,
-): Promise<PreviewCommentRow[]> {
+async function loadPreviewRows(row: PreviewRow, repoId: GitRepoId): Promise<PreviewCommentRow[]> {
   const [proj] = await db
     .select({ name: project.name, slug: project.slug, orgSlug: organization.slug })
     .from(project)

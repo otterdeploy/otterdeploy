@@ -80,7 +80,7 @@ async function runSchedule(schedule: DueSchedule, now: Date): Promise<void> {
       for (const destinationId of schedule.destinationIds) {
         const backupId = await createBackupRun({
           organizationId: schedule.organizationId,
-          resourceId,
+          source: { kind: "database", resourceId },
           destinationId,
           scheduleId: schedule.id,
           encryption: schedule.encryption === "aes-256-gcm" ? "aes-256-gcm" : "none",

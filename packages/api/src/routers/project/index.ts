@@ -3,9 +3,8 @@ import type { RequestLogger } from "evlog";
 
 import { matchError } from "better-result";
 
-import { ProjectNotFoundError } from "./errors";
-
 import { orgScopedProcedure, requirePermission } from "../../index";
+import { ProjectNotFoundError } from "./errors";
 import { streamProjectEvents, validateProjectEventsStream } from "./events-stream";
 import {
   createProject,
@@ -18,7 +17,6 @@ import {
   saveProjectGraphLayout,
   updateProject,
 } from "./handlers";
-import { tailProjectLogs } from "./project-logs";
 import {
   disablePreviewDbBranch,
   enablePreviewDbBranch,
@@ -37,13 +35,13 @@ import {
   unsetPreviewEnvOverride,
 } from "./previews-env";
 import { listProjectPreviews } from "./previews-list";
+import { tailProjectLogs } from "./project-logs";
 import { listAvailableRefs } from "./refs";
 import { envVarRouter } from "./router-env-var";
 import { manifestRouter } from "./router-manifest";
 import { proxyRouteRouter } from "./router-proxy-routes";
 import { resourceRouter } from "./router-resource";
 import { stackRouter } from "./router-stack";
-
 
 // Shared boilerplate for preview-level POST controls (rebuild/pause/etc.):
 // stamp the log target, call the handler with the org-scoped input, map the
@@ -60,7 +58,11 @@ async function previewCtl<T>(
 ): Promise<T> {
   context.log.set({ target: { type: "project", id: input.projectId } });
   const result = await fn(
-    { projectId: input.projectId, previewId: input.previewId, organizationId: context.activeOrganizationId },
+    {
+      projectId: input.projectId,
+      previewId: input.previewId,
+      organizationId: context.activeOrganizationId,
+    },
     context.log,
   );
   if (result.isErr()) {
@@ -152,6 +154,8 @@ export const projectRouter = {
       if (result.isErr()) {
         throw matchError(result.error, {
           ProjectNotFoundError: () => errors.NOT_FOUND(),
+          ProjectHasServicesError: (e) =>
+            errors.CONFLICT({ data: { serviceCount: e.serviceCount } }),
         });
       }
       return result.value;
@@ -165,6 +169,7 @@ export const projectRouter = {
         projectId: input.id,
         organizationId: context.activeOrganizationId,
         positions: input.positions,
+        replace: input.replace,
       });
       if (result.isErr()) {
         throw matchError(result.error, {
@@ -224,7 +229,6 @@ export const projectRouter = {
       return result.value;
     }),
 
-
     rebuild: requirePermission({ service: ["deploy"] }).project.previews.rebuild.handler(
       async ({ input, context, errors }) => previewCtl(rebuildPreview, input, context, errors),
     ),
@@ -257,13 +261,17 @@ export const projectRouter = {
     ),
     dbBranch: {
       enable: requirePermission({ database: ["update"] }).project.previews.dbBranch.enable.handler(
-        async ({ input, context, errors }) => previewCtl(enablePreviewDbBranch, input, context, errors),
+        async ({ input, context, errors }) =>
+          previewCtl(enablePreviewDbBranch, input, context, errors),
       ),
-      disable: requirePermission({ database: ["update"] }).project.previews.dbBranch.disable.handler(
-        async ({ input, context, errors }) => previewCtl(disablePreviewDbBranch, input, context, errors),
+      disable: requirePermission({
+        database: ["update"],
+      }).project.previews.dbBranch.disable.handler(async ({ input, context, errors }) =>
+        previewCtl(disablePreviewDbBranch, input, context, errors),
       ),
       reset: requirePermission({ database: ["update"] }).project.previews.dbBranch.reset.handler(
-        async ({ input, context, errors }) => previewCtl(resetPreviewDbBranch, input, context, errors),
+        async ({ input, context, errors }) =>
+          previewCtl(resetPreviewDbBranch, input, context, errors),
       ),
     },
 

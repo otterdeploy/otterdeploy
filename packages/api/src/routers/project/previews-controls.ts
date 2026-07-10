@@ -17,14 +17,13 @@ import { log as globalLog } from "evlog";
 import type { ProjectRef } from "../scopes";
 import type { PreviewRow } from "./queries";
 
-import { runtimeServiceName, type PreviewScope } from "../../lib/environment/scoping";
-import { buildContainerName } from "./view-helpers";
 import { branchProjectDatabases } from "../../git/preview-db";
-import { defaultTeardownAt } from "../../git/preview-env";
 import { triggerPreviewBuild } from "../../git/preview-deploy";
+import { defaultTeardownAt } from "../../git/preview-env";
 import { destroyPreviewBranchDbs, teardownPreview } from "../../git/preview-teardown";
-import { redeployOne } from "../service/redeploy";
+import { runtimeServiceName, type PreviewScope } from "../../lib/environment/scoping";
 import { runtime } from "../../runtime";
+import { redeployOne } from "../service/redeploy";
 import { ProjectNotFoundError } from "./errors";
 import {
   getPreviewById,
@@ -34,6 +33,7 @@ import {
   setPreviewAutoTeardown,
   setPreviewPaused,
 } from "./queries";
+import { buildContainerName } from "./view-helpers";
 
 interface PreviewControlScope extends ProjectRef {
   previewId: PreviewId;

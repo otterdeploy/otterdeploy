@@ -467,6 +467,12 @@ export const serviceResource = pgTable(
     framework: text("framework").$type<FrameworkKind>(),
 
     replicas: integer("replicas").notNull().default(1),
+    // Pre-pause desired replica count. Non-null = the service is PAUSED
+    // (operator scaled it to zero via service.pause); resume restores this
+    // count and clears the column. Null = not paused — including a service
+    // an operator manually set to 0 replicas, which is honest "scaled to
+    // zero", not paused.
+    pausedReplicas: integer("paused_replicas"),
 
     restartCondition: serviceRestartConditionEnum("restart_condition")
       .notNull()

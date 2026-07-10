@@ -9,17 +9,17 @@ import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
 import { type NixpacksConfig } from "@otterdeploy/db/schema";
-import { preview } from "@otterdeploy/db/schema/project";
-import { eq } from "drizzle-orm";
+import { preview, resource } from "@otterdeploy/db/schema/project";
 import { Docker } from "@otterdeploy/docker";
 import { Result } from "better-result";
+import { and, count, eq, inArray } from "drizzle-orm";
 
 import type { OrgRef } from "../scopes";
 
 import { reconcile } from "../../caddy";
 import { removeProjectDir } from "../../lib/data-dir";
 import { destroySwarmPostgres } from "../../runtime/db";
-import { ProjectConflictError, ProjectNotFoundError } from "./errors";
+import { ProjectConflictError, ProjectHasServicesError, ProjectNotFoundError } from "./errors";
 import { normalizeCustomDomain } from "./projects-bindings";
 import {
   createProjectRecord,
@@ -205,6 +205,9 @@ export async function saveProjectGraphLayout(
   input: OrgRef & {
     projectId: ProjectId;
     positions: Record<string, { x: number; y: number }>;
+    /** Replace the stored layout wholesale instead of merging — `{}` resets
+     *  every saved position so dagre owns placement again. */
+    replace?: boolean;
   },
 ): Promise<Result<{ ok: true }, ProjectNotFoundError>> {
   const record = await getProjectInOrg({
@@ -214,7 +217,9 @@ export async function saveProjectGraphLayout(
   if (!record) {
     return Result.err(new ProjectNotFoundError({ projectId: input.projectId }));
   }
-  const merged = { ...record.graphLayout, ...input.positions };
+  const merged = input.replace
+    ? { ...input.positions }
+    : { ...record.graphLayout, ...input.positions };
   await setProjectGraphLayout({
     projectId: input.projectId,
     organizationId: input.organizationId,
@@ -226,13 +231,29 @@ export async function saveProjectGraphLayout(
 export async function deleteProject(
   input: { id: ProjectId } & OrgRef,
   log: RequestLogger,
-): Promise<Result<{ ok: true }, ProjectNotFoundError>> {
+): Promise<Result<{ ok: true }, ProjectNotFoundError | ProjectHasServicesError>> {
   const project = await getProjectInOrg({
     projectId: input.id,
     organizationId: input.organizationId,
   });
   if (!project) {
     return Result.err(new ProjectNotFoundError({ projectId: input.id }));
+  }
+
+  // Refuse while service/compose resources exist. This teardown handles the
+  // project's databases itself (below), but service runtimes — containers,
+  // built images, buildx caches, volumes — are only reclaimed by the
+  // per-resource delete path; dropping the rows via FK cascade would orphan
+  // them on the host. Safest honest behavior: refuse with the count so the
+  // operator deletes the services first.
+  const [serviceRow] = await db
+    .select({ n: count() })
+    .from(resource)
+    .where(and(eq(resource.projectId, input.id), inArray(resource.type, ["service", "compose"])));
+  const serviceCount = serviceRow?.n ?? 0;
+  if (serviceCount > 0) {
+    log.set({ teardown: { refused: "services_exist", serviceCount } });
+    return Result.err(new ProjectHasServicesError({ projectId: input.id, serviceCount }));
   }
 
   const projectSlug = sanitizeProjectSlug(project.slug);
@@ -254,9 +275,7 @@ export async function deleteProject(
     const serviceName = buildContainerName({
       engine: record.database.engine,
       projectSlug,
-      resourceName: previewSlug
-        ? `${record.resource.name}-${previewSlug}`
-        : record.resource.name,
+      resourceName: previewSlug ? `${record.resource.name}-${previewSlug}` : record.resource.name,
     });
     await destroySwarmPostgres({ serviceName }, log);
   }

@@ -2,6 +2,7 @@ import { auth } from "@otterdeploy/auth";
 
 import { requirePermission } from "../..";
 import { enforceResourceScope } from "../../authz/project-scope-guards";
+import { catalogDatabaseHandlers } from "./catalog";
 import { ephemeralDatabaseHandlers } from "./ephemeral";
 import { nosqlDatabaseHandlers } from "./nosql-handlers";
 import {
@@ -15,13 +16,26 @@ import {
   runWriteQuery,
 } from "./query";
 
+// User tables plus the planner's row estimate (pg_class.reltuples — kept fresh
+// by autovacuum/ANALYZE, free to read). Never count(*): a big table would turn
+// the navigator's load into a full scan. reltuples is -1 when never analyzed.
 const TABLES_SQL = `
-  SELECT table_schema, table_name
-  FROM information_schema.tables
-  WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
-    AND table_type = 'BASE TABLE'
-  ORDER BY table_schema, table_name
+  SELECT t.table_schema, t.table_name, c.reltuples::bigint AS estimated_rows
+  FROM information_schema.tables t
+  LEFT JOIN pg_catalog.pg_namespace n ON n.nspname = t.table_schema
+  LEFT JOIN pg_catalog.pg_class c
+    ON c.relnamespace = n.oid AND c.relname = t.table_name AND c.relkind = 'r'
+  WHERE t.table_schema NOT IN ('pg_catalog', 'information_schema')
+    AND t.table_type = 'BASE TABLE'
+  ORDER BY t.table_schema, t.table_name
 `;
+
+/** Parse the reltuples cell: null/-1 (never analyzed) → unknown. */
+function parseEstimatedRows(cell: string | null | undefined): number | null {
+  if (cell == null) return null;
+  const n = Number(cell);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
 
 export const databaseRouter = {
   tables: requirePermission({ database: ["read"] }).database.tables.handler(
@@ -41,6 +55,7 @@ export const databaseRouter = {
           tables: grid.rows.map((r) => ({
             schema: r[0] ?? "",
             name: r[1] ?? "",
+            estimatedRows: parseEstimatedRows(r[2]),
           })),
         };
       } catch (cause) {
@@ -186,4 +201,6 @@ export const databaseRouter = {
   // here so the router's flat procedure shape stays unchanged.
   ...nosqlDatabaseHandlers,
   ...ephemeralDatabaseHandlers,
+  // Org-wide catalog (the /$org/databases page).
+  ...catalogDatabaseHandlers,
 };
