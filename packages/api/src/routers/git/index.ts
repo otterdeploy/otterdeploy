@@ -141,10 +141,13 @@ export const gitRouter = {
     try {
       const tokenResp = await getInstallationToken(inst.installation.installationId);
       const appConfig = await loadGithubAppForInstallation(inst.installation.installationId);
-      const repos = await listInstallationRepos(tokenResp.token, appConfig);
+      const { repositories, totalCount } = await listInstallationRepos(tokenResp.token, appConfig);
+      // Full sync: upsert everything GitHub granted and unlink what it
+      // didn't — "Sync now" is the repair path, so it must converge the
+      // mirror in both directions.
       await syncRepos(
         inst.installation.id,
-        repos.map((r) => ({
+        repositories.map((r) => ({
           id: r.id,
           node_id: r.node_id,
           full_name: r.full_name,
@@ -153,8 +156,15 @@ export const gitRouter = {
           default_branch: r.default_branch,
           clone_url: r.clone_url,
         })),
+        { prune: true },
       );
-      return { repoCount: repos.length };
+      // Store GitHub's total_count (not repositories.length): it stays
+      // truthful even if the page walk was cut short.
+      await db
+        .update(gitInstallation)
+        .set({ repoCount: totalCount })
+        .where(eq(gitInstallation.id, inst.installation.id));
+      return { repoCount: totalCount };
     } catch (cause) {
       if (cause instanceof GithubAppNotConfiguredError) {
         throw errors.NOT_CONFIGURED();

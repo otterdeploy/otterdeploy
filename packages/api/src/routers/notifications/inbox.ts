@@ -15,6 +15,9 @@ export interface InboxItem {
   id: NotificationId;
   title: string;
   message: string;
+  /** Structured context from the fan-out (eventId + display strings); null for
+   *  plain sends. Surfaced so the client can render the severity + detail rows. */
+  data: Record<string, unknown> | null;
   readAt: Date | null;
   createdAt: Date;
 }
@@ -37,6 +40,7 @@ function toItem(row: NotificationRow): InboxItem {
     id: row.id,
     title: row.title,
     message: row.message,
+    data: row.data ?? null,
     readAt: row.readAt,
     createdAt: row.createdAt,
   };

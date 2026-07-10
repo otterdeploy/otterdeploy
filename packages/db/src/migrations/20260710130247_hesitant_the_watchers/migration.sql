@@ -1,0 +1,1 @@
+ALTER TABLE "git_installation" ADD COLUMN "repo_count" integer;

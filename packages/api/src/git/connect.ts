@@ -98,12 +98,14 @@ export async function completeGithubConnect(
     throw new Error("Failed to upsert git_installation row");
   }
 
-  // Sync repos via a fresh installation token.
+  // Sync repos via a fresh installation token. If this leg fails, the
+  // installation row above still exists — with repoCount null, so the UI
+  // shows "—" (unknown) rather than a wrong 0 until a sync succeeds.
   const tokenResp = await getInstallationToken(args.installationId);
-  const repos = await listInstallationRepos(tokenResp.token, appConfig);
+  const { repositories, totalCount } = await listInstallationRepos(tokenResp.token, appConfig);
   await syncRepos(
     instRow.id,
-    repos.map((r) => ({
+    repositories.map((r) => ({
       id: r.id,
       node_id: r.node_id,
       full_name: r.full_name,
@@ -112,13 +114,20 @@ export async function completeGithubConnect(
       default_branch: r.default_branch,
       clone_url: r.clone_url,
     })),
+    { prune: true },
   );
+  // Persist GitHub's total_count — the truthful count even if the page walk
+  // was cut short — never the length of what we happened to mirror.
+  await db
+    .update(gitInstallation)
+    .set({ repoCount: totalCount })
+    .where(eq(gitInstallation.id, instRow.id));
 
   return {
     providerId: providerRow.id,
     installationDbId: instRow.id,
     accountLogin: instRow.accountLogin,
-    repoCount: repos.length,
+    repoCount: totalCount,
   };
 }
 
@@ -152,6 +161,8 @@ export async function disconnectGithubInstallation(args: {
 
   await db
     .update(gitInstallation)
-    .set({ revokedAt: new Date() })
+    // repoCount → null: we can no longer mint tokens to verify it, so the UI
+    // shows "—" for the revoked row instead of a stale number.
+    .set({ revokedAt: new Date(), repoCount: null })
     .where(eq(gitInstallation.id, args.installationDbId));
 }

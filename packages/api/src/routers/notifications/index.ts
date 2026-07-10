@@ -16,9 +16,11 @@ import {
   type ChannelView,
   addSubscription,
   deleteChannel,
+  deliveryBreakdown7d,
   getChannelRow,
   insertChannel,
   listChannelRows,
+  listDeliveries,
   listSubscriptionRows,
   removeSubscription,
   statsByChannel,
@@ -143,6 +145,32 @@ export const notificationsRouter = {
       return { message: `Test event queued to ${channel.name}` };
     }),
   },
+
+  // ─── per-channel delivery history (the card's "View deliveries") ─────
+  // Read-only and org-scoped like `channels.list`; the channel lookup both
+  // 404s unknown ids and fences cross-tenant reads before touching the log.
+  deliveries: orgScopedProcedure.notifications.deliveries.handler(
+    async ({ input, context, errors }) => {
+      const channel = await getChannelRow({
+        organizationId: context.activeOrganizationId,
+        id: input.channelId,
+      });
+      if (!channel) throw errors.NOT_FOUND();
+      const [breakdown7d, page] = await Promise.all([
+        deliveryBreakdown7d({
+          organizationId: context.activeOrganizationId,
+          channelId: input.channelId,
+        }),
+        listDeliveries({
+          organizationId: context.activeOrganizationId,
+          channelId: input.channelId,
+          limit: input.limit,
+          cursor: input.cursor,
+        }),
+      ]);
+      return { breakdown7d, items: page.items, nextCursor: page.nextCursor };
+    },
+  ),
 
   subscriptions: {
     list: orgScopedProcedure.notifications.subscriptions.list.handler(async ({ context }) => {

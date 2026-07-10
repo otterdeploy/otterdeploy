@@ -1,13 +1,15 @@
 /**
  * Event → channel routing grid. Rows are events (with a severity dot),
  * columns are channels; each cell is a Switch that toggles whether that event
- * delivers to that channel. Backed by the server subscription matrix; paused /
- * disconnected channels render disabled.
+ * delivers to that channel. Column headers carry the channel's identity —
+ * name, kind mark, and a short destination hint — so the grid reads as
+ * "which events → which destination", not just "which kind". Backed by the
+ * server subscription matrix; paused / disconnected channels render disabled.
  */
 import { SvglLogo } from "@/shared/components/brand/svgl-logo";
 import { Switch } from "@/shared/components/ui/switch";
 
-import { type Channel, EVENTS, KIND_META, SEVERITY_DOT } from "./shared";
+import { type Channel, EVENTS, KIND_META, SEVERITY_DOT, channelTargetHint } from "./shared";
 
 interface SubscriptionMatrixProps {
   channels: Channel[];
@@ -31,20 +33,31 @@ export function SubscriptionMatrix({ channels, subs, onToggle }: SubscriptionMat
       <div className="overflow-hidden rounded-md border bg-card">
         {/* Header */}
         <div
-          className="grid items-center gap-2 border-b bg-muted/50 px-3.5 py-2.5 text-[11px] tracking-wider text-muted-foreground uppercase"
+          className="grid items-start gap-2 border-b bg-muted/50 px-3.5 py-2.5 text-[11px] tracking-wider text-muted-foreground uppercase"
           style={{ gridTemplateColumns: gridCols }}
         >
           <span>Event</span>
           <span>Severity</span>
           {channels.map((c) => (
-            <span key={c.id} className="flex items-center gap-2">
+            <span key={c.id} className="flex min-w-0 items-start gap-2">
               <SvglLogo
                 search={KIND_META[c.kind].search}
                 fallback={KIND_META[c.kind].label}
                 size={18}
               />
-              <span className="text-[11px] tracking-normal text-foreground normal-case">
-                {KIND_META[c.kind].label}
+              <span className="flex min-w-0 flex-col gap-0.5 tracking-normal normal-case">
+                <span className="truncate text-[11px] font-medium text-foreground" title={c.name}>
+                  {c.name}
+                </span>
+                <span
+                  className="truncate font-mono text-[10px] text-muted-foreground"
+                  title={c.target}
+                >
+                  {channelTargetHint(c.kind, c.target)}
+                </span>
+                <span className="text-[10px] text-muted-foreground/80">
+                  <span className="font-mono text-foreground/80">{c.events7d}</span> sent · 7d
+                </span>
               </span>
             </span>
           ))}

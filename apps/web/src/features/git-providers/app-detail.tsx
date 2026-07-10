@@ -55,7 +55,9 @@ export function GeneralTab({ provider }: { provider: ProviderData }) {
         <Row
           label="Repositories"
           value={
-            inst
+            // Null count = never fetched / revoked → "—" (a 0 here would
+            // wrongly claim GitHub granted no repos).
+            inst && inst.repoCount != null
               ? `${inst.repoCount}${inst.repoSelection === "selected" ? " (selected)" : " (all)"}`
               : "—"
           }

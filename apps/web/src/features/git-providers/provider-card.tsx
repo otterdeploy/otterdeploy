@@ -96,7 +96,9 @@ function InstallationRow({
           <StatusBadge installation={installation} />
         </div>
         <div className="mt-0.5 text-[11px] text-muted-foreground">
-          {installation.repoCount} repos
+          {/* null = count never fetched (or install revoked) — "—" is honest;
+              a rendered 0 would claim GitHub granted no repos. */}
+          {installation.repoCount ?? "—"} repos
           {installation.repoSelection === "selected" ? " (selected)" : ""}
           {" · connected "}
           {formatRelative(installation.createdAt)}

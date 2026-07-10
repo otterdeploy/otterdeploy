@@ -20,6 +20,7 @@ import {
   channelsCollection,
   subscriptionsCollection,
 } from "@/features/notifications/data/notifications";
+import { DeliveryHistoryDialog } from "@/features/notifications/delivery-history-dialog";
 import { type Channel } from "@/features/notifications/shared";
 import { SubscriptionMatrix } from "@/features/notifications/subscription-matrix";
 import { Page, PageHeader } from "@/shared/components/page";
@@ -39,6 +40,10 @@ export const Route = createFileRoute("/_app/$orgSlug/settings/workspace/notifica
 function RouteComponent() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Channel | null>(null);
+  // Delivery-history dialog target; kept on close so the exit animation
+  // doesn't collapse the content.
+  const [historyChannel, setHistoryChannel] = useState<Channel | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const { data: channels } = useLiveQuery((q) =>
     q.from({ c: channelsCollection }),
@@ -63,6 +68,10 @@ function RouteComponent() {
   const openEdit = (c: Channel) => {
     setEditing(c);
     setDialogOpen(true);
+  };
+  const openHistory = (c: Channel) => {
+    setHistoryChannel(c);
+    setHistoryOpen(true);
   };
 
   const handleSubmit = (values: ChannelFormValues) => {
@@ -137,7 +146,12 @@ function RouteComponent() {
       {channels.length > 0 ? (
         <div className="flex flex-col gap-3">
           {channels.map((c) => (
-            <ChannelCard key={c.id} channel={c} onEdit={openEdit} />
+            <ChannelCard
+              key={c.id}
+              channel={c}
+              onEdit={openEdit}
+              onViewDeliveries={openHistory}
+            />
           ))}
         </div>
       ) : (
@@ -170,6 +184,12 @@ function RouteComponent() {
         onOpenChange={setDialogOpen}
         editing={editing}
         onSubmit={handleSubmit}
+      />
+
+      <DeliveryHistoryDialog
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+        channel={historyChannel}
       />
     </Page>
   );

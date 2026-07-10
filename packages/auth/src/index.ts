@@ -15,6 +15,7 @@ import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
 import { log } from "evlog";
 
 import { ac, roles } from "./permissions";
+import { resolveCanonicalWebOrigin } from "./web-origin";
 
 /**
  * Pick the org to make active on a fresh session. Prefers the org from the
@@ -217,6 +218,15 @@ export const auth = betterAuth({
       // they diverge (api.otterdeploy.localhost vs. web.otterdeploy.localhost),
       // so a relative path would send users to the API server's /device,
       // which doesn't exist. We use the first CORS_ORIGIN as the web host.
+      //
+      // KNOWN LIMITATION: unlike the invite email (resolveCanonicalWebOrigin),
+      // this CANNOT prefer the verified control-plane FQDN. better-auth
+      // validates the option with a zod schema (`verificationUri:
+      // z.string().optional()` in the device-authorization plugin), so only a
+      // static string evaluated at module load is accepted — no function/async
+      // resolution. A domain verified after boot isn't picked up until
+      // restart, and env-only installs show the raw IP/host here. Revisit if
+      // better-auth ever accepts a callback for this option.
       verificationUri: `${(env.CORS_ORIGIN[0] ?? env.BETTER_AUTH_URL).replace(/\/$/, "")}/device`,
       // Accept any client_id for now — the CLI sends "otterdeploy-cli".
       // Tighten when we ship third-party integrations.
@@ -237,9 +247,13 @@ export const auth = betterAuth({
       invitationExpiresIn: 60 * 60 * 48,
       cancelPendingInvitationsOnReInvite: true,
       sendInvitationEmail: async (data) => {
-        // Build the accept link against the WEB origin (where /accept-invite
-        // renders), not the API origin — same resolution as the device flow.
-        const webOrigin = (env.CORS_ORIGIN[0] ?? env.BETTER_AUTH_URL).replace(/\/$/, "");
+        // Build the accept link against the CANONICAL web origin (where
+        // /accept-invite renders): the verified control-plane FQDN when the
+        // operator has set one, else the env web origin. On a default
+        // self-hosted install CORS_ORIGIN/BETTER_AUTH_URL hold the raw public
+        // IP — the FQDN keeps that IP out of invite emails. Never throws
+        // (falls back to env), so a settings hiccup can't fail inviteMember.
+        const webOrigin = await resolveCanonicalWebOrigin();
         const inviteUrl = `${webOrigin}/accept-invite/${data.invitation.id}`;
         // Non-fatal by design: the invitation row is already persisted before
         // this runs, so a failed email send (e.g. missing/placeholder

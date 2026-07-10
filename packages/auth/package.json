@@ -11,7 +11,9 @@
       "default": "./src/*.ts"
     }
   },
-  "scripts": {},
+  "scripts": {
+    "test": "bun test"
+  },
   "dependencies": {
     "@better-auth/api-key": "^1.6.11",
     "@otterdeploy/db": "workspace:*",

@@ -135,7 +135,8 @@ export function AddRecordDialog({
           </div>
         </ScrollArea>
 
-        <DialogFooter className="border-t px-4 py-3">
+        {/* Popup is p-0 here, so cancel the footer's full-bleed -mx-4/-mb-4 offsets. */}
+        <DialogFooter className="mx-0 mb-0 border-t px-4 py-3">
           <Button variant="outline" size="sm" onClick={() => close(false)}>
             Cancel
           </Button>

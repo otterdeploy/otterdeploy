@@ -60,7 +60,7 @@ import {
   SESSION_COOKIE_MAX_AGE,
   SHARE_COOKIE,
   SHARE_COOKIE_MAX_AGE,
-  WEB_BASE,
+  webBase,
 } from "./shared";
 import { Denied, Interstitial } from "./ui/frame";
 import { AccessWall } from "./ui/wall";
@@ -197,7 +197,7 @@ export const deployAuthorizeHandler: Handler = guard(async (c) => {
     const self = new URL("/.well-known/otterdeploy/authorize", env.BETTER_AUTH_URL);
     self.searchParams.set("domain", domain);
     self.searchParams.set("return", returnPath);
-    const login = new URL("/sign-in", WEB_BASE);
+    const login = new URL("/sign-in", await webBase());
     login.searchParams.set("redirect", self.toString());
     if (sessionFailed) login.searchParams.set("error", "session_expired");
     return c.redirect(login.toString(), 302);

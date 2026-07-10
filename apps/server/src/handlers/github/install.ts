@@ -19,25 +19,29 @@ import {
   signInstallState,
   verifyInstallState,
 } from "@otterdeploy/api/git";
+import { resolveCanonicalWebOrigin } from "@otterdeploy/auth/web-origin";
 import { env } from "@otterdeploy/env/server";
 import { Result } from "better-result";
 import { log, parseError } from "evlog";
 
 // These callbacks run on the public ingress (the tunnel in dev), then bounce
-// the browser back to the dashboard. That target is the WEB origin — in dev
+// the browser back to the dashboard. That target is the WEB origin — the
+// VERIFIED control-plane FQDN when the operator has set one (keeps the raw
+// server IP out of browser redirects); otherwise the env resolution: in dev
 // BETTER_AUTH_URL is the API host, so prefer PUBLIC_WEB_URL when set (prod
 // single-origin installs leave it unset and fall back).
-const dashboardUrl = () => (env.PUBLIC_WEB_URL ?? env.BETTER_AUTH_URL).replace(/\/$/, "");
+const dashboardUrl = () =>
+  resolveCanonicalWebOrigin((env.PUBLIC_WEB_URL ?? env.BETTER_AUTH_URL).replace(/\/$/, ""));
 
 // `returnTo` is a signed, sanitized app-relative path — when present, the
 // operator gets dropped back where they started the connect (e.g. the deploy
 // wizard) instead of the Git providers page.
-const resultRedirectUrl = (params: {
+const resultRedirectUrl = async (params: {
   status: "ok" | "error";
   reason?: string;
   returnTo?: string;
 }) => {
-  const url = new URL(`${dashboardUrl()}${params.returnTo ?? "/"}`);
+  const url = new URL(`${await dashboardUrl()}${params.returnTo ?? "/"}`);
   url.searchParams.set("git_install", params.status);
   if (params.reason) url.searchParams.set("reason", params.reason);
   return url.toString();
@@ -53,16 +57,16 @@ export const githubInstallCallbackHandler: Handler = async (c) => {
   const stateRaw = c.req.query("state");
 
   if (!installationId || !setupAction || !stateRaw) {
-    return c.redirect(errorRedirectUrl("missing-params"));
+    return c.redirect(await errorRedirectUrl("missing-params"));
   }
 
   const state = await verifyInstallState(stateRaw);
   if (!state) {
-    return c.redirect(errorRedirectUrl("invalid-state"));
+    return c.redirect(await errorRedirectUrl("invalid-state"));
   }
 
   if (setupAction !== "install" && setupAction !== "update") {
-    return c.redirect(errorRedirectUrl(`unsupported-action:${setupAction}`, state.returnTo));
+    return c.redirect(await errorRedirectUrl(`unsupported-action:${setupAction}`, state.returnTo));
   }
 
   const connect = await Result.tryPromise({
@@ -75,13 +79,13 @@ export const githubInstallCallbackHandler: Handler = async (c) => {
   });
   if (connect.isErr()) {
     if (connect.error instanceof GithubAppNotConfiguredError) {
-      return c.redirect(errorRedirectUrl("app-not-configured", state.returnTo));
+      return c.redirect(await errorRedirectUrl("app-not-configured", state.returnTo));
     }
     const parsed = parseError(connect.error);
     log.error({
       github: { event: "install.failed", installationId, error: parsed.message },
     });
-    return c.redirect(errorRedirectUrl(`failed:${parsed.code ?? "unknown"}`, state.returnTo));
+    return c.redirect(await errorRedirectUrl(`failed:${parsed.code ?? "unknown"}`, state.returnTo));
   }
 
   log.info({
@@ -93,7 +97,7 @@ export const githubInstallCallbackHandler: Handler = async (c) => {
       repoCount: connect.value.repoCount,
     },
   });
-  return c.redirect(resultRedirectUrl({ status: "ok", returnTo: state.returnTo }));
+  return c.redirect(await resultRedirectUrl({ status: "ok", returnTo: state.returnTo }));
 };
 
 // ─── /api/integrations/github/manifest/callback ─────────────────────
@@ -107,12 +111,12 @@ export const githubManifestCallbackHandler: Handler = async (c) => {
   const stateRaw = c.req.query("state");
 
   if (!code || !stateRaw) {
-    return c.redirect(errorRedirectUrl("missing-params"));
+    return c.redirect(await errorRedirectUrl("missing-params"));
   }
 
   const state = await verifyInstallState(stateRaw);
   if (!state) {
-    return c.redirect(errorRedirectUrl("invalid-state"));
+    return c.redirect(await errorRedirectUrl("invalid-state"));
   }
 
   const exchange = await Result.tryPromise({
@@ -130,7 +134,7 @@ export const githubManifestCallbackHandler: Handler = async (c) => {
       github: { event: "manifest.failed", orgId: state.orgId, error: parsed.message },
     });
     return c.redirect(
-      errorRedirectUrl(`manifest-failed:${parsed.code ?? "unknown"}`, state.returnTo),
+      await errorRedirectUrl(`manifest-failed:${parsed.code ?? "unknown"}`, state.returnTo),
     );
   }
 
