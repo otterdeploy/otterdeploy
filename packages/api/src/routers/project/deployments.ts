@@ -20,7 +20,7 @@ import type { DeploymentId, OrganizationId, PreviewId, ResourceId } from "@otter
 
 import { db } from "@otterdeploy/db";
 import { deployment, project, resource } from "@otterdeploy/db/schema/project";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 
 import { emitPlatformEvent } from "../../notifications/emit";
 import { emitDeployStarted } from "./deployments-emit";
@@ -178,6 +178,27 @@ export async function getLatestDeploymentForResource(
     .orderBy(desc(deployment.createdAt))
     .limit(1);
   return (row as DeploymentRow | undefined) ?? null;
+}
+
+/** Latest BASE deployment per resource for a SET of resources — one query
+ *  instead of N `getLatestDeploymentForResource` calls (the project-resources
+ *  list fired one per resource). `DISTINCT ON (resourceId)` with a
+ *  resourceId-then-createdAt-desc order picks the newest row per resource.
+ *  Returns a map keyed by resourceId; resources with no deployment are absent. */
+export async function getLatestDeploymentsForResources(
+  resourceIds: ReadonlyArray<ResourceId>,
+): Promise<Map<ResourceId, DeploymentRow>> {
+  const result = new Map<ResourceId, DeploymentRow>();
+  if (resourceIds.length === 0) return result;
+  const rows = await db
+    .selectDistinctOn([deployment.resourceId])
+    .from(deployment)
+    .where(
+      and(inArray(deployment.resourceId, resourceIds as ResourceId[]), isNull(deployment.previewId)),
+    )
+    .orderBy(deployment.resourceId, desc(deployment.createdAt));
+  for (const row of rows) result.set(row.resourceId as ResourceId, row as DeploymentRow);
+  return result;
 }
 
 /** Load one deployment by id, scoped to its resource. Returns null when the

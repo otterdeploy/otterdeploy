@@ -2,7 +2,7 @@ import type { PreviewId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { resource, serviceEnvVar } from "@otterdeploy/db/schema/project";
-import { and, eq, isNull, like, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, like, or, sql } from "drizzle-orm";
 import { createError } from "evlog";
 
 import type { ResourceRow, ServiceEnvVarRow } from ".";

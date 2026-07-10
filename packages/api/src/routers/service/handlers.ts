@@ -74,7 +74,18 @@ export async function listServices(
   if (project.isErr()) return Result.err(project.error);
 
   const records = await listServiceRecordsByProject(input.projectId);
-  const views = await Promise.all(records.map((r) => mapServiceView(r, project.value.slug)));
+  // Resolve every service's live runtime in ONE runtime round-trip, then hand
+  // each pre-resolved status to mapServiceView — instead of mapServiceView
+  // opening a fresh Docker connection + lookup per service (the list N+1).
+  const projectSlug = sanitizeSlug(project.value.slug);
+  const runtimes = await runtime().inspectMany(
+    records.map((r) => ({ serviceName: r.service.serviceName, projectSlug })),
+  );
+  const views = await Promise.all(
+    records.map((r) =>
+      mapServiceView(r, project.value.slug, runtimes.get(r.service.serviceName)),
+    ),
+  );
   return Result.ok(views);
 }
 

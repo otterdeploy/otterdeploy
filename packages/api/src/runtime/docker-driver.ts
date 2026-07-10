@@ -18,7 +18,8 @@
 
 import { Docker } from "@otterdeploy/docker";
 
-import type { RuntimeDriver } from "./types";
+import type { RuntimeDriver, RuntimeStatus } from "./types";
+import type { Summary } from "./docker-driver-helpers";
 
 import { asStepLogger } from "../lib/logger";
 import { branchDatabaseOnDocker, destroyDatabaseBranchOnDocker } from "./docker-driver-branch";
@@ -122,6 +123,41 @@ export const dockerDriver: RuntimeDriver = {
       status: mapStatus(summary),
       health: mapHealth(summary),
     };
+  },
+
+  async inspectMany(inputs) {
+    const result = new Map<string, RuntimeStatus>();
+    if (inputs.length === 0) return result;
+    const docker = Docker.fromEnv();
+    // ONE list over all managed containers, then match each requested service
+    // to its container by exact name — replaces the per-service `inspect` that
+    // opened a fresh Docker connection + lookup for every item in the list.
+    const list = await docker.containers.list({
+      all: true,
+      filters: { label: ["otterdeploy.managed=true"] },
+    });
+    docker.destroy();
+    if (list.isErr()) throw list.error;
+
+    const byName = new Map<string, Summary>();
+    for (const container of list.value) {
+      const summary = container as unknown as Summary;
+      // Name filter would be a substring match; index by the exact `/name` the
+      // way findContainer pins it, stripping docker's leading slash.
+      for (const name of summary.Names ?? []) byName.set(name.replace(/^\//, ""), summary);
+    }
+
+    for (const input of inputs) {
+      const summary = byName.get(input.serviceName) ?? null;
+      result.set(input.serviceName, {
+        serviceId: summary?.Id ?? null,
+        serviceName: input.serviceName,
+        networkName: networkNameFor(input.projectSlug),
+        status: mapStatus(summary),
+        health: mapHealth(summary),
+      });
+    }
+    return result;
   },
 
   // ── Databases ──────────────────────────────────────────────────────────

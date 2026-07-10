@@ -69,6 +69,17 @@ export interface RuntimeDriver {
     input: { serviceName: string; projectSlug: string },
     log?: RequestLogger,
   ): Promise<RuntimeStatus>;
+  /**
+   * Batched `inspect` — resolve MANY services' live status in ONE runtime
+   * round-trip. List endpoints call this instead of N per-service `inspect`s,
+   * each of which opened a fresh Docker connection + lookup (the list N+1).
+   * Keyed by serviceName; a service with no live container maps to a `missing`
+   * status, exactly as a single `inspect` on an absent container would.
+   */
+  inspectMany(
+    inputs: ReadonlyArray<{ serviceName: string; projectSlug: string }>,
+    log?: RequestLogger,
+  ): Promise<Map<string, RuntimeStatus>>;
 
   // ── Databases (single-replica stateful containers) ──
   provisionDatabase(input: DatabaseSpec, log?: RequestLogger): Promise<DatabaseStatus>;

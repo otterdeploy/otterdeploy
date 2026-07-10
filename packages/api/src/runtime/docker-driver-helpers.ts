@@ -95,7 +95,7 @@ export async function pullImage(docker: Docker, image: string): Promise<void> {
   });
 }
 
-interface Summary {
+export interface Summary {
   Names: string[];
   State: string;
   Id: string;
