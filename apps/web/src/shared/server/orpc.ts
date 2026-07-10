@@ -18,6 +18,18 @@ import { toast } from "sonner";
 export type ClientContext = ClientRetryPluginContext;
 
 export const queryClient = new QueryClient({
+  // Without defaults, TanStack Query uses staleTime: 0 — so every component
+  // remount / back-navigation refetches from the server and shows a spinner,
+  // even for data it just had. A modest staleTime serves cached data instantly
+  // on navigation while a background refetch keeps it fresh. Live collections
+  // that need real-time data set their own refetchInterval, which still wins.
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      gcTime: 5 * 60_000,
+      refetchOnWindowFocus: false,
+    },
+  },
   queryCache: new QueryCache({
     onError: (error, query) => {
       toast.error(`Error: ${error.message}`, {

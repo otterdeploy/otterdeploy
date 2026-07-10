@@ -145,6 +145,17 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
+  session: {
+    // Cache the validated session (+ its enriched fields like
+    // activeOrganizationId) in a short-lived signed cookie so the common-case
+    // getSession() is a local cookie read instead of a Postgres round-trip.
+    // Without this, EVERY RPC call (context.ts getSession) and EVERY app
+    // navigation (the _app beforeLoad) revalidated the session against the DB
+    // — the single biggest source of pervasive latency. The trade-off is that a
+    // revoked session is honored for up to `maxAge`; 5 minutes is the standard
+    // better-auth default for this window.
+    cookieCache: { enabled: true, maxAge: 5 * 60 },
+  },
   advanced: {
     // Over HTTPS keep Secure + SameSite=None (also lets a split-origin/cross-site
     // deploy send the cookie). Over HTTP fall back to an insecure Lax cookie,
