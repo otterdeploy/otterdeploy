@@ -48,6 +48,10 @@ export interface StackReconcileContext {
   /** Materialized file-tree dir for a multi-file inline stack (absolute), where
    *  bind-mount sources resolve. Undefined for single-file / git stacks. */
   stackDir?: string;
+  /** Sink for human-readable progress lines on the STACK deployment's log
+   *  (deployCompose wires this to the deployment_log writer). Optional so
+   *  other callers stay unchanged. */
+  deployLog?: (line: string) => void;
 }
 
 export interface StackReconcileResult {
@@ -82,10 +86,12 @@ export async function reconcileStackServices(
   const desired = new Set<string>();
   const failed: string[] = [];
   let deployed = 0;
+  const progress = ctx.deployLog ?? (() => undefined);
 
   for (const svc of parsed.services) {
     const image = resolveImage(svc);
     if (!image) {
+      progress(`Service ${svc.name}: no image resolved (build not finished?) — skipped.`);
       failed.push(svc.name);
       continue;
     }
@@ -128,13 +134,20 @@ export async function reconcileStackServices(
 
     // One deployment row per service per reconcile → its own build/deploy
     // history + logs. buildSwarmSpec stamps this (latest) deployment's id onto
-    // the swarm tasks, so the Deployments tab groups tasks correctly.
+    // the swarm tasks, so the Deployments tab groups tasks correctly. The
+    // image is prebuilt/pulled — nothing compiles here — so the row starts at
+    // "pending", not "building".
     const dep = await insertDeployment({
       resourceId,
       image,
       reason: isCreate ? "create" : reason === "create" ? "create" : "redeploy",
+      status: "pending",
       snapshot: { stack: ctx.stackResourceId, composeService: svc.name },
     });
+
+    progress(
+      `Service ${svc.name}: ${isCreate ? "creating" : "updating"} ${mapped.serviceName} from ${image}…`,
+    );
 
     // Provision (fresh) or update (existing) the swarm service via the EXISTING
     // per-service primitive — same path a standalone service deploys through.
@@ -147,15 +160,15 @@ export async function reconcileStackServices(
       : await redeployOne(ctx.projectId, resourceId, ctx.projectSlug, log);
 
     if (rolled.isErr()) {
-      await markDeploymentFailed(
-        dep.id,
-        rolled.error instanceof Error ? rolled.error.message : String(rolled.error),
-      );
+      const message = rolled.error instanceof Error ? rolled.error.message : String(rolled.error);
+      await markDeploymentFailed(dep.id, message);
+      progress(`Service ${svc.name}: failed — ${message}`);
       failed.push(svc.name);
       continue;
     }
     if (rolled.value.status === "error") {
       await markDeploymentFailed(dep.id, `Swarm reported ${svc.name} errored`);
+      progress(`Service ${svc.name}: failed — swarm reported an error state.`);
       failed.push(svc.name);
       continue;
     }
@@ -163,6 +176,7 @@ export async function reconcileStackServices(
       .update(deployment)
       .set({ status: "running", completedAt: new Date() })
       .where(eq(deployment.id, dep.id));
+    progress(`Service ${svc.name}: rolled out.`);
     deployed++;
   }
 
@@ -170,6 +184,7 @@ export async function reconcileStackServices(
   // the resource row (cascade-drops its sidecar/env/ports/deployments).
   for (const [serviceName, row] of existingByName) {
     if (desired.has(serviceName)) continue;
+    progress(`Service ${serviceName}: removed (no longer in the compose file).`);
     await Result.tryPromise({
       try: () => runtime().destroy({ serviceName }, log),
       catch: (e) => e,

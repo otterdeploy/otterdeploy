@@ -172,12 +172,17 @@ export function toServiceFields(
 
 /** Pick a project-unique resource name for a new stack service. Prefers the
  *  bare compose key (e.g. "web"); if another resource already owns that name,
- *  suffix until free. Matching on re-reconcile keys off serviceName, so a
- *  suffixed display name stays stable. */
+ *  suffix until free. The common collision is the stack's OWN resource (a
+ *  single-service stack named after its service, e.g. stack "uptime-kuma" with
+ *  service "uptime-kuma"), so the first fallback is a descriptive `-service`
+ *  rather than a `-2` that implies a phantom sibling. Matching on re-reconcile
+ *  keys off serviceName, so a suffixed display name stays stable. */
 export async function pickResourceName(projectId: ProjectId, composeName: string): Promise<string> {
   const base = composeName.slice(0, 60);
+  const candidateAt = (i: number) =>
+    i === 0 ? base : i === 1 ? `${base}-service` : `${base}-${i}`;
   for (let i = 0; i < 50; i++) {
-    const candidate = i === 0 ? base : `${base}-${i + 1}`;
+    const candidate = candidateAt(i);
     const [exists] = await db
       .select({ id: resource.id })
       .from(resource)

@@ -23,6 +23,7 @@ import type { ComposeService, StackServiceStatus } from "./panel-parts";
 const stackStatusMeta: Record<StackServiceStatus, { label: string; dot: string; text: string }> = {
   running: { label: "Running", dot: "bg-success", text: "text-success" },
   building: { label: "Building", dot: "bg-warning", text: "text-warning" },
+  deploying: { label: "Deploying", dot: "bg-info", text: "text-info" },
   error: { label: "Failed", dot: "bg-destructive", text: "text-destructive" },
   offline: {
     label: "Offline",
@@ -196,7 +197,14 @@ export function ComposeSettingsTab({
 
 function ServiceRow({ service, status }: { service: ComposeService; status: StackServiceStatus }) {
   const meta = stackStatusMeta[status];
-  const label = status === "error" && service.hasBuild ? "Build failed" : meta.label;
+  // Task-derived "building" covers swarm's pre-running phases (pulling,
+  // starting) — for an image-only service nothing builds, so say "Deploying".
+  const label =
+    status === "error" && service.hasBuild
+      ? "Build failed"
+      : status === "building" && !service.hasBuild
+        ? "Deploying"
+        : meta.label;
   return (
     <div className="rounded-lg border bg-card px-4 py-3">
       <div className="flex items-center justify-between gap-3">

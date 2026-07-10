@@ -25,6 +25,7 @@ import { resolvePublicDomain } from "../../lib/domains";
 import { parseCompose } from "../../stack/compose";
 import { insertDeployment, markDeploymentFailed } from "../project/deployments";
 import { getProjectById, loadProjectEnvBag } from "../project/queries";
+import { createStackDeployLog } from "./deploy-log";
 import { interpolate } from "./env";
 import { type ComposeRecord, getComposeRecord } from "./queries";
 import { reconcileStackServices } from "./reconcile";
@@ -155,6 +156,8 @@ export async function deployCompose(
   // Stack-level deployment row: tracks the rollout as a whole (and is the row
   // the build worker owns for git stacks). Each service ALSO gets its own
   // deployment row inside the reconcile, for per-service history + logs.
+  // Direct deploys start at "pending", not "building" — an image-only stack
+  // never builds anything, and the UI renders the states differently.
   const depId =
     input.deploymentId ??
     (
@@ -162,68 +165,94 @@ export async function deployCompose(
         resourceId: input.resourceId,
         image: record.compose.stackName,
         reason,
+        status: "pending",
         snapshot: { compose: content, services: record.compose.services },
       })
     ).id;
 
-  // Materialize each compose service as a real service_resource owned by the
-  // stack, then deploy each via the normal per-service path. This is what makes
-  // logs / variables / settings / public-private work per service unchanged.
-  const reconciled = await Result.tryPromise({
-    try: () =>
-      reconcileStackServices(
-        parsed.value,
-        {
-          projectId: input.projectId,
-          stackResourceId: input.resourceId,
-          projectSlug: project.slug,
-          stackName: record.compose.stackName,
-          projectVars,
-          builtImages,
-          stackDir,
-        },
-        reason,
-        rlog,
-      ),
-    catch: (e) => (e instanceof Error ? e : new Error(String(e))),
-  });
-
-  if (reconciled.isErr()) {
-    if (ownsDeployment) await markDeploymentFailed(depId, reconciled.error.message);
-    return Result.err(new ComposeDeployError(reconciled.error.message));
-  }
-
-  const { deployed, failed } = reconciled.value;
-  const status: ComposeDeployResult["status"] =
-    failed.length === 0 ? "running" : deployed === 0 ? "failed" : "partial";
-
-  if (ownsDeployment) {
-    if (status === "failed") {
-      await markDeploymentFailed(depId, `No services deployed (${failed.join(", ")} failed)`);
-    } else {
-      await db
-        .update(deployment)
-        .set({
-          status: "running",
-          completedAt: new Date(),
-          errorMessage: failed.length > 0 ? `Some services failed: ${failed.join(", ")}` : null,
-        })
-        .where(eq(deployment.id, depId));
+  // Scrollback + live tail for the stack deployment. The builder already logs
+  // to this row for git/build stacks; the direct path used to write nothing,
+  // leaving the deployment's log view empty.
+  const dlog = createStackDeployLog(depId);
+  try {
+    dlog.line(
+      `Deploying stack ${record.compose.stackName} — ${parsed.value.services.length} service(s), reason: ${reason}`,
+    );
+    if (stackDir) {
+      dlog.line(`Materialized ${record.compose.files.length} inline file(s) to ${stackDir}`);
     }
+
+    // Materialize each compose service as a real service_resource owned by the
+    // stack, then deploy each via the normal per-service path. This is what makes
+    // logs / variables / settings / public-private work per service unchanged.
+    const reconciled = await Result.tryPromise({
+      try: () =>
+        reconcileStackServices(
+          parsed.value,
+          {
+            projectId: input.projectId,
+            stackResourceId: input.resourceId,
+            projectSlug: project.slug,
+            stackName: record.compose.stackName,
+            projectVars,
+            builtImages,
+            stackDir,
+            deployLog: (line) => dlog.line(line),
+          },
+          reason,
+          rlog,
+        ),
+      catch: (e) => (e instanceof Error ? e : new Error(String(e))),
+    });
+
+    if (reconciled.isErr()) {
+      dlog.line(`Stack deploy failed: ${reconciled.error.message}`);
+      if (ownsDeployment) await markDeploymentFailed(depId, reconciled.error.message);
+      return Result.err(new ComposeDeployError(reconciled.error.message));
+    }
+
+    const { deployed, failed } = reconciled.value;
+    const status: ComposeDeployResult["status"] =
+      failed.length === 0 ? "running" : deployed === 0 ? "failed" : "partial";
+    dlog.line(
+      failed.length === 0
+        ? `Stack deploy complete — ${deployed}/${parsed.value.services.length} service(s) running.`
+        : `Stack deploy ${status} — ${deployed} rolled out, failed: ${failed.join(", ")}`,
+    );
+
+    if (ownsDeployment) {
+      if (status === "failed") {
+        await markDeploymentFailed(depId, `No services deployed (${failed.join(", ")} failed)`);
+      } else {
+        await db
+          .update(deployment)
+          .set({
+            status: "running",
+            completedAt: new Date(),
+            errorMessage: failed.length > 0 ? `Some services failed: ${failed.join(", ")}` : null,
+          })
+          .where(eq(deployment.id, depId));
+      }
+    }
+
+    // Best-effort: publish Caddy routes for any exposed service:port. A domain
+    // failure must not fail an otherwise-successful stack deploy.
+    if (record.compose.exposed.length > 0) {
+      dlog.line(`Publishing ${record.compose.exposed.length} public route(s).`);
+    }
+    await Result.tryPromise({
+      try: () =>
+        reconcileComposeDomains(record, {
+          id: input.projectId,
+          slug: project.slug,
+        }),
+      catch: (e) => (e instanceof Error ? e : new Error(String(e))),
+    });
+
+    return Result.ok({ status, deployed, failed });
+  } finally {
+    await dlog.close();
   }
-
-  // Best-effort: publish Caddy routes for any exposed service:port. A domain
-  // failure must not fail an otherwise-successful stack deploy.
-  await Result.tryPromise({
-    try: () =>
-      reconcileComposeDomains(record, {
-        id: input.projectId,
-        slug: project.slug,
-      }),
-    catch: (e) => (e instanceof Error ? e : new Error(String(e))),
-  });
-
-  return Result.ok({ status, deployed, failed });
 }
 
 /**

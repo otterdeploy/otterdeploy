@@ -61,6 +61,11 @@ interface InsertInput {
   /** Preview scoping. Omitted → NULL (a normal base deployment). Preview
    *  deploys pass their preview id. */
   previewId?: PreviewId;
+  /** Initial lifecycle status. Defaults to "building" (git-sourced deploys go
+   *  straight into a build). Deploys that never build — compose stacks rolling
+   *  out prebuilt/pulled images — pass "pending" so the UI doesn't claim a
+   *  build is happening. */
+  status?: "pending" | "building";
   /** Snapshot the deployment is built from. Pass the resource's full
    *  current config so rollback can reapply it verbatim later. */
   snapshot: Record<string, unknown>;
@@ -74,7 +79,7 @@ export async function insertDeployment(input: InsertInput): Promise<DeploymentRo
       image: input.image,
       reason: input.reason,
       previewId: input.previewId,
-      status: "building",
+      status: input.status ?? "building",
       snapshot: input.snapshot,
     })
     .returning();

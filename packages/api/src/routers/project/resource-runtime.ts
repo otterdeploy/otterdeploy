@@ -9,7 +9,7 @@
  *
  * One frontend call site per tab covers every container-backed resource.
  */
-import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { ProjectId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { Docker } from "@otterdeploy/docker";

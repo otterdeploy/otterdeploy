@@ -115,6 +115,12 @@ export async function getProjectResource(
       return Result.ok(await mapDatabaseResource(found.record, project.slug));
     case "service":
       return Result.ok(await mapServiceResource(found.record));
+    default:
+      // Stacks aren't served by the generic resource view — the compose
+      // router (compose.get) owns their read model. Also the exhaustive
+      // fallback: tsc can't prove the switch covers `found.kind`, so a
+      // bare case list reads as "lacks ending return statement".
+      return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
   }
 }
 
@@ -207,6 +213,13 @@ export async function deleteProjectResource(
         teardown: { proxyRoutesRemoved: true, runtimeDestroyed: true, dbDeleted: true },
       });
       break;
+    }
+    case "compose": {
+      // Stack deletion is compose.delete's job — it tears down every child
+      // service, the swarm stack, routes, and seeded vars. Falling through
+      // here would report success without removing anything.
+      log.set({ resource: { outcome: "compose_not_deletable_here" } });
+      return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
     }
   }
 
