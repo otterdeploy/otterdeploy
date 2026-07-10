@@ -11,14 +11,32 @@ import { PendingChangesBar } from "@/features/projects/components/pending-change
 import { ProjectTabs } from "@/features/projects/components/project-tabs";
 import { ProjectSidebar } from "@/features/shell/components/sidebar/project-sidebar";
 import { SidebarInset } from "@/shared/components/ui/sidebar";
+import { Skeleton } from "@/shared/components/ui/skeleton";
 
 const zProjectSlugParam = z.object({
   projectSlug: zSlug(ID_PREFIX.project),
 });
 const zEnvSearch = z.object({ env: z.string().optional() });
 
+// Shown while the project + env collections preload on navigation into a
+// project. A tailored tab-row + content skeleton keeps the shell recognizable
+// instead of the generic centered spinner on this high-traffic transition.
+function ProjectShellPending() {
+  return (
+    <div className="flex h-full flex-1 flex-col gap-4 p-4">
+      <div className="flex gap-2">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-8 w-24 rounded-md" />
+        ))}
+      </div>
+      <Skeleton className="h-full w-full flex-1 rounded-xl" />
+    </div>
+  );
+}
+
 export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug")({
   component: RouteComponent,
+  pendingComponent: ProjectShellPending,
   validateSearch: zEnvSearch,
   params: { parse: (params) => zProjectSlugParam.parse(params) },
   loader: async ({ params }) => {

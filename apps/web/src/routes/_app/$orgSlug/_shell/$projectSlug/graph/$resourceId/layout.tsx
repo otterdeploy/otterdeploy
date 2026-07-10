@@ -23,7 +23,7 @@ import { AnimatePresence } from "motion/react";
 
 import { ResourcePanelSkeleton } from "@/features/resources/components/_shared/panel-skeleton";
 import { resourceCollection } from "@/features/resources/data/resource";
-import { orpc } from "@/shared/server/orpc";
+import { orpc, queryClient } from "@/shared/server/orpc";
 
 import {
   ComposeResourcePanel,
@@ -33,11 +33,46 @@ import {
   ServiceResourcePanel,
 } from "@/features/resources/components";
 
+// Drawer-framed skeleton shown while the loader warms the panel's data — same
+// bottom-right frame the real panel uses (see RouteComponent's motion.div), so
+// the drawer opens as a cohesive skeleton instead of popping its status bar,
+// stat tiles, and pause control in one-by-one a beat after it slides in.
+function ResourceDrawerPending() {
+  return (
+    <div className="pointer-events-auto relative h-full w-full rounded-lg rounded-tr-none border border-r-0 border-border bg-card lg:w-4/5 xl:w-3/5">
+      <ResourcePanelSkeleton />
+    </div>
+  );
+}
+
 export const Route = createFileRoute(
   "/_app/$orgSlug/_shell/$projectSlug/graph/$resourceId",
 )({
   staticData: { crumb: "Resource" },
   component: RouteComponent,
+  pendingComponent: ResourceDrawerPending,
+  loader: async ({ params }) => {
+    // Warm the slow `service.get` runtime view (a docker/swarm inspect) BEFORE
+    // the drawer mounts, so an applied service panel opens already-populated.
+    // Cheap collection read first; best-effort warm — a transient inspect
+    // failure must degrade to the panel's own fetch, never break the drawer.
+    await resourceCollection.preload();
+    const resource = resourceCollection.toArray.find(
+      (r) => r.resourceId === params.resourceId || `${r.type}:${r.name}` === params.resourceId,
+    );
+    if (resource?.type === "service" && resource.resourceId) {
+      await queryClient
+        .ensureQueryData(
+          orpc.service.get.queryOptions({
+            input: {
+              projectId: resource.projectId as never,
+              resourceId: resource.resourceId as never,
+            },
+          }),
+        )
+        .catch(() => undefined);
+    }
+  },
 });
 
 type ManifestData = Awaited<ReturnType<typeof orpc.project.manifest.get.call>>;
@@ -131,8 +166,14 @@ function RouteComponent() {
   // from the manifest (cached) so the panel can edit it. Both staged services
   // and staged databases render their *real* panels in pending mode (editable
   // env / extensions / settings via the manifest, runtime tabs disabled).
+  // Applied resources never read `manifest.data`, so skip the fetch entirely —
+  // otherwise every detail-drawer open paid for a manifest round-trip it threw
+  // away.
   const manifest = useQuery(
-    orpc.project.manifest.get.queryOptions({ input: { id: project.id } }),
+    orpc.project.manifest.get.queryOptions({
+      input: { id: project.id },
+      enabled: !resource,
+    }),
   );
   const pendingName = resourceId.includes(":")
     ? resourceId.slice(resourceId.indexOf(":") + 1)
