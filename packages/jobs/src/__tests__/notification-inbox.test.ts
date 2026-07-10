@@ -11,7 +11,12 @@ let inboxRowsFor: typeof import("../jobs/notification-inbox").inboxRowsFor;
 
 beforeAll(async () => {
   mock.module("@otterdeploy/db", () => ({ db: {} }));
-  mock.module("@otterdeploy/db/schema", () => ({ member: {}, notification: {} }));
+  // Spread the REAL schema (pure table defs — no env) instead of a two-key
+  // stub: bun's mock.module registrations leak across test files in one
+  // `bun test` process, and a partial schema mock breaks reconcile.test.ts'
+  // static `deployment` import under bun 1.3.10.
+  const realSchema = await import("@otterdeploy/db/schema");
+  mock.module("@otterdeploy/db/schema", () => ({ ...realSchema }));
   ({ shouldFanOutInApp, inboxRowsFor } = await import("../jobs/notification-inbox"));
 });
 
