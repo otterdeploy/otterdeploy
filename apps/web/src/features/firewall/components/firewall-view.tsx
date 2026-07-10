@@ -35,6 +35,13 @@ export function FirewallView() {
   const rows = decisions.data ?? [];
   const reachable = Boolean(s?.reachable);
   const configured = Boolean(s?.configured);
+  // The firewall is usable whenever the agent answers over the Docker socket
+  // (reachable) OR the bouncer env is set (configured). Decisions are read AND
+  // written purely via `cscli` exec, independent of the CROWDSEC_* env — so a
+  // running agent must surface its blocked IPs even when the server process
+  // lacks those vars. Gating the Decisions view on `configured` alone hid every
+  // blocked IP: a block from the edge landed in CrowdSec but never showed here.
+  const usable = configured || reachable;
   const [view, setView] = useState<View>("decisions");
 
   const block = useMutation({
@@ -68,7 +75,7 @@ export function FirewallView() {
       <FirewallToolbar
         view={view}
         onViewChange={setView}
-        configured={configured}
+        usable={usable}
         decisionCount={rows.length}
         refreshing={decisions.isFetching}
         onRefresh={() => {
@@ -83,7 +90,7 @@ export function FirewallView() {
         <BlocklistsPanel />
       ) : view === "flagged" ? (
         <FlaggedPanel />
-      ) : !configured ? (
+      ) : !usable ? (
         <FirewallDisabledCard />
       ) : (
         <DecisionsTable
@@ -102,20 +109,15 @@ function FirewallHeader({ configured, reachable }: { configured: boolean; reacha
     <div className="px-4 pt-4">
       <div className="flex items-center gap-2">
         <h1 className="text-base font-semibold">Firewall</h1>
-        {configured ? (
-          <span
-            className={cn(
-              "inline-flex items-center gap-1.5 text-[11px]",
-              reachable ? "text-success" : "text-destructive",
-            )}
-          >
-            <span
-              className={cn(
-                "size-1.5 rounded-full",
-                reachable ? "animate-pulse bg-success" : "bg-destructive",
-              )}
-            />
-            LAPI {reachable ? "reachable" : "unreachable"}
+        {reachable ? (
+          <span className="inline-flex items-center gap-1.5 text-[11px] text-success">
+            <span className="size-1.5 animate-pulse rounded-full bg-success" />
+            LAPI reachable
+          </span>
+        ) : configured ? (
+          <span className="inline-flex items-center gap-1.5 text-[11px] text-destructive">
+            <span className="size-1.5 rounded-full bg-destructive" />
+            LAPI unreachable
           </span>
         ) : (
           <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
@@ -135,7 +137,7 @@ function FirewallHeader({ configured, reachable }: { configured: boolean; reacha
 function FirewallToolbar({
   view,
   onViewChange,
-  configured,
+  usable,
   decisionCount,
   refreshing,
   onRefresh,
@@ -144,7 +146,7 @@ function FirewallToolbar({
 }: {
   view: View;
   onViewChange: (v: View) => void;
-  configured: boolean;
+  usable: boolean;
   decisionCount: number;
   refreshing: boolean;
   onRefresh: () => void;
@@ -172,7 +174,7 @@ function FirewallToolbar({
       </div>
       {view === "decisions" ? (
         <span className="text-[12px] text-muted-foreground">
-          {configured
+          {usable
             ? `${decisionCount} active decision${decisionCount === 1 ? "" : "s"}`
             : "Not enabled"}
         </span>
@@ -180,7 +182,7 @@ function FirewallToolbar({
       <div className="flex-1" />
       {view === "decisions" ? (
         <>
-          {configured ? <BlockIpForm onBlock={onBlock} blocking={blocking} /> : null}
+          {usable ? <BlockIpForm onBlock={onBlock} blocking={blocking} /> : null}
           <Button variant="outline" size="sm" onClick={onRefresh} disabled={refreshing}>
             {refreshing ? "Refreshing…" : "Refresh"}
           </Button>
