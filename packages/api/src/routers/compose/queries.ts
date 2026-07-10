@@ -34,6 +34,8 @@ export async function createComposeRecord(input: {
   stackName: string;
   services: ComposeServiceSummary[];
   exposed?: ComposeExposed[];
+  /** SvglLogo search string carried from the source template; null otherwise. */
+  logoBrand?: string | null;
 }): Promise<ComposeRecord> {
   return db.transaction(async (tx) => {
     const [res] = await tx
@@ -62,6 +64,7 @@ export async function createComposeRecord(input: {
         stackName: input.stackName,
         services: input.services,
         exposed: input.exposed ?? [],
+        logoBrand: input.logoBrand ?? null,
       })
       .returning();
     if (!comp) throw new Error("Failed to create compose_resource row");

@@ -33,36 +33,26 @@ import {
   ServiceResourcePanel,
 } from "@/features/resources/components";
 
-// Drawer-framed skeleton shown while the loader warms the panel's data — same
-// bottom-right frame the real panel uses (see RouteComponent's motion.div), so
-// the drawer opens as a cohesive skeleton instead of popping its status bar,
-// stat tiles, and pause control in one-by-one a beat after it slides in.
-function ResourceDrawerPending() {
-  return (
-    <div className="pointer-events-auto relative h-full w-full rounded-lg rounded-tr-none border border-r-0 border-border bg-card lg:w-4/5 xl:w-3/5">
-      <ResourcePanelSkeleton />
-    </div>
-  );
-}
-
 export const Route = createFileRoute(
   "/_app/$orgSlug/_shell/$projectSlug/graph/$resourceId",
 )({
   staticData: { crumb: "Resource" },
   component: RouteComponent,
-  pendingComponent: ResourceDrawerPending,
-  loader: async ({ params }) => {
-    // Warm the slow `service.get` runtime view (a docker/swarm inspect) BEFORE
-    // the drawer mounts, so an applied service panel opens already-populated.
-    // Cheap collection read first; best-effort warm — a transient inspect
-    // failure must degrade to the panel's own fetch, never break the drawer.
-    await resourceCollection.preload();
+  // NON-BLOCKING warm of the slow `service.get` runtime view. It MUST NOT await:
+  // awaiting puts the route into its pending state, which renders a separate
+  // frame BEFORE the panel's own AnimatePresence drawer mounts — so the drawer
+  // slid in from the side a second time after the skeleton flashed. Read the
+  // already-loaded collection synchronously and let the prefetch float, so the
+  // panel mounts (and animates) exactly once and populates in place as the
+  // query resolves. Best-effort: a cold collection or failed inspect just means
+  // the panel does its own fetch on mount, as before.
+  loader: ({ params }) => {
     const resource = resourceCollection.toArray.find(
       (r) => r.resourceId === params.resourceId || `${r.type}:${r.name}` === params.resourceId,
     );
     if (resource?.type === "service" && resource.resourceId) {
-      await queryClient
-        .ensureQueryData(
+      void queryClient
+        .prefetchQuery(
           orpc.service.get.queryOptions({
             input: {
               projectId: resource.projectId as never,

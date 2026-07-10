@@ -416,21 +416,23 @@ function TaskStateBadge({ state }: { state: ServiceTaskInfo["state"] }) {
   );
 }
 
-export function DeploymentStatusBadge({ status }: { status: DeploymentRow["status"] }) {
+/** Status shown as a bare colored dot (no text) — the deployment header already
+ *  spells out the deployment id + timestamp, so the status only needs a glanceable
+ *  color. In-flight states pulse. The label stays available to assistive tech and
+ *  on hover via aria-label/title. */
+export function DeploymentStatusDot({ status }: { status: DeploymentRow["status"] }) {
+  const inFlight = status === "building" || status === "pending" || status === "starting";
   return (
     <span
+      role="status"
+      aria-label={status}
+      title={status}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-sm border border-border/60 bg-muted px-2 py-0.5 font-mono text-[10px] font-medium text-muted-foreground uppercase",
-        {
-          "bg-success/15 text-success border-success/30": status === "running",
-          "bg-destructive/15 text-destructive border-destructive/30":
-            status === "failed" || status === "crashed",
-          "bg-warning/15 text-warning border-warning/30":
-            status === "building" || status === "pending" || status === "starting",
-        },
+        "size-2 shrink-0 rounded-full bg-muted-foreground/40",
+        status === "running" && "bg-success",
+        (status === "failed" || status === "crashed") && "bg-destructive",
+        inFlight && "animate-pulse bg-warning",
       )}
-    >
-      {status}
-    </span>
+    />
   );
 }

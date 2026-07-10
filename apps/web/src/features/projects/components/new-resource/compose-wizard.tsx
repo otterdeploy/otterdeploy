@@ -80,6 +80,8 @@ export function ComposeWizard({
       value.source === "inline"
         ? {
             source: "inline" as const,
+            // Template brand mark — persisted so the graph node shows the logo.
+            ...(prefill?.logoBrand ? { logoBrand: prefill.logoBrand } : {}),
             content: value.content,
             // Multi-file: the compose file + supporting files. Only sent when the
             // user added files; a single-file stack keeps just `content`.
@@ -102,6 +104,8 @@ export function ComposeWizard({
           }
         : {
             source: "git" as const,
+            // Template brand mark — persisted so the graph node shows the logo.
+            ...(prefill?.logoBrand ? { logoBrand: prefill.logoBrand } : {}),
             // Bound repo id (private-capable) when picked; else the pasted URL.
             ...(value.gitRepoId.trim()
               ? { gitRepoId: value.gitRepoId.trim() }

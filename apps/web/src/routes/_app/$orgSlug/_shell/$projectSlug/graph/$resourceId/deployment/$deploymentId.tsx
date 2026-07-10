@@ -12,7 +12,7 @@ import { deploymentsCollection } from "@/features/resources/data/deployments";
 import { orpc } from "@/shared/server/orpc";
 import { resourceCollection } from "@/features/resources/data/resource";
 
-import { DeploymentStatusBadge } from "./-components/deployment-detail";
+import { DeploymentStatusDot } from "./-components/deployment-detail";
 import { DeploymentTabs, type DeploymentTab, DEPLOYMENT_TABS } from "./-components/deployment-tabs";
 
 import * as z from "zod";
@@ -116,9 +116,7 @@ function RouteComponent() {
                 {deploymentId.split("_")[1]?.slice(0, 8) ??
                   deploymentId.slice(0, 8)}
               </span>
-              {deployment && (
-                <DeploymentStatusBadge status={deployment.status} />
-              )}
+              {deployment && <DeploymentStatusDot status={deployment.status} />}
             </div>
             {subline && (
               <div className="font-mono text-[12px] text-muted-foreground/80">

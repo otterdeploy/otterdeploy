@@ -12,6 +12,7 @@ import type { FrameworkKind } from "@/features/projects/components/framework-log
 
 import { PanelIcon } from "@/features/resources/components/_shared/atoms";
 import { Button } from "@/shared/components/ui/button";
+import { shortImageRef } from "@/shared/lib/image-ref";
 
 import { HeaderActions, type HeaderResource, type PauseControl } from "./panel-header-actions";
 import { replicaSummary } from "./service-status";
@@ -53,7 +54,9 @@ export function ServicePanelHeader({
         />
         <div className="flex flex-col gap-0.5">
           <span className="text-xl leading-none font-bold tracking-tight">{resource.name}</span>
-          <span className="font-mono text-xs text-muted-foreground">{resource.image}</span>
+          <span className="font-mono text-xs text-muted-foreground" title={resource.image}>
+            {shortImageRef(resource.image)}
+          </span>
         </div>
       </div>
       <div className="flex items-center gap-2">

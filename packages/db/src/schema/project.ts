@@ -635,6 +635,10 @@ export const composeResource = pgTable(
     builtImages: jsonb("built_images").$type<Record<string, string>>().notNull().default({}),
     // Which `service:port` are fronted by a public domain.
     exposed: jsonb("exposed").$type<ComposeExposed[]>().notNull().default([]),
+    // Brand mark for the graph node — an SvglLogo search string (e.g. "Ghost"),
+    // carried over from the template the stack was deployed from. Null for
+    // hand-authored stacks, which fall back to the generic compose icon.
+    logoBrand: text("logo_brand"),
     forceUpdateCounter: integer("force_update_counter").notNull().default(0),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")

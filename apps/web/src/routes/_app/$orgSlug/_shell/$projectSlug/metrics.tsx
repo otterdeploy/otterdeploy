@@ -33,8 +33,7 @@ function RouteComponent() {
   const { orgSlug, projectSlug } = Route.useParams();
   const { project } = useLoaderData({ from: "/_app/$orgSlug/_shell/$projectSlug" });
 
-  // Same source the graph reads from — services and databases both have
-  // sampled containers, so the overview charts every resource.
+  // Same source the graph reads from.
   const { data: resources } = useLiveQuery(
     (q) =>
       q
@@ -42,6 +41,12 @@ function RouteComponent() {
         .where(({ r }) => eq(r.projectId, project.id)),
     [project.id],
   );
+
+  // Only resources that own a container are chartable. A compose stack is a
+  // logical group with no container of its own — the sampler records metrics
+  // under each MEMBER service's resourceId, so a stack card would always read
+  // "—" while its member services already chart individually. Drop it.
+  const chartable = (resources as ProjectResource[]).filter((r) => r.type !== "compose");
 
   const [window, setWindow] = useState<ProjectMetricWindowLabel>("30m");
   const minutes =
@@ -94,7 +99,7 @@ function RouteComponent() {
         ) : null}
       </div>
 
-      {resources.length === 0 ? (
+      {chartable.length === 0 ? (
         <Empty className="rounded-md border border-dashed bg-muted/20 py-12">
           <EmptyHeader>
             <HugeiconsIcon
@@ -111,7 +116,7 @@ function RouteComponent() {
         </Empty>
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
-          {(resources as ProjectResource[]).map((r) => (
+          {chartable.map((r) => (
             <ResourceMetricsCard
               key={r.resourceId}
               resource={r}

@@ -174,6 +174,9 @@ export const composeResourceSchema = z.object({
   latestDeploymentFinishedAt: z.string().nullable(),
   source: z.enum(["inline", "git"]),
   stackName: z.string(),
+  /** SvglLogo search string from the source template; null for hand-authored
+   *  stacks. Drives the stack node's brand tile. */
+  logoBrand: z.string().nullable(),
   services: z.array(
     z.object({
       name: z.string(),

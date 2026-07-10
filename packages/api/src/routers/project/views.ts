@@ -128,6 +128,7 @@ export async function mapComposeResource(
     ...latestDeploymentFields(await resolveLatest(record.resource.id, opts?.latest)),
     source: record.compose.source,
     stackName: record.compose.stackName,
+    logoBrand: record.compose.logoBrand ?? null,
     services: record.compose.services,
   };
 }

@@ -64,7 +64,11 @@ export function ResourceOverlayProvider({ children }: { children: ReactNode }) {
     if (!templateId || !project) return;
     const template = getTemplateById(templateId);
     if (template) {
-      setComposePrefill({ name: template.name, content: template.compose });
+      setComposePrefill({
+        name: template.name,
+        content: template.compose,
+        logoBrand: template.logoBrand,
+      });
       setOpen(true);
     }
     stripWizardParams();

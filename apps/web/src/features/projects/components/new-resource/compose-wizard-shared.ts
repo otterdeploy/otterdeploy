@@ -59,6 +59,9 @@ export interface ComposeFormValues {
 export interface ComposePrefill {
   name: string;
   content: string;
+  /** SvglLogo search string from the template — persisted on the stack so the
+   *  graph node shows the template's brand mark. */
+  logoBrand?: string;
 }
 
 // Credential-looking keys get the secret lock on by default.

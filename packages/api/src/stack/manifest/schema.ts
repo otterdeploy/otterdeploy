@@ -328,6 +328,9 @@ const composeInlineSchema = z.object({
   composePath: z.string().nullable().optional(),
   env: composeEnvMap.optional(),
   exposed: z.array(composeExposedSchema).optional(),
+  // Brand mark for the graph node (SvglLogo search string), set when the stack
+  // is deployed from a template. Presentation-only.
+  logoBrand: z.string().max(64).optional(),
 });
 
 const composeGitSchema = z.object({
@@ -342,6 +345,9 @@ const composeGitSchema = z.object({
   sourceSubdir: z.string().nullable().optional(),
   env: composeEnvMap.optional(),
   exposed: z.array(composeExposedSchema).optional(),
+  // Brand mark for the graph node (SvglLogo search string), set when the stack
+  // is deployed from a template. Presentation-only.
+  logoBrand: z.string().max(64).optional(),
 });
 
 export const composeSchema = z.discriminatedUnion("source", [

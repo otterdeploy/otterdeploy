@@ -138,6 +138,7 @@ async function createGitStackFromManifest(
         stackName,
         services: [],
         exposed,
+        logoBrand: spec.logoBrand ?? null,
       }),
     catch: (e) => (e instanceof Error ? e : new Error(String(e))),
   });
@@ -203,6 +204,7 @@ async function createInlineStackFromManifest(
         stackName,
         services,
         exposed,
+        logoBrand: spec.logoBrand ?? null,
       }),
     catch: (e) => (e instanceof Error ? e : new Error(String(e))),
   });

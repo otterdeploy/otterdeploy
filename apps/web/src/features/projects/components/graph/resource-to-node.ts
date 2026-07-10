@@ -159,6 +159,7 @@ export function resourceToNode(r: ProjectResource): ResourceFlowNode {
           name: r.name,
           // Stack source + service count is the most useful single line.
           description: r.services.length === 1 ? "1 service" : `${r.services.length} services`,
+          logoBrand: r.logoBrand ?? undefined,
           projectId: r.projectId,
           resourceId: r.resourceId,
           // The group has NO single status pill — each service answers for

@@ -119,6 +119,9 @@ export interface ResourceNodeData extends Record<string, unknown> {
    *  in place of the generic kind icon, and the tech footer prefixes
    *  the framework label. */
   framework?: FrameworkKind | null;
+  /** Compose-only: SvglLogo search string from the source template. When set,
+   *  the stack header renders the brand tile in place of the generic icon. */
+  logoBrand?: string;
   status?: ResourceStatus;
   /** Latest deployment timestamps — the header shows the live build/deploy
    *  duration while the node is building (`finishedAt` null = still in flight). */
