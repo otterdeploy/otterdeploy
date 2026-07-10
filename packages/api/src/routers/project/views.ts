@@ -151,6 +151,11 @@ export async function mapDatabaseResource(
     name: record.resource.name,
     type: "database" as const,
     status: record.resource.status,
+    // A database mid-deploy legitimately has NO container (image still
+    // pulling), which the live runtime reads as `missing`. The latest
+    // deployment row is what lets the graph card show "building" for that
+    // window instead of a phantom error — same signal services use.
+    ...(await latestDeploymentFields(record.resource.id)),
     // Read the engine off the row, not a hardcoded literal — the row IS
     // the source of truth, the wizard's selection landed here when the
     // resource was created. Every UI surface (icon, copy, connection

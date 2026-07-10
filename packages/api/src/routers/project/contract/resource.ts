@@ -27,6 +27,25 @@ export const databaseResourceSchema = z.object({
   name: z.string(),
   type: z.literal("database"),
   status: z.enum(["draft", "valid", "invalid"]),
+  // Status of the most-recent deployment row (same shape as the service
+  // view). For databases this is what distinguishes "container missing
+  // because the image is still pulling / the create is in flight"
+  // (building/pending) from "container genuinely gone" — the graph card
+  // falls back to it before declaring an error. Null when never deployed.
+  latestDeploymentStatus: z
+    .enum([
+      "pending",
+      "building",
+      "starting",
+      "running",
+      "crashed",
+      "failed",
+      "superseded",
+      "removed",
+    ])
+    .nullable(),
+  latestDeploymentStartedAt: z.string().nullable(),
+  latestDeploymentFinishedAt: z.string().nullable(),
   engine: z.enum([
     "postgres",
     "redis",

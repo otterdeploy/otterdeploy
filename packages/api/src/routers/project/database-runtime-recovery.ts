@@ -15,6 +15,8 @@ import {
   markDeploymentFailed,
   reconcileDeploySuccess,
 } from "./deployments";
+import { isBuildStillLogging } from "./deployments-list";
+import { ZERO_TASK_STALE_MS } from "./deployments-status";
 import {
   updateDatabaseResourceRuntime,
   updateDatabaseResourceStatus,
@@ -46,6 +48,25 @@ async function withReconcileLock<T>(key: string, fn: () => Promise<T>): Promise<
     // without bound across a long-lived process.
     if (reconcileLocks.get(key) === current) reconcileLocks.delete(key);
   }
+}
+
+/**
+ * Is the latest deployment still legitimately holding the container at
+ * "missing"? True for a fresh row (grace window) and for an in-flight
+ * create/deploy: a large image pull keeps the container missing for minutes,
+ * but stays inside the zero-task stale window or keeps writing deployment_log
+ * lines the whole time — either signal means "alive, don't pile a competing
+ * restart provision on top".
+ */
+async function deployStillConverging(
+  latest: Awaited<ReturnType<typeof getLatestDeploymentForResource>>,
+): Promise<boolean> {
+  if (!latest) return false;
+  const ageMs = Date.now() - new Date(latest.createdAt).getTime();
+  if (ageMs < RECONCILE_GRACE_MS) return true;
+  if (latest.status !== "building" && latest.status !== "pending") return false;
+  if (ageMs < ZERO_TASK_STALE_MS) return true;
+  return isBuildStillLogging(latest, new Map());
 }
 
 /**
@@ -97,13 +118,15 @@ export async function ensureSwarmRuntimeForRecord(
       return { record, runtime: runtimeNow };
     }
 
-    // Dedup + grace: if any deployment for this resource is younger than the
-    // grace window, the service is still converging (a just-created DB, or the
-    // restart a prior lock-holder just inserted) — don't pile on another. This
-    // is what turns the "genuinely removed → one restart" self-heal into exactly
-    // one restart even under concurrent reads.
+    // Dedup + grace: don't pile a restart on top of a deployment that's still
+    // converging — a just-created DB, the restart a prior lock-holder just
+    // inserted, or an in-flight create whose image is still pulling (see
+    // deployStillConverging). This is what turns the "genuinely removed → one
+    // restart" self-heal into exactly one restart even under concurrent reads,
+    // and what keeps the ~5s resource-list poll from firing a competing
+    // provision into the middle of a multi-minute image pull.
     const latest = await getLatestDeploymentForResource(record.resource.id);
-    if (latest && Date.now() - new Date(latest.createdAt).getTime() < RECONCILE_GRACE_MS) {
+    if (await deployStillConverging(latest)) {
       return { record, runtime: runtimeNow };
     }
 

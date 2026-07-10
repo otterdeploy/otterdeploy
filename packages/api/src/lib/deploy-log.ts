@@ -1,8 +1,9 @@
 /**
- * Deploy log for the DIRECT (image-only) compose path. The builder writes
- * `deployment_log` scrollback + Redis live-tail for git/build stacks, but a
- * direct `deployCompose` used to write nothing — the stack deployment's log
- * view rendered empty and the rollout was undiagnosable from the UI.
+ * Lightweight writer for a deployment's log channel — used by deploy paths
+ * that run in-process (no builder): direct compose rollouts and database
+ * provisioning (image pulls). The builder writes `deployment_log` scrollback
+ * + Redis live-tail for git/build stacks; without this, those in-process
+ * deploys wrote nothing and their log views rendered empty.
  *
  * Mirrors apps/builder/src/log-stream.ts in miniature: each line is published
  * to `deployment:{id}:logs` immediately (live tail) and appended to
@@ -16,7 +17,7 @@ import { db } from "@otterdeploy/db";
 import { deploymentLog } from "@otterdeploy/db/schema/build";
 import { log as globalLog } from "evlog";
 
-import { createRedis } from "../../lib/redis";
+import { createRedis } from "./redis";
 
 export interface StackDeployLog {
   /** Append one system line (non-blocking; ordering preserved). */

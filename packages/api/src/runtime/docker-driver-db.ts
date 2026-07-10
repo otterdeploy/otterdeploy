@@ -5,10 +5,13 @@
  * container/network helpers in `./docker-driver-helpers`.
  */
 
+import type { DeploymentId } from "@otterdeploy/shared/id";
+
 import { Docker } from "@otterdeploy/docker";
 
 import type { DatabaseSpec, DatabaseStatus } from "./types";
 
+import { createStackDeployLog, nullStackDeployLog } from "../lib/deploy-log";
 import { getEngineAdapter } from "../swarm/database-engines";
 import {
   createAndStart,
@@ -91,7 +94,18 @@ export async function runDatabase(input: DatabaseSpec): Promise<DatabaseStatus> 
   };
 
   await removeContainerByName(docker, input.serviceName);
-  await pullImage(docker, options.Image as string);
+  // Mirror pull progress into the deployment's log channel — a multi-minute
+  // image download otherwise looks like a hung deploy (container missing, no
+  // output anywhere), and recent log lines keep the zero-task stale check
+  // from flipping a slow pull to "failed".
+  const deployLog = input.deploymentId
+    ? createStackDeployLog(input.deploymentId as DeploymentId)
+    : nullStackDeployLog;
+  try {
+    await pullImage(docker, options.Image as string, (line) => deployLog.line(line));
+  } finally {
+    await deployLog.close();
+  }
   const status = await createAndStart(docker, options, input.serviceName, networkName);
   docker.destroy();
   return {
