@@ -136,6 +136,7 @@ export async function mapComposeResource(
 export async function mapDatabaseResource(
   record: DatabaseResourceRecord,
   projectSlug?: string,
+  opts?: { latest?: DeploymentRow | null },
 ): Promise<PostgresResource> {
   const resolvedProjectSlug =
     projectSlug ??
@@ -155,7 +156,7 @@ export async function mapDatabaseResource(
     // pulling), which the live runtime reads as `missing`. The latest
     // deployment row is what lets the graph card show "building" for that
     // window instead of a phantom error — same signal services use.
-    ...(await latestDeploymentFields(record.resource.id)),
+    ...latestDeploymentFields(await resolveLatest(record.resource.id, opts?.latest)),
     // Read the engine off the row, not a hardcoded literal — the row IS
     // the source of truth, the wizard's selection landed here when the
     // resource was created. Every UI surface (icon, copy, connection
