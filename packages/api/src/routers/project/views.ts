@@ -6,6 +6,8 @@
 
 import type * as z from "zod";
 
+import type { ServiceEnvVarRow } from "../service/queries";
+
 import { PLATFORM } from "../../constants";
 import { getEngineAdapter } from "../../swarm";
 import { listServiceEnvVars } from "../service/queries";
@@ -18,7 +20,7 @@ import {
   serviceResourceSchema,
 } from "./contract";
 import { ensureSwarmRuntimeForRecord } from "./database-runtime-recovery";
-import { getLatestDeploymentForResource } from "./deployments";
+import { getLatestDeploymentForResource, type DeploymentRow } from "./deployments";
 import {
   type ComposeResourceJoined,
   type DatabaseResourceRecord,
@@ -40,18 +42,28 @@ export type ProxyRoute = z.infer<typeof proxyRouteSchema>;
 // ---------------------------------------------------------------------------
 
 /** Latest-deployment pill status + start/finish ISO timestamps (drive the node
- *  build duration). Fetches the single indexed row itself so each mapper spreads
- *  it in one line. Build-time states (failed/building) schedule no swarm tasks,
+ *  build duration). Build-time states (failed/building) schedule no swarm tasks,
  *  so this is the only status signal the live-task rollup can't surface. */
-async function latestDeploymentFields(resourceId: string) {
-  const d = await getLatestDeploymentForResource(
+function latestDeploymentFields(latest: DeploymentRow | null) {
+  return {
+    latestDeploymentStatus: latest?.status ?? null,
+    latestDeploymentStartedAt: latest ? latest.createdAt.toISOString() : null,
+    latestDeploymentFinishedAt: latest?.completedAt ? latest.completedAt.toISOString() : null,
+  };
+}
+
+/** Use the batch caller's pre-fetched latest-deployment row when supplied (the
+ *  list path resolves all resources' latest deployments in one query); else
+ *  fetch the single indexed row (single-resource callers). `undefined` = not
+ *  supplied → fetch; `null` = supplied, resource has no deployment. */
+async function resolveLatest(
+  resourceId: string,
+  provided: DeploymentRow | null | undefined,
+): Promise<DeploymentRow | null> {
+  if (provided !== undefined) return provided;
+  return getLatestDeploymentForResource(
     resourceId as Parameters<typeof getLatestDeploymentForResource>[0],
   );
-  return {
-    latestDeploymentStatus: d?.status ?? null,
-    latestDeploymentStartedAt: d ? d.createdAt.toISOString() : null,
-    latestDeploymentFinishedAt: d?.completedAt ? d.completedAt.toISOString() : null,
-  };
 }
 
 /**
@@ -62,10 +74,13 @@ async function latestDeploymentFields(resourceId: string) {
  */
 export async function mapServiceResource(
   record: ServiceResourceJoined,
+  opts?: { latest?: DeploymentRow | null; envRows?: ServiceEnvVarRow[] },
 ): Promise<ServiceResourceView> {
-  const envRows = await listServiceEnvVars(
-    record.resource.id as unknown as Parameters<typeof listServiceEnvVars>[0],
-  );
+  const envRows =
+    opts?.envRows ??
+    (await listServiceEnvVars(
+      record.resource.id as unknown as Parameters<typeof listServiceEnvVars>[0],
+    ));
   const extraEnv: Record<string, string> = {};
   const secretKeys: string[] = [];
   for (const row of envRows) {
@@ -78,7 +93,7 @@ export async function mapServiceResource(
     name: record.resource.name,
     type: "service" as const,
     status: record.resource.status,
-    ...(await latestDeploymentFields(record.resource.id)),
+    ...latestDeploymentFields(await resolveLatest(record.resource.id, opts?.latest)),
     image: record.service.image,
     imageDigest: record.service.imageDigest,
     source: record.service.source,
@@ -102,6 +117,7 @@ export async function mapServiceResource(
 
 export async function mapComposeResource(
   record: ComposeResourceJoined,
+  opts?: { latest?: DeploymentRow | null },
 ): Promise<ComposeResourceView> {
   return {
     resourceId: record.resource.id,
@@ -109,7 +125,7 @@ export async function mapComposeResource(
     name: record.resource.name,
     type: "compose" as const,
     status: record.resource.status,
-    ...(await latestDeploymentFields(record.resource.id)),
+    ...latestDeploymentFields(await resolveLatest(record.resource.id, opts?.latest)),
     source: record.compose.source,
     stackName: record.compose.stackName,
     services: record.compose.services,

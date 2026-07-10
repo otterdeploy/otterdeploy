@@ -24,6 +24,32 @@ export async function listServiceEnvVars(
     );
 }
 
+/** Base env rows for a SET of service resources — one query instead of N
+ *  `listServiceEnvVars` calls (the project-resources list fired one per
+ *  service). Returns a map keyed by serviceResourceId; services with no base
+ *  env vars are absent (the caller defaults them to an empty list). */
+export async function listServiceEnvVarsForResources(
+  serviceResourceIds: ReadonlyArray<ResourceId>,
+): Promise<Map<ResourceId, ServiceEnvVarRow[]>> {
+  const result = new Map<ResourceId, ServiceEnvVarRow[]>();
+  if (serviceResourceIds.length === 0) return result;
+  const rows = await db
+    .select()
+    .from(serviceEnvVar)
+    .where(
+      and(
+        inArray(serviceEnvVar.serviceResourceId, serviceResourceIds as ResourceId[]),
+        isNull(serviceEnvVar.previewId),
+      ),
+    );
+  for (const row of rows) {
+    const list = result.get(row.serviceResourceId as ResourceId);
+    if (list) list.push(row);
+    else result.set(row.serviceResourceId as ResourceId, [row]);
+  }
+  return result;
+}
+
 /** A preview's override rows for one service. */
 export async function listPreviewServiceEnvVars(
   serviceResourceId: ResourceId,
