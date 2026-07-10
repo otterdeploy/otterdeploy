@@ -212,28 +212,14 @@ export async function deployCompose(
     }
 
     const { deployed, failed } = reconciled.value;
-    const status: ComposeDeployResult["status"] =
-      failed.length === 0 ? "running" : deployed === 0 ? "failed" : "partial";
-    dlog.line(
-      failed.length === 0
-        ? `Stack deploy complete — ${deployed}/${parsed.value.services.length} service(s) running.`
-        : `Stack deploy ${status} — ${deployed} rolled out, failed: ${failed.join(", ")}`,
-    );
-
-    if (ownsDeployment) {
-      if (status === "failed") {
-        await markDeploymentFailed(depId, `No services deployed (${failed.join(", ")} failed)`);
-      } else {
-        await db
-          .update(deployment)
-          .set({
-            status: "running",
-            completedAt: new Date(),
-            errorMessage: failed.length > 0 ? `Some services failed: ${failed.join(", ")}` : null,
-          })
-          .where(eq(deployment.id, depId));
-      }
-    }
+    const status = await finalizeStackDeployment({
+      depId,
+      ownsDeployment,
+      deployed,
+      failed,
+      total: parsed.value.services.length,
+      log: (line) => dlog.line(line),
+    });
 
     // Best-effort: publish Caddy routes for any exposed service:port. A domain
     // failure must not fail an otherwise-successful stack deploy.
@@ -253,6 +239,42 @@ export async function deployCompose(
   } finally {
     await dlog.close();
   }
+}
+
+/** Derive the stack-level outcome, log it, and settle the deployment row
+ *  (when this call owns it). Split from deployCompose for the complexity cap. */
+async function finalizeStackDeployment(input: {
+  depId: DeploymentId;
+  ownsDeployment: boolean;
+  deployed: number;
+  failed: string[];
+  total: number;
+  log: (line: string) => void;
+}): Promise<ComposeDeployResult["status"]> {
+  const { depId, ownsDeployment, deployed, failed, total, log } = input;
+  const status: ComposeDeployResult["status"] =
+    failed.length === 0 ? "running" : deployed === 0 ? "failed" : "partial";
+  log(
+    failed.length === 0
+      ? `Stack deploy complete — ${deployed}/${total} service(s) running.`
+      : `Stack deploy ${status} — ${deployed} rolled out, failed: ${failed.join(", ")}`,
+  );
+
+  if (ownsDeployment) {
+    if (status === "failed") {
+      await markDeploymentFailed(depId, `No services deployed (${failed.join(", ")} failed)`);
+    } else {
+      await db
+        .update(deployment)
+        .set({
+          status: "running",
+          completedAt: new Date(),
+          errorMessage: failed.length > 0 ? `Some services failed: ${failed.join(", ")}` : null,
+        })
+        .where(eq(deployment.id, depId));
+    }
+  }
+  return status;
 }
 
 /**
