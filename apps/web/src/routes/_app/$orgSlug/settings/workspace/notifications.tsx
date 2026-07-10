@@ -131,7 +131,7 @@ function RouteComponent() {
   };
 
   return (
-    <Page width="narrow">
+    <Page>
       <PageHeader
         title="Notifications"
         description="Routes deploy, build, health, and security events to your channels."
