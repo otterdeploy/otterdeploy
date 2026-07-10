@@ -1,8 +1,6 @@
 import type { DeploymentId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
-import { db } from "@otterdeploy/db";
-import { deployment } from "@otterdeploy/db/schema/project";
 import { resourceDir } from "@otterdeploy/shared/paths";
 import { Result } from "better-result";
 /**
@@ -15,7 +13,6 @@ import { Result } from "better-result";
  * builder (Phase 3) and are rejected with a clear error until then. See
  * docs/designs/compose.md.
  */
-import { eq } from "drizzle-orm";
 
 import { reconcile } from "../../caddy";
 import { deleteProxyRoutesByResource, insertProxyRoute } from "../../caddy/queries";
@@ -25,6 +22,7 @@ import { resolvePublicDomain } from "../../lib/domains";
 import { parseCompose } from "../../stack/compose";
 import { insertDeployment, markDeploymentFailed } from "../project/deployments";
 import { getProjectById, loadProjectEnvBag } from "../project/queries";
+import { finalizeStackDeployment } from "./deploy-finalize";
 import { createStackDeployLog } from "./deploy-log";
 import { interpolate } from "./env";
 import { type ComposeRecord, getComposeRecord } from "./queries";
@@ -239,42 +237,6 @@ export async function deployCompose(
   } finally {
     await dlog.close();
   }
-}
-
-/** Derive the stack-level outcome, log it, and settle the deployment row
- *  (when this call owns it). Split from deployCompose for the complexity cap. */
-async function finalizeStackDeployment(input: {
-  depId: DeploymentId;
-  ownsDeployment: boolean;
-  deployed: number;
-  failed: string[];
-  total: number;
-  log: (line: string) => void;
-}): Promise<ComposeDeployResult["status"]> {
-  const { depId, ownsDeployment, deployed, failed, total, log } = input;
-  const status: ComposeDeployResult["status"] =
-    failed.length === 0 ? "running" : deployed === 0 ? "failed" : "partial";
-  log(
-    failed.length === 0
-      ? `Stack deploy complete — ${deployed}/${total} service(s) running.`
-      : `Stack deploy ${status} — ${deployed} rolled out, failed: ${failed.join(", ")}`,
-  );
-
-  if (ownsDeployment) {
-    if (status === "failed") {
-      await markDeploymentFailed(depId, `No services deployed (${failed.join(", ")} failed)`);
-    } else {
-      await db
-        .update(deployment)
-        .set({
-          status: "running",
-          completedAt: new Date(),
-          errorMessage: failed.length > 0 ? `Some services failed: ${failed.join(", ")}` : null,
-        })
-        .where(eq(deployment.id, depId));
-    }
-  }
-  return status;
 }
 
 /**
