@@ -1,8 +1,8 @@
 /**
  * Shared bits for the Docker inventory tabs plus the swarm Tasks table. The
  * per-daemon tables live in sibling files: `docker-table-containers.tsx`,
- * `docker-table-images.tsx`, `docker-table-volumes.tsx`,
- * `docker-table-networks.tsx`.
+ * `docker-table-images.tsx`, `docker-table-networks.tsx`. (Volumes render the
+ * full volumes feature — see features/volumes/volumes-section.tsx.)
  */
 import { Button } from "@/shared/components/ui/button";
 import { TableCell, TableRow } from "@/shared/components/ui/table";

@@ -6,7 +6,7 @@ import {
   deleteScheduleRecord,
   updateScheduleRecord,
 } from "../../backups/schedule-crud";
-import { getScheduleRunTarget, resolveScheduleSources } from "../../backups/schedule-db";
+import { classifyScheduleSources, getScheduleRunTarget } from "../../backups/schedule-db";
 import { presentSchedule } from "./presenters";
 import { listSchedules, scheduleDestinationNames } from "./service";
 
@@ -39,12 +39,17 @@ export const backupSchedulesRouter = {
         enabled: input.enabled,
       });
       context.log.set({ target: { type: "backup_schedule", id: row.id } });
-      return presentSchedule({
-        schedule: row,
-        destinationNames: await scheduleDestinationNames({
+      const [destinationNames, resolution] = await Promise.all([
+        scheduleDestinationNames({
           organizationId: context.activeOrganizationId,
           ids: row.destinationIds,
         }),
+        classifyScheduleSources(context.activeOrganizationId, row.sources),
+      ]);
+      return presentSchedule({
+        schedule: row,
+        destinationNames,
+        missingSources: resolution.missing,
       });
     },
   ),
@@ -69,12 +74,17 @@ export const backupSchedulesRouter = {
         enabled: input.enabled,
       });
       if (!row) throw errors.NOT_FOUND();
-      return presentSchedule({
-        schedule: row,
-        destinationNames: await scheduleDestinationNames({
+      const [destinationNames, resolution] = await Promise.all([
+        scheduleDestinationNames({
           organizationId: context.activeOrganizationId,
           ids: row.destinationIds,
         }),
+        classifyScheduleSources(context.activeOrganizationId, row.sources),
+      ]);
+      return presentSchedule({
+        schedule: row,
+        destinationNames,
+        missingSources: resolution.missing,
       });
     },
   ),
@@ -91,12 +101,24 @@ export const backupSchedulesRouter = {
       });
       if (!schedule) throw errors.NOT_FOUND();
 
-      const resourceIds = await resolveScheduleSources(
+      const { resolvedIds, missing } = await classifyScheduleSources(
         context.activeOrganizationId,
         schedule.sources,
       );
+      // Orphaned schedule: nothing left to back up. Fail loudly (422 + the dead
+      // refs) instead of returning a success envelope with `queued: 0` — the
+      // latter reads as "ran fine" in the audit log and to the user.
+      if (resolvedIds.length === 0) {
+        throw errors.NO_SOURCES({
+          message:
+            schedule.sources.length === 0
+              ? "This schedule has no source configured"
+              : "This schedule's database source no longer exists",
+          data: { missing },
+        });
+      }
       let queued = 0;
-      for (const resourceId of resourceIds) {
+      for (const resourceId of resolvedIds) {
         for (const destinationId of schedule.destinationIds) {
           const id = await createBackupRun({
             organizationId: context.activeOrganizationId,

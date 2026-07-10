@@ -14,6 +14,7 @@ const tag = "notifications";
 const basePath = "/notifications";
 
 const channelIdField = zId(ID_PREFIX.notificationChannel);
+const notificationIdField = zId(ID_PREFIX.notification);
 
 const channelKind = z.enum([
   "slack",
@@ -55,6 +56,16 @@ const channelSchema = z.object({
 export const subscriptionSchema = z.object({
   channelId: channelIdField,
   eventId,
+});
+
+/** One in-app inbox entry — the caller's own `notification` row. */
+const inboxItemSchema = z.object({
+  id: notificationIdField,
+  title: z.string(),
+  message: z.string(),
+  /** Null until the user reads it. */
+  readAt: z.date().nullable(),
+  createdAt: z.date(),
 });
 
 // ─── Inputs ────────────────────────────────────────────────────────────
@@ -142,5 +153,25 @@ export const notificationsContract = {
       .input(toggleSubscriptionInput)
       .output(toggleSubscriptionInput)
       .errors(channelNotFound),
+  },
+
+  // The caller's own in-app feed (the header bell's popover). User-scoped —
+  // rows belong to the session user, filtered to the active org + account-
+  // level rows. One list call carries the unread count so the badge and the
+  // popover share a single poll.
+  inbox: {
+    list: oc
+      .route({ method: "GET", path: `${basePath}/inbox`, tags: [tag] })
+      .input(z.object({ limit: z.number().int().min(1).max(50).default(20) }))
+      .output(z.object({ items: z.array(inboxItemSchema), unread: z.number() })),
+
+    markRead: oc
+      .route({ method: "POST", path: `${basePath}/inbox/read`, tags: [tag] })
+      .input(z.object({ id: notificationIdField }))
+      .output(z.object({ id: notificationIdField })),
+
+    markAllRead: oc
+      .route({ method: "POST", path: `${basePath}/inbox/read-all`, tags: [tag] })
+      .output(z.object({ updated: z.number() })),
   },
 };

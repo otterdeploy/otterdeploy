@@ -31,11 +31,14 @@ export type Outcome = AuditEvent["outcome"];
 /** Time-window presets for the range filter. `ms === 0` means "all time";
  *  "custom" reads the filter's own `from`/`to` date bounds instead. */
 export const RANGES = [
-  { id: "24h", label: "Last 24h", ms: 24 * 60 * 60 * 1000 },
+  { id: "1h", label: "Last hour", ms: 60 * 60 * 1000 },
+  { id: "12h", label: "Last 12 hours", ms: 12 * 60 * 60 * 1000 },
+  { id: "24h", label: "Last 24 hours", ms: 24 * 60 * 60 * 1000 },
   { id: "7d", label: "Last 7 days", ms: 7 * 24 * 60 * 60 * 1000 },
   { id: "30d", label: "Last 30 days", ms: 30 * 24 * 60 * 60 * 1000 },
+  { id: "90d", label: "Last 90 days", ms: 90 * 24 * 60 * 60 * 1000 },
   { id: "all", label: "All time", ms: 0 },
-  { id: "custom", label: "Custom", ms: 0 },
+  { id: "custom", label: "Custom range", ms: 0 },
 ] as const;
 
 /** The filter selection — also the TanStack Form value shape. */

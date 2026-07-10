@@ -22,6 +22,7 @@ import * as z from "zod";
 import { defineJob } from "../define";
 import { type ChannelKind, type ResolvedChannel, deliverToChannel } from "../delivery/channels";
 import { decryptSecret } from "../delivery/secret-crypto";
+import { shouldFanOutInApp, writeInboxRows } from "./notification-inbox";
 
 export const PlatformEventPayload = z.object({
   organizationId: z.string().min(1),
@@ -88,7 +89,7 @@ export const notificationEventJob = defineJob({
     removeOnComplete: { age: 60 * 60 * 24 },
     removeOnFail: { age: 60 * 60 * 24 * 7 },
   },
-  async handler(payload, { log }) {
+  async handler(payload, { log, job }) {
     const channels = await resolveChannels(payload);
     log.info({
       notification: {
@@ -98,6 +99,24 @@ export const notificationEventJob = defineJob({
         channels: channels.length,
       },
     });
+
+    // In-app inbox fan-out (the header bell) — same subscription gate as the
+    // channels, one row per org member. Runs BEFORE channel delivery and is
+    // deduped on the job id, so a retried job never double-writes the inbox.
+    if (
+      shouldFanOutInApp({
+        eventId: payload.eventId,
+        testChannelId: payload.channelId,
+        subscribedChannelCount: channels.length,
+      })
+    ) {
+      // The BullMQ job id is stable across retries — the dedupe key. The
+      // fallback (id-less jobs shouldn't happen for queued work) is unique
+      // per call so it can never suppress a later, different occurrence.
+      const occurrence = job.id ? `job:${job.id}` : `evt:${payload.eventId}:${Date.now()}`;
+      const inboxRows = await writeInboxRows(payload, occurrence);
+      log.info({ notification: { step: "inbox", eventId: payload.eventId, rows: inboxRows } });
+    }
 
     let delivered = 0;
     for (const row of channels) {

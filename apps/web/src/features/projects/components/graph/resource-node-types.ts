@@ -14,7 +14,7 @@ import type { FrameworkKind } from "@/features/projects/components/framework-log
 export type IconType = ComponentProps<typeof HugeiconsIcon>["icon"];
 export type BrandSvg = (props: SVGProps<SVGSVGElement>) => React.ReactNode;
 
-export type ResourceKind = "service" | "database" | "route" | "volume" | "compose" | "preview";
+export type ResourceKind = "service" | "database" | "volume" | "compose" | "preview";
 
 export type ResourceEngine =
   | "postgres"

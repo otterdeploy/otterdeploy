@@ -2,7 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import * as z from "zod";
 
+import { volumesListQuery } from "@/features/volumes/data/volumes";
+import { VolumesSection } from "@/features/volumes/volumes-section";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Tabs, TabsContent } from "@/shared/components/ui/tabs";
@@ -18,16 +21,24 @@ import {
 import { ContainersTable } from "../-components/docker-table-containers";
 import { ImagesTable } from "../-components/docker-table-images";
 import { NetworksTable } from "../-components/docker-table-networks";
-import { VolumesTable } from "../-components/docker-table-volumes";
 import { TasksTable } from "../-components/docker-tables";
+
+// `tab` in the search so the old /volumes route (and deep links) can land on
+// a specific tab; state stays local after that so switches don't spam history.
+const dockerSearch = z.object({
+  tab: z.enum(["containers", "images", "volumes", "networks", "tasks"]).optional(),
+});
 
 export const Route = createFileRoute("/_app/$orgSlug/_shell/docker")({
   staticData: { crumb: "Docker" },
+  validateSearch: dockerSearch,
   component: DockerRoute,
 });
 
 function DockerRoute() {
-  const [tab, setTab] = useState<DockerTab>("containers");
+  const { orgSlug } = Route.useParams();
+  const { tab: initialTab } = Route.useSearch();
+  const [tab, setTab] = useState<DockerTab>(initialTab ?? "containers");
   const [nodeFilter, setNodeFilter] = useState<string>("all");
   const [pruneOpen, setPruneOpen] = useState(false);
 
@@ -42,10 +53,9 @@ function DockerRoute() {
     ...orpc.docker.images.list.queryOptions({ input: { all: false } }),
     staleTime: 10_000,
   });
-  const volumes = useQuery({
-    ...orpc.docker.volumes.list.queryOptions({ input: {} }),
-    staleTime: 10_000,
-  });
+  // The rich volumes inventory (ownership attribution, orphans) — the same
+  // surface the standalone /volumes page used before it merged into this tab.
+  const volumes = useQuery(volumesListQuery());
   const networks = useQuery({
     ...orpc.docker.networks.list.queryOptions({ input: {} }),
     staleTime: 10_000,
@@ -104,7 +114,7 @@ function DockerRoute() {
   const tabs: Array<[DockerTab, string, number | undefined]> = [
     ["containers", "Containers", containers.data?.length],
     ["images", "Images", images.data?.length],
-    ["volumes", "Volumes", volumes.data?.length],
+    ["volumes", "Volumes", volumes.data?.volumes.length],
     ["networks", "Networks", networks.data?.length],
     ["tasks", "Tasks", tasks.data?.length],
   ];
@@ -164,7 +174,7 @@ function DockerRoute() {
         </TabsContent>
         <TabsContent value="volumes">
           <ManagerScopeCaption swarm={swarm} tab={tab} />
-          <VolumesTable query={volumes} />
+          <VolumesSection orgSlug={orgSlug} />
         </TabsContent>
         <TabsContent value="networks">
           <ManagerScopeCaption swarm={swarm} tab={tab} />

@@ -115,12 +115,17 @@ export interface ScheduleRow {
   schedule: typeof backupSchedule.$inferSelect;
   /** Names for `schedule.destinationIds`, order-preserved, missing ones dropped. */
   destinationNames: string[];
+  /** Source refs that no longer resolve to a live database resource — the
+   *  schedule is orphaned. Empty when every source is healthy. */
+  missingSources: string[];
 }
 
 export async function listSchedulesByOrg(organizationId: OrganizationId): Promise<ScheduleRow[]> {
   // `destinationIds` is a jsonb array, not an FK, so resolve names via a small
-  // org-wide destination lookup rather than a join.
-  const [schedules, dests] = await Promise.all([
+  // org-wide destination lookup rather than a join. `sources` is the same shape,
+  // so resolve its health the same way — one org-wide database-resource lookup,
+  // matched in memory per schedule (avoids an N+1 across schedules).
+  const [schedules, dests, dbResources] = await Promise.all([
     db
       .select()
       .from(backupSchedule)
@@ -130,14 +135,27 @@ export async function listSchedulesByOrg(organizationId: OrganizationId): Promis
       .select({ id: backupDestination.id, name: backupDestination.name })
       .from(backupDestination)
       .where(eq(backupDestination.organizationId, organizationId)),
+    db
+      .select({ id: resource.id, name: resource.name })
+      .from(resource)
+      .innerJoin(project, eq(project.id, resource.projectId))
+      .innerJoin(databaseResource, eq(databaseResource.resourceId, resource.id))
+      .where(eq(project.organizationId, organizationId)),
   ]);
 
   const nameById = new Map(dests.map((d) => [d.id, d.name]));
+  // Every ref (id or name) that currently points at a live database resource.
+  const liveRefs = new Set<string>();
+  for (const r of dbResources) {
+    liveRefs.add(r.id);
+    liveRefs.add(r.name);
+  }
   return schedules.map((schedule) => ({
     schedule,
     destinationNames: schedule.destinationIds
       .map((id) => nameById.get(id))
       .filter((n): n is string => Boolean(n)),
+    missingSources: schedule.sources.filter((s) => !liveRefs.has(s)),
   }));
 }
 

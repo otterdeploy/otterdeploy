@@ -8,7 +8,6 @@ import type { ComponentProps, SVGProps } from "react";
 import {
   ContainerIcon,
   Database02Icon,
-  EarthIcon,
   GitPullRequestIcon,
   HardDriveIcon,
   ServerStack01Icon,
@@ -49,10 +48,6 @@ const KIND_ICON: Record<ResourceKind, { icon: HugeIcon; tint: string }> = {
   database: {
     icon: Database02Icon,
     tint: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
-  },
-  route: {
-    icon: EarthIcon,
-    tint: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
   },
   volume: {
     icon: HardDriveIcon,

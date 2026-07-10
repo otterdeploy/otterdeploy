@@ -131,21 +131,62 @@ export async function updateScheduleAfterRun(
   await db.update(backupSchedule).set(fields).where(eq(backupSchedule.id, scheduleId));
 }
 
-/** Resolve a schedule's source refs (resource ids or names) to database
- *  resource ids in the same org. */
-export async function resolveScheduleSources(
+/** Outcome of matching a schedule's source refs against live db resources. */
+export interface ScheduleSourceResolution {
+  /** Database resource ids the schedule can actually back up right now. */
+  resolvedIds: ResourceId[];
+  /** Source refs that no longer match any live database resource — the
+   *  schedule was orphaned (its DB/volume was deleted out from under it). */
+  missing: string[];
+}
+
+/** Pure matcher (no DB): partition `sources` against a set of live database
+ *  resources. A ref counts as matched if *any* resource carries it as its id or
+ *  name (name is not unique across projects, so a by-name ref can fan out to
+ *  several); an unmatched ref is "missing" — its backing database is gone. */
+export function partitionSources(
+  sources: string[],
+  dbResources: Array<{ id: ResourceId; name: string }>,
+): ScheduleSourceResolution {
+  if (sources.length === 0) return { resolvedIds: [], missing: [] };
+  const wanted = new Set(sources);
+  const resolvedIds: ResourceId[] = [];
+  const matchedRefs = new Set<string>();
+  for (const r of dbResources) {
+    if (wanted.has(r.id)) {
+      resolvedIds.push(r.id);
+      matchedRefs.add(r.id);
+    } else if (wanted.has(r.name)) {
+      resolvedIds.push(r.id);
+      matchedRefs.add(r.name);
+    }
+  }
+  return { resolvedIds, missing: sources.filter((s) => !matchedRefs.has(s)) };
+}
+
+/** Match a schedule's source refs against the org's live database resources,
+ *  partitioning them into what still resolves and what has gone missing. */
+export async function classifyScheduleSources(
   organizationId: OrganizationId,
   sources: string[],
-): Promise<ResourceId[]> {
-  if (sources.length === 0) return [];
+): Promise<ScheduleSourceResolution> {
+  if (sources.length === 0) return { resolvedIds: [], missing: [] };
   const rows = await db
     .select({ id: resource.id, name: resource.name })
     .from(resource)
     .innerJoin(project, eq(project.id, resource.projectId))
     .innerJoin(databaseResource, eq(databaseResource.resourceId, resource.id))
     .where(eq(project.organizationId, organizationId));
-  const wanted = new Set(sources);
-  return rows.filter((r) => wanted.has(r.id) || wanted.has(r.name)).map((r) => r.id);
+  return partitionSources(sources, rows);
+}
+
+/** Resolve a schedule's source refs (resource ids or names) to database
+ *  resource ids in the same org. Thin wrapper over `classifyScheduleSources`. */
+export async function resolveScheduleSources(
+  organizationId: OrganizationId,
+  sources: string[],
+): Promise<ResourceId[]> {
+  return (await classifyScheduleSources(organizationId, sources)).resolvedIds;
 }
 
 /** Succeeded backups for a schedule, newest first — drives retention. */

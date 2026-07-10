@@ -16,11 +16,8 @@ import { ResourceNode } from "@/features/projects/components/graph/resource-node
 
 import { GraphLegend } from "./graph-legend";
 import { formatRps } from "./route-traffic";
-import { RouteNode } from "./route-node";
-import { TrafficEdge } from "./traffic-edge";
 
-const nodeTypes = { resource: ResourceNode, route: RouteNode };
-const edgeTypes = { traffic: TrafficEdge };
+const nodeTypes = { resource: ResourceNode };
 
 // Edges stay derived — dagre/data own them, so their change handler is inert.
 const noopChange = () => {};
@@ -65,7 +62,6 @@ export function GraphFlow({
       onNodesChange={onNodesChange}
       onEdgesChange={noopChange}
       nodeTypes={nodeTypes}
-      edgeTypes={edgeTypes}
       nodesDraggable
       fitView
       fitViewOptions={{ padding: 0.2 }}

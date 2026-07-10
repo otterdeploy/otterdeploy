@@ -11,6 +11,7 @@ import { encryptSecret } from "@otterdeploy/jobs/delivery/secret-crypto";
 
 import { orgScopedProcedure, requirePermission } from "../..";
 import { subscriptionSchema } from "./contract";
+import { listInbox, markInboxAllRead, markInboxRead } from "./inbox";
 import {
   type ChannelView,
   addSubscription,
@@ -174,6 +175,39 @@ export const notificationsRouter = {
         });
       }
       return input;
+    }),
+  },
+
+  // ─── in-app inbox (the header bell) ─────────────────────────────────
+  // User-scoped reads/writes on the caller's own `notification` rows. An
+  // API-key actor has no session user and therefore no personal inbox —
+  // reads come back empty and writes are no-ops rather than 401s, so a
+  // key-driven client polling shared endpoints never trips on this one.
+  inbox: {
+    list: orgScopedProcedure.notifications.inbox.list.handler(async ({ input, context }) => {
+      const userId = context.session?.user?.id;
+      if (!userId) return { items: [], unread: 0 };
+      return listInbox({ userId, organizationId: context.activeOrganizationId }, input.limit);
+    }),
+
+    markRead: orgScopedProcedure.notifications.inbox.markRead.handler(
+      async ({ input, context }) => {
+        const userId = context.session?.user?.id;
+        if (userId) {
+          await markInboxRead({ userId, organizationId: context.activeOrganizationId }, input.id);
+        }
+        return { id: input.id };
+      },
+    ),
+
+    markAllRead: orgScopedProcedure.notifications.inbox.markAllRead.handler(async ({ context }) => {
+      const userId = context.session?.user?.id;
+      if (!userId) return { updated: 0 };
+      const updated = await markInboxAllRead({
+        userId,
+        organizationId: context.activeOrganizationId,
+      });
+      return { updated };
     }),
   },
 };

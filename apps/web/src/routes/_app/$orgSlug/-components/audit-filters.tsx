@@ -3,6 +3,11 @@
  * / search. The form itself is created by the route (`useAuditFilterForm`) so
  * the route keeps deriving its query input from the same store; this file owns
  * the option sources (the `audit.distinct` query) and the controls' rendering.
+ *
+ * Every categorical control is a searchable Combobox (Base UI) rather than a
+ * plain select — the actor / action / target lists can run to dozens of
+ * distinct values, so type-to-filter is the only usable affordance. The range
+ * ("time rate") and outcome pickers use the same control for one coherent bar.
  */
 import { Search01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -16,28 +21,30 @@ import {
   RANGES,
   type AuditFilter,
 } from "@/features/audit/data/audit";
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "@/shared/components/ui/combobox";
 import { Input } from "@/shared/components/ui/input";
-import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@/shared/components/ui/native-select";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/components/ui/select";
+import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
-// Base UI <SelectValue> renders the selected option's *label* only when the
-// root <Select> is given a matching `items` list — see the outcome filter.
-const OUTCOME_ITEMS: { label: string; value: string }[] = [
-  { label: "All outcomes", value: "any" },
+interface FilterOption {
+  value: string;
+  label: string;
+}
+
+const OUTCOME_OPTIONS: FilterOption[] = [
   { label: "Success", value: "success" },
   { label: "Denied", value: "denied" },
   { label: "Failed", value: "failure" },
 ];
+
+const RANGE_OPTIONS: FilterOption[] = RANGES.map((r) => ({ value: r.id, label: r.label }));
 
 /** Filters live in a TanStack Form used purely as a reactive state container.
  *  No submit — the route's `useStore` re-renders on every value change. */
@@ -50,8 +57,8 @@ export type AuditFilterForm = ReturnType<typeof useAuditFilterForm>;
  *  (not the other filters) — so picking one option doesn't make the rest
  *  vanish from their dropdowns. Same stable-key trick as the stats query.
  *  If the current selection has aged out of the window, `withCurrent` keeps
- *  it as an extra option so the native select doesn't silently blank while
- *  the filter is still applied. */
+ *  it as an extra option so the control doesn't silently blank while the
+ *  filter is still applied. */
 function useFilterOptions(filter: AuditFilter, queryFilter: AuditFilter) {
   const distinct = useQuery({
     ...orpc.audit.distinct.queryOptions({ input: auditWindow(queryFilter) }),
@@ -104,17 +111,13 @@ export function AuditFilters({
     <div className="flex flex-wrap items-center gap-2">
       <form.Field name="range">
         {(field) => (
-          <NativeSelect
+          <FilterCombobox
             value={field.state.value}
-            onChange={(e) => field.handleChange(e.target.value)}
-            className="h-8 w-36"
-          >
-            {RANGES.map((r) => (
-              <NativeSelectOption key={r.id} value={r.id}>
-                {r.label}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
+            onChange={field.handleChange}
+            options={RANGE_OPTIONS}
+            searchPlaceholder="Time range…"
+            className="w-40"
+          />
         )}
       </form.Field>
       {filter.range === "custom" && (
@@ -148,55 +151,50 @@ export function AuditFilters({
       )}
       <form.Field name="actor">
         {(field) => (
-          <FilterSelect
+          <FilterCombobox
             value={field.state.value}
             onChange={field.handleChange}
             anyLabel="All actors"
+            searchPlaceholder="Search actors…"
             options={actorOptions}
-            className="w-44"
+            className="w-48"
           />
         )}
       </form.Field>
       <form.Field name="action">
         {(field) => (
-          <FilterSelect
+          <FilterCombobox
             value={field.state.value}
             onChange={field.handleChange}
             anyLabel="All actions"
+            searchPlaceholder="Search actions…"
             options={actionOptions}
-            className="w-44"
+            className="w-48"
           />
         )}
       </form.Field>
       <form.Field name="targetType">
         {(field) => (
-          <FilterSelect
+          <FilterCombobox
             value={field.state.value}
             onChange={field.handleChange}
             anyLabel="All targets"
+            searchPlaceholder="Search targets…"
             options={targetOptions}
-            className="w-36"
+            className="w-40"
           />
         )}
       </form.Field>
       <form.Field name="outcome">
         {(field) => (
-          <Select
-            items={OUTCOME_ITEMS}
+          <FilterCombobox
             value={field.state.value}
-            onValueChange={(v) => field.handleChange(v ?? field.state.value)}
-          >
-            <SelectTrigger className="h-8 w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {OUTCOME_ITEMS.map((it) => (
-                <SelectItem key={it.value} value={it.value}>
-                  {it.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            onChange={field.handleChange}
+            anyLabel="All outcomes"
+            searchPlaceholder="Search outcomes…"
+            options={OUTCOME_OPTIONS}
+            className="w-40"
+          />
         )}
       </form.Field>
       <div className="relative ml-auto">
@@ -221,43 +219,64 @@ export function AuditFilters({
 }
 
 /** Inject the current selection into the option list when the distinct query
- *  no longer returns it (window changed) — a native select with a value that
- *  has no matching <option> renders blank while still filtering. */
-function withCurrent(
-  options: { value: string; label: string }[],
-  current: string,
-): { value: string; label: string }[] {
+ *  no longer returns it (window changed) — a control with a value that has no
+ *  matching option renders blank while still filtering. */
+function withCurrent(options: FilterOption[], current: string): FilterOption[] {
   if (current === "any" || options.some((o) => o.value === current)) return options;
   return [...options, { value: current, label: current }];
 }
 
-/** "Any + distinct values" native select shared by the actor / action /
- *  target-kind filters. */
-function FilterSelect({
+/**
+ * Searchable single-select used by every categorical audit filter. Options are
+ * `{ value, label }`; when `anyLabel` is given an "Any" sentinel (value `"any"`)
+ * is prepended so clearing the filter is one click. The range picker omits it —
+ * a time window is always one of the presets.
+ */
+function FilterCombobox({
   value,
   onChange,
   anyLabel,
   options,
   className,
+  searchPlaceholder,
 }: {
   value: string;
   onChange: (v: string) => void;
-  anyLabel: string;
-  options: { value: string; label: string }[];
+  anyLabel?: string;
+  options: FilterOption[];
   className?: string;
+  searchPlaceholder?: string;
 }) {
+  const items = useMemo<FilterOption[]>(
+    () => (anyLabel ? [{ value: "any", label: anyLabel }, ...options] : options),
+    [anyLabel, options],
+  );
+  const selected = items.find((o) => o.value === value) ?? items[0] ?? null;
+
   return (
-    <NativeSelect
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className={`h-8 ${className ?? ""}`}
+    <Combobox
+      items={items}
+      value={selected}
+      onValueChange={(item: FilterOption | null) =>
+        onChange(item ? item.value : anyLabel ? "any" : value)
+      }
+      itemToStringLabel={(item: FilterOption) => item.label}
+      isItemEqualToValue={(a: FilterOption, b: FilterOption) => a.value === b.value}
     >
-      <NativeSelectOption value="any">{anyLabel}</NativeSelectOption>
-      {options.map((o) => (
-        <NativeSelectOption key={o.value} value={o.value}>
-          {o.label}
-        </NativeSelectOption>
-      ))}
-    </NativeSelect>
+      <ComboboxInput
+        placeholder={searchPlaceholder}
+        className={cn("h-8", className)}
+      />
+      <ComboboxContent>
+        <ComboboxEmpty>No matches.</ComboboxEmpty>
+        <ComboboxList>
+          {(item: FilterOption) => (
+            <ComboboxItem key={item.value} value={item} className="text-[13px]">
+              {item.label}
+            </ComboboxItem>
+          )}
+        </ComboboxList>
+      </ComboboxContent>
+    </Combobox>
   );
 }

@@ -330,8 +330,6 @@ function GraphCanvas({ bottomInset }: { bottomInset: number }) {
           return;
         }
         focusNodeInView(node, setCenter);
-        // Synthetic route nodes don't have a detail page — skip navigation.
-        if (node.id.startsWith("route:")) return;
         // Applied resources carry the real resourceId on data; pending-create
         // ghosts have none, so fall back to the node id (`${kind}:${name}`).
         // The $resourceId route resolves either form — by resourceId for real

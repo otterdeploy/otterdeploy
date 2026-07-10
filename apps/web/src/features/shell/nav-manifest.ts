@@ -29,7 +29,6 @@ import {
   File01Icon,
   FlashIcon,
   GitBranchIcon,
-  HardDriveIcon,
   Home01Icon,
   Key01Icon,
   Key02Icon,
@@ -111,16 +110,11 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
         keywords: ["postgres", "redis", "mysql", "mongo", "catalog"],
       },
       {
-        title: "Volumes",
-        to: "/$orgSlug/volumes",
-        icon: HardDriveIcon,
-        keywords: ["storage", "disk", "orphan"],
-      },
-      {
         title: "Docker",
         to: "/$orgSlug/docker",
         icon: ServerStack01Icon,
-        keywords: ["containers", "images"],
+        // Volumes folded into Docker as a tab — keep its old search terms.
+        keywords: ["containers", "images", "volumes", "storage", "disk", "orphan"],
       },
       {
         title: "Backups",

@@ -1,15 +1,15 @@
 "use client";
 
-import { Notification03Icon, Search01Icon } from "@hugeicons/core-free-icons";
+import { Search01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Link, useLoaderData, useMatch } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 
 import { setCommandPaletteOpen } from "@/features/command-palette/hooks/use-command-palette";
+import { NotificationInboxPopover } from "@/features/notifications/inbox-popover";
 import { useResourceOverlay } from "@/features/projects/components/new-resource/overlay-provider";
 import { HeaderNav } from "@/features/shell/components/header-nav";
 import { ModeToggle } from "@/features/shell/components/mode-toggle";
-import { UpdateHeaderButton } from "@/features/updates";
 import { Button } from "@/shared/components/ui/button";
 
 export function SiteHeader() {
@@ -57,24 +57,9 @@ export function SiteHeader() {
             </kbd>
           </button>
 
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-8 w-8"
-            aria-label={t("common.notifications")}
-            render={
-              <Link
-                to="/$orgSlug/settings/workspace/notifications"
-                params={{ orgSlug: organization.slug }}
-              />
-            }
-          >
-            <HugeiconsIcon icon={Notification03Icon} strokeWidth={2} className="size-[1.1rem]" />
-          </Button>
+          <NotificationInboxPopover orgSlug={organization.slug} />
 
           <ModeToggle />
-
-          <UpdateHeaderButton />
 
           {project && (
             <Button className="h-8" onClick={() => overlay.setOpen(true)}>

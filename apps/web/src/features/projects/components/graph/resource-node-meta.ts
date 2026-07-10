@@ -9,7 +9,6 @@ import { useRef, useState } from "react";
 import {
   ContainerIcon,
   Database02Icon,
-  EarthIcon,
   GitPullRequestIcon,
   HardDriveIcon,
   ServerStack01Icon,
@@ -87,11 +86,6 @@ export const kindMeta: Record<ResourceKind, { label: string; icon: IconType; ico
       label: "Database",
       icon: Database02Icon,
       iconColor: "text-sky-700 dark:text-sky-300",
-    },
-    route: {
-      label: "Route",
-      icon: EarthIcon,
-      iconColor: "text-emerald-700 dark:text-emerald-300",
     },
     volume: {
       label: "Volume",

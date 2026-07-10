@@ -54,6 +54,9 @@ export const scheduleSchema = createSelectSchema(backupSchedule).extend({
   destinationIds: z.array(backupDestinationIdField),
   // Resolved names for `destinationIds`, in the same order (best-effort).
   destinationNames: z.array(z.string()),
+  // Source refs that no longer resolve to a live database resource. Non-empty ⇒
+  // the schedule is orphaned (its DB was deleted) and can't run until repaired.
+  missingSources: z.array(z.string()),
 });
 
 /** Destination — never exposes `encryptedSecret`; adds computed usage. */
@@ -190,6 +193,18 @@ const scheduleNotFound = {
   NOT_FOUND: { status: 404 as const, message: "Schedule not found" as const },
 };
 
+/** A manual run against an orphaned schedule — every source ref has lost its
+ *  backing database — is a 422, not a silent no-op. `missing` lists the dead
+ *  refs so the UI can name what broke. */
+const scheduleRunErrors = {
+  ...scheduleNotFound,
+  NO_SOURCES: {
+    status: 422 as const,
+    message: "This schedule has no live database source to back up" as const,
+    data: z.object({ missing: z.array(z.string()) }),
+  },
+};
+
 const backupRunNotFound = {
   NOT_FOUND: { status: 404 as const, message: "Backup not found" as const },
   INVALID: {
@@ -283,7 +298,7 @@ export const backupsContract = {
 
     // Trigger a schedule's backups immediately, out-of-band from its cron.
     run: oc
-      .errors(scheduleNotFound)
+      .errors(scheduleRunErrors)
       .meta({ path: `${basePath}/schedules/{id}/run`, tag, method: "POST" })
       .input(scheduleIdInput)
       .output(z.object({ queued: z.number() })),
