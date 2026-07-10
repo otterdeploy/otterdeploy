@@ -54,6 +54,7 @@ export {
   findServiceDependentsByName,
   getResourceByProjectAndName,
   listServiceEnvVars,
+  listServiceEnvVarsForResources,
   deletePreviewServiceEnvVar,
   listPreviewServiceEnvVars,
   resolveResourceForPreview,
