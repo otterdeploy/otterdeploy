@@ -1,94 +1,77 @@
 # otterdeploy
 
-This project was created with [Better Fullstack](https://github.com/Marve10s/Better-Fullstack), a modern TypeScript stack that combines React, TanStack Router, Hono, ORPC, and more.
+A self-hostable deployment platform. Deploy git-sourced services, databases, and compose stacks on your own servers — with the ease of a managed PaaS and none of the lock-in.
 
-## Features
+otterdeploy is the own-your-infra answer to Vercel and Railway, in the lineage of Coolify and Dokploy: connect a repo, get a build, watch it deploy behind a managed edge — from a dashboard that stays calm, fast, and honest about system state.
 
-- **TypeScript** - For type safety and improved developer experience
-- **TanStack Router** - File-based routing with full type safety
-- **TailwindCSS** - CSS framework
-- **shadcn/ui** - UI components
-- **Hono** - Lightweight, performant server framework
-- **oRPC** - End-to-end type-safe APIs with OpenAPI integration
-- **Bun** - Runtime environment
-- **Drizzle** - TypeScript-first ORM
-- **PostgreSQL** - Database engine
-- **Authentication** - Better Auth
-- **Oxlint** - Oxlint + Oxfmt (linting & formatting)
-- **TanStack DB** - Reactive client-first data store
-- **Turborepo** - Optimized monorepo build system
+> **Status:** under active development. Interfaces and schemas still change without migration paths — not yet recommended for production workloads.
 
-## Getting Started
+## What it does
 
-Install dependencies:
+- **Git-sourced services** — push to deploy: a BullMQ build worker builds images with Railpack and rolls them out to Docker/Swarm.
+- **Databases** — one-click Postgres, Redis, MariaDB, MongoDB, ClickHouse, RabbitMQ, MinIO, and Meilisearch, with live pull/provision progress, connection strings, extensions, and a built-in data browser.
+- **Compose stacks** — deploy multi-service `docker-compose` projects as a single resource.
+- **Edge & networking** — Caddy-powered edge with multi-domain routing, automatic TLS, layer-4 database exposure, and Vercel-style deployment protection.
+- **PR previews** — per-pull-request preview deployments with database branching and idle garbage collection.
+- **Operations** — live project graph, build/deploy/edge logs, metrics, scheduled backups, notification channels, API keys, and org-scoped RBAC.
+- **CLI** — `otterdeploy` command-line client for scripting and CI.
+
+## Development setup
+
+Requirements: [Bun](https://bun.sh), Docker (with compose), and [portless](https://www.npmjs.com/package/portless) for local HTTPS.
 
 ```bash
 bun install
-```
 
-## Local Dev Setup
-
-### 1. Install portless (global CLI)
-
-```bash
+# one-time: local HTTPS proxy + CA trust
 npm install -g portless
+sudo portless trust
+
+# each session
+bun run proxy   # portless proxy on :443
+bun run infra   # Postgres + supporting services via Docker Compose
+bun run db:push # apply the schema
+bun run dev     # web + API (everything except the build worker)
 ```
 
-### 2. Start the proxy (once)
+| Service | URL |
+| ------- | --- |
+| Web | `https://web.otterdeploy.local` |
+| API | `https://api.otterdeploy.local` |
 
-```bash
-sudo portless proxy start --https --lan -p 443
-sudo portless trust  # first time only — adds local CA to system trust store
-```
+### Common scripts
 
-### 3. Start infrastructure + dev servers
+- `bun run dev` — all apps in dev mode (excludes the builder)
+- `bun run dev:web` / `bun run dev:server` — a single app
+- `bun run build` — build everything
+- `bun run test` — run the test suites
+- `bun run typecheck` — TypeScript across the monorepo
+- `bun run lint` / `bun run format` — Oxlint / Oxfmt
+- `bun run db:studio` — database UI
 
-```bash
-bun run infra  # starts Postgres + Inngest via Docker Compose
-bun run dev    # starts web + API through portless
-```
-
-### Dev URLs
-
-| Service | URL                          |
-| ------- | ---------------------------- |
-| Web     | `https://web.otterdeploy.local`  |
-| API     | `https://api.otterdeploy.local`  |
-
-## Database Setup
-
-This project uses PostgreSQL with Drizzle ORM. The database runs via Docker Compose (`bun run infra`).
-
-Apply the schema:
-
-```bash
-bun run db:push
-```
-
-## Git Hooks and Formatting
-
-- Format and lint fix: `bun run check`
-
-## Project Structure
+## Monorepo layout
 
 ```
 otterdeploy/
 ├── apps/
-│   ├── web/         # Frontend application (React + TanStack Router)
-│   └── server/      # Backend API (Hono, ORPC)
+│   ├── web/         # Dashboard (React, TanStack Router)
+│   ├── server/      # API server (Hono + oRPC)
+│   ├── builder/     # BullMQ build worker — builds git-sourced services
+│   ├── cli/         # End-user CLI (`otterdeploy`)
+│   └── www/         # Marketing / docs site
 ├── packages/
-│   ├── api/         # API layer / business logic
-│   ├── auth/        # Authentication configuration & logic
-│   └── db/          # Database schema & queries
+│   ├── api/         # oRPC contracts, handlers, manifest schema
+│   ├── auth/        # Authentication (Better Auth)
+│   ├── db/          # Postgres schema & migrations (Drizzle)
+│   ├── email/       # Email client & templates (Resend)
+│   ├── jobs/        # Job queue — workers, triggers, registry (BullMQ)
+│   └── shared/      # Shared types & utilities
 ```
 
-## Available Scripts
+Built with TypeScript end to end: Bun, Turborepo, Hono, oRPC, Zod, Drizzle, PostgreSQL, TanStack Router/DB, Tailwind, BullMQ, and Pino/OpenTelemetry for observability.
 
-- `bun run dev`: Start all applications in development mode
-- `bun run build`: Build all applications
-- `bun run dev:web`: Start only the web application
-- `bun run dev:server`: Start only the server
-- `bun run typecheck`: Check TypeScript types across all apps
-- `bun run db:push`: Push schema changes to database
-- `bun run db:studio`: Open database studio UI
-- `bun run check`: Run Oxlint and Oxfmt
+## License
+
+Copyright © 2026 otterdeploy contributors.
+
+Licensed under the [GNU Affero General Public License v3.0](./LICENSE) (AGPL-3.0). You can self-host, modify, and redistribute otterdeploy freely; if you offer a modified version as a network service, the AGPL requires you to make your modified source available to its users.
