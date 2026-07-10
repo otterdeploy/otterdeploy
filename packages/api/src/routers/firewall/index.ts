@@ -94,26 +94,39 @@ function toDecision(
   };
 }
 
+/** Origins surfaced in the Decisions table: manual bans (`cscli`) and
+ *  agent-triggered bans (`crowdsec`). Imported blocklists (`cscli-import`) are
+ *  deliberately NOT fetched — they run to tens of thousands of decisions, so an
+ *  unfiltered list was a multi-megabyte exec that froze the view; those IPs are
+ *  managed as a whole in Sources. */
+const DECISION_ORIGINS = ["cscli", "crowdsec"];
+
 /**
- * Fetch active decisions, flattening CrowdSec's alert wrapper so every active
- * decision becomes one row enriched with its source (country / ASN) + the
- * alert's scenario + event count.
+ * Fetch active decisions per operator-facing origin, flattening CrowdSec's
+ * alert wrapper so every active decision becomes one row enriched with its
+ * source (country / ASN) + the alert's scenario + event count.
  */
 async function fetchDecisions(): Promise<Decision[] | null> {
-  const text = await cscliRead("cscli decisions list -o json --limit 500");
-  if (text === null) return null; // agent unreachable
-  const alerts = parseJsonArray(text);
+  const texts = await Promise.all(
+    DECISION_ORIGINS.map((origin) =>
+      cscliRead(`cscli decisions list -o json --origin ${origin} --limit 500`),
+    ),
+  );
+  if (texts.every((t) => t === null)) return null; // agent unreachable
   const rows: Decision[] = [];
-  for (const alert of alerts) {
-    const source = (alert.source as Record<string, unknown> | undefined) ?? {};
-    const decisions = Array.isArray(alert.decisions)
-      ? (alert.decisions as Record<string, unknown>[])
-      : [];
-    for (const d of decisions) {
-      rows.push(toDecision(d, alert, source));
+  for (const text of texts) {
+    for (const alert of parseJsonArray(text)) {
+      const source = (alert.source as Record<string, unknown> | undefined) ?? {};
+      const decisions = Array.isArray(alert.decisions)
+        ? (alert.decisions as Record<string, unknown>[])
+        : [];
+      for (const d of decisions) {
+        rows.push(toDecision(d, alert, source));
+      }
     }
   }
-  return rows;
+  // Newest first so a just-placed manual ban is visibly at the top.
+  return rows.sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
 }
 
 export const firewallRouter = {
