@@ -150,10 +150,11 @@ async function refineLatestStatuses(
   for (const row of candidates) {
     try {
       // Kind-specific lookup; compose stacks (no single swarm service to
-      // derive from) return null and keep their stored status.
+      // derive from) resolve a null service name and keep their stored status.
       const found = await getResourceById(projectId, row.resourceId);
       if (!found) continue;
       const serviceName = await resolveDeploymentServiceName(found, projectId);
+      if (!serviceName) continue;
       const tasks = await loadTaskStatesByDeployment(serviceName);
       const buildActive = await isBuildStillLogging(row, tasks);
       const derived = deriveDeploymentStatus(

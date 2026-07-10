@@ -10,6 +10,7 @@ import {
 import { and, eq, isNull } from "drizzle-orm";
 
 import { removeResourceDir } from "../../../lib/data-dir";
+import { composeSwarmServiceName } from "../../../stack/compose";
 
 export interface DatabaseResourceJoined {
   resource: typeof resource.$inferSelect;
@@ -61,6 +62,7 @@ export async function getResourceById(
 ): Promise<
   | { kind: "database"; record: DatabaseResourceJoined }
   | { kind: "service"; record: ServiceResourceJoined }
+  | { kind: "compose"; record: ComposeResourceJoined }
   | null
 > {
   const [dbRow] = await db
@@ -80,7 +82,31 @@ export async function getResourceById(
     .limit(1);
 
   if (svcRow) return { kind: "service", record: svcRow };
+
+  const [compRow] = await db
+    .select({ resource, compose: composeResource })
+    .from(resource)
+    .innerJoin(composeResource, eq(composeResource.resourceId, resource.id))
+    .where(and(eq(resource.projectId, projectId), eq(resource.id, resourceId)))
+    .limit(1);
+
+  if (compRow) return { kind: "compose", record: compRow };
   return null;
+}
+
+/**
+ * The swarm service names a compose stack fans out to — one `${stack}-${key}`
+ * per compose service, paired with the compose key so task/log views can
+ * attribute output back to the sub-service. Runtime views (tasks, deployment
+ * logs) aggregate across these; the stack has no swarm service of its own.
+ */
+export function composeChildSwarmServices(
+  record: ComposeResourceJoined,
+): Array<{ service: string; serviceName: string }> {
+  return record.compose.services.map((s) => ({
+    service: s.name,
+    serviceName: composeSwarmServiceName(record.compose.stackName, s.name),
+  }));
 }
 
 export async function deleteResourceById(resourceId: ResourceId) {

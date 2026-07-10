@@ -37,9 +37,13 @@ describe("maskChannelTarget", () => {
     {
       name: "slack webhook keeps T/B ids, masks the trailing token",
       kind: "slack",
-      target: ["https://hooks.slack.com", "services", "T00000000", "B00000000", "X".repeat(24)].join(
-        "/",
-      ),
+      target: [
+        "https://hooks.slack.com",
+        "services",
+        "T00000000",
+        "B00000000",
+        "X".repeat(24),
+      ].join("/"),
       expected: ["https://hooks.slack.com", "services", "T00000000", "B00000000", "••••"].join("/"),
     },
 

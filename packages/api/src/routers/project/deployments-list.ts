@@ -122,11 +122,14 @@ export async function isBuildStillLogging(
 }
 
 // Resolve the swarm service name backing a resource — postgres uses the
-// deterministic container-name pattern; services store it on the row.
+// deterministic container-name pattern; services store it on the row. A
+// compose STACK returns null: its containers carry the per-service (child)
+// deployment ids, never the stack row's, so there's no single service to
+// refine the stack's rows against — they keep their stored status.
 export async function resolveDeploymentServiceName(
   found: ResolvedResource,
   projectId: ProjectId,
-): Promise<string> {
+): Promise<string | null> {
   if (found.kind === "database") {
     const proj = await getProjectRecord(projectId);
     const slug = proj?.slug ?? projectId;
@@ -136,7 +139,8 @@ export async function resolveDeploymentServiceName(
       resourceName: found.record.resource.name,
     });
   }
-  return found.record.service.serviceName;
+  if (found.kind === "service") return found.record.service.serviceName;
+  return null;
 }
 
 // One runtime-aware call covers every instance for the service (swarm tasks or
@@ -190,13 +194,17 @@ export async function listResourceDeployments(
   if (rows.length === 0) return Result.ok([]);
 
   let serviceName = await resolveDeploymentServiceName(found, input.projectId);
-  if (input.previewId) {
+  if (serviceName && input.previewId) {
     // Preview deployments run under the pr-suffixed container — derive task
     // states from THAT name or every preview row reads as zero tasks.
     const scope = await loadPreviewScope(input.previewId);
     if (scope) serviceName = runtimeServiceName(serviceName, scope);
   }
-  const tasksByDeployment = await loadTaskStatesByDeployment(serviceName);
+  // Compose stack rows have no task-level refinement (null serviceName) —
+  // they read back the status deployCompose stored.
+  const tasksByDeployment = serviceName
+    ? await loadTaskStatesByDeployment(serviceName)
+    : new Map<string, string[]>();
 
   const latestId = rows[0]?.id;
   const latestBuildActive = await isBuildStillLogging(rows[0], tasksByDeployment);
