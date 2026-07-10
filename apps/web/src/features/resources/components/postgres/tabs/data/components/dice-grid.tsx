@@ -18,12 +18,10 @@
  *   exports and the detail panel) keeps every column.
  */
 
-import type { ColumnDef, RowSelectionState, Updater } from "@tanstack/react-table";
+import type { RowSelectionState, Updater } from "@tanstack/react-table";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
 
 import type { FkTarget } from "@/shared/components/data-grid/types";
@@ -31,16 +29,14 @@ import type { FkTarget } from "@/shared/components/data-grid/types";
 import { DataGrid } from "@/shared/components/data-grid/data-grid";
 import { useDataGrid } from "@/shared/components/data-grid/hooks/use-data-grid";
 import { useElementHeight } from "@/shared/components/data-grid/hooks/use-element-height";
-import { Checkbox } from "@/shared/components/ui/checkbox";
 
 import type { ColumnVariant } from "../data/queries";
 
+import { useDiceColumnDefs, type Row } from "./dice-grid-columns";
 import { FkRefPopover } from "./fk-ref-popover";
 import { RowDetailPanel } from "./row-detail-panel";
 
 export type { ColumnVariant };
-
-type Row = Record<string, string | null>;
 
 /** A column predicate / assignment passed to the write endpoint. */
 export interface ColumnValue {
@@ -81,6 +77,22 @@ function toRows(
     });
     return obj;
   });
+}
+
+/** Mirror the grid store's row selection out as row indices (row id = index). */
+function useSelectionMirror(onSelectionChange?: (indices: number[]) => void) {
+  const selectionRef = useRef<RowSelectionState>({});
+  return (updater: Updater<RowSelectionState>) => {
+    const next = typeof updater === "function" ? updater(selectionRef.current) : updater;
+    selectionRef.current = next;
+    onSelectionChange?.(
+      Object.keys(next)
+        .filter((k) => next[k])
+        .map(Number)
+        .filter((n) => Number.isInteger(n))
+        .sort((a, b) => a - b),
+    );
+  };
 }
 
 export function DiceResultGrid({
@@ -180,81 +192,17 @@ export function DiceResultGrid({
     }
   };
 
-  const colDefs = useMemo<ColumnDef<Row>[]>(() => {
-    const defs: ColumnDef<Row>[] = [];
-    // Function header/cell → the grid flexRenders them; keyboard navigation
-    // skips the "select" / "actions" column ids by design.
-    if (selectable) {
-      defs.push({
-        id: "select",
-        size: 44,
-        enableSorting: false,
-        enableResizing: false,
-        header: ({ table }) => (
-          <Checkbox
-            aria-label="Select all rows"
-            checked={table.getIsAllRowsSelected()}
-            indeterminate={table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected()}
-            onCheckedChange={(v) => table.toggleAllRowsSelected(Boolean(v))}
-          />
-        ),
-        cell: ({ row }) => (
-          <Checkbox
-            aria-label="Select row"
-            checked={row.getIsSelected()}
-            onCheckedChange={(v) => row.toggleSelected(Boolean(v))}
-          />
-        ),
-      });
-    }
-    if (enableRowDetail) {
-      defs.push({
-        id: "actions",
-        size: 36,
-        enableSorting: false,
-        enableResizing: false,
-        header: () => null,
-        cell: ({ row }) => (
-          <button
-            type="button"
-            aria-label="Open row detail"
-            onClick={() => setDetailIndex(row.index)}
-            className="flex size-full items-center justify-center text-muted-foreground/50 hover:text-foreground"
-          >
-            <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-3" />
-          </button>
-        ),
-      });
-    }
-    const hidden = new Set(hiddenColumns ?? []);
-    for (const name of columns) {
-      if (hidden.has(name)) continue;
-      const v = columnVariants?.[name];
-      // "boolean" renders as text (showing true/false words) — DiceUI's
-      // checkbox variant would replace the words with a checkbox.
-      const variant = v == null || v === "boolean" ? "short-text" : v;
-      defs.push({
-        accessorKey: name,
-        header: name,
-        meta: { cell: { variant } },
-      });
-    }
-    return defs;
-  }, [columns, columnVariants, hiddenColumns, selectable, enableRowDetail]);
+  const colDefs = useDiceColumnDefs({
+    columns,
+    columnVariants,
+    hiddenColumns,
+    selectable,
+    enableRowDetail,
+    // Stable setState identity — keeps the memoized defs from re-building.
+    onOpenDetail: setDetailIndex,
+  });
 
-  // Mirror the grid store's row selection out as row indices (row id = index).
-  const selectionRef = useRef<RowSelectionState>({});
-  const handleRowSelectionChange = (updater: Updater<RowSelectionState>) => {
-    const next = typeof updater === "function" ? updater(selectionRef.current) : updater;
-    selectionRef.current = next;
-    onSelectionChange?.(
-      Object.keys(next)
-        .filter((k) => next[k])
-        .map(Number)
-        .filter((n) => Number.isInteger(n))
-        .sort((a, b) => a - b),
-    );
-  };
+  const handleRowSelectionChange = useSelectionMirror(onSelectionChange);
 
   const grid = useDataGrid<Row>({
     data,

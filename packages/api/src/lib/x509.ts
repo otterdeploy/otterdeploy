@@ -76,6 +76,20 @@ function parseSans(subjectAltName: string | undefined): string[] {
     .map((p) => p.slice("DNS:".length));
 }
 
+/** prime256v1/secp384r1 → the P-xxx names operators recognize. */
+const EC_CURVE_PRETTY_NAMES: Record<string, string> = {
+  prime256v1: "P-256",
+  secp256r1: "P-256",
+  secp384r1: "P-384",
+  secp521r1: "P-521",
+};
+
+function describeEcKey(namedCurve: string | undefined): string {
+  const curve = namedCurve ?? null;
+  const pretty = curve ? (EC_CURVE_PRETTY_NAMES[curve] ?? curve) : null;
+  return pretty ? `ECDSA ${pretty}` : "ECDSA";
+}
+
 function describeKeyAlg(publicKey: KeyObject): string | null {
   const type = publicKey.asymmetricKeyType;
   const details = publicKey.asymmetricKeyDetails;
@@ -83,19 +97,8 @@ function describeKeyAlg(publicKey: KeyObject): string | null {
     case "rsa":
     case "rsa-pss":
       return details?.modulusLength ? `RSA ${details.modulusLength}` : "RSA";
-    case "ec": {
-      // prime256v1/secp384r1 → the P-xxx names operators recognize.
-      const curve = details?.namedCurve ?? null;
-      const pretty =
-        curve === "prime256v1" || curve === "secp256r1"
-          ? "P-256"
-          : curve === "secp384r1"
-            ? "P-384"
-            : curve === "secp521r1"
-              ? "P-521"
-              : curve;
-      return pretty ? `ECDSA ${pretty}` : "ECDSA";
-    }
+    case "ec":
+      return describeEcKey(details?.namedCurve);
     case "ed25519":
       return "Ed25519";
     case "ed448":
@@ -130,7 +133,8 @@ function shapeCertificate(cert: X509Certificate): ParsedCertificate {
  */
 export function parseCertificateChain(pem: string): ParseChainResult {
   const blocks = splitPemCertificates(pem);
-  if (blocks.length === 0) {
+  const [leafBlock, ...intermediates] = blocks;
+  if (!leafBlock) {
     return {
       ok: false,
       error: "no CERTIFICATE block found — paste the PEM chain, leaf certificate first",
@@ -138,16 +142,16 @@ export function parseCertificateChain(pem: string): ParseChainResult {
   }
   let leaf: X509Certificate;
   try {
-    leaf = new X509Certificate(blocks[0]!);
+    leaf = new X509Certificate(leafBlock);
   } catch (cause) {
     return { ok: false, error: certError("certificate did not parse", cause) };
   }
-  for (let i = 1; i < blocks.length; i++) {
+  for (const [i, block] of intermediates.entries()) {
     try {
       // Parse-only: confirms each intermediate is a well-formed certificate.
-      new X509Certificate(blocks[i]!);
+      new X509Certificate(block);
     } catch (cause) {
-      return { ok: false, error: certError(`chain certificate #${i + 1} did not parse`, cause) };
+      return { ok: false, error: certError(`chain certificate #${i + 2} did not parse`, cause) };
     }
   }
   return { ok: true, leaf: shapeCertificate(leaf), certCount: blocks.length };
@@ -159,8 +163,8 @@ export function parseCertificateChain(pem: string): ParseChainResult {
  * actionable message. Never throws.
  */
 export function checkKeyMatchesCertificate(certPem: string, keyPem: string): KeyMatchResult {
-  const blocks = splitPemCertificates(certPem);
-  if (blocks.length === 0) return { ok: false, error: "no CERTIFICATE block found" };
+  const [leafBlock] = splitPemCertificates(certPem);
+  if (!leafBlock) return { ok: false, error: "no CERTIFICATE block found" };
   if (/ENCRYPTED/.test(keyPem)) {
     return {
       ok: false,
@@ -174,7 +178,7 @@ export function checkKeyMatchesCertificate(certPem: string, keyPem: string): Key
     return { ok: false, error: certError("private key did not parse", cause) };
   }
   try {
-    const leaf = new X509Certificate(blocks[0]!);
+    const leaf = new X509Certificate(leafBlock);
     if (!leaf.checkPrivateKey(key)) {
       return { ok: false, error: "private key does not match the certificate's public key" };
     }

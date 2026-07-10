@@ -214,9 +214,11 @@ describe("listProjectDeployments", () => {
     const { items, total } = result.unwrap();
     expect(total).toBe(5);
     expect(items).toHaveLength(2);
+    const [first, second] = items;
+    if (!first || !second) throw new Error("expected two deployment items");
     // Newest first.
-    expect(new Date(items[0]!.createdAt).getTime()).toBeGreaterThan(
-      new Date(items[1]!.createdAt).getTime(),
+    expect(new Date(first.createdAt).getTime()).toBeGreaterThan(
+      new Date(second.createdAt).getTime(),
     );
   });
 
@@ -238,7 +240,9 @@ describe("listProjectDeployments", () => {
 
     const result = await listProjectDeployments({ projectId, organizationId, limit: 50 });
     const { items } = result.unwrap();
-    expect(items[0]?.status).toBe("running");
-    expect(derivation.reconcileDeploySuccess).toHaveBeenCalledWith([items[0]!.id], a);
+    const [first] = items;
+    if (!first) throw new Error("expected a deployment item");
+    expect(first.status).toBe("running");
+    expect(derivation.reconcileDeploySuccess).toHaveBeenCalledWith([first.id], a);
   });
 });

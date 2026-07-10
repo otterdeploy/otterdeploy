@@ -17,7 +17,11 @@ import {
   tailContainerLogs,
 } from "./service";
 
-type Failed = { ok: false; reason: string; kind?: "not_found" | "conflict" };
+interface Failed {
+  ok: false;
+  reason: string;
+  kind?: "not_found" | "conflict";
+}
 interface MutationErrors {
   SERVER_ERROR: (opts: { message: string }) => Error;
   NOT_FOUND?: (opts: { message: string }) => Error;

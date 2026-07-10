@@ -10,8 +10,6 @@
  */
 import { useState } from "react";
 
-import { Copy01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -26,20 +24,13 @@ import {
 } from "@/shared/components/ui/dialog";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
-import { NativeSelect, NativeSelectOption } from "@/shared/components/ui/native-select";
 import { Textarea } from "@/shared/components/ui/textarea";
-import { copyToClipboard } from "@/shared/lib/clipboard";
 import { client, orpc } from "@/shared/server/orpc";
 
 import { invalidateInbound } from "./data/webhooks";
-import { curlSnippet, inboundUrl, type InboundEndpoint } from "./shared";
-
-type InboundAction = "redeploy" | "none";
-
-interface Created {
-  url: string;
-  secret: string;
-}
+import { TargetFields, type InboundAction } from "./inbound-fields";
+import { SuccessScreen, type Created } from "./inbound-success";
+import { inboundUrl, type InboundEndpoint } from "./shared";
 
 interface InboundDialogProps {
   open: boolean;
@@ -53,6 +44,44 @@ function parseAllowlist(raw: string): string[] {
     .split(/[\n,]/)
     .map((s) => s.trim())
     .filter(Boolean);
+}
+
+/** Persist the endpoint — PATCH in edit mode, POST (returning the one-time
+ *  secret) in create mode — and refetch the list. */
+function persistEndpoint(args: {
+  editing: InboundEndpoint | null;
+  name: string;
+  action: InboundAction;
+  resourceId: string;
+  ipAllowlist: string[];
+  onUpdated: () => void;
+  onCreated: (created: Created) => void;
+}): Promise<void> {
+  return args.editing
+    ? client.webhooks.inbound
+        .update({
+          id: args.editing.id,
+          name: args.name,
+          action: args.action,
+          resourceId: args.action === "redeploy" ? (args.resourceId as never) : null,
+          ipAllowlist: args.ipAllowlist,
+        })
+        .then(() => {
+          void invalidateInbound();
+          toast.success("Endpoint updated");
+          args.onUpdated();
+        })
+    : client.webhooks.inbound
+        .create({
+          name: args.name,
+          action: args.action,
+          ...(args.action === "redeploy" ? { resourceId: args.resourceId as never } : {}),
+          ipAllowlist: args.ipAllowlist,
+        })
+        .then((res) => {
+          void invalidateInbound();
+          args.onCreated({ url: inboundUrl(res.endpoint.token), secret: res.secret });
+        });
 }
 
 export function InboundDialog({ open, onOpenChange, editing }: InboundDialogProps) {
@@ -96,33 +125,15 @@ export function InboundDialog({ open, onOpenChange, editing }: InboundDialogProp
     setBusy(true);
     setError(null);
 
-    const call = isEdit
-      ? client.webhooks.inbound
-          .update({
-            id: editing.id,
-            name: trimmedName,
-            action,
-            resourceId: action === "redeploy" ? (resourceId as never) : null,
-            ipAllowlist,
-          })
-          .then(() => {
-            void invalidateInbound();
-            toast.success("Endpoint updated");
-            onOpenChange(false);
-          })
-      : client.webhooks.inbound
-          .create({
-            name: trimmedName,
-            action,
-            ...(action === "redeploy" ? { resourceId: resourceId as never } : {}),
-            ipAllowlist,
-          })
-          .then((res) => {
-            void invalidateInbound();
-            setCreated({ url: inboundUrl(res.endpoint.token), secret: res.secret });
-          });
-
-    call
+    persistEndpoint({
+      editing,
+      name: trimmedName,
+      action,
+      resourceId,
+      ipAllowlist,
+      onUpdated: () => onOpenChange(false),
+      onCreated: setCreated,
+    })
       .catch((err: unknown) =>
         setError(err instanceof Error ? err.message : "Couldn't save endpoint"),
       )
@@ -174,45 +185,13 @@ export function InboundDialog({ open, onOpenChange, editing }: InboundDialogProp
                 />
               </div>
 
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="inbound-action">Target action</Label>
-                <NativeSelect
-                  className="w-full"
-                  id="inbound-action"
-                  value={action}
-                  onChange={(e) => setAction(e.target.value as InboundAction)}
-                >
-                  <NativeSelectOption value="redeploy">Redeploy a service</NativeSelectOption>
-                  <NativeSelectOption value="none">
-                    Nothing — record the invocation
-                  </NativeSelectOption>
-                </NativeSelect>
-              </div>
-
-              {action === "redeploy" && (
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="inbound-service">Service</Label>
-                  <NativeSelect
-                    className="w-full"
-                    id="inbound-service"
-                    value={resourceId}
-                    onChange={(e) => setResourceId(e.target.value)}
-                  >
-                    <NativeSelectOption value="">
-                      {services === undefined
-                        ? "Loading services…"
-                        : services.length === 0
-                          ? "No services in this workspace yet"
-                          : "Pick a service…"}
-                    </NativeSelectOption>
-                    {services?.map((s) => (
-                      <NativeSelectOption key={s.resourceId} value={s.resourceId}>
-                        {s.projectSlug} / {s.name}
-                      </NativeSelectOption>
-                    ))}
-                  </NativeSelect>
-                </div>
-              )}
+              <TargetFields
+                action={action}
+                onActionChange={setAction}
+                resourceId={resourceId}
+                onResourceIdChange={setResourceId}
+                services={services}
+              />
 
               <div className="flex flex-col gap-2">
                 <Label htmlFor="inbound-allowlist">
@@ -245,80 +224,5 @@ export function InboundDialog({ open, onOpenChange, editing }: InboundDialogProp
         )}
       </DialogContent>
     </Dialog>
-  );
-}
-
-function CopyRow({ value }: { value: string }) {
-  const [copied, setCopied] = useState(false);
-  const copy = () => {
-    void copyToClipboard(value).then((ok) => {
-      if (!ok) {
-        toast.error("Couldn't copy");
-        return;
-      }
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  };
-  return (
-    <div className="flex items-center gap-1 rounded-md border bg-muted/40 py-1.5 pr-1 pl-2.5">
-      <span className="min-w-0 flex-1 truncate font-mono text-[12px]">{value}</span>
-      <Button size="sm" variant="ghost" className="h-6 gap-1 px-2" onClick={copy}>
-        <HugeiconsIcon
-          icon={copied ? Tick02Icon : Copy01Icon}
-          strokeWidth={2}
-          className="size-3.5"
-        />
-        {copied ? "Copied" : "Copy"}
-      </Button>
-    </div>
-  );
-}
-
-/** Post-create screen — the only place the plaintext secret ever appears. */
-function SuccessScreen({ created, onDone }: { created: Created; onDone: () => void }) {
-  return (
-    <>
-      <DialogHeader>
-        <DialogTitle>Endpoint created</DialogTitle>
-        <DialogDescription>
-          Store the HMAC secret now — this is the only time it's shown in full. You can reveal it
-          again later from the card, but treat this screen as the handoff.
-        </DialogDescription>
-      </DialogHeader>
-
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1.5">
-          <div className="text-[10px] tracking-wider text-muted-foreground uppercase">
-            Endpoint URL
-          </div>
-          <CopyRow value={created.url} />
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <div className="text-[10px] tracking-wider text-muted-foreground uppercase">
-            HMAC secret
-          </div>
-          <div className="rounded-md border bg-muted/40 px-3 py-2.5">
-            <code className="block font-mono text-[12px] leading-relaxed break-all select-all">
-              {created.secret}
-            </code>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <div className="text-[10px] tracking-wider text-muted-foreground uppercase">
-            Test with curl
-          </div>
-          <pre className="overflow-x-auto rounded-md border bg-muted/40 p-3 font-mono text-[11px] leading-relaxed whitespace-pre text-muted-foreground">
-            {curlSnippet(created.url, created.secret)}
-          </pre>
-        </div>
-      </div>
-
-      <DialogFooter>
-        <Button onClick={onDone}>Done</Button>
-      </DialogFooter>
-    </>
   );
 }

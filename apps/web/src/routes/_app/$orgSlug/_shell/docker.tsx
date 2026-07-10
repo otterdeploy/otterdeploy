@@ -3,43 +3,31 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { PageHeader } from "@/shared/components/page";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/components/ui/select";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/shared/components/ui/tabs";
+import { Tabs, TabsContent } from "@/shared/components/ui/tabs";
 import { orpc } from "@/shared/server/orpc";
 
 import { ConfirmRemoveDialog } from "../-components/docker-dialogs";
 import { formatBytes } from "../-components/docker-format";
 import {
-  ContainersTable,
-  ImagesTable,
-  NetworksTable,
-  TasksTable,
-  VolumesTable,
-} from "../-components/docker-tables";
+  DockerPageHeader,
+  ManagerScopeCaption,
+  type DockerTab,
+} from "../-components/docker-page-header";
+import { ContainersTable } from "../-components/docker-table-containers";
+import { ImagesTable } from "../-components/docker-table-images";
+import { NetworksTable } from "../-components/docker-table-networks";
+import { VolumesTable } from "../-components/docker-table-volumes";
+import { TasksTable } from "../-components/docker-tables";
 
 export const Route = createFileRoute("/_app/$orgSlug/_shell/docker")({
   staticData: { crumb: "Docker" },
   component: DockerRoute,
 });
 
-type Tab = "containers" | "images" | "volumes" | "networks" | "tasks";
-
 function DockerRoute() {
-  const [tab, setTab] = useState<Tab>("containers");
+  const [tab, setTab] = useState<DockerTab>("containers");
   const [nodeFilter, setNodeFilter] = useState<string>("all");
   const [pruneOpen, setPruneOpen] = useState(false);
 
@@ -113,7 +101,7 @@ function DockerRoute() {
     [images.data],
   );
 
-  const tabs: Array<[Tab, string, number | undefined]> = [
+  const tabs: Array<[DockerTab, string, number | undefined]> = [
     ["containers", "Containers", containers.data?.length],
     ["images", "Images", images.data?.length],
     ["volumes", "Volumes", volumes.data?.length],
@@ -132,78 +120,29 @@ function DockerRoute() {
     [nodeList],
   );
 
-  // Caption for the per-daemon tabs when this deployment is a swarm — the
-  // inventory below is the manager daemon's local state, not cluster-wide.
-  const managerScopeCaption =
-    swarm && tab !== "tasks" ? (
-      <p className="mb-3 text-xs text-muted-foreground">
-        Scope: manager node&apos;s daemon. Per-node{" "}
-        {tab === "containers" ? "container" : tab.slice(0, -1)} listing isn&apos;t reachable from
-        the control plane — only swarm tasks carry a node.
-      </p>
-    ) : null;
-
   return (
     <Tabs
       value={tab}
-      onValueChange={(v) => setTab(v as Tab)}
+      onValueChange={(v) => setTab(v as DockerTab)}
       className="flex flex-1 flex-col gap-0"
     >
-      <div className="border-b px-6 pb-0 pt-6">
-        <PageHeader
-          title="Docker"
-          description="Raw daemon-level inventory — containers, images, volumes, networks, and swarm tasks outside the project and Stack abstraction."
-          actions={
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-muted-foreground">
-                {containers.isFetching ? "refreshing…" : null}
-              </span>
-              {swarm && tab === "tasks" && nodeList.length > 0 && (
-                <Select
-                  items={nodeItems}
-                  value={nodeFilter}
-                  onValueChange={(v) => setNodeFilter(v ?? "all")}
-                >
-                  <SelectTrigger className="h-8 w-48" aria-label="Filter tasks by node">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {nodeItems.map((it) => (
-                      <SelectItem key={it.value} value={it.value}>
-                        {it.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-          }
-        />
-
-        <TabsList variant="line" className="mt-3.5 h-9 justify-start gap-1">
-          {tabs.map(([id, label, count]) => (
-            <TabsTrigger key={id} value={id} className="gap-1.5">
-              <span>{label}</span>
-              {count !== undefined && (
-                <Badge
-                  variant="secondary"
-                  className="ml-1 h-4 rounded-sm px-1.5 font-mono text-[10px]"
-                >
-                  {count}
-                </Badge>
-              )}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </div>
+      <DockerPageHeader
+        tab={tab}
+        tabs={tabs}
+        refreshing={containers.isFetching}
+        swarm={swarm}
+        nodeItems={nodeItems}
+        nodeFilter={nodeFilter}
+        onNodeFilterChange={setNodeFilter}
+      />
 
       <div className="flex-1 overflow-auto p-6">
         <TabsContent value="containers">
-          {managerScopeCaption}
+          <ManagerScopeCaption swarm={swarm} tab={tab} />
           <ContainersTable query={containers} />
         </TabsContent>
         <TabsContent value="images">
-          {managerScopeCaption}
+          <ManagerScopeCaption swarm={swarm} tab={tab} />
           <div className="mb-3 flex items-center justify-end">
             <Button
               type="button"
@@ -224,11 +163,11 @@ function DockerRoute() {
           <ImagesTable query={images} />
         </TabsContent>
         <TabsContent value="volumes">
-          {managerScopeCaption}
+          <ManagerScopeCaption swarm={swarm} tab={tab} />
           <VolumesTable query={volumes} />
         </TabsContent>
         <TabsContent value="networks">
-          {managerScopeCaption}
+          <ManagerScopeCaption swarm={swarm} tab={tab} />
           <NetworksTable query={networks} />
         </TabsContent>
         <TabsContent value="tasks">

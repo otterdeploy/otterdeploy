@@ -10,43 +10,16 @@
 
 import { useEffect, useState } from "react";
 
-import {
-  Database01Icon,
-  FilterIcon,
-  Layers01Icon,
-  PlayIcon,
-  PlusSignIcon,
-  Table01Icon,
-  ViewIcon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { Database01Icon, PlayIcon } from "@hugeicons/core-free-icons";
 
-import { TypedConfirmDialog } from "@/shared/components/typed-confirm-dialog";
-import { Button } from "@/shared/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/components/ui/select";
-import { ToggleGroup, ToggleGroupItem } from "@/shared/components/ui/toggle-group";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/components/ui/tooltip";
-
-import { AddRecordDialog } from "./components/add-record-dialog";
-import { ColumnVisibilityPopover } from "./components/column-visibility-popover";
-import { FilterPopover } from "./components/filter-popover";
 import { ResultsPanel } from "./components/results-panel";
 import { StructureView } from "./components/structure-view";
-import { isFilterActive } from "./data/filters";
-import { SQL_RESULT_CAP } from "./data/queries";
-import { type DataStudioController, errMessage, PAGE_SIZES } from "./use-data-studio";
+import { BulkDeleteConfirm, ResultsFooter } from "./studio-results-footer";
+import { DataStructureToggle, TableActions } from "./studio-results-toolbar";
+import { type DataStudioController, errMessage } from "./use-data-studio";
 import { useBulkDelete } from "./use-data-studio-helpers";
 
 type TableController = DataStudioController["table"];
-
-/** Rows above this get the type-the-table-name gate instead of a plain confirm. */
-const TYPED_CONFIRM_THRESHOLD = 10;
 
 function resolveResultsProps(t: TableController) {
   const tableMode = t.mode === "table";
@@ -148,232 +121,15 @@ export function StudioResults({ studio }: { studio: DataStudioController }) {
         }
       />
 
-      {/* Bulk-delete confirm — typed table name past the threshold. */}
-      <TypedConfirmDialog
-        open={confirmDelete !== null}
-        onOpenChange={(open) => {
-          if (!open) setConfirmDelete(null);
-        }}
-        title={`Delete ${confirmDelete?.length ?? 0} row${(confirmDelete?.length ?? 0) === 1 ? "" : "s"}?`}
-        description={
-          <>
-            Each row is deleted by primary key from{" "}
-            <span className="font-mono">{t.selected?.name}</span>. This can&apos;t be undone.
-          </>
-        }
-        confirmPhrase={
-          (confirmDelete?.length ?? 0) > TYPED_CONFIRM_THRESHOLD ? t.selected?.name : undefined
-        }
-        confirmLabel="Delete rows"
-        onConfirm={() => {
-          const indices = confirmDelete ?? [];
+      <BulkDeleteConfirm
+        pending={confirmDelete}
+        tableName={t.selected?.name}
+        onCancel={() => setConfirmDelete(null)}
+        onConfirm={(indices) => {
           setConfirmDelete(null);
           void bulk.deleteRows(indices);
         }}
       />
     </>
-  );
-}
-
-/** Data ↔ Structure — the toolbar's view toggle for the open table. */
-function DataStructureToggle({ t }: { t: TableController }) {
-  return (
-    <ToggleGroup
-      size="sm"
-      value={[t.tableView]}
-      onValueChange={([v]) => v && t.setTableView(v as "data" | "structure")}
-      className="gap-0.5"
-    >
-      <ToggleGroupItem value="data" aria-label="Data view" className="h-6 gap-1 px-1.5 text-[11px]">
-        <HugeiconsIcon icon={Table01Icon} strokeWidth={2} className="size-3" />
-        Data
-      </ToggleGroupItem>
-      <ToggleGroupItem
-        value="structure"
-        aria-label="Structure view"
-        className="h-6 gap-1 px-1.5 text-[11px]"
-      >
-        <HugeiconsIcon icon={Layers01Icon} strokeWidth={2} className="size-3" />
-        Structure
-      </ToggleGroupItem>
-    </ToggleGroup>
-  );
-}
-
-function TableActions({ studio }: { studio: DataStudioController }) {
-  const t = studio.table;
-  const [addOpen, setAddOpen] = useState(false);
-  if (!(t.mode === "table" && t.selected)) return null;
-  const selected = t.selected;
-  const resultColumns = t.result?.columns ?? [];
-  const activeFilterCount = t.filters.filter(isFilterActive).length;
-  const canAdd = t.canWrite && t.primaryKey.length > 0;
-  const visibleCount = resultColumns.length - t.hiddenColumns.length;
-  return (
-    <>
-      <DataStructureToggle t={t} />
-      <FilterPopover
-        columns={resultColumns}
-        filters={t.filters}
-        onApply={t.changeFilters}
-        trigger={
-          <Button
-            variant={activeFilterCount ? "secondary" : "outline"}
-            size="sm"
-            className="h-6 gap-1.5"
-          >
-            <HugeiconsIcon icon={FilterIcon} strokeWidth={2} className="size-3.5" />
-            Filters{activeFilterCount ? ` · ${activeFilterCount}` : ""}
-          </Button>
-        }
-      />
-      <ColumnVisibilityPopover
-        columns={resultColumns}
-        columnTypes={t.columnTypes}
-        hidden={t.hiddenColumns}
-        onChange={t.setHiddenColumns}
-        trigger={
-          <Button
-            variant={t.hiddenColumns.length ? "secondary" : "outline"}
-            size="sm"
-            className="h-6 gap-1.5"
-          >
-            <HugeiconsIcon icon={ViewIcon} strokeWidth={2} className="size-3.5" />
-            Columns{t.hiddenColumns.length ? ` · ${visibleCount}/${resultColumns.length}` : ""}
-          </Button>
-        }
-      />
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <span className="inline-flex">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-6 gap-1.5"
-                disabled={!canAdd}
-                onClick={() => setAddOpen(true)}
-              >
-                <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-3.5" />
-                Add record
-              </Button>
-            </span>
-          }
-        />
-        <TooltipContent>
-          {canAdd
-            ? "Insert a row (audited)"
-            : !t.canWrite
-              ? "Requires the database:write capability."
-              : "The table needs a primary key for safe writes."}
-        </TooltipContent>
-      </Tooltip>
-      <Button variant="ghost" size="sm" className="h-6" onClick={studio.openInSql}>
-        Open in SQL
-      </Button>
-
-      <AddRecordDialog
-        resourceId={String(t.resourceId)}
-        table={selected}
-        open={addOpen}
-        onOpenChange={setAddOpen}
-        onInserted={() => {
-          void t.rowsQuery.refetch();
-          void t.tablesQuery.refetch();
-        }}
-      />
-    </>
-  );
-}
-
-function ResultsFooter({
-  studio,
-  selectedRows,
-  deleteProgress,
-  onDeleteSelected,
-}: {
-  studio: DataStudioController;
-  selectedRows: number[];
-  deleteProgress: { done: number; total: number } | null;
-  onDeleteSelected: () => void;
-}) {
-  const t = studio.table;
-  const result = t.result;
-  if (!result) return null;
-  const selectedCount = selectedRows.length;
-  return (
-    <div className="flex items-center justify-between gap-3 border-t px-3 py-1.5 text-[11px] text-muted-foreground">
-      <div className="flex items-center gap-2 font-mono">
-        <span>{result.rows.length} rows</span>
-        <span className="text-muted-foreground/40">·</span>
-        <span>{result.durationMs}ms</span>
-        {t.mode === "sql" && result.truncated ? (
-          <span className="text-amber-500">· capped at {SQL_RESULT_CAP}</span>
-        ) : null}
-        {deleteProgress ? (
-          <span className="text-foreground">
-            · deleting {deleteProgress.done}/{deleteProgress.total}…
-          </span>
-        ) : selectedCount > 0 ? (
-          <>
-            <span className="text-muted-foreground/40">·</span>
-            <span className="text-foreground">{selectedCount} selected</span>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-5 px-1.5 text-[11px] text-destructive hover:text-destructive"
-              onClick={onDeleteSelected}
-            >
-              Delete selected
-            </Button>
-          </>
-        ) : null}
-      </div>
-      {t.mode === "table" ? (
-        <div className="flex items-center gap-2">
-          <span className="font-mono">
-            {result.rows.length === 0
-              ? "0"
-              : `${t.page * t.pageSize + 1}–${t.page * t.pageSize + result.rows.length}`}
-          </span>
-          <Select
-            value={String(t.pageSize)}
-            onValueChange={(v) => {
-              t.setPageSize(Number(v));
-              t.setPage(0);
-            }}
-          >
-            <SelectTrigger className="h-6 w-19 text-[11px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PAGE_SIZES.map((s) => (
-                <SelectItem key={s} value={String(s)}>
-                  {s}/page
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            variant="outline"
-            size="icon-sm"
-            disabled={t.page === 0}
-            onClick={() => t.setPage((prev) => Math.max(0, prev - 1))}
-            aria-label="Previous page"
-          >
-            ‹
-          </Button>
-          <Button
-            variant="outline"
-            size="icon-sm"
-            disabled={!t.hasNext}
-            onClick={() => t.setPage((prev) => prev + 1)}
-            aria-label="Next page"
-          >
-            ›
-          </Button>
-        </div>
-      ) : null}
-    </div>
   );
 }

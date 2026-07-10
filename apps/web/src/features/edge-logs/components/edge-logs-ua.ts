@@ -14,7 +14,7 @@ function tool(name: string, version?: string): string {
 }
 
 const CLI_TOOLS =
-  /^(curl|wget|httpie|python-requests|python-urllib|go-http-client|node-fetch|node|undici|axios|okhttp|java|libwww-perl|deno|bun|postmanruntime|insomnia)[\/ ](\d[\d.]*)/i;
+  /^(curl|wget|httpie|python-requests|python-urllib|go-http-client|node-fetch|node|undici|axios|okhttp|java|libwww-perl|deno|bun|postmanruntime|insomnia)[/ ](\d[\d.]*)/i;
 
 /** Well-known crawler / webhook agents, matched anywhere in the string. */
 const KNOWN_BOTS: Array<[RegExp, string]> = [
@@ -77,7 +77,8 @@ export function shortUserAgent(ua: string): string {
   if (!s) return "—";
 
   const cli = CLI_TOOLS.exec(s);
-  if (cli) return tool(cli[1]!.toLowerCase(), cli[2]);
+  const cliName = cli?.[1];
+  if (cli && cliName) return tool(cliName.toLowerCase(), cli[2]);
 
   for (const [re, name] of KNOWN_BOTS) if (re.test(s)) return name;
 
@@ -95,6 +96,7 @@ export function shortUserAgent(ua: string): string {
   // Fallback: the first product token ("thing/1.2 extra…" → "thing/1.2"),
   // else a hard truncation.
   const token = /^([\w.-]+)\/(\d[\d.]*)/.exec(s);
-  if (token) return tool(token[1]!, token[2]);
+  const tokenName = token?.[1];
+  if (token && tokenName) return tool(tokenName, token[2]);
   return s.length > 24 ? `${s.slice(0, 24)}…` : s;
 }

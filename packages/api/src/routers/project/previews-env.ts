@@ -190,6 +190,57 @@ export interface EffectiveEnvRow {
   unresolved: boolean;
 }
 
+interface DeclaredEnvRow {
+  value: string;
+  isSecret: boolean;
+}
+
+const SECRET_MASK = "••••••••";
+
+function eitherSecret(
+  base: DeclaredEnvRow | undefined,
+  override: DeclaredEnvRow | undefined,
+): boolean {
+  return (base?.isSecret ?? false) || (override?.isSecret ?? false);
+}
+
+/** The base value shown next to an override (masked for secrets); null when
+ *  the row isn't an override. */
+function baseValueFor(
+  override: DeclaredEnvRow | undefined,
+  base: DeclaredEnvRow | undefined,
+  isSecret: boolean,
+): string | null {
+  if (!override) return null;
+  if (isSecret) return SECRET_MASK;
+  return base?.value ?? null;
+}
+
+function shapeEffectiveRow(args: {
+  key: string;
+  base: DeclaredEnvRow | undefined;
+  override: DeclaredEnvRow | undefined;
+  resolvedVal: string | undefined;
+  resolveOk: boolean;
+}): EffectiveEnvRow {
+  const { key, base, override, resolvedVal, resolveOk } = args;
+  const declared = override ?? base;
+  // Prefer the resolved value; on resolver failure fall back to the raw
+  // declared value so the tab never blanks (RefMissingResource etc.).
+  const unresolved = !resolveOk && resolvedVal === undefined;
+  const value = resolvedVal ?? declared?.value ?? "";
+  const isSecret = eitherSecret(base, override);
+  return {
+    key,
+    // Mask secrets — never return cleartext to the client.
+    value: isSecret && value.length > 0 ? SECRET_MASK : value,
+    source: override ? "override" : "inherited",
+    baseValue: baseValueFor(override, base, isSecret),
+    isSecret,
+    unresolved,
+  };
+}
+
 export async function listPreviewEffectiveEnv(
   input: PreviewEnvScope,
 ): Promise<Result<EffectiveEnvRow[], ProjectNotFoundError>> {
@@ -215,27 +266,15 @@ export async function listPreviewEffectiveEnv(
   const keys = new Set<string>([...baseByKey.keys(), ...overrideByKey.keys()]);
   return Result.ok(
     [...keys]
-      .map((key): EffectiveEnvRow => {
-        const override = overrideByKey.get(key);
-        const base = baseByKey.get(key);
-        const declared = override ?? base;
-        const source: "inherited" | "override" = override ? "override" : "inherited";
-        // Prefer the resolved value; on resolver failure fall back to the raw
-        // declared value so the tab never blanks (RefMissingResource etc.).
-        const resolvedVal = resolvedByKey[key];
-        const unresolved = !resolveOk && resolvedVal === undefined;
-        const value = resolvedVal ?? declared?.value ?? "";
-        const isSecret = (base?.isSecret ?? false) || (override?.isSecret ?? false);
-        return {
+      .map((key) =>
+        shapeEffectiveRow({
           key,
-          // Mask secrets — never return cleartext to the client.
-          value: isSecret && value.length > 0 ? "••••••••" : value,
-          source,
-          baseValue: override ? (isSecret ? "••••••••" : (base?.value ?? null)) : null,
-          isSecret,
-          unresolved,
-        };
-      })
+          base: baseByKey.get(key),
+          override: overrideByKey.get(key),
+          resolvedVal: resolvedByKey[key],
+          resolveOk,
+        }),
+      )
       .sort((a, b) => a.key.localeCompare(b.key)),
   );
 }

@@ -1,49 +1,16 @@
 import { useState } from "react";
-import { toast } from "sonner";
 
-import {
-  AddSquareIcon,
-  ArrowDown01Icon,
-  Cancel01Icon,
-  Copy01Icon,
-  Download01Icon,
-  FilterIcon,
-  Key01Icon,
-  Search01Icon,
-  Upload01Icon,
-  ViewIcon,
-} from "@hugeicons/core-free-icons";
+import { ArrowDown01Icon, Key01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
-import { variablesCollection } from "@/features/projects/data/variables";
-import { Button } from "@/shared/components/ui/button";
 import { Checkbox } from "@/shared/components/ui/checkbox";
-import { Input } from "@/shared/components/ui/input";
-import { copyToClipboard } from "@/shared/lib/clipboard";
-import { cn } from "@/shared/lib/utils";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 import { BulkEditDialog } from "./variables-bulk-edit";
-import { serializeDotEnv } from "./variables-dotenv";
+import { downloadDotEnvFile, hasFiles, readEnvImport } from "./variables-import";
+import { EnvVarRowItem } from "./variables-row-item";
+import { DragOverlay, DropHint, VariablesToolbar } from "./variables-table-toolbar";
 import type { EnvironmentRef, EnvVarRow } from "./variables-types";
-
-/** Drag-drop .env imports above this size are refused with an honest toast. */
-const MAX_IMPORT_BYTES = 512 * 1024;
-
-function isEnvLikeFile(file: File): boolean {
-  const name = file.name.toLowerCase();
-  return (
-    name.endsWith(".env") ||
-    name.endsWith(".txt") ||
-    name.startsWith(".env") || // .env, .env.local, .env.production…
-    file.type === "text/plain"
-  );
-}
-
-/** True when the drag payload contains OS files (not in-page drags). */
-function hasFiles(e: React.DragEvent): boolean {
-  return Array.from(e.dataTransfer.types).includes("Files");
-}
 
 export function PerEnvTable({
   projectId,
@@ -105,41 +72,11 @@ export function PerEnvTable({
     }
   };
 
-  // Explicit export: always writes real values regardless of the masked
-  // state — the reveal toggle only affects on-screen rendering.
-  const downloadDotEnv = () => {
-    const content = serializeDotEnv(
-      rows.map((r) => ({ key: r.key, value: r.value })),
-    );
-    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${projectSlug}-${env.slug}.env`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  };
-
   const importFile = async (file: File) => {
-    if (!isEnvLikeFile(file)) {
-      toast.error(`Can't import ${file.name} — drop a .env or .txt file.`);
-      return;
-    }
-    if (file.size > MAX_IMPORT_BYTES) {
-      toast.error(
-        `${file.name} is ${Math.ceil(file.size / 1024)} KB — imports are capped at ${MAX_IMPORT_BYTES / 1024} KB.`,
-      );
-      return;
-    }
-    try {
-      const text = await file.text();
-      setImportText(text);
-      setBulkOpen(true);
-    } catch {
-      toast.error(`Couldn't read ${file.name}.`);
-    }
+    const text = await readEnvImport(file);
+    if (text === null) return;
+    setImportText(text);
+    setBulkOpen(true);
   };
 
   return (
@@ -167,72 +104,18 @@ export function PerEnvTable({
         if (file) void importFile(file);
       }}
     >
-      {dragging && (
-        <div className="pointer-events-none absolute inset-2 z-10 grid place-items-center rounded-md bg-background/85 ring-2 ring-inset ring-primary/60">
-          <div className="flex flex-col items-center gap-1.5 text-center">
-            <HugeiconsIcon icon={Upload01Icon} className="size-5 text-primary" />
-            <div className="text-sm font-medium">
-              Drop <code className="font-mono">.env</code> to import into{" "}
-              <span className="capitalize">{env.name || env.slug}</span>
-            </div>
-            <div className="text-xs text-muted-foreground">
-              Opens bulk edit for review — nothing is saved until you apply.
-            </div>
-          </div>
-        </div>
-      )}
+      {dragging && <DragOverlay envLabel={env.name || env.slug} />}
 
-      <div className="mb-4 flex items-center gap-2">
-        <div className="relative flex-1 max-w-sm">
-          <HugeiconsIcon
-            icon={Search01Icon}
-            className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
-          />
-          <Input
-            placeholder="Search by secret, folder, tag or metadata…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            className="h-8 pl-8"
-          />
-        </div>
-        <Button variant="outline" size="sm" className="gap-1.5">
-          <HugeiconsIcon icon={FilterIcon} className="size-3.5" />
-          Filters
-        </Button>
-        <div className="flex-1" />
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-8"
-          aria-label="Download .env"
-          title={
-            rows.length === 0
-              ? "No variables to download"
-              : `Download ${projectSlug}-${env.slug}.env`
-          }
-          disabled={rows.length === 0}
-          onClick={downloadDotEnv}
-        >
-          <HugeiconsIcon icon={Download01Icon} className="size-3.5" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-8"
-          aria-label={revealAll ? "Hide secrets" : "Reveal secrets"}
-          onClick={() => setRevealAll((r) => !r)}
-        >
-          <HugeiconsIcon icon={ViewIcon} className="size-3.5" />
-        </Button>
-        <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setBulkOpen(true)}>
-          <HugeiconsIcon icon={Copy01Icon} className="size-3.5" />
-          Bulk edit
-        </Button>
-        <Button size="sm" className="gap-1.5" onClick={() => setBulkOpen(true)}>
-          <HugeiconsIcon icon={AddSquareIcon} className="size-3.5" />
-          Add secret
-        </Button>
-      </div>
+      <VariablesToolbar
+        q={q}
+        onQChange={setQ}
+        hasRows={rows.length > 0}
+        downloadName={`${projectSlug}-${env.slug}.env`}
+        onDownload={() => downloadDotEnvFile(rows, `${projectSlug}-${env.slug}.env`)}
+        revealAll={revealAll}
+        onToggleReveal={() => setRevealAll((r) => !r)}
+        onBulkOpen={() => setBulkOpen(true)}
+      />
 
       <div className="overflow-hidden rounded-md border bg-card">
         <div className="grid grid-cols-[32px_24px_1fr_2fr_120px] items-center gap-2 border-b bg-muted/30 px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
@@ -278,20 +161,7 @@ export function PerEnvTable({
         </div>
       </div>
 
-      <div className="mt-4 flex flex-col items-center gap-2 rounded-md border border-dashed bg-muted/10 px-6 py-8 text-center">
-        <HugeiconsIcon
-          icon={Upload01Icon}
-          className="size-5 text-muted-foreground"
-        />
-        <div className="text-sm text-foreground/80">
-          Drag a <code className="font-mono">.env</code> file anywhere on this
-          tab, or paste into bulk edit.
-        </div>
-        <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setBulkOpen(true)}>
-          <HugeiconsIcon icon={Copy01Icon} className="size-3.5" />
-          Open bulk edit
-        </Button>
-      </div>
+      <DropHint onBulkOpen={() => setBulkOpen(true)} />
 
       <BulkEditDialog
         projectId={projectId}
@@ -306,84 +176,6 @@ export function PerEnvTable({
         onSaved={invalidate}
         prefillText={importText}
       />
-    </div>
-  );
-}
-
-function EnvVarRowItem({
-  row,
-  revealAll,
-  selected,
-  onToggle,
-}: {
-  row: EnvVarRow;
-  revealAll: boolean;
-  selected: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <div className="group grid grid-cols-[32px_24px_1fr_2fr_120px] items-center gap-2 border-b px-3 py-2 last:border-b-0 hover:bg-muted/30">
-      <Checkbox
-        checked={selected}
-        onCheckedChange={onToggle}
-        aria-label={`Select ${row.key}`}
-      />
-      <HugeiconsIcon
-        icon={Key01Icon}
-        className="size-3 text-muted-foreground/70"
-      />
-      <span className="font-mono text-xs font-medium">{row.key}</span>
-      <span className="min-w-0 truncate border-l pl-3">
-        {row.value === "" ? (
-          <span className="font-mono text-[10px] tracking-wider text-muted-foreground/60">
-            EMPTY
-          </span>
-        ) : (
-          <span
-            className={cn(
-              "font-mono text-xs",
-              row.isSecret && !revealAll
-                ? "text-muted-foreground"
-                : "text-foreground/85",
-            )}
-          >
-            {row.isSecret && !revealAll
-              ? "••••••••••••••••••••••••••••"
-              : row.value}
-          </span>
-        )}
-      </span>
-      <span className="flex justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-6"
-          title="Copy"
-          onClick={() => {
-            void copyToClipboard(row.value).then((ok) =>
-              ok ? toast.success(`Copied ${row.key}`) : toast.error("Couldn't copy"),
-            );
-          }}
-        >
-          <HugeiconsIcon icon={Copy01Icon} className="size-3" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-6 text-rose-500 hover:text-rose-500"
-          title="Delete"
-          onClick={() => {
-            const tx = variablesCollection.delete(row.id);
-            tx.isPersisted.promise.catch((err: unknown) =>
-              toast.error(
-                err instanceof Error ? err.message : "Couldn't delete",
-              ),
-            );
-          }}
-        >
-          <HugeiconsIcon icon={Cancel01Icon} className="size-3" />
-        </Button>
-      </span>
     </div>
   );
 }

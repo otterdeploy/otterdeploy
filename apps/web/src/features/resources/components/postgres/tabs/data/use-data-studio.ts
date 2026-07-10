@@ -17,7 +17,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useHotkey } from "@tanstack/react-hotkeys";
-import { toast } from "sonner";
 
 import type { FkTarget } from "@/shared/components/data-grid/types";
 
@@ -25,14 +24,12 @@ import type { PostgresBodyProps } from "../../types";
 import type { ResultView } from "./components/results-panel";
 
 import { loadHiddenColumns, saveHiddenColumns } from "./data/column-prefs";
-import { classifyWriteSql, type WriteSeverity } from "./data/destructive-sql";
 import { buildWhere, type Filter, newFilter } from "./data/filters";
 import { browseRowsSql, SQL_RESULT_CAP, type TableRef } from "./data/queries";
 import { useQueryHistory } from "./data/query-history";
 import {
   useDataCapabilities,
   useDatabaseTables,
-  useExecuteSql,
   useQueryRows,
   useTableColumnMeta,
   useTablePrimaryKey,
@@ -44,22 +41,13 @@ import {
   useRowMutations,
   useSnippetBuffer,
 } from "./use-data-studio-helpers";
+import { errMessage, useSqlHistoryLog, useWriteConfirm } from "./use-data-studio-sql";
 
 type Resource = PostgresBodyProps["resource"];
 
 export const PAGE_SIZES = [50, 100, 200, 500];
 
-/** Pull the human-readable reason out of an oRPC error (QUERY_FAILED carries
- *  `data.reason`), falling back to the message. */
-export function errMessage(error: unknown): string {
-  if (error && typeof error === "object") {
-    const data = (error as { data?: { reason?: unknown } }).data;
-    if (data && typeof data.reason === "string") return data.reason;
-    const message = (error as { message?: unknown }).message;
-    if (typeof message === "string") return message;
-  }
-  return "Something went wrong.";
-}
+export { errMessage };
 
 function useTableData(resource: Resource) {
   const resourceId = resource.resourceId as never;
@@ -72,13 +60,6 @@ function useTableData(resource: Resource) {
   const [pageSize, setPageSize] = useState(100);
   const [filters, setFilters] = useState<Filter[]>([]);
   const [ranSql, setRanSql] = useState<string | null>(null);
-  // Write-mode statement awaiting confirmation. Destructive statements
-  // (DROP/TRUNCATE/unscoped DELETE/UPDATE) get a type-the-db-name gate in the
-  // dialog; other writes a plain styled confirm. See ./data/destructive-sql.
-  const [pendingWrite, setPendingWrite] = useState<{
-    sql: string;
-    severity: WriteSeverity;
-  } | null>(null);
   const [view, setView] = useState<ResultView>("grid");
   // Data (rows grid) vs Structure (column detail) for the open table.
   const [tableView, setTableView] = useState<"data" | "structure">("data");
@@ -128,8 +109,17 @@ function useTableData(resource: Resource) {
     enabled: mode === "table" && canWrite,
   });
   const editable = mode === "table" && canWrite && Boolean(selected);
-  const executeSql = useExecuteSql();
   const { onUpdateRow, onDeleteRow } = useRowMutations(resourceIdStr, selected, rowsQuery);
+
+  // SQL-console execution log (browser-local ring, successes and failures).
+  const history = useQueryHistory(resourceIdStr);
+  const recordHistory = history.record;
+  useSqlHistoryLog({ mode, ranSql, rowsQuery, recordHistory });
+
+  // Write mode → audited `database.execute` behind a confirm (typed-phrase
+  // gate for destructive statements). See ./use-data-studio-sql.
+  const { pendingWrite, stageWrite, executeSql, cancelPendingWrite, confirmPendingWrite } =
+    useWriteConfirm({ resourceId: resourceIdStr, tablesQuery, rowsQuery, recordHistory });
 
   // Shared table-switch plumbing: reset paging/view state and pull the
   // persisted column-visibility prefs for the newly opened table.
@@ -173,84 +163,20 @@ function useTableData(resource: Resource) {
     setPage(0);
   };
 
-  // Write mode → run arbitrary SQL through the audited `database.execute` path,
-  // behind a styled confirm dialog (typed-phrase gate when the statement is
-  // destructive). Refreshes the schema + open rows afterward so DDL/DML is
-  // reflected. The read-only query path stays the default.
+  // Run authored SQL: write mode stages the statement behind the confirm
+  // dialog; the read-only query path stays the default.
   const runSql = (sqlText: string) => {
     const trimmed = sqlText.trim();
     if (!trimmed) return;
     setMode("sql");
 
     if (writeMode && canWrite) {
-      setPendingWrite({ sql: trimmed, severity: classifyWriteSql(trimmed) });
+      stageWrite(trimmed);
       return;
     }
 
     if (trimmed === ranSql) void rowsQuery.refetch();
     else setRanSql(trimmed);
-  };
-
-  // SQL-console execution log (browser-local ring, successes and failures).
-  const history = useQueryHistory(resourceIdStr);
-  const recordHistory = history.record;
-
-  // Record read-path console runs once each time a result (or error) lands.
-  // Keyed on react-query's update stamps so a re-run of the same statement is
-  // logged again while a mere re-render is not. Table-browse queries are NOT
-  // history — only authored SQL.
-  const lastHistoryKeyRef = useRef("");
-  const historyStamp = Math.max(rowsQuery.dataUpdatedAt, rowsQuery.errorUpdatedAt);
-  useEffect(() => {
-    if (mode !== "sql" || !ranSql || historyStamp === 0) return;
-    const key = `${historyStamp}:${ranSql}`;
-    if (key === lastHistoryKeyRef.current) return;
-    lastHistoryKeyRef.current = key;
-    const failed = rowsQuery.errorUpdatedAt >= rowsQuery.dataUpdatedAt && rowsQuery.isError;
-    recordHistory({
-      sql: ranSql,
-      ok: !failed,
-      rowCount: failed ? null : (rowsQuery.data?.rowCount ?? null),
-      durationMs: failed ? null : (rowsQuery.data?.durationMs ?? null),
-      error: failed ? errMessage(rowsQuery.error) : null,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [historyStamp, mode, ranSql, recordHistory]);
-
-  const cancelPendingWrite = () => setPendingWrite(null);
-  const confirmPendingWrite = () => {
-    if (!pendingWrite) return;
-    const sql = pendingWrite.sql;
-    setPendingWrite(null);
-    executeSql.mutate(
-      { resourceId: resourceIdStr, sql, limit: SQL_RESULT_CAP },
-      {
-        onSuccess: (res) => {
-          toast.success(
-            `Statement ran — ${res.rowCount} row${res.rowCount === 1 ? "" : "s"} affected`,
-          );
-          recordHistory({
-            sql,
-            ok: true,
-            rowCount: res.rowCount,
-            durationMs: res.durationMs,
-            error: null,
-          });
-          void tablesQuery.refetch();
-          void rowsQuery.refetch();
-        },
-        onError: (err) => {
-          toast.error(err instanceof Error ? err.message : "Statement failed");
-          recordHistory({
-            sql,
-            ok: false,
-            rowCount: null,
-            durationMs: null,
-            error: errMessage(err),
-          });
-        },
-      },
-    );
   };
 
   // Land on the first table's rows once the list loads (browse, not authored

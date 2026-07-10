@@ -13,21 +13,19 @@
  *
  * No db imports here — the module stays unit-testable without the env/db
  * bootstrapping the rest of the router pulls in. Stored-credential lookup
- * lives in queries.ts; the handler in index.ts glues the two together.
+ * lives in queries.ts; the handler in index.ts glues the two together;
+ * the timed fetch + network-error mapping live in probe-fetch.ts.
  *
  * Honesty note: when a bearer challenge carries no scope (the common case
  * for a bare /v2/ ping), some registries mint an anonymous token even for
  * bad credentials. The success message says what was actually verified.
  */
 
-import { Result, TaggedError } from "better-result";
+import { Result } from "better-result";
 
-const PROBE_TIMEOUT_MS = 10_000;
+import { basicAuthHeader, probeFetch, RegistryProbeError } from "./probe-fetch";
 
-export class RegistryProbeError extends TaggedError("RegistryProbeError")<{
-  message: string;
-  status: number | undefined;
-}>() {}
+export { RegistryProbeError } from "./probe-fetch";
 
 export interface BearerChallenge {
   scheme: "bearer";
@@ -58,7 +56,9 @@ export function parseAuthChallenge(header: string | null): AuthChallenge | null 
   const re = /([a-zA-Z][a-zA-Z0-9_-]*)=(?:"([^"]*)"|([^",\s]+))/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(trimmed.slice(spaceIdx + 1))) !== null) {
-    params[m[1]!.toLowerCase()] = m[2] ?? m[3] ?? "";
+    const [, key, quoted, bare] = m;
+    if (key === undefined) continue;
+    params[key.toLowerCase()] = quoted ?? bare ?? "";
   }
 
   const realm = params["realm"];
@@ -84,159 +84,40 @@ export function buildTokenUrl(challenge: BearerChallenge): string {
   return url.toString();
 }
 
-function basicAuthHeader(username: string, password: string): string {
-  return `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`;
-}
+type ProbeOutcome = Result<{ status: number; message: string }, RegistryProbeError>;
 
-/** Map a thrown fetch error to an honest, operator-readable message. */
-function fetchFailure(host: string, err: unknown): RegistryProbeError {
-  if (err instanceof DOMException && err.name === "TimeoutError") {
-    return new RegistryProbeError({
-      status: undefined,
-      message: `Timed out after ${PROBE_TIMEOUT_MS / 1000}s waiting for ${host}`,
-    });
-  }
-
-  const codes = new Set<string>();
-  const texts: string[] = [];
-  let cursor: unknown = err;
-  for (let depth = 0; depth < 4 && cursor instanceof Error; depth++) {
-    const code = (cursor as Error & { code?: unknown }).code;
-    if (typeof code === "string") codes.add(code);
-    texts.push(cursor.message);
-    cursor = cursor.cause;
-  }
-  const text = texts.join(" ").toLowerCase();
-
-  if (
-    codes.has("ENOTFOUND") ||
-    codes.has("EAI_AGAIN") ||
-    codes.has("DNSException") ||
-    text.includes("dns")
-  ) {
-    return new RegistryProbeError({
-      status: undefined,
-      message: `DNS lookup failed for ${host} — check the host for typos`,
-    });
-  }
-  if (codes.has("ECONNREFUSED") || codes.has("ConnectionRefused") || text.includes("refused")) {
-    return new RegistryProbeError({
-      status: undefined,
-      message: `Connection refused by ${host} — is the registry listening on 443?`,
-    });
-  }
-  if (
-    [...codes].some((c) => c.includes("CERT") || c.includes("TLS")) ||
-    text.includes("certificate") ||
-    text.includes("tls") ||
-    text.includes("ssl")
-  ) {
-    return new RegistryProbeError({
-      status: undefined,
-      message: `TLS handshake with ${host} failed — the registry's certificate isn't trusted`,
-    });
-  }
-  return new RegistryProbeError({
-    status: undefined,
-    message: `Could not reach ${host}: ${texts[0] ?? "unknown network error"}`,
-  });
-}
-
-async function probeFetch(
-  host: string,
-  url: string,
-  headers?: Record<string, string>,
-): Promise<Result<Response, RegistryProbeError>> {
-  try {
-    const res = await fetch(url, {
-      ...(headers && { headers }),
-      redirect: "follow",
-      signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
-    });
-    return Result.ok(res);
-  } catch (err) {
-    return Result.err(fetchFailure(host, err));
-  }
-}
-
-/**
- * Probe a registry host with the given credentials. HTTPS only — that's
- * the same constraint the builder's `docker push`/`docker pull` operate
- * under for non-localhost hosts.
- */
-export async function probeRegistry(input: {
-  host: string;
-  username: string;
-  password: string;
-}): Promise<Result<{ status: number; message: string }, RegistryProbeError>> {
-  const { host, username, password } = input;
-
-  const ping = await probeFetch(host, `https://${host}/v2/`);
-  if (ping.isErr()) return Result.err(ping.error);
-
-  if (ping.value.ok) {
+/** Basic challenge: retry the /v2/ handshake with the credentials attached. */
+async function probeWithBasicAuth(host: string, auth: string): Promise<ProbeOutcome> {
+  const retry = await probeFetch(host, `https://${host}/v2/`, { authorization: auth });
+  if (retry.isErr()) return Result.err(retry.error);
+  if (retry.value.ok) {
     return Result.ok({
-      status: ping.value.status,
-      message: `${host} answered the v2 handshake — no auth required`,
+      status: retry.value.status,
+      message: `Credentials accepted by ${host} (basic auth)`,
     });
   }
-
-  if (ping.value.status !== 401) {
-    return Result.err(
-      new RegistryProbeError({
-        status: ping.value.status,
-        message: `${host} responded ${ping.value.status} to /v2/ — not a Docker Registry v2 endpoint?`,
-      }),
-    );
-  }
-
-  const challenge = parseAuthChallenge(ping.value.headers.get("www-authenticate"));
-  if (!challenge) {
-    return Result.err(
-      new RegistryProbeError({
-        status: 401,
-        message: `${host} returned 401 without a challenge this probe can follow — can't verify credentials`,
-      }),
-    );
-  }
-
-  if (!username || !password) {
-    return Result.err(
-      new RegistryProbeError({
-        status: 401,
-        message: `${host} requires authentication — enter a username and password/token to test`,
-      }),
-    );
-  }
-
-  const auth = basicAuthHeader(username, password);
-
-  if (challenge.scheme === "basic") {
-    const retry = await probeFetch(host, `https://${host}/v2/`, { authorization: auth });
-    if (retry.isErr()) return Result.err(retry.error);
-    if (retry.value.ok) {
-      return Result.ok({
-        status: retry.value.status,
-        message: `Credentials accepted by ${host} (basic auth)`,
-      });
-    }
-    if (retry.value.status === 401 || retry.value.status === 403) {
-      return Result.err(
-        new RegistryProbeError({
-          status: retry.value.status,
-          message: `${host} rejected the credentials (${retry.value.status}) — check username and password/token`,
-        }),
-      );
-    }
+  if (retry.value.status === 401 || retry.value.status === 403) {
     return Result.err(
       new RegistryProbeError({
         status: retry.value.status,
-        message: `${host} responded ${retry.value.status} to the authenticated handshake`,
+        message: `${host} rejected the credentials (${retry.value.status}) — check username and password/token`,
       }),
     );
   }
+  return Result.err(
+    new RegistryProbeError({
+      status: retry.value.status,
+      message: `${host} responded ${retry.value.status} to the authenticated handshake`,
+    }),
+  );
+}
 
-  // Bearer: exchange basic credentials for a token at the challenge realm.
+/** Bearer challenge: exchange basic credentials for a token at the realm. */
+async function probeWithBearerToken(
+  host: string,
+  challenge: BearerChallenge,
+  auth: string,
+): Promise<ProbeOutcome> {
   let tokenUrl: string;
   try {
     tokenUrl = buildTokenUrl(challenge);
@@ -286,4 +167,59 @@ export async function probeRegistry(input: {
     status: tokenRes.value.status,
     message: `Credentials accepted by ${host}'s token endpoint`,
   });
+}
+
+/**
+ * Probe a registry host with the given credentials. HTTPS only — that's
+ * the same constraint the builder's `docker push`/`docker pull` operate
+ * under for non-localhost hosts.
+ */
+export async function probeRegistry(input: {
+  host: string;
+  username: string;
+  password: string;
+}): Promise<ProbeOutcome> {
+  const { host, username, password } = input;
+
+  const ping = await probeFetch(host, `https://${host}/v2/`);
+  if (ping.isErr()) return Result.err(ping.error);
+
+  if (ping.value.ok) {
+    return Result.ok({
+      status: ping.value.status,
+      message: `${host} answered the v2 handshake — no auth required`,
+    });
+  }
+
+  if (ping.value.status !== 401) {
+    return Result.err(
+      new RegistryProbeError({
+        status: ping.value.status,
+        message: `${host} responded ${ping.value.status} to /v2/ — not a Docker Registry v2 endpoint?`,
+      }),
+    );
+  }
+
+  const challenge = parseAuthChallenge(ping.value.headers.get("www-authenticate"));
+  if (!challenge) {
+    return Result.err(
+      new RegistryProbeError({
+        status: 401,
+        message: `${host} returned 401 without a challenge this probe can follow — can't verify credentials`,
+      }),
+    );
+  }
+
+  if (!username || !password) {
+    return Result.err(
+      new RegistryProbeError({
+        status: 401,
+        message: `${host} requires authentication — enter a username and password/token to test`,
+      }),
+    );
+  }
+
+  const auth = basicAuthHeader(username, password);
+  if (challenge.scheme === "basic") return probeWithBasicAuth(host, auth);
+  return probeWithBearerToken(host, challenge, auth);
 }

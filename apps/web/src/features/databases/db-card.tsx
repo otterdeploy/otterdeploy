@@ -65,34 +65,7 @@ export function DatabaseCard({ db, orgSlug }: { db: CatalogDatabase; orgSlug: st
         <StatusPill status={db.runtimeStatus} />
       </div>
 
-      <div className="mt-4 grid grid-cols-3 gap-4 border-t pt-3">
-        <Stat
-          label="Storage"
-          value={fmtBytes(db.stats?.sizeBytes ?? null)}
-          sub={db.engine === "redis" ? "memory used" : "data size"}
-        />
-        <Stat
-          label="Connections"
-          value={db.stats?.connections != null ? String(db.stats.connections) : "—"}
-          sub={db.stats?.maxConnections != null ? `of ${db.stats.maxConnections}` : ""}
-        />
-        <Stat
-          label="Last backup"
-          value={relTime(db.lastBackupAt)}
-          sub={
-            db.lastBackupStatus === null
-              ? "never backed up"
-              : db.lastBackupStatus === "succeeded"
-                ? ""
-                : `latest attempt: ${db.lastBackupStatus}`
-          }
-          subTone={
-            db.lastBackupStatus !== null && db.lastBackupStatus !== "succeeded"
-              ? "text-destructive"
-              : undefined
-          }
-        />
-      </div>
+      <DbStats db={db} />
       {unreachable && (
         <p className="mt-1.5 text-xs text-warning">
           Runtime could not be reached — stats unavailable.
@@ -130,6 +103,41 @@ export function DatabaseCard({ db, orgSlug }: { db: CatalogDatabase; orgSlug: st
           Backups
         </Button>
       </div>
+    </div>
+  );
+}
+
+/** The three-stat row (storage, connections, last backup) — every value
+ *  degrades to "—" when the probe couldn't measure it. */
+function DbStats({ db }: { db: CatalogDatabase }) {
+  return (
+    <div className="mt-4 grid grid-cols-3 gap-4 border-t pt-3">
+      <Stat
+        label="Storage"
+        value={fmtBytes(db.stats?.sizeBytes ?? null)}
+        sub={db.engine === "redis" ? "memory used" : "data size"}
+      />
+      <Stat
+        label="Connections"
+        value={db.stats?.connections != null ? String(db.stats.connections) : "—"}
+        sub={db.stats?.maxConnections != null ? `of ${db.stats.maxConnections}` : ""}
+      />
+      <Stat
+        label="Last backup"
+        value={relTime(db.lastBackupAt)}
+        sub={
+          db.lastBackupStatus === null
+            ? "never backed up"
+            : db.lastBackupStatus === "succeeded"
+              ? ""
+              : `latest attempt: ${db.lastBackupStatus}`
+        }
+        subTone={
+          db.lastBackupStatus !== null && db.lastBackupStatus !== "succeeded"
+            ? "text-destructive"
+            : undefined
+        }
+      />
     </div>
   );
 }

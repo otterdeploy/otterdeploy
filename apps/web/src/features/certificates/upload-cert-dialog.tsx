@@ -30,6 +30,53 @@ import { invalidateCertificates } from "./data/certificates";
 const CERT_PLACEHOLDER = `-----BEGIN CERTIFICATE-----\nMIIDxTCCAq2gAwIBAgIQ…\n-----END CERTIFICATE-----`;
 const KEY_PLACEHOLDER = `-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEF…\n-----END PRIVATE KEY-----`;
 
+const requirePem = (kind: string) => (value: string) => {
+  if (value.trim().length === 0) return `${kind} is required`;
+  if (!value.includes("-----BEGIN")) return `Paste a PEM block (-----BEGIN …-----)`;
+  return undefined;
+};
+
+/** One labelled PEM textarea with its validation errors. */
+function PemField({
+  id,
+  label,
+  value,
+  rows,
+  placeholder,
+  errors,
+  onBlur,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  rows: number;
+  placeholder: string;
+  errors: unknown[];
+  onBlur: () => void;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <Field>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <Textarea
+        id={id}
+        name={id}
+        value={value}
+        onBlur={onBlur}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        rows={rows}
+        className="font-mono text-xs"
+        spellCheck={false}
+      />
+      {errors.map((err) => (
+        <FieldError key={String(err)}>{String(err)}</FieldError>
+      ))}
+    </Field>
+  );
+}
+
 function reportOutcome(result: { applied: boolean; applyError: string | null }, hostname: string) {
   if (result.applied) {
     toast.success(`Certificate for ${hostname} installed at the edge`);
@@ -94,12 +141,6 @@ export function UploadCertDialog({
     onOpenChange(next);
   };
 
-  const requirePem = (kind: string) => (value: string) => {
-    if (value.trim().length === 0) return `${kind} is required`;
-    if (!value.includes("-----BEGIN")) return `Paste a PEM block (-----BEGIN …-----)`;
-    return undefined;
-  };
-
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="sm:max-w-xl">
@@ -136,6 +177,7 @@ export function UploadCertDialog({
                     onChange={(e) => field.handleChange(e.target.value)}
                     placeholder="derived from the certificate's CN when left empty"
                     className="font-mono"
+                    // eslint-disable-next-line jsx-a11y/no-autofocus -- first field of the upload dialog
                     autoFocus
                   />
                 </Field>
@@ -148,23 +190,16 @@ export function UploadCertDialog({
             validators={{ onChange: ({ value }) => requirePem("Certificate chain")(value) }}
           >
             {(field) => (
-              <Field>
-                <FieldLabel htmlFor={field.name}>Certificate chain (PEM, leaf first)</FieldLabel>
-                <Textarea
-                  id={field.name}
-                  name={field.name}
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  placeholder={CERT_PLACEHOLDER}
-                  rows={6}
-                  className="font-mono text-xs"
-                  spellCheck={false}
-                />
-                {field.state.meta.errors.map((err) => (
-                  <FieldError key={String(err)}>{String(err)}</FieldError>
-                ))}
-              </Field>
+              <PemField
+                id={field.name}
+                label="Certificate chain (PEM, leaf first)"
+                value={field.state.value}
+                rows={6}
+                placeholder={CERT_PLACEHOLDER}
+                errors={field.state.meta.errors}
+                onBlur={field.handleBlur}
+                onChange={field.handleChange}
+              />
             )}
           </form.Field>
 
@@ -173,23 +208,16 @@ export function UploadCertDialog({
             validators={{ onChange: ({ value }) => requirePem("Private key")(value) }}
           >
             {(field) => (
-              <Field>
-                <FieldLabel htmlFor={field.name}>Private key (PEM, unencrypted)</FieldLabel>
-                <Textarea
-                  id={field.name}
-                  name={field.name}
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  placeholder={KEY_PLACEHOLDER}
-                  rows={5}
-                  className="font-mono text-xs"
-                  spellCheck={false}
-                />
-                {field.state.meta.errors.map((err) => (
-                  <FieldError key={String(err)}>{String(err)}</FieldError>
-                ))}
-              </Field>
+              <PemField
+                id={field.name}
+                label="Private key (PEM, unencrypted)"
+                value={field.state.value}
+                rows={5}
+                placeholder={KEY_PLACEHOLDER}
+                errors={field.state.meta.errors}
+                onBlur={field.handleBlur}
+                onChange={field.handleChange}
+              />
             )}
           </form.Field>
 

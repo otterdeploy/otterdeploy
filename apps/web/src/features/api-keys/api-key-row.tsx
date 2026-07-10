@@ -13,26 +13,13 @@
 
 import { useState } from "react";
 
-import { Delete02Icon, RefreshIcon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/shared/components/ui/alert-dialog";
 import { Badge } from "@/shared/components/ui/badge";
-import { Button } from "@/shared/components/ui/button";
 import { Switch } from "@/shared/components/ui/switch";
 import { TableCell, TableRow } from "@/shared/components/ui/table";
 
+import { DeleteKeyDialog, RotateKeyDialog } from "./api-key-row-dialogs";
 import { apiKeysCollection } from "./data/api-keys";
 import { formatDate, isExpired } from "./shared";
 
@@ -171,86 +158,8 @@ export function ApiKeyRow({
       {canManage ? (
         <TableCell>
           <div className="flex items-center justify-end gap-0.5">
-            <AlertDialog>
-              <AlertDialogTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    className="text-muted-foreground hover:text-foreground"
-                    aria-label="Rotate API key"
-                    disabled={busy || expired}
-                  >
-                    <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} className="size-3.5" />
-                  </Button>
-                }
-              />
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Rotate “{apiKey.name ?? "this key"}”?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    A replacement key is created with the same name, scopes and expiry, and this key
-                    is revoked once it succeeds. Clients using the current key will lose access —
-                    you'll see the new key once, right after.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel
-                    render={
-                      <Button variant="outline" size="sm">
-                        Cancel
-                      </Button>
-                    }
-                  />
-                  <AlertDialogAction
-                    render={
-                      <Button size="sm" disabled={busy} onClick={rotate}>
-                        Rotate key
-                      </Button>
-                    }
-                  />
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-            <AlertDialog>
-              <AlertDialogTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    className="text-muted-foreground hover:text-destructive"
-                    aria-label="Delete API key"
-                  >
-                    <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} className="size-3.5" />
-                  </Button>
-                }
-              />
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete “{apiKey.name ?? "this key"}”?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Any client still using this key will immediately lose access. This can't be
-                    undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel
-                    render={
-                      <Button variant="outline" size="sm">
-                        Cancel
-                      </Button>
-                    }
-                  />
-                  <AlertDialogAction
-                    render={
-                      <Button variant="destructive" size="sm" disabled={busy} onClick={remove}>
-                        Delete
-                      </Button>
-                    }
-                  />
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            <RotateKeyDialog name={apiKey.name} busy={busy} expired={expired} onConfirm={rotate} />
+            <DeleteKeyDialog name={apiKey.name} busy={busy} onConfirm={remove} />
           </div>
         </TableCell>
       ) : null}

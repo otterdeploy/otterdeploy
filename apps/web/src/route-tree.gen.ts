@@ -69,7 +69,6 @@ import { Route as AppOrgSlugShellProjectSlugEdgeLogsRouteImport } from "./routes
 import { Route as AppOrgSlugShellProjectSlugDeploymentsRouteImport } from "./routes/_app/$orgSlug/_shell/$projectSlug/deployments"
 import { Route as AppOrgSlugShellProjectSlugGraphLayoutRouteImport } from "./routes/_app/$orgSlug/_shell/$projectSlug/graph/layout"
 import { Route as AppOrgSlugSettingsWorkspaceGithubAppProviderIdRouteImport } from "./routes/_app/$orgSlug/settings/workspace/github-app.$providerId"
-import { Route as AppOrgSlugSettingsWorkspaceGitProvidersProviderIdRouteImport } from "./routes/_app/$orgSlug/settings/workspace/git-providers.$providerId"
 import { Route as AppOrgSlugShellProjectSlugGraphResourceIdLayoutRouteImport } from "./routes/_app/$orgSlug/_shell/$projectSlug/graph/$resourceId/layout"
 import { Route as AppOrgSlugShellProjectSlugGraphPreviewPreviewIdRouteImport } from "./routes/_app/$orgSlug/_shell/$projectSlug/graph/preview.$previewId"
 import { Route as AppOrgSlugShellProjectSlugGraphResourceIdDeploymentDeploymentIdRouteImport } from "./routes/_app/$orgSlug/_shell/$projectSlug/graph/$resourceId/deployment/$deploymentId"
@@ -404,12 +403,6 @@ const AppOrgSlugSettingsWorkspaceGithubAppProviderIdRoute =
     path: "/workspace/github-app/$providerId",
     getParentRoute: () => AppOrgSlugSettingsLayoutRoute,
   } as any)
-const AppOrgSlugSettingsWorkspaceGitProvidersProviderIdRoute =
-  AppOrgSlugSettingsWorkspaceGitProvidersProviderIdRouteImport.update({
-    id: "/$providerId",
-    path: "/$providerId",
-    getParentRoute: () => AppOrgSlugSettingsWorkspaceGitProvidersRoute,
-  } as any)
 const AppOrgSlugShellProjectSlugGraphResourceIdLayoutRoute =
   AppOrgSlugShellProjectSlugGraphResourceIdLayoutRouteImport.update({
     id: "/$resourceId",
@@ -483,7 +476,7 @@ export interface FileRoutesByFullPath {
   "/$orgSlug/settings/workspace/api-keys": typeof AppOrgSlugSettingsWorkspaceApiKeysRoute
   "/$orgSlug/settings/workspace/certificates": typeof AppOrgSlugSettingsWorkspaceCertificatesRoute
   "/$orgSlug/settings/workspace/general": typeof AppOrgSlugSettingsWorkspaceGeneralRoute
-  "/$orgSlug/settings/workspace/git-providers": typeof AppOrgSlugSettingsWorkspaceGitProvidersRouteWithChildren
+  "/$orgSlug/settings/workspace/git-providers": typeof AppOrgSlugSettingsWorkspaceGitProvidersRoute
   "/$orgSlug/settings/workspace/notifications": typeof AppOrgSlugSettingsWorkspaceNotificationsRoute
   "/$orgSlug/settings/workspace/registries": typeof AppOrgSlugSettingsWorkspaceRegistriesRoute
   "/$orgSlug/settings/workspace/ssh-keys": typeof AppOrgSlugSettingsWorkspaceSshKeysRoute
@@ -491,7 +484,6 @@ export interface FileRoutesByFullPath {
   "/$orgSlug/settings/workspace/webhooks": typeof AppOrgSlugSettingsWorkspaceWebhooksRoute
   "/$orgSlug/$projectSlug/": typeof AppOrgSlugShellProjectSlugIndexRoute
   "/$orgSlug/$projectSlug/graph/$resourceId": typeof AppOrgSlugShellProjectSlugGraphResourceIdLayoutRouteWithChildren
-  "/$orgSlug/settings/workspace/git-providers/$providerId": typeof AppOrgSlugSettingsWorkspaceGitProvidersProviderIdRoute
   "/$orgSlug/settings/workspace/github-app/$providerId": typeof AppOrgSlugSettingsWorkspaceGithubAppProviderIdRoute
   "/$orgSlug/$projectSlug/graph/preview/$previewId": typeof AppOrgSlugShellProjectSlugGraphPreviewPreviewIdRoute
   "/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId": typeof AppOrgSlugShellProjectSlugGraphResourceIdDeploymentDeploymentIdRoute
@@ -544,7 +536,7 @@ export interface FileRoutesByTo {
   "/$orgSlug/settings/workspace/api-keys": typeof AppOrgSlugSettingsWorkspaceApiKeysRoute
   "/$orgSlug/settings/workspace/certificates": typeof AppOrgSlugSettingsWorkspaceCertificatesRoute
   "/$orgSlug/settings/workspace/general": typeof AppOrgSlugSettingsWorkspaceGeneralRoute
-  "/$orgSlug/settings/workspace/git-providers": typeof AppOrgSlugSettingsWorkspaceGitProvidersRouteWithChildren
+  "/$orgSlug/settings/workspace/git-providers": typeof AppOrgSlugSettingsWorkspaceGitProvidersRoute
   "/$orgSlug/settings/workspace/notifications": typeof AppOrgSlugSettingsWorkspaceNotificationsRoute
   "/$orgSlug/settings/workspace/registries": typeof AppOrgSlugSettingsWorkspaceRegistriesRoute
   "/$orgSlug/settings/workspace/ssh-keys": typeof AppOrgSlugSettingsWorkspaceSshKeysRoute
@@ -552,7 +544,6 @@ export interface FileRoutesByTo {
   "/$orgSlug/settings/workspace/webhooks": typeof AppOrgSlugSettingsWorkspaceWebhooksRoute
   "/$orgSlug/$projectSlug": typeof AppOrgSlugShellProjectSlugIndexRoute
   "/$orgSlug/$projectSlug/graph/$resourceId": typeof AppOrgSlugShellProjectSlugGraphResourceIdLayoutRouteWithChildren
-  "/$orgSlug/settings/workspace/git-providers/$providerId": typeof AppOrgSlugSettingsWorkspaceGitProvidersProviderIdRoute
   "/$orgSlug/settings/workspace/github-app/$providerId": typeof AppOrgSlugSettingsWorkspaceGithubAppProviderIdRoute
   "/$orgSlug/$projectSlug/graph/preview/$previewId": typeof AppOrgSlugShellProjectSlugGraphPreviewPreviewIdRoute
   "/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId": typeof AppOrgSlugShellProjectSlugGraphResourceIdDeploymentDeploymentIdRoute
@@ -611,7 +602,7 @@ export interface FileRoutesById {
   "/_app/$orgSlug/settings/workspace/api-keys": typeof AppOrgSlugSettingsWorkspaceApiKeysRoute
   "/_app/$orgSlug/settings/workspace/certificates": typeof AppOrgSlugSettingsWorkspaceCertificatesRoute
   "/_app/$orgSlug/settings/workspace/general": typeof AppOrgSlugSettingsWorkspaceGeneralRoute
-  "/_app/$orgSlug/settings/workspace/git-providers": typeof AppOrgSlugSettingsWorkspaceGitProvidersRouteWithChildren
+  "/_app/$orgSlug/settings/workspace/git-providers": typeof AppOrgSlugSettingsWorkspaceGitProvidersRoute
   "/_app/$orgSlug/settings/workspace/notifications": typeof AppOrgSlugSettingsWorkspaceNotificationsRoute
   "/_app/$orgSlug/settings/workspace/registries": typeof AppOrgSlugSettingsWorkspaceRegistriesRoute
   "/_app/$orgSlug/settings/workspace/ssh-keys": typeof AppOrgSlugSettingsWorkspaceSshKeysRoute
@@ -619,7 +610,6 @@ export interface FileRoutesById {
   "/_app/$orgSlug/settings/workspace/webhooks": typeof AppOrgSlugSettingsWorkspaceWebhooksRoute
   "/_app/$orgSlug/_shell/$projectSlug/": typeof AppOrgSlugShellProjectSlugIndexRoute
   "/_app/$orgSlug/_shell/$projectSlug/graph/$resourceId": typeof AppOrgSlugShellProjectSlugGraphResourceIdLayoutRouteWithChildren
-  "/_app/$orgSlug/settings/workspace/git-providers/$providerId": typeof AppOrgSlugSettingsWorkspaceGitProvidersProviderIdRoute
   "/_app/$orgSlug/settings/workspace/github-app/$providerId": typeof AppOrgSlugSettingsWorkspaceGithubAppProviderIdRoute
   "/_app/$orgSlug/_shell/$projectSlug/graph/preview/$previewId": typeof AppOrgSlugShellProjectSlugGraphPreviewPreviewIdRoute
   "/_app/$orgSlug/_shell/$projectSlug/graph/$resourceId/deployment/$deploymentId": typeof AppOrgSlugShellProjectSlugGraphResourceIdDeploymentDeploymentIdRoute
@@ -685,7 +675,6 @@ export interface FileRouteTypes {
     | "/$orgSlug/settings/workspace/webhooks"
     | "/$orgSlug/$projectSlug/"
     | "/$orgSlug/$projectSlug/graph/$resourceId"
-    | "/$orgSlug/settings/workspace/git-providers/$providerId"
     | "/$orgSlug/settings/workspace/github-app/$providerId"
     | "/$orgSlug/$projectSlug/graph/preview/$previewId"
     | "/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId"
@@ -746,7 +735,6 @@ export interface FileRouteTypes {
     | "/$orgSlug/settings/workspace/webhooks"
     | "/$orgSlug/$projectSlug"
     | "/$orgSlug/$projectSlug/graph/$resourceId"
-    | "/$orgSlug/settings/workspace/git-providers/$providerId"
     | "/$orgSlug/settings/workspace/github-app/$providerId"
     | "/$orgSlug/$projectSlug/graph/preview/$previewId"
     | "/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId"
@@ -812,7 +800,6 @@ export interface FileRouteTypes {
     | "/_app/$orgSlug/settings/workspace/webhooks"
     | "/_app/$orgSlug/_shell/$projectSlug/"
     | "/_app/$orgSlug/_shell/$projectSlug/graph/$resourceId"
-    | "/_app/$orgSlug/settings/workspace/git-providers/$providerId"
     | "/_app/$orgSlug/settings/workspace/github-app/$providerId"
     | "/_app/$orgSlug/_shell/$projectSlug/graph/preview/$previewId"
     | "/_app/$orgSlug/_shell/$projectSlug/graph/$resourceId/deployment/$deploymentId"
@@ -1249,13 +1236,6 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppOrgSlugSettingsWorkspaceGithubAppProviderIdRouteImport
       parentRoute: typeof AppOrgSlugSettingsLayoutRoute
     }
-    "/_app/$orgSlug/settings/workspace/git-providers/$providerId": {
-      id: "/_app/$orgSlug/settings/workspace/git-providers/$providerId"
-      path: "/$providerId"
-      fullPath: "/$orgSlug/settings/workspace/git-providers/$providerId"
-      preLoaderRoute: typeof AppOrgSlugSettingsWorkspaceGitProvidersProviderIdRouteImport
-      parentRoute: typeof AppOrgSlugSettingsWorkspaceGitProvidersRoute
-    }
     "/_app/$orgSlug/_shell/$projectSlug/graph/$resourceId": {
       id: "/_app/$orgSlug/_shell/$projectSlug/graph/$resourceId"
       path: "/$resourceId"
@@ -1388,21 +1368,6 @@ const AppOrgSlugShellLayoutRouteWithChildren =
     AppOrgSlugShellLayoutRouteChildren,
   )
 
-interface AppOrgSlugSettingsWorkspaceGitProvidersRouteChildren {
-  AppOrgSlugSettingsWorkspaceGitProvidersProviderIdRoute: typeof AppOrgSlugSettingsWorkspaceGitProvidersProviderIdRoute
-}
-
-const AppOrgSlugSettingsWorkspaceGitProvidersRouteChildren: AppOrgSlugSettingsWorkspaceGitProvidersRouteChildren =
-  {
-    AppOrgSlugSettingsWorkspaceGitProvidersProviderIdRoute:
-      AppOrgSlugSettingsWorkspaceGitProvidersProviderIdRoute,
-  }
-
-const AppOrgSlugSettingsWorkspaceGitProvidersRouteWithChildren =
-  AppOrgSlugSettingsWorkspaceGitProvidersRoute._addFileChildren(
-    AppOrgSlugSettingsWorkspaceGitProvidersRouteChildren,
-  )
-
 interface AppOrgSlugSettingsLayoutRouteChildren {
   AppOrgSlugSettingsIndexRoute: typeof AppOrgSlugSettingsIndexRoute
   AppOrgSlugSettingsAccountProfileRoute: typeof AppOrgSlugSettingsAccountProfileRoute
@@ -1412,7 +1377,7 @@ interface AppOrgSlugSettingsLayoutRouteChildren {
   AppOrgSlugSettingsWorkspaceApiKeysRoute: typeof AppOrgSlugSettingsWorkspaceApiKeysRoute
   AppOrgSlugSettingsWorkspaceCertificatesRoute: typeof AppOrgSlugSettingsWorkspaceCertificatesRoute
   AppOrgSlugSettingsWorkspaceGeneralRoute: typeof AppOrgSlugSettingsWorkspaceGeneralRoute
-  AppOrgSlugSettingsWorkspaceGitProvidersRoute: typeof AppOrgSlugSettingsWorkspaceGitProvidersRouteWithChildren
+  AppOrgSlugSettingsWorkspaceGitProvidersRoute: typeof AppOrgSlugSettingsWorkspaceGitProvidersRoute
   AppOrgSlugSettingsWorkspaceNotificationsRoute: typeof AppOrgSlugSettingsWorkspaceNotificationsRoute
   AppOrgSlugSettingsWorkspaceRegistriesRoute: typeof AppOrgSlugSettingsWorkspaceRegistriesRoute
   AppOrgSlugSettingsWorkspaceSshKeysRoute: typeof AppOrgSlugSettingsWorkspaceSshKeysRoute
@@ -1439,7 +1404,7 @@ const AppOrgSlugSettingsLayoutRouteChildren: AppOrgSlugSettingsLayoutRouteChildr
     AppOrgSlugSettingsWorkspaceGeneralRoute:
       AppOrgSlugSettingsWorkspaceGeneralRoute,
     AppOrgSlugSettingsWorkspaceGitProvidersRoute:
-      AppOrgSlugSettingsWorkspaceGitProvidersRouteWithChildren,
+      AppOrgSlugSettingsWorkspaceGitProvidersRoute,
     AppOrgSlugSettingsWorkspaceNotificationsRoute:
       AppOrgSlugSettingsWorkspaceNotificationsRoute,
     AppOrgSlugSettingsWorkspaceRegistriesRoute:

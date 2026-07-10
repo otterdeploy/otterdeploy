@@ -233,8 +233,9 @@ export async function listProjectDeployments(
     isLatest: latestByResource.get(row.resourceId) === row.id,
   }));
 
-  const filtered = input.status
-    ? withLatest.filter((row) => matchesStatusFilter(input.status!, row.status, row.isLatest))
+  const statusFilter = input.status;
+  const filtered = statusFilter
+    ? withLatest.filter((row) => matchesStatusFilter(statusFilter, row.status, row.isLatest))
     : withLatest;
 
   const total = filtered.length;

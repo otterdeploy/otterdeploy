@@ -49,6 +49,55 @@ function LogRow({ line, wrap }: { line: LogLine; wrap: boolean }) {
   );
 }
 
+/** The toolbar's right-side controls — wrap toggle, pause/resume, copy. */
+function TailControls({
+  wrap,
+  onToggleWrap,
+  paused,
+  onTogglePause,
+  onCopy,
+}: {
+  wrap: boolean;
+  onToggleWrap: () => void;
+  paused: boolean;
+  onTogglePause: () => void;
+  onCopy: () => void;
+}) {
+  return (
+    <div className="ml-auto flex items-center gap-1">
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className={cn("h-7 gap-1.5 text-[12px]", !wrap && "text-muted-foreground/60")}
+        onClick={onToggleWrap}
+      >
+        <HugeiconsIcon icon={TextWrapIcon} strokeWidth={2} className="size-3.5" />
+        Wrap
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="h-7 gap-1.5 text-[12px]"
+        onClick={onTogglePause}
+      >
+        <HugeiconsIcon icon={paused ? PlayIcon : PauseIcon} strokeWidth={2} className="size-3.5" />
+        {paused ? "Resume" : "Pause"}
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Copy visible lines"
+        onClick={onCopy}
+      >
+        <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} className="size-3.5" />
+      </Button>
+    </div>
+  );
+}
+
 export function ServiceLogsTab({
   projectId,
   resourceId,
@@ -150,41 +199,13 @@ export function ServiceLogsTab({
           {badge.label}
         </span>
 
-        <div className="ml-auto flex items-center gap-1">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className={cn("h-7 gap-1.5 text-[12px]", !wrap && "text-muted-foreground/60")}
-            onClick={() => setWrap((w) => !w)}
-          >
-            <HugeiconsIcon icon={TextWrapIcon} strokeWidth={2} className="size-3.5" />
-            Wrap
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-7 gap-1.5 text-[12px]"
-            onClick={() => setPaused((p) => !p)}
-          >
-            <HugeiconsIcon
-              icon={paused ? PlayIcon : PauseIcon}
-              strokeWidth={2}
-              className="size-3.5"
-            />
-            {paused ? "Resume" : "Pause"}
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Copy visible lines"
-            onClick={copyVisible}
-          >
-            <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} className="size-3.5" />
-          </Button>
-        </div>
+        <TailControls
+          wrap={wrap}
+          onToggleWrap={() => setWrap((w) => !w)}
+          paused={paused}
+          onTogglePause={() => setPaused((p) => !p)}
+          onCopy={copyVisible}
+        />
       </div>
 
       <div

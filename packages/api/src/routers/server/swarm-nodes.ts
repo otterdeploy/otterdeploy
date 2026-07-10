@@ -46,6 +46,28 @@ export interface SwarmNodesView {
   nodes: SwarmNodeEntry[];
 }
 
+/** ManagerStatus-derived fields — workers carry none. */
+function managerInfo(ms: { Leader?: boolean; Reachability?: string } | null | undefined): {
+  leader: boolean;
+  reachability: string | null;
+} {
+  return { leader: ms?.Leader ?? false, reachability: ms?.Reachability ?? null };
+}
+
+/** Node address: Status.Addr, falling back to the manager address. */
+function nodeAddr(
+  status: { Addr?: string } | null | undefined,
+  ms: { Addr?: string } | null | undefined,
+): string | null {
+  return status?.Addr ?? ms?.Addr ?? null;
+}
+
+function engineVersionOf(
+  description: { Engine?: { EngineVersion?: string } } | undefined,
+): string | null {
+  return description?.Engine?.EngineVersion ?? null;
+}
+
 export async function listSwarmNodes(input: {
   organizationId: OrganizationId;
 }): Promise<Result<SwarmNodesView, SwarmNodeListError>> {
@@ -75,18 +97,19 @@ export async function listSwarmNodes(input: {
 
     return Result.ok({
       swarm: true,
-      nodes: nodes.map((n) => ({
-        id: n.ID ?? "",
-        hostname: n.Description?.Hostname ?? n.ID ?? "",
-        role: n.Spec?.Role === "manager" ? ("manager" as const) : ("worker" as const),
-        availability: n.Spec?.Availability ?? "active",
-        state: n.Status?.State ?? "unknown",
-        addr: n.Status?.Addr ?? n.ManagerStatus?.Addr ?? null,
-        leader: n.ManagerStatus?.Leader ?? false,
-        reachability: n.ManagerStatus?.Reachability ?? null,
-        engineVersion: n.Description?.Engine?.EngineVersion ?? null,
-        serverId: serverIdByNodeId.get(n.ID ?? "") ?? null,
-      })),
+      nodes: nodes.map(
+        (n): SwarmNodeEntry => ({
+          id: n.ID ?? "",
+          hostname: n.Description?.Hostname ?? n.ID ?? "",
+          role: n.Spec?.Role === "manager" ? ("manager" as const) : ("worker" as const),
+          availability: n.Spec?.Availability ?? "active",
+          state: n.Status?.State ?? "unknown",
+          addr: nodeAddr(n.Status, n.ManagerStatus),
+          ...managerInfo(n.ManagerStatus),
+          engineVersion: engineVersionOf(n.Description),
+          serverId: serverIdByNodeId.get(n.ID ?? "") ?? null,
+        }),
+      ),
     });
   } finally {
     docker.destroy();

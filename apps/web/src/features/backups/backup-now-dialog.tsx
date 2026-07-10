@@ -1,10 +1,3 @@
-import {
-  CloudServerIcon,
-  FlashIcon,
-  PlusSignIcon,
-  SquareLock01Icon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { useLiveQuery } from "@tanstack/react-db";
 /**
  * Run a backup now. The engine backs up database resources (logical dump) and
@@ -18,15 +11,20 @@ import { toast } from "sonner";
 import { terminalDatabasesCollection } from "@/features/terminal/data/targets";
 import { Button } from "@/shared/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
-import { Switch } from "@/shared/components/ui/switch";
 
 import type { Destination } from "./data/destinations";
 
+import {
+  EncryptToggle,
+  NoDestinations,
+  StartBackupButton,
+  toDestOptions,
+} from "./backup-now-parts";
 import { runBackup } from "./data/backups";
 import { useVolumesList } from "./data/volumes";
 import { DatabaseCombobox } from "./database-combobox";
 import { MultiSelectCombobox } from "./multi-combobox";
-import { Field, Segmented, destUri } from "./shared";
+import { Field, Segmented } from "./shared";
 import { VolumeCombobox } from "./volume-combobox";
 
 export function BackupNowDialog({
@@ -97,12 +95,7 @@ function BackupNowBody({
   const sourceKind = useStore(form.store, (s) => s.values.sourceKind);
   const { volumes, isLoading: volumesLoading } = useVolumesList(sourceKind === "volume");
 
-  const destOptions = destinations.map((d) => ({
-    value: d.id,
-    label: d.name,
-    tag: d.type,
-    keywords: destUri(d),
-  }));
+  const destOptions = toDestOptions(destinations);
 
   return (
     <DialogContent className="gap-0 p-0 sm:max-w-3xl">
@@ -184,18 +177,7 @@ function BackupNowBody({
           )}
 
           <form.Field name="encrypted">
-            {(field) => (
-              <div className="flex items-center gap-3 rounded-md border bg-muted/30 px-3 py-2.5">
-                <HugeiconsIcon icon={SquareLock01Icon} className="size-3.5 text-muted-foreground" />
-                <div className="flex flex-1 flex-col">
-                  <span className="text-xs font-medium">Encrypt at rest</span>
-                  <span className="text-[11px] text-muted-foreground">
-                    AES-256 GCM · key derived from the deployment secret
-                  </span>
-                </div>
-                <Switch checked={field.state.value} onCheckedChange={field.handleChange} />
-              </div>
-            )}
+            {(field) => <EncryptToggle checked={field.state.value} onChange={field.handleChange} />}
           </form.Field>
         </div>
 
@@ -213,58 +195,15 @@ function BackupNowBody({
             }
           >
             {([isSubmitting, source, destCount]) => (
-              <Button
-                size="sm"
-                type="submit"
-                className="gap-1.5"
-                disabled={Boolean(isSubmitting) || !source || destCount === 0}
-              >
-                <HugeiconsIcon icon={FlashIcon} className="size-3" />
-                {isSubmitting ? "Starting…" : "Start backup"}
-              </Button>
+              <StartBackupButton
+                isSubmitting={Boolean(isSubmitting)}
+                hasSource={Boolean(source)}
+                destCount={destCount}
+              />
             )}
           </form.Subscribe>
         </div>
       </form>
     </DialogContent>
-  );
-}
-
-/** Empty state shown when no backup destinations exist yet. */
-function NoDestinations({
-  onClose,
-  onAddDestination,
-}: {
-  onClose: () => void;
-  onAddDestination?: () => void;
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <span className="text-xs text-muted-foreground">Destinations</span>
-      <div className="flex items-center gap-3 rounded-md border border-dashed bg-muted/20 px-3 py-2.5">
-        <HugeiconsIcon icon={CloudServerIcon} className="size-3.5 shrink-0 text-muted-foreground" />
-        <div className="flex flex-1 flex-col">
-          <span className="text-xs font-medium">No destinations yet</span>
-          <span className="text-[11px] text-muted-foreground">
-            Backups need somewhere to land — local disk, an S3 bucket, or SFTP.
-          </span>
-        </div>
-        {onAddDestination ? (
-          <Button
-            variant="outline"
-            size="sm"
-            type="button"
-            className="shrink-0 gap-1.5"
-            onClick={() => {
-              onClose();
-              onAddDestination();
-            }}
-          >
-            <HugeiconsIcon icon={PlusSignIcon} className="size-3" />
-            Add
-          </Button>
-        ) : null}
-      </div>
-    </div>
   );
 }

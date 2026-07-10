@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode, SVGProps } from "react";
+import { type CSSProperties, createElement, type ReactNode, type SVGProps } from "react";
 
 import { useTheme } from "@/shared/components/theme-provider";
 import { AwsDark } from "@/shared/components/ui/svgs/aws-dark";
@@ -90,7 +90,10 @@ export function SvglLogo({
 }: Props) {
   const { resolvedTheme, theme } = useTheme();
   const isDark = (resolvedTheme ?? theme) === "dark";
-  const Icon = resolveBrand(search, isDark);
+  // Module-level map lookup — the returned component identity is stable, so
+  // rendering it via `createElement` (not a render-local <Capitalized />) keeps
+  // React from treating it as a component created during render.
+  const icon = resolveBrand(search, isDark);
 
   return (
     <span
@@ -109,13 +112,13 @@ export function SvglLogo({
         ...style,
       }}
     >
-      {Icon ? (
-        <Icon
-          width={Math.round(size * 0.68)}
-          height={Math.round(size * 0.68)}
-          aria-hidden={alt === "" ? true : undefined}
-          role={alt === "" ? "presentation" : "img"}
-        />
+      {icon ? (
+        createElement(icon, {
+          width: Math.round(size * 0.68),
+          height: Math.round(size * 0.68),
+          "aria-hidden": alt === "" ? true : undefined,
+          role: alt === "" ? "presentation" : "img",
+        })
       ) : (
         <span
           className="font-mono"

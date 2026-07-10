@@ -7,7 +7,7 @@
  */
 import { useState } from "react";
 
-import { Download01Icon, PlusSignIcon, Upload01Icon } from "@hugeicons/core-free-icons";
+import { Download01Icon, Upload01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useLiveQuery } from "@tanstack/react-db";
 import { createFileRoute } from "@tanstack/react-router";
@@ -17,10 +17,7 @@ import {
   inboundCollection,
   outboundCollection,
 } from "@/features/webhooks/data/webhooks";
-import { DeliveriesTable } from "@/features/webhooks/deliveries-table";
-import { InboundCard } from "@/features/webhooks/inbound-card";
 import { InboundDialog } from "@/features/webhooks/inbound-dialog";
-import { OutboundCard } from "@/features/webhooks/outbound-card";
 import {
   OutboundDialog,
   type OutboundFormValues,
@@ -30,14 +27,6 @@ import {
   type OutboundWebhook,
 } from "@/features/webhooks/shared";
 import { Page, PageHeader } from "@/shared/components/page";
-import { Button } from "@/shared/components/ui/button";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "@/shared/components/ui/empty";
-import { Skeleton } from "@/shared/components/ui/skeleton";
 import {
   Tabs,
   TabsContent,
@@ -45,20 +34,12 @@ import {
   TabsTrigger,
 } from "@/shared/components/ui/tabs";
 
+import { InboundTab, OutboundTab } from "../../-components/webhooks-tabs";
+
 export const Route = createFileRoute("/_app/$orgSlug/settings/workspace/webhooks")({
   staticData: { crumb: "Webhooks" },
   component: RouteComponent,
 });
-
-function CardSkeletons() {
-  return (
-    <div className="flex flex-col gap-3">
-      {Array.from({ length: 2 }).map((_, i) => (
-        <Skeleton key={i} className="h-32 w-full rounded-md" />
-      ))}
-    </div>
-  );
-}
 
 function RouteComponent() {
   const [outboundDialogOpen, setOutboundDialogOpen] = useState(false);
@@ -141,82 +122,21 @@ function RouteComponent() {
         </div>
 
         <TabsContent value="outbound" className="flex flex-col gap-5">
-          <div className="flex items-center gap-3">
-            <p className="text-[11px] text-muted-foreground">
-              Payloads are HMAC-SHA256 signed; failed deliveries retry with exponential backoff.
-            </p>
-            <div className="flex-1" />
-            <Button size="sm" onClick={openCreateOutbound}>
-              <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
-              Add outbound webhook
-            </Button>
-          </div>
-
-          {outboundLoading ? (
-            <CardSkeletons />
-          ) : outbound.length > 0 ? (
-            <div className="flex flex-col gap-3">
-              {outbound.map((w) => (
-                <OutboundCard key={w.id} webhook={w} onEdit={openEditOutbound} />
-              ))}
-            </div>
-          ) : (
-            <Empty className="rounded-md border border-dashed bg-muted/20 py-12">
-              <EmptyHeader>
-                <HugeiconsIcon
-                  icon={Upload01Icon}
-                  strokeWidth={1.5}
-                  className="size-10 text-muted-foreground/50"
-                />
-                <EmptyTitle>No outbound webhooks yet</EmptyTitle>
-                <EmptyDescription>
-                  Add a target URL and pick the platform events it should receive — deploys,
-                  builds, health, backups, certs.
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          )}
-
-          <DeliveriesTable />
+          <OutboundTab
+            outbound={outbound}
+            loading={outboundLoading}
+            onCreate={openCreateOutbound}
+            onEdit={openEditOutbound}
+          />
         </TabsContent>
 
         <TabsContent value="inbound" className="flex flex-col gap-5">
-          <div className="flex items-center gap-3">
-            <p className="text-[11px] text-muted-foreground">
-              Each endpoint exposes a unique URL. Requests are verified against the HMAC secret and
-              source-IP allowlist before triggering the configured action.
-            </p>
-            <div className="flex-1" />
-            <Button size="sm" onClick={openCreateInbound}>
-              <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
-              Create endpoint
-            </Button>
-          </div>
-
-          {inboundLoading ? (
-            <CardSkeletons />
-          ) : inbound.length > 0 ? (
-            <div className="flex flex-col gap-3">
-              {inbound.map((e) => (
-                <InboundCard key={e.id} endpoint={e} onEdit={openEditInbound} />
-              ))}
-            </div>
-          ) : (
-            <Empty className="rounded-md border border-dashed bg-muted/20 py-12">
-              <EmptyHeader>
-                <HugeiconsIcon
-                  icon={Download01Icon}
-                  strokeWidth={1.5}
-                  className="size-10 text-muted-foreground/50"
-                />
-                <EmptyTitle>No inbound endpoints yet</EmptyTitle>
-                <EmptyDescription>
-                  Create an endpoint to redeploy a service from CI, GitHub, or any system that can
-                  send a signed POST.
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          )}
+          <InboundTab
+            inbound={inbound}
+            loading={inboundLoading}
+            onCreate={openCreateInbound}
+            onEdit={openEditInbound}
+          />
         </TabsContent>
       </Tabs>
 
