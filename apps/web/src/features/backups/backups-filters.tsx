@@ -67,6 +67,7 @@ export function BackupsFilters({
         ))}
       </div>
 
+      {/* No "Stack" chip: no stack engine exists, so it could never match. */}
       <Segmented
         value={kindFilter}
         onChange={onKindFilter}
@@ -74,7 +75,6 @@ export function BackupsFilters({
           { id: "all", label: "All" },
           { id: "database", label: "Database" },
           { id: "volume", label: "Volume" },
-          { id: "stack", label: "Stack" },
         ]}
       />
 

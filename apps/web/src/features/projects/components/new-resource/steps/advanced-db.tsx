@@ -1,138 +1,88 @@
+/**
+ * Advanced step for database kinds. Only options the provisioner actually
+ * honors get controls:
+ *
+ *   - Postgres extensions ARE consumed (manifest `extensions` → CREATE
+ *     EXTENSION + image pinning at provision time) — real picker.
+ *   - Everything else the old step showed was decorative: no connection
+ *     pooler is ever deployed (no PgBouncer/ProxySQL anywhere in the
+ *     provisioner), Redis persistence is hardcoded (`--appendonly yes` in
+ *     the engine adapter's buildCommand) with no eviction/RDB knobs, and
+ *     no maintenance-window scheduler exists. Those controls were removed
+ *     rather than shipped as switches that write to nothing — what's left
+ *     states the fixed behavior instead.
+ */
+
 import type { ServiceKind } from "@/features/projects/data/service-kinds";
 
-import { Card, CardContent } from "@/shared/components/ui/card";
-import { Input } from "@/shared/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/components/ui/select";
+import { Card } from "@/shared/components/ui/card";
 
-import { traitsFor } from "../engine-traits";
-import { SectionHeader, Field, SettingRow } from "../form-primitives";
+import { SectionHeader } from "../form-primitives";
 import { PostgresExtensionsSection } from "./postgres-extensions-section";
 
-const REDIS_EVICTION_POLICIES = [
-  { value: "allkeys-lru", label: "allkeys-lru — evict least recently used" },
-  { value: "volatile-lru", label: "volatile-lru — evict TTL'd keys least recently used" },
-  { value: "noeviction", label: "noeviction — return errors when full" },
-];
-
-const MAINTENANCE_DAYS = ["Sunday", "Saturday", "Monday"];
-const MAINTENANCE_WINDOWS = ["03:00 - 05:00 UTC", "09:00 - 11:00 UTC", "15:00 - 17:00 UTC"];
-
 export function StepAdvancedDb({ kind }: { kind: ServiceKind }) {
-  const traits = traitsFor(kind.id);
   const isPg = kind.id === "postgres";
   const isRedis = kind.id === "redis";
 
   return (
     <>
-      {traits.poolerName && (
-        <>
-          <SectionHeader title="Connection pooling" />
-          <Card className="mt-3 rounded-md">
-            <CardContent className="flex flex-col gap-3">
-              <SettingRow
-                label={`Enable ${traits.poolerName}`}
-                defaultOn
-                sub="Front the database with a transaction-mode pooler"
-              />
-              <div className="grid grid-cols-2 gap-2.5">
-                <Field label="Pool size">
-                  <Input className="font-mono" type="number" defaultValue={20} />
-                </Field>
-                <Field label="Max client connections">
-                  <Input className="font-mono" type="number" defaultValue={200} />
-                </Field>
-              </div>
-            </CardContent>
-          </Card>
-        </>
-      )}
-
-      {isPg && (
-        <>
-          <div className="h-[18px]" />
-          <PostgresExtensionsSection />
-        </>
-      )}
+      {isPg && <PostgresExtensionsSection />}
 
       {isRedis && (
         <>
-          <div className="h-[18px]" />
-          <SectionHeader title="Redis configuration" />
-          <Card className="mt-2.5 rounded-md">
-            <CardContent className="flex flex-col gap-2.5">
-              <Field label="Eviction policy">
-                <Select defaultValue="allkeys-lru" items={REDIS_EVICTION_POLICIES}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {REDIS_EVICTION_POLICIES.map((p) => (
-                      <SelectItem key={p.value} value={p.value}>
-                        {p.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <SettingRow
-                label="Persistence (AOF)"
-                defaultOn
-                sub="Append-only file fsync every second"
-              />
-              <SettingRow label="RDB snapshots" defaultOn sub="Periodic point-in-time dumps" />
-            </CardContent>
+          <SectionHeader
+            title="Redis configuration"
+            sub="Fixed by the provisioner today — eviction and snapshot tuning aren't configurable yet"
+          />
+          <Card className="mt-2.5 gap-0 p-4">
+            <InfoRow
+              label="Persistence"
+              value={
+                <>
+                  Append-only file enabled (<code className="font-mono">--appendonly yes</code>),
+                  written to the <code className="font-mono">/data</code> volume
+                </>
+              }
+            />
+            <InfoRow
+              label="Auth"
+              value="A generated password is required on every connection (requirepass)"
+              last
+            />
           </Card>
         </>
       )}
 
-      <div className="h-[18px]" />
-      <SectionHeader title="Maintenance window" sub="When can Otterdeploy apply patches?" />
-      <Card className="mt-2.5 rounded-md">
-        <CardContent>
-          <div className="grid grid-cols-2 gap-2.5">
-            <Field label="Day">
-              <Select
-                defaultValue="Sunday"
-                items={MAINTENANCE_DAYS.map((d) => ({ label: d, value: d }))}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {MAINTENANCE_DAYS.map((d) => (
-                    <SelectItem key={d} value={d}>
-                      {d}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field label="Window">
-              <Select
-                defaultValue={MAINTENANCE_WINDOWS[0]}
-                items={MAINTENANCE_WINDOWS.map((w) => ({ label: w, value: w }))}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {MAINTENANCE_WINDOWS.map((w) => (
-                    <SelectItem key={w} value={w}>
-                      {w}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-          </div>
-        </CardContent>
-      </Card>
+      {!isPg && !isRedis && (
+        <>
+          <SectionHeader title="Advanced" />
+          <Card className="mt-2.5 p-4">
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              No engine-specific options for {kind.name} yet. Connection details, users, and backups
+              are managed on the resource pages after it deploys.
+            </p>
+          </Card>
+        </>
+      )}
     </>
+  );
+}
+
+function InfoRow({
+  label,
+  value,
+  last,
+}: {
+  label: string;
+  value: React.ReactNode;
+  last?: boolean;
+}) {
+  return (
+    <div
+      className={`flex items-start gap-3 py-2 text-xs ${last ? "" : "border-b border-border/60"}`}
+    >
+      <span className="w-24 shrink-0 pt-px text-[11px] text-muted-foreground">{label}</span>
+      <span className="flex-1 leading-relaxed text-foreground/90">{value}</span>
+    </div>
   );
 }

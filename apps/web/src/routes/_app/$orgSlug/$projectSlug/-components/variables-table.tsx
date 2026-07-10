@@ -24,21 +24,50 @@ import { cn } from "@/shared/lib/utils";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 import { BulkEditDialog } from "./variables-bulk-edit";
+import { serializeDotEnv } from "./variables-dotenv";
 import type { EnvironmentRef, EnvVarRow } from "./variables-types";
+
+/** Drag-drop .env imports above this size are refused with an honest toast. */
+const MAX_IMPORT_BYTES = 512 * 1024;
+
+function isEnvLikeFile(file: File): boolean {
+  const name = file.name.toLowerCase();
+  return (
+    name.endsWith(".env") ||
+    name.endsWith(".txt") ||
+    name.startsWith(".env") || // .env, .env.local, .env.production…
+    file.type === "text/plain"
+  );
+}
+
+/** True when the drag payload contains OS files (not in-page drags). */
+function hasFiles(e: React.DragEvent): boolean {
+  return Array.from(e.dataTransfer.types).includes("Files");
+}
 
 export function PerEnvTable({
   projectId,
+  projectSlug,
   env,
+  allEnvs,
   rows,
 }: {
   projectId: string;
+  projectSlug: string;
   env: EnvironmentRef;
+  allEnvs: EnvironmentRef[];
   rows: EnvVarRow[];
 }) {
   const [q, setQ] = useState("");
   const [revealAll, setRevealAll] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkOpen, setBulkOpen] = useState(false);
+  // Text a dropped .env file seeds the bulk-edit dialog with.
+  const [importText, setImportText] = useState<string | null>(null);
+  // Depth counter — dragenter/dragleave fire per child, so a plain
+  // boolean flickers while dragging across the table.
+  const [dragDepth, setDragDepth] = useState(0);
+  const dragging = dragDepth > 0;
 
   const filtered = rows.filter(
     (r) => !q || r.key.toLowerCase().includes(q.toLowerCase()),
@@ -58,24 +87,101 @@ export function PerEnvTable({
     });
 
   // bulkReplace is an atomic whole-env replace (not row-level), so it stays a
-  // direct orpc call; afterwards we invalidate the collection's subset query so
-  // the live rows refresh.
-  const invalidate = () => {
-    void queryClient.invalidateQueries({
-      queryKey: [
-        "projectVariables",
-        ...orpc.project.envVar.list.queryKey({
-          input: {
-            projectId: projectId as never,
-            environmentId: env.id as never,
-          },
-        }),
-      ],
-    });
+  // direct orpc call; afterwards we invalidate the collection's subset query
+  // for every env that was written so the live rows refresh.
+  const invalidate = (envIds: string[]) => {
+    for (const envId of envIds) {
+      void queryClient.invalidateQueries({
+        queryKey: [
+          "projectVariables",
+          ...orpc.project.envVar.list.queryKey({
+            input: {
+              projectId: projectId as never,
+              environmentId: envId as never,
+            },
+          }),
+        ],
+      });
+    }
+  };
+
+  // Explicit export: always writes real values regardless of the masked
+  // state — the reveal toggle only affects on-screen rendering.
+  const downloadDotEnv = () => {
+    const content = serializeDotEnv(
+      rows.map((r) => ({ key: r.key, value: r.value })),
+    );
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${projectSlug}-${env.slug}.env`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const importFile = async (file: File) => {
+    if (!isEnvLikeFile(file)) {
+      toast.error(`Can't import ${file.name} — drop a .env or .txt file.`);
+      return;
+    }
+    if (file.size > MAX_IMPORT_BYTES) {
+      toast.error(
+        `${file.name} is ${Math.ceil(file.size / 1024)} KB — imports are capped at ${MAX_IMPORT_BYTES / 1024} KB.`,
+      );
+      return;
+    }
+    try {
+      const text = await file.text();
+      setImportText(text);
+      setBulkOpen(true);
+    } catch {
+      toast.error(`Couldn't read ${file.name}.`);
+    }
   };
 
   return (
-    <div className="mx-auto w-full max-w-6xl p-6">
+    <div
+      className="relative mx-auto w-full max-w-6xl p-6"
+      onDragEnter={(e) => {
+        if (!hasFiles(e)) return;
+        e.preventDefault();
+        setDragDepth((d) => d + 1);
+      }}
+      onDragOver={(e) => {
+        if (!hasFiles(e)) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "copy";
+      }}
+      onDragLeave={(e) => {
+        if (!hasFiles(e)) return;
+        setDragDepth((d) => Math.max(0, d - 1));
+      }}
+      onDrop={(e) => {
+        if (!hasFiles(e)) return;
+        e.preventDefault();
+        setDragDepth(0);
+        const file = e.dataTransfer.files[0];
+        if (file) void importFile(file);
+      }}
+    >
+      {dragging && (
+        <div className="pointer-events-none absolute inset-2 z-10 grid place-items-center rounded-md bg-background/85 ring-2 ring-inset ring-primary/60">
+          <div className="flex flex-col items-center gap-1.5 text-center">
+            <HugeiconsIcon icon={Upload01Icon} className="size-5 text-primary" />
+            <div className="text-sm font-medium">
+              Drop <code className="font-mono">.env</code> to import into{" "}
+              <span className="capitalize">{env.name || env.slug}</span>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Opens bulk edit for review — nothing is saved until you apply.
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="mb-4 flex items-center gap-2">
         <div className="relative flex-1 max-w-sm">
           <HugeiconsIcon
@@ -94,7 +200,19 @@ export function PerEnvTable({
           Filters
         </Button>
         <div className="flex-1" />
-        <Button variant="ghost" size="icon" className="size-8" aria-label="Download .env">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-8"
+          aria-label="Download .env"
+          title={
+            rows.length === 0
+              ? "No variables to download"
+              : `Download ${projectSlug}-${env.slug}.env`
+          }
+          disabled={rows.length === 0}
+          onClick={downloadDotEnv}
+        >
           <HugeiconsIcon icon={Download01Icon} className="size-3.5" />
         </Button>
         <Button
@@ -166,8 +284,8 @@ export function PerEnvTable({
           className="size-5 text-muted-foreground"
         />
         <div className="text-sm text-foreground/80">
-          Paste or drag a <code className="font-mono">.env</code> block into bulk
-          edit.
+          Drag a <code className="font-mono">.env</code> file anywhere on this
+          tab, or paste into bulk edit.
         </div>
         <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setBulkOpen(true)}>
           <HugeiconsIcon icon={Copy01Icon} className="size-3.5" />
@@ -178,10 +296,15 @@ export function PerEnvTable({
       <BulkEditDialog
         projectId={projectId}
         env={env}
+        allEnvs={allEnvs}
         currentRows={rows}
         open={bulkOpen}
-        onOpenChange={setBulkOpen}
+        onOpenChange={(o) => {
+          setBulkOpen(o);
+          if (!o) setImportText(null);
+        }}
         onSaved={invalidate}
+        prefillText={importText}
       />
     </div>
   );

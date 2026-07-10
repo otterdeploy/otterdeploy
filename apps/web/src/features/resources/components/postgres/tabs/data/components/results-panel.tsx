@@ -1,8 +1,11 @@
 /**
  * Results pane for the data console. A sub-toolbar (grid / JSON view toggle +
- * CSV export) sits above the body, which renders the active query's grid, a
+ * export menu) sits above the body, which renders the active query's grid, a
  * JSON view, or loading / error / empty states. The owner passes a `leftSlot`
  * (filters in browse mode) and `footerSlot` (counts + pagination).
+ *
+ * Exports (CSV / JSON, all or selected rows) always carry EVERY column —
+ * `hiddenColumns` only trims the grid.
  */
 import { useMemo, useState } from "react";
 
@@ -19,6 +22,13 @@ import type { FkTarget } from "@/shared/components/data-grid/types";
 
 import { Button } from "@/shared/components/ui/button";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/shared/components/ui/dropdown-menu";
+import {
   Empty,
   EmptyDescription,
   EmptyHeader,
@@ -28,7 +38,6 @@ import {
 import { JsonView } from "@/shared/components/ui/json-view";
 import { ScrollArea } from "@/shared/components/ui/scroll-area";
 import { ToggleGroup, ToggleGroupItem } from "@/shared/components/ui/toggle-group";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/components/ui/tooltip";
 import { cn } from "@/shared/lib/utils";
 
 import { type ColumnValue, type ColumnVariant, DiceResultGrid } from "./dice-grid";
@@ -41,6 +50,10 @@ interface ResultsPanelProps {
   rows: (string | null)[][];
   columnVariants?: Record<string, ColumnVariant>;
   columnFks?: Record<string, FkTarget>;
+  /** Collapsed display types (row-detail field labels). */
+  columnTypes?: Record<string, string>;
+  /** Columns hidden from the grid (never from exports). */
+  hiddenColumns?: string[];
   onOpenRef?: (fk: FkTarget, value: string) => void;
   view: ResultView;
   onViewChange: (v: ResultView) => void;
@@ -54,28 +67,49 @@ interface ResultsPanelProps {
   emptyIcon?: typeof Database01Icon;
   leftSlot?: React.ReactNode;
   footerSlot?: React.ReactNode;
-  /** Suggested filename stem for CSV export. */
+  /** Suggested filename stem for exports. */
   exportName?: string;
   /** Inline edit / delete (table-browse mode, actor has write capability). */
   editable?: boolean;
   primaryKey?: string[];
   onUpdateRow?: (pk: ColumnValue[], set: ColumnValue[]) => Promise<void>;
   onDeleteRow?: (pk: ColumnValue[]) => Promise<void>;
+  /** Multi-select checkbox column + selection mirror (table-browse mode). */
+  selectable?: boolean;
+  selectedRows?: number[];
+  onSelectionChange?: (indices: number[]) => void;
+  /** Per-row detail chevron + right-hand panel (table-browse mode). */
+  enableRowDetail?: boolean;
 }
 
-function downloadCsv(columns: string[], rows: (string | null)[][], name: string) {
+function download(blobPart: string, mime: string, filename: string) {
+  const blob = new Blob([blobPart], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function toCsv(columns: string[], rows: (string | null)[][]): string {
   const esc = (v: string | null) => {
     if (v == null) return "";
     return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
   };
-  const csv = [columns.map(esc).join(","), ...rows.map((r) => r.map(esc).join(","))].join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${name}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  return [columns.map(esc).join(","), ...rows.map((r) => r.map(esc).join(","))].join("\n");
+}
+
+function toJson(columns: string[], rows: (string | null)[][]): string {
+  return JSON.stringify(
+    rows.map((r) => {
+      const obj: Record<string, string | null> = {};
+      columns.forEach((c, i) => (obj[c] = r[i] ?? null));
+      return obj;
+    }),
+    null,
+    2,
+  );
 }
 
 export function ResultsPanel({
@@ -84,6 +118,8 @@ export function ResultsPanel({
   rows,
   columnVariants,
   columnFks,
+  columnTypes,
+  hiddenColumns,
   onOpenRef,
   view,
   onViewChange,
@@ -101,6 +137,10 @@ export function ResultsPanel({
   primaryKey,
   onUpdateRow,
   onDeleteRow,
+  selectable = false,
+  selectedRows,
+  onSelectionChange,
+  enableRowDetail = false,
 }: ResultsPanelProps) {
   const jsonData = useMemo(
     () =>
@@ -113,6 +153,19 @@ export function ResultsPanel({
   );
 
   const canExport = hasResult && columns.length > 0;
+  const selectedCount = selectedRows?.length ?? 0;
+  const rowsFor = (selection: boolean) =>
+    selection
+      ? (selectedRows ?? [])
+          .map((i) => rows[i])
+          .filter((r): r is (string | null)[] => r !== undefined)
+      : rows;
+  const exportAs = (format: "csv" | "json", selection: boolean) => {
+    const subset = rowsFor(selection);
+    if (format === "csv")
+      download(toCsv(columns, subset), "text/csv;charset=utf-8;", `${exportName}.csv`);
+    else download(toJson(columns, subset), "application/json;charset=utf-8;", `${exportName}.json`);
+  };
 
   // Each query/page fully replaces the result, so remount the grid whenever the
   // rows array identity changes. The grid is heavily stateful (virtualizer
@@ -151,22 +204,40 @@ export function ResultsPanel({
               <HugeiconsIcon icon={SourceCodeIcon} strokeWidth={2} className="size-3.5" />
             </ToggleGroupItem>
           </ToggleGroup>
-          <Tooltip>
-            <TooltipTrigger
+          <DropdownMenu>
+            <DropdownMenuTrigger
               render={
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  disabled={!canExport}
-                  onClick={() => downloadCsv(columns, rows, exportName)}
-                  aria-label="Export CSV"
-                />
+                <Button variant="ghost" size="icon-sm" disabled={!canExport} aria-label="Export" />
               }
             >
               <HugeiconsIcon icon={Download01Icon} strokeWidth={2} className="size-3.5" />
-            </TooltipTrigger>
-            <TooltipContent>Export CSV</TooltipContent>
-          </Tooltip>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => exportAs("csv", false)}>
+                Export all to .csv
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => exportAs("json", false)}>
+                Export all to .json
+              </DropdownMenuItem>
+              {selectable ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    disabled={selectedCount === 0}
+                    onSelect={() => exportAs("csv", true)}
+                  >
+                    Export selected to .csv{selectedCount ? ` (${selectedCount})` : ""}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={selectedCount === 0}
+                    onSelect={() => exportAs("json", true)}
+                  >
+                    Export selected to .json{selectedCount ? ` (${selectedCount})` : ""}
+                  </DropdownMenuItem>
+                </>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -194,11 +265,16 @@ export function ResultsPanel({
           rows={rows}
           columnVariants={columnVariants}
           columnFks={columnFks}
+          columnTypes={columnTypes}
+          hiddenColumns={hiddenColumns}
           onOpenRef={onOpenRef}
           editable={editable}
           primaryKey={primaryKey}
           onUpdateRow={onUpdateRow}
           onDeleteRow={onDeleteRow}
+          selectable={selectable}
+          onSelectionChange={onSelectionChange}
+          enableRowDetail={enableRowDetail}
         />
       )}
 

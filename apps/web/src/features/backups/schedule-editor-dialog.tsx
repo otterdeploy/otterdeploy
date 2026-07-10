@@ -1,10 +1,11 @@
 /**
  * Create / edit a recurring backup schedule. Fields mirror the server contract
- * (name, sources, cron, destination, keepDaily, retentionDays, encryption,
- * enabled) — the wider DB columns (weekly/monthly tiers, PITR, hooks) aren't in
- * the create/update inputs, so they're not invented here. Destination and
- * encryption are fixed after creation (the update input can't change them). The
- * form plumbing + field layout live in `./schedule-fields`.
+ * (name, sources, cron, destinations, GFS retention tiers, hooks, encryption,
+ * enabled). Schedules are database-only by design: the scheduler resolves
+ * `sources` against database resources, so volumes are backed up via the
+ * one-shot "Backup now" flow, not invented here as schedulable. Destination
+ * and encryption are fixed after creation (the update input can't change
+ * them). The form plumbing + field layout live in `./schedule-fields`.
  */
 import { Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";

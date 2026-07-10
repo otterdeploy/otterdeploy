@@ -10,7 +10,7 @@ import {
 } from "@/shared/components/ui/table";
 import { cn } from "@/shared/lib/utils";
 
-import { BUCKET_BG, type EdgeLog, type EdgeLogsData } from "./edge-logs-constants";
+import { BUCKET_BG, type EdgeLog, type EdgeLogsData, errRateClass } from "./edge-logs-constants";
 import { EdgeRow } from "./edge-logs-row";
 
 function Bar({ n, total, cls }: { n: number; total: number; cls: string }) {
@@ -89,23 +89,31 @@ export function LogTable({
         <TableHeader>
           <TableRow className="border-b bg-muted/30 hover:bg-transparent">
             <TableHead className="w-8" />
-            {["Time", "Method", "Status", "Host", "Path", "Latency", "Client IP", "Country"].map(
-              (h) => (
-                <TableHead
-                  key={h}
-                  className="h-8 text-[10px] font-semibold tracking-[0.06em] uppercase"
-                >
-                  {h}
-                </TableHead>
-              ),
-            )}
+            {[
+              "Time",
+              "Method",
+              "Status",
+              "Host",
+              "Path",
+              "Latency",
+              "Client IP",
+              "Country",
+              "UA",
+            ].map((h) => (
+              <TableHead
+                key={h}
+                className="h-8 text-[10px] font-semibold tracking-[0.06em] uppercase"
+              >
+                {h}
+              </TableHead>
+            ))}
           </TableRow>
         </TableHeader>
         <TableBody>
           {rows.length === 0 ? (
             <TableRow className="hover:bg-transparent">
               <TableCell
-                colSpan={9}
+                colSpan={10}
                 className="py-10 text-center text-[13px] text-muted-foreground"
               >
                 {isLoading
@@ -142,7 +150,8 @@ export function HostFooter({ data }: { data: EdgeLogsData | undefined }) {
         <div key={s.host} className="flex items-center gap-2">
           <span className="text-foreground/80">{s.host}</span>
           <span>{s.rps} rps</span>
-          <span className={cn(s.errorRate > 0.05 ? "text-destructive" : "")}>
+          {/* Two-tier tint per the demo: ≥2% red, ≥0.5% amber. */}
+          <span className={cn(errRateClass(s.errorRate))}>
             {(s.errorRate * 100).toFixed(1)}% err
           </span>
           <span>p50 {s.p50}ms</span>

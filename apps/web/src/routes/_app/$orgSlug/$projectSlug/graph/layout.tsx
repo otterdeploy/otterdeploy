@@ -20,7 +20,7 @@ import {
   topologySignature,
   type XY,
 } from "@/features/projects/components/graph/layout-graph";
-import { StackCodePanel } from "@/features/projects/components/stack";
+import { StackCodePanel, useStackPanelState } from "@/features/projects/components/stack";
 import { orpc } from "@/shared/server/orpc";
 
 import { GraphFlow } from "./-components/graph-flow";
@@ -42,18 +42,21 @@ function RouteComponent() {
   const childKey = childMatches[0]?.pathname ?? null;
   const { projectSlug } = Route.useParams();
   const { project } = useLoaderData({ from: "/_app/$orgSlug/$projectSlug" });
+  // Drawer state (open/tab/height, persisted per project) lives here so the
+  // canvas can lift its bottom-anchored chrome above the drawer's footprint.
+  const panel = useStackPanelState(project.id);
 
   return (
     <div className="relative flex flex-1 overflow-hidden p-3">
       <div className="relative flex-1 overflow-hidden rounded-2xl border">
         <ReactFlowProvider>
-          <GraphCanvas />
+          <GraphCanvas bottomInset={panel.occupiedHeight} />
           <div className="pointer-events-none absolute inset-0 top-10 z-10 flex size-full items-end justify-end">
             <AnimatePresence mode="wait">
               {childKey ? <Outlet key={childKey} /> : null}
             </AnimatePresence>
           </div>
-          <StackCodePanel projectId={project.id} projectSlug={projectSlug} />
+          <StackCodePanel projectId={project.id} projectSlug={projectSlug} panel={panel} />
         </ReactFlowProvider>
       </div>
     </div>
@@ -95,13 +98,37 @@ function focusNodeInView(node: Node, setCenter: SetCenter) {
   });
 }
 
-function GraphCanvas() {
+/** Whether a right-hand detail panel (resource or preview) is open — and,
+ *  on the open→closed transition, refit the whole graph into view so the
+ *  user gets the wide overview instead of staying parked on the
+ *  previously-focused node. */
+function useDetailPanelRefit(fitView: ReturnType<typeof useReactFlow>["fitView"]): boolean {
+  const resourceMatch = useMatch({
+    from: "/_app/$orgSlug/$projectSlug/graph/$resourceId",
+    shouldThrow: false,
+  });
+  const previewMatch = useMatch({
+    from: "/_app/$orgSlug/$projectSlug/graph/preview/$previewId",
+    shouldThrow: false,
+  });
+  const panelOpen = !!resourceMatch || !!previewMatch;
+  const wasOpen = useRef(panelOpen);
+  useEffect(() => {
+    if (wasOpen.current && !panelOpen) {
+      void fitView({ padding: 0.2, duration: 400 });
+    }
+    wasOpen.current = panelOpen;
+  }, [panelOpen, fitView]);
+  return panelOpen;
+}
+
+function GraphCanvas({ bottomInset }: { bottomInset: number }) {
   const navigate = useNavigate();
   const { orgSlug, projectSlug } = Route.useParams();
   const { project } = useLoaderData({ from: "/_app/$orgSlug/$projectSlug" });
   const { setCenter, fitView } = useReactFlow();
 
-  const { liveNodes, liveEdges } = useGraphModel(project);
+  const { liveNodes, liveEdges, traffic } = useGraphModel(project);
 
   // Lay out with both nodes and edges so dagre ranks consumers above their
   // dependencies (routes → services → databases) — but only when the topology
@@ -228,30 +255,30 @@ function GraphCanvas() {
   }, [liveNodes, liveEdges, dragged, dragging]);
   /* oxlint-enable react-hooks-js/refs */
 
-  // Detect when the resource detail panel closes — fit the whole graph back
-  // into view so the user gets the wide overview instead of staying parked
-  // on the previously-focused node.
-  const resourceMatch = useMatch({
-    from: "/_app/$orgSlug/$projectSlug/graph/$resourceId",
-    shouldThrow: false,
-  });
-  const previewMatch = useMatch({
-    from: "/_app/$orgSlug/$projectSlug/graph/preview/$previewId",
-    shouldThrow: false,
-  });
-  const panelOpen = !!resourceMatch || !!previewMatch;
-  const wasOpen = useRef(panelOpen);
-  useEffect(() => {
-    if (wasOpen.current && !panelOpen) {
+  const panelOpen = useDetailPanelRefit(fitView);
+
+  // Re-run layout: forget every operator-dragged position (local caches +
+  // the persisted project layout via `replace: true`) so the next render's
+  // dagre pass owns placement again, then refit. The server write is
+  // best-effort — the local reset already re-laid the graph.
+  const onRelayout = useCallback(() => {
+    layoutCache.current = { sig: "", positions: new Map() };
+    setDragged(new Map());
+    void orpc.project.saveGraphLayout
+      .call({ id: project.id, positions: {}, replace: true })
+      .catch(() => {});
+    requestAnimationFrame(() => {
       void fitView({ padding: 0.2, duration: 400 });
-    }
-    wasOpen.current = panelOpen;
-  }, [panelOpen, fitView]);
+    });
+  }, [project.id, fitView]);
 
   return (
     <GraphFlow
       nodes={laidOutNodes}
       edges={liveEdges}
+      traffic={traffic}
+      onRelayout={onRelayout}
+      bottomInset={bottomInset}
       onNodesChange={onNodesChange}
       onNodeDragStart={() => {
         didDragRef.current = true;

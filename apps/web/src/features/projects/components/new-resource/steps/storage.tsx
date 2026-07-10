@@ -1,158 +1,84 @@
-import { useStore } from "@tanstack/react-form";
+/**
+ * Storage step (database kinds only). Deliberately informational: the
+ * provisioner creates a plain named Docker volume mounted at the engine's
+ * data directory — it supports no volume sizing, quota, auto-grow,
+ * encryption-at-rest, backup policy, PITR, or standby replicas today
+ * (see `packages/api/src/swarm/database.ts` ProvisionSwarmDatabaseInput and
+ * the manifest `databaseSchema`). The old decorative controls for those
+ * options wrote to local state (or to form fields the manifest dropped),
+ * which violated "honest about system state" — so they were removed rather
+ * than shipped as fake toggles. Backups ARE real, but they're schedules
+ * created against the live resource after deploy, on the Backups page.
+ */
 
 import type { ServiceKind } from "@/features/projects/data/service-kinds";
 
 import { Card } from "@/shared/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/components/ui/select";
-import { Slider } from "@/shared/components/ui/slider";
-import { Switch } from "@/shared/components/ui/switch";
 
 import { traitsFor } from "../engine-traits";
-import { useFormContext } from "../form-context";
-import { Field, SectionHeader, SettingRow } from "../form-primitives";
+import { SectionHeader } from "../form-primitives";
 
 interface StepStorageProps {
   kind: ServiceKind;
 }
 
 export function StepStorage({ kind }: StepStorageProps) {
-  const form = useFormContext();
-  const storageGb = useStore(form.store, (s) => s.values.storageGb as number);
-  const backupsEnabled = useStore(form.store, (s) => s.values.backupsEnabled as boolean);
-  const backupRetention = useStore(form.store, (s) => s.values.backupRetention as number);
-  const pitr = useStore(form.store, (s) => s.values.pitr as boolean);
-  const highAvailability = useStore(form.store, (s) => s.values.highAvailability as boolean);
-
-  const traits = traitsFor(kind.id);
-  const supportsPitr = traits.supportsPitr;
-  const supportsHa = traits.supportsHaReplica;
+  const mountTarget = traitsFor(kind.id).mountTarget;
 
   return (
     <>
       <SectionHeader
         title="Persistent storage"
-        sub="Volume mounted at the data directory · backed by SSD"
+        sub="Provisioned automatically when this database deploys"
       />
-      <Card className="mt-3 p-4">
-        <Field label={`Volume size · ${storageGb} GB`}>
-          <Slider
-            min={5}
-            max={2000}
-            step={5}
-            value={[storageGb]}
-            onValueChange={(v) => {
-              const next = Array.isArray(v) ? v[0] : v;
-              if (typeof next === "number") form.setFieldValue("storageGb", next);
-            }}
-          />
-          <div className="mt-1.5 flex items-center gap-3 text-[11px]">
-            <span className="text-muted-foreground">5 GB</span>
-            <div className="flex-1" />
-            <span className="text-muted-foreground">2 TB</span>
-          </div>
-        </Field>
-        <div className="mt-3.5">
-          <SettingRow
-            label="Auto-grow volume"
-            defaultOn
-            sub="Add 10 GB when free space drops below 15%"
-          />
-          <SettingRow label="Encrypt at rest" defaultOn sub="LUKS · per-project KMS key" />
-        </div>
+      <Card className="mt-3 gap-0 p-4">
+        <InfoRow
+          label="Volume"
+          value={
+            <>
+              Named Docker volume mounted at{" "}
+              <code className="font-mono text-foreground">{mountTarget}</code>
+            </>
+          }
+        />
+        <InfoRow label="Sizing" value="Grows with the data — no fixed size or quota is applied" />
+        <InfoRow
+          label="Data safety"
+          value="The volume is kept if the database is removed or a create fails, so data is never destroyed silently"
+          last
+        />
       </Card>
 
       <div className="mt-4.5">
         <SectionHeader title="Backups" />
       </div>
       <Card className="mt-2.5 p-4">
-        <div className="flex items-center gap-3">
-          <div className="flex-1">
-            <div className="text-[13px] font-medium">Daily snapshots</div>
-            <div className="text-xs text-muted-foreground">
-              Snapshot taken at 03:00 UTC · stored in S3-compatible object storage
-            </div>
-          </div>
-          <Switch
-            checked={backupsEnabled}
-            onCheckedChange={(v) => form.setFieldValue("backupsEnabled", v)}
-          />
-        </div>
-
-        {backupsEnabled && (
-          <div className="mt-3.5 grid grid-cols-2 gap-2.5">
-            <Field label={`Retention · ${backupRetention} days`}>
-              <Slider
-                min={1}
-                max={90}
-                value={[backupRetention]}
-                onValueChange={(v) => {
-                  const next = Array.isArray(v) ? v[0] : v;
-                  if (typeof next === "number") form.setFieldValue("backupRetention", next);
-                }}
-              />
-            </Field>
-            <Field label="Backup window">
-              <Select
-                defaultValue="03"
-                items={[
-                  { label: "03:00 - 04:00 UTC", value: "03" },
-                  { label: "11:00 - 12:00 UTC", value: "11" },
-                  { label: "17:00 - 18:00 UTC", value: "17" },
-                ]}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="03">03:00 - 04:00 UTC</SelectItem>
-                  <SelectItem value="11">11:00 - 12:00 UTC</SelectItem>
-                  <SelectItem value="17">17:00 - 18:00 UTC</SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
-          </div>
-        )}
-
-        {supportsPitr && (
-          <div className="mt-3 flex items-center gap-3 border-t border-border pt-2.5">
-            <div className="flex-1">
-              <div className="text-[13px] font-medium">Point-in-time recovery (PITR)</div>
-              <div className="text-[11px] text-muted-foreground">
-                Continuous transaction-log archiving · restore to any point in the last 7 days
-              </div>
-            </div>
-            <Switch checked={pitr} onCheckedChange={(v) => form.setFieldValue("pitr", v)} />
-          </div>
-        )}
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          Backup schedules (cron cadence, retention, destinations) are configured against the
+          running database after it deploys — open the{" "}
+          <span className="font-medium text-foreground">Backups</span> page once this resource is
+          live.
+        </p>
       </Card>
-
-      {supportsHa && (
-        <>
-          <div className="mt-4.5">
-            <SectionHeader title="High availability" />
-          </div>
-          <Card className="mt-2.5 p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex-1">
-                <div className="text-[13px] font-medium">Standby replica</div>
-                <div className="text-xs text-muted-foreground">
-                  Sync replica on a different node · failover in &lt; 30s
-                </div>
-              </div>
-              <Switch
-                checked={highAvailability}
-                onCheckedChange={(v) => form.setFieldValue("highAvailability", v)}
-              />
-            </div>
-          </Card>
-        </>
-      )}
     </>
+  );
+}
+
+function InfoRow({
+  label,
+  value,
+  last,
+}: {
+  label: string;
+  value: React.ReactNode;
+  last?: boolean;
+}) {
+  return (
+    <div
+      className={`flex items-start gap-3 py-2 text-xs ${last ? "" : "border-b border-border/60"}`}
+    >
+      <span className="w-20 shrink-0 pt-px text-[11px] text-muted-foreground">{label}</span>
+      <span className="flex-1 leading-relaxed text-foreground/90">{value}</span>
+    </div>
   );
 }

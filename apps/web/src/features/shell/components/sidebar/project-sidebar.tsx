@@ -2,6 +2,7 @@ import * as React from "react";
 
 import {
   Alert01Icon,
+  Certificate01Icon,
   Database02Icon,
   DatabaseIcon,
   EarthIcon,
@@ -9,16 +10,20 @@ import {
   FlashIcon,
   Folder01Icon,
   GitBranchIcon,
+  HardDriveIcon,
   Home01Icon,
   Key01Icon,
   Key02Icon,
+  PackageIcon,
   ServerStack01Icon,
   ShieldKeyIcon,
   Sun03Icon,
   UserMultipleIcon,
+  WebhookIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useLiveQuery } from "@tanstack/react-db";
+import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
 
 import type { Project } from "@/routes/_app/layout";
@@ -37,9 +42,9 @@ import {
   SidebarMenuItem,
   SidebarSeparator,
 } from "@/shared/components/ui/sidebar";
+import { orpc } from "@/shared/server/orpc";
 
 import { NavUser, type User } from "../nav/nav-user";
-import { StatusDot, type Status } from "./index";
 
 interface StaticNavItem {
   title: string;
@@ -62,6 +67,7 @@ const navGroups: NavGroup[] = [
     label: "Workspace",
     items: [
       { title: "Projects", icon: Home01Icon, href: "/$orgSlug" },
+      { title: "Templates", icon: PackageIcon, href: "/$orgSlug/templates" },
       { title: "Servers", icon: ServerStack01Icon, href: "/$orgSlug/servers" },
       { title: "Terminal", icon: FlashIcon, href: "/$orgSlug/terminal" },
     ],
@@ -72,12 +78,15 @@ const navGroups: NavGroup[] = [
       { title: "Networking", icon: EarthIcon, href: "/$orgSlug/networking" },
       { title: "Edge logs", icon: EarthIcon, href: "/$orgSlug/edge-logs" },
       { title: "Firewall", icon: ShieldKeyIcon, href: "/$orgSlug/firewall" },
+      { title: "Certificates", icon: Certificate01Icon, href: "/$orgSlug/certificates" },
     ],
   },
   {
     label: "Data & Runtime",
     items: [
+      { title: "Databases", icon: Database02Icon, href: "/$orgSlug/databases" },
       { title: "Backups", icon: DatabaseIcon, href: "/$orgSlug/backups" },
+      { title: "Volumes", icon: HardDriveIcon, href: "/$orgSlug/volumes" },
       { title: "Docker", icon: ServerStack01Icon, href: "/$orgSlug/docker" },
       { title: "Registries", icon: Database02Icon, href: "/$orgSlug/registries" },
     ],
@@ -93,6 +102,7 @@ const navGroups: NavGroup[] = [
     label: "Integrations",
     items: [
       { title: "Git providers", icon: GitBranchIcon, href: "/$orgSlug/git-providers" },
+      { title: "Webhooks", icon: WebhookIcon, href: "/$orgSlug/webhooks" },
       { title: "Notifications", icon: Alert01Icon, href: "/$orgSlug/notifications" },
     ],
   },
@@ -107,12 +117,6 @@ const navGroups: NavGroup[] = [
     ],
   },
 ];
-
-const region = {
-  label: "self-hosted · sf-bay / rack-2",
-  version: "v1.4.2-rc.1",
-  status: "ok" as Status,
-};
 
 /**
  * Workspace sidebar. Three groups: Workspace (org-scoped pages —
@@ -146,6 +150,12 @@ export function ProjectSidebar({
     Projects: projects.length,
     Servers: servers.length,
   };
+
+  // Running platform version (the compose image tag the server booted with).
+  // Needs `platform:read` — a plain member gets a 403, so `retry: false` and
+  // the footer simply omits the version instead of showing a fake one.
+  const version = useQuery({ ...orpc.system.version.queryOptions(), retry: false });
+  const currentVersion = version.data?.current;
   return (
     <Sidebar className="top-(--header-height) h-[calc(100svh-var(--header-height))]!" {...props}>
       <SidebarContent>
@@ -186,11 +196,12 @@ export function ProjectSidebar({
       </SidebarContent>
 
       <SidebarFooter className="gap-2">
-        {/* Region / version */}
+        {/* Instance summary: real server count + running platform version. */}
         <div className="flex items-start gap-2 px-2 py-1 text-xs text-muted-foreground">
-          <StatusDot status={region.status} className="mt-1.5" />
-          <span className="flex-1 leading-snug">{region.label}</span>
-          <span className="font-mono">{region.version}</span>
+          <span className="flex-1 leading-snug">
+            self-hosted · {servers.length} {servers.length === 1 ? "server" : "servers"}
+          </span>
+          {currentVersion && <span className="font-mono">{currentVersion}</span>}
         </div>
 
         <SidebarSeparator />

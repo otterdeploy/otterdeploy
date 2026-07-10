@@ -28,20 +28,32 @@ type AuditListOutput = Awaited<ReturnType<typeof client.audit.list>>;
 export type AuditEvent = AuditListOutput["items"][number];
 export type Outcome = AuditEvent["outcome"];
 
-/** Time-window presets for the range filter. `ms === 0` means "all time". */
+/** Time-window presets for the range filter. `ms === 0` means "all time";
+ *  "custom" reads the filter's own `from`/`to` date bounds instead. */
 export const RANGES = [
   { id: "24h", label: "Last 24h", ms: 24 * 60 * 60 * 1000 },
   { id: "7d", label: "Last 7 days", ms: 7 * 24 * 60 * 60 * 1000 },
   { id: "30d", label: "Last 30 days", ms: 30 * 24 * 60 * 60 * 1000 },
   { id: "all", label: "All time", ms: 0 },
+  { id: "custom", label: "Custom", ms: 0 },
 ] as const;
 
 /** The filter selection — also the TanStack Form value shape. */
 export interface AuditFilter {
   /** A `RANGES` id. */
   range: string;
+  /** Custom-range bounds as `YYYY-MM-DD` date-input values; only read when
+   *  `range === "custom"`. Empty string = unbounded on that side. */
+  from: string;
+  to: string;
   /** An `Outcome`, or "any" for no outcome filter. */
   outcome: string;
+  /** An `actorId`, or "any". */
+  actor: string;
+  /** An action name (`<resource>.<verb>` RPC path), or "any". */
+  action: string;
+  /** A target kind ("project", "resource", …), or "any". */
+  targetType: string;
   /** Free-text query. */
   q: string;
   /** Page size; bumped by "Load more". */
@@ -50,19 +62,41 @@ export interface AuditFilter {
 
 export const DEFAULT_AUDIT_FILTER: AuditFilter = {
   range: "7d",
+  from: "",
+  to: "",
   outcome: "any",
+  actor: "any",
+  action: "any",
+  targetType: "any",
   q: "",
   limit: 50,
 };
 
+/** Resolve the filter's time window into ISO `from`/`to` bounds. Custom uses
+ *  the picked dates (inclusive — `to` extends to end-of-day, local time, since
+ *  that's what a date picker means to a human). Presets look back from "now". */
+export function auditWindow(filter: AuditFilter): { from?: string; to?: string } {
+  if (filter.range === "custom") {
+    return {
+      from: filter.from ? new Date(`${filter.from}T00:00:00`).toISOString() : undefined,
+      to: filter.to ? new Date(`${filter.to}T23:59:59.999`).toISOString() : undefined,
+    };
+  }
+  const r = RANGES.find((x) => x.id === filter.range);
+  return { from: !r || r.ms === 0 ? undefined : new Date(Date.now() - r.ms).toISOString() };
+}
+
 /** Resolve a filter selection into the `audit.list` input. */
 export function toAuditInput(filter: AuditFilter) {
-  const r = RANGES.find((x) => x.id === filter.range);
-  const from = !r || r.ms === 0 ? undefined : new Date(Date.now() - r.ms).toISOString();
+  const { from, to } = auditWindow(filter);
   return {
     q: filter.q.trim() || undefined,
     outcome: filter.outcome === "any" ? undefined : (filter.outcome as Outcome),
+    actorId: filter.actor === "any" ? undefined : filter.actor,
+    action: filter.action === "any" ? undefined : filter.action,
+    targetType: filter.targetType === "any" ? undefined : filter.targetType,
     from,
+    to,
     limit: filter.limit,
     offset: 0,
   };
@@ -71,12 +105,18 @@ export function toAuditInput(filter: AuditFilter) {
 /**
  * Stable subset key for a filter selection. We key on the *range id*, not the
  * resolved `from` timestamp — `from` is recomputed from "now" on every render,
- * so keying on it would thrash the subset every frame.
+ * so keying on it would thrash the subset every frame. (The custom `from`/`to`
+ * are static user-picked strings, so they're safe to key on directly.)
  */
 export function auditSubsetKey(filter: AuditFilter): string {
   return JSON.stringify({
     range: filter.range,
+    from: filter.range === "custom" ? filter.from : "",
+    to: filter.range === "custom" ? filter.to : "",
     outcome: filter.outcome,
+    actor: filter.actor,
+    action: filter.action,
+    targetType: filter.targetType,
     q: filter.q.trim(),
     limit: filter.limit,
   });

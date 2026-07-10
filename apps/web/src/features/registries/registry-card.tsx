@@ -8,10 +8,12 @@
 
 import { useState } from "react";
 
-import { Database02Icon, Delete01Icon, PencilEdit01Icon } from "@hugeicons/core-free-icons";
+import { Delete01Icon, PencilEdit01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { SvglLogo } from "@/shared/components/brand/svgl-logo";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,8 +25,10 @@ import {
   AlertDialogTitle,
 } from "@/shared/components/ui/alert-dialog";
 import { Button } from "@/shared/components/ui/button";
+import { orpc } from "@/shared/server/orpc";
 
 import { registryCollection } from "./data/registries";
+import { REGISTRY_KIND_META, kindForHost } from "./registry-kinds";
 import { formatRelative, type RegistryRow } from "./shared";
 
 interface RegistryCardProps {
@@ -35,6 +39,21 @@ interface RegistryCardProps {
 export function RegistryCard({ registry, onEdit }: RegistryCardProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  // Docker v2 handshake against the stored credential. Failed probes come
+  // back as `{ok: false, message}` (not thrown), so both toast branches
+  // carry the server's honest message.
+  const testConnection = useMutation(orpc.registry.testConnection.mutationOptions());
+  const runTest = () => {
+    testConnection.mutate(
+      { id: registry.id },
+      {
+        onSuccess: (res) => (res.ok ? toast.success(res.message) : toast.error(res.message)),
+        onError: (err: unknown) =>
+          toast.error(err instanceof Error ? err.message : "Connection test failed"),
+      },
+    );
+  };
 
   // Optimistic delete: the collection drops the row locally and fires
   // `registry.delete` via `onDelete`; TanStack DB rolls back on reject.
@@ -55,13 +74,11 @@ export function RegistryCard({ registry, onEdit }: RegistryCardProps) {
   return (
     <div className="rounded-md border bg-card p-4">
       <div className="flex items-start gap-3">
-        <div className="grid size-8 shrink-0 place-items-center rounded-md bg-muted">
-          <HugeiconsIcon
-            icon={Database02Icon}
-            strokeWidth={2}
-            className="size-4 text-muted-foreground"
-          />
-        </div>
+        <SvglLogo
+          search={REGISTRY_KIND_META[kindForHost(registry.host)].brand}
+          fallback={registry.host}
+          size={32}
+        />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[13.5px] font-semibold">{registry.displayName}</span>
@@ -74,6 +91,15 @@ export function RegistryCard({ registry, onEdit }: RegistryCardProps) {
           </div>
         </div>
         <div className="flex items-center gap-1.5">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={runTest}
+            disabled={testConnection.isPending}
+            aria-label={`Test connection to ${registry.host}`}
+          >
+            {testConnection.isPending ? "Testing…" : "Test"}
+          </Button>
           <Button
             size="sm"
             variant="outline"

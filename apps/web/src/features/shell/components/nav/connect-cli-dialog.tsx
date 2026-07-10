@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 /**
  * Connect CLI — the device-authorization flow itself is already built (the
  * `otterdeploy login` command + the `/device` approval page via better-auth's
@@ -5,7 +6,6 @@
  * login command for this control plane + a shortcut to the approval page.
  */
 import { useLoaderData, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";
@@ -41,8 +41,7 @@ export function ConnectCliDialog({
   );
   const fqdn = domainQuery.data;
   const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const baseUrl =
-    fqdn?.domain && fqdn.verifiedAt ? `https://${fqdn.domain}` : origin;
+  const baseUrl = fqdn?.domain && fqdn.verifiedAt ? `https://${fqdn.domain}` : origin;
   const cmd = `otterdeploy login ${baseUrl}`;
 
   const copy = () => {

@@ -86,7 +86,7 @@ function BackupsRoute() {
       if (destFilter !== "all" && b.destinationId !== destFilter) return false;
       if (
         q &&
-        !(b.source ?? b.resourceId).toLowerCase().includes(q) &&
+        !(b.source ?? b.volumeName ?? b.resourceId ?? "").toLowerCase().includes(q) &&
         !b.id.toLowerCase().includes(q) &&
         !(b.sourceHost ?? "").toLowerCase().includes(q)
       )
@@ -103,7 +103,7 @@ function BackupsRoute() {
     <Page>
       <PageHeader
         title="Backups"
-        description="Database dumps · recurring schedules · storage destinations"
+        description="Database dumps & volume archives · recurring schedules · storage destinations"
         actions={
           <>
             <Button

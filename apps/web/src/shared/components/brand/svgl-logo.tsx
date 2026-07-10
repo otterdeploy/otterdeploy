@@ -1,22 +1,34 @@
 import type { CSSProperties, ReactNode, SVGProps } from "react";
 
-import { Aws } from "@/shared/components/ui/svgs/aws";
+import { useTheme } from "@/shared/components/theme-provider";
+import { AwsDark } from "@/shared/components/ui/svgs/aws-dark";
+import { AwsLight } from "@/shared/components/ui/svgs/aws-light";
 import { Azure } from "@/shared/components/ui/svgs/azure";
+import { Bitbucket } from "@/shared/components/ui/svgs/bitbucket";
 import { Discord } from "@/shared/components/ui/svgs/discord";
 import { Docker } from "@/shared/components/ui/svgs/docker";
+import { Firebase } from "@/shared/components/ui/svgs/firebase";
+import { Gitea } from "@/shared/components/ui/svgs/gitea";
 import { Github } from "@/shared/components/ui/svgs/github";
 import { Gitlab } from "@/shared/components/ui/svgs/gitlab";
 import { GoogleCloud } from "@/shared/components/ui/svgs/google-cloud";
+import { Harbor } from "@/shared/components/ui/svgs/harbor";
+import { Pagerduty } from "@/shared/components/ui/svgs/pagerduty";
 import { Slack } from "@/shared/components/ui/svgs/slack";
 import { Telegram } from "@/shared/components/ui/svgs/telegram";
 
 type BrandKey =
   | "GitHub"
   | "GitLab"
+  | "Gitea"
+  | "Bitbucket"
   | "Docker"
+  | "Harbor"
   | "Slack"
   | "Discord"
   | "Telegram"
+  | "PagerDuty"
+  | "Firebase"
   | "Google Cloud"
   | "AWS"
   | "Azure";
@@ -34,15 +46,35 @@ interface Props {
 
 type SvgComponent = (props: SVGProps<SVGSVGElement>) => ReactNode;
 
-const brands: Record<BrandKey, SvgComponent> = {
+/**
+ * Multi-color marks whose ink parts flip between themes (AWS's navy "aws"
+ * text is invisible on the dark canvas). Selected via the app theme hook —
+ * `resolvedTheme` also tracks the OS when theme="system".
+ */
+const themedBrands: Record<
+  Extract<BrandKey, "AWS">,
+  { dark: SvgComponent; light: SvgComponent }
+> = {
+  AWS: { dark: AwsDark, light: AwsLight },
+};
+
+/**
+ * Theme-stable marks: either colorful in any theme, or monochrome via
+ * `currentColor` (GitHub) so they inherit the tile's `color`.
+ */
+const staticBrands: Record<Exclude<BrandKey, "AWS">, SvgComponent> = {
   GitHub: Github,
   GitLab: Gitlab,
+  Gitea,
+  Bitbucket,
   Docker,
+  Harbor,
   Slack,
   Discord,
   Telegram,
+  PagerDuty: Pagerduty,
+  Firebase,
   "Google Cloud": GoogleCloud,
-  AWS: Aws,
   Azure,
 };
 
@@ -56,7 +88,9 @@ export function SvglLogo({
   border = "1px solid var(--border)",
   style,
 }: Props) {
-  const Icon = (brands as Record<string, SvgComponent | undefined>)[search];
+  const { resolvedTheme, theme } = useTheme();
+  const isDark = (resolvedTheme ?? theme) === "dark";
+  const Icon = resolveBrand(search, isDark);
 
   return (
     <span
@@ -97,4 +131,15 @@ export function SvglLogo({
       )}
     </span>
   );
+}
+
+function resolveBrand(search: string, isDark: boolean): SvgComponent | null {
+  if (search in themedBrands) {
+    const pair = themedBrands[search as keyof typeof themedBrands];
+    return isDark ? pair.dark : pair.light;
+  }
+  if (search in staticBrands) {
+    return staticBrands[search as keyof typeof staticBrands];
+  }
+  return null;
 }

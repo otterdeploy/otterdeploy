@@ -31,11 +31,15 @@ export function BackupDetail({ backup }: { backup: Backup }) {
         <DetailField label="Backup ID" value={backup.id} mono />
         <DetailField label="Method" value={backup.method ?? "—"} mono />
         <DetailField label="Retention class" value={backup.retention} />
-        <DetailField
-          label="Source service"
-          value={`${backup.sourceService ?? "—"} @ ${backup.sourceHost ?? "—"}`}
-          mono
-        />
+        {backup.kind === "volume" ? (
+          <DetailField label="Source volume" value={backup.volumeName ?? "—"} mono />
+        ) : (
+          <DetailField
+            label="Source service"
+            value={`${backup.sourceService ?? "—"} @ ${backup.sourceHost ?? "—"}`}
+            mono
+          />
+        )}
       </div>
       <div className="mb-3 grid grid-cols-3 gap-3.5">
         <DetailField label="Source size" value={fmtBytes(sourceBytes)} mono />

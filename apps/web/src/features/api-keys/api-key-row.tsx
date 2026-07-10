@@ -1,13 +1,19 @@
 /**
- * One row of the API keys table: masked prefix, scopes, usage/expiry, and the
- * enable toggle + delete affordance (owners/admins only). Mutations go straight
- * to `apiKeysCollection` — optimistic, with the rollback/toast handled off the
- * transaction's `isPersisted` promise.
+ * One row of the API keys table: masked prefix, scopes, usage/expiry, the
+ * enable toggle and rotate/delete affordances (owners/admins only). Mutations
+ * go straight to `apiKeysCollection` — optimistic, with the rollback/toast
+ * handled off the transaction's `isPersisted` promise.
+ *
+ * Rotation note: the better-auth api-key plugin (1.6.x) has no rotate
+ * endpoint (`/api-key/{create,get,list,update,delete}` only), so rotate is
+ * create-then-delete — a replacement key with the same name/scopes/expiry is
+ * minted first, and the old key is deleted only after the new one persists.
+ * Not atomic: if the delete fails both keys are briefly live, and we say so.
  */
 
 import { useState } from "react";
 
-import { Delete02Icon } from "@hugeicons/core-free-icons";
+import { Delete02Icon, RefreshIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
 
@@ -33,9 +39,12 @@ import { formatDate, isExpired } from "./shared";
 export function ApiKeyRow({
   apiKey,
   canManage,
+  onRotated,
 }: {
   apiKey: (typeof apiKeysCollection.toArray)[number];
   canManage: boolean;
+  /** Receives the replacement key's one-time plaintext token after a rotate. */
+  onRotated: (key: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
 
@@ -63,6 +72,53 @@ export function ApiKeyRow({
       .then(() => toast.success("API key deleted"))
       .catch((err: unknown) =>
         toast.error(err instanceof Error ? err.message : "Failed to delete key"),
+      )
+      .finally(() => setBusy(false));
+  };
+
+  // Create-then-delete rotation (no rotate endpoint in the plugin — see the
+  // file header). The replacement inherits name/scopes and the SAME absolute
+  // expiresAt, so a "90 days" key rotated on day 30 still dies on day 90.
+  const rotate = () => {
+    setBusy(true);
+    let plaintext: string | null = null;
+    const insertTx = apiKeysCollection.insert(
+      {
+        id: crypto.randomUUID(),
+        organizationId: apiKey.organizationId,
+        name: apiKey.name,
+        start: null,
+        prefix: null,
+        enabled: true,
+        expiresAt: apiKey.expiresAt,
+        lastRequest: null,
+        createdAt: new Date(),
+        permissions: apiKey.permissions,
+      },
+      {
+        metadata: {
+          onKey: (k: string) => {
+            plaintext = k;
+          },
+        },
+      },
+    );
+    insertTx.isPersisted.promise
+      .then(() => {
+        // Reveal the new secret immediately — it must not be lost even if the
+        // old-key cleanup below fails.
+        if (plaintext) onRotated(plaintext);
+        const deleteTx = apiKeysCollection.delete(apiKey.id);
+        return deleteTx.isPersisted.promise
+          .then(() => toast.success(`Rotated "${apiKey.name ?? "key"}" — old key revoked`))
+          .catch(() =>
+            toast.error(
+              "Replacement key created, but the old key couldn't be deleted — it is still active. Delete it manually.",
+            ),
+          );
+      })
+      .catch((err: unknown) =>
+        toast.error(err instanceof Error ? err.message : "Failed to rotate key"),
       )
       .finally(() => setBusy(false));
   };
@@ -114,45 +170,88 @@ export function ApiKeyRow({
       </TableCell>
       {canManage ? (
         <TableCell>
-          <AlertDialog>
-            <AlertDialogTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="text-muted-foreground hover:text-destructive"
-                  aria-label="Delete API key"
-                >
-                  <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} className="size-3.5" />
-                </Button>
-              }
-            />
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete “{apiKey.name ?? "this key"}”?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Any client still using this key will immediately lose access. This can't be
-                  undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel
-                  render={
-                    <Button variant="outline" size="sm">
-                      Cancel
-                    </Button>
-                  }
-                />
-                <AlertDialogAction
-                  render={
-                    <Button variant="destructive" size="sm" disabled={busy} onClick={remove}>
-                      Delete
-                    </Button>
-                  }
-                />
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <div className="flex items-center justify-end gap-0.5">
+            <AlertDialog>
+              <AlertDialogTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="text-muted-foreground hover:text-foreground"
+                    aria-label="Rotate API key"
+                    disabled={busy || expired}
+                  >
+                    <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} className="size-3.5" />
+                  </Button>
+                }
+              />
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Rotate “{apiKey.name ?? "this key"}”?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    A replacement key is created with the same name, scopes and expiry, and this key
+                    is revoked once it succeeds. Clients using the current key will lose access —
+                    you'll see the new key once, right after.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel
+                    render={
+                      <Button variant="outline" size="sm">
+                        Cancel
+                      </Button>
+                    }
+                  />
+                  <AlertDialogAction
+                    render={
+                      <Button size="sm" disabled={busy} onClick={rotate}>
+                        Rotate key
+                      </Button>
+                    }
+                  />
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            <AlertDialog>
+              <AlertDialogTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="text-muted-foreground hover:text-destructive"
+                    aria-label="Delete API key"
+                  >
+                    <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} className="size-3.5" />
+                  </Button>
+                }
+              />
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete “{apiKey.name ?? "this key"}”?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Any client still using this key will immediately lose access. This can't be
+                    undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel
+                    render={
+                      <Button variant="outline" size="sm">
+                        Cancel
+                      </Button>
+                    }
+                  />
+                  <AlertDialogAction
+                    render={
+                      <Button variant="destructive" size="sm" disabled={busy} onClick={remove}>
+                        Delete
+                      </Button>
+                    }
+                  />
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </TableCell>
       ) : null}
     </TableRow>

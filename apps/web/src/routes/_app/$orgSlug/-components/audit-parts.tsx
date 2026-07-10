@@ -1,5 +1,23 @@
-import { Alert01Icon } from "@hugeicons/core-free-icons";
+import {
+  Alert01Icon,
+  Certificate01Icon,
+  ContainerIcon,
+  DatabaseRestoreIcon,
+  Folder01Icon,
+  GlobalIcon,
+  HardDriveIcon,
+  Key01Icon,
+  Layers01Icon,
+  PackageIcon,
+  RouteIcon,
+  ServerStack01Icon,
+  Settings01Icon,
+  UserGroupIcon,
+  UserIcon,
+  WebhookIcon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useQuery } from "@tanstack/react-query";
 
 import { type AuditEvent, type Outcome } from "@/features/audit/data/audit";
 import { Badge } from "@/shared/components/ui/badge";
@@ -13,7 +31,78 @@ import {
 } from "@/shared/components/ui/sheet";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { cn } from "@/shared/lib/utils";
+import { orpc } from "@/shared/server/orpc";
 import { formatNumber } from "@otterdeploy/shared/format";
+
+import { type ActionTone, actionTone, timeAgo } from "./audit-helpers";
+
+/** Dot color per action family — the demo's ACTION_COLORS, translated to the
+ *  app's tokens: create=info, destroy=danger, auth/caution=amber, edits and
+ *  everything unclassified stay quiet neutrals. */
+const TONE_DOT: Record<ActionTone, string> = {
+  create: "bg-sky-500",
+  destroy: "bg-destructive",
+  update: "bg-muted-foreground/70",
+  auth: "bg-amber-500",
+  caution: "bg-amber-500",
+  neutral: "bg-muted-foreground/40",
+};
+
+/** Leading color dot for an action — used by the table's action cell and the
+ *  drawer header. */
+export function ActionDot({ action, className }: { action: string; className?: string }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "inline-block size-1.5 shrink-0 rounded-full",
+        TONE_DOT[actionTone(action)],
+        className,
+      )}
+    />
+  );
+}
+
+/** targetType → kind icon (demo's RESOURCE_ICON). Kinds come from the audit
+ *  emitters' `target: { type }` values across the API. */
+const TARGET_ICONS: Record<string, typeof PackageIcon> = {
+  project: Folder01Icon,
+  organization: UserGroupIcon,
+  resource: PackageIcon,
+  server: ServerStack01Icon,
+  webhook: WebhookIcon,
+  certificate: Certificate01Icon,
+  environment: Layers01Icon,
+  backup: DatabaseRestoreIcon,
+  ip: GlobalIcon,
+  platform: Settings01Icon,
+  "proxy-route": RouteIcon,
+  "docker-image": ContainerIcon,
+  "docker-network": ContainerIcon,
+  "docker-volume": HardDriveIcon,
+  user: UserIcon,
+  "api-key": Key01Icon,
+};
+
+export function TargetKindIcon({
+  targetType,
+  className,
+}: {
+  targetType: string | null;
+  className?: string;
+}) {
+  if (!targetType) return null;
+  const icon = TARGET_ICONS[targetType];
+  if (!icon) return null;
+  return (
+    <HugeiconsIcon
+      icon={icon}
+      strokeWidth={2}
+      className={cn("size-3.5 shrink-0 text-muted-foreground/60", className)}
+      aria-label={targetType}
+    />
+  );
+}
 
 export function StatTile({
   label,
@@ -78,9 +167,12 @@ export function OutcomeBadge({ outcome }: { outcome: Outcome }) {
 export function EventDrawer({
   event,
   onClose,
+  onSelect,
 }: {
   event: AuditEvent | null;
   onClose: () => void;
+  /** Swap the drawer to another event (correlated mini-row click). */
+  onSelect: (event: AuditEvent) => void;
 }) {
   return (
     <Sheet open={!!event} onOpenChange={(o) => !o && onClose()}>
@@ -89,6 +181,7 @@ export function EventDrawer({
           <>
             <SheetHeader className="border-b">
               <SheetTitle className="flex items-center gap-2 font-mono text-sm">
+                <ActionDot action={event.action} className="size-2" />
                 {event.action}
                 <OutcomeBadge outcome={event.outcome} />
               </SheetTitle>
@@ -112,10 +205,17 @@ export function EventDrawer({
               </Section>
 
               <Section label="Target">
-                <KV k="Type" v={event.targetType ?? "—"} />
+                <div className="flex items-center gap-1.5 py-1 text-[12px]">
+                  <TargetKindIcon targetType={event.targetType} />
+                  <span>{event.targetType ?? "—"}</span>
+                </div>
                 <KV k="ID" v={event.targetId ?? "—"} mono />
               </Section>
 
+              {/* The demo also showed a geo lookup, a session id, and an HTTP
+                  response code here — none of those are stored on audit_log
+                  (only outcome/reason/durationMs + ip/ua), so we don't render
+                  them rather than invent data. */}
               <Section label="When · where">
                 <KV
                   k="Timestamp"
@@ -139,6 +239,7 @@ export function EventDrawer({
                   {event.causationId && (
                     <KV k="Caused by" v={event.causationId} mono />
                   )}
+                  <CorrelatedEvents event={event} onSelect={onSelect} />
                 </Section>
               )}
 
@@ -178,6 +279,65 @@ function Section({
         {label}
       </div>
       {children}
+    </div>
+  );
+}
+
+/**
+ * Sibling events of the open one — everything sharing its correlationId plus
+ * the causing event — rendered as clickable mini-rows that swap the drawer.
+ * Server-resolved (`audit.byCorrelation`): siblings usually fall outside the
+ * loaded page, so the client-side rows can't answer this.
+ */
+function CorrelatedEvents({
+  event,
+  onSelect,
+}: {
+  event: AuditEvent;
+  onSelect: (event: AuditEvent) => void;
+}) {
+  const related = useQuery({
+    ...orpc.audit.byCorrelation.queryOptions({
+      input: {
+        correlationId: event.correlationId ?? undefined,
+        causationId: event.causationId ?? undefined,
+      },
+    }),
+    staleTime: 30_000,
+  });
+  const siblings = (related.data?.items ?? []).filter((s) => s.id !== event.id);
+  if (siblings.length === 0) return null;
+
+  return (
+    <div className="mt-2">
+      <div className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
+        Correlated events
+      </div>
+      <div className="flex flex-col gap-1">
+        {siblings.map((s) => (
+          <button
+            key={s.id}
+            type="button"
+            onClick={() => onSelect(s)}
+            className="flex items-center gap-2 rounded-md border bg-muted/20 px-2.5 py-1.5 text-left text-[12px] transition-colors hover:bg-muted/50"
+          >
+            <ActionDot action={s.action} />
+            <span className="font-mono">{s.action}</span>
+            {s.id === event.causationId && (
+              <span className="rounded-sm bg-muted px-1 py-px text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+                cause
+              </span>
+            )}
+            <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted-foreground">
+              {s.targetId ?? s.targetType ?? ""}
+            </span>
+            <span className="shrink-0 text-[11px] text-muted-foreground">
+              {timeAgo(s.timestamp)}
+            </span>
+            <OutcomeBadge outcome={s.outcome} />
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

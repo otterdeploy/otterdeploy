@@ -27,6 +27,13 @@ import { resourceCollection } from "@/features/resources/data/resource";
 import { serviceTasksCollection } from "@/features/resources/data/service-tasks";
 import { orpc } from "@/shared/server/orpc";
 
+import {
+  buildRouteTopology,
+  decorateTrafficEdges,
+  summarizeTraffic,
+} from "./route-traffic";
+import { usePrefersReducedMotion } from "./use-reduced-motion";
+
 type ManifestDiff = Awaited<ReturnType<typeof orpc.project.manifest.diff.call>>;
 type ManifestChange = NonNullable<ManifestDiff["changes"]>[number];
 
@@ -226,19 +233,59 @@ export function useGraphModel(project: { id: ProjectId }) {
     }),
   );
 
-  // Convert resources to nodes + synthesize public route nodes via the shared
-  // helper, then append the preview satellites (nodes + dashed edges together,
+  // Per-host traffic stats over the last 5m, ~10s cadence. STYLING data only:
+  // route topology derives from the resource rows below, so a stat tick can
+  // re-dress edges (width/animation/label) but never add/remove a node — no
+  // relayout, no node churn.
+  const routeStats = useQuery(
+    orpc.edgeLogs.routeStats.queryOptions({
+      input: { projectId: project.id, range: "5m" },
+      refetchInterval: 10_000,
+    }),
+  );
+  const statsByHost = useMemo(
+    () => new Map((routeStats.data ?? []).map((s) => [s.host, s])),
+    [routeStats.data],
+  );
+  const reducedMotion = usePrefersReducedMotion();
+
+  // Convert resources to nodes + synthesize public route pills (one per public
+  // host), then append the preview satellites (nodes + dashed edges together,
   // so an edge can never reference a node that wasn't emitted). The framework
   // brand logo rides on each resource record — no per-service git-API lookup.
   const graph = useMemo(() => {
     const base = buildLiveNodes(resources, tasksByResourceId, pendingByName);
     const serviceIds = new Set(base.map((n) => n.id));
     const satellites = buildPreviewSatellites(previews.data ?? [], serviceIds);
+    // Route topology comes from the resource rows (publicEnabled/publicDomain)
+    // so the pills render on first paint with everything else. Guard against a
+    // route edge targeting a node that wasn't emitted (renamed service).
+    const routes = buildRouteTopology(resources);
+    const routeEdges = routes.edges.filter((e) => serviceIds.has(e.target));
+    const routeNodes = routes.nodes.filter((n) =>
+      routeEdges.some((e) => e.source === n.id),
+    );
     return {
-      nodes: [...base, ...satellites.nodes],
-      edges: [...edgesFromDeps, ...buildRouteEdges(resources), ...satellites.edges],
+      nodes: [...base, ...routeNodes, ...satellites.nodes],
+      edges: [
+        ...edgesFromDeps,
+        ...buildRouteEdges(resources),
+        ...routeEdges,
+        ...satellites.edges,
+      ],
     };
   }, [resources, tasksByResourceId, pendingByName, edgesFromDeps, previews.data]);
 
-  return { liveNodes: graph.nodes, liveEdges: graph.edges };
+  // Dress route edges with live stats (animation, log-scaled width, label
+  // payload). Separate memo so stat polls re-style edges without touching the
+  // node list the layout is keyed on.
+  const liveEdges = useMemo(
+    () => decorateTrafficEdges(graph.edges, statsByHost, reducedMotion),
+    [graph.edges, statsByHost, reducedMotion],
+  );
+
+  // Corner chip rollup — null (chip omitted) when no host saw traffic.
+  const traffic = useMemo(() => summarizeTraffic(routeStats.data), [routeStats.data]);
+
+  return { liveNodes: graph.nodes, liveEdges, traffic };
 }

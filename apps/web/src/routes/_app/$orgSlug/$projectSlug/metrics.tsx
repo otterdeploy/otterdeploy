@@ -4,11 +4,13 @@ import { Activity03Icon } from "@hugeicons/core-free-icons";
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 
+import { ProjectMetricsSection } from "@/features/resources/components/_shared/metrics/project-metrics-section";
 import { ResourceMetricsCard } from "@/features/resources/components/_shared/metrics/resource-metrics-card";
 import {
-  METRIC_WINDOWS,
-  type MetricWindowLabel,
-} from "@/features/resources/components/_shared/metrics/use-resource-metrics";
+  PROJECT_METRIC_WINDOWS,
+  RESOURCE_DETAIL_MAX_MINUTES,
+  type ProjectMetricWindowLabel,
+} from "@/features/resources/components/_shared/metrics/use-project-metrics";
 import type { ProjectResource } from "@/features/projects/components/graph/resource-to-node";
 import { resourceCollection } from "@/features/resources/data/resource";
 import {
@@ -41,9 +43,12 @@ function RouteComponent() {
     [project.id],
   );
 
-  const [window, setWindow] = useState<MetricWindowLabel>("30m");
+  const [window, setWindow] = useState<ProjectMetricWindowLabel>("30m");
   const minutes =
-    METRIC_WINDOWS.find((w) => w.label === window)?.minutes ?? 30;
+    PROJECT_METRIC_WINDOWS.find((w) => w.label === window)?.minutes ?? 30;
+  // The per-resource detail query caps at 24h; project aggregates and the
+  // edge-log request series carry the full 7d retention.
+  const resourceMinutes = Math.min(minutes, RESOURCE_DETAIL_MAX_MINUTES);
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -51,20 +56,21 @@ function RouteComponent() {
         <div className="flex flex-col gap-0.5">
           <h1 className="text-sm font-semibold">Metrics</h1>
           <p className="text-xs text-muted-foreground">
-            CPU, memory, and network across every resource in this project.
+            Project totals plus CPU, memory, and network for every resource.
+            History is kept for 7 days.
           </p>
         </div>
         <ToggleGroup
           value={[window]}
           onValueChange={(next) => {
             const v = next[0];
-            if (v) setWindow(v as MetricWindowLabel);
+            if (v) setWindow(v as ProjectMetricWindowLabel);
           }}
           variant="outline"
           size="sm"
           spacing={0}
         >
-          {METRIC_WINDOWS.map((w) => (
+          {PROJECT_METRIC_WINDOWS.map((w) => (
             <ToggleGroupItem
               key={w.label}
               value={w.label}
@@ -75,6 +81,17 @@ function RouteComponent() {
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
+      </div>
+
+      <ProjectMetricsSection projectId={project.id} windowMinutes={minutes} />
+
+      <div className="flex items-baseline gap-2">
+        <h2 className="text-sm font-medium">Resources</h2>
+        {minutes > RESOURCE_DETAIL_MAX_MINUTES ? (
+          <span className="text-xs text-muted-foreground">
+            per-resource cards show the last 24h
+          </span>
+        ) : null}
       </div>
 
       {resources.length === 0 ? (
@@ -100,7 +117,7 @@ function RouteComponent() {
               resource={r}
               orgSlug={orgSlug}
               projectSlug={projectSlug}
-              windowMinutes={minutes}
+              windowMinutes={resourceMinutes}
             />
           ))}
         </div>

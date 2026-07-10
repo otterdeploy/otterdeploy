@@ -14,10 +14,12 @@ import {
   serverClusterStatsCollection,
   serverNodeStatsCollection,
 } from "@/features/servers/data/stats";
+import { swarmNodesCollection, type SwarmNode } from "@/features/servers/data/swarm";
 import { Button } from "@/shared/components/ui/button";
 
 import { ServerHealthCard } from "./-components/servers-health";
 import { ServerHealthSheet } from "./-components/servers-health-sheet";
+import { ManagersQuorumCard } from "./-components/servers-managers-card";
 import { ClusterStatTiles, FilterPill, ServersPending } from "./-components/servers-parts";
 import { ServersTable } from "./-components/servers-table";
 
@@ -48,6 +50,10 @@ function ServersRoute() {
   // Latest per-server health snapshots (local sampler + swarm agents, 30s
   // poll) — feeds the Live column and the row detail sheet.
   const { data: healthArr = [] } = useLiveQuery(() => serverHealthCollection);
+  // Live swarm topology (10s poll) — quorum card, leader markers, and the
+  // sheet's role/membership actions. `swarm: false` on plain docker.
+  const { data: swarmArr = [] } = useLiveQuery(() => swarmNodesCollection);
+  const swarmView = swarmArr[0] ?? null;
   const [openServerId, setOpenServerId] = useState<string | null>(null);
   const healthByServer = useMemo(() => {
     type HealthEntry = (typeof healthArr)[number];
@@ -55,6 +61,15 @@ function ServersRoute() {
     for (const h of healthArr) map.set(h.serverId, h);
     return map;
   }, [healthArr]);
+  const nodesByServer = useMemo(() => {
+    const map = new Map<string, SwarmNode>();
+    if (swarmView?.swarm) {
+      for (const n of swarmView.nodes) {
+        if (n.serverId) map.set(n.serverId, n);
+      }
+    }
+    return map;
+  }, [swarmView]);
   const cluster = clusterArr[0] ?? null;
   const perServerStats = useMemo(() => {
     type StatEntry = (typeof perServerArr)[number];
@@ -113,10 +128,14 @@ function ServersRoute() {
         </div>
       )}
 
+      {/* Swarm-gated: renders nothing on the plain-docker runtime. */}
+      <ManagersQuorumCard view={swarmView} />
+
       <ServersTable
         servers={visibleServers}
         statsByServer={perServerStats}
         healthByServer={healthByServer}
+        nodesByServer={nodesByServer}
         onOpenServer={setOpenServerId}
         onCreate={() => setCreateOpen(true)}
       />
@@ -128,6 +147,7 @@ function ServersRoute() {
       <ServerHealthSheet
         server={servers.find((s) => s.id === openServerId) ?? null}
         entry={openServerId ? (healthByServer.get(openServerId) ?? null) : null}
+        swarm={swarmView}
         onOpenChange={(open) => {
           if (!open) setOpenServerId(null);
         }}

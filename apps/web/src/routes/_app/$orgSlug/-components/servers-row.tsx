@@ -1,8 +1,13 @@
+import { useState } from "react";
+
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ArrowRight01Icon, ServerStack01Icon } from "@hugeicons/core-free-icons";
+import { toast } from "sonner";
 
-import { type Server } from "@/features/servers/data/server";
+import { serverCollection, type Server } from "@/features/servers/data/server";
 import { type ServerHealthEntry } from "@/features/servers/data/health";
+import { type SwarmNode } from "@/features/servers/data/swarm";
+import { orpc } from "@/shared/server/orpc";
 import { Badge } from "@/shared/components/ui/badge";
 import {
   Select,
@@ -30,11 +35,15 @@ export function ServerRow({
   server,
   stats,
   health,
+  node,
   onOpen,
 }: {
   server: Server;
   stats: ServerRowStats | null;
   health: ServerHealthEntry | null;
+  /** Matching swarm node (null when plain docker / not joined) — the role
+   *  column prefers swarm truth and marks the Raft leader. */
+  node: SwarmNode | null;
   onOpen: () => void;
 }) {
   // When stats haven't arrived yet (first paint, swarm unreachable, …) we
@@ -82,7 +91,7 @@ export function ServerRow({
       </TableCell>
 
       <TableCell>
-        <RoleBadge role={server.role} />
+        <RoleBadge role={node?.role ?? server.role} leader={node?.leader ?? false} />
       </TableCell>
 
       {/* stopPropagation: the row opens the health sheet; interacting with
@@ -129,11 +138,39 @@ export function ServerRow({
 }
 
 function AvailabilitySelect({ server }: { server: Server }) {
-  // TODO: wire to a `server.setAvailability` procedure once it lands. For now
-  // the Select is controlled but the change is a no-op so the affordance is
-  // visible without claiming we can actually drain a node.
+  // Optimistic local override: shows the picked value immediately, then either
+  // settles it into the collection (docker confirmed the node update) or clears
+  // it so the select rolls back to the persisted value (typed error → toast).
+  const [pending, setPending] = useState<Server["availability"] | null>(null);
+  const value = pending ?? server.availability;
+
+  const setAvailability = (next: Server["availability"]) => {
+    if (next === value) return;
+    setPending(next);
+    orpc.server.setAvailability
+      .call({ id: server.id, availability: next })
+      .then((updated) => {
+        // Write the confirmed row straight into the synced store — no refetch
+        // round-trip, so clearing `pending` can't flash the stale value.
+        serverCollection.utils.writeUpdate(updated);
+        toast.success(`${server.name}: availability set to ${next}`);
+      })
+      .catch((err: unknown) => {
+        toast.error(
+          err instanceof Error ? err.message : `Couldn't set ${server.name} to ${next}`,
+        );
+      })
+      .finally(() => setPending(null));
+  };
+
   return (
-    <Select value={server.availability} onValueChange={() => {}}>
+    <Select
+      value={value}
+      disabled={pending !== null}
+      onValueChange={(v) => {
+        if (v === "active" || v === "drain" || v === "pause") setAvailability(v);
+      }}
+    >
       <SelectTrigger className="h-7 w-[120px] px-2 text-[12px]">
         <SelectValue />
       </SelectTrigger>
@@ -212,15 +249,25 @@ function UsageRow({
   );
 }
 
-function RoleBadge({ role }: { role: Server["role"] }) {
+function RoleBadge({ role, leader }: { role: Server["role"]; leader: boolean }) {
   const tone =
     role === "manager"
       ? "border-info/30 bg-info/10 text-info"
       : "border-border bg-muted text-muted-foreground";
   return (
-    <Badge variant="outline" className={cn("h-5 px-1.5 font-mono text-[10px] font-medium", tone)}>
-      {role}
-    </Badge>
+    <span className="inline-flex items-center gap-1">
+      <Badge variant="outline" className={cn("h-5 px-1.5 font-mono text-[10px] font-medium", tone)}>
+        {role}
+      </Badge>
+      {leader && (
+        <Badge
+          variant="outline"
+          className="h-5 border-success/30 bg-success/10 px-1.5 font-mono text-[10px] font-medium text-success"
+        >
+          leader
+        </Badge>
+      )}
+    </span>
   );
 }
 

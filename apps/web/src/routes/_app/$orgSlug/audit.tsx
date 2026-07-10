@@ -19,9 +19,11 @@ import { useMemo, useState } from "react";
 import {
   auditCollection,
   auditSubsetKey,
+  auditWindow,
   DEFAULT_AUDIT_FILTER,
   RANGES,
   toAuditInput,
+  type AuditEvent,
 } from "@/features/audit/data/audit";
 import { Page, PageHeader } from "@/shared/components/page";
 import { Button } from "@/shared/components/ui/button";
@@ -58,7 +60,10 @@ const OUTCOME_ITEMS: { label: string; value: string }[] = [
 ];
 
 function AuditRoute() {
-  const [openId, setOpenId] = useState<string | null>(null);
+  // The whole event rides in state (not just an id): correlated-event
+  // navigation can open events that aren't in the loaded page, so deriving
+  // the open event from `items` would come up empty for them.
+  const [openEvent, setOpenEvent] = useState<AuditEvent | null>(null);
 
   // Filters live in a TanStack Form used purely as a reactive state container.
   // No submit — `useStore` re-renders on every value change, which re-derives
@@ -75,10 +80,30 @@ function AuditRoute() {
   // thrash the subset / query keys.
   const queryFilter = useMemo(
     () => ({ ...filter, q: debouncedQ }),
-    [filter.range, filter.outcome, debouncedQ, filter.limit],
+    [
+      filter.range,
+      filter.from,
+      filter.to,
+      filter.outcome,
+      filter.actor,
+      filter.action,
+      filter.targetType,
+      debouncedQ,
+      filter.limit,
+    ],
   );
   const input = useMemo(() => toAuditInput(queryFilter), [queryFilter]);
   const key = useMemo(() => auditSubsetKey(queryFilter), [queryFilter]);
+
+  // Distinct actor / action / target-kind values over the *time window only*
+  // (not the other filters) — so picking one option doesn't make the rest
+  // vanish from their dropdowns. Same stable-key trick as the stats query.
+  const distinct = useQuery({
+    ...orpc.audit.distinct.queryOptions({ input: auditWindow(queryFilter) }),
+    queryKey: ["audit", "distinct", filter.range, filter.from, filter.to],
+    placeholderData: keepPreviousData,
+    staleTime: 60_000,
+  });
 
   // Companion read for the server-truth aggregates the collection can't hold.
   // `limit: 1` keeps the payload tiny — `counts`/`total` span the whole filtered
@@ -110,7 +135,32 @@ function AuditRoute() {
     [key, queryFilter.limit],
   );
 
-  const opening = items.find((e) => e.id === openId) ?? null;
+  // Select options come from the distinct query; if the current selection has
+  // aged out of the window, keep it as an extra option so the native select
+  // doesn't silently blank while the filter is still applied.
+  const actorOptions = useMemo(() => {
+    const opts = (distinct.data?.actors ?? []).map((a) => ({
+      value: a.id,
+      label: a.label ?? a.email ?? a.id,
+    }));
+    return withCurrent(opts, filter.actor);
+  }, [distinct.data?.actors, filter.actor]);
+  const actionOptions = useMemo(
+    () =>
+      withCurrent(
+        (distinct.data?.actions ?? []).map((a) => ({ value: a, label: a })),
+        filter.action,
+      ),
+    [distinct.data?.actions, filter.action],
+  );
+  const targetOptions = useMemo(
+    () =>
+      withCurrent(
+        (distinct.data?.targetTypes ?? []).map((t) => ({ value: t, label: t })),
+        filter.targetType,
+      ),
+    [distinct.data?.targetTypes, filter.targetType],
+  );
 
   return (
     <Page>
@@ -150,6 +200,68 @@ function AuditRoute() {
                 </NativeSelectOption>
               ))}
             </NativeSelect>
+          )}
+        </form.Field>
+        {filter.range === "custom" && (
+          <div className="flex items-center gap-1.5">
+            <form.Field name="from">
+              {(field) => (
+                <Input
+                  type="date"
+                  aria-label="From date"
+                  value={field.state.value}
+                  max={filter.to || undefined}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  className="h-8 w-36"
+                />
+              )}
+            </form.Field>
+            <span className="text-xs text-muted-foreground">–</span>
+            <form.Field name="to">
+              {(field) => (
+                <Input
+                  type="date"
+                  aria-label="To date"
+                  value={field.state.value}
+                  min={filter.from || undefined}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  className="h-8 w-36"
+                />
+              )}
+            </form.Field>
+          </div>
+        )}
+        <form.Field name="actor">
+          {(field) => (
+            <FilterSelect
+              value={field.state.value}
+              onChange={field.handleChange}
+              anyLabel="All actors"
+              options={actorOptions}
+              className="w-44"
+            />
+          )}
+        </form.Field>
+        <form.Field name="action">
+          {(field) => (
+            <FilterSelect
+              value={field.state.value}
+              onChange={field.handleChange}
+              anyLabel="All actions"
+              options={actionOptions}
+              className="w-44"
+            />
+          )}
+        </form.Field>
+        <form.Field name="targetType">
+          {(field) => (
+            <FilterSelect
+              value={field.state.value}
+              onChange={field.handleChange}
+              anyLabel="All targets"
+              options={targetOptions}
+              className="w-36"
+            />
           )}
         </form.Field>
         <form.Field name="outcome">
@@ -217,11 +329,57 @@ function AuditRoute() {
         isFetching={stats.isFetching}
         errorMessage={stats.error?.message}
         onRetry={() => void stats.refetch()}
-        onOpen={setOpenId}
+        onOpen={setOpenEvent}
         onLoadMore={() => form.setFieldValue("limit", filter.limit + 50)}
       />
 
-      <EventDrawer event={opening} onClose={() => setOpenId(null)} />
+      <EventDrawer
+        event={openEvent}
+        onClose={() => setOpenEvent(null)}
+        onSelect={setOpenEvent}
+      />
     </Page>
+  );
+}
+
+/** Inject the current selection into the option list when the distinct query
+ *  no longer returns it (window changed) — a native select with a value that
+ *  has no matching <option> renders blank while still filtering. */
+function withCurrent(
+  options: { value: string; label: string }[],
+  current: string,
+): { value: string; label: string }[] {
+  if (current === "any" || options.some((o) => o.value === current)) return options;
+  return [...options, { value: current, label: current }];
+}
+
+/** "Any + distinct values" native select shared by the actor / action /
+ *  target-kind filters. */
+function FilterSelect({
+  value,
+  onChange,
+  anyLabel,
+  options,
+  className,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  anyLabel: string;
+  options: { value: string; label: string }[];
+  className?: string;
+}) {
+  return (
+    <NativeSelect
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={`h-8 ${className ?? ""}`}
+    >
+      <NativeSelectOption value="any">{anyLabel}</NativeSelectOption>
+      {options.map((o) => (
+        <NativeSelectOption key={o.value} value={o.value}>
+          {o.label}
+        </NativeSelectOption>
+      ))}
+    </NativeSelect>
   );
 }

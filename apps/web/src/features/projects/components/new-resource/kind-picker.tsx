@@ -4,6 +4,8 @@
 // sub-picker. The workload role (web app vs static vs worker) is NOT a card —
 // it's a downstream field, because the same role can be built from any source.
 // Extracted from StepKind so it can be reused in dialogs.
+import { useNavigate, useParams } from "@tanstack/react-router";
+
 import {
   LAUNCH_CATEGORIES,
   SERVICE_KINDS,
@@ -22,6 +24,7 @@ import {
   builderPopClass,
 } from "./form-primitives";
 import { I } from "./icons";
+import { useResourceOverlay } from "./overlay-context";
 
 // Engines offered under "Create database" — the data-group kinds, wired ones
 // first, coming-soon ones gated.
@@ -59,6 +62,10 @@ interface KindPickerProps {
 }
 
 export function KindPicker({ value, onChange, dbView, onDbViewChange }: KindPickerProps) {
+  const navigate = useNavigate();
+  const overlay = useResourceOverlay();
+  const { orgSlug, projectSlug } = useParams({ strict: false });
+
   if (dbView) {
     return (
       <>
@@ -93,6 +100,21 @@ export function KindPicker({ value, onChange, dbView, onDbViewChange }: KindPick
     if (cat.comingSoon) return;
     if (cat.id === "database") {
       onDbViewChange(true);
+      return;
+    }
+    if (cat.id === "template") {
+      // Templates live on the org gallery page: close this dialog and send
+      // the operator there with the current project preselected. The
+      // gallery's "Deploy to project…" comes back via ?new=template, which
+      // reopens this wizard on the compose flow, prefilled.
+      overlay.setOpen(false);
+      if (orgSlug) {
+        void navigate({
+          to: "/$orgSlug/templates",
+          params: { orgSlug },
+          search: { project: projectSlug },
+        });
+      }
       return;
     }
     if (cat.kindId) onChange(cat.kindId);

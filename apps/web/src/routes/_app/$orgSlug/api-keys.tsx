@@ -6,7 +6,7 @@
  */
 
 import { useState } from "react";
-import { Key02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
+import { InformationCircleIcon, Key02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 import { eq, useLiveQuery } from "@tanstack/react-db";
@@ -88,6 +88,15 @@ function RouteComponent() {
         }
       />
 
+      <div className="mb-4 flex items-center gap-2 rounded-md border border-info/30 bg-info/10 px-3.5 py-2.5 text-[12.5px] text-info">
+        <HugeiconsIcon
+          icon={InformationCircleIcon}
+          strokeWidth={2}
+          className="size-3.5 shrink-0"
+        />
+        <span>Keys are shown once at creation and cannot be recovered — store them securely.</span>
+      </div>
+
       {isLoading ? (
         <div className="flex flex-col gap-1 rounded-md border bg-card p-2">
           {Array.from({ length: 3 }).map((_, i) => (
@@ -134,12 +143,12 @@ function RouteComponent() {
                 <TableHead>Last used</TableHead>
                 <TableHead>Expires</TableHead>
                 <TableHead className="text-right">Enabled</TableHead>
-                {canManage ? <TableHead className="w-10" /> : null}
+                {canManage ? <TableHead className="w-18" /> : null}
               </TableRow>
             </TableHeader>
             <TableBody>
               {keys.map((k) => (
-                <ApiKeyRow key={k.id} apiKey={k} canManage={canManage} />
+                <ApiKeyRow key={k.id} apiKey={k} canManage={canManage} onRotated={setRevealKey} />
               ))}
             </TableBody>
           </Table>

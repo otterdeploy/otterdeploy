@@ -33,6 +33,8 @@ export const reviewStepSchema = z.object({
   ports: z.array(portSchema),
   healthPath: z.string(),
   healthInterval: z.number().int().min(1),
+  healthTimeout: z.number().int().min(1),
+  healthRetries: z.number().int().min(1),
   variables: z.array(varSchema),
   linkedSecrets: z.record(z.string(), z.boolean()),
   presetId: z.string().min(1),
@@ -41,9 +43,7 @@ export const reviewStepSchema = z.object({
   replicas: z.number().int().min(1),
   placement: z.string().min(1),
   pinnedNodeId: z.string().nullable(),
-  storageGb: z.number().int().min(1),
-  backupsEnabled: z.boolean(),
-  backupRetention: z.number().int().min(1).max(365),
-  pitr: z.boolean(),
-  highAvailability: z.boolean(),
+  // No storage/backup/PITR/HA fields: the manifest databaseSchema and the
+  // DB provisioner support none of them (see schemas/storage.ts) —
+  // validating fields the backend drops would be validating fiction.
 });

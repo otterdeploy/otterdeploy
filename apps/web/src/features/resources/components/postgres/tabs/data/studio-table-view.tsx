@@ -96,14 +96,25 @@ function TableListRail({ studio }: { studio: DataStudioController }) {
             )}
           >
             <HugeiconsIcon icon={Table01Icon} strokeWidth={2} className="size-3.5 shrink-0" />
-            <span className="truncate" title={`${tbl.schema}.${tbl.name}`}>
+            <span className="min-w-0 flex-1 truncate" title={`${tbl.schema}.${tbl.name}`}>
               {tbl.schema === "public" ? tbl.name : `${tbl.schema}.${tbl.name}`}
             </span>
+            {/* Planner estimate (pg_class.reltuples) — never a count(*). */}
+            {tbl.estimatedRows != null ? (
+              <span className="shrink-0 font-mono text-[10px] font-normal text-muted-foreground/60">
+                ~{compactCount(tbl.estimatedRows)}
+              </span>
+            ) : null}
           </button>
         );
       })}
     </div>
   );
+}
+
+/** 1234 → "1.2K" — the rail is narrow, and the estimate is approximate anyway. */
+function compactCount(n: number): string {
+  return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(n);
 }
 
 function SidebarSkeleton() {

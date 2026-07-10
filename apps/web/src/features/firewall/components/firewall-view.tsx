@@ -191,13 +191,7 @@ function FirewallToolbar({
 }
 
 /** Inline "block an IP by hand" form — bans the entered IP/CIDR via CrowdSec. */
-function BlockIpForm({
-  onBlock,
-  blocking,
-}: {
-  onBlock: (ip: string) => void;
-  blocking: boolean;
-}) {
+function BlockIpForm({ onBlock, blocking }: { onBlock: (ip: string) => void; blocking: boolean }) {
   const [ip, setIp] = useState("");
   const submit = () => {
     const value = ip.trim();

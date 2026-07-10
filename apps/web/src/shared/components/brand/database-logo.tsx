@@ -1,8 +1,12 @@
 import type { CSSProperties, ReactNode, SVGProps } from "react";
 
-import { Mariadb } from "@/shared/components/ui/svgs/mariadb";
-import { Mongodb } from "@/shared/components/ui/svgs/mongodb";
-import { Mysql } from "@/shared/components/ui/svgs/mysql";
+import { useTheme } from "@/shared/components/theme-provider";
+import { MariadbDark } from "@/shared/components/ui/svgs/mariadb-dark";
+import { MariadbLight } from "@/shared/components/ui/svgs/mariadb-light";
+import { MongodbDark } from "@/shared/components/ui/svgs/mongodb-dark";
+import { MongodbLight } from "@/shared/components/ui/svgs/mongodb-light";
+import { MysqlDark } from "@/shared/components/ui/svgs/mysql-dark";
+import { MysqlLight } from "@/shared/components/ui/svgs/mysql-light";
 import { Postgresql } from "@/shared/components/ui/svgs/postgresql";
 import { Redis } from "@/shared/components/ui/svgs/redis";
 
@@ -18,11 +22,22 @@ interface Props {
   style?: CSSProperties;
 }
 
-const brands: Record<Exclude<DatabaseBrand, "clickhouse">, SvgComponent> = {
+/**
+ * Engines whose brand ink flips between themes (MySQL teal, MongoDB ink,
+ * MariaDB navy all vanish on the dark canvas). Selected via the app theme
+ * hook — `resolvedTheme` also tracks the OS when theme="system".
+ */
+const themedBrands: Record<
+  Extract<DatabaseBrand, "mysql" | "mongodb" | "mariadb">,
+  { dark: SvgComponent; light: SvgComponent }
+> = {
+  mysql: { dark: MysqlDark, light: MysqlLight },
+  mongodb: { dark: MongodbDark, light: MongodbLight },
+  mariadb: { dark: MariadbDark, light: MariadbLight },
+};
+
+const staticBrands: Record<Extract<DatabaseBrand, "postgresql" | "redis">, SvgComponent> = {
   postgresql: Postgresql,
-  mysql: Mysql,
-  mariadb: Mariadb,
-  mongodb: Mongodb,
   redis: Redis,
 };
 
@@ -34,6 +49,8 @@ export function DatabaseLogo({
   color = "var(--foreground)",
   style,
 }: Props) {
+  const { resolvedTheme, theme } = useTheme();
+  const isDark = (resolvedTheme ?? theme) === "dark";
   const brand = resolveDatabaseBrand(value);
 
   return (
@@ -56,7 +73,7 @@ export function DatabaseLogo({
       {brand === "clickhouse" ? (
         <ClickHouseMark size={Math.round(size * 0.82)} />
       ) : brand ? (
-        renderBrand(brand, Math.round(size * 0.82))
+        renderBrand(brand, isDark, Math.round(size * 0.82))
       ) : (
         <FallbackMark value={value} size={size} color={color} />
       )}
@@ -64,8 +81,13 @@ export function DatabaseLogo({
   );
 }
 
-function renderBrand(brand: Exclude<DatabaseBrand, "clickhouse">, size: number) {
-  const Icon = brands[brand];
+function renderBrand(brand: Exclude<DatabaseBrand, "clickhouse">, isDark: boolean, size: number) {
+  if (brand === "mysql" || brand === "mongodb" || brand === "mariadb") {
+    const Icon = isDark ? themedBrands[brand].dark : themedBrands[brand].light;
+    return <Icon width={size} height={size} />;
+  }
+
+  const Icon = staticBrands[brand];
   return <Icon width={size} height={size} />;
 }
 
@@ -102,7 +124,8 @@ function ClickHouseMark({ size }: { size: number }) {
       <rect x="2" y="3" width="4" height="18" rx="1" fill="#FFCC01" />
       <rect x="8" y="3" width="4" height="18" rx="1" fill="#FFCC01" />
       <rect x="14" y="3" width="4" height="11" rx="1" fill="#FFCC01" />
-      <rect x="14" y="16" width="8" height="5" rx="1" fill="#111111" />
+      {/* currentColor, not #111 — the dark cap must stay visible on the dark canvas */}
+      <rect x="14" y="16" width="8" height="5" rx="1" fill="currentColor" />
     </svg>
   );
 }

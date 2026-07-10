@@ -17,7 +17,6 @@ import {
   builderCardClass,
   builderPopClass,
   SectionHeader,
-  SettingRow,
 } from "../form-primitives";
 import { I } from "../icons";
 
@@ -106,22 +105,15 @@ export function ReplicasSection() {
           >
             <I.plus width={11} height={11} />
           </Button>
-          <div className="flex-1" />
-          <span className="font-mono text-[11px] text-muted-foreground">
-            scale up to {replicas * 5} via autoscaler
-          </span>
         </div>
-        <div className="mt-3.5">
-          <SettingRow
-            label="Enable autoscaling"
-            sub={`Scale between ${replicas} and ${replicas * 5} replicas based on CPU > 60%`}
-          />
-          <SettingRow
-            label="Zero-downtime rolling deploy"
-            defaultOn
-            sub="Drain old replicas only after new ones report ready"
-          />
-        </div>
+        {/* Not a toggle: start-first + auto-rollback is hardcoded in the
+            swarm driver's UpdateConfig for every service. (There is no
+            autoscaler — the old "enable autoscaling" switch wrote to
+            nothing and was removed.) */}
+        <p className="mt-3.5 border-t pt-3 text-[11px] leading-relaxed text-muted-foreground">
+          Deploys are zero-downtime by default: new replicas start first and traffic drains only
+          after they report ready; a failed rollout rolls back automatically.
+        </p>
       </Card>
     </>
   );

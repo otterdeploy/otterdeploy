@@ -12,6 +12,7 @@ import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 import { toast } from "sonner";
 
+import { ProjectDangerZone } from "@/features/projects/components/settings/danger-zone";
 import { DomainSection } from "@/features/projects/components/settings/domain-section";
 import { Button } from "@/shared/components/ui/button";
 import { orpc, queryClient } from "@/shared/server/orpc";
@@ -23,6 +24,8 @@ export const Route = createFileRoute("/_app/$orgSlug/$projectSlug/settings")({
 
 interface ProjectSettingsFields {
   id: string;
+  name: string;
+  slug: string;
   customDomain: string | null;
   customDomainVerifiedAt: Date | null;
 }
@@ -33,6 +36,7 @@ function SettingsRoute() {
 }
 
 function SettingsForm({ project }: { project: ProjectSettingsFields }) {
+  const { orgSlug } = Route.useParams();
   const [customDomain, setCustomDomain] = useState(project.customDomain ?? "");
   const dirty = customDomain.trim() !== (project.customDomain ?? "");
 
@@ -76,6 +80,8 @@ function SettingsForm({ project }: { project: ProjectSettingsFields }) {
           {updateMut.isPending ? "Saving…" : "Save changes"}
         </Button>
       </div>
+
+      <ProjectDangerZone project={project} orgSlug={orgSlug} />
     </div>
   );
 }

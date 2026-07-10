@@ -1,6 +1,6 @@
 import type { ProjectSlug } from "@otterdeploy/shared/id";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import { Add01Icon, ArrowDown01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -36,7 +36,15 @@ function Separator() {
   );
 }
 
-function CrumbTrigger({ label, className }: { label: string; className?: string }) {
+function CrumbTrigger({
+  label,
+  leading,
+  className,
+}: {
+  label: string;
+  leading?: ReactNode;
+  className?: string;
+}) {
   return (
     <DropdownMenuTrigger
       className={cn(
@@ -44,6 +52,7 @@ function CrumbTrigger({ label, className }: { label: string; className?: string 
         className,
       )}
     >
+      {leading}
       <span className="max-w-[14ch] truncate">{label}</span>
       <HugeiconsIcon
         icon={ArrowDown01Icon}
@@ -190,6 +199,23 @@ function ProjectPicker({
   );
 }
 
+/**
+ * Environment status-dot color, derived from slug/name heuristics (there is
+ * no explicit "kind" column on environments): production→emerald,
+ * staging→amber, preview→blue, anything else→muted.
+ */
+function envDotClass(env: { slug: string; name: string }): string {
+  const s = `${env.slug} ${env.name}`.toLowerCase();
+  if (s.includes("prod")) return "bg-emerald-500";
+  if (s.includes("stag")) return "bg-amber-500";
+  if (s.includes("preview")) return "bg-blue-500";
+  return "bg-muted-foreground/50";
+}
+
+function EnvDot({ env }: { env: { slug: string; name: string } }) {
+  return <span aria-hidden className={cn("size-1.5 shrink-0 rounded-full", envDotClass(env))} />;
+}
+
 function EnvPicker({ projectId }: { projectId: string }) {
   const navigate = useNavigate();
   const { env } = useSearch({ from: "/_app/$orgSlug/$projectSlug" });
@@ -209,7 +235,7 @@ function EnvPicker({ projectId }: { projectId: string }) {
   return (
     <>
       <DropdownMenu>
-        <CrumbTrigger label={current.name} />
+        <CrumbTrigger label={current.name} leading={<EnvDot env={current} />} />
         <DropdownMenuContent align="start" className="min-w-56">
           {environments.map((e) => (
             <DropdownMenuItem
@@ -224,6 +250,7 @@ function EnvPicker({ projectId }: { projectId: string }) {
               }
               className="gap-2"
             >
+              <EnvDot env={e} />
               <span className="truncate">{e.name}</span>
               <ActiveCheck active={e.slug === currentSlug} />
             </DropdownMenuItem>

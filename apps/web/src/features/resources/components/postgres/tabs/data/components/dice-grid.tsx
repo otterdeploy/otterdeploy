@@ -8,12 +8,22 @@
  * primary key), inline edits and row deletes persist through the parent's
  * `onUpdateRow` / `onDeleteRow` callbacks (which call `database.mutateRow`).
  * Changes apply optimistically and revert on a server error.
+ *
+ * Table-browse extras (all opt-in via props):
+ * - `selectable` prepends a checkbox column (multi-select for bulk delete /
+ *   export-selected; state mirrored up via `onSelectionChange`);
+ * - `enableRowDetail` prepends a per-row chevron that opens the RowDetailPanel
+ *   on the right (every column, per-field copy, jump-to-inline-edit);
+ * - `hiddenColumns` drops columns from the GRID only — the data (and therefore
+ *   exports and the detail panel) keeps every column.
  */
 
-import type { ColumnDef } from "@tanstack/react-table";
+import type { ColumnDef, RowSelectionState, Updater } from "@tanstack/react-table";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
+import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
 
 import type { FkTarget } from "@/shared/components/data-grid/types";
@@ -21,10 +31,12 @@ import type { FkTarget } from "@/shared/components/data-grid/types";
 import { DataGrid } from "@/shared/components/data-grid/data-grid";
 import { useDataGrid } from "@/shared/components/data-grid/hooks/use-data-grid";
 import { useElementHeight } from "@/shared/components/data-grid/hooks/use-element-height";
+import { Checkbox } from "@/shared/components/ui/checkbox";
 
 import type { ColumnVariant } from "../data/queries";
 
 import { FkRefPopover } from "./fk-ref-popover";
+import { RowDetailPanel } from "./row-detail-panel";
 
 export type { ColumnVariant };
 
@@ -77,17 +89,26 @@ export function DiceResultGrid({
   rows,
   columnVariants,
   columnFks,
+  columnTypes,
+  hiddenColumns,
   onOpenRef,
   editable = false,
   primaryKey,
   onUpdateRow,
   onDeleteRow,
+  selectable = false,
+  onSelectionChange,
+  enableRowDetail = false,
 }: {
   resourceId: never;
   columns: string[];
   rows: (string | null)[][];
   columnVariants?: Record<string, ColumnVariant>;
   columnFks?: Record<string, FkTarget>;
+  /** Collapsed display types for the row-detail panel's field labels. */
+  columnTypes?: Record<string, string>;
+  /** Column names excluded from the grid (not from the data / detail panel). */
+  hiddenColumns?: string[];
   onOpenRef?: (fk: FkTarget, value: string) => void;
   /** Allow inline edit / delete (actor has write capability). */
   editable?: boolean;
@@ -95,12 +116,19 @@ export function DiceResultGrid({
   primaryKey?: string[];
   onUpdateRow?: (pk: ColumnValue[], set: ColumnValue[]) => Promise<void>;
   onDeleteRow?: (pk: ColumnValue[]) => Promise<void>;
+  /** Show the multi-select checkbox column (bulk delete / export selected). */
+  selectable?: boolean;
+  /** Selected row indices (into `rows`), newest state on every change. */
+  onSelectionChange?: (indices: number[]) => void;
+  /** Show the per-row detail chevron + right-hand detail panel. */
+  enableRowDetail?: boolean;
 }) {
   const [fk, setFk] = useState<{
     target: FkTarget;
     value: string;
     anchor: HTMLElement;
   } | null>(null);
+  const [detailIndex, setDetailIndex] = useState<number | null>(null);
   const [data, setData] = useState<Row[]>(() => toRows(columns, rows, columnVariants));
   useEffect(() => {
     setData(toRows(columns, rows, columnVariants));
@@ -152,21 +180,81 @@ export function DiceResultGrid({
     }
   };
 
-  const colDefs = useMemo<ColumnDef<Row>[]>(
-    () =>
-      columns.map((name) => {
-        const v = columnVariants?.[name];
-        // "boolean" renders as text (showing true/false words) — DiceUI's
-        // checkbox variant would replace the words with a checkbox.
-        const variant = v == null || v === "boolean" ? "short-text" : v;
-        return {
-          accessorKey: name,
-          header: name,
-          meta: { cell: { variant } },
-        };
-      }),
-    [columns, columnVariants],
-  );
+  const colDefs = useMemo<ColumnDef<Row>[]>(() => {
+    const defs: ColumnDef<Row>[] = [];
+    // Function header/cell → the grid flexRenders them; keyboard navigation
+    // skips the "select" / "actions" column ids by design.
+    if (selectable) {
+      defs.push({
+        id: "select",
+        size: 44,
+        enableSorting: false,
+        enableResizing: false,
+        header: ({ table }) => (
+          <Checkbox
+            aria-label="Select all rows"
+            checked={table.getIsAllRowsSelected()}
+            indeterminate={table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected()}
+            onCheckedChange={(v) => table.toggleAllRowsSelected(Boolean(v))}
+          />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            aria-label="Select row"
+            checked={row.getIsSelected()}
+            onCheckedChange={(v) => row.toggleSelected(Boolean(v))}
+          />
+        ),
+      });
+    }
+    if (enableRowDetail) {
+      defs.push({
+        id: "actions",
+        size: 36,
+        enableSorting: false,
+        enableResizing: false,
+        header: () => null,
+        cell: ({ row }) => (
+          <button
+            type="button"
+            aria-label="Open row detail"
+            onClick={() => setDetailIndex(row.index)}
+            className="flex size-full items-center justify-center text-muted-foreground/50 hover:text-foreground"
+          >
+            <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-3" />
+          </button>
+        ),
+      });
+    }
+    const hidden = new Set(hiddenColumns ?? []);
+    for (const name of columns) {
+      if (hidden.has(name)) continue;
+      const v = columnVariants?.[name];
+      // "boolean" renders as text (showing true/false words) — DiceUI's
+      // checkbox variant would replace the words with a checkbox.
+      const variant = v == null || v === "boolean" ? "short-text" : v;
+      defs.push({
+        accessorKey: name,
+        header: name,
+        meta: { cell: { variant } },
+      });
+    }
+    return defs;
+  }, [columns, columnVariants, hiddenColumns, selectable, enableRowDetail]);
+
+  // Mirror the grid store's row selection out as row indices (row id = index).
+  const selectionRef = useRef<RowSelectionState>({});
+  const handleRowSelectionChange = (updater: Updater<RowSelectionState>) => {
+    const next = typeof updater === "function" ? updater(selectionRef.current) : updater;
+    selectionRef.current = next;
+    onSelectionChange?.(
+      Object.keys(next)
+        .filter((k) => next[k])
+        .map(Number)
+        .filter((n) => Number.isInteger(n))
+        .sort((a, b) => a - b),
+    );
+  };
 
   const grid = useDataGrid<Row>({
     data,
@@ -174,6 +262,7 @@ export function DiceResultGrid({
     getRowId: (_row, index) => String(index),
     onDataChange: handleDataChange,
     onRowsDelete: canEdit ? (rowsToDelete) => handleRowsDelete(rowsToDelete) : undefined,
+    onRowSelectionChange: selectable ? handleRowSelectionChange : undefined,
     readOnly: !canEdit,
     enableSearch: true,
     overscan: 12,
@@ -185,12 +274,35 @@ export function DiceResultGrid({
 
   const [wrapRef, height] = useElementHeight<HTMLDivElement>();
 
+  const detailRow = detailIndex !== null ? data[detailIndex] : undefined;
+
   return (
-    <div ref={wrapRef} className="min-h-0 flex-1 overflow-hidden">
-      {/* No stretchColumns: it flex-grows every column to fill width, so
-          resizing one redistributes the rest. Fixed widths = resize one, only
-          that one changes (grid scrolls horizontally if columns overflow). */}
-      <DataGrid {...grid} height={height} />
+    <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
+      <div ref={wrapRef} className="min-h-0 min-w-0 flex-1 overflow-hidden">
+        {/* No stretchColumns: it flex-grows every column to fill width, so
+            resizing one redistributes the rest. Fixed widths = resize one, only
+            that one changes (grid scrolls horizontally if columns overflow). */}
+        <DataGrid {...grid} height={height} />
+      </div>
+
+      {detailRow !== undefined && detailIndex !== null ? (
+        <RowDetailPanel
+          columns={columns}
+          row={detailRow}
+          columnTypes={columnTypes}
+          primaryKey={primaryKey}
+          editable={canEdit}
+          onEditField={(column) => {
+            // Jump to the inline editor for this cell (hidden columns aren't in
+            // the grid — unhide first to edit them there).
+            if (!canEdit || (hiddenColumns ?? []).includes(column)) return;
+            grid.tableMeta.scrollToCell?.(detailIndex, column);
+            grid.tableMeta.onCellEditingStart?.(detailIndex, column);
+          }}
+          onClose={() => setDetailIndex(null)}
+        />
+      ) : null}
+
       {fk ? (
         <FkRefPopover
           resourceId={resourceId}

@@ -17,6 +17,7 @@ import { Python } from "@/shared/components/ui/svgs/python";
 import { Redis } from "@/shared/components/ui/svgs/redis";
 import { Ruby } from "@/shared/components/ui/svgs/ruby";
 import { Rust } from "@/shared/components/ui/svgs/rust";
+import { cn } from "@/shared/lib/utils";
 
 type BrandSvg = ComponentType<SVGProps<SVGSVGElement>>;
 
@@ -39,6 +40,11 @@ const IMAGE_ICONS: Record<string, BrandSvg> = {
   bun: BunLogo,
 };
 
+// Marks whose SVG is solid black (#000000) — invisible on the dark canvas.
+// Inverted in dark mode, same treatment FrameworkLogo applies; the
+// color-branded marks (Postgres, Redis, Go, …) are left untouched.
+const DARK_INVERT = new Set(["rust", "bun"]);
+
 export function ComposeServiceIcon({
   image,
   className,
@@ -49,5 +55,5 @@ export function ComposeServiceIcon({
   // `postgres`, `ghcr.io/acme/redis:7`, `library/node:20` → `postgres`/`redis`/`node`.
   const base = image?.split("@")[0]?.split(":")[0]?.split("/").pop()?.toLowerCase() ?? "";
   const Icon = IMAGE_ICONS[base] ?? Docker;
-  return <Icon className={className} />;
+  return <Icon className={cn(DARK_INVERT.has(base) && "dark:invert", className)} />;
 }

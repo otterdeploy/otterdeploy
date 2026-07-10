@@ -7,11 +7,12 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useLiveQuery } from "@tanstack/react-db";
 /**
- * Run a backup now. The execution engine backs up database resources, so the
- * source picker lists the org's databases (real `terminal.targets` data) rather
- * than free-text names. Submits via `runBackup` → `backups.run`.
+ * Run a backup now. The engine backs up database resources (logical dump) and
+ * named Docker volumes (helper-container tar), so the source picker offers
+ * both: databases from real `terminal.targets` data, volumes from the live
+ * daemon inventory (orphans included). Submits via `runBackup` → `backups.run`.
  */
-import { useForm } from "@tanstack/react-form";
+import { useForm, useStore } from "@tanstack/react-form";
 import { toast } from "sonner";
 
 import { terminalDatabasesCollection } from "@/features/terminal/data/targets";
@@ -22,9 +23,11 @@ import { Switch } from "@/shared/components/ui/switch";
 import type { Destination } from "./data/destinations";
 
 import { runBackup } from "./data/backups";
+import { useVolumesList } from "./data/volumes";
 import { DatabaseCombobox } from "./database-combobox";
 import { MultiSelectCombobox } from "./multi-combobox";
-import { Field, destUri } from "./shared";
+import { Field, Segmented, destUri } from "./shared";
+import { VolumeCombobox } from "./volume-combobox";
 
 export function BackupNowDialog({
   open,
@@ -63,14 +66,18 @@ function BackupNowBody({
 
   const form = useForm({
     defaultValues: {
+      sourceKind: "database" as "database" | "volume",
       resourceId: "",
+      volumeName: "",
       destinationIds: [] as string[],
       encrypted: true,
     },
     onSubmit: async ({ value }) => {
       try {
         await runBackup({
-          resourceId: value.resourceId as never,
+          ...(value.sourceKind === "volume"
+            ? { volumeName: value.volumeName }
+            : { resourceId: value.resourceId as never }),
           destinationIds: value.destinationIds as never,
           encryption: value.encrypted ? "aes-256-gcm" : "none",
         });
@@ -86,6 +93,10 @@ function BackupNowBody({
     },
   });
 
+  // Only hit the daemon inventory once the Volume source is selected.
+  const sourceKind = useStore(form.store, (s) => s.values.sourceKind);
+  const { volumes, isLoading: volumesLoading } = useVolumesList(sourceKind === "volume");
+
   const destOptions = destinations.map((d) => ({
     value: d.id,
     label: d.name,
@@ -98,7 +109,8 @@ function BackupNowBody({
       <DialogHeader className="border-b px-5 py-3">
         <DialogTitle className="text-sm font-semibold">Run a backup now</DialogTitle>
         <p className="text-xs text-muted-foreground">
-          Dump a database to one or more destinations. Runs out-of-band from any schedule.
+          Dump a database or archive a volume to one or more destinations. Runs out-of-band from any
+          schedule.
         </p>
       </DialogHeader>
 
@@ -110,17 +122,47 @@ function BackupNowBody({
         noValidate
       >
         <div className="flex flex-col gap-4 p-5">
-          <form.Field name="resourceId">
+          <form.Field name="sourceKind">
             {(field) => (
-              <Field label="Database">
-                <DatabaseCombobox
-                  databases={databases}
+              <Field label="Source">
+                <Segmented
                   value={field.state.value}
                   onChange={field.handleChange}
+                  options={[
+                    { id: "database", label: "Database" },
+                    { id: "volume", label: "Volume" },
+                  ]}
                 />
               </Field>
             )}
           </form.Field>
+
+          {sourceKind === "database" ? (
+            <form.Field name="resourceId">
+              {(field) => (
+                <Field label="Database">
+                  <DatabaseCombobox
+                    databases={databases}
+                    value={field.state.value}
+                    onChange={field.handleChange}
+                  />
+                </Field>
+              )}
+            </form.Field>
+          ) : (
+            <form.Field name="volumeName">
+              {(field) => (
+                <Field label="Volume">
+                  <VolumeCombobox
+                    volumes={volumes}
+                    loading={volumesLoading}
+                    value={field.state.value}
+                    onChange={field.handleChange}
+                  />
+                </Field>
+              )}
+            </form.Field>
+          )}
 
           {destOptions.length ? (
             <form.Field name="destinationIds">
@@ -163,15 +205,19 @@ function BackupNowBody({
           </Button>
           <form.Subscribe
             selector={(s) =>
-              [s.isSubmitting, s.values.resourceId, s.values.destinationIds.length] as const
+              [
+                s.isSubmitting,
+                s.values.sourceKind === "volume" ? s.values.volumeName : s.values.resourceId,
+                s.values.destinationIds.length,
+              ] as const
             }
           >
-            {([isSubmitting, resourceId, destCount]) => (
+            {([isSubmitting, source, destCount]) => (
               <Button
                 size="sm"
                 type="submit"
                 className="gap-1.5"
-                disabled={isSubmitting || !resourceId || destCount === 0}
+                disabled={Boolean(isSubmitting) || !source || destCount === 0}
               >
                 <HugeiconsIcon icon={FlashIcon} className="size-3" />
                 {isSubmitting ? "Starting…" : "Start backup"}

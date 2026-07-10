@@ -8,6 +8,7 @@ import { ServerStack01Icon } from "@hugeicons/core-free-icons";
 
 import { type Server } from "@/features/servers/data/server";
 import { type ServerHealthEntry } from "@/features/servers/data/health";
+import { type SwarmNode } from "@/features/servers/data/swarm";
 import { Button } from "@/shared/components/ui/button";
 import { Card } from "@/shared/components/ui/card";
 import {
@@ -31,12 +32,16 @@ export function ServersTable({
   servers,
   statsByServer,
   healthByServer,
+  nodesByServer,
   onOpenServer,
   onCreate,
 }: {
   servers: Server[];
   statsByServer: ReadonlyMap<string, ServerRowStats>;
   healthByServer: ReadonlyMap<string, ServerHealthEntry>;
+  /** Swarm node per server id — empty on the plain-docker runtime, where the
+   *  role column falls back to the registered (DB) role. */
+  nodesByServer: ReadonlyMap<string, SwarmNode>;
   onOpenServer: (serverId: string) => void;
   onCreate: () => void;
 }) {
@@ -70,7 +75,7 @@ export function ServersTable({
         <TableHeader>
           <TableRow className="bg-muted/50 hover:bg-muted/50">
             <TableHead className="pl-4">Hostname</TableHead>
-            <TableHead className="w-[110px]">Role</TableHead>
+            <TableHead className="w-[140px]">Role</TableHead>
             <TableHead className="w-[140px]">Availability</TableHead>
             <TableHead>CPU · Memory</TableHead>
             <TableHead className="w-[150px]">Live</TableHead>
@@ -86,6 +91,7 @@ export function ServersTable({
               server={server}
               stats={statsByServer.get(server.id) ?? null}
               health={healthByServer.get(server.id) ?? null}
+              node={nodesByServer.get(server.id) ?? null}
               onOpen={() => onOpenServer(server.id)}
             />
           ))}

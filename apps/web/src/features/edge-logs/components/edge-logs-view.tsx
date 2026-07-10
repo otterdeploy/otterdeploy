@@ -10,11 +10,11 @@ import { Input } from "@/shared/components/ui/input";
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
+import { classifyThreat } from "../threat";
 import { BUCKETS, BUCKET_TEXT, METHOD_TEXT, METHODS } from "./edge-logs-constants";
 import { Chips, LiveBadge, RANGES, type Range, Segmented, toggleSet } from "./edge-logs-shared";
 import { exportCsv, HostFooter, LogHistogram, LogTable } from "./edge-logs-view-parts";
 import { HostFilter } from "./host-filter";
-import { classifyThreat } from "../threat";
 
 /**
  * Edge access logs view. Scoped to one project's domains when `projectId` is

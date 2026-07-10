@@ -6,10 +6,18 @@
  * it's null we POST and password is required. The host field is locked
  * after creation because changing it would semantically be "this is now
  * a different registry" — operators should delete and re-add.
+ *
+ * The kind picker is UX sugar: picking a kind pre-fills the host and
+ * adapts field hints, but only host/username/password are stored. The
+ * selected kind is re-derived from the host (`kindForHost`) whenever the
+ * typed host maps to a known registry, so tiles and text stay in sync.
  */
 
+import { useState } from "react";
+
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
-import { useForm } from "@tanstack/react-form";
+import { useForm, useStore } from "@tanstack/react-form";
+import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";
@@ -21,9 +29,12 @@ import {
   DialogTitle,
 } from "@/shared/components/ui/dialog";
 import { Input } from "@/shared/components/ui/input";
+import { cn } from "@/shared/lib/utils";
+import { orpc } from "@/shared/server/orpc";
 
 import { registryCollection } from "./data/registries";
-import { FieldShell, HostField } from "./registry-fields";
+import { FieldShell, HostField, KindPicker } from "./registry-fields";
+import { REGISTRY_KIND_META, kindForHost, type RegistryKind } from "./registry-kinds";
 import { type RegistryRow } from "./shared";
 
 interface RegistryDialogProps {
@@ -64,6 +75,13 @@ function useRegistryForm(args: {
 export function RegistryDialog({ open, onOpenChange, existing }: RegistryDialogProps) {
   const isEdit = existing !== null;
 
+  // Sticky kind from an explicit tile pick — needed because picking e.g.
+  // ECR clears the host (account-specific), and `kindForHost("")` would
+  // immediately snap the selection back to Generic.
+  const [pickedKind, setPickedKind] = useState<RegistryKind | null>(null);
+
+  const testConnection = useMutation(orpc.registry.testConnection.mutationOptions());
+
   const form = useRegistryForm({
     existing,
     onSubmit: (value) => {
@@ -102,9 +120,47 @@ export function RegistryDialog({ open, onOpenChange, existing }: RegistryDialogP
     },
   });
 
+  const host = useStore(form.store, (s) => s.values.host);
+  const kind = pickedKind ?? kindForHost(existing?.host ?? host);
+
+  const pickKind = (k: RegistryKind) => {
+    setPickedKind(k);
+    form.setFieldValue("host", REGISTRY_KIND_META[k].hostPrefill);
+    testConnection.reset();
+  };
+
+  const onHostChange = (next: string) => {
+    // Follow the typed host when it maps to a known registry; otherwise
+    // keep the explicit tile pick (its hints are still what the user wants).
+    if (kindForHost(next) !== "generic") setPickedKind(null);
+    testConnection.reset();
+  };
+
+  const runTest = (values: RegistryFormValues) => {
+    // Edit flow: host is locked and a blank password means "use stored" —
+    // test by id so the server decrypts the saved secret. A typed password
+    // rides along as an override so it can be verified before saving.
+    const input = existing
+      ? {
+          id: existing.id,
+          username: values.username.trim(),
+          ...(values.password.length > 0 && { password: values.password }),
+        }
+      : {
+          host: values.host.trim(),
+          username: values.username.trim(),
+          password: values.password,
+        };
+    testConnection.mutate(input);
+  };
+
   // Clear the form on close so the next open starts fresh.
   const setOpen = (next: boolean) => {
-    if (!next) form.reset();
+    if (!next) {
+      form.reset();
+      setPickedKind(null);
+      testConnection.reset();
+    }
     onOpenChange(next);
   };
 
@@ -124,7 +180,17 @@ export function RegistryDialog({ open, onOpenChange, existing }: RegistryDialogP
           className="flex flex-col gap-3"
           noValidate
         >
-          <RegistryFormBody form={form} isEdit={isEdit} onCancel={() => setOpen(false)} />
+          <RegistryFormBody
+            form={form}
+            isEdit={isEdit}
+            kind={kind}
+            onPickKind={pickKind}
+            onHostChange={onHostChange}
+            onTest={runTest}
+            testPending={testConnection.isPending}
+            testResult={testConnection.data ?? null}
+            onCancel={() => setOpen(false)}
+          />
         </form>
       </DialogContent>
     </Dialog>
@@ -136,14 +202,30 @@ export function RegistryDialog({ open, onOpenChange, existing }: RegistryDialogP
 function RegistryFormBody({
   form,
   isEdit,
+  kind,
+  onPickKind,
+  onHostChange,
+  onTest,
+  testPending,
+  testResult,
   onCancel,
 }: {
   form: RegistryForm;
   isEdit: boolean;
+  kind: RegistryKind;
+  onPickKind: (k: RegistryKind) => void;
+  onHostChange: (host: string) => void;
+  onTest: (values: RegistryFormValues) => void;
+  testPending: boolean;
+  testResult: { ok: boolean; message: string } | null;
   onCancel: () => void;
 }) {
+  const meta = REGISTRY_KIND_META[kind];
+
   return (
     <>
+      {!isEdit && <KindPicker value={kind} onPick={onPickKind} />}
+
       <form.Field name="displayName">
         {(field) => (
           <FieldShell label="Display name" htmlFor="reg-display">
@@ -151,7 +233,9 @@ function RegistryFormBody({
               id="reg-display"
               value={field.state.value}
               onChange={(e) => field.handleChange(e.target.value)}
-              placeholder="GHCR (ci-bot)"
+              placeholder={
+                kind === "generic" ? "Internal registry (ci-bot)" : `${meta.label} (ci-bot)`
+              }
               autoFocus
             />
           </FieldShell>
@@ -160,7 +244,15 @@ function RegistryFormBody({
 
       <form.Field name="host">
         {(field) => (
-          <HostField value={field.state.value} onChange={field.handleChange} isEdit={isEdit} />
+          <HostField
+            value={field.state.value}
+            onChange={(v) => {
+              field.handleChange(v);
+              onHostChange(v);
+            }}
+            isEdit={isEdit}
+            kind={kind}
+          />
         )}
       </form.Field>
 
@@ -171,9 +263,12 @@ function RegistryFormBody({
               id="reg-username"
               value={field.state.value}
               onChange={(e) => field.handleChange(e.target.value)}
-              placeholder="ci-bot"
+              placeholder={meta.usernamePlaceholder}
               autoComplete="off"
             />
+            {meta.usernameHint && (
+              <p className="text-[11px] text-muted-foreground">{meta.usernameHint}</p>
+            )}
           </FieldShell>
         )}
       </form.Field>
@@ -192,6 +287,7 @@ function RegistryFormBody({
               placeholder={isEdit ? "Leave blank to keep current" : ""}
               autoComplete="new-password"
             />
+            <p className="text-[11px] text-muted-foreground">{meta.passwordHint}</p>
             <p className="text-[11px] text-muted-foreground">
               Stored encrypted (AES-GCM, key derived from the auth secret).
             </p>
@@ -199,10 +295,16 @@ function RegistryFormBody({
         )}
       </form.Field>
 
-      <DialogFooter className="mt-2">
-        <Button size="sm" variant="outline" type="button" onClick={onCancel}>
-          Cancel
-        </Button>
+      {testResult && (
+        <p
+          role="status"
+          className={cn("text-[11.5px]", testResult.ok ? "text-success" : "text-destructive")}
+        >
+          {testResult.message}
+        </p>
+      )}
+
+      <DialogFooter className="mt-2 sm:justify-between">
         <form.Subscribe
           selector={(s) => ({
             displayName: s.values.displayName,
@@ -217,10 +319,29 @@ function RegistryFormBody({
               v.host.trim().length > 0 &&
               v.username.trim().length > 0 &&
               (isEdit || v.password.length > 0);
+            // Testing needs a reachable target: create mode wants the full
+            // inline triple; edit mode can always fall back to stored creds.
+            const canTest = isEdit || (v.host.trim().length > 0 && v.password.length > 0);
             return (
-              <Button size="sm" type="submit" disabled={!canSubmit}>
-                {isEdit ? "Save changes" : "Add registry"}
-              </Button>
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  type="button"
+                  disabled={!canTest || testPending}
+                  onClick={() => onTest(v)}
+                >
+                  {testPending ? "Testing…" : "Test connection"}
+                </Button>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" type="button" onClick={onCancel}>
+                    Cancel
+                  </Button>
+                  <Button size="sm" type="submit" disabled={!canSubmit}>
+                    {isEdit ? "Save changes" : "Add registry"}
+                  </Button>
+                </div>
+              </>
             );
           }}
         </form.Subscribe>

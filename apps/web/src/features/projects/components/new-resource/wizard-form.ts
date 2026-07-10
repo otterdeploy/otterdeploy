@@ -85,6 +85,10 @@ export function useWizardForm({
           replicas: payload.replicas,
           builderId: payload.builderId,
           spa: payload.spa,
+          healthPath: payload.healthPath,
+          healthInterval: payload.healthInterval,
+          healthTimeout: payload.healthTimeout,
+          healthRetries: payload.healthRetries,
           root: payload.root,
           ...sizing,
         });
@@ -105,6 +109,10 @@ export function useWizardForm({
         replicas: payload.replicas,
         builderId: payload.builderId,
         spa: payload.spa,
+        healthPath: payload.healthPath,
+        healthInterval: payload.healthInterval,
+        healthTimeout: payload.healthTimeout,
+        healthRetries: payload.healthRetries,
         root: payload.root,
         // Bind the repo the operator picked. `repoFullName` mirrors the bound
         // repo's "owner/repo" (the `repo` field holds the opaque gitRepoId,

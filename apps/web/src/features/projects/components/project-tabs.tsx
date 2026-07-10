@@ -27,6 +27,11 @@ interface Tab {
 const tabs: readonly Tab[] = [
   { titleKey: "nav.overview", to: "/$orgSlug/$projectSlug", exact: true },
   { titleKey: "nav.graph", to: "/$orgSlug/$projectSlug/graph" },
+  {
+    titleKey: "nav.deployments",
+    to: "/$orgSlug/$projectSlug/deployments",
+    fallback: "Deployments",
+  },
   { titleKey: "nav.logs", to: "/$orgSlug/$projectSlug/logs" },
   { titleKey: "nav.metrics", to: "/$orgSlug/$projectSlug/metrics" },
   { titleKey: "nav.variables", to: "/$orgSlug/$projectSlug/variables" },

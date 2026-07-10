@@ -7,6 +7,7 @@
 
 import {
   Alert01Icon,
+  Certificate01Icon,
   ChartLineData01Icon,
   DashboardSquare01Icon,
   Database02Icon,
@@ -16,14 +17,19 @@ import {
   FlashIcon,
   Folder01Icon,
   GitBranchIcon,
+  HardDriveIcon,
   Home01Icon,
   Key01Icon,
   Key02Icon,
+  PackageIcon,
+  RocketIcon,
   ServerStack01Icon,
   Settings01Icon,
   ShieldKeyIcon,
   SourceCodeIcon,
+  UserCircleIcon,
   UserMultipleIcon,
+  WebhookIcon,
   WorkflowSquare01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -55,6 +61,12 @@ export const PROJECT_NAV: readonly NavEntry[] = [
     icon: WorkflowSquare01Icon,
     chord: "G",
     keywords: ["topology", "resources"],
+  },
+  {
+    to: "/$orgSlug/$projectSlug/deployments",
+    label: "Deployments",
+    icon: RocketIcon,
+    keywords: ["deploys", "rollback", "history"],
   },
   { to: "/$orgSlug/$projectSlug/logs", label: "Logs", icon: File01Icon, chord: "L" },
   { to: "/$orgSlug/$projectSlug/metrics", label: "Metrics", icon: ChartLineData01Icon, chord: "M" },
@@ -92,6 +104,12 @@ export const ORG_NAV_GROUPS: readonly { heading: string; items: readonly NavEntr
     items: [
       { to: "/$orgSlug", label: "Projects", icon: Home01Icon },
       {
+        to: "/$orgSlug/templates",
+        label: "Templates",
+        icon: PackageIcon,
+        keywords: ["gallery", "stacks", "deploy", "catalog"],
+      },
+      {
         to: "/$orgSlug/servers",
         label: "Servers",
         icon: ServerStack01Icon,
@@ -121,16 +139,34 @@ export const ORG_NAV_GROUPS: readonly { heading: string; items: readonly NavEntr
         icon: ShieldKeyIcon,
         keywords: ["crowdsec", "blocklist", "ip"],
       },
+      {
+        to: "/$orgSlug/certificates",
+        label: "Certificates",
+        icon: Certificate01Icon,
+        keywords: ["tls", "ssl", "pem", "ca", "acme"],
+      },
     ],
   },
   {
     heading: "Data & Runtime",
     items: [
       {
+        to: "/$orgSlug/databases",
+        label: "Databases",
+        icon: Database02Icon,
+        keywords: ["postgres", "redis", "mysql", "mongo", "catalog"],
+      },
+      {
         to: "/$orgSlug/backups",
         label: "Backups",
         icon: DatabaseIcon,
         keywords: ["restore", "snapshot"],
+      },
+      {
+        to: "/$orgSlug/volumes",
+        label: "Volumes",
+        icon: HardDriveIcon,
+        keywords: ["storage", "disk", "orphan"],
       },
       {
         to: "/$orgSlug/docker",
@@ -150,6 +186,12 @@ export const ORG_NAV_GROUPS: readonly { heading: string; items: readonly NavEntr
     heading: "Observability",
     items: [
       {
+        to: "/$orgSlug/platform",
+        label: "Platform",
+        icon: FlashIcon,
+        keywords: ["health", "queues", "deploys"],
+      },
+      {
         to: "/$orgSlug/audit",
         label: "Audit",
         icon: File01Icon,
@@ -165,6 +207,12 @@ export const ORG_NAV_GROUPS: readonly { heading: string; items: readonly NavEntr
         label: "Git providers",
         icon: GitBranchIcon,
         keywords: ["github", "source"],
+      },
+      {
+        to: "/$orgSlug/webhooks",
+        label: "Webhooks",
+        icon: WebhookIcon,
+        keywords: ["hmac", "deliveries", "inbound", "events"],
       },
       {
         to: "/$orgSlug/notifications",
@@ -194,6 +242,12 @@ export const ORG_NAV_GROUPS: readonly { heading: string; items: readonly NavEntr
         label: "SSH keys",
         icon: Key01Icon,
         keywords: ["ssh", "deploy key", "git", "node"],
+      },
+      {
+        to: "/$orgSlug/account",
+        label: "Account",
+        icon: UserCircleIcon,
+        keywords: ["profile", "sessions", "password", "2fa", "security"],
       },
       { to: "/$orgSlug/settings", label: "Settings", icon: Settings01Icon },
       {

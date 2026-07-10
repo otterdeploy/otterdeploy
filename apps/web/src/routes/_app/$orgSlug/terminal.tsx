@@ -1,15 +1,14 @@
-import {
-  Cancel01Icon,
-  Maximize01Icon,
-  PlusSignIcon,
-  TerminalIcon,
-} from "@hugeicons/core-free-icons";
+import { Maximize01Icon, PlusSignIcon, TerminalIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Activity, useMemo, useState } from "react";
 
 import { OpenTerminalDialog } from "@/features/terminal/components/open-terminal-dialog";
-import { TerminalSession } from "@/features/terminal/components/terminal-session";
+import { SessionTab } from "@/features/terminal/components/session-tab";
+import {
+  TerminalSession,
+  type ConnState,
+} from "@/features/terminal/components/terminal-session";
 import {
   type Session,
   type SessionSource,
@@ -35,6 +34,9 @@ function RouteComponent() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  // Per-session connection state, fed by each TerminalSession's onConnChange —
+  // drives the status dot on the tab strip.
+  const [connStates, setConnStates] = useState<Record<string, ConnState>>({});
 
   const activeSession = useMemo(
     () => sessions.find((s) => s.id === activeId) ?? null,
@@ -59,6 +61,7 @@ function RouteComponent() {
       }
       return next;
     });
+    setConnStates(({ [id]: _closed, ...rest }) => rest);
   }
 
   function popoutActive() {
@@ -87,41 +90,16 @@ function RouteComponent() {
           <>
             <span className="mx-1 h-4 w-px shrink-0 bg-border/60" aria-hidden />
             <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
-              {sessions.map((s) => {
-                const isActive = s.id === activeId;
-                return (
-                  <div
-                    key={s.id}
-                    className={cn(
-                      "group flex shrink-0 items-center gap-1.5 rounded-md border transition-colors",
-                      isActive
-                        ? "border-border bg-background"
-                        : "border-transparent hover:bg-muted/60",
-                    )}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setActiveId(s.id)}
-                      className="flex items-center gap-1.5 py-0.5 pl-2 font-mono text-[12px]"
-                    >
-                      <HugeiconsIcon
-                        icon={TerminalIcon}
-                        strokeWidth={2}
-                        className="size-3 text-muted-foreground"
-                      />
-                      {s.label}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => closeSession(s.id)}
-                      aria-label={`Close ${s.label}`}
-                      className="grid size-5 place-items-center rounded text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
-                    >
-                      <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-3" />
-                    </button>
-                  </div>
-                );
-              })}
+              {sessions.map((s) => (
+                <SessionTab
+                  key={s.id}
+                  session={s}
+                  active={s.id === activeId}
+                  conn={connStates[s.id]}
+                  onSelect={() => setActiveId(s.id)}
+                  onClose={() => closeSession(s.id)}
+                />
+              ))}
             </div>
           </>
         )}
@@ -176,7 +154,13 @@ function RouteComponent() {
                   name={s.label}
                 >
                   <div className="absolute inset-2" aria-hidden={!isActive}>
-                    <TerminalSession source={s.source} active={isActive} />
+                    <TerminalSession
+                      source={s.source}
+                      active={isActive}
+                      onConnChange={(conn) =>
+                        setConnStates((prev) => ({ ...prev, [s.id]: conn }))
+                      }
+                    />
                   </div>
                 </Activity>
               );

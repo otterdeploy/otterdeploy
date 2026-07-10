@@ -52,6 +52,15 @@ export interface ComposeFormValues {
   variables: Var[];
 }
 
+/** Seed for the wizard when a stack arrives from the templates gallery:
+ *  display name + the template's compose YAML. The wizard parses the content
+ *  through the normal preview path, so the operator still reviews services
+ *  and `${VAR}` values before anything is staged. */
+export interface ComposePrefill {
+  name: string;
+  content: string;
+}
+
 // Credential-looking keys get the secret lock on by default.
 export const SECRETISH =
   /(SECRET|TOKEN|PASSWORD|PASSWD|PRIVATE|API_?KEY|ACCESS_?KEY|CREDENTIAL|DSN|AUTH|SALT|WEBHOOK|SIGNING)/i;

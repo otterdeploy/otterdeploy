@@ -25,6 +25,7 @@ import { ComposeWizardBody } from "./compose-wizard-body";
 import { useComposeParse } from "./compose-wizard-parse";
 import {
   type ComposeFormValues,
+  type ComposePrefill,
   deriveComposeFlags,
   toResourceName,
   useComposeForm,
@@ -34,12 +35,16 @@ export function ComposeWizard({
   orgSlug,
   projectId,
   projectSlug,
+  prefill,
   onComplete,
   onCancel,
 }: {
   orgSlug: string;
   projectId: ProjectId;
   projectSlug: ProjectSlug;
+  /** Template handoff: seeds name + compose content on mount, then runs the
+   *  normal parse → preview → variables flow. See features/templates/. */
+  prefill?: ComposePrefill;
   onComplete?: () => void;
   onCancel?: () => void;
 }) {
@@ -122,6 +127,18 @@ export function ComposeWizard({
 
   const form = useComposeForm(onSubmit);
   const { preview, parseContent } = useComposeParse(projectId, editorRef, form);
+
+  // Template handoff: seed the form once on mount and run the same parse the
+  // editor's onChange runs, so the preview + `${VAR}` rows populate exactly as
+  // if the operator had pasted the file themselves.
+  const prefillDone = useRef(false);
+  useEffect(() => {
+    if (!prefill || prefillDone.current) return;
+    prefillDone.current = true;
+    form.setFieldValue("name", prefill.name);
+    form.setFieldValue("content", prefill.content);
+    void parseContent(prefill.content);
+  }, [prefill, form, parseContent]);
 
   const source = useStore(form.store, (s) => s.values.source);
   const gitRepoUrl = useStore(form.store, (s) => s.values.gitRepoUrl);

@@ -1,12 +1,14 @@
 /**
  * Variables — Infisical-style overview matrix + per-env table + bulk-edit
- * modal + sync integrations. Data wired to
+ * modal (with cross-env apply + drag-drop .env import + .env download) +
+ * sync integrations. Data wired to
  * `orpc.project.envVar.{list,upsert,delete,bulkReplace}`.
  *
  * Tabs are dynamic — one per project environment (whatever slugs the org has
- * set up). The Sync tab still renders a static provider list — the sync-source
- * backend is a separate Plan 7 follow-up. The matrix / per-env table / bulk
- * editor / sync UI each live in `-components/`.
+ * set up). The Sync tab is an honest coming-soon provider list — the
+ * sync-source backend is a separate Plan 7 follow-up, so nothing there
+ * pretends to be connected. The matrix / per-env table / bulk editor / sync
+ * UI each live in `-components/`.
  */
 
 import { and, eq, useLiveQuery } from "@tanstack/react-db";
@@ -128,7 +130,9 @@ function VariablesRoute() {
           <TabsContent key={env.id} value={env.id} className="flex-1 overflow-auto">
             <PerEnvTable
               projectId={projectId}
+              projectSlug={project.slug}
               env={env}
+              allEnvs={envRefs}
               rows={byEnv.get(env.id) ?? []}
             />
           </TabsContent>

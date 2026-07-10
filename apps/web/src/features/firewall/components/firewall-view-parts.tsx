@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import { FirewallIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
+import type { orpc } from "@/shared/server/orpc";
+
 import { Card } from "@/shared/components/ui/card";
 import {
   Table,
@@ -14,7 +16,6 @@ import {
 } from "@/shared/components/ui/table";
 import { flagEmoji } from "@/shared/lib/flag";
 import { cn } from "@/shared/lib/utils";
-import type { orpc } from "@/shared/server/orpc";
 
 type Decision = Awaited<ReturnType<typeof orpc.firewall.decisions.call>>[number];
 
@@ -59,7 +60,10 @@ export function DecisionsTable({
         <TableBody>
           {rows.length === 0 ? (
             <TableRow className="hover:bg-transparent">
-              <TableCell colSpan={9} className="py-10 text-center text-[13px] text-muted-foreground">
+              <TableCell
+                colSpan={9}
+                className="py-10 text-center text-[13px] text-muted-foreground"
+              >
                 {reachable
                   ? "No active decisions — nothing is currently blocked."
                   : "Can't reach the CrowdSec agent — is the firewall profile running?"}

@@ -16,8 +16,17 @@ import { flagEmoji } from "@/shared/lib/flag";
 import { cn } from "@/shared/lib/utils";
 
 import { classifyThreat } from "../threat";
-import { BUCKET_TEXT, type EdgeLog, METHOD_TEXT, statusBucket } from "./edge-logs-constants";
+import {
+  BUCKET_TEXT,
+  cacheTextClass,
+  type EdgeLog,
+  latencyBarClass,
+  latencyBarPct,
+  METHOD_TEXT,
+  statusBucket,
+} from "./edge-logs-constants";
 import { Detail } from "./edge-logs-shared";
+import { shortUserAgent } from "./edge-logs-ua";
 
 /** "Block IP" action for the expanded row — bans the client IP at the CrowdSec
  *  edge (reversible from the Firewall view) behind a confirm, since it's an
@@ -142,7 +151,22 @@ export function EdgeRow({
           ) : null}
           {row.path}
         </TableCell>
-        <TableCell className="whitespace-nowrap text-muted-foreground">{row.latencyMs}ms</TableCell>
+        <TableCell className="whitespace-nowrap text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5">
+            {row.latencyMs}ms
+            {/* 22px proportional mini-bar (1s full scale) — reads the row's
+                latency at a glance without scanning digits. */}
+            <span
+              aria-hidden
+              className="inline-block h-1 w-[22px] overflow-hidden rounded-full bg-muted"
+            >
+              <span
+                className={cn("block h-full", latencyBarClass(row.latencyMs))}
+                style={{ width: `${latencyBarPct(row.latencyMs)}%` }}
+              />
+            </span>
+          </span>
+        </TableCell>
         <TableCell className="whitespace-nowrap text-muted-foreground">{row.clientIp}</TableCell>
         <TableCell className="whitespace-nowrap text-muted-foreground">
           {row.country ? (
@@ -153,6 +177,12 @@ export function EdgeRow({
           ) : (
             <span className="text-muted-foreground/40">—</span>
           )}
+        </TableCell>
+        <TableCell
+          className="max-w-[150px] truncate text-[11px] text-muted-foreground"
+          title={row.userAgent}
+        >
+          {shortUserAgent(row.userAgent)}
         </TableCell>
       </TableRow>
       {open ? (
@@ -178,7 +208,7 @@ function EdgeRowDetail({
   const headers = Object.entries(row.headers);
   return (
     <TableRow className="bg-muted/30 hover:bg-muted/30">
-      <TableCell colSpan={9} className="py-3">
+      <TableCell colSpan={10} className="py-3">
         {/* w-0 min-w-full: this colSpan cell is in an auto-layout table, so its
             content's intrinsic width drives column sizing — a single long value
             (next-router-state-tree, user-agent) blows the whole table past the
@@ -199,7 +229,10 @@ function EdgeRowDetail({
           </div>
           <div className="grid grid-cols-2 gap-x-10 gap-y-1 font-mono text-[12px]">
             <Detail k="request_id" v={row.requestId ?? "—"} wrap={wrap} />
-            <Detail k="cache" v={row.cache ?? "—"} wrap={wrap} />
+            <Detail k="cache" v={row.cache ?? "—"} wrap={wrap} vClass={cacheTextClass(row.cache)} />
+            {/* The demo also showed the upstream's own latency "(Xms)" here,
+                but the edge log payload only carries total latencyMs — no
+                per-upstream timing is stored, so we don't invent one. */}
             <Detail k="upstream" v={row.upstream ?? "—"} wrap={wrap} />
             <Detail
               k="tls"

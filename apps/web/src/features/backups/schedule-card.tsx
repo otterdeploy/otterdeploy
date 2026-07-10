@@ -125,15 +125,6 @@ export function ScheduleCard({ schedule: s, onEdit }: { schedule: Schedule; onEd
           </span>
         </div>
         <div className="flex-1" />
-        {s.pitr && (
-          <Badge
-            variant="outline"
-            className="border-blue-500/30 bg-blue-500/10 text-[10px] text-blue-500"
-            title="Point-in-time recovery enabled"
-          >
-            PITR
-          </Badge>
-        )}
         {s.encryption !== "none" && (
           <Badge variant="secondary" className="gap-1 text-[10px]">
             <HugeiconsIcon icon={SquareLock01Icon} className="size-2.5" />

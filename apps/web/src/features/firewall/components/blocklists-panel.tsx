@@ -14,6 +14,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { TypedConfirmDialog } from "@/shared/components/typed-confirm-dialog";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Card } from "@/shared/components/ui/card";
@@ -158,19 +159,25 @@ function ListRow({ list, onChanged }: { list: BlockList; onChanged: () => void }
           className={cn("size-3.5", sync.isPending && "animate-spin")}
         />
       </Button>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Remove"
-        title="Remove"
-        onClick={() => {
-          if (window.confirm(`Remove "${list.name}" and its imported IPs?`))
-            remove.mutate({ id: list.id });
-        }}
-        disabled={remove.isPending}
-      >
-        <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} className="size-3.5" />
-      </Button>
+      <TypedConfirmDialog
+        trigger={
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Remove"
+            title="Remove"
+            disabled={remove.isPending}
+          >
+            <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} className="size-3.5" />
+          </Button>
+        }
+        title={`Remove ${list.name}?`}
+        description="The list and every IP it imported are dropped from the firewall. You can re-add it from the catalog or by URL later."
+        confirmLabel="Remove"
+        pendingLabel="Removing…"
+        pending={remove.isPending}
+        onConfirm={() => remove.mutate({ id: list.id })}
+      />
     </div>
   );
 }
