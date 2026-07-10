@@ -1,21 +1,36 @@
 /** @jsxImportSource react */
-import { Text } from "@react-email/components";
+import { Badge, DataTable, EmailLayout, Heading, Muted, Para } from "./_layout";
 
-import { EmailLayout } from "./_layout";
+interface TestEmailProps {
+  /** How the transport was configured, for the operator to sanity-check. */
+  provider?: string;
+  fromAddress?: string;
+}
 
 /**
  * Sent from Settings → Email to confirm the configured transport actually
- * delivers. Deliberately minimal — its job is to arrive, not to sell anything.
+ * delivers. Deliberately minimal — its job is to arrive and prove the wiring,
+ * not to sell anything.
  */
-export function TestEmail() {
+export function TestEmail({ provider, fromAddress }: TestEmailProps = {}) {
+  const rows: [string, string][] = [];
+  if (provider) rows.push(["provider", provider]);
+  if (fromAddress) rows.push(["from", fromAddress]);
+
   return (
-    <EmailLayout preview="Your otterdeploy email transport is working.">
-      <Text className="text-ink m-0 text-base leading-6">
-        This is a test email from otterdeploy.
-      </Text>
-      <Text className="m-0 mt-3 text-sm leading-6 text-muted">
-        If you&apos;re reading this, your email transport is configured correctly.
-      </Text>
+    <EmailLayout preview="Your otterdeploy email transport is working." footnote={null}>
+      <div style={{ marginBottom: "14px" }}>
+        <Badge fg="#1f7a3f" bg="#eef8f1" border="#c3e6cf">
+          Delivered
+        </Badge>
+      </div>
+      <Heading>Email is configured</Heading>
+      <Para tight>
+        If you&apos;re reading this, otterdeploy can send mail through your configured transport.
+        Invitations, notifications, and account emails will go out from here.
+      </Para>
+      <DataTable rows={rows} />
+      <Muted>This is a one-off test. Nothing else was sent.</Muted>
     </EmailLayout>
   );
 }

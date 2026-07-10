@@ -1,7 +1,5 @@
 /** @jsxImportSource react */
-import { Text } from "@react-email/components";
-
-import { EmailLayout } from "./_layout";
+import { EmailLayout, Heading, Para } from "./_layout";
 
 interface MessageEmailProps {
   /** Optional heading shown above the body. Defaults to the subject line. */
@@ -22,15 +20,15 @@ export function MessageEmail({ heading, body }: MessageEmailProps) {
     .map((p) => p.trim())
     .filter(Boolean);
 
+  const blocks = paragraphs.length ? paragraphs : [body];
+
   return (
-    <EmailLayout preview={heading ?? paragraphs[0] ?? "otterdeploy"}>
-      {heading ? (
-        <Text className="text-ink m-0 mb-4 text-lg font-semibold tracking-tight">{heading}</Text>
-      ) : null}
-      {(paragraphs.length ? paragraphs : [body]).map((p, i) => (
-        <Text key={i} className="text-ink m-0 mb-3 text-base leading-6 whitespace-pre-line">
+    <EmailLayout preview={heading ?? blocks[0] ?? "otterdeploy"}>
+      {heading ? <Heading>{heading}</Heading> : null}
+      {blocks.map((p, i) => (
+        <Para key={i} tight={heading ? i === 0 : false}>
           {p}
-        </Text>
+        </Para>
       ))}
     </EmailLayout>
   );

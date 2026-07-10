@@ -1,7 +1,5 @@
 /** @jsxImportSource react */
-import { Text } from "@react-email/components";
-
-import { BrandButton, EmailLayout, Footnote } from "./_layout";
+import { BrandButton, EmailLayout, Footnote, Heading, Para } from "./_layout";
 
 interface WelcomeEmailProps {
   username?: string;
@@ -13,17 +11,21 @@ export function WelcomeEmail({
   loginUrl = "http://localhost:5173",
 }: WelcomeEmailProps) {
   return (
-    <EmailLayout preview="Welcome to otterdeploy!">
-      <Text className="text-ink m-0 mb-4 text-lg font-semibold tracking-tight">
-        Welcome to otterdeploy
-      </Text>
-      <Text className="text-ink m-0 text-base leading-6">Hi {username},</Text>
-      <Text className="text-ink m-0 mt-3 text-base leading-6">
-        Thanks for signing up — we&apos;re glad you&apos;re here. Deploy your first service whenever
-        you&apos;re ready.
-      </Text>
-      <BrandButton href={loginUrl}>Get started</BrandButton>
-      <Footnote>If you didn&apos;t create an account, you can safely ignore this email.</Footnote>
+    <EmailLayout preview="Welcome to otterdeploy — deploy your first service.">
+      <Heading>Welcome to otterdeploy</Heading>
+      <Para tight>Hi {username},</Para>
+      <Para>
+        Your account is ready. otterdeploy takes a git repository and runs it in production —
+        builds, TLS, logs, and rollbacks handled, without the console sprawl.
+      </Para>
+      <Para>
+        Point it at a repo whenever you&apos;re ready. The first deploy usually takes under a minute.
+      </Para>
+      <BrandButton href={loginUrl}>Deploy your first service</BrandButton>
+      <Footnote>
+        If you didn&apos;t create this account, you can safely ignore this email — nothing was set
+        up.
+      </Footnote>
     </EmailLayout>
   );
 }
