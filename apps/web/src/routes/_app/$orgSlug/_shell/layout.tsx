@@ -1,7 +1,7 @@
 import { ProjectSidebar } from "@/features/shell/components/sidebar/project-sidebar";
 
 import { SiteHeader } from "@/features/shell/components/site-header";
-import { UpdateBanner, UpdateProvider } from "@/features/updates";
+import { UpdateBanner } from "@/features/updates";
 
 import { SidebarInset, SidebarProvider } from "@/shared/components/ui/sidebar";
 import { createFileRoute, Outlet, useMatch } from "@tanstack/react-router";
@@ -25,31 +25,29 @@ function RouteComponent() {
 
   return (
     <div className="[--header-height:calc(--spacing(12))]">
-      {/* UpdateProvider owns the update dialog + the once-per-load background
-          check, so the banner/header pill light up anywhere in the org shell. */}
-      <UpdateProvider>
-        <SidebarProvider defaultOpen={false} className="flex flex-col">
-          {/* Banner lives above the header so it reads as a system-level
-              notice about the app, not a bar wedged into the app body. */}
-          <UpdateBanner />
-          <SiteHeader />
-          <div className="flex flex-1">
-            {!match ? (
-              <>
-                {/* No project here — sidebar collapses to just the org
-                    switcher + footer. Project sections appear once the
-                    user navigates into a project. */}
-                <ProjectSidebar collapsible="icon" user={user} />
-                <SidebarInset>
-                  <Outlet />
-                </SidebarInset>
-              </>
-            ) : (
-              <Outlet />
-            )}
-          </div>
-        </SidebarProvider>
-      </UpdateProvider>
+      {/* UpdateProvider lives in the parent $orgSlug layout — both chromes
+          consume it (banner here, UpdatesCard in the settings zone). */}
+      <SidebarProvider defaultOpen={false} className="flex flex-col">
+        {/* Banner lives above the header so it reads as a system-level
+            notice about the app, not a bar wedged into the app body. */}
+        <UpdateBanner />
+        <SiteHeader />
+        <div className="flex flex-1">
+          {!match ? (
+            <>
+              {/* No project here — sidebar collapses to just the org
+                  switcher + footer. Project sections appear once the
+                  user navigates into a project. */}
+              <ProjectSidebar collapsible="icon" user={user} />
+              <SidebarInset>
+                <Outlet />
+              </SidebarInset>
+            </>
+          ) : (
+            <Outlet />
+          )}
+        </div>
+      </SidebarProvider>
     </div>
   );
 }
