@@ -77,7 +77,7 @@ export function HeaderNav() {
   const { organizations } = useRouteContext({ from: "/_app" });
   const { organization } = useLoaderData({ from: "/_app/$orgSlug" });
   const projectMatch = useMatch({
-    from: "/_app/$orgSlug/$projectSlug",
+    from: "/_app/$orgSlug/_shell/$projectSlug",
     shouldThrow: false,
   });
   const project = projectMatch?.loaderData?.project;
@@ -218,7 +218,7 @@ function EnvDot({ env }: { env: { slug: string; name: string } }) {
 
 function EnvPicker({ projectId }: { projectId: string }) {
   const navigate = useNavigate();
-  const { env } = useSearch({ from: "/_app/$orgSlug/$projectSlug" });
+  const { env } = useSearch({ from: "/_app/$orgSlug/_shell/$projectSlug" });
   const [createOpen, setCreateOpen] = useState(false);
 
   const { data: environments } = useLiveQuery(

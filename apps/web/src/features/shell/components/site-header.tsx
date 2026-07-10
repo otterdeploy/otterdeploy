@@ -16,7 +16,7 @@ export function SiteHeader() {
   const { t } = useTranslation();
   const { organization } = useLoaderData({ from: "/_app/$orgSlug" });
   const projectMatch = useMatch({
-    from: "/_app/$orgSlug/$projectSlug",
+    from: "/_app/$orgSlug/_shell/$projectSlug",
     shouldThrow: false,
   });
   const project = projectMatch?.loaderData?.project;
@@ -62,7 +62,12 @@ export function SiteHeader() {
             size="icon"
             className="h-8 w-8"
             aria-label={t("common.notifications")}
-            render={<Link to="/$orgSlug/notifications" params={{ orgSlug: organization.slug }} />}
+            render={
+              <Link
+                to="/$orgSlug/settings/workspace/notifications"
+                params={{ orgSlug: organization.slug }}
+              />
+            }
           >
             <HugeiconsIcon icon={Notification03Icon} strokeWidth={2} className="size-[1.1rem]" />
           </Button>

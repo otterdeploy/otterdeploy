@@ -145,7 +145,7 @@ export function NavUser({ user }: { user: User }) {
                   onClick={() => {
                     if (orgSlug) {
                       void navigate({
-                        to: "/$orgSlug/account",
+                        to: "/$orgSlug/settings/account/profile",
                         params: { orgSlug },
                       });
                     }

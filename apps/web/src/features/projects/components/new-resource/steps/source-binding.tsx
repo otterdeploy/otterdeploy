@@ -191,7 +191,7 @@ function NoProviderCard(props: BindingSummaryProps) {
               URL below — no app install needed.
             </p>
             <Link
-              to="/$orgSlug/git-providers"
+              to="/$orgSlug/settings/workspace/git-providers"
               params={{ orgSlug: props.orgSlug }}
               search={{
                 git_install: undefined,

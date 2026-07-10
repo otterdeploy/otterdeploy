@@ -56,7 +56,7 @@ const tabs: readonly Tab[] = [
 export function ProjectTabs() {
   const { t } = useTranslation();
   const { orgSlug, projectSlug } = useParams({
-    from: "/_app/$orgSlug/$projectSlug",
+    from: "/_app/$orgSlug/_shell/$projectSlug",
   });
 
   const listRef = useRef<HTMLDivElement>(null);

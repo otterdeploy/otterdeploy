@@ -35,7 +35,7 @@ export function ResourceOverlayProvider({ children }: { children: ReactNode }) {
   // takes projectId, not projectSlug). Only resolves when we're below
   // /_app/$orgSlug/$projectSlug — otherwise the dialog wouldn't render anyway.
   const projectMatch = useMatch({
-    from: "/_app/$orgSlug/$projectSlug",
+    from: "/_app/$orgSlug/_shell/$projectSlug",
     shouldThrow: false,
   });
   const project = projectMatch?.loaderData?.project;
