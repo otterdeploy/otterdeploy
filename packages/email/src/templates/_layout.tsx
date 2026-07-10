@@ -175,13 +175,13 @@ export function EmailLayout({ preview, footnote, children }: EmailLayoutProps) {
 
             <Section className="px-2 pt-6">
               {footnote === undefined ? (
-                <Text className="m-0 text-[12px] leading-5 text-faint">
+                <Text className="text-faint m-0 text-[12px] leading-5">
                   You&apos;re receiving this because you have an otterdeploy account.
                 </Text>
               ) : footnote ? (
-                <Text className="m-0 text-[12px] leading-5 text-faint">{footnote}</Text>
+                <Text className="text-faint m-0 text-[12px] leading-5">{footnote}</Text>
               ) : null}
-              <Text className="m-0 mt-2 text-[12px] leading-5 text-faint">
+              <Text className="text-faint m-0 mt-2 text-[12px] leading-5">
                 otterdeploy — calm, confident infrastructure.
               </Text>
             </Section>
@@ -191,4 +191,3 @@ export function EmailLayout({ preview, footnote, children }: EmailLayoutProps) {
     </Html>
   );
 }
-

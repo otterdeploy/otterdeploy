@@ -14,7 +14,7 @@ import { Button, Column, Hr, Link, Row, Section, Text } from "@react-email/compo
 /** Primary email heading. */
 export function Heading({ children }: { children: ReactNode }) {
   return (
-    <Text className="text-ink m-0 text-[22px] font-semibold leading-[28px] tracking-[-0.02em]">
+    <Text className="text-ink m-0 text-[22px] leading-[28px] font-semibold tracking-[-0.02em]">
       {children}
     </Text>
   );
@@ -68,7 +68,7 @@ export function LinkFallback({ href }: { href: string }) {
         Or copy and paste this link into your browser:
       </Text>
       <Text className="m-0 mt-1 text-[13px] leading-5">
-        <Link href={href} className="text-accent break-all underline">
+        <Link href={href} className="break-all text-accent underline">
           {href}
         </Link>
       </Text>
@@ -80,7 +80,7 @@ export function LinkFallback({ href }: { href: string }) {
 export function CodePanel({ code }: { code: string }) {
   return (
     <Section className="border-hairlineStrong my-7 rounded-xl border border-solid bg-[#fafaf8] py-6 text-center">
-      <Text className="text-ink m-0 font-mono text-[34px] font-semibold leading-none tracking-[10px]">
+      <Text className="text-ink m-0 font-mono text-[34px] leading-none font-semibold tracking-[10px]">
         {code}
       </Text>
     </Section>
@@ -148,12 +148,14 @@ export function DataTable({ rows }: { rows: [string, string][] }) {
       {rows.map(([key, value], i) => (
         <Row key={key} className={i === 0 ? "" : "border-hairline border-t border-solid"}>
           <Column className="px-4 py-3 align-top" style={{ width: "38%" }}>
-            <Text className="m-0 font-mono text-[11px] uppercase leading-4 tracking-wide text-muted">
+            <Text className="m-0 font-mono text-[11px] leading-4 tracking-wide text-muted uppercase">
               {key}
             </Text>
           </Column>
           <Column className="px-4 py-3 align-top">
-            <Text className="text-ink m-0 break-words font-mono text-[12px] leading-4">{value}</Text>
+            <Text className="text-ink m-0 font-mono text-[12px] leading-4 break-words">
+              {value}
+            </Text>
           </Column>
         </Row>
       ))}

@@ -194,7 +194,10 @@ export async function getLatestDeploymentsForResources(
     .selectDistinctOn([deployment.resourceId])
     .from(deployment)
     .where(
-      and(inArray(deployment.resourceId, resourceIds as ResourceId[]), isNull(deployment.previewId)),
+      and(
+        inArray(deployment.resourceId, resourceIds as ResourceId[]),
+        isNull(deployment.previewId),
+      ),
     )
     .orderBy(deployment.resourceId, desc(deployment.createdAt));
   for (const row of rows) result.set(row.resourceId as ResourceId, row as DeploymentRow);

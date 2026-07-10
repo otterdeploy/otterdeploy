@@ -1,13 +1,5 @@
 /** @jsxImportSource react */
-import {
-  Badge,
-  BrandButton,
-  DataTable,
-  EmailLayout,
-  Footnote,
-  Heading,
-  Para,
-} from "./_layout";
+import { Badge, BrandButton, DataTable, EmailLayout, Footnote, Heading, Para } from "./_layout";
 
 interface PasswordChangedEmailProps {
   username?: string;

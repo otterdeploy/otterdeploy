@@ -56,7 +56,7 @@ export function NotificationEmail({
       </div>
       <Heading>{title}</Heading>
       {message ? (
-        <Text className="text-body m-0 mt-4 whitespace-pre-line text-[15px] leading-[25px]">
+        <Text className="text-body m-0 mt-4 text-[15px] leading-[25px] whitespace-pre-line">
           {message}
         </Text>
       ) : null}

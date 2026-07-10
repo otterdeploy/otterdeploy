@@ -19,7 +19,8 @@ export function WelcomeEmail({
         builds, TLS, logs, and rollbacks handled, without the console sprawl.
       </Para>
       <Para>
-        Point it at a repo whenever you&apos;re ready. The first deploy usually takes under a minute.
+        Point it at a repo whenever you&apos;re ready. The first deploy usually takes under a
+        minute.
       </Para>
       <BrandButton href={loginUrl}>Deploy your first service</BrandButton>
       <Footnote>

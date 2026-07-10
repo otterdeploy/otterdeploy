@@ -82,9 +82,7 @@ export async function listServices(
     records.map((r) => ({ serviceName: r.service.serviceName, projectSlug })),
   );
   const views = await Promise.all(
-    records.map((r) =>
-      mapServiceView(r, project.value.slug, runtimes.get(r.service.serviceName)),
-    ),
+    records.map((r) => mapServiceView(r, project.value.slug, runtimes.get(r.service.serviceName))),
   );
   return Result.ok(views);
 }

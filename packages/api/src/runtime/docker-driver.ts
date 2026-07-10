@@ -18,8 +18,8 @@
 
 import { Docker } from "@otterdeploy/docker";
 
-import type { RuntimeDriver, RuntimeStatus } from "./types";
 import type { Summary } from "./docker-driver-helpers";
+import type { RuntimeDriver, RuntimeStatus } from "./types";
 
 import { asStepLogger } from "../lib/logger";
 import { branchDatabaseOnDocker, destroyDatabaseBranchOnDocker } from "./docker-driver-branch";

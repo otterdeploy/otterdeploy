@@ -8,8 +8,8 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { I18nextProvider } from "react-i18next";
 
-import { Spinner } from "./shared/components/ui/spinner";
 import { routeTree } from "./route-tree.gen";
+import { Spinner } from "./shared/components/ui/spinner";
 import { NotFound } from "./shared/features/errors/not-found";
 import { ServerError } from "./shared/features/errors/server-error";
 import { orpc, queryClient } from "./shared/server/orpc";
