@@ -26,6 +26,47 @@ export class ServerConflictError extends TaggedError("ServerConflictError")<{
   }
 }
 
+/** Provision auth must be exactly one of a managed key or a one-time password
+ *  — neither (nothing to auth with) and both (ambiguous) are rejected. */
+export class ProvisionCredentialError extends TaggedError("ProvisionCredentialError")<{
+  message: string;
+}>() {
+  constructor() {
+    super({
+      message: "provide exactly one SSH credential — a managed key or a one-time password",
+    });
+  }
+}
+
+/** Retry only applies to a run that actually failed. */
+export class ProvisionNotFailedError extends TaggedError("ProvisionNotFailedError")<{
+  message: string;
+  serverId: ServerId;
+}>() {
+  constructor(args: { serverId: ServerId; status: string }) {
+    super({
+      serverId: args.serverId,
+      message: `server ${args.serverId} is "${args.status}", not "failed" — nothing to retry`,
+    });
+  }
+}
+
+/** A password-provisioned server can't be retried: the password was one-time
+ *  and never stored, so there's no credential left to reconnect with. */
+export class ProvisionMissingCredentialError extends TaggedError(
+  "ProvisionMissingCredentialError",
+)<{
+  message: string;
+  serverId: ServerId;
+}>() {
+  constructor(args: { serverId: ServerId }) {
+    super({
+      serverId: args.serverId,
+      message: `server ${args.serverId} has no stored SSH key to retry with (it was provisioned by one-time password)`,
+    });
+  }
+}
+
 /** Availability is a swarm scheduler concept — the plain-docker runtime has
  *  no node to drain/pause, so the mutation is refused instead of faked. */
 export class SwarmUnavailableError extends TaggedError("SwarmUnavailableError")<{

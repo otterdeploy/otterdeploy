@@ -64,6 +64,7 @@
   },
   "devDependencies": {
     "@otterdeploy/config": "workspace:*",
+    "@types/ssh2": "^1.15.5",
     "@types/ssh2-sftp-client": "^9.0.6",
     "@vitest/coverage-v8": "catalog:",
     "@vitest/ui": "catalog:",
@@ -73,10 +74,12 @@
   },
   "optionalDependencies": {
     "maxmind": "^5.0.6",
+    "ssh2": "^1.17.0",
     "ssh2-sftp-client": "^11.0.0"
   },
   "optionalDependenciesNotes": {
     "maxmind": "optional GeoIP reader for edge logs — only loaded when EDGE_LOG_GEOIP_DB is set; code degrades to null country without it (see edge-logs/geo.ts).",
+    "ssh2": "loaded lazily only when provisioning a remote server over SSH (servers/ssh-exec.ts); optional so the native build can't break install for single-host operators who never add a server — provisioning fails with an actionable 'run bun install' message until present.",
     "ssh2-sftp-client": "loaded lazily only for sftp backup destinations (storage.ts); optional so ssh2's native build can't break install for local/s3-only operators — sftp runs fail with an actionable 'run bun install' message until present."
   }
 }

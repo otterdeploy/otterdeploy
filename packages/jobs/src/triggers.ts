@@ -6,6 +6,7 @@ import { hourlyCleanupJob } from "./jobs/hourly-cleanup";
 import { type NotificationPayload, sendNotificationJob } from "./jobs/notification";
 import { type PlatformEventPayload, notificationEventJob } from "./jobs/notification-event";
 import { type DataProcessingPayload, processDataJob } from "./jobs/process-data";
+import { type ProvisionServerPayload, provisionServerJob } from "./jobs/provision";
 import {
   type WebhookDeliveryPayload,
   type WebhookEventPayload,
@@ -24,6 +25,7 @@ export type {
   DataProcessingPayload,
   UserSignupPayload,
   DeployTriggeredPayload,
+  ProvisionServerPayload,
 };
 
 /**
@@ -118,6 +120,14 @@ export async function triggerDeploy(payload: DeployTriggeredPayload, opts?: Jobs
   const parsed = deployTriggeredJob.schema.parse(payload);
   return enqueue(deployTriggeredJob.name, parsed, {
     ...deployTriggeredJob.opts,
+    ...opts,
+  });
+}
+
+export async function triggerProvisionServer(payload: ProvisionServerPayload, opts?: JobsOptions) {
+  const parsed = provisionServerJob.schema.parse(payload);
+  return enqueue(provisionServerJob.name, parsed, {
+    ...provisionServerJob.opts,
     ...opts,
   });
 }

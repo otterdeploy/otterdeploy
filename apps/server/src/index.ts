@@ -17,7 +17,13 @@ import { agentHealthIngestHandler } from "@otterdeploy/api/system-health";
 import { auth } from "@otterdeploy/auth";
 import { runMigrations } from "@otterdeploy/db/migrate";
 import { env } from "@otterdeploy/env/server";
-import { createWorkers, jobs as allJobs, workbenchQueues } from "@otterdeploy/jobs";
+import {
+  createWorkers,
+  jobs as allJobs,
+  type ProvisionServerPayload,
+  workbenchQueues,
+} from "@otterdeploy/jobs";
+import { runProvisionJob } from "@otterdeploy/api/routers/server/provision-runner";
 import { Result } from "better-result";
 import {
   auditEnricher,
@@ -414,7 +420,21 @@ async function bootstrap() {
     // queue from the git-webhook receiver — only the consumer moves.
     try: () =>
       createWorkers({
-        jobs: allJobs.filter((j) => j.name !== "deploy.triggered"),
+        // deploy.triggered runs in apps/builder (needs the railpack/docker
+        // toolchain). server.provision's real handler lives in @otterdeploy/api
+        // (SSH + manager socket) and can't live in packages/jobs, so we swap it
+        // in here — same override mechanism the builder uses for deploys.
+        jobs: allJobs
+          .filter((j) => j.name !== "deploy.triggered")
+          .map((j) =>
+            j.name === "server.provision"
+              ? {
+                  ...j,
+                  handler: (payload: unknown) =>
+                    runProvisionJob(payload as ProvisionServerPayload),
+                }
+              : j,
+          ),
       }),
     catch: (cause) => new BootstrapError({ step: "workers", cause }),
   });
