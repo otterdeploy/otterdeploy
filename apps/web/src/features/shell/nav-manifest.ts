@@ -104,12 +104,6 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
         keywords: ["nodes", "swarm"],
       },
       {
-        title: "Databases",
-        to: "/$orgSlug/databases",
-        icon: Database02Icon,
-        keywords: ["postgres", "redis", "mysql", "mongo", "catalog"],
-      },
-      {
         title: "Docker",
         to: "/$orgSlug/docker",
         icon: ServerStack01Icon,
