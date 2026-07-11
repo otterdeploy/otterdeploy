@@ -92,6 +92,16 @@ const destinationNotFound = {
   },
 };
 
+// Structurally incomplete config (e.g. `local` with no `path`) — rejected at
+// create/update so it can't fail a backup run later.
+const destinationInvalidConfig = {
+  INVALID_CONFIG: {
+    status: 422 as const,
+    message: "Destination configuration is incomplete" as const,
+    data: z.object({ reason: z.string() }),
+  },
+};
+
 // Non-secret connection params (bucket / region / endpoint / prefix / path).
 const destinationConfigInput = z.record(z.string(), z.unknown());
 // Secret creds (S3 access key + secret, SFTP password/key). Encrypted at
@@ -311,12 +321,13 @@ export const backupsContract = {
       .output(z.array(destinationSchema)),
 
     create: oc
+      .errors(destinationInvalidConfig)
       .meta({ path: `${basePath}/destinations`, tag, method: "POST" })
       .input(createDestinationInput)
       .output(destinationSchema),
 
     update: oc
-      .errors(destinationNotFound)
+      .errors({ ...destinationNotFound, ...destinationInvalidConfig })
       .meta({ path: `${basePath}/destinations/{id}`, tag, method: "PATCH" })
       .input(updateDestinationInput)
       .output(destinationSchema),

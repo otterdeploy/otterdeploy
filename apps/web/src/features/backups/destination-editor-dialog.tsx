@@ -15,7 +15,12 @@ import type { Destination } from "./data/destinations";
 import type { DestinationKind } from "./shared";
 
 import { destinationsCollection } from "./data/destinations";
-import { DEST_TYPE_FIELDS, DestinationTypeFields, configFromInitial } from "./destination-fields";
+import {
+  DEST_TYPE_FIELDS,
+  DestinationTypeFields,
+  configFromInitial,
+  missingRequiredFields,
+} from "./destination-fields";
 import { Field, Segmented } from "./shared";
 
 export function DestinationEditorDialog({
@@ -196,9 +201,17 @@ function DestinationEditorBody({
           <Button variant="outline" size="sm" type="button" onClick={onClose}>
             Cancel
           </Button>
-          <form.Subscribe selector={(s) => [s.canSubmit, s.values.name] as const}>
-            {([canSubmit, name]) => (
-              <Button size="sm" type="submit" disabled={!canSubmit || !name.trim()}>
+          <form.Subscribe selector={(s) => [s.canSubmit, s.values] as const}>
+            {([canSubmit, values]) => (
+              <Button
+                size="sm"
+                type="submit"
+                disabled={
+                  !canSubmit ||
+                  !values.name.trim() ||
+                  missingRequiredFields(values.type, values.config, values.secret, editing)
+                }
+              >
                 {editing ? "Save changes" : "Create destination"}
               </Button>
             )}

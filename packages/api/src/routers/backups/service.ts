@@ -11,8 +11,10 @@ import { Result } from "better-result";
 import type { OrgRef } from "../scopes";
 
 import { decryptSecret, encryptSecret } from "../../lib/crypto";
+import { missingConfigKeys, missingSecret } from "./destination-config";
 import {
   BackupNotFoundError,
+  DestinationConfigInvalidError,
   DestinationInUseError,
   DestinationNotFoundError,
   DestinationTestFailedError,
@@ -96,7 +98,18 @@ export async function createDestination(
     config: Record<string, unknown>;
     secret?: Record<string, string>;
   },
-): Promise<DestinationResult> {
+): Promise<Result<DestinationResult, DestinationConfigInvalidError>> {
+  const missing = missingConfigKeys(input.type, input.config);
+  if (missing.length > 0) {
+    return Result.err(
+      new DestinationConfigInvalidError({
+        reason: `missing required config: ${missing.join(", ")}`,
+      }),
+    );
+  }
+  if (missingSecret(input.type, input.secret)) {
+    return Result.err(new DestinationConfigInvalidError({ reason: "missing credentials" }));
+  }
   const encryptedSecret = await encryptDestinationSecret(input.secret);
   const row = await createDestinationRecord({
     organizationId: input.organizationId,
@@ -105,7 +118,7 @@ export async function createDestination(
     config: input.config,
     encryptedSecret,
   });
-  return { ...row, usedBytes: 0 };
+  return Result.ok({ ...row, usedBytes: 0 });
 }
 
 export async function updateDestination(
@@ -115,7 +128,24 @@ export async function updateDestination(
     config?: Record<string, unknown>;
     secret?: Record<string, string>;
   },
-): Promise<Result<DestinationResult, DestinationNotFoundError>> {
+): Promise<Result<DestinationResult, DestinationNotFoundError | DestinationConfigInvalidError>> {
+  if (input.config) {
+    const existing = await getDestinationWithSecret({
+      organizationId: input.organizationId,
+      id: input.id,
+    });
+    if (!existing) {
+      return Result.err(new DestinationNotFoundError({ destinationId: input.id }));
+    }
+    const missing = missingConfigKeys(existing.type, input.config);
+    if (missing.length > 0) {
+      return Result.err(
+        new DestinationConfigInvalidError({
+          reason: `missing required config: ${missing.join(", ")}`,
+        }),
+      );
+    }
+  }
   const encryptedSecret = await encryptDestinationSecret(input.secret);
   const row = await updateDestinationRecord({
     organizationId: input.organizationId,
@@ -151,13 +181,6 @@ export async function deleteDestination(
   return Result.ok({ ok: true });
 }
 
-// Required non-secret config keys per destination type.
-const REQUIRED_CONFIG: Record<DestinationType, string[]> = {
-  s3: ["bucket"],
-  local: ["path"],
-  sftp: ["host"],
-};
-
 /**
  * Validates a stored destination credential: required config keys are present
  * and the encrypted secret decrypts cleanly. A failed validation is a typed
@@ -176,9 +199,7 @@ export async function testDestination(
     return Result.err(new DestinationNotFoundError({ destinationId: input.id }));
   }
 
-  const missing = REQUIRED_CONFIG[row.type].filter(
-    (k) => !row.config || row.config[k] == null || row.config[k] === "",
-  );
+  const missing = missingConfigKeys(row.type, row.config);
   if (missing.length > 0) {
     return Result.err(
       new DestinationTestFailedError({
