@@ -102,11 +102,39 @@ function toDecision(
 const DECISION_ORIGINS = ["cscli", "crowdsec"];
 
 /**
- * Fetch active decisions per operator-facing origin, flattening CrowdSec's
- * alert wrapper so every active decision becomes one row enriched with its
- * source (country / ASN) + the alert's scenario + event count.
+ * Primary read path: the LAPI decisions endpoint (what bouncers use), which
+ * answers in ~100ms even with tens of thousands of active decisions. `cscli
+ * decisions list` goes through /v1/alerts, which spins the LAPI at full CPU
+ * indefinitely once a large imported-blocklist alert exists (observed on
+ * v1.7.8) — never route reads through it when the LAPI is configured.
+ * Returns null when unconfigured/unreachable (caller falls back to cscli).
  */
-async function fetchDecisions(): Promise<Decision[] | null> {
+async function fetchDecisionsViaLapi(): Promise<Decision[] | null> {
+  if (!configured()) return null;
+  const url = `${env.CROWDSEC_LAPI_URL}/v1/decisions?origins=${DECISION_ORIGINS.join(",")}`;
+  const res = await Result.tryPromise({
+    try: () =>
+      fetch(url, {
+        headers: { "X-Api-Key": env.CROWDSEC_BOUNCER_KEY as string },
+        signal: AbortSignal.timeout(10_000),
+      }),
+    catch: (cause) => cause,
+  });
+  if (res.isErr() || !res.value.ok) return null;
+  // The endpoint returns a literal `null` body when nothing matches.
+  const body = (await res.value.json().catch(() => null)) as Record<string, unknown>[] | null;
+  const rows = (Array.isArray(body) ? body : []).map((d) => toDecision(d, {}, {}));
+  // Newest first (decision ids are monotonic) — a just-placed ban is on top.
+  return rows.sort((a, b) => (b.id ?? 0) - (a.id ?? 0));
+}
+
+/**
+ * Fallback for reachable-but-unconfigured installs (no bouncer env on the
+ * control plane): per-origin cscli reads, flattening CrowdSec's alert wrapper
+ * so every active decision becomes one row enriched with its source
+ * (country / ASN) + the alert's scenario + event count.
+ */
+async function fetchDecisionsViaCscli(): Promise<Decision[] | null> {
   // Sequential on purpose: every cscli invocation opens the agent's SQLite DB
   // with write intent (schema check), so concurrent cscli processes contend
   // for the lock and can starve the LAPI ("database is locked").
@@ -129,6 +157,10 @@ async function fetchDecisions(): Promise<Decision[] | null> {
   }
   // Newest first so a just-placed manual ban is visibly at the top.
   return rows.sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
+}
+
+async function fetchDecisions(): Promise<Decision[] | null> {
+  return (await fetchDecisionsViaLapi()) ?? fetchDecisionsViaCscli();
 }
 
 export const firewallRouter = {

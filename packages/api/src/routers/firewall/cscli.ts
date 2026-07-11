@@ -91,9 +91,12 @@ async function run(docker: Docker, cmd: string[]): Promise<string | null> {
 }
 
 /** Run a TRUSTED, fixed command with stderr suppressed — for clean JSON reads.
- *  `command` must NOT contain untrusted input. */
+ *  `command` must NOT contain untrusted input. The in-container `timeout`
+ *  kills the process itself: without it, an abandoned slow query (e.g. the
+ *  /v1/alerts scan behind `cscli decisions list`) keeps grinding the agent at
+ *  full CPU long after the server-side race has given up. */
 export function cscliRead(command: string): Promise<string | null> {
-  return execInCrowdsec(["sh", "-lc", `${command} 2>/dev/null`]);
+  return execInCrowdsec(["sh", "-lc", `timeout 25 ${command} 2>/dev/null`]);
 }
 
 /** Run a command whose `script` references untrusted values as $1, $2, … —
