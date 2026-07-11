@@ -192,15 +192,15 @@ function parseBlocks(src: string): ReactNode[] {
       const ordered = olItem.test(line);
       const items: ReactNode[] = [];
       const matcher = ordered ? olItem : ulItem;
-      while (i < lines.length && matcher.test(lines[i])) {
-        const im = matcher.exec(lines[i]);
-        const content = ordered ? im![2] : im![1];
+      let im = matcher.exec(lines[i]);
+      while (im) {
         items.push(
           <li key={items.length} className="pl-1">
-            {parseInline(content)}
+            {parseInline(ordered ? im[2] : im[1])}
           </li>,
         );
         i++;
+        im = i < lines.length ? matcher.exec(lines[i]) : null;
       }
       blocks.push(
         ordered ? (
