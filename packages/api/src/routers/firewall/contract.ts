@@ -136,6 +136,17 @@ export const firewallContract = {
       }),
     )
     .output(blockResultSchema),
+  /** Ban a batch of IPs in one shot — the "block all suspicious" action. */
+  blockMany: oc
+    .meta({ path: "/firewall/decisions/block-many", tag, method: "POST" })
+    .input(
+      z.object({
+        ips: z.array(ipValue).min(1).max(100),
+        durationHours: z.number().int().min(1).max(8760).default(720),
+        reason: z.string().max(120).optional(),
+      }),
+    )
+    .output(z.object({ ok: z.boolean(), blocked: z.number(), error: z.string().nullable() })),
   /** Remove every decision targeting an IP (undo a manual block). */
   unblock: oc
     .meta({ path: "/firewall/decisions/unblock", tag, method: "POST" })

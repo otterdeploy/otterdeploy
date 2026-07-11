@@ -72,6 +72,7 @@ export function LogTable({
   isLoading,
   onBlockIp,
   blocking,
+  bannedIps,
 }: {
   rows: EdgeLog[];
   wrap: boolean;
@@ -80,6 +81,8 @@ export function LogTable({
   isLoading: boolean;
   onBlockIp: (ip: string) => void;
   blocking: boolean;
+  /** Client IPs with an active CrowdSec ban — their rows get a blocked marker. */
+  bannedIps: Set<string>;
 }) {
   return (
     <div className="min-h-0 flex-1 overflow-auto">
@@ -131,6 +134,7 @@ export function LogTable({
                 onToggle={() => setExpanded(expanded === r.id ? null : r.id)}
                 onBlockIp={onBlockIp}
                 blocking={blocking}
+                banned={bannedIps.has(r.clientIp)}
               />
             ))
           )}

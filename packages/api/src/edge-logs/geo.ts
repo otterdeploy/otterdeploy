@@ -1,5 +1,5 @@
 import { env } from "@otterdeploy/env/server";
-import { geoDbPath } from "@otterdeploy/shared/paths";
+import { asnDbPath, geoDbPath } from "@otterdeploy/shared/paths";
 import { log } from "evlog";
 /**
  * GeoIP country lookup (edge-logs Phase 2).
@@ -28,17 +28,32 @@ interface CountryRecord {
   country?: { iso_code?: string };
   country_code?: string;
 }
-interface CountryReader {
-  get(ip: string): CountryRecord | null;
+/** GeoLite2-ASN nests under `autonomous_system_*`; the flat ip-location-db
+ *  rebuilds use `as_number` / `as_organization`. Read either. */
+interface AsnRecord {
+  autonomous_system_number?: number;
+  autonomous_system_organization?: string;
+  as_number?: number;
+  as_organization?: string;
 }
+interface MmdbReader<T> {
+  get(ip: string): T | null;
+}
+type CountryReader = MmdbReader<CountryRecord>;
+type AsnReader = MmdbReader<AsnRecord>;
 
-/** Resolve the DB to a readable path, downloading the free DB when the operator
+/** Resolve a DB to a readable path, downloading the free DB when the operator
  *  hasn't supplied one. Returns null when nothing usable could be obtained. */
-async function ensureDbPath(): Promise<string | null> {
-  // Operator supplied a path — use it as-is; never download over it.
-  if (env.EDGE_LOG_GEOIP_DB) return env.EDGE_LOG_GEOIP_DB;
+async function ensureDbPath(input: {
+  /** Operator-supplied path — used as-is; never downloaded over. */
+  override: string | undefined;
+  path: string;
+  url: string;
+  kind: string;
+}): Promise<string | null> {
+  if (input.override) return input.override;
 
-  const path = geoDbPath();
+  const path = input.path;
   // Already downloaded (and non-empty) — reuse it. A monthly refresh can be
   // layered on later; a stale-but-present DB is far better than none.
   const existing = await stat(path).catch(() => null);
@@ -46,15 +61,15 @@ async function ensureDbPath(): Promise<string | null> {
 
   // Download to a temp sibling then rename, so a partial write never leaves a
   // truncated DB the reader would choke on.
-  const res = await fetch(env.EDGE_LOG_GEOIP_URL);
-  if (!res.ok) throw new Error(`GeoIP download failed: HTTP ${res.status}`);
+  const res = await fetch(input.url);
+  if (!res.ok) throw new Error(`GeoIP ${input.kind} download failed: HTTP ${res.status}`);
   const bytes = new Uint8Array(await res.arrayBuffer());
-  if (bytes.byteLength === 0) throw new Error("GeoIP download was empty");
+  if (bytes.byteLength === 0) throw new Error(`GeoIP ${input.kind} download was empty`);
   await mkdir(dirname(path), { recursive: true });
   const tmp = `${path}.${process.pid}.tmp`;
   await writeFile(tmp, bytes);
   await rename(tmp, path);
-  log.info({ edgeLog: { geo: "downloaded", db: path, bytes: bytes.byteLength } });
+  log.info({ edgeLog: { geo: "downloaded", kind: input.kind, db: path, bytes: bytes.byteLength } });
   return path;
 }
 
@@ -62,35 +77,65 @@ async function ensureDbPath(): Promise<string | null> {
 // the same opened reader), same pattern as the ring buffers.
 const g = globalThis as typeof globalThis & {
   __edgeGeoReader?: CountryReader | null;
+  __edgeAsnReader?: AsnReader | null;
   __edgeGeoInit?: boolean;
 };
 
+/** Runtime-resolved `maxmind` open() — keeps the optional dep out of the
+ *  static import graph; an absent package throws and the caller disables. */
+async function openMmdb<T>(dbPath: string): Promise<MmdbReader<T>> {
+  const moduleName: string = "maxmind";
+  const mod = (await import(moduleName)) as {
+    default?: { open: (p: string) => Promise<MmdbReader<T>> };
+    open?: (p: string) => Promise<MmdbReader<T>>;
+  };
+  const open = mod.default?.open ?? mod.open;
+  if (!open) throw new Error("maxmind: no open() export");
+  return open(dbPath);
+}
+
 /**
- * Open the MaxMind reader if configured. Idempotent + best-effort: any failure
- * (no env path, package not installed, unreadable DB) logs once and leaves geo
- * disabled. Call once at startup, alongside the edge-log sink.
+ * Open the MaxMind readers if configured. Idempotent + best-effort: any failure
+ * (no env path, package not installed, unreadable DB) logs once and leaves that
+ * lookup disabled. Called at startup alongside the edge-log sink, and lazily by
+ * any enrichment consumer (firewall decisions) — safe either way.
  */
 export async function initGeo(): Promise<void> {
   if (g.__edgeGeoInit) return;
   g.__edgeGeoInit = true;
   try {
-    const dbPath = await ensureDbPath();
-    if (!dbPath) return;
-    // Runtime-resolved specifier keeps `maxmind` out of the static import graph
-    // (it's an optional dep); an absent package just throws here and geo stays off.
-    const moduleName: string = "maxmind";
-    const mod = (await import(moduleName)) as {
-      default?: { open: (p: string) => Promise<CountryReader> };
-      open?: (p: string) => Promise<CountryReader>;
-    };
-    const open = mod.default?.open ?? mod.open;
-    if (!open) throw new Error("maxmind: no open() export");
-    g.__edgeGeoReader = await open(dbPath);
-    log.info({ edgeLog: { geo: "enabled", db: dbPath } });
+    const dbPath = await ensureDbPath({
+      override: env.EDGE_LOG_GEOIP_DB,
+      path: geoDbPath(),
+      url: env.EDGE_LOG_GEOIP_URL,
+      kind: "country",
+    });
+    if (dbPath) {
+      g.__edgeGeoReader = await openMmdb<CountryRecord>(dbPath);
+      log.info({ edgeLog: { geo: "enabled", db: dbPath } });
+    }
   } catch (cause) {
     g.__edgeGeoReader = null;
     log.warn({
       edgeLog: { geo: "disabled" },
+      error: cause instanceof Error ? cause.message : String(cause),
+    });
+  }
+  try {
+    const asnPath = await ensureDbPath({
+      override: env.EDGE_LOG_GEOIP_ASN_DB,
+      path: asnDbPath(),
+      url: env.EDGE_LOG_GEOIP_ASN_URL,
+      kind: "asn",
+    });
+    if (asnPath) {
+      g.__edgeAsnReader = await openMmdb<AsnRecord>(asnPath);
+      log.info({ edgeLog: { geo: "asn-enabled", db: asnPath } });
+    }
+  } catch (cause) {
+    g.__edgeAsnReader = null;
+    log.warn({
+      edgeLog: { geo: "asn-disabled" },
       error: cause instanceof Error ? cause.message : String(cause),
     });
   }
@@ -102,6 +147,19 @@ export function lookupCountry(ip: string): string | null {
   try {
     const rec = reader.get(ip);
     return rec?.country?.iso_code ?? rec?.country_code ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function lookupAsn(ip: string): { number: number; org: string | null } | null {
+  const reader = g.__edgeAsnReader;
+  if (!reader || !ip) return null;
+  try {
+    const rec = reader.get(ip);
+    const number = rec?.autonomous_system_number ?? rec?.as_number;
+    if (typeof number !== "number") return null;
+    return { number, org: rec?.autonomous_system_organization ?? rec?.as_organization ?? null };
   } catch {
     return null;
   }

@@ -16,6 +16,59 @@ import {
 } from "@/shared/components/ui/alert-dialog";
 import { Button } from "@/shared/components/ui/button";
 
+/** Mass-block confirm — bans every listed offender IP in one CrowdSec batch.
+ *  Same confirm-first posture as the single-IP action; used by the suspicious
+ *  filter here and the Flagged IPs panel in the Firewall view. */
+export function BlockAllButton({
+  count,
+  onConfirm,
+  blocking,
+}: {
+  count: number;
+  onConfirm: () => void;
+  blocking: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <AlertDialog open={open} onOpenChange={setOpen}>
+      <Button
+        variant="outline"
+        size="sm"
+        className="text-destructive hover:text-destructive"
+        onClick={() => setOpen(true)}
+        disabled={blocking}
+      >
+        {blocking ? "Blocking…" : `Block ${count} IP${count === 1 ? "" : "s"}`}
+      </Button>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            Block {count} IP{count === 1 ? "" : "s"}?
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            Every request from these IPs will be rejected at the Caddy edge (403) for 30 days,
+            before it reaches any of your services. Each ban is individually reversible from the
+            Firewall view.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={blocking}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={(e) => {
+              e.preventDefault();
+              onConfirm();
+              setOpen(false);
+            }}
+            disabled={blocking}
+          >
+            Block all
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 export function BlockIpButton({
   ip,
   onBlockIp,

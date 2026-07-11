@@ -23,6 +23,7 @@ export function EdgeRow({
   onToggle,
   onBlockIp,
   blocking,
+  banned,
 }: {
   row: EdgeLog;
   wrap: boolean;
@@ -30,6 +31,8 @@ export function EdgeRow({
   onToggle: () => void;
   onBlockIp: (ip: string) => void;
   blocking: boolean;
+  /** This client IP currently has an active CrowdSec ban. */
+  banned: boolean;
 }) {
   const b = statusBucket(row.status);
   const threat = classifyThreat(row.path);
@@ -100,7 +103,17 @@ export function EdgeRow({
             </span>
           </span>
         </TableCell>
-        <TableCell className="whitespace-nowrap text-muted-foreground">{row.clientIp}</TableCell>
+        <TableCell className="whitespace-nowrap text-muted-foreground">
+          {row.clientIp}
+          {banned ? (
+            <span
+              className="ml-1.5 inline-block rounded-sm bg-foreground/10 px-1 py-px align-middle text-[9px] font-semibold tracking-[0.04em] text-foreground/70 uppercase"
+              title="This IP has an active CrowdSec ban — new requests are rejected at the edge."
+            >
+              blocked
+            </span>
+          ) : null}
+        </TableCell>
         <TableCell className="whitespace-nowrap text-muted-foreground">
           {row.country ? (
             <span title={row.country}>
@@ -119,7 +132,13 @@ export function EdgeRow({
         </TableCell>
       </TableRow>
       {open ? (
-        <EdgeRowDetail row={row} wrap={wrap} onBlockIp={onBlockIp} blocking={blocking} />
+        <EdgeRowDetail
+          row={row}
+          wrap={wrap}
+          onBlockIp={onBlockIp}
+          blocking={blocking}
+          banned={banned}
+        />
       ) : null}
     </>
   );
@@ -132,11 +151,13 @@ function EdgeRowDetail({
   wrap,
   onBlockIp,
   blocking,
+  banned,
 }: {
   row: EdgeLog;
   wrap: boolean;
   onBlockIp: (ip: string) => void;
   blocking: boolean;
+  banned: boolean;
 }) {
   const headers = Object.entries(row.headers);
   return (
@@ -158,7 +179,13 @@ function EdgeRowDetail({
                 </span>
               ) : null}
             </span>
-            <BlockIpButton ip={row.clientIp} onBlockIp={onBlockIp} blocking={blocking} />
+            {banned ? (
+              <span className="rounded-md border px-2.5 py-1 text-[11px] text-muted-foreground">
+                Blocked at the edge
+              </span>
+            ) : (
+              <BlockIpButton ip={row.clientIp} onBlockIp={onBlockIp} blocking={blocking} />
+            )}
           </div>
           <div className="grid grid-cols-2 gap-x-10 gap-y-1 font-mono text-[12px]">
             <Detail k="request_id" v={row.requestId ?? "—"} wrap={wrap} />

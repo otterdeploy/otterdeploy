@@ -56,11 +56,11 @@ export function demuxDockerStream(buf: Buffer): string {
 
 /** Find the running crowdsec container + exec `cmd` in it. Null when absent,
  *  on exec failure, or past the timeout. */
-async function execInCrowdsec(cmd: string[]): Promise<string | null> {
+async function execInCrowdsec(cmd: string[], timeoutMs = EXEC_TIMEOUT_MS): Promise<string | null> {
   const docker = Docker.fromEnv();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timedOut = new Promise<null>((resolve) => {
-    timer = setTimeout(() => resolve(null), EXEC_TIMEOUT_MS);
+    timer = setTimeout(() => resolve(null), timeoutMs);
   });
   try {
     return await Promise.race([timedOut, run(docker, cmd)]);
@@ -103,7 +103,11 @@ export function cscliRead(command: string): Promise<string | null> {
  *  the values are passed as separate argv entries, so they're never parsed by
  *  the shell. Output is the merged stdout+stderr (so callers can read result
  *  messages like "Imported N decisions"). */
-export function cscliRun(script: string, args: string[]): Promise<string | null> {
+export function cscliRun(
+  script: string,
+  args: string[],
+  opts?: { timeoutMs?: number },
+): Promise<string | null> {
   // arg0 is a label; user values start at $1.
-  return execInCrowdsec(["sh", "-lc", script, "crowdsec-exec", ...args]);
+  return execInCrowdsec(["sh", "-lc", script, "crowdsec-exec", ...args], opts?.timeoutMs);
 }

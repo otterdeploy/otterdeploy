@@ -119,6 +119,15 @@ export const env = createEnv({
     EDGE_LOG_GEOIP_URL: z
       .url()
       .default("https://cdn.jsdelivr.net/npm/@ip-location-db/dbip-country-mmdb/dbip-country.mmdb"),
+    // Companion IP→ASN database (AS number + org), same managed-download
+    // semantics — enriches firewall decisions with network ownership. The
+    // default is the public-domain RouteViews-derived build from the same
+    // ip-location-db project. Set to an empty-ish mirror or your own GeoLite2-ASN
+    // via EDGE_LOG_GEOIP_ASN_DB to skip the download.
+    EDGE_LOG_GEOIP_ASN_DB: z.string().min(1).optional(),
+    EDGE_LOG_GEOIP_ASN_URL: z
+      .url()
+      .default("https://cdn.jsdelivr.net/npm/@ip-location-db/asn-mmdb/asn.mmdb"),
 
     // PR previews: hours of inactivity before the hourly cleanup cron tears an
     // open preview down (a keep-alive pin sets autoTeardownAt NULL to exempt

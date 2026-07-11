@@ -17,6 +17,8 @@ import {
 import { flagEmoji } from "@/shared/lib/flag";
 import { cn } from "@/shared/lib/utils";
 
+import { humanizeGoDuration } from "../duration";
+
 type Decision = Awaited<ReturnType<typeof orpc.firewall.decisions.call>>[number];
 
 /** The active-decisions table (banned IPs/ranges/countries), with a per-IP
@@ -116,8 +118,8 @@ export function DecisionsTable({
                     {d.type}
                   </span>
                 </TableCell>
-                <TableCell className="whitespace-nowrap text-muted-foreground">
-                  {d.duration}
+                <TableCell className="whitespace-nowrap text-muted-foreground" title={d.duration}>
+                  {humanizeGoDuration(d.duration)}
                 </TableCell>
                 <TableCell className="text-muted-foreground">{d.origin}</TableCell>
                 <TableCell className="text-right">

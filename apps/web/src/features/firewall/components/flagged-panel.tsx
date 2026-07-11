@@ -2,11 +2,13 @@
  * Flagged IPs — client IPs probing the org's domains with scanner-style paths
  * (/.env, /actuator, *.php, ?cmd=…), aggregated from the edge access logs over
  * the last hour. The "review these IPs" surface: each row is one-click blockable
- * at the CrowdSec edge. Independent of whether CrowdSec is configured (the data
- * is edge-log-derived); Block just needs the agent running to enforce.
+ * at the CrowdSec edge, and the whole set is mass-blockable. Independent of
+ * whether CrowdSec is configured (the data is edge-log-derived); Block just
+ * needs the agent running to enforce.
  */
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { useMemo } from "react";
+
+import { useQuery } from "@tanstack/react-query";
 
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -20,31 +22,42 @@ import {
 import { flagEmoji } from "@/shared/lib/flag";
 import { orpc } from "@/shared/server/orpc";
 
+import { BlockAllButton } from "../../edge-logs/components/edge-logs-block-ip";
+import { useEdgeBans } from "../../edge-logs/data/use-edge-bans";
+
 export function FlaggedPanel() {
   const flagged = useQuery({
     ...orpc.firewall.flagged.queryOptions({ input: { windowMinutes: 60 } }),
     refetchInterval: 15_000,
   });
-  const block = useMutation({
-    ...orpc.firewall.block.mutationOptions(),
-    onSuccess: (r, vars) => {
-      if (r.ok) {
-        toast.success(`Blocked ${vars.ip} — enforced at the edge`);
-        void flagged.refetch();
-      } else {
-        toast.error(r.error ?? "Block failed");
-      }
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Block failed"),
-  });
+  // Active bans flip already-blocked rows to a passive "Blocked" state; the
+  // hook refreshes both after each block.
+  const { bannedIps, block, blockMany } = useEdgeBans(() => void flagged.refetch());
 
   const rows = flagged.data ?? [];
+  const unblockedIps = useMemo(
+    () =>
+      rows
+        .map((r) => r.ip)
+        .filter((ip) => !bannedIps.has(ip))
+        .slice(0, 100),
+    [rows, bannedIps],
+  );
 
   return (
     <div className="min-h-0 flex-1 overflow-auto">
-      <div className="border-b px-4 py-2 text-[12px] text-muted-foreground">
-        Client IPs probing your domains for secrets and known exploits in the last hour. Blocking
-        rejects every future request from that IP at the edge (403).
+      <div className="flex items-center justify-between gap-3 border-b px-4 py-2">
+        <span className="text-[12px] text-muted-foreground">
+          Client IPs probing your domains for secrets and known exploits in the last hour. Blocking
+          rejects every future request from that IP at the edge (403).
+        </span>
+        {unblockedIps.length > 0 ? (
+          <BlockAllButton
+            count={unblockedIps.length}
+            blocking={blockMany.isPending}
+            onConfirm={() => blockMany.mutate({ ips: unblockedIps })}
+          />
+        ) : null}
       </div>
       <Table className="[&_td:first-child]:pl-4 [&_td:last-child]:pr-4 [&_th:first-child]:pl-4 [&_th:last-child]:pr-4">
         <TableHeader>
@@ -95,15 +108,24 @@ export function FlaggedPanel() {
                   {new Date(r.lastSeen).toLocaleTimeString()}
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-[11px] text-destructive hover:text-destructive"
-                    onClick={() => block.mutate({ ip: r.ip })}
-                    disabled={block.isPending}
-                  >
-                    Block
-                  </Button>
+                  {bannedIps.has(r.ip) ? (
+                    <span
+                      className="text-[11px] text-muted-foreground"
+                      title="This IP already has an active CrowdSec ban."
+                    >
+                      Blocked
+                    </span>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-[11px] text-destructive hover:text-destructive"
+                      onClick={() => block.mutate({ ip: r.ip })}
+                      disabled={block.isPending}
+                    >
+                      Block
+                    </Button>
+                  )}
                 </TableCell>
               </TableRow>
             ))

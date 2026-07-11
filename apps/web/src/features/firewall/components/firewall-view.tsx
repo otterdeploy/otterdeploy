@@ -82,7 +82,7 @@ export function FirewallView() {
           void status.refetch();
           void decisions.refetch();
         }}
-        onBlock={(ip) => block.mutate({ ip })}
+        onBlock={(ip, durationHours) => block.mutate({ ip, durationHours })}
         blocking={block.isPending}
       />
 
@@ -150,7 +150,7 @@ function FirewallToolbar({
   decisionCount: number;
   refreshing: boolean;
   onRefresh: () => void;
-  onBlock: (ip: string) => void;
+  onBlock: (ip: string, durationHours: number) => void;
   blocking: boolean;
 }) {
   return (
@@ -192,13 +192,30 @@ function FirewallToolbar({
   );
 }
 
-/** Inline "block an IP by hand" form — bans the entered IP/CIDR via CrowdSec. */
-function BlockIpForm({ onBlock, blocking }: { onBlock: (ip: string) => void; blocking: boolean }) {
+/** Ban lengths offered by the manual block form (hours). */
+const BLOCK_DURATIONS = [
+  { hours: 1, label: "1 hour" },
+  { hours: 24, label: "24 hours" },
+  { hours: 168, label: "7 days" },
+  { hours: 720, label: "30 days" },
+  { hours: 4320, label: "180 days" },
+] as const;
+
+/** Inline "block an IP by hand" form — bans the entered IP/CIDR via CrowdSec
+ *  for the selected duration. */
+function BlockIpForm({
+  onBlock,
+  blocking,
+}: {
+  onBlock: (ip: string, durationHours: number) => void;
+  blocking: boolean;
+}) {
   const [ip, setIp] = useState("");
+  const [hours, setHours] = useState(720);
   const submit = () => {
     const value = ip.trim();
     if (!value) return;
-    onBlock(value);
+    onBlock(value, hours);
     setIp("");
   };
   return (
@@ -216,6 +233,18 @@ function BlockIpForm({ onBlock, blocking }: { onBlock: (ip: string) => void; blo
         aria-label="Block an IP or CIDR range"
         className="h-8 w-44 font-mono text-[12px]"
       />
+      <select
+        value={hours}
+        onChange={(e) => setHours(Number(e.target.value))}
+        aria-label="Ban duration"
+        className="h-8 rounded-md border bg-transparent px-2 text-[12px] text-foreground/90 focus-visible:ring-1 focus-visible:outline-none"
+      >
+        {BLOCK_DURATIONS.map((d) => (
+          <option key={d.hours} value={d.hours}>
+            {d.label}
+          </option>
+        ))}
+      </select>
       <Button type="submit" variant="outline" size="sm" disabled={blocking || !ip.trim()}>
         {blocking ? "Blocking…" : "Block"}
       </Button>

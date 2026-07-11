@@ -48,6 +48,32 @@ export async function blockIp(
   return interpretCscli(out, "Block failed");
 }
 
+/**
+ * Ban a batch of IPs in one container exec — one `cscli decisions add` per IP
+ * inside a single shell loop, so 100 IPs cost one exec, not 100. Each add is a
+ * proper `cscli`-origin decision (NOT a `decisions import`, whose
+ * `cscli-import` origin would hide the bans from the Decisions view). ~100 to
+ * 300ms per add, hence the generous exec timeout.
+ */
+export async function blockManyIps(
+  ips: string[],
+  durationHours: number,
+  reason: string,
+): Promise<{ ok: boolean; blocked: number; error?: string }> {
+  const out = await cscliRun(
+    `d="$1"; r="$2"; shift 2; n=0; ` +
+      `for ip in "$@"; do ` +
+      `cscli decisions add --ip "$ip" --duration "$d" --type ban --reason "$r" >/dev/null 2>&1 && n=$((n+1)); ` +
+      `done; echo "blocked $n"`,
+    [`${durationHours}h`, reason, ...ips],
+    { timeoutMs: 180_000 },
+  );
+  if (out === null) return { ok: false, blocked: 0, error: AGENT_DOWN };
+  const blocked = Number(out.match(/blocked\s+(\d+)/)?.[1] ?? 0);
+  if (blocked === 0) return { ok: false, blocked: 0, error: lastLine(out, "Block failed") };
+  return { ok: true, blocked };
+}
+
 /** Remove every decision targeting `ip` (undoes a manual block; also clears a
  *  community/blocklist ban on that exact IP). */
 export async function unblockIp(ip: string): Promise<BlockResult> {
