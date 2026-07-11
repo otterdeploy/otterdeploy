@@ -107,11 +107,13 @@ const DECISION_ORIGINS = ["cscli", "crowdsec"];
  * source (country / ASN) + the alert's scenario + event count.
  */
 async function fetchDecisions(): Promise<Decision[] | null> {
-  const texts = await Promise.all(
-    DECISION_ORIGINS.map((origin) =>
-      cscliRead(`cscli decisions list -o json --origin ${origin} --limit 500`),
-    ),
-  );
+  // Sequential on purpose: every cscli invocation opens the agent's SQLite DB
+  // with write intent (schema check), so concurrent cscli processes contend
+  // for the lock and can starve the LAPI ("database is locked").
+  const texts: (string | null)[] = [];
+  for (const origin of DECISION_ORIGINS) {
+    texts.push(await cscliRead(`cscli decisions list -o json --origin ${origin} --limit 500`));
+  }
   if (texts.every((t) => t === null)) return null; // agent unreachable
   const rows: Decision[] = [];
   for (const text of texts) {
