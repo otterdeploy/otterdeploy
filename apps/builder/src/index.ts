@@ -19,15 +19,16 @@ import { log } from "evlog";
 import { makeBuildJob } from "./handler";
 
 let stop: (() => Promise<void>) | null = null;
+let reconcileTimer: ReturnType<typeof setInterval> | null = null;
 
-async function bootstrap() {
-  log.info({ builder: { event: "starting", concurrency: env.BUILDER_CONCURRENCY } } as Record<
-    string,
-    unknown
-  >);
+// Sweep orphaned pending/building deployments — at boot AND on a cadence. A row
+// can be stranded any time (a build container that dies mid-run, a job that
+// never starts), not only across a restart, so a boot-only sweep left post-boot
+// orphans stuck forever. Redis-lock-guarded + idempotent, so running it
+// periodically (and across multiple builder replicas) is safe.
+const RECONCILE_INTERVAL_MS = 5 * 60 * 1000;
 
-  // Reset deployments stranded by a previous crash before we start pulling
-  // new jobs. Best-effort: a reconcile failure must never block the worker.
+async function runReconcile(trigger: "boot" | "interval"): Promise<void> {
   (
     await Result.tryPromise({
       try: () => reconcileInterruptedDeployments(),
@@ -35,19 +36,37 @@ async function bootstrap() {
     })
   ).match({
     ok: (summary) =>
-      log.info({ builder: { event: "reconciled", ...summary } } as Record<string, unknown>),
+      log.info({ builder: { event: "reconciled", trigger, ...summary } } as Record<
+        string,
+        unknown
+      >),
     err: (cause) =>
-      log.warn({ builder: { event: "reconcile-failed", cause: String(cause) } } as Record<
+      log.warn({ builder: { event: "reconcile-failed", trigger, cause: String(cause) } } as Record<
         string,
         unknown
       >),
   });
+}
+
+async function bootstrap() {
+  log.info({ builder: { event: "starting", concurrency: env.BUILDER_CONCURRENCY } } as Record<
+    string,
+    unknown
+  >);
+
+  // Reset deployments stranded before we start pulling new jobs. Best-effort:
+  // a reconcile failure must never block the worker.
+  await runReconcile("boot");
 
   const workers = await createWorkers({
     jobs: [makeBuildJob()],
     concurrency: env.BUILDER_CONCURRENCY,
   });
   stop = workers.stop;
+
+  // Keep sweeping on a cadence so orphans created after boot don't sit forever.
+  reconcileTimer = setInterval(() => void runReconcile("interval"), RECONCILE_INTERVAL_MS);
+  reconcileTimer.unref();
 
   log.info({ builder: { event: "ready" } } as Record<string, unknown>);
 }
@@ -57,6 +76,7 @@ void bootstrap();
 for (const signal of ["SIGTERM", "SIGINT"] as const) {
   process.once(signal, async () => {
     log.info({ builder: { event: "draining", signal } } as Record<string, unknown>);
+    if (reconcileTimer) clearInterval(reconcileTimer);
     if (stop) await stop().catch(() => undefined);
     process.exit(0);
   });

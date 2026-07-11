@@ -20,15 +20,21 @@ export function UpdateBanner() {
   if (!status.bannerVisible || !status.latest) return null;
 
   return (
-    <div className="flex items-center gap-3 border-b border-primary/20 bg-primary/5 px-4 py-2 text-[13px]">
-      <span className="font-medium">A new version of otterdeploy is available</span>
-      <Badge className="font-mono">{status.latest}</Badge>
+    <div className="flex w-full min-w-0 items-center gap-3 border-b border-primary/20 bg-primary/5 px-4 py-2 text-[13px]">
+      <span className="min-w-0 truncate font-medium">
+        A new version of otterdeploy is available
+      </span>
+      <Badge className="shrink-0 font-mono">{status.latest}</Badge>
       {status.dryRun && (
-        <Badge variant="secondary" title="Dev/dry-run install — applying runs as a simulation.">
+        <Badge
+          variant="secondary"
+          className="shrink-0"
+          title="Dev/dry-run install — applying runs as a simulation."
+        >
           dry-run
         </Badge>
       )}
-      <div className="ml-auto flex items-center gap-1.5">
+      <div className="ml-auto flex shrink-0 items-center gap-1.5">
         <Button type="button" size="sm" onClick={openUpdate}>
           What's new
         </Button>

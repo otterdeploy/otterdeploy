@@ -1,4 +1,4 @@
-import type { Edge, Node } from "@xyflow/react";
+import type { Node } from "@xyflow/react";
 
 import type { FrameworkKind } from "@/features/projects/components/framework-logo";
 import type {
@@ -226,6 +226,3 @@ export const buildLiveNodes = (
   }));
   return [...realNodes, ...ghosts];
 };
-
-/** Public routes are service metadata, not graph resources. */
-export const buildRouteEdges = (_resources: Resource[]): Edge[] => [];

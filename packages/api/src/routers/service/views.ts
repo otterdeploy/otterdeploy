@@ -25,6 +25,8 @@ export interface ServiceView {
   command: string[] | null;
   entrypoint: string[] | null;
   replicas: number;
+  /** Non-null = paused; the replica count `service.resume` restores. */
+  pausedReplicas: number | null;
 
   restart: {
     condition: "none" | "on-failure" | "any";
@@ -133,6 +135,7 @@ export async function mapServiceView(
     command: record.service.command,
     entrypoint: record.service.entrypoint,
     replicas: record.service.replicas,
+    pausedReplicas: record.service.pausedReplicas,
     restart: {
       condition: record.service.restartCondition,
       maxAttempts: record.service.restartMaxAttempts,

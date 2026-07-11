@@ -10,7 +10,8 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 
 import { OpenTerminalDialog } from "@/features/terminal/components/open-terminal-dialog";
-import { TerminalSession } from "@/features/terminal/components/terminal-session";
+import { SessionTab } from "@/features/terminal/components/session-tab";
+import { TerminalSession, type ConnState } from "@/features/terminal/components/terminal-session";
 import { type Session, type SessionSource, describeSource } from "@/features/terminal/types";
 import {
   encodeSessionToken,
@@ -25,7 +26,6 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@/shared/components/ui/empty";
-import { cn } from "@/shared/lib/utils";
 
 export const Route = createFileRoute("/terminal")({
   component: RouteComponent,
@@ -58,6 +58,9 @@ function RouteComponent() {
   );
   const [activeId, setActiveId] = useState<string | null>(() => sessions[0]?.id ?? null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  // Per-session connection state, fed by each TerminalSession's onConnChange —
+  // drives the status dot on the tab strip.
+  const [connStates, setConnStates] = useState<Record<string, ConnState>>({});
 
   // Mirror the current session list back into the URL so reload / share
   // restores every tab. `replace: true` keeps this out of the back-history
@@ -87,6 +90,7 @@ function RouteComponent() {
       }
       return next;
     });
+    setConnStates(({ [id]: _closed, ...rest }) => rest);
   }
 
   function close() {
@@ -113,41 +117,16 @@ function RouteComponent() {
           <>
             <span className="mx-1 h-4 w-px shrink-0 bg-border/60" aria-hidden />
             <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
-              {sessions.map((s) => {
-                const isActive = s.id === activeId;
-                return (
-                  <div
-                    key={s.id}
-                    className={cn(
-                      "group flex shrink-0 items-center gap-1.5 rounded-md border transition-colors",
-                      isActive
-                        ? "border-border bg-background"
-                        : "border-transparent hover:bg-muted/60",
-                    )}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setActiveId(s.id)}
-                      className="flex items-center gap-1.5 py-0.5 pl-2 font-mono text-[12px]"
-                    >
-                      <HugeiconsIcon
-                        icon={TerminalIcon}
-                        strokeWidth={2}
-                        className="size-3 text-muted-foreground"
-                      />
-                      {s.label}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => closeSession(s.id)}
-                      aria-label={`Close ${s.label}`}
-                      className="grid size-5 place-items-center rounded text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
-                    >
-                      <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-3" />
-                    </button>
-                  </div>
-                );
-              })}
+              {sessions.map((s) => (
+                <SessionTab
+                  key={s.id}
+                  session={s}
+                  active={s.id === activeId}
+                  conn={connStates[s.id]}
+                  onSelect={() => setActiveId(s.id)}
+                  onClose={() => closeSession(s.id)}
+                />
+              ))}
             </div>
           </>
         )}
@@ -196,7 +175,11 @@ function RouteComponent() {
           </EmptyContent>
         </Empty>
       ) : (
-        <SessionPanels sessions={sessions} activeId={activeId} />
+        <SessionPanels
+          sessions={sessions}
+          activeId={activeId}
+          onConnChange={(id, conn) => setConnStates((prev) => ({ ...prev, [id]: conn }))}
+        />
       )}
 
       <OpenTerminalDialog open={pickerOpen} onOpenChange={setPickerOpen} onPick={openSession} />
@@ -204,7 +187,15 @@ function RouteComponent() {
   );
 }
 
-function SessionPanels({ sessions, activeId }: { sessions: Session[]; activeId: string | null }) {
+function SessionPanels({
+  sessions,
+  activeId,
+  onConnChange,
+}: {
+  sessions: Session[];
+  activeId: string | null;
+  onConnChange: (id: string, conn: ConnState) => void;
+}) {
   return (
     <div className="relative min-h-0 flex-1 overflow-hidden bg-[oklch(0.12_0_0)] p-2">
       {sessions.map((s) => {
@@ -216,7 +207,11 @@ function SessionPanels({ sessions, activeId }: { sessions: Session[]; activeId: 
         return (
           <Activity key={s.id} mode={isActive ? "visible" : "hidden"} name={s.label}>
             <div className="absolute inset-2" aria-hidden={!isActive}>
-              <TerminalSession source={s.source} active={isActive} />
+              <TerminalSession
+                source={s.source}
+                active={isActive}
+                onConnChange={(conn) => onConnChange(s.id, conn)}
+              />
             </div>
           </Activity>
         );

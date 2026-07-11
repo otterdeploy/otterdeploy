@@ -36,7 +36,38 @@ export const EVENTS: EventRow[] = [
   { id: "backup.succeeded", label: "Backup succeeded", severity: "ok" },
   { id: "ssh.rotated", label: "SSH key rotated", severity: "info" },
   { id: "audit.anomaly", label: "Audit anomaly", severity: "warn" },
+  { id: "edge.probe", label: "Suspicious edge traffic", severity: "warn" },
 ];
+
+const EVENT_BY_ID = new Map(EVENTS.map((e) => [e.id, e]));
+
+/** Human label for a delivery-log event id. Test sends log as "test.ping"
+ * (outside the subscribable catalog); anything unknown falls back to the raw
+ * id so the log never lies. */
+export function eventLabel(id: string): string {
+  if (id === "test.ping") return "Test ping";
+  return EVENT_BY_ID.get(id)?.label ?? id;
+}
+
+/** Severity for a delivery-log event id ("test.ping"/unknown → info). */
+export function eventSeverityOf(id: string): Severity {
+  return EVENT_BY_ID.get(id)?.severity ?? "info";
+}
+
+/**
+ * Short destination hint for tight spots (matrix column headers). Works on the
+ * server-masked target: webhook-ish kinds reduce to the host (the path is
+ * already visible on the card), addresses/chat ids show as-is, and anything
+ * long is middle-agnostic truncated. Purely presentational — never unmasks.
+ */
+export function channelTargetHint(kind: ChannelKind, target: string): string {
+  let hint = target;
+  if (kind === "slack" || kind === "discord" || kind === "webhook") {
+    const m = /^https?:\/\/([^/?#]+)/i.exec(target);
+    if (m?.[1]) hint = m[1];
+  }
+  return hint.length > 26 ? `${hint.slice(0, 25)}…` : hint;
+}
 
 interface KindMeta {
   label: string;
@@ -58,6 +89,51 @@ export const KIND_META: Record<ChannelKind, KindMeta> = {
   pagerduty: { label: "PagerDuty", search: "PagerDuty", sub: "Events API v2" },
   push: { label: "Push", search: "Firebase", sub: "Mobile / web push (FCM)" },
 };
+
+/**
+ * `data`-payload keys that are internal plumbing, not user-facing context:
+ * `eventId` drives the severity/label (rendered on its own), `occurrence` is
+ * the fan-out dedupe key. Both are hidden from the inbox detail rows.
+ */
+const INBOX_DATA_HIDDEN = new Set(["eventId", "occurrence"]);
+
+/** camelCase / dotted key → spaced, capitalized label ("deploymentId" → "Deployment id"). */
+function humanizeKey(key: string): string {
+  const spaced = key
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[._-]+/g, " ")
+    .trim();
+  return spaced ? spaced.charAt(0).toUpperCase() + spaced.slice(1) : key;
+}
+
+/** The platform `eventId` carried in an inbox notification's `data`, if any —
+ *  used to resolve the row's severity + event label. */
+export function inboxEventId(data: Record<string, unknown> | null | undefined): string | null {
+  const id = data?.eventId;
+  return typeof id === "string" && id ? id : null;
+}
+
+/**
+ * Displayable key/value rows from an inbox notification's `data` payload:
+ * internal plumbing keys dropped, empty/nullish values skipped, primitives
+ * stringified (objects fall back to JSON). Powers the expanded detail box.
+ */
+export function inboxDetailRows(
+  data: Record<string, unknown> | null | undefined,
+): Array<{ key: string; label: string; value: string }> {
+  if (!data) return [];
+  const rows: Array<{ key: string; label: string; value: string }> = [];
+  for (const [key, raw] of Object.entries(data)) {
+    if (INBOX_DATA_HIDDEN.has(key)) continue;
+    if (raw === null || raw === undefined || raw === "") continue;
+    const value =
+      typeof raw === "string" || typeof raw === "number" || typeof raw === "boolean"
+        ? String(raw)
+        : JSON.stringify(raw);
+    rows.push({ key, label: humanizeKey(key), value });
+  }
+  return rows;
+}
 
 /** Tailwind background class for a severity dot. */
 export const SEVERITY_DOT: Record<Severity, string> = {

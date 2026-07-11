@@ -26,6 +26,13 @@ export interface ProxyRouteInput {
    *  (http only) — e.g. `header`, `encode`, `rate_limit`. Indentation is
    *  normalized on emit; null/absent ⇒ none. */
   customDirectives?: string | null;
+  /** Operator-uploaded certificate to serve for this domain instead of
+   *  ACME / tls internal. Paths are CONTAINER paths under the `/etc/caddy`
+   *  mount, set by the reconcile layer only for certs whose files were
+   *  actually materialized (see ./certs.ts) — so an emitted `tls` line never
+   *  references a file the edge can't read. Absent ⇒ normal ACME/internal
+   *  behaviour. */
+  customCert?: { certPath: string; keyPath: string } | null;
 }
 
 /** Re-indent an operator-authored directive block to sit one level inside a
@@ -119,11 +126,15 @@ export interface CaddyfileOptions {
 
 export function buildHttpBlock(route: ProxyRouteInput, options: HttpBlockOptions = {}): string {
   const lines = [`${route.domain} {`];
-  // Pre-Phase-2 the global `local_certs` covered everything; now we
-  // emit per-site `tls internal` for any route that hasn't earned ACME
-  // so the global block can drop `local_certs` (which conflicts with
-  // ACME issuance).
-  if (!route.usesAcme) {
+  // Operator-uploaded cert wins over both ACME and `tls internal` — Caddy
+  // serves exactly this pair and never tries to manage the domain itself.
+  if (route.customCert) {
+    lines.push(`\ttls ${route.customCert.certPath} ${route.customCert.keyPath}`);
+  } else if (!route.usesAcme) {
+    // Pre-Phase-2 the global `local_certs` covered everything; now we
+    // emit per-site `tls internal` for any route that hasn't earned ACME
+    // so the global block can drop `local_certs` (which conflicts with
+    // ACME issuance).
     lines.push("\ttls internal");
   }
 
@@ -271,7 +282,9 @@ export function buildCaddyfile(
 ): string {
   const httpRoutes = routes.filter((r) => r.type === "http");
   const layer4Routes = routes.filter((r) => r.type === "layer4");
-  const anyUsesAcme = routes.some((r) => r.usesAcme);
+  // A custom-cert route never triggers ACME (Caddy serves the uploaded pair),
+  // so it does not force the global registration email on its own.
+  const anyUsesAcme = routes.some((r) => r.usesAcme && !r.customCert);
 
   const lines = buildGlobalBlock({
     adminLine: `admin ${adminBind}`,
@@ -315,7 +328,9 @@ export function buildProjectFragment(
     return "";
   }
 
-  const anyUsesAcme = routes.some((r) => r.usesAcme);
+  // A custom-cert route never triggers ACME (Caddy serves the uploaded pair),
+  // so it does not force the global registration email on its own.
+  const anyUsesAcme = routes.some((r) => r.usesAcme && !r.customCert);
   const lines = buildGlobalBlock({
     adminLine: "admin off",
     acmeEmail: options.acmeEmail,

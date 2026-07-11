@@ -67,6 +67,9 @@ const serviceSchema = z.object({
   command: z.array(z.string()).nullable(),
   entrypoint: z.array(z.string()).nullable(),
   replicas: z.number().int().nonnegative(),
+  // Non-null = paused (scaled to zero via service.pause); holds the replica
+  // count service.resume restores. Null = not paused.
+  pausedReplicas: z.number().int().positive().nullable(),
 
   restart: serviceRestartSchema,
   healthcheck: serviceHealthcheckSchema,
@@ -421,6 +424,27 @@ export const serviceContract = {
     .meta({ path: `${basePath}/{resourceId}/build`, tag, method: "POST" })
     .input(getServiceInput)
     .output(buildServiceOutput),
+
+  // Pause — scale the service to zero replicas while remembering the desired
+  // count, so Resume restores exactly what the operator had. Config, env,
+  // routes, and volumes are all preserved; only the running containers stop.
+  // Idempotent: pausing a paused service (or resuming a non-paused one) is a
+  // no-op that returns the current view.
+  pause: oc
+    .errors({
+      NOT_FOUND: sharedErrors.NOT_FOUND,
+    })
+    .meta({ path: `${basePath}/{resourceId}/pause`, tag, method: "POST" })
+    .input(getServiceInput)
+    .output(serviceSchema),
+
+  resume: oc
+    .errors({
+      NOT_FOUND: sharedErrors.NOT_FOUND,
+    })
+    .meta({ path: `${basePath}/{resourceId}/resume`, tag, method: "POST" })
+    .input(getServiceInput)
+    .output(serviceSchema),
 
   expose: oc
     .errors({

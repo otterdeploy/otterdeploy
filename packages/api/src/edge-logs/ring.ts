@@ -54,6 +54,12 @@ export function subscribeEdgeLogs(fn: Subscriber): () => void {
   return () => state.subscribers.delete(fn);
 }
 
+/** Raw live-window lines at or after `sinceMs` — the in-memory fallback for the
+ *  threat aggregation when DB persistence is off. Bounded by the ring size. */
+export function recentEdgeLogLines(sinceMs: number): EdgeLogLine[] {
+  return state.buffer.filter((l) => Date.parse(l.ts) >= sinceMs);
+}
+
 export function bucketOf(status: number): EdgeStatusBucket {
   if (status >= 500) return "5xx";
   if (status >= 400) return "4xx";

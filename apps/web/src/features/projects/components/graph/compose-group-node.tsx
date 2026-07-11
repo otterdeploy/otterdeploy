@@ -13,6 +13,7 @@ import { useNavigate, useParams } from "@tanstack/react-router";
 import { Handle, NodeToolbar, Position, type NodeProps } from "@xyflow/react";
 import { toast } from "sonner";
 
+import { SvglLogo } from "@/shared/components/brand/svgl-logo";
 import {
   Tooltip,
   TooltipContent,
@@ -45,11 +46,21 @@ function ComposeGroupHeader({
     <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-3">
       <div className="flex min-w-0 items-center gap-3">
         <div className="grid size-9 shrink-0 place-items-center rounded-[10px] border bg-background">
-          <HugeiconsIcon
-            icon={meta.icon}
-            strokeWidth={1.8}
-            className={cn("size-5", meta.iconColor)}
-          />
+          {data.logoBrand ? (
+            <SvglLogo
+              search={data.logoBrand}
+              fallback={data.name}
+              size={22}
+              border="none"
+              background="transparent"
+            />
+          ) : (
+            <HugeiconsIcon
+              icon={meta.icon}
+              strokeWidth={1.8}
+              className={cn("size-5", meta.iconColor)}
+            />
+          )}
         </div>
         <div className="flex min-w-0 flex-col gap-0.5">
           <div className="truncate text-[16px] leading-[1.1] font-bold tracking-[-0.01em] text-card-foreground">

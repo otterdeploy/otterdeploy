@@ -42,3 +42,10 @@ export async function runBackup(input: Parameters<typeof orpc.backups.run.call>[
 export function restoreBackup(input: Parameters<typeof orpc.backups.restore.call>[0]) {
   return orpc.backups.restore.call(input);
 }
+
+/** Integrity check: server re-fetches the archive and recomputes its checksum. */
+export function verifyBackup(id: Backup["id"]) {
+  return orpc.backups.verify.call({ id });
+}
+
+export type VerifyResult = Awaited<ReturnType<typeof verifyBackup>>;

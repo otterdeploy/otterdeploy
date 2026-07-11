@@ -19,8 +19,8 @@ import { reconcile } from "../../../caddy";
 import { deleteProxyRoutesByResource, insertProxyRoute } from "../../../caddy/queries";
 import { loadDomainSourcesForProject } from "../../../lib/domain-sources";
 import { resolvePublicDomain } from "../../../lib/domains";
-import { syncManifestDatabasePublic } from "../manifest";
 import { PostgresResourceNotFoundError, ProjectNotFoundError } from "../errors";
+import { syncManifestDatabasePublic } from "../manifest";
 import { getDatabaseResourceRecord, getProjectInOrg, setDatabaseResourcePublic } from "../queries";
 import { mapDatabaseResource, type PostgresResource } from "../views";
 

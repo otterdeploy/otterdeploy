@@ -4,14 +4,20 @@
  * `listResourceDeployments`), then the building/pending → running flip is
  * persisted lazily and `deploy.succeeded` emitted exactly once.
  */
-import type { DeploymentId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type {
+  PreviewId,
+  DeploymentId,
+  OrganizationId,
+  ProjectId,
+  ResourceId,
+} from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { deploymentLog } from "@otterdeploy/db/schema/build";
 import { deployment } from "@otterdeploy/db/schema/project";
 import { Docker } from "@otterdeploy/docker";
 import { Result } from "better-result";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 
 import type { DeploymentRow } from "./deployments";
 import type { DerivedDeploymentStatus, InstanceGlimpse } from "./deployments-derive";
@@ -24,6 +30,8 @@ import {
 } from "./deployments-derive";
 import { emitDeploySucceeded } from "./deployments-emit";
 import { PostgresResourceNotFoundError, ProjectNotFoundError } from "./errors";
+import { loadPreviewScope } from "../../lib/environment/load";
+import { runtimeServiceName } from "../../lib/environment/scoping";
 import { publishResourceChanged } from "./project-event-bus";
 import { getProjectInOrg, getProjectRecord } from "./queries";
 import { getResourceById } from "./queries/resource";
@@ -33,6 +41,7 @@ import { buildContainerName } from "./views";
 type OrgId = OrganizationId;
 type ResolvedResource = NonNullable<Awaited<ReturnType<typeof getResourceById>>>;
 
+export { deriveDeploymentStatus } from "./deployments-derive";
 export type { DerivedDeploymentStatus } from "./deployments-derive";
 
 export interface DeploymentWithStats {
@@ -66,11 +75,21 @@ export interface DeploymentWithStats {
 
 /** All deployments for a resource, newest first. Status is the value
  *  stored in the row — derived live by `listResourceDeployments`. */
-async function listDeploymentsByResource(resourceId: ResourceId): Promise<DeploymentRow[]> {
+async function listDeploymentsByResource(
+  resourceId: ResourceId,
+  // Base rows by default; a preview id scopes to that PR's deployments (the
+  // preview panel's history view).
+  previewId: PreviewId | null = null,
+): Promise<DeploymentRow[]> {
   const rows = await db
     .select()
     .from(deployment)
-    .where(eq(deployment.resourceId, resourceId))
+    .where(
+      and(
+        eq(deployment.resourceId, resourceId),
+        previewId ? eq(deployment.previewId, previewId) : isNull(deployment.previewId),
+      ),
+    )
     .orderBy(desc(deployment.createdAt));
   return rows as DeploymentRow[];
 }
@@ -132,8 +151,10 @@ export async function reconcileDeployFailure(deploymentIds: DeploymentId[]): Pro
  * when the zero-task stale window would flip it to "failed" — one indexed
  * lookup for the newest log line, skipped entirely on the happy paths.
  */
-async function isBuildStillLogging(
-  latest: DeploymentRow | undefined,
+export async function isBuildStillLogging(
+  // Only `id`/`status`/`createdAt` are read — a Pick lets the project-wide
+  // feed's snapshot-free JoinedRow reuse this without carrying the full row.
+  latest: Pick<DeploymentRow, "id" | "status" | "createdAt"> | undefined,
   tasksByDeployment: Map<string, InstanceGlimpse[]>,
 ): Promise<boolean> {
   if (!latest) return false;
@@ -150,11 +171,14 @@ async function isBuildStillLogging(
 }
 
 // Resolve the swarm service name backing a resource — postgres uses the
-// deterministic container-name pattern; services store it on the row.
+// deterministic container-name pattern; services store it on the row. A
+// compose STACK returns null: its containers carry the per-service (child)
+// deployment ids, never the stack row's, so there's no single service to
+// refine the stack's rows against — they keep their stored status.
 export async function resolveDeploymentServiceName(
   found: ResolvedResource,
   projectId: ProjectId,
-): Promise<string> {
+): Promise<string | null> {
   if (found.kind === "database") {
     const proj = await getProjectRecord(projectId);
     const slug = proj?.slug ?? projectId;
@@ -164,7 +188,8 @@ export async function resolveDeploymentServiceName(
       resourceName: found.record.resource.name,
     });
   }
-  return found.record.service.serviceName;
+  if (found.kind === "service") return found.record.service.serviceName;
+  return null;
 }
 
 // One runtime-aware call covers every instance for the service (swarm tasks or
@@ -172,7 +197,7 @@ export async function resolveDeploymentServiceName(
 // label so we never need a per-deployment call. `withInspect` fills exit code /
 // restart count / OOM flag under plain docker — the derivation needs those to
 // tell a crash that gave up from an operator stop.
-async function loadTaskStatesByDeployment(
+export async function loadTaskStatesByDeployment(
   serviceName: string,
 ): Promise<Map<string, InstanceGlimpse[]>> {
   const docker = Docker.fromEnv();
@@ -206,6 +231,9 @@ async function loadTaskStatesByDeployment(
  *  databases are hard-capped at 5. */
 function resolveRestartMaxAttempts(found: ResolvedResource): number | null {
   if (found.kind === "database") return 5;
+  // Compose stacks have no single restart policy (N child services) — leave
+  // the cap unknown.
+  if (found.kind !== "service") return null;
   const svc = found.record.service;
   if (svc.restartCondition === "on-failure") return svc.restartMaxAttempts ?? 5;
   if (svc.restartCondition === "none") return 0;
@@ -260,6 +288,7 @@ interface ListInput {
   projectId: ProjectId;
   organizationId: OrgId;
   resourceId: ResourceId;
+  previewId?: PreviewId | null;
 }
 
 export async function listResourceDeployments(
@@ -278,11 +307,21 @@ export async function listResourceDeployments(
     return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
   }
 
-  const rows = await listDeploymentsByResource(input.resourceId);
+  const rows = await listDeploymentsByResource(input.resourceId, input.previewId ?? null);
   if (rows.length === 0) return Result.ok([]);
 
-  const serviceName = await resolveDeploymentServiceName(found, input.projectId);
-  const tasksByDeployment = await loadTaskStatesByDeployment(serviceName);
+  let serviceName = await resolveDeploymentServiceName(found, input.projectId);
+  if (serviceName && input.previewId) {
+    // Preview deployments run under the pr-suffixed container — derive task
+    // states from THAT name or every preview row reads as zero tasks.
+    const scope = await loadPreviewScope(input.previewId);
+    if (scope) serviceName = runtimeServiceName(serviceName, scope);
+  }
+  // Compose stack rows have no task-level refinement (null serviceName) —
+  // they read back the status deployCompose stored.
+  const tasksByDeployment = serviceName
+    ? await loadTaskStatesByDeployment(serviceName)
+    : new Map<string, InstanceGlimpse[]>();
 
   const latestId = rows[0]?.id;
   const latestBuildActive = await isBuildStillLogging(rows[0], tasksByDeployment);
@@ -301,14 +340,23 @@ export async function listResourceDeployments(
     );
     // A row stored building/pending whose tasks are now running has just
     // succeeded — flag it for the reconcile + emit below.
-    if (stats.status === "running" && (row.status === "building" || row.status === "pending")) {
+    // Only reconcile+notify for BASE listings. A preview panel open would
+    // otherwise drive the base-styled deploy.succeeded notification over
+    // preview rows; the builder's markRunning settles preview rows itself.
+    if (
+      !input.previewId &&
+      stats.status === "running" &&
+      (row.status === "building" || row.status === "pending")
+    ) {
       justSucceeded.push(row.id);
     }
     // A stale zero-task row the derivation gave up on: persist the failure so
     // the stored status (which the graph node + notifications read) agrees
     // with what the list shows, instead of a display-only "failed" over a
-    // forever-"pending" row.
+    // forever-"pending" row. Base listings only — preview rows settle via the
+    // builder.
     if (
+      !input.previewId &&
       stats.status === "failed" &&
       states.length === 0 &&
       (row.status === "building" || row.status === "pending")

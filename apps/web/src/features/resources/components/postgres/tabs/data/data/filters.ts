@@ -10,6 +10,10 @@
 export type FilterOp =
   | "eq"
   | "ne"
+  | "gt"
+  | "lt"
+  | "gte"
+  | "lte"
   | "contains"
   | "notcontains"
   | "startswith"
@@ -30,6 +34,10 @@ export interface Filter {
 export const FILTER_OPS: { value: FilterOp; label: string; needsValue: boolean }[] = [
   { value: "eq", label: "equals (=)", needsValue: true },
   { value: "ne", label: "not equals (!=)", needsValue: true },
+  { value: "gt", label: "greater than (>)", needsValue: true },
+  { value: "lt", label: "less than (<)", needsValue: true },
+  { value: "gte", label: "at least (>=)", needsValue: true },
+  { value: "lte", label: "at most (<=)", needsValue: true },
   { value: "contains", label: "contains (LIKE)", needsValue: true },
   { value: "notcontains", label: "not contains (NOT LIKE)", needsValue: true },
   { value: "startswith", label: "starts with", needsValue: true },
@@ -43,17 +51,46 @@ export function opNeedsValue(op: FilterOp | ""): boolean {
   return op !== "isnull" && op !== "notnull";
 }
 
+/** Ordering comparisons take a NUMBER (validated, emitted unquoted). */
+export function isNumericOp(op: FilterOp | ""): boolean {
+  return op === "gt" || op === "lt" || op === "gte" || op === "lte";
+}
+
+/** Strict numeric literal — what the numeric ops accept. Emitted verbatim into
+ *  the SQL (regex-validated, so it can't carry an injection), which also keeps
+ *  big integers exact where Number() would round. */
+const NUMERIC_LITERAL = /^-?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
+
+export function isValidNumericValue(value: string): boolean {
+  return NUMERIC_LITERAL.test(value.trim());
+}
+
 const esc = (v: string) => v.replace(/'/g, "''");
 const ident = (c: string) => `"${c.replace(/"/g, '""')}"`;
 
 export function isFilterActive(f: Filter): boolean {
   if (!f.enabled || !f.column || !f.op) return false;
   if (!opNeedsValue(f.op)) return true;
-  return f.value !== "";
+  if (f.value === "") return false;
+  // A numeric op with a non-numeric value never compiles into the WHERE.
+  if (isNumericOp(f.op)) return isValidNumericValue(f.value);
+  return true;
 }
+
+const NUMERIC_SQL_OP: Record<"gt" | "lt" | "gte" | "lte", string> = {
+  gt: ">",
+  lt: "<",
+  gte: ">=",
+  lte: "<=",
+};
 
 function clause(f: Filter): string {
   const col = ident(f.column);
+  if (isNumericOp(f.op)) {
+    // Guarded by isFilterActive → isValidNumericValue; the trimmed literal is
+    // digits/sign/dot/exponent only.
+    return `${col} ${NUMERIC_SQL_OP[f.op as "gt" | "lt" | "gte" | "lte"]} ${f.value.trim()}`;
+  }
   switch (f.op) {
     case "isnull":
       return `${col} IS NULL`;

@@ -33,11 +33,10 @@ export const envCollection = createCollection(
 export type EnvRow = Awaited<ReturnType<typeof orpc.env.list.call>>[number];
 
 /**
- * Optimistic row for a hand-created **persistent** environment. The preview-env
- * provenance columns (kind/state/base/gitRepo/PR/…) are all default/null for a
- * user-created env — only the server populates them when it branches a preview.
- * Keeps the two insert sites (create dialog + project onboarding) in sync with
- * the full `environment` row shape.
+ * Optimistic row for a hand-created environment. Environments are purely
+ * user-created contexts now — PR previews live in their own `preview` table
+ * and never appear here. Keeps the two insert sites (create dialog + project
+ * onboarding) in sync with the full `environment` row shape.
  */
 export function newPersistentEnvRow(input: {
   id: EnvRow["id"];
@@ -47,15 +46,6 @@ export function newPersistentEnvRow(input: {
 }): EnvRow {
   return {
     ...input,
-    kind: "persistent",
-    state: "active",
-    baseEnvironmentId: null,
-    gitRepoId: null,
-    gitRef: null,
-    pullRequestNumber: null,
-    pullRequestNodeId: null,
-    headSha: null,
-    autoTeardownAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };

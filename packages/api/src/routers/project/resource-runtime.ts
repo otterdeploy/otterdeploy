@@ -9,7 +9,7 @@
  *
  * One frontend call site per tab covers every container-backed resource.
  */
-import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { ProjectId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { Docker } from "@otterdeploy/docker";
@@ -30,8 +30,12 @@ import {
   getProjectRecord,
   setDatabaseResourceExtraEnv,
 } from "./queries";
-import { getResourceById } from "./queries/resource";
-import { collapseInstanceState, listResourceInstances } from "./resource-instances";
+import { composeChildSwarmServices, getResourceById } from "./queries/resource";
+import {
+  collapseInstanceState,
+  listResourceInstances,
+  type ResourceInstance,
+} from "./resource-instances";
 import { buildContainerName, buildVolumeName, sanitizeProjectSlug } from "./views";
 
 export interface EnvEntry {
@@ -39,15 +43,15 @@ export interface EnvEntry {
   value: string;
 }
 
-// Resolve a resource id to its swarm service name. Postgres uses the
-// deterministic name pattern; services store it directly on the row.
+// Resolve a resource to its swarm service name. Postgres uses the
+// deterministic name pattern; services store it directly on the row. Compose
+// stacks have no single swarm service (they fan out per sub-service) and are
+// handled by the compose branch in listResourceTasks instead.
 async function resolveSwarmService(
   projectId: ProjectId,
-  resourceId: ResourceId,
+  found: NonNullable<Awaited<ReturnType<typeof getResourceById>>>,
 ): Promise<{ serviceName: string; projectSlug: string } | null> {
-  const found = await getResourceById(projectId, resourceId);
-  if (!found) return null;
-
+  if (found.kind === "compose") return null;
   if (found.kind === "database") {
     const project = await getProjectRecord(projectId);
     const slug = project?.slug ?? projectId;
@@ -66,6 +70,40 @@ async function resolveSwarmService(
   };
 }
 
+const instanceTimeMs = (t: { updatedAt: string | null; createdAt: string | null }) =>
+  new Date(t.updatedAt ?? t.createdAt ?? 0).getTime();
+
+// Map one runtime instance to the wire shape, tagged with the compose
+// sub-service it belongs to (null for single-service resources).
+function toTaskInfo(
+  t: ResourceInstance,
+  serviceName: string,
+  service: string | null,
+): ServiceTaskInfo {
+  return {
+    id: t.id,
+    slot: t.slot,
+    label: t.slot != null ? `${serviceName}.${t.slot}` : serviceName,
+    service,
+    state: collapseInstanceState(t.state),
+    rawState: t.state,
+    desiredState: t.desiredState,
+    nodeId: t.nodeId,
+    message: t.message,
+    error: t.err,
+    containerId: t.containerId,
+    exitCode: t.exitCode,
+    timestamp: t.updatedAt,
+  };
+}
+
+async function collapseAndSort(docker: Docker, serviceName: string) {
+  const instancesResult = await listResourceInstances(docker, serviceName);
+  if (instancesResult.isErr()) return [];
+  // Newest first so the panel reads chronologically without client-side sorting.
+  return [...instancesResult.value].sort((a, b) => instanceTimeMs(b) - instanceTimeMs(a));
+}
+
 export async function listResourceTasks(
   input: ResourceRef,
 ): Promise<Result<ServiceTaskInfo[], ProjectNotFoundError | PostgresResourceNotFoundError>> {
@@ -77,42 +115,40 @@ export async function listResourceTasks(
     return Result.err(new ProjectNotFoundError({ projectId: input.projectId }));
   }
 
-  const target = await resolveSwarmService(input.projectId, input.resourceId);
-  if (!target) {
+  const found = await getResourceById(input.projectId, input.resourceId);
+  if (!found) {
     return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
   }
 
   const docker = Docker.fromEnv();
+
+  // A compose stack has no swarm service of its own — aggregate instances
+  // across every `${stack}-${key}` child, tagging each task with its compose
+  // sub-service so the panel can group per service.
+  if (found.kind === "compose") {
+    const tasks: ServiceTaskInfo[] = [];
+    for (const child of composeChildSwarmServices(found.record)) {
+      const instances = await collapseAndSort(docker, child.serviceName);
+      tasks.push(...instances.map((t) => toTaskInfo(t, child.serviceName, child.service)));
+    }
+    tasks.sort((a, b) => {
+      const at = new Date(a.timestamp ?? 0).getTime();
+      const bt = new Date(b.timestamp ?? 0).getTime();
+      return bt - at;
+    });
+    return Result.ok(tasks);
+  }
+
+  const target = await resolveSwarmService(input.projectId, found);
+  if (!target) {
+    return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
+  }
+
   // Runtime-aware: swarm tasks, or plain-docker containers under the default
   // runtime (where docker.tasks.list would fail with "service not found").
-  const instancesResult = await listResourceInstances(docker, target.serviceName);
-  if (instancesResult.isErr()) return Result.ok([]);
-
-  // Newest first so the panel reads chronologically without client-side sorting.
-  const instances = [...instancesResult.value].sort((a, b) => {
-    const at = new Date(a.updatedAt ?? a.createdAt ?? 0).getTime();
-    const bt = new Date(b.updatedAt ?? b.createdAt ?? 0).getTime();
-    return bt - at;
-  });
-
-  return Result.ok(
-    instances.map((t) => ({
-      id: t.id,
-      slot: t.slot,
-      label: t.slot != null ? `${target.serviceName}.${t.slot}` : target.serviceName,
-      // Single-service runtime view — no compose sub-service breakdown here.
-      service: null,
-      state: collapseInstanceState(t.state),
-      rawState: t.state,
-      desiredState: t.desiredState,
-      nodeId: t.nodeId,
-      message: t.message,
-      error: t.err,
-      containerId: t.containerId,
-      exitCode: t.exitCode,
-      timestamp: t.updatedAt,
-    })),
-  );
+  const instances = await collapseAndSort(docker, target.serviceName);
+  // Single-service runtime view — no compose sub-service breakdown here.
+  return Result.ok(instances.map((t) => toTaskInfo(t, target.serviceName, null)));
 }
 
 export async function listResourceEnv(
@@ -130,6 +166,9 @@ export async function listResourceEnv(
   if (!found) {
     return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
   }
+
+  // The stack resource holds no env of its own — each child service does.
+  if (found.kind === "compose") return Result.ok([]);
 
   if (found.kind === "database") {
     const record = await getDatabaseResourceRecord(input.projectId, input.resourceId);
@@ -155,6 +194,12 @@ export async function bulkSetResourceEnv(
 
   const found = await getResourceById(input.projectId, input.resourceId);
   if (!found) {
+    return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
+  }
+
+  // Env writes target a concrete service/database — never the stack resource
+  // itself (its children own their env). Reject rather than write junk rows.
+  if (found.kind === "compose") {
     return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
   }
 

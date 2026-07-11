@@ -39,6 +39,11 @@ export interface ServiceCreatePayload {
   customMem: number;
   builderId: string;
   spa: boolean;
+  // HTTP health-check fields (Networking step). Empty path = no healthcheck.
+  healthPath: string;
+  healthInterval: number;
+  healthTimeout: number;
+  healthRetries: number;
   root: string;
   // Bound repo as portable "owner/repo" + its branch, threaded into the
   // manifest so the created service is actually bound. Undefined for image

@@ -1,10 +1,11 @@
+import { useQuery } from "@tanstack/react-query";
 /**
  * Connect CLI — the device-authorization flow itself is already built (the
  * `otterdeploy login` command + the `/device` approval page via better-auth's
  * deviceAuthorization plugin). This dialog just gets the user there: the exact
  * login command for this control plane + a shortcut to the approval page.
  */
-import { useNavigate } from "@tanstack/react-router";
+import { useLoaderData, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";
@@ -17,6 +18,7 @@ import {
   DialogTitle,
 } from "@/shared/components/ui/dialog";
 import { copyToClipboard } from "@/shared/lib/clipboard";
+import { orpc } from "@/shared/server/orpc";
 
 export function ConnectCliDialog({
   open,
@@ -26,8 +28,21 @@ export function ConnectCliDialog({
   onOpenChange: (v: boolean) => void;
 }) {
   const navigate = useNavigate();
+  const { organization } = useLoaderData({ from: "/_app/$orgSlug" });
+
+  // Prefer the verified control-plane FQDN over the browser's current origin.
+  // Operators often reach the dashboard by public IP (or <ip>.sslip.io) before
+  // DNS is fully wired up; handing the CLI that origin pins it to an address
+  // that can rotate. The configured FQDN is the stable, correct endpoint.
+  const domainQuery = useQuery(
+    orpc.organization.controlPlaneDomain.queryOptions({
+      input: { organizationId: organization.id as never },
+    }),
+  );
+  const fqdn = domainQuery.data;
   const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const cmd = `otterdeploy login ${origin}`;
+  const baseUrl = fqdn?.domain && fqdn.verifiedAt ? `https://${fqdn.domain}` : origin;
+  const cmd = `otterdeploy login ${baseUrl}`;
 
   const copy = () => {
     void copyToClipboard(cmd).then((ok) =>

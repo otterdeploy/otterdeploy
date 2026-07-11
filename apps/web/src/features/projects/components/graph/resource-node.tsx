@@ -12,6 +12,7 @@ import type { NodeProps } from "@xyflow/react";
 import type { ResourceFlowNode } from "./resource-node-types";
 
 import { ComposeGroupNode } from "./compose-group-node";
+import { PreviewCardNode } from "./preview-card-node";
 import { ResourceCardNode } from "./resource-card-node";
 
 export type {
@@ -32,5 +33,7 @@ export type {
 export function ResourceNode(props: NodeProps<ResourceFlowNode>) {
   // A compose stack is a group, not a single card — render its dedicated node.
   if (props.data.kind === "compose") return <ComposeGroupNode {...props} />;
+  // A PR-preview satellite is a small card hanging off its service node.
+  if (props.data.kind === "preview") return <PreviewCardNode {...props} />;
   return <ResourceCardNode {...props} />;
 }

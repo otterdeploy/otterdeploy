@@ -72,7 +72,10 @@ async function runSchedule(schedule: DueSchedule, now: Date): Promise<void> {
 
   const resourceIds = await resolveScheduleSources(schedule.organizationId, schedule.sources);
 
-  let lastStatus: "succeeded" | "failed" | "queued" = "queued";
+  // A due schedule that resolves to no runnable (source × destination) pair is
+  // orphaned or misconfigured — record `failed`, not the benign `queued`
+  // placeholder that made a broken schedule look perpetually about-to-run.
+  let lastStatus: "succeeded" | "failed" = "failed";
   if (resourceIds.length > 0 && schedule.destinationIds.length > 0) {
     // One dump per (source × destination) — each is its own single-destination
     // backup record, so the engine, restore, and retention stay unchanged.
@@ -80,7 +83,7 @@ async function runSchedule(schedule: DueSchedule, now: Date): Promise<void> {
       for (const destinationId of schedule.destinationIds) {
         const backupId = await createBackupRun({
           organizationId: schedule.organizationId,
-          resourceId,
+          source: { kind: "database", resourceId },
           destinationId,
           scheduleId: schedule.id,
           encryption: schedule.encryption === "aes-256-gcm" ? "aes-256-gcm" : "none",

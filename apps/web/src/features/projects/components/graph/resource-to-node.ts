@@ -24,17 +24,24 @@ export type ResourceFlowNode = Node<ResourceNodeData, "resource">;
  * the node renders without a status badge instead of a false "ok".
  */
 function databaseStatus(
-  runtime: Extract<ProjectResource, { type: "database" }>["runtime"],
+  r: Extract<ProjectResource, { type: "database" }>,
 ): ResourceStatus | undefined {
-  switch (runtime.status) {
+  switch (r.runtime.status) {
     case "running":
-      return runtime.health === "unhealthy" ? "error" : "running";
+      return r.runtime.health === "unhealthy" ? "error" : "running";
     case "starting":
       return "building";
     case "error":
     case "stopped":
-    case "missing":
+    case "missing": {
+      // A deploy in flight legitimately has no container yet — the image is
+      // still pulling or the create hasn't reached docker. That's "building",
+      // not a failure; only a dead container with NO active deployment (or a
+      // deployment that actually failed) earns the error pill.
+      const dep = r.latestDeploymentStatus;
+      if (dep === "building" || dep === "pending" || dep === "starting") return "building";
       return "error";
+    }
   }
 }
 
@@ -119,7 +126,7 @@ export function resourceToNode(r: ProjectResource): ResourceFlowNode {
           projectId: r.projectId,
           resourceId: r.resourceId,
           engine: r.engine,
-          status: databaseStatus(r.runtime),
+          status: databaseStatus(r),
         },
       };
     case "service":
@@ -159,6 +166,7 @@ export function resourceToNode(r: ProjectResource): ResourceFlowNode {
           name: r.name,
           // Stack source + service count is the most useful single line.
           description: r.services.length === 1 ? "1 service" : `${r.services.length} services`,
+          logoBrand: r.logoBrand ?? undefined,
           projectId: r.projectId,
           resourceId: r.resourceId,
           // The group has NO single status pill — each service answers for

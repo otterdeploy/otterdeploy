@@ -13,6 +13,9 @@ import type { ContainerSpec, RuntimeStatus } from "./types";
 
 import { PLATFORM } from "../constants";
 import { connectCaddyToNetwork } from "../swarm/client";
+import { streamImagePull } from "../swarm/image-pull";
+import { toHealthcheckTest } from "../swarm/internals";
+import { createPullLineSummarizer } from "../swarm/pull-progress";
 
 export const msToNs = (ms: number) => ms * 1_000_000;
 export const networkNameFor = (projectSlug: string) =>
@@ -80,21 +83,29 @@ export async function ensureBridgeNetwork(docker: Docker, projectSlug: string): 
   return name;
 }
 
-/** Best-effort image pull — drains the progress stream to completion. A failure
- *  is non-fatal here (the image may already be local); container create will
- *  surface a real "no such image" if it's genuinely missing. */
-export async function pullImage(docker: Docker, image: string): Promise<void> {
-  const pull = await docker.pull(image);
-  if (pull.isErr()) return;
-  await new Promise<void>((resolve) => {
-    pull.value.on("data", () => {});
-    pull.value.on("end", () => resolve());
-    pull.value.on("error", () => resolve());
-    pull.value.on("close", () => resolve());
-  });
+/** Best-effort image pull. A failure is non-fatal here (the image may already
+ *  be local); container create will surface a real "no such image" if it's
+ *  genuinely missing. `onLine` receives occasional human-readable progress
+ *  lines (headlines + throttled byte totals) for the deploy log — without it
+ *  a multi-minute download is invisible to the operator. Always pulls (no
+ *  local-image short-circuit) so mutable tags refresh on redeploy. */
+export async function pullImage(
+  docker: Docker,
+  image: string,
+  onLine?: (line: string) => void,
+): Promise<void> {
+  const summarize = createPullLineSummarizer();
+  try {
+    for await (const event of streamImagePull(docker, image, null, { skipIfPresent: false })) {
+      const line = summarize.push(event);
+      if (line) onLine?.(line);
+    }
+  } catch (err) {
+    onLine?.(`Image pull failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
 }
 
-interface Summary {
+export interface Summary {
   Names: string[];
   State: string;
   Id: string;
@@ -229,7 +240,7 @@ export function buildContainerOptions(
     ...(spec.healthcheck
       ? {
           Healthcheck: {
-            Test: ["CMD", ...spec.healthcheck.cmd],
+            Test: toHealthcheckTest(spec.healthcheck.cmd),
             Interval: msToNs(spec.healthcheck.intervalMs),
             Timeout: msToNs(spec.healthcheck.timeoutMs),
             Retries: spec.healthcheck.retries,

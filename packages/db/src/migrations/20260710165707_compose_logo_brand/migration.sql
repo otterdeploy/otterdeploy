@@ -1,0 +1,1 @@
+ALTER TABLE "compose_resource" ADD COLUMN "logo_brand" text;

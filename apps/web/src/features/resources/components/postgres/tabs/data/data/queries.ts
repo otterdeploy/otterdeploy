@@ -91,6 +91,58 @@ export function tableColumnsSql(table: TableRef): string {
  ORDER BY c.ordinal_position`;
 }
 
+/**
+ * Full column detail for the Structure view + Add-record modal: type,
+ * nullability, default, identity, and PK / UNIQUE / FK flags (FK carries the
+ * referenced schema.table.column). One row per column, ordinal order.
+ * Runs through the same read-only query path as the other introspection.
+ */
+export function structureSql(table: TableRef): string {
+  const schema = escLiteral(table.schema);
+  const name = escLiteral(table.name);
+  return `SELECT c.column_name,
+       c.data_type,
+       c.is_nullable,
+       c.column_default,
+       c.is_identity,
+       CASE WHEN pk.column_name IS NOT NULL THEN 't' ELSE 'f' END AS is_pk,
+       CASE WHEN uq.column_name IS NOT NULL THEN 't' ELSE 'f' END AS is_uq,
+       fk.ref_schema, fk.ref_table, fk.ref_column
+  FROM information_schema.columns c
+  LEFT JOIN (
+    SELECT kcu.column_name
+      FROM information_schema.table_constraints tc
+      JOIN information_schema.key_column_usage kcu
+        ON kcu.constraint_name = tc.constraint_name AND kcu.constraint_schema = tc.constraint_schema
+     WHERE tc.constraint_type = 'PRIMARY KEY'
+       AND tc.table_schema = '${schema}' AND tc.table_name = '${name}'
+  ) pk ON pk.column_name = c.column_name
+  LEFT JOIN (
+    SELECT DISTINCT kcu.column_name
+      FROM information_schema.table_constraints tc
+      JOIN information_schema.key_column_usage kcu
+        ON kcu.constraint_name = tc.constraint_name AND kcu.constraint_schema = tc.constraint_schema
+     WHERE tc.constraint_type = 'UNIQUE'
+       AND tc.table_schema = '${schema}' AND tc.table_name = '${name}'
+  ) uq ON uq.column_name = c.column_name
+  LEFT JOIN (
+    SELECT kcu.column_name,
+           min(ccu.table_schema) AS ref_schema,
+           min(ccu.table_name) AS ref_table,
+           min(ccu.column_name) AS ref_column
+      FROM information_schema.table_constraints tc
+      JOIN information_schema.key_column_usage kcu
+        ON kcu.constraint_name = tc.constraint_name AND kcu.constraint_schema = tc.constraint_schema
+      JOIN information_schema.constraint_column_usage ccu
+        ON ccu.constraint_name = tc.constraint_name AND ccu.constraint_schema = tc.constraint_schema
+     WHERE tc.constraint_type = 'FOREIGN KEY'
+       AND tc.table_schema = '${schema}' AND tc.table_name = '${name}'
+     GROUP BY kcu.column_name
+  ) fk ON fk.column_name = c.column_name
+ WHERE c.table_schema = '${schema}' AND c.table_name = '${name}'
+ ORDER BY c.ordinal_position`;
+}
+
 /** A single referenced row, for the FK popover. */
 export function referencedRowSql(fk: FkTarget, value: string): string {
   return `SELECT * FROM ${quoteIdent(fk.schema)}.${quoteIdent(fk.table)} WHERE ${quoteIdent(fk.column)} = '${escLiteral(value)}' LIMIT 1`;

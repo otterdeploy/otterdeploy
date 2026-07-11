@@ -7,7 +7,7 @@ import { removeResourceDir } from "../../lib/data-dir";
 import { parseCompose, summarizeCompose } from "../../stack/compose";
 import { removeComposeStack } from "../../swarm";
 import { getProjectInOrg } from "../project/queries";
-import { enqueueComposeBuild } from "./build-trigger";
+import { enqueueComposeBuild, enqueueInlineComposeBuild } from "./build-trigger";
 import { cleanupOrphanedComposeVars } from "./cleanup-vars";
 import { createComposeResource } from "./create";
 import { deployCompose, reconcileComposeDomains, removeComposeDomains } from "./deploy";
@@ -121,7 +121,23 @@ export const composeRouter = {
           resourceId: input.resourceId,
           gitRepoUrl: rec.compose.gitRepoUrl,
           gitRef: rec.compose.gitRef,
-          projectGitRepoId: null,
+          // The row's binding (if picked) → authenticated SHA + private clone.
+          gitRepoId: rec.compose.gitRepoId,
+          reason: "redeploy",
+        });
+        return enq.isOk()
+          ? { ok: true, error: null, status: "building" }
+          : { ok: false, error: enq.error, status: "failed" };
+      }
+
+      // Inline stacks with `build:` services also redeploy through the builder
+      // (rebuild each context from the materialized file tree); image-only
+      // inline stacks keep the direct path.
+      if (rec.compose.services.some((s) => s.hasBuild) && rec.compose.composeContent) {
+        const enq = await enqueueInlineComposeBuild({
+          projectId: input.projectId,
+          resourceId: input.resourceId,
+          composeContent: rec.compose.composeContent,
           reason: "redeploy",
         });
         return enq.isOk()

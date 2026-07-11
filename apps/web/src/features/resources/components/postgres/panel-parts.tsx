@@ -102,10 +102,21 @@ export function DatabasePanelHeader({
 export function DatabaseStatusBar({
   pending,
   runtime,
+  latestDeploymentStatus,
 }: {
   pending: boolean;
   runtime: DbResource["runtime"];
+  latestDeploymentStatus?: DbResource["latestDeploymentStatus"];
 }) {
+  // A container that's missing/stopped while a deploy is in flight isn't
+  // broken — the image is still pulling or docker hasn't created it yet.
+  // Say "deploying" instead of a scary MISSING/ERROR badge for that window.
+  const deploying =
+    runtime.status !== "running" &&
+    runtime.status !== "starting" &&
+    (latestDeploymentStatus === "building" ||
+      latestDeploymentStatus === "pending" ||
+      latestDeploymentStatus === "starting");
   return (
     <div className="mt-5 flex items-center gap-3 border-t border-border/40 px-6 py-3">
       {pending ? (
@@ -119,9 +130,11 @@ export function DatabaseStatusBar({
         </>
       ) : (
         <>
-          <RuntimeStatusBadge status={runtime.status} />
+          <RuntimeStatusBadge status={deploying ? "deploying" : runtime.status} />
           <span className="text-[13px] text-muted-foreground">
-            {runtime.health ?? "Provisioned"}
+            {deploying
+              ? "Deploy in progress — pulling the image can take a few minutes"
+              : (runtime.health ?? "Provisioned")}
           </span>
         </>
       )}
@@ -143,7 +156,7 @@ function RuntimeStatusBadge({ status }: { status: string }) {
   const tone =
     status === "running"
       ? "bg-success/12 text-success"
-      : status === "starting"
+      : status === "starting" || status === "deploying"
         ? "bg-warning/12 text-warning"
         : status === "error"
           ? "bg-destructive/12 text-destructive"

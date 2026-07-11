@@ -15,10 +15,10 @@ import type { RequestLogger } from "evlog";
 import { Result } from "better-result";
 
 import { declaredEnvOf, type ServiceManifest } from "../../stack/manifest";
-import { gitSourceColumns, resolveManifestRepo } from "./manifest-apply-git";
 import { addServiceDomain, setPrimaryServiceDomain } from "../service/domains";
 import { bulkSetEnv, createService, exposeService, updateService } from "../service/handlers";
 import { ManifestApplySkipError } from "./errors";
+import { gitSourceColumns, resolveManifestRepo } from "./manifest-apply-git";
 
 type OrgId = OrganizationId;
 

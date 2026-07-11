@@ -11,7 +11,13 @@ import { PanelIcon } from "@/features/resources/components/_shared/atoms";
 import { Button } from "@/shared/components/ui/button";
 import { cn } from "@/shared/lib/utils";
 
-export type StackServiceStatus = "running" | "building" | "error" | "offline" | "pending";
+export type StackServiceStatus =
+  | "running"
+  | "building"
+  | "deploying"
+  | "error"
+  | "offline"
+  | "pending";
 
 export interface ComposeService {
   name: string;
@@ -37,13 +43,17 @@ interface StackTaskRow {
   tasks: ReadonlyArray<{ service?: string | null; state: string }>;
 }
 
-/** Build-time base before live tasks arrive (mirrors the graph's mapping). */
+/** Build-time base before live tasks arrive. `building` means an actual image
+ *  build; `pending`/`starting` mean the rollout is pulling/starting containers
+ *  — image-only stacks never build, so calling that phase "Building" was a
+ *  lie. The two states render distinctly (Building vs Deploying). */
 export function baseStatus(dep: DeploymentStatus): StackServiceStatus | undefined {
   switch (dep) {
-    case "starting":
     case "building":
-    case "pending":
       return "building";
+    case "starting":
+    case "pending":
+      return "deploying";
     case "crashed":
     case "failed":
       return "error";

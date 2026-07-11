@@ -9,7 +9,7 @@ import { useRef, useState } from "react";
 import {
   ContainerIcon,
   Database02Icon,
-  EarthIcon,
+  GitPullRequestIcon,
   HardDriveIcon,
   ServerStack01Icon,
 } from "@hugeicons/core-free-icons";
@@ -87,11 +87,6 @@ export const kindMeta: Record<ResourceKind, { label: string; icon: IconType; ico
       icon: Database02Icon,
       iconColor: "text-sky-700 dark:text-sky-300",
     },
-    route: {
-      label: "Route",
-      icon: EarthIcon,
-      iconColor: "text-emerald-700 dark:text-emerald-300",
-    },
     volume: {
       label: "Volume",
       icon: HardDriveIcon,
@@ -101,6 +96,13 @@ export const kindMeta: Record<ResourceKind, { label: string; icon: IconType; ico
       label: "Stack",
       icon: ContainerIcon,
       iconColor: "text-blue-700 dark:text-blue-300",
+    },
+    // Neutral tile on purpose (One Voice rule): a preview chip is chrome,
+    // not an action/selection — Signal Blue stays reserved.
+    preview: {
+      label: "Preview",
+      icon: GitPullRequestIcon,
+      iconColor: "text-muted-foreground",
     },
   };
 

@@ -1,0 +1,119 @@
+import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
+import { eq, useLiveQuery } from "@tanstack/react-db";
+import { createFileRoute, notFound, Outlet } from "@tanstack/react-router";
+import * as z from "zod";
+
+import { envCollection } from "@/features/projects/data/env";
+import { projectCollection } from "@/features/projects/data/project";
+import { resourceCollection } from "@/features/resources/data/resource";
+import { useProjectEvents } from "@/features/projects/hooks/use-project-events";
+import { PendingChangesBar } from "@/features/projects/components/pending-changes-bar";
+import { ProjectTabs } from "@/features/projects/components/project-tabs";
+import { ProjectSidebar } from "@/features/shell/components/sidebar/project-sidebar";
+import { SidebarInset } from "@/shared/components/ui/sidebar";
+import { Skeleton } from "@/shared/components/ui/skeleton";
+
+const zProjectSlugParam = z.object({
+  projectSlug: zSlug(ID_PREFIX.project),
+});
+const zEnvSearch = z.object({ env: z.string().optional() });
+
+// Shown while the project + env collections preload on navigation into a
+// project. A tailored tab-row + content skeleton keeps the shell recognizable
+// instead of the generic centered spinner on this high-traffic transition.
+function ProjectShellPending() {
+  return (
+    <div className="flex h-full flex-1 flex-col gap-4 p-4">
+      <div className="flex gap-2">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-8 w-24 rounded-md" />
+        ))}
+      </div>
+      <Skeleton className="h-full w-full flex-1 rounded-xl" />
+    </div>
+  );
+}
+
+export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug")({
+  component: RouteComponent,
+  pendingComponent: ProjectShellPending,
+  validateSearch: zEnvSearch,
+  params: { parse: (params) => zProjectSlugParam.parse(params) },
+  loader: async ({ params }) => {
+    await Promise.all([projectCollection.preload(), envCollection.preload()]);
+    const project = projectCollection.toArray.find(
+      (p) => p.slug === params.projectSlug,
+    );
+
+    if (!project) throw notFound();
+    return { crumb: project.name, project };
+  },
+});
+
+function RouteComponent() {
+  const { user } = Route.useRouteContext();
+  const { projectSlug } = Route.useParams();
+  const { env } = Route.useSearch();
+
+  const { data: project } = useLiveQuery(
+    (q) =>
+      q
+        .from({ p: projectCollection })
+        .where(({ p }) => eq(p.slug, projectSlug))
+        .findOne(),
+    [projectSlug],
+  );
+
+  // Open a single project-wide event stream while this layout is mounted.
+  // The hook invalidates the matching React Query caches on every server
+  // push, so the existing useLiveQuery / useQuery hooks across child
+  // routes refetch immediately instead of waiting on their polling
+  // intervals.
+  useProjectEvents(project?.id ?? null);
+
+  const { data: resources } = useLiveQuery(
+    (q) =>
+      q
+        .from({ r: resourceCollection })
+        .where(({ r }) => eq(r.projectId, project?.id ?? "")),
+    [project?.id],
+  );
+
+  const { data: environments } = useLiveQuery(
+    (q) =>
+      q
+        .from({ e: envCollection })
+        .where(({ e }) => eq(e.projectId, project?.id ?? "")),
+    [project?.id],
+  );
+
+  if (!project) return null;
+
+  const databases = resources.filter((r) => r.type === "database");
+  // routes will come from a routeCollection in a follow-up; zero for now.
+  const routes: never[] = [];
+
+  const defaultEnv =
+    environments.find((e) => e.slug === "production") ?? environments[0];
+  const envSlug = env ?? defaultEnv?.slug;
+
+  return (
+    <>
+      <ProjectSidebar
+        collapsible="icon"
+        user={user}
+        project={{
+          ...project,
+          databases: databases.length,
+          routes: routes.length,
+          environments,
+        }}
+      />
+      <SidebarInset>
+        <ProjectTabs />
+        <Outlet />
+      </SidebarInset>
+      <PendingChangesBar projectId={project.id} environment={envSlug} />
+    </>
+  );
+}

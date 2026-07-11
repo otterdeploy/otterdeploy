@@ -35,11 +35,33 @@ export interface ComposeFormValues {
   name: string;
   source: "inline" | "git";
   content: string;
+  /** Inline supporting files (scripts, Dockerfiles, .env, configs) alongside the
+   *  compose file in `content`. Paths may be nested (`scripts/init.sh`). */
+  files: Array<{ path: string; content: string }>;
+  /** Bound repo id from the picker (private-capable). Preferred over gitRepoUrl. */
+  gitRepoId: string;
+  /** `owner/repo` for the bound repo — display only. */
+  repoFullName: string;
+  /** Legacy public-URL paste (used when no installation / no picked repo). */
   gitRepoUrl: string;
   gitRef: string;
   composePath: string;
+  /** Root directory within the repo the stack builds from. */
+  sourceSubdir: string;
   exposed: string[];
   variables: Var[];
+}
+
+/** Seed for the wizard when a stack arrives from the templates gallery:
+ *  display name + the template's compose YAML. The wizard parses the content
+ *  through the normal preview path, so the operator still reviews services
+ *  and `${VAR}` values before anything is staged. */
+export interface ComposePrefill {
+  name: string;
+  content: string;
+  /** SvglLogo search string from the template — persisted on the stack so the
+   *  graph node shows the template's brand mark. */
+  logoBrand?: string;
 }
 
 // Credential-looking keys get the secret lock on by default.
@@ -65,9 +87,13 @@ export function useComposeForm(onSubmit: (value: ComposeFormValues) => Promise<v
       name: "",
       source: "inline",
       content: "",
+      files: [],
+      gitRepoId: "",
+      repoFullName: "",
       gitRepoUrl: "",
       gitRef: "",
       composePath: "",
+      sourceSubdir: "",
       exposed: [],
       variables: [],
     } as ComposeFormValues,

@@ -55,6 +55,10 @@ export const statements = {
   // Org-scoped SSH keys (Git deploy keys + node management). Generated/imported
   // via the sshKeys oRPC router; gated on these actions there.
   sshKey: ["create", "read", "update", "delete"],
+  // TLS certificates at the edge — custom cert upload/replace/delete + the
+  // trusted-CA inventory (certificates oRPC router). Private keys are
+  // secret-bearing infra material, so mutation stays admin/owner like sshKey.
+  certificate: ["create", "read", "update", "delete"],
   // Install-wide platform administration — self-update (check/apply the
   // otterdeploy version) and update settings. Above the org resource surface;
   // admins/owners only, never plain members. `read` = view version + check;
@@ -85,6 +89,8 @@ export const member = ac.newRole({
   apiKey: ["read"],
   // SSH keys: same posture — read-only for members.
   sshKey: ["read"],
+  // Certificates: members can inspect the inventory, not touch key material.
+  certificate: ["read"],
 });
 
 /** Everything except deleting the org. */
@@ -102,6 +108,7 @@ export const admin = ac.newRole({
   notificationChannel: ["create", "read", "update", "delete", "test"],
   apiKey: ["create", "read", "update", "delete"],
   sshKey: ["create", "read", "update", "delete"],
+  certificate: ["create", "read", "update", "delete"],
   platform: ["read", "update"],
 });
 
@@ -120,6 +127,7 @@ export const owner = ac.newRole({
   notificationChannel: ["create", "read", "update", "delete", "test"],
   apiKey: ["create", "read", "update", "delete"],
   sshKey: ["create", "read", "update", "delete"],
+  certificate: ["create", "read", "update", "delete"],
   platform: ["read", "update"],
 });
 

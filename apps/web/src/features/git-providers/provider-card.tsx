@@ -28,7 +28,7 @@ import {
 } from "./shared";
 
 export function ConnectedProviderCard({ provider }: { provider: ProviderView }) {
-  const { orgSlug } = useParams({ from: "/_app/$orgSlug/git-providers" });
+  const { orgSlug } = useParams({ from: "/_app/$orgSlug/settings/workspace/git-providers" });
   const reinstall = useGithubReinstall();
   if (provider.installations.length === 0) return null;
 
@@ -42,7 +42,7 @@ export function ConnectedProviderCard({ provider }: { provider: ProviderView }) 
         />
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
           <Link
-            to="/$orgSlug/github-app/$providerId"
+            to="/$orgSlug/settings/workspace/github-app/$providerId"
             params={{ orgSlug, providerId: provider.id }}
             className="text-[13.5px] font-semibold hover:text-primary hover:underline"
           >
@@ -96,7 +96,9 @@ function InstallationRow({
           <StatusBadge installation={installation} />
         </div>
         <div className="mt-0.5 text-[11px] text-muted-foreground">
-          {installation.repoCount} repos
+          {/* null = count never fetched (or install revoked) — "—" is honest;
+              a rendered 0 would claim GitHub granted no repos. */}
+          {installation.repoCount ?? "—"} repos
           {installation.repoSelection === "selected" ? " (selected)" : ""}
           {" · connected "}
           {formatRelative(installation.createdAt)}
@@ -194,7 +196,7 @@ function InstallationActions({ installation }: { installation: InstallationView 
 function useGithubReinstall() {
   // Carry the page's returnTo through the GitHub round-trip so the operator
   // lands back where they started the connect (e.g. the deploy wizard).
-  const { returnTo } = useSearch({ from: "/_app/$orgSlug/git-providers" });
+  const { returnTo } = useSearch({ from: "/_app/$orgSlug/settings/workspace/git-providers" });
   const startConnect = useMutation({
     ...orpc.git.startConnect.mutationOptions(),
     onSuccess: (res) => {

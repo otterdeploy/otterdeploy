@@ -7,6 +7,7 @@
  */
 
 import { eventIterator, oc } from "@orpc/contract";
+import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 import * as z from "zod";
 
 import { resourceLogEventSchema } from "./logs";
@@ -77,6 +78,8 @@ export const deploymentSchema = z.object({
 export const deploymentListInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
+  /** Scope to one PR preview's deployments. Omitted → base rows only. */
+  previewId: zId(ID_PREFIX.preview).optional(),
 });
 
 export const deploymentTasksInput = z.object({

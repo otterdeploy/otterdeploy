@@ -12,7 +12,7 @@ import type { SQL } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
 import { edgeLog } from "@otterdeploy/db/schema/edge-log";
-import { and, desc, gte, inArray, lt, or, ilike } from "drizzle-orm";
+import { and, desc, gte, inArray, lt, or, ilike, sql } from "drizzle-orm";
 
 import type { EdgeLogFilter, EdgeLogLine, EdgeLogQueryResult } from "./types";
 
@@ -45,8 +45,12 @@ function searchCondition(search: string): SQL | undefined {
 
 function buildConditions(filter: EdgeLogFilter, now: number): SQL[] {
   const since = new Date(now - RANGE_MS[filter.range]);
-  const conds: SQL[] = [inArray(edgeLog.host, filter.hosts), gte(edgeLog.ts, since)];
-  if (filter.selectedHosts?.length) conds.push(inArray(edgeLog.host, filter.selectedHosts));
+  // Compare on lower(host): scope hosts are canonicalized (edge-logs/host) and
+  // new rows store a canonical host, but rows written before that change may
+  // carry mixed-case hosts — lower() lets them match without a backfill.
+  const scopeHost = sql`lower(${edgeLog.host})`;
+  const conds: SQL[] = [inArray(scopeHost, filter.hosts), gte(edgeLog.ts, since)];
+  if (filter.selectedHosts?.length) conds.push(inArray(scopeHost, filter.selectedHosts));
   if (filter.methods?.length) conds.push(inArray(edgeLog.method, filter.methods));
   if (filter.statuses?.length) {
     const cond = statusCondition(filter.statuses);

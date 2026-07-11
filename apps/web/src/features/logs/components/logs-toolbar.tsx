@@ -1,10 +1,4 @@
-import {
-  Copy01Icon,
-  PauseIcon,
-  PlayIcon,
-  Search01Icon,
-  TextWrapIcon,
-} from "@hugeicons/core-free-icons";
+import { Copy01Icon, PauseIcon, PlayIcon, Search01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { Button } from "@/shared/components/ui/button";
@@ -35,8 +29,6 @@ interface LogsToolbarProps {
   query: string;
   onQueryChange: (q: string) => void;
   badge: StatusBadge;
-  wrap: boolean;
-  onToggleWrap: () => void;
   paused: boolean;
   onTogglePause: () => void;
   onCopy: () => void;
@@ -54,8 +46,6 @@ export function LogsToolbar({
   query,
   onQueryChange,
   badge,
-  wrap,
-  onToggleWrap,
   paused,
   onTogglePause,
   onCopy,
@@ -152,16 +142,6 @@ export function LogsToolbar({
         </div>
       )}
 
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        className={cn("h-7 gap-1.5 text-[12px]", !wrap && "text-muted-foreground/60")}
-        onClick={onToggleWrap}
-      >
-        <HugeiconsIcon icon={TextWrapIcon} strokeWidth={2} className="size-3.5" />
-        Wrap
-      </Button>
       <Button
         type="button"
         variant="ghost"

@@ -13,6 +13,14 @@
  *   delete — remove the credential. Projects that point at it lose
  *            their build target; the FK on project.containerRegistryId
  *            is application-managed so the row is set NULL by hand.
+ *   testConnection — Docker Registry v2 handshake against a stored
+ *            credential (by id) or inline host/username/password (for
+ *            pre-save "Test & save" in the dialog). Returns an honest
+ *            {ok, status, message} rather than throwing — a failed
+ *            probe is a result, not an RPC error.
+ *   listTags — Docker Registry v2 tag listing for an image reference
+ *            (wizard tag browser). Same probe-style honesty contract:
+ *            {ok, tags, truncated, message}.
  *
  * `host` is normalized server-side to match the resolver's expectations
  * (lowercase; "docker.io" canonicalized).
@@ -63,6 +71,53 @@ const deleteRegistryInput = z.object({
   id: containerRegistryIdField,
 });
 
+const testConnectionInput = z
+  .object({
+    /** Test a stored credential. Inline username/password act as overrides. */
+    id: containerRegistryIdField.optional(),
+    /** Inline pre-save test — required when no id is given. */
+    host: z.string().min(1).max(255).optional(),
+    username: z.string().max(255).optional(),
+    password: z.string().max(4096).optional(),
+  })
+  .refine((v) => v.id !== undefined || (v.host !== undefined && v.host.trim().length > 0), {
+    message: "Provide a registry id or a host to test",
+  });
+
+const testConnectionOutput = z.object({
+  ok: z.boolean(),
+  /** Last HTTP status seen during the handshake; absent on network-level failures. */
+  status: z.number().optional(),
+  message: z.string(),
+});
+
+const listTagsInput = z.object({
+  /** Image reference — "nginx", "acme/api:1.2", "ghcr.io/acme/api". Tag/digest suffixes are ignored. */
+  image: z.string().min(1).max(512),
+  /** Browse with a stored credential (private repos). Its host must match the
+   *  image's registry. Omitted → a stored credential matching the image's host
+   *  is used when one exists (mirrors deploy-time auth), else anonymous. */
+  registryId: containerRegistryIdField.optional(),
+});
+
+const tagInfoSchema = z.object({
+  name: z.string(),
+  /** Content digest (`sha256:…`) when the manifest lookup succeeded. */
+  digest: z.string().optional(),
+  /** Compressed image size (config + layers); absent for multi-arch indexes. */
+  sizeBytes: z.number().optional(),
+});
+
+/** Probe-style result: a failed listing is a result, not an RPC error. */
+const listTagsOutput = z.object({
+  ok: z.boolean(),
+  tags: z.array(tagInfoSchema),
+  /** True when the repository has more tags than the page limit (~50). */
+  truncated: z.boolean(),
+  status: z.number().optional(),
+  message: z.string().optional(),
+});
+
 export const registryContract = {
   list: oc
     .meta({ path: basePath, tag, method: "GET" })
@@ -92,4 +147,18 @@ export const registryContract = {
     .meta({ path: `${basePath}/{id}`, tag, method: "DELETE" })
     .input(deleteRegistryInput)
     .output(z.object({ ok: z.boolean() })),
+  testConnection: oc
+    .errors({
+      NOT_FOUND: { status: 404, message: "Registry credential not found" as const },
+    })
+    .meta({ path: `${basePath}/test-connection`, tag, method: "POST" })
+    .input(testConnectionInput)
+    .output(testConnectionOutput),
+  listTags: oc
+    .errors({
+      NOT_FOUND: { status: 404, message: "Registry credential not found" as const },
+    })
+    .meta({ path: `${basePath}/tags`, tag, method: "GET" })
+    .input(listTagsInput)
+    .output(listTagsOutput),
 };

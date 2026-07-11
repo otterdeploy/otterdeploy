@@ -10,8 +10,20 @@ import { createHash } from "node:crypto";
 import { asStepLogger } from "../lib/logger";
 import { isSwarmRuntime } from "../runtime";
 import { ensureEdgeOnProjectNetworks } from "../swarm/client";
-import { buildProjectFragment, type CrowdsecConfig, type ProxyRouteInput } from "./builder";
+import {
+  buildCaddyfile,
+  buildProjectFragment,
+  type CrowdsecConfig,
+  type ProxyRouteInput,
+} from "./builder";
+import {
+  applyCustomCertsToRoutes,
+  listServableCustomCerts,
+  mapProjectOrganizations,
+  materializeCustomCerts,
+} from "./certs";
 import { adaptCaddyfile, loadCaddyfile } from "./client";
+import { maskCaddySecrets, stripGlobalBlock } from "./display";
 import {
   getProjectCustomConfig,
   getProjectsWithCustomConfig,
@@ -129,11 +141,20 @@ export async function reconcile(rlog?: RequestLogger): Promise<ReconcileResult> 
   const records = await listEnabledProxyRoutes();
   log.info({ caddy: { step: "fetch-routes", count: records.length } });
 
-  const routes = records.map(toRouteInput);
-  const [options, projectCustomConfig] = await Promise.all([
+  let routes = records.map(toRouteInput);
+  const [options, projectCustomConfig, customCerts] = await Promise.all([
     loadCaddyOptions(),
     getProjectsWithCustomConfig(),
+    // Write (or heal) every servable uploaded cert's files for the edge
+    // container; only certs actually on disk are eligible for `tls` emission.
+    materializeCustomCerts(rlog),
   ]);
+  if (customCerts.length > 0) {
+    const projectOrg = await mapProjectOrganizations([
+      ...new Set(records.map((r) => r.projectId)),
+    ] as ProjectId[]);
+    routes = applyCustomCertsToRoutes(routes, customCerts, projectOrg);
+  }
   if (options.controlPlane) {
     routes.push(controlPlaneRoute(options.controlPlane));
   }
@@ -155,21 +176,58 @@ export interface ProjectCaddyfile {
 }
 
 /** Render the live Caddyfile fragment a single project contributes to the
- *  edge config — the exact `buildProjectFragment` output the reconciler
- *  validates per project and assembles into the global file — for read-only
- *  display in the dashboard. Only enabled routes are rendered, mirroring
- *  the reconciler (disabled routes never reach Caddy). `revision` is the
- *  same short SHA the reconciler stamps, so the UI can detect drift. */
+ *  edge config for read-only display in the dashboard. Only enabled routes
+ *  are rendered, mirroring the reconciler (disabled routes never reach
+ *  Caddy). The install-wide global block is stripped from the display text
+ *  (it is not project state and carries edge credentials); `revision` is
+ *  still computed over the FULL fragment — the same short SHA the reconciler
+ *  stamps — so the UI can detect drift. */
 export async function renderProjectCaddyfile(projectId: ProjectId): Promise<ProjectCaddyfile> {
   const records = await listProxyRoutesByProject(projectId);
-  const routes = records.filter((r) => r.enabled).map(toRouteInput);
-  const [options, customConfig] = await Promise.all([
+  let routes = records.filter((r) => r.enabled).map(toRouteInput);
+  const [options, customConfig, customCerts] = await Promise.all([
     loadCaddyOptions(),
     getProjectCustomConfig(projectId),
+    // DB-only read (no file writes) — shows the same `tls` lines reconcile
+    // emits for uploaded certs, so the viewer stays byte-faithful.
+    listServableCustomCerts(),
   ]);
-  const caddyfile = buildProjectFragment(routes, { ...options, customConfig });
+  if (customCerts.length > 0) {
+    const projectOrg = await mapProjectOrganizations([projectId]);
+    routes = applyCustomCertsToRoutes(routes, customCerts, projectOrg);
+  }
+  const fragment = buildProjectFragment(routes, { ...options, customConfig });
+  const revision = createHash("sha256").update(fragment).digest("hex").slice(0, 12);
+  return { caddyfile: maskCaddySecrets(stripGlobalBlock(fragment)), revision };
+}
+
+/** Render the full install-wide Caddyfile — global block plus every
+ *  project's site blocks plus custom config — exactly as the reconciler
+ *  assembles it, for the admin-gated org Networking view. DB-only (no cert
+ *  files are written); CrowdSec credentials are masked for display. */
+export async function renderInstalledCaddyfile(): Promise<ProjectCaddyfile> {
+  const records = await listEnabledProxyRoutes();
+  let routes = records.map(toRouteInput);
+  const [options, projectCustomConfig, customCerts] = await Promise.all([
+    loadCaddyOptions(),
+    getProjectsWithCustomConfig(),
+    listServableCustomCerts(),
+  ]);
+  if (customCerts.length > 0) {
+    const projectOrg = await mapProjectOrganizations([
+      ...new Set(records.map((r) => r.projectId)),
+    ] as ProjectId[]);
+    routes = applyCustomCertsToRoutes(routes, customCerts, projectOrg);
+  }
+  if (options.controlPlane) {
+    routes.push(controlPlaneRoute(options.controlPlane));
+  }
+  const caddyfile = buildCaddyfile(routes, env.CADDY_ADMIN_BIND, {
+    ...options,
+    customBlocks: [...projectCustomConfig.values()],
+  });
   const revision = createHash("sha256").update(caddyfile).digest("hex").slice(0, 12);
-  return { caddyfile, revision };
+  return { caddyfile: maskCaddySecrets(caddyfile), revision };
 }
 
 function shortRevision(caddyfile: string): string {

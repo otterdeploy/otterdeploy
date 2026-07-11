@@ -20,7 +20,14 @@ import {
   SelectValue,
 } from "@/shared/components/ui/select";
 
-import { type Filter, FILTER_OPS, type FilterOp, opNeedsValue } from "../data/filters";
+import {
+  type Filter,
+  FILTER_OPS,
+  type FilterOp,
+  isNumericOp,
+  isValidNumericValue,
+  opNeedsValue,
+} from "../data/filters";
 
 export function FilterBar({
   columns,
@@ -77,8 +84,15 @@ export function FilterBar({
           <Input
             value={f.value}
             onChange={(e) => patch(f.id, { value: e.target.value })}
-            placeholder="Value..."
+            placeholder={isNumericOp(f.op) ? "Number..." : "Value..."}
             disabled={!f.column || !opNeedsValue(f.op)}
+            inputMode={isNumericOp(f.op) ? "decimal" : undefined}
+            // Numeric ops only compile with a numeric value — flag anything else.
+            aria-invalid={
+              isNumericOp(f.op) && f.value !== "" && !isValidNumericValue(f.value)
+                ? true
+                : undefined
+            }
             className="h-8 flex-1 font-mono text-[12px]"
           />
           <Button

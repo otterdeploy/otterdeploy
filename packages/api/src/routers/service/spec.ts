@@ -3,7 +3,7 @@
  * provisioner-shaped `SwarmServiceSpec` consumed by `swarm/*`.
  */
 
-import { type EnvScope, runtimeServiceName } from "../../lib/environment/scoping";
+import { type PreviewScope, runtimeServiceName } from "../../lib/environment/scoping";
 import { materializeServiceMounts, type SpecMount, type SwarmServiceSpec } from "../../swarm";
 import { getLatestDeploymentForResource } from "../project/deployments";
 import { type ServiceRecord } from "./queries";
@@ -13,29 +13,32 @@ export async function buildSwarmSpec(
   record: ServiceRecord,
   resolvedEnv: Record<string, string>,
   projectSlug: string,
-  // Optional preview scoping. Omitted / persistent → the base service name, so
-  // every production deploy is byte-identical. A preview env runs the resource
-  // as a distinct container (`<base>-pr-<n>`). See docs/designs/pr-previews.md.
-  env?: EnvScope | null,
+  // Optional preview scoping. Omitted → the base service name, so every
+  // production deploy is byte-identical. A preview runs the resource as a
+  // distinct container (`<base>-pr-<n>`).
+  preview?: PreviewScope | null,
   // Preview builds pass their freshly-built image here instead of writing it to
   // the shared serviceResource.image column (which would clobber production's
   // image pointer). Omitted → the resource's stored image.
   imageOverride?: string | null,
 ): Promise<SwarmServiceSpec> {
-  const serviceName = runtimeServiceName(record.service.serviceName, env);
+  const serviceName = runtimeServiceName(record.service.serviceName, preview);
   // Previews must not share the base container's DNS aliases on the project
   // network — Docker round-robins same-alias containers, so production
   // traffic could land on the preview. Every alias-feeding field
-  // (serviceName, internalHostname, resourceName) gets the env scope;
-  // persistent envs pass through byte-identical.
-  const internalHostname = runtimeServiceName(record.service.internalHostname, env);
-  const resourceName = runtimeServiceName(record.resource.name, env);
+  // (serviceName, internalHostname, resourceName) gets the preview scope;
+  // base deploys pass through byte-identical.
+  const internalHostname = runtimeServiceName(record.service.internalHostname, preview);
+  const resourceName = runtimeServiceName(record.resource.name, preview);
   // Stamp the rollout with the resource's latest deployment row. By the time
   // we build the spec the latest deployment IS the one being applied (the
   // build worker inserts the row before driving convergence; restart/expose/
   // update reapply against the current active deployment). This rides onto the
   // task labels so the deployments tab can count tasks per deployment.
-  const latestDeployment = await getLatestDeploymentForResource(record.service.resourceId);
+  const latestDeployment = await getLatestDeploymentForResource(
+    record.service.resourceId,
+    preview?.id ?? null,
+  );
   // Materialize file-type mounts to disk before we ship the spec to swarm —
   // a bind-mount with no source on disk causes the container to fail to
   // start with no useful error. Volume + bind types pass through verbatim.

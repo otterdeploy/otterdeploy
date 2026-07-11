@@ -6,7 +6,7 @@
  */
 import { db } from "@otterdeploy/db";
 import { PLATFORM_SETTINGS_ID, platformSettings } from "@otterdeploy/db/schema/platform";
-import { hasEnvTransport, invalidateTransport, sendEmail } from "@otterdeploy/email";
+import { hasEnvTransport, invalidateTransport, sendEmail, TestEmail } from "@otterdeploy/email";
 import { Result } from "better-result";
 import { eq } from "drizzle-orm";
 
@@ -101,7 +101,7 @@ export async function sendTestEmail(to: string): Promise<{ ok: boolean; error: s
       await sendEmail({
         to,
         subject: "otterdeploy — test email",
-        html: "<p>This is a test email from otterdeploy. Your email transport is working.</p>",
+        react: TestEmail(),
         text: "This is a test email from otterdeploy. Your email transport is working.",
       });
     },

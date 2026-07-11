@@ -82,7 +82,7 @@ export async function promoteCertEvent(event: EdgeEventLine): Promise<void> {
           eventId: "cert.renewed",
           title: "TLS certificate issued",
           message: doms.join(", "),
-          data: { domains: doms },
+          data: { domains: doms.join(", ") },
         });
       }
     },

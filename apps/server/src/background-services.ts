@@ -6,9 +6,11 @@
  */
 import { startBackupScheduler } from "@otterdeploy/api/backups";
 import { startEphemeralDbSweeper } from "@otterdeploy/api/ephemeral-db";
+import { startPreviewReaper } from "@otterdeploy/api/git/preview-reaper";
 import { startDataFolderSweep } from "@otterdeploy/api/lib/data-folder-sweep";
 import { startMetricsSampler } from "@otterdeploy/api/metrics";
 import { startAuditAnomalyScan } from "@otterdeploy/api/notifications/audit-anomaly";
+import { startEdgeThreatScan } from "@otterdeploy/api/notifications/edge-anomaly";
 import { startBlocklistScheduler } from "@otterdeploy/api/routers/firewall/scheduler";
 import { startDeployCrashWatcher } from "@otterdeploy/api/routers/project/deploy-crash-watcher";
 import {
@@ -81,6 +83,10 @@ export function startBackgroundServices(): () => void {
   // (docs/designs/data-folder.md, Phase 5). No-op when /data isn't in use.
   start("data-folder-sweep", startDataFolderSweep);
 
+  // PR-preview idle GC — hourly, tears down active non-paused previews past
+  // their autoTeardownAt (keep-alive pins = NULL deadline, never reaped).
+  start("preview-reaper", startPreviewReaper);
+
   // Audit-anomaly scan — periodic, conservative rules over recent audit rows
   // (denial bursts, mass deletions) that emit `audit.anomaly` notifications.
   start("audit-anomaly-scan", startAuditAnomalyScan);
@@ -94,6 +100,11 @@ export function startBackgroundServices(): () => void {
   // lines ("restarting, attempt 2 of 5" / "gave up after 5 attempts"),
   // instant resource-changed pushes, and deploy.crashed notifications.
   start("deploy-crash-watcher", startDeployCrashWatcher);
+
+  // Edge-threat scan — flags client IPs hammering an org's domains with
+  // scanner-style probes (/.env, /actuator, *.php, ?cmd=…) and emits
+  // `edge.probe` so subscribed channels can alert.
+  start("edge-threat-scan", startEdgeThreatScan);
 
   return () => {
     for (const stop of stops) stop();

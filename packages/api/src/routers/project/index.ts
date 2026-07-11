@@ -17,6 +17,7 @@ import { tailProjectLogs } from "./project-logs";
 import { listAvailableRefs } from "./refs";
 import { envVarRouter } from "./router-env-var";
 import { manifestRouter } from "./router-manifest";
+import { previewsRouter } from "./router-previews";
 import { proxyRouteRouter } from "./router-proxy-routes";
 import { resourceRouter } from "./router-resource";
 import { stackRouter } from "./router-stack";
@@ -104,6 +105,8 @@ export const projectRouter = {
       if (result.isErr()) {
         throw matchError(result.error, {
           ProjectNotFoundError: () => errors.NOT_FOUND(),
+          ProjectHasServicesError: (e) =>
+            errors.CONFLICT({ data: { serviceCount: e.serviceCount } }),
         });
       }
       return result.value;
@@ -117,6 +120,7 @@ export const projectRouter = {
         projectId: input.id,
         organizationId: context.activeOrganizationId,
         positions: input.positions,
+        replace: input.replace,
       });
       if (result.isErr()) {
         throw matchError(result.error, {
@@ -160,6 +164,8 @@ export const projectRouter = {
   ),
 
   proxyRoute: proxyRouteRouter,
+
+  previews: previewsRouter,
 
   resource: resourceRouter,
 

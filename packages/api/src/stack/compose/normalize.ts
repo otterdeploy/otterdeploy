@@ -33,8 +33,9 @@ export function normalizeService(name: string, svc: Obj, warnings: string[]): Pa
     command: toExecArray(svc.command),
     entrypoint: toExecArray(svc.entrypoint),
     env: normalizeEnv(svc.environment),
+    envFile: normalizeEnvFile(svc.env_file),
     ports: normalizePorts(svc.ports, name, warnings),
-    volumes: normalizeVolumes(svc.volumes, name, warnings),
+    volumes: normalizeVolumes(svc.volumes),
     networks: toNameList(svc.networks),
     healthcheck: normalizeHealthcheck(svc.healthcheck),
     replicas: typeof deploy.replicas === "number" ? deploy.replicas : 1,
@@ -64,6 +65,19 @@ function toExecArray(v: unknown): string[] | null {
 
 function normalizeEnv(v: unknown): Record<string, string> {
   return normalizeKeyVals(v);
+}
+
+/** `env_file` accepts a string or a list of paths (relative to the stack tree).
+ *  The long form `{ path, required }` is reduced to its path. */
+function normalizeEnvFile(v: unknown): string[] {
+  const one = (x: unknown): string | null => {
+    if (typeof x === "string") return x;
+    if (isObj(x) && typeof x.path === "string") return x.path;
+    return null;
+  };
+  if (Array.isArray(v)) return v.map(one).filter((p): p is string => p != null);
+  const single = one(v);
+  return single ? [single] : [];
 }
 
 /** Accepts a `{K: v}` map or a `["K=v", "K"]` array; values coerced to string. */
@@ -130,7 +144,7 @@ function parsePortString(raw: string, service: string, warnings: string[]): Pars
   };
 }
 
-function normalizeVolumes(v: unknown, service: string, warnings: string[]): ParsedMount[] {
+function normalizeVolumes(v: unknown): ParsedMount[] {
   if (!Array.isArray(v)) return [];
   const out: ParsedMount[] = [];
   for (const entry of v) {
@@ -138,13 +152,8 @@ function normalizeVolumes(v: unknown, service: string, warnings: string[]): Pars
       const target = typeof entry.target === "string" ? entry.target : null;
       if (!target) continue;
       const type = entry.type === "bind" || entry.type === "tmpfs" ? entry.type : "volume";
-      if (type === "bind") {
-        const source = typeof entry.source === "string" ? entry.source : "";
-        warnings.push(
-          `service "${service}": bind mount to "${source}" dropped (host binds unsupported)`,
-        );
-        continue;
-      }
+      // Bind sources (host paths) are recorded as-is; the deploy-time compiler
+      // resolves them against the materialized stack tree (see reconcile-map).
       out.push({
         type,
         ...(typeof entry.source === "string" ? { source: entry.source } : {}),
@@ -154,14 +163,16 @@ function normalizeVolumes(v: unknown, service: string, warnings: string[]): Pars
       continue;
     }
     if (typeof entry !== "string") continue;
-    const mount = parseVolumeString(entry, service, warnings);
+    const mount = parseVolumeString(entry);
     if (mount) out.push(mount);
   }
   return out;
 }
 
-/** "source:target[:ro]" | "/target" (anonymous). Host binds are dropped. */
-function parseVolumeString(raw: string, service: string, warnings: string[]): ParsedMount | null {
+/** "source:target[:ro]" | "/target" (anonymous). A source starting with "/" or
+ *  "." is a host bind (resolved to the materialized stack dir at deploy); else
+ *  a named volume. */
+function parseVolumeString(raw: string): ParsedMount | null {
   const parts = raw.split(":");
   if (parts.length === 1) {
     return { type: "volume", target: parts[0] ?? raw, readOnly: false };
@@ -169,13 +180,9 @@ function parseVolumeString(raw: string, service: string, warnings: string[]): Pa
   const source = parts[0] ?? "";
   const target = parts[1] ?? "";
   const mode = parts[2];
-  // A source starting with "/" or "." is a host path — unsupported.
-  if (source.startsWith("/") || source.startsWith(".")) {
-    warnings.push(`service "${service}": bind mount "${raw}" dropped (host binds unsupported)`);
-    return null;
-  }
+  const isBind = source.startsWith("/") || source.startsWith(".");
   return {
-    type: "volume",
+    type: isBind ? "bind" : "volume",
     source,
     target,
     readOnly: mode === "ro",

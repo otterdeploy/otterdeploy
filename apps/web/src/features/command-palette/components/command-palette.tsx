@@ -33,6 +33,54 @@ import { useCommandPalette } from "../hooks/use-command-palette";
 import { useProjectNavHotkeys } from "../hooks/use-project-nav-hotkeys";
 import { NavGroup, ORG_NAV_GROUPS, PaletteFooter, PROJECT_NAV } from "./nav-items";
 
+/**
+ * Imperative navigation for palette selections. Nav entries carry typed
+ * RoutePaths (checked at their definition in the nav manifest), but at these
+ * dynamic call sites the widened union defeats param inference — substitute
+ * the known params into the concrete path instead of casting: `to` also
+ * accepts a plain string.
+ */
+function makeGoHandlers(opts: {
+  navigate: ReturnType<typeof useNavigate>;
+  run: (fn: () => void) => void;
+  orgSlug?: string;
+  projectSlug?: string;
+}) {
+  const { navigate, run, orgSlug, projectSlug } = opts;
+
+  const goOrg = (to: RoutePath) => {
+    if (!orgSlug || !to) return;
+    run(() => void navigate({ to: to.replace("$orgSlug", orgSlug) }));
+  };
+  const goProject = (to: RoutePath) => {
+    if (!orgSlug || !projectSlug || !to) return;
+    run(
+      () =>
+        void navigate({
+          to: to.replace("$orgSlug", orgSlug).replace("$projectSlug", projectSlug),
+        }),
+    );
+  };
+  const openProject = (slug: string) => {
+    if (!orgSlug) return;
+    run(() => void navigate({ to: `/${orgSlug}/${slug}` }));
+  };
+  // Same-page search tweak. The current route (and so its search schema) is
+  // opaque at this call site, so go through the concrete URL instead of a
+  // cast — TanStack's search serializer round-trips raw values losslessly.
+  const switchEnv = (slug: string) =>
+    run(() => {
+      const url = new URL(window.location.href);
+      url.searchParams.set("env", slug);
+      void navigate({
+        to: url.pathname,
+        search: Object.fromEntries(url.searchParams.entries()),
+      });
+    });
+
+  return { goOrg, goProject, openProject, switchEnv };
+}
+
 export function CommandPalette() {
   const { open, setOpen } = useCommandPalette();
   const navigate = useNavigate();
@@ -43,7 +91,7 @@ export function CommandPalette() {
   // Live-query environments for the active project (loader exposes the project
   // but environments are a separate collection, same pattern as the layout).
   const projectMatch = useMatch({
-    from: "/_app/$orgSlug/$projectSlug",
+    from: "/_app/$orgSlug/_shell/$projectSlug",
     shouldThrow: false,
   });
   const projectId = projectMatch?.loaderData?.project?.id;
@@ -60,33 +108,17 @@ export function CommandPalette() {
     fn();
   };
 
-  // Router params differ per route, so the widened RoutePath union defeats
-  // param inference at this single call site — navigate with a localized cast.
-  const go = (to: RoutePath, params: Record<string, string>) =>
-    run(() => void navigate({ to, params } as never));
-
-  const goOrg = (to: RoutePath) => {
-    if (orgSlug) go(to, { orgSlug });
-  };
-  const goProject = (to: RoutePath) => {
-    if (orgSlug && projectSlug) go(to, { orgSlug, projectSlug });
-  };
-  const openProject = (slug: string) => {
-    if (orgSlug) go("/$orgSlug/$projectSlug", { orgSlug, projectSlug: slug });
-  };
+  const { goOrg, goProject, openProject, switchEnv } = makeGoHandlers({
+    navigate,
+    run,
+    orgSlug,
+    projectSlug,
+  });
 
   const goNewResource = () =>
     run(() => {
       if (orgSlug && projectSlug) overlay.setOpen(true);
     });
-
-  const switchEnv = (slug: string) =>
-    run(
-      () =>
-        void navigate({
-          search: (prev: Record<string, unknown>) => ({ ...prev, env: slug }),
-        } as never),
-    );
 
   // Global keyboard shortcuts. `ignoreInputs` defaults to true for single keys
   // and sequences, so these don't fire while the user is typing in any input.
@@ -123,7 +155,7 @@ export function CommandPalette() {
                 <CommandItem
                   key={item.label}
                   value={`project ${item.label} ${(item.keywords ?? []).join(" ")}`}
-                  keywords={item.keywords}
+                  keywords={item.keywords ? [...item.keywords] : undefined}
                   onSelect={() => goProject(item.to)}
                 >
                   <HugeiconsIcon icon={item.icon} strokeWidth={2} />

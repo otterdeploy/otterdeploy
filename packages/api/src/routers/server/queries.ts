@@ -55,6 +55,34 @@ export async function createServerRecord(input: {
   return row;
 }
 
+/** Persist a swarm-confirmed promote/demote back onto the server row. */
+export async function updateServerRoleRecord(input: {
+  serverId: ServerId;
+  organizationId: OrgId;
+  role: "manager" | "worker";
+}): Promise<ServerRecord | undefined> {
+  const [row] = await db
+    .update(server)
+    .set({ role: input.role })
+    .where(and(eq(server.id, input.serverId), eq(server.organizationId, input.organizationId)))
+    .returning();
+  return row;
+}
+
+/** Persist a swarm-confirmed availability change back onto the server row. */
+export async function updateServerAvailabilityRecord(input: {
+  serverId: ServerId;
+  organizationId: OrgId;
+  availability: "active" | "drain" | "pause";
+}): Promise<ServerRecord | undefined> {
+  const [row] = await db
+    .update(server)
+    .set({ availability: input.availability })
+    .where(and(eq(server.id, input.serverId), eq(server.organizationId, input.organizationId)))
+    .returning();
+  return row;
+}
+
 export async function deleteServerRecord(input: {
   serverId: ServerId;
   organizationId: OrgId;

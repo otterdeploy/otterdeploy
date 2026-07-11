@@ -13,9 +13,11 @@ import { ServiceBuildCard } from "./build-card";
 import { ServiceDangerZone } from "./danger-zone";
 import { ServiceDeployHooksCard } from "./deploy-hooks-card";
 import { ServiceDomainsCard } from "./domains-card";
+import { ServiceHealthCheckCard } from "./health-check-card";
 import { ManifestDomainsCard } from "./manifest-domains-card";
 import { ServiceProtectionCard } from "./protection-card";
 import { ServicePublicAccessCard } from "./public-access-card";
+import { ServiceScalingCard } from "./scaling-card";
 import { ServiceSourceCard } from "./source-card";
 
 export interface ServiceSettingsResource extends VariablesEditorResource {
@@ -46,6 +48,10 @@ export function ServiceSettingsBody({
 }: ServiceSettingsBodyProps) {
   return (
     <div className="flex flex-col gap-6">
+      {/* Rename stays read-only on purpose: the name derives the runtime
+          container/service name, the internal DNS hostname, and the target of
+          `${{name.VAR}}` variable references — a rename would rotate all
+          three. Honest note over a broken affordance. */}
       <SettingsCard
         title="Identity"
         description="Renaming is not yet supported — once it lands the change will rotate the derived service name + internal hostname."
@@ -69,6 +75,10 @@ export function ServiceSettingsBody({
         <ManifestDomainsCard projectId={resource.projectId} serviceName={resource.name} />
       ) : (
         <>
+          {/* Runtime-scoped: reads/writes the live service row via
+              service.get/update, so they're omitted for a staged create. */}
+          <ServiceScalingCard resource={resource} />
+          <ServiceHealthCheckCard resource={resource} />
           <ServicePublicAccessCard resource={resource} />
           <ServiceDomainsCard resource={resource} />
           <ServiceProtectionCard resource={resource} />

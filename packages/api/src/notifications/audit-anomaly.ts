@@ -51,7 +51,7 @@ async function emitAnomaly(
   organizationId: string,
   title: string,
   message: string,
-  data: Record<string, unknown>,
+  data: Record<string, string>,
 ): Promise<void> {
   await emitPlatformEvent({
     organizationId: organizationId as OrganizationId,
@@ -93,7 +93,7 @@ export async function scanAuditAnomalies(now = Date.now()): Promise<void> {
         row.organizationId,
         "Unusual access activity",
         `${row.count} denied or failed actions from ${row.ip} in the last 10 minutes`,
-        { rule: "denial-burst", ip: row.ip, count: row.count },
+        { rule: "denial-burst", ip: row.ip, count: String(row.count) },
       );
     }
 
@@ -124,7 +124,7 @@ export async function scanAuditAnomalies(now = Date.now()): Promise<void> {
         row.organizationId,
         "Burst of deletions",
         `${row.actorLabel ?? row.actorId} deleted ${row.count} resources in the last 10 minutes`,
-        { rule: "delete-burst", actorId: row.actorId, count: row.count },
+        { rule: "delete-burst", actorId: row.actorId, count: String(row.count) },
       );
     }
 

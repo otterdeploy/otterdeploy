@@ -1,50 +1,17 @@
-import { Badge } from "@/shared/components/ui/badge";
+/**
+ * Shared bits for the Docker inventory tabs plus the swarm Tasks table. The
+ * per-daemon tables live in sibling files: `docker-table-containers.tsx`,
+ * `docker-table-images.tsx`, `docker-table-networks.tsx`. (Volumes render the
+ * full volumes feature — see features/volumes/volumes-section.tsx.)
+ */
+import { Button } from "@/shared/components/ui/button";
 import { TableCell, TableRow } from "@/shared/components/ui/table";
 import { cn } from "@/shared/lib/utils";
 
-import {
-  formatBytes,
-  shortId,
-  splitRef,
-  timeAgoSeconds,
-} from "./docker-format";
+import { shortId, taskTone, timeAgoIso } from "./docker-format";
 import { Panel, type QueryLike, StateBadge } from "./docker-panel";
 
-/** Local row types — mirror the docker contract output shapes. */
-interface Container {
-  id: string;
-  name: string;
-  image: string;
-  state: string;
-  status: string;
-  createdAt: number;
-}
-interface Image {
-  id: string;
-  repoTags: string[];
-  size: number;
-  createdAt: number;
-  containers: number;
-}
-interface Volume {
-  name: string;
-  driver: string;
-  mountpoint: string;
-  scope: string;
-  createdAt: number | null;
-  size: number;
-  refCount: number;
-}
-interface Network {
-  id: string;
-  name: string;
-  driver: string;
-  scope: string;
-  createdAt: number;
-  internal: boolean;
-  attachable: boolean;
-  containers: number;
-}
+/** Local row type — mirrors the docker contract output shape. */
 interface Task {
   id: string;
   serviceId: string;
@@ -53,165 +20,55 @@ interface Task {
   desiredState: string;
   state: string;
   message: string | null;
+  image: string | null;
   createdAt: string | null;
 }
 
-export function ContainersTable({ query }: { query: QueryLike<Container> }) {
+export function RowActionButton({
+  label,
+  onClick,
+  disabled,
+  title,
+  destructive,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  title?: string;
+  destructive?: boolean;
+}) {
   return (
-    <Panel
-      query={query}
-      headers={["Name", "Image", "State", "Status", "Created"]}
-      emptyTitle="No containers"
-      emptyText="The daemon reported no containers."
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      className={cn(
+        "h-6.5 px-2 text-xs text-muted-foreground hover:text-foreground",
+        destructive && "hover:bg-destructive/10 hover:text-destructive",
+      )}
+      disabled={disabled}
+      title={title}
+      onClick={onClick}
     >
-      {(rows) =>
-        rows.map((c) => (
-          <TableRow key={c.id}>
-            <TableCell className="pl-4 font-medium">{c.name}</TableCell>
-            <TableCell className="font-mono text-xs text-muted-foreground">
-              {c.image}
-            </TableCell>
-            <TableCell>
-              <StateBadge state={c.state} />
-            </TableCell>
-            <TableCell className="text-muted-foreground">{c.status}</TableCell>
-            <TableCell className="pr-4 text-muted-foreground">
-              {timeAgoSeconds(c.createdAt)}
-            </TableCell>
-          </TableRow>
-        ))
-      }
-    </Panel>
+      {label}
+    </Button>
   );
 }
 
-export function ImagesTable({ query }: { query: QueryLike<Image> }) {
-  return (
-    <Panel
-      query={query}
-      headers={["Repository", "Tag", "Image ID", "Size", "In use", "Created"]}
-      emptyTitle="No images"
-      emptyText="No images are cached on this daemon."
-    >
-      {(rows) =>
-        rows.map((img) => {
-          const { repo, tag } = splitRef(img.repoTags[0] ?? "<none>:<none>");
-          return (
-            <TableRow key={img.id}>
-              <TableCell className="pl-4 font-mono text-xs font-medium">
-                {repo}
-              </TableCell>
-              <TableCell className="font-mono text-xs text-muted-foreground">
-                {tag || "—"}
-              </TableCell>
-              <TableCell className="font-mono text-xs text-muted-foreground">
-                {shortId(img.id)}
-              </TableCell>
-              <TableCell className="text-muted-foreground">
-                {formatBytes(img.size)}
-              </TableCell>
-              <TableCell>
-                {img.containers > 0 ? (
-                  <Badge variant="default">{img.containers}</Badge>
-                ) : (
-                  <Badge variant="secondary">unused</Badge>
-                )}
-              </TableCell>
-              <TableCell className="pr-4 text-muted-foreground">
-                {timeAgoSeconds(img.createdAt)}
-              </TableCell>
-            </TableRow>
-          );
-        })
-      }
-    </Panel>
-  );
-}
+// ─── Swarm tasks ─────────────────────────────────────────────────────────────
 
-export function VolumesTable({ query }: { query: QueryLike<Volume> }) {
+export function TasksTable({
+  query,
+  nodeNames,
+}: {
+  query: QueryLike<Task>;
+  /** Swarm node id → hostname, from docker.nodes.list. */
+  nodeNames: Map<string, string>;
+}) {
   return (
     <Panel
       query={query}
-      headers={["Name", "Driver", "Mountpoint", "Size", "In use", "Created"]}
-      emptyTitle="No volumes"
-      emptyText="No volumes exist on this daemon."
-    >
-      {(rows) =>
-        rows.map((v) => (
-          <TableRow key={v.name}>
-            <TableCell className="pl-4 font-mono text-xs font-medium">
-              {v.name}
-            </TableCell>
-            <TableCell className="text-muted-foreground">{v.driver}</TableCell>
-            <TableCell
-              className="max-w-[280px] truncate font-mono text-xs text-muted-foreground"
-              title={v.mountpoint}
-            >
-              {v.mountpoint}
-            </TableCell>
-            <TableCell className="text-muted-foreground">
-              {formatBytes(v.size)}
-            </TableCell>
-            <TableCell>
-              {v.refCount < 0 ? (
-                <span className="text-muted-foreground">—</span>
-              ) : v.refCount > 0 ? (
-                <Badge variant="default">{v.refCount}</Badge>
-              ) : (
-                <Badge variant="secondary">orphan</Badge>
-              )}
-            </TableCell>
-            <TableCell className="pr-4 text-muted-foreground">
-              {v.createdAt != null ? timeAgoSeconds(v.createdAt) : "—"}
-            </TableCell>
-          </TableRow>
-        ))
-      }
-    </Panel>
-  );
-}
-
-export function NetworksTable({ query }: { query: QueryLike<Network> }) {
-  return (
-    <Panel
-      query={query}
-      headers={["Name", "Driver", "Scope", "Internal", "Attached", "Created"]}
-      emptyTitle="No networks"
-      emptyText="No networks exist on this daemon."
-    >
-      {(rows) =>
-        rows.map((n) => (
-          <TableRow key={n.id}>
-            <TableCell className="pl-4 font-mono text-xs font-medium">
-              {n.name}
-            </TableCell>
-            <TableCell>
-              <Badge variant={n.driver === "overlay" ? "default" : "secondary"}>
-                {n.driver}
-              </Badge>
-            </TableCell>
-            <TableCell className="text-muted-foreground">{n.scope}</TableCell>
-            <TableCell className="text-muted-foreground">
-              {n.internal ? "yes" : "no"}
-            </TableCell>
-            <TableCell className="text-muted-foreground">
-              {n.containers}
-            </TableCell>
-            <TableCell className="pr-4 text-muted-foreground">
-              {timeAgoSeconds(n.createdAt)}
-            </TableCell>
-          </TableRow>
-        ))
-      }
-    </Panel>
-  );
-}
-
-export function TasksTable({ query }: { query: QueryLike<Task> }) {
-  return (
-    <Panel
-      query={query}
-      headers={["Service", "Slot", "Node", "Desired", "State", "Message"]}
+      headers={["Service", "Slot", "Image", "Node", "Desired", "State", "Age", "Message"]}
       emptyTitle="No tasks"
       emptyText="No swarm tasks. This daemon may not be a swarm manager."
     >
@@ -221,23 +78,29 @@ export function TasksTable({ query }: { query: QueryLike<Task> }) {
             <TableCell className="pl-4 font-mono text-xs font-medium">
               {shortId(t.serviceId)}
             </TableCell>
-            <TableCell className="text-muted-foreground">
-              {t.slot ?? "—"}
+            <TableCell className="text-muted-foreground">{t.slot ?? "—"}</TableCell>
+            <TableCell
+              className="max-w-[220px] truncate font-mono text-xs text-muted-foreground"
+              title={t.image ?? undefined}
+            >
+              {t.image ?? "—"}
             </TableCell>
-            <TableCell className="font-mono text-xs text-muted-foreground">
-              {shortId(t.nodeId)}
+            <TableCell className="font-mono text-xs text-muted-foreground" title={t.nodeId}>
+              {nodeNames.get(t.nodeId) ?? shortId(t.nodeId)}
             </TableCell>
-            <TableCell className="text-muted-foreground">
-              {t.desiredState || "—"}
-            </TableCell>
+            <TableCell className="text-muted-foreground">{t.desiredState || "—"}</TableCell>
             <TableCell>
-              <StateBadge state={t.state} />
+              <StateBadge state={t.state} tone={taskTone(t.state)} />
+            </TableCell>
+            <TableCell className="whitespace-nowrap text-muted-foreground">
+              {timeAgoIso(t.createdAt)}
             </TableCell>
             <TableCell
               className={cn(
-                "pr-4",
+                "max-w-[220px] truncate pr-4",
                 t.message ? "text-destructive" : "text-muted-foreground",
               )}
+              title={t.message ?? undefined}
             >
               {t.message ?? "—"}
             </TableCell>

@@ -217,6 +217,9 @@ export function runPreDeploy(args: {
     projectId: ctx.project.id as ProjectId,
     resourceId: ctx.resource.id as ResourceId,
     projectSlug: ctx.project.slug,
+    // Preview builds resolve hook env (migrations!) against the preview's
+    // branch DBs, byte-identical to the container's own resolution.
+    previewId: ctx.deployment.previewId ?? null,
     deploymentId,
     sink,
   });
@@ -238,6 +241,7 @@ export async function runPostDeploy(args: {
     phase: "post-deploy",
     commands,
     image,
+    previewId: ctx.deployment.previewId ?? null,
     projectId: ctx.project.id as ProjectId,
     resourceId: ctx.resource.id as ResourceId,
     projectSlug: ctx.project.slug,

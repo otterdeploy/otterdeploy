@@ -23,7 +23,7 @@ import { copyToClipboard } from "@/shared/lib/clipboard";
 import { cn } from "@/shared/lib/utils";
 
 import { AnsiLine, stripAnsi } from "./ansi";
-import { classifyLogSeverity, SEVERITY_BAR, SEVERITY_TEXT } from "./log-severity";
+import { classifyLogSeverity, markEventHeads, SEVERITY_BAR, SEVERITY_TEXT } from "./log-severity";
 import { LogToolbar, type NavLevel, plural } from "./log-toolbar";
 
 export interface LogLine {
@@ -138,8 +138,17 @@ export function LogViewer({
     () => classified.filter((c) => (q ? c.text.toLowerCase().includes(q) : true)),
     [classified, q],
   );
-  const errorMatches = useMemo(() => visible.filter((c) => c.severity === "error"), [visible]);
-  const warnMatches = useMemo(() => visible.filter((c) => c.severity === "warn"), [visible]);
+  // A thrown error spans a header + its stack frames + a `{ … }` object dump;
+  // count and step through those *events*, not every line the trace paints red.
+  const eventHeads = useMemo(() => markEventHeads(visible), [visible]);
+  const errorMatches = useMemo(
+    () => visible.filter((c, i) => eventHeads[i] && c.severity === "error"),
+    [visible, eventHeads],
+  );
+  const warnMatches = useMemo(
+    () => visible.filter((c, i) => eventHeads[i] && c.severity === "warn"),
+    [visible, eventHeads],
+  );
   const errorCount = errorMatches.length;
   const warnCount = warnMatches.length;
 

@@ -46,6 +46,7 @@ export {
   type ComposeStackRuntime,
 } from "./compose";
 export { streamImagePull, type ImagePullEvent, type RegistryAuth } from "./image-pull";
+export { createPullLineSummarizer, type PullLineSummarizer } from "./pull-progress";
 export { resolveRegistryAuth } from "./registry-auth";
 export { materializeServiceMounts, type ServiceMountInput, type SpecMount } from "./file-mounts";
 export {

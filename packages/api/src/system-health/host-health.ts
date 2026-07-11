@@ -103,7 +103,8 @@ async function readDisk(): Promise<HostDisk | null> {
   // (agent containers: overlay-root statfs still reflects the host disk).
   // oxlint-disable-next-line node/no-process-env -- intentional raw read (see comment above)
   const override = process.env.HOST_HEALTH_DISK_PATH;
-  const path = override && existsSync(override) ? override : existsSync(DATA_ROOT) ? DATA_ROOT : "/";
+  const path =
+    override && existsSync(override) ? override : existsSync(DATA_ROOT) ? DATA_ROOT : "/";
   const stat = await Result.tryPromise({ try: () => statfs(path), catch: () => null });
   if (stat.isErr()) return null;
   const total = stat.value.blocks * stat.value.bsize;

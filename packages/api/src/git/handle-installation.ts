@@ -38,7 +38,9 @@ export async function handleInstallation(
     await db.transaction(async (tx) => {
       await tx
         .update(gitInstallation)
-        .set({ revokedAt: new Date() })
+        // repoCount → null: the install is gone on GitHub's side, so the
+        // count is unknowable — the UI shows "—" rather than a stale number.
+        .set({ revokedAt: new Date(), repoCount: null })
         .where(eq(gitInstallation.id, existing.id));
       await tx
         .update(gitRepo)

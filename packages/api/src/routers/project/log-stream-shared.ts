@@ -17,7 +17,7 @@ import { Docker } from "@otterdeploy/docker";
 
 import { demuxDockerStream, splitDockerTimestamp } from "../../swarm/stream-parse";
 import { getProjectRecord } from "./queries";
-import { getResourceById } from "./queries/resource";
+import { composeChildSwarmServices, getResourceById } from "./queries/resource";
 import { buildContainerName } from "./views";
 
 export interface ResourceLogEvent {
@@ -49,7 +49,25 @@ export async function resolveServiceName(
       resourceName: found.record.resource.name,
     });
   }
-  return found.record.service.serviceName;
+  if (found.kind === "service") return found.record.service.serviceName;
+  // Compose stack — no single swarm service of its own. Log tails that
+  // support stacks fan out over the children (see tailDeploymentLogs).
+  return null;
+}
+
+// Every swarm service a resource maps to: one name for databases/services,
+// the full `${stack}-${key}` fan-out for a compose stack.
+export async function resolveServiceNames(
+  projectId: ProjectId,
+  resourceId: ResourceId,
+): Promise<string[] | null> {
+  const found = await getResourceById(projectId, resourceId);
+  if (!found) return null;
+  if (found.kind === "compose") {
+    return composeChildSwarmServices(found.record).map((c) => c.serviceName);
+  }
+  const single = await resolveServiceName(projectId, resourceId);
+  return single ? [single] : null;
 }
 
 // Resolve a resource id to the swarm service that owns it. Returns null when

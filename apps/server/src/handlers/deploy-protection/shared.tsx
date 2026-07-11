@@ -9,6 +9,7 @@
 import type { Context, Handler } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 
+import { resolveCanonicalWebOrigin } from "@otterdeploy/auth/web-origin";
 import { env } from "@otterdeploy/env/server";
 import { Result } from "better-result";
 
@@ -36,8 +37,12 @@ export function clientIpOf(c: Context): string {
 }
 
 /** Web app base, for the login redirect. The auth *authority* (getSession)
- *  is BETTER_AUTH_URL; the login UI is the web app. */
-export const WEB_BASE = env.PUBLIC_WEB_URL ?? env.CORS_ORIGIN[0] ?? env.BETTER_AUTH_URL;
+ *  is BETTER_AUTH_URL; the login UI is the web app. Prefers the VERIFIED
+ *  control-plane FQDN (keeps the raw server IP out of the sign-in redirect);
+ *  falls back to the env resolution this always used. The resolver caches the
+ *  settings read briefly, so the per-request wall path stays off the DB. */
+export const webBase = (): Promise<string> =>
+  resolveCanonicalWebOrigin(env.PUBLIC_WEB_URL ?? env.CORS_ORIGIN[0] ?? env.BETTER_AUTH_URL);
 
 /** Render a branded error page for a known, browser-facing failure (bad/expired
  *  link, unknown deployment). Never leaks internals — title/detail are fixed

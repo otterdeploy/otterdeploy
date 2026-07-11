@@ -1,4 +1,4 @@
-import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { GitRepoId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { deployment } from "@otterdeploy/db/schema/project";
@@ -10,8 +10,10 @@ import { triggerDeploy } from "@otterdeploy/jobs";
  * `build:` services, fetches + persists the compose file, and deploys.
  */
 import { Result } from "better-result";
+import { createHash } from "node:crypto";
 
 import { fetchBranchHeadSha } from "../../git/github-app";
+import { resolveRepoCloneBinding } from "../../git/repo-binding";
 import { parseGitHubUrl } from "./util";
 
 /**
@@ -28,9 +30,10 @@ export async function enqueueComposeBuild(input: {
   gitRepoUrl: string;
   /** Full ref, e.g. `refs/heads/main`. */
   gitRef: string;
-  /** Project's bound repo id — logging-only in the job; falls back to the
-   *  stack resource id (the build loads the clone URL off the compose row). */
-  projectGitRepoId: string | null;
+  /** The compose row's bound repo id, if any. Drives AUTHENTICATED head-SHA
+   *  resolution (private repos) and is the deploy job's correlation id (falls
+   *  back to the stack resource id). Null for legacy public-URL stacks. */
+  gitRepoId: GitRepoId | null;
   reason: "create" | "redeploy";
   /** Pre-resolved head SHA (create resolves it before inserting the row, to
    *  fail fast on a bad branch); omitted on redeploy so we resolve it here. */
@@ -38,17 +41,42 @@ export async function enqueueComposeBuild(input: {
 }): Promise<Result<{ sha: string }, string>> {
   let sha = input.sha;
   if (!sha) {
-    const gh = parseGitHubUrl(input.gitRepoUrl);
-    if (!gh) return Result.err(`Not a cloneable GitHub URL: ${input.gitRepoUrl}`);
     const branch = input.gitRef.replace(/^refs\/heads\//, "") || "main";
-    const shaRes = await Result.tryPromise({
-      try: () => fetchBranchHeadSha(null, gh.owner, gh.repo, branch),
-      catch: (e) => (e instanceof Error ? e.message : String(e)),
-    });
-    if (shaRes.isErr()) {
-      return Result.err(`Couldn't resolve ${branch} on ${gh.owner}/${gh.repo}: ${shaRes.error}`);
+    // Bound repo → resolve owner/repo + installation so PRIVATE repos resolve
+    // their head SHA authenticated; legacy public URL → anonymous.
+    const boundRepoId = input.gitRepoId;
+    if (boundRepoId) {
+      const bound = await Result.tryPromise({
+        try: () => resolveRepoCloneBinding(boundRepoId),
+        catch: (e) => (e instanceof Error ? e.message : String(e)),
+      });
+      if (bound.isErr()) return Result.err(bound.error);
+      const shaRes = await Result.tryPromise({
+        try: () =>
+          fetchBranchHeadSha(
+            bound.value.githubInstallationId,
+            bound.value.owner,
+            bound.value.repo,
+            branch,
+          ),
+        catch: (e) => (e instanceof Error ? e.message : String(e)),
+      });
+      if (shaRes.isErr()) {
+        return Result.err(`Couldn't resolve ${branch} on ${bound.value.fullName}: ${shaRes.error}`);
+      }
+      sha = shaRes.value;
+    } else {
+      const gh = parseGitHubUrl(input.gitRepoUrl);
+      if (!gh) return Result.err(`Not a cloneable GitHub URL: ${input.gitRepoUrl}`);
+      const shaRes = await Result.tryPromise({
+        try: () => fetchBranchHeadSha(null, gh.owner, gh.repo, branch),
+        catch: (e) => (e instanceof Error ? e.message : String(e)),
+      });
+      if (shaRes.isErr()) {
+        return Result.err(`Couldn't resolve ${branch} on ${gh.owner}/${gh.repo}: ${shaRes.error}`);
+      }
+      sha = shaRes.value;
     }
-    sha = shaRes.value;
   }
 
   const [dep] = await db
@@ -65,8 +93,46 @@ export async function enqueueComposeBuild(input: {
 
   await triggerDeploy({
     projectId: input.projectId,
-    gitRepoId: input.projectGitRepoId ?? input.resourceId,
+    gitRepoId: input.gitRepoId ?? input.resourceId,
     ref: input.gitRef,
+    sha,
+    deploymentIds: [dep?.id ?? ""],
+  });
+  return Result.ok({ sha });
+}
+
+/**
+ * Enqueue a build for an INLINE stack whose compose file has `build:` services.
+ * There is no repo: the builder materializes the stack's stored file tree and
+ * builds each context from it. The deployment's "sha" is a content hash of the
+ * compose file (stable per content — tags the built images), ref is the literal
+ * `inline` sentinel.
+ */
+export async function enqueueInlineComposeBuild(input: {
+  projectId: ProjectId;
+  resourceId: ResourceId;
+  composeContent: string;
+  reason: "create" | "redeploy";
+}): Promise<Result<{ sha: string }, string>> {
+  const sha = createHash("sha256").update(input.composeContent).digest("hex").slice(0, 40);
+
+  const [dep] = await db
+    .insert(deployment)
+    .values({
+      resourceId: input.resourceId,
+      image: `pending:${sha.slice(0, 12)}`,
+      reason: input.reason,
+      status: "pending",
+      gitSha: sha,
+      gitRef: "inline",
+    })
+    .returning({ id: deployment.id });
+
+  await triggerDeploy({
+    projectId: input.projectId,
+    // Correlation-only (no repo) — the builder loads everything off the row.
+    gitRepoId: input.resourceId,
+    ref: "inline",
     sha,
     deploymentIds: [dep?.id ?? ""],
   });

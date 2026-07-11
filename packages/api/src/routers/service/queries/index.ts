@@ -38,6 +38,7 @@ export {
   listServiceRecordsByProject,
   setPublicExposure,
   setServicePublicDomain,
+  setServiceReplicaState,
   bumpForceUpdateCounter,
   updateServiceRecord,
   updateServiceResourceStatus,
@@ -53,7 +54,11 @@ export {
   findServiceDependentsByName,
   getResourceByProjectAndName,
   listServiceEnvVars,
-  resolveResourceForEnv,
+  listServiceEnvVarsForResources,
+  deletePreviewServiceEnvVar,
+  listPreviewServiceEnvVars,
+  resolveResourceForPreview,
+  upsertPreviewServiceEnvVar,
   upsertServiceEnvVar,
 } from "./env";
 

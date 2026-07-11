@@ -39,6 +39,16 @@ const IMAGES = ["server", "builder", "caddy"] as const;
  * registered so the HTTP response lands before any cutover. Re-checks the
  * release server-side, so a stale client can never force a no-op or downgrade.
  */
+/**
+ * Boot-time settlement of a handed-off update. The helper recreates the stack
+ * out-of-band, so the terminal outcome can only be written by the NEW server
+ * once it's up — this compares the booted version against the persisted
+ * target and settles the snapshot. Call once during server bootstrap.
+ */
+export async function finalizeUpdateRunOnBoot(): Promise<void> {
+  await state.finalizeHandedOffRun(currentVersion());
+}
+
 export async function startApply(): Promise<ApplyStartResult> {
   if (state.isRunning()) return { started: false, reason: "already-running" };
 

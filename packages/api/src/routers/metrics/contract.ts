@@ -30,6 +30,27 @@ const platformInput = z.object({
   windowMinutes: z.number().int().positive().max(1440).default(60),
 });
 
+// Project-wide aggregate. Max window = 7 days — the metric retention bound
+// (hourly-cleanup prunes `resource_metric` after METRIC_RETENTION_DAYS = 7).
+const projectAggregateInput = z.object({
+  projectId: zId(ID_PREFIX.project),
+  windowMinutes: z.number().int().positive().max(10080).default(30),
+});
+
+/** One aggregate bucket: per-container bucket-averages summed across every
+ *  container in the project. Buckets where no container reported are omitted
+ *  (a gap, not a fake zero); `containers` says how many reported, so a bucket
+ *  where only half the fleet sampled reads as partial rather than as a dip. */
+const aggregatePointSchema = z.object({
+  ts: z.date(),
+  /** Sum of Docker-style CPU percents (of one core) — can exceed 100. */
+  cpuPct: z.number(),
+  /** Summed working-set bytes across reporting containers. */
+  memBytes: z.number(),
+  /** Containers that reported at least one sample in this bucket. */
+  containers: z.number(),
+});
+
 const queueSnapshotSchema = z.object({
   queue: z.string(),
   waiting: z.number(),
@@ -46,6 +67,19 @@ export const metricsContract = {
     .meta({ path: `${basePath}/{resourceId}`, tag, method: "GET" })
     .input(metricsQueryInput)
     .output(z.object({ points: z.array(metricPointSchema) })),
+
+  // Project-wide CPU/memory aggregate: per-resource samples summed bucket-wise
+  // across every container in the project. Backs the project metrics overview.
+  projectAggregate: oc
+    .meta({ path: `${basePath}/project/{projectId}`, tag, method: "GET" })
+    .input(projectAggregateInput)
+    .output(
+      z.object({
+        points: z.array(aggregatePointSchema),
+        /** Bucket width the series was aggregated at. */
+        bucketSeconds: z.number(),
+      }),
+    ),
 
   // Install-wide platform health: live queue backlog snapshot, queue
   // waiting/active over the window, and org deploy throughput. Queue metrics

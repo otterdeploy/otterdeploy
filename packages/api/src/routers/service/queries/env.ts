@@ -1,8 +1,8 @@
-import type { EnvironmentId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { PreviewId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { resource, serviceEnvVar } from "@otterdeploy/db/schema/project";
-import { and, eq, isNull, like, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, like, or, sql } from "drizzle-orm";
 import { createError } from "evlog";
 
 import type { ResourceRow, ServiceEnvVarRow } from ".";
@@ -10,13 +10,103 @@ import type { ResourceRow, ServiceEnvVarRow } from ".";
 // Env vars
 // ---------------------------------------------------------------------------
 
+/** BASE rows only — preview overrides never surface in base env editors,
+ *  views, refs or manifest state. The resolver overlays preview rows itself
+ *  via listPreviewServiceEnvVars. */
 export async function listServiceEnvVars(
   serviceResourceId: ResourceId,
 ): Promise<ServiceEnvVarRow[]> {
   return db
     .select()
     .from(serviceEnvVar)
-    .where(eq(serviceEnvVar.serviceResourceId, serviceResourceId));
+    .where(
+      and(eq(serviceEnvVar.serviceResourceId, serviceResourceId), isNull(serviceEnvVar.previewId)),
+    );
+}
+
+/** Base env rows for a SET of service resources — one query instead of N
+ *  `listServiceEnvVars` calls (the project-resources list fired one per
+ *  service). Returns a map keyed by serviceResourceId; services with no base
+ *  env vars are absent (the caller defaults them to an empty list). */
+export async function listServiceEnvVarsForResources(
+  serviceResourceIds: ReadonlyArray<ResourceId>,
+): Promise<Map<ResourceId, ServiceEnvVarRow[]>> {
+  const result = new Map<ResourceId, ServiceEnvVarRow[]>();
+  if (serviceResourceIds.length === 0) return result;
+  const rows = await db
+    .select()
+    .from(serviceEnvVar)
+    .where(
+      and(
+        inArray(serviceEnvVar.serviceResourceId, serviceResourceIds as ResourceId[]),
+        isNull(serviceEnvVar.previewId),
+      ),
+    );
+  for (const row of rows) {
+    const list = result.get(row.serviceResourceId as ResourceId);
+    if (list) list.push(row);
+    else result.set(row.serviceResourceId as ResourceId, [row]);
+  }
+  return result;
+}
+
+/** A preview's override rows for one service. */
+export async function listPreviewServiceEnvVars(
+  serviceResourceId: ResourceId,
+  previewId: PreviewId,
+): Promise<ServiceEnvVarRow[]> {
+  return db
+    .select()
+    .from(serviceEnvVar)
+    .where(
+      and(
+        eq(serviceEnvVar.serviceResourceId, serviceResourceId),
+        eq(serviceEnvVar.previewId, previewId),
+      ),
+    );
+}
+
+export async function upsertPreviewServiceEnvVar(input: {
+  serviceResourceId: ResourceId;
+  previewId: PreviewId;
+  key: string;
+  value: string;
+}): Promise<ServiceEnvVarRow> {
+  const [row] = await db
+    .insert(serviceEnvVar)
+    .values(input)
+    .onConflictDoUpdate({
+      target: [serviceEnvVar.serviceResourceId, serviceEnvVar.previewId, serviceEnvVar.key],
+      targetWhere: sql`preview_id is not null`,
+      set: { value: input.value, updatedAt: new Date() },
+    })
+    .returning();
+  if (!row) {
+    throw createError({
+      message: "Failed to upsert preview env override",
+      status: 500,
+      why: "Database upsert returned no row",
+    });
+  }
+  return row;
+}
+
+export async function deletePreviewServiceEnvVar(input: {
+  serviceResourceId: ResourceId;
+  previewId: PreviewId;
+  key: string;
+}): Promise<boolean> {
+  const result = await db
+    .delete(serviceEnvVar)
+    .where(
+      and(
+        eq(serviceEnvVar.serviceResourceId, input.serviceResourceId),
+        eq(serviceEnvVar.previewId, input.previewId),
+        eq(serviceEnvVar.key, input.key),
+      ),
+    )
+    .returning({ id: serviceEnvVar.id });
+  return result.length > 0;
 }
 
 export async function upsertServiceEnvVar(input: {
@@ -29,6 +119,7 @@ export async function upsertServiceEnvVar(input: {
     .values(input)
     .onConflictDoUpdate({
       target: [serviceEnvVar.serviceResourceId, serviceEnvVar.key],
+      targetWhere: sql`preview_id is null`,
       set: { value: input.value, updatedAt: new Date() },
     })
     .returning();
@@ -53,6 +144,7 @@ export async function deleteServiceEnvVar(input: {
       and(
         eq(serviceEnvVar.serviceResourceId, input.serviceResourceId),
         eq(serviceEnvVar.key, input.key),
+        isNull(serviceEnvVar.previewId),
       ),
     )
     .returning({ id: serviceEnvVar.id });
@@ -64,7 +156,16 @@ export async function bulkReplaceServiceEnvVars(
   vars: Array<{ key: string; value: string; isSecret?: boolean }>,
 ): Promise<ServiceEnvVarRow[]> {
   return db.transaction(async (tx) => {
-    await tx.delete(serviceEnvVar).where(eq(serviceEnvVar.serviceResourceId, serviceResourceId));
+    // Base rows only — a bulk edit of the base env must never wipe a PR
+    // preview's overrides.
+    await tx
+      .delete(serviceEnvVar)
+      .where(
+        and(
+          eq(serviceEnvVar.serviceResourceId, serviceResourceId),
+          isNull(serviceEnvVar.previewId),
+        ),
+      );
 
     if (vars.length === 0) return [];
 
@@ -99,18 +200,28 @@ export async function getResourceByProjectAndName(
 }
 
 /**
- * Environment-aware resource lookup for the variable resolver: an env-specific
- * row (e.g. a preview DB branch, `environmentId = <env>`) wins over the base
- * row (`environmentId IS NULL`), which every non-preview resource is. Ordering
- * NULLs last puts the env-specific match first, so LIMIT 1 returns the branch
- * when present and the base otherwise. Pre-previews this always resolves to the
- * base row — identical to `getResourceByProjectAndName`.
+ * Preview-aware resource lookup for the variable resolver: a preview-scoped
+ * row (an opt-in DB branch, `previewId = <preview>`) wins over the base row
+ * (`previewId IS NULL`), which every non-preview resource is. Ordering NULLs
+ * last puts the preview-scoped match first, so LIMIT 1 returns the branch when
+ * present and the base otherwise. With no preview scope this always resolves
+ * to the base row — identical to `getResourceByProjectAndName`.
  */
-export async function resolveResourceForEnv(
+export async function resolveResourceForPreview(
   projectId: ProjectId,
-  environmentId: EnvironmentId,
+  previewId: PreviewId | null,
   name: string,
 ): Promise<ResourceRow | undefined> {
+  if (!previewId) {
+    const [row] = await db
+      .select()
+      .from(resource)
+      .where(
+        and(eq(resource.projectId, projectId), eq(resource.name, name), isNull(resource.previewId)),
+      )
+      .limit(1);
+    return row;
+  }
   const [row] = await db
     .select()
     .from(resource)
@@ -118,10 +229,10 @@ export async function resolveResourceForEnv(
       and(
         eq(resource.projectId, projectId),
         eq(resource.name, name),
-        or(eq(resource.environmentId, environmentId), isNull(resource.environmentId)),
+        or(eq(resource.previewId, previewId), isNull(resource.previewId)),
       ),
     )
-    .orderBy(sql`${resource.environmentId} nulls last`)
+    .orderBy(sql`${resource.previewId} nulls last`)
     .limit(1);
   return row;
 }
@@ -142,7 +253,13 @@ export async function findServiceDependentsByName(input: {
     .select({ serviceResourceId: serviceEnvVar.serviceResourceId })
     .from(serviceEnvVar)
     .innerJoin(resource, eq(resource.id, serviceEnvVar.serviceResourceId))
-    .where(and(eq(resource.projectId, input.projectId), like(serviceEnvVar.value, pattern)));
+    .where(
+      and(
+        eq(resource.projectId, input.projectId),
+        like(serviceEnvVar.value, pattern),
+        isNull(serviceEnvVar.previewId),
+      ),
+    );
 
   // Dedupe — a service can reference the target via multiple env vars.
   return Array.from(new Set(rows.map((r) => r.serviceResourceId))) as ResourceId[];

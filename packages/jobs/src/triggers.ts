@@ -6,6 +6,12 @@ import { hourlyCleanupJob } from "./jobs/hourly-cleanup";
 import { type NotificationPayload, sendNotificationJob } from "./jobs/notification";
 import { type PlatformEventPayload, notificationEventJob } from "./jobs/notification-event";
 import { type DataProcessingPayload, processDataJob } from "./jobs/process-data";
+import {
+  type WebhookDeliveryPayload,
+  type WebhookEventPayload,
+  webhookDeliverJob,
+  webhookEventJob,
+} from "./jobs/webhook";
 import { type UserSignupPayload, welcomeSequenceJob } from "./jobs/welcome-sequence";
 import { getQueue } from "./queues";
 
@@ -13,6 +19,8 @@ export type {
   EmailPayload,
   NotificationPayload,
   PlatformEventPayload,
+  WebhookEventPayload,
+  WebhookDeliveryPayload,
   DataProcessingPayload,
   UserSignupPayload,
   DeployTriggeredPayload,
@@ -47,10 +55,45 @@ export async function triggerNotification(payload: NotificationPayload, opts?: J
  */
 export async function triggerPlatformEvent(payload: PlatformEventPayload, opts?: JobsOptions) {
   const parsed = notificationEventJob.schema.parse(payload);
+  // Webhook fan-out hooks the SAME chokepoint every emitter funnels through
+  // (emitPlatformEvent in packages/api, boot reconcile here, …): each real
+  // platform event also enqueues a webhook.event fan-out. Single-channel
+  // test deliveries (`channelId` set — the notification channel "Test"
+  // button) stay notification-only; webhooks have their own test path
+  // (triggerWebhookDelivery).
+  if (!parsed.channelId) {
+    await triggerWebhookEvent({
+      organizationId: parsed.organizationId,
+      eventId: parsed.eventId,
+      severity: parsed.severity,
+      title: parsed.title,
+      message: parsed.message,
+      data: parsed.data,
+    });
+  }
   return enqueue(notificationEventJob.name, parsed, {
     ...notificationEventJob.opts,
     ...opts,
   });
+}
+
+/**
+ * Fan a platform event out to every ACTIVE outbound webhook subscribed to it.
+ * Normally called from `triggerPlatformEvent` above — call directly only when
+ * an event should reach webhooks without notification channels.
+ */
+export async function triggerWebhookEvent(payload: WebhookEventPayload, opts?: JobsOptions) {
+  const parsed = webhookEventJob.schema.parse(payload);
+  return enqueue(webhookEventJob.name, parsed, { ...webhookEventJob.opts, ...opts });
+}
+
+/**
+ * Enqueue a single signed delivery to a single webhook, bypassing the
+ * subscription fan-out — the webhook card's "Test" button.
+ */
+export async function triggerWebhookDelivery(payload: WebhookDeliveryPayload, opts?: JobsOptions) {
+  const parsed = webhookDeliverJob.schema.parse(payload);
+  return enqueue(webhookDeliverJob.name, parsed, { ...webhookDeliverJob.opts, ...opts });
 }
 
 export async function triggerDataProcessing(payload: DataProcessingPayload, opts?: JobsOptions) {

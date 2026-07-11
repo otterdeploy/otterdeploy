@@ -26,6 +26,18 @@ export const swarmDriver: RuntimeDriver = {
   update: updateSwarmService,
   destroy: destroySwarmService,
   inspect: inspectSwarmServiceRuntime,
+  // Swarm is the opt-in backend; there's no cheap batched `docker ps` analogue
+  // for swarm-service inspects, so fan out over the existing per-service
+  // inspect. Keeps the driver interface uniform; the plain-Docker default (the
+  // common case) gets the real single-round-trip win in docker-driver.ts.
+  async inspectMany(inputs, log) {
+    const entries = await Promise.all(
+      inputs.map(
+        async (input) => [input.serviceName, await inspectSwarmServiceRuntime(input, log)] as const,
+      ),
+    );
+    return new Map(entries);
+  },
   provisionDatabase: provisionSwarmDatabase,
   updateDatabase: updateSwarmDatabase,
   destroyDatabase: destroySwarmDatabase,

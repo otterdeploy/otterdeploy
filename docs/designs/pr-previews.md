@@ -1,10 +1,23 @@
 # PR Previews + Environments + Copy-on-Write DB Branching
 
-**Status:** Design / not started
+**Status:** Implemented (superseded in one respect — see below) · zfs COW (P3), caps/idle-GC and job-queue branching still open
 **Owner:** —
-**Scope:** Per-PR ephemeral preview deployments, a first-class environment model with env-var inheritance ("in sync"), copy-on-write Postgres branching, and GitHub write-back (the PR bot).
+**Scope:** Per-PR ephemeral preview deployments, copy-on-write Postgres branching, and GitHub write-back (the PR bot).
 
-This is the Vercel-for-Git experience, self-hosted: open a PR → an isolated preview environment spins up (ephemeral compute + a *branched* database), the commit gets a status check, the PR gets a sticky comment with the preview URL; close the PR → everything is torn down.
+> **⚠ Model correction (2026-07-08), supersedes this doc where they conflict:**
+> **a preview is NOT an environment.** Previews are a first-class `preview` table
+> bound to (project, repo, PR#), scoping their deployments/routes/DB branches via
+> `previewId` columns — the `environment` table holds only user-created contexts
+> (Development/Staging/Production) and carries no preview provenance. DB branching
+> is **opt-in per database** (`databaseResource.previewBranching`, default off);
+> an unbranched database is shared with the base via the resolver's fallback, so
+> a PR costs one container + one route + one row by default. In the UI, previews
+> render as satellite cards attached to the service node on the project graph
+> (`project.previews.list` → `preview-satellites.ts`), never in environment
+> surfaces. Read this doc's environment-based sections as historical design
+> background, not as the shipped model.
+
+This is the Vercel-for-Git experience, self-hosted: open a PR → a preview spins up (ephemeral compute + optionally *branched* databases), the commit gets a status check, the PR gets a sticky comment with the preview URL; close the PR → everything is torn down.
 
 ---
 

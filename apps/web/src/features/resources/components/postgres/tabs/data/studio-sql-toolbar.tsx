@@ -8,6 +8,7 @@ import type { RefObject } from "react";
 
 import {
   ArrowDown01Icon,
+  Clock01Icon,
   MagicWand01Icon,
   PlayIcon,
   SidebarLeft01Icon,
@@ -29,6 +30,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/components/ui/
 
 import type { SqlEditorHandle } from "./components/sql-editor";
 import type { DataStudioController } from "./use-data-studio";
+
+import { HistoryPopover } from "./components/history-popover";
 
 export function SqlToolbar({
   studio,
@@ -91,6 +94,16 @@ export function SqlToolbar({
           <HugeiconsIcon icon={MagicWand01Icon} strokeWidth={2} className="size-3.5" />
           Prettify
         </Button>
+        <HistoryPopover
+          entries={t.history.entries}
+          onPick={studio.loadFromHistory}
+          onClear={t.history.clear}
+          trigger={
+            <Button variant="ghost" size="icon-sm" aria-label="Query history">
+              <HugeiconsIcon icon={Clock01Icon} strokeWidth={2} className="size-3.5" />
+            </Button>
+          }
+        />
         {t.canWrite ? (
           <>
             <Separator orientation="vertical" className="mx-1 h-4" />

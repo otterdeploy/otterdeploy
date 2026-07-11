@@ -19,7 +19,11 @@ export function presentBackup(row: BackupRow) {
 }
 
 export function presentSchedule(row: ScheduleRow) {
-  return { ...row.schedule, destinationNames: row.destinationNames };
+  return {
+    ...row.schedule,
+    destinationNames: row.destinationNames,
+    missingSources: row.missingSources,
+  };
 }
 
 export function presentDestination(row: DestinationRow) {

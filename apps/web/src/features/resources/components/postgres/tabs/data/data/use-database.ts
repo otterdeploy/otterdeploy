@@ -22,10 +22,13 @@ import {
   pgTypeToVariant,
   primaryKeysSql,
   referencedRowSql,
+  shortType,
+  structureSql,
   tableColumnsSql,
   type ColumnVariant,
   type TableRef,
 } from "./queries";
+import { parseStructureRows, type StructureColumn } from "./structure";
 
 /** List the database's tables (the navigator + autocomplete source). */
 export function useDatabaseTables(resourceId: string) {
@@ -164,6 +167,17 @@ export function useTableColumnMeta({
     return m;
   }, [colTypesQuery.data]);
 
+  // Collapsed display types ("varchar", "timestamp") — the Columns popover and
+  // row-detail panel label columns with these.
+  const columnTypes = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const row of colTypesQuery.data?.rows ?? []) {
+      const name = row[0];
+      if (name) m[name] = shortType(row[1] ?? "");
+    }
+    return m;
+  }, [colTypesQuery.data]);
+
   const columnFks = useMemo(() => {
     const m: Record<string, FkTarget> = {};
     for (const row of fkQuery.data?.rows ?? []) {
@@ -179,7 +193,39 @@ export function useTableColumnMeta({
     return m;
   }, [fkQuery.data]);
 
-  return { columnVariants, columnFks };
+  return { columnVariants, columnFks, columnTypes };
+}
+
+/**
+ * Full column detail (type / nullability / default / PK / UQ / FK / identity)
+ * for the Structure view and the Add-record modal. Same read-only query path
+ * as the rest of the introspection; parsed into {@link StructureColumn}s.
+ */
+export function useTableStructure({
+  resourceId,
+  table,
+  enabled,
+}: {
+  resourceId: string;
+  table: TableRef | null;
+  enabled: boolean;
+}) {
+  const query = useQuery({
+    ...orpc.database.query.queryOptions({
+      input: {
+        resourceId: resourceId as never,
+        sql: table ? structureSql(table) : "",
+        limit: 1000,
+      },
+    }),
+    enabled: enabled && Boolean(table),
+    staleTime: 5 * 60 * 1000,
+  });
+  const structure: StructureColumn[] = useMemo(
+    () => parseStructureRows(query.data?.rows ?? []),
+    [query.data],
+  );
+  return { query, structure };
 }
 
 /** Columns + PK flag for one table — lazy (only once its row is expanded). */

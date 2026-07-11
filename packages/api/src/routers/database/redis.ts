@@ -72,6 +72,12 @@ async function withRedisContainer<T>(
 
 // ── public API ──────────────────────────────────────────────────────────────
 
+/** Raw `INFO` payload (all sections) — the org catalog parses memory/clients/
+ *  version stats out of it. Read-only single round-trip. */
+export async function redisInfoRaw(conn: DbConnInfo): Promise<string> {
+  return withRedisContainer(conn, (run) => run(["INFO"]));
+}
+
 /** Per-database key counts from `INFO keyspace` (only non-empty dbs appear). */
 export async function redisKeyspace(conn: DbConnInfo): Promise<RedisKeyspaceEntry[]> {
   return withRedisContainer(conn, async (run) => {

@@ -16,7 +16,7 @@ import { Docker } from "@otterdeploy/docker";
 import {
   demuxDockerLogs,
   nowIso,
-  resolveServiceName,
+  resolveServiceNames,
   type ResourceLogEvent,
 } from "./log-stream-shared";
 import { getProjectInOrg } from "./queries";
@@ -94,29 +94,37 @@ export async function* tailDeploymentLogs(
     return;
   }
 
-  const serviceName = await resolveServiceName(input.projectId, input.resourceId);
-  if (!serviceName) {
+  // One swarm service for a plain resource; every `${stack}-${key}` child for
+  // a compose stack (the stack deployment tracks the rollout as a whole).
+  const serviceNames = await resolveServiceNames(input.projectId, input.resourceId);
+  if (!serviceNames || serviceNames.length === 0) {
     yield { stream: "system", line: "Resource not found", ts: nowIso() };
     return;
   }
 
   const docker = Docker.fromEnv();
   try {
-    const instancesResult = await listResourceInstances(docker, serviceName);
-    if (instancesResult.isErr()) {
-      yield {
-        stream: "system",
-        line: `Could not list instances for ${serviceName}: ${instancesResult.error.message}`,
-        ts: nowIso(),
-      };
-      return;
+    const all: ResourceInstance[] = [];
+    for (const serviceName of serviceNames) {
+      const instancesResult = await listResourceInstances(docker, serviceName);
+      if (instancesResult.isErr()) {
+        yield {
+          stream: "system",
+          line: `Could not list instances for ${serviceName}: ${instancesResult.error.message}`,
+          ts: nowIso(),
+        };
+        continue;
+      }
+      all.push(...instancesResult.value);
     }
 
     // Prefer instances tagged with this deployment id; fall back to all of the
     // service's instances when none are tagged (plain Docker recreates in place
-    // and older containers carry a prior deployment's label).
-    const tagged = instancesResult.value.filter((t) => t.deploymentId === input.deploymentId);
-    const instances = tagged.length > 0 ? tagged : instancesResult.value;
+    // and older containers carry a prior deployment's label; a compose stack's
+    // containers are tagged with their per-service deployment ids, not the
+    // stack row's).
+    const tagged = all.filter((t) => t.deploymentId === input.deploymentId);
+    const instances = tagged.length > 0 ? tagged : all;
 
     if (instances.length === 0) {
       yield {

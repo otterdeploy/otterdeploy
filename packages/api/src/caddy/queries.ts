@@ -1,4 +1,4 @@
-import type { EnvironmentId, ProjectId, ProxyRouteId, ResourceId } from "@otterdeploy/shared/id";
+import type { PreviewId, ProjectId, ProxyRouteId, ResourceId } from "@otterdeploy/shared/id";
 import type { InferSelectModel } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
@@ -72,13 +72,13 @@ export async function getProxyRouteByResourceId(
   const [record] = await db
     .select()
     .from(proxyRoute)
-    .where(and(eq(proxyRoute.resourceId, resourceId), isNull(proxyRoute.environmentId)))
+    .where(and(eq(proxyRoute.resourceId, resourceId), isNull(proxyRoute.previewId)))
     .limit(1);
   return record;
 }
 
-/** All BASE routes attached to a resource (environment-scoped preview routes
- *  are excluded — they're lifecycle-managed by the PR webhook, not the
+/** All BASE routes attached to a resource (preview-scoped routes are
+ *  excluded — they're lifecycle-managed by the PR webhook, not the
  *  domains card). A service can publish on several hosts now, so callers
  *  that manage the domain set (list/expose/unexpose) read every route, not
  *  just the first. Primary route sorts first. */
@@ -88,25 +88,21 @@ export async function listProxyRoutesByResourceId(
   return db
     .select()
     .from(proxyRoute)
-    .where(and(eq(proxyRoute.resourceId, resourceId), isNull(proxyRoute.environmentId)))
+    .where(and(eq(proxyRoute.resourceId, resourceId), isNull(proxyRoute.previewId)))
     .orderBy(desc(proxyRoute.isPrimary), asc(proxyRoute.domain));
 }
 
-/** The environment-scoped routes of a preview env (one per exposed service). */
-export async function listProxyRoutesByEnvironment(
-  environmentId: EnvironmentId,
-): Promise<ProxyRouteRecord[]> {
+/** The preview-scoped routes of a PR preview (one per exposed service). */
+export async function listProxyRoutesByPreview(previewId: PreviewId): Promise<ProxyRouteRecord[]> {
   return db
     .select()
     .from(proxyRoute)
-    .where(eq(proxyRoute.environmentId, environmentId))
+    .where(eq(proxyRoute.previewId, previewId))
     .orderBy(asc(proxyRoute.domain));
 }
 
-export async function deleteProxyRoutesByEnvironment(
-  environmentId: EnvironmentId,
-): Promise<void> {
-  await db.delete(proxyRoute).where(eq(proxyRoute.environmentId, environmentId));
+export async function deleteProxyRoutesByPreview(previewId: PreviewId): Promise<void> {
+  await db.delete(proxyRoute).where(eq(proxyRoute.previewId, previewId));
 }
 
 export async function getProxyRouteById(id: ProxyRouteId): Promise<ProxyRouteRecord | undefined> {
@@ -117,8 +113,8 @@ export async function getProxyRouteById(id: ProxyRouteId): Promise<ProxyRouteRec
 export async function insertProxyRoute(input: {
   projectId: ProjectId;
   resourceId?: ResourceId;
-  /** Present only on preview-env routes; see the schema comment. */
-  environmentId?: EnvironmentId;
+  /** Present only on preview-scoped routes; see the schema comment. */
+  previewId?: PreviewId;
   type: "http" | "layer4";
   domain: string;
   upstreamHost: string;
@@ -144,7 +140,7 @@ export async function insertProxyRoute(input: {
     .values({
       projectId: input.projectId,
       resourceId: input.resourceId ?? null,
-      environmentId: input.environmentId ?? null,
+      previewId: input.previewId ?? null,
       type: input.type,
       domain: input.domain,
       upstreamHost: input.upstreamHost,
@@ -208,7 +204,7 @@ export async function clearPrimaryForResource(resourceId: ResourceId): Promise<v
       and(
         eq(proxyRoute.resourceId, resourceId),
         eq(proxyRoute.isPrimary, true),
-        isNull(proxyRoute.environmentId),
+        isNull(proxyRoute.previewId),
       ),
     );
 }
@@ -225,7 +221,7 @@ export async function setRoutesEnabledForResource(
   await db
     .update(proxyRoute)
     .set({ enabled, updatedAt: new Date() })
-    .where(and(eq(proxyRoute.resourceId, resourceId), isNull(proxyRoute.environmentId)));
+    .where(and(eq(proxyRoute.resourceId, resourceId), isNull(proxyRoute.previewId)));
 }
 
 export async function deleteProxyRoute(id: ProxyRouteId): Promise<void> {

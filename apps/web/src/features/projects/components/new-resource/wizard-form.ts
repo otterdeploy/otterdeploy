@@ -8,7 +8,93 @@ import type { DatabaseCreatePayload, ServiceCreatePayload } from "./wizard-provi
 
 import { flowFor } from "./flows";
 import { useAppForm } from "./form-context";
-import { resourceDefaults, resourceFormSchema, type Step } from "./schemas";
+import { resourceDefaults, resourceFormSchema, type ResourceFormState, type Step } from "./schemas";
+
+/**
+ * The wizard's final submit — routes the collected fields to the right
+ * provisioner. Module-level (not a closure inside the hook) so the hook
+ * stays within the per-function line budget.
+ */
+async function submitWizard(
+  value: ResourceFormState,
+  runDatabaseCreate: (payload: DatabaseCreatePayload) => Promise<void>,
+  runServiceCreate: (payload: ServiceCreatePayload) => Promise<void>,
+): Promise<void> {
+  // Strip the wizard-only discriminator before passing fields to the API.
+  const { __step: _drop, ...payload } = value;
+  // Sizing is shared across every kind — preset id (or custom sliders).
+  const sizing = {
+    presetId: payload.presetId,
+    customCpu: payload.customCpu,
+    customMem: payload.customMem,
+  };
+  // Database engines: handled by the streaming DB provisioner.
+  if (
+    payload.kindId === "postgres" ||
+    payload.kindId === "redis" ||
+    payload.kindId === "mariadb" ||
+    payload.kindId === "mongodb"
+  ) {
+    await runDatabaseCreate({
+      engine: payload.kindId,
+      name: payload.name,
+      publicEnabled: payload.publicEnabled,
+      // Extensions are postgres-only; other engines ignore the field.
+      extensions: payload.kindId === "postgres" ? payload.extensions : [],
+      version: payload.version,
+      ...sizing,
+    });
+    return;
+  }
+  // Pre-built docker image: image step has `image` + `tag`.
+  if (payload.kindId === "docker") {
+    await runServiceCreate({
+      name: payload.name,
+      source: "image",
+      kindId: payload.kindId,
+      image: payload.tag ? `${payload.image}:${payload.tag}` : payload.image,
+      ports: payload.ports,
+      variables: payload.variables,
+      replicas: payload.replicas,
+      builderId: payload.builderId,
+      spa: payload.spa,
+      healthPath: payload.healthPath,
+      healthInterval: payload.healthInterval,
+      healthTimeout: payload.healthTimeout,
+      healthRetries: payload.healthRetries,
+      root: payload.root,
+      ...sizing,
+    });
+    return;
+  }
+  // Compute kinds (app/worker/static/etc.): built by apps/builder from
+  // the project's git binding. Placeholder image — the first build
+  // overwrites it. A port-less kind (worker) skips the Networking step, so
+  // force no ports rather than inheriting the default web port.
+  const portless = SERVICE_KINDS.find((k) => k.id === payload.kindId)?.portless === true;
+  await runServiceCreate({
+    name: payload.name,
+    source: "git",
+    kindId: payload.kindId,
+    image: "pending:initial",
+    ports: portless ? [] : payload.ports,
+    variables: payload.variables,
+    replicas: payload.replicas,
+    builderId: payload.builderId,
+    spa: payload.spa,
+    healthPath: payload.healthPath,
+    healthInterval: payload.healthInterval,
+    healthTimeout: payload.healthTimeout,
+    healthRetries: payload.healthRetries,
+    root: payload.root,
+    // Bind the repo the operator picked. `repoFullName` mirrors the bound
+    // repo's "owner/repo" (the `repo` field holds the opaque gitRepoId,
+    // which the portable manifest can't use); branch "" → repo default.
+    repo: payload.repoFullName || undefined,
+    branch: payload.branch || undefined,
+    ...sizing,
+  });
+}
 
 /**
  * Owns the wizard form + everything derived from it: which step's
@@ -46,74 +132,7 @@ export function useWizardForm({
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     validators: { onChange: resourceFormSchema as any },
-    onSubmit: async ({ value }) => {
-      // Strip the wizard-only discriminator before passing fields to the API.
-      const { __step: _drop, ...payload } = value;
-      // Sizing is shared across every kind — preset id (or custom sliders).
-      const sizing = {
-        presetId: payload.presetId,
-        customCpu: payload.customCpu,
-        customMem: payload.customMem,
-      };
-      // Database engines: handled by the streaming DB provisioner.
-      if (
-        payload.kindId === "postgres" ||
-        payload.kindId === "redis" ||
-        payload.kindId === "mariadb" ||
-        payload.kindId === "mongodb"
-      ) {
-        await runDatabaseCreate({
-          engine: payload.kindId,
-          name: payload.name,
-          publicEnabled: payload.publicEnabled,
-          // Extensions are postgres-only; other engines ignore the field.
-          extensions: payload.kindId === "postgres" ? payload.extensions : [],
-          version: payload.version,
-          ...sizing,
-        });
-        return;
-      }
-      // Pre-built docker image: image step has `image` + `tag`.
-      if (payload.kindId === "docker") {
-        await runServiceCreate({
-          name: payload.name,
-          source: "image",
-          kindId: payload.kindId,
-          image: payload.tag ? `${payload.image}:${payload.tag}` : payload.image,
-          ports: payload.ports,
-          variables: payload.variables,
-          replicas: payload.replicas,
-          builderId: payload.builderId,
-          spa: payload.spa,
-          root: payload.root,
-          ...sizing,
-        });
-        return;
-      }
-      // Compute kinds (app/worker/static/etc.): built by apps/builder from
-      // the project's git binding. Placeholder image — the first build
-      // overwrites it. A port-less kind (worker) skips the Networking step, so
-      // force no ports rather than inheriting the default web port.
-      const portless = SERVICE_KINDS.find((k) => k.id === payload.kindId)?.portless === true;
-      await runServiceCreate({
-        name: payload.name,
-        source: "git",
-        kindId: payload.kindId,
-        image: "pending:initial",
-        ports: portless ? [] : payload.ports,
-        variables: payload.variables,
-        replicas: payload.replicas,
-        builderId: payload.builderId,
-        spa: payload.spa,
-        root: payload.root,
-        // Bind the repo the operator picked. `repoFullName` mirrors the bound
-        // repo's "owner/repo" (the `repo` field holds the opaque gitRepoId,
-        // which the portable manifest can't use); branch "" → repo default.
-        repo: payload.repoFullName || undefined,
-        branch: payload.branch || undefined,
-        ...sizing,
-      });
-    },
+    onSubmit: ({ value }) => submitWizard(value, runDatabaseCreate, runServiceCreate),
   });
 
   // Keep form's __step in sync with the URL/local step.

@@ -11,7 +11,7 @@
 import type { DeploymentId, GitRepoId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
-import { deployment, environment } from "@otterdeploy/db/schema/project";
+import { deployment, preview } from "@otterdeploy/db/schema/project";
 import { Result } from "better-result";
 import { eq } from "drizzle-orm";
 import { log } from "evlog";
@@ -138,35 +138,25 @@ export async function report(input: ReportInput): Promise<void> {
 /**
  * Build-worker hook: converge the PR comment + commit status after a
  * deployment reaches a terminal state. No-ops unless the deployment belongs
- * to a preview environment; never throws.
+ * to a PR preview; never throws.
  */
 export async function reportPreviewBuildOutcome(deploymentId: DeploymentId): Promise<void> {
   const outcome = await Result.tryPromise({
     try: async () => {
       const [dep] = await db
-        .select({ environmentId: deployment.environmentId, gitSha: deployment.gitSha })
+        .select({ previewId: deployment.previewId, gitSha: deployment.gitSha })
         .from(deployment)
         .where(eq(deployment.id, deploymentId))
         .limit(1);
-      if (!dep?.environmentId) return;
-      const [envRow] = await db
-        .select()
-        .from(environment)
-        .where(eq(environment.id, dep.environmentId))
-        .limit(1);
-      if (
-        envRow?.kind !== "preview" ||
-        !envRow.gitRepoId ||
-        envRow.pullRequestNumber == null
-      ) {
-        return;
-      }
+      if (!dep?.previewId) return;
+      const [row] = await db.select().from(preview).where(eq(preview.id, dep.previewId)).limit(1);
+      if (!row) return;
       // A push during the build superseded this deployment — the newer
       // build's own report owns the comment now.
-      if (dep.gitSha && envRow.headSha && dep.gitSha !== envRow.headSha) return;
+      if (dep.gitSha && row.headSha && dep.gitSha !== row.headSha) return;
       await report({
-        gitRepoId: envRow.gitRepoId,
-        prNumber: envRow.pullRequestNumber,
+        gitRepoId: row.gitRepoId,
+        prNumber: row.prNumber,
         phase: "building",
       });
     },

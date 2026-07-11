@@ -217,11 +217,23 @@ export interface InstallationRepo {
   clone_url: string;
 }
 
+export interface InstallationRepoList {
+  repositories: InstallationRepo[];
+  /**
+   * GitHub's `total_count` for the installation — the truthful repo count
+   * even when `repositories` is shorter (page-walk safety stop, or GitHub's
+   * post-install read lag returning a partial/empty first page). Callers
+   * persist THIS, never `repositories.length`.
+   */
+  totalCount: number;
+}
+
 export async function listInstallationRepos(
   installationToken: string,
   config: GithubAppConfig,
-): Promise<InstallationRepo[]> {
+): Promise<InstallationRepoList> {
   const out: InstallationRepo[] = [];
+  let totalCount = 0;
   let page = 1;
   while (true) {
     const res = await fetch(
@@ -246,12 +258,13 @@ export async function listInstallationRepos(
       total_count: number;
       repositories: InstallationRepo[];
     };
+    totalCount = json.total_count;
     out.push(...json.repositories);
     if (json.repositories.length < 100) break;
     page++;
     if (page > 50) break; // safety stop — 5k repos is plenty
   }
-  return out;
+  return { repositories: out, totalCount };
 }
 
 /**

@@ -1,113 +1,29 @@
 /**
- * Per-kind views for the Networking step (cron schedule, worker, static
- * build, and the default ports + health + edge proxy). Split out of
- * networking.tsx so that file + its dispatcher stay under the line caps.
+ * Per-kind views for the Networking step (static build, and the default
+ * ports + health + edge summary). Split out of networking.tsx so that file
+ * + its dispatcher stay under the line caps.
+ *
+ * Honesty notes:
+ *   - The old CronSchedule / WorkerNetworking views were removed: cron is
+ *     `comingSoon`-gated (no scheduler exists) and portless worker kinds
+ *     drop the Networking step entirely, so both were unreachable
+ *     decoration whose inputs went nowhere.
+ *   - The health-check fields are REAL: they map to the same portable
+ *     wget||curl `CMD-SHELL` probe the service settings card writes
+ *     (healthcheck-http.ts) and land in the manifest's `healthcheck`,
+ *     which the swarm driver enforces. The old "successes before ready"
+ *     input was removed — Docker has no such concept.
+ *   - The edge-proxy section is a plain summary of platform defaults.
+ *     They are not per-service toggles anywhere in the reconciler, so
+ *     rendering switches for them would be fake controls.
  */
 
-import { useState } from "react";
-
 import { Card, CardContent } from "@/shared/components/ui/card";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/shared/components/ui/collapsible";
-import { Input } from "@/shared/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/components/ui/select";
 
 import { useFormContext } from "../form-context";
-import { Field, SectionHeader, SettingRow } from "../form-primitives";
+import { SectionHeader } from "../form-primitives";
 import { frameworkLabel } from "../frameworks";
 import { useRepoDetection } from "../use-repo-detection";
-
-export function CronSchedule() {
-  return (
-    <>
-      <SectionHeader title="Schedule" sub="When should this job run?" />
-      <Card className="mt-3 rounded-md">
-        <CardContent className="flex flex-col gap-2.5">
-          <Field label="Cron expression">
-            <Input className="font-mono" defaultValue="0 3 * * *" />
-            <div className="mt-1 font-mono text-[11px] text-muted-foreground">
-              Every day at 03:00 UTC · next run in 7h 12m
-            </div>
-          </Field>
-          <Field label="Timezone">
-            <Select
-              defaultValue="UTC"
-              items={[
-                { label: "UTC", value: "UTC" },
-                {
-                  label: "America/Los_Angeles",
-                  value: "America/Los_Angeles",
-                },
-                { label: "Europe/London", value: "Europe/London" },
-              ]}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="UTC">UTC</SelectItem>
-                <SelectItem value="America/Los_Angeles">America/Los_Angeles</SelectItem>
-                <SelectItem value="Europe/London">Europe/London</SelectItem>
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field label="Command">
-            <Input className="font-mono" defaultValue="node scripts/cleanup.js" />
-          </Field>
-          <Field label="Max runtime">
-            <Input className="font-mono" defaultValue="30m" />
-          </Field>
-        </CardContent>
-      </Card>
-      <Card className="mt-3.5 rounded-md">
-        <CardContent>
-          <SettingRow
-            label="Skip if previous run still active"
-            sub="Don't pile up overlapping invocations"
-            defaultOn
-          />
-          <SettingRow label="Alert on failure" defaultOn sub="Send to #ops Slack channel" />
-        </CardContent>
-      </Card>
-    </>
-  );
-}
-
-export function WorkerNetworking() {
-  return (
-    <>
-      <SectionHeader
-        title="Workers don't expose ports"
-        sub="No HTTP listener — this service runs a long process"
-      />
-      <Card className="mt-3 rounded-md">
-        <CardContent className="flex flex-col gap-2.5">
-          <Field label="Process command">
-            <Input className="font-mono" defaultValue="celery -A app worker --loglevel=info" />
-          </Field>
-          <Field label="Graceful shutdown timeout">
-            <Input className="font-mono" defaultValue="30s" />
-          </Field>
-          <Field label="Liveness probe">
-            <Input
-              className="font-mono"
-              placeholder="optional · exec command, e.g. celery inspect ping"
-            />
-          </Field>
-        </CardContent>
-      </Card>
-    </>
-  );
-}
 
 export function StaticBuild() {
   const form = useFormContext();
@@ -139,9 +55,17 @@ export function StaticBuild() {
   );
 }
 
+// What the Caddy edge applies to every public route. Stated, not toggled:
+// none of these are per-service settings in the reconciler today.
+const EDGE_DEFAULTS: Array<{ label: string; sub: string }> = [
+  { label: "TLS certificates", sub: "Let's Encrypt · issued and renewed automatically" },
+  { label: "HTTP → HTTPS", sub: "Plain-HTTP requests are redirected" },
+  { label: "HTTP/3 + compression", sub: "QUIC and zstd/gzip encoding where clients support them" },
+  { label: "WebSockets + real IP", sub: "ws:// upgrades pass through; X-Forwarded-For is set" },
+];
+
 export function PortsAndHealth() {
   const form = useFormContext();
-  const [edgeOpen, setEdgeOpen] = useState(false);
   const { framework, defaultPort } = useRepoDetection();
   const label = frameworkLabel(framework);
 
@@ -160,85 +84,53 @@ export function PortsAndHealth() {
       <div className="mt-4.5">
         <SectionHeader
           title="Health check"
-          sub="How does Otterdeploy know your service is ready to serve traffic?"
+          sub="Optional HTTP probe against the primary port, run inside the container as a wget/curl one-liner — images with neither (nor sh) will fail the check. Leave the path empty to rely on process liveness."
         />
       </div>
       <Card className="mt-2.5 rounded-md">
         <CardContent className="flex flex-col gap-2.5">
-          <div className="grid grid-cols-[2fr_1fr_1fr] gap-2.5">
+          <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-2.5">
             <form.AppField name="healthPath">
-              {(f) => <f.TextField label="Path" className="font-mono" />}
+              {(f) => (
+                <f.TextField
+                  label="Path (empty = off)"
+                  className="font-mono"
+                  placeholder="/healthz"
+                />
+              )}
             </form.AppField>
             <form.AppField name="healthInterval">
               {(f) => <f.NumberField label="Interval (s)" min={1} className="font-mono" />}
             </form.AppField>
-            <Field label="Timeout">
-              <Input className="font-mono" defaultValue="3s" />
-            </Field>
-          </div>
-          <div className="grid grid-cols-2 gap-2.5">
-            <Field label="Successes before ready">
-              <Input className="font-mono" type="number" defaultValue={2} />
-            </Field>
-            <Field label="Failures before unhealthy">
-              <Input className="font-mono" type="number" defaultValue={3} />
-            </Field>
+            <form.AppField name="healthTimeout">
+              {(f) => <f.NumberField label="Timeout (s)" min={1} className="font-mono" />}
+            </form.AppField>
+            <form.AppField name="healthRetries">
+              {(f) => <f.NumberField label="Retries" min={1} className="font-mono" />}
+            </form.AppField>
           </div>
         </CardContent>
       </Card>
 
-      <Collapsible open={edgeOpen} onOpenChange={setEdgeOpen} className="mt-4.5">
-        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-md py-1 text-left">
-          <span>
-            <span className="block text-sm font-medium">Edge proxy</span>
-            <span className="block text-[11px] text-muted-foreground">
-              Platform defaults — TLS, HTTP/3, compression, real-IP. Open only to override.
-            </span>
-          </span>
-          <svg
-            viewBox="0 0 24 24"
-            className={
-              "size-4 shrink-0 text-muted-foreground transition-transform " +
-              (edgeOpen ? "rotate-180" : "")
-            }
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+      <div className="mt-4.5">
+        <SectionHeader
+          title="Edge proxy"
+          sub="Applied by the platform to every public route — not configurable per service yet."
+        />
+      </div>
+      <Card className="mt-2.5 gap-0 rounded-md p-4">
+        {EDGE_DEFAULTS.map((d, i) => (
+          <div
+            key={d.label}
+            className={`flex items-start gap-3 py-2 text-xs ${
+              i === EDGE_DEFAULTS.length - 1 ? "" : "border-b border-border/60"
+            }`}
           >
-            <path d="m6 9 6 6 6-6" />
-          </svg>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <Card className="mt-2.5 rounded-md">
-            <CardContent>
-              <SettingRow
-                label="Auto-issue TLS certificates"
-                sub="Let's Encrypt · auto-renewed before expiry"
-                defaultOn
-              />
-              <SettingRow label="HTTP → HTTPS redirect" defaultOn sub="Force secure connections" />
-              <SettingRow label="HTTP/3 (QUIC)" defaultOn sub="Serve over QUIC where available" />
-              <SettingRow
-                label="Compression (zstd, gzip)"
-                defaultOn
-                sub="Encode responses on the wire"
-              />
-              <SettingRow
-                label="WebSocket upgrade"
-                defaultOn
-                sub="Allow ws:// connection upgrades"
-              />
-              <SettingRow
-                label="Forward X-Forwarded-For"
-                defaultOn
-                sub="Pass real client IP through to upstream"
-              />
-            </CardContent>
-          </Card>
-        </CollapsibleContent>
-      </Collapsible>
+            <span className="w-36 shrink-0 pt-px text-[11px] text-muted-foreground">{d.label}</span>
+            <span className="flex-1 leading-relaxed text-foreground/90">{d.sub}</span>
+          </div>
+        ))}
+      </Card>
     </>
   );
 }

@@ -14,6 +14,11 @@ import type { Manifest } from "@otterdeploy/api/manifest";
 import type { BuildConfig } from "@otterdeploy/shared/build-config";
 
 import { RESOURCE_PRESETS } from "@/features/projects/data/service-kinds";
+import {
+  buildHttpHealthcheckCmd,
+  isValidHealthcheckPath,
+  normalizeHealthcheckPath,
+} from "@/features/resources/components/service/tabs/settings/healthcheck-http";
 
 import type { Port } from "./form-fields/ports-field";
 import type { Var } from "./form-fields/variables-field";
@@ -31,6 +36,13 @@ interface ManifestPort {
 interface ManifestResources {
   cpuLimit: number;
   memoryMb: number;
+}
+
+interface ManifestHealthcheck {
+  cmd: string[];
+  intervalMs?: number;
+  timeoutMs?: number;
+  retries?: number;
 }
 
 // Manifest env keys must be UPPER_SNAKE (matches the zod `envMap` rule).
@@ -83,6 +95,33 @@ export function portsToManifest(ports: Port[]): ManifestPort[] {
     }));
 }
 
+/**
+ * Wizard health fields → manifest healthcheck. Empty path = no healthcheck
+ * (opt-in — a probe most apps don't serve would block every rollout).
+ * Reuses the exact portable wget||curl `CMD-SHELL` probe the post-create
+ * settings card writes (healthcheck-http.ts), aimed at the primary port,
+ * so the wizard and the settings card describe one and the same check.
+ */
+export function healthcheckFromForm(input: {
+  path: string;
+  intervalSec: number;
+  timeoutSec: number;
+  retries: number;
+  ports: ManifestPort[];
+}): ManifestHealthcheck | undefined {
+  if (input.path.trim() === "") return undefined;
+  const port = input.ports.find((p) => p.primary)?.container ?? input.ports[0]?.container;
+  if (port === undefined) return undefined; // nothing to probe (portless kinds)
+  const path = normalizeHealthcheckPath(input.path);
+  if (!isValidHealthcheckPath(path)) return undefined; // schema blocks this; belt & braces
+  return {
+    cmd: buildHttpHealthcheckCmd({ path, port }),
+    intervalMs: Math.round(input.intervalSec * 1000),
+    timeoutMs: Math.round(input.timeoutSec * 1000),
+    retries: input.retries,
+  };
+}
+
 const STATIC_SITE_PORT: ManifestPort = {
   container: 80,
   protocol: "tcp",
@@ -132,6 +171,11 @@ export interface ServiceSpecInput {
   builderId: string;
   /** Static-kind only: serve index.html for unmatched routes (SPA). */
   spa: boolean;
+  /** HTTP health-check path ("" = no container healthcheck). */
+  healthPath: string;
+  healthInterval: number;
+  healthTimeout: number;
+  healthRetries: number;
   /** Repo-relative root directory for git sources ("" = repo root). */
   root: string;
   /** Portable "owner/repo" of the bound repo (git sources). Emitted as the
@@ -147,11 +191,24 @@ export function buildServiceSpec(input: ServiceSpecInput): ServiceSpec {
   const env = envFromVars(input.variables);
   const resources = resourcesFromForm(input.presetId, input.customCpu, input.customMem);
   const ports = input.kindId === "static" ? [STATIC_SITE_PORT] : portsToManifest(input.ports);
+  // Static sites never saw the health card (the Caddy image serves "/"
+  // regardless) — skip rather than probing a path the operator never set.
+  const healthcheck =
+    input.kindId === "static"
+      ? undefined
+      : healthcheckFromForm({
+          path: input.healthPath,
+          intervalSec: input.healthInterval,
+          timeoutSec: input.healthTimeout,
+          retries: input.healthRetries,
+          ports,
+        });
   const common = {
     ports,
     ...(env ? { env } : {}),
     ...(input.replicas > 1 ? { replicas: input.replicas } : {}),
     ...(resources ? { resources } : {}),
+    ...(healthcheck ? { healthcheck } : {}),
   };
   if (input.source === "image") {
     return { source: "image", image: input.image, ...common };
@@ -182,7 +239,15 @@ export interface DatabaseSpecInput {
   customMem: number;
 }
 
-/** Assemble the full manifest database spec from wizard state. */
+/**
+ * Assemble the full manifest database spec from wizard state.
+ *
+ * Deliberately carries NO storage/backup fields: the manifest `databaseSchema`
+ * and the DB provisioner (`ProvisionSwarmDatabaseInput`) support none of
+ * volume sizing, auto-grow, encryption-at-rest, backup policy, PITR, or HA
+ * replicas — the storage step is informational-only for the same reason.
+ * Backups are live-managed schedules created after deploy on the Backups page.
+ */
 export function buildDatabaseSpec(input: DatabaseSpecInput): DatabaseSpec {
   const resources = resourcesFromForm(input.presetId, input.customCpu, input.customMem);
   const base = {
