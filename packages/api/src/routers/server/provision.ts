@@ -36,7 +36,7 @@ export function probeScript(): string {
     'echo "OTTER_OS_ID=${ID:-unknown}"',
     'echo "OTTER_HOSTNAME=$(hostname 2>/dev/null || echo unknown)"',
     'if [ "$(id -u)" = "0" ]; then echo "OTTER_PRIV=root";',
-    "elif sudo -n true 2>/dev/null; then echo \"OTTER_PRIV=sudo\";",
+    'elif sudo -n true 2>/dev/null; then echo "OTTER_PRIV=sudo";',
     'else echo "OTTER_PRIV=none"; fi',
     'if command -v docker >/dev/null 2>&1; then echo "OTTER_DOCKER=$(docker version --format "{{.Server.Version}}" 2>/dev/null || echo present)"; else echo "OTTER_DOCKER=none"; fi',
     'echo "OTTER_SWARM=$(docker info --format "{{.Swarm.LocalNodeState}}" 2>/dev/null || echo unknown)"',
@@ -200,8 +200,7 @@ export function parseProbe(output: string): ProbeResult {
     return m?.[1]?.trim() ?? "";
   };
   const rawPriv = get("PRIV");
-  const privilege: Privilege =
-    rawPriv === "root" ? "root" : rawPriv === "sudo" ? "sudo" : "none";
+  const privilege: Privilege = rawPriv === "root" ? "root" : rawPriv === "sudo" ? "sudo" : "none";
   return {
     osId: get("OS_ID") || "unknown",
     hostname: get("HOSTNAME") || "unknown",

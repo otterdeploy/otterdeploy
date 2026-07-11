@@ -153,7 +153,8 @@ function IdentityFields({ form }: { form: ProvisionFormApi }) {
       <form.Field
         name="host"
         validators={{
-          onChange: ({ value }) => (value.trim().length === 0 ? "Host / IP is required" : undefined),
+          onChange: ({ value }) =>
+            value.trim().length === 0 ? "Host / IP is required" : undefined,
         }}
       >
         {(field) => (

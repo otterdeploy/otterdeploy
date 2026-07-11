@@ -18,7 +18,13 @@ export const DEST_TYPE_FIELDS: Record<
     /** `half` fields pair up two-per-row; the rest span the full width.
      *  `required` gates submit — the server rejects a destination missing
      *  these, so the form won't offer one. */
-    config: { key: string; label: string; placeholder?: string; half?: boolean; required?: boolean }[];
+    config: {
+      key: string;
+      label: string;
+      placeholder?: string;
+      half?: boolean;
+      required?: boolean;
+    }[];
     secret: { key: string; label: string }[];
   }
 > = {

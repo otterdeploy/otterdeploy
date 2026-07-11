@@ -14,8 +14,8 @@
  */
 
 import type { Node } from "@otterdeploy/docker";
-import type { OrganizationId, ServerId, SshKeyId } from "@otterdeploy/shared/id";
 import type { ProvisionServerPayload } from "@otterdeploy/jobs";
+import type { OrganizationId, ServerId, SshKeyId } from "@otterdeploy/shared/id";
 
 import { Docker } from "@otterdeploy/docker";
 import { triggerProvisionServer } from "@otterdeploy/jobs";

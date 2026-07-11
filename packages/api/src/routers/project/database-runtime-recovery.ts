@@ -15,8 +15,8 @@ import {
   markDeploymentFailed,
   reconcileDeploySuccess,
 } from "./deployments";
-import { isBuildStillLogging } from "./deployments-list";
 import { ZERO_TASK_STALE_MS } from "./deployments-derive";
+import { isBuildStillLogging } from "./deployments-list";
 import {
   updateDatabaseResourceRuntime,
   updateDatabaseResourceStatus,

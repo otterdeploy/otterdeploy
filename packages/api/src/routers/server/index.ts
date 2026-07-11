@@ -12,8 +12,8 @@ import {
 } from "./handlers";
 import { getServerHealth } from "./health";
 import { getSwarmJoinTokens } from "./join-tokens";
-import { getServerInOrg } from "./queries";
 import { streamProvisionLogs } from "./provision-stream";
+import { getServerInOrg } from "./queries";
 import { removeServerNode } from "./remove-node";
 import { setServerRole } from "./role";
 import { getServerStats } from "./stats";
@@ -185,17 +185,18 @@ export const serverRouter = {
   // Live provisioning output. Auth boundary: the org must own the server row;
   // an unmatched id yields an empty stream (no info leak), same posture as the
   // deployment log tail.
-  provisionLogs: orgScopedProcedure.server.provisionLogs.handler(
-    async function* ({ input, context }) {
-      context.log.set({ target: { type: "server", id: input.id } });
-      const owned = await getServerInOrg({
-        serverId: input.id,
-        organizationId: context.activeOrganizationId,
-      });
-      if (!owned) return;
-      yield* streamProvisionLogs(input.id);
-    },
-  ),
+  provisionLogs: orgScopedProcedure.server.provisionLogs.handler(async function* ({
+    input,
+    context,
+  }) {
+    context.log.set({ target: { type: "server", id: input.id } });
+    const owned = await getServerInOrg({
+      serverId: input.id,
+      organizationId: context.activeOrganizationId,
+    });
+    if (!owned) return;
+    yield* streamProvisionLogs(input.id);
+  }),
 
   retryProvision: requirePermission({ server: ["create"] }).server.retryProvision.handler(
     async ({ input, context, errors }) => {

@@ -76,7 +76,9 @@ describe("script builders", () => {
 
   test("swarm join advertises the mesh address when given", () => {
     const s = swarmJoinScript("TKN", "100.64.0.1:2377", "sudo", "100.64.0.9");
-    expect(s).toContain("docker swarm join --token TKN --advertise-addr 100.64.0.9 100.64.0.1:2377");
+    expect(s).toContain(
+      "docker swarm join --token TKN --advertise-addr 100.64.0.9 100.64.0.1:2377",
+    );
   });
 
   test("tailscale mesh installs + brings up + echoes the mesh IP", () => {
@@ -90,7 +92,9 @@ describe("script builders", () => {
   test("netbird mesh uses the setup key + wt0 interface, with optional mgmt url", () => {
     const s = meshInstallScript("netbird", "nb-setup", "", "https://nb.example.com");
     expect(s).toContain("pkgs.netbird.io/install.sh");
-    expect(s).toContain("netbird up --setup-key 'nb-setup' --management-url https://nb.example.com");
+    expect(s).toContain(
+      "netbird up --setup-key 'nb-setup' --management-url https://nb.example.com",
+    );
     expect(s).toContain("addr show wt0");
   });
 

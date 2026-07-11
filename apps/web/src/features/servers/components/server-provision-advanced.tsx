@@ -109,7 +109,8 @@ export function ProvisionAdvancedSection({ form }: { form: ProvisionFormApi }) {
             <div className="flex flex-col">
               <span className="text-sm font-medium text-foreground">Dedicated build node</span>
               <span className="text-[12px] text-muted-foreground">
-                Labelled for build workloads. Requires a registry so deploy nodes can pull the image.
+                Labelled for build workloads. Requires a registry so deploy nodes can pull the
+                image.
               </span>
             </div>
             <Switch checked={field.state.value} onCheckedChange={(v) => field.handleChange(v)} />
