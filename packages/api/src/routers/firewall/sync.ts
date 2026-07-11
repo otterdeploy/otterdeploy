@@ -3,17 +3,29 @@
  * import pipeline runs INSIDE the agent container in one shell, with the list
  * URL / reason / duration passed as positional args ($1/$2/$3) so a hostile URL
  * can't inject shell. Imported decisions carry `--reason blocklist:<id>` so a
- * re-sync refreshes them and a delete clears exactly this list (they'd also
- * expire after `durationHours` on their own).
+ * delete clears exactly this list (they'd also expire after `durationHours`).
+ *
+ * Each sync REPLACES the list: the previous batch is deleted by scenario
+ * before the import. `cscli decisions import` only ever inserts — without the
+ * delete, every interval stacked another full copy (30-day durations × 3h
+ * intervals grew the agent DB to ~500k live decisions / 190MB, grinding the
+ * LAPI into "database is locked" territory).
  */
 import { cscliRun } from "./cscli";
 import { setBlocklistSyncResult, type BlocklistRow } from "./queries";
 
-// $1 = url, $2 = reason, $3 = duration (e.g. "24h"). curl if present, else wget.
+// $1 = url, $2 = reason, $3 = duration (e.g. "24h"). curl if present, else
+// wget. Fetch lands in a temp file first so a failed/empty download keeps the
+// previous batch enforcing instead of deleting it and importing nothing.
 const IMPORT_SCRIPT =
+  `tmp="$(mktemp)"; ` +
   `(command -v curl >/dev/null 2>&1 && curl -fsSL "$1" || wget -qO- "$1") ` +
-  `| grep -vE '^[[:space:]]*[#;]' | awk 'NF{print $1}' ` +
-  `| cscli decisions import -i /dev/stdin --format values --duration "$3" --reason "$2"`;
+  `| grep -vE '^[[:space:]]*[#;]' | awk 'NF{print $1}' > "$tmp"; ` +
+  `if [ -s "$tmp" ]; then ` +
+  `cscli decisions delete --scenario "$2" >/dev/null 2>&1 || true; ` +
+  `cscli decisions import -i "$tmp" --format values --duration "$3" --reason "$2"; ` +
+  `else echo "Import failed: list download was empty or unreachable"; fi; ` +
+  `rm -f "$tmp"`;
 
 const reasonFor = (id: string) => `blocklist:${id}`;
 
