@@ -5,6 +5,7 @@ import { UpdateBanner } from "@/features/updates";
 
 import { SidebarInset, SidebarProvider } from "@/shared/components/ui/sidebar";
 import { createFileRoute, Outlet, useMatch } from "@tanstack/react-router";
+import { useState } from "react";
 
 /**
  * Operational shell — the pathless chrome wrapping every day-to-day org page
@@ -16,18 +17,32 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell")({
   component: RouteComponent,
 });
 
+/**
+ * SidebarProvider writes the `sidebar_state` cookie on toggle but only ever
+ * seeds its initial state from `defaultOpen` (the shadcn SSR contract) — so in
+ * this SPA the persisted state was ignored and the sidebar reset on every load.
+ * Read the cookie here to restore it, defaulting to OPEN when unset.
+ */
+function readSidebarDefaultOpen(): boolean {
+  if (typeof document === "undefined") return true;
+  const match = document.cookie.match(/(?:^|;\s*)sidebar_state=(true|false)/);
+  return match ? match[1] === "true" : true;
+}
+
 function RouteComponent() {
   const { user } = Route.useRouteContext();
   const match = useMatch({
     from: "/_app/$orgSlug/_shell/$projectSlug",
     shouldThrow: false,
   });
+  // Read once on mount so a re-render never clobbers the live toggle state.
+  const [defaultSidebarOpen] = useState(readSidebarDefaultOpen);
 
   return (
     <div className="[--header-height:calc(--spacing(12))]">
       {/* UpdateProvider lives in the parent $orgSlug layout — both chromes
           consume it (banner here, UpdatesCard in the settings zone). */}
-      <SidebarProvider defaultOpen={false} className="flex flex-col">
+      <SidebarProvider defaultOpen={defaultSidebarOpen} className="flex flex-col">
         {/* Banner lives above the header so it reads as a system-level
             notice about the app, not a bar wedged into the app body. */}
         <UpdateBanner />
