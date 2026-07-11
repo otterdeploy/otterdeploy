@@ -13,26 +13,23 @@ import type {
 } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
-import { deploymentLog } from "@otterdeploy/db/schema/build";
 import { deployment } from "@otterdeploy/db/schema/project";
 import { Docker } from "@otterdeploy/docker";
 import { Result } from "better-result";
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 
 import type { DeploymentRow } from "./deployments";
 import type { DerivedDeploymentStatus, InstanceGlimpse } from "./deployments-derive";
 
-import {
-  BUILD_LOG_QUIET_MS,
-  deriveDeploymentStatus,
-  FAILED_TASK_COUNT_STATES,
-  ZERO_TASK_STALE_MS,
-} from "./deployments-derive";
-import { emitDeploySucceeded } from "./deployments-emit";
-import { PostgresResourceNotFoundError, ProjectNotFoundError } from "./errors";
 import { loadPreviewScope } from "../../lib/environment/load";
 import { runtimeServiceName } from "../../lib/environment/scoping";
-import { publishResourceChanged } from "./project-event-bus";
+import { deriveDeploymentStatus, FAILED_TASK_COUNT_STATES } from "./deployments-derive";
+import {
+  isBuildStillLogging,
+  reconcileDeployFailure,
+  reconcileDeploySuccess,
+} from "./deployments-reconcile";
+import { PostgresResourceNotFoundError, ProjectNotFoundError } from "./errors";
 import { getProjectInOrg, getProjectRecord } from "./queries";
 import { getResourceById } from "./queries/resource";
 import { listResourceInstances } from "./resource-instances";
@@ -43,6 +40,13 @@ type ResolvedResource = NonNullable<Awaited<ReturnType<typeof getResourceById>>>
 
 export { deriveDeploymentStatus } from "./deployments-derive";
 export type { DerivedDeploymentStatus } from "./deployments-derive";
+// Settlement writers moved to a sibling under the file cap; re-exported so
+// call sites keep importing from the list module.
+export {
+  isBuildStillLogging,
+  reconcileDeployFailure,
+  reconcileDeploySuccess,
+} from "./deployments-reconcile";
 
 export interface DeploymentWithStats {
   id: DeploymentId;
@@ -92,82 +96,6 @@ async function listDeploymentsByResource(
     )
     .orderBy(desc(deployment.createdAt));
   return rows as DeploymentRow[];
-}
-
-/**
- * Persist the building/pending → running flip for deployments whose tasks have
- * come up, and emit `deploy.succeeded` exactly once per deployment. The
- * conditional UPDATE (status still building/pending) is the concurrency guard:
- * only the caller whose update actually changes a row emits, so concurrent
- * list requests can't double-fire. This is the "success detector" — the list
- * read reconciles lazily, and provisioning paths that already waited for the
- * container to come up call it eagerly so the Deployments card flips in the
- * same moment as the live runtime badge instead of a poll later.
- */
-export async function reconcileDeploySuccess(
-  deploymentIds: DeploymentId[],
-  resourceId: ResourceId,
-): Promise<void> {
-  for (const id of deploymentIds) {
-    const flipped = await db
-      .update(deployment)
-      .set({ status: "running", completedAt: new Date() })
-      .where(and(eq(deployment.id, id), inArray(deployment.status, ["building", "pending"])))
-      .returning({ id: deployment.id });
-    if (flipped.length > 0) {
-      void publishResourceChanged(resourceId);
-      await emitDeploySucceeded({ deploymentId: id, resourceId });
-    }
-  }
-}
-
-const STALE_BUILD_MESSAGE =
-  "No container appeared and the build produced no output for over 3 minutes — " +
-  "the build process likely died or was never picked up (is the builder running?).";
-
-/**
- * Persist the stale zero-task building/pending → failed flip the derivation
- * decided on, and emit `deploy.failed` exactly once. Mirror of
- * `reconcileDeploySuccess`: the conditional UPDATE (status still
- * building/pending) is the concurrency guard, so concurrent list reads can't
- * double-fire, and a builder that grabs the row at the same moment wins.
- */
-export async function reconcileDeployFailure(deploymentIds: DeploymentId[]): Promise<void> {
-  const { markDeploymentFailed } = await import("./deployments");
-  for (const id of deploymentIds) {
-    const flipped = await db
-      .update(deployment)
-      .set({ status: "failed", errorMessage: STALE_BUILD_MESSAGE, completedAt: new Date() })
-      .where(and(eq(deployment.id, id), inArray(deployment.status, ["building", "pending"])))
-      .returning({ id: deployment.id });
-    // markDeploymentFailed re-writes the same terminal values (harmless) and
-    // owns the publish + deploy.failed notification plumbing.
-    if (flipped.length > 0) await markDeploymentFailed(id, STALE_BUILD_MESSAGE);
-  }
-}
-
-/**
- * Is the latest deployment's build still producing output? Only consulted
- * when the zero-task stale window would flip it to "failed" — one indexed
- * lookup for the newest log line, skipped entirely on the happy paths.
- */
-export async function isBuildStillLogging(
-  // Only `id`/`status`/`createdAt` are read — a Pick lets the project-wide
-  // feed's snapshot-free JoinedRow reuse this without carrying the full row.
-  latest: Pick<DeploymentRow, "id" | "status" | "createdAt"> | undefined,
-  tasksByDeployment: Map<string, InstanceGlimpse[]>,
-): Promise<boolean> {
-  if (!latest) return false;
-  if (latest.status !== "building" && latest.status !== "pending") return false;
-  if ((tasksByDeployment.get(latest.id) ?? []).length > 0) return false;
-  if (Date.now() - latest.createdAt.getTime() <= ZERO_TASK_STALE_MS) return false;
-  const [lastLine] = await db
-    .select({ ts: deploymentLog.ts })
-    .from(deploymentLog)
-    .where(eq(deploymentLog.deploymentId, latest.id))
-    .orderBy(desc(deploymentLog.seq))
-    .limit(1);
-  return lastLine != null && Date.now() - lastLine.ts.getTime() < BUILD_LOG_QUIET_MS;
 }
 
 // Resolve the swarm service name backing a resource — postgres uses the
