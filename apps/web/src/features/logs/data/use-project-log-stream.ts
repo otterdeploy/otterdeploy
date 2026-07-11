@@ -13,6 +13,7 @@ import { useMemo } from "react";
 import { displayServiceName } from "@/shared/lib/service-name";
 import { orpc } from "@/shared/server/orpc";
 
+import { classifyLogSeverity } from "../components/log-severity";
 import { useLogStream, type LogStreamStatus } from "./use-log-stream";
 
 export const LOG_LEVELS = ["debug", "info", "warn", "error"] as const;
@@ -53,12 +54,17 @@ interface UseProjectLogStreamArgs {
   bufferSize?: number;
 }
 
+/** Level from the line's CONTENT first (shared heuristic with the build-log
+ *  viewer — catches `TypeError`, `Failed …`, `⨯`, stack frames), falling back
+ *  to the stream only when the content says nothing. A bare `\bERROR\b` check
+ *  here used to miss `TypeError: …`/`Failed to …` lines entirely, painting
+ *  real exceptions as stderr-warnings. */
 function inferLevel(stream: "stdout" | "stderr" | "system", line: string): LogLevel {
   if (stream === "system") return "debug";
-  if (/\b(ERROR|FATAL|PANIC)\b/i.test(line) || line.startsWith("panic:")) {
-    return "error";
-  }
-  if (/\bWARN(ING)?\b/i.test(line)) return "warn";
+  if (line.startsWith("panic:")) return "error";
+  const severity = classifyLogSeverity(line);
+  if (severity === "error") return "error";
+  if (severity === "warn") return "warn";
   return stream === "stderr" ? "warn" : "info";
 }
 

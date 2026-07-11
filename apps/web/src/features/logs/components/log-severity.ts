@@ -21,7 +21,7 @@ const SEVERITY_PATTERNS: ReadonlyArray<readonly [Exclude<LogSeverity, "normal">,
     [
       /(^|[^a-z])(error|fatal|panic|failed|failure|exception|traceback)([^a-z]|$)/i,
       /\b[A-Z]\w*Error\b/, // TypeError, ReferenceError, …
-      /[✖✗]/,
+      /[✖✗⨯]/, // incl. U+2A2F — Next.js prefixes runtime errors with it
       /^at\s+\S/, // stack frame — keeps a whole trace one contiguous red block
       /^\.\.\.\s*\d+\s*lines? matching/i,
       /^cause:/i,
