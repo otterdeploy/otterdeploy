@@ -115,6 +115,25 @@ function edgeLogGlobalLines(sink: string): string[] {
   return ["\tlog {", `\t\toutput net ${sink}`, "\t\tformat json", "\t}"];
 }
 
+/** Mirror every site's access logs to a rolled JSON file for the CrowdSec
+ *  agent to parse (http scenarios: brute force, CVE probes, crawlers). A
+ *  single global capture logger — `include http.log.access` matches every
+ *  per-site access logger — so no site block changes. The file lands on the
+ *  shared `otterdeploy-caddy-logs` volume the agent reads read-only; see the
+ *  crowdsec service's acquis config in docker-compose.yml. */
+function crowdsecAccessFileLines(): string[] {
+  return [
+    "\tlog crowdsec-access {",
+    "\t\tinclude http.log.access",
+    "\t\toutput file /var/log/caddy/access.json {",
+    "\t\t\troll_size 20MiB",
+    "\t\t\troll_keep 2",
+    "\t\t}",
+    "\t\tformat json",
+    "\t}",
+  ];
+}
+
 /** Single source of truth for the global block. ACME registration email
  *  is required by Let's Encrypt for any non-internal cert; omitted when
  *  no usesAcme route exists so a pure-internal install doesn't need to
@@ -236,6 +255,12 @@ function buildGlobalBlock(o: GlobalBlockOptions): string[] {
   }
   if (o.edgeLogSink) {
     lines.push(...edgeLogGlobalLines(o.edgeLogSink));
+  }
+  // Access-log file for CrowdSec's parsers: only when the bouncer is wired
+  // (no point writing files nobody reads) AND sites emit access logs at all
+  // (they only do when the edge-log sink is configured).
+  if (o.crowdsec && o.edgeLogSink) {
+    lines.push(...crowdsecAccessFileLines());
   }
   if (o.layer4Routes.length > 0) {
     lines.push(buildLayer4Block(o.layer4Routes));

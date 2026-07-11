@@ -24,6 +24,7 @@ import { decryptSecret, encryptSecret } from "../../lib/crypto";
 import { getSshKeyInOrg } from "../sshKeys/queries";
 import { getSwarmJoinTokens } from "./join-tokens";
 import { type MeshProvider, runRemoteProvision } from "./provision";
+import { installNodeFirewallBouncer } from "./provision-firewall";
 import { emitProvisionLine, endProvisionStream } from "./provision-stream";
 import { patchServerProvision } from "./queries";
 import { SshSession } from "./ssh-exec";
@@ -130,6 +131,14 @@ export async function runProvisionJob(payload: ProvisionServerPayload): Promise<
                 },
           cloudflareTunnelToken: cloudflareToken ?? undefined,
         },
+        emit,
+      );
+      // Best-effort: extend edge bans to this node's own traffic (SSH,
+      // published ports) via a per-node firewall bouncer against our LAPI.
+      // Narrates skips/failures itself and never fails the provision.
+      await installNodeFirewallBouncer(
+        session,
+        { nodeHost: payload.host, managerAddr, privilege: result.probe.privilege },
         emit,
       );
     } finally {
