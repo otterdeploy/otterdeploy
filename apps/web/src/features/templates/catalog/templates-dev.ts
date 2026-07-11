@@ -3,6 +3,88 @@ import type { StackTemplate } from "./types";
 
 export const DEV_TEMPLATES: StackTemplate[] = [
   {
+    id: "authentik",
+    name: "Authentik",
+    description:
+      "Self-hosted identity provider — SSO, OAuth2/OIDC, SAML, and LDAP with a policy engine. Server and worker share a bundled Postgres and Redis; both persist to named volumes.",
+    category: "security",
+    includes: ["server", "worker", "db", "redis"],
+    requiredEnv: [
+      {
+        key: "SECRET_KEY",
+        description: "Signing key for sessions and tokens — keep stable across restarts.",
+        generateHint: "openssl rand -base64 60",
+      },
+      {
+        key: "POSTGRES_PASSWORD",
+        description: "Password for the bundled authentik Postgres.",
+        generateHint: "openssl rand -base64 24",
+      },
+    ],
+    logoBrand: "Authentik",
+    docsUrl: "https://docs.goauthentik.io/docs/install-config/install/docker-compose",
+    compose: `name: authentik
+services:
+  server:
+    image: ghcr.io/goauthentik/server:2026.5.4
+    command: server
+    depends_on:
+      - db
+      - redis
+    environment:
+      AUTHENTIK_SECRET_KEY: \${SECRET_KEY}
+      AUTHENTIK_POSTGRESQL__HOST: db
+      AUTHENTIK_POSTGRESQL__USER: authentik
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_POSTGRESQL__PASSWORD: \${POSTGRES_PASSWORD}
+      AUTHENTIK_REDIS__HOST: redis
+    ports:
+      - "9000"
+    restart: always
+  worker:
+    image: ghcr.io/goauthentik/server:2026.5.4
+    command: worker
+    depends_on:
+      - db
+      - redis
+    environment:
+      AUTHENTIK_SECRET_KEY: \${SECRET_KEY}
+      AUTHENTIK_POSTGRESQL__HOST: db
+      AUTHENTIK_POSTGRESQL__USER: authentik
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_POSTGRESQL__PASSWORD: \${POSTGRES_PASSWORD}
+      AUTHENTIK_REDIS__HOST: redis
+    restart: always
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: authentik
+      POSTGRES_PASSWORD: \${POSTGRES_PASSWORD}
+      POSTGRES_DB: authentik
+    volumes:
+      - authentik-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U authentik"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - authentik-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+volumes:
+  authentik-db:
+  authentik-redis:
+`,
+  },
+  {
     id: "vaultwarden",
     name: "Vaultwarden",
     description:
@@ -66,7 +148,7 @@ volumes:
     compose: `name: gitea
 services:
   gitea:
-    image: gitea/gitea:1.22
+    image: gitea/gitea:1.26
     depends_on:
       - db
     environment:

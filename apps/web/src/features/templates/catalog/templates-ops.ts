@@ -52,7 +52,7 @@ volumes:
     compose: `name: uptime-kuma
 services:
   uptime-kuma:
-    image: louislam/uptime-kuma:1
+    image: louislam/uptime-kuma:2
     ports:
       - "3001"
     volumes:
@@ -85,7 +85,7 @@ volumes:
     compose: `name: grafana
 services:
   grafana:
-    image: grafana/grafana-oss:11.2.0
+    image: grafana/grafana-oss:13.0.2
     depends_on:
       - prometheus
     environment:
@@ -102,7 +102,7 @@ services:
       retries: 5
     restart: always
   prometheus:
-    image: prom/prometheus:v2.54.1
+    image: prom/prometheus:v3.13.1
     volumes:
       - prometheus-data:/prometheus
     healthcheck:

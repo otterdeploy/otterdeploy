@@ -5,17 +5,29 @@ import { AwsDark } from "@/shared/components/ui/svgs/aws-dark";
 import { AwsLight } from "@/shared/components/ui/svgs/aws-light";
 import { Azure } from "@/shared/components/ui/svgs/azure";
 import { Bitbucket } from "@/shared/components/ui/svgs/bitbucket";
+import { Directus } from "@/shared/components/ui/svgs/directus";
 import { Discord } from "@/shared/components/ui/svgs/discord";
 import { Docker } from "@/shared/components/ui/svgs/docker";
+import { Excalidraw } from "@/shared/components/ui/svgs/excalidraw";
 import { Firebase } from "@/shared/components/ui/svgs/firebase";
+import { Ghost } from "@/shared/components/ui/svgs/ghost";
 import { Gitea } from "@/shared/components/ui/svgs/gitea";
 import { Github } from "@/shared/components/ui/svgs/github";
 import { Gitlab } from "@/shared/components/ui/svgs/gitlab";
 import { GoogleCloud } from "@/shared/components/ui/svgs/google-cloud";
+import { Grafana } from "@/shared/components/ui/svgs/grafana";
 import { Harbor } from "@/shared/components/ui/svgs/harbor";
+import { Metabase } from "@/shared/components/ui/svgs/metabase";
+import { Minio } from "@/shared/components/ui/svgs/minio";
+import { N8n } from "@/shared/components/ui/svgs/n8n";
+import { Nocodb } from "@/shared/components/ui/svgs/nocodb";
 import { Pagerduty } from "@/shared/components/ui/svgs/pagerduty";
+import { Plausible } from "@/shared/components/ui/svgs/plausible";
 import { Slack } from "@/shared/components/ui/svgs/slack";
 import { Telegram } from "@/shared/components/ui/svgs/telegram";
+import { Umami } from "@/shared/components/ui/svgs/umami";
+import { UptimeKuma } from "@/shared/components/ui/svgs/uptime-kuma";
+import { Vaultwarden } from "@/shared/components/ui/svgs/vaultwarden";
 
 type BrandKey =
   | "GitHub"
@@ -31,7 +43,20 @@ type BrandKey =
   | "Firebase"
   | "Google Cloud"
   | "AWS"
-  | "Azure";
+  | "Azure"
+  // Stack-template service brands (see features/templates catalog `logoBrand`).
+  | "Ghost"
+  | "Directus"
+  | "Plausible"
+  | "Umami"
+  | "Metabase"
+  | "MinIO"
+  | "NocoDB"
+  | "n8n"
+  | "Uptime Kuma"
+  | "Grafana"
+  | "Vaultwarden"
+  | "Excalidraw";
 
 interface Props {
   search: string;
@@ -76,6 +101,18 @@ const staticBrands: Record<Exclude<BrandKey, "AWS">, SvgComponent> = {
   Firebase,
   "Google Cloud": GoogleCloud,
   Azure,
+  Ghost,
+  Directus,
+  Plausible,
+  Umami,
+  Metabase,
+  MinIO: Minio,
+  NocoDB: Nocodb,
+  n8n: N8n,
+  "Uptime Kuma": UptimeKuma,
+  Grafana,
+  Vaultwarden,
+  Excalidraw,
 };
 
 export function SvglLogo({

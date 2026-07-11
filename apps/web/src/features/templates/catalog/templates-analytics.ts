@@ -20,6 +20,11 @@ export const ANALYTICS_TEMPLATES: StackTemplate[] = [
         generateHint: "openssl rand -base64 48",
       },
       {
+        key: "TOTP_VAULT_KEY",
+        description: "Key that encrypts 2FA/TOTP secrets at rest (required since v3) — a 32-byte key.",
+        generateHint: "openssl rand -base64 32",
+      },
+      {
         key: "POSTGRES_PASSWORD",
         description: "Password for the postgres superuser.",
         generateHint: "openssl rand -base64 24",
@@ -30,7 +35,7 @@ export const ANALYTICS_TEMPLATES: StackTemplate[] = [
     compose: `name: plausible
 services:
   plausible:
-    image: ghcr.io/plausible/community-edition:v2.1
+    image: ghcr.io/plausible/community-edition:v3.2.1
     command: sh -c "/entrypoint.sh db createdb && /entrypoint.sh db migrate && /entrypoint.sh run"
     depends_on:
       - db
@@ -38,6 +43,7 @@ services:
     environment:
       BASE_URL: \${BASE_URL}
       SECRET_KEY_BASE: \${SECRET_KEY_BASE}
+      TOTP_VAULT_KEY: \${TOTP_VAULT_KEY}
       DATABASE_URL: postgres://postgres:\${POSTGRES_PASSWORD}@db:5432/plausible_db
       CLICKHOUSE_DATABASE_URL: http://events-db:8123/plausible_events_db
     ports:
@@ -57,7 +63,9 @@ services:
       retries: 5
     restart: always
   events-db:
-    image: clickhouse/clickhouse-server:24.3-alpine
+    image: clickhouse/clickhouse-server:24.12-alpine
+    environment:
+      CLICKHOUSE_SKIP_USER_SETUP: "1"
     volumes:
       - plausible-events-db:/var/lib/clickhouse
     healthcheck:

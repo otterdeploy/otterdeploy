@@ -25,7 +25,7 @@ export const CMS_TEMPLATES: StackTemplate[] = [
     compose: `name: ghost
 services:
   ghost:
-    image: ghost:5-alpine
+    image: ghost:6-alpine
     depends_on:
       - db
     environment:
@@ -90,7 +90,7 @@ volumes:
     compose: `name: directus
 services:
   directus:
-    image: directus/directus:11
+    image: directus/directus:12
     depends_on:
       - db
     environment:

@@ -7,6 +7,7 @@ import type { StackTemplate, TemplateCategoryId } from "./types";
 
 import { ANALYTICS_TEMPLATES } from "./templates-analytics";
 import { CMS_TEMPLATES } from "./templates-cms";
+import { CRM_TEMPLATES } from "./templates-crm";
 import { DATA_TEMPLATES } from "./templates-data";
 import { DEV_TEMPLATES } from "./templates-dev";
 import { OPS_TEMPLATES } from "./templates-ops";
@@ -16,6 +17,7 @@ export { TEMPLATE_CATEGORIES } from "./types";
 
 export const TEMPLATES: StackTemplate[] = [
   ...CMS_TEMPLATES,
+  ...CRM_TEMPLATES,
   ...ANALYTICS_TEMPLATES,
   ...OPS_TEMPLATES,
   ...DATA_TEMPLATES,
