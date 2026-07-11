@@ -21,7 +21,8 @@ export const ANALYTICS_TEMPLATES: StackTemplate[] = [
       },
       {
         key: "TOTP_VAULT_KEY",
-        description: "Key that encrypts 2FA/TOTP secrets at rest (required since v3) — a 32-byte key.",
+        description:
+          "Key that encrypts 2FA/TOTP secrets at rest (required since v3) — a 32-byte key.",
         generateHint: "openssl rand -base64 32",
       },
       {

@@ -1,4 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
+
 import { describe, expect, it } from "vite-plus/test";
 
 import { Markdown } from "./markdown";
@@ -43,7 +44,9 @@ describe("Markdown", () => {
       "**Full Changelog**: https://github.com/otterdeploy/otterdeploy/compare/v0.4.2...v0.4.3",
     );
     expect(out).toContain("<strong");
-    expect(out).toContain('href="https://github.com/otterdeploy/otterdeploy/compare/v0.4.2...v0.4.3"');
+    expect(out).toContain(
+      'href="https://github.com/otterdeploy/otterdeploy/compare/v0.4.2...v0.4.3"',
+    );
   });
 
   it("refuses unsafe link schemes (no javascript: href)", () => {
@@ -88,6 +91,8 @@ describe("Markdown", () => {
     expect(out).toContain(">What&#x27;s Changed</h2>");
     expect((out.match(/<li/g) ?? []).length).toBe(2);
     expect(out).toContain("<strong");
-    expect(out).toContain('href="https://github.com/otterdeploy/otterdeploy/compare/v0.4.2...v0.4.3"');
+    expect(out).toContain(
+      'href="https://github.com/otterdeploy/otterdeploy/compare/v0.4.2...v0.4.3"',
+    );
   });
 });

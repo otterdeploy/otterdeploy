@@ -177,10 +177,7 @@ function parseBlocks(src: string): ReactNode[] {
         i++;
       }
       blocks.push(
-        <blockquote
-          key={k()}
-          className="my-2 border-l-2 border-border pl-3 text-muted-foreground"
-        >
+        <blockquote key={k()} className="my-2 border-l-2 border-border pl-3 text-muted-foreground">
           {parseInline(quote.join(" "))}
         </blockquote>,
       );
@@ -248,5 +245,7 @@ function parseBlocks(src: string): ReactNode[] {
 export function Markdown({ children, className }: { children: string; className?: string }) {
   const trimmed = children?.trim();
   if (!trimmed) return null;
-  return <div className={cn("text-[12.5px] text-foreground/90", className)}>{parseBlocks(trimmed)}</div>;
+  return (
+    <div className={cn("text-[12.5px] text-foreground/90", className)}>{parseBlocks(trimmed)}</div>
+  );
 }
