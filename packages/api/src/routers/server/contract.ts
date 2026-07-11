@@ -1,10 +1,13 @@
-import { oc } from "@orpc/contract";
+import { eventIterator, oc } from "@orpc/contract";
 import { server } from "@otterdeploy/db/schema";
+import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 import { createSelectSchema } from "drizzle-zod";
 import * as z from "zod";
 
 import { serverIdField } from "../project/contract/shared";
 import { hostHealthSchema } from "../system/contract";
+
+const sshKeyIdField = zId(ID_PREFIX.sshKey);
 const tag = "server";
 const basePath = "/servers";
 
@@ -49,6 +52,44 @@ const createServerInput = z.object({
 const deleteServerInput = z.object({
   id: serverIdField,
 });
+
+/**
+ * SSH-provision a fresh host into the swarm (docs/designs/server-onboarding.md).
+ * Auth is either a managed key (`sshKeyId`) or a one-time `password`; the
+ * handler rejects neither/both. Returns the row in `provisioning` state — the
+ * live output streams over `provisionLogs`.
+ */
+const provisionServerInput = z.object({
+  id: serverIdField.optional(),
+  name: z.string().min(1),
+  host: z.string().min(1),
+  sshUser: z.string().min(1).default("root"),
+  sshPort: z.number().int().min(1).max(65535).default(22),
+  role: z.enum(["manager", "worker"]).default("worker"),
+  /** Managed key to authenticate with (must be a generated key we hold). */
+  sshKeyId: sshKeyIdField.optional(),
+  /** One-time bootstrap password — used for this run only, never stored. */
+  password: z.string().min(1).optional(),
+  /** Dedicated build node — labelled `otterdeploy.role=build` in the swarm. */
+  buildServer: z.boolean().default(false),
+  /** WireGuard mesh to join before the swarm join. `none` = public join. */
+  meshProvider: z.enum(["none", "tailscale", "netbird"]).default("none"),
+  /** Self-hosted NetBird management URL; omit for the hosted service. */
+  meshManagementUrl: z.string().optional(),
+  /** Tailnet auth key / NetBird setup key — one-time, never stored. */
+  meshAuthKey: z.string().optional(),
+  /** Cloudflare Tunnel connector token — installs cloudflared, never stored. */
+  cloudflareToken: z.string().optional(),
+});
+
+const provisionLogsInput = z.object({ id: serverIdField });
+
+const provisionLineSchema = z.object({
+  line: z.string(),
+  ts: z.string(),
+});
+
+const retryProvisionInput = z.object({ id: serverIdField });
 
 /**
  * `docker node update --availability` for a swarm node, resolved from the
@@ -305,4 +346,38 @@ export const serverContract = {
     .meta({ path: `${basePath}/join-tokens`, tag, method: "GET" })
     .input(joinTokensInput)
     .output(swarmJoinTokensSchema),
+  provision: oc
+    .errors({
+      CONFLICT: {
+        status: 409,
+        message: "Server with this host is already registered" as const,
+      },
+      BAD_REQUEST: {
+        status: 400,
+        message: "Provide exactly one SSH credential — a managed key or a password" as const,
+      },
+    })
+    .meta({ path: `${basePath}/provision`, tag, method: "POST" })
+    .input(provisionServerInput)
+    .output(serverSchema),
+  provisionLogs: oc
+    .meta({ path: `${basePath}/{id}/provision-logs`, tag, method: "GET" })
+    .input(provisionLogsInput)
+    .output(eventIterator(provisionLineSchema)),
+  retryProvision: oc
+    .errors({
+      NOT_FOUND: { status: 404, message: "Server not found" as const },
+      NOT_FAILED: {
+        status: 409,
+        message: "Only a failed provisioning run can be retried" as const,
+      },
+      MISSING_CREDENTIAL: {
+        status: 409,
+        message:
+          "This server was provisioned with a one-time password — re-add it to retry (the password isn't stored)" as const,
+      },
+    })
+    .meta({ path: `${basePath}/{id}/retry-provision`, tag, method: "POST" })
+    .input(retryProvisionInput)
+    .output(serverSchema),
 };

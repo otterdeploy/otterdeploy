@@ -10,6 +10,7 @@ export {
   triggerEmailBatch,
   runHourlyCleanupNow,
   triggerDeploy,
+  triggerProvisionServer,
   triggerPlatformEvent,
   triggerWebhookEvent,
   triggerWebhookDelivery,
@@ -23,6 +24,7 @@ export type {
   DataProcessingPayload,
   UserSignupPayload,
   DeployTriggeredPayload,
+  ProvisionServerPayload,
 } from "./triggers";
 export { buildWebhookBody } from "./jobs/webhook";
 
