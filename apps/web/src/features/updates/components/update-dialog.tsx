@@ -19,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/components/ui/dialog";
+import { Markdown } from "@/shared/components/ui/markdown";
 import { orpc } from "@/shared/server/orpc";
 
 import { useUpdateStatus } from "../data/use-update-status";
@@ -101,9 +102,9 @@ export function UpdateDialog({
               <div className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
                 Release notes
               </div>
-              <pre className="max-h-[280px] overflow-auto rounded-md border bg-muted/40 p-3 font-mono text-[11.5px] leading-relaxed whitespace-pre-wrap text-foreground/80">
+              <Markdown className="max-h-[280px] overflow-auto rounded-md border bg-muted/40 px-3 py-1.5">
                 {status.notes}
-              </pre>
+              </Markdown>
             </div>
           )
         )}
