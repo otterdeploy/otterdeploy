@@ -68,9 +68,6 @@ const PROVISIONERS: Record<DatabaseEngine, DatabaseProvisioner> = {
   mariadb: makeProvisioner("mariadb"),
   mongodb: makeProvisioner("mongodb"),
   clickhouse: makeProvisioner("clickhouse"),
-  rabbitmq: makeProvisioner("rabbitmq"),
-  minio: makeProvisioner("minio"),
-  meilisearch: makeProvisioner("meilisearch"),
 };
 
 export function getDatabaseProvisioner(engine: DatabaseEngine): DatabaseProvisioner {

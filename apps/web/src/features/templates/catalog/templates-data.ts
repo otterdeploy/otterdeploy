@@ -99,4 +99,125 @@ volumes:
   nocodb-db:
 `,
   },
+  {
+    id: "rustfs",
+    name: "RustFS",
+    description:
+      "High-performance, S3-compatible object storage written in Rust — a MinIO alternative. Serves the S3 API on 9000 with a web console on 9001; objects persist to a named volume.",
+    category: "data",
+    includes: ["rustfs"],
+    requiredEnv: [
+      {
+        key: "RUSTFS_ACCESS_KEY",
+        description: "Root access key (S3 access key ID).",
+      },
+      {
+        key: "RUSTFS_SECRET_KEY",
+        description: "Root secret key (S3 secret access key).",
+        generateHint: "openssl rand -base64 24",
+      },
+    ],
+    logoBrand: "RustFS",
+    docsUrl: "https://docs.rustfs.com/",
+    compose: `name: rustfs
+services:
+  rustfs:
+    image: rustfs/rustfs:latest
+    environment:
+      RUSTFS_ACCESS_KEY: \${RUSTFS_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: \${RUSTFS_SECRET_KEY}
+      RUSTFS_VOLUMES: /data
+      RUSTFS_ADDRESS: 0.0.0.0:9000
+      RUSTFS_CONSOLE_ADDRESS: 0.0.0.0:9001
+      RUSTFS_CONSOLE_ENABLE: "true"
+    ports:
+      - "9000"
+      - "9001"
+    volumes:
+      - rustfs-data:/data
+    restart: always
+volumes:
+  rustfs-data:
+`,
+  },
+  {
+    id: "rabbitmq",
+    name: "RabbitMQ",
+    description:
+      "Reliable message broker speaking AMQP (and more). Ships the management image so the web UI is available on 15672 alongside the AMQP port 5672; state persists to a named volume.",
+    category: "data",
+    includes: ["rabbitmq"],
+    requiredEnv: [
+      {
+        key: "RABBITMQ_USER",
+        description: "Default broker username.",
+      },
+      {
+        key: "RABBITMQ_PASSWORD",
+        description: "Password for the default broker user.",
+        generateHint: "openssl rand -base64 24",
+      },
+    ],
+    logoBrand: "RabbitMQ",
+    docsUrl: "https://www.rabbitmq.com/docs/download",
+    compose: `name: rabbitmq
+services:
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    environment:
+      RABBITMQ_DEFAULT_USER: \${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: \${RABBITMQ_PASSWORD}
+    ports:
+      - "5672"
+      - "15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: always
+volumes:
+  rabbitmq-data:
+`,
+  },
+  {
+    id: "meilisearch",
+    name: "Meilisearch",
+    description:
+      "Lightning-fast, typo-tolerant search engine with a simple REST API. A single service on port 7700; the index persists to a named volume.",
+    category: "data",
+    includes: ["meilisearch"],
+    requiredEnv: [
+      {
+        key: "MEILI_MASTER_KEY",
+        description: "Master key protecting the API — at least 16 bytes.",
+        generateHint: "openssl rand -base64 32",
+      },
+    ],
+    logoBrand: "Meilisearch",
+    docsUrl:
+      "https://www.meilisearch.com/docs/learn/self_hosted/getting_started_with_self_hosted_meilisearch",
+    compose: `name: meilisearch
+services:
+  meilisearch:
+    image: getmeili/meilisearch:v1.49.0
+    environment:
+      MEILI_MASTER_KEY: \${MEILI_MASTER_KEY}
+      MEILI_ENV: \${MEILI_ENV:-production}
+    ports:
+      - "7700"
+    volumes:
+      - meili-data:/meili_data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7700/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+volumes:
+  meili-data:
+`,
+  },
 ];

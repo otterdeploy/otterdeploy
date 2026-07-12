@@ -6,6 +6,7 @@ import { projectScopedProcedure, requirePermission } from "../..";
 import { removeResourceDir } from "../../lib/data-dir";
 import { parseCompose, summarizeCompose } from "../../stack/compose";
 import { removeComposeStack } from "../../swarm";
+import { removeComposeFromManifest } from "../project/manifest";
 import { getProjectInOrg } from "../project/queries";
 import { enqueueComposeBuild, enqueueInlineComposeBuild } from "./build-trigger";
 import { cleanupOrphanedComposeVars } from "./cleanup-vars";
@@ -198,6 +199,13 @@ export const composeRouter = {
       await removeComposeStack({ resourceId: input.resourceId }, context.log);
       await removeComposeDomains(input.resourceId);
       await deleteComposeRecord(input.projectId, input.resourceId);
+      // Drop the stack from the project manifest too. Otherwise it lingers in
+      // `manifest.composes` and the next diff re-stages a phantom `create` — the
+      // "pending create" ghost that reappears after delete and then fails.
+      await removeComposeFromManifest(
+        { projectId: input.projectId, organizationId: context.activeOrganizationId },
+        rec.resource.name,
+      );
       // Drop the stack's host artifact dir (deleteComposeRecord removes the row
       // directly, bypassing deleteResourceById's cleanup). No-op unless the data
       // folder is in use.

@@ -26,7 +26,7 @@ export function SiteHeader() {
   const overlay = useResourceOverlay();
 
   return (
-    <header className="sticky top-0 z-50 flex w-full items-center border-b bg-background">
+    <header className="z-50 flex w-full items-center border-b bg-background">
       <div className="flex h-12 w-full items-center gap-2 px-3">
         <Link
           to="/$orgSlug"

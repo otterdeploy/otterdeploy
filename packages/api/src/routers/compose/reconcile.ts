@@ -22,7 +22,11 @@ import { eq } from "drizzle-orm";
 
 import { deleteProxyRoutesByResource } from "../../caddy/queries";
 import { runtime } from "../../runtime";
-import { type ParsedCompose, type ParsedComposeService } from "../../stack/compose";
+import {
+  composeSwarmServiceName,
+  type ParsedCompose,
+  type ParsedComposeService,
+} from "../../stack/compose";
 import { insertDeployment, markDeploymentFailed } from "../project/deployments";
 import { deleteResourceById } from "../project/queries";
 import {
@@ -83,7 +87,16 @@ export async function reconcileStackServices(
     return raw ? interpolate(raw, ctx.projectVars) : null;
   };
 
-  const desired = new Set<string>();
+  // Services the file DECLARES — the teardown loop below only removes rows NOT
+  // in this set. Derive it from the parsed file, never from what deployed:
+  // serviceName is image-independent (stackName + compose key), so a service
+  // whose image can't resolve on a given reconcile (build not finished, a
+  // transient pull miss) stays protected and is merely marked failed — it must
+  // never be hard-deleted. Keying this off successful deploys is what let a
+  // partial reconcile silently destroy stack members (4 services → 1).
+  const desired = new Set<string>(
+    parsed.services.map((svc) => composeSwarmServiceName(ctx.stackName, svc.name)),
+  );
   const failed: string[] = [];
   let deployed = 0;
   const progress = ctx.deployLog ?? (() => undefined);

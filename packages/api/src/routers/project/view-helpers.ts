@@ -55,9 +55,6 @@ const ENGINE_SERVICE_PREFIX: Record<DatabaseEngine, string> = {
   redis: "redis",
   mongodb: "mongo",
   clickhouse: "ch",
-  rabbitmq: "rmq",
-  minio: "minio",
-  meilisearch: "meili",
 };
 
 const ENGINE_VOLUME_PREFIX: Record<DatabaseEngine, string> = {
@@ -66,9 +63,6 @@ const ENGINE_VOLUME_PREFIX: Record<DatabaseEngine, string> = {
   redis: "redisdata",
   mongodb: "mongodata",
   clickhouse: "chdata",
-  rabbitmq: "rmqdata",
-  minio: "miniodata",
-  meilisearch: "meilidata",
 };
 
 export function buildContainerName(input: {

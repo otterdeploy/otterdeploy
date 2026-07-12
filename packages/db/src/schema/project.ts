@@ -305,9 +305,6 @@ export const databaseEngineEnum = pgEnum("database_engine", [
   "mariadb",
   "mongodb",
   "clickhouse",
-  "rabbitmq",
-  "minio",
-  "meilisearch",
 ]);
 
 // Strategy a COW database branch was materialized with (shared value set with

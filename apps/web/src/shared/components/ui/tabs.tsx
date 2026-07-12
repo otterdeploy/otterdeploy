@@ -176,19 +176,34 @@ function TabsContents({
     const el = containerRef.current;
     if (!el) return;
 
+    // Measure the active panel — the one BaseUI leaves without `hidden`. Skip
+    // zero-height reads so a panel caught mid-toggle (or an async body that
+    // hasn't laid out yet) never animates the container to a collapsed frame.
     const measure = () => {
       for (const child of Array.from(el.children)) {
         if (child instanceof HTMLElement && !child.hasAttribute("hidden")) {
-          setHeight(child.getBoundingClientRect().height);
+          const next = child.getBoundingClientRect().height;
+          if (next > 0) setHeight(next);
           return;
         }
       }
     };
 
+    // Coalesce measures onto the next frame. Switching tabs makes BaseUI toggle
+    // `hidden` on BOTH the outgoing and incoming panel in the same tick, so a
+    // synchronous measure can read the panel that's on its way out (first
+    // non-hidden child) before the DOM settles — the "flash then drop". By the
+    // next frame exactly one panel is non-hidden, so we measure the right one.
+    let raf = 0;
+    const scheduleMeasure = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(measure);
+    };
+
     measure();
 
-    // Observe every panel for its own content-size changes.
-    const ro = new ResizeObserver(measure);
+    // Observe every panel for its own content-size changes (e.g. async bodies).
+    const ro = new ResizeObserver(scheduleMeasure);
     const observeChildren = () => {
       ro.disconnect();
       for (const child of Array.from(el.children)) {
@@ -201,7 +216,7 @@ function TabsContents({
     // the `hidden` attribute on a keepMounted panel.
     const mo = new MutationObserver(() => {
       observeChildren();
-      measure();
+      scheduleMeasure();
     });
     mo.observe(el, {
       childList: true,
@@ -211,6 +226,7 @@ function TabsContents({
     });
 
     return () => {
+      cancelAnimationFrame(raf);
       ro.disconnect();
       mo.disconnect();
     };

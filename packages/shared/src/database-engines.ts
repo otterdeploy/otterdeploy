@@ -8,24 +8,9 @@
  * adapter — anything that's UI-facing or fixed metadata lives here.
  */
 
-export type DatabaseEngine =
-  | "postgres"
-  | "redis"
-  | "mariadb"
-  | "mongodb"
-  | "clickhouse"
-  | "rabbitmq"
-  | "minio"
-  | "meilisearch";
+export type DatabaseEngine = "postgres" | "redis" | "mariadb" | "mongodb" | "clickhouse";
 
-export type DatabaseCategory =
-  | "relational"
-  | "document"
-  | "key-value"
-  | "analytical"
-  | "search"
-  | "message-queue"
-  | "object-store";
+export type DatabaseCategory = "relational" | "document" | "key-value" | "analytical";
 
 export interface DatabaseEngineMeta {
   /** Display name used in wizards, headings, etc. */
@@ -114,46 +99,6 @@ export const DATABASE_ENGINES = {
     versions: ["24.8", "24.3", "23.8"] as const,
     scheme: "clickhouse",
     hasDatabaseName: true,
-    authStyle: "env",
-  },
-  rabbitmq: {
-    label: "RabbitMQ",
-    category: "message-queue",
-    // AMQP port. The management UI (15672) is a SECOND service port the
-    // single-port resource model can't expose yet — the broker is fully
-    // usable over amqp without it.
-    defaultPort: 5672,
-    dockerImage: "rabbitmq",
-    defaultTag: "3.13",
-    versions: ["3.13", "3.12"] as const,
-    scheme: "amqp",
-    hasDatabaseName: false,
-    authStyle: "env",
-  },
-  minio: {
-    label: "MinIO",
-    category: "object-store",
-    // S3 API port. The web console (9001) is a SECOND port the single-port
-    // model can't expose yet — object storage works over the S3 API alone.
-    defaultPort: 9000,
-    dockerImage: "minio/minio",
-    // MinIO tags are `RELEASE.<date>`; `latest` avoids pinning a tag that may
-    // not exist. Repin to a specific RELEASE.* when a target version is chosen.
-    defaultTag: "latest",
-    versions: ["latest"] as const,
-    scheme: "http",
-    hasDatabaseName: false,
-    authStyle: "env",
-  },
-  meilisearch: {
-    label: "Meilisearch",
-    category: "search",
-    defaultPort: 7700,
-    dockerImage: "getmeili/meilisearch",
-    defaultTag: "v1.10",
-    versions: ["v1.10", "v1.9"] as const,
-    scheme: "http",
-    hasDatabaseName: false,
     authStyle: "env",
   },
 } as const satisfies Record<DatabaseEngine, DatabaseEngineMeta>;

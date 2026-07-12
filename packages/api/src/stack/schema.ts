@@ -142,9 +142,6 @@ export const stackOtterdeployExtensionSchema = z.object({
       "mariadb",
       "mongodb",
       "clickhouse",
-      "rabbitmq",
-      "minio",
-      "meilisearch",
     ])
     .optional(),
   resourceId: z.string(),

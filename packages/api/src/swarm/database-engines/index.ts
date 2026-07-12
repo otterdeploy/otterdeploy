@@ -64,11 +64,8 @@ export interface DatabaseEngineAdapter {
 
 import { clickhouseAdapter } from "./clickhouse";
 import { mariadbAdapter } from "./mariadb";
-import { meilisearchAdapter } from "./meilisearch";
-import { minioAdapter } from "./minio";
 import { mongodbAdapter } from "./mongodb";
 import { postgresAdapter } from "./postgres";
-import { rabbitmqAdapter } from "./rabbitmq";
 import { redisAdapter } from "./redis";
 
 const ADAPTERS: Record<DatabaseEngine, DatabaseEngineAdapter> = {
@@ -77,9 +74,6 @@ const ADAPTERS: Record<DatabaseEngine, DatabaseEngineAdapter> = {
   mariadb: mariadbAdapter,
   mongodb: mongodbAdapter,
   clickhouse: clickhouseAdapter,
-  rabbitmq: rabbitmqAdapter,
-  minio: minioAdapter,
-  meilisearch: meilisearchAdapter,
 };
 
 export function getEngineAdapter(engine: DatabaseEngine): DatabaseEngineAdapter {

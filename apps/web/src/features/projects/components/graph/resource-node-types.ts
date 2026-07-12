@@ -23,10 +23,7 @@ export type ResourceEngine =
   | "redis"
   | "mongodb"
   | "docker"
-  | "clickhouse"
-  | "rabbitmq"
-  | "minio"
-  | "meilisearch";
+  | "clickhouse";
 
 export type ResourceStatus = "running" | "building" | "error";
 

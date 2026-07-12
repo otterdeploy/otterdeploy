@@ -18,9 +18,12 @@
 
 import { Docker } from "@otterdeploy/docker";
 
-import type { Summary } from "./docker-driver-helpers";
-import type { RuntimeDriver, RuntimeStatus } from "./types";
+import type { DeploymentId } from "@otterdeploy/shared/id";
 
+import type { Summary } from "./docker-driver-helpers";
+import type { ContainerSpec, RuntimeDriver, RuntimeStatus } from "./types";
+
+import { createStackDeployLog, nullStackDeployLog } from "../lib/deploy-log";
 import { asStepLogger } from "../lib/logger";
 import { branchDatabaseOnDocker, destroyDatabaseBranchOnDocker } from "./docker-driver-branch";
 import { runDatabase } from "./docker-driver-db";
@@ -36,6 +39,24 @@ import {
   removeContainerByName,
   waitForContainer,
 } from "./docker-driver-helpers";
+
+/**
+ * Pull the service image, mirroring condensed pull progress into the
+ * deployment's log channel so a slow multi-minute download live-tails in the
+ * web UI instead of looking like a hung deploy (container missing, no output).
+ * Mirrors the database driver (docker-driver-db). Best-effort: no deployment
+ * row → the null log swallows the lines and the pull still runs.
+ */
+async function pullWithDeployLog(docker: Docker, spec: ContainerSpec): Promise<void> {
+  const deployLog = spec.deploymentId
+    ? createStackDeployLog(spec.deploymentId as DeploymentId)
+    : nullStackDeployLog;
+  try {
+    await pullImage(docker, spec.image, (line) => deployLog.line(line));
+  } finally {
+    await deployLog.close();
+  }
+}
 
 export const dockerDriver: RuntimeDriver = {
   kind: "docker",
@@ -64,7 +85,7 @@ export const dockerDriver: RuntimeDriver = {
       return status;
     }
     await removeContainerByName(docker, spec.serviceName);
-    await pullImage(docker, spec.image);
+    await pullWithDeployLog(docker, spec);
     const status = await createAndStart(
       docker,
       buildContainerOptions(spec, networkName),
@@ -92,7 +113,7 @@ export const dockerDriver: RuntimeDriver = {
     // Recreate — plain Docker has no in-place rolling update. Stop the old
     // container, start the new one (brief blip).
     await removeContainerByName(docker, spec.serviceName);
-    await pullImage(docker, spec.image);
+    await pullWithDeployLog(docker, spec);
     const status = await createAndStart(
       docker,
       buildContainerOptions(spec, networkName),

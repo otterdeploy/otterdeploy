@@ -58,9 +58,6 @@ export const createPostgresDatabaseInput = z.object({
       "mariadb",
       "mongodb",
       "clickhouse",
-      "rabbitmq",
-      "minio",
-      "meilisearch",
     ])
     .optional()
     .default("postgres"),
@@ -176,9 +173,6 @@ const draftCredentialsInput = z.object({
       "mariadb",
       "mongodb",
       "clickhouse",
-      "rabbitmq",
-      "minio",
-      "meilisearch",
     ])
     .optional()
     .default("postgres"),

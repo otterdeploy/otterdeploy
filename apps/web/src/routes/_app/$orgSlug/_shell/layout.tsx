@@ -55,10 +55,17 @@ function RouteComponent() {
       {/* UpdateProvider lives in the parent $orgSlug layout — both chromes
           consume it (banner here, UpdatesCard in the settings zone). */}
       <SidebarProvider defaultOpen={defaultSidebarOpen} className="flex flex-col">
-        {/* Banner lives above the header so it reads as a system-level
-            notice about the app, not a bar wedged into the app body. */}
-        <UpdateBanner />
-        <SiteHeader />
+        {/* Banner + header are ONE pinned top region. Pinning them together —
+            rather than the header alone via its own sticky, with the banner
+            left in normal flow — is what keeps the banner from scrolling away
+            and keeps the pinned chrome's height equal to --header-height, the
+            offset the sidebar starts its `top` at. Pin only the header and an
+            11px gap opens between header and sidebar once the banner scrolls
+            off (and the banner disappears entirely). */}
+        <div className="sticky top-0 z-50">
+          <UpdateBanner />
+          <SiteHeader />
+        </div>
         <div className="flex flex-1">
           {!match ? (
             <>

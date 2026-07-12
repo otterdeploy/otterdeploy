@@ -229,6 +229,46 @@ export async function syncManifestServiceEnv(
   });
 }
 
+/**
+ * Drop a compose stack from BOTH the desired manifest and the last-applied
+ * snapshot. Called when a stack is deleted directly (compose.delete). Without
+ * this, `manifest.composes[name]` survives the delete, so the next diff sees a
+ * stack declared-but-absent and re-stages a phantom `create` — the "pending
+ * create" ghost that reappears after delete and then fails to redeploy.
+ * Best-effort, no optimistic lock: a delete is terminal (low contention); we
+ * bump the version so live UI/CLI sessions refresh.
+ */
+export async function removeComposeFromManifest(scope: ProjectScope, name: string): Promise<void> {
+  const [row] = await db
+    .select({ manifest: project.manifest, lastApplied: project.lastAppliedManifest })
+    .from(project)
+    .where(and(eq(project.id, scope.projectId), eq(project.organizationId, scope.organizationId)))
+    .limit(1);
+  if (!row) return;
+
+  const strip = (m: Record<string, unknown> | null): Record<string, unknown> | null => {
+    const composes = (m as { composes?: Record<string, unknown> } | null)?.composes;
+    if (!m || !composes || !(name in composes)) return m;
+    const rest = { ...composes };
+    delete rest[name];
+    return { ...m, composes: rest };
+  };
+
+  const nextManifest = strip(row.manifest);
+  const nextApplied = strip(row.lastApplied);
+  // Nothing referenced this stack — leave the version untouched.
+  if (nextManifest === row.manifest && nextApplied === row.lastApplied) return;
+
+  await db
+    .update(project)
+    .set({
+      manifest: nextManifest,
+      lastAppliedManifest: nextApplied,
+      manifestVersion: sql`${project.manifestVersion} + 1`,
+    })
+    .where(and(eq(project.id, scope.projectId), eq(project.organizationId, scope.organizationId)));
+}
+
 /** Resolved manifest for a given environment (or base if none). */
 export async function resolvedManifest(
   scope: ProjectScope,
