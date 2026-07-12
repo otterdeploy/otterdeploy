@@ -49,6 +49,10 @@ export function RollbackDialog({
       commit <span className="font-mono text-foreground">{target.gitSha.slice(0, 7)}</span>
       {target.gitCommitMessage ? <> (“{target.gitCommitMessage}”)</> : null}
     </>
+  ) : target?.sourceSha ? (
+    <>
+      source <span className="font-mono text-foreground">{target.sourceSha.slice(0, 7)}</span>
+    </>
   ) : target ? (
     <span className="font-mono text-foreground">{shortImageRef(target.image)}</span>
   ) : null;

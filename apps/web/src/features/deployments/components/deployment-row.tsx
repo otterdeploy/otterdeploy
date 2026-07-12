@@ -83,6 +83,20 @@ function CommitCell({ d }: { d: ProjectDeployment }) {
       </span>
     );
   }
+  // Uploaded local source (CLI deploy) — no commit, but the tarball's content
+  // hash is the honest provenance.
+  if (d.sourceSha) {
+    return (
+      <span className="flex min-w-0 items-center gap-2">
+        <span className="shrink-0 font-mono text-[12px] text-foreground/80" title={d.sourceSha}>
+          {d.sourceSha.slice(0, 7)}
+        </span>
+        <span className="shrink-0 font-mono text-[10.5px] tracking-[0.12em] text-muted-foreground uppercase">
+          source
+        </span>
+      </span>
+    );
+  }
   // Image-sourced (or database) deploy — the image ref is the provenance.
   return (
     <span className="flex min-w-0 items-center gap-2">

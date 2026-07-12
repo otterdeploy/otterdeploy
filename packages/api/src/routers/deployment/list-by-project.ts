@@ -67,6 +67,7 @@ export interface ProjectDeploymentItem {
   gitRef: string | null;
   gitCommitMessage: string | null;
   gitCommitAuthor: string | null;
+  sourceSha: string | null;
   isLatest: boolean;
   completedAt: string | null;
   createdAt: string;
@@ -129,6 +130,7 @@ interface JoinedRow {
   gitRef: string | null;
   gitCommitMessage: string | null;
   gitCommitAuthor: string | null;
+  sourceSha: string | null;
   completedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -212,6 +214,7 @@ export async function listProjectDeployments(
       gitRef: deployment.gitRef,
       gitCommitMessage: deployment.gitCommitMessage,
       gitCommitAuthor: deployment.gitCommitAuthor,
+      sourceSha: deployment.sourceSha,
       completedAt: deployment.completedAt,
       createdAt: deployment.createdAt,
       updatedAt: deployment.updatedAt,
@@ -258,6 +261,7 @@ export async function listProjectDeployments(
     gitRef: row.gitRef,
     gitCommitMessage: row.gitCommitMessage,
     gitCommitAuthor: row.gitCommitAuthor,
+    sourceSha: row.sourceSha,
     isLatest: row.isLatest,
     completedAt: row.completedAt ? row.completedAt.toISOString() : null,
     createdAt: row.createdAt.toISOString(),

@@ -65,6 +65,7 @@ export interface DeploymentWithStats {
   gitRef: string | null;
   gitCommitMessage: string | null;
   gitCommitAuthor: string | null;
+  sourceSha: string | null;
   completedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -204,6 +205,7 @@ function toDeploymentWithStats(
     gitRef: row.gitRef,
     gitCommitMessage: row.gitCommitMessage,
     gitCommitAuthor: row.gitCommitAuthor,
+    sourceSha: row.sourceSha,
     completedAt: row.completedAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,

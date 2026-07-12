@@ -92,6 +92,9 @@ export interface ProjectDeployment {
   gitRef: string | null;
   gitCommitMessage: string | null;
   gitCommitAuthor: string | null;
+  /** Content hash of an uploaded source tarball (source:"upload") — the upload
+   *  analog of gitSha. Null for git / image deploys. */
+  sourceSha: string | null;
   isLatest: boolean;
   completedAt: string | null;
   createdAt: string;

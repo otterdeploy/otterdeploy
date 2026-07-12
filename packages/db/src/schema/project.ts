@@ -709,6 +709,11 @@ export const deployment = pgTable(
     gitRef: text("git_ref"),
     gitCommitMessage: text("git_commit_message"),
     gitCommitAuthor: text("git_commit_author"),
+    // Content hash (sha256, hex) of an uploaded source tarball — the
+    // source: "upload" analog of gitSha, giving CLI/local deploys a stable
+    // content identifier where there's no commit. Null for git / image-only
+    // deployments (they carry gitSha or nothing).
+    sourceSha: text("source_sha"),
     // Populated when the deployment finalizes (terminal status reached).
     errorMessage: text("error_message"),
     completedAt: timestamp("completed_at"),

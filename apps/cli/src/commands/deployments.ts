@@ -60,7 +60,7 @@ export const deploymentsCommand = defineCommand({
         d.id.slice(-8).padEnd(8),
         d.status.padEnd(10),
         d.reason.padEnd(12),
-        (d.gitSha ? d.gitSha.slice(0, 7) : "—").padEnd(7),
+        (d.gitSha ? d.gitSha.slice(0, 7) : d.sourceSha ? d.sourceSha.slice(0, 7) : "—").padEnd(7),
         relativeTime(d.createdAt).padEnd(9),
         (d.completedAt ? relativeTime(d.completedAt) : "—").padEnd(9),
         d.errorMessage ? truncate(d.errorMessage, 60) : "",

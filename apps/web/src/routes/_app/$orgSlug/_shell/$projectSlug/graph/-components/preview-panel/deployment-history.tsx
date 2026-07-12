@@ -49,7 +49,11 @@ export function DeploymentHistory(props: {
                   {d.status}
                 </span>
                 <span className="font-mono text-[12px] text-muted-foreground">
-                  {d.gitSha ? d.gitSha.slice(0, 7) : d.image.split(":").pop()?.slice(0, 12)}
+                  {d.gitSha
+                    ? d.gitSha.slice(0, 7)
+                    : d.sourceSha
+                      ? d.sourceSha.slice(0, 7)
+                      : d.image.split(":").pop()?.slice(0, 12)}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-[12.5px] text-muted-foreground">
                   {d.reason}

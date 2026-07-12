@@ -195,14 +195,16 @@ async function uploadServiceSources(args: {
     if (!args.json) consola.info(`Uploading source for ${name}…`);
     const tarball = createSourceTarball(args.projectDir, `${Date.now().toString(36)}-${name}`);
     try {
-      const { deploymentId } = await uploadSource({
+      const { deploymentId, sourceSha } = await uploadSource({
         url: args.url,
         token: args.token,
         resourceId,
         tarballPath: tarball,
       });
-      if (!args.json)
-        consola.success(`Source uploaded for ${name} — build ${deploymentId} queued.`);
+      if (!args.json) {
+        const shaNote = sourceSha ? ` (source ${sourceSha.slice(0, 7)})` : "";
+        consola.success(`Source uploaded for ${name}${shaNote} — build ${deploymentId} queued.`);
+      }
     } finally {
       rmSync(tarball, { force: true });
     }

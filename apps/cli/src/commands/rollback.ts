@@ -8,6 +8,7 @@ interface DeploymentRow {
   image: string;
   status: string;
   gitSha: string | null;
+  sourceSha: string | null;
   createdAt: string;
 }
 
@@ -86,7 +87,13 @@ export const rollbackCommand = defineCommand({
       if (target) {
         consola.info(
           `Target: ${shortId(target.id)}  image ${target.image}` +
-            `${target.gitSha ? `  git ${target.gitSha.slice(0, 7)}` : ""}` +
+            `${
+              target.gitSha
+                ? `  git ${target.gitSha.slice(0, 7)}`
+                : target.sourceSha
+                  ? `  source ${target.sourceSha.slice(0, 7)}`
+                  : ""
+            }` +
             `  (${formatAge(target.createdAt)})`,
         );
       } else {
