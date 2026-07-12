@@ -70,6 +70,7 @@ function row(over: {
     gitRef: null,
     gitCommitMessage: null,
     gitCommitAuthor: null,
+    sourceSha: null,
     completedAt: null,
     createdAt: over.createdAt,
     updatedAt: over.createdAt,

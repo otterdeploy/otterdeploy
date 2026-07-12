@@ -139,7 +139,7 @@ function runBuildSteps(
 
     yield* await step("mark-building", () => markBuilding(opts.deploymentId));
     sink.system(
-      `build start: project=${ctx.project.slug} resource=${ctx.resource.name} sha=${ctx.deployment.gitSha ?? "unknown"}`,
+      `build start: project=${ctx.project.slug} resource=${ctx.resource.name} sha=${ctx.deployment.gitSha ?? ctx.deployment.sourceSha ?? "unknown"}`,
     );
 
     // Source acquisition differs by kind — git clones a repo, upload extracts a

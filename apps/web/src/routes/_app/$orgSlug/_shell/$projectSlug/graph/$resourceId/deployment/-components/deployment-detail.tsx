@@ -194,6 +194,13 @@ function SourceBlock({
               )}
             </div>
           </div>
+        ) : deployment.sourceSha ? (
+          <div className="flex min-w-0 flex-col gap-1">
+            <span className="truncate font-mono text-[12.5px] text-foreground/90">
+              {deployment.sourceSha.slice(0, 12)}
+            </span>
+            <span className="text-[11.5px] text-muted-foreground">Uploaded source</span>
+          </div>
         ) : (
           <div className="flex min-w-0 flex-col gap-1">
             <span className="truncate font-mono text-[12.5px] text-foreground/90">

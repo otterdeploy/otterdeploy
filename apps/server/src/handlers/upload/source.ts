@@ -5,6 +5,7 @@ import { prepareSourceTarballPath, removeSourceTarball } from "@otterdeploy/api/
 import { markDeploymentFailed } from "@otterdeploy/api/routers/project/deployments";
 import {
   createUploadDeployment,
+  setUploadDeploymentSourceSha,
   triggerUploadBuild,
 } from "@otterdeploy/api/routers/project/upload-source";
 import { auth } from "@otterdeploy/auth";
@@ -47,12 +48,14 @@ async function resolveOrganizationId(c: Context): Promise<OrganizationId | null>
   return null;
 }
 
-/** Stream the request body into `path`, enforcing the byte cap. Throws on
- *  overflow or a missing body; the caller cleans up. */
-async function streamBodyToFile(c: Context, path: string): Promise<void> {
+/** Stream the request body into `path`, enforcing the byte cap and hashing the
+ *  bytes as they pass through. Returns the sha256 (hex) content digest of the
+ *  tarball. Throws on overflow or a missing body; the caller cleans up. */
+async function streamBodyToFile(c: Context, path: string): Promise<string> {
   const reader = c.req.raw.body?.getReader();
   if (!reader) throw new Error("empty request body");
   const writer = Bun.file(path).writer();
+  const hasher = new Bun.CryptoHasher("sha256");
   let total = 0;
   try {
     for (;;) {
@@ -62,6 +65,7 @@ async function streamBodyToFile(c: Context, path: string): Promise<void> {
       if (total > MAX_UPLOAD_BYTES) {
         throw new Error(`source tarball exceeds the ${MAX_UPLOAD_BYTES / (1024 * 1024)}MB limit`);
       }
+      hasher.update(value);
       // FileSink.write returns a number, or a Promise on backpressure — await
       // handles both and satisfies no-floating-promises.
       await writer.write(value);
@@ -71,6 +75,7 @@ async function streamBodyToFile(c: Context, path: string): Promise<void> {
     await writer.end();
   }
   if (total === 0) throw new Error("empty request body");
+  return hasher.digest("hex");
 }
 
 export async function uploadSourceHandler(c: Context): Promise<Response> {
@@ -105,6 +110,12 @@ export async function uploadSourceHandler(c: Context): Promise<Response> {
     return c.json({ error: staged.error }, 400);
   }
 
+  // Record the tarball's content hash so the deploy carries a stable source
+  // identifier (the upload analog of a commit sha). Best-effort — a write
+  // failure here must not strand or fail an otherwise-good upload.
+  const sourceSha = staged.value;
+  await setUploadDeploymentSourceSha(deploymentId, sourceSha).catch(() => undefined);
+
   const triggered = await triggerUploadBuild({
     target: { projectId, deploymentId },
     resourceId,
@@ -114,5 +125,5 @@ export async function uploadSourceHandler(c: Context): Promise<Response> {
     return c.json({ error: triggered.error }, 502);
   }
 
-  return c.json({ deploymentId });
+  return c.json({ deploymentId, sourceSha });
 }

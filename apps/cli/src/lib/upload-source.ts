@@ -11,6 +11,9 @@ import { fetchFor } from "./local-tls";
 
 export interface UploadResult {
   deploymentId: string;
+  /** sha256 (hex) content hash of the uploaded tarball — the upload analog of
+   *  a commit sha. Absent from older control planes. */
+  sourceSha?: string;
 }
 
 export async function uploadSource(opts: {

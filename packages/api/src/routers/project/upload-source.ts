@@ -75,6 +75,20 @@ export async function createUploadDeployment(args: {
 }
 
 /**
+ * Record the content hash of the staged tarball on the deployment row. The
+ * source: "upload" analog of a commit sha — surfaced in the build log and the
+ * deployment history so a local deploy has a stable content identifier. Called
+ * after the bytes are on disk and before the build is enqueued (the builder
+ * reads it off the row). Best-effort: a failure here must not block the deploy.
+ */
+export async function setUploadDeploymentSourceSha(
+  deploymentId: DeploymentId,
+  sourceSha: string,
+): Promise<void> {
+  await db.update(deployment).set({ sourceSha }).where(eq(deployment.id, deploymentId));
+}
+
+/**
  * Enqueue the tarball build after the source has been staged to disk. The
  * builder reads sourceTarballPath(projectId, deploymentId) — no bytes travel
  * through Redis. On a queue outage the row is marked failed so it doesn't hang
