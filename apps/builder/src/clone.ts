@@ -42,7 +42,7 @@ export interface CloneResult {
  * `OTTERDEPLOY_DATA_DIR` is set — keeps working unchanged. Either way the dir is
  * empty, which `git clone <url> <dir>` requires.
  */
-async function resolveWorkDir(
+export async function resolveWorkDir(
   projectId: ProjectId,
   deploymentId: DeploymentId,
 ): Promise<{ path: string; persistent: boolean }> {

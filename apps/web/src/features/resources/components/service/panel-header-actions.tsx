@@ -24,7 +24,7 @@ import { Button } from "@/shared/components/ui/button";
 export interface HeaderResource {
   name: string;
   image: string;
-  source: "image" | "git";
+  source: "image" | "git" | "upload";
 }
 
 /** Pause/resume wiring for the header. Omitted (null/undefined) while the

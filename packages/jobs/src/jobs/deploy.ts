@@ -20,9 +20,20 @@ import { defineJob } from "../define";
  */
 export const DeployTriggeredPayload = z.object({
   projectId: z.string().min(1),
-  gitRepoId: z.string().min(1),
-  ref: z.string().min(1),
-  sha: z.string().min(1),
+  /** Where the build source comes from. Absent ⇒ "git" — keeps jobs enqueued
+   *  before this field existed (in-flight at deploy time) valid. For "tarball"
+   *  the builder extracts the source the CLI uploaded at
+   *  sourceTarballPath(projectId, deploymentId) instead of cloning; the git
+   *  fields below are then omitted. The worker also reads it to decide whether
+   *  to bind-mount the staged tarball into the helper container. */
+  sourceKind: z.enum(["git", "tarball"]).optional(),
+  // Git identity — present for git builds, omitted for tarball. Optional so a
+  // tarball trigger validates without a repo/ref/sha. The builder never reads
+  // these off the payload (it resolves everything from the deployment row via
+  // load.ts); they remain for the worker's log line + the webhook path.
+  gitRepoId: z.string().min(1).optional(),
+  ref: z.string().min(1).optional(),
+  sha: z.string().min(1).optional(),
   commitMessage: z.string().optional(),
   commitAuthor: z.string().optional(),
   /** Which PR preview this build targets, if any. Omitted → a normal base

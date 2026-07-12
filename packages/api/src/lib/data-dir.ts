@@ -1,6 +1,13 @@
 import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { DeploymentId } from "@otterdeploy/shared/id";
 
-import { backupDir, DATA_ROOT, projectDir, resourceDir } from "@otterdeploy/shared/paths";
+import {
+  backupDir,
+  DATA_ROOT,
+  projectDir,
+  resourceDir,
+  sourceTarballPath,
+} from "@otterdeploy/shared/paths";
 /**
  * `fs` operations against the host data folder (`/data/otterdeploy`). The path
  * derivation is pure and lives in `@otterdeploy/shared/paths`; the side effects
@@ -11,7 +18,7 @@ import { backupDir, DATA_ROOT, projectDir, resourceDir } from "@otterdeploy/shar
  * dependency: losing it never breaks a deploy. See docs/designs/data-folder.md.
  */
 import { mkdir, rm, writeFile } from "node:fs/promises";
-import { join, resolve, sep } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 
 let availability: Promise<boolean> | null = null;
 
@@ -84,6 +91,36 @@ export async function stageBackupArchive(input: {
 /** Drop a staged backup archive after its upload lands. Guarded to inside
  *  `DATA_ROOT`; best-effort. */
 export async function removeStagedBackup(path: string): Promise<void> {
+  const p = resolve(path);
+  if (!p.startsWith(resolve(DATA_ROOT) + sep)) return;
+  await rm(p, { force: true }).catch(() => undefined);
+}
+
+/**
+ * Ensure the parent dir exists and return the on-disk path where an uploaded
+ * source tarball should land for a `source: "upload"` build. Returns null when
+ * the data folder isn't writable — the whole feature requires the shared data
+ * dir (the same gate the git-clone path degrades under), so the caller rejects
+ * the upload with a clear message rather than staging into a void. The caller
+ * streams the request body into this path (with its own size cap).
+ */
+export async function prepareSourceTarballPath(
+  projectId: ProjectId,
+  deploymentId: DeploymentId,
+): Promise<string | null> {
+  if (!(await dataRootAvailable())) return null;
+  try {
+    const path = sourceTarballPath(projectId, deploymentId);
+    await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+    return path;
+  } catch {
+    return null;
+  }
+}
+
+/** Drop a staged source tarball once the builder has consumed it (or after a
+ *  failed upload). Guarded to inside `DATA_ROOT`; best-effort. */
+export async function removeSourceTarball(path: string): Promise<void> {
   const p = resolve(path);
   if (!p.startsWith(resolve(DATA_ROOT) + sep)) return;
   await rm(p, { force: true }).catch(() => undefined);

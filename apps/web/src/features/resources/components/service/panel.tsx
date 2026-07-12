@@ -45,7 +45,7 @@ interface ServiceResourcePanelProps {
     projectId: string;
     name: string;
     image: string;
-    source: "image" | "git";
+    source: "image" | "git" | "upload";
     replicas: number;
     status: string;
     publicEnabled: boolean;

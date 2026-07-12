@@ -85,7 +85,10 @@ function buildCreateServiceInput(
     // surfaces below as a non-fatal "build not started" skip, not a hard
     // create failure that leaves the ghost stuck forever.
     skipBuildBindingCheck: true,
-    sourceSubdir: args.spec.source === "git" ? (args.spec.sourceSubdir ?? null) : null,
+    sourceSubdir:
+      args.spec.source === "git" || args.spec.source === "upload"
+        ? (args.spec.sourceSubdir ?? null)
+        : null,
     image,
     command: args.spec.startCommand ?? null,
     entrypoint: args.spec.entrypoint ?? null,
@@ -97,7 +100,10 @@ function buildCreateServiceInput(
     resources: buildResourcesPatch(args.spec),
     preDeploy: args.spec.preDeploy ?? null,
     postDeploy: args.spec.postDeploy ?? null,
-    buildConfig: args.spec.source === "git" ? (args.spec.build ?? null) : null,
+    buildConfig:
+      args.spec.source === "git" || args.spec.source === "upload"
+        ? (args.spec.build ?? null)
+        : null,
   };
 }
 

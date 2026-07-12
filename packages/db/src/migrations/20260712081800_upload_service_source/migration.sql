@@ -1,0 +1,1 @@
+ALTER TYPE "service_source" ADD VALUE 'upload';

@@ -44,7 +44,9 @@ export interface PipelineContext {
    *  registry is bound, else a registry-less local name the build `--load`s
    *  into the host daemon and swarm runs directly. */
   imageRepository: string;
-  repo: typeof gitRepo.$inferSelect;
+  /** The bound git repo — `null` for a `source: "upload"` service, whose source
+   *  arrives as an uploaded tarball rather than a clone. */
+  repo: typeof gitRepo.$inferSelect | null;
   /** GitHub-side numeric installation id used to mint clone tokens, resolved
    *  from `repo.installationId` (an internal `git_installation.id` FK — NOT
    *  the value GitHub's token API wants). Only resolved for *private* repos
@@ -90,8 +92,11 @@ export async function loadPipelineContext(deploymentId: DeploymentId): Promise<P
 
   // Git binding now lives on the SERVICE, not the project — two services in one
   // project can build from two different repos. Fail fast if this one isn't
-  // bound (the operator picks a repo in the service's Source settings).
-  if (!svc.gitRepoId) {
+  // bound (the operator picks a repo in the service's Source settings). An
+  // `upload` service has no repo at all — its source is the uploaded tarball —
+  // so it skips this check and the repo/installation loading below entirely.
+  const isUpload = svc.source === "upload";
+  if (!isUpload && !svc.gitRepoId) {
     throw new PipelineLoadError(
       "service.gitRepoId",
       `service ${res.name} has no git repo binding — pick a repo in its Source settings`,
@@ -130,7 +135,25 @@ export async function loadPipelineContext(deploymentId: DeploymentId): Promise<P
     imageRepository = localImageRepository(svc.serviceName);
   }
 
-  const [repo] = await db.select().from(gitRepo).where(eq(gitRepo.id, svc.gitRepoId)).limit(1);
+  // Upload source: no repo, no clone token — the tarball is the whole source.
+  if (isUpload) {
+    return {
+      deployment: dep,
+      resource: res,
+      service: svc,
+      project: proj,
+      registry,
+      imageRepository,
+      repo: null,
+      githubInstallationId: null,
+    };
+  }
+
+  const [repo] = await db
+    .select()
+    .from(gitRepo)
+    .where(eq(gitRepo.id, svc.gitRepoId as NonNullable<typeof svc.gitRepoId>))
+    .limit(1);
   if (!repo) {
     throw new PipelineLoadError("repo", `git_repo ${svc.gitRepoId} not found`);
   }

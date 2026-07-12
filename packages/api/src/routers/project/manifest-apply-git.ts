@@ -231,9 +231,18 @@ export async function resolveManifestRepo(
   return pub?.id ?? null;
 }
 
-/** Pull the git-only source fields off a manifest service (repo resolved to an
- *  id upstream). Empty for an image service — those columns stay null. */
+/** Pull the source-binding columns off a manifest service (git repo resolved to
+ *  an id upstream). An `upload` service has no repo/branch but does carry its own
+ *  `imageRepository`. Empty for an image service — those columns stay null. */
 export function gitSourceColumns(spec: ServiceManifest, gitRepoId: GitRepoId | null) {
+  if (spec.source === "upload") {
+    return {
+      gitRepoId: null,
+      branch: null,
+      imageRepository: spec.imageRepository ?? null,
+      previewsEnabled: false,
+    };
+  }
   if (spec.source !== "git") {
     return { gitRepoId: null, branch: null, imageRepository: null, previewsEnabled: false };
   }

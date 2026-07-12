@@ -46,7 +46,7 @@ export interface CurrentServicePort {
 
 export interface CurrentService {
   name: string;
-  source: "image" | "git";
+  source: "image" | "git" | "upload";
   image: string | null;
   sourceSubdir: string | null;
   // Current git binding as a portable `owner/repo` string (resolved from the

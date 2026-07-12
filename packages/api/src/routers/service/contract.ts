@@ -137,7 +137,7 @@ export const createServiceInput = z.object({
   // built by apps/builder from the project's git binding; image is
   // accepted as a placeholder ("pending:initial") and overwritten on
   // first build. Defaults to "image" so existing callers don't break.
-  source: z.enum(["image", "git"]).optional(),
+  source: z.enum(["image", "git", "upload"]).optional(),
   sourceSubdir: z.string().nullable().optional(),
   image: z.string().min(1),
   command: z.array(z.string()).nullable().optional(),

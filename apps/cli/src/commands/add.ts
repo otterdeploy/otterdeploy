@@ -62,6 +62,10 @@ const addService = defineCommand({
     name: { type: "positional", required: true, description: "Service name" },
     image: { type: "string", description: "Container image (for source=image)" },
     git: { type: "boolean", description: "Source from project's git binding instead" },
+    upload: {
+      type: "boolean",
+      description: "Build from this local directory, uploaded on `deploy` (no git)",
+    },
     repo: { type: "string", description: 'Git repo as "owner/name" (with --git)' },
     branch: { type: "string", description: "Branch whose pushes deploy (with --git)" },
     "source-subdir": { type: "string", description: "Build path within the git repo" },
@@ -78,6 +82,10 @@ const addService = defineCommand({
       process.exit(1);
     }
 
+    if (args.upload && args.git) {
+      consola.error("--upload and --git are mutually exclusive — pick one source.");
+      process.exit(1);
+    }
     if ((args.repo || args.branch) && !args.git) {
       consola.error("--repo/--branch only apply to git services — pass --git as well.");
       process.exit(1);
@@ -114,7 +122,13 @@ const addService = defineCommand({
       services: { ...manifest.services },
     };
 
-    if (args.git) {
+    if (args.upload) {
+      next.services[args.name] = {
+        source: "upload",
+        sourceSubdir: args["source-subdir"] ?? null,
+        ...common,
+      };
+    } else if (args.git) {
       next.services[args.name] = {
         source: "git",
         ...(args.repo ? { repo: args.repo } : {}),

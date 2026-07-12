@@ -34,6 +34,15 @@ export const resourceDir = (projectId: ProjectId, id: ResourceId): string =>
 export const buildDir = (projectId: ProjectId, deploymentId: DeploymentId): string =>
   `${DATA_ROOT}/builds/${projectId}/${deploymentId}`;
 
+/** Uploaded source tarball for a `source: "upload"` build, staged by the server
+ *  (from the CLI's `otterdeploy deploy`) for the builder to extract into its
+ *  work dir. A SIBLING of `buildDir` — not inside it — because the builder's
+ *  `resolveWorkDir` requires an empty dir to extract into. Consumed (deleted)
+ *  by the builder after extraction; orphans are reclaimed by the data-folder
+ *  sweep. Nested under its project: `sources/<projectId>/<deploymentId>.tar.gz`. */
+export const sourceTarballPath = (projectId: ProjectId, deploymentId: DeploymentId): string =>
+  `${DATA_ROOT}/sources/${projectId}/${deploymentId}.tar.gz`;
+
 /** Backup dumps staged before off-cluster upload. Nested under its project:
  *  `backups/<projectId>/<resourceId>`. */
 export const backupDir = (projectId: ProjectId, id: ResourceId): string =>

@@ -10,13 +10,17 @@
  */
 
 import { consola } from "consola";
+import { rmSync } from "node:fs";
+import { dirname } from "node:path";
 
 import type { CliClient } from "./resolve";
 
 import { ensureAuthenticated } from "../auth-flow";
 import { createCliClient } from "../client";
-import { loadConfig } from "../config-file";
+import { configPath, loadConfig } from "../config-file";
 import { countByKind, printDiff } from "./diff-printer";
+import { createSourceTarball } from "./tar-source";
+import { uploadSource } from "./upload-source";
 import { type WaitOutcome, type WaitTarget, waitForDeployments } from "./wait";
 
 export interface RunDeployOptions {
@@ -43,11 +47,10 @@ export function parseTimeoutMinutes(raw: string | undefined): number {
 }
 
 export async function runDeploy(opts: RunDeployOptions): Promise<void> {
-  let client = opts.client;
-  if (!client) {
-    const { url, token } = await ensureAuthenticated(opts.url);
-    client = createCliClient({ url, token });
-  }
+  // Resolve the session even when a client is passed in — the raw source-upload
+  // route (below) needs the url + token directly, not the oRPC client.
+  const session = await ensureAuthenticated(opts.url);
+  const client = opts.client ?? createCliClient(session);
 
   const manifest = await loadConfig(opts.config);
   const project = await client.project.getBySlug({ slug: manifest.project });
@@ -120,9 +123,32 @@ export async function runDeploy(opts: RunDeployOptions): Promise<void> {
   }
   if (result.skipped.length > 0) process.exitCode = 1;
 
+  // Upload-sourced services build from the LOCAL tree, not a repo: apply just
+  // created/updated the resource, so now tar the project and push it to the
+  // server, which builds it. Runs every deploy (there's no sha to diff against —
+  // shipping the current local code is the whole point).
+  const uploadNames = Object.entries(manifest.services)
+    .filter(([, svc]) => svc.source === "upload")
+    .map(([name]) => name);
+  if (uploadNames.length > 0) {
+    await uploadServiceSources({
+      client,
+      projectId: project.id,
+      url: session.url,
+      token: session.token,
+      projectDir: dirname(configPath(opts.config)),
+      names: uploadNames,
+      json: opts.json,
+    });
+  }
+
   let waitOutcomes: WaitOutcome[] = [];
   if (opts.wait) {
-    const targets = await resolveWaitTargets(client, project.id, waitNames);
+    // Include upload services explicitly — an unchanged one isn't in the diff,
+    // but it was just rebuilt, so it should still be waited on.
+    const targets = await resolveWaitTargets(client, project.id, [
+      ...new Set([...waitNames, ...uploadNames]),
+    ]);
     if (targets.length === 0) {
       if (!opts.json) consola.info("No changed services to wait on.");
     } else {
@@ -141,6 +167,45 @@ export async function runDeploy(opts: RunDeployOptions): Promise<void> {
   if (opts.json) {
     const payload = opts.wait ? { ...result, wait: waitOutcomes } : result;
     process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
+  }
+}
+
+/** Tar the local project and push it to the server for each upload-sourced
+ *  service, so the server builds from the just-uploaded tree. */
+async function uploadServiceSources(args: {
+  client: CliClient;
+  projectId: string;
+  url: string;
+  token: string;
+  projectDir: string;
+  names: string[];
+  json?: boolean;
+}): Promise<void> {
+  const resources = await args.client.project.resource.list({ projectId: args.projectId });
+  const byName = new Map(
+    resources.filter((r) => r.type === "service").map((r) => [r.name, r.resourceId]),
+  );
+
+  for (const name of args.names) {
+    const resourceId = byName.get(name);
+    if (!resourceId) {
+      consola.warn(`Upload service "${name}" not found after apply — skipping source upload.`);
+      continue;
+    }
+    if (!args.json) consola.info(`Uploading source for ${name}…`);
+    const tarball = createSourceTarball(args.projectDir, `${Date.now().toString(36)}-${name}`);
+    try {
+      const { deploymentId } = await uploadSource({
+        url: args.url,
+        token: args.token,
+        resourceId,
+        tarballPath: tarball,
+      });
+      if (!args.json)
+        consola.success(`Source uploaded for ${name} — build ${deploymentId} queued.`);
+    } finally {
+      rmSync(tarball, { force: true });
+    }
   }
 }
 
