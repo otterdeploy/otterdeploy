@@ -1,31 +1,79 @@
 ---
 title: Getting started
-description: Deploy your first service with Otterdeploy.
+description: Deploy your first service with the Otterdeploy CLI.
 icon: Rocket
 ---
 
-This guide walks through deploying your first service.
+This guide takes you from nothing to a running service using the
+[`otterdeploy` CLI](/docs/cli). It assumes you have access to an Otterdeploy
+control plane (the dashboard URL you sign in to).
 
-## 1. Connect a repository
-
-Point Otterdeploy at a Git repository. On the next push, the builder detects your
-framework with Railpack and produces an image — no Dockerfile required.
-
-## 2. Add a domain
-
-Each service can have one or more domains. Otterdeploy provisions HTTPS through
-the Caddy edge automatically and checks DNS reachability as you go.
-
-## 3. Ship it
+## 1. Install the CLI
 
 ```bash
-otterdeploy deploy
+npm install -g @otterdeploy/cli
+# or: bun add -g @otterdeploy/cli
 ```
 
-Watch the build and runtime logs stream live, and check per-resource metrics
-from the resource panel.
+Runs on Node ≥20 or Bun. Prefer a zero-runtime binary? Standalone builds for
+Linux (x64/arm64), macOS (x64/arm64), and Windows are attached to every
+[CLI release](https://github.com/otterdeploy/otterdeploy/releases):
 
-<Callout title="Heads up">
-  This is seed content for the docs scaffold. Replace it with the real
-  onboarding flow.
+```bash
+# macOS (Apple Silicon)
+curl -fsSL https://github.com/otterdeploy/otterdeploy/releases/latest/download/otterdeploy-darwin-arm64 -o otterdeploy
+chmod +x otterdeploy && sudo mv otterdeploy /usr/local/bin/
+```
+
+## 2. Sign in
+
+```bash
+otterdeploy login https://deploy.example.com
+```
+
+This opens your browser to approve the device — the same flow the `gh` and
+`vercel` CLIs use. Your token is stored in `~/.config/otterdeploy/config.json`
+(mode `0600`). For CI, set `OTTERDEPLOY_URL` and `OTTERDEPLOY_TOKEN` instead
+(create a token with `otterdeploy tokens create`).
+
+If you belong to more than one organization, pick the active one:
+
+```bash
+otterdeploy org list
+otterdeploy org use acme
+```
+
+## 3. Scaffold and deploy
+
+`up` links (or creates) the project, writes a config file, offers a first
+service, and deploys — all in one step:
+
+```bash
+cd my-app
+otterdeploy up
+```
+
+Prefer explicit steps? `otterdeploy init` writes the config,
+`otterdeploy add service web --image nginx:latest --port 80` adds a resource,
+and `otterdeploy deploy` reconciles it.
+
+## 4. Watch it converge
+
+Deploy and block until every resource is healthy — non-zero exit on failure,
+so it works as a CI gate:
+
+```bash
+otterdeploy deploy --wait
+```
+
+Stream logs, tail a build, or check deployment history:
+
+```bash
+otterdeploy logs web
+otterdeploy logs web --build
+otterdeploy deployments web
+```
+
+<Callout title="Next">
+  See the full [CLI reference](/docs/cli/commands) for every command and flag.
 </Callout>
