@@ -6,10 +6,9 @@
  * `image` column) — there's no upload pipeline, and the hint says so.
  */
 
-import { useState } from "react";
-
 import { UserCircleIcon } from "@hugeicons/core-free-icons";
-import { useMutation } from "@tanstack/react-query";
+import { useForm } from "@tanstack/react-form";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { toast } from "sonner";
 
@@ -17,23 +16,15 @@ import { authClient } from "@/lib/auth-client";
 import { SettingsFooter, SettingsSection } from "@/shared/components/settings-section";
 import { Button } from "@/shared/components/ui/button";
 
-import { useAuthInvalidate, useCurrentSession } from "./data/use-account";
+import { authKeys, useCurrentSession } from "./data/use-account";
 import { ProfileFields, ProfileIdentity } from "./profile-form-fields";
 
-/** The `updateUser` mutation — `onSaved` clears the drafts on success. */
-function useSaveProfile({
-  name,
-  image,
-  onSaved,
-}: {
-  name: string;
-  image: string;
-  onSaved: () => void;
-}) {
+/** The `updateUser` mutation — `onSaved` resets the form on success. */
+function useSaveProfile({ onSaved }: { onSaved: () => void }) {
   const router = useRouter();
-  const invalidate = useAuthInvalidate();
+  const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async () => {
+    mutationFn: async ({ name, image }: { name: string; image: string }) => {
       const res = await authClient.updateUser({
         name: name.trim(),
         image: image.trim() === "" ? null : image.trim(),
@@ -42,7 +33,7 @@ function useSaveProfile({
     },
     onSuccess: async () => {
       onSaved();
-      await invalidate.session();
+      await queryClient.invalidateQueries({ queryKey: authKeys.currentSession });
       // Refresh the router context so the sidebar identity block updates too.
       await router.invalidate();
       toast.success("Profile updated");
@@ -55,24 +46,21 @@ export function ProfileCard() {
   const sessionQ = useCurrentSession();
   const user = sessionQ.data?.user;
 
-  // null = untouched, so a background session refetch doesn't clobber typing.
-  const [nameDraft, setNameDraft] = useState<string | null>(null);
-  const [imageDraft, setImageDraft] = useState<string | null>(null);
-
   const currentName = user?.name ?? "";
   const currentImage = user?.image ?? "";
-  const name = nameDraft ?? currentName;
-  const image = imageDraft ?? currentImage;
-  const dirty = name.trim() !== currentName || image.trim() !== currentImage;
 
-  const save = useSaveProfile({
-    name,
-    image,
-    onSaved: () => {
-      setNameDraft(null);
-      setImageDraft(null);
+  // Defaults follow the session only while the form is untouched — once the
+  // user types, useForm stops re-applying them, so a background session
+  // refetch doesn't clobber typing. Saving resets the form back to untouched.
+  const form = useForm({
+    defaultValues: { name: currentName, image: currentImage },
+    onSubmit: ({ value }) => {
+      const dirty = value.name.trim() !== currentName || value.image.trim() !== currentImage;
+      if (dirty && value.name.trim() && !save.isPending) save.mutate(value);
     },
   });
+
+  const save = useSaveProfile({ onSaved: () => form.reset() });
 
   const busy = sessionQ.isPending || save.isPending;
 
@@ -86,30 +74,54 @@ export function ProfileCard() {
         className="flex flex-col gap-4 p-4"
         onSubmit={(e) => {
           e.preventDefault();
-          if (dirty && name.trim() && !save.isPending) save.mutate();
+          void form.handleSubmit();
         }}
       >
-        <ProfileIdentity name={name} image={image} currentName={currentName} email={user?.email} />
-        <ProfileFields
-          name={name}
-          image={image}
-          email={user?.email}
-          disabled={busy}
-          onNameChange={setNameDraft}
-          onImageChange={setImageDraft}
-        />
+        <form.Field name="name">
+          {(nameField) => (
+            <form.Field name="image">
+              {(imageField) => (
+                <>
+                  <ProfileIdentity
+                    name={nameField.state.value}
+                    image={imageField.state.value}
+                    currentName={currentName}
+                    email={user?.email}
+                  />
+                  <ProfileFields
+                    name={nameField.state.value}
+                    image={imageField.state.value}
+                    email={user?.email}
+                    disabled={busy}
+                    onNameChange={nameField.handleChange}
+                    onImageChange={imageField.handleChange}
+                  />
+                </>
+              )}
+            </form.Field>
+          )}
+        </form.Field>
         {/* Hidden submit so Enter in any field submits the form. */}
         <button type="submit" className="hidden" aria-hidden="true" tabIndex={-1} />
       </form>
       <SettingsFooter>
-        <Button
-          type="button"
-          size="sm"
-          disabled={!dirty || !name.trim() || busy}
-          onClick={() => save.mutate()}
+        <form.Subscribe
+          selector={(s) =>
+            (s.values.name.trim() !== currentName || s.values.image.trim() !== currentImage) &&
+            s.values.name.trim().length > 0
+          }
         >
-          {save.isPending ? "Saving…" : "Save"}
-        </Button>
+          {(canSave) => (
+            <Button
+              type="button"
+              size="sm"
+              disabled={!canSave || busy}
+              onClick={() => void form.handleSubmit()}
+            >
+              {save.isPending ? "Saving…" : "Save"}
+            </Button>
+          )}
+        </form.Subscribe>
       </SettingsFooter>
     </SettingsSection>
   );

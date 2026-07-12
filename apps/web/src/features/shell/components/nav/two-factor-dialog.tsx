@@ -8,6 +8,7 @@
  */
 import { useState } from "react";
 
+import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -55,17 +56,16 @@ export function TwoFactorDialog({
     (sessionQ.data?.user as { twoFactorEnabled?: boolean } | undefined)?.twoFactorEnabled,
   );
 
-  // Multi-step enable flow.
-  const [password, setPassword] = useState("");
+  // Multi-step enable flow — the password/code entries live in the form; the
+  // server-issued secret + backup codes are flow state.
+  const form = useForm({ defaultValues: { password: "", code: "" } });
   const [totpURI, setTotpURI] = useState<string | null>(null);
   const [backupCodes, setBackupCodes] = useState<string[] | null>(null);
-  const [code, setCode] = useState("");
 
   const reset = () => {
-    setPassword("");
+    form.reset();
     setTotpURI(null);
     setBackupCodes(null);
-    setCode("");
   };
   const close = (v: boolean) => {
     if (!v) reset();
@@ -75,13 +75,16 @@ export function TwoFactorDialog({
 
   const enable = useMutation({
     mutationFn: async () => {
-      const res = await authClient.twoFactor.enable({ password });
+      const res = await authClient.twoFactor.enable({ password: form.getFieldValue("password") });
       if (res.error) throw new Error(res.error.message ?? "Couldn't start 2FA");
       return res.data;
     },
     onSuccess: (data) => {
       setTotpURI(data?.totpURI ?? "");
       setBackupCodes((data?.backupCodes as string[] | undefined) ?? null);
+      // The server just attached a 2FA secret to the user record — refetch the
+      // session in the background so its user object can't go stale mid-flow.
+      void refreshSession();
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
@@ -89,7 +92,9 @@ export function TwoFactorDialog({
   // Confirms the secret + flips twoFactorEnabled true.
   const verify = useMutation({
     mutationFn: async () => {
-      const res = await authClient.twoFactor.verifyTotp({ code: code.trim() });
+      const res = await authClient.twoFactor.verifyTotp({
+        code: form.getFieldValue("code").trim(),
+      });
       if (res.error) throw new Error(res.error.message ?? "Invalid code");
     },
     onSuccess: async () => {
@@ -97,14 +102,14 @@ export function TwoFactorDialog({
       toast.success("Two-factor authentication enabled");
       // Keep the dialog open on the backup-codes panel until the user closes it.
       setTotpURI(null);
-      setCode("");
+      form.setFieldValue("code", "");
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Invalid code"),
   });
 
   const disable = useMutation({
     mutationFn: async () => {
-      const res = await authClient.twoFactor.disable({ password });
+      const res = await authClient.twoFactor.disable({ password: form.getFieldValue("password") });
       if (res.error) throw new Error(res.error.message ?? "Couldn't disable");
     },
     onSuccess: async () => {
@@ -132,32 +137,44 @@ export function TwoFactorDialog({
           <DialogDescription>{STEP_DESCRIPTION[step]}</DialogDescription>
         </DialogHeader>
 
-        <TwoFactorPanel
-          step={step}
-          backupCodes={backupCodes}
-          totpURI={totpURI}
-          code={code}
-          onCodeChange={setCode}
-          password={password}
-          onPasswordChange={setPassword}
-          onVerify={() => verify.mutate()}
-          onDisable={() => disable.mutate()}
-          onEnable={() => enable.mutate()}
-        />
+        <form.Field name="password">
+          {(passwordField) => (
+            <form.Field name="code">
+              {(codeField) => (
+                <TwoFactorPanel
+                  step={step}
+                  backupCodes={backupCodes}
+                  totpURI={totpURI}
+                  code={codeField.state.value}
+                  onCodeChange={codeField.handleChange}
+                  password={passwordField.state.value}
+                  onPasswordChange={passwordField.handleChange}
+                  onVerify={() => verify.mutate()}
+                  onDisable={() => disable.mutate()}
+                  onEnable={() => enable.mutate()}
+                />
+              )}
+            </form.Field>
+          )}
+        </form.Field>
 
         <DialogFooter>
-          <TwoFactorFooter
-            step={step}
-            code={code}
-            password={password}
-            verifyPending={verify.isPending}
-            disablePending={disable.isPending}
-            enablePending={enable.isPending}
-            onClose={() => close(false)}
-            onVerify={() => verify.mutate()}
-            onDisable={() => disable.mutate()}
-            onEnable={() => enable.mutate()}
-          />
+          <form.Subscribe selector={(s) => s.values}>
+            {({ password, code }) => (
+              <TwoFactorFooter
+                step={step}
+                code={code}
+                password={password}
+                verifyPending={verify.isPending}
+                disablePending={disable.isPending}
+                enablePending={enable.isPending}
+                onClose={() => close(false)}
+                onVerify={() => verify.mutate()}
+                onDisable={() => disable.mutate()}
+                onEnable={() => enable.mutate()}
+              />
+            )}
+          </form.Subscribe>
         </DialogFooter>
       </DialogContent>
     </Dialog>

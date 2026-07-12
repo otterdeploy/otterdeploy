@@ -6,8 +6,6 @@
  * installation, a searchable Combobox for the repository.
  */
 
-import { useEffect, useState } from "react";
-
 import {
   Combobox,
   ComboboxContent,
@@ -25,67 +23,6 @@ import {
 } from "@/shared/components/ui/select";
 import { Spinner } from "@/shared/components/ui/spinner";
 import { Switch } from "@/shared/components/ui/switch";
-
-/** The saved manifest source block this card edits (subset we read). */
-interface GitSourceBlock {
-  repo?: string | null;
-  branch?: string | null;
-  sourceSubdir?: string | null;
-  imageRepository?: string | null;
-  previews?: boolean;
-}
-
-export interface SourceForm {
-  repo: string;
-  branch: string;
-  root: string;
-  image: string;
-  previews: boolean;
-  setRepo: (v: string) => void;
-  setBranch: (v: string) => void;
-  setRoot: (v: string) => void;
-  setImage: (v: string) => void;
-  setPreviews: (v: boolean) => void;
-  dirty: boolean;
-}
-
-/** Local edit state seeded from the saved source block, plus a dirty flag. */
-export function useSourceForm(gitSvc: GitSourceBlock | null): SourceForm {
-  const [repo, setRepo] = useState("");
-  const [branch, setBranch] = useState("");
-  const [root, setRoot] = useState("");
-  const [image, setImage] = useState("");
-  const [previews, setPreviews] = useState(false);
-
-  useEffect(() => {
-    setRepo(gitSvc?.repo ?? "");
-    setBranch(gitSvc?.branch ?? "");
-    setRoot(gitSvc?.sourceSubdir ?? "");
-    setImage(gitSvc?.imageRepository ?? "");
-    setPreviews(gitSvc?.previews ?? false);
-  }, [gitSvc]);
-
-  const dirty =
-    repo !== (gitSvc?.repo ?? "") ||
-    branch !== (gitSvc?.branch ?? "") ||
-    root !== (gitSvc?.sourceSubdir ?? "") ||
-    image !== (gitSvc?.imageRepository ?? "") ||
-    previews !== (gitSvc?.previews ?? false);
-
-  return {
-    repo,
-    branch,
-    root,
-    image,
-    previews,
-    setRepo,
-    setBranch,
-    setRoot,
-    setImage,
-    setPreviews,
-    dirty,
-  };
-}
 
 /** Installation picker — the app Select (Base UI), mirroring the deploy wizard. */
 export function InstallationField({

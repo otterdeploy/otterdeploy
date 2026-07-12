@@ -12,8 +12,7 @@
  * operator saves the HTTP form over it.
  */
 
-import { useState } from "react";
-
+import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -99,10 +98,15 @@ function HealthCheckForm({
   resource: HealthCheckResource;
   service: ServiceView;
 }) {
-  const [form, setForm] = useState<HealthCheckFormState>(() =>
-    initialHealthcheckForm(service.healthcheck),
-  );
-  const onPatch = (patch: Partial<HealthCheckFormState>) => setForm((f) => ({ ...f, ...patch }));
+  const hcForm = useForm({ defaultValues: initialHealthcheckForm(service.healthcheck) });
+  const form = useStore(hcForm.store, (s) => s.values);
+  const onPatch = (patch: Partial<HealthCheckFormState>) => {
+    if (patch.enabled !== undefined) hcForm.setFieldValue("enabled", patch.enabled);
+    if (patch.path !== undefined) hcForm.setFieldValue("path", patch.path);
+    if (patch.intervalS !== undefined) hcForm.setFieldValue("intervalS", patch.intervalS);
+    if (patch.timeoutS !== undefined) hcForm.setFieldValue("timeoutS", patch.timeoutS);
+    if (patch.retries !== undefined) hcForm.setFieldValue("retries", patch.retries);
+  };
 
   const port = probePort(service.ports);
   const existingCmd = service.healthcheck?.cmd ?? null;

@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { Loading03Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -16,12 +17,10 @@ import { Label } from "@/shared/components/ui/label";
  * is the session granted. `trustDevice` skips the prompt on this device for 30d.
  */
 export function TwoFactorChallenge({ onVerified }: { onVerified: () => void }) {
-  const [code, setCode] = useState("");
-  const [trustDevice, setTrustDevice] = useState(false);
   const [useBackup, setUseBackup] = useState(false);
 
   const verify = useMutation({
-    mutationFn: async () => {
+    mutationFn: async ({ code, trustDevice }: { code: string; trustDevice: boolean }) => {
       const value = code.trim();
       const result = useBackup
         ? await authClient.twoFactor.verifyBackupCode({ code: value })
@@ -32,6 +31,13 @@ export function TwoFactorChallenge({ onVerified }: { onVerified: () => void }) {
     },
     onSuccess: onVerified,
     onError: (error) => toast.error(error.message),
+  });
+
+  const form = useForm({
+    defaultValues: { code: "", trustDevice: false },
+    onSubmit: ({ value }) => {
+      if (value.code.trim()) verify.mutate(value);
+    },
   });
 
   return (
@@ -50,63 +56,80 @@ export function TwoFactorChallenge({ onVerified }: { onVerified: () => void }) {
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          if (code.trim()) verify.mutate();
+          void form.handleSubmit();
         }}
         className="space-y-5"
       >
-        <div className="space-y-2">
-          <Label
-            htmlFor="two-factor-code"
-            className="font-mono text-[11px] tracking-[0.04em] text-muted-foreground uppercase"
-          >
-            {useBackup ? "Backup code" : "Authenticator code"}
-          </Label>
-          <Input
-            id="two-factor-code"
-            name="two-factor-code"
-            inputMode={useBackup ? "text" : "numeric"}
-            autoComplete="one-time-code"
-            autoFocus
-            placeholder={useBackup ? "xxxxxxxxxx" : "123456"}
-            className="h-11 rounded-lg bg-muted px-3.5 font-mono tracking-[0.2em]"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-          />
-        </div>
+        <form.Field name="code">
+          {(field) => (
+            <div className="space-y-2">
+              <Label
+                htmlFor="two-factor-code"
+                className="font-mono text-[11px] tracking-[0.04em] text-muted-foreground uppercase"
+              >
+                {useBackup ? "Backup code" : "Authenticator code"}
+              </Label>
+              <Input
+                id="two-factor-code"
+                name="two-factor-code"
+                inputMode={useBackup ? "text" : "numeric"}
+                autoComplete="one-time-code"
+                autoFocus
+                placeholder={useBackup ? "xxxxxxxxxx" : "123456"}
+                className="h-11 rounded-lg bg-muted px-3.5 font-mono tracking-[0.2em]"
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(e) => field.handleChange(e.target.value)}
+              />
+            </div>
+          )}
+        </form.Field>
 
         {!useBackup && (
-          <label className="flex items-center gap-2 text-[13px] text-muted-foreground">
-            <input
-              type="checkbox"
-              checked={trustDevice}
-              onChange={(e) => setTrustDevice(e.target.checked)}
-              className="size-3.5"
-            />
-            Trust this device for 30 days
-          </label>
+          <form.Field name="trustDevice">
+            {(field) => (
+              <label className="flex items-center gap-2 text-[13px] text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.checked)}
+                  className="size-3.5"
+                />
+                Trust this device for 30 days
+              </label>
+            )}
+          </form.Field>
         )}
 
-        <Button
-          type="submit"
-          className="h-11 w-full rounded-lg bg-foreground font-semibold text-background hover:bg-foreground/90"
-          disabled={!code.trim() || verify.isPending}
-        >
-          {verify.isPending ? (
-            <>
-              <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} className="size-4 animate-spin" />
-              Verifying…
-            </>
-          ) : (
-            <>Verify</>
+        <form.Subscribe selector={(s) => s.values.code}>
+          {(code) => (
+            <Button
+              type="submit"
+              className="h-11 w-full rounded-lg bg-foreground font-semibold text-background hover:bg-foreground/90"
+              disabled={!code.trim() || verify.isPending}
+            >
+              {verify.isPending ? (
+                <>
+                  <HugeiconsIcon
+                    icon={Loading03Icon}
+                    strokeWidth={2}
+                    className="size-4 animate-spin"
+                  />
+                  Verifying…
+                </>
+              ) : (
+                <>Verify</>
+              )}
+            </Button>
           )}
-        </Button>
+        </form.Subscribe>
       </form>
 
       <button
         type="button"
         onClick={() => {
           setUseBackup((v) => !v);
-          setCode("");
+          form.setFieldValue("code", "");
         }}
         className="mt-6 text-[13px] font-medium text-foreground underline-offset-4 hover:underline"
       >

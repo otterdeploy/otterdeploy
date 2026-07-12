@@ -6,6 +6,7 @@
 
 import { useState } from "react";
 
+import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -92,9 +93,6 @@ export function EphemeralMintDialog({
   onOpenChange: (open: boolean) => void;
   onMinted: () => Promise<unknown>;
 }) {
-  const [ttl, setTtl] = useState("60");
-  const [scope, setScope] = useState("read-only");
-  const [label, setLabel] = useState("");
   const [minted, setMinted] = useState<Minted | null>(null);
 
   const create = useMutation({
@@ -106,14 +104,24 @@ export function EphemeralMintDialog({
     onError: (err) => toast.error(err.message ?? "Failed to mint the credential"),
   });
 
+  const form = useForm({
+    defaultValues: { ttl: "60", scope: "read-only", label: "" },
+    onSubmit: ({ value }) => {
+      create.mutate({
+        resourceId,
+        ttlMinutes: Number(value.ttl),
+        scope: value.scope as "read-only" | "read-write",
+        label: value.label.trim() || undefined,
+      });
+    },
+  });
+
   const setOpen = (next: boolean) => {
     onOpenChange(next);
     if (!next) {
       // Reset for the next mint — the shown-once URL must not linger.
       setMinted(null);
-      setLabel("");
-      setTtl("60");
-      setScope("read-only");
+      form.reset();
     }
   };
 
@@ -154,49 +162,60 @@ export function EphemeralMintDialog({
                 on everything; read-write acts as the app user.
               </DialogDescription>
             </DialogHeader>
-            <div className="flex flex-col gap-4">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                void form.handleSubmit();
+              }}
+              className="flex flex-col gap-4"
+              noValidate
+            >
               <div className="grid grid-cols-2 gap-3">
-                <OptionSelect
-                  label="Expires after"
-                  value={ttl}
-                  onChange={setTtl}
-                  options={TTL_OPTIONS}
-                />
-                <OptionSelect
-                  label="Scope"
-                  value={scope}
-                  onChange={setScope}
-                  options={SCOPE_OPTIONS}
-                />
+                <form.Field name="ttl">
+                  {(field) => (
+                    <OptionSelect
+                      label="Expires after"
+                      value={field.state.value}
+                      onChange={field.handleChange}
+                      options={TTL_OPTIONS}
+                    />
+                  )}
+                </form.Field>
+                <form.Field name="scope">
+                  {(field) => (
+                    <OptionSelect
+                      label="Scope"
+                      value={field.state.value}
+                      onChange={field.handleChange}
+                      options={SCOPE_OPTIONS}
+                    />
+                  )}
+                </form.Field>
               </div>
-              <Field>
-                <FieldLabel>Label (optional)</FieldLabel>
-                <Input
-                  value={label}
-                  onChange={(e) => setLabel(e.target.value)}
-                  placeholder="e.g. claude data-analysis agent"
-                  maxLength={120}
-                />
-              </Field>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                disabled={create.isPending}
-                onClick={() =>
-                  create.mutate({
-                    resourceId,
-                    ttlMinutes: Number(ttl),
-                    scope: scope as "read-only" | "read-write",
-                    label: label.trim() || undefined,
-                  })
-                }
-              >
-                {create.isPending ? "Minting…" : "Mint URL"}
-              </Button>
-            </DialogFooter>
+              <form.Field name="label">
+                {(field) => (
+                  <Field>
+                    <FieldLabel>Label (optional)</FieldLabel>
+                    <Input
+                      name={field.name}
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      placeholder="e.g. claude data-analysis agent"
+                      maxLength={120}
+                    />
+                  </Field>
+                )}
+              </form.Field>
+              <DialogFooter>
+                <Button variant="outline" type="button" onClick={() => setOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={create.isPending}>
+                  {create.isPending ? "Minting…" : "Mint URL"}
+                </Button>
+              </DialogFooter>
+            </form>
           </>
         )}
       </DialogContent>

@@ -16,6 +16,7 @@
 
 import { useState } from "react";
 
+import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -59,7 +60,6 @@ const PIN_RE = /^\d{4,8}$/;
  *  rotate / remove; the PIN itself is write-only (never read back). */
 function PinSection({ routeId }: { routeId: string }) {
   const queryClient = useQueryClient();
-  const [pin, setPin] = useState("");
   const [editing, setEditing] = useState(false);
 
   const statusOptions = orpc.project.proxyRoute.accessPin.queryOptions({
@@ -72,21 +72,23 @@ function PinSection({ routeId }: { routeId: string }) {
     ...orpc.project.proxyRoute.setAccessPin.mutationOptions(),
     onSuccess: (res) => {
       queryClient.setQueryData(statusOptions.queryKey, res);
-      setPin("");
+      form.reset();
       setEditing(false);
       toast.success(res.enabled ? "Access PIN saved" : "Access PIN removed");
     },
     onError: (err) => toast.error(err.message ?? "Failed to update PIN"),
   });
 
-  const pinValid = PIN_RE.test(pin);
-  const showPinError = pin.length > 0 && !pinValid;
-  const save = () => {
-    if (!pinValid) return;
-    setAccessPin.mutate({ routeId: routeId as never, pin });
-  };
+  const form = useForm({
+    defaultValues: { pin: "" },
+    onSubmit: ({ value }) => {
+      if (!PIN_RE.test(value.pin)) return;
+      setAccessPin.mutate({ routeId: routeId as never, pin: value.pin });
+    },
+  });
+
   const cancel = () => {
-    setPin("");
+    form.reset();
     setEditing(false);
   };
 
@@ -114,40 +116,56 @@ function PinSection({ routeId }: { routeId: string }) {
           </Button>
         </div>
       ) : (
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-center gap-2">
-            <Input
-              value={pin}
-              onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 8))}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") save();
-                if (e.key === "Escape") cancel();
-              }}
-              inputMode="numeric"
-              placeholder="e.g. 482913"
-              aria-invalid={showPinError}
-              className="h-8 w-40 font-mono text-[12.5px] tracking-[0.2em]"
-              autoComplete="off"
-              spellCheck={false}
-            />
-            <Button
-              size="sm"
-              className="h-8"
-              disabled={!pinValid || setAccessPin.isPending}
-              onClick={save}
-            >
-              {enabled ? "Save new PIN" : "Set PIN"}
-            </Button>
-            {editing ? (
-              <Button size="sm" variant="ghost" className="h-8" onClick={cancel}>
-                Cancel
-              </Button>
-            ) : null}
-          </div>
-          {showPinError ? (
-            <p className="text-[11.5px] text-destructive">PIN must be 4–8 digits.</p>
-          ) : null}
-        </div>
+        <form.Field
+          name="pin"
+          validators={{
+            onChange: ({ value }) =>
+              value.length > 0 && !PIN_RE.test(value) ? "PIN must be 4–8 digits." : undefined,
+          }}
+        >
+          {(field) => {
+            const showPinError = field.state.meta.errors.length > 0;
+            return (
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) =>
+                      field.handleChange(e.target.value.replace(/\D/g, "").slice(0, 8))
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") void form.handleSubmit();
+                      if (e.key === "Escape") cancel();
+                    }}
+                    inputMode="numeric"
+                    placeholder="e.g. 482913"
+                    aria-invalid={showPinError}
+                    className="h-8 w-40 font-mono text-[12.5px] tracking-[0.2em]"
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                  <Button
+                    size="sm"
+                    className="h-8"
+                    disabled={!PIN_RE.test(field.state.value) || setAccessPin.isPending}
+                    onClick={() => void form.handleSubmit()}
+                  >
+                    {enabled ? "Save new PIN" : "Set PIN"}
+                  </Button>
+                  {editing ? (
+                    <Button size="sm" variant="ghost" className="h-8" onClick={cancel}>
+                      Cancel
+                    </Button>
+                  ) : null}
+                </div>
+                {showPinError ? (
+                  <p className="text-[11.5px] text-destructive">PIN must be 4–8 digits.</p>
+                ) : null}
+              </div>
+            );
+          }}
+        </form.Field>
       )}
     </section>
   );

@@ -14,6 +14,7 @@ import { useState } from "react";
 
 import { PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -55,13 +56,12 @@ export function ServiceDomainsCard({
     ]);
   };
 
-  const [newDomain, setNewDomain] = useState("");
   const [adding, setAdding] = useState(false);
 
   const add = useMutation({
     ...orpc.service.domains.add.mutationOptions(),
     onSuccess: () => {
-      setNewDomain("");
+      form.reset();
       setAdding(false);
       toast.success("Domain added — point its DNS here to issue a certificate");
     },
@@ -69,14 +69,17 @@ export function ServiceDomainsCard({
     onSettled,
   });
 
-  const onAdd = () => {
-    const domain = newDomain.trim().toLowerCase();
-    if (!domain) return;
-    add.mutate({ ...input, domain });
-  };
+  const form = useForm({
+    defaultValues: { domain: "" },
+    onSubmit: ({ value }) => {
+      const domain = value.domain.trim().toLowerCase();
+      if (!domain) return;
+      add.mutate({ ...input, domain });
+    },
+  });
 
   const cancelAdd = () => {
-    setNewDomain("");
+    form.reset();
     setAdding(false);
   };
 
@@ -114,32 +117,47 @@ export function ServiceDomainsCard({
 
           <div className="border-t border-border/40 bg-muted/20 px-3 py-2">
             {adding ? (
-              <div className="flex items-center gap-2">
-                <Input
-                  autoFocus
-                  value={newDomain}
-                  onChange={(e) => setNewDomain(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") onAdd();
-                    if (e.key === "Escape") cancelAdd();
-                  }}
-                  placeholder="app.example.com"
-                  className="h-7 min-w-0 flex-1 font-mono text-[12.5px]"
-                  spellCheck={false}
-                  autoCapitalize="off"
-                />
-                <Button
-                  size="sm"
-                  className="h-7"
-                  onClick={onAdd}
-                  disabled={add.isPending || newDomain.trim().length === 0}
-                >
-                  {add.isPending ? <Spinner className="size-3.5" /> : "Add"}
-                </Button>
-                <Button size="sm" variant="ghost" className="h-7" onClick={cancelAdd}>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void form.handleSubmit();
+                }}
+                className="flex items-center gap-2"
+                noValidate
+              >
+                <form.Field name="domain">
+                  {(field) => (
+                    <Input
+                      autoFocus
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") cancelAdd();
+                      }}
+                      placeholder="app.example.com"
+                      className="h-7 min-w-0 flex-1 font-mono text-[12.5px]"
+                      spellCheck={false}
+                      autoCapitalize="off"
+                    />
+                  )}
+                </form.Field>
+                <form.Subscribe selector={(s) => s.values.domain}>
+                  {(domain) => (
+                    <Button
+                      type="submit"
+                      size="sm"
+                      className="h-7"
+                      disabled={add.isPending || domain.trim().length === 0}
+                    >
+                      {add.isPending ? <Spinner className="size-3.5" /> : "Add"}
+                    </Button>
+                  )}
+                </form.Subscribe>
+                <Button size="sm" variant="ghost" className="h-7" type="button" onClick={cancelAdd}>
                   Cancel
                 </Button>
-              </div>
+              </form>
             ) : (
               <Button
                 size="sm"

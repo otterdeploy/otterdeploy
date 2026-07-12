@@ -7,6 +7,7 @@
  */
 import { useState } from "react";
 
+import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -210,44 +211,58 @@ function BlockIpForm({
   onBlock: (ip: string, durationHours: number) => void;
   blocking: boolean;
 }) {
-  const [ip, setIp] = useState("");
-  const [hours, setHours] = useState(720);
-  const submit = () => {
-    const value = ip.trim();
-    if (!value) return;
-    onBlock(value, hours);
-    setIp("");
-  };
+  const form = useForm({
+    defaultValues: { ip: "", hours: 720 },
+    onSubmit: ({ value, formApi }) => {
+      const ip = value.ip.trim();
+      if (!ip) return;
+      onBlock(ip, value.hours);
+      formApi.setFieldValue("ip", "");
+    },
+  });
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        submit();
+        void form.handleSubmit();
       }}
       className="flex items-center gap-1.5"
     >
-      <Input
-        value={ip}
-        onChange={(e) => setIp(e.target.value)}
-        placeholder="Block IP or CIDR…"
-        aria-label="Block an IP or CIDR range"
-        className="h-8 w-44 font-mono text-[12px]"
-      />
-      <select
-        value={hours}
-        onChange={(e) => setHours(Number(e.target.value))}
-        aria-label="Ban duration"
-        className="h-8 rounded-md border bg-transparent px-2 text-[12px] text-foreground/90 focus-visible:ring-1 focus-visible:outline-none"
-      >
-        {BLOCK_DURATIONS.map((d) => (
-          <option key={d.hours} value={d.hours}>
-            {d.label}
-          </option>
-        ))}
-      </select>
-      <Button type="submit" variant="outline" size="sm" disabled={blocking || !ip.trim()}>
-        {blocking ? "Blocking…" : "Block"}
-      </Button>
+      <form.Field name="ip">
+        {(field) => (
+          <Input
+            value={field.state.value}
+            onBlur={field.handleBlur}
+            onChange={(e) => field.handleChange(e.target.value)}
+            placeholder="Block IP or CIDR…"
+            aria-label="Block an IP or CIDR range"
+            className="h-8 w-44 font-mono text-[12px]"
+          />
+        )}
+      </form.Field>
+      <form.Field name="hours">
+        {(field) => (
+          <select
+            value={field.state.value}
+            onChange={(e) => field.handleChange(Number(e.target.value))}
+            aria-label="Ban duration"
+            className="h-8 rounded-md border bg-transparent px-2 text-[12px] text-foreground/90 focus-visible:ring-1 focus-visible:outline-none"
+          >
+            {BLOCK_DURATIONS.map((d) => (
+              <option key={d.hours} value={d.hours}>
+                {d.label}
+              </option>
+            ))}
+          </select>
+        )}
+      </form.Field>
+      <form.Subscribe selector={(s) => s.values.ip.trim().length === 0}>
+        {(empty) => (
+          <Button type="submit" variant="outline" size="sm" disabled={blocking || empty}>
+            {blocking ? "Blocking…" : "Block"}
+          </Button>
+        )}
+      </form.Subscribe>
     </form>
   );
 }

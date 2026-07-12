@@ -7,6 +7,7 @@ import type { BuildDockerfileConfig, BuildRailpackConfig } from "@otterdeploy/sh
 
 import { useState } from "react";
 
+import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -24,33 +25,12 @@ import {
   trimToNull,
 } from "./build-card-shared";
 
-// ─────────────────────────────── Railpack ───────────────────────────────
-
-export function RailpackBuildCard({
-  resource,
-  config,
-}: {
-  resource: ServiceBuildResource;
-  config: BuildRailpackConfig;
-}) {
-  const [packageManager, setPackageManager] = useState(config.packageManager ?? "");
-  const [buildCommand, setBuildCommand] = useState(config.buildCommand ?? "");
-  const [staticRoot, setStaticRoot] = useState(config.staticRoot ?? "");
-  const [spa, setSpa] = useState(config.spa ?? false);
-
-  const save = useMutation({
-    mutationFn: async () => {
-      // Preserve watchPatterns (not edited here); overwrite the rest.
-      const nextBuild: BuildRailpackConfig = {
-        builder: "railpack",
-        ...(config.watchPatterns ? { watchPatterns: config.watchPatterns } : {}),
-        packageManager: trimToNull(packageManager),
-        buildCommand: trimToNull(buildCommand),
-        staticRoot: trimToNull(staticRoot),
-        spa: spa ? true : null,
-      };
-      await stageBuildConfig(resource, nextBuild);
-    },
+/** Shared save mutation — stages the next build config into the manifest and
+ *  refreshes the pending-changes surfaces. Used by both builder cards. */
+function useSaveBuild(resource: ServiceBuildResource) {
+  return useMutation({
+    mutationFn: (nextBuild: BuildRailpackConfig | BuildDockerfileConfig) =>
+      stageBuildConfig(resource, nextBuild),
     onSuccess: async () => {
       await invalidateAfterSave(resource.projectId);
       toast.success("Build settings saved", {
@@ -60,50 +40,88 @@ export function RailpackBuildCard({
     onError: (err) =>
       toast.error(err instanceof Error ? err.message : "Failed to save build settings"),
   });
+}
 
-  const dirty =
-    (config.packageManager ?? "") !== packageManager ||
-    (config.buildCommand ?? "") !== buildCommand ||
-    (config.staticRoot ?? "") !== staticRoot ||
-    (config.spa ?? false) !== spa;
+// ─────────────────────────────── Railpack ───────────────────────────────
+
+interface RailpackFormValues {
+  packageManager: string;
+  buildCommand: string;
+  staticRoot: string;
+  spa: boolean;
+}
+
+// Each row: [field name, label, hint, placeholder].
+const RAILPACK_TEXT_FIELDS = [
+  [
+    "packageManager",
+    "Package manager",
+    "Override the repo's pin, e.g. bun@1.3.13 or pnpm@9.12.0.",
+    "auto — repo's packageManager",
+  ],
+  ["buildCommand", "Build command", "Overrides the detected build step.", "auto"],
+  ["staticRoot", "Static root", "Built-assets dir for static sites (default: dist).", "dist"],
+] as const;
+
+/** Preserve watchPatterns (not edited here); overwrite the rest. */
+const toRailpackBuild = (
+  config: BuildRailpackConfig,
+  value: RailpackFormValues,
+): BuildRailpackConfig => ({
+  builder: "railpack",
+  ...(config.watchPatterns ? { watchPatterns: config.watchPatterns } : {}),
+  packageManager: trimToNull(value.packageManager),
+  buildCommand: trimToNull(value.buildCommand),
+  staticRoot: trimToNull(value.staticRoot),
+  spa: value.spa ? true : null,
+});
+
+const railpackDirty = (config: BuildRailpackConfig, values: RailpackFormValues) =>
+  (config.packageManager ?? "") !== values.packageManager ||
+  (config.buildCommand ?? "") !== values.buildCommand ||
+  (config.staticRoot ?? "") !== values.staticRoot ||
+  (config.spa ?? false) !== values.spa;
+
+export function RailpackBuildCard({
+  resource,
+  config,
+}: {
+  resource: ServiceBuildResource;
+  config: BuildRailpackConfig;
+}) {
+  const save = useSaveBuild(resource);
+
+  const form = useForm({
+    defaultValues: {
+      packageManager: config.packageManager ?? "",
+      buildCommand: config.buildCommand ?? "",
+      staticRoot: config.staticRoot ?? "",
+      spa: config.spa ?? false,
+    },
+    onSubmit: ({ value }) => save.mutate(toRailpackBuild(config, value)),
+  });
+  const values = useStore(form.store, (s) => s.values);
 
   return (
     <SettingsCard
       title="Build"
       description="Railpack reads these before building — empty fields auto-detect from the repo. Saved changes apply on the next Deploy."
     >
-      <BuildFieldRow
-        label="Package manager"
-        hint="Override the repo's pin, e.g. bun@1.3.13 or pnpm@9.12.0."
-      >
-        <Input
-          value={packageManager}
-          onChange={(e) => setPackageManager(e.target.value)}
-          placeholder="auto — repo's packageManager"
-          className="h-8 font-mono text-[12.5px]"
-          disabled={save.isPending}
-        />
-      </BuildFieldRow>
-
-      <BuildFieldRow label="Build command" hint="Overrides the detected build step.">
-        <Input
-          value={buildCommand}
-          onChange={(e) => setBuildCommand(e.target.value)}
-          placeholder="auto"
-          className="h-8 font-mono text-[12.5px]"
-          disabled={save.isPending}
-        />
-      </BuildFieldRow>
-
-      <BuildFieldRow label="Static root" hint="Built-assets dir for static sites (default: dist).">
-        <Input
-          value={staticRoot}
-          onChange={(e) => setStaticRoot(e.target.value)}
-          placeholder="dist"
-          className="h-8 font-mono text-[12.5px]"
-          disabled={save.isPending}
-        />
-      </BuildFieldRow>
+      {RAILPACK_TEXT_FIELDS.map(([name, label, hint, placeholder]) => (
+        <BuildFieldRow key={name} label={label} hint={hint}>
+          <form.Field name={name}>
+            {(field) => (
+              <Input
+                value={field.state.value}
+                onChange={(e) => field.handleChange(e.target.value)}
+                placeholder={placeholder}
+                className="h-8 font-mono text-[12.5px]"
+                disabled={save.isPending}
+              />
+            )}
+          </form.Field>
+        </BuildFieldRow>
+      ))}
 
       <div className="flex items-center justify-between gap-3 border-b border-border/40 px-3 py-2.5">
         <div className="flex flex-col">
@@ -112,10 +130,22 @@ export function RailpackBuildCard({
             Serve via Caddy with history fallback to index.html.
           </span>
         </div>
-        <Switch checked={spa} disabled={save.isPending} onCheckedChange={(next) => setSpa(next)} />
+        <form.Field name="spa">
+          {(field) => (
+            <Switch
+              checked={field.state.value}
+              disabled={save.isPending}
+              onCheckedChange={field.handleChange}
+            />
+          )}
+        </form.Field>
       </div>
 
-      <SaveRow dirty={dirty} pending={save.isPending} onSave={() => save.mutate()} />
+      <SaveRow
+        dirty={railpackDirty(config, values)}
+        pending={save.isPending}
+        onSave={() => void form.handleSubmit()}
+      />
     </SettingsCard>
   );
 }
@@ -162,24 +192,12 @@ export function DockerfileBuildCard({
     Object.entries(config.buildArgs ?? {}).map(([key, value]) => newArgRow(key, value)),
   );
 
-  const save = useMutation({
-    mutationFn: async () => {
-      const nextBuild: BuildDockerfileConfig = {
-        builder: "dockerfile",
-        ...(config.watchPatterns ? { watchPatterns: config.watchPatterns } : {}),
-        dockerfilePath: trimToNull(dockerfilePath),
-        buildArgs: rowsToRecord(rows),
-      };
-      await stageBuildConfig(resource, nextBuild);
-    },
-    onSuccess: async () => {
-      await invalidateAfterSave(resource.projectId);
-      toast.success("Build settings saved", {
-        description: "Deploy to rebuild with these settings.",
-      });
-    },
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : "Failed to save build settings"),
+  const save = useSaveBuild(resource);
+  const nextBuild = (): BuildDockerfileConfig => ({
+    builder: "dockerfile",
+    ...(config.watchPatterns ? { watchPatterns: config.watchPatterns } : {}),
+    dockerfilePath: trimToNull(dockerfilePath),
+    buildArgs: rowsToRecord(rows),
   });
 
   const initialArgs =
@@ -268,7 +286,7 @@ export function DockerfileBuildCard({
         </div>
       </div>
 
-      <SaveRow dirty={dirty} pending={save.isPending} onSave={() => save.mutate()} />
+      <SaveRow dirty={dirty} pending={save.isPending} onSave={() => save.mutate(nextBuild())} />
     </SettingsCard>
   );
 }
